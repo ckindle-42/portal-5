@@ -48,6 +48,15 @@ def test_non_kev_low_signal_is_low(monkeypatch: pytest.MonkeyPatch) -> None:
     assert out["risk_score"] < 51
 
 
-def test_tools_manifest_matches_dispatch() -> None:
-    manifest_names = {t["function"]["name"] for t in mod.TOOLS_MANIFEST}
-    assert manifest_names == set(mod._DISPATCH)
+def test_registered_tools_are_served_natively() -> None:
+    import asyncio
+
+    assert {tool.name for tool in asyncio.run(mod.mcp.list_tools())} == {
+        "check_kev",
+        "get_epss",
+        "ics_advisories",
+        "lookup_cve",
+        "lookup_ioc",
+        "scan_dependencies",
+        "triage_cve",
+    }

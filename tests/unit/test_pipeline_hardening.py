@@ -1046,22 +1046,18 @@ def test_anthropic_endpoint_accepts_x_api_key(api, monkeypatch) -> None:
 
 @pytest.mark.anyio
 async def test_bad_arguments_do_not_trip_the_tool_breaker(monkeypatch) -> None:
-    from portal.platform.inference.tool_registry import ToolDefinition, ToolRegistry
+    from portal.platform.inference import tool_registry as tr
 
-    reg = ToolRegistry()
-    tool = ToolDefinition(
+    reg = tr.ToolRegistry()
+    tool = tr.ToolDefinition(
         name="t", description="", parameters={}, server_url="http://mcp", server_id="s"
     )
     reg._tools["t"] = tool
 
-    class _C:
-        async def post(self, *_a, **_k):
-            return httpx.Response(400, json={"error": "code is required"})
+    async def fake_call_tool(*_a, **_k):
+        raise tr.MCPHTTPError("Invalid arguments: code is required", code=-32602)
 
-    async def _client():
-        return _C()
-
-    monkeypatch.setattr(reg, "_client", _client)
+    monkeypatch.setattr(tr, "call_tool", fake_call_tool)
     result = await reg.dispatch("t", {})
     assert "code is required" in result["detail"]
     assert tool.healthy and tool.consecutive_failures == 0

@@ -9,7 +9,6 @@ Port: 8939 (DATA_MCP_PORT or MCP_PORT env override).
 from __future__ import annotations
 
 import contextlib
-import inspect
 import logging
 import os
 import re
@@ -23,11 +22,9 @@ from mcp.server import MCPServer
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from portal.platform.data_loader import load_data
 from portal.platform.mcp_host import eval_scope
 from portal.platform.mcp_host.build_info import build_info
 from portal.platform.mcp_host.eval_scope import bind_native_context
-from portal.platform.mcp_host.tool_support import align_native_tools
 
 logger = logging.getLogger(__name__)
 _port = int(os.environ.get("DATA_MCP_PORT") or os.environ.get("MCP_PORT", "8939"))
@@ -324,9 +321,6 @@ def list_session(session_id: str) -> dict[str, Any]:
         return {"error": str(e)}
 
 
-TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_data_mcp")
-
-
 def close_session(session_id: str) -> dict[str, Any]:
     """Close and delete one session (database, WAL, spill directory). Evaluation scope only:
     it is never on a workspace's tool list, and outside a scope it is refused."""
@@ -348,14 +342,6 @@ def close_session(session_id: str) -> dict[str, Any]:
     return {"closed": session_id, "deleted": gone}
 
 
-_DISPATCH: dict[str, Any] = {
-    "attach_source": attach_source,
-    "run_sql": run_sql,
-    "profile_table": profile_table,
-    "list_session": list_session,
-}
-
-
 @_route("/health", methods=["GET"])
 async def health_check(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "data-mcp", "port": _port, **build_info()})
@@ -369,11 +355,6 @@ async def ready(request: Request) -> JSONResponse:
     except Exception:  # noqa: BLE001
         ok = False
     return JSONResponse({"port": _port, "duckdb": ok, "root": str(_ROOT)})
-
-
-@_route("/tools", methods=["GET"])
-async def list_tools(request: Request) -> JSONResponse:
-    return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
 @_route("/eval/close_session", methods=["POST"])
@@ -394,34 +375,7 @@ async def eval_close_session(request: Request) -> JSONResponse:
         eval_scope.EVAL_SCOPE.reset(token)
 
 
-@_route("/tools/{tool_name}", methods=["POST"])
-async def invoke_tool(request: Request) -> JSONResponse:
-    name = request.path_params.get("tool_name", "")
-    fn = _DISPATCH.get(name)
-    if fn is None:
-        return JSONResponse({"error": f"unknown tool {name}"}, status_code=404)
-    try:
-        body = await request.json()
-    except Exception:
-        body = {}
-    args = body.get("arguments", body) if isinstance(body, dict) else {}
-    try:
-        scope = eval_scope.parse(body.get("eval")) if isinstance(body, dict) else None
-    except eval_scope.ScopeError as e:
-        return JSONResponse({"error": f"eval scope: {e}"}, status_code=400)
-    if scope and isinstance(args, dict) and "session_id" in inspect.signature(fn).parameters:
-        args = {**args, "session_id": scope["run"]}  # the scope owns the session
-    token = eval_scope.EVAL_SCOPE.set(scope)
-    try:
-        return JSONResponse(fn(**args))
-    except TypeError as e:
-        return JSONResponse({"error": f"bad params: {e}"}, status_code=400)
-    finally:
-        eval_scope.EVAL_SCOPE.reset(token)
-
-
 bind_native_context(mcp)
-align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     mcp.run(transport="streamable-http", host="0.0.0.0", port=_port)

@@ -109,35 +109,27 @@ def test_registry_forwards_the_scope_to_the_mcp(monkeypatch):
 
     seen = {}
 
-    class Resp:
-        status_code = 200
+    async def fake_call_tool(client, base_url, name, arguments, timeout_s, metadata=None):
+        seen["name"], seen["arguments"], seen["metadata"] = name, arguments, metadata
+        return {"content": [{"type": "text", "text": '{"ok": true}'}]}
 
-        def json(self):
-            return {"ok": True}
-
-    class Client:
-        async def post(self, url, json=None, timeout=None):
-            seen["url"], seen["json"] = url, json
-            return Resp()
-
-    reg = tr.ToolRegistry() if hasattr(tr, "ToolRegistry") else type(tr.tool_registry)()
+    reg = tr.ToolRegistry()
     tool = type(
         "T",
         (),
         {
+            "name": "create_word_document",
             "healthy": True,
             "next_retry_at": 0.0,
             "custom_timeout_s": None,
+            "server_id": "documents",
             "server_url": "http://mcp",
             "consecutive_failures": 0,
+            "output_schema": None,
         },
     )()
     monkeypatch.setattr(reg, "get", lambda name: tool)
-
-    async def client():
-        return Client()
-
-    monkeypatch.setattr(reg, "_client", client)
+    monkeypatch.setattr(tr, "call_tool", fake_call_tool)
 
     async def go():
         token = es.EVAL_SCOPE.set(SCOPE)
@@ -147,7 +139,9 @@ def test_registry_forwards_the_scope_to_the_mcp(monkeypatch):
             es.EVAL_SCOPE.reset(token)
 
     assert asyncio.run(go()) == {"ok": True}
-    assert seen["json"] == {"arguments": {"title": "t"}, "request_id": "r1", "eval": SCOPE}
+    assert seen["name"] == "create_word_document"
+    assert seen["arguments"] == {"title": "t"}
+    assert seen["metadata"] == {es.EVAL_META_KEY: SCOPE, es.REQUEST_ID_META_KEY: "r1"}
 
 
 @pytest.fixture
@@ -241,20 +235,25 @@ def data(tmp_path, monkeypatch):
     dm._conns.clear()
 
 
-def test_data_scope_owns_the_session_and_confines_attach(data):
+def _scoped(fn, **kwargs):
+    token = es.EVAL_SCOPE.set(SCOPE)
+    try:
+        return fn(**kwargs)
+    finally:
+        es.EVAL_SCOPE.reset(token)
+
+
+def test_data_scope_confines_attach_to_the_evaluation_namespace(data):
     dm, root, sess = data
     fx = es.run_root(root, SCOPE) / "in"
     fx.mkdir()
     (fx / "sales.csv").write_text("region,amount\neast,10\nwest,5\n")
-    args = {"session_id": "someone_else", "path": "sales.csv", "table": "sales"}
-    status, body = _invoke(dm, "attach_source", {"arguments": args, "eval": SCOPE})
-    assert status == 200 and body["session_id"] == RUN and body["rows"] == 2
-    q = {"session_id": "ignored", "sql": "SELECT sum(amount) AS t FROM sales"}
-    status, body = _invoke(dm, "run_sql", {"arguments": q, "eval": SCOPE})
-    assert status == 200 and json.dumps(body).count("15") >= 1
+    body = _scoped(dm.attach_source, session_id="someone_else", path="sales.csv", table="sales")
+    assert body["session_id"] == "someone_else" and body["rows"] == 2
+    body = _scoped(dm.run_sql, session_id="someone_else", sql="SELECT sum(amount) AS t FROM sales")
+    assert json.dumps(body).count("15") >= 1
     (root / "operator.csv").write_text("a\n1\n")
-    bad = {"session_id": "x", "path": str(root / "operator.csv"), "table": "t"}
-    status, body = _invoke(dm, "attach_source", {"arguments": bad, "eval": SCOPE})
+    body = _scoped(dm.attach_source, session_id="x", path=str(root / "operator.csv"), table="t")
     assert "outside the evaluation namespace" in body.get("error", "")
 
 
@@ -262,20 +261,21 @@ def test_close_session_is_scope_only_and_deletes_only_that_session(data):
     dm, root, sess = data
     (root / "f.csv").write_text("a\n1\n")
     op = {"session_id": "operator", "path": "f.csv", "table": "t"}
-    assert _invoke(dm, "attach_source", {"arguments": op})[1]["rows"] == 1
+    assert dm.attach_source(**op)["rows"] == 1
     fx = es.run_root(root, SCOPE) / "in"
     fx.mkdir()
     (fx / "f.csv").write_text("a\n1\n")
-    _invoke(dm, "attach_source", {"arguments": {**op, "session_id": "x"}, "eval": SCOPE})
-    status, _ = _invoke(
-        dm, "close_session", {"arguments": {"session_id": "operator"}, "eval": SCOPE}
+    _scoped(dm.attach_source, **{**op, "session_id": RUN})
+    assert dm.close_session("operator")["error"] == (
+        "close_session is available only under an evaluation scope"
     )
-    assert status == 404  # never a tool
     status, body = _route(dm.eval_close_session, {})
     assert status == 400 and "required" in body["error"]
     status, body = _route(dm.eval_close_session, {"eval": SCOPE})
     assert body["closed"] == RUN and f"{RUN}.duckdb" in body["deleted"]
     assert (sess / "operator.duckdb").exists() and not (sess / f"{RUN}.duckdb").exists()
+    names = [tool.name for tool in asyncio.run(dm.mcp.list_tools())]
+    assert "close_session" not in names
 
 
 def test_an_empty_allowlist_is_a_sandbox_scope():

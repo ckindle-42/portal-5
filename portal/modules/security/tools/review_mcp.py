@@ -7,14 +7,12 @@ a verdict. This server has no attack, emulation, or target-execution tools.
 
 from __future__ import annotations
 
-import functools
 import logging
 import os
 from collections.abc import Awaitable, Callable
 from typing import Any, cast
 
 from mcp.server import MCPServer
-from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
@@ -25,9 +23,7 @@ from portal.modules.security.core.review.service import (
     build_default_runtime,
 )
 from portal.modules.security.core.review.window import SourceSpec
-from portal.platform.data_loader import load_data
 from portal.platform.mcp_host.eval_scope import bind_native_context
-from portal.platform.mcp_host.tool_support import align_native_tools
 
 logger = logging.getLogger(__name__)
 _port = int(os.environ.get("REVIEW_MCP_PORT") or os.environ.get("MCP_PORT", "8943"))
@@ -38,7 +34,6 @@ mcp = MCPServer(
         "checkable evidence; the analyst decides. No attack, emulation, or target-execution tools."
     ),
 )
-TOOLS_MANIFEST: list[dict[str, Any]] = load_data("config/security", "tools_manifest_review_mcp")
 _runtime: ReviewRuntime | None = None
 
 
@@ -170,18 +165,6 @@ def review_doctor(fix: bool = False) -> dict[str, Any]:
     return _guard("review_doctor", lambda: _get_runtime().doctor(fix=fix))
 
 
-_DISPATCH: dict[str, Callable[..., dict[str, Any]]] = {
-    "review_start": review_start,
-    "review_status": review_status,
-    "review_result": review_result,
-    "review_cancel": review_cancel,
-    "review_verdict": review_verdict,
-    "review_queue": review_queue,
-    "review_explain": review_explain,
-    "review_doctor": review_doctor,
-}
-
-
 def _route(
     path: str,
     methods: list[str],
@@ -204,36 +187,7 @@ async def health(_request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "review-mcp", "port": _port})
 
 
-@_route("/tools", methods=["GET"])
-async def list_tools(_request: Request) -> JSONResponse:
-    return JSONResponse({"tools": TOOLS_MANIFEST})
-
-
-@_route("/tools/{tool_name}", methods=["POST"])
-async def invoke_tool(request: Request) -> JSONResponse:
-    name = str(request.path_params.get("tool_name", ""))
-    function = _DISPATCH.get(name)
-    if function is None:
-        return JSONResponse({"error": f"unknown tool {name}"}, status_code=404)
-    try:
-        body = await request.json()
-    except Exception:
-        body = {}
-    arguments = body.get("arguments", body) if isinstance(body, dict) else {}
-    if not isinstance(arguments, dict):
-        return JSONResponse({"error": "arguments must be an object"}, status_code=400)
-    try:
-        result = await run_in_threadpool(functools.partial(function, **arguments))
-        return JSONResponse(result)
-    except TypeError as exc:
-        return JSONResponse({"error": f"bad params: {exc}"}, status_code=400)
-    except Exception as exc:  # noqa: BLE001
-        logger.exception("review REST dispatch %s failed", name)
-        return JSONResponse({"error": f"{type(exc).__name__}: {exc}"}, status_code=500)
-
-
 bind_native_context(mcp)
-align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     mcp.run(transport="streamable-http", host="0.0.0.0", port=_port)

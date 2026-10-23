@@ -44,5 +44,12 @@ def test_conversations_rejects_bad_kind() -> None:
     assert "unsupported kind" in out.get("error", "")
 
 
-def test_tools_manifest_matches_dispatch() -> None:
-    assert {t["function"]["name"] for t in mod.TOOLS_MANIFEST} == set(mod._DISPATCH)
+def test_registered_tools_are_served_natively() -> None:
+    import asyncio
+
+    assert {tool.name for tool in asyncio.run(mod.mcp.list_tools())} == {
+        "conversations",
+        "extract_fields",
+        "protocol_hierarchy",
+        "recon_scan",
+    }

@@ -8,7 +8,6 @@ Port: 8929 (configurable via MITRE_MCP_PORT env var)
 
 from __future__ import annotations
 
-import inspect
 import json
 import logging
 import os
@@ -21,7 +20,6 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from portal.platform.mcp_host.eval_scope import bind_native_context
-from portal.platform.mcp_host.tool_support import align_native_tools
 
 logger = logging.getLogger(__name__)
 
@@ -287,93 +285,12 @@ def _ensure_loaded() -> None:
 
 # ── Tool Manifest ────────────────────────────────────────────────────────────
 
-TOOLS_MANIFEST = [
-    {
-        "name": "mitre_technique_lookup",
-        "description": "Look up a MITRE ATT&CK technique by ID. Returns name, tactic, platforms, detection info.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "technique_id": {
-                    "type": "string",
-                    "description": "ATT&CK technique ID (e.g. T1190, T1558.003)",
-                }
-            },
-            "required": ["technique_id"],
-        },
-    },
-    {
-        "name": "mitre_data_sources_for_technique",
-        "description": "List data sources needed to detect a technique.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "technique_id": {"type": "string", "description": "ATT&CK technique ID"}
-            },
-            "required": ["technique_id"],
-        },
-    },
-    {
-        "name": "mitre_detections_for_technique",
-        "description": "List local SPL detections for a technique (joins ATT&CK to our detection library).",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "technique_id": {"type": "string", "description": "ATT&CK technique ID"}
-            },
-            "required": ["technique_id"],
-        },
-    },
-    {
-        "name": "mitre_techniques_list",
-        "description": "List all known ATT&CK techniques with their metadata.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "tactic": {
-                    "type": "string",
-                    "description": "Optional tactic filter (e.g. initial-access, credential-access)",
-                }
-            },
-        },
-    },
-]
-
-
 # ── HTTP Routes ──────────────────────────────────────────────────────────────
 
 
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "mitre-mcp", "port": _port})
-
-
-@mcp.custom_route("/tools", methods=["GET"])
-async def list_tools(request: Request) -> JSONResponse:
-    return JSONResponse({"tools": TOOLS_MANIFEST})
-
-
-@mcp.custom_route("/tools/{tool_name}", methods=["POST"])
-async def invoke_tool(request: Request) -> JSONResponse:
-    """REST dispatch endpoint used by portal-pipeline tool_registry (POST /tools/{name})."""
-    tool_name = request.path_params.get("tool_name", "")
-    if tool_name not in {tool["name"] for tool in TOOLS_MANIFEST}:
-        return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
-    try:
-        body: Any = await request.json()
-    except Exception:
-        body = {}
-    arguments = body.get("arguments", body) if isinstance(body, dict) else {}
-    try:
-        result = globals()[tool_name](**arguments)
-        if inspect.isawaitable(result):
-            result = await result
-        return JSONResponse(result)
-    except TypeError as e:
-        return JSONResponse({"error": f"Invalid arguments: {e}"}, status_code=400)
-    except Exception as e:
-        logger.error("%s failed: %s", tool_name, e, exc_info=True)
-        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 # ── Tool Implementations ─────────────────────────────────────────────────────
@@ -540,7 +457,6 @@ def mitre_techniques_list(tactic: str = "") -> dict[str, Any]:
 # ── Serve ────────────────────────────────────────────────────────────────────
 
 bind_native_context(mcp)
-align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     mcp.run(transport="streamable-http", host="0.0.0.0", port=_port)

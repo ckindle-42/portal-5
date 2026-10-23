@@ -17,9 +17,15 @@ def test_protocol_table() -> None:
     assert tiers["DNP3"] == "identify"
 
 
-def test_tools_manifest_matches_dispatch() -> None:
-    manifest_names = {t["function"]["name"] for t in mod.TOOLS_MANIFEST}
-    assert manifest_names == set(mod._DISPATCH)
+def test_registered_tools_are_served_natively() -> None:
+    import asyncio
+
+    assert {tool.name for tool in asyncio.run(mod.mcp.list_tools())} == {
+        "asset_inventory",
+        "correlate_advisories",
+        "dissect_pcap",
+        "list_ics_protocols",
+    }
 
 
 def test_modbus_dissection_tags_write(tmp_path: Path) -> None:

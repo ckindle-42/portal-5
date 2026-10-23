@@ -561,17 +561,16 @@ class TestAllMCPServerToolAlignment:
         "module_path",
         [
             "portal.modules.documents.tools.document_mcp",
-            "portal.modules.media.tools.music_minimax_mcp",
             "portal.modules.media.tools.music_ace_mcp",
-            "portal.modules.media.tools.tts_mcp",
-            "portal.modules.media.tools.whisper_mcp",
-            "portal.modules.media.tools.mflux_mcp",
-            "portal.modules.media.tools.video_mlx_mcp",
             "portal.modules.coding.tools.code_sandbox_mcp",
         ],
     )
     def test_manifest_and_registered_are_in_sync(self, module_path):
-        """TOOLS_MANIFEST and @mcp.tool() must be a perfect bidirectional match."""
+        """TOOLS_MANIFEST and @mcp.tool() must be a perfect bidirectional match.
+
+        Only servers that still serve a REST manifest are listed; the native-only servers'
+        registered tool sets are asserted in tests/unit/test_mcp_fleet_single_source.py.
+        """
         import importlib
         import sys
 

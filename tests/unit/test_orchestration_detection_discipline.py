@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import copy
-import json
 from pathlib import Path
 from typing import Any
 
@@ -23,9 +22,12 @@ def _yaml(name: str) -> dict[str, Any]:
     return value
 
 
-def _manifest_names(path: Path) -> set[str]:
-    manifest = json.loads(path.read_text(encoding="utf-8"))
-    return {str(item.get("name") or (item.get("function") or {}).get("name")) for item in manifest}
+def _native_names(module_path: str) -> set[str]:
+    import asyncio
+    import importlib
+
+    module = importlib.import_module(module_path)
+    return {tool.name for tool in asyncio.run(module.mcp.list_tools())}
 
 
 def _arm_config() -> dict[str, Any]:
@@ -63,13 +65,13 @@ def test_discipline_is_unseated_and_retains_fixed_criteria() -> None:
         "allow": ["**/*"],
         "deny_outside_root": True,
     }
-    manifests = {
-        "detection": ROOT / "config/inference/tools_manifest_detection_mcp.json",
-        "detections": ROOT / "config/security/tools_manifest_detections_mcp.json",
-        "mitre": ROOT / "config/security/tools_manifest_mitre_mcp.json",
+    sources = {
+        "detection": "portal.modules.detection.tools.detection_mcp",
+        "detections": "portal.modules.security.tools.detections_mcp",
+        "mitre": "portal.modules.security.tools.mitre_mcp",
     }
     for source, allowed in discipline["tool_allowlist"].items():
-        assert set(allowed) <= _manifest_names(manifests[source])
+        assert set(allowed) <= _native_names(sources[source])
     criteria = discipline["pass_criteria"]
     assert criteria["frozen_before_first_run"] is True
     assert criteria["checker_controls"] == {"false_passes": 0, "false_failures": 0}

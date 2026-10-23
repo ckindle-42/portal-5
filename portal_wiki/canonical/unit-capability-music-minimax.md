@@ -10,8 +10,6 @@ sources:
   path: portal/modules/media/tools/music_minimax_mcp.py
 - type: code
   path: portal/modules/media/tools/music_ace_mcp.py
-- type: code
-  path: config/inference/tools_manifest_music_minimax_mcp.json
 claims: []
 confidence: high
 tags:

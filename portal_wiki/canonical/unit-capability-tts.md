@@ -8,8 +8,6 @@ sources:
   section: mcp_fleet
 - type: code
   path: portal/modules/media/tools/tts_mcp.py
-- type: code
-  path: config/inference/tools_manifest_tts_mcp.json
 claims: []
 confidence: high
 tags:

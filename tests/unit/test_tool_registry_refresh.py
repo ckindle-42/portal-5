@@ -1,12 +1,12 @@
 """Tests for ToolRegistry refresh carry-forward and dispatch fixes."""
 
 import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import httpx
 import pytest
 
-from portal.platform.inference import tool_registry
+from portal.platform.inference import tool_registry as registry_module
 from portal.platform.inference.tool_registry import (
     MCP_SERVERS,
     ToolDefinition,
@@ -14,65 +14,46 @@ from portal.platform.inference.tool_registry import (
 )
 
 
-class TestOpenAIWrappedToolShape:
-    """TASK_COMPLIANCE_REASONING_V2 P8-L live finding: the compliance MCP's
-    /tools endpoint returns OpenAI-wrapped entries
-    ({"type": "function", "function": {"name": ..., ...}}) while every other
-    server returns the flat shape ({"name": ..., ...}) discovery expects —
-    tdef.get("name") silently returned None for every one of them, so no
-    compliance tool was EVER in the registry despite the server answering
-    200 with real tools. Verified live: get_openai_tools(["nerc_cip_requirement"])
-    returned [] even immediately after a forced refresh against the real
-    running compliance-mcp service."""
+class TestNativeDiscovery:
+    """Discovery reads native ``tools/list`` entries (name/description/inputSchema)."""
 
     @pytest.mark.asyncio
-    async def test_openai_wrapped_tools_are_discovered_not_silently_dropped(self):
+    async def test_native_tools_are_discovered_with_meta_timeout(self):
         tr = ToolRegistry()
         tr._last_refresh = 0
-        mock_client = MagicMock()
 
-        async def mock_get(url):
-            resp = MagicMock()
-            resp.status_code = 200
-            resp.json.return_value = {
-                "tools": [
-                    {
-                        "type": "function",
-                        "function": {
-                            "name": "nerc_cip_requirement",
-                            "description": "desc",
-                            "parameters": {"type": "object", "properties": {}},
-                        },
-                    }
-                ]
-            }
-            return resp
+        async def fake_list_tools(client, base_url, timeout_s):
+            return [
+                {
+                    "name": "nerc_cip_requirement",
+                    "description": "desc",
+                    "inputSchema": {"type": "object", "properties": {}},
+                    "_meta": {"portal5/timeout_s": 90},
+                }
+            ]
 
-        mock_client.get = mock_get
-        with patch.object(tr, "_client", return_value=mock_client):
+        with patch.object(registry_module, "list_tools", fake_list_tools):
             await tr.refresh(force=True)
 
-        assert tr.get("nerc_cip_requirement") is not None
+        tool = tr.get("nerc_cip_requirement")
+        assert tool is not None
+        assert tool.custom_timeout_s == 90.0
         assert tr.get_openai_tools(["nerc_cip_requirement"])
 
     @pytest.mark.asyncio
-    async def test_flat_shape_still_works_unchanged(self):
-        """The pre-existing, more common convention must be unaffected."""
+    async def test_tool_without_meta_has_no_custom_timeout(self):
         tr = ToolRegistry()
         tr._last_refresh = 0
-        mock_client = MagicMock()
 
-        async def mock_get(url):
-            resp = MagicMock()
-            resp.status_code = 200
-            resp.json.return_value = [{"name": "flat_tool", "description": "d"}]
-            return resp
+        async def fake_list_tools(client, base_url, timeout_s):
+            return [{"name": "default-tool", "description": "d", "inputSchema": {}}]
 
-        mock_client.get = mock_get
-        with patch.object(tr, "_client", return_value=mock_client):
+        with patch.object(registry_module, "list_tools", fake_list_tools):
             await tr.refresh(force=True)
 
-        assert tr.get("flat_tool") is not None
+        tool = tr.get("default-tool")
+        assert tool is not None
+        assert tool.custom_timeout_s is None
 
 
 class TestRefreshCarryForward:
@@ -80,7 +61,7 @@ class TestRefreshCarryForward:
 
     @pytest.mark.asyncio
     async def test_failed_server_retains_previous_tools(self):
-        """Server A succeeds, server B's /tools raises → B's previously-known
+        """Server A succeeds, server B's tools/list raises → B's previously-known
         tools survive with breaker state intact, WARNING names B."""
         tr = ToolRegistry()
 
@@ -98,21 +79,12 @@ class TestRefreshCarryForward:
         )
         tr._last_refresh = 0
 
-        # Mock client — server A succeeds, server B raises
-        mock_client = MagicMock()
-
-        async def mock_get(url):
-            if "8914" in url or "execution" in url:
+        async def fake_list_tools(client, base_url, timeout_s):
+            if base_url == MCP_SERVERS["execution"]:
                 raise httpx.ReadTimeout("timed out")
-            # Server A (documents) succeeds
-            resp = MagicMock()
-            resp.status_code = 200
-            resp.json.return_value = [{"name": "tool-a", "description": "a"}]
-            return resp
+            return [{"name": "tool-a", "description": "a", "inputSchema": {}}]
 
-        mock_client.get = mock_get
-
-        with patch.object(tr, "_client", return_value=mock_client):
+        with patch.object(registry_module, "list_tools", fake_list_tools):
             n = await tr.refresh(force=True)
 
         # tool-b should survive from the failed execution server
@@ -123,11 +95,8 @@ class TestRefreshCarryForward:
         assert n >= 2
 
     @pytest.mark.asyncio
-    async def test_recovering_server_replaces_carried_forward(self, monkeypatch):
+    async def test_recovering_server_replaces_carried_forward(self):
         """B recovering on next refresh replaces the carried-forward set."""
-        # These refresh tests mock the REST /tools client, so pin every server
-        # to REST regardless of the production pipeline_client flips.
-        monkeypatch.setattr(tool_registry, "MCP_CLIENT_MODES", {})
         tr = ToolRegistry()
 
         # Seed with a carried-forward tool from a previously-failed server
@@ -143,27 +112,19 @@ class TestRefreshCarryForward:
         )
         tr._last_refresh = 0
 
-        mock_client = MagicMock()
+        calls = 0
 
-        call_count = 0
-
-        async def mock_get(url):
-            nonlocal call_count
-            resp = MagicMock()
-            resp.status_code = 200
-            if "execution" in url or "8914" in url:
+        async def fake_list_tools(client, base_url, timeout_s):
+            nonlocal calls
+            if base_url == MCP_SERVERS["execution"]:
+                calls += 1
                 # First refresh: fail; second: succeed
-                if call_count == 0:
-                    call_count += 1
+                if calls == 1:
                     raise httpx.ReadTimeout("timed out")
-                resp.json.return_value = [{"name": "tool-b-new", "description": "new"}]
-            else:
-                resp.json.return_value = []
-            return resp
+                return [{"name": "tool-b-new", "description": "new", "inputSchema": {}}]
+            return []
 
-        mock_client.get = mock_get
-
-        with patch.object(tr, "_client", return_value=mock_client):
+        with patch.object(registry_module, "list_tools", fake_list_tools):
             # First refresh — execution fails, tool-b carried forward
             await tr.refresh(force=True)
             assert "tool-b" in tr._tools
@@ -177,9 +138,8 @@ class TestRefreshCarryForward:
             assert tr._tools["tool-b-new"].healthy is True
 
     @pytest.mark.asyncio
-    async def test_successful_server_drops_removed_tool(self, monkeypatch):
+    async def test_successful_server_drops_removed_tool(self):
         """A successfully-probed server that drops a tool loses it."""
-        monkeypatch.setattr(tool_registry, "MCP_CLIENT_MODES", {})
         tr = ToolRegistry()
 
         tr._tools["old-tool"] = ToolDefinition(
@@ -191,18 +151,10 @@ class TestRefreshCarryForward:
         )
         tr._last_refresh = 0
 
-        mock_client = MagicMock()
+        async def fake_list_tools(client, base_url, timeout_s):
+            return [{"name": "new-tool", "description": "new", "inputSchema": {}}]
 
-        async def mock_get(url):
-            resp = MagicMock()
-            resp.status_code = 200
-            # Server returns a different tool, old-tool is gone
-            resp.json.return_value = [{"name": "new-tool", "description": "new"}]
-            return resp
-
-        mock_client.get = mock_get
-
-        with patch.object(tr, "_client", return_value=mock_client):
+        with patch.object(registry_module, "list_tools", fake_list_tools):
             await tr.refresh(force=True)
 
         assert "old-tool" not in tr._tools
@@ -226,15 +178,10 @@ class TestDispatchTimeoutHandling:
             healthy=True,
         )
 
-        mock_client = MagicMock()
-
-        async def mock_post(*args, **kwargs):
+        async def fake_call_tool(*args, **kwargs):
             raise httpx.ReadTimeout("Read timed out")
 
-        mock_client.post = mock_post
-        mock_client.is_closed = False
-
-        with patch.object(tr, "_client", return_value=mock_client):
+        with patch.object(registry_module, "call_tool", fake_call_tool):
             result = await tr.dispatch("slow-tool", {}, "req1")
 
         assert "error" in result
@@ -255,15 +202,10 @@ class TestDispatchTimeoutHandling:
             healthy=True,
         )
 
-        mock_client = MagicMock()
-
-        async def mock_post(*args, **kwargs):
+        async def fake_call_tool(*args, **kwargs):
             raise TimeoutError()
 
-        mock_client.post = mock_post
-        mock_client.is_closed = False
-
-        with patch.object(tr, "_client", return_value=mock_client):
+        with patch.object(registry_module, "call_tool", fake_call_tool):
             result = await tr.dispatch("slow-tool", {}, "req1")
 
         assert "error" in result
@@ -271,27 +213,24 @@ class TestDispatchTimeoutHandling:
 
 
 class TestCustomTimeoutFromDiscovery:
-    """TR3: timeout_s in /tools entry populates custom_timeout_s."""
+    """TR3: timeout metadata on the native tool populates custom_timeout_s."""
 
     @pytest.mark.asyncio
-    async def test_timeout_s_populates_custom_timeout(self):
-        """timeout_s in a /tools response populates custom_timeout_s."""
+    async def test_timeout_meta_populates_custom_timeout(self):
         tr = ToolRegistry()
         tr._last_refresh = 0
 
-        mock_client = MagicMock()
-
-        async def mock_get(url):
-            resp = MagicMock()
-            resp.status_code = 200
-            resp.json.return_value = [
-                {"name": "generate-video", "description": "v", "timeout_s": 120}
+        async def fake_list_tools(client, base_url, timeout_s):
+            return [
+                {
+                    "name": "generate-video",
+                    "description": "v",
+                    "inputSchema": {},
+                    "_meta": {"portal5/timeout_s": 120},
+                }
             ]
-            return resp
 
-        mock_client.get = mock_get
-
-        with patch.object(tr, "_client", return_value=mock_client):
+        with patch.object(registry_module, "list_tools", fake_list_tools):
             await tr.refresh(force=True)
 
         tool = tr.get("generate-video")
@@ -312,45 +251,14 @@ class TestCustomTimeoutFromDiscovery:
             custom_timeout_s=120.0,
         )
 
-        mock_client = MagicMock()
-
         received_timeout = None
 
-        async def mock_post(url, json, timeout):
+        async def fake_call_tool(client, base_url, name, arguments, timeout_s, metadata=None):
             nonlocal received_timeout
-            received_timeout = timeout
-            resp = MagicMock()
-            resp.status_code = 200
-            resp.json.return_value = {"result": "ok"}
-            return resp
+            received_timeout = timeout_s
+            return {"content": [{"type": "text", "text": '{"result": "ok"}'}]}
 
-        mock_client.post = mock_post
-        mock_client.is_closed = False
-
-        with patch.object(tr, "_client", return_value=mock_client):
+        with patch.object(registry_module, "call_tool", fake_call_tool):
             await tr.dispatch("slow-tool", {}, "req1")
 
         assert received_timeout == 120.0
-
-    @pytest.mark.asyncio
-    async def test_no_timeout_s_uses_default(self):
-        """When no timeout_s in discovery, custom_timeout_s remains None."""
-        tr = ToolRegistry()
-        tr._last_refresh = 0
-
-        mock_client = MagicMock()
-
-        async def mock_get(url):
-            resp = MagicMock()
-            resp.status_code = 200
-            resp.json.return_value = [{"name": "default-tool", "description": "d"}]
-            return resp
-
-        mock_client.get = mock_get
-
-        with patch.object(tr, "_client", return_value=mock_client):
-            await tr.refresh(force=True)
-
-        tool = tr.get("default-tool")
-        assert tool is not None
-        assert tool.custom_timeout_s is None

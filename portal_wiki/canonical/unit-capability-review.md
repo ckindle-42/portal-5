@@ -12,8 +12,6 @@ sources:
 - type: code
   path: config/personas/securityreviewer.yaml
 - type: code
-  path: config/security/tools_manifest_review_mcp.json
-- type: code
   path: portal/modules/security/tools/review_mcp.py
 - type: code
   path: portal/modules/security/core/review/service.py

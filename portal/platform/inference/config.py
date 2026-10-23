@@ -369,7 +369,6 @@ class McpServer(BaseModel):
     module: ModuleName | Literal["platform"]
     port: int | None = None  # None for command-based (IDE-only) servers
     expose_to_pipeline: bool = False
-    pipeline_client: Literal["native", "rest"] = "rest"
     expose_to_ide: bool = True
     aliases: list[str] = Field(default_factory=list)
     command: McpServerCommand | None = None
@@ -397,10 +396,6 @@ class McpServer(BaseModel):
             raise ValueError(f"mcp {self.id}: launchd label must be com.portal5.*")
         if self.host_native and self.compose_service:
             raise ValueError(f"mcp {self.id}: host_native and compose_service are both set")
-        if self.pipeline_client == "native" and (not self.expose_to_pipeline or self.port is None):
-            raise ValueError(
-                f"mcp {self.id}: native pipeline client requires an exposed HTTP server"
-            )
         return self
 
 
@@ -688,15 +683,6 @@ def get_pipeline_mcp_servers(config: PortalConfig) -> dict[str, str]:
         default_url = f"http://localhost:{server.port}"
         servers[server.id] = os.environ.get(env_key, default_url)
     return servers
-
-
-def get_pipeline_mcp_client_modes(config: PortalConfig) -> dict[str, Literal["native", "rest"]]:
-    """Return each Pipeline-exposed HTTP MCP's configured client mode."""
-    return {
-        server.id: server.pipeline_client
-        for server in config.mcp_fleet
-        if server.expose_to_pipeline and server.port is not None
-    }
 
 
 def ollama_url(config: PortalConfig | None = None) -> str:

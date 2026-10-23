@@ -1,4 +1,4 @@
-"""Unit tests for the Pipeline's feature-gated native MCP client."""
+"""Unit tests for the Pipeline's native MCP client."""
 
 from __future__ import annotations
 
@@ -12,11 +12,6 @@ import pytest
 
 from portal.platform.inference import mcp_http
 from portal.platform.inference import tool_registry as registry_module
-from portal.platform.inference.config import (
-    PortalConfig,
-    get_pipeline_mcp_client_modes,
-    load_portal_config,
-)
 from portal.platform.inference.mcp_http import MCPHTTPError, call_tool, list_tools, map_tool_result
 
 
@@ -177,7 +172,6 @@ async def test_tool_registry_uses_configured_native_mcp_server(
             {"resultType": "complete", "content": [{"type": "text", "text": "ok"}]},
         )
 
-    monkeypatch.setattr(registry_module, "MCP_CLIENT_MODES", {"pipeline": "native"})
     monkeypatch.setattr(registry_module, "MCP_SERVERS", {"pipeline": "http://pipeline.test"})
     registry = registry_module.ToolRegistry()
     registry._http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
@@ -221,7 +215,6 @@ async def test_native_scoped_compliance_routes_to_eval_and_forwards_scope(
             },
         )
 
-    monkeypatch.setattr(registry_module, "MCP_CLIENT_MODES", {"compliance": "native"})
     monkeypatch.setenv("MCP_COMPLIANCE_EVAL_URL", "http://compliance-eval.test")
     registry = ToolRegistry()
     registry._tools["compliance_read"] = ToolDefinition(
@@ -442,7 +435,7 @@ async def test_legacy_request_timeout_uses_the_call_deadline() -> None:
             await list_tools(client, "http://timeout-legacy.test", timeout_s=0.05)
 
 
-def test_native_tool_result_maps_to_raw_rest_json() -> None:
+def test_native_tool_result_maps_to_raw_json() -> None:
     assert map_tool_result(
         {"structuredContent": [1, 2], "content": [{"type": "text", "text": "ignored"}]}
     ) == [1, 2]
@@ -462,21 +455,6 @@ def test_native_tool_result_maps_to_raw_rest_json() -> None:
     )
 
 
-def test_pipeline_client_mode_is_per_server_and_defaults_to_rest() -> None:
-    config = load_portal_config()
-    modes = get_pipeline_mcp_client_modes(config)
-    # pipeline + the 16 servers that passed live native/REST parity on 2026-10-23 are native;
-    # the rest stay on REST until they do (whisper/research/vulnintel: no deterministic tool;
-    # mlx_transcribe: /mcp 307-redirects; music/mflux/video: modules disabled).
-    assert modes["pipeline"] == "native"
-    assert modes["documents"] == "native"
-
-    raw = config.model_dump()
-    entry = next(server for server in raw["mcp_fleet"] if server["id"] == "documents")
-    entry.pop("pipeline_client", None)
-    assert get_pipeline_mcp_client_modes(PortalConfig.model_validate(raw))["documents"] == "rest"
-
-
 @pytest.mark.asyncio
 async def test_native_is_error_returns_rest_error_shape_and_trips_breaker(
     monkeypatch: pytest.MonkeyPatch,
@@ -489,7 +467,6 @@ async def test_native_is_error_returns_rest_error_shape_and_trips_breaker(
             body["id"], {"isError": True, "content": [{"type": "text", "text": "tool failed"}]}
         )
 
-    monkeypatch.setattr(registry_module, "MCP_CLIENT_MODES", {"pipeline": "native"})
     monkeypatch.setattr(registry_module, "MCP_SERVERS", {"pipeline": "http://error.test"})
     registry = registry_module.ToolRegistry()
     registry._http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
@@ -505,28 +482,28 @@ async def test_native_is_error_returns_rest_error_shape_and_trips_breaker(
     assert tool is not None and tool.healthy is False and tool.consecutive_failures == 1
 
 
-def _schema_signature(tools: list[Any], schema_key: str) -> dict[str, set[str]]:
-    """Return each tool's required argument names from an MCP schema collection."""
-    signatures = {}
-    for tool in tools:
-        raw = (
-            tool.model_dump(mode="json", exclude_none=True) if hasattr(tool, "model_dump") else tool
-        )
-        schema = raw.get(schema_key) or {}
-        signatures[raw["name"]] = set(schema.get("required", []))
-    return signatures
-
-
 @pytest.mark.skipif(importlib.util.find_spec("mcp") is None, reason="MCP SDK is not installed")
-def test_pipeline_mcp_native_tools_list_matches_rest_manifest() -> None:
+def test_pipeline_mcp_native_tools_list_keeps_its_contract() -> None:
     from portal.platform.mcp_host import pipeline_mcp
 
-    native_tools = asyncio.run(pipeline_mcp.mcp.list_tools())
-    rest_tools = pipeline_mcp.TOOLS_MANIFEST
+    native = asyncio.run(pipeline_mcp.mcp.list_tools())
+    signatures = {tool.name: sorted(tool.input_schema.get("required", [])) for tool in native}
 
-    assert _schema_signature(native_tools, "input_schema") == _schema_signature(
-        rest_tools, "parameters"
-    )
+    assert signatures == {
+        "get_pipeline_status": [],
+        "list_workspaces": [],
+        "get_loaded_models": [],
+        "get_metrics_summary": [],
+        "get_workspace_recommendation": ["task"],
+        "explore_repository": ["query"],
+        "trigger_backend_warmup": [],
+        "arm_queue_task": ["discipline", "task_id", "template_key"],
+        "read_text_file": ["path"],
+        "list_directory": ["path"],
+        "search_files": ["pattern"],
+        "write_file": ["content", "path"],
+    }
+    assert all(tool.description for tool in native)
 
 
 def test_map_tool_result_unwraps_sdk_wrapped_non_object_returns() -> None:

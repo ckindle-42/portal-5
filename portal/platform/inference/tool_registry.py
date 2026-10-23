@@ -1,8 +1,8 @@
 """Tool registry — discovers model-facing tools from MCP servers and dispatches calls.
 
 Maps ``tool_name → MCP server URL + JSON schema`` for every model-callable tool:
-discovery (native ``tools/list`` or migration ``/tools`` endpoint), advertisement
-(serialize to the OpenAI ``tools:`` array), and dispatch (call the source server).
+discovery (native MCP ``tools/list``), advertisement (serialize to the OpenAI
+``tools:`` array), and dispatch (call the source server).
 
 A module-level singleton ``tool_registry = ToolRegistry()`` is used by
 ``router_pipe.py``; discovery runs lazily on the first ``refresh()`` and on
@@ -22,7 +22,6 @@ Knobs (env-overridable): ``TOOL_REGISTRY_REFRESH_S`` (3600s refresh interval),
 from __future__ import annotations
 
 import asyncio
-import functools
 import logging
 import os
 import time
@@ -31,11 +30,7 @@ from typing import Any
 
 import httpx
 
-from portal.platform.inference.config import (
-    get_pipeline_mcp_client_modes,
-    get_pipeline_mcp_servers,
-    load_portal_config,
-)
+from portal.platform.inference.config import get_pipeline_mcp_servers, load_portal_config
 from portal.platform.inference.mcp_http import MCPHTTPError, call_tool, list_tools, map_tool_result
 from portal.platform.mcp_host.eval_scope import (
     EVAL_META_KEY,
@@ -50,7 +45,6 @@ logger = logging.getLogger(__name__)
 # MCP_<ID_UPPER>_URL override individual entries.
 _PORTAL_CONFIG = load_portal_config()
 MCP_SERVERS: dict[str, str] = get_pipeline_mcp_servers(_PORTAL_CONFIG)
-MCP_CLIENT_MODES = get_pipeline_mcp_client_modes(_PORTAL_CONFIG)
 
 TOOL_REGISTRY_REFRESH_S = float(os.environ.get("TOOL_REGISTRY_REFRESH_S", "3600"))
 # While any MCP is undiscovered (a partial startup, e.g. memory not up yet), refresh on this
@@ -60,53 +54,9 @@ TOOL_DISCOVERY_TIMEOUT_S = 5.0
 TOOL_DISPATCH_TIMEOUT_S = float(os.environ.get("TOOL_DISPATCH_TIMEOUT_S", "60"))
 
 
-def _uses_native_mcp(server_id: str) -> bool:
-    """Return whether this fleet server opts into the native Streamable HTTP client."""
-    return MCP_CLIENT_MODES.get(server_id, "rest") == "native"
-
-
-async def _fetch_tools(
-    client: httpx.AsyncClient, server_id: str, base_url: str
-) -> list[dict[str, Any]] | None:
-    """Fetch one server's native MCP or migration REST tool list."""
-    if _uses_native_mcp(server_id):
-        return await list_tools(client, base_url, TOOL_DISCOVERY_TIMEOUT_S)
-    response = await client.get(f"{base_url.rstrip('/')}/tools")
-    if response.status_code != 200:
-        logger.warning("Tool discovery: %s returned %d", server_id, response.status_code)
-        return None
-    payload = response.json()
-    return payload if isinstance(payload, list) else payload.get("tools", [])
-
-
-@functools.lru_cache(maxsize=1)
-def _compliance_server_url() -> str:
-    from portal.platform.inference.config import (  # noqa: PLC0415
-        get_pipeline_mcp_servers,
-        load_portal_config,
-    )
-
-    return str(get_pipeline_mcp_servers(load_portal_config()).get("compliance") or "").rstrip("/")
-
-
-def _eval_route(server_url: str, url: str) -> str | None:
-    """Under a WFE evaluation scope, a compliance tool call goes to the compliance evaluation
-    instance (root-fix Part 2c-2), or nowhere: never to the operator's compliance store."""
-    from portal.platform.mcp_host.eval_scope import EVAL_SCOPE  # noqa: PLC0415
-
-    if not EVAL_SCOPE.get() or server_url.rstrip("/") != _compliance_server_url():
-        return url
-    target = os.environ.get("MCP_COMPLIANCE_EVAL_URL", "").rstrip("/")
-    return url.replace(server_url.rstrip("/"), target, 1) if target else None
-
-
-def _dispatch_body(arguments: dict[str, Any], request_id: str) -> dict[str, Any]:
-    """The POST body for an MCP tool call; a WFE evaluation scope (mcp_host.eval_scope) rides
-    along as `eval` so the MCP can confine the call to the row's namespace."""
-    from portal.platform.mcp_host.eval_scope import EVAL_SCOPE  # noqa: PLC0415
-
-    scope = EVAL_SCOPE.get()
-    return {"arguments": arguments, "request_id": request_id, **({"eval": scope} if scope else {})}
+async def _fetch_tools(client: httpx.AsyncClient, base_url: str) -> list[dict[str, Any]] | None:
+    """Fetch one server's native MCP tool list."""
+    return await list_tools(client, base_url, TOOL_DISCOVERY_TIMEOUT_S)
 
 
 def _native_scope_error(server_id: str) -> dict[str, str] | None:
@@ -151,7 +101,7 @@ def _tool_timeout(tdef: dict[str, Any]) -> float | None:
 class ToolDefinition:
     """One discovered tool, with attached circuit-breaker state.
 
-    Constructed by ``ToolRegistry.refresh`` from native MCP or migration REST metadata.
+    Constructed by ``ToolRegistry.refresh`` from native MCP metadata.
     The first five fields describe the tool; the rest track dispatch history so
     the registry can apply backoff. State lives on this object so ``refresh``
     can preserve it with a field copy when a tool re-appears — without that, a
@@ -167,8 +117,7 @@ class ToolDefinition:
         last_seen: Monotonic time of the last successful discovery.
         healthy: ``False`` after any failed dispatch. Re-set to ``True``
             on the next successful dispatch.
-        custom_timeout_s: Per-tool dispatch timeout from REST ``timeout_s`` or
-            native MCP ``_meta``.
+        custom_timeout_s: Per-tool dispatch timeout from native MCP ``_meta``.
         next_retry_at: Epoch seconds. While ``healthy`` is False and
             ``time.time() < next_retry_at``, the tool is filtered out of
             ``get_openai_tools`` and ``dispatch`` returns an error
@@ -254,7 +203,7 @@ class ToolRegistry:
         ``force=True`` bypasses the TTL. Discovery is parallel via
         ``asyncio.gather(..., return_exceptions=True)``. Circuit-breaker state is
         preserved across refreshes for tools that re-appear; new tools start
-        healthy; tools that disappear from a server's ``/tools`` response are
+        healthy; tools that disappear from a server's native ``tools/list`` are
         dropped (next dispatch returns ``"Tool '...' not in registry"``).
 
         Args:
@@ -282,30 +231,20 @@ class ToolRegistry:
             succeeded_servers: set[str] = set()
 
             async def _discover_one(server_id: str, base_url: str) -> None:
-                """Fetch and parse one server's native or REST tool list."""
+                """Fetch and parse one server's native tool list."""
                 try:
-                    tools = await _fetch_tools(client, server_id, base_url)
+                    tools = await _fetch_tools(client, base_url)
                     if tools is None:
                         return
                     succeeded_servers.add(server_id)
-                    for raw in tools:
-                        # Most `/tools` manifests are flat
-                        # ({"name", "description", "parameters"}); at least
-                        # one server's (compliance) uses the OpenAI-wrapped
-                        # shape ({"type": "function", "function": {...}}).
-                        # Unwrap so this one server's convention doesn't
-                        # silently drop every one of its tools from
-                        # discovery (found live, P8-L: get_openai_tools(
-                        # ["nerc_cip_requirement"]) returned [] even though
-                        # the server's /tools endpoint listed it).
-                        tdef = raw["function"] if isinstance(raw.get("function"), dict) else raw
+                    for tdef in tools:
                         name = tdef.get("name")
                         if not name:
                             continue
                         new_tools[name] = ToolDefinition(
                             name=name,
                             description=tdef.get("description", ""),
-                            parameters=tdef.get("parameters", tdef.get("inputSchema", {})),
+                            parameters=tdef.get("inputSchema", {}),
                             server_id=server_id,
                             server_url=base_url,
                             last_seen=now,
@@ -407,28 +346,28 @@ class ToolRegistry:
     ) -> Any:
         """Dispatch a tool call to its source MCP; return the result or an error dict.
 
-        Never raises — every failure path (unknown tool, cool-down, HTTP
-        non-200, timeout, network error, JSON decode failure) returns
+        Never raises — every failure path (unknown tool, cool-down, MCP
+        protocol error, timeout, network error, JSON decode failure) returns
         ``{"error": "..."}``. The caller JSON-encodes the result into a
         ``tool`` role message streamed back to the model, so a raised
         exception would break the SSE stream.
 
         Circuit-breaker behaviour: tools in cool-down (``healthy=False`` AND
         ``time.time() < next_retry_at``) return an error without a network
-        call; a 200 resets ``healthy=True``, ``consecutive_failures=0``,
-        ``next_retry_at=0``; any non-success increments
-        ``consecutive_failures`` and recomputes ``next_retry_at`` via
-        ``_backoff_seconds``. Timeout: ``tool.custom_timeout_s`` if set, else
-        ``TOOL_DISPATCH_TIMEOUT_S``.
+        call; a successful call resets ``healthy=True``,
+        ``consecutive_failures=0``, ``next_retry_at=0``; any non-success
+        increments ``consecutive_failures`` and recomputes ``next_retry_at``
+        via ``_backoff_seconds``. Timeout: ``tool.custom_timeout_s`` if set,
+        else ``TOOL_DISPATCH_TIMEOUT_S``.
 
         Args:
             tool_name: Must match a key in ``self._tools``. Unknown names
                 return an error dict.
-            arguments: JSON-serialisable kwargs forwarded as the ``arguments``
-                field of the POST body; the MCP validates the schema.
-            request_id: Opaque request correlator forwarded as ``request_id``
-                so MCP logs can be cross-referenced with pipeline logs. May be
-                empty.
+            arguments: JSON-serialisable kwargs forwarded as the MCP tool's
+                ``arguments``; the MCP validates the schema.
+            request_id: Opaque request correlator forwarded as
+                ``portal5/request_id`` metadata so MCP logs can be
+                cross-referenced with pipeline logs. May be empty.
 
         Returns:
             The MCP's parsed JSON response (success) or an error dict.
@@ -446,55 +385,10 @@ class ToolRegistry:
             }
 
         timeout_s = tool.custom_timeout_s or TOOL_DISPATCH_TIMEOUT_S
-        if _uses_native_mcp(getattr(tool, "server_id", "")):
-            scope_error = _native_scope_error(tool.server_id)
-            if scope_error is not None:
-                return scope_error
-            return await self._dispatch_native_mcp(tool, arguments, timeout_s, now, request_id)
-        url = f"{tool.server_url.rstrip('/')}/tools/{tool_name}"
-
-        try:
-            client = await self._client()
-            routed = _eval_route(tool.server_url, url)
-            if routed is None:
-                return {
-                    "error": "no compliance evaluation instance is configured "
-                    "(MCP_COMPLIANCE_EVAL_URL); a scoped call never reaches the operator's store"
-                }
-            r = await client.post(
-                routed, json=_dispatch_body(arguments, request_id), timeout=timeout_s
-            )
-            if r.status_code == 200:
-                tool.healthy = True
-                tool.consecutive_failures = 0
-                tool.next_retry_at = 0.0
-                return r.json()
-            elif r.status_code in (400, 422):
-                # The MCP rejected the model's arguments; the tool itself is
-                # fine. Tripping the breaker here locked the tool for every
-                # request — including the model's own corrected retry.
-                return {
-                    "error": f"Tool '{tool_name}' rejected the arguments",
-                    "detail": r.text[:500],
-                }
-            else:
-                tool.consecutive_failures += 1
-                tool.healthy = False
-                tool.next_retry_at = now + _backoff_seconds(tool.consecutive_failures)
-                return {
-                    "error": f"Tool '{tool_name}' returned HTTP {r.status_code}",
-                    "detail": r.text[:200],
-                }
-        except (TimeoutError, httpx.TimeoutException):
-            tool.consecutive_failures += 1
-            tool.healthy = False
-            tool.next_retry_at = now + _backoff_seconds(tool.consecutive_failures)
-            return {"error": f"Tool '{tool_name}' timed out after {timeout_s}s"}
-        except Exception as e:
-            tool.consecutive_failures += 1
-            tool.healthy = False
-            tool.next_retry_at = now + _backoff_seconds(tool.consecutive_failures)
-            return {"error": f"Tool '{tool_name}' dispatch failed: {e}"}
+        scope_error = _native_scope_error(tool.server_id)
+        if scope_error is not None:
+            return scope_error
+        return await self._dispatch_native_mcp(tool, arguments, timeout_s, now, request_id)
 
     async def _dispatch_native_mcp(
         self,
@@ -504,7 +398,7 @@ class ToolRegistry:
         now: float,
         request_id: str,
     ) -> Any:
-        """Dispatch through native MCP while preserving the REST path's breaker rules."""
+        """Dispatch through native MCP while applying the registry's breaker rules."""
         server_url = tool.server_url
         if tool.server_id == "compliance" and EVAL_SCOPE.get() is not None:
             server_url = os.environ.get("MCP_COMPLIANCE_EVAL_URL", "").rstrip("/")

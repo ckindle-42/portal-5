@@ -45,7 +45,6 @@ def config_show(
                 "name": s.name,
                 "port": s.port,
                 "expose_to_pipeline": s.expose_to_pipeline,
-                "pipeline_client": s.pipeline_client,
             }
             for s in cfg.mcp_fleet
         ],

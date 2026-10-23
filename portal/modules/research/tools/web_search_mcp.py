@@ -22,7 +22,6 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from portal.platform.mcp_host.eval_scope import bind_native_context
-from portal.platform.mcp_host.tool_support import align_native_tools, call_json_route
 
 logger = logging.getLogger(__name__)
 mcp = MCPServer("research")
@@ -114,56 +113,6 @@ async def health(request: Request) -> JSONResponse:
             "backend": "brave" if BRAVE_API_KEY else "searxng",
         }
     )
-
-
-TOOLS_MANIFEST = [
-    {
-        "name": "web_search",
-        "description": "Search the web. Returns title, URL, snippet for top N results. Use for current events or factual lookups beyond training data.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "query": {"type": "string"},
-                "num_results": {"type": "integer", "default": 5, "minimum": 1, "maximum": 20},
-                "time_range": {
-                    "type": "string",
-                    "enum": ["any", "day", "week", "month", "year"],
-                    "default": "any",
-                },
-            },
-            "required": ["query"],
-        },
-    },
-    {
-        "name": "web_fetch",
-        "description": "Fetch the text content of a URL (HTML stripped, max 2MB). Refuses localhost and private addresses.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "url": {"type": "string", "description": "Full URL with http/https scheme"},
-                "max_chars": {"type": "integer", "default": 50000},
-            },
-            "required": ["url"],
-        },
-    },
-    {
-        "name": "news_search",
-        "description": "Search recent news articles. Biased toward news sources and recent results.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "query": {"type": "string"},
-                "num_results": {"type": "integer", "default": 5, "minimum": 1, "maximum": 20},
-            },
-            "required": ["query"],
-        },
-    },
-]
-
-
-@_route("/tools", methods=["GET"])
-async def list_tools(request: Request) -> JSONResponse:
-    return JSONResponse(TOOLS_MANIFEST)
 
 
 # SearXNG's `general` category aggregate returns nothing when its default
@@ -402,30 +351,6 @@ async def _browser_search(query: str, num_results: int) -> list[dict[str, Any]]:
     return out
 
 
-@_route("/tools/web_search", methods=["POST"])
-async def web_search_endpoint(request: Request) -> JSONResponse:
-    body = await request.json()
-    args = body.get("arguments", {})
-    if not args.get("query"):
-        return JSONResponse({"error": "query is required"}, status_code=400)
-    num = min(max(args.get("num_results", 5), 1), 20)
-    results = await _search_with_fallback(
-        args["query"], num, args.get("time_range", "any"), "general"
-    )
-    return JSONResponse({"query": args["query"], "num_results": len(results), "results": results})
-
-
-@_route("/tools/news_search", methods=["POST"])
-async def news_search_endpoint(request: Request) -> JSONResponse:
-    body = await request.json()
-    args = body.get("arguments", {})
-    if not args.get("query"):
-        return JSONResponse({"error": "query is required"}, status_code=400)
-    num = min(max(args.get("num_results", 5), 1), 20)
-    results = await _search_with_fallback(args["query"], num, "week", "news")
-    return JSONResponse({"query": args["query"], "num_results": len(results), "results": results})
-
-
 _HTML_TAG = re.compile(r"<[^>]+>")
 _WS = re.compile(r"\s+")
 _SCRIPT = re.compile(r"<(script|style)[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL)
@@ -440,22 +365,27 @@ def _html_to_text(html: str) -> str:
     return _WS.sub(" ", _HTML_TAG.sub(" ", stripped)).strip()
 
 
-@_route("/tools/web_fetch", methods=["POST"])
-async def web_fetch_endpoint(request: Request) -> JSONResponse:
-    body = await request.json()
-    args = body.get("arguments", {})
-    url = args.get("url", "")
+async def _search_payload(
+    query: str, num_results: int, time_range: str, category: str
+) -> dict[str, Any]:
+    if not query:
+        return {"error": "query is required"}
+    num = min(max(num_results, 1), 20)
+    results = await _search_with_fallback(query, num, time_range, category)
+    return {"query": query, "num_results": len(results), "results": results}
+
+
+async def _fetch_payload(url: str, max_chars: int) -> dict[str, Any]:
     if not url:
-        return JSONResponse({"error": "url is required"}, status_code=400)
+        return {"error": "url is required"}
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
-        return JSONResponse({"error": "only http/https supported"}, status_code=400)
+        return {"error": "only http/https supported"}
     host = parsed.hostname or ""
     if host in BLOCKED_DOMAINS or host.startswith(PRIVATE_PREFIXES):
-        return JSONResponse({"error": "private/local URLs blocked"}, status_code=403)
-    max_chars = args.get("max_chars", 50000)
+        return {"error": "private/local URLs blocked"}
 
-    async def _browser_fallback(reason: str) -> JSONResponse | None:
+    async def _browser_fallback(reason: str) -> dict[str, Any] | None:
         """A2: retry via the Obscura browser MCP (passes bot challenges)."""
         if not WEB_FETCH_BROWSER_FALLBACK:
             return None
@@ -464,61 +394,63 @@ async def web_fetch_endpoint(request: Request) -> JSONResponse:
             return None
         truncated = len(md) > max_chars
         logger.info("web_fetch browser fallback used for %s (%s)", url, reason)
-        return JSONResponse(
-            {
-                "url": url,
-                "status_code": 200,
-                "content_type": "text/markdown",
-                "char_count": len(md),
-                "truncated": truncated,
-                "via": "browser",
-                "text": md[:max_chars] + ("\n\n[...truncated]" if truncated else ""),
-            }
-        )
+        return {
+            "url": url,
+            "status_code": 200,
+            "content_type": "text/markdown",
+            "char_count": len(md),
+            "truncated": truncated,
+            "via": "browser",
+            "text": md[:max_chars] + ("\n\n[...truncated]" if truncated else ""),
+        }
 
     try:
         async with httpx.AsyncClient(timeout=WEB_FETCH_TIMEOUT_S, follow_redirects=True) as c:
             r = await c.get(url, headers={"User-Agent": "Portal5-Research/1.0"})
             if r.status_code >= 400:
                 fb = await _browser_fallback(f"HTTP {r.status_code}")
-                return fb or JSONResponse({"error": f"HTTP {r.status_code}", "url": url})
+                return fb or {"error": f"HTTP {r.status_code}", "url": url}
             text = _html_to_text(r.content[:WEB_FETCH_MAX_BYTES].decode("utf-8", errors="replace"))
             if not text.strip():
                 fb = await _browser_fallback("empty body")
                 if fb:
                     return fb
             truncated = len(text) > max_chars
-            return JSONResponse(
-                {
-                    "url": str(r.url),
-                    "status_code": r.status_code,
-                    "content_type": r.headers.get("content-type", ""),
-                    "char_count": len(text),
-                    "truncated": truncated,
-                    "text": text[:max_chars] + ("\n\n[...truncated]" if truncated else ""),
-                }
-            )
+            return {
+                "url": str(r.url),
+                "status_code": r.status_code,
+                "content_type": r.headers.get("content-type", ""),
+                "char_count": len(text),
+                "truncated": truncated,
+                "text": text[:max_chars] + ("\n\n[...truncated]" if truncated else ""),
+            }
     except Exception as e:
         fb = await _browser_fallback(f"exception: {type(e).__name__}")
-        return fb or JSONResponse({"error": str(e)[:200], "url": url}, status_code=502)
+        return fb or {"error": str(e)[:200], "url": url}
 
 
 @mcp.tool()
 async def web_search(query: str, num_results: int = 5, time_range: str = "any") -> dict[str, Any]:
-    return await call_json_route(
-        web_search_endpoint,
-        {"query": query, "num_results": num_results, "time_range": time_range},
-    )
+    """Search the web. Returns title, URL, snippet for top N results.
+
+    Use for current events or factual lookups beyond training data.
+    """
+    return await _search_payload(query, num_results, time_range, "general")
 
 
 @mcp.tool()
 async def news_search(query: str, num_results: int = 5) -> dict[str, Any]:
-    return await call_json_route(news_search_endpoint, {"query": query, "num_results": num_results})
+    """Search recent news articles. Biased toward news sources and recent results."""
+    return await _search_payload(query, num_results, "week", "news")
 
 
 @mcp.tool()
 async def web_fetch(url: str, max_chars: int = 50000) -> dict[str, Any]:
-    return await call_json_route(web_fetch_endpoint, {"url": url, "max_chars": max_chars})
+    """Fetch the text content of a URL (HTML stripped, max 2MB).
+
+    Refuses localhost and private addresses.
+    """
+    return await _fetch_payload(url, max_chars)
 
 
 def main() -> None:
@@ -527,7 +459,6 @@ def main() -> None:
 
 
 bind_native_context(mcp)
-align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     main()

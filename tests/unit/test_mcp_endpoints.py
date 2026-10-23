@@ -252,32 +252,17 @@ class TestBackendModelHintRouting:
         )
 
 
-class TestWhisperRejectsUnknownArguments:
-    """The dispatcher used to filter unknown keys and run the call without them, so the manifest's
-    old `audio_path` made the tool transcribe the latest upload instead of the named file."""
+class TestWhisperToolSchema:
+    """The old manifest advertised `audio_path`; the native schema must name the parameter the
+    function actually takes, or a model transcribes the latest upload instead of the named file."""
 
-    def test_unknown_key_is_a_structured_400_naming_the_accepted_keys(self):
+    def test_schema_names_the_parameter_the_function_takes(self):
+        import asyncio
+
         pytest.importorskip("faster_whisper")
-        from starlette.testclient import TestClient
+        from portal.modules.media.tools import whisper_mcp
 
-        with TestClient(get_whisper_app()) as c:
-            r = c.post("/tools/transcribe_audio", json={"arguments": {"audio_path": "/x.wav"}})
-        assert r.status_code == 400
-        err = r.json()["error"]
-        assert "audio_path" in err and "file_path" in err
-
-    def test_manifest_names_the_parameter_the_function_takes(self):
-        import json
-        from pathlib import Path
-
-        manifest = json.loads(
-            (
-                Path(__file__).resolve().parents[2]
-                / "config/inference/tools_manifest_whisper_mcp.json"
-            ).read_text()
-        )
-        params = {t["name"]: set(t["parameters"]["properties"]) for t in manifest}
-        assert (
-            "file_path" in params["transcribe_audio"]
-            and "audio_path" not in params["transcribe_audio"]
-        )
+        tools = {tool.name: tool for tool in asyncio.run(whisper_mcp.mcp.list_tools())}
+        props = set(tools["transcribe_audio"].input_schema["properties"])
+        assert props == {"file_path", "language"}
+        assert "audio_path" not in props

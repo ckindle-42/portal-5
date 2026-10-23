@@ -17,7 +17,6 @@ from mcp.server import MCPServer
 from starlette.responses import JSONResponse
 
 from portal.platform.mcp_host.eval_scope import bind_native_context
-from portal.platform.mcp_host.tool_support import align_native_tools
 
 logger = logging.getLogger(__name__)
 
@@ -43,61 +42,12 @@ def _ensure_canonical():
 
 # ── Tool Manifest ────────────────────────────────────────────────────────────
 
-TOOLS_MANIFEST = [
-    {
-        "name": "wiki_search",
-        "description": "Search the canonical knowledge layer by keyword. Returns matching units with citations.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "query": {"type": "string", "description": "Search query (keyword or phrase)"},
-                "top_k": {"type": "integer", "description": "Max results (default 10)"},
-            },
-            "required": ["query"],
-        },
-    },
-    {
-        "name": "wiki_get_unit",
-        "description": "Get a specific knowledge unit by ID with full content and citations.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "unit_id": {
-                    "type": "string",
-                    "description": "The unit ID (e.g. 'unit-T1190-signature')",
-                },
-            },
-            "required": ["unit_id"],
-        },
-    },
-    {
-        "name": "wiki_explain",
-        "description": "Explain something by searching the canonical layer and returning a cited answer.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "What to explain (e.g. 'T1003.006 windows telemetry signature')",
-                },
-            },
-            "required": ["query"],
-        },
-    },
-]
-
-
 # ── HTTP Routes ──────────────────────────────────────────────────────────────
 
 
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request):
     return JSONResponse({"status": "ok", "service": "wiki-mcp", "port": _port})
-
-
-@mcp.custom_route("/tools", methods=["GET"])
-async def list_tools(request):
-    return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
 # ── Tool Implementations ─────────────────────────────────────────────────────
@@ -156,7 +106,6 @@ def wiki_explain(query: str) -> dict[str, Any]:
 # ── Serve ────────────────────────────────────────────────────────────────────
 
 bind_native_context(mcp)
-align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     mcp.run(transport="streamable-http", host="0.0.0.0", port=_port)

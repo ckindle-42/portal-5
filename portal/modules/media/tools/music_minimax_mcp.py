@@ -19,10 +19,8 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from portal.modules.media.tools._admission import admit
-from portal.platform.data_loader import load_data
 from portal.platform.mcp_host.eval_scope import bind_native_context
 from portal.platform.mcp_host.owui_files import publish_file_sync
-from portal.platform.mcp_host.tool_support import align_native_tools
 
 port = int(os.getenv("MUSIC_MINIMAX_MCP_PORT", "8912"))
 mcp = MCPServer("music-minimax")
@@ -49,39 +47,6 @@ MAX_JOB_RECORDS = 50
 @_route("/health", methods=["GET"])
 async def health_check(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "music-minimax-mcp"})
-
-
-TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_music_minimax_mcp")
-
-
-@_route("/tools", methods=["GET"])
-async def list_tools(request: Request) -> JSONResponse:
-    return JSONResponse({"tools": TOOLS_MANIFEST})
-
-
-@_route("/tools/minimax_generate", methods=["POST"])
-async def minimax_generate_endpoint(request: Request) -> JSONResponse:
-    args = (await request.json()).get("arguments", {})
-    return JSONResponse(
-        await minimax_generate(
-            prompt=args.get("prompt", ""),
-            lyrics=args.get("lyrics", "[Instrumental]"),
-            seconds=float(args.get("seconds", 60.0)),
-            steps=int(args.get("steps", 30)),
-            seed=args.get("seed"),
-        )
-    )
-
-
-@_route("/tools/minimax_status", methods=["POST"])
-async def minimax_status_endpoint(request: Request) -> JSONResponse:
-    args = (await request.json()).get("arguments", {})
-    return JSONResponse(await minimax_status(job_id=args.get("job_id", "")))
-
-
-@_route("/tools/minimax_models", methods=["POST"])
-async def minimax_models_endpoint(request: Request) -> JSONResponse:
-    return JSONResponse(await minimax_models())
 
 
 def _cleanup_old_music_files() -> None:
@@ -289,7 +254,6 @@ async def minimax_models() -> dict[str, Any]:
 
 
 bind_native_context(mcp)
-align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     mcp.run(transport="streamable-http", host="0.0.0.0", port=port)

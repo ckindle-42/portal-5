@@ -163,42 +163,210 @@ def test_browser_is_ide_only() -> None:
         )
 
 
-def test_pipeline_exposed_native_tools_match_rest_manifests(monkeypatch) -> None:
+NATIVE_TOOL_NAMES = {
+    "music-minimax": ["minimax_generate", "minimax_models", "minimax_status"],
+    "mflux": ["edit_image", "generate_image"],
+    "video_mlx": ["animate_image", "generate_video"],
+    "documents": [
+        "convert_document",
+        "create_excel",
+        "create_powerpoint",
+        "create_word_document",
+        "export_pdf",
+        "list_generated_files",
+        "prepare_embed_image",
+        "read_excel",
+        "read_pdf",
+        "read_powerpoint",
+        "read_word_document",
+    ],
+    "execution": [
+        "execute_bash",
+        "execute_nodejs",
+        "execute_powershell",
+        "execute_python",
+        "list_sessions",
+        "reset_session",
+        "sandbox_status",
+    ],
+    "whisper": ["transcribe_audio", "transcribe_with_speakers"],
+    "tts": ["clone_voice", "list_voices", "register_voice", "speak"],
+    "security": ["classify_vulnerability", "lab_perception"],
+    "memory": [
+        "clear_memories",
+        "entity_timeline",
+        "forget",
+        "graph_recall",
+        "link",
+        "list_memories",
+        "neighbors",
+        "recall",
+        "remember",
+    ],
+    "rag": [
+        "kb_ingest",
+        "kb_list",
+        "kb_optimize",
+        "kb_restore",
+        "kb_search",
+        "kb_search_all",
+        "kb_versions",
+    ],
+    "research": ["news_search", "web_fetch", "web_search"],
+    "mlx_transcribe": ["transcribe_audio", "transcribe_with_speakers"],
+    "cad_render": [
+        "cad_build",
+        "cad_execute",
+        "cad_finalize",
+        "cad_find_holes",
+        "cad_measure",
+        "cad_render",
+        "convert_cad",
+        "generate_part",
+        "generate_scad",
+        "render_mesh",
+        "render_openscad",
+    ],
+    "pipeline": [
+        "arm_queue_task",
+        "explore_repository",
+        "get_loaded_models",
+        "get_metrics_summary",
+        "get_pipeline_status",
+        "get_workspace_recommendation",
+        "list_directory",
+        "list_workspaces",
+        "read_text_file",
+        "search_files",
+        "trigger_backend_warmup",
+        "write_file",
+    ],
+    "mitre": [
+        "mitre_data_sources_for_technique",
+        "mitre_detections_for_technique",
+        "mitre_technique_lookup",
+        "mitre_techniques_list",
+    ],
+    "detections": [
+        "spl_diff_hypothesis",
+        "spl_explain_detection",
+        "spl_search_library",
+        "spl_techniques_covered",
+        "spl_validate_syntax",
+    ],
+    "wiki": ["wiki_explain", "wiki_get_unit", "wiki_search"],
+    "vulnintel": [
+        "check_kev",
+        "get_epss",
+        "ics_advisories",
+        "lookup_cve",
+        "lookup_ioc",
+        "scan_dependencies",
+        "triage_cve",
+    ],
+    "icsot": [
+        "asset_inventory",
+        "correlate_advisories",
+        "dissect_pcap",
+        "list_ics_protocols",
+    ],
+    "compliance": [
+        "compliance_analyze",
+        "compliance_answers",
+        "compliance_ask",
+        "compliance_bundle",
+        "compliance_change_impact",
+        "compliance_compare",
+        "compliance_conflicts",
+        "compliance_context",
+        "compliance_correct",
+        "compliance_coverage",
+        "compliance_draft_revisions",
+        "compliance_flexibility",
+        "compliance_gaps",
+        "compliance_impact",
+        "compliance_ingest",
+        "compliance_intentionality",
+        "compliance_kb_search",
+        "compliance_links",
+        "compliance_mappings",
+        "compliance_note",
+        "compliance_notes",
+        "compliance_orphans",
+        "compliance_prospective",
+        "compliance_read",
+        "compliance_requirement",
+        "compliance_review_decide",
+        "compliance_review_decide_batch",
+        "compliance_review_list",
+        "compliance_route",
+        "compliance_scenario",
+        "compliance_scope",
+        "compliance_search",
+        "compliance_sources",
+        "compliance_standing_questions",
+        "compliance_timeline",
+        "compliance_trace",
+        "lookup_control",
+        "map_frameworks",
+        "nerc_cip_currency",
+        "nerc_cip_requirement",
+        "patch_evidence",
+        "refresh_catalogs",
+        "search_controls",
+    ],
+    "detection": [
+        "compile_yara",
+        "convert_sigma",
+        "query_splunk",
+        "query_windows_events",
+        "scan_yara",
+        "validate_sigma",
+    ],
+    "data": ["attach_source", "list_session", "profile_table", "run_sql"],
+    "netforensics": ["conversations", "extract_fields", "protocol_hierarchy", "recon_scan"],
+    "review": [
+        "review_cancel",
+        "review_doctor",
+        "review_explain",
+        "review_queue",
+        "review_result",
+        "review_start",
+        "review_status",
+        "review_verdict",
+    ],
+}
+
+
+def test_pipeline_exposed_native_tools_are_complete() -> None:
     pytest.importorskip("mcp")
+    monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setenv("SECURITY_MCP_PREWARM", "0")
-    from portal.platform.mcp_host.eval_scope import TOOL_TIMEOUT_META_KEY
+    try:
+        config = load_portal_config()
+        exposed = {server.id for server in config.mcp_fleet if server.expose_to_pipeline}
+        assert exposed == set(NATIVE_MODULES) == set(NATIVE_TOOL_NAMES)
 
-    config = load_portal_config()
-    exposed = {server.id for server in config.mcp_fleet if server.expose_to_pipeline}
-    assert exposed == set(NATIVE_MODULES)
+        for server_id, module_path in NATIVE_MODULES.items():
+            module = _load(module_path)
+            tools = asyncio.run(module.mcp.list_tools())
+            names = sorted(tool.name for tool in tools)
+            assert names == NATIVE_TOOL_NAMES[server_id], server_id
+            for tool in tools:
+                assert tool.description, (server_id, tool.name)
+                assert tool.input_schema.get("type") == "object", (server_id, tool.name)
+                assert tool.output_schema is not None, (server_id, tool.name)
+    finally:
+        monkeypatch.undo()
 
-    for server_id, module_path in NATIVE_MODULES.items():
-        if module_path is None:
-            spec = importlib.util.spec_from_file_location(
-                "portal_mlx_transcribe_parity", REPO / "scripts" / "mlx-transcribe.py"
-            )
-            assert spec is not None and spec.loader is not None
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-        else:
-            module = importlib.reload(importlib.import_module(module_path))
 
-        manifest = module.TOOLS_MANIFEST
-        if isinstance(manifest, dict):
-            manifest = manifest["tools"]
-        rows = [entry.get("function", entry) for entry in manifest]
-        native = asyncio.run(module.mcp.list_tools())
-        native_by_name = {tool.name: tool for tool in native}
-        assert set(native_by_name) == {entry["name"] for entry in rows}, server_id
-
-        for entry in rows:
-            tool = native_by_name[entry["name"]]
-            assert tool.description == entry.get("description", ""), (server_id, tool.name)
-            assert tool.input_schema == entry.get("parameters", entry.get("inputSchema", {})), (
-                server_id,
-                tool.name,
-            )
-            assert tool.output_schema is not None, (server_id, tool.name)
-            expected_timeout = entry.get("timeout_s")
-            actual_timeout = (tool.meta or {}).get(TOOL_TIMEOUT_META_KEY)
-            assert actual_timeout == expected_timeout, (server_id, tool.name)
+def _load(module_path: str | None):
+    if module_path is None:
+        spec = importlib.util.spec_from_file_location(
+            "portal_mlx_transcribe_contract", REPO / "scripts" / "mlx-transcribe.py"
+        )
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+    return importlib.reload(importlib.import_module(module_path))

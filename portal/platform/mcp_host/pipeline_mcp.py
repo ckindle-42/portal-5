@@ -27,7 +27,6 @@ from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
 from portal.platform.mcp_host.eval_scope import bind_native_context
-from portal.platform.mcp_host.tool_support import align_native_tools
 
 logger = logging.getLogger(__name__)
 
@@ -60,8 +59,7 @@ class _PipelineMCPServer(MCPServer):
     The SDK's ``custom_route()`` has no return annotation upstream, so mypy
     sees the decorator as untyped and flags every routed handler with
     untyped-decorator. Subclassing to add the annotation keeps the literal
-    ``@mcp.custom_route(...)`` decorators that tests/unit/test_pipeline_mcp_rest.py
-    parity-checks (a rename to a typed alias would silently drop those routes).
+    ``@mcp.custom_route(...)`` decorators.
     """
 
     def custom_route(
@@ -89,19 +87,6 @@ async def health_check(request: Any) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "pipeline-mcp", "port": PORT})
 
 
-# ── REST discovery manifest (consumed by portal.platform.inference ToolRegistry) ────────
-# The pipeline discovers tools via GET /tools and dispatches via
-# POST /tools/{name} with body {"arguments": {...}, "request_id": "..."}.
-# This manifest MUST stay in sync with the @mcp.tool() functions below and the
-# POST /tools/{name} routes — tests/unit/test_pipeline_mcp_rest.py enforces parity.
-TOOLS_MANIFEST = load_data("config/inference", "pipeline_mcp_tools_manifest")
-
-
-@mcp.custom_route("/tools", methods=["GET"])
-async def list_tools_manifest(request: Any) -> JSONResponse:
-    return JSONResponse(TOOLS_MANIFEST)
-
-
 # ── Tools ────────────────────────────────────────────────────────────────────
 
 
@@ -123,11 +108,6 @@ async def get_pipeline_status() -> dict[str, Any]:
     all backends are healthy.
     """
     return await _impl_get_pipeline_status()
-
-
-@mcp.custom_route("/tools/get_pipeline_status", methods=["POST"])
-async def get_pipeline_status_endpoint(request: Any) -> JSONResponse:
-    return JSONResponse(await _impl_get_pipeline_status())
 
 
 async def _impl_list_workspaces(filter: str = "") -> list[dict[str, Any]]:
@@ -166,13 +146,6 @@ async def list_workspaces(filter: str = "") -> list[dict[str, Any]]:
     return await _impl_list_workspaces(filter)
 
 
-@mcp.custom_route("/tools/list_workspaces", methods=["POST"])
-async def list_workspaces_endpoint(request: Any) -> JSONResponse:
-    body = await request.json()
-    args = body.get("arguments", {})
-    return JSONResponse(await _impl_list_workspaces(args.get("filter", "")))
-
-
 async def _impl_get_loaded_models() -> list[dict[str, Any]]:
     async with httpx.AsyncClient(timeout=10) as client:
         try:
@@ -199,11 +172,6 @@ async def get_loaded_models() -> list[dict[str, Any]]:
     you need is warm (fast response) or cold (will take time to load).
     """
     return await _impl_get_loaded_models()
-
-
-@mcp.custom_route("/tools/get_loaded_models", methods=["POST"])
-async def get_loaded_models_endpoint(request: Any) -> JSONResponse:
-    return JSONResponse(await _impl_get_loaded_models())
 
 
 async def _impl_get_metrics_summary() -> dict[str, Any]:
@@ -238,11 +206,6 @@ async def get_metrics_summary() -> dict[str, Any]:
     should increment after a workspace request that invokes execute_bash).
     """
     return await _impl_get_metrics_summary()
-
-
-@mcp.custom_route("/tools/get_metrics_summary", methods=["POST"])
-async def get_metrics_summary_endpoint(request: Any) -> JSONResponse:
-    return JSONResponse(await _impl_get_metrics_summary())
 
 
 async def _impl_get_workspace_recommendation(task: str) -> dict[str, Any]:
@@ -348,13 +311,6 @@ async def get_workspace_recommendation(task: str) -> dict[str, Any]:
     Returns the recommended workspace ID and model, with reasoning.
     """
     return await _impl_get_workspace_recommendation(task)
-
-
-@mcp.custom_route("/tools/get_workspace_recommendation", methods=["POST"])
-async def get_workspace_recommendation_endpoint(request: Any) -> JSONResponse:
-    body = await request.json()
-    args = body.get("arguments", {})
-    return JSONResponse(await _impl_get_workspace_recommendation(args.get("task", "")))
 
 
 async def _impl_explore_repository(query: str, max_turns: int = 6) -> dict[str, Any]:
@@ -505,17 +461,6 @@ async def explore_repository(query: str, max_turns: int = 6) -> dict[str, Any]:
     return await _impl_explore_repository(query, max_turns)
 
 
-@mcp.custom_route("/tools/explore_repository", methods=["POST"])
-async def explore_repository_endpoint(request: Any) -> JSONResponse:
-    body = await request.json()
-    args = body.get("arguments", {})
-    query = args.get("query", "")
-    max_turns = int(args.get("max_turns", 6))
-    if not query:
-        return JSONResponse({"error": "query required", "citations": []}, status_code=400)
-    return JSONResponse(await _impl_explore_repository(query, max_turns))
-
-
 async def _impl_trigger_backend_warmup(workspace: str = "codingagentic") -> dict[str, Any]:
     warmup_payload = {
         "model": workspace,
@@ -552,13 +497,6 @@ async def trigger_backend_warmup(workspace: str = "codingagentic") -> dict[str, 
     return await _impl_trigger_backend_warmup(workspace)
 
 
-@mcp.custom_route("/tools/trigger_backend_warmup", methods=["POST"])
-async def trigger_backend_warmup_endpoint(request: Any) -> JSONResponse:
-    body = await request.json()
-    args = body.get("arguments", {})
-    return JSONResponse(await _impl_trigger_backend_warmup(args.get("workspace", "codingagentic")))
-
-
 def _arm_queue_parameter_error(parameters: Any) -> str | None:
     if parameters is None:
         return None
@@ -568,19 +506,6 @@ def _arm_queue_parameter_error(parameters: Any) -> str | None:
         if not isinstance(key, str) or not isinstance(value, str):
             return "parameters must be an object of strings"
     return None
-
-
-def _arm_queue_argument_error(args: Any) -> str | None:
-    if not isinstance(args, dict):
-        return "arguments must be an object"
-    for name in ("task_id", "discipline", "template_key"):
-        value = args.get(name)
-        if not isinstance(value, str) or not value.strip():
-            return f"{name} must be a non-empty string"
-    source_dir = args.get("source_dir")
-    if source_dir is not None and not isinstance(source_dir, str):
-        return "source_dir must be a string"
-    return _arm_queue_parameter_error(args.get("parameters"))
 
 
 async def _impl_arm_queue_task(
@@ -630,25 +555,6 @@ async def arm_queue_task(
             Relative template paths resolve against it. Defaults to the uploads directory.
     """
     return await _impl_arm_queue_task(task_id, discipline, template_key, parameters, source_dir)
-
-
-@mcp.custom_route("/tools/arm_queue_task", methods=["POST"])
-async def arm_queue_task_endpoint(request: Any) -> JSONResponse:
-    body = await request.json()
-    args = body.get("arguments", {}) if isinstance(body, dict) else None
-    error = _arm_queue_argument_error(args)
-    if error is not None:
-        return JSONResponse({"error": error}, status_code=422)
-    assert isinstance(args, dict)
-    return JSONResponse(
-        await _impl_arm_queue_task(
-            cast(str, args["task_id"]),
-            cast(str, args["discipline"]),
-            cast(str, args["template_key"]),
-            cast("dict[str, str] | None", args.get("parameters")),
-            cast("str | None", args.get("source_dir")),
-        )
-    )
 
 
 # ── Filesystem tools (host-native; used by auto-coding-agentic via pipeline) ──
@@ -710,19 +616,6 @@ async def read_text_file(
     return _impl_read_text_file(path, start_line, end_line)
 
 
-@mcp.custom_route("/tools/read_text_file", methods=["POST"])
-async def read_text_file_endpoint(request: Any) -> JSONResponse:
-    body = await request.json()
-    args = body.get("arguments", {})
-    return JSONResponse(
-        _impl_read_text_file(
-            args.get("path", ""),
-            args.get("start_line"),
-            args.get("end_line"),
-        )
-    )
-
-
 def _impl_list_directory(path: str) -> dict[str, Any]:
     try:
         resolved = _resolve_path(path)
@@ -747,13 +640,6 @@ async def list_directory(path: str) -> dict[str, Any]:
         path: Absolute or repo-relative directory path.
     """
     return _impl_list_directory(path)
-
-
-@mcp.custom_route("/tools/list_directory", methods=["POST"])
-async def list_directory_endpoint(request: Any) -> JSONResponse:
-    body = await request.json()
-    args = body.get("arguments", {})
-    return JSONResponse(_impl_list_directory(args.get("path", ".")))
 
 
 def _impl_search_files(
@@ -811,20 +697,6 @@ async def search_files(
     return _impl_search_files(pattern, path, glob, max_results)
 
 
-@mcp.custom_route("/tools/search_files", methods=["POST"])
-async def search_files_endpoint(request: Any) -> JSONResponse:
-    body = await request.json()
-    args = body.get("arguments", {})
-    return JSONResponse(
-        _impl_search_files(
-            args.get("pattern", ""),
-            args.get("path", ""),
-            args.get("glob", "**/*"),
-            int(args.get("max_results", 50)),
-        )
-    )
-
-
 def _impl_write_file(path: str, content: str) -> dict[str, Any]:
     try:
         resolved = _resolve_path(path)
@@ -849,13 +721,6 @@ async def write_file(path: str, content: str) -> dict[str, Any]:
         content: Full file content to write.
     """
     return _impl_write_file(path, content)
-
-
-@mcp.custom_route("/tools/write_file", methods=["POST"])
-async def write_file_endpoint(request: Any) -> JSONResponse:
-    body = await request.json()
-    args = body.get("arguments", {})
-    return JSONResponse(_impl_write_file(args.get("path", ""), args.get("content", "")))
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -992,7 +857,6 @@ def _extract_label(line: str, label: str) -> str:
 # ── Entrypoint ────────────────────────────────────────────────────────────────
 
 bind_native_context(mcp)
-align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     import uvicorn

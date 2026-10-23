@@ -21,9 +21,7 @@ from mcp.server import MCPServer
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from portal.platform.data_loader import load_data
 from portal.platform.mcp_host.eval_scope import bind_native_context
-from portal.platform.mcp_host.tool_support import align_native_tools
 
 logger = logging.getLogger(__name__)
 _port = int(os.environ.get("DETECTION_MCP_PORT") or os.environ.get("MCP_PORT", "8938"))
@@ -220,18 +218,6 @@ def query_windows_events(
         return {"error": f"live DC unavailable ({e}); requires the lab reachable"}
 
 
-TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_detection_mcp")
-
-_DISPATCH: dict[str, Any] = {
-    "convert_sigma": convert_sigma,
-    "validate_sigma": validate_sigma,
-    "compile_yara": compile_yara,
-    "scan_yara": scan_yara,
-    "query_splunk": query_splunk,
-    "query_windows_events": query_windows_events,
-}
-
-
 @_route("/health", methods=["GET"])
 async def health_check(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "detection-mcp", "port": _port})
@@ -249,30 +235,7 @@ async def ready(request: Request) -> JSONResponse:
     return JSONResponse({"port": _port, "capabilities": caps})
 
 
-@_route("/tools", methods=["GET"])
-async def list_tools(request: Request) -> JSONResponse:
-    return JSONResponse({"tools": TOOLS_MANIFEST})
-
-
-@_route("/tools/{tool_name}", methods=["POST"])
-async def invoke_tool(request: Request) -> JSONResponse:
-    name = request.path_params.get("tool_name", "")
-    fn = _DISPATCH.get(name)
-    if fn is None:
-        return JSONResponse({"error": f"unknown tool {name}"}, status_code=404)
-    try:
-        body = await request.json()
-    except Exception:
-        body = {}
-    args = body.get("arguments", body) if isinstance(body, dict) else {}
-    try:
-        return JSONResponse(fn(**args))
-    except TypeError as e:
-        return JSONResponse({"error": f"bad params: {e}"}, status_code=400)
-
-
 bind_native_context(mcp)
-align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     mcp.run(transport="streamable-http", host="0.0.0.0", port=_port)

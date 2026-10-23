@@ -108,8 +108,8 @@ description to a workspace, `trigger_backend_warmup` pre-loads one, and
 `write_file`, `list_directory`, and `search_files` operate on the repo tree with
 explicit allow-roots. The tools are reachable two ways: directly over MCP
 streamable-HTTP from the IDE, or through the pipeline ToolRegistry, which discovers
-them via GET /tools and dispatches POST /tools/{name} using the `pipeline` entry in
-`MCP_SERVERS` (`MCP_PIPELINE_URL` overrides the base URL).
+and calls them over native MCP using the `pipeline` entry in `MCP_SERVERS`
+(`MCP_PIPELINE_URL` overrides the base URL).
 
 ## Why
 

@@ -333,7 +333,7 @@ def _wraps_result(output_schema: dict[str, Any] | None) -> bool:
 
 
 def map_tool_result(result: dict[str, Any], output_schema: dict[str, Any] | None = None) -> Any:
-    """Map a CallToolResult to the raw JSON value returned by REST tool routes."""
+    """Map a CallToolResult to the tool's raw JSON value."""
     if "structuredContent" in result:
         structured = result["structuredContent"]
         # A list/scalar return travels as {"result": value} with a matching outputSchema.

@@ -403,7 +403,6 @@ mcp_fleet:
     name: portal-documents
     port: 8913
     expose_to_pipeline: true
-    pipeline_client: native
     expose_to_ide: true
     compose_service: mcp-documents
   - id: execution
@@ -411,7 +410,6 @@ mcp_fleet:
     name: portal-sandbox
     port: 8914
     expose_to_pipeline: true
-    pipeline_client: native
     expose_to_ide: true
     aliases: ["sandbox"]
     compose_service: mcp-sandbox
@@ -427,7 +425,6 @@ mcp_fleet:
     name: portal-tts
     port: 8916
     expose_to_pipeline: true
-    pipeline_client: native
     expose_to_ide: true
     compose_service: mcp-tts
   - id: security
@@ -435,7 +432,6 @@ mcp_fleet:
     name: portal-security
     port: 8919
     expose_to_pipeline: true
-    pipeline_client: native
     expose_to_ide: true
     compose_service: mcp-security
   - id: memory
@@ -443,7 +439,6 @@ mcp_fleet:
     name: portal-memory
     port: 8920
     expose_to_pipeline: true
-    pipeline_client: native
     expose_to_ide: true
     compose_service: mcp-memory
   - id: rag
@@ -451,7 +446,6 @@ mcp_fleet:
     name: portal-rag
     port: 8921
     expose_to_pipeline: true
-    pipeline_client: native
     expose_to_ide: true
     compose_service: mcp-rag
   - id: research
@@ -482,7 +476,6 @@ mcp_fleet:
     name: portal-cad-render
     port: 8926
     expose_to_pipeline: true
-    pipeline_client: native
     expose_to_ide: false
     compose_service: mcp-cad-render
   - id: proxmox
@@ -497,7 +490,6 @@ mcp_fleet:
     name: portal-pipeline
     port: 8928
     expose_to_pipeline: true
-    pipeline_client: native
     expose_to_ide: true
     host_native: true
     launchd_label: com.portal5.pipeline-mcp
@@ -507,7 +499,6 @@ mcp_fleet:
     name: portal-mitre
     port: 8929
     expose_to_pipeline: true
-    pipeline_client: native
     expose_to_ide: true
     host_native: true
     launchd_label: com.portal5.mitre-mcp
@@ -517,7 +508,6 @@ mcp_fleet:
     name: portal-detections
     port: 8932
     expose_to_pipeline: true
-    pipeline_client: native
     expose_to_ide: true
     host_native: true
     launchd_label: com.portal5.detections-mcp
@@ -527,7 +517,6 @@ mcp_fleet:
     name: portal-wiki
     port: 8931
     expose_to_pipeline: true
-    pipeline_client: native
     expose_to_ide: true
     host_native: true
     launchd_label: com.portal5.wiki-mcp
@@ -556,7 +545,6 @@ mcp_fleet:
     name: portal-icsot
     port: 8936
     expose_to_pipeline: true
-    pipeline_client: native
     expose_to_ide: true
     host_native: true
     launchd_label: com.portal5.icsot-mcp
@@ -566,7 +554,6 @@ mcp_fleet:
     name: portal-compliance
     port: 8937
     expose_to_pipeline: true
-    pipeline_client: native
     expose_to_ide: true
     host_native: true
     launchd_label: com.portal5.compliance-mcp
@@ -576,7 +563,6 @@ mcp_fleet:
     name: portal-detection
     port: 8938
     expose_to_pipeline: true
-    pipeline_client: native
     expose_to_ide: true
     host_native: true
     launchd_label: com.portal5.detection-mcp
@@ -594,7 +580,6 @@ mcp_fleet:
     name: portal-data
     port: 8939
     expose_to_pipeline: true
-    pipeline_client: native
     expose_to_ide: true
     host_native: true
     launchd_label: com.portal5.data-mcp
@@ -604,7 +589,6 @@ mcp_fleet:
     name: portal-netforensics
     port: 8941
     expose_to_pipeline: true
-    pipeline_client: native
     expose_to_ide: true
     host_native: true
     launchd_label: com.portal5.netforensics-mcp
@@ -614,7 +598,6 @@ mcp_fleet:
     name: portal-review
     port: 8943
     expose_to_pipeline: true
-    pipeline_client: native
     expose_to_ide: true
     host_native: true
     launchd_label: com.portal5.review-mcp

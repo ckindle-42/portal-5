@@ -25,9 +25,7 @@ from mcp.server import MCPServer
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from portal.platform.data_loader import load_data
 from portal.platform.mcp_host.eval_scope import bind_native_context
-from portal.platform.mcp_host.tool_support import align_native_tools
 
 if TYPE_CHECKING:
     import httpx
@@ -403,17 +401,6 @@ def triage_cve(cve_id: str, depth: str = "standard") -> dict[str, Any]:
 
 
 # ── REST surface (portal-pipeline tool_registry) ─────────────────────────────
-TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_vulnintel_mcp")
-
-_DISPATCH: dict[str, Any] = {
-    "lookup_cve": lookup_cve,
-    "get_epss": get_epss,
-    "check_kev": check_kev,
-    "scan_dependencies": scan_dependencies,
-    "ics_advisories": ics_advisories,
-    "lookup_ioc": lookup_ioc,
-    "triage_cve": triage_cve,
-}
 
 
 @_route("/health", methods=["GET"])
@@ -426,30 +413,7 @@ async def ready(request: Request) -> JSONResponse:
     return JSONResponse({"port": _port, "audit_log": str(_AUDIT)})
 
 
-@_route("/tools", methods=["GET"])
-async def list_tools(request: Request) -> JSONResponse:
-    return JSONResponse({"tools": TOOLS_MANIFEST})
-
-
-@_route("/tools/{tool_name}", methods=["POST"])
-async def invoke_tool(request: Request) -> JSONResponse:
-    name = request.path_params.get("tool_name", "")
-    fn = _DISPATCH.get(name)
-    if fn is None:
-        return JSONResponse({"error": f"unknown tool {name}"}, status_code=404)
-    try:
-        body = await request.json()
-    except Exception:
-        body = {}
-    args = body.get("arguments", body) if isinstance(body, dict) else {}
-    try:
-        return JSONResponse(fn(**args))
-    except TypeError as e:
-        return JSONResponse({"error": f"bad params: {e}"}, status_code=400)
-
-
 bind_native_context(mcp)
-align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     mcp.run(transport="streamable-http", host="0.0.0.0", port=_port)

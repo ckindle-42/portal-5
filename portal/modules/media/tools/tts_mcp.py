@@ -27,10 +27,8 @@ from mcp.server import MCPServer
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from portal.platform.data_loader import load_data
 from portal.platform.mcp_host.eval_scope import bind_native_context
 from portal.platform.mcp_host.owui_files import publish_file
-from portal.platform.mcp_host.tool_support import align_native_tools
 from portal.platform.mcp_host.workspace import (
     get_generated_dir,
     get_uploads_dir,
@@ -207,45 +205,6 @@ async def openai_models(request: Request) -> JSONResponse:
     return JSONResponse({"object": "list", "data": []})
 
 
-TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_tts_mcp")
-
-
-@_route("/tools", methods=["GET"])
-async def list_tools(request: Request) -> JSONResponse:
-    return JSONResponse({"tools": TOOLS_MANIFEST})
-
-
-@_route("/tools/speak", methods=["POST"])
-async def speak_endpoint(request: Request) -> JSONResponse:
-    a = (await request.json()).get("arguments", {})
-    return JSONResponse(await speak(text=a.get("text", ""), voice=a.get("voice", "af_heart")))
-
-
-@_route("/tools/clone_voice", methods=["POST"])
-async def clone_voice_endpoint(request: Request) -> JSONResponse:
-    a = (await request.json()).get("arguments", {})
-    return JSONResponse(
-        await clone_voice(reference_audio=a.get("reference_audio", ""), text=a.get("text", ""))
-    )
-
-
-@_route("/tools/register_voice", methods=["POST"])
-async def register_voice_endpoint(request: Request) -> JSONResponse:
-    a = (await request.json()).get("arguments", {})
-    return JSONResponse(
-        await register_voice(
-            name=a.get("name", ""),
-            reference_audio=a.get("reference_audio", ""),
-            reference_text=a.get("reference_text", ""),
-        )
-    )
-
-
-@_route("/tools/list_voices", methods=["POST"])
-async def list_voices_endpoint(request: Request) -> JSONResponse:
-    return JSONResponse(await list_voices())
-
-
 @mcp.tool()
 async def speak(text: str, voice: str = "af_heart") -> dict[str, Any]:
     """
@@ -329,7 +288,6 @@ async def list_voices() -> dict[str, Any]:
 
 
 bind_native_context(mcp)
-align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     mcp.run(transport="streamable-http", host="0.0.0.0", port=port)

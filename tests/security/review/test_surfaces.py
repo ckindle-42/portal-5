@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -30,18 +29,20 @@ def _runtime(tmp_path: Path) -> ReviewRuntime:
     )
 
 
-def test_manifest_matches_review_dispatch() -> None:
-    manifest_path = (
-        Path(__file__).resolve().parents[3]
-        / "config"
-        / "security"
-        / ("tools_manifest_review_mcp.json")
-    )
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    names = {str(item["name"]) for item in manifest}
-    assert names == set(review_mcp._DISPATCH)
-    assert names == {str(item["name"]) for item in review_mcp.TOOLS_MANIFEST}
-    assert len(names) == 8
+def test_every_review_surface_is_registered_natively() -> None:
+    import asyncio
+
+    names = {tool.name for tool in asyncio.run(review_mcp.mcp.list_tools())}
+    assert names == {
+        "review_start",
+        "review_status",
+        "review_result",
+        "review_cancel",
+        "review_verdict",
+        "review_queue",
+        "review_explain",
+        "review_doctor",
+    }
 
 
 def test_mcp_start_status_and_result_use_the_durable_runtime(

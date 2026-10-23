@@ -25,11 +25,9 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from portal.modules.media.tools._admission import admit
-from portal.platform.data_loader import load_data
 from portal.platform.mcp_host import assert_public_http_url, resolve_upload_path
 from portal.platform.mcp_host.eval_scope import bind_native_context
 from portal.platform.mcp_host.owui_files import publish_file
-from portal.platform.mcp_host.tool_support import align_native_tools
 from portal.platform.mcp_host.workspace import get_generated_dir
 
 port = int(os.getenv("VIDEO_MLX_MCP_PORT", "8935"))
@@ -74,14 +72,6 @@ async def health_check(request: Request) -> JSONResponse:
     return JSONResponse(
         {"status": "ok", "service": "video-mlx-generation", "models": sorted(VIDEO_MLX_MODELS)}
     )
-
-
-TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_video_mlx_mcp")
-
-
-@_route("/tools", methods=["GET"])
-async def list_tools(request: Request) -> JSONResponse:
-    return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
 async def _fetch_source_image(image_url: str) -> Path:
@@ -216,24 +206,11 @@ async def animate_image(
     )
 
 
-@_route("/tools/generate_video", methods=["POST"])
-async def generate_video_endpoint(request: Request) -> JSONResponse:
-    a = (await request.json()).get("arguments", {})
-    return JSONResponse(await generate_video(**a))
-
-
-@_route("/tools/animate_image", methods=["POST"])
-async def animate_image_endpoint(request: Request) -> JSONResponse:
-    a = (await request.json()).get("arguments", {})
-    return JSONResponse(await animate_image(**a))
-
-
 def main() -> None:
     mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
 
 
 bind_native_context(mcp)
-align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     main()

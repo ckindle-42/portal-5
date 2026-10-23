@@ -1,10 +1,12 @@
 """Test exponential backoff for tool health in ToolRegistry."""
 
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
+from portal.platform.inference import tool_registry as registry_module
+from portal.platform.inference.mcp_http import MCPHTTPError
 from portal.platform.inference.tool_registry import ToolDefinition, ToolRegistry, _backoff_seconds
 
 # ── _backoff_seconds schedule ────────────────────────────────────────────────
@@ -37,14 +39,10 @@ async def test_success_resets_backoff():
     )
     reg._tools["my_tool"] = tool
 
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {"result": "ok"}
+    async def fake_call_tool(*_a, **_k):
+        return {"content": [{"type": "text", "text": '{"result": "ok"}'}]}
 
-    mock_client = AsyncMock()
-    mock_client.post = AsyncMock(return_value=mock_response)
-
-    with patch.object(reg, "_client", return_value=mock_client):
+    with patch.object(registry_module, "call_tool", fake_call_tool):
         result = await reg.dispatch("my_tool", {})
 
     assert result == {"result": "ok"}
@@ -68,15 +66,11 @@ async def test_single_failure_schedules_30s():
     )
     reg._tools["my_tool"] = tool
 
-    mock_response = MagicMock()
-    mock_response.status_code = 503
-    mock_response.text = "service unavailable"
-
-    mock_client = AsyncMock()
-    mock_client.post = AsyncMock(return_value=mock_response)
+    async def fake_call_tool(*_a, **_k):
+        raise MCPHTTPError("MCP returned HTTP 503", status_code=503)
 
     t_before = time.time()
-    with patch.object(reg, "_client", return_value=mock_client):
+    with patch.object(registry_module, "call_tool", fake_call_tool):
         result = await reg.dispatch("my_tool", {})
 
     assert "HTTP 503" in result["error"]
@@ -103,15 +97,11 @@ async def test_three_failures_schedules_5m():
     )
     reg._tools["my_tool"] = tool
 
-    mock_response = MagicMock()
-    mock_response.status_code = 500
-    mock_response.text = "error"
-
-    mock_client = AsyncMock()
-    mock_client.post = AsyncMock(return_value=mock_response)
+    async def fake_call_tool(*_a, **_k):
+        raise MCPHTTPError("MCP returned HTTP 500", status_code=500)
 
     t_before = time.time()
-    with patch.object(reg, "_client", return_value=mock_client):
+    with patch.object(registry_module, "call_tool", fake_call_tool):
         await reg.dispatch("my_tool", {})
 
     assert tool.consecutive_failures == 3
@@ -159,14 +149,10 @@ async def test_allowed_after_backoff_window():
     )
     reg._tools["my_tool"] = tool
 
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {"result": "recovered"}
+    async def fake_call_tool(*_a, **_k):
+        return {"content": [{"type": "text", "text": '{"result": "recovered"}'}]}
 
-    mock_client = AsyncMock()
-    mock_client.post = AsyncMock(return_value=mock_response)
-
-    with patch.object(reg, "_client", return_value=mock_client):
+    with patch.object(registry_module, "call_tool", fake_call_tool):
         result = await reg.dispatch("my_tool", {})
 
     assert result == {"result": "recovered"}

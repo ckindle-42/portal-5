@@ -8,8 +8,6 @@ sources:
   section: mcp_fleet
 - type: code
   path: portal/modules/media/tools/mflux_mcp.py
-- type: code
-  path: config/inference/tools_manifest_mflux_mcp.json
 claims: []
 confidence: high
 tags:

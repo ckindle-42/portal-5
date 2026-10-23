@@ -11,28 +11,6 @@ import pytest
 from portal.platform.inference import tool_registry as tr
 
 
-class _Resp:
-    def __init__(self, status: int, payload=None) -> None:
-        self.status_code = status
-        self._payload = payload or []
-
-    def json(self):
-        return self._payload
-
-
-class _Client:
-    def __init__(self, up: dict[str, bool], hits: list[str]) -> None:
-        self._up = up
-        self._hits = hits
-
-    async def get(self, url: str):
-        sid = url.split("//")[1].split(".")[0]
-        self._hits.append(sid)
-        if not self._up[sid]:
-            raise OSError("connection refused")
-        return _Resp(200, [{"name": f"tool_{sid}", "description": "", "parameters": {}}])
-
-
 @pytest.fixture
 def setup(monkeypatch):
     clock = [1_000_000.0]  # a real epoch: the first refresh must not fall inside the TTL of t=0
@@ -44,10 +22,19 @@ def setup(monkeypatch):
     monkeypatch.setattr(tr, "TOOL_REGISTRY_RETRY_S", 30.0)
     up = {"alpha": True, "beta": False}
     hits: list[str] = []
+
+    async def fake_list_tools(_client, base_url: str, _timeout: float):
+        sid = base_url.split("//")[1].split(".")[0]
+        hits.append(sid)
+        if not up[sid]:
+            raise OSError("connection refused")
+        return [{"name": f"tool_{sid}", "description": "", "inputSchema": {}}]
+
+    monkeypatch.setattr(tr, "list_tools", fake_list_tools)
     reg = tr.ToolRegistry()
 
     async def fake_client():
-        return _Client(up, hits)
+        return object()
 
     monkeypatch.setattr(reg, "_client", fake_client)
     return SimpleNamespace(reg=reg, clock=clock, up=up, hits=hits)

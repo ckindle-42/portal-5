@@ -15,13 +15,8 @@ from mcp.server import MCPServer
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from portal.modules.security.core.perception import (
-    LabPerception,
-    OutOfScopeError,
-    default_lab_prober,
-)
+from portal.modules.security.core.perception import LabPerception, default_lab_prober
 from portal.platform.mcp_host.eval_scope import bind_native_context
-from portal.platform.mcp_host.tool_support import align_native_tools
 
 logger = logging.getLogger(__name__)
 
@@ -70,47 +65,6 @@ mcp = _TypedMCPServer(
     instructions="Vulnerability severity classification and security analysis tools",
 )
 
-TOOLS_MANIFEST = [
-    {
-        "name": "classify_vulnerability",
-        "description": (
-            "Classify a vulnerability description into severity level "
-            "(low/medium/high/critical) using CIRCL's VLAI RoBERTa model. "
-            "Returns severity label, confidence score, and all class probabilities."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string",
-                    "description": "CVE or vulnerability description text (1-3 sentences).",
-                }
-            },
-            "required": ["description"],
-        },
-    },
-    {
-        "name": "lab_perception",
-        "description": (
-            "Bounded live-state enumerator for the RBP lab (10.10.11.0/24 only). "
-            "Returns a live observation delta (services up, reachability, changed "
-            "hosts) for the given hosts. Any host outside the lab CIDR is rejected "
-            "before any probe leaves the box."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "hosts": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Lab host IPs to enumerate (must be inside 10.10.11.0/24).",
-                }
-            },
-            "required": ["hosts"],
-        },
-    },
-]
-
 
 # ── Readiness endpoint ───────────────────────────────────────────────────────
 @mcp.custom_route("/ready", methods=["GET"])
@@ -127,43 +81,6 @@ async def ready(request: Request) -> JSONResponse:
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "security-mcp", "port": _port})
-
-
-@mcp.custom_route("/tools", methods=["GET"])
-async def list_tools(request: Request) -> JSONResponse:
-    return JSONResponse({"tools": TOOLS_MANIFEST})
-
-
-@mcp.custom_route("/tools/{tool_name}", methods=["POST"])
-async def invoke_tool(request: Request) -> JSONResponse:
-    """REST dispatch endpoint used by portal-pipeline tool_registry."""
-    tool_name = request.path_params.get("tool_name", "")
-    try:
-        body: dict[str, Any] = await request.json()
-    except Exception:
-        body = {}
-    arguments: Any = body.get("arguments", body)
-    if tool_name == "classify_vulnerability":
-        try:
-            result = classify_vulnerability(**arguments)
-            return JSONResponse(result)
-        except TypeError as e:
-            return JSONResponse({"error": f"Invalid arguments: {e}"}, status_code=400)
-        except Exception as e:
-            logger.error("classify_vulnerability failed: %s", e, exc_info=True)
-            return JSONResponse({"error": str(e)}, status_code=500)
-    if tool_name == "lab_perception":
-        try:
-            result = lab_perception(**arguments)
-            return JSONResponse(result)
-        except OutOfScopeError as e:
-            return JSONResponse({"error": str(e)}, status_code=400)
-        except TypeError as e:
-            return JSONResponse({"error": f"Invalid arguments: {e}"}, status_code=400)
-        except Exception as e:
-            logger.error("lab_perception failed: %s", e, exc_info=True)
-            return JSONResponse({"error": str(e)}, status_code=500)
-    return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
 
 
 @mcp.tool()
@@ -220,7 +137,6 @@ def lab_perception(hosts: list[str]) -> dict[str, Any]:
 
 # ── Serve ────────────────────────────────────────────────────────────────────
 bind_native_context(mcp)
-align_native_tools(mcp, TOOLS_MANIFEST)
 
 
 def main() -> None:

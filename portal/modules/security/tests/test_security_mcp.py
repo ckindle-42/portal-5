@@ -221,22 +221,6 @@ class TestSecurityHealthEndpoint:
         assert "port" in data
         assert isinstance(data["port"], int)
 
-    def test_lab_perception_dispatch_rejects_non_lab_target_with_400(
-        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """The /tools/lab_perception REST dispatch branch (Slice 1.4) maps a
-        non-lab target to 400, not the generic 500 (OutOfScopeError is caught
-        before the catch-all Exception branch). Lives on the same TestClient
-        as the other health tests — StreamableHTTPSessionManager.run() can
-        only be entered once per app instance, so a second TestClient(_APP)
-        context in a separate class would hard-fail."""
-        monkeypatch.setattr(
-            "portal.modules.security.core.lab.lab_dispatch",
-            lambda *a, **k: "unreachable",
-        )
-        resp = client.post("/tools/lab_perception", json={"arguments": {"hosts": ["8.8.8.8"]}})
-        assert resp.status_code == 400
-
 
 class TestClassifyVulnerability:
     """Test classify_vulnerability tool with mocked ML model."""
@@ -301,10 +285,12 @@ class TestClassifyVulnerability:
 class TestLabPerceptionTool:
     """Test the lab_perception MCP tool (Slice 1.4, invariant I1)."""
 
-    def test_manifest_lists_lab_perception(self) -> None:
-        from portal.modules.security.tools.security_mcp import TOOLS_MANIFEST
+    def test_lab_perception_is_registered_natively(self) -> None:
+        import asyncio
 
-        names = {t["name"] for t in TOOLS_MANIFEST}
+        from portal.modules.security.tools import security_mcp
+
+        names = {tool.name for tool in asyncio.run(security_mcp.mcp.list_tools())}
         assert "lab_perception" in names
 
     def test_lab_target_returns_observation(self, monkeypatch: pytest.MonkeyPatch) -> None:

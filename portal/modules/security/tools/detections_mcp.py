@@ -8,7 +8,6 @@ Port: 8932 (configurable via DETECTIONS_MCP_PORT env var; bumped from 8930 to re
 
 from __future__ import annotations
 
-import inspect
 import logging
 import os
 import sys
@@ -21,7 +20,6 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from portal.platform.mcp_host.eval_scope import bind_native_context
-from portal.platform.mcp_host.tool_support import align_native_tools
 
 logger = logging.getLogger(__name__)
 
@@ -63,102 +61,12 @@ def _ensure_bench_path() -> None:
 
 # ── Tool Manifest ────────────────────────────────────────────────────────────
 
-TOOLS_MANIFEST = [
-    {
-        "name": "spl_search_library",
-        "description": "Search the SPL detection library by keyword or technique ID.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "Search query (keyword or technique ID)",
-                },
-                "top_k": {"type": "integer", "description": "Max results (default 10)"},
-            },
-            "required": ["query"],
-        },
-    },
-    {
-        "name": "spl_validate_syntax",
-        "description": "Validate SPL syntax locally (no live Splunk call needed).",
-        "parameters": {
-            "type": "object",
-            "properties": {"spl": {"type": "string", "description": "SPL query to validate"}},
-            "required": ["spl"],
-        },
-    },
-    {
-        "name": "spl_explain_detection",
-        "description": "Explain a detection: logic, mappings, expected signal.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "technique_id": {"type": "string", "description": "ATT&CK technique ID"}
-            },
-            "required": ["technique_id"],
-        },
-    },
-    {
-        "name": "spl_techniques_covered",
-        "description": "List all technique IDs with SPL detections.",
-        "parameters": {
-            "type": "object",
-            "properties": {},
-        },
-    },
-    {
-        "name": "spl_diff_hypothesis",
-        "description": "Compare an SPL result against an expected signal to find matches, misses, and unexpected findings.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "technique_id": {"type": "string", "description": "ATT&CK technique ID"},
-                "observed_signal": {
-                    "type": "string",
-                    "description": "What was actually observed in telemetry",
-                },
-            },
-            "required": ["technique_id", "observed_signal"],
-        },
-    },
-]
-
-
 # ── HTTP Routes ──────────────────────────────────────────────────────────────
 
 
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "detections-mcp", "port": _port})
-
-
-@mcp.custom_route("/tools", methods=["GET"])
-async def list_tools(request: Request) -> JSONResponse:
-    return JSONResponse({"tools": TOOLS_MANIFEST})
-
-
-@mcp.custom_route("/tools/{tool_name}", methods=["POST"])
-async def invoke_tool(request: Request) -> JSONResponse:
-    """REST dispatch endpoint used by portal-pipeline tool_registry (POST /tools/{name})."""
-    tool_name = request.path_params.get("tool_name", "")
-    if tool_name not in {tool["name"] for tool in TOOLS_MANIFEST}:
-        return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
-    try:
-        body: Any = await request.json()
-    except Exception:
-        body = {}
-    arguments = body.get("arguments", body) if isinstance(body, dict) else {}
-    try:
-        result = globals()[tool_name](**arguments)
-        if inspect.isawaitable(result):
-            result = await result
-        return JSONResponse(result)
-    except TypeError as e:
-        return JSONResponse({"error": f"Invalid arguments: {e}"}, status_code=400)
-    except Exception as e:
-        logger.error("%s failed: %s", tool_name, e, exc_info=True)
-        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 # ── Tool Implementations ─────────────────────────────────────────────────────
@@ -347,7 +255,6 @@ def spl_diff_hypothesis(technique_id: str, observed_signal: str) -> dict[str, An
 # ── Serve ────────────────────────────────────────────────────────────────────
 
 bind_native_context(mcp)
-align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     mcp.run(transport="streamable-http", host="0.0.0.0", port=_port)

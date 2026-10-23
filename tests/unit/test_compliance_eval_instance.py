@@ -112,21 +112,34 @@ def test_scoped_compliance_calls_go_to_the_evaluation_instance_or_nowhere(monkey
     from portal.platform.inference import tool_registry as tr
     from portal.platform.mcp_host import eval_scope as es
 
-    monkeypatch.setattr(tr, "_compliance_server_url", lambda: "http://host:8937")
-    url = "http://host:8937/tools/compliance_read"
-    assert tr._eval_route("http://host:8937", url) == url  # unscoped: unchanged
+    seen: dict[str, str] = {}
+
+    async def fake_call_tool(client, base_url, name, arguments, timeout_s, metadata=None):
+        seen["url"] = base_url
+        return {"content": [{"type": "text", "text": '{"ok": true}'}]}
+
+    monkeypatch.setattr(tr, "call_tool", fake_call_tool)
+    reg = tr.ToolRegistry()
+    reg._tools["compliance_read"] = tr.ToolDefinition(
+        name="compliance_read",
+        description="read",
+        parameters={},
+        server_id="compliance",
+        server_url="http://host:8937",
+    )
+    assert asyncio.run(reg.dispatch("compliance_read", {})) == {"ok": True}
+    assert seen["url"] == "http://host:8937"  # unscoped: the operator instance
+
     token = es.EVAL_SCOPE.set(
         {"campaign": "wfe_" + "a" * 16, "run": "wfe_" + "b" * 40, "allow": []}
     )
     try:
         monkeypatch.delenv("MCP_COMPLIANCE_EVAL_URL", raising=False)
-        assert tr._eval_route("http://host:8937", url) is None
+        refused = asyncio.run(reg.dispatch("compliance_read", {}))
+        assert "no compliance evaluation instance" in refused["error"]
         monkeypatch.setenv("MCP_COMPLIANCE_EVAL_URL", "http://host:8948")
-        assert tr._eval_route("http://host:8937", url) == "http://host:8948/tools/compliance_read"
-        assert (
-            tr._eval_route("http://host:8913", "http://host:8913/tools/x")
-            == "http://host:8913/tools/x"
-        )
+        assert asyncio.run(reg.dispatch("compliance_read", {})) == {"ok": True}
+        assert seen["url"] == "http://host:8948"
     finally:
         es.EVAL_SCOPE.reset(token)
 

@@ -282,29 +282,28 @@ def test_plugin_seam_exposes_the_entry_point() -> None:
 
 def test_pipeline_mcp_serves_the_entry_point() -> None:
     """The OWUI surface is one pipeline-MCP tool that delegates through the seam."""
+    import asyncio
+
+    from portal.platform.mcp_host import pipeline_mcp
+
     src = (
         Path(__file__).resolve().parents[2] / "portal" / "platform" / "mcp_host" / "pipeline_mcp.py"
     ).read_text(encoding="utf-8")
     assert 'owui_tools().get("arm_queue_task")' in src
     assert "asyncio.to_thread(" in src
-    assert '@mcp.custom_route("/tools/arm_queue_task", methods=["POST"])' in src
-    manifest = json.loads(
-        (
-            Path(__file__).resolve().parents[2]
-            / "config"
-            / "inference"
-            / "pipeline_mcp_tools_manifest.json"
-        ).read_text(encoding="utf-8")
-    )
-    tool = next(item for item in manifest if item["name"] == "arm_queue_task")
-    assert tool["parameters"]["required"] == ["task_id", "discipline", "template_key"]
+    tools = {tool.name: tool for tool in asyncio.run(pipeline_mcp.mcp.list_tools())}
+    assert sorted(tools["arm_queue_task"].input_schema["required"]) == [
+        "discipline",
+        "task_id",
+        "template_key",
+    ]
 
 
 def test_pipeline_mcp_route_enqueues_off_the_event_loop(
     workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """REST queueing goes through asyncio.to_thread and the real ledger."""
-    from starlette.testclient import TestClient
+    """Native queueing goes through asyncio.to_thread and the real ledger."""
+    import asyncio
 
     from portal.platform.mcp_host import pipeline_mcp
 
@@ -319,22 +318,12 @@ def test_pipeline_mcp_route_enqueues_off_the_event_loop(
         return fn(*args, **kwargs)
 
     monkeypatch.setattr(pipeline_mcp.asyncio, "to_thread", spy)
-    client = TestClient(pipeline_mcp.mcp.streamable_http_app())
-    response = client.post(
-        "/tools/arm_queue_task",
-        json={
-            "arguments": {
-                "task_id": "t-11",
-                "discipline": "test_fixing",
-                "template_key": "repair_with_tests",
-                "parameters": parameters,
-                "source_dir": str(uploads),
-            }
-        },
+    body = asyncio.run(
+        pipeline_mcp.arm_queue_task(
+            "t-11", "test_fixing", "repair_with_tests", parameters, str(uploads)
+        )
     )
 
-    body = response.json()
-    assert response.status_code == 200
     assert body["queued"] is True
     assert seen == ["arm_queue_task"]
     assert Path(body["receipt_link"]).is_relative_to(get_generated_dir("tasks"))
@@ -344,62 +333,24 @@ def test_pipeline_mcp_route_enqueues_off_the_event_loop(
 def test_pipeline_mcp_route_is_inert_while_the_module_is_disabled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from starlette.testclient import TestClient
+    import asyncio
 
     from portal.platform.mcp_host import pipeline_mcp
 
     _enabled(monkeypatch, enabled=False)
-    client = TestClient(pipeline_mcp.mcp.streamable_http_app())
-    response = client.post(
-        "/tools/arm_queue_task",
-        json={
-            "arguments": {
-                "task_id": "t-12",
-                "discipline": "test_fixing",
-                "template_key": "repair_with_tests",
-            }
-        },
-    )
+    body = asyncio.run(pipeline_mcp.arm_queue_task("t-12", "test_fixing", "repair_with_tests"))
 
-    assert response.status_code == 200
-    assert response.json()["error"] == "the orchestration module is disabled"
+    assert body["error"] == "the orchestration module is disabled"
 
 
 @pytest.mark.parametrize(
-    ("arguments", "message"),
-    [
-        (
-            {"task_id": 123, "discipline": "test_fixing", "template_key": "repair_with_tests"},
-            "task_id",
-        ),
-        (
-            {
-                "task_id": "t-13",
-                "discipline": "test_fixing",
-                "template_key": "repair_with_tests",
-                "source_dir": 5,
-            },
-            "source_dir",
-        ),
-        (
-            {
-                "task_id": "t-13",
-                "discipline": "test_fixing",
-                "template_key": "repair_with_tests",
-                "parameters": {"source_file": 1},
-            },
-            "parameters",
-        ),
-        ([], "arguments"),
-    ],
+    "field",
+    ["task_id", "discipline", "template_key", "parameters", "source_dir"],
 )
-def test_pipeline_mcp_route_rejects_bad_input_with_422(arguments: Any, message: str) -> None:
-    from starlette.testclient import TestClient
+def test_pipeline_mcp_tool_schema_names_every_accepted_argument(field: str) -> None:
+    import asyncio
 
     from portal.platform.mcp_host import pipeline_mcp
 
-    client = TestClient(pipeline_mcp.mcp.streamable_http_app())
-    response = client.post("/tools/arm_queue_task", json={"arguments": arguments})
-
-    assert response.status_code == 422
-    assert message in response.json()["error"]
+    tools = {tool.name: tool for tool in asyncio.run(pipeline_mcp.mcp.list_tools())}
+    assert field in tools["arm_queue_task"].input_schema["properties"]

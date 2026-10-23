@@ -55,5 +55,14 @@ def test_query_splunk_rejects_subsearch() -> None:
     assert "rejected" in out.get("error", "")
 
 
-def test_tools_manifest_matches_dispatch() -> None:
-    assert {t["function"]["name"] for t in mod.TOOLS_MANIFEST} == set(mod._DISPATCH)
+def test_registered_tools_are_served_natively() -> None:
+    import asyncio
+
+    assert {tool.name for tool in asyncio.run(mod.mcp.list_tools())} == {
+        "compile_yara",
+        "convert_sigma",
+        "query_splunk",
+        "query_windows_events",
+        "scan_yara",
+        "validate_sigma",
+    }

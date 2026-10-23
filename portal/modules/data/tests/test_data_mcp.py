@@ -68,8 +68,15 @@ def test_attach_query_profile(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     mod._conns.clear()
 
 
-def test_tools_manifest_matches_dispatch() -> None:
-    assert {t["function"]["name"] for t in mod.TOOLS_MANIFEST} == set(mod._DISPATCH)
+def test_registered_tools_are_served_natively() -> None:
+    import asyncio
+
+    assert {tool.name for tool in asyncio.run(mod.mcp.list_tools())} == {
+        "attach_source",
+        "list_session",
+        "profile_table",
+        "run_sql",
+    }
 
 
 def test_connections_are_memory_bounded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

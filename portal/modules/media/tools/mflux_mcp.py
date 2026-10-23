@@ -24,11 +24,9 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from portal.modules.media.tools._admission import admit
-from portal.platform.data_loader import load_data
 from portal.platform.mcp_host import assert_public_http_url, resolve_upload_path
 from portal.platform.mcp_host.eval_scope import bind_native_context
 from portal.platform.mcp_host.owui_files import publish_file
-from portal.platform.mcp_host.tool_support import align_native_tools
 from portal.platform.mcp_host.workspace import get_generated_dir
 
 port = int(os.getenv("MFLUX_MCP_PORT", "8933"))
@@ -106,14 +104,6 @@ async def health_check(request: Request) -> JSONResponse:
     return JSONResponse(
         {"status": "ok", "service": "mflux-generation", "models": sorted(MFLUX_MODELS)}
     )
-
-
-TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_mflux_mcp")
-
-
-@_route("/tools", methods=["GET"])
-async def list_tools(request: Request) -> JSONResponse:
-    return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
 async def _fetch_source_image(image_url: str) -> Path:
@@ -264,24 +254,11 @@ async def edit_image(
     )
 
 
-@_route("/tools/generate_image", methods=["POST"])
-async def generate_image_endpoint(request: Request) -> JSONResponse:
-    a = (await request.json()).get("arguments", {})
-    return JSONResponse(await generate_image(**a))
-
-
-@_route("/tools/edit_image", methods=["POST"])
-async def edit_image_endpoint(request: Request) -> JSONResponse:
-    a = (await request.json()).get("arguments", {})
-    return JSONResponse(await edit_image(**a))
-
-
 def main() -> None:
     mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
 
 
 bind_native_context(mcp)
-align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     main()

@@ -13,7 +13,6 @@ from typing import Any, cast
 
 import httpx
 
-from portal.platform.data_loader import load_data
 from portal.platform.mcp_host.owui_files import publish_file
 from portal.platform.mcp_host.workspace import get_generated_dir
 
@@ -68,7 +67,6 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from portal.platform.mcp_host.eval_scope import bind_native_context
-from portal.platform.mcp_host.tool_support import align_native_tools
 
 mcp = MCPServer("whisper-transcription")
 
@@ -143,54 +141,6 @@ async def openai_models(request: Request) -> JSONResponse:
     return JSONResponse(
         {"object": "list", "data": [{"id": "whisper-1", "object": "model", "owned_by": "portal-5"}]}
     )
-
-
-# Tool manifest for discovery
-TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_whisper_mcp")
-
-
-@_route("/tools", methods=["GET"])
-async def list_tools(request: Request) -> JSONResponse:
-    return JSONResponse({"tools": TOOLS_MANIFEST})
-
-
-@_route("/tools/{tool_name}", methods=["POST"])
-async def invoke_tool(request: Request) -> JSONResponse:
-    """REST dispatch endpoint used by portal-pipeline tool_registry."""
-    tool_name = request.path_params["tool_name"]
-    try:
-        body = await request.json()
-    except Exception:
-        body = {}
-    arguments = body.get("arguments", {})
-
-    try:
-        tools: dict[str, Callable[..., Awaitable[dict[str, Any]]]] = {
-            "transcribe_audio": transcribe_audio,
-            "transcribe_with_speakers": transcribe_with_speakers,
-        }
-        if tool_name in tools:
-            import inspect
-
-            valid = set(inspect.signature(tools[tool_name]).parameters)
-            # An unknown key used to be filtered out and the call run without it: a model that
-            # sent the manifest's old `audio_path` transcribed the latest upload instead.
-            if unknown := sorted(set(arguments) - valid):
-                return JSONResponse(
-                    {
-                        "error": f"Invalid arguments for '{tool_name}': unexpected keyword "
-                        f"argument(s) {unknown}; accepted: {sorted(valid)}"
-                    },
-                    status_code=400,
-                )
-            return JSONResponse(await tools[tool_name](**arguments))
-        else:
-            return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
-    except Exception as e:
-        import logging as _log
-
-        _log.getLogger(__name__).exception("Tool invocation failed for %s", tool_name)
-        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 # Docker fallback only (non-Apple-Silicon nodes). Primary is the host MLX server
@@ -327,7 +277,6 @@ async def transcribe_with_speakers(
 # ── End diarized transcription ────────────────────────────────────────────────
 
 bind_native_context(mcp)
-align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     port = int(os.getenv("WHISPER_MCP_PORT", "8915"))
