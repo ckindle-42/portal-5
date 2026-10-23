@@ -52,7 +52,7 @@ def test_live_happy_path_accepts_a_goal_stated_answer(tmp_path: Path):
         pipeline.close()
 
     assert result["status"] == "PASS", result["evidence"]
-    assert pipeline.requests[0]["model"] == "auto-daily::fast"
+    assert pipeline.requests[0]["model"] == acceptance.SEAT_TAGS["fast"]
 
 
 def test_live_happy_path_reports_the_failed_check(tmp_path: Path):
@@ -422,7 +422,7 @@ def test_run_live_task_uses_repo_config_and_unattended_false(tmp_path: Path):
         pipeline.close()
 
     assert receipt["status"] == "PASS"
-    assert pipeline.requests[0]["model"] == "auto-daily::fast"
+    assert pipeline.requests[0]["model"] == acceptance.SEAT_TAGS["fast"]
     assert (tmp_path / "tasks" / "live" / "plan.json").is_file()
 
 

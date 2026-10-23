@@ -208,7 +208,7 @@ def queue_status(tasks_dir: Annotated[Path | None, typer.Option("--tasks-dir")] 
 
 
 def _service(tasks_dir: Path | None) -> Any:
-    from portal.modules.orchestration.service import ArmService
+    from portal.modules.orchestration.service import ArmService, load_arm_config, seated_model_tags
     from portal.modules.orchestration.telegram import TelegramNoticeSink
     from portal.modules.orchestration.worker import Engine
 
@@ -220,6 +220,7 @@ def _service(tasks_dir: Path | None) -> Any:
     if not api_key:
         typer.echo("set PIPELINE_API_KEY for the Pipeline chat and load-plan requests", err=True)
         raise typer.Exit(code=2)
+    tags = seated_model_tags(load_arm_config(config_path))
     engines = {}
     for seat in ("fast", "deep"):
         prefix = f"PORTAL_ARM_{seat.upper()}_"
@@ -234,7 +235,7 @@ def _service(tasks_dir: Path | None) -> Any:
             typer.echo(f"set {prefix}DIGEST and configure load_plan_models.{seat}", err=True)
             raise typer.Exit(code=2)
         engines[seat] = Engine(
-            f"auto-daily::{seat}",
+            tags[seat],
             digest,
             pipeline_url,
             api_key,

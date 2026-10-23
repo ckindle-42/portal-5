@@ -47,11 +47,14 @@ from portal.modules.orchestration.service import (  # noqa: E402
     ArmService,
     StubNoticeSink,
     load_arm_config,
+    seated_model_tags,
 )
 from portal.modules.orchestration.worker import Engine  # noqa: E402
 from portal.platform.inference.router import auth  # noqa: E402
 from portal.platform.mcp_host.workspace import get_generated_dir  # noqa: E402
 from scripts import host_quiet  # noqa: E402
+
+SEAT_TAGS = seated_model_tags(load_arm_config(ROOT / "config" / "orchestration_arm.yaml"))
 
 _SCHEMA = {
     "type": "object",
@@ -254,7 +257,7 @@ def _run_task(
     _write_arm_config(config, calibration_overrides=calibration_overrides)
     engines = {
         "fast": Engine(
-            "auto-daily::fast",
+            SEAT_TAGS["fast"],
             "fast-digest",
             pipeline.url,
             auth.PIPELINE_API_KEY,
@@ -262,7 +265,7 @@ def _run_task(
             "fake-fast",
         ),
         "deep": Engine(
-            "auto-daily::deep",
+            SEAT_TAGS["deep"],
             "deep-digest",
             pipeline.url,
             auth.PIPELINE_API_KEY,
@@ -300,7 +303,7 @@ def _run_live_task(
     for seat in ("fast", "deep"):
         load_identity = load_plan.get(seat, {}) if isinstance(load_plan, dict) else {}
         engines[seat] = Engine(
-            f"auto-daily::{seat}",
+            SEAT_TAGS[seat],
             fast_digest if seat == "fast" else deep_digest,
             pipeline_url,
             api_key,
@@ -347,8 +350,8 @@ def scenario_happy_path(root: Path, task_id: str, live: bool, pipeline: Any, **k
     receipt, pipeline = _run_task(
         root, task_id, [("fast", finish_response({"answer": "right"}))], [_bite("b1")]
     )
-    assert receipt["status"] == "PASS" and pipeline.requests[0]["model"] == "auto-daily::fast"
-    return "one auto-daily::fast request passed through the fake Pipeline port"
+    assert receipt["status"] == "PASS" and pipeline.requests[0]["model"] == SEAT_TAGS["fast"]
+    return f"one {SEAT_TAGS['fast']} request passed through the fake Pipeline port"
 
 
 def scenario_red_flag_retry(root: Path, task_id: str, live: bool, pipeline: Any, **kw) -> str:
@@ -420,7 +423,7 @@ def scenario_sigterm_resume(root: Path, task_id: str, live: bool, pipeline: Any,
     _write_arm_config(config)
     engines = {
         "fast": Engine(
-            "auto-daily::fast",
+            SEAT_TAGS["fast"],
             "fast-digest",
             pipeline.url,
             auth.PIPELINE_API_KEY,
@@ -428,7 +431,7 @@ def scenario_sigterm_resume(root: Path, task_id: str, live: bool, pipeline: Any,
             "fake-fast",
         ),
         "deep": Engine(
-            "auto-daily::deep",
+            SEAT_TAGS["deep"],
             "deep-digest",
             pipeline.url,
             auth.PIPELINE_API_KEY,
@@ -465,7 +468,7 @@ def scenario_identity_mismatch(root: Path, task_id: str, live: bool, pipeline: A
     _write_arm_config(config)
     engines = {
         "fast": Engine(
-            "auto-daily::fast",
+            SEAT_TAGS["fast"],
             "fast-digest",
             pipeline.url,
             auth.PIPELINE_API_KEY,
@@ -473,7 +476,7 @@ def scenario_identity_mismatch(root: Path, task_id: str, live: bool, pipeline: A
             "fake-fast",
         ),
         "deep": Engine(
-            "auto-daily::deep",
+            SEAT_TAGS["deep"],
             "deep-digest",
             pipeline.url,
             auth.PIPELINE_API_KEY,
@@ -493,7 +496,7 @@ def scenario_identity_mismatch(root: Path, task_id: str, live: bool, pipeline: A
         raise AssertionError("changed build SHA was accepted")
     changed = {
         "fast": Engine(
-            "auto-daily::fast",
+            SEAT_TAGS["fast"],
             "other-digest",
             pipeline.url,
             auth.PIPELINE_API_KEY,
@@ -501,7 +504,7 @@ def scenario_identity_mismatch(root: Path, task_id: str, live: bool, pipeline: A
             "fake-fast",
         ),
         "deep": Engine(
-            "auto-daily::deep",
+            SEAT_TAGS["deep"],
             "deep-digest",
             pipeline.url,
             auth.PIPELINE_API_KEY,
@@ -735,7 +738,7 @@ def scenario_calibration_pause(root: Path, task_id: str, live: bool, pipeline: A
     assert len(pipeline.requests) == 1
     engines = {
         "fast": Engine(
-            "auto-daily::fast",
+            SEAT_TAGS["fast"],
             "fast-digest",
             pipeline.url,
             auth.PIPELINE_API_KEY,
@@ -743,7 +746,7 @@ def scenario_calibration_pause(root: Path, task_id: str, live: bool, pipeline: A
             "fake-fast",
         ),
         "deep": Engine(
-            "auto-daily::deep",
+            SEAT_TAGS["deep"],
             "deep-digest",
             pipeline.url,
             auth.PIPELINE_API_KEY,

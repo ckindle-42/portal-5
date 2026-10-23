@@ -21,10 +21,12 @@ import threading
 import time
 from collections.abc import Callable
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException
 
+from portal.modules.orchestration.service import load_arm_config, seated_model_tags
 from portal.platform.inference.router import auth
 from portal.platform.inference.router.eval_gate import apply_bite_tool_scope
 from portal.platform.inference.router.streaming import (
@@ -32,6 +34,10 @@ from portal.platform.inference.router.streaming import (
     _json_completion_to_sse,
 )
 from portal.platform.inference.router.thinking import _thinking_enabled
+
+SEAT_TAGS = seated_model_tags(
+    load_arm_config(Path(__file__).resolve().parents[2] / "config" / "orchestration_arm.yaml")
+)
 
 
 class SignalResponse:
@@ -76,8 +82,8 @@ class FakePipeline:
             auth.PIPELINE_API_KEY = self.api_key
         self.pipeline_tools = pipeline_tools
         self.responses: dict[str, queue.Queue[Any]] = {
-            "auto-daily::fast": queue.Queue(),
-            "auto-daily::deep": queue.Queue(),
+            SEAT_TAGS["fast"]: queue.Queue(),
+            SEAT_TAGS["deep"]: queue.Queue(),
         }
         self.admin_responses: queue.Queue[Any] = queue.Queue()
         self.requests: list[dict[str, Any]] = []
@@ -205,7 +211,7 @@ class FakePipeline:
         return offered
 
     def add(self, seat: str, response: Any) -> None:
-        self.responses[f"auto-daily::{seat}"].put(response)
+        self.responses[SEAT_TAGS[seat]].put(response)
 
     def add_model(self, model: str, response: Any) -> None:
         self.responses.setdefault(model, queue.Queue()).put(response)

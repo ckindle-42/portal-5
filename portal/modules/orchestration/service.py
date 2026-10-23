@@ -72,13 +72,12 @@ class ArmService:
     ) -> None:
         self.task_root = task_root
         self.engines = engines
-        if engines["fast"].model_tag != "auto-daily::fast":
-            raise ValueError("fast seat must use auto-daily::fast")
-        if engines["deep"].model_tag != "auto-daily::deep":
-            raise ValueError("deep seat must use auto-daily::deep")
         self.build_sha = build_sha or _head_sha()
         self.config_path = residency_config or _default_config_path()
         self.arm_config = load_arm_config(self.config_path)
+        for seat, tag in seated_model_tags(self.arm_config).items():
+            if engines[seat].model_tag != tag:
+                raise ValueError(f"{seat} seat must use {tag}")
         self.residency_mode = load_residency_mode(self.config_path)
         self.notices = notices or StubNoticeSink()
         self.bite_gate = bite_gate
@@ -199,9 +198,8 @@ class ArmService:
                     continue
                 if len(staged) >= TASK_FILE_LIMIT:
                     raise ValueError(f"task inputs exceed the {TASK_FILE_LIMIT}-file limit")
-                name = path.name.replace("/", "_").replace("\\", "_")[:100] or "input"
-                digest = hashlib.sha256(str(path).encode()).hexdigest()[:12]
-                relative = Path("inputs") / f"{digest}-{name}"
+                # Keep the source layout so staged files can still import their siblings.
+                relative = Path("inputs") / path.relative_to(source_root)
                 target = data_dir / relative
                 target.parent.mkdir(parents=True, exist_ok=True)
                 staged_bytes += _copy_input(path, target, TASK_BYTES_LIMIT - staged_bytes)
@@ -677,6 +675,22 @@ def load_arm_config(path: Path) -> dict[str, Any]:
     if not all(isinstance(raw[key], dict) for key in required):
         raise ValueError("orchestration policy sections must be mappings")
     return raw
+
+
+def seated_model_tags(config: dict[str, Any]) -> dict[str, str]:
+    """Pipeline variant per seat: one discipline-wide choice, defaulting to auto-daily::<seat>."""
+    tags = {seat: f"auto-daily::{seat}" for seat in ("fast", "deep")}
+    chosen: dict[str, str] = {}
+    for name, discipline in config["disciplines"].items():
+        seated = discipline.get("seated_models") if isinstance(discipline, dict) else None
+        for seat, tag in (seated or {}).items():
+            if seat not in tags or not isinstance(tag, str) or not tag.startswith("auto-daily::"):
+                raise ValueError(f"{name}: seated_models.{seat} must be an auto-daily:: variant")
+            if chosen.setdefault(seat, tag) != tag:
+                raise ValueError(
+                    f"disciplines disagree on the {seat} seat: {chosen[seat]} vs {tag}"
+                )
+    return tags | chosen
 
 
 def _positive_probability(value: Any) -> bool:

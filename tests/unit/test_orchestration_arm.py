@@ -28,8 +28,10 @@ from portal.modules.orchestration.queue import OvernightQueue, QueueGate, QueueL
 from portal.modules.orchestration.service import (
     ArmService,
     StubNoticeSink,
+    load_arm_config,
     load_residency_mode,
     module_is_enabled,
+    seated_model_tags,
 )
 from portal.modules.orchestration.tools import (
     FILE_READ_LIMIT,
@@ -64,6 +66,10 @@ _SCHEMA = {
     "required": ["answer"],
     "additionalProperties": False,
 }
+
+SEAT_TAGS = seated_model_tags(
+    load_arm_config(Path(__file__).resolve().parents[2] / "config" / "orchestration_arm.yaml")
+)
 
 
 def bite(
@@ -159,7 +165,7 @@ def service(
     config.write_text(yaml.safe_dump(settings, sort_keys=False), encoding="utf-8")
     engines = {
         "fast": Engine(
-            "auto-daily::fast",
+            SEAT_TAGS["fast"],
             fast_digest,
             pipeline.url,
             auth.PIPELINE_API_KEY,
@@ -167,7 +173,7 @@ def service(
             "fake-fast",
         ),
         "deep": Engine(
-            "auto-daily::deep",
+            SEAT_TAGS["deep"],
             deep_digest,
             pipeline.url,
             auth.PIPELINE_API_KEY,
@@ -207,7 +213,7 @@ def test_happy_path_uses_one_pipeline_port_and_guarded_model_seat(
     assert all(row["build_sha"] == "head-a" for row in _events(task_dir))
     assert len(fake_pipeline.requests) == 1
     request = fake_pipeline.requests[0]
-    assert request["model"] == "auto-daily::fast"
+    assert request["model"] == SEAT_TAGS["fast"]
     assert request["portal_bite_tools"] == ["finish"]
     assert request["tools"][-1]["function"]["name"] == "finish"
     finish_parameters = request["tools"][-1]["function"]["parameters"]
@@ -263,7 +269,7 @@ def test_detection_engineering_template_validates_and_runs_offline(
     fake_pipeline.add("deep", finish_response("PASS: final detection and evidence reviewed"))
     engines = {
         "fast": Engine(
-            "auto-daily::fast",
+            SEAT_TAGS["fast"],
             "fast-digest",
             fake_pipeline.url,
             auth.PIPELINE_API_KEY,
@@ -271,7 +277,7 @@ def test_detection_engineering_template_validates_and_runs_offline(
             "fake-fast",
         ),
         "deep": Engine(
-            "auto-daily::deep",
+            SEAT_TAGS["deep"],
             "deep-digest",
             fake_pipeline.url,
             auth.PIPELINE_API_KEY,
@@ -315,13 +321,13 @@ def test_detection_engineering_template_validates_and_runs_offline(
         ["finish"],
     ]
     assert [request["model"] for request in fake_pipeline.requests] == [
-        "auto-daily::fast",
-        "auto-daily::fast",
-        "auto-daily::deep",
-        "auto-daily::deep",
-        "auto-daily::deep",
-        "auto-daily::fast",
-        "auto-daily::deep",
+        SEAT_TAGS["fast"],
+        SEAT_TAGS["fast"],
+        SEAT_TAGS["deep"],
+        SEAT_TAGS["deep"],
+        SEAT_TAGS["deep"],
+        SEAT_TAGS["fast"],
+        SEAT_TAGS["deep"],
     ]
 
 
@@ -335,7 +341,7 @@ def test_bite_tools_are_sent_as_a_strict_pipeline_allowlist(
         "wiki_search",
         "finish",
     ]
-    assert fake_pipeline.requests[0]["model"] == "auto-daily::fast"
+    assert fake_pipeline.requests[0]["model"] == SEAT_TAGS["fast"]
 
 
 def test_client_file_tools_loop_back_to_the_model_and_keep_reading_bites_read_only(
@@ -354,7 +360,7 @@ def test_client_file_tools_loop_back_to_the_model_and_keep_reading_bites_read_on
         task_dir,
         task_bite,
         Engine(
-            "auto-daily::fast",
+            SEAT_TAGS["fast"],
             "test-digest",
             fake_pipeline.url,
             auth.PIPELINE_API_KEY,
@@ -403,7 +409,7 @@ def test_action_bite_prompt_contains_read_only_snapshots_without_file_read(
     result = run_bite(
         task_dir,
         task_bite,
-        Engine("auto-daily::fast", "test-digest", fake_pipeline.url, auth.PIPELINE_API_KEY),
+        Engine(SEAT_TAGS["fast"], "test-digest", fake_pipeline.url, auth.PIPELINE_API_KEY),
         input_paths={
             "source.py": Path("source.py"),
             "test_source.py": Path("test_source.py"),
@@ -447,7 +453,7 @@ def test_action_bite_snapshot_truncates_to_its_context_budget(
     result = run_bite(
         task_dir,
         task_bite,
-        Engine("auto-daily::fast", "test-digest", fake_pipeline.url, auth.PIPELINE_API_KEY),
+        Engine(SEAT_TAGS["fast"], "test-digest", fake_pipeline.url, auth.PIPELINE_API_KEY),
         input_paths={"source.py": Path("source.py")},
         attempt_dir=task_dir / "attempt",
     )
@@ -474,7 +480,7 @@ def test_finish_ignores_model_output_path_and_records_the_worker_path(
     result = run_bite(
         task_dir,
         task_bite,
-        Engine("auto-daily::fast", "test-digest", fake_pipeline.url, auth.PIPELINE_API_KEY),
+        Engine(SEAT_TAGS["fast"], "test-digest", fake_pipeline.url, auth.PIPELINE_API_KEY),
         input_paths={},
         attempt_dir=task_dir / "attempt",
     )
@@ -506,7 +512,7 @@ def test_client_tool_loop_honors_the_hop_limit_before_executing_a_last_hop_actio
         task_dir,
         task_bite,
         Engine(
-            "auto-daily::fast",
+            SEAT_TAGS["fast"],
             "test-digest",
             fake_pipeline.url,
             auth.PIPELINE_API_KEY,
@@ -546,7 +552,7 @@ def test_parallel_file_reads_execute_in_order_and_continue_to_finish(
     result = run_bite(
         task_dir,
         task_bite,
-        Engine("auto-daily::fast", "test-digest", fake_pipeline.url, auth.PIPELINE_API_KEY),
+        Engine(SEAT_TAGS["fast"], "test-digest", fake_pipeline.url, auth.PIPELINE_API_KEY),
         input_paths={"first.txt": Path("first.txt"), "second.txt": Path("second.txt")},
         attempt_dir=task_dir / "attempt",
     )
@@ -586,7 +592,7 @@ def test_parallel_batch_mixing_finish_defers_it_and_executes_the_tools(
     result = run_bite(
         task_dir,
         task_bite,
-        Engine("auto-daily::fast", "test-digest", fake_pipeline.url, auth.PIPELINE_API_KEY),
+        Engine(SEAT_TAGS["fast"], "test-digest", fake_pipeline.url, auth.PIPELINE_API_KEY),
         input_paths={"source.txt": Path("source.txt")},
         attempt_dir=task_dir / "attempt",
     )
@@ -630,7 +636,7 @@ def test_parallel_batch_with_unoffered_tool_keeps_red_flags(
     result = run_bite(
         task_dir,
         task_bite,
-        Engine("auto-daily::fast", "test-digest", fake_pipeline.url, auth.PIPELINE_API_KEY),
+        Engine(SEAT_TAGS["fast"], "test-digest", fake_pipeline.url, auth.PIPELINE_API_KEY),
         input_paths={"source.txt": Path("source.txt")},
         attempt_dir=task_dir / "attempt",
     )
@@ -671,7 +677,7 @@ def test_parallel_batch_over_hop_budget_is_rejected_before_tool_execution(
     result = run_bite(
         task_dir,
         task_bite,
-        Engine("auto-daily::fast", "test-digest", fake_pipeline.url, auth.PIPELINE_API_KEY),
+        Engine(SEAT_TAGS["fast"], "test-digest", fake_pipeline.url, auth.PIPELINE_API_KEY),
         input_paths={"first.txt": Path("first.txt"), "second.txt": Path("second.txt")},
         attempt_dir=task_dir / "attempt",
     )
@@ -949,7 +955,8 @@ def test_worker_sends_input_paths_without_packing_file_contents(
     request = fake_pipeline.requests[0]
     messages = request["messages"]
     source = json.loads(messages[1]["content"])["inputs"]["source.txt"]
-    assert source["path"].startswith("inputs/")
+    # Source layout survives staging so sibling modules still import each other.
+    assert source["path"] == "inputs/source.txt"
     assert (task_dir / "data" / source["path"]).read_text(
         encoding="utf-8"
     ) == "complete source text"
@@ -1206,7 +1213,7 @@ def test_one_json_repair_turn_reaches_pipeline_again(
     transcript = (task_dir / "bites/b1/attempts/01/transcript.jsonl").read_text()
     assert '"kind": "repair_response"' in transcript
     assert len(fake_pipeline.requests) == 2
-    assert all(request["model"] == "auto-daily::fast" for request in fake_pipeline.requests)
+    assert all(request["model"] == SEAT_TAGS["fast"] for request in fake_pipeline.requests)
 
 
 def _run_direct_bite(
@@ -1217,7 +1224,7 @@ def _run_direct_bite(
     result = run_bite(
         task_dir,
         task_bite,
-        Engine("auto-daily::fast", "test-digest", fake_pipeline.url, auth.PIPELINE_API_KEY),
+        Engine(SEAT_TAGS["fast"], "test-digest", fake_pipeline.url, auth.PIPELINE_API_KEY),
         input_paths={},
         attempt_dir=task_dir / "attempt",
     )
@@ -1305,7 +1312,7 @@ def test_no_finish_repair_when_the_token_budget_is_exhausted(
     result = run_bite(
         task_dir,
         task_bite,
-        Engine("auto-daily::fast", "test-digest", fake_pipeline.url, auth.PIPELINE_API_KEY),
+        Engine(SEAT_TAGS["fast"], "test-digest", fake_pipeline.url, auth.PIPELINE_API_KEY),
         input_paths={},
         attempt_dir=task_dir / "attempt",
     )
@@ -1438,7 +1445,7 @@ def test_queue_review_waits_when_a_bench_lock_appears_mid_bite(
 
     task_dir = tmp_path / "tasks" / "queue-review-lock"
     assert result.status == "WAITING"
-    assert [request["model"] for request in fake_pipeline.requests] == ["auto-daily::fast"]
+    assert [request["model"] for request in fake_pipeline.requests] == [SEAT_TAGS["fast"]]
     assert json.loads((task_dir / "receipt.json").read_text())["status"] == "WAITING"
     assert _bite_state(task_dir, "b1") == "ready"
 
@@ -1459,7 +1466,7 @@ def test_queue_review_capacity_refusal_waits_instead_of_burning_an_attempt(
 
     assert receipt["status"] == "WAITING"
     assert receipt["results"][0]["attempts"] == 1
-    assert [request["model"] for request in fake_pipeline.requests] == ["auto-daily::fast"]
+    assert [request["model"] for request in fake_pipeline.requests] == [SEAT_TAGS["fast"]]
 
     fake_pipeline.add("fast", finish_response({"answer": "right"}))
     resumed = runner_service.resume("queue-review-fit")
@@ -1666,3 +1673,17 @@ def _bite_state(task_dir: Path, bite_id: str) -> str:
     with sqlite3.connect(task_dir / "ledger.db") as db:
         row = db.execute("SELECT state FROM bite WHERE bite_id = ?", (bite_id,)).fetchone()
     return str(row[0])
+
+
+def test_seated_model_tags_default_follow_config_and_reject_conflicts() -> None:
+    def config(*seated: dict[str, str]) -> dict[str, Any]:
+        return {"disciplines": {f"d{i}": {"seated_models": s} for i, s in enumerate(seated)}}
+
+    assert seated_model_tags(config()) == {"fast": "auto-daily::fast", "deep": "auto-daily::deep"}
+    assert seated_model_tags(config({"fast": "auto-daily::gemma-fast"}))["fast"] == (
+        "auto-daily::gemma-fast"
+    )
+    with pytest.raises(ValueError, match="disagree"):
+        seated_model_tags(config({"fast": "auto-daily::fast"}, {"fast": "auto-daily::gemma-fast"}))
+    with pytest.raises(ValueError, match="auto-daily"):
+        seated_model_tags(config({"fast": "some-raw-model"}))
