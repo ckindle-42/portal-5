@@ -113,7 +113,26 @@ def _row_elapsed(result: dict[str, Any]) -> float | None:
     return None
 
 
-def _collect_rows(receipts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _seat_roles(config_path: Path) -> dict[str, str]:
+    """Map seated workspace tags (auto-daily::gemma-fast) back to the role keys the arm reads."""
+    roles = {f"auto-daily::{seat}": seat for seat in _STANDARD_SEATS}
+    try:
+        raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        return roles
+    disciplines = raw.get("disciplines") if isinstance(raw, dict) else None
+    for entry in (disciplines or {}).values():
+        seated = entry.get("seated_models") if isinstance(entry, dict) else None
+        for seat, tag in (seated or {}).items():
+            if seat in _STANDARD_SEATS and isinstance(tag, str):
+                roles[tag] = seat
+    return roles
+
+
+def _collect_rows(
+    receipts: list[dict[str, Any]], seat_roles: dict[str, str] | None = None
+) -> list[dict[str, Any]]:
+    roles = seat_roles or {}
     rows: list[dict[str, Any]] = []
     for index, receipt in enumerate(receipts):
         if not isinstance(receipt, dict):
@@ -144,7 +163,7 @@ def _collect_rows(receipts: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     "receipt": index,
                     "bite_id": result.get("bite_id"),
                     "discipline": discipline,
-                    "seat": seat,
+                    "seat": roles.get(seat, seat),
                     "passed": state == "passed",
                     "elapsed_seconds": _row_elapsed(result),
                 }
@@ -245,8 +264,11 @@ def _valid_probability(value: Any) -> bool:
 
 
 def _task_shapes(
-    receipts: list[dict[str, Any]], rows: list[dict[str, Any]]
+    receipts: list[dict[str, Any]],
+    rows: list[dict[str, Any]],
+    seat_roles: dict[str, str] | None = None,
 ) -> dict[int, list[tuple[str, str]]]:
+    roles = seat_roles or {}
     shapes: dict[int, list[tuple[str, str]]] = {}
     for index, receipt in enumerate(receipts):
         final_ids = {
@@ -269,7 +291,7 @@ def _task_shapes(
                     and isinstance(seat, str)
                     and seat.strip()
                 ):
-                    shape.append((discipline, seat))
+                    shape.append((discipline, roles.get(seat, seat)))
         if not shape:
             shape = [(row["discipline"], row["seat"]) for row in rows if row["receipt"] == index]
         if shape:
@@ -402,7 +424,9 @@ def compute_gate_c_threshold(
     config_path: Path | None = None,
 ) -> tuple[float, dict[str, Any]]:
     """Return the task-level Gate C floor and the evidence behind it."""
-    rows = _collect_rows(receipts)
+    resolved_config = config_path or DEFAULT_CONFIG
+    seat_roles = _seat_roles(resolved_config)
+    rows = _collect_rows(receipts, seat_roles)
     if not rows:
         raise ValueError(
             "No final per-bite results with a discipline and seat found in receipts; "
@@ -427,9 +451,8 @@ def compute_gate_c_threshold(
         for seat, data in seats.items()
     }
 
-    resolved_config = config_path or DEFAULT_CONFIG
     criteria = _load_criteria(resolved_config)
-    shapes = _task_shapes(receipts, rows)
+    shapes = _task_shapes(receipts, rows, seat_roles)
     if not shapes:
         raise ValueError("No task shapes found in receipts")
     floors = _task_floors(shapes, criteria)

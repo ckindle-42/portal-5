@@ -719,6 +719,9 @@ services:
       - PORTAL_ARM_APPROVAL_TTL_SECONDS=${PORTAL_ARM_APPROVAL_TTL_SECONDS:-1800}
     volumes:
       - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/workspace
+      # Live module switches: the arm outbox starts only when modules.orchestration is
+      # enabled, so read it from the repo config (a restart applies a toggle; no rebuild).
+      - ../../config:/app/config:ro
     command: ["python", "-m", "portal_channels.telegram.bot"]
     depends_on:
       portal-pipeline:
