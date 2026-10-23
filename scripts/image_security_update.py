@@ -1,18 +1,22 @@
 #!/usr/bin/env python3
 """Keep compose images current — Open WebUI on an explicit release pin.
 
-Open WebUI is pinned to a tested release in ``deploy/portal-5/docker-compose.yml``.
-This module is the ONLY route that moves it: compose sets ``pull_policy: missing``
-and ``launch.sh up`` / ``weekly_rebuild.py`` leave it out of their pulls and call
-:func:`owui_update` instead. The daily run only *proposes* a newer release;
-adopting one is explicit (``--bump [TAG]``) and applied as:
+Open WebUI runs the locally built ``portal5-open-webui:<release>-hardened`` image
+(``deploy/portal-5/Dockerfile.openwebui``: the pinned upstream release plus patched
+wheels) and is pinned by the ``OPENWEBUI_VERSION`` build arg in
+``deploy/portal-5/docker-compose.yml``. This module is the ONLY route that moves
+it: compose sets ``pull_policy: never`` and ``launch.sh up`` / ``weekly_rebuild.py``
+leave it out of their pulls and call :func:`owui_update` instead. The daily run
+only *proposes* a newer upstream release; adopting one is explicit
+(``--bump [TAG]``) and applied as:
 
-  1. stop Open WebUI, tag the running image ``:rollback`` (survives ``image
-     prune``) and tar ``webui.db`` + ``vector_db`` to ``~/.portal5/backups`` —
-     its DB migrations are one-way, so the data must be restorable too;
-  2. recreate on the pinned image and wait for the healthcheck;
-  3. on failure restore the data, re-point the pin at the rollback image,
-     record the build's revision as rejected and alert.
+  1. rebuild the image from the new upstream base; stop Open WebUI, tag the
+     running image ``:rollback`` (survives ``image prune``) and tar ``webui.db`` +
+     ``vector_db`` to ``~/.portal5/backups`` — its DB migrations are one-way, so
+     the data must be restorable too;
+  2. recreate on the new build and wait for the healthcheck;
+  3. on failure restore the data and the previous compose pin, re-tag the previous
+     build, record the upstream base's revision as rejected and alert.
 
 2026-10-11: an unguarded pull of v0.12.0 crash-looped on a migration against a
 legacy column default in our DB; nothing could roll it back.
@@ -36,6 +40,7 @@ import sys
 import time
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
@@ -46,9 +51,10 @@ from scripts.engine_autoupdate import busy, log  # noqa: E402
 COMPOSE = REPO / "deploy" / "portal-5" / "docker-compose.yml"
 DOCKER = shutil.which("docker") or "/usr/local/bin/docker"
 SERVICES = {"searxng/searxng": "searxng"}  # re-pulled when an advisory is newer than the build
-OWUI_REPO = "ghcr.io/open-webui/open-webui"
-OWUI_IMAGE = f"{OWUI_REPO}:v0.12.3"
-OWUI_ROLLBACK = f"{OWUI_REPO}:rollback"
+OWUI_IMAGE_PREFIX = "portal5-open-webui"  # locally built from Dockerfile.openwebui
+OWUI_RELEASE = "v0.12.3"  # also the default OPENWEBUI_VERSION build arg
+OWUI_IMAGE = f"{OWUI_IMAGE_PREFIX}:{OWUI_RELEASE}-hardened"
+OWUI_ROLLBACK = f"{OWUI_IMAGE_PREFIX}:rollback"
 OWUI_RELEASES = "https://api.github.com/repos/open-webui/open-webui/releases/latest"
 OWUI_SVC = "open-webui"
 OWUI_CONTAINER = "portal5-open-webui"
@@ -122,25 +128,66 @@ def floating(dry_run: bool) -> None:
 
 
 # ── Open WebUI: pinned release behind backup + health gate + rollback ────────
-def _pinned_image() -> str:
-    """Open WebUI image ref pinned in compose (OWUI_IMAGE when unreadable)."""
+def _compose_text() -> str:
     try:
-        text = COMPOSE.read_text()
+        return COMPOSE.read_text()
     except OSError:
-        return OWUI_IMAGE
-    svc = re.search(r"^  open-webui:\n(.*?)(?=^  \S)", text, re.MULTILINE | re.DOTALL)
-    img = re.search(r"^\s+image:\s*(\S+)", svc.group(1), re.MULTILINE) if svc else None
-    return img.group(1) if img else OWUI_IMAGE
+        return ""
 
 
-def _set_pinned_image(image: str) -> bool:
-    """Rewrite the open-webui image line; False when the service is absent."""
-    text = COMPOSE.read_text()
-    svc = re.compile(r"(^  open-webui:\n.*?)(^\s+image:\s*)(\S+)", re.MULTILINE | re.DOTALL)
-    new_text, n = svc.subn(lambda m: m.group(1) + m.group(2) + image, text, count=1)
-    if not n:
+def _service_block(text: str) -> re.Match[str] | None:
+    return re.search(r"^  open-webui:\n(.*?)(?=^  \S)", text, re.MULTILINE | re.DOTALL)
+
+
+def _service_field(text: str, pattern: str, default: str) -> str:
+    block = _service_block(text)
+    hit = re.search(pattern, block.group(1), re.MULTILINE) if block else None
+    return hit.group(1) if hit else default
+
+
+def _pinned_release(text: str | None = None) -> str:
+    """Upstream release pinned by the OPENWEBUI_VERSION build arg."""
+    return _service_field(
+        _compose_text() if text is None else text,
+        r"^\s+OPENWEBUI_VERSION:\s*(\S+)",
+        OWUI_RELEASE,
+    )
+
+
+def _pinned_image(text: str | None = None) -> str:
+    """Hardened image ref pinned in compose (OWUI_IMAGE when unreadable)."""
+    return _service_field(
+        _compose_text() if text is None else text, r"^\s+image:\s*(\S+)", OWUI_IMAGE
+    )
+
+
+def _image_ref(release: str) -> str:
+    return f"{OWUI_IMAGE_PREFIX}:{release}-hardened"
+
+
+def _set_pinned(release: str) -> bool:
+    """Rewrite the image tag and the OPENWEBUI_VERSION arg; False when either is absent."""
+    text = _compose_text()
+    block = _service_block(text)
+    if block is None:
         return False
-    COMPOSE.write_text(new_text)
+    body, img = re.subn(
+        r"^(\s+image:\s*)\S+",
+        lambda m: m.group(1) + _image_ref(release),
+        block.group(1),
+        count=1,
+        flags=re.MULTILINE,
+    )
+    body, arg = re.subn(
+        r"^(\s+OPENWEBUI_VERSION:\s*)\S+",
+        lambda m: m.group(1) + release,
+        body,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    if not (img and arg):
+        return False
+    COMPOSE.write_text(text[: block.start(1)] + body + text[block.end(1) :])
     return True
 
 
@@ -225,8 +272,20 @@ def _restore(name: str) -> bool:
     )
 
 
+def _revert(previous: str, old_id: str, image: str) -> bool:
+    """Put the previous compose pin back and re-tag the previous hardened image."""
+    COMPOSE.write_text(previous)
+    return _docker("tag", old_id, image, timeout=60).returncode == 0
+
+
 def _rollback(
-    old_id: str, old_rev: str, bad: str, name: str, state: dict, image: str
+    old_id: str,
+    old_rev: str,
+    bad: str,
+    name: str,
+    state: dict[str, Any],
+    previous: str,
+    image: str,
 ) -> tuple[bool, str]:
     """Restore the data + previous image after a build failed its health gate."""
     tail = _docker("logs", "--tail", "15", OWUI_CONTAINER, timeout=60)
@@ -234,7 +293,7 @@ def _rollback(
     _compose("stop", OWUI_SVC)
     restored = (
         _restore(name)
-        and _docker("tag", old_id, image, timeout=60).returncode == 0
+        and _revert(previous, old_id, image)
         and _compose("up", "-d", "--no-deps", OWUI_SVC).returncode == 0
         and _wait_healthy(OWUI_SVC, 900)
     )
@@ -247,48 +306,64 @@ def _rollback(
     )
 
 
-def _apply_pinned(pinned: str, dry_run: bool, proposal: str = "") -> tuple[bool, str]:
+def _swap(
+    old_id: str, previous: str, rev: str, state: dict[str, Any], pinned: str
+) -> tuple[bool, str]:
+    """Back up the data, recreate on the new build, roll back if it stays unhealthy."""
+    prev_image, prev_release = _pinned_image(previous), _pinned_release(previous)
+    old_rev = _revision(old_id) or prev_release
+    log(f"open-webui: moving {old_rev} -> {rev} ({pinned})")
+    _docker("tag", old_id, OWUI_ROLLBACK, timeout=60)
+    name = f"owui-{old_rev}-{dt.datetime.now():%Y%m%dT%H%M%S}.tar"
+    _compose("stop", OWUI_SVC)
+    if not _backup(name):
+        restored = (
+            _revert(previous, old_id, prev_image)
+            and _compose("up", "-d", "--no-deps", OWUI_SVC).returncode == 0
+            and _wait_healthy(OWUI_SVC, 900)
+        )
+        return restored, "open-webui: data backup failed — stayed on the current build"
+
+    if _compose("up", "-d", "--no-deps", OWUI_SVC).returncode == 0 and _wait_healthy(OWUI_SVC, 900):
+        return True, f"open-webui: updated to {rev} (data backup {name})"
+
+    return _rollback(old_id, old_rev, rev, name, state, previous, prev_image)
+
+
+def _apply_pinned(previous: str, dry_run: bool, proposal: str = "") -> tuple[bool, str]:
+    pinned, release = _pinned_image(), _pinned_release()
     running = _docker("inspect", OWUI_CONTAINER, "--format", "{{.Image}}", timeout=60)
     old_id = running.stdout.strip() if running.returncode == 0 else _image_id(pinned)
     if not old_id:
         return False, "open-webui: no running container or local image to update from"
     if dry_run:
-        return True, f"[dry-run] would pull {pinned} and apply it behind the health gate"
-    if _docker("pull", pinned, timeout=3600).returncode != 0:
-        return True, f"open-webui: pull of {pinned} failed — staying on the current build"
-    new_id, rev = _image_id(pinned), _revision(pinned)
+        return True, f"[dry-run] would build {release} and apply it behind the health gate"
+    if _compose("build", OWUI_SVC, timeout=3600).returncode != 0:
+        return True, f"open-webui: build of {release} failed — staying on the current build"
+    new_id = _image_id(pinned)
+    # Inherited from the upstream base; a derived build without it is tracked by release.
+    rev = _revision(pinned) or release
     if new_id == old_id:
         note = f"; {proposal}" if proposal else ""
-        return True, f"open-webui: current ({rev or new_id[:19]}){note}"
+        return True, f"open-webui: current ({rev}){note}"
 
     state = _load()
-    if rev and rev in state.get("rejected", {}).get("open-webui", []):
+    if rev in state.get("rejected", {}).get("open-webui", []):
         return True, f"open-webui: build {rev} was rejected earlier — staying on the current one"
 
-    old_rev = _revision(old_id)
-    log(f"open-webui: moving {old_rev or old_id[:19]} -> {rev or new_id[:19]} ({pinned})")
-    _docker("tag", old_id, OWUI_ROLLBACK, timeout=60)
-    name = f"owui-{old_rev or 'prev'}-{dt.datetime.now():%Y%m%dT%H%M%S}.tar"
-    _compose("stop", OWUI_SVC)
-    if not _backup(name):
-        _docker("tag", old_id, pinned, timeout=60)
-        _compose("up", "-d", "--no-deps", OWUI_SVC)
-        ok = _wait_healthy(OWUI_SVC, 900)
-        return ok, "open-webui: data backup failed — stayed on the current build"
-
-    if _compose("up", "-d", "--no-deps", OWUI_SVC).returncode == 0 and _wait_healthy(OWUI_SVC, 900):
-        return True, f"open-webui: updated to {rev or new_id[:19]} (data backup {name})"
-
-    return _rollback(old_id, old_rev, rev or new_id, name, state, pinned)
+    return _swap(old_id, previous, rev, state, pinned)
 
 
 def owui_update(dry_run: bool = False, bump: str | None = None) -> tuple[bool, str]:
-    """Apply the pinned release; ``bump`` rewrites the compose pin first ("" = newest)."""
-    pinned = _pinned_image()
+    """Apply the pinned release; ``bump`` rewrites the hardened pin first ("" = newest)."""
+    previous = _compose_text()
+    if not previous:
+        return False, f"open-webui: cannot read {COMPOSE}"
+    release = _pinned_release(previous)
     proposal = ""
     if bump is None:
         latest = _latest_release()
-        if latest and _tag_key(latest) > _tag_key(pinned.rsplit(":", 1)[-1]):
+        if latest and _tag_key(latest) > _tag_key(release):
             proposal = f"newer release {latest} available (`--bump {latest}`)"
     else:
         target = _release_tag(bump) if bump else _release_tag(_latest_release())
@@ -296,11 +371,10 @@ def owui_update(dry_run: bool = False, bump: str | None = None) -> tuple[bool, s
             return False, f"open-webui: could not resolve a release tag ({bump or 'upstream'})"
         if dry_run:
             return True, f"[dry-run] would bump the pin to {target} behind the health gate"
-        if not _set_pinned_image(f"{OWUI_REPO}:{target}"):
-            return False, f"open-webui: no open-webui image line in {COMPOSE}"
-        pinned = f"{OWUI_REPO}:{target}"
+        if not _set_pinned(target):
+            return False, f"open-webui: no OPENWEBUI_VERSION/image pin for open-webui in {COMPOSE}"
         log(f"open-webui: pin bumped to {target} in {COMPOSE}")
-    return _apply_pinned(pinned, dry_run, proposal)
+    return _apply_pinned(previous, dry_run, proposal)
 
 
 def main(argv: list[str]) -> int:
