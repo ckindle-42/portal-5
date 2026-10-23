@@ -2406,6 +2406,16 @@ The compliance-reading seat is the §P8.1-bound production seat; moving it to oM
 
 ---
 
+### `orcacyber-nano-1.0:ctx64k`
+
+`orcacyber-nano-1.0:ctx64k` is the 64K-context local tag for OrcaCyber Nano 1.0, with `PARAMETER num_ctx 65536` baked into the tag. `config/backends.yaml` registers it in the `coding` group with `supports_tools: true`, and `config/portal.yaml` binds it to the optional `auto-spl::nano` variant with `context_limit: 65536`, `predict_limit: 16384`, card sampling temperature 1.0 / top_p 0.95 / top_k 20, and `think: false`. The bare `auto-spl` workspace remains on its incumbent model; the `splunkdetectionauthor` role selects the Nano variant.
+
+## Why
+
+The Nano tag won the 2026-10-23 detection screen 8/8 versus the incumbent's 6/8, so it is retained as an explicit SPL/detection option rather than replacing the default. Registration in `coding` makes the hint resolvable through `auto-spl`'s `[coding, general]` routing path while preserving the parent workspace's detection-tool whitelist.
+
+---
+
 ### `portal5/spark-x2.6:q4_K_M-ctx64k`
 
 `portal5/spark-x2.6:q4_K_M-ctx64k` is the Spark-X2.6-4B Q4_K_M GGUF (XHToken/Spark-X2.6-4B-GGUF, `spark2_5`, 9 full-attention + 27 sliding layers, 3,543,441,312 bytes) with `PARAMETER num_ctx 65536` baked in via `ollama create` from the spark kit Modelfile (2026-10-21). `config/backends.yaml` registers it in the `general` group with `supports_tools: true` — the kit's conformance check 2 returned clean typed `tool_calls` with no markup left in `message.content`, so the flag is a probe result, not a template inference. `config/bench_workspaces.yaml` binds it as the `bench-spark-x26` `model_hint`, whose `context_limit` of 65536 matches the baked window and carries `ctx_validated: true`. Sampling is the vendor `generation_config.json` row (temperature 1.0, top_p 0.95, top_k `-1` = disabled, repeat_penalty 1.0). The seat is serialized: `keep_alive: "0"` and `max_concurrent: 1`, because Fast+Deep alone measured 37.8 GiB against 25.7 GiB available (2026-10-21) and Spark (~6 GiB RSS at 64k) is arithmetically excluded from co-residency.

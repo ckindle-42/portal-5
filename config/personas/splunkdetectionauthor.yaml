@@ -3,8 +3,9 @@ slug: splunkdetectionauthor
 delivery: role
 category: security
 workspace_model: auto-spl
+variant: nano
 preferred_models:
-  - Huihui-Qwen3.6-27B-abliterated-MLX-4bit
+  - orcacyber-nano-1.0:ctx64k
   - omnicoder2:9b-q4_k_m
   - omnicoder2:9b-q4_k_m-ctx8k
 module: general

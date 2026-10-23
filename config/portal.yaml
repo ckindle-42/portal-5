@@ -1543,6 +1543,20 @@ workspaces:
     enable_web_search: false
     owui_system_prompt: |-
       You are an expert Splunk SPL Engineer. Write, explain, refactor, and debug SPL queries. Always filter on index and sourcetype before the first pipe. Never hallucinate eval functions.
+    variants:
+      nano:
+        name: "🔍 Portal SPL Engineer (OrcaCyber Nano)"
+        description: "Security-focused SPL, Sigma, and YARA option using OrcaCyber Nano; the incumbent auto-spl model remains the default."
+        model_hint: orcacyber-nano-1.0:ctx64k
+        context_limit: 65536
+        predict_limit: 16384
+        temperature: 1.0
+        top_p: 0.95
+        top_k: 20
+        min_p: 0.0
+        presence_penalty: 0.0
+        repeat_penalty: 1.0
+        think: false
   auto-security:
     module: security
     # Operator-selected only: the `auto` router never picks this workspace or

@@ -271,6 +271,18 @@ models:
     source: "https://huggingface.co/nex-agi/Nex-N2-mini (README sampling parameters) (2026-09-25)"
     recommended_sampling: {temperature: 0.7, top_p: 0.95, top_k: 40}
     prompt_contract: "No generation_config.json in the repo; the README states 0.7/0.95/40. Covers sjakek/Nex-N2-mini-GGUF."
+  orcacyber-nano:
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/orcarouter/OrcaCyber-Nano-1.0 (model card, read 2026-10-21)"
+    recommended_sampling: {temperature: 1.0, top_p: 0.95, top_k: 20}
+    max_context: 262144
+    tools: true
+    prompt_contract: "Security-focused Qwen3.8-style hybrid; the card claims function calling. The production variant uses the local 64K tag with thinking disabled."
+    harness_policy:
+      think: "false"
+      notes: "The auto-spl screen passed with thinking disabled; the local tag is capped at 64K."
+
   spark-x2.6:
     status: verified-card
     verified: true

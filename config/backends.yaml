@@ -421,6 +421,8 @@ backends:
 - group: coding
   id: ollama-coding
   models:
+  - id: orcacyber-nano-1.0:ctx64k
+    supports_tools: true
   - id: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M
     supports_tools: true
   # MoE-vs-dense IDE-lane candidates added 2026-08-26. All three MoE, ~58-59
