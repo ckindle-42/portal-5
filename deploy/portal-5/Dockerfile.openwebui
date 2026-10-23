@@ -1,0 +1,44 @@
+# Open WebUI with its vulnerable bundled Python packages patched (2026-10-23 audit:
+# 155 pip-audit findings in v0.12.3, the newest upstream release). Open WebUI's own code is
+# untouched (CLAUDE.md rule 2); only third-party wheels are upgraded. Drop this file and go
+# back to the plain upstream image once an upstream release ships these versions.
+# mcp stays on 1.x: open_webui/utils/mcp/client.py uses the 1.x client API.
+ARG OPENWEBUI_VERSION=v0.12.3
+FROM ghcr.io/open-webui/open-webui:${OPENWEBUI_VERSION}
+
+RUN pip install --no-cache-dir --upgrade \
+        "aiohttp>=3.14.4" \
+        "anthropic>=0.87.0" \
+        "black>=26.10.1" \
+        "certifi>=2026.10.19" \
+        "cryptography>=50.0.0" \
+        "datasets>=5.0.1" \
+        "fsspec>=2026.6.0" \
+        "mcp>=1.30.0,<2" \
+        "pillow>=13.0.0" \
+        "pyarrow>=23.0.1" \
+        "PyJWT[crypto]>=2.15.0" \
+        "pypdf>=6.21.1" \
+        "sentence-transformers>=5.6.0" \
+        "transformers>=5.10.0" \
+        "unstructured>=0.24.1" \
+        "opentelemetry-api>=1.45.1" \
+        opentelemetry-sdk \
+        opentelemetry-exporter-otlp \
+        opentelemetry-instrumentation \
+        opentelemetry-instrumentation-fastapi \
+        opentelemetry-instrumentation-sqlalchemy \
+        opentelemetry-instrumentation-redis \
+        opentelemetry-instrumentation-requests \
+        opentelemetry-instrumentation-logging \
+        opentelemetry-instrumentation-httpx \
+        opentelemetry-instrumentation-aiohttp-client \
+        opentelemetry-instrumentation-system-metrics \
+    && pip check
+
+# Upstream pairs torchaudio 2.11 with torch 2.9.1 (ABI mismatch). It is harmless until
+# something imports torchaudio, and newer transformers does at startup, so match it to torch.
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
+        "torchaudio==$(python -c 'import torch; print(torch.__version__.split("+")[0])')" \
+    && python -c "import torchaudio, transformers.processing_utils" \
+    && pip check

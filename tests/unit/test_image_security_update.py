@@ -144,9 +144,13 @@ def test_bump_refuses_non_release_tag(monkeypatch, tmp_path):
 def test_nothing_else_pulls_open_webui():
     compose = (_ROOT / "deploy" / "portal-5" / "docker-compose.yml").read_text()
     svc = re.search(r"^  open-webui:\n(.*?)(?=^  \S)", compose, re.MULTILINE | re.DOTALL)
-    assert svc and re.search(r"image: ghcr\.io/open-webui/open-webui:v\d+\.\d+\.\d+", svc.group(1))
+    # Built from a pinned upstream release (Dockerfile.openwebui patches its bundled wheels);
+    # compose never pulls or rebuilds it implicitly.
+    assert svc and re.search(r"OPENWEBUI_VERSION: v\d+\.\d+\.\d+", svc.group(1))
     assert ":main" not in svc.group(1)
-    assert "pull_policy: missing" in svc.group(1)
+    assert "pull_policy: never" in svc.group(1)
+    dockerfile = (_ROOT / "deploy" / "portal-5" / "Dockerfile.openwebui").read_text()
+    assert "FROM ghcr.io/open-webui/open-webui:${OPENWEBUI_VERSION}" in dockerfile
     launch = (_ROOT / "launch.sh").read_text()
     pulls = [ln for ln in launch.splitlines() if re.search(r"docker compose pull\b", ln)]
     assert pulls and all("grep -vx open-webui" in ln for ln in pulls)

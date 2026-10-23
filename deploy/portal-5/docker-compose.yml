@@ -209,12 +209,18 @@ services:
 
   # ── Open WebUI — Chat Interface ───────────────────────────────────────────
   open-webui:
-    image: ghcr.io/open-webui/open-webui:v0.12.3
-    # Pinned to a tested release. A new release is proposed by the daily job and
-    # adopted ONLY by scripts/image_security_update.py --bump (data backup +
-    # health gate + rollback) — never by a bare `compose pull`/`up`
-    # (2026-10-11 migration crash-loop).
-    pull_policy: missing
+    # Upstream release v0.12.3 plus patched third-party wheels (Dockerfile.openwebui;
+    # 2026-10-23 audit: 155 pip-audit findings, OWUI is reachable remotely). Bump the
+    # OPENWEBUI_VERSION arg to move the release. A new release is proposed by the daily job
+    # and adopted ONLY behind data backup + health gate + rollback — never by a bare
+    # `compose pull`/`up` (2026-10-11 migration crash-loop).
+    image: portal5-open-webui:v0.12.3-hardened
+    build:
+      context: .
+      dockerfile: Dockerfile.openwebui
+      args:
+        OPENWEBUI_VERSION: v0.12.3
+    pull_policy: never
     container_name: portal5-open-webui
     restart: unless-stopped
     ports:
