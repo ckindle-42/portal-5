@@ -38,7 +38,10 @@ fi
 # PIPELINE_URL). Rewrite the Docker-only host of any *_URL / *_ENDPOINT to loopback for
 # the host side; a URL naming anything else (a remote node, an unpublishable lab
 # container) is left exactly as the operator set it.
-_CONTAINER_ONLY_HOSTS="host.docker.internal portal-pipeline portal-browser open-webui searxng"
+# Only hosts whose container port is the same port published on the host. A service
+# whose ports differ (searxng: 8080 inside, 8088 on the host, where 8080 is Open WebUI)
+# must not be rewritten blindly — add it only with an explicit port mapping.
+_CONTAINER_ONLY_HOSTS="host.docker.internal portal-pipeline"
 for _var in $(compgen -v); do
     case "$_var" in
         *_URL | *_ENDPOINT) ;;
