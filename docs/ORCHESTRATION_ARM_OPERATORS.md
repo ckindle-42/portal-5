@@ -1,6 +1,6 @@
 # Orchestration arm operator guide
 
-The `orchestration` module is enabled in the repo. It is ready to run as long as the Pipeline and its seated models are already available:
+The `orchestration` module is enabled in the repo; it runs once the Pipeline and its seated models are available. To turn it off or back on:
 
 ```bash
 uv run portal module enable orchestration --yes
