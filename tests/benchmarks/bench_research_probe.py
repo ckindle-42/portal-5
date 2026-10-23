@@ -35,7 +35,9 @@ RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 OLLAMA_URL = "http://localhost:11434"
 RESEARCH_MCP_URL = "http://localhost:8922"
-JUDGE_MODEL = "gemma4:12b-it-qat"
+# The bare 12b tag was removed in a fleet prune; every judge call then failed and both arms
+# came back ERROR/unscored (2026-10-23). Override with RESEARCH_PROBE_JUDGE.
+JUDGE_MODEL = os.environ.get("RESEARCH_PROBE_JUDGE", "gemma4:12b-it-qat-ctx8k")
 
 MAX_HOPS = 5
 GEN_TIMEOUT_S = 300.0
