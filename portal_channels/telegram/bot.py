@@ -281,4 +281,6 @@ def build_app() -> Application:
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
+    # httpx logs every request URL at INFO, and Telegram puts the bot token in the URL path.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
     build_app().run_polling()
