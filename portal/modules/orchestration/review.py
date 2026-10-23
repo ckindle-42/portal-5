@@ -79,7 +79,9 @@ def review_output(
                     ),
                 },
             ],
-            "max_tokens": 512,
+            # Reasoning shares this cap: at 512 the deep seat spent it all thinking and
+            # returned no JSON (live 2026-10-22); 8192 measured 4/4 valid votes.
+            "max_tokens": 8192,
             "temperature": 0,
             "stream": True,
             "stream_options": {"include_usage": True},
