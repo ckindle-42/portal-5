@@ -95,6 +95,9 @@ orchestration_arm:
         # Lineage diversity (operator 2026-10-22): Gemma fast seat, Qwen deep seat.
         fast: auto-daily::gemma-fast
         deep: auto-daily::deep
+      shadow_seats:
+        read: {model: 'portal5/spark-x2.6:q4_K_M-ctx64k', timeout_seconds: 90}
+        check: {model: 'portal5/spark-x2.6:q4_K_M-ctx64k', timeout_seconds: 90}
       tool_allowlist: [file_read, file_write, pytest_run]
       read_tools: [file_read]
       action_tools: [file_write, pytest_run]

@@ -13,6 +13,7 @@ from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from typing import Any
 from unittest.mock import Mock
+from urllib.parse import parse_qs, urlsplit
 
 import httpx
 import pytest
@@ -20,6 +21,8 @@ import yaml
 from fastapi import HTTPException
 
 from portal.modules.coding.tools import code_sandbox_mcp as sandbox_mcp
+from portal.modules.orchestration import service as service_module
+from portal.modules.orchestration import shadow as shadow_module
 from portal.modules.orchestration import tools as orchestration_tools
 from portal.modules.orchestration.contracts import parse_plan
 from portal.modules.orchestration.ledger import ArmLedger, ResumeMismatchError
@@ -41,7 +44,7 @@ from portal.modules.orchestration.tools import (
     TASK_FILE_LIMIT,
     TaskToolExecutor,
 )
-from portal.modules.orchestration.worker import Engine, run_bite
+from portal.modules.orchestration.worker import Engine, WorkerResult, run_bite
 from portal.platform.inference.router import auth
 from portal.platform.inference.router.eval_gate import apply_bite_tool_scope
 
@@ -185,6 +188,217 @@ def service(
     return ArmService(
         tmp_path / "tasks", engines, build_sha=build_sha, residency_config=config, notices=notices
     )
+
+
+@pytest.mark.parametrize("shadow_outcome", ["pass", "disagree", "error", "timeout"])
+def test_read_shadow_records_comparison_without_changing_gate(
+    tmp_path: Path,
+    fake_pipeline: FakePipeline,
+    monkeypatch: pytest.MonkeyPatch,
+    shadow_outcome: str,
+) -> None:
+    (tmp_path / "source.txt").write_text("source input\n", encoding="utf-8")
+    fake_pipeline.add("fast", finish_response({"answer": "right"}))
+    arm = service(tmp_path, fake_pipeline)
+    arm.arm_config["disciplines"]["offline-test"]["shadow_seats"] = {
+        "read": {
+            "model": "portal5/spark-x2.6:q4_K_M-ctx64k",
+            "timeout_seconds": 5,
+        }
+    }
+
+    def fake_shadow_run(*_args: Any, **_kwargs: Any) -> WorkerResult:
+        if shadow_outcome == "error":
+            raise RuntimeError("shadow engine failed")
+        if shadow_outcome == "timeout":
+            raise TimeoutError("shadow timeout")
+        answer = "wrong" if shadow_outcome == "disagree" else "right"
+        return WorkerResult(True, {"answer": answer}, 5, 0.1, "finished", (), ())
+
+    def fake_popen(args: list[str], **_kwargs: Any) -> Mock:
+        job_path = Path(json.loads(Path(args[-1]).read_text(encoding="utf-8"))[0])
+        job = json.loads(job_path.read_text(encoding="utf-8"))
+        assert job["comparison"]["shadow_model"].endswith("spark-x2.6:q4_K_M-ctx64k")
+        record = shadow_module.run_shadow(job, Mock(), Mock())  # type: ignore[arg-type]
+        assert (
+            Path(job["task_dir"]) / "bites/b1/attempts/01/shadow/data/inputs/source.txt"
+        ).read_text() == "source input\n"
+        shadow_module.append_comparison(Path(job["task_dir"]), record)
+        return Mock()
+
+    monkeypatch.setattr(shadow_module, "run_bite", fake_shadow_run)
+    monkeypatch.setattr(service_module.subprocess, "Popen", fake_popen)
+    task_dir = arm.submit(
+        plan("shadow-read", bite(tools=["file_read"], inputs=["source.txt"])), tmp_path
+    )
+    receipt = json.loads((task_dir / "receipt.json").read_text(encoding="utf-8"))
+    record = json.loads((task_dir / "shadow_comparisons.jsonl").read_text(encoding="utf-8"))
+    assert receipt["status"] == "PASS"
+    assert record["incumbent_verdict"] is True
+    assert record["kind"] == "read"
+    assert isinstance(record["incumbent_latency_seconds"], float)
+    assert isinstance(record["shadow_latency_seconds"], float)
+    if shadow_outcome == "pass":
+        assert record["shadow_verdict"] is True
+        assert record["agree"] is True
+        assert record["error"] is None
+    elif shadow_outcome == "disagree":
+        assert record["shadow_verdict"] is False
+        assert record["agree"] is False
+        assert record["error"] is None
+    else:
+        assert record["shadow_verdict"] is None
+        assert record["agree"] is None
+        assert (
+            "shadow engine failed" if shadow_outcome == "error" else "shadow timeout"
+        ) in record["error"]
+
+
+def test_read_shadow_runs_once_for_a_bite_that_retries(
+    tmp_path: Path,
+    fake_pipeline: FakePipeline,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "source.txt").write_text("source input\n", encoding="utf-8")
+    fake_pipeline.add("fast", finish_response({"answer": "wrong"}))
+    fake_pipeline.add("fast", finish_response({"answer": "right"}))
+    arm = service(tmp_path, fake_pipeline)
+    arm.arm_config["disciplines"]["offline-test"]["shadow_seats"] = {
+        "read": {"model": "portal5/spark-x2.6:q4_K_M-ctx64k", "timeout_seconds": 5}
+    }
+
+    def fake_shadow_run(*_args: Any, **_kwargs: Any) -> WorkerResult:
+        return WorkerResult(True, {"answer": "right"}, 5, 0.1, "finished", (), ())
+
+    def fake_popen(args: list[str], **_kwargs: Any) -> Mock:
+        for job_path in json.loads(Path(args[-1]).read_text(encoding="utf-8")):
+            job = json.loads(Path(job_path).read_text(encoding="utf-8"))
+            shadow_module.append_comparison(
+                Path(job["task_dir"]), shadow_module.run_shadow(job, Mock(), Mock())
+            )
+        return Mock()
+
+    monkeypatch.setattr(shadow_module, "run_bite", fake_shadow_run)
+    monkeypatch.setattr(service_module.subprocess, "Popen", fake_popen)
+    task_dir = arm.submit(
+        plan("shadow-retry", bite(tools=["file_read"], inputs=["source.txt"])), tmp_path
+    )
+    receipt = json.loads((task_dir / "receipt.json").read_text(encoding="utf-8"))
+    records = [
+        json.loads(line)
+        for line in (task_dir / "shadow_comparisons.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert receipt["status"] == "PASS"
+    assert receipt["results"][0]["attempts"] == 2
+    assert len(records) == 1
+    assert records[0]["attempt"] == "02"
+    assert records[0]["incumbent_verdict"] is True
+
+
+def test_shadow_summary_counts_false_accept_and_false_fail(tmp_path: Path) -> None:
+    task = tmp_path / "task-one"
+    task.mkdir()
+    for incumbent, candidate in ((True, True), (False, True), (True, False), (True, None)):
+        shadow_module.append_comparison(
+            task,
+            {
+                "incumbent_verdict": incumbent,
+                "shadow_verdict": candidate,
+                "agree": candidate == incumbent if candidate is not None else None,
+                "error": "timeout" if candidate is None else None,
+            },
+        )
+    assert shadow_module.summarize_comparisons(task) == {
+        "total": 4,
+        "compared": 3,
+        "agree_percent": pytest.approx(100 / 3),
+        "false_accept": 1,
+        "false_fail": 1,
+        "errors": 1,
+    }
+    other = tmp_path / "task-two"
+    other.mkdir()
+    shadow_module.append_comparison(
+        other,
+        {"incumbent_verdict": True, "shadow_verdict": True, "agree": True, "error": None},
+    )
+    assert shadow_module.summarize_all(tmp_path) == {
+        "total": 5,
+        "compared": 4,
+        "agree_percent": pytest.approx(50.0),
+        "false_accept": 1,
+        "false_fail": 1,
+        "errors": 1,
+    }
+
+
+@pytest.mark.parametrize(
+    "shadow",
+    [
+        {"browse": {"model": "portal5/spark-x2.6:q4_K_M-ctx64k", "timeout_seconds": 5}},
+        {"read": {"model": "spark-x2.6:q4_K_M-ctx64k", "timeout_seconds": 5}},
+        {"read": {"model": "portal5/spark-x2.6:q4_K_M-ctx64k", "timeout_seconds": 0}},
+    ],
+)
+def test_arm_config_rejects_invalid_shadow_seat(tmp_path: Path, shadow: dict[str, Any]) -> None:
+    repo = Path(__file__).resolve().parents[2]
+    config = yaml.safe_load((repo / "config" / "orchestration_arm.yaml").read_text())
+    config["disciplines"]["test_fixing"]["shadow_seats"] = shadow
+    path = tmp_path / "orchestration_arm.yaml"
+    path.write_text(yaml.safe_dump(config), encoding="utf-8")
+    with pytest.raises(ValueError, match="shadow_seats"):
+        load_arm_config(path)
+
+
+def test_shadow_kind_uses_discipline_read_tools() -> None:
+    discipline = {"read_tools": ["file_read", "wiki_search"]}
+    read_bite = parse_plan(plan("kind", bite(tools=["file_read", "wiki_search"]))).bites[0]
+    file_read_bite = parse_plan(plan("kind", bite(tools=["file_read"]))).bites[0]
+    check_bite = parse_plan(plan("kind", bite(tools=[]))).bites[0]
+    write_bite = parse_plan(
+        plan("kind", bite(tools=["file_write"], write_paths=["new.txt"]))
+    ).bites[0]
+    assert ArmService._shadow_kind(read_bite, discipline) == "read"
+    assert ArmService._shadow_kind(file_read_bite, {}) == "read"
+    assert ArmService._shadow_kind(check_bite, discipline) == "check"
+    assert ArmService._shadow_kind(write_bite, discipline) is None
+
+
+def test_shadow_client_pins_spark_with_card_sampling(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict[str, Any] = {}
+
+    class EmptyResponse:
+        def __enter__(self) -> EmptyResponse:
+            return self
+
+        def __exit__(self, *_args: Any) -> None:
+            return None
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def iter_lines(self) -> list[str]:
+            return []
+
+    def fake_stream(_method: str, url: str, **kwargs: Any) -> EmptyResponse:
+        seen["url"] = url
+        seen["body"] = kwargs["json"]
+        return EmptyResponse()
+
+    monkeypatch.setattr(httpx, "stream", fake_stream)
+    model = "portal5/spark-x2.6:q4_K_M-ctx64k"
+    engine = shadow_module.ShadowEngine(
+        "auto-daily::gemma-fast", "shadow", "http://pipeline", model_override=model
+    )
+    engine.chat({"model": engine.model_tag}, 5, lambda _event: None)
+    assert parse_qs(urlsplit(seen["url"]).query)["model"] == [model]
+    assert seen["body"] == {
+        "model": "auto-daily::gemma-fast",
+        "temperature": 1.0,
+        "top_p": 0.95,
+        "top_k": -1,
+        "min_p": 0.0,
+    }
 
 
 @pytest.fixture

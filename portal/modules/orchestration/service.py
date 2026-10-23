@@ -6,10 +6,14 @@ import hashlib
 import json
 import shutil
 import subprocess
+import sys
+import time
 from collections.abc import Callable
+from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
+from uuid import uuid4
 
 import yaml
 
@@ -18,7 +22,7 @@ from .contracts import Bite, TaskPlan
 from .ledger import ArmLedger
 from .planner import plan_goal, validate_execution_plan
 from .review import is_high_risk, review_output
-from .tools import TASK_BYTES_LIMIT, TASK_DATA_DIRECTORY, TASK_FILE_LIMIT
+from .tools import READ_TOOLS, TASK_BYTES_LIMIT, TASK_DATA_DIRECTORY, TASK_FILE_LIMIT
 from .worker import Engine, QueueYieldError, check_output, run_bite
 
 
@@ -82,6 +86,7 @@ class ArmService:
         self.notices = notices or StubNoticeSink()
         self.bite_gate = bite_gate
         self.queue_yield_reason: str | None = None
+        self._shadow_jobs: list[Path] = []
 
     def submit(
         self, raw_plan: dict[str, Any], source_dir: Path, *, unattended: bool = True
@@ -219,6 +224,7 @@ class ArmService:
         input_map: dict[str, dict[str, str]],
     ) -> None:
         self.queue_yield_reason = None
+        self._shadow_jobs = []
         self._refresh_ready(plan, ledger)
         completed = {
             bite.bite_id
@@ -232,6 +238,7 @@ class ArmService:
         status = self._task_status(results, waiting, paused, waiting_for_capacity)
         ledger.set_task_status(status, build_sha=self.build_sha, model=self._identities()["fast"])
         self._write_receipt(task_dir, plan, status, results, calibration_records)
+        self._start_shadow_jobs(task_dir)
 
     def _execute_ready(
         self,
@@ -474,6 +481,7 @@ class ArmService:
         disciplines = self.arm_config.get("disciplines", {})
         discipline = disciplines.get(bite.discipline, {}) if isinstance(disciplines, dict) else {}
         persona = discipline.get("persona") if isinstance(discipline, dict) else None
+        started = time.monotonic()
         try:
             worker = run_bite(
                 task_dir,
@@ -491,7 +499,7 @@ class ArmService:
             )
             shutil.rmtree(attempt_dir, ignore_errors=True)
             raise
-        return self._judge_attempt(
+        failure = self._judge_attempt(
             bite,
             task_dir,
             ledger,
@@ -503,6 +511,99 @@ class ArmService:
             attempt_index,
             attempt_count,
         )
+        # Shadow only the attempt that decided the bite; retry noise would
+        # inflate the false-accept/false-fail counts with duplicate inputs.
+        if failure is None or attempt_index == attempt_count:
+            self._launch_shadow(
+                bite, task_dir, attempt_dir, input_paths, seat, time.monotonic() - started
+            )
+        return failure
+
+    def _launch_shadow(
+        self,
+        bite: Bite,
+        task_dir: Path,
+        attempt_dir: Path,
+        input_paths: dict[str, str],
+        seat_name: str,
+        incumbent_seconds: float,
+    ) -> None:
+        comparison: dict[str, Any] = {
+            "task_id": task_dir.name,
+            "bite_id": bite.bite_id,
+            "attempt": attempt_dir.name,
+            "incumbent_latency_seconds": incumbent_seconds,
+        }
+        try:
+            discipline = self.arm_config["disciplines"].get(bite.discipline, {})
+            if not isinstance(discipline, dict):
+                return
+            kind = self._shadow_kind(bite, discipline)
+            seats = discipline.get("shadow_seats", {})
+            seat = seats.get(kind) if isinstance(seats, dict) and kind else None
+            if not isinstance(seat, dict):
+                return
+            comparison.update(
+                {
+                    "kind": kind,
+                    "incumbent_model": self.engines[seat_name].model_tag,
+                    "shadow_model": seat["model"],
+                    "incumbent_verdict": json.loads(
+                        (attempt_dir / "checks.json").read_text(encoding="utf-8")
+                    )["passed"],
+                }
+            )
+            shadow_dir = attempt_dir / "shadow"
+            job = {
+                "bite": bite.as_dict(),
+                "inputs": input_paths,
+                "comparison": comparison,
+                "timeout_seconds": seat["timeout_seconds"],
+                "pipeline_url": self.engines[seat_name].base_url,
+                "incumbent_model": self.engines[seat_name].model_tag,
+                "deep_model": self.engines["deep"].model_tag,
+                "config": self.arm_config,
+                "task_dir": str(task_dir),
+                "source_data": str(task_dir / TASK_DATA_DIRECTORY),
+            }
+            job_path = shadow_dir / "job.json"
+            job_path.parent.mkdir(parents=True, exist_ok=True)
+            job_path.write_text(json.dumps(job) + "\n", encoding="utf-8")
+            self._shadow_jobs.append(job_path)
+        except Exception as exc:
+            _append_shadow_error(task_dir, comparison, f"launch: {type(exc).__name__}: {exc}")
+
+    @staticmethod
+    def _shadow_kind(bite: Bite, discipline: dict[str, Any]) -> str | None:
+        if not bite.tools:
+            return "check"
+        declared = discipline.get("read_tools")
+        read_tools = frozenset(declared) if isinstance(declared, list) else READ_TOOLS
+        return "read" if set(bite.tools) <= read_tools else None
+
+    def _start_shadow_jobs(self, task_dir: Path) -> None:
+        if not self._shadow_jobs:
+            return
+        try:
+            manifest = task_dir / f"shadow_jobs_{uuid4().hex}.json"
+            manifest.write_text(
+                json.dumps([str(path) for path in self._shadow_jobs]) + "\n", encoding="utf-8"
+            )
+            with (task_dir / "shadow_worker.log").open("a", encoding="utf-8") as log:
+                subprocess.Popen(
+                    [sys.executable, "-m", "portal.modules.orchestration.shadow", str(manifest)],
+                    stdin=subprocess.DEVNULL,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                    start_new_session=True,
+                )
+        except Exception as exc:
+            for job_path in self._shadow_jobs:
+                with suppress(OSError, KeyError, TypeError, ValueError):
+                    comparison = json.loads(job_path.read_text(encoding="utf-8"))["comparison"]
+                    _append_shadow_error(
+                        task_dir, comparison, f"launch: {type(exc).__name__}: {exc}"
+                    )
 
     def _judge_attempt(
         self,
@@ -678,6 +779,21 @@ def load_arm_config(path: Path) -> dict[str, Any]:
         raise ValueError(f"orchestration config must define {sorted(required)}")
     if not all(isinstance(raw[key], dict) for key in required):
         raise ValueError("orchestration policy sections must be mappings")
+    for name, discipline in raw["disciplines"].items():
+        shadows = discipline.get("shadow_seats", {}) if isinstance(discipline, dict) else {}
+        if not isinstance(shadows, dict):
+            raise ValueError(f"{name}: shadow_seats must be a mapping")
+        for kind, seat in shadows.items():
+            if (
+                kind not in {"read", "check"}
+                or not isinstance(seat, dict)
+                or not isinstance(seat.get("model"), str)
+                or not seat["model"].startswith("portal5/")
+                or not isinstance(seat.get("timeout_seconds"), (int, float))
+                or isinstance(seat["timeout_seconds"], bool)
+                or seat["timeout_seconds"] <= 0
+            ):
+                raise ValueError(f"{name}: invalid shadow_seats.{kind}")
     return raw
 
 
@@ -773,6 +889,16 @@ def _review_worker(
             f"{result.required} required"
         ),
     }
+
+
+def _append_shadow_error(task_dir: Path, comparison: dict[str, Any], error: str) -> None:
+    from .shadow import append_comparison
+
+    with suppress(OSError, TypeError, ValueError):
+        append_comparison(
+            task_dir,
+            {**comparison, "shadow_verdict": None, "agree": None, "error": error},
+        )
 
 
 def module_is_enabled(config_path: Path) -> bool:

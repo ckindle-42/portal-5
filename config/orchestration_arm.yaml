@@ -53,6 +53,13 @@ disciplines:
     seated_models:
       fast: auto-daily::gemma-fast
       deep: auto-daily::deep
+    shadow_seats:
+      read:
+        model: portal5/spark-x2.6:q4_K_M-ctx64k
+        timeout_seconds: 90
+      check:
+        model: portal5/spark-x2.6:q4_K_M-ctx64k
+        timeout_seconds: 90
     tool_allowlist:
     - file_read
     - file_write

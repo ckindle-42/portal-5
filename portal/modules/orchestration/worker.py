@@ -10,6 +10,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
 import httpx
 from jsonschema import Draft202012Validator, ValidationError  # type: ignore[import-untyped]
@@ -39,6 +40,7 @@ class Engine:
     api_key: str = ""
     load_plan_engine: str = "omlx"
     load_plan_model: str = ""
+    model_override: str = ""
 
     def identity(self) -> dict[str, str]:
         return {"model_tag": self.model_tag, "model_digest": self.model_digest}
@@ -56,7 +58,8 @@ class Engine:
         try:
             with httpx.stream(
                 "POST",
-                _chat_url(self.base_url),
+                _chat_url(self.base_url)
+                + ("?" + urlencode({"model": self.model_override}) if self.model_override else ""),
                 headers=self._headers(),
                 json=body,
                 timeout=httpx.Timeout(max(0.05, timeout), connect=min(5.0, max(0.05, timeout))),

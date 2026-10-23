@@ -105,6 +105,23 @@ def status(
     )
 
 
+@orchestration_app.command("shadow-summary")
+def shadow_summary(
+    task_id: Annotated[str | None, typer.Argument()] = None,
+    tasks_dir: Annotated[Path | None, typer.Option("--tasks-dir")] = None,
+) -> None:
+    """Summarize one task's shadow comparisons, or all tasks when no id is given."""
+    from portal.modules.orchestration.shadow import summarize_all, summarize_comparisons
+
+    root = tasks_dir or _tasks_dir()
+    try:
+        summary = summarize_comparisons(root / task_id) if task_id else summarize_all(root)
+    except OSError as exc:
+        typer.echo(f"shadow summary unavailable: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(json.dumps(summary, indent=2))
+
+
 @orchestration_app.command("enqueue")
 def enqueue(
     plan_file: Annotated[Path, typer.Argument(exists=True, readable=True)],

@@ -281,7 +281,7 @@ models:
     prompt_contract: "Custom spark2_5 decoder (llama.cpp PR #27868). Thinking levels none/low/high via the GGUF template's thinking_effort line; tool calls render as arg_key/arg_value and parse to typed tool_calls on Ollama 0.40.5 (2026-10-21 screen checks 1-3 PASS)."
     harness_policy:
       think: "true"
-      notes: "Bench-only screen candidate for the orchestration arm's reading/checker bites; screened at a 64K tag."
+      notes: "Shadow seat (non-gating comparison) on the orchestration arm's read/check bites since 2026-10-23; screened at a 64K tag."
 
   flint:
     status: verified-card
