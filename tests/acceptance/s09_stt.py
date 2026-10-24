@@ -11,6 +11,7 @@ from tests.acceptance._common import (
     MCP,
     MLX_SPEECH_URL,
     _get,
+    _mcp,
     record,
 )
 
@@ -144,39 +145,19 @@ async def run() -> None:
             target = uploads / f"{test_id}_two_speaker.wav"
             target.write_bytes(fixture.read_bytes())
             try:
-                async with httpx.AsyncClient(timeout=120.0) as client:
-                    r = await client.post(
-                        "http://localhost:8924/mcp",
-                        json={
-                            "jsonrpc": "2.0",
-                            "id": 1,
-                            "method": "tools/call",
-                            "params": {
-                                "name": "transcribe_with_speakers",
-                                "arguments": {"file": test_id, "num_speakers": 2},
-                            },
-                        },
-                    )
-                if r.status_code == 200 and "error" not in r.text:
-                    record(
-                        sec,
-                        "S9-05",
-                        "Workspace upload resolution",
-                        "PASS",
-                        "file ID resolved",
-                        t0=t0,
-                    )
-                else:
-                    record(
-                        sec,
-                        "S9-05",
-                        "Workspace upload resolution",
-                        "WARN",
-                        f"HTTP {r.status_code}",
-                        t0=t0,
-                    )
-            except Exception as e:
-                record(sec, "S9-05", "Workspace upload resolution", "FAIL", str(e)[:100], t0=t0)
+                # The MCP SDK client handles the /mcp → /mcp/ redirect and the
+                # session initialize a raw POST cannot (stateful Streamable HTTP).
+                await _mcp(
+                    8924,
+                    "transcribe_with_speakers",
+                    {"file": test_id, "num_speakers": 2},
+                    section=sec,
+                    tid="S9-05",
+                    name="Workspace upload resolution",
+                    ok_fn=lambda text: "error" not in text.lower(),
+                    detail_fn=lambda text: "file ID resolved",
+                    timeout=120,
+                )
             finally:
                 with contextlib.suppress(Exception):
                     target.unlink()
