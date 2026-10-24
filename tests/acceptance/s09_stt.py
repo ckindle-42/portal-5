@@ -146,8 +146,16 @@ async def run() -> None:
             try:
                 async with httpx.AsyncClient(timeout=120.0) as client:
                     r = await client.post(
-                        "http://localhost:8924/mcp/tools/transcribe_with_speakers",
-                        json={"file": test_id, "num_speakers": 2},
+                        "http://localhost:8924/mcp",
+                        json={
+                            "jsonrpc": "2.0",
+                            "id": 1,
+                            "method": "tools/call",
+                            "params": {
+                                "name": "transcribe_with_speakers",
+                                "arguments": {"file": test_id, "num_speakers": 2},
+                            },
+                        },
                     )
                 if r.status_code == 200 and "error" not in r.text:
                     record(

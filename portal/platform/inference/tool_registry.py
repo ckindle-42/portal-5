@@ -253,8 +253,18 @@ class ToolRegistry:
                 return len(self._tools)
 
             client = await self._client()
+            # Fleet order encodes tool-precedence: a later fleet entry wins over
+            # an earlier one when two servers advertise the same tool name. This
+            # makes the winner explicit (no reliance on asyncio.gather completion
+            # order) and matches the operator's intent in config/portal.yaml.
+            _fleet_order = {sid: idx for idx, sid in enumerate(MCP_SERVERS)}
+
             new_tools: dict[str, ToolDefinition] = {}
             succeeded_servers: set[str] = set()
+            # Collect every candidate so we can pick the winner after all servers
+            # have responded; gather is parallel so no single server's latency
+            # decides the outcome.
+            _candidates: dict[str, list[tuple[str, ToolDefinition]]] = {}
 
             async def _discover_one(server_id: str, base_url: str) -> None:
                 """Fetch and parse one server's native tool list."""
@@ -267,7 +277,7 @@ class ToolRegistry:
                         name = tdef.get("name")
                         if not name:
                             continue
-                        new_tools[name] = ToolDefinition(
+                        candidate = ToolDefinition(
                             name=name,
                             description=tdef.get("description", ""),
                             parameters=tdef.get("inputSchema", {}),
@@ -277,6 +287,7 @@ class ToolRegistry:
                             custom_timeout_s=_tool_timeout(tdef),
                             output_schema=tdef.get("outputSchema"),
                         )
+                        _candidates.setdefault(name, []).append((server_id, candidate))
                 except Exception as e:
                     logger.warning("Tool discovery for %s failed: %s", server_id, e)
 
@@ -284,6 +295,10 @@ class ToolRegistry:
                 *[_discover_one(sid, url) for sid, url in MCP_SERVERS.items()],
                 return_exceptions=True,
             )
+
+            # Resolve duplicates: pick the candidate from the highest-fleet-order
+            # server; log a warning when there is ambiguity.
+            self._resolve_duplicates(_candidates, _fleet_order, new_tools)
 
             # Preserve tools from servers that failed discovery
             for sid in MCP_SERVERS:
@@ -329,6 +344,33 @@ class ToolRegistry:
                 len(MCP_SERVERS),
             )
             return len(self._tools)
+
+    def _resolve_duplicates(
+        self,
+        candidates: dict[str, list[tuple[str, ToolDefinition]]],
+        fleet_order: dict[str, int],
+        new_tools: dict[str, ToolDefinition],
+    ) -> None:
+        """Pick the highest-fleet-order candidate per tool name; log warnings.
+
+        See ``refresh`` for the duplicate-resolution narrative.
+        """
+        for name, entries in candidates.items():
+            if len(entries) > 1:
+                losers = sorted(
+                    [(sid, fleet_order.get(sid, 0)) for sid, _ in entries],
+                    key=lambda x: x[1],
+                )
+                winner_sid = losers[-1][0]
+                logger.warning(
+                    "Duplicate tool %r advertised by %s — selecting %s (fleet precedence)",
+                    name,
+                    [sid for sid, _ in losers],
+                    winner_sid,
+                )
+                new_tools[name] = next(t for sid, t in entries if sid == winner_sid)
+            else:
+                new_tools[name] = entries[0][1]
 
     def _ttl(self) -> float:
         """Refresh interval: the retry interval while discovery is partial, else the full TTL."""
