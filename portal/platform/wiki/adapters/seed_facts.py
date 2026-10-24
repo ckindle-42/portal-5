@@ -404,7 +404,7 @@ def _tool_names_in_file(path: Path) -> list[str]:
 
     Two registration patterns are in use across the fleet: `@mcp.tool()` immediately
     above a `def`/`async def` (most servers), and `@mcp.custom_route("/tools/<name>", ...)`
-    with no matching `@mcp.tool()` at all (memory_mcp.py, rag_mcp.py, web_search_mcp.py).
+    with no matching `@mcp.tool()` at all (memory_mcp.py, rag_mcp.py).
     Both are real, live registrations — treating the second pattern as "unregistered" would
     falsely flag working tools as bugs, exactly what this deriver must never do.
     """

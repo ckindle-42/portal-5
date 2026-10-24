@@ -497,17 +497,6 @@ async def trigger_backend_warmup(workspace: str = "codingagentic") -> dict[str, 
     return await _impl_trigger_backend_warmup(workspace)
 
 
-def _arm_queue_parameter_error(parameters: Any) -> str | None:
-    if parameters is None:
-        return None
-    if not isinstance(parameters, dict):
-        return "parameters must be an object of strings"
-    for key, value in parameters.items():
-        if not isinstance(key, str) or not isinstance(value, str):
-            return "parameters must be an object of strings"
-    return None
-
-
 async def _impl_arm_queue_task(
     task_id: str,
     discipline: str,
