@@ -7,8 +7,9 @@ everywhere at once, without a model in the loop.
   1 tool-not-named      an offered tool the system prompt the pipeline sends never names or describes
   2 schema              an MCP manifest whose required/params disagree with the function, or whose
                         array items have no shape (the model has to guess the keys)
-  3 unknown-arg         live, MCP-direct: a read-only tool called with one extra key must reject it
-                        with a structured error, not report success
+  3 unknown-arg         live through the pipeline: a read-only tool called with one extra key must
+                        reject it with a structured error, not report success (--direct calls each
+                        MCP itself to see the server's own behaviour)
   4 prompt-cross-talk   an unconditional ALWAYS/NEVER/MUST instruction tied to a tool's output
   5 delivery-drift      live Open WebUI presets vs the seeded files (workspaces and personas), plus
                         presets with no source file
@@ -30,6 +31,7 @@ import urllib.error
 import urllib.request
 from collections import Counter
 from pathlib import Path
+from typing import Any
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
@@ -256,7 +258,7 @@ def class2() -> list[Row]:
 
 
 # --------------------------------------------------------------------------
-# class 3: unknown-argument handling, live and MCP-direct
+# class 3: unknown-argument handling, live through the pipeline or MCP-direct
 # --------------------------------------------------------------------------
 
 
@@ -377,8 +379,9 @@ def _without_is_error(body: str) -> str:
     return json.dumps(rest)
 
 
-def class3() -> list[Row]:
-    rows = filtering_dispatchers()
+def class3_direct() -> list[Row]:
+    """Probe each MCP itself: what that server alone does with an extra key."""
+    rows = []
     for e in load_portal()["mcp_fleet"]:
         port = e.get("port")
         if not port or not e.get("expose_to_pipeline", True):
@@ -433,6 +436,72 @@ def class3() -> list[Row]:
                 )
             else:
                 rows.append(("3", f"{e['id']} / {name}", "info", f"HTTP {code}: {body[:90]}"))
+    return rows
+
+
+REJECTION = re.compile(r"unexpected|invalid|unknown|extra|zz_unknown", re.I)
+
+
+def _pipeline_row(subject: str, result: Any) -> Row:
+    """Classify one probe that went through ``ToolRegistry.dispatch``."""
+    body = json.dumps(result)
+    if isinstance(result, dict) and "error" in result:
+        if "rejected the arguments" in body:
+            return ("3", subject, "ok", "extra key rejected by the pipeline before the call")
+        shaped = "returned an MCP tool error" in body or "rejected the MCP request" in body
+        if shaped and REJECTION.search(body):
+            return ("3", subject, "ok", "extra key rejected behind the pipeline by the server")
+        return ("3", subject, "info", f"pipeline error: {result['error'][:90]}")
+    if re.search(r'"success"\s*:\s*true', body) or not re.search(r"error", body, re.I):
+        return ("3", subject, "open", "extra key accepted: success with an unknown argument")
+    return ("3", subject, "info", f"mapped result: {body[:90]}")
+
+
+def class3_pipeline() -> list[Row]:
+    """Probe through ``ToolRegistry.dispatch`` — the call path production actually runs."""
+    import asyncio
+
+    from portal.platform.inference.tool_registry import MCP_SERVERS, ToolRegistry
+
+    async def collect() -> list[Row]:
+        registry = ToolRegistry()
+        try:
+            await registry.refresh(force=True)
+            names = registry.list_tool_names()
+            rows = []
+            for name in names:
+                tool = registry.get(name)
+                subject = f"{tool.server_id} / {name}"
+                schema = tool.parameters or {}
+                if not name.startswith(READ_ONLY):
+                    rows.append(("3", subject, "skipped", "not a read-only tool: not called live"))
+                    continue
+                if not schema.get("properties"):
+                    rows.append(("3", subject, "ok", "takes no arguments: nothing can be dropped"))
+                    continue
+                args = {
+                    k: dummy(schema.get("properties").get(k, {}))
+                    for k in schema.get("required", [])
+                }
+                args["zz_unknown_probe"] = 1
+                rows.append(_pipeline_row(subject, await registry.dispatch(name, args)))
+            seen = {registry.get(n).server_id for n in names}
+            rows += [
+                ("3", sid, "info", "no tools discovered through the pipeline")
+                for sid in sorted(set(MCP_SERVERS) - seen)
+            ]
+            return rows
+        finally:
+            await registry.close()
+
+    return asyncio.run(collect())
+
+
+def class3(direct: bool = False) -> list[Row]:
+    """direct=True probes each MCP itself (server-level debugging); the default probes
+    through the pipeline's ToolRegistry, so a finding reflects what production does."""
+    rows = filtering_dispatchers()
+    rows += class3_direct() if direct else class3_pipeline()
     return rows
 
 
@@ -580,11 +649,16 @@ def render(rows: list[Row]) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--classes", default="1,2,3,4,5")
+    ap.add_argument(
+        "--direct",
+        action="store_true",
+        help="class 3: call each MCP directly instead of through the pipeline",
+    )
     ap.add_argument("--md", type=Path, help="write the full table here")
     a = ap.parse_args()
     rows: list[Row] = []
     for c in a.classes.split(","):
-        rows += CLASSES[c.strip()]()
+        rows += class3(a.direct) if c.strip() == "3" else CLASSES[c.strip()]()
     rows = apply_justified(rows)
     for c in sorted({r[0] for r in rows}):
         counts = Counter(r[2] for r in rows if r[0] == c)

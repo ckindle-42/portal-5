@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import ast
 import importlib.util
+import json
 from pathlib import Path
+
+import httpx
+
+from portal.platform.inference import tool_registry as registry_module
 
 ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location(
@@ -47,6 +52,118 @@ def test_filtering_dispatcher_pattern_matches_the_whisper_shape():
 
 def test_no_dispatcher_silently_filters_unknown_arguments():
     assert audit.filtering_dispatchers() == []
+
+
+# ---- class 3: the probe path -----------------------------------------------
+
+
+def _rpc(request_id: str, result: dict, status_code: int = 200) -> httpx.Response:
+    return httpx.Response(status_code, json={"jsonrpc": "2.0", "id": request_id, "result": result})
+
+
+def test_class3_pipeline_rejects_unknown_key_before_the_call(monkeypatch):
+    """Default mode probes through ToolRegistry.dispatch: a closed schema rejects the
+    extra key before the server is called, an open schema still reports acceptance."""
+    calls: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        calls.append(body["method"])
+        if body["method"] == "tools/list":
+            return _rpc(
+                body["id"],
+                {
+                    "tools": [
+                        {
+                            "name": "list_widgets",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {"q": {"type": "string"}},
+                                "required": ["q"],
+                            },
+                        },
+                        {
+                            "name": "search_open",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {"q": {"type": "string"}},
+                                "additionalProperties": True,
+                            },
+                        },
+                    ]
+                },
+            )
+        return _rpc(body["id"], {"structuredContent": {"success": True}, "content": []})
+
+    import portal.platform.inference.mcp_http as mcp_http
+
+    mcp_http._SERVER_STATES.clear()
+    mcp_http._SERVER_LOCKS.clear()
+    monkeypatch.setattr(registry_module, "MCP_SERVERS", {"whisper": "http://whisper.test"})
+    real = registry_module.ToolRegistry
+
+    def factory() -> registry_module.ToolRegistry:
+        registry = real()
+        registry._http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        return registry
+
+    monkeypatch.setattr(registry_module, "ToolRegistry", factory)
+    try:
+        rows = [r for r in audit.class3() if r[1].startswith("whisper / ")]
+    finally:
+        mcp_http._SERVER_STATES.clear()
+        mcp_http._SERVER_LOCKS.clear()
+
+    assert (
+        "3",
+        "whisper / list_widgets",
+        "ok",
+        "extra key rejected by the pipeline before the call",
+    ) in rows
+    assert (
+        "3",
+        "whisper / search_open",
+        "open",
+        "extra key accepted: success with an unknown argument",
+    ) in rows
+    assert calls.count("tools/call") == 1  # the closed schema never reached the server
+
+
+def test_class3_direct_reports_server_behaviour(monkeypatch):
+    """--direct calls the MCP itself: a server that silently drops the key stays open."""
+    monkeypatch.setattr(
+        audit, "load_portal", lambda: {"mcp_fleet": [{"id": "whisper", "port": 8915}]}
+    )
+    monkeypatch.setattr(
+        audit,
+        "_listed_tools",
+        lambda base: (
+            [
+                {
+                    "name": "list_transcripts",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {"limit": {"type": "integer"}},
+                        "required": ["limit"],
+                    },
+                }
+            ],
+            "native",
+        ),
+    )
+
+    def invoke(base: str, mode: str, name: str, args: dict) -> tuple[str, int]:
+        assert args["limit"] == 1 and args["zz_unknown_probe"] == 1
+        return json.dumps({"structuredContent": {"success": True}, "content": []}), 200
+
+    monkeypatch.setattr(audit, "_invoke_listed_tool", invoke)
+    rows = audit.class3(direct=True)
+    assert (
+        "3",
+        "whisper / list_transcripts",
+        "open",
+        "extra key accepted: success with an unknown argument",
+    ) in rows
 
 
 def test_manifests_pass_the_integrity_classes_the_audit_closed():
