@@ -29,7 +29,7 @@ from portal.platform.data_loader import load_data
 from portal.platform.lance_guard import list_all_table_names
 from portal.platform.mcp_host.build_info import build_info
 from portal.platform.mcp_host.eval_scope import bind_native_context
-from portal.platform.mcp_host.tool_support import align_native_tools, call_json_route
+from portal.platform.mcp_host.tool_support import align_native_tools
 from portal.platform.memory import graph_memory
 from portal.platform.memory.graph_memory import (
     LANCE_DIR,
@@ -98,6 +98,10 @@ async def list_tools(request: Request) -> JSONResponse:
 register_memory_routes(mcp)
 
 
+# Native tools call the graph_memory impls directly — the same functions the REST
+# routes wrap — so both surfaces share one implementation and one error shape.
+
+
 @mcp.tool()
 async def remember(
     text: str, category: str = "fact", tags: list[str] | None = None
@@ -105,7 +109,8 @@ async def remember(
     args: dict[str, Any] = {"text": text, "category": category}
     if tags is not None:
         args["tags"] = tags
-    return await call_json_route(graph_memory._remember, args)
+    payload, _ = await graph_memory._remember_impl(args)
+    return payload
 
 
 @mcp.tool()
@@ -121,39 +126,42 @@ async def recall(
         args["category"] = category
     if tags is not None:
         args["tags"] = tags
-    return await call_json_route(graph_memory._recall, args)
+    payload, _ = await graph_memory._recall_impl(args)
+    return payload
 
 
 @mcp.tool()
 async def graph_recall(query: str, hops: int = 2, top_k: int = 5) -> dict[str, Any]:
-    return await call_json_route(
-        graph_memory._recall, {"query": query, "hops": hops, "top_k": top_k}
-    )
+    payload, _ = await graph_memory._recall_impl({"query": query, "hops": hops, "top_k": top_k})
+    return payload
 
 
 @mcp.tool()
 async def link(
     src: str, dst: str, rel_type: str = "related_to", weight: float = 1.0
 ) -> dict[str, Any]:
-    return await call_json_route(
-        graph_memory._link,
-        {"src": src, "dst": dst, "rel_type": rel_type, "weight": weight},
+    payload, _ = await graph_memory._link_impl(
+        {"src": src, "dst": dst, "rel_type": rel_type, "weight": weight}
     )
+    return payload
 
 
 @mcp.tool()
 async def neighbors(name: str, hops: int = 1) -> dict[str, Any]:
-    return await call_json_route(graph_memory._neighbors, {"name": name, "hops": hops})
+    payload, _ = await graph_memory._neighbors_impl({"name": name, "hops": hops})
+    return payload
 
 
 @mcp.tool()
 async def entity_timeline(name: str) -> dict[str, Any]:
-    return await call_json_route(graph_memory._entity_timeline, {"name": name})
+    payload, _ = await graph_memory._entity_timeline_impl({"name": name})
+    return payload
 
 
 @mcp.tool()
 async def forget(id: str) -> dict[str, Any]:
-    return await call_json_route(graph_memory._forget, {"id": id})
+    payload, _ = await graph_memory._forget_impl({"id": id})
+    return payload
 
 
 @mcp.tool()
@@ -165,12 +173,14 @@ async def list_memories(
         args["category"] = category
     if tags is not None:
         args["tags"] = tags
-    return await call_json_route(graph_memory._list_memories, args)
+    payload, _ = await graph_memory._list_memories_impl(args)
+    return payload
 
 
 @mcp.tool()
 async def clear_memories(confirm_token: str) -> dict[str, Any]:
-    return await call_json_route(graph_memory._clear_memories, {"confirm_token": confirm_token})
+    payload, _ = await graph_memory._clear_memories_impl({"confirm_token": confirm_token})
+    return payload
 
 
 def main() -> None:

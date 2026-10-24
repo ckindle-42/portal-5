@@ -250,48 +250,46 @@ def _ingest_roots() -> list[Path]:
     return roots or [Path(default).expanduser().resolve()]
 
 
-async def _ingest(request: _JsonRequest) -> JSONResponse:
+async def _ingest_impl(args: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """kb_ingest: ingest a source directory. Text chunks (VL-embedded) + rendered
     PDF pages (VL-embedded) in one pass. Contract-preserved:
     args {kb_id, source_dir, rebuild, fts}, response
     {kb_id, files_ingested, chunks_added, pages_added, fts_index}."""
     if eval_scope.EVAL_SCOPE.get():
-        return JSONResponse(
-            {"error": "kb_ingest is not available under an evaluation scope"}, status_code=403
-        )
-    if eval_scope.EVAL_SCOPE.get():
-        return JSONResponse(
-            {"error": "kb_ingest is not available under an evaluation scope"}, status_code=403
-        )
-    args = (await request.json()).get("arguments", {})
+        return {"error": "kb_ingest is not available under an evaluation scope"}, 403
     kb_id = args.get("kb_id", "")
     source_dir = args.get("source_dir", "")
     rebuild = args.get("rebuild", False)
     if not kb_id or not source_dir:
-        return JSONResponse({"error": "kb_id and source_dir are required"}, status_code=400)
+        return {"error": "kb_id and source_dir are required"}, 400
     src = Path(source_dir).expanduser().resolve()
     roots = _ingest_roots()
     if not any(src == r or r in src.parents for r in roots):
         # N-28: ingest-then-search would otherwise read any path the container can.
-        return JSONResponse(
+        return (
             {
                 "error": f"source_dir is outside the ingest roots {[str(r) for r in roots]} "
                 "(set PORTAL5_KB_INGEST_ROOTS to allow more)"
             },
-            status_code=403,
+            403,
         )
     if not src.is_dir():
-        return JSONResponse({"error": f"directory not found: {src}"}, status_code=404)
+        return {"error": f"directory not found: {src}"}, 404
     try:
         result = await _pipeline.ingest_document(_composition(), kb_id, src, rebuild)
-        return JSONResponse(result)
+        return result, 200
     except _VLUnavailableError as e:
-        return JSONResponse({"error": str(e)}, status_code=503)
+        return {"error": str(e)}, 503
     except Exception as e:  # noqa: BLE001
-        return JSONResponse({"error": str(e)}, status_code=500)
+        return {"error": str(e)}, 500
 
 
-async def _search(request: _JsonRequest) -> JSONResponse:
+async def _ingest(request: _JsonRequest) -> JSONResponse:
+    payload, status = await _ingest_impl((await request.json()).get("arguments", {}))
+    return JSONResponse(payload, status_code=status)
+
+
+async def _search_impl(args: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """kb_search: default multimodal — RRF fusion of text-chunk and page-image
     retrieval. Request {kb_id, query, top_k}, response {kb_id, query,
     num_results, results:[...]}.
@@ -310,36 +308,44 @@ async def _search(request: _JsonRequest) -> JSONResponse:
     `fused_score` is the RRF value plus, on visual rows, the VL reranker's
     calibrated probability when the text arm has no confident answer (see
     VL_TEXT_GATE / the B1 fusion fix)."""
-    args = (await request.json()).get("arguments", {})
     scope = eval_scope.EVAL_SCOPE.get()
     kb_id = scope["run"] if scope else args.get("kb_id", "")  # the scope owns the KB
     query = args.get("query", "")
     top_k = min(int(args.get("top_k", 5)), 20)
     if not kb_id or not query:
-        return JSONResponse({"error": "kb_id and query required"}, status_code=400)
+        return {"error": "kb_id and query required"}, 400
     try:
         result = await _pipeline.search(_scoped_composition(), kb_id, query, top_k)
-        return JSONResponse(result)
+        return result, 200
     except _pipeline.UnknownKBError as e:
-        return JSONResponse({"error": str(e)}, status_code=404)
+        return {"error": str(e)}, 404
     except Exception as e:  # noqa: BLE001
-        return JSONResponse({"error": str(e)}, status_code=503)
+        return {"error": str(e)}, 503
 
 
-async def _search_all(request: _JsonRequest) -> JSONResponse:
+async def _search(request: _JsonRequest) -> JSONResponse:
+    payload, status = await _search_impl((await request.json()).get("arguments", {}))
+    return JSONResponse(payload, status_code=status)
+
+
+async def _search_all_impl(args: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """kb_search_all: multimodal search across all KBs. Contract-preserved:
     {query, top_k}, response {query, num_results, results:[{kb_id, source_file,
     text, fused_score, kind}]}."""
-    args = (await request.json()).get("arguments", {})
     query = args.get("query", "")
     top_k = min(int(args.get("top_k", 5)), 30)
     if not query:
-        return JSONResponse({"error": "query required"}, status_code=400)
+        return {"error": "query required"}, 400
     try:
         result = await _pipeline.search_all(_scoped_composition(), query, top_k)
-        return JSONResponse(result)
+        return result, 200
     except Exception as e:  # noqa: BLE001
-        return JSONResponse({"error": str(e)}, status_code=503)
+        return {"error": str(e)}, 503
+
+
+async def _search_all(request: _JsonRequest) -> JSONResponse:
+    payload, status = await _search_all_impl((await request.json()).get("arguments", {}))
+    return JSONResponse(payload, status_code=status)
 
 
 async def reindex_all() -> dict[str, Any]:

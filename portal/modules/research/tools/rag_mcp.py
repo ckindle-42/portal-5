@@ -26,9 +26,10 @@ from starlette.responses import JSONResponse, Response
 from portal.modules.research.tools import rag_multimodal
 from portal.modules.research.tools.rag_multimodal import register_retrieval_routes
 from portal.platform.data_loader import load_data
+from portal.platform.mcp_host import eval_scope
 from portal.platform.mcp_host.build_info import build_info
 from portal.platform.mcp_host.eval_scope import bind_native_context
-from portal.platform.mcp_host.tool_support import align_native_tools, call_json_route
+from portal.platform.mcp_host.tool_support import align_native_tools
 from portal.platform.retrieval import store as _store
 
 logger = logging.getLogger(__name__)
@@ -187,26 +188,27 @@ async def _scoped(request: Request) -> bool:
         return False
 
 
-@_route("/tools/kb_optimize", methods=["POST"])
-async def kb_optimize_endpoint(request: Request) -> JSONResponse:
-    if await _scoped(request):
-        return JSONResponse({"error": "not available under an evaluation scope"}, status_code=403)
-    body = await request.json()
-    args = body.get("arguments", {})
+# ── KB-lifecycle tool impls — native tools and REST routes both call these.
+# `scoped` is the caller's evaluation-scope flag: the truthiness of the REST
+# body's `eval`, or a bound native context's EVAL_SCOPE. ──────────────────────
+async def kb_optimize_impl(args: dict[str, Any], scoped: bool) -> tuple[dict[str, Any], int]:
+    if scoped:
+        return {"error": "not available under an evaluation scope"}, 403
     kb_id = args.get("kb_id", "")
     if not kb_id:
-        return JSONResponse({"error": "kb_id required"}, status_code=400)
+        return {"error": "kb_id required"}, 400
     table = _kb_table(kb_id)
     if table is None:
-        return JSONResponse({"error": f"unknown kb_id '{kb_id}'"}, status_code=404)
+        return {"error": f"unknown kb_id '{kb_id}'"}, 404
     rows = len(table)
     if rows < 256:
-        return JSONResponse(
+        return (
             {
                 "kb_id": kb_id,
                 "rows": rows,
                 "skipped": "fewer than 256 chunks; brute-force scan is already fast",
-            }
+            },
+            200,
         )
     num_partitions = min(512, int(rows**0.5))
     try:
@@ -219,32 +221,30 @@ async def kb_optimize_endpoint(request: Request) -> JSONResponse:
             replace=True,
         )
     except Exception as e:
-        return JSONResponse({"error": f"index build failed: {e}"}, status_code=500)
+        return {"error": f"index build failed: {e}"}, 500
     with contextlib.suppress(Exception):
         table.optimize()
-    return JSONResponse(
+    return (
         {
             "kb_id": kb_id,
             "rows": rows,
             "index": "IVF_PQ",
             "num_partitions": num_partitions,
             "num_sub_vectors": 64,
-        }
+        },
+        200,
     )
 
 
-@_route("/tools/kb_versions", methods=["POST"])
-async def kb_versions_endpoint(request: Request) -> JSONResponse:
-    if await _scoped(request):
-        return JSONResponse({"error": "not available under an evaluation scope"}, status_code=403)
-    body = await request.json()
-    args = body.get("arguments", {})
+async def kb_versions_impl(args: dict[str, Any], scoped: bool) -> tuple[dict[str, Any], int]:
+    if scoped:
+        return {"error": "not available under an evaluation scope"}, 403
     kb_id = args.get("kb_id", "")
     if not kb_id:
-        return JSONResponse({"error": "kb_id required"}, status_code=400)
+        return {"error": "kb_id required"}, 400
     table = _kb_table(kb_id)
     if table is None:
-        return JSONResponse({"error": f"unknown kb_id '{kb_id}'"}, status_code=404)
+        return {"error": f"unknown kb_id '{kb_id}'"}, 404
     versions = [
         # timestamp is a datetime — not JSON serializable without str()
         {"version": v["version"], "timestamp": str(v["timestamp"])}
@@ -254,49 +254,35 @@ async def kb_versions_endpoint(request: Request) -> JSONResponse:
     with contextlib.suppress(Exception):
         for name, t in table.tags.list().items():
             tags[name] = t["version"] if isinstance(t, dict) else getattr(t, "version", None)
-    return JSONResponse(
-        {"kb_id": kb_id, "current_version": table.version, "versions": versions, "tags": tags}
+    return (
+        {"kb_id": kb_id, "current_version": table.version, "versions": versions, "tags": tags},
+        200,
     )
 
 
-@_route("/tools/kb_restore", methods=["POST"])
-async def kb_restore_endpoint(request: Request) -> JSONResponse:
-    if await _scoped(request):
-        return JSONResponse({"error": "not available under an evaluation scope"}, status_code=403)
-    body = await request.json()
-    args = body.get("arguments", {})
+async def kb_restore_impl(args: dict[str, Any], scoped: bool) -> tuple[dict[str, Any], int]:
+    if scoped:
+        return {"error": "not available under an evaluation scope"}, 403
     kb_id = args.get("kb_id", "")
     version = args.get("version")
     if not kb_id or version is None:
-        return JSONResponse({"error": "kb_id and version required"}, status_code=400)
+        return {"error": "kb_id and version required"}, 400
     table = _kb_table(kb_id)
     if table is None:
-        return JSONResponse({"error": f"unknown kb_id '{kb_id}'"}, status_code=404)
+        return {"error": f"unknown kb_id '{kb_id}'"}, 404
     try:
         table.restore(int(version))
     except Exception as e:
-        return JSONResponse({"error": f"restore failed: {e}"}, status_code=400)
-    return JSONResponse(
-        {"kb_id": kb_id, "restored_to": int(version), "current_version": table.version}
-    )
+        return {"error": f"restore failed: {e}"}, 400
+    return {"kb_id": kb_id, "restored_to": int(version), "current_version": table.version}, 200
 
 
-@_route("/tools/kb_list", methods=["POST"])
-async def kb_list_endpoint(request: Request) -> JSONResponse:
-    from portal.modules.research.tools.rag_multimodal import _read_stamp
-    from portal.platform.mcp_host import eval_scope
-
-    try:
-        scope = eval_scope.parse((await request.json()).get("eval"))
-    except eval_scope.ScopeError as e:
-        return JSONResponse({"error": f"eval scope: {e}"}, status_code=400)
-    except Exception:  # noqa: BLE001 — no body
-        scope = None
+async def kb_list_impl(scope: dict[str, Any] | None) -> tuple[dict[str, Any], int]:
     kbs = []
     for kb_id in [k for k in _list_kbs() if not scope or k == scope["run"]]:
         t = _kb_table(kb_id)
         if t is not None:
-            stamp = _read_stamp(kb_id) or {}
+            stamp = rag_multimodal._read_stamp(kb_id) or {}
             kbs.append(
                 {
                     "kb_id": kb_id,
@@ -305,7 +291,40 @@ async def kb_list_endpoint(request: Request) -> JSONResponse:
                     "vl_dim": stamp.get("vl_dim"),
                 }
             )
-    return JSONResponse({"knowledge_bases": kbs})
+    return {"knowledge_bases": kbs}, 200
+
+
+@_route("/tools/kb_optimize", methods=["POST"])
+async def kb_optimize_endpoint(request: Request) -> JSONResponse:
+    scoped = await _scoped(request)
+    payload, status = await kb_optimize_impl((await request.json()).get("arguments", {}), scoped)
+    return JSONResponse(payload, status_code=status)
+
+
+@_route("/tools/kb_versions", methods=["POST"])
+async def kb_versions_endpoint(request: Request) -> JSONResponse:
+    scoped = await _scoped(request)
+    payload, status = await kb_versions_impl((await request.json()).get("arguments", {}), scoped)
+    return JSONResponse(payload, status_code=status)
+
+
+@_route("/tools/kb_restore", methods=["POST"])
+async def kb_restore_endpoint(request: Request) -> JSONResponse:
+    scoped = await _scoped(request)
+    payload, status = await kb_restore_impl((await request.json()).get("arguments", {}), scoped)
+    return JSONResponse(payload, status_code=status)
+
+
+@_route("/tools/kb_list", methods=["POST"])
+async def kb_list_endpoint(request: Request) -> JSONResponse:
+    try:
+        scope = eval_scope.parse((await request.json()).get("eval"))
+    except eval_scope.ScopeError as e:
+        return JSONResponse({"error": f"eval scope: {e}"}, status_code=400)
+    except Exception:  # noqa: BLE001 — no body
+        scope = None
+    payload, status = await kb_list_impl(scope)
+    return JSONResponse(payload, status_code=status)
 
 
 # kb_ingest / kb_search / kb_search_all are owned by the multimodal
@@ -313,52 +332,63 @@ async def kb_list_endpoint(request: Request) -> JSONResponse:
 register_retrieval_routes(mcp)
 
 
+# Native tools call the impls directly — the same functions the REST routes wrap.
+# Under a bound native context the evaluation scope lives in EVAL_SCOPE, so the
+# maintenance refusal flag is "a scope is set" and kb_list reads it directly.
+
+
 @mcp.tool()
 async def kb_ingest(
     kb_id: str, source_dir: str, rebuild: bool = False, fts: bool = False
 ) -> dict[str, Any]:
-    return await call_json_route(
-        rag_multimodal._ingest,
-        {"kb_id": kb_id, "source_dir": source_dir, "rebuild": rebuild, "fts": fts},
+    payload, _ = await rag_multimodal._ingest_impl(
+        {"kb_id": kb_id, "source_dir": source_dir, "rebuild": rebuild, "fts": fts}
     )
+    return payload
 
 
 @mcp.tool()
 async def kb_search(
     kb_id: str, query: str, query_type: str = "vector", top_k: int = 5
 ) -> dict[str, Any]:
-    return await call_json_route(
-        rag_multimodal._search,
-        {"kb_id": kb_id, "query": query, "query_type": query_type, "top_k": top_k},
+    payload, _ = await rag_multimodal._search_impl(
+        {"kb_id": kb_id, "query": query, "query_type": query_type, "top_k": top_k}
     )
+    return payload
 
 
 @mcp.tool()
 async def kb_search_all(query: str, query_type: str = "vector", top_k: int = 5) -> dict[str, Any]:
-    return await call_json_route(
-        rag_multimodal._search_all,
-        {"query": query, "query_type": query_type, "top_k": top_k},
+    payload, _ = await rag_multimodal._search_all_impl(
+        {"query": query, "query_type": query_type, "top_k": top_k}
     )
+    return payload
 
 
 @mcp.tool()
 async def kb_list() -> dict[str, Any]:
-    return await call_json_route(kb_list_endpoint, {})
+    payload, _ = await kb_list_impl(eval_scope.EVAL_SCOPE.get())
+    return payload
 
 
 @mcp.tool()
 async def kb_optimize(kb_id: str) -> dict[str, Any]:
-    return await call_json_route(kb_optimize_endpoint, {"kb_id": kb_id})
+    payload, _ = await kb_optimize_impl({"kb_id": kb_id}, eval_scope.EVAL_SCOPE.get() is not None)
+    return payload
 
 
 @mcp.tool()
 async def kb_versions(kb_id: str) -> dict[str, Any]:
-    return await call_json_route(kb_versions_endpoint, {"kb_id": kb_id})
+    payload, _ = await kb_versions_impl({"kb_id": kb_id}, eval_scope.EVAL_SCOPE.get() is not None)
+    return payload
 
 
 @mcp.tool()
 async def kb_restore(kb_id: str, version: int) -> dict[str, Any]:
-    return await call_json_route(kb_restore_endpoint, {"kb_id": kb_id, "version": version})
+    payload, _ = await kb_restore_impl(
+        {"kb_id": kb_id, "version": version}, eval_scope.EVAL_SCOPE.get() is not None
+    )
+    return payload
 
 
 def main() -> None:

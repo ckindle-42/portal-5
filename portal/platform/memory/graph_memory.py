@@ -14,6 +14,7 @@ import os
 import re
 import time
 import uuid
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 import httpx
@@ -386,19 +387,19 @@ def _rels_for(names: set[str]) -> list[dict[str, Any]]:
     return list(out.values())
 
 
-# ── Endpoint handlers (replace the flat-vector versions) ─────────────────────
-async def _remember(request: Request) -> JSONResponse:
-    args = (await request.json()).get("arguments", {})
+# ── Tool impls (plain args in, (payload, status) out) — native tools and REST
+# routes both call these; eval scope always arrives via the EVAL_SCOPE context. ──
+async def _remember_impl(args: dict[str, Any]) -> tuple[dict[str, Any], int]:
     text = (args.get("text") or "").strip()
     if not text:
-        return JSONResponse({"error": "text is required"}, status_code=400)
+        return {"error": "text is required"}, 400
     if len(text) > 4000:
-        return JSONResponse({"error": "text too long (max 4000 chars)"}, status_code=400)
+        return {"error": "text too long (max 4000 chars)"}, 400
     try:
         vec = await _embed(text, Role.DOCUMENT)
         version = await _version()
     except Exception as e:  # noqa: BLE001
-        return JSONResponse({"error": f"embedding failed: {e}"}, status_code=503)
+        return {"error": f"embedding failed: {e}"}, 503
     now = time.time()
     mid = str(uuid.uuid4())
     category = args.get("category", "fact")
@@ -419,16 +420,15 @@ async def _remember(request: Request) -> JSONResponse:
         ]
     )
     await _ingest_graph(text, mid)  # populate the graph on write
-    return JSONResponse({"id": mid, "stored": True, "category": category, "graph_updated": True})
+    return {"id": mid, "stored": True, "category": category, "graph_updated": True}, 200
 
 
-async def _recall(request: Request) -> JSONResponse:
+async def _recall_impl(args: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Graph-aware recall: vector-seed memories + entities, expand relations,
     return memories with connected context. Replaces flat top-K."""
-    args = (await request.json()).get("arguments", {})
     query = args.get("query", "")
     if not query:
-        return JSONResponse({"error": "query is required"}, status_code=400)
+        return {"error": "query is required"}, 400
     top_k = min(max(int(args.get("top_k", 5)), 1), 20)
     category = args.get("category")
     tags = args.get("tags", [])
@@ -436,12 +436,12 @@ async def _recall(request: Request) -> JSONResponse:
     try:
         qvec = await _embed(query, Role.QUERY)
     except Exception as e:  # noqa: BLE001
-        return JSONResponse({"error": f"embedding failed: {e}"}, status_code=503)
+        return {"error": f"embedding failed: {e}"}, 503
     mtbl = _memory_table()
     try:
         category = _token(category, "category") if category else None
     except ValueError as e:
-        return JSONResponse({"error": str(e)}, status_code=400)
+        return {"error": str(e)}, 400
     where = f"user_id = '{_user()}'" + (f" AND category = '{category}'" if category else "")
     seed_mem = [
         r
@@ -494,47 +494,44 @@ async def _recall(request: Request) -> JSONResponse:
             break
         frontier = new
     uniq = list({(e["src"], e["dst"], e["rel_type"]): e for e in edges}.values())
-    return JSONResponse(
+    return (
         {
             "query": query,
             "num_results": len(memories),
             "memories": memories,
             "graph_context": {"nodes": sorted(nodes), "edges": uniq},
-        }
+        },
+        200,
     )
 
 
-async def _forget(request: Request) -> JSONResponse:
-    args = (await request.json()).get("arguments", {})
+async def _forget_impl(args: dict[str, Any]) -> tuple[dict[str, Any], int]:
     try:
         mid = _token(args.get("id", ""), "id")
     except ValueError as e:
-        return JSONResponse(
-            {"error": f"id is required and must be a memory id: {e}"}, status_code=400
-        )
+        return {"error": f"id is required and must be a memory id: {e}"}, 400
     try:  # only the caller's own memory (the operator, or an evaluation run)
         _memory_table().delete(f"id = '{mid}' AND user_id = '{_user()}'")
         _relations().delete(f"source_memory_id = '{mid}' AND user_id = '{_user()}'")
-        return JSONResponse({"id": mid, "deleted": True})
+        return {"id": mid, "deleted": True}, 200
     except Exception as e:  # noqa: BLE001
-        return JSONResponse({"error": str(e)}, status_code=500)
+        return {"error": str(e)}, 500
 
 
-async def _list_memories(request: Request) -> JSONResponse:
-    args = (await request.json()).get("arguments", {})
+async def _list_memories_impl(args: dict[str, Any]) -> tuple[dict[str, Any], int]:
     category = args.get("category")
     tags = args.get("tags", [])
     limit = min(int(args.get("limit", 50)), 500)
     try:
         category = _token(category, "category") if category else None
     except ValueError as e:
-        return JSONResponse({"error": str(e)}, status_code=400)
+        return {"error": str(e)}, 400
     where = f"user_id = '{_user()}'" + (f" AND category = '{category}'" if category else "")
     rows = _memory_table().search().where(where).limit(limit).to_list()
     if tags:
         ts = set(tags)
         rows = [r for r in rows if ts & set(r.get("tags", []))]
-    return JSONResponse(
+    return (
         {
             "total": len(rows),
             "memories": [
@@ -547,22 +544,21 @@ async def _list_memories(request: Request) -> JSONResponse:
                 }
                 for r in rows
             ],
-        }
+        },
+        200,
     )
 
 
-async def _clear_memories(request: Request) -> JSONResponse:
-    args = (await request.json()).get("arguments", {})
+async def _clear_memories_impl(args: dict[str, Any]) -> tuple[dict[str, Any], int]:
     if args.get("confirm_token") != "YES_DELETE_ALL":
-        return JSONResponse({"error": "confirm_token must be 'YES_DELETE_ALL'"}, status_code=400)
+        return {"error": "confirm_token must be 'YES_DELETE_ALL'"}, 400
     for t in (_memory_table(), _entities(), _relations()):
         t.delete(f"user_id = '{_user()}'")
-    return JSONResponse({"deleted": "all", "user_id": _user()})
+    return {"deleted": "all", "user_id": _user()}, 200
 
 
 # ── New graph tools ──────────────────────────────────────────────────────────
-async def _link(request: Request) -> JSONResponse:
-    args = (await request.json()).get("arguments", {})
+async def _link_impl(args: dict[str, Any]) -> tuple[dict[str, Any], int]:
     try:
         src, dst = _safe(args["src"]), _safe(args["dst"])
         await _upsert_entity(src)
@@ -582,15 +578,14 @@ async def _link(request: Request) -> JSONResponse:
                 }
             ]
         )
-        return JSONResponse({"id": rid, "linked": True})
+        return {"id": rid, "linked": True}, 200
     except KeyError as e:
-        return JSONResponse({"error": f"missing arg: {e}"}, status_code=400)
+        return {"error": f"missing arg: {e}"}, 400
     except Exception as e:  # noqa: BLE001
-        return JSONResponse({"error": str(e)}, status_code=400)
+        return {"error": str(e)}, 400
 
 
-async def _neighbors(request: Request) -> JSONResponse:
-    args = (await request.json()).get("arguments", {})
+async def _neighbors_impl(args: dict[str, Any]) -> tuple[dict[str, Any], int]:
     try:
         start = _safe(args["name"])
         hops = min(int(args.get("hops", 1)), 3)
@@ -607,15 +602,17 @@ async def _neighbors(request: Request) -> JSONResponse:
                 break
             frontier = new
         uniq = list({(e["src"], e["dst"], e["rel_type"]): e for e in edges}.values())
-        return JSONResponse(
-            {"start": start, "node_count": len(nodes), "nodes": sorted(nodes), "edges": uniq}
-        )
+        return {
+            "start": start,
+            "node_count": len(nodes),
+            "nodes": sorted(nodes),
+            "edges": uniq,
+        }, 200
     except KeyError as e:
-        return JSONResponse({"error": f"missing arg: {e}"}, status_code=400)
+        return {"error": f"missing arg: {e}"}, 400
 
 
-async def _entity_timeline(request: Request) -> JSONResponse:
-    args = (await request.json()).get("arguments", {})
+async def _entity_timeline_impl(args: dict[str, Any]) -> tuple[dict[str, Any], int]:
     try:
         name = _safe(args["name"])
         rels = (
@@ -626,7 +623,7 @@ async def _entity_timeline(request: Request) -> JSONResponse:
             .to_list()
         )
         rels.sort(key=lambda r: r.get("observed_at", 0))
-        return JSONResponse(
+        return (
             {
                 "entity": name,
                 "event_count": len(rels),
@@ -640,10 +637,33 @@ async def _entity_timeline(request: Request) -> JSONResponse:
                     }
                     for r in rels
                 ],
-            }
+            },
+            200,
         )
     except KeyError as e:
-        return JSONResponse({"error": f"missing arg: {e}"}, status_code=400)
+        return {"error": f"missing arg: {e}"}, 400
+
+
+# ── REST routes: read the body's `arguments`, wrap the impl's (payload, status)
+# in a JSONResponse — nothing else. ───────────────────────────────────────────
+def _args_route(
+    impl: Callable[[dict[str, Any]], Awaitable[tuple[dict[str, Any], int]]],
+) -> Callable[[Request], Awaitable[JSONResponse]]:
+    async def run(request: Request) -> JSONResponse:
+        payload, status = await impl((await request.json()).get("arguments", {}))
+        return JSONResponse(payload, status_code=status)
+
+    return run
+
+
+_remember = _args_route(_remember_impl)
+_recall = _args_route(_recall_impl)
+_forget = _args_route(_forget_impl)
+_list_memories = _args_route(_list_memories_impl)
+_clear_memories = _args_route(_clear_memories_impl)
+_link = _args_route(_link_impl)
+_neighbors = _args_route(_neighbors_impl)
+_entity_timeline = _args_route(_entity_timeline_impl)
 
 
 async def migrate_existing() -> dict[str, Any]:

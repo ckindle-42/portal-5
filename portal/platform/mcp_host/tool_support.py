@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-import json
-from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING, Any, cast
-
-from starlette.responses import Response
+from typing import TYPE_CHECKING, Any
 
 from portal.platform.mcp_host.eval_scope import TOOL_TIMEOUT_META_KEY
 
@@ -55,31 +51,3 @@ def align_native_tools(mcp: Any, manifest: list[dict[str, Any]]) -> None:
         return aligned
 
     mcp.list_tools = list_tools
-
-
-class _ToolRequest:
-    """Small request stand-in for calling an existing JSON REST handler in-process."""
-
-    def __init__(self, body: dict[str, Any]) -> None:
-        self._body = body
-
-    async def json(self) -> dict[str, Any]:
-        return self._body
-
-
-async def call_json_route(
-    handler: Callable[..., Awaitable[Response]],
-    arguments: dict[str, Any],
-) -> dict[str, Any]:
-    """Call a JSON REST handler with tool arguments and return its response body."""
-    from portal.platform.mcp_host.eval_scope import EVAL_SCOPE
-
-    body: dict[str, Any] = {"arguments": arguments}
-    scope = EVAL_SCOPE.get()
-    if scope is not None:
-        body["eval"] = scope
-    response = await handler(cast(Any, _ToolRequest(body)))
-    payload = json.loads(bytes(response.body))
-    if not isinstance(payload, dict):
-        raise TypeError("REST tool response must be a JSON object")
-    return payload
