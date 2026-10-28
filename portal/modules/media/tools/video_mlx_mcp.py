@@ -43,7 +43,7 @@ _route: Callable[
 ] = mcp.custom_route
 
 VIDEO_MLX_BIN = os.environ.get("VIDEO_MLX_BIN", "ltx-2-mlx")
-VIDEO_MLX_DEFAULT_MODEL = os.environ.get("VIDEO_MLX_DEFAULT_MODEL", "ltx-2.3-q4")
+VIDEO_MLX_DEFAULT_MODEL = os.environ.get("VIDEO_MLX_DEFAULT_MODEL", "ltx-2.5-q4")
 # Long, thermally punishing jobs — a 4s clip runs several minutes on this box.
 VIDEO_MLX_TIMEOUT = int(os.environ.get("VIDEO_MLX_TIMEOUT", "1800"))
 VIDEO_MLX_LOW_RAM = os.environ.get("VIDEO_MLX_LOW_RAM", "1") not in ("", "0", "false", "no")
@@ -52,8 +52,7 @@ VIDEO_MLX_MODE = os.environ.get("VIDEO_MLX_MODE", "--distilled")  # fastest; --t
 # Roster key -> ltx-2-mlx --model pack. `ltx-2-mlx generate --help` is the
 # authority; env overrides let an operator repoint without a code change.
 VIDEO_MLX_MODELS: dict[str, str] = {
-    "ltx-2.3-q4": os.environ.get("VIDEO_MLX_Q4_TAG", "dgrauet/ltx-2.3-mlx-q4"),
-    "ltx-2.3-q8": os.environ.get("VIDEO_MLX_Q8_TAG", "dgrauet/ltx-2.3-mlx-q8"),
+    "ltx-2.5-q4": os.environ.get("VIDEO_MLX_Q4_TAG", "dgrauet/ltx-2.5-mlx-q4"),
 }
 
 

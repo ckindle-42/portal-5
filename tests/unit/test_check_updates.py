@@ -262,7 +262,7 @@ def test_storage_reports_owner_totals_and_ages_from_fake_tree(monkeypatch, tmp_p
     put("omlx-models/retired-checkpoint/weights", b"retired-ml")
     put("hf-cache/models--mlx-community--checkpoint/snapshots/a/weights", b"copy")
     put("hf-cache/models--Qwen--Qwen-Image-Edit-2509/blobs/image", b"image-data")
-    put("hf-cache/models--dgrauet--ltx-2.3-mlx-q4/blobs/video", b"video")
+    put("hf-cache/models--dgrauet--ltx-2.5-mlx-q4/blobs/video", b"video")
     hf_shared = put("hf-cache/blobs/aa/image-weight", b"hf-cache-weight")
     hf_shared.with_name(f"{hf_shared.name}.refs").write_text(
         "models--Qwen--Qwen-Image-Edit-2509/blobs/image\n"
@@ -516,15 +516,14 @@ def test_storage_extractors_see_live_in_use_ids():
         "Tongyi-MAI--Z-Image-Turbo",
         "black-forest-labs--FLUX.1-schnell",
         "black-forest-labs--FLUX.2-klein-4B",
-        "dgrauet--ltx-2.3-mlx-q4",
-        "dgrauet--ltx-2.3-mlx-q8",
+        "dgrauet--ltx-2.5-mlx-q4",
     ):
         assert cu._matches_media_alias(slug), slug
     assert not cu._matches_media_alias("incoai--Qwen3.8-27B-DFlash2")
     assert not cu._matches_media_alias("Qwen--Qwen2.5-7B-Instruct")
     assert "qwen" not in tokens and "dev" not in tokens and "flux2" not in tokens
     assert "qwenimage" in tokens and "zimageturbo" in tokens and "schnell" in tokens
-    assert "flux2klein4b" in tokens and "dgrauetltx23mlxq4" in tokens
+    assert "flux2klein4b" in tokens and "dgrauetltx25mlxq4" in tokens
 
 
 def test_storage_media_off_weights_are_an_operator_decision(monkeypatch, tmp_path):
@@ -540,7 +539,7 @@ def test_storage_media_off_weights_are_an_operator_decision(monkeypatch, tmp_pat
         ("hf-cache/models--Qwen--Qwen-Image-2512/blobs/image", b"qwen-img"),
         ("hf-cache/models--Tongyi-MAI--Z-Image-Turbo/blobs/turbo", b"z-image"),
         ("hf-cache/models--black-forest-labs--FLUX.1-schnell/blobs/flux", b"flux-wt"),
-        ("hf-cache/models--dgrauet--ltx-2.3-mlx-q4/blobs/video", b"ltx-wt!"),
+        ("hf-cache/models--dgrauet--ltx-2.5-mlx-q4/blobs/video", b"ltx-wt!"),
     ):
         path = root / relative
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -560,8 +559,8 @@ def test_storage_media_off_weights_are_an_operator_decision(monkeypatch, tmp_pat
     fleet = next(line for line in report.lines if line.startswith("fleet:"))
     lines = "\n".join(report.lines)
     assert "Qwen-Image-2512" in disabled and "Z-Image-Turbo" in disabled
-    assert "FLUX.1-schnell" in disabled and "ltx-2.3-mlx-q4" in disabled
-    assert "Qwen-Image" not in fleet and "FLUX" not in fleet and "ltx-2.3" not in fleet
+    assert "FLUX.1-schnell" in disabled and "ltx-2.5-mlx-q4" in disabled
+    assert "Qwen-Image" not in fleet and "FLUX" not in fleet and "ltx-2.5" not in fleet
     assert "safe to reclaim: 0 B" in lines and "operator decision: 29 B" in lines
 
 

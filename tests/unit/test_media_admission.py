@@ -47,8 +47,8 @@ class TestMediaModelMemoryDict:
             assert gb > 0, f"{key}: memory estimate must be > 0 GB"
 
     def test_video_model_has_large_estimate(self):
-        """LTX-2.3 video packs run a large working set — keep the estimate conservative."""
-        assert _admission.MEDIA_MODEL_MEMORY_GB.get("video_mlx:ltx-2.3-q8", 0) >= 25.0
+        """LTX-2.5 measured 15.8GiB peak — the estimate must stay above it."""
+        assert _admission.MEDIA_MODEL_MEMORY_GB.get("video_mlx:ltx-2.5-q4", 0) >= 17.0
 
     def test_music_models_use_live_complete_quality_estimates(self):
         # Raw sampled peak working set — admit() adds MEMORY_HEADROOM_GB on top,
@@ -84,9 +84,9 @@ class TestAdmit:
         assert refusal is None
 
     async def test_refuses_when_insufficient_memory(self):
-        # video_mlx:ltx-2.3-q8 ~34GB + default 4GB headroom = 38GB needed; only 20GB free
+        # video_mlx:ltx-2.5-q4 18GB + default 4GB headroom = 22GB needed; only 20GB free
         with patch.object(_admission, "free_unified_gb", AsyncMock(return_value=20.0)):
-            refusal = await _admission.admit("video_mlx:ltx-2.3-q8")
+            refusal = await _admission.admit("video_mlx:ltx-2.5-q4")
         assert refusal is not None
         assert refusal["success"] is False
         assert len(refusal["error"]) > 0
@@ -95,7 +95,7 @@ class TestAdmit:
         """User-facing error states the shortfall and that it's temporary; the
         operator_hint carries the unload/wait recovery guidance."""
         with patch.object(_admission, "free_unified_gb", AsyncMock(return_value=10.0)):
-            refusal = await _admission.admit("video_mlx:ltx-2.3-q8")
+            refusal = await _admission.admit("video_mlx:ltx-2.5-q4")
         assert refusal is not None
         assert refusal["retryable"] is True
         msg = refusal["error"]
@@ -134,7 +134,7 @@ class TestAdmit:
     async def test_fails_open_when_memory_unmeasurable(self):
         """An unmeasurable free-memory signal must never block a job outright."""
         with patch.object(_admission, "free_unified_gb", AsyncMock(return_value=None)):
-            refusal = await _admission.admit("video_mlx:ltx-2.3-q8")
+            refusal = await _admission.admit("video_mlx:ltx-2.5-q4")
         assert refusal is None
 
     async def test_headroom_zero_disables_check(self):
@@ -143,7 +143,7 @@ class TestAdmit:
             patch.object(_admission, "MEMORY_HEADROOM_GB", 0),
             patch.object(_admission, "free_unified_gb", AsyncMock(return_value=0.0)),
         ):
-            refusal = await _admission.admit("video_mlx:ltx-2.3-q8")
+            refusal = await _admission.admit("video_mlx:ltx-2.5-q4")
         assert refusal is None
 
 

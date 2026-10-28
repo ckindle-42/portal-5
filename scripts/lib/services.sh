@@ -297,8 +297,8 @@ _launch_stop_video_mlx() {
 _launch_pull_video_mlx_models() {
     VX_VENV="$HOME/.portal5/video-mlx/ltx-2-mlx/.venv"
     [ -x "$VX_VENV/bin/ltx-2-mlx" ] || { echo "  ❌ Run ./launch.sh install-video-mlx first." >&2; exit 1; }
-    echo "  Pre-pulling LTX-2.3 model packs (q4 ~12GB, q8 ~21GB)..."
-    for m in "${@:-dgrauet/ltx-2.3-mlx-q4}"; do
+    echo "  Pre-pulling the LTX-2.5 q4 model pack (~51GB)..."
+    for m in "${@:-dgrauet/ltx-2.5-mlx-q4}"; do
         echo "  → $m"
         "$VX_VENV/bin/ltx-2-mlx" info --model "$m" 2>&1 | tail -5 || true
     done

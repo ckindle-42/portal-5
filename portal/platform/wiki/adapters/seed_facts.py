@@ -599,10 +599,9 @@ MEDIA_MODEL_MEMORY_GB: dict[str, float] = {
     "mflux:z-image": 30.0,  # measured 26.83GB peak MLX, z-image-turbo q8 + --low-ram, 8 steps 768px
     "mflux:qwen-image": 40.0,  # measured 36.82GB peak MLX, q8 + --low-ram, 8 steps 768px
     "mflux:qwen-image-edit": 42.0,  # same text encoder + edit transformer
-    # MLX-native video generation (ltx-2-mlx CLI, host MLX layer) — LTX-2.3
-    # distilled, --low-ram. Measured live in TASK_IMAGE_VIDEO_OVERHAUL_V1 V1.
-    "video_mlx:ltx-2.3-q4": 18.0,  # measured 16.0GB peak footprint, --distilled --low-ram, 512x320
-    "video_mlx:ltx-2.3-q8": 28.0,  # int8, ~+10GB over q4
+    # MLX-native video generation (ltx-2-mlx CLI, host MLX layer) — LTX-2.5
+    # distilled, --low-ram. Measured live in the 2026-10-28 LTX-2.3 vs 2.5 A/B.
+    "video_mlx:ltx-2.5-q4": 18.0,  # measured 15.8GiB peak footprint, --distilled --low-ram, 512x320 97fr (2026-10-28)
 }
 
 
