@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.portal5.host-ml-watch</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>__PORTAL_ROOT__/.venv/bin/python</string>
+        <string>__PORTAL_ROOT__/scripts/memory_safety_watch.py</string>
+        <string>--services-only</string>
+        <string>--log</string>
+        <string>__LOG_DIR__/host-ml-watch.log</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>__PORTAL_ROOT__</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/opt/homebrew/sbin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+    <key>StandardOutPath</key>
+    <string>__LOG_DIR__/host-ml-watch.launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>__LOG_DIR__/host-ml-watch.launchd.log</string>
+</dict>
+</plist>

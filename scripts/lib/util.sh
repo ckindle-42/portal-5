@@ -432,6 +432,25 @@ PY
         fi
     fi
 
+    # ── Host ML footprint watchdog (always-on, services-only) ──────────────
+    # Per-service phys_footprint ceilings from scripts/memory_safety_watch.py
+    # (measured -> restart, provisional -> log-only). No swap trip, no
+    # test-client kills, no model unloads — that stays the on-demand mode.
+    local _hmw_label="com.portal5.host-ml-watch"
+    local _hmw_src="$PORTAL_ROOT/deploy/launchd/${_hmw_label}.plist"
+    local _hmw_dst="$HOME/Library/LaunchAgents/${_hmw_label}.plist"
+    if [ -f "$_hmw_src" ] && [ "$(uname -s)" = "Darwin" ]; then
+        mkdir -p "$HOME/.portal5/logs" "$HOME/Library/LaunchAgents"
+        sed -e "s#__PORTAL_ROOT__#${PORTAL_ROOT}#g" \
+            -e "s#__LOG_DIR__#${HOME}/.portal5/logs#g" \
+            "$_hmw_src" > "$_hmw_dst"
+        if ! launchctl print "gui/$(id -u)/${_hmw_label}" &>/dev/null 2>&1; then
+            launchctl bootstrap "gui/$(id -u)" "$_hmw_dst" &>/dev/null \
+                && echo "[portal-5]   ✅ host ML watchdog: always-on footprint ceilings enabled (30s interval)" \
+                || echo "[portal-5]   ⚠️  host ML watchdog: launchd registration failed"
+        fi
+    fi
+
     # ── Engine auto-update + contract gate (daily launchd job) ─────────────
     # Keeps Ollama/oMLX current and re-proves that the sampling/think values
     # Portal sends actually reach the model (scripts/engine_autoupdate.py).
@@ -1086,6 +1105,13 @@ for key, label, url in rows:
             printf "    ⏳  %-28s %s\n" "Powermetrics" "starting (launchd)"
         else
             printf "    ❌  %-28s %s\n" "Powermetrics" "not running — ./launch.sh install-powermetrics"
+        fi
+
+        # Host ML footprint watchdog (always-on services-only ceilings)
+        if launchctl print "gui/$(id -u)/com.portal5.host-ml-watch" &>/dev/null 2>&1; then
+            printf "    ✅  %-28s %s\n" "Host ML watchdog" "launchd, 30s footprint ceilings"
+        else
+            printf "    ❌  %-28s %s\n" "Host ML watchdog" "not loaded — ./launch.sh up"
         fi
 
         echo ""

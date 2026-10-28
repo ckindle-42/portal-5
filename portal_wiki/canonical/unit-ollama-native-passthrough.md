@@ -42,6 +42,8 @@ sources:
 - type: code
   path: scripts/memory_safety_watch.py
 - type: code
+  path: deploy/launchd/com.portal5.host-ml-watch.plist
+- type: code
   path: tests/unit/test_memory_safety_watch.py
 claims: []
 confidence: high
@@ -110,6 +112,19 @@ other host service are provisional until an operator records measured idle/peak
 and sets `measured=True`. `--service-ceilings` / `WATCH_HOST_CEILINGS_GIB`
 (`eg2-embedding=0.5`) overrides the Gib value but keeps the service's
 measured/provisional status, so an override alone cannot arm a restart.
+
+The script has two modes. The default is the on-demand emergency watchdog for a
+live test: swap/pressure trip, test-client kills and model unloads, 2 s samples.
+`--services-only` runs the service ceilings alone — no `_snapshot` read, no
+`_trip`, no PID-file kills, no Ollama/oMLX unloads — on a 30 s interval, with the
+same three-sample debounce counted in samples. That mode is the always-on
+launchd job `com.portal5.host-ml-watch`
+(`deploy/launchd/com.portal5.host-ml-watch.plist`, `KeepAlive`, logs under
+`~/.portal5/logs`), installed idempotently by `_ensure_native_services` next to
+the oMLX watchdog and shown in `./launch.sh status`; it runs on the repo venv
+interpreter (`__PORTAL_ROOT__/.venv/bin/python`) like `com.portal5.log-rotate`.
+The 2026-10-07 embedder leak happened in normal use, not under a live test,
+which is why the ceilings cannot depend on a test being in flight.
 
 ## Why
 

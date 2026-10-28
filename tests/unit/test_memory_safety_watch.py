@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 import os
+import plistlib
+from pathlib import Path
+
+import pytest
 
 from scripts import memory_safety_watch
 from scripts.memory_safety_watch import (
@@ -14,6 +18,7 @@ from scripts.memory_safety_watch import (
     check_host_services,
 )
 
+ROOT = Path(__file__).resolve().parents[2]
 EMBED_LABEL = "com.portal5.eg2-embedding"
 EMBED = [HostService("eg2-embedding", EMBED_LABEL, 8946)]
 MEASURED_1GIB = {"eg2-embedding": ServiceCeiling(1.0, measured=True)}
@@ -408,3 +413,96 @@ def test_python_child_is_measured_when_launchd_job_is_a_shell_wrapper(tmp_path, 
 
     measured = [call for call in host.calls if call[0] == "footprint"]
     assert measured == [["footprint", "-p", "701"]]
+
+
+def test_services_only_mode_never_samples_trips_kills_or_unloads(tmp_path, monkeypatch):
+    def forbidden(*args, **kwargs):
+        raise AssertionError("services-only must not reach the trip path")
+
+    for name in ("_snapshot", "_trip", "_kill_test_clients", "_unload_ollama", "_unload_omlx"):
+        monkeypatch.setattr(memory_safety_watch, name, forbidden)
+    monkeypatch.setattr(memory_safety_watch, "_log_top_processes", forbidden)
+    host = FakeHost(footprint="    phys_footprint: 5.00 GB\n")
+    monkeypatch.setattr(memory_safety_watch, "_command", host)
+    log = tmp_path / "watch.log"
+
+    assert (
+        memory_safety_watch.watch_services(
+            log=log, services=EMBED, service_ceilings=MEASURED_1GIB, once=True
+        )
+        == 0
+    )
+
+    assert host.kickstarts() == []
+    assert "host service sample: services=1 restarted=[]" in log.read_text()
+
+
+def test_services_only_restarts_a_measured_breach_after_three_samples(tmp_path, monkeypatch):
+    host = FakeHost(footprint="    phys_footprint: 5.00 GB\n")
+    monkeypatch.setattr(memory_safety_watch, "_command", host)
+    log = tmp_path / "watch.log"
+    sleeps: list[float] = []
+
+    def fake_sleep(seconds):
+        sleeps.append(seconds)
+        if len(sleeps) == 3:
+            raise SystemExit("three samples taken")
+
+    monkeypatch.setattr(memory_safety_watch.time, "sleep", fake_sleep)
+
+    with pytest.raises(SystemExit):
+        memory_safety_watch.watch_services(log=log, services=EMBED, service_ceilings=MEASURED_1GIB)
+
+    assert sleeps == [30.0, 30.0, 30.0]
+    assert host.kickstarts() == [
+        ["launchctl", "kickstart", "-k", f"gui/{os.getuid()}/{EMBED_LABEL}"]
+    ]
+
+
+def test_main_services_only_selects_the_services_loop_with_a_30s_default(monkeypatch):
+    calls: list[tuple[str, dict]] = []
+
+    def record(kind):
+        def fake(**kwargs):
+            calls.append((kind, kwargs))
+            return 0
+
+        return fake
+
+    monkeypatch.setattr(memory_safety_watch, "watch", record("watch"))
+    monkeypatch.setattr(memory_safety_watch, "watch_services", record("services"))
+
+    assert memory_safety_watch.main(["--services-only", "--once"]) == 0
+    assert memory_safety_watch.main(["--services-only", "--once", "--interval", "5"]) == 0
+    assert memory_safety_watch.main(["--once"]) == 0
+
+    assert [kind for kind, _ in calls] == ["services", "services", "watch"]
+    assert calls[0][1]["interval_s"] == memory_safety_watch.DEFAULT_SERVICES_INTERVAL_S
+    assert calls[1][1]["interval_s"] == 5.0
+    assert calls[2][1]["interval_s"] == 2.0
+
+
+def test_host_ml_watch_plist_runs_the_services_only_mode():
+    with (ROOT / "deploy" / "launchd" / "com.portal5.host-ml-watch.plist").open("rb") as stream:
+        plist = plistlib.load(stream)
+
+    args = plist["ProgramArguments"]
+    assert plist["Label"] == "com.portal5.host-ml-watch"
+    assert args[0] == "__PORTAL_ROOT__/.venv/bin/python"
+    assert args[1] == "__PORTAL_ROOT__/scripts/memory_safety_watch.py"
+    assert "--services-only" in args
+    assert plist["RunAtLoad"] is True
+    assert plist["KeepAlive"] is True
+    assert plist["StandardOutPath"].startswith("__LOG_DIR__/")
+    assert plist["StandardErrorPath"].startswith("__LOG_DIR__/")
+
+
+def test_launch_sh_installs_the_host_ml_watch_job_idempotently():
+    util = (ROOT / "scripts" / "lib" / "util.sh").read_text(encoding="utf-8")
+
+    assert '_hmw_label="com.portal5.host-ml-watch"' in util
+    assert '_hmw_dst="$HOME/Library/LaunchAgents/${_hmw_label}.plist"' in util
+    assert '"s#__LOG_DIR__#${HOME}/.portal5/logs#g"' in util
+    assert 'launchctl print "gui/$(id -u)/${_hmw_label}"' in util
+    assert 'launchctl bootstrap "gui/$(id -u)" "$_hmw_dst"' in util
+    assert '"Host ML watchdog"' in util

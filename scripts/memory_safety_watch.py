@@ -12,7 +12,9 @@ demand, so ``vm.swapusage`` free routinely sits under 1 GiB on an idle host
 holding stale swapped pages (measured 2026-10-07: 983 MiB free swap, 84% free
 memory, pressure level normal). It is dangerous only when memory is also scarce. It also
 watches every host-native launchd service from ``config/portal.yaml`` and restarts only
-the one whose ``phys_footprint`` stays above its ceiling. The script uses only Python's
+the one whose ``phys_footprint`` stays above its ceiling. ``--services-only`` runs just
+that service watch as an always-on launchd job: no swap/pressure trip, no test-client
+kills, no model unloads. The script uses only Python's
 standard library plus PyYAML for that config, and reuses ``scripts.check_updates._pushover``
 for alerts.
 """
@@ -74,6 +76,8 @@ DEFAULT_HOST_CEILING = ServiceCeiling(4.0, measured=False)
 #: Consecutive over-ceiling samples before a breach is reported, and the per-service restart cooldown.
 DEFAULT_SERVICE_STRIKES = 3
 DEFAULT_RESTART_COOLDOWN_S = 1800.0
+#: Always-on services-only sample interval; the debounce still counts samples, not seconds.
+DEFAULT_SERVICES_INTERVAL_S = 30.0
 
 
 def _dotenv_value(name: str, default: str = "") -> str:
@@ -534,11 +538,46 @@ def watch(
         time.sleep(max(0.1, interval_s))
 
 
+def watch_services(
+    *,
+    log: Path = DEFAULT_LOG,
+    interval_s: float = DEFAULT_SERVICES_INTERVAL_S,
+    service_ceilings: dict[str, ServiceCeiling] | None = None,
+    restart_cooldown_s: float = DEFAULT_RESTART_COOLDOWN_S,
+    services: list[HostService] | None = None,
+    once: bool = False,
+) -> int:
+    """Always-on mode: host-service footprint ceilings only — no trip, kills or unloads."""
+    host_services = _host_native_services() if services is None else services
+    state = HostServiceState()
+    while True:
+        restarted = check_host_services(
+            state,
+            log,
+            services=host_services,
+            ceilings=service_ceilings,
+            cooldown_s=restart_cooldown_s,
+        )
+        _log(
+            f"host service sample: services={len(host_services)} "
+            f"restarted={[service.key for service in restarted]}",
+            log,
+        )
+        if once:
+            return 0
+        time.sleep(max(0.1, interval_s))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pid-file", type=Path, default=DEFAULT_PID_FILE)
     parser.add_argument("--log", type=Path, default=DEFAULT_LOG)
-    parser.add_argument("--interval", type=float, default=2.0)
+    parser.add_argument(
+        "--interval",
+        type=float,
+        default=None,
+        help="seconds between samples (default: 2, or 30 with --services-only)",
+    )
     parser.add_argument(
         "--swap-floor-mb",
         type=float,
@@ -549,6 +588,14 @@ def main(argv: list[str] | None = None) -> int:
         type=float,
         default=20.0,
         help="low swap trips only while memory free is below this percentage",
+    )
+    parser.add_argument(
+        "--services-only",
+        action="store_true",
+        help=(
+            "always-on host-service footprint ceilings only: no swap/pressure trip, "
+            "no test-client kills, no model unloads"
+        ),
     )
     parser.add_argument("--once", action="store_true", help="record one sample and exit")
     parser.add_argument(
@@ -566,13 +613,25 @@ def main(argv: list[str] | None = None) -> int:
         help="minimum seconds between host-service restarts",
     )
     args = parser.parse_args(argv)
+    interval_s = args.interval
+    if interval_s is None:
+        interval_s = DEFAULT_SERVICES_INTERVAL_S if args.services_only else 2.0
+    ceilings = _service_ceilings(args.service_ceilings)
+    if args.services_only:
+        return watch_services(
+            log=args.log,
+            interval_s=interval_s,
+            service_ceilings=ceilings,
+            restart_cooldown_s=args.restart_cooldown_s,
+            once=args.once,
+        )
     return watch(
         pid_file=args.pid_file,
         log=args.log,
-        interval_s=args.interval,
+        interval_s=interval_s,
         swap_floor_mb=args.swap_floor_mb,
         memory_floor_pct=args.memory_floor_pct,
-        service_ceilings=_service_ceilings(args.service_ceilings),
+        service_ceilings=ceilings,
         restart_cooldown_s=args.restart_cooldown_s,
         once=args.once,
     )
