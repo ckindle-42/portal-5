@@ -41,7 +41,15 @@ def _cp(out: str = "", rc: int = 0) -> subprocess.CompletedProcess:
 
 
 def _patch(
-    monkeypatch, tmp_path, *, built=NEW, healthy=(True,), rejected=(), latest="", rev=UPSTREAM_REV
+    monkeypatch,
+    tmp_path,
+    *,
+    built=NEW,
+    healthy=(True,),
+    rejected=(),
+    latest="",
+    rev=UPSTREAM_REV,
+    on_tag=None,
 ):
     calls: list = []
     images = {iu.OWUI_IMAGE: OLD}
@@ -57,6 +65,10 @@ def _patch(
             img = images.get(args[2], args[2])
             return _cp(revs.get(img, "") if "revision" in args[-1] else img)
         if args[0] == "tag":
+            if on_tag is not None:
+                rc = on_tag(args[1], args[2], images)
+                if rc is not None:
+                    return _cp(rc=rc)
             images[args[2]] = images.get(args[1], args[1])
             return _cp()
         return _cp()
@@ -216,6 +228,53 @@ def test_nothing_else_pulls_open_webui():
     launch = (_ROOT / "launch.sh").read_text()
     pulls = [ln for ln in launch.splitlines() if re.search(r"docker compose pull\b", ln)]
     assert pulls and all("grep -vx open-webui" in ln for ln in pulls)
+
+
+def test_rollback_uses_rollback_tag_when_old_id_is_gone(monkeypatch, tmp_path):
+    def on_tag(src, dst, images):
+        if src == OLD and dst != iu.OWUI_ROLLBACK:
+            return 1  # the bare id was pruned; only :rollback still names it
+        if dst == iu.OWUI_ROLLBACK:
+            images[dst] = OLD
+            return 0
+        if src == iu.OWUI_ROLLBACK:
+            images[dst] = images[src]
+            return 0
+        return None
+
+    calls, images, _compose = _patch(monkeypatch, tmp_path, healthy=(False, True), on_tag=on_tag)
+    ok, msg = iu.owui_update()
+    assert not ok and "rolled back" in msg and "(healthy)" in msg
+    assert images[iu.OWUI_IMAGE] == OLD
+    assert ("docker", "tag", iu.OWUI_ROLLBACK, iu.OWUI_IMAGE) in calls
+    assert ("docker", "tag", OLD, iu.OWUI_IMAGE) not in calls
+
+
+def test_failed_rollback_stops_the_container_and_names_the_step(monkeypatch, tmp_path):
+    def on_tag(src, dst, images):
+        if dst == iu.OWUI_ROLLBACK:
+            images[dst] = images.get(src, src)
+            return 0
+        if src == iu.OWUI_ROLLBACK:
+            return 1
+        return None
+
+    calls, _images, _compose = _patch(monkeypatch, tmp_path, healthy=(False, True), on_tag=on_tag)
+    ok, msg = iu.owui_update()
+    assert not ok and "FAILED at retag" in msg
+    retag = calls.index(("docker", "tag", iu.OWUI_ROLLBACK, iu.OWUI_IMAGE))
+    assert any(c[:3] == ("compose", "stop", "open-webui") for c in calls[retag + 1 :])
+    assert not any(c[:2] == ("compose", "up") for c in calls[retag + 1 :])
+
+
+def test_failed_rollback_tag_does_not_recreate_the_container(monkeypatch, tmp_path):
+    calls, images, _compose = _patch(monkeypatch, tmp_path, on_tag=lambda *_a: 1)
+    ok, msg = iu.owui_update()
+    assert not ok and "untouched" in msg
+    assert iu.OWUI_ROLLBACK not in images
+    assert not any(c[:2] == ("compose", "up") for c in calls)
+    assert not any(c[:2] == ("compose", "stop") for c in calls)
+    assert not any(c[0] == "backup" for c in calls)
 
 
 def test_failed_bump_build_restores_the_previous_pin(tmp_path, monkeypatch):

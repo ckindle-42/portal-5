@@ -10,13 +10,15 @@ leave it out of their pulls and call :func:`owui_update` instead. The daily run
 only *proposes* a newer upstream release; adopting one is explicit
 (``--bump [TAG]``) and applied as:
 
-  1. rebuild the image from the new upstream base; stop Open WebUI, tag the
-     running image ``:rollback`` (survives ``image prune``) and tar ``webui.db`` +
-     ``vector_db`` to ``~/.portal5/backups`` — its DB migrations are one-way, so
-     the data must be restorable too;
+  1. rebuild the image from the new upstream base; tag the running image
+     ``:rollback`` (survives ``image prune``) and abort without touching the
+     container if that tag fails; otherwise stop Open WebUI and tar ``webui.db``
+     + ``vector_db`` to ``~/.portal5/backups`` — its DB migrations are one-way,
+     so the data must be restorable too;
   2. recreate on the new build and wait for the healthcheck;
-  3. on failure restore the data and the previous compose pin, re-tag the previous
-     build, record the upstream base's revision as rejected and alert.
+  3. on failure restore the data and the previous compose pin, re-tag
+     ``:rollback`` onto the previous image name, and stop the container if any
+     rollback step fails. Record the rejected revision and alert.
 
 2026-10-11: an unguarded pull of v0.12.0 crash-looped on a migration against a
 legacy column default in our DB; nothing could roll it back.
@@ -272,14 +274,24 @@ def _restore(name: str) -> bool:
     )
 
 
-def _revert(previous: str, old_id: str, image: str) -> bool:
-    """Put the previous compose pin back and re-tag the previous hardened image."""
+def _revert(previous: str, image: str) -> bool:
+    """Put the previous compose pin back and point it at the :rollback image."""
     COMPOSE.write_text(previous)
-    return _docker("tag", old_id, image, timeout=60).returncode == 0
+    return _docker("tag", OWUI_ROLLBACK, image, timeout=60).returncode == 0
+
+
+def _start_previous(previous: str, image: str) -> str:
+    """Re-tag :rollback onto the previous pin and start it. Failed step, or ""."""
+    if not _revert(previous, image):
+        return "retag"
+    if _compose("up", "-d", "--no-deps", OWUI_SVC).returncode != 0:
+        return "compose up"
+    if not _wait_healthy(OWUI_SVC, 900):
+        return "health"
+    return ""
 
 
 def _rollback(
-    old_id: str,
     old_rev: str,
     bad: str,
     name: str,
@@ -287,19 +299,18 @@ def _rollback(
     previous: str,
     image: str,
 ) -> tuple[bool, str]:
-    """Restore the data + previous image after a build failed its health gate."""
+    """Restore the data + :rollback image after a build failed its health gate."""
     tail = _docker("logs", "--tail", "15", OWUI_CONTAINER, timeout=60)
     log(f"open-webui: {bad} did not come up healthy — rolling back\n{tail.stderr[-1200:]}")
     _compose("stop", OWUI_SVC)
-    restored = (
-        _restore(name)
-        and _revert(previous, old_id, image)
-        and _compose("up", "-d", "--no-deps", OWUI_SVC).returncode == 0
-        and _wait_healthy(OWUI_SVC, 900)
-    )
+    failed = "restore" if not _restore(name) else _start_previous(previous, image)
     state.setdefault("rejected", {}).setdefault("open-webui", []).append(bad)
     _save(state)
-    outcome = "(healthy)" if restored else f"BUT ROLLBACK IS NOT HEALTHY (backup {BACKUPS / name})"
+    if failed:
+        _compose("stop", OWUI_SVC)
+        outcome = f"BUT ROLLBACK FAILED at {failed} (backup {BACKUPS / name})"
+    else:
+        outcome = "(healthy)"
     return False, (
         f"open-webui: build {bad} unhealthy — rolled back to {old_rev} {outcome}; "
         f"skipped until the pin changes (or clear it from {STATE})"
@@ -312,22 +323,25 @@ def _swap(
     """Back up the data, recreate on the new build, roll back if it stays unhealthy."""
     prev_image, prev_release = _pinned_image(previous), _pinned_release(previous)
     old_rev = _revision(old_id) or prev_release
+    if _docker("tag", old_id, OWUI_ROLLBACK, timeout=60).returncode != 0:
+        return False, (
+            f"open-webui: could not tag the running image as {OWUI_ROLLBACK} — "
+            "leaving the container untouched"
+        )
     log(f"open-webui: moving {old_rev} -> {rev} ({pinned})")
-    _docker("tag", old_id, OWUI_ROLLBACK, timeout=60)
     name = f"owui-{old_rev}-{dt.datetime.now():%Y%m%dT%H%M%S}.tar"
     _compose("stop", OWUI_SVC)
     if not _backup(name):
-        restored = (
-            _revert(previous, old_id, prev_image)
-            and _compose("up", "-d", "--no-deps", OWUI_SVC).returncode == 0
-            and _wait_healthy(OWUI_SVC, 900)
-        )
-        return restored, "open-webui: data backup failed — stayed on the current build"
+        failed = _start_previous(previous, prev_image)
+        if failed:
+            _compose("stop", OWUI_SVC)
+            return False, f"open-webui: data backup failed — rollback failed at {failed}"
+        return True, "open-webui: data backup failed — stayed on the current build"
 
     if _compose("up", "-d", "--no-deps", OWUI_SVC).returncode == 0 and _wait_healthy(OWUI_SVC, 900):
         return True, f"open-webui: updated to {rev} (data backup {name})"
 
-    return _rollback(old_id, old_rev, rev, name, state, previous, prev_image)
+    return _rollback(old_rev, rev, name, state, previous, prev_image)
 
 
 def _apply_pinned(previous: str, dry_run: bool, proposal: str = "") -> tuple[bool, str]:
