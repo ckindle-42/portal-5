@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Stdlib pin backfill and upstream-change detection for Ollama catalog tags.
 
-The models directory comes from ``OLLAMA_MODELS`` or the ``com.portal5.ollama``
-LaunchDaemon. Paths inside that directory are never hardcoded.
+Tag-to-blob facts come from Ollama itself (``ollama show <tag> --modelfile``
+FROM lines). Manifest files are only a fallback, searched in both the v1
+``manifests/`` and the 0.40 ``manifests-v2/`` store. The models directory
+comes from ``OLLAMA_MODELS`` or the ``com.portal5.ollama`` LaunchDaemon.
+Paths inside that directory are never hardcoded.
 """
 
 from __future__ import annotations
@@ -12,6 +15,7 @@ import json
 import os
 import plistlib
 import re
+import subprocess
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Mapping
@@ -21,6 +25,7 @@ from urllib.parse import quote
 
 OLLAMA_DAEMON_PLIST = Path("/Library/LaunchDaemons/com.portal5.ollama.plist")
 UNPINNED_NOT_ON_HF = "local blob not on HF main (upstream moved or local import)"
+NOT_INSTALLED = "not installed (configured only)"
 _MODEL_MEDIA = "application/vnd.ollama.image.model"
 _MANIFEST_ACCEPT = "application/vnd.docker.distribution.manifest.v2+json"
 _REGISTRY = "https://registry.ollama.ai"
@@ -31,6 +36,7 @@ _KEY_RE = re.compile(r"^(\s+)([A-Za-z_][\w-]*):\s*(.*)$")
 _MODELS_RE = re.compile(r"^(\s*)models:\s*(?:#.*)?$")
 _SAFE_SCALAR = re.compile(r"[A-Za-z0-9_./+-]+")
 Fetch = Callable[[str, str], tuple[int, dict[str, str], bytes]]
+Runner = Callable[[list[str]], subprocess.CompletedProcess[str]]
 
 
 @dataclass
@@ -86,7 +92,7 @@ def models_dir(
 
 
 def manifest_path(models: Path, tag: str) -> Path:
-    """Local manifest file for an Ollama tag."""
+    """Local manifest file for an Ollama tag in the v1 (``manifests/``) store."""
     name, sep, qual = tag.rpartition(":")
     if not sep or not qual:
         name, qual = tag, "latest"
@@ -97,6 +103,105 @@ def manifest_path(models: Path, tag: str) -> Path:
     else:
         rel = Path("manifests/registry.ollama.ai") / name / qual
     return models / rel
+
+
+def manifest_paths(models: Path, tag: str) -> list[Path]:
+    """Manifest candidates across both Ollama stores: v2 (0.40) first, v1 second."""
+    name, sep, qual = tag.rpartition(":")
+    if not sep or not qual:
+        name, qual = tag, "latest"
+    paths: list[Path] = []
+    if name.startswith("hf.co/") or "/" in name:
+        paths.append(models / "manifests-v2" / Path(name) / qual)
+    else:
+        paths.append(models / "manifests-v2" / "ollama.com" / "library" / name / qual)
+    paths.append(manifest_path(models, tag))
+    return paths
+
+
+def find_manifest(models: Path, tag: str) -> Path | None:
+    """The manifest file for a tag in whichever store holds it."""
+    for path in manifest_paths(models, tag):
+        if path.is_file():
+            return path
+    return None
+
+
+def ollama_bin() -> str:
+    override = os.environ.get("OLLAMA_BIN", "").strip()
+    if override:
+        return override
+    live = Path.home() / "ollama-current" / "ollama"
+    if live.is_file():
+        return str(live)
+    return "ollama"
+
+
+def default_run(argv: list[str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(argv, check=False, capture_output=True, text=True)
+
+
+_SHOW_FROM_RE = re.compile(r"^FROM\s+.*sha256-([0-9a-fA-F]{64})", re.MULTILINE)
+
+
+def show_blobs(tag: str, run: Runner | None, binary: str = "ollama") -> list[str] | None:
+    """Blob digests Ollama itself reports (every FROM, weights and projector).
+
+    ``None`` when Ollama cannot resolve the tag; ``[]`` when it resolves to no
+    blob references. The first digest is the model weights.
+    """
+    if run is None:
+        return None
+    done = run([binary, "show", tag, "--modelfile"])
+    if done.returncode != 0:
+        return None
+    return [match.group(1).lower() for match in _SHOW_FROM_RE.finditer(done.stdout or "")]
+
+
+def installed_model_sha(
+    models: Path,
+    tag: str,
+    run: Runner | None = None,
+    binary: str = "ollama",
+) -> str:
+    """Model-layer sha256: Ollama's own FROM facts first, manifest files as fallback."""
+    blobs = show_blobs(tag, run, binary)
+    if blobs:
+        return blobs[0]
+    path = find_manifest(models, tag)
+    if path is None:
+        return ""
+    layer = model_layer(path)
+    return layer[0] if layer is not None else ""
+
+
+_HOST_PARTS = ("registry.ollama.ai", "ollama.com")
+
+
+def installed_tags(models: Path) -> list[str]:
+    """Every tag name with a manifest in either store (v1 files and v2 links)."""
+    tags: set[str] = set()
+    for store in ("manifests", "manifests-v2"):
+        base = models / store
+        if not base.is_dir():
+            continue
+        for path in base.rglob("*"):
+            if path.is_dir() and not path.is_symlink():
+                continue
+            tag = _tag_from_parts(path.relative_to(base).parts)
+            if tag:
+                tags.add(tag)
+    return sorted(tags)
+
+
+def _tag_from_parts(parts: tuple[str, ...]) -> str:
+    if parts and parts[0] in _HOST_PARTS:
+        parts = parts[1:]
+    if len(parts) > 1 and parts[0] == "library":
+        parts = parts[1:]
+    if len(parts) < 2:
+        return ""
+    return "/".join(parts[:-1]) + ":" + parts[-1]
 
 
 def split_derived(tag: str) -> tuple[str, int] | None:
@@ -168,6 +273,8 @@ def backfill_lines(
     fetch: Fetch,
     *,
     write: bool,
+    run: Runner | None = None,
+    binary: str = "ollama",
 ) -> tuple[list[str], str]:
     """Match each ``hf.co/`` id's model-layer sha256 to an HF ``lfs.oid``."""
     entries = parse_model_entries(text)
@@ -179,7 +286,7 @@ def backfill_lines(
         if not entry.tag.startswith("hf.co/") or entry.tag in seen:
             continue
         seen.add(entry.tag)
-        _backfill_one(entry.tag, models, fetch, trees, lines, updates)
+        _backfill_one(entry.tag, models, fetch, trees, lines, updates, run, binary)
     new_text = apply_field_updates(text, updates) if write else text
     return lines, new_text
 
@@ -206,18 +313,25 @@ def collect_changes(text: str, models: Path, fetch: Fetch) -> Scan:
     return scan
 
 
-def blob_referenced(models: Path, digest: str) -> bool:
-    """True when any manifest layer or config still names this sha256."""
-    root = models / "manifests"
-    if not root.is_dir():
-        return False
+def blob_referenced(models: Path, digest: str, run: Runner, binary: str) -> bool | None:
+    """Reference facts from Ollama itself, for every installed tag.
+
+    True when any tag's FROM lines name the digest, False when none do, and
+    ``None`` (refuse to act) when any installed tag cannot be resolved.
+    """
     want = _hex(digest)
-    return any(path.is_file() and want in _manifest_digests(path) for path in root.rglob("*"))
+    for tag in installed_tags(models):
+        blobs = show_blobs(tag, run, binary)
+        if not blobs:
+            return None
+        if want in blobs:
+            return True
+    return False
 
 
-def drop_unreferenced_blob(models: Path, digest: str) -> bool:
-    """Delete one blob only when no manifest still names it."""
-    if not digest or blob_referenced(models, digest):
+def drop_unreferenced_blob(models: Path, digest: str, run: Runner, binary: str) -> bool:
+    """Delete one blob only when every installed tag resolves and none names it."""
+    if not digest or blob_referenced(models, digest, run, binary) is not False:
         return False
     blob = models / "blobs" / f"sha256-{_hex(digest)}"
     if not blob.is_file():
@@ -333,18 +447,33 @@ def _backfill_one(
     trees: dict[str, list[dict] | None],
     lines: list[str],
     updates: dict[str, dict[str, str]],
+    run: Runner | None,
+    binary: str,
 ) -> None:
-    layer = model_layer(manifest_path(models, tag))
+    blobs = show_blobs(tag, run, binary)
+    path = find_manifest(models, tag)
+    sha = ""
+    if blobs:
+        sha = blobs[0]
+    elif path is not None:
+        layer = model_layer(path)
+        sha = layer[0] if layer is not None else ""
     repo = repo_from_tag(tag)
-    if layer is None:
-        updates[tag] = _clear_pin("no local manifest")
-        lines.append(f"UNPINNED {tag} no local manifest")
+    if not sha:
+        if blobs is not None:
+            reason = "no model layer from ollama show"
+        elif path is not None:
+            reason = "no model layer in local manifest"
+        else:
+            reason = NOT_INSTALLED
+        updates[tag] = _clear_pin(reason)
+        lines.append(f"UNPINNED {tag} {reason}")
         return
     files = _tree(repo, fetch, trees)
     if files is None:
         lines.append(f"ERROR {tag} HF tree for {repo} failed")
         return
-    match = _match_oid(files, layer[0])
+    match = _match_oid(files, sha)
     if match is None:
         updates[tag] = _clear_pin(UNPINNED_NOT_ON_HF)
         lines.append(f"UNPINNED {tag} {UNPINNED_NOT_ON_HF}")
@@ -353,11 +482,11 @@ def _backfill_one(
     updates[tag] = {
         "repo": repo,
         "filename": filename,
-        "sha256": layer[0],
+        "sha256": sha,
         "unpinned": "",
     }
     size = _file_size(match)
-    lines.append(f"PIN {tag} repo={repo} file={filename} sha256={layer[0]} bytes={size}")
+    lines.append(f"PIN {tag} repo={repo} file={filename} sha256={sha} bytes={size}")
 
 
 def _hf_change(
@@ -429,8 +558,8 @@ def _library_change(
     derived: tuple[tuple[str, int], ...],
     scan: Scan,
 ) -> None:
-    path = manifest_path(models, entry.tag)
-    if not path.is_file():
+    path = find_manifest(models, entry.tag)
+    if path is None:
         return
     local = file_sha256(path)
     status, headers, _body = fetch("HEAD", registry_manifest_url(entry.tag))
@@ -707,22 +836,6 @@ def _scalar(raw: str) -> str:
             return loaded if isinstance(loaded, str) else text[1:-1]
         return text[1:-1]
     return text
-
-
-def _manifest_digests(path: Path) -> set[str]:
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return set()
-    found: set[str] = set()
-    config = payload.get("config") or {}
-    if isinstance(config, dict):
-        found.add(_hex(str(config.get("digest") or "")))
-    for layer in payload.get("layers") or []:
-        if isinstance(layer, dict):
-            found.add(_hex(str(layer.get("digest") or "")))
-    found.discard("")
-    return found
 
 
 def _hex(value: str) -> str:

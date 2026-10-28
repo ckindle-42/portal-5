@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import plistlib
+import subprocess
 from pathlib import Path
 
 from scripts import model_upstream as mu
@@ -138,7 +139,7 @@ def test_backfill_no_hf_match_uses_the_required_sentence(tmp_path: Path) -> None
 def test_backfill_missing_manifest_is_not_the_hf_sentence(tmp_path: Path) -> None:
     text = "backends:\n- id: ol\n  models:\n  - id: hf.co/org/Missing:Q4\n"
     lines, updated = mu.backfill_lines(text, tmp_path / "models", _fetch({}), write=True)
-    assert lines == ["UNPINNED hf.co/org/Missing:Q4 no local manifest"]
+    assert lines == [f"UNPINNED hf.co/org/Missing:Q4 {mu.NOT_INSTALLED}"]
     assert mu.UNPINNED_NOT_ON_HF not in updated
 
 
@@ -234,22 +235,44 @@ def _change(**kwargs) -> Change:
     return Change(**base)
 
 
-def _ok_run():
+def _ok_run(blobs: dict[str, list[str]] | None = None):
     calls: list[list[str]] = []
+    state = {tag: list(digests) for tag, digests in (blobs or {}).items()}
 
     def run(argv: list[str]):
         calls.append(argv)
-        import subprocess
-
+        if len(argv) > 3 and argv[1] == "show" and argv[3] == "--modelfile":
+            digests = state.get(argv[2])
+            if digests is None:
+                return subprocess.CompletedProcess(argv, 1, "", "no such model")
+            return subprocess.CompletedProcess(argv, 0, _show_body(digests), "")
         return subprocess.CompletedProcess(argv, 0, "FROM blob\n", "")
 
-    return calls, run
+    return calls, run, state
+
+
+def _show_body(digests: list[str]) -> str:
+    return "".join(f"FROM /models/blobs/sha256-{digest}\n" for digest in digests)
+
+
+def _show_run(blobs: dict[str, list[str]], on_create=None):
+    def run(argv: list[str]):
+        if len(argv) > 3 and argv[1] == "show" and argv[3] == "--modelfile":
+            digests = blobs.get(argv[2])
+            if digests is None:
+                return subprocess.CompletedProcess(argv, 1, "", "no such model")
+            return subprocess.CompletedProcess(argv, 0, _show_body(digests), "")
+        if on_create is not None and "create" in argv:
+            on_create(argv)
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+    return run
 
 
 def test_missing_manifest_does_not_download(tmp_path: Path) -> None:
     models = tmp_path / "models"
     models.mkdir()
-    calls, run = _ok_run()
+    calls, run, _state = _ok_run()
     status, text = replace_one(
         _change(),
         models=models,
@@ -271,7 +294,7 @@ def test_short_disk_skips_without_touching_the_manifest(tmp_path: Path) -> None:
     models = tmp_path / "models"
     manifest = _write_manifest(models, "hf.co/org/Repo:Q4", SHA_A)
     before = manifest.read_bytes()
-    calls, run = _ok_run()
+    calls, run, _state = _ok_run()
     status, _text = replace_one(
         _change(),
         models=models,
@@ -294,24 +317,20 @@ def test_render_failure_restores_the_manifest_and_rejects(tmp_path: Path) -> Non
     manifest = _write_manifest(models, "hf.co/org/Repo:Q4", SHA_A)
     before = manifest.read_bytes()
     state: dict = {}
+    blobs = {"hf.co/org/Repo:Q4": [SHA_A]}
 
-    def run(argv: list[str]):
-        import subprocess
+    def on_create(_argv: list[str]) -> None:
+        manifest.write_bytes(_manifest(SHA_B))
+        blobs["hf.co/org/Repo:Q4"] = [SHA_B]
 
-        if "create" in argv:
-            manifest.write_bytes(_manifest(SHA_B))
-        return subprocess.CompletedProcess(argv, 0, "", "")
-
-    def download(url: str, dest: Path, sha: str) -> None:
-        dest.write_bytes(b"new")
-
+    run = _show_run(blobs, on_create)
     status, text = replace_one(
         _change(),
         models=models,
         backends="backends:\n- id: ol\n  models:\n  - id: hf.co/org/Repo:Q4\n",
         run=run,
         free=lambda: 10**9,
-        download=download,
+        download=lambda _u, dest, _s: dest.write_bytes(b"new"),
         chat=lambda *_a: None,
         render=lambda *_a: "forbidden stop(s) ['<think>']",
         state=state,
@@ -340,17 +359,16 @@ def test_smoke_failure_restores_the_manifest(tmp_path: Path) -> None:
     models = tmp_path / "models"
     manifest = _write_manifest(models, "hf.co/org/Repo:Q4", SHA_A)
     before = manifest.read_bytes()
+    blobs = {"hf.co/org/Repo:Q4": [SHA_A]}
 
-    def run(argv: list[str]):
-        import subprocess
-
-        return subprocess.CompletedProcess(argv, 0, "", "")
+    def on_create(_argv: list[str]) -> None:
+        blobs["hf.co/org/Repo:Q4"] = [SHA_B]
 
     status, _text = replace_one(
         _change(),
         models=models,
         backends="backends:\n- id: ol\n  models:\n  - id: hf.co/org/Repo:Q4\n",
-        run=run,
+        run=_show_run(blobs, on_create),
         free=lambda: 10**9,
         download=lambda _u, dest, _s: dest.write_bytes(b"new"),
         chat=lambda *_a: "tool-call probe returned no tool_calls",
@@ -373,20 +391,17 @@ def test_success_updates_the_pin_and_keeps_a_shared_blob(tmp_path: Path) -> None
         "  - id: hf.co/org/Repo:Q4\n    supports_tools: true\n"
         "  - id: gemma4:8b\n"
     )
+    blobs = {"hf.co/org/Repo:Q4": [SHA_A], "hf.co/org/Other:Q4": [SHA_A]}
 
-    def run(argv: list[str]):
-        import subprocess
-
-        if "create" in argv:
-            mu.manifest_path(models, tag).write_bytes(_manifest(SHA_B))
-            (models / "blobs" / f"sha256-{SHA_B}").write_bytes(b"new")
-        return subprocess.CompletedProcess(argv, 0, "", "")
+    def on_create(_argv: list[str]) -> None:
+        mu.manifest_path(models, tag).write_bytes(_manifest(SHA_B))
+        blobs[tag] = [SHA_B]
 
     status, text = replace_one(
         _change(supports_tools=True),
         models=models,
         backends=backends,
-        run=run,
+        run=_show_run(blobs, on_create),
         free=lambda: 10**9,
         download=lambda _u, dest, _s: dest.write_bytes(b"new"),
         chat=lambda tag, tools: None if tools else "unexpected",
@@ -406,19 +421,17 @@ def test_success_deletes_an_unreferenced_old_blob(tmp_path: Path) -> None:
     models = tmp_path / "models"
     tag = "hf.co/org/Repo:Q4"
     _write_manifest(models, tag, SHA_A)
+    blobs = {tag: [SHA_A]}
 
-    def run(argv: list[str]):
-        import subprocess
-
-        if "create" in argv:
-            mu.manifest_path(models, tag).write_bytes(_manifest(SHA_B))
-        return subprocess.CompletedProcess(argv, 0, "", "")
+    def on_create(_argv: list[str]) -> None:
+        mu.manifest_path(models, tag).write_bytes(_manifest(SHA_B))
+        blobs[tag] = [SHA_B]
 
     status, _text = replace_one(
         _change(),
         models=models,
         backends="backends:\n- id: ol\n  models:\n  - id: hf.co/org/Repo:Q4\n",
-        run=run,
+        run=_show_run(blobs, on_create),
         free=lambda: 10**9,
         download=lambda _u, dest, _s: dest.write_bytes(b"x"),
         chat=lambda *_a: None,
@@ -433,7 +446,7 @@ def test_success_deletes_an_unreferenced_old_blob(tmp_path: Path) -> None:
 def test_library_rebuilds_derived_ctx_without_pulling_it(tmp_path: Path) -> None:
     models = tmp_path / "models"
     _write_manifest(models, "granite4.1:8b", SHA_A)
-    calls, run = _ok_run()
+    calls, run, _state = _ok_run()
     change = Change(
         tag="granite4.1:8b",
         kind="library",
@@ -455,8 +468,9 @@ def test_library_rebuilds_derived_ctx_without_pulling_it(tmp_path: Path) -> None
         cache={},
     )
     assert status == "updated"
-    assert calls[0][1:] == ["pull", "granite4.1:8b"]
-    assert calls[1][1:3] == ["create", "granite4.1:8b-ctx8k"]
+    installs = [cmd for cmd in calls if cmd[1] != "show"]
+    assert installs[0][1:] == ["pull", "granite4.1:8b"]
+    assert installs[1][1:3] == ["create", "granite4.1:8b-ctx8k"]
     assert not any(cmd[1] == "pull" and cmd[2].endswith("-ctx8k") for cmd in calls)
     assert "granite4.1:8b-ctx8k" not in text
 
@@ -496,3 +510,171 @@ def test_apply_field_updates_refuses_unknown_ids() -> None:
     text = "backends:\n- id: ol\n  models:\n  - id: gemma4:8b\n"
     updated = mu.apply_field_updates(text, {"hf.co/org/New:Q4": {"sha256": SHA_A}})
     assert updated == text
+
+
+def test_show_blobs_parses_weights_and_projector_from_lines() -> None:
+    body = (
+        '# Modelfile generated by "ollama show"\n'
+        "# FROM hf.co/org/Repo:Q4\n"
+        f"FROM /models/blobs/sha256-{SHA_A}\n"
+        f"FROM /models/blobs/sha256-{SHA_B}\n"
+    )
+
+    def run(argv: list[str]):
+        return subprocess.CompletedProcess(argv, 0, body, "")
+
+    assert mu.show_blobs("hf.co/org/Repo:Q4", run) == [SHA_A, SHA_B]
+
+
+def test_show_blobs_none_when_ollama_cannot_resolve() -> None:
+    def run(argv: list[str]):
+        return subprocess.CompletedProcess(argv, 1, "", "no such model")
+
+    assert mu.show_blobs("ghost:latest", run) is None
+    assert mu.show_blobs("ghost:latest", None) is None
+
+
+def test_manifest_paths_cover_both_stores(tmp_path: Path) -> None:
+    paths = mu.manifest_paths(tmp_path, "hf.co/org/Repo:Q4")
+    assert paths[0] == tmp_path / "manifests-v2" / "hf.co" / "org" / "Repo" / "Q4"
+    assert paths[1] == tmp_path / "manifests" / "hf.co" / "org" / "Repo" / "Q4"
+    library = mu.manifest_paths(tmp_path, "granite4.1:8b")
+    assert library[0] == tmp_path / "manifests-v2" / "ollama.com" / "library" / "granite4.1" / "8b"
+    assert library[1].parts[-3:] == ("library", "granite4.1", "8b")
+
+
+def test_backfill_uses_ollama_show_before_files(tmp_path: Path) -> None:
+    models = tmp_path / "models"
+    models.mkdir()
+    text = "backends:\n- id: ol\n  models:\n  - id: hf.co/org/Repo:Q4\n"
+    url = "https://huggingface.co/api/models/org/Repo/tree/main"
+    body = f"FROM {models}/blobs/sha256-{SHA_A}\nFROM {models}/blobs/sha256-{SHA_B}\n"
+
+    def run(argv: list[str]):
+        return subprocess.CompletedProcess(argv, 0, body, "")
+
+    lines, updated = mu.backfill_lines(
+        text,
+        models,
+        _fetch({("GET", url): (200, {}, _hf_tree("model.gguf", SHA_A, 80))}),
+        write=True,
+        run=run,
+    )
+    assert lines == [f"PIN hf.co/org/Repo:Q4 repo=org/Repo file=model.gguf sha256={SHA_A} bytes=80"]
+
+
+def test_backfill_falls_back_to_a_manifests_v2_symlink(tmp_path: Path) -> None:
+    models = tmp_path / "models"
+    blob = models / "blobs" / f"sha256-{SHA_A}"
+    blob.parent.mkdir(parents=True)
+    blob.write_bytes(_manifest(SHA_A, 80))
+    link = models / "manifests-v2" / "hf.co" / "org" / "Repo" / "Q4"
+    link.parent.mkdir(parents=True)
+    link.symlink_to(f"../../../../blobs/sha256-{SHA_A}")
+    text = "backends:\n- id: ol\n  models:\n  - id: hf.co/org/Repo:Q4\n"
+    url = "https://huggingface.co/api/models/org/Repo/tree/main"
+    lines, _updated = mu.backfill_lines(
+        text,
+        models,
+        _fetch({("GET", url): (200, {}, _hf_tree("model.gguf", SHA_A, 80))}),
+        write=True,
+    )
+    assert lines == [f"PIN hf.co/org/Repo:Q4 repo=org/Repo file=model.gguf sha256={SHA_A} bytes=80"]
+
+
+def test_backfill_separates_not_installed_from_real_misses(tmp_path: Path) -> None:
+    models = tmp_path / "models"
+    models.mkdir()
+    text = "backends:\n- id: ol\n  models:\n  - id: hf.co/org/Ghost:Q4\n"
+
+    def run(argv: list[str]):
+        return subprocess.CompletedProcess(argv, 1, "", "no such model")
+
+    lines, updated = mu.backfill_lines(text, models, _fetch({}), write=True, run=run)
+    assert lines == [f"UNPINNED hf.co/org/Ghost:Q4 {mu.NOT_INSTALLED}"]
+    assert mu.UNPINNED_NOT_ON_HF not in updated
+
+
+def test_installed_tags_reads_both_stores(tmp_path: Path) -> None:
+    models = tmp_path / "models"
+    _write_manifest(models, "granite4.1:8b", SHA_A)
+    v2 = models / "manifests-v2" / "hf.co" / "org" / "Repo" / "Q4"
+    v2.parent.mkdir(parents=True)
+    v2.symlink_to(f"../../../../blobs/sha256-{SHA_A}")
+    com = models / "manifests-v2" / "ollama.com" / "library" / "gemma4" / "8b"
+    com.parent.mkdir(parents=True)
+    com.write_bytes(_manifest(SHA_B))
+    engine = models / "manifests" / "registry.ollama.ai" / "library" / "llamacpp" / ("0" * 64)
+    engine.parent.mkdir(parents=True)
+    engine.write_bytes(_manifest(SHA_C))
+    assert mu.installed_tags(models) == [
+        "gemma4:8b",
+        "granite4.1:8b",
+        "hf.co/org/Repo:Q4",
+        f"llamacpp:{'0' * 64}",
+    ]
+
+
+def test_drop_refuses_when_any_tag_cannot_be_resolved(tmp_path: Path) -> None:
+    models = tmp_path / "models"
+    _write_manifest(models, "hf.co/org/Repo:Q4", SHA_A)
+    _write_manifest(models, "granite4.1:8b", SHA_A)
+    blob = models / "blobs" / f"sha256-{SHA_C}"
+    blob.write_bytes(b"x")
+    run = _show_run({"hf.co/org/Repo:Q4": [SHA_A]})
+    assert mu.blob_referenced(models, SHA_C, run, "ollama") is None
+    assert mu.drop_unreferenced_blob(models, SHA_C, run, "ollama") is False
+    assert blob.is_file()
+
+
+def test_drop_counts_references_from_ollama_show_not_files(tmp_path: Path) -> None:
+    models = tmp_path / "models"
+    stale = _write_manifest(models, "hf.co/org/Repo:Q4", SHA_A)
+    stale.write_bytes(_manifest(SHA_C))
+    keep = models / "blobs" / f"sha256-{SHA_A}"
+    keep.write_bytes(b"keep")
+    gone = models / "blobs" / f"sha256-{SHA_C}"
+    gone.write_bytes(b"gone")
+    run = _show_run({"hf.co/org/Repo:Q4": [SHA_A]})
+    assert mu.drop_unreferenced_blob(models, SHA_C, run, "ollama") is True
+    assert not gone.exists()
+    assert mu.drop_unreferenced_blob(models, SHA_A, run, "ollama") is False
+    assert keep.is_file()
+
+
+def test_backup_and_restore_cover_the_manifests_v2_symlink(tmp_path: Path) -> None:
+    from scripts.model_autoupdate import _backup, _restore
+
+    models = tmp_path / "models"
+    manifest_blob = models / "blobs" / f"sha256-{SHA_A}"
+    manifest_blob.parent.mkdir(parents=True)
+    manifest_blob.write_bytes(_manifest(SHA_A))
+    link = models / "manifests-v2" / "hf.co" / "org" / "Repo" / "Q4"
+    link.parent.mkdir(parents=True)
+    target = f"../../../../blobs/sha256-{SHA_A}"
+    link.symlink_to(target)
+    saved = _backup(models, ["hf.co/org/Repo:Q4"])
+    link.unlink()
+    link.write_bytes(_manifest(SHA_B))
+    _restore(models, saved)
+    assert link.is_symlink()
+    assert str(link.readlink()) == target
+    payload = json.loads(link.read_text())
+    assert payload["layers"][0]["digest"] == f"sha256:{SHA_A}"
+
+
+def test_restore_removes_manifests_created_in_either_store(tmp_path: Path) -> None:
+    from scripts.model_autoupdate import _backup, _restore
+
+    models = tmp_path / "models"
+    models.mkdir()
+    saved = _backup(models, ["hf.co/org/New:Q4"])
+    v2 = mu.manifest_paths(models, "hf.co/org/New:Q4")[0]
+    v1 = mu.manifest_path(models, "hf.co/org/New:Q4")
+    v2.parent.mkdir(parents=True)
+    v2.write_bytes(_manifest(SHA_B))
+    v1.parent.mkdir(parents=True)
+    v1.write_bytes(_manifest(SHA_B))
+    _restore(models, saved)
+    assert not v2.exists()
+    assert not v1.exists()

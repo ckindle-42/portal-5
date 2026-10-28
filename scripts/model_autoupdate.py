@@ -7,7 +7,8 @@ commit of ``config/backends.yaml`` only. A plain ``portal update`` does not
 run this; ``--refresh-models`` / ``--now`` opts in.
 
 This Ollama build has no ``prune`` command. After a successful replace the job
-deletes the previous model-layer blob only when no manifest still names it.
+deletes the previous model-layer blob only when no installed tag's own
+``ollama show`` FROM facts still name it; any unresolvable tag vetoes the delete.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ import subprocess
 import sys
 import tempfile
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -35,10 +37,13 @@ from scripts.model_upstream import (  # noqa: E402
     apply_field_updates,
     collect_changes,
     default_fetch,
+    default_run,
     drop_unreferenced_blob,
-    manifest_path,
-    model_layer,
+    find_manifest,
+    installed_model_sha,
+    manifest_paths,
     models_dir,
+    ollama_bin,
     resolve_url,
     stream_download,
 )
@@ -51,22 +56,16 @@ Render = Callable[[str, tuple[str, ...]], str | None]
 Download = Callable[[str, Path, str], None]
 
 
-def ollama_bin() -> str:
-    override = os.environ.get("OLLAMA_BIN", "").strip()
-    if override:
-        return override
-    live = Path.home() / "ollama-current" / "ollama"
-    if live.is_file():
-        return str(live)
-    return "ollama"
+@dataclass
+class _Snapshot:
+    """One manifest copy: bytes for a v1 file, link target for a v2 symlink."""
 
-
-def _run(argv: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(argv, check=False, capture_output=True, text=True)
+    data: bytes | None = None
+    target: str | None = None
 
 
 def _live_render(tag: str, stops: tuple[str, ...]) -> str | None:
-    shown = _run([ollama_bin(), "show", tag, "--modelfile"])
+    shown = default_run([ollama_bin(), "show", tag, "--modelfile"])
     if shown.returncode != 0 or shown.stdout is None:
         return "ollama show --modelfile failed"
     bad = forbidden_stops(shown.stdout, stops)
@@ -125,22 +124,36 @@ def _remember(state: dict, change: Change) -> None:
         bucket.append(change.new)
 
 
-def _backup(models: Path, tags: list[str]) -> dict[str, bytes | None]:
-    saved: dict[str, bytes | None] = {}
+def _backup(models: Path, tags: list[str]) -> dict[str, dict[Path, _Snapshot]]:
+    """Capture every store copy of each tag's manifest, links included."""
+    saved: dict[str, dict[Path, _Snapshot]] = {}
     for tag in tags:
-        path = manifest_path(models, tag)
-        saved[tag] = path.read_bytes() if path.is_file() else None
+        found: dict[Path, _Snapshot] = {}
+        for path in manifest_paths(models, tag):
+            if not path.is_file():
+                continue
+            target = os.readlink(path) if path.is_symlink() else None
+            found[path] = _Snapshot(None if target is not None else path.read_bytes(), target)
+        saved[tag] = found
     return saved
 
 
-def _restore(models: Path, saved: dict[str, bytes | None]) -> None:
-    for tag, blob in saved.items():
-        path = manifest_path(models, tag)
-        if blob is None:
-            path.unlink(missing_ok=True)
-            continue
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(blob)
+def _restore(models: Path, saved: dict[str, dict[Path, _Snapshot]]) -> None:
+    for tag, found in saved.items():
+        for path in manifest_paths(models, tag):
+            snap = found.get(path)
+            if snap is None:
+                path.unlink(missing_ok=True)
+                continue
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if snap.target is not None:
+                if path.is_symlink() or path.exists():
+                    path.unlink()
+                path.symlink_to(snap.target)
+            else:
+                if path.is_symlink():
+                    path.unlink()
+                path.write_bytes(snap.data or b"")
 
 
 def _create(run: Runner, binary: str, tag: str, modelfile: Path) -> None:
@@ -217,25 +230,20 @@ def _tags(change: Change) -> list[str]:
     return [change.tag, *[tag for tag, _ctx in change.derived]]
 
 
-def _layer_sha(models: Path, tag: str) -> str:
-    layer = model_layer(manifest_path(models, tag))
-    if layer is None:
-        return ""
-    return layer[0]
-
-
 def _fail(
     models: Path,
     change: Change,
-    saved: dict[str, bytes | None],
+    saved: dict[str, dict[Path, _Snapshot]],
     new_sha: str,
     old_sha: str,
     state: dict,
     reason: str,
+    run: Runner,
+    binary: str,
 ) -> None:
     _restore(models, saved)
     if new_sha and new_sha != old_sha:
-        drop_unreferenced_blob(models, new_sha)
+        drop_unreferenced_blob(models, new_sha, run, binary)
     _remember(state, change)
     log(f"rolled back {change.tag}: {reason}")
 
@@ -258,7 +266,7 @@ def replace_one(
     if _rejected(state, change):
         log(f"skip {change.tag}: rejected upstream {change.new[:12]}")
         return "rejected", backends
-    if not manifest_path(models, change.tag).is_file():
+    if find_manifest(models, change.tag) is None:
         log(f"skip {change.tag}: no local manifest")
         return "absent", backends
     if _needs_space(change, cache) and free() < change.size:
@@ -266,7 +274,7 @@ def replace_one(
         return "short", backends
     work = Path(tempfile.mkdtemp(prefix=".portal5-mf-", dir=models))
     saved = _backup(models, _tags(change))
-    old_sha = _layer_sha(models, change.tag)
+    old_sha = installed_model_sha(models, change.tag, run, binary)
     try:
         gguf = _stage(change, models, download, cache)
         _install(change, models=models, run=run, binary=binary, gguf=gguf, work=work)
@@ -277,11 +285,11 @@ def replace_one(
         if problem:
             raise OSError(problem)
     except OSError as exc:
-        new_sha = _layer_sha(models, change.tag)
-        _fail(models, change, saved, new_sha, old_sha, state, str(exc))
+        new_sha = installed_model_sha(models, change.tag, run, binary)
+        _fail(models, change, saved, new_sha, old_sha, state, str(exc), run, binary)
         shutil.rmtree(work, ignore_errors=True)
         return "rolled_back", backends
-    drop_unreferenced_blob(models, old_sha)
+    drop_unreferenced_blob(models, old_sha, run, binary)
     shutil.rmtree(work, ignore_errors=True)
     if change.kind != "hf":
         return "updated", backends
@@ -422,12 +430,13 @@ def main(argv: list[str]) -> int:
         models=models,
         backends=text,
         dirty=_dirty(BACKENDS),
-        run=_run,
+        run=default_run,
         free=lambda: shutil.disk_usage(models).free,
         download=stream_download,
         chat=_live_chat,
         render=_live_render,
         state=state,
+        binary=ollama_bin(),
     )
     if updated != text:
         BACKENDS.write_text(updated, encoding="utf-8")

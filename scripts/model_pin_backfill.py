@@ -16,7 +16,9 @@ sys.path.insert(0, str(REPO))
 from scripts.model_upstream import (  # noqa: E402
     backfill_lines,
     default_fetch,
+    default_run,
     models_dir,
+    ollama_bin,
 )
 
 BACKENDS = REPO / "config" / "backends.yaml"
@@ -25,7 +27,14 @@ BACKENDS = REPO / "config" / "backends.yaml"
 def main(argv: list[str]) -> int:
     write = "--write" in argv
     text = BACKENDS.read_text(encoding="utf-8")
-    lines, updated = backfill_lines(text, models_dir(), default_fetch, write=write)
+    lines, updated = backfill_lines(
+        text,
+        models_dir(),
+        default_fetch,
+        write=write,
+        run=default_run,
+        binary=ollama_bin(),
+    )
     for line in lines:
         print(line)
     if write and updated != text:
