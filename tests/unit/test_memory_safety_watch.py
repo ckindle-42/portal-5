@@ -6,6 +6,7 @@ from scripts import memory_safety_watch
 from scripts.memory_safety_watch import (
     HostService,
     HostServiceState,
+    ServiceCeiling,
     _host_native_services,
     _read_pids,
     _service_ceilings,
@@ -15,6 +16,8 @@ from scripts.memory_safety_watch import (
 
 EMBED_LABEL = "com.portal5.eg2-embedding"
 EMBED = [HostService("eg2-embedding", EMBED_LABEL, 8946)]
+MEASURED_1GIB = {"eg2-embedding": ServiceCeiling(1.0, measured=True)}
+PROVISIONAL_1GIB = {"eg2-embedding": ServiceCeiling(1.0, measured=False)}
 
 
 def test_watch_trips_on_critical_pressure_or_low_swap_with_low_memory():
@@ -187,9 +190,21 @@ def test_host_services_come_from_the_real_config_without_hardcoded_labels():
 
 def test_service_ceilings_overlay_defaults_and_ignore_bad_entries():
     ceilings = _service_ceilings("eg2-embedding=0.5, nonsense, vl-retrieval=x")
-    assert ceilings["eg2-embedding"] == 0.5
-    assert ceilings["vl-retrieval"] == memory_safety_watch.DEFAULT_HOST_CEILINGS_GIB["vl-retrieval"]
-    assert ceilings["mflux"] == memory_safety_watch.DEFAULT_HOST_CEILINGS_GIB["mflux"]
+    assert ceilings["eg2-embedding"] == ServiceCeiling(0.5, measured=True)
+    assert ceilings["vl-retrieval"] == memory_safety_watch.DEFAULT_HOST_CEILINGS["vl-retrieval"]
+    assert ceilings["mflux"].measured is False
+    # An override never promotes a provisional ceiling to restart-eligible.
+    assert _service_ceilings("wiki-mcp=1")["wiki-mcp"] == ServiceCeiling(1.0, measured=False)
+
+
+def test_only_eg2_embedding_has_a_measured_ceiling():
+    measured = {
+        key
+        for key, ceiling in memory_safety_watch.DEFAULT_HOST_CEILINGS.items()
+        if ceiling.measured
+    }
+    assert measured == {"eg2-embedding"}
+    assert memory_safety_watch.DEFAULT_HOST_CEILING.measured is False
 
 
 def test_footprint_under_ceiling_never_restarts(tmp_path, monkeypatch):
@@ -200,7 +215,11 @@ def test_footprint_under_ceiling_never_restarts(tmp_path, monkeypatch):
     for sample in range(3):
         assert (
             check_host_services(
-                HostServiceState(), log, services=EMBED, ceilings={"eg2-embedding": 6}, now=sample
+                HostServiceState(),
+                log,
+                services=EMBED,
+                ceilings={"eg2-embedding": ServiceCeiling(6.0, measured=True)},
+                now=sample,
             )
             == []
         )
@@ -217,25 +236,59 @@ def test_over_ceiling_restarts_only_that_service_after_n_samples(tmp_path, monke
 
     for sample in range(2):
         assert (
-            check_host_services(
-                state, log, services=EMBED, ceilings={"eg2-embedding": 1}, now=sample
-            )
+            check_host_services(state, log, services=EMBED, ceilings=MEASURED_1GIB, now=sample)
             == []
         )
     assert host.kickstarts() == []
     assert "sample=2/3" in log.read_text()
+    assert "ceiling_status=measured" in log.read_text()
 
-    restarted = check_host_services(
-        state, log, services=EMBED, ceilings={"eg2-embedding": 1}, now=2.0
-    )
+    restarted = check_host_services(state, log, services=EMBED, ceilings=MEASURED_1GIB, now=2.0)
 
     assert [service.key for service in restarted] == ["eg2-embedding"]
     assert host.kickstarts() == [
         ["launchctl", "kickstart", "-k", f"gui/{os.getuid()}/{EMBED_LABEL}"]
     ]
     text = log.read_text()
-    assert "HOST SERVICE CEILING BREACH: service=eg2-embedding" in text
-    assert "footprint=5.00 GiB ceiling=1.00 GiB" in text
+    assert "HOST SERVICE CEILING BREACH (restart): service=eg2-embedding" in text
+    assert "footprint=5.00 GiB ceiling=1.00 GiB ceiling_status=measured" in text
+
+
+def test_provisional_ceiling_logs_the_breach_and_never_restarts(tmp_path, monkeypatch):
+    host = FakeHost(footprint="    phys_footprint: 7.00 GB\n")
+    monkeypatch.setattr(memory_safety_watch, "_command", host)
+    log = tmp_path / "watch.log"
+    state = HostServiceState()
+    transcribe = [HostService("mlx-transcribe", "com.portal5.mlx-transcribe", 8924)]
+
+    for sample in range(5):
+        assert check_host_services(state, log, services=transcribe, ceilings=None, now=sample) == []
+
+    assert host.kickstarts() == []
+    text = log.read_text()
+    assert "HOST SERVICE CEILING BREACH (log-only): service=mlx-transcribe" in text
+    assert "ceiling=6.00 GiB ceiling_status=provisional" in text
+    assert text.count("HOST SERVICE CEILING BREACH") == 1
+
+
+def test_provisional_override_of_a_measured_service_is_log_only(tmp_path, monkeypatch):
+    host = FakeHost(footprint="    phys_footprint: 5.00 GB\n")
+    monkeypatch.setattr(memory_safety_watch, "_command", host)
+    log = tmp_path / "watch.log"
+    state = HostServiceState()
+
+    for sample in range(3):
+        check_host_services(state, log, services=EMBED, ceilings=MEASURED_1GIB, now=sample)
+    assert len(host.kickstarts()) == 1
+
+    # Same footprint, but the ceiling is now flagged provisional: log-only from here on.
+    state = HostServiceState()
+    log.unlink()
+    for sample in range(3):
+        check_host_services(state, log, services=EMBED, ceilings=PROVISIONAL_1GIB, now=sample)
+
+    assert len(host.kickstarts()) == 1
+    assert "HOST SERVICE CEILING BREACH (log-only)" in log.read_text()
 
 
 def test_under_ceiling_sample_resets_the_debounce(tmp_path, monkeypatch):
@@ -243,15 +296,14 @@ def test_under_ceiling_sample_resets_the_debounce(tmp_path, monkeypatch):
     monkeypatch.setattr(memory_safety_watch, "_command", host)
     log = tmp_path / "watch.log"
     state = HostServiceState()
-    ceilings = {"eg2-embedding": 1}
 
-    check_host_services(state, log, services=EMBED, ceilings=ceilings, now=0.0)
-    check_host_services(state, log, services=EMBED, ceilings=ceilings, now=1.0)
+    check_host_services(state, log, services=EMBED, ceilings=MEASURED_1GIB, now=0.0)
+    check_host_services(state, log, services=EMBED, ceilings=MEASURED_1GIB, now=1.0)
     host.footprint = "    phys_footprint: 900 MB\n"
-    check_host_services(state, log, services=EMBED, ceilings=ceilings, now=2.0)
+    check_host_services(state, log, services=EMBED, ceilings=MEASURED_1GIB, now=2.0)
     host.footprint = "    phys_footprint: 5.00 GB\n"
     for sample in (3.0, 4.0):
-        check_host_services(state, log, services=EMBED, ceilings=ceilings, now=sample)
+        check_host_services(state, log, services=EMBED, ceilings=MEASURED_1GIB, now=sample)
 
     assert host.kickstarts() == []
 
@@ -261,25 +313,24 @@ def test_restarts_are_rate_limited_per_service(tmp_path, monkeypatch):
     monkeypatch.setattr(memory_safety_watch, "_command", host)
     log = tmp_path / "watch.log"
     state = HostServiceState()
-    ceilings = {"eg2-embedding": 1}
 
     for sample in range(3):
         check_host_services(
-            state, log, services=EMBED, ceilings=ceilings, cooldown_s=60, now=sample
+            state, log, services=EMBED, ceilings=MEASURED_1GIB, cooldown_s=60, now=sample
         )
     assert len(host.kickstarts()) == 1
 
     # Still over the ceiling, three more samples inside the cooldown: no second restart.
     for sample in range(10, 13):
         check_host_services(
-            state, log, services=EMBED, ceilings=ceilings, cooldown_s=60, now=sample
+            state, log, services=EMBED, ceilings=MEASURED_1GIB, cooldown_s=60, now=sample
         )
     assert len(host.kickstarts()) == 1
 
     # Past the cooldown the service may be restarted again.
     for sample in (62.0, 63.0, 64.0):
         check_host_services(
-            state, log, services=EMBED, ceilings=ceilings, cooldown_s=60, now=sample
+            state, log, services=EMBED, ceilings=MEASURED_1GIB, cooldown_s=60, now=sample
         )
     assert len(host.kickstarts()) == 2
 
@@ -293,7 +344,11 @@ def test_unmeasurable_service_is_logged_once_and_never_restarted(tmp_path, monke
     for sample in range(3):
         assert (
             check_host_services(
-                state, log, services=EMBED, ceilings={"eg2-embedding": 0.1}, now=sample
+                state,
+                log,
+                services=EMBED,
+                ceilings={"eg2-embedding": ServiceCeiling(0.1, measured=True)},
+                now=sample,
             )
             == []
         )
@@ -311,26 +366,33 @@ def test_unparseable_footprint_output_is_unmeasurable(tmp_path, monkeypatch):
 
     for sample in range(3):
         check_host_services(
-            HostServiceState(), log, services=EMBED, ceilings={"eg2-embedding": 0.1}, now=sample
+            HostServiceState(),
+            log,
+            services=EMBED,
+            ceilings={"eg2-embedding": ServiceCeiling(0.1, measured=True)},
+            now=sample,
         )
 
     assert host.kickstarts() == []
     assert "host service unmeasurable, never restarted: service=eg2-embedding" in log.read_text()
 
 
-def test_service_without_a_declared_ceiling_uses_the_global_default(tmp_path, monkeypatch):
+def test_service_without_a_declared_ceiling_uses_the_provisional_global_default(
+    tmp_path, monkeypatch
+):
     host = FakeHost(footprint="    phys_footprint: 4.50 GB\n")
     monkeypatch.setattr(memory_safety_watch, "_command", host)
     log = tmp_path / "watch.log"
     state = HostServiceState()
     service = [HostService("wiki-mcp", "com.portal5.wiki-mcp", 8931)]
 
-    restarted = []
     for sample in range(3):
-        restarted = check_host_services(state, log, services=service, ceilings={}, now=sample)
+        assert check_host_services(state, log, services=service, ceilings={}, now=sample) == []
 
-    assert [item.key for item in restarted] == ["wiki-mcp"]
-    assert f"ceiling={memory_safety_watch.DEFAULT_HOST_CEILING_GIB:.2f} GiB" in log.read_text()
+    assert host.kickstarts() == []
+    text = log.read_text()
+    assert f"ceiling={memory_safety_watch.DEFAULT_HOST_CEILING.gib:.2f} GiB" in text
+    assert "ceiling_status=provisional" in text
 
 
 def test_python_child_is_measured_when_launchd_job_is_a_shell_wrapper(tmp_path, monkeypatch):
@@ -342,9 +404,7 @@ def test_python_child_is_measured_when_launchd_job_is_a_shell_wrapper(tmp_path, 
     monkeypatch.setattr(memory_safety_watch, "_command", host)
     log = tmp_path / "watch.log"
 
-    check_host_services(
-        HostServiceState(), log, services=EMBED, ceilings={"eg2-embedding": 1}, now=0.0
-    )
+    check_host_services(HostServiceState(), log, services=EMBED, ceilings=MEASURED_1GIB, now=0.0)
 
     measured = [call for call in host.calls if call[0] == "footprint"]
     assert measured == [["footprint", "-p", "701"]]

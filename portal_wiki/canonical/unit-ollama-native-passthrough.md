@@ -91,16 +91,25 @@ carrying its `launchd_label` — so no label is hardcoded. Each sample resolves 
 job's pid with `launchctl print gui/$UID/<label>`, walks `ps` for a python child
 when the job is a shell wrapper, and reads that pid's `phys_footprint` from
 `footprint -p` rather than `ps` RSS. A service held above its ceiling for three
-consecutive samples is logged with service, footprint and ceiling, then restarted
-alone with `launchctl kickstart -k gui/$UID/<label>`, at most once per 30-minute
-per-service cooldown, so a leak in one server no longer needs a whole-host trip.
-A service that cannot be measured (not loaded, no python child, unparseable
-`footprint` output) is logged once per run and never restarted. Ceilings default
-to provisional values in `DEFAULT_HOST_CEILINGS_GIB` — `eg2-embedding` 6 GiB
-against the ~5 GB peak measured at the 2026-10-07 13:29 leak, `vl-retrieval` and
-`mlx-speech` 8 GiB, `mlx-transcribe` 6 GiB, `mflux` 16 GiB, `video_mlx` 24 GiB,
-and 4 GiB for any other host service — and are overridden per service with
-`--service-ceilings` or `WATCH_HOST_CEILINGS_GIB` (`eg2-embedding=0.5`).
+consecutive samples is reported once with service, footprint and ceiling, and
+only a **measured** ceiling is restart-eligible: the offending service alone is
+restarted with `launchctl kickstart -k gui/$UID/<label>`, at most once per
+30-minute per-service cooldown, so a leak in one server no longer needs a
+whole-host trip. A **provisional** ceiling produces a log-only
+`HOST SERVICE CEILING BREACH (log-only)` line with `ceiling_status=provisional`
+and never a kickstart, because guessing a ceiling in the live watchdog would
+restart a serving process on a guess (mlx-transcribe peaked 5.5 GB on
+2026-10-07 against a 6 GiB placeholder). A service that cannot be measured (not
+loaded, no python child, unparseable `footprint` output) is logged once per run
+and never restarted. The table is `DEFAULT_HOST_CEILINGS` in the script, one
+`ServiceCeiling(gib, measured)` per service: today only `eg2-embedding` is
+measured — 2.09 GiB idle on 2026-10-28 and a ~5 GB peak at the 2026-10-07 13:29
+leak, ceilinged at 6 GiB. `vl-retrieval` and `mlx-speech` 8 GiB,
+`mlx-transcribe` 6 GiB, `mflux` 16 GiB, `video_mlx` 24 GiB and 4 GiB for any
+other host service are provisional until an operator records measured idle/peak
+and sets `measured=True`. `--service-ceilings` / `WATCH_HOST_CEILINGS_GIB`
+(`eg2-embedding=0.5`) overrides the Gib value but keeps the service's
+measured/provisional status, so an override alone cannot arm a restart.
 
 ## Why
 
