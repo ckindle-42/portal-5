@@ -115,6 +115,29 @@ def test_fork_labels_and_runtime_matching():
     assert cu._fork_note((), (3, 13, 1)) == ""
 
 
+def test_runtime_python_is_the_project_venv_not_the_caller(monkeypatch, tmp_path):
+    (tmp_path / ".venv").mkdir()
+    (tmp_path / ".venv" / "pyvenv.cfg").write_text(
+        "home = /x\nversion_info = 3.13.12\nimplementation = CPython\n"
+    )
+    monkeypatch.setattr(cu, "REPO_ROOT", tmp_path)
+    assert cu._runtime_python() == (3, 13, 12)
+
+
+def test_runtime_python_reads_a_stdlib_venv_cfg(monkeypatch, tmp_path):
+    (tmp_path / ".venv").mkdir()
+    (tmp_path / ".venv" / "pyvenv.cfg").write_text(
+        "home = /x\ninclude-system-site-packages = false\nversion = 3.11.9\n"
+    )
+    monkeypatch.setattr(cu, "REPO_ROOT", tmp_path)
+    assert cu._runtime_python() == (3, 11, 9)
+
+
+def test_runtime_python_falls_back_to_the_caller_without_a_venv(monkeypatch, tmp_path):
+    monkeypatch.setattr(cu, "REPO_ROOT", tmp_path)
+    assert cu._runtime_python() == tuple(sys.version_info[:3])
+
+
 def test_python_vulns_marks_the_fork_the_runtime_does_not_use(monkeypatch, tmp_path):
     (tmp_path / "uv.lock").write_text(FORKED_LOCK)
     monkeypatch.setattr(cu, "REPO_ROOT", tmp_path)

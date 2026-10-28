@@ -55,9 +55,11 @@ def test_resolve_falls_back_to_floors_then_per_package(tmp_path, monkeypatch):
         return op == ">=" and "bad" not in floors
 
     monkeypatch.setattr(sa, "_lock_with", fake_lock)
+    monkeypatch.setattr(sa, "_lock_unconstrained", lambda work, name: False)
     applied = sa._resolve(tmp_path, {"a": "1", "bad": "2"})
     assert applied == {"a": "1"}
     assert calls[0][1] == "==" and calls[1][1] == ">="
+    assert (tmp_path / "uv.lock").read_text() == "orig"
 
 
 OLD = ("python_full_version < '3.11' and sys_platform != 'darwin'",)
@@ -132,3 +134,116 @@ def test_commit_skips_only_the_named_hooks(monkeypatch):
     seen.clear()
     assert sa._commit("msg", Path("deploy/docker-compose.yml"))
     assert seen[-1][1] is None
+
+
+PRISTINE_LOCK = (
+    '[[package]]\nname = "pillow"\nversion = "12.3.0"\n'
+    'source = { registry = "https://pypi.org/simple" }\n'
+    "resolution-markers = [\n"
+    "    \"python_full_version < '3.11' and sys_platform != 'darwin'\",\n"
+    "]\n\n"
+    '[[package]]\nname = "pillow"\nversion = "13.0.0"\n'
+    'source = { registry = "https://pypi.org/simple" }\n'
+    "resolution-markers = [\n"
+    "    \"python_full_version >= '3.11' and sys_platform != 'darwin'\",\n"
+    "]\n"
+)
+#: What `uv lock --upgrade-package pillow` leaves: the >=3.11 fork at the fix, the 3.10 one behind.
+UPGRADED_LOCK = PRISTINE_LOCK.replace('version = "13.0.0"', 'version = "13.0.1"')
+
+
+def test_lock_unconstrained_passes_no_floor(monkeypatch, tmp_path):
+    seen = []
+
+    class _R:
+        returncode = 0
+
+    def fake_sh(cmd, cwd=None, timeout=900, env=None):
+        seen.append(cmd)
+        return _R()
+
+    monkeypatch.setattr(sa, "_sh", fake_sh)
+    assert sa._lock_unconstrained(tmp_path, "pillow")
+    assert seen[-1] == [sa.UV, "lock", "--upgrade-package", "pillow"]
+
+
+def test_reaches_fix_ignores_a_fork_the_fix_cannot_install_on(monkeypatch, tmp_path):
+    (tmp_path / "uv.lock").write_text(UPGRADED_LOCK)
+    monkeypatch.setattr(cu, "_pypi_requires_python", lambda n, v: ">=3.11")
+    # 3.10 fork is stuck at 12.3.0, but the fix admits only >=3.11 — so it is satisfied
+    assert sa._reaches_fix(tmp_path, "pillow", "13.0.1")
+    assert not sa._reaches_fix(tmp_path, "pillow", "13.0.2")
+
+
+def test_reaches_fix_needs_some_fork_that_can_take_it(monkeypatch, tmp_path):
+    only_old = PRISTINE_LOCK.split("[[package]]")[1]
+    (tmp_path / "uv.lock").write_text("[[package]]" + only_old)
+    monkeypatch.setattr(cu, "_pypi_requires_python", lambda n, v: ">=3.11")
+    assert not sa._reaches_fix(tmp_path, "pillow", "13.0.1")
+
+
+def test_resolve_keeps_an_unconstrained_upgrade_that_reaches_the_fix(tmp_path, monkeypatch):
+    (tmp_path / "uv.lock").write_text(PRISTINE_LOCK)
+    monkeypatch.setattr(sa, "_lock_with", lambda work, floors, op: False)
+    monkeypatch.setattr(cu, "_pypi_requires_python", lambda n, v: ">=3.11")
+
+    def fake_unconstrained(work, name):
+        (work / "uv.lock").write_text(UPGRADED_LOCK)
+        return True
+
+    monkeypatch.setattr(sa, "_lock_unconstrained", fake_unconstrained)
+    applied = sa._resolve(tmp_path, {"pillow": "13.0.1"})
+    assert applied == {"pillow": "13.0.1"}
+    assert (tmp_path / "uv.lock").read_text() == UPGRADED_LOCK
+
+
+def test_resolve_skips_when_the_unconstrained_lock_misses_the_fix(tmp_path, monkeypatch):
+    (tmp_path / "uv.lock").write_text(PRISTINE_LOCK)
+    monkeypatch.setattr(sa, "_lock_with", lambda work, floors, op: False)
+    monkeypatch.setattr(cu, "_pypi_requires_python", lambda n, v: ">=3.11")
+    moved_but_short = PRISTINE_LOCK.replace('version = "12.3.0"', 'version = "12.3.5"')
+
+    def fake_unconstrained(work, name):
+        (work / "uv.lock").write_text(moved_but_short)
+        return True
+
+    monkeypatch.setattr(sa, "_lock_unconstrained", fake_unconstrained)
+    assert sa._resolve(tmp_path, {"pillow": "13.0.1"}) == {}
+    assert (tmp_path / "uv.lock").read_text() == PRISTINE_LOCK
+
+
+def test_resolve_still_floors_other_packages_after_an_unconstrained_keep(tmp_path, monkeypatch):
+    (tmp_path / "uv.lock").write_text(PRISTINE_LOCK)
+    seen = []
+
+    def fake_lock(work, floors, op):
+        seen.append(dict(floors))
+        return "pillow" not in floors  # a pillow floor never resolves
+
+    def fake_unconstrained(work, name):
+        (work / "uv.lock").write_text(UPGRADED_LOCK)
+        return True
+
+    monkeypatch.setattr(sa, "_lock_with", fake_lock)
+    monkeypatch.setattr(sa, "_lock_unconstrained", fake_unconstrained)
+    monkeypatch.setattr(cu, "_pypi_requires_python", lambda n, v: ">=3.11")
+    applied = sa._resolve(tmp_path, {"pillow": "13.0.1", "filelock": "4.2.1"})
+    assert applied == {"pillow": "13.0.1", "filelock": "4.2.1"}
+    # the unconstrained keep must not be re-floored: that would fail the whole graph again
+    assert seen[-1] == {"filelock": "4.2.1"}
+
+
+def test_unconstrained_restores_the_lock_when_uv_fails(tmp_path, monkeypatch):
+    (tmp_path / "uv.lock").write_text(PRISTINE_LOCK)
+    monkeypatch.setattr(sa, "_lock_unconstrained", lambda work, name: False)
+    assert not sa._unconstrained(tmp_path, "pillow", "13.0.1")
+    assert (tmp_path / "uv.lock").read_text() == PRISTINE_LOCK
+
+
+def test_record_unreachable_says_whether_the_fork_is_this_runtime(monkeypatch, capsys):
+    monkeypatch.setattr(cu, "_runtime_python", lambda: (3, 13, 12))
+    sa._record_unreachable({("pillow", "12.3.0", OLD): "13.0.0"})
+    assert "(py3.10, not this runtime) cannot reach 13.0.0" in capsys.readouterr().out
+    monkeypatch.setattr(cu, "_runtime_python", lambda: (3, 10, 14))
+    sa._record_unreachable({("pillow", "12.3.0", OLD): "13.0.0"})
+    assert "(py3.10, this runtime) cannot reach 13.0.0" in capsys.readouterr().out

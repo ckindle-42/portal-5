@@ -11,7 +11,10 @@
         in the scratch venv, so only the (by design) drift test is skipped. A
         resolution fork is floored only when the fix's own ``requires-python``
         admits it (a floor one fork cannot satisfy fails ``uv lock`` outright);
-        a fork that cannot reach the fix is recorded, never failed.
+        a fork that cannot reach the fix is recorded, never failed. A package
+        with a reachable fix on one fork and an unreachable one on another is
+        retried without the floor and kept only if every reachable fork ends up
+        at or above the fix.
   pins  Bump pinned compose images (Grafana, Prometheus, Wazuh) to the newest PATCH
         of their current major.minor that exists on Docker Hub for arm64, recreate
         the running service, roll the pin back if it does not come up, and commit
@@ -104,21 +107,59 @@ def _lock_with(work: Path, floors: dict[str, str], op: str) -> bool:
     return _sh(cmd, cwd=work, timeout=600).returncode == 0
 
 
+def _lock_unconstrained(work: Path, name: str) -> bool:
+    """`uv lock --upgrade-package <name>` with no floor — only a floored graph can fail."""
+    return _sh([UV, "lock", "--upgrade-package", name], cwd=work, timeout=600).returncode == 0
+
+
+def _locked_forks(work: Path, name: str) -> list[tuple[str, tuple[str, ...]]]:
+    """(version, markers) of every lock entry of `name` in the lock at `work`."""
+    import scripts.check_updates as cu
+
+    saved = cu.REPO_ROOT
+    cu.REPO_ROOT = work
+    try:
+        return [(v, mk) for n, v, mk in _locked_packages() if n == name]
+    finally:
+        cu.REPO_ROOT = saved
+
+
+def _reaches_fix(work: Path, name: str, fix: str) -> bool:
+    """Whether every fork the fix's ``requires-python`` admits is locked at or above `fix`."""
+    import scripts.check_updates as cu
+
+    requires = cu._pypi_requires_python(name, fix)
+    reachable = [v for v, mk in _locked_forks(work, name) if cu._fork_can_install(mk, requires)]
+    return bool(reachable) and all(_semver(v) >= _semver(fix) for v in reachable)
+
+
+def _unconstrained(work: Path, name: str, fix: str) -> bool:
+    """Retry `name` without a floor; keep that lock only if every reachable fork reaches `fix`."""
+    good = (work / "uv.lock").read_text()
+    if _lock_unconstrained(work, name) and _reaches_fix(work, name, fix):
+        log(f"deps: {name}: floored graph failed, unconstrained upgrade reaches {fix} — kept")
+        return True
+    (work / "uv.lock").write_text(good)
+    return False
+
+
 def _resolve(work: Path, floors: dict[str, str]) -> dict[str, str]:
-    """Apply as many floors as resolve together; returns the ones applied."""
+    """Apply as many floors as resolve together, retrying the rest unconstrained."""
     pristine = (work / "uv.lock").read_text()
     for op in ("==", ">="):
         if _lock_with(work, floors, op):
             return floors
         (work / "uv.lock").write_text(pristine)
     applied: dict[str, str] = {}
+    floored: dict[str, str] = {}
     for name, fixed in floors.items():
-        if _lock_with(work, {**applied, name: fixed}, ">="):
+        good = (work / "uv.lock").read_text()
+        if _lock_with(work, {**floored, name: fixed}, ">="):
+            floored[name] = applied[name] = fixed
+            continue
+        (work / "uv.lock").write_text(good)
+        if _unconstrained(work, name, fixed):
             applied[name] = fixed
-        else:
-            (work / "uv.lock").write_text(pristine)
-            if applied:
-                _lock_with(work, applied, ">=")
     return applied
 
 
@@ -156,8 +197,15 @@ def _plan(
 
 
 def _record_unreachable(unreachable: dict[tuple[str, str, tuple[str, ...]], str]) -> None:
+    import scripts.check_updates as cu
+
+    py = cu._runtime_python()
     for (name, ver, mk), fix in sorted(unreachable.items()):
-        log(f"deps: {name} {ver} ({_py_range_label(mk)}) cannot reach {fix} — recorded, not failed")
+        who = "this runtime" if cu._fork_matches(mk, py) else "not this runtime"
+        log(
+            f"deps: {name} {ver} ({_py_range_label(mk)}, {who}) cannot reach {fix} "
+            "— recorded, not failed"
+        )
 
 
 def _stranded(

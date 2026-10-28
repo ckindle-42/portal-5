@@ -168,8 +168,13 @@ def _fork_note(markers: tuple[str, ...], py: tuple[int, ...]) -> str:
 
 
 def _runtime_python() -> tuple[int, ...]:
-    """The project interpreter's own version (launchd and `uv run` both use .venv)."""
-    return tuple(sys.version_info[:3])
+    """The interpreter uv.lock is resolved for — the project venv, not whoever runs this."""
+    try:
+        cfg = (REPO_ROOT / ".venv" / "pyvenv.cfg").read_text()
+    except OSError:
+        return tuple(sys.version_info[:3])
+    m = re.search(r"^version(?:_info)?\s*=\s*(\d+(?:\.\d+)*)", cfg, re.MULTILINE)
+    return tuple(int(p) for p in m.group(1).split(".")) if m else tuple(sys.version_info[:3])
 
 
 def _pypi_requires_python(name: str, version: str) -> str:
