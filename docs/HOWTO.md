@@ -614,9 +614,9 @@ All commands below are the actual `case` branches in `launch.sh` (or dispatch in
 ./launch.sh seed            # Re-seed Open WebUI (workspaces + personas) — skips existing presets
 ./launch.sh reseed          # Force-refresh all presets (FORCE_RESEED=true)
 
-### Update (single command: git pull + rebuild + model refresh + re-seed)
-./launch.sh update                  # cli update — full pass
-./launch.sh update --skip-models    # Skip the Ollama model refresh (faster)
+### Update (single command: git pull + rebuild + re-seed; models only on request)
+./launch.sh update                  # cli update — no model downloads
+./launch.sh update --refresh-models # Also refresh Ollama models (downloads only what upstream changed)
 ./launch.sh update --models-only    # Only refresh models
 
 ### Cleanup

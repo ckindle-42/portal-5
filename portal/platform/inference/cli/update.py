@@ -12,20 +12,33 @@ from ._common import _detect_ollama_cmd
 
 
 def cmd_update(
-    skip_models: Annotated[bool, typer.Option("--skip-models", help="Skip model refresh")] = False,
+    refresh_models: Annotated[
+        bool,
+        typer.Option(
+            "--refresh-models",
+            help="Also refresh Ollama models (downloads only when upstream changed; off by default)",
+        ),
+    ] = False,
+    skip_models: Annotated[
+        bool, typer.Option("--skip-models", help="Deprecated: models are skipped by default")
+    ] = False,
     models_only: Annotated[
         bool, typer.Option("--models-only", help="Refresh models only, skip everything else")
     ] = False,
     yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip interactive prompts")] = False,
 ) -> None:
     """Full Portal 5 update: git pull → docker → rebuild → models → re-seed → restart."""
-    if skip_models and models_only:
-        typer.echo("Cannot combine --skip-models and --models-only", err=True)
+    if skip_models and (models_only or refresh_models):
+        typer.echo("Cannot combine --skip-models with --models-only/--refresh-models", err=True)
         raise typer.Exit(code=2)
+    # Disk is finite: an update never downloads models unless asked (operator 2026-10-28).
+    skip_models = not (refresh_models or models_only)
 
     if not yes:
         typer.confirm(
-            "This will pull git changes, rebuild containers, and refresh models. Continue?",
+            "This will pull git changes and rebuild containers"
+            + (" and refresh models" if not skip_models else "")
+            + ". Continue?",
             abort=True,
         )
 

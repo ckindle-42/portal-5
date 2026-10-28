@@ -9,6 +9,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+import typer
 
 from portal.platform.inference.cli import model_refresh as refresh
 from portal.platform.inference.cli import update as update_cli
@@ -581,3 +582,27 @@ backends:
     assert refresh.REGISTRY_ABSENT_REASON in result.message
     assert runner.calls == []
     assert seen[0].url.path == "/v2/library/orcacyber-nano-1.0/manifests/latest"
+
+
+def test_update_downloads_no_models_unless_asked(monkeypatch, tmp_path) -> None:
+    """Operator 2026-10-28: an update never downloads models unless asked; disk is finite."""
+    import subprocess
+
+    from typer.testing import CliRunner
+
+    from portal.platform.inference.cli import model_refresh, update
+
+    calls: list[str] = []
+    monkeypatch.setattr(
+        subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a, 0, "", "")
+    )
+    monkeypatch.setattr(update, "_detect_ollama_cmd", lambda: "ollama")
+    monkeypatch.setattr(model_refresh, "refresh_from_backends", lambda cmd: calls.append(cmd))
+    app = typer.Typer()
+    update.register(app)
+    app.command("noop")(lambda: None)
+
+    assert CliRunner().invoke(app, ["update", "--yes"]).exit_code == 0
+    assert calls == []
+    assert CliRunner().invoke(app, ["update", "--yes", "--refresh-models"]).exit_code == 0
+    assert calls == ["ollama"]
