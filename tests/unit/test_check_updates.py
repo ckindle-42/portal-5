@@ -281,16 +281,28 @@ def test_storage_reports_owner_totals_and_ages_from_fake_tree(monkeypatch, tmp_p
         portal,
         total=1000 * 1024**3,
         free=200 * 1024**3,
+        query_ollama=False,
+        installed_blobs={
+            "team/active:v1": {"sha256-shared"},
+            "team/active:v2": {"sha256-shared"},
+            "team/alias-only:v1": {"sha256-shared"},
+            "team/unused:v1": {"sha256-orphan"},
+        },
     )
     lines = "\n".join(report.lines)
     assert report.status == "behind" and report.high_priority
-    assert "fleet: 17 B" in lines
-    assert "orphan model data: 16 B" in lines
+    assert "fleet: 47 B" in lines
+    assert "installed-but-unconfigured: 6 B" in lines
+    assert "orphan model data: 10 B" in lines
     assert "duplicate: 20 B" in lines
-    assert "disabled-module weights: 30 B" in lines
+    assert "disabled-module weights: 0 B" in lines
     assert "gguf-staging/sage 6 B (age 4d)" in lines
     assert "portal5_backups/old 6 B (age 9d)" in lines
-    assert "reclaimable if approved:" in lines
+    assert (
+        "safe to reclaim: 10 B" in lines
+        and "operator decision: 12 B" in lines
+        and "reclaimable" not in lines
+    )
     assert (root / "gguf-staging/sage/Sage.gguf").exists()
     custom_floor = cu._storage_report(
         root,
@@ -300,8 +312,308 @@ def test_storage_reports_owner_totals_and_ages_from_fake_tree(monkeypatch, tmp_p
         free=200 * 1024**3,
         floor_gib=100,
         floor_percent=10,
+        query_ollama=False,
+        installed_blobs={},
     )
     assert custom_floor.status == "current" and not custom_floor.high_priority
+
+
+def _storage_yaml(tmp_path, backends_text, portal_text="modules:\n  media:\n    enabled: true\n"):
+    backends = tmp_path / "backends.yaml"
+    portal = tmp_path / "portal.yaml"
+    backends.write_text(backends_text)
+    portal.write_text(portal_text)
+    return backends, portal
+
+
+def test_storage_qwen_image_and_z_image_belong_to_media(monkeypatch, tmp_path):
+    root = tmp_path / "data01"
+    backends, portal = _storage_yaml(
+        tmp_path,
+        "backends: []\n",
+        "modules:\n  image:\n    enabled: false\n  media:\n    enabled: true\n"
+        "workspaces:\n  lane:\n    module: image\n    owui_system_prompt: |-\n"
+        "      model='qwen-image'\n      model='schnell'\n",
+    )
+    monkeypatch.setattr(cu, "_allocated_bytes", lambda info: info.st_size)
+    for relative, content in (
+        ("hf-cache/models--Qwen--Qwen-Image-2512/blobs/image", b"qwen-img"),
+        ("hf-cache/models--Tongyi-MAI--Z-Image-Turbo/blobs/turbo", b"z-image"),
+        ("hf-cache/models--black-forest-labs--FLUX.1-schnell/blobs/flux", b"flux-wt"),
+    ):
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+    report = cu._storage_report(
+        root,
+        backends,
+        portal,
+        total=1000,
+        free=900,
+        floor_gib=0,
+        floor_percent=0,
+        query_ollama=False,
+        installed_blobs={},
+    )
+    fleet = next(line for line in report.lines if line.startswith("fleet:"))
+    disabled = next(line for line in report.lines if line.startswith("disabled-module weights:"))
+    assert "Qwen-Image-2512" in fleet and "Z-Image-Turbo" in fleet
+    assert "FLUX.1-schnell" in fleet
+    assert "Qwen-Image" not in disabled and "Z-Image" not in disabled and "FLUX" not in disabled
+
+
+def test_storage_v2_store_and_llamacpp_builds_are_referenced(monkeypatch, tmp_path):
+    root = tmp_path / "data01"
+    backends, portal = _storage_yaml(
+        tmp_path,
+        "backends:\n"
+        "- group: general\n"
+        "  id: ollama-general\n"
+        "  models:\n"
+        "  - id: team/active:v1\n"
+        "  - id: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0\n",
+    )
+    monkeypatch.setattr(cu, "_allocated_bytes", lambda info: info.st_size)
+
+    def write(relative, content):
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content) if isinstance(content, str) else path.write_bytes(content)
+
+    write(
+        "ollama/models/manifests-v2/ollama.com/team/active/v1",
+        json.dumps({"layers": [{"digest": "sha256:v2blob"}]}),
+    )
+    write(
+        "ollama/models/manifests/registry.ollama.ai/library/llamacpp/" + ("a" * 64),
+        json.dumps({"layers": [{"digest": "sha256:engine"}]}),
+    )
+    write(
+        "ollama/models/manifests/hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF/Q8_0",
+        json.dumps({"config": {"digest": "sha256:sec"}}),
+    )
+    write("ollama/models/blobs/sha256-v2blob", b"v2-weight")
+    write("ollama/models/blobs/sha256-engine", b"engine!!")
+    write("ollama/models/blobs/sha256-sec", b"security!")
+    write("ollama/models/blobs/sha256-loose", b"loose")
+    report = cu._storage_report(
+        root,
+        backends,
+        portal,
+        total=1000,
+        free=900,
+        floor_gib=0,
+        floor_percent=0,
+        query_ollama=False,
+        installed_blobs={"team/active:v1": set()},
+    )
+    fleet = next(line for line in report.lines if line.startswith("fleet:"))
+    orphan = next(line for line in report.lines if line.startswith("orphan model data:"))
+    assert "team/active:v1" in fleet
+    assert "llamacpp:" in fleet
+    assert "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0" in fleet
+    assert "sha256-loose" in orphan
+    assert "sha256-v2blob" not in orphan and "sha256-engine" not in orphan
+    assert "unverified" not in "\n".join(report.lines)
+
+
+def test_storage_ollama_down_is_unverified_and_not_reclaimable(monkeypatch, tmp_path):
+    root = tmp_path / "data01"
+    backends, portal = _storage_yaml(tmp_path, "backends: []\n", "modules: {}\n")
+    monkeypatch.setattr(cu, "_allocated_bytes", lambda info: info.st_size)
+    blob = root / "ollama/models/blobs/sha256-dead"
+    blob.parent.mkdir(parents=True)
+    blob.write_bytes(b"x" * 20)
+    manifest = root / "ollama/models/manifests/registry.ollama.ai/library/ghost/latest"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text(json.dumps({"layers": [{"digest": "sha256:dead"}]}))
+    stage = root / "gguf-staging/screen/file.gguf"
+    stage.parent.mkdir(parents=True)
+    stage.write_bytes(b"s" * 4)
+    report = cu._storage_report(
+        root,
+        backends,
+        portal,
+        total=1000,
+        free=900,
+        floor_gib=0,
+        floor_percent=0,
+        query_ollama=False,
+        installed_blobs=None,
+    )
+    lines = "\n".join(report.lines)
+    assert "root ollama:" in lines and "unverified" in lines
+    assert "orphan model data: 0 B" in lines
+    assert "safe to reclaim: 0 B" in lines and "operator decision: 4 B" in lines
+    assert "reclaimable" not in lines
+    assert "sha256-dead" not in lines
+
+
+def test_installed_ollama_blobs_reads_from_lines_and_fails_closed(monkeypatch):
+    payloads = [
+        {"models": [{"name": "gemma4:e4b"}]},
+        {
+            "modelfile": (
+                "FROM /Volumes/data01/ollama/models/blobs/sha256-abc\nPARAMETER temperature 0.7\n"
+            )
+        },
+    ]
+
+    class _Body:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def read(self):
+            return json.dumps(self.payload).encode()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    def fake_open(request, timeout=0):
+        return _Body(payloads.pop(0))
+
+    monkeypatch.setattr(cu.urllib.request, "urlopen", fake_open)
+    assert cu._installed_ollama_blobs() == {"gemma4:e4b": {"sha256-abc"}}
+
+    def boom(*args, **kwargs):
+        raise cu.urllib.error.URLError("down")
+
+    monkeypatch.setattr(cu.urllib.request, "urlopen", boom)
+    assert cu._installed_ollama_blobs() is None
+
+
+def test_storage_model_ref_pattern_keeps_ids_and_drops_dates():
+    text = (
+        "hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M "
+        "incoai/Qwen3.8-27B-DFlash2 "
+        "qwen3-vl:4b-instruct-q4_K_M "
+        "Qwen3.8-27B-DFlash2 "
+        "added 2026-08-26 portal-pipeline:9099 qwen"
+    )
+    refs = cu._model_refs_in_text(text)
+    assert "hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M" in refs
+    assert "incoai/Qwen3.8-27B-DFlash2" in refs
+    assert "qwen3-vl:4b-instruct-q4_K_M" in refs
+    assert "Qwen3.8-27B-DFlash2" in refs
+    assert not any(name.startswith("2026") or name == "qwen" for name in refs)
+    assert "portal-pipeline:9099" not in refs
+
+
+def test_storage_extractors_see_live_in_use_ids():
+    portal = cu.REPO_ROOT / "config" / "portal.yaml"
+    refs = cu._config_model_refs(portal.read_text(encoding="utf-8"), portal.parent)
+    refs.update(cu._code_model_refs())
+    assert any("Qwen3.8-27B-DFlash2" in name for name in refs)
+    assert "qwen3-vl:4b-instruct-q4_K_M" in refs
+    assert any(name.startswith("hf.co/") and "MiniCPM5" in name for name in refs)
+    tokens = cu._media_alias_tokens()
+    for slug in (
+        "Qwen--Qwen-Image-2512",
+        "Qwen--Qwen-Image-Edit-2509",
+        "Tongyi-MAI--Z-Image-Turbo",
+        "black-forest-labs--FLUX.1-schnell",
+        "black-forest-labs--FLUX.2-klein-4B",
+        "dgrauet--ltx-2.3-mlx-q4",
+        "dgrauet--ltx-2.3-mlx-q8",
+    ):
+        assert cu._matches_media_alias(slug), slug
+    assert not cu._matches_media_alias("incoai--Qwen3.8-27B-DFlash2")
+    assert not cu._matches_media_alias("Qwen--Qwen2.5-7B-Instruct")
+    assert "qwen" not in tokens and "dev" not in tokens and "flux2" not in tokens
+    assert "qwenimage" in tokens and "zimageturbo" in tokens and "schnell" in tokens
+    assert "flux2klein4b" in tokens and "dgrauetltx23mlxq4" in tokens
+
+
+def test_storage_media_off_weights_are_an_operator_decision(monkeypatch, tmp_path):
+    root = tmp_path / "data01"
+    backends, portal = _storage_yaml(
+        tmp_path,
+        "backends: []\n",
+        "modules:\n  image:\n    enabled: true\n  video:\n    enabled: true\n"
+        "  media:\n    enabled: false\n",
+    )
+    monkeypatch.setattr(cu, "_allocated_bytes", lambda info: info.st_size)
+    for relative, content in (
+        ("hf-cache/models--Qwen--Qwen-Image-2512/blobs/image", b"qwen-img"),
+        ("hf-cache/models--Tongyi-MAI--Z-Image-Turbo/blobs/turbo", b"z-image"),
+        ("hf-cache/models--black-forest-labs--FLUX.1-schnell/blobs/flux", b"flux-wt"),
+        ("hf-cache/models--dgrauet--ltx-2.3-mlx-q4/blobs/video", b"ltx-wt!"),
+    ):
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+    report = cu._storage_report(
+        root,
+        backends,
+        portal,
+        total=1000,
+        free=900,
+        floor_gib=0,
+        floor_percent=0,
+        query_ollama=False,
+        installed_blobs={},
+    )
+    disabled = next(line for line in report.lines if line.startswith("disabled-module weights:"))
+    fleet = next(line for line in report.lines if line.startswith("fleet:"))
+    lines = "\n".join(report.lines)
+    assert "Qwen-Image-2512" in disabled and "Z-Image-Turbo" in disabled
+    assert "FLUX.1-schnell" in disabled and "ltx-2.3-mlx-q4" in disabled
+    assert "Qwen-Image" not in fleet and "FLUX" not in fleet and "ltx-2.3" not in fleet
+    assert "safe to reclaim: 0 B" in lines and "operator decision: 29 B" in lines
+
+
+def test_storage_persona_and_code_defaults_count_as_fleet(monkeypatch, tmp_path):
+    root = tmp_path / "data01"
+    config = tmp_path / "cfg"
+    config.mkdir()
+    backends = config / "backends.yaml"
+    portal = config / "portal.yaml"
+    backends.write_text("backends: []\n")
+    portal.write_text("modules:\n  media:\n    enabled: true\n")
+    persona_dir = config / "personas"
+    persona_dir.mkdir()
+    (persona_dir / "draft.yaml").write_text("# drafter incoai/Qwen3.8-27B-DFlash2\n")
+    monkeypatch.setattr(cu, "_allocated_bytes", lambda info: info.st_size)
+
+    def put(relative: str, content: bytes) -> None:
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+
+    put("ollama/models/blobs/sha256-vl", b"vl-model")
+    put("ollama/models/blobs/sha256-mini", b"mini-cpm")
+    put("ollama/models/blobs/sha256-loose", b"loose-blob")
+    put("omlx-models/Qwen3.8-27B-DFlash2/weights", b"dflash")
+    put("omlx-models/zz-orphan-dir/weights", b"orphan-dir")
+    put("hf-cache/models--incoai--Qwen3.8-27B-DFlash2/weights", b"hf-copy!")
+    report = cu._storage_report(
+        root,
+        backends,
+        portal,
+        total=1000,
+        free=900,
+        floor_gib=0,
+        floor_percent=0,
+        query_ollama=False,
+        installed_blobs={
+            "qwen3-vl:4b-instruct-q4_K_M": {"sha256-vl"},
+            "hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M": {"sha256-mini"},
+        },
+    )
+    fleet = next(line for line in report.lines if line.startswith("fleet:"))
+    orphan = next(line for line in report.lines if line.startswith("orphan model data:"))
+    duplicate = next(line for line in report.lines if line.startswith("duplicate:"))
+    lines = "\n".join(report.lines)
+    assert "qwen3-vl:4b-instruct-q4_K_M" in fleet
+    assert "MiniCPM5-1B" in fleet
+    assert "Qwen3.8-27B-DFlash2" in fleet
+    assert "sha256-loose" in orphan and "zz-orphan-dir" in orphan
+    assert "incoai--Qwen3.8-27B-DFlash2" in duplicate
+    assert "safe to reclaim: 20 B" in lines and "operator decision: 0 B" in lines
+    assert "installed-but-unconfigured: 0 B" in lines
 
 
 def test_storage_low_space_uses_high_priority_pushover(monkeypatch, capsys):

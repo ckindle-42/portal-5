@@ -1002,6 +1002,118 @@ def _workspace_model_refs(text: str) -> set[str]:
     return {re.sub(r"[^a-z0-9]", "", value.casefold()) for value in refs if len(value) >= 4}
 
 
+def _read_text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+
+
+# hf.co/org/repo[:tag], org/name, name:tag, or a bare id. A digit is required.
+_MODEL_REF = re.compile(
+    r"(?i)(?<![A-Za-z0-9_.+-])("
+    r"hf\.co/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?::[A-Za-z0-9_.+-]+)?"
+    r"|[A-Za-z][A-Za-z0-9_.-]*(?:/[A-Za-z0-9_.-]+)+(?::[A-Za-z0-9_.+-]+)?"
+    r"|[A-Za-z][A-Za-z0-9_.-]*:[A-Za-z0-9_.+-]+"
+    r"|[A-Za-z][A-Za-z0-9_.-]*\d[A-Za-z0-9_.-]*"
+    r")(?![A-Za-z0-9_.+-])"
+)
+_CODE_DEFAULT = re.compile(
+    r"""os\.(?:environ\.get|getenv)\(\s*["'][^"']*["']\s*,\s*["']([^"']*)["']"""
+)
+_CONST_STRING = re.compile(r"""(?m)^[A-Z][A-Z0-9_]*\s*(?::[^=\n]+)?=\s*["']([^"']*)["']""")
+_CODE_MODEL_CACHE: set[str] | None = None
+_MEDIA_ALIAS_CACHE: frozenset[str] | None = None
+_MEDIA_TABLES = (
+    (
+        REPO_ROOT / "portal/modules/media/tools/mflux_mcp.py",
+        ("MFLUX_MODELS", "MFLUX_MODEL_BIN", "MFLUX_DEFAULT_STEPS"),
+        False,
+    ),
+    (REPO_ROOT / "portal/modules/media/tools/_admission.py", ("MEDIA_MODEL_MEMORY_GB",), True),
+    (REPO_ROOT / "portal/modules/media/tools/video_mlx_mcp.py", ("VIDEO_MLX_MODELS",), False),
+)
+
+
+def _keep_model_ref(value: str) -> bool:
+    if not any(char.isdigit() for char in value):
+        return False
+    if ":" in value and not any(char.isalpha() for char in value.rsplit(":", 1)[1]):
+        return False
+    if "/" in value or ":" in value:
+        return True
+    digit = next(index for index, char in enumerate(value) if char.isdigit())
+    return len(value) - digit - 1 >= 5
+
+
+def _model_refs_in_text(text: str) -> set[str]:
+    return {
+        match.group(1).rstrip(".")
+        for match in _MODEL_REF.finditer(text)
+        if _keep_model_ref(match.group(1).rstrip("."))
+    }
+
+
+def _expand_model_name(name: str) -> set[str]:
+    short = name.removeprefix("hf.co/")
+    return {name, short, f"hf.co/{short}", short.rsplit("/", 1)[-1]}
+
+
+def _merge_in_use_names(ollama_tags: set[str], omlx_models: set[str], names: set[str]) -> None:
+    expanded: set[str] = set()
+    for name in names:
+        expanded.update(_expand_model_name(name))
+    ollama_tags.update(expanded)
+    omlx_models.update(expanded)
+
+
+def _defaults_from_code(text: str) -> set[str]:
+    candidates = _CODE_DEFAULT.findall(text)
+    candidates.extend(_CONST_STRING.findall(text))
+    refs: set[str] = set()
+    for value in candidates:
+        refs.update(_model_refs_in_text(value))
+    return refs
+
+
+def _code_model_refs(root: Path | None = None) -> set[str]:
+    global _CODE_MODEL_CACHE
+    if root is None and _CODE_MODEL_CACHE is not None:
+        return set(_CODE_MODEL_CACHE)
+    code_root = REPO_ROOT / "portal" if root is None else root
+    found: set[str] = set()
+    if code_root.is_dir():
+        for path in code_root.rglob("*.py"):
+            found.update(_defaults_from_code(_read_text(path)))
+    if root is None:
+        _CODE_MODEL_CACHE = set(found)
+    return set(found)
+
+
+def _config_model_refs(portal_text: str, config_dir: Path) -> set[str]:
+    texts = [portal_text, _read_text(config_dir / "bench_workspaces.yaml")]
+    personas = config_dir / "personas"
+    if personas.is_dir():
+        texts.extend(_read_text(path) for path in personas.rglob("*.yaml"))
+    texts.extend(_read_text(path) for path in config_dir.glob("*council*") if path.is_file())
+    refs: set[str] = set()
+    for text in texts:
+        refs.update(_model_refs_in_text(text))
+    return refs
+
+
+def _storage_config_refs(
+    backend_text: str, portal_text: str, config_dir: Path
+) -> tuple[set[str], set[str], set[str], dict[str, set[str]]]:
+    ollama_tags, omlx_models = _backend_storage_refs(backend_text)
+    disabled_modules, module_refs = _portal_storage_refs(portal_text)
+    names = _model_refs_in_text(backend_text)
+    names.update(_config_model_refs(portal_text, config_dir))
+    names.update(_code_model_refs())
+    _merge_in_use_names(ollama_tags, omlx_models, names)
+    return ollama_tags, omlx_models, disabled_modules, module_refs
+
+
 def _ollama_manifest_path(root: Path, tag: str) -> Path:
     name, _, version = tag.rpartition(":")
     if not version:
@@ -1012,39 +1124,185 @@ def _ollama_manifest_path(root: Path, tag: str) -> Path:
     return root / "ollama" / "models" / "manifests" / "registry.ollama.ai" / Path(*parts) / version
 
 
-def _manifest_tag(path: Path, base: Path) -> str:
-    parts = path.relative_to(base).parts
-    name = "/".join(parts[:-1])
-    if name.startswith("library/"):
-        name = name[len("library/") :]
-    return f"{name}:{parts[-1]}"
+_FROM_BLOB = re.compile(r"(?m)^FROM\s+\S+/blobs/(sha256-[0-9a-fA-F]+)")
+_IMPLICIT_OLLAMA_HOSTS = frozenset({"registry.ollama.ai", "ollama.com"})
 
 
-def _ollama_blob_refs(root: Path, tags: set[str]) -> tuple[set[str], dict[str, list[str]]]:
-    base = root / "ollama" / "models" / "manifests" / "registry.ollama.ai"
-    configured_paths = {_ollama_manifest_path(root, tag) for tag in tags}
-    configured: set[str] = set()
-    all_tags: dict[str, list[str]] = {}
+def _ollama_base_url() -> str:
+    host = os.environ.get("OLLAMA_HOST", "127.0.0.1:11434").strip() or "127.0.0.1:11434"
+    if "://" not in host:
+        host = f"http://{host}"
+    return host.rstrip("/")
+
+
+def _ollama_json(url: str, body: dict[str, str] | None = None) -> dict[str, object]:
+    data = None if body is None else json.dumps(body).encode()
+    headers = {"Content-Type": "application/json"} if body is not None else {}
+    request = urllib.request.Request(url, data=data, headers=headers)
+    with urllib.request.urlopen(request, timeout=20) as response:  # noqa: S310 - local Ollama API
+        payload = json.loads(response.read().decode())
+    if not isinstance(payload, dict):
+        raise ValueError(url)
+    return payload
+
+
+def _tag_name(model: object) -> str | None:
+    if not isinstance(model, dict):
+        return None
+    name = model.get("name")
+    return name if isinstance(name, str) and name else None
+
+
+def _show_blobs(base: str, name: str) -> set[str] | None:
     try:
-        manifests = base.rglob("*")
-        for path in manifests:
-            if not path.is_file():
-                continue
-            try:
-                manifest = json.loads(path.read_text())
-            except (OSError, json.JSONDecodeError):
-                continue
-            labels = _manifest_tag(path, base)
-            for layer in [manifest.get("config", {}), *manifest.get("layers", [])]:
-                digest = str(layer.get("digest", "")).replace(":", "-")
-                if not digest:
-                    continue
-                all_tags.setdefault(digest, []).append(labels)
-                if path in configured_paths:
-                    configured.add(digest)
-    except OSError:
-        pass
-    return configured, all_tags
+        shown = _ollama_json(f"{base}/api/show", {"name": name})
+    except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError, ValueError):
+        return None
+    modelfile = shown.get("modelfile")
+    text = modelfile if isinstance(modelfile, str) else ""
+    return {item.lower() for item in _FROM_BLOB.findall(text)}
+
+
+def _installed_ollama_blobs() -> dict[str, set[str]] | None:
+    """Installed tag -> blob filenames. None when Ollama cannot be queried."""
+    base = _ollama_base_url()
+    try:
+        document = _ollama_json(f"{base}/api/tags")
+        models = document["models"]
+    except (
+        urllib.error.URLError,
+        TimeoutError,
+        OSError,
+        json.JSONDecodeError,
+        KeyError,
+        ValueError,
+    ):
+        return None
+    if not isinstance(models, list):
+        return None
+    blobs: dict[str, set[str]] = {}
+    for model in models:
+        name = _tag_name(model)
+        if name is None:
+            return None
+        found = _show_blobs(base, name)
+        if found is None:
+            return None
+        blobs[name] = found
+    return blobs
+
+
+def _digest_blob_name(digest: object) -> str:
+    text = str(digest or "")
+    if text.startswith("sha256:"):
+        return "sha256-" + text[7:].lower()
+    if text.startswith("sha256-"):
+        return text.lower()
+    return ""
+
+
+def _document_blob_names(document: dict[str, object]) -> set[str]:
+    names: set[str] = set()
+    config = document.get("config")
+    if isinstance(config, dict):
+        name = _digest_blob_name(config.get("digest"))
+        if name:
+            names.add(name)
+    layers = document.get("layers")
+    if not isinstance(layers, list):
+        return names
+    for layer in layers:
+        if not isinstance(layer, dict):
+            continue
+        name = _digest_blob_name(layer.get("digest"))
+        if name:
+            names.add(name)
+    return names
+
+
+def _tag_from_manifest(path: Path, store: Path) -> str:
+    parts = path.relative_to(store).parts
+    if len(parts) < 3:
+        return ""
+    host, *rest = parts
+    if host in _IMPLICIT_OLLAMA_HOSTS and rest[0] == "library":
+        rest = rest[1:]
+    if len(rest) < 2:
+        return ""
+    tag = f"{'/'.join(rest[:-1])}:{rest[-1]}"
+    if host not in _IMPLICIT_OLLAMA_HOSTS:
+        tag = f"{host}/{tag}"
+    return tag
+
+
+def _manifest_blob_owners(store: Path) -> dict[str, set[str]]:
+    owners: dict[str, set[str]] = {}
+    if not store.is_dir():
+        return owners
+    for path in store.rglob("*"):
+        if not path.is_file():
+            continue
+        try:
+            document = json.loads(path.read_text())
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            continue
+        if not isinstance(document, dict):
+            continue
+        tag = _tag_from_manifest(path, store)
+        for name in _document_blob_names(document):
+            owners.setdefault(name, set()).add(tag)
+    return owners
+
+
+def _ollama_manifest_owners(root: Path) -> dict[str, set[str]]:
+    models = root / "ollama" / "models"
+    owners: dict[str, set[str]] = {}
+    for store in (models / "manifests", models / "manifests-v2"):
+        for name, tags in _manifest_blob_owners(store).items():
+            owners.setdefault(name, set()).update(tags)
+    return owners
+
+
+def _invert_tag_blobs(tag_blobs: dict[str, set[str]]) -> dict[str, set[str]]:
+    owners: dict[str, set[str]] = {}
+    for tag, names in tag_blobs.items():
+        for name in names:
+            owners.setdefault(name.lower(), set()).add(tag)
+    return owners
+
+
+def _tag_is_configured(tag: str, configured: set[str]) -> bool:
+    if not tag or tag.startswith("llamacpp:"):
+        return False
+    if tag in configured:
+        return True
+    short = tag.removeprefix("hf.co/")
+    return short in configured or f"hf.co/{short}" in configured
+
+
+def _ollama_blob_class(
+    name: str,
+    configured: set[str],
+    api: dict[str, set[str]],
+    manifests: dict[str, set[str]],
+) -> str:
+    if name not in api and name not in manifests:
+        return "orphan model data"
+    owners = api.get(name, set()) | manifests.get(name, set())
+    if any(_tag_is_configured(tag, configured) for tag in owners):
+        return "fleet"
+    if any(tag and not tag.startswith("llamacpp:") for tag in owners):
+        return "installed-but-unconfigured"
+    return "fleet"
+
+
+def _ollama_blob_display(
+    name: str, api: dict[str, set[str]], manifests: dict[str, set[str]]
+) -> str:
+    owners = api.get(name, set()) | manifests.get(name, set())
+    user = sorted(tag for tag in owners if tag and not tag.startswith("llamacpp:"))
+    shown = user or sorted(tag for tag in owners if tag)
+    return f"ollama/{', '.join(shown[:2])}" if shown else f"ollama/{name}"
 
 
 def _cache_checkpoint(slug: str, checkpoints: set[str]) -> bool:
@@ -1066,12 +1324,68 @@ def _cache_modules(slug: str, module_refs: dict[str, set[str]]) -> set[str]:
     }
 
 
+def _dict_body(text: str, name: str) -> str:
+    match = re.search(rf"(?m)^{re.escape(name)}\s*(?::[^\n=]*)?=\s*\{{", text)
+    if not match:
+        return ""
+    start = match.end() - 1
+    depth = 0
+    for index in range(start, len(text)):
+        char = text[index]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start : index + 1]
+    return ""
+
+
+def _quoted_alias_tokens(body: str, media_keys_only: bool) -> set[str]:
+    lines = body.splitlines()
+    if media_keys_only:
+        lines = [line for line in lines if "mflux:" in line or "video_mlx:" in line]
+    tokens: set[str] = set()
+    for line in lines:
+        for quoted in re.findall(r"""["']([^"']+)["']""", line):
+            if re.fullmatch(r"[A-Z][A-Z0-9_]*", quoted):
+                continue
+            token = re.sub(r"[^a-z0-9]", "", quoted.casefold())
+            # Length 6: bare "qwen", "flux2", and "dev" match unrelated repos.
+            if len(token) >= 6:
+                tokens.add(token)
+    return tokens
+
+
+def _load_media_alias_tokens() -> set[str]:
+    tokens: set[str] = set()
+    for path, names, media_keys_only in _MEDIA_TABLES:
+        text = _read_text(path)
+        for name in names:
+            tokens.update(_quoted_alias_tokens(_dict_body(text, name), media_keys_only))
+    return tokens
+
+
+def _media_alias_tokens() -> frozenset[str]:
+    global _MEDIA_ALIAS_CACHE
+    if _MEDIA_ALIAS_CACHE is None:
+        _MEDIA_ALIAS_CACHE = frozenset(_load_media_alias_tokens())
+    return _MEDIA_ALIAS_CACHE
+
+
+def _matches_media_alias(slug: str) -> bool:
+    normalized = re.sub(r"[^a-z0-9]", "", slug.casefold())
+    return any(token in normalized for token in _media_alias_tokens())
+
+
 def _cache_owner(
     slug: str,
     checkpoints: set[str],
     disabled_modules: set[str],
     module_refs: dict[str, set[str]],
 ) -> str:
+    if _matches_media_alias(slug):
+        return "disabled-module weights" if "media" in disabled_modules else "fleet"
     modules = _cache_modules(slug, module_refs)
     if modules and modules <= disabled_modules:
         return "disabled-module weights"
@@ -1119,18 +1433,30 @@ def _add_storage_record(
 
 
 def _record_ollama(
-    records: dict[str, list[_StorageRecord]], root: Path, roots: dict[str, _Usage], tags: set[str]
-) -> None:
-    configured, labels = _ollama_blob_refs(root, tags)
+    records: dict[str, list[_StorageRecord]],
+    root: Path,
+    roots: dict[str, _Usage],
+    tags: set[str],
+    installed_blobs: dict[str, set[str]] | None,
+) -> bool:
+    if installed_blobs is None:
+        return False
+    manifests = _ollama_manifest_owners(root)
+    api = _invert_tag_blobs(installed_blobs)
     blob_path = root / "ollama" / "models" / "blobs"
     blobs = _walk_usage(blob_path, {blob_path}) if blob_path.exists() else _Usage(blob_path)
     blob_total = 0
     for blob in blobs.children:
-        category = "fleet" if blob.path.name in configured else "orphan model data"
-        names = sorted(set(labels.get(blob.path.name, [])))
-        display = f"ollama/{', '.join(names[:2])}" if names else f"ollama/{blob.path.name}"
+        name = blob.path.name.lower()
         _add_storage_record(
-            records, category, root, blob.path, blob.size, blob.mtime, "ollama", display
+            records,
+            _ollama_blob_class(name, tags, api, manifests),
+            root,
+            blob.path,
+            blob.size,
+            blob.mtime,
+            "ollama",
+            _ollama_blob_display(name, api, manifests),
         )
         blob_total += blob.size
     if "ollama" in roots:
@@ -1143,6 +1469,7 @@ def _record_ollama(
             roots["ollama"].mtime,
             "ollama",
         )
+    return True
 
 
 def _record_omlx(
@@ -1248,9 +1575,11 @@ def _storage_records(
     omlx_models: set[str],
     disabled_modules: set[str],
     module_refs: dict[str, set[str]],
+    installed_blobs: dict[str, set[str]] | None,
 ) -> tuple[dict[str, list[_StorageRecord]], list[str]]:
     labels = (
         "fleet",
+        "installed-but-unconfigured",
         "orphan model data",
         "duplicate",
         "disabled-module weights",
@@ -1259,7 +1588,7 @@ def _storage_records(
     )
     records = {label: [] for label in labels}
     roots = {item.path.name: item for item in usage.children}
-    _record_ollama(records, root, roots, ollama_tags)
+    ollama_verified = _record_ollama(records, root, roots, ollama_tags, installed_blobs)
     checkpoints = _record_omlx(records, root, roots, omlx_models)
     _record_hf_cache(records, root, usage, roots, checkpoints, disabled_modules, module_refs)
     for name in ("gguf-staging", "portal5_backups"):
@@ -1281,6 +1610,9 @@ def _storage_records(
             )
     root_lines = []
     for root_name, item in roots.items():
+        if root_name == "ollama" and not ollama_verified:
+            root_lines.append(f"root {root_name}: {_format_bytes(item.size)}; unverified")
+            continue
         classes = sorted(
             label
             for label, values in records.items()
@@ -1304,6 +1636,18 @@ def _age_days(mtime: float, now: float) -> str:
     return "age unknown" if not mtime else f"age {max(0, int((now - mtime) // 86400))}d"
 
 
+def _append_reclaim_lines(report: Report, records: dict[str, list[_StorageRecord]]) -> None:
+    # Duplicates stay their own class and are in neither total.
+    safe = sum(item.size for item in records["orphan model data"])
+    decision = sum(
+        item.size
+        for label in ("disabled-module weights", "staging/backups")
+        for item in records[label]
+    )
+    report.lines.append(f"safe to reclaim: {_format_bytes(safe)}")
+    report.lines.append(f"operator decision: {_format_bytes(decision)}")
+
+
 def _storage_report(
     root: Path,
     backends_file: Path,
@@ -1312,6 +1656,9 @@ def _storage_report(
     free: int | None = None,
     floor_gib: float = 250,
     floor_percent: float = 15,
+    *,
+    query_ollama: bool = True,
+    installed_blobs: dict[str, set[str]] | None = None,
 ) -> Report:
     report = Report("storage", current="disk inventory", latest="read-only")
     if not root.is_dir():
@@ -1325,8 +1672,11 @@ def _storage_report(
         report.status = "error"
         report.lines.append(f"storage config unavailable: {error}")
         return report
-    ollama_tags, omlx_models = _backend_storage_refs(backend_text)
-    disabled_modules, module_refs = _portal_storage_refs(portal_text)
+    ollama_tags, omlx_models, disabled_modules, module_refs = _storage_config_refs(
+        backend_text, portal_text, portal_file.parent
+    )
+    if query_ollama:
+        installed_blobs = _installed_ollama_blobs()
     keep = {
         root,
         *(root / name for name in ("hf-cache", "omlx-models", "gguf-staging", "portal5_backups")),
@@ -1334,7 +1684,13 @@ def _storage_report(
     keep.add(root / "ollama" / "models" / "blobs")
     usage = _walk_usage(root, keep)
     records, root_lines = _storage_records(
-        root, usage, ollama_tags, omlx_models, disabled_modules, module_refs
+        root,
+        usage,
+        ollama_tags,
+        omlx_models,
+        disabled_modules,
+        module_refs,
+        installed_blobs,
     )
     if total is None or free is None:
         disk = shutil.disk_usage(root)
@@ -1366,16 +1722,7 @@ def _storage_report(
                 else "no items"
             )
         )
-    reclaimable = sum(
-        sum(item.size for item in records[label])
-        for label in (
-            "orphan model data",
-            "duplicate",
-            "disabled-module weights",
-            "staging/backups",
-        )
-    )
-    report.lines.append(f"reclaimable if approved: {_format_bytes(reclaimable)}")
+    _append_reclaim_lines(report, records)
     if usage.errors:
         report.lines.append(f"partial inventory: {usage.errors} path(s) could not be read")
     return report
