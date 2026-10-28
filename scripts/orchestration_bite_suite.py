@@ -555,6 +555,7 @@ def _run_bite(
     case: dict[str, Any],
     task_dir: Path,
     dry_run: bool,
+    persona: str | None = None,
 ) -> tuple[str, str, dict[str, Any]]:
     bite, input_paths = _bite_contract(case, discipline, task_dir, dry_run=dry_run)
     expected_tools = (*bite.tools, "finish")
@@ -567,7 +568,12 @@ def _run_bite(
         _stage_bites(bite, input_paths, task_dir), start=1
     ):
         worker = _run_bite_stage(
-            engine, task_dir, stage_bite, stage_inputs, task_dir / f"attempt-{index:02d}"
+            engine,
+            task_dir,
+            stage_bite,
+            stage_inputs,
+            task_dir / f"attempt-{index:02d}",
+            persona=persona,
         )
         workers.append(worker)
         last_trace = engine.last_trace
@@ -665,15 +671,19 @@ def _run_bite_stage(
     bite: Bite,
     input_paths: dict[str, Path],
     attempt_dir: Path,
+    *,
+    persona: str | None = None,
 ) -> Any:
     engine.expected_bite_tools = (*bite.tools, "finish")
     try:
+        # Same tool persona production sends (service.py), or the seat's own pool is used.
         return run_bite(
             task_dir,
             bite,
             engine,
             input_paths=input_paths,
             attempt_dir=attempt_dir,
+            persona=persona,
         )
     finally:
         engine.expected_bite_tools = None
@@ -691,6 +701,7 @@ def _run_one(
     tools: list[str],
     task_dir: Path,
     dry_run: bool,
+    persona: str | None = None,
 ) -> dict[str, Any]:
     started = time.monotonic()
     row = {
@@ -703,7 +714,9 @@ def _run_one(
     }
     try:
         if suite == "bite":
-            state, status, evidence = _run_bite(engine, seat, discipline, case, task_dir, dry_run)
+            state, status, evidence = _run_bite(
+                engine, seat, discipline, case, task_dir, dry_run, persona
+            )
         else:
             response = engine.chat(
                 _request_body(seat, messages, tools, json_output=True),
@@ -816,6 +829,7 @@ def _run_requests(
                 tools=tools,
                 task_dir=task_dir,
                 dry_run=dry_run,
+                persona=config["disciplines"][discipline].get("persona"),
             )
             row["bite_id"] = f"{row['bite_id']}-r{repeat:02d}"
             row["repeat"] = repeat

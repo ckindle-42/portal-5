@@ -87,6 +87,9 @@ def test_bite_dry_run_sends_one_sequential_request_per_case_and_repeat(tmp_path:
     assert all(row["model"] == "bench-spark-x26" for row in pipeline.requests)
     assert all(row["exec_audit"] is True for row in pipeline.requests)
     assert all("finish" in row["portal_bite_tools"] for row in pipeline.requests)
+    # The discipline's tool persona, as production sends it; without it the Pipeline offers
+    # the seat's own pool and every detection tool goes missing (10-23 HARNESS_ERROR).
+    assert all(row["portal_bite_persona"] == "splunkdetectionauthor" for row in pipeline.requests)
     for request in pipeline.requests:
         finish = next(tool for tool in request["tools"] if tool["function"]["name"] == "finish")
         parameters = finish["function"]["parameters"]
