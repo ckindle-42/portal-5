@@ -31,7 +31,7 @@ approval:
   high_risk_writes: true
 calibration:
   after_bites: 3
-  minimum_pass_probability: 0.531441
+  minimum_pass_probability: 0.262144
   rates_by_discipline:
     test_fixing:
       fast:

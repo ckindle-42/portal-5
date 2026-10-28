@@ -75,10 +75,12 @@ orchestration_arm:
     high_risk_writes: true
   calibration:
     after_bites: 3
-    # Frozen 2026-10-22 from scripts/gate_c_calculator.py (95% Wilson floor) over the post-fix test_fixing
-    # bite suites: auto-daily::fast 6/6, auto-daily::deep 6/6 (pass_criteria MET; receipts in
-    # results/arm/gate_c_calibration.json). Re-derive only with a new frozen criteria set.
-    minimum_pass_probability: 0.531441
+    # Re-frozen 2026-10-28 from scripts/gate_c_calculator.py over the 10-23 test_fixing bite suites
+    # (auto-daily::gemma-fast 6/6, auto-daily::deep 6/6; pass_criteria MET; receipts in
+    # results/arm/gate_c_calibration_20261028.json): min task floor = fast 0.8^6. The 2026-10-22
+    # value 0.531441 (0.9^6) predates seat-role mapping (e17ff2b0), when unmapped seats took the
+    # strictest rate. Re-derive only with a new frozen criteria set.
+    minimum_pass_probability: 0.262144
     # Gate C bite-suite rates (2026-10-22, results/arm/gate_c_calibration.json), keyed by seat role.
     rates_by_discipline:
       # Re-measured 2026-10-23 on the fixed harness (gate_c_calculator, 6/6 each).
