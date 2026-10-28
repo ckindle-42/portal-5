@@ -143,9 +143,10 @@ class Backend:
         last_check: Monotonic wall-clock timestamp of the last health probe.
         ollama_metadata: Per-model dicts for Ollama backends when entries
             in ``models:`` are dicts (new format with explicit
-            ``supports_tools``). Empty list when entries are bare strings
-            (legacy format), in which case downstream tool-support checks
-            fall through to the conservative default (no tool support).
+            ``supports_tools`` and ``keep_reason``). Empty list when entries
+            are bare strings (legacy format), in which case downstream
+            tool-support checks fall through to the conservative default (no
+            tool support).
     """
 
     id: str
@@ -303,8 +304,8 @@ class BackendRegistry:
         backends still load.
 
         Handles ``models:`` entries as bare strings (legacy; ``ollama_metadata``
-        stays empty) or dicts with ``id`` plus optional ``supports_tools``
-        (populates metadata). Also builds ``_ws_group_cache``.
+        stays empty) or dicts with ``id`` plus optional ``supports_tools`` and
+        ``keep_reason`` (populates metadata). Also builds ``_ws_group_cache``.
         """
         if not os.path.exists(self.config_path):
             logger.error("Backend config not found: %s", self.config_path)
@@ -335,7 +336,10 @@ class BackendRegistry:
             for m in raw_models:
                 if isinstance(m, dict):
                     flat_models.append(m["id"])
-                    ollama_meta.append(m)
+                    # keep_reason: exempts a deliberate second variant from the
+                    # fleet fallback rule (validate_system HY). Normalised so
+                    # consumers always see a string, never None.
+                    ollama_meta.append({**m, "keep_reason": str(m.get("keep_reason") or "")})
                 elif isinstance(m, str):
                     flat_models.append(m)
                 else:

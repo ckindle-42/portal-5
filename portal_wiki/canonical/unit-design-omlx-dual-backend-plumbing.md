@@ -22,6 +22,8 @@ sources:
 - type: code
   path: config/backends.yaml
 - type: code
+  path: scripts/validation/inference.py
+- type: code
   path: tests/benchmarks/bench_omlx_v3.py
 - type: code
   path: tests/unit/test_omlx_backend.py
@@ -35,7 +37,7 @@ tags:
 - omlx
 - verified-v1
 created_at: 1785719000.0
-updated_at: 1788024568.0
+updated_at: 1793217575.0
 ---
 
 # oMLX dual-backend plumbing (Phase 1 / B1, landed 2026-08-02)
@@ -183,6 +185,44 @@ pipeline rebuilt + restarted with all backends healthy.
 **Next (B3+, see PUNCHLIST.md):** security-core `/api/chat` → `/v1/chat/completions`
 migration; ~1 week of Prometheus TTFT/TPS comparison before expanding to
 `auto-vision` and `auto-security` migratable variants.
+
+## Fleet fallback rule — one oMLX checkpoint + one Ollama GGUF fallback per family
+
+**Rule (operator, 2026-10-28).** Each model family keeps **one oMLX checkpoint
+plus one Ollama GGUF fallback**. The `priority: 10` oMLX entry shadows the
+Ollama entries in its group; when oMLX is unhealthy or rejects, candidate
+selection falls through to the GGUF tag, so a user always gets an answer. Extra
+quant variants are bloat unless a planned test needs them. The intake side of
+the same rule is explicit: a new dense intake gets an oMLX counterpart, which is
+what the `-oQ4e-mtp` MTP side-car checkpoint entries already do in practice.
+
+**Families are derived from `aliases:`, not from model names.** An alias key is
+the canonical GGUF `model_hint` and its value the oMLX checkpoint that serves
+it, so each alias edge already states the pairing. A family is a connected
+component of that graph: one oMLX checkpoint plus the GGUF weights tags aliased
+at it. `-ctxNk` derived tags are stripped before comparison because they share
+one GGUF file (P5-OLLAMA-OPTIONS-001's baked-window workaround), so
+`gemma4:26b-a4b-it-qat-ctx8k` and `-ctx16k` are one weights tag, not two.
+
+**What the check reports** (`HY. fleet fallback rule` in
+`scripts/validation/inference.py`, registered under `scripts/validation/`):
+an oMLX seat with no aliased Ollama GGUF fallback; more than one oMLX
+checkpoint in a family; more than one distinct GGUF weights tag in a family.
+All three WARN rather than FAIL while consolidation is in progress, so
+`validate_system.py` prints the worklist without gating on it. A model entry
+may carry the optional `keep_reason:` field (accepted by
+`cluster_backends.py` and documented in the `config/backends.yaml` header) to
+exempt a deliberate extra variant or an oMLX-only seat. DFlash/draft helpers
+are exempt by rule — they are speculative-decoding scaffolding, not served
+families of their own.
+
+**At introduction (2026-10-28)** the live config yields 19 oMLX seats in 17
+families with a single finding: `Huihui-Qwen3.6-27B-abliterated-MLX-4bit` (the
+kit-A/B winner added 2026-10-22) has no alias from its GGUF twin
+`huihui_ai/Qwen3.6-abliterated:27b`, so the fallback is undocumented rather than
+absent. The Qwen3.8-27B DFlash2 seat is the one oMLX-only checkpoint, recorded
+with a `keep_reason:`. That list is the consolidation worklist; re-derive it
+from the live config instead of trusting this snapshot.
 
 ## Why
 

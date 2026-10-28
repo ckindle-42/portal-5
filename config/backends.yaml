@@ -6,6 +6,12 @@
 # A -ctxNk tag is rebuilt from its base. A portal5/ tag is skipped unless pinned.
 # A library pull is skipped when registry.ollama.ai has no manifest for that tag.
 #
+# Model entries other than `id` accept:
+#   supports_tools: true|false  — tool-call capability (probed, not assumed)
+#   keep_reason: <text>         — why this entry legitimately breaks the fleet
+#     fallback rule (a second oMLX checkpoint / GGUF weights tag in its family, or
+#     an oMLX seat with no GGUF fallback); exempts it from validate_system HY.
+#
 backends:
 - group: general
   id: ollama-general
@@ -924,6 +930,7 @@ backends:
   # probe (clean tool_calls, correctly typed arguments).
   - id: Qwen3.8-27B-4bit
     supports_tools: true
+    keep_reason: "DFlash2 speculative-decoding seat (qwen38coder-dflash) — oMLX-only by measurement, no GGUF fallback exists for this combo"
   priority: 10
   aliases:
     qwen3-coder:30b-a3b-q4_K_M-ctx256k: Qwen3-Coder-30B-A3B-Instruct-4bit

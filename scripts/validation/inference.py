@@ -1,12 +1,17 @@
 """Inference-family checks: import surface, pipeline assembly, hint validation,
-lifespan, CLI introspection, and the unit-test suite gate."""
+lifespan, CLI introspection, the fleet fallback rule, and the unit-test suite gate."""
 
 from __future__ import annotations
 
 import asyncio
 import importlib
+import re
 import subprocess
 import sys
+from pathlib import Path
+from typing import Any
+
+import yaml
 
 from ._shared import REPO_ROOT
 from .registry import register
@@ -287,3 +292,158 @@ def check_trace_never_routes() -> tuple[str, str, list[dict]]:
     if offenders:
         return ("FAIL", "trace read surface reached a non-endpoint module", offenders)
     return ("PASS", "trace reads confined to trace.py + the /v1/trace endpoints", [])
+
+
+# ── Fleet fallback rule (operator, 2026-10-28) ────────────────────────────────
+# One oMLX checkpoint + one Ollama GGUF fallback per model family; extra quant
+# variants are bloat unless the entry carries keep_reason:. WARN-only while the
+# consolidation is in progress.
+_CTX_TAG_SUFFIX = re.compile(r"-ctx\d+k$")
+_DRAFT_RE = re.compile(r"dflash|draft", re.IGNORECASE)
+
+
+def _model_entries(backend: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    """(id, entry) pairs for a backend's models:, bare-string ids mapped to {}."""
+    out: list[tuple[str, dict[str, Any]]] = []
+    for m in backend.get("models") or []:
+        if isinstance(m, str):
+            out.append((m, {}))
+        elif isinstance(m, dict) and m.get("id"):
+            out.append((str(m["id"]), m))
+    return out
+
+
+def _weights_tag(model_id: str) -> str:
+    """Strip the -ctxNk derived-tag suffix: those tags share one GGUF file."""
+    return _CTX_TAG_SUFFIX.sub("", model_id)
+
+
+def _keep_reasons(backends: list[dict[str, Any]]) -> dict[str, bool]:
+    """Entries carrying an explicit keep_reason, keyed by id and by weights tag."""
+    reasons: dict[str, bool] = {}
+    for be in backends:
+        for mid, entry in _model_entries(be):
+            if entry.get("keep_reason"):
+                reasons[mid] = True
+                reasons[_weights_tag(mid)] = True
+    return reasons
+
+
+def _omlx_seats(backends: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Every oMLX-served checkpoint (deduped across groups) → its model entry."""
+    seats: dict[str, dict[str, Any]] = {}
+    for be in backends:
+        if be.get("type") == "omlx":
+            for mid, entry in _model_entries(be):
+                seats.setdefault(mid, entry)
+    return seats
+
+
+def _families(backends: list[dict[str, Any]]) -> list[dict[str, set[str]]]:
+    """Model families as alias-graph components: oMLX checkpoint ↔ GGUF weights.
+
+    An `aliases:` key is the canonical GGUF hint and its value the oMLX
+    checkpoint that serves it, so the edge is already the family pairing.
+    """
+    parent: dict[tuple[str, str], tuple[str, str]] = {}
+
+    def find(node: tuple[str, str]) -> tuple[str, str]:
+        parent.setdefault(node, node)
+        while parent[node] != node:
+            parent[node] = parent[parent[node]]
+            node = parent[node]
+        return node
+
+    for be in backends:
+        if be.get("type") != "omlx":
+            continue
+        for hint, target in (be.get("aliases") or {}).items():
+            a, b = find(("ckpt", str(target))), find(("gguf", _weights_tag(str(hint))))
+            if a != b:
+                parent[a] = b
+
+    comps: dict[tuple[str, str], dict[str, set[str]]] = {}
+    for node in parent:
+        comp = comps.setdefault(find(node), {"checkpoints": set(), "weights": set()})
+        comp["checkpoints" if node[0] == "ckpt" else "weights"].add(node[1])
+    return list(comps.values())
+
+
+def _fleet_findings(
+    seats: dict[str, dict[str, Any]],
+    aliased: set[str],
+    families: list[dict[str, set[str]]],
+    reasons: dict[str, bool],
+) -> list[dict]:
+    """WARN findings for the fleet fallback rule, one sub-result per finding."""
+    subs: list[dict] = []
+    for mid, entry in sorted(seats.items()):
+        exempt = bool(entry.get("keep_reason")) or bool(_DRAFT_RE.search(mid))
+        if mid in aliased or exempt:
+            continue
+        subs.append(
+            {
+                "name": mid,
+                "status": "WARN",
+                "detail": "oMLX seat has no Ollama GGUF fallback",
+            }
+        )
+    for comp in families:
+        if any(reasons.get(m) for m in comp["checkpoints"] | comp["weights"]):
+            continue
+        ckpts, weights = sorted(comp["checkpoints"]), sorted(comp["weights"])
+        if len(ckpts) > 1:
+            subs.append(
+                {
+                    "name": ", ".join(ckpts),
+                    "status": "WARN",
+                    "detail": f"{len(ckpts)} oMLX checkpoints in one family (no keep_reason)",
+                }
+            )
+        if len(weights) > 1:
+            subs.append(
+                {
+                    "name": ", ".join(weights),
+                    "status": "WARN",
+                    "detail": f"{len(weights)} distinct GGUF weights tags in one family "
+                    "(no keep_reason)",
+                }
+            )
+    return subs
+
+
+@register("fleet_fallback_rule", "HY. fleet fallback rule", order=214)
+def check_fleet_fallback_rule(
+    config_path: str | Path | None = None,
+) -> tuple[str, str, list[dict]]:
+    """HY. One oMLX checkpoint + one Ollama GGUF fallback per model family.
+
+    Families are the connected components of backends.yaml's alias graph, so a
+    family is one oMLX checkpoint plus the GGUF weights tags aliased at it.
+    WARN (never FAIL) for: an oMLX seat with no GGUF fallback, more than one
+    checkpoint or more than one distinct GGUF weights tag in a family, unless
+    an entry in that family carries keep_reason:. DFlash/draft helpers are exempt.
+    """
+    path = Path(config_path) if config_path else REPO_ROOT / "config" / "backends.yaml"
+    backends = (yaml.safe_load(path.read_text(encoding="utf-8")) or {}).get("backends") or []
+    seats = _omlx_seats(backends)
+    aliased = {
+        str(target)
+        for be in backends
+        if be.get("type") == "omlx"
+        for target in (be.get("aliases") or {}).values()
+    }
+    families = _families(backends)
+    subs = _fleet_findings(seats, aliased, families, _keep_reasons(backends))
+    if not subs:
+        return (
+            "PASS",
+            f"{len(seats)} oMLX seats in {len(families)} families — "
+            "one checkpoint + one GGUF fallback each",
+            [],
+        )
+    sample = "; ".join(s["name"] for s in subs[:3])
+    if len(sample) > 180:
+        sample = sample[:177] + "..."
+    more = f" (+{len(subs) - 3} more)" if len(subs) > 3 else ""
+    return "WARN", f"{len(subs)} finding(s): {sample}{more}", subs
