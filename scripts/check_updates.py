@@ -22,8 +22,10 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -73,6 +75,7 @@ class Report:
     #: Floating-tag compose images with an advisory published since they were
     #: built (image repo names) — image_security_update.py re-pulls these.
     stale_images: list[str] = field(default_factory=list)
+    high_priority: bool = False
 
     @property
     def actionable(self) -> bool:
@@ -842,10 +845,563 @@ def _model_fetch():
     return default_fetch
 
 
+@dataclass
+class _Usage:
+    path: Path
+    size: int = 0
+    mtime: float = 0.0
+    is_dir: bool = False
+    children: list[_Usage] = field(default_factory=list)
+    files: list[_Usage] = field(default_factory=list)
+    repositories: list[tuple[Path, int, float]] = field(default_factory=list)
+    errors: int = 0
+
+
+@dataclass
+class _StorageRecord:
+    path: str
+    size: int
+    mtime: float
+    root: str
+
+
+def _allocated_bytes(info: os.stat_result) -> int:
+    return getattr(info, "st_blocks", 0) * 512 or info.st_size
+
+
+def _walk_usage(path: Path, keep_children: set[Path], limit: int = 5) -> _Usage:
+    try:
+        info = path.stat(follow_symlinks=False)
+    except OSError:
+        return _Usage(path=path, errors=1)
+    if not stat.S_ISDIR(info.st_mode):
+        item = _Usage(path, _allocated_bytes(info), info.st_mtime)
+        if stat.S_ISREG(info.st_mode):
+            item.files = [item]
+        return item
+    usage = _Usage(path=path, is_dir=True)
+    try:
+        with os.scandir(path) as entries:
+            for entry in entries:
+                child = _walk_usage(Path(entry.path), keep_children, limit)
+                usage.size += child.size
+                usage.mtime = max(usage.mtime, child.mtime)
+                usage.errors += child.errors
+                usage.repositories.extend(child.repositories)
+                if path in keep_children:
+                    usage.children.append(child)
+                usage.files.extend(child.files)
+                usage.files.sort(key=lambda item: item.size, reverse=True)
+                del usage.files[limit:]
+    except OSError:
+        usage.errors += 1
+    if not usage.mtime:
+        usage.mtime = info.st_mtime
+    if "hf-cache" in path.parts and path.name.startswith("models--"):
+        usage.repositories.append((path, usage.size, usage.mtime))
+    return usage
+
+
+def _yaml_value(value: str) -> str:
+    return value.split(" #", 1)[0].strip().strip("'\"")
+
+
+def _backend_storage_refs(text: str) -> tuple[set[str], set[str]]:
+    ollama_tags: set[str] = set()
+    omlx_models: set[str] = set()
+    groups = re.split(r"(?m)(?=^- group:\s*)", text)
+    for block in groups:
+        if not block.startswith("- group:"):
+            continue
+        backend_type = re.search(r"(?m)^  type:\s*([^\s#]+)", block)
+        target = omlx_models if backend_type and backend_type.group(1) == "omlx" else ollama_tags
+        target.update(_yaml_value(value) for value in re.findall(r"(?m)^  - id:\s*(.+)$", block))
+        if target is not omlx_models:
+            continue
+        aliases = False
+        for line in block.splitlines():
+            if re.match(r"^  aliases:\s*$", line):
+                aliases = True
+                continue
+            if aliases and line and not line[0].isspace():
+                break
+            if aliases and len(line) - len(line.lstrip()) < 4:
+                aliases = False
+            if aliases and line.strip() and not line.lstrip().startswith("#"):
+                match = re.match(r"^(.+):\s+([^\s#]+)", line.strip())
+                if match:
+                    ollama_tags.add(_yaml_value(match.group(1)))
+                    omlx_models.add(_yaml_value(match.group(2)))
+    return ollama_tags, omlx_models
+
+
+def _portal_storage_refs(text: str) -> tuple[set[str], dict[str, set[str]]]:
+    enabled: dict[str, bool] = {}
+    in_modules = False
+    current = ""
+    for line in text.splitlines():
+        if re.match(r"^modules:\s*$", line):
+            in_modules = True
+            continue
+        if in_modules and line and not line[0].isspace() and not line.lstrip().startswith("#"):
+            break
+        if in_modules:
+            module = re.match(r"^  ([\w-]+):\s*$", line)
+            if module:
+                current = module.group(1)
+            switch = re.match(r"^\s+enabled:\s*(true|false)\s*$", line, re.IGNORECASE)
+            if current and switch:
+                enabled[current] = switch.group(1).lower() == "true"
+
+    lines = text.splitlines()
+    module_refs: dict[str, set[str]] = {}
+    for index, line in enumerate(lines):
+        module = re.match(r"^(\s+)module:\s*([\w-]+)\s*$", line)
+        if not module:
+            continue
+        body = _module_reference_block(lines, index, len(module.group(1)))
+        module_refs.setdefault(module.group(2), set()).update(_workspace_model_refs(body))
+    return {module for module, state in enabled.items() if not state}, module_refs
+
+
+def _module_reference_block(lines: list[str], start: int, indent: int) -> str:
+    body: list[str] = []
+    literal_indent = 0
+    for index, line in enumerate(lines[start:], start):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        line_indent = len(line) - len(line.lstrip())
+        if index > start and line_indent < indent and not stripped.startswith("#"):
+            break
+        if index == start or line_indent == indent:
+            body.append(line)
+            literal_indent = -1 if re.search(r":\s*[|>][+-]?\s*$", line) else 0
+        elif literal_indent == -1 and line_indent > indent:
+            body.append(line)
+            literal_indent = line_indent
+        elif literal_indent == -1:
+            literal_indent = 0
+        elif literal_indent and line_indent >= literal_indent:
+            body.append(line)
+        elif literal_indent:
+            literal_indent = 0
+    return "\n".join(body)
+
+
+def _workspace_model_refs(text: str) -> set[str]:
+    refs = set(re.findall(r"(?i)\bmodel\s*=\s*['\"]([^'\"]+)['\"]", text))
+    refs.update(
+        re.findall(r"(?m)^\s+(?:hf_id|actual_repo|repo_id|model_id):\s*['\"]?([^\s'\"]+)", text)
+    )
+    refs.update(
+        value
+        for value in re.findall(r"(?i)\b[a-z0-9]+(?:[-._][a-z0-9]+)+\b", text)
+        if any(char.isdigit() for char in value)
+    )
+    return {re.sub(r"[^a-z0-9]", "", value.casefold()) for value in refs if len(value) >= 4}
+
+
+def _ollama_manifest_path(root: Path, tag: str) -> Path:
+    name, _, version = tag.rpartition(":")
+    if not version:
+        name, version = tag, "latest"
+    parts = name.split("/")
+    if len(parts) == 1:
+        parts.insert(0, "library")
+    return root / "ollama" / "models" / "manifests" / "registry.ollama.ai" / Path(*parts) / version
+
+
+def _manifest_tag(path: Path, base: Path) -> str:
+    parts = path.relative_to(base).parts
+    name = "/".join(parts[:-1])
+    if name.startswith("library/"):
+        name = name[len("library/") :]
+    return f"{name}:{parts[-1]}"
+
+
+def _ollama_blob_refs(root: Path, tags: set[str]) -> tuple[set[str], dict[str, list[str]]]:
+    base = root / "ollama" / "models" / "manifests" / "registry.ollama.ai"
+    configured_paths = {_ollama_manifest_path(root, tag) for tag in tags}
+    configured: set[str] = set()
+    all_tags: dict[str, list[str]] = {}
+    try:
+        manifests = base.rglob("*")
+        for path in manifests:
+            if not path.is_file():
+                continue
+            try:
+                manifest = json.loads(path.read_text())
+            except (OSError, json.JSONDecodeError):
+                continue
+            labels = _manifest_tag(path, base)
+            for layer in [manifest.get("config", {}), *manifest.get("layers", [])]:
+                digest = str(layer.get("digest", "")).replace(":", "-")
+                if not digest:
+                    continue
+                all_tags.setdefault(digest, []).append(labels)
+                if path in configured_paths:
+                    configured.add(digest)
+    except OSError:
+        pass
+    return configured, all_tags
+
+
+def _cache_checkpoint(slug: str, checkpoints: set[str]) -> bool:
+    parts = slug.casefold().split("--", 1)
+    repo = parts[-1]
+    return any(
+        name.casefold() in {slug.casefold(), repo}
+        or slug.casefold().endswith("--" + name.casefold())
+        for name in checkpoints
+    )
+
+
+def _cache_modules(slug: str, module_refs: dict[str, set[str]]) -> set[str]:
+    normalized = re.sub(r"[^a-z0-9]", "", slug.casefold())
+    return {
+        module
+        for module, refs in module_refs.items()
+        if any(ref and ref in normalized for ref in refs)
+    }
+
+
+def _cache_owner(
+    slug: str,
+    checkpoints: set[str],
+    disabled_modules: set[str],
+    module_refs: dict[str, set[str]],
+) -> str:
+    modules = _cache_modules(slug, module_refs)
+    if modules and modules <= disabled_modules:
+        return "disabled-module weights"
+    if _cache_checkpoint(slug, checkpoints):
+        return "duplicate"
+    return "other/unclassified"
+
+
+def _hf_blob_owners(root: Path) -> dict[Path, set[str]]:
+    blob_root = root / "hf-cache" / "blobs"
+    owners: dict[Path, set[str]] = {}
+    try:
+        blobs = blob_root.rglob("*")
+        for blob in blobs:
+            if not blob.is_file() or blob.name.endswith((".lock", ".refs")):
+                continue
+            references = Path(f"{blob}.refs")
+            try:
+                refs_text = references.read_text()
+            except OSError:
+                refs_text = ""
+            repos = {
+                value.removeprefix("models--") for value in re.findall(r"models--[^/]+", refs_text)
+            }
+            owners[blob] = repos
+    except OSError:
+        pass
+    return owners
+
+
+def _add_storage_record(
+    records: dict[str, list[_StorageRecord]],
+    label: str,
+    root: Path,
+    path: Path,
+    size: int,
+    mtime: float,
+    source: str,
+    display: str | None = None,
+) -> None:
+    if size > 0:
+        records[label].append(
+            _StorageRecord(display or str(path.relative_to(root)), size, mtime, source)
+        )
+
+
+def _record_ollama(
+    records: dict[str, list[_StorageRecord]], root: Path, roots: dict[str, _Usage], tags: set[str]
+) -> None:
+    configured, labels = _ollama_blob_refs(root, tags)
+    blob_path = root / "ollama" / "models" / "blobs"
+    blobs = _walk_usage(blob_path, {blob_path}) if blob_path.exists() else _Usage(blob_path)
+    blob_total = 0
+    for blob in blobs.children:
+        category = "fleet" if blob.path.name in configured else "orphan model data"
+        names = sorted(set(labels.get(blob.path.name, [])))
+        display = f"ollama/{', '.join(names[:2])}" if names else f"ollama/{blob.path.name}"
+        _add_storage_record(
+            records, category, root, blob.path, blob.size, blob.mtime, "ollama", display
+        )
+        blob_total += blob.size
+    if "ollama" in roots:
+        _add_storage_record(
+            records,
+            "other/unclassified",
+            root,
+            root / "ollama" / "metadata",
+            max(0, roots["ollama"].size - blob_total),
+            roots["ollama"].mtime,
+            "ollama",
+        )
+
+
+def _record_omlx(
+    records: dict[str, list[_StorageRecord]],
+    root: Path,
+    roots: dict[str, _Usage],
+    configured: set[str],
+) -> set[str]:
+    items = roots.get("omlx-models", _Usage(root)).children
+    checkpoints = {item.path.name for item in items if item.is_dir}
+    configured_names = {name.casefold() for name in configured}
+    for item in items:
+        category = "fleet" if item.path.name.casefold() in configured_names else "orphan model data"
+        if not item.is_dir:
+            category = "other/unclassified"
+        _add_storage_record(
+            records, category, root, item.path, item.size, item.mtime, "omlx-models"
+        )
+    return checkpoints
+
+
+def _record_hf_cache(
+    records: dict[str, list[_StorageRecord]],
+    root: Path,
+    usage: _Usage,
+    roots: dict[str, _Usage],
+    checkpoints: set[str],
+    disabled_modules: set[str],
+    module_refs: dict[str, set[str]],
+) -> None:
+    hf_root = root / "hf-cache"
+    repositories = [item for item in usage.repositories if item[0].is_relative_to(hf_root)]
+    owners: dict[str, str] = {}
+    grouped: dict[tuple[str, str], tuple[int, float]] = {}
+    repository_size = 0
+    for path, size, mtime in repositories:
+        slug = path.name[len("models--") :]
+        label = _cache_owner(slug, checkpoints, disabled_modules, module_refs)
+        owners[slug] = label
+        repository_size += size
+        _group_hf_record(grouped, label, f"hf-cache/{slug}", size, mtime)
+    blob_size = _record_hf_blobs(grouped, root, owners, checkpoints, disabled_modules, module_refs)
+    for (label, display), (size, mtime) in grouped.items():
+        records[label].append(_StorageRecord(display, size, mtime, "hf-cache"))
+    if "hf-cache" in roots:
+        _add_storage_record(
+            records,
+            "other/unclassified",
+            root,
+            hf_root / "metadata",
+            max(0, roots["hf-cache"].size - repository_size - blob_size),
+            roots["hf-cache"].mtime,
+            "hf-cache",
+        )
+
+
+def _group_hf_record(
+    grouped: dict[tuple[str, str], tuple[int, float]],
+    label: str,
+    display: str,
+    size: int,
+    mtime: float,
+) -> None:
+    key = (label, display)
+    old_size, old_mtime = grouped.get(key, (0, 0.0))
+    grouped[key] = (old_size + size, max(old_mtime, mtime))
+
+
+def _record_hf_blobs(
+    grouped: dict[tuple[str, str], tuple[int, float]],
+    root: Path,
+    owners: dict[str, str],
+    checkpoints: set[str],
+    disabled_modules: set[str],
+    module_refs: dict[str, set[str]],
+) -> int:
+    total = 0
+    for path, repos in _hf_blob_owners(root).items():
+        try:
+            info = path.stat(follow_symlinks=False)
+        except OSError:
+            continue
+        size = _allocated_bytes(info)
+        total += size
+        labels = {
+            owners.get(repo, _cache_owner(repo, checkpoints, disabled_modules, module_refs))
+            for repo in repos
+        }
+        label = next(iter(labels)) if len(labels) == 1 else "other/unclassified"
+        display = (
+            f"hf-cache/{next(iter(repos))}"
+            if len(repos) == 1
+            else f"hf-cache/shared-blobs/{path.name}"
+        )
+        _group_hf_record(grouped, label, display, size, info.st_mtime)
+    return total
+
+
+def _storage_records(
+    root: Path,
+    usage: _Usage,
+    ollama_tags: set[str],
+    omlx_models: set[str],
+    disabled_modules: set[str],
+    module_refs: dict[str, set[str]],
+) -> tuple[dict[str, list[_StorageRecord]], list[str]]:
+    labels = (
+        "fleet",
+        "orphan model data",
+        "duplicate",
+        "disabled-module weights",
+        "staging/backups",
+        "other/unclassified",
+    )
+    records = {label: [] for label in labels}
+    roots = {item.path.name: item for item in usage.children}
+    _record_ollama(records, root, roots, ollama_tags)
+    checkpoints = _record_omlx(records, root, roots, omlx_models)
+    _record_hf_cache(records, root, usage, roots, checkpoints, disabled_modules, module_refs)
+    for name in ("gguf-staging", "portal5_backups"):
+        for item in roots.get(name, _Usage(root)).children:
+            _add_storage_record(
+                records, "staging/backups", root, item.path, item.size, item.mtime, name
+            )
+    handled = {"ollama", "hf-cache", "omlx-models", "gguf-staging", "portal5_backups"}
+    for item in usage.children:
+        if item.path.name not in handled:
+            _add_storage_record(
+                records,
+                "other/unclassified",
+                root,
+                item.path,
+                item.size,
+                item.mtime,
+                item.path.name,
+            )
+    root_lines = []
+    for root_name, item in roots.items():
+        classes = sorted(
+            label
+            for label, values in records.items()
+            if any(record.root == root_name for record in values)
+        )
+        owner_text = ", ".join(classes) if classes else "other/unclassified"
+        root_lines.append(f"root {root_name}: {_format_bytes(item.size)}; owner {owner_text}")
+    return records, root_lines
+
+
+def _format_bytes(size: int) -> str:
+    value = float(size)
+    for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+        if value < 1024 or unit == "TiB":
+            return f"{value:.1f} {unit}" if unit != "B" else f"{int(value)} B"
+        value /= 1024
+    return f"{value:.1f} TiB"
+
+
+def _age_days(mtime: float, now: float) -> str:
+    return "age unknown" if not mtime else f"age {max(0, int((now - mtime) // 86400))}d"
+
+
+def _storage_report(
+    root: Path,
+    backends_file: Path,
+    portal_file: Path,
+    total: int | None = None,
+    free: int | None = None,
+    floor_gib: float = 250,
+    floor_percent: float = 15,
+) -> Report:
+    report = Report("storage", current="disk inventory", latest="read-only")
+    if not root.is_dir():
+        report.status = "unknown"
+        report.lines.append(f"storage root missing: {root}")
+        return report
+    try:
+        backend_text = backends_file.read_text()
+        portal_text = portal_file.read_text()
+    except OSError as error:
+        report.status = "error"
+        report.lines.append(f"storage config unavailable: {error}")
+        return report
+    ollama_tags, omlx_models = _backend_storage_refs(backend_text)
+    disabled_modules, module_refs = _portal_storage_refs(portal_text)
+    keep = {
+        root,
+        *(root / name for name in ("hf-cache", "omlx-models", "gguf-staging", "portal5_backups")),
+    }
+    keep.add(root / "ollama" / "models" / "blobs")
+    usage = _walk_usage(root, keep)
+    records, root_lines = _storage_records(
+        root, usage, ollama_tags, omlx_models, disabled_modules, module_refs
+    )
+    if total is None or free is None:
+        disk = shutil.disk_usage(root)
+        total, free = disk.total, disk.free
+    floor = max(int(total * floor_percent / 100), int(floor_gib * 1024**3))
+    now = time.time()
+    ratio = free / total if total else 0
+    report.status = "behind" if free < floor else "current"
+    report.current = f"{_format_bytes(free)} free ({ratio:.1%})"
+    report.latest = f"floor {_format_bytes(floor)}"
+    report.high_priority = report.status == "behind"
+    report.lines.append(
+        f"free: {_format_bytes(free)} / {_format_bytes(total)} ({ratio:.1%}); alert floor "
+        f"max({floor_percent:g}%, {floor_gib:g} GiB) = {_format_bytes(floor)}"
+    )
+    report.lines.extend(root_lines)
+    for label, items in records.items():
+        total_size = sum(item.size for item in items)
+        top = sorted(items, key=lambda item: item.size, reverse=True)[:5]
+        report.lines.append(
+            f"{label}: {_format_bytes(total_size)}; "
+            + (
+                "top: "
+                + ", ".join(
+                    f"{item.path} {_format_bytes(item.size)} ({_age_days(item.mtime, now)})"
+                    for item in top
+                )
+                if top
+                else "no items"
+            )
+        )
+    reclaimable = sum(
+        sum(item.size for item in records[label])
+        for label in (
+            "orphan model data",
+            "duplicate",
+            "disabled-module weights",
+            "staging/backups",
+        )
+    )
+    report.lines.append(f"reclaimable if approved: {_format_bytes(reclaimable)}")
+    if usage.errors:
+        report.lines.append(f"partial inventory: {usage.errors} path(s) could not be read")
+    return report
+
+
+def check_storage() -> Report:
+    try:
+        floor_gib = float(os.environ.get("PORTAL5_STORAGE_FLOOR_GIB", "250"))
+        floor_percent = float(os.environ.get("PORTAL5_STORAGE_FLOOR_PERCENT", "15"))
+    except ValueError:
+        floor_gib, floor_percent = 250, 15
+    root = Path(os.environ.get("PORTAL5_STORAGE_ROOT", "/Volumes/data01"))
+    return _storage_report(
+        root,
+        REPO_ROOT / "config" / "backends.yaml",
+        REPO_ROOT / "config" / "portal.yaml",
+        floor_gib=floor_gib,
+        floor_percent=floor_percent,
+    )
+
+
 CHECKERS = {
     "obscura": check_obscura,
     "ollama": check_ollama,
     "omlx": check_omlx,
+    "storage": check_storage,
     "python-deps": check_python_deps,
     "python-vulns": check_python_vulns,
     "images": check_images,
@@ -890,8 +1446,13 @@ def main(argv: list[str]) -> int:
     behind = [r for r in reports if r.actionable]
     if behind:
         sec = any(r.security for r in behind)
-        title = "Updates need review" + (" — SECURITY" if sec else "")
-        _pushover(title, out, high=sec)
+        critical = any(r.high_priority for r in behind)
+        title = (
+            "Updates need review — SECURITY"
+            if sec
+            else ("Storage space low" if critical else "Updates need review")
+        )
+        _pushover(title, out, high=sec or critical)
         names = ", ".join(r.name for r in behind)
         print(f"\n-> actionable: {names} behind upstream" + (" (security-flagged)" if sec else ""))
     return 0

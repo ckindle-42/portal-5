@@ -5,8 +5,11 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 _SPEC = importlib.util.spec_from_file_location(
@@ -186,3 +189,127 @@ def test_vuln_fixes_takes_highest_per_vuln_lowest_fix(monkeypatch):
     monkeypatch.setattr(cu, "_osv_detail", lambda i, p, v: fixed[i])
     out = cu.vuln_fixes({("pkg", "1.0"): ["A", "B", "C"]})
     assert out[("pkg", "1.0")][:2] == ("HIGH", "1.5")
+
+
+def test_storage_reports_owner_totals_and_ages_from_fake_tree(monkeypatch, tmp_path):
+    root = tmp_path / "data01"
+    backends = tmp_path / "backends.yaml"
+    portal = tmp_path / "portal.yaml"
+    backends.write_text(
+        "backends:\n"
+        "- group: general\n"
+        "  id: ollama-general\n"
+        "  models:\n"
+        "  - id: team/active:v1\n"
+        "  - id: team/active:v2\n"
+        "- group: omlx\n"
+        "  id: omlx-local\n"
+        "  models:\n"
+        "  - id: active-checkpoint\n"
+        "  - id: mlx-community--checkpoint\n"
+        "  type: omlx\n"
+        "  aliases:\n"
+        "    team/active:v1: active-checkpoint\n"
+        "    team/alias-only:v1: active-checkpoint\n"
+    )
+    portal.write_text(
+        "modules:\n"
+        "  image:\n"
+        "    enabled: false\n"
+        "  video:\n"
+        "    enabled: false\n"
+        "  general:\n"
+        "    enabled: true\n"
+        "  media:\n"
+        "    enabled: true\n"
+        "workspaces:\n"
+        "  media-lane:\n"
+        "    module: media\n"
+        "    description: Audio tools\n"
+        "    variants:\n"
+        "      image:\n"
+        "        module: image\n"
+        "        owui_system_prompt: |-\n"
+        "          model='qwen-image'\n"
+        "      video:\n"
+        "        module: video\n"
+        "        description: MLX-native LTX-2.3\n"
+    )
+    monkeypatch.setattr(cu, "_allocated_bytes", lambda info: info.st_size)
+
+    def put(relative, content, age_days=0):
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+        if age_days:
+            stamp = time.time() - age_days * 86400
+            os.utime(path, (stamp, stamp))
+        return path
+
+    def manifest(tag, digest):
+        path = cu._ollama_manifest_path(root, tag)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"layers": [{"digest": f"sha256:{digest}"}]}))
+
+    manifest("team/active:v1", "shared")
+    manifest("team/active:v2", "shared")
+    manifest("team/alias-only:v1", "shared")
+    manifest("team/unused:v1", "orphan")
+    put("ollama/models/blobs/sha256-shared", b"shared")
+    put("ollama/models/blobs/sha256-orphan", b"orphan")
+    put("omlx-models/active-checkpoint/weights", b"active!")
+    put("omlx-models/mlx-community--checkpoint/weights", b"copy")
+    put("omlx-models/retired-checkpoint/weights", b"retired-ml")
+    put("hf-cache/models--mlx-community--checkpoint/snapshots/a/weights", b"copy")
+    put("hf-cache/models--Qwen--Qwen-Image-Edit-2509/blobs/image", b"image-data")
+    put("hf-cache/models--dgrauet--ltx-2.3-mlx-q4/blobs/video", b"video")
+    hf_shared = put("hf-cache/blobs/aa/image-weight", b"hf-cache-weight")
+    hf_shared.with_name(f"{hf_shared.name}.refs").write_text(
+        "models--Qwen--Qwen-Image-Edit-2509/blobs/image\n"
+    )
+    hf_duplicate = put("hf-cache/blobs/bb/duplicate-weight", b"duplicate-weight")
+    hf_duplicate.with_name(f"{hf_duplicate.name}.refs").write_text(
+        "models--mlx-community--checkpoint/blobs/weights\n"
+    )
+    put("gguf-staging/sage/Sage.gguf", b"staged", age_days=4)
+    put("portal5_backups/old/snapshot.tar", b"backup", age_days=9)
+    put("misc/notes.txt", b"other")
+
+    report = cu._storage_report(
+        root,
+        backends,
+        portal,
+        total=1000 * 1024**3,
+        free=200 * 1024**3,
+    )
+    lines = "\n".join(report.lines)
+    assert report.status == "behind" and report.high_priority
+    assert "fleet: 17 B" in lines
+    assert "orphan model data: 16 B" in lines
+    assert "duplicate: 20 B" in lines
+    assert "disabled-module weights: 30 B" in lines
+    assert "gguf-staging/sage 6 B (age 4d)" in lines
+    assert "portal5_backups/old 6 B (age 9d)" in lines
+    assert "reclaimable if approved:" in lines
+    assert (root / "gguf-staging/sage/Sage.gguf").exists()
+    custom_floor = cu._storage_report(
+        root,
+        backends,
+        portal,
+        total=1000 * 1024**3,
+        free=200 * 1024**3,
+        floor_gib=100,
+        floor_percent=10,
+    )
+    assert custom_floor.status == "current" and not custom_floor.high_priority
+
+
+def test_storage_low_space_uses_high_priority_pushover(monkeypatch, capsys):
+    calls = []
+    monkeypatch.setitem(
+        cu.CHECKERS, "storage", lambda: cu.Report("storage", status="behind", high_priority=True)
+    )
+    monkeypatch.setattr(cu, "_pushover", lambda title, message, high: calls.append((title, high)))
+    assert cu.main(["storage"]) == 0
+    capsys.readouterr()
+    assert calls == [("Storage space low", True)]
