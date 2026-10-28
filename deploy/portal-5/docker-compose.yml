@@ -941,7 +941,7 @@ services:
 
   # ── Grafana — Metrics dashboards ────────────────────────────────────────
   grafana:
-    image: grafana/grafana:13.2.4
+    image: grafana/grafana:13.2.5
     container_name: portal5-grafana
     restart: unless-stopped
     ports:
