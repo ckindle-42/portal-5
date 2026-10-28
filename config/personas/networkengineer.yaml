@@ -52,7 +52,6 @@ safety_note: This persona discusses network security concepts and configurations
 workspace:
   enabled: true
   description: Network Engineer — secure network design for enterprise and OT environments
-  suggested_model: xploiter/the-xploiter
 tags:
   - networking
   - security

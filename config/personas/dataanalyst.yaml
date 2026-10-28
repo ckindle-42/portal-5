@@ -45,7 +45,6 @@ system_prompt: |
 workspace:
   enabled: true
   description: Data Analyst — statistical rigor with business-ready insights
-  suggested_model: huihui_ai/tongyi-deepresearch-abliterated
 tags:
   - data
   - analysis

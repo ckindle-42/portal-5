@@ -49,7 +49,6 @@ system_prompt: |
 workspace:
   enabled: true
   description: Machine Learning Engineer — from problem framing to production deployment
-  suggested_model: huihui_ai/tongyi-deepresearch-abliterated
 tags:
   - machine-learning
   - mlops

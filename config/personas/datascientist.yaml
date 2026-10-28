@@ -45,7 +45,6 @@ system_prompt: |
 workspace:
   enabled: true
   description: Data Scientist — rigorous ML methodology with business-aware evaluation
-  suggested_model: huihui_ai/tongyi-deepresearch-abliterated
 tags:
   - data
   - machine-learning

@@ -49,7 +49,6 @@ system_prompt: |
 workspace:
   enabled: true
   description: IT Architect — enterprise solution design with requirements traceability
-  suggested_model: huihui_ai/tongyi-deepresearch-abliterated
 tags:
   - architecture
   - enterprise

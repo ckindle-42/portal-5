@@ -3020,21 +3020,6 @@ workspaces:
     expose_to_owui: false
     enable_web_search: false
 models:
-  - hf_id: AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF
-    filename: baronllm-llama3.1-v1-q6_k.gguf
-    ollama_name: baronllm:q6_k
-    gated: true
-    # Un-retired 2026-07-21 — GATE-D Expert-candidate pool intake. `ollama pull
-    # hf.co/...` fails with "realm host huggingface.co does not match original
-    # host hf.co" for this gated repo regardless of HF_TOKEN (still true as of
-    # this date, matches the original DROPPED note in MODEL_CATALOG.md) — not
-    # an access problem, an Ollama pull-mechanism limitation for gated repos.
-    # Worked around: downloaded via huggingface_hub.hf_hub_download (correctly
-    # handles gated-repo auth) then `ollama create` with a local Modelfile
-    # reusing huihui_ai/baronllm-abliterated's known-good Llama-3.1 template
-    # (same base lineage) + researched sampling defaults (temp 0.6/top_p
-    # 0.9/repeat_penalty 1.1). `portal models pull` still can't do this
-    # automatically — the workaround is a one-off manual step, not scripted.
   - hf_id: segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF
     filename: Lily-7B-Instruct-v0.2.Q4_K_M.gguf
     ollama_name: lily-cybersecurity:7b-q4_k_m

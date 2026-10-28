@@ -13,9 +13,8 @@ workloads:
     discovery: []
     arms:
       incumbent: qwen3-coder:30b-a3b-q4_K_M-ctx256k
-      # 2026-10-22: qwen3-coder-next (retired, d887a520) → AgentWorld 35B ctx64k, the
-      # agentic MoE fallback the retired heavy seat named.
+      # The installed AgentWorld alias is the current agentic MoE fallback.
       challengers:
         - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k
         - hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k
-        - hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL-ctx64k
+        - portal5/agentworld-35b:ud-q4_K_XL-ctx256k

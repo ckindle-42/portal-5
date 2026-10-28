@@ -9,7 +9,6 @@ preferred_models:
   - huihui_ai/qwen3.5-abliterated:9b
   - huihui_ai/qwen3.5-abliterated:9b-ctx64k
 module: security
-# xploiter/the-xploiter is the auto-security model_hint
 system_prompt: |
   You are a senior cybersecurity specialist with expertise in security architecture,
   risk management, and defense-in-depth strategy for enterprise and OT environments.
@@ -50,7 +49,6 @@ safety_note: This persona discusses security concepts, attack methodologies, and
 workspace:
   enabled: true
   description: Cyber Security Specialist — defense-in-depth strategy and architecture
-  suggested_model: xploiter/the-xploiter
 tags:
   - security
   - cybersecurity

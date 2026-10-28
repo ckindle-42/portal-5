@@ -43,7 +43,7 @@ The duplicate `general`/`security` registration with `supports_tools: true` is a
 
 ---
 
-### `dolphin-llama3:8b`
+### `dolphin-llama3:8b` — DROPPED (not installed; pruned 2026-10-28)
 
 `dolphin-llama3:8b` is registered in `config/backends.yaml` under the `general` group and the `creative` group, both with `supports_tools: false`. It is an uncensored, creative-tuned model dispatched only through the Path 2 (OWUI MCP) route; the pipeline never attaches tools to `auto-creative` requests, consistent with the tool-negative flags on both registrations.
 
@@ -53,7 +53,7 @@ Both registrations of `dolphin-llama3:8b` in `config/backends.yaml` carry `suppo
 
 ---
 
-### `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF`
+### `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF` is an ultra-fast 3B abliterated fallback registered in `config/backends.yaml` under the `general` group with `supports_tools: false`. The stock Llama-3.2-3B template does not declare a `.Tools` block, and the abliterated GGUF inherits that limitation, so the false flag reflects a template-level constraint rather than a per-model audit. The model id has no presence in `config/portal.yaml`; it is reachable only through the general routing pool, making this a pure backend-registry entry with no dedicated workspace.
 
@@ -63,7 +63,7 @@ The `general`-group placement and `supports_tools: false` are asserted directly 
 
 ---
 
-### `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF:latest`
+### `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF:latest` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF:latest` is the explicitly-tagged form of the bare-id entry above (`config/backends.yaml` treats them as distinct ids for exact-string hint matching, even though `:latest` is Ollama's own default resolution of the bare pull). Registered in the `general` group with `supports_tools: true` — a live `/api/chat` tool-call probe during TASK_SAMPLING_PROFILE_AUDIT_V1 returned a clean, correctly-typed `tool_calls` response, contradicting the bare-id entry's template-inferred `supports_tools: false`. `config/portal.yaml`'s `bench-llama32-3b-abliterated` `model_hint` points at this `:latest` tag specifically.
 
@@ -73,7 +73,7 @@ Added because strict hint validation (`STRICT_HINT_VALIDATION=true`) failed pipe
 
 ---
 
-### `llama3.2:3b`
+### `llama3.2:3b` — DROPPED (not installed; pruned 2026-10-28)
 
 `llama3.2:3b` is a stock (non-abliterated) 3B Ollama tag registered in `config/backends.yaml` under the `general` group with `supports_tools: true`, live-audited via a direct tool-call probe (`_audit_tools_probe`) rather than inferred from the model card — it emitted a structured `tool_calls` response on the first probe. The model id has no presence in `config/portal.yaml`; it is reachable only through the general routing pool (or by callers addressing it literally as `model` in `/v1/chat/completions`, resolved via the pipeline router's literal-model-id match), making this a pure backend-registry entry with no dedicated workspace.
 
@@ -83,7 +83,7 @@ The `general`-group placement and `supports_tools: true` are asserted directly b
 
 ---
 
-### `llama3.2:3b-instruct-q8_0-ctx8k`
+### `llama3.2:3b-instruct-q8_0-ctx8k` — DROPPED (not installed; pruned 2026-10-28)
 
 `llama3.2:3b-instruct-q8_0-ctx8k` is a `-ctx8k`-tagged Ollama variant of `llama3.2:3b-instruct-q8_0` (registered `config/backends.yaml`, `general` group, `supports_tools: true`, live-audited via `_audit_tools_probe`), created via `ollama create` with a Modelfile-baked `PARAMETER num_ctx 8192`. It exists solely for `tests/benchmarks/bench_omlx_v3.py`'s shootout gate — Ollama's `/v1/chat/completions` endpoint silently ignores a runtime `options.num_ctx` override (verified live, Ollama 0.32.5), so a real context cap requires this baked-tag mechanism, matching every other `-ctxNk` model in the catalog. Not referenced by any `config/portal.yaml` workspace.
 
@@ -93,7 +93,7 @@ Discovered while building a fair oMLX-vs-Ollama multi-model bake-off: the bare `
 
 ---
 
-### `granite4.1:8b`
+### `granite4.1:8b` — DROPPED (not installed; pruned 2026-10-28)
 
 `granite4.1:8b` is registered in `config/backends.yaml` under the `general`, `security`, and `reasoning` groups, all with `supports_tools: true`. `config/portal.yaml` uses it widely: the `tools-specialist` workspace `model_hint` is the `granite4.1:8b-ctx8k` variant, the compliance workspace's `tool_model` is `granite4.1:8b-ctx8k`, and the image-generation lane names `granite4.1:8b` as its driver. The `bench-granite41-8b` description cites a dense 8B no-think model (~5.3GB Q4_K_M, Apache 2.0, ISO-certified, BFCL V3 68.3). It replaced `dolphin-llama3:8b` at this fallback position because it is tool-tagged while the Dolphin model is not; `dolphin-llama3:8b` remains registered in the `general` group for `model_hint` continuity.
 
@@ -103,7 +103,7 @@ The three group registrations in `config/backends.yaml` all assert `supports_too
 
 ---
 
-### `hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M`
+### `hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M` (~4.4GB, Andycurrent GGUF of the luvGPT base, Mistral-7B lineage) is a V13-A candidate intake, LINEAGE-DIVERSITY play for the Nano/Micro tier. `config/backends.yaml` declares it in the `general` group only, with `supports_tools: false` — the comment records the Step 1A preflight `/api/chat` probe that returned "does not support tools" because the model template lacks a `.Tools` declaration. `config/portal.yaml` selects it as the `model_hint` for `bench-mistral7b-uncensored`, whose description sets `tools: []` accordingly and keeps it on the bench lane. Mistral is not otherwise represented in the fleet, the same diversity-rationale class as `lfm2.5:8b`.
 
@@ -113,7 +113,7 @@ The doc body claimed the `supports_tools: false` result from a live probe; re-gr
 
 ---
 
-### `huihui_ai/qwen3-abliterated:14b-v2`
+### `huihui_ai/qwen3-abliterated:14b-v2` — DROPPED (not installed; pruned 2026-10-28)
 
 `huihui_ai/qwen3-abliterated:14b-v2` is the huihui-ai Qwen3-14B abliteration v2, a V13 tier-gap fill between the 9B and 27B/35B classes, pulled as v2 only because v1 was explicitly retired by the author for garbled-output bugs. `config/backends.yaml` registers it under the `coding` group with `supports_tools: true` (a clean tool_calls probe confirmed this) and under the `general` group with `supports_tools: false`. `config/portal.yaml` binds it as the `bench-qwen3-14b-abliterated` `model_hint`, noting the native `<think>` opening tag was missing from the probe — a soft warning that does not block intake. It shares the same trusted huihui_ai native-tag lineage as `E2b-qat`.
 
@@ -133,7 +133,7 @@ Both the `general` and `vision` group registrations in `config/backends.yaml` as
 
 ---
 
-### `gemma4:26b-a4b-it-qat`
+### `gemma4:26b-a4b-it-qat` — DROPPED (not installed; pruned 2026-10-28)
 
 `gemma4:26b-a4b-it-qat` is registered in `config/backends.yaml` under the `general` group with `supports_tools: true` and under the `vision` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-26b-qat` workspace `model_hint` and names it in the `auto-daily` description as the primary QAT model (26B-A4B MoE, ~15GB, 256K ctx, vision+text, QAT near-BF16), upgraded from the q4_K_M variant. It is bench-compared against the production q4_K_M primary; a separate promotion task swaps the primary if quality is confirmed better at similar TPS.
 
@@ -143,7 +143,7 @@ The `general` and `vision` group registrations in `config/backends.yaml` both as
 
 ---
 
-### `phi4:14b-q8_0`
+### `phi4:14b-q8_0` — DROPPED (not installed; pruned 2026-10-28)
 
 `phi4:14b-q8_0` is Microsoft Phi-4 14B at Q8 (~14GB, MIT, synthetic training data, high precision). `config/backends.yaml` registers it in `group: general` with `supports_tools: false`. The false flag is a runtime fact: Ollama 0.30.x rejects tool injection with a 400 on this model because its template has no tool-calling support. It therefore serves as a general-purpose text assistant rather than a tool-capable backend entry, and no `config/portal.yaml` workspace pins it as a `model_hint`.
 
@@ -153,7 +153,7 @@ Grounding replaces the doc's shorthand with the general-group registration and i
 
 ---
 
-### `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0`
+### `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0` is a ~25GB Unsloth GGUF of the Magistral-Small-2509 model with a `[THINK]` reasoning mode and Mistral lineage, pulled via the hf.co route because the `magistral:24b-small-2509-q8_0` tag is not in the Ollama registry. `config/backends.yaml` registers it under the `general` group with `supports_tools: false`. The template advertises an `[AVAILABLE_TOOLS]` format, but Ollama tool dispatch never fires — the model reasons about tools in prose instead of emitting tool_calls, which a direct API test confirmed. It has no `config/portal.yaml` workspace binding, so it exists purely as a general-pool entry.
 
@@ -163,7 +163,7 @@ The `general`-group registration with `supports_tools: false` is asserted direct
 
 ---
 
-### `hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf`
+### `hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf` is the mradermacher "heretic" uncensored Q4 of Gemma 4 26B A4B (~17GB). `config/backends.yaml` registers it in the `general` group only, with `supports_tools: false`. It is NOT present in `config/portal.yaml`: no workspace `model_hint` references it, consistent with the mapping's `in_portal: false`. The doc body's "auto-creative primary" label is historical — `auto-creative` has since been upgraded to the HauhauCS uncensored Qwen3.6-35B model, whose description records that upgrade away from gemma-4-heretic. The general-group registration keeps the heretic Q4 as a fallback-pool entry rather than a pinned creative lane.
 
@@ -173,7 +173,7 @@ The prior body claimed "auto-creative primary" from doc prose; re-grounding show
 
 ---
 
-### `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL`
+### `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL` is a ~22GB Unsloth Dynamic 2.0 sensitivity-aware quant of the Qwen3.6-35B-A3B MoE with 3B active parameters. `config/backends.yaml` registers it under both the `general` and `coding` groups with `supports_tools: true` in each. `config/portal.yaml` binds it as the `bench-qwen36-35b-a3b-ud` `model_hint`, staged as the agentic-lane candidate C1 for the fleet refresh and compared head-to-head against the stock Q4_K_M quant. The production-validated bench history is retained as institutional knowledge, but the current config role is the bench candidate with PROMOTE_POLICY=confirm.
 
@@ -183,7 +183,7 @@ The dual `general`/`coding` registration with `supports_tools: true` is asserted
 
 ---
 
-### `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL`
+### `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL` is a ~21GB Qwen3 MoE with 3B active parameters, a language world model trained on MCP, Terminal, SWE, Web, Android, OS, and Search environment simulation. `config/backends.yaml` registers it under both the `general` and `coding` groups, each with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-agentworld` `model_hint` and records its 2026-06-25 promotion to the `auto-agentic` secondary slot at 45 TPS with an audit-tools pass; the heavy `auto-agentic` variant description also names it as fallback one. The `-ctx64k` derived tag is what the `auto-agentic` lite variant actually routes to.
 
@@ -193,7 +193,7 @@ The dual `general`/`coding` registration with `supports_tools: true` in both gro
 
 ---
 
-### `portal5/gemma4-12b:q4_K_M-ctx8k`
+### `portal5/gemma4-12b:q4_K_M-ctx8k` — DROPPED (not installed; pruned 2026-10-28)
 
 `portal5/gemma4-12b:q4_K_M-ctx8k` is the 8192-token capped tag of the Gemma 4 12B Q4 model (~7.6GB, Google). `config/backends.yaml` registers it in `group: general` with `supports_tools: true`. The cap exists because the 12B family's very large native context inflates KV-cache reservations and collapses TPS; the num_ctx 8192 limit is baked into this dedicated id via the `apply-params` command. It is not pinned by any `config/portal.yaml` workspace `model_hint`; it serves as a general-pool option. See the QAT sibling `gemma4:12b-it-qat` for the same-size family entry.
 
@@ -203,7 +203,7 @@ Grounding anchors the tag to the general-group registration whose supports_tools
 
 ---
 
-### `phi4-mini`
+### `phi4-mini` — DROPPED (not installed; pruned 2026-10-28)
 
 `phi4-mini` is Microsoft Phi-4-Mini (Feb 2025, MIT, 3.8B, ~2.5GB Q4, 200K ctx), trained on synthetic data for multilingual, function-calling, reasoning, and math tasks, outperforming Llama 3.2 3B and Qwen 2.5 3B on reasoning and math. `config/backends.yaml` registers it in `group: general` with `supports_tools: true`. `config/portal.yaml` does not pin the base id directly; the auto-math workspace serves the reasoning sibling `phi4-mini-reasoning:latest-ctx24k` as its `model_hint`. The catalog warns against pulling the `:math` variant — the 2026-06-21 bench scored it 0.67 quality versus the base's 1.00 at equal TPS.
 
@@ -213,7 +213,7 @@ Grounding anchors the model to the general-group registration whose supports_too
 
 ---
 
-### `lfm2.5:8b`
+### `lfm2.5:8b` — DROPPED (not installed; pruned 2026-10-28)
 
 `lfm2.5:8b` is Liquid AI's LFM2.5-8B-A1B (~5GB Q4, Apache 2.0), the only non-transformer model in the fleet — a hybrid of gated short convolutions and GQA rather than a pure attention stack. `config/backends.yaml` registers it in `group: general` and `group: security`, both with `supports_tools: true`, which is the cross-listing that gives the security lane a tool-capable generalist. `config/portal.yaml` pins it as the `bench-lfm25-8b` `model_hint` and cites the family in the auto-music description. The 2026-06-20 fleet bench scored it 1.00/1.00 on both scenarios at depth 10 with 78.5 TPS and general quality 1.0.
 
@@ -223,7 +223,7 @@ This unit moves the LFM2.5 registration claim from doc prose to the two backends
 
 ---
 
-### `hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M`
+### `hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M` is Liquid AI's LFM2.5-1.2B-Instruct Q4_K_M (~780MB Q4, reasoning-capable, 32K ctx), the smallest LFM2.5 instruct variant, a candidate for the LLM router classifier role. `config/backends.yaml` registers it in the `general` group with `supports_tools: false` — a micro model intended for routing classification, not tool dispatch. `config/portal.yaml` selects it as the `model_hint` for `bench-lfm-micro-1p2b`, whose description frames it as a router + auto-extract / structured-output offload candidate, bench-only, with a bench_router.py Round 4 run and TPS probe called for. The `supports_tools: false` value aligns with that classification-only intent.
 
@@ -233,7 +233,7 @@ The doc body's "router classifier candidate" role is now grounded: `config/porta
 
 ---
 
-### `hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M`
+### `hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M` is Liquid AI's LFM2.5-350M Q4_K_M (~230MB Q4, 200K ctx), an ultra-small variant in the LLM router classifier candidate set. `config/backends.yaml` registers it in the `general` group with `supports_tools: false`. `config/portal.yaml` selects it as the `model_hint` for `bench-lfm-micro-350m`, whose description records the CPU decode throughput and frames it as a router and daily-summarizer candidate, bench-only, evaluated via bench_router.py Round 4. Its role in the fleet is classification, not chat or tool dispatch, which is exactly what the false tool flag encodes.
 
@@ -243,7 +243,7 @@ The doc-derived "router classifier candidate" claim is now pinned: `config/porta
 
 ---
 
-### `hf.co/LiquidAI/LFM2.5-230M-GGUF:Q4_K_M`
+### `hf.co/LiquidAI/LFM2.5-230M-GGUF:Q4_K_M` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/LiquidAI/LFM2.5-230M-GGUF:Q4_K_M` is Liquid AI's LFM2.5-230M Q4_K_M (~150MB Q4, Apache 2.0, hybrid LIV conv + GQA), the smallest practical LFM2.5, a pipeline-internal workspace classifier candidate probing the router quality floor at minimal latency. `config/backends.yaml` registers it in the `general` group with `supports_tools: false`. `config/portal.yaml` selects it as the `model_hint` for `bench-lfm-micro-230m`, whose description explicitly states it is NOT a primary chat model — bench target only, evaluated via bench_router.py Round 4 for routing accuracy and security-refusal behavior. The `supports_tools: false` flag matches its classification-only role.
 
@@ -267,7 +267,7 @@ Grounding ties the model to the general-group registration whose supports_tools 
 
 ---
 
-### `gemma4:e4b-it-q4_K_M`
+### `gemma4:e4b-it-q4_K_M` — DROPPED (not installed; pruned 2026-10-28)
 
 `gemma4:e4b-it-q4_K_M` is registered in `config/backends.yaml` under the `general` group with `supports_tools: true` and under the `vision` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-e4b` workspace `model_hint`, describing it as a Google MoE with 4B active (~9.6GB, 200K ctx, vision+thinking+tools) and a daily-driver candidate. The catalog's corrected notes record audio+image+video input and thinking mode, with per-layer embeddings giving representational depth beyond the 4B weight count; an audit-tools run on 2026-06-18 confirmed tool_call. It is retained as the production vision fallback while the QAT variant is benchmarked.
 
@@ -333,7 +333,7 @@ selectable IDE picker slot without disturbing `auto-coding`'s primary routing.
 
 ---
 
-### `devstral:24b`
+### `devstral:24b` — DROPPED (not installed; pruned 2026-10-28)
 
 `devstral:24b` is registered in `config/backends.yaml` under the `coding` backend group with `supports_tools: true` and appears in the `general` group's intake block with `supports_tools: false`. `config/portal.yaml` gives it the `bench-devstral` workspace `model_hint` and describes it as a 24B MoE (22B active, ~14GB) agentic software-engineering model: 46.8% SWE-bench Verified, the top open-source model at its May 2025 release, built for multi-step tool use, file editing, and repo navigation. This is the V1 entry; the prior `devstral-small-2` label was incorrect, and V2 carries its own id.
 
@@ -343,7 +343,7 @@ The `coding` group registration with `supports_tools: true` and the `general` gr
 
 ---
 
-### `devstral-small-2`
+### `devstral-small-2` — DROPPED (not installed; pruned 2026-10-28)
 
 `devstral-small-2` is registered in `config/backends.yaml` under the `coding` backend group with `supports_tools: true`. `config/portal.yaml` references it in the `bench-devstral-small-2` workspace description as Devstral V2 (Dec 2025, Apache 2.0, 24B, ~14GB Q4) with 256K ctx, vision added, and improved SWE-bench over `devstral:24b`; that workspace's `model_hint` is the `devstral-small-2:latest` tag. Tool support is asserted per Mistral's function-calling format, with `--audit-tools` verification recommended before promotion.
 
@@ -363,7 +363,7 @@ The `coding` and `reasoning` group registrations in `config/backends.yaml` asser
 
 ---
 
-### `phi4-reasoning:plus`
+### `phi4-reasoning:plus` — DROPPED (not installed; pruned 2026-10-28)
 
 `phi4-reasoning:plus` is Phi-4-reasoning-plus at Q4 (~8GB, Microsoft, RL-trained with strong STEM/math capability). `config/backends.yaml` registers it in `group: coding` (`ollama-coding`) with `supports_tools: true`, so the coding lane can call a reasoning-capable model. Its derived sibling `phi4-reasoning:plus-ctx32k` sits in the same backend; a backends.yaml comment warns that the ctx32k variant is deliberately excluded from `group: reasoning` because it crashes Ollama's llama-server on load. No `config/portal.yaml` workspace pins either id as a `model_hint`.
 
@@ -383,7 +383,7 @@ Grounding anchors the model to its two backends.yaml registrations with their pe
 
 ---
 
-### `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL`
+### `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL` is a ~22GB Unsloth Dynamic 2.0 sensitivity-aware quant of the Qwen3.6-35B-A3B MoE with 3B active parameters. `config/backends.yaml` registers it under both the `general` and `coding` groups with `supports_tools: true` in each. `config/portal.yaml` binds it as the `bench-qwen36-35b-a3b-ud` `model_hint`, staged as the agentic-lane candidate C1 for the fleet refresh and compared head-to-head against the stock Q4_K_M quant. The production-validated bench history is retained as institutional knowledge, but the current config role is the bench candidate with PROMOTE_POLICY=confirm.
 
@@ -415,7 +415,7 @@ Grounding anchors the tag to the general-group registration and to the auto-coun
 
 ---
 
-### `hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M`
+### `hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M` is the Agents-A1 Q4_K_M (Apache 2.0, Qwen3.5-MoE 35B-A3B, 262K ctx, ~21GB, purpose-built long-horizon agentic). `config/backends.yaml` registers it in both the `general` and `coding` groups with `supports_tools: true` in each. `config/portal.yaml` selects it as the `model_hint` for `bench-agents-a1`, whose description records the self-reported τ2-Bench 79.8, IFEval 94.8, GAIA 96.0 figures and frames it as a direct competitor to AgentWorld and Ornith. It is V11 candidate intake (2026-06-30), bench-only with PROMOTE_POLICY=confirm, and was rehosted from InternScience to Abiray — the workspace label still says InternScience while the model id says Abiray.
 
@@ -425,7 +425,7 @@ The doc-derived body listed candidate details without pinning them to code. Re-g
 
 ---
 
-### `hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M`
+### `hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M` (~21.2GB Q4_K_M, Jiunsong, Apache 2.0, qwen35moe arch) is the abliterated fork of the Qwen AgentWorld 35B-A3B base Portal already runs — the uncensored variant of the held AgentWorld. `config/backends.yaml` registers it in the `general` and `coding` groups, both with `supports_tools: true`. `config/portal.yaml` selects it as the `model_hint` for `bench-superqwen-agentworld-ablit`, whose description notes the card is a stub (see BF16 parent) so capability claims are unverified until benched. It is V11 candidate intake (2026-06-30), bench-only, PROMOTE_POLICY=confirm.
 
@@ -435,7 +435,7 @@ The doc body asserted the abliterated-fork identity and bench-only status; re-gr
 
 ---
 
-### `hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M`
+### `hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M` is a ~6.87GB Gemma-4-12B-it fine-tune for agentic, coding, and terminal work using the `gemma4_unified` architecture with a native Gemma-4 tool protocol and thinking mode. `config/backends.yaml` registers it under both the `general` and `coding` groups with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-12b-agentic` `model_hint`, noting its honest self-reported tau2-bench telecom score of 55 percent versus a 15 percent base under a local harness, and marking the fable5 label as marketing provenance. The intake is bench-only with PROMOTE_POLICY=confirm.
 
@@ -445,7 +445,7 @@ The dual `general`/`coding` registration with `supports_tools: true` is asserted
 
 ---
 
-### `qwen3.6:35b-a3b-q4_K_M`
+### `qwen3.6:35b-a3b-q4_K_M` — DROPPED (not installed; pruned 2026-10-28)
 
 `qwen3.6:35b-a3b-q4_K_M` is the Qwen3.6-35B-A3B MoE Q4 build (~22GB, Alibaba, April 2026, Apache 2.0, 262K ctx) with 3B active for fast decode at 35B-class quality. `config/backends.yaml` registers it in `group: general` with `supports_tools: false` and in `group: coding` with `supports_tools: true`. `config/portal.yaml` pins it as the `bench-qwen36-35b-a3b` workspace `model_hint`. Earlier auto-compliance promotion prose no longer matches portal.yaml, whose auto-compliance `model_hint` points at the Granite entry; the verifiable wiring today is the bench workspace.
 
@@ -455,7 +455,7 @@ Grounding anchors the model to its two backends.yaml registrations with their pe
 
 ---
 
-### `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL`
+### `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL` is a ~21GB Qwen3 MoE with 3B active parameters, a language world model trained on MCP, Terminal, SWE, Web, Android, OS, and Search environment simulation. `config/backends.yaml` registers it under both the `general` and `coding` groups, each with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-agentworld` `model_hint` and records its 2026-06-25 promotion to the `auto-agentic` secondary slot at 45 TPS with an audit-tools pass; the heavy `auto-agentic` variant description also names it as fallback one. The `-ctx64k` derived tag is what the `auto-agentic` lite variant actually routes to.
 
@@ -546,7 +546,7 @@ The old body asserted `supports_tools=true` without qualification; re-grounding 
 
 ---
 
-### `hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M`
+### `hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M` (~2.5GB, Microsoft fastcontext arxiv:2606.14066, mitkox GGUF) is the repository-exploration subagent model: it issues parallel READ/GLOB/GREP tool calls to locate relevant code and returns compact file+line citations, cutting main-agent exploration token burn on SWE-bench. `config/backends.yaml` registers it in the `general` group with `supports_tools: false` and in the `coding` group with `supports_tools: true` — the coding entry is what lets the explore_repository subagent use its three native tools. `config/portal.yaml` selects it as the `model_hint` for `bench-fastcontext`, whose description records the empty-content probe result and PROMOTE_POLICY=blocked pending a correct Modelfile. It is used by `pipeline_mcp.explore_repository()`, called by auto-coding before edits.
 
@@ -556,7 +556,7 @@ The doc body asserted the READ/GLOB/GREP tool set and the `pipeline_mcp.explore_
 
 ---
 
-### `hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M`
+### `hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M` is the bartowski Q4_K_M of Qwen3.6-27B (~16GB). `config/backends.yaml` registers it in the `general` group with `supports_tools: false` and in the `coding` group with `supports_tools: true` — the tool-capable value applies only in the coding pool, per the Qwen3.6 tool-call format. `config/portal.yaml` selects it as the `model_hint` for `bench-qwen36-27b-optiq`, the TASK_QUANT_TRUEUP_V1 head-to-head lane: it was originally catalogued under an OptiQ label, but the bartowski repo was renamed to `Qwen_Qwen3.6-27B-GGUF` with no separate OptiQ GGUF published, so this quant stands in for the OptiQ comparison against `bench-qwen36-27b`.
 
@@ -566,7 +566,7 @@ The doc body asserted `supports_tools=true` flatly; re-grounding shows the flag 
 
 ---
 
-### `hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf`
+### `hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf` is Qwable-3.6-35B MoE Q4_K_M (~21GB, Mia-AiLab, MIT). `config/backends.yaml` registers it in the `coding` group only, with `supports_tools: true`; it is not present in the security group. `config/portal.yaml` selects it as the `model_hint` for `bench-qwable-35b`, whose description records the full arc: promoted to auto-pentest primary 2026-06-20, then RETIRED 2026-06-21 (SECURITY_FLEET_REVIEW_2026-06) when the fleet bench scored 0.64 coverage — below the CANDIDATE_EVAL_V1 2/2 WIN threshold — and the model was removed from the fleet via `ollama rm`. The bench workspace's current `model_hint` is `huihui_ai/baronllm-abliterated:latest`. The doc's older "PROMOTED to auto-pentest primary" claim is contradicted by the current config.
 
@@ -586,7 +586,7 @@ The tool-capable status is asserted by the `coding` and `security` group registr
 
 ---
 
-### `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL`
+### `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL` is a ~14.2GB Unsloth quant of the GLM-4.7-Flash base using REAP expert pruning plus Unsloth Dynamic imatrix, giving the fleet non-Meta/Qwen lineage diversity. `config/backends.yaml` registers it under the `general` group with `supports_tools: false` and under the `coding` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-glm-reap` workspace `model_hint`, staged head-to-head against the standard `glm-4.7-flash:Q4_K_M` quant with a promotion policy of beating that baseline on quality and a TPS floor. No production workspace or persona consumes it: the `glm-coder` coding role is served by `auto-coding`'s `glm-coder` variant on `glm-4.7-flash:Q4_K_M-ctx64k-agentic`.
 
@@ -629,7 +629,7 @@ embalming a stale score.
 
 ---
 
-### `hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M` — PROMOTED 2026-06-30
+### `hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M` — DROPPED (not installed; pruned 2026-10-28) — PROMOTED 2026-06-30
 
 `hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M` is Ornith-1.0-35B Q4_K_M (~21GB, DeepReinforce/MIT, Qwen3.5-35B-A3B base, 262K ctx, MoE 3B active), sharing its self-improving RL training with the 9B sibling. It was a V10 candidate under `bench-ornith-35b`, substituting for the operator-requested AEON-7 NVFP4 (Blackwell-only). `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — sibling -ctx64k tag: 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` promoted it 2026-06-30 to the `ornith` variant of `auto-coding` (whose `model_hint` is the `-ctx64k` derived tag) on strong tool-chain 4/5 and SWE-handoff 4/5 probe markers; the variant sits alongside `auto-coding`'s heavy and lite variants without replacing either. The base id remains `bench-ornith-35b`'s `model_hint`.
 
@@ -639,7 +639,7 @@ The doc body claimed promotion to a standalone "auto-agentic-ornith workspace"; 
 
 ---
 
-### `hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4` — PROMOTED 2026-06-30
+### `hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4` — DROPPED (not installed; pruned 2026-10-28) — PROMOTED 2026-06-30
 
 `hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4` is North-Mini-Code-1.0-QAD NVFP4 W4A16 (~19.3GB, Cohere Labs, Apache 2.0, cohere2moe arch, 256K ctx, 64K out, 30B-A3B MoE 128 experts top-8), an agentic-coding RL model. NVFP4 is weight-only quantization (activations stay BF16, no FP4 hardware required), and QAD claims >99% accuracy recovery vs unquantized. `config/backends.yaml` lists the base tag in the `general` group with `supports_tools: false`; the `coding` group's comment records the cohere_command4 tool-support attribution. `config/portal.yaml` selects the `-ctx8k` derived tag as the `model_hint` for the `northmini` variant of `auto-coding`, while the base id is the `model_hint` for `bench-north-mini-code`. The promotion to the `northmini` coding variant does not replace `auto-coding` (Qwen3-Coder-30B stays primary).
 
@@ -659,7 +659,7 @@ The duplicate `general`/`security` registration with `supports_tools: true` is a
 
 ---
 
-### `huihui_ai/baronllm-abliterated`
+### `huihui_ai/baronllm-abliterated` — DROPPED (not installed; pruned 2026-10-28)
 
 `huihui_ai/baronllm-abliterated` is the no-restrictions creative BaronLLM fork, a Llama-3.1-8B-lineage abliteration trained on 53K cybersec examples across 200+ domains. `config/backends.yaml` registers it under both the `security` and `creative` groups with `supports_tools: true`. `config/portal.yaml` uses it as the lineage behind the `auto-security` uncensored variant (which routes the `:latest-ctx8k` tag) and documents in the `bench-baronllm-q6k` and `bench-qwable-35b` descriptions that it was dropped from auto-security in 2026-07-16 for tool-call unreliability at valid_rate 0.25 — a finding scoped to MCP tool-calling, not the no-tools reasoning path. Tool-calling was originally confirmed via the corrected template.
 
@@ -669,7 +669,7 @@ The `security` and `creative` dual registration with `supports_tools: true` is a
 
 ---
 
-### `sylink/sylink:8b`
+### `sylink/sylink:8b` — DROPPED (not installed; pruned 2026-10-28)
 
 `sylink/sylink:8b` is an 8B security-domain model registered in `config/backends.yaml` under `group: general` (`ollama-general`) and `group: security` (`ollama-security`), both `supports_tools: false` — it does not emit native tool calls. `config/portal.yaml` documents its arc in two eval workspaces: `bench-sylink-8b` frames it as a GATE-D ablation candidate, and `bench-sylink` records the 2026-06-16 red-team bench (avg 0.311, correctly retired from offensive lanes) and the 2026-06-21 promotion to auto-blueteam primary on a 1.00/1.00 chain at depth 12, the deepest 8B in the fleet. The current auto-security `blueteam` workspace description now names it the previous model, switched to `granite4.1:8b` for autonomous tool-calling investigation capability.
 
@@ -679,7 +679,7 @@ The promotion recorded in `bench-sylink` is easy to misread as the current state
 
 ---
 
-### `supergemma4-26b-uncensored:Q4_K_M`
+### `supergemma4-26b-uncensored:Q4_K_M` — DROPPED (not installed; pruned 2026-10-28)
 
 `supergemma4-26b-uncensored:Q4_K_M` is the abliterated SuperGemma4 26B A4B MoE. `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — sibling -ctx64k tag: 3/3 single-call, 3/3 multi-turn exec-shaped runs with no loop; the 2026-06-27 UAT loop that set it false was measured under the old /v1 delivery at 1.0/1.0); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` pins the derived `-ctx64k` tag on the auto-security redteam-deep and purpleteam-exec variants; `bench-supergemma4-sec` (whose `model_hint` is the base tag) records a completed 2026-06-17 bench at avg 0.783 with zero disclaimers and its promotion as auto-redteam-deep primary.
 
@@ -699,7 +699,7 @@ The doc body said `supports_tools` was confirmed true by audit-tools; re-groundi
 
 ---
 
-### `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M`
+### `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M` — DROPPED (not installed; pruned 2026-10-28)
 
 `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — sibling -ctx8k seat on oMLX: 4/4 at the seat's sampling); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` binds the base id to the `bench-vulnllm-r-7b` and `bench-vulnllm-r7b` bench workspaces and the `bench-exec-recon` exec-chain role, while the `auto-security` workspace routes the `q4_K_M-ctx8k` variant and its description records the 2026-07-16 reselection note: the older fast-chain claim predates the reliability-scoring fix, the live re-bench found valid_rate 0.89 with redundant_call_rate 0.50, and `glm-4.7-flash:Q4_K_M` is staged as the reselection primary pending an analytical-workload test.
 
@@ -719,7 +719,7 @@ The `security`-group `supports_tools: true` versus `general`-group `false` split
 
 ---
 
-### `hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf` — REMOVED from security group
+### `hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf` — DROPPED (not installed; pruned 2026-10-28) — REMOVED from security group
 
 This unit records the removal of Qwable-3.6-35B MoE from the security group and its substitution by `qwen3-coder:30b-a3b-q4_K_M`, the model_id this entry is anchored to. `config/backends.yaml` confirms the substitution target in the `coding` group with `supports_tools: true` and in the `general` group with `supports_tools: false`; Qwable itself (`hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf`) is present only in `coding` (true) and absent from `security` — mechanically proving the removal. `config/portal.yaml`'s `bench-qwable-35b` records the retirement (0.64 security-chain coverage below the 2/2 WIN threshold) and the fleet `ollama rm`. `qwen3-coder:30b-a3b-q4_K_M` is additionally the `model_hint` for `auto-coding`, `auto-security`, `auto-bigfix`, and `auto-cad`.
 
@@ -729,7 +729,7 @@ The doc claimed the config had drifted from the documented removal decision; re-
 
 ---
 
-### `lfm2.5:8b`
+### `lfm2.5:8b` — DROPPED (not installed; pruned 2026-10-28)
 
 `lfm2.5:8b` is Liquid AI's LFM2.5-8B-A1B (~5GB Q4, Apache 2.0), the only non-transformer model in the fleet — a hybrid of gated short convolutions and GQA rather than a pure attention stack. `config/backends.yaml` registers it in `group: general` and `group: security`, both with `supports_tools: true`, which is the cross-listing that gives the security lane a tool-capable generalist. `config/portal.yaml` pins it as the `bench-lfm25-8b` `model_hint` and cites the family in the auto-music description. The 2026-06-20 fleet bench scored it 1.00/1.00 on both scenarios at depth 10 with 78.5 TPS and general quality 1.0.
 
@@ -739,7 +739,7 @@ This unit moves the LFM2.5 registration claim from doc prose to the two backends
 
 ---
 
-### `granite4.1:8b`
+### `granite4.1:8b` — DROPPED (not installed; pruned 2026-10-28)
 
 `granite4.1:8b` is registered in `config/backends.yaml` under the `general`, `security`, and `reasoning` groups, all with `supports_tools: true`. `config/portal.yaml` uses it widely: the `tools-specialist` workspace `model_hint` is the `granite4.1:8b-ctx8k` variant, the compliance workspace's `tool_model` is `granite4.1:8b-ctx8k`, and the image-generation lane names `granite4.1:8b` as its driver. The `bench-granite41-8b` description cites a dense 8B no-think model (~5.3GB Q4_K_M, Apache 2.0, ISO-certified, BFCL V3 68.3). It replaced `dolphin-llama3:8b` at this fallback position because it is tool-tagged while the Dolphin model is not; `dolphin-llama3:8b` remains registered in the `general` group for `model_hint` continuity.
 
@@ -749,7 +749,7 @@ The three group registrations in `config/backends.yaml` all assert `supports_too
 
 ---
 
-### `devstral-small-2:latest`
+### `devstral-small-2:latest` — DROPPED (not installed; pruned 2026-10-28)
 
 `devstral-small-2:latest` is registered in `config/backends.yaml` under the `general` group with `supports_tools: false` and under the `security` group with `supports_tools: true`, cross-listing it for deep-chain security workspaces. `config/portal.yaml` gives it the `bench-devstral-small-2` workspace `model_hint`. The catalog records ~15GB and a 15.5 TPS pipeline figure, below the interactive floor, so the model is intended for deep async use; a 2026-06-21 run scored 1.00/1.00 on both scenarios at depth 11.0. The coding group carries the bare `devstral-small-2` id and the `devstral-small-2:latest-ctx8k` variant.
 
@@ -759,7 +759,7 @@ The general-versus-security split in `config/backends.yaml` is the config fact b
 
 ---
 
-### `hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K`
+### `hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K` (~22.1GB Q6_K, BugTraceAI, Apache 2.0, Qwen3.6 dense 27B, SFT on 2,541 real bug-bounty/CVE writeups) is a TOOLING model — it emits runnable artifacts (Nuclei templates, CVE PoCs, JWT crackers, C exploits) rather than prose. `config/backends.yaml` registers it in both the `general` and `security` groups with `supports_tools: false`; the security entry's comment explains why — per the supergemma4 precedent, offensive models given tool definitions enter reasoning loops, so it is scored on artifact content, not dispatch. `config/portal.yaml` selects it as the `model_hint` for `bench-bugtrace-ultra-27b`, whose description records the self-reported 5/5 tooling bench and 0% refusal. It is V11 candidate intake (2026-06-30), bench-only, PROMOTE_POLICY=confirm.
 
@@ -769,7 +769,7 @@ The doc body asserted `supports_tools=false` "per supergemma4 reasoning-loop pre
 
 ---
 
-### `hf.co/Nguuma/security-slm-unsloth-1.5b:latest`
+### `hf.co/Nguuma/security-slm-unsloth-1.5b:latest` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/Nguuma/security-slm-unsloth-1.5b:latest` is a ~1.1GB DeepSeek-R1-distill fine-tune on security corpora, registered in `config/backends.yaml` under both the `general` and `security` groups with `supports_tools: false` in each. The security-group entry's comment explains the flag: a direct Ollama audit found the Modelfile TEMPLATE is a bare DeepSeek-R1-style chat template with no `{{ .Tools }}` handling, so the model hallucinates freeform as-if tool usage in prose instead of emitting a real call. `config/portal.yaml` binds it only to the `bench-security-slm-1p5b` bench workspace with `tools` deliberately empty, scoring prose and chain-of-thought alone.
 
@@ -779,7 +779,7 @@ The `supports_tools: false` verdict is asserted twice in `config/backends.yaml` 
 
 ---
 
-### `cybersecqwen-4b-toolfix:latest`
+### `cybersecqwen-4b-toolfix:latest` — DROPPED (not installed; pruned 2026-10-28)
 
 `cybersecqwen-4b-toolfix:latest` is registered in `config/backends.yaml` under the `security` backend group with `supports_tools: true` (the audit comment documents the `<tool_call>` caveats) and also appears in the `general` group's intake block with `supports_tools: false`. `config/portal.yaml` binds it as the `bench-cybersecqwen-4b-toolfix` workspace `model_hint`. It is a ~2.5GB retemplated derivative of `hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M` that adds Qwen-style `<tool_call>` tag support; the base tag hard-errors "does not support tools" in Ollama. Verified tool behavior: well-formed `<tool_call>` blocks only when a system message is present (the Modelfile gates the tools block on `{{- if .System }}`) and only as plain content, which blue.py parses via `_extract_tool_calls_from_content`. It is a multi-seat V2 blue-seat bench candidate, PROMOTE_POLICY=confirm.
 
@@ -861,7 +861,7 @@ This unit is grounded in both config files because the gated source id and the s
 
 ---
 
-### `baronllm:q6_k`
+### `baronllm:q6_k` — DROPPED (not installed; pruned 2026-10-28)
 
 `baronllm:q6_k` is the GATE-D Expert-role candidate (added 2026-07-21, user-requested) — the non-abliterated original BaronLLM (Llama-3.1-8B, 53K cybersec examples, 200+ domains), pulled from the gated `AlicanKiraz0` repo via the `huggingface_hub.hf_hub_download` workaround documented in `config/portal.yaml`'s model pull registry. It is a distinct checkpoint from `huihui_ai/baronllm-abliterated:latest` (different weights, not abliterated); that fork's tool-call reliability finding (`valid_rate 0.25`, dropped from `auto-security`) does not automatically carry over because the Hunter/Expert path runs with tools disabled and reasons over supplied telemetry, which is this model's job rather than MCP tool-calling. In `config/backends.yaml` it is registered under the `security` backend group with `supports_tools: false`, and `config/portal.yaml` gives it the `bench-baronllm-q6k` workspace `model_hint`. Sampling uses temperature 0.6, top_p 0.9, repeat_penalty 1.1, and the chat template reuses `huihui_ai/baronllm-abliterated`'s known-good Llama-3.1 template via `ollama show --modelfile`.
 
@@ -891,7 +891,7 @@ The doc narrative (dropped, blocker fixed 2026-07-04, not adopted) is preserved,
 
 ---
 
-### `meta-secalign-8b-q4_k_m`
+### `meta-secalign-8b-q4_k_m` — DROPPED (not installed; pruned 2026-10-28)
 
 `meta-secalign-8b-q4_k_m` is Meta-SecAlign-8B (arxiv 2507.02735, Llama-3.1-8B base, Meta/Facebook, Llama 3.1 license, ~4.7GB Q4_K_M), a V13-D blue-defender intake. `config/backends.yaml` registers it in `group: security` with `supports_tools: true`; its inline comment documents the self-quantization pipeline and the clean tool_calls preflight probe. The bench workspace in `config/portal.yaml` pins the `:latest` sibling as `model_hint`, but this unsuffixed id is the security-group entry. Self-quantization was an operator-directed override: no GGUF existed, so the gated LoRA adapter was merged onto the gated base and quantized locally. The adversarial probe COMPLIED, not resisted — the backends comment notes this reflects Ollama's lack of a non-standard `"role": "input"` delimiter, a harness gap, not a refutation. `bench-meta-secalign-8b` target; `PROMOTE_POLICY=confirm`.
 
@@ -901,7 +901,7 @@ Grounding anchors the model to the security-group registration whose comment car
 
 ---
 
-### `meta-secalign-8b-q4_k_m:latest`
+### `meta-secalign-8b-q4_k_m:latest` — DROPPED (not installed; pruned 2026-10-28)
 
 `meta-secalign-8b-q4_k_m:latest` is the explicit-`:latest`-tagged sibling of `meta-secalign-8b-q4_k_m`, added during the 2026-07-18 GATE-D ablation hint-validation fix when the untagged hint never resolved against `ollama list`'s tagged id. `config/backends.yaml` registers it in `group: general` with `supports_tools: false`; the security-group entry carries the untagged id instead. `config/portal.yaml` pins this exact `:latest` spelling as the `bench-meta-secalign-8b` workspace `model_hint`. Same weights as the base id; only the tag string differs, and the tag string is what hint validation and the bench workspace require.
 
@@ -941,13 +941,13 @@ The `coding` and `reasoning` group registrations in `config/backends.yaml` asser
 
 ---
 
-### `granite4.1:8b`
+### `granite4.1:8b` — DROPPED (not installed; pruned 2026-10-28)
 
 <!-- /WIKI:GENERATED -->
 
 ---
 
-### `huihui_ai/tongyi-deepresearch-abliterated`
+### `huihui_ai/tongyi-deepresearch-abliterated` — DROPPED (not installed; pruned 2026-10-28)
 
 `huihui_ai/tongyi-deepresearch-abliterated` is an abliterated deepresearch model in the Qwen3.5-abliterated lineage, registered in `config/backends.yaml` under the `reasoning` group with `supports_tools: true`. `config/portal.yaml` routes the `auto-research` workspace through the `:latest-ctx64k` derived tag as its `model_hint`, so the base id anchors the reasoning pool while the derived tag carries the web-research traffic. The tool-capable verdict was confirmed by an audit-tools run that emitted a real tool_call. The base id itself has no separate workspace binding; it is the reasoning-group registration that matters.
 
@@ -957,7 +957,7 @@ The `reasoning`-group placement with `supports_tools: true` is asserted directly
 
 ---
 
-### `supergemma4-26b-uncensored:Q4_K_M`
+### `supergemma4-26b-uncensored:Q4_K_M` — DROPPED (not installed; pruned 2026-10-28)
 
 `supergemma4-26b-uncensored:Q4_K_M` is the abliterated SuperGemma4 26B A4B MoE. `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — sibling -ctx64k tag: 3/3 single-call, 3/3 multi-turn exec-shaped runs with no loop; the 2026-06-27 UAT loop that set it false was measured under the old /v1 delivery at 1.0/1.0); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` pins the derived `-ctx64k` tag on the auto-security redteam-deep and purpleteam-exec variants; `bench-supergemma4-sec` (whose `model_hint` is the base tag) records a completed 2026-06-17 bench at avg 0.783 with zero disclaimers and its promotion as auto-redteam-deep primary.
 
@@ -977,7 +977,7 @@ The `reasoning` group registration in `config/backends.yaml` asserts `supports_t
 
 ---
 
-### `qwen3.6:27b-q8_0`
+### `qwen3.6:27b-q8_0` — DROPPED (not installed; pruned 2026-10-28)
 
 `qwen3.6:27b-q8_0` is the Q8 build of Qwen3.6-27B (~29GB, Alibaba, dense 27B, Apache 2.0), the high-precision quality-lane candidate. `config/backends.yaml` registers it in `group: reasoning` with `supports_tools: true`. `config/portal.yaml`'s `bench-qwen36-27b` workspace names it in its description as the quality candidate and Phase-5 MTP A/B base, though that bench's `model_hint` actually pins the Q4 tag `qwen3.6:27b-q4_K_M`; the Q8 description survives as the bench's stated subject. `bench-qwen36-27b` was re-pointed from the abliterated variant to this stock q8 build.
 
@@ -987,7 +987,7 @@ Grounding anchors the model to the reasoning-group registration with supports_to
 
 ---
 
-### `hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf`
+### `hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf` is Qwopus3.6-27B-v2 MTP Q5 (~19GB, Jackrong, Apache 2.0, June 2026, 27B dense, self-speculative MTP decoding). `config/backends.yaml` registers it in the `general` group with `supports_tools: false` and in the `reasoning` group with `supports_tools: true` — it is tool-capable in the reasoning pool where it was intended to serve. `config/portal.yaml` selects it as the `model_hint` for `bench-qwopus-coder-mtp-v2`, whose description records the v1 retirement (quality 0.67, 6.5 TPS) and the v2 probe result 10/23 with widespread 500 errors, PROMOTE_POLICY=blocked. The original `auto-reasoning` primary pull failed (hf.co repo not llama.cpp-compatible as of 2026-06-09), so auto-reasoning now falls back to reasoning-group models.
 
@@ -997,7 +997,7 @@ The doc body's "auto-reasoning primary" wording is corrected: `config/portal.yam
 
 ---
 
-### `qwen3.6:27b-mtp-q4_K_M`
+### `qwen3.6:27b-mtp-q4_K_M` — DROPPED (not installed; pruned 2026-10-28)
 
 `qwen3.6:27b-mtp-q4_K_M` is the Q4 embedded-MTP draft model (~19GB, Alibaba) that feeds `portal5/qwen3.6-27b-mtp:q8_0-drafted`. `config/backends.yaml` registers it in `group: reasoning` with `supports_tools: true`. `config/portal.yaml`'s `bench-qwen36-27b-mtp` description names this draft tag as the speculative-decoding companion to the q8_0 base. It must be pulled before the draft-application step runs; the draft heads come with the model, and `apply-mtp-drafts` combines it with the base tag.
 
@@ -1007,7 +1007,7 @@ Grounding anchors the draft model to its reasoning-group registration and to the
 
 ---
 
-### `portal5/qwen3.6-27b-mtp:q8_0-drafted`
+### `portal5/qwen3.6-27b-mtp:q8_0-drafted` — DROPPED (not installed; pruned 2026-10-28)
 
 `portal5/qwen3.6-27b-mtp:q8_0-drafted` is the speculative-decoding tag built by `apply-mtp-drafts` (TASK_MODEL_FLEET_REFRESH_V2 Phase 5): a q8_0 base with the `mtp-q4_K_M` draft attached via a DRAFT directive. `config/backends.yaml` registers it in `group: general` with `supports_tools: false` and in `group: reasoning` with `supports_tools: true`. `config/portal.yaml` pins it as the `bench-qwen36-27b-mtp` workspace `model_hint` for the Phase-5 MTP A/B against the plain q8_0 bench. The tag is not pre-pulled; the draft-application step creates it before use.
 
@@ -1017,7 +1017,7 @@ Grounding anchors the tag to the two backends.yaml registrations that carry it �
 
 ---
 
-### `phi4-mini-reasoning`
+### `phi4-mini-reasoning` — DROPPED (not installed; pruned 2026-10-28)
 
 `phi4-mini-reasoning` is Microsoft Phi-4-Mini-Reasoning (2025, MIT, 3.8B, ~2.5GB Q4, 200K ctx), RL-trained for math, formal proofs, and symbolic computation, beating 7B models on AIME, MATH-500, and GPQA at its size. `config/backends.yaml` registers it in `group: reasoning` with `supports_tools: false`, consistent with a math specialist that does not route tools. It seated auto-math through the derived `phi4-mini-reasoning:latest-ctx24k` tag until 2026-10-18, when WFE `wfe_math_20261018d` found all three challengers BETTER and the seat moved to `glm-4.7-flash:Q4_K_M-ctx64k` (docs/WFE_DECISION_AUTO_MATH_20261018.md). The catalog warns against pulling the `:math` variant — the 2026-06-21 bench scored it 0.50 quality versus the base's 1.00 at equal TPS.
 
@@ -1027,7 +1027,7 @@ Grounding anchors the model to the reasoning-group registration whose supports_t
 
 ---
 
-### `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL`
+### `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL` is a ~5GB chain-of-thought distill of DeepSeek R1-0528 into an 8B Qwen3 base, registered in `config/backends.yaml` under the `reasoning` group with `supports_tools: false`. `config/portal.yaml` names it in the `auto-reasoning` workspace description as the model that replaced the Qwopus primary after pull failures, citing AIME 2024 parity with the much larger Qwen3-235B at a fraction of the size, while `deepseek-r1:32b` remains the reasoning-group fallback for heavy tasks. The base id carries no standalone bench workspace; the routed `model_hint` is the `-ctx64k` derived tag. The tool flag stays false because the chain-of-thought format is not tool-calling oriented.
 
@@ -1091,7 +1091,7 @@ Both the `general` and `vision` group registrations in `config/backends.yaml` as
 
 ---
 
-### `gemma4:e4b-it-q4_K_M`
+### `gemma4:e4b-it-q4_K_M` — DROPPED (not installed; pruned 2026-10-28)
 
 `gemma4:e4b-it-q4_K_M` is registered in `config/backends.yaml` under the `general` group with `supports_tools: true` and under the `vision` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-e4b` workspace `model_hint`, describing it as a Google MoE with 4B active (~9.6GB, 200K ctx, vision+thinking+tools) and a daily-driver candidate. The catalog's corrected notes record audio+image+video input and thinking mode, with per-layer embeddings giving representational depth beyond the 4B weight count; an audit-tools run on 2026-06-18 confirmed tool_call. It is retained as the production vision fallback while the QAT variant is benchmarked.
 
@@ -1101,7 +1101,7 @@ Both the `general` and `vision` group registrations in `config/backends.yaml` as
 
 ---
 
-### `gemma4:e2b-it-qat`
+### `gemma4:e2b-it-qat` — DROPPED (not installed; pruned 2026-10-28)
 
 `gemma4:e2b-it-qat` is registered in `config/backends.yaml` under the `general` group with `supports_tools: false` and under the `vision` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-e2b` workspace `model_hint`, describing an effective 2B QAT (~3GB, 200K ctx, audio+image+video+text, thinking) that is the fastest TPS candidate in the fleet, with per-layer embeddings giving ~5.1B representational depth from 2.3B active parameters.
 
@@ -1121,7 +1121,7 @@ The `vision` group registration in `config/backends.yaml` asserts `supports_tool
 
 ---
 
-### `gemma4:12b-it-qat`
+### `gemma4:12b-it-qat` — DROPPED (not installed; pruned 2026-10-28)
 
 `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — sibling -ctx8k tag: 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` binds it as the `bench-gemma4-12b` workspace `model_hint` and names it in the `auto-audio` description as the first encoder-free audio model in the fleet (12B Unified QAT, ~7GB, 256K ctx, native function calling); the `auto-audio` workspace itself serves the derived `gemma4:12b-it-qat-ctx8k` tag. Released June 3, 2026; promoted to the `auto-audio` lane via its derived tag.
 
@@ -1131,7 +1131,7 @@ The vision-group registration asserts `supports_tools: true` while the general g
 
 ---
 
-### `gemma4:26b-a4b-it-qat`
+### `gemma4:26b-a4b-it-qat` — DROPPED (not installed; pruned 2026-10-28)
 
 `gemma4:26b-a4b-it-qat` is registered in `config/backends.yaml` under the `general` group with `supports_tools: true` and under the `vision` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-26b-qat` workspace `model_hint` and names it in the `auto-daily` description as the primary QAT model (26B-A4B MoE, ~15GB, 256K ctx, vision+text, QAT near-BF16), upgraded from the q4_K_M variant. It is bench-compared against the production q4_K_M primary; a separate promotion task swaps the primary if quality is confirmed better at similar TPS.
 
@@ -1141,7 +1141,7 @@ The `general` and `vision` group registrations in `config/backends.yaml` both as
 
 ---
 
-### `gemma4:31b-it-qat`
+### `gemma4:31b-it-qat` — DROPPED (not installed; pruned 2026-10-28)
 
 `gemma4:31b-it-qat` is registered in `config/backends.yaml` under the `vision` group with `supports_tools: true` and under the `general` group with `supports_tools: false` (bench-only intake). `config/portal.yaml` binds it as the `bench-gemma4-31b-qat` workspace `model_hint`, describing a 31B Dense QAT (~18GB, 256K ctx, vision+text, QAT near-BF16). A 2026-06-21 bench scored quality 1.00 versus the q4_K_M variant's 0.00, and the q4_K_M entry was removed from the `general` group.
 
@@ -1171,7 +1171,7 @@ The derived id exists so the variant's declared `context_limit` is enforced by t
 
 ---
 
-### `hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M`
+### `hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M` is registered in `config/backends.yaml` twice, under the `general` group and under the `vision` group, and both entries set `supports_tools: false`. The vision entry's comment records that it is a thinking model, not an agentic one, and the first uncensored vision option in the fleet. `config/portal.yaml` binds it as the `bench-qwen35-9b-heretic-vision` workspace `model_hint`, whose description preserves the ~5.6GB Q4_K_M footprint, the trohrbaugh heretic-v2 abliteration (KLD 0.079, 6/100 refusals), and the 262K-to-1M context via YaRN. The Claude-4.6 distill label is treated as unverifiable-provenance marketing; both config files mark the intake as a V11 bench-only candidate with PROMOTE_POLICY=confirm.
 
@@ -1181,7 +1181,7 @@ The dual registration under `general` and `vision` with `supports_tools: false` 
 
 ---
 
-### `dolphin-llama3:8b`
+### `dolphin-llama3:8b` — DROPPED (not installed; pruned 2026-10-28)
 
 `dolphin-llama3:8b` is registered in `config/backends.yaml` under the `general` group and the `creative` group, both with `supports_tools: false`. It is an uncensored, creative-tuned model dispatched only through the Path 2 (OWUI MCP) route; the pipeline never attaches tools to `auto-creative` requests, consistent with the tool-negative flags on both registrations.
 
@@ -1201,7 +1201,7 @@ The prior body was three sentences of doc-derived prose. Re-grounding binds it t
 
 ---
 
-### `huihui_ai/baronllm-abliterated`
+### `huihui_ai/baronllm-abliterated` — DROPPED (not installed; pruned 2026-10-28)
 
 `huihui_ai/baronllm-abliterated` is the no-restrictions creative BaronLLM fork, a Llama-3.1-8B-lineage abliteration trained on 53K cybersec examples across 200+ domains. `config/backends.yaml` registers it under both the `security` and `creative` groups with `supports_tools: true`. `config/portal.yaml` uses it as the lineage behind the `auto-security` uncensored variant (which routes the `:latest-ctx8k` tag) and documents in the `bench-baronllm-q6k` and `bench-qwable-35b` descriptions that it was dropped from auto-security in 2026-07-16 for tool-call unreliability at valid_rate 0.25 — a finding scoped to MCP tool-calling, not the no-tools reasoning path. Tool-calling was originally confirmed via the corrected template.
 
@@ -1211,7 +1211,7 @@ The `security` and `creative` dual registration with `supports_tools: true` is a
 
 ---
 
-### `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4`
+### `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4` — DROPPED (not installed; pruned 2026-10-28)
 
 `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — sibling -ctx24k/-ctx8k tags on oMLX and Ollama); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` binds it as the `bench-qwen36-hauhaucs` workspace `model_hint` and as the uncensored `pentest` variant `model_hint` of `auto-security`, describing a MoE with 3B active at ~22GB and 0/465 refusals. The HauhauCS abliteration method has the lowest KL-divergence versus the base, vision patched, and robust tool-calling at low quant; an audit-tools run on 2026-06-20 reported a tool_call win that corrected an earlier no-tool result.
 
@@ -1231,7 +1231,7 @@ The dual `general`/`creative` registration with `supports_tools: true` is assert
 
 ---
 
-### `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M`
+### `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M` is the gaston-parravicini imatrix Q4_K_M (~5GB) of the abliterated LiquidAI/LFM2.5-8B-A1B base, a head-to-head candidate against production `lfm2.5:8b` for creative/music/agentic lanes. `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — sibling -ctx8k tag: 3/3 single-call plus a clean tool-result turn; the 2026-06-18 empty-content result did not reproduce); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` selects it as the `model_hint` for `bench-lfm25-8b-uncensored`, while the `-ctx8k` derived tag is the `model_hint` for `auto-extract-uncensored`, the extraction/summarization lane that is explicit-select rather than a default.
 
@@ -1319,7 +1319,7 @@ The sole config grounding is the `vision` group entry in `config/backends.yaml`;
 
 ---
 
-### `gemma4:e2b-it-qat-ctx8k`
+### `gemma4:e2b-it-qat-ctx8k` — DROPPED (not installed; pruned 2026-10-28)
 
 `gemma4:e2b-it-qat-ctx8k` is the bounded-context sibling of `gemma4:e2b-it-qat`, carrying an 8192-token ceiling baked through `portal models apply-params`. `config/backends.yaml` places it in the `vision` group with `supports_tools: true`. The reason for a distinct tag is that the `/v1/chat/completions` API discards request-time context limits, so per-workspace bounds must be compiled into the model name itself. `config/portal.yaml` does not reference this id; only the backend registry holds it.
 
@@ -1537,7 +1537,7 @@ The grounding here is routing: `config/portal.yaml` proves the `-ctx64k` tag, no
 
 ---
 
-### `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k`
+### `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k` is the 64K-context derived tag that `config/portal.yaml` does not route as a workspace `model_hint`, and that no persona or variant selects: the `glm-coder` coding role is served by `auto-coding`'s `glm-coder` variant, whose `model_hint` is `glm-4.7-flash:Q4_K_M-ctx64k-agentic`. `config/backends.yaml` registers it under the `coding` group with `supports_tools: true`, the same group-level flag as its base tag. The `PARAMETER num_ctx 65536` is baked into the derived tag because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, making a context cap a per-tag property. See the base tag's entry for the full REAP detail.
 
@@ -1557,7 +1557,7 @@ The `general`-group placement and `supports_tools: false` are determined by `con
 
 ---
 
-### `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL-ctx64k`
+### `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL-ctx64k` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL-ctx64k` is the 64K-context derived tag of the AgentWorld world model, and it is the id `config/portal.yaml` actually serves: the `auto-agentic` lite variant carries it as its `model_hint` with a 65536 context limit for tool-calling, MCP, SWE, and env-simulation work where the full 80B model is unnecessary. `config/backends.yaml` registers it under both `general` and `coding` with `supports_tools: true`, matching the base tag. The `PARAMETER num_ctx 65536` is baked in because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`. Full model detail lives in the base tag's entry.
 
@@ -1636,7 +1636,7 @@ The routing fact is decisive: `config/portal.yaml` resolves the `auto-security` 
 
 ---
 
-### `huihui_ai/gemma-4-abliterated:E2b-qat-ctx8k`
+### `huihui_ai/gemma-4-abliterated:E2b-qat-ctx8k` — DROPPED (not installed; pruned 2026-10-28)
 
 `huihui_ai/gemma-4-abliterated:E2b-qat-ctx8k` is the 8K-context derived tag of the Gemma4-E2B QAT abliterated security model, registered in `config/backends.yaml` under the `security` group with `supports_tools: true`. The `PARAMETER num_ctx 8192` is baked into the tag because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, making a per-workspace context cap a distinct model id. It has no standalone `config/portal.yaml` workspace binding of its own; its base `E2b-qat` tag carries the `bench-e2b-pentest` and `bench-exec-reasoning` roles. Full model detail lives in the base tag's entry; this tag exists to satisfy registry parity and to provide a capped variant.
 
@@ -1716,7 +1716,7 @@ The ctx24k variant is the exact tag the auto-math lane serves, so the grounding 
 
 ---
 
-### `phi4-reasoning:plus-ctx32k`
+### `phi4-reasoning:plus-ctx32k` — DROPPED (not installed; pruned 2026-10-28)
 
 `phi4-reasoning:plus-ctx32k` is the derived tag of `phi4-reasoning:plus` with `PARAMETER num_ctx 32768` baked in via the `apply-params` command. `config/backends.yaml` registers it in `group: coding` with `supports_tools: true`, but a comment there states it is intentionally NOT added to `group: reasoning` — confirmed to crash Ollama's llama-server on load, so it must stay unreachable from any production workspace until the crash resolves upstream. Its registration exists for catalog parity only. No `config/portal.yaml` workspace references the tag.
 
@@ -1770,7 +1770,7 @@ The ctx16k variant is the tag the auto-bigfix and auto-cad lanes actually serve,
 
 `qwen3-coder:30b-a3b-q4_K_M-ctx32k` is the derived tag of `qwen3-coder:30b-a3b-q4_K_M` with `PARAMETER num_ctx 32768` baked in via the `apply-params` command (`ollama show` confirms `num_ctx 32768`), required because Ollama's `/v1/chat/completions` drops request-time `options.num_ctx`. `config/backends.yaml` registers it in `group: coding` with `supports_tools: true` (the same base-model tool-call verdict as its ctx16k/ctx256k siblings); the `omlx-coding` `aliases` block maps it to the oMLX `Qwen3-Coder-30B-A3B-Instruct-4bit` model. `config/portal.yaml` pins it as the `auto-cad` workspace `model_hint` with `context_limit: 32768` (TASK_CAD_ARM_REDEVELOP_V1 P4, 2026-10-06): the redeveloped CAD toolset (`generate_part` + six `cad_*` tools + the existing set = 20 tool schemas) plus the system prompt measured 5193 tokens of fixed overhead, 31.7 % of the old 16384 window. Base model detail lives in the parent unit.
 
-### `qwen3-coder:30b-a3b-q4_K_M-ctx8k`
+### `qwen3-coder:30b-a3b-q4_K_M-ctx8k` — DROPPED (not installed; pruned 2026-10-28)
 
 `qwen3-coder:30b-a3b-q4_K_M-ctx8k` is the derived tag of `qwen3-coder:30b-a3b-q4_K_M` with `PARAMETER num_ctx 8192` baked in via the `apply-params` command, needed because Ollama's `/v1/chat/completions` discards request-time `options.num_ctx`. `config/backends.yaml` registers it in `group: coding` with `supports_tools: true`. **No longer the `auto-cad` production `model_hint`** — TASK_CAD_MODULE_OVERHAUL_V1 Phase 1 bumped `auto-cad` to the `-ctx16k` tag (see above); this tag is retained because `config/portal.yaml`'s `bench-cad-prior` eval workspace (Phase 8's "what-was" reference arm — the old tool loop without `generate_scad`, used to isolate how much the Phase 0-7 tooling alone moved outcomes) deliberately pins the old ctx8k tag to reproduce the pre-overhaul baseline. Parent model detail lives in the base unit.
 
@@ -1800,7 +1800,7 @@ The security chain runs on the capped tag. Its tool flag is `true` since the 202
 
 ---
 
-### `sylink/sylink:8b-ctx8k`
+### `sylink/sylink:8b-ctx8k` — DROPPED (not installed; pruned 2026-10-28)
 
 `sylink/sylink:8b-ctx8k` is the context-capped derivation of `sylink/sylink:8b` with `PARAMETER num_ctx 8192` baked into the tag. `config/backends.yaml` registers it under `group: security` (`ollama-security`) with `supports_tools: false`, inheriting the base model's no-native-tool-calling posture. Unlike the base tag, which `config/portal.yaml` references as the `model_hint` of the `bench-sylink-8b` and `bench-sylink` eval workspaces, the `-ctx8k` tag currently has no live `model_hint`; the auto-security `blueteam` variant points at `granite4.1:8b-ctx8k` instead. The tag is retained to satisfy backends.yaml and `config/MODEL_CATALOG.md` parity, enforced by `tests/unit/test_model_catalog_parity.py`, for a future workspace that wants the 8K-capped SYLink.
 
@@ -2016,7 +2016,7 @@ Grounds the model to the `omlx-creative` registration that serves it and the ali
 
 ---
 
-### `portal5/xyz-aquila-mini:Q4_K_M`
+### `portal5/xyz-aquila-mini:Q4_K_M` — DROPPED (not installed; pruned 2026-10-28)
 
 `portal5/xyz-aquila-mini:Q4_K_M` is the TASK-BATCH-BENCH-001 Part A intake of XYZ-Aquila-mini (XYZAILab, 35B-A3B MoE ~3B active, post-trained from Qwen3.6-35B-A3B via the AxisAgentic bounded-exploration pipeline) — a purpose-built deep-search/web-research agent candidate. The Ollama `hf.co` puller repeatedly failed with a server-side "context deadline exceeded" pulling the 21GB Q4_K_M blob specifically (smaller quants of the same repo pulled fine; both blobs verified cached and hash-valid; HF CDN/Xet resolution confirmed fast via direct probing) — root-caused as a puller limitation on this build/blob-size combination, not a network or repo problem. Imported instead via the repo's documented gated-repo workaround: `huggingface_hub.hf_hub_download` followed by `ollama create` from a local Modelfile (the same pattern as `baronllm:q6_k`), same Q4_K_M quant, no quality substitution. `config/backends.yaml` registers it in the `general` group with `supports_tools: true`, confirmed by a direct `/api/chat` tool-call probe (clean, well-formed `tool_calls`, correctly typed arguments) rather than inferred from the model card. `config/portal.yaml` gives it the `bench-aquila-mini-35b-a3b` workspace `model_hint`. TPS bench: 49.9 t/s average (5/5 runs), clearing the 20 t/s floor. Capability bench (C1/C4 vs `auto-research` baseline): C1 tied (both cap=0.00); C4 shows a real delta (Aquila fmt=1.00/cap=0.89 vs baseline fmt=0.67/cap=0.22). An MLX build exists (`mlx-community/XYZ-Aquila-mini-OptiQ-4bit`) but is not pre-staged on the running oMLX server, which serves only a fixed pre-registered model pool (no on-demand HF loading like Ollama) — bench_omlx_v3 returned a clean 404; recorded `mlx-blocked (server: model not staged)` per the no-build-here constraint, GGUF-only result stands. The V10 candidate-probe harness (`bench_candidates_v10.py`) has a fixed `PROBE_PLAN` for an earlier, different candidate set with no generic per-workspace entry point, so it does not apply to this candidate; the C4 capability delta is the closest in-fleet tool-chain-adjacent signal captured. PROMOTE_POLICY=confirm — this is an evaluation intake, not a production routing change.
 
@@ -2030,7 +2030,7 @@ The model id, its `general` group placement, and its probed `supports_tools: tru
 
 ---
 
-### `portal5/xyz-aquila-mini:q4_k_m-ctx16k`
+### `portal5/xyz-aquila-mini:q4_k_m-ctx16k` — DROPPED (not installed; pruned 2026-10-28)
 
 The working-context tag for XYZ-Aquila-mini, documented inline in the `q4_k_m` entry above (TASK-BENCH-FOLLOWUP-001 Part 1): the bare `q4_k_m` tag carries no baked ctx (Ollama default 8192) and silently truncates multi-hop research conversations at 8k; `-ctx16k` is the tag that processes a full conversation cleanly and is what `bench-aquila-research`'s `model_hint` actually points at (`ctx_validated: true`). Registered in `config/backends.yaml`'s `general` group with `supports_tools: true`, copied from the base tag's own direct `/api/chat` probe result (same underlying model, no separate probe needed for a context-window-only variant). Split into its own catalog section (2026-08-11, TASK_MODEL_DISK_RECLAIM_V1) because `test_model_catalog_parity.py` requires a 1:1 `backends.yaml` id ↔ catalog section mapping and this tag is a distinct backend id from the bare `q4_k_m` one, even though the narrative lives with the base entry.
 
@@ -2046,7 +2046,7 @@ This unit exists because the model has zero `config/backends.yaml` footprint (ca
 
 ---
 
-### `muse-glimmer:30b-mlx`
+### `muse-glimmer:30b-mlx` — DROPPED (not installed; pruned 2026-10-28)
 
 `muse-glimmer:30b-mlx` is the TASK-BATCH-BENCH-002 Part A intake of Muse-Glimmer-30B (meta-models/Muse-Glimmer-30B, 29.6B dense + ViT-G/14 perception encoder, Apache 2.0) — a local-first multimodal agentic model that ships DFlash speculative decoding, run through the native Ollama MLX engine (0.32.7 supports the `muse_glimmer` architecture directly, sidestepping the fixed-pool oMLX server that returned `mlx-blocked` for the V1 Aquila-mini candidate since it needs no separate mmproj wrangling). Pulled clean with no arch errors (GATE-0b). `config/backends.yaml` registers it in the `general` group with `supports_tools: true`, confirmed by a direct `/api/chat` tool-call probe rather than inferred from the card. `config/portal.yaml` gives it the `bench-muse-glimmer-30b` workspace `model_hint`. Loading it initially hit a real infra ceiling: the box's `OLLAMA_GPU_OVERHEAD` was permanently fixed at 40GiB (`/Library/LaunchDaemons/com.portal5.ollama.plist`), capping any single Ollama model at ~15.5GiB regardless of oMLX's actual loaded state — root-caused as a static Metal-working-set carve-out, not a stale-memory reading (freeing oMLX's loaded models and even a full daemon restart left the number unchanged). Corrected by lowering the overhead to 20GiB (real oMLX coexistence headroom, sized off oMLX's own observed footprint, without starving Ollama) — a permanent plist fix, not a one-off workaround. TPS bench: 25.6 t/s average (5/5 runs), clearing the 20 t/s floor. Native vision confirmed via an unlabeled bar-chart fixture (accurate grounded description of relative heights/trend). Capability bench (C1/C4 vs `auto-coding` baseline): C1 tied (both cap=0.00, a probe-difficulty artifact not a differentiator); C4 shows a real gap the other direction from most V1 candidates — Muse-Glimmer 0.33/0.0/0.33 per-probe vs baseline's clean 1.0/1.0/1.0 (correct plan/fence format, materially weaker content). DFlash spec-decode: a controlled 8-run-per-arm same-prompt A/B (`draft_num_predict` 15 vs 0) measured only a 1.9% decode-TPS delta (20.38 vs 19.99 t/s, both within stdev) — far below the card's claimed 1.5–1.8x, though output was bit-identical across all runs and both arms so correctness holds. Verdict: TPS/tools/vision all pass, but no coding/agentic edge over the incumbent and no real DFlash speedup on this serving path — not a primary-lane promotion candidate on current evidence. PROMOTE_POLICY=confirm.
 
@@ -2056,7 +2056,7 @@ The model id, its `general` group placement, and its probed `supports_tools: tru
 
 ---
 
-### `hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M`
+### `hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M` is the TASK-BATCH-BENCH-002 Part B.1 intake of Jackrong's DeepSeek-V4-Pro→Qwen3.5-9B reasoning distill (arch `qwen35`, ~5.8GB, embedded MTP draft heads, card claims 97.2% format-compliance) — a distillation-watch datapoint (Jackrong is on the watchlist per the `bench-qwopus-coder-mtp-v2` precedent) and a math/STEM reasoning candidate. Pulled clean with no arch errors (GATE-0b), standard `ollama pull hf.co/...` path, no workaround needed. `config/backends.yaml` registers it in the `general` group with `supports_tools: true`, confirmed by a direct `/api/chat` tool-call probe (clean, well-formed `tool_calls`). `config/portal.yaml` gives it the `bench-jackrong-dsv4-9b` workspace `model_hint`. Self-reported card benches (97.2% compliance) are UNVERIFIED until reproduced on this harness.
 
@@ -2066,7 +2066,7 @@ The model id, its `general` group placement, and its probed `supports_tools: tru
 
 ---
 
-### `portal5/deepwen-3.6:q4.5-moq`
+### `portal5/deepwen-3.6:q4.5-moq` — DROPPED (not installed; pruned 2026-10-28)
 
 `portal5/deepwen-3.6:q4.5-moq` is the TASK-BATCH-BENCH-002 Part D intake of Deepwen-3.6 (quimmedes/Deepwen-3.6, a Qwen3.6-35B-A3B fine-tune for procedural geometry / hard-surface / 3D-asset workflows, arch `qwen35moe`) — a CAD-lane candidate benched head-to-head against the `auto-cad` module's incumbent, Qwen3-Coder-30B-A3B. `ollama pull hf.co/quimmedes/Deepwen-3.6:Q4.5-MoQ` and `:BF16` both 400'd — Ollama's `hf.co` puller validates the tag against its own quant-scheme enum and rejects the uploader's custom "MoQ" (Mixture-of-Quantizations) naming; the no-tag pull hangs indefinitely (can't auto-pick among multiple MoQ variants in the repo). Not gated. Worked around via direct `huggingface_hub.hf_hub_download` of `Deepwen-3.6-Q4.5-MoQ.gguf` (21.2GB, matches the card) followed by `ollama create` from the local file — GGUF metadata parsed cleanly (arch `qwen35moe`, 34.7B params, template, tool-call format) with no hand-written Modelfile needed. `config/backends.yaml` registers it in the `general` group with `supports_tools: true`, confirmed by a direct `/api/chat` probe. `config/portal.yaml` gives `bench-deepwen-cad` a `model_hint` of the **derived** tag `portal5/deepwen-3.6:q4.5-moq-ctx32k` (see below), cloning `auto-cad`'s tool loop.
 
@@ -2084,7 +2084,7 @@ The model id, its `general` group placement, and its probed `supports_tools: tru
 
 ---
 
-### `hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF:Q4_K_M`
+### `hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF:Q4_K_M` — DROPPED (not installed; pruned 2026-10-28)
 
 `hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF:Q4_K_M` is the TASK-BATCH-BENCH-002 Part B.2 intake of the 4B sibling of `bench-jackrong-dsv4-9b` (arch `qwen35`) — a cheap small-reasoner tier candidate. The bare `Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B` repo is safetensors-only (no GGUF at all); found the official `Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF` mirror instead, which uses standard Q4_K_M tag naming (unlike the 9B sibling's repo, no puller issues here) — pulled clean with `ollama pull hf.co/...`. `config/backends.yaml` registers it in the `general` group with `supports_tools: true`, confirmed by a direct `/api/chat` tool-call probe. `config/portal.yaml` gives it the `bench-jackrong-dsv4-4b` workspace `model_hint`.
 
@@ -2094,7 +2094,7 @@ The model id, its `general` group placement, and its probed `supports_tools: tru
 
 ---
 
-### `portal5/deepwen-3.6:q4.5-moq-ctx32k`
+### `portal5/deepwen-3.6:q4.5-moq-ctx32k` — DROPPED (not installed; pruned 2026-10-28)
 
 `portal5/deepwen-3.6:q4.5-moq-ctx32k` is the ctx-baked derived tag for `portal5/deepwen-3.6:q4.5-moq`, created via `./launch.sh apply-model-params` (`PARAMETER num_ctx 32768` baked into a new Ollama layer, idempotent — no re-download) to work around `P5-OLLAMA-OPTIONS-001` (Ollama's `/v1/chat/completions` endpoint silently ignores request-time `options.num_ctx`; see `unit-known-limitations-ollama-v1-ignores-options-num-ctx-and-options-num-batch`). `config/portal.yaml`'s `bench-deepwen-cad` workspace `model_hint` points at this tag, not the bare `q4.5-moq` tag — the bare tag alone produced corrupted tool-call JSON through the pipeline. `config/backends.yaml` registers it in the `general` group with `supports_tools: true`, inherited from the base tag's direct-probe verification.
 
@@ -2157,7 +2157,7 @@ Landed as an isolated bench candidate on the shadow-shift oMLX-security path so 
 
 ---
 
-### `hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M`
+### `hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M` — DROPPED (not installed; pruned 2026-10-28)
 
 The bare (undecorated) pull tag for the model documented below as `portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k`. Registered in `config/backends.yaml`'s `general` group (in addition to `coding`'s ctx256k derived tag) 2026-08-27 as the `bench-hauhaucs-coder` bench workspace's `model_hint` and as one variant backend of `auto-uncensored-throwaway` — the bench_repair coding-correctness run (2026-08-26/27, `${PORTAL_DATA_ROOT}/tests/benchmarks/results/BENCH_REPAIR_MOE_CODERS_20260826.md`) ran against this exact bare tag, so it is kept registered for provenance even though the bare tag defaults to Ollama's 32768 context cap (too small for real opencode/agentic use — see the ctx256k entry below). `auto-uncensored-throwaway`'s primary `model_hint` uses the ctx256k tag instead; this bare id remains only for the bench workspace and as a documented alternate.
 
@@ -2173,13 +2173,13 @@ Kept separate from the existing `fredrezones55` repack entry because they're dif
 
 ---
 
-### `hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M`
+### `hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M` — DROPPED (not installed; pruned 2026-10-28)
 
 The bare (undecorated) pull tag for the model documented below as `portal5/gemma4-26b-heretic:q4_K_M-ctx256k`. Same registration/provenance rationale as the HauhauCS bare-tag entry above: kept in `config/backends.yaml`'s `general` group 2026-08-27 for the `bench-gemma4-heretic-coder` bench workspace (which the completed bench_repair run actually used) and as an `auto-uncensored-throwaway` variant backend; the ctx256k tag is used for the workspace's primary/default routing. Also this bare tag is the `model_hint` for `bench-moecad` (TASK_CAD_MODULE_OVERHAUL_V1 Phase 8's MoE CAD challenger, cloning `auto-cad`'s full tool loop incl. `generate_scad`) — the 2026-08-26/27 local-dev IDE MoE-vs-dense track's leader, tested here on whether that lead transfers to CAD.
 
 **CAD bench (Phase 8) — the only arm with completed data; the rest of the matrix is deferred.** This MoE arm's gauntlet run (`86c8f38a`, `${PORTAL_DATA_ROOT}/tests/benchmarks/results/cap_cad-overhaul_20260827T164110Z.moe-only.txt`) is the sole completed dataset from Phase 8: `t3_bracket` and `t4_spur_gear` (direct OpenSCAD path) passed cleanly (watertight, plausible bbox); `t2_grommet_plate` (generate_scad Tier-A) called the right tool but produced a genuine model dimension error (built a 4mm-deep plate against an 80x30x4mm spec — wrong dimension mapping); `t1_enclosure` and `t5_gyroid_panel` returned inconclusive results (a since-fixed raw-tool-response capture gap). The what-was (`bench-cad-prior`), what-is (`auto-cad` incumbent), and could-be-dense (`bench-qwen36-cad`) arms were never run to completion — no dense-vs-MoE-vs-incumbent verdict exists. The operator intends to run the full gauntlet directly in a later session.
 
-### `hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M-ctx16k`
+### `hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M-ctx16k` — DROPPED (not installed; pruned 2026-10-28)
 
 Context-bounded CAD benchmark derivative of the bare Gemma-4 26B-A4B Heretic Q4_K_M tag. Created locally from the bare model with `PARAMETER num_ctx 16384` because Ollama's OpenAI-compatible `/v1` endpoint does not honor request-time `num_ctx`. Registered with `supports_tools: true` based on the completed required-tool Phase-8 MoE arm and used only by the hidden `bench-moecad` workspace. It is a comparison arm, not a production promotion.
 
@@ -2195,7 +2195,7 @@ The near-identical repo name to the existing uncensored-heretic entry is exactly
 
 ---
 
-### `hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M`
+### `hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M` — DROPPED (not installed; pruned 2026-10-28)
 
 The bare (undecorated) pull tag for the model documented below as `portal5/ornith15-35b:q4_K_M-ctx256k`. Same registration/provenance rationale as the other two bare-tag entries above: kept in `config/backends.yaml`'s `general` group 2026-08-27 for the `bench-ornith15-coder` bench workspace (which the completed bench_repair run actually used) and as an `auto-uncensored-throwaway` variant backend; the ctx256k tag is used for the workspace's primary/default routing.
 

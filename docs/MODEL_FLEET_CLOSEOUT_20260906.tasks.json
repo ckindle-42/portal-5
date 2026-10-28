@@ -3669,21 +3669,22 @@
       "historical_ledger_entry": false,
       "known_nonbench_config_references": [],
       "known_attempt_artifacts": [],
-      "required_action": "Identify supported/manual/service/reference purpose and existing evidence. Choose intentional retention/integration or exact-identity removal. Run only a bounded test that changes that decision.",
+      "required_action": "No further action; replaced by EmbeddingGemma 2 on :8946.",
       "decision_question": null,
       "test_if_needed": null,
       "stop_rule": null,
-      "final_disposition": "INTEGRATED",
-      "decision_reason": "bootstrap/fallback embedding pull default (cli/update.py)",
-      "purpose_or_replacement": "bootstrap/fallback embedding pull default (cli/update.py)",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "replaced by EmbeddingGemma 2",
+      "purpose_or_replacement": "EmbeddingGemma 2 on :8946 is the platform embedder; no live config or code consumer remains.",
       "evidence_refs": [
-        "dep scan"
+        "CLAUDE.md: EmbeddingGemma 2 on :8946 is the platform embedder",
+        "repo scan: no live nomic-embed-text use in code or route config"
       ],
       "closure_record_refs": [
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#nomic-embed-text-latest"
       ],
       "verified_storage_effect_bytes": null,
-      "closed_at": "2026-09-07"
+      "closed_at": "2026-10-28"
     },
     {
       "item_id": "ollama:omnicoder2:9b-q4_k_m",
@@ -6688,6 +6689,21 @@
       "identity": "Qwen3.8-27B-Uncensored-MLX-4bit",
       "final_disposition": "REMOVED_CLOSED",
       "reason": "oMLX kit seat (kit-orcarouter-a/b) removed 2026-10-22 — failed both think arms with verified setup (operator)"
+    },
+    {
+      "identity": "devstral-small-2",
+      "final_disposition": "REMOVED_CLOSED",
+      "reason": "not installed; pruned from config 2026-10-28"
+    },
+    {
+      "identity": "phi4-mini",
+      "final_disposition": "REMOVED_CLOSED",
+      "reason": "not installed; pruned from config 2026-10-28"
+    },
+    {
+      "identity": "phi4-mini-reasoning",
+      "final_disposition": "REMOVED_CLOSED",
+      "reason": "not installed; pruned from config 2026-10-28"
     }
   ],
   "contender_test_plan": [
@@ -6793,8 +6809,8 @@
     "bench_repair 4 arms x 70 samples (in flight)"
   ],
   "final_counts": {
-    "REMOVED_CLOSED": 113,
-    "INTEGRATED": 82,
+    "REMOVED_CLOSED": 114,
+    "INTEGRATED": 81,
     "RETAINED_FOR_PURPOSE": 8
   },
   "closure_tiers": {

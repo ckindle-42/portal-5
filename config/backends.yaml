@@ -97,14 +97,6 @@ backends:
     supports_tools: true
   - id: portal5/ornith15-35b:q4_K_M-ctx256k
     supports_tools: true
-  - id: hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M
-    supports_tools: true
-  - id: hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M
-    supports_tools: true
-  - id: hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M-ctx16k
-    supports_tools: true
-  - id: hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M
-    supports_tools: true
   - id: huihui_ai/Qwen3.6-abliterated:27b
     supports_tools: true
   - id: huihui_ai/Qwen3.6-abliterated:27b-ctx8k
@@ -114,16 +106,6 @@ backends:
   - id: huihui_ai/qwen3.5-abliterated:9b-ctx64k
     supports_tools: true
   - id: huihui_ai/qwen3.5-abliterated:9b-ctx8k
-    supports_tools: true
-  - id: dolphin-llama3:8b
-    supports_tools: false
-  - id: hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF
-    supports_tools: false
-  - id: llama3.2:3b
-    supports_tools: true
-  - id: llama3.2:3b-instruct-q8_0-ctx8k
-    supports_tools: true
-  - id: granite4.1:8b
     supports_tools: true
   - id: granite4.1:8b-ctx16k
     supports_tools: true
@@ -138,49 +120,21 @@ backends:
     supports_tools: true
   - id: gemma4:26b-a4b-it-q4_K_M
     supports_tools: true
-  - id: gemma4:26b-a4b-it-qat
-    supports_tools: true
   - id: gemma4:26b-a4b-it-qat-ctx8k
     supports_tools: true
   - id: gemma4:26b-a4b-it-qat-ctx16k
     supports_tools: true
   - id: gemma4:26b-a4b-it-qat-ctx32k
     supports_tools: true
-  - id: phi4:14b-q8_0
-    supports_tools: false
-  - id: hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0
-    supports_tools: false
   - id: hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k
     supports_tools: false
-  - id: hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf
-    supports_tools: false
-  - id: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL
-    supports_tools: true
-  - id: hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL
-    supports_tools: true
-  - id: hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL-ctx64k
-    supports_tools: true
-  - id: portal5/gemma4-12b:q4_K_M-ctx8k
-    supports_tools: true
-  - id: phi4-mini
-    supports_tools: true
-  - id: lfm2.5:8b
-    supports_tools: true
   - id: lfm2.5:8b-ctx8k
     supports_tools: true
-  - id: hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M
-    supports_tools: false
-  - id: hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M
-    supports_tools: false
-  - id: hf.co/LiquidAI/LFM2.5-230M-GGUF:Q4_K_M
-    supports_tools: false
   - id: mistral-small3.2:24b
     supports_tools: true
   # Same weights (digest 5a408ab55df5) under the explicit tag the compliance
   # council seat names (config/compliance/council.yaml).
   - id: mistral-small3.2:24b-instruct-2506-q4_K_M
-    supports_tools: true
-  - id: gemma4:e4b-it-q4_K_M
     supports_tools: true
   # supports_tools verified 2026-09-25: direct tool-call probe 3/3 clean on the
   # ctx8k tag (native path). It was false, so auto-general-uncensored's six
@@ -192,23 +146,7 @@ backends:
   - id: hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:q4_K_M-ctx8k
     supports_tools: true
   # V11 candidate intake (2026-06-30) — bench-only, PROMOTE_POLICY=confirm
-  - id: hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M
-    supports_tools: false
-  - id: hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M
-    supports_tools: true
-  - id: hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M
-    supports_tools: true
-  - id: hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K
-    supports_tools: false
-  - id: hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M
-    supports_tools: true
   # V13 candidate intake (2026-07-08) — bench-only, PROMOTE_POLICY=confirm
-  - id: hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M
-    # Mistral-7B lineage-diversity candidate for the Nano/Micro tier
-    # (currently Qwen/Gemma-dominant). ~4.4GB Q4_K_M, low VRAM.
-    # supports_tools value below is from Step 1A preflight (direct /api/chat probe):
-    # Ollama returns "does not support tools" — model template lacks .Tools.
-    supports_tools: false
   # GATE-D ablation hint-validation fix (2026-07-18): these bench-* models
   # are installed locally (ollama list) but were never declared in this
   # group's models list, so hint validation always failed for them once
@@ -233,21 +171,10 @@ backends:
     supports_tools: true
   - id: qwen3.6:27b-q4_K_M-ctx16k
     supports_tools: true
-  - id: portal5/qwen3.6-27b-mtp:q8_0-drafted
-    supports_tools: false
-  - id: qwen3.6:35b-a3b-q4_K_M
-    # P1.4 preflight: direct /api/chat tool-call probe accepted typed arguments.
-    supports_tools: true
   - id: omnicoder2:9b-q4_k_m
-    supports_tools: true
-  - id: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4
     supports_tools: true
   - id: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k
     supports_tools: true
-  - id: gemma4:12b-it-qat
-    supports_tools: true
-  - id: gemma4:e2b-it-qat
-    supports_tools: false
   # supports_tools verified 2026-09-25: native tool-call probe 3/3 clean (was
   # false here, true in the other group that lists it).
   - id: gemma4:e4b-it-qat
@@ -255,8 +182,6 @@ backends:
   # tools-specialist::fast bakes its declared context_limit via this tag (2026-09-25).
   - id: gemma4:e4b-it-qat-ctx8k
     supports_tools: true
-  - id: gemma4:31b-it-qat
-    supports_tools: false
   - id: hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf
     supports_tools: true
   - id: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M
@@ -264,18 +189,10 @@ backends:
   # 2026-09-07 fleet closeout: auto-research promotion (research probe 0.9/0.8 vs 0.3/0.4)
   - id: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k
     supports_tools: true
-  - id: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M
-    supports_tools: true
   - id: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k
     supports_tools: true
   - id: huihui_ai/gemma-4-abliterated:E2b-qat
     supports_tools: true
-  - id: hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M
-    supports_tools: false
-  - id: devstral:24b
-    supports_tools: false
-  - id: hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf
-    supports_tools: false
   # Same contradiction, settled the same way: `false` here, `true` under
   # ollama-coding and ollama-security. Measured 2026-09-17 on
   # glm-4.7-flash:Q4_K_M-ctx64k — tool_calls returned, think honored
@@ -284,69 +201,35 @@ backends:
     supports_tools: true
   - id: glm-4.7-flash:Q4_K_M-ctx64k
     supports_tools: true
-  - id: hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL
-    supports_tools: false
   - id: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
     supports_tools: false
   - id: hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M
     supports_tools: false
   - id: hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M-ctx32k
     supports_tools: false
-  - id: supergemma4-26b-uncensored:Q4_K_M
-    supports_tools: true
-  - id: sylink/sylink:8b
-    supports_tools: false
-  - id: hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M
-    supports_tools: true
-  - id: hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M
-    supports_tools: false
-  - id: hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M
-    supports_tools: true
-  - id: hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4
-    supports_tools: false
   # 2026-09-07 fleet closeout: contender bench seats (WFE use-probe tier)
   - id: kat-coder-v2.5-dev:Q4_K_M
     supports_tools: true
-  - id: hf.co/Nguuma/security-slm-unsloth-1.5b:latest
-    supports_tools: false
-  - id: cybersecqwen-4b-toolfix:latest
-    supports_tools: false
-  - id: huihui_ai/qwen3-abliterated:14b-v2
-    supports_tools: false
   # GATE-D ablation hint-validation fix (2026-07-18) cont'd: these were
   # bare-tag hints (no explicit :latest) that never matched the tagged
   # ollama list id — the models were installed the whole time.
-  - id: devstral-small-2:latest
-    supports_tools: false
-  - id: huihui_ai/baronllm-abliterated:latest
-    supports_tools: false
-  - id: meta-secalign-8b-q4_k_m:latest
-    supports_tools: false
   # TASK-BATCH-BENCH-001 Part A intake (2026-08-09): XYZ-Aquila-mini, imported
   # locally via huggingface_hub.hf_hub_download + `ollama create` (hf.co puller
   # hit a repeatable server-side context-deadline timeout on this 21GB blob;
   # see bench-aquila-mini-35b-a3b workspace description for the full root
   # cause). supports_tools: true is from a direct /api/chat probe (clean,
   # well-formed tool_calls, arguments correctly typed) — not inferred.
-  - id: portal5/xyz-aquila-mini:Q4_K_M
-    supports_tools: true
   # TASK-BATCH-BENCH-002 Part A/B intake (2026-08-10): supports_tools verified
   # via direct /api/chat probe (clean tool_calls, correctly typed arguments)
   # after fixing the OLLAMA_GPU_OVERHEAD ceiling (was 40GiB, permanently
   # capping any single Ollama model at ~15.5GiB regardless of oMLX's actual
   # loaded state; reduced to 20GiB in com.portal5.ollama.plist — real
   # coexistence headroom instead of a number that starved Ollama).
-  - id: muse-glimmer:30b-mlx
-    supports_tools: true
-  - id: hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M
-    supports_tools: true
   # TASK-BATCH-BENCH-002 Part B.2 intake (2026-08-10): the bare
   # Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B repo is safetensors-only (no GGUF);
   # found the official Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF mirror,
   # pulled clean via standard `ollama pull hf.co/...`, no arch/tag issues
   # (unlike the 9B's sibling repo, this one uses standard Q4_K_M naming).
-  - id: hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF:Q4_K_M
-    supports_tools: true
   # TASK-BATCH-BENCH-002 Part D intake (2026-08-10): Deepwen-3.6, quimmedes'
   # Qwen3.6-35B-A3B fine-tune for procedural/hard-surface CAD. `ollama pull
   # hf.co/quimmedes/Deepwen-3.6:Q4.5-MoQ` and `:BF16` both 400'd — Ollama's
@@ -369,10 +252,6 @@ backends:
   # bakes PARAMETER num_ctx into a derived tag. See
   # portal5/deepwen-3.6:q4.5-moq-ctx32k below — that is the tag actually
   # used by bench-deepwen-cad's model_hint.
-  - id: portal5/deepwen-3.6:q4.5-moq
-    supports_tools: true
-  - id: portal5/deepwen-3.6:q4.5-moq-ctx32k
-    supports_tools: true
   # TASK_MODEL_DISK_RECLAIM_V1 (2026-08-11): the 5 new bench-* workspaces
   # wired for pending-verdict re-bench (bench-qwen3.6, bench-deepseek-r1,
   # bench-glm47-flash-reap, bench-hermes3) default to the 'general' backend
@@ -380,12 +259,8 @@ backends:
   # dolphin-llama3:8b already was, and refused to start the pipeline.
   # supports_tools values copied from each tag's existing entry under its
   # other backend group (reasoning/creative/coding) below, not guessed.
-  - id: qwen3.6:27b-q8_0
-    supports_tools: true
   - id: deepseek-r1:32b-q4_k_m
     supports_tools: false
-  - id: hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k
-    supports_tools: true
   - id: hermes3:8b
     supports_tools: true
   # Pre-existing gap unrelated to this task, found while fixing the above
@@ -393,8 +268,6 @@ backends:
   # reclaim-v1 baseline tag) — bench-aquila-research also failed strict
   # hint validation. supports_tools copied from the base xyz-aquila-mini
   # entry above (verified via direct /api/chat probe, not inferred).
-  - id: portal5/xyz-aquila-mini:q4_k_m-ctx16k
-    supports_tools: true
   # TASK_SAMPLING_PROFILE_AUDIT_V1: same pre-existing gap class as above —
   # bench-qwen38-27b and bench-llama32-3b-abliterated route to the general
   # group (all eval-module bench-* workspaces do) but their models were only
@@ -405,8 +278,6 @@ backends:
   - id: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M
     supports_tools: true
   - id: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
-    supports_tools: true
-  - id: hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF:latest
     supports_tools: true
   # 2026-10-21 bench-only intake (module: eval) — Spark-X2.6-4B Q4_K_M screen
   # tags, built per ../portal-5-research-sage/coding_task/spark_kit (REPORT_SPARK
@@ -469,10 +340,6 @@ backends:
   # omlx-creative's Qwen3.6-35B HauhauCS — the seat served the wrong model.
   - id: kat-coder-v2.5-dev:Q4_K_M-ctx32k
     supports_tools: true
-  - id: devstral:24b
-    supports_tools: true
-  - id: devstral-small-2
-    supports_tools: true
   - id: devstral-small-2:latest-ctx8k
     supports_tools: true
   # Laguna-XS-2.1 (2026-09-25) replaces Laguna-XS.2 in the laguna seat. XS.2 could
@@ -489,10 +356,6 @@ backends:
     supports_tools: true
   - id: gpt-oss:20b
     supports_tools: true
-  - id: phi4-reasoning:plus
-    supports_tools: true
-  - id: phi4-reasoning:plus-ctx32k
-    supports_tools: true
   - id: qwen3-coder:30b-a3b-q4_K_M
     supports_tools: true
   - id: qwen3-coder:30b-a3b-q4_K_M-ctx256k
@@ -501,17 +364,7 @@ backends:
     supports_tools: true
   - id: qwen3-coder:30b-a3b-q4_K_M-ctx32k
     supports_tools: true
-  - id: qwen3-coder:30b-a3b-q4_K_M-ctx8k
-    supports_tools: true
-  - id: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL
-    supports_tools: true
   - id: qwen3.6:27b-q4_K_M
-    supports_tools: true
-  - id: qwen3.6:35b-a3b-q4_K_M
-    supports_tools: true
-  - id: hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL
-    supports_tools: true
-  - id: hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL-ctx64k
     supports_tools: true
   # Full-native-context tag (262144) added 2026-08-26 for the agenticlite
   # persona -- ctx64k was undersized for real opencode requests.
@@ -520,12 +373,6 @@ backends:
   - id: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M
     supports_tools: true
   - id: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k
-    supports_tools: true
-  - id: hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M
-    supports_tools: true
-  - id: hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M
-    supports_tools: true
-  - id: hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf
     supports_tools: true
   - id: glm-4.7-flash:Q4_K_M
     supports_tools: true
@@ -537,10 +384,6 @@ backends:
   # template as -ctx64k, so the 2026-09-17 tool probe carries over.
   - id: glm-4.7-flash:Q4_K_M-ctx64k-agentic
     supports_tools: true
-  - id: hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL
-    supports_tools: true
-  - id: hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k
-    supports_tools: true
   - id: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
     supports_tools: false
   - id: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k
@@ -549,11 +392,8 @@ backends:
     supports_tools: false
   - id: hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M-ctx32k
     supports_tools: false
-  - id: hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M
-    supports_tools: true
   - id: hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M-ctx64k
     supports_tools: true
-  - id: hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4
     # supports_tools=true per model card (cohere_command4 parser). cohere2moe
   - id: hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4-ctx8k
     # supports_tools=true per model card (cohere_command4 parser). cohere2moe
@@ -561,21 +401,7 @@ backends:
     # 2026-06-29) — promoted to auto-coding-northmini 2026-06-30.
     supports_tools: true
   # V11 candidate intake (2026-06-30) — bench-only, PROMOTE_POLICY=confirm
-  - id: hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M
-    supports_tools: true
-  - id: hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M
-    supports_tools: true
-  - id: hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M
-    supports_tools: true
   # V13 candidate intake (2026-07-08) — bench-only, PROMOTE_POLICY=confirm
-  - id: huihui_ai/qwen3-abliterated:14b-v2
-    # Qwen3-14B huihui-ai abliteration v2 (v1 explicitly retired for garbled-output bugs).
-    # Fills the 9B <-> 27B/35B tier gap. Same huihui_ai native-tag convention as E2b-qat.
-    # supports_tools value below is from Step 1B preflight (direct /api/chat probe):
-    # clean, well-formed tool_calls confirmed. Note: native <think> opening tag was
-    # MISSING in the probe (soft warning per task spec, does not block intake) —
-    # see MODEL_CATALOG.md entry.
-    supports_tools: true
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
 - group: security
@@ -590,8 +416,6 @@ backends:
     supports_tools: false
   - id: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0-ctx8k
     supports_tools: false
-  - id: baronllm:q6_k
-    supports_tools: false
   - id: glm-4.7-flash:Q4_K_M
     supports_tools: true
   - id: huihui_ai/qwen3.5-abliterated:9b
@@ -600,16 +424,8 @@ backends:
     supports_tools: true
   - id: huihui_ai/qwen3.5-abliterated:9b-ctx8k
     supports_tools: true
-  - id: huihui_ai/baronllm-abliterated
-    supports_tools: true
   - id: huihui_ai/baronllm-abliterated:latest-ctx8k
     supports_tools: true
-  - id: sylink/sylink:8b
-    supports_tools: false
-  - id: sylink/sylink:8b-ctx8k
-    supports_tools: false
-  - id: supergemma4-26b-uncensored:Q4_K_M
-    supports_tools: true  # same weights as the -ctx64k tag below (re-verified 2026-09-25)
   - id: supergemma4-26b-uncensored:Q4_K_M-ctx64k
     # supports_tools re-verified 2026-09-25 (true): native probe 3/3 single-call
     # and 3/3 multi-turn exec-shaped runs (call -> result -> answer, 2 turns, no
@@ -620,68 +436,21 @@ backends:
     supports_tools: true
   - id: hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf
     supports_tools: true
-  - id: hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M
-    supports_tools: true
   - id: hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k
     supports_tools: true
   - id: huihui_ai/gemma-4-abliterated:E2b-qat
     supports_tools: true
-  - id: huihui_ai/gemma-4-abliterated:E2b-qat-ctx8k
-    supports_tools: true
-  - id: lfm2.5:8b
-    supports_tools: true
   - id: lfm2.5:8b-ctx8k
-    supports_tools: true
-  - id: granite4.1:8b
     supports_tools: true
   - id: granite4.1:8b-ctx16k
     supports_tools: true
   - id: granite4.1:8b-ctx8k
     supports_tools: true
-  - id: devstral-small-2:latest
-    supports_tools: true
   - id: devstral-small-2:latest-ctx8k
     supports_tools: true
   # V11 candidate intake (2026-06-30) — bench-only, PROMOTE_POLICY=confirm
-  - id: hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K
-    # supports_tools=false: offensive tooling model — per supergemma4 precedent,
-    # offensive models given tool definitions enter reasoning loops.
-    # Scored on artifact CONTENT (CVE PoCs, Nuclei templates, JWT crackers),
-    # not tool dispatch. Reference: UAT 20260627 + commit 71f0970.
-    supports_tools: false
   # Multi-seat V2 bench blue-seat candidates (2026-07-05) — bench-only, PROMOTE_POLICY=confirm
-  - id: hf.co/Nguuma/security-slm-unsloth-1.5b:latest
-    # supports_tools=false: audited directly against Ollama — Modelfile TEMPLATE
-    # is a bare DeepSeek-R1-style chat template with no {{ .Tools }} handling at
-    # all. Given tool defs it hallucinates freeform "as-if" tool usage in prose
-    # rather than emitting a real tool call. Not fixable via prompting alone.
-    supports_tools: false
-  - id: hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M
-    # supports_tools=false: Ollama itself hard-errors "does not support tools"
-    # for this tag — no tool-calling template at all. Use the
-    # cybersecqwen-4b-toolfix derivative instead.
-    supports_tools: false
-  - id: cybersecqwen-4b-toolfix:latest
-    # supports_tools=true: audited directly against Ollama — Modelfile TEMPLATE
-    # emits <tool_call>{...}</tool_call> correctly, but only when a system
-    # message is present (Tools block is nested inside {{- if .System }}) and
-    # only as plain content, not a structured tool_calls array — blue.py now
-    # sends a system message and falls back to parsing the tag from content.
-    supports_tools: true
   # V13-D candidate intake (2026-07-10) — bench-only, PROMOTE_POLICY=confirm
-  - id: meta-secalign-8b-q4_k_m
-    # facebook/Meta-SecAlign-8B (arxiv 2507.02735) LoRA adapter merged onto
-    # meta-llama/Llama-3.1-8B-Instruct (gated repos, access granted, merged
-    # + converted + quantized locally per P5-FUT-PARITY-001 override —
-    # operator explicit direction, no trusted-quantizer GGUF existed anywhere).
-    # supports_tools=true, clean tool_calls in direct /api/chat probe.
-    # ADVERSARIAL PROBE COMPLIED (not resisted) — see MODEL_CATALOG.md.
-    # Meta-SecAlign's resistance mechanism requires a non-standard "input"
-    # chat role to delimit untrusted data (per model README); Ollama's
-    # standard /api/chat has no equivalent, so this probe could not exercise
-    # the model's actual designed defense — compliance here does not confirm
-    # or refute the paper's claim, it reflects a harness/role-support gap.
-    supports_tools: true
   # auto-security::security-expert-foundation-sec-8b routes through the
   # security/general groups; registered only under ollama-reasoning, the seat
   # was hint_unroutable and silently served backend.models[0] (settings gate,
@@ -705,18 +474,12 @@ backends:
     supports_tools: false
   - id: gpt-oss:20b
     supports_tools: true
-  - id: granite4.1:8b
-    supports_tools: true
   - id: granite4.1:8b-ctx16k
     supports_tools: true
   - id: granite4.1:8b-ctx8k
     supports_tools: true
-  - id: huihui_ai/tongyi-deepresearch-abliterated
-    supports_tools: true
   - id: huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k
     supports_tools: true
-  - id: supergemma4-26b-uncensored:Q4_K_M
-    supports_tools: true  # same weights as the -ctx64k tag below (re-verified 2026-09-25)
   - id: supergemma4-26b-uncensored:Q4_K_M-ctx64k
     # supports_tools re-verified 2026-09-25 (true): native probe 3/3 single-call
     # and 3/3 multi-turn exec-shaped runs (call -> result -> answer, 2 turns, no
@@ -738,24 +501,10 @@ backends:
   # /v1 ignores request-time num_ctx). Tool-calling audited live 2026-08-31 —
   # clean tool_calls, correctly-typed args. auto-reasoning stays on DeepSeek-R1
   # for reasoning-group lineage diversity.
-  - id: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL
-    supports_tools: true
   - id: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k
     supports_tools: true
-  - id: qwen3.6:27b-q8_0
-    supports_tools: true
-  - id: hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf
-    supports_tools: true
-  - id: qwen3.6:27b-mtp-q4_K_M
-    supports_tools: true
-  - id: portal5/qwen3.6-27b-mtp:q8_0-drafted
-    supports_tools: true
-  - id: phi4-mini-reasoning
-    supports_tools: false
   - id: phi4-mini-reasoning:latest-ctx24k
     supports_tools: false
-  - id: hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL
-    supports_tools: true
   - id: hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k
     supports_tools: true
   # 2026-10-18 auto-reasoning challenger at the seat's 64k window: K2 Horizon MoVA 36B-A4B.
@@ -784,29 +533,17 @@ backends:
     supports_tools: true
   - id: gemma4:26b-a4b-it-q4_K_M
     supports_tools: true
-  - id: gemma4:e4b-it-q4_K_M
-    supports_tools: true
-  - id: gemma4:e2b-it-qat
-    supports_tools: true
-  - id: gemma4:e2b-it-qat-ctx8k
-    supports_tools: true
   - id: gemma4:e4b-it-qat
     supports_tools: true
   - id: gemma4:e4b-it-qat-ctx8k
     supports_tools: true
-  - id: gemma4:12b-it-qat
-    supports_tools: true
   - id: gemma4:12b-it-qat-ctx8k
-    supports_tools: true
-  - id: gemma4:26b-a4b-it-qat
     supports_tools: true
   - id: gemma4:26b-a4b-it-qat-ctx8k
     supports_tools: true
   - id: gemma4:26b-a4b-it-qat-ctx16k
     supports_tools: true
   - id: gemma4:26b-a4b-it-qat-ctx32k
-    supports_tools: true
-  - id: gemma4:31b-it-qat
     supports_tools: true
   - id: gemma4:31b-it-qat-ctx8k
     supports_tools: true
@@ -816,24 +553,14 @@ backends:
   - id: hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf-ctx8k
     supports_tools: true
   # V11 candidate intake (2026-06-30) — bench-only, PROMOTE_POLICY=confirm
-  - id: hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M
-    # supports_tools=false: thinking model, not agentic. HERETIC-abliterated
-    # Qwen3.5-9B-vision — first uncensored vision option in fleet.
-    supports_tools: false
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
 - group: creative
   id: ollama-creative
   models:
-  - id: dolphin-llama3:8b
-    supports_tools: false
   - id: hermes3:8b
     supports_tools: true
-  - id: huihui_ai/baronllm-abliterated
-    supports_tools: true
   - id: huihui_ai/baronllm-abliterated:latest-ctx8k
-    supports_tools: true
-  - id: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4
     supports_tools: true
   - id: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k
     supports_tools: true
@@ -844,8 +571,6 @@ backends:
   - id: huihui_ai/Qwen3.6-abliterated:27b
     supports_tools: true
   - id: huihui_ai/Qwen3.6-abliterated:27b-ctx8k
-    supports_tools: true
-  - id: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M
     supports_tools: true
   - id: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k
     supports_tools: true

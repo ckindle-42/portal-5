@@ -90,7 +90,6 @@ lfm2.5:8b
 lfm2.5:8b-ctx8k
 meta-secalign-8b-q4_k_m:latest
 mistral-small3.2:24b
-nomic-embed-text:latest
 omnicoder2:9b-q4_k_m
 omnicoder2:9b-q4_k_m-ctx8k
 phi4-mini-reasoning:latest

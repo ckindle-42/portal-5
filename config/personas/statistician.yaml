@@ -55,7 +55,6 @@ system_prompt: |
 workspace:
   enabled: true
   description: Statistician — rigorous probability, inference, and experimental design
-  suggested_model: huihui_ai/tongyi-deepresearch-abliterated
 tags:
 - statistics
 - data

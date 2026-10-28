@@ -24,9 +24,8 @@ Excluded from this list (confirmed still needed, do not delete):
   `hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M` — actively imported by
   `portal/platform/inference/tool_preselect/{cli_probe,config}.py` (the dormant-but-preserved
   `P5-FUT-TOOL-PRESELECT` feature — roadmap: "the built Phase 1+2 code is reusable as-is").
-- `nomic-embed-text:latest` — real RAG-embedding fallback, referenced by
-  `portal/platform/inference/cli/update.py`'s pull list; wired through the embedding subsystem
-  (docker-compose/RAG), not the workspace `model_hint` system this review's primary scan covered.
+- `nomic-embed-text:latest` — retained as an embedding fallback in this 2026-07-21 review;
+  replaced by EmbeddingGemma 2 on `:8946` and closed 2026-10-28 (see the fleet register).
 
 Already deleted in this pass (documented DROPPED in `MODEL_CATALOG.md`, 30GB reclaimed 2026-07-21):
 - `hf.co/TeichAI/GLM-4.7-Flash-Claude-Opus-4.5-High-Reasoning-Distill-GGUF:Q4_K_M`
