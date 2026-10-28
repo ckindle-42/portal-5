@@ -152,9 +152,11 @@ def test_planner_suite_uses_live_pipeline_identity_and_stays_out_of_gate_c(tmp_p
     assert extract_discipline_rates([receipt]) == {}
 
 
-def test_planner_judge_valid_split_plan_carries_review_reason_on_final_review(
+def test_planner_judge_valid_split_plan_is_valid_by_accept_and_rules_say_so(
     tmp_path: Path,
 ) -> None:
+    """Deep REJECTed valid-split-plan for a missing review_reason on its deep final_review
+    (2026-10-28); the bite is valid through its accept check, and the rules now say so."""
     config = yaml.safe_load((ROOT / "config/orchestration_arm.yaml").read_text(encoding="utf-8"))
     cases = runner.load_suite(
         ROOT / "portal/modules/orchestration/disciplines/detection_engineering/wfe_planner.yaml"
@@ -171,7 +173,9 @@ def test_planner_judge_valid_split_plan_carries_review_reason_on_final_review(
     user = json.loads(next(m["content"] for m in valid_messages if m["role"] == "user"))
     final_review = user["plan"]["bites"][-1]
     assert final_review["bite_id"] == "final_review"
-    assert final_review["review_reason"]
+    assert final_review["model"] == "deep" and final_review["accept"]
+    system = next(m["content"] for m in valid_messages if m["role"] == "system")
+    assert "a bite with accept checks needs no review_reason, whatever its model" in system
 
 
 def test_live_bite_receipts_feed_gate_c_with_the_chosen_seat(tmp_path: Path):

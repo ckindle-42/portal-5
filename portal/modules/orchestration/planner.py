@@ -12,7 +12,7 @@ from .contracts import TaskPlan, parse_plan
 from .worker import Engine, _response_parts
 
 PLANNER_RULES = """Write a JSON task plan as one object with task_id, goal, and bites.
-Every bite must have accept (a list of deterministic acceptance checks) or review='deep' with a specific review_reason.
+Every bite must have accept (a list of deterministic acceptance checks) or review='deep' with a specific review_reason; a bite with accept checks needs no review_reason, whatever its model.
 Keep every bite within the supplied comfortable Fast context token budget; include budget.context_tokens.
 Split reading from acting: a bite must not combine read_tools and action_tools, and untrusted reads never act.
 Every file_write bite must declare its exact writable data-plane paths in write_paths.

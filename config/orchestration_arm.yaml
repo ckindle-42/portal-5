@@ -359,8 +359,6 @@ disciplines:
             accept:
             - type: contains
               value: PASS
-            review_reason: Confirm the assembled detection, its ATT&CK mapping, and
-              its validation evidence satisfy $expected_behavior.
             risk: low
             stage: final_review
             budget:
