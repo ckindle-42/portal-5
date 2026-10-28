@@ -624,13 +624,8 @@ def _resolve_audio_input(file: str) -> tuple[Path | None, str]:
     if p is not None:
         return p, p.name
 
-    # Last resort: fall back to most recent audio upload with a warning
-    fallback = _latest_audio_upload()
-    if fallback is not None:
-        logger.warning(
-            "Could not resolve %r — falling back to most recent upload: %s", file, fallback.name
-        )
-        return fallback, fallback.name
+    # A named file that does not resolve is an error: transcribing whatever was uploaded last
+    # would answer about the wrong audio. Only an empty/placeholder argument auto-detects.
     return None, f"upload not found: {file!r} (no match in uploads directory)"
 
 

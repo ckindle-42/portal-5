@@ -182,3 +182,14 @@ def test_resolve_audio_input_missing_path(transcribe_module):
     path, err = transcribe_module._resolve_audio_input("/nonexistent/foo.wav")
     assert path is None
     assert "not found" in err
+
+
+def test_resolve_audio_input_unknown_id_errors_instead_of_latest_upload(
+    transcribe_module, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("WORKSPACE_DIR", str(tmp_path))
+    (tmp_path / "uploads").mkdir()
+    (tmp_path / "uploads" / "abc-123_meeting.wav").write_bytes(b"fake audio")
+    path, err = transcribe_module._resolve_audio_input("no-such-file-id")
+    assert path is None
+    assert "upload not found" in err
