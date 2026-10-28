@@ -32,11 +32,25 @@ def apply_eval_scope(body: dict[str, Any], tools: list[str]) -> list[str]:
     except eval_scope.ScopeError as e:
         raise HTTPException(status_code=400, detail=f"portal_eval: {e}") from e
     offered = tools if scope is None else [t for t in tools if t in scope["allow"]]
-    trace_note(tools_offered=sorted(offered))  # what this request could call, scoped or not
     if scope is not None:
         eval_scope.EVAL_SCOPE.set(scope)
         trace_note(eval=scope)
     return offered
+
+
+def offered_tool_names(body: Mapping[str, Any]) -> list[str]:
+    """Return the tool names present in the backend request schemas."""
+    schemas = body.get("tools")
+    if not isinstance(schemas, list):
+        return []
+    names = []
+    for schema in schemas:
+        if not isinstance(schema, dict) or not isinstance(schema.get("function"), dict):
+            continue
+        name = schema["function"].get("name")
+        if isinstance(name, str) and name:
+            names.append(name)
+    return sorted(names)
 
 
 def resolve_bite_tool_pool(

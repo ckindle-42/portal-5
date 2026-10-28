@@ -118,6 +118,8 @@ async def _prepare_request(
     max_hops: Any = 2,
     client_tools: list[dict[str, Any]] | None = None,
     workspace_tools: list[str] | None = None,
+    portal_no_tools: bool = False,
+    client_tools_only: bool = False,
     refresh_calls: list[bool] | None = None,
 ) -> tuple[dict[str, Any], list[str], bool]:
     monkeypatch.setattr(
@@ -137,9 +139,17 @@ async def _prepare_request(
     )
     body: dict[str, Any] = {
         "messages": [{"role": "user", "content": "run the bite"}],
-        "tools": client_tools or [_tool_schema("finish"), _tool_schema("unrequested")],
+        "tools": (
+            [_tool_schema("finish"), _tool_schema("unrequested")]
+            if client_tools is None
+            else client_tools
+        ),
         "tool_choice": "auto",
     }
+    if portal_no_tools:
+        body["portal_no_tools"] = True
+    if client_tools_only:
+        body["portal_client_tools_only"] = True
     if bite_tools is not None:
         body["portal_bite_tools"] = bite_tools
     if max_hops is not None:
@@ -307,6 +317,38 @@ async def test_bite_trace_records_the_final_tools_offered_to_the_model(
     assert has_tools and effective == ["lookup"]
     assert [schema["function"]["name"] for schema in body["tools"]] == ["lookup", "finish"]
     assert notes[-1]["tools_offered"] == ["finish", "lookup"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("case", "expected"),
+    [
+        ("portal_no_tools", []),
+        ("client_tools_only", ["client_a", "client_b"]),
+        ("workspace", ["document_read", "web_search"]),
+    ],
+)
+async def test_stream_trace_records_schemas_attached_to_backend_body(
+    monkeypatch: pytest.MonkeyPatch, case: str, expected: list[str]
+) -> None:
+    notes: list[dict[str, Any]] = []
+    monkeypatch.setattr(streaming, "trace_note", lambda **fields: notes.append(fields))
+    no_tools = case == "portal_no_tools"
+    client_only = case == "client_tools_only"
+    client_tools = [_tool_schema("client_a"), _tool_schema("client_b")] if client_only else []
+    workspace_tools = ["web_search", "document_read"]
+    body, _effective, _has_tools = await _prepare_request(
+        monkeypatch,
+        bite_tools=None,
+        client_tools=client_tools,
+        workspace_tools=workspace_tools,
+        portal_no_tools=no_tools,
+        client_tools_only=client_only,
+    )
+
+    attached = [schema["function"]["name"] for schema in body.get("tools", [])]
+    assert sorted(attached) == expected
+    assert notes[-1]["tools_offered"] == expected
 
 
 def _configure_detection_tool_pool(monkeypatch: pytest.MonkeyPatch) -> tuple[str, list[str]]:

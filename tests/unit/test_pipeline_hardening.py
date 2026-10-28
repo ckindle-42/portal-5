@@ -1314,6 +1314,50 @@ async def test_bite_allowlist_does_not_readd_filtered_nonstream_client_tools(
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("case", "expected"),
+    [
+        ("portal_no_tools", []),
+        ("client_tools_only", ["client_a", "client_b"]),
+        ("workspace", ["lookup"]),
+        ("bite", ["finish", "lookup"]),
+    ],
+)
+async def test_nonstream_trace_records_schemas_attached_to_backend_body(
+    monkeypatch: pytest.MonkeyPatch,
+    ns_tools: str,
+    case: str,
+    expected: list[str],
+) -> None:
+    notes: list[dict[str, typing.Any]] = []
+    monkeypatch.setattr(ns, "trace_note", lambda **fields: notes.append(fields))
+    body: dict[str, typing.Any] = {"messages": []}
+    if case == "portal_no_tools":
+        body["portal_no_tools"] = True
+    elif case == "client_tools_only":
+        body["portal_client_tools_only"] = True
+        body["tools"] = [
+            {"type": "function", "function": {"name": name, "parameters": {}}}
+            for name in ("client_a", "client_b")
+        ]
+    elif case == "bite":
+        body["portal_bite_tools"] = ["lookup", "finish"]
+        body["tools"] = [
+            {"type": "function", "function": {"name": name, "parameters": {}}}
+            for name in ("finish", "unrequested")
+        ]
+    client = _SeenClient([_text_reply("done")])
+    monkeypatch.setattr(ns, "_http_client", client)
+
+    await ns._try_non_streaming(_backend("b"), body, ns_tools, 0.0)
+
+    attached = [tool["function"]["name"] for tool in client.bodies[0].get("tools", [])]
+    offered = [note["tools_offered"] for note in notes if "tools_offered" in note]
+    assert sorted(attached) == expected
+    assert offered == [expected]
+
+
+@pytest.mark.anyio
 async def test_failover_runs_a_tool_loop_until_the_model_answers(monkeypatch, ns_tools) -> None:
     client = _SeenClient([_tool_reply(), _tool_reply(), _text_reply("the answer")])
     monkeypatch.setattr(ns, "_http_client", client)

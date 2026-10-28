@@ -29,6 +29,7 @@ from portal.platform.inference.router.eval_gate import (
     apply_bite_tool_scope,
     apply_eval_scope,
     filter_bite_client_tools,
+    offered_tool_names,
     resolve_bite_tool_pool,
 )
 from portal.platform.inference.router.metrics import (
@@ -886,6 +887,8 @@ async def _try_non_streaming(
                 target_model,
                 len(_tools_arr),
             )
+
+    trace_note(tools_offered=offered_tool_names(req_body))
 
     _prefill_refusal: str | None = None
     _last_request_body: dict[str, Any] = req_body

@@ -304,8 +304,7 @@ def test_the_handler_binds_the_scope_before_injection():
         contextvars.copy_context().run(bind_eval_scope, {"portal_eval": {"campaign": "x"}})
 
 
-def test_the_trace_records_the_tools_each_request_was_offered(monkeypatch):
-    """Live acceptance reads production's own trace: the gate notes what was offered."""
+def test_eval_scope_does_not_trace_tools_before_the_backend_body_is_built(monkeypatch):
     import contextvars
 
     from portal.platform.inference.router import eval_gate
@@ -315,5 +314,5 @@ def test_the_trace_records_the_tools_each_request_was_offered(monkeypatch):
     ctx = contextvars.copy_context()
     ctx.run(eval_gate.apply_eval_scope, {"portal_eval": {**SCOPE, "allow": ["b"]}}, ["a", "b"])
     contextvars.copy_context().run(eval_gate.apply_eval_scope, {}, ["a", "b"])
-    offered = [n["tools_offered"] for n in notes if "tools_offered" in n]
-    assert offered == [["b"], ["a", "b"]] and any("eval" in n for n in notes)
+    assert not any("tools_offered" in note for note in notes)
+    assert any("eval" in note for note in notes)

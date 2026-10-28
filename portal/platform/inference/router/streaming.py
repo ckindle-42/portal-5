@@ -59,6 +59,7 @@ from portal.platform.inference.router.eval_gate import (
     apply_bite_tool_scope,
     apply_eval_scope,
     filter_bite_client_tools,
+    offered_tool_names,
     resolve_bite_tool_pool,
 )
 from portal.platform.inference.router.metrics import (
@@ -2514,17 +2515,7 @@ async def _build_streaming_request(
 
     if not _has_tools:
         backend_body.pop("portal_bite_max_hops", None)
-    if _bite_allowlist is not None:
-        offered_schemas = backend_body.get("tools")
-        if not isinstance(offered_schemas, list):
-            offered_schemas = []
-        trace_note(
-            tools_offered=sorted(
-                tool.get("function", {}).get("name", "")
-                for tool in offered_schemas
-                if isinstance(tool, dict) and isinstance(tool.get("function"), dict)
-            )
-        )
+    trace_note(tools_offered=offered_tool_names(backend_body))
     return backend_body, effective_tools, _has_tools, _portal_no_tools
 
 
