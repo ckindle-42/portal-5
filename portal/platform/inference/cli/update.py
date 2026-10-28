@@ -2,35 +2,13 @@
 
 from __future__ import annotations
 
-import os
 import subprocess
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
-from ._common import _detect_ollama_cmd, _resolve_model_name
-
-# Ollama pull list for `portal update`; every entry must be a live model id in
-# config/backends.yaml (retired identities are dropped, not pulled, per the
-# 2026-09-06 fleet closeout).
-_DEFAULT_MODELS: list[str] = [
-    "${DEFAULT_MODEL:-dolphin-llama3:8b}",
-    "huihui_ai/qwen3.5-abliterated:9b",
-    "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
-    "huihui_ai/baronllm-abliterated",
-    "devstral:24b",
-    "granite4.1:8b",
-    "granite4.1:30b",
-    "gpt-oss:20b",
-    "huihui_ai/tongyi-deepresearch-abliterated",
-    "qwen3-vl:32b",
-    "huihui_ai/Qwen3.6-abliterated:27b",
-]
-
-# Both 70B entries were REMOVED_CLOSED in the 2026-09-06 fleet closeout; the
-# list is empty until an operator adds a live heavy model back.
-_HEAVY_MODELS: list[str] = []
+from ._common import _detect_ollama_cmd
 
 
 def cmd_update(
@@ -114,24 +92,12 @@ def cmd_update(
 
     if not skip_models:
         # Step 4: Refresh Ollama models
-        typer.echo("[4/8] Refreshing Ollama models (checks for newer versions)...")
+        typer.echo("[4/8] Refreshing Ollama models declared in config/backends.yaml...")
         _ollama_cmd = _detect_ollama_cmd()
         if _ollama_cmd:
-            _update_model_list = _DEFAULT_MODELS[:]
-            if os.environ.get("PULL_HEAVY", "false").lower() in ("true", "1", "yes"):
-                _update_model_list.extend(_HEAVY_MODELS)
-            total = len(_update_model_list)
-            fail_count = 0
-            for i, model in enumerate(_update_model_list, 1):
-                model = _resolve_model_name(model)
-                typer.echo(f"  [{i}/{total}] {model}")
-                parts = _ollama_cmd.split() + ["pull", model]
-                try:
-                    subprocess.run(parts, check=True, capture_output=True)
-                    typer.echo("  ✅ Done")
-                except subprocess.CalledProcessError:
-                    fail_count += 1
-            typer.echo(f"  Ollama: {total - fail_count}/{total} succeeded")
+            from .model_refresh import refresh_from_backends
+
+            refresh_from_backends(_ollama_cmd)
         else:
             typer.echo("  ⚠️  Ollama not running — skipping model refresh")
         typer.echo("")

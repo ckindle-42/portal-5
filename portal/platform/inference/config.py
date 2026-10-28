@@ -347,6 +347,18 @@ class Model(BaseModel):
         default=None,
         description=".gguf filename inside actual_repo (omit for native Ollama models)",
     )
+    sha256: str | None = Field(
+        default=None,
+        description="Pinned sha256 hex of filename. Required to import an hf.co GGUF.",
+    )
+    num_ctx: int | None = Field(
+        default=None,
+        description="PARAMETER num_ctx written into the create Modelfile. Omitted when unset.",
+    )
+    stops: list[str] = Field(
+        default_factory=list,
+        description="Stop strings the rendered Modelfile may declare. <think> is never allowed.",
+    )
     ollama_name: str = Field(..., description="Tag the model lands under in Ollama")
     gated: bool = Field(default=False, description="HF repo requires accepted terms")
     retired: bool = Field(

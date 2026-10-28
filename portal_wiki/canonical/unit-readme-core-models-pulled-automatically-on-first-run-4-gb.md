@@ -37,9 +37,10 @@ that core models are ready:
 the EmbeddingGemma 2 service on :8946: memory reads `EG2_EMBEDDING_URL`, RAG
 and compliance read `VL_RETRIEVAL_URL` (default `http://localhost:8946/vl`).
 
-`portal/platform/inference/cli/update.py` `_DEFAULT_MODELS` is the host pull
-list for `portal update`. It starts with `${DEFAULT_MODEL:-dolphin-llama3:8b}`
-and the abliterated Llama-3.2 GGUF and does not include `nomic-embed-text`.
+`portal update` refreshes the model ids on the ollama backends in
+`config/backends.yaml`. Library tags are passed to `ollama pull`. An `hf.co/`
+id is imported only when that model entry pins `filename` and `sha256`.
+`nomic-embed-text` is not in that set.
 
 ## Why
 

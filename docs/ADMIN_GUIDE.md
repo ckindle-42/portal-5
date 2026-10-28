@@ -62,24 +62,24 @@ registry.
 ./launch.sh pull-models
 ```
 
-`pull-models` dispatches to `portal models pull`, which pulls every
-non-retired entry in the `models:` block of `config/portal.yaml` into
-Ollama. The broader default pull set — `xploiter`, `whiterabbitneo`,
-`baronllm`, `tongyi`, `qwen3-coder`, `devstral`, and others — is declared
-in `_DEFAULT_MODELS` in `portal/platform/inference/cli/update.py` and is
-what `portal update` refreshes. A full pull takes 30-90 minutes depending
-on connection speed, matching the help text in `launch.sh`.
+`pull-models` dispatches to `portal models pull`, which reads the `models:`
+block of `config/portal.yaml`. A Hugging Face entry is imported only when it
+pins `filename` and `sha256`: the CLI downloads that file, checks the digest,
+and runs `ollama create` from a Modelfile that carries `FROM` and the entry's
+`num_ctx`. After create, `ollama show --modelfile` must not contain a
+`<think>` stop or any stop the entry does not list in `stops`. An entry
+missing the pin is reported and skipped. `portal update` refreshes the model
+ids on `type: ollama` backends in `config/backends.yaml`. Tags that do not
+start with `hf.co/` are passed to `ollama pull` unchanged. An `hf.co/` id
+uses the same pin-and-create path, reading `filename`, `sha256`, `repo`,
+`num_ctx`, and `stops` from that model entry.
 
 ##### Why
 
-Model acquisition is a long, interactive operation, so the CLI owns the
-model list rather than this document: `config/portal.yaml` declares the
-live registry that `models pull` walks, and `_DEFAULT_MODELS` in
-`update.py` carries the named starter set. Grounding this unit to those
-files means the documented list cannot drift from what the CLI actually
-pulls — a hardcoded prose list would be stale by the next registry edit,
-and an operator following it would pull a model the system no longer
-serves.
+Model acquisition stays in config. `config/portal.yaml` holds the Hugging Face
+pull registry and `config/backends.yaml` holds the fleet ids that `portal update`
+refreshes. Pins live on those entries, so the pull set stays the fleet the
+operator edited.
 <!-- /WIKI:GENERATED -->
 
 ### Add a Cluster Node

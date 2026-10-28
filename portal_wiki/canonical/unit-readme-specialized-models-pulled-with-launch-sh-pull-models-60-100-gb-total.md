@@ -34,17 +34,18 @@ members per group:
 - **Vision:** Qwen3-VL 32B (auto-vision), Gemma 4 31B dense QAT (`gemma4:31b-it-qat`),
   Gemma 4 E4B QAT (`gemma4:e4b-it-qat`).
 
-Pull mechanics are registry-driven: `./launch.sh pull-models` pulls the active
-(non-retired) entries from the `models:` block of `config/portal.yaml`, while the
-`./launch.sh update` flow's default pull list in
-`portal/platform/inference/cli/update.py` (`_DEFAULT_MODELS`) covers a broader
-set that also includes `deepseek-coder-v2:16b-lite-instruct-q4_K_M`.
+Pull mechanics are registry-driven: `./launch.sh pull-models` imports pinned
+entries from the `models:` block of `config/portal.yaml` (`filename` and
+`sha256` required; an entry missing either is skipped). `./launch.sh update`
+refreshes every model id on the ollama backends in `config/backends.yaml`:
+library tags via `ollama pull`, and an `hf.co/` tag only when that entry pins
+a file and digest.
 
 ## Why
 
 Cataloging specialized models in `config/backends.yaml` rather than hardcoding
 them in the router keeps one authoritative list for routing, admission and pull
 targets, so adding or retiring a lane is a config change, not a code change. The
-split between the pull-models registry and the update default set reflects two
-workflows: a deliberate operator pull versus a full upgrade that refreshes the
-whole fleet.
+pull-models registry and the update refresh are two workflows over that config:
+a deliberate operator pull of pinned catalog entries, and a full upgrade that
+refreshes the ollama fleet ids.

@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import subprocess
-import sys
+import tempfile
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -15,101 +16,60 @@ from portal.platform.inference.config import Model, load_portal_config
 
 from ._apps import models_app
 from ._common import _detect_ollama_cmd, _model_exists_in_ollama
+from .model_refresh import (
+    capturing_run,
+    execute_plan,
+    hf_client,
+    plan_for_catalog_model,
+    streaming_run,
+)
 
 
 def _pull_native(model: str, ollama_cmd: str) -> bool:
-    """Pull a native Ollama registry model."""
-    parts = ollama_cmd.split() + ["pull", model]
+    """Pull a native Ollama library tag. The tag is passed through unchanged."""
+    from .model_refresh import pull_library
+
     typer.echo(f"  Pulling: {model}")
-    try:
-        subprocess.run(parts, check=True)
-        return True
-    except subprocess.CalledProcessError:
-        return False
+    result = pull_library(model, ollama_cmd, streaming_run)
+    if not result.ok:
+        typer.echo(f"  ❌ {result.message}", err=True)
+    return result.ok
 
 
-def _pull_hf_model(m: Model, ollama_cmd: str) -> bool:
-    """Pull a HuggingFace model via Python API + ollama create."""
-
-    actual_repo = m.actual_repo or m.hf_id
-    filename = m.filename
-    ollama_name = m.ollama_name
-    gated = m.gated
-
-    if not ollama_name:
+def _pull_hf_model(m: Model, ollama_cmd: str, *, force: bool = False) -> bool:
+    """Import one catalog entry. ``hf.co`` tags are never plain-pulled."""
+    if not m.ollama_name:
         typer.echo(f"  ⚠️  Skipping {m.hf_id}: no ollama_name (too large for current hardware)")
         return True
 
-    if not filename:
-        typer.echo(f"  ⚠️  No filename for {m.hf_id} — attempting direct ollama pull")
-        return _pull_native(f"hf.co/{actual_repo}", ollama_cmd)
-
-    # Check if already in Ollama
-    if _model_exists_in_ollama(ollama_name, ollama_cmd):
-        typer.echo(f"  ✅ Already in Ollama as {ollama_name} — skipping")
+    plan = plan_for_catalog_model(m)
+    if plan.action == "pull":
+        return _pull_native(plan.tag, ollama_cmd)
+    if plan.action == "skip":
+        typer.echo(f"  ⚠️  {m.ollama_name}: {plan.reason}")
         return True
 
-    # Token check for gated repos
-    if gated and not os.environ.get("HF_TOKEN"):
-        typer.echo(f"  ❌ {actual_repo} requires HF_TOKEN (gated repo)")
-        typer.echo(f"     1. Accept terms: https://huggingface.co/{actual_repo}")
+    repo = m.actual_repo or m.hf_id
+    if m.gated and not os.environ.get("HF_TOKEN"):
+        typer.echo(f"  ❌ {repo} requires HF_TOKEN (gated repo)")
+        typer.echo(f"     1. Accept terms: https://huggingface.co/{repo}")
         typer.echo("     2. Create token: https://huggingface.co/settings/tokens")
         typer.echo("     3. Add to .env:  HF_TOKEN=hf_...")
         return False
-
-    # Download via Python
-    try:
-        from huggingface_hub import hf_hub_download  # noqa: PLC0415
-    except ImportError:
-        typer.echo("  Installing huggingface_hub...")
-        subprocess.run(
-            [sys.executable, "-m", "pip", "install", "huggingface_hub>=0.28", "--quiet"],
-            check=True,
-        )
-
-    typer.echo(f"  Fetching from HuggingFace: {actual_repo}")
-    typer.echo(f"  File: {filename}")
-
-    token = os.environ.get("HF_TOKEN") or None
-    try:
-        from huggingface_hub import hf_hub_download  # noqa: PLC0415
-
-        gguf_path = hf_hub_download(
-            repo_id=actual_repo,
-            filename=filename,
-            token=token,
-        )
-    except Exception as e:
-        typer.echo(f"  ❌ Download failed: {e}")
-        typer.echo("     Retry manually:")
-        typer.echo(f"       hf hub download {actual_repo} {filename}")
-        typer.echo(f"     Then import: ./launch.sh import-gguf <path> {ollama_name}")
-        return False
-
-    if not gguf_path or not Path(gguf_path).exists():
-        typer.echo("  ❌ Download failed — file not found after download")
-        return False
-
-    typer.echo(f"  ✅ Ready: {Path(gguf_path).name}")
-
-    # Import via ollama create
-    typer.echo(f"  Importing as: {ollama_name}")
-    import tempfile
-
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".modelfile", delete=False) as mf:
-        mf.write(f"FROM {gguf_path}\nPARAMETER temperature 0.7\nPARAMETER num_ctx 8192\n")
-        modelfile_path = mf.name
-
-    try:
-        parts = ollama_cmd.split() + ["create", ollama_name, "-f", modelfile_path]
-        subprocess.run(parts, check=True)
-        typer.echo(f"  ✅ Imported: {ollama_name}")
+    if not force and _model_exists_in_ollama(m.ollama_name, ollama_cmd):
+        typer.echo(f"  ✅ Already in Ollama as {m.ollama_name} — skipping")
         return True
-    except subprocess.CalledProcessError:
-        typer.echo(f"  ❌ ollama create failed — GGUF kept at: {gguf_path}")
-        return False
-    finally:
-        Path(modelfile_path).unlink(missing_ok=True)
+
+    dest = Path(tempfile.mkdtemp(prefix="portal5-gguf-"))
+    with hf_client() as client:
+        result = execute_plan(plan, ollama_cmd, runner=capturing_run, client=client, dest_dir=dest)
+    if result.ok:
+        shutil.rmtree(dest, ignore_errors=True)
+        typer.echo(f"  ✅ Imported: {m.ollama_name}")
+        return True
+    typer.echo(f"  ❌ {result.message}", err=True)
+    typer.echo(f"     kept: {dest}")
+    return False
 
 
 def _select_pull_targets(
@@ -155,10 +115,11 @@ def models_pull(
         ),
     ] = False,
 ) -> None:
-    """Pull HuggingFace models into Ollama per config/portal.yaml models: block.
+    """Pull catalog entries into Ollama per config/portal.yaml models: block.
 
-    Model definitions are read from config/portal.yaml.
-    Native Ollama registry models use ``ollama pull`` directly.
+    A pinned GGUF (filename + sha256) is downloaded, verified, and created.
+    An entry without that pin is reported and skipped. Library tags use
+    ``ollama pull``.
     """
     cfg = load_portal_config()
 
@@ -181,10 +142,8 @@ def models_pull(
 
     typer.echo("=== Portal 5: Pulling AI models ===")
     typer.echo("This may take 30-90 minutes depending on connection speed.\n")
-    typer.echo("[portal-5] HuggingFace models: using hf hub download (bypasses Ollama auth issues)")
-    typer.echo(
-        "   For gated models, first accept terms at huggingface.co then set HF_TOKEN in .env\n"
-    )
+    typer.echo("[portal-5] Pinned GGUF: download, verify sha256, ollama create")
+    typer.echo("   Entries without filename+sha256 are skipped. Set HF_TOKEN for gated repos.\n")
 
     total = len(targets)
     failed = 0
@@ -193,7 +152,7 @@ def models_pull(
         if skip_gated and m.gated:
             typer.echo(f"  ⏭️  Skipping gated model: {m.hf_id}")
             continue
-        ok = _pull_hf_model(m, ollama_cmd)
+        ok = _pull_hf_model(m, ollama_cmd, force=force)
         if ok:
             typer.echo("  ✅ Done")
         else:

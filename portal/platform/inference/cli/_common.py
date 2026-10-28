@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import os
-import re
 import subprocess
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -59,16 +57,6 @@ def _fmt_size(size: float) -> str:
             return f"{size:.1f}{unit}"
         size /= 1024
     return f"{size:.1f}P"
-
-
-def _resolve_model_name(raw: str) -> str:
-    """Resolve ${VAR:-default} env var references in model names."""
-
-    def _repl(m: re.Match[str]) -> str:
-        var, default = m.group(1), m.group(2)
-        return os.environ.get(var, default)
-
-    return re.sub(r"\$\{(\w+):-([^}]+)\}", _repl, raw)
 
 
 # ── Cross-reference workspace ↔ model registry ────────────────────────────────
