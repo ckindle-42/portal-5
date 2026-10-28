@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 from typing import Annotated
 
 import typer
-
-from ._common import _detect_ollama_cmd
 
 
 def cmd_update(
@@ -104,15 +103,10 @@ def cmd_update(
         typer.echo("")
 
     if not skip_models:
-        # Step 4: Refresh Ollama models
-        typer.echo("[4/8] Refreshing Ollama models declared in config/backends.yaml...")
-        _ollama_cmd = _detect_ollama_cmd()
-        if _ollama_cmd:
-            from .model_refresh import refresh_from_backends
-
-            refresh_from_backends(_ollama_cmd)
-        else:
-            typer.echo("  ⚠️  Ollama not running — skipping model refresh")
+        # Step 4: Replace catalog models whose upstream changed. Never a plain pull.
+        typer.echo("[4/8] Replacing Ollama models whose upstream changed...")
+        script = repo_root / "scripts" / "model_autoupdate.py"
+        subprocess.run([sys.executable, str(script), "--now"], check=False)
         typer.echo("")
 
     if not models_only:

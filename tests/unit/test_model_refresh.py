@@ -590,19 +590,49 @@ def test_update_downloads_no_models_unless_asked(monkeypatch, tmp_path) -> None:
 
     from typer.testing import CliRunner
 
-    from portal.platform.inference.cli import model_refresh, update
+    from portal.platform.inference.cli import update
 
-    calls: list[str] = []
-    monkeypatch.setattr(
-        subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a, 0, "", "")
-    )
-    monkeypatch.setattr(update, "_detect_ollama_cmd", lambda: "ollama")
-    monkeypatch.setattr(model_refresh, "refresh_from_backends", lambda cmd: calls.append(cmd))
+    calls: list[list[str]] = []
+
+    def _run(argv, **_k):
+        calls.append([str(part) for part in argv])
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+    monkeypatch.setattr(subprocess, "run", _run)
     app = typer.Typer()
     update.register(app)
     app.command("noop")(lambda: None)
 
     assert CliRunner().invoke(app, ["update", "--yes"]).exit_code == 0
-    assert calls == []
+    assert not any("model_autoupdate.py" in part for cmd in calls for part in cmd)
+    calls.clear()
     assert CliRunner().invoke(app, ["update", "--yes", "--refresh-models"]).exit_code == 0
-    assert calls == ["ollama"]
+    assert any("model_autoupdate.py" in part for cmd in calls for part in cmd)
+
+
+def test_pinned_ctx_tag_derives_from_its_own_pin(tmp_path: Path) -> None:
+    pinned = "c" * 64
+    (tmp_path / "backends.yaml").write_text(
+        f"""
+backends:
+- id: ol
+  type: ollama
+  url: http://127.0.0.1:9
+  models:
+  - id: hf.co/org/Pinned-GGUF:Q4_K_M-ctx8k
+    filename: model.gguf
+    sha256: "{pinned}"
+    repo: org/Pinned-GGUF
+""",
+        encoding="utf-8",
+    )
+    plans = refresh.plans_from_registry(BackendRegistry(str(tmp_path / "backends.yaml")))
+    assert len(plans) == 1
+    plan = plans[0]
+    assert plan.action == "derive"
+    assert plan.num_ctx == 8192
+    assert plan.base_plan is not None
+    assert plan.base_plan.action == "create"
+    assert plan.base_plan.pin is not None
+    assert plan.base_plan.pin.filename == "model.gguf"
+    assert plan.base_plan.pin.sha256 == pinned

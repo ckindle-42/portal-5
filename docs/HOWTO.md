@@ -617,7 +617,9 @@ All commands below are the actual `case` branches in `launch.sh` (or dispatch in
 ### Update (single command: git pull + rebuild + re-seed; models only on request)
 ./launch.sh update                  # cli update — no model downloads
 ./launch.sh update --refresh-models # Also refresh Ollama models (downloads only what upstream changed)
-./launch.sh update --models-only    # Only refresh models
+./launch.sh update --models-only    # Only replace models whose upstream changed
+# Weekly replace (Mon 02:47, launchd com.portal5.model-update): scripts/model_autoupdate.py
+# Pin what is installed, no download: python3 scripts/model_pin_backfill.py [--write]
 
 ### Cleanup
 ./launch.sh clean           # Stop + wipe Open WebUI data (keeps Ollama model weights)

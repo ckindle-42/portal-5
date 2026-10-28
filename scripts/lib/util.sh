@@ -506,6 +506,23 @@ PY
         fi
     fi
 
+    # ── Weekly model replace: same tag, upstream file only (scripts/model_autoupdate.py)
+    local _mu_label="com.portal5.model-update"
+    local _mu_src="$PORTAL_ROOT/deploy/launchd/${_mu_label}.plist"
+    local _mu_dst="$HOME/Library/LaunchAgents/${_mu_label}.plist"
+    if [ -f "$_mu_src" ] && [ "$(uname -s)" = "Darwin" ]; then
+        mkdir -p "$HOME/.portal5/logs" "$HOME/Library/LaunchAgents"
+        sed -e "s#__PORTAL_ROOT__#${PORTAL_ROOT}#g" \
+            -e "s#__LOG_DIR__#${HOME}/.portal5/logs#g" \
+            -e "s#__HOME__#${HOME}#g" \
+            "$_mu_src" > "$_mu_dst"
+        if ! launchctl print "gui/$(id -u)/${_mu_label}" &>/dev/null 2>&1; then
+            launchctl bootstrap "gui/$(id -u)" "$_mu_dst" &>/dev/null \
+                && echo "[portal-5]   ✅ model refresh: weekly replace job enabled" \
+                || echo "[portal-5]   ⚠️  model refresh: launchd registration failed"
+        fi
+    fi
+
     # ── Weekly full rebuild: fresh bases, no-cache build, stack down/up ──────
     # (scripts/weekly_rebuild.py; runs after the Sunday security-update job)
     local _wr_label="com.portal5.weekly-rebuild"

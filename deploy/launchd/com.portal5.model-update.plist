@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.portal5.model-update</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-lc</string>
+        <string>cd __PORTAL_ROOT__ &amp;&amp; set -a &amp;&amp; . ./.env 2&gt;/dev/null; set +a; exec .venv/bin/python scripts/model_autoupdate.py</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>__HOME__/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+    <!-- Weekly, Monday 02:47 local — before engine-update (04:37) and the
+         Monday 13:07 update-check, which reports whatever this job skipped.
+         Replaces catalog models whose upstream file or registry manifest
+         changed. Defers while a WFE/UAT/bench run is in flight. See
+         scripts/model_autoupdate.py. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>1</integer>
+        <key>Hour</key>
+        <integer>2</integer>
+        <key>Minute</key>
+        <integer>47</integer>
+    </dict>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>StandardOutPath</key>
+    <string>__LOG_DIR__/model-update.launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>__LOG_DIR__/model-update.launchd.log</string>
+</dict>
+</plist>

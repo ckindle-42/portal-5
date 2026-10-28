@@ -46,7 +46,9 @@ uv run python scripts/gate_c_calculator.py <task-dir-or-receipt>...
 python3 scripts/uat_engines.py                     # one shot per enabled engine and variant, plus engines-and-roles checks (JSON under ${PORTAL_DATA_ROOT}/uat/; --dry-run, --only ID)
 python3 scripts/uat_swap.py --dry-run              # swap-sequence UAT: engine ping-pong, size ladder, the 2026-10-22 order, a concurrent pair, and a pinned seat under a long request (JSON under ${PORTAL_DATA_ROOT}/uat/; --sequence, --pinned-seat, --wait-for-quiet)
 python3 scripts/check_model_bindings.py             # live gate: every model_pin/model_hint/alias/promptfoo-provider resolves to an installed Ollama tag
-python3 scripts/check_updates.py                    # report upstream drift + GitHub security advisories for the Obscura pin, Ollama, oMLX, compose images, python deps, and the orchestrator's worker harnesses (opencode/codex/grok) (weekly launchd: com.portal5.update-check); accepts a component subset, e.g. `check_updates.py ollama harnesses`
+python3 scripts/check_updates.py                    # report upstream drift + GitHub security advisories for the Obscura pin, Ollama, oMLX, compose images, python deps, catalog models, and the orchestrator's worker harnesses (opencode/codex/grok) (weekly launchd: com.portal5.update-check); accepts a component subset, e.g. `check_updates.py ollama harnesses`
+python3 scripts/model_pin_backfill.py               # dry-run: pin each hf.co id in config/backends.yaml from the local Ollama blob + HF main; --write records repo/filename/sha256 or unpinned
+python3 scripts/model_autoupdate.py                 # replace catalog models whose upstream changed (weekly launchd: com.portal5.model-update); --dry-run reports, --now is the manual opt-in
 python3 scripts/verify_proxmox_mcp.py              # quick Proxmox MCP check (no Docker)
 python3 scripts/spine_census.py                    # wiki granularity census (mirror/surface/orphan)
 python3 scripts/saluki_rule5_reverify.py          # Rule-5 loop re-verify (Ollama, one request in flight; cell tags must exist, rewrites p4_rule5_reverify.json)

@@ -461,14 +461,16 @@ def _plan_for_tag(
     entry: Mapping[str, object],
     catalog: Mapping[str, Mapping[str, object]],
 ) -> RefreshPlan:
+    # A baked -ctx tag stays a derive even when it carries the base blob's pin.
+    if not _is_local_tag(tag):
+        split = _split_derived(tag)
+        if split is not None:
+            return _plan_derived(tag, entry, split, catalog)
     pinned = _pinned_plan(tag, entry)
     if pinned is not None:
         return pinned
     if _is_local_tag(tag):
         return RefreshPlan(tag, "skip", reason="local tag, no upstream")
-    split = _split_derived(tag)
-    if split is not None:
-        return _plan_derived(tag, entry, split, catalog)
     if tag.startswith("hf.co/"):
         _pin, reason = parse_pin(tag, entry)
         return RefreshPlan(tag, "skip", reason=reason)
@@ -498,7 +500,7 @@ def _plan_derived(
     num_ctx, err = _preferred_num_ctx(kilos, entry)
     if err:
         return RefreshPlan(tag, "skip", reason=err)
-    base_plan = _plan_for_tag(base_tag, catalog.get(base_tag, {}), catalog)
+    base_plan = _plan_for_tag(base_tag, _entry_for_base(entry, base_tag, catalog), catalog)
     if base_plan.action not in {"pull", "create", "skip"}:
         return RefreshPlan(tag, "skip", reason="local tag, no upstream")
     return RefreshPlan(tag, "derive", base_plan=base_plan, num_ctx=num_ctx)
@@ -543,6 +545,21 @@ def _create_derived(
             message = f"{message}: {detail}"
         return InstallResult(False, "failed", message)
     return InstallResult(True, "created", tag)
+
+
+def _entry_for_base(
+    entry: Mapping[str, object],
+    base_tag: str,
+    catalog: Mapping[str, Mapping[str, object]],
+) -> dict[str, object]:
+    """Use the baked tag's pin when the base id itself has none."""
+    base = dict(catalog.get(base_tag, {}))
+    if _mentions_pin(base) or not _mentions_pin(entry):
+        return base
+    for key in ("filename", "sha256", "repo", "actual_repo", "stops"):
+        if not _blank(entry.get(key)):
+            base[key] = entry[key]
+    return base
 
 
 def _is_local_tag(tag: str) -> bool:

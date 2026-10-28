@@ -3,7 +3,8 @@
 
 Covers the Obscura browser ref (``ARG OBSCURA_REF`` in
 ``deploy/browser-mcp/Dockerfile``), Ollama (``~/ollama-current`` symlink), oMLX
-GitHub releases (with the Homebrew formula as a service fallback), and the worker
+GitHub releases (with the Homebrew formula as a service fallback), catalog
+models whose pinned file or registry manifest moved (``models``), and the worker
 harnesses (``opencode``, ``codex``, ``grok`` — see ``harnesses``). Reports how far behind each pin is
 and — the point of it — flags gaps that include a security fix or a published
 GitHub advisory, so a "review later" bump can be promoted to "do this now".
@@ -800,6 +801,47 @@ def check_images() -> Report:
     return rep
 
 
+def check_models() -> Report:
+    """Catalog models whose HF pin or Ollama registry manifest moved."""
+    root = str(REPO_ROOT)
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    from scripts.model_upstream import collect_changes, models_dir
+
+    rep = Report(name="models", current="pinned", latest="pinned")
+    try:
+        scan = collect_changes(
+            (REPO_ROOT / "config" / "backends.yaml").read_text(encoding="utf-8"),
+            models_dir(),
+            _model_fetch(),
+        )
+    except OSError as exc:
+        rep.status = "error"
+        rep.lines.append(str(exc))
+        return rep
+    rep.lines.extend(
+        f"{change.tag} {change.old[:12]} -> {change.new[:12]} ({change.size} bytes)"
+        for change in scan.changes
+    )
+    rep.lines.extend(scan.notes)
+    if scan.changes:
+        rep.status = "behind"
+        rep.current = str(len(scan.changes))
+        rep.latest = "upstream"
+        return rep
+    if any(note.startswith("error ") for note in scan.notes):
+        rep.status = "unknown"
+    else:
+        rep.status = "current"
+    return rep
+
+
+def _model_fetch():
+    from scripts.model_upstream import default_fetch
+
+    return default_fetch
+
+
 CHECKERS = {
     "obscura": check_obscura,
     "ollama": check_ollama,
@@ -808,6 +850,7 @@ CHECKERS = {
     "python-vulns": check_python_vulns,
     "images": check_images,
     "harnesses": check_harnesses,
+    "models": check_models,
 }
 
 
