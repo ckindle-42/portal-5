@@ -43,6 +43,8 @@ from portal.platform.inference.router.thinking import NO_ANSWER_MESSAGE  # noqa:
 from portal.platform.mcp_host.workspace import get_generated_dir  # noqa: E402
 from scripts import host_quiet  # noqa: E402
 
+PLANNER_MAX_TOKENS = 8192  # mirrors portal/modules/orchestration/planner.py plan_goal
+
 DEFAULT_PIPELINE = "http://localhost:9099"
 DEFAULT_TIMEOUT = 300
 
@@ -545,6 +547,11 @@ def _request_body(
     }
     if json_output:
         body["response_format"] = {"type": "json_object"}
+        # Same output budget the production planner sends (planner.plan_goal). Without it the
+        # seat's predict_limit (auto-daily: 4096) applied and Gemma's thinking hit the limit
+        # before any answer on the longer planner prompts (2026-10-28: finish_reason=length,
+        # reasoning only, 4 BLOCKED) — a suite-only divergence, not a model result.
+        body["max_tokens"] = PLANNER_MAX_TOKENS
     if tools:
         body["portal_bite_tools"] = tools
         body["exec_audit"] = True

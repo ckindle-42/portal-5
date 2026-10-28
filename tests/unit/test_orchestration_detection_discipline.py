@@ -53,11 +53,11 @@ def _template_plan(tmp_path: Path) -> dict[str, Any]:
     ).as_dict()
 
 
-def test_discipline_is_unseated_and_retains_fixed_criteria() -> None:
+def test_discipline_is_seated_and_retains_fixed_criteria() -> None:
     discipline = _yaml("discipline.yaml")
     assert discipline["persona"]["slug"] == "splunkdetectionauthor"
     assert (ROOT / discipline["persona"]["source"]).is_file()
-    assert discipline["seating"]["status"] == "unseated"
+    assert discipline["seating"]["status"] == "seated"
     assert "seats" not in discipline
     assert discipline["data_class"] == "local-only"
     assert discipline["write_scope"] == {
@@ -74,12 +74,17 @@ def test_discipline_is_unseated_and_retains_fixed_criteria() -> None:
         assert set(allowed) <= _native_names(sources[source])
     criteria = discipline["pass_criteria"]
     assert criteria["frozen_before_first_run"] is True
-    assert criteria["checker_controls"] == {"false_passes": 0, "false_failures": 0}
+    assert criteria["checker_controls"]["false_passes"] == 0
+    assert criteria["checker_controls"]["false_failures"] == 0
     assert criteria["live_lab"]["required_cases_must_run"] is True
     arm_discipline = _arm_config()["disciplines"]["detection-engineering"]
-    assert arm_discipline["seating_status"] == "unseated"
-    assert "seated_models" not in arm_discipline
-    assert "detection-engineering" not in _arm_config()["calibration"]["rates_by_discipline"]
+    assert arm_discipline["seating_status"] == "seated"
+    assert arm_discipline["seated_models"] == {
+        "fast": "auto-daily::gemma-fast",
+        "deep": "auto-daily::deep",
+    }
+    rates = _arm_config()["calibration"]["rates_by_discipline"]["detection-engineering"]
+    assert rates["fast"]["samples"] == rates["deep"]["samples"] == 12
 
 
 def test_bite_suite_declares_each_hard_checker_and_live_lab_boundary() -> None:
@@ -149,3 +154,49 @@ def test_unknown_checker_cannot_fail_open() -> None:
     result = run_checker({"type": "looks_plausible"}, {}, [])
     assert not result.passed
     assert "unknown" in result.detail
+
+
+_SIGMA = "title: T\nlogsource: {product: windows, category: process_creation}\ndetection:\n  sel: {Image|endswith: '\\\\whoami.exe'}\n  condition: sel\n"
+_SIGMA_SPEC = {
+    "type": "sigma_validate_convert",
+    "artifact_field": "sigma_yaml",
+    "rule_count": 1,
+    "query_contains": ["whoami.exe"],
+}
+_CONVERTED = {
+    "target": "splunk",
+    "valid": True,
+    "rule_count": 1,
+    "queries": ['Image="*\\\\whoami.exe"'],
+}
+
+
+def test_a_successful_convert_of_the_exact_artifact_is_its_validation() -> None:
+    """2026-10-28: convert_sigma parses with the same SigmaCollection.from_yaml as
+    validate_sigma, so the deep seat skipping a redundant validate call is not a failure."""
+    calls = [
+        {
+            "name": "convert_sigma",
+            "args": {"sigma_yaml": _SIGMA, "target": "splunk"},
+            "output": _CONVERTED,
+        }
+    ]
+    result = run_checker(_SIGMA_SPEC, {"sigma_yaml": _SIGMA}, calls)
+    assert result.passed, result.detail
+
+
+def test_convert_sigma_with_the_default_target_omitted_still_matches() -> None:
+    calls = [{"name": "convert_sigma", "args": {"sigma_yaml": _SIGMA}, "output": _CONVERTED}]
+    assert run_checker(_SIGMA_SPEC, {"sigma_yaml": _SIGMA}, calls).passed
+
+
+def test_converting_different_bytes_still_fails_the_exact_artifact_rule() -> None:
+    calls = [
+        {
+            "name": "convert_sigma",
+            "args": {"sigma_yaml": _SIGMA + "# edited\n"},
+            "output": _CONVERTED,
+        }
+    ]
+    result = run_checker(_SIGMA_SPEC, {"sigma_yaml": _SIGMA}, calls)
+    assert not result.passed

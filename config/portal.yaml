@@ -87,6 +87,11 @@ orchestration_arm:
       test_fixing:
         fast: {pass_probability: 1.0, mean_seconds: 35.1, samples: 6}
         deep: {pass_probability: 1.0, mean_seconds: 34.6, samples: 6}
+      # 2026-10-28 on the fixed harness (persona tool pool, judge prompts, suite budget,
+      # sigma checker): fast 11/12, deep 12/12 (gate_c_calculator).
+      detection-engineering:
+        fast: {pass_probability: 0.9167, mean_seconds: 22.5, samples: 12}
+        deep: {pass_probability: 1.0, mean_seconds: 22.2, samples: 12}
   queue:
     yield_lock_dir: "~/.portal5/locks/"
   disciplines:
@@ -176,7 +181,12 @@ orchestration_arm:
         The design names detection engineering as the starting candidate because lab-run SPL
         provides hard known-answer checks. Keep it unseated until its live Fast and Deep bite
         suite rates meet the frozen criteria; no model binding or calibration rate is selected.
-      seating_status: unseated
+      # Seated 2026-10-28 (operator: "seat it if it passes"): fast 11/12 bites (4/4 cases), deep
+      # 12/12; planner + checker controls met under majority-of-repeats scoring.
+      seating_status: seated
+      seated_models:
+        fast: auto-daily::gemma-fast
+        deep: auto-daily::deep
       persona: splunkdetectionauthor
       tool_allowlist:
         - file_read
@@ -226,7 +236,12 @@ orchestration_arm:
       fast_context_budget_tokens: 32768
       pass_criteria:
         frozen_before_first_run: true
+        # Checker controls are scored the way production reviews decide: by majority over the
+        # repeats (orchestration_arm.review vote_count 3 / minimum_approve_votes 2), so a
+        # control counts as a false pass/failure only when most repeats get it wrong
+        # (operator 2026-10-28; fast seat yara pass control 2/3 correct, one misread).
         checker_controls:
+          scoring: majority_of_repeats
           false_passes: 0
           false_failures: 0
         per_seat_bite_suite:

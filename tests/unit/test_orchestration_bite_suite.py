@@ -480,3 +480,11 @@ def test_invalid_model_json_is_a_scored_fail_and_only_a_json_fence_parses(tmp_pa
     assert plain_row["evidence"] == {"expected": "REJECT", "observed": "REJECT"}
     assert all(row["response_format"] == {"type": "json_object"} for row in pipeline.requests)
     assert all(row["portal_no_tools"] is True for row in pipeline.requests)
+
+
+def test_planner_and_checker_requests_carry_the_production_output_budget():
+    """A json_output (planner/checker) request sends plan_goal's max_tokens, not the seat default."""
+    body = runner._request_body(
+        "auto-daily::gemma-fast", [{"role": "user", "content": "x"}], [], json_output=True
+    )
+    assert body["max_tokens"] == runner.PLANNER_MAX_TOKENS == 8192

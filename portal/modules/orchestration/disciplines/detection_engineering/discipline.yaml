@@ -4,8 +4,8 @@ persona:
   slug: splunkdetectionauthor
   source: config/personas/splunkdetectionauthor.yaml
 seating:
-  status: unseated
-  reason: Assign model seats only after live Fast and Deep bite-suite rates meet the frozen criteria.
+  status: seated
+  reason: Live Fast (11/12) and Deep (12/12) bite-suite rates met the frozen criteria on 2026-10-28; checker controls scored by majority of repeats, as production reviews decide.
 thinking: required
 tool_allowlist:
   detection:

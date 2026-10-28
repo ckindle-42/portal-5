@@ -53,7 +53,10 @@ def _artifact_text(spec: CheckSpec, artifact: Artifact) -> tuple[str | None, Che
 
 
 def _matching_tool_result(
-    calls: Sequence[ToolCall], name: str, expected_args: Mapping[str, Any]
+    calls: Sequence[ToolCall],
+    name: str,
+    expected_args: Mapping[str, Any],
+    defaults: Mapping[str, Any] | None = None,
 ) -> tuple[dict[str, Any] | None, CheckResult | None]:
     seen: list[str] = []
     for call in calls:
@@ -64,7 +67,10 @@ def _matching_tool_result(
         seen.append(
             json.dumps(args, sort_keys=True, default=str) if args is not None else "invalid"
         )
-        if args is None or any(args.get(key) != value for key, value in expected_args.items()):
+        # An argument the call left out takes the tool's declared default (convert_sigma's
+        # target defaults to splunk); omitting it is not a different call.
+        effective = {**(defaults or {}), **(args or {})}
+        if args is None or any(effective.get(key) != value for key, value in expected_args.items()):
             continue
         if call.get("error"):
             return None, _fail(f"{name} returned a tool error", error=str(call["error"]))
@@ -102,17 +108,26 @@ def check_sigma_validate_convert(
     sigma_yaml, failure = _artifact_text(spec, artifact)
     if failure is not None or sigma_yaml is None:
         return failure or _fail("Sigma artifact missing")
+    expected_count = int(spec.get("rule_count", 1))
+    converted, conversion_failure = _matching_tool_result(
+        calls,
+        "convert_sigma",
+        {"sigma_yaml": sigma_yaml, "target": "splunk"},
+        defaults={"target": "splunk"},
+    )
     validated, failure = _matching_tool_result(calls, "validate_sigma", {"sigma_yaml": sigma_yaml})
+    if validated is None and converted is not None:
+        # convert_sigma parses the rule with the same SigmaCollection.from_yaml as
+        # validate_sigma before converting (detection_mcp.py), so a successful conversion of
+        # the exact artifact is its structural validation too (2026-10-28: the deep seat was
+        # failed for skipping a redundant validate call the tool contract says convert covers).
+        validated, failure = converted, None
     if failure is not None or validated is None:
         return failure or _fail("Sigma validation result missing")
-    expected_count = int(spec.get("rule_count", 1))
     if validated.get("valid") is not True or validated.get("rule_count") != expected_count:
         return _fail("Sigma structural validation failed", validation=validated)
-    converted, failure = _matching_tool_result(
-        calls, "convert_sigma", {"sigma_yaml": sigma_yaml, "target": "splunk"}
-    )
-    if failure is not None or converted is None:
-        return failure or _fail("Sigma conversion result missing")
+    if conversion_failure is not None or converted is None:
+        return conversion_failure or _fail("Sigma conversion result missing")
     queries = converted.get("queries")
     if (
         converted.get("valid") is not True

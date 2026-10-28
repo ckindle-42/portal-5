@@ -42,6 +42,15 @@ calibration:
         pass_probability: 1.0
         mean_seconds: 34.6
         samples: 6
+    detection-engineering:
+      fast:
+        pass_probability: 0.9167
+        mean_seconds: 22.5
+        samples: 12
+      deep:
+        pass_probability: 1.0
+        mean_seconds: 22.2
+        samples: 12
 queue:
   yield_lock_dir: ~/.portal5/locks/
 disciplines:
@@ -181,7 +190,10 @@ disciplines:
       because lab-run SPL provides hard known-answer checks. Keep it unseated until
       its live Fast and Deep bite suite rates meet the frozen criteria; no model binding
       or calibration rate is selected.
-    seating_status: unseated
+    seating_status: seated
+    seated_models:
+      fast: auto-daily::gemma-fast
+      deep: auto-daily::deep
     persona: splunkdetectionauthor
     tool_allowlist:
     - file_read
@@ -233,6 +245,7 @@ disciplines:
     pass_criteria:
       frozen_before_first_run: true
       checker_controls:
+        scoring: majority_of_repeats
         false_passes: 0
         false_failures: 0
       per_seat_bite_suite:

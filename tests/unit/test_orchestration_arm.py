@@ -445,9 +445,9 @@ def test_detection_engineering_template_validates_and_runs_offline(
     repo = Path(__file__).resolve().parents[2]
     arm_config = yaml.safe_load((repo / "config/orchestration_arm.yaml").read_text())
     detection = arm_config["disciplines"]["detection-engineering"]
-    assert detection["seating_status"] == "unseated"
-    assert "seated_models" not in detection
-    assert "detection-engineering" not in arm_config["calibration"]["rates_by_discipline"]
+    assert detection["seating_status"] == "seated"
+    assert detection["seated_models"]["fast"] == "auto-daily::gemma-fast"
+    assert "detection-engineering" in arm_config["calibration"]["rates_by_discipline"]
     arm_config["calibration"]["minimum_pass_probability"] = 0.01
     config_path = tmp_path / "orchestration_arm.yaml"
     config_path.write_text(yaml.safe_dump(arm_config, sort_keys=False), encoding="utf-8")
@@ -511,8 +511,8 @@ def test_detection_engineering_template_validates_and_runs_offline(
         notices=notices,
     )
 
-    with pytest.raises(ValueError, match="WFE rates for detection-engineering"):
-        arm.submit(task_plan.as_dict(), tmp_path)
+    # Seated 2026-10-28: detection-engineering now carries WFE rates, so the unattended
+    # missing-rates refusal no longer applies; the attended offline run below is unchanged.
     arm.arm_config["calibration"]["minimum_pass_probability"] = None
     task_dir = arm.submit(task_plan.as_dict(), tmp_path, unattended=False)
 
