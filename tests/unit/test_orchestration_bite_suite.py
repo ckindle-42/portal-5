@@ -357,3 +357,88 @@ def test_checker_suite_scores_control_pairs_without_counting_them_as_bites(tmp_p
     assert len(pipeline.requests) == 8
     assert all(row["portal_no_tools"] is True for row in pipeline.requests)
     assert extract_discipline_rates([receipt]) == {}
+
+
+def _json_reply(
+    pipeline: FakePipeline, tmp_path: Path, content: str, label: str, name: str
+) -> dict:
+    pipeline.add_model("bench-spark-x26", text_response(content))
+    engine = runner.SuiteEngine("bench-spark-x26", pipeline.url, auth.PIPELINE_API_KEY)
+    task_dir = tmp_path / name
+    task_dir.mkdir()
+    return runner._run_one(
+        engine=engine,
+        seat="bench-spark-x26",
+        discipline="detection-engineering",
+        suite="checker",
+        case={"id": name},
+        label=label,
+        messages=[{"role": "user", "content": "judge"}],
+        tools=[],
+        task_dir=task_dir,
+        dry_run=False,
+    )
+
+
+def test_invalid_model_json_is_a_scored_fail_and_only_a_json_fence_parses(tmp_path: Path):
+    # Planner r3: a JSON object whose reason string contains raw quotes.
+    broken = (
+        '{\n  "verdict": "REJECT",\n'
+        '  "reason": "The research bite\'s goal says "Read reference.spl". Missing review_reason."\n}'
+    )
+    # Checker exact-spl-validation fail r1/r2: tool-call markup, then a JSON object.
+    tool_then_json = (
+        "<tool_call>\n\n\n\n"
+        '{"verdict": "PASS", "reason": "spl_validate_syntax returned ok=true with no errors."}'
+    )
+    # Checker exact-yara-compilation pass r2: a tool call and no JSON object.
+    tool_only = (
+        "<tool_call>\n"
+        '<|im_start|>function=search_web(depth: 1, query: "YARA rule syntax strings condition")'
+    )
+    fenced_pass = '```json\n{"verdict": "PASS", "reason": "ok"}\n```'
+    fenced_reject = '```json\n{"verdict": "REJECT", "reason": "no"}\n```'
+    prose_around_fence = 'Looks good.\n```json\n{"verdict": "PASS"}\n```'
+    pipeline = FakePipeline()
+    try:
+        broken_row = _json_reply(pipeline, tmp_path, broken, "pass", "broken-json")
+        prefixed_row = _json_reply(pipeline, tmp_path, tool_then_json, "pass", "tool-then-json")
+        tool_row = _json_reply(pipeline, tmp_path, tool_only, "pass", "tool-only")
+        prose_row = _json_reply(pipeline, tmp_path, prose_around_fence, "pass", "prose-fence")
+        bare_row = _json_reply(
+            pipeline, tmp_path, json.dumps({"verdict": "MAYBE"}), "pass", "no-verdict"
+        )
+        fenced_pass_row = _json_reply(pipeline, tmp_path, fenced_pass, "pass", "fenced-pass")
+        fenced_reject_row = _json_reply(pipeline, tmp_path, fenced_reject, "pass", "fenced-reject")
+        empty_row = _json_reply(pipeline, tmp_path, "", "fail", "empty")
+        plain_row = _json_reply(
+            pipeline, tmp_path, json.dumps({"verdict": "REJECT"}), "fail", "plain-reject"
+        )
+    finally:
+        pipeline.close()
+
+    assert broken_row["status"] == "FAIL"
+    assert broken_row["state"] == "failed"
+    assert "Expecting ',' delimiter" in broken_row["evidence"]["error"]
+    assert "observed" not in broken_row["evidence"]
+    # Inner verdict is PASS, which would satisfy a pass label if the prefix were stripped.
+    assert prefixed_row["status"] == "FAIL"
+    assert prefixed_row["evidence"]["error"].startswith("JSONDecodeError:")
+    assert "observed" not in prefixed_row["evidence"]
+    assert tool_row["status"] == "FAIL"
+    assert tool_row["evidence"]["error"].startswith("JSONDecodeError:")
+    assert prose_row["status"] == "FAIL"
+    assert "observed" not in prose_row["evidence"]
+    assert bare_row["status"] == "FAIL"
+    assert bare_row["evidence"]["error"].startswith("ValueError:")
+    assert fenced_pass_row["status"] == "PASS"
+    assert fenced_pass_row["evidence"] == {"expected": "PASS", "observed": "PASS"}
+    assert fenced_reject_row["status"] == "FAIL"
+    assert fenced_reject_row["evidence"] == {"expected": "PASS", "observed": "REJECT"}
+    assert empty_row["status"] == "BLOCKED"
+    assert empty_row["state"] == "blocked"
+    assert empty_row["evidence"] == {"error": "empty model content"}
+    assert plain_row["status"] == "PASS"
+    assert plain_row["evidence"] == {"expected": "REJECT", "observed": "REJECT"}
+    assert all(row["response_format"] == {"type": "json_object"} for row in pipeline.requests)
+    assert all(row["portal_no_tools"] is True for row in pipeline.requests)

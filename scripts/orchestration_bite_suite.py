@@ -39,6 +39,7 @@ from portal.modules.orchestration.tools import (  # noqa: E402
 )
 from portal.modules.orchestration.worker import Engine, run_bite  # noqa: E402
 from portal.platform.inference.router.text_tool_calls import TEXT_TOOL_CALL_MARKERS  # noqa: E402
+from portal.platform.inference.router.thinking import NO_ANSWER_MESSAGE  # noqa: E402
 from portal.platform.mcp_host.workspace import get_generated_dir  # noqa: E402
 from scripts import host_quiet  # noqa: E402
 
@@ -409,12 +410,41 @@ def _response_text(response: dict[str, Any]) -> str:
     return content if isinstance(content, str) else ""
 
 
+# A whole-reply ```json fence only. Prose or tool-call text around JSON stays invalid.
+_JSON_FENCE = re.compile(
+    r"^```json[ \t]*\r?\n(.*)\r?\n```[ \t]*$",
+    re.DOTALL | re.IGNORECASE,
+)
+
+
+def _json_document(content: str) -> str:
+    match = _JSON_FENCE.fullmatch(content.strip())
+    return match.group(1) if match else content
+
+
 def _verdict(content: str) -> str:
-    value = json.loads(content)
+    value = json.loads(_json_document(content))
     verdict = value.get("verdict") if isinstance(value, dict) else None
     if verdict not in {"PASS", "REJECT"}:
         raise ValueError("response JSON must contain verdict PASS or REJECT")
     return verdict
+
+
+def _score_json_verdict(content: str, label: str) -> tuple[str, str, dict[str, Any]]:
+    """Score a planner/checker reply. Empty content stays blocked; bad JSON is a model fail."""
+    expected = "PASS" if label == "pass" else "REJECT"
+    # The stream substitutes this sentinel when the model emits no answer text.
+    if not content.strip() or content.strip() == NO_ANSWER_MESSAGE:
+        return "blocked", "BLOCKED", {"error": "empty model content"}
+    try:
+        actual = _verdict(content)
+    except json.JSONDecodeError as exc:
+        return "failed", "FAIL", {"expected": expected, "error": f"JSONDecodeError: {exc}"}
+    except ValueError as exc:
+        return "failed", "FAIL", {"expected": expected, "error": f"ValueError: {exc}"}
+    passed = actual == expected
+    state, status = ("passed", "PASS") if passed else ("failed", "FAIL")
+    return state, status, {"expected": expected, "observed": actual}
 
 
 def _hidden_pytest(case: dict[str, Any], task_dir: Path) -> dict[str, Any]:
@@ -732,11 +762,7 @@ def _run_one(
             elif identity_error:
                 state, status, evidence = "blocked", "BLOCKED", {"error": identity_error}
             else:
-                actual = _verdict(content)
-                expected = "PASS" if label == "pass" else "REJECT"
-                passed = actual == expected
-                state, status = ("passed", "PASS") if passed else ("failed", "FAIL")
-                evidence = {"expected": expected, "observed": actual}
+                state, status, evidence = _score_json_verdict(content, label)
         row.update(state=state, status=status, evidence=evidence)
     except HarnessError as exc:
         row.update(state="harness_error", status="HARNESS_ERROR", evidence={"error": str(exc)})
