@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import inspect
+from types import SimpleNamespace
 
 from portal.modules.security.core.bully import artifact_graph as ag
 from portal.modules.security.core.bully import baseline as bl
@@ -145,3 +146,65 @@ def test_cluster_size_does_not_outrank_rarity():
     assert len(by_size.members) == 23
     assert by_rarity is not by_size
     assert set(by_rarity.members) == {u.unit_id for u in _attack_units(3)}
+
+
+def _shape_anchor(shape: tuple[str, ...]) -> tuple[str, SimpleNamespace]:
+    return "anchor", SimpleNamespace(record={"action_sequence": list(shape)}, malice="malicious")
+
+
+def test_enrich_finds_ordered_three_step_spine_in_long_unit_shape():
+    spine = ("auth", "escalate", "collect")
+    shape = tuple(
+        ["routine"] * 700
+        + [spine[0]]
+        + ["routine"] * 600
+        + [spine[1]]
+        + ["routine"] * 400
+        + [spine[2]]
+        + ["routine"] * 297
+    )
+
+    enrichment = disc.enrich(spine, [_shape_anchor(shape)])
+
+    assert enrichment.relation == "EXACT"
+    assert enrichment.distance == 0.0
+
+
+def test_enrich_rejects_scrambled_three_step_spine():
+    spine = ("auth", "escalate", "collect")
+    shape = ("collect", "routine", "escalate", "routine", "auth")
+
+    enrichment = disc.enrich(spine, [_shape_anchor(shape)])
+
+    assert enrichment.resembles_nothing is True
+
+
+def test_enrich_rejects_single_step_spine():
+    enrichment = disc.enrich(("auth",), [_shape_anchor(("auth", "routine"))])
+
+    assert enrichment.resembles_nothing is True
+
+
+def test_enrich_rejects_steps_common_to_nearly_every_library_shape():
+    spine = ("auth", "escalate", "collect")
+    library_shapes = [_shape_anchor((*spine, f"tail-{index}")) for index in range(9)]
+    library_shapes.append(_shape_anchor(("other", "tail-9")))
+
+    enrichment = disc.enrich(spine, library_shapes)
+
+    assert enrichment.resembles_nothing is True
+
+
+def test_shape_distance_resemblance_values_are_unchanged():
+    pairs = (
+        (("auth", "execute", "collect"), ("auth", "escalate", "execute", "collect"), 0.25),
+        (("auth", "escalate", "execute", "collect"), ("auth", "execute", "collect", "other"), 0.25),
+        (
+            ("enumerate", "collect", "enumerate", "collect"),
+            ("enumerate", "collect", "enumerate", "collect", "cleanup"),
+            0.19999999999999996,
+        ),
+    )
+
+    for left, right, expected in pairs:
+        assert disc._shape_distance(left, right) == expected

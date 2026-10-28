@@ -80,6 +80,8 @@ DISCOVERY_MIN_COHESION = 0.34
 # closely. Deliberately stricter than a library match: with no catalogue to
 # anchor it, only a strong mutual resemblance is meaningful.
 COUSIN_MAX_DISTANCE = 0.45
+MIN_CONTAINMENT_SPINE_LENGTH = 2
+MAX_COMMON_STEP_FREQUENCY = 0.9
 
 # A cluster of one is not a pattern. Recurrence across DIFFERENT entities is
 # the signal -- the same unusual shape appearing on several principals.
@@ -281,6 +283,23 @@ def _lcs_shape(a: tuple[str, ...], b: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(out)
 
 
+def _shape_containment_distance(
+    spine: tuple[str, ...], unit_shape: tuple[str, ...], reference_shapes: list[tuple[str, ...]]
+) -> float | None:
+    if len(spine) < MIN_CONTAINMENT_SPINE_LENGTH:
+        return None
+    unique_shapes = list(dict.fromkeys(shape for shape in reference_shapes if shape))
+    if len(unique_shapes) > 1:
+        informative_steps = sum(
+            sum(step in shape for shape in unique_shapes) / len(unique_shapes)
+            < MAX_COMMON_STEP_FREQUENCY
+            for step in spine
+        )
+        if informative_steps < MIN_CONTAINMENT_SPINE_LENGTH:
+            return None
+    return 1.0 - len(_lcs_shape(spine, unit_shape)) / len(spine)
+
+
 def find_cousin_clusters(
     discoveries: list[Discovery],
     *,
@@ -386,13 +405,17 @@ def enrich(
     best_id = None
     best_anchor = None
     best_d = 1.0
+    reference_shapes = [
+        tuple((getattr(anchor, "record", None) or {}).get("action_sequence") or ())
+        for _, anchor in library_shapes
+    ]
     for anchor_id, anchor in library_shapes:
         record = getattr(anchor, "record", None) or {}
         lib_shape = tuple(record.get("action_sequence") or ())
         if not lib_shape:
             continue
-        d = _shape_distance(shape, lib_shape)
-        if d < best_d:
+        d = _shape_containment_distance(shape, lib_shape, reference_shapes)
+        if d is not None and d < best_d:
             best_d, best_id, best_anchor = d, anchor_id, anchor
     if best_id is None or best_d > similar_max:
         return Enrichment(None, None, None, "NONE", None)

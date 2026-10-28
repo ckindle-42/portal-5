@@ -50,3 +50,21 @@ def test_far_benign_match_does_not_suppress():
         recurrence_count=3,
     )
     assert compounding.should_escalate_shape(("auth", "escalate", "execute"), library) is True
+
+
+def test_benign_spine_matches_long_action_sequence():
+    library = AnchorLibrary()
+    shape = tuple(
+        ["routine"] * 700
+        + ["auth"]
+        + ["routine"] * 600
+        + ["escalate"]
+        + ["routine"] * 400
+        + ["collect"]
+        + ["routine"] * 297
+    )
+    library.load_benign_pattern(
+        source_id="analyst", record={"action_sequence": list(shape)}, recurrence_count=3
+    )
+
+    assert compounding.should_escalate_shape(("auth", "escalate", "collect"), library) is False

@@ -14,7 +14,7 @@ from typing import Any
 
 from . import signatures as sig_mod
 from .anchors import Anchor, AnchorLibrary
-from .discovery import COUSIN_MAX_DISTANCE, _shape_distance
+from .discovery import COUSIN_MAX_DISTANCE, _shape_containment_distance
 
 
 def write_outcome_as_anchor(
@@ -76,10 +76,15 @@ def should_escalate_shape(
     `TASK_BULLY_SERIES_COMPOUNDING_V1`). Checks EVERY anchor within the
     enrichment radius, not just the reported nearest, so a benign match is
     never silently outranked by an equally-close non-benign one."""
-    for anchor in anchor_library.all():
+    anchors = anchor_library.all()
+    reference_shapes = [
+        tuple((anchor.record or {}).get("action_sequence") or ()) for anchor in anchors
+    ]
+    for anchor in anchors:
         if anchor.malice != "benign":
             continue
         lib_shape = tuple((anchor.record or {}).get("action_sequence") or ())
-        if lib_shape and _shape_distance(shape, lib_shape) <= similar_max:
+        distance = _shape_containment_distance(shape, lib_shape, reference_shapes)
+        if distance is not None and distance <= similar_max:
             return False
     return True
