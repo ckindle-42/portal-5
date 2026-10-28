@@ -38,9 +38,10 @@ the EmbeddingGemma 2 service on :8946: memory reads `EG2_EMBEDDING_URL`, RAG
 and compliance read `VL_RETRIEVAL_URL` (default `http://localhost:8946/vl`).
 
 `portal update` refreshes the model ids on the ollama backends in
-`config/backends.yaml`. Library tags are passed to `ollama pull`. An `hf.co/`
-id is imported only when that model entry pins `filename` and `sha256`.
-`nomic-embed-text` is not in that set.
+`config/backends.yaml`. Library tags are passed to `ollama pull`. A
+baked-context tag is rebuilt from its base, and a `portal5/` tag is skipped
+unless it pins a file. An `hf.co/` id is imported only when that model entry
+pins `filename` and `sha256`. `nomic-embed-text` is not in that set.
 
 ## Why
 

@@ -69,10 +69,14 @@ and runs `ollama create` from a Modelfile that carries `FROM` and the entry's
 `num_ctx`. After create, `ollama show --modelfile` must not contain a
 `<think>` stop or any stop the entry does not list in `stops`. An entry
 missing the pin is reported and skipped. `portal update` refreshes the model
-ids on `type: ollama` backends in `config/backends.yaml`. Tags that do not
-start with `hf.co/` are passed to `ollama pull` unchanged. An `hf.co/` id
-uses the same pin-and-create path, reading `filename`, `sha256`, `repo`,
-`num_ctx`, and `stops` from that model entry.
+ids on `type: ollama` backends in `config/backends.yaml`. A library tag is
+`ollama pull`. A baked-context tag (`-ctxNk`, or `-ctxNk-agentic`) refreshes
+its base, then `ollama create` writes `FROM` that base and `PARAMETER num_ctx`
+— the same Modelfile as `portal models apply-params`. An entry `num_ctx` wins
+over the suffix. An `hf.co/` base is created only when that base pins
+`filename` and `sha256`; otherwise the derived tag is skipped. A `portal5/`
+tag is skipped as a local tag with no upstream unless that entry has the pin.
+A bare `hf.co/` id uses the same pin-and-create path.
 
 ##### Why
 

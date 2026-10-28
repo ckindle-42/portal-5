@@ -1,4 +1,4 @@
-"""Refresh Ollama models from config: library tags pull, pinned GGUFs are created."""
+"""Refresh Ollama models from config: library pull, pinned create, ctx derive."""
 
 from __future__ import annotations
 
@@ -21,9 +21,12 @@ from portal.platform.inference.cluster_backends import BackendRegistry
 from portal.platform.inference.config import Model
 
 Runner = Callable[[list[str]], subprocess.CompletedProcess[str]]
-_Action = Literal["pull", "create", "skip"]
+_Action = Literal["pull", "create", "derive", "skip"]
 _Status = Literal["created", "pulled", "skipped", "failed"]
 _SHA = re.compile(r"[0-9a-fA-F]{64}")
+_DERIVED_RE = re.compile(r"-ctx(\d+)k(?:-[A-Za-z0-9]+)?$")
+_LOCAL_NAMESPACES = ("portal5/",)
+_PLAN_ACTIONS = ("pull", "create", "derive", "skip")
 _STOP_RE = re.compile(
     r"""^\s*PARAMETER\s+stop\s+(?:"([^"]*)"|'([^']*)'|(\S+))\s*$""",
     re.MULTILINE,
@@ -49,6 +52,8 @@ class RefreshPlan:
     action: _Action
     pin: GGUFPin | None = None
     reason: str = ""
+    base_plan: RefreshPlan | None = None
+    num_ctx: int | None = None
 
 
 @dataclass(frozen=True)
@@ -105,7 +110,20 @@ def plans_from_registry(registry: BackendRegistry) -> list[RefreshPlan]:
             if raw_id not in order:
                 order.append(raw_id)
             _merge_pin_fields(slot, entry)
-    return [_plan_for_tag(model_id, meta[model_id]) for model_id in order]
+    return [_plan_for_tag(model_id, meta[model_id], meta) for model_id in order]
+
+
+def plan_counts(plans: list[RefreshPlan]) -> dict[str, int]:
+    """How many plans are pull, create, derive, or skip."""
+    counts = dict.fromkeys(_PLAN_ACTIONS, 0)
+    for plan in plans:
+        counts[plan.action] += 1
+    return counts
+
+
+def ctx_modelfile_text(base: str, num_ctx: int) -> str:
+    """Modelfile text ``apply-params`` writes for a baked-context tag."""
+    return f"FROM {base}\nPARAMETER num_ctx {num_ctx}\n"
 
 
 def plan_for_catalog_model(model: Model) -> RefreshPlan:
@@ -248,9 +266,33 @@ def execute_plan(
         return InstallResult(True, "skipped", f"{plan.tag}: {plan.reason}")
     if plan.action == "pull":
         return pull_library(plan.tag, ollama_cmd, runner)
+    if plan.action == "derive":
+        return execute_derive(plan, ollama_cmd, runner=runner, client=client, dest_dir=dest_dir)
     if plan.pin is None:
         return InstallResult(False, "failed", f"FAIL {plan.tag}: create plan has no pin")
     return install_pinned(plan.pin, ollama_cmd, runner=runner, client=client, dest_dir=dest_dir)
+
+
+def execute_derive(
+    plan: RefreshPlan,
+    ollama_cmd: str,
+    *,
+    runner: Runner,
+    client: httpx.Client,
+    dest_dir: Path,
+) -> InstallResult:
+    """Refresh the base, then create the derived tag. Never pull the derived tag."""
+    base = plan.base_plan
+    if base is None or plan.num_ctx is None:
+        return InstallResult(False, "failed", f"FAIL {plan.tag}: derive plan has no base")
+    if base.action == "skip":
+        return InstallResult(True, "skipped", f"{plan.tag}: {base.reason}")
+    refreshed = _refresh_base(base, ollama_cmd, runner=runner, client=client, dest_dir=dest_dir)
+    if refreshed is None:
+        return InstallResult(False, "failed", f"FAIL {plan.tag}: base action {base.action}")
+    if not refreshed.ok:
+        return InstallResult(False, "failed", f"FAIL {plan.tag}: {refreshed.message}")
+    return _create_derived(plan.tag, base.tag, plan.num_ctx, ollama_cmd, runner, dest_dir)
 
 
 def summarize(rows: list[tuple[RefreshPlan, InstallResult]]) -> RefreshSummary:
@@ -276,6 +318,12 @@ def refresh_from_backends(ollama_cmd: str) -> RefreshSummary:
     if not plans:
         typer.echo("  No Ollama models declared in config/backends.yaml")
         return RefreshSummary(0, 0, 0, 0, (), ())
+    counts = plan_counts(plans)
+    typer.echo(
+        "  Plans: "
+        f"{counts['pull']} pull, {counts['create']} create, "
+        f"{counts['derive']} derive, {counts['skip']} skip"
+    )
     rows: list[tuple[RefreshPlan, InstallResult]] = []
     with hf_client() as client:
         for index, plan in enumerate(plans, start=1):
@@ -285,7 +333,7 @@ def refresh_from_backends(ollama_cmd: str) -> RefreshSummary:
                 plan, ollama_cmd, runner=capturing_run, client=client, dest_dir=dest
             )
             _echo(result)
-            if plan.action == "create" and result.status != "failed":
+            if plan.action in {"create", "derive"} and not _keep_download(plan, result):
                 shutil.rmtree(dest, ignore_errors=True)
             rows.append((plan, result))
     summary = summarize(rows)
@@ -297,9 +345,18 @@ def refresh_from_backends(ollama_cmd: str) -> RefreshSummary:
 
 
 def _dest_for(plan: RefreshPlan) -> Path:
-    if plan.action == "create":
+    if plan.action in {"create", "derive"}:
         return Path(tempfile.mkdtemp(prefix="portal5-gguf-"))
     return Path(tempfile.gettempdir())
+
+
+def _keep_download(plan: RefreshPlan, result: InstallResult) -> bool:
+    if result.status != "failed":
+        return False
+    if plan.action == "create":
+        return True
+    base = plan.base_plan
+    return plan.action == "derive" and base is not None and base.action == "create"
 
 
 def _echo(result: InstallResult) -> None:
@@ -361,13 +418,132 @@ def _file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _plan_for_tag(tag: str, entry: Mapping[str, object]) -> RefreshPlan:
-    if not tag.startswith("hf.co/"):
-        return RefreshPlan(tag, "pull")
-    pin, reason = parse_pin(tag, entry)
-    if pin is None:
+def _plan_for_tag(
+    tag: str,
+    entry: Mapping[str, object],
+    catalog: Mapping[str, Mapping[str, object]],
+) -> RefreshPlan:
+    pinned = _pinned_plan(tag, entry)
+    if pinned is not None:
+        return pinned
+    if _is_local_tag(tag):
+        return RefreshPlan(tag, "skip", reason="local tag, no upstream")
+    split = _split_derived(tag)
+    if split is not None:
+        return _plan_derived(tag, entry, split, catalog)
+    if tag.startswith("hf.co/"):
+        _pin, reason = parse_pin(tag, entry)
         return RefreshPlan(tag, "skip", reason=reason)
-    return RefreshPlan(tag, "create", pin=pin)
+    return RefreshPlan(tag, "pull")
+
+
+def _pinned_plan(tag: str, entry: Mapping[str, object]) -> RefreshPlan | None:
+    if not _mentions_pin(entry) and not tag.startswith("hf.co/"):
+        return None
+    pin, reason = parse_pin(tag, entry)
+    if pin is not None:
+        return RefreshPlan(tag, "create", pin=pin)
+    if _mentions_pin(entry) and reason != "missing pinned filename+sha256":
+        return RefreshPlan(tag, "skip", reason=reason)
+    return None
+
+
+def _plan_derived(
+    tag: str,
+    entry: Mapping[str, object],
+    split: tuple[str, int],
+    catalog: Mapping[str, Mapping[str, object]],
+) -> RefreshPlan:
+    base_tag, kilos = split
+    if base_tag == tag:
+        return RefreshPlan(tag, "skip", reason="local tag, no upstream")
+    num_ctx, err = _preferred_num_ctx(kilos, entry)
+    if err:
+        return RefreshPlan(tag, "skip", reason=err)
+    base_plan = _plan_for_tag(base_tag, catalog.get(base_tag, {}), catalog)
+    if base_plan.action not in {"pull", "create", "skip"}:
+        return RefreshPlan(tag, "skip", reason="local tag, no upstream")
+    return RefreshPlan(tag, "derive", base_plan=base_plan, num_ctx=num_ctx)
+
+
+def _refresh_base(
+    base: RefreshPlan,
+    ollama_cmd: str,
+    *,
+    runner: Runner,
+    client: httpx.Client,
+    dest_dir: Path,
+) -> InstallResult | None:
+    if base.action == "pull":
+        return pull_library(base.tag, ollama_cmd, runner)
+    if base.action == "create" and base.pin is not None:
+        return install_pinned(base.pin, ollama_cmd, runner=runner, client=client, dest_dir=dest_dir)
+    if base.action == "create":
+        return InstallResult(False, "failed", f"FAIL {base.tag}: create plan has no pin")
+    return None
+
+
+def _create_derived(
+    tag: str,
+    base: str,
+    num_ctx: int,
+    ollama_cmd: str,
+    runner: Runner,
+    dest_dir: Path,
+) -> InstallResult:
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    path = dest_dir / "Modelfile"
+    path.write_text(ctx_modelfile_text(base, num_ctx), encoding="utf-8")
+    try:
+        created = runner([*ollama_cmd.split(), "create", tag, "-f", str(path)])
+    finally:
+        path.unlink(missing_ok=True)
+    if created.returncode != 0:
+        detail = (created.stderr or created.stdout or "").strip()
+        message = f"FAIL {tag}: ollama create failed"
+        if detail:
+            message = f"{message}: {detail}"
+        return InstallResult(False, "failed", message)
+    return InstallResult(True, "created", tag)
+
+
+def _is_local_tag(tag: str) -> bool:
+    return tag.startswith(_LOCAL_NAMESPACES)
+
+
+def _mentions_pin(entry: Mapping[str, object]) -> bool:
+    return any(not _blank(entry.get(key)) for key in ("filename", "sha256", "repo", "actual_repo"))
+
+
+def _split_derived(tag: str) -> tuple[str, int] | None:
+    """Return the base tag and the suffix's context in thousands, if this is baked."""
+    name, sep, qual = tag.rpartition(":")
+    if not sep:
+        return None
+    match = _DERIVED_RE.search(qual)
+    if match is None:
+        return None
+    kilos = int(match.group(1))
+    if kilos < 1:
+        return None
+    root = qual[: match.start()]
+    while True:
+        inner = _DERIVED_RE.search(root)
+        if inner is None:
+            break
+        root = root[: inner.start()]
+    if not root:
+        return None
+    return f"{name}:{root}", kilos
+
+
+def _preferred_num_ctx(kilos: int, entry: Mapping[str, object]) -> tuple[int | None, str]:
+    configured, err = _parse_num_ctx(entry.get("num_ctx"))
+    if err:
+        return None, err
+    if configured is not None:
+        return configured, ""
+    return kilos * 1024, ""
 
 
 def _catalog_entry_is_hf(model: Model) -> bool:

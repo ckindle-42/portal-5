@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import subprocess
 from pathlib import Path
 
@@ -17,6 +18,7 @@ from portal.platform.inference.config import Model, load_portal_config
 _BODY = b"gguf-bytes"
 _SHA = hashlib.sha256(_BODY).hexdigest()
 _TAG = "hf.co/org/Model-GGUF:Q4_K_M"
+_BAKED = re.compile(r"-ctx\d+k(?:-[A-Za-z0-9]+)?$")
 
 
 class _Runner:
@@ -149,21 +151,72 @@ backends:
     assert filled.pin.filename == "later.gguf"
 
 
+def _assert_base(plan: refresh.RefreshPlan, tag: str, action: str, num_ctx: int) -> None:
+    assert plan.action == "derive"
+    assert plan.num_ctx == num_ctx
+    assert plan.base_plan is not None
+    assert plan.base_plan.tag == tag
+    assert plan.base_plan.action == action
+
+
+def _assert_fleet_examples(by_tag: dict[str, refresh.RefreshPlan]) -> None:
+    _assert_base(
+        by_tag["qwen3-coder:30b-a3b-q4_K_M-ctx32k"], "qwen3-coder:30b-a3b-q4_K_M", "pull", 32768
+    )
+    _assert_base(by_tag["gemma4:31b-it-qat-ctx8k"], "gemma4:31b-it-qat", "pull", 8192)
+    _assert_base(
+        by_tag["glm-4.7-flash:Q4_K_M-ctx64k-agentic"], "glm-4.7-flash:Q4_K_M", "pull", 65536
+    )
+    _assert_base(
+        by_tag["huihui_ai/qwen3.5-abliterated:9b-ctx8k"],
+        "huihui_ai/qwen3.5-abliterated:9b",
+        "pull",
+        8192,
+    )
+    local = by_tag["portal5/laguna-xs21:q4_K_M-ctx128k"]
+    assert local.action == "skip"
+    assert local.reason == "local tag, no upstream"
+    drafted = by_tag["portal5/qwen3.6-27b-mtp:q8_0-drafted"]
+    assert drafted.action == "skip"
+    assert drafted.reason == "local tag, no upstream"
+    _assert_base(
+        by_tag["hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"],
+        "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M",
+        "skip",
+        32768,
+    )
+
+
 def test_live_backends_keep_library_tags_and_do_not_pull_hf(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("BACKEND_CONFIG_PATH", raising=False)
     plans = refresh.plans_from_registry(BackendRegistry())
     tags = [plan.tag for plan in plans]
+    by_tag = {plan.tag: plan for plan in plans}
     assert tags == list(dict.fromkeys(tags))
     assert "Qwen3-Coder-30B-A3B-Instruct-4bit" not in tags
-    granite = next(plan for plan in plans if plan.tag == "granite4.1:8b")
+    granite = by_tag["granite4.1:8b"]
     assert granite.action == "pull"
     assert granite.tag == "granite4.1:8b"
     hf = [plan for plan in plans if plan.tag.startswith("hf.co/")]
     assert hf
     assert all(plan.action != "pull" for plan in hf)
-    assert all(plan.action == "pull" for plan in plans if not plan.tag.startswith("hf.co/"))
+    _assert_fleet_examples(by_tag)
+    for plan in plans:
+        qual = plan.tag.rpartition(":")[2]
+        if plan.tag.startswith("portal5/"):
+            assert plan.action == "skip"
+            assert plan.reason == "local tag, no upstream"
+        elif _BAKED.search(qual):
+            assert plan.action == "derive"
+            assert plan.base_plan is not None
+            assert plan.base_plan.action != "derive"
+    counts = refresh.plan_counts(plans)
+    assert sum(counts.values()) == len(plans)
+    assert counts["pull"] > 0
+    assert counts["derive"] > 0
+    assert counts["skip"] > 0
 
 
 def test_catalog_entries_without_a_pin_skip() -> None:
@@ -258,6 +311,112 @@ def test_undeclared_stop_fails_and_declared_stop_passes(tmp_path: Path) -> None:
     )
     assert think_allowed.status == "failed"
     assert "<think>" in think_allowed.message
+
+
+def test_fleet_shaped_ids_prefer_configured_num_ctx_and_pinned_base(tmp_path: Path) -> None:
+    pinned = "b" * 64
+    (tmp_path / "backends.yaml").write_text(
+        f"""
+backends:
+- id: ol
+  type: ollama
+  url: http://127.0.0.1:9
+  group: general
+  models:
+  - id: gemma4:31b-it-qat-ctx8k
+    num_ctx: 2048
+  - id: qwen3-coder:30b-a3b-q4_K_M-ctx32k
+  - id: portal5/laguna-xs21:q4_K_M-ctx128k
+  - id: hf.co/org/Pinned-GGUF:Q4_K_M
+    filename: model.gguf
+    sha256: "{pinned}"
+    repo: org/Pinned-GGUF
+  - id: hf.co/org/Pinned-GGUF:Q4_K_M-ctx8k
+  - id: portal5/deepwen-3.6:q4.5-moq
+    filename: deepwen.gguf
+    sha256: "{pinned}"
+    repo: org/Deepwen-GGUF
+""",
+        encoding="utf-8",
+    )
+    plans = {
+        plan.tag: plan
+        for plan in refresh.plans_from_registry(BackendRegistry(str(tmp_path / "backends.yaml")))
+    }
+    override = plans["gemma4:31b-it-qat-ctx8k"]
+    assert override.action == "derive"
+    assert override.num_ctx == 2048
+    assert override.base_plan is not None
+    assert override.base_plan.action == "pull"
+    assert override.base_plan.tag == "gemma4:31b-it-qat"
+    coder = plans["qwen3-coder:30b-a3b-q4_K_M-ctx32k"]
+    assert coder.action == "derive"
+    assert coder.num_ctx == 32768
+    assert plans["portal5/laguna-xs21:q4_K_M-ctx128k"].action == "skip"
+    assert plans["portal5/laguna-xs21:q4_K_M-ctx128k"].reason == "local tag, no upstream"
+    derived = plans["hf.co/org/Pinned-GGUF:Q4_K_M-ctx8k"]
+    assert derived.action == "derive"
+    assert derived.num_ctx == 8192
+    assert derived.base_plan is not None
+    assert derived.base_plan.action == "create"
+    assert derived.base_plan.pin is not None
+    assert derived.base_plan.pin.repo == "org/Pinned-GGUF"
+    assert plans["portal5/deepwen-3.6:q4.5-moq"].action == "create"
+
+
+def test_derive_pulls_the_base_and_creates_the_ctx_tag(tmp_path: Path) -> None:
+    seen: list[httpx.Request] = []
+    runner = _Runner()
+    plan = refresh.RefreshPlan(
+        "qwen3-coder:30b-a3b-q4_K_M-ctx32k",
+        "derive",
+        base_plan=refresh.RefreshPlan("qwen3-coder:30b-a3b-q4_K_M", "pull"),
+        num_ctx=32768,
+    )
+    result = refresh.execute_plan(
+        plan, "ollama", runner=runner, client=_client(_BODY, seen), dest_dir=tmp_path
+    )
+    assert result.status == "created"
+    assert runner.calls[0] == ["ollama", "pull", "qwen3-coder:30b-a3b-q4_K_M"]
+    assert runner.calls[1][:3] == ["ollama", "create", "qwen3-coder:30b-a3b-q4_K_M-ctx32k"]
+    assert runner.modelfiles == [
+        "FROM qwen3-coder:30b-a3b-q4_K_M\nPARAMETER num_ctx 32768\n",
+    ]
+    assert all(call[1:] != ["pull", plan.tag] for call in runner.calls)
+    assert seen == []
+    assert refresh.ctx_modelfile_text("gemma4:31b-it-qat", 8192) == (
+        "FROM gemma4:31b-it-qat\nPARAMETER num_ctx 8192\n"
+    )
+
+
+def test_local_and_unpinned_hf_derive_do_not_call_ollama(tmp_path: Path) -> None:
+    seen: list[httpx.Request] = []
+    runner = _Runner()
+    local = refresh.RefreshPlan(
+        "portal5/laguna-xs21:q4_K_M-ctx128k",
+        "skip",
+        reason="local tag, no upstream",
+    )
+    hf = refresh.RefreshPlan(
+        "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+        "derive",
+        base_plan=refresh.RefreshPlan(
+            "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M",
+            "skip",
+            reason="missing pinned filename+sha256",
+        ),
+        num_ctx=32768,
+    )
+    client = _client(_BODY, seen)
+    local_result = refresh.execute_plan(
+        local, "ollama", runner=runner, client=client, dest_dir=tmp_path
+    )
+    hf_result = refresh.execute_plan(hf, "ollama", runner=runner, client=client, dest_dir=tmp_path)
+    assert local_result.status == "skipped"
+    assert hf_result.status == "skipped"
+    assert "missing pinned filename+sha256" in hf_result.message
+    assert runner.calls == []
+    assert seen == []
 
 
 def test_library_pull_keeps_the_tag(tmp_path: Path) -> None:

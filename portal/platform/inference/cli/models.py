@@ -18,6 +18,7 @@ from ._apps import models_app
 from ._common import _detect_ollama_cmd, _model_exists_in_ollama
 from .model_refresh import (
     capturing_run,
+    ctx_modelfile_text,
     execute_plan,
     hf_client,
     plan_for_catalog_model,
@@ -358,7 +359,7 @@ def cmd_models_apply_params() -> None:
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".Modelfile", delete=False, prefix="portal5_ctx_"
         ) as mf:
-            mf.write(f"FROM {base_model}\nPARAMETER num_ctx {ctx_limit}\n")
+            mf.write(ctx_modelfile_text(base_model, ctx_limit))
             mf_path = mf.name
         try:
             subprocess.run(

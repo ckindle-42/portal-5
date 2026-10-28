@@ -38,8 +38,9 @@ Pull mechanics are registry-driven: `./launch.sh pull-models` imports pinned
 entries from the `models:` block of `config/portal.yaml` (`filename` and
 `sha256` required; an entry missing either is skipped). `./launch.sh update`
 refreshes every model id on the ollama backends in `config/backends.yaml`:
-library tags via `ollama pull`, and an `hf.co/` tag only when that entry pins
-a file and digest.
+library tags via `ollama pull`, baked-context tags rebuilt from their base,
+`portal5/` tags skipped unless pinned, and an `hf.co/` tag only when that
+entry pins a file and digest.
 
 ## Why
 
