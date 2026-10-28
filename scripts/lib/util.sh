@@ -1131,6 +1131,13 @@ for key, label, url in rows:
             printf "    ❌  %-28s %s\n" "Host ML watchdog" "not loaded — ./launch.sh up"
         fi
 
+        # oMLX watchdog (keeps :8085 alive across host-boot / restarts)
+        if launchctl print "gui/$(id -u)/com.portal5.omlx-watchdog" &>/dev/null 2>&1; then
+            printf "    ✅  %-28s %s\n" "oMLX watchdog" "launchd, 120s interval"
+        else
+            printf "    ❌  %-28s %s\n" "oMLX watchdog" "not loaded — ./launch.sh up"
+        fi
+
         echo ""
     fi
 

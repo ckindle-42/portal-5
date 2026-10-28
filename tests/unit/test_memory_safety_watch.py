@@ -506,3 +506,4 @@ def test_launch_sh_installs_the_host_ml_watch_job_idempotently():
     assert 'launchctl print "gui/$(id -u)/${_hmw_label}"' in util
     assert 'launchctl bootstrap "gui/$(id -u)" "$_hmw_dst"' in util
     assert '"Host ML watchdog"' in util
+    assert '"oMLX watchdog"' in util
