@@ -7,6 +7,11 @@
         (``uv.lock`` only, never pushed). The live ``.venv`` is NOT touched — a
         venv that diverges from its lock has destroyed runtimes before — so the
         weekly ``python-deps`` check reports "behind" until you review + ``uv sync``.
+        That is also why this one commit sets ``SKIP=pytest-unit``: the suite ran
+        in the scratch venv, so only the (by design) drift test is skipped. A
+        resolution fork is floored only when the fix's own ``requires-python``
+        admits it (a floor one fork cannot satisfy fails ``uv lock`` outright);
+        a fork that cannot reach the fix is recorded, never failed.
   pins  Bump pinned compose images (Grafana, Prometheus, Wazuh) to the newest PATCH
         of their current major.minor that exists on Docker Hub for arm64, recreate
         the running service, roll the pin back if it does not come up, and commit
@@ -38,6 +43,7 @@ from scripts.check_updates import (  # noqa: E402
     COMPOSE_FILES,
     _locked_packages,
     _pushover,
+    _py_range_label,
     _semver,
     osv_query,
     vuln_fixes,
@@ -77,9 +83,14 @@ def _dirty(*paths: Path) -> bool:
     return bool(_sh(["git", "status", "--porcelain", "--", *map(str, paths)]).stdout.strip())
 
 
-def _commit(msg: str, *paths: Path) -> bool:
+def _commit(msg: str, *paths: Path, skip: tuple[str, ...] = ()) -> bool:
     _sh(["git", "add", "--", *map(str, paths)])
-    r = _sh(["git", "commit", "-m", msg + ATTRIBUTION, "--", *map(str, paths)], timeout=1800)
+    env = {"SKIP": ",".join(skip)} if skip else None
+    r = _sh(
+        ["git", "commit", "-m", msg + ATTRIBUTION, "--", *map(str, paths)],
+        timeout=1800,
+        env=env,
+    )
     if r.returncode:
         log(f"commit failed:\n{(r.stdout + r.stderr)[-600:]}")
     return r.returncode == 0
@@ -111,26 +122,77 @@ def _resolve(work: Path, floors: dict[str, str]) -> dict[str, str]:
     return applied
 
 
-def _fixable_count(lock_dir: Path | None) -> int:
+def _fixable_forks(
+    lock_dir: Path | None,
+) -> dict[tuple[str, str, tuple[str, ...]], str]:
+    """{(name, version, markers): fixed-in} for every locked fork OSV lists a fix for."""
     import scripts.check_updates as cu
 
     saved = cu.REPO_ROOT
     cu.REPO_ROOT = lock_dir or REPO
     try:
-        fixes = vuln_fixes(osv_query(_locked_packages()))
+        pkgs = _locked_packages()
+        fixes = vuln_fixes(osv_query(pkgs))
     finally:
         cu.REPO_ROOT = saved
-    return sum(bool(f) for _, f, _ in fixes.values())
+    fixed = {(n, v): f for (n, v), (_, f, _) in fixes.items() if f}
+    return {(n, v, mk): fixed[(n, v)] for n, v, mk in pkgs if (n, v) in fixed}
+
+
+def _plan(
+    forks: dict[tuple[str, str, tuple[str, ...]], str],
+) -> tuple[dict[str, str], dict[tuple[str, str, tuple[str, ...]], str]]:
+    """({name: version that fixes every reachable fork}, {fork: fix it cannot reach})."""
+    import scripts.check_updates as cu
+
+    floors: dict[str, str] = {}
+    unreachable: dict[tuple[str, str, tuple[str, ...]], str] = {}
+    for (name, ver, mk), fix in sorted(forks.items()):
+        if mk and not cu._fork_can_install(mk, cu._pypi_requires_python(name, fix)):
+            unreachable[(name, ver, mk)] = fix
+        elif name not in floors or _semver(fix) > _semver(floors[name]):
+            floors[name] = fix
+    return floors, unreachable
+
+
+def _record_unreachable(unreachable: dict[tuple[str, str, tuple[str, ...]], str]) -> None:
+    for (name, ver, mk), fix in sorted(unreachable.items()):
+        log(f"deps: {name} {ver} ({_py_range_label(mk)}) cannot reach {fix} — recorded, not failed")
+
+
+def _stranded(
+    after: dict[tuple[str, str, tuple[str, ...]], str], applied: dict[str, str]
+) -> dict[tuple[str, str, tuple[str, ...]], str]:
+    """Forks still under the floor they were given: that runtime cannot reach the fix."""
+    return {k: fix for k, fix in after.items() if k[0] in applied and _semver(k[1]) < _semver(fix)}
+
+
+def _deps_body(applied: dict[str, str], skipped: list[str], stranded: dict) -> str:
+    """Commit body: the bumps applied, the floors that would not resolve, the stranded forks."""
+    body = "\n".join(f"- {n} >= {v}" for n, v in applied.items())
+    if skipped:
+        body += "\n\nNot resolvable alongside the rest: " + ", ".join(skipped)
+    if stranded:
+        body += (
+            "\n\nForked runtimes that cannot reach the fix (recorded, not failed): "
+            + ", ".join(
+                f"{n} {v} ({_py_range_label(mk)}) needs {fix}"
+                for (n, v, mk), fix in sorted(stranded.items())
+            )
+        )
+    return (
+        body + "\n\nCommitted with SKIP=pytest-unit: the full unit suite already ran against this "
+        "lock in a scratch venv, and the drift test only reports the live .venv this lane "
+        "deliberately does not sync."
+    )
 
 
 def deps(dry_run: bool) -> int:
-    hits = osv_query(_locked_packages())
-    floors: dict[str, str] = {}
-    for (name, _), (_, fixed, _) in vuln_fixes(hits).items():
-        if fixed and (name not in floors or _semver(fixed) > _semver(floors[name])):
-            floors[name] = fixed
+    forks = _fixable_forks(None)
+    floors, unreachable = _plan(forks)
+    _record_unreachable(unreachable)
     if not floors:
-        log("deps: no vulnerable package has a published fix")
+        log("deps: no vulnerable package has a fix its runtime can reach")
         return 0
     log(
         f"deps: {len(floors)} package(s) with a fix: "
@@ -141,7 +203,7 @@ def deps(dry_run: bool) -> int:
     if _dirty(REPO / "uv.lock", REPO / "pyproject.toml"):
         log("deps: uv.lock/pyproject.toml have uncommitted changes — deferring")
         return 0
-    before = _fixable_count(None)
+    before = {k: v for k, v in forks.items() if k[0] in floors}
     with tempfile.TemporaryDirectory(prefix="portal-secdeps-") as tmp:
         # A real clone, not `git archive`: repo-introspecting tests need .git.
         work = Path(tmp) / "src"
@@ -154,10 +216,14 @@ def deps(dry_run: bool) -> int:
             )
             log(f"deps: nothing resolvable; skipped {skipped}")
             return 0
-        after = _fixable_count(work)
-        if after >= before:
-            log(f"deps: new lock leaves {after} fixable vulns (was {before}) — rejecting")
-            _pushover("Security deps", f"upgrade rejected: fixable vulns {before}->{after}", True)
+        after = _fixable_forks(work)
+        stranded = _stranded(after, applied)
+        left = len(after) - len(stranded)
+        if left >= len(before):
+            log(f"deps: new lock leaves {left} fixable vulns (was {len(before)}) — rejecting")
+            _pushover(
+                "Security deps", f"upgrade rejected: fixable vulns {len(before)}->{left}", True
+            )
             return 0
         env = {"UV_PROJECT_ENVIRONMENT": str(Path(tmp) / "venv")}
         sync = _sh([UV, "sync", "--all-extras", "--frozen"], cwd=work, timeout=3600, env=env)
@@ -179,12 +245,13 @@ def deps(dry_run: bool) -> int:
             return 0
         shutil.copy(work / "uv.lock", REPO / "uv.lock")
     msg = f"fix(deps): raise {len(applied)} vulnerable locked package(s) to patched versions"
-    body = "\n".join(f"- {n} >= {v}" for n, v in applied.items())
-    if skipped:
-        body += "\n\nNot resolvable alongside the rest: " + ", ".join(skipped)
-    ok = _commit(f"{msg}\n\n{body}", REPO / "uv.lock")
+    ok = _commit(
+        f"{msg}\n\n{_deps_body(applied, skipped, {**unreachable, **stranded})}",
+        REPO / "uv.lock",
+        skip=("pytest-unit",),
+    )
     note = (
-        f"uv.lock committed ({len(applied)} pkgs, fixable vulns {before}->{after}); "
+        f"uv.lock committed ({len(applied)} pkgs, fixable vulns {len(before)}->{left}); "
         "review then `uv sync --all-extras` to apply to the live venv"
         if ok
         else "uv.lock updated and validated but the commit failed — left in the working tree"

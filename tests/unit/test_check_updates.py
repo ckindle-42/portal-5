@@ -62,11 +62,80 @@ def test_locked_packages_skips_non_pypi(monkeypatch, tmp_path):
     )
     (tmp_path / "uv.lock").write_text(lock)
     monkeypatch.setattr(cu, "REPO_ROOT", tmp_path)
-    assert cu._locked_packages() == [("a", "1.0")]
+    assert cu._locked_packages() == [("a", "1.0", ())]
+
+
+FORKED_LOCK = (
+    '[[package]]\nname = "pillow"\nversion = "12.3.0"\n'
+    'source = { registry = "https://pypi.org/simple" }\n'
+    "resolution-markers = [\n"
+    "    \"python_full_version < '3.11' and sys_platform == 'darwin'\",\n"
+    "    \"python_full_version < '3.11' and sys_platform != 'darwin'\",\n"
+    "]\n"
+    'sdist = { url = "https://example.invalid/pillow-12.3.0.tar.gz" }\n\n'
+    '[[package]]\nname = "pillow"\nversion = "13.0.0"\n'
+    'source = { registry = "https://pypi.org/simple" }\n'
+    "resolution-markers = [\n"
+    "    \"python_full_version >= '3.11' and sys_platform == 'darwin'\",\n"
+    "    \"python_full_version >= '3.11' and sys_platform != 'darwin'\",\n"
+    "]\n"
+    'sdist = { url = "https://example.invalid/pillow-13.0.0.tar.gz" }\n'
+)
+
+
+def test_locked_packages_keeps_resolution_markers(monkeypatch, tmp_path):
+    (tmp_path / "uv.lock").write_text(FORKED_LOCK)
+    monkeypatch.setattr(cu, "REPO_ROOT", tmp_path)
+    forks = cu._locked_packages()
+    assert [v for _, v, _ in forks] == ["12.3.0", "13.0.0"]
+    assert all(m and all("python_full_version" in x for x in m) for _, _, m in forks)
+
+
+def test_fork_can_install_reads_the_fix_requires_python():
+    old = ("python_full_version < '3.11' and sys_platform != 'darwin'",)
+    new = ("python_full_version >= '3.11' and sys_platform != 'darwin'",)
+    assert not cu._fork_can_install(old, ">=3.11")
+    assert cu._fork_can_install(new, ">=3.11")
+    assert cu._fork_can_install(old, "")  # unknown -> try it anyway
+    assert cu._fork_can_install((), ">=3.11")  # unforked -> always the runtime's own
+    assert cu._spec_allows(">=3.10,<4", (3, 13, 1))
+    assert not cu._spec_allows(">=3.11", (3, 10, 14))
+    assert cu._spec_allows("~=3.10", (3, 13, 1))
+
+
+def test_fork_labels_and_runtime_matching():
+    old = ("python_full_version < '3.11' and sys_platform == 'darwin'",)
+    new = ("python_full_version >= '3.11' and sys_platform != 'darwin'",)
+    assert cu._py_range_label(old) == "py3.10"
+    assert cu._py_range_label(new) == "py3.11+"
+    assert not cu._fork_matches(old, (3, 13, 1))
+    assert cu._fork_matches(new, (3, 13, 1))
+    assert "py3.10 fork only — not this runtime (py3.13.1)" in cu._fork_note(old, (3, 13, 1))
+    assert "fork only" not in cu._fork_note(new, (3, 13, 1))
+    assert cu._fork_note((), (3, 13, 1)) == ""
+
+
+def test_python_vulns_marks_the_fork_the_runtime_does_not_use(monkeypatch, tmp_path):
+    (tmp_path / "uv.lock").write_text(FORKED_LOCK)
+    monkeypatch.setattr(cu, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(cu, "_runtime_python", lambda: (3, 13, 1))
+    monkeypatch.setattr(
+        cu,
+        "_post_json",
+        lambda url, body: {
+            "results": [{"vulns": [{"id": "GHSA-old"}]}, {"vulns": [{"id": "GHSA-new"}]}]
+        },
+    )
+    monkeypatch.setattr(cu, "_osv_detail", lambda i, p, v="0": ("CRITICAL", "13.0.1", "bad"))
+    lines = cu.check_python_vulns().lines
+    old_line = next(ln for ln in lines if "pillow 12.3.0" in ln)
+    new_line = next(ln for ln in lines if "pillow 13.0.0" in ln)
+    assert "py3.10 fork only — not this runtime (py3.13.1)" in old_line
+    assert "py3.11+ fork" in new_line and "fork only" not in new_line
 
 
 def test_python_vulns_flags_only_fixable_as_actionable(monkeypatch):
-    monkeypatch.setattr(cu, "_locked_packages", lambda: [("a", "1.0"), ("b", "2.0")])
+    monkeypatch.setattr(cu, "_locked_packages", lambda: [("a", "1.0", ()), ("b", "2.0", ())])
     monkeypatch.setattr(
         cu,
         "_post_json",
@@ -80,7 +149,7 @@ def test_python_vulns_flags_only_fixable_as_actionable(monkeypatch):
 
 
 def test_python_vulns_osv_failure_is_error(monkeypatch):
-    monkeypatch.setattr(cu, "_locked_packages", lambda: [("a", "1.0")])
+    monkeypatch.setattr(cu, "_locked_packages", lambda: [("a", "1.0", ())])
 
     def boom(url, body):
         raise OSError("down")

@@ -93,6 +93,116 @@ def _semver(tag: str) -> tuple[int, ...]:
     return tuple(int(n) for n in nums[:3]) or (0,)
 
 
+#: Python-version clause inside a PEP 508 marker, e.g. ``python_full_version < '3.11'``.
+_PY_CLAUSE = re.compile(
+    r"python_(?:full_)?version\s*(<=|>=|==|!=|<|>)\s*['\"](\d+(?:\.\d+)*)(\.\*)?['\"]"
+)
+_CMP = {
+    "<": lambda c: c < 0,
+    "<=": lambda c: c <= 0,
+    "==": lambda c: c == 0,
+    "!=": lambda c: c != 0,
+    ">": lambda c: c > 0,
+    ">=": lambda c: c >= 0,
+}
+
+
+def _cmp(a: tuple[int, ...], b: tuple[int, ...]) -> int:
+    n = max(len(a), len(b))
+    a, b = a + (0,) * (n - len(a)), b + (0,) * (n - len(b))
+    return (a > b) - (a < b)
+
+
+def _py_clauses(marker: str) -> list[tuple[str, tuple[int, ...], bool]]:
+    """(operator, version, wildcard) for each python clause of one PEP 508 marker."""
+    return [
+        (op, tuple(int(p) for p in ver.split(".")), bool(star))
+        for op, ver, star in _PY_CLAUSE.findall(marker)
+    ]
+
+
+def _marker_holds(marker: str, py: tuple[int, ...]) -> bool:
+    """Whether `py` satisfies `marker`'s python clauses (platform clauses are ignored)."""
+    for op, want, star in _py_clauses(marker):
+        ok = py[: len(want)] == want if star and op == "==" else _CMP[op](_cmp(py, want))
+        if not ok:
+            return False
+    return True
+
+
+def _fork_matches(markers: tuple[str, ...], py: tuple[int, ...]) -> bool:
+    """Whether any of a fork's `resolution-markers` alternatives admits this python."""
+    return not markers or any(_marker_holds(m, py) for m in markers)
+
+
+def _py_range_label(markers: tuple[str, ...]) -> str:
+    """The supported python versions a forked lock entry admits, e.g. 'py3.10' or 'py3.11+'."""
+    floor = _supported_python()
+    admits = [m for m in range(floor[1], 16) if _fork_matches(markers, (floor[0], m))]
+    if not admits:
+        return "forked"
+    head = f"py{floor[0]}.{admits[0]}"
+    if admits[0] == admits[-1]:
+        return head
+    return f"{head}+" if admits[-1] == 15 else f"{head}-{floor[0]}.{admits[-1]}"
+
+
+def _supported_python() -> tuple[int, int]:
+    """Lowest python the project supports (pyproject `requires-python`)."""
+    try:
+        text = (REPO_ROOT / "pyproject.toml").read_text()
+    except OSError:
+        return (3, 10)
+    m = re.search(r'requires-python\s*=\s*"[^\d]*(\d+)\.(\d+)', text)
+    return (int(m.group(1)), int(m.group(2))) if m else (3, 10)
+
+
+def _fork_note(markers: tuple[str, ...], py: tuple[int, ...]) -> str:
+    """Report the python fork a locked version is scoped to, flagging one this runtime skips."""
+    if not markers:
+        return ""
+    label = _py_range_label(markers)
+    if _fork_matches(markers, py):
+        return f"  [{label} fork]"
+    return f"  [{label} fork only — not this runtime (py{'.'.join(map(str, py))})]"
+
+
+def _runtime_python() -> tuple[int, ...]:
+    """The project interpreter's own version (launchd and `uv run` both use .venv)."""
+    return tuple(sys.version_info[:3])
+
+
+def _pypi_requires_python(name: str, version: str) -> str:
+    """The `requires-python` a PyPI release declares ("" when it cannot be read)."""
+    try:
+        with urllib.request.urlopen(  # noqa: S310 - fixed pypi.org host
+            f"https://pypi.org/pypi/{name}/{version}/json", timeout=15
+        ) as resp:
+            info = json.loads(resp.read().decode()).get("info") or {}
+        return str(info.get("requires_python") or "")
+    except (urllib.error.URLError, OSError, ValueError, KeyError):
+        return ""
+
+
+def _spec_allows(spec: str, py: tuple[int, ...]) -> bool:
+    """Whether a bare `requires-python` specifier admits `py` (~= read as >=)."""
+    for op, ver in re.findall(r"(<=|>=|==|!=|~=|<|>)\s*(\d+(?:\.\d+)*)", spec):
+        if not _CMP[">=" if op == "~=" else op](_cmp(py, tuple(int(p) for p in ver.split(".")))):
+            return False
+    return True
+
+
+def _fork_can_install(markers: tuple[str, ...], requires_python: str) -> bool:
+    """Whether any python a fork admits is also allowed by the fix's `requires-python`."""
+    if not markers or not requires_python:
+        return True
+    major, low = _supported_python()
+    return any(
+        _fork_matches(markers, (major, m)) and _spec_allows(requires_python, (major, m))
+        for m in range(low, 16)
+    )
+
+
 def _advisories(repo: str, report: Report) -> None:
     try:
         adv = _get(f"{_API}/repos/{repo}/security-advisories")
@@ -355,14 +465,21 @@ def _post_json(url: str, body: dict) -> dict:
         return json.loads(r.read().decode())
 
 
-def _locked_packages() -> list[tuple[str, str]]:
-    """(name, version) of every PyPI-sourced package in uv.lock."""
+def _resolution_markers(head: str) -> tuple[str, ...]:
+    """The marker alternatives a forked lock entry is scoped to (() when it is not forked)."""
+    m = re.search(r"resolution-markers = \[(.*?)\]", head, re.S)
+    return tuple(re.findall(r'"([^"]+)"', m.group(1))) if m else ()
+
+
+def _locked_packages() -> list[tuple[str, str, tuple[str, ...]]]:
+    """(name, version, resolution markers) of every PyPI-sourced package in uv.lock."""
     text = (REPO_ROOT / "uv.lock").read_text()
     out = []
     for block in text.split("[[package]]")[1:]:
+        head = block.split("\n\n")[0]
         m = re.match(r'\s*name = "([^"]+)"\nversion = "([^"]+)"', block)
-        if m and 'source = { registry = "https://pypi.org/simple" }' in block.split("\n\n")[0]:
-            out.append((m.group(1), m.group(2)))
+        if m and 'source = { registry = "https://pypi.org/simple" }' in head:
+            out.append((m.group(1), m.group(2), _resolution_markers(head)))
     return out
 
 
@@ -383,7 +500,7 @@ def _osv_detail(vuln_id: str, pkg: str, installed: str = "0") -> tuple[str, str,
     return sev, min(above, key=_semver) if above else "", (v.get("summary") or "")[:80]
 
 
-def osv_query(pkgs: list[tuple[str, str]]) -> dict[tuple[str, str], list[str]]:
+def osv_query(pkgs: list[tuple[str, str, tuple[str, ...]]]) -> dict[tuple[str, str], list[str]]:
     """{(name, version): [vuln ids]} for the packages OSV.dev knows a vuln for."""
     hits: dict[tuple[str, str], list[str]] = {}
     for i in range(0, len(pkgs), 500):
@@ -392,11 +509,11 @@ def osv_query(pkgs: list[tuple[str, str]]) -> dict[tuple[str, str], list[str]]:
             f"{_OSV}/querybatch",
             {
                 "queries": [
-                    {"package": {"name": n, "ecosystem": "PyPI"}, "version": v} for n, v in chunk
+                    {"package": {"name": n, "ecosystem": "PyPI"}, "version": v} for n, v, _ in chunk
                 ]
             },
         )["results"]
-        for key, r in zip(chunk, res, strict=True):
+        for key, r in zip(((n, v) for n, v, _ in chunk), res, strict=True):
             if r.get("vulns"):
                 hits[key] = [x["id"] for x in r["vulns"]]
     return hits
@@ -431,6 +548,9 @@ def check_python_vulns() -> Report:
 
     Only a vuln with a published fix makes this actionable; an unfixed one is
     listed but cannot be bumped away. ``security_autoupdate.py deps`` applies them.
+    A forked lock (e.g. a ``python_full_version < '3.11'`` entry) contributes one
+    line per locked version, annotated with the python range it is locked for, so
+    a vuln the running interpreter never resolves is not read as a live one.
     """
     rep = Report("python-vulns")
     try:
@@ -448,10 +568,13 @@ def check_python_vulns() -> Report:
         return rep
     fixes = vuln_fixes(hits)
     fixable = sum(bool(f) for _, f, _ in fixes.values())
+    forks = {(n, v): markers for n, v, markers in pkgs}
+    py = _runtime_python()
     detail = [
         f"  - {name} {ver}: {len(hits[(name, ver)])} vuln(s) [{sev}]"
         + (f" fixed in {fixed}" if fixed else " (no fix yet)")
         + (f" — {summ}" if summ else "")
+        + _fork_note(forks.get((name, ver), ()), py)
         for (name, ver), (sev, fixed, summ) in sorted(fixes.items())
     ]
     rep.security = True
