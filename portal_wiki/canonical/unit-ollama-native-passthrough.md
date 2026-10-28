@@ -83,6 +83,25 @@ memory is also low (macOS grows swap in 1 GiB files on demand, so low free swap
 alone is routine). On a trip it stops test clients, unloads non-router Ollama
 and idle oMLX models, and writes an evidence log.
 
+The same loop watches the host-native launchd ML services, which the Ollama and
+oMLX guards cannot see. The service list is derived from `config/portal.yaml` —
+`mcp_fleet` entries with `host_native: true` plus every `host_jobs` entry, keyed
+by `native_service` (or `id`, or the label without its `com.portal5.` prefix) and
+carrying its `launchd_label` — so no label is hardcoded. Each sample resolves the
+job's pid with `launchctl print gui/$UID/<label>`, walks `ps` for a python child
+when the job is a shell wrapper, and reads that pid's `phys_footprint` from
+`footprint -p` rather than `ps` RSS. A service held above its ceiling for three
+consecutive samples is logged with service, footprint and ceiling, then restarted
+alone with `launchctl kickstart -k gui/$UID/<label>`, at most once per 30-minute
+per-service cooldown, so a leak in one server no longer needs a whole-host trip.
+A service that cannot be measured (not loaded, no python child, unparseable
+`footprint` output) is logged once per run and never restarted. Ceilings default
+to provisional values in `DEFAULT_HOST_CEILINGS_GIB` — `eg2-embedding` 6 GiB
+against the ~5 GB peak measured at the 2026-10-07 13:29 leak, `vl-retrieval` and
+`mlx-speech` 8 GiB, `mlx-transcribe` 6 GiB, `mflux` 16 GiB, `video_mlx` 24 GiB,
+and 4 GiB for any other host service — and are overridden per service with
+`--service-ceilings` or `WATCH_HOST_CEILINGS_GIB` (`eg2-embedding=0.5`).
+
 ## Why
 
 On 2026-10-07 oMLX and Ollama loaded 27B-class models at once into one unified

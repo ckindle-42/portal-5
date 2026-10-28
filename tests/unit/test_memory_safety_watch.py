@@ -3,7 +3,18 @@ from __future__ import annotations
 import os
 
 from scripts import memory_safety_watch
-from scripts.memory_safety_watch import _read_pids, _trip
+from scripts.memory_safety_watch import (
+    HostService,
+    HostServiceState,
+    _host_native_services,
+    _read_pids,
+    _service_ceilings,
+    _trip,
+    check_host_services,
+)
+
+EMBED_LABEL = "com.portal5.eg2-embedding"
+EMBED = [HostService("eg2-embedding", EMBED_LABEL, 8946)]
 
 
 def test_watch_trips_on_critical_pressure_or_low_swap_with_low_memory():
@@ -104,3 +115,236 @@ def test_omlx_unload_continues_past_a_model_already_evicted(tmp_path, monkeypatc
 
     assert unloaded and unloaded[0].endswith("/idle/unload")
     assert "oMLX unload failed model=gone" in log.read_text()
+
+
+class FakeHost:
+    """Stands in for launchctl/ps/footprint so no live service is touched."""
+
+    def __init__(
+        self,
+        *,
+        footprint: str = "    phys_footprint: 5.00 GB\n",
+        job: str = "\tpid = 4242\n",
+        ps: str = " 4242     1 /opt/portal/.venv/bin/python3\n",
+    ) -> None:
+        self.footprint = footprint
+        self.job = job
+        self.ps = ps
+        self.calls: list[list[str]] = []
+
+    def __call__(self, args, timeout=2.0):
+        self.calls.append(list(args))
+        if args[:2] == ["launchctl", "print"]:
+            return self.job
+        if args[0] == "ps":
+            return self.ps
+        if args[0] == "footprint":
+            return self.footprint
+        return ""
+
+    def kickstarts(self) -> list[list[str]]:
+        return [call for call in self.calls if call[:2] == ["launchctl", "kickstart"]]
+
+
+def test_host_services_derive_labels_from_portal_config(tmp_path):
+    config = tmp_path / "portal.yaml"
+    config.write_text(
+        "mcp_fleet:\n"
+        "  - id: mlx_transcribe\n"
+        "    port: 8924\n"
+        "    host_native: true\n"
+        "    launchd_label: com.portal5.mlx-transcribe\n"
+        "    native_service: mlx-transcribe\n"
+        "  - id: mflux\n"
+        "    port: 8933\n"
+        "    host_native: true\n"
+        "    launchd_label: com.portal5.mflux\n"
+        "  - id: documents\n"
+        "    port: 8913\n"
+        "    compose_service: mcp-documents\n"
+        "host_jobs:\n"
+        "  - label: com.portal5.eg2-embedding\n"
+        "    port: 8946\n"
+        "    service: eg2-embedding\n"
+        "  - label: com.portal5.music-ace-mcp\n",
+        encoding="utf-8",
+    )
+
+    assert _host_native_services(config) == [
+        HostService("mlx-transcribe", "com.portal5.mlx-transcribe", 8924),
+        HostService("mflux", "com.portal5.mflux", 8933),
+        HostService("eg2-embedding", "com.portal5.eg2-embedding", 8946),
+        HostService("music-ace-mcp", "com.portal5.music-ace-mcp", None),
+    ]
+
+
+def test_host_services_come_from_the_real_config_without_hardcoded_labels():
+    keys = {service.key for service in _host_native_services()}
+    assert {"eg2-embedding", "vl-retrieval", "mlx-speech", "mlx-transcribe", "mflux"} <= keys
+    labels = {service.label for service in _host_native_services()}
+    assert all(label.startswith("com.portal5.") for label in labels)
+
+
+def test_service_ceilings_overlay_defaults_and_ignore_bad_entries():
+    ceilings = _service_ceilings("eg2-embedding=0.5, nonsense, vl-retrieval=x")
+    assert ceilings["eg2-embedding"] == 0.5
+    assert ceilings["vl-retrieval"] == memory_safety_watch.DEFAULT_HOST_CEILINGS_GIB["vl-retrieval"]
+    assert ceilings["mflux"] == memory_safety_watch.DEFAULT_HOST_CEILINGS_GIB["mflux"]
+
+
+def test_footprint_under_ceiling_never_restarts(tmp_path, monkeypatch):
+    host = FakeHost(footprint="    phys_footprint: 2048 MB\n")
+    monkeypatch.setattr(memory_safety_watch, "_command", host)
+    log = tmp_path / "watch.log"
+
+    for sample in range(3):
+        assert (
+            check_host_services(
+                HostServiceState(), log, services=EMBED, ceilings={"eg2-embedding": 6}, now=sample
+            )
+            == []
+        )
+
+    assert host.kickstarts() == []
+    assert not log.exists()
+
+
+def test_over_ceiling_restarts_only_that_service_after_n_samples(tmp_path, monkeypatch):
+    host = FakeHost(footprint="    phys_footprint: 5.00 GB\n")
+    monkeypatch.setattr(memory_safety_watch, "_command", host)
+    log = tmp_path / "watch.log"
+    state = HostServiceState()
+
+    for sample in range(2):
+        assert (
+            check_host_services(
+                state, log, services=EMBED, ceilings={"eg2-embedding": 1}, now=sample
+            )
+            == []
+        )
+    assert host.kickstarts() == []
+    assert "sample=2/3" in log.read_text()
+
+    restarted = check_host_services(
+        state, log, services=EMBED, ceilings={"eg2-embedding": 1}, now=2.0
+    )
+
+    assert [service.key for service in restarted] == ["eg2-embedding"]
+    assert host.kickstarts() == [
+        ["launchctl", "kickstart", "-k", f"gui/{os.getuid()}/{EMBED_LABEL}"]
+    ]
+    text = log.read_text()
+    assert "HOST SERVICE CEILING BREACH: service=eg2-embedding" in text
+    assert "footprint=5.00 GiB ceiling=1.00 GiB" in text
+
+
+def test_under_ceiling_sample_resets_the_debounce(tmp_path, monkeypatch):
+    host = FakeHost(footprint="    phys_footprint: 5.00 GB\n")
+    monkeypatch.setattr(memory_safety_watch, "_command", host)
+    log = tmp_path / "watch.log"
+    state = HostServiceState()
+    ceilings = {"eg2-embedding": 1}
+
+    check_host_services(state, log, services=EMBED, ceilings=ceilings, now=0.0)
+    check_host_services(state, log, services=EMBED, ceilings=ceilings, now=1.0)
+    host.footprint = "    phys_footprint: 900 MB\n"
+    check_host_services(state, log, services=EMBED, ceilings=ceilings, now=2.0)
+    host.footprint = "    phys_footprint: 5.00 GB\n"
+    for sample in (3.0, 4.0):
+        check_host_services(state, log, services=EMBED, ceilings=ceilings, now=sample)
+
+    assert host.kickstarts() == []
+
+
+def test_restarts_are_rate_limited_per_service(tmp_path, monkeypatch):
+    host = FakeHost(footprint="    phys_footprint: 5.00 GB\n")
+    monkeypatch.setattr(memory_safety_watch, "_command", host)
+    log = tmp_path / "watch.log"
+    state = HostServiceState()
+    ceilings = {"eg2-embedding": 1}
+
+    for sample in range(3):
+        check_host_services(
+            state, log, services=EMBED, ceilings=ceilings, cooldown_s=60, now=sample
+        )
+    assert len(host.kickstarts()) == 1
+
+    # Still over the ceiling, three more samples inside the cooldown: no second restart.
+    for sample in range(10, 13):
+        check_host_services(
+            state, log, services=EMBED, ceilings=ceilings, cooldown_s=60, now=sample
+        )
+    assert len(host.kickstarts()) == 1
+
+    # Past the cooldown the service may be restarted again.
+    for sample in (62.0, 63.0, 64.0):
+        check_host_services(
+            state, log, services=EMBED, ceilings=ceilings, cooldown_s=60, now=sample
+        )
+    assert len(host.kickstarts()) == 2
+
+
+def test_unmeasurable_service_is_logged_once_and_never_restarted(tmp_path, monkeypatch):
+    host = FakeHost(job="")  # launchd job has no pid: not running
+    monkeypatch.setattr(memory_safety_watch, "_command", host)
+    log = tmp_path / "watch.log"
+    state = HostServiceState()
+
+    for sample in range(3):
+        assert (
+            check_host_services(
+                state, log, services=EMBED, ceilings={"eg2-embedding": 0.1}, now=sample
+            )
+            == []
+        )
+
+    assert host.kickstarts() == []
+    assert not [call for call in host.calls if call[0] == "footprint"]
+    text = log.read_text()
+    assert text.count("host service unmeasurable") == 1
+
+
+def test_unparseable_footprint_output_is_unmeasurable(tmp_path, monkeypatch):
+    host = FakeHost(footprint="footprint: task_for_pid failed\n")
+    monkeypatch.setattr(memory_safety_watch, "_command", host)
+    log = tmp_path / "watch.log"
+
+    for sample in range(3):
+        check_host_services(
+            HostServiceState(), log, services=EMBED, ceilings={"eg2-embedding": 0.1}, now=sample
+        )
+
+    assert host.kickstarts() == []
+    assert "host service unmeasurable, never restarted: service=eg2-embedding" in log.read_text()
+
+
+def test_service_without_a_declared_ceiling_uses_the_global_default(tmp_path, monkeypatch):
+    host = FakeHost(footprint="    phys_footprint: 4.50 GB\n")
+    monkeypatch.setattr(memory_safety_watch, "_command", host)
+    log = tmp_path / "watch.log"
+    state = HostServiceState()
+    service = [HostService("wiki-mcp", "com.portal5.wiki-mcp", 8931)]
+
+    restarted = []
+    for sample in range(3):
+        restarted = check_host_services(state, log, services=service, ceilings={}, now=sample)
+
+    assert [item.key for item in restarted] == ["wiki-mcp"]
+    assert f"ceiling={memory_safety_watch.DEFAULT_HOST_CEILING_GIB:.2f} GiB" in log.read_text()
+
+
+def test_python_child_is_measured_when_launchd_job_is_a_shell_wrapper(tmp_path, monkeypatch):
+    host = FakeHost(
+        job="\tpid = 700\n",
+        ps="  700     1 /bin/bash /opt/portal/scripts/native-mcp-service.sh eg2-embedding\n"
+        "  701   700 /opt/portal/.venv/bin/python3 /opt/portal/eg2.py\n",
+    )
+    monkeypatch.setattr(memory_safety_watch, "_command", host)
+    log = tmp_path / "watch.log"
+
+    check_host_services(
+        HostServiceState(), log, services=EMBED, ceilings={"eg2-embedding": 1}, now=0.0
+    )
+
+    measured = [call for call in host.calls if call[0] == "footprint"]
+    assert measured == [["footprint", "-p", "701"]]

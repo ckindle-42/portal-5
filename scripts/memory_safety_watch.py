@@ -10,8 +10,11 @@ Ollama router model.
 Low free swap alone is not a trip: macOS grows swap in 1 GiB swapfiles on
 demand, so ``vm.swapusage`` free routinely sits under 1 GiB on an idle host
 holding stale swapped pages (measured 2026-10-07: 983 MiB free swap, 84% free
-memory, pressure level normal). It is dangerous only when memory is also scarce. The script uses only Python's standard library
-and reuses ``scripts.check_updates._pushover`` for alerts.
+memory, pressure level normal). It is dangerous only when memory is also scarce. It also
+watches every host-native launchd service from ``config/portal.yaml`` and restarts only
+the one whose ``phys_footprint`` stays above its ceiling. The script uses only Python's
+standard library plus PyYAML for that config, and reuses ``scripts.check_updates._pushover``
+for alerts.
 """
 
 from __future__ import annotations
@@ -28,9 +31,12 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PID_FILE = Path("/tmp/portal5-memory-safety-test-pids")
@@ -40,6 +46,24 @@ _SWAP_FREE = re.compile(r"free\s*=\s*([0-9.]+)M", re.IGNORECASE)
 _MEMORY_FREE = re.compile(r"memory free percentage\s*:\s*([0-9.]+)%", re.IGNORECASE)
 #: kern.memorystatus_vm_pressure_level: 1 normal, 2 warning, 4 critical.
 _PRESSURE_CRITICAL = 4
+_PHYS_FOOTPRINT = re.compile(r"phys_footprint:\s*([0-9.]+)\s*([KMGT]?B)", re.IGNORECASE)
+_FOOTPRINT_SCALE = {"B": 1, "KB": 1024, "MB": 1024**2, "GB": 1024**3, "TB": 1024**4}
+#: PROVISIONAL per-service phys_footprint ceilings (GiB), keyed by the fleet entry's
+#: `native_service` (or `id`). Only :8946 has a measurement behind it (2026-10-07 13:29
+#: leak, ~5 GB peak); the rest are placeholders for measured idle/peak to replace.
+DEFAULT_HOST_CEILINGS_GIB: dict[str, float] = {
+    "eg2-embedding": 6.0,
+    "vl-retrieval": 8.0,
+    "mlx-speech": 8.0,
+    "mlx-transcribe": 6.0,
+    "mflux": 16.0,
+    "video_mlx": 24.0,
+}
+#: Ceiling for a host-native service with no entry above and no config override.
+DEFAULT_HOST_CEILING_GIB = 4.0
+#: Consecutive over-ceiling samples before a restart, and the per-service restart cooldown.
+DEFAULT_SERVICE_STRIKES = 3
+DEFAULT_RESTART_COOLDOWN_S = 1800.0
 
 
 def _dotenv_value(name: str, default: str = "") -> str:
@@ -262,6 +286,172 @@ def _log_top_processes(log: Path, count: int = 8) -> None:
         _log(f"top rss {rss_kb / 1024**2:.1f} GiB pid={pid} {comm}", log)
 
 
+@dataclass(frozen=True)
+class HostService:
+    key: str
+    label: str
+    port: int | None
+
+
+@dataclass
+class HostServiceState:
+    strikes: dict[str, int] = field(default_factory=dict)
+    restarted_at: dict[str, float] = field(default_factory=dict)
+    unmeasurable: set[str] = field(default_factory=set)
+
+
+def _host_native_services(path: Path | None = None) -> list[HostService]:
+    """Host-native launchd services from `config/portal.yaml` (fleet entries plus host_jobs)."""
+    config_path = path or ROOT / "config" / "portal.yaml"
+    try:
+        data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        return []
+    services: list[HostService] = []
+    for entry in data.get("mcp_fleet") or []:
+        if not isinstance(entry, dict) or not entry.get("host_native"):
+            continue
+        label = entry.get("launchd_label")
+        if not label:
+            continue
+        services.append(
+            HostService(
+                str(entry.get("native_service") or entry.get("id") or label),
+                str(label),
+                entry.get("port"),
+            )
+        )
+    for job in data.get("host_jobs") or []:
+        if not isinstance(job, dict) or not job.get("label"):
+            continue
+        label = str(job["label"])
+        services.append(
+            HostService(
+                str(job.get("service") or label.removeprefix("com.portal5.")),
+                label,
+                job.get("port"),
+            )
+        )
+    return services
+
+
+def _service_ceilings(spec: str) -> dict[str, float]:
+    """Per-service ceilings in GiB: the provisional defaults overlaid by a `key=gib,...` spec."""
+    ceilings = dict(DEFAULT_HOST_CEILINGS_GIB)
+    for item in spec.split(","):
+        key, _, value = item.partition("=")
+        try:
+            ceilings[key.strip()] = float(value)
+        except ValueError:
+            continue
+    return ceilings
+
+
+def _service_pid(label: str) -> int | None:
+    text = _command(["launchctl", "print", f"gui/{os.getuid()}/{label}"], timeout=3)
+    match = re.search(r"^\s*pid = (\d+)\s*$", text, re.MULTILINE)
+    return int(match.group(1)) if match else None
+
+
+def _python_pid(pid: int) -> int | None:
+    """The pid itself or its first python descendant: launchd jobs exec, shell wrappers do not."""
+    rows = _command(["ps", "-A", "-o", "pid=,ppid=,comm="], timeout=5).splitlines()
+    comm: dict[int, str] = {}
+    children: dict[int, list[int]] = {}
+    for row in rows:
+        parts = row.split(None, 2)
+        if len(parts) != 3 or not parts[0].isdigit() or not parts[1].isdigit():
+            continue
+        comm[int(parts[0])] = parts[2]
+        children.setdefault(int(parts[1]), []).append(int(parts[0]))
+    queue, seen = [pid], set()
+    while queue:
+        current = queue.pop(0)
+        if current in seen:
+            continue
+        seen.add(current)
+        executable = comm.get(current, "").split(" ", 1)[0]
+        if Path(executable).name.lower().startswith("python"):
+            return current
+        queue.extend(children.get(current, []))
+    return None
+
+
+def _footprint_bytes(pid: int) -> int | None:
+    """phys_footprint from `footprint -p`, in bytes; None when the output is unparseable."""
+    text = _command(["footprint", "-p", str(pid)], timeout=15)
+    match = _PHYS_FOOTPRINT.search(text)
+    if not match:
+        return None
+    return int(float(match.group(1)) * _FOOTPRINT_SCALE[match.group(2).upper()])
+
+
+def _restart_service(label: str, log: Path) -> None:
+    output = _command(["launchctl", "kickstart", "-k", f"gui/{os.getuid()}/{label}"], timeout=10)
+    _log(f"restart host service label={label}: {output or 'ok'}", log)
+
+
+def check_host_services(
+    state: HostServiceState,
+    log: Path,
+    *,
+    services: list[HostService] | None = None,
+    ceilings: dict[str, float] | None = None,
+    strikes: int = DEFAULT_SERVICE_STRIKES,
+    cooldown_s: float = DEFAULT_RESTART_COOLDOWN_S,
+    config_path: Path | None = None,
+    now: float | None = None,
+) -> list[HostService]:
+    """Restart host-native services held over their footprint ceiling; returns those restarted."""
+    resolved = dict(DEFAULT_HOST_CEILINGS_GIB if ceilings is None else ceilings)
+    candidates = _host_native_services(config_path) if services is None else services
+    clock = time.monotonic() if now is None else now
+    restarted: list[HostService] = []
+    for service in candidates:
+        ceiling = resolved.get(service.key, DEFAULT_HOST_CEILING_GIB) * 1024**3
+        pid = _service_pid(service.label)
+        python_pid = _python_pid(pid) if pid else None
+        footprint = _footprint_bytes(python_pid) if python_pid else None
+        if footprint is None:
+            state.strikes[service.key] = 0
+            if service.key not in state.unmeasurable:
+                state.unmeasurable.add(service.key)
+                _log(
+                    f"host service unmeasurable, never restarted: service={service.key} "
+                    f"label={service.label} pid={pid}",
+                    log,
+                )
+            continue
+        state.unmeasurable.discard(service.key)
+        if footprint <= ceiling:
+            state.strikes[service.key] = 0
+            continue
+        count = state.strikes.get(service.key, 0) + 1
+        state.strikes[service.key] = count
+        if count < strikes:
+            _log(
+                f"host service over ceiling: service={service.key} "
+                f"footprint={footprint / 1024**3:.2f} GiB ceiling={ceiling / 1024**3:.2f} GiB "
+                f"sample={count}/{strikes}",
+                log,
+            )
+            continue
+        last = state.restarted_at.get(service.key)
+        if last is not None and clock - last < cooldown_s:
+            continue
+        _log(
+            f"HOST SERVICE CEILING BREACH: service={service.key} label={service.label} "
+            f"pid={python_pid} footprint={footprint / 1024**3:.2f} GiB "
+            f"ceiling={ceiling / 1024**3:.2f} GiB samples={count}",
+            log,
+        )
+        _restart_service(service.label, log)
+        state.restarted_at[service.key] = clock
+        state.strikes[service.key] = 0
+        restarted.append(service)
+    return restarted
+
+
 def _trip(snapshot: dict[str, Any], floor_mb: float, memory_floor_pct: float) -> str | None:
     if snapshot.get("pressure_critical"):
         return (
@@ -285,9 +475,13 @@ def watch(
     interval_s: float = 2.0,
     swap_floor_mb: float = 1024.0,
     memory_floor_pct: float = 20.0,
+    service_ceilings: dict[str, float] | None = None,
+    restart_cooldown_s: float = DEFAULT_RESTART_COOLDOWN_S,
     once: bool = False,
 ) -> int:
     router_model = _dotenv_value("LLM_ROUTER_MODEL", DEFAULT_ROUTER)
+    host_services = _host_native_services()
+    service_state = HostServiceState()
     while True:
         snapshot = _snapshot()
         summary = (
@@ -300,6 +494,13 @@ def watch(
         if snapshot["omlx_error"]:
             summary += f" omlx_error={snapshot['omlx_error']}"
         _log(summary, log)
+        check_host_services(
+            service_state,
+            log,
+            services=host_services,
+            ceilings=service_ceilings,
+            cooldown_s=restart_cooldown_s,
+        )
         reason = _trip(snapshot, swap_floor_mb, memory_floor_pct)
         if reason:
             _log(f"MEMORY SAFETY TRIP: {reason}", log)
@@ -336,6 +537,17 @@ def main(argv: list[str] | None = None) -> int:
         help="low swap trips only while memory free is below this percentage",
     )
     parser.add_argument("--once", action="store_true", help="record one sample and exit")
+    parser.add_argument(
+        "--service-ceilings",
+        default=_dotenv_value("WATCH_HOST_CEILINGS_GIB", ""),
+        help="per-service footprint ceilings in GiB, e.g. eg2-embedding=0.5,mflux=16",
+    )
+    parser.add_argument(
+        "--restart-cooldown-s",
+        type=float,
+        default=float(_dotenv_value("WATCH_HOST_RESTART_COOLDOWN_S", "1800")),
+        help="minimum seconds between host-service restarts",
+    )
     args = parser.parse_args(argv)
     return watch(
         pid_file=args.pid_file,
@@ -343,6 +555,8 @@ def main(argv: list[str] | None = None) -> int:
         interval_s=args.interval,
         swap_floor_mb=args.swap_floor_mb,
         memory_floor_pct=args.memory_floor_pct,
+        service_ceilings=_service_ceilings(args.service_ceilings),
+        restart_cooldown_s=args.restart_cooldown_s,
         once=args.once,
     )
 
