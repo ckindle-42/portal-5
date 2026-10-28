@@ -326,6 +326,28 @@ def _configure_detection_tool_pool(monkeypatch: pytest.MonkeyPatch) -> tuple[str
     return workspace_id, detection_tools
 
 
+def test_bite_persona_inherits_tools_from_its_own_workspace_model() -> None:
+    """The real splunkdetectionauthor has no tools_allow; its pool is auto-spl's (10-28)."""
+    from portal.platform.inference.router.eval_gate import resolve_bite_tool_pool
+
+    workspaces = {
+        "auto-daily::deep": {"tools": ["web_search"]},
+        "auto-spl": {"tools": ["query_splunk", "spl_validate_syntax"]},
+    }
+    personas = {"splunkdetectionauthor": {"workspace_model": "auto-spl"}}
+
+    def resolve(persona, workspace_id):
+        allow = persona.get("tools_allow")
+        return sorted(allow if allow is not None else workspaces[workspace_id]["tools"])
+
+    body = {"portal_bite_tools": ["query_splunk"], "portal_bite_persona": "splunkdetectionauthor"}
+    pool = resolve_bite_tool_pool(
+        body, "auto-daily::deep", "auto-daily::deep", personas, workspaces, resolve
+    )
+    assert pool == ["query_splunk", "spl_validate_syntax"]
+    assert "portal_bite_persona" not in body
+
+
 def _stub_tool_registry(monkeypatch: pytest.MonkeyPatch, registered_tools: list[str]) -> None:
     async def refresh() -> None:
         return None

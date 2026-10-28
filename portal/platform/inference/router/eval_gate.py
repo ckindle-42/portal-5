@@ -57,7 +57,14 @@ def resolve_bite_tool_pool(
     ):
         raise HTTPException(status_code=400, detail="portal_bite_persona must name a known persona")
     if requested in personas:
-        return resolve_tools(personas[requested], workspace_id)
+        # A persona inherits its tools from its own workspace_model, not the serving seat's.
+        persona = personas[requested]
+        parent = (
+            persona.get("workspace_model")
+            if isinstance(persona, Mapping)
+            else getattr(persona, "workspace_model", None)
+        )
+        return resolve_tools(persona, parent or workspace_id)
     return resolve_tools({}, requested)
 
 
