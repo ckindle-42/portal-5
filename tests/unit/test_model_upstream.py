@@ -627,12 +627,10 @@ def test_drop_refuses_when_any_tag_cannot_be_resolved(tmp_path: Path) -> None:
     assert blob.is_file()
 
 
-def test_drop_counts_references_from_ollama_show_not_files(tmp_path: Path) -> None:
+def test_drop_requires_show_and_both_manifest_stores_clear(tmp_path: Path) -> None:
     models = tmp_path / "models"
-    stale = _write_manifest(models, "hf.co/org/Repo:Q4", SHA_A)
-    stale.write_bytes(_manifest(SHA_C))
+    _write_manifest(models, "hf.co/org/Repo:Q4", SHA_A)
     keep = models / "blobs" / f"sha256-{SHA_A}"
-    keep.write_bytes(b"keep")
     gone = models / "blobs" / f"sha256-{SHA_C}"
     gone.write_bytes(b"gone")
     run = _show_run({"hf.co/org/Repo:Q4": [SHA_A]})
@@ -640,6 +638,89 @@ def test_drop_counts_references_from_ollama_show_not_files(tmp_path: Path) -> No
     assert not gone.exists()
     assert mu.drop_unreferenced_blob(models, SHA_A, run, "ollama") is False
     assert keep.is_file()
+
+
+def test_llamacpp_engine_manifest_keeps_the_blob(tmp_path: Path) -> None:
+    models = tmp_path / "models"
+    _write_manifest(models, "granite4.1:8b", SHA_A)
+    engine_id = "0" * 64
+    engine = models / "manifests" / "registry.ollama.ai" / "library" / "llamacpp" / engine_id
+    engine.parent.mkdir(parents=True)
+    engine.write_bytes(_manifest(SHA_C))
+    blob = models / "blobs" / f"sha256-{SHA_C}"
+    blob.write_bytes(b"engine")
+    run = _show_run({"granite4.1:8b": [SHA_A], f"llamacpp:{engine_id}": []})
+    assert mu.drop_unreferenced_blob(models, SHA_C, run, "ollama") is False
+    assert blob.is_file()
+
+
+def test_v2_manifest_keeps_the_blob(tmp_path: Path) -> None:
+    models = tmp_path / "models"
+    _write_manifest(models, "granite4.1:8b", SHA_A)
+    v2 = models / "manifests-v2" / "hf.co" / "org" / "Repo" / "Q4"
+    v2.parent.mkdir(parents=True)
+    v2.write_bytes(_manifest(SHA_C))
+    blob = models / "blobs" / f"sha256-{SHA_C}"
+    blob.write_bytes(b"v2")
+    run = _show_run({"granite4.1:8b": [SHA_A], "hf.co/org/Repo:Q4": []})
+    assert mu.drop_unreferenced_blob(models, SHA_C, run, "ollama") is False
+    assert blob.is_file()
+
+
+def test_manifest_read_error_refuses_the_delete(tmp_path: Path) -> None:
+    models = tmp_path / "models"
+    manifest = _write_manifest(models, "granite4.1:8b", SHA_A)
+    blob = models / "blobs" / f"sha256-{SHA_C}"
+    blob.write_bytes(b"x")
+    manifest.chmod(0)
+    run = _show_run({"granite4.1:8b": [SHA_A]})
+    try:
+        assert mu.drop_unreferenced_blob(models, SHA_C, run, "ollama") is False
+        assert blob.is_file()
+    finally:
+        manifest.chmod(0o644)
+
+
+def test_weekly_job_exits_when_no_pin_is_recorded(tmp_path: Path, monkeypatch, capsys) -> None:
+    from scripts import model_autoupdate as job
+
+    backends = tmp_path / "backends.yaml"
+    backends.write_text(
+        "backends:\n- id: ol\n  models:\n  - id: hf.co/org/Repo:Q4\n    unpinned: gone\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(job, "BACKENDS", backends)
+    monkeypatch.setattr(job, "busy", lambda: False)
+    monkeypatch.setattr(
+        job, "collect_changes", lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("scanned"))
+    )
+    assert job.main([]) == 0
+    assert "no recorded pins" in capsys.readouterr().out
+    assert not mu.has_recorded_pins(backends.read_text(encoding="utf-8"))
+
+
+def test_weekly_job_scans_once_a_pin_is_recorded(tmp_path: Path, monkeypatch) -> None:
+    from scripts import model_autoupdate as job
+
+    backends = tmp_path / "backends.yaml"
+    backends.write_text(
+        "backends:\n- id: ol\n  models:\n"
+        f"  - id: hf.co/org/Repo:Q4\n    filename: model.gguf\n    sha256: {SHA_A}\n",
+        encoding="utf-8",
+    )
+    seen: dict[str, bool] = {}
+
+    def collect(text: str, models: Path, fetch) -> mu.Scan:
+        seen["yes"] = True
+        assert SHA_A in text
+        return mu.Scan()
+
+    monkeypatch.setattr(job, "BACKENDS", backends)
+    monkeypatch.setattr(job, "busy", lambda: False)
+    monkeypatch.setattr(job, "models_dir", lambda: tmp_path)
+    monkeypatch.setattr(job, "collect_changes", collect)
+    assert job.main([]) == 0
+    assert seen["yes"] is True
 
 
 def test_backup_and_restore_cover_the_manifests_v2_symlink(tmp_path: Path) -> None:

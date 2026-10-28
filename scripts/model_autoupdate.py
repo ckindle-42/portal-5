@@ -6,9 +6,9 @@ run is in flight, Pushover, a state file of rejected upstream ids, and a
 commit of ``config/backends.yaml`` only. A plain ``portal update`` does not
 run this; ``--refresh-models`` / ``--now`` opts in.
 
-This Ollama build has no ``prune`` command. After a successful replace the job
-deletes the previous model-layer blob only when no installed tag's own
-``ollama show`` FROM facts still name it; any unresolvable tag vetoes the delete.
+This Ollama build has no ``prune`` command. A blob is deleted only when
+``ollama show`` and both manifest stores leave it unnamed; a read error
+keeps it. With no recorded pin the job reports and exits.
 """
 
 from __future__ import annotations
@@ -40,6 +40,7 @@ from scripts.model_upstream import (  # noqa: E402
     default_run,
     drop_unreferenced_blob,
     find_manifest,
+    has_recorded_pins,
     installed_model_sha,
     manifest_paths,
     models_dir,
@@ -409,8 +410,11 @@ def main(argv: list[str]) -> int:
     if busy():
         log("deferring: a sweep is running")
         return 0
-    models = models_dir()
     text = BACKENDS.read_text(encoding="utf-8")
+    if not has_recorded_pins(text):
+        log("models: no recorded pins in config/backends.yaml; refusing to replace or delete")
+        return 0
+    models = models_dir()
     scan = collect_changes(text, models, default_fetch)
     for note in scan.notes:
         log(note)

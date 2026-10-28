@@ -314,23 +314,97 @@ def collect_changes(text: str, models: Path, fetch: Fetch) -> Scan:
 
 
 def blob_referenced(models: Path, digest: str, run: Runner, binary: str) -> bool | None:
-    """Reference facts from Ollama itself, for every installed tag.
-
-    True when any tag's FROM lines name the digest, False when none do, and
-    ``None`` (refuse to act) when any installed tag cannot be resolved.
-    """
+    """True when show or either manifest store names the digest. None refuses."""
     want = _hex(digest)
-    for tag in installed_tags(models):
-        blobs = show_blobs(tag, run, binary)
-        if not blobs:
+    if len(want) != 64:
+        return None
+    shown = _show_names(models, want, run, binary)
+    filed = _manifest_names(models, want)
+    if shown is None or filed is None:
+        return None
+    return shown or filed
+
+
+def _show_names(models: Path, want: str, run: Runner, binary: str) -> bool | None:
+    try:
+        tags = installed_tags(models)
+    except OSError:
+        return None
+    for tag in tags:
+        blobs = _show_one(tag, run, binary)
+        if blobs is None:
             return None
         if want in blobs:
             return True
     return False
 
 
+def _show_one(tag: str, run: Runner, binary: str) -> list[str] | None:
+    try:
+        return show_blobs(tag, run, binary)
+    except OSError:
+        return None
+
+
+def _manifest_names(models: Path, want: str) -> bool | None:
+    for store in ("manifests", "manifests-v2"):
+        found = _store_names(models / store, want)
+        if found is None:
+            return None
+        if found:
+            return True
+    return False
+
+
+def _store_names(root: Path, want: str) -> bool | None:
+    if not root.exists():
+        return False
+    try:
+        paths = list(root.rglob("*"))
+    except OSError:
+        return None
+    for path in paths:
+        named = _file_names(path, want)
+        if named is None:
+            return None
+        if named:
+            return True
+    return False
+
+
+def _file_names(path: Path, want: str) -> bool | None:
+    """True when this manifest path names ``want``. None on a read error."""
+    if path.is_dir() and not path.is_symlink():
+        return False
+    try:
+        if path.is_symlink() and _link_names(path, want):
+            return True
+        if path.is_symlink() and not path.exists():
+            return None
+        if path.stat().st_size > 1_048_576:
+            return False
+        data = path.read_bytes()
+    except OSError:
+        return None
+    return want.encode() in data.lower()
+
+
+def _link_names(path: Path, want: str) -> bool:
+    target = str(path.readlink()).lower()
+    return f"sha256-{want}" in target or f"sha256:{want}" in target
+
+
+def has_recorded_pins(text: str) -> bool:
+    """True when any catalog entry has a filename and a 64-hex sha256."""
+    for entry in parse_model_entries(text):
+        sha = _hex(entry.fields.get("sha256", ""))
+        if entry.fields.get("filename") and len(sha) == 64:
+            return True
+    return False
+
+
 def drop_unreferenced_blob(models: Path, digest: str, run: Runner, binary: str) -> bool:
-    """Delete one blob only when every installed tag resolves and none names it."""
+    """Delete one blob only when show and both manifest stores leave it unnamed."""
     if not digest or blob_referenced(models, digest, run, binary) is not False:
         return False
     blob = models / "blobs" / f"sha256-{_hex(digest)}"
