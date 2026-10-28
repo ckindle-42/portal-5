@@ -45,6 +45,7 @@ backends:
     supports_tools: true
   - id: gemma4:26b-a4b-it-q4_K_M-ctx32k
     supports_tools: true
+    keep_reason: "gemma-4-26b plain-4bit build: auto-documents WFE seat (G1 2026-10-18, sampling measured on this build) + vision personas; QAT build kept beside it (arm fast seat) until an A/B on both seats picks one — operator 2026-10-28"
   # PIPELINE_ALIGNMENT_V1 §P2: the reading seat's overflow variant — same
   # gemma-4-26b-a4b-it weights, PARAMETER num_ctx 65536 baked (trained ceiling
   # 262,144). Serves compliance-reading-overflow, the route for sweep material
@@ -126,6 +127,7 @@ backends:
     supports_tools: true
   - id: gemma4:26b-a4b-it-qat-ctx32k
     supports_tools: true
+    keep_reason: "gemma-4-26b QAT build: orchestration arm fast seat auto-daily::gemma-fast (Gate C test_fixing 6/6); plain-4bit build kept beside it (auto-documents WFE seat) until an A/B on both seats picks one — operator 2026-10-28"
   - id: hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k
     supports_tools: false
   - id: lfm2.5:8b-ctx8k
@@ -136,6 +138,7 @@ backends:
   # council seat names (config/compliance/council.yaml).
   - id: mistral-small3.2:24b-instruct-2506-q4_K_M
     supports_tools: true
+    keep_reason: "same weights blob as mistral-small3.2:24b (0 unique bytes, measured 2026-10-28) — a second name, not a second quant"
   # supports_tools verified 2026-09-25: direct tool-call probe 3/3 clean on the
   # ctx8k tag (native path). It was false, so auto-general-uncensored's six
   # declared tools were silently never offered to the model.
@@ -334,6 +337,7 @@ backends:
   # persona -- ctx8k was severely undersized for real opencode/agentic use.
   - id: portal5/omnicoder2-9b:q4_K_M-ctx256k
     supports_tools: true
+    keep_reason: "same weights blob as omnicoder2:9b-q4_k_m (0 unique bytes); the 256k window is the coding seat full-context tag (baked num_ctx rule)"
   # auto-coding::fast-repair hints this ctx32k tag. Until
   # 2026-09-25 only the base tag was registered (ollama-general), so the
   # router found no backend serving the hint and silently fell back to
@@ -545,6 +549,7 @@ backends:
     supports_tools: true
   - id: gemma4:26b-a4b-it-qat-ctx32k
     supports_tools: true
+    keep_reason: "gemma-4-26b QAT build: orchestration arm fast seat auto-daily::gemma-fast (Gate C test_fixing 6/6); plain-4bit build kept beside it (auto-documents WFE seat) until an A/B on both seats picks one — operator 2026-10-28"
   - id: gemma4:31b-it-qat-ctx8k
     supports_tools: true
   - id: hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf
@@ -701,6 +706,7 @@ backends:
   models:
   - id: gemma-4-26b-a4b-it-QAT-4bit
     supports_tools: true
+    keep_reason: "gemma-4-26b QAT build: orchestration arm fast seat auto-daily::gemma-fast (Gate C test_fixing 6/6); plain-4bit build kept beside it (auto-documents WFE seat) until an A/B on both seats picks one — operator 2026-10-28"
   # P5-FANOUT-001: council Challenger conversion (lane contract = response_format
   # json, NO tools — its template does not render tools on oMLX, probed live).
   - id: mlx-community--Mistral-Small-3.2-24B-Instruct-2506-4bit
@@ -714,6 +720,7 @@ backends:
   # A4B-it checkpoint as the GGUF tag; json ✓, tools ✓, 90,041-token needle ✓).
   - id: mlx-community--gemma-4-26b-a4b-it-4bit
     supports_tools: true
+    keep_reason: "gemma-4-26b plain-4bit build: auto-documents WFE seat (G1 2026-10-18, sampling measured on this build) + vision personas; QAT build kept beside it (arm fast seat) until an A/B on both seats picks one — operator 2026-10-28"
   # Nemotron 3.5 Lightning oQ4e-mtp added 2026-08-14 (txgsync/NVIDIA-Nemotron-
   # 3.5-Lightning-30B-A3B-oQ4e-mtp, oMLX 0.6.0.dev1 MTPLX side-car import —
   # real mtp.* weights verified at the tensor level, unlike the plain

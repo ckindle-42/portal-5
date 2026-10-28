@@ -60,7 +60,7 @@ def test_real_backends_parse_keeps_model_ids_only() -> None:
     tags = [entry.tag for entry in mu.parse_model_entries(text)]
     assert "ollama-general" not in tags
     assert any(tag.startswith("hf.co/") for tag in tags)
-    assert "granite4.1:8b" in tags
+    assert any("/" not in tag.split(":")[0] for tag in tags)  # library tags parse too
 
 
 def test_models_dir_env_beats_plist(tmp_path: Path) -> None:

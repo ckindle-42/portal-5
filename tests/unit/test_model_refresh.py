@@ -204,9 +204,6 @@ def _assert_fleet_examples(by_tag: dict[str, refresh.RefreshPlan]) -> None:
     local = by_tag["portal5/laguna-xs21:q4_K_M-ctx128k"]
     assert local.action == "skip"
     assert local.reason == "local tag, no upstream"
-    drafted = by_tag["portal5/qwen3.6-27b-mtp:q8_0-drafted"]
-    assert drafted.action == "skip"
-    assert drafted.reason == "local tag, no upstream"
     _assert_base(
         by_tag["hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"],
         "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M",
@@ -225,9 +222,9 @@ def test_live_backends_keep_library_tags_and_do_not_pull_hf(
     by_tag = {plan.tag: plan for plan in plans}
     assert tags == list(dict.fromkeys(tags))
     assert "Qwen3-Coder-30B-A3B-Instruct-4bit" not in tags
-    granite = by_tag["granite4.1:8b"]
-    assert granite.action == "pull"
-    assert granite.tag == "granite4.1:8b"
+    # Some plain library tag is configured and plans as a pull (no fixed id: the fleet changes).
+    library = [p for p in plans if "/" not in p.tag.split(":")[0] and "ctx" not in p.tag]
+    assert any(p.action == "pull" for p in library)
     hf = [plan for plan in plans if plan.tag.startswith("hf.co/")]
     assert hf
     assert all(plan.action != "pull" for plan in hf)

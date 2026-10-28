@@ -527,9 +527,9 @@ def test_the_script_cannot_delete_or_edit_anything():
 
 
 def test_real_config_keeps_one_variant_per_warn_family():
-    """Read-only: every WARN family on the live config keeps at least one variant."""
+    """Read-only: every WARN family on the live config keeps at least one variant.
+    An empty worklist (the fleet rule passes) is the goal state, not a failure."""
     report = fc.build_report(REPO_ROOT, _facts())
-    assert report["families"]
     for fam in report["families"]:
         assert any(v["action"] == "KEEP" for v in fam["variants"]), fam["key"]
 
