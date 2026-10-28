@@ -219,6 +219,7 @@ def _repin_router() -> None:
     prefix still warms on the first routed request."""
     model = os.environ.get("LLM_ROUTER_MODEL", "")
     if not model:
+        log("ollama: LLM_ROUTER_MODEL unset — router NOT re-pinned (export it, or source .env)")
         return
     body = json.dumps({"model": model, "keep_alive": -1}).encode()
     req = urllib.request.Request(
