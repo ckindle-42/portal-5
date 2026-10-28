@@ -297,6 +297,9 @@ orchestration_arm:
                 tools: []
                 output: {path: bites/final_review.txt, file_type: text}
                 accept: [{type: contains, value: "PASS"}]
+                review_reason: >-
+                  Confirm the assembled detection, its ATT&CK mapping, and its validation
+                  evidence satisfy $expected_behavior.
                 risk: low
                 stage: final_review
                 budget: {turns: 2, minutes: 15, output_tokens: 2048, context_tokens: 8192}

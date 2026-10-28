@@ -12,13 +12,14 @@ from .contracts import TaskPlan, parse_plan
 from .worker import Engine, _response_parts
 
 PLANNER_RULES = """Write a JSON task plan as one object with task_id, goal, and bites.
-Every bite must have a deterministic acceptance check or review='deep' with a specific review_reason.
+Every bite must have accept (a list of deterministic acceptance checks) or review='deep' with a specific review_reason.
 Keep every bite within the supplied comfortable Fast context token budget; include budget.context_tokens.
 Split reading from acting: a bite must not combine read_tools and action_tools, and untrusted reads never act.
 Every file_write bite must declare its exact writable data-plane paths in write_paths.
 Prefer small bites and give each a narrow goal and only its required tools.
 End with stage='assembly' followed by stage='final_review'; final_review depends on assembly.
 Each bite must include a checkable output, dependencies, budget, model, risk, and procedure.
+The framework writes each bite's declared output from its finish call; file_write is only for additional write_paths.
 Do not invent tools, paths, or discipline names. Return JSON only."""
 MAX_PLAN_BITES = 64
 MAX_BITE_TURNS = 16

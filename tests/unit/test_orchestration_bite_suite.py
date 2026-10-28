@@ -152,6 +152,28 @@ def test_planner_suite_uses_live_pipeline_identity_and_stays_out_of_gate_c(tmp_p
     assert extract_discipline_rates([receipt]) == {}
 
 
+def test_planner_judge_valid_split_plan_carries_review_reason_on_final_review(
+    tmp_path: Path,
+) -> None:
+    config = yaml.safe_load((ROOT / "config/orchestration_arm.yaml").read_text(encoding="utf-8"))
+    cases = runner.load_suite(
+        ROOT / "portal/modules/orchestration/disciplines/detection_engineering/wfe_planner.yaml"
+    )
+    valid_messages = None
+    for case in cases:
+        task_dir = tmp_path / runner._safe_name(case["id"])
+        task_dir.mkdir()
+        # Raises if the validator verdict differs from the fixture's expected verdict.
+        messages = runner._planner_messages(case, config, "detection-engineering", task_dir)
+        if case["id"] == "valid-split-plan":
+            valid_messages = messages
+    assert valid_messages is not None
+    user = json.loads(next(m["content"] for m in valid_messages if m["role"] == "user"))
+    final_review = user["plan"]["bites"][-1]
+    assert final_review["bite_id"] == "final_review"
+    assert final_review["review_reason"]
+
+
 def test_live_bite_receipts_feed_gate_c_with_the_chosen_seat(tmp_path: Path):
     pipeline = FakePipeline()
     cases = runner.load_suite(
@@ -357,6 +379,18 @@ def test_checker_suite_scores_control_pairs_without_counting_them_as_bites(tmp_p
     assert len(pipeline.requests) == 8
     assert all(row["portal_no_tools"] is True for row in pipeline.requests)
     assert extract_discipline_rates([receipt]) == {}
+
+
+def test_checker_messages_state_the_exact_artifact_contract() -> None:
+    fixture = {
+        "checker": {"type": "spl_syntax", "artifact_field": "spl"},
+        "artifact": {},
+        "calls": [],
+    }
+    messages = runner._checker_messages({"id": "spl_syntax"}, "fail", fixture)
+    system = next(m["content"] for m in messages if m["role"] == "system")
+    assert "only when a call to its tool used exactly the artifact's" in system
+    assert "validating different content does not validate the artifact" in system
 
 
 def _json_reply(

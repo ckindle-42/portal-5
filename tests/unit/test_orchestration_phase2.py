@@ -28,6 +28,9 @@ from tests.wfe.schema import Outcome
 
 def test_planner_prompt_includes_required_decomposition_rules() -> None:
     assert "deterministic acceptance check" in PLANNER_RULES
+    assert "accept" in PLANNER_RULES
+    assert "finish call" in PLANNER_RULES
+    assert "file_write is only for additional write_paths" in PLANNER_RULES
     assert "Split reading from acting" in PLANNER_RULES
     assert "stage='assembly' followed by stage='final_review'" in PLANNER_RULES
 

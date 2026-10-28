@@ -394,6 +394,9 @@ def _checker_messages(
 ) -> list[dict[str, str]]:
     system = (
         "Judge whether the supplied artifact satisfies the supplied deterministic checks. "
+        "A check counts only when a call to its tool used exactly the artifact's "
+        "artifact_field value; validating different content does not validate the artifact, "
+        "even if that content is itself valid. "
         "Return JSON with verdict PASS or REJECT and a concise reason."
     )
     user = {"case_id": case["id"], "fixture": fixture}
