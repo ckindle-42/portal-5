@@ -25,7 +25,13 @@ _Action = Literal["pull", "create", "derive", "skip"]
 _Status = Literal["created", "pulled", "skipped", "failed"]
 _SHA = re.compile(r"[0-9a-fA-F]{64}")
 _DERIVED_RE = re.compile(r"-ctx(\d+)k(?:-[A-Za-z0-9]+)?$")
+_BARE_CTX_RE = re.compile(r"^ctx(\d+)k$")
 _LOCAL_NAMESPACES = ("portal5/",)
+_REGISTRY = "https://registry.ollama.ai"
+_MANIFEST_ACCEPT = "application/vnd.docker.distribution.manifest.v2+json"
+REGISTRY_ABSENT_REASON = (
+    "not on the Ollama registry (local import) — pin a GGUF source in backends.yaml to refresh it"
+)
 _PLAN_ACTIONS = ("pull", "create", "derive", "skip")
 _STOP_RE = re.compile(
     r"""^\s*PARAMETER\s+stop\s+(?:"([^"]*)"|'([^']*)'|(\S+))\s*$""",
@@ -200,16 +206,46 @@ def forbidden_stops(modelfile: str, allowed: tuple[str, ...]) -> list[str]:
     return bad
 
 
-def pull_library(tag: str, ollama_cmd: str, runner: Runner) -> InstallResult:
-    argv = [*ollama_cmd.split(), "pull", tag]
-    completed = runner(argv)
-    if completed.returncode != 0:
-        detail = (completed.stderr or completed.stdout or "").strip()
-        message = f"FAIL {tag}: ollama pull failed"
-        if detail:
-            message = f"{message}: {detail}"
-        return InstallResult(False, "failed", message)
-    return InstallResult(True, "pulled", tag)
+def ollama_manifest_url(tag: str) -> str:
+    """Manifest URL for a library name or a namespaced ``ns/name`` tag."""
+    name, sep, qual = tag.rpartition(":")
+    if not sep or not qual:
+        name, qual = tag, "latest"
+    if "/" not in name:
+        name = f"library/{name}"
+    repo = quote(name, safe="/")
+    ref = quote(qual, safe="")
+    return f"{_REGISTRY}/v2/{repo}/manifests/{ref}"
+
+
+def registry_probe(tag: str, client: httpx.Client) -> str | None:
+    """None when the manifest exists. Otherwise a skip reason. Never guesses."""
+    try:
+        response = client.head(
+            ollama_manifest_url(tag),
+            headers={"Accept": _MANIFEST_ACCEPT},
+            timeout=httpx.Timeout(30.0),
+        )
+    except httpx.HTTPError as exc:
+        return _registry_failure(str(exc))
+    if response.status_code == 200:
+        return None
+    if response.status_code == 404:
+        return REGISTRY_ABSENT_REASON
+    return _registry_failure(f"HTTP {response.status_code}")
+
+
+def pull_library(
+    tag: str,
+    ollama_cmd: str,
+    runner: Runner,
+    *,
+    client: httpx.Client | None = None,
+) -> InstallResult:
+    if client is None:
+        with httpx.Client(follow_redirects=True, timeout=httpx.Timeout(30.0)) as owned:
+            return _pull_after_probe(tag, ollama_cmd, runner, owned)
+    return _pull_after_probe(tag, ollama_cmd, runner, client)
 
 
 def download_file(client: httpx.Client, repo: str, filename: str, dest: Path) -> None:
@@ -265,7 +301,7 @@ def execute_plan(
     if plan.action == "skip":
         return InstallResult(True, "skipped", f"{plan.tag}: {plan.reason}")
     if plan.action == "pull":
-        return pull_library(plan.tag, ollama_cmd, runner)
+        return pull_library(plan.tag, ollama_cmd, runner, client=client)
     if plan.action == "derive":
         return execute_derive(plan, ollama_cmd, runner=runner, client=client, dest_dir=dest_dir)
     if plan.pin is None:
@@ -290,6 +326,8 @@ def execute_derive(
     refreshed = _refresh_base(base, ollama_cmd, runner=runner, client=client, dest_dir=dest_dir)
     if refreshed is None:
         return InstallResult(False, "failed", f"FAIL {plan.tag}: base action {base.action}")
+    if refreshed.status == "skipped":
+        return InstallResult(True, "skipped", f"{plan.tag}: base {refreshed.message}")
     if not refreshed.ok:
         return InstallResult(False, "failed", f"FAIL {plan.tag}: {refreshed.message}")
     return _create_derived(plan.tag, base.tag, plan.num_ctx, ollama_cmd, runner, dest_dir)
@@ -475,7 +513,7 @@ def _refresh_base(
     dest_dir: Path,
 ) -> InstallResult | None:
     if base.action == "pull":
-        return pull_library(base.tag, ollama_cmd, runner)
+        return pull_library(base.tag, ollama_cmd, runner, client=client)
     if base.action == "create" and base.pin is not None:
         return install_pinned(base.pin, ollama_cmd, runner=runner, client=client, dest_dir=dest_dir)
     if base.action == "create":
@@ -515,11 +553,41 @@ def _mentions_pin(entry: Mapping[str, object]) -> bool:
     return any(not _blank(entry.get(key)) for key in ("filename", "sha256", "repo", "actual_repo"))
 
 
+def _pull_after_probe(
+    tag: str,
+    ollama_cmd: str,
+    runner: Runner,
+    client: httpx.Client,
+) -> InstallResult:
+    reason = registry_probe(tag, client)
+    if reason is not None:
+        return InstallResult(True, "skipped", f"{tag}: {reason}")
+    argv = [*ollama_cmd.split(), "pull", tag]
+    completed = runner(argv)
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout or "").strip()
+        message = f"FAIL {tag}: ollama pull failed"
+        if detail:
+            message = f"{message}: {detail}"
+        return InstallResult(False, "failed", message)
+    return InstallResult(True, "pulled", tag)
+
+
+def _registry_failure(detail: str) -> str:
+    return f"Ollama registry check failed ({detail}) — skipped, not pulled"
+
+
 def _split_derived(tag: str) -> tuple[str, int] | None:
     """Return the base tag and the suffix's context in thousands, if this is baked."""
     name, sep, qual = tag.rpartition(":")
     if not sep:
         return None
+    bare = _BARE_CTX_RE.fullmatch(qual)
+    if bare is not None:
+        kilos = int(bare.group(1))
+        if kilos < 1 or not name:
+            return None
+        return f"{name}:latest", kilos
     match = _DERIVED_RE.search(qual)
     if match is None:
         return None

@@ -19,6 +19,18 @@ _BODY = b"gguf-bytes"
 _SHA = hashlib.sha256(_BODY).hexdigest()
 _TAG = "hf.co/org/Model-GGUF:Q4_K_M"
 _BAKED = re.compile(r"-ctx\d+k(?:-[A-Za-z0-9]+)?$")
+_BARE_CTX = re.compile(r"^ctx\d+k$")
+_LOCAL_IMPORTS = (
+    "baronllm:q6_k",
+    "cybersecqwen-4b-toolfix:latest",
+    "deepseek-r1:32b-q4_k_m",
+    "kat-coder-v2.5-dev:Q4_K_M",
+    "ling30-tiny-test:latest",
+    "meta-secalign-8b-q4_k_m",
+    "meta-secalign-8b-q4_k_m:latest",
+    "omnicoder2:9b-q4_k_m",
+    "supergemma4-26b-uncensored:Q4_K_M",
+)
 
 
 class _Runner:
@@ -39,6 +51,21 @@ def _client(body: bytes, seen: list[httpx.Request], status: int = 200) -> httpx.
     def handler(request: httpx.Request) -> httpx.Response:
         seen.append(request)
         return httpx.Response(status, content=body)
+
+    return httpx.Client(transport=httpx.MockTransport(handler))
+
+
+def _status_client(
+    status: int,
+    seen: list[httpx.Request],
+    *,
+    error: Exception | None = None,
+) -> httpx.Client:
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if error is not None:
+            raise error
+        return httpx.Response(status)
 
     return httpx.Client(transport=httpx.MockTransport(handler))
 
@@ -185,6 +212,7 @@ def _assert_fleet_examples(by_tag: dict[str, refresh.RefreshPlan]) -> None:
         "skip",
         32768,
     )
+    _assert_base(by_tag["orcacyber-nano-1.0:ctx64k"], "orcacyber-nano-1.0:latest", "pull", 65536)
 
 
 def test_live_backends_keep_library_tags_and_do_not_pull_hf(
@@ -208,7 +236,7 @@ def test_live_backends_keep_library_tags_and_do_not_pull_hf(
         if plan.tag.startswith("portal5/"):
             assert plan.action == "skip"
             assert plan.reason == "local tag, no upstream"
-        elif _BAKED.search(qual):
+        elif _BAKED.search(qual) or _BARE_CTX.fullmatch(qual):
             assert plan.action == "derive"
             assert plan.base_plan is not None
             assert plan.base_plan.action != "derive"
@@ -383,7 +411,9 @@ def test_derive_pulls_the_base_and_creates_the_ctx_tag(tmp_path: Path) -> None:
         "FROM qwen3-coder:30b-a3b-q4_K_M\nPARAMETER num_ctx 32768\n",
     ]
     assert all(call[1:] != ["pull", plan.tag] for call in runner.calls)
-    assert seen == []
+    assert [item.method for item in seen] == ["HEAD"]
+    assert seen[0].url.host == "registry.ollama.ai"
+    assert seen[0].url.path == "/v2/library/qwen3-coder/manifests/30b-a3b-q4_K_M"
     assert refresh.ctx_modelfile_text("gemma4:31b-it-qat", 8192) == (
         "FROM gemma4:31b-it-qat\nPARAMETER num_ctx 8192\n"
     )
@@ -428,7 +458,9 @@ def test_library_pull_keeps_the_tag(tmp_path: Path) -> None:
     )
     assert result.status == "pulled"
     assert runner.calls == [["ollama", "pull", "granite4.1:8b"]]
-    assert seen == []
+    assert [item.method for item in seen] == ["HEAD"]
+    assert str(seen[0].url) == "https://registry.ollama.ai/v2/library/granite4.1/manifests/8b"
+    assert seen[0].headers["accept"] == "application/vnd.docker.distribution.manifest.v2+json"
 
 
 def test_pull_hf_model_skips_unpinned_without_subprocess(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -450,8 +482,102 @@ def test_pull_hf_model_library_tag_is_unchanged(monkeypatch: pytest.MonkeyPatch)
         return subprocess.CompletedProcess(argv, 0, stdout="", stderr="")
 
     monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(refresh, "registry_probe", lambda _tag, _client: None)
     from portal.platform.inference.cli.models import _pull_hf_model
 
     model = Model(hf_id="granite4.1", ollama_name="granite4.1:8b")
     assert _pull_hf_model(model, "ollama") is True
     assert calls == [["ollama", "pull", "granite4.1:8b"]]
+
+
+def test_manifest_urls_cover_library_and_namespaced_tags() -> None:
+    assert refresh.ollama_manifest_url("granite4.1:8b") == (
+        "https://registry.ollama.ai/v2/library/granite4.1/manifests/8b"
+    )
+    assert refresh.ollama_manifest_url("huihui_ai/qwen3.5-abliterated:9b") == (
+        "https://registry.ollama.ai/v2/huihui_ai/qwen3.5-abliterated/manifests/9b"
+    )
+    assert refresh.ollama_manifest_url("meta-secalign-8b-q4_k_m") == (
+        "https://registry.ollama.ai/v2/library/meta-secalign-8b-q4_k_m/manifests/latest"
+    )
+    assert refresh.ollama_manifest_url("meta-secalign-8b-q4_k_m:latest") == (
+        refresh.ollama_manifest_url("meta-secalign-8b-q4_k_m")
+    )
+
+
+def test_registry_404_skips_local_import_shapes(tmp_path: Path) -> None:
+    for tag in _LOCAL_IMPORTS:
+        seen: list[httpx.Request] = []
+        runner = _Runner()
+        result = refresh.execute_plan(
+            refresh.RefreshPlan(tag, "pull"),
+            "ollama",
+            runner=runner,
+            client=_status_client(404, seen),
+            dest_dir=tmp_path,
+        )
+        assert result.status == "skipped"
+        assert result.message == f"{tag}: {refresh.REGISTRY_ABSENT_REASON}"
+        assert runner.calls == []
+        assert seen[0].method == "HEAD"
+
+
+def test_registry_error_skips_without_calling_the_tag_local(tmp_path: Path) -> None:
+    seen: list[httpx.Request] = []
+    runner = _Runner()
+    errored = refresh.execute_plan(
+        refresh.RefreshPlan("granite4.1:8b", "pull"),
+        "ollama",
+        runner=runner,
+        client=_status_client(200, seen, error=httpx.ConnectError("down")),
+        dest_dir=tmp_path,
+    )
+    assert errored.status == "skipped"
+    assert "registry check failed" in errored.message
+    assert "local import" not in errored.message
+    assert runner.calls == []
+    refused = refresh.execute_plan(
+        refresh.RefreshPlan("granite4.1:8b", "pull"),
+        "ollama",
+        runner=runner,
+        client=_status_client(500, []),
+        dest_dir=tmp_path,
+    )
+    assert refused.status == "skipped"
+    assert "HTTP 500" in refused.message
+    assert "local import" not in refused.message
+    assert runner.calls == []
+
+
+def test_bare_ctx_tag_derives_and_a_missing_base_is_not_pulled(tmp_path: Path) -> None:
+    (tmp_path / "backends.yaml").write_text(
+        """
+backends:
+- id: ol
+  type: ollama
+  url: http://127.0.0.1:9
+  group: general
+  models:
+  - id: orcacyber-nano-1.0:ctx64k
+""",
+        encoding="utf-8",
+    )
+    plan = refresh.plans_from_registry(BackendRegistry(str(tmp_path / "backends.yaml")))[0]
+    assert plan.action == "derive"
+    assert plan.num_ctx == 65536
+    assert plan.base_plan is not None
+    assert plan.base_plan.tag == "orcacyber-nano-1.0:latest"
+    assert plan.base_plan.action == "pull"
+    seen: list[httpx.Request] = []
+    runner = _Runner()
+    result = refresh.execute_plan(
+        plan,
+        "ollama",
+        runner=runner,
+        client=_status_client(404, seen),
+        dest_dir=tmp_path,
+    )
+    assert result.status == "skipped"
+    assert refresh.REGISTRY_ABSENT_REASON in result.message
+    assert runner.calls == []
+    assert seen[0].url.path == "/v2/library/orcacyber-nano-1.0/manifests/latest"

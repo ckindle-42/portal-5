@@ -36,9 +36,12 @@ and runs `ollama create` from a Modelfile that carries `FROM` and the entry's
 `<think>` stop or any stop the entry does not list in `stops`. An entry
 missing the pin is reported and skipped. `portal update` refreshes the model
 ids on `type: ollama` backends in `config/backends.yaml`. A library tag is
-`ollama pull`. A baked-context tag (`-ctxNk`, or `-ctxNk-agentic`) refreshes
-its base, then `ollama create` writes `FROM` that base and `PARAMETER num_ctx`
-— the same Modelfile as `portal models apply-params`. An entry `num_ctx` wins
+`ollama pull` only after a manifest HEAD on `registry.ollama.ai` returns 200.
+A 404 is skipped as a local import until the entry pins a GGUF; a registry
+error skips the tag as well. A baked-context tag (`-ctxNk`, `-ctxNk-agentic`,
+or a bare `:ctxNk`) refreshes its base, then `ollama create` writes `FROM`
+that base and `PARAMETER num_ctx` — the same Modelfile as `portal models apply-params`.
+An entry `num_ctx` wins
 over the suffix. An `hf.co/` base is created only when that base pins
 `filename` and `sha256`; otherwise the derived tag is skipped. A `portal5/`
 tag is skipped as a local tag with no upstream unless that entry has the pin.

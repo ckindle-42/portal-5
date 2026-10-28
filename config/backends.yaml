@@ -4,6 +4,7 @@
 # Optional keys on a model entry: filename, sha256, repo, num_ctx, stops.
 # portal update imports an hf.co id only when filename and sha256 are both set.
 # A -ctxNk tag is rebuilt from its base. A portal5/ tag is skipped unless pinned.
+# A library pull is skipped when registry.ollama.ai has no manifest for that tag.
 #
 backends:
 - group: general
