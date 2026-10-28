@@ -3282,6 +3282,18 @@ class TestTemplateConformance:
         v = self._audit("retemplated:Q4", self._show("qwen35", "qwen3.8", "qwen3.8", "<real>"), lib)
         assert [(x["kind"], x["severity"]) for x in v] == [("template_renderer_mismatch", "FAIL")]
 
+    def test_an_instruct_variant_beside_only_thinking_builds_is_legitimate(self):
+        """2026-10-28: removing qwen3-vl:8b-instruct left qwen3-vl:4b-instruct beside only
+        thinking builds; its qwen3-vl-instruct renderer is the variant its name says."""
+        lib = {"lib": self._show("qwen3vl", "qwen3-vl-thinking", "qwen3-vl-thinking", "<real>")}
+        tag = "qwen3-vl:4b-instruct-q4_K_M"
+        show = self._show("qwen3vl", "qwen3-vl-instruct", "qwen3-vl-instruct", "<real>")
+        assert self._audit(tag, show, lib) == []
+        # The variant token must match the tag's own name: a thinking-named tag on the
+        # instruct renderer is still a mismatch.
+        v = self._audit("qwen3-vl:32b-thinking", show, lib)
+        assert [x["kind"] for x in v] == ["template_renderer_mismatch"]
+
     def test_a_second_library_renderer_for_the_arch_is_legitimate(self):
         """qwen35 carries qwen3.5 and qwen3.8 in the library; a Qwen3.8 tag on
         qwen3.8 is the documented build, not a majority-vote loser."""

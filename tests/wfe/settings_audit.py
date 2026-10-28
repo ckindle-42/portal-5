@@ -343,6 +343,16 @@ def _expected_for(tag: str, pairs: list[tuple[str, str]]) -> tuple[str, str]:
     return pairs[0]
 
 
+def _variant_sibling(tag: str, ren: str, pairs: list[tuple[str, str]]) -> bool:
+    """Same renderer family as a library build, differing only in its -instruct/-thinking
+    variant, and the tag's own name says which variant it is (qwen3-vl:4b-instruct with
+    only qwen3-vl-thinking builds installed beside it)."""
+    family, _, variant = ren.rpartition("-")
+    if variant not in ("instruct", "thinking") or variant not in tag.lower():
+        return False
+    return any(r.rpartition("-")[0] == family for r, _p in pairs)
+
+
 def _is_laguna_21(tag: str) -> bool:
     """The name says 2.1 — ``laguna-xs-2.1:latest`` or ``laguna-xs21:...``.
     `laguna` is the XS.2 parser and mis-renders the 2.1 build; its library
@@ -392,7 +402,7 @@ def _audit_template_conformance(
                 "FAIL",
             )
         return
-    if ren and ren not in {r for r, _p in pairs}:
+    if ren and ren not in {r for r, _p in pairs} and not _variant_sibling(tag, ren, pairs):
         _v(
             violations,
             where,
