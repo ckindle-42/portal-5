@@ -10,7 +10,8 @@
 #   supports_tools: true|false  — tool-call capability (probed, not assumed)
 #   keep_reason: <text>         — why this entry legitimately breaks the fleet
 #     fallback rule (a second oMLX checkpoint / GGUF weights tag in its family, or
-#     an oMLX seat with no GGUF fallback); exempts it from validate_system HY.
+#     an oMLX seat with no GGUF fallback); exempts that entry only from
+#     validate_system HY — the rest of its family is still checked.
 #
 backends:
 - group: general
@@ -937,6 +938,10 @@ backends:
     qwen3-coder:30b-a3b-q4_K_M-ctx16k: Qwen3-Coder-30B-A3B-Instruct-4bit
     qwen3-coder:30b-a3b-q4_K_M-ctx32k: Qwen3-Coder-30B-A3B-Instruct-4bit
     portal5/laguna-xs21:q4_K_M-ctx128k: Laguna-XS-2.1-4bit
+    # kit-huihui36-a coder seat (2026-10-22 A/B winner): the GGUF twin the seat
+    # was screened against, paired so the family has a documented Ollama fallback.
+    huihui_ai/Qwen3.6-abliterated:27b: Huihui-Qwen3.6-27B-abliterated-MLX-4bit
+    huihui_ai/Qwen3.6-abliterated:27b-ctx8k: Huihui-Qwen3.6-27B-abliterated-MLX-4bit
     hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M: Qwen3.8-27B-oQ4e-mtp
   type: omlx
   url: ${OMLX_URL:-http://host.docker.internal:8085}

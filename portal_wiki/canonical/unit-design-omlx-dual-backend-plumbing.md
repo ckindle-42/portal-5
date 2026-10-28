@@ -196,33 +196,54 @@ quant variants are bloat unless a planned test needs them. The intake side of
 the same rule is explicit: a new dense intake gets an oMLX counterpart, which is
 what the `-oQ4e-mtp` MTP side-car checkpoint entries already do in practice.
 
-**Families are derived from `aliases:`, not from model names.** An alias key is
-the canonical GGUF `model_hint` and its value the oMLX checkpoint that serves
-it, so each alias edge already states the pairing. A family is a connected
-component of that graph: one oMLX checkpoint plus the GGUF weights tags aliased
-at it. `-ctxNk` derived tags are stripped before comparison because they share
-one GGUF file (P5-OLLAMA-OPTIONS-001's baked-window workaround), so
-`gemma4:26b-a4b-it-qat-ctx8k` and `-ctx16k` are one weights tag, not two.
+**Families are the union of the alias graph and the id's own lineage.** An alias
+key is the canonical GGUF `model_hint` and its value the oMLX checkpoint that
+serves it, so each edge already states the fallback pairing — and, because the
+pipeline resolves hints through `aliases`, an edge is also the only path by which
+the GGUF tag is actually reached. But the operator's rule counts *models*, so a
+family additionally joins every id that normalises to the same lineage key: drop
+the org/namespace prefix (and the flattened `org--name` form) and the `.gguf`
+extension, lowercase, then strip `-ctxNk`/`ctxNk` windows, quantisation phrases
+(`q4_k_m`, `q8_0`, `UD-Q4_K_XL`, `oQ4e`) and format tokens (`mlx`, `gguf`, `qat`,
+`mtp`, `dflash`/`draft`, `ud`, `it`/`instruct`, and bit-width/precision markers
+such as `4bit` or `mxfp8`), and compare the remaining letter/digit runs as a set.
+A family is then a connected component over three node kinds — checkpoint,
+weights tag, lineage key — so `gemma-4-26b-a4b-it-QAT-4bit` and
+`mlx-community--gemma-4-26b-a4b-it-4bit` are one model, as are
+`gemma4:26b-a4b-it-q4_K_M` and `gemma4:26b-a4b-it-qat`. `abliterated`,
+`uncensored`, `heretic`, `distill` and `merged` are deliberately *not* stripped:
+those are different models, not quants. The tokeniser is `_lineage_key` in
+`scripts/validation/inference.py`, with pair-by-pair SAME/DIFF coverage in
+`tests/unit/test_validation_fleet_fallback.py`; there is no model name in the
+code. Weights identity (`_weights_tag`) is case-insensitive and drops `:latest`
+and `-ctxNk`, because those tags share one GGUF file (P5-OLLAMA-OPTIONS-001's
+baked-window workaround), so `gemma4:26b-a4b-it-qat-ctx8k` and `-ctx16k` are one
+weights tag, not two.
 
 **What the check reports** (`HY. fleet fallback rule` in
-`scripts/validation/inference.py`, registered under `scripts/validation/`):
-an oMLX seat with no aliased Ollama GGUF fallback; more than one oMLX
-checkpoint in a family; more than one distinct GGUF weights tag in a family.
-All three WARN rather than FAIL while consolidation is in progress, so
-`validate_system.py` prints the worklist without gating on it. A model entry
-may carry the optional `keep_reason:` field (accepted by
-`cluster_backends.py` and documented in the `config/backends.yaml` header) to
-exempt a deliberate extra variant or an oMLX-only seat. DFlash/draft helpers
-are exempt by rule — they are speculative-decoding scaffolding, not served
-families of their own.
+`scripts/validation/inference.py`, registered under `scripts/validation/`): an
+oMLX seat that no alias reaches — a same-lineage GGUF twin that was never aliased
+does not count, because the alias is the fallback path; more than one oMLX
+checkpoint in a family; more than one distinct GGUF weights tag in a family. All
+three WARN rather than FAIL while consolidation is in progress, so
+`validate_system.py` prints the worklist without gating on it. A model entry may
+carry the optional `keep_reason:` field (accepted by `cluster_backends.py` and
+documented in the `config/backends.yaml` header) to exempt that one entry: a
+two-variant family with one marked entry passes, a three-variant family with one
+marked entry still reports the other two. DFlash/draft helpers are exempt by rule
+— they are speculative-decoding scaffolding, not served families of their own.
 
-**At introduction (2026-10-28)** the live config yields 19 oMLX seats in 17
-families with a single finding: `Huihui-Qwen3.6-27B-abliterated-MLX-4bit` (the
-kit-A/B winner added 2026-10-22) has no alias from its GGUF twin
-`huihui_ai/Qwen3.6-abliterated:27b`, so the fallback is undocumented rather than
-absent. The Qwen3.8-27B DFlash2 seat is the one oMLX-only checkpoint, recorded
-with a `keep_reason:`. That list is the consolidation worklist; re-derive it
-from the live config instead of trusting this snapshot.
+**First full run (2026-10-28):** 19 oMLX seats, 92 families, 33 alias edges, and
+nine WARN findings — `gemma4:26b-a4b-it-qat` (two checkpoints *and* two GGUF
+weights: the operator's canonical example), `qwen3.6:27b-q8_0` (four GGUF weights),
+`qwen3.6:35b-a3b-q4_K_M`, `Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit`,
+`llama3.2:3b`, `gemma4:12b-it-qat`, `gemma4:e4b-it-qat`,
+`mistral-small3.2:24b`, `omnicoder2:9b-q4_k_m`. That list is the consolidation
+worklist; the alias-reach finding on
+`Huihui-Qwen3.6-27B-abliterated-MLX-4bit` was closed by aliasing its registered
+twin `huihui_ai/Qwen3.6-abliterated:27b`, and the Qwen3.8-27B DFlash2 seat is the
+one oMLX-only checkpoint, recorded with a `keep_reason:`. Re-derive the list from
+the live config instead of trusting this snapshot.
 
 ## Why
 

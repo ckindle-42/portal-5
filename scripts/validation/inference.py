@@ -299,7 +299,33 @@ def check_trace_never_routes() -> tuple[str, str, list[dict]]:
 # variants are bloat unless the entry carries keep_reason:. WARN-only while the
 # consolidation is in progress.
 _CTX_TAG_SUFFIX = re.compile(r"-ctx\d+k$")
+_CTX_TOKEN = re.compile(r"(?<![a-z0-9])ctx\d+k(?![a-z0-9])")
 _DRAFT_RE = re.compile(r"dflash|draft", re.IGNORECASE)
+# Quantisation phrases (q4_k_m, q8_0, UD-Q4_K_XL, oQ4e) — stripped whole, since
+# their fragments (q, k, m, xl) are not otherwise meaningful.
+_QUANT_PHRASE = re.compile(r"(?<![a-z0-9])o?q\d+[a-z0-9]*(?:_[a-z0-9]+)*")
+# Bit-widths and precision formats, stripped before the digit/letter split turns
+# "4bit" into "4"+"bit" and leaves the fragment behind.
+_FORMAT_PHRASE = re.compile(
+    r"(?<![a-z0-9])(?:\d+bits?|mxfp\d+|nvfp\d+|bf\d+|fp\d+|f\d+)(?![a-z0-9])"
+)
+# Formats, packaging and template-renderer tags: two ids differing only in these
+# are the same model. abliterated / uncensored / heretic / distill / merged are
+# deliberately absent — those are different models, not variants.
+_FORMAT_TOKENS = frozenset(
+    {
+        "gguf",
+        "mlx",
+        "qat",
+        "mtp",
+        "dflash",
+        "draft",
+        "ud",
+        "it",
+        "instruct",
+        "latest",
+    }
+)
 
 
 def _model_entries(backend: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
@@ -314,19 +340,35 @@ def _model_entries(backend: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
 
 
 def _weights_tag(model_id: str) -> str:
-    """Strip the -ctxNk derived-tag suffix: those tags share one GGUF file."""
-    return _CTX_TAG_SUFFIX.sub("", model_id)
+    """GGUF weights identity: one file across ctxNk, :latest and case variants."""
+    return _CTX_TAG_SUFFIX.sub("", model_id).removesuffix(":latest").lower()
 
 
-def _keep_reasons(backends: list[dict[str, Any]]) -> dict[str, bool]:
-    """Entries carrying an explicit keep_reason, keyed by id and by weights tag."""
-    reasons: dict[str, bool] = {}
-    for be in backends:
-        for mid, entry in _model_entries(be):
-            if entry.get("keep_reason"):
-                reasons[mid] = True
-                reasons[_weights_tag(mid)] = True
-    return reasons
+def _lineage_key(model_id: str) -> frozenset[str]:
+    """Model-lineage tokens: namespace, quant, format and window removed.
+
+    Ids differing only in those tokens (``gemma4:26b-a4b-it-qat``,
+    ``gemma-4-26b-a4b-it-4bit``, ``...-GGUF:Q4_K_M-ctx32k``) share a key;
+    abliterated/uncensored/heretic/distill builds keep their own.
+    """
+    text = model_id.lower().removesuffix(".gguf")
+    text = text.rsplit("/", 1)[-1]  # org/namespace prefix
+    text = text.rsplit("--", 1)[-1]  # flattened org--name prefix
+    text = _CTX_TOKEN.sub("-", text)
+    text = _QUANT_PHRASE.sub("-", text)
+    text = _FORMAT_PHRASE.sub("-", text)
+    tokens = (t for t in re.findall(r"[a-z]+|\d+", text) if t not in _FORMAT_TOKENS)
+    return frozenset(tokens)
+
+
+def _keep_reasons(backends: list[dict[str, Any]]) -> set[str]:
+    """Weights-tag identities whose entry carries an explicit keep_reason:."""
+    return {
+        _weights_tag(mid)
+        for be in backends
+        for mid, entry in _model_entries(be)
+        if entry.get("keep_reason")
+    }
 
 
 def _omlx_seats(backends: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -340,10 +382,11 @@ def _omlx_seats(backends: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
 
 
 def _families(backends: list[dict[str, Any]]) -> list[dict[str, set[str]]]:
-    """Model families as alias-graph components: oMLX checkpoint ↔ GGUF weights.
+    """Model families: oMLX checkpoints and GGUF weights sharing a lineage.
 
-    An `aliases:` key is the canonical GGUF hint and its value the oMLX
-    checkpoint that serves it, so the edge is already the family pairing.
+    Members are linked two ways — the `aliases:` edge (canonical GGUF hint →
+    oMLX checkpoint) and the normalised lineage key of the id itself, so quant
+    variants that were never aliased still land in the same family.
     """
     parent: dict[tuple[str, str], tuple[str, str]] = {}
 
@@ -354,26 +397,45 @@ def _families(backends: list[dict[str, Any]]) -> list[dict[str, set[str]]]:
             node = parent[node]
         return node
 
+    def link(a: tuple[str, str], b: tuple[str, str]) -> None:
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[ra] = rb
+
+    display: dict[str, str] = {}
+
+    def weight_node(model_id: str) -> tuple[str, str]:
+        key = _weights_tag(model_id)
+        display.setdefault(key, model_id)
+        return ("gguf", key)
+
     for be in backends:
-        if be.get("type") != "omlx":
-            continue
-        for hint, target in (be.get("aliases") or {}).items():
-            a, b = find(("ckpt", str(target))), find(("gguf", _weights_tag(str(hint))))
-            if a != b:
-                parent[a] = b
+        is_omlx = be.get("type") == "omlx"
+        for mid, _entry in _model_entries(be):
+            lineage = frozenset(_lineage_key(mid))
+            if not lineage:
+                continue
+            node = ("ckpt", mid) if is_omlx else weight_node(mid)
+            link(node, ("key", " ".join(sorted(lineage))))
+        if is_omlx:
+            for hint, target in (be.get("aliases") or {}).items():
+                link(("ckpt", str(target)), weight_node(str(hint)))
 
     comps: dict[tuple[str, str], dict[str, set[str]]] = {}
     for node in parent:
         comp = comps.setdefault(find(node), {"checkpoints": set(), "weights": set()})
-        comp["checkpoints" if node[0] == "ckpt" else "weights"].add(node[1])
-    return list(comps.values())
+        if node[0] == "ckpt":
+            comp["checkpoints"].add(node[1])
+        elif node[0] == "gguf":
+            comp["weights"].add(display.get(node[1], node[1]))
+    return [c for c in comps.values() if c["checkpoints"] or c["weights"]]
 
 
 def _fleet_findings(
     seats: dict[str, dict[str, Any]],
     aliased: set[str],
     families: list[dict[str, set[str]]],
-    reasons: dict[str, bool],
+    reasons: set[str],
 ) -> list[dict]:
     """WARN findings for the fleet fallback rule, one sub-result per finding."""
     subs: list[dict] = []
@@ -389,24 +451,20 @@ def _fleet_findings(
             }
         )
     for comp in families:
-        if any(reasons.get(m) for m in comp["checkpoints"] | comp["weights"]):
-            continue
-        ckpts, weights = sorted(comp["checkpoints"]), sorted(comp["weights"])
+        ckpts = sorted(c for c in comp["checkpoints"] if _weights_tag(c) not in reasons)
+        weights = sorted(w for w in comp["weights"] if _weights_tag(w) not in reasons)
+        parts = []
         if len(ckpts) > 1:
-            subs.append(
-                {
-                    "name": ", ".join(ckpts),
-                    "status": "WARN",
-                    "detail": f"{len(ckpts)} oMLX checkpoints in one family (no keep_reason)",
-                }
-            )
+            parts.append(f"{len(ckpts)} oMLX checkpoints: {', '.join(ckpts)}")
         if len(weights) > 1:
+            parts.append(f"{len(weights)} GGUF weights tags: {', '.join(weights)}")
+        if parts:
+            members = comp["checkpoints"] | comp["weights"]
             subs.append(
                 {
-                    "name": ", ".join(weights),
+                    "name": min(members, key=lambda s: (len(s), s)),
                     "status": "WARN",
-                    "detail": f"{len(weights)} distinct GGUF weights tags in one family "
-                    "(no keep_reason)",
+                    "detail": "; ".join(parts),
                 }
             )
     return subs
@@ -418,11 +476,11 @@ def check_fleet_fallback_rule(
 ) -> tuple[str, str, list[dict]]:
     """HY. One oMLX checkpoint + one Ollama GGUF fallback per model family.
 
-    Families are the connected components of backends.yaml's alias graph, so a
-    family is one oMLX checkpoint plus the GGUF weights tags aliased at it.
-    WARN (never FAIL) for: an oMLX seat with no GGUF fallback, more than one
-    checkpoint or more than one distinct GGUF weights tag in a family, unless
-    an entry in that family carries keep_reason:. DFlash/draft helpers are exempt.
+    A family joins the `aliases:` pairs to ids sharing a normalised lineage key
+    (namespace/quant/format/ctx stripped; abliterated/uncensored/heretic builds
+    stay distinct). WARN (never FAIL) for an oMLX seat with no GGUF fallback, or
+    more than one checkpoint / GGUF weights tag in a family. keep_reason: on an
+    entry exempts that entry only; DFlash/draft helpers are exempt outright.
     """
     path = Path(config_path) if config_path else REPO_ROOT / "config" / "backends.yaml"
     backends = (yaml.safe_load(path.read_text(encoding="utf-8")) or {}).get("backends") or []
