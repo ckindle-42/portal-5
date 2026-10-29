@@ -492,7 +492,7 @@ def test_acquisition_clones_alongside_dirty_checkout(tmp_path: Path) -> None:
     assert _git(target, "status", "--porcelain") == dirty_status
 
 
-def test_acquisition_verification_rejects_lfs_pointers(tmp_path: Path) -> None:
+def test_acquisition_verification_rejects_lfs_pointers(tmp_path: Path, monkeypatch: Any) -> None:
     repo = tmp_path / "source"
     repo.mkdir()
     _git(repo, "init")
@@ -506,10 +506,21 @@ def test_acquisition_verification_rejects_lfs_pointers(tmp_path: Path) -> None:
     _git(repo, "add", "sample.evtx")
     _git(repo, "commit", "-m", "pointer")
     commit = _git(repo, "rev-parse", "HEAD")
+    git = acquisition._git
+
+    def without_git_lfs(
+        root: Path, *args: str, env: dict[str, str] | None = None
+    ) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ("lfs", "ls-files", "--json"):
+            return subprocess.CompletedProcess(args, 1, "", "git-lfs unavailable")
+        return git(root, *args, env=env)
+
+    monkeypatch.setattr(acquisition, "_git", without_git_lfs)
 
     result = acquisition.inspect_checkout(repo, commit)
 
     assert result["status"] == "lfs_incomplete"
+    assert result["upstream_defects"] == []
 
 
 def _commit_all(root: Path, message: str) -> str:
@@ -541,7 +552,7 @@ def _clone(source: Path, target: Path) -> None:
         subprocess.run(argv, check=True, capture_output=True, text=True, env=env)
 
 
-def _lfs_upstream(root: Path) -> str:
+def _lfs_upstream(root: Path, payload: bytes = b"real-lfs-payload\n") -> str:
     root.mkdir(parents=True)
     _git(root, "init")
     _git(root, "config", "user.name", "Unit Test")
@@ -550,7 +561,7 @@ def _lfs_upstream(root: Path) -> str:
     (root / ".gitattributes").write_text(
         "*.bin filter=lfs diff=lfs merge=lfs -text\n", encoding="utf-8"
     )
-    (root / "payload.bin").write_bytes(b"real-lfs-payload\n")
+    (root / "payload.bin").write_bytes(payload)
     return _commit_all(root, "lfs object")
 
 
@@ -785,6 +796,24 @@ def test_acquire_pulls_lfs_into_fresh_clone(tmp_path: Path) -> None:
     assert result["status"] == "acquired"
     assert (target / "payload.bin").read_bytes() == b"real-lfs-payload\n"
     assert acquisition.inspect_checkout(target, commit)["status"] == "verified"
+
+
+@pytest.mark.skipif(not _git_lfs_available(), reason="git lfs not installed")
+def test_verification_reports_pulled_pointer_looking_content_as_upstream_defect(
+    tmp_path: Path,
+) -> None:
+    upstream = tmp_path / "upstream"
+    payload = (
+        b"version https://git-lfs.github.com/spec/v1\n"
+        b"oid sha256:0123456789abcdef\n"
+        b"size 253\n<<<<<<< HEAD\nconflicting content\n>>>>>>> branch\n"
+    )
+    commit = _lfs_upstream(upstream, payload)
+
+    result = acquisition.inspect_checkout(upstream, commit)
+
+    assert result["status"] == "verified"
+    assert result["upstream_defects"] == ["payload.bin"]
 
 
 @pytest.mark.skipif(not _git_lfs_available(), reason="git lfs not installed")

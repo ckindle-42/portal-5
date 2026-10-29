@@ -93,10 +93,12 @@ def inspect_checkout(path: Path, expected_commit: str) -> dict[str, Any]:
     }
     if dirty_paths or actual != expected_commit:
         result["status"] = "mismatch"
-    elif _has_lfs_pointers(root):
-        result["status"] = "lfs_incomplete"
     else:
-        result["status"] = "verified"
+        has_lfs_pointers, result["upstream_defects"] = _lfs_pointer_report(root)
+        if has_lfs_pointers:
+            result["status"] = "lfs_incomplete"
+        else:
+            result["status"] = "verified"
     return result
 
 
@@ -104,19 +106,106 @@ def sibling_checkout(path: Path, commit: str) -> Path:
     return path.with_name(f"{path.name}.pinned-{commit[:12]}")
 
 
-def _has_lfs_pointers(root: Path) -> bool:
-    tracked = _git(root, "ls-files", "-z")
-    if tracked.returncode:
-        return True
-    for name in tracked.stdout.split("\0"):
+def _lfs_downloaded_files(root: Path) -> dict[str, bool] | None:
+    listed = _git(root, "lfs", "ls-files", "--json")
+    if listed.returncode:
+        return None
+    try:
+        files = json.loads(listed.stdout).get("files")
+    except (AttributeError, json.JSONDecodeError):
+        return None
+    if files is None:
+        return {}
+    if not isinstance(files, list):
+        return None
+    return {
+        row["name"]: row["downloaded"]
+        for row in files
+        if isinstance(row, dict)
+        and isinstance(row.get("name"), str)
+        and isinstance(row.get("downloaded"), bool)
+    }
+
+
+def _git_index_blobs(root: Path) -> tuple[str, dict[str, str]] | None:
+    listed = _git(root, "ls-files", "--stage", "-z")
+    object_format = _git(root, "rev-parse", "--show-object-format")
+    if listed.returncode or object_format.returncode:
+        return None
+    blobs = {}
+    for entry in listed.stdout.split("\0"):
+        metadata, separator, name = entry.partition("\t")
+        fields = metadata.split()
+        if separator and len(fields) == 3 and fields[2] == "0":
+            blobs[name] = fields[1]
+    return object_format.stdout.strip(), blobs
+
+
+def _matches_git_blob(content: bytes, oid: str, object_format: str) -> bool | None:
+    try:
+        digest = hashlib.new(object_format)
+    except ValueError:
+        return None
+    digest.update(f"blob {len(content)}\0".encode())
+    digest.update(content)
+    return digest.hexdigest() == oid
+
+
+def _pointer_worktree_files(
+    root: Path, names: list[str], downloaded_files: dict[str, bool] | None
+) -> tuple[list[str], list[str], list[tuple[str, bytes]]]:
+    incomplete = []
+    upstream_defects = []
+    compare_to_git = []
+    for name in names:
+        if not name:
+            continue
         path = root / name
         try:
-            if path.is_file() and path.stat().st_size <= 1024:
-                if path.read_bytes().startswith(b"version https://git-lfs.github.com/spec/v1"):
-                    return True
+            if not path.is_file() or path.stat().st_size > 1024:
+                continue
+            content = path.read_bytes()
         except OSError:
-            return True
-    return False
+            incomplete.append(name)
+            continue
+        if len(content) > 1024 or not content.startswith(
+            b"version https://git-lfs.github.com/spec/v1"
+        ):
+            continue
+        downloaded = downloaded_files.get(name) if downloaded_files is not None else None
+        if downloaded is None:
+            compare_to_git.append((name, content))
+        elif downloaded:
+            upstream_defects.append(name)
+        else:
+            incomplete.append(name)
+    return incomplete, upstream_defects, compare_to_git
+
+
+def _lfs_pointer_report(root: Path) -> tuple[bool, list[str]]:
+    tracked = _git(root, "ls-files", "-z")
+    if tracked.returncode:
+        return True, []
+    incomplete, upstream_defects, compare_to_git = _pointer_worktree_files(
+        root, tracked.stdout.split("\0"), _lfs_downloaded_files(root)
+    )
+    if compare_to_git:
+        index_blobs = _git_index_blobs(root)
+        if index_blobs is None:
+            return True, sorted(upstream_defects)
+        object_format, blobs = index_blobs
+        for name, content in compare_to_git:
+            oid = blobs.get(name)
+            if oid is None:
+                return True, sorted(upstream_defects)
+            matches = _matches_git_blob(content, oid, object_format)
+            if matches is None:
+                return True, sorted(upstream_defects)
+            if matches:
+                incomplete.append(name)
+            else:
+                upstream_defects.append(name)
+    return bool(incomplete), sorted(upstream_defects)
 
 
 def acquire_checkout(spec: SourceSpec) -> dict[str, Any]:
