@@ -48,6 +48,7 @@ _launch_install_ollama() {
     echo "       ProgramArguments pointing at ~/ollama-current/ollama, and"
     echo "       EnvironmentVariables OLLAMA_MODELS/OLLAMA_MAX_LOADED_MODELS/"
     echo "       OLLAMA_NUM_PARALLEL/OLLAMA_GPU_OVERHEAD set (see docs/ADMIN_GUIDE.md)."
+    echo "       Set OLLAMA_KV_CACHE_TYPE from the repo .env (default q8_0)."
     echo "    4. ln -sfn ~/ollama-current/ollama /opt/homebrew/bin/ollama   (PATH)"
     echo "    5. sudo launchctl bootstrap system /Library/LaunchDaemons/com.portal5.ollama.plist"
     echo "  This is a deliberate one-time, root-owned setup step — not automated"

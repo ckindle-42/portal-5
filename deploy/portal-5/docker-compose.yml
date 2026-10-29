@@ -24,6 +24,7 @@ services:
       - OLLAMA_MAX_LOADED_MODELS=${OLLAMA_MAX_LOADED_MODELS:-3}  # router + 2 inference models
       - OLLAMA_MAX_QUEUE=${OLLAMA_MAX_QUEUE:-25}           # Queue up to 25 requests
       - OLLAMA_FLASH_ATTENTION=${OLLAMA_FLASH_ATTENTION:-1} # ~20-30% KV-cache reduction on Metal/CUDA
+      - OLLAMA_KV_CACHE_TYPE=${OLLAMA_KV_CACHE_TYPE:-q8_0}
     # P7: Memory limits prevent runaway model loads from crashing other services.
     # OLLAMA_MEMORY_LIMIT defaults to 0 (unlimited) since model sizes vary.
     # Set OLLAMA_MEMORY_LIMIT=48g in .env to cap VRAM/RAM at 48 GB.
@@ -102,6 +103,7 @@ services:
       - LOAD_GUARD_MARGIN_GB=${LOAD_GUARD_MARGIN_GB:-2}
       - LOAD_GUARD_CEILING_GB=${LOAD_GUARD_CEILING_GB:-0}
       - LOAD_GUARD_WAIT_S=${LOAD_GUARD_WAIT_S:-120}
+      - OLLAMA_KV_CACHE_TYPE=${OLLAMA_KV_CACHE_TYPE:-q8_0}
       - PIPELINE_WORKERS=${PIPELINE_WORKERS:-2}
       - PIPELINE_PORT=9099
       - LOG_LEVEL=${LOG_LEVEL:-INFO}

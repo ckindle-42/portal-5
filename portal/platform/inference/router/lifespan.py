@@ -324,7 +324,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # bind immediately.
     registry = BackendRegistry()
     _guard = LoadGuard(
-        omlx_url=lambda: next((b.url for b in registry.list_backends() if b.type == "omlx"), None)
+        omlx_url=lambda: next((b.url for b in registry.list_backends() if b.type == "omlx"), None),
+        ollama_url=lambda: next(
+            (b.url for b in registry.list_backends() if b.type == "ollama"), None
+        ),
     )
     _load_guard_mod.GUARD = _guard
     # Ollama backends are served from native /api/chat behind the unchanged
