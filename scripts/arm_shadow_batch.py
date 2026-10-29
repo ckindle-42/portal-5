@@ -26,6 +26,7 @@ from portal.modules.orchestration.planner import instantiate_plan_template  # no
 from portal.modules.orchestration.service import (  # noqa: E402
     ArmService,
     load_arm_config,
+    resolve_seat_digest,
     seated_model_tags,
 )
 from portal.modules.orchestration.shadow import summarize_all  # noqa: E402
@@ -70,8 +71,8 @@ def _engines(config: dict[str, Any], pipeline_url: str, api_key: str) -> dict[st
     load_plan = config.get("load_plan_models") or {}
     engines: dict[str, Engine] = {}
     for seat in ("fast", "deep"):
-        digest = os.environ.get(f"PORTAL_ARM_{seat.upper()}_DIGEST", "")
         identity = load_plan.get(seat) if isinstance(load_plan, dict) else None
+        digest = resolve_seat_digest(seat, identity if isinstance(identity, dict) else {})
         if not digest or not isinstance(identity, dict) or not identity.get("model"):
             raise ValueError(
                 f"set PORTAL_ARM_{seat.upper()}_DIGEST and configure load_plan_models.{seat}"

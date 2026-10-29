@@ -345,7 +345,12 @@ def _optional_service(tasks_dir: Path | None) -> Any | None:
 
 
 def _build_service(tasks_dir: Path | None) -> tuple[Any | None, str | None]:
-    from portal.modules.orchestration.service import ArmService, load_arm_config, seated_model_tags
+    from portal.modules.orchestration.service import (
+        ArmService,
+        load_arm_config,
+        resolve_seat_digest,
+        seated_model_tags,
+    )
     from portal.modules.orchestration.telegram import TelegramNoticeSink
     from portal.modules.orchestration.worker import Engine
 
@@ -360,10 +365,10 @@ def _build_service(tasks_dir: Path | None) -> tuple[Any | None, str | None]:
     engines = {}
     for seat in ("fast", "deep"):
         prefix = f"PORTAL_ARM_{seat.upper()}_"
-        digest = os.environ.get(prefix + "DIGEST")
         load_identity = load_plan.get(seat, {}) if isinstance(load_plan, dict) else {}
+        digest = resolve_seat_digest(seat, load_identity)
         if (
-            digest is None
+            not digest
             or not isinstance(load_identity, dict)
             or not load_identity.get("model")
             or not load_identity.get("engine")

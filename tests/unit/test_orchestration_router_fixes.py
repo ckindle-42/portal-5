@@ -51,6 +51,39 @@ def test_cli_loads_arm_and_module_config_from_repo_root(
     )
 
 
+def test_cli_resolves_seat_digests_when_the_env_var_is_unset(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    root = Path(__file__).resolve().parents[2]
+    config = yaml.safe_load((root / "config" / "orchestration_arm.yaml").read_text())
+    models = config["load_plan_models"]
+    monkeypatch.setenv("PIPELINE_API_KEY", "test-key")
+    monkeypatch.delenv("PORTAL_ARM_FAST_DIGEST", raising=False)
+    monkeypatch.delenv("PORTAL_ARM_DEEP_DIGEST", raising=False)
+    monkeypatch.setattr(arm_service, "ARM_DIGESTS_ENV", tmp_path / "missing.env")
+    monkeypatch.setattr(
+        arm_service,
+        "_fetch_ollama_tags",
+        lambda: {
+            "models": [
+                {"name": models["fast"]["model"], "digest": "sha256:cli-fast"},
+                {"name": models["deep"]["model"], "digest": "sha256:cli-deep"},
+            ]
+        },
+    )
+    captured: dict[str, Any] = {}
+
+    def make_service(task_root, engines, **kwargs):
+        captured["engines"] = engines
+        return object()
+
+    monkeypatch.setattr(arm_service, "ArmService", make_service)
+
+    assert arm_cli._service(tmp_path) is not None
+    assert captured["engines"]["fast"].model_digest == "sha256:cli-fast"
+    assert captured["engines"]["deep"].model_digest == "sha256:cli-deep"
+
+
 def _tool_schema(name: str) -> dict[str, Any]:
     return {"type": "function", "function": {"name": name, "parameters": {}}}
 

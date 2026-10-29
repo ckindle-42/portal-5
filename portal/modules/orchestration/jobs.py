@@ -418,7 +418,10 @@ class JobPreconditions:
 
     def claim_window(self, job_id: str) -> None:
         """Ask Jarvis Cloud to start no new lanes until this job is done."""
-        payload = {"pid": os.getpid(), "job": job_id, "since": _utc_now()}
+        payload: dict[str, Any] = {"pid": os.getpid(), "job": job_id, "since": _utc_now()}
+        started = _ps_field(os.getpid(), "lstart")
+        if started:
+            payload["started"] = started
         try:
             self.window_claim.parent.mkdir(parents=True, exist_ok=True)
             _write_json(self.window_claim, payload)
@@ -430,7 +433,7 @@ class JobPreconditions:
             claim = json.loads(self.window_claim.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return
-        if claim.get("pid") == os.getpid():
+        if isinstance(claim, dict) and _window_claim_is_ours(claim):
             self.window_claim.unlink(missing_ok=True)
 
 
@@ -607,6 +610,7 @@ class JobRunner:
         process: subprocess.Popen[bytes] | None = None
         watcher: subprocess.Popen[bytes] | None = None
         signal = _StepSignal()
+        watch_offset = _file_size(watch_log)
         try:
             with stdout_path.open("wb") as out, stderr_path.open("wb") as err:
                 process = subprocess.Popen(
@@ -632,12 +636,8 @@ class JobRunner:
                     deadline,
                 )
                 exit_code = process.wait()
-                if signal.memory_trip is None and watcher is not None:
-                    if watcher.poll() is None:
-                        with suppress(subprocess.TimeoutExpired):
-                            watcher.wait(timeout=0.3)
-                    if watcher.poll() == 2:
-                        signal.memory_trip = {"reason": _trip_reason(watch_log)}
+                if signal.memory_trip is None:
+                    signal.memory_trip = _memory_trip_after_exit(watcher, watch_log, watch_offset)
                 return signal, exit_code, None
         except OSError as exc:
             return signal, None, f"could not start step: {type(exc).__name__}: {exc}"
@@ -906,14 +906,10 @@ class JobRunner:
     @staticmethod
     def _acquire_lock(job_dir: Path, job_id: str) -> Path:
         lock = job_dir / "run.lock"
-        if lock.is_file():
-            try:
-                pid = int(lock.read_text(encoding="utf-8").strip())
-            except ValueError:
-                pid = 0
-            if pid > 1 and pid != os.getpid() and _pid_alive(pid):
-                raise RuntimeError(f"job {job_id} is already running (pid {pid})")
-        lock.write_text(f"{os.getpid()}\n", encoding="utf-8")
+        pid, started = _read_run_lock(lock)
+        if _foreign_lock_held(pid, started):
+            raise RuntimeError(f"job {job_id} is already running (pid {pid})")
+        _write_run_lock(lock)
         return lock
 
     @staticmethod
@@ -1144,6 +1140,49 @@ def _trip_reason(log: Path) -> str:
     return "memory safety watcher tripped"
 
 
+def _file_size(path: Path) -> int:
+    try:
+        return path.stat().st_size
+    except OSError:
+        return 0
+
+
+def _memory_trip_after_exit(
+    watcher: subprocess.Popen[bytes] | None, watch_log: Path, offset: int
+) -> dict[str, Any] | None:
+    """Exit 2 still counts; a TRIP line written this attempt counts even if the watcher lags."""
+    if _watcher_reported_trip(watcher):
+        return {"reason": _trip_reason(watch_log)}
+    line = _trip_line_since(watch_log, offset)
+    if line:
+        return {"reason": line}
+    return None
+
+
+def _watcher_reported_trip(watcher: subprocess.Popen[bytes] | None) -> bool:
+    if watcher is None:
+        return False
+    if watcher.poll() is None:
+        with suppress(subprocess.TimeoutExpired):
+            watcher.wait(timeout=0.3)
+    return watcher.poll() == 2
+
+
+def _trip_line_since(log: Path, offset: int) -> str | None:
+    try:
+        size = log.stat().st_size
+        with log.open("rb") as handle:
+            start = max(0, offset, size - (_TAIL_BYTES * 8))
+            handle.seek(start)
+            text = handle.read().decode("utf-8", errors="replace")
+    except OSError:
+        return None
+    for line in reversed(text.splitlines()):
+        if "MEMORY SAFETY TRIP" in line and line.strip():
+            return line.strip()
+    return None
+
+
 def _tail(path: Path, limit: int = _TAIL_BYTES) -> str:
     try:
         with path.open("rb") as handle:
@@ -1242,6 +1281,78 @@ def _pid_alive(pid: int) -> bool:
     except OSError:
         return False
     return True
+
+
+def _read_run_lock(lock: Path) -> tuple[int, str | None]:
+    """Return ``(pid, started)``. ``started is None`` is a legacy bare-pid lock."""
+    try:
+        text = lock.read_text(encoding="utf-8").strip()
+    except OSError:
+        return 0, None
+    if text.isdigit():
+        return int(text), None
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return 0, None
+    if not isinstance(payload, dict):
+        return 0, None
+    try:
+        pid = int(payload["pid"])
+    except (KeyError, TypeError, ValueError):
+        return 0, None
+    started = payload.get("started")
+    if not isinstance(started, str) or not started.strip():
+        return pid, None
+    return pid, started.strip()
+
+
+def _write_run_lock(lock: Path) -> None:
+    started = _ps_field(os.getpid(), "lstart")
+    if started:
+        text = json.dumps({"pid": os.getpid(), "started": started}) + "\n"
+    else:
+        text = f"{os.getpid()}\n"
+    lock.write_text(text, encoding="utf-8")
+
+
+def _foreign_lock_held(pid: int, started: str | None) -> bool:
+    """True when this lock still belongs to another live process, not a reused PID."""
+    if pid <= 1 or pid == os.getpid() or not _pid_alive(pid):
+        return False
+    if started is None:
+        command = _ps_field(pid, "command")
+        # Unreadable command is not proof the pid was reused.
+        return command is None or "portal arm" in command
+    live = _ps_field(pid, "lstart")
+    return live is None or live == started
+
+
+def _window_claim_is_ours(claim: dict[str, Any]) -> bool:
+    if claim.get("pid") != os.getpid():
+        return False
+    started = claim.get("started")
+    if not isinstance(started, str) or not started.strip():
+        return True
+    live = _ps_field(os.getpid(), "lstart")
+    return live is None or live == started.strip()
+
+
+def _ps_field(pid: int, field: str) -> str | None:
+    try:
+        result = subprocess.run(
+            ["ps", "-p", str(pid), "-o", f"{field}="],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    text = result.stdout.strip()
+    return text or None
 
 
 def _utc_now() -> str:
