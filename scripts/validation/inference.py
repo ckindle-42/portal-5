@@ -1,5 +1,6 @@
 """Inference-family checks: import surface, pipeline assembly, hint validation,
-lifespan, CLI introspection, the fleet fallback rule, and the unit-test suite gate."""
+lifespan, CLI introspection, the fleet fallback rule, the MTP intake rule, and
+the unit-test suite gate."""
 
 from __future__ import annotations
 
@@ -470,6 +471,15 @@ def _fleet_findings(
     return subs
 
 
+def _finding_summary(subs: list[dict]) -> str:
+    """First three finding names as one truncated line, for the check detail."""
+    sample = "; ".join(s["name"] for s in subs[:3])
+    if len(sample) > 180:
+        sample = sample[:177] + "..."
+    more = f" (+{len(subs) - 3} more)" if len(subs) > 3 else ""
+    return f"{len(subs)} finding(s): {sample}{more}"
+
+
 @register("fleet_fallback_rule", "HY. fleet fallback rule", order=214)
 def check_fleet_fallback_rule(
     config_path: str | Path | None = None,
@@ -500,8 +510,104 @@ def check_fleet_fallback_rule(
             "one checkpoint + one GGUF fallback each",
             [],
         )
-    sample = "; ".join(s["name"] for s in subs[:3])
-    if len(sample) > 180:
-        sample = sample[:177] + "..."
-    more = f" (+{len(subs) - 3} more)" if len(subs) > 3 else ""
-    return "WARN", f"{len(subs)} finding(s): {sample}{more}", subs
+    return "WARN", _finding_summary(subs), subs
+
+
+# ── MTP intake rule (operator, 2026-10-30) ────────────────────────────────────
+# Lightning MTP twins (-oQ4e-mtp) exist for Qwen3.8-27B (dense: ~1.45x, 60-65%
+# accept) and Nemotron-3.5-Lightning-30B-A3B (MoE ~3B active: ~1.33x, 76-87%
+# accept), plus the deleted 2026-08-10 Qwen3.6-27B-oQ8-mtp — every proven twin
+# is a 27-30B side-car over a plain oMLX build it replaces. Eligibility is that
+# profile widened to the 24-32B band; the evidence floor (mtp.* tensors, >=1.3x
+# A/B, >=60% accept, live tool probe) is the intake bar a new twin must clear.
+_MTP_RE = re.compile(r"(?<![a-z0-9])mtp(?![a-z0-9])", re.IGNORECASE)
+_TOTAL_PARAMS_RE = re.compile(r"(?<![a-z0-9])(\d+)b(?![a-z0-9])", re.IGNORECASE)
+_ACTIVE_PARAMS_RE = re.compile(r"(?<![a-z0-9])a(\d+)b(?![a-z0-9])", re.IGNORECASE)
+_MTP_MIN_TOTAL_B, _MTP_MAX_TOTAL_B, _MTP_MAX_ACTIVE_B = 24, 32, 4
+
+
+def _mtp_declined(entry: dict[str, Any]) -> bool:
+    """True when the entry explicitly declines a twin: ``mtp: none`` + reason."""
+    return entry.get("mtp") == "none" and bool(str(entry.get("mtp_reason") or "").strip())
+
+
+def _mtp_eligible(model_id: str) -> bool:
+    """The proven twin profile: 24-32B total params, dense or <=4B-active MoE."""
+    totals = [int(n) for n in _TOTAL_PARAMS_RE.findall(model_id)]
+    if not totals or not _MTP_MIN_TOTAL_B <= max(totals) <= _MTP_MAX_TOTAL_B:
+        return False
+    active = [int(n) for n in _ACTIVE_PARAMS_RE.findall(model_id)]
+    return not active or min(active) <= _MTP_MAX_ACTIVE_B
+
+
+def _mtp_twins_by_family(backends: list[dict[str, Any]]) -> dict[str, set[str]]:
+    """oMLX checkpoint id → the MTP-twin checkpoints sharing its family."""
+    family_of: dict[str, set[str]] = {}
+    for comp in _families(backends):
+        twins = {c for c in comp["checkpoints"] if _MTP_RE.search(c)}
+        for mid in comp["checkpoints"]:
+            family_of[mid] = twins
+    return family_of
+
+
+def _mtp_findings(seats: dict[str, dict[str, Any]], family_of: dict[str, set[str]]) -> list[dict]:
+    """WARN findings for the MTP intake rule, one sub-result per finding."""
+    subs: list[dict] = []
+    for mid, entry in sorted(seats.items()):
+        if not _mtp_eligible(mid) or _MTP_RE.search(mid) or _DRAFT_RE.search(mid):
+            continue
+        twins = sorted(family_of.get(mid, set()))
+        if _mtp_declined(entry):
+            continue
+        if entry.get("mtp") == "none":
+            subs.append(
+                {"name": mid, "status": "WARN", "detail": "mtp: none declared without a reason"}
+            )
+        elif twins and entry.get("keep_reason"):
+            continue
+        elif twins:
+            subs.append(
+                {
+                    "name": mid,
+                    "status": "WARN",
+                    "detail": f"MTP twin {', '.join(twins)} should replace this plain build "
+                    "(keep_reason or mtp: none + mtp_reason keeps both)",
+                }
+            )
+        else:
+            subs.append(
+                {
+                    "name": mid,
+                    "status": "WARN",
+                    "detail": "qualifying oMLX entry without an MTP twin — evaluate an "
+                    "-oQ4e-mtp side-car (accept >=60%, >=1.3x A/B) or set mtp: none + mtp_reason",
+                }
+            )
+    return subs
+
+
+@register("mtp_intake_rule", "HZ. MTP intake rule", order=215)
+def check_mtp_intake_rule(
+    config_path: str | Path | None = None,
+) -> tuple[str, str, list[dict]]:
+    """HZ. Qualifying dense/light-MoE oMLX seats carry an MTP twin or a decline.
+
+    Eligibility is the proven -oQ4e-mtp profile (24-32B total params, dense or
+    <=4B-active MoE). WARN (never FAIL) when such a seat has no MTP twin in its
+    family (evaluate a side-car or declare ``mtp: none`` + ``mtp_reason:``), or
+    coexists with one without ``keep_reason:`` — the twin replaces the plain
+    build unless the plain build says why both stay. The twin itself, DFlash/
+    draft helpers, and out-of-band sizes are exempt.
+    """
+    path = Path(config_path) if config_path else REPO_ROOT / "config" / "backends.yaml"
+    backends = (yaml.safe_load(path.read_text(encoding="utf-8")) or {}).get("backends") or []
+    seats = _omlx_seats(backends)
+    subs = _mtp_findings(seats, _mtp_twins_by_family(backends))
+    if not subs:
+        return (
+            "PASS",
+            f"{len(seats)} oMLX seats scanned — qualifying entries carry an MTP twin "
+            "or a documented decline",
+            [],
+        )
+    return "WARN", _finding_summary(subs), subs

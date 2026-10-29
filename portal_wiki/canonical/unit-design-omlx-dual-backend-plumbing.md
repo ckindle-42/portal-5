@@ -245,6 +245,23 @@ twin `huihui_ai/Qwen3.6-abliterated:27b`, and the Qwen3.8-27B DFlash2 seat is th
 one oMLX-only checkpoint, recorded with a `keep_reason:`. Re-derive the list from
 the live config instead of trusting this snapshot.
 
+**MTP intake rule** (`HZ. MTP intake rule`, same module): every Lightning MTP
+twin the fleet has run is a 27-30B side-car over the plain oMLX build it
+replaces — `Qwen3.8-27B-oQ4e-mtp` (dense: ~1.45x, 60-65% accept),
+`NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp` (MoE ~3B active: ~1.33x,
+76-87% accept) and the deleted `Qwen3.6-27B-oQ8-mtp`. The rule generalises that
+profile: an oMLX seat is *qualifying* when its id parses to 24-32B total params
+and is dense or a <=4B-active MoE, and it must either have an `-mtp` twin
+checkpoint in its family (same `_families` component), or declare
+`mtp: none` + `mtp_reason:` on the entry. The twin replaces the plain build of
+its family (replace-in-place); keeping both needs `keep_reason:` on the plain
+entry, like the Qwen3.8-27B DFlash2 seat. A new twin must clear the evidence
+bar the existing ones set: real `mtp.*` tensors in the checkpoint (plain
+`mlx-community` conversions ship none — the no-op is silent), a live speed A/B
+of >=1.3x over the non-MTP baseline, a draft accept rate >=60%, and a tool-call
+probe before `supports_tools: true`. All findings are WARN, never FAIL; the
+twin itself, DFlash/draft helpers and out-of-band sizes are exempt.
+
 ## Why
 
 oMLX is a third-party OpenAI-compatible server, not the in-house MLX proxy
