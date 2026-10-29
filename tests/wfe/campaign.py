@@ -2015,16 +2015,9 @@ def rescore_debug_dir(debug_dir: Path, campaign_dir: Path | None = None) -> list
 # --------------------------------------------------------------------------
 
 
-def seat_primary(workspace: str, model: str) -> str:
-    """The model id production routes this arm to when every backend is
-    healthy: the workspace's routing groups in order (then the fallback group),
-    backends within a group by descending priority, first one that serves the
-    tag — through an alias or directly. backends.yaml shadows several incumbent
-    tags onto priority-10 oMLX seats (auto-compliance -> Qwen3.8-27B-oQ4e-mtp),
-    so that alias IS the seat. The raw tag on Ollama behind it is the failover,
-    a different engine and build: V2 counted 17 failover rows as seat evidence."""
-    # N-8: the same candidate order and resolution production uses (BackendRegistry), not a
-    # second YAML walk; shuffles are pinned so the first candidate that serves the tag is stable.
+def _serving_seat(workspace: str, model: str) -> tuple[str, str]:
+    """(backend id, native model) production routes this workspace hint to."""
+    # Pin shuffle so the first candidate that serves the tag is stable (N-8).
     import random
     from unittest import mock
 
@@ -2033,8 +2026,19 @@ def seat_primary(workspace: str, model: str) -> str:
         for backend in reg.get_backend_candidates(workspace):
             resolved = backend.resolve_model(model)
             if resolved is not None:
-                return resolved
-    return model
+                return backend.id, resolved
+    return "", model
+
+
+def seat_primary(workspace: str, model: str) -> str:
+    """The model id production routes this arm to when every backend is
+    healthy: the workspace's routing groups in order (then the fallback group),
+    backends within a group by descending priority, first one that serves the
+    tag — through an alias or directly. backends.yaml shadows several incumbent
+    tags onto priority-10 oMLX seats (auto-compliance -> Qwen3.8-27B-oQ4e-mtp),
+    so that alias IS the seat. The raw tag on Ollama behind it is the failover,
+    a different engine and build: V2 counted 17 failover rows as seat evidence."""
+    return _serving_seat(workspace, model)[1]
 
 
 @functools.lru_cache(maxsize=1)
@@ -2164,6 +2168,24 @@ def served_identity(backend_id: str, model: str) -> dict:
     return observe_identity(backend_id, model)[0]
 
 
+def _identity_key(ident: dict) -> tuple[str, str, str, str]:
+    """(engine type, base url, model, content). An unknown backend id stays distinct."""
+    backend_id = str(ident.get("backend") or "")
+    engine, url = "", backend_id
+    for backend in _seat_registry().list_backends():
+        if backend.id == backend_id:
+            engine, url = str(backend.type or ""), str(backend.url or "").rstrip("/")
+            break
+    return (engine, url, ident.get("model") or "", ident.get("content") or "")
+
+
+def same_identity(a: dict | None, b: dict | None) -> bool:
+    """Same engine, model and content. Two groups on one daemon are one engine."""
+    if not a or not b:
+        return False
+    return _identity_key(a) == _identity_key(b)
+
+
 def freeze_identities(frozen: dict, identities: dict) -> list[str]:
     """Freeze each pair's identity on first sight; report every later change."""
     drift = []
@@ -2174,7 +2196,7 @@ def freeze_identities(frozen: dict, identities: dict) -> list[str]:
             continue
         if known is None:
             frozen[key] = ident
-        elif known != ident:
+        elif not same_identity(known, ident):
             drift.append(f"{key}: frozen {known} != now {ident}")
     return drift
 
@@ -2227,7 +2249,7 @@ def identity_drift(manifest: dict, r: dict, row: dict) -> str | None:
     """Why the build that served this row is not its pair's frozen one, or None.
     A row with no served turn (an instrument error) has nothing to compare.
     routed_workspace rows are exempt, and only those: the router resolved the turn
-    to another workspace's seat on purpose."""
+    to another workspace's seat on purpose. Two groups on one daemon compare equal."""
     ident = row.get("identity")
     if ENGINE != "pipeline" or not ident:
         return None
@@ -2237,7 +2259,7 @@ def identity_drift(manifest: dict, r: dict, row: dict) -> str | None:
     if not ident.get("content"):
         return f"{key}: the build serving {ident.get('model')!r} cannot be observed"
     want = frozen_identity(manifest, r)
-    return None if want == ident else f"{key}: frozen {want} != served {ident}"
+    return None if same_identity(want, ident) else f"{key}: frozen {want} != served {ident}"
 
 
 def preflight_pipeline(workspaces: list[str], model: str) -> dict:
@@ -2273,13 +2295,14 @@ def preflight_pipeline(workspaces: list[str], model: str) -> dict:
         except Exception as e:
             served, findings = None, [*findings, f"{ws}: request failed: {e}"]
             continue
-        primary = seat_primary(ws, model)
+        routed, primary = _serving_seat(ws, model)
         if served != primary:
             findings.append(
                 f"{ws}: pipeline served {served!r}, seat is {primary!r} (arm {model!r})"
             )
         if served:
-            ident, why = observe_identity(served_rec.get("backend") or "", served)
+            # Freeze the workspace route. The trace's group id is not the seat.
+            ident, why = observe_identity(routed or (served_rec.get("backend") or ""), served)
             identities[f"{ws}|{model}"] = ident
             if why:
                 findings.append(f"{ws}: the build serving {served!r} cannot be observed: {why}")

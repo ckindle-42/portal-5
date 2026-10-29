@@ -36,6 +36,7 @@ import yaml
 
 from portal.platform.inference.router.trace import MIN_ANSWER_TOKENS_FOR_RATE
 from tests.wfe import decision
+from tests.wfe.campaign import same_identity
 from tests.wfe.schema import (
     INSTRUMENT_OUTCOMES,
     MODEL_QUALITY_OUTCOMES,
@@ -281,7 +282,8 @@ def _grader_check(rows: list[dict], allow_mixed: bool) -> list[str]:
 def _identity_check(rows: list[dict], manifest: dict, allow_mixed: bool) -> list[str]:
     """Refuse to compare a row whose serving build is not its pair's frozen one. In
     a pipeline campaign every scored row must carry an observed identity equal to
-    the freeze: a missing one is a refusal, never a pass (doc: identity)."""
+    the freeze: a missing one is a refusal, never a pass (doc: identity).
+    Group id is not the build: two groups on one daemon compare equal."""
     if (manifest.get("instrument") or {}).get("engine") != "pipeline":
         return []
     frozen = manifest.get("identity_map") or {}
@@ -292,7 +294,7 @@ def _identity_check(rows: list[dict], manifest: dict, allow_mixed: bool) -> list
             continue
         key = f"{r.get('workspace')}|{r.get('model') or r.get('arm')}"
         ident, want = r.get("identity") or {}, frozen.get(key)
-        if not ident.get("content") or ident != want:
+        if not ident.get("content") or not same_identity(ident, want):
             bad.append(f"{key}: served {ident or None}, frozen {want}")
     if not bad:
         return []

@@ -1110,6 +1110,73 @@ class TestModelIdentity:
             rep._identity_check(rows, manifest, False)
         assert "IDENTITY DRIFT" in rep._identity_check(rows, manifest, True)[0]
 
+    def test_two_groups_on_one_daemon_with_the_same_content_are_not_drift(self, monkeypatch):
+        """ollama-general and ollama-vision share one Ollama URL. The group id is not a build."""
+        from tests.wfe import report as rep
+
+        monkeypatch.setattr(camp, "ENGINE", "pipeline")
+        tag = "gemma4:26b-a4b-it-qat-ctx32k"
+        general = {"backend": "ollama-general", "model": tag, "content": "03f3d913"}
+        vision = {"backend": "ollama-vision", "model": tag, "content": "03f3d913"}
+        key = f"auto-vision|{tag}"
+        r = {"workspace": "auto-vision", "model": tag, "arm": tag}
+        assert (
+            camp.identity_drift({"identity_map": {key: general}}, r, {"identity": vision}) is None
+        )
+        frozen: dict = {}
+        assert camp.freeze_identities(frozen, {key: general}) == []
+        assert camp.freeze_identities(frozen, {key: vision}) == []
+        assert frozen[key] == general
+        rows = [self._row("auto-vision", tag, vision)]
+        assert (
+            rep._identity_check(rows, {**self.PIPELINE, "identity_map": {key: general}}, False)
+            == []
+        )
+
+    def test_a_different_content_hash_is_still_drift(self, monkeypatch):
+        monkeypatch.setattr(camp, "ENGINE", "pipeline")
+        tag = "gemma4:26b-a4b-it-qat-ctx32k"
+        frozen_ident = {"backend": "ollama-vision", "model": tag, "content": "03f3d913"}
+        served = {"backend": "ollama-general", "model": tag, "content": "deadbeef"}
+        key = f"auto-vision|{tag}"
+        r = {"workspace": "auto-vision", "model": tag, "arm": tag}
+        assert camp.identity_drift({"identity_map": {key: frozen_ident}}, r, {"identity": served})
+        held = {key: dict(frozen_ident)}
+        drift = camp.freeze_identities(held, {key: served})
+        assert drift and held[key]["content"] == "03f3d913"
+
+    def test_ollama_versus_omlx_is_drift_even_when_the_content_string_matches(self, monkeypatch):
+        monkeypatch.setattr(camp, "ENGINE", "pipeline")
+        tag = "gemma4:26b-a4b-it-qat-ctx32k"
+        ollama = {"backend": "ollama-vision", "model": tag, "content": "03f3d913"}
+        omlx = {"backend": "omlx-general", "model": tag, "content": "03f3d913"}
+        key = f"auto-vision|{tag}"
+        r = {"workspace": "auto-vision", "model": tag, "arm": tag}
+        assert camp.identity_drift({"identity_map": {key: ollama}}, r, {"identity": omlx})
+
+    def test_preflight_freezes_the_routed_backend_not_the_first_group(self, monkeypatch):
+        """The tag is listed in general before vision. auto-vision routes to vision."""
+        tag = "gemma4:26b-a4b-it-qat-ctx32k"
+        seen: dict = {}
+
+        def observe(backend_id, model):
+            seen["backend"] = backend_id
+            return {"backend": backend_id, "model": model, "content": "03f3d913"}, ""
+
+        monkeypatch.setattr(
+            camp,
+            "chat",
+            lambda *a, **k: {"served": {"backend": "ollama-general", "model": tag}},
+        )
+        monkeypatch.setattr(camp, "observe_identity", observe)
+        monkeypatch.setattr(camp, "deployed_build", lambda: "abc1234")
+        monkeypatch.setattr(camp, "deployed_matches", lambda _build: True)
+        monkeypatch.setattr(camp, "deployed_services", lambda: {})
+        pf = camp.preflight_pipeline(["auto-vision"], tag)
+        assert seen["backend"] == "ollama-vision"
+        assert pf["identities"][f"auto-vision|{tag}"]["backend"] == "ollama-vision"
+        assert pf["verdict"] == "OK"
+
     def test_an_unobserved_identity_is_never_frozen(self):
         frozen: dict = {}
         assert camp.freeze_identities(frozen, {"ws|m": self._ident(content="")}) == []
