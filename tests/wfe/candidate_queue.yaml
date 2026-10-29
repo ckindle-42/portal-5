@@ -1,6 +1,37 @@
-# Installed tags only. The s8 intake candidates (not yet downloaded) and their screen
+# Installed tags only. The s8 intake candidates (installed 2026-10-29) and their screen
 # kits live in scripts/seat_screen/intake_s8/queue.yaml.
 models:
+  hf.co/unsloth/LFM2.5-24B-A2B-GGUF:UD-Q4_K_XL-ctx96k:
+    available: true
+    intended:
+    - auto-daily::fast
+    - tools-specialist
+    lineage: lfm2.5
+    note: 's8 intake screen challenger (scripts/seat_screen/intake_s8/queue.yaml), installed 2026-10-29'
+  hf.co/unsloth/flint-GGUF:UD-Q4_K_XL-ctx256k:
+    available: true
+    intended:
+    - auto-coding
+    lineage: flint
+    note: 's8 intake screen challenger (scripts/seat_screen/intake_s8/queue.yaml), installed 2026-10-29'
+  hf.co/JetBrains/Mellum2.1-12B-A2.5B-Thinking-GGUF:Q4_K_M-ctx32k:
+    available: true
+    intended:
+    - auto-coding::fast-repair
+    lineage: mellum2.1
+    note: 's8 intake screen challenger (scripts/seat_screen/intake_s8/queue.yaml), installed 2026-10-29'
+  lfm3:1.7b-qad-q4_0-ctx8k:
+    available: true
+    intended:
+    - tools-specialist::fast
+    lineage: lfm3
+    note: 's8 intake screen challenger (scripts/seat_screen/intake_s8/queue.yaml), installed 2026-10-29'
+  hf.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF:UD-Q4_K_XL-ctx8k:
+    available: true
+    intended:
+    - tools-specialist::fast
+    lineage: nemotron-3.5-bolt
+    note: 's8 intake screen challenger (scripts/seat_screen/intake_s8/queue.yaml), installed 2026-10-29'
   gemma4:26b-a4b-it-q4_K_M-ctx32k:
     available: true
     intended:

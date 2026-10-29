@@ -33,6 +33,10 @@ backends:
   # shadows them via the omlx-general aliases. Matched-context rule: both 96k (64k start, upgraded by W5 data).
   - id: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k
     supports_tools: true
+  # s8 intake (2026-10-29): screen challenger, baked num_ctx; tool call probed clean
+  # via /api/chat on Ollama 0.40.13. Replace in place: the loser is deleted after the screen.
+  - id: hf.co/unsloth/LFM2.5-24B-A2B-GGUF:UD-Q4_K_XL-ctx96k
+    supports_tools: true
   - id: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k
     supports_tools: true
   # WINDOW_AND_SEAT_V1 P4.2: candidate tags registered so the live tool-loop
@@ -184,6 +188,12 @@ backends:
     supports_tools: true
   # tools-specialist::fast bakes its declared context_limit via this tag (2026-09-25).
   - id: gemma4:e4b-it-qat-ctx8k
+    supports_tools: true
+  # s8 intake (2026-10-29): screen challenger, baked num_ctx; tool call probed clean
+  # via /api/chat on Ollama 0.40.13. Replace in place: the loser is deleted after the screen.
+  - id: lfm3:1.7b-qad-q4_0-ctx8k
+    supports_tools: true
+  - id: hf.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF:UD-Q4_K_XL-ctx8k
     supports_tools: true
   - id: hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf
     supports_tools: true
@@ -344,6 +354,10 @@ backends:
   # omlx-creative's Qwen3.6-35B HauhauCS — the seat served the wrong model.
   - id: kat-coder-v2.5-dev:Q4_K_M-ctx32k
     supports_tools: true
+  # s8 intake (2026-10-29): screen challenger, baked num_ctx; tool call probed clean
+  # via /api/chat on Ollama 0.40.13. Replace in place: the loser is deleted after the screen.
+  - id: hf.co/JetBrains/Mellum2.1-12B-A2.5B-Thinking-GGUF:Q4_K_M-ctx32k
+    supports_tools: true
   - id: devstral-small-2:latest-ctx8k
     supports_tools: true
   # Laguna-XS-2.1 (2026-09-25) replaces Laguna-XS.2 in the laguna seat. XS.2 could
@@ -363,6 +377,10 @@ backends:
   - id: qwen3-coder:30b-a3b-q4_K_M
     supports_tools: true
   - id: qwen3-coder:30b-a3b-q4_K_M-ctx256k
+    supports_tools: true
+  # s8 intake (2026-10-29): screen challenger, baked num_ctx; tool call probed clean
+  # via /api/chat on Ollama 0.40.13. Replace in place: the loser is deleted after the screen.
+  - id: hf.co/unsloth/flint-GGUF:UD-Q4_K_XL-ctx256k
     supports_tools: true
   - id: qwen3-coder:30b-a3b-q4_K_M-ctx16k
     supports_tools: true

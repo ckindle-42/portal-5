@@ -229,13 +229,16 @@ items:
     candidate:
       weights_repo: LiquidAI/LFM3-1.7B
       gguf_repo: LiquidAI/LFM3-1.7B-GGUF
+      # The hf.co GGUF loads through llama-server, which has no lfm3 architecture (Ollama
+      # 0.40.13); the library tag runs on Ollama's own lfm3 renderer/parser, same QAD-Q4_0.
+      ollama_tag: lfm3:1.7b-qad-q4_0
       gguf_quant: QAD-Q4_0
       gguf_gb: 1.05
       gguf_alt_quant: Q4_K_M
       gguf_alt_gb: 1.1
       mlx_repo: LiquidAI/LFM3-1.7B-MLX-4bit
       mlx_gb: 0.97
-      intake_tag: hf.co/LiquidAI/LFM3-1.7B-GGUF:QAD-Q4_0-ctx8k
+      intake_tag: lfm3:1.7b-qad-q4_0-ctx8k
       native_context: 262144
       license: LFM Open License v1.0
     incumbent:
@@ -281,7 +284,7 @@ items:
       replaces_on_win:
         - gemma4:e4b-it-qat-ctx8k
       delete_on_loss:
-        - hf.co/LiquidAI/LFM3-1.7B-GGUF:QAD-Q4_0-ctx8k
+        - lfm3:1.7b-qad-q4_0-ctx8k
         - LiquidAI/LFM3-1.7B-MLX-4bit
       blocks_deletion:
         - "gemma4:e4b-it-qat is still named by the vision group and config/bench_workspaces.yaml; while those entries stand, a win frees 0 GB and the seat costs +2.02 GB"

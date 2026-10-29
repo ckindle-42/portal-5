@@ -80,7 +80,8 @@ def test_queue_parses_and_every_item_is_complete():
         if item["kind"] != "bench":
             continue
         assert item["candidate"]["gguf_gb"] > 0
-        assert item["candidate"]["intake_tag"].startswith("hf.co/")
+        candidate = item["candidate"]
+        assert candidate["intake_tag"].startswith(candidate.get("ollama_tag") or "hf.co/")
         assert set(TAG_KEYS) <= set(item["incumbent"])
         assert item["targets"] and all(
             set(TARGET_KEYS) <= set(target) for target in item["targets"]
@@ -99,8 +100,11 @@ def test_repo_ids_and_sizes_come_from_the_freshness_doc():
         ):
             if repo:
                 assert repo in doc, f"{item['id']}: {repo} is not in the freshness doc"
-        tag_repo = candidate["intake_tag"].removeprefix("hf.co/").partition(":")[0]
-        assert tag_repo == candidate["gguf_repo"], item["id"]
+        if candidate.get("ollama_tag"):
+            assert candidate["intake_tag"].startswith(candidate["ollama_tag"] + "-"), item["id"]
+        else:
+            tag_repo = candidate["intake_tag"].removeprefix("hf.co/").partition(":")[0]
+            assert tag_repo == candidate["gguf_repo"], item["id"]
         quant = split_derived(candidate["intake_tag"])
         assert quant is not None and quant[1] * 1024 >= max(
             target["context_limit"] for target in item["targets"]
@@ -193,7 +197,7 @@ def test_both_fast_seat_plans_expand_to_rows():
     assert {row["arm_role"] for row in screen} == {"incumbent", "challenger"}
     assert {campaign.row_model(row) for row in screen} == {
         "gemma4:e4b-it-qat-ctx8k",
-        "hf.co/LiquidAI/LFM3-1.7B-GGUF:QAD-Q4_0-ctx8k",
+        "lfm3:1.7b-qad-q4_0-ctx8k",
         "hf.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF:UD-Q4_K_XL-ctx8k",
     }
     assert {row["suite"] for row in baseline + screen} == {"tools_specialist_production"}

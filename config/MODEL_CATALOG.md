@@ -2443,3 +2443,27 @@ Registering the fallback tag keeps the substitution a config edit rather than a 
 ## Why
 
 REPORT_FLINT recommends registering under `ollama-coding`, but this bench lane's generated `workspace_routing` is `[general]` (every eval-module bench workspace routes there) and strict hint validation only checks a workspace's own routing groups — the same startup failure the GATE-D and TASK_SAMPLING_PROFILE_AUDIT_V1 entries in `config/backends.yaml` were written to fix. Registered in `general` so `bench-flint` resolves; `?model=` overrides still reach it from any workspace. It is a screen candidate beside KAT's `auto-coding::fast-repair`, not a replacement for it.
+
+## S8 intake screen challengers (2026-10-29)
+
+Installed for the S8 screens in `scripts/seat_screen/intake_s8/queue.yaml` (research: `docs/MODEL_INTAKE_FRESHNESS_20261029.md`). Each tag bakes the target seat's `context_limit` onto the pulled base and was tool-call probed clean via `/api/chat` on Ollama 0.40.13 before registration. Replace in place: a loser's tags are deleted after its screen; a winner replaces the incumbent named in the queue.
+
+### `hf.co/unsloth/LFM2.5-24B-A2B-GGUF:UD-Q4_K_XL-ctx96k`
+
+LFM2.5-24B-A2B (Unsloth UD-Q4_K_XL), `num_ctx 98304`. Challenger for `auto-daily::fast` and `tools-specialist` against `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k`. Registered in `general`, `supports_tools: true`.
+
+### `hf.co/unsloth/flint-GGUF:UD-Q4_K_XL-ctx256k`
+
+Flint (RecursiveSI, Unsloth UD-Q4_K_XL), `num_ctx 262144`. Challenger for `auto-coding` against `qwen3-coder:30b-a3b-q4_K_M-ctx256k`. Registered in `coding`, `supports_tools: true`. The older `flint:40b-a2b-qat-int4` is deleted after this screen.
+
+### `hf.co/JetBrains/Mellum2.1-12B-A2.5B-Thinking-GGUF:Q4_K_M-ctx32k`
+
+Mellum 2.1 12B-A2.5B Thinking (JetBrains Q4_K_M), `num_ctx 32768`, vendor sampling (temperature 0.6, top_p 0.95, top_k 20) kept from the GGUF. Challenger for `auto-coding::fast-repair` against `kat-coder-v2.5-dev:Q4_K_M-ctx32k`. Registered in `coding`, `supports_tools: true`.
+
+### `lfm3:1.7b-qad-q4_0-ctx8k`
+
+LFM3-1.7B QAD-Q4_0 from the Ollama library (Ollama's own `lfm3` renderer/parser), `num_ctx 8192`. The `hf.co/LiquidAI/LFM3-1.7B-GGUF` tag cannot load: it runs through llama-server, which has no `lfm3` architecture. The library QAD-Q4_0 tag needs Ollama 0.40.13. Challenger for `tools-specialist::fast` against `gemma4:e4b-it-qat-ctx8k`. Registered in `general`, `supports_tools: true`.
+
+### `hf.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF:UD-Q4_K_XL-ctx8k`
+
+Nemotron 3.5 Bolt E4B (Unsloth UD-Q4_K_XL), `num_ctx 8192`, stops re-declared from the base. Conditional second challenger for `tools-specialist::fast` (runs only if LFM3 drops). Registered in `general`, `supports_tools: true`.

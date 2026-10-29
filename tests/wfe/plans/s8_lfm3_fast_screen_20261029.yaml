@@ -14,5 +14,5 @@ workloads:
     arms:
       incumbent: gemma4:e4b-it-qat-ctx8k
       challengers:
-        - hf.co/LiquidAI/LFM3-1.7B-GGUF:QAD-Q4_0-ctx8k
+        - lfm3:1.7b-qad-q4_0-ctx8k
         - hf.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF:UD-Q4_K_XL-ctx8k
