@@ -31,7 +31,7 @@ app.add_typer(agent_app, name="agent")
 app.add_typer(docs_app, name="docs")
 
 from . import agent as _agent  # noqa: E402, F401
-from . import config, models, module, workspace  # noqa: E402, F401
+from . import config, models, module, renderers, workspace  # noqa: E402, F401
 from . import smoke as _smoke  # noqa: E402
 from . import sync as _sync  # noqa: E402
 from . import update as _update  # noqa: E402

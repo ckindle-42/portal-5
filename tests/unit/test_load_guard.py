@@ -1961,7 +1961,10 @@ async def test_rejected_ollama_unload_is_not_counted_as_pending_free():
     assert "with nothing in flight to wait for" in str(err.value)
     assert "free of idle did not settle" not in str(err.value)
     assert e.ollama == {"idle": GIB}
-    assert metric_value(_UNLOADS, engine=OLLAMA, reason="idle_ollama") == (unloads or 0.0)
+    # (after or 0.0): the label child may not exist yet when this test runs first —
+    # only an increment is a failure, not absence.
+    after = metric_value(_UNLOADS, engine=OLLAMA, reason="idle_ollama")
+    assert (after or 0.0) == (unloads or 0.0)
 
 
 async def test_independent_guards_share_cold_load_and_active_model_accounting(monkeypatch):
