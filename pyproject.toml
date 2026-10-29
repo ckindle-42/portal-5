@@ -277,6 +277,8 @@ override-dependencies = [
 [tool.ruff]
 target-version = "py312"
 line-length = 100
+force-exclude = true
+extend-exclude = ["tests/fixtures/realuse_v1/**/*.py", "fixtures/realuse_v1/**/*.py"]
 
 [tool.ruff.format]
 # Fixture READMEs under tests/fixtures/ embed Python code fences that ruff's
@@ -284,7 +286,7 @@ line-length = 100
 # mode) wants to reformat. They are corpus data, not project docs — keep their
 # bytes stable and the repo off the experimental formatter
 # (TASK_MYPY_STRICT_BASELINE_REMEDIATION_V1, Problem 2).
-exclude = ["tests/fixtures/**/*.md"]
+exclude = ["tests/fixtures/**/*.md", "tests/fixtures/realuse_v1/**/*.py", "fixtures/realuse_v1/**/*.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM", "C90", "PLR0912", "PLR0915"]

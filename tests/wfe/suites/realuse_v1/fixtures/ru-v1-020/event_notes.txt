@@ -1,5 +1,0 @@
-Team event Q3 budget:
-- Venue: $800
-- Food: $450
-- Decorations: $120
-- Contingency buffer: 10%

@@ -1,0 +1,2 @@
+tests/fixtures/realuse_v1/**/*.pdf binary
+tests/fixtures/realuse_v1/ru-v1-016/app.py whitespace=-blank-at-eof
