@@ -11,6 +11,7 @@ import importlib.util
 import logging
 import os
 import sys
+import threading
 import types
 from pathlib import Path
 
@@ -253,6 +254,72 @@ async def test_speech_clears_after_exception(speech, fake_mx: _Rec, monkeypatch)
     resp = await speech.openai_audio_speech(_Body({"input": "hello", "voice": "af_heart"}))
     assert resp.status_code == 500
     assert fake_mx.cleared == 1
+
+
+class _Streams:
+    """Per-thread cyclic leftovers. Only that thread's gc.collect publishes them."""
+
+    def __init__(self) -> None:
+        self.cyclic: dict[int, int] = {}
+        self.pending: dict[int, int] = {}
+        self.cache = 0
+        self.deferred_on: set[int] = set()
+        self.collected_on: set[int] = set()
+        self.synced_on: set[int] = set()
+
+    def defer(self, nbytes: int) -> None:
+        ident = threading.get_ident()
+        self.cyclic[ident] = self.cyclic.get(ident, 0) + nbytes
+        self.deferred_on.add(ident)
+
+    def collect(self) -> None:
+        ident = threading.get_ident()
+        self.collected_on.add(ident)
+        self.pending[ident] = self.pending.get(ident, 0) + self.cyclic.pop(ident, 0)
+
+    def synchronize(self) -> None:
+        ident = threading.get_ident()
+        self.synced_on.add(ident)
+        self.cache += self.pending.pop(ident, 0)
+
+    def clear_cache(self) -> None:
+        self.cache = 0
+
+    def retained(self) -> int:
+        return self.cache + sum(self.cyclic.values()) + sum(self.pending.values())
+
+
+async def test_repeated_speech_does_not_retain_worker_buffers(
+    speech, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    """N Kokoro requests must drop worker-thread Metal buffers before the response."""
+    streams = _Streams()
+    monkeypatch.setitem(sys.modules, "mlx.core", streams)
+    wav = tmp_path / "out.wav"
+    wav.write_bytes(b"RIFF")
+    sentinel = object()
+    speech._tts_models["resident"] = sentinel
+
+    def _generate(*_a, **_k):
+        streams.defer(40 * 1024 * 1024)
+        wav.write_bytes(b"RIFF")
+        return {"status": "success", "file_path": str(wav)}
+
+    monkeypatch.setattr(speech, "_generate_speech", _generate)
+    monkeypatch.setattr(speech.gc, "collect", lambda generation=2: streams.collect())
+    try:
+        for i in range(20):
+            resp = await speech.openai_audio_speech(
+                _Body({"input": "Hello. " * (1 + i), "voice": "af_heart"})
+            )
+            assert resp.status_code == 200, resp.body
+            assert streams.retained() == 0
+        assert streams.deferred_on
+        assert streams.deferred_on <= streams.collected_on
+        assert streams.deferred_on <= streams.synced_on
+        assert speech._tts_models["resident"] is sentinel
+    finally:
+        speech._tts_models.pop("resident", None)
 
 
 async def test_speech_asr_clears_after_success_and_exception(speech, fake_mx: _Rec, monkeypatch):

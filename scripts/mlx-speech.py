@@ -19,6 +19,7 @@ Usage:
 
 import asyncio
 import contextlib
+import gc
 import json
 import logging
 import os
@@ -394,12 +395,9 @@ async def openai_audio_speech(request: Request):
 
     try:
         async with _tts_lock:
-            try:
-                result = await asyncio.to_thread(
-                    _generate_speech, text, voice, speed, instruct, language
-                )
-            finally:
-                mlx_cache.release_cache(logger)
+            result = await asyncio.to_thread(
+                _speak_and_release, text, voice, speed, instruct, language
+            )
     except Exception as e:
         logger.error("TTS generation failed: %s", e, exc_info=True)
         return JSONResponse({"error": str(e)}, status_code=500)
@@ -425,6 +423,16 @@ async def openai_audio_speech(request: Request):
         media_type="audio/wav",
         headers={"Content-Disposition": "attachment; filename=speech.wav"},
     )
+
+
+def _speak_and_release(text: str, voice: str, speed: float, instruct: str, language: str) -> dict:
+    """Generate speech, then release this worker thread's MLX stream cache."""
+    try:
+        return _generate_speech(text, voice, speed, instruct, language)
+    finally:
+        # Cyclic leftovers stay wired until a collection publishes them to the cache.
+        gc.collect()
+        mlx_cache.release_cache(logger)
 
 
 def _generate_speech(text: str, voice: str, speed: float, instruct: str, language: str) -> dict:

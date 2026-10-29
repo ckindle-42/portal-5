@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
+from collections.abc import Callable
 
 # Free-cache cap. 0 leaves MLX's default (this lane treats that as unlimited).
 DEFAULT_LIMIT_GB = 2.0
@@ -33,12 +34,12 @@ def _mlx_core() -> object | None:
     return mx
 
 
-def _callable(obj: object, name: str) -> object | None:
+def _callable(obj: object, name: str) -> Callable[..., object] | None:
     fn = getattr(obj, name, None)
     return fn if callable(fn) else None
 
 
-def _cache_api(mx: object) -> tuple[object | None, object | None]:
+def _cache_api(mx: object) -> tuple[Callable[..., object] | None, Callable[..., object] | None]:
     """Prefer mlx.core.clear_cache / set_cache_limit; older mlx exposes them on .metal."""
     clear = _callable(mx, "clear_cache")
     limit = _callable(mx, "set_cache_limit")
@@ -90,8 +91,16 @@ def apply_cache_limit(
     logger.info("MLX cache limit %d bytes (%s=%.3f GB)", nbytes, env_var, gb)
 
 
+def _call_quiet(fn: Callable[..., object], logger: logging.Logger, message: str) -> None:
+    """Call fn. Log and swallow any failure."""
+    try:
+        fn()
+    except Exception:
+        logger.warning(message, exc_info=True)
+
+
 def release_cache(logger: logging.Logger) -> None:
-    """Drop MLX's free buffer cache after a request. Never raises."""
+    """Flush this thread's MLX stream, then drop the free buffer cache. Never raises."""
     mx = _mlx_core()
     if mx is None:
         _note(logger, "no-mlx-clear", "MLX is not installed; cache release is a no-op")
@@ -100,7 +109,8 @@ def release_cache(logger: logging.Logger) -> None:
     if clear is None:
         _note(logger, "no-clear-cache", "MLX has no clear_cache; cache release is a no-op")
         return
-    try:
-        clear()
-    except Exception:
-        logger.warning("MLX cache release failed", exc_info=True)
+    # clear_cache zeros the counter; only this thread's synchronize unwires Metal.
+    sync = _callable(mx, "synchronize")
+    if sync is not None:
+        _call_quiet(sync, logger, "MLX synchronize failed")
+    _call_quiet(clear, logger, "MLX cache release failed")
