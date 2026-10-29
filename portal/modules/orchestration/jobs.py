@@ -248,9 +248,12 @@ def parse_job_spec(raw: Any, *, repo_root: Path) -> JobSpec:
         _validate_job_path(value)
     report = raw["report"]
     report_fields = report if isinstance(report, list) else report["fields"]
+    purpose = str(raw["purpose"]).strip()
+    if not purpose:
+        raise ValueError("purpose must be a non-empty string")
     return JobSpec(
         job_id=str(raw["id"]),
-        purpose=str(raw["purpose"]).strip(),
+        purpose=purpose,
         preconditions=JobPreconditionSpec(
             stack=str(preconditions["stack"]),
             free_memory_gib=float(preconditions["free_memory_gib"]),
