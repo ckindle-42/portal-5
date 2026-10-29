@@ -36,7 +36,6 @@ steps:
       - tests/wfe/plans/advance_gemma_qat_plain_20261029.yaml
     timeout_seconds: 900
     outputs:
-      - docs/WFE_FITNESS_REPORT_gemma_qat_plain_screen_20261029.md
       - tests/wfe/plans/advance_gemma_qat_plain_20261029.yaml
   - id: arm-bites
     argv:

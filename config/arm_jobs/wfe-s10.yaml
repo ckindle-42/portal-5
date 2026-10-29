@@ -48,7 +48,6 @@ steps:
       - tests/wfe/plans/advance_wfe_p5_screen_20261029.yaml
     timeout_seconds: 900
     outputs:
-      - docs/WFE_FITNESS_REPORT_wfe_p5_screen_20261029.md
       - tests/wfe/plans/advance_wfe_p5_screen_20261029.yaml
   - id: confirm
     argv:
@@ -79,7 +78,6 @@ steps:
     timeout_seconds: 1800
     outputs:
       - ~/AI_Output/portal-data/tests/wfe/results/campaigns/wfe_p5_confirm_20261029/fitness.json
-      - docs/WFE_FITNESS_REPORT_wfe_p5_confirm_20261029.md
       - tests/wfe/fitness_ledger.yaml
   - id: fitness-map
     argv:

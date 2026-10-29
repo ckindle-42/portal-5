@@ -3,8 +3,9 @@ purpose: >-
   A/B every traffic-carrying seat between the sampling production serves and the same model at its
   vendor card's sampling (docs/TASK_SEAT_SAMPLING_AB_V1.md). Both arms run the seat's own suite
   through the pipeline, at the same seeds, so the only difference is the sampling block. Screen
-  tier: 12 tasks per arm, one repeat. Read per-arm PASS rate, BUDGET_EXHAUSTED count and latency
-  from report.json; the advance list names the seats whose card arm separated enough to confirm.
+  tier: 12 tasks per arm, one repeat. Read the screen-out cell lines (verdict, workspace,
+  candidate, reason) and the advance list; per-arm PASS/BUDGET_EXHAUSTED/latency come from
+  `report --campaign seat_card_screen_20261029` when a seat earns its confirm.
 preconditions:
   stack: up
   free_memory_gib: 24
@@ -38,8 +39,6 @@ steps:
       - tests/wfe/plans/advance_seat_card_screen_20261029.yaml
     timeout_seconds: 900
     outputs:
-      - docs/WFE_FITNESS_REPORT_seat_card_screen_20261029.md
-      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/seat_card_screen_20261029/report.json
       - tests/wfe/plans/advance_seat_card_screen_20261029.yaml
 stop_conditions:
   on_failure: stop

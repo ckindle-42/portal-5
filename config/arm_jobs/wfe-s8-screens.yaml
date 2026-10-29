@@ -3,8 +3,8 @@ purpose: >-
   The remaining S8 screens (docs/MODEL_INTAKE_FRESHNESS_20261029.md items 1-3): LFM2.5-24B-A2B
   against the general-fast/tools-specialist seats, Flint against auto-coding, Mellum 2.1 against
   the fast-repair variant. Each screen runs through the pipeline and writes its own advance list.
-  Read per-arm PASS rate, BUDGET_EXHAUSTED and latency: a screen DROP ends that intake item, an
-  ADVANCE earns a confirm campaign. The intake tags must be installed and registered before this
+  Read the screen-out cell lines and advance list (per-arm PASS/BUDGET_EXHAUSTED/latency via
+  `report --campaign <id>`): a screen DROP ends that intake item, an ADVANCE earns a confirm. The intake tags must be installed and registered before this
   job runs; a missing tag reports MISSING and is not a result.
 preconditions:
   stack: up
@@ -37,7 +37,6 @@ steps:
       - tests/wfe/plans/advance_s8_lfm25_20261029.yaml
     timeout_seconds: 900
     outputs:
-      - docs/WFE_FITNESS_REPORT_s8_lfm25_screen_20261029.md
       - tests/wfe/plans/advance_s8_lfm25_20261029.yaml
   - id: flint-screen
     argv:
@@ -65,7 +64,6 @@ steps:
       - tests/wfe/plans/advance_s8_flint_20261029.yaml
     timeout_seconds: 900
     outputs:
-      - docs/WFE_FITNESS_REPORT_s8_flint_screen_20261029.md
       - tests/wfe/plans/advance_s8_flint_20261029.yaml
   - id: mellum-screen
     argv:
@@ -93,7 +91,6 @@ steps:
       - tests/wfe/plans/advance_s8_mellum_20261029.yaml
     timeout_seconds: 900
     outputs:
-      - docs/WFE_FITNESS_REPORT_s8_mellum_screen_20261029.md
       - tests/wfe/plans/advance_s8_mellum_20261029.yaml
 stop_conditions:
   on_failure: stop
