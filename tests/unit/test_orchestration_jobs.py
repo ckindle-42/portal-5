@@ -6,6 +6,8 @@ import hashlib
 import json
 import os
 import sqlite3
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -13,8 +15,9 @@ import pytest
 import yaml
 from typer.testing import CliRunner
 
+from portal.modules.orchestration import jobs as jobmod
 from portal.modules.orchestration.cli import orchestration_app
-from portal.modules.orchestration.jobs import JobRunner, parse_job_spec
+from portal.modules.orchestration.jobs import JobPreconditions, JobRunner, parse_job_spec
 from portal.modules.orchestration.queue import OvernightQueue, QueueGate, QueueLedger
 from portal.modules.orchestration.service import StubNoticeSink
 from portal.modules.orchestration.telegram import TelegramNoticeSink
@@ -621,3 +624,191 @@ def test_the_window_is_held_while_a_step_runs(tmp_path: Path, repo: Path) -> Non
     assert _runner(tmp_path, repo).run(spec).status == "PASS"
     assert seen.read_text() == "True"  # claimed during the step
     assert not claim.exists()  # released after
+
+
+def _sleeper(*extra: str) -> subprocess.Popen[bytes]:
+    return subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(60)", *extra],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def _stop(proc: subprocess.Popen[bytes]) -> None:
+    if proc.poll() is None:
+        proc.kill()
+    proc.wait(timeout=5)
+
+
+def _lagging_watcher(tmp_path: Path, *, trip: bool) -> Path:
+    line = ""
+    if trip:
+        line = (
+            "line = 'MEMORY SAFETY TRIP: swap free 712.8 MiB is below 1024 MiB'\n"
+            "open(log, 'a').write(line + '\\n')\n"
+        )
+    path = tmp_path / ("trip_watch.py" if trip else "kill_watch.py")
+    path.write_text(
+        "#!/usr/bin/env python3\n"
+        "import os, signal, sys, time\n"
+        "log = sys.argv[sys.argv.index('--log') + 1]\n"
+        "pid_file = sys.argv[sys.argv.index('--pid-file') + 1]\n"
+        "pid = int(open(pid_file).read().strip())\n"
+        f"{line}"
+        "os.kill(pid, signal.SIGTERM)\n"
+        "time.sleep(30)\n",
+        encoding="utf-8",
+    )
+    path.chmod(0o755)
+    return path
+
+
+def test_trip_line_is_recorded_when_the_watcher_has_not_exited(tmp_path: Path, repo: Path) -> None:
+    script = _python_script(repo, "long.py", "import time\ntime.sleep(30)\n")
+    result = _runner(tmp_path, repo, watcher=_lagging_watcher(tmp_path, trip=True)).run(
+        _spec(repo, [script])
+    )
+
+    assert result.status == "STOPPED"
+    step = _receipt(tmp_path / "tasks")["steps"][0]
+    reason = "MEMORY SAFETY TRIP: swap free 712.8 MiB is below 1024 MiB"
+    assert step["exit_code"] == -15
+    assert step["memory_trip"]["reason"] == reason
+    assert step["reason"] == f"memory safety trip: {reason}"
+
+
+def test_a_trip_line_from_before_this_attempt_is_ignored(tmp_path: Path) -> None:
+    log = tmp_path / "watch.log"
+    log.write_text("old MEMORY SAFETY TRIP: stale\n", encoding="utf-8")
+    offset = log.stat().st_size
+    log.write_text(log.read_text(encoding="utf-8") + "still running\n", encoding="utf-8")
+
+    assert jobmod._trip_line_since(log, offset) is None
+
+
+def test_sigterm_without_a_trip_line_stays_a_plain_exit(tmp_path: Path, repo: Path) -> None:
+    script = _python_script(repo, "long.py", "import time\ntime.sleep(30)\n")
+    result = _runner(tmp_path, repo, watcher=_lagging_watcher(tmp_path, trip=False)).run(
+        _spec(repo, [script])
+    )
+
+    assert result.status == "BLOCKED"
+    step = _receipt(tmp_path / "tasks")["steps"][0]
+    assert step["exit_code"] == -15
+    assert step["memory_trip"] is None
+    assert step["reason"] == "step exited -15"
+
+
+def test_a_live_lock_matching_start_time_blocks(tmp_path: Path) -> None:
+    proc = _sleeper()
+    try:
+        started = jobmod._ps_field(proc.pid, "lstart")
+        assert started
+        job_dir = tmp_path / "job"
+        job_dir.mkdir()
+        (job_dir / "run.lock").write_text(
+            json.dumps({"pid": proc.pid, "started": started}) + "\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(RuntimeError, match="already running"):
+            JobRunner._acquire_lock(job_dir, "job-a")
+    finally:
+        _stop(proc)
+
+
+def test_a_reused_pid_lock_is_stale(tmp_path: Path) -> None:
+    proc = _sleeper()
+    try:
+        job_dir = tmp_path / "job"
+        job_dir.mkdir()
+        (job_dir / "run.lock").write_text(
+            json.dumps({"pid": proc.pid, "started": "Thu Jan 1 00:00:00 1970"}) + "\n",
+            encoding="utf-8",
+        )
+        lock = JobRunner._acquire_lock(job_dir, "job-a")
+        payload = json.loads(lock.read_text(encoding="utf-8"))
+        assert payload["pid"] == os.getpid()
+        assert payload["started"] == jobmod._ps_field(os.getpid(), "lstart")
+    finally:
+        _stop(proc)
+
+
+def test_a_dead_pid_lock_is_stale(tmp_path: Path) -> None:
+    proc = _sleeper()
+    pid = proc.pid
+    _stop(proc)
+    assert jobmod._pid_alive(pid) is False
+    job_dir = tmp_path / "job"
+    job_dir.mkdir()
+    (job_dir / "run.lock").write_text(f"{pid}\n", encoding="utf-8")
+
+    lock = JobRunner._acquire_lock(job_dir, "job-a")
+
+    assert json.loads(lock.read_text(encoding="utf-8"))["pid"] == os.getpid()
+
+
+def test_a_bare_pid_lock_is_held_only_for_portal_arm(tmp_path: Path) -> None:
+    other = _sleeper()
+    arm = _sleeper("portal arm")
+    try:
+        other_dir = tmp_path / "other"
+        other_dir.mkdir()
+        (other_dir / "run.lock").write_text(f"{other.pid}\n", encoding="utf-8")
+        assert "portal arm" not in (jobmod._ps_field(other.pid, "command") or "")
+        JobRunner._acquire_lock(other_dir, "job-a")
+
+        arm_dir = tmp_path / "arm"
+        arm_dir.mkdir()
+        (arm_dir / "run.lock").write_text(f"{arm.pid}\n", encoding="utf-8")
+        assert "portal arm" in (jobmod._ps_field(arm.pid, "command") or "")
+        with pytest.raises(RuntimeError, match="already running"):
+            JobRunner._acquire_lock(arm_dir, "job-a")
+    finally:
+        _stop(other)
+        _stop(arm)
+
+
+def test_an_unreadable_command_keeps_a_bare_pid_lock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    proc = _sleeper()
+    try:
+        job_dir = tmp_path / "job"
+        job_dir.mkdir()
+        (job_dir / "run.lock").write_text(f"{proc.pid}\n", encoding="utf-8")
+        monkeypatch.setattr(jobmod, "_ps_field", lambda _pid, _field: None)
+        with pytest.raises(RuntimeError, match="already running"):
+            JobRunner._acquire_lock(job_dir, "job-a")
+    finally:
+        _stop(proc)
+
+
+def test_window_claim_records_start_and_a_reused_pid_does_not_release(
+    tmp_path: Path, repo: Path
+) -> None:
+    pre = JobPreconditions(repo, dispatch_lock_dir=tmp_path / "locks")
+    pre.claim_window("job-a")
+    payload = json.loads(pre.window_claim.read_text(encoding="utf-8"))
+    assert payload["pid"] == os.getpid()
+    assert payload["started"] == jobmod._ps_field(os.getpid(), "lstart")
+
+    payload["started"] = "Thu Jan 1 00:00:00 1970"
+    pre.window_claim.write_text(json.dumps(payload), encoding="utf-8")
+    pre.release_window()
+    assert pre.window_claim.is_file()
+
+    payload["started"] = jobmod._ps_field(os.getpid(), "lstart")
+    pre.window_claim.write_text(json.dumps(payload), encoding="utf-8")
+    pre.release_window()
+    assert not pre.window_claim.exists()
+
+
+def test_a_legacy_window_claim_releases_on_pid_alone(tmp_path: Path, repo: Path) -> None:
+    pre = JobPreconditions(repo, dispatch_lock_dir=tmp_path / "locks")
+    pre.window_claim.parent.mkdir(parents=True)
+    pre.window_claim.write_text(json.dumps({"pid": os.getpid(), "job": "job-a"}), encoding="utf-8")
+
+    pre.release_window()
+
+    assert not pre.window_claim.exists()

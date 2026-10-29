@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
 import time
-from collections.abc import Callable
+import urllib.request
+from collections.abc import Callable, Mapping
 from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
@@ -817,6 +819,72 @@ def seated_model_tags(config: dict[str, Any]) -> dict[str, str]:
                     f"disciplines disagree on the {seat} seat: {chosen[seat]} vs {tag}"
                 )
     return tags | chosen
+
+
+# Last measured seat digests on this host. No in-repo writer; operators drop the file here.
+ARM_DIGESTS_ENV = Path.home() / ".portal5" / "arm_digests.env"
+
+
+def resolve_seat_digest(
+    seat: str,
+    identity: Any,
+    *,
+    environ: Mapping[str, str] | None = None,
+    env_file: Path | None = None,
+    fetch_tags: Callable[[], Mapping[str, Any]] | None = None,
+) -> str:
+    """Seat digest from the env var, then Ollama /api/tags, then the host arm_digests.env file."""
+    source = os.environ if environ is None else environ
+    key = f"PORTAL_ARM_{seat.upper()}_DIGEST"
+    configured = str(source.get(key, "")).strip()
+    if configured:
+        return configured
+    model = str(identity.get("model") or "").strip() if isinstance(identity, dict) else ""
+    if model:
+        found = _digest_from_tags(model, (fetch_tags or _fetch_ollama_tags)())
+        if found:
+            return found
+    return _digest_from_env_file(env_file or ARM_DIGESTS_ENV, key)
+
+
+def _digest_from_env_file(path: Path, key: str) -> str:
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return ""
+    prefix = f"{key}="
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith(prefix):
+            return stripped[len(prefix) :].strip().strip("'\"")
+    return ""
+
+
+def _digest_from_tags(model: str, payload: Mapping[str, Any]) -> str:
+    models = payload.get("models")
+    if not isinstance(models, list):
+        return ""
+    for item in models:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or item.get("model") or "")
+        if name == model:
+            return str(item.get("digest") or "").strip()
+    return ""
+
+
+def _fetch_ollama_tags() -> dict[str, Any]:
+    host = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
+    try:
+        with urllib.request.urlopen(f"{host}/api/tags", timeout=2) as response:
+            raw = response.read()
+    except (OSError, ValueError):
+        return {}
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
 
 
 def _positive_probability(value: Any) -> bool:
