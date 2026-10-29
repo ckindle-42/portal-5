@@ -7,12 +7,13 @@ judged only once both arms hold a recorded row for the same task and repeat. The
 is randomised per pair and the arm labels never reach the model — it sees A and B.
 
 Usage:
-  WFE_JUDGE_MODEL=<local tag> uv run python -m tests.wfe.judge --campaign wfe_live
+  uv run python -m tests.wfe.judge --campaign wfe_live
   WFE_JUDGE_MODEL=<tag> WFE_JUDGE_URL=http://p40:11434 uv run python -m tests.wfe.judge \\
       --campaign wfe_live
   uv run python -m tests.wfe.campaign --campaign-id wfe_live --judge
 
-The endpoint defaults to Ollama on this host and must be a loopback/LAN address; a public
+The judge is tests/wfe/judge.yaml by default; WFE_JUDGE_MODEL / WFE_JUDGE_URL (or
+--model / --url) override it. The endpoint must be a loopback/LAN address; a public
 host is refused unless WFE_JUDGE_ALLOW_REMOTE=1 says the operator owns it.
 """
 
@@ -31,11 +32,14 @@ import urllib.request
 from collections import defaultdict
 from pathlib import Path
 
+import yaml
+
 from tests.wfe.runner import OLLAMA, load_suite
 from tests.wfe.schema import INSTRUMENT_OUTCOMES, sha12
 
 JUDGE_SCHEMA_VERSION = "wfe-judge-1"
 DEFAULT_TIMEOUT_S = int(os.environ.get("WFE_JUDGE_TIMEOUT", "600"))
+JUDGE_CONFIG_PATH = Path(__file__).resolve().parent / "judge.yaml"
 
 #: Public inference APIs. The judge is local by default and these are refused outright.
 _CLOUD_HOSTS = frozenset(
@@ -59,14 +63,25 @@ SYSTEM_PROMPT = (
 )
 
 
+def _judge_config() -> dict:
+    """The committed default judge ({} when the file is absent or unreadable)."""
+    with contextlib.suppress(Exception):
+        return yaml.safe_load(JUDGE_CONFIG_PATH.read_text()) or {}
+    return {}
+
+
 def judge_url(explicit: str | None = None) -> str:
-    return (explicit or os.environ.get("WFE_JUDGE_URL") or OLLAMA).rstrip("/")
+    return (
+        explicit or os.environ.get("WFE_JUDGE_URL") or _judge_config().get("url") or OLLAMA
+    ).rstrip("/")
 
 
 def judge_model(explicit: str | None = None) -> str:
-    model = explicit or os.environ.get("WFE_JUDGE_MODEL")
+    model = explicit or os.environ.get("WFE_JUDGE_MODEL") or _judge_config().get("model")
     if not model:
-        raise ValueError("no judge model: set WFE_JUDGE_MODEL to a local tag or pass --model")
+        raise ValueError(
+            "no judge model: set WFE_JUDGE_MODEL, pass --model, or add tests/wfe/judge.yaml"
+        )
     return model
 
 

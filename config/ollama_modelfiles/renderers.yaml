@@ -1,0 +1,64 @@
+# Native chat RENDERER/PARSER pairs the running Ollama (v0.40.13) ships, keyed by
+# GGUF architecture (`general.architecture` from /api/show). The WFE pre-arm
+# conformance gate (tests/wfe/settings_audit.py audit_renderer_gate, called from
+# scripts/wfe_campaign.sh) refuses an Ollama arm whose tag carries no
+# RENDERER/PARSER while this table knows the pair for its architecture: an hf.co
+# pull never attaches one, and a tool-loop arm on such a tag loops to its turn
+# budget (flint screen 2026-10-29: 5/7 BUDGET_EXHAUSTED).
+# Every entry cites its source. `allow` exempts one tag whose CURRENT setup was
+# verified end-to-end by scripts/ollama_template_conformance_probe.py.
+
+renderers:
+  flint:
+    renderer: flint
+    parser: flint
+    source: Ollama v0.40.13 model/renderers/flint.go + model/parsers/flint.go; live-verified by the conformance probe on hf.co/unsloth/flint-GGUF:UD-Q4_K_XL-ctx256k (config/ollama_modelfiles/README.md, 2026-10-29); 3 installed flint builds carry it (/api/show, 2026-10-30)
+  lfm2moe:
+    renderer: lfm2
+    parser: lfm2-thinking
+    note: LFM2.5 is a documented always-think model — think=false still leaks reasoning (README live verification 2026-10-29), so the repaired tag needs a reasoning-sized output budget.
+    source: Ollama v0.40.13 model/renderers/lfm2.go + model/parsers/lfm2.go; lfm2.5:8b-ctx8k and hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k carry RENDERER lfm2 + PARSER lfm2-thinking (/api/show, 2026-10-30)
+  gemma4:
+    renderer: gemma4
+    parser: gemma4
+    source: 19 installed gemma4 library builds carry gemma4/gemma4 (/api/show, 2026-10-30)
+  qwen35:
+    renderer: qwen3.5
+    parser: qwen3.5
+    note: Qwen3.8-weights builds of this architecture ship qwen3.8/qwen3.5 instead.
+    source: 17 installed qwen35 builds carry qwen3.5/qwen3.5 and 5 carry qwen3.8/qwen3.5 (/api/show, 2026-10-30)
+  qwen35moe:
+    renderer: qwen3.5
+    parser: qwen3.5
+    source: 17 installed qwen35moe builds carry qwen3.5/qwen3.5 (/api/show, 2026-10-30)
+  qwen3moe:
+    renderer: qwen3-coder
+    parser: qwen3-coder
+    source: 4 installed qwen3moe builds (qwen3-coder:30b-a3b-*) carry qwen3-coder/qwen3-coder (/api/show, 2026-10-30)
+  qwen3vl:
+    renderer: qwen3-vl-thinking
+    parser: qwen3-vl-thinking
+    note: Instruct-weights builds ship qwen3-vl-instruct/qwen3-vl-instruct instead — match the weights.
+    source: 2 installed qwen3vl thinking builds and 1 instruct build (/api/show, 2026-10-30)
+  glm4moelite:
+    renderer: glm-4.7
+    parser: glm-4.7
+    source: 3 installed glm4moelite builds (glm-4.7-flash:Q4_K_M*) carry glm-4.7/glm-4.7 (/api/show, 2026-10-30)
+  nemotron_h_moe:
+    renderer: nemotron-3-nano
+    parser: nemotron-3-nano
+    source: 2 installed nemotron_h_moe builds (Nemotron-3.5-Lightning) carry nemotron-3-nano/nemotron-3-nano (/api/show, 2026-10-30)
+  lfm3:
+    renderer: lfm3
+    parser: lfm3
+    source: 2 installed lfm3 builds (lfm3:1.7b-qad-*) carry lfm3/lfm3 (/api/show, 2026-10-30)
+  laguna:
+    renderer: poolside-v1
+    parser: poolside-v1
+    note: A laguna build whose name says 2.1 must use poolside-v1 (settings_audit template_parser_mismatch).
+    source: 2 installed laguna builds carry poolside-v1/poolside-v1 (/api/show, 2026-10-30)
+
+# Tag -> reason. Skips the renderer refusal for a tag whose current setup the
+# conformance probe verified (e.g. a template-only repair like Mellum's
+# qwen3-thinking parser). Keyed by the exact /api/tags name.
+allow: {}

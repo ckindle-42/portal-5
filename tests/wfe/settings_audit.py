@@ -46,6 +46,7 @@ if TYPE_CHECKING:
 REPO = Path(__file__).resolve().parents[2]
 OLLAMA = "http://localhost:11434"
 EXPECTATIONS_PATH = REPO / "config" / "model_card_expectations.yaml"
+RENDERERS_PATH = REPO / "config" / "ollama_modelfiles" / "renderers.yaml"
 
 #: Effective-temperature ceiling per lane, checked against what the pipeline
 #: actually serves (see `effective_temperature`). The previous table covered 6
@@ -411,6 +412,66 @@ def _audit_template_conformance(
             f"{', '.join(f'{r}/{p}' for r, p in pairs)}",
             "FAIL",
         )
+
+
+def _renderer_table() -> dict:
+    """The arch -> native renderer/parser table, plus per-tag `allow` exemptions."""
+    with contextlib.suppress(Exception):
+        return yaml.safe_load(RENDERERS_PATH.read_text()) or {}
+    return {}
+
+
+def _audit_renderer_missing(
+    where: str, tag: str, shows: dict[str, dict], table: dict, violations: list[dict]
+) -> None:
+    """Refuse a tag whose RENDERER/PARSER are both empty while the running Ollama ships
+    the native pair for its architecture; `allow` marks a tag the probe verified."""
+    show = _show(tag, shows)
+    ren, par = _renderer_parser(show)
+    if ren or par or tag in set(table.get("allow") or {}):
+        return
+    known = (table.get("renderers") or {}).get(_architecture(show)) or {}
+    renderer, parser = known.get("renderer") or "", known.get("parser") or ""
+    if not (renderer and parser):
+        return
+    caps = ", ".join(str(c) for c in show.get("capabilities") or [])
+    _v(
+        violations,
+        where,
+        "renderer_missing",
+        f"{tag}: RENDERER/PARSER empty but Ollama ships {renderer}/{parser} for "
+        f"{_architecture(show)} (capabilities: {caps or 'none'}) — tool calls stay "
+        "unstructured text and the arm loops to its turn budget. Fix: `ollama create` the "
+        f"tag from a Modelfile with RENDERER {renderer} + PARSER {parser}, verify it with "
+        "scripts/ollama_template_conformance_probe.py, or list the tag under `allow` in "
+        "config/ollama_modelfiles/renderers.yaml",
+        "FAIL",
+    )
+
+
+def audit_renderer_gate(want: list[str]) -> dict:
+    """The campaign's pre-arm renderer refusal (wfe_campaign.sh conformance step).
+
+    Sits beside audit_tags, not inside it: validate_system HQ runs audit_tags over
+    EVERY installed tag, and this table must not fail pushes for pre-existing
+    library tags — it refuses the arms a campaign is about to spend hours on."""
+    backends = yaml.safe_load((REPO / "config/backends.yaml").read_text())
+    tags = installed_tags(backends)
+    shows: dict[str, dict] = {}
+    for t in sorted(tags):
+        _show(t, shows)
+    table = _renderer_table()
+    violations: list[dict] = []
+    for t in want:
+        if t in tags:  # an uninstalled arm is audit_tags' hint_absent finding
+            _audit_renderer_missing(f"tag:{t}", t, shows, table, violations)
+    fails = [v for v in violations if v["severity"] == "FAIL"]
+    return {
+        "checked_tags": len(want),
+        "violations": violations,
+        "fail_count": len(fails),
+        "warn_count": len(violations) - len(fails),
+    }
 
 
 def _baked_stops(show: dict) -> list[str]:

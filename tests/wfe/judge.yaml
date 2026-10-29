@@ -1,0 +1,6 @@
+# Default blind-pair judge for tests/wfe/judge.py, read when WFE_JUDGE_MODEL /
+# WFE_JUDGE_URL are unset (env and --model/--url still override). The P40
+# kat-coder seat scored best of 7 local judges, 76% agreement with operator
+# labels (judge selection, 2026-10). Keep the model name here, never in Python.
+url: http://10.0.0.204:11434
+model: kat-coder-35b:code
