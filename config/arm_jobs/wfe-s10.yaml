@@ -20,6 +20,7 @@ steps:
       - "--out"
       - tests/wfe/plans/sweep_from_queue_v1.yaml
     timeout_seconds: 600
+    quiet_host: false
     outputs:
       - tests/wfe/plans/sweep_from_queue_v1.yaml
   - id: screen
