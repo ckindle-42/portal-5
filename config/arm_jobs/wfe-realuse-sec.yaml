@@ -1,0 +1,54 @@
+id: wfe-realuse-sec
+purpose: >-
+  Run the real-use security seat suite on the five security, detection, and compliance workspaces,
+  using their live model_hint seats and eligible queued compliance candidate, then write its report.
+preconditions:
+  stack: up
+  free_memory_gib: 24
+  disk_free_gib: 30
+steps:
+  - id: security
+    argv:
+      - scripts/wfe_campaign.sh
+      - realuse_sec_20261030
+      - "--plan"
+      - tests/wfe/plans/realuse_sec_v1_seats.yaml
+      - "--tier"
+      - realuse
+      - "--engine"
+      - pipeline
+      - "--judge"
+    timeout_seconds: 172800
+    quiet_host: true
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_sec_20261030/manifest.json
+  - id: security-report
+    argv:
+      - uv
+      - run
+      - python
+      - "-m"
+      - tests.wfe.report
+      - "--campaign"
+      - realuse_sec_20261030
+      - "--out-dir"
+      - tests/wfe/results/advance
+    timeout_seconds: 900
+    quiet_host: false
+    outputs:
+      - tests/wfe/results/advance/WFE_FITNESS_REPORT_realuse_sec_20261030.md
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_sec_20261030/report.json
+stop_conditions:
+  on_failure: stop
+  max_job_minutes: 3000
+report:
+  fields:
+    - status
+    - purpose
+    - steps
+    - outputs
+    - checkpoints
+    - failures
+    - memory
+    - duration
+    - resume

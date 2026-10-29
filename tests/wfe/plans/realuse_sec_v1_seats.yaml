@@ -1,0 +1,40 @@
+# The model_hint and workspace_routing entries are the seat-resolution source.
+workloads:
+  auto-security:
+    # security/general route the VulnLLM hint to ollama-security; omlx-security aliases it to VulnLLM-R-7B-4bit.
+    home: realuse_sec_v1
+    discovery: []
+    arms:
+      incumbent: hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k
+      challengers: []
+  auto-security::blueteam:
+    # security/general route granite4.1:8b-ctx8k in Ollama; omlx-security/general alias it to granite-4.1-8b-mxfp8.
+    home: realuse_sec_v1
+    discovery: []
+    arms:
+      incumbent: granite4.1:8b-ctx8k
+      challengers: []
+  auto-spl:
+    # coding/general resolve the Qwen3.8-27B-oQ4e-mtp hint in omlx-coding and omlx-general.
+    home: realuse_sec_v1
+    discovery: []
+    arms:
+      incumbent: Qwen3.8-27B-oQ4e-mtp
+      challengers: []
+  auto-compliance:
+    tool_mode: production
+    # reasoning/general route the Qwen3.8 GGUF hint in Ollama and alias it to Qwen3.8-27B-oQ4e-mtp in oMLX.
+    home: realuse_sec_v1
+    discovery: []
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+      challengers:
+        - granite4.1:30b-ctx64k # candidate_queue target; reasoning resolves Ollama exact and oMLX alias.
+  auto-compliance::reading:
+    tool_mode: production
+    # reasoning/general resolve the Gemma hint through ollama-general or omlx-general's mlx-community alias.
+    home: realuse_sec_v1
+    discovery: []
+    arms:
+      incumbent: gemma4:26b-a4b-it-q4_K_M-ctx128k
+      challengers: []

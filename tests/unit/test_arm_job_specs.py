@@ -6,7 +6,9 @@ schema and name plan files that exist, or the first live run fails on a typo.
 
 from __future__ import annotations
 
+from ipaddress import ip_address
 from pathlib import Path
+from urllib.parse import urlparse
 
 import pytest
 import yaml
@@ -30,6 +32,7 @@ EXPECTED = {
     "bully-r0b-ship",
     "wfe-fast-baseline",
     "wfe-realuse-rest",
+    "wfe-realuse-sec",
 }
 
 SHIP_ENV = (
@@ -177,6 +180,39 @@ def test_realuse_rest_runs_the_three_groups_then_reports() -> None:
         data = yaml.safe_load((ROOT / name).read_text(encoding="utf-8"))
         for workspace, workload in data["workloads"].items():
             assert workload["home"] == "realuse_v1", f"{name}:{workspace}"
+
+
+def test_realuse_security_runs_the_seat_plan_then_reports() -> None:
+    spec = _spec(SPEC_DIR / "wfe-realuse-sec.yaml")
+    campaign, report = spec.steps
+
+    assert [step.step_id for step in spec.steps] == ["security", "security-report"]
+    assert campaign.argv[1] == "realuse_sec_20261030"
+    assert campaign.argv[campaign.argv.index("--plan") + 1] == (
+        "tests/wfe/plans/realuse_sec_v1_seats.yaml"
+    )
+    assert campaign.argv[campaign.argv.index("--tier") + 1] == "realuse"
+    assert campaign.argv[campaign.argv.index("--engine") + 1] == "pipeline"
+    assert "--judge" in campaign.argv
+    assert campaign.quiet_host is True
+    assert report.argv[report.argv.index("--campaign") + 1] == campaign.argv[1]
+    assert report.quiet_host is False
+
+    plan = yaml.safe_load((ROOT / campaign.argv[campaign.argv.index("--plan") + 1]).read_text())
+    assert set(plan["workloads"]) == {
+        "auto-security",
+        "auto-security::blueteam",
+        "auto-spl",
+        "auto-compliance",
+        "auto-compliance::reading",
+    }
+    for workload in plan["workloads"].values():
+        assert workload["home"] == "realuse_sec_v1"
+
+    judge = yaml.safe_load((ROOT / "tests/wfe/judge.yaml").read_text(encoding="utf-8"))
+    judge_host = urlparse(judge["url"]).hostname
+    assert judge_host is not None
+    assert ip_address(judge_host).is_private
 
 
 def test_the_recapture_backs_up_the_store_it_rewrites() -> None:
