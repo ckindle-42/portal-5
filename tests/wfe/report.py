@@ -35,7 +35,7 @@ from statistics import median
 import yaml
 
 from portal.platform.inference.router.trace import MIN_ANSWER_TOKENS_FOR_RATE
-from tests.wfe import decision
+from tests.wfe import decision, judge
 from tests.wfe.campaign import same_identity
 from tests.wfe.schema import (
     INSTRUMENT_OUTCOMES,
@@ -810,12 +810,21 @@ def record_ledger(
     return {"path": str(path), "cells": cells, "kept": len(kept)}
 
 
+def _judge_text(cell: dict | None, arm_a: str, arm_b: str) -> str:
+    """The cell's blind preferences as `aW/bL/tT`; an em dash when nothing was judged."""
+    if not cell:
+        return "—"
+    wins = cell.get("wins") or {}
+    return f"{wins.get(arm_a, 0)}W/{wins.get(arm_b, 0)}L/{cell.get('ties', 0)}T"
+
+
 def build(campaign_dir: Path, allow_mixed: bool = False, only_arm: str | None = None) -> dict:
     manifest, rows, preflights = _load(campaign_dir)
     if only_arm:
         rows = [r for r in rows if r["arm"] == only_arm]
     warnings = _collect_warnings(rows, manifest, allow_mixed)
     reviews = _review_scores(campaign_dir)
+    judgements = judge.summary(campaign_dir)
     by_key: dict[tuple, list[dict]] = defaultdict(list)
     for r in rows:
         by_key[(r["workspace"], r["suite"], r["arm"])].append(r)
@@ -866,6 +875,12 @@ def build(campaign_dir: Path, allow_mixed: bool = False, only_arm: str | None = 
                 "incumbent_rate": _fmt_ci(base["passes"], base["n"]),
                 "verdict": verdict,
                 "delta_point": round(row["point"] - base["point"], 3),
+                # Blind pairwise preferences; reported beside the rates, never gated.
+                "judge": _judge_text(
+                    judge.cell_for(judgements, row["workspace"], row["suite"], row["arm"], inc),
+                    row["arm"],
+                    inc,
+                ),
             }
         )
 
@@ -893,6 +908,7 @@ def build(campaign_dir: Path, allow_mixed: bool = False, only_arm: str | None = 
         "matrix": matrix,
         "reused_rows": _reused_rows(rows),
         "comparisons": comparisons,
+        "judge": judgements,
         # Lanes that were measured but have nothing to rank against, because the
         # plan carries no incumbent arm for them. Recorded explicitly so their
         # absence from `comparisons` is a stated fact, not a silent omission.
@@ -1135,17 +1151,33 @@ def _sec_comparisons(a, rep) -> None:
     if not rep["comparisons"]:
         a("_No challenger produced a comparable result._")
     else:
-        a("| Workspace | Lane | Challenger | Challenger rate | Incumbent rate | Verdict |")
-        a("|---|---|---|---|---|---|")
+        a(
+            "| Workspace | Lane | Challenger | Challenger rate | Incumbent rate | Verdict "
+            "| Judge (blind) |"
+        )
+        a("|---|---|---|---|---|---|---|")
         for c in rep["comparisons"]:
             a(
                 f"| {c['workspace']} | {c['lane']}:{c['suite']} | `{c['challenger']}` | "
-                f"{c['challenger_rate']} | {c['incumbent_rate']} | **{c['verdict']}** |"
+                f"{c['challenger_rate']} | {c['incumbent_rate']} | **{c['verdict']}** | "
+                f"{c.get('judge') or '—'} |"
             )
     a("")
     a(
         "_NOT SEPARATED means the intervals overlap: the evidence does not order the two "
         "arms. It is not a tie and must not be read as one._"
+    )
+    a("")
+    guard = rep.get("judge") or {}
+    a(
+        "Judge (blind, order randomised, arms hidden): "
+        f"{guard.get('records', 0)} judgement record(s), {guard.get('errors', 0)} error(s)"
+        + (
+            f"; model(s) {', '.join(f'`{m}`' for m in guard['judge_models'])}"
+            if guard.get("judge_models")
+            else ""
+        )
+        + ". Reported beside the pass rates and **not gated**: `decision.py` reads no judgement."
     )
     a("")
     # A lane whose incumbent was excluded has challengers and no baseline. Saying

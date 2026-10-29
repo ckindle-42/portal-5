@@ -295,6 +295,16 @@ def check_answer_contains(spec: dict, ctx: CheckContext) -> CheckResult:
     return CheckResult(Outcome.PASS, "answer patterns matched", ev)
 
 
+def check_must_not_contain(spec: dict, ctx: CheckContext) -> CheckResult:
+    """The negative half of answer_contains: the answer must not carry any of
+    these patterns. A turn that forbids a phrase needs no required one."""
+    text = ctx.final_text or ""
+    hits = [p for p in (spec.get("patterns") or []) if re.search(p, text, re.I)]
+    if hits:
+        return CheckResult(Outcome.FAIL, f"answer contains forbidden={hits}", {"forbidden": hits})
+    return CheckResult(Outcome.PASS, "no forbidden pattern in the answer", {})
+
+
 def check_cited_answer(spec: dict, ctx: CheckContext) -> CheckResult:
     """A citation only counts when the model's ANSWER carries a URL whose host
     was actually fetched successfully during the run. The original accepted any
@@ -754,6 +764,7 @@ CHECKERS = {
     "file_exists": check_file_exists,
     "file_contains": check_file_contains,
     "answer_contains": check_answer_contains,
+    "must_not_contain": check_must_not_contain,
     "tool_grounded": check_tool_grounded,
     "answer_after_reasoning": check_answer_after_reasoning,
     "routed_workspace": check_routed_workspace,

@@ -60,9 +60,19 @@ TASK_KEYS = {
     "expires",
     # Short per-row provenance for an expectation that changed deliberately.
     "note",
+    # A short multi-turn task: `turns` replaces `instruction` + `checkers`; `rubric` is
+    # the judge's copy; workspace/category/source are the suite author's provenance.
+    "turns",
+    "rubric",
+    "workspace",
+    "category",
+    "source",
 }
+#: The keys one scripted user turn may carry (runner.scripted_turns).
+TURN_KEYS = {"user", "checks", "expect_tools"}
 CHECKER_KEYS = {
     "answer_contains": ({"patterns"}, {"forbid", "exact", "forbid_in_tool_output"}),
+    "must_not_contain": ({"patterns"}, set()),
     "answer_after_reasoning": ({"patterns"}, set()),
     "routed_workspace": ({"workspace"}, set()),
     "tool_grounded": ({"evidence"}, {"tools"}),
@@ -90,27 +100,75 @@ def _checker_types(task: dict) -> set[str]:
     return {s.get("type", "") for s in task.get("checkers") or []}
 
 
-def schema_failures(task: dict, suite: str = "") -> list[ControlFailure]:
-    """A task the harness cannot grade as written: no checkers, an unknown checker
-    type, a checker spec with a missing or unknown key, or an unknown task key (N-24)."""
+def _spec_failures(specs, where: str = "") -> list[str]:
+    """A checker list the harness cannot grade: empty, an unknown type, unknown keys."""
     from tests.wfe.checkers import CHECKERS
 
-    tid, bad = task.get("id", "?"), []
-    if unknown := sorted(set(task) - TASK_KEYS):
-        bad.append(f"unknown task keys {unknown}")
-    specs = task.get("checkers")
     if not isinstance(specs, list) or not specs:
-        bad.append("no checkers: a task without one passes any answer")
-    for s in specs if isinstance(specs, list) else []:
+        return [f"{where}no checkers: a task without one passes any answer"]
+    bad = []
+    for s in specs:
         kind = s.get("type")
         if kind not in CHECKERS:
-            bad.append(f"unknown checker type {kind!r}")
+            bad.append(f"{where}unknown checker type {kind!r}")
         elif kind in CHECKER_KEYS:
             need, may = CHECKER_KEYS[kind]
             if missing := sorted(k for k in need if not s.get(k)):
-                bad.append(f"{kind}: missing or empty {missing}")
+                bad.append(f"{where}{kind}: missing or empty {missing}")
             if extra := sorted(set(s) - need - may - {"type"}):
-                bad.append(f"{kind}: unknown keys {extra}")
+                bad.append(f"{where}{kind}: unknown keys {extra}")
+    return bad
+
+
+def _turn_failures(task: dict) -> list[str]:
+    """A multi-turn task: every scripted turn well formed, and something actually graded."""
+    turns = task.get("turns")
+    if not isinstance(turns, list) or not turns:
+        return ["turns must be a non-empty list of user turns"]
+    bad = []
+    if "checkers" in task:
+        bad.append("a multi-turn task grades per turn: move checkers into turns[].checks")
+    if "controls" in task:
+        bad.append("controls are defined for single-turn tasks only")
+    graded = False
+    for i, turn in enumerate(turns):
+        if not isinstance(turn, dict):
+            bad.append(f"turns[{i}] must be an object")
+            continue
+        if unknown := sorted(set(turn) - TURN_KEYS):
+            bad.append(f"turns[{i}]: unknown keys {unknown}")
+        if not str(turn.get("user") or "").strip():
+            bad.append(f"turns[{i}]: missing user text")
+        if turn.get("checks"):
+            bad += _spec_failures(turn["checks"], f"turns[{i}].checks: ")
+            positive = {s.get("type") for s in turn["checks"]} - {"must_not_contain"}
+            if not positive and not turn.get("expect_tools"):
+                bad.append(
+                    f"turns[{i}]: must_not_contain alone passes an empty answer; add a "
+                    "positive check or expect_tools"
+                )
+            graded = graded or bool(positive)
+        if not isinstance(turn.get("expect_tools") or [], list):
+            bad.append(f"turns[{i}]: expect_tools must be a list")
+        graded = graded or bool(turn.get("expect_tools"))
+    if not graded:
+        bad.append(
+            "no turn carries a positive check or an expected tool: nothing about the "
+            "conversation is graded"
+        )
+    return bad
+
+
+def schema_failures(task: dict, suite: str = "") -> list[ControlFailure]:
+    """A task the harness cannot grade as written: no checkers, an unknown checker
+    type, a checker spec with a missing or unknown key, or an unknown task key (N-24)."""
+    tid, bad = task.get("id", "?"), []
+    if unknown := sorted(set(task) - TASK_KEYS):
+        bad.append(f"unknown task keys {unknown}")
+    if task.get("turns") is not None:
+        bad += _turn_failures(task)
+    else:
+        bad += _spec_failures(task.get("checkers"))
     return [ControlFailure(suite, tid, "schema", "a gradeable task", "invalid", b) for b in bad]
 
 
@@ -146,6 +204,27 @@ def _outcome(task: dict, answer: str | dict) -> tuple[Outcome, str]:
     return r.outcome, r.notes
 
 
+def _auto_control_failures(task: dict, suite: str, prefix: str = "") -> list[ControlFailure]:
+    """The answers every answer-graded task must reject: an empty reply, the pipeline's
+    placeholder, and an echo of what the model was given. A must_not_contain-only task
+    is not answer-graded — an empty answer satisfies it by construction."""
+    positive = _checker_types(task) - {"must_not_contain"}
+    if not positive or not positive <= ANSWER_GRADED:
+        return []
+    tid = task.get("id", "?")
+    auto = {
+        "empty": "",
+        "placeholder": NO_ANSWER_MESSAGE,
+        "echo": f"{task.get('instruction', '')}\n{_seed_text(task)}",
+    }
+    out = []
+    for name, answer in auto.items():
+        got, notes = _outcome(task, answer)
+        if got == Outcome.PASS:
+            out.append(ControlFailure(suite, tid, prefix + name, "not PASS", got.value, notes))
+    return out
+
+
 def check_task(task: dict, suite: str = "", today: dt.date | None = None) -> list[ControlFailure]:
     """Every control failure for one task; empty when the checker is sound."""
     tid = task.get("id", "?")
@@ -164,21 +243,25 @@ def check_task(task: dict, suite: str = "", today: dt.date | None = None) -> lis
                 "time-sensitive key past its expiry: re-verify the key, move the date",
             )
         )
-    if not _checker_types(task) <= ANSWER_GRADED:
+    if task.get("turns"):
+        # A multi-turn task's controls are its turns: each graded turn must reject the
+        # auto answers on its own. Declared controls are refused by _turn_failures.
+        for i, turn in enumerate(task["turns"]):
+            if turn.get("checks"):
+                sub = {
+                    **task,
+                    "checkers": turn["checks"],
+                    "instruction": turn.get("user", ""),
+                    "controls": {},
+                }
+                out += _auto_control_failures(sub, suite, f"turn{i}/")
         return out
-    auto = {
-        "empty": "",
-        "placeholder": NO_ANSWER_MESSAGE,
-        "echo": f"{task.get('instruction', '')}\n{_seed_text(task)}",
-    }
+    out += _auto_control_failures(task, suite)
     declared = task.get("controls") or {}
-    for name, answer in [
-        *auto.items(),
-        *((f"fail[{i}]", a) for i, a in enumerate(declared.get("fail") or [])),
-    ]:
+    for i, answer in enumerate(declared.get("fail") or []):
         got, notes = _outcome(task, answer)
         if got == Outcome.PASS:
-            out.append(ControlFailure(suite, tid, name, "not PASS", got.value, notes))
+            out.append(ControlFailure(suite, tid, f"fail[{i}]", "not PASS", got.value, notes))
     for i, answer in enumerate(declared.get("pass") or []):
         got, notes = _outcome(task, answer)
         if got != Outcome.PASS:

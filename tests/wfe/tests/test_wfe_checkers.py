@@ -458,7 +458,15 @@ def test_suites_parse_and_reference_real_checkers():
             if not line.strip():
                 continue
             task = json.loads(line)
-            assert task.get("id") and task.get("instruction")
+            assert task.get("id")
+            if task.get("turns"):
+                # A multi-turn task grades per turn: the instruction lives in the turns.
+                for turn in task["turns"]:
+                    for spec in turn.get("checks") or []:
+                        assert spec.get("type") in CHECKERS, f"{f.name}:{task['id']} -> {spec}"
+                        seen += 1
+                continue
+            assert task.get("instruction")
             for spec in task.get("checkers") or [task.get("checker", {})]:
                 assert spec.get("type") in CHECKERS, f"{f.name}:{task['id']} -> {spec}"
                 seen += 1

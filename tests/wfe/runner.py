@@ -61,7 +61,7 @@ from portal.platform.inference.omlx_auth import omlx_headers
 from portal.platform.inference.router.text_tool_calls import salvage_text_tool_calls
 from portal.platform.inference.router.thinking import NO_ANSWER_MESSAGE
 from portal.platform.inference.router.trace import StreamMeasurement, normalize_engine_timings
-from tests.wfe.checkers import CheckContext, apply_checkers
+from tests.wfe.checkers import CheckContext, CheckResult, apply_checkers
 from tests.wfe.prompt_surface import harness_note, production_tool_names
 from tests.wfe.schema import Economics, Outcome, ResultRow, env_fingerprint, sha12
 
@@ -1477,6 +1477,7 @@ def _classify(
     override,
     tool_log: list,
     tool_errors: int,
+    graded: CheckResult | None = None,
 ) -> tuple[Outcome, str, dict]:
     """Turn checker output plus run telemetry into one terminal outcome. The
     ordering matters: an instrument failure must outrank a model failure."""
@@ -1492,7 +1493,7 @@ def _classify(
             f"malformed tool call (engine rejected the model's output): {transcript[-1]['malformed_tool_call'][-160:]}",
             {},
         )
-    cr = apply_checkers(task, ctx)
+    cr = graded if graded is not None else apply_checkers(task, ctx)
     outcome, notes, evidence = cr.outcome, cr.notes, cr.evidence
     if override is Outcome.BUDGET_EXHAUSTED:
         # A stall, the wall budget or the turn cap: the model did NOT finish. A
@@ -1539,6 +1540,15 @@ def user_content(task: dict) -> str | list[dict]:
     return parts
 
 
+def scripted_turns(task: dict) -> list[dict]:
+    """The user turns to send, in order: a multi-turn task's `turns`, else its single
+    instruction. A turn carries the user text, its own `checks`, and `expect_tools`."""
+    turns = task.get("turns")
+    if turns is not None:
+        return [dict(t) for t in turns]
+    return [{"user": user_content(task)}]
+
+
 def _text_chars(content) -> int:
     """Characters of text in a message body; image parts are not text."""
     if isinstance(content, list):
@@ -1554,35 +1564,90 @@ class _Loop:
         self.model, self.task, self.sandbox = model, task, sandbox
         self.schemas, self.harness, self.sampling = schemas, harness, sampling
         self.use_tools = use_tools
-        self.messages = [
-            {"role": "system", "content": ""},
-            {"role": "user", "content": user_content(task)},
-        ]
+        # User turns are appended as the conversation reaches them: a multi-turn task
+        # sends turn 1, finishes its tool loop, then sends the next scripted turn on the
+        # same conversation. A single-turn task has exactly one.
+        self.scripted = scripted_turns(task)
+        self.messages = [{"role": "system", "content": ""}]
         self.transcript: list = []
         self.tool_log: list = []
         self.assistant_texts: list = []
+        self.turn_results: list = []
+        self.turn_index = 0
+        self._turn_calls = 0
+        self._turn_texts: list = []
+        self._turn_served: dict | None = None
         self.econ = Economics()
         self.final_text = ""
         self.finish_reason: str | None = None
         self.outcome_override: Outcome | None = None
         self.tool_errors = 0
 
-    def _record(self, turn: int, content: str, calls: list) -> None:
-        self.transcript.append(
+    def open_turn(self, index: int, spec: dict) -> None:
+        """Send one scripted user turn on the conversation built so far."""
+        self.turn_index = index
+        self.messages.append({"role": "user", "content": spec.get("user") or ""})
+        self._turn_calls = len(self.tool_log)
+        self._turn_texts = []
+        self._turn_served = None
+        self.final_text = ""
+
+    def close_turn(self, index: int, spec: dict) -> None:
+        """Grade one scripted turn against its own checks and expected tools. Tool
+        calls are cumulative to this turn (earlier evidence is still evidence); files
+        are the row's sandbox as it stands when the turn ends."""
+        checks = spec.get("checks") or []
+        ctx = CheckContext(
+            final_text=self.final_text,
+            assistant_texts=self._turn_texts,
+            tool_calls=self.tool_log,
+            sandbox_root=self.sandbox.root,
+            task=self.task,
+            finish_reason=self.finish_reason,
+            served=self._turn_served,
+        )
+        graded = (
+            apply_checkers({**self.task, "checkers": checks}, ctx)
+            if checks
+            else CheckResult(Outcome.PASS, "", {})
+        )
+        called = {str(c.get("name", "")) for c in self.tool_log[self._turn_calls :]}
+        missing = [t for t in (spec.get("expect_tools") or []) if t not in called]
+        outcome, notes, evidence = graded.outcome, graded.notes, dict(graded.evidence)
+        if missing and outcome not in (Outcome.HARNESS_ERROR, Outcome.PENDING_REVIEW):
+            outcome = Outcome.FAIL
+            notes = f"expected tools not called: {missing} | {notes}"
+        if missing:
+            evidence["missing_tools"] = missing
+        evidence["turn_tools"] = sorted(called)
+        self.turn_results.append(
             {
-                "turn": turn,
-                "content": content[:2000],
-                "tool_calls": [
-                    {
-                        "name": (c.get("function") or {}).get("name"),
-                        "args_raw": str((c.get("function") or {}).get("arguments"))[:500],
-                    }
-                    for c in calls
-                ],
+                "turn": index,
+                "user": str(spec.get("user") or "")[:200],
+                "outcome": outcome.value,
+                "notes": notes,
+                "evidence": evidence,
             }
         )
+
+    def _record(self, turn: int, content: str, calls: list) -> None:
+        entry = {
+            "turn": turn,
+            "content": content[:2000],
+            "tool_calls": [
+                {
+                    "name": (c.get("function") or {}).get("name"),
+                    "args_raw": str((c.get("function") or {}).get("arguments"))[:500],
+                }
+                for c in calls
+            ],
+        }
+        if len(self.scripted) > 1:
+            entry["scripted_turn"] = self.turn_index
+        self.transcript.append(entry)
         if content:
             self.assistant_texts.append(content)
+            self._turn_texts.append(content)
 
     def _read_reply(self, turn: int, resp: dict) -> tuple[str, list]:
         """Record one reply and return its (content, tool_calls)."""
@@ -1661,6 +1726,7 @@ class _Loop:
         self.tool_log.extend(_audited_calls(resp["message"]))
         self.econ.merge(resp["economics"])
         self.finish_reason = resp.get("finish_reason") or self.finish_reason
+        self._turn_served = resp.get("served") or self._turn_served
         content, calls = self._read_reply(turn, resp)
         turn_econ = resp["economics"]
         self.transcript[-1].update(
@@ -1712,22 +1778,41 @@ class _Loop:
 
 
 def _run_turns(lp: _Loop, max_turns: int, budget_s: int) -> None:
+    """Run the scripted turns in order, sharing one wall budget and one turn cap."""
+    if not lp.scripted:
+        lp.outcome_override = Outcome.HARNESS_ERROR
+        lp.transcript.append({"turn": 0, "harness_error": "task has no scripted user turns"})
+        return
     t0 = time.monotonic()
-    for turn in range(max_turns):
-        remaining = budget_s - (time.monotonic() - t0)
-        if remaining <= 5:
-            lp.outcome_override = Outcome.BUDGET_EXHAUSTED
+    turn_no = 0
+    for index, spec in enumerate(lp.scripted):
+        lp.open_turn(index, spec)
+        while turn_no < max_turns:
+            remaining = budget_s - (time.monotonic() - t0)
+            if remaining <= 5:
+                lp.outcome_override = Outcome.BUDGET_EXHAUSTED
+                break
+            this_turn = turn_no
+            turn_no += 1
+            if not lp.step(this_turn, int(remaining)):
+                break
+        else:
+            # Every turn ran without breaking: the model kept calling tools and never
+            # delivered an answer (a text-only turn always ends the run) — a
+            # turn-budget exhaustion, the loop signature this harness hunts.
+            lp.outcome_override = lp.outcome_override or Outcome.BUDGET_EXHAUSTED
+            lp.transcript.append(
+                {"turn": max_turns, "exhausted_turns": f"no final answer in {max_turns} turns"}
+            )
+        lp.close_turn(index, spec)
+        if lp.outcome_override in (
+            Outcome.BUDGET_EXHAUSTED,
+            Outcome.HARNESS_ERROR,
+            Outcome.FAIL,
+        ):
+            # A stalled/errored call or the model's own malformed tool call ends the
+            # conversation: the later scripted turns were never sent.
             break
-        if not lp.step(turn, int(remaining)):
-            break
-    else:
-        # Every turn ran without breaking: the model kept calling tools and never
-        # delivered an answer (a text-only turn always ends the run) — a
-        # turn-budget exhaustion, the loop signature this harness hunts.
-        lp.outcome_override = lp.outcome_override or Outcome.BUDGET_EXHAUSTED
-        lp.transcript.append(
-            {"turn": max_turns, "exhausted_turns": f"no final answer in {max_turns} turns"}
-        )
     lp.econ.wall_s = round(time.monotonic() - t0, 1)
     if not lp.final_text and lp.assistant_texts:
         lp.final_text = lp.assistant_texts[-1]
@@ -1756,7 +1841,10 @@ def run_task(
         return _empty_result(
             Outcome.BLOCKED, "requires_network but the harness has no outbound network"
         )
-    missing = sorted(set(task.get("requires_tools") or []) - set(tool_surface or TOOL_NAMES))
+    required = set(task.get("requires_tools") or [])
+    for scripted in task.get("turns") or []:
+        required |= set(scripted.get("expect_tools") or [])
+    missing = sorted(required - set(tool_surface or TOOL_NAMES))
     if missing:
         return _empty_result(
             Outcome.BLOCKED, f"requires tools the harness does not offer: {missing}"
@@ -1765,6 +1853,12 @@ def run_task(
         sandbox.file_write(seed_path, seed_body)
     for seed_path, seed_b64 in (task.get("seed_b64") or {}).items():
         sandbox.file_write_bytes(seed_path, base64.b64decode(seed_b64))
+    for rel in task.get("fixtures") or []:
+        # Repo-relative fixtures (audio, office, pdf). Production tool mode stages
+        # them in the run's `in/`; the sandbox run must seed them too.
+        dest = Path(sandbox.root) / Path(rel).name
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(REPO / rel, dest)
     # A self-contained task (a compliance packet) declares repo_read: false. With
     # the repository readable, the p6j seats went hunting through Portal's own
     # compliance source and the adjudication notes about the very packets under
@@ -1797,12 +1891,37 @@ def run_task(
         lp.outcome_override,
         lp.tool_errors,
         lp.econ,
+        turn_results=lp.turn_results,
     )
     overflow = context_overflow(lp.transcript, context_limit)
     if overflow:
         out["evidence"] = {**out["evidence"], "context_overflow": overflow}
         out["notes"] = f"context overflow: {overflow} | " + out["notes"]
     return out
+
+
+def _combined_turn_result(turn_results: list[dict]) -> CheckResult:
+    """The row's verdict from its per-turn results: PASS only when every turn's own
+    objective checks pass. An instrument failure in any turn outranks a model failure."""
+    evidence = {
+        "turn_outcomes": [
+            {"turn": r["turn"], "outcome": r["outcome"], "notes": r["notes"]} for r in turn_results
+        ]
+    }
+    if not turn_results:
+        return CheckResult(Outcome.HARNESS_ERROR, "multi-turn task ran no turns", evidence)
+    for level in (
+        Outcome.HARNESS_ERROR,
+        Outcome.PENDING_REVIEW,
+        Outcome.REFUSED,
+        Outcome.TRUNCATED,
+        Outcome.FAIL,
+    ):
+        bad = [r for r in turn_results if r["outcome"] == level.value]
+        if bad:
+            notes = " | ".join(f"turn {r['turn']}: {r['notes']}" for r in bad)
+            return CheckResult(level, notes, evidence)
+    return CheckResult(Outcome.PASS, f"all {len(turn_results)} turn(s) passed", evidence)
 
 
 def _finalize_run(
@@ -1816,6 +1935,7 @@ def _finalize_run(
     outcome_override,
     tool_errors,
     econ,
+    turn_results: list[dict] | None = None,
 ) -> dict:
     """Grade the completed run and assemble its result row."""
     served = next(
@@ -1832,7 +1952,13 @@ def _finalize_run(
         served=served,
     )
     outcome, notes, evidence = _classify(
-        task, ctx, transcript, outcome_override, tool_log, tool_errors
+        task,
+        ctx,
+        transcript,
+        outcome_override,
+        tool_log,
+        tool_errors,
+        graded=_combined_turn_result(turn_results) if task.get("turns") else None,
     )
     if any(t.get("completion_signal_missing") for t in transcript):
         evidence = {**evidence, "completion_signal_missing": True}
@@ -1881,7 +2007,14 @@ def expand_doc(task: dict) -> dict:
     doc = importlib.import_module(spec["generator"]).render_document(spec)
     if spec.get("sha256") and hashlib.sha256(doc.encode()).hexdigest() != spec["sha256"]:
         raise ValueError(f"{task['id']}: the rendered document no longer matches its sha256")
-    return {**task, "instruction": task["instruction"].replace(DOC_MARK, doc)}
+    out = dict(task)
+    if "instruction" in out:
+        out["instruction"] = out["instruction"].replace(DOC_MARK, doc)
+    if out.get("turns"):
+        out["turns"] = [
+            {**t, "user": str(t.get("user") or "").replace(DOC_MARK, doc)} for t in out["turns"]
+        ]
+    return out
 
 
 def load_suite(path: str | Path) -> list[dict]:
@@ -2004,7 +2137,8 @@ def main() -> int:
     rows = []
     for t in tasks:
         sb = make_sandbox(Path(args.sandbox), t["id"], args.repeat)
-        print(f"--- {t['id']}: {t['instruction'][:80]}...", flush=True)
+        first = t.get("instruction") or (t.get("turns") or [{}])[0].get("user", "")
+        print(f"--- {t['id']}: {first[:80]}...", flush=True)
         r = run_task(
             model,
             system_prompt,
