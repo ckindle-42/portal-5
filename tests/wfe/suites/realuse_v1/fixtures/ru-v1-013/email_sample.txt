@@ -1,0 +1,5 @@
+From: alice@example.com
+Subject: Meeting Tomorrow
+To: team@example.com
+
+Body: Please bring the revised schedule to tomorrow's planning meeting.
