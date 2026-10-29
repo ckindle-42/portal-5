@@ -94,7 +94,7 @@ steps:
       - tests/wfe/plans/advance_s8_mellum_20261029.yaml
 stop_conditions:
   on_failure: stop
-  max_job_minutes: 1000
+  max_job_minutes: 1440
 report:
   fields:
     - status

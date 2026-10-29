@@ -48,7 +48,7 @@ steps:
       - screen
       - "--engine"
       - pipeline
-    timeout_seconds: 43200
+    timeout_seconds: 64800
     checkpoints:
       - ~/AI_Output/portal-data/tests/wfe/results/campaigns/wfe_s6_general_screen_20261029/manifest.json
   - id: general-report
@@ -94,7 +94,7 @@ steps:
       - tests/wfe/plans/advance_wfe_s7_coding_20261029.yaml
 stop_conditions:
   on_failure: stop
-  max_job_minutes: 1380
+  max_job_minutes: 1800
 report:
   fields:
     - status

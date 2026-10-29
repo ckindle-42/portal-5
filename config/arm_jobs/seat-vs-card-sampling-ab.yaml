@@ -21,7 +21,7 @@ steps:
       - screen
       - "--engine"
       - pipeline
-    timeout_seconds: 25200
+    timeout_seconds: 43200
     outputs:
       - ~/AI_Output/portal-data/tests/wfe/results/campaigns/seat_card_screen_20261029/manifest.json
     checkpoints:
@@ -42,7 +42,7 @@ steps:
       - tests/wfe/plans/advance_seat_card_screen_20261029.yaml
 stop_conditions:
   on_failure: stop
-  max_job_minutes: 450
+  max_job_minutes: 840
 report:
   fields:
     - status
