@@ -1,0 +1,20 @@
+title: PowerShell Encoded Command
+status: experimental
+description: Detects the supplied defensive test event for T1059.001.
+references:
+  - https://attack.mitre.org/techniques/T1059/001/
+author: Portal real-use fixture
+date: 2026-10-29
+tags:
+  - attack.t1059.001
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID: 4688
+    ProcessCommandLine|contains: -EncodedCommand
+  condition: selection
+falsepositives:
+  - Approved administrative activity
+level: medium

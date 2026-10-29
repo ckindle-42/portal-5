@@ -1,0 +1,8 @@
+{
+  "EventID": 4624,
+  "TimeCreated": "2026-10-29T11:14:00Z",
+  "Computer": "ENG-04",
+  "TargetUserName": "svc_backup",
+  "IpAddress": "10.40.8.41",
+  "LogonType": 10
+}

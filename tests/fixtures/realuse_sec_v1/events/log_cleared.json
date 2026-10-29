@@ -1,0 +1,7 @@
+{
+  "EventID": 1102,
+  "TimeCreated": "2026-10-29T12:48:00Z",
+  "Computer": "FS-08",
+  "SubjectUserName": "svc_ops",
+  "Channel": "Security"
+}

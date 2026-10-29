@@ -1,0 +1,20 @@
+title: Unexpected Local Account Creation
+status: experimental
+description: Detects the supplied defensive test event for T1136.001.
+references:
+  - https://attack.mitre.org/techniques/T1136/001/
+author: Portal real-use fixture
+date: 2026-10-29
+tags:
+  - attack.t1136.001
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID: 4720
+    TargetUserName|startswith: svc_
+  condition: selection
+falsepositives:
+  - Approved administrative activity
+level: medium

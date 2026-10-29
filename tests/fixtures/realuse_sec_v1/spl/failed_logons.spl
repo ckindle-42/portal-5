@@ -1,0 +1,1 @@
+index=wineventlog EventID=4625 LogonType=3 | stats count by IpAddress TargetUserName | where count >= 5

@@ -1,0 +1,19 @@
+title: Scheduled Task Creation
+status: experimental
+description: Detects the supplied defensive test event for T1053.005.
+references:
+  - https://attack.mitre.org/techniques/T1053/005/
+author: Portal real-use fixture
+date: 2026-10-29
+tags:
+  - attack.t1053.005
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID: 4698
+  condition: selection
+falsepositives:
+  - Approved administrative activity
+level: medium
