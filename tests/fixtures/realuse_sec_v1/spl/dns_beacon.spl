@@ -1,0 +1,1 @@
+index=network sourcetype=dns | stats count dc(ip.dst) as destinations by ip.src dns.qry.name | where count >= 10 AND destinations=1

@@ -1,0 +1,20 @@
+title: Windows Security Log Cleared
+status: experimental
+description: Detects the supplied defensive test event for T1070.001.
+references:
+  - https://attack.mitre.org/techniques/T1070/001/
+author: Portal real-use fixture
+date: 2026-10-29
+tags:
+  - attack.t1070.001
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID: 1102
+    Channel: Security
+  condition: selection
+falsepositives:
+  - Approved administrative activity
+level: medium

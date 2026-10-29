@@ -1,0 +1,4 @@
+Synthetic pcap summary; no packet capture or live endpoint is included.
+Flow: 10.20.7.12:51022 -> 10.20.7.40:502/TCP; two Modbus write-multiple-registers requests.
+Function code: 16; unit id: 3; no response body or process attribution is available.
+Fields: frame.time, ip.src, ip.dst, tcp.dstport, modbus.func_code, modbus.unit_id.

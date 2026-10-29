@@ -1,0 +1,1 @@
+Practice excerpt written for this suite, not a quotation: assess newly released security patches for applicability on every covered system no less often than every 35 calendar days, and record the evaluation date and source.

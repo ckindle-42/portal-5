@@ -1,0 +1,1 @@
+Practice excerpt written for this suite, not a quotation: alert the incident-response contacts no later than 15 minutes after detecting unauthorized access through a physical access point.

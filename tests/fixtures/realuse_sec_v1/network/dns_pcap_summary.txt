@@ -1,0 +1,4 @@
+Synthetic pcap summary; no packet capture or live endpoint is included.
+Packets: 240; interval: 60 seconds; source: 10.20.4.8; destination: 203.0.113.90.
+DNS queries: 12 for cdn-update.example.invalid; response: 203.0.113.90.
+Fields: frame.time, ip.src, ip.dst, dns.qry.name, dns.a.

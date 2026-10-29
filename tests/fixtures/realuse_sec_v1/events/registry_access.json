@@ -1,0 +1,9 @@
+{
+  "EventID": 13,
+  "Provider": "Microsoft-Windows-Sysmon",
+  "TimeCreated": "2026-10-29T13:02:00Z",
+  "Computer": "ENG-09",
+  "Image": "C:\\Users\\Public\\diag.exe",
+  "TargetObject": "HKLM\\Software\\Example\\Credentials\\LastUser",
+  "Details": "ops_reader"
+}

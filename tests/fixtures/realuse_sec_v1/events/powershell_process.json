@@ -1,0 +1,9 @@
+{
+  "EventID": 4688,
+  "TimeCreated": "2026-10-29T12:18:00Z",
+  "Computer": "APP-11",
+  "NewProcessName": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+  "ProcessCommandLine": "powershell.exe -NoProfile -EncodedCommand <redacted-fixture>",
+  "ParentProcessName": "C:\\Windows\\System32\\wscript.exe",
+  "SubjectUserName": "batchsvc"
+}

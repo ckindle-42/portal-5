@@ -1,0 +1,8 @@
+{
+  "EventID": 4698,
+  "TimeCreated": "2026-10-29T12:32:00Z",
+  "Computer": "OPS-03",
+  "SubjectUserName": "operator2",
+  "TaskName": "\\\\TelemetryRefresh",
+  "TaskContent": "<Command>C:\\Tools\\refresh.exe</Command>"
+}
