@@ -142,6 +142,33 @@ def test_steady_climb_is_retaining(monkeypatch, capsys):
     assert code == 1
 
 
+def test_allow_retaining_records_the_verdict_without_failing(monkeypatch, capsys):
+    """A job needs the measurement, not a CI failure: RETAINING exits 0 when asked."""
+    base = GIB
+    step = 50 * MIB
+    samples = [base + step * i for i in range(1, 5)]
+    code, out = _run_json(
+        monkeypatch,
+        capsys,
+        ["mlx-transcribe", "--requests", "4", "--warm", "2", "--json", "--allow-retaining"],
+        [base // 2, base, *samples],
+    )
+    assert out["verdict"] == "RETAINING"
+    assert code == 0
+
+
+def test_allow_retaining_keeps_invalid_a_failure(monkeypatch, capsys):
+    code, out = _run_json(
+        monkeypatch,
+        capsys,
+        ["mlx-speech", "--requests", "1", "--warm", "1", "--json", "--allow-retaining"],
+        GIB,
+        fail=True,
+    )
+    assert out["verdict"] == "INVALID"
+    assert code == 2
+
+
 def test_growth_under_abs_tolerance_is_flat(monkeypatch, capsys):
     base = GIB
     samples = [base + 50 * MIB, base + 100 * MIB]

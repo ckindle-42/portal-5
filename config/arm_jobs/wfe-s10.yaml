@@ -1,0 +1,109 @@
+id: wfe-s10
+purpose: >-
+  The S10 P5 finish (docs/WFE_ROOT_FIX_PROGRAM.md Part 5): regenerate the sweep plan from the
+  candidate queue, run the screen and confirm campaigns for it, record the fitness cells, and write
+  the fitness map the GATE list is built from. Read the confirm report's per-cell verdicts, the
+  dispositions, and fitness.json; the operator makes the seat decisions from those, and P5-B2's
+  GATE list is the orchestrator's step after this job.
+preconditions:
+  stack: up
+  free_memory_gib: 24
+  disk_free_gib: 30
+steps:
+  - id: sweep-plan
+    argv:
+      - uv
+      - run
+      - python
+      - "-m"
+      - tests.wfe.sweep_plan
+      - "--out"
+      - tests/wfe/plans/sweep_from_queue_v1.yaml
+    timeout_seconds: 600
+    outputs:
+      - tests/wfe/plans/sweep_from_queue_v1.yaml
+  - id: screen
+    argv:
+      - scripts/wfe_campaign.sh
+      - wfe_p5_screen_20261029
+      - "--plan"
+      - tests/wfe/plans/sweep_from_queue_v1.yaml
+      - "--tier"
+      - screen
+      - "--engine"
+      - pipeline
+    timeout_seconds: 43200
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/wfe_p5_screen_20261029/manifest.json
+  - id: advance
+    argv:
+      - uv
+      - run
+      - python
+      - "-m"
+      - tests.wfe.report
+      - "--campaign"
+      - wfe_p5_screen_20261029
+      - "--screen-out"
+      - tests/wfe/plans/advance_wfe_p5_screen_20261029.yaml
+    timeout_seconds: 900
+    outputs:
+      - docs/WFE_FITNESS_REPORT_wfe_p5_screen_20261029.md
+      - tests/wfe/plans/advance_wfe_p5_screen_20261029.yaml
+  - id: confirm
+    argv:
+      - scripts/wfe_campaign.sh
+      - wfe_p5_confirm_20261029
+      - "--plan"
+      - tests/wfe/plans/sweep_from_queue_v1.yaml
+      - "--tier"
+      - confirm
+      - "--advance"
+      - tests/wfe/plans/advance_wfe_p5_screen_20261029.yaml
+      - "--engine"
+      - pipeline
+    timeout_seconds: 129600
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/wfe_p5_confirm_20261029/manifest.json
+  - id: fitness
+    argv:
+      - uv
+      - run
+      - python
+      - "-m"
+      - tests.wfe.report
+      - "--campaign"
+      - wfe_p5_confirm_20261029
+      - "--fitness"
+      - "--record"
+    timeout_seconds: 1800
+    outputs:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/wfe_p5_confirm_20261029/fitness.json
+      - docs/WFE_FITNESS_REPORT_wfe_p5_confirm_20261029.md
+      - tests/wfe/fitness_ledger.yaml
+  - id: fitness-map
+    argv:
+      - uv
+      - run
+      - python
+      - "-m"
+      - tests.wfe.report
+      - "--fitness-map"
+      - "--write-map"
+    timeout_seconds: 900
+    outputs:
+      - docs/WFE_FITNESS_MAP.md
+stop_conditions:
+  on_failure: stop
+  max_job_minutes: 3000
+report:
+  fields:
+    - status
+    - purpose
+    - steps
+    - outputs
+    - checkpoints
+    - failures
+    - memory
+    - duration
+    - resume

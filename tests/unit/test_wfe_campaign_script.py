@@ -1,0 +1,132 @@
+"""Offline checks for the campaign driver's job-facing flags.
+
+`uv` and `curl` are replaced by shims on PATH that record their argv and environment, so
+these run with no network, no Ollama and no campaign.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPT = ROOT / "scripts" / "wfe_campaign.sh"
+
+FAKE_UV = """\
+#!/usr/bin/env bash
+python3 - "$WFE_LOG" "$WFE_ENGINE" "$PLAN" "$@" <<'PY'
+import json, sys
+log, engine, plan, *argv = sys.argv[1:]
+with open(log, "a") as handle:
+    handle.write(json.dumps({"argv": argv, "engine": engine, "plan": plan}) + "\\n")
+PY
+for arg in "$@"; do
+    [ "$arg" = "-c" ] && { echo "True"; exit 0; }
+done
+exit 0
+"""
+
+FAKE_CURL = "#!/usr/bin/env bash\nexit 0\n"
+
+
+def _run(tmp_path: Path, *args: str) -> tuple[subprocess.CompletedProcess[str], list[dict]]:
+    bindir = tmp_path / "bin"
+    bindir.mkdir(exist_ok=True)
+    for name, body in (("uv", FAKE_UV), ("curl", FAKE_CURL)):
+        path = bindir / name
+        path.write_text(body)
+        path.chmod(0o755)
+    log = tmp_path / "calls.jsonl"
+    arms = tmp_path / "arms.txt"
+    arms.write_text("arm-a\n", encoding="utf-8")
+    env = {
+        **os.environ,
+        "PATH": f"{bindir}{os.pathsep}{os.environ['PATH']}",
+        "WFE_LOG": str(log),
+        "LOG_DIR": str(tmp_path / "logs"),
+        "ARMS_FILE": str(arms),
+        "WFE_SKIP_CONFORMANCE": "1",
+        "PIPELINE_API_KEY": "test-key",
+        "REPEATS": "3",
+    }
+    env.pop("WFE_ENGINE", None)
+    result = subprocess.run(
+        ["bash", str(SCRIPT), "wfe_test", *args],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+    calls = (
+        [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines() if line.strip()]
+        if log.is_file()
+        else []
+    )
+    return result, calls
+
+
+def test_wfe_campaign_has_valid_shell_syntax() -> None:
+    result = subprocess.run(
+        ["bash", "-n", str(SCRIPT)], cwd=ROOT, capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_plan_and_engine_flags_reach_every_campaign_call(tmp_path: Path) -> None:
+    plan = "tests/wfe/plans/seat_card_sampling_ab_20261029.yaml"
+
+    result, calls = _run(tmp_path, "--plan", plan, "--engine", "pipeline", "--tier", "screen")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    campaign_calls = [
+        call
+        for call in calls
+        if "tests.wfe.campaign" in call["argv"] and "--append" in call["argv"]
+    ]
+    assert campaign_calls, calls
+    for call in campaign_calls:
+        argv = call["argv"]
+        assert argv[argv.index("--plan") + 1] == plan
+        assert call["engine"] == "pipeline"
+        assert call["plan"] == plan
+        assert "--engine" not in argv
+        assert argv[-2:] == ["--tier", "screen"]
+    arm_calls = [call for call in calls if "--arm" in call["argv"]]
+    assert arm_calls and all(call["engine"] == "pipeline" for call in arm_calls)
+
+
+def test_repeatable_flags_accept_the_equals_form(tmp_path: Path) -> None:
+    plan = "tests/wfe/plans/gemma_qat_vs_plain_ab_20261029.yaml"
+
+    result, calls = _run(tmp_path, f"--plan={plan}", "--engine=pipeline")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    campaign_calls = [
+        call
+        for call in calls
+        if "tests.wfe.campaign" in call["argv"] and "--append" in call["argv"]
+    ]
+    assert campaign_calls
+    assert all(call["engine"] == "pipeline" for call in campaign_calls)
+    assert all(plan in call["argv"] for call in campaign_calls)
+
+
+def test_a_flag_without_a_value_is_refused(tmp_path: Path) -> None:
+    result, _calls = _run(tmp_path, "--plan")
+
+    assert result.returncode == 2
+    assert "--plan needs a path" in result.stderr
+
+
+def test_without_the_flags_the_environment_is_unchanged(tmp_path: Path) -> None:
+    result, calls = _run(tmp_path)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert calls
+    assert all(not call["engine"] for call in calls)
+    assert all(not call["plan"] for call in calls)
+    assert all("--plan" not in call["argv"] for call in calls)

@@ -1,0 +1,51 @@
+id: mlx-cache-probe
+purpose: >-
+  Measure MLX cache retention on the two host speech services (POST_EG2 F4) with the stack up:
+  20 measured requests after 2 untimed warm-up requests each. RETAINING is the finding this run
+  exists to record, so it exits 0; INVALID (an unmeasurable run) still fails. Read the per-service
+  verdict, warm_baseline_gib, growth_gib and response_times_s out of each step's JSON.
+preconditions:
+  stack: up
+  free_memory_gib: 20
+  disk_free_gib: 20
+steps:
+  - id: transcribe
+    argv:
+      - uv
+      - run
+      - python
+      - scripts/mlx_cache_probe.py
+      - mlx-transcribe
+      - "--requests"
+      - "20"
+      - "--warm"
+      - "2"
+      - "--json"
+      - "--allow-retaining"
+    timeout_seconds: 1800
+  - id: speech
+    argv:
+      - uv
+      - run
+      - python
+      - scripts/mlx_cache_probe.py
+      - mlx-speech
+      - "--requests"
+      - "20"
+      - "--warm"
+      - "2"
+      - "--json"
+      - "--allow-retaining"
+    timeout_seconds: 1800
+stop_conditions:
+  on_failure: stop
+  max_job_minutes: 80
+report:
+  fields:
+    - status
+    - purpose
+    - steps
+    - failures
+    - memory
+    - duration
+    - resume

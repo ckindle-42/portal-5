@@ -362,6 +362,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--json", action="store_true", help="Emit machine-readable numbers")
     parser.add_argument(
+        "--allow-retaining",
+        action="store_true",
+        help="Exit 0 on RETAINING so a job records the finding; INVALID still exits 2",
+    )
+    parser.add_argument(
         "--host", default="localhost", help="Host where the service listens (default localhost)"
     )
     return parser
@@ -500,12 +505,14 @@ def _emit_text(result: dict[str, object]) -> None:
             print(f"  failure: {item}")
 
 
-def _emit(result: dict[str, object], as_json: bool) -> int:
+def _emit(result: dict[str, object], as_json: bool, *, allow_retaining: bool = False) -> int:
     if as_json:
         print(json.dumps(result, indent=2))
     else:
         _emit_text(result)
     verdict = str(result["verdict"])
+    if verdict == "RETAINING" and allow_retaining:
+        return 0
     return {"FLAT": 0, "RETAINING": 1}.get(verdict, 2)
 
 
@@ -522,7 +529,7 @@ def main(argv: list[str] | None = None) -> int:
     port, label = target
     if args.dry_run:
         return _dry_run_report(args, port, label)
-    return _emit(_measure(args, port, label), args.json)
+    return _emit(_measure(args, port, label), args.json, allow_retaining=args.allow_retaining)
 
 
 if __name__ == "__main__":

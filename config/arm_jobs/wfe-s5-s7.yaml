@@ -1,0 +1,111 @@
+id: wfe-s5-s7
+purpose: >-
+  The research, general and coding live slices (WFE S5-S7): the three committed seat-decision plans
+  run their screen tier through the pipeline, one campaign per slice, with each slice's advance list
+  written from its own rows. Read per-cell verdicts and per-arm PASS/BUDGET_EXHAUSTED/latency from
+  each report; a seat whose challenger separated earns a confirm campaign (a separate job built
+  from the advance file). Arms too large to measure beside the stack are excluded by the plans
+  themselves and belong to the stack-down discovery sweep, never to a seat decision.
+preconditions:
+  stack: up
+  free_memory_gib: 24
+  disk_free_gib: 30
+steps:
+  - id: research-screen
+    argv:
+      - scripts/wfe_campaign.sh
+      - wfe_s5_research_screen_20261029
+      - "--plan"
+      - tests/wfe/plans/research_decision_v1.yaml
+      - "--tier"
+      - screen
+      - "--engine"
+      - pipeline
+    timeout_seconds: 18000
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/wfe_s5_research_screen_20261029/manifest.json
+  - id: research-report
+    argv:
+      - uv
+      - run
+      - python
+      - "-m"
+      - tests.wfe.report
+      - "--campaign"
+      - wfe_s5_research_screen_20261029
+      - "--screen-out"
+      - tests/wfe/plans/advance_wfe_s5_research_20261029.yaml
+    timeout_seconds: 900
+    outputs:
+      - docs/WFE_FITNESS_REPORT_wfe_s5_research_screen_20261029.md
+      - tests/wfe/plans/advance_wfe_s5_research_20261029.yaml
+  - id: general-screen
+    argv:
+      - scripts/wfe_campaign.sh
+      - wfe_s6_general_screen_20261029
+      - "--plan"
+      - tests/wfe/plans/general_decision_v1.yaml
+      - "--tier"
+      - screen
+      - "--engine"
+      - pipeline
+    timeout_seconds: 43200
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/wfe_s6_general_screen_20261029/manifest.json
+  - id: general-report
+    argv:
+      - uv
+      - run
+      - python
+      - "-m"
+      - tests.wfe.report
+      - "--campaign"
+      - wfe_s6_general_screen_20261029
+      - "--screen-out"
+      - tests/wfe/plans/advance_wfe_s6_general_20261029.yaml
+    timeout_seconds: 900
+    outputs:
+      - docs/WFE_FITNESS_REPORT_wfe_s6_general_screen_20261029.md
+      - tests/wfe/plans/advance_wfe_s6_general_20261029.yaml
+  - id: coding-screen
+    argv:
+      - scripts/wfe_campaign.sh
+      - wfe_s7_coding_screen_20261029
+      - "--plan"
+      - tests/wfe/plans/coding_decision_v1.yaml
+      - "--tier"
+      - screen
+      - "--engine"
+      - pipeline
+    timeout_seconds: 18000
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/wfe_s7_coding_screen_20261029/manifest.json
+  - id: coding-report
+    argv:
+      - uv
+      - run
+      - python
+      - "-m"
+      - tests.wfe.report
+      - "--campaign"
+      - wfe_s7_coding_screen_20261029
+      - "--screen-out"
+      - tests/wfe/plans/advance_wfe_s7_coding_20261029.yaml
+    timeout_seconds: 900
+    outputs:
+      - docs/WFE_FITNESS_REPORT_wfe_s7_coding_screen_20261029.md
+      - tests/wfe/plans/advance_wfe_s7_coding_20261029.yaml
+stop_conditions:
+  on_failure: stop
+  max_job_minutes: 1380
+report:
+  fields:
+    - status
+    - purpose
+    - steps
+    - outputs
+    - checkpoints
+    - failures
+    - memory
+    - duration
+    - resume

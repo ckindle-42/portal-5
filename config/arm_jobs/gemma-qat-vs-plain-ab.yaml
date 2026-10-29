@@ -1,0 +1,69 @@
+id: gemma-qat-vs-plain-ab
+purpose: >-
+  gemma4:26b-a4b QAT vs plain on the seats the pair serves: auto-documents (its seat is the plain
+  GGUF) and auto-vision's gemma persona (the QAT build), plus the arm's test_fixing bite suite so
+  the arm instrument sees the same build question. Read each plan cell's per-arm PASS/BUDGET_EXHAUSTED
+  and latency from the screen report, and the bite suite's per-bite status for the arm lane, then
+  pick one build per role (a tie keeps both, keep_reason stands).
+preconditions:
+  stack: up
+  free_memory_gib: 24
+  disk_free_gib: 30
+steps:
+  - id: screen
+    argv:
+      - scripts/wfe_campaign.sh
+      - gemma_qat_plain_screen_20261029
+      - "--plan"
+      - tests/wfe/plans/gemma_qat_vs_plain_ab_20261029.yaml
+      - "--tier"
+      - screen
+      - "--engine"
+      - pipeline
+    timeout_seconds: 18000
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/gemma_qat_plain_screen_20261029/manifest.json
+  - id: screen-report
+    argv:
+      - uv
+      - run
+      - python
+      - "-m"
+      - tests.wfe.report
+      - "--campaign"
+      - gemma_qat_plain_screen_20261029
+      - "--screen-out"
+      - tests/wfe/plans/advance_gemma_qat_plain_20261029.yaml
+    timeout_seconds: 900
+    outputs:
+      - docs/WFE_FITNESS_REPORT_gemma_qat_plain_screen_20261029.md
+      - tests/wfe/plans/advance_gemma_qat_plain_20261029.yaml
+  - id: arm-bites
+    argv:
+      - uv
+      - run
+      - python
+      - scripts/orchestration_bite_suite.py
+      - "--discipline"
+      - test_fixing
+      - "--seat"
+      - auto-daily::gemma-fast
+      - "--suite"
+      - bite
+      - "--repeats"
+      - "3"
+    timeout_seconds: 7200
+stop_conditions:
+  on_failure: stop
+  max_job_minutes: 450
+report:
+  fields:
+    - status
+    - purpose
+    - steps
+    - outputs
+    - checkpoints
+    - failures
+    - memory
+    - duration
+    - resume

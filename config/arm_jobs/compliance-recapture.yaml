@@ -1,0 +1,55 @@
+id: compliance-recapture
+purpose: >-
+  Re-capture the operator corpus into the compliance store before any DD6 campaign (the root of
+  the READING/DATA_TRUTH evidence chain): acquire the operator folder, re-project the retrieval
+  index and the policy graph from the canonical sections, prove materialization, then re-anchor
+  every requirement into its captured revision. Read the acquisition census, each corpus's
+  materialization proof, the retrieval FRESH/STALE verdict and the anchor report's per-relation
+  miss counts; a stale or unproven projection is a BLOCKED result, not a re-capture.
+preconditions:
+  stack: up
+  free_memory_gib: 16
+  disk_free_gib: 20
+steps:
+  - id: recapture
+    argv:
+      - uv
+      - run
+      - python
+      - scripts/rebuild_compliance_projections.py
+      - "--corpus"
+      - coding_task/v9_compliance/ACME-CIP
+      - "--require-corpus"
+      - "--output"
+      - results/compliance/recapture_20261029.json
+    timeout_seconds: 10800
+    outputs:
+      - results/compliance/recapture_20261029.json
+  - id: reanchor
+    argv:
+      - uv
+      - run
+      - python
+      - scripts/anchor_requirements.py
+      - "--all"
+      - "--report"
+      - "--json"
+    timeout_seconds: 3600
+    outputs:
+      - ~/AI_Output/portal-data/reports/compliance/requirement_anchor_rates.json
+checkpoints:
+  - portal/modules/compliance/data/compliance_store.db
+stop_conditions:
+  on_failure: stop
+  max_job_minutes: 300
+report:
+  fields:
+    - status
+    - purpose
+    - steps
+    - outputs
+    - checkpoints
+    - failures
+    - memory
+    - duration
+    - resume

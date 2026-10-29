@@ -1,0 +1,27 @@
+# gemma4:26b-a4b QAT vs plain: the two builds are kept (keep_reason) until an A/B on the seats
+# they serve. Today the plain GGUF is auto-documents' seat and the QAT build serves auto-council
+# and the arm's fast seat; auto-vision's gemma persona pin is the 31B QAT.
+# Both gemma arms are the same vendor checkpoint quantised two ways, so the comparison is build
+# quality at the same window (32k) under each workspace's own prompt, tools and caps.
+#
+#   ./scripts/wfe_campaign.sh gemma_qat_plain_screen_20261029 \
+#       --plan tests/wfe/plans/gemma_qat_vs_plain_ab_20261029.yaml --tier screen --engine pipeline
+workloads:
+  auto-documents:
+    tool_mode: production
+    home: documents_production
+    discovery: []
+    arms:
+      # The seat as production serves it (plain q4_K_M, 32k).
+      incumbent: gemma4:26b-a4b-it-q4_K_M-ctx32k
+      challengers:
+        - gemma4:26b-a4b-it-qat-ctx32k
+  auto-vision:
+    home: vision_production
+    discovery: []
+    arms:
+      # The seat is Qwen3-VL; the question is which gemma build can take the vision persona.
+      incumbent: qwen3-vl:32b-ctx8k
+      challengers:
+        - gemma4:26b-a4b-it-q4_K_M-ctx32k
+        - gemma4:26b-a4b-it-qat-ctx32k

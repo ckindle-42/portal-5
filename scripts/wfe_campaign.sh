@@ -12,6 +12,8 @@
 #   ./scripts/wfe_campaign.sh wfe_full_20260908            # all arms, n=3
 #   ARMS_FILE=/tmp/arms.txt ./scripts/wfe_campaign.sh wfe_full_20260908
 #   REPEATS=5 ALL_SUITES=1 ./scripts/wfe_campaign.sh wfe_deep --arm <tag>
+#   ./scripts/wfe_campaign.sh wfe_s8 --plan tests/wfe/plans/s8_x.yaml --tier screen \
+#       --engine pipeline                                  # job-friendly (no env needed)
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -20,6 +22,34 @@ cd "$REPO_ROOT"
 
 CAMPAIGN_ID="${1:?usage: wfe_campaign.sh <campaign_id> [extra args...]}"
 shift || true
+
+# --plan/--engine are parsed here, not passed through: a job step has no env channel,
+# and PLAN/WFE_ENGINE used to be settable only by one.
+ARGS=()
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --plan)
+            [ "$#" -ge 2 ] || { echo "wfe-campaign: --plan needs a path" >&2; exit 2; }
+            PLAN="$2"; shift 2 ;;
+        --plan=*)
+            PLAN="${1#--plan=}"; shift ;;
+        --engine)
+            [ "$#" -ge 2 ] || { echo "wfe-campaign: --engine needs a name" >&2; exit 2; }
+            WFE_ENGINE="$2"; shift 2 ;;
+        --engine=*)
+            WFE_ENGINE="${1#--engine=}"; shift ;;
+        *)
+            ARGS+=("$1"); shift ;;
+    esac
+done
+set -- "${ARGS[@]+"${ARGS[@]}"}"
+[ -n "${PLAN:-}" ] && export PLAN
+[ -n "${WFE_ENGINE:-}" ] && export WFE_ENGINE
+# Pipeline mode authenticates to :9099; the repo's own .env is where the key lives.
+if [ "${WFE_ENGINE:-}" = "pipeline" ] && [ -z "${PIPELINE_API_KEY:-}" ] \
+    && [ -f "$REPO_ROOT/.env" ]; then
+    set -a; . "$REPO_ROOT/.env" 2>/dev/null || true; set +a
+fi
 
 REPEATS="${REPEATS:-3}"
 # REPEATS=policy leaves --repeats off, so a confirm takes the harness's repeats policy

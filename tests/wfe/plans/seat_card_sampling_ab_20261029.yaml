@@ -1,0 +1,76 @@
+# Seat sampling vs the model card's sampling, one arm each, on the seats carrying traffic
+# (docs/TASK_SEAT_SAMPLING_AB_V1.md method; docs/TASK_SEAT_VENDOR_FIT_V1.md is the reference).
+# The incumbent arm is the seat exactly as production serves it (pipeline mode sends no sampling
+# and no think for an incumbent). The `card` arm is the SAME model with the card's own sampling:
+# campaign._with_card_sampling fills `label: card` arms from config/model_card_expectations.yaml,
+# picking the instruct or thinking arm from the lane's think policy, so no value here can drift
+# from the registry. Both arms run the same suite at the same seeds (campaign sets seed=1000+repeat).
+#
+# Screen tier only: it is 12 tasks per arm at one repeat, and its advance list decides who earns
+# a confirm run. One campaign, one report.
+#   ./scripts/wfe_campaign.sh seat_card_screen_20261029 \
+#       --plan tests/wfe/plans/seat_card_sampling_ab_20261029.yaml --tier screen --engine pipeline
+workloads:
+  auto-compliance:
+    tool_mode: production
+    home: compliance_production
+    discovery: []
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+      challengers:
+        - {model: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k, label: card}
+  auto-documents:
+    tool_mode: production
+    home: documents_production
+    discovery: []
+    arms:
+      incumbent: gemma4:26b-a4b-it-q4_K_M-ctx32k
+      challengers:
+        - {model: gemma4:26b-a4b-it-q4_K_M-ctx32k, label: card}
+  auto-research:
+    tool_mode: production
+    home: research_production
+    discovery: []
+    arms:
+      incumbent: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k
+      challengers:
+        - {model: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k, label: card}
+  auto-research::data:
+    tool_mode: production
+    home: data_production
+    discovery: []
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k
+      challengers:
+        - {model: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k, label: card}
+  auto-coding:
+    tool_mode: sandbox
+    home: coding_production
+    discovery: []
+    arms:
+      incumbent: qwen3-coder:30b-a3b-q4_K_M-ctx256k
+      challengers:
+        - {model: qwen3-coder:30b-a3b-q4_K_M-ctx256k, label: card}
+  auto-daily::fast:
+    tool_mode: production
+    home: general_production
+    discovery: []
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k
+      challengers:
+        - {model: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k, label: card}
+  auto-vision:
+    home: vision_production
+    discovery: []
+    arms:
+      incumbent: qwen3-vl:32b-ctx8k
+      challengers:
+        - {model: qwen3-vl:32b-ctx8k, label: card}
+  tools-specialist:
+    tool_mode: production
+    home: tools_specialist_production
+    discovery: []
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k
+      challengers:
+        - {model: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k, label: card}

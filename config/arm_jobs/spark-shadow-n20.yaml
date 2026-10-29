@@ -1,0 +1,44 @@
+id: spark-shadow-n20
+purpose: >-
+  Reach the Spark review point (n>=20 shadow comparisons): 20 small test_fixing arm tasks (the
+  discipline's own two repair fixtures, ten repeats each) run through the arm, each read/check bite
+  detached to the shadow seat, then the shadow summary. Read compared, agree_percent, false_accept,
+  false_fail and errors: the review point is n>=20 compared rows, and the job fails if it cannot
+  reach it.
+preconditions:
+  stack: up
+  free_memory_gib: 20
+  disk_free_gib: 20
+steps:
+  - id: shadow-batch
+    argv:
+      - uv
+      - run
+      - python
+      - scripts/arm_shadow_batch.py
+      - "--repeat"
+      - "10"
+      - "--prefix"
+      - shadow-n20
+      - "--minimum-compared"
+      - "20"
+      - "--wait-seconds"
+      - "1800"
+      - "--output"
+      - results/arm/shadow_n20_20261029.json
+    timeout_seconds: 21600
+    outputs:
+      - results/arm/shadow_n20_20261029.json
+stop_conditions:
+  on_failure: stop
+  max_job_minutes: 400
+report:
+  fields:
+    - status
+    - purpose
+    - steps
+    - outputs
+    - failures
+    - memory
+    - duration
+    - resume

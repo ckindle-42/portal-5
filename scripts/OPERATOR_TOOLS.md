@@ -41,6 +41,8 @@ python3 scripts/blend_acceptance_results.py        # blend docs/ACCEPTANCE_RESUL
 ```bash
 uv run python scripts/orchestration_acceptance.py --dry-run
                                     # arm smoke/wiring harness: offline fake Pipeline by default; live mode refuses while a WFE sweep is active and is not Gate B/C evidence
+uv run python scripts/arm_shadow_batch.py --repeat 10 --minimum-compared 20 --output results/arm/shadow_n20.json
+                                    # Spark review point: N test_fixing arm tasks from the WFE bite suite, each read/check bite detached to the shadow seat, then the shadow summary (job spec: config/arm_jobs/spark-shadow-n20.yaml)
 uv run python scripts/gate_c_calculator.py <task-dir-or-receipt>...
                                     # read-only Gate C floor from arm receipts + pre-written pass_criteria; prints the value to set
 python3 scripts/uat_engines.py                     # one shot per enabled engine and variant, plus engines-and-roles checks (JSON under ${PORTAL_DATA_ROOT}/uat/; --dry-run, --only ID)

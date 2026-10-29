@@ -73,6 +73,16 @@ def _acquire(corpus: Path, kb_id: str) -> dict:
     }
 
 
+def _corpus_problem(receipt: dict) -> str | None:
+    """Why --require-corpus refuses this receipt, or None when the acquisition ran."""
+    acquisition = (receipt.get("projections") or {}).get("acquisition") or {}
+    if acquisition.get("ingest_error"):
+        return f"acquisition error: {acquisition['ingest_error']}"
+    if not acquisition.get("files_ingested"):
+        return "the corpus ingested no files; a missing or empty folder is not a re-capture"
+    return None
+
+
 def _graph_proof() -> dict:
     from portal.modules.compliance.core.cip_register import Register
     from portal.modules.compliance.core.policy_graph import build_policy_graph
@@ -153,8 +163,15 @@ def main(argv: list[str] | None = None) -> int:
         "so acquisition can never leave sha1 chunks as the product index.",
     )
     parser.add_argument("--kb-id", default="operator_corpus")
+    parser.add_argument(
+        "--require-corpus",
+        action="store_true",
+        help="fail when --corpus acquires nothing, so a missing folder cannot pass as a re-capture",
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args(argv)
+    if args.require_corpus and args.corpus is None:
+        parser.error("--require-corpus needs --corpus")
 
     receipt = rebuild(args.corpus.resolve() if args.corpus else None, kb_id=args.kb_id)
     payload = json.dumps(receipt, indent=2, sort_keys=True, default=str)
@@ -162,6 +179,11 @@ def main(argv: list[str] | None = None) -> int:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(payload + "\n", encoding="utf-8")
     print(payload)
+    if args.require_corpus:
+        problem = _corpus_problem(receipt)
+        if problem:
+            print(f"ERROR: {problem}", file=sys.stderr)
+            return 2
     retrieval = receipt["projections"]["retrieval"]
     proofs = retrieval.get("materialization_proofs", {})
     all_proofs = bool(proofs) and all(p["materialized"] for p in proofs.values())
