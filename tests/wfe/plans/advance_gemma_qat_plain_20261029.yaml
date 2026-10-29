@@ -1,0 +1,5 @@
+auto-documents:
+- gemma4:26b-a4b-it-qat-ctx32k@card-0c0db1ca
+auto-vision:
+- gemma4:26b-a4b-it-q4_K_M-ctx32k@card-0c0db1ca
+- gemma4:26b-a4b-it-qat-ctx32k@card-0c0db1ca
