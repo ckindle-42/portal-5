@@ -1,0 +1,119 @@
+id: wfe-realuse-rest
+purpose: >-
+  The remaining WFE decisions on the realuse_v1 suite, after realuse_s8. Three campaigns in
+  order, each at --tier realuse with --judge, then its report. realuse_reruns_20261030 is the
+  invalidated auto-research::data seat-versus-card pair and the auto-vision gemma4 QAT arm.
+  realuse_documents_20261030 is the two auto-documents confirms (card sampling, gemma4 QAT).
+  realuse_s5s7s10_20261030 is the S5-S7 and S10 cells still open. Read each report's per-arm
+  pass rates and the blind preferences (reported, not gated). An unset REPEATS on --tier
+  realuse leaves the one-or-two draw policy in place. The 96k and 128k general arms are in
+  the third plan; the load guard has to keep the other engine unloaded or that step trips.
+preconditions:
+  stack: up
+  free_memory_gib: 24
+  disk_free_gib: 30
+steps:
+  - id: reruns
+    argv:
+      - scripts/wfe_campaign.sh
+      - realuse_reruns_20261030
+      - "--plan"
+      - tests/wfe/plans/realuse_v1_reruns.yaml
+      - "--tier"
+      - realuse
+      - "--engine"
+      - pipeline
+      - "--judge"
+    timeout_seconds: 21600
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_reruns_20261030/manifest.json
+  - id: reruns-report
+    argv:
+      - uv
+      - run
+      - python
+      - "-m"
+      - tests.wfe.report
+      - "--campaign"
+      - realuse_reruns_20261030
+      - "--out-dir"
+      - tests/wfe/results/advance
+    timeout_seconds: 900
+    quiet_host: false
+    outputs:
+      - tests/wfe/results/advance/WFE_FITNESS_REPORT_realuse_reruns_20261030.md
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_reruns_20261030/report.json
+  - id: documents
+    argv:
+      - scripts/wfe_campaign.sh
+      - realuse_documents_20261030
+      - "--plan"
+      - tests/wfe/plans/realuse_v1_documents.yaml
+      - "--tier"
+      - realuse
+      - "--engine"
+      - pipeline
+      - "--judge"
+    timeout_seconds: 21600
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_documents_20261030/manifest.json
+  - id: documents-report
+    argv:
+      - uv
+      - run
+      - python
+      - "-m"
+      - tests.wfe.report
+      - "--campaign"
+      - realuse_documents_20261030
+      - "--out-dir"
+      - tests/wfe/results/advance
+    timeout_seconds: 900
+    quiet_host: false
+    outputs:
+      - tests/wfe/results/advance/WFE_FITNESS_REPORT_realuse_documents_20261030.md
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_documents_20261030/report.json
+  - id: decisions
+    argv:
+      - scripts/wfe_campaign.sh
+      - realuse_s5s7s10_20261030
+      - "--plan"
+      - tests/wfe/plans/realuse_v1_s5s7s10.yaml
+      - "--tier"
+      - realuse
+      - "--engine"
+      - pipeline
+      - "--judge"
+    timeout_seconds: 172800
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_s5s7s10_20261030/manifest.json
+  - id: decisions-report
+    argv:
+      - uv
+      - run
+      - python
+      - "-m"
+      - tests.wfe.report
+      - "--campaign"
+      - realuse_s5s7s10_20261030
+      - "--out-dir"
+      - tests/wfe/results/advance
+    timeout_seconds: 900
+    quiet_host: false
+    outputs:
+      - tests/wfe/results/advance/WFE_FITNESS_REPORT_realuse_s5s7s10_20261030.md
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_s5s7s10_20261030/report.json
+stop_conditions:
+  on_failure: stop
+  max_job_minutes: 4200
+report:
+  fields:
+    - status
+    - purpose
+    - steps
+    - outputs
+    - checkpoints
+    - failures
+    - memory
+    - duration
+    - resume

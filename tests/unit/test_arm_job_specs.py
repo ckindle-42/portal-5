@@ -29,6 +29,7 @@ EXPECTED = {
     "bully-r0b-real-dryrun",
     "bully-r0b-ship",
     "wfe-fast-baseline",
+    "wfe-realuse-rest",
 }
 
 SHIP_ENV = (
@@ -134,6 +135,48 @@ def test_env_from_dotenv_rejects_keys_outside_the_allowlist() -> None:
 
     with pytest.raises(ValueError, match="allowlist"):
         parse_job_spec(raw, repo_root=ROOT)
+
+
+def test_realuse_rest_runs_the_three_groups_then_reports() -> None:
+    spec = _spec(SPEC_DIR / "wfe-realuse-rest.yaml")
+    campaigns = [step for step in spec.steps if step.argv[0] == "scripts/wfe_campaign.sh"]
+    reports = [step for step in spec.steps if step.argv[3:5] == ("-m", "tests.wfe.report")]
+
+    assert [step.step_id for step in spec.steps] == [
+        "reruns",
+        "reruns-report",
+        "documents",
+        "documents-report",
+        "decisions",
+        "decisions-report",
+    ]
+    assert [step.argv[1] for step in campaigns] == [
+        "realuse_reruns_20261030",
+        "realuse_documents_20261030",
+        "realuse_s5s7s10_20261030",
+    ]
+    plans = (
+        "tests/wfe/plans/realuse_v1_reruns.yaml",
+        "tests/wfe/plans/realuse_v1_documents.yaml",
+        "tests/wfe/plans/realuse_v1_s5s7s10.yaml",
+    )
+    for step, plan, campaign_id in zip(
+        campaigns, plans, [s.argv[1] for s in campaigns], strict=True
+    ):
+        assert step.argv[step.argv.index("--plan") + 1] == plan
+        assert step.argv[step.argv.index("--tier") + 1] == "realuse"
+        assert step.argv[step.argv.index("--engine") + 1] == "pipeline"
+        assert "--judge" in step.argv
+        assert step.quiet_host is True
+        assert campaign_id.startswith("realuse_")
+    assert [step.argv[step.argv.index("--campaign") + 1] for step in reports] == [
+        step.argv[1] for step in campaigns
+    ]
+    assert all(step.quiet_host is False for step in reports)
+    for name in plans:
+        data = yaml.safe_load((ROOT / name).read_text(encoding="utf-8"))
+        for workspace, workload in data["workloads"].items():
+            assert workload["home"] == "realuse_v1", f"{name}:{workspace}"
 
 
 def test_the_recapture_backs_up_the_store_it_rewrites() -> None:

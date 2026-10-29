@@ -43,7 +43,10 @@ FAKE_CURL = "#!/usr/bin/env bash\nexit 0\n"
 
 
 def _run(
-    tmp_path: Path, *args: str, env_extra: dict[str, str] | None = None
+    tmp_path: Path,
+    *args: str,
+    env_extra: dict[str, str] | None = None,
+    drop_env: tuple[str, ...] = (),
 ) -> tuple[subprocess.CompletedProcess[str], list[dict]]:
     bindir = tmp_path / "bin"
     bindir.mkdir(exist_ok=True)
@@ -67,6 +70,8 @@ def _run(
     }
     if env_extra:
         env.update(env_extra)
+    for key in drop_env:
+        env.pop(key, None)
     env.pop("WFE_ENGINE", None)
     result = subprocess.run(
         ["bash", str(SCRIPT), "wfe_test", *args],
@@ -194,6 +199,51 @@ def test_dry_run_exits_zero_without_asking_whether_anything_was_measured(tmp_pat
     assert result.returncode == 0, result.stdout + result.stderr
     assert "NOTHING MEASURED:" not in result.stdout + result.stderr
     assert all("--require-measured" not in call["argv"] for call in calls)
+
+
+def _campaign_calls(calls: list[dict]) -> list[dict]:
+    return [
+        call
+        for call in calls
+        if "tests.wfe.campaign" in call["argv"] and "--append" in call["argv"]
+    ]
+
+
+def test_realuse_tier_omits_repeats_when_repeats_is_unset(tmp_path: Path) -> None:
+    plan = "tests/wfe/plans/realuse_v1_s8.yaml"
+
+    result, calls = _run(
+        tmp_path,
+        "--plan",
+        plan,
+        "--tier",
+        "realuse",
+        "--engine",
+        "pipeline",
+        drop_env=("REPEATS",),
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    campaign_calls = _campaign_calls(calls)
+    assert campaign_calls
+    for call in campaign_calls:
+        assert "--repeats" not in call["argv"]
+        assert call["argv"][-2:] == ["--tier", "realuse"]
+
+
+def test_an_explicit_repeats_still_reaches_a_realuse_tier(tmp_path: Path) -> None:
+    result, calls = _run(
+        tmp_path,
+        "--plan",
+        "tests/wfe/plans/realuse_v1_s8.yaml",
+        "--tier",
+        "realuse",
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    for call in _campaign_calls(calls):
+        argv = call["argv"]
+        assert argv[argv.index("--repeats") + 1] == "3"
 
 
 def test_the_script_exits_with_the_nothing_measured_line(tmp_path: Path) -> None:
