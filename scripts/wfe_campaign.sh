@@ -45,10 +45,12 @@ done
 set -- "${ARGS[@]+"${ARGS[@]}"}"
 [ -n "${PLAN:-}" ] && export PLAN
 [ -n "${WFE_ENGINE:-}" ] && export WFE_ENGINE
-# Pipeline mode authenticates to :9099; the repo's own .env is where the key lives.
+# Pipeline mode authenticates to :9099. Take ONLY the key from the repo .env: sourcing the
+# whole file exports container hostnames/paths that break host-side runners.
 if [ "${WFE_ENGINE:-}" = "pipeline" ] && [ -z "${PIPELINE_API_KEY:-}" ] \
     && [ -f "$REPO_ROOT/.env" ]; then
-    set -a; . "$REPO_ROOT/.env" 2>/dev/null || true; set +a
+    PIPELINE_API_KEY="$(grep -E '^PIPELINE_API_KEY=' "$REPO_ROOT/.env" | tail -1 | cut -d= -f2- | tr -d "\"'")"
+    [ -n "$PIPELINE_API_KEY" ] && export PIPELINE_API_KEY
 fi
 
 REPEATS="${REPEATS:-3}"
