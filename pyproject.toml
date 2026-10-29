@@ -255,6 +255,9 @@ dev = [
     # the dev-only extras CI installs.
     "markdown>=3.6",
 ]
+corpora = [
+    "python-evtx>=0.7.4",
+]
 
 [project.scripts]
 portal-pipeline = "portal.platform.inference.__main__:main"

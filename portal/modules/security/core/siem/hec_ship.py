@@ -83,6 +83,8 @@ def ship_batch(
     evidence_origin: str | None = None,
     evidence_provenance: str | None = None,
     episode_id: str | None = None,
+    source: str | None = None,
+    fields: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Batch to /services/collector/event (newline-concatenated event objects).
 
@@ -107,22 +109,26 @@ def ship_batch(
         envelope = {
             "time": stamp,
             "host": host,
-            "source": f"portal5:{evidence_origin or 'unclassified'}",
+            "source": source
+            if source is not None
+            else f"portal5:{evidence_origin or 'unclassified'}",
             "sourcetype": sourcetype,
             "index": index,
             "event": e,
         }
-        fields = {
-            key: value
-            for key, value in {
-                "evidence_origin": evidence_origin,
-                "evidence_provenance": evidence_provenance,
-                "episode_id": episode_id,
-            }.items()
-            if value
-        }
-        if fields:
-            envelope["fields"] = fields
+        indexed_fields = fields
+        if indexed_fields is None:
+            indexed_fields = {
+                key: value
+                for key, value in {
+                    "evidence_origin": evidence_origin,
+                    "evidence_provenance": evidence_provenance,
+                    "episode_id": episode_id,
+                }.items()
+                if value
+            }
+        if indexed_fields:
+            envelope["fields"] = indexed_fields
         return envelope
 
     payload = "\n".join(
