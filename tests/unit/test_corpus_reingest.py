@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
 from portal.modules.security.core.siem import hec_ship
+from scripts import acquire_corpus_sources as acquisition
 from scripts import corpus_reingest as reingest
 from scripts import lab_delete_cousins
 
@@ -67,7 +70,7 @@ def test_sourcetype_and_source_precedence() -> None:
     assert (cloudtrail.sourcetype, cloudtrail.source) == ("aws:cloudtrail", "aws_cloudtrail")
 
     unknown = reingest.resolve_event(corpus_file(), "plain line")
-    assert (unknown.sourcetype, unknown.source) == ("mordor:unknown", "mordor:unknown")
+    assert (unknown.sourcetype, unknown.source) == ("raw", "raw")
     assert unknown.unknown_sourcetype
 
 
@@ -82,6 +85,14 @@ def test_host_precedence_and_unknown_count() -> None:
         reingest.resolve_event(corpus_file(), {"recipientAccountId": "123456789012"}).host
         == "123456789012"
     )
+    cloud_identity = reingest.resolve_event(
+        corpus_file(), {"userIdentity": {"accountId": "987654321098"}}
+    )
+    assert cloud_identity.host == "987654321098"
+    syslog = reingest.resolve_event(
+        corpus_file(), "<34>1 2024-01-02T03:04:05Z syslog-01 app 1 ID47 - message"
+    )
+    assert syslog.host == "syslog-01"
     unknown = reingest.resolve_event(corpus_file(), "plain line")
     assert unknown.host == "unknown"
     assert unknown.unknown_host
@@ -104,6 +115,34 @@ def test_timestamp_fallback_is_counted() -> None:
     no_date = reingest.resolve_event(corpus_file(), "plain line")
     assert no_date.epoch is None
 
+    generated = reingest.resolve_event(corpus_file(), {"timeGenerated": "2020-01-02T03:04:05Z"})
+    assert generated.epoch == 1_577_934_245
+    assert not generated.date_fallback
+
+    windows = reingest.resolve_event(
+        corpus_file(),
+        '<Event><System><TimeCreated SystemTime="2020-01-02T03:04:05Z" /></System></Event>',
+    )
+    assert windows.epoch == 1_577_934_245
+    assert not windows.date_fallback
+
+    cloudtrail = reingest.resolve_event(
+        corpus_file(),
+        {
+            "eventSource": "iam.amazonaws.com",
+            "eventName": "CreateUser",
+            "eventTime": "2020-01-02T03:04:05Z",
+        },
+    )
+    assert cloudtrail.epoch == 1_577_934_245
+    assert not cloudtrail.date_fallback
+
+    rfc3164 = reingest.resolve_event(
+        corpus_file(fallback_epoch=1_577_836_800), "<34>Jan 02 03:04:05 syslog-01 app: event"
+    )
+    assert rfc3164.epoch == 1_577_934_245
+    assert rfc3164.date_fallback
+
 
 def test_p5_item_is_opaque_and_stable() -> None:
     first = reingest.p5_item_id("attack_data", "attack_techniques/T1003.001/test")
@@ -119,6 +158,63 @@ def test_leak_scan_catches_technique_test_directory_and_publisher() -> None:
     assert reingest.value_has_leak("source:test-directory", item)
     assert reingest.value_has_leak("Mordor", item)
     assert not reingest.value_has_leak("XmlWinEventLog:Security", item)
+
+
+def test_technique_names_are_removed_from_index_fields() -> None:
+    item = corpus_file(test_id="T1003.001/credential-access-case")
+    resolved = reingest.resolve_event(item, "plain line")
+    assert resolved.sourcetype == "raw"
+    assert resolved.source == "raw"
+    assert resolved.host == "unknown"
+    assert not resolved.residual_leak
+
+
+def test_test_directory_names_are_removed_from_source_and_host() -> None:
+    item = corpus_file(
+        test_id="named-test-directory/case",
+        declared_sourcetype="raw",
+        declared_source="/tmp/named-test-directory/event.log",
+    )
+    resolved = reingest.resolve_event(
+        item, {"hostname": "named-test-directory.example", "timestamp": "2020-01-01T00:00:00Z"}
+    )
+    assert resolved.source == "raw"
+    assert resolved.host == "raw"
+    assert not resolved.residual_leak
+
+
+def test_filename_names_are_removed_from_source_and_host(tmp_path: Path) -> None:
+    event_path = tmp_path / "named-file-case.jsonl"
+    event_path.write_text("{}\n", encoding="utf-8")
+    item = reingest.CorpusFile(
+        "mordor",
+        "ordinary-test",
+        event_path,
+        tmp_path,
+        declared_sourcetype="raw",
+        declared_source="/tmp/named-file-case.jsonl",
+    )
+
+    resolved = reingest.resolve_event(
+        item, {"hostname": "named-file-case.example", "timestamp": "2020-01-01T00:00:00Z"}
+    )
+
+    assert resolved.source == "raw"
+    assert resolved.host == "raw"
+    assert not resolved.residual_leak
+
+
+def test_publisher_name_is_removed_from_sourcetype_and_source() -> None:
+    item = corpus_file(
+        publisher="mordor",
+        test_id="ordinary-test",
+        declared_sourcetype="mordor:events",
+        declared_source="mordor:ordinary-test",
+    )
+    resolved = reingest.resolve_event(item, "plain line")
+    assert resolved.sourcetype == "raw"
+    assert resolved.source == "raw"
+    assert not resolved.residual_leak
 
 
 def test_ship_batch_keeps_old_envelope_for_existing_callers(monkeypatch: Any) -> None:
@@ -259,10 +355,13 @@ def test_scan_inputs_counts_fallback_unknown_and_residual_leak(tmp_path: Path) -
         "missing_time": 0,
         "source_replacements": 1,
         "host_replacements": 0,
-        "residual_leaks": 1,
+        "sourcetype_replacements": 1,
+        "residual_leaks": 0,
     }
     assert report["by_publisher"] == {"mordor": 1}
     assert report["by_host"] == {"unknown": 1}
+    assert report["unknown_hosts_by_sourcetype"] == {"_json": 1}
+    assert report["date_fallback_by_format"] == {"json": 1}
     item_id = reingest.p5_item_id("mordor", "test-directory")
     assert report["items"][item_id]["date_fallback"] == 1
 
@@ -307,3 +406,98 @@ def test_ship_iterator_uses_python_evtx_xml_records(tmp_path: Path, monkeypatch:
 
     assert len(resolved) == 1
     assert resolved[0][1].body == body
+
+
+def _git(root: Path, *args: str) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(root), *args], capture_output=True, text=True, check=True
+    )
+    return result.stdout.strip()
+
+
+def test_dry_run_refuses_dirty_source_checkout(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    source_root = tmp_path / "sources"
+    dirty_repo = source_root / "attack_data"
+    dirty_repo.mkdir(parents=True)
+    _git(dirty_repo, "init")
+    _git(dirty_repo, "config", "user.name", "Unit Test")
+    _git(dirty_repo, "config", "user.email", "unit@example.invalid")
+    tracked = dirty_repo / "tracked.txt"
+    tracked.write_text("clean baseline\n", encoding="utf-8")
+    _git(dirty_repo, "add", "tracked.txt")
+    _git(dirty_repo, "commit", "-m", "baseline")
+    (dirty_repo / "dirty.txt").write_text("uncommitted\n", encoding="utf-8")
+    output_root = tmp_path / "reports"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "corpus_reingest.py",
+            "--dry-run",
+            "--sources-root",
+            str(source_root),
+            "--corpora-root",
+            str(tmp_path / "corpora"),
+            "--output-root",
+            str(output_root),
+        ],
+    )
+
+    assert reingest.main() == 2
+    assert '"mode": "BLOCKED"' in capsys.readouterr().out
+    assert not output_root.exists()
+    assert (dirty_repo / "dirty.txt").read_text(encoding="utf-8") == "uncommitted\n"
+
+
+def test_acquisition_clones_alongside_dirty_checkout(tmp_path: Path) -> None:
+    upstream = tmp_path / "upstream"
+    upstream.mkdir()
+    _git(upstream, "init")
+    _git(upstream, "config", "user.name", "Unit Test")
+    _git(upstream, "config", "user.email", "unit@example.invalid")
+    (upstream / "payload.txt").write_text("pinned\n", encoding="utf-8")
+    _git(upstream, "add", "payload.txt")
+    _git(upstream, "commit", "-m", "pinned")
+    commit = _git(upstream, "rev-parse", "HEAD")
+    target = tmp_path / "sources" / "attack_data"
+    target.mkdir(parents=True)
+    _git(target, "init")
+    _git(target, "config", "user.name", "Unit Test")
+    _git(target, "config", "user.email", "unit@example.invalid")
+    (target / "tracked.txt").write_text("clean baseline\n", encoding="utf-8")
+    _git(target, "add", "tracked.txt")
+    _git(target, "commit", "-m", "baseline")
+    (target / "local-only.txt").write_text("keep\n", encoding="utf-8")
+    dirty_status = _git(target, "status", "--porcelain")
+    spec = acquisition.SourceSpec("attack_data", str(upstream), commit, target)
+
+    result = acquisition.acquire_checkout(spec)
+
+    sibling = acquisition.sibling_checkout(target, commit)
+    assert result["status"] == "acquired"
+    assert Path(result["path"]) == sibling
+    assert acquisition.inspect_checkout(sibling, commit)["status"] == "verified"
+    assert (target / "local-only.txt").read_text(encoding="utf-8") == "keep\n"
+    assert _git(target, "status", "--porcelain") == dirty_status
+
+
+def test_acquisition_verification_rejects_lfs_pointers(tmp_path: Path) -> None:
+    repo = tmp_path / "source"
+    repo.mkdir()
+    _git(repo, "init")
+    _git(repo, "config", "user.name", "Unit Test")
+    _git(repo, "config", "user.email", "unit@example.invalid")
+    pointer = repo / "sample.evtx"
+    pointer.write_text(
+        "version https://git-lfs.github.com/spec/v1\noid sha256:0123456789abcdef\nsize 2048\n",
+        encoding="utf-8",
+    )
+    _git(repo, "add", "sample.evtx")
+    _git(repo, "commit", "-m", "pointer")
+    commit = _git(repo, "rev-parse", "HEAD")
+
+    result = acquisition.inspect_checkout(repo, commit)
+
+    assert result["status"] == "lfs_incomplete"

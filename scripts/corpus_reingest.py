@@ -34,6 +34,9 @@ BATCH = 500
 EXPECTED_COMMITS = {
     "attack_data": "4145e8b60fd8a3d44bc2170d1eb343fe7247387b",
     "mordor": "d9d40ef123d2c87d5d3df28c96bcab4f0faccc87",
+    "evtx_samples": "4ceed2f4706daf601c212a8f91c113dd85349a2c",
+    "evtx_mitre": "474856008f037ccd42753f02a631b42690195829",
+    "invictus_ir": "4667aa9c26330bc3317ed8bd526f4b83cff13602",
 }
 EXPECTED_INPUTS = {
     "attack_data": "1352 manifest tests (task baseline)",
@@ -86,9 +89,11 @@ class ResolvedEvent:
     source: str
     host: str
     epoch: float | None
+    event_format: str
     date_fallback: bool
     unknown_sourcetype: bool
     unknown_host: bool
+    sourcetype_replaced: bool
     source_replaced: bool
     host_replaced: bool
     residual_leak: bool
@@ -231,6 +236,33 @@ def _xml_fields(body: str) -> dict[str, str]:
     }
 
 
+_SYSLOG_RFC5424_HOST = re.compile(r"^(?:<\d{1,3}>)?\d+\s+\S+\s+(\S+)(?:\s|$)")
+_SYSLOG_RFC3164_HOST = re.compile(
+    r"^(?:<\d{1,3}>)?[A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}\s+(\S+)"
+)
+_SYSLOG_ISO_HOST = re.compile(r"^\S+T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})\s+(\S+)")
+_SYSLOG_RFC3164_TIME = re.compile(
+    r"^(?:<\d{1,3}>)?([A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})\s+"
+)
+_EVENT_TIMESTAMP_KEYS = {
+    "@timestamp",
+    "timestamp",
+    "timecreated",
+    "systemtime",
+    "utctime",
+    "eventtime",
+    "event_time",
+    "timegenerated",
+    "time_generated",
+    "eventcreated",
+    "creationtime",
+    "created_at",
+    "datetime",
+    "date",
+    "time",
+}
+
+
 def _json_channel(event: Mapping[str, Any]) -> str | None:
     values: list[Any] = [event.get("Channel"), event.get("channel")]
     winlog = event.get("winlog")
@@ -278,30 +310,87 @@ def _source_fields(
     return sourcetype, source
 
 
+def event_format(event: dict[str, Any] | str) -> str:
+    if isinstance(event, str):
+        if event.lstrip().startswith("<"):
+            return "windows_xml"
+        if _syslog_host(event) is not None:
+            return "syslog"
+        return "line"
+    return "cloudtrail_json" if _is_cloudtrail(event) else "json"
+
+
+def _syslog_host(line: str) -> str | None:
+    for pattern in (_SYSLOG_RFC5424_HOST, _SYSLOG_RFC3164_HOST, _SYSLOG_ISO_HOST):
+        match = pattern.match(line)
+        if match and match.group(1) != "-":
+            return match.group(1)
+    return None
+
+
+def _cloud_source_identity(event: Mapping[str, Any]) -> str | None:
+    for key in (
+        "recipientAccountId",
+        "accountId",
+        "account_id",
+        "awsAccountId",
+        "subscriptionId",
+        "tenantId",
+        "ResourceId",
+        "resourceId",
+    ):
+        value = event.get(key)
+        if value not in (None, "") and not isinstance(value, Mapping):
+            return str(value).strip()
+    for key in ("userIdentity", "identity", "cloud"):
+        value = event.get(key)
+        if not isinstance(value, Mapping):
+            continue
+        for identity_key in ("accountId", "account_id", "subscriptionId", "tenantId", "id"):
+            identity = value.get(identity_key)
+            if identity not in (None, "") and not isinstance(identity, Mapping):
+                return str(identity).strip()
+    return None
+
+
 def _host_value(event: dict[str, Any] | str, xml_fields: Mapping[str, str] | None = None) -> str:
     if isinstance(event, str):
         value = (xml_fields or _xml_fields(event)).get("Computer")
-        return value or "unknown"
+        return value or _syslog_host(event) or "unknown"
+    nested_host = event.get("host")
+    nested_hostname = (
+        nested_host.get("name") or nested_host.get("hostname")
+        if isinstance(nested_host, Mapping)
+        else None
+    )
     values: list[Any] = [
         event.get("Computer"),
         event.get("hostname"),
-        event.get("host"),
+        event.get("host") if not isinstance(nested_host, Mapping) else nested_hostname,
         event.get("Hostname"),
+        event.get("host_name"),
+        event.get("_HOSTNAME"),
     ]
     event_root = event.get("Event")
     if isinstance(event_root, Mapping):
         system = event_root.get("System")
         if isinstance(system, Mapping):
             values.append(system.get("Computer"))
-    if not any(values):
-        values.append(event.get("recipientAccountId"))
-    return next((str(value).strip() for value in values if value not in (None, "")), "unknown")
+    for value in values:
+        if value not in (None, "") and not isinstance(value, Mapping):
+            normalized = str(value).strip()
+            if normalized:
+                return normalized
+    return _cloud_source_identity(event) or "unknown"
 
 
 def _path_tokens(item: CorpusFile) -> set[str]:
-    parts = list(Path(item.test_id).parts)
+    test_parts = list(Path(item.test_id).parts)
+    file_parts = list(item.path.relative_to(item.root).parts)
+    parts = test_parts + file_parts
     tokens = {part for part in parts if len(part) >= 4}
-    lower = [part.casefold() for part in parts]
+    tokens.update(Path(part).stem for part in file_parts if len(Path(part).stem) >= 4)
+    lower = [part.casefold() for part in test_parts]
     for index, part in enumerate(lower[:-1]):
         if part in {"malware", "campaign", "campaigns", "apt_simulations"}:
             tokens.add(parts[index + 1])
@@ -313,8 +402,10 @@ def _path_tokens(item: CorpusFile) -> set[str]:
 def value_has_leak(value: str, item: CorpusFile) -> bool:
     if TECHNIQUE_RE.search(value):
         return True
-    normalized = re.sub(r"[^a-z0-9]", "", value.casefold())
-    return any(re.sub(r"[^a-z0-9]", "", token) in normalized for token in _path_tokens(item))
+    return any(
+        re.search(rf"(?<![A-Za-z0-9]){re.escape(token)}(?![A-Za-z0-9])", value, re.IGNORECASE)
+        for token in _path_tokens(item)
+    )
 
 
 def _tool_tells(item: CorpusFile, event: dict[str, Any] | str) -> tuple[str, ...]:
@@ -325,33 +416,90 @@ def _tool_tells(item: CorpusFile, event: dict[str, Any] | str) -> tuple[str, ...
     return tuple(name for name, pattern in TOOL_TELLS.items() if pattern.search(haystack))
 
 
+def _timestamp_epoch(value: Any) -> float | None:
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        number = float(value)
+        if math.isfinite(number) and number >= 100_000_000:
+            return number / 1000 if number >= 100_000_000_000 else number
+    elif value not in (None, ""):
+        epoch = legacy.event_epoch({"timestamp": str(value)}, math.nan)
+        if math.isfinite(epoch):
+            return epoch
+    return None
+
+
+def _nested_timestamps(value: Any) -> Iterator[Any]:
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            if str(key).casefold() in _EVENT_TIMESTAMP_KEYS:
+                yield item
+            if isinstance(item, (Mapping, list)):
+                yield from _nested_timestamps(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _nested_timestamps(item)
+
+
+def _event_epoch(event: dict[str, Any] | str, fallback: float | None) -> tuple[float | None, bool]:
+    own_epoch = legacy.event_epoch(event, math.nan)
+    if math.isfinite(own_epoch):
+        return own_epoch, False
+    if isinstance(event, Mapping):
+        for value in _nested_timestamps(event):
+            if (epoch := _timestamp_epoch(value)) is not None:
+                return epoch, False
+    if isinstance(event, str) and fallback is not None:
+        match = _SYSLOG_RFC3164_TIME.match(event)
+        if match:
+            year = dt.datetime.fromtimestamp(fallback, dt.UTC).year
+            parsed = dt.datetime.strptime(f"{year} {match.group(1)}", "%Y %b %d %H:%M:%S")
+            return parsed.replace(tzinfo=dt.UTC).timestamp(), True
+    return fallback, fallback is not None
+
+
+def _safe_sourcetype(sourcetype: str, item: CorpusFile, event: dict[str, Any] | str) -> str:
+    if not value_has_leak(sourcetype, item):
+        return sourcetype
+    format_fallback = {
+        "windows_xml": "XmlWinEventLog",
+        "cloudtrail_json": "aws:cloudtrail",
+        "json": "_json",
+        "syslog": "syslog",
+        "line": "raw",
+    }[event_format(event)]
+    for candidate in (format_fallback, "unknown", "raw", "x"):
+        if not value_has_leak(candidate, item):
+            return candidate
+    return "x"
+
+
 def resolve_event(item: CorpusFile, event: dict[str, Any] | str) -> ResolvedEvent:
-    sourcetype, source = _source_fields(
+    original_sourcetype, source = _source_fields(
         item.publisher, event, item.declared_sourcetype, item.declared_source
     )
     xml_fields = (
         _xml_fields(event) if isinstance(event, str) and event.lstrip().startswith("<") else {}
     )
     host = _host_value(event, xml_fields)
-    own_epoch = legacy.event_epoch(event, math.nan)
-    date_fallback = not math.isfinite(own_epoch) and item.fallback_epoch is not None
-    epoch = own_epoch if math.isfinite(own_epoch) else item.fallback_epoch
+    epoch, date_fallback = _event_epoch(event, item.fallback_epoch)
+    sourcetype_replaced = value_has_leak(original_sourcetype, item)
+    sourcetype = _safe_sourcetype(original_sourcetype, item, event)
     source_replaced = value_has_leak(source, item)
     host_replaced = value_has_leak(host, item)
     safe_source = sourcetype if source_replaced else source
     safe_host = sourcetype if host_replaced else host
-    residual = (source_replaced and value_has_leak(safe_source, item)) or (
-        host_replaced and value_has_leak(safe_host, item)
-    )
+    residual = any(value_has_leak(value, item) for value in (sourcetype, safe_source, safe_host))
     return ResolvedEvent(
         event,
         sourcetype,
         safe_source,
         safe_host,
         epoch,
+        event_format(event),
         date_fallback,
-        sourcetype.endswith(":unknown"),
+        original_sourcetype.endswith(":unknown") or sourcetype_replaced,
         host == "unknown",
+        sourcetype_replaced,
         source_replaced,
         host_replaced,
         residual,
@@ -378,14 +526,29 @@ def source_facts(name: str, root: Path) -> dict[str, Any]:
             "dirty_paths": None,
             "expected_commit": EXPECTED_COMMITS.get(name),
         }
+    top = subprocess.run(
+        ["git", "-C", str(root), "rev-parse", "--show-toplevel"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if top.returncode != 0:
+        return {
+            "status": "not_git",
+            "path": str(root),
+            "commit": None,
+            "dirty_paths": None,
+            "expected_commit": EXPECTED_COMMITS.get(name),
+        }
+    repo_root = Path(top.stdout.strip())
     repo = subprocess.run(
-        ["git", "-C", str(root), "rev-parse", "HEAD"],
+        ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
         capture_output=True,
         text=True,
         check=False,
     )
     status = subprocess.run(
-        ["git", "-C", str(root), "status", "--porcelain"],
+        ["git", "-C", str(repo_root), "status", "--porcelain"],
         capture_output=True,
         text=True,
         check=False,
@@ -395,7 +558,9 @@ def source_facts(name: str, root: Path) -> dict[str, Any]:
         sum(bool(line) for line in status.stdout.splitlines()) if status.returncode == 0 else None
     )
     return {
-        "status": "available_local",
+        "status": "available_local"
+        if repo.returncode == 0 and status.returncode == 0
+        else "invalid_git",
         "path": str(root),
         "commit": commit,
         "dirty_paths": dirty_paths,
@@ -404,6 +569,54 @@ def source_facts(name: str, root: Path) -> dict[str, Any]:
         if name in EXPECTED_COMMITS
         else None,
     }
+
+
+def source_plan_blockers(facts: Mapping[str, Mapping[str, Any]]) -> list[str]:
+    return sorted(
+        name
+        for name, record in facts.items()
+        if record.get("status") not in {"missing", "available_local"}
+        or record.get("dirty_paths") not in (0, None)
+        or record.get("commit_matches_expected") is False
+    )
+
+
+def _roots_from_args(args: argparse.Namespace) -> dict[str, Path]:
+    roots = default_roots(args.sources_root, args.corpora_root)
+    overrides = {
+        "attack_data": args.attack_data_root,
+        "mordor": args.mordor_root,
+        "evtx_samples": args.evtx_samples_root,
+        "evtx_mitre": args.evtx_mitre_root,
+        "invictus_ir": args.invictus_root,
+    }
+    roots.update({name: path for name, path in overrides.items() if path is not None})
+    return roots
+
+
+def _report_blocked_sources(facts: Mapping[str, Mapping[str, Any]]) -> bool:
+    blockers = source_plan_blockers(facts)
+    if not blockers:
+        return False
+    print(
+        json.dumps(
+            {
+                "mode": "BLOCKED",
+                "reason": "source provenance",
+                "sources": {
+                    name: {
+                        "status": facts[name].get("status"),
+                        "commit": facts[name].get("commit"),
+                        "dirty_paths": facts[name].get("dirty_paths"),
+                        "commit_matches_expected": facts[name].get("commit_matches_expected"),
+                    }
+                    for name in blockers
+                },
+            },
+            sort_keys=True,
+        )
+    )
+    return True
 
 
 def _item_bucket(
@@ -426,7 +639,11 @@ def _item_bucket(
             "missing_time": 0,
             "source_replacements": 0,
             "host_replacements": 0,
+            "sourcetype_replacements": 0,
             "residual_leaks": 0,
+            "unknown_hosts_by_sourcetype": Counter(),
+            "date_fallback_by_format": Counter(),
+            "formats": Counter(),
             "tool_tells": set(),
         },
     )
@@ -442,6 +659,9 @@ class ScanAccumulator:
     by_sourcetype: Counter[str] = field(default_factory=Counter)
     by_source: Counter[str] = field(default_factory=Counter)
     by_host: Counter[str] = field(default_factory=Counter)
+    unknown_hosts_by_sourcetype: Counter[str] = field(default_factory=Counter)
+    date_fallback_by_format: Counter[str] = field(default_factory=Counter)
+    by_format: Counter[str] = field(default_factory=Counter)
     distinct_sources: set[str] = field(default_factory=set)
     distinct_hosts: set[str] = field(default_factory=set)
     pointer_skips: Counter[str] = field(default_factory=Counter)
@@ -459,7 +679,14 @@ class ScanAccumulator:
         bucket["missing_time"] += int(resolved.epoch is None)
         bucket["source_replacements"] += int(resolved.source_replaced)
         bucket["host_replacements"] += int(resolved.host_replaced)
+        bucket["sourcetype_replacements"] += int(resolved.sourcetype_replaced)
         bucket["residual_leaks"] += int(resolved.residual_leak)
+        bucket.setdefault("unknown_hosts_by_sourcetype", Counter())
+        bucket["unknown_hosts_by_sourcetype"][resolved.sourcetype] += int(resolved.unknown_host)
+        bucket.setdefault("date_fallback_by_format", Counter())
+        bucket["date_fallback_by_format"][resolved.event_format] += int(resolved.date_fallback)
+        bucket.setdefault("formats", Counter())
+        bucket["formats"][resolved.event_format] += 1
         bucket["tool_tells"].update(resolved.tool_tells)
         self.totals["events"] += 1
         self.totals["unknown_sourcetype"] += int(resolved.unknown_sourcetype)
@@ -468,17 +695,28 @@ class ScanAccumulator:
         self.totals["missing_time"] += int(resolved.epoch is None)
         self.totals["source_replacements"] += int(resolved.source_replaced)
         self.totals["host_replacements"] += int(resolved.host_replaced)
+        self.totals["sourcetype_replacements"] += int(resolved.sourcetype_replaced)
         self.totals["residual_leaks"] += int(resolved.residual_leak)
         self.by_publisher[item.publisher] += 1
         self.by_sourcetype[resolved.sourcetype] += 1
         self.by_source[resolved.source] += 1
         self.by_host[resolved.host] += 1
+        self.unknown_hosts_by_sourcetype[resolved.sourcetype] += int(resolved.unknown_host)
+        self.date_fallback_by_format[resolved.event_format] += int(resolved.date_fallback)
+        self.by_format[resolved.event_format] += 1
         self.distinct_sources.add(resolved.source_checked_value)
         self.distinct_hosts.add(resolved.host_checked_value)
 
     def output(self, read_errors: list[dict[str, str]]) -> dict[str, Any]:
         for bucket in self.items.values():
-            for key in ("declared_sourcetypes", "indexed_sourcetypes", "hosts"):
+            for key in (
+                "declared_sourcetypes",
+                "indexed_sourcetypes",
+                "hosts",
+                "unknown_hosts_by_sourcetype",
+                "date_fallback_by_format",
+                "formats",
+            ):
                 bucket[key] = dict(sorted(bucket[key].items()))
             bucket["data_files"] = [
                 {"path": name, "sha256": digest}
@@ -494,6 +732,9 @@ class ScanAccumulator:
             "by_sourcetype": dict(sorted(self.by_sourcetype.items())),
             "by_source": dict(sorted(self.by_source.items())),
             "by_host": dict(sorted(self.by_host.items())),
+            "by_format": dict(sorted(self.by_format.items())),
+            "unknown_hosts_by_sourcetype": dict(sorted(self.unknown_hosts_by_sourcetype.items())),
+            "date_fallback_by_format": dict(sorted(self.date_fallback_by_format.items())),
             "distinct_source_values_checked": len(self.distinct_sources),
             "distinct_host_values_checked": len(self.distinct_hosts),
             "read_errors": read_errors,
@@ -614,10 +855,38 @@ def _source_summary(
     return records
 
 
+def _fidelity_counter_tables(scan: Mapping[str, Any]) -> list[str]:
+    lines = [
+        "",
+        "## Unknown hosts by sourcetype",
+        "",
+        "| Sourcetype | Unknown-host events | Total events |",
+        "|---|---:|---:|",
+    ]
+    lines.extend(
+        f"| `{name}` | {count} | {scan['by_sourcetype'].get(name, 0)} |"
+        for name, count in scan["unknown_hosts_by_sourcetype"].items()
+    )
+    lines.extend(
+        [
+            "",
+            "## Timestamp fallbacks by format",
+            "",
+            "| Format | Date-fallback events | Total events |",
+            "|---|---:|---:|",
+        ]
+    )
+    lines.extend(
+        f"| `{name}` | {count} | {scan['by_format'].get(name, 0)} |"
+        for name, count in scan["date_fallback_by_format"].items()
+    )
+    return lines
+
+
 def _write_fidelity(path: Path, report: Mapping[str, Any]) -> None:
     scan = report["scan"]
     lines = [
-        "# R0b corpus fidelity dry run",
+        "# R0c corpus fidelity dry run",
         "",
         f"Stamp: `{report['stamp']}`",
         "",
@@ -649,6 +918,7 @@ def _write_fidelity(path: Path, report: Mapping[str, Any]) -> None:
         )
     lines.extend(["", "## Sourcetype counts", "", "| Sourcetype | Events |", "|---|---:|"])
     lines.extend(f"| {name} | {count} |" for name, count in scan["by_sourcetype"].items())
+    lines.extend(_fidelity_counter_tables(scan))
     lines.extend(["", "## Source counts", "", "| Sanitized source | Events |", "|---|---:|"])
     lines.extend(f"| `{name}` | {count} |" for name, count in scan["by_source"].items())
     lines.extend(["", "## Host counts", "", "| Sanitized host | Events |", "|---|---:|"])
@@ -671,6 +941,7 @@ def _write_fidelity(path: Path, report: Mapping[str, Any]) -> None:
             f"- Date-fallback timestamps: {share('date_fallback')}.",
             f"- Missing event and manifest dates: {share('missing_time')}.",
             f"- Leak replacements: source {totals.get('source_replacements', 0)}, host {totals.get('host_replacements', 0)}.",
+            f"- Sourcetype replacements: {totals.get('sourcetype_replacements', 0)}.",
             f"- Residual leak values after sourcetype replacement: {totals.get('residual_leaks', 0)}.",
             f"- Distinct source values checked: {scan['distinct_source_values_checked']}.",
             f"- Distinct host values checked: {scan['distinct_host_values_checked']}.",
@@ -856,6 +1127,11 @@ def main() -> int:
     parser.add_argument(
         "--corpora-root", type=Path, default=Path("/Volumes/data01/portal5_hunt/corpora")
     )
+    parser.add_argument("--attack-data-root", type=Path)
+    parser.add_argument("--mordor-root", type=Path)
+    parser.add_argument("--evtx-samples-root", type=Path)
+    parser.add_argument("--evtx-mitre-root", type=Path)
+    parser.add_argument("--invictus-root", type=Path)
     parser.add_argument(
         "--output-root",
         type=Path,
@@ -878,8 +1154,10 @@ def main() -> int:
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0 if result["ok"] else 1
 
-    roots = default_roots(args.sources_root, args.corpora_root)
+    roots = _roots_from_args(args)
     facts = {name: source_facts(name, root) for name, root in roots.items()}
+    if _report_blocked_sources(facts):
+        return 2
     missing_roots = {name: root for name, root in roots.items() if not root.is_dir()}
     files_by_publisher = {
         name: publisher_files(name, root) for name, root in roots.items() if root.is_dir()
@@ -914,23 +1192,22 @@ def main() -> int:
     print(f"DRY-RUN report: {output}")
     print(
         json.dumps(
-            {"events": scan["totals"].get("events", 0), "missing_roots": list(missing_roots)},
+            {
+                "events": scan["totals"].get("events", 0),
+                "missing_roots": list(missing_roots),
+                "unknown_hosts_by_sourcetype": scan["unknown_hosts_by_sourcetype"],
+                "date_fallback_by_format": scan["date_fallback_by_format"],
+                "residual_leaks": scan["totals"].get("residual_leaks", 0),
+            },
             sort_keys=True,
         )
     )
     if args.ship:
-        stale_source = any(
-            facts[name].get("commit_matches_expected") is False
-            or facts[name].get("dirty_paths", 0) > 0
-            for name in ("attack_data", "mordor")
-            if facts[name].get("status") == "available_local"
-        )
         if (
             missing_roots
             or scan["read_errors"]
             or scan["totals"].get("residual_leaks", 0)
             or scan["totals"].get("missing_time", 0)
-            or stale_source
         ):
             print(
                 "[BLOCKED] source completeness, provenance, timestamps, or leak checks prevent shipping",
