@@ -71,7 +71,16 @@ def test_expired_time_sensitive_key_blocks():
     assert "expires" in [f.control for f in controls.check_task(t, today=dt.date(2026, 9, 7))]
 
 
-@pytest.mark.parametrize("suite", sorted(glob.glob(str(REPO / "tests/wfe/suites/*.jsonl"))))
+def _runnable_suites() -> list[str]:
+    # *.draft.jsonl is the authoring input. It is not a runnable suite.
+    return sorted(
+        p
+        for p in glob.glob(str(REPO / "tests/wfe/suites/*.jsonl"))
+        if not p.endswith(".draft.jsonl")
+    )
+
+
+@pytest.mark.parametrize("suite", _runnable_suites())
 def test_every_repo_suite_passes_its_controls(suite):
     fails = controls.check_suite(suite)
     assert not fails, "\n".join(map(str, fails))

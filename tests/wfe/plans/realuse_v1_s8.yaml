@@ -1,0 +1,46 @@
+# Real-use v1 against the S8 screen arms. Home is the runnable suite
+# tests/wfe/suites/realuse_v1.jsonl. A task runs when its workspace is the
+# workload or that workload's base. Challenger tags match the 2026-10-29 screens.
+# Coding workloads stay on sandbox, the same mode as the S8 coding screens:
+# tool_modes.yaml has no production allowlist for these two seats.
+workloads:
+  auto-daily::fast:
+    tool_mode: production
+    home: realuse_v1
+    discovery: []
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k
+      challengers:
+        - hf.co/unsloth/LFM2.5-24B-A2B-GGUF:UD-Q4_K_XL-ctx96k
+  tools-specialist:
+    tool_mode: production
+    home: realuse_v1
+    discovery: []
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k
+      challengers:
+        - hf.co/unsloth/LFM2.5-24B-A2B-GGUF:UD-Q4_K_XL-ctx96k
+  auto-coding:
+    tool_mode: sandbox
+    home: realuse_v1
+    discovery: []
+    arms:
+      incumbent: qwen3-coder:30b-a3b-q4_K_M-ctx256k
+      challengers:
+        - hf.co/unsloth/flint-GGUF:UD-Q4_K_XL-ctx256k
+  auto-coding::fast-repair:
+    tool_mode: sandbox
+    home: realuse_v1
+    discovery: []
+    arms:
+      incumbent: kat-coder-v2.5-dev:Q4_K_M-ctx32k
+      challengers:
+        - hf.co/JetBrains/Mellum2.1-12B-A2.5B-Thinking-GGUF:Q4_K_M-ctx32k
+  tools-specialist::fast:
+    tool_mode: production
+    home: realuse_v1
+    discovery: []
+    arms:
+      incumbent: gemma4:e4b-it-qat-ctx8k
+      challengers:
+        - hf.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF:UD-Q4_K_XL-ctx8k
