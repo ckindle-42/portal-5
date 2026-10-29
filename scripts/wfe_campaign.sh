@@ -55,7 +55,20 @@ if [ "${WFE_ENGINE:-}" = "pipeline" ] && [ -z "${PIPELINE_API_KEY:-}" ] \
     [ -n "$PIPELINE_API_KEY" ] && export PIPELINE_API_KEY
 fi
 
-REPEATS="${REPEATS:-3}"
+# Unset REPEATS on --tier realuse omits --repeats (realuse_repeats: 1 draw, 2 only
+# above temperature 0). A job step cannot export REPEATS. An explicit REPEATS still wins.
+_realuse=0
+_prev=""
+for _arg in "$@"; do
+    [ "$_prev" = "--tier" ] && [ "$_arg" = "realuse" ] && _realuse=1
+    [ "$_arg" = "--tier=realuse" ] && _realuse=1
+    _prev="$_arg"
+done
+if [ "$_realuse" = 1 ] && [ -z "${REPEATS+x}" ]; then
+    REPEATS=policy
+else
+    REPEATS="${REPEATS:-3}"
+fi
 # REPEATS=policy leaves --repeats off, so a confirm takes the harness's repeats policy
 # (1 when every arm in the cell served temperature 0, else 3 — campaign.repeats_policy).
 REPEATS_FLAG="--repeats ${REPEATS}"

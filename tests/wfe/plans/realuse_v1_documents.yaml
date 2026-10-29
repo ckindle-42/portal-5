@@ -1,0 +1,17 @@
+# The two auto-documents confirms the synthetic screen earned and that were not
+# run. Card sampling won 7/12 and lost 0 against the seat. gemma4 QAT won 1/12
+# and lost 0. They share the seat, so one matrix carries both challengers.
+# Home is realuse_v1.
+#
+#   uv run python -m tests.wfe.campaign --campaign-id realuse_documents_20261030 \
+#       --plan tests/wfe/plans/realuse_v1_documents.yaml --tier realuse --dry-run
+workloads:
+  auto-documents:
+    tool_mode: production
+    home: realuse_v1
+    discovery: []
+    arms:
+      incumbent: gemma4:26b-a4b-it-q4_K_M-ctx32k
+      challengers:
+        - {model: gemma4:26b-a4b-it-q4_K_M-ctx32k, label: card}
+        - gemma4:26b-a4b-it-qat-ctx32k
