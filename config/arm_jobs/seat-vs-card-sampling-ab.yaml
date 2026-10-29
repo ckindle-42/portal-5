@@ -36,10 +36,10 @@ steps:
       - "--campaign"
       - seat_card_screen_20261029
       - "--screen-out"
-      - tests/wfe/plans/advance_seat_card_screen_20261029.yaml
+      - tests/wfe/results/advance/advance_seat_card_screen_20261029.yaml
     timeout_seconds: 900
     outputs:
-      - tests/wfe/plans/advance_seat_card_screen_20261029.yaml
+      - tests/wfe/results/advance/advance_seat_card_screen_20261029.yaml
 stop_conditions:
   on_failure: stop
   max_job_minutes: 840

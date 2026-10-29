@@ -34,10 +34,10 @@ steps:
       - "--campaign"
       - s8_lfm25_screen_20261029
       - "--screen-out"
-      - tests/wfe/plans/advance_s8_lfm25_20261029.yaml
+      - tests/wfe/results/advance/advance_s8_lfm25_20261029.yaml
     timeout_seconds: 900
     outputs:
-      - tests/wfe/plans/advance_s8_lfm25_20261029.yaml
+      - tests/wfe/results/advance/advance_s8_lfm25_20261029.yaml
   - id: flint-screen
     argv:
       - scripts/wfe_campaign.sh
@@ -61,10 +61,10 @@ steps:
       - "--campaign"
       - s8_flint_screen_20261029
       - "--screen-out"
-      - tests/wfe/plans/advance_s8_flint_20261029.yaml
+      - tests/wfe/results/advance/advance_s8_flint_20261029.yaml
     timeout_seconds: 900
     outputs:
-      - tests/wfe/plans/advance_s8_flint_20261029.yaml
+      - tests/wfe/results/advance/advance_s8_flint_20261029.yaml
   - id: mellum-screen
     argv:
       - scripts/wfe_campaign.sh
@@ -88,10 +88,10 @@ steps:
       - "--campaign"
       - s8_mellum_screen_20261029
       - "--screen-out"
-      - tests/wfe/plans/advance_s8_mellum_20261029.yaml
+      - tests/wfe/results/advance/advance_s8_mellum_20261029.yaml
     timeout_seconds: 900
     outputs:
-      - tests/wfe/plans/advance_s8_mellum_20261029.yaml
+      - tests/wfe/results/advance/advance_s8_mellum_20261029.yaml
 stop_conditions:
   on_failure: stop
   max_job_minutes: 1440

@@ -33,10 +33,10 @@ steps:
       - "--campaign"
       - gemma_qat_plain_screen_20261029
       - "--screen-out"
-      - tests/wfe/plans/advance_gemma_qat_plain_20261029.yaml
+      - tests/wfe/results/advance/advance_gemma_qat_plain_20261029.yaml
     timeout_seconds: 900
     outputs:
-      - tests/wfe/plans/advance_gemma_qat_plain_20261029.yaml
+      - tests/wfe/results/advance/advance_gemma_qat_plain_20261029.yaml
   - id: arm-bites
     argv:
       - uv

@@ -180,3 +180,6 @@ data/compliance/backups/
 /campaign.yaml
 /execute_local_sec_bench.sh
 /.opencode/
+
+# Screen advance lists written by Jarvis Local jobs (generated, not instrument)
+tests/wfe/results/advance/

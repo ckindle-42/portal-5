@@ -34,10 +34,10 @@ steps:
       - "--campaign"
       - wfe_s5_research_screen_20261029
       - "--screen-out"
-      - tests/wfe/plans/advance_wfe_s5_research_20261029.yaml
+      - tests/wfe/results/advance/advance_wfe_s5_research_20261029.yaml
     timeout_seconds: 900
     outputs:
-      - tests/wfe/plans/advance_wfe_s5_research_20261029.yaml
+      - tests/wfe/results/advance/advance_wfe_s5_research_20261029.yaml
   - id: general-screen
     argv:
       - scripts/wfe_campaign.sh
@@ -61,10 +61,10 @@ steps:
       - "--campaign"
       - wfe_s6_general_screen_20261029
       - "--screen-out"
-      - tests/wfe/plans/advance_wfe_s6_general_20261029.yaml
+      - tests/wfe/results/advance/advance_wfe_s6_general_20261029.yaml
     timeout_seconds: 900
     outputs:
-      - tests/wfe/plans/advance_wfe_s6_general_20261029.yaml
+      - tests/wfe/results/advance/advance_wfe_s6_general_20261029.yaml
   - id: coding-screen
     argv:
       - scripts/wfe_campaign.sh
@@ -88,10 +88,10 @@ steps:
       - "--campaign"
       - wfe_s7_coding_screen_20261029
       - "--screen-out"
-      - tests/wfe/plans/advance_wfe_s7_coding_20261029.yaml
+      - tests/wfe/results/advance/advance_wfe_s7_coding_20261029.yaml
     timeout_seconds: 900
     outputs:
-      - tests/wfe/plans/advance_wfe_s7_coding_20261029.yaml
+      - tests/wfe/results/advance/advance_wfe_s7_coding_20261029.yaml
 stop_conditions:
   on_failure: stop
   max_job_minutes: 1800

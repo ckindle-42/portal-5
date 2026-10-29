@@ -45,10 +45,10 @@ steps:
       - "--campaign"
       - wfe_p5_screen_20261029
       - "--screen-out"
-      - tests/wfe/plans/advance_wfe_p5_screen_20261029.yaml
+      - tests/wfe/results/advance/advance_wfe_p5_screen_20261029.yaml
     timeout_seconds: 900
     outputs:
-      - tests/wfe/plans/advance_wfe_p5_screen_20261029.yaml
+      - tests/wfe/results/advance/advance_wfe_p5_screen_20261029.yaml
   - id: confirm
     argv:
       - scripts/wfe_campaign.sh
@@ -58,7 +58,7 @@ steps:
       - "--tier"
       - confirm
       - "--advance"
-      - tests/wfe/plans/advance_wfe_p5_screen_20261029.yaml
+      - tests/wfe/results/advance/advance_wfe_p5_screen_20261029.yaml
       - "--engine"
       - pipeline
     timeout_seconds: 129600
