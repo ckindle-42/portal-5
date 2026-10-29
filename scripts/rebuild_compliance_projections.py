@@ -95,7 +95,6 @@ def rebuild(corpus: Path | None, kb_id: str = "operator_corpus") -> dict:
     from portal.modules.compliance.core.temporal import now_iso
 
     repo = Repository()
-    conn = repo._conn
     fingerprint = projections.canonical_fingerprint(repo)
     campaign = f"proj-{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}"
     repo.close()
@@ -146,7 +145,7 @@ def rebuild(corpus: Path | None, kb_id: str = "operator_corpus") -> dict:
             kind: projections.projection_status(repo, kind, fingerprint) for kind in ("graph",)
         }
         receipt["status"]["retrieval"] = projections.retrieval_projection_status(repo)
-        receipt["census"] = projections.census(conn)
+        receipt["census"] = projections.census(repo._conn)
     finally:
         repo.close()
     return receipt
