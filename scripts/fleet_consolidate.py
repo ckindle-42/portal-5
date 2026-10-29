@@ -53,6 +53,7 @@ CONFIG_GLOBS: tuple[str, ...] = (
     "config/personas/**/*.yaml",
 )
 BACKENDS_FILE = "config/backends.yaml"
+PORTAL_FILE = "config/portal.yaml"
 OMLX_SETTINGS = Path.home() / ".omlx" / "settings.json"
 NO_FALLBACK = "oMLX seat has no Ollama GGUF fallback"
 _GIB = 2**30
@@ -253,6 +254,24 @@ def _backend_roles(root: Path) -> dict[int, str]:
     return roles
 
 
+def _workspace_hints(root: Path) -> dict[str, str]:
+    """Lowercased `workspace` and `workspace::variant` seats → the model_hint each names."""
+    try:
+        cfg = yaml.safe_load((root / PORTAL_FILE).read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        return {}
+    out: dict[str, str] = {}
+    for name, ws in (cfg.get("workspaces") or {}).items():
+        if not isinstance(ws, dict):
+            continue
+        if ws.get("model_hint"):
+            out[str(name).lower()] = str(ws["model_hint"])
+        for vname, var in (ws.get("variants") or {}).items():
+            if isinstance(var, dict) and var.get("model_hint"):
+                out[f"{str(name).lower()}::{str(vname).lower()}"] = str(var["model_hint"])
+    return out
+
+
 # ── families and variants ─────────────────────────────────────────────────────
 def _keep_texts(backends: list[dict[str, Any]]) -> dict[str, str]:
     """Weights-tag identity → the entry's keep_reason: text."""
@@ -334,6 +353,7 @@ def attribute(
     aliases: dict[str, tuple[str, str]],
     rows: list[tuple[str, int, str, str]],
     roles: dict[int, str],
+    hints: dict[str, str] | None = None,
 ) -> None:
     """Attach every config line that names a family variant to that variant."""
     by_ckpt = {v.id: v for fam in families for v in fam.variants if v.engine == "omlx"}
@@ -345,7 +365,15 @@ def attribute(
         # A registration line names the artifact it registers; it does not consume the
         # checkpoint its id happens to alias to.
         hop = kind == "reference"
-        for variant, via in _resolve(value, by_ckpt, by_tag, aliases, alias_hop=hop):
+        hits = _resolve(value, by_ckpt, by_tag, aliases, alias_hop=hop)
+        if not hits and kind == "reference" and hints is not None:
+            hinted = hints.get(value.lower())
+            if hinted is not None:
+                hits = [
+                    (variant, "workspace")
+                    for variant, _via in _resolve(hinted, by_ckpt, by_tag, aliases)
+                ]
+        for variant, via in hits:
             variant.refs.append(Ref(file, line_no, name, value, kind, via))
 
 
@@ -355,9 +383,33 @@ def _sites(variant: Variant) -> set[tuple[str, str]]:
     return {(ref.file, ref.value) for ref in variant.consumer_refs}
 
 
-def _rank(variant: Variant) -> tuple[int, int, int, str]:
-    """Most consumer sites first, then most refs, then the shorter id."""
-    return (-len(_sites(variant)), -len(variant.refs), len(variant.id), variant.id)
+def _rank(variant: Variant) -> tuple[bool, int, int, int, str]:
+    """Seated variants first, then most consumer sites, most refs, the shorter id."""
+    sites = _sites(variant)
+    return (not sites, -len(sites), -len(variant.refs), len(variant.id), variant.id)
+
+
+def _window(value: str) -> int:
+    """The -ctxNk window a config value or tag bakes, 0 when none."""
+    matched = _CTX.search(value)
+    return int(matched.group(1)) if matched else 0
+
+
+def _variant_window(variant: Variant) -> int:
+    """Largest window the variant's id, tags or named values can serve."""
+    values = [variant.id, *variant.tags, *(ref.value for ref in variant.refs)]
+    return max((_window(value) for value in values), default=0)
+
+
+def _window_demand(family: Family) -> int:
+    """Largest window any consumer config asks a variant of this family to serve."""
+    return max((_window(ref.value) for v in family.variants for ref in v.consumer_refs), default=0)
+
+
+def _widest(variants: list[Variant], demand: int) -> list[Variant]:
+    """The variants serving the in-use window — all of them when none does."""
+    fits = [v for v in variants if _variant_window(v) >= demand]
+    return fits or variants
 
 
 def _weights_owner(
@@ -388,15 +440,15 @@ def _group_key(group: list[Variant]) -> tuple[int, tuple[str, ...]]:
 
 
 def _pick_fallback(
-    group: list[Variant], weights: list[Variant], primary: Variant
+    group: list[Variant], weights: list[Variant], primary: Variant, demand: int
 ) -> Variant | None:
     """The GGUF tag kept alongside the primary seat — the family's own fallback first."""
     if primary.engine == "ollama":
         return None
-    inside = [v for v in group if v.engine == "ollama"]
+    inside = _widest([v for v in group if v.engine == "ollama"], demand)
     if inside:
         return min(inside, key=_rank)
-    outside = [v for v in weights if v is not primary]
+    outside = _widest([v for v in weights if v is not primary], demand)
     return min(outside, key=_rank) if outside else None
 
 
@@ -507,10 +559,13 @@ def assign_actions(
 ) -> None:
     """Fill action/reason/repoints for every variant of one family."""
     weights = [v for v in family.variants if v.engine == "ollama"]
-    group = min(_groups(family, aliases), key=_group_key)
+    demand = _window_demand(family)
+    groups = _groups(family, aliases)
+    wide = [g for g in groups if max((_variant_window(v) for v in g), default=0) >= demand]
+    group = min(wide or groups, key=_group_key)
     seats = [v for v in group if v.engine == "omlx"]
-    primary = min(seats or group, key=_rank)
-    fallback = _pick_fallback(group, weights, primary)
+    primary = min(_widest(seats, demand) or group, key=_rank)
+    fallback = _pick_fallback(group, weights, primary, demand)
     targets = _repoint_targets(primary, fallback, aliases)
     for variant in family.variants:
         others = any(v.consumer_refs for v in family.variants if v is not variant)
@@ -695,7 +750,7 @@ def build_report(
     aliases = _alias_targets(cfg)
     keep_text = _keep_texts(backends)
     families = build_families(backends)
-    attribute(families, aliases, scan_config(root), _backend_roles(root))
+    attribute(families, aliases, scan_config(root), _backend_roles(root), _workspace_hints(root))
     for family in families:
         assign_actions(family, aliases, keep_text)
     facts = facts if facts is not None else live_facts()
@@ -812,7 +867,9 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         "`unique GiB` = bytes no other kept tag shares. `refs` = config lines naming the "
         "variant. Removal is never proposed for the primary seat, its GGUF fallback, a "
-        "draft, a `keep_reason:` entry, or a variant no other variant can replace.",
+        "draft, a `keep_reason:` entry, or a variant no other variant can replace. Seated "
+        "variants rank first, and the keep never picks a variant that shrinks a context "
+        "window another variant serves in use.",
         "",
     ]
     for family in report["families"]:

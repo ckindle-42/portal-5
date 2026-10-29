@@ -128,23 +128,29 @@ def test_repoints_name_the_config_line_and_its_target(tmp_path):
             "    model_hint: Fam-oQ4e-mtp\n"
         ),
     )
-    # A third site on the Fam-4bit pair breaks the 2-2 tie between the two groups.
     (root / "config" / "personas" / "pin.yaml").write_text(
         "model_pin: Fam-4bit\n", encoding="utf-8"
     )
     report = fc.build_report(root, _facts())
-    removed = _variant(report, "Fam-oQ4e-mtp")
-    assert removed["action"] == "REMOVE-CANDIDATE"
+    # The in-use 64k window decides which group the family keeps, not the 3-2 site tie.
+    assert _variant(report, "Fam-oQ4e-mtp")["action"] == "KEEP"
+    assert _variant(report, "fam:q8_0-ctx64k")["action"] == "KEEP"
+    assert _variant(report, "Fam-4bit")["action"] == "REMOVE-CANDIDATE"
+    assert _variant(report, "fam:q4_K_M-ctx32k")["action"] == "REMOVE-CANDIDATE"
+    removed = _variant(report, "Fam-4bit")
     repoints = {(r["file"], r["line"]): r for r in removed["repoints"]}
-    # A workspace naming the removed checkpoint moves to the family's kept GGUF tag.
-    assert repoints[("config/portal.yaml", 9)]["to"] == "fam:q4_K_M-ctx32k"
-    # The removed tag's own consumers move to the fallback, and lose their 64k window.
+    # A workspace naming the removed checkpoint moves to the kept family's GGUF tag.
+    assert repoints[("config/portal.yaml", 5)]["to"] == "fam:q8_0-ctx64k"
+    # The removed tag's own consumers move to the same kept tag, window recorded.
     tag_repoints = {
-        (r["file"], r["line"]): r for r in _variant(report, "fam:q8_0-ctx64k")["repoints"]
+        (r["file"], r["line"]): r for r in _variant(report, "fam:q4_K_M-ctx32k")["repoints"]
     }
-    assert tag_repoints[("config/portal.yaml", 7)]["to"] == "fam:q4_K_M-ctx32k"
-    assert tag_repoints[("config/portal.yaml", 7)]["window_lost"] is True
-    assert tag_repoints[("config/portal.yaml", 7)]["from_ctx"] == "64k"
+    assert tag_repoints[("config/portal.yaml", 3)]["to"] == "fam:q8_0-ctx64k"
+    assert tag_repoints[("config/portal.yaml", 3)]["from_ctx"] == "32k"
+    assert tag_repoints[("config/portal.yaml", 3)]["to_ctx"] == "64k"
+    # And the alias entry naming the removed checkpoint is deleted, not repointed.
+    alias = [r for r in removed["repoints"] if "alias" in r["how"]]
+    assert [r["how"] for r in alias] == ["delete-alias"]
 
 
 def test_alias_line_is_repointed_to_the_kept_checkpoint(tmp_path):
@@ -200,6 +206,19 @@ def test_a_second_variant_is_removable_when_another_is_referenced():
     second = fc.Variant("omlx", "Drop-4bit", refs=[fc.Ref("f", 2, "m", "v", "reference", "id")])
     action, _reason = fc._decision(second, primary, None, True, {})
     assert action == "REMOVE-CANDIDATE"
+
+
+def test_a_keep_reason_entry_is_never_a_removal_candidate():
+    """Rule 3, isolated: keep_reason outranks every other keep/remove consideration."""
+    action, reason = fc._decision(
+        fc.Variant("ollama", "fam:q8_0-ctx64k"),
+        fc.Variant("omlx", "Fam-4bit"),
+        None,
+        True,
+        {"fam:q8_0": "A/B lane needs the 64k build"},
+    )
+    assert action == "KEEP"
+    assert reason == "keep_reason: A/B lane needs the 64k build"
 
 
 def test_draft_helper_is_kept(tmp_path):
@@ -264,6 +283,154 @@ def test_clean_family_is_not_in_the_table(tmp_path):
     report = fc.build_report(root, _facts())
     assert report["families"] == []
     assert report["totals"]["reclaimable_bytes"] == 0
+
+
+# ── seated preference (rule 1) ────────────────────────────────────────────────
+def test_rank_prefers_a_seated_variant_over_an_unseated_one():
+    """One consumer reference outranks any number of backend registrations."""
+    seated = fc.Variant(
+        "omlx", "B-4bit", refs=[fc.Ref("config/portal.yaml", 1, "m", "v", "reference", "id")]
+    )
+    unseated = fc.Variant(
+        "omlx",
+        "A-4bit",
+        refs=[
+            fc.Ref("config/backends.yaml", 2, "id", "A-4bit", "definition", "id"),
+            fc.Ref("config/backends.yaml", 3, "fam:a", "a:q4", "alias", "id"),
+        ],
+    )
+    assert fc._rank(seated) < fc._rank(unseated)
+
+
+def test_seated_models_line_names_the_workspace_variant(tmp_path):
+    """A `seated_models:` value resolves through its workspace to the seated variant."""
+    root = _repo(
+        tmp_path,
+        [
+            _ollama([{"id": "fam:q4_K_M"}, {"id": "fam:q5_K_M"}]),
+            _omlx([{"id": "Fam-4bit"}], {"fam:q4_K_M": "Fam-4bit"}),
+        ],
+        portal=(
+            "workspaces:\n"
+            "  daily:\n"
+            "    model_hint: fam:q5_K_M\n"
+            "    variants:\n"
+            "      fast:\n"
+            "        model_hint: fam:q4_K_M\n"
+            "orchestration:\n"
+            "  disciplines:\n"
+            "    test_fixing:\n"
+            "      seated_models:\n"
+            "        fast: daily::fast\n"
+        ),
+    )
+    report = fc.build_report(root, _facts())
+    refs = {(r["file"], r["line"], r["via"]) for r in _variant(report, "fam:q4_K_M")["refs"]}
+    assert ("config/portal.yaml", 11, "workspace") in refs
+    assert _variant(report, "fam:q4_K_M")["action"] == "KEEP"
+    assert _variant(report, "fam:q5_K_M")["action"] == "REMOVE-CANDIDATE"
+
+
+def test_bare_workspace_reference_seats_the_workspace_model(tmp_path):
+    """`router_fallback: <workspace>` names whatever serves that workspace."""
+    root = _repo(
+        tmp_path,
+        [
+            _ollama([{"id": "fam:q4_K_M"}, {"id": "fam:q5_K_M"}]),
+            _omlx([{"id": "Fam-4bit"}], {"fam:q4_K_M": "Fam-4bit"}),
+        ],
+        portal=(
+            "orchestration:\n"
+            "  router_fallback: daily\n"
+            "workspaces:\n"
+            "  daily:\n"
+            "    model_hint: fam:q4_K_M\n"
+        ),
+    )
+    report = fc.build_report(root, _facts())
+    refs = {(r["file"], r["line"], r["via"]) for r in _variant(report, "fam:q4_K_M")["refs"]}
+    assert ("config/portal.yaml", 2, "workspace") in refs
+
+
+# ── context windows (rule 2) ──────────────────────────────────────────────────
+def test_fallback_never_shrinks_a_window_in_use(tmp_path):
+    """The 64k tag wins the fallback slot over a more-referenced windowless tag."""
+    root = _repo(
+        tmp_path,
+        [
+            _ollama([{"id": "fam:q4_K_M"}, {"id": "fam:q8_0-ctx64k"}]),
+            _omlx(
+                [{"id": "Fam-4bit"}],
+                {"fam:q4_K_M": "Fam-4bit", "fam:q8_0-ctx64k": "Fam-4bit"},
+            ),
+        ],
+        portal=(
+            "workspaces:\n"
+            "  one:\n"
+            "    model_hint: fam:q4_K_M\n"
+            "  two:\n"
+            "    model_hint: fam:q4_K_M\n"
+            "  three:\n"
+            "    model_hint: fam:q8_0-ctx64k\n"
+        ),
+    )
+    report = fc.build_report(root, _facts())
+    kept = _variant(report, "fam:q8_0-ctx64k")
+    assert kept["action"] == "KEEP"
+    assert "fallback" in kept["reason"]
+    assert _variant(report, "fam:q4_K_M")["action"] == "REMOVE-CANDIDATE"
+
+
+def test_a_live_ctx_twin_counts_toward_the_window_a_variant_serves(tmp_path):
+    """A consumer naming `tag-ctx64k` demands 64k even when the registered id is bare."""
+    root = _repo(
+        tmp_path,
+        [
+            _ollama([{"id": "fam:q8_0"}, {"id": "fam:q4_K_M-ctx32k"}]),
+            _omlx(
+                [{"id": "Fam-4bit"}],
+                {"fam:q8_0": "Fam-4bit", "fam:q4_K_M-ctx32k": "Fam-4bit"},
+            ),
+        ],
+        portal=(
+            "workspaces:\n"
+            "  one:\n"
+            "    model_hint: fam:q8_0-ctx64k\n"
+            "  two:\n"
+            "    model_hint: fam:q4_K_M-ctx32k\n"
+            "  three:\n"
+            "    model_hint: fam:q4_K_M-ctx32k\n"
+        ),
+    )
+    report = fc.build_report(root, _facts())
+    assert _variant(report, "fam:q8_0")["action"] == "KEEP"
+    assert _variant(report, "fam:q4_K_M-ctx32k")["action"] == "REMOVE-CANDIDATE"
+
+
+def test_without_a_window_in_use_the_site_ranking_still_decides(tmp_path):
+    """No `-ctxNk` in any consumer value: the seated/site ranking is unchanged."""
+    root = _repo(
+        tmp_path,
+        [
+            _ollama([{"id": "fam:q4_K_M"}, {"id": "fam:q8_0"}]),
+            _omlx(
+                [{"id": "Fam-4bit"}],
+                {"fam:q4_K_M": "Fam-4bit", "fam:q8_0": "Fam-4bit"},
+            ),
+        ],
+        portal=(
+            "workspaces:\n"
+            "  one:\n"
+            "    model_hint: fam:q4_K_M\n"
+            "  two:\n"
+            "    model_hint: fam:q4_K_M\n"
+            "  three:\n"
+            "    model_hint: fam:q8_0\n"
+        ),
+    )
+    report = fc.build_report(root, _facts())
+    assert "fallback" in _variant(report, "fam:q4_K_M")["reason"]
+    assert _variant(report, "fam:q8_0")["action"] == "REMOVE-CANDIDATE"
 
 
 # ── install state, sizes, config debt ────────────────────────────────────────
