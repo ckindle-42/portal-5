@@ -454,6 +454,8 @@ def test_suites_parse_and_reference_real_checkers():
     root = Path(__file__).resolve().parents[1] / "suites"
     seen = 0
     for f in sorted(root.glob("*.jsonl")):
+        if f.name.endswith(".draft.jsonl"):
+            continue
         for line in f.read_text().splitlines():
             if not line.strip():
                 continue

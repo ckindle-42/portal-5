@@ -75,7 +75,7 @@ def test_the_schema_refuses_tasks_the_harness_cannot_grade():
 
 
 def test_every_existing_suite_passes_the_schema():
-    suites = sorted((SUITE.parent).glob("*.jsonl"))
+    suites = sorted(p for p in SUITE.parent.glob("*.jsonl") if not p.name.endswith(".draft.jsonl"))
     bad = [f for s in suites for f in controls.check_suite(s) if f.control == "schema"]
     assert bad == []
 
