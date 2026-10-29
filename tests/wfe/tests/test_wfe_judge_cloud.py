@@ -15,7 +15,7 @@ class TestCloudConfig:
         monkeypatch.delenv("WFE_JUDGE_CLOUD_URL", raising=False)
         monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
         assert cloud.cloud_url() == "https://api.deepseek.com/v1"
-        assert cloud.cloud_model() == "deepseek-v4.1-flash"
+        assert cloud.cloud_model() == "deepseek-flash"
 
     def test_env_overrides_yaml(self, monkeypatch):
         monkeypatch.setenv("WFE_JUDGE_CLOUD_MODEL", "env-model")
