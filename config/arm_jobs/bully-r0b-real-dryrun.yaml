@@ -1,0 +1,58 @@
+# Bully R0b real dry run: verify pinned sources, acquire missing clean copies,
+# then run corpus_reingest in dry-run mode against the lab corpus index.
+# No step writes to or deletes from the live lab; the dry-run only scans
+# source trees and emits a fidelity report under $PORTAL_DATA_ROOT.
+id: bully-r0b-real-dryrun
+purpose: "Bully R0b real dry run — source verification, acquisition, and corpus fidelity scan"
+preconditions:
+  stack: up
+  # acquire_corpus_sources clones five pinned repos; corpus_reingest reads every
+  # event file into memory for schema scanning. 16 GiB leaves headroom for the
+  # python process, the Evtx parser, and the YAML/JSON trees it builds.
+  free_memory_gib: 16
+  # Five git repos (attack_data, mordor, evtx_samples, evtx_mitre, invictus_ir)
+  # plus the acquisition manifest and the dry-run report need room to grow;
+  # 50 GiB is a conservative floor that also absorbs the ~1 TB DARPA OpTC tree
+  # if it ever gets fetched (it deliberately is not).
+  disk_free_gib: 50
+steps:
+  - id: verify-sources
+    argv:
+      - uv
+      - run
+      - python
+      - scripts/acquire_corpus_sources.py
+    timeout_seconds: 1200
+  - id: acquire
+    argv:
+      - uv
+      - run
+      - python
+      - scripts/acquire_corpus_sources.py
+      - --acquire
+    timeout_seconds: 3600
+    outputs:
+      - ~/AI_Output/portal-data/corpora/manifest.json
+  - id: dry-run
+    argv:
+      - uv
+      - run
+      - python
+      - scripts/corpus_reingest.py
+      - --dry-run
+      - --lab-census
+    timeout_seconds: 14400
+    outputs:
+      - ~/AI_Output/portal-data/reports/review_eval/corpus_fidelity
+outputs:
+  - ~/AI_Output/portal-data/reports/review_eval/corpus_fidelity
+report:
+  fields:
+    - status
+    - steps
+    - outputs
+    - failures
+    - duration
+  # What the orchestrator decides on (read from the dry-run report): would-ingest and
+  # would-delete counts, residual leak values (must be 0), unknown hosts and date
+  # fallbacks per sourcetype, and whether any source tree was dirty or missing.

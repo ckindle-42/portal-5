@@ -591,3 +591,17 @@ def test_a_job_blocked_by_cloud_lanes_claims_the_window_until_it_finishes(
     lane.unlink()
     assert runner.run(spec).status == "PASS"
     assert not claim.exists()  # released once the job is done
+
+
+def test_bully_r0b_real_dryrun_spec_parses_against_the_repo() -> None:
+    spec_path = (
+        Path(__file__).resolve().parents[2] / "config" / "arm_jobs" / "bully-r0b-real-dryrun.yaml"
+    )
+    repo_root = spec_path.parents[2]
+    spec = parse_job_spec(
+        yaml.safe_load(spec_path.read_text(encoding="utf-8")), repo_root=repo_root
+    )
+    assert spec.job_id == "bully-r0b-real-dryrun"
+    assert [step.step_id for step in spec.steps] == ["verify-sources", "acquire", "dry-run"]
+    assert "--dry-run" in spec.steps[2].argv  # never --ship from a job
+    assert not any("--ship" in step.argv for step in spec.steps)
