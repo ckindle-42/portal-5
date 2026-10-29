@@ -1826,10 +1826,11 @@ async def test_warm_loads_are_not_counted_as_admissions():
     before_ollama = metric_value(_ADMISSIONS, engine=OLLAMA, outcome="admitted_immediately")
     assert await g.admit_omlx("a") is None
     assert await g.admit(OLLAMA_URL, "m") is None
-    assert metric_value(_ADMISSIONS, engine=OMLX, outcome="admitted_immediately") == (
+    # An unsampled counter reads None in isolation; compare both sides as counts.
+    assert (metric_value(_ADMISSIONS, engine=OMLX, outcome="admitted_immediately") or 0) == (
         before_omlx or 0
     )
-    assert metric_value(_ADMISSIONS, engine=OLLAMA, outcome="admitted_immediately") == (
+    assert (metric_value(_ADMISSIONS, engine=OLLAMA, outcome="admitted_immediately") or 0) == (
         before_ollama or 0
     )
 
