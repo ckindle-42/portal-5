@@ -27,8 +27,18 @@ EXPECTED = {
     "spark-shadow-n20",
     "compliance-recapture",
     "bully-r0b-real-dryrun",
+    "bully-r0b-ship",
     "wfe-fast-baseline",
 }
+
+SHIP_ENV = (
+    "LAB_SPLUNK_URL",
+    "LAB_SPLUNK_USER",
+    "LAB_SPLUNK_PASSWORD",
+    "LAB_SPLUNK_INDEX",
+    "LAB_SPLUNK_HEC_URL",
+    "LAB_SPLUNK_HEC_TOKEN",
+)
 
 
 def _spec(path: Path):
@@ -104,6 +114,26 @@ def test_the_spark_job_requires_twenty_comparisons() -> None:
 
     assert argv[argv.index("--minimum-compared") + 1] == "20"
     assert int(argv[argv.index("--repeat") + 1]) * 2 >= 20
+
+
+def test_bully_r0b_ship_names_dotenv_keys_and_verifies_the_latest_report() -> None:
+    spec = _spec(SPEC_DIR / "bully-r0b-ship.yaml")
+
+    assert [step.step_id for step in spec.steps] == ["dry-run", "ship", "verify"]
+    assert "--dry-run" in spec.steps[0].argv
+    assert "--ship" in spec.steps[1].argv
+    assert spec.steps[2].argv[-1] == "--verify"
+    assert "--items" not in spec.steps[2].argv
+    for step in spec.steps:
+        assert step.env_from_dotenv == SHIP_ENV
+
+
+def test_env_from_dotenv_rejects_keys_outside_the_allowlist() -> None:
+    raw = yaml.safe_load((SPEC_DIR / "bully-r0b-ship.yaml").read_text(encoding="utf-8"))
+    raw["steps"][0]["env_from_dotenv"] = ["NOT_A_REAL_SECRET"]
+
+    with pytest.raises(ValueError, match="allowlist"):
+        parse_job_spec(raw, repo_root=ROOT)
 
 
 def test_the_recapture_backs_up_the_store_it_rewrites() -> None:

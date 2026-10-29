@@ -356,6 +356,62 @@ def queue_status(tasks_dir: Annotated[Path | None, typer.Option("--tasks-dir")] 
         typer.echo(json.dumps(ledger.items(), indent=2))
 
 
+@orchestration_app.command("queue-cancel")
+def queue_cancel(
+    task_id: Annotated[str, typer.Argument()],
+    reason: Annotated[str, typer.Option("--reason", help="Recorded on the queue event.")] = (
+        "cancelled by operator"
+    ),
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Cancel a running task whose runner pid is dead."),
+    ] = False,
+    tasks_dir: Annotated[Path | None, typer.Option("--tasks-dir")] = None,
+) -> None:
+    """Mark a queued task blocked/CANCELLED. Refuses a live runner."""
+    _require_enabled()
+    from portal.modules.orchestration.queue import QueueLedger
+
+    try:
+        with QueueLedger(tasks_dir or _tasks_dir()) as ledger:
+            ledger.cancel_task(task_id, reason, force=force)
+    except Exception as exc:
+        typer.echo(f"arm queue-cancel failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"cancelled {task_id}")
+
+
+@orchestration_app.command("queue-requeue")
+def queue_requeue(
+    task_id: Annotated[str, typer.Argument()],
+    tasks_dir: Annotated[Path | None, typer.Option("--tasks-dir")] = None,
+) -> None:
+    """Requeue a blocked or done job from the spec in its job directory."""
+    _require_enabled()
+    from portal.modules.orchestration.jobs import job_json, parse_job_spec
+    from portal.modules.orchestration.queue import QueueLedger
+
+    root = tasks_dir or _tasks_dir()
+    spec_path = root / task_id / "job.json"
+    try:
+        if not spec_path.is_file():
+            raise ValueError(f"no job spec for {task_id}")
+        spec = parse_job_spec(
+            yaml.safe_load(spec_path.read_text(encoding="utf-8")),
+            repo_root=_repo_root(),
+        )
+        if spec.job_id != task_id:
+            raise ValueError(f"job spec id {spec.job_id} does not match queue id {task_id}")
+        with QueueLedger(root) as ledger:
+            ledger.requeue_job(task_id, job_json(spec))
+        payload = json.dumps(spec.as_dict(), sort_keys=True, indent=2) + "\n"
+        spec_path.write_text(payload, encoding="utf-8")
+    except Exception as exc:
+        typer.echo(f"arm queue-requeue failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"requeued {task_id}")
+
+
 def _service(tasks_dir: Path | None) -> Any:
     service, error = _build_service(tasks_dir)
     if service is None:

@@ -1285,6 +1285,29 @@ def verify_plan(items_path: Path) -> dict[str, Any]:
     return {"ok": not mismatches and not extras, "mismatches": mismatches, "extra_p5_items": extras}
 
 
+def latest_items_path(output_root: Path) -> Path:
+    """Newest items.json under output_root. Report directory names start with a UTC stamp."""
+    if not output_root.is_dir():
+        raise FileNotFoundError(f"no fidelity reports under {output_root}")
+    reports = sorted(
+        path for path in output_root.iterdir() if path.is_dir() and (path / "items.json").is_file()
+    )
+    if not reports:
+        raise FileNotFoundError(f"no items.json under {output_root}")
+    return reports[-1] / "items.json"
+
+
+def _run_verify(items: Path | None, output_root: Path, parser: argparse.ArgumentParser) -> int:
+    try:
+        resolved = items if items is not None else latest_items_path(output_root)
+    except FileNotFoundError as exc:
+        parser.error(str(exc))
+    print(f"VERIFY items: {resolved}")
+    result = verify_plan(resolved)
+    print(json.dumps(result, indent=2, sort_keys=True))
+    return 0 if result["ok"] else 1
+
+
 def _manifest_records(corpora_root: Path) -> dict[str, dict[str, Any]]:
     """The acquisition manifest's records keyed by source_id ({} when there is none)."""
     manifest_path = corpora_root / "manifest.json"
@@ -1324,18 +1347,16 @@ def main() -> int:
         / "reports/review_eval/corpus_fidelity",
     )
     parser.add_argument(
-        "--items", type=Path, help="items.json written by --dry-run, required for --verify"
+        "--items",
+        type=Path,
+        help="dry-run items.json; omit to use the latest report under --output-root",
     )
     parser.add_argument(
         "--lab-census", action="store_true", help="include read-only portal5_lab cousin counts"
     )
     args = parser.parse_args()
     if args.verify:
-        if args.items is None:
-            parser.error("--verify requires --items")
-        result = verify_plan(args.items)
-        print(json.dumps(result, indent=2, sort_keys=True))
-        return 0 if result["ok"] else 1
+        return _run_verify(args.items, args.output_root, parser)
 
     roots, overridden = _roots_from_args(args)
     roots, root_selections = prefer_pinned_siblings(

@@ -12,13 +12,14 @@ import subprocess
 import sys
 import time
 import unicodedata
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
 
+import yaml
 from jsonschema import Draft202012Validator  # type: ignore[import-untyped]
 
 _JOB_ID = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$")
@@ -45,6 +46,12 @@ DEFAULT_DISPATCH_LOCK_DIR = Path.home() / ".claude" / "orchestrate" / "locks"
 WINDOW_CLAIM_NAME = "jarvis_local_window.json"
 _TAIL_BYTES = 8192
 _PEAK_SAMPLE_SECONDS = 5.0
+_ENV_ALLOWLIST = Path("config/arm_job_env_allowlist.yaml")
+_ENV_ASSIGNMENT = re.compile(r"^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$")
+_REDACTED = "[REDACTED]"
+# Short alnum values are receipt-tail only; a byte replace would hit them inside other words.
+_FILE_REDACT_MIN = 8
+_LOG_REDACT_LIMIT = 32 * 1024 * 1024
 
 _STEP_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -61,6 +68,12 @@ _STEP_SCHEMA: dict[str, Any] = {
         "quiet_host": {"type": "boolean"},
         "outputs": {"type": "array", "items": {"type": "string", "minLength": 1}},
         "checkpoints": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "env_from_dotenv": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": True,
+            "items": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
+        },
     },
 }
 _JOB_SCHEMA: dict[str, Any] = {
@@ -140,6 +153,7 @@ class JobStep:
     outputs: tuple[str, ...] = ()
     checkpoints: tuple[str, ...] = ()
     quiet_host: bool = True
+    env_from_dotenv: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -183,6 +197,11 @@ class JobSpec:
                     "checkpoints": list(step.checkpoints),
                     # Omitted when true so specs written before the flag stay byte-stable.
                     **({"quiet_host": False} if not step.quiet_host else {}),
+                    **(
+                        {"env_from_dotenv": list(step.env_from_dotenv)}
+                        if step.env_from_dotenv
+                        else {}
+                    ),
                 }
                 for step in self.steps
             ],
@@ -293,6 +312,9 @@ def _parse_step(raw: dict[str, Any], repo_root: Path) -> JobStep:
     checkpoints = tuple(str(item) for item in raw.get("checkpoints", []))
     for value in outputs + checkpoints:
         _validate_job_path(value)
+    env_from_dotenv = tuple(str(item) for item in raw.get("env_from_dotenv", []))
+    if env_from_dotenv:
+        _validate_env_keys(env_from_dotenv, repo_root)
     return JobStep(
         step_id=str(raw["id"]),
         argv=argv,
@@ -300,6 +322,7 @@ def _parse_step(raw: dict[str, Any], repo_root: Path) -> JobStep:
         outputs=outputs,
         checkpoints=checkpoints,
         quiet_host=bool(raw.get("quiet_host", True)),
+        env_from_dotenv=env_from_dotenv,
     )
 
 
@@ -345,6 +368,109 @@ def _script_file(token: str, repo_root: Path, *, executable: bool) -> Path:
             f"step argv {token!r} is not executable; use `uv run python {token}` instead"
         )
     return path
+
+
+def _validate_env_keys(keys: tuple[str, ...], repo_root: Path) -> None:
+    patterns = _load_env_allowlist(repo_root)
+    rejected = [key for key in keys if not _env_key_allowed(key, patterns)]
+    if rejected:
+        raise ValueError("env_from_dotenv keys outside the allowlist: " + ", ".join(rejected))
+
+
+def _load_env_allowlist(repo_root: Path) -> tuple[str, ...]:
+    path = repo_root / _ENV_ALLOWLIST
+    try:
+        loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise ValueError(f"cannot read env allowlist {path.name}") from exc
+    except yaml.YAMLError as exc:
+        raise ValueError("env allowlist is not valid YAML") from exc
+    if not isinstance(loaded, dict):
+        raise ValueError("env allowlist must be a mapping")
+    raw_patterns = loaded.get("patterns")
+    if not isinstance(raw_patterns, list) or not raw_patterns:
+        raise ValueError("env allowlist patterns must be a non-empty list")
+    patterns: list[str] = []
+    for item in raw_patterns:
+        pattern = _env_pattern(item)
+        patterns.append(pattern)
+    return tuple(patterns)
+
+
+def _env_pattern(item: Any) -> str:
+    if not isinstance(item, str) or not item or item == "*":
+        raise ValueError("env allowlist pattern must be a non-empty string")
+    if item.count("*") > 1 or ("*" in item and not item.endswith("*")):
+        raise ValueError(f"env allowlist pattern {item!r} must be exact or a trailing *")
+    body = item[:-1] if item.endswith("*") else item
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", body):
+        raise ValueError(f"env allowlist pattern {item!r} is not a key prefix")
+    return item
+
+
+def _env_key_allowed(key: str, patterns: tuple[str, ...]) -> bool:
+    for pattern in patterns:
+        if pattern.endswith("*"):
+            prefix = pattern[:-1]
+            if key.startswith(prefix) and len(key) > len(prefix):
+                return True
+        elif key == pattern:
+            return True
+    return False
+
+
+def _step_dotenv(repo_root: Path, keys: tuple[str, ...]) -> dict[str, str]:
+    if not keys:
+        return {}
+    return _read_dotenv_keys(repo_root / ".env", keys)
+
+
+def _read_dotenv_keys(path: Path, keys: tuple[str, ...]) -> dict[str, str]:
+    """Read named KEY=VALUE lines. Values are literal: no shell expansion or command substitution."""
+    if not path.is_file():
+        raise ValueError("repo .env is missing; env_from_dotenv cannot be loaded")
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except UnicodeError as exc:
+        raise ValueError("repo .env is not utf-8") from exc
+    wanted = set(keys)
+    found: dict[str, str] = {}
+    for raw_line in lines:
+        name, value = _env_assignment(raw_line)
+        if name is None or name not in wanted:
+            continue
+        if "\x00" in value:
+            raise ValueError(f"env value for {name} contains a NUL")
+        found[name] = value
+    missing = [key for key in keys if not found.get(key)]
+    if missing:
+        raise ValueError("repo .env is missing keys: " + ", ".join(missing))
+    return {key: found[key] for key in keys}
+
+
+def _env_assignment(raw_line: str) -> tuple[str | None, str]:
+    line = raw_line.strip()
+    if not line or line.startswith("#"):
+        return None, ""
+    match = _ENV_ASSIGNMENT.match(line)
+    if match is None:
+        return None, ""
+    return match.group(1), _literal_env_value(match.group(2))
+
+
+def _literal_env_value(raw: str) -> str:
+    value = raw.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        return value[1:-1]
+    return value
+
+
+def _child_env(extra: Mapping[str, str]) -> dict[str, str] | None:
+    if not extra:
+        return None
+    merged = os.environ.copy()
+    merged.update(extra)
+    return merged
 
 
 def _validate_job_path(value: str) -> None:
@@ -588,13 +714,43 @@ class JobRunner:
         watch_log = logs / f"{step.step_id}.{attempt:02d}.watch.log"
         started_wall = _utc_now()
         started = time.monotonic()
+        try:
+            extra_env = _step_dotenv(self.repo_root, step.env_from_dotenv)
+        except ValueError as exc:
+            return self._step_result(
+                step,
+                started_wall,
+                started,
+                backups,
+                "failed",
+                None,
+                0,
+                stdout_path,
+                stderr_path,
+                str(exc),
+                None,
+                False,
+            )
         signal, exit_code, error = self._run_process(
-            spec, step, logs, attempt, stdout_path, stderr_path, watch_log, started, deadline
+            spec,
+            step,
+            logs,
+            attempt,
+            stdout_path,
+            stderr_path,
+            watch_log,
+            started,
+            deadline,
+            extra_env,
         )
+        _redact_file(stdout_path, extra_env.values())
+        _redact_file(stderr_path, extra_env.values())
         state, reason = _step_outcome(spec, step, signal, exit_code)
         if error:
-            state, reason = "failed", error
-        return self._step_result(
+            state, reason = "failed", _redact_text(error, extra_env.values())
+        elif reason:
+            reason = _redact_text(reason, extra_env.values())
+        result = self._step_result(
             step,
             started_wall,
             started,
@@ -608,6 +764,9 @@ class JobRunner:
             signal.memory_trip,
             signal.timed_out,
         )
+        result["stdout_tail"] = _redact_text(str(result["stdout_tail"]), extra_env.values())
+        result["stderr_tail"] = _redact_text(str(result["stderr_tail"]), extra_env.values())
+        return result
 
     def _run_process(
         self,
@@ -620,6 +779,7 @@ class JobRunner:
         watch_log: Path,
         started: float,
         deadline: float | None,
+        extra_env: Mapping[str, str],
     ) -> tuple[_StepSignal, int | None, str | None]:
         process: subprocess.Popen[bytes] | None = None
         watcher: subprocess.Popen[bytes] | None = None
@@ -630,6 +790,7 @@ class JobRunner:
                 process = subprocess.Popen(
                     list(step.argv),
                     cwd=self.repo_root,
+                    env=_child_env(extra_env),
                     stdin=subprocess.DEVNULL,
                     stdout=out,
                     stderr=err,
@@ -1195,6 +1356,89 @@ def _trip_line_since(log: Path, offset: int) -> str | None:
         if "MEMORY SAFETY TRIP" in line and line.strip():
             return line.strip()
     return None
+
+
+def _redact_text(text: str, secrets: Iterable[str]) -> str:
+    if not text:
+        return text
+    for secret in _file_secrets(secrets):
+        text = text.replace(secret, _REDACTED)
+    for secret in sorted({item for item in secrets if item}, key=len, reverse=True):
+        text = re.sub(
+            rf"(?<![A-Za-z0-9]){re.escape(secret)}(?![A-Za-z0-9])",
+            _REDACTED,
+            text,
+        )
+    return text
+
+
+def _file_secrets(secrets: Iterable[str]) -> list[str]:
+    chosen = [
+        item
+        for item in dict.fromkeys(secrets)
+        if item and (len(item) >= _FILE_REDACT_MIN or any(not char.isalnum() for char in item))
+    ]
+    return sorted(chosen, key=len, reverse=True)
+
+
+def _redact_file(path: Path, secrets: Iterable[str], *, chunk_size: int = 1024 * 1024) -> None:
+    needles = [item.encode("utf-8") for item in _file_secrets(secrets)]
+    if not needles or not path.is_file():
+        return
+    tmp = path.with_name(path.name + ".redacting")
+    changed = False
+    try:
+        with path.open("rb") as src, tmp.open("wb") as dst:
+            buf = b""
+            while True:
+                chunk = src.read(chunk_size)
+                buf += chunk
+                width = max(len(needle) for needle in needles)
+                if chunk and len(buf) < width:
+                    continue
+                head, buf = _emit_cut(buf, needles, at_eof=not chunk)
+                rewritten = _replace_needles(head, needles)
+                changed = changed or rewritten != head
+                dst.write(rewritten)
+                if not chunk:
+                    break
+        if changed:
+            tmp.replace(path)
+        else:
+            tmp.unlink()
+    except OSError:
+        tmp.unlink(missing_ok=True)
+
+
+def _emit_cut(buf: bytes, needles: list[bytes], *, at_eof: bool) -> tuple[bytes, bytes]:
+    if at_eof or not needles:
+        return buf, b""
+    width = max(len(needle) for needle in needles)
+    if width == 1:
+        return buf, b""
+    cut = max(0, len(buf) - (width - 1))
+    while cut > 0:
+        pull = max(_prefix_suffix_len(buf[:cut], needle) for needle in needles)
+        if pull == 0:
+            break
+        cut -= pull
+    if cut == 0 and len(buf) > _LOG_REDACT_LIMIT:
+        cut = len(buf) - (width - 1)
+    return buf[:cut], buf[cut:]
+
+
+def _prefix_suffix_len(data: bytes, needle: bytes) -> int:
+    limit = min(len(data), len(needle) - 1)
+    for size in range(limit, 0, -1):
+        if needle.startswith(data[-size:]):
+            return size
+    return 0
+
+
+def _replace_needles(data: bytes, needles: list[bytes]) -> bytes:
+    for needle in needles:
+        data = data.replace(needle, _REDACTED.encode("utf-8"))
+    return data
 
 
 def _tail(path: Path, limit: int = _TAIL_BYTES) -> str:

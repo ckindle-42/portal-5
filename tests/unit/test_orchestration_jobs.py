@@ -905,3 +905,307 @@ def test_a_legacy_window_claim_releases_on_pid_alone(tmp_path: Path, repo: Path)
     pre.release_window()
 
     assert not pre.window_claim.exists()
+
+
+def _allowlist(repo: Path) -> None:
+    path = repo / "config" / "arm_job_env_allowlist.yaml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("patterns:\n  - LAB_SPLUNK_*\n  - PIPELINE_API_KEY\n", encoding="utf-8")
+
+
+def _enqueue_job(tmp_path: Path, job_id: str = "job-a") -> Path:
+    spec_file = tmp_path / f"{job_id}.yaml"
+    spec_file.write_text(
+        yaml.safe_dump(
+            _raw_spec(
+                ["uv", "run", "python", "-m", "tests.wfe.campaign", "--status"],
+                job_id=job_id,
+            )
+        ),
+        encoding="utf-8",
+    )
+    tasks_dir = tmp_path / "tasks"
+    result = CliRunner().invoke(
+        orchestration_app,
+        ["enqueue-job", str(spec_file), "--tasks-dir", str(tasks_dir)],
+    )
+    assert result.exit_code == 0, result.output
+    return tasks_dir
+
+
+def _queue_row(tasks_dir: Path, job_id: str = "job-a") -> sqlite3.Row:
+    db = sqlite3.connect(tasks_dir / "queue.sqlite3")
+    db.row_factory = sqlite3.Row
+    try:
+        row = db.execute("SELECT * FROM queue_task WHERE task_id = ?", (job_id,)).fetchone()
+    finally:
+        db.close()
+    assert row is not None
+    return row
+
+
+def _set_queue(tasks_dir: Path, **fields: object) -> None:
+    columns = ", ".join(f"{key} = ?" for key in fields)
+    with sqlite3.connect(tasks_dir / "queue.sqlite3") as db:
+        db.execute(
+            f"UPDATE queue_task SET {columns} WHERE task_id = 'job-a'",
+            tuple(fields.values()),
+        )
+
+
+def test_step_exports_only_named_dotenv_keys_and_redacts_them(tmp_path: Path, repo: Path) -> None:
+    _allowlist(repo)
+    marker = tmp_path / "token-kind"
+    secret = "https://splunk.example/super-secret-token"
+    literal = "$(printf pwned-value)"
+    script = _python_script(
+        repo,
+        "envshow.py",
+        "import os\n"
+        "from pathlib import Path\n"
+        "token = os.environ.get('LAB_SPLUNK_TOKEN', '')\n"
+        f"Path({str(marker)!r}).write_text('literal' if token == {literal!r} else 'evaluated')\n"
+        "print('URL=' + os.environ.get('LAB_SPLUNK_URL', 'absent'))\n"
+        "print('USER=' + os.environ.get('LAB_SPLUNK_USER', 'absent'))\n"
+        "print('TOKEN=' + token)\n"
+        "print('DECOY=' + os.environ.get('UNLISTED_SECRET', 'absent'))\n",
+    )
+    (repo / ".env").write_text(
+        "\n".join(
+            [
+                "# comment",
+                f"LAB_SPLUNK_URL={secret}",
+                "LAB_SPLUNK_USER=admin",
+                f"LAB_SPLUNK_TOKEN='{literal}'",
+                "UNLISTED_SECRET=decoy-value-not-exported",
+                "PIPELINE_API_KEY=pipeline-secret-should-stay-out",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    spec = _spec(
+        repo,
+        [script],
+        steps=[
+            {
+                "id": "one",
+                "argv": [script],
+                "timeout_seconds": 5,
+                "env_from_dotenv": ["LAB_SPLUNK_URL", "LAB_SPLUNK_USER", "LAB_SPLUNK_TOKEN"],
+            }
+        ],
+    )
+
+    result = _runner(tmp_path, repo).run(spec)
+
+    assert result.status == "PASS", result.reason
+    assert marker.read_text(encoding="utf-8") == "literal"
+    receipt_text = (tmp_path / "tasks" / "job-a" / "receipt.json").read_text(encoding="utf-8")
+    assert secret not in receipt_text
+    assert literal not in receipt_text
+    assert "decoy-value-not-exported" not in receipt_text
+    assert "pipeline-secret-should-stay-out" not in receipt_text
+    tail = _receipt(tmp_path / "tasks")["steps"][0]["stdout_tail"]
+    assert "URL=[REDACTED]" in tail
+    assert "USER=[REDACTED]" in tail
+    assert "TOKEN=[REDACTED]" in tail
+    assert "DECOY=absent" in tail
+    log = next((tmp_path / "tasks" / "job-a" / "logs").glob("one.*.stdout.log"))
+    raw = log.read_text(encoding="utf-8")
+    assert secret not in raw
+    assert literal not in raw
+
+
+def test_missing_dotenv_key_fails_before_the_step_starts(tmp_path: Path, repo: Path) -> None:
+    _allowlist(repo)
+    marker = tmp_path / "ran"
+    script = _python_script(
+        repo,
+        "marker.py",
+        f"from pathlib import Path\nPath({str(marker)!r}).write_text('ran')\n",
+    )
+    (repo / ".env").write_text("LAB_SPLUNK_URL=https://splunk.example/secret\n", encoding="utf-8")
+    spec = _spec(
+        repo,
+        [script],
+        steps=[
+            {
+                "id": "one",
+                "argv": [script],
+                "timeout_seconds": 5,
+                "env_from_dotenv": ["LAB_SPLUNK_URL", "LAB_SPLUNK_PASSWORD"],
+            }
+        ],
+    )
+
+    result = _runner(tmp_path, repo).run(spec)
+
+    assert result.status == "BLOCKED"
+    assert result.reason is not None
+    assert "LAB_SPLUNK_PASSWORD" in result.reason
+    assert "secret" not in result.reason
+    assert not marker.exists()
+
+
+def test_env_from_dotenv_parse_rejects_a_key_the_allowlist_omits(repo: Path) -> None:
+    _allowlist(repo)
+    script = _script(repo, "ok.sh", "#!/bin/sh\nexit 0\n")
+    raw = _raw_spec([script])
+    raw["steps"][0]["env_from_dotenv"] = ["AWS_SECRET_ACCESS_KEY"]
+
+    with pytest.raises(ValueError, match="allowlist"):
+        parse_job_spec(raw, repo_root=repo)
+
+
+def test_env_from_dotenv_requires_the_allowlist_file(repo: Path) -> None:
+    script = _script(repo, "ok.sh", "#!/bin/sh\nexit 0\n")
+    raw = _raw_spec([script])
+    raw["steps"][0]["env_from_dotenv"] = ["LAB_SPLUNK_URL"]
+
+    with pytest.raises(ValueError, match="allowlist"):
+        parse_job_spec(raw, repo_root=repo)
+
+
+def test_log_redaction_catches_a_secret_split_across_reads(tmp_path: Path) -> None:
+    path = tmp_path / "stdout.log"
+    secret = "split-secret-token"
+    path.write_bytes(b"xx" + secret.encode() + b"yy")
+
+    jobmod._redact_file(path, [secret], chunk_size=4)
+
+    assert path.read_bytes() == b"xx" + b"[REDACTED]" + b"yy"
+
+
+def test_queue_cancel_marks_a_queued_task_and_keeps_the_prior_db(tmp_path: Path) -> None:
+    tasks_dir = _enqueue_job(tmp_path)
+
+    result = CliRunner().invoke(
+        orchestration_app, ["queue-cancel", "job-a", "--tasks-dir", str(tasks_dir)]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "cancelled job-a" in result.output
+    row = _queue_row(tasks_dir)
+    assert row["state"] == "blocked"
+    assert row["receipt_status"] == "CANCELLED"
+    assert row["last_error"] == "cancelled by operator"
+    with sqlite3.connect(tasks_dir / "queue.sqlite3") as db:
+        event = db.execute(
+            "SELECT state, detail_json FROM queue_event WHERE task_id = 'job-a' ORDER BY id DESC"
+        ).fetchone()
+    assert event is not None
+    assert event[0] == "blocked"
+    assert json.loads(event[1])["receipt_status"] == "CANCELLED"
+    backups = list(tasks_dir.glob("queue.sqlite3.*.bak"))
+    assert len(backups) == 1
+    with sqlite3.connect(backups[0]) as db:
+        prior = db.execute("SELECT state FROM queue_task WHERE task_id = 'job-a'").fetchone()
+    assert prior is not None and prior[0] == "queued"
+
+    again = CliRunner().invoke(
+        orchestration_app, ["queue-cancel", "job-a", "--tasks-dir", str(tasks_dir)]
+    )
+    assert again.exit_code == 1
+    assert len(list(tasks_dir.glob("queue.sqlite3.*.bak"))) == 1
+
+
+def test_queue_cancel_refuses_a_live_runner_and_accepts_a_dead_pid(tmp_path: Path) -> None:
+    tasks_dir = _enqueue_job(tmp_path)
+    _set_queue(tasks_dir, state="running", runner_pid=os.getpid())
+
+    forced = CliRunner().invoke(
+        orchestration_app,
+        ["queue-cancel", "job-a", "--force", "--tasks-dir", str(tasks_dir)],
+    )
+    bare = CliRunner().invoke(
+        orchestration_app, ["queue-cancel", "job-a", "--tasks-dir", str(tasks_dir)]
+    )
+
+    assert forced.exit_code == 1, forced.output
+    assert "alive" in forced.output
+    assert bare.exit_code == 1
+    assert "running" in bare.output
+    assert _queue_row(tasks_dir)["state"] == "running"
+    assert list(tasks_dir.glob("queue.sqlite3.*.bak")) == []
+
+    _set_queue(tasks_dir, state="running", runner_pid=2**30)
+    cancelled = CliRunner().invoke(
+        orchestration_app,
+        [
+            "queue-cancel",
+            "job-a",
+            "--force",
+            "--reason",
+            "runner died",
+            "--tasks-dir",
+            str(tasks_dir),
+        ],
+    )
+
+    assert cancelled.exit_code == 0, cancelled.output
+    row = _queue_row(tasks_dir)
+    assert row["state"] == "blocked"
+    assert row["receipt_status"] == "CANCELLED"
+    assert row["last_error"] == "runner died"
+    backups = list(tasks_dir.glob("queue.sqlite3.*.bak"))
+    assert len(backups) == 1
+    with sqlite3.connect(backups[0]) as db:
+        prior = db.execute("SELECT state, runner_pid FROM queue_task").fetchone()
+    assert prior == ("running", 2**30)
+
+
+@pytest.mark.parametrize("state", ["blocked", "done"])
+def test_queue_requeue_rereads_the_job_spec(tmp_path: Path, state: str) -> None:
+    tasks_dir = _enqueue_job(tmp_path)
+    with QueueLedger(tasks_dir) as ledger:
+        ledger.finish("job-a", state, state.upper(), "earlier")
+    spec_path = tasks_dir / "job-a" / "job.json"
+    payload = json.loads(spec_path.read_text(encoding="utf-8"))
+    payload["purpose"] = "run the ship again"
+    spec_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = CliRunner().invoke(
+        orchestration_app, ["queue-requeue", "job-a", "--tasks-dir", str(tasks_dir)]
+    )
+
+    assert result.exit_code == 0, result.output
+    row = _queue_row(tasks_dir)
+    assert row["state"] == "queued"
+    assert row["receipt_status"] is None
+    assert row["last_error"] is None
+    assert json.loads(row["plan_json"])["purpose"] == "run the ship again"
+    written = json.loads(spec_path.read_text(encoding="utf-8"))
+    assert written["purpose"] == "run the ship again"
+    backups = list(tasks_dir.glob("queue.sqlite3.*.bak"))
+    assert len(backups) == 1
+    with sqlite3.connect(backups[0]) as db:
+        prior = db.execute("SELECT state FROM queue_task").fetchone()
+    assert prior is not None and prior[0] == state
+
+
+def test_queue_requeue_refuses_a_queued_task_without_a_backup(tmp_path: Path) -> None:
+    tasks_dir = _enqueue_job(tmp_path)
+
+    result = CliRunner().invoke(
+        orchestration_app, ["queue-requeue", "job-a", "--tasks-dir", str(tasks_dir)]
+    )
+
+    assert result.exit_code == 1
+    assert "queued" in result.output
+    assert list(tasks_dir.glob("queue.sqlite3.*.bak")) == []
+    assert _queue_row(tasks_dir)["state"] == "queued"
+
+
+def test_queue_requeue_refuses_a_plan(tmp_path: Path) -> None:
+    tasks_dir = _enqueue_job(tmp_path)
+    _set_queue(tasks_dir, kind="plan", state="blocked")
+
+    result = CliRunner().invoke(
+        orchestration_app, ["queue-requeue", "job-a", "--tasks-dir", str(tasks_dir)]
+    )
+
+    assert result.exit_code == 1
+    assert "not a job" in result.output
+    assert list(tasks_dir.glob("queue.sqlite3.*.bak")) == []
+    assert _queue_row(tasks_dir)["state"] == "blocked"
