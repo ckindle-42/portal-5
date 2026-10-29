@@ -61,4 +61,10 @@ renderers:
 # Tag -> reason. Skips the renderer refusal for a tag whose current setup the
 # conformance probe verified (e.g. a template-only repair like Mellum's
 # qwen3-thinking parser). Keyed by the exact /api/tags name.
-allow: {}
+allow:
+  # LFM2.5 always thinks (LiquidAI card: "a pure reasoning model that always thinks"). The raw hf.co tag
+  # already separates reasoning into message.thinking with clean content and tool calls (measured
+  # 2026-10-29: think on/off both 62 reasoning chars, answer clean; s8_lfm25_screen 12/12). The table pair
+  # lfm2/lfm2-thinking failed the probe (think=false leaked) and apply-renderers --probe restored it.
+  "hf.co/unsloth/LFM2.5-24B-A2B-GGUF:UD-Q4_K_XL": "always-think; raw template verified 2026-10-29"
+  "hf.co/unsloth/LFM2.5-24B-A2B-GGUF:UD-Q4_K_XL-ctx96k": "always-think; raw template verified 2026-10-29"
