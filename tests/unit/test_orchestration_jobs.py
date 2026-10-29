@@ -605,3 +605,19 @@ def test_bully_r0b_real_dryrun_spec_parses_against_the_repo() -> None:
     assert [step.step_id for step in spec.steps] == ["verify-sources", "acquire", "dry-run"]
     assert "--dry-run" in spec.steps[2].argv  # never --ship from a job
     assert not any("--ship" in step.argv for step in spec.steps)
+
+
+def test_the_window_is_held_while_a_step_runs(tmp_path: Path, repo: Path) -> None:
+    claim = tmp_path / "state" / "jarvis_local_window.json"
+    seen = tmp_path / "seen"
+    script = _python_script(
+        repo,
+        "peek.py",
+        f"from pathlib import Path\nPath({str(seen)!r}).write_text(str(Path({str(claim)!r}).exists()))\n",
+    )
+    spec = _spec(
+        repo, [script], preconditions={"stack": "down", "free_memory_gib": 8, "disk_free_gib": 20}
+    )
+    assert _runner(tmp_path, repo).run(spec).status == "PASS"
+    assert seen.read_text() == "True"  # claimed during the step
+    assert not claim.exists()  # released after

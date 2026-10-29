@@ -483,8 +483,11 @@ class JobRunner:
                 entry["state"] = "pending"
                 entry["reason"] = "operator requested rerun"
             self._save_state(job_dir, state)
+            # Hold the window for the whole run, not only while waiting on lanes: a lane
+            # started mid-run would load the host under a live campaign.
+            self.preconditions.claim_window(spec.job_id)
             status, reason = self._run_steps(spec, job_dir, state)
-            if status != "WAITING":
+            if status != "WAITING" or "dispatch lane lock" not in str(reason):
                 self.preconditions.release_window()
             receipt = self._write_receipt(spec, job_dir, state, status, reason)
             self._notify(spec, status, reason, receipt)
