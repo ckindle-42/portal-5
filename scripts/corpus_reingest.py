@@ -649,7 +649,11 @@ def _report_blocked_sources(facts: Mapping[str, Mapping[str, Any]]) -> bool:
 
 
 def _item_bucket(
-    items: dict[str, dict[str, Any]], item: CorpusFile, item_id: str
+    items: dict[str, dict[str, Any]],
+    item: CorpusFile,
+    item_id: str,
+    *,
+    include_data_file: bool = True,
 ) -> dict[str, Any]:
     record = items.setdefault(
         item_id,
@@ -674,9 +678,11 @@ def _item_bucket(
             "date_fallback_by_format": Counter(),
             "formats": Counter(),
             "tool_tells": set(),
+            "excluded_files": [],
         },
     )
-    record["data_files"][item.path.relative_to(item.root).as_posix()] = _sha256(item.path)
+    if include_data_file and item.path.is_file():
+        record["data_files"][item.path.relative_to(item.root).as_posix()] = _sha256(item.path)
     return record
 
 
@@ -736,6 +742,46 @@ class ScanAccumulator:
         self.distinct_sources.add(resolved.source_checked_value)
         self.distinct_hosts.add(resolved.host_checked_value)
 
+    def merge(self, other: ScanAccumulator) -> None:
+        for name in (
+            "totals",
+            "by_publisher",
+            "by_sourcetype",
+            "by_source",
+            "by_host",
+            "unknown_hosts_by_sourcetype",
+            "date_fallback_by_format",
+            "by_format",
+            "pointer_skips",
+            "file_counts",
+        ):
+            getattr(self, name).update(getattr(other, name))
+        self.distinct_sources.update(other.distinct_sources)
+        self.distinct_hosts.update(other.distinct_hosts)
+        for item_id, incoming in other.items.items():
+            current = self.items.get(item_id)
+            if current is None:
+                self.items[item_id] = incoming
+                continue
+            current["data_files"].update(incoming["data_files"])
+            current["excluded_files"].extend(incoming["excluded_files"])
+            current["tool_tells"].update(incoming["tool_tells"])
+            for key, value in incoming.items():
+                if isinstance(value, Counter):
+                    current[key].update(value)
+                elif key in {
+                    "events",
+                    "unknown_sourcetype",
+                    "unknown_host",
+                    "date_fallback",
+                    "missing_time",
+                    "source_replacements",
+                    "host_replacements",
+                    "sourcetype_replacements",
+                    "residual_leaks",
+                }:
+                    current[key] += value
+
     def output(self, read_errors: list[dict[str, str]]) -> dict[str, Any]:
         for bucket in self.items.values():
             for key in (
@@ -780,6 +826,38 @@ def iter_evtx_text(path: Path) -> Iterator[str]:
             yield record.xml()
 
 
+def _tracked_files(root: Path) -> set[str] | None:
+    result = subprocess.run(
+        ["git", "-C", str(root), "ls-files", "-z"],
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode:
+        return None
+    return {os.fsdecode(name) for name in result.stdout.split(b"\0") if name}
+
+
+def _file_key(item: CorpusFile) -> tuple[str, str]:
+    return item.publisher, item.path.relative_to(item.root).as_posix()
+
+
+def _exclude_file(
+    accumulator: ScanAccumulator,
+    item: CorpusFile,
+    item_id: str,
+    reason: str,
+    error: str,
+    data_files: Mapping[str, str] | None = None,
+) -> dict[str, str]:
+    publisher, path = _file_key(item)
+    excluded = {"path": path, "reason": reason, "error": error}
+    bucket = _item_bucket(accumulator.items, item, item_id, include_data_file=data_files is None)
+    if data_files is not None:
+        bucket["data_files"].update(data_files)
+    bucket["excluded_files"].append(excluded)
+    return {"publisher": publisher, "test_id": item.test_id, **excluded}
+
+
 def _iter_file_events(item: CorpusFile) -> Iterator[dict[str, Any] | str]:
     if item.path.suffix.lower() == ".evtx":
         for event in iter_evtx_text(item.path):
@@ -792,31 +870,77 @@ def _iter_file_events(item: CorpusFile) -> Iterator[dict[str, Any] | str]:
 def scan_inputs(files_by_publisher: Mapping[str, list[CorpusFile]]) -> dict[str, Any]:
     accumulator = ScanAccumulator()
     read_errors: list[dict[str, str]] = []
+    roots = {item.root.resolve() for files in files_by_publisher.values() for item in files}
+    tracked_by_root = {root: _tracked_files(root) for root in roots}
     for publisher, files in files_by_publisher.items():
         for item in files:
             if not item.path.is_file():
+                _, path = _file_key(item)
+                tracked = tracked_by_root[item.root.resolve()]
+                reason = (
+                    "upstream_missing"
+                    if tracked is not None and path not in tracked
+                    else "acquisition_gap"
+                )
                 read_errors.append(
-                    {"publisher": publisher, "path": item.path.name, "error": "missing_file"}
+                    _exclude_file(
+                        accumulator,
+                        item,
+                        p5_item_id(publisher, item.test_id),
+                        reason,
+                        "missing_file",
+                    )
                 )
                 continue
             if legacy.is_lfs_pointer(item.path):
                 accumulator.pointer_skips[publisher] += 1
                 continue
-            accumulator.file_counts[publisher] += 1
             item_id = p5_item_id(publisher, item.test_id)
+            file_accumulator = ScanAccumulator()
+            bucket = _item_bucket(file_accumulator.items, item, item_id)
             try:
-                bucket = _item_bucket(accumulator.items, item, item_id)
                 for event in _iter_file_events(item):
-                    accumulator.record(item, bucket, event)
+                    file_accumulator.record(item, bucket, event)
             except Exception as exc:
                 read_errors.append(
-                    {
-                        "publisher": publisher,
-                        "path": item.path.relative_to(item.root).as_posix(),
-                        "error": type(exc).__name__,
-                    }
+                    _exclude_file(
+                        accumulator,
+                        item,
+                        item_id,
+                        "unparseable",
+                        type(exc).__name__,
+                        bucket["data_files"],
+                    )
                 )
+                continue
+            file_accumulator.file_counts[publisher] += 1
+            accumulator.merge(file_accumulator)
     return accumulator.output(read_errors)
+
+
+def _blocking_read_errors(scan: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    return [row for row in scan["read_errors"] if row.get("reason") == "acquisition_gap"]
+
+
+def _ship_gate_blocked(
+    scan: Mapping[str, Any],
+    missing_roots: Mapping[str, Path],
+    lab_census: bool,
+    cousin_inventory: Mapping[str, Any] | None,
+    cousin_census_error: str | None,
+) -> bool:
+    census_failed = lab_census and (
+        cousin_census_error is not None
+        or cousin_inventory is None
+        or not cousin_inventory.get("reconciled", False)
+    )
+    return bool(
+        missing_roots
+        or _blocking_read_errors(scan)
+        or scan["totals"].get("residual_leaks", 0)
+        or scan["totals"].get("missing_time", 0)
+        or census_failed
+    )
 
 
 def _tree_checksum(items: Mapping[str, Mapping[str, Any]], publisher: str) -> str | None:
@@ -1016,13 +1140,22 @@ def _write_fidelity(path: Path, report: Mapping[str, Any]) -> None:
         ]
     )
     lines.extend(f"- **{name}:** {reason}." for name, reason in NOT_INGESTED.items())
+    lines.extend(["", "### Source files excluded from this run", ""])
+    if scan["read_errors"]:
+        lines.extend(
+            f"- **{row['publisher']}/{row['test_id']}** `{row['path']}`: "
+            f"`{row['reason']}` ({row['error']})."
+            for row in scan["read_errors"]
+        )
+    else:
+        lines.append("None.")
     lines.extend(["", "## Missing or failed inputs", ""])
     lines.extend(
         f"- Missing source tree: `{name}` ({root})."
         for name, root in report["missing_roots"].items()
     )
     lines.extend(
-        f"- Read failure: `{row['publisher']}/{row['path']}` ({row['error']})."
+        f"- Read failure: `{row['publisher']}/{row['path']}` ({row['reason']}: {row['error']})."
         for row in scan["read_errors"]
     )
     if not report["missing_roots"] and not scan["read_errors"]:
@@ -1085,8 +1218,12 @@ def write_report(
     return output
 
 
-def _iter_resolved(files: Iterator[CorpusFile]) -> Iterator[tuple[str, ResolvedEvent]]:
+def _iter_resolved(
+    files: Iterator[CorpusFile], excluded_files: set[tuple[str, str]] | None = None
+) -> Iterator[tuple[str, ResolvedEvent]]:
     for item in files:
+        if excluded_files is not None and _file_key(item) in excluded_files:
+            continue
         if not item.path.is_file() or legacy.is_lfs_pointer(item.path):
             continue
         item_id = p5_item_id(item.publisher, item.test_id)
@@ -1094,7 +1231,10 @@ def _iter_resolved(files: Iterator[CorpusFile]) -> Iterator[tuple[str, ResolvedE
             yield item_id, resolve_event(item, event)
 
 
-def ship_inputs(files_by_publisher: Mapping[str, list[CorpusFile]]) -> dict[str, int]:
+def ship_inputs(
+    files_by_publisher: Mapping[str, list[CorpusFile]],
+    excluded_files: set[tuple[str, str]] | None = None,
+) -> dict[str, int]:
     buffers: dict[tuple[str, str, str, str], list[tuple[dict[str, Any] | str, float]]] = (
         defaultdict(list)
     )
@@ -1117,7 +1257,7 @@ def ship_inputs(files_by_publisher: Mapping[str, list[CorpusFile]]) -> dict[str,
         counts[item_id] += len(entries)
 
     for files in files_by_publisher.values():
-        for item_id, resolved in _iter_resolved(iter(files)):
+        for item_id, resolved in _iter_resolved(iter(files), excluded_files):
             if resolved.epoch is None:
                 raise RuntimeError(
                     f"event has neither its own timestamp nor a manifest date: {item_id}"
@@ -1143,6 +1283,19 @@ def verify_plan(items_path: Path) -> dict[str, Any]:
     }
     extras = sorted(set(actual) - set(expected))
     return {"ok": not mismatches and not extras, "mismatches": mismatches, "extra_p5_items": extras}
+
+
+def _manifest_records(corpora_root: Path) -> dict[str, dict[str, Any]]:
+    """The acquisition manifest's records keyed by source_id ({} when there is none)."""
+    manifest_path = corpora_root / "manifest.json"
+    manifest_doc = (
+        json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.is_file() else {}
+    )
+    return {
+        str(record.get("source_id")): record
+        for record in manifest_doc.get("sources", [])
+        if isinstance(record, dict) and record.get("source_id")
+    }
 
 
 def main() -> int:
@@ -1200,15 +1353,7 @@ def main() -> int:
         name: publisher_files(name, root) for name, root in roots.items() if root.is_dir()
     }
     scan = scan_inputs(files_by_publisher)
-    manifest_path = args.corpora_root / "manifest.json"
-    manifest_doc = (
-        json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.is_file() else {}
-    )
-    manifest_records = {
-        str(record.get("source_id")): record
-        for record in manifest_doc.get("sources", [])
-        if isinstance(record, dict) and record.get("source_id")
-    }
+    manifest_records = _manifest_records(args.corpora_root)
     cousin_inventory = None
     cousin_census_error = None
     if args.lab_census:
@@ -1239,13 +1384,11 @@ def main() -> int:
             sort_keys=True,
         )
     )
+    ship_blocked = _ship_gate_blocked(
+        scan, missing_roots, args.lab_census, cousin_inventory, cousin_census_error
+    )
     if args.ship:
-        if (
-            missing_roots
-            or scan["read_errors"]
-            or scan["totals"].get("residual_leaks", 0)
-            or scan["totals"].get("missing_time", 0)
-        ):
+        if ship_blocked:
             print(
                 "[BLOCKED] source completeness, provenance, timestamps, or leak checks prevent shipping",
                 file=sys.stderr,
@@ -1254,10 +1397,11 @@ def main() -> int:
         if scan["totals"].get("events", 0) != sum(scan["by_publisher"].values()):
             print("[BLOCKED] event census did not reconcile", file=sys.stderr)
             return 2
-        shipped = ship_inputs(files_by_publisher)
+        excluded_files = {(str(row["publisher"]), str(row["path"])) for row in scan["read_errors"]}
+        shipped = ship_inputs(files_by_publisher, excluded_files)
         print(json.dumps({"mode": "SHIPPED", "counts_by_p5_item": shipped}, sort_keys=True))
         return 0
-    return 2 if missing_roots or scan["read_errors"] else 0
+    return 2 if ship_blocked else 0
 
 
 if __name__ == "__main__":

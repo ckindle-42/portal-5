@@ -409,6 +409,219 @@ def test_scan_inputs_counts_fallback_unknown_and_residual_leak(tmp_path: Path) -
     assert report["items"][item_id]["date_fallback"] == 1
 
 
+def test_scan_merges_valid_files_from_one_item(tmp_path: Path) -> None:
+    files = []
+    for name in ("first.jsonl", "second.jsonl"):
+        path = tmp_path / name
+        path.write_text(
+            '{"eventName":"ListUsers","timestamp":"2020-01-01T00:00:00Z"}\n',
+            encoding="utf-8",
+        )
+        files.append(reingest.CorpusFile("mordor", "one-test", path, tmp_path))
+
+    scan = reingest.scan_inputs({"mordor": files})
+
+    item_id = reingest.p5_item_id("mordor", "one-test")
+    assert scan["totals"]["events"] == 2
+    assert scan["items"][item_id]["events"] == 2
+    assert {file["path"] for file in scan["items"][item_id]["data_files"]} == {
+        "first.jsonl",
+        "second.jsonl",
+    }
+
+
+def _configure_ship_main(
+    monkeypatch: Any,
+    tmp_path: Path,
+    root: Path,
+    files: list[reingest.CorpusFile],
+    shipped: list[set[tuple[str, str]]],
+) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "corpus_reingest.py",
+            "--ship",
+            "--sources-root",
+            str(tmp_path / "sources"),
+            "--corpora-root",
+            str(tmp_path / "corpora"),
+            "--output-root",
+            str(tmp_path / "reports"),
+        ],
+    )
+    monkeypatch.setattr(reingest, "_roots_from_args", lambda args: ({"mordor": root}, set()))
+    monkeypatch.setattr(
+        reingest,
+        "prefer_pinned_siblings",
+        lambda roots, *args: (dict(roots), {"mordor": {"root": str(root), "source": "test"}}),
+    )
+    monkeypatch.setattr(
+        reingest,
+        "source_facts",
+        lambda name, path: {
+            "status": "available_local",
+            "path": str(path),
+            "commit": "a" * 40,
+            "expected_commit": "a" * 40,
+            "dirty_paths": 0,
+            "commit_matches_expected": True,
+        },
+    )
+    monkeypatch.setattr(reingest, "_report_blocked_sources", lambda facts: False)
+    monkeypatch.setattr(reingest, "publisher_files", lambda publisher, path: files)
+    monkeypatch.setattr(reingest, "write_report", lambda output_root, *args: output_root)
+    monkeypatch.setattr(
+        reingest,
+        "ship_inputs",
+        lambda files_by_publisher, excluded_files: shipped.append(excluded_files) or {},
+    )
+
+
+def test_upstream_missing_file_does_not_block_ship(tmp_path: Path, monkeypatch: Any) -> None:
+    root = tmp_path / "source"
+    _init_repo(root)
+    item = reingest.CorpusFile("mordor", "missing-upstream-test", root / "absent.jsonl", root)
+    shipped: list[set[tuple[str, str]]] = []
+    _configure_ship_main(monkeypatch, tmp_path, root, [item], shipped)
+
+    result = reingest.main()
+
+    assert result == 0
+    assert shipped == [{("mordor", "absent.jsonl")}]
+
+
+def test_acquisition_gap_blocks_ship(tmp_path: Path, monkeypatch: Any) -> None:
+    root = tmp_path / "source"
+    _init_repo(root)
+    missing = root / "tracked-but-missing.jsonl"
+    missing.write_text('{"timestamp":"2020-01-01T00:00:00Z"}\n', encoding="utf-8")
+    _commit_all(root, "add tracked input")
+    missing.unlink()
+    item = reingest.CorpusFile("mordor", "acquisition-gap-test", missing, root)
+    shipped: list[set[tuple[str, str]]] = []
+    _configure_ship_main(monkeypatch, tmp_path, root, [item], shipped)
+
+    result = reingest.main()
+
+    assert result == 2
+    assert shipped == []
+
+
+def test_unparseable_file_does_not_block_ship(tmp_path: Path, monkeypatch: Any) -> None:
+    root = tmp_path / "source"
+    _init_repo(root)
+    path = root / "malformed.evtx"
+    path.write_bytes(b"fixture")
+    _commit_all(root, "add malformed EVTX")
+    item = reingest.CorpusFile("mordor", "malformed-test", path, root)
+    parse_calls: list[Path] = []
+    shipped: list[set[tuple[str, str]]] = []
+
+    def fail_after_one(event_path: Path) -> Any:
+        parse_calls.append(event_path)
+        yield "<Event><System><Channel>Security</Channel></System></Event>"
+        raise ValueError("malformed record")
+
+    monkeypatch.setattr(reingest, "iter_evtx_text", fail_after_one)
+    _configure_ship_main(monkeypatch, tmp_path, root, [item], shipped)
+
+    result = reingest.main()
+
+    assert result == 0
+    assert shipped == [{("mordor", "malformed.evtx")}]
+    assert parse_calls == [path]
+
+
+def test_evtx_parse_failure_is_atomic_excluded_from_ship_and_reported(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    root = tmp_path / "evtx_samples"
+    _init_repo(root)
+    bad_path = root / "malformed.evtx"
+    bad_path.write_bytes(b"fixture")
+    gap_path = root / "tracked-gap.evtx"
+    gap_path.write_bytes(b"tracked")
+    _commit_all(root, "add EVTX fixtures")
+    gap_path.unlink()
+    items = [
+        reingest.CorpusFile("evtx_samples", "malformed-test", bad_path, root),
+        reingest.CorpusFile("evtx_samples", "upstream-missing-test", root / "absent.evtx", root),
+        reingest.CorpusFile("evtx_samples", "acquisition-gap-test", gap_path, root),
+    ]
+    parse_calls: list[Path] = []
+    tracked_calls: list[Path] = []
+    xml = "<Event><System><Channel>Security</Channel><Computer>WIN-01</Computer></System></Event>"
+
+    def fail_after_one(path: Path) -> Any:
+        parse_calls.append(path)
+        yield xml
+        raise ValueError("malformed record")
+
+    tracked_files = reingest._tracked_files
+    monkeypatch.setattr(reingest, "iter_evtx_text", fail_after_one)
+    monkeypatch.setattr(
+        reingest,
+        "_tracked_files",
+        lambda path: tracked_calls.append(path) or tracked_files(path),
+    )
+
+    scan = reingest.scan_inputs({"evtx_samples": items})
+
+    assert scan["totals"].get("events", 0) == 0
+    assert scan["by_publisher"] == {}
+    assert tracked_calls == [root.resolve()]
+    assert parse_calls == [bad_path]
+    assert {row["reason"] for row in scan["read_errors"]} == {
+        "unparseable",
+        "upstream_missing",
+        "acquisition_gap",
+    }
+    for row in scan["read_errors"]:
+        item_id = reingest.p5_item_id(row["publisher"], row["test_id"])
+        assert scan["items"][item_id]["excluded_files"] == [
+            {"path": row["path"], "reason": row["reason"], "error": row["error"]}
+        ]
+
+    excluded = {(row["publisher"], row["path"]) for row in scan["read_errors"]}
+    monkeypatch.setattr(
+        reingest, "ship_batch", lambda *args, **kwargs: pytest.fail("unexpected ship")
+    )
+    assert reingest.ship_inputs({"evtx_samples": items}, excluded) == {}
+    assert parse_calls == [bad_path]
+
+    report_dir = reingest.write_report(
+        tmp_path / "reports",
+        {"evtx_samples": root},
+        scan,
+        {
+            "evtx_samples": {
+                "status": "available_local",
+                "commit": "a" * 40,
+                "expected_commit": "a" * 40,
+                "dirty_paths": 0,
+            }
+        },
+        None,
+        {},
+        {},
+        None,
+    )
+    items_doc = json.loads((report_dir / "items.json").read_text(encoding="utf-8"))
+    exclusions = [entry for item in items_doc["items"].values() for entry in item["excluded_files"]]
+    assert {entry["reason"] for entry in exclusions} == {
+        "unparseable",
+        "upstream_missing",
+        "acquisition_gap",
+    }
+    fidelity = (report_dir / "fidelity.md").read_text(encoding="utf-8")
+    assert "### Source files excluded from this run" in fidelity
+    assert "`unparseable` (ValueError)" in fidelity
+    assert "`upstream_missing` (missing_file)" in fidelity
+    assert "`acquisition_gap` (missing_file)" in fidelity
+
+
 def test_evtx_reader_uses_python_evtx_xml_records(tmp_path: Path, monkeypatch: Any) -> None:
     import types
 
