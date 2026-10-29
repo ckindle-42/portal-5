@@ -180,6 +180,104 @@ def enqueue_template(
     typer.echo(f"queued {plan.task_id} from {discipline}/{template_key}")
 
 
+@orchestration_app.command("enqueue-job")
+def enqueue_job(
+    spec_file: Annotated[Path, typer.Argument(exists=True, readable=True)],
+    tasks_dir: Annotated[Path | None, typer.Option("--tasks-dir")] = None,
+    source_dir: Annotated[Path | None, typer.Option("--source-dir")] = None,
+) -> None:
+    """Validate a long-run job spec and persist it for queue-run."""
+    _require_enabled()
+    from portal.modules.orchestration.jobs import parse_job_spec
+    from portal.modules.orchestration.queue import QueueLedger
+
+    try:
+        raw = yaml.safe_load(spec_file.read_text(encoding="utf-8"))
+        spec = parse_job_spec(raw, repo_root=_repo_root())
+        with QueueLedger(tasks_dir or _tasks_dir()) as ledger:
+            ledger.enqueue_job(spec, source_dir or spec_file.resolve().parent)
+    except Exception as exc:
+        typer.echo(f"arm enqueue-job failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"queued job {spec.job_id}")
+
+
+@orchestration_app.command("job-status")
+def job_status(
+    job_id: Annotated[str, typer.Argument()],
+    tasks_dir: Annotated[Path | None, typer.Option("--tasks-dir")] = None,
+) -> None:
+    """Print a job receipt, or its persisted state before the first run."""
+    task_dir = (tasks_dir or _tasks_dir()) / job_id
+    receipt = task_dir / "receipt.json"
+    if receipt.is_file():
+        typer.echo(receipt.read_text(encoding="utf-8"))
+        return
+    state = task_dir / "job_state.json"
+    spec = task_dir / "job.json"
+    if not state.is_file() and not spec.is_file():
+        typer.echo(f"no job: {job_id}", err=True)
+        raise typer.Exit(code=1)
+    payload: dict[str, Any] = {"job_id": job_id}
+    if spec.is_file():
+        payload["spec"] = yaml.safe_load(spec.read_text(encoding="utf-8"))
+    if state.is_file():
+        payload["state"] = json.loads(state.read_text(encoding="utf-8"))
+    typer.echo(json.dumps(payload, indent=2))
+
+
+@orchestration_app.command("job-resume")
+def job_resume(
+    job_id: Annotated[str, typer.Argument()],
+    rerun: Annotated[
+        str | None, typer.Option("--rerun", help="Re-run this completed step once.")
+    ] = None,
+    tasks_dir: Annotated[Path | None, typer.Option("--tasks-dir")] = None,
+) -> None:
+    """Resume a stopped job at its first incomplete step."""
+    _require_enabled()
+    from portal.modules.orchestration.jobs import JobRunner, parse_job_spec
+    from portal.modules.orchestration.queue import QueueGate, QueueLedger
+    from portal.modules.orchestration.service import load_arm_config
+    from portal.modules.orchestration.telegram import TelegramNoticeSink
+
+    root = tasks_dir or _tasks_dir()
+    spec_path = root / job_id / "job.json"
+    if not spec_path.is_file():
+        typer.echo(f"no job: {job_id}", err=True)
+        raise typer.Exit(code=1)
+    try:
+        with QueueLedger(root) as ledger:
+            active = ledger.active_other(job_id)
+            if active:
+                raise RuntimeError(active)
+            if ledger.task(job_id) is not None:
+                ledger.requeue(job_id)
+        spec = parse_job_spec(
+            yaml.safe_load(spec_path.read_text(encoding="utf-8")), repo_root=_repo_root()
+        )
+        policy = load_arm_config(_arm_config_path()).get("queue", {})
+        gate = QueueGate({}, policy if isinstance(policy, dict) else {})
+        result = JobRunner(
+            root,
+            repo_root=_repo_root(),
+            gate=gate,
+            notices=TelegramNoticeSink(),
+        ).run(spec, rerun=rerun)
+        with QueueLedger(root) as ledger:
+            if ledger.task(job_id) is not None:
+                if result.status == "WAITING":
+                    ledger.defer(job_id, result.reason or "preconditions not met")
+                elif result.status == "PASS":
+                    ledger.finish(job_id, "done", "PASS")
+                else:
+                    ledger.finish(job_id, "blocked", result.status, result.reason)
+    except Exception as exc:
+        typer.echo(f"arm job-resume failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(str(result.receipt_path))
+
+
 @orchestration_app.command("queue-run")
 def queue_run(
     tasks_dir: Annotated[Path | None, typer.Option("--tasks-dir")] = None,
@@ -194,11 +292,20 @@ def queue_run(
 
     root = tasks_dir or _tasks_dir()
     try:
-        service = _service(root)
-        policy = service.arm_config.get("queue", {})
+        from portal.modules.orchestration.service import load_arm_config
+        from portal.modules.orchestration.telegram import TelegramNoticeSink
+
+        service = _optional_service(root)
+        policy = load_arm_config(_arm_config_path()).get("queue", {})
         if not isinstance(policy, dict):
             raise ValueError("orchestration queue config must be a mapping")
-        runner = OvernightQueue(root, service, QueueGate(service.engines, policy))
+        engines = service.engines if service is not None else {}
+        runner = OvernightQueue(
+            root,
+            service,
+            QueueGate(engines, policy),
+            notices=TelegramNoticeSink(),
+        )
         while True:
             result = runner.run_next(override=override)
             if result.status == "EMPTY":
@@ -225,6 +332,19 @@ def queue_status(tasks_dir: Annotated[Path | None, typer.Option("--tasks-dir")] 
 
 
 def _service(tasks_dir: Path | None) -> Any:
+    service, error = _build_service(tasks_dir)
+    if service is None:
+        typer.echo(error, err=True)
+        raise typer.Exit(code=2)
+    return service
+
+
+def _optional_service(tasks_dir: Path | None) -> Any | None:
+    service, _error = _build_service(tasks_dir)
+    return service
+
+
+def _build_service(tasks_dir: Path | None) -> tuple[Any | None, str | None]:
     from portal.modules.orchestration.service import ArmService, load_arm_config, seated_model_tags
     from portal.modules.orchestration.telegram import TelegramNoticeSink
     from portal.modules.orchestration.worker import Engine
@@ -235,8 +355,7 @@ def _service(tasks_dir: Path | None) -> Any:
     pipeline_url = os.environ.get("PORTAL_ARM_PIPELINE_URL", "http://127.0.0.1:9099")
     api_key = os.environ.get("PIPELINE_API_KEY", "")
     if not api_key:
-        typer.echo("set PIPELINE_API_KEY for the Pipeline chat and load-plan requests", err=True)
-        raise typer.Exit(code=2)
+        return None, "set PIPELINE_API_KEY for the Pipeline chat and load-plan requests"
     tags = seated_model_tags(load_arm_config(config_path))
     engines = {}
     for seat in ("fast", "deep"):
@@ -249,8 +368,7 @@ def _service(tasks_dir: Path | None) -> Any:
             or not load_identity.get("model")
             or not load_identity.get("engine")
         ):
-            typer.echo(f"set {prefix}DIGEST and configure load_plan_models.{seat}", err=True)
-            raise typer.Exit(code=2)
+            return None, f"set {prefix}DIGEST and configure load_plan_models.{seat}"
         engines[seat] = Engine(
             tags[seat],
             digest,
@@ -259,7 +377,10 @@ def _service(tasks_dir: Path | None) -> Any:
             str(load_identity.get("engine", "omlx")),
             str(load_identity.get("model", "")),
         )
-    return ArmService(tasks_dir or _tasks_dir(), engines, notices=TelegramNoticeSink())
+    return (
+        ArmService(tasks_dir or _tasks_dir(), engines, notices=TelegramNoticeSink()),
+        None,
+    )
 
 
 def _template_parameters(values: list[str]) -> dict[str, str]:
@@ -272,8 +393,12 @@ def _template_parameters(values: list[str]) -> dict[str, str]:
     return parameters
 
 
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[3]
+
+
 def _arm_config_path() -> Path:
-    return Path(__file__).resolve().parents[3] / "config" / "orchestration_arm.yaml"
+    return _repo_root() / "config" / "orchestration_arm.yaml"
 
 
 def _tasks_dir() -> Path:

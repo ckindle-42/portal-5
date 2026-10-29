@@ -39,3 +39,20 @@ class TelegramNoticeSink:
 
     def blocked(self, task_id: str, bite_id: str, failure: dict[str, Any]) -> None:
         self.store.blocked(task_id, bite_id, failure)
+
+    def job_finished(self, job_id: str, status: str, detail: dict[str, Any]) -> None:
+        reason = _one_line(detail.get("reason", ""))
+        lines = [
+            f"Orchestration job {status}.",
+            f"Job: {_one_line(job_id)}",
+            f"Purpose: {_one_line(detail.get('purpose', ''))}",
+            f"Steps: {_one_line(detail.get('steps', '?'))}",
+            f"Duration: {float(detail.get('duration_seconds') or 0):.0f}s",
+        ]
+        if reason:
+            lines.append(f"Reason: {reason}")
+        self.store.notify(job_id, "job", "\n".join(lines))
+
+
+def _one_line(value: object) -> str:
+    return " ".join(str(value).split())[:300]

@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sqlite3
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from .contracts import Bite, TaskPlan, plan_json
+from .jobs import JobNoticeSink, JobRunner, JobSpec, job_json, parse_job_spec
 from .service import ArmService
 from .worker import Engine, PipelineError
 
@@ -64,6 +67,10 @@ class QueueGate:
             return False
         return True
 
+    def external_reason(self) -> str | None:
+        """The host-quiet reason a job also has to respect."""
+        return self._external_lock_reason()
+
     def _external_lock_reason(self) -> str | None:
         pids, error = _live_pids(self.pid_file)
         if error:
@@ -98,6 +105,7 @@ class QueueLedger:
             CREATE TABLE IF NOT EXISTS queue_task (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 task_id TEXT NOT NULL UNIQUE,
+                kind TEXT NOT NULL DEFAULT 'plan',
                 plan_json TEXT NOT NULL,
                 source_dir TEXT NOT NULL,
                 state TEXT NOT NULL,
@@ -116,7 +124,13 @@ class QueueLedger:
             );
             """
         )
+        self._migrate_kind()
         self.db.commit()
+
+    def _migrate_kind(self) -> None:
+        columns = {str(row[1]) for row in self.db.execute("PRAGMA table_info(queue_task)")}
+        if "kind" not in columns:
+            self.db.execute("ALTER TABLE queue_task ADD COLUMN kind TEXT NOT NULL DEFAULT 'plan'")
 
     def __enter__(self) -> QueueLedger:
         return self
@@ -133,24 +147,39 @@ class QueueLedger:
         normalized = plan
         if (self.task_root / normalized.task_id).exists():
             raise FileExistsError(f"task directory already exists: {normalized.task_id}")
+        self._insert(normalized.task_id, "plan", plan_json(normalized), source_dir)
+        self._event(normalized.task_id, "queued", {})
+        self.db.commit()
+
+    def enqueue_job(self, spec: JobSpec, source_dir: Path) -> None:
+        if not isinstance(spec, JobSpec):
+            raise TypeError("queue jobs must be validated JobSpec objects")
+        task_dir = self.task_root / spec.job_id
+        if task_dir.exists():
+            raise FileExistsError(f"task directory already exists: {spec.job_id}")
+        task_dir.mkdir(parents=True)
+        try:
+            (task_dir / "job.json").write_text(
+                json.dumps(spec.as_dict(), sort_keys=True, indent=2) + "\n", encoding="utf-8"
+            )
+            self._insert(spec.job_id, "job", job_json(spec), source_dir.expanduser().resolve())
+        except Exception:
+            shutil.rmtree(task_dir, ignore_errors=True)
+            raise
+        self._event(spec.job_id, "queued", {"kind": "job"})
+        self.db.commit()
+
+    def _insert(self, task_id: str, kind: str, plan: str, source_dir: Path) -> None:
         now = _now()
         try:
             self.db.execute(
                 "INSERT INTO queue_task "
-                "(task_id, plan_json, source_dir, state, created_at, updated_at) "
-                "VALUES (?, ?, ?, 'queued', ?, ?)",
-                (
-                    normalized.task_id,
-                    plan_json(normalized),
-                    str(source_dir.expanduser().resolve()),
-                    now,
-                    now,
-                ),
+                "(task_id, kind, plan_json, source_dir, state, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, 'queued', ?, ?)",
+                (task_id, kind, plan, str(source_dir), now, now),
             )
         except sqlite3.IntegrityError as exc:
-            raise ValueError(f"task is already queued: {normalized.task_id}") from exc
-        self._event(normalized.task_id, "queued", {})
-        self.db.commit()
+            raise ValueError(f"task is already queued: {task_id}") from exc
 
     def claim_next(self) -> tuple[dict[str, Any] | None, bool]:
         self.db.execute("BEGIN IMMEDIATE")
@@ -192,10 +221,33 @@ class QueueLedger:
             raise ValueError("queue task final state must be done or blocked")
         self._set_state(task_id, state, receipt_status, reason)
 
+    def task(self, task_id: str) -> dict[str, Any] | None:
+        row = self.db.execute("SELECT * FROM queue_task WHERE task_id = ?", (task_id,)).fetchone()
+        return dict(row) if row is not None else None
+
+    def active_other(self, task_id: str) -> str | None:
+        row = self.db.execute(
+            "SELECT task_id, runner_pid FROM queue_task "
+            "WHERE state = 'running' AND task_id != ? ORDER BY id LIMIT 1",
+            (task_id,),
+        ).fetchone()
+        if row is None or not _pid_alive(row["runner_pid"]):
+            return None
+        return f"queue task {row['task_id']} is running (pid {row['runner_pid']})"
+
+    def requeue(self, task_id: str) -> None:
+        self.db.execute(
+            "UPDATE queue_task SET state = 'queued', runner_pid = NULL, receipt_status = NULL, "
+            "last_error = NULL, updated_at = ? WHERE task_id = ?",
+            (_now(), task_id),
+        )
+        self._event(task_id, "queued", {"requeue": True})
+        self.db.commit()
+
     def items(self) -> list[dict[str, Any]]:
         rows = self.db.execute(
-            "SELECT task_id, state, source_dir, receipt_status, last_error, created_at, updated_at "
-            "FROM queue_task ORDER BY id"
+            "SELECT task_id, kind, state, source_dir, receipt_status, last_error, "
+            "created_at, updated_at FROM queue_task ORDER BY id"
         )
         return [dict(row) for row in rows]
 
@@ -216,13 +268,26 @@ class QueueLedger:
 
 
 class OvernightQueue:
-    """Run persisted queue entries serially through the existing arm service."""
+    """Run persisted queue entries serially through the arm service or a job runner."""
 
-    def __init__(self, task_root: Path, service: ArmService, gate: QueueGate) -> None:
+    def __init__(
+        self,
+        task_root: Path,
+        service: ArmService | None,
+        gate: QueueGate,
+        *,
+        repo_root: Path | None = None,
+        notices: JobNoticeSink | None = None,
+        job_factory: Callable[[], JobRunner] | None = None,
+    ) -> None:
         self.task_root = task_root
         self.service = service
         self.gate = gate
-        self.service.bite_gate = gate.allows
+        self.repo_root = repo_root or Path(__file__).resolve().parents[3]
+        self.notices = notices or (service.notices if service is not None else None)
+        self.job_factory = job_factory
+        if service is not None:
+            service.bite_gate = gate.allows
 
     def run_next(self, *, override: bool = False) -> QueueRun:
         with QueueLedger(self.task_root) as ledger:
@@ -232,6 +297,12 @@ class OvernightQueue:
         task_id = str(item["task_id"])
         task_dir = self.task_root / task_id
         try:
+            if item.get("kind") == "job":
+                return self._run_job(item)
+            if self.service is None:
+                raise RuntimeError(
+                    "plan task needs the arm service; set PIPELINE_API_KEY and seat digests"
+                )
             if task_dir.is_dir():
                 result = self.service.resume(task_id, override=override)
             else:
@@ -267,13 +338,46 @@ class OvernightQueue:
             self._write_failure_receipt(task_id, task_dir, reason)
             return QueueRun("BLOCKED", task_id, task_dir / "receipt.json", reason)
 
+    def _run_job(self, item: dict[str, Any]) -> QueueRun:
+        job_id = str(item["task_id"])
+        spec = parse_job_spec(json.loads(item["plan_json"]), repo_root=self.repo_root)
+        runner = (
+            self.job_factory()
+            if self.job_factory is not None
+            else JobRunner(
+                self.task_root,
+                repo_root=self.repo_root,
+                gate=self.gate,
+                notices=self.notices,
+            )
+        )
+        result = runner.run(spec)
+        with QueueLedger(self.task_root) as ledger:
+            if result.status == "WAITING":
+                reason = result.reason or "job waits for precondition clearance"
+                ledger.defer(job_id, reason)
+                return QueueRun("WAITING", job_id, result.receipt_path, reason)
+            final = "done" if result.status == "PASS" else "blocked"
+            final_reason = (
+                None
+                if result.status == "PASS"
+                else f"job receipt status is {result.status}: {result.reason}"
+            )
+            ledger.finish(job_id, final, result.status, final_reason)
+        return QueueRun(
+            "DONE" if result.status == "PASS" else "BLOCKED",
+            job_id,
+            result.receipt_path,
+            final_reason,
+        )
+
     def _write_failure_receipt(self, task_id: str, task_dir: Path, reason: str) -> None:
         path = task_dir / "receipt.json"
         if path.is_file():
             return
         task_dir.mkdir(parents=True, exist_ok=True)
         receipt = {
-            "head": self.service.build_sha,
+            "head": self.service.build_sha if self.service is not None else "unknown",
             "utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "workdir": str(task_dir.resolve()),
             "task_id": task_id,

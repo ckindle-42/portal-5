@@ -80,6 +80,16 @@ class ArmTelegramStore:
         )
         self._enqueue(task_id, bite_id, "blocked", text, "", "")
 
+    def notify(self, task_id: str, kind: str, message: str) -> None:
+        """Queue a one-shot message; every notification is delivered, even for one task."""
+        with self._db() as db:
+            db.execute(
+                "INSERT INTO arm_notice (request_id, task_id, bite_id, kind, message, status, "
+                "decision, created_at, content_hash, run_id) "
+                "VALUES (?, ?, '', ?, ?, 'queued', NULL, ?, '', '')",
+                (uuid.uuid4().hex, task_id, kind, message, _now()),
+            )
+
     def outbox(self) -> list[ArmNotice]:
         with self._db() as db:
             db.execute("BEGIN IMMEDIATE")
