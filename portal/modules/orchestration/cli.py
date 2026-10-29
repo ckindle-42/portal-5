@@ -287,8 +287,11 @@ def queue_run(
     override: Annotated[
         bool, typer.Option("--override", help="Adopt changed build or model identity.")
     ] = False,
+    drain: Annotated[
+        bool, typer.Option("--drain", help="Exit once the queue is empty instead of waiting.")
+    ] = False,
 ) -> None:
-    """Run queued tasks serially, polling again when a yield gate is active."""
+    """Run queued tasks serially; poll while a gate yields or the queue is empty."""
     _require_enabled()
     from portal.modules.orchestration.queue import OvernightQueue, QueueGate
 
@@ -311,7 +314,10 @@ def queue_run(
         while True:
             result = runner.run_next(override=override)
             if result.status == "EMPTY":
-                break
+                if drain:
+                    break
+                time.sleep(poll_seconds)
+                continue
             typer.echo(
                 f"{result.status}: {result.task_id or ''}"
                 f"{f' ({result.reason})' if result.reason else ''}"
