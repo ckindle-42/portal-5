@@ -16,6 +16,7 @@ import yaml
 from typer.testing import CliRunner
 
 from portal.modules.orchestration import jobs as jobmod
+from portal.modules.orchestration import queue as queue_module
 from portal.modules.orchestration.cli import orchestration_app
 from portal.modules.orchestration.jobs import JobPreconditions, JobRunner, parse_job_spec
 from portal.modules.orchestration.queue import OvernightQueue, QueueGate, QueueLedger
@@ -480,6 +481,35 @@ def test_queue_runs_a_job_without_the_arm_service(tmp_path: Path, repo: Path) ->
         rows = ledger.items()
     assert rows[0]["kind"] == "job"
     assert rows[0]["state"] == "done"
+
+
+def test_queue_runs_a_job_from_its_enqueued_source_dir(
+    tmp_path: Path, repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    script = _python_script(repo, "ok.py", "print('ok')\n")
+    task_root = tmp_path / "tasks"
+    with QueueLedger(task_root) as ledger:
+        ledger.enqueue_job(_spec(repo, [script]), repo)
+    gate = QueueGate(
+        {},
+        {"yield_lock_dir": str(tmp_path / "locks")},
+        pid_file=tmp_path / "memory-pids",
+    )
+    roots: list[Path] = []
+
+    def capture(task_root: Path, *, repo_root: Path, **kwargs: Any) -> JobRunner:
+        roots.append(repo_root)
+        return _runner(tmp_path, repo_root)
+
+    monkeypatch.setattr(queue_module, "JobRunner", capture)
+    other = tmp_path / "runner-checkout"
+    other.mkdir()
+    queue = OvernightQueue(task_root, None, gate, repo_root=other, notices=StubNoticeSink())
+
+    result = queue.run_next()
+
+    assert result.status == "DONE"
+    assert roots == [repo.resolve()]
 
 
 def test_queue_defers_a_job_until_its_preconditions_clear(tmp_path: Path, repo: Path) -> None:
