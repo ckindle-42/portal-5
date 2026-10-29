@@ -47,6 +47,7 @@ steps:
       - "--screen-out"
       - tests/wfe/results/advance/advance_wfe_p5_screen_20261029.yaml
     timeout_seconds: 900
+    quiet_host: false
     outputs:
       - tests/wfe/results/advance/advance_wfe_p5_screen_20261029.yaml
   - id: confirm
@@ -76,6 +77,7 @@ steps:
       - "--fitness"
       - "--record"
     timeout_seconds: 1800
+    quiet_host: false
     outputs:
       - ~/AI_Output/portal-data/tests/wfe/results/campaigns/wfe_p5_confirm_20261029/fitness.json
       - tests/wfe/fitness_ledger.yaml
@@ -89,6 +91,7 @@ steps:
       - "--fitness-map"
       - "--write-map"
     timeout_seconds: 900
+    quiet_host: false
     outputs:
       - docs/WFE_FITNESS_MAP.md
 stop_conditions:
