@@ -35,6 +35,7 @@ steps:
       - "--screen-out"
       - tests/wfe/results/advance/advance_gemma_qat_plain_20261029.yaml
     timeout_seconds: 900
+    quiet_host: false
     outputs:
       - tests/wfe/results/advance/advance_gemma_qat_plain_20261029.yaml
   - id: arm-bites

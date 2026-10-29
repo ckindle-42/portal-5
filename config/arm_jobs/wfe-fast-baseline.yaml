@@ -32,6 +32,7 @@ steps:
       - "--campaign"
       - s8_fast_baseline_20261029
     timeout_seconds: 900
+    quiet_host: false
 stop_conditions:
   on_failure: stop
   max_job_minutes: 150

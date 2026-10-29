@@ -54,6 +54,19 @@ def test_spec_parses_under_the_runner_schema(path: Path) -> None:
     for step in spec.steps:
         assert step.timeout_seconds > 0
         assert step.timeout_seconds <= spec.stop_conditions.max_job_minutes * 60
+        assert isinstance(step.quiet_host, bool)
+
+
+@pytest.mark.parametrize("path", SPECS, ids=lambda path: path.stem)
+def test_report_steps_run_without_a_quiet_host_and_campaign_steps_keep_it(path: Path) -> None:
+    for step in _spec(path).steps:
+        is_report = step.argv[:4] == ("uv", "run", "python", "-m") and step.argv[4] == (
+            "tests.wfe.report"
+        )
+        if is_report:
+            assert step.quiet_host is False, f"{path.stem}:{step.step_id}"
+        else:
+            assert step.quiet_host is True, f"{path.stem}:{step.step_id}"
 
 
 @pytest.mark.parametrize("path", SPECS, ids=lambda path: path.stem)

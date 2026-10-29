@@ -36,6 +36,7 @@ steps:
       - "--screen-out"
       - tests/wfe/results/advance/advance_wfe_s5_research_20261029.yaml
     timeout_seconds: 900
+    quiet_host: false
     outputs:
       - tests/wfe/results/advance/advance_wfe_s5_research_20261029.yaml
   - id: general-screen
@@ -63,6 +64,7 @@ steps:
       - "--screen-out"
       - tests/wfe/results/advance/advance_wfe_s6_general_20261029.yaml
     timeout_seconds: 900
+    quiet_host: false
     outputs:
       - tests/wfe/results/advance/advance_wfe_s6_general_20261029.yaml
   - id: coding-screen
@@ -90,6 +92,7 @@ steps:
       - "--screen-out"
       - tests/wfe/results/advance/advance_wfe_s7_coding_20261029.yaml
     timeout_seconds: 900
+    quiet_host: false
     outputs:
       - tests/wfe/results/advance/advance_wfe_s7_coding_20261029.yaml
 stop_conditions:

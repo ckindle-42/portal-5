@@ -169,6 +169,18 @@ def test_job_spec_rejects_a_non_executable_direct_script(repo: Path) -> None:
         parse_job_spec(_raw_spec(["scripts/tool.py"]), repo_root=repo)
 
 
+def test_step_quiet_host_parses_and_round_trips(tmp_path: Path, repo: Path) -> None:
+    _script(repo, "ok.sh", "#!/bin/sh\nexit 0\n")
+    steps = [{"id": "one", "argv": ["scripts/ok.sh"], "timeout_seconds": 5, "quiet_host": False}]
+    spec = parse_job_spec(_raw_spec(["scripts/ok.sh"], steps=steps), repo_root=repo)
+
+    assert spec.steps[0].quiet_host is False
+    assert spec.as_dict()["steps"][0]["quiet_host"] is False
+    # Absent stays absent so specs written before the flag stay byte-stable on resume.
+    assert "quiet_host" not in _spec(repo, ["scripts/ok.sh"]).as_dict()["steps"][0]
+    assert parse_job_spec(spec.as_dict(), repo_root=repo).steps[0].quiet_host is False
+
+
 @pytest.mark.parametrize(
     ("case", "reason"),
     [
@@ -624,6 +636,87 @@ def test_the_window_is_held_while_a_step_runs(tmp_path: Path, repo: Path) -> Non
     assert _runner(tmp_path, repo).run(spec).status == "PASS"
     assert seen.read_text() == "True"  # claimed during the step
     assert not claim.exists()  # released after
+
+
+def test_a_quiet_host_false_step_runs_while_a_lane_lock_exists(tmp_path: Path, repo: Path) -> None:
+    claim = tmp_path / "state" / "jarvis_local_window.json"
+    seen = tmp_path / "seen"
+    script = _python_script(
+        repo,
+        "peek.py",
+        f"from pathlib import Path\nPath({str(seen)!r}).write_text(str(Path({str(claim)!r}).exists()))\n",
+    )
+    lock_dir = tmp_path / "dispatch-locks"
+    lock_dir.mkdir()
+    (lock_dir / "lane.lock").write_text(f"{os.getpid()}\n", encoding="utf-8")
+    spec = _spec(
+        repo,
+        [script],
+        steps=[{"id": "report", "argv": [script], "timeout_seconds": 5, "quiet_host": False}],
+        preconditions={"stack": "down", "free_memory_gib": 8, "disk_free_gib": 20},
+    )
+
+    result = _runner(tmp_path, repo).run(spec)
+
+    assert result.status == "PASS"
+    assert seen.read_text() == "False"  # ran without holding the window
+    assert not claim.exists()
+    receipt = _receipt(tmp_path / "tasks")
+    assert "dispatch lane lock" in receipt["preconditions"]["dispatch_locks"]
+
+
+def test_a_waiting_quiet_host_false_job_holds_no_window_claim(tmp_path: Path, repo: Path) -> None:
+    script = _python_script(repo, "noop.py", "pass\n")
+    lock_dir = tmp_path / "dispatch-locks"
+    lock_dir.mkdir()
+    (lock_dir / "lane.lock").write_text(f"{os.getpid()}\n", encoding="utf-8")
+    spec = _spec(
+        repo,
+        [script],
+        steps=[{"id": "report", "argv": [script], "timeout_seconds": 5, "quiet_host": False}],
+        preconditions={"stack": "down", "free_memory_gib": 64, "disk_free_gib": 20},
+    )
+    claim = tmp_path / "state" / "jarvis_local_window.json"
+
+    result = _runner(tmp_path, repo, memory=1.0).run(spec)
+
+    assert result.status == "WAITING"
+    assert "free memory" in str(result.reason)
+    assert not claim.exists()  # a waiting report-only job does not hold the window
+
+
+def test_a_report_step_runs_while_a_campaign_step_still_waits(tmp_path: Path, repo: Path) -> None:
+    marker = tmp_path / "reported"
+    report = _python_script(
+        repo, "report.py", f"from pathlib import Path\nPath({str(marker)!r}).write_text('ran')\n"
+    )
+    campaign = _python_script(repo, "campaign.py", "pass\n")
+    lock_dir = tmp_path / "dispatch-locks"
+    lock_dir.mkdir()
+    lane = lock_dir / "lane.lock"
+    lane.write_text(f"{os.getpid()}\n", encoding="utf-8")
+    claim = tmp_path / "state" / "jarvis_local_window.json"
+    spec = _spec(
+        repo,
+        [campaign],
+        steps=[
+            {"id": "report", "argv": [report], "timeout_seconds": 5, "quiet_host": False},
+            {"id": "campaign", "argv": [campaign], "timeout_seconds": 5},
+        ],
+        preconditions={"stack": "down", "free_memory_gib": 8, "disk_free_gib": 20},
+    )
+    runner = _runner(tmp_path, repo)
+
+    waiting = runner.run(spec)
+
+    assert waiting.status == "WAITING"
+    assert "dispatch lane lock" in str(waiting.reason)
+    assert marker.exists()  # the report ran despite the active lanes
+    assert json.loads(claim.read_text(encoding="utf-8"))["pid"] == os.getpid()  # held to drain
+
+    lane.unlink()
+    assert runner.run(spec).status == "PASS"
+    assert not claim.exists()  # released once the campaign is done
 
 
 def _sleeper(*extra: str) -> subprocess.Popen[bytes]:

@@ -38,6 +38,7 @@ steps:
       - "--screen-out"
       - tests/wfe/results/advance/advance_seat_card_screen_20261029.yaml
     timeout_seconds: 900
+    quiet_host: false
     outputs:
       - tests/wfe/results/advance/advance_seat_card_screen_20261029.yaml
 stop_conditions:

@@ -58,6 +58,7 @@ _STEP_SCHEMA: dict[str, Any] = {
             "items": {"type": "string", "minLength": 1},
         },
         "timeout_seconds": {"type": "number", "exclusiveMinimum": 0},
+        "quiet_host": {"type": "boolean"},
         "outputs": {"type": "array", "items": {"type": "string", "minLength": 1}},
         "checkpoints": {"type": "array", "items": {"type": "string", "minLength": 1}},
     },
@@ -138,6 +139,7 @@ class JobStep:
     timeout_seconds: float
     outputs: tuple[str, ...] = ()
     checkpoints: tuple[str, ...] = ()
+    quiet_host: bool = True
 
 
 @dataclass(frozen=True)
@@ -179,6 +181,8 @@ class JobSpec:
                     "timeout_seconds": step.timeout_seconds,
                     "outputs": list(step.outputs),
                     "checkpoints": list(step.checkpoints),
+                    # Omitted when true so specs written before the flag stay byte-stable.
+                    **({"quiet_host": False} if not step.quiet_host else {}),
                 }
                 for step in self.steps
             ],
@@ -295,6 +299,7 @@ def _parse_step(raw: dict[str, Any], repo_root: Path) -> JobStep:
         timeout_seconds=float(raw["timeout_seconds"]),
         outputs=outputs,
         checkpoints=checkpoints,
+        quiet_host=bool(raw.get("quiet_host", True)),
     )
 
 
@@ -376,7 +381,7 @@ class JobPreconditions:
         self.memory_probe = memory_probe or _free_memory_gib
         self.disk_probe = disk_probe or _disk_free_gib
 
-    def check(self, spec: JobSpec) -> PreconditionResult:
+    def check(self, spec: JobSpec, *, quiet_host: bool = True) -> PreconditionResult:
         reasons: list[str] = []
         snapshot: dict[str, Any] = {}
         gate_reason = self.gate.external_reason() if self.gate is not None else None
@@ -385,7 +390,7 @@ class JobPreconditions:
             reasons.append(f"queue yield gate: {gate_reason}")
         dispatch_reason = _dispatch_lock_reason(self.dispatch_lock_dir)
         snapshot["dispatch_locks"] = dispatch_reason or "idle"
-        if dispatch_reason:
+        if dispatch_reason and quiet_host:
             reasons.append(dispatch_reason)
             self.claim_window(spec.job_id)
         stack = self.stack_probe()
@@ -490,9 +495,14 @@ class JobRunner:
                 entry["state"] = "pending"
                 entry["reason"] = "operator requested rerun"
             self._save_state(job_dir, state)
-            # Hold the window for the whole run, not only while waiting on lanes: a lane
-            # started mid-run would load the host under a live campaign.
-            self.preconditions.claim_window(spec.job_id)
+            # Hold the window while a remaining step needs a quiet host: a lane started
+            # mid-run would load the host under a live campaign. Report-only resumes skip it.
+            if any(
+                step.quiet_host
+                for step in spec.steps
+                if state["steps"][step.step_id]["state"] != "done"
+            ):
+                self.preconditions.claim_window(spec.job_id)
             status, reason = self._run_steps(spec, job_dir, state)
             if status != "WAITING" or "dispatch lane lock" not in str(reason):
                 self.preconditions.release_window()
@@ -525,7 +535,7 @@ class JobRunner:
             entry = state["steps"][step.step_id]
             if entry["state"] == "done":
                 continue
-            preconditions = self.preconditions.check(spec)
+            preconditions = self.preconditions.check(spec, quiet_host=step.quiet_host)
             state["last_preconditions"] = preconditions.snapshot
             if not preconditions.ok:
                 return "WAITING", preconditions.reasons[0]
