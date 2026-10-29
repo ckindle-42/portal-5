@@ -35,7 +35,8 @@ Unattended:
   scripts/wfe_sweep_unattended.sh  the kickoff: preconditions, stack down, evict,
                            preflight, sweep, report, stack restored via trap
   scripts/wfe_campaign.sh  loops arms in fresh processes, skips completed arms,
-                           checks Ollama between arms, appends to a progress log
+                           checks Ollama between arms, appends to a progress log.
+                           Exits 10 when every row is BLOCKED, PENDING, or MISSING.
   --watch                  live per-arm view of a sweep in flight — row counts,
                            the arm currently running, and an ETA from what rows
                            have actually cost. Read-only and Ctrl-C safe.
@@ -2785,6 +2786,9 @@ def arm_stop_reason(
 EXIT_OK, EXIT_STOPPED, EXIT_BLOCKED, EXIT_NO_SELECTION, EXIT_INCOMPLETE = 0, 5, 6, 7, 8
 #: An arm halted on a task kind that was failing wholesale (see kind_halt_reason).
 EXIT_HALT = 9
+#: wfe_campaign.sh exits 10 when every row is BLOCKED, PENDING, or MISSING.
+EXIT_NOTHING_MEASURED = 10
+_UNMEASURED_ROW_STATES = frozenset({"BLOCKED", "PENDING", "MISSING"})
 
 
 def exit_status(outs: list[dict], arms: list[str]) -> int:
@@ -2797,6 +2801,41 @@ def exit_status(outs: list[dict], arms: list[str]) -> int:
     if any(o.get("blocked") for o in outs):
         return EXIT_BLOCKED
     return EXIT_STOPPED if any(o.get("stopped") for o in outs) else EXIT_OK
+
+
+def _row_block_reason(row: dict) -> str:
+    note = str(row.get("note") or row.get("notes") or "").strip()
+    if note.startswith(_PREFLIGHT_BLOCK):
+        note = note[len(_PREFLIGHT_BLOCK) :].strip()
+    return " ".join(note.split())
+
+
+def dominant_block_reason(rows: list[dict]) -> str:
+    """The most common block note, or the most common row state when none is set."""
+    counts: dict[str, int] = {}
+    for row in rows:
+        reason = _row_block_reason(row)
+        if reason:
+            counts[reason] = counts.get(reason, 0) + 1
+    if counts:
+        return max(counts, key=lambda reason: counts[reason])
+    states: dict[str, int] = {}
+    for row in rows:
+        state = str(row.get("state") or "PENDING")
+        states[state] = states.get(state, 0) + 1
+    if not states:
+        return "no rows"
+    state = max(states, key=lambda name: states[name])
+    return f"{states[state]} {state}"
+
+
+def campaign_measurement_exit(rows: list[dict]) -> int:
+    """0 when any row was measured; else 10 and one NOTHING MEASURED line."""
+    measured = any(str(row.get("state") or "PENDING") not in _UNMEASURED_ROW_STATES for row in rows)
+    if measured:
+        return EXIT_OK
+    print(f"NOTHING MEASURED: {dominant_block_reason(rows)}")
+    return EXIT_NOTHING_MEASURED
 
 
 def _manifest_row_result(campaign_dir: Path, row: dict) -> dict:
@@ -3345,6 +3384,11 @@ def _parse_args(argv=None):
     ap.add_argument("--smoke", action="store_true", help="one task end to end, full record printed")
     ap.add_argument("--list-arms", action="store_true")
     ap.add_argument("--status", action="store_true")
+    ap.add_argument(
+        "--require-measured",
+        action="store_true",
+        help="exit 10 and name the dominant block reason when no row was measured",
+    )
     ap.add_argument("--watch", action="store_true", help="live view of a running campaign")
     ap.add_argument(
         "--verify-complete",
@@ -3367,6 +3411,15 @@ def _parse_args(argv=None):
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--force", action="store_true", help="run an arm whose preflight says REVIEW")
     return ap, ap.parse_args(argv)
+
+
+def _cmd_require_measured(campaign_dir: Path) -> int:
+    path = campaign_dir / "manifest.json"
+    if not path.is_file():
+        print("NOTHING MEASURED: no manifest")
+        return EXIT_NOTHING_MEASURED
+    rows = json.loads(path.read_text()).get("rows") or []
+    return campaign_measurement_exit(rows)
 
 
 def _cmd_status(campaign_dir: Path) -> int:
@@ -3870,8 +3923,21 @@ def main() -> int:
     return exit_status(outs, arms)
 
 
+def _require_measured_exit() -> int | None:
+    """The campaign-finish check. None means main() should run."""
+    ap, args = _parse_args()
+    if args.dry_run or not args.require_measured:
+        return None
+    if not args.campaign_id:
+        ap.error("--require-measured needs --campaign-id")
+    return _cmd_require_measured(CAMPAIGNS / args.campaign_id)
+
+
 def _cli() -> int:
     try:
+        early = _require_measured_exit()
+        if early is not None:
+            return early
         return main()
     except GateRefused as e:
         print(e, file=sys.stderr)

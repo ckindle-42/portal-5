@@ -9,7 +9,10 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
+
+from tests.wfe import campaign
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "wfe_campaign.sh"
@@ -25,13 +28,23 @@ PY
 for arg in "$@"; do
     [ "$arg" = "-c" ] && { echo "True"; exit 0; }
 done
+if [ -n "${WFE_NOTHING_MEASURED:-}" ]; then
+    for arg in "$@"; do
+        if [ "$arg" = "--require-measured" ]; then
+            printf '%s\\n' "NOTHING MEASURED: ${WFE_NOTHING_MEASURED}"
+            exit 10
+        fi
+    done
+fi
 exit 0
 """
 
 FAKE_CURL = "#!/usr/bin/env bash\nexit 0\n"
 
 
-def _run(tmp_path: Path, *args: str) -> tuple[subprocess.CompletedProcess[str], list[dict]]:
+def _run(
+    tmp_path: Path, *args: str, env_extra: dict[str, str] | None = None
+) -> tuple[subprocess.CompletedProcess[str], list[dict]]:
     bindir = tmp_path / "bin"
     bindir.mkdir(exist_ok=True)
     for name, body in (("uv", FAKE_UV), ("curl", FAKE_CURL)):
@@ -52,6 +65,8 @@ def _run(tmp_path: Path, *args: str) -> tuple[subprocess.CompletedProcess[str], 
         "PIPELINE_API_KEY": "test-key",
         "REPEATS": "3",
     }
+    if env_extra:
+        env.update(env_extra)
     env.pop("WFE_ENGINE", None)
     result = subprocess.run(
         ["bash", str(SCRIPT), "wfe_test", *args],
@@ -131,3 +146,61 @@ def test_without_the_flags_the_environment_is_unchanged(tmp_path: Path) -> None:
     assert all(not call["engine"] for call in calls)
     assert all(not call["plan"] for call in calls)
     assert all("--plan" not in call["argv"] for call in calls)
+
+
+def _manifest(tmp_path: Path, rows: list[dict]) -> None:
+    campaign_dir = tmp_path / "campaigns" / "s8"
+    campaign_dir.mkdir(parents=True)
+    (campaign_dir / "manifest.json").write_text(json.dumps({"rows": rows}), encoding="utf-8")
+
+
+def test_all_blocked_exits_nonzero_and_names_the_dominant_reason(tmp_path, monkeypatch, capsys):
+    stale = "deployed pipeline build 'abc' is not HEAD's portal/: rebuild first"
+    _manifest(
+        tmp_path,
+        [
+            {"state": "BLOCKED", "note": f"preflight REVIEW: {stale}"},
+            {"state": "BLOCKED", "note": f"preflight REVIEW: {stale}"},
+            {"state": "BLOCKED", "note": "preflight REVIEW: something else"},
+            {"state": "PENDING"},
+            {"state": "MISSING"},
+        ],
+    )
+    monkeypatch.setattr(campaign, "CAMPAIGNS", tmp_path / "campaigns")
+    monkeypatch.setattr(sys, "argv", ["campaign", "--campaign-id", "s8", "--require-measured"])
+
+    assert campaign._cli() == campaign.EXIT_NOTHING_MEASURED == 10
+    assert capsys.readouterr().out == f"NOTHING MEASURED: {stale}\n"
+
+
+def test_a_measured_row_keeps_exit_zero(tmp_path, monkeypatch, capsys):
+    _manifest(
+        tmp_path,
+        [
+            {"state": "BLOCKED", "note": "preflight REVIEW: stale build"},
+            {"state": "PASS"},
+        ],
+    )
+    monkeypatch.setattr(campaign, "CAMPAIGNS", tmp_path / "campaigns")
+    monkeypatch.setattr(sys, "argv", ["campaign", "--campaign-id", "s8", "--require-measured"])
+
+    assert campaign._cli() == 0
+    assert capsys.readouterr().out == ""
+
+
+def test_dry_run_exits_zero_without_asking_whether_anything_was_measured(tmp_path: Path) -> None:
+    result, calls = _run(tmp_path, "--dry-run", env_extra={"WFE_NOTHING_MEASURED": "stale build"})
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "NOTHING MEASURED:" not in result.stdout + result.stderr
+    assert all("--require-measured" not in call["argv"] for call in calls)
+
+
+def test_the_script_exits_with_the_nothing_measured_line(tmp_path: Path) -> None:
+    reason = "deployed pipeline build 'stale' is not HEAD's portal/: rebuild first"
+
+    result, calls = _run(tmp_path, env_extra={"WFE_NOTHING_MEASURED": reason})
+
+    assert result.returncode == 10
+    assert result.stdout.count(f"NOTHING MEASURED: {reason}") == 1
+    assert any("--require-measured" in call["argv"] for call in calls)

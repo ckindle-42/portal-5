@@ -14,6 +14,8 @@
 #   REPEATS=5 ALL_SUITES=1 ./scripts/wfe_campaign.sh wfe_deep --arm <tag>
 #   ./scripts/wfe_campaign.sh wfe_s8 --plan tests/wfe/plans/s8_x.yaml --tier screen \
 #       --engine pipeline                                  # job-friendly (no env needed)
+# Exit 10 when every row is BLOCKED, PENDING, or MISSING, after one line
+# `NOTHING MEASURED: <dominant block reason>`. A measured row and --dry-run stay 0.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -210,4 +212,9 @@ done
 
 echo "$(ts) CAMPAIGN COMPLETE" | tee -a "$PROGRESS_LOG"
 uv run python -m tests.wfe.campaign --campaign-id "$CAMPAIGN_ID" --status 2>&1 | tee -a "$PROGRESS_LOG"
+# Exit 10 when nothing was measured. PIPESTATUS[0] is python's code, not tee's.
+uv run python -m tests.wfe.campaign --campaign-id "$CAMPAIGN_ID" --require-measured \
+    2>&1 | tee -a "$PROGRESS_LOG"
+finish_rc=${PIPESTATUS[0]}
 echo "report: uv run python -m tests.wfe.report --campaign ${CAMPAIGN_ID}"
+exit "$finish_rc"
