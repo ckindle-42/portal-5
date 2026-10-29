@@ -4,3 +4,12 @@
 # labels (judge selection, 2026-10). Keep the model name here, never in Python.
 url: http://10.0.0.204:11434
 model: kat-coder-35b:code
+
+profiles:
+  cloud:
+    # OpenAI-compatible endpoint for the cloud judge lane.
+    # WFE_JUDGE_CLOUD_MODEL / WFE_JUDGE_CLOUD_URL override these;
+    # api_key_env names the env var holding the bearer token.
+    url: https://api.deepseek.com/v1
+    model: deepseek-v4.1-flash
+    api_key_env: DEEPSEEK_API_KEY
