@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 import os
 import shutil
@@ -10,6 +11,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+import warnings
 from collections.abc import Callable, Mapping
 from contextlib import suppress
 from datetime import UTC, datetime
@@ -17,6 +19,7 @@ from pathlib import Path
 from typing import Any, Protocol
 from uuid import uuid4
 
+import httpx
 import yaml
 
 from .calibration import calibration_status
@@ -821,8 +824,9 @@ def seated_model_tags(config: dict[str, Any]) -> dict[str, str]:
     return tags | chosen
 
 
-# Last measured seat digests on this host. No in-repo writer; operators drop the file here.
+# Host seat digests. `portal arm digests refresh` rewrites this file.
 ARM_DIGESTS_ENV = Path.home() / ".portal5" / "arm_digests.env"
+_ARM_SEATS = ("fast", "deep")
 
 
 def resolve_seat_digest(
@@ -832,6 +836,7 @@ def resolve_seat_digest(
     environ: Mapping[str, str] | None = None,
     env_file: Path | None = None,
     fetch_tags: Callable[[], Mapping[str, Any]] | None = None,
+    config_path: Path | None = None,
 ) -> str:
     """Seat digest from the env var, then Ollama /api/tags, then the host arm_digests.env file."""
     source = os.environ if environ is None else environ
@@ -844,7 +849,48 @@ def resolve_seat_digest(
         found = _digest_from_tags(model, (fetch_tags or _fetch_ollama_tags)())
         if found:
             return found
-    return _digest_from_env_file(env_file or ARM_DIGESTS_ENV, key)
+    path = env_file or ARM_DIGESTS_ENV
+    found = _digest_from_env_file(path, key)
+    if found:
+        _warn_stale_arm_digests(path, config_path or _default_config_path())
+    return found
+
+
+def refresh_arm_digests(
+    config: Mapping[str, Any],
+    *,
+    env_file: Path | None = None,
+    config_path: Path | None = None,
+    client: httpx.Client | None = None,
+    omlx_identity: Callable[[str], tuple[str, str]] | None = None,
+    dry_run: bool = False,
+    clock: Callable[[], datetime] | None = None,
+) -> dict[str, str]:
+    """Compute both seat digests and atomically rewrite the host arm_digests.env file."""
+    load_plan = config.get("load_plan_models") if isinstance(config, Mapping) else None
+    if not isinstance(load_plan, Mapping):
+        raise ValueError("load_plan_models must map the fast and deep seats")
+    tags: Mapping[str, Any] = {}
+    if _plan_uses_ollama(load_plan):
+        tags, why = _ollama_tags(client)
+        if why:
+            raise ValueError(why)
+    identity = omlx_identity or _wfe_omlx_content
+    digests: dict[str, str] = {}
+    for seat in _ARM_SEATS:
+        digest, why = _seat_digest(load_plan.get(seat), tags, identity)
+        if not digest:
+            raise ValueError(f"load_plan_models.{seat}: {why}")
+        digests[seat] = digest
+    if not dry_run:
+        moment = (clock or (lambda: datetime.now(UTC)))()
+        _write_arm_digests(
+            env_file or ARM_DIGESTS_ENV,
+            digests,
+            config_path or _default_config_path(),
+            moment.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        )
+    return digests
 
 
 def _digest_from_env_file(path: Path, key: str) -> str:
@@ -885,6 +931,93 @@ def _fetch_ollama_tags() -> dict[str, Any]:
     except (UnicodeDecodeError, json.JSONDecodeError):
         return {}
     return payload if isinstance(payload, dict) else {}
+
+
+def _warn_stale_arm_digests(env_file: Path, config_path: Path) -> None:
+    """Warn when the digest file is older than the seat config it was written from."""
+    try:
+        stale = env_file.stat().st_mtime < config_path.stat().st_mtime
+    except OSError:
+        return
+    if stale:
+        warnings.warn(
+            f"{env_file} is older than {config_path}; run `portal arm digests refresh`",
+            UserWarning,
+            stacklevel=3,
+        )
+
+
+def _plan_uses_ollama(load_plan: Mapping[str, Any]) -> bool:
+    return any(_seat_model(load_plan.get(seat))[1] == "ollama" for seat in _ARM_SEATS)
+
+
+def _seat_model(spec: Any) -> tuple[str, str]:
+    if not isinstance(spec, Mapping):
+        return "", ""
+    model = str(spec.get("model") or "").strip()
+    engine = str(spec.get("engine") or "").strip()
+    return model, engine
+
+
+def _seat_digest(
+    spec: Any,
+    tags: Mapping[str, Any],
+    omlx_identity: Callable[[str], tuple[str, str]],
+) -> tuple[str, str]:
+    model, engine = _seat_model(spec)
+    if not model or not engine:
+        return "", "engine and model are required"
+    if engine == "ollama":
+        found = _digest_from_tags(model, tags)
+        return (found, "") if found else ("", f"{model!r} is not in Ollama /api/tags")
+    if engine == "omlx":
+        content, why = omlx_identity(model)
+        text = str(content).strip()
+        return (text, "") if text else ("", why or "oMLX content is unobservable")
+    return "", f"engine {engine!r} has no content identity"
+
+
+def _wfe_omlx_content(model: str) -> tuple[str, str]:
+    """The WFE identity guard's oMLX content id. Same function, not a new hash."""
+    module: Any = importlib.import_module("tests.wfe.campaign")
+    identify: Callable[[str], tuple[str, str]] = module.omlx_content_id
+    return identify(model)
+
+
+def _ollama_tags(client: httpx.Client | None) -> tuple[dict[str, Any], str]:
+    host = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
+    owns = client is None
+    http = client or httpx.Client(trust_env=False, timeout=10.0)
+    try:
+        response = http.get(f"{host}/api/tags")
+        response.raise_for_status()
+        payload = response.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        return {}, f"Ollama /api/tags unreachable ({type(exc).__name__})"
+    finally:
+        if owns:
+            http.close()
+    if not isinstance(payload, dict):
+        return {}, "Ollama /api/tags returned no model list"
+    return payload, ""
+
+
+def _write_arm_digests(path: Path, digests: Mapping[str, str], source: Path, stamped: str) -> None:
+    body = "\n".join(
+        [
+            f"# refreshed {stamped} from {source}",
+            *(f"PORTAL_ARM_{seat.upper()}_DIGEST={digests[seat]}" for seat in _ARM_SEATS),
+            "",
+        ]
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    temporary.write_text(body, encoding="utf-8")
+    try:
+        os.replace(temporary, path)
+    except OSError:
+        temporary.unlink(missing_ok=True)
+        raise
 
 
 def _positive_probability(value: Any) -> bool:

@@ -12,6 +12,8 @@ import typer
 import yaml
 
 orchestration_app = typer.Typer(help="Offline-first verified task orchestration.")
+digests_app = typer.Typer(help="Host seat-digest file for the arm.")
+orchestration_app.add_typer(digests_app, name="digests")
 
 
 def register(app: typer.Typer) -> None:
@@ -319,6 +321,29 @@ def queue_run(
     except Exception as exc:
         typer.echo(f"arm queue-run failed: {exc}", err=True)
         raise typer.Exit(code=1) from exc
+
+
+@digests_app.command("refresh")
+def digests_refresh(
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Print the digests without writing the file.")
+    ] = False,
+) -> None:
+    """Recompute both seat digests from load_plan_models and rewrite arm_digests.env."""
+    from portal.modules.orchestration.service import load_arm_config, refresh_arm_digests
+
+    config_path = _arm_config_path()
+    try:
+        digests = refresh_arm_digests(
+            load_arm_config(config_path), config_path=config_path, dry_run=dry_run
+        )
+    except Exception as exc:
+        typer.echo(f"arm digests refresh failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    for seat in ("fast", "deep"):
+        typer.echo(f"PORTAL_ARM_{seat.upper()}_DIGEST={digests[seat]}")
+    if dry_run:
+        typer.echo("dry-run: arm_digests.env not written")
 
 
 @orchestration_app.command("queue-status")
