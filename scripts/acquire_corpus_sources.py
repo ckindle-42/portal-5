@@ -131,8 +131,28 @@ def acquire_checkout(spec: SourceSpec) -> dict[str, Any]:
     alternate = inspect_checkout(target, spec.commit)
     if alternate["status"] == "verified":
         return alternate
-    if target.exists():
+    fresh = not target.exists()
+    if not fresh and alternate["status"] != "lfs_incomplete":
         return {**alternate, "status": "alternate_unusable", "original_status": current["status"]}
+    if fresh:
+        failed = _clone_checkout(spec, target)
+        if failed:
+            return failed
+        alternate = inspect_checkout(target, spec.commit)
+    if alternate["status"] == "verified":
+        return {**alternate, "status": "acquired"} if fresh else alternate
+    if alternate["status"] != "lfs_incomplete":
+        return alternate
+    failed = _lfs_repair(target)
+    if failed:
+        return failed
+    final = inspect_checkout(target, spec.commit)
+    if fresh and final["status"] == "verified":
+        return {**final, "status": "acquired"}
+    return final
+
+
+def _clone_checkout(spec: SourceSpec, target: Path) -> dict[str, Any] | None:
     target.parent.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
     env["GIT_LFS_SKIP_SMUDGE"] = "1"
@@ -148,18 +168,28 @@ def acquire_checkout(spec: SourceSpec) -> dict[str, Any]:
     checkout = _git(target, "checkout", "--detach", spec.commit)
     if checkout.returncode:
         return {"path": str(target), "status": "checkout_failed", "detail": checkout.stderr.strip()}
-    lfs = _git(target, "lfs", "ls-files", "--long")
-    if lfs.returncode == 0 and lfs.stdout.strip():
-        pulled = _git(target, "lfs", "pull")
-        if pulled.returncode:
-            return {
-                "path": str(target),
-                "status": "lfs_pull_failed",
-                "detail": pulled.stderr.strip(),
-            }
-    if _has_lfs_pointers(target):
-        return {"path": str(target), "status": "lfs_pointers_remain"}
-    return {**inspect_checkout(target, spec.commit), "status": "acquired"}
+    return None
+
+
+def _lfs_repair(target: Path) -> dict[str, Any] | None:
+    """git lfs install --local + pull; None on success, else a failure record."""
+    if _git(target, "lfs", "version").returncode:
+        return {
+            "path": str(target),
+            "status": "lfs_unavailable",
+            "detail": f"git lfs is required to materialise tracked files in {target}",
+        }
+    install = _git(target, "lfs", "install", "--local")
+    if install.returncode:
+        return {
+            "path": str(target),
+            "status": "lfs_install_failed",
+            "detail": install.stderr.strip(),
+        }
+    pull = _git(target, "lfs", "pull")
+    if pull.returncode:
+        return {"path": str(target), "status": "lfs_pull_failed", "detail": pull.stderr.strip()}
+    return None
 
 
 def _tree_facts(root: Path) -> tuple[str, int, str | None]:

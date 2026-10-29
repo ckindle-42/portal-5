@@ -25,6 +25,7 @@ import yaml
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from portal.modules.security.core.siem.hec_ship import ship_batch  # noqa: E402
+from scripts import acquire_corpus_sources as acquisition  # noqa: E402
 from scripts import corpus_ingest as legacy  # noqa: E402
 from scripts import lab_delete_cousins  # noqa: E402
 
@@ -581,7 +582,7 @@ def source_plan_blockers(facts: Mapping[str, Mapping[str, Any]]) -> list[str]:
     )
 
 
-def _roots_from_args(args: argparse.Namespace) -> dict[str, Path]:
+def _roots_from_args(args: argparse.Namespace) -> tuple[dict[str, Path], set[str]]:
     roots = default_roots(args.sources_root, args.corpora_root)
     overrides = {
         "attack_data": args.attack_data_root,
@@ -590,8 +591,36 @@ def _roots_from_args(args: argparse.Namespace) -> dict[str, Path]:
         "evtx_mitre": args.evtx_mitre_root,
         "invictus_ir": args.invictus_root,
     }
-    roots.update({name: path for name, path in overrides.items() if path is not None})
-    return roots
+    chosen = {name: path for name, path in overrides.items() if path is not None}
+    roots.update(chosen)
+    return roots, set(chosen)
+
+
+def prefer_pinned_siblings(
+    roots: Mapping[str, Path],
+    sources_root: Path,
+    corpora_root: Path,
+    overridden: set[str],
+) -> tuple[dict[str, Path], dict[str, dict[str, str]]]:
+    """Prefer a verified <name>.pinned-<sha12> sibling over an unverifiable default checkout."""
+    specs = {spec.name: spec for spec in acquisition.source_specs(sources_root, corpora_root)}
+    resolved = dict(roots)
+    selections: dict[str, dict[str, str]] = {}
+    for name, root in roots.items():
+        selection = {"root": str(root), "source": "default"}
+        spec = specs.get(name)
+        if spec is not None and name not in overridden and root.is_relative_to(spec.target):
+            sibling = acquisition.sibling_checkout(spec.target, spec.commit)
+            if acquisition.inspect_checkout(spec.target, spec.commit)["status"] != "verified":
+                if acquisition.inspect_checkout(sibling, spec.commit)["status"] == "verified":
+                    resolved[name] = sibling / root.relative_to(spec.target)
+                    selection = {
+                        "root": str(resolved[name]),
+                        "source": "pinned_sibling",
+                        "pinned_commit": spec.commit[:12],
+                    }
+        selections[name] = selection
+    return resolved, selections
 
 
 def _report_blocked_sources(facts: Mapping[str, Mapping[str, Any]]) -> bool:
@@ -807,7 +836,7 @@ def _stamp(source_facts_by_name: Mapping[str, Mapping[str, Any]]) -> str:
     parts = []
     for name, facts in source_facts_by_name.items():
         commit = facts.get("commit") or facts.get("expected_commit")
-        parts.append(f"{name}-{commit if commit else 'missing'}")
+        parts.append(f"{name}-{commit[:12] if commit else 'missing'}")
     now = dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%SZ")
     return f"{now}__{'__'.join(parts)}"
 
@@ -829,6 +858,7 @@ def _source_summary(
                 "url": SOURCE_URLS[name],
                 "path": str(root),
                 "status": facts["status"],
+                "root_selection": facts.get("root_selection"),
                 "commit": facts.get("commit"),
                 "expected_commit": facts.get("expected_commit"),
                 "dirty_paths": facts.get("dirty_paths"),
@@ -899,10 +929,10 @@ def _write_fidelity(path: Path, report: Mapping[str, Any]) -> None:
         "",
         "## Current source status",
         "",
-        "| Publisher | Commit | Dirty source paths |",
-        "|---|---|---:|",
+        "| Publisher | Commit | Dirty source paths | Scanned root |",
+        "|---|---|---:|---|",
         *[
-            f"| {name} | `{facts.get('commit') or 'not acquired'}` | {facts.get('dirty_paths', 'n/a')} |"
+            f"| {name} | `{facts.get('commit') or 'not acquired'}` | {facts.get('dirty_paths', 'n/a')} | `{facts.get('path', 'n/a')}` |"
             for name, facts in report["source_facts"].items()
         ],
         "",
@@ -1154,8 +1184,15 @@ def main() -> int:
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0 if result["ok"] else 1
 
-    roots = _roots_from_args(args)
+    roots, overridden = _roots_from_args(args)
+    roots, root_selections = prefer_pinned_siblings(
+        roots, args.sources_root, args.corpora_root, overridden
+    )
+    for name, selection in sorted(root_selections.items()):
+        print(f"[source-root] {name}: {selection['root']} ({selection['source']})")
     facts = {name: source_facts(name, root) for name, root in roots.items()}
+    for name, selection in root_selections.items():
+        facts[name]["root_selection"] = selection
     if _report_blocked_sources(facts):
         return 2
     missing_roots = {name: root for name, root in roots.items() if not root.is_dir()}
