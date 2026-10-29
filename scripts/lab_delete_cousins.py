@@ -31,7 +31,7 @@ def _connection() -> tuple[str, str, str]:
 
 
 def rest_request(
-    method: str, path: str, *, data: Mapping[str, str] | None = None
+    method: str, path: str, *, data: Mapping[str, str | list[str]] | None = None
 ) -> dict[str, Any]:
     url, user, password = _connection()
     response = httpx.request(
@@ -150,22 +150,22 @@ def create_delete_role() -> str:
 
 
 def add_imported_role(username: str, role: str) -> None:
+    # Splunk's user endpoint takes the role list as repeated `roles` values; it 400s on
+    # `imported_roles` (lab 2026-10-29). Send the account's current roles plus the grant.
     current = account_roles(username)
-    imported = sorted(set(current["imported_roles"]) | {role})
     rest_request(
         "POST",
         f"authentication/users/{quote(username)}",
-        data={"imported_roles": ",".join(imported)},
+        data={"roles": sorted(set(current["roles"]) | {role})},
     )
 
 
 def remove_imported_role(username: str, role: str) -> None:
     current = account_roles(username)
-    imported = [value for value in current["imported_roles"] if value != role]
     rest_request(
         "POST",
         f"authentication/users/{quote(username)}",
-        data={"imported_roles": ",".join(imported)},
+        data={"roles": [value for value in current["roles"] if value != role]},
     )
 
 
