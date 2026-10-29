@@ -615,6 +615,143 @@ def test_storage_persona_and_code_defaults_count_as_fleet(monkeypatch, tmp_path)
     assert "installed-but-unconfigured: 0 B" in lines
 
 
+def _storage_bytes(root: Path, relative: str, payload: bytes) -> Path:
+    path = root / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(payload)
+    return path
+
+
+def test_storage_omlx_symlink_attributes_hf_cache_bytes_to_link_owner(monkeypatch, tmp_path):
+    root = tmp_path / "data01"
+    backends, portal = _storage_yaml(
+        tmp_path,
+        "backends:\n"
+        "- group: omlx\n"
+        "  id: omlx-local\n"
+        "  type: omlx\n"
+        "  models:\n"
+        "  - id: active-checkpoint\n",
+        "modules:\n  media:\n    enabled: true\n",
+    )
+    monkeypatch.setattr(cu, "_allocated_bytes", lambda info: info.st_size)
+
+    def snapshot(slug: str, payload: bytes) -> Path:
+        _storage_bytes(root, f"hf-cache/models--{slug}/blobs/weights", payload)
+        snap = root / "hf-cache" / f"models--{slug}" / "snapshots" / "rev"
+        snap.mkdir(parents=True)
+        return snap
+
+    active = snapshot("org--active-checkpoint", b"a" * 40)
+    retired = snapshot("org--retired-checkpoint", b"r" * 10)
+    media = snapshot("dgrauet--ltx-2.5-mlx-q4", b"m" * 7)
+    omlx = root / "omlx-models"
+    omlx.mkdir()
+    (omlx / "active-checkpoint").symlink_to(active)
+    (omlx / "retired-alias").symlink_to(active)
+    (omlx / "retired-checkpoint").symlink_to(retired)
+    (omlx / "unused-ltx").symlink_to(media)
+    report = cu._storage_report(
+        root,
+        backends,
+        portal,
+        total=1000,
+        free=900,
+        floor_gib=0,
+        floor_percent=0,
+        query_ollama=False,
+        installed_blobs={},
+    )
+    lines = "\n".join(report.lines)
+    fleet = next(line for line in report.lines if line.startswith("fleet:"))
+    orphan = next(line for line in report.lines if line.startswith("orphan model data:"))
+    active_record = (
+        "omlx-models/active-checkpoint → hf-cache/models--org--active-checkpoint/snapshots/rev"
+    )
+    retired_record = (
+        "omlx-models/retired-checkpoint → hf-cache/models--org--retired-checkpoint/snapshots/rev"
+    )
+    assert "fleet: 47 B" in lines and active_record in fleet
+    assert "models--dgrauet--ltx-2.5-mlx-q4" in fleet
+    assert "retired-alias" not in lines
+    assert "orphan model data: 10 B" in lines and retired_record in orphan
+    assert "models--org--active-checkpoint" not in orphan
+    assert "ltx-2.5" not in orphan
+    assert "safe to reclaim: 10 B" in lines
+    assert lines.count("models--org--active-checkpoint") == 1
+
+
+def test_storage_hf_hub_symlink_counts_root_layout_once(monkeypatch, tmp_path):
+    root = tmp_path / "data01"
+    backends, portal = _storage_yaml(
+        tmp_path,
+        "backends: []\n",
+        "modules:\n  media:\n    enabled: true\n",
+    )
+    monkeypatch.setattr(cu, "_allocated_bytes", lambda info: info.st_size)
+    _storage_bytes(root, "hf-cache/models--dgrauet--ltx-2.5-mlx-q4/blobs/weights", b"v" * 25)
+    hub = root / "hf-cache" / "hub"
+    hub.mkdir()
+    (hub / "models--dgrauet--ltx-2.5-mlx-q4").symlink_to(
+        Path("..") / "models--dgrauet--ltx-2.5-mlx-q4"
+    )
+    report = cu._storage_report(
+        root,
+        backends,
+        portal,
+        total=1000,
+        free=900,
+        floor_gib=0,
+        floor_percent=0,
+        query_ollama=False,
+        installed_blobs={},
+    )
+    lines = "\n".join(report.lines)
+    fleet = next(line for line in report.lines if line.startswith("fleet:"))
+    assert "fleet: 25 B" in lines
+    assert (
+        "hf-cache/hub/models--dgrauet--ltx-2.5-mlx-q4 → hf-cache/models--dgrauet--ltx-2.5-mlx-q4"
+    ) in fleet
+    assert "safe to reclaim: 0 B" in lines
+    assert "orphan model data: 0 B" in lines
+
+
+def test_storage_dangling_symlink_is_shown_and_not_reclaimed(monkeypatch, tmp_path):
+    root = tmp_path / "data01"
+    backends, portal = _storage_yaml(
+        tmp_path,
+        "backends:\n"
+        "- group: omlx\n"
+        "  id: omlx-local\n"
+        "  type: omlx\n"
+        "  models:\n"
+        "  - id: active-checkpoint\n",
+    )
+    monkeypatch.setattr(cu, "_allocated_bytes", lambda info: info.st_size)
+    omlx = root / "omlx-models"
+    omlx.mkdir(parents=True)
+    missing = root / "hf-cache" / "models--missing--weights" / "snapshots" / "gone"
+    (omlx / "active-checkpoint").symlink_to(missing)
+    report = cu._storage_report(
+        root,
+        backends,
+        portal,
+        total=1000,
+        free=900,
+        floor_gib=0,
+        floor_percent=0,
+        query_ollama=False,
+        installed_blobs={},
+    )
+    lines = "\n".join(report.lines)
+    assert (
+        "omlx-models/active-checkpoint → hf-cache/models--missing--weights/snapshots/gone"
+    ) in lines
+    assert "fleet: 0 B" in lines
+    assert "orphan model data: 0 B" in lines
+    assert "safe to reclaim: 0 B" in lines
+
+
 def test_storage_low_space_uses_high_priority_pushover(monkeypatch, capsys):
     calls = []
     monkeypatch.setitem(

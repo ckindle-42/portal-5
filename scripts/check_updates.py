@@ -1425,10 +1425,235 @@ def _add_storage_record(
     mtime: float,
     source: str,
     display: str | None = None,
+    *,
+    keep_empty: bool = False,
 ) -> None:
-    if size > 0:
+    if size > 0 or keep_empty:
         records[label].append(
             _StorageRecord(display or str(path.relative_to(root)), size, mtime, source)
+        )
+
+
+# Fleet wins so a registered link's target is never a reclaim candidate.
+_LINK_OWNER_RANK = {
+    "fleet": 0,
+    "disabled-module weights": 1,
+    "installed-but-unconfigured": 2,
+    "duplicate": 3,
+    "staging/backups": 4,
+    "other/unclassified": 5,
+    "orphan model data": 6,
+}
+
+
+@dataclass
+class _SymlinkClaim:
+    link: Path
+    target: Path
+    label: str
+    size: int
+    mtime: float
+    source: str
+    store: Path | None
+
+
+def _link_rel(path: Path, root: Path) -> str:
+    try:
+        return path.relative_to(root).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def _storage_rel(path: Path, root: Path) -> str:
+    try:
+        return path.resolve().relative_to(root.resolve()).as_posix()
+    except (OSError, ValueError):
+        return _link_rel(path, root)
+
+
+def _iter_model_symlinks(root: Path) -> list[Path]:
+    links: list[Path] = []
+    omlx = root / "omlx-models"
+    if omlx.is_dir():
+        links.extend(path for path in omlx.iterdir() if path.is_symlink())
+    hf = root / "hf-cache"
+    if not hf.is_dir():
+        return links
+    links.extend(
+        path for path in hf.iterdir() if path.is_symlink() and path.name.startswith("models--")
+    )
+    hub = hf / "hub"
+    if hub.is_dir():
+        links.extend(
+            path for path in hub.iterdir() if path.is_symlink() and path.name.startswith("models--")
+        )
+    return links
+
+
+def _resolved_link_target(link: Path) -> Path:
+    raw = Path(os.readlink(link))
+    absolute = raw if raw.is_absolute() else link.parent / raw
+    try:
+        return absolute.resolve(strict=False)
+    except OSError:
+        return absolute
+
+
+def _hf_repo_store(target: Path, root: Path) -> Path | None:
+    """Real ``models--`` directory that holds the bytes a link points into."""
+    try:
+        hf_resolved = (root / "hf-cache").resolve()
+        cursor = target if target.is_dir() else target.parent
+    except OSError:
+        return None
+    for candidate in (cursor, *cursor.parents):
+        if not candidate.name.startswith("models--"):
+            continue
+        try:
+            resolved = candidate.resolve()
+        except OSError:
+            return None
+        if resolved.is_relative_to(hf_resolved) and resolved.exists():
+            return resolved
+        return None
+    return None
+
+
+def _link_owner(
+    link: Path,
+    configured: set[str],
+    checkpoints: set[str],
+    disabled_modules: set[str],
+    module_refs: dict[str, set[str]],
+) -> tuple[str, str]:
+    if link.parent.name == "omlx-models":
+        names = {name.casefold() for name in configured}
+        label = "fleet" if link.name.casefold() in names else "orphan model data"
+        return label, "omlx-models"
+    slug = link.name.removeprefix("models--")
+    return _cache_owner(slug, checkpoints, disabled_modules, module_refs), "hf-cache"
+
+
+def _repo_size_index(usage: _Usage) -> dict[Path, tuple[int, float]]:
+    sizes: dict[Path, tuple[int, float]] = {}
+    for path, size, mtime in usage.repositories:
+        try:
+            sizes[path.resolve()] = (size, mtime)
+        except OSError:
+            sizes[path] = (size, mtime)
+    return sizes
+
+
+def _store_bytes(store: Path | None, sizes: dict[Path, tuple[int, float]]) -> tuple[int, float]:
+    if store is None:
+        return 0, 0.0
+    known = sizes.get(store)
+    if known is not None:
+        return known
+    try:
+        if store.is_file():
+            info = store.stat(follow_symlinks=False)
+            return _allocated_bytes(info), info.st_mtime
+        walked = _walk_usage(store, set())
+    except OSError:
+        return 0, 0.0
+    return walked.size, walked.mtime
+
+
+def _owned_label(link_label: str, target_label: str) -> str:
+    """Keep a fleet or operator-held target; an unowned target takes the link's class."""
+    if target_label == "other/unclassified":
+        return link_label
+    link_rank = _LINK_OWNER_RANK.get(link_label, 9)
+    target_rank = _LINK_OWNER_RANK.get(target_label, 9)
+    return link_label if link_rank <= target_rank else target_label
+
+
+def _better_claim(current: _SymlinkClaim | None, new: _SymlinkClaim) -> _SymlinkClaim:
+    if current is None:
+        return new
+    new_rank = _LINK_OWNER_RANK.get(new.label, 9)
+    old_rank = _LINK_OWNER_RANK.get(current.label, 9)
+    return new if new_rank < old_rank else current
+
+
+def _one_symlink_claim(
+    link: Path,
+    root: Path,
+    sizes: dict[Path, tuple[int, float]],
+    configured: set[str],
+    checkpoints: set[str],
+    disabled_modules: set[str],
+    module_refs: dict[str, set[str]],
+) -> _SymlinkClaim | None:
+    try:
+        target = _resolved_link_target(link)
+    except OSError:
+        return None
+    label, source = _link_owner(link, configured, checkpoints, disabled_modules, module_refs)
+    store = _hf_repo_store(target, root)
+    if store is not None and store.name.startswith("models--"):
+        label = _owned_label(
+            label,
+            _cache_owner(
+                store.name.removeprefix("models--"), checkpoints, disabled_modules, module_refs
+            ),
+        )
+    if store is None and target.exists():
+        try:
+            store = target.resolve()
+        except OSError:
+            store = target
+    size, mtime = _store_bytes(store, sizes)
+    if store is not None and "hf-cache" in store.parts:
+        source = "hf-cache"
+    if mtime == 0.0:
+        try:
+            mtime = link.lstat().st_mtime
+        except OSError:
+            mtime = 0.0
+    return _SymlinkClaim(link, target, label, size, mtime, source, store)
+
+
+def _symlink_claims(
+    root: Path,
+    usage: _Usage,
+    configured: set[str],
+    checkpoints: set[str],
+    disabled_modules: set[str],
+    module_refs: dict[str, set[str]],
+) -> list[_SymlinkClaim]:
+    sizes = _repo_size_index(usage)
+    grouped: dict[Path, _SymlinkClaim] = {}
+    loose: list[_SymlinkClaim] = []
+    for link in _iter_model_symlinks(root):
+        claim = _one_symlink_claim(
+            link, root, sizes, configured, checkpoints, disabled_modules, module_refs
+        )
+        if claim is None:
+            continue
+        if claim.store is None:
+            loose.append(claim)
+            continue
+        grouped[claim.store] = _better_claim(grouped.get(claim.store), claim)
+    return [*grouped.values(), *loose]
+
+
+def _append_symlink_claims(
+    records: dict[str, list[_StorageRecord]], claims: list[_SymlinkClaim], root: Path
+) -> None:
+    for claim in claims:
+        display = f"{_link_rel(claim.link, root)} → {_storage_rel(claim.target, root)}"
+        _add_storage_record(
+            records,
+            claim.label,
+            root,
+            claim.link,
+            claim.size,
+            claim.mtime,
+            claim.source,
+            display,
+            keep_empty=True,
         )
 
 
@@ -1482,6 +1707,9 @@ def _record_omlx(
     checkpoints = {item.path.name for item in items if item.is_dir}
     configured_names = {name.casefold() for name in configured}
     for item in items:
+        # Symlinks are claimed with their target's bytes; the inode itself is not a record.
+        if item.path.is_symlink():
+            continue
         category = "fleet" if item.path.name.casefold() in configured_names else "orphan model data"
         if not item.is_dir:
             category = "other/unclassified"
@@ -1499,6 +1727,7 @@ def _record_hf_cache(
     checkpoints: set[str],
     disabled_modules: set[str],
     module_refs: dict[str, set[str]],
+    claimed: dict[Path, str],
 ) -> None:
     hf_root = root / "hf-cache"
     repositories = [item for item in usage.repositories if item[0].is_relative_to(hf_root)]
@@ -1507,10 +1736,16 @@ def _record_hf_cache(
     repository_size = 0
     for path, size, mtime in repositories:
         slug = path.name[len("models--") :]
-        label = _cache_owner(slug, checkpoints, disabled_modules, module_refs)
+        try:
+            resolved = path.resolve()
+        except OSError:
+            resolved = path
+        label = claimed.get(resolved)
+        if label is None:
+            label = _cache_owner(slug, checkpoints, disabled_modules, module_refs)
+            _group_hf_record(grouped, label, f"hf-cache/{slug}", size, mtime)
         owners[slug] = label
         repository_size += size
-        _group_hf_record(grouped, label, f"hf-cache/{slug}", size, mtime)
     blob_size = _record_hf_blobs(grouped, root, owners, checkpoints, disabled_modules, module_refs)
     for (label, display), (size, mtime) in grouped.items():
         records[label].append(_StorageRecord(display, size, mtime, "hf-cache"))
@@ -1590,7 +1825,16 @@ def _storage_records(
     roots = {item.path.name: item for item in usage.children}
     ollama_verified = _record_ollama(records, root, roots, ollama_tags, installed_blobs)
     checkpoints = _record_omlx(records, root, roots, omlx_models)
-    _record_hf_cache(records, root, usage, roots, checkpoints, disabled_modules, module_refs)
+    claims = _symlink_claims(root, usage, omlx_models, checkpoints, disabled_modules, module_refs)
+    claimed = {
+        claim.store: claim.label
+        for claim in claims
+        if claim.store is not None and claim.store.name.startswith("models--")
+    }
+    _record_hf_cache(
+        records, root, usage, roots, checkpoints, disabled_modules, module_refs, claimed
+    )
+    _append_symlink_claims(records, claims, root)
     for name in ("gguf-staging", "portal5_backups"):
         for item in roots.get(name, _Usage(root)).children:
             _add_storage_record(
