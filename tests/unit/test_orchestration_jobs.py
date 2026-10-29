@@ -570,3 +570,24 @@ def test_telegram_job_notice_reaches_the_outbox(tmp_path: Path) -> None:
     assert notices[0].kind == "job"
     assert "Orchestration job STOPPED." in notices[0].message
     assert "Reason: memory safety trip" in notices[0].message
+
+
+def test_a_job_blocked_by_cloud_lanes_claims_the_window_until_it_finishes(
+    tmp_path: Path, repo: Path
+) -> None:
+    script = _python_script(repo, "noop.py", "pass\n")
+    preconditions = {"stack": "down", "free_memory_gib": 8, "disk_free_gib": 20}
+    lock_dir = tmp_path / "dispatch-locks"
+    lock_dir.mkdir()
+    lane = lock_dir / "lane.lock"
+    lane.write_text(f"{os.getpid()}\n", encoding="utf-8")
+    runner = _runner(tmp_path, repo)
+    claim = tmp_path / "state" / "jarvis_local_window.json"
+    spec = _spec(repo, [script], preconditions=preconditions)
+
+    assert runner.run(spec).status == "WAITING"
+    assert json.loads(claim.read_text(encoding="utf-8"))["pid"] == os.getpid()  # held while waiting
+
+    lane.unlink()
+    assert runner.run(spec).status == "PASS"
+    assert not claim.exists()  # released once the job is done

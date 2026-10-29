@@ -39,6 +39,10 @@ REPORT_FIELDS = frozenset(
     }
 )
 DEFAULT_DISPATCH_LOCK_DIR = Path.home() / ".claude" / "orchestrate" / "locks"
+# A due job that is waiting only on cloud lanes claims the window here; the dispatcher
+# (Jarvis Cloud) starts no new lane while the claimant pid is alive, so running lanes
+# drain and the job gets its quiet host instead of waiting forever.
+WINDOW_CLAIM_NAME = "jarvis_local_window.json"
 _TAIL_BYTES = 8192
 _PEAK_SAMPLE_SECONDS = 5.0
 
@@ -367,6 +371,7 @@ class JobPreconditions:
         self.repo_root = repo_root
         self.gate = gate
         self.dispatch_lock_dir = dispatch_lock_dir
+        self.window_claim = dispatch_lock_dir.parent / "state" / WINDOW_CLAIM_NAME
         self.stack_probe = stack_probe or _stack_state
         self.memory_probe = memory_probe or _free_memory_gib
         self.disk_probe = disk_probe or _disk_free_gib
@@ -382,6 +387,7 @@ class JobPreconditions:
         snapshot["dispatch_locks"] = dispatch_reason or "idle"
         if dispatch_reason:
             reasons.append(dispatch_reason)
+            self.claim_window(spec.job_id)
         stack = self.stack_probe()
         snapshot["stack"] = stack
         if stack != spec.preconditions.stack:
@@ -409,6 +415,23 @@ class JobPreconditions:
                 f"{spec.preconditions.disk_free_gib:.1f} GiB floor"
             )
         return PreconditionResult(not reasons, tuple(reasons), snapshot)
+
+    def claim_window(self, job_id: str) -> None:
+        """Ask Jarvis Cloud to start no new lanes until this job is done."""
+        payload = {"pid": os.getpid(), "job": job_id, "since": _utc_now()}
+        try:
+            self.window_claim.parent.mkdir(parents=True, exist_ok=True)
+            _write_json(self.window_claim, payload)
+        except OSError:
+            pass  # best effort: the job still waits fail-closed on the lane locks
+
+    def release_window(self) -> None:
+        try:
+            claim = json.loads(self.window_claim.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return
+        if claim.get("pid") == os.getpid():
+            self.window_claim.unlink(missing_ok=True)
 
 
 class JobRunner:
@@ -461,6 +484,8 @@ class JobRunner:
                 entry["reason"] = "operator requested rerun"
             self._save_state(job_dir, state)
             status, reason = self._run_steps(spec, job_dir, state)
+            if status != "WAITING":
+                self.preconditions.release_window()
             receipt = self._write_receipt(spec, job_dir, state, status, reason)
             self._notify(spec, status, reason, receipt)
             return JobRun(status, spec.job_id, receipt, reason)
