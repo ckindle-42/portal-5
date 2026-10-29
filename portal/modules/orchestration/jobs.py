@@ -1341,7 +1341,7 @@ def _window_claim_is_ours(claim: dict[str, Any]) -> bool:
 def _ps_field(pid: int, field: str) -> str | None:
     try:
         result = subprocess.run(
-            ["ps", "-p", str(pid), "-o", f"{field}="],
+            ["ps", "-ww", "-p", str(pid), "-o", f"{field}="],
             capture_output=True,
             text=True,
             timeout=2,

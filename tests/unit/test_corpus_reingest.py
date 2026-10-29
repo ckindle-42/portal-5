@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -530,13 +531,14 @@ def _init_repo(root: Path, *, dirty: bool = False) -> str:
 
 
 def _clone(source: Path, target: Path) -> None:
-    subprocess.run(
+    # A host-wide `git lfs install` (CI runners have one) would smudge real content on
+    # checkout; the pinned-clone fixtures need the pointer files the real failure had.
+    env = {**os.environ, "GIT_LFS_SKIP_SMUDGE": "1"}
+    for argv in (
         ["git", "clone", "-q", "--no-checkout", str(source), str(target)],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    _git(target, "checkout", "--detach", "HEAD")
+        ["git", "-C", str(target), "checkout", "-q", "--detach", "HEAD"],
+    ):
+        subprocess.run(argv, check=True, capture_output=True, text=True, env=env)
 
 
 def _lfs_upstream(root: Path) -> str:
