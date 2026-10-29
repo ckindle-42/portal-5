@@ -1,0 +1,46 @@
+id: wfe-fast-baseline
+purpose: >-
+  Pilot 2 for Jarvis Local and the instrument baseline for the S8 fast-seat screen: the incumbent
+  tools-specialist::fast seat (gemma4:e4b-it-qat-ctx8k, installed) on the new production tool
+  mode, through the pipeline. Measures the instrument before any LFM3/Bolt arm. Read per-cell
+  PASS/BUDGET_EXHAUSTED/latency from the report; a FAIL here means the instrument, not a model.
+preconditions:
+  stack: up
+  free_memory_gib: 16
+  disk_free_gib: 20
+steps:
+  - id: baseline
+    argv:
+      - scripts/wfe_campaign.sh
+      - s8_fast_baseline_20261029
+      - "--plan"
+      - tests/wfe/plans/s8_fast_incumbent_baseline_20261029.yaml
+      - "--tier"
+      - screen
+      - "--engine"
+      - pipeline
+    timeout_seconds: 7200
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/s8_fast_baseline_20261029/manifest.json
+  - id: report
+    argv:
+      - uv
+      - run
+      - python
+      - "-m"
+      - tests.wfe.report
+      - "--campaign"
+      - s8_fast_baseline_20261029
+    timeout_seconds: 900
+stop_conditions:
+  on_failure: stop
+  max_job_minutes: 150
+report:
+  fields:
+    - status
+    - purpose
+    - steps
+    - failures
+    - memory
+    - duration
+    - resume

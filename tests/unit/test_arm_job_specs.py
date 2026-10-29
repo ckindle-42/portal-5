@@ -26,6 +26,8 @@ EXPECTED = {
     "gemma-qat-vs-plain-ab",
     "spark-shadow-n20",
     "compliance-recapture",
+    "bully-r0b-real-dryrun",
+    "wfe-fast-baseline",
 }
 
 

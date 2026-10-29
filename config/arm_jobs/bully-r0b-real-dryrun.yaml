@@ -46,6 +46,9 @@ steps:
       - ~/AI_Output/portal-data/reports/review_eval/corpus_fidelity
 outputs:
   - ~/AI_Output/portal-data/reports/review_eval/corpus_fidelity
+stop_conditions:
+  on_failure: stop
+  max_job_minutes: 330  # 1200 s + 3600 s + 14400 s of step timeouts, plus slack
 report:
   fields:
     - status
