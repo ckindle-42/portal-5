@@ -76,6 +76,7 @@ from pathlib import Path
 
 import yaml
 
+from portal.platform.inference import identity as _omlx_identity
 from portal.platform.inference.cluster_backends import BackendRegistry
 from portal.platform.inference.config import effective_workspace
 from tests.wfe import decision, eval_mode
@@ -2071,24 +2072,11 @@ def backend_catalog() -> frozenset[str]:
     )
 
 
-#: oMLX serves each model from a directory named after its id, under one of the
-#: model directories its server settings list (`~/.omlx/settings.json`). The
-#: per-model entry that decides how the seat serves it is in model_settings.json.
-#: OMLX_MODEL_DIR (os.pathsep-separated) overrides the server settings.
-OMLX_SERVER_SETTINGS = Path(
-    os.environ.get("OMLX_SERVER_SETTINGS", str(Path.home() / ".omlx" / "settings.json"))
-)
-OMLX_SETTINGS = Path(
-    os.environ.get("OMLX_SETTINGS", str(Path.home() / ".omlx" / "model_settings.json"))
-)
-OMLX_DEFAULT_MODEL_DIR = "/Volumes/data01/omlx-models"
-#: What makes an oMLX checkpoint what it is, short of hashing its weights.
-OMLX_IDENTITY_FILES = (
-    "config.json",
-    "tokenizer_config.json",
-    "chat_template.jinja",
-    "generation_config.json",
-)
+# Re-exported so callers and tests that patch this module still reach the portal identity.
+OMLX_SERVER_SETTINGS = _omlx_identity.OMLX_SERVER_SETTINGS
+OMLX_SETTINGS = _omlx_identity.OMLX_SETTINGS
+OMLX_DEFAULT_MODEL_DIR = _omlx_identity.OMLX_DEFAULT_MODEL_DIR
+OMLX_IDENTITY_FILES = _omlx_identity.OMLX_IDENTITY_FILES
 
 
 def backend_engine(backend_id: str) -> str:
@@ -2102,14 +2090,10 @@ def backend_engine(backend_id: str) -> str:
 
 def omlx_model_dirs() -> list[Path]:
     """Where oMLX looks for model directories: OMLX_MODEL_DIR, else its settings."""
-    if os.environ.get("OMLX_MODEL_DIR"):
-        return [Path(p) for p in os.environ["OMLX_MODEL_DIR"].split(os.pathsep) if p]
-    try:
-        model = json.loads(OMLX_SERVER_SETTINGS.read_text()).get("model") or {}
-    except (OSError, ValueError):
-        model = {}
-    dirs = model.get("model_dirs") or [model.get("model_dir") or OMLX_DEFAULT_MODEL_DIR]
-    return [Path(str(d)).expanduser() for d in dirs if d]
+    return _omlx_identity.omlx_model_dirs(
+        server_settings=OMLX_SERVER_SETTINGS,
+        default_model_dir=OMLX_DEFAULT_MODEL_DIR,
+    )
 
 
 def ollama_content_id(model: str) -> tuple[str, str]:
@@ -2130,24 +2114,12 @@ def omlx_content_id(model: str) -> tuple[str, str]:
     """A content id for an oMLX checkpoint, or ("", why it is unobservable): its
     config, tokenizer and template files, each weight file's name and size, and
     its model_settings.json entry (doc: identity)."""
-    import hashlib
-
-    dirs = omlx_model_dirs()
-    root = next((d / model for d in dirs if (d / model / "config.json").is_file()), None)
-    if root is None:
-        return "", f"no {model}/config.json under {[str(d) for d in dirs]}"
-    h = hashlib.sha256()
-    for name in OMLX_IDENTITY_FILES:
-        f = root / name
-        h.update(name.encode() + b"\0" + (f.read_bytes() if f.is_file() else b"-") + b"\0")
-    for f in sorted(root.glob("*.safetensors")):
-        h.update(f"{f.name}:{f.stat().st_size}\0".encode())
-    try:
-        entry = (json.loads(OMLX_SETTINGS.read_text()).get("models") or {}).get(model)
-    except (OSError, ValueError):
-        entry = None
-    h.update(json.dumps(entry, sort_keys=True).encode())
-    return h.hexdigest()[:32], ""
+    return _omlx_identity.omlx_content_id(
+        model,
+        settings=OMLX_SETTINGS,
+        server_settings=OMLX_SERVER_SETTINGS,
+        default_model_dir=OMLX_DEFAULT_MODEL_DIR,
+    )
 
 
 def observe_identity(backend_id: str, model: str) -> tuple[dict, str]:

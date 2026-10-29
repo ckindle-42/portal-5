@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import importlib
 import json
 import os
 import shutil
@@ -978,10 +977,10 @@ def _seat_digest(
 
 
 def _wfe_omlx_content(model: str) -> tuple[str, str]:
-    """The WFE identity guard's oMLX content id. Same function, not a new hash."""
-    module: Any = importlib.import_module("tests.wfe.campaign")
-    identify: Callable[[str], tuple[str, str]] = module.omlx_content_id
-    return identify(model)
+    """The oMLX content id shared with the WFE identity guard."""
+    from portal.platform.inference.identity import omlx_content_id
+
+    return omlx_content_id(model)
 
 
 def _ollama_tags(client: httpx.Client | None) -> tuple[dict[str, Any], str]:

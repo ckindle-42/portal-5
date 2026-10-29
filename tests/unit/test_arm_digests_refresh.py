@@ -45,15 +45,18 @@ def _checkpoint(root: Path, model: str) -> None:
 
 
 def test_refresh_writes_ollama_tags_and_the_wfe_omlx_id(tmp_path: Path, monkeypatch) -> None:
+    from portal.platform.inference import identity as omlx_identity
     from tests.wfe import campaign as camp
 
     monkeypatch.setenv("OMLX_MODEL_DIR", str(tmp_path / "models"))
     settings = tmp_path / "model_settings.json"
     settings.write_text(json.dumps({"models": {"deepmodel": {"temperature": 0.6}}}))
+    monkeypatch.setattr(omlx_identity, "OMLX_SETTINGS", settings)
     monkeypatch.setattr(camp, "OMLX_SETTINGS", settings)
     _checkpoint(tmp_path / "models", "deepmodel")
-    expected, why = camp.omlx_content_id("deepmodel")
+    expected, why = omlx_identity.omlx_content_id("deepmodel")
     assert expected and not why
+    assert camp.omlx_content_id("deepmodel") == (expected, why)
 
     env_file = tmp_path / "host" / "arm_digests.env"
     source = tmp_path / "orchestration_arm.yaml"
