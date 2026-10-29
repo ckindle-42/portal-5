@@ -25,6 +25,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 import uuid
@@ -33,6 +34,15 @@ from pathlib import Path
 import uvicorn
 from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
+
+_SCRIPT_DIR = str(Path(__file__).resolve().parent)
+_inserted_script_dir = _SCRIPT_DIR not in sys.path
+if _inserted_script_dir:
+    sys.path.insert(0, _SCRIPT_DIR)
+import mlx_cache  # noqa: E402
+
+if _inserted_script_dir:
+    sys.path.remove(_SCRIPT_DIR)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -384,9 +394,12 @@ async def openai_audio_speech(request: Request):
 
     try:
         async with _tts_lock:
-            result = await asyncio.to_thread(
-                _generate_speech, text, voice, speed, instruct, language
-            )
+            try:
+                result = await asyncio.to_thread(
+                    _generate_speech, text, voice, speed, instruct, language
+                )
+            finally:
+                mlx_cache.release_cache(logger)
     except Exception as e:
         logger.error("TTS generation failed: %s", e, exc_info=True)
         return JSONResponse({"error": str(e)}, status_code=500)
@@ -538,7 +551,11 @@ async def openai_audio_transcriptions(
 
     try:
         lang = language if language != "auto" else None
-        result = await asyncio.to_thread(_transcribe, tmp_path, lang)
+        async with _tts_lock:
+            try:
+                result = await asyncio.to_thread(_transcribe, tmp_path, lang)
+            finally:
+                mlx_cache.release_cache(logger)
     except Exception as e:
         logger.error("ASR failed: %s", e, exc_info=True)
         return JSONResponse({"error": str(e)}, status_code=500)
@@ -700,6 +717,7 @@ async def list_voices():
 # ── Startup ────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
+    mlx_cache.apply_cache_limit("MLX_SPEECH_CACHE_LIMIT_GB", logger)
     _cleanup_stale_audio()
     logger.info("MLX Speech Server starting on %s:%d", HOST, PORT)
     logger.info(

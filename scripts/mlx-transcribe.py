@@ -47,10 +47,18 @@ from fastapi.responses import FileResponse, JSONResponse
 
 # Workspace helpers — TASK-WORKSPACE-001
 # Add the repo root to sys.path so this host-native script can import portal.platform.mcp_host
-_REPO_ROOT = Path(__file__).resolve().parent.parent
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_REPO_ROOT = _SCRIPT_DIR.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
+_script_dir = str(_SCRIPT_DIR)
+_inserted_script_dir = _script_dir not in sys.path
+if _inserted_script_dir:
+    sys.path.insert(0, _script_dir)
+import mlx_cache  # noqa: E402
 
+if _inserted_script_dir:
+    sys.path.remove(_script_dir)
 from portal.platform.mcp_host import eval_scope  # noqa: E402
 from portal.platform.mcp_host.workspace import (  # noqa: E402
     get_generated_dir,
@@ -702,6 +710,8 @@ async def _dispatch_tool(tool_name: str, arguments: dict) -> JSONResponse:
             except Exception as e:
                 logger.error("invoke_tool transcribe_with_speakers failed: %s", e, exc_info=True)
                 return JSONResponse({"error": str(e)}, status_code=500)
+            finally:
+                mlx_cache.release_cache(logger)
     elif tool_name == "transcribe_audio":
         file_arg = arguments.get("file", arguments.get("audio_path"))
         language = arguments.get("language")
@@ -718,6 +728,8 @@ async def _dispatch_tool(tool_name: str, arguments: dict) -> JSONResponse:
             except Exception as e:
                 logger.error("invoke_tool transcribe_audio failed: %s", e, exc_info=True)
                 return JSONResponse({"error": str(e)}, status_code=500)
+            finally:
+                mlx_cache.release_cache(logger)
     else:
         return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
 
@@ -829,11 +841,14 @@ async def http_transcribe(
 
     try:
         async with _pipeline_lock:
-            lang = None if language == "auto" else language
-            source_name = file.filename or "upload.wav"
-            result = await asyncio.to_thread(
-                _run_pipeline, tmp_path, lang, num_speakers, source_name
-            )
+            try:
+                lang = None if language == "auto" else language
+                source_name = file.filename or "upload.wav"
+                result = await asyncio.to_thread(
+                    _run_pipeline, tmp_path, lang, num_speakers, source_name
+                )
+            finally:
+                mlx_cache.release_cache(logger)
         return JSONResponse(result)
     except Exception as e:
         logger.error("Transcription failed: %s", e, exc_info=True)
@@ -881,6 +896,8 @@ async def transcribe_audio(file: str | None = None, language: str | None = None)
         except Exception as e:
             logger.error("MCP transcribe_audio failed: %s", e, exc_info=True)
             return {"error": str(e)}
+        finally:
+            mlx_cache.release_cache(logger)
 
 
 @mcp.tool()
@@ -947,6 +964,8 @@ async def transcribe_with_speakers(
         except Exception as e:
             logger.error("MCP transcribe_with_speakers failed: %s", e, exc_info=True)
             return {"error": str(e)}
+        finally:
+            mlx_cache.release_cache(logger)
 
 
 # Initialize session manager (must happen after tool definitions, before app start).
@@ -964,6 +983,7 @@ bind_native_context(mcp)
 align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
+    mlx_cache.apply_cache_limit("MLX_TRANSCRIBE_CACHE_LIMIT_GB", logger)
     logger.info("Starting mlx-transcribe on %s:%d", HOST, PORT)
     logger.info("ASR: %s", PARAKEET_MODEL)
     logger.info("Diarizer: %s (skipped above %.0f min)", DIARIZE_MODEL, DIARIZE_MAX_S / 60)
