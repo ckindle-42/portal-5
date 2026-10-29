@@ -221,3 +221,19 @@ async def test_failover_delivers_a_still_ungrounded_answer_with_the_notice(
 
     content = json.loads(result.body)["choices"][0]["message"]["content"]
     assert content == "still 12" + UNGROUNDED_NOTICE and executed == [] and len(client.bodies) == 2
+
+
+def test_a_variant_flag_applies_when_only_the_variant_sets_it(monkeypatch) -> None:
+    """auto-research::data sets the flag; its base does not. The variant's merged entry is
+    cached under the synthetic key, so the loop must read that key, not the base
+    (seat_card_screen_20261029r2: 8 rows answered with no query and no retry)."""
+    monkeypatch.setitem(streaming.WORKSPACES, "test-base-ws", {})
+    monkeypatch.setitem(
+        streaming.WORKSPACES, "test-base-ws::data", {"require_tool_before_answer": True}
+    )
+    out, bodies, executed = _drive(
+        monkeypatch, "test-base-ws::data", [_answer("it is 12"), _call(), _answer("it is 42")]
+    )
+
+    assert "it is 42" in _text(out) and "it is 12" not in _text(out)
+    assert executed == ["run_sql"] and bodies[1]["messages"][-1] == GROUNDING_REQUEST

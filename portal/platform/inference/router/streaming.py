@@ -890,9 +890,7 @@ async def _tool_loop_frames(
     if not offers_file_creation(current_body.get("tools")):
         _download_lines.mark_successful_creation()  # no file tools offered: pass through
         _successful_creation = True
-    _require_tool = bool(
-        WORKSPACES.get(workspace_id.split("::")[0], {}).get("require_tool_before_answer")
-    )
+    _require_tool = bool(WORKSPACES.get(workspace_id, {}).get("require_tool_before_answer"))
 
     while hop < hop_limit:
         hop += 1

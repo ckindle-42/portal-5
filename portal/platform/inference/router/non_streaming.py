@@ -968,7 +968,7 @@ async def _try_non_streaming(
             # no file tools offered: nothing to filter
             _ns_creation_succeeded = not offers_file_creation(req_body.get("tools"))
             if (
-                WORKSPACES.get(workspace_id.split("::")[0], {}).get("require_tool_before_answer")
+                WORKSPACES.get(workspace_id, {}).get("require_tool_before_answer")
                 and req_body.get("tools")
                 and not _ns_tool_calls
                 and any(
