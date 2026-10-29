@@ -1,8 +1,7 @@
 # Real-use v1 against the S8 screen arms. Home is the runnable suite
 # tests/wfe/suites/realuse_v1.jsonl. A task runs when its workspace is the
 # workload or that workload's base. Challenger tags match the 2026-10-29 screens.
-# Coding workloads stay on sandbox, the same mode as the S8 coding screens:
-# tool_modes.yaml has no production allowlist for these two seats.
+# Coding workloads use the scoped production tools available on their seats.
 workloads:
   auto-daily::fast:
     tool_mode: production
@@ -21,7 +20,7 @@ workloads:
       challengers:
         - hf.co/unsloth/LFM2.5-24B-A2B-GGUF:UD-Q4_K_XL-ctx96k
   auto-coding:
-    tool_mode: sandbox
+    tool_mode: production
     home: realuse_v1
     discovery: []
     arms:
@@ -29,7 +28,7 @@ workloads:
       challengers:
         - hf.co/unsloth/flint-GGUF:UD-Q4_K_XL-ctx256k
   auto-coding::fast-repair:
-    tool_mode: sandbox
+    tool_mode: production
     home: realuse_v1
     discovery: []
     arms:

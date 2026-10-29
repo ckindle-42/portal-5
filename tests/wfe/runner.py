@@ -1540,6 +1540,13 @@ def user_content(task: dict) -> str | list[dict]:
     return parts
 
 
+def required_tools(task: dict) -> set[str]:
+    required = set(task.get("requires_tools") or [])
+    for scripted in task.get("turns") or []:
+        required.update(scripted.get("expect_tools") or [])
+    return required
+
+
 def scripted_turns(task: dict) -> list[dict]:
     """The user turns to send, in order: a multi-turn task's `turns`, else its single
     instruction. A turn carries the user text, its own `checks`, and `expect_tools`."""
@@ -1841,9 +1848,7 @@ def run_task(
         return _empty_result(
             Outcome.BLOCKED, "requires_network but the harness has no outbound network"
         )
-    required = set(task.get("requires_tools") or [])
-    for scripted in task.get("turns") or []:
-        required |= set(scripted.get("expect_tools") or [])
+    required = required_tools(task)
     missing = sorted(required - set(tool_surface or TOOL_NAMES))
     if missing:
         return _empty_result(

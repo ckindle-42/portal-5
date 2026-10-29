@@ -106,6 +106,8 @@ def test_pipeline_run_row_sends_the_note_only_in_sandbox_mode(
         "repeat": 0,
         "overrides": {},
     }
+    if note_sent:
+        row["tool_mode"] = "sandbox"
     manifest = {"campaign_id": "test_pipeline_note", "env": {}}
     try:
         campaign.run_row(tmp_path, manifest, row, wsc, {"id": "t"}, 1, 1, None, False)

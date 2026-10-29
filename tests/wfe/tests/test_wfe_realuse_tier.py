@@ -165,7 +165,6 @@ def test_a_task_naming_another_workspace_is_not_run_here(tmp_path, monkeypatch):
     rows = camp.expand_matrix(plan, 1, tier="realuse")
     # `c` names the base workspace, so a variant lane still runs it.
     assert {r["task_id"] for r in rows} == {"a", "c"}
-
     variant = f"{WS}::fast"
     plan.write_text(
         yaml.safe_dump(
@@ -174,6 +173,37 @@ def test_a_task_naming_another_workspace_is_not_run_here(tmp_path, monkeypatch):
     )
     rows = camp.expand_matrix(plan, 1, tier="realuse")
     assert {r["task_id"] for r in rows} == {"a", "c"}
+
+
+def test_home_task_filter_restricts_the_home_suite(plan):
+    document = yaml.safe_load(plan.read_text())
+    document["workloads"][WS]["home_tasks"] = ["t02"]
+    plan.write_text(yaml.safe_dump(document))
+
+    assert {row["task_id"] for row in _matrix(plan)} == {"t02"}
+
+
+def test_tool_surface_report_names_the_workload_task_and_missing_tools(plan):
+    suite = camp.SUITE_DIR / "home.jsonl"
+    tasks = [json.loads(line) for line in suite.read_text().splitlines()]
+    tasks[2]["requires_tools"] = ["execute_python"]
+    suite.write_text("".join(json.dumps(task) + "\n" for task in tasks))
+
+    _checked, failures = camp.realuse_tool_surface_report(plan)
+
+    assert failures == ["workload auto-general task t02 missing tools: ['execute_python']"]
+
+
+def test_committed_realuse_plans_offer_every_selected_home_task_tool():
+    plans = sorted((camp.REPO / "tests/wfe/plans").glob("realuse_*.yaml"))
+    assert plans
+    failures = [
+        f"{plan.name}: {failure}"
+        for plan in plans
+        for _checked, gaps in [camp.realuse_tool_surface_report(plan)]
+        for failure in gaps
+    ]
+    assert not failures, "\n".join(failures)
 
 
 def test_the_realuse_tier_is_a_cli_choice(monkeypatch):

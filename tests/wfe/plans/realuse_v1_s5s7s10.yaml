@@ -9,7 +9,7 @@
 #   on the granite 96k memory trip. Challengers are general_decision_v1, including
 #   the 96k and 128k arms. The cross-engine load guard is what lets them run
 #   beside the stack.
-# - auto-coding (S7). Not run. Sandbox, the same mode as the coding screens.
+# - auto-coding (S7). Not run. Uses the seat's scoped production tools.
 #   Challengers are coding_decision_v1.
 # - auto-documents (S10). Queue challengers granite4.1:30b-ctx96k and Qwen3.8
 #   against the current gemma seat. The ledger cells were against granite4.1:8b,
@@ -17,8 +17,7 @@
 # - auto-research::data (S10). Queue challengers granite ctx64k, Nemotron, and
 #   Qwen3.8. The ledger cells are on the old auto-data id, and the incumbent's
 #   require_tool flag was broken, so they are not a decision. Seat versus card
-#   is realuse_v1_reruns.yaml. Base auto-research tasks expand here and block:
-#   they expect web_search, which the data allowlist does not offer.
+#   is realuse_v1_reruns.yaml. Only its two data tasks belong in this workload.
 #
 # Left out, and why:
 # - auto-coding flint, and auto-daily::fast LFM2.5: already realuse_v1_s8.yaml.
@@ -76,7 +75,7 @@ workloads:
         - hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k
         - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
   auto-coding:
-    tool_mode: sandbox
+    tool_mode: production
     home: realuse_v1
     discovery: []
     arms:
@@ -97,6 +96,7 @@ workloads:
   auto-research::data:
     tool_mode: production
     home: realuse_v1
+    home_tasks: [ru-v1-022, ru-v1-035]
     discovery: []
     arms:
       incumbent: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k

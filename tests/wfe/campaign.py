@@ -91,6 +91,7 @@ from tests.wfe.runner import (
     load_suite,
     make_sandbox,
     preflight_harness,
+    required_tools,
     run_task,
     undeliverable_keys,
     workspace_context,
@@ -498,7 +499,11 @@ def expand_matrix(
                 if only_suite and suite != only_suite:
                     continue
                 n = repeats.get(spec[0], DEFAULT_REPEATS) if isinstance(repeats, dict) else repeats
-                rows += _suite_rows(ws_id, spec, role, suite, home, tier, n, only_task)
+                home_tasks = wl.get("home_tasks") if suite == home else None
+                task_ids = (
+                    {str(task_id) for task_id in home_tasks} if home_tasks is not None else None
+                )
+                rows += _suite_rows(ws_id, spec, role, suite, home, tier, n, only_task, task_ids)
     # Arm-major: every task for a model runs while its weights are resident.
     rows.sort(key=lambda r: (r["arm"], r["workspace"], r["suite"], r["task_id"], r["repeat"]))
     return _with_tool_modes(rows, plan)
@@ -521,6 +526,34 @@ def _with_tool_modes(rows: list[dict], plan: dict) -> list[dict]:
     ]
 
 
+def realuse_tool_surface_report(plan_path: Path) -> tuple[int, list[str]]:
+    """Check every selected real-use home task against its row's offered tools."""
+    rows = expand_matrix(plan_path, 1, tier="realuse")
+    suites: dict[str, dict[str, dict]] = {}
+    checked: set[tuple[str, str, str]] = set()
+    failures = []
+    for row in rows:
+        if not row["is_home"]:
+            continue
+        key = (row["workspace"], row["suite"], row["task_id"])
+        if key in checked:
+            continue
+        checked.add(key)
+        if row["suite"] not in suites:
+            suites[row["suite"]] = {
+                task["id"]: task for task in load_suite(SUITE_DIR / f"{row['suite']}.jsonl")
+            }
+        task = suites[row["suite"]][row["task_id"]]
+        mode = eval_mode.mode_for(row["workspace"], row.get("tool_mode"))
+        surface = set(mode["allow"]) if mode else set(TOOL_NAMES)
+        missing = sorted(required_tools(task) - surface)
+        if missing:
+            failures.append(
+                f"workload {row['workspace']} task {row['task_id']} missing tools: {missing}"
+            )
+    return len(checked), failures
+
+
 def _planned_arms(arms: dict, ws_id: str, only_arm: str | None, want: set | None):
     """(role, spec) for every arm one workspace expands, obeying --arm and --advance."""
     ordered = [("incumbent", arms.get("incumbent"))] + [
@@ -539,7 +572,9 @@ def _planned_arms(arms: dict, ws_id: str, only_arm: str | None, want: set | None
     return out
 
 
-def _suite_rows(ws_id, spec, role, suite, home, tier, repeats, only_task) -> list[dict]:
+def _suite_rows(
+    ws_id, spec, role, suite, home, tier, repeats, only_task, task_ids: set[str] | None = None
+) -> list[dict]:
     """Every row one (workspace, arm, suite) contributes at this tier."""
     suite_path = SUITE_DIR / f"{suite}.jsonl"
     if not suite_path.exists():
@@ -553,6 +588,8 @@ def _suite_rows(ws_id, spec, role, suite, home, tier, repeats, only_task) -> lis
     out: list[dict] = []
     for task in load_suite(suite_path):
         if only_task and task["id"] != only_task:
+            continue
+        if task_ids is not None and task["id"] not in task_ids:
             continue
         # A real-use task names the workspace it was written for: running it in another
         # would grade the wrong seat's tools and prompt. A variant lane is its base.
@@ -3973,10 +4010,28 @@ def _validate_reuse_screen_args(ap, args) -> None:
         ap.error("--reuse-screen can only be used with --tier confirm")
 
 
+def _realuse_tool_preflight(plan: Path) -> None:
+    if not plan.is_file():
+        return
+    plan_doc = yaml.safe_load(plan.read_text()) or {}
+    if not any(
+        (workload.get("home") or "").startswith("realuse_")
+        for workload in (plan_doc.get("workloads") or {}).values()
+    ):
+        return
+    checked, failures = realuse_tool_surface_report(plan)
+    if failures:
+        report = [f"tool surface preflight: FAIL ({len(failures)} mismatch(es))"]
+        report.extend(f"  {failure}" for failure in failures)
+        raise GateRefused("\n".join(report))
+    print(f"tool surface preflight: PASS ({checked} workload/task pair(s))")
+
+
 def main() -> int:
     ap, args = _parse_args()
     _validate_reuse_screen_args(ap, args)
     plan = Path(args.plan)
+    _realuse_tool_preflight(plan)
 
     if args.list_arms:
         return _cmd_list_arms(plan, args.all_suites)

@@ -3,14 +3,12 @@
 # auto-research::data — seat_card_screen_20261029r2 scored tools=0 on both the
 # seat and the card arm. require_tool_before_answer was read on the base
 # workspace id, so the ::data flag never applied (d87e7590). Same model, card label.
-# The variant also expands the base auto-research tasks; those expect web_search,
-# which this allowlist does not offer, so those rows block. The data tasks are the cell.
+# This cell selects only the two data tasks, excluding unrelated base research tasks.
 #
 # auto-vision — the gemma4 QAT arm stopped after one row on a false identity drift
 # (frozen ollama-general vs the served ollama-vision backend, same content hash).
 # The plain gemma arm's screen stands and is not here. The incumbent is the vision seat.
-# This workspace has no production allowlist, so generate_image and edit_image turns
-# block as an instrument gap. The describe turns are the comparison that can run.
+# Its production allowlist covers generate_image and edit_image for these tasks.
 #
 #   uv run python -m tests.wfe.campaign --campaign-id realuse_reruns_20261030 \
 #       --plan tests/wfe/plans/realuse_v1_reruns.yaml --tier realuse --dry-run
@@ -18,12 +16,14 @@ workloads:
   auto-research::data:
     tool_mode: production
     home: realuse_v1
+    home_tasks: [ru-v1-022, ru-v1-035]
     discovery: []
     arms:
       incumbent: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k
       challengers:
         - {model: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k, label: card}
   auto-vision:
+    tool_mode: production
     home: realuse_v1
     discovery: []
     arms:

@@ -21,10 +21,14 @@ def test_every_allowlist_is_within_the_workspaces_tools():
         assert not extra, f"{ws}: allowlist names tools the workspace lacks: {extra}"
 
 
-def test_the_general_family_excludes_web_and_out_of_scope_tools():
+def test_only_the_realuse_fast_lane_offers_live_web_search():
     modes = yaml.safe_load((REPO / "tests/wfe/tool_modes.yaml").read_text())["workspaces"]
     for ws in ("auto-daily::fast", "auto-daily::deep", "auto-daily"):
         allow = set(modes[ws]["allow"])
-        assert not allow & {"web_search", "web_fetch", "news_search", "transcribe_audio"}
+        if ws == "auto-daily::fast":
+            assert "web_search" in allow
+        else:
+            assert "web_search" not in allow
+        assert not allow & {"web_fetch", "news_search", "transcribe_audio"}
         assert not any(t.startswith("minimax_") for t in allow)
-        assert len(allow) == 11
+        assert len(allow) == (12 if ws == "auto-daily::fast" else 11)
