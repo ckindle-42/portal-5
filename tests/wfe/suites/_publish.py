@@ -30,3 +30,20 @@ def publish_text(path: Path, text: str) -> None:
     except BaseException:
         Path(name).unlink(missing_ok=True)
         raise
+
+
+def publish_bytes(path: Path, content: bytes) -> None:
+    try:
+        if path.read_bytes() == content:
+            return
+    except FileNotFoundError:
+        pass
+    fd, name = tempfile.mkstemp(dir=str(path.parent), prefix=f"{path.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(content)
+        os.chmod(name, 0o644)
+        os.replace(name, path)
+    except BaseException:
+        Path(name).unlink(missing_ok=True)
+        raise

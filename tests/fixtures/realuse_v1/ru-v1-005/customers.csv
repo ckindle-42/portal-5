@@ -1,0 +1,9 @@
+name,region,status
+Ann,north,active
+Bo,south,inactive
+Cy,east,active
+Dee,west,active
+Ed,north,inactive
+Fay,south,active
+Gus,east,inactive
+Hui,west,active

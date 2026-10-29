@@ -1,0 +1,15 @@
+region,product_line,rating
+north,stove,1
+north,stove,2
+north,lantern,2
+north,lantern,3
+south,stove,4
+south,stove,4
+south,lantern,5
+south,lantern,5
+east,stove,4
+east,lantern,4
+west,stove,3
+west,stove,3
+west,lantern,3
+west,lantern,3

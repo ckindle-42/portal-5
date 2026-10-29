@@ -1,0 +1,10 @@
+status ok
+urgent: restock mugs
+note from vendor
+shipping on time
+priority: call the printer
+lunch at noon
+urgent: confirm booth map
+chairs arrived
+sign copy approved
+close the hall at 6
