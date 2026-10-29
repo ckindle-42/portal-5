@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 import json
 import os
 import subprocess
@@ -145,6 +146,75 @@ def test_timestamp_fallback_is_counted() -> None:
     )
     assert rfc3164.epoch == 1_577_934_245
     assert rfc3164.date_fallback
+
+
+def test_zeek_json_tsv_and_apache_times_are_event_times() -> None:
+    zeek_json = reingest.resolve_event(corpus_file(), {"ts": 1_588_205_199.82437})
+    assert zeek_json.epoch == pytest.approx(1_588_205_199.82437)
+    assert not zeek_json.date_fallback
+
+    zeek_tsv = reingest.resolve_event(corpus_file(), "1693976006.934436\tviolation\tprotocol\tIRC")
+    assert zeek_tsv.epoch == pytest.approx(1_693_976_006.934436)
+    assert not zeek_tsv.date_fallback
+
+    apache = reingest.resolve_event(
+        corpus_file(), '192.168.105.83 - - [11/Jul/2018:08:41:28 +0300] "GET / HTTP/1.1" 200 11444'
+    )
+    expected = dt.datetime(
+        2018, 7, 11, 8, 41, 28, tzinfo=dt.timezone(dt.timedelta(hours=3))
+    ).timestamp()
+    assert apache.epoch == expected
+    assert not apache.date_fallback
+
+
+def test_yearless_event_uses_only_manifest_year() -> None:
+    event = "\ufeff09/14 12:33:00 [MISC] [3448] DbFlag is set"
+    dated = reingest.resolve_event(corpus_file(fallback_epoch=1_600_000_000), event)
+    expected = dt.datetime(2020, 9, 14, 12, 33, tzinfo=dt.UTC).timestamp()
+    assert dated.epoch == expected
+    assert dated.date_fallback
+    assert reingest.resolve_event(corpus_file(), event).epoch is None
+
+
+def test_multiline_csv_records_keep_raw_body_and_resolve_system_time(tmp_path: Path) -> None:
+    path = tmp_path / "evtx_data.csv"
+    record = '1,2020-01-02 03:04:05.123456,"first line\nsecond line"'
+    path.write_bytes(f"id,SystemTime,EventXML\n{record}\n".encode())
+    item = reingest.CorpusFile("evtx_samples", "evtx_data", path, tmp_path)
+
+    events = list(reingest._iter_file_events(item))
+
+    assert events == [record]
+    resolved = reingest.resolve_event(item, events[0])
+    assert resolved.body == record
+    assert resolved.epoch == pytest.approx(1_577_934_245.123456)
+
+
+def test_no_year_file_counts_missing_time_and_is_excluded(tmp_path: Path) -> None:
+    path = tmp_path / "netlogon.log"
+    path.write_text("09/14 12:33:00 [MISC] one\n09/14 12:33:02 [INIT] two\n", encoding="utf-8")
+    item = reingest.CorpusFile("evtx_samples", "netlogon", path, tmp_path)
+
+    scan = reingest.scan_inputs({"evtx_samples": [item]})
+
+    assert scan["totals"]["missing_time"] == 2
+    assert scan["totals"]["excluded_missing_time"] == 2
+    assert scan["items"][reingest.p5_item_id("evtx_samples", "netlogon")]["missing_time"] == 2
+    assert scan["read_errors"][0]["reason"] == "no_year"
+    assert not reingest._ship_gate_blocked(scan, {}, False, None, None)
+
+
+def test_untimed_file_is_counted_and_excluded(tmp_path: Path) -> None:
+    path = tmp_path / "loaded_scripts.log"
+    path.write_text('{"@stream":"loaded_scripts","name":"script.zeek"}\n', encoding="utf-8")
+    item = reingest.CorpusFile("mordor", "loaded_scripts", path, tmp_path)
+
+    scan = reingest.scan_inputs({"mordor": [item]})
+
+    assert scan["totals"]["missing_time"] == 1
+    assert scan["totals"]["excluded_missing_time"] == 1
+    assert scan["read_errors"][0]["reason"] == "missing_time"
+    assert not reingest._ship_gate_blocked(scan, {}, False, None, None)
 
 
 def test_p5_item_is_opaque_and_stable() -> None:
@@ -407,6 +477,21 @@ def test_scan_inputs_counts_fallback_unknown_and_residual_leak(tmp_path: Path) -
     assert report["date_fallback_by_format"] == {"json": 1}
     item_id = reingest.p5_item_id("mordor", "test-directory")
     assert report["items"][item_id]["date_fallback"] == 1
+
+
+def test_scan_inputs_skips_zeek_metadata_lines(tmp_path: Path) -> None:
+    path = tmp_path / "conn.log"
+    path.write_text(
+        "#separator \\x09\n#fields\tts\tuid\n#types\ttime\tstring\n1693976006.934436\tuid-1\n",
+        encoding="utf-8",
+    )
+    item = reingest.CorpusFile("mordor", "zeek", path, tmp_path)
+
+    scan = reingest.scan_inputs({"mordor": [item]})
+
+    assert scan["totals"]["events"] == 1
+    assert scan["totals"]["missing_time"] == 0
+    assert scan["items"][reingest.p5_item_id("mordor", "zeek")]["events"] == 1
 
 
 def test_scan_merges_valid_files_from_one_item(tmp_path: Path) -> None:

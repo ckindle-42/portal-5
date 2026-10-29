@@ -38,6 +38,7 @@ import datetime as dt
 import gzip
 import io
 import json
+import math
 import os
 import re
 import sys
@@ -322,21 +323,44 @@ def resolve_sourcetype(
 # timestamps
 # ---------------------------------------------------------------------------
 
-_TS_KEYS = ("@timestamp", "TimeCreated", "UtcTime", "timestamp", "_time", "EventTime", "eventTime")
+_TS_KEYS = (
+    "@timestamp",
+    "TimeCreated",
+    "UtcTime",
+    "timestamp",
+    "_time",
+    "EventTime",
+    "eventTime",
+    "SystemTime",
+    "ts",
+)
 _SYSTEMTIME_RE = re.compile(r'SystemTime=["\']([^"\']+)["\']')
 _ISO_RE = re.compile(r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?")
+_CLF_TIME_RE = re.compile(r"\[(\d{2}/[A-Za-z]{3}/\d{4}:\d{2}:\d{2}:\d{2} [+-]\d{4})\]")
+_ZEEK_TSV_TIME_RE = re.compile(r"^(\d{9,}(?:\.\d+)?)(?=\t)")
 
 
-def _parse_ts(value: str) -> float | None:
+def _parse_ts(value: Any) -> float | None:
     """Parse an ISO-ish timestamp to epoch seconds. Windows emits 7-digit
     fractional seconds, which datetime rejects, so fractions are truncated to 6."""
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        number = float(value)
+        if math.isfinite(number) and number >= 100_000_000:
+            return number / 1000 if number >= 100_000_000_000 else number
     text = str(value).strip().replace("Z", "+00:00")
+    try:
+        number = float(text)
+    except ValueError:
+        number = math.nan
+    if math.isfinite(number) and number >= 100_000_000:
+        return number / 1000 if number >= 100_000_000_000 else number
     text = re.sub(r"(\.\d{6})\d+", r"\1", text)
     for parse in (
         dt.datetime.fromisoformat,
         lambda x: dt.datetime.strptime(x, "%Y-%m-%d %H:%M:%S.%f"),
         lambda x: dt.datetime.strptime(x, "%Y-%m-%d %H:%M:%S"),
         lambda x: dt.datetime.strptime(x, "%m/%d/%Y %I:%M:%S %p"),  # Splunk export header
+        lambda x: dt.datetime.strptime(x, "%d/%b/%Y:%H:%M:%S %z"),
     ):
         try:
             parsed = parse(text)
@@ -345,6 +369,24 @@ def _parse_ts(value: str) -> float | None:
         if parsed.tzinfo is None:
             parsed = parsed.replace(tzinfo=dt.UTC)
         return parsed.timestamp()
+    return None
+
+
+def _line_event_epoch(text: str) -> float | None:
+    header = text.split("\n", 1)[0]
+    if _EXPORT_HEADER_RE.match(header) and (epoch := _parse_ts(header)) is not None:
+        return epoch
+    match = _SYSTEMTIME_RE.search(text) or _ISO_RE.search(text)
+    if match:
+        captured = match.group(1) if match.re is _SYSTEMTIME_RE else match.group(0)
+        if (epoch := _parse_ts(captured)) is not None:
+            return epoch
+    if match := _CLF_TIME_RE.search(text):
+        if (epoch := _parse_ts(match.group(1))) is not None:
+            return epoch
+    if match := _ZEEK_TSV_TIME_RE.match(text):
+        if (epoch := _parse_ts(match.group(1))) is not None:
+            return epoch
     return None
 
 
@@ -363,17 +405,8 @@ def event_epoch(ev: Any, fallback: float) -> float:
             attrs = created.get("#attributes") or {}
             if attrs.get("SystemTime") and (epoch := _parse_ts(attrs["SystemTime"])) is not None:
                 return epoch
-    else:
-        text = str(ev)
-        # A reassembled export record carries its time on the header line.
-        header = text.split("\n", 1)[0]
-        if _EXPORT_HEADER_RE.match(header) and (epoch := _parse_ts(header)) is not None:
-            return epoch
-        match = _SYSTEMTIME_RE.search(text) or _ISO_RE.search(text)
-        if match:
-            captured = match.group(1) if match.re is _SYSTEMTIME_RE else match.group(0)
-            if (epoch := _parse_ts(captured)) is not None:
-                return epoch
+    elif (epoch := _line_event_epoch(str(ev))) is not None:
+        return epoch
     return fallback
 
 
