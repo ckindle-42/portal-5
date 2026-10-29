@@ -157,8 +157,10 @@ spaces = {args[i + 1] for i, a in enumerate(args[:-1]) if a == '--workspace'}
 arms = sorted({ln.strip().split('@card-')[0] for ln in open('${LOG_DIR}/arms.txt') if ln.strip()})
 seats = audit.run_audit()
 tags = audit.audit_tags(arms)
+renderer = audit.audit_renderer_gate(arms)
 bad = [v for v in seats['violations'] if v['severity'] in ('WARN', 'FAIL') and (not spaces or v['workspace'].split('::')[0] in spaces)]
 bad += [v for v in tags['violations'] if v['severity'] in ('WARN', 'FAIL')]
+bad += [v for v in renderer['violations'] if v['severity'] in ('WARN', 'FAIL')]
 for v in bad:
     print(f\"  {v['severity']} {v['workspace']}: {v['kind']} — {v['detail'][:200]}\")
 print('CONFORMANCE', 'CLEAN' if not bad else f'{len(bad)} finding(s)')

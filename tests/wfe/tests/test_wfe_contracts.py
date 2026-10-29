@@ -3647,7 +3647,7 @@ class TestTagsAudit:
     def _show(arch, ren="", par="", template="{{ .Prompt }}", params=""):
         return TestTemplateConformance._show(arch, ren, par, template, params)
 
-    def _run(self, monkeypatch, shows, want):
+    def _mock(self, monkeypatch, shows):
         import tests.wfe.settings_audit as sa
 
         def fake_post(path, payload, timeout=60):
@@ -3657,7 +3657,26 @@ class TestTagsAudit:
 
         monkeypatch.setattr(sa, "_post", fake_post)
         monkeypatch.setattr(sa, "omlx_served_ids", set)
+
+    def _run(self, monkeypatch, shows, want):
+        import tests.wfe.settings_audit as sa
+
+        self._mock(monkeypatch, shows)
         return sa.audit_tags(want)
+
+    #: The gate table under test; the committed file is exercised separately.
+    TABLE = {
+        "renderers": {"flint": {"renderer": "flint", "parser": "flint", "source": "test"}},
+        "allow": {"allowed:Q4": "probe-verified"},
+    }
+
+    def _run_gate(self, monkeypatch, shows, want, table=None):
+        import tests.wfe.settings_audit as sa
+
+        self._mock(monkeypatch, shows)
+        if table is not None:
+            monkeypatch.setattr(sa, "_renderer_table", lambda: table)
+        return sa.audit_renderer_gate(want)
 
     def test_template_and_stop_findings_are_reported_per_tag(self, monkeypatch):
         shows = {
@@ -3678,3 +3697,60 @@ class TestTagsAudit:
         }
         r = self._run(monkeypatch, shows, ["challenger:Q4"])
         assert r["violations"] == [] and r["fail_count"] == 0
+
+    def test_a_renderer_less_tag_on_a_known_arch_is_refused_with_the_modelfile_fix(
+        self, monkeypatch
+    ):
+        shows = {
+            "hf.co/unsloth/flint-GGUF:UD-Q4_K_XL": self._show("flint", template="<vendor jinja>")
+        }
+        r = self._run_gate(
+            monkeypatch, shows, ["hf.co/unsloth/flint-GGUF:UD-Q4_K_XL"], table=self.TABLE
+        )
+        v = r["violations"]
+        assert [(x["kind"], x["severity"]) for x in v] == [("renderer_missing", "FAIL")]
+        assert "RENDERER flint + PARSER flint" in v[0]["detail"]
+        assert "ollama_template_conformance_probe" in v[0]["detail"]
+        assert r["fail_count"] == 1
+
+    def test_a_tag_carrying_its_renderer_is_not_refused(self, monkeypatch):
+        shows = {"flint:latest": self._show("flint", "flint", "flint", "<real>")}
+        assert (
+            self._run_gate(monkeypatch, shows, ["flint:latest"], table=self.TABLE)["violations"]
+            == []
+        )
+
+    def test_an_allow_entry_skips_the_refusal(self, monkeypatch):
+        shows = {"allowed:Q4": self._show("flint", template="<vendor jinja>")}
+        assert (
+            self._run_gate(monkeypatch, shows, ["allowed:Q4"], table=self.TABLE)["violations"] == []
+        )
+
+    def test_an_architecture_the_table_does_not_know_is_not_refused(self, monkeypatch):
+        shows = {"mellum:Q4": self._show("mellum", template="<vendor jinja>")}
+        assert (
+            self._run_gate(monkeypatch, shows, ["mellum:Q4"], table=self.TABLE)["violations"] == []
+        )
+
+    def test_an_uninstalled_arm_is_left_to_audit_tags(self, monkeypatch):
+        r = self._run_gate(monkeypatch, {}, ["gone:latest"], table=self.TABLE)
+        assert r["violations"] == []
+
+    def test_the_committed_table_refuses_the_incident_setup(self, monkeypatch):
+        """The real config/ollama_modelfiles/renderers.yaml, loaded by the gate:
+        a flint-arch tag with no RENDERER/PARSER is the 2026-10-29 screen failure."""
+        shows = {
+            "hf.co/unsloth/flint-GGUF:UD-Q4_K_XL": self._show("flint", template="<vendor jinja>")
+        }
+        r = self._run_gate(monkeypatch, shows, ["hf.co/unsloth/flint-GGUF:UD-Q4_K_XL"])
+        assert [x["kind"] for x in r["violations"]] == ["renderer_missing"]
+
+    def test_the_committed_renderer_table_is_fully_cited(self):
+        import tests.wfe.settings_audit as sa
+
+        table = sa._renderer_table()
+        assert (table.get("renderers") or {}).get("flint"), "the incident arch is seeded"
+        for arch, entry in (table.get("renderers") or {}).items():
+            assert entry.get("renderer") and entry.get("parser"), arch
+            assert entry.get("source"), f"{arch}: cite where the pair comes from"
+        assert isinstance(table.get("allow") or {}, dict)
