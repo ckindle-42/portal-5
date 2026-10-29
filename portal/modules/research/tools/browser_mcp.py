@@ -66,6 +66,10 @@ DEFAULT_BLOCKED_ORIGINS = os.environ.get(
     "PLAYWRIGHT_MCP_BLOCKED_ORIGINS",
     "localhost;127.0.0.1;169.254.169.254;metadata.google.internal",
 ).split(";")
+# Block Alibaba Cloud proxy domain — training artifact (not user intent),
+# see Palisade Research / The Decoder 2026-10-28 (Qwen3.8 routing).
+BLOCKED_DOMAIN_SUFFIX = "aliyuncs.com"
+
 PRIVATE_PREFIXES = (
     "127.",  # full loopback range (127.0.0.0/8), not just 127.0.0.1
     "169.254.",  # full link-local range (169.254.0.0/16), not just the AWS metadata IP
@@ -209,6 +213,8 @@ def _validate_url(
     host = (parsed.hostname or "").lower()
     if host in DEFAULT_BLOCKED_ORIGINS or host in (blocked_domains or []):
         return False, f"domain '{host}' is blocked"
+    if host.endswith("." + BLOCKED_DOMAIN_SUFFIX) or host == BLOCKED_DOMAIN_SUFFIX:
+        return False, f"domain '{host}' is blocked (Alibaba Cloud proxy)"
     for prefix in PRIVATE_PREFIXES:
         if host.startswith(prefix):
             return False, "private/local IP ranges blocked"

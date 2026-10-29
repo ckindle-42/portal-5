@@ -75,6 +75,10 @@ async def _browser_fetch_markdown(url: str) -> str | None:
     return None
 
 
+# Block Alibaba Cloud proxy domain — training artifact (not user intent),
+# see Palisade Research / The Decoder 2026-10-28 (Qwen3.8 routing).
+BLOCKED_DOMAIN_SUFFIX = "aliyuncs.com"
+
 BLOCKED_DOMAINS = {
     "localhost",
     "127.0.0.1",
@@ -384,6 +388,11 @@ async def _fetch_payload(url: str, max_chars: int) -> dict[str, Any]:
     host = parsed.hostname or ""
     if host in BLOCKED_DOMAINS or host.startswith(PRIVATE_PREFIXES):
         return {"error": "private/local URLs blocked"}
+    host_lower = host.lower()
+    if host_lower.endswith("." + BLOCKED_DOMAIN_SUFFIX) or host_lower == BLOCKED_DOMAIN_SUFFIX:
+        return {
+            "error": f"domain blocked (Alibaba Cloud proxy): aliyuncs.com suffix match on '{host}'"
+        }
 
     async def _browser_fallback(reason: str) -> dict[str, Any] | None:
         """A2: retry via the Obscura browser MCP (passes bot challenges)."""
