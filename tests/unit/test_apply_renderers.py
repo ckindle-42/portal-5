@@ -45,9 +45,13 @@ class FakeOllama:
         self.creates: list[tuple[str, str]] = []
 
     def post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
-        if path == "/api/tags":
-            return {"models": [{"name": n} for n in self.shows]}
+        # /api/tags is GET-only on the real engine; a POST to it is a bug.
+        assert path != "/api/tags", "POST /api/tags returns 405 on Ollama"
         return dict(self.shows.get(payload["model"], {}))
+
+    def get(self, path: str) -> dict[str, Any]:
+        assert path == "/api/tags"
+        return {"models": [{"name": n} for n in self.shows]}
 
     def create(self, _ollama_cmd: str, tag: str, text: str) -> tuple[bool, str]:
         self.creates.append((tag, text))
@@ -64,6 +68,7 @@ def _wire(
     probe_out: str = "",
 ) -> list[str]:
     monkeypatch.setattr(renderers, "_post", fake.post)
+    monkeypatch.setattr(renderers, "_get", fake.get)
     monkeypatch.setattr(renderers, "_create", fake.create)
     monkeypatch.setattr(renderers, "_load_table", lambda: TABLE)
     monkeypatch.setattr(renderers, "_detect_ollama_cmd", lambda: "ollama")

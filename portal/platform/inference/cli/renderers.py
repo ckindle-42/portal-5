@@ -55,6 +55,12 @@ def _post(path: str, payload: dict[str, Any]) -> dict[str, Any]:
         return dict(json.load(r))
 
 
+def _get(path: str) -> dict[str, Any]:
+    # /api/tags is GET-only: a POST returns 405 Method Not Allowed (live, Ollama 0.40.13).
+    with urllib.request.urlopen(f"{OLLAMA}{path}", timeout=30) as r:
+        return dict(json.load(r))
+
+
 def _load_table() -> dict[str, Any]:
     """config/ollama_modelfiles/renderers.yaml ({} when unreadable)."""
     with RENDERERS_PATH.open(encoding="utf-8") as f:
@@ -63,7 +69,7 @@ def _load_table() -> dict[str, Any]:
 
 def _installed() -> list[str]:
     """Names from /api/tags — the tags a rebuild may target."""
-    data = _post("/api/tags", {})
+    data = _get("/api/tags")
     models = data.get("models") or []
     return sorted({str(m["name"]) for m in models if isinstance(m, dict) and m.get("name")})
 
