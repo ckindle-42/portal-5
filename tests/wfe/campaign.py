@@ -553,6 +553,11 @@ def _suite_rows(ws_id, spec, role, suite, home, tier, repeats, only_task) -> lis
     for task in load_suite(suite_path):
         if only_task and task["id"] != only_task:
             continue
+        # A real-use task names the workspace it was written for: running it in another
+        # would grade the wrong seat's tools and prompt. A variant lane is its base.
+        declared = str(task.get("workspace") or "")
+        if declared and declared not in (ws_id, ws_id.split("::", 1)[0]):
+            continue
         if tier == "screen" and not task.get("screen"):
             continue
         for rep in range(1 if tier == "screen" else repeats):
@@ -2450,6 +2455,74 @@ def repeats_policy(campaign_dir: Path, matrix: list[dict], default: int) -> dict
     return out
 
 
+#: A checker that needs a human to read the answer. Its suite is not objective.
+NON_OBJECTIVE_CHECKERS = frozenset({"human_review"})
+
+
+def _task_checkers(task: dict) -> list[dict]:
+    """Every checker spec a task carries, single-turn or per-turn."""
+    return list(task.get("checkers") or []) + [
+        s for t in task.get("turns") or [] for s in (t.get("checks") or [])
+    ]
+
+
+def suite_is_objective(suite_path: str | Path, cache: dict | None = None) -> bool:
+    """True when nothing in the suite waits on a human verdict: only an objective suite
+    is worth a second draw."""
+    key = str(suite_path)
+    if cache is not None and key in cache:
+        return cache[key]
+    try:
+        tasks = load_suite(suite_path)
+    except Exception:
+        ok = False
+    else:
+        ok = bool(tasks) and not any(
+            s.get("type") in NON_OBJECTIVE_CHECKERS for t in tasks for s in _task_checkers(t)
+        )
+    if cache is not None:
+        cache[key] = ok
+    return ok
+
+
+def _arm_temperature(
+    campaign_dir: Path, arm: str, workspace: str, overrides: dict | None
+) -> float | None:
+    """The temperature this arm is served at: what its recorded rows observed, else the
+    arm's own override, else the workspace's declared block. None when unknown."""
+    temps = []
+    for f in (campaign_dir / "rows").glob("*.json"):
+        with contextlib.suppress(Exception):
+            d = json.loads(f.read_text())
+            if d.get("arm") == arm and d.get("served_temperature") is not None:
+                temps.append(float(d["served_temperature"]))
+    if temps:
+        return max(temps)
+    forced = ((overrides or {}).get("sampling") or {}).get("temperature")
+    if forced is not None:
+        return float(forced)
+    with contextlib.suppress(Exception):
+        declared = workspace_context(workspace).get("declared_temperature")
+        return float(declared) if declared is not None else None
+    return None
+
+
+def realuse_repeats(campaign_dir: Path, matrix: list[dict]) -> dict[str, int]:
+    """arm -> repeats under --tier realuse. One draw covers a task; a second is added
+    only where the arm can produce a different answer — served temperature above 0 — on
+    an objective-check suite. An unrecorded temperature is never assumed deterministic."""
+    out: dict[str, int] = {}
+    objective: dict[str, bool] = {}
+    for r in matrix:
+        out.setdefault(r["arm"], 1)
+        if out[r["arm"]] > 1 or not suite_is_objective(r["suite_path"], objective):
+            continue
+        t = _arm_temperature(campaign_dir, r["arm"], r["workspace"], r.get("overrides"))
+        if t is None or t > 0:
+            out[r["arm"]] = 2
+    return out
+
+
 def degenerate_repeats(wsc: dict, overrides: dict | None = None) -> str | None:
     """A row served at temperature 0 (or with a pinned seed) repeats one draw.
     Recorded so the report never presents n=3 as three independent draws when
@@ -2603,7 +2676,8 @@ def run_row(
                 "repeat": r["repeat"],
                 "system_prompt": sent_prompt,
                 "persona_slug": wsc.get("persona_slug"),
-                "instruction": task["instruction"],
+                "instruction": task.get("instruction")
+                or (task.get("turns") or [{}])[0].get("user", ""),
                 "harness": dict(harness),
                 "sampling": sampling,
                 "tool_surface": wsc.get("tool_surface"),
@@ -3347,6 +3421,26 @@ def build_review_queue(campaign_dir: Path) -> int:
     return len(rows)
 
 
+def run_judge(campaign_dir: Path) -> None:
+    """Blind pairwise judge over the pairs both arms now hold (reported, never gated)."""
+    from tests.wfe import judge
+
+    try:
+        res = judge.judge_campaign(campaign_dir)
+    except Exception as e:  # noqa: BLE001 - a judge outage is not a campaign failure
+        print(f"judge: skipped — {e}", file=sys.stderr)
+        return
+    print(
+        f"judge: {res['judged']} pair(s) judged, {res['skipped']} already recorded, "
+        f"{res['errors']} error(s) ({res['model']} @ {res['url']})"
+    )
+
+
+def _maybe_judge(campaign_dir: Path, enabled: bool) -> None:
+    if enabled:
+        run_judge(campaign_dir)
+
+
 # --------------------------------------------------------------------------
 # CLI
 # --------------------------------------------------------------------------
@@ -3355,7 +3449,13 @@ def build_review_queue(campaign_dir: Path) -> int:
 def _parse_args(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--plan", default=str(REPO / "tests/wfe/workloads.yaml"))
-    ap.add_argument("--tier", choices=("screen", "confirm"), default="confirm")
+    ap.add_argument(
+        "--tier",
+        choices=("screen", "confirm", "realuse"),
+        default="confirm",
+        help="screen: marked tasks once; confirm: every task at --repeats; realuse: every "
+        "task once, twice only where an arm above temperature 0 can differ",
+    )
     ap.add_argument("--advance", type=Path, help="advance.yaml from report --screen-out")
     ap.add_argument("--campaign-id", help="create or continue this campaign")
     ap.add_argument("--arm", help="run exactly one model tag (one arm per process)")
@@ -3379,6 +3479,12 @@ def _parse_args(argv=None):
         help="every suite, not just home + discovery — the variety of work a model may face",
     )
     ap.add_argument("--append", action="store_true", help="add rows to a live campaign")
+    ap.add_argument(
+        "--judge",
+        action="store_true",
+        help="after the arms, blind-judge every task pair both arms hold a row for "
+        "(WFE_JUDGE_MODEL; local endpoint; reported, not gated)",
+    )
     ap.add_argument(
         "--no-curtail",
         action="store_true",
@@ -3852,7 +3958,8 @@ def _warn_prompt_surface(matrix: list[dict]) -> None:
 
 def _planned_matrix(plan: Path, args) -> tuple[int | dict[str, int], list[dict]]:
     """The matrix and its repeats. Without --repeats a confirm gives each arm 1 repeat when its
-    screen rows recorded a served temperature of 0, and the default otherwise."""
+    screen rows recorded a served temperature of 0, and the default otherwise; a realuse tier
+    gives every task one draw, and a second only to an arm above temperature 0."""
 
     def expand(n):
         return expand_matrix(
@@ -3868,9 +3975,14 @@ def _planned_matrix(plan: Path, args) -> tuple[int | dict[str, int], list[dict]]
         )
 
     repeats = DEFAULT_REPEATS if args.repeats is None else args.repeats
+    if args.repeats is None and args.tier == "realuse":
+        repeats = 1
     matrix = expand(repeats)
     if args.repeats is None and args.tier == "confirm":
         repeats = repeats_policy(CAMPAIGNS / args.campaign_id, matrix, DEFAULT_REPEATS)
+        matrix = expand(repeats)
+    if args.repeats is None and args.tier == "realuse":
+        repeats = realuse_repeats(CAMPAIGNS / args.campaign_id, matrix)
         matrix = expand(repeats)
     return repeats, matrix
 
@@ -3934,6 +4046,7 @@ def main() -> int:
         outs.append(out or {})
         if (out or {}).get("halted"):
             break
+    _maybe_judge(campaign_dir, args.judge)
     n = build_review_queue(campaign_dir)
     dirty = config_dirty()
     manifest = load_manifest(campaign_dir)
