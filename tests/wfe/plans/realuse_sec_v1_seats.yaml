@@ -1,6 +1,7 @@
 # The model_hint and workspace_routing entries are the seat-resolution source.
 workloads:
   auto-security:
+    tool_mode: production
     # security/general route the VulnLLM hint to ollama-security; omlx-security aliases it to VulnLLM-R-7B-4bit.
     home: realuse_sec_v1
     discovery: []
@@ -8,13 +9,22 @@ workloads:
       incumbent: hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k
       challengers: []
   auto-security::blueteam:
+    tool_mode: production
     # security/general route granite4.1:8b-ctx8k in Ollama; omlx-security/general alias it to granite-4.1-8b-mxfp8.
     home: realuse_sec_v1
+    home_tasks:
+      - rs-blue-001
+      - rs-blue-002
+      - rs-blue-003
+      - rs-blue-004
+      - rs-blue-005
+      - rs-blue-006
     discovery: []
     arms:
       incumbent: granite4.1:8b-ctx8k
       challengers: []
   auto-spl:
+    tool_mode: production
     # coding/general resolve the Qwen3.8-27B-oQ4e-mtp hint in omlx-coding and omlx-general.
     home: realuse_sec_v1
     discovery: []
@@ -34,6 +44,13 @@ workloads:
     tool_mode: production
     # reasoning/general resolve the Gemma hint through ollama-general or omlx-general's mlx-community alias.
     home: realuse_sec_v1
+    home_tasks:
+      - rs-read-001
+      - rs-read-002
+      - rs-read-003
+      - rs-read-004
+      - rs-read-005
+      - rs-read-006
     discovery: []
     arms:
       incumbent: gemma4:26b-a4b-it-q4_K_M-ctx128k

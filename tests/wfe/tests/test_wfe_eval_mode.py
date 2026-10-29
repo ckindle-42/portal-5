@@ -45,7 +45,12 @@ def test_prepare_scopes_the_row_and_drops_the_harness_note(out_root):
     assert (ctx["root"] / "in" / "q.csv").read_text() == "a\n1\n" and t2["_eval"] is ctx
     assert eval_mode.prepare(False, _row(), {"campaign_id": "c"}, task, wsc, {})[2] is None
     sandbox = eval_mode.prepare(
-        True, {**_row(), "workspace": "auto-coding"}, {"campaign_id": "c"}, task, wsc, {}
+        True,
+        {**_row(), "workspace": "auto-coding", "tool_mode": "sandbox"},
+        {"campaign_id": "c"},
+        task,
+        wsc,
+        {},
     )
     assert sandbox[2]["production"] is False and sandbox[2]["scope"]["allow"] == []
 
@@ -148,7 +153,7 @@ def test_gate_checks_production_rows_against_the_allowlist(tmp_path, monkeypatch
             {
                 "id": "t2",
                 "instruction": "i",
-                "requires_tools": ["execute_python"],
+                "requires_tools": ["web_search"],
                 "checks": [{"type": "answer_contains", "patterns": ["x"]}],
             }
         )
@@ -166,7 +171,7 @@ def test_gate_checks_production_rows_against_the_allowlist(tmp_path, monkeypatch
         for t in ("t1", "t2")
     ]
     assert campaign.tool_gaps(rows) == [
-        "s:t2 in auto-research::data: needs tools not offered ['execute_python']"
+        "s:t2 in auto-research::data: needs tools not offered ['web_search']"
     ]
 
 
@@ -228,7 +233,12 @@ def test_a_sandbox_row_gets_an_empty_scope_and_its_stores_cleaned(out_root, monk
     h = {}
     wsc = {"system_prompt_pipeline": "p", "system_prompt_base": "b", "tool_surface": ["file_read"]}
     task, w2, ctx = eval_mode.prepare(
-        True, {**_row(), "workspace": "auto-coding"}, {"campaign_id": "c"}, {"id": "t"}, wsc, h
+        True,
+        {**_row(), "workspace": "auto-coding", "tool_mode": "sandbox"},
+        {"campaign_id": "c"},
+        {"id": "t"},
+        wsc,
+        h,
     )
     assert h["pipeline_eval"]["allow"] == [] and w2 is wsc and ctx["production"] is False
     out = eval_mode.finish(ctx, {"outcome": "PASS", "evidence": {}}, out_root, _row())
@@ -297,6 +307,7 @@ def test_run_row_keeps_sandbox_tools_and_sends_the_scope(
         "task_id": "t",
         "repeat": 0,
         "overrides": {},
+        **({"tool_mode": "sandbox"} if ws == "auto-coding" else {}),
     }
     with contextlib.suppress(Exception):  # the fake raises, or run_row records it
         campaign.run_row(
@@ -359,7 +370,7 @@ def test_a_plan_chooses_the_tool_mode_and_bad_choices_fail_at_expansion(tmp_path
         campaign.expand_matrix(_plan_with(tmp_path, "auto-compliance", "both"), 1)
     with pytest.raises(ValueError, match="no allowlist"):
         campaign.expand_matrix(
-            _plan_with(tmp_path, "auto-coding", "production", home="research"), 1
+            _plan_with(tmp_path, "auto-no-production-tools", "production", home="research"), 1
         )
 
 

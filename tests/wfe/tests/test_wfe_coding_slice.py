@@ -194,7 +194,7 @@ def test_the_plan_arms_are_served_fit_the_window_and_exclude_laguna():
         assert "laguna" not in tag.lower()
         assert int(re.search(r"ctx(\d+)k", tag).group(1)) * 1024 >= 65536, tag
     modes = yaml.safe_load((REPO / "tests/wfe/tool_modes.yaml").read_text())["workspaces"]
-    assert "auto-coding" not in modes  # the sandbox family: no production allowlist
+    assert modes["auto-coding"] == {"tool_mode": "production", "allow": ["execute_python"]}
 
 
 def test_the_attainability_script_flags_an_unsolvable_or_already_solved_task(monkeypatch):
