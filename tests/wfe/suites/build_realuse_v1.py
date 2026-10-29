@@ -80,6 +80,23 @@ TEXT_EXPECTATIONS = {
     "ru-v1-028": ("chickadee", "once a week", "twice a week", "bread"),
     "ru-v1-029": ("pie", "not a cake", "Saturday 9:00am"),
     "ru-v1-034": ("cfg['db']", "cfg['mode']", "'db': 'shop'", "'mode': 'live'"),
+    "ru-v1-036": ("total // people",),
+    "ru-v1-037": ("prices['Tea']",),
+    "ru-v1-038": ("pages * 2",),
+    "ru-v1-039": ("'shelf'",),
+    "ru-v1-040": ("sorted(rows)",),
+    "ru-v1-041": ("sum(readings)",),
+    "ru-v1-042": ("parts[2]", "decaf"),
+    "ru-v1-043": ("'N '",),
+    "ru-v1-044": ("hours", "22"),
+    "ru-v1-045": ("range(1, len(days))",),
+    "ru-v1-046": ("TODO",),
+    "ru-v1-047": ("strptime", "2026/03/05"),
+    "ru-v1-048": ("renames the elapsed column to seconds", "row['elapsed']"),
+    "ru-v1-056": ("31", "18"),
+    "ru-v1-064": ("Dana", "crane", "Leo", "October 28"),
+    "ru-v1-065": ("knee", "jumps"),
+    "ru-v1-070": ("October 20", "December 15", "gym"),
 }
 SEED_EXPECTATIONS = {
     "ru-v1-009": ("Thursday 2pm", "Friday"),
@@ -92,6 +109,65 @@ IMAGE_EXPECTATIONS = {
     "ru-v1-025": ("Portal 5 — Open Source Intelligence Layer", "0, 51, 102", "24x24"),
     "ru-v1-026": ("P1", "P2", "P3", "P4", "P5", "Q3 Team"),
     "ru-v1-033": ("line", "bar", "pie", "LOW STOCK", "200, 30, 30"),
+}
+
+
+#: (fixture name, broken snippet, fixed snippet, "crash"|"value", broken marker, fixed marker).
+REPAIR_SPECS = {
+    "ru-v1-036": ("tip_split.py", "total // people", "total / people", "value", "23", "23.5"),
+    "ru-v1-037": ("orders.py", "'Tea'", "'tea'", "crash", "KeyError", "3"),
+    "ru-v1-038": (
+        "reading_time.py",
+        'print(minutes, "hours")',
+        'print(minutes // 60, "hours")',
+        "value",
+        "180 hours",
+        "3 hours",
+    ),
+    "ru-v1-039": ("backstock.py", " if item['place'] == 'shelf'", "", "value", "12", "19"),
+    "ru-v1-040": (
+        "leaderboard.py",
+        "sorted(rows)",
+        "sorted(rows, key=lambda row: -row['score'])",
+        "crash",
+        "TypeError",
+        "Ann",
+    ),
+    "ru-v1-041": (
+        "readings.py",
+        " / len(readings)",
+        " / len(readings) if readings else 0",
+        "crash",
+        "ZeroDivisionError",
+        "average=0",
+    ),
+    "ru-v1-042": (
+        "columns.py",
+        "print(parts[2])",
+        "print(parts[2] if len(parts) > 2 else '-')",
+        "crash",
+        "IndexError",
+        "decaf",
+    ),
+    "ru-v1-043": ("tally.py", "vote == 'N'", "vote.strip() == 'N'", "value", "noes=0", "noes=2"),
+    "ru-v1-044": (
+        "payroll.py",
+        "member['hours'] * 22",
+        "(member['hours'] or 0) * 22",
+        "crash",
+        "TypeError",
+        "Mara 0",
+    ),
+    "ru-v1-045": ("week.py", "range(1, len(days))", "range(len(days))", "value", "1 Tue", "0 Mon"),
+    "ru-v1-047": (
+        "dates.py",
+        "'%m/%d/%Y'",
+        "'%Y/%m/%d'",
+        "crash",
+        "ValueError",
+        "2026-03-05 00:00:00",
+    ),
+    "ru-v1-048": ("metrics.py", "row['elapsed']", "row['seconds']", "crash", "KeyError", "90"),
 }
 
 
@@ -294,6 +370,30 @@ def _check_bug_tasks(files: dict[Path, bytes]) -> None:
     assert before.stdout.strip() == "105.0" and after.stdout.strip() == "108.0"
 
 
+def _check_repair_tasks(files: dict[Path, bytes]) -> None:
+    for task_id, (name, old, new, shape, broken, fixed_out) in REPAIR_SPECS.items():
+        source = files[Path(f"tests/fixtures/realuse_v1/{task_id}/{name}")].decode()
+        before = _run(source)
+        after = _run(source.replace(old, new))
+        if shape == "crash":
+            assert before.returncode != 0 and broken in before.stderr
+        else:
+            assert before.returncode == 0 and broken in before.stdout
+        assert after.returncode == 0 and fixed_out in after.stdout
+
+
+def _check_expand_counts(files: dict[Path, bytes]) -> None:
+    notes = files[Path("tests/fixtures/realuse_v1/ru-v1-046/notes.txt")].decode().splitlines()
+    assert len(notes) == 8 and sum("TODO" in line for line in notes) == 3
+    temps = [
+        int(line)
+        for line in files[Path("tests/fixtures/realuse_v1/ru-v1-056/temperatures.txt")]
+        .decode()
+        .split()
+    ]
+    assert max(temps) == 31 and min(temps) == 18
+
+
 def _check_csv_tasks(files: dict[Path, bytes]) -> None:
     customers = _csv_rows(files[Path("tests/fixtures/realuse_v1/ru-v1-005/customers.csv")])
     assert len(customers) == 8
@@ -472,6 +572,8 @@ def _verify_task_values(files: dict[Path, bytes]) -> None:
     _check_script_tasks(files)
     _check_line_and_image_tasks(files)
     _check_bug_tasks(files)
+    _check_repair_tasks(files)
+    _check_expand_counts(files)
 
 
 def _check_nonfile_seeds(

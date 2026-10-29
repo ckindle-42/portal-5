@@ -1,7 +1,11 @@
 # Real-use v1 source note
 
 Access date for every page below: 2026-10-29.
-Thirty-five scenarios. None were dropped. Categories the opened studies do not support were re-sourced, and two scenarios moved to a workspace whose tools can do the task.
+Seventy-one scenarios: the original thirty-five plus the 2026-10-29 thin-seat expansion
+(ru-v1-036..071, lanes auto-coding, auto-coding::fast-repair, tools-specialist(::fast),
+auto-daily::fast, auto-documents). None were dropped. Categories the opened studies do not
+support were re-sourced, and two scenarios moved to a workspace whose tools can do the task.
+The expansion cites only sources already opened above; it opened no new pages.
 
 ## Studies opened
 
@@ -108,6 +112,42 @@ OpenAI Data Analysis is 0.4% of messages. That is too thin to carry the three an
 | ru-v1-033 | auto-vision | multimedia | openai-2025-multimedia | Analyze an image and edit it. Multimedia, Analyze an Image. |
 | ru-v1-034 | auto-coding::laguna | coding | anthropic-2025-02-computer-mathematical | Find two direct config lookups and edit one file. Computer and mathematical, 37.2%. |
 | ru-v1-035 | auto-research::data | analysis | wildchat-2024-analysis | Compute an internal rate and the gap to a figure the user already has. WildChat analysis 13.6%. OpenAI Data Analysis is 0.4%. |
+| ru-v1-036 | auto-coding | coding | anthropic-2025-02-computer-mathematical | Floor division drops the cents in a bill split. Software modification; computer and mathematical, 37.2%. |
+| ru-v1-037 | auto-coding | coding | anthropic-2025-02-computer-mathematical | A key-case typo raises KeyError. Same computer-and-mathematical cite. |
+| ru-v1-038 | auto-coding | coding | anthropic-2025-02-computer-mathematical | Minutes printed with an hours label. Same cite. |
+| ru-v1-039 | auto-coding | coding | anthropic-2025-02-computer-mathematical | A sum filtered to one shelf counts 12 of 19. Same cite. |
+| ru-v1-040 | auto-coding | coding | anthropic-2025-02-computer-mathematical | sorted() on dicts raises TypeError. Same cite. |
+| ru-v1-041 | auto-coding::fast-repair | coding | anthropic-2025-02-computer-mathematical | An empty sensor list divides by zero. Same cite. |
+| ru-v1-042 | auto-coding::fast-repair | coding | anthropic-2025-02-computer-mathematical | parts[2] on a two-field row raises IndexError. Same cite. |
+| ru-v1-043 | auto-coding::fast-repair | coding | anthropic-2025-02-computer-mathematical | Trailing spaces defeat a vote comparison. Same cite. |
+| ru-v1-044 | auto-coding::fast-repair | coding | anthropic-2025-02-computer-mathematical | None hours meet a rate and raise TypeError. Same cite. |
+| ru-v1-045 | auto-coding::fast-repair | coding | anthropic-2025-02-computer-mathematical | range(1, len(days)) skips Monday. Same cite. |
+| ru-v1-046 | auto-coding::fast-repair | technical_help | openai-2025-technical-help | Count TODO lines in a team-notes file. Computer Programming is 4.2% of ChatGPT messages. |
+| ru-v1-047 | auto-coding::fast-repair | coding | anthropic-2025-02-computer-mathematical | A year-first date string meets a month-first format. Same computer-and-mathematical cite. |
+| ru-v1-048 | auto-coding::fast-repair | coding | anthropic-2025-02-computer-mathematical | A changelog PDF drives a column-rename repair. Same cite. |
+| ru-v1-049 | tools-specialist | technical_help | openai-2025-technical-help | Split a tab three ways and store the total. Computer Programming, 4.2%. |
+| ru-v1-050 | tools-specialist | technical_help | openai-2025-technical-help | Recall a room, then compose a title from it. Same Technical Help cite. |
+| ru-v1-051 | tools-specialist | technical_help | openai-2025-technical-help | Two temperature conversions, including the -40 crossover. Same cite. |
+| ru-v1-052 | tools-specialist | technical_help | openai-2025-technical-help | Word frequency and a total count over a pasted note. Same cite. |
+| ru-v1-053 | tools-specialist | technical_help | openai-2025-technical-help | Days and weeks between two dates. Same cite. |
+| ru-v1-054 | tools-specialist | analysis | wildchat-2024-analysis | Median waits decide which pharmacy to keep. WildChat analysis/decision explanation, 13.6%. |
+| ru-v1-055 | tools-specialist | technical_help | openai-2025-technical-help | Unit prices and a three-tin total. Computer Programming, 4.2%. |
+| ru-v1-056 | tools-specialist::fast | technical_help | openai-2025-technical-help | Max and min of a readings file. Same Technical Help cite. |
+| ru-v1-057 | tools-specialist::fast | technical_help | openai-2025-technical-help | Minutes to h/m strings. Same cite. |
+| ru-v1-058 | tools-specialist::fast | technical_help | openai-2025-technical-help | Initials from a name list. Same cite. |
+| ru-v1-059 | tools-specialist::fast | technical_help | openai-2025-technical-help | Recall a parking spot, restate it, then store the move. Same cite. |
+| ru-v1-060 | tools-specialist::fast | technical_help | openai-2025-technical-help | Score-to-letter bands and an average. Same cite. |
+| ru-v1-061 | tools-specialist::fast | technical_help | openai-2025-technical-help | Sprint velocity and a days-remaining estimate. Same cite. |
+| ru-v1-062 | tools-specialist::fast | technical_help | openai-2025-technical-help | Digit sums and a comparison. Same cite. |
+| ru-v1-063 | auto-daily::fast | seeking_information | openai-2025-seeking-information | Market hours and pickup day from the knowledge base. Seeking Information grew from 14% to 24%; under the lane's eval allowlist the lookup runs against kb_search, not live web. |
+| ru-v1-064 | auto-daily::fast | writing | openai-2025-writing | Action items out of a meeting summary, then pasted back as two lines. Writing is 40% of work messages. |
+| ru-v1-065 | auto-daily::fast | practical_guidance | openai-2025-practical-guidance | A home strength rotation fitted to a knee note. Practical Guidance how-to, 8.5%; the paper's customized-plan example. |
+| ru-v1-066 | auto-daily::fast | doing | openai-2025-doing | A garage-sale float spreadsheet, then a plan Word file. Doing is 40%, spreadsheets named. |
+| ru-v1-067 | auto-daily::fast | technical_help | openai-2025-technical-help | Scale a recipe up and down. Computer Programming, 4.2%. |
+| ru-v1-068 | auto-daily::fast | doing | openai-2025-doing | Total three charges, then spreadsheet them. Doing is 40%. |
+| ru-v1-069 | auto-daily::fast | writing | openai-2025-writing | Tighten a draft announcement into a textable note. About two-thirds of Writing modifies user text. |
+| ru-v1-070 | auto-documents | writing | openai-2025-writing | Exam dates out of a syllabus PDF, then an Exam Dates Word file. Writing is 40% of work messages. |
+| ru-v1-071 | auto-documents | doing | openai-2025-doing | A checklist deck, then the same items as a sheet. Doing is 40%, office products named. |
 
 ## Tool resolution
 
@@ -146,6 +186,8 @@ Checks stay prose. A line that starts with `judge:` is the subjective part. Othe
 - `kb_search` needs `kb_id` `realuse-v1` and an ingest the harness does not have yet. The fixture states the text. This lane does not add the ingest.
 - OpenAI Data Analysis at 0.4% is thin support for 008, 022, and 035. WildChat 13.6% is the cite those three use.
 - LMSYS-Chat-1M has no numeric category table in the paper text. It is not a scenario key.
+- The 2026-10-29 expansion (036-071) writes tool names from each lane's eval surface: auto-daily::fast, tools-specialist and tools-specialist::fast run production tool mode, and tool_modes.yaml's allowlist for the fast general lane excludes web_search and web_fetch (no fixed gold), so 063 uses kb_search and no expansion row names a web tool.
+- The plan realuse_v1_s8.yaml runs the two coding workloads in sandbox tool mode. Sandbox rows are served the harness's six tools (file_read, file_list, repo_search, pytest_run, file_write, http_get), while 011-016 and 036-048 name the seat's portal.yaml tools (execute_python, execute_bash). The rows follow v1's conventions and the seats' own allowlists; whether those workloads run sandbox or pick up a production allowlist is an instrument decision above this lane.
 
 ## Dropped claims
 

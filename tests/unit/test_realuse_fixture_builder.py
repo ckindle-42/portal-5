@@ -19,5 +19,5 @@ def test_realuse_fixture_builder_is_deterministic_and_preserves_runnable_suite(t
     assert self_check(tmp_path) == first_hashes
     assert SUITE.read_bytes() == suite_before
     assert DRAFT.exists()
-    assert len(first_hashes) == 41
+    assert len(first_hashes) == 60
     assert not (tmp_path / "tests/wfe/suites/realuse_v1.jsonl").exists()
