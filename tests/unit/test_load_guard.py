@@ -29,6 +29,7 @@ class Engines:
         *,
         ollama: dict[str, int] | None = None,
         tags: dict[str, int] | None = None,
+        shows: dict[str, dict[str, Any]] | None = None,
         omlx: dict[str, dict[str, Any]] | None = None,
         ceiling: float = 40 * GIB,
         omlx_ok: bool = True,
@@ -58,6 +59,7 @@ class Engines:
     ) -> None:
         self.ollama = dict(ollama or {})
         self.tags = dict(tags or {})
+        self.shows = dict(shows or {})
         self.omlx = {k: dict(v) for k, v in (omlx or {}).items()}
         self.ceiling = ceiling
         self.omlx_ok = omlx_ok
@@ -94,6 +96,7 @@ class Engines:
         self.pending_ceiling_rises: dict[str, tuple[int, int]] = {}
         self.pending_counter_drops: dict[str, tuple[float, int]] = {}
         self.unloaded: list[str] = []
+        self.events: list[tuple[str, str]] = []
         self.unload_calls: dict[str, int] = {}
         self.chats: list[str] = []
         self.request_counts: dict[str, int] = {}
@@ -135,6 +138,7 @@ class Engines:
         if path == "/api/generate":  # keep_alive 0 unloads; its real bytes return to oMLX
             model = json.loads(req.content)["model"]
             self.unload_calls[model] = self.unload_calls.get(model, 0) + 1
+            self.events.append(("ollama_unload", model))
             if self.ollama_unload_status_code >= 400:
                 return httpx.Response(self.ollama_unload_status_code, json={"error": "rejected"})
             if self.unload_sticks:
@@ -152,10 +156,12 @@ class Engines:
                 self.ceiling += rise
             return httpx.Response(200, json={"done": True})
         if path == "/api/show":
-            return httpx.Response(200, json={"capabilities": []})
+            model = json.loads(req.content).get("model", "")
+            return httpx.Response(200, json={"capabilities": [], **self.shows.get(model, {})})
         if path == "/api/chat":
             model = json.loads(req.content)["model"]
             self.chats.append(model)
+            self.events.append(("ollama_chat", model))
             self.ollama.setdefault(model, int(self.tags.get(model, 0) * 1.1))
             return httpx.Response(200, json={"message": {"role": "assistant", "content": "ok"}})
         return None
@@ -200,6 +206,7 @@ class Engines:
             if self.omlx_memory is not None and name in self.unload_counter_drops:
                 self._defer_counter_drop(name)
         self.unloaded.append(name)
+        self.events.append(("omlx_unload", name))
         return httpx.Response(status_code, json={})
 
     def _defer_counter_drop(self, name: str) -> None:
@@ -270,6 +277,7 @@ class Engines:
             return self._unload_response(path.split("/")[-2])
         if path == "/v1/chat/completions":  # oMLX chat
             model = json.loads(req.content)["model"]
+            self.events.append(("omlx_chat", model))
             self.omlx.setdefault(model, {"size": 4 * GIB})["loaded"] = True
             return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
         return None
@@ -289,11 +297,12 @@ def _fast(monkeypatch, tmp_path):
     monkeypatch.setattr(lg, "_WAIT_S", 0.0)  # refuse at once unless a test opts into waiting
 
 
-def guard(e: Engines) -> lg.LoadGuard:
+def guard(e: Engines, ollama_url: str | None = OLLAMA_URL) -> lg.LoadGuard:
     return lg.LoadGuard(
         omlx_url=lambda: OMLX_URL,
         pinned=lambda: "router",
         client=lambda: httpx.AsyncClient(transport=e.transport()),
+        ollama_url=lambda: ollama_url,
     )
 
 
@@ -322,10 +331,26 @@ async def test_a_case_only_tag_difference_sizes_from_the_served_entry():
     # Post-fix the served tag is `:q4_K_M`; any case-only config variant still folds to it.
     served = "portal5/omnicoder2-9b:q4_K_M-ctx256k"
     configured = "portal5/omnicoder2-9b:Q4_K_M-ctx256k"
-    e = Engines(tags={served: 6 * GIB}, ceiling=8 * GIB)  # 7.5 projected > 6 available
+    e = Engines(
+        tags={served: 6 * GIB},
+        shows={
+            configured: {
+                "parameters": "num_ctx 1024",
+                "model_info": {
+                    "general.architecture": "tiny",
+                    "tiny.block_count": 1,
+                    "tiny.attention.head_count_kv": 1,
+                    "tiny.attention.key_length": 1,
+                },
+            }
+        },
+        ceiling=8 * GIB,
+    )  # 7.5 projected > 6 available
     g = guard(e)
     async with httpx.AsyncClient(transport=e.transport()) as client:
-        assert await g._need(client, OLLAMA_URL, configured) == pytest.approx(6 * GIB * lg._FACTOR)
+        assert await g._need(client, OLLAMA_URL, configured) == pytest.approx(
+            6 * GIB * lg._FACTOR + 4 * 1024
+        )
     with pytest.raises(lg.LoadRefusedError):
         await g.admit(OLLAMA_URL, configured)
 
@@ -399,6 +424,94 @@ async def test_under_reported_idle_ollama_resident_is_unloaded_and_the_load_admi
     release = await guard(e).admit(OLLAMA_URL, "kat")
     assert release is not None and "devstral" not in e.ollama
     release()
+
+
+async def test_96k_ollama_cold_load_unloads_idle_omlx_before_chat():
+    model = "granite4.1:30b-ctx96k"
+    omlx_model = "granite-4.1-30b-4bit"
+    e = Engines(
+        tags={model: 18 * GIB},
+        shows={
+            model: {
+                "parameters": "num_ctx 98304\ncache-type-k q8_0\ncache-type-v q4_0",
+                "model_info": {
+                    "general.architecture": "granite",
+                    "granite.block_count": 48,
+                    "granite.attention.head_count_kv": 4,
+                    "granite.attention.key_length": 128,
+                },
+            }
+        },
+        omlx={omlx_model: {"size": 18 * GIB, "loaded": True}},
+        ceiling=46 * GIB,
+    )
+    g = guard(e)
+    async with httpx.AsyncClient(transport=e.transport()) as client:
+        need = await g._need(client, OLLAMA_URL, model)
+    assert need == pytest.approx(18 * GIB * lg._FACTOR + 9 * GIB * (1.625 / 4))
+    async with httpx.AsyncClient(transport=transport(e, g)) as client:
+        response = await client.post(
+            f"{OLLAMA_URL}/v1/chat/completions",
+            json={"model": model, "messages": [{"role": "user", "content": "hi"}]},
+        )
+    assert response.status_code == 200
+    assert e.unloaded == [omlx_model]
+    assert e.events.index(("omlx_unload", omlx_model)) < e.events.index(("ollama_chat", model))
+
+
+async def test_omlx_cold_load_unloads_idle_ollama_before_chat():
+    model = "omlx-next"
+    e = Engines(
+        ollama={"idle": GIB},
+        omlx={model: {"size": 14 * GIB, "loaded": False}},
+        ceiling=15 * GIB,
+    )
+    e.hidden["idle"] = GIB
+    g = guard(e)
+    async with httpx.AsyncClient(transport=transport(e, g)) as client:
+        response = await client.post(
+            f"{OMLX_URL}/v1/chat/completions", json={"model": model, "messages": []}
+        )
+    assert response.status_code == 200
+    assert e.unload_calls == {"idle": 1}
+    assert e.events.index(("ollama_unload", "idle")) < e.events.index(("omlx_chat", model))
+
+
+async def test_omlx_load_refuses_without_room_after_idle_ollama_is_gone():
+    model = "omlx-too-large"
+    e = Engines(omlx={model: {"size": 20 * GIB, "loaded": False}}, ceiling=15 * GIB)
+    g = guard(e)
+    async with httpx.AsyncClient(transport=transport(e, g)) as client:
+        response = await client.post(
+            f"{OMLX_URL}/v1/chat/completions", json={"model": model, "messages": []}
+        )
+    assert response.status_code == 507
+    assert e.events == []
+    assert not g._lock.locked()
+
+
+async def test_missing_ollama_architecture_uses_context_scaled_fallback():
+    model = "large-ctx96k"
+    e = Engines(tags={model: 8 * GIB})
+    async with httpx.AsyncClient(transport=e.transport()) as client:
+        estimate = await guard(e)._need(client, OLLAMA_URL, model)
+    assert estimate == pytest.approx(8 * GIB * lg._FACTOR * 3)
+
+
+def test_ollama_global_kv_cache_type_is_used_when_show_has_no_override(monkeypatch):
+    monkeypatch.setenv("OLLAMA_KV_CACHE_TYPE", "q8_0")
+    show = {
+        "parameters": "num_ctx 32768",
+        "model_info": {
+            "granite.block_count": 1,
+            "granite.attention.head_count_kv": 1,
+            "granite.attention.key_length": 64,
+        },
+    }
+    expected_kv = 32768 * (64 * 1.0625 + 64 * 1.0625)
+    assert lg._estimate_ollama_need(GIB, show, "granite") == pytest.approx(
+        GIB * lg._FACTOR + expected_kv
+    )
 
 
 async def test_a_freed_ollama_resident_lifts_the_ceiling_before_the_quiet_refusal():

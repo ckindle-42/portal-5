@@ -35,9 +35,8 @@ Headroom is oMLX's ``final_ceiling`` minus its resident model memory (oMLX deriv
 the ceiling from host free + inactive memory), plus idle Ollama residents, minus
 ``LOAD_GUARD_MARGIN_GB``. ``LOAD_GUARD_CEILING_GB`` replaces that ceiling with a
 fixed budget; the balanced tier's ceiling follows free memory (P5-OMLX-CEILING-001).
-A model's footprint is the larger of weights × ``LOAD_GUARD_FACTOR`` and the
-footprint observed the last time it was resident.
-oMLX's own guard still decides oMLX loads; this module only serialises them.
+Ollama sizing starts with weights × ``LOAD_GUARD_FACTOR`` and adds architecture-derived KV bytes at baked ``num_ctx`` using ``OLLAMA_KV_CACHE_TYPE`` (default f16); missing geometry uses a context-scaled fallback and observed residency can raise either estimate.
+Cold loads unload idle models from the other engine when current headroom does not cover the incoming model.
 
 Fail-open: when oMLX's status cannot be read, the load is admitted. Resident
 models (the router, task-router, warm seats) never wait. ``LOAD_GUARD=0`` disables
@@ -56,6 +55,7 @@ import fcntl
 import hashlib
 import logging
 import os
+import re
 import time
 from collections import Counter
 from collections.abc import Callable
@@ -99,6 +99,125 @@ _PROCESS_LOCK_DIR = Path("/tmp/portal-5-load-guard")
 #: Expected settle of a guard-issued Ollama free, for a warning only: measured admin
 #: unloads p50 0.78 s, p95 1.93 s, max 2.29 s (n=114, oMLX 0.7.2, 2026-10-22), doubled.
 _FREE_SETTLE_EXPECTED_S = 4.6
+_CTX_TAG = re.compile(r"(?:^|[-_])ctx(\d+)([km]?)", re.IGNORECASE)
+
+
+def _show_values(show: dict[str, Any]) -> dict[str, Any]:
+    values: dict[str, Any] = {}
+
+    def add(value: Any, prefix: str = "") -> None:
+        if not isinstance(value, dict):
+            return
+        for key, child in value.items():
+            name = f"{prefix}.{key}" if prefix else str(key)
+            if isinstance(child, dict):
+                add(child, name)
+            else:
+                values[name.lower()] = child
+
+    add(show.get("model_info"))
+    for field in ("parameters", "modelfile"):
+        raw = show.get(field)
+        if isinstance(raw, dict):
+            for key, value in raw.items():
+                values[str(key).lower().replace("_", "-")] = value
+        elif isinstance(raw, str):
+            for line in raw.splitlines():
+                parts = line.strip().split(maxsplit=2)
+                if len(parts) == 3 and parts[0].lower() == "parameter":
+                    values[parts[1].lower().replace("_", "-")] = parts[2].strip("\"'")
+                elif len(parts) == 2:
+                    values[parts[0].lower().replace("_", "-")] = parts[1].strip("\"'")
+
+    return values
+
+
+def _show_number(values: dict[str, Any], *names: str) -> float | None:
+    for name in names:
+        for key, value in values.items():
+            if key == name or key.endswith(f".{name}"):
+                try:
+                    number = float(value)
+                except (TypeError, ValueError):
+                    continue
+                if number > 0:
+                    return number
+    return None
+
+
+def _context_tokens(show: dict[str, Any], model: str, values: dict[str, Any]) -> int | None:
+    baked = _show_number(values, "num-ctx", "num_ctx")
+    if baked:
+        return int(baked)
+    match = _CTX_TAG.search(model)
+    if match:
+        amount = int(match.group(1))
+        return amount * (
+            1024
+            if match.group(2).lower() == "k"
+            else 1024**2
+            if match.group(2).lower() == "m"
+            else 1
+        )
+    architecture = str(values.get("general.architecture") or "")
+    return (
+        int(_show_number(values, f"{architecture}.context_length", "context_length") or 0) or None
+    )
+
+
+def _cache_bytes(values: dict[str, Any], *names: str) -> float:
+    fallback = os.environ.get("OLLAMA_KV_CACHE_TYPE", "f16").lower()
+    raw = next((str(values[key]).lower() for key in names if key in values), fallback)
+    return {
+        "f32": 4.0,
+        "f16": 2.0,
+        "bf16": 2.0,
+        "q8_0": 1.0625,
+        "q6_k": 0.8203125,
+        "q5_0": 0.6875,
+        "q5_1": 0.75,
+        "q5_k": 0.6875,
+        "q4_0": 0.5625,
+        "q4_1": 0.625,
+        "q4_k": 0.5625,
+        "q3_k": 0.4296875,
+        "q2_k": 0.328125,
+    }.get(raw, 2.0)
+
+
+def _estimate_ollama_need(weights: int, show: dict[str, Any], model: str) -> float:
+    values = _show_values(show)
+    context = _context_tokens(show, model, values)
+    base = weights * _FACTOR
+    layers = _show_number(values, "block_count", "n_layer", "num_hidden_layers")
+    kv_heads = _show_number(
+        values, "attention.head_count_kv", "n_head_kv", "num_key_value_heads", "num_kv_heads"
+    )
+    width = _show_number(
+        values,
+        "attention.key_length",
+        "key_length",
+        "attention.head_dim",
+        "head_dim",
+    )
+    if width is None:
+        embedding = _show_number(values, "embedding_length", "hidden_size", "d_model")
+        heads = _show_number(values, "attention.head_count", "n_head", "num_attention_heads")
+        width = embedding / heads if embedding and heads else embedding
+    if context and layers and kv_heads and width:
+        value_width = _show_number(values, "attention.value_length", "value_length") or width
+        kv = (
+            context
+            * layers
+            * kv_heads
+            * (
+                width * _cache_bytes(values, "cache-type-k", "kv-cache-type")
+                + value_width * _cache_bytes(values, "cache-type-v", "kv-cache-type")
+            )
+        )
+        return base + kv
+    return base * max(1.0, (context or 32768) / 32768)
+
 
 OLLAMA = "ollama"
 OMLX = "omlx"
@@ -247,8 +366,10 @@ class LoadGuard:
         omlx_url: Callable[[], str | None],
         pinned: Callable[[], str] = lambda: os.environ.get("LLM_ROUTER_MODEL", ""),
         client: Callable[[], httpx.AsyncClient] = lambda: httpx.AsyncClient(timeout=10.0),
+        ollama_url: Callable[[], str | None] = lambda: None,
     ) -> None:
         self._omlx_url = omlx_url
+        self._ollama_url = ollama_url
         self._protected: dict[tuple[str, str], float] = {}  # (engine, model) -> monotonic deadline
         self._pinned = pinned
         self._client = client
@@ -256,6 +377,7 @@ class LoadGuard:
         self._busy: Counter[tuple[str, str]] = Counter()
         self._changed = asyncio.Event()
         self._sizes: dict[tuple[str, str], int] = {}
+        self._needs: dict[tuple[str, str], float] = {}
         self._observed: dict[tuple[str, str], int] = {}
 
     @staticmethod
@@ -430,7 +552,19 @@ class LoadGuard:
             tags = (await client.get(f"{base}/api/tags")).json().get("models") or []
             for t in tags:
                 self._sizes[(base, model_key(str(t["name"])))] = int(t.get("size") or 0)
-        estimate = self._sizes.get(key, 0) * _FACTOR
+        if key not in self._needs:
+            weights = self._sizes.get(key, 0)
+            show: dict[str, Any] = {}
+            if weights:
+                try:
+                    response = await client.post(f"{base}/api/show", json={"model": model})
+                    if response.status_code == 200:
+                        body = response.json()
+                        show = body if isinstance(body, dict) else {}
+                except Exception as e:
+                    logger.debug("load_guard: /api/show unavailable for %s: %s", model, e)
+            self._needs[key] = _estimate_ollama_need(weights, show, model)
+        estimate = self._needs[key]
         return max(estimate, float(self._observed.get((OLLAMA, model_key(model)), 0)))
 
     async def _omlx_status(self, client: httpx.AsyncClient) -> dict[str, Any] | None:
@@ -1208,9 +1342,62 @@ class LoadGuard:
                 logger.warning("load_guard: measurement failed for %s, admitting: %s", model, e)
         return release
 
+    async def _check_omlx_ollama_capacity(
+        self, client: httpx.AsyncClient, model: str, deadline: float
+    ) -> None:
+        base = (self._ollama_url() or "").rstrip("/")
+        if not base:
+            return
+        pending: dict[str, _Free] = {}
+        free_attempted = False
+        while True:
+            status = await self._omlx_status(client)
+            entry = _omlx_entry(status, model)
+            if status is None or entry is None or entry.get("loaded"):
+                return
+            need = float(entry.get("estimated_size") or 0)
+            capacity = await self._headroom(client)
+            if not need or capacity is None:
+                return
+            headroom, _ = capacity
+            try:
+                resident = await self._resident(client, base)
+            except Exception as e:
+                logger.warning("load_guard: could not inspect Ollama before oMLX load: %s", e)
+                return
+            available = self._ollama_available(headroom, resident, 0) - _MARGIN
+            _record_headroom(available)
+            if need <= available:
+                return
+            if not free_attempted:
+                if not self._ollama_idle(resident):
+                    raise LoadRefusedError(
+                        f"Cannot load {model}: projected memory {need / _GIB:.1f} GiB would "
+                        f"exceed host headroom {available / _GIB:.1f} GiB",
+                        "projected-exceeds",
+                    )
+                free_attempted = True
+                pending = await self._free_ollama(client, base, resident)
+                continue
+            if pending:
+                pending, _ = self._retire_ollama_frees(pending, resident, headroom)
+                if not pending:
+                    continue
+                remaining = deadline - time.monotonic()
+                if remaining > 0:
+                    started = time.monotonic()
+                    _admit_waited.set(True)
+                    await asyncio.sleep(min(_POLL_S, remaining))
+                    _record_wait(OMLX, "free_settle", time.monotonic() - started)
+                    continue
+            raise LoadRefusedError(
+                f"Cannot load {model}: projected memory {need / _GIB:.1f} GiB would "
+                f"exceed host headroom {available / _GIB:.1f} GiB after freeing idle Ollama",
+                "projected-exceeds",
+            )
+
     async def admit_omlx(self, model: str) -> Callable[[], None] | None:
-        """Serialise an oMLX cold load with every other cold load (oMLX's own guard
-        decides whether it fits). Return the lock's release callable or None."""
+        """Serialise the cold load and free idle Ollama residents when its size exceeds current headroom."""
         if not self.enabled() or not model:
             return None
         deadline = time.monotonic() + load_wait_s()
@@ -1226,11 +1413,14 @@ class LoadGuard:
                 if entry is None or entry.get("loaded"):
                     release()
                     return None
+                await self._check_omlx_ollama_capacity(client, model, deadline)
         except asyncio.CancelledError:
             if release is not None:
                 release()  # never leak the cold-load lock to a cancelled caller
             raise
         except LoadRefusedError as e:
+            if release is not None:
+                release()
             _record_refusal(OMLX, e)
             raise
         _record_admission(OMLX, _admit_waited.get())
