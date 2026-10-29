@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import datetime as dt
 import hashlib
 import json
@@ -245,6 +246,7 @@ _SYSLOG_ISO_HOST = re.compile(r"^\S+T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?
 _SYSLOG_RFC3164_TIME = re.compile(
     r"^(?:<\d{1,3}>)?([A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})\s+"
 )
+_YEARLESS_MMDD_TIME = re.compile(r"^\ufeff?\s*(\d{1,2}/\d{1,2}\s+\d{2}:\d{2}:\d{2})(?:\s|$)")
 _EVENT_TIMESTAMP_KEYS = {
     "@timestamp",
     "timestamp",
@@ -261,6 +263,7 @@ _EVENT_TIMESTAMP_KEYS = {
     "datetime",
     "date",
     "time",
+    "ts",
 }
 
 
@@ -450,6 +453,14 @@ def _event_epoch(event: dict[str, Any] | str, fallback: float | None) -> tuple[f
             if (epoch := _timestamp_epoch(value)) is not None:
                 return epoch, False
     if isinstance(event, str) and fallback is not None:
+        if match := _YEARLESS_MMDD_TIME.match(event):
+            year = dt.datetime.fromtimestamp(fallback, dt.UTC).year
+            try:
+                parsed = dt.datetime.strptime(f"{year}/{match.group(1)}", "%Y/%m/%d %H:%M:%S")
+            except ValueError:
+                pass
+            else:
+                return parsed.replace(tzinfo=dt.UTC).timestamp(), True
         match = _SYSLOG_RFC3164_TIME.match(event)
         if match:
             year = dt.datetime.fromtimestamp(fallback, dt.UTC).year
@@ -702,7 +713,9 @@ class ScanAccumulator:
     pointer_skips: Counter[str] = field(default_factory=Counter)
     file_counts: Counter[str] = field(default_factory=Counter)
 
-    def record(self, item: CorpusFile, bucket: dict[str, Any], event: dict[str, Any] | str) -> None:
+    def record(
+        self, item: CorpusFile, bucket: dict[str, Any], event: dict[str, Any] | str
+    ) -> ResolvedEvent:
         resolved = resolve_event(item, event)
         bucket["events"] += 1
         bucket["indexed_sourcetypes"][resolved.sourcetype] += 1
@@ -741,6 +754,7 @@ class ScanAccumulator:
         self.by_format[resolved.event_format] += 1
         self.distinct_sources.add(resolved.source_checked_value)
         self.distinct_hosts.add(resolved.host_checked_value)
+        return resolved
 
     def merge(self, other: ScanAccumulator) -> None:
         for name in (
@@ -858,12 +872,53 @@ def _exclude_file(
     return {"publisher": publisher, "test_id": item.test_id, **excluded}
 
 
+def _iter_csv_records(path: Path) -> Iterator[str]:
+    captured: list[str] = []
+    with path.open(encoding="utf-8", errors="replace", newline="") as stream:
+
+        def lines() -> Iterator[str]:
+            for line in stream:
+                captured.append(line)
+                yield line
+
+        records = csv.reader(lines())
+        next(records, None)
+        captured.clear()
+        for record in records:
+            raw = "".join(captured)
+            captured.clear()
+            if not record:
+                continue
+            if raw.endswith("\r\n"):
+                raw = raw[:-2]
+            elif raw.endswith(("\r", "\n")):
+                raw = raw[:-1]
+            yield raw
+
+
 def _iter_file_events(item: CorpusFile) -> Iterator[dict[str, Any] | str]:
     if item.path.suffix.lower() == ".evtx":
         for event in iter_evtx_text(item.path):
             yield from legacy.iter_cloudtrail_records(event)
         return
+    if item.path.suffix.lower() == ".csv":
+        yield from _iter_csv_records(item.path)
+        return
     for line in legacy.iter_events_text(item.path):
+        if line.startswith(
+            (
+                "#separator",
+                "#set_separator",
+                "#empty_field",
+                "#unset_field",
+                "#path\t",
+                "#open\t",
+                "#fields\t",
+                "#types\t",
+                "#close\t",
+            )
+        ):
+            continue
         yield from legacy.iter_cloudtrail_records(line)
 
 
@@ -898,9 +953,17 @@ def scan_inputs(files_by_publisher: Mapping[str, list[CorpusFile]]) -> dict[str,
             item_id = p5_item_id(publisher, item.test_id)
             file_accumulator = ScanAccumulator()
             bucket = _item_bucket(file_accumulator.items, item, item_id)
+            yearless_events = 0
             try:
                 for event in _iter_file_events(item):
-                    file_accumulator.record(item, bucket, event)
+                    resolved = file_accumulator.record(item, bucket, event)
+                    if (
+                        item.fallback_epoch is None
+                        and isinstance(event, str)
+                        and _YEARLESS_MMDD_TIME.match(event)
+                        and resolved.epoch is None
+                    ):
+                        yearless_events += 1
             except Exception as exc:
                 read_errors.append(
                     _exclude_file(
@@ -914,6 +977,21 @@ def scan_inputs(files_by_publisher: Mapping[str, list[CorpusFile]]) -> dict[str,
                 )
                 continue
             file_accumulator.file_counts[publisher] += 1
+            if bucket["missing_time"]:
+                no_year = bool(yearless_events)
+                read_errors.append(
+                    _exclude_file(
+                        file_accumulator,
+                        item,
+                        item_id,
+                        "no_year" if no_year else "missing_time",
+                        "timestamp_has_no_year_or_manifest_date"
+                        if no_year
+                        else "event_and_manifest_timestamps_missing",
+                        bucket["data_files"],
+                    )
+                )
+                file_accumulator.totals["excluded_missing_time"] += bucket["missing_time"]
             accumulator.merge(file_accumulator)
     return accumulator.output(read_errors)
 
@@ -938,7 +1016,7 @@ def _ship_gate_blocked(
         missing_roots
         or _blocking_read_errors(scan)
         or scan["totals"].get("residual_leaks", 0)
-        or scan["totals"].get("missing_time", 0)
+        or scan["totals"].get("missing_time", 0) > scan["totals"].get("excluded_missing_time", 0)
         or census_failed
     )
 
