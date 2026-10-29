@@ -134,6 +134,28 @@ def _write_row(d: Path, row: dict) -> None:
     campaign._row_path(d, row["run_id"]).write_text(json.dumps(row))
 
 
+class _Backend:
+    def __init__(self, backend_id: str, engine: str, url: str):
+        self.id = backend_id
+        self.type = engine
+        self.url = url
+
+
+def _one_daemon(monkeypatch) -> None:
+    """One Ollama daemon behind two group ids (doc: identity): the reuse key
+    must treat the pair as one serving engine."""
+
+    class _Reg:
+        @staticmethod
+        def list_backends():
+            return [
+                _Backend("ollama-general", "ollama", "http://daemon:11434"),
+                _Backend("ollama-vision", "ollama", "http://daemon:11434"),
+            ]
+
+    monkeypatch.setattr(campaign, "_seat_registry", lambda: _Reg())
+
+
 def _stub_trees(monkeypatch) -> None:
     """Synthetic trees. Real campaign proofs do not use this."""
 
@@ -256,6 +278,34 @@ class TestReuseKey:
         man = campaign.load_manifest(dst)
         man["identity_map"] = {}
         assert campaign.reuse_incumbent_rows(dst, man, [stub]) == []
+
+    def test_same_daemon_different_group_id_is_reused(self, tmp_path, monkeypatch):
+        _one_daemon(monkeypatch)
+        _src, dst, stub, src_row = _pair(tmp_path, monkeypatch)
+        man = campaign.load_manifest(dst)
+        man["identity_map"][f"{WS}|{MODEL}"] = {
+            "backend": "ollama-vision",
+            "model": MODEL,
+            "content": IDENT["content"],
+        }
+        campaign.save_manifest(dst, man)
+        copied = campaign.reuse_incumbent_rows(dst, campaign.load_manifest(dst), [stub])
+        assert copied == [stub["run_id"]]
+        body = json.loads(campaign._row_path(dst, stub["run_id"]).read_text())
+        assert body["reused_from"] == f"src/{src_row['run_id']}"
+
+    def test_same_daemon_different_content_is_not_reused(self, tmp_path, monkeypatch):
+        _one_daemon(monkeypatch)
+        _src, dst, stub, _row = _pair(tmp_path, monkeypatch)
+        man = campaign.load_manifest(dst)
+        man["identity_map"][f"{WS}|{MODEL}"] = {
+            "backend": "ollama-vision",
+            "model": MODEL,
+            "content": "other-content",
+        }
+        campaign.save_manifest(dst, man)
+        assert campaign.reuse_incumbent_rows(dst, campaign.load_manifest(dst), [stub]) == []
+        assert not campaign._row_path(dst, stub["run_id"]).exists()
 
     def test_a_row_without_a_deployed_sha_is_not_copied(self, tmp_path, monkeypatch):
         _src, dst, stub, _row = _pair(tmp_path, monkeypatch)

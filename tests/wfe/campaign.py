@@ -802,16 +802,18 @@ def reuse_key(
 ) -> dict:
     """The incumbent-reuse fingerprint.
 
-    `identity` is backend, model and the model content digest. `pipeline` is the
-    inference and config trees at the row's deployed sha. `tool_modules` maps each
-    offered portal module to its tree at that sha; None means a tool could not
-    be placed, which never matches."""
+    `identity` is model and the model content digest; the backend field is the
+    identity group (engine type + base url — `same_identity`'s equality, not
+    the group id), so one daemon's groups reuse each other's rows. `pipeline`
+    is the inference and config trees at the row's deployed sha. `tool_modules`
+    maps each offered portal module to its tree at that sha; None means a tool
+    could not be placed, which never matches."""
     ident = identity or {}
     return {
         "suite_digest": suite_digest or "",
         "task_id": task_id,
         "repeat": repeat,
-        "backend": ident.get("backend") or "",
+        "backend": _identity_group(ident),
         "model": ident.get("model") or "",
         "content": ident.get("content") or "",
         "engine": engine or "",
@@ -2184,6 +2186,13 @@ def same_identity(a: dict | None, b: dict | None) -> bool:
     if not a or not b:
         return False
     return _identity_key(a) == _identity_key(b)
+
+
+def _identity_group(ident: dict) -> str:
+    """A backend id as the reuse key sees it: engine type + base url, the
+    `same_identity` equality — the serving daemon, not the group label."""
+    engine, url, _model, _content = _identity_key(ident)
+    return f"{engine}|{url}"
 
 
 def freeze_identities(frozen: dict, identities: dict) -> list[str]:
