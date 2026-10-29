@@ -422,13 +422,16 @@ class OvernightQueue:
 
     def _run_job(self, item: dict[str, Any]) -> QueueRun:
         job_id = str(item["task_id"])
-        spec = parse_job_spec(json.loads(item["plan_json"]), repo_root=self.repo_root)
+        # A job runs from the checkout it was enqueued from (a pinned snapshot stays pinned).
+        source = Path(item["source_dir"]) if item.get("source_dir") else self.repo_root
+        root = source if source.is_dir() else self.repo_root
+        spec = parse_job_spec(json.loads(item["plan_json"]), repo_root=root)
         runner = (
             self.job_factory()
             if self.job_factory is not None
             else JobRunner(
                 self.task_root,
-                repo_root=self.repo_root,
+                repo_root=root,
                 gate=self.gate,
                 notices=self.notices,
             )
