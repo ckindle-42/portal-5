@@ -231,3 +231,11 @@ def test_planned_matrix_applies_the_policy(plan, tmp_path, monkeypatch):
     repeats, matrix = camp._planned_matrix(plan, args)
     assert repeats == {INC: 2}
     assert len(matrix) == 12
+
+
+def test_tool_preflight_keeps_stdout_clean_for_list_arms(capsys):
+    # wfe_campaign.sh reads `--list-arms` stdout line by line as arm tags.
+    camp._realuse_tool_preflight(camp.REPO / "tests" / "wfe" / "plans" / "realuse_v1_s8.yaml")
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "tool surface preflight: PASS" in captured.err

@@ -4024,7 +4024,8 @@ def _realuse_tool_preflight(plan: Path) -> None:
         report = [f"tool surface preflight: FAIL ({len(failures)} mismatch(es))"]
         report.extend(f"  {failure}" for failure in failures)
         raise GateRefused("\n".join(report))
-    print(f"tool surface preflight: PASS ({checked} workload/task pair(s))")
+    # stderr: --list-arms stdout is parsed line by line as arm tags.
+    print(f"tool surface preflight: PASS ({checked} workload/task pair(s))", file=sys.stderr)
 
 
 def main() -> int:
