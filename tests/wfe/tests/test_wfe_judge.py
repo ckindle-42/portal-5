@@ -129,8 +129,23 @@ class TestEndpointPolicy:
         monkeypatch.setenv("WFE_JUDGE_ALLOW_REMOTE", "1")
         judge.assert_local("https://api.openai.com/v1")
 
-    def test_no_model_configured_is_an_error(self, monkeypatch):
+    def test_the_committed_yaml_is_the_default_and_env_overrides(self, monkeypatch):
+        """tests/wfe/judge.yaml is the judge when no env is set; env still wins."""
         monkeypatch.delenv("WFE_JUDGE_MODEL", raising=False)
+        monkeypatch.delenv("WFE_JUDGE_URL", raising=False)
+        cfg = judge._judge_config()
+        assert cfg.get("model") and cfg.get("url")
+        assert judge.judge_model() == cfg["model"]
+        assert judge.judge_url() == cfg["url"]
+        judge.assert_local(judge.judge_url())
+        monkeypatch.setenv("WFE_JUDGE_MODEL", "env:tag")
+        monkeypatch.setenv("WFE_JUDGE_URL", "http://localhost:11434")
+        assert judge.judge_model() == "env:tag"
+        assert judge.judge_url() == "http://localhost:11434"
+
+    def test_no_model_configured_anywhere_is_an_error(self, monkeypatch, tmp_path):
+        monkeypatch.delenv("WFE_JUDGE_MODEL", raising=False)
+        monkeypatch.setattr(judge, "JUDGE_CONFIG_PATH", tmp_path / "absent.yaml")
         with pytest.raises(ValueError, match="WFE_JUDGE_MODEL"):
             judge.judge_model()
 

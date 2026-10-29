@@ -3464,7 +3464,7 @@ def _parse_args(argv=None):
         "--judge",
         action="store_true",
         help="after the arms, blind-judge every task pair both arms hold a row for "
-        "(WFE_JUDGE_MODEL; local endpoint; reported, not gated)",
+        "(WFE_JUDGE_MODEL or tests/wfe/judge.yaml; local endpoint; reported, not gated)",
     )
     ap.add_argument(
         "--no-curtail",
