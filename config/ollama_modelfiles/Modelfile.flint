@@ -1,0 +1,8 @@
+FROM hf.co/unsloth/flint-GGUF:UD-Q4_K_XL-ctx256k
+
+TEMPLATE {{ .Prompt }}
+PARAMETER temperature 1
+PARAMETER top_k 20
+PARAMETER top_p 0.95
+RENDERER flint
+PARSER flint

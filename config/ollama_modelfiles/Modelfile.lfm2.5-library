@@ -1,0 +1,5 @@
+FROM lfm2.5:24b-a2b-q4_K_M
+
+TEMPLATE {{ .Prompt }}
+RENDERER lfm2-thinking
+PARSER lfm2-thinking

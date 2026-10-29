@@ -1,0 +1,5 @@
+FROM hf.co/unsloth/LFM2.5-24B-A2B-GGUF:UD-Q4_K_XL-ctx96k
+
+TEMPLATE {{ .Prompt }}
+RENDERER lfm2-thinking
+PARSER lfm2-thinking
