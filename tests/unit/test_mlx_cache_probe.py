@@ -1,7 +1,6 @@
 """Unit tests for scripts/mlx_cache_probe.py (POST_EG2 F4).
 
-Uses a fake footprint reader (`_footprint_bytes`) and fake HTTP (`urllib.request.urlopen`)
-so the harness can be exercised with no live service, no network, and no real MLX process.
+Fake footprint reads and a fake urlopen exercise the harness with no live service.
 """
 
 from __future__ import annotations
@@ -9,6 +8,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -17,11 +17,24 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = ROOT / "scripts" / "mlx_cache_probe.py"
 
-# Load the script as a module so we can monkeypatch its internals.
 _SPEC = importlib.util.spec_from_file_location("mlx_cache_probe", SCRIPT_PATH)
 probe = importlib.util.module_from_spec(_SPEC)
 sys.modules["mlx_cache_probe"] = probe
 _SPEC.loader.exec_module(probe)
+
+GIB = 1024**3
+MIB = 1024**2
+
+
+class _FakeResponse:
+    def read(self, *args, **kwargs) -> bytes:
+        return b"{}"
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return None
 
 
 @pytest.fixture(autouse=True)
@@ -41,136 +54,245 @@ def _fake_config_exists(tmp_path, monkeypatch):
         "host_jobs: []\n"
     )
     monkeypatch.setattr(probe, "CONFIG_PATH", fake_config)
+    monkeypatch.setattr(probe, "SETTLE_WAIT_S", 0)
 
 
-@pytest.fixture
-def fake_footprint(monkeypatch):
-    """Patch footprint and pid helpers to return predictable values."""
-    calls = []
+def _patch_runtime(monkeypatch, footprints: list[int] | int, *, fail: bool = False) -> None:
+    monkeypatch.setattr(probe, "_service_pid", lambda label: 1234)
+    monkeypatch.setattr(probe, "_python_pid", lambda pid: 5678)
+    if isinstance(footprints, int):
 
-    def _fake_service_pid(label: str) -> int | None:
-        calls.append(("service_pid", label))
-        return 1234
+        def reader(pid: int) -> int:
+            return footprints
 
-    def _fake_python_pid(pid: int) -> int | None:
-        calls.append(("python_pid", pid))
-        return 5678
+    else:
+        seq = iter(footprints)
 
-    def _fake_footprint_bytes(pid: int) -> int | None:
-        calls.append(("footprint_bytes", pid))
-        # Simulate a retention scenario: idle-after is 1.2 GiB above idle-before
-        # but only for the second call (after settle).
-        if len([c for c in calls if c[0] == "footprint_bytes"]) == 2:
-            return 2 * 1024**3  # ~2 GiB
-        return 1024**3  # ~1 GiB
+        def reader(pid: int) -> int:
+            return next(seq)
 
-    monkeypatch.setattr(probe, "_service_pid", _fake_service_pid)
-    monkeypatch.setattr(probe, "_python_pid", _fake_python_pid)
-    monkeypatch.setattr(probe, "_footprint_bytes", _fake_footprint_bytes)
-    return calls
-
-
-@pytest.fixture
-def fake_http(monkeypatch):
-    """Patch urllib.request.urlopen so no real HTTP is sent."""
-    responses: list[dict] = []
-
-    class FakeResponse:
-        def __init__(self, data: bytes = b"{}"):
-            self._data = data
-
-        def read(self, *args, **kwargs) -> bytes:
-            return self._data
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *args, **kwargs):
-            pass
+    monkeypatch.setattr(probe, "_footprint_bytes", reader)
 
     def fake_urlopen(req, *args, **kwargs):
-        responses.append(
-            {
-                "url": str(req.full_url) if hasattr(req, "full_url") else str(req),
-                "method": req.method if hasattr(req, "method") else "GET",
-            }
-        )
-        # Return a minimal valid response depending on endpoint
-        url_str = str(req.full_url) if hasattr(req, "full_url") else str(req)
-        if "transcribe" in url_str:
-            data = json.dumps({"text": "fake transcript", "duration": 1.0}).encode()
-        else:
-            data = b"fake audio wav bytes"
-        return FakeResponse(data)
+        if fail:
+            raise urllib.error.URLError("connection refused")
+        return _FakeResponse()
 
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
-    return responses
 
 
-def test_dry_run_prints_plan_and_exits_zero():
-    result = probe.main(["mlx-transcribe", "--dry-run"])
-    assert result == 0
+def _run_json(
+    monkeypatch, capsys, argv: list[str], footprints: list[int] | int, *, fail: bool = False
+):
+    _patch_runtime(monkeypatch, footprints, fail=fail)
+    code = probe.main(argv)
+    out = json.loads(capsys.readouterr().out)
+    return code, out
 
 
-def test_json_output_contains_verdict(fake_footprint, fake_http, capsys):
-    # With the fake footprint returning 1 GiB before and 2 GiB after,
-    # delta = 1 GiB > 0.5 GiB threshold => RETAINING.
-    result = probe.main(["mlx-transcribe", "--requests", "3", "--json"])
-    # Verdict depends on footprint values; we just assert the call succeeds.
-    capsys.readouterr()
-    assert result in (0, 1)
-
-
-def test_fake_footprint_reader_is_called(fake_footprint, fake_http):
-    probe.main(["mlx-speech", "--requests", "2"])
-    # We expect at least two footprint calls (before + after) plus pid lookups.
-    footprint_calls = [c for c in fake_footprint if c[0] == "footprint_bytes"]
-    assert len(footprint_calls) >= 2
+def test_dry_run_prints_warm_plan(capsys):
+    code = probe.main(["mlx-transcribe", "--dry-run"])
+    text = capsys.readouterr().out
+    assert code == 0
+    assert "port=9999" in text
+    assert "measured_requests=20" in text
+    assert "warm=2" in text
+    assert "tolerance=<3% or <150 MiB" in text
 
 
 def test_service_not_found_returns_error():
-    result = probe.main(["nonexistent-service"])
-    assert result == 1
+    assert probe.main(["nonexistent-service"]) == 1
 
 
-def test_verdict_retaining_when_delta_exceeds_threshold(monkeypatch, capsys):
-    """Force a retention scenario and verify RETAINING is emitted."""
-
-    # Patch footprint to return a large delta
-    def _fixed_footprint(pid: int) -> int | None:
-        return 3 * 1024**3  # 3 GiB fixed (simulates high retention)
-
-    monkeypatch.setattr(probe, "_service_pid", lambda label: 1)
-    monkeypatch.setattr(probe, "_python_pid", lambda pid: pid)
-    monkeypatch.setattr(probe, "_footprint_bytes", _fixed_footprint)
-
-    # Patch urlopen for HTTP
-    class FakeResponse:
-        def read(self):
-            return b"{}"
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *args):
-            pass
-
-    monkeypatch.setattr(urllib.request, "urlopen", lambda req, **kw: FakeResponse())
-
-    result = probe.main(["mlx-transcribe", "--requests", "1", "--json"])
-    capsys.readouterr()
-    # Even with fixed footprint, the harness runs; verify no exception.
-    assert result in (0, 1)
+def test_cold_load_then_flat_is_flat(monkeypatch, capsys):
+    """A model-load jump during warm-up, then a flat series, is not retention."""
+    cold, warm = GIB, 6 * GIB
+    samples = [warm, warm, warm]
+    code, out = _run_json(
+        monkeypatch,
+        capsys,
+        ["mlx-transcribe", "--requests", "3", "--json"],
+        [cold, warm, *samples],
+    )
+    assert out["verdict"] == "FLAT"
+    assert out["baseline_bytes"] == cold
+    assert out["warm_baseline_bytes"] == warm
+    assert out["per_request_bytes"] == samples
+    assert out["growth_bytes"] == 0
+    assert out["python_pid"] == 5678
+    assert code == 0
 
 
-def test_a_run_whose_requests_all_fail_is_invalid_not_ok(fake_footprint, monkeypatch, capsys):
-    """An errored run measured nothing: it must never read as OK (no retention)."""
+def test_steady_climb_is_retaining(monkeypatch, capsys):
+    """200 MiB of warm-series growth is over both tolerances (old 0.5 GiB gate was not)."""
+    base = GIB
+    step = 50 * MIB
+    samples = [base + step * i for i in range(1, 5)]
+    code, out = _run_json(
+        monkeypatch,
+        capsys,
+        ["mlx-transcribe", "--requests", "4", "--warm", "2", "--json"],
+        [base // 2, base, *samples],
+    )
+    assert out["verdict"] == "RETAINING"
+    assert out["baseline_bytes"] == base // 2
+    assert out["warm_baseline_bytes"] == base
+    assert out["per_request_bytes"] == samples
+    assert out["growth_bytes"] == 4 * step
+    assert code == 1
 
-    def refuse(req, **kw):
-        raise urllib.error.URLError("connection refused")
 
-    monkeypatch.setattr(urllib.request, "urlopen", refuse)
-    result = probe.main(["mlx-transcribe", "--requests", "3", "--json"])
+def test_growth_under_abs_tolerance_is_flat(monkeypatch, capsys):
+    base = GIB
+    samples = [base + 50 * MIB, base + 100 * MIB]
+    code, out = _run_json(
+        monkeypatch,
+        capsys,
+        ["mlx-speech", "--requests", "2", "--json"],
+        [base, base, *samples],
+    )
+    assert out["growth_bytes"] == 100 * MIB
+    assert out["verdict"] == "FLAT"
+    assert code == 0
+
+
+def test_growth_under_rel_tolerance_is_flat(monkeypatch, capsys):
+    """200 MiB on a 10 GiB baseline is over 150 MiB and still under 3%."""
+    base = 10 * GIB
+    samples = [base + 100 * MIB, base + 200 * MIB]
+    code, out = _run_json(
+        monkeypatch,
+        capsys,
+        ["mlx-speech", "--requests", "2", "--json"],
+        [base, base, *samples],
+    )
+    assert out["growth_bytes"] == 200 * MIB
+    assert out["verdict"] == "FLAT"
+    assert code == 0
+
+
+def test_failed_requests_are_invalid(monkeypatch, capsys):
+    code, out = _run_json(
+        monkeypatch,
+        capsys,
+        ["mlx-transcribe", "--requests", "3", "--json"],
+        GIB,
+        fail=True,
+    )
+    assert out["verdict"] == "INVALID"
+    assert out["failed_requests"] == 5  # 2 warm-up + 3 measured
+    assert out["growth_bytes"] is None
+    assert len(out["per_request_bytes"]) == 3
+    assert code == 2
+
+
+def test_missing_pid_is_invalid(monkeypatch, capsys):
+    monkeypatch.setattr(probe, "_service_pid", lambda label: None)
+
+    def boom(pid: int) -> int:
+        raise AssertionError(pid)
+
+    monkeypatch.setattr(probe, "_footprint_bytes", boom)
+    monkeypatch.setattr(urllib.request, "urlopen", lambda req, *a, **k: _FakeResponse())
+    code = probe.main(["mlx-speech", "--requests", "1", "--warm", "1", "--json"])
     out = json.loads(capsys.readouterr().out)
-    assert out["verdict"] == "INVALID" and out["failed_requests"] == 3
-    assert result == 2
+    assert out["verdict"] == "INVALID"
+    assert out["python_pid"] is None
+    assert out["baseline_bytes"] is None
+    assert code == 2
+
+
+def test_default_transcribe_durations_stay_short(monkeypatch, capsys):
+    seen: list[float] = []
+    urls: list[str] = []
+
+    def fake_wav(path: Path, duration_s: float, sr: int = 24000) -> None:
+        seen.append(duration_s)
+        path.write_bytes(b"RIFF")
+
+    def fake_urlopen(req, *args, **kwargs):
+        urls.append(req.full_url)
+        return _FakeResponse()
+
+    monkeypatch.setattr(probe, "_generate_synthetic_wav", fake_wav)
+    _patch_runtime(monkeypatch, GIB)
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    code = probe.main(["mlx-transcribe", "--requests", "3", "--warm", "2", "--json"])
+    capsys.readouterr()
+    assert code == 0
+    assert seen == [0.5, 0.5, 0.5, 1.0, 1.5]
+    assert urls
+    assert all(url.endswith("/v1/audio/transcribe-with-speakers") for url in urls)
+
+
+def test_input_seconds_applies_to_measured_requests_only(monkeypatch, capsys):
+    seen: list[float] = []
+
+    def fake_wav(path: Path, duration_s: float, sr: int = 24000) -> None:
+        seen.append(duration_s)
+        path.write_bytes(b"RIFF")
+
+    monkeypatch.setattr(probe, "_generate_synthetic_wav", fake_wav)
+    code, out = _run_json(
+        monkeypatch,
+        capsys,
+        ["mlx-transcribe", "--requests", "2", "--warm", "2", "--input-seconds", "8", "--json"],
+        GIB,
+    )
+    assert code == 0
+    assert out["input_seconds"] == 8.0
+    assert seen == [0.5, 0.5, 8.0, 8.0]
+
+
+def test_default_speech_texts_stay_short(monkeypatch, capsys):
+    texts: list[str] = []
+    urls: list[str] = []
+
+    def fake_urlopen(req, *args, **kwargs):
+        texts.append(json.loads(req.data.decode())["input"])
+        urls.append(req.full_url)
+        return _FakeResponse()
+
+    _patch_runtime(monkeypatch, GIB)
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    code = probe.main(["mlx-speech", "--requests", "2", "--warm", "2", "--json"])
+    capsys.readouterr()
+    assert code == 0
+    assert texts == ["Hello. ", "Hello. ", "Hello. ", "Hello. " * 2]
+    assert urls
+    assert all(url.endswith("/v1/audio/speech") for url in urls)
+
+
+def test_chars_applies_to_measured_requests_only(monkeypatch, capsys):
+    texts: list[str] = []
+    urls: list[str] = []
+
+    def fake_urlopen(req, *args, **kwargs):
+        texts.append(json.loads(req.data.decode())["input"])
+        urls.append(req.full_url)
+        return _FakeResponse()
+
+    _patch_runtime(monkeypatch, GIB)
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    code = probe.main(["mlx-speech", "--requests", "2", "--warm", "2", "--chars", "20", "--json"])
+    out = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert out["chars"] == 20
+    assert out["verdict"] == "FLAT"
+    assert texts[:2] == ["Hello. ", "Hello. "]
+    assert texts[2:] == ["Hello. Hello. Hello.", "Hello. Hello. Hello."]
+    assert all(url.endswith("/v1/audio/speech") for url in urls)
+
+
+def test_chars_rejected_for_transcribe(capsys):
+    assert probe.main(["mlx-transcribe", "--chars", "10"]) == 1
+    assert "mlx-speech" in capsys.readouterr().err
+
+
+def test_input_seconds_rejected_for_speech(capsys):
+    assert probe.main(["mlx-speech", "--input-seconds", "5"]) == 1
+    assert "mlx-transcribe" in capsys.readouterr().err
+
+
+def test_warm_must_be_positive():
+    assert probe.main(["mlx-transcribe", "--warm", "0", "--dry-run"]) == 1
