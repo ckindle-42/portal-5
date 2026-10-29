@@ -167,12 +167,15 @@ async def transcribe_audio(
 
     Args:
         file_path: Absolute path to the audio file (mp3, wav, m4a, ogg, flac).
-                   Omit to auto-detect the most recently uploaded file from the workspace.
+                   Omit to auto-detect the most recently uploaded file from the workspace;
+                   an empty or unknown reference returns an error.
         language: Language code (e.g. 'en', 'es'). Auto-detected if not provided.
 
     Returns:
         dict with 'text' (full transcript) and 'segments' (timestamped segments)
     """
+    if file_path is not None and not file_path.strip():
+        return {"error": f"file not found: {file_path!r}"}
     host_args: dict[str, Any] = {}
     if file_path is not None:
         host_args["file"] = file_path
@@ -235,7 +238,7 @@ async def transcribe_audio(
 
 @mcp.tool()
 async def transcribe_with_speakers(
-    file: str = "",
+    file: str | None = None,
     num_speakers: int | None = None,
     language: str | None = None,
 ) -> dict[str, Any]:
@@ -250,8 +253,9 @@ async def transcribe_with_speakers(
     unlabeled transcript (use transcribe_audio there).
 
     Args:
-        file: Audio reference. Omit to auto-detect the most recent upload; otherwise
-              an OWUI file ID, filename in uploads/, or absolute path.
+        file: Audio reference. Omit to auto-detect the most recent upload; an empty or
+              unknown reference returns an error. Otherwise an OWUI file ID, filename in
+              uploads/, or absolute path.
         num_speakers: Optional cap on the speaker count (folds over-segmented
               speakers into the nearest kept one). Inferred when omitted.
         language: ISO language code. Auto-detected if omitted.
@@ -260,7 +264,11 @@ async def transcribe_with_speakers(
         dict with text, language, duration, speaker_count, segments, markdown,
         json_path, md_path, timing, engine; ``warning`` if diarization was skipped.
     """
-    host_args: dict[str, Any] = {"file": file}
+    host_args: dict[str, Any] = {}
+    if file is not None and not file.strip():
+        return {"error": f"file not found: {file!r}"}
+    if file is not None:
+        host_args["file"] = file
     if num_speakers is not None:
         host_args["num_speakers"] = num_speakers
     if language is not None:

@@ -137,8 +137,10 @@ def scoped(tmp_path, monkeypatch, transcribe_module):
 def test_a_scoped_call_resolves_only_the_rows_own_clip(scoped):
     mod, scope, root = scoped
     in_dir = es.run_root(root, scope) / "in"
-    for arg in ("clip.wav", "/workspace/uploads/clip.wav", "", "<file_id>"):
+    for arg in ("clip.wav", "/workspace/uploads/clip.wav", "<file_id>", None):
         assert mod._resolve_audio_input(arg) == (in_dir / "clip.wav", "clip.wav"), arg
+    path, msg = mod._resolve_audio_input("")
+    assert path is None and "file not found" in msg
 
 
 def test_a_scoped_call_never_falls_back_to_the_shared_uploads(scoped):
@@ -165,7 +167,7 @@ def test_an_unscoped_call_is_unchanged(tmp_path, monkeypatch, transcribe_module)
     (tmp_path / "uploads").mkdir()
     (tmp_path / "uploads" / "shared.wav").write_bytes(b"RIFF")
     assert es.EVAL_SCOPE.get() is None
-    path, _ = transcribe_module._resolve_audio_input("")
+    path, _ = transcribe_module._resolve_audio_input(None)
     assert path == tmp_path / "uploads" / "shared.wav"
 
 

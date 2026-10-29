@@ -568,12 +568,12 @@ def _latest_audio_upload() -> Path | None:
     return max(candidates, key=lambda f: f.stat().st_mtime)
 
 
-def _resolve_scoped_audio(scope: dict, file: str) -> tuple[Path | None, str]:
+def _resolve_scoped_audio(scope: dict, file: str | None) -> tuple[Path | None, str]:
     """A WFE row's input: only its own `in/` fixtures, by bare name or (as with a live
     upload, where the model passes no reference) the newest audio file there. No fallback
     to the shared uploads directory."""
     in_dir = eval_scope.run_root(get_workspace_root(), scope) / "in"
-    if not file or _PLACEHOLDER_RE.match(file.strip()):
+    if file is None or _PLACEHOLDER_RE.match(file.strip()):
         found = [f for f in in_dir.glob("*") if f.suffix.lower() in _AUDIO_EXTENSIONS]
         if not found:
             return (
@@ -582,35 +582,39 @@ def _resolve_scoped_audio(scope: dict, file: str) -> tuple[Path | None, str]:
             )
         p = max(found, key=lambda f: f.stat().st_mtime)
         return p, p.name
+    if not file.strip():
+        return None, f"file not found: {file!r}"
     p = eval_scope.confine(get_workspace_root(), scope, os.path.basename(file), sub="in")
     if not p.is_file():
-        return None, f"upload not found: {file!r} (no match in uploads directory)"
+        return None, f"file not found: {file!r}"
     return p, p.name
 
 
-def _resolve_audio_input(file: str) -> tuple[Path | None, str]:
+def _resolve_audio_input(file: str | None) -> tuple[Path | None, str]:
     """Resolve a tool input to an absolute path.
 
     Accepts:
       - OWUI file ID (e.g., 'abc-123' or 'abc-123_meeting.mp3')
       - Filename in the uploads directory
       - Absolute path on the host filesystem
-      - Empty string or template placeholder → auto-detects most recent upload
+      - None (argument omitted) or a template placeholder → auto-detects most recent upload
+      - An empty or unknown reference is an error, never the most recent upload
 
     Returns (path, source_name) or (None, error_message).
     """
     scope = eval_scope.EVAL_SCOPE.get()
     if scope:
         return _resolve_scoped_audio(scope, file)
-    # Empty or literal template placeholder (e.g. '<file_id_or_filename>') →
-    # OWUI doesn't surface file references to the pipeline, so auto-detect
-    # the most recently uploaded audio file.
-    if not file or _PLACEHOLDER_RE.match(file.strip()):
+    # None/placeholder is the documented "no reference" case; an empty string is an
+    # explicit reference that resolved to nothing and must not pick another recording.
+    if file is None or _PLACEHOLDER_RE.match(file.strip()):
         p = _latest_audio_upload()
         if p is not None:
             logger.info("Auto-detected most recent audio upload: %s", p.name)
             return p, p.name
         return None, "no audio file found in uploads directory — please upload an audio file first"
+    if not file.strip():
+        return None, f"file not found: {file!r}"
 
     # Looks like an absolute path
     if file.startswith("/") or file.startswith("~"):
@@ -625,8 +629,8 @@ def _resolve_audio_input(file: str) -> tuple[Path | None, str]:
         return p, p.name
 
     # A named file that does not resolve is an error: transcribing whatever was uploaded last
-    # would answer about the wrong audio. Only an empty/placeholder argument auto-detects.
-    return None, f"upload not found: {file!r} (no match in uploads directory)"
+    # would answer about the wrong audio. Only an omitted/placeholder argument auto-detects.
+    return None, f"file not found: {file!r}"
 
 
 # ── FastAPI app ────────────────────────────────────────────────────────────────
@@ -682,7 +686,7 @@ async def invoke_tool(tool_name: str, request: Request) -> JSONResponse:
 
 async def _dispatch_tool(tool_name: str, arguments: dict) -> JSONResponse:
     if tool_name == "transcribe_with_speakers":
-        file_arg = arguments.get("file", "")
+        file_arg = arguments.get("file")
         num_speakers = arguments.get("num_speakers")
         language = arguments.get("language")
         path, source_name = _resolve_audio_input(file_arg)
@@ -699,7 +703,7 @@ async def _dispatch_tool(tool_name: str, arguments: dict) -> JSONResponse:
                 logger.error("invoke_tool transcribe_with_speakers failed: %s", e, exc_info=True)
                 return JSONResponse({"error": str(e)}, status_code=500)
     elif tool_name == "transcribe_audio":
-        file_arg = arguments.get("file", arguments.get("audio_path", ""))
+        file_arg = arguments.get("file", arguments.get("audio_path"))
         language = arguments.get("language")
         path, source_name = _resolve_audio_input(file_arg)
         if path is None:
@@ -732,7 +736,8 @@ TOOLS_MANIFEST = [
                     "type": "string",
                     "description": "Audio file reference: OWUI file ID, "
                     "filename in uploads/, or absolute path. "
-                    "Omit to auto-detect most recent upload.",
+                    "Omit to auto-detect most recent upload; an empty or "
+                    "unknown reference is an error.",
                 },
                 "language": {
                     "type": "string",
@@ -757,7 +762,8 @@ TOOLS_MANIFEST = [
                     "type": "string",
                     "description": "Audio file reference: OWUI file ID, "
                     "filename in uploads/, or absolute path. "
-                    "Omit to auto-detect most recent upload.",
+                    "Omit to auto-detect most recent upload; an empty or "
+                    "unknown reference is an error.",
                 },
                 "num_speakers": {
                     "type": "integer",
@@ -849,7 +855,7 @@ mcp = MCPServer("mlx-transcribe")
 
 
 @mcp.tool()
-async def transcribe_audio(file: str = "", language: str | None = None) -> dict[str, Any]:
+async def transcribe_audio(file: str | None = None, language: str | None = None) -> dict[str, Any]:
     """
     Fast transcription (Parakeet-TDT-v3, word-level timestamps, no speaker labels).
 
@@ -859,7 +865,8 @@ async def transcribe_audio(file: str = "", language: str | None = None) -> dict[
 
     Args:
         file: Audio reference. Omit to auto-detect the most recent upload; otherwise an
-              OWUI file ID, a filename in uploads/, or an absolute host path.
+              OWUI file ID, a filename in uploads/, or an absolute host path. An empty or
+              unknown reference returns an error.
         language: ISO language code (e.g. 'en'). Auto-detected if omitted.
     """
     path, source_name = _resolve_audio_input(file)
@@ -878,7 +885,7 @@ async def transcribe_audio(file: str = "", language: str | None = None) -> dict[
 
 @mcp.tool()
 async def transcribe_with_speakers(
-    file: str = "",
+    file: str | None = None,
     num_speakers: int | None = None,
     language: str | None = None,
 ) -> dict[str, Any]:
@@ -895,8 +902,9 @@ async def transcribe_with_speakers(
     directory; the full markdown and all three download URLs are in the response.
 
     Args:
-        file: Audio file reference. Omit (or leave empty) to auto-detect the
-              most recently uploaded audio file. Otherwise accepts:
+        file: Audio file reference. Omit to auto-detect the most recently uploaded
+              audio file; an empty or unknown reference returns an error. Otherwise
+              accepts:
               - OWUI file ID from a chat attachment (e.g., 'abc-123-def')
               - Filename in the uploads directory (e.g., 'meeting.mp3')
               - Absolute path on the host (e.g., '/Users/me/audio.wav')

@@ -192,4 +192,92 @@ def test_resolve_audio_input_unknown_id_errors_instead_of_latest_upload(
     (tmp_path / "uploads" / "abc-123_meeting.wav").write_bytes(b"fake audio")
     path, err = transcribe_module._resolve_audio_input("no-such-file-id")
     assert path is None
-    assert "upload not found" in err
+    assert "file not found" in err
+
+
+@pytest.fixture()
+def upload_workspace(tmp_path, monkeypatch):
+    """Two uploads: the named one (abc-123) older than the other (def-456)."""
+    monkeypatch.setenv("WORKSPACE_DIR", str(tmp_path))
+    uploads = tmp_path / "uploads"
+    uploads.mkdir()
+    named = uploads / "abc-123_meeting.wav"
+    latest = uploads / "def-456_other.wav"
+    named.write_bytes(b"fake audio")
+    latest.write_bytes(b"fake audio")
+    return uploads
+
+
+def test_resolve_audio_input_empty_id_errors_instead_of_latest_upload(
+    transcribe_module, upload_workspace
+):
+    for empty in ("", "   "):
+        path, err = transcribe_module._resolve_audio_input(empty)
+        assert path is None
+        assert "file not found" in err
+        assert "def-456" not in err
+
+
+def test_resolve_audio_input_omitted_still_auto_detects(transcribe_module, upload_workspace):
+    path, name = transcribe_module._resolve_audio_input(None)
+    assert path == (upload_workspace / "def-456_other.wav").resolve()
+    assert name == "def-456_other.wav"
+
+
+def test_resolve_audio_input_valid_id_resolves_that_file(transcribe_module, upload_workspace):
+    path, name = transcribe_module._resolve_audio_input("abc-123")
+    assert path == (upload_workspace / "abc-123_meeting.wav").resolve()
+    assert name == "abc-123_meeting.wav"
+
+
+def test_transcribe_tools_return_error_for_empty_id(transcribe_module, upload_workspace):
+    import asyncio
+
+    plain = asyncio.run(transcribe_module.transcribe_audio(file=""))
+    diarized = asyncio.run(transcribe_module.transcribe_with_speakers(file=""))
+    assert "file not found" in plain["error"]
+    assert "file not found" in diarized["error"]
+
+
+# ── whisper MCP (:8915) mirrors the same guard ────────────────────────────────
+
+
+@pytest.fixture()
+def whisper_module(monkeypatch):
+    pytest.importorskip("mcp")
+    from portal.modules.media.tools import whisper_mcp
+
+    calls: list[tuple[str, dict]] = []
+
+    async def fake_host(tool: str, arguments: dict) -> dict:
+        calls.append((tool, arguments))
+        return {"text": arguments.get("file", "auto-detected")}
+
+    monkeypatch.setattr(whisper_mcp, "_try_host", fake_host)
+    return whisper_mcp, calls
+
+
+def test_whisper_empty_file_errors_without_calling_the_host(whisper_module):
+    import asyncio
+
+    whisper, calls = whisper_module
+    plain = asyncio.run(whisper.transcribe_audio(file_path=""))
+    diarized = asyncio.run(whisper.transcribe_with_speakers(file=""))
+    assert "file not found" in plain["error"]
+    assert "file not found" in diarized["error"]
+    assert calls == []
+
+
+def test_whisper_omitted_file_still_auto_detects(whisper_module):
+    import asyncio
+
+    whisper, calls = whisper_module
+    assert asyncio.run(whisper.transcribe_audio())["text"] == "auto-detected"
+    assert calls == [("transcribe_audio", {})]
+
+
+def test_whisper_named_file_is_forwarded_not_replaced_by_latest(whisper_module):
+    import asyncio
+
+    whisper, _calls = whisper_module
+    assert asyncio.run(whisper.transcribe_audio(file_path="abc-123"))["text"] == "abc-123"
