@@ -136,6 +136,36 @@ class TestEndpointPolicy:
 
 
 class TestParsing:
+    def test_ask_judge_posts_to_the_ollama_chat_api(self, monkeypatch):
+        """The one network call: the Ollama /api/chat body, temperature 0, and the reply
+        read from message.content."""
+        seen = {}
+
+        class _Resp:
+            def __init__(self, body):
+                self._body = body
+
+            def read(self):
+                return self._body
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        def fake_urlopen(req, timeout=0):
+            seen.update(url=req.full_url, body=json.loads(req.data), timeout=timeout)
+            body = {"message": {"content": json.dumps({"preference": "B", "reason": "ok"})}}
+            return _Resp(json.dumps(body).encode())
+
+        monkeypatch.setattr(judge.urllib.request, "urlopen", fake_urlopen)
+        out = judge.ask_judge([{"role": "user", "content": "hi"}], "judge:tag", "http://p40:11434/")
+        assert seen["url"] == "http://p40:11434/api/chat"
+        assert seen["body"]["model"] == "judge:tag" and seen["body"]["stream"] is False
+        assert seen["body"]["options"] == {"temperature": 0, "seed": 7}
+        assert judge.parse_verdict(out) == ("B", "ok")
+
     def test_json_object(self):
         assert judge.parse_verdict('{"preference": "B", "reason": "clearer"}') == ("B", "clearer")
 
