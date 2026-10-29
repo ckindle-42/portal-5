@@ -1,0 +1,4 @@
+# Keys a job step may name in env_from_dotenv. A trailing * matches that prefix only.
+patterns:
+  - LAB_SPLUNK_*
+  - PIPELINE_API_KEY

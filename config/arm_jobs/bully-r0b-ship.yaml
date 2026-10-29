@@ -1,0 +1,75 @@
+# Bully R0b ship: dry-run, ship into labelled_corpus, then verify the newest items.json.
+# corpus_reingest --verify with no --items reads the latest report under the fidelity root.
+# Each step exports only the named .env keys (LAB_SPLUNK_*), never the rest of the file.
+id: bully-r0b-ship
+purpose: "Bully R0b ship — dry-run, ship labelled_corpus, verify the newest fidelity items"
+preconditions:
+  stack: up
+  # Same scan footprint as bully-r0b-real-dryrun: the event trees sit in the python process.
+  free_memory_gib: 16
+  disk_free_gib: 50
+steps:
+  - id: dry-run
+    argv:
+      - uv
+      - run
+      - python
+      - scripts/corpus_reingest.py
+      - --dry-run
+      - --lab-census
+    timeout_seconds: 14400
+    env_from_dotenv:
+      - LAB_SPLUNK_URL
+      - LAB_SPLUNK_USER
+      - LAB_SPLUNK_PASSWORD
+      - LAB_SPLUNK_INDEX
+      - LAB_SPLUNK_HEC_URL
+      - LAB_SPLUNK_HEC_TOKEN
+    outputs:
+      - ~/AI_Output/portal-data/reports/review_eval/corpus_fidelity
+  - id: ship
+    argv:
+      - uv
+      - run
+      - python
+      - scripts/corpus_reingest.py
+      - --ship
+      - --lab-census
+    # The dry-run scan is 4h; shipping repeats it and then posts HEC batches.
+    timeout_seconds: 28800
+    env_from_dotenv:
+      - LAB_SPLUNK_URL
+      - LAB_SPLUNK_USER
+      - LAB_SPLUNK_PASSWORD
+      - LAB_SPLUNK_INDEX
+      - LAB_SPLUNK_HEC_URL
+      - LAB_SPLUNK_HEC_TOKEN
+    outputs:
+      - ~/AI_Output/portal-data/reports/review_eval/corpus_fidelity
+  - id: verify
+    argv:
+      - uv
+      - run
+      - python
+      - scripts/corpus_reingest.py
+      - --verify
+    timeout_seconds: 1800
+    env_from_dotenv:
+      - LAB_SPLUNK_URL
+      - LAB_SPLUNK_USER
+      - LAB_SPLUNK_PASSWORD
+      - LAB_SPLUNK_INDEX
+      - LAB_SPLUNK_HEC_URL
+      - LAB_SPLUNK_HEC_TOKEN
+outputs:
+  - ~/AI_Output/portal-data/reports/review_eval/corpus_fidelity
+stop_conditions:
+  on_failure: stop
+  max_job_minutes: 780  # 14400s + 28800s + 1800s, plus slack
+report:
+  fields:
+    - status
+    - steps
+    - outputs
+    - failures
+    - duration

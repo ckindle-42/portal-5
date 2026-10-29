@@ -872,3 +872,69 @@ def test_acquire_repairs_existing_pinned_lfs_clone(tmp_path: Path) -> None:
 
     assert result["status"] == "verified"
     assert (sibling / "payload.bin").read_bytes() == b"real-lfs-payload\n"
+
+
+def test_verify_uses_the_latest_items_report(tmp_path: Path, monkeypatch: Any, capsys: Any) -> None:
+    output = tmp_path / "reports"
+    older = output / "20260101T000000Z__attack_data-aaaaaaaaaaaa"
+    newer = output / "20261029T000000Z__attack_data-bbbbbbbbbbbb"
+    older.mkdir(parents=True)
+    newer.mkdir(parents=True)
+    (older / "items.json").write_text('{"items": {}}\n', encoding="utf-8")
+    (newer / "items.json").write_text('{"items": {}}\n', encoding="utf-8")
+    seen: dict[str, Path] = {}
+
+    def fake_verify(path: Path) -> dict[str, Any]:
+        seen["path"] = path
+        return {"ok": True, "mismatches": {}, "extra_p5_items": []}
+
+    monkeypatch.setattr(reingest, "verify_plan", fake_verify)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["corpus_reingest.py", "--verify", "--output-root", str(output)],
+    )
+
+    assert reingest.main() == 0
+    assert seen["path"] == newer / "items.json"
+    assert f"VERIFY items: {newer / 'items.json'}" in capsys.readouterr().out
+
+
+def test_verify_explicit_items_beats_a_newer_report(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    output = tmp_path / "reports"
+    newer = output / "20261029T000000Z__attack_data-bbbbbbbbbbbb"
+    chosen = tmp_path / "items.json"
+    newer.mkdir(parents=True)
+    (newer / "items.json").write_text('{"items": {}}\n', encoding="utf-8")
+    chosen.write_text('{"items": {}}\n', encoding="utf-8")
+    seen: dict[str, Path] = {}
+
+    def fake_verify(path: Path) -> dict[str, Any]:
+        seen["path"] = path
+        return {"ok": False, "mismatches": {"x": {}}, "extra_p5_items": []}
+
+    monkeypatch.setattr(reingest, "verify_plan", fake_verify)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["corpus_reingest.py", "--verify", "--items", str(chosen), "--output-root", str(output)],
+    )
+
+    assert reingest.main() == 1
+    assert seen["path"] == chosen
+    capsys.readouterr()
+
+
+def test_verify_without_a_report_exits(tmp_path: Path, monkeypatch: Any) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["corpus_reingest.py", "--verify", "--output-root", str(tmp_path / "missing")],
+    )
+
+    with pytest.raises(SystemExit) as caught:
+        reingest.main()
+
+    assert caught.value.code == 2

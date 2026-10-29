@@ -244,6 +244,88 @@ class QueueLedger:
         self._event(task_id, "queued", {"requeue": True})
         self.db.commit()
 
+    def cancel_task(self, task_id: str, reason: str, *, force: bool = False) -> None:
+        """Queued becomes blocked/CANCELLED. A live runner is refused unless force and the pid is dead."""
+        text = reason.strip() or "cancelled by operator"
+        self._assert_cancellable(task_id, force=force)
+        self._backup_db()
+        self.db.execute("BEGIN IMMEDIATE")
+        try:
+            self._assert_cancellable(task_id, force=force)
+            self._set_state_in_txn(task_id, "blocked", "CANCELLED", text)
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+
+    def requeue_job(self, task_id: str, plan: str) -> None:
+        """Blocked or done job returns to queued with the spec re-read by the caller."""
+        self._assert_requeue_job(task_id)
+        self._backup_db()
+        self.db.execute("BEGIN IMMEDIATE")
+        try:
+            self._assert_requeue_job(task_id)
+            now = _now()
+            self.db.execute(
+                "UPDATE queue_task SET state = 'queued', plan_json = ?, runner_pid = NULL, "
+                "receipt_status = NULL, last_error = NULL, updated_at = ? WHERE task_id = ?",
+                (plan, now, task_id),
+            )
+            self._event(task_id, "queued", {"requeue": True})
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+
+    def _assert_cancellable(self, task_id: str, *, force: bool) -> None:
+        row = self.db.execute(
+            "SELECT state, runner_pid FROM queue_task WHERE task_id = ?", (task_id,)
+        ).fetchone()
+        if row is None:
+            raise ValueError(f"no queue task: {task_id}")
+        _require_cancellable(task_id, str(row["state"]), row["runner_pid"], force=force)
+
+    def _assert_requeue_job(self, task_id: str) -> None:
+        row = self.db.execute(
+            "SELECT kind, state FROM queue_task WHERE task_id = ?", (task_id,)
+        ).fetchone()
+        if row is None:
+            raise ValueError(f"no queue task: {task_id}")
+        if str(row["kind"]) != "job":
+            raise ValueError(f"queue task {task_id} is not a job")
+        if str(row["state"]) not in {"blocked", "done"}:
+            raise ValueError(
+                f"queue task {task_id} is {row['state']}; requeue accepts blocked or done"
+            )
+
+    def _backup_db(self) -> Path:
+        # backup() on a connection that is inside a transaction sleeps in sqlite3_sleep.
+        self.db.rollback()
+        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
+        dest = self.task_root / f"queue.sqlite3.{stamp}.bak"
+        if dest.exists():
+            dest = self.task_root / f"queue.sqlite3.{stamp}.{os.getpid()}.bak"
+        source = sqlite3.connect(self.task_root / "queue.sqlite3")
+        target = sqlite3.connect(dest)
+        try:
+            source.backup(target)
+        except Exception:
+            target.close()
+            source.close()
+            dest.unlink(missing_ok=True)
+            raise
+        target.close()
+        source.close()
+        return dest
+
+    def _set_state_in_txn(self, task_id: str, state: str, receipt_status: str, reason: str) -> None:
+        self.db.execute(
+            "UPDATE queue_task SET state = ?, runner_pid = NULL, receipt_status = ?, "
+            "last_error = ?, updated_at = ? WHERE task_id = ?",
+            (state, receipt_status, reason, _now(), task_id),
+        )
+        self._event(task_id, state, {"receipt_status": receipt_status, "reason": reason})
+
     def items(self) -> list[dict[str, Any]]:
         rows = self.db.execute(
             "SELECT task_id, kind, state, source_dir, receipt_status, last_error, "
@@ -386,6 +468,17 @@ class OvernightQueue:
             "results": [],
         }
         path.write_text(json.dumps(receipt, indent=1) + "\n", encoding="utf-8")
+
+
+def _require_cancellable(task_id: str, state: str, runner_pid: Any, *, force: bool) -> None:
+    if state == "queued":
+        return
+    if state != "running":
+        raise ValueError(f"queue task {task_id} is {state}; only a queued task can be cancelled")
+    if not force:
+        raise ValueError(f"queue task {task_id} is running; pass --force when its runner is dead")
+    if _pid_alive(runner_pid):
+        raise ValueError(f"queue task {task_id} runner is still alive (pid {runner_pid})")
 
 
 def _live_pids(path: Path) -> tuple[list[int], str | None]:
