@@ -825,6 +825,7 @@ def build(campaign_dir: Path, allow_mixed: bool = False, only_arm: str | None = 
     warnings = _collect_warnings(rows, manifest, allow_mixed)
     reviews = _review_scores(campaign_dir)
     judgements = judge.summary(campaign_dir)
+    cloud_judgements = judge.summary(campaign_dir, profile="cloud")
     by_key: dict[tuple, list[dict]] = defaultdict(list)
     for r in rows:
         by_key[(r["workspace"], r["suite"], r["arm"])].append(r)
@@ -881,6 +882,15 @@ def build(campaign_dir: Path, allow_mixed: bool = False, only_arm: str | None = 
                     row["arm"],
                     inc,
                 ),
+                "judge_cloud": _judge_text(
+                    judge.cell_for(
+                        cloud_judgements, row["workspace"], row["suite"], row["arm"], inc
+                    ),
+                    row["arm"],
+                    inc,
+                )
+                if cloud_judgements.get("records")
+                else None,
             }
         )
 
@@ -909,6 +919,7 @@ def build(campaign_dir: Path, allow_mixed: bool = False, only_arm: str | None = 
         "reused_rows": _reused_rows(rows),
         "comparisons": comparisons,
         "judge": judgements,
+        "judge_cloud": cloud_judgements,
         # Lanes that were measured but have nothing to rank against, because the
         # plan carries no incumbent arm for them. Recorded explicitly so their
         # absence from `comparisons` is a stated fact, not a silent omission.
@@ -1151,16 +1162,35 @@ def _sec_comparisons(a, rep) -> None:
     if not rep["comparisons"]:
         a("_No challenger produced a comparable result._")
     else:
-        a(
-            "| Workspace | Lane | Challenger | Challenger rate | Incumbent rate | Verdict "
-            "| Judge (blind) |"
+        has_cloud = any(c.get("judge_cloud") for c in rep["comparisons"])
+        header_cols = [
+            "| Workspace | Lane | Challenger | Challenger rate | Incumbent rate | Verdict |",
+        ]
+        cell_fmt = (
+            "| {ws} | {lane}:{suite} | `{challenger}` | {chr_rate} | {inc_rate} | **{verdict}** |"
         )
-        a("|---|---|---|---|---|---|---|")
+        if has_cloud:
+            header_cols.append(" Judge (blind) | Judge cloud |")
+            cell_fmt += " {judge} | {judge_cloud} |"
+        else:
+            header_cols.append(" Judge (blind) |")
+            cell_fmt += " {judge} |"
+        for h in header_cols:
+            a(h)
+        a("|---|---|---|---|---|---|" + ("---|---|" if has_cloud else ""))
         for c in rep["comparisons"]:
             a(
-                f"| {c['workspace']} | {c['lane']}:{c['suite']} | `{c['challenger']}` | "
-                f"{c['challenger_rate']} | {c['incumbent_rate']} | **{c['verdict']}** | "
-                f"{c.get('judge') or '—'} |"
+                cell_fmt.format(
+                    ws=c["workspace"],
+                    lane=c["lane"],
+                    suite=c["suite"],
+                    challenger=c["challenger"],
+                    chr_rate=c["challenger_rate"],
+                    inc_rate=c["incumbent_rate"],
+                    verdict=c["verdict"],
+                    judge=c.get("judge") or "—",
+                    judge_cloud=c.get("judge_cloud") or "—",
+                )
             )
     a("")
     a(
@@ -1169,6 +1199,7 @@ def _sec_comparisons(a, rep) -> None:
     )
     a("")
     guard = rep.get("judge") or {}
+    guard_cloud = rep.get("judge_cloud") or {}
     a(
         "Judge (blind, order randomised, arms hidden): "
         f"{guard.get('records', 0)} judgement record(s), {guard.get('errors', 0)} error(s)"
@@ -1179,6 +1210,17 @@ def _sec_comparisons(a, rep) -> None:
         )
         + ". Reported beside the pass rates and **not gated**: `decision.py` reads no judgement."
     )
+    if guard_cloud.get("records"):
+        a(
+            f"\nJudge cloud: {guard_cloud.get('records', 0)} judgement record(s), "
+            f"{guard_cloud.get('errors', 0)} error(s)"
+            + (
+                f"; model(s) {', '.join(f'`{m}`' for m in guard_cloud['judge_models'])}"
+                if guard_cloud.get("judge_models")
+                else ""
+            )
+            + "."
+        )
     a("")
     # A lane whose incumbent was excluded has challengers and no baseline. Saying
     # so is the point: without it those challengers simply have no rows in this

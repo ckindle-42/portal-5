@@ -202,8 +202,21 @@ def _load_rows(campaign_dir: Path) -> list[dict]:
     return rows
 
 
-def _judgement_path(campaign_dir: Path, key: str) -> Path:
-    return campaign_dir / "judgements" / f"{sha12(key)}.json"
+def judge_profile(profile: str | None = None) -> str:
+    """The active judgment profile. --judge-profile wins, then WFE_JUDGE_PROFILE,
+    then the committed default (local)."""
+    return (profile or os.environ.get("WFE_JUDGE_PROFILE") or "local").lower()
+
+
+def judgements_dir(campaign_dir: Path, profile: str | None = None) -> Path:
+    """Where a profile's judgements live: local keeps the original flat directory."""
+    profile = judge_profile(profile)
+    base = campaign_dir / "judgements"
+    return base if profile == "local" else base / profile
+
+
+def _judgement_path(campaign_dir: Path, key: str, profile: str | None = None) -> Path:
+    return judgements_dir(campaign_dir, profile) / f"{sha12(key)}.json"
 
 
 def _already_judged(path: Path, rubric_sha: str, model: str, url: str) -> bool:
@@ -231,6 +244,8 @@ def _judge_one(
     model: str,
     url: str,
     meta: dict,
+    api_key: str | None = None,
+    profile: str | None = None,
 ) -> dict:
     arm_a, arm_b = arms
     flipped = order_flipped(key)
@@ -244,9 +259,20 @@ def _judge_one(
         "rubric_sha": sha12(rubric),
         "judge_model": model,
         "judge_url": url,
+        "judge_profile": judge_profile(profile),
     }
     try:
-        reply = ask_judge(judge_messages(rubric, texts[first], texts[second]), model, url)
+        if api_key:
+            from tests.wfe.judge_cloud import ask_cloud_judge
+
+            reply = ask_cloud_judge(
+                judge_messages(rubric, texts[first], texts[second]),
+                model,
+                url,
+                api_key,
+            )
+        else:
+            reply = ask_judge(judge_messages(rubric, texts[first], texts[second]), model, url)
         preference, reason = parse_verdict(reply)
         winner = None if preference == "tie" else record["arms"][preference]
         record.update(
@@ -254,7 +280,7 @@ def _judge_one(
         )
     except Exception as e:  # noqa: BLE001 - a judge failure is recorded, never a verdict
         record.update({"error": f"{type(e).__name__}: {e}", "preference": None, "winner": None})
-    path = _judgement_path(campaign_dir, key)
+    path = _judgement_path(campaign_dir, key, profile)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(record, indent=1))
     return record
@@ -313,11 +339,27 @@ def judge_campaign(
     model: str | None = None,
     url: str | None = None,
     limit: int | None = None,
+    profile: str | None = None,
 ) -> dict:
     """Judge every task pair that now has a row from both arms; resumable, idempotent."""
-    model = judge_model(model)
-    url = judge_url(url)
-    assert_local(url)
+    profile = judge_profile(profile)
+    if profile == "cloud":
+        from tests.wfe.judge_cloud import (
+            cloud_api_key,
+            cloud_model,
+            cloud_url,
+            refuse_cloud_for_security,
+        )
+
+        model = cloud_model(model)
+        url = cloud_url(url)
+        api_key = cloud_api_key()
+        refuse_cloud_for_security(campaign_dir)
+    else:
+        model = judge_model(model)
+        url = judge_url(url)
+        assert_local(url)
+        api_key = None
     manifest = json.loads((campaign_dir / "manifest.json").read_text())
     suites: dict[str, str] = {}
     for m in manifest.get("rows") or []:
@@ -337,28 +379,30 @@ def judge_campaign(
     for key, arms, texts, meta, rubric in pairs:
         if limit is not None and res["judged"] >= limit:
             break
-        path = _judgement_path(campaign_dir, key)
+        path = _judgement_path(campaign_dir, key, profile)
         if _already_judged(path, sha12(rubric), model, url):
             res["skipped"] += 1
             continue
-        record = _judge_one(campaign_dir, key, arms, texts, rubric, model, url, meta)
+        record = _judge_one(
+            campaign_dir, key, arms, texts, rubric, model, url, meta, api_key, profile
+        )
         res["judged"] += 1
         if record.get("error"):
             res["errors"] += 1
     return res
 
 
-def load(campaign_dir: Path) -> list[dict]:
+def load(campaign_dir: Path, profile: str | None = None) -> list[dict]:
     out = []
-    for f in sorted((campaign_dir / "judgements").glob("*.json")):
+    for f in sorted(judgements_dir(campaign_dir, profile).glob("*.json")):
         with contextlib.suppress(Exception):
             out.append(json.loads(f.read_text()))
     return out
 
 
-def summary(campaign_dir: Path) -> dict:
+def summary(campaign_dir: Path, profile: str | None = None) -> dict:
     """Per-cell blind preferences: {arm: wins}, ties and n, keyed by sorted arm pair."""
-    records = load(campaign_dir)
+    records = load(campaign_dir, profile)
     cells: dict[str, dict] = {}
     for rec in records:
         if rec.get("error"):
@@ -411,11 +455,24 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--model")
     ap.add_argument("--url")
     ap.add_argument("--limit", type=int)
+    ap.add_argument(
+        "--judge-profile",
+        choices=("local", "cloud"),
+        default=None,
+        help="which recorded profile to run: 'local' (Ollama /api/chat) or "
+        "'cloud' (OpenAI-compatible /v1/chat/completions)",
+    )
     args = ap.parse_args(argv)
     from tests.wfe import campaign as camp
 
     root = args.campaigns_root or camp.CAMPAIGNS
-    res = judge_campaign(root / args.campaign, args.model, args.url, args.limit)
+    res = judge_campaign(
+        root / args.campaign,
+        args.model,
+        args.url,
+        args.limit,
+        profile=args.judge_profile,
+    )
     print(
         f"{res['campaign']}: {res['judged']} judged, {res['skipped']} already recorded, "
         f"{res['errors']} error(s), {res['pairs']} pair(s) ready ({res['model']} @ {res['url']})"
