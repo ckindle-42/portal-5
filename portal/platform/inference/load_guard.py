@@ -35,7 +35,7 @@ Headroom is oMLX's ``final_ceiling`` minus its resident model memory (oMLX deriv
 the ceiling from host free + inactive memory), plus idle Ollama residents, minus
 ``LOAD_GUARD_MARGIN_GB``. ``LOAD_GUARD_CEILING_GB`` replaces that ceiling with a
 fixed budget; the balanced tier's ceiling follows free memory (P5-OMLX-CEILING-001).
-Ollama sizing starts with weights × ``LOAD_GUARD_FACTOR`` and adds architecture-derived KV bytes at baked ``num_ctx`` using ``OLLAMA_KV_CACHE_TYPE`` (default f16); missing geometry uses a context-scaled fallback and observed residency can raise either estimate.
+Ollama sizing adds per-layer KV bytes at baked ``num_ctx`` using ``OLLAMA_KV_CACHE_TYPE`` (default q8_0); missing geometry falls back to weights × ``LOAD_GUARD_FACTOR`` and observed residency can raise the estimate.
 Cold loads unload idle models from the other engine when current headroom does not cover the incoming model.
 
 Fail-open: when oMLX's status cannot be read, the load is admitted. Resident
@@ -132,20 +132,23 @@ def _show_values(show: dict[str, Any]) -> dict[str, Any]:
     return values
 
 
-def _show_number(values: dict[str, Any], *names: str) -> float | None:
+def _show_value(values: dict[str, Any], *names: str) -> Any:
     for name in names:
         for key, value in values.items():
             if key == name or key.endswith(f".{name}"):
-                try:
-                    number = float(value)
-                except (TypeError, ValueError):
-                    continue
-                if number > 0:
-                    return number
+                return value
     return None
 
 
-def _context_tokens(show: dict[str, Any], model: str, values: dict[str, Any]) -> int | None:
+def _show_number(values: dict[str, Any], *names: str) -> float | None:
+    try:
+        number = float(_show_value(values, *names))
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
+
+
+def _context_tokens(model: str, values: dict[str, Any]) -> int | None:
     baked = _show_number(values, "num-ctx", "num_ctx")
     if baked:
         return int(baked)
@@ -159,14 +162,33 @@ def _context_tokens(show: dict[str, Any], model: str, values: dict[str, Any]) ->
             if match.group(2).lower() == "m"
             else 1
         )
-    architecture = str(values.get("general.architecture") or "")
-    return (
-        int(_show_number(values, f"{architecture}.context_length", "context_length") or 0) or None
-    )
+    return None
+
+
+def _layer_numbers(value: Any, count: int) -> list[float] | None:
+    items = value if isinstance(value, list) else [value] * count
+    if len(items) != count:
+        return None
+    try:
+        numbers = [float(item) for item in items]
+    except (TypeError, ValueError):
+        return None
+    return numbers if all(number >= 0 for number in numbers) else None
+
+
+def _layer_flags(value: Any, count: int) -> list[bool] | None:
+    items = value if isinstance(value, list) else [value] * count
+    if len(items) != count:
+        return None
+    if all(isinstance(item, bool) for item in items):
+        return items
+    if all(isinstance(item, str) and item.lower() in {"true", "false"} for item in items):
+        return [item.lower() == "true" for item in items]
+    return None
 
 
 def _cache_bytes(values: dict[str, Any], *names: str) -> float:
-    fallback = os.environ.get("OLLAMA_KV_CACHE_TYPE", "f16").lower()
+    fallback = os.environ.get("OLLAMA_KV_CACHE_TYPE", "q8_0").lower()
     raw = next((str(values[key]).lower() for key in names if key in values), fallback)
     return {
         "f32": 4.0,
@@ -185,38 +207,83 @@ def _cache_bytes(values: dict[str, Any], *names: str) -> float:
     }.get(raw, 2.0)
 
 
+def _sliding_layers(values: dict[str, Any], count: int) -> tuple[list[bool], int] | None:
+    window = _show_number(values, "attention.sliding_window", "sliding_window")
+    pattern = _show_value(values, "attention.sliding_window_pattern", "sliding_window_pattern")
+    if pattern is None:
+        return None if window else ([False] * count, 0)
+    sliding = _layer_flags(pattern, count)
+    if sliding is None or (any(sliding) and not window):
+        return None
+    return sliding, int(window or 0)
+
+
+def _attention_lengths(
+    values: dict[str, Any], count: int
+) -> tuple[list[float], list[float]] | None:
+    key_raw = _show_value(values, "attention.key_length", "key_length")
+    value_raw = _show_value(values, "attention.value_length", "value_length")
+    if key_raw is None or value_raw is None:
+        width = _show_number(values, "attention.head_dim", "head_dim")
+        if width is None:
+            embedding = _show_number(values, "embedding_length", "hidden_size", "d_model")
+            query_heads = _show_number(
+                values, "attention.head_count", "n_head", "num_attention_heads"
+            )
+            width = embedding / query_heads if embedding and query_heads else None
+        if width is None:
+            return None
+        key_raw = width if key_raw is None else key_raw
+        value_raw = width if value_raw is None else value_raw
+    key = _layer_numbers(key_raw, count)
+    value = _layer_numbers(value_raw, count)
+    return (key, value) if key is not None and value is not None else None
+
+
+def _ollama_kv_bytes(values: dict[str, Any], context: int | None) -> float | None:
+    layer_count = _show_number(values, "block_count", "n_layer", "num_hidden_layers")
+    if not context or not layer_count or not layer_count.is_integer():
+        return None
+    count = int(layer_count)
+    heads = _layer_numbers(
+        _show_value(
+            values, "attention.head_count_kv", "n_head_kv", "num_key_value_heads", "num_kv_heads"
+        ),
+        count,
+    )
+    sliding_geometry = _sliding_layers(values, count)
+    lengths = _attention_lengths(values, count)
+    if heads is None or sliding_geometry is None or lengths is None:
+        return None
+    sliding, window = sliding_geometry
+    key, value = lengths
+    key_swa = _layer_numbers(
+        _show_value(values, "attention.key_length_swa", "key_length_swa"), count
+    )
+    value_swa = _layer_numbers(
+        _show_value(values, "attention.value_length_swa", "value_length_swa"), count
+    )
+    if any(sliding) and (key_swa is None or value_swa is None):
+        return None
+    cache_k = _cache_bytes(values, "cache-type-k", "kv-cache-type", "kv_cache_type")
+    cache_v = _cache_bytes(values, "cache-type-v", "kv-cache-type", "kv_cache_type")
+    return sum(
+        (min(context, window) if is_sliding else context)
+        * layer_heads
+        * (
+            (key_swa[index] if is_sliding and key_swa else key[index]) * cache_k
+            + (value_swa[index] if is_sliding and value_swa else value[index]) * cache_v
+        )
+        for index, (layer_heads, is_sliding) in enumerate(zip(heads, sliding, strict=True))
+        if layer_heads
+    )
+
+
 def _estimate_ollama_need(weights: int, show: dict[str, Any], model: str) -> float:
     values = _show_values(show)
-    context = _context_tokens(show, model, values)
     base = weights * _FACTOR
-    layers = _show_number(values, "block_count", "n_layer", "num_hidden_layers")
-    kv_heads = _show_number(
-        values, "attention.head_count_kv", "n_head_kv", "num_key_value_heads", "num_kv_heads"
-    )
-    width = _show_number(
-        values,
-        "attention.key_length",
-        "key_length",
-        "attention.head_dim",
-        "head_dim",
-    )
-    if width is None:
-        embedding = _show_number(values, "embedding_length", "hidden_size", "d_model")
-        heads = _show_number(values, "attention.head_count", "n_head", "num_attention_heads")
-        width = embedding / heads if embedding and heads else embedding
-    if context and layers and kv_heads and width:
-        value_width = _show_number(values, "attention.value_length", "value_length") or width
-        kv = (
-            context
-            * layers
-            * kv_heads
-            * (
-                width * _cache_bytes(values, "cache-type-k", "kv-cache-type")
-                + value_width * _cache_bytes(values, "cache-type-v", "kv-cache-type")
-            )
-        )
-        return base + kv
-    return base * max(1.0, (context or 32768) / 32768)
+    kv = _ollama_kv_bytes(values, _context_tokens(model, values))
+    return base + kv if kv is not None else base
 
 
 OLLAMA = "ollama"

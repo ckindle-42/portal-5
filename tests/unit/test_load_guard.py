@@ -341,6 +341,7 @@ async def test_a_case_only_tag_difference_sizes_from_the_served_entry():
                     "tiny.block_count": 1,
                     "tiny.attention.head_count_kv": 1,
                     "tiny.attention.key_length": 1,
+                    "tiny.attention.value_length": 1,
                 },
             }
         },
@@ -439,6 +440,7 @@ async def test_96k_ollama_cold_load_unloads_idle_omlx_before_chat():
                     "granite.block_count": 48,
                     "granite.attention.head_count_kv": 4,
                     "granite.attention.key_length": 128,
+                    "granite.attention.value_length": 128,
                 },
             }
         },
@@ -490,12 +492,83 @@ async def test_omlx_load_refuses_without_room_after_idle_ollama_is_gone():
     assert not g._lock.locked()
 
 
-async def test_missing_ollama_architecture_uses_context_scaled_fallback():
+async def test_missing_ollama_architecture_uses_weight_factor_fallback():
     model = "large-ctx96k"
     e = Engines(tags={model: 8 * GIB})
     async with httpx.AsyncClient(transport=e.transport()) as client:
         estimate = await guard(e)._need(client, OLLAMA_URL, model)
-    assert estimate == pytest.approx(8 * GIB * lg._FACTOR * 3)
+    assert estimate == pytest.approx(8 * GIB * lg._FACTOR)
+
+
+async def test_observed_resident_size_can_raise_missing_geometry_fallback():
+    model = "large-ctx96k"
+    e = Engines(tags={model: 8 * GIB})
+    g = guard(e)
+    g._observed[(OLLAMA, model)] = 30 * GIB
+    async with httpx.AsyncClient(transport=e.transport()) as client:
+        estimate = await g._need(client, OLLAMA_URL, model)
+    assert estimate == 30 * GIB
+
+
+async def test_gemma4_per_layer_swa_metadata_stays_below_25_gib(monkeypatch):
+    monkeypatch.setenv("OLLAMA_KV_CACHE_TYPE", "q8_0")
+    model = "gemma4:26b-a4b-it-q4_K_M-ctx128k"
+    show = {
+        "parameters": "num_ctx 131072",
+        "model_info": {
+            "general.architecture": "gemma4",
+            "gemma4.block_count": 30,
+            "gemma4.attention.head_count_kv": [8, 8, 8, 8, 8, 2, *([1] * 24)],
+            "gemma4.attention.sliding_window": 1024,
+            "gemma4.attention.sliding_window_pattern": [True] * 5 + [False] * 25,
+            "gemma4.attention.key_length": 512,
+            "gemma4.attention.value_length": 512,
+            "gemma4.attention.key_length_swa": 256,
+            "gemma4.attention.value_length_swa": 256,
+        },
+    }
+    e = Engines(tags={model: int(16.76 * GIB)}, shows={model: show})
+    async with httpx.AsyncClient(transport=e.transport()) as client:
+        estimate = await guard(e)._need(client, OLLAMA_URL, model)
+    assert estimate / GIB < 25
+
+
+async def test_hybrid_zero_kv_layers_do_not_trigger_context_fallback(monkeypatch):
+    monkeypatch.setenv("OLLAMA_KV_CACHE_TYPE", "q8_0")
+    model = "lfm2.5:24b-a2b-ctx96k"
+    show = {
+        "parameters": "num_ctx 98304",
+        "model_info": {
+            "general.architecture": "lfm2",
+            "lfm2.block_count": 48,
+            "lfm2.attention.head_count_kv": [0] * 40 + [2] * 8,
+            "lfm2.attention.key_length": 128,
+            "lfm2.attention.value_length": 128,
+        },
+    }
+    e = Engines(tags={model: 15 * GIB}, shows={model: show})
+    async with httpx.AsyncClient(transport=e.transport()) as client:
+        estimate = await guard(e)._need(client, OLLAMA_URL, model)
+    assert estimate == pytest.approx(15 * GIB * lg._FACTOR + 8 * 2 * 98304 * 256 * 1.0625)
+
+
+async def test_qwen3_coder_plain_head_count_sizes_256k_q8_cache(monkeypatch):
+    monkeypatch.setenv("OLLAMA_KV_CACHE_TYPE", "q8_0")
+    model = "qwen3-coder:30b-a3b-q4_K_M-ctx256k"
+    show = {
+        "parameters": "num_ctx 262144",
+        "model_info": {
+            "general.architecture": "qwen3",
+            "qwen3.block_count": 48,
+            "qwen3.attention.head_count_kv": 4,
+            "qwen3.attention.head_count": 32,
+            "qwen3.embedding_length": 4096,
+        },
+    }
+    e = Engines(tags={model: 16 * GIB}, shows={model: show})
+    async with httpx.AsyncClient(transport=e.transport()) as client:
+        estimate = await guard(e)._need(client, OLLAMA_URL, model)
+    assert 30 <= estimate / GIB <= 35
 
 
 def test_ollama_global_kv_cache_type_is_used_when_show_has_no_override(monkeypatch):
@@ -506,6 +579,7 @@ def test_ollama_global_kv_cache_type_is_used_when_show_has_no_override(monkeypat
             "granite.block_count": 1,
             "granite.attention.head_count_kv": 1,
             "granite.attention.key_length": 64,
+            "granite.attention.value_length": 64,
         },
     }
     expected_kv = 32768 * (64 * 1.0625 + 64 * 1.0625)
