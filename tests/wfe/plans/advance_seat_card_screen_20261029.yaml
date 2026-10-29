@@ -1,0 +1,2 @@
+auto-compliance:
+- hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@card-d2ac089e

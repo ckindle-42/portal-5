@@ -602,8 +602,8 @@ def test_bully_r0b_real_dryrun_spec_parses_against_the_repo() -> None:
         yaml.safe_load(spec_path.read_text(encoding="utf-8")), repo_root=repo_root
     )
     assert spec.job_id == "bully-r0b-real-dryrun"
-    assert [step.step_id for step in spec.steps] == ["verify-sources", "acquire", "dry-run"]
-    assert "--dry-run" in spec.steps[2].argv  # never --ship from a job
+    assert [step.step_id for step in spec.steps] == ["acquire", "dry-run"]
+    assert "--dry-run" in spec.steps[1].argv  # never --ship from a job
     assert not any("--ship" in step.argv for step in spec.steps)
 
 

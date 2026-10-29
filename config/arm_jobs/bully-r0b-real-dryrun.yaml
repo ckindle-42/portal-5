@@ -16,13 +16,8 @@ preconditions:
   # if it ever gets fetched (it deliberately is not).
   disk_free_gib: 50
 steps:
-  - id: verify-sources
-    argv:
-      - uv
-      - run
-      - python
-      - scripts/acquire_corpus_sources.py
-    timeout_seconds: 1200
+  # No separate verify step: verify-only exits 2 when a tree is missing (the expected case
+  # here) and would stop the job; --acquire verifies first and clones only what fails.
   - id: acquire
     argv:
       - uv
@@ -48,7 +43,7 @@ outputs:
   - ~/AI_Output/portal-data/reports/review_eval/corpus_fidelity
 stop_conditions:
   on_failure: stop
-  max_job_minutes: 330  # 1200 s + 3600 s + 14400 s of step timeouts, plus slack
+  max_job_minutes: 310  # 3600 s + 14400 s of step timeouts, plus slack
 report:
   fields:
     - status
