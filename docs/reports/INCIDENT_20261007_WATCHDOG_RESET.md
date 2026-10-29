@@ -54,3 +54,11 @@ memory and swap, and stalled.
 - Client timeouts still do not cancel server-side work through the compliance MCP. The
   guard bounds the memory effect, but the wasted compute remains.
 - `/opt/homebrew/var/log/ollama.log` is 3.3 GB and has no rotation.
+
+## Correction status (attribution — unrecoverable)
+
+The original attribution in question was pid 56817 at 31.7 GB, with the `:8917` / `:8946` leak signature (embedding arm footprint). The primary panic evidence (`panic-full-2026-10-07-001641.0002.panic` from `/Library/Logs/DiagnosticReports/` and its `Retired/` copy) is no longer on disk; no duplicate exists in the environment checked 2026-10-28. Without the panic file we cannot verify `processByPid[*].residentMemoryBytes` for pid 56817, so the attribution correction cannot be sourced. What IS established: the watchdog footprint-ceiling fix (`35413d01`) is merged and the host guard (`scripts/memory_safety_watch.py`, `deploy/launchd/com.portal5.host-ml-watch.plist`) is in place.
+
+### How to read a panic (next time)
+
+In a `.panic` file, the process footprint is under `processByPid[*].residentMemoryBytes` (bytes). Match the pid to the log's process line; the resident-memory byte count is the authoritative footprint figure — not RSS from `ps`, which excludes shared mappings that the watchdog counts. Save the `.panic` before it is moved to `Retired/` or deleted; once removed, the attribution is unrecoverable.
