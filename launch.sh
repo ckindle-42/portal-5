@@ -342,6 +342,8 @@ case "${1:-up}" in
     docker compose up -d --no-deps $_keep
     _portal_module_services --apply --kind compose --stop-only
     _portal_module_services --apply --kind host
+    echo "[portal-5] Restarting enabled native MCP services..."
+    _restart_native_mcps
     echo "[portal-5] Done. Check status: ./launch.sh status"
     ;;
 

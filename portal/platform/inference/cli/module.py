@@ -111,6 +111,11 @@ def module_services_cmd(
         False, "--stop-only", help="With --apply, only stop disabled services"
     ),
     status: bool = typer.Option(False, "--status", help="Print module, config state, and runtime"),
+    native_mcp: bool = typer.Option(
+        False,
+        "--native-mcp",
+        help="List enabled native MCP services as 'launchd-label port'",
+    ),
 ) -> None:
     """Print or apply the module→service map (one ident per line)."""
     from portal.platform.inference.cli.module_services import run_services_cli
@@ -123,6 +128,7 @@ def module_services_cmd(
         apply=apply,
         stop_only=stop_only,
         status=status,
+        native_mcp=native_mcp,
     )
 
 

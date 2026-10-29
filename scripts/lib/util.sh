@@ -277,6 +277,57 @@ _portal_module_services() {
         "$py" -m portal.platform.inference.cli module services "$@"
 }
 
+# Kickstart every enabled native MCP from config, even if /health is already up.
+_restart_native_mcps() {
+    local uid label port tries n healthy roster failed
+    uid="$(id -u)"
+    failed=0
+    if [ "$(uname -s)" != "Darwin" ]; then
+        echo "[portal-5]   native MCP restart skipped (not macOS)"
+        return 0
+    fi
+    tries="${PORTAL_NATIVE_MCP_HEALTH_TRIES:-60}"
+    roster="$(_portal_module_services --native-mcp)" || {
+        echo "[portal-5]   native MCP roster unavailable"
+        return 1
+    }
+    if [ -z "$roster" ]; then
+        echo "[portal-5]   no enabled native MCP services"
+        return 0
+    fi
+    while read -r label port; do
+        [ -n "$label" ] || continue
+        if ! launchctl kickstart -k "gui/${uid}/${label}"; then
+            echo "[portal-5]   ${label}: kickstart failed"
+            failed=1
+            continue
+        fi
+        if [ -z "${port:-}" ]; then
+            echo "[portal-5]   ${label}: kickstarted, no health port"
+            continue
+        fi
+        healthy=0
+        n=0
+        while [ "$n" -lt "$tries" ]; do
+            if curl -fsS --max-time 2 "http://127.0.0.1:${port}/health" >/dev/null 2>&1; then
+                healthy=1
+                break
+            fi
+            n=$((n + 1))
+            if [ "$n" -lt "$tries" ]; then
+                sleep 1
+            fi
+        done
+        if [ "$healthy" -eq 1 ]; then
+            echo "[portal-5]   ${label}: healthy :${port}"
+        else
+            echo "[portal-5]   ${label}: health timeout :${port}"
+            failed=1
+        fi
+    done <<< "$roster"
+    [ "$failed" -eq 0 ]
+}
+
 # Start every compose service except those belonging to a disabled module.
 # $1 is the profile flag string (`--profile telegram`), possibly empty.
 _compose_up_enabled() {

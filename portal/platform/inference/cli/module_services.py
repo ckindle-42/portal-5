@@ -102,6 +102,27 @@ def services_for_module(cfg: PortalConfig, name: str) -> list[ServiceRef]:
     return [ref for ref in iter_services(cfg) if ref.module == name]
 
 
+def native_mcp_targets(cfg: PortalConfig, *, module: str | None = None) -> list[ServiceRef]:
+    """Enabled native MCPs from the fleet, plus host jobs whose label is an MCP."""
+    refs: list[ServiceRef] = []
+    for ref in select_services(cfg, want_enabled=True, kind="host"):
+        if not ref.native_service:
+            continue
+        if ref.fleet_id is None and "-mcp" not in ref.ident:
+            continue
+        refs.append(ref)
+    if module is not None:
+        return [ref for ref in refs if ref.module == module]
+    return refs
+
+
+def format_native_mcp_target(ref: ServiceRef) -> str:
+    """`launchd-label port` for the rebuild kickstart loop. No port: label only."""
+    if ref.port is None:
+        return ref.ident
+    return f"{ref.ident} {ref.port}"
+
+
 def up_plan(
     cfg: PortalConfig, enabled: list[str] | None = None
 ) -> tuple[list[ServiceRef], list[ServiceRef]]:
@@ -265,6 +286,11 @@ def _print_selected(
         typer.echo(ref.ident)
 
 
+def _print_native_mcp_targets(cfg: PortalConfig, module: str | None) -> None:
+    for ref in native_mcp_targets(cfg, module=module):
+        typer.echo(format_native_mcp_target(ref))
+
+
 def _apply_selected(
     cfg: PortalConfig, *, kind: str | None, module: str | None, stop_only: bool
 ) -> None:
@@ -285,9 +311,13 @@ def run_services_cli(
     apply: bool,
     stop_only: bool,
     status: bool,
+    native_mcp: bool = False,
 ) -> None:
     kind = _checked_kind(kind)
     cfg = load_portal_config(_force_reload=True)
+    if native_mcp:
+        _print_native_mcp_targets(cfg, module)
+        return
     if status:
         for line in status_rows(cfg):
             typer.echo(line)
@@ -299,6 +329,6 @@ def run_services_cli(
         _apply_selected(cfg, kind=kind, module=module, stop_only=stop_only)
         return
     if not enabled and not disabled:
-        typer.echo("pass --enabled, --disabled, --status, or --apply", err=True)
+        typer.echo("pass --enabled, --disabled, --status, --native-mcp, or --apply", err=True)
         raise typer.Exit(code=2)
     _print_selected(cfg, want_enabled=enabled, kind=kind, module=module)
