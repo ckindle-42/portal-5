@@ -1,0 +1,13 @@
+# tools-specialist::fast's instrument baseline: the seated gemma4:e4b-it-qat-ctx8k
+# measured alone on the new production allowlist (execute_python, remember, recall).
+# It runs BEFORE any candidate, so an s8 fast-screen delta is not confounded by the
+# mode change. Screen kit: scripts/seat_screen/intake_s8/queue.yaml (instrument_plans).
+# Incumbent only; challengers arrive with the candidate screens that follow it.
+workloads:
+  tools-specialist::fast:
+    tool_mode: production
+    home: tools_specialist_production
+    discovery: []
+    arms:
+      incumbent: gemma4:e4b-it-qat-ctx8k
+      challengers: []

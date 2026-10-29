@@ -148,12 +148,12 @@ def test_context_windows_cover_each_role():
 
 
 def test_plans_match_the_queue_and_expand():
-    referenced: dict[str, str] = {}
+    referenced: set[str] = set()
     for item in _items("bench"):
         plan_name = item["screen"].get("plan")
         if plan_name is None:
             continue
-        referenced[Path(plan_name).name] = item["id"]
+        referenced.add(Path(plan_name).name)
         plan = _yaml(REPO / plan_name)["workloads"]
         targets = {target["workspace"]: target for target in item["targets"]}
         assert set(plan) == set(targets), item["id"]
@@ -162,11 +162,42 @@ def test_plans_match_the_queue_and_expand():
             assert workload["home"] == target["suite"]
             assert workload["tool_mode"] == target["tool_mode"]
             assert workload["arms"]["incumbent"] == item["incumbent"]["tag"]
-            assert workload["arms"]["challengers"] == [item["candidate"]["intake_tag"]]
+            # Two fast-seat items can share one plan (Bolt E4B is the LFM3 plan's
+            # conditional second arm), so the plan's challengers may be a superset.
+            assert item["candidate"]["intake_tag"] in workload["arms"]["challengers"]
         rows = campaign.expand_matrix(REPO / plan_name, 1, tier="screen")
         assert rows and {row["workspace"] for row in rows} == set(plan)
+    referenced |= {Path(name).name for name in _queue().get("instrument_plans") or []}
     on_disk = {path.name for path in PLANS.glob("s8_*.yaml")}
-    assert on_disk == set(referenced), "every s8 plan is referenced once by the queue"
+    assert on_disk == referenced, "every s8 plan is referenced by the queue"
+
+
+def test_the_fast_seats_allowlist_parses_and_covers_the_suite():
+    modes = _yaml(REPO / "tests/wfe/tool_modes.yaml")["workspaces"]
+    mode = modes["tools-specialist::fast"]
+    assert mode["tool_mode"] == "production"
+    assert set(mode["allow"]) == {
+        tool for task in _suite("tools_specialist_production") for tool in task["requires_tools"]
+    }
+
+
+def test_both_fast_seat_plans_expand_to_rows():
+    baseline = campaign.expand_matrix(
+        PLANS / "s8_fast_incumbent_baseline_20261029.yaml", 1, tier="screen"
+    )
+    assert baseline and {row["workspace"] for row in baseline} == {"tools-specialist::fast"}
+    assert {row["arm_role"] for row in baseline} == {"incumbent"}
+    assert {campaign.row_model(row) for row in baseline} == {"gemma4:e4b-it-qat-ctx8k"}
+    screen = campaign.expand_matrix(PLANS / "s8_lfm3_fast_screen_20261029.yaml", 1, tier="screen")
+    assert screen and {row["workspace"] for row in screen} == {"tools-specialist::fast"}
+    assert {row["arm_role"] for row in screen} == {"incumbent", "challenger"}
+    assert {campaign.row_model(row) for row in screen} == {
+        "gemma4:e4b-it-qat-ctx8k",
+        "hf.co/LiquidAI/LFM3-1.7B-GGUF:QAD-Q4_0-ctx8k",
+        "hf.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF:UD-Q4_K_XL-ctx8k",
+    }
+    assert {row["suite"] for row in baseline + screen} == {"tools_specialist_production"}
+    assert {row["tool_mode"] for row in baseline + screen} == {"production"}
 
 
 def test_unauthorized_production_modes_are_declared_as_prerequisites():

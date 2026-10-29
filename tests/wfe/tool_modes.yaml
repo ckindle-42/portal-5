@@ -38,12 +38,17 @@ workspaces:
     tool_mode: production
     allow: [execute_python, remember, recall]
   auto-general-uncensored::throwaway: *uncensored_tools
-  tools-specialist:
+  tools-specialist: &tools_specialist_tools
     # The lane's own three tools (O2 §5): python for the compute and chain kinds,
     # memory for the store-recall and chain kinds — the same set the uncensored
     # general lanes run. Nothing else is offered or measured.
     tool_mode: production
     allow: [execute_python, remember, recall]
+  # The fast variant runs the same suite, so it gets the same three tools: the
+  # store-recall and chain kinds need remember/recall, which sandbox mode cannot
+  # offer. Memory is served by the memory MCP under the row's eval scope, seeded
+  # from the task's memory_seed (tests/wfe/eval_mode.py), as in every memory suite.
+  tools-specialist::fast: *tools_specialist_tools
   auto-compliance::reading:
     # The reading subset (O2 §7, narrow): read-side corpus and register tools only —
     # every entry is in the workspace's own tools list AND in the evaluation

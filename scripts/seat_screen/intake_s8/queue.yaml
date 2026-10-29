@@ -28,6 +28,10 @@ defaults:
       alpha: 0.05
       max_excluded_frac: 0.10
       verdicts: [BETTER, WORSE, NOT_SEPARATED, NO_DECISION]
+# Plans that are not a candidate screen. The fast seat's instrument is measured on its
+# incumbent BEFORE any candidate, so a later delta is not confounded by the mode change.
+instrument_plans:
+  - tests/wfe/plans/s8_fast_incumbent_baseline_20261029.yaml
 items:
   - id: lfm25-24b-a2b
     order: 1
@@ -249,14 +253,15 @@ items:
         context_limit: 8192
         think: true
     screen:
-      plan: null
-      plan_when_ready: tests/wfe/plans/s8_lfm3_tools_fast_screen_20261029.yaml
+      plan: tests/wfe/plans/s8_lfm3_fast_screen_20261029.yaml
       tiers: [screen, confirm]
       prerequisites:
-        - "tests/wfe/tool_modes.yaml has no tools-specialist::fast entry; the suite needs remember+recall, which sandbox mode does not offer. Add {tool_mode: production, allow: [execute_python, remember, recall]} between campaigns, then write plan_when_ready."
         - "no persona or variant exists for the seat yet; probe_seat needs one (scripts/seat_screen/kit/personas.yaml is the pattern)"
       commands:
-        - "PLAN=tests/wfe/plans/s8_lfm3_tools_fast_screen_20261029.yaml ./scripts/wfe_campaign.sh s8_lfm3_screen --tier screen"
+        - "PLAN=tests/wfe/plans/s8_fast_incumbent_baseline_20261029.yaml ./scripts/wfe_campaign.sh s8_fast_baseline --tier screen"
+        - "PLAN=tests/wfe/plans/s8_lfm3_fast_screen_20261029.yaml ./scripts/wfe_campaign.sh s8_lfm3_screen --tier screen"
+        - "uv run python -m tests.wfe.report --campaign s8_lfm3_screen --fitness --screen-out /tmp/s8_lfm3_advance.yaml"
+        - "PLAN=tests/wfe/plans/s8_lfm3_fast_screen_20261029.yaml ./scripts/wfe_campaign.sh s8_lfm3_confirm --tier confirm --advance /tmp/s8_lfm3_advance.yaml"
         - "uv run python scripts/seat_screen/probe_seat.py tools-specialist::kit-lfm3 --think true"
         - "uv run python scripts/seat_screen/probe_seat.py tools-specialist::kit-lfm3 --think false"
       conformance:
@@ -311,14 +316,14 @@ items:
         context_limit: 8192
         think: true
     screen:
-      plan: null
-      plan_when_ready: tests/wfe/plans/s8_bolt_e4b_tools_fast_screen_20261029.yaml
+      plan: tests/wfe/plans/s8_lfm3_fast_screen_20261029.yaml
       tiers: [screen, confirm]
       prerequisites:
-        - "tests/wfe/tool_modes.yaml has no tools-specialist::fast entry (the same one lfm3-1.7b needs): add {tool_mode: production, allow: [execute_python, remember, recall]} between campaigns"
         - "no persona or variant exists for the seat yet"
       commands:
-        - "PLAN=tests/wfe/plans/s8_bolt_e4b_tools_fast_screen_20261029.yaml ./scripts/wfe_campaign.sh s8_bolt_screen --tier screen"
+        # Screened only when the queue's `condition` fires; appends the one arm to the
+        # LFM3 screen campaign, whose incumbent rows are the comparison.
+        - "PLAN=tests/wfe/plans/s8_lfm3_fast_screen_20261029.yaml ./scripts/wfe_campaign.sh s8_lfm3_screen --tier screen --arm hf.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF:UD-Q4_K_XL-ctx8k"
         - "uv run python scripts/seat_screen/probe_seat.py tools-specialist::kit-bolt --think true"
       conformance:
         template: "enable_thinking and conversational_mode chat-template flags"

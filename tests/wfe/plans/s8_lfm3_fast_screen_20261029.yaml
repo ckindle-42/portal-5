@@ -1,0 +1,18 @@
+# LFM3-1.7B screens the tools-specialist fast variant (gemma4:e4b-it-qat at 8k) on the
+# seat's new production allowlist (execute_python, remember, recall). Screen kit:
+# scripts/seat_screen/intake_s8/queue.yaml (items lfm3-1.7b and nemotron-bolt-e4b).
+# Bolt E4B is the queue's conditional second arm: it runs only if LFM3 is DROPped at
+# screen or NOT_SEPARATED/WORSE at confirm, selected with --arm <bolt tag>. Neither
+# challenger is installed or in config/backends.yaml yet, so a report names it MISSING
+# until the intake lands. The incumbent baseline runs first
+# (s8_fast_incumbent_baseline_20261029.yaml).
+workloads:
+  tools-specialist::fast:
+    tool_mode: production
+    home: tools_specialist_production
+    discovery: []
+    arms:
+      incumbent: gemma4:e4b-it-qat-ctx8k
+      challengers:
+        - hf.co/LiquidAI/LFM3-1.7B-GGUF:QAD-Q4_0-ctx8k
+        - hf.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF:UD-Q4_K_XL-ctx8k
