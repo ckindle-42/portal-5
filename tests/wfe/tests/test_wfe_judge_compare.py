@@ -6,16 +6,16 @@ import json
 from io import StringIO
 
 from tests.wfe import judge_compare as compare
+from tests.wfe.judge import judgements_dir
 
 
 def _make_campaign(tmp_path, store):
     campaign = tmp_path / "camp"
     campaign.mkdir()
     (campaign / "manifest.json").write_text(json.dumps({"rows": []}))
-    judgements = campaign / "judgements"
     for profile, recs in store.items():
-        d = judgements / profile
-        d.mkdir(parents=True)
+        d = judgements_dir(campaign, profile)
+        d.mkdir(parents=True, exist_ok=True)
         for key, rec in recs.items():
             (d / f"{key}.json").write_text(json.dumps(rec))
     return campaign
