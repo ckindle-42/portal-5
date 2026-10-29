@@ -438,7 +438,11 @@ class JobPreconditions:
 
 
 class JobRunner:
-    """Run one job's steps serially with receipt, resume and memory-trip stops."""
+    """Run one job's steps serially with receipt, resume and memory-trip stops.
+
+    Seat models stay operator-owned, so after a load_plan_models change run
+    `portal arm digests refresh` to rewrite ~/.portal5/arm_digests.env.
+    """
 
     def __init__(
         self,
