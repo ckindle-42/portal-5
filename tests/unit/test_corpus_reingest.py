@@ -367,9 +367,15 @@ def test_scan_inputs_counts_fallback_unknown_and_residual_leak(tmp_path: Path) -
 
 
 def test_evtx_reader_uses_python_evtx_xml_records(tmp_path: Path, monkeypatch: Any) -> None:
-    import importlib
+    import types
 
-    evtx_module = importlib.import_module("Evtx.Evtx")
+    # A stand-in module: python-evtx lives in the optional `corpora` extra, which CI's
+    # `.[dev]` install does not include, and the reader's behaviour is what's under test.
+    evtx_pkg = types.ModuleType("Evtx")
+    evtx_module = types.ModuleType("Evtx.Evtx")
+    evtx_pkg.Evtx = evtx_module  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "Evtx", evtx_pkg)
+    monkeypatch.setitem(sys.modules, "Evtx.Evtx", evtx_module)
 
     class Record:
         def xml(self) -> str:
@@ -389,7 +395,7 @@ def test_evtx_reader_uses_python_evtx_xml_records(tmp_path: Path, monkeypatch: A
             return [Record()]
 
     (tmp_path / "sample.evtx").write_bytes(b"fixture")
-    monkeypatch.setattr(evtx_module, "Evtx", Source)
+    monkeypatch.setattr(evtx_module, "Evtx", Source, raising=False)
     assert list(reingest.iter_evtx_text(tmp_path / "sample.evtx")) == [
         "<Event><System><Channel>Security</Channel></System></Event>"
     ]
