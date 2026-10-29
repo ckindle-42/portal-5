@@ -1,0 +1,371 @@
+# Screen kit for the s8 intake queue — docs/MODEL_INTAKE_FRESHNESS_20261029.md.
+# Research only: nothing here is downloaded, installed, registered or seated. One bench
+# at a time, replace in place, the fleet never grows. `intake_tag` is the tag to create
+# at intake; until then a campaign reports the challenger MISSING, which is correct.
+version: 1
+source: docs/MODEL_INTAKE_FRESHNESS_20261029.md
+envelope:
+  host: 64 GiB M4 Pro
+  router_resident_gb: 5.4
+  seat_budget_gb: 50
+  free_disk_gb: 466
+on_intake:
+  # What the quiet-window run does before the first row. Nothing here is done in this lane.
+  - "pull the named GGUF repo at the named quant, then build intake_tag from it with the baked num_ctx (a -ctxNk tag is derived, never pulled)"
+  - "register intake_tag in config/backends.yaml in the workspace's routed group; supports_tools comes from the probe, never from the card"
+  - "add the tag to tests/wfe/candidate_queue.yaml (available: true, intended: [<workspace>]) once it is installed, so tests.wfe.sweep_plan can place it"
+  - "add a kit persona/variant for probe_seat; scripts/seat_screen/kit_apply.py --dry-run is the pattern, and nothing is seeded from here"
+defaults:
+  # The WFE decision rule the incumbent seats were measured under. tests/unit/
+  # test_seat_screen_intake_s8.py pins these numbers to tests/wfe/decision.py.
+  pass_bar:
+    screen:
+      min_compared_tasks: 8
+      drop_if_losses_exceed_wins_by: 3
+      verdicts: [ADVANCE, DROP]
+    confirm:
+      min_compared_tasks: 30
+      alpha: 0.05
+      max_excluded_frac: 0.10
+      verdicts: [BETTER, WORSE, NOT_SEPARATED, NO_DECISION]
+items:
+  - id: lfm25-24b-a2b
+    order: 1
+    kind: bench
+    status: queued
+    role: general-fast and the tools-specialist default
+    candidate:
+      weights_repo: LiquidAI/LFM2.5-24B-A2B
+      gguf_repo: unsloth/LFM2.5-24B-A2B-GGUF
+      gguf_quant: UD-Q4_K_XL
+      gguf_gb: 14.88
+      mlx_repo: LiquidAI/LFM2.5-24B-A2B-MLX-4bit
+      mlx_gb: 13.56
+      intake_tag: hf.co/unsloth/LFM2.5-24B-A2B-GGUF:UD-Q4_K_XL-ctx96k
+      native_context: 131072
+      license: LFM Open License v1.0
+    incumbent:
+      tag: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k
+      omlx_twin: unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit
+    seating_precedent: >-
+      auto-daily::fast seated 2026-08 by TASK_GENERAL_FAST_DEEP_WORKSPACES_V2 (window
+      raised to 96k by W5). tools-specialist's default moved to the same tag on confirm
+      wfe_tools_20261019h (76/87 vs granite 96/108, NOT_SEPARATED, p90 17.6 s vs 339 s);
+      that promotion took a tie on latency, so a speed win may still decide a
+      NOT_SEPARATED cell, with the operator's approval.
+    targets:
+      - workspace: auto-daily::fast
+        suite: general_production
+        tool_mode: production
+        context_limit: 98304
+        think: false
+      - workspace: tools-specialist
+        suite: tools_specialist_production
+        tool_mode: production
+        context_limit: 8192
+        think: true
+    screen:
+      plan: tests/wfe/plans/s8_lfm25_general_screen_20261029.yaml
+      tiers: [screen, confirm]
+      commands:
+        - "PLAN=tests/wfe/plans/s8_lfm25_general_screen_20261029.yaml ./scripts/wfe_campaign.sh s8_lfm25_screen --tier screen"
+        - "PLAN=tests/wfe/plans/s8_lfm25_general_screen_20261029.yaml ./scripts/wfe_campaign.sh s8_lfm25_confirm --tier confirm"
+        - "uv run python -m tests.wfe.report --campaign s8_lfm25_screen --fitness --screen-out /tmp/s8_lfm25_advance.yaml"
+      preflight:
+        - "uv run python scripts/seat_preflight.py --workspace auto-daily::fast --model opencode:portal/<kit-variant>"
+        - "uv run python scripts/seat_screen/probe_seat.py auto-daily::kit-lfm25 --think false"
+        - "uv run python scripts/seat_screen/probe_seat.py auto-daily::kit-lfm25 --think true"
+      conformance:
+        template: "chat template opens <think> by default; the fast role runs think=false"
+        tool_calls: "OpenAI JSON tool_calls; probe nested_ok must be true"
+        think: "0 reasoning chars and a clean tool call at --think false"
+      risks:
+        - "always-open <think> is the known failure mode on this stack"
+        - "vendor-run agentic numbers only; no independent local run"
+    disk:
+      screen_gb: 14.88
+      seat_gb_in: 28.44
+      seat_gb_out: 41.6
+      net_gb: -13.16
+      replaces_on_win:
+        - hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k
+        - unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit
+      delete_on_loss:
+        - hf.co/unsloth/LFM2.5-24B-A2B-GGUF:UD-Q4_K_XL-ctx96k
+        - LiquidAI/LFM2.5-24B-A2B-MLX-4bit
+      blocks_deletion:
+        - "ctx32k still seats auto-research::data and ctx48k is a vision-plan arm; both share the base blob, so the base is not freed until those are repointed"
+  - id: flint
+    order: 2
+    kind: bench
+    status: queued
+    role: coding (the main auto-coding pair)
+    candidate:
+      weights_repo: RecursiveSI/flint
+      gguf_repo: unsloth/flint-GGUF
+      gguf_quant: UD-Q4_K_XL
+      gguf_gb: 25.05
+      mlx_repo: mlx-community/flint-oQ4e
+      mlx_gb: 23.35
+      intake_tag: hf.co/unsloth/flint-GGUF:UD-Q4_K_XL-ctx256k
+      native_context: 262144
+      license: Apache 2.0
+    incumbent:
+      tag: qwen3-coder:30b-a3b-q4_K_M-ctx256k
+      omlx_twin: Qwen3-Coder-30B-A3B-Instruct-4bit
+    seating_precedent: >-
+      Qwen3-Coder-30B-A3B has held auto-coding since 2026-05 (256k tag 6501e6c5), before
+      the decision rule existed; coding_decision_v1.yaml records it as the incumbent. Flint
+      has vendor-run benches only, so the confirm tier is its first independent evidence.
+    targets:
+      - workspace: auto-coding
+        suite: coding_production
+        tool_mode: sandbox
+        context_limit: 262144
+        think: null
+    screen:
+      plan: tests/wfe/plans/s8_flint_coding_screen_20261029.yaml
+      tiers: [screen, confirm]
+      commands:
+        - "PLAN=tests/wfe/plans/s8_flint_coding_screen_20261029.yaml ./scripts/wfe_campaign.sh s8_flint_screen --tier screen"
+        - "PLAN=tests/wfe/plans/s8_flint_coding_screen_20261029.yaml ./scripts/wfe_campaign.sh s8_flint_confirm --tier confirm"
+        - "uv run python -m tests.wfe.report --campaign s8_flint_screen --fitness --screen-out /tmp/s8_flint_advance.yaml"
+      preflight:
+        - "uv run python scripts/seat_preflight.py --workspace auto-coding --model opencode:portal/<kit-variant>"
+        - "uv run python scripts/seat_screen/probe_seat.py auto-coding::kit-flint --think true"
+        - "uv run python scripts/seat_screen/probe_seat.py auto-coding::kit-flint --think false"
+      conformance:
+        template: "confirm enable_thinking on the shipped chat template; auto-coding declares no think flag"
+        tool_calls: "multi-turn tool use claimed; probe nested_ok and the follow-up turn"
+        think: "record both think settings; the role serves the template default"
+      risks:
+        - "vendor/Unsloth benches only; one non-host RTX 5090 run is the only independent data"
+        - "256k KV beside the 5.4 GB router is unmeasured; the incumbent fallback is already known to spill"
+        - "the qwen3-coder base blob is shared with auto-coding::cad (ctx32k) and ::bigfix (ctx16k)"
+    disk:
+      screen_gb: 25.05
+      seat_gb_in: 48.4
+      seat_gb_out: 35.0
+      net_gb: 13.4
+      net_gb_if_shared_kept: 31.4
+      replaces_on_win:
+        - qwen3-coder:30b-a3b-q4_K_M-ctx256k
+        - Qwen3-Coder-30B-A3B-Instruct-4bit
+      delete_on_loss:
+        - hf.co/unsloth/flint-GGUF:UD-Q4_K_XL-ctx256k
+        - mlx-community/flint-oQ4e
+      blocks_deletion:
+        - "deleting qwen3-coder:30b-a3b-q4_K_M also drops ctx32k (auto-coding::cad) and ctx16k (auto-coding::bigfix); repoint both before freeing that blob"
+  - id: mellum-2.1
+    order: 3
+    kind: bench
+    status: queued
+    role: coding fast-repair variant
+    candidate:
+      weights_repo: JetBrains/Mellum2.1-12B-A2.5B-Thinking
+      gguf_repo: JetBrains/Mellum2.1-12B-A2.5B-Thinking-GGUF
+      gguf_quant: Q4_K_M
+      gguf_gb: 8.07
+      mlx_repo: null
+      mlx_gb: 0.0
+      intake_tag: hf.co/JetBrains/Mellum2.1-12B-A2.5B-Thinking-GGUF:Q4_K_M-ctx32k
+      native_context: null
+      license: Apache 2.0
+    incumbent:
+      tag: kat-coder-v2.5-dev:Q4_K_M-ctx32k
+      omlx_twin: null
+    seating_precedent: >-
+      kat-coder was seated 2026-09-12 as BENCH-GATED PROVISIONAL on wfe_full_20260911
+      (6/9 on the old coding diagnostic suite, 22/30 discovery, 3-4x faster than
+      laguna/orcarouter) with no incumbent to compare against; promotion needs a passing
+      GC/CC bench run and an operator task. The screen+confirm below is stricter than that
+      precedent and is the operative bar.
+    targets:
+      - workspace: auto-coding::fast-repair
+        suite: coding_production
+        tool_mode: sandbox
+        context_limit: 32768
+        think: null
+    screen:
+      plan: tests/wfe/plans/s8_mellum_fast_repair_screen_20261029.yaml
+      tiers: [screen, confirm]
+      commands:
+        - "PLAN=tests/wfe/plans/s8_mellum_fast_repair_screen_20261029.yaml ./scripts/wfe_campaign.sh s8_mellum_screen --tier screen"
+        - "PLAN=tests/wfe/plans/s8_mellum_fast_repair_screen_20261029.yaml ./scripts/wfe_campaign.sh s8_mellum_confirm --tier confirm"
+        - "uv run python -m tests.wfe.report --campaign s8_mellum_screen --fitness --screen-out /tmp/s8_mellum_advance.yaml"
+      preflight:
+        - "uv run python scripts/seat_preflight.py --workspace auto-coding::fast-repair --model opencode:portal/<kit-variant>"
+        - "uv run python scripts/seat_screen/probe_seat.py auto-coding::kit-mellum --think true"
+        - "uv run python scripts/seat_screen/probe_seat.py auto-coding::kit-mellum --think false"
+      conformance:
+        template: "thinking model; the fast-repair role declares no think flag"
+        tool_calls: "probe nested_ok and the follow-up turn; 32k window only"
+        think: "record both think settings; do not assume think-off"
+      risks:
+        - "no mlx-community or JetBrains MLX build; screen the official GGUF and do not block on MLX"
+        - "self-reported SWE-bench 47%, no independent eval"
+        - "kat-coder is also a general-group contender in backends.yaml"
+    disk:
+      screen_gb: 8.07
+      seat_gb_in: 8.07
+      seat_gb_out: 21.4
+      net_gb: -13.33
+      net_gb_if_shared_kept: 8.07
+      replaces_on_win:
+        - kat-coder-v2.5-dev:Q4_K_M-ctx32k
+      delete_on_loss:
+        - hf.co/JetBrains/Mellum2.1-12B-A2.5B-Thinking-GGUF:Q4_K_M-ctx32k
+      blocks_deletion:
+        - "kat-coder-v2.5-dev:Q4_K_M is also a general-group contender (backends.yaml ollama-general); ctx32k shares its blob, so the base is freed only when the seat and that group entry both go"
+  - id: lfm3-1.7b
+    order: 4
+    kind: bench
+    status: queued
+    role: tools-specialist fast variant only
+    candidate:
+      weights_repo: LiquidAI/LFM3-1.7B
+      gguf_repo: LiquidAI/LFM3-1.7B-GGUF
+      gguf_quant: QAD-Q4_0
+      gguf_gb: 1.05
+      gguf_alt_quant: Q4_K_M
+      gguf_alt_gb: 1.1
+      mlx_repo: LiquidAI/LFM3-1.7B-MLX-4bit
+      mlx_gb: 0.97
+      intake_tag: hf.co/LiquidAI/LFM3-1.7B-GGUF:QAD-Q4_0-ctx8k
+      native_context: 262144
+      license: LFM Open License v1.0
+    incumbent:
+      tag: gemma4:e4b-it-qat-ctx8k
+      omlx_twin: null
+    seating_precedent: >-
+      the gemma4:e4b-it-qat fast variant was seated 2026-09-12 on wfe_full_20260911
+      (9/9 home:coding, 9/9 discovery:research vs granite 6/9 and 9/9, NOT_SEPARATED at
+      small n), BENCH-GATED PROVISIONAL; promotion needs a passing GC/CC bench run and an
+      operator task. The confirm below is the decision-grade comparison it never had.
+    targets:
+      - workspace: tools-specialist::fast
+        suite: tools_specialist_production
+        tool_mode: production
+        context_limit: 8192
+        think: true
+    screen:
+      plan: null
+      plan_when_ready: tests/wfe/plans/s8_lfm3_tools_fast_screen_20261029.yaml
+      tiers: [screen, confirm]
+      prerequisites:
+        - "tests/wfe/tool_modes.yaml has no tools-specialist::fast entry; the suite needs remember+recall, which sandbox mode does not offer. Add {tool_mode: production, allow: [execute_python, remember, recall]} between campaigns, then write plan_when_ready."
+        - "no persona or variant exists for the seat yet; probe_seat needs one (scripts/seat_screen/kit/personas.yaml is the pattern)"
+      commands:
+        - "PLAN=tests/wfe/plans/s8_lfm3_tools_fast_screen_20261029.yaml ./scripts/wfe_campaign.sh s8_lfm3_screen --tier screen"
+        - "uv run python scripts/seat_screen/probe_seat.py tools-specialist::kit-lfm3 --think true"
+        - "uv run python scripts/seat_screen/probe_seat.py tools-specialist::kit-lfm3 --think false"
+      conformance:
+        template: "ChatML, thinking on by default; enable_thinking=False exists but the card calls it inconsistent"
+        tool_calls: "XML <tool_call><function=...>, not OpenAI JSON; nested_ok must be true through the pipeline"
+        think: "role inherits think=true; a think-off run must be recorded if the operator asks for one"
+      risks:
+        - "XML tool calls may not survive the pipeline parser; this is the first gate"
+        - "inconsistent think-off; always-think remains the fallback cost"
+        - "vendor-run benches; Liquid's card rules it out of agentic coding and the 35B seat"
+    disk:
+      screen_gb: 1.05
+      seat_gb_in: 2.02
+      seat_gb_out: 6.1
+      net_gb: -4.08
+      net_gb_if_shared_kept: 2.02
+      replaces_on_win:
+        - gemma4:e4b-it-qat-ctx8k
+      delete_on_loss:
+        - hf.co/LiquidAI/LFM3-1.7B-GGUF:QAD-Q4_0-ctx8k
+        - LiquidAI/LFM3-1.7B-MLX-4bit
+      blocks_deletion:
+        - "gemma4:e4b-it-qat is still named by the vision group and config/bench_workspaces.yaml; while those entries stand, a win frees 0 GB and the seat costs +2.02 GB"
+  - id: nemotron-bolt-e4b
+    order: 5
+    kind: bench
+    status: conditional
+    screen_after: lfm3-1.7b
+    condition: "run only if lfm3-1.7b is DROPped at screen or NOT_SEPARATED/WORSE at confirm"
+    role: tools-specialist fast variant only
+    candidate:
+      weights_repo: null
+      gguf_repo: unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF
+      gguf_quant: UD-Q4_K_XL
+      gguf_gb: 5.06
+      mlx_repo: lmstudio-community/NVIDIA-Nemotron-3.5-Bolt-E4B-MLX-4bit
+      mlx_gb: 4.2
+      intake_tag: hf.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF:UD-Q4_K_XL-ctx8k
+      native_context: 65536
+      license: OpenMDW-1.1
+    incumbent:
+      tag: gemma4:e4b-it-qat-ctx8k
+      omlx_twin: null
+    seating_precedent: >-
+      same fast variant and same precedent as lfm3-1.7b (wfe_full_20260911, 9/9 home,
+      9/9 discovery, NOT_SEPARATED at small n, BENCH-GATED PROVISIONAL). This item is the
+      fallback challenger, not a second seat.
+    targets:
+      - workspace: tools-specialist::fast
+        suite: tools_specialist_production
+        tool_mode: production
+        context_limit: 8192
+        think: true
+    screen:
+      plan: null
+      plan_when_ready: tests/wfe/plans/s8_bolt_e4b_tools_fast_screen_20261029.yaml
+      tiers: [screen, confirm]
+      prerequisites:
+        - "tests/wfe/tool_modes.yaml has no tools-specialist::fast entry (the same one lfm3-1.7b needs): add {tool_mode: production, allow: [execute_python, remember, recall]} between campaigns"
+        - "no persona or variant exists for the seat yet"
+      commands:
+        - "PLAN=tests/wfe/plans/s8_bolt_e4b_tools_fast_screen_20261029.yaml ./scripts/wfe_campaign.sh s8_bolt_screen --tier screen"
+        - "uv run python scripts/seat_screen/probe_seat.py tools-specialist::kit-bolt --think true"
+      conformance:
+        template: "enable_thinking and conversational_mode chat-template flags"
+        tool_calls: "multi-turn tool use claimed; probe nested_ok and the follow-up turn"
+        think: "role inherits think=true; record the flag the template applies"
+      risks:
+        - "context drops to 64K (role needs 8K, so the window is fine, the headroom is not)"
+        - "safety-tuned Gemma derivative; vendor-run numbers only"
+        - "the only item with a positive disk net (replace-in-place still holds the seat count)"
+    disk:
+      screen_gb: 5.06
+      seat_gb_in: 9.26
+      seat_gb_out: 6.1
+      net_gb: 3.16
+      net_gb_if_shared_kept: 9.26
+      replaces_on_win:
+        - gemma4:e4b-it-qat-ctx8k
+      delete_on_loss:
+        - hf.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF:UD-Q4_K_XL-ctx8k
+        - lmstudio-community/NVIDIA-Nemotron-3.5-Bolt-E4B-MLX-4bit
+      blocks_deletion:
+        - "same shared gemma4:e4b-it-qat entries as lfm3-1.7b: while they stand, a win frees 0 GB"
+  - id: gemma4-26b-a4b-sha
+    order: 6
+    kind: maintenance
+    status: queued
+    role: reading / auto-documents / orchestration fast seats
+    maintenance:
+      tags:
+        - gemma4:26b-a4b-it-q4_K_M-ctx128k
+        - gemma4:26b-a4b-it-q4_K_M-ctx64k
+        - gemma4:26b-a4b-it-q4_K_M-ctx32k
+        - gemma4:26b-a4b-it-qat-ctx32k
+        - gemma4:26b-a4b-it-qat-ctx16k
+      upstream_repo: google/gemma-4-26B-A4B-it
+      omlx_twin_repo: mlx-community/gemma-4-26b-a4b-it-4bit
+    screen:
+      commands:
+        - "uv run python scripts/seat_screen/intake_s8/sha_check.py"
+        - "uv run python scripts/seat_screen/intake_s8/sha_check.py --json"
+      verdicts: [current, stale, unknown]
+      on_stale: "re-pull the base tag in place (transient ~16 GB while both blobs exist), then re-probe reading before/after"
+    disk:
+      screen_gb: 0.0
+      seat_gb_in: 0.0
+      seat_gb_out: 0.0
+      net_gb: 0.0
+      replaces_on_win: []
+      delete_on_loss: []
+      blocks_deletion: []

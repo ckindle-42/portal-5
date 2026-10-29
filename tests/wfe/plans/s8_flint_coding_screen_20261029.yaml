@@ -1,0 +1,13 @@
+# Flint screens the auto-coding pair (Qwen3-Coder-30B-A3B, oMLX + GGUF).
+# Screen kit: scripts/seat_screen/intake_s8/queue.yaml (item flint).
+# Sandbox mode: coding_production is the file/pytest tool family, as in
+# coding_decision_v1.yaml. The challenger is the intake tag.
+workloads:
+  auto-coding:
+    tool_mode: sandbox
+    home: coding_production
+    discovery: []
+    arms:
+      incumbent: qwen3-coder:30b-a3b-q4_K_M-ctx256k
+      challengers:
+        - hf.co/unsloth/flint-GGUF:UD-Q4_K_XL-ctx256k

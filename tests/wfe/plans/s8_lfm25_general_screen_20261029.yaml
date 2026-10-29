@@ -1,0 +1,22 @@
+# LFM2.5-24B-A2B screens one seat across two roles: auto-daily::fast and the
+# tools-specialist default (both seat the same Qwen3.6-35B-A3B tag).
+# Screen kit: scripts/seat_screen/intake_s8/queue.yaml (item lfm25-24b-a2b).
+# The challenger is the intake tag; it is not in config/backends.yaml until the
+# download lands, so a report names it MISSING until then.
+workloads:
+  auto-daily::fast:
+    tool_mode: production
+    home: general_production
+    discovery: []
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k
+      challengers:
+        - hf.co/unsloth/LFM2.5-24B-A2B-GGUF:UD-Q4_K_XL-ctx96k
+  tools-specialist:
+    tool_mode: production
+    home: tools_specialist_production
+    discovery: []
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k
+      challengers:
+        - hf.co/unsloth/LFM2.5-24B-A2B-GGUF:UD-Q4_K_XL-ctx96k

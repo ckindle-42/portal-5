@@ -1,3 +1,5 @@
+# Installed tags only. The s8 intake candidates (not yet downloaded) and their screen
+# kits live in scripts/seat_screen/intake_s8/queue.yaml.
 models:
   gemma4:26b-a4b-it-q4_K_M-ctx32k:
     available: true

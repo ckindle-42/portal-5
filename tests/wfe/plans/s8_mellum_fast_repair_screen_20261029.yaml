@@ -1,0 +1,13 @@
+# Mellum 2.1 screens the coding fast-repair variant (kat-coder-v2.5-dev at 32k).
+# Screen kit: scripts/seat_screen/intake_s8/queue.yaml (item mellum-2.1).
+# Sandbox mode: coding_production is the file/pytest tool family. Official GGUF only;
+# no sanctioned MLX build exists, and the screen does not wait for one.
+workloads:
+  auto-coding::fast-repair:
+    tool_mode: sandbox
+    home: coding_production
+    discovery: []
+    arms:
+      incumbent: kat-coder-v2.5-dev:Q4_K_M-ctx32k
+      challengers:
+        - hf.co/JetBrains/Mellum2.1-12B-A2.5B-Thinking-GGUF:Q4_K_M-ctx32k
