@@ -123,6 +123,22 @@ def account_roles(username: str = "admin") -> dict[str, list[str]]:
     }
 
 
+# Splunk ships a `can_delete` role. An admin who lacks the capability cannot put it on a new
+# role ("doesn't have permissions to assign capability=can_delete", lab 2026-10-29), so the BOTS
+# procedure grants the built-in role temporarily; a temp role is the fallback when it is absent.
+BUILTIN_DELETE_ROLE = "can_delete"
+
+
+def role_exists(role: str) -> bool:
+    try:
+        rest_request("GET", f"authorization/roles/{quote(role)}")
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            return False
+        raise
+    return True
+
+
 def create_delete_role() -> str:
     name = f"p5_temp_delete_{uuid.uuid4().hex[:12]}"
     rest_request(
@@ -175,8 +191,13 @@ def delete_cousins(username: str = "admin") -> dict[str, Any]:
         }
 
     role: str | None = None
+    created = False
     try:
-        role = create_delete_role()
+        if role_exists(BUILTIN_DELETE_ROLE):
+            role = BUILTIN_DELETE_ROLE
+        else:
+            role = create_delete_role()
+            created = True
         add_imported_role(username, role)
         export_rows(DELETE_SEARCH)
     finally:
@@ -184,7 +205,8 @@ def delete_cousins(username: str = "admin") -> dict[str, Any]:
             try:
                 remove_imported_role(username, role)
             finally:
-                delete_role(role)
+                if created:
+                    delete_role(role)
 
     after = cousin_inventory()
     final_roles = account_roles(username)

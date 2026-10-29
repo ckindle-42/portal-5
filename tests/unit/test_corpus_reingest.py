@@ -287,6 +287,7 @@ def test_delete_cousins_revokes_temporary_role_in_finally(monkeypatch: Any) -> N
 
     monkeypatch.setattr(lab_delete_cousins, "cousin_inventory", lambda: next(inventories))
     monkeypatch.setattr(lab_delete_cousins, "account_roles", lambda username="admin": roles)
+    monkeypatch.setattr(lab_delete_cousins, "role_exists", lambda role: False)
     monkeypatch.setattr(lab_delete_cousins, "create_delete_role", lambda: "p5_temp_delete_test")
     monkeypatch.setattr(
         lab_delete_cousins, "add_imported_role", lambda username, role: calls.append("grant")
@@ -315,6 +316,7 @@ def test_delete_cousins_revokes_role_when_delete_search_fails(monkeypatch: Any) 
         "account_roles",
         lambda username="admin": {"roles": ["admin"], "imported_roles": []},
     )
+    monkeypatch.setattr(lab_delete_cousins, "role_exists", lambda role: False)
     monkeypatch.setattr(lab_delete_cousins, "create_delete_role", lambda: "p5_temp_delete_test")
     monkeypatch.setattr(
         lab_delete_cousins, "add_imported_role", lambda username, role: calls.append("grant")
@@ -337,6 +339,44 @@ def test_delete_cousins_revokes_role_when_delete_search_fails(monkeypatch: Any) 
     else:
         raise AssertionError("delete search failure was swallowed")
     assert calls == ["grant", "delete", "revoke", "remove-role"]
+
+
+def test_delete_cousins_uses_the_builtin_role_and_never_deletes_it(monkeypatch: Any) -> None:
+    """Splunk refuses to put can_delete on a new role for an admin without it; use the built-in."""
+    inventories = iter(
+        [
+            {"raw_count": 2, "tstats_count": 2, "reconciled": True},
+            {"raw_count": 0, "tstats_count": 0, "reconciled": True},
+        ]
+    )
+    calls: list[str] = []
+    monkeypatch.setattr(lab_delete_cousins, "cousin_inventory", lambda: next(inventories))
+    monkeypatch.setattr(
+        lab_delete_cousins,
+        "account_roles",
+        lambda username="admin": {"roles": ["admin"], "imported_roles": []},
+    )
+    monkeypatch.setattr(lab_delete_cousins, "role_exists", lambda role: role == "can_delete")
+    monkeypatch.setattr(
+        lab_delete_cousins, "create_delete_role", lambda: calls.append("create") or "x"
+    )
+    monkeypatch.setattr(
+        lab_delete_cousins,
+        "add_imported_role",
+        lambda username, role: calls.append(f"grant:{role}"),
+    )
+    monkeypatch.setattr(
+        lab_delete_cousins, "export_rows", lambda search: calls.append("delete") or []
+    )
+    monkeypatch.setattr(
+        lab_delete_cousins,
+        "remove_imported_role",
+        lambda username, role: calls.append(f"revoke:{role}"),
+    )
+    monkeypatch.setattr(lab_delete_cousins, "delete_role", lambda role: calls.append("remove-role"))
+
+    lab_delete_cousins.delete_cousins()
+    assert calls == ["grant:can_delete", "delete", "revoke:can_delete"]
 
 
 def test_scan_inputs_counts_fallback_unknown_and_residual_leak(tmp_path: Path) -> None:
