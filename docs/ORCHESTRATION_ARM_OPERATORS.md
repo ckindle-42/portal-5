@@ -47,6 +47,32 @@ uv run portal arm queue-run --drain    # exits once the queue is empty
 
 The queue waits while a WFE run has a live PID in `/tmp/portal5-memory-safety-test-pids`, while a configured yield lock has a live PID, or while the Pipeline load plan reports busy/no fit. Bench and UAT runners can opt into the same convention by writing their PID as the only line in a file under `~/.portal5/locks/` and removing the file on exit. Set `queue.yield_lock_dir` in `config/portal.yaml` to use another directory. The queue records plans and state in `queue.sqlite3`; interrupted bites resume from their task ledger after restart.
 
+## Unattended runner (com.portal5.arm-queue)
+
+`queue-run` is designed to run for many hours with nobody watching. The launchd agent `com.portal5.arm-queue` keeps it alive across crashes, logouts and reboots:
+
+```bash
+./launch.sh install-arm-queue      # render + bootstrap the KeepAlive agent
+./launch.sh uninstall-arm-queue    # stop it for maintenance; jobs resume on restart
+```
+
+The agent runs `uv run portal arm queue-run --poll-seconds 60` from the repo, sources `.env` for `PIPELINE_API_KEY` and the seat-digest variables, restarts under launchd `KeepAlive` with a 60 s throttle, and logs to `arm-queue.launchd.log` under the tasks directory (`~/AI_Output/generated/tasks/` with the default workspace root). Enroll that log in the hourly rotation by adding `~/AI_Output/generated/tasks/arm-queue*.log` to `LOG_ROTATE_FILES` in `.env`.
+
+Exactly one runner may hold the queue. A second `queue-run` copy — a manual one while the agent runs, or a launchd respawn racing the old process — exits cleanly (status 0) while the live runner holds `<tasks dir>/queue-runner.lock`; the pid-plus-start-time identity means a crashed runner's lock is never mistaken for a live one. Inside the queue the existing BUSY guard refuses to claim a second task while one runs. For maintenance, stop the agent with `./launch.sh uninstall-arm-queue` (or `launchctl bootout gui/$(id -u)/com.portal5.arm-queue`); a job mid-step is adopted from its recorded pid and start time when the runner returns.
+
+Notices go to the portal5-telegram bot through the arm outbox. A finished job's notice names the failing (or last) step and its state, the last stdout line of that step — the `CAMPAIGN <id>: complete|stopped … rows n/m` line, or the `CANARY <id>: SETUP …` verdict — the report path when a `-report` step ran, and the next queued job. A canary SETUP stop is worded as a harness failure (the rows never ran), not a model verdict. A memory-safety trip, an orphaned-step adoption after a runner restart, and every runner start each send their own notice.
+
+A daily digest is sent once per UTC day (state in `<tasks dir>/queue-digest.json`), and on demand with:
+
+```bash
+uv run portal arm queue-digest             # print + queue for Telegram
+uv run portal arm queue-digest --no-send   # print only
+```
+
+The digest reports jobs done/blocked/queued/running with blocked reasons, the rows measured (summed from the jobs' CAMPAIGN lines), and any job that has waited on a precondition for more than an hour, with the recorded wait reason and how long it has waited (measured from the current WAITING episode in the queue event history).
+
+Cancelling a job (`portal arm queue-cancel`) releases the quiet-host window claim (`~/.claude/orchestrate/state/jarvis_local_window.json`) when it names the cancelled job — even while the runner pid that wrote it is still alive. While the queue is idle, a claim whose job no longer exists or is finished is treated as stale and removed; a claim naming a queued (waiting) job is kept, because holding the window while waiting for lanes is the documented behavior.
+
 Open WebUI uses that same queue. The pipeline MCP tool `arm_queue_task(task_id, discipline, template_key, parameters, source_dir=None)` renders a stored plan template and calls `QueueLedger.enqueue`; it does not plan on the Deep seat and does not need the digest variables above. It returns the `receipt.json` path under `get_generated_dir("tasks")`. `portal arm queue-run` writes that file. The tool is active when the module is enabled. `source_dir` must be an existing directory under the workspace root or the repository; omitted, it is the uploads directory. Template parameters that name host paths are held to those same roots. The tool is dispatched through the platform's module plugin seam rather than a module import. Add `arm_queue_task` to a workspace's `tools:` list in `config/portal.yaml`, then restart the pipeline MCP (:8928), before a chat can call it.
 
 The offline rig uses no live stack or model. Run it with:

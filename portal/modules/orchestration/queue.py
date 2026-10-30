@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import shutil
 import sqlite3
 from collections.abc import Callable
@@ -16,14 +17,14 @@ from typing import Any
 from .contracts import Bite, TaskPlan, plan_json
 from .jobs import (
     DEFAULT_DISPATCH_LOCK_DIR,
-    WINDOW_CLAIM_NAME,
     JobNoticeSink,
     JobRunner,
     JobSpec,
     _ps_process_details,
     job_json,
     parse_job_spec,
-    release_window_claim_for,
+    read_window_claim,
+    release_window_claim,
 )
 from .service import ArmService
 from .worker import Engine, PipelineError
@@ -130,12 +131,9 @@ class QueueGate:
 class QueueLedger:
     """Store queued plans and queue state transitions in SQLite."""
 
-    def __init__(self, task_root: Path, window_claim: Path | None = None) -> None:
+    def __init__(self, task_root: Path) -> None:
         task_root.mkdir(parents=True, exist_ok=True)
         self.task_root = task_root
-        self.window_claim = window_claim or (
-            DEFAULT_DISPATCH_LOCK_DIR.parent / "state" / WINDOW_CLAIM_NAME
-        )
         self.db = sqlite3.connect(task_root / "queue.sqlite3", timeout=30)
         self.db.row_factory = sqlite3.Row
         self.db.executescript(
@@ -302,7 +300,6 @@ class QueueLedger:
         except Exception:
             self.db.rollback()
             raise
-        release_window_claim_for(task_id, self.window_claim)
 
     def requeue_job(self, task_id: str, plan: str) -> None:
         """Blocked or done job returns to queued with the spec re-read by the caller."""
@@ -384,6 +381,18 @@ class QueueLedger:
         )
         return [dict(row) for row in rows]
 
+    def waiting_since(self, task_id: str) -> str | None:
+        """When the current WAITING episode began: first WAITING defer after the last run."""
+        last_run = self.db.execute(
+            "SELECT MAX(id) FROM queue_event WHERE task_id = ? AND state = 'running'", (task_id,)
+        ).fetchone()[0]
+        row = self.db.execute(
+            "SELECT created_at FROM queue_event WHERE task_id = ? AND state = 'queued' "
+            "AND detail_json LIKE '%WAITING%' AND id > ? ORDER BY id LIMIT 1",
+            (task_id, last_run or 0),
+        ).fetchone()
+        return str(row[0]) if row else None
+
     def _set_state(self, task_id: str, state: str, receipt_status: str, reason: str | None) -> None:
         self.db.execute(
             "UPDATE queue_task SET state = ?, runner_pid = NULL, runner_started = NULL, "
@@ -413,6 +422,7 @@ class OvernightQueue:
         repo_root: Path | None = None,
         notices: JobNoticeSink | None = None,
         job_factory: Callable[[], JobRunner] | None = None,
+        dispatch_lock_dir: Path | None = None,
     ) -> None:
         self.task_root = task_root
         self.service = service
@@ -420,6 +430,7 @@ class OvernightQueue:
         self.repo_root = repo_root or Path(__file__).resolve().parents[3]
         self.notices = notices or (service.notices if service is not None else None)
         self.job_factory = job_factory
+        self.dispatch_lock_dir = dispatch_lock_dir or DEFAULT_DISPATCH_LOCK_DIR
         if service is not None:
             service.bite_gate = gate.allows
 
@@ -427,6 +438,8 @@ class OvernightQueue:
         with QueueLedger(self.task_root) as ledger:
             item, active = ledger.claim_next()
         if item is None:
+            if not active:
+                self._release_stale_window_claim()
             return QueueRun("BUSY" if active else "EMPTY")
         task_id = str(item["task_id"])
         task_dir = self.task_root / task_id
@@ -486,6 +499,7 @@ class OvernightQueue:
                 repo_root=root,
                 gate=self.gate,
                 notices=self.notices,
+                dispatch_lock_dir=self.dispatch_lock_dir,
             )
         )
         result = runner.run(spec)
@@ -508,6 +522,18 @@ class OvernightQueue:
             final_reason,
         )
 
+    def _release_stale_window_claim(self) -> str | None:
+        """Drop a quiet-host claim whose job is gone or finished; a waiting job keeps its claim."""
+        claim = read_window_claim(self.dispatch_lock_dir)
+        job = str(claim.get("job") or "") if claim else ""
+        if not job:
+            return None
+        with QueueLedger(self.task_root) as ledger:
+            row = ledger.task(job)
+        if row is not None and row["state"] == "queued":
+            return None
+        return job if release_window_claim(job, dispatch_lock_dir=self.dispatch_lock_dir) else None
+
     def _write_failure_receipt(self, task_id: str, task_dir: Path, reason: str) -> None:
         path = task_dir / "receipt.json"
         if path.is_file():
@@ -523,6 +549,93 @@ class OvernightQueue:
             "results": [],
         }
         path.write_text(json.dumps(receipt, indent=1) + "\n", encoding="utf-8")
+
+
+DIGEST_WAIT_SECONDS = 3600.0
+_CAMPAIGN_ROWS = re.compile(r"^CAMPAIGN\s+\S+:.*\brows\s+(\d+)/(\d+)$")
+
+
+def build_queue_digest(
+    items: list[dict[str, Any]],
+    receipts: dict[str, dict[str, Any]],
+    *,
+    now: datetime | None = None,
+) -> str:
+    """One-screen digest: jobs by state, rows measured, and waits over an hour with reasons."""
+    moment = now or datetime.now(UTC)
+    counts: dict[str, int] = {}
+    for item in items:
+        counts[str(item["state"])] = counts.get(str(item["state"]), 0) + 1
+    lines = [
+        f"Queue digest {moment.strftime('%Y-%m-%d %H:%MZ')}.",
+        "Jobs: {done} done, {blocked} blocked, {queued} queued, {running} running.".format(
+            **{name: counts.get(name, 0) for name in ("done", "blocked", "queued", "running")}
+        ),
+    ]
+    for item in items:
+        if str(item["state"]) == "blocked" and item.get("last_error"):
+            lines.append(f"  blocked {item['task_id']}: {item['last_error']}")
+    row_lines, rows_done, rows_total = _digest_rows(items, receipts)
+    if row_lines:
+        lines.append(f"Rows measured: {rows_done}/{rows_total}.")
+        lines.extend(row_lines)
+    waiters = _digest_waiters(items, moment)
+    if waiters:
+        lines.append("Waiting over an hour:")
+        lines.extend(waiters)
+    if len(lines) == 2:
+        lines.append("Queue is idle.")
+    return "\n".join(lines)
+
+
+def _digest_rows(
+    items: list[dict[str, Any]], receipts: dict[str, dict[str, Any]]
+) -> tuple[list[str], int, int]:
+    lines: list[str] = []
+    total_done = total_rows = 0
+    for item in items:
+        line, done, total = _campaign_rows(receipts.get(str(item["task_id"])))
+        if line is None:
+            continue
+        lines.append(f"  {item['task_id']}: {line}")
+        total_done += done
+        total_rows += total
+    return lines, total_done, total_rows
+
+
+def _campaign_rows(receipt: dict[str, Any] | None) -> tuple[str | None, int, int]:
+    if not receipt:
+        return None, 0, 0
+    for step in reversed(receipt.get("steps", [])):
+        for line in reversed(str(step.get("stdout_tail") or "").splitlines()):
+            match = _CAMPAIGN_ROWS.match(line.strip())
+            if match:
+                return line.strip(), int(match.group(1)), int(match.group(2))
+    return None, 0, 0
+
+
+def _digest_waiters(items: list[dict[str, Any]], moment: datetime) -> list[str]:
+    waiters = []
+    for item in items:
+        if item["state"] != "queued" or item.get("receipt_status") != "WAITING":
+            continue
+        stamp = str(item.get("waiting_since") or item.get("updated_at") or "")
+        waited = _age_seconds(stamp, moment)
+        if waited < DIGEST_WAIT_SECONDS:
+            continue
+        reason = str(item.get("last_error") or "unknown reason")
+        waiters.append(f"  {item['task_id']} ({waited / 3600:.1f}h) — {reason}")
+    return waiters
+
+
+def _age_seconds(stamp: str, moment: datetime) -> float:
+    try:
+        then = datetime.fromisoformat(stamp)
+    except ValueError:
+        return 0.0
+    if then.tzinfo is None:
+        then = then.replace(tzinfo=UTC)
+    return max(0.0, (moment - then).total_seconds())
 
 
 def _require_cancellable(

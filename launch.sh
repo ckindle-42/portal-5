@@ -558,6 +558,14 @@ PYEOF
     _launch_uninstall_powermetrics
     ;;
 
+  install-arm-queue)
+    _launch_install_arm_queue
+    ;;
+
+  uninstall-arm-queue)
+    _launch_uninstall_arm_queue
+    ;;
+
   stop-speech)
     _launch_stop_speech
     ;;
@@ -632,12 +640,16 @@ PYEOF
     echo "  stop-speech           Stop MLX Speech server"
     echo "  start-transcribe      Start MLX Transcribe server (Parakeet transcript + Sortformer diarization, :8924)"
     echo "  stop-transcribe       Stop MLX Transcribe server"
+    echo "  install-arm-queue     Install the unattended arm queue runner (launchd KeepAlive agent)"
+    echo "  uninstall-arm-queue   Stop the arm queue runner for maintenance (jobs resume on restart)"
     echo ""
     echo "  workspace-init        Create shared workspace directory structure (uploads, generated/*)"
     echo "  workspace-status      Show file counts and disk usage per category"
     echo "  workspace-show        Print resolved paths for the current configuration"
     echo "  install-powermetrics        Install powermetrics daemon (sudo) — power telemetry for cost tracking"
     echo "  uninstall-powermetrics      Remove powermetrics daemon (sudo)"
+    echo "  install-arm-queue     Install the unattended arm queue runner (launchd KeepAlive agent)"
+    echo "  uninstall-arm-queue   Stop the arm queue runner for maintenance (jobs resume on restart)"
     echo "  rebuild               Rebuild all Docker images (pipeline + MCP) + restart (after git pull)"
     echo "  build-lab-attack      Build the arm64 attack image (portal5-attack) for the lab-exec lane + load into DinD"
     echo "  build-binresearch     Build the arm64 RE toolchain image (portal5-binresearch) for the harness + load into DinD"

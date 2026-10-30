@@ -628,3 +628,62 @@ _launch_stop_transcribe() {
     fi
 }
 
+
+# ── Unattended arm queue runner (com.portal5.arm-queue launchd agent) ─────────
+_launch_arm_queue_tasks_dir() {
+    local py="$PORTAL_ROOT/.venv/bin/python"
+    local dir=""
+    if [ -x "$py" ]; then
+        dir="$("$py" -c 'from portal.platform.mcp_host.workspace import get_generated_dir; print(get_generated_dir("tasks"))' 2>/dev/null || true)"
+    fi
+    echo "${dir:-${AI_OUTPUT_DIR:-$HOME/AI_Output}/generated/tasks}"
+}
+
+_launch_install_arm_queue() {
+    if [ "$(uname -s)" != "Darwin" ]; then
+        echo "  ❌ com.portal5.arm-queue is a macOS launchd agent"
+        exit 1
+    fi
+    local label="com.portal5.arm-queue"
+    local src="$PORTAL_ROOT/deploy/launchd/${label}.plist"
+    local dst="$HOME/Library/LaunchAgents/${label}.plist"
+    local domain="gui/$(id -u)"
+    local tasks_dir
+    if [ ! -f "$src" ]; then
+        echo "  ❌ missing $src"
+        exit 1
+    fi
+    command -v uv &>/dev/null || { echo "  ❌ uv not found (https://docs.astral.sh/uv/)"; exit 1; }
+    tasks_dir="$(_launch_arm_queue_tasks_dir)"
+    mkdir -p "$tasks_dir" "$HOME/Library/LaunchAgents"
+    sed -e "s#__PORTAL_ROOT__#${PORTAL_ROOT}#g" \
+        -e "s#__LOG_DIR__#${tasks_dir}#g" \
+        "$src" > "$dst"
+    if ! plutil -lint "$dst" >/dev/null; then
+        echo "  ❌ rendered plist failed lint: $dst"
+        exit 1
+    fi
+    launchctl bootout "${domain}/${label}" 2>/dev/null || true
+    if launchctl bootstrap "$domain" "$dst"; then
+        echo "[portal-5] ✅ arm queue runner installed (${label}), polling every 60s"
+        echo "[portal-5]    runner log: ${tasks_dir}/arm-queue.launchd.log"
+        echo "[portal-5]    stop for maintenance: ./launch.sh uninstall-arm-queue"
+    else
+        echo "[portal-5] ⚠️  arm queue runner: launchd registration failed"
+        return 1
+    fi
+}
+
+_launch_uninstall_arm_queue() {
+    local label="com.portal5.arm-queue"
+    local domain="gui/$(id -u)"
+    if launchctl print "${domain}/${label}" &>/dev/null 2>&1; then
+        launchctl bootout "${domain}/${label}" 2>/dev/null || true
+        echo "[portal-5] ✅ arm queue runner stopped (${label})"
+        echo "[portal-5]    a job mid-step is adopted when the runner returns"
+    else
+        echo "[portal-5] arm queue runner was not loaded"
+    fi
+    rm -f "$HOME/Library/LaunchAgents/${label}.plist"
+    echo "[portal-5]    restart it with ./launch.sh install-arm-queue"
+}
