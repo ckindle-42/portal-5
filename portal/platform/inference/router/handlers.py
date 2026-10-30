@@ -12,6 +12,7 @@ import contextlib
 import importlib.metadata
 import json
 import logging
+import math
 import os
 import time
 from collections.abc import AsyncIterable, AsyncIterator
@@ -267,6 +268,37 @@ async def admin_load_plan(
     if load_guard.GUARD is None or not ollama:
         raise HTTPException(status_code=503, detail="load guard not initialised")
     return await load_guard.GUARD.plan(ollama.rstrip("/"), models)
+
+
+async def admin_reclaim_idle_memory(
+    request: Request, authorization: str | None = Header(None)
+) -> dict[str, Any]:
+    """Unload enough currently idle models to cover a queued job's memory shortfall."""
+    _verify_key(authorization)
+    from portal.platform.inference import load_guard
+
+    body = await request.json()
+    need_gib = body.get("need_gib") if isinstance(body, dict) else None
+    if not isinstance(need_gib, (int, float)) or not math.isfinite(need_gib) or need_gib <= 0:
+        raise HTTPException(status_code=422, detail="need_gib must be a positive finite number")
+    ollama = (
+        next((b.url for b in registry.list_backends() if b.type == "ollama"), None)
+        if registry
+        else None
+    )
+    if load_guard.GUARD is None or not ollama:
+        raise HTTPException(status_code=503, detail="load guard not initialised")
+    try:
+        unloads = await load_guard.GUARD.reclaim_idle_memory(
+            ollama.rstrip("/"), float(need_gib) * 1024**3
+        )
+    except load_guard.LoadRefusedError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503, detail="load guard could not inspect model memory"
+        ) from exc
+    return {"unloads": unloads}
 
 
 async def admin_refresh_tools(authorization: str | None = Header(None)) -> dict[str, Any]:

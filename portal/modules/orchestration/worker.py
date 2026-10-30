@@ -101,20 +101,44 @@ class Engine:
         if not self.load_plan_model:
             return {"skipped": True}
         body = {"models": [{"engine": self.load_plan_engine, "model": self.load_plan_model}]}
+        plan = self._admin_post("load-plan", body, timeout, "load-plan failed: ")
+        if plan.get("fits") is False:
+            raise PipelineError(f"load guard refused the seat: {plan}")
+        return plan
+
+    def memory_plan(self, timeout: float) -> dict[str, Any]:
+        """Read the load guard's current freeable resident-model memory."""
+        return self._admin_post("load-plan", {"models": []}, timeout, "load-plan failed: ")
+
+    def reclaim_idle_memory(self, need_gib: float, timeout: float = 30.0) -> list[dict[str, str]]:
+        """Ask the Pipeline load guard to free idle resident models."""
+        result = self._admin_post(
+            "reclaim-idle", {"need_gib": need_gib}, timeout, "idle-memory reclaim failed: "
+        )
+        unloads = result.get("unloads")
+        if not isinstance(unloads, list) or any(
+            not isinstance(item, dict)
+            or not all(isinstance(item.get(key), str) for key in ("engine", "model", "status"))
+            for item in unloads
+        ):
+            raise PipelineError("idle-memory reclaim returned an invalid unload list")
+        return unloads
+
+    def _admin_post(
+        self, action: str, body: dict[str, Any], timeout: float, prefix: str
+    ) -> dict[str, Any]:
         try:
             response = httpx.post(
-                _admin_url(self.base_url),
+                _admin_url(self.base_url, action),
                 headers=self._headers(),
                 json=body,
                 timeout=min(10.0, max(0.05, timeout)),
             )
             response.raise_for_status()
-            plan = response.json()
+            result = response.json()
         except (httpx.HTTPError, ValueError) as exc:
-            _reraise_pipeline(exc, prefix="load-plan failed: ")
-        if isinstance(plan, dict) and plan.get("fits") is False:
-            raise PipelineError(f"load guard refused the seat: {plan}")
-        return plan if isinstance(plan, dict) else {"response": plan}
+            _reraise_pipeline(exc, prefix=prefix)
+        return result if isinstance(result, dict) else {"response": result}
 
     def _headers(self) -> dict[str, str]:
         headers = {
@@ -1129,11 +1153,11 @@ def _chat_url(base_url: str) -> str:
     return root + "/chat/completions" if root.endswith("/v1") else root + "/v1/chat/completions"
 
 
-def _admin_url(base_url: str) -> str:
+def _admin_url(base_url: str, action: str) -> str:
     root = base_url.rstrip("/")
     if root.endswith("/v1"):
         root = root[:-3]
-    return root + "/admin/load-plan"
+    return root + f"/admin/{action}"
 
 
 class _Transcript:

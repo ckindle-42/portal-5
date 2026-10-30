@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
@@ -572,11 +573,29 @@ class JobPreconditions:
             reasons.append(f"stack is {stack}; the job requires {spec.preconditions.stack}")
         memory = self.memory_probe()
         snapshot["free_memory_gib"] = memory
+        reclaimable = 0.0
+        if memory is not None and memory < spec.preconditions.free_memory_gib:
+            reclaim = getattr(self.gate, "reclaimable_memory_gib", None)
+            if callable(reclaim):
+                try:
+                    value = reclaim()
+                    if (
+                        not isinstance(value, (int, float))
+                        or not math.isfinite(float(value))
+                        or value < 0
+                    ):
+                        raise ValueError("Pipeline returned invalid reclaimable memory")
+                    reclaimable = float(value)
+                except Exception as exc:
+                    snapshot["reclaimable_memory_error"] = str(exc)
+        snapshot["reclaimable_memory_gib"] = reclaimable
+        snapshot["available_memory_gib"] = None if memory is None else memory + reclaimable
         if memory is None:
             reasons.append("free memory is unavailable")
-        elif memory < spec.preconditions.free_memory_gib:
+        elif memory + reclaimable < spec.preconditions.free_memory_gib:
             reasons.append(
-                f"free memory {memory:.1f} GiB is below the "
+                f"free memory {memory:.1f} GiB plus {reclaimable:.1f} GiB in idle loaded models "
+                f"is below the "
                 f"{spec.preconditions.free_memory_gib:.1f} GiB floor"
             )
         disk_path = resolve_job_path(
@@ -722,10 +741,9 @@ class JobRunner:
                 if status is not None:
                     return status, reason
                 continue
-            preconditions = self.preconditions.check(spec, quiet_host=step.quiet_host)
-            state["last_preconditions"] = preconditions.snapshot
-            if not preconditions.ok:
-                return "WAITING", preconditions.reasons[0]
+            ready, memory_reason = self._check_step_preconditions(spec, step, state)
+            if not ready:
+                return "WAITING", memory_reason
             if deadline is not None and time.time() >= deadline:
                 return (
                     "STOPPED",
@@ -750,6 +768,47 @@ class JobRunner:
         if any(entry["state"] == "failed" for entry in state["steps"].values()):
             return "BLOCKED", "one or more steps failed"
         return "PASS", None
+
+    def _check_step_preconditions(
+        self, spec: JobSpec, step: JobStep, state: dict[str, Any]
+    ) -> tuple[bool, str | None]:
+        result = self.preconditions.check(spec, quiet_host=step.quiet_host)
+        state["last_preconditions"] = result.snapshot
+        if not result.ok:
+            return False, result.reasons[0]
+        return self._prepare_step_memory(spec, state, result.snapshot)
+
+    def _prepare_step_memory(
+        self, spec: JobSpec, state: dict[str, Any], snapshot: dict[str, Any]
+    ) -> tuple[bool, str | None]:
+        free = snapshot.get("free_memory_gib")
+        floor = spec.preconditions.free_memory_gib
+        if not isinstance(free, (int, float)) or free >= floor:
+            state["memory_reclaim_pending"] = False
+            return True, None
+        if state.get("memory_reclaim_pending"):
+            return False, f"waiting for idle model unloads to free the {floor:.1f} GiB floor"
+        reclaim = getattr(self.preconditions.gate, "reclaim_idle_memory", None)
+        if not callable(reclaim):
+            return False, f"free memory {free:.1f} GiB is below the {floor:.1f} GiB floor"
+        try:
+            unloads = reclaim(floor - float(free))
+        except Exception as exc:
+            return False, f"Pipeline could not unload idle models: {exc}"
+        recorded = state.setdefault("memory_reclamation_unloads", [])
+        for unload in unloads:
+            if unload not in recorded:
+                recorded.append(unload)
+        snapshot["memory_reclamation_unloads"] = unloads
+        after = self.preconditions.memory_probe()
+        snapshot["free_memory_after_reclaim_gib"] = after
+        state["last_preconditions"] = snapshot
+        state["memory_reclaim_pending"] = bool(unloads)
+        self._save_state(self.task_root / spec.job_id, state)
+        if after is None or after < floor:
+            return False, f"waiting for idle model unloads to free the {floor:.1f} GiB floor"
+        state["memory_reclaim_pending"] = False
+        return True, None
 
     def _recover_running_step(
         self,
@@ -1253,6 +1312,7 @@ class JobRunner:
                 memory_trips,
             ),
             "preconditions": state.get("last_preconditions"),
+            "memory_reclamation": {"unloads": state.get("memory_reclamation_unloads", [])},
             "steps": steps,
             "outputs": outputs,
             "checkpoints": checkpoints,

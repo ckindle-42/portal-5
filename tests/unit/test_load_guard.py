@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import re
+from types import SimpleNamespace
 from typing import Any
 
 import httpx
@@ -1482,6 +1483,60 @@ async def test_plan_reports_active_pipeline_traffic():
     end()
     idle = await g.plan(OLLAMA_URL, [(OMLX, "seat")])
     assert idle["busy"] is False and idle["busy_requests"] == 0
+
+
+async def test_job_memory_reclaim_uses_idle_signals_and_skips_inflight_models():
+    e = Engines(
+        ollama={"router": 2 * GIB, "idle-ollama": 4 * GIB, "busy-ollama": 5 * GIB},
+        omlx={
+            "idle-omlx": {"size": 3 * GIB, "loaded": True},
+            "busy-omlx": {"size": 6 * GIB, "loaded": True},
+        },
+    )
+    g = guard(e)
+    end_ollama = g.begin(OLLAMA, "busy-ollama")
+    end_omlx = g.begin(OMLX, "busy-omlx")
+    try:
+        plan = await g.plan(OLLAMA_URL, [])
+        assert plan["idle_ollama_gib"] == pytest.approx(4)
+        assert plan["freeable_omlx_gib"] == pytest.approx(3)
+
+        unloads = await g.reclaim_idle_memory(OLLAMA_URL, 100 * GIB)
+
+        assert {item["model"] for item in unloads} == {"idle-omlx", "idle-ollama"}
+        assert "busy-omlx" not in e.unloaded
+        assert e.unload_calls.get("busy-ollama", 0) == 0
+    finally:
+        end_ollama()
+        end_omlx()
+
+
+async def test_reclaim_idle_route_delegates_to_load_guard(monkeypatch):
+    from portal.platform.inference.router import handlers
+
+    calls = []
+
+    class FakeGuard:
+        async def reclaim_idle_memory(self, base: str, need: float):
+            calls.append((base, need))
+            return [{"engine": OMLX, "model": "idle", "status": "unloaded"}]
+
+    class Request:
+        async def json(self):
+            return {"need_gib": 4}
+
+    monkeypatch.setattr(handlers, "_verify_key", lambda _authorization: None)
+    monkeypatch.setattr(
+        handlers,
+        "registry",
+        SimpleNamespace(list_backends=lambda: [SimpleNamespace(type=OLLAMA, url=OLLAMA_URL)]),
+    )
+    monkeypatch.setattr(lg, "GUARD", FakeGuard())
+
+    result = await handlers.admin_reclaim_idle_memory(Request(), authorization="Bearer test")
+
+    assert calls == [(OLLAMA_URL, 4 * GIB)]
+    assert result["unloads"] == [{"engine": OMLX, "model": "idle", "status": "unloaded"}]
 
 
 # ── the transport ─────────────────────────────────────────────────────────

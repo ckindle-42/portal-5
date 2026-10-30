@@ -823,11 +823,12 @@ class LoadGuard:
 
     async def _free_omlx(
         self, client: httpx.AsyncClient, want: float, used: float
-    ) -> tuple[float, dict[str, _Free], float | None, float]:
+    ) -> tuple[float, dict[str, _Free], float | None, float, list[dict[str, str]]]:
         """Unload idle oMLX models; report the drop, queued work, post state, 200 bytes."""
         try:
             url, idle = await self._omlx_idle_models(client)
             queued: dict[str, _Free] = {}
+            unloads: list[dict[str, str]] = []
             posted = 0.0
             covered = 0.0  # 200 plus queued 202 bytes: a queued unload can cover the shortage
             any_post = False
@@ -840,20 +841,22 @@ class LoadGuard:
                 if r.status_code == 200:
                     posted += size
                     covered += size
+                    unloads.append({"engine": OMLX, "model": str(m["id"]), "status": "unloaded"})
                     _record_unload(OMLX, "idle_omlx")
                     logger.info("load_guard: unloaded idle oMLX model %s", m["id"])
                 elif r.status_code == 202:
                     queued[m["id"]] = _Free(size)
                     covered += size
+                    unloads.append({"engine": OMLX, "model": str(m["id"]), "status": "queued"})
                     _record_unload(OMLX, "queued_202")
             if not any_post:
-                return 0.0, queued, None, 0.0
+                return 0.0, queued, None, 0.0, unloads
             after = await self._omlx_used(client)
             freed = 0.0 if after is None else max(0.0, used - after)
-            return freed, queued, after, posted
+            return freed, queued, after, posted, unloads
         except Exception as e:
             logger.warning("load_guard: could not free oMLX memory: %s", e)
-            return 0.0, {}, None, 0.0
+            return 0.0, {}, None, 0.0, []
 
     async def _free_ollama(
         self, client: httpx.AsyncClient, base: str, resident: dict[str, int]
@@ -1036,14 +1039,26 @@ class LoadGuard:
         idle: float,
         used: float,
         shortage: float,
-    ) -> tuple[bool, dict[str, _Free], dict[str, _Free], float | None, float]:
-        omlx_freed, omlx_queued, after, synchronous = await self._free_omlx(client, shortage, used)
+    ) -> tuple[
+        bool,
+        dict[str, _Free],
+        dict[str, _Free],
+        float | None,
+        float,
+        list[dict[str, str]],
+    ]:
+        omlx_freed, omlx_queued, after, synchronous, unloads = await self._free_omlx(
+            client, shortage, used
+        )
         if omlx_freed < shortage and idle:
             ollama_requested = await self._free_ollama(client, base, resident)
         else:
             ollama_requested = {}
+        unloads.extend(
+            {"engine": OLLAMA, "model": name, "status": "requested"} for name in ollama_requested
+        )
         did_free = bool(omlx_freed or omlx_queued or ollama_requested)
-        return did_free, omlx_queued, ollama_requested, after, synchronous
+        return did_free, omlx_queued, ollama_requested, after, synchronous, unloads
 
     async def _free_for_load(
         self,
@@ -1057,7 +1072,7 @@ class LoadGuard:
         pending_ollama: dict[str, _Free],
     ) -> tuple[bool, float, float]:
         """Free idle memory and fold it in; return the queued baseline and post counter."""
-        did_free, queued, requested, after, synchronous = await self._free_idle_memory(
+        did_free, queued, requested, after, synchronous, _ = await self._free_idle_memory(
             client, base, resident, idle, used, shortage
         )
         pending_omlx.update(queued)
@@ -1558,6 +1573,31 @@ class LoadGuard:
             "freeable_omlx_gib": freeable_omlx / _GIB,
             "models": per_model,
         }
+
+    async def reclaim_idle_memory(self, ollama_base: str, need: float) -> list[dict[str, str]]:
+        """Unload idle residents through the same path used for cold-load admission."""
+        if need <= 0:
+            return []
+        deadline = time.monotonic() + load_wait_s()
+        release = await self._acquire(OLLAMA, deadline, "job memory reclaim")
+        try:
+            async with self._client() as client:
+                resident = await self._resident(client, ollama_base)
+                capacity = await self._headroom(client)
+                idle = self._ollama_idle(resident)
+                if capacity is None:
+                    requested = await self._free_ollama(client, ollama_base, resident)
+                    return [
+                        {"engine": OLLAMA, "model": name, "status": "requested"}
+                        for name in requested
+                    ]
+                _, used = capacity
+                _, _, _, _, _, unloads = await self._free_idle_memory(
+                    client, ollama_base, resident, idle, used, need
+                )
+                return unloads
+        finally:
+            release()
 
 
 class _Release:
