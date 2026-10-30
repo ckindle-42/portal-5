@@ -21,7 +21,7 @@ import logging
 import os
 import shutil
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -30,9 +30,10 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
-from portal.platform.mcp_host.eval_scope import bind_native_context
+from portal.platform.mcp_host.eval_scope import EVAL_SCOPE, bind_native_context
 from portal.platform.mcp_host.owui_files import publish_file_sync
 from portal.platform.mcp_host.tool_support import align_native_tools
+from portal.platform.mcp_host.workspace import get_uploads_dir, resolve_upload_path
 
 mcp = MCPServer("code-sandbox")
 
@@ -75,9 +76,7 @@ SANDBOX_DIR.mkdir(parents=True, exist_ok=True)
 
 DEFAULT_TIMEOUT = int(os.getenv("SANDBOX_TIMEOUT", "30"))
 PYTHON_IMAGE = os.getenv("SANDBOX_DOCKER_IMAGE", "python:3.11-slim")
-# Read-only view of the shared workspace (${AI_OUTPUT_DIR}) inside every sandbox
-# run, so execute_python can open the user's spreadsheets/files. Like the vulhub
-# clone, the path is a DinD-side bind mount (docker-compose), not this container's.
+# DinD-side workspace root for selected WFE inputs and explicitly referenced uploads.
 SANDBOX_WORKSPACE_DIR = os.getenv("SANDBOX_WORKSPACE_DIR", "/workspace-src")
 NODE_IMAGE = os.getenv("SANDBOX_NODE_IMAGE", "node:20-alpine")
 BASH_IMAGE = os.getenv("SANDBOX_BASH_IMAGE", "alpine:latest")
@@ -314,6 +313,47 @@ async def _install_packages(
     return {"installed": safe, "log": (out or b"").decode("utf-8", "replace")[-800:]}
 
 
+def _workspace_mount_args(
+    work_dir: Path, scope: dict[str, Any] | None, upload_refs: Sequence[str]
+) -> list[str]:
+    if scope is not None:
+        if not SANDBOX_WORKSPACE_DIR:
+            return []
+        row_input = Path(SANDBOX_WORKSPACE_DIR) / "wfe" / scope["campaign"] / scope["run"] / "in"
+        row_input_source = str(row_input)
+        return [
+            "-v",
+            f"{row_input_source}:/workspace:ro",
+            "-v",
+            f"{row_input_source}:/workspace/uploads:ro",
+        ]
+
+    workspace = work_dir / "workspace"
+    (workspace / "uploads").mkdir(parents=True, exist_ok=True)
+    mounts = ["-v", f"{workspace.absolute()}:/workspace:rw"]
+    if not SANDBOX_WORKSPACE_DIR or not upload_refs:
+        return mounts
+
+    uploads_root = get_uploads_dir().resolve()
+    mounted: set[Path] = set()
+    for reference in upload_refs:
+        resolved = resolve_upload_path(reference)
+        if resolved is None:
+            continue
+        upload = Path(resolved).resolve()
+        try:
+            relative = upload.relative_to(uploads_root)
+        except ValueError:
+            continue
+        if not upload.is_file() or relative in mounted or ":" in relative.as_posix():
+            continue
+        mounted.add(relative)
+        source = Path(SANDBOX_WORKSPACE_DIR) / "uploads" / relative
+        target = Path("/workspace/uploads") / relative
+        mounts.extend(["-v", f"{source}:{target}:ro"])
+    return mounts
+
+
 async def _run_in_docker(
     image: str,
     command: list[str],
@@ -321,6 +361,7 @@ async def _run_in_docker(
     timeout: int,
     extra_args: list[str] | None = None,
     session_id: str | None = None,
+    workspace_upload_refs: Sequence[str] = (),
 ) -> dict[str, Any]:
     """Run code in a Docker container with isolation constraints."""
     run_id = uuid.uuid4().hex[:8]
@@ -468,7 +509,7 @@ async def _run_in_docker(
             # container can't see DinD's filesystem to check it.
             ["-v", f"{SANDBOX_LAB_VULHUB_DIR}:/vulhub:ro"] if SANDBOX_LAB_EXEC else []
         )
-        + (["-v", f"{SANDBOX_WORKSPACE_DIR}:/workspace:ro"] if SANDBOX_WORKSPACE_DIR else [])
+        + _workspace_mount_args(work_dir, EVAL_SCOPE.get(), workspace_upload_refs)
         + (extra_args or [])
         + (["-v", f"{sess.absolute()}:/session", "--workdir", "/session"] if sess else [])
         + (["--env", "PYTHONPATH=/session/.pylibs"] if sess else [])
