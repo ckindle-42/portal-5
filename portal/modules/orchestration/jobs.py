@@ -1743,7 +1743,8 @@ def _legacy_step_identity(pid: int, step: JobStep, started_wall: str) -> str | N
         process_started = datetime.strptime(details[0], "%a %b %d %H:%M:%S %Y").timestamp()
     except ValueError:
         return None
-    if not 0 <= process_started - _utc_timestamp(started_wall) <= 5:
+    # ps lstart rounds to seconds and can precede the recorded wall time by one.
+    if not -1 <= process_started - _utc_timestamp(started_wall) <= 5:
         return None
     target = (
         step.argv[4]
