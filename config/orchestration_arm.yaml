@@ -59,6 +59,7 @@ queue:
     oracle:
       enabled: false
       tier: deep-pro
+      fallback_tier: sol
       timeout_seconds: 1800
 disciplines:
   test_fixing:

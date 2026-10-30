@@ -705,6 +705,23 @@ def test_process_oracle_routes_review_kind_and_holds_malformed_output(tmp_path: 
     assert same_family.verdict == "hold"
     assert not same_family_dispatch.calls
 
+    def by_tier(_binary: Path, tier: str) -> tuple[str, bool, set[str], set[str]]:
+        model = "deepseek/deepseek-v4" if tier == "deep-pro" else "openai/gpt-5.5"
+        return model, False, {"review"}, set()
+
+    fallback_dispatch = _FakeDispatch([_lane(None, LaneChanges((), (), ()), text=approved)])
+    fallback = ProcessOracle(
+        tmp_path / "tasks",
+        repo_root=repo,
+        tier="deep-pro",
+        fallback_tier="sol",
+        timeout_seconds=10,
+        dispatcher=fallback_dispatch,
+        policy_resolver=by_tier,
+    ).review(job_id="job-a", attempt=5, lane=candidate, base="HEAD~1", kind="code")
+    assert fallback.verdict == "approve"
+    assert fallback_dispatch.calls[0]["tier"] == "sol"
+
     failed = ProcessOracle(
         tmp_path / "tasks",
         repo_root=repo,
