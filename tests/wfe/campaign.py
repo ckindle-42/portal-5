@@ -2873,6 +2873,14 @@ def log_halt(campaign_dir: Path, arm: str, kind: str, reason: str) -> None:
         fh.write(f"HALT {arm} {kind} {reason}\n")
 
 
+def record_arm_stop(campaign_dir: Path, arm: str, reason: str) -> None:
+    """Append the stop to arm_stops.jsonl, the record campaign_finish() reads after this process is gone."""
+    path = Path(campaign_dir) / "arm_stops.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a") as fh:
+        fh.write(json.dumps({"arm": arm, "reason": reason}) + "\n")
+
+
 def arm_stop_reason(
     arm: str, row: dict, campaign_dir: Path | None = None, manifest: dict | None = None, r=None
 ) -> str | None:
@@ -2951,6 +2959,63 @@ def campaign_measurement_exit(rows: list[dict]) -> int:
         return EXIT_OK
     print(f"NOTHING MEASURED: {dominant_block_reason(rows)}")
     return EXIT_NOTHING_MEASURED
+
+
+def _recorded_stops(campaign_dir: Path) -> list[dict]:
+    path = Path(campaign_dir) / "arm_stops.jsonl"
+    if not path.is_file():
+        return []
+    out: list[dict] = []
+    for line in path.read_text().splitlines():
+        with contextlib.suppress(Exception):
+            if line.strip():
+                out.append(json.loads(line))
+    return out
+
+
+def _recorded_halts(campaign_dir: Path) -> list[str]:
+    """The `HALT <arm> <kind> <reason>` lines; run_arm.py's exit lines don't start with HALT."""
+    path = Path(campaign_dir) / "arm_exits.log"
+    if not path.is_file():
+        return []
+    return [ln.strip() for ln in path.read_text().splitlines() if ln.startswith("HALT ")]
+
+
+def campaign_finish(campaign_dir: Path, campaign_id: str) -> int:
+    """Print the final `CAMPAIGN <id>: ...` line and exit for the matrix that was run.
+
+    wfe_campaign.sh's last call: a stop (instrument drift, seat loss) is 5,
+    nothing measured 10, rows left PENDING with no stop record 8, a completed
+    matrix 0. A halt is a result, not a failure: it completes its arm early and
+    is summarised on the line. The line is the job receipt's reason."""
+    manifest_path = Path(campaign_dir) / "manifest.json"
+    rows: list[dict] = []
+    if manifest_path.is_file():
+        with contextlib.suppress(Exception):
+            rows = json.loads(manifest_path.read_text()).get("rows") or []
+    states = [str(r.get("state") or "PENDING") for r in rows]
+    done = sum(1 for s in states if s not in _UNMEASURED_ROW_STATES)
+    left = sum(1 for s in states if s in ("PENDING", "MISSING"))
+    blocked = sum(1 for s in states if s == "BLOCKED")
+    stops, halts = _recorded_stops(campaign_dir), _recorded_halts(campaign_dir)
+    verdict, reason, code = "complete", "all rows measured", EXIT_OK
+    if stops:
+        verdict, code = "stopped", EXIT_STOPPED
+        reason = str(stops[-1].get("reason") or "arm stopped")
+    elif done == 0:
+        dominant = dominant_block_reason(rows)
+        print(f"NOTHING MEASURED: {dominant}")
+        verdict, code = "stopped", EXIT_NOTHING_MEASURED
+        reason = f"nothing measured: {dominant}"
+    elif halts:
+        reason = f"{len(halts)} halt(s): {halts[-1][len('HALT ') :]}"
+    elif left:
+        verdict, code = "stopped", EXIT_INCOMPLETE
+        reason = f"{left} row(s) left PENDING with no stop recorded"
+    elif blocked:
+        reason = f"{blocked} row(s) BLOCKED, rest measured"
+    print(f"CAMPAIGN {campaign_id}: {verdict} ({reason}) rows {done}/{len(rows)}")
+    return code
 
 
 def _manifest_row_result(campaign_dir: Path, row: dict) -> dict:
@@ -3252,6 +3317,8 @@ def _order_pending_rows(todo: list[dict], manifest: dict) -> list[dict]:
 
 
 def _finish_arm(campaign_dir, arm, model, tally, elapsed_start, notify, stop, halted, ran):
+    if stop:
+        record_arm_stop(campaign_dir, arm, stop)
     if not drain_model(model):
         _log(campaign_dir, f"arm {arm}: WARNING — still resident after {DRAIN_TIMEOUT_S}s")
     elapsed = round(time.monotonic() - elapsed_start)
@@ -3535,6 +3602,13 @@ def _parse_args(argv=None):
         "--require-measured",
         action="store_true",
         help="exit 10 and name the dominant block reason when no row was measured",
+    )
+    ap.add_argument(
+        "--finish",
+        action="store_true",
+        help="wfe_campaign.sh's last call: print `CAMPAIGN <id>: complete|stopped "
+        "(reason) rows done/total` and exit 0 complete, 5 stopped, 10 nothing "
+        "measured, 8 incomplete",
     )
     ap.add_argument("--watch", action="store_true", help="live view of a running campaign")
     ap.add_argument(
@@ -4096,10 +4170,16 @@ def main() -> int:
     return exit_status(outs, arms)
 
 
-def _require_measured_exit() -> int | None:
-    """The campaign-finish check. None means main() should run."""
+def _finish_exit() -> int | None:
+    """The offline finish checks. None means main() should run."""
     ap, args = _parse_args()
-    if args.dry_run or not args.require_measured:
+    if args.dry_run:
+        return None
+    if args.finish:
+        if not args.campaign_id:
+            ap.error("--finish needs --campaign-id")
+        return campaign_finish(CAMPAIGNS / args.campaign_id, args.campaign_id)
+    if not args.require_measured:
         return None
     if not args.campaign_id:
         ap.error("--require-measured needs --campaign-id")
@@ -4108,7 +4188,7 @@ def _require_measured_exit() -> int | None:
 
 def _cli() -> int:
     try:
-        early = _require_measured_exit()
+        early = _finish_exit()
         if early is not None:
             return early
         return main()

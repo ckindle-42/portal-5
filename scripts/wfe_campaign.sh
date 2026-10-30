@@ -14,8 +14,13 @@
 #   REPEATS=5 ALL_SUITES=1 ./scripts/wfe_campaign.sh wfe_deep --arm <tag>
 #   ./scripts/wfe_campaign.sh wfe_s8 --plan tests/wfe/plans/s8_x.yaml --tier screen \
 #       --engine pipeline                                  # job-friendly (no env needed)
-# Exit 10 when every row is BLOCKED, PENDING, or MISSING, after one line
-# `NOTHING MEASURED: <dominant block reason>`. A measured row and --dry-run stay 0.
+# The final stdout line is `CAMPAIGN <id>: complete|stopped (<reason>) rows done/total`
+# (printed by the --finish call, which is also the script's exit): 0 matrix complete
+# (arm halts are a result, summarised on that line), 5 an arm stopped (instrument
+# drift, seat loss) leaving rows PENDING, 8 rows left PENDING with no stop record,
+# 10 nothing measured at all, 4 campaign gate refusal, 2/3 driver misuse or
+# conformance findings. Incident realuse_s8_20261030: 3 of 68 rows, every arm
+# STOPPED on instrument drift, and this script exited 0.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -198,6 +203,13 @@ print(ollama_reachable())
 " < /dev/null 2>/dev/null | tail -1)
     if [ "$reachable" != "True" ]; then
         echo "$(ts) ABORT (Ollama unreachable before ${arm})" | tee -a "$PROGRESS_LOG"
+        # Record the stop so the finish verdict reports stopped, not complete.
+        uv run python -c "
+import sys
+from tests.wfe.campaign import record_arm_stop
+record_arm_stop(*sys.argv[1:])
+" "${DATA_ROOT}/tests/wfe/results/campaigns/${CAMPAIGN_ID}" "$arm" "Ollama unreachable" \
+            >> "$PROGRESS_LOG" 2>&1
         break
     fi
 
@@ -225,11 +237,11 @@ print(ollama_reachable())
     echo "$(ts) DONE ${arm} exit=${exit_code}" | tee -a "$PROGRESS_LOG"
 done
 
-echo "$(ts) CAMPAIGN COMPLETE" | tee -a "$PROGRESS_LOG"
+echo "$(ts) CAMPAIGN FINISH" | tee -a "$PROGRESS_LOG"
 uv run python -m tests.wfe.campaign --campaign-id "$CAMPAIGN_ID" --status 2>&1 | tee -a "$PROGRESS_LOG"
-# Exit 10 when nothing was measured. PIPESTATUS[0] is python's code, not tee's.
-uv run python -m tests.wfe.campaign --campaign-id "$CAMPAIGN_ID" --require-measured \
-    2>&1 | tee -a "$PROGRESS_LOG"
+echo "report: uv run python -m tests.wfe.report --campaign ${CAMPAIGN_ID}" | tee -a "$PROGRESS_LOG"
+# --finish is the last call so its single CAMPAIGN line is the script's final stdout
+# line and its code is the script's: a stopped campaign must not ride home as 0.
+uv run python -m tests.wfe.campaign --campaign-id "$CAMPAIGN_ID" --finish 2>&1 | tee -a "$PROGRESS_LOG"
 finish_rc=${PIPESTATUS[0]}
-echo "report: uv run python -m tests.wfe.report --campaign ${CAMPAIGN_ID}"
 exit "$finish_rc"
