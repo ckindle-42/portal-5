@@ -8,6 +8,7 @@ import os
 import sqlite3
 import subprocess
 import sys
+import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -1704,8 +1705,14 @@ def test_queue_run_keeps_polling_when_the_queue_is_empty(
 ) -> None:
     seen = _fake_queue(monkeypatch, ["EMPTY", "EMPTY", "DONE"])
     sleeps: list[float] = []
+    real_sleep = time.sleep
 
     def fake_sleep(seconds: float) -> None:
+        # Count only the runner's poll sleeps: on Linux subprocess.run(timeout=...) waits via
+        # time.sleep too (the runner lock's `ps`), and CI hit the limit before the first poll.
+        if seconds != 1.0:
+            real_sleep(seconds)
+            return
         sleeps.append(seconds)
         if len(sleeps) >= 3:
             raise KeyboardInterrupt
