@@ -442,6 +442,7 @@ class OvernightQueue:
         if item is None:
             if not active:
                 self._release_stale_window_claim()
+                self._resume_pending_escalations()
             return QueueRun("BUSY" if active else "EMPTY")
         task_id = str(item["task_id"])
         task_dir = self.task_root / task_id
@@ -488,6 +489,34 @@ class OvernightQueue:
             blocked = QueueRun("BLOCKED", task_id, task_dir / "receipt.json", reason)
             self._maybe_escalate(item, blocked)
             return blocked
+
+    def _resume_pending_escalations(self) -> None:
+        resume = getattr(self.escalation, "resume_pending", None)
+        if resume is None:
+            return
+        with QueueLedger(self.task_root) as ledger:
+            candidates = [
+                ledger.task(str(row["task_id"]))
+                for row in ledger.items()
+                if row.get("kind") == "job" and row.get("state") == "blocked"
+            ]
+        for item in candidates:
+            if item is None:
+                continue
+            job_id = str(item["task_id"])
+            receipt = self.task_root / job_id / "receipt.json"
+            result = QueueRun(
+                "BLOCKED",
+                job_id,
+                receipt if receipt.is_file() else None,
+                str(item.get("last_error") or ""),
+            )
+            try:
+                outcome = resume(item, result)
+            except Exception:  # noqa: BLE001 — a quota resume must not stop queue polling
+                continue
+            if outcome not in {"skipped", "waiting"}:
+                break
 
     def _run_job(self, item: dict[str, Any]) -> QueueRun:
         job_id = str(item["task_id"])
