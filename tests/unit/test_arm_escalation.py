@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 from typer.testing import CliRunner
 
 from portal.modules.orchestration import cli as cli_module
@@ -1027,7 +1028,19 @@ def test_a_raising_hook_does_not_stop_the_queue(tmp_path: Path) -> None:
     assert queue.run_next().status == "BLOCKED"
 
 
-def test_escalate_cli_refuses_while_the_flag_is_false() -> None:
+def test_escalate_cli_refuses_while_the_flag_is_false(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Its own config: the live one is the operator's to flip (enabled 10-30).
+    config = tmp_path / "orchestration_arm.yaml"
+    shipped = yaml.safe_load(
+        (Path(__file__).resolve().parents[2] / "config" / "orchestration_arm.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    shipped["queue"]["escalation"]["enabled"] = False
+    config.write_text(yaml.safe_dump(shipped), encoding="utf-8")
+    monkeypatch.setattr(cli_module, "_arm_config_path", lambda: config)
     result = CliRunner().invoke(orchestration_app, ["escalate", "job-a"])
     assert result.exit_code == 2
     assert "queue.escalation.enabled is false" in result.stderr or (

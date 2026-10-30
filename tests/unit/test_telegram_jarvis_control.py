@@ -130,10 +130,11 @@ async def test_callback_refuses_unknown_user(store, monkeypatch):
 # ── Flag off ─────────────────────────────────────────────────────────────────
 
 
-def test_flag_defaults_off_in_the_shipped_config():
+def test_the_shipped_config_declares_the_control_flag():
+    # The operator turned control on 10-30; the flag must stay an explicit boolean.
     config = yaml.safe_load((ROOT / "config" / "orchestration_arm.yaml").read_text())
     block = config["queue"]["telegram_control"]
-    assert block["enabled"] is False
+    assert isinstance(block["enabled"], bool)
 
 
 async def test_flag_off_bot_answers_not_enabled_and_never_opens_the_store(tmp_path, monkeypatch):
