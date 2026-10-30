@@ -311,6 +311,7 @@ def queue_run(
         typer.echo("queue-run is already active in another process; exiting")
         return
     try:
+        from portal.modules.orchestration.control import build_control_poller
         from portal.modules.orchestration.escalate import build_escalator
         from portal.modules.orchestration.service import load_arm_config
         from portal.modules.orchestration.telegram import TelegramNoticeSink
@@ -328,11 +329,15 @@ def queue_run(
             notices=sink,
             escalation=build_escalator(root, _repo_root(), sink, policy),
         )
+        control_poll = build_control_poller(root, _repo_root(), sink, policy)
         sink.runner_notice(
             "runner_started", "queue-runner", {"pid": os.getpid(), "poll_seconds": poll_seconds}
         )
         while True:
             _maybe_send_daily_digest(root, sink)
+            if control_poll is not None and control_poll():
+                time.sleep(poll_seconds)
+                continue
             result = runner.run_next(override=override)
             if result.status == "EMPTY":
                 if drain:
@@ -361,11 +366,12 @@ def queue_digest(
 ) -> None:
     """Send today's queue digest to Telegram and print it."""
     _require_enabled()
+    from portal.modules.orchestration.control import digest_inputs
     from portal.modules.orchestration.queue import build_queue_digest
 
     root = tasks_dir or _tasks_dir()
     try:
-        digest = build_queue_digest(*_digest_inputs(root))
+        digest = build_queue_digest(*digest_inputs(root))
         if not no_send:
             from portal.modules.orchestration.telegram import TelegramNoticeSink
 
@@ -394,6 +400,7 @@ def _acquire_runner_lock(root: Path) -> Path | None:
 
 
 def _maybe_send_daily_digest(root: Path, sink: Any) -> None:
+    from portal.modules.orchestration.control import digest_inputs
     from portal.modules.orchestration.queue import build_queue_digest
 
     state_path = root / "queue-digest.json"
@@ -403,31 +410,8 @@ def _maybe_send_daily_digest(root: Path, sink: Any) -> None:
             return
     except (OSError, ValueError):
         pass
-    sink.digest(build_queue_digest(*_digest_inputs(root)))
+    sink.digest(build_queue_digest(*digest_inputs(root)))
     state_path.write_text(json.dumps({"last_sent": today}) + "\n", encoding="utf-8")
-
-
-def _digest_inputs(root: Path) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
-    from portal.modules.orchestration.queue import QueueLedger
-
-    with QueueLedger(root) as ledger:
-        items = ledger.items()
-        for item in items:
-            item["waiting_since"] = ledger.waiting_since(str(item["task_id"]))
-    receipts: dict[str, dict[str, Any]] = {}
-    for item in items:
-        payload = _read_receipt(root, str(item["task_id"]))
-        if payload is not None:
-            receipts[str(item["task_id"])] = payload
-    return items, receipts
-
-
-def _read_receipt(root: Path, task_id: str) -> dict[str, Any] | None:
-    try:
-        payload: Any = json.loads((root / task_id / "receipt.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    return payload if isinstance(payload, dict) else None
 
 
 @digests_app.command("refresh")
@@ -455,12 +439,16 @@ def digests_refresh(
 
 @orchestration_app.command("queue-status")
 def queue_status(tasks_dir: Annotated[Path | None, typer.Option("--tasks-dir")] = None) -> None:
-    """Print the durable queue ledger."""
+    """Print the durable queue ledger and the last control requests."""
     _require_enabled()
+    from portal.modules.orchestration.control import control_requests_text
     from portal.modules.orchestration.queue import QueueLedger
 
     with QueueLedger(tasks_dir or _tasks_dir()) as ledger:
         typer.echo(json.dumps(ledger.items(), indent=2))
+    controls = control_requests_text()
+    if controls:
+        typer.echo("\nLast control requests:\n" + controls)
 
 
 @orchestration_app.command("queue-cancel")
@@ -477,20 +465,13 @@ def queue_cancel(
 ) -> None:
     """Mark a queued task blocked/CANCELLED. Refuses a live runner."""
     _require_enabled()
-    from portal.modules.orchestration.jobs import release_window_claim
-    from portal.modules.orchestration.queue import QueueLedger
+    from portal.modules.orchestration.control import cancel_job
 
-    released = False
     try:
-        with QueueLedger(tasks_dir or _tasks_dir()) as ledger:
-            ledger.cancel_task(task_id, reason, force=force)
-        released = release_window_claim(task_id)
+        typer.echo(cancel_job(tasks_dir or _tasks_dir(), task_id, reason, force=force))
     except Exception as exc:
         typer.echo(f"arm queue-cancel failed: {exc}", err=True)
         raise typer.Exit(code=1) from exc
-    typer.echo(f"cancelled {task_id}")
-    if released:
-        typer.echo("released the quiet-host window claim")
 
 
 @orchestration_app.command("queue-requeue")
@@ -500,28 +481,14 @@ def queue_requeue(
 ) -> None:
     """Requeue a blocked or done job from the spec in its job directory."""
     _require_enabled()
-    from portal.modules.orchestration.jobs import job_json, parse_job_spec
-    from portal.modules.orchestration.queue import QueueLedger
+    from portal.modules.orchestration.control import requeue_job
 
     root = tasks_dir or _tasks_dir()
-    spec_path = root / task_id / "job.json"
     try:
-        if not spec_path.is_file():
-            raise ValueError(f"no job spec for {task_id}")
-        spec = parse_job_spec(
-            yaml.safe_load(spec_path.read_text(encoding="utf-8")),
-            repo_root=_repo_root(),
-        )
-        if spec.job_id != task_id:
-            raise ValueError(f"job spec id {spec.job_id} does not match queue id {task_id}")
-        with QueueLedger(root) as ledger:
-            ledger.requeue_job(task_id, job_json(spec))
-        payload = json.dumps(spec.as_dict(), sort_keys=True, indent=2) + "\n"
-        spec_path.write_text(payload, encoding="utf-8")
+        typer.echo(requeue_job(root, task_id, _repo_root()))
     except Exception as exc:
         typer.echo(f"arm queue-requeue failed: {exc}", err=True)
         raise typer.Exit(code=1) from exc
-    typer.echo(f"requeued {task_id}")
 
 
 @orchestration_app.command("escalate")
@@ -531,10 +498,9 @@ def escalate_job(
 ) -> None:
     """Ask a cloud lane to repair one blocked job. Requires queue.escalation.enabled."""
     _require_enabled()
-    from portal.modules.orchestration.escalate import Escalator, escalation_enabled
-    from portal.modules.orchestration.queue import QueueLedger, QueueRun
+    from portal.modules.orchestration.control import escalate_blocked_job
+    from portal.modules.orchestration.escalate import escalation_enabled
     from portal.modules.orchestration.service import load_arm_config
-    from portal.modules.orchestration.telegram import TelegramNoticeSink
 
     policy = load_arm_config(_arm_config_path()).get("queue", {})
     if not escalation_enabled(policy):
@@ -542,14 +508,7 @@ def escalate_job(
         raise typer.Exit(code=2)
     root = tasks_dir or _tasks_dir()
     try:
-        with QueueLedger(root) as ledger:
-            item = ledger.task(job_id)
-        if item is None:
-            raise ValueError(f"no queue task: {job_id}")
-        receipt = root / job_id / "receipt.json"
-        outcome = Escalator(root, repo_root=_repo_root(), notices=TelegramNoticeSink()).handle(
-            item, QueueRun("BLOCKED", job_id, receipt if receipt.is_file() else None)
-        )
+        outcome = escalate_blocked_job(root, job_id, _repo_root(), policy)
     except Exception as exc:
         typer.echo(f"arm escalate failed: {exc}", err=True)
         raise typer.Exit(code=1) from exc

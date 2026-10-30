@@ -25,6 +25,18 @@ class ArmNotice:
     message: str
 
 
+@dataclass(frozen=True)
+class ControlRequest:
+    id: str
+    user_id: int
+    verb: str
+    args: str
+    status: str
+    result: str | None
+    created_at: str
+    decided_at: str | None
+
+
 class TelegramSender(Protocol):
     async def send_message(self, **kwargs: Any) -> Any: ...
 
@@ -142,6 +154,126 @@ class ArmTelegramStore:
             )
             return cursor.rowcount == 1
 
+    def add_control_request(
+        self, user_id: int, verb: str, args: str, status: str = "queued", result: str | None = None
+    ) -> str:
+        request_id = uuid.uuid4().hex
+        decided = _now() if status == "refused" else None
+        with self._db() as db:
+            db.execute(
+                "INSERT INTO control_requests (id, user_id, verb, args, status, result, "
+                "created_at, decided_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (request_id, user_id, verb, args, status, result, _now(), decided),
+            )
+        return request_id
+
+    def control_request(self, request_id: str) -> ControlRequest | None:
+        with self._db() as db:
+            row = db.execute(
+                "SELECT id, user_id, verb, args, status, result, created_at, decided_at "
+                "FROM control_requests WHERE id = ?",
+                (request_id,),
+            ).fetchone()
+        return ControlRequest(*row) if row is not None else None
+
+    def pending_control_requests(self, task_id: str) -> list[ControlRequest]:
+        """System-created pending rows behind one job's notice buttons, one per verb."""
+        self.expire_stale_controls()
+        with self._db() as db:
+            rows = db.execute(
+                "SELECT id, user_id, verb, args, status, result, created_at, decided_at "
+                "FROM control_requests WHERE status = 'pending' AND args = ? AND user_id = 0 "
+                "ORDER BY rowid",
+                (task_id,),
+            ).fetchall()
+        latest: dict[str, ControlRequest] = {}
+        for row in rows:
+            request = ControlRequest(*row)
+            latest[request.verb] = request
+        return list(latest.values())
+
+    def decide_control(
+        self, request_id: str, action: str, user_id: int, allowed_users: set[int]
+    ) -> ControlRequest | None:
+        """Confirm queues a pending request; abort refuses it. Closed rows give None."""
+        if action not in {"confirm", "abort"} or user_id not in allowed_users:
+            return None
+        status = "queued" if action == "confirm" else "refused"
+        result = "confirmed by operator" if action == "confirm" else "aborted by operator"
+        with self._db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute(
+                "SELECT created_at FROM control_requests WHERE id = ? AND status = 'pending'",
+                (request_id,),
+            ).fetchone()
+            if row is None:
+                return None
+            if self._expired(str(row[0])):
+                db.execute(
+                    "UPDATE control_requests SET status = 'expired', decided_at = ? WHERE id = ?",
+                    (_now(), request_id),
+                )
+                return None
+            db.execute(
+                "UPDATE control_requests SET status = ?, result = ?, decided_at = ? "
+                "WHERE id = ? AND status = 'pending'",
+                (status, result, _now(), request_id),
+            )
+        return self.control_request(request_id)
+
+    def claim_control_requests(self) -> list[ControlRequest]:
+        """Every queued request in arrival order; stale ones are expired first."""
+        self.expire_stale_controls()
+        with self._db() as db:
+            rows = db.execute(
+                "SELECT id, user_id, verb, args, status, result, created_at, decided_at "
+                "FROM control_requests WHERE status = 'queued' ORDER BY rowid"
+            ).fetchall()
+        return [ControlRequest(*row) for row in rows]
+
+    def finish_control(self, request_id: str, status: str, result: str) -> None:
+        with self._db() as db:
+            db.execute(
+                "UPDATE control_requests SET status = ?, result = ?, decided_at = ? "
+                "WHERE id = ? AND status IN ('queued', 'pending')",
+                (status, result, _now(), request_id),
+            )
+
+    def expire_stale_controls(self) -> None:
+        with self._db() as db:
+            rows = db.execute(
+                "SELECT id, created_at FROM control_requests WHERE status IN ('pending', 'queued')"
+            ).fetchall()
+            for row_id, created_at in rows:
+                if self._expired(str(created_at)):
+                    db.execute(
+                        "UPDATE control_requests SET status = 'expired', decided_at = ? "
+                        "WHERE id = ?",
+                        (_now(), row_id),
+                    )
+
+    def latest_control_requests(self, limit: int = 10) -> list[ControlRequest]:
+        with self._db() as db:
+            rows = db.execute(
+                "SELECT id, user_id, verb, args, status, result, created_at, decided_at "
+                "FROM control_requests ORDER BY rowid DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [ControlRequest(*row) for row in reversed(rows)]
+
+    def set_control_flag(self, key: str, value: str) -> None:
+        with self._db() as db:
+            db.execute(
+                "INSERT INTO control_state (key, value) VALUES (?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (key, value),
+            )
+
+    def control_flag(self, key: str) -> str | None:
+        with self._db() as db:
+            row = db.execute("SELECT value FROM control_state WHERE key = ?", (key,)).fetchone()
+        return str(row[0]) if row is not None else None
+
     def _enqueue(
         self,
         task_id: str,
@@ -185,6 +317,22 @@ class ArmTelegramStore:
         return request_id
 
     def _create_schema(self, db: sqlite3.Connection) -> None:
+        db.execute(
+            """CREATE TABLE IF NOT EXISTS control_requests (
+                id TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                verb TEXT NOT NULL,
+                args TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL,
+                result TEXT,
+                created_at TEXT NOT NULL,
+                decided_at TEXT
+            )"""
+        )
+        db.execute("CREATE INDEX IF NOT EXISTS control_requests_status ON control_requests(status)")
+        db.execute(
+            "CREATE TABLE IF NOT EXISTS control_state (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
+        )
         columns = {str(row[1]) for row in db.execute("PRAGMA table_info(arm_notice)")}
         has_identity = {"content_hash", "run_id"}.issubset(columns)
         has_old_unique_key = False
@@ -271,13 +419,17 @@ async def send_outbox_once(
     bot: TelegramSender,
     recipients: set[int],
     keyboard_factory: Any,
+    control_keyboard: Any = None,
 ) -> int:
     """Send queued messages through the existing Telegram application's bot."""
     if not recipients:
         return 0
     count = 0
     for notice in store.outbox():
-        markup = keyboard_factory(notice.request_id) if notice.kind == "approval" else None
+        if notice.kind == "approval":
+            markup = keyboard_factory(notice.request_id)
+        else:
+            markup = control_keyboard(notice.task_id) if control_keyboard is not None else None
         for user_id in sorted(recipients):
             await bot.send_message(chat_id=user_id, text=notice.message, reply_markup=markup)
         store.mark_sent(notice.request_id)

@@ -56,6 +56,8 @@ queue:
   yield_lock_dir: ~/.portal5/locks/
   escalation:
     enabled: false
+  telegram_control:
+    enabled: false
 disciplines:
   test_fixing:
     selection_reason: Existing coding WFE work already uses hidden pytest tests as

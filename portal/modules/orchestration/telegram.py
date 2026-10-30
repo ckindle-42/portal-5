@@ -20,6 +20,8 @@ _RUNNER_EVENT_TEXT = {
     "orphan_adopted": "Runner restart: adopted an orphaned job step",
     "runner_started": "Queue runner started",
 }
+_HELD_BUTTONS = ("merge", "keep", "diff")
+_BLOCKED_BUTTONS = ("requeue", "escalate", "cancel")
 
 
 class TelegramNoticeSink:
@@ -78,6 +80,8 @@ class TelegramNoticeSink:
         if reason:
             lines.append(f"Reason: {reason}")
         self.store.notify(job_id, "job", "\n".join(lines))
+        if str(status).upper() == "BLOCKED":
+            self._queue_buttons(job_id, _BLOCKED_BUTTONS)
 
     def runner_notice(self, event: str, job_id: str, detail: dict[str, Any]) -> None:
         head = _RUNNER_EVENT_TEXT.get(event, f"Runner event {event}")
@@ -85,7 +89,10 @@ class TelegramNoticeSink:
         if job_id and job_id != "queue-runner":
             lines.append(f"Job: {_one_line(job_id)}")
         lines.extend(f"{key}: {_one_line(value)}" for key, value in sorted(detail.items()))
-        self.store.notify(job_id or "queue-runner", event, "\n".join(lines))
+        task_id = job_id or "queue-runner"
+        self.store.notify(task_id, event, "\n".join(lines))
+        if event == "quota":
+            self._queue_buttons(task_id, ("resume",))
 
     def digest(self, text: str) -> None:
         self.store.notify("queue-digest", "digest", text)
@@ -96,6 +103,13 @@ class TelegramNoticeSink:
             if detail.get(key):
                 lines.append(f"{key}: {_one_line(detail[key])}")
         self.store.notify(job_id, "escalation", "\n".join(lines))
+        if event == "held":
+            self._queue_buttons(job_id, _HELD_BUTTONS)
+
+    def _queue_buttons(self, job_id: str, verbs: tuple[str, ...]) -> None:
+        """Pending control rows that become this notice's action buttons."""
+        for verb in verbs:
+            self.store.add_control_request(user_id=0, verb=verb, args=job_id, status="pending")
 
 
 def _one_line(value: object) -> str:

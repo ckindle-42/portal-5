@@ -18,6 +18,7 @@ import yaml
 from typer.testing import CliRunner
 
 from portal.modules.orchestration import cli as cli_module
+from portal.modules.orchestration import control as control_module
 from portal.modules.orchestration import jobs as jobmod
 from portal.modules.orchestration import queue as queue_module
 from portal.modules.orchestration.cli import orchestration_app
@@ -2152,7 +2153,7 @@ def test_an_empty_queue_digest_reports_idle(tmp_path: Path) -> None:
     tasks_dir = tmp_path / "tasks"
 
     text = queue_module.build_queue_digest(
-        *cli_module._digest_inputs(tasks_dir), now=datetime.now(UTC)
+        *control_module.digest_inputs(tasks_dir), now=datetime.now(UTC)
     )
 
     assert "Queue is idle." in text
