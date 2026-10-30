@@ -181,7 +181,12 @@ def _status_text(ctx: ControlContext, args: str) -> str:
     recent = [
         i
         for i in items
-        if i not in active and (args.strip() == "all" or _parsed(i.get("updated_at")) >= cutoff)
+        if i not in active
+        and (
+            args.strip() == "all"
+            # cancelled jobs were retired on purpose; only `status all` shows them
+            or (_parsed(i.get("updated_at")) >= cutoff and i.get("receipt_status") != "CANCELLED")
+        )
     ]
     lines = []
     for item in active + recent:
