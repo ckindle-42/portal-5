@@ -9,7 +9,7 @@
     <array>
         <string>/bin/bash</string>
         <string>-lc</string>
-        <string>cd __PORTAL_ROOT__ &amp;&amp; set -a &amp;&amp; . ./.env 2&gt;/dev/null; set +a; exec uv run portal arm queue-run --poll-seconds 60</string>
+        <string>cd __PORTAL_ROOT__ &amp;&amp; export PIPELINE_API_KEY="$(grep -E '^PIPELINE_API_KEY=' .env | tail -1 | cut -d= -f2- | tr -d "\"'")" &amp;&amp; exec uv run portal arm queue-run --poll-seconds 60</string>
     </array>
     <key>WorkingDirectory</key>
     <string>__PORTAL_ROOT__</string>
@@ -18,7 +18,10 @@
         <key>PATH</key>
         <string>/opt/homebrew/bin:/opt/homebrew/sbin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     </dict>
-    <!-- Unattended queue runner. Exactly one copy may run: a second queue-run
+    <!-- Only PIPELINE_API_KEY is taken from .env: sourcing the whole file imports container
+         hostnames and paths that break host runners (job steps get their own keys through
+         env_from_dotenv; seat digests come from ~/.portal5/arm_digests.env).
+         Unattended queue runner. Exactly one copy may run: a second queue-run
          exits cleanly while the live runner holds <tasks dir>/queue-runner.lock
          (the queue BUSY guard covers the in-job window). Install with
          ./launch.sh install-arm-queue; stop for maintenance with
