@@ -32,6 +32,7 @@ EXPECTED = {
     "bully-r0b-ship",
     "wfe-fast-baseline",
     "wfe-realuse-rest",
+    "wfe-realuse-autocoding-ab",
     "wfe-realuse-sec",
 }
 
