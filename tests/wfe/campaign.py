@@ -827,6 +827,7 @@ REUSE_FIELDS = (
     "tool_surface",
     "pipeline",
     "tool_modules",
+    "harness",
 )
 
 
@@ -842,6 +843,7 @@ def reuse_key(
     engine_version: str | None,
     pipeline: dict | None,
     tool_modules: dict | None,
+    harness: str | None = None,
 ) -> dict:
     """The incumbent-reuse fingerprint.
 
@@ -850,7 +852,8 @@ def reuse_key(
     the group id), so one daemon's groups reuse each other's rows. `pipeline`
     is the inference and config trees at the row's deployed sha. `tool_modules`
     maps each offered portal module to its tree at that sha; None means a tool
-    could not be placed, which never matches."""
+    could not be placed, which never matches. `harness` is the tests/wfe content digest
+    the row was measured with: a harness change (fixture staging, checkers) never reuses."""
     ident = identity or {}
     return {
         "suite_digest": suite_digest or "",
@@ -865,6 +868,7 @@ def reuse_key(
         "tool_surface": list(tool_surface or []),
         "pipeline": dict(pipeline or {}),
         "tool_modules": None if tool_modules is None else dict(tool_modules),
+        "harness": harness or "",
     }
 
 
@@ -876,7 +880,7 @@ def reuse_mismatch(want: dict, have: dict) -> list[str]:
     empties. An empty tool-module map is a real answer: the row was offered only
     harness tools."""
     bad = [k for k in REUSE_FIELDS if want.get(k) != have.get(k)]
-    for name in ("content", "pipeline", "engine", "engine_version"):
+    for name in ("content", "pipeline", "engine", "engine_version", "harness"):
         if (not want.get(name) or not have.get(name)) and name not in bad:
             bad.append(name)
     if (want.get("tool_modules") is None or have.get("tool_modules") is None) and (
@@ -1177,6 +1181,7 @@ def recorded_reuse_key(campaign_dir: Path, row: dict, digests: dict | None = Non
         engine_version=version,
         pipeline=pipeline_at(sha, row.get("workspace") or ""),
         tool_modules=tool_module_trees(sha, surface),
+        harness=inst.get("harness"),
     )
 
 
@@ -1206,6 +1211,7 @@ def destination_reuse_key(
         engine_version=version,
         pipeline=pipeline_at(sha, stub.get("workspace") or ""),
         tool_modules=tool_module_trees(sha, surface),
+        harness=inst.get("harness"),
     )
 
 

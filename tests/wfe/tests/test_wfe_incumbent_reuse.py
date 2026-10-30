@@ -86,6 +86,7 @@ def _instrument(fp: str, deployed: str = DEPLOYED) -> dict:
         "fingerprint": fp,
         "deployed": deployed,
         "engine": "pipeline",
+        "harness": "harness-digest",
     }
 
 
@@ -232,9 +233,16 @@ class TestReuseKey:
             "surface",
             "pipeline",
             "modules",
+            "harness",
         ],
     )
     def test_any_one_field_off_is_not_copied(self, tmp_path, monkeypatch, mutate):
+        instrument_off = {
+            "engine": {"engine": "other-engine"},
+            "pipeline": {"deployed": PIPE},
+            "modules": {"deployed": MOD},
+            "harness": {"harness": "other-harness"},
+        }
         _src, dst, stub, _row = _pair(tmp_path, monkeypatch)
         src_dir = tmp_path / "src"
         path = campaign._row_path(src_dir, stub["run_id"])
@@ -257,18 +265,14 @@ class TestReuseKey:
             body["identity"] = {**body["identity"], "model": "other-model"}
         elif mutate == "content":
             body["identity"] = {**body["identity"], "content": "other-content"}
-        elif mutate == "engine":
-            body["instrument"] = {**body["instrument"], "engine": "other-engine"}
         elif mutate == "version":
             body["env"] = {**body["env"], "ollama_version": "9.9.9"}
         elif mutate == "sampling":
             body["sampling"] = {**body["sampling"], "temperature": 0.7}
         elif mutate == "surface":
             body["tool_surface"] = ["read_pdf"]
-        elif mutate == "pipeline":
-            body["instrument"] = {**body["instrument"], "deployed": PIPE}
-        elif mutate == "modules":
-            body["instrument"] = {**body["instrument"], "deployed": MOD}
+        elif mutate in instrument_off:
+            body["instrument"] = {**body["instrument"], **instrument_off[mutate]}
         path.write_text(json.dumps(body))
         assert campaign.reuse_incumbent_rows(dst, campaign.load_manifest(dst), [stub]) == []
         assert not campaign._row_path(dst, stub["run_id"]).exists()
@@ -525,7 +529,7 @@ def test_documents_g_to_h_incumbents_do_not_match():
         counts[tuple(row["diffs"])] = counts.get(tuple(row["diffs"]), 0) + 1
     assert report["matched"] == 0 and report["dst_incumbent_rows"] == 108
     assert counts[("no source row",)] == 96
-    assert counts[("pipeline", "tool_modules")] == 12
+    assert counts[("pipeline", "tool_modules", "harness")] == 12
 
 
 def test_math_b_to_d_auto_math_incumbents_do_not_match():
@@ -548,7 +552,7 @@ def test_math_b_to_d_auto_math_incumbents_do_not_match():
         counts[key] = counts.get(key, 0) + 1
     assert n == 108 and report["matched"] == 0
     assert counts[("no source row",)] == 72
-    assert counts[("suite_digest", "pipeline")] == 36
+    assert counts[("suite_digest", "pipeline", "harness")] == 36
 
 
 def test_pipeline_digest_ignores_rebaseline_only_commits():
