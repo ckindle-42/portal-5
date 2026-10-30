@@ -1684,6 +1684,7 @@ def _gates(
         shutil.rmtree(parent, ignore_errors=True)
         return _GateResult(False, "gates-failed", "could not create throwaway merge worktree")
     try:
+        _link_live_state(dest, main)
         if not _merge_into(dest, worktree, changes):
             return _GateResult(
                 False, "gates-failed", "lane could not merge into throwaway worktree"
@@ -1702,6 +1703,18 @@ def _gates(
     finally:
         git_run(main, ["worktree", "remove", "--force", str(dest)])
         shutil.rmtree(parent, ignore_errors=True)
+
+
+#: Gitignored state a job tree reads from the live checkout; the Jarvis snapshot links the
+#: same two. Without .env the canary's oMLX inventory read 401 → "not installed" (10-30).
+_LIVE_LINKS = (".env", ".venv")
+
+
+def _link_live_state(dest: Path, main: Path) -> None:
+    for name in _LIVE_LINKS:
+        target, link = main / name, dest / name
+        if target.exists() and not link.exists() and not link.is_symlink():
+            link.symlink_to(target)
 
 
 def _merge_into(dest: Path, worktree: Path, changes: LaneChanges) -> bool:
@@ -1759,7 +1772,9 @@ def _commit_untracked(main: Path, paths: Sequence[str], message: str) -> bool:
 def _repin(main: Path, source: Path) -> bool:
     if source.resolve() == main.resolve() or not (source / ".git").exists():
         return True
-    if git_run(source, ["status", "--porcelain"]).stdout.strip():
+    # Untracked files (job-written reports) do not block a detached checkout; only
+    # tracked edits would be lost.
+    if git_run(source, ["status", "--porcelain", "--untracked-files=no"]).stdout.strip():
         return False
     sha = git_run(main, ["rev-parse", "HEAD"]).stdout.strip()
     return git_run(source, ["checkout", "--detach", sha]).returncode == 0

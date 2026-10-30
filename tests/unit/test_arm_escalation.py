@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import shutil
 import subprocess
 import time
 from collections.abc import Sequence
@@ -1231,3 +1232,39 @@ def test_escalation_canary_uses_a_throwaway_campaign_id() -> None:
     assert out[2:] == argv[2:]
     assert argv[1] == "realuse_reruns_20261030b"
     assert _throwaway_campaign(["other.sh", "x", "--canary"], "t") == ["other.sh", "x", "--canary"]
+
+
+def test_merge_worktree_links_live_env_and_venv(tmp_path: Path) -> None:
+    from portal.modules.orchestration.escalate import _link_live_state
+
+    main, dest = tmp_path / "main", tmp_path / "dest"
+    (main / ".venv").mkdir(parents=True)
+    (main / ".env").write_text("OMLX_API_KEY=x\n")
+    dest.mkdir()
+    _link_live_state(dest, main)
+    _link_live_state(dest, main)
+    assert (dest / ".env").resolve() == (main / ".env").resolve()
+    assert (dest / ".venv").resolve() == (main / ".venv").resolve()
+    shutil.rmtree(dest)
+    assert (main / ".env").is_file() and (main / ".venv").is_dir()
+
+
+def test_repin_ignores_untracked_reports(tmp_path: Path) -> None:
+    from portal.modules.orchestration.escalate import _repin
+
+    main, snap = tmp_path / "main", tmp_path / "snap"
+    subprocess.run(["git", "init", "-q", str(main)], check=True)
+    (main / "f").write_text("1")
+    git = ["git", "-c", "user.email=t@t", "-c", "user.name=t"]
+    subprocess.run([*git, "-C", str(main), "add", "f"], check=True)
+    subprocess.run([*git, "-C", str(main), "commit", "-qm", "a"], check=True)
+    subprocess.run(
+        ["git", "-C", str(main), "worktree", "add", "-q", "--detach", str(snap)], check=True
+    )
+    (main / "f").write_text("2")
+    subprocess.run([*git, "-C", str(main), "commit", "-qam", "b"], check=True)
+    (snap / "report.md").write_text("job output")
+    assert _repin(main, snap) is True
+    assert (snap / "f").read_text() == "2"
+    (snap / "f").write_text("tracked edit")
+    assert _repin(main, snap) is False
