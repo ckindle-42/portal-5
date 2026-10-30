@@ -1809,3 +1809,24 @@ class TestCanarySteps:
 
         with pytest.raises(ValueError, match="argv"):
             parse_job_spec(raw, repo_root=repo)
+
+
+def test_queue_cancel_releases_the_cancelled_jobs_window_claim(tmp_path: Path) -> None:
+    # 10-30: a job cancelled while WAITING kept its claim (pid = the live runner), so the
+    # dispatcher refused lanes for a job that no longer existed.
+    tasks_dir = _enqueue_job(tmp_path)
+    claim = tmp_path / "state" / "jarvis_local_window.json"
+    claim.parent.mkdir(parents=True)
+    claim.write_text(json.dumps({"pid": os.getpid(), "job": "job-a", "since": "x"}))
+    other = tmp_path / "other.json"
+    other.write_text(json.dumps({"pid": os.getpid(), "job": "job-b", "since": "x"}))
+
+    with QueueLedger(tasks_dir, window_claim=other) as ledger:
+        ledger.cancel_task("job-a", "test")
+    assert other.exists()  # another job's claim is left alone
+
+    _enqueue_job(tmp_path, job_id="job-c")
+    claim.write_text(json.dumps({"pid": os.getpid(), "job": "job-c", "since": "x"}))
+    with QueueLedger(tasks_dir, window_claim=claim) as ledger:
+        ledger.cancel_task("job-c", "test")
+    assert not claim.exists()

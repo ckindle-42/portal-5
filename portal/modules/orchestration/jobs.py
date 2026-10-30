@@ -634,6 +634,18 @@ class JobPreconditions:
             self.window_claim.unlink(missing_ok=True)
 
 
+def release_window_claim_for(job_id: str, claim_path: Path) -> bool:
+    """Drop the Jarvis Local window claim when it names `job_id` (a cancelled job never runs to release it)."""
+    try:
+        claim = json.loads(claim_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    if isinstance(claim, dict) and claim.get("job") == job_id:
+        claim_path.unlink(missing_ok=True)
+        return True
+    return False
+
+
 class JobRunner:
     """Run one job's steps serially with receipt, resume and memory-trip stops.
 

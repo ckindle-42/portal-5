@@ -15,12 +15,15 @@ from typing import Any
 
 from .contracts import Bite, TaskPlan, plan_json
 from .jobs import (
+    DEFAULT_DISPATCH_LOCK_DIR,
+    WINDOW_CLAIM_NAME,
     JobNoticeSink,
     JobRunner,
     JobSpec,
     _ps_process_details,
     job_json,
     parse_job_spec,
+    release_window_claim_for,
 )
 from .service import ArmService
 from .worker import Engine, PipelineError
@@ -127,9 +130,12 @@ class QueueGate:
 class QueueLedger:
     """Store queued plans and queue state transitions in SQLite."""
 
-    def __init__(self, task_root: Path) -> None:
+    def __init__(self, task_root: Path, window_claim: Path | None = None) -> None:
         task_root.mkdir(parents=True, exist_ok=True)
         self.task_root = task_root
+        self.window_claim = window_claim or (
+            DEFAULT_DISPATCH_LOCK_DIR.parent / "state" / WINDOW_CLAIM_NAME
+        )
         self.db = sqlite3.connect(task_root / "queue.sqlite3", timeout=30)
         self.db.row_factory = sqlite3.Row
         self.db.executescript(
@@ -296,6 +302,7 @@ class QueueLedger:
         except Exception:
             self.db.rollback()
             raise
+        release_window_claim_for(task_id, self.window_claim)
 
     def requeue_job(self, task_id: str, plan: str) -> None:
         """Blocked or done job returns to queued with the spec re-read by the caller."""
