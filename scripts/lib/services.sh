@@ -656,20 +656,24 @@ _launch_install_arm_queue() {
     command -v uv &>/dev/null || { echo "  ❌ uv not found (https://docs.astral.sh/uv/)"; exit 1; }
     tasks_dir="$(_launch_arm_queue_tasks_dir)"
     mkdir -p "$tasks_dir" "$HOME/Library/LaunchAgents"
+    # launchd's PATH is minimal: put the uv found here first, or the agent (and every
+    # `uv run` job step) exits 127 (10-30 first start).
     sed -e "s#__PORTAL_ROOT__#${PORTAL_ROOT}#g" \
         -e "s#__LOG_DIR__#${tasks_dir}#g" \
+        -e "s#__UV_DIR__#$(dirname "$(command -v uv)")#g" \
         "$src" > "$dst"
     if ! plutil -lint "$dst" >/dev/null; then
         echo "  ❌ rendered plist failed lint: $dst"
         exit 1
     fi
     launchctl bootout "${domain}/${label}" 2>/dev/null || true
-    if launchctl bootstrap "$domain" "$dst"; then
+    if launchctl bootstrap "$domain" "$dst" && sleep 5 \
+        && launchctl print "${domain}/${label}" 2>/dev/null | grep -q "state = running"; then
         echo "[portal-5] ✅ arm queue runner installed (${label}), polling every 60s"
         echo "[portal-5]    runner log: ${tasks_dir}/arm-queue.launchd.log"
         echo "[portal-5]    stop for maintenance: ./launch.sh uninstall-arm-queue"
     else
-        echo "[portal-5] ⚠️  arm queue runner: launchd registration failed"
+        echo "[portal-5] ⚠️  arm queue runner is not running after install — see ${tasks_dir}/arm-queue.launchd.log"
         return 1
     fi
 }

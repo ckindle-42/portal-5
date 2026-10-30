@@ -16,7 +16,7 @@
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
-        <string>/opt/homebrew/bin:/opt/homebrew/sbin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <string>__UV_DIR__:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     </dict>
     <!-- Only PIPELINE_API_KEY is taken from .env: sourcing the whole file imports container
          hostnames and paths that break host runners (job steps get their own keys through
