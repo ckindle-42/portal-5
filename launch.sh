@@ -342,6 +342,15 @@ case "${1:-up}" in
     docker compose up -d --no-deps $_keep
     _portal_module_services --apply --kind compose --stop-only
     _portal_module_services --apply --kind host
+    # Channel bots (profiles) carry portal code too: rebuild any that exist, or they keep
+    # serving the old build (10-30: /jarvis control missing from the running Telegram bot).
+    for _chan in telegram slack; do
+        if docker ps -a --format '{{.Names}}' | grep -qx "portal5-${_chan}"; then
+            echo "[portal-5] Rebuilding portal-${_chan}..."
+            docker compose --profile "$_chan" build --build-arg PORTAL_BUILD_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)" --build-arg PORTAL_BUILD_DIRTY="$(git status --porcelain -- portal 2>/dev/null | wc -l | tr -d ' ')" "portal-${_chan}"
+            docker compose --profile "$_chan" up -d --no-deps "portal-${_chan}"
+        fi
+    done
     echo "[portal-5] Restarting enabled native MCP services..."
     _restart_native_mcps
     echo "[portal-5] Done. Check status: ./launch.sh status"
