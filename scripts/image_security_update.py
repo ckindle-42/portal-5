@@ -317,17 +317,22 @@ def _rollback(
     )
 
 
+def _tag_rollback(old_id: str, previous: str) -> bool:
+    """Tag the running image as :rollback; if it is already gone, the previous pin's image."""
+    if _docker("tag", old_id, OWUI_ROLLBACK, timeout=60).returncode == 0:
+        return True
+    prev_image = _pinned_image(previous)
+    return (
+        bool(prev_image) and _docker("tag", prev_image, OWUI_ROLLBACK, timeout=60).returncode == 0
+    )
+
+
 def _swap(
     old_id: str, previous: str, rev: str, state: dict[str, Any], pinned: str
 ) -> tuple[bool, str]:
     """Back up the data, recreate on the new build, roll back if it stays unhealthy."""
     prev_image, prev_release = _pinned_image(previous), _pinned_release(previous)
-    old_rev = _revision(old_id) or prev_release
-    if _docker("tag", old_id, OWUI_ROLLBACK, timeout=60).returncode != 0:
-        return False, (
-            f"open-webui: could not tag the running image as {OWUI_ROLLBACK} — "
-            "leaving the container untouched"
-        )
+    old_rev = _revision(old_id) or _revision(OWUI_ROLLBACK) or prev_release
     log(f"open-webui: moving {old_rev} -> {rev} ({pinned})")
     name = f"owui-{old_rev}-{dt.datetime.now():%Y%m%dT%H%M%S}.tar"
     _compose("stop", OWUI_SVC)
@@ -352,6 +357,13 @@ def _apply_pinned(previous: str, dry_run: bool, proposal: str = "") -> tuple[boo
         return False, "open-webui: no running container or local image to update from"
     if dry_run:
         return True, f"[dry-run] would build {release} and apply it behind the health gate"
+    # Take the rollback tag BEFORE building: with Docker's containerd image store the build
+    # drops the untagged running image, and tagging it afterwards fails (10-30 "No such image").
+    if not _tag_rollback(old_id, previous):
+        return False, (
+            f"open-webui: could not tag the running image as {OWUI_ROLLBACK} — "
+            "leaving the container untouched"
+        )
     if _compose("build", OWUI_SVC, timeout=3600).returncode != 0:
         COMPOSE.write_text(previous)  # a failed --bump must not leave the new pin behind
         return True, f"open-webui: build of {release} failed — staying on the current build"

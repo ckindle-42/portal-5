@@ -300,3 +300,23 @@ def test_failed_bump_build_restores_the_previous_pin(tmp_path, monkeypatch):
     ok, msg = m.owui_update(bump="v0.12.4")
     assert ok and "build of v0.12.4 failed" in msg
     assert compose.read_text() == original
+
+
+def test_rollback_is_tagged_before_the_build(monkeypatch, tmp_path):
+    # containerd image store: the build drops the untagged running image (10-30 abort).
+    calls, images, _compose = _patch(monkeypatch, tmp_path)
+    ok, _msg = iu.owui_update()
+    assert ok
+    tag = calls.index(("docker", "tag", OLD, iu.OWUI_ROLLBACK))
+    assert tag < calls.index(("compose", "build", "open-webui"))
+    assert images[iu.OWUI_ROLLBACK] == OLD
+
+
+def test_gone_running_image_falls_back_to_the_pinned_image_for_rollback(monkeypatch, tmp_path):
+    def gone(src, _dst, _images):
+        return 1 if src == OLD else None
+
+    calls, images, _compose = _patch(monkeypatch, tmp_path, on_tag=gone)
+    ok, msg = iu.owui_update()
+    assert ok and "updated" in msg
+    assert ("docker", "tag", iu.OWUI_IMAGE, iu.OWUI_ROLLBACK) in calls
