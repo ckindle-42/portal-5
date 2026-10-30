@@ -1,6 +1,7 @@
 # Re-run of realuse_s8_20261030f's invalid seats after c4d6b316 (production eval scope refused the
 # /workspace/<file> paths personas teach) and the unverified auto-coding incumbent halt.
-# Same arms as realuse_v1_s8.yaml; the valid seats (fast-repair, tools-specialist::fast) are not re-run.
+# Same arms as realuse_v1_s8.yaml. fast-repair re-runs too: Mellum halted after 4 rows (no realuse halts now).
+# tools-specialist::fast (gemma4 vs Bolt, both complete) is not re-run.
 workloads:
   auto-daily::fast:
     tool_mode: production
@@ -23,6 +24,14 @@ workloads:
     home: realuse_v1
     discovery: []
     arms:
-      incumbent: Qwen3-Coder-30B-A3B-Instruct-4bit  # what production serves (oMLX alias of the GGUF hint, backends.yaml)
+      incumbent: Qwen3-Coder-30B-A3B-Instruct-4bit
       challengers:
       - hf.co/unsloth/flint-GGUF:UD-Q4_K_XL-ctx256k
+  auto-coding::fast-repair:
+    tool_mode: production
+    home: realuse_v1
+    discovery: []
+    arms:
+      incumbent: kat-coder-v2.5-dev:Q4_K_M-ctx32k
+      challengers:
+      - hf.co/JetBrains/Mellum2.1-12B-A2.5B-Thinking-GGUF:Q4_K_M-ctx32k
