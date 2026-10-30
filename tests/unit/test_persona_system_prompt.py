@@ -72,7 +72,7 @@ def test_persona_id_via_api_gets_the_prompt(
     )
     assert text.startswith(prompt)
     assert text.count(prompt) == 1
-    assert text.index(prompt) < text.index("CRITICAL OUTPUT RULE")
+    assert text.index(prompt) < text.index("WORKING RULE")
 
 
 def test_openwebui_duplicate_persona_prompt_is_not_doubled(
@@ -115,7 +115,7 @@ def test_different_caller_system_message_follows_persona_prompt(
     )
     assert text.startswith(prompt)
     assert text.count(prompt) == 1
-    assert len(prompt) < text.index("CALLER_SENTINEL") < text.index("CRITICAL OUTPUT RULE")
+    assert len(prompt) < text.index("CALLER_SENTINEL") < text.index("WORKING RULE")
 
 
 def test_plain_workspace_id_is_unchanged(

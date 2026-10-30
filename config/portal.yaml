@@ -1083,7 +1083,10 @@ workspaces:
     top_k: 20
     min_p: 0.05
     repeat_penalty: 1.05
-    system_prompt_append: "\n\nCRITICAL OUTPUT RULE: This is a SINGLE-TURN response — deliver everything now. Do NOT promise, plan, or say 'I will'. IMMEDIATELY produce your complete output. For code: wrap in fenced code blocks (```language). For terminal output: emit the exact shell output, nothing else. Your response must be complete and self-contained — the user cannot follow up."
+    # 2026-10-30: the old "SINGLE-TURN … wrap code in fenced blocks … the user cannot follow up" rule made the
+    # seat print code instead of running it (realuse_s8_rerun_20261030c: qwen3-coder 4/16, mostly execute_python
+    # never called). Same intent — fast, complete, no planning spiral — without forbidding tool use.
+    system_prompt_append: "\n\nWORKING RULE: Be direct and finish the task in this reply. When the answer depends on running code, run it with your tools and report the real output — do not just print code you have not executed. Don't narrate plans or say 'I will'; act, then give the result. Use as few tool calls as the task needs."
     tools:
     - execute_python
     - execute_nodejs

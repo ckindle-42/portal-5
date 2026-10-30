@@ -91,6 +91,13 @@ def _scratch_provenance_ledger(tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def _scratch_arm_telegram_store(tmp_path, monkeypatch):
+    # 10-30: lane tests wrote runner/digest notices to the real ~/AI_Output/.portal_arm store and
+    # the live bot sent them to the operator. No test may reach the real outbox.
+    monkeypatch.setenv("PORTAL_ARM_TELEGRAM_DB", str(tmp_path / "arm_telegram.sqlite3"))
+
+
+@pytest.fixture(autouse=True)
 def _offline_boundary(request):
     _netguard.HITS.clear()
     _NETGUARD_LOG.write_text("")
