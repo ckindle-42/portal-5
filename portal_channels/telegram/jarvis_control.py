@@ -8,6 +8,7 @@ user is required (chat keeps its empty-allowlist-permits-all behaviour).
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -15,12 +16,18 @@ from telegram.ext import ContextTypes
 
 from portal.modules.orchestration.control import (
     DESTRUCTIVE_VERBS,
+    DIRECT_VERBS,
     NEEDS_JOB_VERBS,
     VERB_NAMES,
+    answer_direct,
     load_queue_policy,
     telegram_control_enabled,
 )
-from portal_channels.telegram.arm_bridge import ArmTelegramStore, default_arm_telegram_path
+from portal_channels.telegram.arm_bridge import (
+    ArmTelegramStore,
+    _telegram_chunks,
+    default_arm_telegram_path,
+)
 
 HELP_TEXT = (
     "Jarvis control verbs:\n"
@@ -66,6 +73,12 @@ def _allowed() -> set[int]:
     return _allowed_users()
 
 
+def _tasks_root() -> Path:
+    from portal.platform.mcp_host.workspace import get_generated_dir
+
+    return Path(get_generated_dir("tasks"))
+
+
 def _store() -> ArmTelegramStore:
     return ArmTelegramStore(default_arm_telegram_path())
 
@@ -105,8 +118,16 @@ async def handle_jarvis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             reply_markup=_confirm_keyboard(request_id),
         )
         return
+    if verb in DIRECT_VERBS:
+        result = answer_direct(verb, args, _tasks_root(), store)
+        store.add_control_request(user.id, verb, args, status="done", result=result[:500])
+        for part in _telegram_chunks(result):
+            await message.reply_text(part)
+        return
     request_id = store.add_control_request(user.id, verb, args)
-    await message.reply_text(f"Queued {verb}" + (f" {args}" if args else ""))
+    await message.reply_text(
+        f"Queued {verb}" + (f" {args}" if args else "") + " — the runner answers between job steps"
+    )
 
 
 async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

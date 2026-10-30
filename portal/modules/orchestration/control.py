@@ -12,6 +12,7 @@ import logging
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -168,17 +169,31 @@ def canary_summary(root: Path, job_id: str) -> str:
 
 
 def _status_text(ctx: ControlContext, args: str) -> str:
+    """Running and queued jobs, then the last day's finished ones; older history is counted.
+    `status all` lists everything (queue-status has the full ledger)."""
+    from portal.modules.orchestration.queue import _parsed
+
     items = queue_items(ctx.root)
     if not items:
         return "queue empty"
+    cutoff = datetime.now(UTC) - timedelta(hours=24)
+    active = [i for i in items if str(i["state"]) in {"running", "queued", "waiting"}]
+    recent = [
+        i
+        for i in items
+        if i not in active and (args.strip() == "all" or _parsed(i.get("updated_at")) >= cutoff)
+    ]
     lines = []
-    for item in items:
+    for item in active + recent:
         line = f"{item['task_id']} {item['state']}"
         if item.get("receipt_status"):
             line += f" {item['receipt_status']}"
         if item.get("last_error"):
             line += f" — {item['last_error']}"
         lines.append(line)
+    older = len(items) - len(active) - len(recent)
+    if older:
+        lines.append(f"(+{older} older jobs; `status all` lists them)")
     return "\n".join(lines)[-RESULT_MAX_CHARS:]
 
 
@@ -267,6 +282,16 @@ _VERBS: dict[str, Callable[[ControlContext, str], str]] = {
     "escalate": _escalate,
 }
 VERB_NAMES = frozenset(_VERBS)
+
+
+# Read-only verbs the bot answers itself from the shared tasks dir, so a reply never waits
+# for the runner to finish its current job (10-30: `status` sat "Queued" behind a long run).
+DIRECT_VERBS = frozenset({"status", "digest", "canary"})
+
+
+def answer_direct(verb: str, args: str, root: Path, store: ArmTelegramStore) -> str:
+    ctx = ControlContext(root=root, repo_root=root, store=store, notices=None)
+    return _VERBS[verb](ctx, args)
 
 
 def execute_control(request: ControlRequest, ctx: ControlContext) -> str:

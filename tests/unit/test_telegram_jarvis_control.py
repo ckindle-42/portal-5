@@ -169,11 +169,25 @@ def test_flag_off_runner_never_builds_a_poller(tmp_path, tasks_dir):
 async def test_non_destructive_verb_queues_a_row(store, monkeypatch):
     monkeypatch.setattr(jarvis_control, "control_enabled", lambda: True)
     _allow(monkeypatch, {73})
-    update = _message("/jarvis status", 73)
+    update = _message("/jarvis requeue job-1", 73)
     await jarvis_control.handle_jarvis(update, MagicMock())
     row = store.latest_control_requests()[0]
-    assert (row.user_id, row.verb, row.status) == (73, "status", "queued")
-    assert "Queued status" in update.effective_message.reply_text.call_args[0][0]
+    assert (row.user_id, row.verb, row.status) == (73, "requeue", "queued")
+    assert "Queued requeue job-1" in update.effective_message.reply_text.call_args[0][0]
+
+
+async def test_read_only_verbs_are_answered_at_once_without_the_runner(
+    store, monkeypatch, tmp_path
+):
+    # 10-30: `status` sat "Queued" for hours behind a running job.
+    monkeypatch.setattr(jarvis_control, "control_enabled", lambda: True)
+    monkeypatch.setattr(jarvis_control, "_tasks_root", lambda: tmp_path / "tasks")
+    _allow(monkeypatch, {73})
+    update = _message("jarvis status", 73)
+    await jarvis_control.handle_jarvis(update, MagicMock())
+    row = store.latest_control_requests()[0]
+    assert (row.verb, row.status) == ("status", "done")
+    assert update.effective_message.reply_text.call_args[0][0] == "queue empty"
 
 
 async def test_destructive_verb_waits_for_confirm_then_queues(store, monkeypatch):
