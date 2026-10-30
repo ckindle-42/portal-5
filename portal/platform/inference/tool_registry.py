@@ -33,10 +33,12 @@ import httpx
 from portal.platform.inference.config import get_pipeline_mcp_servers, load_portal_config
 from portal.platform.inference.mcp_http import MCPHTTPError, call_tool, list_tools, map_tool_result
 from portal.platform.mcp_host.eval_scope import (
+    ATTACHED_UPLOADS,
     EVAL_META_KEY,
     EVAL_SCOPE,
     REQUEST_ID_META_KEY,
     TOOL_TIMEOUT_META_KEY,
+    UPLOADS_META_KEY,
 )
 
 logger = logging.getLogger(__name__)
@@ -480,6 +482,8 @@ class ToolRegistry:
             metadata[EVAL_META_KEY] = scope
         if request_id:
             metadata[REQUEST_ID_META_KEY] = request_id
+        if uploads := ATTACHED_UPLOADS.get():
+            metadata[UPLOADS_META_KEY] = list(uploads)
         if not server_url:
             return {
                 "error": "no compliance evaluation instance is configured "

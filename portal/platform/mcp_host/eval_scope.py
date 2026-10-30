@@ -20,8 +20,13 @@ from typing import Any
 TOKEN = re.compile(r"^wfe_[0-9a-f]{16,40}$")
 EVAL_SCOPE: ContextVar[dict[str, Any] | None] = ContextVar("portal_eval_scope", default=None)
 REQUEST_ID: ContextVar[str] = ContextVar("portal_request_id", default="")
+#: OWUI file ids attached to the request (body["files"]), forwarded by the pipeline. The model
+#: cannot widen this list: it comes from the authenticated OWUI request, never tool arguments.
+ATTACHED_UPLOADS: ContextVar[tuple[str, ...]] = ContextVar("portal_attached_uploads", default=())
+MAX_ATTACHED_UPLOADS = 32
 EVAL_META_KEY = "portal5/eval"
 REQUEST_ID_META_KEY = "portal5/request_id"
+UPLOADS_META_KEY = "portal5/uploads"
 TOOL_TIMEOUT_META_KEY = "portal5/timeout_s"
 
 
@@ -44,13 +49,26 @@ def bind_native_context(mcp: Any, tool_guard: Callable[[str], bool] | None = Non
         scope_token = EVAL_SCOPE.set(parse(meta.get(EVAL_META_KEY)))
         request_id = meta.get(REQUEST_ID_META_KEY)
         request_token = REQUEST_ID.set(request_id if isinstance(request_id, str) else "")
+        uploads_token = ATTACHED_UPLOADS.set(upload_ids(meta.get(UPLOADS_META_KEY)))
         try:
             return await call_tool(name, arguments, context)
         finally:
+            ATTACHED_UPLOADS.reset(uploads_token)
             REQUEST_ID.reset(request_token)
             EVAL_SCOPE.reset(scope_token)
 
     mcp.call_tool = dispatch
+
+
+def upload_ids(raw: Any) -> tuple[str, ...]:
+    """Attached-upload ids from forwarded metadata: non-empty strings, deduplicated, capped."""
+    if not isinstance(raw, (list, tuple)):
+        return ()
+    ids: list[str] = []
+    for item in raw:
+        if isinstance(item, str) and item.strip() and item not in ids:
+            ids.append(item.strip())
+    return tuple(ids[:MAX_ATTACHED_UPLOADS])
 
 
 def parse(raw: Any) -> dict[str, Any] | None:

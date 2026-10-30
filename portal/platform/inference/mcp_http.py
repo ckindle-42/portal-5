@@ -10,7 +10,7 @@ from typing import Any, Literal
 
 import httpx
 
-from portal.platform.mcp_host.eval_scope import EVAL_META_KEY, REQUEST_ID_META_KEY
+from portal.platform.mcp_host.eval_scope import EVAL_META_KEY, REQUEST_ID_META_KEY, UPLOADS_META_KEY
 
 PROTOCOL_VERSION = "2026-07-28"
 LEGACY_PROTOCOL_VERSION = "2025-11-25"
@@ -352,7 +352,7 @@ async def call_tool(
         params["_meta"] = {
             key: value
             for key, value in metadata.items()
-            if key in {EVAL_META_KEY, REQUEST_ID_META_KEY}
+            if key in {EVAL_META_KEY, REQUEST_ID_META_KEY, UPLOADS_META_KEY}
         }
     result = await _request(client, base_url, "tools/call", params, timeout_s)
     if result.get("resultType") in {"input_required", "task"}:
