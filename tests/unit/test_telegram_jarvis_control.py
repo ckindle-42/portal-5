@@ -9,11 +9,17 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 import yaml
 
-from portal.modules.orchestration import control
-from portal.modules.orchestration.escalate import EscalationLedger, Escalator, held_escalations
-from portal.modules.orchestration.telegram import TelegramNoticeSink
-from portal_channels.telegram import bot, jarvis_control
-from portal_channels.telegram.arm_bridge import ArmTelegramStore, send_outbox_once
+pytest.importorskip("telegram", reason="python-telegram-bot not installed (channels extra)")
+
+from portal.modules.orchestration import control  # noqa: E402
+from portal.modules.orchestration.escalate import (  # noqa: E402
+    EscalationLedger,
+    Escalator,
+    held_escalations,
+)
+from portal.modules.orchestration.telegram import TelegramNoticeSink  # noqa: E402
+from portal_channels.telegram import bot, jarvis_control  # noqa: E402
+from portal_channels.telegram.arm_bridge import ArmTelegramStore, send_outbox_once  # noqa: E402
 
 ROOT = __import__("pathlib").Path(__file__).resolve().parents[2]
 
