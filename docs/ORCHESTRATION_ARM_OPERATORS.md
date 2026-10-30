@@ -72,3 +72,23 @@ uv run python scripts/orchestration_bite_suite.py \
 ```
 
 Live mode uses the shared host-quiet preflight and `PIPELINE_API_KEY`. Dry-run targets the fake Pipeline rig and marks the receipt as non-gating.
+
+## Local escalation
+
+Jarvis Local can ask a cloud lane to repair a blocked job without the orchestrator in the loop. The switch is `queue.escalation.enabled` under `orchestration_arm.queue` in `config/portal.yaml`. It defaults to false. `portal arm queue-run` and `portal arm escalate` read it when they start. Leaving it false changes nothing.
+
+A job is escalated only when it finishes blocked for a canary SETUP verdict, a `HARNESS_ERROR`, a step failure, or a memory-safety trip. A job the operator cancelled is left alone. The runner writes a brief to `coding_task/escalations/<job>-<n>.md` and calls `dispatch.py`. Attempts 1 and 2 use `--tier auto`. Attempt 3 uses `--tier escalate`, which walks the dispatcher's `ESCALATION` ladder and takes the first seat with headroom, one effort step up and never at max effort. Security, compliance, and detection jobs pass `--kind security`.
+
+Auto-merge happens only when every changed path is under `tests/wfe/`, `tests/wfe/plans/`, `config/arm_jobs/`, or `coding_task/`, and a throwaway worktree passes `uv run pytest tests/unit tests/wfe/tests -q` plus `uv run ruff check .` and `uv run ruff format --check .`. The runner then merges to local `main` with no push, moves the snapshot worktree to that commit, re-runs the job's canary, and re-queues the job only if the canary passes. A diff that touches `portal/`, `config/` outside `config/arm_jobs/`, `scripts/`, or a Dockerfile is not merged. The branch stays, and Telegram gets the branch, a one-line summary, and why it was held. The live stack is not rebuilt or restarted.
+
+Two routed attempts and one escalated attempt are the limit. If none of them produces a merged re-queue or a held branch, the job stays blocked with reason `escalation exhausted: <lane ids>` and the queue moves on. Each step (dispatched, result, merged, held, parked) is a Telegram notice, a row in the job receipt's `escalations` list, and a row in `<tasks dir>/escalation.sqlite3`.
+
+To turn it on, set `queue.escalation.enabled` to true in `config/portal.yaml` and refresh the generated arm config. Do not start it from a worktree with `./launch.sh`.
+
+```bash
+uv run python -m portal.platform.inference.cli sync-config
+uv run portal arm escalate <job-id>     # one blocked job
+uv run portal arm queue-run             # escalates eligible blocks as it drains
+```
+
+To stop it, set the flag back to false and end the `portal arm queue-run` process. That does not restart the stack. A lane that already started runs until it exits; if the queue runner is gone, its branch is left unmerged. `portal arm escalate` refuses while the flag is false.

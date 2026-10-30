@@ -413,6 +413,7 @@ class OvernightQueue:
         repo_root: Path | None = None,
         notices: JobNoticeSink | None = None,
         job_factory: Callable[[], JobRunner] | None = None,
+        escalation: Callable[[dict[str, Any], QueueRun], object] | None = None,
     ) -> None:
         self.task_root = task_root
         self.service = service
@@ -420,6 +421,7 @@ class OvernightQueue:
         self.repo_root = repo_root or Path(__file__).resolve().parents[3]
         self.notices = notices or (service.notices if service is not None else None)
         self.job_factory = job_factory
+        self.escalation = escalation
         if service is not None:
             service.bite_gate = gate.allows
 
@@ -470,7 +472,9 @@ class OvernightQueue:
             with QueueLedger(self.task_root) as ledger:
                 ledger.finish(task_id, "blocked", "BLOCKED", reason)
             self._write_failure_receipt(task_id, task_dir, reason)
-            return QueueRun("BLOCKED", task_id, task_dir / "receipt.json", reason)
+            blocked = QueueRun("BLOCKED", task_id, task_dir / "receipt.json", reason)
+            self._maybe_escalate(item, blocked)
+            return blocked
 
     def _run_job(self, item: dict[str, Any]) -> QueueRun:
         job_id = str(item["task_id"])
@@ -501,12 +505,23 @@ class OvernightQueue:
                 else f"job receipt status is {result.status}: {result.reason}"
             )
             ledger.finish(job_id, final, result.status, final_reason)
-        return QueueRun(
+        finished = QueueRun(
             "DONE" if result.status == "PASS" else "BLOCKED",
             job_id,
             result.receipt_path,
             final_reason,
         )
+        self._maybe_escalate(item, finished)
+        return finished
+
+    def _maybe_escalate(self, item: dict[str, Any], result: QueueRun) -> None:
+        """Ask a cloud lane when the operator enabled it. A fault must not stop the queue."""
+        if self.escalation is None or result.status != "BLOCKED" or item.get("kind") != "job":
+            return
+        try:
+            self.escalation(item, result)
+        except Exception:  # noqa: BLE001 — escalation is best-effort beside the queue
+            return
 
     def _write_failure_receipt(self, task_id: str, task_dir: Path, reason: str) -> None:
         path = task_dir / "receipt.json"

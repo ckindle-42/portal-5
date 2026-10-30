@@ -53,6 +53,13 @@ class TelegramNoticeSink:
             lines.append(f"Reason: {reason}")
         self.store.notify(job_id, "job", "\n".join(lines))
 
+    def escalation(self, job_id: str, event: str, detail: dict[str, Any]) -> None:
+        lines = [f"Escalation {event}.", f"Job: {_one_line(job_id)}"]
+        for key in ("lane", "tier", "attempt", "branch", "reason", "summary", "detail", "trigger"):
+            if detail.get(key):
+                lines.append(f"{key}: {_one_line(detail[key])}")
+        self.store.notify(job_id, "escalation", "\n".join(lines))
+
 
 def _one_line(value: object) -> str:
     return " ".join(str(value).split())[:300]

@@ -53,6 +53,7 @@ class StubNoticeSink:
     def __init__(self) -> None:
         self.notices: list[dict[str, Any]] = []
         self.job_notices: list[dict[str, Any]] = []
+        self.escalations: list[dict[str, Any]] = []
 
     def blocked(self, task_id: str, bite_id: str, failure: dict[str, Any]) -> None:
         self.notices.append({"task_id": task_id, "bite_id": bite_id, "failure": failure})
@@ -69,6 +70,9 @@ class StubNoticeSink:
 
     def job_finished(self, job_id: str, status: str, detail: dict[str, Any]) -> None:
         self.job_notices.append({"job_id": job_id, "status": status, "detail": detail})
+
+    def escalation(self, job_id: str, event: str, detail: dict[str, Any]) -> None:
+        self.escalations.append({"job_id": job_id, "event": event, "detail": detail})
 
 
 class ArmService:
