@@ -13,11 +13,11 @@ steps:
     canary: security
     timeout_seconds: 14400
     checkpoints:
-      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_sec_20261030_canary/manifest.json
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_sec_20261030b_canary/manifest.json
   - id: security
     argv:
       - scripts/wfe_campaign.sh
-      - realuse_sec_20261030
+      - realuse_sec_20261030b
       - "--plan"
       - tests/wfe/plans/realuse_sec_v1_seats.yaml
       - "--tier"
@@ -28,7 +28,7 @@ steps:
     timeout_seconds: 172800
     quiet_host: true
     checkpoints:
-      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_sec_20261030/manifest.json
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_sec_20261030b/manifest.json
   - id: security-report
     argv:
       - uv
@@ -37,14 +37,14 @@ steps:
       - "-m"
       - tests.wfe.report
       - "--campaign"
-      - realuse_sec_20261030
+      - realuse_sec_20261030b
       - "--out-dir"
       - tests/wfe/results/advance
     timeout_seconds: 900
     quiet_host: false
     outputs:
-      - tests/wfe/results/advance/WFE_FITNESS_REPORT_realuse_sec_20261030.md
-      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_sec_20261030/report.json
+      - tests/wfe/results/advance/WFE_FITNESS_REPORT_realuse_sec_20261030b.md
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_sec_20261030b/report.json
   - id: security-judge-council
     argv:
       - uv
@@ -53,7 +53,7 @@ steps:
       - "-m"
       - tests.wfe.judge_council
       - "--campaign"
-      - realuse_sec_20261030
+      - realuse_sec_20261030b
     timeout_seconds: 900
     quiet_host: false
 stop_conditions:

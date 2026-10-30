@@ -185,9 +185,9 @@ def test_realuse_rest_runs_the_three_groups_then_reports() -> None:
         "decisions-judge-council",
     ]
     assert [step.argv[1] for step in campaigns] == [
-        "realuse_reruns_20261030",
-        "realuse_documents_20261030",
-        "realuse_s5s7s10_20261030",
+        "realuse_reruns_20261030b",
+        "realuse_documents_20261030b",
+        "realuse_s5s7s10_20261030b",
     ]
     plans = (
         "tests/wfe/plans/realuse_v1_reruns.yaml",
@@ -244,7 +244,7 @@ def test_realuse_security_runs_the_seat_plan_then_reports() -> None:
     assert gate.canary_of == campaign.step_id
     assert gate.argv == (*campaign.argv, "--canary")
     assert spec.steps.index(gate) < spec.steps.index(campaign)
-    assert campaign.argv[1] == "realuse_sec_20261030"
+    assert campaign.argv[1] == "realuse_sec_20261030b"
     assert campaign.argv[campaign.argv.index("--plan") + 1] == (
         "tests/wfe/plans/realuse_sec_v1_seats.yaml"
     )
