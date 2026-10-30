@@ -100,10 +100,24 @@ def run_root(base: Path | str, scope: dict[str, Any]) -> Path:
     return Path(root)
 
 
+_UPLOAD_PREFIX = "/workspace/uploads/realuse_v1/"
+
+
+def _row_path(path: str | Path) -> Path:
+    """Map `/workspace/uploads/realuse_v1/<rest>` onto the row-relative tree."""
+    text = str(path).replace("\\", "/")
+    if not text.startswith(_UPLOAD_PREFIX):
+        return Path(path)
+    rest = text[len(_UPLOAD_PREFIX) :]
+    if not rest or any(part in {".", ".."} for part in Path(rest).parts):
+        raise ScopeError(f"path outside the evaluation namespace: {path}")
+    return Path("realuse_v1") / rest
+
+
 def confine(base: Path | str, scope: dict[str, Any], path: str | Path, sub: str = "") -> Path:
     """`path` resolved inside the run root (relative paths under `sub`); escapes refused."""
     root = run_root(base, scope)
-    p = Path(path)
+    p = _row_path(path)
     cand = (p if p.is_absolute() else root / sub / p).resolve()
     if cand != root and root not in cand.parents:
         raise ScopeError(f"path outside the evaluation namespace: {path}")

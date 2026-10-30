@@ -21,6 +21,7 @@ from typing import Any
 import yaml
 
 from portal.platform.mcp_host import eval_scope
+from tests.wfe.realuse_paths import stage_upload_tree
 
 TOOL_MODES = Path(__file__).resolve().parent / "tool_modes.yaml"
 REPO = Path(__file__).resolve().parents[2]
@@ -137,6 +138,7 @@ def prepare(pipe: bool, r: dict, manifest: dict, task: dict, wsc: dict, harness:
         dest = eval_scope.confine(OUTPUT_ROOT, scope, Path(rel).name, sub="in")
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(REPO / rel, dest)
+        stage_upload_tree(rel, REPO / rel, output_root=OUTPUT_ROOT, run_root=root)
     ctx = {
         "scope": scope,
         "root": root,
