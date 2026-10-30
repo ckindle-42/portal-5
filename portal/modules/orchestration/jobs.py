@@ -755,6 +755,8 @@ class JobRunner:
         pid_file = logs / f"{step.step_id}.{attempt:02d}.pid"
         started_wall = str(entry.get("started_at") or _utc_now())
         pid, started_identity = _read_step_identity(pid_file)
+        if started_identity is None:
+            started_identity = _legacy_step_identity(pid, step, started_wall)
         backups = self._adopted_checkpoints(spec, step, state)
         if not isinstance(started_identity, str) or not _process_matches(pid, started_identity):
             started = _utc_timestamp(started_wall)
@@ -1721,13 +1723,35 @@ def _read_step_identity(pid_file: Path) -> tuple[int, str | None]:
     meta_file = pid_file.with_name(pid_file.name + ".meta")
     try:
         pid = int(pid_file.read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return 0, None
+    try:
         identity = json.loads(meta_file.read_text(encoding="utf-8"))
         started = identity["started"]
         if int(identity["pid"]) != pid or not isinstance(started, str):
-            return 0, None
+            return pid, None
     except (OSError, ValueError, KeyError, TypeError):
-        return 0, None
+        return pid, None
     return pid, started
+
+
+def _legacy_step_identity(pid: int, step: JobStep, started_wall: str) -> str | None:
+    details = _ps_process_details(pid)
+    if pid <= 1 or details is None or details[1].startswith("Z"):
+        return None
+    try:
+        process_started = datetime.strptime(details[0], "%a %b %d %H:%M:%S %Y").timestamp()
+    except ValueError:
+        return None
+    if not 0 <= process_started - _utc_timestamp(started_wall) <= 5:
+        return None
+    target = (
+        step.argv[4]
+        if step.argv[0] == "uv" and step.argv[3] == "-m"
+        else (step.argv[3] if step.argv[0] == "uv" else step.argv[0])
+    )
+    command = _ps_field(pid, "command")
+    return details[0] if command and target in command else None
 
 
 def _ps_process_details(pid: int) -> tuple[str, str] | None:

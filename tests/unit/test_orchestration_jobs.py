@@ -180,14 +180,21 @@ def _mark_queue_runner_dead(task_root: Path, job_id: str) -> None:
 
 
 def _orphan_step(
-    task_root: Path, repo: Path, script: str, spec: Any, step_id: str, tmp_path: Path
+    task_root: Path,
+    repo: Path,
+    script: str,
+    spec: Any,
+    step_id: str,
+    tmp_path: Path,
+    *,
+    legacy_pid_file: bool = False,
 ) -> None:
     helper = tmp_path / "orphan_step.py"
     helper.write_text(
         "import json, subprocess, sys\n"
         "from datetime import UTC, datetime\n"
         "from pathlib import Path\n"
-        "task_root, repo, script, job_id, step_id, names = sys.argv[1:]\n"
+        "task_root, repo, script, job_id, step_id, names, *options = sys.argv[1:]\n"
         "job_dir = Path(task_root) / job_id\n"
         "logs = job_dir / 'logs'\n"
         "logs.mkdir(parents=True, exist_ok=True)\n"
@@ -200,7 +207,8 @@ def _orphan_step(
         "started = subprocess.run(['ps', '-ww', '-p', str(child.pid), '-o', 'lstart='], "
         "capture_output=True, text=True, check=True).stdout.strip()\n"
         "pid_file.write_text(f'{child.pid}\\n', encoding='utf-8')\n"
-        "(logs / f'{step_id}.01.pid.meta').write_text("
+        "if 'legacy' not in options:\n"
+        "    (logs / f'{step_id}.01.pid.meta').write_text("
         "json.dumps({'pid': child.pid, 'started': started}) + '\\n', encoding='utf-8')\n"
         "(logs / f'{step_id}.01.watch.log').touch()\n"
         "steps = {name: {'state': 'running' if name == step_id else 'pending', "
@@ -212,19 +220,19 @@ def _orphan_step(
         "(job_dir / 'job_state.json').write_text(json.dumps(state) + '\\n', encoding='utf-8')\n",
         encoding="utf-8",
     )
-    subprocess.run(
-        [
-            sys.executable,
-            str(helper),
-            str(task_root),
-            str(repo),
-            str(repo / script),
-            spec.job_id,
-            step_id,
-            json.dumps([step.step_id for step in spec.steps]),
-        ],
-        check=True,
-    )
+    command = [
+        sys.executable,
+        str(helper),
+        str(task_root),
+        str(repo),
+        str(repo / script),
+        spec.job_id,
+        step_id,
+        json.dumps([step.step_id for step in spec.steps]),
+    ]
+    if legacy_pid_file:
+        command.append("legacy")
+    subprocess.run(command, check=True)
 
 
 @pytest.mark.parametrize(
@@ -680,7 +688,10 @@ def test_queue_runs_a_job_without_the_arm_service(tmp_path: Path, repo: Path) ->
     assert rows[0]["state"] == "done"
 
 
-def test_queue_adopts_a_live_orphaned_job_step_and_continues(tmp_path: Path, repo: Path) -> None:
+@pytest.mark.parametrize("legacy_pid_file", [False, True])
+def test_queue_adopts_a_live_orphaned_job_step_and_continues(
+    tmp_path: Path, repo: Path, legacy_pid_file: bool
+) -> None:
     shipped = tmp_path / "shipped"
     verified = tmp_path / "verified"
     ship = _python_script(
@@ -710,7 +721,7 @@ def test_queue_adopts_a_live_orphaned_job_step_and_continues(tmp_path: Path, rep
         item, active = ledger.claim_next()
     assert item is not None and not active
     _mark_queue_runner_dead(task_root, spec.job_id)
-    _orphan_step(task_root, repo, ship, spec, "ship", tmp_path)
+    _orphan_step(task_root, repo, ship, spec, "ship", tmp_path, legacy_pid_file=legacy_pid_file)
     gate = QueueGate(
         {},
         {"yield_lock_dir": str(tmp_path / "locks")},
