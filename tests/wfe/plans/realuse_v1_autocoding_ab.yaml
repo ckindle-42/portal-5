@@ -1,0 +1,11 @@
+# auto-coding re-measured after f79f80e8 replaced the SINGLE-TURN / fenced-code append (operator 10-30:
+# same 'fast and complete' intent, without forbidding tool use). Seat decision Flint vs qwen3-coder rests here.
+workloads:
+  auto-coding:
+    tool_mode: production
+    home: realuse_v1
+    discovery: []
+    arms:
+      incumbent: Qwen3-Coder-30B-A3B-Instruct-4bit
+      challengers:
+      - hf.co/unsloth/flint-GGUF:UD-Q4_K_XL-ctx256k
