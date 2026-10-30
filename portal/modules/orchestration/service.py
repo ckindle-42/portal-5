@@ -804,7 +804,15 @@ def load_arm_config(path: Path) -> dict[str, Any]:
                 or seat["timeout_seconds"] <= 0
             ):
                 raise ValueError(f"{name}: invalid shadow_seats.{kind}")
+    _validate_shadow_wait(raw.get("shadow_slot_wait_seconds"))
     return raw
+
+
+def _validate_shadow_wait(raw: Any) -> None:
+    if raw is None:
+        return
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)) or raw <= 0:
+        raise ValueError("shadow_slot_wait_seconds must be a positive number")
 
 
 def seated_model_tags(config: dict[str, Any]) -> dict[str, str]:

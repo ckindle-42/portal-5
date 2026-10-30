@@ -44,7 +44,7 @@ from portal.modules.orchestration.tools import (
     TASK_FILE_LIMIT,
     TaskToolExecutor,
 )
-from portal.modules.orchestration.worker import Engine, WorkerResult, run_bite
+from portal.modules.orchestration.worker import Engine, PipelineError, WorkerResult, run_bite
 from portal.platform.inference.router import auth
 from portal.platform.inference.router.eval_gate import apply_bite_tool_scope
 
@@ -314,6 +314,7 @@ def test_shadow_summary_counts_false_accept_and_false_fail(tmp_path: Path) -> No
         "agree_percent": pytest.approx(100 / 3),
         "false_accept": 1,
         "false_fail": 1,
+        "waited": 0,
         "errors": 1,
     }
     other = tmp_path / "task-two"
@@ -328,8 +329,229 @@ def test_shadow_summary_counts_false_accept_and_false_fail(tmp_path: Path) -> No
         "agree_percent": pytest.approx(50.0),
         "false_accept": 1,
         "false_fail": 1,
+        "waited": 0,
         "errors": 1,
     }
+
+
+def test_shadow_summary_separates_waited_from_errors(tmp_path: Path) -> None:
+    task = tmp_path / "task-wait"
+    task.mkdir()
+    shadow_module.append_comparison(
+        task,
+        {
+            "incumbent_verdict": True,
+            "shadow_verdict": True,
+            "agree": True,
+            "error": None,
+            "waited": True,
+        },
+    )
+    shadow_module.append_comparison(
+        task,
+        {
+            "incumbent_verdict": True,
+            "shadow_verdict": None,
+            "agree": None,
+            "error": None,
+            "waited": True,
+        },
+    )
+    shadow_module.append_comparison(
+        task,
+        {
+            "incumbent_verdict": True,
+            "shadow_verdict": None,
+            "agree": None,
+            "error": "model failed",
+            "waited": True,
+        },
+    )
+    assert shadow_module.summarize_comparisons(task) == {
+        "total": 3,
+        "compared": 1,
+        "agree_percent": 100.0,
+        "false_accept": 0,
+        "false_fail": 0,
+        "waited": 3,
+        "errors": 1,
+    }
+
+
+class _ScriptedEngine:
+    """Load-plan and chat script. A missing later plan repeats the last one."""
+
+    def __init__(self, plans: list[Any], chats: list[Any]) -> None:
+        self._plans = list(plans)
+        self._chats = list(chats)
+        self._last_plan: Any = {"busy": False, "fits": True}
+        self.plan_calls = 0
+        self.chat_calls = 0
+        self.model_tag = "shadow-model"
+
+    def load_plan(self, _timeout: float) -> dict[str, Any]:
+        self.plan_calls += 1
+        item = self._plans.pop(0) if self._plans else self._last_plan
+        if isinstance(item, Exception):
+            raise item
+        self._last_plan = item
+        return item
+
+    def chat(self, _body: dict[str, Any], _timeout: float, _on_event: Any) -> dict[str, Any]:
+        self.chat_calls += 1
+        item = self._chats.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+
+def _patch_shadow_clock(monkeypatch: pytest.MonkeyPatch) -> list[float]:
+    state = {"now": 0.0}
+    slept: list[float] = []
+
+    def monotonic() -> float:
+        return state["now"]
+
+    def sleep(seconds: float) -> None:
+        slept.append(seconds)
+        state["now"] += seconds
+
+    monkeypatch.setattr(shadow_module.time, "monotonic", monotonic)
+    monkeypatch.setattr(shadow_module.time, "sleep", sleep)
+    return slept
+
+
+def _shadow_job(tmp_path: Path, *, wait_seconds: float = 30) -> dict[str, Any]:
+    task_dir = tmp_path / "task"
+    source = task_dir / "source-data"
+    source.mkdir(parents=True)
+    parsed = parse_plan(plan("shadow-wait", bite())).bites[0]
+    return {
+        "bite": parsed.as_dict(),
+        "inputs": {},
+        "comparison": {
+            "task_id": "shadow-wait",
+            "bite_id": parsed.bite_id,
+            "attempt": "01",
+            "incumbent_latency_seconds": 1.0,
+            "incumbent_verdict": True,
+            "shadow_model": "portal5/spark-x2.6:q4_K_M-ctx64k",
+        },
+        "timeout_seconds": 90,
+        "config": {
+            "shadow_slot_wait_seconds": wait_seconds,
+            "review": {
+                "high_risk": {
+                    "risk_levels": ["high"],
+                    "tools": ["file_write"],
+                    "write_scopes": ["outside_task"],
+                }
+            },
+        },
+        "task_dir": str(task_dir),
+        "source_data": str(source),
+    }
+
+
+def test_shadow_waits_out_busy_load_plan_then_compares(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    slept = _patch_shadow_clock(monkeypatch)
+    busy = {"busy": True, "fits": True}
+    free = {"busy": False, "fits": True}
+    engine = _ScriptedEngine([busy, busy, busy, free], [finish_response({"answer": "right"})])
+    record = shadow_module.run_shadow(_shadow_job(tmp_path), engine, Mock())  # type: ignore[arg-type]
+    assert record["error"] is None
+    assert record["shadow_verdict"] is True
+    assert record["agree"] is True
+    assert record["waited"] is True
+    assert record["wait_seconds"] == pytest.approx(7.0)
+    assert slept == [1.0, 2.0, 4.0]
+    assert engine.chat_calls == 1
+    assert engine.plan_calls >= 4
+
+
+def test_shadow_honours_retry_after_on_429(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    slept = _patch_shadow_clock(monkeypatch)
+    free = {"busy": False, "fits": True}
+    limited = PipelineError(
+        "HTTPStatusError: 429 Too Many Requests", status_code=429, retry_after=2.5
+    )
+    engine = _ScriptedEngine([free], [limited, finish_response({"answer": "right"})])
+    record = shadow_module.run_shadow(_shadow_job(tmp_path), engine, Mock())  # type: ignore[arg-type]
+    assert record["error"] is None
+    assert record["shadow_verdict"] is True
+    assert record["waited"] is True
+    assert slept == [2.5]
+    assert engine.chat_calls == 2
+
+
+def test_shadow_load_plan_429_waits_for_retry_after(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    slept = _patch_shadow_clock(monkeypatch)
+    limited = PipelineError(
+        "load-plan failed: HTTPStatusError: 429 Too Many Requests",
+        status_code=429,
+        retry_after=4,
+    )
+    engine = _ScriptedEngine(
+        [limited, {"busy": False, "fits": True}], [finish_response({"answer": "right"})]
+    )
+    record = shadow_module.run_shadow(_shadow_job(tmp_path), engine, Mock())  # type: ignore[arg-type]
+    assert record["error"] is None
+    assert record["shadow_verdict"] is True
+    assert record["waited"] is True
+    assert slept == [4.0]
+
+
+def test_shadow_wait_cap_is_not_an_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_shadow_clock(monkeypatch)
+    engine = _ScriptedEngine([{"busy": True, "fits": True}], [])
+    record = shadow_module.run_shadow(_shadow_job(tmp_path, wait_seconds=3), engine, Mock())  # type: ignore[arg-type]
+    assert record["error"] is None
+    assert record["shadow_verdict"] is None
+    assert record["agree"] is None
+    assert record["waited"] is True
+    assert engine.chat_calls == 0
+
+
+def test_shadow_model_error_after_admission_is_an_error(tmp_path: Path) -> None:
+    engine = _ScriptedEngine([{"busy": False, "fits": True}], [PipelineError("model exploded")])
+    record = shadow_module.run_shadow(_shadow_job(tmp_path), engine, Mock())  # type: ignore[arg-type]
+    assert record["waited"] is False
+    assert "model exploded" in str(record["error"])
+
+
+def test_load_plan_429_keeps_retry_after(monkeypatch: pytest.MonkeyPatch) -> None:
+    request = httpx.Request("POST", "http://pipeline/admin/load-plan")
+    response = httpx.Response(429, headers={"Retry-After": "7"}, request=request)
+
+    def post(*_args: Any, **_kwargs: Any) -> httpx.Response:
+        return response
+
+    monkeypatch.setattr(httpx, "post", post)
+    engine = Engine(
+        "seat",
+        "digest",
+        "http://pipeline",
+        load_plan_model="portal5/spark-x2.6:q4_K_M-ctx64k",
+    )
+    with pytest.raises(PipelineError) as caught:
+        engine.load_plan(5)
+    assert caught.value.status_code == 429
+    assert caught.value.retry_after == 7.0
+    assert str(caught.value).startswith("load-plan failed: HTTPStatusError:")
+
+
+def test_arm_config_rejects_non_positive_shadow_wait(tmp_path: Path) -> None:
+    repo = Path(__file__).resolve().parents[2]
+    config = yaml.safe_load((repo / "config" / "orchestration_arm.yaml").read_text())
+    config["shadow_slot_wait_seconds"] = 0
+    path = tmp_path / "orchestration_arm.yaml"
+    path.write_text(yaml.safe_dump(config), encoding="utf-8")
+    with pytest.raises(ValueError, match="shadow_slot_wait_seconds"):
+        load_arm_config(path)
 
 
 @pytest.mark.parametrize(
