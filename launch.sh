@@ -344,6 +344,11 @@ case "${1:-up}" in
     _portal_module_services --apply --kind host
     echo "[portal-5] Restarting enabled native MCP services..."
     _restart_native_mcps
+    # A rebuild and the Jarvis snapshot pin are one step: queued jobs must run the code the
+    # stack was just built from (10-30: a rebuild without a re-pin failed every canary).
+    echo "[portal-5] Re-pinning queued job snapshots to HEAD..."
+    (cd "$PORTAL_ROOT" && uv run portal arm snapshot-pin) \
+        || echo "[portal-5] WARNING: snapshot re-pin refused — Jarvis jobs would run stale code" >&2
     echo "[portal-5] Done. Check status: ./launch.sh status"
     ;;
 

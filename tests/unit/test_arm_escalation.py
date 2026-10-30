@@ -227,6 +227,7 @@ def _escalator(
         oracle=oracle,
         verdict_runner=verdict_run,
         main_root=repo,
+        environment_check=lambda _main, _source: None,
     )
     arm._calls = calls  # type: ignore[attr-defined]
     arm._verdict_calls = verdict_calls  # type: ignore[attr-defined]
@@ -1268,3 +1269,171 @@ def test_repin_ignores_untracked_reports(tmp_path: Path) -> None:
     assert (snap / "f").read_text() == "2"
     (snap / "f").write_text("tracked edit")
     assert _repin(main, snap) is False
+
+
+def test_environment_fault_in_canary_output_spends_no_lane(tmp_path: Path) -> None:
+    repo = _repo(tmp_path / "main")
+    tasks = tmp_path / "tasks"
+    setup = (
+        "CANARY x_canary: SETUP — gate refused: append: instrument drift in ['deployed']; "
+        "open a new campaign\n"
+    )
+    item = _blocked(tasks, repo, _receipt("BLOCKED", steps=[_failed_step(setup)]))
+    fake = _FakeDispatch([])
+    arm, notices = _escalator(tasks, repo, fake)
+    outcome = arm.handle(item, QueueRun("BLOCKED", "job-a", tasks / "job-a" / "receipt.json"))
+    assert outcome == "environment"
+    assert fake.calls == []
+    assert notices.escalations[-1]["event"] == "environment"
+    assert "instrument drift" in notices.escalations[-1]["detail"]["detail"]
+
+
+def test_environment_check_refusal_spends_no_lane(tmp_path: Path) -> None:
+    repo = _repo(tmp_path / "main")
+    tasks = tmp_path / "tasks"
+    item = _blocked(tasks, repo, _receipt("BLOCKED", error="RuntimeError: boom"))
+    fake = _FakeDispatch([])
+    arm, _notices = _escalator(tasks, repo, fake)
+    arm.environment_check = lambda _main, _source: "job source is pinned behind main"
+    outcome = arm.handle(item, QueueRun("BLOCKED", "job-a", tasks / "job-a" / "receipt.json"))
+    assert outcome == "environment"
+    assert fake.calls == []
+
+
+def test_round_cap_parks_without_a_lane(tmp_path: Path) -> None:
+    repo = _repo(tmp_path / "main")
+    tasks = tmp_path / "tasks"
+    item = _blocked(tasks, repo, _receipt("BLOCKED", error="RuntimeError: boom"))
+    fake = _FakeDispatch([])
+    arm, _notices = _escalator(tasks, repo, fake)
+    arm.ledger.add("job-a", 1, "esc-job-a-1", "merged", {})
+    arm.ledger.add("job-a", 3, "esc-job-a-r2-3", "parked", {})
+    outcome = arm.handle(item, QueueRun("BLOCKED", "job-a", tasks / "job-a" / "receipt.json"))
+    assert outcome == "parked"
+    assert fake.calls == []
+
+
+def test_second_round_uses_fresh_lane_roles(tmp_path: Path) -> None:
+    repo = _repo(tmp_path / "main")
+    tasks = tmp_path / "tasks"
+    item = _blocked(tasks, repo, _receipt("BLOCKED", error="RuntimeError: boom"))
+    fake = _FakeDispatch([_lane(repo, LaneChanges((), (), ()), text="x") for _ in range(3)])
+    arm, _notices = _escalator(tasks, repo, fake)
+    arm.ledger.add("job-a", 1, "esc-job-a-1", "merged", {})
+    arm.handle(item, QueueRun("BLOCKED", "job-a", tasks / "job-a" / "receipt.json"))
+    assert [c["role"] for c in fake.calls] == ["esc-job-a-r2-1", "esc-job-a-r2-2", "esc-job-a-r2-3"]
+    assert escalate_module.lane_role("job-a", 2) == "esc-job-a-2"
+
+
+def _commit(repo: Path, name: str, text: str) -> str:
+    (repo / name).parent.mkdir(parents=True, exist_ok=True)
+    (repo / name).write_text(text)
+    _git(repo, "add", name)
+    _git(repo, "commit", "-qm", name)
+    return subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+    ).stdout.strip()
+
+
+def test_environment_fault_checks_pin_and_deployed_build(tmp_path: Path) -> None:
+    from portal.modules.orchestration.escalate import environment_fault
+
+    main = _repo(tmp_path / "main")
+    built = _commit(main, "portal/a.py", "x = 1\n")
+    _commit(main, "Dockerfile.pipeline", "FROM x\n")
+    built = subprocess.run(
+        ["git", "-C", str(main), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+    ).stdout.strip()
+    snap = tmp_path / "snap"
+    _git(main, "worktree", "add", "-q", "--detach", str(snap))
+    assert environment_fault(main, snap, lambda: built) is None
+    assert "unreachable" in str(environment_fault(main, snap, lambda: "unreachable"))
+    _commit(main, "tests/wfe/b.py", "y = 1\n")
+    assert "re-pin" in str(environment_fault(main, snap, lambda: built))
+    _git(snap, "checkout", "-q", "--detach", "main")
+    assert environment_fault(main, snap, lambda: built) is None
+    _commit(main, "portal/a.py", "x = 2\n")
+    _git(snap, "checkout", "-q", "--detach", "main")
+    assert "./launch.sh rebuild" in str(environment_fault(main, snap, lambda: built))
+    (main / "tests/wfe/b.py").write_text("dirty\n")
+    assert "uncommitted" in str(environment_fault(main, snap, lambda: built))
+
+
+@pytest.mark.parametrize(
+    ("text", "verdict"),
+    [
+        ("## RESULT\n\nAPPROVE\n\n## FINDINGS\n\nnone\n", "approve"),
+        ("## RESULT: APPROVE\n", "approve"),
+        ("## RESULT\n**APPROVE** — diff is sound\n", "approve"),
+        ("## RESULT\ndone\n## RESULT\nAPPROVE\n", "approve"),
+        ("## RESULT\ndone\n", "hold"),
+    ],
+)
+def test_oracle_verdict_reads_the_first_word(text: str, verdict: str) -> None:
+    from portal.modules.orchestration.escalate import _parse_oracle
+
+    assert _parse_oracle(text, set()).verdict == verdict
+
+
+def test_oracle_brief_overrides_the_worker_contract_result(tmp_path: Path) -> None:
+    repo = _repo(tmp_path / "main")
+    lane = LaneResult("r", "t", 0, "", "lane/r", repo, LaneChanges((), (), ()))
+    brief = escalate_module._oracle_brief(lane, "HEAD")
+    assert "overrides the RESULT values in WORKER_CONTRACT.md" in brief
+    assert "never done, blocked or partial" in brief
+
+
+def test_gate_failure_carries_the_output_tail(tmp_path: Path) -> None:
+    from portal.modules.orchestration.escalate import _run_gates
+
+    def runner(argv: Sequence[str], cwd: Path) -> tuple[int, str]:
+        return (1, "FAILED tests/unit/test_x.py::test_y") if "pytest" in argv else (0, "")
+
+    ok, why = _run_gates(tmp_path, runner, tmp_path)
+    assert not ok
+    assert "FAILED tests/unit/test_x.py::test_y" in why
+
+
+def test_manual_escalation_uses_the_runner_escalator_with_oracle(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from portal.modules.orchestration import control
+
+    built: list[Any] = []
+
+    class _Hook:
+        class escalator:  # noqa: N801
+            @staticmethod
+            def handle(item: Any, result: Any) -> str:
+                return "handled"
+
+    def fake_build(*args: Any) -> Any:
+        built.append(args)
+        return _Hook()
+
+    monkeypatch.setattr(escalate_module, "build_escalator", fake_build)
+    repo = _repo(tmp_path / "main")
+    tasks = tmp_path / "tasks"
+    _blocked(tasks, repo, _receipt("BLOCKED", error="boom"))
+    policy = {"escalation": {"enabled": True, "oracle": {"enabled": True}}}
+    assert control.escalate_blocked_job(tasks, "job-a", repo, policy) == "handled"
+    assert built and built[0][3] is policy
+
+
+def test_pin_job_sources_repins_queued_snapshots_and_refuses_while_running(
+    tmp_path: Path,
+) -> None:
+    main = _repo(tmp_path / "main")
+    snap = tmp_path / "snap"
+    _git(main, "worktree", "add", "-q", "--detach", str(snap))
+    head = _commit(main, "tests/wfe/new.py", "z = 1\n")
+    tasks = tmp_path / "tasks"
+    with QueueLedger(tasks) as ledger:
+        ledger.enqueue_job(_spec(main), snap)
+    (snap / "report.md").write_text("job output")
+    lines = escalate_module.pin_job_sources(tasks, main)
+    assert lines == [f"pinned {snap} at {head[:12]}"]
+    with QueueLedger(tasks) as ledger:
+        ledger.db.execute("UPDATE queue_task SET state = 'running'")
+        ledger.db.commit()
+    assert escalate_module.pin_job_sources(tasks, main)[0].startswith("refused: a job is running")

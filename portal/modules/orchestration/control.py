@@ -128,7 +128,7 @@ def requeue_job(root: Path, task_id: str, repo_root: Path) -> str:
 
 def escalate_blocked_job(root: Path, job_id: str, repo_root: Path, policy: dict[str, Any]) -> str:
     """Ask a cloud lane to repair one blocked job (queue.escalation must be enabled)."""
-    from portal.modules.orchestration.escalate import Escalator, escalation_enabled
+    from portal.modules.orchestration.escalate import build_escalator, escalation_enabled
     from portal.modules.orchestration.queue import QueueLedger, QueueRun
     from portal.modules.orchestration.telegram import TelegramNoticeSink
 
@@ -139,8 +139,13 @@ def escalate_blocked_job(root: Path, job_id: str, repo_root: Path, policy: dict[
     if item is None:
         raise ValueError(f"no queue task: {job_id}")
     receipt = root / job_id / "receipt.json"
-    return Escalator(root, repo_root=repo_root, notices=TelegramNoticeSink()).handle(
-        item, QueueRun("BLOCKED", job_id, receipt if receipt.is_file() else None)
+    # The same escalator the runner builds — oracle included (10-30: the manual path had none).
+    hook = build_escalator(root, repo_root, TelegramNoticeSink(), policy)
+    if hook is None:
+        raise ValueError("queue.escalation.enabled is false")
+    escalator = hook.escalator  # type: ignore[attr-defined]
+    return str(
+        escalator.handle(item, QueueRun("BLOCKED", job_id, receipt if receipt.is_file() else None))
     )
 
 

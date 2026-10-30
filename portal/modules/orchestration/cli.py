@@ -491,6 +491,20 @@ def queue_requeue(
         raise typer.Exit(code=1) from exc
 
 
+@orchestration_app.command("snapshot-pin")
+def snapshot_pin(
+    tasks_dir: Annotated[Path | None, typer.Option("--tasks-dir")] = None,
+) -> None:
+    """Re-pin queued/blocked jobs' source worktrees to main HEAD (./launch.sh rebuild runs it)."""
+    from portal.modules.orchestration.escalate import pin_job_sources
+
+    lines = pin_job_sources(tasks_dir or _tasks_dir(), _repo_root())
+    for line in lines or ["no job source worktree to pin"]:
+        typer.echo(line)
+    if any(line.startswith("refused") for line in lines):
+        raise typer.Exit(code=1)
+
+
 @orchestration_app.command("escalate")
 def escalate_job(
     job_id: Annotated[str, typer.Argument()],
@@ -513,6 +527,29 @@ def escalate_job(
         typer.echo(f"arm escalate failed: {exc}", err=True)
         raise typer.Exit(code=1) from exc
     typer.echo(outcome)
+
+
+@orchestration_app.command("rehearse")
+def rehearse_escalation(
+    job_id: Annotated[str, typer.Argument()],
+    role: Annotated[str, typer.Argument(help="existing lane role, e.g. esc-<job>-1")],
+    tasks_dir: Annotated[Path | None, typer.Option("--tasks-dir")] = None,
+) -> None:
+    """Run the production merge path (gates, canaries, oracle) for a lane without landing."""
+    _require_enabled()
+    from portal.modules.orchestration.escalate import build_escalator
+    from portal.modules.orchestration.service import load_arm_config
+    from portal.modules.orchestration.telegram import TelegramNoticeSink
+
+    policy = load_arm_config(_arm_config_path()).get("queue", {})
+    hook = build_escalator(tasks_dir or _tasks_dir(), _repo_root(), TelegramNoticeSink(), policy)
+    if hook is None:
+        typer.echo("queue.escalation.enabled is false", err=True)
+        raise typer.Exit(code=2)
+    outcome = hook.escalator.rehearse(job_id, role)  # type: ignore[attr-defined]
+    typer.echo(outcome)
+    if not str(outcome).startswith("merged"):
+        raise typer.Exit(code=1)
 
 
 def _service(tasks_dir: Path | None) -> Any:

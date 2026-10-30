@@ -20,6 +20,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.request
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -75,11 +76,14 @@ _GIT_ENV_KEYS = (
 )
 ROUTED_ATTEMPTS = 2
 MAX_ATTEMPTS = 3
+#: Escalation rounds per job (a round ends merged or parked). A job that blocks again after
+#: two landed or exhausted rounds is an orchestrator problem, not another lane's (10-30).
+MAX_ROUNDS = 2
 TAIL_LINES = 60
 GATE_TIMEOUT_S = 7200
 DEFAULT_DISPATCH = Path.home() / ".claude" / "orchestrate" / "bin" / "dispatch.py"
 
-GateRunner = Callable[[Sequence[str], Path], int]
+GateRunner = Callable[[Sequence[str], Path], "int | tuple[int, str]"]
 CanaryRunner = Callable[[Sequence[str], Path, float], tuple[int, str]]
 
 
@@ -219,8 +223,12 @@ def _contract_addendum(repo: Path, kind: str) -> tuple[str, str]:
     return content.rstrip(), hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
-def lane_role(job_id: str, attempt: int) -> str:
-    return f"esc-{_safe(job_id)}-{attempt}"
+def lane_role(job_id: str, attempt: int, round_: int = 1) -> str:
+    """Round 1 keeps the historic name; later rounds get fresh names, so dispatch.py never
+    reuses a stale lane worktree from an earlier round (10-30)."""
+    if round_ <= 1:
+        return f"esc-{_safe(job_id)}-{attempt}"
+    return f"esc-{_safe(job_id)}-r{round_}-{attempt}"
 
 
 def build_escalator(
@@ -582,8 +590,10 @@ def _oracle_brief(lane: LaneResult, base: str) -> str:
         "- sourcing the whole .env"
     )
     return (
-        "Review the committed lane diff. Do not edit files. Return exactly APPROVE or REJECT in "
-        "## RESULT. A REJECT must include changed-file findings as path:line: reason under "
+        "You are the pre-merge reviewer, not an implementer. Review the committed lane diff. "
+        "Do not edit files. This brief overrides the RESULT values in WORKER_CONTRACT.md: "
+        "under ## RESULT write exactly one word, APPROVE or REJECT (never done, blocked or "
+        "partial). A REJECT must include changed-file findings as path:line: reason under "
         "## FINDINGS.\n\n## Diff\n\n"
         + "\n".join(section for section in sections if section)
         + f"\n\n## Lane RESULT\n\n{result}\n\n## Lane OPEN-RISK\n\n{risk or '(none)'}"
@@ -594,8 +604,18 @@ def _oracle_brief(lane: LaneResult, base: str) -> str:
 _ORACLE_FINDING = re.compile(r"^\s*(?:[-*]\s*)?`?([^`:\s]+)`?:(\d+)\s*[:\-]\s*(.+)$")
 
 
+def _oracle_verdict(text: str) -> str:
+    """First word under the last ## RESULT heading (also '## RESULT: APPROVE')."""
+    word = ""
+    for match in re.finditer(r"^## RESULT\b[:\s]*(.*)$", text, re.MULTILINE):
+        rest = match.group(1).strip() or _section(text[match.start() :], "RESULT")
+        tokens = re.findall(r"[A-Za-z]+", rest)
+        word = tokens[0].upper() if tokens else ""
+    return word
+
+
 def _parse_oracle(text: str, changed_paths: set[str]) -> OracleResult:
-    verdict = _section(text, "RESULT").strip().upper()
+    verdict = _oracle_verdict(text)
     if verdict not in {"APPROVE", "REJECT"}:
         return OracleResult("hold", "oracle response has no valid verdict", "contract-miss")
     findings: list[str] = []
@@ -628,6 +648,7 @@ class Escalator:
         oracle: OracleReviewer | None = None,
         verdict_runner: Callable[[Sequence[str]], int] | None = None,
         main_root: Path | None = None,
+        environment_check: Callable[[Path, Path], str | None] | None = None,
     ) -> None:
         self.tasks_dir = tasks_dir
         self.repo_root = repo_root
@@ -639,6 +660,7 @@ class Escalator:
         self.verdict_runner = verdict_runner or _subprocess_verdict
         self.main = main_root or main_checkout(repo_root)
         self.ledger = EscalationLedger(tasks_dir)
+        self.environment_check = environment_check or environment_fault
 
     def handle(self, item: dict[str, Any], result: QueueRun) -> str:
         receipt = _load_receipt(result.receipt_path)
@@ -650,8 +672,30 @@ class Escalator:
         raw = json.loads(str(item["plan_json"]))
         if not isinstance(raw, dict):
             return "skipped"
+        job_id = str(item["task_id"])
         source = Path(str(item.get("source_dir") or self.repo_root))
-        return self._attempts(str(item["task_id"]), raw, source, receipt, result, trigger)
+        # A fault no lane can repair goes to the operator before any lane is spent (10-30:
+        # five rest-8 rejections were environment, never the lane's fix).
+        fault = _environment_text(_output_text(receipt) + "\n" + str(result.reason or ""))
+        fault = fault or self.environment_check(self.main, source)
+        if fault:
+            self._record(job_id, 0, "", "environment", result.receipt_path, {"detail": fault})
+            return "environment"
+        rounds = self._rounds_done(job_id)
+        if rounds >= MAX_ROUNDS:
+            self._record(
+                job_id,
+                0,
+                "",
+                "parked",
+                result.receipt_path,
+                {"reason": f"{rounds} escalation rounds already ran for this job", "lanes": []},
+            )
+            return "parked"
+        return self._attempts(job_id, raw, source, receipt, result, trigger)
+
+    def _rounds_done(self, job_id: str) -> int:
+        return sum(1 for e in self.ledger.events(job_id) if e["event"] in {"merged", "parked"})
 
     def _attempts(
         self,
@@ -748,7 +792,7 @@ class Escalator:
         new: bool = True,
     ) -> tuple[str, str, str]:
         tier = tier_override or ("auto" if attempt <= ROUTED_ATTEMPTS else "escalate")
-        role = lane_role(job_id, attempt)
+        role = lane_role(job_id, attempt, self._rounds_done(job_id) + 1)
         contract_kind = _brief_contract_kind(raw, kind)
         addendum_text, addendum_sha = _contract_addendum(self.repo_root, contract_kind)
         brief = write_brief(
@@ -763,6 +807,7 @@ class Escalator:
             contract_kind=contract_kind,
             addendum_text=addendum_text,
             addendum_sha=addendum_sha,
+            role=role,
         )
         self._record(
             job_id,
@@ -898,6 +943,8 @@ class Escalator:
         spec: JobSpec,
         source: Path,
         kind: str,
+        *,
+        land: bool = True,
     ) -> _Decision:
         if lane.worktree is None or not lane.worktree.exists():
             return _Decision("failed", "lane worktree is missing", "infra")
@@ -916,8 +963,8 @@ class Escalator:
         )
         if not checked.passed:
             return _Decision("failed", checked.detail, checked.tag)
-        dirty = git_run(self.main, ["status", "--porcelain"]).stdout.strip()
-        if dirty:
+        dirty = git_run(self.main, ["status", "--porcelain", "--untracked-files=no"]).stdout
+        if dirty.strip():
             return _Decision("hold", "main checkout has uncommitted work", "infra")
         branch = git_run(self.main, ["rev-parse", "--abbrev-ref", "HEAD"]).stdout.strip()
         if branch != "main":
@@ -925,30 +972,42 @@ class Escalator:
         if git_run(self.main, ["rev-parse", "HEAD"]).stdout.strip() != main_head:
             return _Decision("hold", "main HEAD changed after gates", "infra")
         if self.oracle is not None:
-            lane_head = git_run(lane.worktree, ["rev-parse", "HEAD"]).stdout.strip()
-            lane_status = git_run(lane.worktree, ["status", "--porcelain"]).stdout
-            try:
-                oracle = self.oracle.review(
-                    job_id=job_id, attempt=attempt, lane=lane, base=base, kind=kind
-                )
-            except Exception as exc:  # noqa: BLE001 — review faults fail closed
-                return _Decision("hold", f"oracle review failed: {exc}", "infra")
-            if (
-                git_run(lane.worktree, ["rev-parse", "HEAD"]).stdout.strip() != lane_head
-                or git_run(lane.worktree, ["status", "--porcelain"]).stdout != lane_status
-                or git_run(self.main, ["rev-parse", "HEAD"]).stdout.strip() != main_head
-            ):
-                return _Decision("hold", "lane or main changed during oracle review", "infra")
-            if oracle.verdict == "hold":
-                return _Decision("hold", oracle.detail, oracle.tag)
-            if oracle.verdict == "reject":
-                return _Decision("failed", f"oracle rejected: {oracle.detail}", "oracle-rejected")
-            if oracle.verdict != "approve":
-                return _Decision("hold", "oracle returned a malformed verdict", "contract-miss")
+            refused = self._oracle_gate(job_id, attempt, lane, base, kind, main_head)
+            if refused is not None:
+                return refused
+        if not land:
+            return _Decision("merged", "rehearsal: gates, canaries and oracle passed", "merged")
         detail = _land(self.main, lane, f"escalation: {job_id} attempt {attempt}")
         if detail is None:
             return _Decision("failed", "merge to main failed", "infra")
         return _Decision("merged", detail, "merged")
+
+    def _oracle_gate(
+        self, job_id: str, attempt: int, lane: LaneResult, base: str, kind: str, main_head: str
+    ) -> _Decision | None:
+        """None when the oracle approves; otherwise the hold or failure decision."""
+        assert self.oracle is not None and lane.worktree is not None
+        lane_head = git_run(lane.worktree, ["rev-parse", "HEAD"]).stdout.strip()
+        lane_status = git_run(lane.worktree, ["status", "--porcelain"]).stdout
+        try:
+            oracle = self.oracle.review(
+                job_id=job_id, attempt=attempt, lane=lane, base=base, kind=kind
+            )
+        except Exception as exc:  # noqa: BLE001 — review faults fail closed
+            return _Decision("hold", f"oracle review failed: {exc}", "infra")
+        if (
+            git_run(lane.worktree, ["rev-parse", "HEAD"]).stdout.strip() != lane_head
+            or git_run(lane.worktree, ["status", "--porcelain"]).stdout != lane_status
+            or git_run(self.main, ["rev-parse", "HEAD"]).stdout.strip() != main_head
+        ):
+            return _Decision("hold", "lane or main changed during oracle review", "infra")
+        if oracle.verdict == "hold":
+            return _Decision("hold", oracle.detail, oracle.tag)
+        if oracle.verdict == "reject":
+            return _Decision("failed", f"oracle rejected: {oracle.detail}", "oracle-rejected")
+        if oracle.verdict != "approve":
+            return _Decision("hold", "oracle returned a malformed verdict", "contract-miss")
+        return None
 
     def _restore(self, job_id: str, raw: dict[str, Any], source: Path, lane: LaneResult) -> bool:
         try:
@@ -1045,6 +1104,43 @@ class Escalator:
             merged.detail,
         )
         return f"merged {lane.branch} into main ({merged.detail}); job requeued"
+
+    def rehearse(self, job_id: str, role: str) -> str:
+        """Production merge path for an existing lane — environment check, decide, real
+        gates and canaries in a throwaway merge, real oracle — without landing. Required
+        after any change to this path (10-30)."""
+        item = self._queue_item(job_id)
+        if item is None:
+            return f"refused: no queue task {job_id}"
+        raw = json.loads(str(item["plan_json"]))
+        source = Path(str(item.get("source_dir") or self.repo_root))
+        fault = self.environment_check(self.main, source)
+        if fault:
+            return f"environment: {fault}"
+        worktree = _lane_worktree(self.main, role)
+        if not (worktree / ".git").exists():
+            return f"refused: no lane worktree for {role}"
+        binary = Path(getattr(self.dispatcher, "binary", DEFAULT_DISPATCH))
+        status, _retry, model = _dispatch_run_metadata(binary, self.main, role)
+        lane = LaneResult(
+            role,
+            "rehearsal",
+            0,
+            _latest_log(role),
+            f"lane/{_safe(role)}",
+            worktree,
+            inspect_changes(worktree, self.main),
+            status,
+            None,
+            model,
+        )
+        base = git_run(self.main, ["rev-parse", "HEAD"]).stdout.strip()
+        decision = decide(lane.changes, worktree=worktree, base=base)
+        if decision.status != "merge":
+            return f"{decision.status}: {decision.detail}"
+        spec = parse_job_spec(raw, repo_root=source if source.is_dir() else self.repo_root)
+        merged = self._merge_lane(job_id, 0, lane, spec, source, dispatch_kind(raw), land=False)
+        return f"{merged.status} [{merged.tag}]: {merged.detail}"
 
     def keep_held(self, job_id: str) -> str:
         """Record an operator decision to leave a held escalation unmerged."""
@@ -1200,6 +1296,7 @@ def write_brief(
     contract_kind: str = "",
     addendum_text: str = "",
     addendum_sha: str = "",
+    role: str = "",
 ) -> Path:
     """coding_task/TASK_*.md style brief for one escalation attempt."""
     step = _failing_step(receipt)
@@ -1208,6 +1305,8 @@ def write_brief(
     setup = _setup_lines(stdout + "\n" + stderr)
     files = _likely_files(raw, step, stdout, stderr)
     body = _brief_body(job_id, attempt, trigger, raw, receipt, step, stdout, stderr, setup, files)
+    if role:
+        body = body.replace(f"# Lane {lane_role(job_id, attempt)} ", f"# Lane {role} ", 1)
     if addendum_text:
         body += (
             f"\n\n## Worker contract addendum: {contract_kind}"
@@ -1689,9 +1788,10 @@ def _gates(
             return _GateResult(
                 False, "gates-failed", "lane could not merge into throwaway worktree"
             )
-        if not _run_gates(dest, runner, main):
+        gated, why = _run_gates(dest, runner, main)
+        if not gated:
             return _GateResult(
-                False, "gates-failed", "pytest or ruff failed in the throwaway merge"
+                False, "gates-failed", f"pytest or ruff failed in the throwaway merge\n{why}"
             )
         passed, output = _canaries_pass(spec, dest, canary_runner, tag=parent.name)
         if not passed:
@@ -1729,11 +1829,98 @@ def _merge_into(dest: Path, worktree: Path, changes: LaneChanges) -> bool:
     return True
 
 
-def _run_gates(dest: Path, runner: GateRunner, main: Path) -> bool:
+def _run_gates(dest: Path, runner: GateRunner, main: Path) -> tuple[bool, str]:
     venv = str(main / ".venv")
-    return all(
-        runner([arg.replace("{venv}", venv) for arg in argv], dest) == 0 for argv in _GATE_COMMANDS
-    )
+    for argv in _GATE_COMMANDS:
+        cmd = [arg.replace("{venv}", venv) for arg in argv]
+        result = runner(cmd, dest)
+        code, output = result if isinstance(result, tuple) else (result, "")
+        if code != 0:
+            return False, f"{' '.join(cmd[1:4])} exited {code}\n{_last_lines(output, 30)}"
+    return True, ""
+
+
+#: Canary/preflight text that only the operator can fix (rebuild, re-pin, new campaign id).
+_ENVIRONMENT_FAULTS = re.compile(
+    r"instrument drift|is not HEAD's portal/|build 'unknown'|build unknown|"
+    r"chat engine unreachable|pipeline build '?unreachable",
+    re.IGNORECASE,
+)
+
+
+def _environment_text(text: str) -> str | None:
+    match = _ENVIRONMENT_FAULTS.search(text)
+    if match is None:
+        return None
+    line = text[text.rfind("\n", 0, match.start()) + 1 :].split("\n", 1)[0]
+    return f"environment fault (operator: rebuild/re-pin/new campaign id): {line.strip()[:300]}"
+
+
+def deployed_build() -> str:
+    url = os.environ.get("PORTAL_ARM_PIPELINE_URL", "http://127.0.0.1:9099").rstrip("/")
+    try:
+        with urllib.request.urlopen(f"{url}/health", timeout=5) as response:
+            return str(json.loads(response.read()).get("build_sha") or "unknown")
+    except (OSError, ValueError):
+        return "unreachable"
+
+
+def environment_fault(
+    main: Path, source: Path, deployed: Callable[[], str] = deployed_build
+) -> str | None:
+    """What must hold before a lane is spent: what the gates test is what lands, and what
+    lands is what the stack runs (10-30 rest-8: five setup rejections)."""
+    if git_run(main, ["status", "--porcelain", "--untracked-files=no"]).stdout.strip():
+        return "main checkout has uncommitted tracked changes"
+    if git_run(main, ["rev-parse", "--abbrev-ref", "HEAD"]).stdout.strip() != "main":
+        return "main checkout is not on main"
+    head = git_run(main, ["rev-parse", "HEAD"]).stdout.strip()
+    if source.is_dir() and source.resolve() != main.resolve() and (source / ".git").exists():
+        if git_run(source, ["status", "--porcelain", "--untracked-files=no"]).stdout.strip():
+            return f"job source {source} has uncommitted tracked changes"
+        pinned = git_run(source, ["rev-parse", "HEAD"]).stdout.strip()
+        if pinned != head:
+            return (
+                f"job source {source} is pinned at {pinned[:12]}, main is {head[:12]}: "
+                "re-pin (./launch.sh rebuild) before escalating"
+            )
+    build = deployed()
+    if not re.fullmatch(r"[0-9a-f]{7,40}", build):
+        return f"deployed pipeline build is {build!r}"
+    for path in ("portal", "Dockerfile.pipeline"):
+        live = git_run(main, ["rev-parse", f"{build}:{path}"]).stdout.strip()
+        if not live or live != git_run(main, ["rev-parse", f"HEAD:{path}"]).stdout.strip():
+            return f"deployed build {build[:12]} {path} differs from main: ./launch.sh rebuild"
+    return None
+
+
+def pin_job_sources(tasks_dir: Path, repo: Path) -> list[str]:
+    """Re-pin every queued or blocked job's source worktree to main HEAD (run by
+    `./launch.sh rebuild`, so a rebuild and the snapshot pin are one step — 10-30)."""
+    from portal.modules.orchestration.queue import QueueLedger
+
+    main = main_checkout(repo)
+    with QueueLedger(tasks_dir) as ledger:
+        items = ledger.items()
+    if any(item["state"] == "running" for item in items):
+        return ["refused: a job is running; re-pin after it finishes"]
+    head = git_run(main, ["rev-parse", "HEAD"]).stdout.strip()
+    sources = {
+        Path(str(item["source_dir"]))
+        for item in items
+        if item["state"] in {"queued", "blocked"} and item.get("source_dir")
+    }
+    out: list[str] = []
+    for source in sorted(sources):
+        if not (source / ".git").is_file() or main_checkout(source) != main:
+            continue
+        if git_run(source, ["status", "--porcelain", "--untracked-files=no"]).stdout.strip():
+            out.append(f"refused: {source} has uncommitted tracked changes")
+        elif _repin(main, source):
+            out.append(f"pinned {source} at {head[:12]}")
+        else:
+            out.append(f"refused: {source} did not re-pin")
+    return out
 
 
 def _land(main: Path, lane: LaneResult, message: str) -> str | None:
@@ -1814,12 +2001,14 @@ def _throwaway_campaign(argv: Sequence[str], tag: str) -> list[str]:
     return out
 
 
-def _subprocess_gate(argv: Sequence[str], cwd: Path) -> int:
+def _subprocess_gate(argv: Sequence[str], cwd: Path) -> tuple[int, str]:
     try:
-        proc = subprocess.run(list(argv), cwd=cwd, check=False, timeout=GATE_TIMEOUT_S)
-    except (OSError, subprocess.TimeoutExpired):
-        return 1
-    return proc.returncode
+        proc = subprocess.run(
+            list(argv), cwd=cwd, check=False, capture_output=True, text=True, timeout=GATE_TIMEOUT_S
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return 1, str(exc)
+    return proc.returncode, "\n".join(part for part in (proc.stdout, proc.stderr) if part)
 
 
 def _subprocess_canary(argv: Sequence[str], cwd: Path, timeout_s: float) -> tuple[int, str]:
