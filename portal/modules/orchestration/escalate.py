@@ -1705,9 +1705,10 @@ def _gates(
         shutil.rmtree(parent, ignore_errors=True)
 
 
-#: Gitignored state a job tree reads from the live checkout; the Jarvis snapshot links the
-#: same two. Without .env the canary's oMLX inventory read 401 → "not installed" (10-30).
-_LIVE_LINKS = (".env", ".venv")
+#: Gitignored state a job tree reads from the live checkout (the Jarvis snapshot links the
+#: same file). Without .env the canary's oMLX inventory read 401 → "not installed" (10-30).
+#: Never .venv: `uv run` in the worktree would re-point main's editable install at it.
+_LIVE_LINKS = (".env",)
 
 
 def _link_live_state(dest: Path, main: Path) -> None:

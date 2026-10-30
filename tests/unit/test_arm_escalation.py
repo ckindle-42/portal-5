@@ -1234,7 +1234,7 @@ def test_escalation_canary_uses_a_throwaway_campaign_id() -> None:
     assert _throwaway_campaign(["other.sh", "x", "--canary"], "t") == ["other.sh", "x", "--canary"]
 
 
-def test_merge_worktree_links_live_env_and_venv(tmp_path: Path) -> None:
+def test_merge_worktree_links_live_env_not_venv(tmp_path: Path) -> None:
     from portal.modules.orchestration.escalate import _link_live_state
 
     main, dest = tmp_path / "main", tmp_path / "dest"
@@ -1244,7 +1244,7 @@ def test_merge_worktree_links_live_env_and_venv(tmp_path: Path) -> None:
     _link_live_state(dest, main)
     _link_live_state(dest, main)
     assert (dest / ".env").resolve() == (main / ".env").resolve()
-    assert (dest / ".venv").resolve() == (main / ".venv").resolve()
+    assert not (dest / ".venv").exists()
     shutil.rmtree(dest)
     assert (main / ".env").is_file() and (main / ".venv").is_dir()
 
