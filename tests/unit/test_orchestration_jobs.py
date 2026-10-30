@@ -83,6 +83,21 @@ class _Gate:
         return self.reason
 
 
+class _MemoryGate(_Gate):
+    def __init__(self, reclaimable_gib: float, unloads: list[dict[str, str]]) -> None:
+        super().__init__()
+        self.reclaimable_gib = reclaimable_gib
+        self.unloads = unloads
+        self.requests: list[float] = []
+
+    def reclaimable_memory_gib(self) -> float:
+        return self.reclaimable_gib
+
+    def reclaim_idle_memory(self, need_gib: float) -> list[dict[str, str]]:
+        self.requests.append(need_gib)
+        return self.unloads
+
+
 def _raw_spec(
     argv: list[str],
     *,
@@ -901,6 +916,79 @@ def test_queue_defers_a_job_until_its_preconditions_clear(tmp_path: Path, repo: 
     assert marker.read_text(encoding="utf-8") == "ran"
     with QueueLedger(task_root) as ledger:
         assert ledger.items()[0]["state"] == "done"
+
+
+def test_job_reclaims_idle_model_memory_before_running_its_first_step(
+    tmp_path: Path, repo: Path
+) -> None:
+    marker = tmp_path / "ran"
+    script = _python_script(
+        repo,
+        "reclaim.py",
+        f"from pathlib import Path\nPath({str(marker)!r}).write_text('ran')\n",
+    )
+    spec = _spec(
+        repo,
+        [script],
+        preconditions={"stack": "down", "free_memory_gib": 20, "disk_free_gib": 0},
+    )
+    gate = _MemoryGate(6, [{"engine": "omlx", "model": "idle-seat", "status": "unloaded"}])
+    memory = iter([15.0, 20.0])
+    runner = JobRunner(
+        tmp_path / "tasks",
+        repo_root=repo,
+        gate=gate,
+        dispatch_lock_dir=tmp_path / "dispatch-locks",
+        memory_watch_script=_watcher(tmp_path),
+        stack_probe=lambda: "down",
+        memory_probe=lambda: next(memory),
+        disk_probe=lambda _path: 64.0,
+        poll_seconds=0.02,
+    )
+
+    result = runner.run(spec)
+
+    assert result.status == "PASS"
+    assert gate.requests == [5.0]
+    assert marker.is_file()
+    receipt = _receipt(tmp_path / "tasks")
+    assert receipt["preconditions"]["available_memory_gib"] == 21.0
+    assert receipt["preconditions"]["free_memory_after_reclaim_gib"] == 20.0
+    assert receipt["memory_reclamation"]["unloads"] == gate.unloads
+
+
+def test_job_waits_until_requested_model_unloads_settle(tmp_path: Path, repo: Path) -> None:
+    marker = tmp_path / "must-not-run"
+    script = _python_script(
+        repo,
+        "pending_reclaim.py",
+        f"from pathlib import Path\nPath({str(marker)!r}).write_text('ran')\n",
+    )
+    spec = _spec(
+        repo,
+        [script],
+        preconditions={"stack": "down", "free_memory_gib": 20, "disk_free_gib": 0},
+    )
+    gate = _MemoryGate(6, [{"engine": "ollama", "model": "idle-model", "status": "requested"}])
+    memory = iter([15.0, 15.0])
+    runner = JobRunner(
+        tmp_path / "tasks",
+        repo_root=repo,
+        gate=gate,
+        dispatch_lock_dir=tmp_path / "dispatch-locks",
+        memory_watch_script=_watcher(tmp_path),
+        stack_probe=lambda: "down",
+        memory_probe=lambda: next(memory),
+        disk_probe=lambda _path: 64.0,
+        poll_seconds=0.02,
+    )
+
+    result = runner.run(spec)
+
+    assert result.status == "WAITING"
+    assert not marker.exists()
+    receipt = _receipt(tmp_path / "tasks")
+    assert receipt["memory_reclamation"]["unloads"] == gate.unloads
 
 
 def test_queue_ledger_adds_kind_to_an_existing_database(tmp_path: Path) -> None:

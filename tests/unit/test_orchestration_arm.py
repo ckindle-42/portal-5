@@ -544,6 +544,41 @@ def test_load_plan_429_keeps_retry_after(monkeypatch: pytest.MonkeyPatch) -> Non
     assert str(caught.value).startswith("load-plan failed: HTTPStatusError:")
 
 
+def test_job_memory_plan_and_reclaim_use_pipeline_admin_routes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, dict[str, Any]]] = []
+    responses = [
+        httpx.Response(
+            200,
+            json={"idle_ollama_gib": 4, "freeable_omlx_gib": 3},
+            request=httpx.Request("POST", "http://pipeline/admin/load-plan"),
+        ),
+        httpx.Response(
+            200,
+            json={"unloads": [{"engine": "omlx", "model": "idle", "status": "unloaded"}]},
+            request=httpx.Request("POST", "http://pipeline/admin/reclaim-idle"),
+        ),
+    ]
+
+    def post(url: str, **kwargs: Any) -> httpx.Response:
+        calls.append((url, kwargs["json"]))
+        return responses.pop(0)
+
+    monkeypatch.setattr(httpx, "post", post)
+    engine = Engine("seat", "digest", "http://pipeline/v1", api_key="key")
+
+    plan = engine.memory_plan(5)
+    unloads = engine.reclaim_idle_memory(5, timeout=15)
+
+    assert plan["idle_ollama_gib"] + plan["freeable_omlx_gib"] == 7
+    assert unloads == [{"engine": "omlx", "model": "idle", "status": "unloaded"}]
+    assert calls == [
+        ("http://pipeline/admin/load-plan", {"models": []}),
+        ("http://pipeline/admin/reclaim-idle", {"need_gib": 5}),
+    ]
+
+
 def test_arm_config_rejects_non_positive_shadow_wait(tmp_path: Path) -> None:
     repo = Path(__file__).resolve().parents[2]
     config = yaml.safe_load((repo / "config" / "orchestration_arm.yaml").read_text())

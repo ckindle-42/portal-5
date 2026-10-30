@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import shutil
 import sqlite3
@@ -77,6 +78,30 @@ class QueueGate:
     def external_reason(self) -> str | None:
         """The host-quiet reason a job also has to respect."""
         return self._external_lock_reason()
+
+    def reclaimable_memory_gib(self) -> float:
+        """Read reclaimable model memory from the Pipeline load guard."""
+        engine = next(iter(self.engines.values()), None)
+        if engine is None:
+            raise PipelineError("Pipeline load guard is unavailable")
+        plan = engine.memory_plan(10)
+        idle_ollama = plan.get("idle_ollama_gib")
+        freeable_omlx = plan.get("freeable_omlx_gib")
+        if (
+            not isinstance(idle_ollama, (int, float))
+            or not isinstance(freeable_omlx, (int, float))
+            or not math.isfinite(float(idle_ollama))
+            or not math.isfinite(float(freeable_omlx))
+        ):
+            raise PipelineError("Pipeline load guard did not report reclaimable memory")
+        return max(0.0, float(idle_ollama)) + max(0.0, float(freeable_omlx))
+
+    def reclaim_idle_memory(self, need_gib: float) -> list[dict[str, str]]:
+        """Ask the Pipeline load guard to unload idle models for a queued job."""
+        engine = next(iter(self.engines.values()), None)
+        if engine is None:
+            raise PipelineError("Pipeline load guard is unavailable")
+        return engine.reclaim_idle_memory(need_gib)
 
     def _external_lock_reason(self) -> str | None:
         pids, error = _live_pids(self.pid_file)
