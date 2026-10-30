@@ -9,12 +9,14 @@ import sqlite3
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 import yaml
 from typer.testing import CliRunner
 
+from portal.modules.orchestration import cli as cli_module
 from portal.modules.orchestration import jobs as jobmod
 from portal.modules.orchestration import queue as queue_module
 from portal.modules.orchestration.cli import orchestration_app
@@ -131,6 +133,108 @@ def _receipt(task_root: Path, job_id: str = "job-a") -> dict[str, Any]:
     return json.loads((task_root / job_id / "receipt.json").read_text(encoding="utf-8"))
 
 
+def _write_running_step(task_root: Path, spec: Any, step_id: str, pid: int, started: str) -> None:
+    now = jobmod._utc_now()
+    job_dir = task_root / spec.job_id
+    logs = job_dir / "logs"
+    logs.mkdir(parents=True, exist_ok=True)
+    attempt = 1
+    pid_file = logs / f"{step_id}.{attempt:02d}.pid"
+    pid_file.write_text(f"{pid}\n", encoding="utf-8")
+    pid_file.with_name(pid_file.name + ".meta").write_text(
+        json.dumps({"pid": pid, "started": started}) + "\n", encoding="utf-8"
+    )
+    for suffix in ("stdout.log", "stderr.log", "watch.log"):
+        (logs / f"{step_id}.{attempt:02d}.{suffix}").touch()
+    steps = {
+        step.step_id: {
+            "state": "running" if step.step_id == step_id else "pending",
+            "attempts": attempt if step.step_id == step_id else 0,
+            "started_at": now if step.step_id == step_id else None,
+            "history": [],
+        }
+        for step in spec.steps
+    }
+    (job_dir / "job_state.json").write_text(
+        json.dumps(
+            {
+                "job_id": spec.job_id,
+                "created_at": now,
+                "updated_at": now,
+                "first_started_at": now,
+                "run_count": 1,
+                "steps": steps,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _mark_queue_runner_dead(task_root: Path, job_id: str) -> None:
+    with sqlite3.connect(task_root / "queue.sqlite3") as db:
+        db.execute(
+            "UPDATE queue_task SET runner_pid = ?, runner_started = ? WHERE task_id = ?",
+            (2**30, "Thu Jan 1 00:00:00 1970", job_id),
+        )
+
+
+def _orphan_step(
+    task_root: Path,
+    repo: Path,
+    script: str,
+    spec: Any,
+    step_id: str,
+    tmp_path: Path,
+    *,
+    legacy_pid_file: bool = False,
+) -> None:
+    helper = tmp_path / "orphan_step.py"
+    helper.write_text(
+        "import json, subprocess, sys\n"
+        "from datetime import UTC, datetime\n"
+        "from pathlib import Path\n"
+        "task_root, repo, script, job_id, step_id, names, *options = sys.argv[1:]\n"
+        "job_dir = Path(task_root) / job_id\n"
+        "logs = job_dir / 'logs'\n"
+        "logs.mkdir(parents=True, exist_ok=True)\n"
+        "now = datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%SZ')\n"
+        "pid_file = logs / f'{step_id}.01.pid'\n"
+        "with (logs / f'{step_id}.01.stdout.log').open('wb') as out, "
+        "(logs / f'{step_id}.01.stderr.log').open('wb') as err:\n"
+        "    child = subprocess.Popen([script], cwd=repo, stdin=subprocess.DEVNULL, "
+        "stdout=out, stderr=err, start_new_session=True)\n"
+        "started = subprocess.run(['ps', '-ww', '-p', str(child.pid), '-o', 'lstart='], "
+        "capture_output=True, text=True, check=True).stdout.strip()\n"
+        "pid_file.write_text(f'{child.pid}\\n', encoding='utf-8')\n"
+        "if 'legacy' not in options:\n"
+        "    (logs / f'{step_id}.01.pid.meta').write_text("
+        "json.dumps({'pid': child.pid, 'started': started}) + '\\n', encoding='utf-8')\n"
+        "(logs / f'{step_id}.01.watch.log').touch()\n"
+        "steps = {name: {'state': 'running' if name == step_id else 'pending', "
+        "'attempts': 1 if name == step_id else 0, "
+        "'started_at': now if name == step_id else None, 'history': []} "
+        "for name in json.loads(names)}\n"
+        "state = {'job_id': job_id, 'created_at': now, 'updated_at': now, "
+        "'first_started_at': now, 'run_count': 1, 'steps': steps}\n"
+        "(job_dir / 'job_state.json').write_text(json.dumps(state) + '\\n', encoding='utf-8')\n",
+        encoding="utf-8",
+    )
+    command = [
+        sys.executable,
+        str(helper),
+        str(task_root),
+        str(repo),
+        str(repo / script),
+        spec.job_id,
+        step_id,
+        json.dumps([step.step_id for step in spec.steps]),
+    ]
+    if legacy_pid_file:
+        command.append("legacy")
+    subprocess.run(command, check=True)
+
+
 @pytest.mark.parametrize(
     "argv",
     [
@@ -179,6 +283,8 @@ def test_step_quiet_host_parses_and_round_trips(tmp_path: Path, repo: Path) -> N
     assert spec.as_dict()["steps"][0]["quiet_host"] is False
     # Absent stays absent so specs written before the flag stay byte-stable on resume.
     assert "quiet_host" not in _spec(repo, ["scripts/ok.sh"]).as_dict()["steps"][0]
+    assert "idempotent" not in _spec(repo, ["scripts/ok.sh"]).as_dict()["steps"][0]
+    assert _spec(repo, ["scripts/ok.sh"]).steps[0].idempotent is True
     assert parse_job_spec(spec.as_dict(), repo_root=repo).steps[0].quiet_host is False
 
 
@@ -348,6 +454,101 @@ def test_resume_skips_done_steps_and_rerun_forces_one_step(tmp_path: Path, repo:
     assert counter.read_text(encoding="utf-8") == "2"
 
 
+def test_non_idempotent_rerun_requires_force(tmp_path: Path, repo: Path) -> None:
+    marker = tmp_path / "ship-count"
+    script = _python_script(
+        repo,
+        "ship.py",
+        f"from pathlib import Path\n"
+        f"path = Path({str(marker)!r})\n"
+        "path.write_text((path.read_text() if path.exists() else '') + 'x')\n",
+    )
+    spec = parse_job_spec(
+        _raw_spec(
+            [script],
+            steps=[
+                {
+                    "id": "ship",
+                    "argv": [script],
+                    "timeout_seconds": 5,
+                    "idempotent": False,
+                }
+            ],
+        ),
+        repo_root=repo,
+    )
+    runner = _runner(tmp_path, repo)
+
+    assert spec.steps[0].idempotent is False
+    assert spec.as_dict()["steps"][0]["idempotent"] is False
+    assert runner.run(spec).status == "PASS"
+    with pytest.raises(ValueError, match="non-idempotent"):
+        runner.run(spec, rerun="ship")
+    assert marker.read_text(encoding="utf-8") == "x"
+    assert runner.run(spec, rerun="ship", force=True).status == "PASS"
+    assert marker.read_text(encoding="utf-8") == "xx"
+
+
+def test_job_resume_cli_requires_force_before_requeue(
+    tmp_path: Path, repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    script = _python_script(repo, "ship.py", "pass\n")
+    spec = parse_job_spec(
+        _raw_spec(
+            [script],
+            steps=[{"id": "ship", "argv": [script], "timeout_seconds": 5, "idempotent": False}],
+        ),
+        repo_root=repo,
+    )
+    task_root = tmp_path / "tasks"
+    with QueueLedger(task_root) as ledger:
+        ledger.enqueue_job(spec, repo)
+        ledger.finish(spec.job_id, "blocked", "BLOCKED", "prior interruption")
+    monkeypatch.setattr(cli_module, "_require_enabled", lambda: None)
+    monkeypatch.setattr(cli_module, "_repo_root", lambda: repo)
+    monkeypatch.setattr(cli_module, "_arm_config_path", lambda: repo / "arm.yaml")
+    monkeypatch.setattr(
+        "portal.modules.orchestration.service.load_arm_config", lambda _path: {"queue": {}}
+    )
+    calls: list[tuple[str | None, bool]] = []
+
+    class _Runner:
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            pass
+
+        def run(self, _spec: Any, *, rerun: str | None, force: bool) -> Any:
+            calls.append((rerun, force))
+            return SimpleNamespace(
+                status="PASS", receipt_path=task_root / spec.job_id / "receipt.json"
+            )
+
+    monkeypatch.setattr(jobmod, "JobRunner", _Runner)
+    refused = CliRunner().invoke(
+        orchestration_app,
+        ["job-resume", spec.job_id, "--rerun", "ship", "--tasks-dir", str(task_root)],
+    )
+    assert refused.exit_code == 1
+    assert "non-idempotent" in refused.output
+    assert _queue_row(task_root, spec.job_id)["state"] == "blocked"
+    assert calls == []
+
+    resumed = CliRunner().invoke(
+        orchestration_app,
+        [
+            "job-resume",
+            spec.job_id,
+            "--rerun",
+            "ship",
+            "--force",
+            "--tasks-dir",
+            str(task_root),
+        ],
+    )
+    assert resumed.exit_code == 0, resumed.output
+    assert calls == [("ship", True)]
+    assert _queue_row(task_root, spec.job_id)["state"] == "done"
+
+
 def test_receipt_records_argv_exit_duration_peak_tails_outputs_and_report(
     tmp_path: Path, repo: Path
 ) -> None:
@@ -393,6 +594,10 @@ def test_receipt_records_argv_exit_duration_peak_tails_outputs_and_report(
     assert set(receipt["report"]) == set(REPORT_FIELDS)
     assert receipt["report"]["status"] == "PASS"
     assert receipt["totals"]["duration_seconds"] >= 0
+    pid_file = tmp_path / "tasks" / "job-a" / "logs" / "emit.01.pid"
+    identity = json.loads(pid_file.with_name(pid_file.name + ".meta").read_text(encoding="utf-8"))
+    assert identity["pid"] == int(pid_file.read_text(encoding="utf-8"))
+    assert identity["started"]
     assert notices.job_notices[0]["job_id"] == "job-a"
     assert notices.job_notices[0]["status"] == "PASS"
 
@@ -508,6 +713,126 @@ def test_queue_runs_a_job_without_the_arm_service(tmp_path: Path, repo: Path) ->
     assert rows[0]["state"] == "done"
 
 
+@pytest.mark.parametrize("legacy_pid_file", [False, True])
+def test_queue_adopts_a_live_orphaned_job_step_and_continues(
+    tmp_path: Path, repo: Path, legacy_pid_file: bool
+) -> None:
+    shipped = tmp_path / "shipped"
+    verified = tmp_path / "verified"
+    ship = _python_script(
+        repo,
+        "ship.py",
+        "import time\nfrom pathlib import Path\n"
+        "time.sleep(1)\n"
+        f"Path({str(shipped)!r}).write_text('once')\n",
+    )
+    verify = _python_script(
+        repo,
+        "verify.py",
+        f"from pathlib import Path\nPath({str(verified)!r}).write_text('verified')\n",
+    )
+    spec = _spec(
+        repo,
+        [ship],
+        job_id="orphan-live",
+        steps=[
+            {"id": "ship", "argv": [ship], "timeout_seconds": 5, "idempotent": False},
+            {"id": "verify", "argv": [verify], "timeout_seconds": 5},
+        ],
+    )
+    task_root = tmp_path / "tasks"
+    with QueueLedger(task_root) as ledger:
+        ledger.enqueue_job(spec, repo)
+        item, active = ledger.claim_next()
+    assert item is not None and not active
+    _mark_queue_runner_dead(task_root, spec.job_id)
+    _orphan_step(task_root, repo, ship, spec, "ship", tmp_path, legacy_pid_file=legacy_pid_file)
+    gate = QueueGate(
+        {},
+        {"yield_lock_dir": str(tmp_path / "locks")},
+        pid_file=tmp_path / "memory-pids",
+    )
+    queue = OvernightQueue(
+        task_root,
+        None,
+        gate,
+        repo_root=repo,
+        job_factory=lambda: _runner(tmp_path, repo),
+    )
+
+    result = queue.run_next()
+
+    assert result.status == "DONE"
+    assert shipped.read_text(encoding="utf-8") == "once"
+    assert verified.read_text(encoding="utf-8") == "verified"
+    receipt = _receipt(task_root, spec.job_id)
+    assert receipt["steps"][0]["state"] == "done"
+    assert receipt["steps"][0]["exit_code"] is None
+    assert receipt["steps"][0]["reason"] == "exit unknown"
+    with QueueLedger(task_root) as ledger:
+        assert ledger.items()[0]["state"] == "done"
+
+
+def test_queue_blocks_a_gone_orphaned_step_without_rerunning_it(tmp_path: Path, repo: Path) -> None:
+    shipped = tmp_path / "shipped"
+    verified = tmp_path / "verified"
+    ship = _python_script(
+        repo, "ship.py", f"from pathlib import Path\nPath({str(shipped)!r}).write_text('sent')\n"
+    )
+    verify = _python_script(
+        repo,
+        "verify.py",
+        f"from pathlib import Path\nPath({str(verified)!r}).write_text('verified')\n",
+    )
+    spec = _spec(
+        repo,
+        [ship],
+        job_id="orphan-gone",
+        steps=[
+            {"id": "ship", "argv": [ship], "timeout_seconds": 5, "idempotent": False},
+            {"id": "verify", "argv": [verify], "timeout_seconds": 5},
+        ],
+    )
+    task_root = tmp_path / "tasks"
+    with QueueLedger(task_root) as ledger:
+        ledger.enqueue_job(spec, repo)
+        item, active = ledger.claim_next()
+    assert item is not None and not active
+    _mark_queue_runner_dead(task_root, spec.job_id)
+    proc = _sleeper()
+    started = jobmod._ps_field(proc.pid, "lstart")
+    assert started
+    _stop(proc)
+    _write_running_step(task_root, spec, "ship", proc.pid, started)
+    gate = QueueGate(
+        {},
+        {"yield_lock_dir": str(tmp_path / "locks")},
+        pid_file=tmp_path / "memory-pids",
+    )
+    queue = OvernightQueue(
+        task_root,
+        None,
+        gate,
+        repo_root=repo,
+        job_factory=lambda: _runner(tmp_path, repo),
+    )
+
+    result = queue.run_next()
+
+    assert result.status == "BLOCKED"
+    assert "not alive with its recorded PID and start time" in str(result.reason)
+    state = json.loads((task_root / spec.job_id / "job_state.json").read_text(encoding="utf-8"))
+    assert state["steps"]["ship"]["state"] == "interrupted"
+    assert not shipped.exists()
+    assert not verified.exists()
+    receipt = _receipt(task_root, spec.job_id)
+    assert receipt["status"] == "BLOCKED"
+    assert receipt["steps"][0]["state"] == "interrupted"
+    assert receipt["report"]["failures"][0]["step"] == "ship"
+    with QueueLedger(task_root) as ledger:
+        assert ledger.items()[0]["state"] == "blocked"
+
+
 def test_queue_runs_a_job_from_its_enqueued_source_dir(
     tmp_path: Path, repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -595,6 +920,7 @@ def test_queue_ledger_adds_kind_to_an_existing_database(tmp_path: Path) -> None:
     with sqlite3.connect(task_root / "queue.sqlite3") as db:
         columns = {row[1] for row in db.execute("PRAGMA table_info(queue_task)")}
     assert "kind" in columns
+    assert "runner_started" in columns
 
 
 def test_enqueue_job_cli_persists_a_valid_spec(tmp_path: Path) -> None:

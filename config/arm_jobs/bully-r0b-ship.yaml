@@ -28,6 +28,7 @@ steps:
     outputs:
       - ~/AI_Output/portal-data/reports/review_eval/corpus_fidelity
   - id: ship
+    idempotent: false
     argv:
       - uv
       - run

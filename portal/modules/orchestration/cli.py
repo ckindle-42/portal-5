@@ -234,6 +234,9 @@ def job_resume(
     rerun: Annotated[
         str | None, typer.Option("--rerun", help="Re-run this completed step once.")
     ] = None,
+    force: Annotated[
+        bool, typer.Option("--force", help="Allow rerunning a non-idempotent step.")
+    ] = False,
     tasks_dir: Annotated[Path | None, typer.Option("--tasks-dir")] = None,
 ) -> None:
     """Resume a stopped job at its first incomplete step."""
@@ -249,15 +252,21 @@ def job_resume(
         typer.echo(f"no job: {job_id}", err=True)
         raise typer.Exit(code=1)
     try:
+        spec = parse_job_spec(
+            yaml.safe_load(spec_path.read_text(encoding="utf-8")), repo_root=_repo_root()
+        )
+        if rerun is not None:
+            selected = next((step for step in spec.steps if step.step_id == rerun), None)
+            if selected is None:
+                raise ValueError(f"unknown step for --rerun: {rerun}")
+            if not selected.idempotent and not force:
+                raise ValueError(f"step {rerun} is non-idempotent; pass --force to rerun it")
         with QueueLedger(root) as ledger:
             active = ledger.active_other(job_id)
             if active:
                 raise RuntimeError(active)
             if ledger.task(job_id) is not None:
                 ledger.requeue(job_id)
-        spec = parse_job_spec(
-            yaml.safe_load(spec_path.read_text(encoding="utf-8")), repo_root=_repo_root()
-        )
         policy = load_arm_config(_arm_config_path()).get("queue", {})
         gate = QueueGate({}, policy if isinstance(policy, dict) else {})
         result = JobRunner(
@@ -265,7 +274,7 @@ def job_resume(
             repo_root=_repo_root(),
             gate=gate,
             notices=TelegramNoticeSink(),
-        ).run(spec, rerun=rerun)
+        ).run(spec, rerun=rerun, force=force)
         with QueueLedger(root) as ledger:
             if ledger.task(job_id) is not None:
                 if result.status == "WAITING":
