@@ -542,3 +542,32 @@ def test_tier_escalate_sets_effort_under_max(
     assert args.effort == "high"
     assert args.peak_ok is True
     assert "ESCALATE" in capsys.readouterr().out
+
+
+def test_a_conflicting_merge_is_aborted_and_main_stays_clean(tmp_path: Path) -> None:
+    # The live checkout must never be left with conflict markers.
+    from portal.modules.orchestration.escalate import _merge_head
+
+    main = _repo(tmp_path / "main")
+    target = main / "tests" / "wfe" / "test_ok.py"
+    lane = tmp_path / "lane"
+    _git(main, "worktree", "add", "-b", "lane/x", str(lane))
+    (lane / "tests" / "wfe" / "test_ok.py").write_text("lane\n", encoding="utf-8")
+    _git(lane, "commit", "-am", "lane edit")
+    target.write_text("main\n", encoding="utf-8")
+    _git(main, "commit", "-am", "main edit")
+    before = subprocess.run(
+        ["git", "-C", str(main), "rev-parse", "HEAD"], capture_output=True, text=True
+    ).stdout
+
+    assert _merge_head(main, lane, "escalation: x attempt 1") is False
+
+    status = subprocess.run(
+        ["git", "-C", str(main), "status", "--porcelain"], capture_output=True, text=True
+    ).stdout
+    head = subprocess.run(
+        ["git", "-C", str(main), "rev-parse", "HEAD"], capture_output=True, text=True
+    ).stdout
+    assert status.strip() == ""
+    assert head == before
+    assert target.read_text(encoding="utf-8") == "main\n"

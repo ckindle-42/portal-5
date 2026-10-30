@@ -870,7 +870,12 @@ def _merge_head(main: Path, worktree: Path, message: str) -> bool:
     if not head or head == base:
         return True
     merged = git_run(main, ["merge", "--no-ff", "--no-edit", "-m", message, head])
-    return merged.returncode == 0
+    if merged.returncode != 0:
+        # Never leave conflict markers in the live checkout (launchd scripts and mounted
+        # config read from it): back the merge out and report failure.
+        git_run(main, ["merge", "--abort"])
+        return False
+    return True
 
 
 def _commit_untracked(main: Path, paths: Sequence[str], message: str) -> bool:
