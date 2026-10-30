@@ -1380,15 +1380,22 @@ def context_overflow(transcript: list, context_limit: int | None) -> str | None:
 
     Ollama does not error on overflow: a prompt longer than num_ctx is cut to
     about half the window keeping only the first few tokens ("truncating input
-    prompt ... keep=5" — the system prompt and the task go first), and a
-    generation that fills the window is context-shifted by half. Both were in
-    its log during WFE campaigns (wfe_full_20260911: granite4.1:8b-ctx8k, Nex
-    ctx16k, Qwen3.6-abliterated ctx8k) and no row recorded them. A conversation
-    only grows, so a turn whose prompt is SHORTER than the previous turn's was
-    truncated; a turn whose prompt + output reaches the window was too; and a
-    turn whose message text runs to more than 8 characters per reported prompt
-    token was cut on its first overflow (real text is 3–6 chars/token, and the
-    tool schemas only add tokens)."""
+    prompt ... keep=5" — the system prompt and the task go first; measured
+    2026-10-15: a ~20k prompt on a ctx8k tag reported 4099), and a generation
+    that fills the window is context-shifted by half. Both were in its log
+    during WFE campaigns (wfe_full_20260911: granite4.1:8b-ctx8k, Nex ctx16k,
+    Qwen3.6-abliterated ctx8k) and no row recorded them. Both cuts happen only
+    at window pressure, and per-turn usage is the pipeline tool loop's LAST
+    hop — it carries that turn's reasoning and tool results, which the next
+    turn's request legitimately drops (the client sees only the final answer)
+    — so a prompt can shrink far below the window without any truncation
+    (realuse_s8_20261030f ru-v1-052 r0: last hops 544 -> 1047, then 581 ->
+    864; engine log truncated=0 throughout, which the old any-shrink rule
+    flagged). A shrink therefore counts only when the previous turn sat near
+    the window and the count collapsed below it; a turn whose prompt + output
+    reaches the window was cut too; and a turn whose message text runs to more
+    than 8 characters per reported prompt token was cut on its first overflow
+    (real text is 3–6 chars/token, and the tool schemas only add tokens)."""
     for t in transcript:
         if t.get("context_overflow"):
             return f"turn {t.get('turn')}: {t['context_overflow']}"
@@ -1402,8 +1409,11 @@ def context_overflow(transcript: list, context_limit: int | None) -> str | None:
                 f"turn {t.get('turn')}: {sent} chars sent but only {p} prompt tokens "
                 "reported (engine truncation)"
             )
-        if prev and p < prev:
-            return f"turn {t.get('turn')}: prompt shrank {prev} -> {p} tokens (engine truncation)"
+        if context_limit and prev >= context_limit * 3 // 4 and p <= context_limit * 5 // 8:
+            return (
+                f"turn {t.get('turn')}: prompt shrank {prev} -> {p} of a "
+                f"{context_limit}-token window (engine truncation)"
+            )
         if context_limit and p + c >= context_limit - 8:
             return (
                 f"turn {t.get('turn')}: prompt {p} + output {c} reached the "
