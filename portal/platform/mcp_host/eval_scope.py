@@ -100,18 +100,27 @@ def run_root(base: Path | str, scope: dict[str, Any]) -> Path:
     return Path(root)
 
 
-_UPLOAD_PREFIX = "/workspace/uploads/realuse_v1/"
+WORKSPACE_MOUNTS = ("/workspace/uploads", "/workspace")
+
+
+def unmount_workspace_path(path: str | Path) -> str:
+    """Strip the longest configured workspace mount prefix from a path."""
+    text = str(path).replace("\\", "/")
+    for mount in WORKSPACE_MOUNTS:
+        if text == mount or text.startswith(mount + "/"):
+            return text[len(mount) :].lstrip("/") or "."
+    return str(path)
 
 
 def _row_path(path: str | Path) -> Path:
-    """Map `/workspace/uploads/realuse_v1/<rest>` onto the row-relative tree."""
+    """Map workspace mounts onto the row-relative input tree."""
     text = str(path).replace("\\", "/")
-    if not text.startswith(_UPLOAD_PREFIX):
+    relative = unmount_workspace_path(text)
+    if relative == text:
         return Path(path)
-    rest = text[len(_UPLOAD_PREFIX) :]
-    if not rest or any(part in {".", ".."} for part in Path(rest).parts):
+    if any(part in {".", ".."} for part in Path(relative).parts):
         raise ScopeError(f"path outside the evaluation namespace: {path}")
-    return Path("realuse_v1") / rest
+    return Path(relative)
 
 
 def confine(base: Path | str, scope: dict[str, Any], path: str | Path, sub: str = "") -> Path:

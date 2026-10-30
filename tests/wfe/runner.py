@@ -61,6 +61,7 @@ from portal.platform.inference.omlx_auth import omlx_headers
 from portal.platform.inference.router.text_tool_calls import salvage_text_tool_calls
 from portal.platform.inference.router.thinking import NO_ANSWER_MESSAGE
 from portal.platform.inference.router.trace import StreamMeasurement, normalize_engine_timings
+from portal.platform.mcp_host.eval_scope import unmount_workspace_path
 from tests.wfe.checkers import CheckContext, CheckResult, apply_checkers
 from tests.wfe.prompt_surface import harness_note, production_tool_names
 from tests.wfe.realuse_paths import stage_upload_tree
@@ -206,15 +207,8 @@ REPO_DENY_PREFIXES = ("tests/wfe/", "tests/compliance_probe/", "tests/benchmarks
 #: files at the sandbox root, so an absolute /workspace path must land there —
 #: otherwise the model is told where its files are and every read ERRORs
 #: (general-deep res-ollama-ctx, laguna code-kv in wfe_prompt_surface_seat_20261012).
-WORKSPACE_MOUNTS = ("/workspace/uploads", "/workspace")
-
-
 def _unmount(path: str) -> str:
-    p = str(path)
-    for mount in WORKSPACE_MOUNTS:
-        if p == mount or p.startswith(mount + "/"):
-            return p[len(mount) :].lstrip("/") or "."
-    return p
+    return unmount_workspace_path(path)
 
 
 def _repo_denied(rel: str) -> bool:

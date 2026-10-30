@@ -77,10 +77,39 @@ def test_realuse_upload_paths_map_into_the_row(tmp_path):
     for bad in (
         "/workspace/uploads/realuse_v1/../secret",
         "/workspace/uploads/realuse_v1/ru-v1-010/../../secret",
-        "/workspace/uploads/other.txt",
+        "/workspace/../secret",
+        "/workspace/uploads/../secret",
     ):
         with pytest.raises(es.ScopeError):
             es.confine(tmp_path, SCOPE, bad, sub="in")
+
+
+@pytest.mark.parametrize(
+    ("path", "relative"),
+    [
+        ("/workspace/final_invoice.pdf", "final_invoice.pdf"),
+        ("/workspace/uploads/final_invoice.pdf", "final_invoice.pdf"),
+        (
+            "/workspace/uploads/realuse_v1/ru-v1-001/final_invoice.pdf",
+            "realuse_v1/ru-v1-001/final_invoice.pdf",
+        ),
+    ],
+)
+def test_workspace_paths_match_sandbox_and_production(tmp_path, path, relative):
+    from tests.wfe.runner import Sandbox, _unmount
+
+    root = es.run_root(tmp_path / "output", SCOPE)
+    sandbox = Sandbox(tmp_path / "sandbox", allow_repo_read=False)
+    expected = root / "in" / relative
+    expected.parent.mkdir(parents=True, exist_ok=True)
+    expected.touch()
+    sandbox_path = sandbox.root / relative
+    sandbox_path.parent.mkdir(parents=True, exist_ok=True)
+    sandbox_path.touch()
+
+    assert es.confine(tmp_path / "output", SCOPE, path, sub="in") == expected
+    assert _unmount(path) == relative
+    assert sandbox._resolve(path) == sandbox_path
 
 
 def test_paths_are_confined_to_the_run_root(tmp_path):
