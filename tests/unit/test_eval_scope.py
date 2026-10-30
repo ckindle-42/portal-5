@@ -68,6 +68,21 @@ def test_native_mcp_call_binds_eval_scope_and_request_id():
     assert es.EVAL_SCOPE.get() is None and es.REQUEST_ID.get() == ""
 
 
+def test_realuse_upload_paths_map_into_the_row(tmp_path):
+    root = es.run_root(tmp_path, SCOPE)
+    got = es.confine(
+        tmp_path, SCOPE, "/workspace/uploads/realuse_v1/ru-v1-010/report.txt", sub="in"
+    )
+    assert got == root / "in" / "realuse_v1" / "ru-v1-010" / "report.txt"
+    for bad in (
+        "/workspace/uploads/realuse_v1/../secret",
+        "/workspace/uploads/realuse_v1/ru-v1-010/../../secret",
+        "/workspace/uploads/other.txt",
+    ):
+        with pytest.raises(es.ScopeError):
+            es.confine(tmp_path, SCOPE, bad, sub="in")
+
+
 def test_paths_are_confined_to_the_run_root(tmp_path):
     root = es.run_root(tmp_path, SCOPE)
     assert es.confine(tmp_path, SCOPE, "a.docx", sub="in") == root / "in" / "a.docx"

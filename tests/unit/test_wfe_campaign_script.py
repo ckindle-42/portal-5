@@ -28,6 +28,12 @@ PY
 for arg in "$@"; do
     [ "$arg" = "-c" ] && { echo "True"; exit 0; }
 done
+for arg in "$@"; do
+    if [ "$arg" = "tests.wfe.realuse_paths" ] && [ -n "${WFE_FIXTURE_PREFLIGHT_RC:-}" ]; then
+        echo "fixture preflight: FAIL unreadable: /workspace/uploads/realuse_v1/missing.txt" >&2
+        exit "$WFE_FIXTURE_PREFLIGHT_RC"
+    fi
+done
 if [ -n "${WFE_NOTHING_MEASURED:-}" ]; then
     for arg in "$@"; do
         if [ "$arg" = "--require-measured" ]; then
@@ -254,3 +260,35 @@ def test_the_script_exits_with_the_nothing_measured_line(tmp_path: Path) -> None
     assert result.returncode == 10
     assert result.stdout.count(f"NOTHING MEASURED: {reason}") == 1
     assert any("--require-measured" in call["argv"] for call in calls)
+
+
+def test_fixture_preflight_runs_before_rows(tmp_path: Path) -> None:
+    plan = "tests/wfe/plans/realuse_v1_s8.yaml"
+
+    result, calls = _run(tmp_path, "--plan", plan, "--tier", "realuse")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    indexes = [i for i, call in enumerate(calls) if "tests.wfe.realuse_paths" in call["argv"]]
+    assert indexes, calls
+    preflight = calls[indexes[0]]["argv"]
+    assert preflight[preflight.index("--plan") + 1] == plan
+    assert "--preflight" in preflight
+    arm_at = next(i for i, call in enumerate(calls) if "--arm" in call["argv"])
+    assert indexes[0] < arm_at
+
+
+def test_fixture_preflight_refusal_stops_the_campaign(tmp_path: Path) -> None:
+    result, calls = _run(
+        tmp_path,
+        "--plan",
+        "tests/wfe/plans/realuse_v1_s8.yaml",
+        "--tier",
+        "realuse",
+        env_extra={"WFE_FIXTURE_PREFLIGHT_RC": "1"},
+    )
+
+    assert result.returncode == 4
+    text = result.stdout + result.stderr
+    assert "ABORT: realuse fixture preflight refused" in text
+    assert "unreadable:" in text
+    assert not any("--arm" in call["argv"] for call in calls)

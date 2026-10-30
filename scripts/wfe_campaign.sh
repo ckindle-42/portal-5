@@ -109,6 +109,15 @@ for arg in "$@"; do
         exit 0
     fi
 done
+# Prompt paths must already be readable; a missing fixture otherwise burns the sweep.
+fixture_rc=0
+fixture_gate=$(uv run python -m tests.wfe.realuse_paths --preflight \
+    $PLAN_FLAG $ALL_SUITES_FLAG "$@" 2>&1) || fixture_rc=$?
+printf '%s\n' "$fixture_gate" | tee -a "$PROGRESS_LOG"
+if [ "$fixture_rc" -ne 0 ]; then
+    echo "$(ts) ABORT: realuse fixture preflight refused" | tee -a "$PROGRESS_LOG"
+    exit 4
+fi
 uv run python -m tests.wfe.campaign \
     --campaign-id "$CAMPAIGN_ID" $REPEATS_FLAG $ALL_SUITES_FLAG $PLAN_FLAG \
     --append --status "$@" 2>&1 | tee -a "$PROGRESS_LOG"

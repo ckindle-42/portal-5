@@ -63,6 +63,7 @@ from portal.platform.inference.router.thinking import NO_ANSWER_MESSAGE
 from portal.platform.inference.router.trace import StreamMeasurement, normalize_engine_timings
 from tests.wfe.checkers import CheckContext, CheckResult, apply_checkers
 from tests.wfe.prompt_surface import harness_note, production_tool_names
+from tests.wfe.realuse_paths import stage_upload_tree
 from tests.wfe.schema import Economics, Outcome, ResultRow, env_fingerprint, sha12
 
 logger = logging.getLogger(__name__)
@@ -1864,6 +1865,7 @@ def run_task(
         dest = Path(sandbox.root) / Path(rel).name
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(REPO / rel, dest)
+        stage_upload_tree(rel, REPO / rel, sandbox_root=sandbox.root)
     # A self-contained task (a compliance packet) declares repo_read: false. With
     # the repository readable, the p6j seats went hunting through Portal's own
     # compliance source and the adjudication notes about the very packets under
