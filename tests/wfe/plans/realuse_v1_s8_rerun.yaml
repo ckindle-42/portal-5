@@ -1,0 +1,28 @@
+# Re-run of realuse_s8_20261030f's invalid seats after c4d6b316 (production eval scope refused the
+# /workspace/<file> paths personas teach) and the unverified auto-coding incumbent halt.
+# Same arms as realuse_v1_s8.yaml; the valid seats (fast-repair, tools-specialist::fast) are not re-run.
+workloads:
+  auto-daily::fast:
+    tool_mode: production
+    home: realuse_v1
+    discovery: []
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k
+      challengers:
+      - hf.co/unsloth/LFM2.5-24B-A2B-GGUF:UD-Q4_K_XL-ctx96k
+  tools-specialist:
+    tool_mode: production
+    home: realuse_v1
+    discovery: []
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k
+      challengers:
+      - hf.co/unsloth/LFM2.5-24B-A2B-GGUF:UD-Q4_K_XL-ctx96k
+  auto-coding:
+    tool_mode: production
+    home: realuse_v1
+    discovery: []
+    arms:
+      incumbent: qwen3-coder:30b-a3b-q4_K_M-ctx256k
+      challengers:
+      - hf.co/unsloth/flint-GGUF:UD-Q4_K_XL-ctx256k
