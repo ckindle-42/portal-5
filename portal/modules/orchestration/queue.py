@@ -10,7 +10,7 @@ import shutil
 import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -599,6 +599,15 @@ DIGEST_WAIT_SECONDS = 3600.0
 _CAMPAIGN_ROWS = re.compile(r"^CAMPAIGN\s+\S+:.*\brows\s+(\d+)/(\d+)$")
 
 
+def _parsed(stamp: object) -> datetime:
+    """An ISO timestamp, or the epoch when it is missing or malformed (treated as old)."""
+    try:
+        value = datetime.fromisoformat(str(stamp))
+    except ValueError:
+        return datetime.fromtimestamp(0, UTC)
+    return value if value.tzinfo else value.replace(tzinfo=UTC)
+
+
 def build_queue_digest(
     items: list[dict[str, Any]],
     receipts: dict[str, dict[str, Any]],
@@ -616,10 +625,24 @@ def build_queue_digest(
             **{name: counts.get(name, 0) for name in ("done", "blocked", "queued", "running")}
         ),
     ]
+    # Only recent blocks are news; older ones stay in queue-status (10-30: 50 stale rows buried
+    # the three live jobs in every digest).
+    cutoff = moment - timedelta(hours=24)
+    stale = 0
     for item in items:
         if str(item["state"]) == "blocked" and item.get("last_error"):
+            if _parsed(item.get("updated_at")) < cutoff:
+                stale += 1
+                continue
             lines.append(f"  blocked {item['task_id']}: {item['last_error']}")
-    row_lines, rows_done, rows_total = _digest_rows(items, receipts)
+    if stale:
+        lines.append(f"  (+{stale} older blocked; `portal arm queue-status` lists them)")
+    recent = [
+        i
+        for i in items
+        if str(i["state"]) in {"queued", "running"} or _parsed(i.get("updated_at")) >= cutoff
+    ]
+    row_lines, rows_done, rows_total = _digest_rows(recent, receipts)
     if row_lines:
         lines.append(f"Rows measured: {rows_done}/{rows_total}.")
         lines.extend(row_lines)

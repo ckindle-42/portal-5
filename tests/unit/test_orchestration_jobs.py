@@ -2113,12 +2113,25 @@ def test_queue_digest_prints_and_queues_the_digest(
 def test_build_queue_digest_counts_jobs_rows_and_long_waits() -> None:
     now = datetime(2026, 10, 30, 12, 0, 0, tzinfo=UTC)
     items = [
-        {"task_id": "done-job", "state": "done", "receipt_status": "PASS"},
+        {
+            "task_id": "done-job",
+            "state": "done",
+            "receipt_status": "PASS",
+            "updated_at": (now - timedelta(hours=3)).isoformat(),
+        },
         {
             "task_id": "blocked-job",
             "state": "blocked",
             "receipt_status": "STOPPED",
             "last_error": "job receipt status is STOPPED: step exited 1",
+            "updated_at": (now - timedelta(hours=1)).isoformat(),
+        },
+        {
+            "task_id": "old-blocked-job",
+            "state": "blocked",
+            "receipt_status": "BLOCKED",
+            "last_error": "job receipt status is BLOCKED: step exited 4",
+            "updated_at": (now - timedelta(days=3)).isoformat(),
         },
         {
             "task_id": "waiting-job",
@@ -2147,7 +2160,9 @@ def test_build_queue_digest_counts_jobs_rows_and_long_waits() -> None:
     text = queue_module.build_queue_digest(items, receipts, now=now)
 
     assert "Queue digest 2026-10-30 12:00Z." in text
-    assert "Jobs: 1 done, 1 blocked, 2 queued, 0 running." in text
+    assert "Jobs: 1 done, 2 blocked, 2 queued, 0 running." in text
+    assert "old-blocked-job" not in text  # older than a day: counted, not listed
+    assert "(+1 older blocked; `portal arm queue-status` lists them)" in text
     assert "blocked blocked-job: job receipt status is STOPPED: step exited 1" in text
     assert "Rows measured: 5/10." in text
     assert "done-job: CAMPAIGN c1: complete (all rows judged) rows 3/5" in text
