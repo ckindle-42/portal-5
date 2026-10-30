@@ -311,6 +311,7 @@ def queue_run(
         typer.echo("queue-run is already active in another process; exiting")
         return
     try:
+        from portal.modules.orchestration.escalate import build_escalator
         from portal.modules.orchestration.service import load_arm_config
         from portal.modules.orchestration.telegram import TelegramNoticeSink
 
@@ -320,7 +321,13 @@ def queue_run(
         if not isinstance(policy, dict):
             raise ValueError("orchestration queue config must be a mapping")
         engines = service.engines if service is not None else {}
-        runner = OvernightQueue(root, service, QueueGate(engines, policy), notices=sink)
+        runner = OvernightQueue(
+            root,
+            service,
+            QueueGate(engines, policy),
+            notices=sink,
+            escalation=build_escalator(root, _repo_root(), sink, policy),
+        )
         sink.runner_notice(
             "runner_started", "queue-runner", {"pid": os.getpid(), "poll_seconds": poll_seconds}
         )
@@ -515,6 +522,38 @@ def queue_requeue(
         typer.echo(f"arm queue-requeue failed: {exc}", err=True)
         raise typer.Exit(code=1) from exc
     typer.echo(f"requeued {task_id}")
+
+
+@orchestration_app.command("escalate")
+def escalate_job(
+    job_id: Annotated[str, typer.Argument()],
+    tasks_dir: Annotated[Path | None, typer.Option("--tasks-dir")] = None,
+) -> None:
+    """Ask a cloud lane to repair one blocked job. Requires queue.escalation.enabled."""
+    _require_enabled()
+    from portal.modules.orchestration.escalate import Escalator, escalation_enabled
+    from portal.modules.orchestration.queue import QueueLedger, QueueRun
+    from portal.modules.orchestration.service import load_arm_config
+    from portal.modules.orchestration.telegram import TelegramNoticeSink
+
+    policy = load_arm_config(_arm_config_path()).get("queue", {})
+    if not escalation_enabled(policy):
+        typer.echo("queue.escalation.enabled is false", err=True)
+        raise typer.Exit(code=2)
+    root = tasks_dir or _tasks_dir()
+    try:
+        with QueueLedger(root) as ledger:
+            item = ledger.task(job_id)
+        if item is None:
+            raise ValueError(f"no queue task: {job_id}")
+        receipt = root / job_id / "receipt.json"
+        outcome = Escalator(root, repo_root=_repo_root(), notices=TelegramNoticeSink()).handle(
+            item, QueueRun("BLOCKED", job_id, receipt if receipt.is_file() else None)
+        )
+    except Exception as exc:
+        typer.echo(f"arm escalate failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(outcome)
 
 
 def _service(tasks_dir: Path | None) -> Any:

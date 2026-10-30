@@ -94,6 +94,8 @@ orchestration_arm:
         deep: {pass_probability: 1.0, mean_seconds: 22.2, samples: 12}
   queue:
     yield_lock_dir: "~/.portal5/locks/"
+    escalation:
+      enabled: false
   disciplines:
     test_fixing:
       selection_reason: Existing coding WFE work already uses hidden pytest tests as hard graders for repair tasks, so this candidate can measure correctness without model review.

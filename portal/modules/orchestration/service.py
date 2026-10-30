@@ -57,6 +57,7 @@ class StubNoticeSink:
         self.job_notices: list[dict[str, Any]] = []
         self.runner_notices: list[dict[str, Any]] = []
         self.digests: list[str] = []
+        self.escalations: list[dict[str, Any]] = []
 
     def blocked(self, task_id: str, bite_id: str, failure: dict[str, Any]) -> None:
         self.notices.append({"task_id": task_id, "bite_id": bite_id, "failure": failure})
@@ -79,6 +80,9 @@ class StubNoticeSink:
 
     def digest(self, text: str) -> None:
         self.digests.append(text)
+
+    def escalation(self, job_id: str, event: str, detail: dict[str, Any]) -> None:
+        self.escalations.append({"job_id": job_id, "event": event, "detail": detail})
 
 
 class ArmService:
