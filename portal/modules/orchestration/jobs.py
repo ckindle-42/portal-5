@@ -14,7 +14,7 @@ import time
 import unicodedata
 from collections.abc import Callable, Iterable, Mapping
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
@@ -56,7 +56,11 @@ _LOG_REDACT_LIMIT = 32 * 1024 * 1024
 _STEP_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["id", "argv", "timeout_seconds"],
+    "required": ["id", "timeout_seconds"],
+    # A canary step derives its argv from the step it gates, so only plain
+    # steps must carry argv.
+    "if": {"not": {"required": ["canary"]}},
+    "then": {"required": ["argv"]},
     "properties": {
         "id": {"type": "string", "pattern": _STEP_ID.pattern},
         "argv": {
@@ -64,6 +68,7 @@ _STEP_SCHEMA: dict[str, Any] = {
             "minItems": 1,
             "items": {"type": "string", "minLength": 1},
         },
+        "canary": {"type": "string", "minLength": 1},
         "timeout_seconds": {"type": "number", "exclusiveMinimum": 0},
         "quiet_host": {"type": "boolean"},
         "idempotent": {"type": "boolean"},
@@ -156,6 +161,8 @@ class JobStep:
     quiet_host: bool = True
     env_from_dotenv: tuple[str, ...] = ()
     idempotent: bool = True
+    #: The step this canary gates: argv is that step's argv with --canary appended.
+    canary_of: str | None = None
 
 
 @dataclass(frozen=True)
@@ -193,7 +200,9 @@ class JobSpec:
             "steps": [
                 {
                     "id": step.step_id,
-                    "argv": list(step.argv),
+                    # A canary step omits argv so the round-trip re-derives it
+                    # from its reference instead of double-applying --canary.
+                    **({} if step.canary_of else {"argv": list(step.argv)}),
                     "timeout_seconds": step.timeout_seconds,
                     "outputs": list(step.outputs),
                     "checkpoints": list(step.checkpoints),
@@ -205,6 +214,7 @@ class JobSpec:
                         if step.env_from_dotenv
                         else {}
                     ),
+                    **({"canary": step.canary_of} if step.canary_of else {}),
                 }
                 for step in self.steps
             ],
@@ -268,6 +278,7 @@ def parse_job_spec(raw: Any, *, repo_root: Path) -> JobSpec:
     ids = [step.step_id for step in steps]
     if len(set(ids)) != len(ids):
         raise ValueError("step ids must be unique")
+    steps = _resolve_canaries(list(steps), repo_root)
     preconditions = raw["preconditions"]
     if preconditions.get("disk_path"):
         _validate_job_path(str(preconditions["disk_path"]))
@@ -309,8 +320,16 @@ def job_json(spec: JobSpec) -> str:
 
 
 def _parse_step(raw: dict[str, Any], repo_root: Path) -> JobStep:
-    argv = tuple(str(token) for token in raw["argv"])
-    _validate_argv(argv, repo_root)
+    canary_of = str(raw["canary"]) if raw.get("canary") else None
+    if canary_of and "argv" in raw:
+        raise ValueError(
+            f"step {raw['id']}: a canary step derives its argv from {canary_of!r}; drop argv"
+        )
+    if canary_of:
+        argv: tuple[str, ...] = ()
+    else:
+        argv = tuple(str(token) for token in raw["argv"])
+        _validate_argv(argv, repo_root)
     outputs = tuple(str(item) for item in raw.get("outputs", []))
     checkpoints = tuple(str(item) for item in raw.get("checkpoints", []))
     for value in outputs + checkpoints:
@@ -327,7 +346,31 @@ def _parse_step(raw: dict[str, Any], repo_root: Path) -> JobStep:
         quiet_host=bool(raw.get("quiet_host", True)),
         env_from_dotenv=env_from_dotenv,
         idempotent=bool(raw.get("idempotent", True)),
+        canary_of=canary_of,
     )
+
+
+def _resolve_canaries(steps: list[JobStep], repo_root: Path) -> tuple[JobStep, ...]:
+    """A `canary: <step>` step runs the named step's argv with --canary appended.
+    It must precede the step it gates, and that step must have its own argv."""
+    index = {step.step_id: i for i, step in enumerate(steps)}
+    out: list[JobStep] = []
+    for i, step in enumerate(steps):
+        if step.canary_of is None:
+            out.append(step)
+            continue
+        j = index.get(step.canary_of)
+        if j is None:
+            raise ValueError(f"step {step.step_id}: canary names unknown step {step.canary_of!r}")
+        ref = steps[j]
+        if ref.canary_of is not None:
+            raise ValueError(f"step {step.step_id}: canary must name a step with its own argv")
+        if j <= i:
+            raise ValueError(f"step {step.step_id}: canary must precede step {step.canary_of!r}")
+        argv = (*ref.argv, "--canary")
+        _validate_argv(argv, repo_root)
+        out.append(replace(step, argv=argv))
+    return tuple(out)
 
 
 def _validate_argv(argv: tuple[str, ...], repo_root: Path) -> None:

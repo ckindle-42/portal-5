@@ -14,6 +14,9 @@
 #   REPEATS=5 ALL_SUITES=1 ./scripts/wfe_campaign.sh wfe_deep --arm <tag>
 #   ./scripts/wfe_campaign.sh wfe_s8 --plan tests/wfe/plans/s8_x.yaml --tier screen \
 #       --engine pipeline                                  # job-friendly (no env needed)
+#   ./scripts/wfe_campaign.sh wfe_s8 --canary ...          # live canary: one incumbent row
+#       per workload into <id>_canary, classified SETUP vs MODEL; exit 0 only when no
+#       row is SETUP. Gate a long campaign on it (job specs: a `canary: <step>` step).
 # The final stdout line is `CAMPAIGN <id>: complete|stopped (<reason>) rows done/total`
 # (printed by the --finish call, which is also the script's exit): 0 matrix complete
 # (arm halts are a result, summarised on that line), 5 an arm stopped (instrument
@@ -45,6 +48,8 @@ while [ "$#" -gt 0 ]; do
             WFE_ENGINE="$2"; shift 2 ;;
         --engine=*)
             WFE_ENGINE="${1#--engine=}"; shift ;;
+        --canary)
+            CANARY=1; shift ;;
         *)
             ARGS+=("$1"); shift ;;
     esac
@@ -58,6 +63,17 @@ if [ "${WFE_ENGINE:-}" = "pipeline" ] && [ -z "${PIPELINE_API_KEY:-}" ] \
     && [ -f "$REPO_ROOT/.env" ]; then
     PIPELINE_API_KEY="$(grep -E '^PIPELINE_API_KEY=' "$REPO_ROOT/.env" | tail -1 | cut -d= -f2- | tr -d "\"'")"
     [ -n "$PIPELINE_API_KEY" ] && export PIPELINE_API_KEY
+fi
+
+# Canary mode: tests/wfe/canary.py owns the whole path — fixture staging, the
+# conformance gate, one live incumbent row per workload, SETUP/MODEL
+# classification, and the exit. One repeat is implied; the sweeps' REPEATS
+# policy does not apply.
+if [ "${CANARY:-0}" = "1" ]; then
+    PLAN_ARGS=()
+    [ -n "${PLAN:-}" ] && PLAN_ARGS+=(--plan "$PLAN")
+    exec uv run python -m tests.wfe.canary \
+        --campaign-id "$CAMPAIGN_ID" ${PLAN_ARGS[@]+"${PLAN_ARGS[@]}"} "$@"
 fi
 
 # Unset REPEATS on --tier realuse omits --repeats (realuse_repeats: 1 draw, 2 only

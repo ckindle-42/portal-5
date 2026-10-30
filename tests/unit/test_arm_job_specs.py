@@ -98,6 +98,19 @@ def test_every_plan_a_step_opens_exists(path: Path) -> None:
                 assert (ROOT / step.argv[index + 1]).is_file(), step.argv[index + 1]
 
 
+@pytest.mark.parametrize("name", ["wfe-realuse-rest", "wfe-realuse-sec"])
+def test_every_realuse_campaign_step_is_gated_by_a_canary_that_stops_the_job(name: str) -> None:
+    spec = _spec(SPEC_DIR / f"{name}.yaml")
+
+    assert spec.stop_conditions.on_failure == "stop"
+    for step in spec.steps:
+        if step.argv[0] != "scripts/wfe_campaign.sh" or step.canary_of:
+            continue
+        gate = spec.steps[spec.steps.index(step) - 1]
+        assert gate.canary_of == step.step_id, step.step_id
+        assert gate.argv == (*step.argv, "--canary"), step.step_id
+
+
 def test_the_cache_probe_runs_the_briefed_series() -> None:
     spec = _spec(SPEC_DIR / "mlx-cache-probe.yaml")
     services = [step.argv[4] for step in spec.steps]
@@ -148,14 +161,22 @@ def test_env_from_dotenv_rejects_keys_outside_the_allowlist() -> None:
 
 def test_realuse_rest_runs_the_three_groups_then_reports() -> None:
     spec = _spec(SPEC_DIR / "wfe-realuse-rest.yaml")
-    campaigns = [step for step in spec.steps if step.argv[0] == "scripts/wfe_campaign.sh"]
+    campaigns = [
+        step
+        for step in spec.steps
+        if step.argv[0] == "scripts/wfe_campaign.sh" and step.canary_of is None
+    ]
+    canaries = [step for step in spec.steps if step.canary_of is not None]
     reports = [step for step in spec.steps if step.argv[3:5] == ("-m", "tests.wfe.report")]
 
     assert [step.step_id for step in spec.steps] == [
+        "reruns-canary",
         "reruns",
         "reruns-report",
+        "documents-canary",
         "documents",
         "documents-report",
+        "decisions-canary",
         "decisions",
         "decisions-report",
     ]
@@ -178,6 +199,11 @@ def test_realuse_rest_runs_the_three_groups_then_reports() -> None:
         assert "--judge" in step.argv
         assert step.quiet_host is True
         assert campaign_id.startswith("realuse_")
+    assert [step.canary_of for step in canaries] == [step.step_id for step in campaigns]
+    for gate, campaign in zip(canaries, campaigns, strict=True):
+        assert gate.argv == (*campaign.argv, "--canary")
+        assert spec.steps.index(gate) < spec.steps.index(campaign)
+        assert gate.quiet_host is True
     assert [step.argv[step.argv.index("--campaign") + 1] for step in reports] == [
         step.argv[1] for step in campaigns
     ]
@@ -190,9 +216,22 @@ def test_realuse_rest_runs_the_three_groups_then_reports() -> None:
 
 def test_realuse_security_runs_the_seat_plan_then_reports() -> None:
     spec = _spec(SPEC_DIR / "wfe-realuse-sec.yaml")
-    campaign, report = spec.steps
+    campaign = next(
+        step
+        for step in spec.steps
+        if step.canary_of is None and step.argv[0] == "scripts/wfe_campaign.sh"
+    )
+    report = next(step for step in spec.steps if step.argv[3:5] == ("-m", "tests.wfe.report"))
 
-    assert [step.step_id for step in spec.steps] == ["security", "security-report"]
+    assert [step.step_id for step in spec.steps] == [
+        "security-canary",
+        "security",
+        "security-report",
+    ]
+    gate = spec.steps[0]
+    assert gate.canary_of == campaign.step_id
+    assert gate.argv == (*campaign.argv, "--canary")
+    assert spec.steps.index(gate) < spec.steps.index(campaign)
     assert campaign.argv[1] == "realuse_sec_20261030"
     assert campaign.argv[campaign.argv.index("--plan") + 1] == (
         "tests/wfe/plans/realuse_sec_v1_seats.yaml"
