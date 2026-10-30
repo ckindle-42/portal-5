@@ -316,11 +316,11 @@ case "${1:-up}" in
     # Rebuild and restart all Docker images (pipeline + MCP servers)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     cd "$COMPOSE_DIR"
-    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-research mcp-memory mcp-rag browser-mcp mcp-cad-render mcp-proxmox mcp-binresearch"
-    echo "[portal-5] Rebuilding portal-pipeline..."
-    docker compose build --build-arg PORTAL_BUILD_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)" --build-arg PORTAL_BUILD_DIRTY="$(git status --porcelain -- portal 2>/dev/null | wc -l | tr -d ' ')" portal-pipeline
-    echo "[portal-5] Rebuilding MCP images..."
-    docker compose build --build-arg PORTAL_BUILD_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)" --build-arg PORTAL_BUILD_DIRTY="$(git status --porcelain -- portal 2>/dev/null | wc -l | tr -d ' ')" $MCP_SERVICES
+    BUILD_SERVICES="$(_compose_built_services)"
+    [ -n "$BUILD_SERVICES" ] || { echo "[portal-5] could not derive the services to build from compose" >&2; exit 1; }
+    echo "[portal-5] Rebuilding: $BUILD_SERVICES"
+    # shellcheck disable=SC2086
+    docker compose build --build-arg PORTAL_BUILD_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)" --build-arg PORTAL_BUILD_DIRTY="$(git status --porcelain -- portal 2>/dev/null | wc -l | tr -d ' ')" $BUILD_SERVICES
     echo "[portal-5] Building native arm64 PowerShell sandbox image..."
     docker build -t portal5-pwsh:latest -f "$PORTAL_ROOT/Dockerfile.pwsh" "$PORTAL_ROOT"
     echo "[portal-5] Loading pwsh image into DinD..."
@@ -331,7 +331,7 @@ case "${1:-up}" in
     echo "[portal-5] Restarting rebuilt containers for enabled modules..."
     _disabled_compose="$(_portal_module_services --disabled --kind compose)"
     _keep=""
-    for svc in portal-pipeline $MCP_SERVICES; do
+    for svc in $BUILD_SERVICES; do
         if printf '%s\n' "$_disabled_compose" | grep -qx -- "$svc"; then
             echo "[portal-5]   not restarting ${svc} (module disabled)"
             continue
@@ -342,15 +342,6 @@ case "${1:-up}" in
     docker compose up -d --no-deps $_keep
     _portal_module_services --apply --kind compose --stop-only
     _portal_module_services --apply --kind host
-    # Channel bots (profiles) carry portal code too: rebuild any that exist, or they keep
-    # serving the old build (10-30: /jarvis control missing from the running Telegram bot).
-    for _chan in telegram slack; do
-        if docker ps -a --format '{{.Names}}' | grep -qx "portal5-${_chan}"; then
-            echo "[portal-5] Rebuilding portal-${_chan}..."
-            docker compose --profile "$_chan" build --build-arg PORTAL_BUILD_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)" --build-arg PORTAL_BUILD_DIRTY="$(git status --porcelain -- portal 2>/dev/null | wc -l | tr -d ' ')" "portal-${_chan}"
-            docker compose --profile "$_chan" up -d --no-deps "portal-${_chan}"
-        fi
-    done
     echo "[portal-5] Restarting enabled native MCP services..."
     _restart_native_mcps
     echo "[portal-5] Done. Check status: ./launch.sh status"
@@ -360,7 +351,7 @@ case "${1:-up}" in
     # Rebuild and restart all MCP containers (e.g. after a docker-compose.yml or Dockerfile.mcp change)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     cd "$COMPOSE_DIR"
-    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-research mcp-memory mcp-rag browser-mcp mcp-cad-render mcp-proxmox mcp-binresearch"
+    MCP_SERVICES="$(_compose_built_services --mcp)"
     echo "[portal-5] Rebuilding MCP images..."
     docker compose build --build-arg PORTAL_BUILD_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)" --build-arg PORTAL_BUILD_DIRTY="$(git status --porcelain -- portal 2>/dev/null | wc -l | tr -d ' ')" $MCP_SERVICES
     echo "[portal-5] Building native arm64 PowerShell sandbox image..."
@@ -379,7 +370,7 @@ case "${1:-up}" in
     # Restart all MCP containers without rebuilding (e.g. after a config or env change)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     cd "$COMPOSE_DIR"
-    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-research mcp-memory mcp-rag browser-mcp mcp-cad-render mcp-binresearch"
+    MCP_SERVICES="$(_compose_built_services --mcp)"
     echo "[portal-5] Restarting MCP containers..."
     docker compose restart $MCP_SERVICES
     echo "[portal-5] Done. Check status: ./launch.sh status"

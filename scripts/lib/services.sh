@@ -687,3 +687,29 @@ _launch_uninstall_arm_queue() {
     rm -f "$HOME/Library/LaunchAgents/${label}.plist"
     echo "[portal-5]    restart it with ./launch.sh install-arm-queue"
 }
+
+# Compose services that build a Portal image, derived from docker-compose.yml so a new service
+# is rebuilt without anyone editing a list (10-30: a hand-kept list left the Telegram bot on an
+# old build). Run from $COMPOSE_DIR with the env loaded. Always excluded: open-webui (updated
+# only behind backup + health gate by scripts/image_security_update.py) and dind (restarting it
+# kills live sandbox runs). Profile services (channel bots) count only when their container
+# is running (a rebuild never starts a stopped bot). --mcp keeps just the MCP servers.
+_compose_built_services() {
+    local mode="${1:-all}"
+    docker compose --profile '*' config --format json 2>/dev/null | MODE="$mode" python3 -c '
+import json, os, subprocess, sys
+services = json.load(sys.stdin)["services"]
+existing = set(subprocess.run(["docker", "ps", "--format", "{{.Names}}"],
+                              capture_output=True, text=True).stdout.split())
+out = []
+for name, spec in sorted(services.items()):
+    if "build" not in spec or name in {"open-webui", "dind"}:
+        continue
+    if spec.get("profiles") and spec.get("container_name", name) not in existing:
+        continue
+    if os.environ["MODE"] == "--mcp" and (name == "portal-pipeline" or spec.get("profiles")):
+        continue
+    out.append(name)
+print(" ".join(out))
+'
+}

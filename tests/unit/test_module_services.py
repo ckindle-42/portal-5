@@ -323,3 +323,14 @@ _restart_native_mcps
     result = subprocess.run(["/bin/bash", "-uc", script], capture_output=True, text=True)
     assert result.returncode == 1, result.stderr
     assert "[portal-5]   com.portal5.data-mcp: health timeout :8939" in result.stdout
+
+
+def test_rebuild_service_lists_are_derived_from_compose_not_hand_kept() -> None:
+    # 10-30: a hand-kept list left the Telegram bot on an old build.
+    launch = (ROOT / "launch.sh").read_text(encoding="utf-8")
+    for block in ("  rebuild)", "  rebuild-mcp)", "  restart-mcp)"):
+        body = launch.split(block, 1)[1].split("\n    ;;", 1)[0]
+        assert "_compose_built_services" in body, block
+        assert "mcp-documents mcp-tts" not in body, block
+    helper = (ROOT / "scripts" / "lib" / "services.sh").read_text(encoding="utf-8")
+    assert '{"open-webui", "dind"}' in helper  # gated updater / live sandboxes, never rebuilt here
