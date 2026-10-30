@@ -2,11 +2,18 @@ id: wfe-realuse-sec
 purpose: >-
   Run the real-use security seat suite on the five security, detection, and compliance workspaces,
   using their live model_hint seats and eligible queued compliance candidate, then write its report.
+  The campaign step is gated by a live canary (one incumbent row per workload into <id>_canary)
+  whose SETUP verdict stops the job before the long step can burn rows.
 preconditions:
   stack: up
   free_memory_gib: 24
   disk_free_gib: 30
 steps:
+  - id: security-canary
+    canary: security
+    timeout_seconds: 14400
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_sec_20261030_canary/manifest.json
   - id: security
     argv:
       - scripts/wfe_campaign.sh

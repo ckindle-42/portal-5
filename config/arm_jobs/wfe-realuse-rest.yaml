@@ -8,11 +8,18 @@ purpose: >-
   pass rates and the blind preferences (reported, not gated). An unset REPEATS on --tier
   realuse leaves the one-or-two draw policy in place. The 96k and 128k general arms are in
   the third plan; the load guard has to keep the other engine unloaded or that step trips.
+  Each campaign step is gated by a live canary (one incumbent row per workload into
+  <id>_canary) whose SETUP verdict stops the job before the long step can burn rows.
 preconditions:
   stack: up
   free_memory_gib: 24
   disk_free_gib: 30
 steps:
+  - id: reruns-canary
+    canary: reruns
+    timeout_seconds: 10800
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_reruns_20261030_canary/manifest.json
   - id: reruns
     argv:
       - scripts/wfe_campaign.sh
@@ -43,6 +50,11 @@ steps:
     outputs:
       - tests/wfe/results/advance/WFE_FITNESS_REPORT_realuse_reruns_20261030.md
       - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_reruns_20261030/report.json
+  - id: documents-canary
+    canary: documents
+    timeout_seconds: 10800
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_documents_20261030_canary/manifest.json
   - id: documents
     argv:
       - scripts/wfe_campaign.sh
@@ -73,6 +85,11 @@ steps:
     outputs:
       - tests/wfe/results/advance/WFE_FITNESS_REPORT_realuse_documents_20261030.md
       - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_documents_20261030/report.json
+  - id: decisions-canary
+    canary: decisions
+    timeout_seconds: 21600
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_s5s7s10_20261030_canary/manifest.json
   - id: decisions
     argv:
       - scripts/wfe_campaign.sh

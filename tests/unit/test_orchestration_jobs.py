@@ -1644,3 +1644,80 @@ def test_queue_run_drain_exits_once_the_queue_is_empty(
 
     assert result.exit_code == 0, result.output
     assert seen == ["DONE", "EMPTY"]
+
+
+class TestCanarySteps:
+    """A `canary: <step>` step runs the named step's argv with --canary appended."""
+
+    @staticmethod
+    def _two_step_spec(repo: Path, **overrides: Any) -> Any:
+        _script(repo, "ok.sh", "#!/usr/bin/env sh\nexit 0\n")
+        steps = [
+            {"id": "gate", "canary": "long", "timeout_seconds": 5},
+            {"id": "long", "argv": ["scripts/ok.sh"], "timeout_seconds": 900},
+        ]
+        overrides.setdefault("steps", steps)
+        return parse_job_spec(_raw_spec(["scripts/ok.sh"], **overrides), repo_root=repo)
+
+    def test_canary_derives_the_referenced_argv_and_precedes_it(self, repo: Path) -> None:
+        spec = self._two_step_spec(repo)
+
+        gate, long_step = spec.steps
+        assert gate.canary_of == "long"
+        assert gate.argv == long_step.argv + ("--canary",)
+        assert long_step.canary_of is None
+
+    def test_canary_round_trips_through_as_dict_without_double_applying(self, repo: Path) -> None:
+        spec = self._two_step_spec(repo)
+        reparsed = parse_job_spec(spec.as_dict(), repo_root=repo)
+
+        assert reparsed.steps == spec.steps
+
+    def test_a_canary_step_may_not_carry_its_own_argv(self, repo: Path) -> None:
+        self._two_step_spec(repo)
+        steps = [
+            {"id": "gate", "canary": "long", "argv": ["scripts/ok.sh"], "timeout_seconds": 5},
+            {"id": "long", "argv": ["scripts/ok.sh"], "timeout_seconds": 900},
+        ]
+
+        with pytest.raises(ValueError, match="derives its argv"):
+            parse_job_spec(_raw_spec(["scripts/ok.sh"], steps=steps), repo_root=repo)
+
+    def test_an_unknown_canary_reference_is_rejected(self, repo: Path) -> None:
+        self._two_step_spec(repo)
+        steps = [
+            {"id": "gate", "canary": "missing", "timeout_seconds": 5},
+            {"id": "long", "argv": ["scripts/ok.sh"], "timeout_seconds": 900},
+        ]
+
+        with pytest.raises(ValueError, match="unknown step"):
+            parse_job_spec(_raw_spec(["scripts/ok.sh"], steps=steps), repo_root=repo)
+
+    def test_a_canary_must_precede_the_step_it_gates(self, repo: Path) -> None:
+        self._two_step_spec(repo)
+        steps = [
+            {"id": "long", "argv": ["scripts/ok.sh"], "timeout_seconds": 900},
+            {"id": "gate", "canary": "long", "timeout_seconds": 5},
+        ]
+
+        with pytest.raises(ValueError, match="must precede"):
+            parse_job_spec(_raw_spec(["scripts/ok.sh"], steps=steps), repo_root=repo)
+
+    def test_a_canary_may_not_gate_another_canary(self, repo: Path) -> None:
+        self._two_step_spec(repo)
+        steps = [
+            {"id": "gate", "canary": "gate2", "timeout_seconds": 5},
+            {"id": "gate2", "canary": "long", "timeout_seconds": 5},
+            {"id": "long", "argv": ["scripts/ok.sh"], "timeout_seconds": 900},
+        ]
+
+        with pytest.raises(ValueError, match="own argv"):
+            parse_job_spec(_raw_spec(["scripts/ok.sh"], steps=steps), repo_root=repo)
+
+    def test_a_step_without_argv_or_canary_still_fails_the_schema(self, repo: Path) -> None:
+        self._two_step_spec(repo)
+        raw = _raw_spec(["scripts/ok.sh"])
+        raw["steps"] = [{"id": "one", "timeout_seconds": 5}]
+
+        with pytest.raises(ValueError, match="argv"):
+            parse_job_spec(raw, repo_root=repo)
