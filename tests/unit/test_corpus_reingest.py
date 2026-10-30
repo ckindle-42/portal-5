@@ -200,8 +200,33 @@ def test_no_year_file_counts_missing_time_and_is_excluded(tmp_path: Path) -> Non
     assert scan["totals"]["missing_time"] == 2
     assert scan["totals"]["excluded_missing_time"] == 2
     assert scan["items"][reingest.p5_item_id("evtx_samples", "netlogon")]["missing_time"] == 2
+    assert scan["items"][reingest.p5_item_id("evtx_samples", "netlogon")]["shipped_events"] == 0
+    assert scan["items"][reingest.p5_item_id("evtx_samples", "netlogon")]["excluded_rows"] == {
+        "no_year": 2
+    }
     assert scan["read_errors"][0]["reason"] == "no_year"
     assert not reingest._ship_gate_blocked(scan, {}, False, None, None)
+
+
+def test_no_year_file_excludes_its_dated_rows_too(tmp_path: Path, monkeypatch: Any) -> None:
+    path = tmp_path / "mixed_netlogon.log"
+    path.write_text(
+        '{"timestamp":"2020-09-14T12:32:00Z","eventName":"Before"}\n'
+        "09/14 12:33:00 [MISC] no year\n",
+        encoding="utf-8",
+    )
+    item = reingest.CorpusFile("evtx_samples", "netlogon", path, tmp_path)
+    scan = reingest.scan_inputs({"evtx_samples": [item]})
+    monkeypatch.setattr(
+        reingest, "ship_batch", lambda *args, **kwargs: pytest.fail("no_year file was shipped")
+    )
+    excluded = {(row["publisher"], row["path"]) for row in scan["read_errors"]}
+
+    assert scan["items"][reingest.p5_item_id("evtx_samples", "netlogon")]["shipped_events"] == 0
+    assert scan["items"][reingest.p5_item_id("evtx_samples", "netlogon")]["excluded_rows"] == {
+        "no_year": 2
+    }
+    assert reingest.ship_inputs({"evtx_samples": [item]}, excluded) == {}
 
 
 def test_untimed_file_is_counted_and_excluded(tmp_path: Path) -> None:
@@ -213,8 +238,49 @@ def test_untimed_file_is_counted_and_excluded(tmp_path: Path) -> None:
 
     assert scan["totals"]["missing_time"] == 1
     assert scan["totals"]["excluded_missing_time"] == 1
-    assert scan["read_errors"][0]["reason"] == "missing_time"
+    item_id = reingest.p5_item_id("mordor", "loaded_scripts")
+    assert scan["items"][item_id]["shipped_events"] == 0
+    assert scan["items"][item_id]["excluded_rows"] == {"missing_time": 1}
+    assert scan["read_errors"] == []
     assert not reingest._ship_gate_blocked(scan, {}, False, None, None)
+
+
+def test_mixed_timestamp_file_ships_dated_rows_and_counts_untimed_rows(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    path = tmp_path / "mixed.jsonl"
+    dated = {"eventName": "ListUsers", "timestamp": "2020-01-02T03:04:05Z"}
+    untimed = {"eventName": "DescribeUsers"}
+    path.write_text(f"{json.dumps(dated)}\n{json.dumps(untimed)}\n", encoding="utf-8")
+    item = reingest.CorpusFile("mordor", "mixed", path, tmp_path)
+    already_shipped_path = tmp_path / "already_shipped.jsonl"
+    already_shipped_path.write_text(
+        '{"eventName":"CreateUser","timestamp":"2020-01-02T03:04:05Z"}\n',
+        encoding="utf-8",
+    )
+    already_shipped = reingest.CorpusFile(
+        "mordor", "already-shipped", already_shipped_path, tmp_path
+    )
+    scan = reingest.scan_inputs({"mordor": [item]})
+    sent: list[list[dict[str, Any] | str]] = []
+    monkeypatch.setattr(
+        reingest,
+        "ship_batch",
+        lambda events, **kwargs: sent.append(events) or {"ok": True},
+    )
+
+    shipped = reingest.ship_inputs(
+        {"mordor": [item, already_shipped]},
+        included_files={("mordor", "mixed.jsonl")},
+    )
+
+    item_id = reingest.p5_item_id("mordor", "mixed")
+    assert scan["items"][item_id]["events"] == 2
+    assert scan["items"][item_id]["shipped_events"] == 1
+    assert scan["items"][item_id]["excluded_rows"] == {"missing_time": 1}
+    assert scan["read_errors"] == []
+    assert shipped == {item_id: 1}
+    assert sent == [[dated]]
 
 
 def test_p5_item_is_opaque_and_stable() -> None:
@@ -462,6 +528,9 @@ def test_scan_inputs_counts_fallback_unknown_and_residual_leak(tmp_path: Path) -
     report = reingest.scan_inputs({"mordor": [item]})
     assert report["totals"] == {
         "events": 1,
+        "shipped_events": 1,
+        "excluded_events": 0,
+        "excluded_missing_time": 0,
         "unknown_sourcetype": 1,
         "unknown_host": 1,
         "date_fallback": 1,
@@ -492,6 +561,26 @@ def test_scan_inputs_skips_zeek_metadata_lines(tmp_path: Path) -> None:
     assert scan["totals"]["events"] == 1
     assert scan["totals"]["missing_time"] == 0
     assert scan["items"][reingest.p5_item_id("mordor", "zeek")]["events"] == 1
+
+
+def test_tree_reader_excludes_documentation_and_tooling_trees(tmp_path: Path) -> None:
+    excluded_paths = [
+        "docs/images/users.csv",
+        "scripts/book/tool.json",
+        "notebooks/examples/example.json",
+        "templates/events/template.json",
+    ]
+    for relative in [*excluded_paths, "datasets/case/events.jsonl"]:
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('{"timestamp":"2020-01-02T03:04:05Z"}\n', encoding="utf-8")
+
+    files = list(reingest._tree_files("mordor", tmp_path))
+
+    assert [item.path.relative_to(tmp_path).as_posix() for item in files] == [
+        "datasets/case/events.jsonl"
+    ]
+    assert {item.path.relative_to(tmp_path).as_posix() for item in files}.isdisjoint(excluded_paths)
 
 
 def test_scan_merges_valid_files_from_one_item(tmp_path: Path) -> None:
@@ -560,8 +649,124 @@ def _configure_ship_main(
     monkeypatch.setattr(
         reingest,
         "ship_inputs",
-        lambda files_by_publisher, excluded_files: shipped.append(excluded_files) or {},
+        lambda files_by_publisher, excluded_files, included_files=None: (
+            shipped.append(excluded_files) or {}
+        ),
     )
+
+
+def test_previous_plan_file_sets_are_disjoint(tmp_path: Path) -> None:
+    plan = tmp_path / "items.json"
+    plan.write_text(
+        json.dumps(
+            {
+                "items": {
+                    "a": {
+                        "publisher": "mordor",
+                        "data_files": [{"path": "sent.jsonl"}, {"path": "excluded.jsonl"}],
+                        "excluded_files": [{"path": "excluded.jsonl"}],
+                    },
+                    "b": {
+                        "publisher": "evtx_samples",
+                        "data_files": [{"path": "sent.evtx"}],
+                        "excluded_files": [{"path": "missing.evtx"}],
+                    },
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    excluded, shipped = reingest.previous_plan_file_sets(plan)
+
+    assert excluded == {
+        ("mordor", "excluded.jsonl"),
+        ("evtx_samples", "missing.evtx"),
+    }
+    assert shipped == {("mordor", "sent.jsonl"), ("evtx_samples", "sent.evtx")}
+    assert excluded.isdisjoint(shipped)
+
+
+def test_ship_only_previously_excluded_uses_the_plan_file_set(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    root = tmp_path / "source"
+    root.mkdir()
+    path = root / "recovered.jsonl"
+    path.write_text('{"timestamp":"2020-01-01T00:00:00Z"}\n', encoding="utf-8")
+    item = reingest.CorpusFile("mordor", "recovered", path, root)
+    plan = tmp_path / "old-items.json"
+    plan.write_text(
+        json.dumps(
+            {
+                "items": {
+                    reingest.p5_item_id("mordor", "recovered"): {
+                        "publisher": "mordor",
+                        "data_files": [{"path": "recovered.jsonl"}],
+                        "excluded_files": [{"path": "recovered.jsonl", "reason": "missing_time"}],
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    shipped: list[set[tuple[str, str]]] = []
+    _configure_ship_main(monkeypatch, tmp_path, root, [item], shipped)
+    included: list[set[tuple[str, str]] | None] = []
+    monkeypatch.setattr(
+        reingest,
+        "ship_inputs",
+        lambda files_by_publisher, excluded_files, included_files: (
+            included.append(included_files) or {}
+        ),
+    )
+    sys.argv.extend(["--only-previously-excluded", "--items", str(plan)])
+
+    result = reingest.main()
+
+    assert result == 0
+    assert included == [{("mordor", "recovered.jsonl")}]
+
+
+def test_verify_uses_shippable_event_count(tmp_path: Path, monkeypatch: Any) -> None:
+    item_id = reingest.p5_item_id("mordor", "mixed")
+    legacy_item_id = reingest.p5_item_id("mordor", "legacy")
+    no_year_item_id = reingest.p5_item_id("evtx_samples", "netlogon")
+    plan = tmp_path / "items.json"
+    plan.write_text(
+        json.dumps(
+            {
+                "items": {
+                    item_id: {
+                        "events": 5,
+                        "missing_time": 1,
+                        "shipped_events": 4,
+                    },
+                    legacy_item_id: {"events": 10, "missing_time": 3},
+                    no_year_item_id: {
+                        "events": 2,
+                        "missing_time": 2,
+                        "excluded_files": [{"reason": "no_year"}],
+                    },
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        reingest.lab_delete_cousins,
+        "export_rows",
+        lambda query: [
+            {"p5_item": item_id, "count": 4},
+            {"p5_item": legacy_item_id, "count": 7},
+        ],
+    )
+
+    assert reingest.verify_plan(plan) == {
+        "ok": True,
+        "mismatches": {},
+        "extra_p5_items": [],
+    }
 
 
 def test_upstream_missing_file_does_not_block_ship(tmp_path: Path, monkeypatch: Any) -> None:
@@ -745,7 +950,10 @@ def test_evtx_reader_uses_python_evtx_xml_records(tmp_path: Path, monkeypatch: A
 def test_ship_iterator_uses_python_evtx_xml_records(tmp_path: Path, monkeypatch: Any) -> None:
     path = tmp_path / "sample.evtx"
     path.write_bytes(b"fixture")
-    body = "<Event><System><Channel>Security</Channel></System></Event>"
+    body = (
+        "<Event><System><Channel>Security</Channel><TimeCreated "
+        'SystemTime="2020-01-02T03:04:05Z"/></System></Event>'
+    )
     item = reingest.CorpusFile("evtx_samples", "Security/4624", path, tmp_path)
     monkeypatch.setattr(reingest, "iter_evtx_text", lambda _: iter([body]))
 
