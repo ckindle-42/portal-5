@@ -640,7 +640,7 @@ def test_process_oracle_routes_review_kind_and_holds_malformed_output(tmp_path: 
     oracle = ProcessOracle(
         tmp_path / "tasks",
         repo_root=repo,
-        tier="kimi",
+        tiers="kimi",
         timeout_seconds=10,
         dispatcher=dispatch,
         policy_resolver=policy,
@@ -657,7 +657,7 @@ def test_process_oracle_routes_review_kind_and_holds_malformed_output(tmp_path: 
     malformed = ProcessOracle(
         tmp_path / "tasks",
         repo_root=repo,
-        tier="kimi",
+        tiers="kimi",
         timeout_seconds=10,
         dispatcher=malformed_dispatch,
         policy_resolver=policy,
@@ -669,7 +669,7 @@ def test_process_oracle_routes_review_kind_and_holds_malformed_output(tmp_path: 
     security = ProcessOracle(
         tmp_path / "tasks",
         repo_root=repo,
-        tier="kimi",
+        tiers="kimi",
         timeout_seconds=10,
         dispatcher=security_dispatch,
         policy_resolver=policy,
@@ -685,7 +685,7 @@ def test_process_oracle_routes_review_kind_and_holds_malformed_output(tmp_path: 
     free = ProcessOracle(
         tmp_path / "tasks",
         repo_root=repo,
-        tier="kimi",
+        tiers="kimi",
         timeout_seconds=10,
         dispatcher=free_dispatch,
         policy_resolver=free_policy,
@@ -697,7 +697,7 @@ def test_process_oracle_routes_review_kind_and_holds_malformed_output(tmp_path: 
     same_family = ProcessOracle(
         tmp_path / "tasks",
         repo_root=repo,
-        tier="deep-pro",
+        tiers="deep-pro",
         timeout_seconds=10,
         dispatcher=same_family_dispatch,
         policy_resolver=lambda *_args: ("deepseek/deepseek-v4", False, {"review"}, set()),
@@ -713,8 +713,7 @@ def test_process_oracle_routes_review_kind_and_holds_malformed_output(tmp_path: 
     fallback = ProcessOracle(
         tmp_path / "tasks",
         repo_root=repo,
-        tier="deep-pro",
-        fallback_tier="sol",
+        tiers=["deep-pro", "sol"],
         timeout_seconds=10,
         dispatcher=fallback_dispatch,
         policy_resolver=by_tier,
@@ -725,7 +724,7 @@ def test_process_oracle_routes_review_kind_and_holds_malformed_output(tmp_path: 
     failed = ProcessOracle(
         tmp_path / "tasks",
         repo_root=repo,
-        tier="kimi",
+        tiers="kimi",
         timeout_seconds=10,
         dispatcher=_FakeDispatch([]),
         policy_resolver=policy,
@@ -739,7 +738,7 @@ def test_process_oracle_routes_review_kind_and_holds_malformed_output(tmp_path: 
     timed_out = ProcessOracle(
         tmp_path / "tasks",
         repo_root=repo,
-        tier="kimi",
+        tiers="kimi",
         timeout_seconds=10,
         dispatcher=timed_out_dispatch,
         policy_resolver=policy,
@@ -1142,3 +1141,49 @@ def test_a_conflicting_merge_is_aborted_and_main_stays_clean(tmp_path: Path) -> 
     assert status.strip() == ""
     assert head == before
     assert target.read_text(encoding="utf-8") == "main\n"
+
+
+def test_oracle_walks_the_tier_list_past_same_family_and_quota(tmp_path: Path) -> None:
+    repo = _repo(tmp_path / "main")
+    lane_path = tmp_path / "lane"
+    _git(repo, "worktree", "add", "-b", "lane/oracle-walk", str(lane_path), "HEAD")
+    (lane_path / "tests/wfe/test_ok.py").write_text("def test_ok():\n    assert 1 == 1\n")
+    _git(lane_path, "add", "tests/wfe/test_ok.py")
+    _git(lane_path, "commit", "-m", "repair")
+    candidate = _lane(
+        lane_path, LaneChanges(("tests/wfe/test_ok.py",), (), ()), model="openai/gpt-6.1-sol"
+    )
+    models = {"sol": "gpt-6.1-sol", "grok-max": "grok-4.7", "flagship": "zai/glm-5.3"}
+
+    def policy(_binary: Path, tier: str) -> tuple[str, bool, set[str], set[str]]:
+        return models.get(tier, "gpt-6-luna"), False, {"review", "security"}, {"security"}
+
+    approved = "## RESULT\n\nAPPROVE\n\n## FINDINGS\n\nNone\n"
+    dispatch = _FakeDispatch(
+        [
+            _lane(None, LaneChanges((), (), ()), text="", status="quota"),
+            _lane(None, LaneChanges((), (), ()), text=approved),
+        ]
+    )
+    result = ProcessOracle(
+        tmp_path / "tasks",
+        repo_root=repo,
+        tiers=["sol", "grok-max", "flagship"],
+        timeout_seconds=10,
+        dispatcher=dispatch,
+        policy_resolver=policy,
+    ).review(job_id="job-a", attempt=1, lane=candidate, base="HEAD~1", kind="code")
+    assert result.verdict == "approve"
+    assert [c["tier"] for c in dispatch.calls] == ["grok-max", "flagship"]
+
+    security = _FakeDispatch([_lane(None, LaneChanges((), (), ()), text=approved)])
+    held = ProcessOracle(
+        tmp_path / "tasks",
+        repo_root=repo,
+        tiers=["grok-max"],
+        timeout_seconds=10,
+        dispatcher=security,
+        policy_resolver=policy,
+    ).review(job_id="job-a", attempt=2, lane=candidate, base="HEAD~1", kind="security")
+    assert held.verdict == "hold"  # daybreak is the only security reviewer; same family here
+    assert not security.calls

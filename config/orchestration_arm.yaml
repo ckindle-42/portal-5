@@ -58,8 +58,14 @@ queue:
     enabled: false
     oracle:
       enabled: false
-      tier: deep-pro
-      fallback_tier: sol
+      tiers:
+      - sol
+      - grok-max
+      - flagship
+      - oc-deep-flash
+      - oc-glm-flash
+      - deep-pro
+      security_tier: daybreak
       timeout_seconds: 1800
 disciplines:
   test_fixing:

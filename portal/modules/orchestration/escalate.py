@@ -227,9 +227,9 @@ def build_escalator(
         oracle = ProcessOracle(
             tasks_dir,
             repo_root=repo_root,
-            tier=str(config.get("tier") or "deep-pro"),
+            tiers=[str(t) for t in (config.get("tiers") or ["sol"])],
             timeout_seconds=float(config.get("timeout_seconds") or 1800),
-            fallback_tier=str(config.get("fallback_tier") or "") or None,
+            security_tier=str(config.get("security_tier") or "daybreak"),
         )
     return _EscalationHook(
         Escalator(tasks_dir, repo_root=repo_root, notices=notices, oracle=oracle)
@@ -401,23 +401,25 @@ def _resume_command(
 
 
 class ProcessOracle:
+    """Pre-merge reviewer. Walks an ordered tier list (prepaid first, metered last — operator
+    10-30) and takes the first seat of another family than the lane that wrote the fix; a seat
+    out of quota passes to the next. Security jobs use only the security tier."""
+
     def __init__(
         self,
         tasks_dir: Path,
         *,
         repo_root: Path,
-        tier: str,
+        tiers: Sequence[str] | str,
         timeout_seconds: float,
-        fallback_tier: str | None = None,
+        security_tier: str = "daybreak",
         dispatcher: LaneDispatcher | None = None,
         policy_resolver: Callable[[Path, str], tuple[str, bool, set[str], set[str]]] | None = None,
     ) -> None:
         self.tasks_dir = tasks_dir
         self.main = main_checkout(repo_root)
-        self.tier = tier
-        # Reviewer must be another family than the lane; the fallback covers a lane
-        # written by the primary reviewer's family (e.g. a DeepSeek lane vs deep-pro).
-        self.fallback_tier = fallback_tier
+        self.tiers = [tiers] if isinstance(tiers, str) else [t for t in tiers if t]
+        self.security_tier = security_tier
         self.binary = DEFAULT_DISPATCH
         self.dispatcher = dispatcher or ProcessDispatcher(self.binary, timeout_s=timeout_seconds)
         self.policy_resolver = policy_resolver or _dispatcher_policy
@@ -425,49 +427,56 @@ class ProcessOracle:
     def review(
         self, *, job_id: str, attempt: int, lane: LaneResult, base: str, kind: str
     ) -> OracleResult:
-        lane_family = _model_family(lane.model or "")
-        tier = ""
-        for candidate in (self.tier, self.fallback_tier):
-            if not candidate:
-                continue
-            try:
-                model, free_gateway, task_kinds, security_kinds = self.policy_resolver(
-                    self.binary, candidate
-                )
-            except Exception as exc:  # noqa: BLE001 — configuration faults fail closed
-                return OracleResult("hold", f"oracle policy unavailable: {exc}", "infra")
-            review_family = _model_family(model)
-            if lane_family and review_family and lane_family != review_family:
-                tier = candidate
-                break
-        if not tier:
-            return OracleResult(
-                "hold", "oracle family is not distinct from the lane family", "infra"
-            )
-        review_kind = "security" if kind in security_kinds else "review"
-        if review_kind not in task_kinds:
-            return OracleResult("hold", "dispatcher does not support the review kind", "infra")
-        if review_kind in security_kinds and free_gateway:
-            return OracleResult("hold", "security review tier is a cloud free gateway", "infra")
         if lane.worktree is None:
             return OracleResult("hold", "lane worktree is missing for oracle review", "infra")
+        lane_family = _model_family(lane.model or "")
+        if not lane_family:
+            return OracleResult("hold", "lane model family is unknown", "infra")
         try:
-            brief = _oracle_brief(lane, base)
-            path = self.tasks_dir / _safe(job_id) / f"oracle-{attempt}.md"
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(brief, encoding="utf-8")
-            result = self.dispatcher.run(
-                role=f"esc-oracle-{_safe(job_id)}-{attempt}",
-                tier=tier,
-                kind=review_kind,
-                brief=path,
-                repo=self.main,
-            )
-        except Exception as exc:  # noqa: BLE001 — reviewer faults fail closed
-            return OracleResult("hold", f"oracle review failed: {exc}", "infra")
-        if result.exit_code != 0 or result.status == "quota":
-            return OracleResult("hold", "oracle dispatch did not complete", "infra")
-        return _parse_oracle(result.result_text, set(lane.changes.paths()))
+            security_kinds = self.policy_resolver(self.binary, self.tiers[0])[3]
+        except Exception as exc:  # noqa: BLE001 — configuration faults fail closed
+            return OracleResult("hold", f"oracle policy unavailable: {exc}", "infra")
+        security = kind in security_kinds
+        candidates = [self.security_tier] if security else self.tiers
+        skipped: list[str] = []
+        for tier in candidates:
+            try:
+                model, free_gateway, task_kinds, _sec = self.policy_resolver(self.binary, tier)
+            except Exception as exc:  # noqa: BLE001 — configuration faults fail closed
+                return OracleResult("hold", f"oracle policy unavailable: {exc}", "infra")
+            review_kind = "security" if security else "review"
+            if _model_family(model) in {"", lane_family}:
+                skipped.append(f"{tier}: same family")
+                continue
+            if review_kind not in task_kinds:
+                return OracleResult("hold", "dispatcher does not support the review kind", "infra")
+            if security and free_gateway:
+                return OracleResult("hold", "security review tier is a cloud free gateway", "infra")
+            try:
+                brief = _oracle_brief(lane, base)
+                path = self.tasks_dir / _safe(job_id) / f"oracle-{attempt}.md"
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(brief, encoding="utf-8")
+                result = self.dispatcher.run(
+                    role=f"esc-oracle-{_safe(job_id)}-{attempt}",
+                    tier=tier,
+                    kind=review_kind,
+                    brief=path,
+                    repo=self.main,
+                )
+            except Exception as exc:  # noqa: BLE001 — reviewer faults fail closed
+                return OracleResult("hold", f"oracle review failed: {exc}", "infra")
+            if result.status == "quota":
+                skipped.append(f"{tier}: quota")
+                continue
+            if result.exit_code != 0:
+                return OracleResult("hold", "oracle dispatch did not complete", "infra")
+            return _parse_oracle(result.result_text, set(lane.changes.paths()))
+        return OracleResult(
+            "hold",
+            "no oracle tier available: " + ("; ".join(skipped) or "none configured"),
+            "infra",
+        )
 
 
 def _dispatcher_policy(binary: Path, tier: str) -> tuple[str, bool, set[str], set[str]]:
