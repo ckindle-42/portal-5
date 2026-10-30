@@ -1713,11 +1713,11 @@ def test_queue_run_keeps_polling_when_the_queue_is_empty(
     monkeypatch.setattr("time.sleep", fake_sleep)
     monkeypatch.setattr("portal.modules.orchestration.cli._optional_service", lambda root: None)
 
-    CliRunner().invoke(
+    result = CliRunner().invoke(
         orchestration_app, ["queue-run", "--tasks-dir", str(tmp_path), "--poll-seconds", "1"]
     )
 
-    assert seen[:3] == ["EMPTY", "EMPTY", "DONE"]
+    assert seen[:3] == ["EMPTY", "EMPTY", "DONE"], (result.output, repr(result.exception))
     assert sleeps[:2] == [1.0, 1.0]
 
 
