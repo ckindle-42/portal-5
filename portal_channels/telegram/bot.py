@@ -185,6 +185,18 @@ async def set_workspace(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         )
 
 
+async def _routed_to_jarvis(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> bool:
+    """Plain 'jarvis <verb>' goes to the control plane, never the chat model."""
+    if not _orchestration_enabled():
+        return False
+    from portal_channels.telegram import jarvis_control
+
+    if not jarvis_control.is_plain_jarvis(text):
+        return False
+    await jarvis_control.handle_jarvis(update, context)
+    return True
+
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.effective_message or not update.effective_user:
         return
@@ -193,7 +205,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     user_text = update.effective_message.text or ""
-    if not user_text.strip():
+    if not user_text.strip() or await _routed_to_jarvis(update, context, user_text):
         return
 
     try:

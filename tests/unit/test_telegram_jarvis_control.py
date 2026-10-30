@@ -549,3 +549,22 @@ def test_disabled_orchestration_registers_no_jv_callbacks(monkeypatch):
     app = bot.build_app()
     handlers = [handler for group in app.handlers.values() for handler in group]
     assert not any(isinstance(handler, CallbackQueryHandler) for handler in handlers)
+
+
+def test_plain_jarvis_text_is_a_control_request_not_chat():
+    assert jarvis_control.is_plain_jarvis("Jarvis status")
+    assert jarvis_control.is_plain_jarvis("jarvis, held")
+    assert not jarvis_control.is_plain_jarvis("what is jarvis status")
+    assert jarvis_control.parse("Jarvis status") == ("status", "")
+    assert jarvis_control.parse("jarvis: canary wfe-x") == ("canary", "wfe-x")
+
+
+def test_long_notices_are_split_under_the_telegram_cap():
+    from portal_channels.telegram.arm_bridge import TELEGRAM_MAX_CHARS, _telegram_chunks
+
+    text = "\n".join(f"  blocked job-{i}: step exited 4" for i in range(400))
+    parts = _telegram_chunks(text)
+    assert len(parts) > 1
+    assert all(len(p) <= TELEGRAM_MAX_CHARS for p in parts)
+    assert "".join(parts) == text
+    assert _telegram_chunks("x" * 9000) == ["x" * 4096, "x" * 4096, "x" * 808]

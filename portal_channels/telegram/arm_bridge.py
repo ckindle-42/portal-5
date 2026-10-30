@@ -430,11 +430,42 @@ async def send_outbox_once(
             markup = keyboard_factory(notice.request_id)
         else:
             markup = control_keyboard(notice.task_id) if control_keyboard is not None else None
+        parts = _telegram_chunks(notice.message)
         for user_id in sorted(recipients):
-            await bot.send_message(chat_id=user_id, text=notice.message, reply_markup=markup)
+            for i, part in enumerate(parts):
+                last = i == len(parts) - 1
+                await bot.send_message(
+                    chat_id=user_id, text=part, reply_markup=markup if last else None
+                )
         store.mark_sent(notice.request_id)
         count += 1
     return count
+
+
+TELEGRAM_MAX_CHARS = 4096
+
+
+def _telegram_chunks(text: str, limit: int = TELEGRAM_MAX_CHARS) -> list[str]:
+    """Split on line breaks under Telegram's message cap. 10-30: a 4,578-char digest failed
+    "Message is too long" on every poll and held every later notice behind it."""
+    if len(text) <= limit:
+        return [text]
+    parts: list[str] = []
+    current = ""
+    for line in text.splitlines(keepends=True):
+        while len(line) > limit:
+            if current:
+                parts.append(current)
+                current = ""
+            parts.append(line[:limit])
+            line = line[limit:]
+        if len(current) + len(line) > limit:
+            parts.append(current)
+            current = ""
+        current += line
+    if current:
+        parts.append(current)
+    return parts
 
 
 def default_arm_telegram_path() -> Path:

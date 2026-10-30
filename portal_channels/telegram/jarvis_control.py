@@ -42,11 +42,18 @@ HELP_TEXT = (
 def parse(text: str) -> tuple[str, str]:
     """'/jarvis verb args…' → (verb, args); '/jarvis' alone → ('help', '')."""
     parts = text.split()
-    if parts and parts[0].startswith("/"):
+    if parts and (parts[0].startswith("/") or parts[0].lower().rstrip(",:") == "jarvis"):
         parts = parts[1:]
     if not parts:
         return "help", ""
     return parts[0].lower(), " ".join(parts[1:]).strip()
+
+
+def is_plain_jarvis(text: str) -> bool:
+    """Plain 'jarvis status' (no slash) is a control request, not chat (10-30: it reached the
+    chat model, which invented a dashboard)."""
+    words = text.split()
+    return bool(words) and words[0].lower().rstrip(",:") == "jarvis"
 
 
 def control_enabled() -> bool:
