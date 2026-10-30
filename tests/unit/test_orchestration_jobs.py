@@ -432,6 +432,31 @@ def test_step_timeout_blocks_the_job(tmp_path: Path, repo: Path) -> None:
     assert step["state"] == "failed"
 
 
+def test_a_nonzero_step_exit_blocks_the_job_with_the_campaign_line_in_its_receipt(
+    tmp_path: Path, repo: Path
+) -> None:
+    # Incident realuse_s8_20261030: a stopped campaign must arrive as BLOCKED with
+    # its final CAMPAIGN line, never as a PASS receipt.
+    script = _python_script(
+        repo,
+        "campaign.py",
+        "import sys\n"
+        "print('CAMPAIGN wfe_x: stopped (instrument drift) rows 3/68', flush=True)\n"
+        "sys.exit(5)\n",
+    )
+
+    result = _runner(tmp_path, repo).run(_spec(repo, [script]))
+
+    assert result.status == "BLOCKED"
+    assert "step exited 5" in str(result.reason)
+    receipt = _receipt(tmp_path / "tasks")
+    assert receipt["status"] == "BLOCKED"
+    step = receipt["steps"][0]
+    assert step["state"] == "failed"
+    assert step["exit_code"] == 5
+    assert "CAMPAIGN wfe_x: stopped (instrument drift) rows 3/68" in step["stdout_tail"]
+
+
 def test_output_marker_stops_the_job(tmp_path: Path, repo: Path) -> None:
     script = _python_script(
         repo,

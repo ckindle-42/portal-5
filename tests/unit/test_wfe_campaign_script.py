@@ -30,9 +30,18 @@ for arg in "$@"; do
 done
 if [ -n "${WFE_NOTHING_MEASURED:-}" ]; then
     for arg in "$@"; do
-        if [ "$arg" = "--require-measured" ]; then
+        if [ "$arg" = "--finish" ]; then
             printf '%s\\n' "NOTHING MEASURED: ${WFE_NOTHING_MEASURED}"
+            printf '%s\\n' "CAMPAIGN wfe_test: stopped (nothing measured: ${WFE_NOTHING_MEASURED}) rows 0/5"
             exit 10
+        fi
+    done
+fi
+if [ -n "${WFE_FINISH_RC:-}" ]; then
+    for arg in "$@"; do
+        if [ "$arg" = "--finish" ]; then
+            printf '%s\\n' "${WFE_FINISH_LINE:-CAMPAIGN wfe_test: complete (all rows measured) rows 5/5}"
+            exit "${WFE_FINISH_RC}"
         fi
     done
 fi
@@ -253,4 +262,21 @@ def test_the_script_exits_with_the_nothing_measured_line(tmp_path: Path) -> None
 
     assert result.returncode == 10
     assert result.stdout.count(f"NOTHING MEASURED: {reason}") == 1
-    assert any("--require-measured" in call["argv"] for call in calls)
+    assert (
+        result.stdout.count(f"CAMPAIGN wfe_test: stopped (nothing measured: {reason}) rows 0/5")
+        == 1
+    )
+    assert any("--finish" in call["argv"] for call in calls)
+
+
+def test_the_scripts_last_line_is_the_campaign_verdict_and_its_exit_is_the_scripts(
+    tmp_path: Path,
+) -> None:
+    line = "CAMPAIGN wfe_test: stopped (instrument drift in ['harness']) rows 3/68"
+
+    result, calls = _run(tmp_path, env_extra={"WFE_FINISH_RC": "5", "WFE_FINISH_LINE": line})
+
+    assert result.returncode == 5
+    assert result.stdout.strip().splitlines()[-1] == line
+    assert any("--finish" in call["argv"] for call in calls)
+    assert not any("--require-measured" in call["argv"] for call in calls)
