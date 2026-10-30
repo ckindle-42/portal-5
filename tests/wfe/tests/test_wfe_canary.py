@@ -422,6 +422,17 @@ class TestSetupFaultLedger:
         )
         assert classify_row(row) == SETUP
 
+    def test_a_ledger_copy_of_a_constant_does_not_widen_it_to_the_reply(
+        self, tmp_path, monkeypatch
+    ):
+        dest = tmp_path / "setup_faults.jsonl"
+        monkeypatch.setenv("WFE_SETUP_FAULTS", str(dest))
+        dest.write_text(
+            json.dumps({"signature": "file not found", "cause": "c", "fix_commit": "x"}) + "\n"
+        )
+        row = _row(final_text='The script prints "File not found" when the path is missing.')
+        assert classify_row(row) == MODEL
+
     def test_a_pipeline_stream_error_is_not_setup_until_it_is_recorded(self, tmp_path, monkeypatch):
         monkeypatch.setenv("WFE_SETUP_FAULTS", str(tmp_path / "missing.jsonl"))
         row = _row(final_text="[Pipeline stream error — the reply ended early]")

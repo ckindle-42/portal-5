@@ -166,7 +166,9 @@ def ledger_signatures() -> tuple[str, ...]:
             sig = str(json.loads(line).get("signature") or "").strip().lower()
         except json.JSONDecodeError:
             continue
-        if sig:
+        # A signature the constants already cover keeps the constants' narrower scope
+        # (notes + tool output): "file not found" in a model's own answer is not setup.
+        if sig and sig not in _MISSING_FILE + _TOOL_INFRA:
             found.append(sig)
     return tuple(found)
 
