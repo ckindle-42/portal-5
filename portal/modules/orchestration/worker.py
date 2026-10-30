@@ -8,8 +8,10 @@ import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, replace
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 from urllib.parse import urlencode
 
 import httpx
@@ -80,7 +82,7 @@ class Engine:
                     if choices and isinstance(choices[0], dict):
                         finish_reason = str(choices[0].get("finish_reason") or finish_reason)
         except (httpx.HTTPError, ValueError) as exc:
-            raise PipelineError(f"{type(exc).__name__}: {exc}") from exc
+            _reraise_pipeline(exc)
         return {
             "choices": [
                 {
@@ -109,7 +111,7 @@ class Engine:
             response.raise_for_status()
             plan = response.json()
         except (httpx.HTTPError, ValueError) as exc:
-            raise PipelineError(f"load-plan failed: {type(exc).__name__}: {exc}") from exc
+            _reraise_pipeline(exc, prefix="load-plan failed: ")
         if isinstance(plan, dict) and plan.get("fits") is False:
             raise PipelineError(f"load guard refused the seat: {plan}")
         return plan if isinstance(plan, dict) else {"response": plan}
@@ -128,9 +130,51 @@ class Engine:
 class PipelineError(RuntimeError):
     """The Pipeline or its load guard rejected the bite request."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        retry_after: float | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.retry_after = retry_after
+
 
 class QueueYieldError(RuntimeError):
     """A queued bite must wait for the Pipeline's current admission state."""
+
+
+def _reraise_pipeline(exc: Exception, *, prefix: str = "") -> NoReturn:
+    status_code = None
+    retry_after = None
+    if isinstance(exc, httpx.HTTPStatusError):
+        status_code = exc.response.status_code
+        retry_after = _retry_after_seconds(exc.response)
+    raise PipelineError(
+        f"{prefix}{type(exc).__name__}: {exc}",
+        status_code=status_code,
+        retry_after=retry_after,
+    ) from exc
+
+
+def _retry_after_seconds(response: httpx.Response) -> float | None:
+    raw = response.headers.get("Retry-After")
+    if not raw:
+        return None
+    try:
+        value = float(raw.strip())
+    except ValueError:
+        when = parsedate_to_datetime(raw)
+        if when is None:
+            return None
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=UTC)
+        value = (when - datetime.now(UTC)).total_seconds()
+    if not math.isfinite(value) or value < 0:
+        return None
+    return value
 
 
 @dataclass(frozen=True)

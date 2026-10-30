@@ -14,6 +14,7 @@ residency_measured:
   swap_cost_s:
     into_fast: 15
     into_deep: 10
+shadow_slot_wait_seconds: 300
 planner:
   fast_context_budget_tokens: 32768
   comfortable_context_tokens: 16384
