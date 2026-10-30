@@ -1635,6 +1635,11 @@ class _Loop:
                 "outcome": outcome.value,
                 "notes": notes,
                 "evidence": evidence,
+                "final_text": self.final_text,
+                "assistant_texts": list(self._turn_texts),
+                "tool_call_range": [self._turn_calls, len(self.tool_log)],
+                "finish_reason": self.finish_reason,
+                "served": self._turn_served,
             }
         )
 
@@ -1998,6 +2003,7 @@ def _finalize_run(
         # run, so a leaked answer key past char 300 was caught live, not on
         # re-grade.
         "tool_call_log": tool_log,
+        "turn_results": turn_results or [],
     }
 
 

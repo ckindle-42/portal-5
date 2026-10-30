@@ -38,11 +38,12 @@ def _pipeline(monkeypatch):
     monkeypatch.setattr(campaign, "ENGINE", "pipeline")
 
 
-def _suite(tmp: Path) -> Path:
+def _suite(tmp: Path, task: dict | None = None) -> Path:
     path = tmp / "documents_production.jsonl"
     path.write_text(
         json.dumps(
-            {
+            task
+            or {
                 "id": "t1",
                 "instruction": "do the task",
                 "checkers": [{"type": "answer_contains", "patterns": ["TASK COMPLETE"]}],
@@ -178,10 +179,10 @@ def _stub_trees(monkeypatch) -> None:
     monkeypatch.setattr(campaign, "tool_module_trees", modules)
 
 
-def _pair(tmp: Path, monkeypatch):
+def _pair(tmp: Path, monkeypatch, task: dict | None = None):
     _stub_trees(monkeypatch)
     monkeypatch.setattr(campaign, "CAMPAIGNS", tmp)
-    suite = _suite(tmp)
+    suite = _suite(tmp, task)
     surface = campaign.expected_incumbent_surface(_stub(suite))
     src_stub = _stub(suite, state="FAIL")
     src = _open(tmp, "src", suite, [src_stub], fp="old-fp")
@@ -190,6 +191,14 @@ def _pair(tmp: Path, monkeypatch):
     dst_stub = _stub(suite)
     dst = _open(tmp, "dst", suite, [dst_stub], fp="new-fp")
     return src, dst, dst_stub, row
+
+
+def _scripted_pair(tmp: Path, monkeypatch, turns: list[dict], states: list[dict], outcome: str):
+    task = {"id": "t1", "instruction": "do the task", "turns": turns}
+    src, dst, stub, row = _pair(tmp, monkeypatch, task)
+    row.update(outcome=outcome, tool_call_log=[], turn_results=states)
+    _write_row(src, row)
+    return dst, stub
 
 
 class TestReuseKey:
@@ -217,6 +226,113 @@ class TestReuseKey:
         campaign.reuse_incumbent_rows(dst, campaign.load_manifest(dst), [stub])
         copied = json.loads(campaign._row_path(dst, stub["run_id"]).read_text())
         assert copied["reused_from"] == "older/the-row"
+
+    def test_multiturn_tool_failure_stays_fail_after_regrade(self, tmp_path, monkeypatch):
+        turns = [
+            {
+                "user": "Run the check",
+                "checks": [
+                    {"type": "answer_contains", "patterns": ["urgent 2"]},
+                    {
+                        "type": "tool_grounded",
+                        "tools": ["execute_python"],
+                        "evidence": ["urgent 2"],
+                    },
+                ],
+                "expect_tools": ["execute_python"],
+            },
+            {
+                "user": "Check the file",
+                "checks": [{"type": "must_not_contain", "patterns": ["file is missing"]}],
+            },
+        ]
+        states = [
+            {
+                "turn": 0,
+                "final_text": "The result is urgent 2.",
+                "assistant_texts": ["The result is urgent 2."],
+                "tool_call_range": [0, 0],
+                "finish_reason": "stop",
+                "served": None,
+            },
+            {
+                "turn": 1,
+                "final_text": "The file is missing.",
+                "assistant_texts": ["The file is missing."],
+                "tool_call_range": [0, 0],
+                "finish_reason": "stop",
+                "served": None,
+            },
+        ]
+        dst, stub = _scripted_pair(tmp_path, monkeypatch, turns, states, "FAIL")
+
+        assert campaign.reuse_incumbent_rows(dst, campaign.load_manifest(dst), [stub]) == [
+            stub["run_id"]
+        ]
+        body = json.loads(campaign._row_path(dst, stub["run_id"]).read_text())
+        assert body["regraded_outcome"] == "FAIL" and body["outcome"] == "FAIL"
+
+    def test_multiturn_refusal_stays_refused_after_regrade(self, tmp_path, monkeypatch):
+        turns = [
+            {
+                "user": "Answer the question",
+                "checks": [{"type": "answer_contains", "patterns": ["answer: 42"]}],
+            }
+        ]
+        states = [
+            {
+                "turn": 0,
+                "final_text": "I can't help with that.",
+                "assistant_texts": ["I can't help with that."],
+                "tool_call_range": [0, 0],
+                "finish_reason": "stop",
+                "served": None,
+            }
+        ]
+        dst, stub = _scripted_pair(tmp_path, monkeypatch, turns, states, "REFUSED")
+
+        assert campaign.reuse_incumbent_rows(dst, campaign.load_manifest(dst), [stub]) == [
+            stub["run_id"]
+        ]
+        body = json.loads(campaign._row_path(dst, stub["run_id"]).read_text())
+        assert body["regraded_outcome"] == "REFUSED" and body["outcome"] == "REFUSED"
+
+    def test_scripted_row_without_saved_turn_evidence_is_not_reused(self, tmp_path, monkeypatch):
+        turns = [{"user": "Answer", "checks": [{"type": "answer_contains", "patterns": ["42"]}]}]
+        dst, stub = _scripted_pair(tmp_path, monkeypatch, turns, [], "FAIL")
+        source = campaign._row_path(tmp_path / "src", stub["run_id"])
+        row = json.loads(source.read_text())
+        row.pop("turn_results")
+        _write_row(tmp_path / "src", row)
+
+        assert campaign.reuse_incumbent_rows(dst, campaign.load_manifest(dst), [stub]) == []
+        assert stub["state"] == "PENDING"
+
+    def test_grounded_scripted_row_without_tool_log_is_not_reused(self, tmp_path, monkeypatch):
+        turns = [
+            {
+                "user": "Read the result",
+                "checks": [{"type": "tool_grounded", "tools": ["file_read"], "evidence": ["42"]}],
+            }
+        ]
+        states = [
+            {
+                "turn": 0,
+                "final_text": "42",
+                "assistant_texts": ["42"],
+                "tool_call_range": [0, 0],
+                "finish_reason": "stop",
+                "served": None,
+            }
+        ]
+        dst, stub = _scripted_pair(tmp_path, monkeypatch, turns, states, "PASS")
+        source = campaign._row_path(tmp_path / "src", stub["run_id"])
+        row = json.loads(source.read_text())
+        row.pop("tool_call_log")
+        _write_row(tmp_path / "src", row)
+
+        assert campaign.reuse_incumbent_rows(dst, campaign.load_manifest(dst), [stub]) == []
+        assert stub["state"] == "PENDING"
 
     @pytest.mark.parametrize(
         "mutate",

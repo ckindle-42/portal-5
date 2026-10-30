@@ -80,12 +80,13 @@ from portal.platform.inference import identity as _omlx_identity
 from portal.platform.inference.cluster_backends import BackendRegistry
 from portal.platform.inference.config import effective_workspace
 from tests.wfe import decision, eval_mode
-from tests.wfe.checkers import CheckContext, apply_checkers
+from tests.wfe.checkers import CheckContext, CheckResult, apply_checkers
 from tests.wfe.runner import (
     CHAT_BASE,
     ENGINE,
     OLLAMA,
     TOOL_NAMES,
+    _combined_turn_result,
     card_sampling,
     chat,
     load_suite,
@@ -1338,10 +1339,11 @@ def regrade_copied(row: dict, task: dict, debug_rec: dict | None = None):
         "final_text": row.get("final_text", ""),
         "assistant_texts": row.get("assistant_texts")
         or ([row["final_text"]] if row.get("final_text") else []),
-        "tool_call_log": row.get("tool_call_log") or [],
+        "tool_call_log": row.get("tool_call_log"),
         "transcript": row.get("transcript") or [],
+        "turn_results": row.get("turn_results"),
         "finish_reason": row.get("finish_reason"),
-        "sandbox_tree": {},
+        "sandbox_tree": row.get("sandbox_tree"),
         "outcome": row.get("outcome"),
     }
     for name in (
@@ -1349,14 +1351,27 @@ def regrade_copied(row: dict, task: dict, debug_rec: dict | None = None):
         "assistant_texts",
         "tool_call_log",
         "transcript",
+        "turn_results",
         "finish_reason",
         "sandbox_tree",
     ):
         if debug_rec and debug_rec.get(name) not in (None, ""):
             rec[name] = debug_rec[name]
+    if not task.get("turns"):
+        checks = task.get("checkers")
+        if checks is None:
+            checks = [task.get("checker") or {}]
+        if _checkers_need_tool_log(checks) and not isinstance(rec.get("tool_call_log"), list):
+            return None
     try:
-        cr = _rehydrate_check(rec, task)
+        cr = (
+            _rehydrate_scripted_check(rec, task)
+            if task.get("turns")
+            else _rehydrate_check(rec, task)
+        )
     except Exception:
+        return None
+    if cr is None:
         return None
     final, why = _reconcile_offline(row.get("outcome"), cr.outcome.value)
     return final, why, cr
@@ -1974,6 +1989,109 @@ def _rehydrate_check(rec: dict, task: dict):
         )
     finally:
         shutil.rmtree(root, ignore_errors=True)
+
+
+_TREE_CHECKERS = frozenset(
+    {
+        "file_exists",
+        "file_contains",
+        "hidden_pytest",
+        "immutable",
+        "office_contains",
+        "pytest_pass",
+        "receipt_artifact",
+    }
+)
+
+
+def _checkers_need_tool_log(checks: list[dict]) -> bool:
+    return any(
+        spec.get("type") in {"tool_grounded", "cited_answer", "compliance_reading_contract"}
+        or bool(spec.get("forbid_in_tool_output"))
+        for spec in checks
+    )
+
+
+def _scripted_turn_range(state: dict, index: int, tool_count: int) -> tuple[int, int] | None:
+    required = ("final_text", "assistant_texts", "tool_call_range", "finish_reason", "served")
+    if state.get("turn") != index:
+        return None
+    if any(key not in state for key in required) or not isinstance(state["assistant_texts"], list):
+        return None
+    call_range = state["tool_call_range"]
+    if (
+        not isinstance(call_range, list)
+        or len(call_range) != 2
+        or not all(isinstance(n, int) for n in call_range)
+    ):
+        return None
+    start, end = call_range
+    if start < 0 or end < start or end > tool_count:
+        return None
+    return start, end
+
+
+def _rehydrate_scripted_check(rec: dict, task: dict):
+    """Re-grade scripted turns from their saved inputs or decline incomplete evidence."""
+    turns = task.get("turns") or []
+    saved = rec.get("turn_results")
+    tool_log = rec.get("tool_call_log")
+    if not isinstance(saved, list) or len(saved) != len(turns):
+        return None
+    needs_tool_log = any(
+        spec.get("expect_tools") or _checkers_need_tool_log(spec.get("checks") or [])
+        for spec in turns
+    )
+    if not isinstance(tool_log, list):
+        if needs_tool_log:
+            return None
+        tool_log = []
+    results = []
+    for index, (spec, state) in enumerate(zip(turns, saved, strict=True)):
+        if not isinstance(state, dict) or state.get("turn") != index:
+            return None
+        call_range = _scripted_turn_range(state, index, len(tool_log))
+        if call_range is None:
+            return None
+        start, end = call_range
+        checks = spec.get("checks") or []
+        needs_tree = any(c.get("type", "answer_contains") in _TREE_CHECKERS for c in checks)
+        tree = state.get("sandbox_tree")
+        if tree is None and index == len(turns) - 1:
+            tree = rec.get("sandbox_tree")
+        if needs_tree and not isinstance(tree, dict):
+            return None
+        root = rehydrate_tree(tree or {})
+        try:
+            graded = (
+                apply_checkers(
+                    {**task, "checkers": checks},
+                    CheckContext(
+                        final_text=state["final_text"],
+                        assistant_texts=state["assistant_texts"],
+                        tool_calls=tool_log[:end],
+                        sandbox_root=root,
+                        task=task,
+                        finish_reason=state["finish_reason"],
+                        served=state["served"],
+                    ),
+                )
+                if checks
+                else CheckResult(Outcome.PASS, "", {})
+            )
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+        called = {str(call.get("name", "")) for call in tool_log[start:end]}
+        missing = [name for name in (spec.get("expect_tools") or []) if name not in called]
+        outcome, notes, evidence = graded.outcome, graded.notes, dict(graded.evidence)
+        if missing and outcome not in (Outcome.HARNESS_ERROR, Outcome.PENDING_REVIEW):
+            outcome = Outcome.FAIL
+            notes = f"expected tools not called: {missing} | {notes}"
+        if missing:
+            evidence["missing_tools"] = missing
+        evidence["turn_tools"] = sorted(called)
+        results.append({"turn": index, "outcome": outcome.value, "notes": notes})
+    return _combined_turn_result(results)
 
 
 def _write_rescored_row(campaign_dir: Path, rec: dict, cr, final_outcome: str, why: str) -> None:
@@ -2667,6 +2785,7 @@ def run_row(
         tool_call_log=out["tool_call_log"],
     ).to_dict()
     row["final_text"] = out.get("final_text", "")
+    row["turn_results"] = out.get("turn_results", [])
     row["repeat_degeneracy"] = degenerate_repeats(wsc, overrides)
     row["served_temperature"] = served_temperature(out.get("transcript") or [])
     row["repeats_planned"] = sum(
@@ -2709,6 +2828,7 @@ def run_row(
                 "notes": out["notes"],
                 "evidence": out["evidence"],
                 "final_text": out.get("final_text", ""),
+                "turn_results": out.get("turn_results", []),
                 "transcript": out["transcript"],
                 "tool_call_log": out["tool_call_log"],
                 "sandbox_tree": capture_tree(sandbox.root),
