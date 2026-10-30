@@ -63,6 +63,14 @@ def cloud_api_key() -> str:
     return key
 
 
+_SENSITIVE_SUITE = ("realuse_sec", "security", "compliance", "detection")
+
+
+def suite_refuses_cloud(suite: str) -> bool:
+    """True when a suite name must stay on a local judge."""
+    return any(part in (suite or "") for part in _SENSITIVE_SUITE)
+
+
 def refuse_cloud_for_security(campaign_dir: Path) -> None:
     """Refuse the cloud profile for any suite name matching realuse_sec* or
     *security*/*compliance*/*detection.  Synthetic real-use scenarios are safe;
@@ -70,15 +78,7 @@ def refuse_cloud_for_security(campaign_dir: Path) -> None:
     manifest = json.loads((campaign_dir / "manifest.json").read_text())
     for m in manifest.get("rows") or []:
         suite = m.get("suite") or ""
-        if any(
-            p in suite
-            for p in (
-                "realuse_sec",
-                "security",
-                "compliance",
-                "detection",
-            )
-        ):
+        if suite_refuses_cloud(suite):
             raise ValueError(
                 f"refusing cloud judge for suite {suite!r}: security/compliance/detection "
                 "suites must use the local judge (WFE_JUDGE_ALLOW_REMOTE=1 does not help)"

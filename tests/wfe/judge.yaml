@@ -13,3 +13,10 @@ profiles:
     url: https://api.deepseek.com/v1
     model: deepseek-flash
     api_key_env: DEEPSEEK_API_KEY
+  council:
+    # Third member, asked only where local and cloud already disagree.
+    # Local, and a different model from the kat-coder lane. A security suite
+    # refuses this entry when it is a cloud URL and uses the local judge.
+    third:
+      url: http://10.0.0.204:11434
+      model: qwen3.6-35b-a3b:q3code

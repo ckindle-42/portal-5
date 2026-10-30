@@ -6,6 +6,7 @@ Reports, never gated.  Reads the same campaign directory twice — once per
 
 Usage:
   uv run python -m tests.wfe.judge_compare --campaign wfe_live
+  uv run python -m tests.wfe.judge_compare --campaign wfe_live --profiles local cloud council
 """
 
 from __future__ import annotations
@@ -29,6 +30,43 @@ def _load(profile_dir: Path) -> dict[str, dict]:
             key = rec.get("key") or f.stem
             out[key] = rec
     return out
+
+
+def _print_council_checker(profiles: list[str], campaign_dir: Path) -> None:
+    if "council" not in profiles:
+        return
+    from tests.wfe.judge_council import checker_agreement, format_checker_agreement
+
+    print(format_checker_agreement(*checker_agreement(campaign_dir)))
+
+
+def _print_disagreements(
+    profiles: list[str], disagrees: list[tuple[str, dict]], stores: dict[str, dict[str, dict]]
+) -> None:
+    if not disagrees:
+        print("No disagreements.")
+        return
+    third = profiles[2] if len(profiles) > 2 else None
+    head = f"  {'key':<42} {'local':>8} {'cloud':>8}"
+    rule = f"  {'-' * 42} {'-' * 8} {'-' * 8}"
+    if third:
+        head += f" {third:>8}"
+        rule += f" {'-' * 8}"
+    print(f"\nDisagreements ({len(disagrees)}):")
+    print(f"{head}  {'reason (local / cloud)'}")
+    print(f"{rule}  {'-' * 40}")
+    for key, prefs in disagrees:
+        local_r = stores[profiles[0]].get(key) or {}
+        cloud_r = stores[profiles[1]].get(key) or {}
+        local_pref = prefs.get(profiles[0]) or "?"
+        cloud_pref = prefs.get(profiles[1]) or "?"
+        local_reason = (local_r.get("reason") or "")[:80]
+        cloud_reason = (cloud_r.get("reason") or "")[:80]
+        extra = f" {(prefs.get(third) or '?'):>8}" if third else ""
+        print(
+            f"  {key:<42} {local_pref:>8} {cloud_pref:>8}{extra}  "
+            f"{local_reason[:50]} / {cloud_reason[:50]}"
+        )
 
 
 def _kappa(pairwise: list[tuple[str, str]]) -> float | None:
@@ -79,6 +117,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912,PLR0915
         print(f"  {p}: {len(recs)} record(s), {errors} error(s)")
     print(f"Pairs with all profiles: {len(shared_keys)}")
     if not shared_keys:
+        _print_council_checker(profiles, campaign_dir)
         return 0
 
     # Build per-key paired preferences (skip records with errors)
@@ -88,7 +127,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912,PLR0915
         all_valid = True
         for p in profiles:
             rec = stores[p].get(key)
-            if rec and not rec.get("error"):
+            if rec and not rec.get("error") and not rec.get("excluded"):
                 prefs[p] = rec.get("preference")
             else:
                 prefs[p] = None
@@ -98,6 +137,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912,PLR0915
 
     if not paired:
         print("No valid paired preferences to compare.")
+        _print_council_checker(profiles, campaign_dir)
         return 0
 
     # Agreement
@@ -116,26 +156,9 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912,PLR0915
     if kappa is not None:
         print(f"Cohen's kappa: {kappa:.4f}")
 
-    # Disagreements
     disagrees = [(key, prefs) for key, prefs in paired if len({v for v in prefs.values() if v}) > 1]
-    if disagrees:
-        print(f"\nDisagreements ({len(disagrees)}):")
-        print(f"  {'key':<42} {'local':>8} {'cloud':>8}  {'reason (local / cloud)'}")
-        print(f"  {'-' * 42} {'-' * 8} {'-' * 8}  {'-' * 40}")
-        for key, prefs in disagrees:
-            local_r = stores[profiles[0]].get(key) or {}
-            cloud_r = stores[profiles[1]].get(key) or {}
-            local_pref = prefs.get(profiles[0]) or "?"
-            cloud_pref = prefs.get(profiles[1]) or "?"
-            local_reason = (local_r.get("reason") or "")[:80]
-            cloud_reason = (cloud_r.get("reason") or "")[:80]
-            print(
-                f"  {key:<42} {local_pref:>8} {cloud_pref:>8}  "
-                f"{local_reason[:50]} / {cloud_reason[:50]}"
-            )
-    else:
-        print("No disagreements.")
-
+    _print_disagreements(profiles, disagrees, stores)
+    _print_council_checker(profiles, campaign_dir)
     return 0
 
 

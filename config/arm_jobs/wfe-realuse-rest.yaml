@@ -50,6 +50,17 @@ steps:
     outputs:
       - tests/wfe/results/advance/WFE_FITNESS_REPORT_realuse_reruns_20261030.md
       - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_reruns_20261030/report.json
+  - id: reruns-judge-council
+    argv:
+      - uv
+      - run
+      - python
+      - "-m"
+      - tests.wfe.judge_council
+      - "--campaign"
+      - realuse_reruns_20261030
+    timeout_seconds: 900
+    quiet_host: false
   - id: documents-canary
     canary: documents
     timeout_seconds: 10800
@@ -85,6 +96,17 @@ steps:
     outputs:
       - tests/wfe/results/advance/WFE_FITNESS_REPORT_realuse_documents_20261030.md
       - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_documents_20261030/report.json
+  - id: documents-judge-council
+    argv:
+      - uv
+      - run
+      - python
+      - "-m"
+      - tests.wfe.judge_council
+      - "--campaign"
+      - realuse_documents_20261030
+    timeout_seconds: 900
+    quiet_host: false
   - id: decisions-canary
     canary: decisions
     timeout_seconds: 21600
@@ -120,6 +142,17 @@ steps:
     outputs:
       - tests/wfe/results/advance/WFE_FITNESS_REPORT_realuse_s5s7s10_20261030.md
       - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_s5s7s10_20261030/report.json
+  - id: decisions-judge-council
+    argv:
+      - uv
+      - run
+      - python
+      - "-m"
+      - tests.wfe.judge_council
+      - "--campaign"
+      - realuse_s5s7s10_20261030
+    timeout_seconds: 900
+    quiet_host: false
 stop_conditions:
   on_failure: stop
   max_job_minutes: 4200

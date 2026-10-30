@@ -405,7 +405,7 @@ def summary(campaign_dir: Path, profile: str | None = None) -> dict:
     records = load(campaign_dir, profile)
     cells: dict[str, dict] = {}
     for rec in records:
-        if rec.get("error"):
+        if rec.get("error") or rec.get("excluded"):
             continue
         arms = rec.get("arms") or {}
         pair = sorted(a for a in (arms.get("A"), arms.get("B")) if a)

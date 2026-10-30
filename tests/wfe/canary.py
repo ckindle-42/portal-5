@@ -16,6 +16,9 @@ those rows FIRST, in a separate `<id>_canary` campaign, and classifies each:
 
 Exit 0 only when every selected row ran and none is SETUP. Reached through
 `wfe_campaign.sh <id> ... --canary` (job specs: a `canary: <step>` step).
+
+A fault appended once is SETUP forever: `--record-fault SIG --cause TEXT --fix SHA`
+writes setup_faults.jsonl (override the path with WFE_SETUP_FAULTS; tests must).
 """
 
 from __future__ import annotations
@@ -24,6 +27,7 @@ import argparse
 import json
 import os
 import sys
+from datetime import date
 from pathlib import Path
 
 import yaml
@@ -140,6 +144,63 @@ def _tool_outputs(row: dict) -> str:
     return " ".join(str(e.get("output") or "") for e in row.get("tool_call_log") or [])
 
 
+def setup_faults_path() -> Path:
+    """Ledger of setup signatures. WFE_SETUP_FAULTS overrides; tests must set it."""
+    override = os.environ.get("WFE_SETUP_FAULTS")
+    if override:
+        return Path(override).expanduser()
+    return camp.DATA_ROOT / "tests" / "wfe" / "setup_faults.jsonl"
+
+
+def ledger_signatures() -> tuple[str, ...]:
+    """Lowercased signatures already seen. A missing ledger adds nothing."""
+    path = setup_faults_path()
+    if not path.is_file():
+        return ()
+    found: list[str] = []
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            sig = str(json.loads(line).get("signature") or "").strip().lower()
+        except json.JSONDecodeError:
+            continue
+        # A signature the constants already cover keeps the constants' narrower scope
+        # (notes + tool output): "file not found" in a model's own answer is not setup.
+        if sig and sig not in _MISSING_FILE + _TOOL_INFRA:
+            found.append(sig)
+    return tuple(found)
+
+
+def _ledger_blob(row: dict) -> str:
+    """Notes, tool output, and the reply text a recorded signature is matched against."""
+    transcript = " ".join(str(e.get("content") or "") for e in row.get("transcript") or [])
+    return (
+        f"{_note_text(row)} {_tool_outputs(row)} {row.get('final_text') or ''} {transcript}".lower()
+    )
+
+
+def record_fault(signature: str, cause: str, fix_commit: str, campaign: str = "") -> int:
+    """Append one ledger line. The same signature is not written twice."""
+    path = setup_faults_path()
+    if signature.strip().lower() in set(ledger_signatures()):
+        print(f"setup fault already recorded: {signature}")
+        return 0
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rec = {
+        "signature": signature,
+        "first_seen": date.today().isoformat(),
+        "campaign": campaign,
+        "cause": cause,
+        "fix_commit": fix_commit,
+    }
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(rec) + "\n")
+    print(f"recorded setup fault: {signature} -> {path}")
+    return 0
+
+
 def _is_zero_second(row: dict) -> bool:
     wall = (row.get("economics") or {}).get("wall_s")
     return not row.get("turns") and not wall
@@ -157,6 +218,9 @@ def classify_row(row: dict) -> str:
         return SETUP
     blob = f"{note} {_tool_outputs(row)}".lower()
     if any(sig in blob for sig in _MISSING_FILE + _TOOL_INFRA):
+        return SETUP
+    ledger_blob = _ledger_blob(row)
+    if any(sig in ledger_blob for sig in ledger_signatures()):
         return SETUP
     if outcome == "BLOCKED" and _is_zero_second(row):
         return SETUP
@@ -262,7 +326,7 @@ def _gate_table(cid: str, selected: list[dict], outcome: str, reason: str) -> in
 
 def _parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="tests.wfe.canary")
-    ap.add_argument("--campaign-id", required=True)
+    ap.add_argument("--campaign-id")
     ap.add_argument("--plan", default=str(camp.REPO / "tests/wfe/workloads.yaml"))
     ap.add_argument("--tier", default="confirm", choices=("screen", "confirm", "realuse"))
     ap.add_argument("--workspace")
@@ -270,14 +334,33 @@ def _parser() -> argparse.ArgumentParser:
     ap.add_argument("--max-turns", type=int, default=16)
     ap.add_argument("--notify", action="store_true")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--record-fault", help="append this setup signature to the ledger and exit")
+    ap.add_argument("--cause", help="why the signature is a setup fault")
+    ap.add_argument("--fix", help="commit that fixed it")
+    ap.add_argument("--campaign", default="", help="campaign the fault was first seen on")
     return ap
+
+
+def _record_mode(args, extra: list[str], ap: argparse.ArgumentParser) -> int | None:
+    if not args.record_fault:
+        return None
+    if extra:
+        ap.error(f"unrecognized arguments: {' '.join(extra)}")
+    if not args.cause or args.fix is None:
+        ap.error("--record-fault requires --cause and --fix")
+    return record_fault(args.record_fault, args.cause, args.fix, args.campaign)
 
 
 def run_canary(argv: list[str] | None = None) -> int:
     ap = _parser()
     args, extra = ap.parse_known_args(argv)
+    recorded = _record_mode(args, extra, ap)
+    if recorded is not None:
+        return recorded
     if [tok for tok in extra if tok != "--judge"]:
         ap.error(f"unrecognized arguments: {' '.join(extra)}")
+    if not args.campaign_id:
+        ap.error("--campaign-id is required")
     cid = canary_campaign_id(args.campaign_id)
     plan = Path(args.plan)
     selected = select_rows(plan, args.tier, args.workspace)
