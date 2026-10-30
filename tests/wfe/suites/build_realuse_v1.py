@@ -7,6 +7,7 @@ import csv
 import hashlib
 import io
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -97,6 +98,30 @@ TEXT_EXPECTATIONS = {
     "ru-v1-064": ("Dana", "crane", "Leo", "October 28"),
     "ru-v1-065": ("knee", "jumps"),
     "ru-v1-070": ("October 20", "December 15", "gym"),
+}
+ANSWER_PATTERN_EXPECTATIONS = {
+    "ru-v1-001": (
+        (
+            0,
+            r"timeline\s+(?:slipp(?:ed|ing)|extended)\s+by\s+3\s+days",
+            (
+                "Timeline slipped by 3 days",
+                "Timeline slipping by 3 days",
+                "The project timeline extended by 3 days",
+            ),
+            (
+                "Timeline delayed by 3 days",
+                "Timeline slipped by 30 days",
+                "Timeline extended by 30 days",
+            ),
+        ),
+        (
+            1,
+            r"misc\.?\s+supplies",
+            ("Misc Supplies", "Misc. Supplies"),
+            ("miscellaneous supplies", "supplies"),
+        ),
+    )
 }
 SEED_EXPECTATIONS = {
     "ru-v1-009": ("Thursday 2pm", "Friday"),
@@ -576,6 +601,22 @@ def _verify_task_values(files: dict[Path, bytes]) -> None:
     _check_expand_counts(files)
 
 
+def _check_answer_patterns(suite_rows: list[dict[str, Any]]) -> None:
+    rows = {row["id"]: row for row in suite_rows}
+    for task_id, checks in ANSWER_PATTERN_EXPECTATIONS.items():
+        for turn_index, pattern, accepted, rejected in checks:
+            turn_checks = rows[task_id]["turns"][turn_index].get("checks", [])
+            if not any(
+                check.get("type") == "answer_contains" and pattern in check.get("patterns", [])
+                for check in turn_checks
+            ):
+                raise AssertionError(f"{task_id}: answer pattern missing from turn {turn_index}")
+            if any(not re.search(pattern, value, re.I) for value in accepted):
+                raise AssertionError(f"{task_id}: answer pattern rejects a faithful variant")
+            if any(re.search(pattern, value, re.I) for value in rejected):
+                raise AssertionError(f"{task_id}: answer pattern accepts a wrong variant")
+
+
 def _check_nonfile_seeds(
     suite_rows: list[dict[str, Any]], draft_rows: list[dict[str, Any]]
 ) -> None:
@@ -669,6 +710,7 @@ def self_check(
     )
     if (destination_root / MANIFEST).read_text(encoding="utf-8") != manifest_text:
         raise AssertionError("fixture manifest does not match generated files")
+    _check_answer_patterns(suite_rows)
     _verify_task_values(actual)
     _check_nonfile_seeds(suite_rows, draft_rows)
     _check_image_specs(draft_rows)

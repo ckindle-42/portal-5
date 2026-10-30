@@ -23,7 +23,9 @@ from tests.wfe.checkers import (
     check_file_exists,
     check_hidden_pytest,
     check_immutable,
+    check_must_not_contain,
     check_routed_workspace,
+    check_tool_grounded,
     detect_refusal,
     parse_pytest_summary,
 )
@@ -147,6 +149,87 @@ class TestAnswerProvenance:
         assert r.outcome == Outcome.HARNESS_ERROR
 
 
+class TestNormalizedTextMatching:
+    def test_answer_matches_normalized_currency_unicode_and_whitespace(self):
+        ctx = CheckContext(
+            final_text="The client’s total — $\u00a02,400.00; timeline ‑ slipping by\u00a03 days."
+        )
+        result = check_answer_contains(
+            {
+                "patterns": [
+                    "client's total",
+                    r"(?<!\d)2400(?!\d)",
+                    r"timeline\s*-\s*slipping by 3 days",
+                ]
+            },
+            ctx,
+        )
+        assert result.outcome == Outcome.PASS
+
+    @pytest.mark.parametrize("answer", ["24000", "240", "2,4000"])
+    def test_grouping_normalization_does_not_match_nearby_wrong_numbers(self, answer):
+        result = check_answer_contains(
+            {"patterns": [r"(?<!\d)2400(?!\d)"]}, CheckContext(final_text=answer)
+        )
+        assert result.outcome == Outcome.FAIL
+
+    def test_integer_expectation_does_not_match_nonzero_cents(self):
+        result = check_answer_contains(
+            {"patterns": [r"(?<!\d)2400(?!\d)"]}, CheckContext(final_text="$2,400.50")
+        )
+        assert result.outcome == Outcome.FAIL
+
+    def test_normalized_matching_keeps_exact_decimal_expectations(self):
+        result = check_answer_contains({"patterns": ["1.05"]}, CheckContext(final_text="1.05"))
+        assert result.outcome == Outcome.PASS
+        rounded = check_answer_contains({"patterns": ["0.2"]}, CheckContext(final_text="$0.20"))
+        assert rounded.outcome == Outcome.PASS
+        fixed = check_answer_contains({"patterns": [r"5\.0"]}, CheckContext(final_text="5.0"))
+        assert fixed.outcome == Outcome.PASS
+
+    def test_tool_grounding_normalizes_grouped_currency_evidence(self):
+        ctx = CheckContext(
+            tool_calls=[
+                {
+                    "name": "read_pdf",
+                    "output": '{"success": true, "text": "Subtotal — $2,400.00"}',
+                }
+            ]
+        )
+        result = check_tool_grounded(
+            {
+                "tools": ["read_pdf"],
+                "evidence": [r"(?<!\d)2400(?!\d)"],
+            },
+            ctx,
+        )
+        assert result.outcome == Outcome.PASS
+
+    def test_tool_grounding_keeps_explicit_decimal_prefix_patterns(self):
+        result = check_tool_grounded(
+            {
+                "tools": ["cad_build"],
+                "evidence": [r'"volume"\s*:\s*11249\.'],
+            },
+            CheckContext(
+                tool_calls=[
+                    {
+                        "name": "cad_build",
+                        "output": '{"measure": {"volume": 11249.3363}}',
+                    }
+                ]
+            ),
+        )
+        assert result.outcome == Outcome.PASS
+
+    def test_negative_answer_checks_use_normalized_text(self):
+        result = check_must_not_contain(
+            {"patterns": ["customer's note"]},
+            CheckContext(final_text="The customer’s\u00a0note is attached."),
+        )
+        assert result.outcome == Outcome.FAIL
+
+
 class TestAnswerAfterReasoning:
     """Reasoning/math's second checker (WFE P3 triage §2): a think-on seat that
     buries the gold inside a <think> block and never answers visibly must not
@@ -175,6 +258,11 @@ class TestAnswerAfterReasoning:
     def test_wrong_answer_outside_think_fails(self):
         ctx = CheckContext(final_text='{"answer": "41"}')
         assert check_answer_after_reasoning(self.SPEC, ctx).outcome == Outcome.FAIL
+
+    def test_reasoning_answer_check_uses_normalized_text(self):
+        ctx = CheckContext(final_text="<think>calculation</think>The amount is $2,400.00.")
+        spec = {"patterns": [r"(?<!\d)2400(?!\d)"]}
+        assert check_answer_after_reasoning(spec, ctx).outcome == Outcome.PASS
 
     def test_case_insensitive_block_and_empty_text_fail(self):
         assert (

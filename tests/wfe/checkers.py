@@ -22,6 +22,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
@@ -262,23 +263,63 @@ def check_file_contains(spec: dict, ctx: CheckContext) -> CheckResult:
 # --------------------------------------------------------------------------
 
 
+def _normalize_match_text(text: str) -> str:
+    """Normalize common Unicode and numeric formatting before text checks."""
+    text = unicodedata.normalize("NFKC", text or "")
+    text = text.translate(
+        str.maketrans(
+            {
+                **{ord(char): "-" for char in "‐‑‒–—―−"},
+                **{ord(char): "'" for char in "‘’‚‛′"},
+                **{ord(char): '"' for char in "“”„‟″"},
+            }
+        )
+    )
+    text = re.sub(r"(?<=\d)[,'](?=\d{3}(?:\D|$))", "", text)
+    text = re.sub(r"(?<=[\$€£¥₹₩₽₺₴₦₱₪₫])\s+(?=\d)", "", text)
+    return re.sub(r"\s+", " ", text)
+
+
+def _text_match(pattern: str, text: str) -> bool:
+    """Avoid grading a nonzero decimal as its integer portion."""
+    for match in re.finditer(pattern, text, re.I):
+        for number in re.finditer(r"(?<![\w.])[+-]?\d+(?:\.\d+)?(?![\w.])", text):
+            value = number.group()
+            if "." not in value or not any(digit != "0" for digit in value.split(".", 1)[1]):
+                continue
+            overlaps = match.start() < number.end() and match.end() > number.start()
+            covers = match.start() <= number.start() and match.end() >= number.end()
+            fraction = value.split(".", 1)[1].rstrip("0")
+            canonical_end = number.start() + len(value.split(".", 1)[0])
+            if fraction:
+                canonical_end += len(fraction) + 1
+            if (
+                overlaps
+                and "." not in match.group()
+                and not (
+                    covers or (match.start() <= number.start() and match.end() >= canonical_end)
+                )
+            ):
+                break
+        else:
+            return True
+    return False
+
+
 def check_answer_contains(spec: dict, ctx: CheckContext) -> CheckResult:
     """Patterns must appear in the MODEL'S ANSWER, not anywhere in the
     transcript. The original matched final_text + json.dumps(transcript), and
     transcript rows carry tool-call arguments — so a model that merely searched
     for the expected string scored the task."""
-    text = ctx.final_text or ""
-    missing = [p for p in (spec.get("patterns") or []) if not re.search(p, text, re.I)]
+    text = _normalize_match_text(ctx.final_text or "")
+    missing = [p for p in (spec.get("patterns") or []) if not _text_match(p, text)]
     ev = {}
     if spec.get("exact"):
         # Graded on the class (compliance: met / unmet / abstain, the probe's own
         # headline metric); the exact label is kept as evidence, not as the verdict.
-        ev["exact_label_match"] = bool(re.search(spec["exact"], text, re.I))
-    leaked = [
-        p
-        for p in (spec.get("forbid_in_tool_output") or [])
-        if re.search(p, ctx.tool_outputs(), re.I)
-    ]
+        ev["exact_label_match"] = _text_match(spec["exact"], text)
+    tool_text = _normalize_match_text(ctx.tool_outputs())
+    leaked = [p for p in (spec.get("forbid_in_tool_output") or []) if _text_match(p, tool_text)]
     if leaked:
         ev["leak_detected"] = leaked
         return CheckResult(
@@ -289,7 +330,7 @@ def check_answer_contains(spec: dict, ctx: CheckContext) -> CheckResult:
         )
     if missing:
         return CheckResult(Outcome.FAIL, f"answer missing patterns={missing}", ev)
-    forbidden = [p for p in (spec.get("forbid") or []) if re.search(p, text, re.I)]
+    forbidden = [p for p in (spec.get("forbid") or []) if _text_match(p, text)]
     if forbidden:
         return CheckResult(Outcome.FAIL, f"answer contains forbidden={forbidden}", ev)
     return CheckResult(Outcome.PASS, "answer patterns matched", ev)
@@ -298,8 +339,8 @@ def check_answer_contains(spec: dict, ctx: CheckContext) -> CheckResult:
 def check_must_not_contain(spec: dict, ctx: CheckContext) -> CheckResult:
     """The negative half of answer_contains: the answer must not carry any of
     these patterns. A turn that forbids a phrase needs no required one."""
-    text = ctx.final_text or ""
-    hits = [p for p in (spec.get("patterns") or []) if re.search(p, text, re.I)]
+    text = _normalize_match_text(ctx.final_text or "")
+    hits = [p for p in (spec.get("patterns") or []) if _text_match(p, text)]
     if hits:
         return CheckResult(Outcome.FAIL, f"answer contains forbidden={hits}", {"forbidden": hits})
     return CheckResult(Outcome.PASS, "no forbidden pattern in the answer", {})
@@ -692,7 +733,8 @@ def check_tool_grounded(spec: dict, ctx: CheckContext) -> CheckResult:
             or _output_failed(out)
         ):
             continue
-        if all(re.search(p, out, re.I) for p in evidence):
+        matched_text = _normalize_match_text(out)
+        if all(_text_match(p, matched_text) for p in evidence):
             return CheckResult(
                 Outcome.PASS, f"grounded by {c.get('name')}", {"grounded_by": c.get("name")}
             )
@@ -722,7 +764,8 @@ def check_answer_after_reasoning(spec: dict, ctx: CheckContext) -> CheckResult:
     the reasoning."""
     text = ctx.final_text or ""
     outside = THINK_BLOCK_RE.sub("", text)
-    missing = [p for p in (spec.get("patterns") or []) if not re.search(p, outside, re.I)]
+    matched_text = _normalize_match_text(outside)
+    missing = [p for p in (spec.get("patterns") or []) if not _text_match(p, matched_text)]
     if missing:
         return CheckResult(
             Outcome.FAIL,
@@ -775,7 +818,8 @@ CHECKERS = {
 
 
 def detect_refusal(text: str) -> bool:
-    return any(re.search(p, text or "", re.I) for p in REFUSAL_PATTERNS)
+    text = _normalize_match_text(text or "")
+    return any(_text_match(p, text) for p in REFUSAL_PATTERNS)
 
 
 def apply_checkers(task: dict, ctx: CheckContext) -> CheckResult:
@@ -803,7 +847,9 @@ def apply_checkers(task: dict, ctx: CheckContext) -> CheckResult:
     for level in (Outcome.HARNESS_ERROR, Outcome.PENDING_REVIEW, Outcome.FAIL):
         if any(r.outcome == level for r in results):
             signal = task.get("completion_signal")
-            answered = bool(signal) and signal in (ctx.final_text or "")
+            answered = bool(signal) and _normalize_match_text(signal) in _normalize_match_text(
+                ctx.final_text or ""
+            )
             if (
                 level == Outcome.FAIL
                 and not answered

@@ -215,9 +215,9 @@ def _row(outcome="PASS", tools=1, hop=False):
     }
 
 
-def _halt(rows, arm="a", kind="k"):
+def _halt(rows, arm="a", kind="k", tier="confirm"):
     campaign._KIND_ROWS.clear()
-    return [campaign.kind_halt_reason(arm, kind, r) for r in rows]
+    return [campaign.kind_halt_reason(arm, kind, r, tier=tier) for r in rows]
 
 
 def test_task_kind_is_explicit_or_the_id_without_its_index():
@@ -237,6 +237,17 @@ def test_halt_on_pass_rate_at_most_one_in_n():
 
 def test_a_kind_above_the_pass_floor_keeps_running():
     assert _halt([_row("PASS"), _row("PASS"), _row("FAIL"), _row("FAIL")])[3] is None
+
+
+def test_realuse_tier_does_not_halt_on_kind_pass_rate_tool_or_hop_signals():
+    rows = [_row("FAIL", 0), _row("FAIL", 0), _row("FAIL", 0), _row("BUDGET_EXHAUSTED", 0, True)]
+    assert _halt(rows, tier="realuse") == [None] * 4
+
+
+def test_realuse_tier_keeps_the_kind_harness_error_stop():
+    rows = [_row("FAIL"), _row("HARNESS_ERROR"), _row("FAIL"), _row("FAIL")]
+    result = _halt(rows, tier="realuse")
+    assert result[:3] == [None] * 3 and result[3] == "HARNESS_ERROR row"
 
 
 def test_halt_when_every_row_made_zero_tool_calls():

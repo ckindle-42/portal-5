@@ -2951,11 +2951,14 @@ def hop_limited(row: dict) -> bool:
 
 
 def kind_halt_reason(
-    arm: str, kind: str, row: dict, n: int = HALT_AFTER_ROWS, tools: bool = True
+    arm: str,
+    kind: str,
+    row: dict,
+    n: int = HALT_AFTER_ROWS,
+    tools: bool = True,
+    tier: str = "confirm",
 ) -> str | None:
-    """Why the arm should halt on this task kind, or None. Judged once the kind has n rows:
-    a pass rate of at most 1/n, no tool call on any row (only when the kind offers tools —
-    a `no_tools` kind never calls one), or any HARNESS_ERROR / hop-limit row."""
+    """Keep ordinary kind gates, while realuse retains only its HARNESS_ERROR stop."""
     rows = _KIND_ROWS.setdefault((arm, kind), [])
     rows.append(
         {
@@ -2966,6 +2969,12 @@ def kind_halt_reason(
     )
     if len(rows) < n:
         return None
+    if tier == "realuse":
+        return (
+            "HARNESS_ERROR row"
+            if any(x["outcome"] == Outcome.HARNESS_ERROR.value for x in rows)
+            else None
+        )
     passes = sum(x["outcome"] == Outcome.PASS.value for x in rows)
     if passes * n <= len(rows):
         return f"pass rate {passes}/{len(rows)} <= 1/{n}"
@@ -2978,12 +2987,19 @@ def kind_halt_reason(
     return None
 
 
-def _halt_arm(campaign_dir: Path, arm: str, task: dict, row: dict, halt: bool) -> str | None:
+def _halt_arm(
+    campaign_dir: Path,
+    arm: str,
+    task: dict,
+    row: dict,
+    halt: bool,
+    tier: str = "confirm",
+) -> str | None:
     """Judge the row's task kind; on a halt, log it and return "<kind>: <reason>"."""
     kind = task_kind(task)
     # wfe_math_20261018a: every reasoning/math arm halted on "0 tool calls" — its tasks are
     # no_tools, so a call is never possible.
-    why = kind_halt_reason(arm, kind, row, tools=not task.get("no_tools"))
+    why = kind_halt_reason(arm, kind, row, tools=not task.get("no_tools"), tier=tier)
     if not (why and halt):
         return None
     _log(campaign_dir, f"arm {arm}: HALTED — {kind}: {why}")
@@ -3585,7 +3601,7 @@ def execute_arm(
         if stop:
             _log(campaign_dir, f"arm {arm}: STOPPED — {stop}")
             break
-        if halted := _halt_arm(campaign_dir, arm, task, row, halt):
+        if halted := _halt_arm(campaign_dir, arm, task, row, halt, tier=r.get("tier", "confirm")):
             break
         _curtail_after_task(campaign_dir, manifest, arm, r, curtail)
 
