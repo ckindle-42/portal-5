@@ -47,10 +47,22 @@ _VERDICT_TAGS = frozenset(
         "infra",
     }
 )
+# Run with the main checkout's .venv (all extras), never `uv run` in the throwaway worktree:
+# that builds a bare venv there, so test_venv_matches_lock failed every attempt (10-30
+# rest-8 escalation). pytest's rootdir puts the worktree's code first on sys.path.
 _GATE_COMMANDS = (
-    ["uv", "run", "pytest", "tests/unit", "tests/wfe/tests", "-q"],
-    ["uv", "run", "ruff", "check", "."],
-    ["uv", "run", "ruff", "format", "--check", "."],
+    [
+        "{venv}/bin/python",
+        "-m",
+        "pytest",
+        "tests/unit",
+        "tests/wfe/tests",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+    ],
+    ["{venv}/bin/ruff", "check", "."],
+    ["{venv}/bin/ruff", "format", "--check", "."],
 )
 _GIT_ENV_KEYS = (
     "GIT_DIR",
@@ -1676,7 +1688,7 @@ def _gates(
             return _GateResult(
                 False, "gates-failed", "lane could not merge into throwaway worktree"
             )
-        if not _run_gates(dest, runner):
+        if not _run_gates(dest, runner, main):
             return _GateResult(
                 False, "gates-failed", "pytest or ruff failed in the throwaway merge"
             )
@@ -1703,8 +1715,11 @@ def _merge_into(dest: Path, worktree: Path, changes: LaneChanges) -> bool:
     return True
 
 
-def _run_gates(dest: Path, runner: GateRunner) -> bool:
-    return all(runner(argv, dest) == 0 for argv in _GATE_COMMANDS)
+def _run_gates(dest: Path, runner: GateRunner, main: Path) -> bool:
+    venv = str(main / ".venv")
+    return all(
+        runner([arg.replace("{venv}", venv) for arg in argv], dest) == 0 for argv in _GATE_COMMANDS
+    )
 
 
 def _land(main: Path, lane: LaneResult, message: str) -> str | None:

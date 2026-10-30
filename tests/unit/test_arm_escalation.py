@@ -7,6 +7,7 @@ import importlib.util
 import json
 import subprocess
 import time
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -198,7 +199,7 @@ def _escalator(
         if events is not None:
             events.append("gate")
         assert cwd != repo
-        assert argv[2] in {"pytest", "ruff"}
+        assert {"pytest", "ruff"} & {Path(a).name for a in argv}
         return gates
 
     def canary_run(argv: Any, cwd: Path, timeout: float) -> tuple[int, str]:
@@ -1200,3 +1201,22 @@ def test_oracle_walks_the_tier_list_past_same_family_and_quota(tmp_path: Path) -
     ).review(job_id="job-a", attempt=2, lane=candidate, base="HEAD~1", kind="security")
     assert held.verdict == "hold"  # daybreak is the only security reviewer; same family here
     assert not security.calls
+
+
+def test_gates_use_the_main_checkout_venv_not_a_fresh_uv_env(tmp_path: Path) -> None:
+    # 10-30: `uv run` in the throwaway worktree built a bare venv; the lock-drift test failed
+    # every attempt regardless of the fix.
+    from portal.modules.orchestration.escalate import _run_gates
+
+    seen: list[list[str]] = []
+
+    def runner(argv: Sequence[str], cwd: Path) -> int:
+        seen.append(list(argv))
+        assert cwd == tmp_path / "dest"
+        return 0
+
+    assert _run_gates(tmp_path / "dest", runner, tmp_path / "main")
+    venv = str(tmp_path / "main" / ".venv")
+    assert seen[0][:3] == [f"{venv}/bin/python", "-m", "pytest"]
+    assert all(argv[0].startswith(venv) for argv in seen)
+    assert not any(argv[0] == "uv" for argv in seen)
