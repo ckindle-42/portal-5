@@ -1692,7 +1692,7 @@ def _gates(
             return _GateResult(
                 False, "gates-failed", "pytest or ruff failed in the throwaway merge"
             )
-        passed, output = _canaries_pass(spec, dest, canary_runner)
+        passed, output = _canaries_pass(spec, dest, canary_runner, tag=parent.name)
         if not passed:
             setup = _setup_lines(output)
             detail = "canary failed in the throwaway merge worktree"
@@ -1777,13 +1777,25 @@ def _copy_paths(src: Path, dest: Path, paths: Sequence[str]) -> None:
         shutil.copy2(origin, target)
 
 
-def _canaries_pass(spec: JobSpec, cwd: Path, runner: CanaryRunner) -> tuple[bool, str]:
+def _canaries_pass(
+    spec: JobSpec, cwd: Path, runner: CanaryRunner, *, tag: str = ""
+) -> tuple[bool, str]:
     canaries = [step for step in spec.steps if step.canary_of]
     for step in canaries:
-        code, output = runner(step.argv, cwd, step.timeout_seconds)
+        code, output = runner(_throwaway_campaign(step.argv, tag), cwd, step.timeout_seconds)
         if code != 0:
             return False, f"{step.step_id} exited {code}\n{output}"
     return True, ""
+
+
+def _throwaway_campaign(argv: Sequence[str], tag: str) -> list[str]:
+    """The job's canary campaign holds the deployed build's baseline; a lane changing the
+    harness or portal/ always trips its drift guard (10-30). Each attempt canaries into its
+    own fresh campaign id instead."""
+    out = list(argv)
+    if tag and len(out) > 1 and Path(out[0]).name == "wfe_campaign.sh":
+        out[1] = f"{out[1]}_{re.sub(r'[^0-9a-z]', '', tag.lower())}"
+    return out
 
 
 def _subprocess_gate(argv: Sequence[str], cwd: Path) -> int:

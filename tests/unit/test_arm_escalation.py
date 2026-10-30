@@ -1220,3 +1220,14 @@ def test_gates_use_the_main_checkout_venv_not_a_fresh_uv_env(tmp_path: Path) -> 
     assert seen[0][:3] == [f"{venv}/bin/python", "-m", "pytest"]
     assert all(argv[0].startswith(venv) for argv in seen)
     assert not any(argv[0] == "uv" for argv in seen)
+
+
+def test_escalation_canary_uses_a_throwaway_campaign_id() -> None:
+    from portal.modules.orchestration.escalate import _throwaway_campaign
+
+    argv = ["scripts/wfe_campaign.sh", "realuse_reruns_20261030b", "--plan", "p.yaml", "--canary"]
+    out = _throwaway_campaign(argv, "portal-esc-Ab_9x")
+    assert out[1] == "realuse_reruns_20261030b_portalescab9x"
+    assert out[2:] == argv[2:]
+    assert argv[1] == "realuse_reruns_20261030b"
+    assert _throwaway_campaign(["other.sh", "x", "--canary"], "t") == ["other.sh", "x", "--canary"]
