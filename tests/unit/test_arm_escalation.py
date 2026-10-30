@@ -14,12 +14,17 @@ import pytest
 from typer.testing import CliRunner
 
 from portal.modules.orchestration import cli as cli_module
+from portal.modules.orchestration import escalate as escalate_module
 from portal.modules.orchestration.cli import orchestration_app
 from portal.modules.orchestration.escalate import (
     Escalator,
     LaneChanges,
     LaneResult,
+    OracleResult,
+    ProcessOracle,
+    _brief_contract_kind,
     _wait_process,
+    build_escalator,
     classify_block,
     decide,
     dispatch_kind,
@@ -30,6 +35,7 @@ from portal.modules.orchestration.escalate import (
 from portal.modules.orchestration.jobs import parse_job_spec
 from portal.modules.orchestration.queue import OvernightQueue, QueueGate, QueueLedger, QueueRun
 from portal.modules.orchestration.service import StubNoticeSink
+from portal.modules.orchestration.telegram import TelegramNoticeSink
 
 DISPATCH = Path.home() / ".claude" / "orchestrate" / "bin" / "dispatch.py"
 # The slash form is what the test-hygiene gate rejects in test strings.
@@ -51,14 +57,40 @@ class _FakeDispatch:
         self.results = list(results)
         self.calls: list[dict[str, Any]] = []
 
-    def run(self, *, role: str, tier: str, kind: str, brief: Path, repo: Path) -> LaneResult:
-        self.calls.append({"role": role, "tier": tier, "kind": kind, "brief": brief, "repo": repo})
+    def run(
+        self, *, role: str, tier: str, kind: str, brief: Path, repo: Path, new: bool = True
+    ) -> LaneResult:
+        self.calls.append(
+            {"role": role, "tier": tier, "kind": kind, "brief": brief, "repo": repo, "new": new}
+        )
         if not self.results:
             raise RuntimeError("no fake lane left")
         lane = self.results.pop(0)
         return LaneResult(
-            role, tier, lane.exit_code, lane.result_text, lane.branch, lane.worktree, lane.changes
+            role,
+            tier,
+            lane.exit_code,
+            lane.result_text,
+            lane.branch,
+            lane.worktree,
+            lane.changes,
+            lane.status,
+            lane.retry_until,
+            lane.model,
         )
+
+
+class _FakeOracle:
+    def __init__(self, results: list[OracleResult], events: list[str] | None = None) -> None:
+        self.results = list(results)
+        self.calls: list[dict[str, Any]] = []
+        self.events = events
+
+    def review(self, **kwargs: Any) -> OracleResult:
+        self.calls.append(kwargs)
+        if self.events is not None:
+            self.events.append("oracle")
+        return self.results.pop(0)
 
 
 def _git(repo: Path, *args: str) -> None:
@@ -136,8 +168,14 @@ def _lane(
     worktree: Path | None,
     changes: LaneChanges,
     text: str = "## RESULT\n\ndone\n\n## OPEN / RISK\n\nnone\n",
+    *,
+    model: str | None = None,
+    status: str | None = None,
+    retry_until: str | None = None,
 ) -> LaneResult:
-    return LaneResult("lane", "auto", 0, text, "lane/esc-job-a-1", worktree, changes)
+    return LaneResult(
+        "lane", "auto", 0, text, "lane/esc-job-a-1", worktree, changes, status, retry_until, model
+    )
 
 
 def _escalator(
@@ -147,32 +185,48 @@ def _escalator(
     *,
     gates: int = 0,
     canary: int = 0,
+    oracle: Any = None,
+    events: list[str] | None = None,
 ) -> tuple[Escalator, StubNoticeSink]:
     notices = StubNoticeSink()
     calls = {"gates": 0, "canary": 0}
+    verdict_calls: list[list[str]] = []
 
     def gate(argv: Any, cwd: Path) -> int:
         calls["gates"] += 1
+        if events is not None:
+            events.append("gate")
         assert cwd != repo
         assert argv[2] in {"pytest", "ruff"}
         return gates
 
-    def canary_run(argv: Any, cwd: Path, timeout: float) -> int:
+    def canary_run(argv: Any, cwd: Path, timeout: float) -> tuple[int, str]:
         calls["canary"] += 1
+        if events is not None:
+            events.append("canary")
+        assert cwd != repo
         assert "--canary" in list(argv)
         assert timeout > 0
-        return canary
+        output = "CANARY demo: SETUP (1 setup row(s) of 1)\n"
+        return canary, output
+
+    def verdict_run(argv: Any) -> int:
+        verdict_calls.append(list(argv))
+        return 0
 
     arm = Escalator(
         tasks,
-        repo_root=repo,
+        repo_root=Path(__file__).resolve().parents[2],
         notices=notices,
         dispatcher=fake,
         gate_runner=gate,
         canary_runner=canary_run,
+        oracle=oracle,
+        verdict_runner=verdict_run,
         main_root=repo,
     )
     arm._calls = calls  # type: ignore[attr-defined]
+    arm._verdict_calls = verdict_calls  # type: ignore[attr-defined]
     return arm, notices
 
 
@@ -180,6 +234,21 @@ def test_flag_defaults_off() -> None:
     assert escalation_enabled({}) is False
     assert escalation_enabled({"escalation": {"enabled": False}}) is False
     assert escalation_enabled({"escalation": {"enabled": True}}) is True
+
+
+def test_oracle_flag_defaults_off(tmp_path: Path) -> None:
+    assert (
+        build_escalator(tmp_path / "tasks", tmp_path, None, {"escalation": {"enabled": False}})
+        is None
+    )
+    hook = build_escalator(
+        tmp_path / "tasks",
+        tmp_path,
+        None,
+        {"escalation": {"enabled": True, "oracle": {"enabled": False}}},
+    )
+    assert hook is not None
+    assert hook.escalator.oracle is None  # type: ignore[attr-defined]
 
 
 def test_classify_matches_the_four_triggers_and_skips_a_cancel() -> None:
@@ -215,6 +284,16 @@ def test_security_jobs_use_the_security_kind() -> None:
     )
     assert dispatch_kind({"id": "job-a", "purpose": "detection pack", "steps": []}) == "security"
     assert (
+        dispatch_kind(
+            {
+                "id": "job-a",
+                "purpose": "run task",
+                "steps": [{"id": "scan", "argv": ["tests/security.py"]}],
+            }
+        )
+        == "security"
+    )
+    assert (
         dispatch_kind({"id": "job-a", "purpose": "count rows", "steps": [{"id": "one"}]}) == "code"
     )
 
@@ -237,6 +316,37 @@ def test_brief_carries_the_receipt_and_the_previous_risk(tmp_path: Path) -> None
     assert sum(1 for line in text.splitlines() if line == "x") <= 60
 
 
+def test_brief_contract_override_and_addendum_hash(tmp_path: Path) -> None:
+    raw = {"id": "job-a", "purpose": "exercise tests", "steps": []}
+    kind = _brief_contract_kind(raw, "code")
+    assert kind == "tests"
+    assert _brief_contract_kind({"purpose": "review compliance"}, "security") == "security"
+    contracts = Path(__file__).resolve().parents[2] / "coding_task" / "CONTRACTS"
+    assert all(
+        len(path.read_text(encoding="utf-8").splitlines()) <= 15 for path in contracts.glob("*.md")
+    )
+    path = write_brief(
+        tmp_path,
+        tmp_path,
+        "job-a",
+        1,
+        "step_failure",
+        raw,
+        _receipt("BLOCKED"),
+        "",
+        contract_kind=kind,
+        addendum_text="Never touch a real store.",
+        addendum_sha="abc123",
+    )
+    text = path.read_text(encoding="utf-8")
+    assert (
+        "Commit your repair on this branch (this brief overrides WORKER_CONTRACT §5). Do not push."
+        in text
+    )
+    assert "Worker contract addendum: tests (sha256 abc123)" in text
+    assert "Never touch a real store." in text
+
+
 def test_allowlist_holds_portal_and_merges_wfe() -> None:
     assert decide(LaneChanges(("tests/wfe/test_ok.py",), (), ())).status == "merge"
     assert decide(LaneChanges(("tests/wfe/plans/x.yaml",), (), ())).status == "merge"
@@ -250,13 +360,105 @@ def test_allowlist_holds_portal_and_merges_wfe() -> None:
     assert decide(LaneChanges((), (), ())).status == "empty"
 
 
+def test_decide_marks_weakened_tests_before_gates(tmp_path: Path) -> None:
+    cases = [
+        ("removed-test", "def test_ok():\n    assert True\n", "def helper():\n    pass\n"),
+        ("deleted-file", "def test_ok():\n    assert True\n", None),
+        (
+            "skip-marker",
+            "def test_ok():\n    assert True\n",
+            "@pytest.mark.skip(reason='broken')\ndef test_ok():\n    assert True\n",
+        ),
+        (
+            "weakened-assert",
+            "def test_ok():\n    assert value == 1\n",
+            "def test_ok():\n    assert value\n",
+        ),
+    ]
+    for name, original, replacement in cases:
+        repo = _repo(tmp_path / name)
+        target = repo / "tests/wfe/test_ok.py"
+        target.write_text(original, encoding="utf-8")
+        changed = subprocess.run(
+            ["git", "-C", str(repo), "diff", "--quiet", "--", "tests/wfe/test_ok.py"],
+            check=False,
+        ).returncode
+        if changed:
+            _git(repo, "add", "tests/wfe/test_ok.py")
+            _git(repo, "commit", "-m", "test baseline")
+        base = subprocess.run(
+            ["git", "-C", str(repo), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        lane = tmp_path / f"{name}-lane"
+        _git(repo, "worktree", "add", "-b", f"lane/{name}", str(lane), "HEAD")
+        lane_target = lane / "tests/wfe/test_ok.py"
+        if replacement is None:
+            lane_target.unlink()
+        else:
+            lane_target.write_text(replacement, encoding="utf-8")
+        _git(lane, "add", "-A", "tests/wfe/test_ok.py")
+        _git(lane, "commit", "-m", name)
+        decision = decide(LaneChanges(("tests/wfe/test_ok.py",), (), ()), worktree=lane, base=base)
+        assert decision.status == "weakened", name
+
+    repo = _repo(tmp_path / "stronger")
+    target = repo / "tests/wfe/test_ok.py"
+    target.write_text("def test_ok():\n    assert value > 1\n", encoding="utf-8")
+    _git(repo, "add", "tests/wfe/test_ok.py")
+    _git(repo, "commit", "-m", "test baseline")
+    base = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+    ).stdout.strip()
+    lane = tmp_path / "stronger-lane"
+    _git(repo, "worktree", "add", "-b", "lane/stronger", str(lane), "HEAD")
+    (lane / "tests/wfe/test_ok.py").write_text(
+        "def test_ok():\n    assert value > 2\n", encoding="utf-8"
+    )
+    _git(lane, "add", "tests/wfe/test_ok.py")
+    _git(lane, "commit", "-m", "strengthen")
+    stronger = decide(LaneChanges(("tests/wfe/test_ok.py",), (), ()), worktree=lane, base=base)
+    assert stronger.status == "merge"
+
+
+def test_weakened_lane_skips_gates_and_oracle(tmp_path: Path) -> None:
+    repo = _repo(tmp_path / "main")
+    target = repo / "tests/wfe/test_ok.py"
+    target.write_text("def test_ok():\n    assert value == 1\n", encoding="utf-8")
+    _git(repo, "add", "tests/wfe/test_ok.py")
+    _git(repo, "commit", "-m", "meaningful test")
+    tasks = tmp_path / "tasks"
+    item = _blocked(tasks, repo, _receipt("BLOCKED", steps=[_failed_step()]))
+    lane = tmp_path / "lane"
+    _git(repo, "worktree", "add", "-b", "lane/weakened", str(lane), "HEAD")
+    (lane / "tests/wfe/test_ok.py").write_text(
+        "def test_ok():\n    assert value\n", encoding="utf-8"
+    )
+    _git(lane, "add", "tests/wfe/test_ok.py")
+    _git(lane, "commit", "-m", "weaken test")
+    empty = _lane(repo, LaneChanges((), (), ()))
+    fake = _FakeDispatch(
+        [_lane(lane, LaneChanges(("tests/wfe/test_ok.py",), (), ())), empty, empty]
+    )
+    oracle = _FakeOracle([])
+    arm, _notices = _escalator(tasks, repo, fake, oracle=oracle)
+    outcome = arm.handle(item, QueueRun("BLOCKED", "job-a", tasks / "job-a" / "receipt.json"))
+    second = (repo / _SCRATCH / "escalations" / "job-a-2.md").read_text(encoding="utf-8")
+    assert outcome == "parked"
+    assert arm._calls["gates"] == 0  # type: ignore[attr-defined]
+    assert oracle.calls == []
+    assert "weakened or removed assertion" in second
+
+
 def test_auto_merge_requeues_when_the_canary_passes(tmp_path: Path) -> None:
     repo = _repo(tmp_path / "main")
     tasks = tmp_path / "tasks"
     lane = tmp_path / "lane"
     _git(repo, "worktree", "add", "-b", "lane/esc-job-a-1", str(lane), "HEAD")
     target = lane / "tests" / "wfe" / "test_ok.py"
-    target.write_text("def test_ok():\n    assert 1 == 1\n", encoding="utf-8")
+    target.write_text("def test_ok():\n    assert True and 1 == 1\n", encoding="utf-8")
     _git(lane, "add", "tests/wfe/test_ok.py")
     _git(lane, "commit", "-m", "repair")
     item = _blocked(tasks, repo, _receipt("BLOCKED", steps=[_failed_step()]))
@@ -268,7 +470,18 @@ def test_auto_merge_requeues_when_the_canary_passes(tmp_path: Path) -> None:
     assert outcome == "merged"
     assert fake.calls[0]["tier"] == "auto"
     assert fake.calls[0]["kind"] == "code"
-    assert "assert 1 == 1" in (repo / "tests/wfe/test_ok.py").read_text(encoding="utf-8")
+    assert "assert True and 1 == 1" in (repo / "tests/wfe/test_ok.py").read_text(encoding="utf-8")
+    dispatched = next(
+        event for event in arm.ledger.events("job-a") if event["event"] == "dispatched"
+    )
+    addendum = json.loads(dispatched["detail_json"])
+    assert addendum["addendum_kind"] == "debug"
+    assert len(addendum["addendum_sha256"]) == 64
+    verdict = arm._verdict_calls[0]  # type: ignore[attr-defined]
+    assert verdict[verdict.index("--repo") + 1] == str(repo)
+    assert verdict[verdict.index("--role") + 1] == "esc-job-a-1"
+    assert "--accept" in verdict
+    assert verdict[verdict.index("--note") + 1].startswith("merged:")
     with QueueLedger(tasks) as ledger:
         assert ledger.task("job-a")["state"] == "queued"
     events = [note["event"] for note in notices.escalations]
@@ -293,24 +506,381 @@ def test_canary_failure_does_not_requeue(tmp_path: Path) -> None:
     lane = tmp_path / "lane"
     _git(repo, "worktree", "add", "-b", "lane/fix", str(lane), "HEAD")
     (lane / "tests/wfe/test_ok.py").write_text(
-        "def test_ok():\n    assert 1 == 1\n", encoding="utf-8"
+        "def test_ok():\n    assert True and 1 == 1\n", encoding="utf-8"
     )
     _git(lane, "add", "tests/wfe/test_ok.py")
     _git(lane, "commit", "-m", "try")
     lanes = [_lane(lane, LaneChanges(("tests/wfe/test_ok.py",), (), ())) for _ in range(3)]
     fake = _FakeDispatch(lanes)
     arm, _notices = _escalator(tasks, repo, fake, canary=1)
+    before = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+    ).stdout
     with QueueLedger(tasks) as ledger:
         item = ledger.task("job-a")
     assert item is not None
     outcome = arm.handle(item, QueueRun("BLOCKED", "job-a", tasks / "job-a" / "receipt.json"))
+    after = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+    ).stdout
     assert outcome == "parked"
+    assert before == after
+    assert all(
+        call[call.index("--note") + 1].startswith("canary-failed:")
+        for call in arm._verdict_calls  # type: ignore[attr-defined]
+    )
     with QueueLedger(tasks) as ledger:
         row = ledger.task("job-a")
     assert row is not None
     assert row["state"] == "blocked"
     assert "escalation exhausted: esc-job-a-1, esc-job-a-2, esc-job-a-3" in str(row["last_error"])
     assert [call["tier"] for call in fake.calls] == ["auto", "auto", "escalate"]
+    second = (repo / _SCRATCH / "escalations" / "job-a-2.md").read_text(encoding="utf-8")
+    assert "canary failed in the throwaway merge worktree" in second
+    assert "CANARY demo: SETUP" in second
+
+
+def test_gates_canary_oracle_land_order(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    repo = _repo(tmp_path / "main")
+    tasks = tmp_path / "tasks"
+    item = _blocked(
+        tasks,
+        repo,
+        _receipt(
+            "BLOCKED", reason="canary setup failed", steps=[_failed_step("CANARY demo: SETUP\n")]
+        ),
+    )
+    lane = tmp_path / "lane"
+    _git(repo, "worktree", "add", "-b", "lane/oracle", str(lane), "HEAD")
+    (lane / "tests/wfe/test_ok.py").write_text(
+        "def test_ok():\n    assert True and 1 == 1\n", encoding="utf-8"
+    )
+    _git(lane, "add", "tests/wfe/test_ok.py")
+    _git(lane, "commit", "-m", "repair")
+    events: list[str] = []
+    fake = _FakeDispatch(
+        [_lane(lane, LaneChanges(("tests/wfe/test_ok.py",), (), ()), model="deepseek/v4")]
+    )
+    oracle = _FakeOracle([OracleResult("approve", "approved", "merged")], events)
+    arm, _notices = _escalator(tasks, repo, fake, canary=0, oracle=oracle, events=events)
+    original_decide = escalate_module.decide
+    original_weakening = escalate_module._test_weakening
+    original_land = escalate_module._land
+
+    def ordered_decide(changes: LaneChanges, **kwargs: Any) -> Any:
+        events.append("allowlist")
+        return original_decide(changes, **kwargs)
+
+    def ordered_weakening(worktree: Path, base: str) -> str | None:
+        events.append("weakened")
+        return original_weakening(worktree, base)
+
+    def ordered_land(main: Path, lane_result: LaneResult, message: str) -> str | None:
+        events.append("land")
+        return original_land(main, lane_result, message)
+
+    monkeypatch.setattr(escalate_module, "decide", ordered_decide)
+    monkeypatch.setattr(escalate_module, "_test_weakening", ordered_weakening)
+    monkeypatch.setattr(escalate_module, "_land", ordered_land)
+    outcome = arm.handle(item, QueueRun("BLOCKED", "job-a", tasks / "job-a" / "receipt.json"))
+    assert outcome == "merged"
+    assert events == ["allowlist", "weakened", "gate", "gate", "gate", "canary", "oracle", "land"]
+
+
+def test_oracle_rejection_is_forwarded_to_next_brief(tmp_path: Path) -> None:
+    repo = _repo(tmp_path / "main")
+    tasks = tmp_path / "tasks"
+    item = _blocked(tasks, repo, _receipt("BLOCKED", steps=[_failed_step()]))
+    lane = tmp_path / "lane"
+    _git(repo, "worktree", "add", "-b", "lane/oracle-reject", str(lane), "HEAD")
+    (lane / "tests/wfe/test_ok.py").write_text(
+        "def test_ok():\n    assert True and 1 == 1\n", encoding="utf-8"
+    )
+    _git(lane, "add", "tests/wfe/test_ok.py")
+    _git(lane, "commit", "-m", "repair")
+    changes = LaneChanges(("tests/wfe/test_ok.py",), (), ())
+    empty = _lane(repo, LaneChanges((), (), ()))
+    fake = _FakeDispatch([_lane(lane, changes, model="deepseek/v4"), empty, empty])
+    oracle = _FakeOracle(
+        [OracleResult("reject", "tests/wfe/test_ok.py:1: weakened assertion", "oracle-rejected")]
+    )
+    arm, _notices = _escalator(tasks, repo, fake, oracle=oracle)
+    before = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+    ).stdout
+    outcome = arm.handle(item, QueueRun("BLOCKED", "job-a", tasks / "job-a" / "receipt.json"))
+    after = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+    ).stdout
+    second = (repo / _SCRATCH / "escalations" / "job-a-2.md").read_text(encoding="utf-8")
+    assert outcome == "parked"
+    assert before == after
+    assert "oracle rejected: tests/wfe/test_ok.py:1: weakened assertion" in second
+    assert len(oracle.calls) == 1
+    assert arm._verdict_calls[0][arm._verdict_calls[0].index("--note") + 1].startswith(
+        "oracle-rejected:"
+    )  # type: ignore[attr-defined]
+
+
+def test_process_oracle_routes_review_kind_and_holds_malformed_output(tmp_path: Path) -> None:
+    repo = _repo(tmp_path / "main")
+    lane_path = tmp_path / "lane"
+    _git(repo, "worktree", "add", "-b", "lane/oracle-process", str(lane_path), "HEAD")
+    target = lane_path / "tests/wfe/test_ok.py"
+    target.write_text("def test_ok():\n    assert True and 1 == 1\n", encoding="utf-8")
+    _git(lane_path, "add", "tests/wfe/test_ok.py")
+    _git(lane_path, "commit", "-m", "repair")
+    changes = LaneChanges(("tests/wfe/test_ok.py",), (), ())
+
+    def policy(_binary: Path, _tier: str) -> tuple[str, bool, set[str], set[str]]:
+        return "moonshotai/kimi-k3.1-pro", False, {"review", "security"}, {"security"}
+
+    approved = "## RESULT\n\nAPPROVE\n\n## FINDINGS\n\nNone\n"
+    dispatch = _FakeDispatch([_lane(None, LaneChanges((), (), ()), text=approved)])
+    oracle = ProcessOracle(
+        tmp_path / "tasks",
+        repo_root=repo,
+        tier="kimi",
+        timeout_seconds=10,
+        dispatcher=dispatch,
+        policy_resolver=policy,
+    )
+    candidate = _lane(lane_path, changes, model="deepseek/deepseek-v4-pro")
+    result = oracle.review(job_id="job-a", attempt=1, lane=candidate, base="HEAD~1", kind="code")
+    assert result.verdict == "approve"
+    assert dispatch.calls[0]["kind"] == "review"
+    assert "Defect checklist" in dispatch.calls[0]["brief"].read_text(encoding="utf-8")
+
+    malformed_dispatch = _FakeDispatch(
+        [_lane(None, LaneChanges((), (), ()), text="## RESULT\n\nmaybe\n")]
+    )
+    malformed = ProcessOracle(
+        tmp_path / "tasks",
+        repo_root=repo,
+        tier="kimi",
+        timeout_seconds=10,
+        dispatcher=malformed_dispatch,
+        policy_resolver=policy,
+    ).review(job_id="job-a", attempt=2, lane=candidate, base="HEAD~1", kind="code")
+    assert malformed.verdict == "hold"
+    assert malformed.tag == "contract-miss"
+
+    security_dispatch = _FakeDispatch([_lane(None, LaneChanges((), (), ()), text=approved)])
+    security = ProcessOracle(
+        tmp_path / "tasks",
+        repo_root=repo,
+        tier="kimi",
+        timeout_seconds=10,
+        dispatcher=security_dispatch,
+        policy_resolver=policy,
+    ).review(job_id="job-a", attempt=3, lane=candidate, base="HEAD~1", kind="security")
+    assert security.verdict == "approve"
+    assert security_dispatch.calls[0]["kind"] == "security"
+
+    free_dispatch = _FakeDispatch([])
+
+    def free_policy(_binary: Path, _tier: str) -> tuple[str, bool, set[str], set[str]]:
+        return "moonshotai/kimi-k3.1-pro", True, {"review", "security"}, {"security"}
+
+    free = ProcessOracle(
+        tmp_path / "tasks",
+        repo_root=repo,
+        tier="kimi",
+        timeout_seconds=10,
+        dispatcher=free_dispatch,
+        policy_resolver=free_policy,
+    ).review(job_id="job-a", attempt=4, lane=candidate, base="HEAD~1", kind="security")
+    assert free.verdict == "hold"
+    assert not free_dispatch.calls
+
+    same_family_dispatch = _FakeDispatch([])
+    same_family = ProcessOracle(
+        tmp_path / "tasks",
+        repo_root=repo,
+        tier="deep-pro",
+        timeout_seconds=10,
+        dispatcher=same_family_dispatch,
+        policy_resolver=lambda *_args: ("deepseek/deepseek-v4", False, {"review"}, set()),
+    ).review(job_id="job-a", attempt=5, lane=candidate, base="HEAD~1", kind="code")
+    assert same_family.verdict == "hold"
+    assert not same_family_dispatch.calls
+
+    def by_tier(_binary: Path, tier: str) -> tuple[str, bool, set[str], set[str]]:
+        model = "deepseek/deepseek-v4" if tier == "deep-pro" else "openai/gpt-5.5"
+        return model, False, {"review"}, set()
+
+    fallback_dispatch = _FakeDispatch([_lane(None, LaneChanges((), (), ()), text=approved)])
+    fallback = ProcessOracle(
+        tmp_path / "tasks",
+        repo_root=repo,
+        tier="deep-pro",
+        fallback_tier="sol",
+        timeout_seconds=10,
+        dispatcher=fallback_dispatch,
+        policy_resolver=by_tier,
+    ).review(job_id="job-a", attempt=5, lane=candidate, base="HEAD~1", kind="code")
+    assert fallback.verdict == "approve"
+    assert fallback_dispatch.calls[0]["tier"] == "sol"
+
+    failed = ProcessOracle(
+        tmp_path / "tasks",
+        repo_root=repo,
+        tier="kimi",
+        timeout_seconds=10,
+        dispatcher=_FakeDispatch([]),
+        policy_resolver=policy,
+    ).review(job_id="job-a", attempt=6, lane=candidate, base="HEAD~1", kind="code")
+    assert failed.verdict == "hold"
+    assert failed.tag == "infra"
+
+    timed_out_dispatch = _FakeDispatch(
+        [LaneResult("oracle", "kimi", 124, "", "lane/oracle", None, LaneChanges((), (), ()))]
+    )
+    timed_out = ProcessOracle(
+        tmp_path / "tasks",
+        repo_root=repo,
+        tier="kimi",
+        timeout_seconds=10,
+        dispatcher=timed_out_dispatch,
+        policy_resolver=policy,
+    ).review(job_id="job-a", attempt=7, lane=candidate, base="HEAD~1", kind="code")
+    assert timed_out.verdict == "hold"
+    assert timed_out.tag == "infra"
+
+
+def test_oracle_head_change_holds_and_keeps_main_untouched(tmp_path: Path) -> None:
+    repo = _repo(tmp_path / "main")
+    tasks = tmp_path / "tasks"
+    item = _blocked(tasks, repo, _receipt("BLOCKED", steps=[_failed_step()]))
+    lane = tmp_path / "lane"
+    _git(repo, "worktree", "add", "-b", "lane/oracle-mutation", str(lane), "HEAD")
+    (lane / "tests/wfe/test_ok.py").write_text(
+        "def test_ok():\n    assert True and 1 == 1\n", encoding="utf-8"
+    )
+    _git(lane, "add", "tests/wfe/test_ok.py")
+    _git(lane, "commit", "-m", "repair")
+
+    class _MutatingOracle:
+        def review(self, **_kwargs: Any) -> OracleResult:
+            target = lane / "coding_task" / "review-note.md"
+            target.parent.mkdir(parents=True)
+            target.write_text("changed during review\n", encoding="utf-8")
+            _git(lane, "add", "-f", _SCRATCH + "/review-note.md")
+            _git(lane, "commit", "-m", "review mutation")
+            return OracleResult("approve", "approved", "merged")
+
+    fake = _FakeDispatch([_lane(lane, LaneChanges(("tests/wfe/test_ok.py",), (), ()))])
+    arm, notices = _escalator(tasks, repo, fake, oracle=_MutatingOracle())
+    before = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+    ).stdout
+    outcome = arm.handle(item, QueueRun("BLOCKED", "job-a", tasks / "job-a" / "receipt.json"))
+    after = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+    ).stdout
+    assert outcome == "held"
+    assert before == after
+    assert notices.escalations[-1]["event"] == "held"
+    assert "changed during oracle review" in notices.escalations[-1]["detail"]["detail"]
+
+
+def test_quota_retry_resumes_same_role_without_new(tmp_path: Path) -> None:
+    repo = _repo(tmp_path / "main")
+    tasks = tmp_path / "tasks"
+    item = _blocked(tasks, repo, _receipt("BLOCKED", steps=[_failed_step()]))
+    lane = tmp_path / "lane"
+    _git(repo, "worktree", "add", "-b", "lane/quota", str(lane), "HEAD")
+    (lane / "tests/wfe/test_ok.py").write_text(
+        "def test_ok():\n    assert True and 1 == 1\n", encoding="utf-8"
+    )
+    _git(lane, "add", "tests/wfe/test_ok.py")
+    _git(lane, "commit", "-m", "repair")
+    changes = LaneChanges(("tests/wfe/test_ok.py",), (), ())
+    fake = _FakeDispatch(
+        [
+            _lane(
+                lane,
+                changes,
+                status="quota",
+                retry_until="20000101T000000Z",
+                model="deepseek/v4",
+            ),
+            _lane(lane, changes, status="completed", model="deepseek/v4"),
+        ]
+    )
+    arm, notices = _escalator(tasks, repo, fake)
+    queued = QueueRun("BLOCKED", "job-a", tasks / "job-a" / "receipt.json")
+    assert arm.handle(item, queued) == "quota"
+    quota = next(event for event in arm.ledger.events("job-a") if event["event"] == "quota")
+    detail = json.loads(quota["detail_json"])
+    command = detail["resume_command"]
+    assert "--role esc-job-a-1" in command
+    assert "--new" not in command
+    assert detail["retry_until"] == "20000101T000000Z"
+    assert notices.escalations[-1]["event"] == "quota"
+    assert notices.escalations[-1]["detail"]["resume_command"] == command
+    assert arm.handle(item, queued) == "merged"
+    assert [call["new"] for call in fake.calls] == [True, False]
+    assert [call["role"] for call in fake.calls] == ["esc-job-a-1", "esc-job-a-1"]
+    assert [call["tier"] for call in fake.calls] == ["auto", "auto"]
+
+
+def test_quota_waits_for_retry_time_and_queue_poll_checks_pending_jobs(tmp_path: Path) -> None:
+    repo = _repo(tmp_path / "main")
+    tasks = tmp_path / "tasks"
+    item = _blocked(tasks, repo, _receipt("BLOCKED", steps=[_failed_step()]))
+    lane = tmp_path / "lane"
+    _git(repo, "worktree", "add", "-b", "lane/quota-wait", str(lane), "HEAD")
+    fake = _FakeDispatch(
+        [
+            _lane(
+                lane,
+                LaneChanges((), (), ()),
+                status="quota",
+                retry_until="20990101T000000Z",
+                model="deepseek/v4",
+            )
+        ]
+    )
+    arm, _notices = _escalator(tasks, repo, fake)
+    queued = QueueRun("BLOCKED", "job-a", tasks / "job-a" / "receipt.json")
+    assert arm.handle(item, queued) == "quota"
+    assert arm.resume_pending(item, queued) == "waiting"
+    assert len(fake.calls) == 1
+
+    seen: list[str] = []
+
+    class _ResumeHook:
+        def __call__(self, _item: dict[str, Any], _result: QueueRun) -> None:
+            return None
+
+        def resume_pending(self, pending_item: dict[str, Any], _result: QueueRun) -> str:
+            seen.append(str(pending_item["task_id"]))
+            return "waiting"
+
+    queue = OvernightQueue(
+        tasks,
+        None,
+        QueueGate({}, {}, pid_file=tmp_path / "pids"),
+        repo_root=repo,
+        dispatch_lock_dir=tmp_path / "locks",
+        escalation=_ResumeHook(),
+    )
+    assert queue.run_next().status == "EMPTY"
+    assert seen == ["job-a"]
+
+
+def test_telegram_quota_notice_keeps_full_resume_command(tmp_path: Path) -> None:
+    sink = TelegramNoticeSink(path=tmp_path / "telegram.sqlite3")
+    messages: list[str] = []
+    sink.store.notify = lambda _job, _event, text: messages.append(text)  # type: ignore[method-assign]
+    command = "python3 /tmp/dispatch.py --repo '/tmp/main checkout' run --role esc-job-a-1"
+    sink.escalation(
+        "job-a",
+        "quota",
+        {"retry_until": "20990101T000000Z", "resume_command": command},
+    )
+    assert command in messages[0]
 
 
 def test_portal_diff_is_held(tmp_path: Path) -> None:
@@ -339,6 +909,7 @@ def test_portal_diff_is_held(tmp_path: Path) -> None:
     assert before == after
     assert notices.escalations[-1]["event"] == "held"
     assert "portal/" in notices.escalations[-1]["detail"]["detail"]
+    assert arm._verdict_calls[0][arm._verdict_calls[0].index("--note") + 1].startswith("held-path:")  # type: ignore[attr-defined]
     assert arm._calls["gates"] == 0  # type: ignore[attr-defined]
 
 
