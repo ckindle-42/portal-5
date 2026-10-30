@@ -3186,6 +3186,41 @@ class TestSelectionBiasFixes:
         first_turn_cut = [{"turn": 0, "sent_chars": 15346, "prompt_tokens": 1027}]
         assert "chars sent" in context_overflow(first_turn_cut, None)
 
+    def test_context_overflow_ignores_tool_loop_hop_shrink(self):
+        """A sub-window shrink is the tool loop's last-hop accounting, not truncation.
+
+        Per-turn usage is the pipeline tool loop's LAST hop (it carries that
+        turn's reasoning and tool results; the next turn restarts from the
+        client-visible history, final answer only), so turn 1 reports less
+        than turn 0 whenever turn 0's loop was busier. Measured on
+        realuse_s8_20261030f (tools-specialist::fast, gemma4:e4b-it-qat-ctx8k,
+        window 8192): the engine's own log shows truncated=0 on every request
+        and hop prompts 544 -> 1047 then 581 -> 864; the rows recorded the two
+        last hops (1047, 864) and the old any-shrink rule called truncation."""
+        from tests.wfe.runner import context_overflow
+
+        hop_shrink = [
+            {"turn": 0, "prompt_tokens": 1047, "completion_tokens": 93, "sent_chars": 432},
+            {"turn": 1, "prompt_tokens": 864, "completion_tokens": 50, "sent_chars": 543},
+        ]
+        assert context_overflow(hop_shrink, 8192) is None
+        assert context_overflow(hop_shrink, None) is None
+        bigger = [
+            {"turn": 0, "prompt_tokens": 1418, "completion_tokens": 250, "sent_chars": 407},
+            {"turn": 1, "prompt_tokens": 877, "completion_tokens": 68, "sent_chars": 773},
+        ]
+        assert context_overflow(bigger, 8192) is None
+        # At window pressure a wobble within the collapse band is not a cut:
+        # only a fall to about half the window is the measured post-truncation
+        # level (4099 on an 8192 tag).
+        wobble = [{"turn": 0, "prompt_tokens": 7500}, {"turn": 1, "prompt_tokens": 6800}]
+        assert context_overflow(wobble, 8192) is None
+        collapse = [
+            {"turn": 0, "prompt_tokens": 7500, "completion_tokens": 10},
+            {"turn": 1, "prompt_tokens": 4099, "completion_tokens": 10},
+        ]
+        assert "shrank" in context_overflow(collapse, 8192)
+
     def test_weak_checkers_now_require_the_substance(self):
         from tests.wfe.runner import REPO, load_suite
 
