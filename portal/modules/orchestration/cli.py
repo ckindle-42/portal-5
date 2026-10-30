@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -305,22 +306,26 @@ def queue_run(
     from portal.modules.orchestration.queue import OvernightQueue, QueueGate
 
     root = tasks_dir or _tasks_dir()
+    lock = _acquire_runner_lock(root)
+    if lock is None:
+        typer.echo("queue-run is already active in another process; exiting")
+        return
     try:
         from portal.modules.orchestration.service import load_arm_config
         from portal.modules.orchestration.telegram import TelegramNoticeSink
 
+        sink = TelegramNoticeSink()
         service = _optional_service(root)
         policy = load_arm_config(_arm_config_path()).get("queue", {})
         if not isinstance(policy, dict):
             raise ValueError("orchestration queue config must be a mapping")
         engines = service.engines if service is not None else {}
-        runner = OvernightQueue(
-            root,
-            service,
-            QueueGate(engines, policy),
-            notices=TelegramNoticeSink(),
+        runner = OvernightQueue(root, service, QueueGate(engines, policy), notices=sink)
+        sink.runner_notice(
+            "runner_started", "queue-runner", {"pid": os.getpid(), "poll_seconds": poll_seconds}
         )
         while True:
+            _maybe_send_daily_digest(root, sink)
             result = runner.run_next(override=override)
             if result.status == "EMPTY":
                 if drain:
@@ -336,6 +341,86 @@ def queue_run(
     except Exception as exc:
         typer.echo(f"arm queue-run failed: {exc}", err=True)
         raise typer.Exit(code=1) from exc
+    finally:
+        lock.unlink(missing_ok=True)
+
+
+@orchestration_app.command("queue-digest")
+def queue_digest(
+    tasks_dir: Annotated[Path | None, typer.Option("--tasks-dir")] = None,
+    no_send: Annotated[
+        bool, typer.Option("--no-send", help="Print the digest without queueing it for Telegram.")
+    ] = False,
+) -> None:
+    """Send today's queue digest to Telegram and print it."""
+    _require_enabled()
+    from portal.modules.orchestration.queue import build_queue_digest
+
+    root = tasks_dir or _tasks_dir()
+    try:
+        digest = build_queue_digest(*_digest_inputs(root))
+        if not no_send:
+            from portal.modules.orchestration.telegram import TelegramNoticeSink
+
+            TelegramNoticeSink().digest(digest)
+    except Exception as exc:
+        typer.echo(f"arm queue-digest failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(digest)
+
+
+def _acquire_runner_lock(root: Path) -> Path | None:
+    """Exactly one queue runner: a second copy exits cleanly while a live one holds the lock."""
+    from portal.modules.orchestration.jobs import (
+        _foreign_lock_held,
+        _read_run_lock,
+        _write_run_lock,
+    )
+
+    root.mkdir(parents=True, exist_ok=True)
+    lock = root / "queue-runner.lock"
+    pid, started = _read_run_lock(lock)
+    if _foreign_lock_held(pid, started):
+        return None
+    _write_run_lock(lock)
+    return lock
+
+
+def _maybe_send_daily_digest(root: Path, sink: Any) -> None:
+    from portal.modules.orchestration.queue import build_queue_digest
+
+    state_path = root / "queue-digest.json"
+    today = datetime.now(UTC).strftime("%Y-%m-%d")
+    try:
+        if json.loads(state_path.read_text(encoding="utf-8")).get("last_sent") == today:
+            return
+    except (OSError, ValueError):
+        pass
+    sink.digest(build_queue_digest(*_digest_inputs(root)))
+    state_path.write_text(json.dumps({"last_sent": today}) + "\n", encoding="utf-8")
+
+
+def _digest_inputs(root: Path) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
+    from portal.modules.orchestration.queue import QueueLedger
+
+    with QueueLedger(root) as ledger:
+        items = ledger.items()
+        for item in items:
+            item["waiting_since"] = ledger.waiting_since(str(item["task_id"]))
+    receipts: dict[str, dict[str, Any]] = {}
+    for item in items:
+        payload = _read_receipt(root, str(item["task_id"]))
+        if payload is not None:
+            receipts[str(item["task_id"])] = payload
+    return items, receipts
+
+
+def _read_receipt(root: Path, task_id: str) -> dict[str, Any] | None:
+    try:
+        payload: Any = json.loads((root / task_id / "receipt.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return payload if isinstance(payload, dict) else None
 
 
 @digests_app.command("refresh")
@@ -385,15 +470,20 @@ def queue_cancel(
 ) -> None:
     """Mark a queued task blocked/CANCELLED. Refuses a live runner."""
     _require_enabled()
+    from portal.modules.orchestration.jobs import release_window_claim
     from portal.modules.orchestration.queue import QueueLedger
 
+    released = False
     try:
         with QueueLedger(tasks_dir or _tasks_dir()) as ledger:
             ledger.cancel_task(task_id, reason, force=force)
+        released = release_window_claim(task_id)
     except Exception as exc:
         typer.echo(f"arm queue-cancel failed: {exc}", err=True)
         raise typer.Exit(code=1) from exc
     typer.echo(f"cancelled {task_id}")
+    if released:
+        typer.echo("released the quiet-host window claim")
 
 
 @orchestration_app.command("queue-requeue")

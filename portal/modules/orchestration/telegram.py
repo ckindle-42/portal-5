@@ -2,11 +2,24 @@
 
 from __future__ import annotations
 
+import re
 import time
 from pathlib import Path
 from typing import Any
 
 from portal_channels.telegram.arm_bridge import ArmTelegramStore, default_arm_telegram_path
+
+_CANARY_SETUP = re.compile(r"^CANARY\s+\S+:\s+SETUP\b")
+_CANARY_SETUP_NOTE = (
+    "Canary verdict is SETUP: the harness failed before rows ran — a setup problem, "
+    "not a model verdict. Check the canary campaign's SETUP rows; the job stopped "
+    "before the long step."
+)
+_RUNNER_EVENT_TEXT = {
+    "memory_trip": "Memory safety trip on a job step",
+    "orphan_adopted": "Runner restart: adopted an orphaned job step",
+    "runner_started": "Queue runner started",
+}
 
 
 class TelegramNoticeSink:
@@ -47,11 +60,35 @@ class TelegramNoticeSink:
             f"Job: {_one_line(job_id)}",
             f"Purpose: {_one_line(detail.get('purpose', ''))}",
             f"Steps: {_one_line(detail.get('steps', '?'))}",
-            f"Duration: {float(detail.get('duration_seconds') or 0):.0f}s",
         ]
+        if detail.get("step_id"):
+            lines.append(
+                f"Step: {_one_line(detail['step_id'])} ({_one_line(detail.get('step_state', ''))})"
+            )
+        last_output = str(detail.get("last_output") or "").strip()
+        if last_output:
+            lines.append(f"Last output: {_one_line(last_output)}")
+            if _CANARY_SETUP.match(last_output):
+                lines.append(_CANARY_SETUP_NOTE)
+        if detail.get("report_path"):
+            lines.append(f"Report: {_one_line(detail['report_path'])}")
+        if detail.get("next_queued"):
+            lines.append(f"Next queued: {_one_line(detail['next_queued'])}")
+        lines.append(f"Duration: {float(detail.get('duration_seconds') or 0):.0f}s")
         if reason:
             lines.append(f"Reason: {reason}")
         self.store.notify(job_id, "job", "\n".join(lines))
+
+    def runner_notice(self, event: str, job_id: str, detail: dict[str, Any]) -> None:
+        head = _RUNNER_EVENT_TEXT.get(event, f"Runner event {event}")
+        lines = [head]
+        if job_id and job_id != "queue-runner":
+            lines.append(f"Job: {_one_line(job_id)}")
+        lines.extend(f"{key}: {_one_line(value)}" for key, value in sorted(detail.items()))
+        self.store.notify(job_id or "queue-runner", event, "\n".join(lines))
+
+    def digest(self, text: str) -> None:
+        self.store.notify("queue-digest", "digest", text)
 
 
 def _one_line(value: object) -> str:

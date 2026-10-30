@@ -8,6 +8,7 @@ import os
 import sqlite3
 import subprocess
 import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -1809,3 +1810,349 @@ class TestCanarySteps:
 
         with pytest.raises(ValueError, match="argv"):
             parse_job_spec(raw, repo_root=repo)
+
+
+def _window_claim(tmp_path: Path, job: str, *, dispatch_dir: Path | None = None) -> Path:
+    lock_dir = dispatch_dir or (tmp_path / "orchestrate" / "locks")
+    claim = lock_dir.parent / "state" / "jarvis_local_window.json"
+    claim.parent.mkdir(parents=True, exist_ok=True)
+    claim.write_text(
+        json.dumps({"pid": os.getpid(), "job": job, "since": jobmod._utc_now()}),
+        encoding="utf-8",
+    )
+    return claim
+
+
+def test_queue_cancel_releases_a_window_claim_held_by_a_live_runner(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dispatch_dir = tmp_path / "orchestrate" / "locks"
+    monkeypatch.setattr(jobmod, "DEFAULT_DISPATCH_LOCK_DIR", dispatch_dir)
+    claim = _window_claim(tmp_path, "job-a", dispatch_dir=dispatch_dir)
+    tasks_dir = _enqueue_job(tmp_path)
+
+    result = CliRunner().invoke(
+        orchestration_app, ["queue-cancel", "job-a", "--tasks-dir", str(tasks_dir)]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "released the quiet-host window claim" in result.output
+    assert not claim.exists()
+
+
+def test_queue_cancel_keeps_another_jobs_window_claim(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dispatch_dir = tmp_path / "orchestrate" / "locks"
+    monkeypatch.setattr(jobmod, "DEFAULT_DISPATCH_LOCK_DIR", dispatch_dir)
+    claim = _window_claim(tmp_path, "job-b", dispatch_dir=dispatch_dir)
+    tasks_dir = _enqueue_job(tmp_path)
+
+    result = CliRunner().invoke(
+        orchestration_app, ["queue-cancel", "job-a", "--tasks-dir", str(tasks_dir)]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "released" not in result.output
+    assert claim.exists()
+
+
+def test_an_idle_queue_drops_a_window_claim_whose_job_is_gone(tmp_path: Path, repo: Path) -> None:
+    lock_dir = tmp_path / "dispatch-locks"
+    lock_dir.mkdir()
+    claim = _window_claim(tmp_path, "cancelled-job", dispatch_dir=lock_dir)
+    gate = QueueGate(
+        {}, {"yield_lock_dir": str(tmp_path / "yield")}, pid_file=tmp_path / "memory-pids"
+    )
+    queue = OvernightQueue(
+        tmp_path / "tasks",
+        None,
+        gate,
+        repo_root=repo,
+        job_factory=lambda: _runner(tmp_path, repo),
+        dispatch_lock_dir=lock_dir,
+    )
+
+    result = queue.run_next()
+
+    assert result.status == "EMPTY"
+    assert not claim.exists()
+
+
+def test_a_stale_sweep_keeps_a_waiting_jobs_window_claim(tmp_path: Path, repo: Path) -> None:
+    lock_dir = tmp_path / "dispatch-locks"
+    lock_dir.mkdir()
+    claim = _window_claim(tmp_path, "job-a", dispatch_dir=lock_dir)
+    task_root = tmp_path / "tasks"
+    with QueueLedger(task_root) as ledger:
+        ledger.enqueue_job(_spec(repo, [_python_script(repo, "wait.py", "pass\n")]), repo)
+        ledger.defer("job-a", "dispatch lane lock lane.lock is active (pid 1)")
+    gate = QueueGate(
+        {}, {"yield_lock_dir": str(tmp_path / "yield")}, pid_file=tmp_path / "memory-pids"
+    )
+    queue = OvernightQueue(
+        task_root,
+        None,
+        gate,
+        repo_root=repo,
+        job_factory=lambda: _runner(tmp_path, repo),
+        dispatch_lock_dir=lock_dir,
+    )
+
+    assert queue._release_stale_window_claim() is None
+    assert claim.exists()
+
+    with QueueLedger(task_root) as ledger:
+        ledger.cancel_task("job-a", "cancelled")
+    assert queue._release_stale_window_claim() == "job-a"
+    assert not claim.exists()
+
+
+def test_a_failed_job_notice_names_the_step_its_last_output_and_the_next_job(
+    tmp_path: Path, repo: Path
+) -> None:
+    output = tmp_path / "report.md"
+    report = _python_script(
+        repo,
+        "write_report.py",
+        f"from pathlib import Path\nPath({str(output)!r}).write_text('report')\n",
+    )
+    campaign = _python_script(
+        repo,
+        "campaign.py",
+        "import sys\nprint('CAMPAIGN c1: stopped (canary SETUP) rows 2/5')\nsys.exit(3)\n",
+    )
+    notices = StubNoticeSink()
+    task_root = tmp_path / "tasks"
+    spec = _spec(
+        repo,
+        [campaign],
+        steps=[
+            {
+                "id": "s1-report",
+                "argv": [report],
+                "timeout_seconds": 5,
+                "quiet_host": False,
+                "outputs": [str(output)],
+            },
+            {"id": "campaign", "argv": [campaign], "timeout_seconds": 5},
+        ],
+    )
+    with QueueLedger(task_root) as ledger:
+        ledger.enqueue_job(spec, repo)
+        ledger.enqueue_job(_spec(repo, [campaign], job_id="job-b"), repo)
+
+    result = _runner(tmp_path, repo, notices=notices).run(spec)
+
+    assert result.status == "BLOCKED"
+    detail = notices.job_notices[0]["detail"]
+    assert detail["step_id"] == "campaign"
+    assert detail["step_state"] == "failed"
+    assert detail["last_output"] == "CAMPAIGN c1: stopped (canary SETUP) rows 2/5"
+    assert detail["report_path"] == str(output)
+    assert detail["next_queued"] == "job-b"
+    assert detail["steps"] == "1/2 done"
+
+
+def test_a_canary_setup_stop_is_worded_as_a_harness_failure(tmp_path: Path) -> None:
+    sink = TelegramNoticeSink(path=tmp_path / "telegram.sqlite3")
+
+    sink.job_finished(
+        "wfe-realuse-rest",
+        "BLOCKED",
+        {
+            "purpose": "rest decisions",
+            "reason": "step exited 1",
+            "steps": "0/9 done",
+            "duration_seconds": 42,
+            "step_id": "reruns-canary",
+            "step_state": "failed",
+            "last_output": "CANARY realuse_reruns_20261030_canary: SETUP (1 of 1 row(s)) — reason",
+            "report_path": None,
+            "next_queued": "wfe-realuse-sec",
+        },
+    )
+
+    notices = ArmTelegramStore(tmp_path / "telegram.sqlite3").outbox()
+    message = notices[0].message
+    assert "Step: reruns-canary (failed)" in message
+    assert "Last output: CANARY realuse_reruns_20261030_canary: SETUP" in message
+    assert "not a model verdict" in message
+    assert "Next queued: wfe-realuse-sec" in message
+
+
+def test_a_memory_trip_sends_a_runner_notice(tmp_path: Path, repo: Path) -> None:
+    notices = StubNoticeSink()
+    script = _python_script(repo, "long.py", "import time\ntime.sleep(10)\n")
+    runner = _runner(tmp_path, repo, watcher=_watcher(tmp_path, trip_after=0.1), notices=notices)
+
+    result = runner.run(_spec(repo, [script]))
+
+    assert result.status == "STOPPED"
+    trips = [n for n in notices.runner_notices if n["event"] == "memory_trip"]
+    assert trips and trips[0]["job_id"] == "job-a"
+    assert "MEMORY SAFETY TRIP" in str(trips[0]["detail"]["reason"])
+
+
+def test_an_orphan_adoption_sends_a_runner_notice(tmp_path: Path, repo: Path) -> None:
+    notices = StubNoticeSink()
+    script = _python_script(repo, "ship.py", "pass\n")
+    spec = _spec(repo, [script], steps=[{"id": "ship", "argv": [script], "timeout_seconds": 5}])
+    task_root = tmp_path / "tasks"
+    proc = _sleeper()
+    started = jobmod._ps_field(proc.pid, "lstart")
+    assert started
+    _stop(proc)
+    _write_running_step(task_root, spec, "ship", proc.pid, started)
+
+    result = _runner(tmp_path, repo, notices=notices).run(spec)
+
+    assert result.status == "BLOCKED"
+    adoptions = [n for n in notices.runner_notices if n["event"] == "orphan_adopted"]
+    assert adoptions and adoptions[0]["detail"]["step"] == "ship"
+
+
+def test_the_runner_lock_admits_exactly_one_runner(tmp_path: Path) -> None:
+    root = tmp_path / "tasks"
+    lock = cli_module._acquire_runner_lock(root)
+    assert lock is not None
+    holder = _sleeper()
+    try:
+        started = jobmod._ps_field(holder.pid, "lstart")
+        assert started
+        lock.write_text(
+            json.dumps({"pid": holder.pid, "started": started}) + "\n", encoding="utf-8"
+        )
+        assert cli_module._acquire_runner_lock(root) is None  # a live foreign runner refuses
+
+        _stop(holder)
+        assert cli_module._acquire_runner_lock(root) is not None  # a dead runner's lock is stale
+    finally:
+        if holder.poll() is None:
+            _stop(holder)
+
+
+def test_queue_run_drain_announces_the_runner_and_sends_one_daily_digest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tasks_dir = tmp_path / "tasks"
+    tasks_dir.mkdir()
+    telegram_db = tmp_path / "telegram.sqlite3"
+    monkeypatch.setenv("PORTAL_ARM_TELEGRAM_DB", str(telegram_db))
+    monkeypatch.delenv("PIPELINE_API_KEY", raising=False)
+    monkeypatch.setattr(queue_module, "DEFAULT_DISPATCH_LOCK_DIR", tmp_path / "dispatch-locks")
+
+    def drain() -> Any:
+        return CliRunner().invoke(
+            orchestration_app,
+            ["queue-run", "--drain", "--poll-seconds", "0.1", "--tasks-dir", str(tasks_dir)],
+        )
+
+    first = drain()
+    second = drain()
+
+    assert first.exit_code == 0, first.output
+    assert second.exit_code == 0, second.output
+    kinds = [notice.kind for notice in ArmTelegramStore(telegram_db).outbox()]
+    assert kinds.count("runner_started") == 2  # every restart announces itself
+    assert kinds.count("digest") == 1  # the digest is daily, not per restart
+    state = json.loads((tasks_dir / "queue-digest.json").read_text(encoding="utf-8"))
+    assert state["last_sent"] == datetime.now(UTC).strftime("%Y-%m-%d")
+
+
+def test_queue_digest_prints_and_queues_the_digest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    telegram_db = tmp_path / "telegram.sqlite3"
+    monkeypatch.setenv("PORTAL_ARM_TELEGRAM_DB", str(telegram_db))
+    tasks_dir = tmp_path / "tasks"
+    repo_root = Path(__file__).resolve().parents[2]
+    spec = parse_job_spec(
+        _raw_spec(["uv", "run", "python", "-m", "tests.wfe.campaign", "--status"]),
+        repo_root=repo_root,
+    )
+    done_receipt = {
+        "steps": [
+            {"stdout_tail": "CAMPAIGN c1: complete (all rows judged) rows 5/5", "state": "done"}
+        ]
+    }
+    with QueueLedger(tasks_dir) as ledger:
+        ledger.enqueue_job(spec, Path("."))
+        ledger.defer("job-a", "stack is up; the job requires down")
+        old = (datetime.now(UTC) - timedelta(hours=2)).isoformat()
+        with sqlite3.connect(tasks_dir / "queue.sqlite3") as db:
+            db.execute("UPDATE queue_event SET created_at = ?", (old,))
+    (tasks_dir / "job-a" / "receipt.json").write_text(json.dumps(done_receipt), encoding="utf-8")
+
+    result = CliRunner().invoke(orchestration_app, ["queue-digest", "--tasks-dir", str(tasks_dir)])
+
+    assert result.exit_code == 0, result.output
+    assert "Jobs: 0 done, 0 blocked, 1 queued, 0 running." in result.output
+    assert "Rows measured: 5/5." in result.output
+    assert "CAMPAIGN c1: complete (all rows judged) rows 5/5" in result.output
+    assert "Waiting over an hour:" in result.output
+    assert "job-a (2.0h) — stack is up; the job requires down" in result.output
+    outbox = ArmTelegramStore(telegram_db).outbox()
+    assert [notice.kind for notice in outbox] == ["digest"]
+
+    dry = CliRunner().invoke(
+        orchestration_app, ["queue-digest", "--tasks-dir", str(tasks_dir), "--no-send"]
+    )
+    assert dry.exit_code == 0, dry.output
+    assert len(ArmTelegramStore(telegram_db).outbox()) == 1
+
+
+def test_build_queue_digest_counts_jobs_rows_and_long_waits() -> None:
+    now = datetime(2026, 10, 30, 12, 0, 0, tzinfo=UTC)
+    items = [
+        {"task_id": "done-job", "state": "done", "receipt_status": "PASS"},
+        {
+            "task_id": "blocked-job",
+            "state": "blocked",
+            "receipt_status": "STOPPED",
+            "last_error": "job receipt status is STOPPED: step exited 1",
+        },
+        {
+            "task_id": "waiting-job",
+            "state": "queued",
+            "receipt_status": "WAITING",
+            "last_error": "dispatch lane lock lane.lock is active (pid 9)",
+            "waiting_since": (now - timedelta(hours=2)).isoformat(),
+            "updated_at": (now - timedelta(minutes=1)).isoformat(),
+        },
+        {
+            "task_id": "fresh-job",
+            "state": "queued",
+            "receipt_status": None,
+            "last_error": None,
+            "waiting_since": None,
+            "updated_at": (now - timedelta(minutes=1)).isoformat(),
+        },
+    ]
+    receipts = {
+        "done-job": {
+            "steps": [{"stdout_tail": "hello\nCAMPAIGN c1: complete (all rows judged) rows 3/5\n"}]
+        },
+        "blocked-job": {"steps": [{"stdout_tail": "CAMPAIGN c2: stopped (judge) rows 2/5"}]},
+    }
+
+    text = queue_module.build_queue_digest(items, receipts, now=now)
+
+    assert "Queue digest 2026-10-30 12:00Z." in text
+    assert "Jobs: 1 done, 1 blocked, 2 queued, 0 running." in text
+    assert "blocked blocked-job: job receipt status is STOPPED: step exited 1" in text
+    assert "Rows measured: 5/10." in text
+    assert "done-job: CAMPAIGN c1: complete (all rows judged) rows 3/5" in text
+    assert "blocked-job: CAMPAIGN c2: stopped (judge) rows 2/5" in text
+    assert "waiting-job (2.0h) — dispatch lane lock lane.lock is active (pid 9)" in text
+    assert "fresh-job" not in text
+
+
+def test_an_empty_queue_digest_reports_idle(tmp_path: Path) -> None:
+    tasks_dir = tmp_path / "tasks"
+
+    text = queue_module.build_queue_digest(
+        *cli_module._digest_inputs(tasks_dir), now=datetime.now(UTC)
+    )
+
+    assert "Queue is idle." in text

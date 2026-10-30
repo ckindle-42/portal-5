@@ -46,6 +46,8 @@ class NoticeSink(Protocol):
 
     def job_finished(self, job_id: str, status: str, detail: dict[str, Any]) -> None: ...
 
+    def runner_notice(self, event: str, job_id: str, detail: dict[str, Any]) -> None: ...
+
 
 class StubNoticeSink:
     """Test and offline notice sink; it never sends a message."""
@@ -53,6 +55,8 @@ class StubNoticeSink:
     def __init__(self) -> None:
         self.notices: list[dict[str, Any]] = []
         self.job_notices: list[dict[str, Any]] = []
+        self.runner_notices: list[dict[str, Any]] = []
+        self.digests: list[str] = []
 
     def blocked(self, task_id: str, bite_id: str, failure: dict[str, Any]) -> None:
         self.notices.append({"task_id": task_id, "bite_id": bite_id, "failure": failure})
@@ -69,6 +73,12 @@ class StubNoticeSink:
 
     def job_finished(self, job_id: str, status: str, detail: dict[str, Any]) -> None:
         self.job_notices.append({"job_id": job_id, "status": status, "detail": detail})
+
+    def runner_notice(self, event: str, job_id: str, detail: dict[str, Any]) -> None:
+        self.runner_notices.append({"event": event, "job_id": job_id, "detail": detail})
+
+    def digest(self, text: str) -> None:
+        self.digests.append(text)
 
 
 class ArmService:

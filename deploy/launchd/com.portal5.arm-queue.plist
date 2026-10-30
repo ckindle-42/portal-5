@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.portal5.arm-queue</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-lc</string>
+        <string>cd __PORTAL_ROOT__ &amp;&amp; set -a &amp;&amp; . ./.env 2&gt;/dev/null; set +a; exec uv run portal arm queue-run --poll-seconds 60</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>__PORTAL_ROOT__</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/opt/homebrew/sbin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+    <!-- Unattended queue runner. Exactly one copy may run: a second queue-run
+         exits cleanly while the live runner holds <tasks dir>/queue-runner.lock
+         (the queue BUSY guard covers the in-job window). Install with
+         ./launch.sh install-arm-queue; stop for maintenance with
+         ./launch.sh uninstall-arm-queue. -->
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>60</integer>
+    <key>StandardOutPath</key>
+    <string>__LOG_DIR__/arm-queue.launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>__LOG_DIR__/arm-queue.launchd.log</string>
+</dict>
+</plist>

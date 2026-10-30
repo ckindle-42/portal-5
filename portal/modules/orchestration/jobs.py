@@ -265,6 +265,8 @@ class ExternalGate(Protocol):
 class JobNoticeSink(Protocol):
     def job_finished(self, job_id: str, status: str, detail: dict[str, Any]) -> None: ...
 
+    def runner_notice(self, event: str, job_id: str, detail: dict[str, Any]) -> None: ...
+
 
 def parse_job_spec(raw: Any, *, repo_root: Path) -> JobSpec:
     """Validate a YAML job spec and its argv allowlist."""
@@ -550,7 +552,7 @@ class JobPreconditions:
         self.repo_root = repo_root
         self.gate = gate
         self.dispatch_lock_dir = dispatch_lock_dir
-        self.window_claim = dispatch_lock_dir.parent / "state" / WINDOW_CLAIM_NAME
+        self.window_claim = window_claim_path(dispatch_lock_dir)
         self.stack_probe = stack_probe or _stack_state
         self.memory_probe = memory_probe or _free_memory_gib
         self.disk_probe = disk_probe or _disk_free_gib
@@ -626,11 +628,8 @@ class JobPreconditions:
             pass  # best effort: the job still waits fail-closed on the lane locks
 
     def release_window(self) -> None:
-        try:
-            claim = json.loads(self.window_claim.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            return
-        if isinstance(claim, dict) and _window_claim_is_ours(claim):
+        claim = read_window_claim(self.dispatch_lock_dir)
+        if claim is not None and _window_claim_is_ours(claim):
             self.window_claim.unlink(missing_ok=True)
 
 
@@ -737,6 +736,11 @@ class JobRunner:
             if entry["state"] == "interrupted":
                 return "BLOCKED", str(entry.get("reason") or f"step {step.step_id} was interrupted")
             if entry["state"] == "running":
+                self._runner_notice(
+                    "orphan_adopted",
+                    spec.job_id,
+                    {"step": step.step_id, "attempts": entry.get("attempts", 0)},
+                )
                 status, reason = self._recover_running_step(spec, step, job_dir, state, entry)
                 if status is not None:
                     return status, reason
@@ -762,7 +766,7 @@ class JobRunner:
             entry["started_at"] = _utc_now()
             self._save_state(job_dir, state)
             result = self._execute_step(spec, step, job_dir, entry, backups, deadline)
-            status, reason = self._complete_step(spec, job_dir, state, entry, result)
+            status, reason = self._complete_step(spec, job_dir, state, entry, step.step_id, result)
             if status is not None:
                 return status, reason
         if any(entry["state"] == "failed" for entry in state["steps"].values()):
@@ -819,7 +823,7 @@ class JobRunner:
         entry: dict[str, Any],
     ) -> tuple[str | None, str | None]:
         result = self._adopt_step(spec, step, job_dir, state, entry)
-        return self._complete_step(spec, job_dir, state, entry, result)
+        return self._complete_step(spec, job_dir, state, entry, step.step_id, result)
 
     def _complete_step(
         self,
@@ -827,6 +831,7 @@ class JobRunner:
         job_dir: Path,
         state: dict[str, Any],
         entry: dict[str, Any],
+        step_id: str,
         result: dict[str, Any],
     ) -> tuple[str | None, str | None]:
         entry["history"] = [*entry.get("history", []), result][-5:]
@@ -835,6 +840,12 @@ class JobRunner:
         entry["finished_at"] = result["finished_at"]
         entry["reason"] = result["reason"]
         self._save_state(job_dir, state)
+        if result.get("memory_trip"):
+            self._runner_notice(
+                "memory_trip",
+                spec.job_id,
+                {"step": step_id, "reason": result["memory_trip"].get("reason")},
+            )
         if result["state"] == "interrupted":
             return "BLOCKED", str(result["reason"])
         if result["state"] == "failed" and spec.stop_conditions.on_failure == "continue":
@@ -1331,20 +1342,33 @@ class JobRunner:
     def _notify(self, spec: JobSpec, status: str, reason: str | None, receipt: Path) -> None:
         if self.notices is None or status == "WAITING":
             return
-        completed = 0
-        with suppress(OSError, ValueError, TypeError):
-            payload = json.loads(receipt.read_text(encoding="utf-8"))
-            completed = sum(step["state"] == "done" for step in payload.get("steps", []))
         detail = {
             "purpose": spec.purpose,
             "reason": reason,
-            "steps": f"{completed}/{len(spec.steps)} done",
+            "steps": "?",
             "duration_seconds": _receipt_duration(receipt),
             "receipt": str(receipt),
         }
+        with suppress(OSError, ValueError, TypeError):
+            payload = json.loads(receipt.read_text(encoding="utf-8"))
+            steps = payload.get("steps", [])
+            detail["steps"] = (
+                f"{sum(step['state'] == 'done' for step in steps)}/{len(spec.steps)} done"
+            )
+            detail.update(_step_notice_fields(steps))
+        detail["next_queued"] = _next_queued_task(self.task_root, spec.job_id)
         try:
             self.notices.job_finished(spec.job_id, status, detail)
         except Exception:  # noqa: BLE001 - a notice must never hide the receipt
+            return
+
+    def _runner_notice(self, event: str, job_id: str, detail: dict[str, Any]) -> None:
+        sink = getattr(self.notices, "runner_notice", None)
+        if not callable(sink):
+            return
+        try:
+            sink(event, job_id, detail)
+        except Exception:  # noqa: BLE001 - a notice must never break the run
             return
 
     def _write_spec(self, job_dir: Path, spec: JobSpec) -> None:
@@ -1790,6 +1814,53 @@ def _receipt_duration(receipt: Path) -> float:
         return 0.0
 
 
+def _step_notice_fields(steps: list[dict[str, Any]]) -> dict[str, Any]:
+    """Failing/last step id, its last stdout line, and the path a report step wrote."""
+    focus = next(
+        (step for step in steps if step.get("state") in {"failed", "stopped", "interrupted"}),
+        None,
+    )
+    if focus is None and steps:
+        focus = steps[-1]
+    fields: dict[str, Any] = {}
+    if focus is not None:
+        fields["step_id"] = focus.get("id")
+        fields["step_state"] = focus.get("state")
+        fields["last_output"] = _last_output_line(str(focus.get("stdout_tail") or ""))
+    report = next(
+        (
+            step
+            for step in reversed(steps)
+            if _is_report_step(str(step.get("id") or ""))
+            and step.get("state") == "done"
+            and step.get("outputs")
+        ),
+        None,
+    )
+    if report is not None:
+        fields["report_path"] = report["outputs"][0].get("path")
+    return fields
+
+
+def _is_report_step(step_id: str) -> bool:
+    return step_id == "report" or step_id.endswith("-report")
+
+
+def _last_output_line(tail: str) -> str | None:
+    lines = [line.strip() for line in tail.splitlines() if line.strip()]
+    return lines[-1][:300] if lines else None
+
+
+def _next_queued_task(task_root: Path, finished_id: str) -> str | None:
+    from .queue import QueueLedger
+
+    with QueueLedger(task_root) as ledger:
+        for item in ledger.items():
+            if item["state"] == "queued" and item["task_id"] != finished_id:
+                return str(item["task_id"])
+    return None
+
+
 def _head_sha(repo_root: Path) -> str:
     result = subprocess.run(
         ["git", "rev-parse", "HEAD"],
@@ -1928,6 +1999,27 @@ def _foreign_lock_held(pid: int, started: str | None) -> bool:
         return command is None or "portal arm" in command
     live = _ps_field(pid, "lstart")
     return live is None or live == started
+
+
+def window_claim_path(dispatch_lock_dir: Path | None = None) -> Path:
+    return (dispatch_lock_dir or DEFAULT_DISPATCH_LOCK_DIR).parent / "state" / WINDOW_CLAIM_NAME
+
+
+def read_window_claim(dispatch_lock_dir: Path | None = None) -> dict[str, Any] | None:
+    try:
+        claim = json.loads(window_claim_path(dispatch_lock_dir).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return claim if isinstance(claim, dict) else None
+
+
+def release_window_claim(job_id: str, *, dispatch_lock_dir: Path | None = None) -> bool:
+    """Drop the quiet-host claim when it names this job, even while its pid is alive."""
+    claim = read_window_claim(dispatch_lock_dir)
+    if claim is None or claim.get("job") != job_id:
+        return False
+    window_claim_path(dispatch_lock_dir).unlink(missing_ok=True)
+    return True
 
 
 def _window_claim_is_ours(claim: dict[str, Any]) -> bool:
