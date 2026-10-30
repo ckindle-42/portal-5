@@ -32,6 +32,17 @@ from scripts import lab_delete_cousins  # noqa: E402
 
 INDEX = "labelled_corpus"
 DATA_SUFFIXES = (*legacy.DATA_SUFFIXES, ".csv", ".xml")
+NON_DATA_DIRS = {
+    "doc",
+    "docs",
+    "documentation",
+    "script",
+    "scripts",
+    "notebook",
+    "notebooks",
+    "template",
+    "templates",
+}
 BATCH = 500
 EXPECTED_COMMITS = {
     "attack_data": "4145e8b60fd8a3d44bc2170d1eb343fe7247387b",
@@ -164,6 +175,8 @@ def _tree_files(publisher: str, root: Path) -> Iterator[CorpusFile]:
             continue
         relative = path.relative_to(root)
         if any(part.startswith(".") or part == "_metadata" for part in relative.parts):
+            continue
+        if any(part.casefold() in NON_DATA_DIRS for part in relative.parts[:-1]):
             continue
         if publisher == "invictus_ir":
             test_id = "aws_dataset/stratus_red_team_scenario"
@@ -677,6 +690,8 @@ def _item_bucket(
             "indexed_sourcetypes": Counter(),
             "hosts": Counter(),
             "events": 0,
+            "shipped_events": 0,
+            "excluded_rows": Counter(),
             "unknown_sourcetype": 0,
             "unknown_host": 0,
             "date_fallback": 0,
@@ -708,6 +723,7 @@ class ScanAccumulator:
     unknown_hosts_by_sourcetype: Counter[str] = field(default_factory=Counter)
     date_fallback_by_format: Counter[str] = field(default_factory=Counter)
     by_format: Counter[str] = field(default_factory=Counter)
+    shipped_by_publisher: Counter[str] = field(default_factory=Counter)
     distinct_sources: set[str] = field(default_factory=set)
     distinct_hosts: set[str] = field(default_factory=set)
     pointer_skips: Counter[str] = field(default_factory=Counter)
@@ -766,6 +782,7 @@ class ScanAccumulator:
             "unknown_hosts_by_sourcetype",
             "date_fallback_by_format",
             "by_format",
+            "shipped_by_publisher",
             "pointer_skips",
             "file_counts",
         ):
@@ -785,6 +802,7 @@ class ScanAccumulator:
                     current[key].update(value)
                 elif key in {
                     "events",
+                    "shipped_events",
                     "unknown_sourcetype",
                     "unknown_host",
                     "date_fallback",
@@ -805,6 +823,7 @@ class ScanAccumulator:
                 "unknown_hosts_by_sourcetype",
                 "date_fallback_by_format",
                 "formats",
+                "excluded_rows",
             ):
                 bucket[key] = dict(sorted(bucket[key].items()))
             bucket["data_files"] = [
@@ -818,6 +837,7 @@ class ScanAccumulator:
             "totals": dict(self.totals),
             "tests_by_publisher": dict(sorted(tests_by_publisher.items())),
             "by_publisher": dict(sorted(self.by_publisher.items())),
+            "shipped_by_publisher": dict(sorted(self.shipped_by_publisher.items())),
             "by_sourcetype": dict(sorted(self.by_sourcetype.items())),
             "by_source": dict(sorted(self.by_source.items())),
             "by_host": dict(sorted(self.by_host.items())),
@@ -977,21 +997,28 @@ def scan_inputs(files_by_publisher: Mapping[str, list[CorpusFile]]) -> dict[str,
                 )
                 continue
             file_accumulator.file_counts[publisher] += 1
-            if bucket["missing_time"]:
-                no_year = bool(yearless_events)
+            no_year = bool(yearless_events)
+            shipped_events = 0 if no_year else bucket["events"] - bucket["missing_time"]
+            bucket["shipped_events"] = shipped_events
+            if no_year:
+                bucket["excluded_rows"]["no_year"] = bucket["events"]
+            elif bucket["missing_time"]:
+                bucket["excluded_rows"]["missing_time"] = bucket["missing_time"]
+            file_accumulator.totals["shipped_events"] += shipped_events
+            file_accumulator.totals["excluded_events"] += bucket["events"] - shipped_events
+            file_accumulator.shipped_by_publisher[publisher] += shipped_events
+            if no_year:
                 read_errors.append(
                     _exclude_file(
                         file_accumulator,
                         item,
                         item_id,
-                        "no_year" if no_year else "missing_time",
-                        "timestamp_has_no_year_or_manifest_date"
-                        if no_year
-                        else "event_and_manifest_timestamps_missing",
+                        "no_year",
+                        "timestamp_has_no_year_or_manifest_date",
                         bucket["data_files"],
                     )
                 )
-                file_accumulator.totals["excluded_missing_time"] += bucket["missing_time"]
+            file_accumulator.totals["excluded_missing_time"] += bucket["missing_time"]
             accumulator.merge(file_accumulator)
     return accumulator.output(read_errors)
 
@@ -1140,13 +1167,15 @@ def _write_fidelity(path: Path, report: Mapping[str, Any]) -> None:
         "",
         "## Publisher counts",
         "",
-        "| Publisher | Tests | Files | Events parsed / would ship |",
+        "| Publisher | Tests | Files | Events parsed / shippable |",
         "|---|---:|---:|---:|",
     ]
     for publisher in report["roots"]:
         lines.append(
             f"| {publisher} | {scan['tests_by_publisher'].get(publisher, 0)} | "
-            f"{scan['files_read'].get(publisher, 0)} | {scan['by_publisher'].get(publisher, 0)} |"
+            f"{scan['files_read'].get(publisher, 0)} | "
+            f"{scan['by_publisher'].get(publisher, 0)} / "
+            f"{scan['shipped_by_publisher'].get(publisher, 0)} |"
         )
     lines.extend(["", "## Sourcetype counts", "", "| Sourcetype | Events |", "|---|---:|"])
     lines.extend(f"| {name} | {count} |" for name, count in scan["by_sourcetype"].items())
@@ -1172,6 +1201,7 @@ def _write_fidelity(path: Path, report: Mapping[str, Any]) -> None:
             f"- Unknown host: {share('unknown_host')}.",
             f"- Date-fallback timestamps: {share('date_fallback')}.",
             f"- Missing event and manifest dates: {share('missing_time')}.",
+            f"- Rows shippable after exclusions: {totals.get('shipped_events', 0)}; excluded rows: {totals.get('excluded_events', 0)}.",
             f"- Leak replacements: source {totals.get('source_replacements', 0)}, host {totals.get('host_replacements', 0)}.",
             f"- Sourcetype replacements: {totals.get('sourcetype_replacements', 0)}.",
             f"- Residual leak values after sourcetype replacement: {totals.get('residual_leaks', 0)}.",
@@ -1297,21 +1327,29 @@ def write_report(
 
 
 def _iter_resolved(
-    files: Iterator[CorpusFile], excluded_files: set[tuple[str, str]] | None = None
+    files: Iterator[CorpusFile],
+    excluded_files: set[tuple[str, str]] | None = None,
+    included_files: set[tuple[str, str]] | None = None,
 ) -> Iterator[tuple[str, ResolvedEvent]]:
     for item in files:
-        if excluded_files is not None and _file_key(item) in excluded_files:
+        file_key = _file_key(item)
+        if excluded_files is not None and file_key in excluded_files:
+            continue
+        if included_files is not None and file_key not in included_files:
             continue
         if not item.path.is_file() or legacy.is_lfs_pointer(item.path):
             continue
         item_id = p5_item_id(item.publisher, item.test_id)
         for event in _iter_file_events(item):
-            yield item_id, resolve_event(item, event)
+            resolved = resolve_event(item, event)
+            if resolved.epoch is not None:
+                yield item_id, resolved
 
 
 def ship_inputs(
     files_by_publisher: Mapping[str, list[CorpusFile]],
     excluded_files: set[tuple[str, str]] | None = None,
+    included_files: set[tuple[str, str]] | None = None,
 ) -> dict[str, int]:
     buffers: dict[tuple[str, str, str, str], list[tuple[dict[str, Any] | str, float]]] = (
         defaultdict(list)
@@ -1335,11 +1373,7 @@ def ship_inputs(
         counts[item_id] += len(entries)
 
     for files in files_by_publisher.values():
-        for item_id, resolved in _iter_resolved(iter(files), excluded_files):
-            if resolved.epoch is None:
-                raise RuntimeError(
-                    f"event has neither its own timestamp nor a manifest date: {item_id}"
-                )
+        for item_id, resolved in _iter_resolved(iter(files), excluded_files, included_files):
             key = (item_id, resolved.sourcetype, resolved.source, resolved.host)
             buffers[key].append((resolved.body, resolved.epoch))
             if len(buffers[key]) >= BATCH:
@@ -1349,9 +1383,20 @@ def ship_inputs(
     return dict(counts)
 
 
+def _planned_shipped_events(item: Mapping[str, Any]) -> int:
+    if "shipped_events" in item:
+        return int(item["shipped_events"])
+    events = int(item["events"])
+    missing_time = int(item.get("missing_time", 0))
+    no_year_file = any(row.get("reason") == "no_year" for row in item.get("excluded_files", []))
+    if no_year_file and events != missing_time:
+        raise ValueError("legacy plan cannot verify no_year items without shipped_events")
+    return events - missing_time
+
+
 def verify_plan(items_path: Path) -> dict[str, Any]:
     doc = json.loads(items_path.read_text(encoding="utf-8"))
-    expected = {item_id: int(item["events"]) for item_id, item in doc["items"].items()}
+    expected = {item_id: _planned_shipped_events(item) for item_id, item in doc["items"].items()}
     rows = lab_delete_cousins.export_rows(f"| tstats count where index={INDEX} by p5_item")
     actual = {str(row.get("p5_item", "")): int(row.get("count", 0)) for row in rows}
     mismatches = {
@@ -1361,6 +1406,19 @@ def verify_plan(items_path: Path) -> dict[str, Any]:
     }
     extras = sorted(set(actual) - set(expected))
     return {"ok": not mismatches and not extras, "mismatches": mismatches, "extra_p5_items": extras}
+
+
+def previous_plan_file_sets(items_path: Path) -> tuple[set[tuple[str, str]], set[tuple[str, str]]]:
+    doc = json.loads(items_path.read_text(encoding="utf-8"))
+    all_files: set[tuple[str, str]] = set()
+    excluded_files: set[tuple[str, str]] = set()
+    for item in doc["items"].values():
+        publisher = str(item["publisher"])
+        all_files.update((publisher, str(row["path"])) for row in item.get("data_files", []))
+        excluded_files.update(
+            (publisher, str(row["path"])) for row in item.get("excluded_files", [])
+        )
+    return excluded_files, all_files - excluded_files
 
 
 def latest_items_path(output_root: Path) -> Path:
@@ -1399,6 +1457,20 @@ def _manifest_records(corpora_root: Path) -> dict[str, dict[str, Any]]:
     }
 
 
+def _validate_ship_args(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
+    if args.only_previously_excluded and (not args.ship or args.items is None):
+        parser.error("--only-previously-excluded requires --ship and --items")
+
+
+def _ship_file_filter(args: argparse.Namespace) -> set[tuple[str, str]] | None:
+    if not args.only_previously_excluded:
+        return None
+    excluded_files, shipped_files = previous_plan_file_sets(args.items)
+    if excluded_files & shipped_files:
+        raise ValueError("prior plan file sets overlap")
+    return excluded_files
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group(required=True)
@@ -1430,9 +1502,15 @@ def main() -> int:
         help="dry-run items.json; omit to use the latest report under --output-root",
     )
     parser.add_argument(
+        "--only-previously-excluded",
+        action="store_true",
+        help="with --ship, send only files excluded by the plan in --items",
+    )
+    parser.add_argument(
         "--lab-census", action="store_true", help="include read-only portal5_lab cousin counts"
     )
     args = parser.parse_args()
+    _validate_ship_args(args, parser)
     if args.verify:
         return _run_verify(args.items, args.output_root, parser)
 
@@ -1475,6 +1553,8 @@ def main() -> int:
         json.dumps(
             {
                 "events": scan["totals"].get("events", 0),
+                "shipped_events": scan["totals"].get("shipped_events", 0),
+                "excluded_events": scan["totals"].get("excluded_events", 0),
                 "missing_roots": list(missing_roots),
                 "unknown_hosts_by_sourcetype": scan["unknown_hosts_by_sourcetype"],
                 "date_fallback_by_format": scan["date_fallback_by_format"],
@@ -1497,7 +1577,8 @@ def main() -> int:
             print("[BLOCKED] event census did not reconcile", file=sys.stderr)
             return 2
         excluded_files = {(str(row["publisher"]), str(row["path"])) for row in scan["read_errors"]}
-        shipped = ship_inputs(files_by_publisher, excluded_files)
+        included_files = _ship_file_filter(args)
+        shipped = ship_inputs(files_by_publisher, excluded_files, included_files)
         print(json.dumps({"mode": "SHIPPED", "counts_by_p5_item": shipped}, sort_keys=True))
         return 0
     return 2 if ship_blocked else 0
