@@ -300,6 +300,35 @@ class EscalationLedger:
         return [dict(row) for row in rows]
 
 
+def held_escalations(tasks_dir: Path) -> list[dict[str, Any]]:
+    """Jobs whose latest held/merged/kept/parked decision is still held."""
+    import sqlite3
+
+    ledger = EscalationLedger(tasks_dir)
+    if not ledger.path.is_file():
+        return []
+    with sqlite3.connect(ledger.path, timeout=30) as db:
+        db.row_factory = sqlite3.Row
+        rows = db.execute(
+            "SELECT job_id, attempt, lane_id, event, detail_json, created_at "
+            "FROM escalation ORDER BY id"
+        ).fetchall()
+    latest: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        event = str(row["event"])
+        if event in {"held", "merged", "kept", "parked"}:
+            latest[str(row["job_id"])] = {
+                "state": event,
+                "attempt": int(row["attempt"]),
+                "lane_id": str(row["lane_id"]),
+                "detail": str(row["detail_json"]),
+                "created_at": str(row["created_at"]),
+            }
+    return [
+        {"job_id": job_id, **entry} for job_id, entry in latest.items() if entry["state"] == "held"
+    ]
+
+
 class ProcessDispatcher:
     """Run dispatch.py and poll its process until it exits or the bound hits."""
 
@@ -937,6 +966,107 @@ class Escalator:
             self._note(job_id, "result", {"reason": str(exc)})
             return False
         return True
+
+    def held_lane(self, job_id: str) -> tuple[LaneResult, int] | None:
+        """A held escalation's lane and attempt, reconstructed from ledger and worktree."""
+        held = [e for e in self.ledger.events(job_id) if e["event"] == "held"]
+        if not held:
+            return None
+        last = held[-1]
+        role = str(last["lane_id"])
+        worktree = _lane_worktree(self.main, role)
+        if not (worktree / ".git").exists():
+            return None
+        lane = LaneResult(
+            role,
+            "held",
+            0,
+            str(last.get("detail_json", "")),
+            f"lane/{_safe(role)}",
+            worktree,
+            inspect_changes(worktree, self.main),
+        )
+        return lane, int(last["attempt"])
+
+    def merge_held(self, job_id: str) -> str:
+        """Operator merge of a held lane through the same gates and rules as auto-merge."""
+        found = self.held_lane(job_id)
+        if found is None:
+            return f"refused: no held lane worktree for {job_id}"
+        lane, attempt = found
+        if lane.worktree is None:
+            return f"refused: no held lane worktree for {job_id}"
+        base = git_run(self.main, ["rev-parse", "HEAD"]).stdout.strip()
+        # Same checks as auto-merge: allowlist, test weakening, then (in _merge_lane) gates,
+        # canary in the throwaway worktree, and the oracle when it is enabled.
+        decision = decide(lane.changes, worktree=lane.worktree, base=base)
+        if decision.status != "merge":
+            return f"refused: {decision.detail}"
+        item = self._queue_item(job_id)
+        if item is None:
+            return f"refused: no queue task {job_id}; cannot requeue after a merge"
+        source = Path(str(item.get("source_dir") or self.repo_root))
+        raw = json.loads(str(item["plan_json"]))
+        if not isinstance(raw, dict):
+            return f"refused: queue task {job_id} has no usable spec"
+        spec = parse_job_spec(raw, repo_root=source if source.is_dir() else self.repo_root)
+        merged = self._merge_lane(job_id, attempt, lane, spec, source, dispatch_kind(raw))
+        if merged.status != "merged":
+            detail = (
+                f"refused: {merged.detail}"
+                if merged.status == "hold"
+                else f"failed: {merged.detail}"
+            )
+            return detail
+        if not self._restore(job_id, raw, source, lane):
+            return "failed: post-merge restore failed"
+        if not self._requeue(job_id, raw, source):
+            return "failed: post-merge requeue failed"
+        receipt = self.tasks_dir / job_id / "receipt.json"
+        self._close(
+            job_id,
+            attempt,
+            lane.lane_id,
+            "merged",
+            receipt if receipt.is_file() else None,
+            lane,
+            merged.detail,
+        )
+        return f"merged {lane.branch} into main ({merged.detail}); job requeued"
+
+    def keep_held(self, job_id: str) -> str:
+        """Record an operator decision to leave a held escalation unmerged."""
+        held = [e for e in self.ledger.events(job_id) if e["event"] == "held"]
+        if not held:
+            return f"refused: no held escalation for {job_id}"
+        last = held[-1]
+        self.ledger.add(
+            job_id, int(last["attempt"]), str(last["lane_id"]), "kept", {"source": "telegram"}
+        )
+        return f"kept {job_id} held (lane {last['lane_id']})"
+
+    def held_diffstat(self, job_id: str, cap: int = 15) -> str:
+        """Diffstat-only view of a held lane's committed diff, line-capped."""
+        found = self.held_lane(job_id)
+        if found is None:
+            return f"no held lane worktree for {job_id}"
+        lane, _attempt = found
+        if lane.worktree is None:
+            return f"no held lane worktree for {job_id}"
+        base = git_run(self.main, ["rev-parse", "HEAD"]).stdout.strip()
+        stat = _diff_names(lane.worktree, ["diff", "--stat", f"{base}...HEAD"])
+        names = lane.changes.paths()
+        lines = [line for line in stat if line.strip()][:cap]
+        if len(stat) > cap:
+            lines.append(f"... {len(stat) - cap} more stat lines")
+        if not lines:
+            lines.append("(no committed diff against main)")
+        lines.append("Files: " + (", ".join(names[:20]) or "(none)"))
+        return "\n".join(lines)
+
+    def _queue_item(self, job_id: str) -> dict[str, Any] | None:
+        with QueueLedger(self.tasks_dir) as ledger:
+            return ledger.task(job_id)
 
     def _park(self, job_id: str, lanes: list[str], receipt: Path | None) -> None:
         reason = "escalation exhausted: " + ", ".join(lanes)

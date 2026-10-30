@@ -23,6 +23,7 @@ from telegram.ext import (
 )
 
 from portal_channels.dispatcher import VALID_WORKSPACES, is_valid_workspace
+from portal_channels.telegram import jarvis_control
 from portal_channels.telegram.arm_bridge import (
     ArmTelegramStore,
     default_arm_telegram_path,
@@ -86,7 +87,13 @@ async def _arm_outbox(application: Application) -> None:
         if not _orchestration_enabled():
             return
         try:
-            await send_outbox_once(store, application.bot, _allowed_users(), _arm_keyboard)
+            await send_outbox_once(
+                store,
+                application.bot,
+                _allowed_users(),
+                _arm_keyboard,
+                control_keyboard=lambda task_id: jarvis_control.notice_keyboard(store, task_id),
+            )
         except Exception as exc:
             logger.error("Orchestration Telegram outbox failed: %s", exc)
         await asyncio.sleep(2)
@@ -273,8 +280,10 @@ def build_app() -> Application:
     app.add_handler(CommandHandler("clear", clear))
     app.add_handler(CommandHandler("workspace", set_workspace))
     app.add_handler(CommandHandler("workspaces", list_workspaces))
+    app.add_handler(CommandHandler("jarvis", jarvis_control.handle_jarvis))
     if arm_enabled:
         app.add_handler(CallbackQueryHandler(handle_arm_gate_callback, pattern=r"^arm:"))
+        app.add_handler(CallbackQueryHandler(jarvis_control.handle_callback, pattern=r"^jv:"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     return app
 

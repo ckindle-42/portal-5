@@ -67,6 +67,8 @@ queue:
       - deep-pro
       security_tier: daybreak
       timeout_seconds: 1800
+  telegram_control:
+    enabled: false
 disciplines:
   test_fixing:
     selection_reason: Existing coding WFE work already uses hidden pytest tests as

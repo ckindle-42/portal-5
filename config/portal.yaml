@@ -101,6 +101,10 @@ orchestration_arm:
         tiers: [sol, grok-max, flagship, oc-deep-flash, oc-glm-flash, deep-pro]
         security_tier: daybreak
         timeout_seconds: 1800
+    # Telegram /jarvis control plane (default off): bot queues control_requests
+    # rows, the host runner executes them. Off = /jarvis answers "not enabled".
+    telegram_control:
+      enabled: false
   disciplines:
     test_fixing:
       selection_reason: Existing coding WFE work already uses hidden pytest tests as hard graders for repair tasks, so this candidate can measure correctness without model review.
