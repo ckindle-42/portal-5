@@ -13,7 +13,14 @@ from pathlib import Path
 from typing import Any
 
 from .contracts import Bite, TaskPlan, plan_json
-from .jobs import JobNoticeSink, JobRunner, JobSpec, job_json, parse_job_spec
+from .jobs import (
+    JobNoticeSink,
+    JobRunner,
+    JobSpec,
+    _ps_process_details,
+    job_json,
+    parse_job_spec,
+)
 from .service import ArmService
 from .worker import Engine, PipelineError
 
@@ -110,6 +117,7 @@ class QueueLedger:
                 source_dir TEXT NOT NULL,
                 state TEXT NOT NULL,
                 runner_pid INTEGER,
+                runner_started TEXT,
                 receipt_status TEXT,
                 last_error TEXT,
                 created_at TEXT NOT NULL,
@@ -131,6 +139,8 @@ class QueueLedger:
         columns = {str(row[1]) for row in self.db.execute("PRAGMA table_info(queue_task)")}
         if "kind" not in columns:
             self.db.execute("ALTER TABLE queue_task ADD COLUMN kind TEXT NOT NULL DEFAULT 'plan'")
+        if "runner_started" not in columns:
+            self.db.execute("ALTER TABLE queue_task ADD COLUMN runner_started TEXT")
 
     def __enter__(self) -> QueueLedger:
         return self
@@ -186,7 +196,7 @@ class QueueLedger:
         active = self.db.execute(
             "SELECT * FROM queue_task WHERE state = 'running' ORDER BY id LIMIT 1"
         ).fetchone()
-        if active is not None and _pid_alive(active["runner_pid"]):
+        if active is not None and _runner_alive(active["runner_pid"], active["runner_started"]):
             self.db.commit()
             return None, True
         row = (
@@ -199,10 +209,13 @@ class QueueLedger:
             self.db.commit()
             return None, False
         task_id = str(row["task_id"])
+        identity = _ps_process_details(os.getpid())
+        runner_started = identity[0] if identity else None
         self.db.execute(
-            "UPDATE queue_task SET state = 'running', runner_pid = ?, updated_at = ? "
+            "UPDATE queue_task SET state = 'running', runner_pid = ?, runner_started = ?, "
+            "updated_at = ? "
             "WHERE task_id = ?",
-            (os.getpid(), _now(), task_id),
+            (os.getpid(), runner_started, _now(), task_id),
         )
         self._event(task_id, "running", {"resume": row["state"] == "running"})
         claimed = self.db.execute(
@@ -227,17 +240,18 @@ class QueueLedger:
 
     def active_other(self, task_id: str) -> str | None:
         row = self.db.execute(
-            "SELECT task_id, runner_pid FROM queue_task "
+            "SELECT task_id, runner_pid, runner_started FROM queue_task "
             "WHERE state = 'running' AND task_id != ? ORDER BY id LIMIT 1",
             (task_id,),
         ).fetchone()
-        if row is None or not _pid_alive(row["runner_pid"]):
+        if row is None or not _runner_alive(row["runner_pid"], row["runner_started"]):
             return None
         return f"queue task {row['task_id']} is running (pid {row['runner_pid']})"
 
     def requeue(self, task_id: str) -> None:
         self.db.execute(
-            "UPDATE queue_task SET state = 'queued', runner_pid = NULL, receipt_status = NULL, "
+            "UPDATE queue_task SET state = 'queued', runner_pid = NULL, runner_started = NULL, "
+            "receipt_status = NULL, "
             "last_error = NULL, updated_at = ? WHERE task_id = ?",
             (_now(), task_id),
         )
@@ -268,6 +282,7 @@ class QueueLedger:
             now = _now()
             self.db.execute(
                 "UPDATE queue_task SET state = 'queued', plan_json = ?, runner_pid = NULL, "
+                "runner_started = NULL, "
                 "receipt_status = NULL, last_error = NULL, updated_at = ? WHERE task_id = ?",
                 (plan, now, task_id),
             )
@@ -279,11 +294,14 @@ class QueueLedger:
 
     def _assert_cancellable(self, task_id: str, *, force: bool) -> None:
         row = self.db.execute(
-            "SELECT state, runner_pid FROM queue_task WHERE task_id = ?", (task_id,)
+            "SELECT state, runner_pid, runner_started FROM queue_task WHERE task_id = ?",
+            (task_id,),
         ).fetchone()
         if row is None:
             raise ValueError(f"no queue task: {task_id}")
-        _require_cancellable(task_id, str(row["state"]), row["runner_pid"], force=force)
+        _require_cancellable(
+            task_id, str(row["state"]), row["runner_pid"], row["runner_started"], force=force
+        )
 
     def _assert_requeue_job(self, task_id: str) -> None:
         row = self.db.execute(
@@ -320,7 +338,8 @@ class QueueLedger:
 
     def _set_state_in_txn(self, task_id: str, state: str, receipt_status: str, reason: str) -> None:
         self.db.execute(
-            "UPDATE queue_task SET state = ?, runner_pid = NULL, receipt_status = ?, "
+            "UPDATE queue_task SET state = ?, runner_pid = NULL, runner_started = NULL, "
+            "receipt_status = ?, "
             "last_error = ?, updated_at = ? WHERE task_id = ?",
             (state, receipt_status, reason, _now(), task_id),
         )
@@ -335,7 +354,8 @@ class QueueLedger:
 
     def _set_state(self, task_id: str, state: str, receipt_status: str, reason: str | None) -> None:
         self.db.execute(
-            "UPDATE queue_task SET state = ?, runner_pid = NULL, receipt_status = ?, "
+            "UPDATE queue_task SET state = ?, runner_pid = NULL, runner_started = NULL, "
+            "receipt_status = ?, "
             "last_error = ?, updated_at = ? WHERE task_id = ?",
             (state, receipt_status, reason, _now(), task_id),
         )
@@ -473,15 +493,26 @@ class OvernightQueue:
         path.write_text(json.dumps(receipt, indent=1) + "\n", encoding="utf-8")
 
 
-def _require_cancellable(task_id: str, state: str, runner_pid: Any, *, force: bool) -> None:
+def _require_cancellable(
+    task_id: str, state: str, runner_pid: Any, runner_started: Any, *, force: bool
+) -> None:
     if state == "queued":
         return
     if state != "running":
         raise ValueError(f"queue task {task_id} is {state}; only a queued task can be cancelled")
     if not force:
         raise ValueError(f"queue task {task_id} is running; pass --force when its runner is dead")
-    if _pid_alive(runner_pid):
+    if _runner_alive(runner_pid, runner_started):
         raise ValueError(f"queue task {task_id} runner is still alive (pid {runner_pid})")
+
+
+def _runner_alive(pid: Any, started: Any) -> bool:
+    if not _pid_alive(pid):
+        return False
+    if not isinstance(started, str) or not started.strip():
+        return True
+    details = _ps_process_details(pid)
+    return details is None or (details[0] == started and not details[1].startswith("Z"))
 
 
 def _live_pids(path: Path) -> tuple[list[int], str | None]:

@@ -66,6 +66,7 @@ _STEP_SCHEMA: dict[str, Any] = {
         },
         "timeout_seconds": {"type": "number", "exclusiveMinimum": 0},
         "quiet_host": {"type": "boolean"},
+        "idempotent": {"type": "boolean"},
         "outputs": {"type": "array", "items": {"type": "string", "minLength": 1}},
         "checkpoints": {"type": "array", "items": {"type": "string", "minLength": 1}},
         "env_from_dotenv": {
@@ -154,6 +155,7 @@ class JobStep:
     checkpoints: tuple[str, ...] = ()
     quiet_host: bool = True
     env_from_dotenv: tuple[str, ...] = ()
+    idempotent: bool = True
 
 
 @dataclass(frozen=True)
@@ -197,6 +199,7 @@ class JobSpec:
                     "checkpoints": list(step.checkpoints),
                     # Omitted when true so specs written before the flag stay byte-stable.
                     **({"quiet_host": False} if not step.quiet_host else {}),
+                    **({"idempotent": False} if not step.idempotent else {}),
                     **(
                         {"env_from_dotenv": list(step.env_from_dotenv)}
                         if step.env_from_dotenv
@@ -323,6 +326,7 @@ def _parse_step(raw: dict[str, Any], repo_root: Path) -> JobStep:
         checkpoints=checkpoints,
         quiet_host=bool(raw.get("quiet_host", True)),
         env_from_dotenv=env_from_dotenv,
+        idempotent=bool(raw.get("idempotent", True)),
     )
 
 
@@ -593,6 +597,7 @@ class JobRunner:
         self.repo_root = repo_root
         self.notices = notices
         self.poll_seconds = poll_seconds
+        self._interrupt_during_adoption = False
         self.memory_watch_script = memory_watch_script or repo_root / "scripts" / (
             "memory_safety_watch.py"
         )
@@ -605,9 +610,14 @@ class JobRunner:
             disk_probe=disk_probe,
         )
 
-    def run(self, spec: JobSpec, *, rerun: str | None = None) -> JobRun:
+    def run(self, spec: JobSpec, *, rerun: str | None = None, force: bool = False) -> JobRun:
+        self._interrupt_during_adoption = False
         if rerun is not None and rerun not in {step.step_id for step in spec.steps}:
             raise ValueError(f"unknown step for --rerun: {rerun}")
+        if rerun is not None:
+            selected = next(step for step in spec.steps if step.step_id == rerun)
+            if not selected.idempotent and not force:
+                raise ValueError(f"step {rerun} is non-idempotent; pass --force to rerun it")
         if not self.memory_watch_script.is_file():
             raise ValueError(f"memory safety watcher is missing: {self.memory_watch_script}")
         job_dir = self.task_root / spec.job_id
@@ -637,10 +647,11 @@ class JobRunner:
             return JobRun(status, spec.job_id, receipt, reason)
         except KeyboardInterrupt:
             state = self._load_state(job_dir, spec)
-            for entry in state["steps"].values():
-                if entry["state"] == "running":
-                    entry["state"] = "pending"
-                    entry["reason"] = "interrupted"
+            if not self._interrupt_during_adoption:
+                for entry in state["steps"].values():
+                    if entry["state"] == "running":
+                        entry["state"] = "pending"
+                        entry["reason"] = "interrupted"
             self._save_state(job_dir, state)
             receipt = self._write_receipt(spec, job_dir, state, "WAITING", "interrupted")
             self._notify(spec, "WAITING", "interrupted", receipt)
@@ -660,6 +671,13 @@ class JobRunner:
         for step in spec.steps:
             entry = state["steps"][step.step_id]
             if entry["state"] == "done":
+                continue
+            if entry["state"] == "interrupted":
+                return "BLOCKED", str(entry.get("reason") or f"step {step.step_id} was interrupted")
+            if entry["state"] == "running":
+                status, reason = self._recover_running_step(spec, step, job_dir, state, entry)
+                if status is not None:
+                    return status, reason
                 continue
             preconditions = self.preconditions.check(spec, quiet_host=step.quiet_host)
             state["last_preconditions"] = preconditions.snapshot
@@ -683,19 +701,167 @@ class JobRunner:
             entry["started_at"] = _utc_now()
             self._save_state(job_dir, state)
             result = self._execute_step(spec, step, job_dir, entry, backups, deadline)
-            entry["history"] = [*entry.get("history", []), result][-5:]
-            entry["state"] = result["state"]
-            entry["exit_code"] = result["exit_code"]
-            entry["finished_at"] = result["finished_at"]
-            self._save_state(job_dir, state)
-            if result["state"] == "failed" and spec.stop_conditions.on_failure == "continue":
-                continue
-            if result["state"] in {"failed", "stopped"}:
-                status = "STOPPED" if result["state"] == "stopped" else "BLOCKED"
-                return status, str(result["reason"])
+            status, reason = self._complete_step(spec, job_dir, state, entry, result)
+            if status is not None:
+                return status, reason
         if any(entry["state"] == "failed" for entry in state["steps"].values()):
             return "BLOCKED", "one or more steps failed"
         return "PASS", None
+
+    def _recover_running_step(
+        self,
+        spec: JobSpec,
+        step: JobStep,
+        job_dir: Path,
+        state: dict[str, Any],
+        entry: dict[str, Any],
+    ) -> tuple[str | None, str | None]:
+        result = self._adopt_step(spec, step, job_dir, state, entry)
+        return self._complete_step(spec, job_dir, state, entry, result)
+
+    def _complete_step(
+        self,
+        spec: JobSpec,
+        job_dir: Path,
+        state: dict[str, Any],
+        entry: dict[str, Any],
+        result: dict[str, Any],
+    ) -> tuple[str | None, str | None]:
+        entry["history"] = [*entry.get("history", []), result][-5:]
+        entry["state"] = result["state"]
+        entry["exit_code"] = result["exit_code"]
+        entry["finished_at"] = result["finished_at"]
+        entry["reason"] = result["reason"]
+        self._save_state(job_dir, state)
+        if result["state"] == "interrupted":
+            return "BLOCKED", str(result["reason"])
+        if result["state"] == "failed" and spec.stop_conditions.on_failure == "continue":
+            return None, None
+        if result["state"] in {"failed", "stopped"}:
+            status = "STOPPED" if result["state"] == "stopped" else "BLOCKED"
+            return status, str(result["reason"])
+        return None, None
+
+    def _adopt_step(
+        self,
+        spec: JobSpec,
+        step: JobStep,
+        job_dir: Path,
+        state: dict[str, Any],
+        entry: dict[str, Any],
+    ) -> dict[str, Any]:
+        logs = job_dir / "logs"
+        attempt = int(entry.get("attempts", 0))
+        pid_file = logs / f"{step.step_id}.{attempt:02d}.pid"
+        started_wall = str(entry.get("started_at") or _utc_now())
+        pid, started_identity = _read_step_identity(pid_file)
+        backups = self._adopted_checkpoints(spec, step, state)
+        if not isinstance(started_identity, str) or not _process_matches(pid, started_identity):
+            started = _utc_timestamp(started_wall)
+            return self._step_result(
+                step,
+                started_wall,
+                time.monotonic() - max(0.0, time.time() - started),
+                backups,
+                "interrupted",
+                None,
+                0,
+                logs / f"{step.step_id}.{attempt:02d}.stdout.log",
+                logs / f"{step.step_id}.{attempt:02d}.stderr.log",
+                "step child is not alive with its recorded PID and start time",
+                None,
+                False,
+            )
+        stdout_path = logs / f"{step.step_id}.{attempt:02d}.stdout.log"
+        stderr_path = logs / f"{step.step_id}.{attempt:02d}.stderr.log"
+        watch_log = logs / f"{step.step_id}.{attempt:02d}.watch.log"
+        exit_code, timed_out, peak = self._wait_for_adopted_step(
+            pid, started_identity, step, started_wall
+        )
+        memory_trip = _memory_trip_after_exit(None, watch_log, 0)
+        marker = _marker_hit(spec.stop_conditions.output_markers, stdout_path, stderr_path)
+        signal = _StepSignal(memory_trip=memory_trip, marker=marker, peak=peak, timed_out=timed_out)
+        result_state, reason = _step_outcome(spec, step, signal, exit_code)
+        if exit_code is None and result_state == "failed" and not timed_out:
+            result_state, reason = "done", "exit unknown"
+        started = _utc_timestamp(started_wall)
+        result = self._step_result(
+            step,
+            started_wall,
+            time.monotonic() - max(0.0, time.time() - started),
+            backups,
+            result_state,
+            exit_code,
+            peak,
+            stdout_path,
+            stderr_path,
+            reason,
+            memory_trip,
+            timed_out,
+        )
+        return self._redact_adopted_result(result, step)
+
+    def _adopted_checkpoints(
+        self, spec: JobSpec, step: JobStep, state: dict[str, Any]
+    ) -> list[dict[str, Any]]:
+        checkpoints = state.get("checkpoint_index", {})
+        paths = _dedupe_strings((*spec.checkpoints, *step.checkpoints))
+        return [
+            dict(checkpoints[str(resolve_job_path(path, self.repo_root))])
+            for path in paths
+            if str(resolve_job_path(path, self.repo_root)) in checkpoints
+        ]
+
+    def _wait_for_adopted_step(
+        self, pid: int, started_identity: str, step: JobStep, started_wall: str
+    ) -> tuple[int | None, bool, int]:
+        deadline = _utc_timestamp(started_wall) + step.timeout_seconds + 1
+        peak = 0
+        timed_out = False
+        try:
+            while _process_matches(pid, started_identity):
+                if time.time() >= deadline:
+                    timed_out = True
+                    self._terminate_adopted_step(pid, started_identity)
+                    break
+                peak = max(peak, _group_rss(pid) or 0)
+                time.sleep(max(self.poll_seconds, 0.5))
+        except KeyboardInterrupt:
+            self._interrupt_during_adoption = True
+            raise
+        details = _ps_process_details(pid)
+        exit_code = (
+            _adopted_exit_code(pid)
+            if details is not None and details[0] == started_identity and details[1].startswith("Z")
+            else None
+        )
+        return exit_code, timed_out, peak
+
+    def _terminate_adopted_step(self, pid: int, started_identity: str) -> None:
+        if not _process_matches(pid, started_identity):
+            return
+        try:
+            os.killpg(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            return
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline and _process_matches(pid, started_identity):
+            time.sleep(0.1)
+        if _process_matches(pid, started_identity):
+            with suppress(ProcessLookupError):
+                os.killpg(pid, signal.SIGKILL)
+
+    def _redact_adopted_result(self, result: dict[str, Any], step: JobStep) -> dict[str, Any]:
+        try:
+            extra_env = _step_dotenv(self.repo_root, step.env_from_dotenv)
+        except ValueError:
+            if step.env_from_dotenv:
+                result["stdout_tail"] = ""
+                result["stderr_tail"] = ""
+            return result
+        result["stdout_tail"] = _redact_text(str(result["stdout_tail"]), extra_env.values())
+        result["stderr_tail"] = _redact_text(str(result["stderr_tail"]), extra_env.values())
+        return result
 
     def _execute_step(
         self,
@@ -798,6 +964,12 @@ class JobRunner:
                 )
                 pid_file = logs / f"{step.step_id}.{attempt:02d}.pid"
                 pid_file.write_text(f"{process.pid}\n", encoding="utf-8")
+                started_identity = _ps_field(process.pid, "lstart")
+                if started_identity:
+                    pid_file.with_name(pid_file.name + ".meta").write_text(
+                        json.dumps({"pid": process.pid, "started": started_identity}) + "\n",
+                        encoding="utf-8",
+                    )
                 watcher = self._start_watch(pid_file, watch_log)
                 signal = self._poll_process(
                     spec,
@@ -1013,7 +1185,7 @@ class JobRunner:
         failures = [
             {"step": step["id"], "reason": step["reason"]}
             for step in steps
-            if step["state"] in {"failed", "stopped"}
+            if step["state"] in {"failed", "stopped", "interrupted"}
         ]
         memory_trips = [
             {"step": step["id"], **step["memory_trip"]} for step in steps if step["memory_trip"]
@@ -1108,13 +1280,10 @@ class JobRunner:
             }
         steps = state.setdefault("steps", {})
         for step in spec.steps:
-            entry = steps.setdefault(
+            steps.setdefault(
                 step.step_id,
                 {"state": "pending", "attempts": 0, "history": []},
             )
-            if entry.get("state") == "running":
-                entry["state"] = "pending"
-                entry["reason"] = "interrupted before completion"
         state["updated_at"] = _utc_now()
         return state
 
@@ -1539,6 +1708,53 @@ def _pid_alive(pid: int) -> bool:
     except OSError:
         return False
     return True
+
+
+def _process_matches(pid: int, started: str) -> bool:
+    if pid <= 1 or not _pid_alive(pid):
+        return False
+    details = _ps_process_details(pid)
+    return details is not None and details[0] == started and not details[1].startswith("Z")
+
+
+def _read_step_identity(pid_file: Path) -> tuple[int, str | None]:
+    meta_file = pid_file.with_name(pid_file.name + ".meta")
+    try:
+        pid = int(pid_file.read_text(encoding="utf-8").strip())
+        identity = json.loads(meta_file.read_text(encoding="utf-8"))
+        started = identity["started"]
+        if int(identity["pid"]) != pid or not isinstance(started, str):
+            return 0, None
+    except (OSError, ValueError, KeyError, TypeError):
+        return 0, None
+    return pid, started
+
+
+def _ps_process_details(pid: int) -> tuple[str, str] | None:
+    try:
+        result = subprocess.run(
+            ["ps", "-ww", "-p", str(pid), "-o", "lstart=,stat="],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    fields = result.stdout.strip().rsplit(None, 1)
+    if len(fields) != 2:
+        return None
+    return fields[0], fields[1]
+
+
+def _adopted_exit_code(pid: int) -> int | None:
+    try:
+        waited, status = os.waitpid(pid, os.WNOHANG)
+    except (ChildProcessError, OSError):
+        return None
+    return os.waitstatus_to_exitcode(status) if waited == pid else None
 
 
 def _read_run_lock(lock: Path) -> tuple[int, str | None]:
