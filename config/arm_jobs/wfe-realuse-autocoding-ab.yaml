@@ -1,7 +1,7 @@
 id: wfe-realuse-autocoding-ab
 purpose: >-
   auto-coding seat decision: Flint vs production qwen3-coder (oMLX) under the gentler append
-  (f79f80e8), on the realuse_v1 auto-coding rows. Fresh campaign id (20261030c): the first
+  (f79f80e8), on the realuse_v1 auto-coding rows. Fresh campaign id (20261030d): the first
   canary ran before the eval sandbox mount fix (2a10bf8b) and its rows are SETUP. Swap only if
   Flint still wins on checks and blind preference. Canary first; council after the report.
 preconditions:
@@ -13,11 +13,11 @@ steps:
     canary: ac-ab
     timeout_seconds: 7200
     checkpoints:
-      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_autocoding_ab_20261030c_canary/manifest.json
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_autocoding_ab_20261030d_canary/manifest.json
   - id: ac-ab
     argv:
       - scripts/wfe_campaign.sh
-      - realuse_autocoding_ab_20261030c
+      - realuse_autocoding_ab_20261030d
       - "--plan"
       - tests/wfe/plans/realuse_v1_autocoding_ab.yaml
       - "--tier"
@@ -27,7 +27,7 @@ steps:
       - "--judge"
     timeout_seconds: 21600
     checkpoints:
-      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_autocoding_ab_20261030c/manifest.json
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_autocoding_ab_20261030d/manifest.json
   - id: ac-ab-report
     argv:
       - uv
@@ -36,7 +36,7 @@ steps:
       - "-m"
       - tests.wfe.report
       - "--campaign"
-      - realuse_autocoding_ab_20261030c
+      - realuse_autocoding_ab_20261030d
     timeout_seconds: 900
     quiet_host: false
   - id: ac-ab-judge-council
@@ -47,7 +47,7 @@ steps:
       - "-m"
       - tests.wfe.judge_council
       - "--campaign"
-      - realuse_autocoding_ab_20261030c
+      - realuse_autocoding_ab_20261030d
     timeout_seconds: 900
     quiet_host: false
 stop_conditions:
