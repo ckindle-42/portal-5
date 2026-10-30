@@ -6,6 +6,7 @@ Fake rows only — the canary's live path is exercised by the job that gates on 
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 import yaml
@@ -356,3 +357,72 @@ class TestRunCanary:
     def test_the_canary_suffix_is_idempotent(self):
         assert canary_campaign_id("c1") == "c1_canary"
         assert canary_campaign_id("c1_canary") == "c1_canary"
+
+
+class TestSetupFaultLedger:
+    def test_record_fault_appends_only_the_env_path(self, tmp_path, monkeypatch):
+        real = Path.home() / "AI_Output" / "portal-data" / "tests" / "wfe" / "setup_faults.jsonl"
+        before = real.read_text() if real.exists() else None
+        dest = tmp_path / "ledger" / "setup_faults.jsonl"
+        monkeypatch.setenv("WFE_SETUP_FAULTS", str(dest))
+        assert (
+            run_canary(
+                [
+                    "--record-fault",
+                    "synthetic fault xyz",
+                    "--cause",
+                    "unit test",
+                    "--fix",
+                    "abc123",
+                    "--campaign",
+                    "unit",
+                ]
+            )
+            == 0
+        )
+        line = json.loads(dest.read_text().splitlines()[0])
+        assert line == {
+            "signature": "synthetic fault xyz",
+            "first_seen": line["first_seen"],
+            "campaign": "unit",
+            "cause": "unit test",
+            "fix_commit": "abc123",
+        }
+        assert line["first_seen"]
+        assert (
+            run_canary(
+                ["--record-fault", "synthetic fault xyz", "--cause", "again", "--fix", "abc123"]
+            )
+            == 0
+        )
+        assert len(dest.read_text().splitlines()) == 1
+        after = real.read_text() if real.exists() else None
+        assert after == before
+
+    def test_record_fault_requires_cause_and_fix(self):
+        with pytest.raises(SystemExit):
+            run_canary(["--record-fault", "sig"])
+
+    def test_a_ledger_signature_in_the_reply_is_setup(self, tmp_path, monkeypatch):
+        dest = tmp_path / "setup_faults.jsonl"
+        monkeypatch.setenv("WFE_SETUP_FAULTS", str(dest))
+        row = _row(final_text="request exceeds the available context size (98304 tokens)")
+        assert classify_row(row) == MODEL
+        dest.write_text(
+            json.dumps(
+                {
+                    "signature": "Exceeds The Available Context Size",
+                    "first_seen": "2026-10-30",
+                    "campaign": "t",
+                    "cause": "http 400",
+                    "fix_commit": "abc",
+                }
+            )
+            + "\n"
+        )
+        assert classify_row(row) == SETUP
+
+    def test_a_pipeline_stream_error_is_not_setup_until_it_is_recorded(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("WFE_SETUP_FAULTS", str(tmp_path / "missing.jsonl"))
+        row = _row(final_text="[Pipeline stream error — the reply ended early]")
+        assert classify_row(row) == MODEL

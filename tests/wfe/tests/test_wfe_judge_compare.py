@@ -193,6 +193,106 @@ class TestMainAgreement:
         assert "No disagreements." in text
 
 
+def test_council_profiles_report_checker_agreement(tmp_path, monkeypatch):
+    from tests.wfe.judge import judgements_dir, pair_key
+
+    campaign = tmp_path / "camp"
+    (campaign / "rows").mkdir(parents=True)
+    key = pair_key("ws", "realuse", "t1", 0, "inc", "cand")
+    arms = {"A": "inc", "B": "cand"}
+    for profile, pref in (("local", "A"), ("cloud", "B"), ("council", "A")):
+        path = judgements_dir(campaign, profile) / "k.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(
+                {
+                    "key": key,
+                    "preference": pref,
+                    "winner": arms[pref],
+                    "arms": arms,
+                    "workspace": "ws",
+                    "suite": "realuse",
+                    "task_id": "t1",
+                    "repeat": 0,
+                    "reason": "by design",
+                    "excluded": None,
+                }
+            )
+        )
+    (campaign / "rows" / "a.json").write_text(
+        json.dumps(
+            {
+                "workspace": "ws",
+                "suite": "realuse",
+                "task_id": "t1",
+                "repeat": 0,
+                "arm": "inc",
+                "outcome": "PASS",
+            }
+        )
+    )
+    (campaign / "rows" / "b.json").write_text(
+        json.dumps(
+            {
+                "workspace": "ws",
+                "suite": "realuse",
+                "task_id": "t1",
+                "repeat": 0,
+                "arm": "cand",
+                "outcome": "FAIL",
+            }
+        )
+    )
+    out = StringIO()
+    monkeypatch.setattr("sys.stdout", out)
+    compare.main(
+        [
+            "--campaign",
+            campaign.name,
+            "--campaigns-root",
+            str(tmp_path),
+            "--profiles",
+            "local",
+            "cloud",
+            "council",
+        ]
+    )
+    text = out.getvalue()
+    assert "Council vs checker (exactly one arm passed): 1/1 = 100.00%" in text
+    assert "council" in text
+
+
+def test_an_excluded_council_record_is_not_a_paired_preference(tmp_path, monkeypatch):
+    from tests.wfe.judge import judgements_dir
+
+    campaign = _make_campaign(
+        tmp_path,
+        {
+            "local": {"k1": _rec("A")},
+            "cloud": {"k1": _rec("B")},
+            "council": {"k1": {**_rec("A"), "excluded": "setup", "preference": None}},
+        },
+    )
+    out = StringIO()
+    monkeypatch.setattr("sys.stdout", out)
+    compare.main(
+        [
+            "--campaign",
+            campaign.name,
+            "--campaigns-root",
+            str(tmp_path),
+            "--profiles",
+            "local",
+            "cloud",
+            "council",
+        ]
+    )
+    text = out.getvalue()
+    assert "No valid paired preferences to compare." in text
+    assert "Council vs checker (exactly one arm passed): 0/0" in text
+    assert judgements_dir(campaign, "council").is_dir()
+
+
 def test_local_profile_reads_the_flat_directory_and_not_cloud(tmp_path):
     from tests.wfe.judge import judgements_dir
 

@@ -73,9 +73,9 @@ def test_spec_parses_under_the_runner_schema(path: Path) -> None:
 
 @pytest.mark.parametrize("path", SPECS, ids=lambda path: path.stem)
 def test_repo_only_steps_run_without_a_quiet_host_and_campaign_steps_keep_it(path: Path) -> None:
-    # Repo-only steps (report rendering, the plan regenerator) need no quiet host;
+    # Repo-only steps (report, plan regenerator, diagnostic council) need no quiet host;
     # everything that touches the stack keeps the window.
-    repo_only = ("tests.wfe.report", "tests.wfe.sweep_plan")
+    repo_only = ("tests.wfe.report", "tests.wfe.sweep_plan", "tests.wfe.judge_council")
     # Lab-only steps post to / read from the lab Splunk, never the local stack.
     lab_only = {
         ("scripts/corpus_reingest.py", "--ship"),
@@ -173,12 +173,15 @@ def test_realuse_rest_runs_the_three_groups_then_reports() -> None:
         "reruns-canary",
         "reruns",
         "reruns-report",
+        "reruns-judge-council",
         "documents-canary",
         "documents",
         "documents-report",
+        "documents-judge-council",
         "decisions-canary",
         "decisions",
         "decisions-report",
+        "decisions-judge-council",
     ]
     assert [step.argv[1] for step in campaigns] == [
         "realuse_reruns_20261030",
@@ -208,6 +211,13 @@ def test_realuse_rest_runs_the_three_groups_then_reports() -> None:
         step.argv[1] for step in campaigns
     ]
     assert all(step.quiet_host is False for step in reports)
+    councils = [step for step in spec.steps if step.argv[3:5] == ("-m", "tests.wfe.judge_council")]
+    assert [step.argv[step.argv.index("--campaign") + 1] for step in councils] == [
+        step.argv[1] for step in campaigns
+    ]
+    assert all(step.quiet_host is False for step in councils)
+    for council, report in zip(councils, reports, strict=True):
+        assert spec.steps.index(report) < spec.steps.index(council)
     for name in plans:
         data = yaml.safe_load((ROOT / name).read_text(encoding="utf-8"))
         for workspace, workload in data["workloads"].items():
@@ -227,6 +237,7 @@ def test_realuse_security_runs_the_seat_plan_then_reports() -> None:
         "security-canary",
         "security",
         "security-report",
+        "security-judge-council",
     ]
     gate = spec.steps[0]
     assert gate.canary_of == campaign.step_id
@@ -242,6 +253,11 @@ def test_realuse_security_runs_the_seat_plan_then_reports() -> None:
     assert campaign.quiet_host is True
     assert report.argv[report.argv.index("--campaign") + 1] == campaign.argv[1]
     assert report.quiet_host is False
+    council = spec.steps[-1]
+    assert council.argv[3:5] == ("-m", "tests.wfe.judge_council")
+    assert council.argv[council.argv.index("--campaign") + 1] == campaign.argv[1]
+    assert council.quiet_host is False
+    assert spec.steps.index(report) < spec.steps.index(council)
 
     plan = yaml.safe_load((ROOT / campaign.argv[campaign.argv.index("--plan") + 1]).read_text())
     assert set(plan["workloads"]) == {
