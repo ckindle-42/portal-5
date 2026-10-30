@@ -1652,6 +1652,25 @@ class TestDispatchToolCall:
         assert result["role"] == "tool"
         assert seen["arguments"] == {"code": "print(1)"}
 
+    @pytest.mark.asyncio
+    async def test_large_tool_result_is_bounded_before_history(self, monkeypatch):
+        from portal.platform.inference.router.tools import MAX_TOOL_RESULT_CHARS
+        from portal.platform.inference.router_pipe import _dispatch_tool_call
+        from portal.platform.inference.tool_registry import tool_registry
+
+        async def fake_dispatch(tool_name, arguments, request_id=""):
+            return {"content": "x" * (MAX_TOOL_RESULT_CHARS * 20)}
+
+        monkeypatch.setattr(tool_registry, "dispatch", fake_dispatch)
+        tc = {
+            "id": "call_large",
+            "function": {"name": "execute_python", "arguments": "{}"},
+        }
+        result = await _dispatch_tool_call(tc, {"execute_python"}, "auto-coding", "test", "req1")
+
+        assert len(result["content"]) == MAX_TOOL_RESULT_CHARS
+        assert "tool result truncated" in result["content"]
+
 
 class TestExplicitRequiredToolSelection:
     """Explicit side-effect requests narrow multi-tool payloads deterministically."""

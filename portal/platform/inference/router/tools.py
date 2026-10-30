@@ -31,6 +31,16 @@ from portal.platform.inference.router.trace import (
 )
 
 logger = logging.getLogger(__name__)
+MAX_TOOL_RESULT_CHARS = 16_000
+
+
+def _tool_result_content(result: Any) -> str:
+    """Serialize and bound a tool result before it enters model history."""
+    content = json.dumps(result) if isinstance(result, (dict, list)) else str(result)
+    if len(content) <= MAX_TOOL_RESULT_CHARS:
+        return content
+    marker = f"\n...[tool result truncated; original length {len(content)} characters]"
+    return content[: MAX_TOOL_RESULT_CHARS - len(marker)] + marker
 
 
 _CREATE_ACTION_RE = re.compile(r"\b(?:build|create|generate|make|produce|save)\b")
@@ -330,5 +340,5 @@ async def _dispatch_tool_call(
         "role": "tool",
         "tool_call_id": tool_call_id,
         "name": tool_name,
-        "content": json.dumps(result) if isinstance(result, (dict, list)) else str(result),
+        "content": _tool_result_content(result),
     }
