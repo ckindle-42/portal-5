@@ -76,8 +76,14 @@ def test_repo_only_steps_run_without_a_quiet_host_and_campaign_steps_keep_it(pat
     # Repo-only steps (report rendering, the plan regenerator) need no quiet host;
     # everything that touches the stack keeps the window.
     repo_only = ("tests.wfe.report", "tests.wfe.sweep_plan")
+    # Lab-only steps post to / read from the lab Splunk, never the local stack.
+    lab_only = {
+        ("scripts/corpus_reingest.py", "--ship"),
+        ("scripts/corpus_reingest.py", "--verify"),
+    }
     for step in _spec(path).steps:
         is_repo_only = step.argv[:4] == ("uv", "run", "python", "-m") and step.argv[4] in repo_only
+        is_repo_only = is_repo_only or tuple(step.argv[3:5]) in lab_only
         if is_repo_only:
             assert step.quiet_host is False, f"{path.stem}:{step.step_id}"
         else:

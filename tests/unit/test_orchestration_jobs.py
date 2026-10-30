@@ -1239,3 +1239,57 @@ def test_queue_requeue_refuses_a_plan(tmp_path: Path) -> None:
     assert "not a job" in result.output
     assert list(tasks_dir.glob("queue.sqlite3.*.bak")) == []
     assert _queue_row(tasks_dir)["state"] == "blocked"
+
+
+def _fake_queue(monkeypatch: pytest.MonkeyPatch, statuses: list[str]) -> list[str]:
+    from portal.modules.orchestration.queue import QueueRun
+
+    seen: list[str] = []
+
+    class FakeQueue:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+        def run_next(self, override: bool = False) -> QueueRun:
+            status = statuses.pop(0)
+            seen.append(status)
+            return QueueRun(status, None, None, None)
+
+    monkeypatch.setattr("portal.modules.orchestration.queue.OvernightQueue", FakeQueue)
+    return seen
+
+
+def test_queue_run_keeps_polling_when_the_queue_is_empty(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen = _fake_queue(monkeypatch, ["EMPTY", "EMPTY", "DONE"])
+    sleeps: list[float] = []
+
+    def fake_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+        if len(sleeps) >= 3:
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr("time.sleep", fake_sleep)
+    monkeypatch.setattr("portal.modules.orchestration.cli._optional_service", lambda root: None)
+
+    CliRunner().invoke(
+        orchestration_app, ["queue-run", "--tasks-dir", str(tmp_path), "--poll-seconds", "1"]
+    )
+
+    assert seen[:3] == ["EMPTY", "EMPTY", "DONE"]
+    assert sleeps[:2] == [1.0, 1.0]
+
+
+def test_queue_run_drain_exits_once_the_queue_is_empty(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen = _fake_queue(monkeypatch, ["DONE", "EMPTY"])
+    monkeypatch.setattr("portal.modules.orchestration.cli._optional_service", lambda root: None)
+
+    result = CliRunner().invoke(
+        orchestration_app, ["queue-run", "--tasks-dir", str(tmp_path), "--drain"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert seen == ["DONE", "EMPTY"]
