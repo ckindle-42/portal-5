@@ -316,19 +316,22 @@ async def _install_packages(
 def _workspace_mount_args(
     work_dir: Path, scope: dict[str, Any] | None, upload_refs: Sequence[str]
 ) -> list[str]:
+    workspace = work_dir / "workspace"
     if scope is not None:
+        # Same layout as production: a writable per-run /workspace with the row's inputs read-only
+        # at /workspace/uploads. Two read-only mounts of one source nested at /workspace and
+        # /workspace/uploads made runc fail every eval run ("OCI runtime create failed", 10-30).
+        (workspace / "uploads").mkdir(parents=True, exist_ok=True)
         if not SANDBOX_WORKSPACE_DIR:
-            return []
+            return ["-v", f"{workspace.absolute()}:/workspace:rw"]
         row_input = Path(SANDBOX_WORKSPACE_DIR) / "wfe" / scope["campaign"] / scope["run"] / "in"
-        row_input_source = str(row_input)
         return [
             "-v",
-            f"{row_input_source}:/workspace:ro",
+            f"{workspace.absolute()}:/workspace:rw",
             "-v",
-            f"{row_input_source}:/workspace/uploads:ro",
+            f"{row_input}:/workspace/uploads:ro",
         ]
 
-    workspace = work_dir / "workspace"
     (workspace / "uploads").mkdir(parents=True, exist_ok=True)
     mounts = ["-v", f"{workspace.absolute()}:/workspace:rw"]
     if not SANDBOX_WORKSPACE_DIR or not upload_refs:

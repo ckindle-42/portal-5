@@ -38,6 +38,16 @@ MODEL = "MODEL"
 _REUSE_MARKS = ("reused_from", "regraded_outcome", "original_outcome", "rescore", "original")
 _TOOL_NOTE = "requires tools the harness does not offer"
 _MISSING_FILE = ("file not found", "enoent")
+#: A tool that could not run at all is the harness/stack failing, never the model: realuse
+#: autocoding canary 10-30 classed seven `OCI runtime create failed` sandbox calls as MODEL.
+_TOOL_INFRA = (
+    "oci runtime",
+    "error response from daemon",
+    "docker not found",
+    "docker_unavailable",
+    "path outside the evaluation namespace",
+    "returned an mcp tool error",
+)
 #: A 0-second row never reached a model — the instrument refused it.
 _UNRUN_STATES = frozenset({"PENDING", "MISSING", "SKIPPED_DECIDED", "NO_ROW"})
 
@@ -146,7 +156,7 @@ def classify_row(row: dict) -> str:
     if camp._PREFLIGHT_BLOCK in note or _TOOL_NOTE in note:
         return SETUP
     blob = f"{note} {_tool_outputs(row)}".lower()
-    if any(sig in blob for sig in _MISSING_FILE):
+    if any(sig in blob for sig in _MISSING_FILE + _TOOL_INFRA):
         return SETUP
     if outcome == "BLOCKED" and _is_zero_second(row):
         return SETUP

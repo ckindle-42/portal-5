@@ -57,6 +57,20 @@ class TestClassification:
         )
         assert classify_row(row) == SETUP
 
+    @pytest.mark.parametrize(
+        "output",
+        [
+            '{"stderr": "docker: Error response from daemon: failed to create task for container:'
+            ' failed to create shim task: OCI runtime create failed"}',
+            '{"error_type": "docker_unavailable"}',
+            "Tool 'read_pdf' returned an MCP tool error",
+            "ScopeError: path outside the evaluation namespace: /workspace/x.pdf",
+        ],
+    )
+    def test_a_tool_that_could_not_run_is_setup(self, output):
+        # realuse autocoding canary 10-30: seven sandbox OCI failures were classed MODEL.
+        assert classify_row(_row(outcome="REFUSED", tool_call_log=[{"output": output}])) == SETUP
+
     def test_a_reused_row_is_setup(self):
         assert classify_row(_row(reused_from="earlier/row")) == SETUP
 

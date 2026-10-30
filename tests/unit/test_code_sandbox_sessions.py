@@ -77,16 +77,14 @@ async def test_scoped_docker_mounts_only_the_row_input(tmp_path, monkeypatch):
     row_input = (
         "/dind/workspace/wfe/wfe_0123456789abcdef/wfe_0123456789abcdef0123456789abcdef01234567/in"
     )
-    assert f"{row_input}:/workspace:ro" in mounts
+    # Writable per-run scratch at /workspace, the row's inputs read-only at /workspace/uploads; a
+    # nested read-only pair made runc fail every eval call (10-30).
+    assert any(m.endswith(":/workspace:rw") and "/dind/workspace" not in m for m in mounts)
     assert f"{row_input}:/workspace/uploads:ro" in mounts
+    assert not any(m.endswith(":/workspace:ro") for m in mounts)
     assert not any(
-        "/dind/workspace:" in mount
-        and mount
-        not in {
-            f"{row_input}:/workspace:ro",
-            f"{row_input}:/workspace/uploads:ro",
-        }
-        for mount in mounts
+        m.startswith("/dind/workspace") and m != f"{row_input}:/workspace/uploads:ro"
+        for m in mounts
     )
 
 
