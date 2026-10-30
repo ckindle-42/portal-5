@@ -24,7 +24,7 @@ workloads:
     home: realuse_v1
     discovery: []
     arms:
-      incumbent: qwen3-coder:30b-a3b-q4_K_M-ctx256k
+      incumbent: Qwen3-Coder-30B-A3B-Instruct-4bit  # what production serves (oMLX alias of the GGUF hint, backends.yaml)
       challengers:
         - hf.co/unsloth/flint-GGUF:UD-Q4_K_XL-ctx256k
   auto-coding::fast-repair:
