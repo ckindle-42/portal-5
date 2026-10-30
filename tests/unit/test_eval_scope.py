@@ -360,3 +360,61 @@ def test_eval_scope_does_not_trace_tools_before_the_backend_body_is_built(monkey
     contextvars.copy_context().run(eval_gate.apply_eval_scope, {}, ["a", "b"])
     assert not any("tools_offered" in note for note in notes)
     assert any("eval" in note for note in notes)
+
+
+def test_upload_ids_are_strings_deduplicated_and_capped():
+    from portal.platform.mcp_host import eval_scope
+
+    assert eval_scope.upload_ids(None) == ()
+    assert eval_scope.upload_ids("file-id") == ()
+    assert eval_scope.upload_ids(["a", "", 3, "a", " b "]) == ("a", "b")
+    many = [f"id{i}" for i in range(100)]
+    assert len(eval_scope.upload_ids(many)) == eval_scope.MAX_ATTACHED_UPLOADS
+
+
+def test_pipeline_binds_the_requests_owui_attachments():
+    from portal.platform.inference.router.eval_gate import bind_attached_uploads
+    from portal.platform.mcp_host import eval_scope
+
+    token = eval_scope.ATTACHED_UPLOADS.set(())
+    try:
+        bind_attached_uploads({"files": [{"id": "f1", "name": "a.csv"}, {"name": "no-id"}, "x"]})
+        assert eval_scope.ATTACHED_UPLOADS.get() == ("f1",)
+        bind_attached_uploads({"messages": []})
+        assert eval_scope.ATTACHED_UPLOADS.get() == ()
+    finally:
+        eval_scope.ATTACHED_UPLOADS.reset(token)
+
+
+@pytest.mark.asyncio
+async def test_mcp_call_forwards_attached_uploads_in_meta(monkeypatch):
+    from portal.platform.inference import mcp_http
+    from portal.platform.mcp_host.eval_scope import UPLOADS_META_KEY
+
+    seen = {}
+
+    async def fake_request(client, base_url, method, params, timeout_s):
+        seen.update(params)
+        return {"content": []}
+
+    monkeypatch.setattr(mcp_http, "_request", fake_request)
+    await mcp_http.call_tool(
+        None, "http://x", "execute_python", {}, 5, metadata={UPLOADS_META_KEY: ["f1"], "other": 1}
+    )
+    assert seen["_meta"] == {UPLOADS_META_KEY: ["f1"]}
+
+
+def test_native_mcp_call_binds_attached_uploads():
+    from types import SimpleNamespace
+
+    class NativeServer:
+        async def call_tool(self, name, arguments, context):
+            return es.ATTACHED_UPLOADS.get()
+
+    server = NativeServer()
+    es.bind_native_context(server)
+    context = SimpleNamespace(
+        request_context=SimpleNamespace(params={"_meta": {es.UPLOADS_META_KEY: ["f1", "f2"]}})
+    )
+    assert asyncio.run(server.call_tool("execute_python", {}, context)) == ("f1", "f2")
+    assert es.ATTACHED_UPLOADS.get() == ()

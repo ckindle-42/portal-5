@@ -134,3 +134,30 @@ async def test_production_docker_mounts_no_user_uploads_by_default(tmp_path, mon
     assert sum(mount.endswith(":/workspace:rw") for mount in mounts) == 1
     assert not any("/dind/workspace" in mount for mount in mounts)
     assert any(mount.endswith(":/out") for mount in mounts)
+
+
+@pytest.mark.asyncio
+async def test_production_docker_mounts_the_requests_attached_uploads(tmp_path, monkeypatch):
+    # The pipeline forwards OWUI's body["files"] ids; only those uploads are mounted.
+    from portal.platform.mcp_host.eval_scope import ATTACHED_UPLOADS
+
+    workspace = tmp_path / "ai-output"
+    uploads = workspace / "uploads"
+    uploads.mkdir(parents=True)
+    (uploads / "file-id_report.csv").write_text("a,b\n")
+    (uploads / "other-id_private.csv").write_text("secret\n")
+    monkeypatch.setenv("WORKSPACE_DIR", str(workspace))
+    monkeypatch.setattr(sandbox, "SANDBOX_DIR", tmp_path / "sandbox")
+    monkeypatch.setattr(sandbox, "SANDBOX_WORKSPACE_DIR", "/dind/workspace")
+    token = ATTACHED_UPLOADS.set(("file-id",))
+    try:
+        argv = await _capture_docker_argv(monkeypatch)
+    finally:
+        ATTACHED_UPLOADS.reset(token)
+
+    mounts = _volumes(argv)
+    assert (
+        "/dind/workspace/uploads/file-id_report.csv:/workspace/uploads/file-id_report.csv:ro"
+        in mounts
+    )
+    assert not any("other-id_private.csv" in mount for mount in mounts)

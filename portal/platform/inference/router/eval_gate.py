@@ -24,6 +24,14 @@ def bind_eval_scope(body: dict[str, Any]) -> None:
         trace_note(eval=scope)
 
 
+def bind_attached_uploads(body: Mapping[str, Any]) -> None:
+    """Bind the OWUI attachment ids of this request (body["files"]) for MCP forwarding, so the
+    code sandbox can mount exactly those uploads and nothing else of the user file store."""
+    files = body.get("files")
+    ids = [f.get("id") for f in files if isinstance(f, Mapping)] if isinstance(files, list) else []
+    eval_scope.ATTACHED_UPLOADS.set(eval_scope.upload_ids(ids))
+
+
 def apply_eval_scope(body: dict[str, Any], tools: list[str]) -> list[str]:
     """Narrow the workspace's tools to a `portal_eval` scope's allowlist and arm its forwarding
     to every MCP call. A malformed scope is a 400: ignoring it would run unrestricted tools."""

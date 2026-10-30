@@ -30,7 +30,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
-from portal.platform.mcp_host.eval_scope import EVAL_SCOPE, bind_native_context
+from portal.platform.mcp_host.eval_scope import ATTACHED_UPLOADS, EVAL_SCOPE, bind_native_context
 from portal.platform.mcp_host.owui_files import publish_file_sync
 from portal.platform.mcp_host.tool_support import align_native_tools
 from portal.platform.mcp_host.workspace import get_uploads_dir, resolve_upload_path
@@ -509,7 +509,9 @@ async def _run_in_docker(
             # container can't see DinD's filesystem to check it.
             ["-v", f"{SANDBOX_LAB_VULHUB_DIR}:/vulhub:ro"] if SANDBOX_LAB_EXEC else []
         )
-        + _workspace_mount_args(work_dir, EVAL_SCOPE.get(), workspace_upload_refs)
+        + _workspace_mount_args(
+            work_dir, EVAL_SCOPE.get(), workspace_upload_refs or ATTACHED_UPLOADS.get()
+        )
         + (extra_args or [])
         + (["-v", f"{sess.absolute()}:/session", "--workdir", "/session"] if sess else [])
         + (["--env", "PYTHONPATH=/session/.pylibs"] if sess else [])

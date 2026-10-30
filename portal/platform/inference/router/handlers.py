@@ -48,7 +48,7 @@ from portal.platform.inference.router.council import (
     stream_council_review,
 )
 from portal.platform.inference.router.disconnect import cancel_on_disconnect
-from portal.platform.inference.router.eval_gate import bind_eval_scope
+from portal.platform.inference.router.eval_gate import bind_attached_uploads, bind_eval_scope
 from portal.platform.inference.router.lifespan import (
     _startup_time,
 )
@@ -736,6 +736,7 @@ async def _prepare_request_context(
         body = _inject_system_prompt_append(workspace_id, body)
         body = _inject_attached_files(body)
     bind_eval_scope(body)
+    bind_attached_uploads(body)
     if is_bite:
         return body
     correlation_id = get_correlation_id()
