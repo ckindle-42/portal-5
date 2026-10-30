@@ -320,3 +320,12 @@ def test_gone_running_image_falls_back_to_the_pinned_image_for_rollback(monkeypa
     ok, msg = iu.owui_update()
     assert ok and "updated" in msg
     assert ("docker", "tag", iu.OWUI_IMAGE, iu.OWUI_ROLLBACK) in calls
+
+
+def test_unknown_arguments_never_run_the_update(monkeypatch, tmp_path):
+    calls, _images, _compose = _patch(monkeypatch, tmp_path)
+    assert iu.main(["--help"]) == 2
+    assert iu.main(["--bump", "v0.12.5", "--force"]) == 2
+    assert not calls
+    assert iu._unknown_args(["--dry-run", "--bump", "v0.12.5"]) == []
+    assert iu._unknown_args(["--bump"]) == []

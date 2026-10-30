@@ -404,7 +404,20 @@ def owui_update(dry_run: bool = False, bump: str | None = None) -> tuple[bool, s
     return _apply_pinned(previous, dry_run, proposal)
 
 
+def _unknown_args(argv: list[str]) -> list[str]:
+    """Anything but --dry-run / --bump [TAG]. Unknown flags must not fall through to a live run
+    (10-30: `--help` was ignored and recreated Open WebUI)."""
+    bump = _bump_arg(argv)
+    known = {"--dry-run", "--bump", bump or "--bump"}
+    return [a for a in argv if a not in known]
+
+
 def main(argv: list[str]) -> int:
+    if unknown := _unknown_args(argv):
+        print(
+            f"usage: image_security_update.py [--dry-run] [--bump [vX.Y.Z]]  (unknown: {unknown})"
+        )
+        return 2
     dry_run = "--dry-run" in argv
     bump = _bump_arg(argv)
     if (who := busy()) is not None:
