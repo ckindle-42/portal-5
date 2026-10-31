@@ -231,13 +231,18 @@ def _path_in_prompt(path: str, prompt: str) -> bool:
 
 
 def _scope_refusal_is_setup(row: dict) -> bool:
-    text = f"{_note_text(row)} {_tool_outputs(row)}"
-    if _SCOPE_REFUSAL not in text.lower():
+    # Each note and tool output is matched on its own: joined, a path running to the end
+    # of its string would absorb the next output's text (sol 10-31).
+    chunks = [_note_text(row)] + [
+        str(e.get("output") or "") for e in row.get("tool_call_log") or []
+    ]
+    if not any(_SCOPE_REFUSAL in c.lower() for c in chunks):
         return False
     prompt = _user_prompts(row)
     return any(
         _path_in_prompt(match.group(1).strip().rstrip(".,;:)]}"), prompt)
-        for match in _SCOPE_REFUSAL_PATH.finditer(text)
+        for chunk in chunks
+        for match in _SCOPE_REFUSAL_PATH.finditer(chunk)
     )
 
 

@@ -97,6 +97,16 @@ class TestClassification:
         )
         assert classify_row(row) == expected
 
+    def test_a_refused_prompt_path_stays_setup_when_other_tool_outputs_follow(self):
+        # sol 10-31: joined outputs made the path "/workspace/uploads/final_invoice.pdf ok".
+        refusal = "path outside the evaluation namespace: /workspace/uploads/final_invoice.pdf"
+        row = _row(
+            outcome="FAIL",
+            tool_call_log=[{"output": refusal}, {"output": "ok"}],
+            turn_results=[{"turn": 1, "user": "Read /workspace/uploads/final_invoice.pdf"}],
+        )
+        assert classify_row(row) == SETUP
+
     def test_a_scope_refusal_of_a_model_invented_path_is_model(self):
         # rest-8: the prompt names the staged path; '/final_invoice.pdf' is the model's.
         row = _row(
