@@ -654,6 +654,67 @@ async def test_omlx_cold_load_refuses_a_busy_resident_that_cannot_cover_the_gap(
     assert not guard_obj._lock.locked()
 
 
+def _short_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Settle polls advance the deadline; the autouse sleep replacement does not."""
+    real_sleep = asyncio.sleep
+
+    async def _sleep(seconds: float) -> None:
+        await real_sleep(0.05)
+
+    monkeypatch.setattr(lg.asyncio, "sleep", _sleep)
+
+
+async def test_omlx_cold_load_names_a_failed_ollama_unload(caplog, monkeypatch):
+    engines = Engines(
+        ollama={"seat": 2 * GIB},
+        omlx={"mlx": {"size": 14 * GIB, "loaded": False}},
+        ceiling=15 * GIB,
+        ollama_unload_status_code=500,
+    )
+    guard_obj = guard(engines)
+    lg.set_load_wait("0.2")
+    _short_sleep(monkeypatch)
+    started = lg.time.monotonic()
+    with (
+        caplog.at_level(logging.WARNING, logger=lg.logger.name),
+        pytest.raises(lg.LoadRefusedError) as err,
+    ):
+        await guard_obj.admit_omlx("mlx")
+    text = str(err.value)
+    assert lg.time.monotonic() - started < 0.5
+    assert "seat (2.0 GiB, unload failed)" in text
+    assert "need 14.0 GiB" in text and "waited 0.0s" in text
+    assert any(r.levelno == logging.WARNING and text in r.getMessage() for r in caplog.records)
+    assert engines.unload_calls == {"seat": 1}
+    assert engines.ollama == {"seat": 2 * GIB}
+    assert not guard_obj._lock.locked()
+
+
+async def test_omlx_cold_load_names_an_unsettled_ollama_unload(caplog, monkeypatch):
+    engines = Engines(
+        ollama={"seat": 2 * GIB},
+        omlx={"mlx": {"size": 14 * GIB, "loaded": False}},
+        ceiling=15 * GIB,
+        unload_sticks=True,
+    )
+    guard_obj = guard(engines)
+    lg.set_load_wait("0.15")
+    _short_sleep(monkeypatch)
+    with (
+        caplog.at_level(logging.WARNING, logger=lg.logger.name),
+        pytest.raises(lg.LoadRefusedError) as err,
+    ):
+        await guard_obj.admit_omlx("mlx")
+    text = str(err.value)
+    assert "seat (2.0 GiB, unload unsettled)" in text
+    assert "need 14.0 GiB" in text
+    assert re.search(r"waited [1-9]\d*\.\d|waited 0\.[1-9]", text)
+    assert any(r.levelno == logging.WARNING and text in r.getMessage() for r in caplog.records)
+    assert engines.unload_calls == {"seat": 1}
+    assert engines.ollama == {"seat": 2 * GIB}
+    assert not guard_obj._lock.locked()
+
+
 async def test_missing_ollama_architecture_uses_weight_factor_fallback():
     model = "large-ctx96k"
     e = Engines(tags={model: 8 * GIB})

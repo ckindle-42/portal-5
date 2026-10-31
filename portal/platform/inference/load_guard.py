@@ -1481,6 +1481,27 @@ class LoadGuard:
         _record_wait(OMLX, "in_flight", time.monotonic() - started)
         return True
 
+    def _omlx_ollama_blockers(
+        self,
+        resident: dict[str, int],
+        failed: set[str],
+        pending: dict[str, _Free],
+    ) -> list[tuple[str, int, str]]:
+        """Residents still holding bytes, and why this cold load could not free them."""
+        blockers: list[tuple[str, int, str]] = []
+        for name, size in resident.items():
+            nbytes = self._ollama_size(name, size)
+            if nbytes <= 0:
+                continue
+            reason = self._ollama_hold_reason(name)
+            if reason is None and name in failed:
+                reason = "unload failed"
+            elif reason is None and name in pending:
+                reason = "unload unsettled"
+            if reason is not None:
+                blockers.append((name, nbytes, reason))
+        return blockers
+
     def _refuse_blocked_omlx(
         self,
         model: str,
@@ -1552,6 +1573,7 @@ class LoadGuard:
         deadline: float,
         pending: dict[str, _Free],
         freed: set[str],
+        failed: set[str],
     ) -> None:
         """Free each idle resident once, or wait when busy residents can still cover the gap."""
         if await self._ollama_frees_pending(pending, resident, headroom, deadline):
@@ -1559,7 +1581,9 @@ class LoadGuard:
         idle = self._unfreed_idle_ollama(resident, freed)
         if idle:
             subset = {name: resident[name] for name in idle}
-            pending.update(await self._free_ollama(client, base, subset))
+            requested = await self._free_ollama(client, base, subset)
+            pending.update(requested)
+            failed.update(name for name in idle if name not in requested)
             freed.update(idle)
             return
         held = self._ollama_unfreeable(resident)
@@ -1570,7 +1594,13 @@ class LoadGuard:
             and await self._wait_for_ollama_release(deadline)
         ):
             return
-        self._refuse_blocked_omlx(model, need, available, held, deadline)
+        self._refuse_blocked_omlx(
+            model,
+            need,
+            available,
+            self._omlx_ollama_blockers(resident, failed, pending),
+            deadline,
+        )
 
     async def _check_omlx_ollama_capacity(
         self, client: httpx.AsyncClient, model: str, deadline: float
@@ -1580,6 +1610,7 @@ class LoadGuard:
             return
         pending: dict[str, _Free] = {}
         freed: set[str] = set()
+        failed: set[str] = set()
         while True:
             status = await self._omlx_status(client)
             entry = _omlx_entry(status, model)
@@ -1610,6 +1641,7 @@ class LoadGuard:
                 deadline,
                 pending,
                 freed,
+                failed,
             )
 
     async def admit_omlx(self, model: str) -> Callable[[], None] | None:
