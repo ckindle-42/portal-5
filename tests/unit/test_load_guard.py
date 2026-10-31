@@ -493,6 +493,121 @@ async def test_omlx_load_refuses_without_room_after_idle_ollama_is_gone():
     assert not g._lock.locked()
 
 
+async def test_omlx_cold_load_frees_its_own_idle_resident_lru_first():
+    """2026-10-31 canary: idle oMLX residents were freed only after the 507 and GGUF failover."""
+    e = Engines(
+        omlx={
+            "old-seat": {"size": 8 * GIB, "loaded": True, "last": 100},
+            "new-seat": {"size": 8 * GIB, "loaded": True, "last": 200},
+            "mlx": {"size": 14 * GIB, "loaded": False},
+        },
+        ceiling=24 * GIB,
+    )
+    g = guard(e)
+    lg.set_load_wait("5")
+    release = await g.admit_omlx("mlx")
+    assert release is not None
+    assert e.unloaded == ["old-seat"]  # LRU first; one seat covers the shortage
+    assert "mlx" not in e.unload_calls  # the target is never self-evicted
+    assert not e.omlx["old-seat"]["loaded"]
+    release()
+
+
+async def test_omlx_cold_load_refusal_names_a_busy_omlx_resident(caplog):
+    e = Engines(
+        omlx={
+            "busy-seat": {"size": 8 * GIB, "loaded": True},
+            "mlx": {"size": 14 * GIB, "loaded": False},
+        },
+        ceiling=18 * GIB,
+    )
+    g = guard(e)
+    end = g.begin(OMLX, "busy-seat")
+    lg.set_load_wait("0.05")
+    with (
+        caplog.at_level(logging.WARNING, logger=lg.logger.name),
+        pytest.raises(lg.LoadRefusedError) as err,
+    ):
+        await g.admit_omlx("mlx")
+    end()
+    text = str(err.value)
+    assert "blocked by" in text and "busy-seat (8.0 GiB, busy)" in text
+    assert "need 14.0 GiB" in text
+    assert any(r.levelno == logging.WARNING and text in r.getMessage() for r in caplog.records)
+    assert e.unload_calls == {}
+    assert not g._lock.locked()
+
+
+async def test_omlx_cold_load_refusal_names_a_failed_omlx_unload(caplog):
+    e = Engines(
+        omlx={
+            "stuck": {"size": 8 * GIB, "loaded": True},
+            "mlx": {"size": 14 * GIB, "loaded": False},
+        },
+        ceiling=18 * GIB,
+        unload_status_codes={"stuck": 500},
+    )
+    g = guard(e)
+    lg.set_load_wait("0.05")
+    with (
+        caplog.at_level(logging.WARNING, logger=lg.logger.name),
+        pytest.raises(lg.LoadRefusedError) as err,
+    ):
+        await g.admit_omlx("mlx")
+    text = str(err.value)
+    assert "stuck (8.0 GiB, unload failed)" in text
+    assert any(r.levelno == logging.WARNING and "stuck" in r.getMessage() for r in caplog.records)
+    assert e.unload_calls == {"stuck": 1}
+    assert not g._lock.locked()
+
+
+async def test_omlx_cold_load_refusal_names_an_unsettled_omlx_unload(monkeypatch, caplog):
+    e = Engines(
+        omlx={
+            "slow": {"size": 8 * GIB, "loaded": True},
+            "mlx": {"size": 14 * GIB, "loaded": False},
+        },
+        ceiling=18 * GIB,
+        unload_status_codes={"slow": 202},
+    )
+    g = guard(e)
+    lg.set_load_wait("0.05")
+    _short_sleep(monkeypatch)
+    with (
+        caplog.at_level(logging.WARNING, logger=lg.logger.name),
+        pytest.raises(lg.LoadRefusedError) as err,
+    ):
+        await g.admit_omlx("mlx")
+    text = str(err.value)
+    assert "slow (8.0 GiB, unload unsettled)" in text
+    assert re.search(r"waited [1-9]\d*\.\d|waited 0\.[1-9]", text)
+    assert any(
+        r.levelno == logging.WARNING and "unsettled" in r.getMessage() for r in caplog.records
+    )
+    assert e.unload_calls == {"slow": 1}
+    assert not g._lock.locked()
+
+
+async def test_free_omlx_never_unloads_the_excluded_target():
+    e = Engines(
+        omlx={
+            "mlx": {"size": 8 * GIB, "loaded": True},
+            "other": {"size": 4 * GIB, "loaded": True},
+        },
+        ceiling=40 * GIB,
+    )
+    g = guard(e)
+    async with httpx.AsyncClient(transport=e.transport()) as client:
+        freed, queued, after, posted, unloads = await g._free_omlx(
+            client, 8 * GIB, 12 * GIB, exclude={"mlx"}
+        )
+    assert e.unloaded == ["other"]
+    assert "mlx" not in e.unload_calls
+    assert freed == pytest.approx(4 * GIB)
+    assert queued == {}
+    assert unloads == [{"engine": OMLX, "model": "other", "status": "unloaded"}]
+
+
 def _omlx_short_of_ollama(resident: str) -> tuple[Engines, lg.LoadGuard]:
     """14 GiB oMLX load against 13 GiB headroom; freeing ``resident`` closes the gap."""
     engines = Engines(

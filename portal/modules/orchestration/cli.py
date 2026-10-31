@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -333,7 +334,12 @@ def queue_run(
         sink.runner_notice(
             "runner_started", "queue-runner", {"pid": os.getpid(), "poll_seconds": poll_seconds}
         )
+        started_head = _runner_head()
         while True:
+            current_head = _runner_head()
+            if started_head and current_head and current_head != started_head:
+                typer.echo(f"runner code changed {started_head}→{current_head}, restarting")
+                return  # exit 0: launchd KeepAlive restarts the runner on the new code
             _maybe_send_daily_digest(root, sink)
             if control_poll is not None and control_poll():
                 time.sleep(poll_seconds)
@@ -621,6 +627,21 @@ def _template_parameters(values: list[str]) -> dict[str, str]:
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[3]
+
+
+def _runner_head() -> str:
+    """The main checkout's HEAD commit; empty when git cannot be read (no restart check)."""
+    try:
+        head = subprocess.run(
+            ["git", "-C", str(_repo_root()), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return head.stdout.strip()
 
 
 def _arm_config_path() -> Path:

@@ -1743,6 +1743,40 @@ def test_queue_run_drain_exits_once_the_queue_is_empty(
     assert seen == ["DONE", "EMPTY"]
 
 
+def test_queue_run_restarts_between_jobs_when_the_runner_code_changes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen = _fake_queue(monkeypatch, ["EMPTY"])
+    heads = iter(["a" * 40, "b" * 40])
+    monkeypatch.setattr("portal.modules.orchestration.cli._runner_head", lambda: next(heads))
+    monkeypatch.setattr("portal.modules.orchestration.cli._optional_service", lambda root: None)
+
+    result = CliRunner().invoke(
+        orchestration_app, ["queue-run", "--tasks-dir", str(tmp_path), "--drain"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert f"runner code changed {'a' * 40}→{'b' * 40}, restarting" in result.output
+    assert seen == []  # the change is acted on between jobs, never mid-job
+    assert not (tmp_path / "queue-runner.lock").exists()  # launchd's restart may take it at once
+
+
+def test_queue_run_keeps_running_while_head_is_stable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen = _fake_queue(monkeypatch, ["DONE", "EMPTY"])
+    monkeypatch.setattr("portal.modules.orchestration.cli._runner_head", lambda: "a" * 40)
+    monkeypatch.setattr("portal.modules.orchestration.cli._optional_service", lambda root: None)
+
+    result = CliRunner().invoke(
+        orchestration_app, ["queue-run", "--tasks-dir", str(tmp_path), "--drain"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "restarting" not in result.output
+    assert seen == ["DONE", "EMPTY"]
+
+
 class TestCanarySteps:
     """A `canary: <step>` step runs the named step's argv with --canary appended."""
 

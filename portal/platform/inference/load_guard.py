@@ -36,7 +36,8 @@ the ceiling from host free + inactive memory), plus idle Ollama residents, minus
 ``LOAD_GUARD_MARGIN_GB``. ``LOAD_GUARD_CEILING_GB`` replaces that ceiling with a
 fixed budget; the balanced tier's ceiling follows free memory (P5-OMLX-CEILING-001).
 Ollama sizing adds per-layer KV bytes at baked ``num_ctx`` using ``OLLAMA_KV_CACHE_TYPE`` (default q8_0); missing geometry falls back to weights × ``LOAD_GUARD_FACTOR`` and observed residency can raise the estimate.
-Cold loads unload idle models from the other engine when current headroom does not cover the incoming model.
+Cold loads unload idle models when current headroom does not cover the incoming model; an
+oMLX cold load frees idle oMLX residents first (LRU, never itself), then Ollama's.
 
 Fail-open: when oMLX's status cannot be read, the load is admitted. Resident
 models (the router, task-router, warm seats) never wait. ``LOAD_GUARD=0`` disables
@@ -868,11 +869,15 @@ class LoadGuard:
         return int(st.get("active_requests") or 0) + int(st.get("waiting_requests") or 0) > tracked
 
     async def _free_omlx(
-        self, client: httpx.AsyncClient, want: float, used: float
+        self,
+        client: httpx.AsyncClient,
+        want: float,
+        used: float,
+        exclude: frozenset[str] | set[str] = frozenset(),
     ) -> tuple[float, dict[str, _Free], float | None, float, list[dict[str, str]]]:
         """Unload idle oMLX models; report the drop, queued work, post state, 200 bytes."""
         try:
-            url, idle = await self._omlx_idle_models(client)
+            url, idle = await self._omlx_idle_models(client, exclude)
             queued: dict[str, _Free] = {}
             unloads: list[dict[str, str]] = []
             posted = 0.0
@@ -895,6 +900,13 @@ class LoadGuard:
                     covered += size
                     unloads.append({"engine": OMLX, "model": str(m["id"]), "status": "queued"})
                     _record_unload(OMLX, "queued_202")
+                else:
+                    logger.warning(
+                        "load_guard: unload of idle oMLX model %s returned HTTP %d",
+                        m["id"],
+                        r.status_code,
+                    )
+                    unloads.append({"engine": OMLX, "model": str(m["id"]), "status": "failed"})
             if not any_post:
                 return 0.0, queued, None, 0.0, unloads
             after = await self._omlx_used(client)
@@ -1514,17 +1526,19 @@ class LoadGuard:
         available: float,
         held: list[tuple[str, int, str]],
         deadline: float,
+        omlx_held: list[tuple[str, int, str]] | None = None,
     ) -> NoReturn:
-        """Refuse an oMLX cold load, naming every Ollama resident that could not be freed."""
+        """Refuse an oMLX cold load, naming every resident that could not be freed."""
         waited = _waited_s(deadline)
-        if not held:
+        blockers = held + list(omlx_held or [])
+        if not blockers:
             raise LoadRefusedError(
                 f"Cannot load {model}: projected memory {need / _GIB:.1f} GiB would "
                 f"exceed host headroom {available / _GIB:.1f} GiB",
                 "projected-exceeds",
             )
         blocked = ", ".join(
-            f"{name} ({size / _GIB:.1f} GiB, {reason})" for name, size, reason in held
+            f"{name} ({size / _GIB:.1f} GiB, {reason})" for name, size, reason in blockers
         )
         message = (
             f"Cannot load {model}: projected memory {need / _GIB:.1f} GiB would "
@@ -1559,6 +1573,31 @@ class LoadGuard:
         _record_wait(OMLX, "free_settle", time.monotonic() - started)
         return True
 
+    async def _omlx_unloads_pending(
+        self,
+        client: httpx.AsyncClient,
+        pending: dict[str, _Free],
+        used: float,
+        deadline: float,
+    ) -> tuple[bool, float]:
+        """True when a pending oMLX unload needs another pass; False when none or wait spent."""
+        if not pending:
+            return False, used
+        remaining_frees, _, used = await self._pending_omlx_unloads(client, pending, used)
+        if remaining_frees is not pending:  # the retire path returns the input unchanged
+            pending.clear()
+            pending.update(remaining_frees)
+        if not pending:
+            return True, used
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return False, used
+        started = time.monotonic()
+        _admit_waited.set(True)
+        await asyncio.sleep(min(_POLL_S, remaining))
+        _record_wait(OMLX, "free_settle", time.monotonic() - started)
+        return True, used
+
     def _unfreed_idle_ollama(self, resident: dict[str, int], freed: set[str]) -> list[str]:
         return [
             name
@@ -1579,6 +1618,7 @@ class LoadGuard:
         pending: dict[str, _Free],
         freed: set[str],
         failed: set[str],
+        omlx_held: list[tuple[str, int, str]] | None = None,
     ) -> None:
         """Free each idle resident once, or wait when busy residents can still cover the gap."""
         if await self._ollama_frees_pending(pending, resident, headroom, deadline):
@@ -1605,7 +1645,77 @@ class LoadGuard:
             available,
             self._omlx_ollama_blockers(resident, failed, pending),
             deadline,
+            omlx_held,
         )
+
+    async def _advance_omlx_own_residents(
+        self,
+        client: httpx.AsyncClient,
+        status: dict[str, Any],
+        target: str,
+        shortage: float,
+        used: float,
+        deadline: float,
+        pending: dict[str, _Free],
+        attempted: set[str],
+        pending_used: float,
+    ) -> tuple[bool, list[tuple[str, int, str]], float]:
+        """Free this engine's own idle residents before an oMLX cold load is refused.
+
+        LRU first, never the target itself; pinned, protected, busy, active-elsewhere
+        and loading residents are never freed, nor anything under foreign traffic.
+        Returns (re-measure, residents still holding bytes with why, pending baseline).
+        """
+        waiting, pending_used = await self._omlx_unloads_pending(
+            client, pending, pending_used, deadline
+        )
+        if waiting:
+            return True, [], pending_used
+        freed, queued, after, posted, unloads = await self._free_omlx(
+            client, shortage, used, exclude={target} | attempted
+        )
+        attempted.update(str(entry["model"]) for entry in unloads)
+        if queued:
+            pending.update(queued)
+            pending_used = self._pending_baseline(used, after, posted)
+        if freed or queued:
+            return True, [], pending_used
+        holding = await self._omlx_resident_blockers(client, status, target, attempted, pending)
+        return False, holding, pending_used
+
+    async def _omlx_resident_blockers(
+        self,
+        client: httpx.AsyncClient,
+        status: dict[str, Any],
+        target: str,
+        attempted: set[str],
+        pending: dict[str, _Free],
+    ) -> list[tuple[str, int, str]]:
+        """Loaded oMLX residents this load could not free: (name, bytes, why)."""
+        holding: list[tuple[str, int, str]] = []
+        unexplained: list[tuple[str, int]] = []
+        for entry in (status or {}).get("models") or []:
+            name = str(entry.get("id") or "")
+            size = int(entry.get("estimated_size") or 0)
+            if name == target or not entry.get("loaded") or size <= 0:
+                continue
+            if name in pending:
+                holding.append((name, size, "unload unsettled"))
+            elif name in attempted:
+                holding.append((name, size, "unload failed"))
+            elif name in self.protected(OMLX):
+                holding.append((name, size, "protected"))
+            elif self.busy(OMLX, name):
+                holding.append((name, size, "busy"))
+            elif self._active_elsewhere(OMLX, name):
+                holding.append((name, size, "active elsewhere"))
+            elif entry.get("is_loading"):
+                holding.append((name, size, "loading"))
+            else:
+                unexplained.append((name, size))
+        if unexplained and await self._omlx_foreign_active(client):
+            return holding + [(name, size, "foreign traffic") for name, size in unexplained]
+        return holding + [(name, size, "pinned") for name, size in unexplained]
 
     async def _check_omlx_ollama_capacity(
         self, client: httpx.AsyncClient, model: str, deadline: float
@@ -1616,6 +1726,9 @@ class LoadGuard:
         pending: dict[str, _Free] = {}
         freed: set[str] = set()
         failed: set[str] = set()
+        pending_omlx: dict[str, _Free] = {}
+        attempted_omlx: set[str] = set()
+        pending_omlx_used = 0.0
         while True:
             status = await self._omlx_status(client)
             entry = _omlx_entry(status, model)
@@ -1625,7 +1738,7 @@ class LoadGuard:
             capacity = await self._headroom(client)
             if not need or capacity is None:
                 return
-            headroom, _ = capacity
+            headroom, used = capacity
             try:
                 resident = await self._resident(client, base)
             except Exception as e:
@@ -1635,6 +1748,19 @@ class LoadGuard:
             _record_headroom(available)
             if need <= available:
                 return
+            progress, omlx_holding, pending_omlx_used = await self._advance_omlx_own_residents(
+                client,
+                status,
+                model,
+                need - available,
+                used,
+                deadline,
+                pending_omlx,
+                attempted_omlx,
+                pending_omlx_used,
+            )
+            if progress:
+                continue
             await self._advance_omlx_ollama_capacity(
                 client,
                 base,
@@ -1647,10 +1773,11 @@ class LoadGuard:
                 pending,
                 freed,
                 failed,
+                omlx_holding,
             )
 
     async def admit_omlx(self, model: str) -> Callable[[], None] | None:
-        """Serialise the cold load and free idle Ollama residents when its size exceeds current headroom."""
+        """Serialise the cold load; free idle oMLX residents, then Ollama's, when short."""
         if not self.enabled() or not model:
             return None
         deadline = time.monotonic() + load_wait_s()
