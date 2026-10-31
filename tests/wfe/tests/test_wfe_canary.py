@@ -65,12 +65,33 @@ class TestClassification:
             ' failed to create shim task: OCI runtime create failed"}',
             '{"error_type": "docker_unavailable"}',
             "Tool 'read_pdf' returned an MCP tool error",
-            "ScopeError: path outside the evaluation namespace: /workspace/x.pdf",
         ],
     )
     def test_a_tool_that_could_not_run_is_setup(self, output):
         # realuse autocoding canary 10-30: seven sandbox OCI failures were classed MODEL.
         assert classify_row(_row(outcome="REFUSED", tool_call_log=[{"output": output}])) == SETUP
+
+    def test_a_scope_refusal_of_a_prompt_path_is_setup(self):
+        path = "/workspace/uploads/final_invoice.pdf"
+        row = _row(
+            outcome="REFUSED",
+            tool_call_log=[{"output": f"path outside the evaluation namespace: {path}"}],
+            turn_results=[{"turn": 1, "user": f"Read the invoice at {path} and total it."}],
+        )
+        assert classify_row(row) == SETUP
+
+    def test_a_scope_refusal_of_a_model_invented_path_is_model(self):
+        # rest-8: the prompt names the staged path; '/final_invoice.pdf' is the model's.
+        row = _row(
+            outcome="REFUSED",
+            tool_call_log=[
+                {"output": "ScopeError: path outside the evaluation namespace: /final_invoice.pdf"}
+            ],
+            turn_results=[
+                {"turn": 1, "user": "Read /workspace/uploads/final_invoice.pdf and total it."}
+            ],
+        )
+        assert classify_row(row) == MODEL
 
     def test_a_reused_row_is_setup(self):
         assert classify_row(_row(reused_from="earlier/row")) == SETUP
@@ -265,9 +286,12 @@ class TestRunCanary:
         out = capsys.readouterr().out
         assert "CANARY c1_canary: PASS (0 setup row(s) of 2)" in out
         assert (tmp / "campaigns" / "c1_canary" / "manifest.json").is_file()
+        assert not (tmp / "campaigns" / "c1_canary" / "excluded.json").exists()
 
-    def test_one_setup_row_exits_one(self, harness, monkeypatch, capsys):
-        plan, _ = harness
+    def test_one_setup_row_excludes_that_workspace_and_exits_zero(
+        self, harness, monkeypatch, capsys
+    ):
+        plan, tmp = harness
         rows = _rows_for(
             plan,
             {
@@ -276,13 +300,16 @@ class TestRunCanary:
             },
         )
         monkeypatch.setattr(camp, "execute_arm", _fake_execute(rows))
-        assert run_canary(["--campaign-id", "c1", "--plan", str(plan)]) == 1
+        assert run_canary(["--campaign-id", "c1", "--plan", str(plan)]) == 0
         out = capsys.readouterr().out
-        assert "CANARY c1_canary: SETUP (1 setup row(s) of 2)" in out
+        assert "CANARY c1_canary: PASS (1 setup row(s) excluded of 2)" in out
+        assert "EXCLUDED auto-general:" in out
         assert "HARNESS_ERROR" in out and "SETUP" in out and "MODEL" in out
+        excluded = json.loads((tmp / "campaigns" / "c1_canary" / "excluded.json").read_text())
+        assert excluded == [{"workspace": "auto-general", "reason": "runner raised: TypeError: x"}]
 
-    def test_a_zero_second_block_is_caught_end_to_end(self, harness, monkeypatch):
-        plan, _ = harness
+    def test_a_zero_second_block_excludes_that_workspace(self, harness, monkeypatch):
+        plan, tmp = harness
         rows = _rows_for(
             plan,
             {
@@ -291,7 +318,9 @@ class TestRunCanary:
             },
         )
         monkeypatch.setattr(camp, "execute_arm", _fake_execute(rows))
-        assert run_canary(["--campaign-id", "c1", "--plan", str(plan)]) == 1
+        assert run_canary(["--campaign-id", "c1", "--plan", str(plan)]) == 0
+        excluded = json.loads((tmp / "campaigns" / "c1_canary" / "excluded.json").read_text())
+        assert [item["workspace"] for item in excluded] == ["auto-general"]
 
     def test_an_unreachable_engine_aborts_before_anything_is_written(
         self, harness, monkeypatch, capsys
@@ -437,3 +466,124 @@ class TestSetupFaultLedger:
         monkeypatch.setenv("WFE_SETUP_FAULTS", str(tmp_path / "missing.jsonl"))
         row = _row(final_text="[Pipeline stream error — the reply ended early]")
         assert classify_row(row) == MODEL
+
+
+def test_the_main_campaign_skips_a_workspace_the_canary_excluded(tmp_path, monkeypatch):
+    monkeypatch.setattr(camp, "CAMPAIGNS", tmp_path / "campaigns")
+    monkeypatch.setattr(
+        camp, "gate_controls", lambda rows, where: {"suites": {}, "tasks": 0, "failures": []}
+    )
+    plan = tmp_path / "plan.yaml"
+    plan.write_text("workloads: {}\n")
+    canary = tmp_path / "campaigns" / "c1_canary"
+    canary.mkdir(parents=True)
+    reason = "runner raised: TypeError: x"
+    (canary / "excluded.json").write_text(
+        json.dumps([{"workspace": "ws-b", "reason": reason}]) + "\n"
+    )
+
+    def row(ws, tid):
+        return {
+            "run_id": f"{ws}|arm|{tid}",
+            "workspace": ws,
+            "arm": "arm",
+            "arm_role": "incumbent",
+            "suite": "home",
+            "suite_path": "",
+            "task_id": tid,
+            "repeat": 0,
+            "state": "PENDING",
+        }
+
+    rows = [row("auto-general", "t0"), row("ws-b", "t1"), row("ws-b", "t2")]
+    campaign_dir = camp.open_campaign("c1", plan, rows, append=False)
+    manifest = camp.load_manifest(campaign_dir)
+    by_ws: dict[str, set[str]] = {}
+    for item in manifest["rows"]:
+        by_ws.setdefault(item["workspace"], set()).add(item["state"])
+        if item["workspace"] == "ws-b":
+            assert item["note"] == reason
+    assert by_ws == {"auto-general": {"PENDING"}, "ws-b": {"EXCLUDED_SETUP"}}
+    problems = camp.completion_problems(campaign_dir)
+    assert any("auto-general" in problem for problem in problems)
+    assert not any("ws-b" in problem for problem in problems)
+
+    for item in manifest["rows"]:
+        if item["workspace"] == "ws-b":
+            item["state"] = "PENDING"
+            item.pop("note", None)
+    camp.save_manifest(campaign_dir, manifest)
+    seen: dict[str, list[tuple[str, str]]] = {}
+
+    def fake_todo(cd, live, arm, *args, **kwargs):
+        seen["states"] = [(r["workspace"], r["state"]) for r in live["rows"]]
+        return [], {"arm": arm, "ran": 0}, []
+
+    monkeypatch.setattr(camp, "_arm_todo", fake_todo)
+    assert camp.execute_arm(campaign_dir, "arm", 1, 1, None, False, False)["ran"] == 0
+    assert seen["states"] == [
+        ("auto-general", "PENDING"),
+        ("ws-b", "EXCLUDED_SETUP"),
+        ("ws-b", "EXCLUDED_SETUP"),
+    ]
+    # The canary campaign does not exclude its own rows.
+    canary_rows = [row("ws-b", "t1")]
+    canary_dir = camp.open_campaign("c1_canary", plan, canary_rows, append=False)
+    assert camp.load_manifest(canary_dir)["rows"][0]["state"] == "PENDING"
+
+
+def test_the_report_lists_excluded_workspaces_and_does_not_score_them(tmp_path):
+    from tests.wfe.report import build, render_markdown
+
+    directory = tmp_path / "c1"
+    (directory / "rows").mkdir(parents=True)
+    (directory / "preflight").mkdir()
+    env = {"fingerprint": "abc", "git_sha": "deadbeef", "ollama_version": "0.33"}
+    manifest_rows = []
+    for workspace, outcome, state in (
+        ("auto-general", "PASS", "PASS"),
+        ("ws-b", "PASS", "EXCLUDED_SETUP"),
+        ("ws-b", "FAIL", "EXCLUDED_SETUP"),
+    ):
+        run_id = f"{workspace}|inc|coding|{outcome}"
+        manifest_rows.append(
+            {
+                "run_id": run_id,
+                "workspace": workspace,
+                "arm": "inc",
+                "arm_role": "incumbent",
+                "suite": "coding",
+                "task_id": outcome.lower(),
+                "repeat": 0,
+                "is_home": True,
+                "state": state,
+                "note": "fixture missing" if state == "EXCLUDED_SETUP" else "",
+            }
+        )
+        (directory / "rows" / f"{workspace}_{outcome}.json").write_text(
+            json.dumps(
+                {
+                    "run_id": run_id,
+                    "workspace": workspace,
+                    "arm": "inc",
+                    "suite": "coding",
+                    "task_id": outcome.lower(),
+                    "repeat": 0,
+                    "outcome": outcome,
+                    "economics": {"total_tokens": 100, "wall_s": 1.0},
+                    "env": env,
+                }
+            )
+        )
+    (directory / "manifest.json").write_text(
+        json.dumps({"campaign_id": "c1", "env": env, "rows": manifest_rows})
+    )
+    report = build(directory)
+    assert [cell["workspace"] for cell in report["matrix"]] == ["auto-general"]
+    assert report["matrix"][0]["n"] == 1 and report["matrix"][0]["passes"] == 1
+    assert report["excluded_setup"] == [
+        {"workspace": "ws-b", "count": 2, "reason": "fixture missing"}
+    ]
+    text = render_markdown(report)
+    assert "| `ws-b` | 2 | fixture missing |" in text
+    assert "2/2" not in text

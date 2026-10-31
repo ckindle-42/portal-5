@@ -1801,6 +1801,50 @@ def _record_screen_reuse_sources(manifest: dict, source_ids: list[str] | None) -
     return changed
 
 
+def setup_exclusions(campaign_dir: Path) -> dict[str, str]:
+    """Workspace -> reason from sibling `<id>_canary/excluded.json`. A canary excludes nothing."""
+    name = Path(campaign_dir).name
+    if name.endswith("_canary"):
+        return {}
+    path = Path(campaign_dir).parent / f"{name}_canary" / "excluded.json"
+    if not path.is_file():
+        return {}
+    try:
+        raw = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(raw, list):
+        return {}
+    out: dict[str, str] = {}
+    for item in raw:
+        if isinstance(item, dict) and item.get("workspace"):
+            out.setdefault(str(item["workspace"]), str(item.get("reason") or ""))
+    return out
+
+
+def apply_setup_exclusions(campaign_dir: Path, manifest: dict) -> list[str]:
+    """Mark still-pending rows of an excluded workspace EXCLUDED_SETUP. Returns workspaces."""
+    excluded = setup_exclusions(campaign_dir)
+    if not excluded:
+        return []
+    marked: list[str] = []
+    for row in manifest.get("rows") or []:
+        reason = excluded.get(str(row.get("workspace") or ""))
+        if reason is None or row.get("state") != "PENDING":
+            continue
+        row["state"] = Outcome.EXCLUDED_SETUP.value
+        row["note"] = reason
+        marked.append(str(row.get("workspace")))
+    if marked:
+        save_manifest(campaign_dir, manifest)
+    return marked
+
+
+def _opened(campaign_dir: Path) -> Path:
+    apply_setup_exclusions(campaign_dir, load_manifest(campaign_dir))
+    return campaign_dir
+
+
 def open_campaign(
     cid: str,
     plan_path: Path,
@@ -1822,7 +1866,7 @@ def open_campaign(
         if not append:
             if _record_screen_reuse_sources(manifest, reuse_screen):
                 save_manifest(d, manifest)
-            return d
+            return _opened(d)
         if instrument_drift(manifest):
             raise GateRefused(f"append: {instrument_drift(manifest)}; open a new campaign")
         known = {r["run_id"] for r in manifest["rows"]}
@@ -1842,7 +1886,7 @@ def open_campaign(
         )
         mpath.write_text(json.dumps(manifest, indent=1))
         print(f"appended {len(added)} rows ({len(matrix) - len(added)} already present)")
-        return d
+        return _opened(d)
     rec = gate_controls(matrix, "open")
     keep_receipt(d, rec)
     mpath.write_text(
@@ -1862,7 +1906,7 @@ def open_campaign(
             indent=1,
         )
     )
-    return d
+    return _opened(d)
 
 
 def load_manifest(d: Path) -> dict:
@@ -3371,6 +3415,8 @@ def completion_problems(campaign_dir: Path) -> list[str]:
     for r in m["rows"]:
         if r.get("state") == "SKIPPED_DECIDED" and r.get("curtailment_id") in valid_curtailments:
             continue
+        if r.get("state") == Outcome.EXCLUDED_SETUP.value:
+            continue
         p = _row_path(campaign_dir, r["run_id"])
         row = json.loads(p.read_text()) if p.exists() else {"outcome": "no result"}
         reused = bool(row.get("reused_from"))
@@ -3535,6 +3581,7 @@ def execute_arm(
     pattern for long sweeps: a leaked handle or a wedged connection in one model
     must not poison the remaining arms."""
     manifest = load_manifest(campaign_dir)
+    apply_setup_exclusions(campaign_dir, manifest)
     todo, early, reused = _arm_todo(
         campaign_dir,
         manifest,

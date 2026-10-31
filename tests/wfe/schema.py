@@ -40,6 +40,7 @@ class Outcome(StrEnum):
     HARNESS_ERROR = "HARNESS_ERROR"
     PENDING_REVIEW = "PENDING_REVIEW"
     BLOCKED = "BLOCKED"
+    EXCLUDED_SETUP = "EXCLUDED_SETUP"  # canary setup fault: not run, not scored
 
 
 #: Outcomes attributable to the model. These form the denominator of every

@@ -1950,6 +1950,37 @@ def environment_fault(
     return None
 
 
+def wfe_campaigns_root() -> Path:
+    """The WFE campaign directory: PORTAL_DATA_ROOT, else ~/AI_Output/portal-data."""
+    data = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+    return data / "tests" / "wfe" / "results" / "campaigns"
+
+
+def archive_canary_campaigns(
+    tasks_dir: Path,
+    campaigns_root: Path | None = None,
+    *,
+    now: datetime | None = None,
+) -> list[str]:
+    """Rename `*_canary` dirs to `<name>.stale_<UTC>`. Refuses while a job runs; never deletes."""
+    root = campaigns_root if campaigns_root is not None else wfe_campaigns_root()
+    with QueueLedger(tasks_dir) as ledger:
+        if any(item["state"] == "running" for item in ledger.items()):
+            return ["refused: a job is running"]
+    if not root.is_dir():
+        return []
+    stamp = (now or datetime.now(UTC)).strftime("%Y%m%dT%H%MZ")
+    lines: list[str] = []
+    for path in sorted(p for p in root.iterdir() if p.is_dir() and p.name.endswith("_canary")):
+        dest = path.with_name(f"{path.name}.stale_{stamp}")
+        if dest.exists():
+            lines.append(f"left {path.name}: {dest.name} exists")
+            continue
+        path.rename(dest)
+        lines.append(f"archived {path.name} -> {dest.name}")
+    return lines
+
+
 def pin_job_sources(tasks_dir: Path, repo: Path) -> list[str]:
     """Re-pin every queued or blocked job's source worktree to main HEAD (run by
     `./launch.sh rebuild`, so a rebuild and the snapshot pin are one step — 10-30)."""

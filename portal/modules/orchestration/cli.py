@@ -511,6 +511,20 @@ def snapshot_pin(
         raise typer.Exit(code=1)
 
 
+@orchestration_app.command("archive-canaries")
+def archive_canaries(
+    tasks_dir: Annotated[Path | None, typer.Option("--tasks-dir")] = None,
+) -> None:
+    """Rename WFE `*_canary` campaign dirs aside. Refuses while a queue job is running."""
+    from portal.modules.orchestration.escalate import archive_canary_campaigns
+
+    lines = archive_canary_campaigns(tasks_dir or _tasks_dir())
+    for line in lines or ["no canary campaign to archive"]:
+        typer.echo(line)
+    if any(line.startswith("refused") for line in lines):
+        raise typer.Exit(code=1)
+
+
 @orchestration_app.command("escalate")
 def escalate_job(
     job_id: Annotated[str, typer.Argument()],

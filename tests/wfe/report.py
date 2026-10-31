@@ -818,10 +818,38 @@ def _judge_text(cell: dict | None, arm_a: str, arm_b: str) -> str:
     return f"{wins.get(arm_a, 0)}W/{wins.get(arm_b, 0)}L/{cell.get('ties', 0)}T"
 
 
+def _excluded_setup(manifest: dict) -> list[dict]:
+    """Workspaces a canary setup fault excluded, with row counts. Not scored."""
+    grouped: dict[str, dict] = {}
+    for row in manifest.get("rows") or []:
+        if row.get("state") != Outcome.EXCLUDED_SETUP.value:
+            continue
+        workspace = str(row.get("workspace") or "")
+        slot = grouped.get(workspace)
+        if slot is None:
+            grouped[workspace] = {
+                "workspace": workspace,
+                "count": 1,
+                "reason": str(row.get("note") or ""),
+            }
+        else:
+            slot["count"] += 1
+    return [grouped[key] for key in sorted(grouped)]
+
+
+def _drop_excluded(rows: list[dict], manifest: dict) -> tuple[list[dict], list[dict]]:
+    excluded = _excluded_setup(manifest)
+    if not excluded:
+        return rows, excluded
+    skip = {item["workspace"] for item in excluded}
+    return [row for row in rows if row.get("workspace") not in skip], excluded
+
+
 def build(campaign_dir: Path, allow_mixed: bool = False, only_arm: str | None = None) -> dict:
     manifest, rows, preflights = _load(campaign_dir)
     if only_arm:
         rows = [r for r in rows if r["arm"] == only_arm]
+    rows, excluded_setup = _drop_excluded(rows, manifest)
     warnings = _collect_warnings(rows, manifest, allow_mixed)
     reviews = _review_scores(campaign_dir)
     judgements = judge.summary(campaign_dir)
@@ -932,6 +960,7 @@ def build(campaign_dir: Path, allow_mixed: bool = False, only_arm: str | None = 
             for m in blocked
         ],
         "curtailments": manifest.get("curtailments", []),
+        "excluded_setup": excluded_setup,
         "preflight": {
             k: {
                 "verdict": v.get("verdict"),
@@ -1108,6 +1137,21 @@ def _sec_instrument(a, rep) -> None:
         for nr in rep["not_run"][:25]:
             a(f"- `{nr['run_id']}` — {nr['state']} {nr['note']}")
         a("")
+
+
+def _sec_excluded(a, rep) -> None:
+    rows = rep.get("excluded_setup") or []
+    if not rows:
+        return
+    a("## Excluded workspaces")
+    a("")
+    a("A canary setup fault excluded these workspaces. Their rows were not run and are not scored.")
+    a("")
+    a("| Workspace | Rows | Reason |")
+    a("|---|---:|---|")
+    for row in rows:
+        a(f"| `{row['workspace']}` | {row['count']} | {row['reason']} |")
+    a("")
 
 
 def _sec_matrix(a, rep) -> None:
@@ -1315,6 +1359,7 @@ def render_markdown(rep: dict) -> str:
         _sec_header,
         _sec_reused_rows,
         _sec_instrument,
+        _sec_excluded,
         _sec_matrix,
         _sec_speed,
         _sec_comparisons,

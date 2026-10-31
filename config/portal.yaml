@@ -95,7 +95,7 @@ orchestration_arm:
   queue:
     yield_lock_dir: "~/.portal5/locks/"
     escalation:
-      enabled: true
+      enabled: false
       oracle:
         enabled: true
         tiers: [sol, grok-max, flagship, oc-deep-flash, oc-glm-flash, deep-pro]

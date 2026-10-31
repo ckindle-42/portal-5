@@ -257,6 +257,9 @@ def test_documents_mcp_scoped_create_stays_in_the_namespace(docs, monkeypatch):
 
 
 def test_documents_mcp_scoped_read_outside_the_namespace_is_refused(docs):
+    """REST used to answer 403 because ScopeError escaped the tool. The read now
+    catches it as PermissionError and returns the same structured refusal the
+    native path returns, so a later corrected path is not a tool-error backoff."""
     pytest.importorskip("docx", reason="python-docx not installed")
     dm, root, _ = docs
     (root / "operator.docx").write_bytes(b"x")
@@ -265,7 +268,25 @@ def test_documents_mcp_scoped_read_outside_the_namespace_is_refused(docs):
         "read_word_document",
         {"arguments": {"file_path": str(root / "operator.docx")}, "eval": SCOPE},
     )
-    assert status == 403 and "outside the evaluation namespace" in body["error"]
+    assert status == 200 and body["success"] is False
+    assert "outside the evaluation namespace" in body["error"]
+
+
+def test_scoped_read_word_document_of_an_outside_path_returns_the_structured_error(docs):
+    pytest.importorskip("docx", reason="python-docx not installed")
+    dm, root, _ = docs
+    outside = root / "final_invoice.docx"
+    outside.write_bytes(b"x")
+    token = es.EVAL_SCOPE.set(SCOPE)
+    try:
+        body = dm.read_word_document(str(outside))
+    finally:
+        es.EVAL_SCOPE.reset(token)
+    assert body == {
+        "success": False,
+        "error": body["error"],
+    }
+    assert "outside the evaluation namespace" in body["error"]
 
 
 @pytest.fixture

@@ -1431,6 +1431,104 @@ def test_manual_escalation_uses_the_runner_escalator_with_oracle(
     assert built and built[0][3] is policy
 
 
+def test_archive_canaries_renames_canary_dirs_and_refuses_while_running(tmp_path: Path) -> None:
+    from datetime import UTC, datetime
+
+    campaigns = tmp_path / "campaigns"
+    kept = campaigns / "realuse_s8"
+    canary = campaigns / "realuse_s8_canary"
+    (canary / "rows").mkdir(parents=True)
+    (canary / "manifest.json").write_text("{}\n", encoding="utf-8")
+    kept.mkdir()
+    (campaigns / "notes.txt").write_text("leave me", encoding="utf-8")
+    stale = campaigns / "old_canary.stale_20260101T0000Z"
+    stale.mkdir()
+    when = datetime(2026, 10, 31, 15, 30, tzinfo=UTC)
+    lines = escalate_module.archive_canary_campaigns(tmp_path / "tasks", campaigns, now=when)
+    dest = campaigns / "realuse_s8_canary.stale_20261031T1530Z"
+    assert lines == [f"archived realuse_s8_canary -> {dest.name}"]
+    assert (dest / "manifest.json").read_text(encoding="utf-8") == "{}\n"
+    assert not canary.exists()
+    assert kept.is_dir() and stale.is_dir()
+    assert (campaigns / "notes.txt").read_text(encoding="utf-8") == "leave me"
+    again = campaigns / "next_canary"
+    again.mkdir()
+    (dest / "keep").write_text("original", encoding="utf-8")
+    # Same stamp would clobber dest; a second canary whose target exists is left in place.
+    occupied = campaigns / "realuse_s8_canary"
+    occupied.mkdir()
+    left = escalate_module.archive_canary_campaigns(tmp_path / "tasks", campaigns, now=when)
+    assert f"left realuse_s8_canary: {dest.name} exists" in left
+    assert occupied.is_dir() and (dest / "keep").read_text(encoding="utf-8") == "original"
+    assert "archived next_canary -> next_canary.stale_20261031T1530Z" in left
+    with QueueLedger(tmp_path / "tasks") as ledger:
+        ledger.db.execute(
+            "INSERT INTO queue_task (task_id, kind, plan_json, source_dir, state, created_at, "
+            "updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ("job-a", "job", "{}", str(tmp_path), "running", "t", "t"),
+        )
+        ledger.db.commit()
+    (campaigns / "live_canary").mkdir()
+    refused = escalate_module.archive_canary_campaigns(tmp_path / "tasks", campaigns, now=when)
+    assert refused == ["refused: a job is running"]
+    assert (campaigns / "live_canary").is_dir()
+
+
+def test_rebuild_archives_canaries_after_the_snapshot_pin() -> None:
+    text = (Path(__file__).resolve().parents[2] / "launch.sh").read_text(encoding="utf-8")
+    pin = text.index("uv run portal arm snapshot-pin")
+    archive = text.index("uv run portal arm archive-canaries")
+    assert pin < archive
+    assert "WARNING: canary archive refused" in text[archive : archive + 300]
+
+
+def test_a_blocked_job_with_escalation_off_notifies_and_opens_no_lane(tmp_path: Path) -> None:
+    """The shipped flag is off: a blocked job still notices, and no lane is opened."""
+    config = yaml.safe_load(
+        (Path(__file__).resolve().parents[2] / "config" / "orchestration_arm.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    policy = config["queue"]
+    assert policy["escalation"]["enabled"] is False
+    repo = _repo(tmp_path / "main")
+    tasks = tmp_path / "tasks"
+    notices = StubNoticeSink()
+    assert build_escalator(tasks, repo, notices, policy) is None
+    script = repo / "scripts" / "bad.py"
+    script.write_text("#!/usr/bin/env python3\nimport sys\nsys.exit(2)\n", encoding="utf-8")
+    script.chmod(0o755)
+    spec = parse_job_spec(
+        {
+            "id": "job-a",
+            "purpose": "fail the step",
+            "preconditions": {"stack": "down", "free_memory_gib": 0, "disk_free_gib": 0},
+            "steps": [{"id": "run", "argv": ["scripts/bad.py"], "timeout_seconds": 5}],
+            "report": {"fields": REPORT},
+        },
+        repo_root=repo,
+    )
+    with QueueLedger(tasks) as ledger:
+        ledger.enqueue_job(spec, repo)
+    from tests.unit.test_orchestration_jobs import _runner
+
+    queue = OvernightQueue(
+        tasks,
+        None,
+        QueueGate({}, {"yield_lock_dir": str(tmp_path / "locks")}, pid_file=tmp_path / "pids"),
+        repo_root=repo,
+        notices=notices,
+        job_factory=lambda: _runner(tmp_path, repo, notices=notices),
+        escalation=build_escalator(tasks, repo, notices, policy),
+    )
+    result = queue.run_next()
+    assert result.status == "BLOCKED"
+    assert notices.job_notices and notices.job_notices[0]["job_id"] == "job-a"
+    assert notices.job_notices[0]["status"] != "PASS"
+    assert notices.escalations == []
+    assert not list(tmp_path.rglob("esc-*"))
+
+
 def test_pin_job_sources_repins_queued_snapshots_and_refuses_while_running(
     tmp_path: Path,
 ) -> None:

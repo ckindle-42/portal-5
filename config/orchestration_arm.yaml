@@ -55,7 +55,7 @@ calibration:
 queue:
   yield_lock_dir: ~/.portal5/locks/
   escalation:
-    enabled: true
+    enabled: false
     oracle:
       enabled: true
       tiers:

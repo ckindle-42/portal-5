@@ -14,8 +14,10 @@ those rows FIRST, in a separate `<id>_canary` campaign, and classifies each:
           ran.
   MODEL   anything else — the seat answered and was measured.
 
-Exit 0 only when every selected row ran and none is SETUP. Reached through
-`wfe_campaign.sh <id> ... --canary` (job specs: a `canary: <step>` step).
+Exit 0 when the selected rows ran. A per-row SETUP is written to excluded.json
+and still exits 0 so the main campaign can skip that workspace. Whole-run faults
+(no row selected, ABORT, FIXTURES, CONFORMANCE, gate refused) exit 1. Reached
+through `wfe_campaign.sh <id> ... --canary` (job specs: a `canary: <step>` step).
 
 A fault appended once is SETUP forever: `--record-fault SIG --cause TEXT --fix SHA`
 writes setup_faults.jsonl (override the path with WFE_SETUP_FAULTS; tests must).
@@ -26,6 +28,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from datetime import date
 from pathlib import Path
@@ -49,9 +52,13 @@ _TOOL_INFRA = (
     "error response from daemon",
     "docker not found",
     "docker_unavailable",
-    "path outside the evaluation namespace",
     "returned an mcp tool error",
 )
+#: SETUP only when the refused path is one the task prompt names. A model-invented
+#: path (rest-8: read_pdf('/final_invoice.pdf')) is the model's mistake.
+_SCOPE_REFUSAL = "path outside the evaluation namespace"
+_SCOPE_REFUSAL_PATH = re.compile(re.escape(_SCOPE_REFUSAL) + r":\s*([^\s'\"`,]+)")
+_LEDGER_NARROW = _MISSING_FILE + _TOOL_INFRA + (_SCOPE_REFUSAL,)
 #: A 0-second row never reached a model — the instrument refused it.
 _UNRUN_STATES = frozenset({"PENDING", "MISSING", "SKIPPED_DECIDED", "NO_ROW"})
 
@@ -168,7 +175,7 @@ def ledger_signatures() -> tuple[str, ...]:
             continue
         # A signature the constants already cover keeps the constants' narrower scope
         # (notes + tool output): "file not found" in a model's own answer is not setup.
-        if sig and sig not in _MISSING_FILE + _TOOL_INFRA:
+        if sig and sig not in _LEDGER_NARROW:
             found.append(sig)
     return tuple(found)
 
@@ -206,6 +213,32 @@ def _is_zero_second(row: dict) -> bool:
     return not row.get("turns") and not wall
 
 
+def _user_prompts(row: dict) -> str:
+    return "\n".join(
+        str(turn.get("user") or "")
+        for turn in row.get("turn_results") or []
+        if isinstance(turn, dict)
+    )
+
+
+def _path_in_prompt(path: str, prompt: str) -> bool:
+    """True when `path` occurs as its own path, not as a suffix of a longer one."""
+    if not path or not prompt:
+        return False
+    return re.search(rf"(?<![\w./\\-]){re.escape(path)}(?![\w./\\-])", prompt) is not None
+
+
+def _scope_refusal_is_setup(row: dict) -> bool:
+    text = f"{_note_text(row)} {_tool_outputs(row)}"
+    if _SCOPE_REFUSAL not in text.lower():
+        return False
+    prompt = _user_prompts(row)
+    return any(
+        _path_in_prompt(match.group(1).rstrip(".,;:)]}"), prompt)
+        for match in _SCOPE_REFUSAL_PATH.finditer(text)
+    )
+
+
 def classify_row(row: dict) -> str:
     """SETUP or MODEL for one canary row (manifest stub merged with its row file)."""
     outcome = str(row.get("outcome") or row.get("state") or "PENDING")
@@ -218,6 +251,8 @@ def classify_row(row: dict) -> str:
         return SETUP
     blob = f"{note} {_tool_outputs(row)}".lower()
     if any(sig in blob for sig in _MISSING_FILE + _TOOL_INFRA):
+        return SETUP
+    if _scope_refusal_is_setup(row):
         return SETUP
     ledger_blob = _ledger_blob(row)
     if any(sig in ledger_blob for sig in ledger_signatures()):
@@ -284,6 +319,14 @@ def _print_table(records: list[dict]) -> None:
     )
     for row in table:
         print("  ".join(f"{v:<{w}}" for v, w in zip(row, widths, strict=True)).rstrip())
+
+
+def _write_exclusions(cd: Path, setup: list[dict]) -> None:
+    """`<canary dir>/excluded.json`: one {workspace, reason} per SETUP row."""
+    payload = [{"workspace": r.get("workspace"), "reason": r.get("note") or ""} for r in setup]
+    (cd / "excluded.json").write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    for item in payload:
+        print(f"EXCLUDED {item['workspace']}: {item['reason']}")
 
 
 def _records_for(cd: Path, selected: list[dict]) -> list[dict]:
@@ -406,11 +449,12 @@ def run_canary(argv: list[str] | None = None) -> int:
     records = _records_for(cd, selected)
     _print_table(records)
     setup = [r for r in records if r["class"] == SETUP]
-    print(
-        f"CANARY {cid}: {'SETUP' if setup else 'PASS'} "
-        f"({len(setup)} setup row(s) of {len(records)})"
-    )
-    return 1 if setup else 0
+    if setup:
+        _write_exclusions(cd, setup)
+        print(f"CANARY {cid}: PASS ({len(setup)} setup row(s) excluded of {len(records)})")
+        return 0
+    print(f"CANARY {cid}: PASS (0 setup row(s) of {len(records)})")
+    return 0
 
 
 def _cli() -> int:

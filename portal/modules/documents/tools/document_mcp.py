@@ -268,7 +268,11 @@ def _resolve_input_path(file_path: str) -> Path:
     """
     scope = eval_scope.EVAL_SCOPE.get()
     if scope:  # a WFE row reads only its own fixtures and outputs
-        return eval_scope.confine(OUTPUT_DIR, scope, file_path, sub="in")
+        try:
+            return eval_scope.confine(OUTPUT_DIR, scope, file_path, sub="in")
+        except eval_scope.ScopeError as e:
+            # N-23: the read tools return PermissionError as their structured error.
+            raise PermissionError(str(e)) from e
     given = Path(file_path)
     if given.exists() or given.name != file_path:
         try:
