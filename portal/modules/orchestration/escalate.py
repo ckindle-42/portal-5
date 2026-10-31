@@ -1973,9 +1973,10 @@ def archive_canary_campaigns(
     lines: list[str] = []
     for path in sorted(p for p in root.iterdir() if p.is_dir() and p.name.endswith("_canary")):
         dest = path.with_name(f"{path.name}.stale_{stamp}")
-        if dest.exists():
-            lines.append(f"left {path.name}: {dest.name} exists")
-            continue
+        n = 1
+        while dest.exists():  # a second archive in the same minute keeps both, never skips
+            n += 1
+            dest = path.with_name(f"{path.name}.stale_{stamp}_{n}")
         path.rename(dest)
         lines.append(f"archived {path.name} -> {dest.name}")
     return lines

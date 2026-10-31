@@ -572,6 +572,34 @@ def test_the_main_campaign_skips_a_workspace_the_canary_excluded(tmp_path, monke
     assert camp.load_manifest(canary_dir)["rows"][0]["state"] == "PENDING"
 
 
+def test_preflight_never_probes_an_excluded_workspace(tmp_path, monkeypatch):
+    # sol 10-31: preflight got every arm row; an excluded workspace's failing probe
+    # then blocked the healthy workspace's pending row.
+    directory = tmp_path / "c1"
+    directory.mkdir()
+    canary = tmp_path / "c1_canary"
+    canary.mkdir()
+    (canary / "excluded.json").write_text(json.dumps([{"workspace": "ws-b", "reason": "x"}]))
+    rows = [
+        {"run_id": f"{ws}|arm|t", "workspace": ws, "arm": "arm", "state": "PENDING"}
+        for ws in ("ws-a", "ws-b")
+    ]
+    manifest = {"campaign_id": "c1", "rows": rows}
+    probed: list[str] = []
+
+    def fake_preflight(cd, m, arm_rows, model, force):
+        probed.extend(r["workspace"] for r in arm_rows)
+        return {"verdict": "OK", "findings": []}
+
+    monkeypatch.setattr(camp, "_arm_preflight", fake_preflight)
+    monkeypatch.setattr(camp, "row_model", lambda r: "m")
+    monkeypatch.setattr(camp, "undeliverable_keys", lambda sampling: [])
+    monkeypatch.setattr(camp, "save_manifest", lambda cd, m: None)
+    todo, early = camp._rows_to_run(directory, manifest, "arm", set(), False, False)
+    assert probed == ["ws-a"]
+    assert [r["workspace"] for r in todo] == ["ws-a"]
+
+
 def test_the_report_lists_excluded_workspaces_and_does_not_score_them(tmp_path):
     from tests.wfe.report import build, render_markdown
 

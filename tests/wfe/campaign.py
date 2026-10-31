@@ -2932,8 +2932,12 @@ def _rows_to_run(
         _log(campaign_dir, f"arm {arm}: BLOCKED — {note}")
         return [], {"arm": arm, "ran": 0, "blocked": len(todo)}
 
-    model = row_model(arm_rows[0])
-    pf = _arm_preflight(campaign_dir, manifest, arm_rows, model, force_preflight)
+    # Preflight probes only workspaces the canary did not exclude: a probe of an excluded
+    # workspace failing would otherwise block the healthy ones (sol 10-31).
+    if not runnable:
+        return [], {"arm": arm, "ran": 0}
+    model = row_model(runnable[0])
+    pf = _arm_preflight(campaign_dir, manifest, runnable, model, force_preflight)
     findings = "; ".join(pf.get("findings") or [])
     if pf.get("verdict") != "OK" and not force_preflight:
         for r in todo:

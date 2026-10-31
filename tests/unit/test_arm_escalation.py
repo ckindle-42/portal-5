@@ -1454,12 +1454,15 @@ def test_archive_canaries_renames_canary_dirs_and_refuses_while_running(tmp_path
     again = campaigns / "next_canary"
     again.mkdir()
     (dest / "keep").write_text("original", encoding="utf-8")
-    # Same stamp would clobber dest; a second canary whose target exists is left in place.
+    # Same stamp must not clobber dest, and the active canary must still be archived
+    # (sol 10-31: skipping it left the old baseline active with exit 0).
     occupied = campaigns / "realuse_s8_canary"
     occupied.mkdir()
     left = escalate_module.archive_canary_campaigns(tmp_path / "tasks", campaigns, now=when)
-    assert f"left realuse_s8_canary: {dest.name} exists" in left
-    assert occupied.is_dir() and (dest / "keep").read_text(encoding="utf-8") == "original"
+    second = campaigns / "realuse_s8_canary.stale_20261031T1530Z_2"
+    assert f"archived realuse_s8_canary -> {second.name}" in left
+    assert not occupied.exists() and second.is_dir()
+    assert (dest / "keep").read_text(encoding="utf-8") == "original"
     assert "archived next_canary -> next_canary.stale_20261031T1530Z" in left
     with QueueLedger(tmp_path / "tasks") as ledger:
         ledger.db.execute(
