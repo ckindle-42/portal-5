@@ -418,9 +418,15 @@ def _budget_bytes(status: dict[str, Any]) -> float:
     return _CEILING if _CEILING > 0 else float(status.get("final_ceiling") or 0)
 
 
-def _ollama_can_release(held: list[tuple[str, int, str]]) -> bool:
-    """True when a resident can become idle before the deadline (busy or active elsewhere)."""
-    return any(size > 0 and reason in ("busy", "active elsewhere") for _, size, reason in held)
+def _releasable_ollama_bytes(held: list[tuple[str, int, str]], freed: set[str]) -> float:
+    """Bytes of busy or active-elsewhere residents that have not already been freed."""
+    return float(
+        sum(
+            size
+            for name, size, reason in held
+            if name not in freed and reason in ("busy", "active elsewhere")
+        )
+    )
 
 
 class _Free:
@@ -1469,6 +1475,7 @@ class LoadGuard:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             return False
+        _admit_waited.set(True)
         started = time.monotonic()
         await self._wait_change(min(remaining, max(_POLL_S, 0.01)))
         _record_wait(OMLX, "in_flight", time.monotonic() - started)
@@ -1502,20 +1509,67 @@ class LoadGuard:
         logger.warning("load_guard: %s", message)
         raise LoadRefusedError(message, "projected-exceeds")
 
-    async def _defer_until_ollama_idle(
+    async def _ollama_frees_pending(
         self,
+        pending: dict[str, _Free],
         resident: dict[str, int],
+        headroom: float,
+        deadline: float,
+    ) -> bool:
+        """True when a pending free needs another pass. False when none are pending or the wait is spent."""
+        if not pending:
+            return False
+        remaining_frees, _ = self._retire_ollama_frees(pending, resident, headroom)
+        pending.clear()
+        pending.update(remaining_frees)
+        if not pending:
+            return True
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return False
+        started = time.monotonic()
+        _admit_waited.set(True)
+        await asyncio.sleep(min(_POLL_S, remaining))
+        _record_wait(OMLX, "free_settle", time.monotonic() - started)
+        return True
+
+    def _unfreed_idle_ollama(self, resident: dict[str, int], freed: set[str]) -> list[str]:
+        return [
+            name
+            for name, size in resident.items()
+            if name not in freed and size > 0 and self._ollama_hold_reason(name) is None
+        ]
+
+    async def _advance_omlx_ollama_capacity(
+        self,
+        client: httpx.AsyncClient,
+        base: str,
+        resident: dict[str, int],
+        headroom: float,
         model: str,
         need: float,
         available: float,
         deadline: float,
-    ) -> bool:
-        """Wait while busy or active-elsewhere residents block the load. True means re-measure."""
-        if self._ollama_idle(resident):
-            return False
+        pending: dict[str, _Free],
+        freed: set[str],
+    ) -> None:
+        """Free each idle resident once, or wait when busy residents can still cover the gap."""
+        if await self._ollama_frees_pending(pending, resident, headroom, deadline):
+            return
+        idle = self._unfreed_idle_ollama(resident, freed)
+        if idle:
+            subset = {name: resident[name] for name in idle}
+            pending.update(await self._free_ollama(client, base, subset))
+            freed.update(idle)
+            return
         held = self._ollama_unfreeable(resident)
-        if _ollama_can_release(held) and await self._wait_for_ollama_release(deadline):
-            return True
+        releasable = _releasable_ollama_bytes(held, freed)
+        if (
+            releasable
+            and available + releasable >= need
+            and await self._wait_for_ollama_release(deadline)
+        ):
+            return
         self._refuse_blocked_omlx(model, need, available, held, deadline)
 
     async def _check_omlx_ollama_capacity(
@@ -1525,7 +1579,7 @@ class LoadGuard:
         if not base:
             return
         pending: dict[str, _Free] = {}
-        free_attempted = False
+        freed: set[str] = set()
         while True:
             status = await self._omlx_status(client)
             entry = _omlx_entry(status, model)
@@ -1545,27 +1599,17 @@ class LoadGuard:
             _record_headroom(available)
             if need <= available:
                 return
-            if not free_attempted:
-                if await self._defer_until_ollama_idle(resident, model, need, available, deadline):
-                    continue
-                free_attempted = True
-                pending = await self._free_ollama(client, base, resident)
-                continue
-            if pending:
-                pending, _ = self._retire_ollama_frees(pending, resident, headroom)
-                if not pending:
-                    continue
-                remaining = deadline - time.monotonic()
-                if remaining > 0:
-                    started = time.monotonic()
-                    _admit_waited.set(True)
-                    await asyncio.sleep(min(_POLL_S, remaining))
-                    _record_wait(OMLX, "free_settle", time.monotonic() - started)
-                    continue
-            raise LoadRefusedError(
-                f"Cannot load {model}: projected memory {need / _GIB:.1f} GiB would "
-                f"exceed host headroom {available / _GIB:.1f} GiB after freeing idle Ollama",
-                "projected-exceeds",
+            await self._advance_omlx_ollama_capacity(
+                client,
+                base,
+                resident,
+                headroom,
+                model,
+                need,
+                available,
+                deadline,
+                pending,
+                freed,
             )
 
     async def admit_omlx(self, model: str) -> Callable[[], None] | None:

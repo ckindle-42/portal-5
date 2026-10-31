@@ -597,6 +597,63 @@ async def test_omlx_cold_load_waits_for_ollama_active_elsewhere():
             handle.close()
 
 
+async def test_omlx_cold_load_frees_idle_then_waits_for_the_busy_resident():
+    engines = Engines(
+        ollama={"small": GIB, "seat": 4 * GIB},
+        omlx={"mlx": {"size": 16 * GIB, "loaded": False}},
+        ceiling=15 * GIB,
+    )
+    engines.hidden["small"] = GIB
+    engines.hidden["seat"] = 4 * GIB
+    guard_obj = guard(engines)
+    end = guard_obj.begin(OLLAMA, "seat")
+    lg.set_load_wait("5")
+    _release_on_wait(guard_obj, end)
+    before = metric_value(_ADMISSIONS, engine=OMLX, outcome="admitted_after_wait")
+    release = await guard_obj.admit_omlx("mlx")
+    assert release is not None
+    assert engines.unload_calls == {"small": 1, "seat": 1}
+    assert engines.events.index(("ollama_unload", "small")) < engines.events.index(
+        ("ollama_unload", "seat")
+    )
+    assert (metric_value(_ADMISSIONS, engine=OMLX, outcome="admitted_after_wait") or 0) == (
+        before or 0
+    ) + 1
+    release()
+
+
+async def test_omlx_cold_load_refuses_a_busy_resident_that_cannot_cover_the_gap(monkeypatch):
+    engines = Engines(
+        ollama={"seat": 2 * GIB},
+        omlx={"mlx": {"size": 20 * GIB, "loaded": False}},
+        ceiling=15 * GIB,
+    )
+    guard_obj = guard(engines)
+    end = guard_obj.begin(OLLAMA, "seat")
+    lg.set_load_wait("30")
+    sleeps = 0
+
+    async def _sleep(seconds: float) -> None:
+        nonlocal sleeps
+        sleeps += 1
+        await asyncio.sleep(0)
+
+    monkeypatch.setattr(lg.asyncio, "sleep", _sleep)
+    waits = wait_count(OMLX, "in_flight")
+    started = lg.time.monotonic()
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await guard_obj.admit_omlx("mlx")
+    end()
+    text = str(err.value)
+    assert lg.time.monotonic() - started < 0.5
+    assert sleeps == 0
+    assert wait_count(OMLX, "in_flight") == waits
+    assert "seat" in text and "busy" in text
+    assert "waited 0.0s" in text
+    assert engines.unload_calls == {}
+    assert not guard_obj._lock.locked()
+
+
 async def test_missing_ollama_architecture_uses_weight_factor_fallback():
     model = "large-ctx96k"
     e = Engines(tags={model: 8 * GIB})
