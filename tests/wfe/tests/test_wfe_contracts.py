@@ -35,6 +35,7 @@ from tests.wfe.runner import (
 from tests.wfe.schema import (
     INSTRUMENT_OUTCOMES,
     MODEL_QUALITY_OUTCOMES,
+    UNRUN_OUTCOMES,
     Outcome,
     intervals_overlap,
     wilson,
@@ -284,7 +285,7 @@ class TestStatistics:
     def test_outcome_partition_is_total_and_disjoint(self):
         both = MODEL_QUALITY_OUTCOMES & INSTRUMENT_OUTCOMES
         assert not both
-        covered = MODEL_QUALITY_OUTCOMES | INSTRUMENT_OUTCOMES | {Outcome.PENDING_REVIEW}
+        covered = MODEL_QUALITY_OUTCOMES | INSTRUMENT_OUTCOMES | UNRUN_OUTCOMES
         assert covered == set(Outcome)
 
 

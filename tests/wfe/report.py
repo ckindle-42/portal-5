@@ -36,7 +36,7 @@ import yaml
 
 from portal.platform.inference.router.trace import MIN_ANSWER_TOKENS_FOR_RATE
 from tests.wfe import decision, judge
-from tests.wfe.campaign import same_identity
+from tests.wfe.campaign import same_identity, setup_exclusions
 from tests.wfe.schema import (
     INSTRUMENT_OUTCOMES,
     MODEL_QUALITY_OUTCOMES,
@@ -818,27 +818,26 @@ def _judge_text(cell: dict | None, arm_a: str, arm_b: str) -> str:
     return f"{wins.get(arm_a, 0)}W/{wins.get(arm_b, 0)}L/{cell.get('ties', 0)}T"
 
 
-def _excluded_setup(manifest: dict) -> list[dict]:
-    """Workspaces a canary setup fault excluded, with row counts. Not scored."""
-    grouped: dict[str, dict] = {}
+def _excluded_setup(campaign_dir: Path, manifest: dict) -> list[dict]:
+    """Workspaces named by the canary exclusion list, with row counts. Not scored."""
+    reasons = setup_exclusions(campaign_dir)
+    if not reasons:
+        return []
+    counts = dict.fromkeys(reasons, 0)
     for row in manifest.get("rows") or []:
-        if row.get("state") != Outcome.EXCLUDED_SETUP.value:
-            continue
         workspace = str(row.get("workspace") or "")
-        slot = grouped.get(workspace)
-        if slot is None:
-            grouped[workspace] = {
-                "workspace": workspace,
-                "count": 1,
-                "reason": str(row.get("note") or ""),
-            }
-        else:
-            slot["count"] += 1
-    return [grouped[key] for key in sorted(grouped)]
+        if workspace in counts:
+            counts[workspace] += 1
+    return [
+        {"workspace": workspace, "count": counts[workspace], "reason": reasons[workspace]}
+        for workspace in sorted(reasons)
+    ]
 
 
-def _drop_excluded(rows: list[dict], manifest: dict) -> tuple[list[dict], list[dict]]:
-    excluded = _excluded_setup(manifest)
+def _drop_excluded(
+    rows: list[dict], manifest: dict, campaign_dir: Path
+) -> tuple[list[dict], list[dict]]:
+    excluded = _excluded_setup(campaign_dir, manifest)
     if not excluded:
         return rows, excluded
     skip = {item["workspace"] for item in excluded}
@@ -849,7 +848,7 @@ def build(campaign_dir: Path, allow_mixed: bool = False, only_arm: str | None = 
     manifest, rows, preflights = _load(campaign_dir)
     if only_arm:
         rows = [r for r in rows if r["arm"] == only_arm]
-    rows, excluded_setup = _drop_excluded(rows, manifest)
+    rows, excluded_setup = _drop_excluded(rows, manifest, campaign_dir)
     warnings = _collect_warnings(rows, manifest, allow_mixed)
     reviews = _review_scores(campaign_dir)
     judgements = judge.summary(campaign_dir)

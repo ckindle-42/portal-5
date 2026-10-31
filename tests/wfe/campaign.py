@@ -2898,12 +2898,15 @@ def _rows_to_run(
     Rows a PREVIOUS run blocked on preflight are re-offered here rather than left
     dead: a flaky probe must not cost an arm its whole row budget for the rest of
     a multi-day sweep."""
+    excluded = set(setup_exclusions(campaign_dir))
     arm_rows = [r for r in manifest["rows"] if r["arm"] == arm]
-    todo = [r for r in arm_rows if r.get("state") == "PENDING" or r.get("state") in retry_states]
+    # excluded.json is the source of truth: every state of that workspace stays unrun.
+    runnable = [r for r in arm_rows if str(r.get("workspace") or "") not in excluded]
+    todo = [r for r in runnable if r.get("state") == "PENDING" or r.get("state") in retry_states]
     offered = {r["run_id"] for r in todo}
     stale_block = [
         r
-        for r in arm_rows
+        for r in runnable
         if r["run_id"] not in offered
         and r.get("state") == Outcome.BLOCKED.value
         and str(r.get("note") or "").startswith(_PREFLIGHT_BLOCK)

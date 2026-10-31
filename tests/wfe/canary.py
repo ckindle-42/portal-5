@@ -449,8 +449,8 @@ def run_canary(argv: list[str] | None = None) -> int:
     records = _records_for(cd, selected)
     _print_table(records)
     setup = [r for r in records if r["class"] == SETUP]
+    _write_exclusions(cd, setup)
     if setup:
-        _write_exclusions(cd, setup)
         print(f"CANARY {cid}: PASS ({len(setup)} setup row(s) excluded of {len(records)})")
         return 0
     print(f"CANARY {cid}: PASS (0 setup row(s) of {len(records)})")

@@ -286,7 +286,20 @@ class TestRunCanary:
         out = capsys.readouterr().out
         assert "CANARY c1_canary: PASS (0 setup row(s) of 2)" in out
         assert (tmp / "campaigns" / "c1_canary" / "manifest.json").is_file()
-        assert not (tmp / "campaigns" / "c1_canary" / "excluded.json").exists()
+        excluded = json.loads((tmp / "campaigns" / "c1_canary" / "excluded.json").read_text())
+        assert excluded == []
+
+    def test_a_clean_rerun_clears_the_previous_exclusion_list(self, harness, monkeypatch):
+        plan, tmp = harness
+        canary = tmp / "campaigns" / "c1_canary"
+        canary.mkdir(parents=True)
+        (canary / "excluded.json").write_text(
+            json.dumps([{"workspace": "auto-general", "reason": "old setup fault"}]) + "\n"
+        )
+        rows = _rows_for(plan, {"auto-general": _row(outcome="PASS"), "ws-b": _row(outcome="PASS")})
+        monkeypatch.setattr(camp, "execute_arm", _fake_execute(rows))
+        assert run_canary(["--campaign-id", "c1", "--plan", str(plan)]) == 0
+        assert json.loads((canary / "excluded.json").read_text()) == []
 
     def test_one_setup_row_excludes_that_workspace_and_exits_zero(
         self, harness, monkeypatch, capsys
@@ -539,11 +552,16 @@ def test_the_report_lists_excluded_workspaces_and_does_not_score_them(tmp_path):
     (directory / "rows").mkdir(parents=True)
     (directory / "preflight").mkdir()
     env = {"fingerprint": "abc", "git_sha": "deadbeef", "ollama_version": "0.33"}
+    canary = tmp_path / "c1_canary"
+    canary.mkdir()
+    (canary / "excluded.json").write_text(
+        json.dumps([{"workspace": "ws-b", "reason": "fixture missing"}]) + "\n"
+    )
     manifest_rows = []
-    for workspace, outcome, state in (
-        ("auto-general", "PASS", "PASS"),
-        ("ws-b", "PASS", "EXCLUDED_SETUP"),
-        ("ws-b", "FAIL", "EXCLUDED_SETUP"),
+    for workspace, outcome in (
+        ("auto-general", "PASS"),
+        ("ws-b", "PASS"),
+        ("ws-b", "FAIL"),
     ):
         run_id = f"{workspace}|inc|coding|{outcome}"
         manifest_rows.append(
@@ -556,8 +574,8 @@ def test_the_report_lists_excluded_workspaces_and_does_not_score_them(tmp_path):
                 "task_id": outcome.lower(),
                 "repeat": 0,
                 "is_home": True,
-                "state": state,
-                "note": "fixture missing" if state == "EXCLUDED_SETUP" else "",
+                "state": outcome,
+                "note": "",
             }
         )
         (directory / "rows" / f"{workspace}_{outcome}.json").write_text(
@@ -587,3 +605,63 @@ def test_the_report_lists_excluded_workspaces_and_does_not_score_them(tmp_path):
     text = render_markdown(report)
     assert "| `ws-b` | 2 | fixture missing |" in text
     assert "2/2" not in text
+
+
+def test_a_resumed_harness_error_in_an_excluded_workspace_is_not_run_or_scored(tmp_path):
+    from tests.wfe.report import build
+
+    directory = tmp_path / "c1"
+    (directory / "rows").mkdir(parents=True)
+    (directory / "preflight").mkdir()
+    canary = tmp_path / "c1_canary"
+    canary.mkdir()
+    reason = "runner raised: TypeError: x"
+    (canary / "excluded.json").write_text(
+        json.dumps([{"workspace": "ws-b", "reason": reason}]) + "\n"
+    )
+    env = {"fingerprint": "abc", "git_sha": "deadbeef", "ollama_version": "0.33"}
+    run_id = "ws-b|inc|coding|t1"
+    (directory / "manifest.json").write_text(
+        json.dumps(
+            {
+                "campaign_id": "c1",
+                "env": env,
+                "rows": [
+                    {
+                        "run_id": run_id,
+                        "workspace": "ws-b",
+                        "arm": "inc",
+                        "arm_role": "incumbent",
+                        "suite": "coding",
+                        "task_id": "t1",
+                        "repeat": 0,
+                        "is_home": True,
+                        "state": "HARNESS_ERROR",
+                        "note": reason,
+                    }
+                ],
+            }
+        )
+    )
+    # A stored PASS would score if the report still trusted the row outcome.
+    (directory / "rows" / "ws-b.json").write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "workspace": "ws-b",
+                "arm": "inc",
+                "suite": "coding",
+                "task_id": "t1",
+                "repeat": 0,
+                "outcome": "PASS",
+                "economics": {"total_tokens": 100, "wall_s": 1.0},
+                "env": env,
+            }
+        )
+    )
+    result = camp.execute_arm(directory, "inc", 1, 1, None, False, False, rerun_failed=True)
+    assert result["ran"] == 0
+    assert camp.load_manifest(directory)["rows"][0]["state"] == "HARNESS_ERROR"
+    report = build(directory)
+    assert report["matrix"] == []
+    assert report["excluded_setup"] == [{"workspace": "ws-b", "count": 1, "reason": reason}]

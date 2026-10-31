@@ -58,6 +58,9 @@ MODEL_QUALITY_OUTCOMES = frozenset(
 #: Outcomes that indicate the INSTRUMENT failed, not the model. Never counted.
 INSTRUMENT_OUTCOMES = frozenset({Outcome.TOOL_ERROR, Outcome.HARNESS_ERROR, Outcome.BLOCKED})
 
+#: Not a measurement and not scored: still awaiting a person, or never run.
+UNRUN_OUTCOMES = frozenset({Outcome.PENDING_REVIEW, Outcome.EXCLUDED_SETUP})
+
 
 def counts_for_quality(outcome: str | Outcome) -> bool:
     return Outcome(outcome) in MODEL_QUALITY_OUTCOMES
