@@ -139,3 +139,48 @@ async def test_health_cycle_logs_loudly_when_nothing_is_measurable(monkeypatch, 
 
     assert concurrency._last_free_gb is None
     assert any(r.levelno == logging.ERROR and "gate is OPEN" in r.message for r in caplog.records)
+
+
+async def test_a_transient_status_failure_keeps_host_free_until_the_window(monkeypatch, caplog):
+    monkeypatch.setattr(lg.LoadGuard, "host_free_bytes", _REAL_HOST_FREE_BYTES)
+    fail = False
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if req.url.path == "/v1/models/status":
+            if fail:
+                raise TimeoutError("status timed out while loading")
+            return httpx.Response(
+                200, json={"final_ceiling": 10 * GIB, "current_model_memory": 3 * GIB}
+            )
+        if req.url.path == "/api/ps":
+            return httpx.Response(200, json={"models": []})
+        return httpx.Response(404)
+
+    guard = lg.LoadGuard(
+        omlx_url=lambda: "http://omlx:8085",
+        pinned=lambda: "router",
+        client=lambda: httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        ollama_url=lambda: "http://ollama:11434",
+    )
+    monkeypatch.setattr(lg, "GUARD", guard)
+    monkeypatch.setattr("shutil.which", lambda name: None)
+    reg = _registry()
+    healthy = [SimpleNamespace(type="ollama", url="http://ollama:11434")]
+
+    with caplog.at_level(logging.DEBUG):
+        await reg._update_memory_gate(healthy)
+        good = concurrency._last_free_gb
+        assert good == pytest.approx(7.0)
+        fail = True
+        await reg._update_memory_gate(healthy)
+        assert concurrency._last_free_gb == pytest.approx(7.0)
+        assert not any("gate is OPEN" in r.message for r in caplog.records)
+        assert any(
+            r.levelno == logging.DEBUG and "TimeoutError" in r.message for r in caplog.records
+        )
+        guard._host_free_read_at -= lg._HOST_FREE_STALE_S + 1
+        await reg._update_memory_gate(healthy)
+        assert concurrency._last_free_gb is None
+        assert sum("gate is OPEN" in r.message for r in caplog.records) == 1
+        await reg._update_memory_gate(healthy)
+        assert sum("gate is OPEN" in r.message for r in caplog.records) == 1

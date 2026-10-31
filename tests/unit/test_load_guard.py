@@ -493,6 +493,110 @@ async def test_omlx_load_refuses_without_room_after_idle_ollama_is_gone():
     assert not g._lock.locked()
 
 
+def _omlx_short_of_ollama(resident: str) -> tuple[Engines, lg.LoadGuard]:
+    """14 GiB oMLX load against 13 GiB headroom; freeing ``resident`` closes the gap."""
+    engines = Engines(
+        ollama={resident: 2 * GIB},
+        omlx={"mlx": {"size": 14 * GIB, "loaded": False}},
+        ceiling=15 * GIB,
+    )
+    engines.hidden[resident] = 2 * GIB
+    return engines, guard(engines)
+
+
+def _release_on_wait(guard_obj: lg.LoadGuard, release_resident: Any) -> None:
+    """The first capacity poll is what lets the Ollama resident become idle."""
+    real = guard_obj._wait_change
+
+    async def _wait(timeout: float) -> None:
+        release_resident()
+        await real(timeout)
+
+    guard_obj._wait_change = _wait  # type: ignore[method-assign]
+
+
+async def test_omlx_cold_load_waits_out_a_busy_ollama_resident_then_frees_it():
+    engines, guard_obj = _omlx_short_of_ollama("seat")
+    end = guard_obj.begin(OLLAMA, "seat")
+    lg.set_load_wait("5")
+    _release_on_wait(guard_obj, end)
+    before = wait_count(OMLX, "in_flight")
+    release = await guard_obj.admit_omlx("mlx")
+    assert release is not None
+    assert engines.unload_calls.get("seat") == 1
+    assert wait_count(OMLX, "in_flight") > before
+    release()
+
+
+async def test_omlx_cold_load_refuses_a_busy_ollama_resident_past_the_deadline(caplog):
+    engines, guard_obj = _omlx_short_of_ollama("seat")
+    end = guard_obj.begin(OLLAMA, "seat")
+    lg.set_load_wait("0.2")
+    before = wait_count(OMLX, "in_flight")
+    with (
+        caplog.at_level(logging.WARNING, logger=lg.logger.name),
+        pytest.raises(lg.LoadRefusedError) as err,
+    ):
+        await guard_obj.admit_omlx("mlx")
+    end()
+    text = str(err.value)
+    available = f"available {(15 * GIB - lg._MARGIN) / GIB:.1f} GiB"
+    assert "seat" in text and "busy" in text
+    assert "need 14.0 GiB" in text and available in text
+    assert re.search(r"waited [1-9]\d*\.\d|waited 0\.[1-9]", text)
+    assert any(r.levelno == logging.WARNING and text in r.getMessage() for r in caplog.records)
+    assert engines.unload_calls == {}
+    assert not guard_obj._lock.locked()
+    assert wait_count(OMLX, "in_flight") > before
+
+
+async def test_pinned_or_protected_ollama_blocks_omlx_without_waiting(monkeypatch, caplog):
+    for reason, name in (("pinned", "router"), ("protected", "fallback")):
+        engines, guard_obj = _omlx_short_of_ollama(name)
+        if reason == "protected":
+            monkeypatch.setattr(lg, "GUARD", guard_obj)
+            lg.protect_failover(OLLAMA, name)
+        lg.set_load_wait("30")
+        caplog.clear()
+        started = lg.time.monotonic()
+        with (
+            caplog.at_level(logging.WARNING, logger=lg.logger.name),
+            pytest.raises(lg.LoadRefusedError) as err,
+        ):
+            await guard_obj.admit_omlx("mlx")
+        text = str(err.value)
+        assert lg.time.monotonic() - started < 0.5
+        assert name in text and reason in text
+        assert "need 14.0 GiB" in text and "waited 0.0s" in text
+        assert any(r.levelno == logging.WARNING and text in r.getMessage() for r in caplog.records)
+        assert engines.unload_calls == {}
+        assert not guard_obj._lock.locked()
+
+
+async def test_omlx_cold_load_waits_for_ollama_active_elsewhere():
+    engines, guard_obj = _omlx_short_of_ollama("seat")
+    handle = guard_obj._activity_lock(OLLAMA, "seat")
+    assert handle is not None
+    lg.set_load_wait("5")
+    dropped = False
+
+    def _drop() -> None:
+        nonlocal dropped
+        if not dropped:
+            guard_obj._release_activity_lock(handle)
+            dropped = True
+
+    _release_on_wait(guard_obj, _drop)
+    try:
+        release = await guard_obj.admit_omlx("mlx")
+        assert release is not None
+        assert engines.unload_calls.get("seat") == 1
+        release()
+    finally:
+        if not handle.closed:
+            handle.close()
+
+
 async def test_missing_ollama_architecture_uses_weight_factor_fallback():
     model = "large-ctx96k"
     e = Engines(tags={model: 8 * GIB})
