@@ -54,6 +54,7 @@ class Engines:
         unload_loaded_flips: set[str] | None = None,
         unload_removal_polls: dict[str, int] | None = None,
         ceiling_rise_polls: dict[str, int] | None = None,
+        omlx_release_polls: dict[str, int] | None = None,
         forced_loading: set[str] | None = None,
         omit_estimated_size: set[str] | None = None,
         defer_ceiling_rise: set[str] | None = None,
@@ -89,6 +90,10 @@ class Engines:
         self.pending_removals: dict[str, int] = {}
         #: Models that report is_loading even while their loaded bit stays true.
         self.forced_loading = set(forced_loading or set())
+        #: Accepted unloads (200/202) whose loaded-flip and counter release land
+        #: only after N /v1/models/status reads.
+        self.omlx_release_polls = dict(omlx_release_polls or {})
+        self.pending_omlx_releases: dict[str, int] = {}
         #: Models whose admin payload omits estimated_size (the actual_size fallback).
         self.omit_estimated_size = set(omit_estimated_size or set())
         #: Models whose hidden bytes reach the ceiling one status read after the unload
@@ -194,7 +199,9 @@ class Engines:
     def _unload_response(self, name: str) -> httpx.Response:
         self.unload_calls[name] = self.unload_calls.get(name, 0) + 1
         status_code = self.unload_status_codes.get(name, self.unload_status_code)
-        if status_code == 200 and not self.unload_sticks:
+        if name in self.omlx_release_polls and status_code in (200, 202) and not self.unload_sticks:
+            self.pending_omlx_releases[name] = self.omlx_release_polls[name]
+        elif status_code == 200 and not self.unload_sticks:
             self.omlx[name]["loaded"] = False
             if self.omlx_memory is not None:
                 self.omlx_memory = max(
@@ -218,10 +225,19 @@ class Engines:
         else:
             self.pending_counter_drops[name] = (drop, 1)
 
+    def _apply_pending_omlx_releases(self) -> None:
+        for name, polls in list(self.pending_omlx_releases.items()):
+            if polls > 0:
+                self.pending_omlx_releases[name] = polls - 1
+            else:
+                self.omlx[name]["loaded"] = False
+                del self.pending_omlx_releases[name]
+
     def _omlx_response(self, req: httpx.Request, path: str) -> httpx.Response | None:
         if path == "/v1/models/status":
             if not self.omlx_ok:
                 return httpx.Response(503)
+            self._apply_pending_omlx_releases()
             self._apply_pending_counter_drops()
             self._apply_pending_ceiling_rises()
             loading = self._loading_poll(self.loading_polls, "v1")
@@ -585,6 +601,61 @@ async def test_omlx_cold_load_refusal_names_an_unsettled_omlx_unload(monkeypatch
         r.levelno == logging.WARNING and "unsettled" in r.getMessage() for r in caplog.records
     )
     assert e.unload_calls == {"slow": 1}
+    assert not g._lock.locked()
+
+
+@pytest.mark.parametrize("status_code", [200, 202])
+async def test_omlx_cold_load_waits_out_a_delayed_release_then_admits(status_code):
+    """R2 repro: an accepted unload whose release had not yet reached oMLX's counter."""
+    e = Engines(
+        omlx={
+            "idle": {"size": 8 * GIB, "loaded": True},
+            "mlx": {"size": 14 * GIB, "loaded": False},
+        },
+        ceiling=18 * GIB,
+        unload_status_codes={"idle": status_code},
+        omlx_release_polls={"idle": 5},
+    )
+    g = guard(e)
+    lg.set_load_wait("2")
+    release = await g.admit_omlx("mlx")
+    assert release is not None
+    assert e.unload_calls == {"idle": 1}  # waited out, never re-posted
+    assert "mlx" not in e.unload_calls
+    assert not e.omlx["idle"]["loaded"]  # the release landed
+    release()
+
+
+@pytest.mark.parametrize("status_code", [200, 202])
+async def test_omlx_cold_load_refusal_names_an_accepted_unload_that_never_settles(
+    status_code, monkeypatch, caplog
+):
+    e = Engines(
+        omlx={
+            "idle": {"size": 8 * GIB, "loaded": True},
+            "mlx": {"size": 14 * GIB, "loaded": False},
+        },
+        ceiling=18 * GIB,
+        unload_status_codes={"idle": status_code},
+        omlx_release_polls={"idle": 10_000},
+    )
+    g = guard(e)
+    lg.set_load_wait("0.1")
+    _short_sleep(monkeypatch)
+    with (
+        caplog.at_level(logging.WARNING, logger=lg.logger.name),
+        pytest.raises(lg.LoadRefusedError) as err,
+    ):
+        await g.admit_omlx("mlx")
+    text = str(err.value)
+    assert "idle (8.0 GiB, unload unsettled)" in text
+    assert "unload failed" not in text
+    assert re.search(r"waited [1-9]\d*\.\d|waited 0\.[1-9]", text)
+    assert any(
+        r.levelno == logging.WARNING and "unsettled" in r.getMessage() for r in caplog.records
+    )
+    assert e.unload_calls == {"idle": 1}
+    assert e.omlx["idle"]["loaded"]  # never released
     assert not g._lock.locked()
 
 

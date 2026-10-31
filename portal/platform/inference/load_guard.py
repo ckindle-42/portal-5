@@ -37,7 +37,8 @@ the ceiling from host free + inactive memory), plus idle Ollama residents, minus
 fixed budget; the balanced tier's ceiling follows free memory (P5-OMLX-CEILING-001).
 Ollama sizing adds per-layer KV bytes at baked ``num_ctx`` using ``OLLAMA_KV_CACHE_TYPE`` (default q8_0); missing geometry falls back to weights × ``LOAD_GUARD_FACTOR`` and observed residency can raise the estimate.
 Cold loads unload idle models when current headroom does not cover the incoming model; an
-oMLX cold load frees idle oMLX residents first (LRU, never itself), then Ollama's.
+oMLX cold load frees idle oMLX residents first (LRU, never itself) and waits out each
+accepted unload's release (200 or 202), then frees Ollama's.
 
 Fail-open: when oMLX's status cannot be read, the load is admitted. Resident
 models (the router, task-router, warm seats) never wait. ``LOAD_GUARD=0`` disables
@@ -875,13 +876,15 @@ class LoadGuard:
         used: float,
         exclude: frozenset[str] | set[str] = frozenset(),
     ) -> tuple[float, dict[str, _Free], float | None, float, list[dict[str, str]]]:
-        """Unload idle oMLX models; report the drop, queued work, post state, 200 bytes."""
+        """Unload idle oMLX models; report the drop, pendings (202s and 200s whose
+        release has not reached the counter), post state, 200 bytes."""
         try:
             url, idle = await self._omlx_idle_models(client, exclude)
             queued: dict[str, _Free] = {}
             unloads: list[dict[str, str]] = []
+            unloaded: list[tuple[str, float]] = []  # 200s in post order
             posted = 0.0
-            covered = 0.0  # 200 plus queued 202 bytes: a queued unload can cover the shortage
+            covered = 0.0  # accepted bytes: any accepted unload can cover the shortage
             any_post = False
             for m in idle:
                 if covered >= want:
@@ -892,10 +895,11 @@ class LoadGuard:
                 if r.status_code == 200:
                     posted += size
                     covered += size
+                    unloaded.append((str(m["id"]), size))
                     unloads.append({"engine": OMLX, "model": str(m["id"]), "status": "unloaded"})
                     _record_unload(OMLX, "idle_omlx")
                     logger.info("load_guard: unloaded idle oMLX model %s", m["id"])
-                elif r.status_code == 202:
+                elif r.is_success:  # 202 and any other accepted unload: bytes land later
                     queued[m["id"]] = _Free(size)
                     covered += size
                     unloads.append({"engine": OMLX, "model": str(m["id"]), "status": "queued"})
@@ -911,6 +915,13 @@ class LoadGuard:
                 return 0.0, queued, None, 0.0, unloads
             after = await self._omlx_used(client)
             freed = 0.0 if after is None else max(0.0, used - after)
+            # A 200 whose release has not reached the counter stays pending like a 202.
+            unsettled = posted - min(posted, freed)
+            for name, size in reversed(unloaded):
+                if unsettled <= 0:
+                    break
+                queued[name] = _Free(size)
+                unsettled -= size
             return freed, queued, after, posted, unloads
         except Exception as e:
             logger.warning("load_guard: could not free oMLX memory: %s", e)
