@@ -1487,8 +1487,9 @@ class LoadGuard:
         failed: set[str],
         pending: dict[str, _Free],
     ) -> list[tuple[str, int, str]]:
-        """Residents still holding bytes, and why this cold load could not free them."""
+        """Bytes Ollama still holds against this load: residents and unsettled frees, with why."""
         blockers: list[tuple[str, int, str]] = []
+        named: set[str] = set()
         for name, size in resident.items():
             nbytes = self._ollama_size(name, size)
             if nbytes <= 0:
@@ -1500,6 +1501,10 @@ class LoadGuard:
                 reason = "unload unsettled"
             if reason is not None:
                 blockers.append((name, nbytes, reason))
+                named.add(model_key(name))
+        for name, free in pending.items():
+            if model_key(name) not in named:
+                blockers.append((name, int(free.size), "unload unsettled"))
         return blockers
 
     def _refuse_blocked_omlx(

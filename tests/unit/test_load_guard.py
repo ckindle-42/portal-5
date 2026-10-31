@@ -715,6 +715,99 @@ async def test_omlx_cold_load_names_an_unsettled_ollama_unload(caplog, monkeypat
     assert not guard_obj._lock.locked()
 
 
+async def test_omlx_cold_load_names_a_free_that_left_ps_before_its_headroom_rose(
+    caplog, monkeypatch
+):
+    """R4: an accepted unload gone from /api/ps while its settle pends still blocks, named."""
+    engines = Engines(
+        ollama={"seat": 2 * GIB},
+        omlx={"mlx": {"size": 14 * GIB, "loaded": False}},
+        ceiling=15 * GIB,
+        ceiling_rise_polls={"seat": 10_000},
+    )
+    engines.hidden["seat"] = 2 * GIB
+    guard_obj = guard(engines)
+    lg.set_load_wait("0.05")
+    _short_sleep(monkeypatch)
+    with (
+        caplog.at_level(logging.WARNING, logger=lg.logger.name),
+        pytest.raises(lg.LoadRefusedError) as err,
+    ):
+        await guard_obj.admit_omlx("mlx")
+    text = str(err.value)
+    assert "seat (2.0 GiB, unload unsettled)" in text
+    assert "need 14.0 GiB" in text and "waited" in text
+    assert any(
+        r.levelno == logging.WARNING
+        and "seat" in r.getMessage()
+        and "unload unsettled" in r.getMessage()
+        and "waited" in r.getMessage()
+        for r in caplog.records
+    )
+    assert engines.unload_calls == {"seat": 1}
+    assert engines.ollama == {}  # the free was accepted; only the ceiling rise never landed
+    assert not guard_obj._lock.locked()
+
+
+async def test_every_omlx_capacity_refusal_while_ollama_holds_bytes_names_a_blocker(
+    monkeypatch,
+):
+    """Every refusal from the oMLX cold-load check names what holds Ollama bytes."""
+    _short_sleep(monkeypatch)
+    refusals: list[tuple[str, str, str]] = []
+
+    def engines_with(**kwargs: Any) -> Engines:
+        return Engines(
+            ollama={"seat": 2 * GIB},
+            omlx={"mlx": {"size": 14 * GIB, "loaded": False}},
+            ceiling=15 * GIB,
+            **kwargs,
+        )
+
+    async def refuse(holder: str, label: str, engines: Engines, guard_obj: lg.LoadGuard) -> None:
+        with pytest.raises(lg.LoadRefusedError) as err:
+            await guard_obj.admit_omlx("mlx")
+        refusals.append((label, holder, str(err.value)))
+        assert not guard_obj._lock.locked()
+
+    for holder, label in (("router", "pinned"), ("fallback", "protected")):
+        engines = engines_with()
+        engines.ollama = {holder: 2 * GIB}
+        guard_obj = guard(engines)
+        if label == "protected":
+            guard_obj.protect(OLLAMA, holder)
+        await refuse(holder, label, engines, guard_obj)
+
+    engines = engines_with()
+    guard_obj = guard(engines)
+    end = guard_obj.begin(OLLAMA, "seat")
+    await refuse("seat", "busy", engines, guard_obj)
+    end()
+
+    engines = engines_with()
+    guard_obj = guard(engines)
+    handle = guard_obj._activity_lock(OLLAMA, "seat")
+    assert handle is not None
+    await refuse("seat", "active elsewhere", engines, guard_obj)
+    guard_obj._release_activity_lock(handle)
+
+    for label, kwargs, departed in (
+        ("unload failed", {"ollama_unload_status_code": 500}, False),
+        ("unload unsettled", {"unload_sticks": True}, False),
+        ("unload unsettled", {"ceiling_rise_polls": {"seat": 10_000}}, True),
+    ):
+        engines = engines_with(**kwargs)
+        if departed:
+            engines.hidden["seat"] = 2 * GIB
+        guard_obj = guard(engines)
+        lg.set_load_wait("0.05")
+        await refuse("seat", label + (" (departed)" if departed else ""), engines, guard_obj)
+
+    assert len(refusals) == 7
+    for label, holder, text in refusals:
+        assert "blocked by" in text and holder in text, (label, text)
+
+
 async def test_missing_ollama_architecture_uses_weight_factor_fallback():
     model = "large-ctx96k"
     e = Engines(tags={model: 8 * GIB})
