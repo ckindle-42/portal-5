@@ -80,6 +80,23 @@ class TestClassification:
         )
         assert classify_row(row) == SETUP
 
+    @pytest.mark.parametrize(
+        ("refused", "prompt", "expected"),
+        [
+            # sol 10-31: a space cut the path to "/final", which matched "/final report.pdf".
+            ("/final invoice.pdf", "Read /final report.pdf", MODEL),
+            ("/final report.pdf", "Read /final report.pdf", SETUP),
+        ],
+    )
+    def test_a_refused_path_with_spaces_is_matched_whole(self, refused, prompt, expected):
+        out = f'{{"success": false, "error": "path outside the evaluation namespace: {refused}"}}'
+        row = _row(
+            outcome="FAIL",
+            tool_call_log=[{"output": out}],
+            turn_results=[{"turn": 1, "user": prompt}],
+        )
+        assert classify_row(row) == expected
+
     def test_a_scope_refusal_of_a_model_invented_path_is_model(self):
         # rest-8: the prompt names the staged path; '/final_invoice.pdf' is the model's.
         row = _row(
@@ -665,3 +682,22 @@ def test_a_resumed_harness_error_in_an_excluded_workspace_is_not_run_or_scored(t
     report = build(directory)
     assert report["matrix"] == []
     assert report["excluded_setup"] == [{"workspace": "ws-b", "count": 1, "reason": reason}]
+
+
+def test_completion_owes_no_result_for_an_excluded_workspace_row(tmp_path):
+    # sol 10-31: an excluded HARNESS_ERROR row is withheld from execution, so the
+    # completion check must not demand its result (it returned exit 8).
+    from tests.wfe import campaign as camp
+
+    directory = tmp_path / "c1"
+    (directory / "rows").mkdir(parents=True)
+    canary = tmp_path / "c1_canary"
+    canary.mkdir()
+    (canary / "excluded.json").write_text(json.dumps([{"workspace": "ws-b", "reason": "x"}]))
+    rows = [
+        {"run_id": "ws-b|inc|coding|t1", "workspace": "ws-b", "state": "HARNESS_ERROR"},
+        {"run_id": "ws-a|inc|coding|t1", "workspace": "ws-a", "state": "PENDING"},
+    ]
+    (directory / "manifest.json").write_text(json.dumps({"campaign_id": "c1", "rows": rows}))
+    problems = camp.completion_problems(directory)
+    assert problems == ["ws-a|inc|coding|t1: no result"]

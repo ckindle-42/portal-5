@@ -57,7 +57,9 @@ _TOOL_INFRA = (
 #: SETUP only when the refused path is one the task prompt names. A model-invented
 #: path (rest-8: read_pdf('/final_invoice.pdf')) is the model's mistake.
 _SCOPE_REFUSAL = "path outside the evaluation namespace"
-_SCOPE_REFUSAL_PATH = re.compile(re.escape(_SCOPE_REFUSAL) + r":\s*([^\s'\"`,]+)")
+# The path runs to the end of its quoted string or note: paths may contain spaces
+# ("/final invoice.pdf" must not shorten to "/final" and match another prompt path).
+_SCOPE_REFUSAL_PATH = re.compile(re.escape(_SCOPE_REFUSAL) + r":\s*([^'\"`\n|]+)")
 _LEDGER_NARROW = _MISSING_FILE + _TOOL_INFRA + (_SCOPE_REFUSAL,)
 #: A 0-second row never reached a model — the instrument refused it.
 _UNRUN_STATES = frozenset({"PENDING", "MISSING", "SKIPPED_DECIDED", "NO_ROW"})
@@ -234,7 +236,7 @@ def _scope_refusal_is_setup(row: dict) -> bool:
         return False
     prompt = _user_prompts(row)
     return any(
-        _path_in_prompt(match.group(1).rstrip(".,;:)]}"), prompt)
+        _path_in_prompt(match.group(1).strip().rstrip(".,;:)]}"), prompt)
         for match in _SCOPE_REFUSAL_PATH.finditer(text)
     )
 

@@ -3414,11 +3414,14 @@ def completion_problems(campaign_dir: Path) -> list[str]:
     valid_curtailments = {
         c.get("id") for c in m.get("curtailments", []) if c.get("state") == "CURTAILED"
     }
+    excluded = setup_exclusions(campaign_dir)
     out = []
     for r in m["rows"]:
         if r.get("state") == "SKIPPED_DECIDED" and r.get("curtailment_id") in valid_curtailments:
             continue
-        if r.get("state") == Outcome.EXCLUDED_SETUP.value:
+        # Every row of a canary-excluded workspace, whatever its stored state (a resumed
+        # HARNESS_ERROR row is withheld from execution too), is not owed a result.
+        if r.get("state") == Outcome.EXCLUDED_SETUP.value or r.get("workspace") in excluded:
             continue
         p = _row_path(campaign_dir, r["run_id"])
         row = json.loads(p.read_text()) if p.exists() else {"outcome": "no result"}
