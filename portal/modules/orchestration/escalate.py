@@ -661,6 +661,7 @@ class Escalator:
         self.main = main_root or main_checkout(repo_root)
         self.ledger = EscalationLedger(tasks_dir)
         self.environment_check = environment_check or environment_fault
+        self.log_reader: Callable[[], str] = _pipeline_log_excerpt
 
     def handle(self, item: dict[str, Any], result: QueueRun) -> str:
         receipt = _load_receipt(result.receipt_path)
@@ -681,6 +682,19 @@ class Escalator:
         if fault:
             self._record(job_id, 0, "", "environment", result.receipt_path, {"detail": fault})
             return "environment"
+        # Serving faults (the pipeline served another model, a 507, the load guard) are the
+        # product's: a lane limited to the harness could only hide them (10-30 rest-8).
+        product = _product_text(_output_text(receipt) + "\n" + str(result.reason or ""))
+        if product:
+            self._record(
+                job_id,
+                0,
+                "",
+                "product",
+                result.receipt_path,
+                {"detail": product, "summary": self.log_reader()},
+            )
+            return "product"
         rounds = self._rounds_done(job_id)
         if rounds >= MAX_ROUNDS:
             self._record(
@@ -808,6 +822,7 @@ class Escalator:
             addendum_text=addendum_text,
             addendum_sha=addendum_sha,
             role=role,
+            pipeline_log=self.log_reader(),
         )
         self._record(
             job_id,
@@ -1297,6 +1312,7 @@ def write_brief(
     addendum_text: str = "",
     addendum_sha: str = "",
     role: str = "",
+    pipeline_log: str = "",
 ) -> Path:
     """coding_task/TASK_*.md style brief for one escalation attempt."""
     step = _failing_step(receipt)
@@ -1307,6 +1323,10 @@ def write_brief(
     body = _brief_body(job_id, attempt, trigger, raw, receipt, step, stdout, stderr, setup, files)
     if role:
         body = body.replace(f"# Lane {lane_role(job_id, attempt)} ", f"# Lane {role} ", 1)
+    if pipeline_log:
+        body += (
+            f"\n\n## Pipeline log (warnings and errors, last 30 min)\n\n```\n{pipeline_log}\n```\n"
+        )
     if addendum_text:
         body += (
             f"\n\n## Worker contract addendum: {contract_kind}"
@@ -1848,6 +1868,42 @@ _ENVIRONMENT_FAULTS = re.compile(
 )
 
 
+_PRODUCT_FAULTS = re.compile(
+    r"pipeline served '[^']+', seat is|HTTP 507|would exceed host headroom|"
+    r"Cannot load \S+: projected memory|Memory gate: no measurable source",
+    re.IGNORECASE,
+)
+
+
+def _product_text(text: str) -> str | None:
+    match = _PRODUCT_FAULTS.search(text)
+    if match is None:
+        return None
+    line = text[text.rfind("\n", 0, match.start()) + 1 :].split("\n", 1)[0]
+    return f"serving fault (pipeline, not harness): {line.strip()[:300]}"
+
+
+def _pipeline_log_excerpt(minutes: int = 30, limit: int = 40) -> str:
+    """Pipeline WARNING/ERROR and load-guard lines from the failure window."""
+    name = os.environ.get("PORTAL_PIPELINE_CONTAINER", "portal5-pipeline")
+    try:
+        proc = subprocess.run(
+            ["docker", "logs", "--since", f"{minutes}m", name],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    lines = [
+        line
+        for line in (proc.stdout + proc.stderr).splitlines()
+        if line.startswith(("WARNING", "ERROR")) or "load_guard" in line
+    ]
+    return "\n".join(line[:300] for line in lines[-limit:])
+
+
 def _environment_text(text: str) -> str | None:
     match = _ENVIRONMENT_FAULTS.search(text)
     if match is None:
@@ -1980,14 +2036,21 @@ def _copy_paths(src: Path, dest: Path, paths: Sequence[str]) -> None:
         shutil.copy2(origin, target)
 
 
+#: Clean canary passes a lane fix needs: one pass proves nothing against an intermittent
+#: fault (10-30: the same canary passed 7/7, then failed 1/7).
+CANARY_PASSES = 2
+
+
 def _canaries_pass(
     spec: JobSpec, cwd: Path, runner: CanaryRunner, *, tag: str = ""
 ) -> tuple[bool, str]:
     canaries = [step for step in spec.steps if step.canary_of]
-    for step in canaries:
-        code, output = runner(_throwaway_campaign(step.argv, tag), cwd, step.timeout_seconds)
-        if code != 0:
-            return False, f"{step.step_id} exited {code}\n{output}"
+    for n in range(1, CANARY_PASSES + 1):
+        for step in canaries:
+            argv = _throwaway_campaign(step.argv, f"{tag}p{n}" if tag else "")
+            code, output = runner(argv, cwd, step.timeout_seconds)
+            if code != 0:
+                return False, f"{step.step_id} pass {n} exited {code}\n{output}"
     return True, ""
 
 

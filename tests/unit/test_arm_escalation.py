@@ -229,6 +229,7 @@ def _escalator(
         main_root=repo,
         environment_check=lambda _main, _source: None,
     )
+    arm.log_reader = lambda: ""
     arm._calls = calls  # type: ignore[attr-defined]
     arm._verdict_calls = verdict_calls  # type: ignore[attr-defined]
     return arm, notices
@@ -588,7 +589,17 @@ def test_gates_canary_oracle_land_order(tmp_path: Path, monkeypatch: pytest.Monk
     monkeypatch.setattr(escalate_module, "_land", ordered_land)
     outcome = arm.handle(item, QueueRun("BLOCKED", "job-a", tasks / "job-a" / "receipt.json"))
     assert outcome == "merged"
-    assert events == ["allowlist", "weakened", "gate", "gate", "gate", "canary", "oracle", "land"]
+    assert events == [
+        "allowlist",
+        "weakened",
+        "gate",
+        "gate",
+        "gate",
+        "canary",
+        "canary",
+        "oracle",
+        "land",
+    ]
 
 
 def test_oracle_rejection_is_forwarded_to_next_brief(tmp_path: Path) -> None:
@@ -1437,3 +1448,57 @@ def test_pin_job_sources_repins_queued_snapshots_and_refuses_while_running(
         ledger.db.execute("UPDATE queue_task SET state = 'running'")
         ledger.db.commit()
     assert escalate_module.pin_job_sources(tasks, main)[0].startswith("refused: a job is running")
+
+
+def test_serving_fault_goes_to_the_product_owner_not_a_lane(tmp_path: Path) -> None:
+    repo = _repo(tmp_path / "main")
+    tasks = tmp_path / "tasks"
+    setup = (
+        "auto-research::data  ru-v1-022  BLOCKED  SETUP  preflight REVIEW: auto-research::data: "
+        "pipeline served 'hf.co/x-GGUF', seat is 'x-MLX-4bit'\n"
+        "CANARY x_canary: SETUP (1 setup row(s) of 7)\n"
+    )
+    item = _blocked(tasks, repo, _receipt("BLOCKED", steps=[_failed_step(setup)]))
+    fake = _FakeDispatch([])
+    arm, notices = _escalator(tasks, repo, fake)
+    arm.log_reader = lambda: "WARNING: Cannot load x: projected memory 21.2 GiB"
+    outcome = arm.handle(item, QueueRun("BLOCKED", "job-a", tasks / "job-a" / "receipt.json"))
+    assert outcome == "product"
+    assert fake.calls == []
+    last = notices.escalations[-1]
+    assert last["event"] == "product"
+    assert "pipeline served" in last["detail"]["detail"]
+    assert "21.2 GiB" in last["detail"]["summary"]
+
+
+def test_canary_must_pass_twice_on_fresh_campaigns(tmp_path: Path) -> None:
+    seen: list[str] = []
+
+    def runner(argv: Sequence[str], cwd: Path, timeout: float) -> tuple[int, str]:
+        seen.append(list(argv)[1])
+        return (0, "") if len(seen) < 2 else (1, "CANARY y: SETUP (1 setup row(s) of 7)")
+
+    root = _repo(tmp_path / "r")
+    campaign = root / "scripts" / "wfe_campaign.sh"
+    campaign.write_text("#!/bin/sh\n", encoding="utf-8")
+    campaign.chmod(0o755)
+    spec = escalate_module.parse_job_spec(
+        {
+            "id": "job-a",
+            "purpose": "p",
+            "preconditions": {"stack": "down", "free_memory_gib": 0, "disk_free_gib": 0},
+            "steps": [
+                {"id": "gate", "canary": "run", "timeout_seconds": 5},
+                {
+                    "id": "run",
+                    "argv": ["scripts/wfe_campaign.sh", "cid", "--plan", "p"],
+                    "timeout_seconds": 5,
+                },
+            ],
+            "report": {"fields": REPORT},
+        },
+        repo_root=root,
+    )
+    ok, detail = escalate_module._canaries_pass(spec, tmp_path, runner, tag="t")
+    assert not ok and "pass 2" in detail
+    assert seen == ["cid_tp1", "cid_tp2"]
