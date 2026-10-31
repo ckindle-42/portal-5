@@ -60,7 +60,7 @@ import time
 from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 from urllib.parse import quote
 
 import httpx
@@ -95,6 +95,8 @@ _MAX_WAIT_S = 3600.0
 #: released anyway (the request's own end also releases it).
 _LOAD_TIMEOUT_S = 600.0
 _POLL_S = 0.5
+# Three 30s health polls. One timed-out /v1/models/status read must not open the gate.
+_HOST_FREE_STALE_S = 90.0
 _PROCESS_LOCK_DIR = Path("/tmp/portal-5-load-guard")
 #: Expected settle of a guard-issued Ollama free, for a warning only: measured admin
 #: unloads p50 0.78 s, p95 1.93 s, max 2.29 s (n=114, oMLX 0.7.2, 2026-10-22), doubled.
@@ -416,6 +418,17 @@ def _budget_bytes(status: dict[str, Any]) -> float:
     return _CEILING if _CEILING > 0 else float(status.get("final_ceiling") or 0)
 
 
+def _releasable_ollama_bytes(held: list[tuple[str, int, str]], freed: set[str]) -> float:
+    """Bytes of busy or active-elsewhere residents that have not already been freed."""
+    return float(
+        sum(
+            size
+            for name, size, reason in held
+            if name not in freed and reason in ("busy", "active elsewhere")
+        )
+    )
+
+
 class _Free:
     """A guard-issued free: its bytes must show as released before a load fits."""
 
@@ -446,6 +459,8 @@ class LoadGuard:
         self._sizes: dict[tuple[str, str], int] = {}
         self._needs: dict[tuple[str, str], float] = {}
         self._observed: dict[tuple[str, str], int] = {}
+        self._host_free_reading: float | None = None
+        self._host_free_read_at = 0.0
 
     @staticmethod
     def enabled() -> bool:
@@ -641,7 +656,8 @@ class LoadGuard:
         try:
             r = await client.get(f"{url.rstrip('/')}/v1/models/status", auth=OmlxKeyAuth())
             return r.json() if r.status_code == 200 else None
-        except Exception:
+        except Exception as e:
+            logger.debug("load_guard: oMLX status read failed: %s", type(e).__name__)
             return None
 
     async def _headroom(self, client: httpx.AsyncClient) -> tuple[float, float] | None:
@@ -665,38 +681,68 @@ class LoadGuard:
         """Remember the counter and flag a drop since the previous pass."""
         return used, recheck or (last_used is not None and used < last_used)
 
+    def _cached_host_free(self) -> float | None:
+        reading = self._host_free_reading
+        if reading is None or time.monotonic() - self._host_free_read_at > _HOST_FREE_STALE_S:
+            return None
+        return reading
+
+    def _remember_host_free(self, reading: float) -> float:
+        self._host_free_reading = reading
+        self._host_free_read_at = time.monotonic()
+        return reading
+
     async def host_free_bytes(self, base: str) -> float | None:
         """Memory a new load could use without waiting: oMLX's headroom plus idle
-        Ollama residents. None when oMLX's status is unreadable. Feeds the
-        pipeline's admission gate (MEMORY_GATE_MIN_FREE_GB)."""
+        Ollama residents. A failed status read keeps the last reading for
+        ``_HOST_FREE_STALE_S``; None after that. Feeds the admission gate."""
         async with self._client() as client:
             st = await self._omlx_status(client)
             if st is None or st.get("final_ceiling") is None:
-                return None
+                return self._cached_host_free()
             headroom = _budget_bytes(st) - float(st.get("current_model_memory") or 0)
             try:
                 resident = await self._resident(client, base)
             except Exception:
                 resident = {}
-            return headroom + self._ollama_idle(resident)
+            return self._remember_host_free(headroom + self._ollama_idle(resident))
+
+    def _ollama_hold_reason(self, name: str) -> str | None:
+        """Why this Ollama resident cannot be freed, or None when it is idle."""
+        key = model_key(name)
+        if key == model_key(self._pinned()):
+            return "pinned"
+        if key in self.protected(OLLAMA):
+            return "protected"
+        if self.busy(OLLAMA, name):
+            return "busy"
+        if self._active_elsewhere(OLLAMA, name):
+            return "active elsewhere"
+        return None
 
     def _ollama_idle(
         self, resident: dict[str, int], exclude: frozenset[str] | set[str] = frozenset()
     ) -> float:
-        pinned = model_key(self._pinned())
         excluded = {model_key(name) for name in exclude}
-        protected = self.protected(OLLAMA)
         return float(
             sum(
                 self._ollama_size(name, size)
                 for name, size in resident.items()
-                if model_key(name) != pinned
-                and model_key(name) not in excluded
-                and model_key(name) not in protected
-                and not self.busy(OLLAMA, name)
-                and not self._active_elsewhere(OLLAMA, name)
+                if model_key(name) not in excluded and self._ollama_hold_reason(name) is None
             )
         )
+
+    def _ollama_unfreeable(self, resident: dict[str, int]) -> list[tuple[str, int, str]]:
+        """Residents that hold bytes and are not idle: (name, bytes, reason)."""
+        held: list[tuple[str, int, str]] = []
+        for name, size in resident.items():
+            nbytes = self._ollama_size(name, size)
+            if nbytes <= 0:
+                continue
+            reason = self._ollama_hold_reason(name)
+            if reason is not None:
+                held.append((name, nbytes, reason))
+        return held
 
     def _ollama_size(self, name: str, size: int) -> int:
         return max(size, self._observed.get((OLLAMA, model_key(name)), 0))
@@ -1424,6 +1470,143 @@ class LoadGuard:
                 logger.warning("load_guard: measurement failed for %s, admitting: %s", model, e)
         return release
 
+    async def _wait_for_ollama_release(self, deadline: float) -> bool:
+        """One poll for an Ollama resident to go idle. False when the deadline is already spent."""
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return False
+        _admit_waited.set(True)
+        started = time.monotonic()
+        await self._wait_change(min(remaining, max(_POLL_S, 0.01)))
+        _record_wait(OMLX, "in_flight", time.monotonic() - started)
+        return True
+
+    def _omlx_ollama_blockers(
+        self,
+        resident: dict[str, int],
+        failed: set[str],
+        pending: dict[str, _Free],
+    ) -> list[tuple[str, int, str]]:
+        """Bytes Ollama still holds against this load: residents and unsettled frees, with why."""
+        blockers: list[tuple[str, int, str]] = []
+        named: set[str] = set()
+        for name, size in resident.items():
+            nbytes = self._ollama_size(name, size)
+            if nbytes <= 0:
+                continue
+            reason = self._ollama_hold_reason(name)
+            if reason is None and name in failed:
+                reason = "unload failed"
+            elif reason is None and name in pending:
+                reason = "unload unsettled"
+            if reason is not None:
+                blockers.append((name, nbytes, reason))
+                named.add(model_key(name))
+        for name, free in pending.items():
+            if model_key(name) not in named:
+                blockers.append((name, int(free.size), "unload unsettled"))
+        return blockers
+
+    def _refuse_blocked_omlx(
+        self,
+        model: str,
+        need: float,
+        available: float,
+        held: list[tuple[str, int, str]],
+        deadline: float,
+    ) -> NoReturn:
+        """Refuse an oMLX cold load, naming every Ollama resident that could not be freed."""
+        waited = _waited_s(deadline)
+        if not held:
+            raise LoadRefusedError(
+                f"Cannot load {model}: projected memory {need / _GIB:.1f} GiB would "
+                f"exceed host headroom {available / _GIB:.1f} GiB",
+                "projected-exceeds",
+            )
+        blocked = ", ".join(
+            f"{name} ({size / _GIB:.1f} GiB, {reason})" for name, size, reason in held
+        )
+        message = (
+            f"Cannot load {model}: projected memory {need / _GIB:.1f} GiB would "
+            f"exceed host headroom {available / _GIB:.1f} GiB; blocked by {blocked}; "
+            f"need {need / _GIB:.1f} GiB, available {available / _GIB:.1f} GiB, "
+            f"waited {waited:.1f}s"
+        )
+        logger.warning("load_guard: %s", message)
+        raise LoadRefusedError(message, "projected-exceeds")
+
+    async def _ollama_frees_pending(
+        self,
+        pending: dict[str, _Free],
+        resident: dict[str, int],
+        headroom: float,
+        deadline: float,
+    ) -> bool:
+        """True when a pending free needs another pass. False when none are pending or the wait is spent."""
+        if not pending:
+            return False
+        remaining_frees, _ = self._retire_ollama_frees(pending, resident, headroom)
+        pending.clear()
+        pending.update(remaining_frees)
+        if not pending:
+            return True
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return False
+        started = time.monotonic()
+        _admit_waited.set(True)
+        await asyncio.sleep(min(_POLL_S, remaining))
+        _record_wait(OMLX, "free_settle", time.monotonic() - started)
+        return True
+
+    def _unfreed_idle_ollama(self, resident: dict[str, int], freed: set[str]) -> list[str]:
+        return [
+            name
+            for name, size in resident.items()
+            if name not in freed and size > 0 and self._ollama_hold_reason(name) is None
+        ]
+
+    async def _advance_omlx_ollama_capacity(
+        self,
+        client: httpx.AsyncClient,
+        base: str,
+        resident: dict[str, int],
+        headroom: float,
+        model: str,
+        need: float,
+        available: float,
+        deadline: float,
+        pending: dict[str, _Free],
+        freed: set[str],
+        failed: set[str],
+    ) -> None:
+        """Free each idle resident once, or wait when busy residents can still cover the gap."""
+        if await self._ollama_frees_pending(pending, resident, headroom, deadline):
+            return
+        idle = self._unfreed_idle_ollama(resident, freed)
+        if idle:
+            subset = {name: resident[name] for name in idle}
+            requested = await self._free_ollama(client, base, subset)
+            pending.update(requested)
+            failed.update(name for name in idle if name not in requested)
+            freed.update(idle)
+            return
+        held = self._ollama_unfreeable(resident)
+        releasable = _releasable_ollama_bytes(held, freed)
+        if (
+            releasable
+            and available + releasable >= need
+            and await self._wait_for_ollama_release(deadline)
+        ):
+            return
+        self._refuse_blocked_omlx(
+            model,
+            need,
+            available,
+            self._omlx_ollama_blockers(resident, failed, pending),
+            deadline,
+        )
+
     async def _check_omlx_ollama_capacity(
         self, client: httpx.AsyncClient, model: str, deadline: float
     ) -> None:
@@ -1431,7 +1614,8 @@ class LoadGuard:
         if not base:
             return
         pending: dict[str, _Free] = {}
-        free_attempted = False
+        freed: set[str] = set()
+        failed: set[str] = set()
         while True:
             status = await self._omlx_status(client)
             entry = _omlx_entry(status, model)
@@ -1451,31 +1635,18 @@ class LoadGuard:
             _record_headroom(available)
             if need <= available:
                 return
-            if not free_attempted:
-                if not self._ollama_idle(resident):
-                    raise LoadRefusedError(
-                        f"Cannot load {model}: projected memory {need / _GIB:.1f} GiB would "
-                        f"exceed host headroom {available / _GIB:.1f} GiB",
-                        "projected-exceeds",
-                    )
-                free_attempted = True
-                pending = await self._free_ollama(client, base, resident)
-                continue
-            if pending:
-                pending, _ = self._retire_ollama_frees(pending, resident, headroom)
-                if not pending:
-                    continue
-                remaining = deadline - time.monotonic()
-                if remaining > 0:
-                    started = time.monotonic()
-                    _admit_waited.set(True)
-                    await asyncio.sleep(min(_POLL_S, remaining))
-                    _record_wait(OMLX, "free_settle", time.monotonic() - started)
-                    continue
-            raise LoadRefusedError(
-                f"Cannot load {model}: projected memory {need / _GIB:.1f} GiB would "
-                f"exceed host headroom {available / _GIB:.1f} GiB after freeing idle Ollama",
-                "projected-exceeds",
+            await self._advance_omlx_ollama_capacity(
+                client,
+                base,
+                resident,
+                headroom,
+                model,
+                need,
+                available,
+                deadline,
+                pending,
+                freed,
+                failed,
             )
 
     async def admit_omlx(self, model: str) -> Callable[[], None] | None:

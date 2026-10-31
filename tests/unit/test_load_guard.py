@@ -493,6 +493,321 @@ async def test_omlx_load_refuses_without_room_after_idle_ollama_is_gone():
     assert not g._lock.locked()
 
 
+def _omlx_short_of_ollama(resident: str) -> tuple[Engines, lg.LoadGuard]:
+    """14 GiB oMLX load against 13 GiB headroom; freeing ``resident`` closes the gap."""
+    engines = Engines(
+        ollama={resident: 2 * GIB},
+        omlx={"mlx": {"size": 14 * GIB, "loaded": False}},
+        ceiling=15 * GIB,
+    )
+    engines.hidden[resident] = 2 * GIB
+    return engines, guard(engines)
+
+
+def _release_on_wait(guard_obj: lg.LoadGuard, release_resident: Any) -> None:
+    """The first capacity poll is what lets the Ollama resident become idle."""
+    real = guard_obj._wait_change
+
+    async def _wait(timeout: float) -> None:
+        release_resident()
+        await real(timeout)
+
+    guard_obj._wait_change = _wait  # type: ignore[method-assign]
+
+
+async def test_omlx_cold_load_waits_out_a_busy_ollama_resident_then_frees_it():
+    engines, guard_obj = _omlx_short_of_ollama("seat")
+    end = guard_obj.begin(OLLAMA, "seat")
+    lg.set_load_wait("5")
+    _release_on_wait(guard_obj, end)
+    before = wait_count(OMLX, "in_flight")
+    release = await guard_obj.admit_omlx("mlx")
+    assert release is not None
+    assert engines.unload_calls.get("seat") == 1
+    assert wait_count(OMLX, "in_flight") > before
+    release()
+
+
+async def test_omlx_cold_load_refuses_a_busy_ollama_resident_past_the_deadline(caplog):
+    engines, guard_obj = _omlx_short_of_ollama("seat")
+    end = guard_obj.begin(OLLAMA, "seat")
+    lg.set_load_wait("0.2")
+    before = wait_count(OMLX, "in_flight")
+    with (
+        caplog.at_level(logging.WARNING, logger=lg.logger.name),
+        pytest.raises(lg.LoadRefusedError) as err,
+    ):
+        await guard_obj.admit_omlx("mlx")
+    end()
+    text = str(err.value)
+    available = f"available {(15 * GIB - lg._MARGIN) / GIB:.1f} GiB"
+    assert "seat" in text and "busy" in text
+    assert "need 14.0 GiB" in text and available in text
+    assert re.search(r"waited [1-9]\d*\.\d|waited 0\.[1-9]", text)
+    assert any(r.levelno == logging.WARNING and text in r.getMessage() for r in caplog.records)
+    assert engines.unload_calls == {}
+    assert not guard_obj._lock.locked()
+    assert wait_count(OMLX, "in_flight") > before
+
+
+async def test_pinned_or_protected_ollama_blocks_omlx_without_waiting(monkeypatch, caplog):
+    for reason, name in (("pinned", "router"), ("protected", "fallback")):
+        engines, guard_obj = _omlx_short_of_ollama(name)
+        if reason == "protected":
+            monkeypatch.setattr(lg, "GUARD", guard_obj)
+            lg.protect_failover(OLLAMA, name)
+        lg.set_load_wait("30")
+        caplog.clear()
+        started = lg.time.monotonic()
+        with (
+            caplog.at_level(logging.WARNING, logger=lg.logger.name),
+            pytest.raises(lg.LoadRefusedError) as err,
+        ):
+            await guard_obj.admit_omlx("mlx")
+        text = str(err.value)
+        assert lg.time.monotonic() - started < 0.5
+        assert name in text and reason in text
+        assert "need 14.0 GiB" in text and "waited 0.0s" in text
+        assert any(r.levelno == logging.WARNING and text in r.getMessage() for r in caplog.records)
+        assert engines.unload_calls == {}
+        assert not guard_obj._lock.locked()
+
+
+async def test_omlx_cold_load_waits_for_ollama_active_elsewhere():
+    engines, guard_obj = _omlx_short_of_ollama("seat")
+    handle = guard_obj._activity_lock(OLLAMA, "seat")
+    assert handle is not None
+    lg.set_load_wait("5")
+    dropped = False
+
+    def _drop() -> None:
+        nonlocal dropped
+        if not dropped:
+            guard_obj._release_activity_lock(handle)
+            dropped = True
+
+    _release_on_wait(guard_obj, _drop)
+    try:
+        release = await guard_obj.admit_omlx("mlx")
+        assert release is not None
+        assert engines.unload_calls.get("seat") == 1
+        release()
+    finally:
+        if not handle.closed:
+            handle.close()
+
+
+async def test_omlx_cold_load_frees_idle_then_waits_for_the_busy_resident():
+    engines = Engines(
+        ollama={"small": GIB, "seat": 4 * GIB},
+        omlx={"mlx": {"size": 16 * GIB, "loaded": False}},
+        ceiling=15 * GIB,
+    )
+    engines.hidden["small"] = GIB
+    engines.hidden["seat"] = 4 * GIB
+    guard_obj = guard(engines)
+    end = guard_obj.begin(OLLAMA, "seat")
+    lg.set_load_wait("5")
+    _release_on_wait(guard_obj, end)
+    before = metric_value(_ADMISSIONS, engine=OMLX, outcome="admitted_after_wait")
+    release = await guard_obj.admit_omlx("mlx")
+    assert release is not None
+    assert engines.unload_calls == {"small": 1, "seat": 1}
+    assert engines.events.index(("ollama_unload", "small")) < engines.events.index(
+        ("ollama_unload", "seat")
+    )
+    assert (metric_value(_ADMISSIONS, engine=OMLX, outcome="admitted_after_wait") or 0) == (
+        before or 0
+    ) + 1
+    release()
+
+
+async def test_omlx_cold_load_refuses_a_busy_resident_that_cannot_cover_the_gap(monkeypatch):
+    engines = Engines(
+        ollama={"seat": 2 * GIB},
+        omlx={"mlx": {"size": 20 * GIB, "loaded": False}},
+        ceiling=15 * GIB,
+    )
+    guard_obj = guard(engines)
+    end = guard_obj.begin(OLLAMA, "seat")
+    lg.set_load_wait("30")
+    sleeps = 0
+
+    async def _sleep(seconds: float) -> None:
+        nonlocal sleeps
+        sleeps += 1
+        await asyncio.sleep(0)
+
+    monkeypatch.setattr(lg.asyncio, "sleep", _sleep)
+    waits = wait_count(OMLX, "in_flight")
+    started = lg.time.monotonic()
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await guard_obj.admit_omlx("mlx")
+    end()
+    text = str(err.value)
+    assert lg.time.monotonic() - started < 0.5
+    assert sleeps == 0
+    assert wait_count(OMLX, "in_flight") == waits
+    assert "seat" in text and "busy" in text
+    assert "waited 0.0s" in text
+    assert engines.unload_calls == {}
+    assert not guard_obj._lock.locked()
+
+
+def _short_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Settle polls advance the deadline; the autouse sleep replacement does not."""
+    real_sleep = asyncio.sleep
+
+    async def _sleep(seconds: float) -> None:
+        await real_sleep(0.05)
+
+    monkeypatch.setattr(lg.asyncio, "sleep", _sleep)
+
+
+async def test_omlx_cold_load_names_a_failed_ollama_unload(caplog, monkeypatch):
+    engines = Engines(
+        ollama={"seat": 2 * GIB},
+        omlx={"mlx": {"size": 14 * GIB, "loaded": False}},
+        ceiling=15 * GIB,
+        ollama_unload_status_code=500,
+    )
+    guard_obj = guard(engines)
+    lg.set_load_wait("0.2")
+    _short_sleep(monkeypatch)
+    started = lg.time.monotonic()
+    with (
+        caplog.at_level(logging.WARNING, logger=lg.logger.name),
+        pytest.raises(lg.LoadRefusedError) as err,
+    ):
+        await guard_obj.admit_omlx("mlx")
+    text = str(err.value)
+    assert lg.time.monotonic() - started < 0.5
+    assert "seat (2.0 GiB, unload failed)" in text
+    assert "need 14.0 GiB" in text and "waited 0.0s" in text
+    assert any(r.levelno == logging.WARNING and text in r.getMessage() for r in caplog.records)
+    assert engines.unload_calls == {"seat": 1}
+    assert engines.ollama == {"seat": 2 * GIB}
+    assert not guard_obj._lock.locked()
+
+
+async def test_omlx_cold_load_names_an_unsettled_ollama_unload(caplog, monkeypatch):
+    engines = Engines(
+        ollama={"seat": 2 * GIB},
+        omlx={"mlx": {"size": 14 * GIB, "loaded": False}},
+        ceiling=15 * GIB,
+        unload_sticks=True,
+    )
+    guard_obj = guard(engines)
+    lg.set_load_wait("0.15")
+    _short_sleep(monkeypatch)
+    with (
+        caplog.at_level(logging.WARNING, logger=lg.logger.name),
+        pytest.raises(lg.LoadRefusedError) as err,
+    ):
+        await guard_obj.admit_omlx("mlx")
+    text = str(err.value)
+    assert "seat (2.0 GiB, unload unsettled)" in text
+    assert "need 14.0 GiB" in text
+    assert re.search(r"waited [1-9]\d*\.\d|waited 0\.[1-9]", text)
+    assert any(r.levelno == logging.WARNING and text in r.getMessage() for r in caplog.records)
+    assert engines.unload_calls == {"seat": 1}
+    assert engines.ollama == {"seat": 2 * GIB}
+    assert not guard_obj._lock.locked()
+
+
+async def test_omlx_cold_load_names_a_free_that_left_ps_before_its_headroom_rose(
+    caplog, monkeypatch
+):
+    """R4: an accepted unload gone from /api/ps while its settle pends still blocks, named."""
+    engines = Engines(
+        ollama={"seat": 2 * GIB},
+        omlx={"mlx": {"size": 14 * GIB, "loaded": False}},
+        ceiling=15 * GIB,
+        ceiling_rise_polls={"seat": 10_000},
+    )
+    engines.hidden["seat"] = 2 * GIB
+    guard_obj = guard(engines)
+    lg.set_load_wait("0.05")
+    _short_sleep(monkeypatch)
+    with (
+        caplog.at_level(logging.WARNING, logger=lg.logger.name),
+        pytest.raises(lg.LoadRefusedError) as err,
+    ):
+        await guard_obj.admit_omlx("mlx")
+    text = str(err.value)
+    assert "seat (2.0 GiB, unload unsettled)" in text
+    assert "need 14.0 GiB" in text and "waited" in text
+    assert any(
+        r.levelno == logging.WARNING
+        and "seat" in r.getMessage()
+        and "unload unsettled" in r.getMessage()
+        and "waited" in r.getMessage()
+        for r in caplog.records
+    )
+    assert engines.unload_calls == {"seat": 1}
+    assert engines.ollama == {}  # the free was accepted; only the ceiling rise never landed
+    assert not guard_obj._lock.locked()
+
+
+async def test_every_omlx_capacity_refusal_while_ollama_holds_bytes_names_a_blocker(
+    monkeypatch,
+):
+    """Every refusal from the oMLX cold-load check names what holds Ollama bytes."""
+    _short_sleep(monkeypatch)
+    refusals: list[tuple[str, str, str]] = []
+
+    def engines_with(**kwargs: Any) -> Engines:
+        return Engines(
+            ollama={"seat": 2 * GIB},
+            omlx={"mlx": {"size": 14 * GIB, "loaded": False}},
+            ceiling=15 * GIB,
+            **kwargs,
+        )
+
+    async def refuse(holder: str, label: str, engines: Engines, guard_obj: lg.LoadGuard) -> None:
+        with pytest.raises(lg.LoadRefusedError) as err:
+            await guard_obj.admit_omlx("mlx")
+        refusals.append((label, holder, str(err.value)))
+        assert not guard_obj._lock.locked()
+
+    for holder, label in (("router", "pinned"), ("fallback", "protected")):
+        engines = engines_with()
+        engines.ollama = {holder: 2 * GIB}
+        guard_obj = guard(engines)
+        if label == "protected":
+            guard_obj.protect(OLLAMA, holder)
+        await refuse(holder, label, engines, guard_obj)
+
+    engines = engines_with()
+    guard_obj = guard(engines)
+    end = guard_obj.begin(OLLAMA, "seat")
+    await refuse("seat", "busy", engines, guard_obj)
+    end()
+
+    engines = engines_with()
+    guard_obj = guard(engines)
+    handle = guard_obj._activity_lock(OLLAMA, "seat")
+    assert handle is not None
+    await refuse("seat", "active elsewhere", engines, guard_obj)
+    guard_obj._release_activity_lock(handle)
+
+    for label, kwargs, departed in (
+        ("unload failed", {"ollama_unload_status_code": 500}, False),
+        ("unload unsettled", {"unload_sticks": True}, False),
+        ("unload unsettled", {"ceiling_rise_polls": {"seat": 10_000}}, True),
+    ):
+        engines = engines_with(**kwargs)
+        if departed:
+            engines.hidden["seat"] = 2 * GIB
+        guard_obj = guard(engines)
+        lg.set_load_wait("0.05")
+        await refuse("seat", label + (" (departed)" if departed else ""), engines, guard_obj)
+
+    assert len(refusals) == 7
+    for label, holder, text in refusals:
+        assert "blocked by" in text and holder in text, (label, text)
+
+
 async def test_missing_ollama_architecture_uses_weight_factor_fallback():
     model = "large-ctx96k"
     e = Engines(tags={model: 8 * GIB})
