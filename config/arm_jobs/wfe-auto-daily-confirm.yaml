@@ -1,0 +1,74 @@
+id: wfe-auto-daily-confirm
+purpose: >-
+  Separate auto-daily on realuse_v1. Incumbent gemma4:26b-a4b-it-qat-ctx16k against
+  Nemotron 3.5 Lightning 30B and Qwen3.8 27B, both at card sampling. The prior cell
+  (realuse_s5s7s10_20261030b) was 1/14, 7/14, and 8/14, and the 0.07 interval overlapped
+  0.50. The plan sets repeats to 4 (7 tasks, n=28) so those expected rates separate.
+  The canary runs one incumbent row; the report and the judge council follow the campaign.
+preconditions:
+  stack: up
+  free_memory_gib: 24
+  disk_free_gib: 30
+steps:
+  - id: confirm-canary
+    canary: confirm
+    timeout_seconds: 10800
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_autodaily_confirm_20261101_canary/manifest.json
+  - id: confirm
+    argv:
+      - scripts/wfe_campaign.sh
+      - realuse_autodaily_confirm_20261101
+      - "--plan"
+      - tests/wfe/plans/realuse_v1_autodaily_confirm.yaml
+      - "--tier"
+      - realuse
+      - "--engine"
+      - pipeline
+      - "--judge"
+      - "--workspace"
+      - auto-daily
+    timeout_seconds: 86400
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_autodaily_confirm_20261101/manifest.json
+  - id: confirm-report
+    argv:
+      - uv
+      - run
+      - python
+      - "-m"
+      - tests.wfe.report
+      - "--campaign"
+      - realuse_autodaily_confirm_20261101
+      - "--out-dir"
+      - tests/wfe/results/advance
+    timeout_seconds: 900
+    quiet_host: false
+    outputs:
+      - tests/wfe/results/advance/WFE_FITNESS_REPORT_realuse_autodaily_confirm_20261101.md
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_autodaily_confirm_20261101/report.json
+  - id: confirm-judge-council
+    argv:
+      - uv
+      - run
+      - python
+      - "-m"
+      - tests.wfe.judge_council
+      - "--campaign"
+      - realuse_autodaily_confirm_20261101
+    timeout_seconds: 900
+    quiet_host: false
+stop_conditions:
+  on_failure: stop
+  max_job_minutes: 1800
+report:
+  fields:
+    - status
+    - purpose
+    - steps
+    - outputs
+    - checkpoints
+    - failures
+    - memory
+    - duration
+    - resume

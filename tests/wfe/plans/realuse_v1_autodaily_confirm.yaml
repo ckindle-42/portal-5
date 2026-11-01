@@ -1,0 +1,15 @@
+# Confirm auto-daily at card sampling. repeats 4 is n=28 on the 7 realuse_v1 auto-daily tasks; Wilson 2/28 vs 14/28 separates, and n=14 overlapped.
+#
+#   uv run python -m tests.wfe.campaign --campaign-id realuse_autodaily_confirm_20261101 \
+#       --plan tests/wfe/plans/realuse_v1_autodaily_confirm.yaml --tier realuse --dry-run
+repeats: 4
+workloads:
+  auto-daily:
+    tool_mode: production
+    home: realuse_v1
+    discovery: []
+    arms:
+      incumbent: gemma4:26b-a4b-it-qat-ctx16k
+      challengers:
+        - hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k
+        - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
