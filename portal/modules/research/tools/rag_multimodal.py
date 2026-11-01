@@ -214,11 +214,22 @@ async def _eval_seed_kb(request: _JsonRequest) -> JSONResponse:
     for name, text in docs.items():
         (src / name).write_text(text)
     try:
-        return JSONResponse(
-            await _pipeline.ingest_document(_composition(), scope["run"], src, True)
-        )
+        result = await _pipeline.ingest_document(_composition(), scope["run"], src, True)
     except _VLUnavailableError as e:
         return JSONResponse({"error": str(e)}, status_code=503)
+    # A doc ingestion skips (e.g. a name without a supported extension) must fail the seed:
+    # it returned 200 with files_ingested 0, so every KB task ran on an empty KB (10-31).
+    ingested = int(result.get("files_ingested") or 0) if isinstance(result, dict) else 0
+    if ingested < len(docs):
+        return JSONResponse(
+            {
+                **(result if isinstance(result, dict) else {}),
+                "error": f"seeded {ingested} of {len(docs)} doc(s); "
+                "a doc name needs a supported extension such as .md",
+            },
+            status_code=422,
+        )
+    return JSONResponse(result)
 
 
 async def _eval_drop_kb(request: _JsonRequest) -> JSONResponse:

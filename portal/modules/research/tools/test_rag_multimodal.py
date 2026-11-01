@@ -149,3 +149,33 @@ def test_ingest_stamps_model_and_search_rejects_a_swap(
     out = _run(rm._search(_Req({"kb_id": "kbz", "query": "x"})))
     body = json.loads(out.body)
     assert out.status_code == 503 and "different spaces" in body["error"]
+
+
+class _Body:
+    """A route request whose JSON body is the given dict (eval routes read it top-level)."""
+
+    def __init__(self, body: dict[str, Any]) -> None:
+        self._body = body
+
+    async def json(self) -> dict[str, Any]:
+        return self._body
+
+
+def test_eval_seed_kb_fails_when_a_doc_is_not_ingested(tmp_path: Path, monkeypatch) -> None:
+    # 10-31: extensionless seed names were skipped by ingestion, the route still returned
+    # 200 with files_ingested 0, and every KB task ran against an empty KB.
+    from portal.platform.mcp_host import eval_scope
+
+    async def ingest(_comp: Any, _run_id: str, _src: Path, _fresh: bool) -> dict:
+        return {"kb_id": "wfe_x", "files_ingested": 0, "chunks_added": 0}
+
+    monkeypatch.setattr(rm._pipeline, "ingest_document", ingest)
+    monkeypatch.setattr(rm, "_composition", lambda: None)
+    monkeypatch.setattr(rm, "_eval_sources", lambda scope: tmp_path)
+    token = eval_scope.EVAL_SCOPE.set({"campaign": "wfe_a", "run": "wfe_x", "allow": []})
+    try:
+        out = _run(rm._eval_seed_kb(_Body({"docs": {"note.md": "text"}})))
+    finally:
+        eval_scope.EVAL_SCOPE.reset(token)
+    assert out.status_code == 422
+    assert "seeded 0 of 1" in json.loads(out.body)["error"]
