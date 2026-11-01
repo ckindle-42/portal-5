@@ -161,12 +161,14 @@ class _Body:
         return self._body
 
 
-def test_eval_seed_kb_fails_when_a_doc_is_not_ingested(tmp_path: Path, monkeypatch) -> None:
+def test_eval_seed_kb_fails_when_a_doc_is_not_ingested(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # 10-31: extensionless seed names were skipped by ingestion, the route still returned
     # 200 with files_ingested 0, and every KB task ran against an empty KB.
     from portal.platform.mcp_host import eval_scope
 
-    async def ingest(_comp: Any, _run_id: str, _src: Path, _fresh: bool) -> dict:
+    async def ingest(_comp: Any, _run_id: str, _src: Path, _fresh: bool) -> dict[str, Any]:
         return {"kb_id": "wfe_x", "files_ingested": 0, "chunks_added": 0}
 
     monkeypatch.setattr(rm._pipeline, "ingest_document", ingest)
