@@ -1,0 +1,20 @@
+# Mellum 2.1 real-use rerun on auto-coding::fast-repair (rejection retracted pending this run).
+# kat-coder holds the seat; the S8 screen was 12/12 vs 12/12 with overlapping intervals, so the
+# real-use instrument decides. The variant lane runs its base tasks too: 16 realuse_v1 tasks,
+# repeats 2 -> n=32 per arm. Challenger at its card sampling (0.6/0.95/20, MODEL_CATALOG);
+# incumbent at the seat exactly as production serves it.
+#
+#   uv run python -m tests.wfe.campaign --campaign-id realuse_mellum_20261104 \
+#       --plan tests/wfe/plans/realuse_v1_mellum.yaml --tier realuse --dry-run
+repeats: 2
+workloads:
+  auto-coding::fast-repair:
+    tool_mode: production
+    home: realuse_v1
+    discovery: []
+    arms:
+      incumbent: kat-coder-v2.5-dev:Q4_K_M-ctx32k
+      challengers:
+        - model: hf.co/JetBrains/Mellum2.1-12B-A2.5B-Thinking-GGUF:Q4_K_M-ctx32k
+          label: card
+          sampling: {temperature: 0.6, top_p: 0.95, top_k: 20}

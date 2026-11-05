@@ -233,6 +233,44 @@ def test_planned_matrix_applies_the_policy(plan, tmp_path, monkeypatch):
     assert len(matrix) == 12
 
 
+def test_a_plan_repeats_count_beats_the_realuse_policy(plan, tmp_path, monkeypatch):
+    monkeypatch.setattr(camp, "CAMPAIGNS", tmp_path / "campaigns")
+    monkeypatch.setattr(camp, "suite_is_objective", lambda p, c=None: True)
+    document = yaml.safe_load(plan.read_text())
+    document["repeats"] = 4
+    plan.write_text(yaml.safe_dump(document))
+    d = tmp_path / "campaigns" / "c"
+    (d / "rows").mkdir(parents=True)
+    (d / "rows" / "x.json").write_text(json.dumps({"arm": INC, "served_temperature": 0.5}))
+    args = SimpleNamespace(
+        campaign_id="c",
+        all_suites=False,
+        arm=None,
+        suite=None,
+        task=None,
+        workspace=None,
+        tier="realuse",
+        advance=None,
+        repeats=None,
+    )
+    repeats, matrix = camp._planned_matrix(plan, args)
+    assert repeats == 4
+    assert len(matrix) == 24
+
+    args.repeats = 2
+    repeats, matrix = camp._planned_matrix(plan, args)
+    assert repeats == 2
+    assert len(matrix) == 12
+
+
+def test_plan_repeats_rejects_a_non_positive_count(plan):
+    document = yaml.safe_load(plan.read_text())
+    document["repeats"] = True
+    plan.write_text(yaml.safe_dump(document))
+    with pytest.raises(ValueError, match="positive integer"):
+        camp.plan_repeats(plan)
+
+
 def test_tool_preflight_keeps_stdout_clean_for_list_arms(capsys):
     # wfe_campaign.sh reads `--list-arms` stdout line by line as arm tags.
     camp._realuse_tool_preflight(camp.REPO / "tests" / "wfe" / "plans" / "realuse_v1_s8.yaml")

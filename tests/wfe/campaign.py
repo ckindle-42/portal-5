@@ -4247,10 +4247,24 @@ def _warn_prompt_surface(matrix: list[dict]) -> None:
             print(f"WARN prompt/tool surface [{ws_id}]: {w}", flush=True)
 
 
+def plan_repeats(plan_path: Path) -> int | None:
+    """Plan-level `repeats`, an explicit per-task count. None leaves the tier policy."""
+    data = yaml.safe_load(plan_path.read_text()) or {}
+    if not isinstance(data, dict):
+        return None
+    raw = data.get("repeats")
+    if raw is None:
+        return None
+    if isinstance(raw, bool) or not isinstance(raw, int) or raw < 1:
+        raise ValueError(f"{plan_path.name}: repeats must be a positive integer")
+    return raw
+
+
 def _planned_matrix(plan: Path, args) -> tuple[int | dict[str, int], list[dict]]:
     """The matrix and its repeats. Without --repeats a confirm gives each arm 1 repeat when its
     screen rows recorded a served temperature of 0, and the default otherwise; a realuse tier
-    gives every task one draw, and a second only to an arm above temperature 0."""
+    gives every task one draw, and a second only to an arm above temperature 0. A plan-level
+    `repeats` integer is an explicit count, same as --repeats, and beats that policy."""
 
     def expand(n):
         return expand_matrix(
@@ -4265,14 +4279,15 @@ def _planned_matrix(plan: Path, args) -> tuple[int | dict[str, int], list[dict]]
             load_advance(args.advance),
         )
 
-    repeats = DEFAULT_REPEATS if args.repeats is None else args.repeats
-    if args.repeats is None and args.tier == "realuse":
+    chosen = args.repeats if args.repeats is not None else plan_repeats(plan)
+    repeats = DEFAULT_REPEATS if chosen is None else chosen
+    if chosen is None and args.tier == "realuse":
         repeats = 1
     matrix = expand(repeats)
-    if args.repeats is None and args.tier == "confirm":
+    if chosen is None and args.tier == "confirm":
         repeats = repeats_policy(CAMPAIGNS / args.campaign_id, matrix, DEFAULT_REPEATS)
         matrix = expand(repeats)
-    if args.repeats is None and args.tier == "realuse":
+    if chosen is None and args.tier == "realuse":
         repeats = realuse_repeats(CAMPAIGNS / args.campaign_id, matrix)
         matrix = expand(repeats)
     return repeats, matrix
