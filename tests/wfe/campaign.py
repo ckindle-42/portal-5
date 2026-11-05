@@ -106,6 +106,7 @@ from tests.wfe.schema import (
     env_fingerprint,
     sha12,
 )
+from tests.wfe.upload_fidelity import row_instrument
 
 REPO = Path(__file__).resolve().parents[2]
 DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
@@ -801,6 +802,8 @@ def instrument_fingerprint() -> dict:
         "deployed": deployed_build() if ENGINE == "pipeline" else "",
         "services": deployed_services() if ENGINE == "pipeline" else {},
         "engine": ENGINE,
+        # Realuse pipeline turns prepend OWUI v0.12.5 RAG context. Bumps the hash.
+        "upload_delivery": "owui-rag-v0.12.5",
     }
     blob = json.dumps({k: v for k, v in parts.items() if k != "commit"}, sort_keys=True)
     parts["fingerprint"] = hashlib.sha256(blob.encode()).hexdigest()[:16]
@@ -2085,6 +2088,7 @@ def _rehydrate_check(rec: dict, task: dict):
                 sandbox_root=root,
                 task=task,
                 finish_reason=rec.get("finish_reason"),
+                owui_context=str(rec.get("owui_context") or ""),
                 served=next(
                     (
                         t.get("served")
@@ -2139,6 +2143,22 @@ def _scripted_turn_range(state: dict, index: int, tool_count: int) -> tuple[int,
     return start, end
 
 
+def _scripted_turn_context(
+    task: dict, state: dict, tool_log: list, end: int, root: Path
+) -> CheckContext:
+    """Check context for one saved scripted turn, including its RAG prefix."""
+    return CheckContext(
+        final_text=state["final_text"],
+        assistant_texts=state["assistant_texts"],
+        tool_calls=tool_log[:end],
+        sandbox_root=root,
+        task=task,
+        finish_reason=state["finish_reason"],
+        served=state["served"],
+        owui_context=str(state.get("owui_context") or ""),
+    )
+
+
 def _rehydrate_scripted_check(rec: dict, task: dict):
     """Re-grade scripted turns from their saved inputs or decline incomplete evidence."""
     turns = task.get("turns") or []
@@ -2178,15 +2198,7 @@ def _rehydrate_scripted_check(rec: dict, task: dict):
             graded = (
                 apply_checkers(
                     {**task, "checkers": checks},
-                    CheckContext(
-                        final_text=state["final_text"],
-                        assistant_texts=state["assistant_texts"],
-                        tool_calls=tool_log[:end],
-                        sandbox_root=root,
-                        task=task,
-                        finish_reason=state["finish_reason"],
-                        served=state["served"],
-                    ),
+                    _scripted_turn_context(task, state, tool_log, end, root),
                 )
                 if checks
                 else CheckResult(Outcome.PASS, "", {})
@@ -2924,7 +2936,7 @@ def run_row(
         run_id=r["run_id"],
         campaign_id=manifest["campaign_id"],
         stage="full",
-        instrument=manifest.get("instrument") or instrument_fingerprint(),
+        instrument=row_instrument(manifest.get("instrument") or instrument_fingerprint(), out),
         workspace=r["workspace"],
         arm=r["arm"],
         arm_role=r["arm_role"],

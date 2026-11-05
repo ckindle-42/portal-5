@@ -66,6 +66,13 @@ from tests.wfe.checkers import CheckContext, CheckResult, apply_checkers, expect
 from tests.wfe.prompt_surface import harness_note, production_tool_names
 from tests.wfe.realuse_paths import stage_upload_tree
 from tests.wfe.schema import Economics, Outcome, ResultRow, env_fingerprint, sha12
+from tests.wfe.upload_fidelity import (
+    apply_turn_prefix,
+    row_instrument,
+    stamp_upload_delivery,
+    turn_injection,
+    user_text,
+)
 
 logger = logging.getLogger(__name__)
 REPO = Path(__file__).resolve().parents[2]
@@ -1605,15 +1612,32 @@ class _Loop:
         self.finish_reason: str | None = None
         self.outcome_override: Outcome | None = None
         self.tool_errors = 0
+        self.upload_turns: list[dict] = []
+        self.upload_chunks = 0
+        self.upload_ranked = False
+        self._owui_context = ""
+        self._prefixed: tuple | None = None
 
     def open_turn(self, index: int, spec: dict) -> None:
         """Send one scripted user turn on the conversation built so far."""
         self.turn_index = index
-        self.messages.append({"role": "user", "content": spec.get("user") or ""})
         self._turn_calls = len(self.tool_log)
         self._turn_texts = []
         self._turn_served = None
         self.final_text = ""
+        self._attach_upload(index, spec)
+
+    def _attach_upload(self, index: int, spec: dict) -> None:
+        """Prepend this turn's RAG context onto the new user message only."""
+        users = [user_text(turn.get("user")) for turn in self.scripted]
+        injection = turn_injection(ENGINE, self.task, index, users)
+        self._prefixed = apply_turn_prefix(
+            self.messages, spec.get("user") or "", injection, self._prefixed
+        )
+        self._owui_context = injection.prefix
+        self.upload_turns.append({"turn": index, "files": injection.file_ids})
+        self.upload_chunks = injection.chunks
+        self.upload_ranked = injection.ranked_standin
 
     def close_turn(self, index: int, spec: dict) -> None:
         """Grade one scripted turn against its own checks and expected tools. Tool
@@ -1628,6 +1652,7 @@ class _Loop:
             task=self.task,
             finish_reason=self.finish_reason,
             served=self._turn_served,
+            owui_context=self._owui_context,
         )
         graded = (
             apply_checkers({**self.task, "checkers": checks}, ctx)
@@ -1658,6 +1683,7 @@ class _Loop:
                 "tool_call_range": [self._turn_calls, len(self.tool_log)],
                 "finish_reason": self.finish_reason,
                 "served": self._turn_served,
+                "owui_context": self._owui_context,
             }
         )
 
@@ -1930,7 +1956,7 @@ def run_task(
     if overflow:
         out["evidence"] = {**out["evidence"], "context_overflow": overflow}
         out["notes"] = f"context overflow: {overflow} | " + out["notes"]
-    return out
+    return stamp_upload_delivery(out, lp.upload_turns, lp.upload_chunks, lp.upload_ranked)
 
 
 def _combined_turn_result(turn_results: list[dict]) -> CheckResult:
@@ -1955,6 +1981,12 @@ def _combined_turn_result(turn_results: list[dict]) -> CheckResult:
             notes = " | ".join(f"turn {r['turn']}: {r['notes']}" for r in bad)
             return CheckResult(level, notes, evidence)
     return CheckResult(Outcome.PASS, f"all {len(turn_results)} turn(s) passed", evidence)
+
+
+def _saved_owui_context(turn_results: list[dict] | None) -> str:
+    if not turn_results:
+        return ""
+    return str(turn_results[-1].get("owui_context") or "")
 
 
 def _finalize_run(
@@ -1983,6 +2015,7 @@ def _finalize_run(
         task=task,
         finish_reason=finish_reason,
         served=served,
+        owui_context=_saved_owui_context(turn_results),
     )
     outcome, notes, evidence = _classify(
         task,
@@ -2092,6 +2125,7 @@ def _row(label, args, ctxinfo, model, task, r, harness, sampling, env, system_pr
         final_text_head=r["final_text_head"],
         transcript=r["transcript"],
         tool_call_log=r["tool_call_log"],
+        instrument=row_instrument({}, r),
     ).to_dict()
 
 

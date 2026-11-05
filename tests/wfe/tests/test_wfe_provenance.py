@@ -34,6 +34,7 @@ def test_fingerprint_names_its_inputs():
         "deployed",
         "services",
         "engine",
+        "upload_delivery",
         "fingerprint",
     }
 
