@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -465,6 +466,111 @@ def test_ru_v1_003_answer_accepts_the_thirty_minute_paraphrase():
                 }
             ]
         ),
+    )
+    assert note.outcome == Outcome.PASS
+
+
+def test_ru_v1_003_turn0_accepts_a_direct_report_for_the_one_on_one():
+    """ready5 gemma4 QAT ru-v1-003 turn 0: the direct report owns the 30-minute session."""
+    suite = Path(__file__).resolve().parents[1] / "suites" / "realuse_v1.jsonl"
+    task = next(
+        json.loads(line) for line in suite.read_text().splitlines() if '"ru-v1-003"' in line
+    )
+    turn = task["turns"][0]
+    answer = next(c for c in turn["checks"] if c["type"] == "answer_contains")
+    pattern = r"1:1|1-on-1|one-on-one|one on one|direct report"
+    assert answer["patterns"] == [r"(?<!\d)30(?!\d)", pattern]
+    grounded = next(c for c in task["turns"][1]["checks"] if c["type"] == "tool_grounded")
+    assert "30 min max" in grounded["evidence"]
+    sentence = "In a 30-minute session, the direct report (DR) should own the topics."
+    accepted = (
+        sentence,
+        "1:1",
+        "1-on-1",
+        "one on one",
+        "one-on-one",
+        "direct report",
+        "Keep the weekly 1:1, not a team meeting.",
+    )
+    for text in accepted:
+        got = check_answer_contains({"patterns": [pattern]}, CheckContext(final_text=text))
+        assert got.outcome == Outcome.PASS, text
+    both = check_answer_contains(
+        {"patterns": answer["patterns"]}, CheckContext(final_text=sentence)
+    )
+    assert both.outcome == Outcome.PASS
+    forbidden = next(c for c in turn["checks"] if c["type"] == "must_not_contain")
+    assert (
+        check_must_not_contain(forbidden, CheckContext(final_text=sentence)).outcome == Outcome.PASS
+    )
+    team_meeting = check_answer_contains(
+        {"patterns": [pattern]},
+        CheckContext(final_text="Hold a weekly team meeting."),
+    )
+    assert team_meeting.outcome == Outcome.FAIL
+
+
+def test_ru_v1_043_turn0_accepts_the_count_says_zero_answer():
+    """ready5 kat-coder ru-v1-043 turn 0: the count says 0, while the fix would print noes=2."""
+    suite = Path(__file__).resolve().parents[1] / "suites" / "realuse_v1.jsonl"
+    task = next(
+        json.loads(line) for line in suite.read_text().splitlines() if '"ru-v1-043"' in line
+    )
+    turn = task["turns"][0]
+    answer = next(c for c in turn["checks"] if c["type"] == "answer_contains")
+    grounded = next(c for c in turn["checks"] if c["type"] == "tool_grounded")
+    pattern = (
+        r"noes=0\b|count\s+(?:says|is|shows|prints)\s+(?:0\b|zero\b)"
+        r"|(?<!\d)0\s+noes\b|\bzero\b"
+    )
+    assert answer["patterns"] == [pattern, "whitespace|space|strip"]
+    assert grounded["evidence"] == ["noes=0"]
+    later = task["turns"][1]
+    assert next(c for c in later["checks"] if c["type"] == "tool_grounded")["evidence"] == [
+        "noes=2"
+    ]
+    assert next(c for c in later["checks"] if c["type"] == "answer_contains")["patterns"] == [
+        "noes=2"
+    ]
+    kat = textwrap.dedent(
+        """\
+        **The count says 0 because two of the `"N"` votes have a trailing space:** `'N '` instead of `'N'`.
+
+        Line 1: `votes = ['Y', 'N ', 'Y', 'N ', 'Y']`
+        Line 2 compares with `vote == 'N'`, which doesn't match `'N '`.
+
+        The fix is to strip whitespace before comparing (or normalize when building the list):
+
+        ```python
+        votes = ['Y', 'N ', 'Y', 'N ', 'Y']
+        noes = sum(1 for vote in votes if vote.strip() == 'N')
+        print(f'noes={noes}')
+        ```
+
+        That would correctly output `noes=2`."""
+    )
+    accepted = (
+        kat,
+        "noes=0",
+        "The count says 0",
+        "The count is zero",
+        "The count shows 0",
+        "The count prints zero",
+        "0 noes",
+        "zero",
+        'The count says 0 because two of the "N" votes have a trailing space',
+    )
+    for text in accepted:
+        got = check_answer_contains({"patterns": [pattern]}, CheckContext(final_text=text))
+        assert got.outcome == Outcome.PASS, text
+    both = check_answer_contains({"patterns": answer["patterns"]}, CheckContext(final_text=kat))
+    assert both.outcome == Outcome.PASS
+    for text in ("noes=2", "count says 2", "noes=02", "10 noes", "nonzero"):
+        got = check_answer_contains({"patterns": [pattern]}, CheckContext(final_text=text))
+        assert got.outcome == Outcome.FAIL, text
+    note = check_tool_grounded(
+        {"tools": ["execute_python"], "evidence": ["noes=0"]},
+        CheckContext(tool_calls=[{"name": "execute_python", "output": "noes=0"}]),
     )
     assert note.outcome == Outcome.PASS
 

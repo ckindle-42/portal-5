@@ -124,6 +124,20 @@ ANSWER_PATTERN_EXPECTATIONS = {
     ),
     "ru-v1-003": (
         (
+            0,
+            r"1:1|1-on-1|one-on-one|one on one|direct report",
+            (
+                "1:1",
+                "1-on-1",
+                "one on one",
+                "one-on-one",
+                "direct report",
+                "Keep the weekly 1:1, not a team meeting.",
+                "In a 30-minute session, the direct report (DR) should own the topics.",
+            ),
+            ("Hold a weekly team meeting.",),
+        ),
+        (
             1,
             r"(?<!\d)30[\s-]*min",
             (
@@ -137,6 +151,32 @@ ANSWER_PATTERN_EXPECTATIONS = {
                 "130 minutes",
                 "3 minutes",
                 "20-minute cap",
+            ),
+        ),
+    ),
+    "ru-v1-043": (
+        (
+            0,
+            (
+                r"noes=0\b|count\s+(?:says|is|shows|prints)\s+(?:0\b|zero\b)"
+                r"|(?<!\d)0\s+noes\b|\bzero\b"
+            ),
+            (
+                "noes=0",
+                "The count says 0",
+                "The count is zero",
+                "The count shows 0",
+                "The count prints zero",
+                "0 noes",
+                "zero",
+                'The count says 0 because two of the "N" votes have a trailing space',
+            ),
+            (
+                "noes=2",
+                "count says 2",
+                "noes=02",
+                "10 noes",
+                "nonzero",
             ),
         ),
     ),
