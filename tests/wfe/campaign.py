@@ -1787,6 +1787,11 @@ def incumbent_reuse_report(src_dir: Path, dst_dir: Path) -> dict:
 
 def gate_execution(campaign_dir: Path) -> None:
     """Controls gate plus baseline check before any row of a resumed campaign runs."""
+    from tests.wfe.checkers import missing_office_parsers
+
+    missing = missing_office_parsers()
+    if missing:
+        raise GateRefused("campaign preflight: missing module " + ", ".join(missing))
     m = load_manifest(campaign_dir)
     keep_receipt(campaign_dir, gate_controls(m["rows"], "execute"))
     drift = instrument_drift(m)
