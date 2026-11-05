@@ -1,0 +1,16 @@
+# Auto-daily control: the incumbent gemma4 26B-A4B QAT at its card think setting.
+# realuse_autodaily_upload_20261105 ran gemma with thinking off (oMLX template default;
+# production sends no enable_thinking) against Nemotron and Qwen3.8 thinking at card
+# settings. One variable flipped: think. Prompt, tools, sampling (card 1.0/0.95/64),
+# caps and suite are the seat's. Baseline = that campaign's gemma rows (same build).
+repeats: 4
+workloads:
+  auto-daily:
+    tool_mode: production
+    home: realuse_v1
+    discovery: []
+    arms:
+      challengers:
+        - model: gemma4:26b-a4b-it-qat-ctx16k
+          label: think-on
+          think: true
