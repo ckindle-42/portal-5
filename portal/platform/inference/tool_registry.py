@@ -115,6 +115,27 @@ def _argument_error(name: str, schema: Any, arguments: Any) -> dict[str, str] | 
     return None
 
 
+def _bash_validation_view(tool_name: str, schema: Any, arguments: Any) -> Any:
+    """execute_bash arguments as the advertised schema names them.
+
+    The sandbox's REST manifest (what the model is shown, and `tool.parameters`) calls the
+    script `command`; its MCP function takes `code`. Validate either spelling against the
+    advertised name; `_alias_bash_command` then hands the server `code`."""
+    if tool_name != "execute_bash" or not isinstance(arguments, dict):
+        return arguments
+    props = schema.get("properties") if isinstance(schema, dict) else None
+    if not isinstance(props, dict):
+        return arguments
+    view = dict(arguments)
+    if "command" in props and "code" not in props and "code" in view:
+        view.setdefault("command", view.pop("code"))
+        view.pop("code", None)
+    elif "code" in props and "command" not in props and "command" in view:
+        view.setdefault("code", view.pop("command"))
+        view.pop("command", None)
+    return view
+
+
 def _alias_bash_command(tool_name: str, arguments: Any) -> Any:
     """Copy execute_bash `command` onto `code` and drop the alias key."""
     if tool_name != "execute_bash" or not isinstance(arguments, dict):
@@ -559,10 +580,12 @@ class ToolRegistry:
         scope_error = _native_scope_error(tool.server_id)
         if scope_error is not None:
             return scope_error
-        arguments = _alias_bash_command(tool.name, arguments)
-        argument_error = _argument_error(tool.name, tool.parameters, arguments)
+        argument_error = _argument_error(
+            tool.name, tool.parameters, _bash_validation_view(tool.name, tool.parameters, arguments)
+        )
         if argument_error is not None:
             return argument_error
+        arguments = _alias_bash_command(tool.name, arguments)
         return await self._dispatch_native_mcp(tool, arguments, timeout_s, now, request_id)
 
     async def _dispatch_native_mcp(

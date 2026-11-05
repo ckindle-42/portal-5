@@ -406,3 +406,38 @@ async def test_command_alias_is_execute_bash_only():
     assert called is False
     assert "unexpected keyword argument" in result["detail"]
     assert tool.consecutive_failures == 0
+
+
+# The sandbox's live REST manifest (curl :8914/tools, 2026-11-05) names the script `command`;
+# its MCP function takes `code`. The registry validates against the manifest, so the test
+# must use that shape — the `code`-only fixture above hid a release that rejected every call.
+_LIVE_BASH_MANIFEST = {
+    "type": "object",
+    "properties": {
+        "command": {"type": "string"},
+        "timeout": {"type": "integer"},
+        "session_id": {"type": "string"},
+    },
+    "required": ["command"],
+}
+
+
+@pytest.mark.asyncio
+async def test_execute_bash_against_the_live_manifest_schema_reaches_the_server_as_code():
+    reg, tool = _tool("execute_bash", _LIVE_BASH_MANIFEST)
+    seen: list[dict] = []
+
+    async def fake_call_tool(_client, _url, name, arguments, _timeout, metadata=None):
+        seen.append(arguments)
+        return {"content": [{"type": "text", "text": '{"stdout": "ok"}'}]}
+
+    with patch.object(registry_module, "call_tool", fake_call_tool):
+        via_command = await reg.dispatch("execute_bash", {"command": "echo portal"})
+        via_code = await reg.dispatch("execute_bash", {"code": "echo portal", "timeout": 5})
+        unknown = await reg.dispatch("execute_bash", {"command": "x", "shell": "zsh"})
+
+    assert via_command == {"stdout": "ok"}
+    assert via_code == {"stdout": "ok"}
+    assert "rejected the arguments" in unknown["error"]
+    assert seen == [{"code": "echo portal"}, {"code": "echo portal", "timeout": 5}]
+    assert tool.consecutive_failures == 0
