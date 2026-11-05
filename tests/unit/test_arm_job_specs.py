@@ -36,6 +36,7 @@ EXPECTED = {
     "wfe-realuse-sec",
     "wfe-auto-daily-confirm",
     "wfe-realuse-mellum",
+    "wfe-tool-carry-ab",
 }
 
 SHIP_ENV = (
@@ -102,7 +103,14 @@ def test_every_plan_a_step_opens_exists(path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    "name", ["wfe-realuse-rest", "wfe-realuse-sec", "wfe-auto-daily-confirm", "wfe-realuse-mellum"]
+    "name",
+    [
+        "wfe-realuse-rest",
+        "wfe-realuse-sec",
+        "wfe-auto-daily-confirm",
+        "wfe-realuse-mellum",
+        "wfe-tool-carry-ab",
+    ],
 )
 def test_every_realuse_campaign_step_is_gated_by_a_canary_that_stops_the_job(name: str) -> None:
     spec = _spec(SPEC_DIR / f"{name}.yaml")
@@ -322,6 +330,83 @@ def test_auto_daily_confirm_uses_the_plan_repeats_on_one_workspace() -> None:
         "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
         "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
     ]
+
+
+def test_tool_carry_ab_flips_the_flag_around_two_fresh_incumbent_campaigns() -> None:
+    spec = _spec(SPEC_DIR / "wfe-tool-carry-ab.yaml")
+    campaigns = [
+        step
+        for step in spec.steps
+        if step.canary_of is None and step.argv[0] == "scripts/wfe_campaign.sh"
+    ]
+    assert [step.step_id for step in spec.steps] == [
+        "off-canary",
+        "off",
+        "carry-on",
+        "on-canary",
+        "on",
+        "carry-off",
+        "off-report",
+        "off-judge-council",
+        "on-report",
+        "on-judge-council",
+    ]
+    assert [step.argv[1] for step in campaigns] == [
+        "realuse_toolcarry_off_20261105",
+        "realuse_toolcarry_on_20261105",
+    ]
+    plan_path = "tests/wfe/plans/realuse_v1_tool_carry_ab.yaml"
+    for step in campaigns:
+        assert step.argv[step.argv.index("--plan") + 1] == plan_path
+        assert step.argv[step.argv.index("--tier") + 1] == "realuse"
+        assert step.argv[step.argv.index("--engine") + 1] == "pipeline"
+        assert "--judge" in step.argv
+        assert "--fresh-incumbent" in step.argv
+        assert "--workspace" not in step.argv
+        assert "--repeats" not in step.argv
+        assert step.quiet_host is True
+        assert any(path.endswith(f"{step.argv[1]}/manifest.json") for path in step.checkpoints)
+    assert spec.steps[2].argv == ("scripts/pipeline_tool_carry.sh", "on")
+    assert spec.steps[5].argv == ("scripts/pipeline_tool_carry.sh", "off")
+    assert spec.steps[2].quiet_host is True
+    assert spec.steps[5].quiet_host is True
+    assert spec.stop_conditions.on_failure == "stop"
+    reports = [step for step in spec.steps if step.argv[3:5] == ("-m", "tests.wfe.report")]
+    councils = [step for step in spec.steps if step.argv[3:5] == ("-m", "tests.wfe.judge_council")]
+    assert [step.argv[step.argv.index("--campaign") + 1] for step in reports] == [
+        step.argv[1] for step in campaigns
+    ]
+    assert [step.argv[step.argv.index("--campaign") + 1] for step in councils] == [
+        step.argv[1] for step in campaigns
+    ]
+    assert all(step.quiet_host is False for step in reports + councils)
+    plan = yaml.safe_load((ROOT / plan_path).read_text(encoding="utf-8"))
+    assert plan["repeats"] == 3
+    assert set(plan["workloads"]) == {"auto-daily", "auto-daily::fast", "auto-documents"}
+    seats = {
+        "auto-daily": "gemma4:26b-a4b-it-qat-ctx16k",
+        "auto-daily::fast": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k",
+        "auto-documents": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+    }
+    tasks: list[str] = []
+    for name, workload in plan["workloads"].items():
+        assert workload["tool_mode"] == "production"
+        assert workload["home"] == "realuse_v1"
+        assert workload["discovery"] == []
+        assert workload["arms"]["incumbent"] == seats[name]
+        assert workload["arms"]["challengers"] == []
+        tasks.extend(workload["home_tasks"])
+    assert tasks == [
+        "ru-v1-001",
+        "ru-v1-004",
+        "ru-v1-006",
+        "ru-v1-064",
+        "ru-v1-069",
+        "ru-v1-019",
+        "ru-v1-028",
+        "ru-v1-070",
+    ]
+    assert plan["repeats"] * len(tasks) == 24
 
 
 def test_the_recapture_backs_up_the_store_it_rewrites() -> None:
