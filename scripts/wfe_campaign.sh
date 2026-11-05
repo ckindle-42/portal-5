@@ -197,7 +197,7 @@ import sys
 from tests.wfe import settings_audit as audit
 args = sys.argv[1:]
 spaces = {args[i + 1] for i, a in enumerate(args[:-1]) if a == '--workspace'}
-arms = sorted({ln.strip().split('@card-')[0] for ln in open('${LOG_DIR}/arms.txt') if ln.strip()})
+arms = sorted({ln.strip().split('@', 1)[0] for ln in open('${LOG_DIR}/arms.txt') if ln.strip()})
 seats = audit.run_audit()
 tags = audit.audit_tags(arms)
 renderer = audit.audit_renderer_gate(arms)

@@ -429,6 +429,17 @@ class TestRunCanary:
         out = capsys.readouterr().out
         assert "CONFORMANCE" in out and "dirty stops" in out
 
+    def test_conformance_audits_the_base_tag_of_a_labelled_arm(self):
+        from tests.wfe.canary import _arm_tag
+
+        assert (
+            _arm_tag({"arm": "gemma4:26b@think-on-09904277", "model": "gemma4:26b"}) == "gemma4:26b"
+        )
+        assert (
+            _arm_tag({"arm": "hf.co/x/y:Q4_K_M-ctx32k@card-234497e1"}) == "hf.co/x/y:Q4_K_M-ctx32k"
+        )
+        assert _arm_tag({"arm": "gemma4:26b"}) == "gemma4:26b"
+
     def test_dry_run_selects_without_running(self, harness, tmp_path, capsys):
         plan, tmp = harness
         assert run_canary(["--campaign-id", "c1", "--plan", str(plan), "--dry-run"]) == 0

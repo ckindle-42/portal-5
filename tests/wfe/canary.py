@@ -276,6 +276,12 @@ def classify_row(row: dict) -> str:
     return MODEL
 
 
+def _arm_tag(row: dict) -> str:
+    """The installed tag behind a row's arm: an arm id carries ``@<label>-<hash>`` for
+    override arms (``@card-…``, ``@think-on-…``); the audit knows only the base tag."""
+    return str(row.get("model") or row["arm"]).split("@", 1)[0]
+
+
 def _conformance_findings(arms: set[str], workspaces: set[str]) -> list[str]:
     """The wfe_campaign.sh conformance gate, narrowed to the canary's arms."""
     if os.environ.get("WFE_SKIP_CONFORMANCE") == "1":
@@ -458,7 +464,7 @@ def run_canary(argv: list[str] | None = None) -> int:
     if failures := _fixture_failures(selected):
         return _gate_table(cid, selected, "FIXTURES", failures[0])
     if findings := _conformance_findings(
-        {r["arm"] for r in selected}, {r["workspace"] for r in selected}
+        {_arm_tag(r) for r in selected}, {r["workspace"] for r in selected}
     ):
         return _gate_table(cid, selected, "CONFORMANCE", findings[0])
     try:
