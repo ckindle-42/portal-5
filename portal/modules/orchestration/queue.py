@@ -149,6 +149,7 @@ class QueueLedger:
                 runner_started TEXT,
                 receipt_status TEXT,
                 last_error TEXT,
+                prior_run_archive TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
@@ -170,6 +171,8 @@ class QueueLedger:
             self.db.execute("ALTER TABLE queue_task ADD COLUMN kind TEXT NOT NULL DEFAULT 'plan'")
         if "runner_started" not in columns:
             self.db.execute("ALTER TABLE queue_task ADD COLUMN runner_started TEXT")
+        if "prior_run_archive" not in columns:
+            self.db.execute("ALTER TABLE queue_task ADD COLUMN prior_run_archive TEXT")
 
     def __enter__(self) -> QueueLedger:
         return self
@@ -301,25 +304,63 @@ class QueueLedger:
             self.db.rollback()
             raise
 
-    def requeue_job(self, task_id: str, plan: str) -> None:
+    def requeue_job(
+        self,
+        task_id: str,
+        plan: str,
+        *,
+        resume: bool = False,
+        archive_path: str | None = None,
+        record_archive: bool = False,
+    ) -> None:
         """Blocked or done job returns to queued with the spec re-read by the caller."""
         self._assert_requeue_job(task_id)
         self._backup_db()
         self.db.execute("BEGIN IMMEDIATE")
         try:
             self._assert_requeue_job(task_id)
-            now = _now()
-            self.db.execute(
-                "UPDATE queue_task SET state = 'queued', plan_json = ?, runner_pid = NULL, "
-                "runner_started = NULL, "
-                "receipt_status = NULL, last_error = NULL, updated_at = ? WHERE task_id = ?",
-                (plan, now, task_id),
+            self._write_requeue(
+                task_id,
+                plan,
+                resume=resume,
+                archive_path=archive_path,
+                record_archive=record_archive,
             )
-            self._event(task_id, "queued", {"requeue": True})
             self.db.commit()
         except Exception:
             self.db.rollback()
             raise
+
+    def _write_requeue(
+        self,
+        task_id: str,
+        plan: str,
+        *,
+        resume: bool,
+        archive_path: str | None,
+        record_archive: bool,
+    ) -> None:
+        now = _now()
+        detail: dict[str, Any] = {"requeue": True}
+        if resume:
+            detail["resume"] = True
+        if record_archive:
+            self.db.execute(
+                "UPDATE queue_task SET state = 'queued', plan_json = ?, runner_pid = NULL, "
+                "runner_started = NULL, receipt_status = NULL, last_error = NULL, "
+                "prior_run_archive = ?, updated_at = ? WHERE task_id = ?",
+                (plan, archive_path, now, task_id),
+            )
+            if archive_path:
+                detail["archive_path"] = archive_path
+        else:
+            self.db.execute(
+                "UPDATE queue_task SET state = 'queued', plan_json = ?, runner_pid = NULL, "
+                "runner_started = NULL, receipt_status = NULL, last_error = NULL, "
+                "updated_at = ? WHERE task_id = ?",
+                (plan, now, task_id),
+            )
+        self._event(task_id, "queued", detail)
 
     def _assert_cancellable(self, task_id: str, *, force: bool) -> None:
         row = self.db.execute(
@@ -377,7 +418,7 @@ class QueueLedger:
     def items(self) -> list[dict[str, Any]]:
         rows = self.db.execute(
             "SELECT task_id, kind, state, source_dir, receipt_status, last_error, "
-            "created_at, updated_at FROM queue_task ORDER BY id"
+            "prior_run_archive, created_at, updated_at FROM queue_task ORDER BY id"
         )
         return [dict(row) for row in rows]
 
