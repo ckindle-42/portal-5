@@ -1969,17 +1969,24 @@ def archive_canary_campaigns(
             return ["refused: a job is running"]
     if not root.is_dir():
         return []
-    stamp = (now or datetime.now(UTC)).strftime("%Y%m%dT%H%MZ")
+    stamped = now or datetime.now(UTC)
     lines: list[str] = []
     for path in sorted(p for p in root.iterdir() if p.is_dir() and p.name.endswith("_canary")):
-        dest = path.with_name(f"{path.name}.stale_{stamp}")
-        n = 1
-        while dest.exists():  # a second archive in the same minute keeps both, never skips
-            n += 1
-            dest = path.with_name(f"{path.name}.stale_{stamp}_{n}")
-        path.rename(dest)
+        dest = archive_stale(path, stamped)
         lines.append(f"archived {path.name} -> {dest.name}")
     return lines
+
+
+def archive_stale(path: Path, now: datetime | None = None) -> Path:
+    """Rename `path` aside as `<name>.stale_<UTC>` — collision-safe, never deletes."""
+    stamp = (now or datetime.now(UTC)).strftime("%Y%m%dT%H%MZ")
+    dest = path.with_name(f"{path.name}.stale_{stamp}")
+    n = 1
+    while dest.exists():  # a second archive in the same minute keeps both, never skips
+        n += 1
+        dest = path.with_name(f"{path.name}.stale_{stamp}_{n}")
+    path.rename(dest)
+    return dest
 
 
 def pin_job_sources(tasks_dir: Path, repo: Path) -> list[str]:

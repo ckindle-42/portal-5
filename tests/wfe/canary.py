@@ -81,7 +81,8 @@ def select_rows(plan_path: Path, tier: str, workspace: str | None = None) -> lis
     """One incumbent row per workload, preferring tasks that exercise fixtures
     AND tool grounding, then tool grounding, then fixtures, then the first
     home task. A workload with no eligible row gets a NO_ROW stub so the gate
-    reports it instead of skipping it."""
+    reports it instead of skipping it. `workspace` scopes the list to that one
+    workload, so a scoped canary lists nothing outside its scope."""
     matrix = camp.expand_matrix(plan_path, 1, False, None, None, None, workspace, tier)
     incumbent = [r for r in matrix if r.get("arm_role") == "incumbent"]
     by_ws: dict[str, list[dict]] = {}
@@ -91,6 +92,9 @@ def select_rows(plan_path: Path, tier: str, workspace: str | None = None) -> lis
     out: list[dict] = []
     tasks: dict = {}
     for ws in sorted(plan.get("workloads") or {}):
+        # Out of scope: its NO_ROW stub would be classed SETUP and exclude a never-run workspace.
+        if workspace and ws != workspace:
+            continue
         pool = [r for r in by_ws.get(ws, []) if r.get("is_home")] or by_ws.get(ws, [])
         if not pool:
             out.append(_no_row_stub(plan_path, plan, ws))
@@ -374,6 +378,25 @@ def _gate_table(cid: str, selected: list[dict], outcome: str, reason: str) -> in
     return 1
 
 
+def _archive_drifted_canary(cid: str) -> str | None:
+    """Archive a drifted `<cid>_canary` aside as `<name>.stale_<UTC>`; None when it must stay."""
+    directory = camp.CAMPAIGNS / cid
+    manifest = directory / "manifest.json"
+    if not manifest.is_file():
+        return None
+    try:
+        drift = camp.instrument_drift(json.loads(manifest.read_text()))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not drift:
+        return None
+    from portal.modules.orchestration.escalate import archive_stale
+
+    dest = archive_stale(directory)
+    print(f"archived drifted canary {directory.name} -> {dest.name}: {drift}")
+    return dest.name
+
+
 def _parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="tests.wfe.canary")
     ap.add_argument("--campaign-id")
@@ -434,6 +457,7 @@ def run_canary(argv: list[str] | None = None) -> int:
     ):
         return _gate_table(cid, selected, "CONFORMANCE", findings[0])
     try:
+        _archive_drifted_canary(cid)
         cd = camp.open_campaign(cid, plan, selected, append=True)
         camp.gate_execution(cd)
     except camp.GateRefused as e:
