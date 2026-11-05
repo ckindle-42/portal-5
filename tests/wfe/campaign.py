@@ -80,7 +80,7 @@ from portal.platform.inference import identity as _omlx_identity
 from portal.platform.inference.cluster_backends import BackendRegistry
 from portal.platform.inference.config import effective_workspace
 from tests.wfe import decision, eval_mode
-from tests.wfe.checkers import CheckContext, CheckResult, apply_checkers
+from tests.wfe.checkers import CheckContext, CheckResult, apply_checkers, expect_tools_verdict
 from tests.wfe.runner import (
     CHAT_BASE,
     ENGINE,
@@ -2099,7 +2099,11 @@ def _rehydrate_scripted_check(rec: dict, task: dict):
             return None
         start, end = call_range
         checks = spec.get("checks") or []
-        needs_tree = any(c.get("type", "answer_contains") in _TREE_CHECKERS for c in checks)
+        receipts_ok = isinstance(((task.get("_eval") or {}).get("receipts")), list)
+        tree_checkers = _TREE_CHECKERS - (
+            {"office_contains", "receipt_artifact"} if receipts_ok else set()
+        )
+        needs_tree = any(c.get("type", "answer_contains") in tree_checkers for c in checks)
         tree = state.get("sandbox_tree")
         if tree is None and index == len(turns) - 1:
             tree = rec.get("sandbox_tree")
@@ -2126,13 +2130,15 @@ def _rehydrate_scripted_check(rec: dict, task: dict):
         finally:
             shutil.rmtree(root, ignore_errors=True)
         called = {str(call.get("name", "")) for call in tool_log[start:end]}
-        missing = [name for name in (spec.get("expect_tools") or []) if name not in called]
+        missing, carried = expect_tools_verdict(spec, called, graded, tool_log[:start])
         outcome, notes, evidence = graded.outcome, graded.notes, dict(graded.evidence)
         if missing and outcome not in (Outcome.HARNESS_ERROR, Outcome.PENDING_REVIEW):
             outcome = Outcome.FAIL
             notes = f"expected tools not called: {missing} | {notes}"
         if missing:
             evidence["missing_tools"] = missing
+        if carried:
+            evidence["expect_tools_carried"] = carried
         evidence["turn_tools"] = sorted(called)
         results.append({"turn": index, "outcome": outcome.value, "notes": notes})
     return _combined_turn_result(results)
@@ -2167,6 +2173,27 @@ def _write_rescored_row(campaign_dir: Path, rec: dict, cr, final_outcome: str, w
     p.write_text(json.dumps(row, indent=1))
 
 
+def _resolve_receipts(rec: dict, campaign_dir: Path | None) -> list[dict] | None:
+    """A finished row's persisted receipts, resolved to files that still exist. The run
+    workspace is cleaned up, but finish() copied every valid receipted artifact into the
+    campaign's artifacts/<sha12(run_id)>/. Returns None when the record carries no
+    receipts (a sandbox-mode row), so tree-based grading applies as before."""
+    rcs = [r for r in ((rec.get("evidence") or {}).get("receipts") or []) if isinstance(r, dict)]
+    if not rcs or not campaign_dir or not rec.get("run_id"):
+        return None
+    keep = campaign_dir / "artifacts" / hashlib.sha256(rec["run_id"].encode()).hexdigest()[:12]
+    out = []
+    for r in rcs:
+        src = Path(r.get("host_path") or "")
+        if not src.is_file():
+            src = keep / Path(r.get("path") or "").name
+        ok = src.is_file() and (
+            not r.get("sha256") or hashlib.sha256(src.read_bytes()).hexdigest() == r["sha256"]
+        )
+        out.append({**r, "host_path": str(src), "valid": True if ok else "artifact missing"})
+    return out
+
+
 def rescore_debug_dir(debug_dir: Path, campaign_dir: Path | None = None) -> list[dict]:
     """Re-grade every recorded task-run with no model calls.
 
@@ -2185,13 +2212,32 @@ def rescore_debug_dir(debug_dir: Path, campaign_dir: Path | None = None) -> list
             rec = json.loads(line)
             sp = rec.get("suite_path")
             if sp and sp not in suites:
-                suites[sp] = {t["id"]: t for t in load_suite(sp)}
+                # The record names the suite by the checkout that ran it (an older
+                # worktree's absolute path). Grade with THIS instrument's copy of the
+                # suite, so checker and pattern fixes travel together — re-grading on
+                # a stale answer key would silently resurrect the defect.
+                here = SUITE_DIR / Path(sp).name
+                suites[sp] = {t["id"]: t for t in load_suite(here if here.is_file() else sp)}
             task = (suites.get(sp) or {}).get(rec.get("task_id"))
             if task is None:
                 rec["rescore"] = {"outcome": None, "note": "task not found in suite"}
                 updated.append(rec)
                 continue
-            cr = _rehydrate_check(rec, task)
+            receipts = _resolve_receipts(rec, campaign_dir)
+            if receipts is not None:
+                task = {**task, "_eval": {"production": True, "receipts": receipts}}
+            cr = (
+                _rehydrate_scripted_check(rec, task)
+                if task.get("turns")
+                else _rehydrate_check(rec, task)
+            )
+            if cr is None:
+                rec["rescore"] = {
+                    "outcome": None,
+                    "note": "recorded evidence incomplete for re-grade",
+                }
+                updated.append(rec)
+                continue
             final_outcome, why = _reconcile_offline(rec.get("outcome"), cr.outcome.value)
             rec["rescore"] = {
                 "outcome": final_outcome,

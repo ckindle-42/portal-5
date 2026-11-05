@@ -62,7 +62,7 @@ from portal.platform.inference.router.text_tool_calls import salvage_text_tool_c
 from portal.platform.inference.router.thinking import NO_ANSWER_MESSAGE
 from portal.platform.inference.router.trace import StreamMeasurement, normalize_engine_timings
 from portal.platform.mcp_host.eval_scope import unmount_workspace_path
-from tests.wfe.checkers import CheckContext, CheckResult, apply_checkers
+from tests.wfe.checkers import CheckContext, CheckResult, apply_checkers, expect_tools_verdict
 from tests.wfe.prompt_surface import harness_note, production_tool_names
 from tests.wfe.realuse_paths import stage_upload_tree
 from tests.wfe.schema import Economics, Outcome, ResultRow, env_fingerprint, sha12
@@ -1624,13 +1624,16 @@ class _Loop:
             else CheckResult(Outcome.PASS, "", {})
         )
         called = {str(c.get("name", "")) for c in self.tool_log[self._turn_calls :]}
-        missing = [t for t in (spec.get("expect_tools") or []) if t not in called]
+        earlier = self.tool_log[: self._turn_calls]
+        missing, carried = expect_tools_verdict(spec, called, graded, earlier)
         outcome, notes, evidence = graded.outcome, graded.notes, dict(graded.evidence)
         if missing and outcome not in (Outcome.HARNESS_ERROR, Outcome.PENDING_REVIEW):
             outcome = Outcome.FAIL
             notes = f"expected tools not called: {missing} | {notes}"
         if missing:
             evidence["missing_tools"] = missing
+        if carried:
+            evidence["expect_tools_carried"] = carried
         evidence["turn_tools"] = sorted(called)
         self.turn_results.append(
             {

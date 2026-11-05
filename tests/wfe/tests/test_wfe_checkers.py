@@ -14,6 +14,7 @@ import pytest
 
 from tests.wfe.checkers import (
     CheckContext,
+    _text_match,
     apply_checkers,
     check_answer_after_reasoning,
     check_answer_contains,
@@ -228,6 +229,92 @@ class TestNormalizedTextMatching:
             CheckContext(final_text="The customer’s\u00a0note is attached."),
         )
         assert result.outcome == Outcome.FAIL
+
+
+class TestTimeAndLiteralNormalization:
+    """Literal patterns are normalized on both sides (ready_autodaily_20261105): the same
+    clock value spelled "10am", "10 am", "10:00 AM" or "10 a.m." is one form, and "9 to 12",
+    "9-12", "9:00 AM - 12:00 PM" are one range. A wrong time must still fail."""
+
+    def test_time_spelling_forms_are_one_form(self):
+        check = check_answer_contains(
+            {"patterns": ["10am-2pm ET"]},
+            CheckContext(final_text="Core hours: 10:00 AM – 2:00 PM ET."),
+        )
+        assert check.outcome == Outcome.PASS
+        narrow = check_answer_contains(
+            {"patterns": ["10am-2pm ET"]},
+            CheckContext(final_text="Core hours: 10\u202fam–2\u202fpm Eastern Time."),
+        )
+        assert narrow.outcome == Outcome.PASS
+        meridiem_dots = check_answer_contains(
+            {"patterns": ["standup 9 a.m. sharp"]},
+            CheckContext(final_text="Standup 9:00 AM sharp."),
+        )
+        assert meridiem_dots.outcome == Outcome.PASS
+
+    @pytest.mark.parametrize(
+        "answer",
+        ["11:00 AM – 2:00 PM ET", "10:00 PM – 2:00 PM ET", "10:00 AM – 3:00 PM ET"],
+    )
+    def test_a_wrong_time_still_fails(self, answer):
+        result = check_answer_contains(
+            {"patterns": ["10am-2pm ET"]}, CheckContext(final_text=answer)
+        )
+        assert result.outcome == Outcome.FAIL
+
+    def test_range_forms_are_one_range(self):
+        for written in ["9:00 AM - 12:00 PM", "9 to 12", "9-12"]:
+            result = check_answer_contains(
+                {"patterns": ["9 to 12"]}, CheckContext(final_text=f"Tuesday, {written}.")
+            )
+            assert result.outcome == Outcome.PASS, written
+
+    @pytest.mark.parametrize("answer", ["9:00 PM - 12:00 AM", "10 to 12", "9:30 AM - 12:00 PM"])
+    def test_a_wrong_range_still_fails(self, answer):
+        result = check_answer_contains({"patterns": ["9 to 12"]}, CheckContext(final_text=answer))
+        assert result.outcome == Outcome.FAIL
+
+    def test_hour_forms_match_written_out_answers(self):
+        ok = check_answer_contains(
+            {"patterns": ["8am", "1pm", "11am"]},
+            CheckContext(final_text="Leave by 8:00 AM, back at 1:00 PM, break at 11:00 AM."),
+        )
+        assert ok.outcome == Outcome.PASS
+        wrong = check_answer_contains(
+            {"patterns": ["8am"]}, CheckContext(final_text="Leave by 9:00 AM.")
+        )
+        assert wrong.outcome == Outcome.FAIL
+
+    def test_tool_grounded_evidence_uses_the_same_normalization(self):
+        ctx = CheckContext(
+            tool_calls=[
+                {
+                    "name": "read_pdf",
+                    "output": '{"success": true, "text": "Core hours are 10:00 AM – 2:00 PM ET"}',
+                }
+            ]
+        )
+        ok = check_tool_grounded({"tools": ["read_pdf"], "evidence": ["10am-2pm ET"]}, ctx)
+        assert ok.outcome == Outcome.PASS
+        wrong = check_tool_grounded({"tools": ["read_pdf"], "evidence": ["11am-2pm ET"]}, ctx)
+        assert wrong.outcome == Outcome.FAIL
+
+    def test_decimal_and_grouping_guards_survive_the_literal_path(self):
+        # "105" is a whole float's integer portion (105.0 == 105), but a nonzero
+        # fraction is a different value and must not satisfy an integer pattern.
+        assert _text_match("105", "total(100) = 105.0") is True
+        assert _text_match("105", "total(100) = 105.5") is False
+        assert _text_match(r"(?<!\d)2400(?!\d)", "$2,400.50") is False
+        assert _text_match("1.05", "amount * 1.05") is True
+        assert _text_match("config.json", "no config.json here") is True
+
+    def test_a_meridiem_is_not_eaten_out_of_a_word(self):
+        from tests.wfe.checkers import _canonicalize_times
+
+        assert _canonicalize_times("the 9amp setting") == "the 9amp setting"
+        assert _canonicalize_times("camp site 9") == "camp site 9"
+        assert _canonicalize_times("13 to 15 june") == "13 to 15 june"
 
 
 class TestAnswerAfterReasoning:

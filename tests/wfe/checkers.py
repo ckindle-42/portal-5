@@ -280,7 +280,72 @@ def _normalize_match_text(text: str) -> str:
     return re.sub(r"\s+", " ", text)
 
 
+#: A pattern holding none of regex's metacharacters is a literal: the full
+#: normalization (including the time/range forms below) is applied to it AND to
+#: the text before matching. An authored regex is matched against the
+#: base-normalized text only — the time rewrites must never edit a regex.
+#: a.m./p.m. spellings do not make a pattern a regex ("10 a.m." is a literal).
+_REGEX_METACHARS = re.compile(r"[\\^$.|?*+()\[\]{}]")
+_MERIDIEM_SPELLING_RE = re.compile(r"(?:a|p)\.m\.", re.I)
+
+#: One clock value, many spellings: "10am", "10 am", "10:00 AM" and "10 a.m."
+#: all canonicalize to "10am"; "9 to 12", "9-12" and "9:00 AM - 12:00 PM" all
+#: canonicalize to "9am-12pm" (a bare 12-hour range reads morning-to-afternoon;
+#: a range whose end carries no meridiem ends pm, one that does keeps it).
+#: Unambiguous words take their clock alias (noon, midnight, eastern time).
+#: Applied on the literal path only.
+_TIME_ALIASES = (
+    (re.compile(r"\beastern\s+time\b", re.I), "et"),
+    (re.compile(r"\bnoon\b", re.I), "12pm"),
+    (re.compile(r"\bmidnight\b", re.I), "12am"),
+)
+_MERIDIEM_RE = re.compile(r"\b(\d{1,2})(?::(\d{2}))?\s*(a\.m\.|p\.m\.|am|pm)(?![A-Za-z])", re.I)
+_TIMED_RANGE_RE = re.compile(
+    r"\b(\d{1,2}(?::\d{2})?(?:am|pm))\s*(?:to|through|thru|until|till|-)\s*"
+    r"(\d{1,2}(?::\d{2})?(?:am|pm))(?![A-Za-z])",
+    re.I,
+)
+_BARE_RANGE_RE = re.compile(
+    r"(?<![\w.-])(\d{1,2})\s*(?:to|through|thru|until|till|-)\s*(\d{1,2})\s*"
+    r"(a\.m\.|p\.m\.|am|pm)?(?![A-Za-z])(?!\.?\d)",
+    re.I,
+)
+
+
+def _canonicalize_times(text: str) -> str:
+    def tighten(m: re.Match) -> str:
+        hour, minute, mer = m.group(1), m.group(2), m.group(3).lower()
+        suffix = "am" if mer.startswith("a") else "pm"
+        return f"{hour}{suffix}" if minute in (None, "00") else f"{hour}:{minute}{suffix}"
+
+    def bare(m: re.Match) -> str:
+        h1, h2, mer = m.group(1), m.group(2), (m.group(3) or "").lower()
+        if not (1 <= int(h1) <= 12 and 1 <= int(h2) <= 12):
+            return m.group(0)
+        end = ("am" if mer.startswith("a") else "pm") if mer else "pm"
+        return f"{h1}am-{h2}{end}"
+
+    for rx, sub in _TIME_ALIASES:
+        text = rx.sub(sub, text)
+    text = _MERIDIEM_RE.sub(tighten, text)
+    text = _TIMED_RANGE_RE.sub(r"\1-\2", text)
+    return _BARE_RANGE_RE.sub(bare, text)
+
+
 def _text_match(pattern: str, text: str) -> bool:
+    """Literal patterns are normalized on BOTH sides — pattern and text — so a check
+    written one way accepts the same fact written another way (unicode punctuation,
+    case, and time/range spellings). Authored regexes keep their exact semantics
+    against the base-normalized text. The decimal guard below applies to both."""
+    base = _normalize_match_text(text)
+    pat = pattern or ""
+    if _REGEX_METACHARS.search(_MERIDIEM_SPELLING_RE.sub("", pat)):
+        return _pattern_match(pat, base)
+    lit = _canonicalize_times(_normalize_match_text(pat))
+    return _pattern_match(re.escape(lit), _canonicalize_times(base))
+
+
+def _pattern_match(pattern: str, text: str) -> bool:
     """Avoid grading a nonzero decimal as its integer portion."""
     for match in re.finditer(pattern, text, re.I):
         for number in re.finditer(r"(?<![\w.])[+-]?\d+(?:\.\d+)?(?![\w.])", text):
@@ -602,44 +667,90 @@ def check_receipt_artifact(spec: dict, ctx: CheckContext) -> CheckResult:
     )
 
 
-def _office_parts(f: Path, kind: str) -> tuple[str, list[str]]:
-    """(all text, structural names) of a produced office file, parsed (never a grep of the
-    binary). Text: docx paragraphs and table cells, xlsx cell values, pptx shape text. Names:
-    docx heading paragraphs (Title and Heading styles), xlsx sheet names, pptx slide titles."""
+def _docx_parts(f: Path) -> tuple[list[str], list[str], list[list[str]]]:
+    """(paragraph and table-cell text, heading names, section groups) of a docx. A
+    Heading/Title paragraph starts a section and leads it; table cells join the last."""
+    import docx
+
+    d = docx.Document(str(f))
+    names, sections, current = [], [], []
+    for p in d.paragraphs:
+        if p.style is not None and p.style.name.startswith(("Heading", "Title")):
+            if current:
+                sections.append(current)
+            current = [p.text]
+            names.append(p.text)
+        else:
+            current.append(p.text)
+    sections.append(current)
+    cells = [c.text for t in d.tables for row in t.rows for c in row.cells]
+    if cells:
+        sections[-1].extend(cells)
+    parts = [p.text for p in d.paragraphs] + cells
+    return parts, names, sections
+
+
+def _xlsx_parts(f: Path) -> tuple[list[str], list[str], list[list[str]]]:
+    """(cell values, sheet names, one section per sheet: its name then its values)."""
+    import openpyxl
+
+    wb = openpyxl.load_workbook(str(f), data_only=True)
+    parts, sections = [], []
+    for ws in wb:
+        vals = [str(c.value) for row in ws.iter_rows() for c in row if c.value is not None]
+        parts += vals
+        sections.append([str(ws.title)] + vals)
+    return parts, list(wb.sheetnames), sections
+
+
+def _pptx_parts(f: Path) -> tuple[list[str], list[str], list[list[str]]]:
+    """(shape and table text, slide titles, one section per slide)."""
+    import pptx
+
+    parts, names, sections = [], [], []
+    for slide in pptx.Presentation(str(f)).slides:
+        group = []
+        if slide.shapes.title is not None:
+            names.append(slide.shapes.title.text_frame.text)
+        for sh in slide.shapes:
+            if sh.has_text_frame:
+                text = sh.text_frame.text
+                parts.append(text)
+                group.append(text)
+            if getattr(sh, "has_table", False) and sh.has_table:
+                cells = [c.text for row in sh.table.rows for c in row.cells]
+                parts += cells
+                group += cells
+        sections.append(group)
+    return parts, names, sections
+
+
+def _office_parts(f: Path, kind: str) -> tuple[str, list[str], list[list[str]]]:
+    """(all text, structural names, section groups) of a produced office file, parsed (never a
+    grep of the binary). Text: docx paragraphs and table cells, xlsx cell values, pptx shape
+    text. Names: docx heading paragraphs (Title and Heading styles), xlsx sheet names, pptx
+    slide titles. Sections: a heading/title/sheet plus everything under it until the next
+    one — the groups an expect phrase may span (office_contains, see _missing_expect)."""
     if kind == "docx":
-        import docx
-
-        d = docx.Document(str(f))
-        parts = [p.text for p in d.paragraphs]
-        parts += [c.text for t in d.tables for row in t.rows for c in row.cells]
-        names = [
-            p.text
-            for p in d.paragraphs
-            if p.style is not None and p.style.name.startswith(("Heading", "Title"))
-        ]
+        parts, names, sections = _docx_parts(f)
     elif kind == "xlsx":
-        import openpyxl
-
-        wb = openpyxl.load_workbook(str(f), data_only=True)
-        parts = [
-            str(c.value) for ws in wb for row in ws.iter_rows() for c in row if c.value is not None
-        ]
-        names = list(wb.sheetnames)
+        parts, names, sections = _xlsx_parts(f)
     elif kind == "pptx":
-        import pptx
-
-        parts, names = [], []
-        for slide in pptx.Presentation(str(f)).slides:
-            if slide.shapes.title is not None:
-                names.append(slide.shapes.title.text_frame.text)
-            for sh in slide.shapes:
-                if sh.has_text_frame:
-                    parts.append(sh.text_frame.text)
-                if getattr(sh, "has_table", False) and sh.has_table:
-                    parts += [c.text for row in sh.table.rows for c in row.cells]
+        parts, names, sections = _pptx_parts(f)
     else:
         raise ValueError(f"unknown office kind {kind!r}")
-    return "\n".join(parts), names
+    return "\n".join(parts), names, sections
+
+
+def _missing_expect(expect: list[str], sections: list[list[str]]) -> list[str]:
+    """Expect entries the parsed file does not hold. One matches when its normalized form
+    is contiguous inside a single section group — a heading (docx), slide title (pptx) or
+    sheet (xlsx) plus the lines under it, bullets and line breaks joined as single spaces.
+    So heading "Monday" + bullet "Meeting prep" satisfies "Monday meeting prep"; the same
+    words scattered across a section with other words between them do not — order and
+    adjacency are required, this is not bag-of-words."""
+    groups = [" ".join(sec) for sec in sections if any(ln.strip() for ln in sec)]
+    return [e for e in expect if not any(_text_match(e, g) for g in groups)]
 
 
 def _has_line(lines: list[str], want: str) -> bool:
@@ -662,7 +773,8 @@ _OFFICE_NAMES = {"docx": "headings", "xlsx": "sheets", "pptx": "titles"}
 
 
 def check_office_contains(spec: dict, ctx: CheckContext) -> CheckResult:
-    """A produced docx/xlsx/pptx whose parsed content holds every `expect` string and every
+    """A produced docx/xlsx/pptx whose parsed content holds every `expect` string (normalized
+    on both sides; an entry may span one section group, see _missing_expect) and every
     name under the kind's structural key (`headings`, `sheets`, `titles`). In production mode
     the candidates are the row's valid creation receipts of that kind; in the sandbox, `path`
     or else every file of that kind under the sandbox. One file must satisfy all of it."""
@@ -690,11 +802,11 @@ def check_office_contains(spec: dict, ctx: CheckContext) -> CheckResult:
     best: list[str] | None = None
     for f in files:
         try:
-            text, names = _office_parts(f, kind)
+            text, names, sections = _office_parts(f, kind)
         except Exception as e:  # noqa: BLE001
             best = best or [f"unparseable {f.name}: {e}"]
             continue
-        missing = [e for e in expect if e not in text]
+        missing = _missing_expect(expect, sections)
         lines = [ln.strip() for ln in text.split("\n")]
         missing += [f"exact:{e}" for e in spec.get("exact") or [] if not _has_line(lines, e)]
         missing += [f"{_OFFICE_NAMES[kind]}:{n}" for n in names_want if n not in names]
@@ -733,8 +845,7 @@ def check_tool_grounded(spec: dict, ctx: CheckContext) -> CheckResult:
             or _output_failed(out)
         ):
             continue
-        matched_text = _normalize_match_text(out)
-        if all(_text_match(p, matched_text) for p in evidence):
+        if all(_text_match(p, out) for p in evidence):
             return CheckResult(
                 Outcome.PASS, f"grounded by {c.get('name')}", {"grounded_by": c.get("name")}
             )
@@ -744,6 +855,56 @@ def check_tool_grounded(spec: dict, ctx: CheckContext) -> CheckResult:
         f"no successful call to {sorted(tools)} returned {evidence}",
         {"calls": called},
     )
+
+
+def expect_tool_carried(spec: dict, tool: str, graded: CheckResult, earlier_calls: list) -> bool:
+    """ru-v1-002 class (ready_autodaily_20261105): a follow-up turn may ask about a file an
+    earlier turn already read ("What does the note say...?") and answer from that reading
+    without re-reading. Requiring a fresh call fails a correct answer the harness itself
+    grounds, because tool_grounded sees the cumulative tool log. The expect_tools
+    requirement is met without a fresh call this turn when ALL hold:
+
+      1. the turn's own objective checks passed (graded.outcome == PASS);
+      2. the turn carries a tool_grounded check whose `tools` include `tool` — that check
+         passed on evidence matched from a call to `tool`, i.e. the answer rests on the
+         earlier read of the same file;
+      3. `tool` made a successful call earlier in the conversation.
+
+    Without the tool_grounded pass (answer-only turns, or a failed grounding) the
+    requirement stands and the tool must be called this turn."""
+    if graded.outcome != Outcome.PASS:
+        return False
+    grounded = {
+        t
+        for c in (spec.get("checks") or [])
+        if c.get("type") == "tool_grounded"
+        for t in (c.get("tools") or [])
+    }
+    if tool not in grounded:
+        return False
+    return any(
+        str(c.get("name", "")) == tool
+        and not c.get("error")
+        and not str(c.get("output", "")).startswith("ERROR")
+        for c in earlier_calls or []
+    )
+
+
+def expect_tools_verdict(
+    spec: dict, called: set, graded: CheckResult, earlier_calls: list
+) -> tuple[list, list]:
+    """(missing, carried) for one scripted turn's expect_tools. A tool called this turn is
+    neither; one carried by an earlier turn's read (expect_tool_carried) is reported in
+    `carried` so the row evidence shows the requirement was met without a fresh call."""
+    missing, carried = [], []
+    for t in spec.get("expect_tools") or []:
+        if t in called:
+            continue
+        if expect_tool_carried(spec, t, graded, earlier_calls):
+            carried.append(t)
+        else:
+            missing.append(t)
+    return missing, carried
 
 
 #: An inline reasoning block, terminated or not (a seat that burns its whole output

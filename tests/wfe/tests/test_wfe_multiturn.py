@@ -173,6 +173,76 @@ def test_a_turn_grounds_on_a_tool_call_from_an_earlier_turn(monkeypatch, tmp_pat
     assert out["outcome"] == Outcome.PASS.value
 
 
+def test_expect_tools_met_by_an_earlier_turns_read_of_the_same_file(monkeypatch, tmp_path):
+    """ru-v1-002 class (ready_autodaily_20261105): a follow-up turn that answers from an
+    earlier turn's read of the same file meets its expect_tools without a fresh call, when
+    its tool_grounded check passed on that earlier call's output."""
+    task = {
+        "id": "ru-carry",
+        "turns": [
+            {"user": "read drive_notes.docx", "expect_tools": ["file_read"]},
+            {
+                "user": "the day is tight — what does the note say to pack?",
+                "checks": [
+                    {"type": "answer_contains", "patterns": ["tire chains"]},
+                    {
+                        "type": "tool_grounded",
+                        "tools": ["file_read"],
+                        "evidence": ["tire chains"],
+                    },
+                ],
+                "expect_tools": ["file_read"],
+            },
+        ],
+    }
+    (tmp_path / "drive_notes.docx").write_text("pack tire chains")
+    replies = [
+        _reply(calls=[_tool_call("file_read", {"path": "drive_notes.docx"})]),
+        _reply("it says pack tire chains"),
+        _reply("pack tire chains"),
+    ]
+    out, _ = _run(monkeypatch, task, replies, tmp_path=tmp_path)
+    assert out["outcome"] == Outcome.PASS.value
+    turn1 = out["turn_results"][1]
+    assert turn1["outcome"] == "PASS"
+    assert turn1["evidence"]["expect_tools_carried"] == ["file_read"]
+
+
+def test_the_carry_rule_needs_a_passing_tool_grounded_check(monkeypatch, tmp_path):
+    """Without a tool_grounded check listing the expected tool (answer-only turn), or when
+    the grounding fails, the tool must still be called this turn."""
+
+    def _task(checks):
+        return {
+            "id": "ru-carry-neg",
+            "turns": [
+                {"user": "read notes.md", "expect_tools": ["file_read"]},
+                {"user": "what does it say?", "checks": checks, "expect_tools": ["file_read"]},
+            ],
+        }
+
+    (tmp_path / "notes.md").write_text("the secret is 42")
+    answers = [
+        _reply(calls=[_tool_call("file_read", {"path": "notes.md"})]),
+        _reply("it says the secret is 42"),
+        _reply("the secret is 42"),
+    ]
+    answer_only = [
+        {"type": "answer_contains", "patterns": ["secret"]},
+    ]
+    out, _ = _run(monkeypatch, _task(answer_only), answers, tmp_path=tmp_path)
+    assert out["outcome"] == Outcome.FAIL.value
+    assert "expected tools not called" in out["turn_results"][1]["notes"]
+
+    bad_ground = [
+        {"type": "answer_contains", "patterns": ["secret"]},
+        {"type": "tool_grounded", "tools": ["file_read"], "evidence": ["some other fact"]},
+    ]
+    out, _ = _run(monkeypatch, _task(bad_ground), answers, tmp_path=tmp_path)
+    assert out["outcome"] == Outcome.FAIL.value
+    assert "expected tools not called" in out["turn_results"][1]["notes"]
+
+
 def test_single_turn_tasks_are_unchanged(monkeypatch, tmp_path):
     task = {
         "id": "single",
