@@ -41,6 +41,7 @@ from fastapi import HTTPException
 
 from portal.platform.inference.config import PersonaSpec
 from portal.platform.inference.load_guard import protect_failover
+from portal.platform.inference.model_addressing import workspace_context_limit
 from portal.platform.inference.router import no_answer
 from portal.platform.inference.router.backend_introspect import (
     _backend_type_for_url,
@@ -98,6 +99,8 @@ from portal.platform.inference.router.tool_repeat import (
     GROUNDING_REQUEST,
     UNGROUNDED_NOTICE,
     ToolRepeatGuard,
+    apply_tool_byte_budget,
+    tool_result_byte_budget,
 )
 from portal.platform.inference.router.tools import (
     _dispatch_tool_call,
@@ -885,6 +888,8 @@ async def _tool_loop_frames(
         dict[str, Any]
     ] = []  # accumulates tool calls across all hops when exec_audit=true
     _repeat_guard = ToolRepeatGuard()
+    _tool_byte_budget = tool_result_byte_budget(workspace_context_limit(workspace_id))
+    _tool_result_bytes = 0
     _download_lines = DownloadLineFilter()
     _successful_creation = False
     if not offers_file_creation(current_body.get("tools")):
@@ -1467,9 +1472,15 @@ async def _tool_loop_frames(
             current_body["messages"] = (
                 current_body.get("messages", []) + [assistant_msg] + dispatch_results
             )
+            _tool_result_bytes = apply_tool_byte_budget(
+                _repeat_guard,
+                _tool_result_bytes,
+                dispatch_results,
+                _tool_byte_budget,
+                workspace_id,
+            )
             if _repeat_guard.force_synthesis:
-                # A third identical request: the model is stuck on one call. Take a final
-                # turn with the tools withheld rather than run on to the hop limit.
+                # Repeat ceiling or tool-byte budget: final turn with the tools withheld.
                 current_body["tools"] = None
                 current_body["tool_choice"] = None
                 current_body["messages"] = [*current_body["messages"], FINAL_ANSWER_REQUEST]

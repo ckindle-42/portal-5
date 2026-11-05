@@ -12,7 +12,14 @@ One guard lives for one turn. Nothing is kept across turns.
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
+
+# Half the window at ~2 bytes/token (path listings). Prose is ~4, so a document costs fewer tokens.
+_TOOL_RESULT_BYTE_BUDGET_FRACTION = 0.5
+_TOOL_RESULT_BYTES_PER_TOKEN = 2
 
 REPEAT_NOTE = (
     "You already called this with the same arguments; the result is above. "
@@ -149,3 +156,45 @@ class ToolRepeatGuard:
             "name": name,
             "content": f"{earlier}\n\n[{REPEAT_NOTE}]",
         }
+
+
+def tool_result_byte_budget(context_limit_tokens: int) -> int:
+    """Byte budget for role:tool content accumulated inside one request. 0 disables it."""
+    if context_limit_tokens <= 0:
+        return 0
+    return int(
+        context_limit_tokens * _TOOL_RESULT_BYTE_BUDGET_FRACTION * _TOOL_RESULT_BYTES_PER_TOKEN
+    )
+
+
+def _content_bytes(content: Any) -> int:
+    if content is None:
+        return 0
+    if isinstance(content, bytes):
+        return len(content)
+    if isinstance(content, str):
+        return len(content.encode("utf-8"))
+    return len(json.dumps(content, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+
+
+def apply_tool_byte_budget(
+    guard: ToolRepeatGuard,
+    accumulated: int,
+    results: list[dict[str, Any]],
+    budget: int,
+    workspace_id: str,
+) -> int:
+    """Add this hop's role:tool bytes. Past the budget, force one toolless final turn."""
+    total = accumulated
+    for msg in results:
+        if msg.get("role") == "tool":
+            total += _content_bytes(msg.get("content"))
+    if budget > 0 and accumulated <= budget < total:
+        guard.force_synthesis = True
+        logger.info(
+            "Tool-loop byte budget exceeded: workspace=%s accumulated=%d budget=%d",
+            workspace_id,
+            total,
+            budget,
+        )
+    return total
