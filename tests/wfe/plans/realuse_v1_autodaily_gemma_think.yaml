@@ -15,3 +15,6 @@ workloads:
         model: gemma4:26b-a4b-it-qat-ctx16k
         label: think-on
         think: true
+        # Thinking needs the output headroom the Qwen3.8 thinking arm got (8192): at the seat's 4096 the
+        # canary's ru-v1-005 turn spent 5370 reasoning tokens and stopped at the cap with no answer.
+        sampling: {temperature: 1.0, top_p: 0.95, top_k: 64, max_tokens: 8192}
