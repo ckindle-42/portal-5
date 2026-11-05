@@ -86,6 +86,10 @@ class _Gate:
         return self.reason
 
 
+def _stub_page_cache_drop() -> dict[str, Any]:
+    return {"ok": True, "swap_used_gib_before": 1.0, "swap_used_gib_after": 1.0, "error": None}
+
+
 class _MemoryGate(_Gate):
     def __init__(self, reclaimable_gib: float, unloads: list[dict[str, str]]) -> None:
         super().__init__()
@@ -132,6 +136,7 @@ def _runner(
     memory: float | None = 64.0,
     disk: float | None = 64.0,
     notices: StubNoticeSink | None = None,
+    page_cache_drop: Any = None,
 ) -> JobRunner:
     return JobRunner(
         tmp_path / "tasks",
@@ -143,6 +148,7 @@ def _runner(
         stack_probe=lambda: stack,
         memory_probe=lambda: memory,
         disk_probe=lambda _path: disk,
+        page_cache_drop=page_cache_drop or _stub_page_cache_drop,
         poll_seconds=0.02,
     )
 
@@ -946,6 +952,7 @@ def test_job_reclaims_idle_model_memory_before_running_its_first_step(
         stack_probe=lambda: "down",
         memory_probe=lambda: next(memory),
         disk_probe=lambda _path: 64.0,
+        page_cache_drop=_stub_page_cache_drop,
         poll_seconds=0.02,
     )
 
@@ -983,6 +990,7 @@ def test_job_waits_until_requested_model_unloads_settle(tmp_path: Path, repo: Pa
         stack_probe=lambda: "down",
         memory_probe=lambda: next(memory),
         disk_probe=lambda _path: 64.0,
+        page_cache_drop=_stub_page_cache_drop,
         poll_seconds=0.02,
     )
 
@@ -992,6 +1000,172 @@ def test_job_waits_until_requested_model_unloads_settle(tmp_path: Path, repo: Pa
     assert not marker.exists()
     receipt = _receipt(tmp_path / "tasks")
     assert receipt["memory_reclamation"]["unloads"] == gate.unloads
+
+
+def test_quiet_host_step_drops_the_guest_page_cache_once_and_records_swap(
+    tmp_path: Path, repo: Path
+) -> None:
+    marker = tmp_path / "ran"
+    script = _python_script(
+        repo,
+        "cache_drop.py",
+        f"from pathlib import Path\nPath({str(marker)!r}).write_text('ran')\n",
+    )
+    calls: list[int] = []
+
+    def drop() -> dict[str, Any]:
+        calls.append(1)
+        return {
+            "ok": True,
+            "swap_used_gib_before": 16.7,
+            "swap_used_gib_after": 9.7,
+            "error": None,
+        }
+
+    result = _runner(tmp_path, repo, page_cache_drop=drop).run(_spec(repo, [script]))
+
+    assert result.status == "PASS"
+    assert marker.is_file()
+    assert len(calls) == 1
+    drops = _receipt(tmp_path / "tasks")["memory_reclamation"]["page_cache_drops"]
+    assert len(drops) == 1
+    assert drops[0]["step"] == "one"
+    assert drops[0]["attempt"] == 0
+    assert drops[0]["ok"] is True
+    assert drops[0]["swap_used_gib_before"] == 16.7
+    assert drops[0]["swap_used_gib_after"] == 9.7
+
+
+def test_a_page_cache_drop_failure_is_recorded_and_never_blocks_the_step(
+    tmp_path: Path, repo: Path
+) -> None:
+    marker = tmp_path / "ran"
+    script = _python_script(
+        repo,
+        "cache_drop_fail.py",
+        f"from pathlib import Path\nPath({str(marker)!r}).write_text('ran')\n",
+    )
+    notices = StubNoticeSink()
+
+    def drop() -> dict[str, Any]:
+        raise OSError("docker: not found")
+
+    result = _runner(tmp_path, repo, page_cache_drop=drop, notices=notices).run(
+        _spec(repo, [script])
+    )
+
+    assert result.status == "PASS"
+    assert marker.is_file()
+    receipt = _receipt(tmp_path / "tasks")
+    drop_record = receipt["memory_reclamation"]["page_cache_drops"][0]
+    assert drop_record["ok"] is False
+    assert "docker: not found" in drop_record["error"]
+    assert notices.runner_notices[0]["event"] == "page_cache_drop_failed"
+
+
+def test_a_waiting_step_drops_the_page_cache_only_once(tmp_path: Path, repo: Path) -> None:
+    script = _python_script(repo, "wait_drop.py", "print('ok')\n")
+    calls: list[int] = []
+
+    def drop() -> dict[str, Any]:
+        calls.append(1)
+        return _stub_page_cache_drop()
+
+    first = _runner(tmp_path, repo, stack="up", page_cache_drop=drop).run(_spec(repo, [script]))
+    assert first.status == "WAITING"
+    assert len(calls) == 1
+
+    second = _runner(tmp_path, repo, page_cache_drop=drop).run(_spec(repo, [script]))
+    assert second.status == "PASS"
+    assert len(calls) == 1
+
+
+def test_a_quiet_host_false_step_does_not_drop_the_guest_page_cache(
+    tmp_path: Path, repo: Path
+) -> None:
+    script = _python_script(repo, "report_only.py", "print('ok')\n")
+    calls: list[int] = []
+
+    def drop() -> dict[str, Any]:
+        calls.append(1)
+        return _stub_page_cache_drop()
+
+    spec = _spec(
+        repo,
+        [script],
+        steps=[{"id": "report", "argv": [script], "timeout_seconds": 5, "quiet_host": False}],
+    )
+
+    result = _runner(tmp_path, repo, page_cache_drop=drop).run(spec)
+
+    assert result.status == "PASS"
+    assert calls == []
+    assert _receipt(tmp_path / "tasks")["memory_reclamation"]["page_cache_drops"] == []
+
+
+def test_drop_guest_page_cache_runs_a_privileged_container_and_records_swap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+    swap = iter([16.7, 9.7])
+
+    def fake_run(argv: list[str], **_kwargs: Any) -> SimpleNamespace:
+        calls.append(list(argv))
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(jobmod.subprocess, "run", fake_run)
+    monkeypatch.setattr(jobmod, "_swap_used_gib", lambda: next(swap))
+
+    record = jobmod._drop_guest_page_cache()
+
+    assert record == {
+        "ok": True,
+        "swap_used_gib_before": 16.7,
+        "swap_used_gib_after": 9.7,
+        "error": None,
+    }
+    argv = calls[0]
+    assert argv[:2] == ["docker", "run"]
+    assert "--privileged" in argv
+    assert "--pid=host" in argv
+    assert "--pull=never" in argv
+    assert jobmod._PAGE_CACHE_DROP_IMAGE in argv
+    assert argv[-3:] == ["sh", "-c", jobmod._PAGE_CACHE_DROP_SCRIPT]
+
+
+def test_drop_guest_page_cache_reports_a_docker_failure_without_raising(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(_argv: list[str], **_kwargs: Any) -> SimpleNamespace:
+        return SimpleNamespace(returncode=125, stdout="", stderr="pull access denied\n")
+
+    monkeypatch.setattr(jobmod.subprocess, "run", fake_run)
+    monkeypatch.setattr(jobmod, "_swap_used_gib", lambda: 3.5)
+
+    record = jobmod._drop_guest_page_cache()
+
+    assert record["ok"] is False
+    assert "docker exit 125" in record["error"]
+    assert "pull access denied" in record["error"]
+    assert record["swap_used_gib_before"] == 3.5
+
+
+def test_swap_used_gib_parses_the_darwin_swapusage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(jobmod.sys, "platform", "darwin")
+
+    def fake_run(argv: list[str], **_kwargs: Any) -> SimpleNamespace:
+        assert argv == ["sysctl", "-n", "vm.swapusage"]
+        return SimpleNamespace(
+            returncode=0,
+            stdout="vm.swapusage: total = 20480.00M  used = 19539.38M  free = 940.62M",
+            stderr="",
+        )
+
+    monkeypatch.setattr(jobmod.subprocess, "run", fake_run)
+
+    assert jobmod._swap_used_gib() == 19.08
 
 
 def test_queue_ledger_adds_kind_to_an_existing_database(tmp_path: Path) -> None:

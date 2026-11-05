@@ -47,6 +47,12 @@ DEFAULT_DISPATCH_LOCK_DIR = Path.home() / ".claude" / "orchestrate" / "locks"
 WINDOW_CLAIM_NAME = "jarvis_local_window.json"
 _TAIL_BYTES = 8192
 _PEAK_SAMPLE_SECONDS = 5.0
+# Guest page cache lives in the Docker Desktop VM; dropping it returns swap to the host.
+_PAGE_CACHE_DROP_IMAGE = "python:3.11-slim"  # already pulled by openwebui-init in the stack
+_PAGE_CACHE_DROP_SCRIPT = (
+    "sync; echo 3 > /proc/sys/vm/drop_caches; echo 1 > /proc/sys/vm/compact_memory"
+)
+_PAGE_CACHE_DROP_TIMEOUT_SECONDS = 90.0
 _ENV_ALLOWLIST = Path("config/arm_job_env_allowlist.yaml")
 _ENV_ASSIGNMENT = re.compile(r"^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$")
 _REDACTED = "[REDACTED]"
@@ -652,6 +658,7 @@ class JobRunner:
         stack_probe: Callable[[], str] | None = None,
         memory_probe: Callable[[], float | None] | None = None,
         disk_probe: Callable[[Path], float | None] | None = None,
+        page_cache_drop: Callable[[], dict[str, Any]] | None = None,
         poll_seconds: float = 0.5,
     ) -> None:
         self.task_root = task_root
@@ -662,6 +669,7 @@ class JobRunner:
         self.memory_watch_script = memory_watch_script or repo_root / "scripts" / (
             "memory_safety_watch.py"
         )
+        self.page_cache_drop = page_cache_drop or _drop_guest_page_cache
         self.preconditions = JobPreconditions(
             repo_root,
             gate=gate,
@@ -745,6 +753,7 @@ class JobRunner:
                 if status is not None:
                     return status, reason
                 continue
+            self._reclaim_guest_page_cache(spec, job_dir, step, state, entry)
             ready, memory_reason = self._check_step_preconditions(spec, step, state)
             if not ready:
                 return "WAITING", memory_reason
@@ -813,6 +822,37 @@ class JobRunner:
             return False, f"waiting for idle model unloads to free the {floor:.1f} GiB floor"
         state["memory_reclaim_pending"] = False
         return True, None
+
+    def _reclaim_guest_page_cache(
+        self,
+        spec: JobSpec,
+        job_dir: Path,
+        step: JobStep,
+        state: dict[str, Any],
+        entry: dict[str, Any],
+    ) -> None:
+        """Drop the Docker VM page cache once per attempt; a failure is recorded, never fatal."""
+        if not step.quiet_host:
+            return
+        attempt = int(entry.get("attempts", 0))
+        drops: list[dict[str, Any]] = state.setdefault("guest_page_cache_drops", [])
+        if any(
+            drop.get("step") == step.step_id and drop.get("attempt") == attempt for drop in drops
+        ):
+            return
+        try:
+            outcome = self.page_cache_drop()
+        except Exception as exc:  # noqa: BLE001 - reclamation is best effort
+            outcome = {"ok": False, "error": str(exc)}
+        record = {"step": step.step_id, "attempt": attempt, "utc": _utc_now(), **outcome}
+        drops.append(record)
+        self._save_state(job_dir, state)
+        if not record.get("ok"):
+            self._runner_notice(
+                "page_cache_drop_failed",
+                spec.job_id,
+                {"step": step.step_id, "error": record.get("error")},
+            )
 
     def _recover_running_step(
         self,
@@ -1323,7 +1363,10 @@ class JobRunner:
                 memory_trips,
             ),
             "preconditions": state.get("last_preconditions"),
-            "memory_reclamation": {"unloads": state.get("memory_reclamation_unloads", [])},
+            "memory_reclamation": {
+                "unloads": state.get("memory_reclamation_unloads", []),
+                "page_cache_drops": state.get("guest_page_cache_drops", []),
+            },
             "steps": steps,
             "outputs": outputs,
             "checkpoints": checkpoints,
@@ -1540,6 +1583,74 @@ def _stack_state() -> str:
         return "unknown"
     names = {line.strip() for line in result.stdout.splitlines() if line.strip()}
     return "up" if "portal5-pipeline" in names else "down"
+
+
+def _swap_used_gib() -> float | None:
+    """Host swap currently in use, in GiB, or None when it cannot be read."""
+    if sys.platform == "darwin":
+        try:
+            result = subprocess.run(
+                ["sysctl", "-n", "vm.swapusage"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        match = re.search(r"used = ([0-9.]+)M", result.stdout)
+        return round(float(match.group(1)) / 1024, 2) if match else None
+    try:
+        text = Path("/proc/meminfo").read_text(encoding="utf-8")
+    except OSError:
+        return None
+    total = re.search(r"^SwapTotal:\s+(\d+)\s*kB", text, re.MULTILINE)
+    free = re.search(r"^SwapFree:\s+(\d+)\s*kB", text, re.MULTILINE)
+    if total is None or free is None:
+        return None
+    return round((int(total.group(1)) - int(free.group(1))) / 1024**2, 2)
+
+
+def _drop_guest_page_cache() -> dict[str, Any]:
+    """Drop the Docker VM's guest page cache in a throwaway privileged container."""
+    before = _swap_used_gib()
+    argv = [
+        "docker",
+        "run",
+        "--rm",
+        "--privileged",
+        "--pid=host",
+        "--pull=never",
+        _PAGE_CACHE_DROP_IMAGE,
+        "sh",
+        "-c",
+        _PAGE_CACHE_DROP_SCRIPT,
+    ]
+    try:
+        result = subprocess.run(
+            argv,
+            capture_output=True,
+            text=True,
+            timeout=_PAGE_CACHE_DROP_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return {
+            "ok": False,
+            "swap_used_gib_before": before,
+            "swap_used_gib_after": None,
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+    error: str | None = None
+    if result.returncode:
+        detail = (result.stderr or result.stdout or "").strip().splitlines()
+        error = f"docker exit {result.returncode}: {detail[-1] if detail else 'no output'}"
+    return {
+        "ok": error is None,
+        "swap_used_gib_before": before,
+        "swap_used_gib_after": _swap_used_gib(),
+        "error": error,
+    }
 
 
 def _free_memory_gib() -> float | None:
