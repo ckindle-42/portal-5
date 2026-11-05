@@ -15,6 +15,7 @@ import json
 import os
 import shutil
 import urllib.request
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,110 @@ from tests.wfe.realuse_paths import stage_upload_tree
 
 TOOL_MODES = Path(__file__).resolve().parent / "tool_modes.yaml"
 REPO = Path(__file__).resolve().parents[2]
+
+#: Workspace tools the eval scope does not serve that the harness answers itself, scoped to
+#: the row's namespace. The pipeline passes a call to a non-allowlisted tool back to the
+#: client (router/streaming.py `client_owned`), and the sandbox used to answer the literal
+#: "unknown tool" the production prompt invited — ready4_mellum_20261105. A named tool with
+#: no entry here gets a defined not-served result instead, never "unknown tool".
+PROXY_TOOLS: dict[str, Callable[[dict, dict], str]] = {}
+
+_EXPLORER = "wfe_eval_namespace_proxy"
+_known_tools: set[str] | None = None
+
+
+def known_tool_names() -> set[str]:
+    """Every tool name a production or bench workspace OR variant declares — the vocabulary
+    a workspace prompt can name. Read straight from config: effective_workspace filters by
+    enabled module, and a prompt can still name a tool its variant declares."""
+    global _known_tools
+    if _known_tools is None:
+        import yaml
+
+        from portal.platform.inference.config import load_bench_workspaces_raw
+
+        portal = yaml.safe_load((REPO / "config/portal.yaml").read_text()) or {}
+        workspaces = {**(portal.get("workspaces") or {}), **load_bench_workspaces_raw(REPO)}
+        _known_tools = set()
+        for ws in workspaces.values():
+            ws = ws or {}
+            _known_tools |= set(ws.get("tools") or [])
+            for variant in (ws.get("variants") or {}).values():
+                _known_tools |= set((variant or {}).get("tools") or [])
+        # prompt_surface's convention: only snake_case names are tool names — prose like
+        # "a failure to speak" is not a reference to auto-audio::music's speak tool.
+        _known_tools = {t for t in _known_tools if "_" in t}
+    return _known_tools
+
+
+def _proxy_explore_repository(args: dict, ctx: dict) -> str:
+    """explore_repository as production serves it to an uploads task. Production's explorer
+    (pipeline_mcp._dispatch_fastcontext_tool) walks only the portal-5 repo and cannot see
+    /workspace/uploads, so a user of this workspace gets no citations for uploaded material.
+    The proxy returns exactly that — it must never be more helpful than production, or the
+    eval measures a capability users do not have. Arguments are gated with production's
+    signature and wording."""
+    import inspect
+
+    from portal.platform.mcp_host.pipeline_mcp import _impl_explore_repository
+
+    sig = inspect.signature(_impl_explore_repository)
+    unknown = sorted(set(args) - set(sig.parameters))
+    if unknown:
+        return json.dumps(
+            {
+                "error": "Tool 'explore_repository' rejected the arguments",
+                "detail": f"unexpected keyword argument(s) {unknown}; "
+                f"accepted: {sorted(sig.parameters)}",
+            }
+        )
+    if not str(args.get("query") or "").strip():
+        return json.dumps(
+            {
+                "error": "Tool 'explore_repository' rejected the arguments",
+                "detail": "missing required argument(s) ['query']",
+            }
+        )
+    return json.dumps(
+        {
+            "citations": [],
+            "turns_used": 1,
+            "model": _EXPLORER,
+            "note": "no repository match; uploaded material under /workspace/uploads is not "
+            "part of the repository the explorer searches",
+        }
+    )
+
+
+PROXY_TOOLS["explore_repository"] = _proxy_explore_repository
+
+
+def proxy_tools(wsc: dict, allow: list[str], ctx: dict) -> dict[str, Callable[[dict], str]]:
+    """The workspace's production-surface tools (declared or prompt-named) the eval scope
+    does not serve, each bound to its defined harness answer for this row."""
+    from tests.wfe.prompt_surface import prompt_tool_mismatches
+
+    prompt = str(wsc.get("system_prompt_base") or "") + str(wsc.get("system_prompt_append") or "")
+    named = set(wsc.get("declared_tools") or []) | set(
+        prompt_tool_mismatches(prompt, set(allow), known_tool_names())
+    )
+    return {t: _make_proxy_answer(t, ctx) for t in sorted(named - set(allow))}
+
+
+def _make_proxy_answer(name: str, ctx: dict) -> Callable[[dict], str]:
+    handler = PROXY_TOOLS.get(name)
+
+    def answer(args: dict) -> str:
+        if handler is not None:
+            return handler(args, ctx)
+        return json.dumps(
+            {
+                "error": f"Tool '{name}' is declared by the workspace but not served by "
+                "this evaluation's tool surface"
+            }
+        )
+
+    return answer
 
 
 def setting(name: str, default: str, env_file: Path = REPO / ".env") -> str:
@@ -147,6 +252,9 @@ def prepare(pipe: bool, r: dict, manifest: dict, task: dict, wsc: dict, harness:
         "use_tools": False,
     }
     ctx["seed_error"] = seed_stores(scope, task)
+    ctx["proxy_fns"] = proxy_tools(wsc, m["allow"], ctx)
+    if ctx["proxy_fns"]:
+        ctx["proxy_tools"] = sorted(ctx["proxy_fns"])
     wsc = {
         **wsc,
         "system_prompt_pipeline": wsc["system_prompt_base"],
@@ -206,6 +314,8 @@ def finish(ctx: dict | None, out: dict, campaign_dir: Path, r: dict) -> dict:
         "tool_mode": "production",
         "eval_scope": ctx["scope"],
     }
+    if ctx.get("proxy_tools"):
+        ev["proxied_tools"] = ctx["proxy_tools"]
     out = {**out, "evidence": ev}
     cleanup(ctx, campaign_dir, r)
     return out

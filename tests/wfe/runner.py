@@ -222,10 +222,13 @@ class Sandbox:
     Checkers never use this resolver — they resolve sandbox-only, because a repo
     fallback let a checker be satisfied by a file the model never wrote."""
 
-    def __init__(self, root: Path, allow_repo_read: bool = True):
+    def __init__(self, root: Path, allow_repo_read: bool = True, proxy: dict | None = None):
         self.root = Path(root).resolve()
         self.root.mkdir(parents=True, exist_ok=True)
         self.allow_repo_read = allow_repo_read
+        #: Production-surface tools the eval scope does not serve, answered by the harness
+        #: (eval_mode.proxy_tools) instead of "unknown tool" — empty in sandbox mode.
+        self.proxy = proxy or {}
 
     @staticmethod
     def _under(child: Path, parent: Path) -> bool:
@@ -407,6 +410,8 @@ class Sandbox:
             "http_get": self.http_get,
         }.get(name)
         if fn is None:
+            if name in self.proxy:
+                return self.proxy[name](args)
             return f"ERROR: unknown tool {name}"
         try:
             return fn(**args)
@@ -1336,6 +1341,7 @@ def workspace_context(ws_id: str, persona: str | None = None) -> dict:
         # What Open WebUI sends; the pipeline adds the append itself.
         "system_prompt_base": sp_base,
         "system_prompt_pipeline": sp_base + note,
+        "system_prompt_append": ws.get("system_prompt_append") or "",
         "persona_slug": slug,
         "persona_candidates": sum(p.workspace_model == base_id for p in personas.values()),
         "declared_tools": declared,
@@ -1446,25 +1452,27 @@ def _execute_calls(calls: list, turn: int, sandbox: Sandbox, tool_log: list, mes
     as a JSON string on /v1, and every tool result must carry its tool_call_id
     (portal/platform/inference/router/tools.py). Returns the error count."""
     errors = 0
+    proxy = getattr(sandbox, "proxy", None) or {}
     for i, c in enumerate(calls):
         fn = c.get("function") or {}
         name = fn.get("name") or ""
         call_id = c.get("id") or f"call_{turn}_{i}"
         args, err = normalize_tool_args(fn.get("arguments"))
-        if err:
-            out = f"ERROR: {err}"
-            errors += 1
-        else:
-            out = sandbox.dispatch(name, args)
-            if str(out).startswith("ERROR:"):
-                errors += 1
+        out = f"ERROR: {err}" if err else sandbox.dispatch(name, args)
+        proxied = not err and name in proxy
+        error = bool(err) or str(out).startswith("ERROR:")
+        if proxied and not error:  # a defined proxy result can still be an error payload
+            with contextlib.suppress(json.JSONDecodeError):
+                error = "error" in json.loads(out)
+        errors += error
         tool_log.append(
             {
                 "name": name,
                 "args": args,
                 "raw_args": str(fn.get("arguments"))[:500],
                 "output": str(out)[:4000],
-                "error": bool(err) or str(out).startswith("ERROR:"),
+                "error": error,
+                **({"proxy": True} if proxied else {}),
             }
         )
         messages.append(
@@ -1888,6 +1896,9 @@ def run_task(
     # turn-cap loops in wfe_prompt_surface_seat_20261012 read those files, and
     # no passing row did. Production's compliance seat has no repository at all.
     sandbox.allow_repo_read = bool(task.get("repo_read", True))
+    # Production tool mode: the workspace's own prompt/tools can name a tool the eval scope
+    # does not serve; the harness answers it (never "unknown tool") and records the proxy.
+    sandbox.proxy = dict((task.get("_eval") or {}).get("proxy_fns") or {})
     schemas = (
         [t for t in TOOL_SCHEMAS if t["function"]["name"] in tool_surface]
         if tool_surface
