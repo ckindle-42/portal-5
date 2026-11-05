@@ -63,6 +63,8 @@ class CheckContext:
     #: The pipeline's served record for the final turn ({backend, model, options}),
     #: threaded from the row's transcript — what routed_workspace grades.
     served: dict | None = None
+    #: RAG template prepended to this turn's user message, without the question itself.
+    owui_context: str = ""
 
     def __post_init__(self):
         self.assistant_texts = self.assistant_texts or []
@@ -922,6 +924,19 @@ def _output_failed(out: str) -> bool:
     return any(d.get(k) is False for k in ("resolved", "found", "success")) or bool(d.get("error"))
 
 
+_CONTEXT_READ_TOOLS = frozenset({"read_pdf", "read_word_document", "read_excel"})
+
+
+def _owui_context_grounds(tools: set, evidence: list, ctx: CheckContext) -> bool:
+    """Upload text already in the RAG prefix can ground a document-read check."""
+    if not tools or not tools <= _CONTEXT_READ_TOOLS:
+        return False
+    text = ctx.owui_context
+    if not text.strip():
+        return False
+    return all(_text_match(p, text) for p in evidence)
+
+
 def check_tool_grounded(spec: dict, ctx: CheckContext) -> CheckResult:
     """The answer must rest on a successful call to one of ``tools`` whose output
     shows every ``evidence`` pattern: the fact was retrieved through the
@@ -942,6 +957,10 @@ def check_tool_grounded(spec: dict, ctx: CheckContext) -> CheckResult:
             return CheckResult(
                 Outcome.PASS, f"grounded by {c.get('name')}", {"grounded_by": c.get("name")}
             )
+    if _owui_context_grounds(tools, evidence, ctx):
+        return CheckResult(
+            Outcome.PASS, "grounded by owui_context", {"grounded_by": "owui_context"}
+        )
     called = [c.get("name") for c in ctx.tool_calls]
     return CheckResult(
         Outcome.FAIL,
