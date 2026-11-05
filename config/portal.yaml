@@ -1084,16 +1084,18 @@ workspaces:
   auto-coding:
     module: coding
     name: 💻 Portal Code Expert
-    description: Code generation, debugging, architecture review (Qwen3-Coder-30B MoE, Ollama, 0.22s TTFT)
-    # 2026-09-25: card sampling (0.7/0.8/20) REVERTED same day — on oMLX it breaks tool calls (2-4 of 6 returned as text: the qwen3_coder parser misses a call preceded by text); prior values restored, 6/6. KNOWN_LIMITATIONS P5-OMLX-QWEN3CODER-TOOLTEXT-001 (resolved same day: the pipeline recovers text-written calls; the loss was prompt-shaped, so low temperature never covered it. Card A/B is unblocked.)
-    model_hint: qwen3-coder:30b-a3b-q4_K_M-ctx256k
-    context_limit: 262144
+    description: Code generation, debugging, architecture review (Qwen3.8-27B dense, Q4_K_M, 96K context, thinking on; realuse_s5s7s10_20261030b 15/16 vs Qwen3-Coder 5/16)
+    # 2026-11-01: realuse_s5s7s10_20261030b seated hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k@card-fd931ae2 — 15/16 vs incumbent 5/16 (separated), judge 11W/0L/5T. Card thinking-mode sampling; every row reasoned with think unset (template default ON), so think is pinned true. Window is the tag's 98304.
+    model_hint: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k
+    context_limit: 98304
     predict_limit: 16384
-    temperature: 0.7
-    top_p: 0.8
+    temperature: 1.0
+    top_p: 0.95
     top_k: 20
-    min_p: 0.05
-    repeat_penalty: 1.05
+    min_p: 0.0
+    presence_penalty: 0.0
+    repeat_penalty: 1.0
+    think: true
     # 2026-10-30: the old "SINGLE-TURN … wrap code in fenced blocks … the user cannot follow up" rule made the
     # seat print code instead of running it (realuse_s8_rerun_20261030c: qwen3-coder 4/16, mostly execute_python
     # never called). Same intent — fast, complete, no planning spiral — without forbidding tool use.

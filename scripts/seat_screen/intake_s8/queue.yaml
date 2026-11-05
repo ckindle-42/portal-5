@@ -115,18 +115,19 @@ items:
       native_context: 262144
       license: Apache 2.0
     incumbent:
-      tag: qwen3-coder:30b-a3b-q4_K_M-ctx256k
-      omlx_twin: Qwen3-Coder-30B-A3B-Instruct-4bit
+      tag: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k
+      omlx_twin: Qwen3.8-27B-oQ4e-mtp
     seating_precedent: >-
-      Qwen3-Coder-30B-A3B has held auto-coding since 2026-05 (256k tag 6501e6c5), before
-      the decision rule existed; coding_decision_v1.yaml records it as the incumbent. Flint
-      has vendor-run benches only, so the confirm tier is its first independent evidence.
+      Qwen3.8-27B ctx96k replaced Qwen3-Coder-30B-A3B on auto-coding on 2026-11-01
+      (realuse_s5s7s10_20261030b, 15/16 vs 5/16, judge 11W/0L/5T). coding_decision_v1.yaml
+      still records the coder as that plan's incumbent. Flint has vendor-run benches only,
+      so the confirm tier is its first independent evidence.
     targets:
       - workspace: auto-coding
         suite: coding_production
         tool_mode: sandbox
-        context_limit: 262144
-        think: null
+        context_limit: 98304
+        think: true
     screen:
       plan: tests/wfe/plans/s8_flint_coding_screen_20261029.yaml
       tiers: [screen, confirm]
@@ -139,13 +140,13 @@ items:
         - "uv run python scripts/seat_screen/probe_seat.py auto-coding::kit-flint --think true"
         - "uv run python scripts/seat_screen/probe_seat.py auto-coding::kit-flint --think false"
       conformance:
-        template: "confirm enable_thinking on the shipped chat template; auto-coding declares no think flag"
+        template: "confirm enable_thinking on the shipped chat template; auto-coding pins think true"
         tool_calls: "multi-turn tool use claimed; probe nested_ok and the follow-up turn"
-        think: "record both think settings; the role serves the template default"
+        think: "the seated role is think true; the measured card arm reasoned on every row"
       risks:
         - "vendor/Unsloth benches only; one non-host RTX 5090 run is the only independent data"
         - "256k KV beside the 5.4 GB router is unmeasured; the incumbent fallback is already known to spill"
-        - "the qwen3-coder base blob is shared with auto-coding::cad (ctx32k) and ::bigfix (ctx16k)"
+        - "the ctx96k tag also seats auto-daily::deep and shares its base blob with the ctx32k seats"
     disk:
       screen_gb: 25.05
       seat_gb_in: 48.4
@@ -153,13 +154,13 @@ items:
       net_gb: 13.4
       net_gb_if_shared_kept: 31.4
       replaces_on_win:
-        - qwen3-coder:30b-a3b-q4_K_M-ctx256k
-        - Qwen3-Coder-30B-A3B-Instruct-4bit
+        - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k
+        - Qwen3.8-27B-oQ4e-mtp
       delete_on_loss:
         - hf.co/unsloth/flint-GGUF:UD-Q4_K_XL-ctx256k
         - mlx-community/flint-oQ4e
       blocks_deletion:
-        - "deleting qwen3-coder:30b-a3b-q4_K_M also drops ctx32k (auto-coding::cad) and ctx16k (auto-coding::bigfix); repoint both before freeing that blob"
+        - "deleting the ctx96k tag also unseats auto-daily::deep; the base blob is shared with ctx32k (auto-compliance, compliance-council-qwen38) and the oMLX twin also serves auto-coding::heavy. Repoint those before freeing either artifact."
   - id: mellum-2.1
     order: 3
     kind: bench

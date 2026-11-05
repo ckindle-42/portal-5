@@ -1,14 +1,14 @@
 # Three-arm auto-coding screen on the existing production coding suite.
-# The same-lineage challenger is the routed full-context AgentWorld 35B tag
-# (Qwen3-Coder-Next retired 2026-10-22); Qwen3.8 uses the directly registered
-# oMLX build with its native 256K window.
+# Incumbent is the seated Qwen3.8-27B ctx96k tag (2026-11-01).
+# Challengers: routed full-context AgentWorld 35B (Qwen3-Coder-Next retired
+# 2026-10-22) and the directly registered Qwen3.8 oMLX build (native 256K).
 workloads:
   auto-coding:
     tool_mode: sandbox
     home: coding_production
     discovery: []
     arms:
-      incumbent: qwen3-coder:30b-a3b-q4_K_M-ctx256k
+      incumbent: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k
       challengers:
         - portal5/agentworld-35b:ud-q4_K_XL-ctx256k
         - Qwen3.8-27B-oQ4e-mtp
