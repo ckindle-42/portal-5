@@ -4323,6 +4323,14 @@ def _cmd_rescore(args) -> int:
     return 0
 
 
+_INSPECT_FLAGS = ("status", "watch", "verify_complete", "health")
+
+
+def _is_inspect_only(args) -> bool:
+    """True for the read-only campaign views dispatched by _inspect_command."""
+    return any(getattr(args, flag, False) for flag in _INSPECT_FLAGS)
+
+
 def _inspect_command(args, campaign_dir: Path) -> int | None:
     """The read-only views of a campaign. Separated from main() so a sweep in
     flight can be inspected without any code path that could write to it."""
@@ -4460,18 +4468,29 @@ def _realuse_tool_preflight(plan: Path) -> None:
     print(f"tool surface preflight: PASS ({checked} check(s))", file=sys.stderr)
 
 
+def _plan_command(args, plan: Path) -> int | None:
+    """--rescore, the plan preflight, and the plan-only commands. Only commands that build
+    or list rows from a plan are gated: the read-only views (--status, --watch, ...) run
+    against an existing campaign without --plan, and the default workloads.yaml would
+    refuse them for workspaces the campaign never touches (readiness pass 5, 2026-11-05)."""
+    if args.rescore:
+        return _cmd_rescore(args)
+    if not _is_inspect_only(args):
+        _realuse_tool_preflight(plan)
+    if args.list_arms:
+        return _cmd_list_arms(plan, args.all_suites)
+    if args.smoke:
+        return _cmd_smoke(args, plan)
+    return None
+
+
 def main() -> int:
     ap, args = _parse_args()
     _validate_reuse_screen_args(ap, args)
     plan = Path(args.plan)
-    _realuse_tool_preflight(plan)
-
-    if args.list_arms:
-        return _cmd_list_arms(plan, args.all_suites)
-    if args.rescore:
-        return _cmd_rescore(args)
-    if args.smoke:
-        return _cmd_smoke(args, plan)
+    rc = _plan_command(args, plan)
+    if rc is not None:
+        return rc
 
     if not args.campaign_id:
         ap.error("--campaign-id is required (or use --smoke / --rescore / --list-arms)")
