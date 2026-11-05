@@ -2219,6 +2219,16 @@ class TestReasoningBudgetFitAudit:
         )
         assert not v
 
+    def test_budget_target_is_shared_with_challenger_sizing(self):
+        from tests.wfe.settings_audit import reasoning_budget_target
+
+        ws = {"think": True, "context_limit": 16384, "predict_limit": 4096}
+        registry = {"qwen3.8": {"recommended_max_output": 131072}}
+        target = reasoning_budget_target(ws, "qwen3.8:27b", registry, baked_window=32768)
+        assert target == 8192
+        v = self._run(ws, "qwen3.8:27b", registry, {"qwen3.8:27b"}, baked_window=32768)
+        assert "budget target 8192" in v[0]["detail"]
+
     def test_below_ceiling_but_above_floor_is_a_warn(self):
         ws = {"think": True, "predict_limit": 24576}
         v = self._run(ws, "m:r", {"m": {"recommended_max_output": 32768}}, {"m:r"})
@@ -2811,7 +2821,7 @@ class TestPipelineMode:
             "auto-coding::laguna",
             [{"role": "user", "content": "x"}],
             {**rn.HARNESS_DEFAULTS},
-            {"temperature": 0.2, "repeat_penalty": 1.05, "max_tokens": 32768},
+            {"temperature": 0.2, "repeat_penalty": 1.05},
             [{"type": "function", "function": {"name": "f"}}],
             "false",
             True,
@@ -2824,6 +2834,22 @@ class TestPipelineMode:
         assert body["think"] is False
         assert body["chat_template_kwargs"] == {"enable_thinking": False}
         assert body["portal_client_tools_only"] is True
+
+    def test_pipeline_forwards_an_explicit_arm_output_cap(self, monkeypatch):
+        from tests.wfe import runner as rn
+
+        monkeypatch.setattr(rn, "ENGINE", "pipeline")
+        monkeypatch.setattr(rn, "CHAT_BASE", "http://p:9099")
+        _, body, _ = rn._build_payload(
+            "auto-daily",
+            [{"role": "user", "content": "x"}],
+            {**rn.HARNESS_DEFAULTS},
+            {"max_tokens": 8192},
+            None,
+            "native",
+            False,
+        )
+        assert body["max_tokens"] == 8192
 
     def test_incumbent_sends_no_sampling_and_no_think(self, monkeypatch):
         from tests.wfe import campaign as cp
@@ -2839,6 +2865,31 @@ class TestPipelineMode:
         monkeypatch.setattr(cp, "ENGINE", "pipeline")
         s = cp._sampling_for({"sampling": {"top_k": 20}}, 0, {"sampling": {"temperature": 0.2}})
         assert s == {"temperature": 0.2, "seed": 1000, "max_tokens_source": "pipeline"}
+
+    def test_predict_budget_records_request_or_seat_cap(self, monkeypatch):
+        from tests.wfe import campaign as cp
+
+        monkeypatch.setattr(cp, "ENGINE", "pipeline")
+        assert cp._served_predict_budget({"predict_limit": 4096}, {}) == 4096
+        assert cp._served_predict_budget({}, {"max_tokens": 8192}) == 8192
+
+    def test_result_row_serializes_predict_budget(self):
+        from tests.wfe.schema import ResultRow
+
+        row = ResultRow(predict_budget=8192).to_dict()
+        assert row["schema"] == "wfe-result-3"
+        assert row["predict_budget"] == 8192
+
+    def test_preflight_prints_the_budget_for_each_arm_workspace(self, capsys):
+        camp._print_preflight(
+            1,
+            1,
+            "qwen3.8",
+            {"verdict": "OK"},
+            0,
+            [("qwen3.8@card-1", "auto-daily", 8192)],
+        )
+        assert "predict_budget: qwen3.8@card-1 [auto-daily] 8192" in capsys.readouterr().out
 
     def test_seat_primary_is_the_production_alias(self):
         """backends.yaml shadows several incumbent tags onto priority-10 oMLX
@@ -3149,6 +3200,35 @@ class TestSelectionBiasFixes:
         }
         assert "@card-" in by_model["gpt-oss:20b"]["arm"]
         assert by_model["granite4.2:30b-q4_K_M"]["overrides"] == {}
+
+    def test_thinking_challenger_gets_the_audit_budget_override(self, monkeypatch):
+        from tests.wfe import settings_audit
+
+        monkeypatch.setattr(
+            camp,
+            "workspace_context",
+            lambda _ws, _persona=None: {
+                "think": None,
+                "context_limit": 16384,
+                "predict_limit": 4096,
+            },
+        )
+        monkeypatch.setattr(
+            settings_audit,
+            "_load_expectations",
+            lambda: {"qwen3.8": {"recommended_max_output": 131072}},
+        )
+        prepared = camp._with_reasoning_budget(
+            {
+                "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+                "sampling": {"temperature": 1.0},
+            },
+            "challenger",
+            "auto-daily",
+        )
+        arm, _, overrides = camp.arm_spec(prepared)
+        assert overrides["sampling"] == {"temperature": 1.0, "max_tokens": 8192}
+        assert "@" in arm
 
     def test_card_mode_follows_the_lane_think_policy(self):
         from tests.wfe.runner import card_sampling

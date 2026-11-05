@@ -496,3 +496,4 @@ def test_a_workspace_without_predict_limit_still_gets_an_output_cap(monkeypatch)
         assert inject({"model": "x"}, "ws-wide")["max_tokens"] == validation._DEFAULT_PREDICT_LIMIT
         assert inject({"model": "x"}, "ws-own")["max_tokens"] == 2048
         assert inject({"model": "x", "max_tokens": 77}, "ws-wide")["max_tokens"] == 77
+        assert inject({"model": "x", "max_tokens": 32768}, "ws-own")["max_tokens"] == 32768

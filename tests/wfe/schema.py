@@ -23,7 +23,7 @@ from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from pathlib import Path
 
-RESULT_SCHEMA_VERSION = "wfe-result-2"
+RESULT_SCHEMA_VERSION = "wfe-result-3"
 MANIFEST_SCHEMA_VERSION = "wfe-manifest-1"
 REPO = Path(__file__).resolve().parents[2]
 
@@ -182,6 +182,7 @@ class ResultRow:
     tool_surface_proxy: bool = True
     harness: dict = field(default_factory=dict)
     sampling: dict = field(default_factory=dict)
+    predict_budget: int | None = None
     baked_params: dict = field(default_factory=dict)
     seed: int | None = None
     turns: int = 0

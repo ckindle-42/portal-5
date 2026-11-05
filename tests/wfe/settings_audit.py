@@ -1180,6 +1180,26 @@ def _served_output_budget(ws: dict) -> int:
     return min(PIPELINE_DEFAULT_PREDICT_LIMIT, int(ctx)) if ctx else PIPELINE_DEFAULT_PREDICT_LIMIT
 
 
+def reasoning_budget_target(
+    ws: dict, hint: str, registry: dict, baked_window: int | None = None
+) -> int | None:
+    """The output budget required by a thinking seat's card and served window."""
+    if ws.get("think") is False:
+        return None
+    if ws.get("think") is not True and not _is_reasoning_model(hint, registry):
+        return None
+    hit = _card_entry_matched(hint, registry)
+    card_max = (hit[1] or {}).get("recommended_max_output") if hit else None
+    if not isinstance(card_max, int) or isinstance(card_max, bool) or card_max <= 0:
+        return None
+    window = _served_window(ws, baked_window)
+    return (
+        min(card_max, _CARD_OUTPUT_CEILING, window // 2)
+        if window
+        else min(card_max, _CARD_OUTPUT_CEILING)
+    )
+
+
 def _audit_reasoning_budget_fit(
     ws_id, ws, hint, registry, tags, violations, baked_window: int | None = None
 ) -> None:
@@ -1199,19 +1219,14 @@ def _audit_reasoning_budget_fit(
     think:false does not reason, so a reasoning-sized budget does not apply.
     Report-only — it names the seat, model, target and served budget;
     raising a budget is an operator decision."""
-    if hint not in tags or ws.get("think") is False:
+    if hint not in tags:
         return
-    if ws.get("think") is not True and not _is_reasoning_model(hint, registry):
+    target = reasoning_budget_target(ws, hint, registry, baked_window)
+    if target is None:
         return
     hit = _card_entry_matched(hint, registry)
     card_max = (hit[1] or {}).get("recommended_max_output") if hit else None
-    if not isinstance(card_max, int) or isinstance(card_max, bool) or card_max <= 0:
-        return
     window = _served_window(ws, baked_window)
-    if window:
-        target = min(card_max, _CARD_OUTPUT_CEILING, window // 2)
-    else:
-        target = min(card_max, _CARD_OUTPUT_CEILING)
     served = _served_output_budget(ws)
     if served >= target:
         return
