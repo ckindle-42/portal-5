@@ -115,6 +115,104 @@ def _argument_error(name: str, schema: Any, arguments: Any) -> dict[str, str] | 
     return None
 
 
+def _alias_bash_command(tool_name: str, arguments: Any) -> Any:
+    """Copy execute_bash `command` onto `code` and drop the alias key."""
+    if tool_name != "execute_bash" or not isinstance(arguments, dict):
+        return arguments
+    if "command" not in arguments:
+        return arguments
+    aliased = dict(arguments)
+    command = aliased.pop("command")
+    if "code" not in aliased or aliased.get("code") in (None, ""):
+        aliased["code"] = command
+    return aliased
+
+
+# isError text only: CallToolResult has no caller-vs-crash flag.
+_CALLER_FAULT_MARKERS = (
+    "validation error",
+    "field required",
+    "unexpected keyword argument",
+    "extra inputs are not permitted",
+    "input should be a valid",
+    "unsupported extension",
+    "unsupported mesh extension",
+    "unsupported source type",
+    "unsupported target",
+)
+_CALLER_JSONRPC = frozenset({-32700, -32600, -32601, -32602})
+
+
+def _error_text(detail: Any) -> str:
+    """Flatten a tool error body to the text the classifier matches."""
+    if isinstance(detail, str):
+        return detail
+    if isinstance(detail, dict):
+        parts = [detail.get("error"), detail.get("detail"), detail.get("message")]
+        return " ".join(str(part) for part in parts if part)
+    return "" if detail is None else str(detail)
+
+
+def _reported_text(error: Any) -> str:
+    """Text of the MCP body, not the pipeline's wrapper sentence."""
+    if isinstance(error, dict) and error.get("detail") is not None:
+        return _error_text(error.get("detail"))
+    if isinstance(error, dict):
+        return _error_text(error.get("error"))
+    return _error_text(error)
+
+
+def _caller_fault_text(text: str) -> bool:
+    """True when the tool rejected the caller's arguments or file type."""
+    low = text.lower()
+    if any(marker in low for marker in _CALLER_FAULT_MARKERS):
+        return True
+    return "expected ." in low and "file" in low
+
+
+def _is_mcp_crash_text(tool_name: str, text: str) -> bool:
+    """True for the SDK crash line that withholds the exception text."""
+    crash = f"Error executing tool {tool_name}"
+    stripped = text.strip()
+    return stripped == crash or stripped.startswith(f"{crash}: Error executing tool ")
+
+
+def _tool_error_is_infra(tool_name: str, error: Any) -> bool:
+    """True when an isError result is an MCP crash, not a caller mistake."""
+    text = _reported_text(error)
+    if _caller_fault_text(text):
+        return False
+    return _is_mcp_crash_text(tool_name, text)
+
+
+def _http_failure_is_infra(exc: MCPHTTPError) -> bool:
+    """Count 5xx and broken MCP replies. Skip caller JSON-RPC codes and 4xx."""
+    if exc.code in _CALLER_JSONRPC:
+        return False
+    return not (exc.status_code is not None and 400 <= exc.status_code < 500)
+
+
+def _penalize(tool: Any, now: float) -> None:
+    """Record one infra failure and arm the per-tool backoff window."""
+    tool.consecutive_failures += 1
+    tool.healthy = False
+    tool.next_retry_at = now + _backoff_seconds(tool.consecutive_failures)
+
+
+def _finish_tool_error(tool: Any, mapped: Any, now: float) -> dict[str, Any]:
+    """Return an isError payload, penalizing only an MCP crash."""
+    if isinstance(mapped, dict) and "error" in mapped:
+        error: dict[str, Any] = mapped
+    else:
+        error = {
+            "error": f"Tool '{tool.name}' returned an MCP tool error",
+            "detail": mapped,
+        }
+    if _tool_error_is_infra(tool.name, error):
+        _penalize(tool, now)
+    return error
+
+
 def _tool_timeout(tdef: dict[str, Any]) -> float | None:
     timeout_s = tdef.get("timeout_s")
     meta = tdef.get("_meta")
@@ -143,8 +241,8 @@ class ToolDefinition:
         server_id: Stable id of the source MCP (a key in ``MCP_SERVERS``).
         server_url: Base URL the tool is dispatched against.
         last_seen: Monotonic time of the last successful discovery.
-        healthy: ``False`` after any failed dispatch. Re-set to ``True``
-            on the next successful dispatch.
+        healthy: ``False`` after an infra failure. Re-set to ``True``
+            on the next successful dispatch. Caller argument errors leave it.
         custom_timeout_s: Per-tool dispatch timeout from native MCP ``_meta``.
         next_retry_at: Epoch seconds. While ``healthy`` is False and
             ``time.time() < next_retry_at``, the tool is filtered out of
@@ -425,10 +523,12 @@ class ToolRegistry:
         Circuit-breaker behaviour: tools in cool-down (``healthy=False`` AND
         ``time.time() < next_retry_at``) return an error without a network
         call; a successful call resets ``healthy=True``,
-        ``consecutive_failures=0``, ``next_retry_at=0``; any non-success
-        increments ``consecutive_failures`` and recomputes ``next_retry_at``
-        via ``_backoff_seconds``. Timeout: ``tool.custom_timeout_s`` if set,
-        else ``TOOL_DISPATCH_TIMEOUT_S``.
+        ``consecutive_failures=0``, ``next_retry_at=0``. Only transport
+        failures and MCP crashes increment ``consecutive_failures`` (see
+        ``_penalize``). Caller argument and file-type errors do not. The
+        window stays per tool name: an MCP that is down is down for every
+        caller. Timeout: ``tool.custom_timeout_s`` if set, else
+        ``TOOL_DISPATCH_TIMEOUT_S``.
 
         Args:
             tool_name: Must match a key in ``self._tools``. Unknown names
@@ -459,6 +559,7 @@ class ToolRegistry:
         scope_error = _native_scope_error(tool.server_id)
         if scope_error is not None:
             return scope_error
+        arguments = _alias_bash_command(tool.name, arguments)
         argument_error = _argument_error(tool.name, tool.parameters, arguments)
         if argument_error is not None:
             return argument_error
@@ -500,32 +601,20 @@ class ToolRegistry:
             )
             mapped = map_tool_result(result, tool.output_schema)
             if result.get("isError") is True:
-                if isinstance(mapped, dict) and "error" in mapped:
-                    error = mapped
-                else:
-                    error = {
-                        "error": f"Tool '{tool.name}' returned an MCP tool error",
-                        "detail": mapped,
-                    }
-                tool.consecutive_failures += 1
-                tool.healthy = False
-                tool.next_retry_at = now + _backoff_seconds(tool.consecutive_failures)
-                return error
+                return _finish_tool_error(tool, mapped, now)
             tool.healthy = True
             tool.consecutive_failures = 0
             tool.next_retry_at = 0.0
             return mapped
         except MCPHTTPError as exc:
-            if exc.code in {-32601, -32602}:
+            if not _http_failure_is_infra(exc):
                 return {"error": f"Tool '{tool.name}' rejected the MCP request", "detail": str(exc)}
             detail = str(exc)
         except (TimeoutError, httpx.TimeoutException):
             detail = f"timed out after {timeout_s}s"
         except Exception as exc:
             detail = f"dispatch failed: {exc}"
-        tool.consecutive_failures += 1
-        tool.healthy = False
-        tool.next_retry_at = now + _backoff_seconds(tool.consecutive_failures)
+        _penalize(tool, now)
         return {"error": f"Tool '{tool.name}' {detail}"}
 
     async def close(self) -> None:

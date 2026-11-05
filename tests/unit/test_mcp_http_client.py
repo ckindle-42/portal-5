@@ -562,9 +562,11 @@ def test_native_tool_result_maps_to_raw_json() -> None:
 
 
 @pytest.mark.asyncio
-async def test_native_is_error_returns_rest_error_shape_and_trips_breaker(
+async def test_native_is_error_returns_rest_error_shape_without_tripping_breaker(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """An anticipated tool error means the MCP answered. It must not open backoff."""
+
     async def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
         if body["method"] == "tools/list":
@@ -585,7 +587,7 @@ async def test_native_is_error_returns_rest_error_shape_and_trips_breaker(
         "error": "Tool 'failing_tool' returned an MCP tool error",
         "detail": "tool failed",
     }
-    assert tool is not None and tool.healthy is False and tool.consecutive_failures == 1
+    assert tool is not None and tool.healthy is True and tool.consecutive_failures == 0
 
 
 @pytest.mark.skipif(importlib.util.find_spec("mcp") is None, reason="MCP SDK is not installed")

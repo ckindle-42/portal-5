@@ -3,11 +3,18 @@
 import time
 from unittest.mock import patch
 
+import httpx
 import pytest
 
 from portal.platform.inference import tool_registry as registry_module
 from portal.platform.inference.mcp_http import MCPHTTPError
-from portal.platform.inference.tool_registry import ToolDefinition, ToolRegistry, _backoff_seconds
+from portal.platform.inference.tool_registry import (
+    ToolDefinition,
+    ToolRegistry,
+    _backoff_seconds,
+    _is_mcp_crash_text,
+    _tool_error_is_infra,
+)
 
 # ── _backoff_seconds schedule ────────────────────────────────────────────────
 
@@ -198,3 +205,204 @@ def test_get_openai_tools_excludes_in_backoff():
     assert "good_tool" in names
     assert "recovering_tool" in names  # expired backoff = allowed
     assert "bad_tool" not in names  # still in backoff window
+
+
+# ── caller faults do not arm the per-tool breaker ───────────────────────────
+
+_BASH_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "code": {"type": "string"},
+        "timeout": {"type": "integer"},
+    },
+    "required": ["code"],
+}
+
+_VALIDATION = (
+    "Error executing tool execute_bash: 1 validation error for execute_bashArguments\n"
+    "code\n  Field required [type=missing, input_value={'command': 'echo hi'}, input_type=dict]"
+)
+
+
+def _tool(name: str, schema: dict | None = None) -> tuple[ToolRegistry, ToolDefinition]:
+    reg = ToolRegistry()
+    tool = ToolDefinition(
+        name=name,
+        description="",
+        parameters=schema or {},
+        server_id="test",
+        server_url="http://localhost:9999",
+    )
+    reg._tools[name] = tool
+    return reg, tool
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "detail",
+    [
+        _VALIDATION,
+        "Error executing tool render: Input should be a valid integer",
+        "Error executing tool render: unexpected keyword argument(s) ['audio_path']",
+        "Error executing tool render: Extra inputs are not permitted",
+        "Unsupported mesh extension '.xyz'. Supported: ['.obj', '.stl']",
+        "unsupported source type: .numbers",
+        "Unsupported target 'fbx'. Supported: stl, 3mf, obj, ply",
+        "Expected .docx file, got: .txt",
+        "Expected .pdf file, got: .png",
+    ],
+)
+async def test_caller_fault_is_error_does_not_trip_backoff(detail: str):
+    reg, tool = _tool("render")
+
+    async def fake_call_tool(*_a, **_k):
+        return {"isError": True, "content": [{"type": "text", "text": detail}]}
+
+    with patch.object(registry_module, "call_tool", fake_call_tool):
+        for _ in range(3):
+            result = await reg.dispatch("render", {})
+
+    assert "error" in result
+    assert tool.healthy is True
+    assert tool.consecutive_failures == 0
+    assert tool.next_retry_at == 0.0
+
+
+@pytest.mark.asyncio
+async def test_validation_errors_then_a_good_call_still_runs():
+    reg, tool = _tool("execute_bash", _BASH_SCHEMA)
+    calls: list[dict] = []
+
+    async def fake_call_tool(_client, _url, name, arguments, _timeout, metadata=None):
+        calls.append(arguments)
+        if len(calls) < 4:
+            return {"isError": True, "content": [{"type": "text", "text": _VALIDATION}]}
+        return {"content": [{"type": "text", "text": '{"stdout": "hi"}'}]}
+
+    with patch.object(registry_module, "call_tool", fake_call_tool):
+        for _ in range(3):
+            await reg.dispatch("execute_bash", {"code": "echo hi"})
+        result = await reg.dispatch("execute_bash", {"code": "echo hi"})
+
+    assert result == {"stdout": "hi"}
+    assert tool.healthy is True
+    assert tool.consecutive_failures == 0
+    assert len(calls) == 4
+
+
+@pytest.mark.asyncio
+async def test_mcp_crash_text_still_trips_backoff():
+    reg, tool = _tool("execute_bash")
+
+    async def fake_call_tool(*_a, **_k):
+        return {
+            "isError": True,
+            "content": [{"type": "text", "text": "Error executing tool execute_bash"}],
+        }
+
+    with patch.object(registry_module, "call_tool", fake_call_tool):
+        await reg.dispatch("execute_bash", {})
+
+    assert tool.healthy is False
+    assert tool.consecutive_failures == 1
+
+
+def test_crash_line_is_infra_and_validation_text_is_not():
+    assert _is_mcp_crash_text("execute_bash", "Error executing tool execute_bash")
+    assert _is_mcp_crash_text(
+        "execute_bash",
+        "Error executing tool execute_bash: Error executing tool inner",
+    )
+    assert not _is_mcp_crash_text("execute_bash", _VALIDATION)
+    assert not _tool_error_is_infra("execute_bash", {"detail": _VALIDATION})
+    assert _tool_error_is_infra("execute_bash", {"detail": "Error executing tool execute_bash"})
+
+
+@pytest.mark.asyncio
+async def test_three_connection_failures_still_open_backoff():
+    reg, tool = _tool("execute_bash")
+    calls = 0
+
+    async def fake_call_tool(*_a, **_k):
+        nonlocal calls
+        calls += 1
+        raise httpx.ConnectError("connection refused")
+
+    t_before = time.time()
+    with patch.object(registry_module, "call_tool", fake_call_tool):
+        for _ in range(3):
+            tool.next_retry_at = 0.0
+            result = await reg.dispatch("execute_bash", {"code": "echo hi"})
+        blocked = await reg.dispatch("execute_bash", {"code": "echo hi"})
+
+    assert calls == 3
+    assert "connection refused" in result["error"]
+    assert tool.consecutive_failures == 3
+    assert tool.healthy is False
+    assert tool.next_retry_at >= t_before + 299
+    assert "backoff" in blocked["error"]
+
+
+@pytest.mark.asyncio
+async def test_http_4xx_does_not_trip_backoff():
+    reg, tool = _tool("execute_bash")
+
+    async def fake_call_tool(*_a, **_k):
+        raise MCPHTTPError("MCP returned HTTP 400", status_code=400)
+
+    with patch.object(registry_module, "call_tool", fake_call_tool):
+        result = await reg.dispatch("execute_bash", {"code": "echo hi"})
+
+    assert "HTTP 400" in result["detail"]
+    assert tool.healthy is True
+    assert tool.consecutive_failures == 0
+
+
+@pytest.mark.asyncio
+async def test_execute_bash_command_alias_reaches_the_server_as_code():
+    reg, tool = _tool("execute_bash", _BASH_SCHEMA)
+    seen: list[dict] = []
+
+    async def fake_call_tool(_client, _url, name, arguments, _timeout, metadata=None):
+        seen.append(arguments)
+        return {"content": [{"type": "text", "text": '{"stdout": "ok"}'}]}
+
+    with patch.object(registry_module, "call_tool", fake_call_tool):
+        via_command = await reg.dispatch("execute_bash", {"command": "echo portal"})
+        via_code = await reg.dispatch("execute_bash", {"code": "echo portal"})
+        both = await reg.dispatch("execute_bash", {"code": "keep", "command": "drop"})
+
+    assert via_command == {"stdout": "ok"}
+    assert via_code == {"stdout": "ok"}
+    assert both == {"stdout": "ok"}
+    assert seen == [
+        {"code": "echo portal"},
+        {"code": "echo portal"},
+        {"code": "keep"},
+    ]
+    assert tool.consecutive_failures == 0
+
+
+@pytest.mark.asyncio
+async def test_command_alias_is_execute_bash_only():
+    reg, tool = _tool(
+        "render",
+        {
+            "type": "object",
+            "properties": {"code": {"type": "string"}},
+            "required": ["code"],
+        },
+    )
+    called = False
+
+    async def fake_call_tool(*_a, **_k):
+        nonlocal called
+        called = True
+        return {"content": [{"type": "text", "text": "{}"}]}
+
+    with patch.object(registry_module, "call_tool", fake_call_tool):
+        result = await reg.dispatch("render", {"command": "echo"})
+
+    assert called is False
+    assert "unexpected keyword argument" in result["detail"]
+    assert tool.consecutive_failures == 0
