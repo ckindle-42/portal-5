@@ -814,8 +814,8 @@ def _build_pipeline(
     eval_scope: dict | None = None,
 ) -> tuple[str, dict, list[str]]:
     """The body Open WebUI would send the pipeline for `workspace`, plus only
-    the arm's explicit overrides. No max_tokens: the pipeline applies the seat's
-    predict_limit, and sending one would override it. `model_override` (the arm)
+    the arm's explicit overrides. A caller-supplied max_tokens applies only when
+    the arm explicitly overrides its cap. `model_override` (the arm)
     goes out as production's ?model= (preinject._resolve_model_override)."""
     payload: dict = {"model": workspace, "messages": messages, "stream": wire_stream}
     if wire_stream:
@@ -824,6 +824,8 @@ def _build_pipeline(
     for k in SAMPLING_KEYS:
         if sampling.get(k) is not None:
             payload[k] = sampling[k]
+    if sampling.get("max_tokens") is not None:
+        payload["max_tokens"] = int(sampling["max_tokens"])
     if sampling.get("thinking_budget") is not None:
         payload["thinking_budget"] = int(sampling["thinking_budget"])
     if "repeat_penalty" in payload:
@@ -1341,6 +1343,7 @@ def workspace_context(ws_id: str, persona: str | None = None) -> dict:
         "tool_surface_proxy": sorted(surface) != sorted(declared),
         "harness_note": bool(note),
         "context_limit": ws.get("context_limit"),
+        "predict_limit": ws.get("predict_limit"),
         "module": ws.get("module"),
         "sampling": sampling,
         "pinned_seed": ws.get("seed"),

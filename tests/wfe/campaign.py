@@ -439,6 +439,35 @@ def _with_card_sampling(entry, role: str, ws_id: str):
     return spec
 
 
+def _with_reasoning_budget(entry, role: str, ws_id: str):
+    """Give a thinking challenger the audit's seat budget through its sampling override."""
+    if role != "challenger":
+        return entry
+    spec = dict(entry) if isinstance(entry, dict) else {"model": str(entry)}
+    model = str(spec["model"])
+    try:
+        wsc = workspace_context(ws_id, spec.get("persona"))
+    except KeyError:
+        return spec
+    audit_ws = {key: wsc.get(key) for key in ("think", "context_limit", "predict_limit")}
+    if spec.get("think") is not None:
+        audit_ws["think"] = str(spec["think"]).lower() == "true"
+    from tests.wfe import settings_audit
+
+    target = settings_audit.reasoning_budget_target(
+        audit_ws,
+        model,
+        settings_audit._load_expectations(),
+        baked_window=settings_audit.ctx_from_tag(model),
+    )
+    if target is None:
+        return spec
+    current = spec.get("sampling")
+    sampling = {} if current in (None, "seat") else dict(current)
+    spec["sampling"] = {**sampling, "max_tokens": target}
+    return spec
+
+
 def row_model(r: dict) -> str:
     """The model tag a row runs. Rows written before variant arms carry none."""
     return r.get("model") or r["arm"]
@@ -564,7 +593,8 @@ def _planned_arms(arms: dict, ws_id: str, only_arm: str | None, want: set | None
     for role, entry in ordered:
         if not entry:
             continue
-        arm_id, model, overrides = arm_spec(_with_card_sampling(entry, role, ws_id))
+        prepared = _with_reasoning_budget(_with_card_sampling(entry, role, ws_id), role, ws_id)
+        arm_id, model, overrides = arm_spec(prepared)
         if only_arm and only_arm not in (arm_id, model):
             continue
         if role == "challenger" and want is not None and arm_id not in want:
@@ -2547,7 +2577,8 @@ def _sampling_for(wsc: dict, repeat: int, overrides: dict | None = None) -> dict
         # The pipeline serves the seat's own sampling and output cap; only an
         # arm's explicit override is sent, and it wins key by key (caller wins).
         forced = (overrides or {}).get("sampling") or {}
-        return {**forced, "seed": 1000 + repeat, "max_tokens_source": "pipeline"}
+        source = "arm_override" if forced.get("max_tokens") is not None else "pipeline"
+        return {**forced, "seed": 1000 + repeat, "max_tokens_source": source}
     s = {"max_tokens": HARNESS_RUNAWAY_CAP, **(wsc.get("sampling") or {})}
     s["max_tokens_source"] = (
         "predict_limit" if (wsc.get("sampling") or {}).get("max_tokens") else "harness_runaway_cap"
@@ -2560,6 +2591,17 @@ def _sampling_for(wsc: dict, repeat: int, overrides: dict | None = None) -> dict
         s = {"max_tokens": s["max_tokens"], "max_tokens_source": s["max_tokens_source"], **forced}
     s["seed"] = 1000 + repeat
     return s
+
+
+def _served_predict_budget(wsc: dict, sampling: dict) -> int:
+    """The effective output cap recorded for this request, including the Pipeline default."""
+    if sampling.get("max_tokens") is not None:
+        return int(sampling["max_tokens"])
+    if ENGINE == "pipeline":
+        from tests.wfe.settings_audit import _served_output_budget
+
+        return _served_output_budget(wsc)
+    return 2048
 
 
 @functools.cache
@@ -2763,6 +2805,7 @@ def run_row(
     pipe = ENGINE == "pipeline"
     harness["pipeline_model"] = row_model(r) if pipe else None
     task, wsc, prod = eval_mode.prepare(pipe, r, manifest, task, wsc, harness)
+    predict_budget = _served_predict_budget(wsc, sampling)
     # The prompt actually sent: in pipeline mode the pipeline adds the append.
     sent_prompt = wsc["system_prompt_pipeline"] if pipe else wsc["system_prompt"]
     try:
@@ -2817,6 +2860,7 @@ def run_row(
         tool_surface_proxy=bool(wsc.get("tool_surface_proxy", True)),
         harness=dict(harness),
         sampling=sampling,
+        predict_budget=predict_budget,
         seed=sampling.get("seed"),
         turns=out["turns"],
         tool_calls=out["tool_calls"],
@@ -2867,6 +2911,7 @@ def run_row(
                 or (task.get("turns") or [{}])[0].get("user", ""),
                 "harness": dict(harness),
                 "sampling": sampling,
+                "predict_budget": predict_budget,
                 "tool_surface": wsc.get("tool_surface"),
                 "outcome": out["outcome"],
                 "notes": out["notes"],
@@ -4110,9 +4155,18 @@ def _cmd_list_arms(plan: Path, all_suites: bool) -> int:
     return 0
 
 
-def _print_preflight(i: int, total: int, arm: str, res: dict, elapsed: float) -> None:
+def _print_preflight(
+    i: int,
+    total: int,
+    arm: str,
+    res: dict,
+    elapsed: float,
+    budgets: list[tuple[str, str, int]],
+) -> None:
     """One arm's preflight verdict and everything that qualified it."""
     print(f"[{i}/{total}] {str(res.get('verdict')):6s} {round(elapsed, 1):7.1f}s  {arm}")
+    for arm_id, workspace, budget in budgets:
+        print(f"          predict_budget: {arm_id} [{workspace}] {budget}")
     for f in res.get("findings") or []:
         print(f"          FINDING: {f}")
     for n in res.get("notes") or []:
@@ -4128,18 +4182,31 @@ def _cmd_preflight(campaign_dir: Path, force: bool) -> int:
     the sweep does not pay for the probe twice. Exit 1 if any arm needs review."""
     drain_others("")
     sizes = model_sizes()
+    manifest = load_manifest(campaign_dir)
     # Preflight probes the MODEL's transport; variant arms of one model share it.
     arms = sorted(
-        {row_model(r) for r in load_manifest(campaign_dir)["rows"]},
+        {row_model(r) for r in manifest["rows"]},
         key=lambda a: (sizes.get(a, 0), a),
     )
     # Arms served by another engine (WFE_ENGINE) are not Ollama tags at all.
     missing = [a for a in arms if a not in sizes] if sizes and ENGINE == "ollama" else []
-    manifest = load_manifest(campaign_dir)
     frozen = manifest.setdefault("identity_map", {})
     ws_by_model: dict[str, set] = {}
+    budgets_by_model: dict[str, list[tuple[str, str, int]]] = {}
+    seen_budgets: set[tuple[str, str, str]] = set()
     for r in manifest["rows"]:
-        ws_by_model.setdefault(row_model(r), set()).add(r["workspace"])
+        model = row_model(r)
+        workspace = r["workspace"]
+        ws_by_model.setdefault(model, set()).add(workspace)
+        key = (model, r["arm"], workspace)
+        if key in seen_budgets:
+            continue
+        seen_budgets.add(key)
+        wsc = workspace_context(workspace, row_overrides(r).get("persona"))
+        sampling = _sampling_for(wsc, r.get("repeat") or 0, row_overrides(r))
+        budgets_by_model.setdefault(model, []).append(
+            (r["arm"], workspace, _served_predict_budget(wsc, sampling))
+        )
     bad = []
     drift: list[str] = []
     for i, a in enumerate(arms, 1):
@@ -4153,7 +4220,7 @@ def _cmd_preflight(campaign_dir: Path, force: bool) -> int:
         # The first preflight of a pair freezes its identity; a later change
         # means the two halves of the comparison describe different builds.
         drift += freeze_identities(frozen, res.get("identities") or {})
-        _print_preflight(i, len(arms), a, res, time.monotonic() - t0)
+        _print_preflight(i, len(arms), a, res, time.monotonic() - t0, budgets_by_model.get(a, []))
         if verdict != "OK":
             bad.append(a)
         drain_model(a)
