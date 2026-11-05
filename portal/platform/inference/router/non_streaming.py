@@ -18,6 +18,7 @@ import httpx
 from fastapi.responses import JSONResponse
 
 from portal.platform.inference.config import PersonaSpec
+from portal.platform.inference.model_addressing import workspace_context_limit
 from portal.platform.inference.router.backend_introspect import _approx_prompt_tokens
 from portal.platform.inference.router.correlation import get_correlation_id
 from portal.platform.inference.router.download_links import (
@@ -55,6 +56,8 @@ from portal.platform.inference.router.tool_repeat import (
     GROUNDING_REQUEST,
     UNGROUNDED_NOTICE,
     ToolRepeatGuard,
+    apply_tool_byte_budget,
+    tool_result_byte_budget,
 )
 from portal.platform.inference.router.tools import (
     _dispatch_tool_call,
@@ -975,6 +978,8 @@ async def _try_non_streaming(
             _ns_messages = list(req_body.get("messages") or [])
             _ns_hops = 0
             _ns_guard = ToolRepeatGuard()
+            _ns_tool_byte_budget = tool_result_byte_budget(workspace_context_limit(workspace_id))
+            _ns_tool_result_bytes = 0
             # no file tools offered: nothing to filter
             _ns_creation_succeeded = not offers_file_creation(req_body.get("tools"))
             if (
@@ -1049,6 +1054,13 @@ async def _try_non_streaming(
                     data, _ns_tool_calls, _ns_thinking_allowed, _ns_creation_succeeded
                 )
                 _ns_messages = _ns_messages + [_ns_assistant_msg] + list(_ns_dispatch)
+                _ns_tool_result_bytes = apply_tool_byte_budget(
+                    _ns_guard,
+                    _ns_tool_result_bytes,
+                    _ns_dispatch,
+                    _ns_tool_byte_budget,
+                    workspace_id,
+                )
                 # Every turn but the last keeps the tools, so a turn that needs a second
                 # lookup gets it; the last is the synthesis, run with none.
                 _ns_last = _ns_hops >= max_hops or _ns_guard.force_synthesis
