@@ -2009,6 +2009,29 @@ def test_queue_requeue_of_a_cancelled_job_starts_at_the_canary(
     assert json.loads((archive / "job_state.json").read_text(encoding="utf-8"))["run_count"] == 25
 
 
+def test_queue_requeue_refused_by_the_ledger_leaves_prior_run_files(
+    tmp_path: Path, repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(cli_module, "_repo_root", lambda: repo)
+    spec, _canary, _main = _canary_spec(repo, tmp_path)
+    task_root = tmp_path / "tasks"
+    with QueueLedger(task_root) as ledger:
+        ledger.enqueue_job(spec, repo)
+    _write_prior_run(task_root, spec, canary_state="done", main_state="running")
+    (task_root / spec.job_id / "run.lock").unlink()
+
+    result = CliRunner().invoke(
+        orchestration_app, ["queue-requeue", spec.job_id, "--tasks-dir", str(task_root)]
+    )
+
+    assert result.exit_code == 1
+    assert "queued" in result.output
+    job_dir = task_root / spec.job_id
+    assert (job_dir / "job_state.json").is_file()
+    assert (job_dir / "receipt.json").is_file()
+    assert not (job_dir / "prior_runs").exists()
+
+
 def test_queue_requeue_resume_reruns_the_canary_and_keeps_other_steps(
     tmp_path: Path, repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -126,6 +126,9 @@ def requeue_job(root: Path, task_id: str, repo_root: Path, *, resume: bool = Fal
         raise ValueError(f"job spec id {spec.job_id} does not match queue id {task_id}")
     job_dir = root / task_id
     refuse_live_job_lock(job_dir)
+    # Refuse before touching the job directory: a queued or running task keeps its files.
+    with QueueLedger(root) as ledger:
+        ledger._assert_requeue_job(task_id)
     if resume:
         reopen_canary_steps(job_dir, job_json(spec))
         archive = None
