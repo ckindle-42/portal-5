@@ -10,7 +10,8 @@ workloads:
     home: realuse_v1
     discovery: []
     arms:
-      challengers:
-        - model: gemma4:26b-a4b-it-qat-ctx16k
-          label: think-on
-          think: true
+      # Incumbent slot so the canary (which replays one incumbent row) exercises the think-on arm.
+      incumbent:
+        model: gemma4:26b-a4b-it-qat-ctx16k
+        label: think-on
+        think: true
