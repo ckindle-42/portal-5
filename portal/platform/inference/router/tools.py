@@ -58,7 +58,7 @@ def format_tool_result_carry(
     closing = "\n</ul>\n</details>"
     items: list[str] = []
     used_chars = len(opening) + len(closing)
-    for call, result in zip(tool_calls, results, strict=True):
+    for call, result in zip(tool_calls, results, strict=False):
         function = call.get("function") or {}
         name = _carry_excerpt(function.get("name") or "unknown", 80)
         raw_args = function.get("arguments") or "{}"
