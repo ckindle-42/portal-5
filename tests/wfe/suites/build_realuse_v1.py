@@ -192,6 +192,16 @@ ANSWER_PATTERN_EXPECTATIONS = {
         ),
     ),
 }
+TURN_USER_EXPECTATIONS = {
+    "ru-v1-005": (
+        (
+            1,
+            "Run a corrected count in execute_python that includes every row, "
+            "including the last one, and print the total once as active=<number>. "
+            "Don't try to save a file. This sandbox cannot write back to the host.",
+        ),
+    ),
+}
 SEED_EXPECTATIONS = {
     "ru-v1-009": ("Thursday 2pm", "Friday"),
     "ru-v1-021": ("Monday through Wednesday", "No equipment stipend"),
@@ -670,6 +680,15 @@ def _verify_task_values(files: dict[Path, bytes]) -> None:
     _check_expand_counts(files)
 
 
+def _check_turn_users(suite_rows: list[dict[str, Any]]) -> None:
+    rows = {row["id"]: row for row in suite_rows}
+    for task_id, turns in TURN_USER_EXPECTATIONS.items():
+        for index, text in turns:
+            got = rows[task_id]["turns"][index]["user"]
+            if got != text:
+                raise AssertionError(f"{task_id}: turn {index} user text drifted")
+
+
 def _check_answer_patterns(suite_rows: list[dict[str, Any]]) -> None:
     rows = {row["id"]: row for row in suite_rows}
     for task_id, checks in ANSWER_PATTERN_EXPECTATIONS.items():
@@ -780,6 +799,7 @@ def self_check(
     if (destination_root / MANIFEST).read_text(encoding="utf-8") != manifest_text:
         raise AssertionError("fixture manifest does not match generated files")
     _check_answer_patterns(suite_rows)
+    _check_turn_users(suite_rows)
     _verify_task_values(actual)
     _check_nonfile_seeds(suite_rows, draft_rows)
     _check_image_specs(draft_rows)

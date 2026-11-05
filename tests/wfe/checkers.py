@@ -292,12 +292,14 @@ def _normalize_match_text(text: str) -> str:
 _REGEX_METACHARS = re.compile(r"[\\^$.|?*+()\[\]{}]")
 _MERIDIEM_SPELLING_RE = re.compile(r"(?:a|p)\.m\.", re.I)
 
-#: One clock value, many spellings: "10am", "10 am", "10:00 AM" and "10 a.m."
-#: all canonicalize to "10am"; "9 to 12", "9-12" and "9:00 AM - 12:00 PM" all
-#: canonicalize to "9am-12pm" (a bare 12-hour range reads morning-to-afternoon;
-#: a range whose end carries no meridiem ends pm, one that does keeps it).
-#: Unambiguous words take their clock alias (noon, midnight, eastern time).
-#: Applied on the literal path only.
+#: One clock value, many spellings: "10am", "10 am", "10:00 AM", "10 a.m." and
+#: "08:00 AM" canonicalize to "10am"/"8am". A bare "8:00" stays "8:00"; a
+#: meridiem pattern of that hour also matches it, so "8am" accepts "8:00" and
+#: "1pm" accepts "1:00", while "8:00 PM" stays "8pm" and does not match "8am".
+#: "9 to 12", "9-12", "9–12", "9:00-12:00" and "9:00 AM - 12:00 PM" canonicalize
+#: to "9am-12pm" (a bare 12-hour range reads morning-to-afternoon; a range whose
+#: end carries no meridiem ends pm, one that does keeps it). Unambiguous words
+#: take their clock alias (noon, midnight, eastern time). Literal path only.
 _TIME_ALIASES = (
     (re.compile(r"\beastern\s+time\b", re.I), "et"),
     (re.compile(r"\bnoon\b", re.I), "12pm"),
@@ -314,6 +316,15 @@ _BARE_RANGE_RE = re.compile(
     r"(a\.m\.|p\.m\.|am|pm)?(?![A-Za-z])(?!\.?\d)",
     re.I,
 )
+#: "9:00-12:00" and "9:00 to 12:00" are the same bare range as "9 to 12" when both
+#: minutes are :00. A non-zero minute stays literal so "9:30" is not "9".
+_MINUTE_RANGE_RE = re.compile(
+    r"(?<![\w.-])0*(\d{1,2}):00\s*(?:to|through|thru|until|till|-)\s*"
+    r"0*(\d{1,2}):00(?!\d)",
+    re.I,
+)
+_LEADING_ZERO_CLOCK_RE = re.compile(r"(?<![\d:])0(\d):00(?!\d)")
+_CLOCK_TOKEN_RE = re.compile(r"(?<![\d:])(\d{1,2})(?::00)?(am|pm)\b", re.I)
 
 
 #: Numbered min/mins/minute(s) and hr/hrs/hour(s) share one form. A bare "minutes" pattern does not trigger it.
@@ -399,11 +410,34 @@ def _fold_literal(pattern: str, text: str) -> tuple[str, str]:
     return _collapse_label_separators(pattern), _collapse_label_separators(text)
 
 
+def _fold_minute_range(m: re.Match) -> str:
+    h1, h2 = int(m.group(1)), int(m.group(2))
+    if not (1 <= h1 <= 12 and 1 <= h2 <= 12):
+        return m.group(0)
+    return f"{h1}am-{h2}pm"
+
+
+def _with_bare_clock_alts(folded: str) -> str:
+    """A :00 meridiem clock also matches that hour written H:00 with no meridiem."""
+    parts: list[str] = []
+    pos = 0
+    for m in _CLOCK_TOKEN_RE.finditer(folded):
+        parts.append(re.escape(folded[pos : m.start()]))
+        hour, mer = str(int(m.group(1))), m.group(2).lower()
+        parts.append(rf"(?<!\d)(?:{hour}{mer}|{hour}:00)(?!\d)")
+        pos = m.end()
+    parts.append(re.escape(folded[pos:]))
+    return "".join(parts)
+
+
 def _canonicalize_times(text: str) -> str:
     def tighten(m: re.Match) -> str:
-        hour, minute, mer = m.group(1), m.group(2), m.group(3).lower()
+        hour, minute, mer = int(m.group(1)), m.group(2), m.group(3).lower()
+        if not 1 <= hour <= 12:
+            return m.group(0)
         suffix = "am" if mer.startswith("a") else "pm"
-        return f"{hour}{suffix}" if minute in (None, "00") else f"{hour}:{minute}{suffix}"
+        shown = str(hour)
+        return f"{shown}{suffix}" if minute in (None, "00") else f"{shown}:{minute}{suffix}"
 
     def bare(m: re.Match) -> str:
         h1, h2, mer = m.group(1), m.group(2), (m.group(3) or "").lower()
@@ -416,7 +450,9 @@ def _canonicalize_times(text: str) -> str:
         text = rx.sub(sub, text)
     text = _MERIDIEM_RE.sub(tighten, text)
     text = _TIMED_RANGE_RE.sub(r"\1-\2", text)
-    return _BARE_RANGE_RE.sub(bare, text)
+    text = _MINUTE_RANGE_RE.sub(_fold_minute_range, text)
+    text = _BARE_RANGE_RE.sub(bare, text)
+    return _LEADING_ZERO_CLOCK_RE.sub(lambda m: f"{int(m.group(1))}:00", text)
 
 
 def _text_match(pattern: str, text: str) -> bool:
@@ -431,7 +467,7 @@ def _text_match(pattern: str, text: str) -> bool:
         readable = re.sub(r"\s+", " ", _strip_markdown_emphasis(base))
         return _pattern_match(pat, readable)
     lit, folded = _fold_literal(_normalize_match_text(pat), base)
-    return _pattern_match(re.escape(lit), folded)
+    return _pattern_match(_with_bare_clock_alts(lit), folded)
 
 
 def _pattern_match(pattern: str, text: str) -> bool:

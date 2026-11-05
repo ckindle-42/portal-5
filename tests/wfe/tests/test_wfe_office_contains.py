@@ -277,6 +277,65 @@ def test_inline_day_labels_match_the_phrase(tmp_path):
     )
 
 
+def test_qwen_week_plan_bare_clocks_match(tmp_path):
+    """realuse_autodaily_upload_20261105 Qwen3.8 ru-v1-032 r0 table cells."""
+    d = docx.Document()
+    d.add_heading("Week Plan", 1)
+    table = d.add_table(rows=6, cols=3)
+    for i, row in enumerate(
+        (
+            ("Day", "Task", "Time"),
+            ("Monday", "Meeting prep", "—"),
+            ("Tuesday", "Coding project", "9:00 – 12:00 only"),
+            ("Wednesday", "Travel admin", "Leave by 8:00"),
+            ("Thursday", "Research", "—"),
+            ("Friday", "Wrap-up", "Ends at 1:00"),
+        )
+    ):
+        for j, value in enumerate(row):
+            table.rows[i].cells[j].text = value
+    d.save(tmp_path / "w.docx")
+    spec = {"type": "office_contains", "kind": "docx", "path": "w.docx"}
+    ctx = CheckContext(sandbox_root=tmp_path)
+    assert (
+        check_office_contains(
+            {
+                **spec,
+                "expect": [
+                    "Monday meeting prep",
+                    "Tuesday coding project",
+                    "9 to 12",
+                    "8am",
+                    "1pm",
+                ],
+                "headings": ["Week Plan"],
+            },
+            ctx,
+        ).outcome
+        == Outcome.PASS
+    )
+    revised = docx.Document()
+    revised.add_heading("Week Plan Revised", 1)
+    revised.add_paragraph("Tuesday coding project 9:00–12:00, break at 11:00")
+    revised.save(tmp_path / "r.docx")
+    assert (
+        check_office_contains(
+            {**spec, "path": "r.docx", "expect": ["11am"], "headings": ["Week Plan Revised"]},
+            ctx,
+        ).outcome
+        == Outcome.PASS
+    )
+    wrong = docx.Document()
+    wrong.add_paragraph("Tuesday coding project 9:30-12:00, leave by 8:00 PM, ends at 1:30")
+    wrong.save(tmp_path / "bad.docx")
+    assert (
+        check_office_contains(
+            {**spec, "path": "bad.docx", "expect": ["9 to 12", "8am", "1pm"]}, ctx
+        ).outcome
+        == Outcome.FAIL
+    )
+
+
 def test_a_time_written_one_way_matches_expect_written_another(tmp_path):
     d = docx.Document()
     d.add_paragraph("Wednesday travel admin, leave by 8:00 AM")
