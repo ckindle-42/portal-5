@@ -65,8 +65,60 @@ def test_a_grep_of_the_binary_would_not_pass_but_parsing_does(tmp_path):
 def test_missing_corrupt_and_escaping_files_fail(tmp_path):
     assert _run(tmp_path, "docx", ["x"], "none.docx").outcome == Outcome.FAIL
     (tmp_path / "bad.xlsx").write_bytes(b"not a zip")
-    assert _run(tmp_path, "xlsx", ["x"], "bad.xlsx").outcome == Outcome.FAIL
+    corrupt = _run(tmp_path, "xlsx", ["x"], "bad.xlsx")
+    assert corrupt.outcome == Outcome.FAIL
+    assert "unparseable" in corrupt.notes
     assert _run(tmp_path, "docx", ["x"], "../../etc/passwd").outcome == Outcome.FAIL
+
+
+def test_a_missing_parser_is_an_instrument_error(tmp_path, monkeypatch):
+    (tmp_path / "x.docx").write_bytes(b"PK not really")
+
+    def boom(_path, _kind):
+        raise ModuleNotFoundError("No module named 'docx'")
+
+    monkeypatch.setattr("tests.wfe.checkers._office_parts", boom)
+    result = _run(tmp_path, "docx", ["x"], "x.docx")
+    assert result.outcome == Outcome.HARNESS_ERROR
+    assert "docx" in result.notes
+    assert "unparseable" not in result.notes
+    assert "docx" in result.evidence["parser_error"]
+
+
+def test_a_parser_value_error_stays_a_model_fail(tmp_path, monkeypatch):
+    (tmp_path / "bad.docx").write_bytes(b"not a zip")
+
+    def boom(_path, _kind):
+        raise ValueError("bad zip")
+
+    monkeypatch.setattr("tests.wfe.checkers._office_parts", boom)
+    result = _run(tmp_path, "docx", ["x"], "bad.docx")
+    assert result.outcome == Outcome.FAIL
+    assert "unparseable" in result.notes
+
+
+def test_preflight_names_a_missing_office_parser(monkeypatch):
+    import tests.wfe.checkers as checkers
+
+    real = checkers.importlib.import_module
+
+    def fake(name, package=None):
+        if name == "docx":
+            raise ImportError("No module named 'docx'")
+        return real(name, package)
+
+    monkeypatch.setattr(checkers.importlib, "import_module", fake)
+    assert checkers.missing_office_parsers() == ["docx"]
+
+
+def test_campaign_preflight_refuses_a_missing_office_parser(tmp_path, monkeypatch):
+    import tests.wfe.checkers as checkers
+    from tests.wfe import campaign
+
+    monkeypatch.setattr(checkers, "missing_office_parsers", lambda: ["docx", "pymupdf"])
+    with pytest.raises(campaign.GateRefused, match="missing module docx, pymupdf") as exc:
+        campaign.gate_execution(tmp_path)
+    assert exc.value.code == campaign.EXIT_GATE
 
 
 def test_registered_in_the_schema_gate():

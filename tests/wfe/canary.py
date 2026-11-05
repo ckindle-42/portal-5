@@ -10,13 +10,16 @@ those rows FIRST, in a separate `<id>_canary` campaign, and classifies each:
   SETUP   the harness failed the row, not the model — 0 s BLOCKED, "requires
           tools the harness does not offer", a fixture/file not found or
           ENOENT in the note or tool output, a reused/re-graded row, a
-          conformance or preflight abort, HARNESS_ERROR, or a row that never
-          ran.
+          conformance or preflight abort, or a row that never ran.
+          HARNESS_ERROR is an instrument fault: the gate exits 1, it is not
+          excluded.
   MODEL   anything else — the seat answered and was measured.
 
-Exit 0 when the selected rows ran. A per-row SETUP is written to excluded.json
-and still exits 0 so the main campaign can skip that workspace. Whole-run faults
-(no row selected, ABORT, FIXTURES, CONFORMANCE, gate refused) exit 1. Reached
+Exit 0 when the selected rows ran and none is HARNESS_ERROR. A per-row SETUP
+is written to excluded.json and still exits 0 so the main campaign can skip
+that workspace. An instrument-error row (HARNESS_ERROR) exits 1. Whole-run
+faults (no row selected, ABORT, FIXTURES, CONFORMANCE, gate refused) exit 1.
+Reached
 through `wfe_campaign.sh <id> ... --canary` (job specs: a `canary: <step>` step).
 
 A fault appended once is SETUP forever: `--record-fault SIG --cause TEXT --fix SHA`
@@ -481,6 +484,16 @@ def run_canary(argv: list[str] | None = None) -> int:
         )
     records = _records_for(cd, selected)
     _print_table(records)
+    return _canary_exit(cid, cd, records)
+
+
+def _canary_exit(cid: str, cd: Path, records: list[dict]) -> int:
+    """Fail the gate on HARNESS_ERROR; other SETUP rows are excluded and the gate still passes."""
+    instrument = [r for r in records if str(r.get("outcome") or "") == "HARNESS_ERROR"]
+    if instrument:
+        n = len(instrument)
+        print(f"CANARY {cid}: FAIL ({n} instrument-error row(s) of {len(records)})")
+        return 1
     setup = [r for r in records if r["class"] == SETUP]
     _write_exclusions(cd, setup)
     if setup:

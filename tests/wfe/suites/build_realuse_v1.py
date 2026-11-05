@@ -103,16 +103,27 @@ ANSWER_PATTERN_EXPECTATIONS = {
     "ru-v1-001": (
         (
             0,
-            r"timeline\s+(?:slipp(?:ed|ing)|extended)\s+by\s+3\s+days",
+            r"timeline\s+(?:(?:has(?:\s+been)?|had|was|is|been)\s+)?"
+            r"(?:slipp(?:ed|ing)|extended)\s+by\s+(?:3|three)\s+days",
             (
                 "Timeline slipped by 3 days",
                 "Timeline slipping by 3 days",
                 "The project timeline extended by 3 days",
+                "the project timeline has slipped by 3 days",
+                "timeline had slipped by three days",
+                "timeline was extended by 3 days",
+                "timeline is slipping by three days",
+                "timeline been slipped by 3 days",
+                "the timeline has been extended by three days",
             ),
             (
+                "no slip",
+                "slipped by 2 days",
                 "Timeline delayed by 3 days",
                 "Timeline slipped by 30 days",
                 "Timeline extended by 30 days",
+                "timeline has slipped by 2 days",
+                "timeline has slipped by 30 days",
             ),
         ),
         (

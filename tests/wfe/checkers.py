@@ -16,6 +16,7 @@ Every checker here replaced a version that could return a false PASS:
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 import re
 import shutil
@@ -282,8 +283,9 @@ def _normalize_match_text(text: str) -> str:
 
 #: A pattern holding none of regex's metacharacters is a literal: the full
 #: normalization (including the time/range forms below) is applied to it AND to
-#: the text before matching. An authored regex is matched against the
-#: base-normalized text only — the time rewrites must never edit a regex.
+#: the text before matching. An authored regex is matched against
+#: emphasis-stripped base text only — time, duration, and weekday rewrites
+#: must never edit a regex.
 #: a.m./p.m. spellings do not make a pattern a regex ("10 a.m." is a literal).
 _REGEX_METACHARS = re.compile(r"[\\^$.|?*+()\[\]{}]")
 _MERIDIEM_SPELLING_RE = re.compile(r"(?:a|p)\.m\.", re.I)
@@ -319,6 +321,33 @@ _NUMBERED_DURATION_RE = re.compile(
 )
 #: A colon or dash between words, and markdown emphasis, is a label separator on the literal path.
 _LABEL_SEP_RE = re.compile(r"(?<=[A-Za-z])\s*[:\-]\s*(?=[A-Za-z])")
+#: Full weekday names and their standard abbreviations, optional trailing period. Longest first.
+_WEEKDAY_TOKEN = re.compile(
+    r"\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday"
+    r"|thurs|thur|tues|thu|tue|wed|fri|mon|sat|sun)\b\.?",
+    re.I,
+)
+_WEEKDAY_CANON = {
+    "monday": "monday",
+    "mon": "monday",
+    "tuesday": "tuesday",
+    "tues": "tuesday",
+    "tue": "tuesday",
+    "wednesday": "wednesday",
+    "wed": "wednesday",
+    "thursday": "thursday",
+    "thurs": "thursday",
+    "thur": "thursday",
+    "thu": "thursday",
+    "friday": "friday",
+    "fri": "friday",
+    "saturday": "saturday",
+    "sat": "saturday",
+    "sunday": "sunday",
+    "sun": "sunday",
+}
+#: Import names check_office_contains and the realuse PDF reader need in this interpreter.
+OFFICE_PARSER_MODULES = ("docx", "openpyxl", "pptx", "pymupdf")
 
 
 def _canonicalize_durations(text: str) -> str:
@@ -327,6 +356,26 @@ def _canonicalize_durations(text: str) -> str:
         return f"{m.group(1)} {canon}"
 
     return _NUMBERED_DURATION_RE.sub(repl, text)
+
+
+def _canonicalize_weekdays(text: str) -> str:
+    """Whole-word weekday names and abbreviations share one form; a range is not filled in."""
+
+    def repl(m: re.Match) -> str:
+        return _WEEKDAY_CANON[m.group(0).rstrip(".").lower()]
+
+    return _WEEKDAY_TOKEN.sub(repl, text)
+
+
+def missing_office_parsers() -> list[str]:
+    """Import names that failed to load in this interpreter."""
+    missing = []
+    for name in OFFICE_PARSER_MODULES:
+        try:
+            importlib.import_module(name)
+        except ImportError:
+            missing.append(name)
+    return missing
 
 
 def _strip_markdown_emphasis(text: str) -> str:
@@ -340,8 +389,8 @@ def _collapse_label_separators(text: str) -> str:
 
 
 def _fold_literal(pattern: str, text: str) -> tuple[str, str]:
-    pattern = _canonicalize_times(_strip_markdown_emphasis(pattern))
-    text = _canonicalize_times(_strip_markdown_emphasis(text))
+    pattern = _canonicalize_weekdays(_canonicalize_times(_strip_markdown_emphasis(pattern)))
+    text = _canonicalize_weekdays(_canonicalize_times(_strip_markdown_emphasis(text)))
     if _NUMBERED_DURATION_RE.search(pattern):
         pattern = _canonicalize_durations(pattern)
         text = _canonicalize_durations(text)
@@ -372,12 +421,13 @@ def _text_match(pattern: str, text: str) -> bool:
     """Literal patterns are normalized on BOTH sides — pattern and text — so a check
     written one way accepts the same fact written another way (unicode punctuation,
     case, time/range spellings, numbered duration units, and label separators).
-    Authored regexes keep their exact semantics against the base-normalized text.
-    The decimal guard below applies to both."""
+    Authored regexes keep their exact semantics against emphasis-stripped
+    base text. The decimal guard below applies to both."""
     base = _normalize_match_text(text)
     pat = pattern or ""
     if _REGEX_METACHARS.search(_MERIDIEM_SPELLING_RE.sub("", pat)):
-        return _pattern_match(pat, base)
+        readable = re.sub(r"\s+", " ", _strip_markdown_emphasis(base))
+        return _pattern_match(pat, readable)
     lit, folded = _fold_literal(_normalize_match_text(pat), base)
     return _pattern_match(re.escape(lit), folded)
 
@@ -840,6 +890,12 @@ def check_office_contains(spec: dict, ctx: CheckContext) -> CheckResult:
     for f in files:
         try:
             text, names, sections = _office_parts(f, kind)
+        except ImportError as e:
+            return CheckResult(
+                Outcome.HARNESS_ERROR,
+                f"office parser missing: {e}",
+                {"parser_error": str(e)},
+            )
         except Exception as e:  # noqa: BLE001
             best = best or [f"unparseable {f.name}: {e}"]
             continue

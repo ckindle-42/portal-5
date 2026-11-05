@@ -416,6 +416,116 @@ class TestTimeAndLiteralNormalization:
         )
         assert narrow.outcome == Outcome.PASS
 
+    def test_weekday_abbreviations_match_the_full_name(self):
+        """realuse confirm ru-v1-004 Qwen3.8: Tue/Wed/Thu is Tuesday, Wednesday, Thursday."""
+        answer = (
+            "This year it's **3 in-office days (Tue/Wed/Thu)** with **remote Mondays and Fridays**"
+        )
+        got = check_answer_contains(
+            {"patterns": ["Tuesday", "Wednesday", "Thursday"]},
+            CheckContext(final_text=answer),
+        )
+        assert got.outcome == Outcome.PASS
+        short = check_answer_contains(
+            {"patterns": ["Tuesday", "Wednesday", "Thursday"]},
+            CheckContext(final_text="3 in-office days (Tue/Wed/Thu)"),
+        )
+        assert short.outcome == Outcome.PASS
+        reverse = check_answer_contains(
+            {"patterns": ["Tue", "Wed.", "Thurs"]},
+            CheckContext(final_text="in office Tuesday, Wednesday, and Thursday"),
+        )
+        assert reverse.outcome == Outcome.PASS
+        # A dash range names its ends. It does not fill in Wednesday.
+        ends = check_answer_contains(
+            {"patterns": ["Tuesday", "Thursday"]},
+            CheckContext(final_text="three office days (Tue\u2013Thu)"),
+        )
+        assert ends.outcome == Outcome.PASS
+        middle = check_answer_contains(
+            {"patterns": ["Wednesday"]},
+            CheckContext(final_text="three office days (Tue\u2013Thu)"),
+        )
+        assert middle.outcome == Outcome.FAIL
+        assert (
+            check_answer_contains(
+                {"patterns": ["Monday through Wednesday"]},
+                CheckContext(final_text="Monday through Wednesday"),
+            ).outcome
+            == Outcome.PASS
+        )
+        assert (
+            check_answer_contains(
+                {"patterns": ["Monday through Wednesday"]},
+                CheckContext(final_text="Mon\u2013Wed"),
+            ).outcome
+            == Outcome.FAIL
+        )
+        assert (
+            check_answer_contains(
+                {"patterns": ["Monday through Wednesday"]},
+                CheckContext(final_text="Mon through Wed"),
+            ).outcome
+            == Outcome.PASS
+        )
+        assert _text_match("0 Mon", "0 Mon") is True
+        assert _text_match("1 Tue", "1 Tue") is True
+        assert _text_match("Saturdays 8am to noon", "Saturdays 8am to noon") is True
+
+    def test_authored_regex_matches_emphasis_stripped_text(self):
+        assert _text_match(r"by\s+3\s+days", "slipped by **3 days**") is True
+        assert _text_match(r"by\s+3\s+days", "slipped by __3 days__") is True
+        assert _text_match(r"by\s+3\s+days", "slipped by *3 days*") is True
+        assert _text_match(r"by\s+3\s+days", "slipped by 2 days") is False
+        # Emphasis stripping is the only regex-path fold. Wed is not Wednesday.
+        assert _text_match(r"\bWed\b", "Wednesday") is False
+        assert _text_match(r"a\*b", "a*b") is True
+
+
+def test_ru_v1_001_turn0_accepts_an_auxiliary_before_slipped():
+    """realuse confirm ru-v1-001 Nemotron: 'timeline has slipped by **3 days**'."""
+    suite = Path(__file__).resolve().parents[1] / "suites" / "realuse_v1.jsonl"
+    task = next(
+        json.loads(line) for line in suite.read_text().splitlines() if '"ru-v1-001"' in line
+    )
+    turn = task["turns"][0]
+    answer = next(c for c in turn["checks"] if c["type"] == "answer_contains")
+    grounded = next(c for c in turn["checks"] if c["type"] == "tool_grounded")
+    pattern = (
+        r"timeline\s+(?:(?:has(?:\s+been)?|had|was|is|been)\s+)?"
+        r"(?:slipp(?:ed|ing)|extended)\s+by\s+(?:3|three)\s+days"
+    )
+    assert answer["patterns"][0] == pattern
+    assert "Timeline slipped by 3 days" in grounded["evidence"]
+    accepted = (
+        "the project timeline has slipped by **3 days**",
+        "timeline has slipped by **3\u202fdays**",
+        "timeline has slipped by 3 days",
+        "Timeline slipped by 3 days",
+        "Timeline slipping by 3 days",
+        "The project timeline extended by 3 days",
+        "timeline had slipped by three days",
+        "timeline was extended by 3 days",
+        "timeline is slipping by three days",
+        "timeline been slipped by 3 days",
+        "the timeline has been extended by three days",
+    )
+    for text in accepted:
+        got = check_answer_contains({"patterns": [pattern]}, CheckContext(final_text=text))
+        assert got.outcome == Outcome.PASS, text
+    rejected = (
+        "no slip",
+        "slipped by 2 days",
+        "timeline has slipped by 2 days",
+        "Timeline delayed by 3 days",
+        "Timeline slipped by 30 days",
+        "Timeline extended by 30 days",
+        "timeline has slipped by 30 days",
+    )
+    for text in rejected:
+        got = check_answer_contains({"patterns": [pattern]}, CheckContext(final_text=text))
+        assert got.outcome == Outcome.FAIL, text
+
 
 def test_ru_v1_003_answer_accepts_the_thirty_minute_paraphrase():
     """ready4 ru-v1-003 turn 1: gemma '30-minute constraint', Qwen '30 min hard cap'.

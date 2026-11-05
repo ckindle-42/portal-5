@@ -347,7 +347,7 @@ class TestRunCanary:
         rows = _rows_for(
             plan,
             {
-                "auto-general": _row(outcome="HARNESS_ERROR", notes="runner raised: TypeError: x"),
+                "auto-general": _row(outcome="FAIL", notes="file not found: orders.docx"),
                 "ws-b": _row(outcome="PASS"),
             },
         )
@@ -356,9 +356,27 @@ class TestRunCanary:
         out = capsys.readouterr().out
         assert "CANARY c1_canary: PASS (1 setup row(s) excluded of 2)" in out
         assert "EXCLUDED auto-general:" in out
-        assert "HARNESS_ERROR" in out and "SETUP" in out and "MODEL" in out
+        assert "FAIL" in out and "SETUP" in out and "MODEL" in out
         excluded = json.loads((tmp / "campaigns" / "c1_canary" / "excluded.json").read_text())
-        assert excluded == [{"workspace": "auto-general", "reason": "runner raised: TypeError: x"}]
+        assert excluded == [{"workspace": "auto-general", "reason": "file not found: orders.docx"}]
+
+    def test_an_instrument_error_fails_the_gate(self, harness, monkeypatch, capsys):
+        plan, tmp = harness
+        rows = _rows_for(
+            plan,
+            {
+                "auto-general": _row(
+                    outcome="HARNESS_ERROR", notes="office parser missing: No module named 'docx'"
+                ),
+                "ws-b": _row(outcome="PASS"),
+            },
+        )
+        monkeypatch.setattr(camp, "execute_arm", _fake_execute(rows))
+        assert run_canary(["--campaign-id", "c1", "--plan", str(plan)]) == 1
+        out = capsys.readouterr().out
+        assert "CANARY c1_canary: FAIL (1 instrument-error row(s) of 2)" in out
+        assert "CANARY c1_canary: PASS" not in out
+        assert not (tmp / "campaigns" / "c1_canary" / "excluded.json").exists()
 
     def test_a_zero_second_block_excludes_that_workspace(self, harness, monkeypatch):
         plan, tmp = harness
