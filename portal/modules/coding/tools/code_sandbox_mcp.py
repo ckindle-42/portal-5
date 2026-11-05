@@ -815,7 +815,8 @@ async def execute_python(
     packages: list[str] | None = None,
 ) -> dict[str, Any]:
     """
-    Execute Python code in an isolated Docker sandbox.
+    Execute Python code in an isolated Docker sandbox. To run an existing file,
+    call runpy.run_path(path) or exec(open(path).read()); /workspace is readable.
 
     Security constraints (default posture): no network, 256MB RAM, 0.5 CPU,
     30s timeout, read-only filesystem, no Linux capabilities, no privilege

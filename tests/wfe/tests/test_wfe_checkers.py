@@ -277,6 +277,63 @@ class TestTimeAndLiteralNormalization:
         result = check_answer_contains({"patterns": ["9 to 12"]}, CheckContext(final_text=answer))
         assert result.outcome == Outcome.FAIL
 
+    @pytest.mark.parametrize(
+        "written",
+        ["9:00 – 12:00", "9\u201312", "9:00-12:00", "09:00 to 12:00"],
+    )
+    def test_minute_and_dash_ranges_match_nine_to_twelve(self, written):
+        """realuse_autodaily_upload_20261105 Qwen3.8 ru-v1-032 r0 wrote 9:00 – 12:00."""
+        result = check_answer_contains(
+            {"patterns": ["9 to 12"]}, CheckContext(final_text=f"Tuesday, {written}.")
+        )
+        assert result.outcome == Outcome.PASS, written
+
+    @pytest.mark.parametrize(
+        "answer",
+        ["9:00 PM - 12:00 AM", "9:30-12:00", "9:00-12:30", "10:00-12:00", "13:00-15:00"],
+    )
+    def test_a_different_minute_range_still_fails(self, answer):
+        result = check_answer_contains({"patterns": ["9 to 12"]}, CheckContext(final_text=answer))
+        assert result.outcome == Outcome.FAIL
+
+    @pytest.mark.parametrize(
+        ("pattern", "written"),
+        [
+            ("8am", "8:00"),
+            ("8am", "8 am"),
+            ("8am", "08:00 AM"),
+            ("1pm", "1:00"),
+            ("1pm", "1 pm"),
+            ("1pm", "01:00 PM"),
+            ("11am", "11:00"),
+            ("11am", "11 am"),
+        ],
+    )
+    def test_bare_clock_spellings_match_the_meridiem_pattern(self, pattern, written):
+        result = check_answer_contains(
+            {"patterns": [pattern]}, CheckContext(final_text=f"Leave by {written}.")
+        )
+        assert result.outcome == Outcome.PASS
+
+    @pytest.mark.parametrize(
+        ("pattern", "written"),
+        [
+            ("8am", "8:00 PM"),
+            ("8am", "9:00"),
+            ("8am", "18:00"),
+            ("8am", "8:30"),
+            ("1pm", "1:30"),
+            ("1pm", "11:00"),
+            ("11am", "11:00 PM"),
+            ("11am", "1:00"),
+        ],
+    )
+    def test_a_different_clock_still_fails(self, pattern, written):
+        result = check_answer_contains(
+            {"patterns": [pattern]}, CheckContext(final_text=f"Leave by {written}.")
+        )
+        assert result.outcome == Outcome.FAIL
+
     def test_hour_forms_match_written_out_answers(self):
         ok = check_answer_contains(
             {"patterns": ["8am", "1pm", "11am"]},
@@ -525,6 +582,39 @@ def test_ru_v1_001_turn0_accepts_an_auxiliary_before_slipped():
     for text in rejected:
         got = check_answer_contains({"patterns": [pattern]}, CheckContext(final_text=text))
         assert got.outcome == Outcome.FAIL, text
+
+
+def test_ru_v1_001_turn0_does_not_require_the_invoice_total():
+    """gemma think8k r0 and r2 failed only on 4020. The turn asks for each charge and the slip."""
+    suite = Path(__file__).resolve().parents[1] / "suites" / "realuse_v1.jsonl"
+    task = next(
+        json.loads(line) for line in suite.read_text().splitlines() if '"ru-v1-001"' in line
+    )
+    turn = task["turns"][0]
+    answer = next(c for c in turn["checks"] if c["type"] == "answer_contains")
+    grounded = next(c for c in turn["checks"] if c["type"] == "tool_grounded")
+    assert not any("4020" in p for p in answer["patterns"])
+    assert any("4020" in p for p in grounded["evidence"])
+    charges = [p for p in answer["patterns"] if p != answer["patterns"][0]]
+    assert charges == [
+        r"(?<!\d)2400(?!\d)",
+        r"(?<!\d)890(?!\d)",
+        r"(?<!\d)340(?!\d)",
+        r"(?<!\d)180(?!\d)",
+        r"(?<!\d)210(?!\d)",
+    ]
+    note = (
+        "Thanks for the work. The timeline slipped by 3 days. "
+        "Charges: design 2400, build 890, misc supplies 340, review 180, cleanup 210."
+    )
+    assert check_answer_contains(answer, CheckContext(final_text=note)).outcome == Outcome.PASS
+    missing_charge = note.replace("210", "200")
+    assert (
+        check_answer_contains(answer, CheckContext(final_text=missing_charge)).outcome
+        == Outcome.FAIL
+    )
+    no_slip = note.replace("slipped by 3 days", "stayed on schedule")
+    assert check_answer_contains(answer, CheckContext(final_text=no_slip)).outcome == Outcome.FAIL
 
 
 def test_ru_v1_003_answer_accepts_the_thirty_minute_paraphrase():

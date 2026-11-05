@@ -1,6 +1,6 @@
 [
   {
-    "description": "Execute Python code in an isolated Docker container. Optional session_id persists /session files and packages. Save generated files (including matplotlib figures) under /out to return downloadable links in artifacts.",
+    "description": "Execute Python code in an isolated Docker container. Optional session_id persists /session files and packages. Save generated files (including matplotlib figures) under /out to return downloadable links in artifacts. To run an existing file, call runpy.run_path(path) or exec(open(path).read()); /workspace is readable.",
     "name": "execute_python",
     "parameters": {
       "properties": {
