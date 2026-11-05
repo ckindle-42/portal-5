@@ -2436,7 +2436,7 @@ Registering the fallback tag keeps the substitution a config edit rather than a 
 
 ---
 
-### `flint:40b-a2b-qat-int4`
+### `flint:40b-a2b-qat-int4` — RETIRED (2026-11-04, operator; superseded by hf.co/unsloth/flint-GGUF:UD-Q4_K_XL-ctx256k)
 
 `flint:40b-a2b-qat-int4` is RecursiveSI/flint served by Ollama 0.40.8's MLX engine (40B MoE, ~2.5B active, QAT INT4, ~22.6GB) — the library tag `ollama run flint` resolves on this host, not a derived bake. `config/backends.yaml` registers it in the `general` group with `supports_tools: false`: no tool-call probe is on record, so the flag is the registry's conservative default and flips only when the screen's step-2 probe returns typed `tool_calls`. `config/bench_workspaces.yaml` binds it as the `bench-flint` `model_hint` with card sampling (temperature 1.0, top_p 0.95, top_k 20, min_p 0.0, repeat_penalty 1.0), `think: true` and `emits_reasoning: true` — the flint renderer writes a historical `<think>` only when `message.thinking` is non-empty, so a client that drops it breaks the next turn's prefix. `predict_limit` 32768 is REPORT_FLINT's output cap (reasoning included), not a context window: the library tag bakes no `num_ctx`, so a scored 32,768-token screen needs a derived `-ctx32k` tag first (`P5-OLLAMA-OPTIONS-001`).
 
@@ -2454,7 +2454,7 @@ LFM2.5-24B-A2B (Unsloth UD-Q4_K_XL), `num_ctx 98304`. Challenger for `auto-daily
 
 ### `hf.co/unsloth/flint-GGUF:UD-Q4_K_XL-ctx256k`
 
-Flint (RecursiveSI, Unsloth UD-Q4_K_XL), `num_ctx 262144`. Challenger for `auto-coding` against `qwen3-coder:30b-a3b-q4_K_M-ctx256k`. Registered in `coding`, `supports_tools: true`. The older `flint:40b-a2b-qat-int4` is deleted after this screen.
+Flint (RecursiveSI, Unsloth UD-Q4_K_XL), `num_ctx 262144`. Challenger for `auto-coding` against `qwen3-coder:30b-a3b-q4_K_M-ctx256k`. Registered in `coding`, `supports_tools: true`. The older `flint:40b-a2b-qat-int4` is retired (2026-11-04); this tag is its replacement.
 
 ### `hf.co/JetBrains/Mellum2.1-12B-A2.5B-Thinking-GGUF:Q4_K_M-ctx32k`
 

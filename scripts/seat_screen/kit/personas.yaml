@@ -182,7 +182,7 @@ system_prompt: |
   tools and the shell to edit the repo. Finish the task the brief names.
 tags: [coding, kit]
 ---
-name: "Kit Flint 40B-A2B"
+name: "Kit Flint (Unsloth UD-Q4_K_XL)"
 slug: kitflint
 delivery: role
 workspace_model: auto-coding
