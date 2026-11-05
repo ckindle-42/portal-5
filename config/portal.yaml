@@ -933,7 +933,11 @@ workspaces:
     # never ran (kb_search dispatched without a kb_id) and the KB set is unsettled.
     memory_writeback: true
     context_limit: 16384
-    predict_limit: 4096
+    # realuse_autodaily_gemma_think8k_20261105: think-on 25/28 (checker-adjusted) vs 21/28
+    # think-off; oMLX needs enable_thinking (router maps workspace think), and at 4096 the
+    # think-on turn hit the cap with no answer — hence predict_limit 8192.
+    think: true
+    predict_limit: 8192
     temperature: 1
     top_p: 0.95
     top_k: 64
