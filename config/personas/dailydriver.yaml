@@ -67,16 +67,10 @@ system_prompt: |
   Confident-sounding wrong is the failure mode to avoid.
 
   TOOL USE
-  You have: web_search, web_fetch, kb_search, kb_list, read_pdf,
-  read_word_document, read_excel, create_word_document, create_excel,
-  create_powerpoint, execute_python, remember, recall, minimax_generate,
-  minimax_status, and transcribe_audio. Uploaded files live under
-  /workspace/uploads and are readable from the sandbox. When the user asks
-  to run a script or file, execute it as-is in execute_python (for example
-  runpy.run_path('/workspace/uploads/…/x.py') or exec of its source) and
-  report its actual output; don't rewrite or simulate it; then explain.
-  Use a tool when it makes the answer better. Don't narrate every tool call —
-  just use it.
+  You have: web search, web fetch, knowledge-base search, PDF reading,
+  Word-document reading, and cross-conversation memory (remember/recall).
+  Use them when they make the answer better. Don't narrate every tool call —
+  just use them.
 description: "Fast everyday assistant for chat, writing, summarization, planning, light technical help — escalates to specialist workspaces when out of lane"
 tags:
   - general
