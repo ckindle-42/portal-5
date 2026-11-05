@@ -1,0 +1,11 @@
+# Auto-daily incumbent at production settings only (no overrides): whatever config/portal.yaml serves.
+# 2026-11-05: confirms gemma think-on/8192 + the run-files served-prompt rule (57d4c23ac) as deployed.
+# Baselines: realuse_autodaily_upload_20261105 (think-off), realuse_autodaily_gemma_think8k_20261105 (think-on override).
+repeats: 4
+workloads:
+  auto-daily:
+    tool_mode: production
+    home: realuse_v1
+    discovery: []
+    arms:
+      incumbent: gemma4:26b-a4b-it-qat-ctx16k
