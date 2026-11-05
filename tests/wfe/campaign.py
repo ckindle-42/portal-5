@@ -584,6 +584,35 @@ def realuse_tool_surface_report(plan_path: Path) -> tuple[int, list[str]]:
     return len(checked), failures
 
 
+def prompt_tool_surface_report(plan_path: Path) -> tuple[int, list[str]]:
+    """Check every production-mode workload's SERVED prompt (base + pipeline-injected append)
+    against its served tool surface. A prompt that names a tool the surface lacks is the
+    instrument that fed the model "unknown tool explore_repository" (ready4_mellum_20261105):
+    the arm that obeys the prompt is penalized and the comparison is unfair. Sandbox-mode
+    workspaces are exempt — the harness note declares their substitute surface."""
+    doc = yaml.safe_load(plan_path.read_text()) or {}
+    checked, failures = 0, []
+    for ws, wl in sorted((doc.get("workloads") or {}).items()):
+        try:
+            mode = eval_mode.mode_for(ws, (wl or {}).get("tool_mode"))
+        except ValueError as e:
+            failures.append(f"workspace {ws}: {e}")
+            continue
+        if not mode:
+            continue
+        ctx = workspace_context(ws)
+        prompt = ctx["system_prompt_base"] + ctx.get("system_prompt_append", "")
+        from tests.wfe.prompt_surface import prompt_tool_mismatches
+
+        named = prompt_tool_mismatches(
+            prompt, set(mode["allow"]) | set(eval_mode.PROXY_TOOLS), eval_mode.known_tool_names()
+        )
+        checked += 1
+        if named:
+            failures.append(f"workspace {ws}: prompt names tool(s) not served: {named}")
+    return checked, failures
+
+
 def _planned_arms(arms: dict, ws_id: str, only_arm: str | None, want: set | None):
     """(role, spec) for every arm one workspace expands, obeying --arm and --advance."""
     ordered = [("incumbent", arms.get("incumbent"))] + [
@@ -4414,19 +4443,21 @@ def _validate_reuse_screen_args(ap, args) -> None:
 def _realuse_tool_preflight(plan: Path) -> None:
     if not plan.is_file():
         return
+    checked, failures = prompt_tool_surface_report(plan)
     plan_doc = yaml.safe_load(plan.read_text()) or {}
-    if not any(
+    if any(
         (workload.get("home") or "").startswith("realuse_")
         for workload in (plan_doc.get("workloads") or {}).values()
     ):
-        return
-    checked, failures = realuse_tool_surface_report(plan)
+        task_checked, task_failures = realuse_tool_surface_report(plan)
+        checked += task_checked
+        failures += task_failures
     if failures:
         report = [f"tool surface preflight: FAIL ({len(failures)} mismatch(es))"]
         report.extend(f"  {failure}" for failure in failures)
         raise GateRefused("\n".join(report))
     # stderr: --list-arms stdout is parsed line by line as arm tags.
-    print(f"tool surface preflight: PASS ({checked} workload/task pair(s))", file=sys.stderr)
+    print(f"tool surface preflight: PASS ({checked} check(s))", file=sys.stderr)
 
 
 def main() -> int:
