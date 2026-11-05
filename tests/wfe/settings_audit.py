@@ -624,16 +624,17 @@ def _think_value(value: object) -> bool | None:
 
 
 def _variant_think_override(ws_id: str, workspaces: dict) -> tuple[bool, str]:
+    """A seat may differ from harness_policy.think when its own block records why."""
     base_id, separator, variant_id = ws_id.partition("::")
-    variant = (
-        ((workspaces.get(base_id) or {}).get("variants") or {}).get(variant_id)
-        if separator
-        else None
-    )
-    if not isinstance(variant, dict):
+    seat = workspaces.get(base_id) or {}
+    if not isinstance(seat, dict):
         return False, ""
-    reason = str(variant.get("think_override_reason") or "").strip()
-    return "think" in variant and bool(reason), reason
+    # The base reason must not cover a variant: inheritance is what this check exists to catch.
+    block = (seat.get("variants") or {}).get(variant_id) if separator else seat
+    if not isinstance(block, dict):
+        return False, ""
+    reason = str(block.get("think_override_reason") or "").strip()
+    return "think" in block and bool(reason), reason
 
 
 def _audit_think_vs_card_policy(

@@ -1088,7 +1088,7 @@ workspaces:
     # 2026-11-01: realuse_s5s7s10_20261030b seated hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k@card-fd931ae2 — 15/16 vs incumbent 5/16 (separated), judge 11W/0L/5T. Card thinking-mode sampling; every row reasoned with think unset (template default ON), so think is pinned true. Window is the tag's 98304.
     model_hint: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k
     context_limit: 98304
-    predict_limit: 16384
+    predict_limit: 32768
     temperature: 1.0
     top_p: 0.95
     top_k: 20
@@ -1096,6 +1096,7 @@ workspaces:
     presence_penalty: 0.0
     repeat_penalty: 1.0
     think: true
+    think_override_reason: "realuse_s5s7s10_20261030b — every row reasoned with think unset (template default ON), 15/16 vs Qwen3-Coder 5/16; thinking stays on and predict_limit 32768 bounds the trace (card harness_policy.think is false)"
     # 2026-10-30: the old "SINGLE-TURN … wrap code in fenced blocks … the user cannot follow up" rule made the
     # seat print code instead of running it (realuse_s8_rerun_20261030c: qwen3-coder 4/16, mostly execute_python
     # never called). Same intent — fast, complete, no planning spiral — without forbidding tool use.
@@ -1129,6 +1130,10 @@ workspaces:
         top_k: 20
         min_p: 0.05
         repeat_penalty: 1.05
+        # Not the base seat: keep the pre-a537c9d17 effective serving (think unset, no presence pin).
+        presence_penalty: null
+        think: null
+        predict_limit: 16384
         system_prompt_append: "\n\nAGENTIC CODING LOOP — follow this pattern every turn:\n1. EXPLORE: call explore_repository('what you need to find') first.\n   It returns exact file paths and line numbers — use these, do not guess paths.\n2. READ: call read_text_file(path=...) to read those specific files before editing.\n   NEVER use execute_bash cat/head/tail to read project files —\n   execute_bash runs inside an isolated Docker container with NO access to the\n   host filesystem. read_text_file/list_directory/search_files are the only way\n   to read project files.\n3. PLAN: state the minimal change needed and which files are affected\n4. EDIT: call write_file(path=..., content=...) — do not rewrite whole files\n5. VERIFY: run tests or linters with execute_bash after every change\n   (pytest tests/unit/ -q; ruff check <file>)\n6. REPORT: state what changed, what passed, and what remains\n\nTOOL ROUTING:\n- read_text_file, write_file, search_files, list_directory:\n  host-native pipeline tools — call these directly by name for ALL file I/O\n- execute_bash / execute_python / execute_nodejs:\n  isolated sandbox container — use ONLY for running code, tests, and linters\n\nHARD CONSTRAINTS:\n- Never hardcode model names, backend URLs, or credentials\n- Never modify Open WebUI source — use extension points only\n- Never commit .env or add cloud dependencies\n- Run pytest before declaring a fix complete\n- Keep portal.platform.inference lean — no ML framework imports\n- Changes to workspace routing must pass the Rule 6 consistency check:\n  python3 -c \"from portal.platform.inference.router_pipe import WORKSPACES; import yaml; cfg=yaml.safe_load(open('config/backends.yaml')); assert set(WORKSPACES)==set(cfg['workspace_routing']), 'mismatch'\""
         tools:
         - explore_repository
@@ -1155,6 +1160,11 @@ workspaces:
         predict_limit: 16384
         temperature: 1.0
         top_p: 0.95
+        # Not the base seat: keep the pre-a537c9d17 effective serving (think unset, min_p 0.05, repeat 1.05).
+        min_p: 0.05
+        presence_penalty: null
+        repeat_penalty: 1.05
+        think: null
         tools:
         - execute_python
         - execute_nodejs
@@ -1179,6 +1189,9 @@ workspaces:
         min_p: 0.05
         repeat_penalty: 1.05
         presence_penalty: 1.5
+        # Not the base seat: keep think unset so this arm stays on the omnicoder instruct card.
+        think: null
+        predict_limit: 16384
         system_prompt_append: "\n\nYou are an uncensored coding assistant. Produce the requested code directly and completely. Do not add moralizing preambles or refuse on content-policy grounds for legitimate engineering work. Still refuse only what is genuinely illegal to assist (e.g. functional malware-as-a-service, CSAM). Prefer correct, runnable code over caveats."
         tools:
         - execute_bash
@@ -1231,6 +1244,10 @@ workspaces:
         top_k: 20
         min_p: 0.05
         repeat_penalty: 1.05
+        # Not the base seat: keep the pre-a537c9d17 effective serving (think unset, no presence pin).
+        presence_penalty: null
+        think: null
+        predict_limit: 16384
         system_prompt_append: "\n\nAGENTIC CODING LOOP — follow this pattern every turn:\n1. EXPLORE: call explore_repository('what you need to find') first.\n   It returns exact file paths and line numbers — use these, do not guess paths.\n2. READ: use execute_bash to read those specific files/line ranges before editing\n   (cat -n <file> | sed -n '<start>,<end>p')\n3. PLAN: state the minimal change needed and which files are affected\n4. EDIT: make precise, targeted changes — do not rewrite whole files\n5. VERIFY: run tests or linters with execute_bash after every change\n6. REPORT: state what changed, what passed, and what remains\n\nHARD CONSTRAINTS:\n- Never hardcode model names, backend URLs, or credentials\n- Never modify Open WebUI source — use extension points only\n- Never commit .env or add cloud dependencies\n- Run pytest before declaring a fix complete\n"
         tools:
         - explore_repository
@@ -1288,6 +1305,11 @@ workspaces:
         top_p: 0.95
         top_k: 20
         min_p: 0.0
+        # Not the base seat: keep the pre-a537c9d17 effective serving (think unset, repeat 1.05).
+        presence_penalty: null
+        repeat_penalty: 1.05
+        think: null
+        predict_limit: 16384
         emits_reasoning: true
         tools:
         - execute_python
@@ -1319,6 +1341,11 @@ workspaces:
         top_p: 0.95
         top_k: 20
         repeat_penalty: 1.05
+        # Not the base seat: keep the pre-a537c9d17 effective serving (think unset, min_p 0.05).
+        min_p: 0.05
+        presence_penalty: null
+        think: null
+        predict_limit: 16384
         emits_reasoning: true
         tools:
         - execute_python
@@ -1351,6 +1378,9 @@ workspaces:
         top_p: 0.8
         top_k: 20
         repeat_penalty: 1.05
+        # Not the base seat: keep the pre-a537c9d17 effective serving (think unset, no presence pin).
+        presence_penalty: null
+        think: null
         # Kept `required` (B0-comparable; the gauntlet driver relaxes it to auto once an
         # artifact exists). 2026-10-06 pipeline preflight under request-level
         # tool_choice=auto, "40x20x5 plate with two 4 mm holes": 6/6 delivered through
@@ -1404,6 +1434,9 @@ workspaces:
         top_k: 20
         min_p: 0.05
         repeat_penalty: 1.05
+        # Not the base seat: keep the pre-a537c9d17 effective serving (think unset, no presence pin).
+        presence_penalty: null
+        think: null
         tools:
         - execute_python
         - execute_bash
@@ -1432,6 +1465,9 @@ workspaces:
         top_k: 20
         min_p: 0.05
         repeat_penalty: 1.05
+        # Not the base seat: keep the pre-a537c9d17 effective serving (think unset, no presence pin).
+        presence_penalty: null
+        think: null
       gemma4-heretic-coder:
         module: "coding"
         model_hint: "portal5/gemma4-26b-heretic:q4_K_M-ctx256k"
@@ -1443,6 +1479,9 @@ workspaces:
         top_k: 64
         min_p: 0.05
         repeat_penalty: 1.05
+        # Not the base seat: keep the pre-a537c9d17 effective serving (think unset, no presence pin).
+        presence_penalty: null
+        think: null
       glm-coder:
         module: "coding"
         model_hint: "glm-4.7-flash:Q4_K_M-ctx64k-agentic"
@@ -1460,6 +1499,8 @@ workspaces:
         top_k: 20
         min_p: 0.05
         repeat_penalty: 1.05
+        # Not the base seat: this arm already pins think; do not inherit presence 0.0.
+        presence_penalty: null
         # card: multi-turn agentic tasks want Preserved Thinking mode on.
         think: true
         emits_reasoning: true
@@ -1474,6 +1515,9 @@ workspaces:
         top_k: 20
         min_p: 0.05
         repeat_penalty: 1.05
+        # Not the base seat: keep think unset so this arm stays on the qwen3.6 recommended sampling.
+        presence_penalty: null
+        think: null
       ornith15-coder:
         module: "coding"
         model_hint: "portal5/ornith15-35b:q4_K_M-ctx256k"
@@ -1485,6 +1529,9 @@ workspaces:
         top_k: 20
         min_p: 0.05
         repeat_penalty: 1.05
+        # Not the base seat: keep the pre-a537c9d17 effective serving (think unset, no presence pin).
+        presence_penalty: null
+        think: null
       qwen38coder:
         module: "coding"
         model_hint: "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M"

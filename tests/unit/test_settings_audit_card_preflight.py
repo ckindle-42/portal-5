@@ -45,6 +45,34 @@ def test_reasoned_variant_think_override_is_info() -> None:
     assert [(row["kind"], row["severity"]) for row in rows] == [("think_vs_card_policy", "INFO")]
 
 
+def test_reasoned_base_think_override_is_info() -> None:
+    workspaces = {"seat": {"think": True, "think_override_reason": "measured campaign"}}
+    rows: list[dict] = []
+
+    audit._audit_think_vs_card_policy(
+        "seat", {"think": True}, "qwen3.8-test", _card(), workspaces, rows
+    )
+
+    assert [(row["kind"], row["severity"]) for row in rows] == [("think_vs_card_policy", "INFO")]
+
+
+def test_base_think_override_does_not_cover_a_variant() -> None:
+    workspaces = {
+        "seat": {
+            "think": True,
+            "think_override_reason": "measured campaign",
+            "variants": {"other": {"model_hint": "other-model"}},
+        }
+    }
+    rows: list[dict] = []
+
+    audit._audit_think_vs_card_policy(
+        "seat::other", {"think": True}, "qwen3.8-test", _card(), workspaces, rows
+    )
+
+    assert [(row["kind"], row["severity"]) for row in rows] == [("think_vs_card_policy", "WARN")]
+
+
 def test_sampling_mode_mismatch_warns_for_the_opposite_think_mode() -> None:
     rows: list[dict] = []
 
