@@ -34,6 +34,7 @@ EXPECTED = {
     "wfe-realuse-rest",
     "wfe-realuse-autocoding-ab",
     "wfe-realuse-sec",
+    "wfe-auto-daily-confirm",
 }
 
 SHIP_ENV = (
@@ -99,7 +100,7 @@ def test_every_plan_a_step_opens_exists(path: Path) -> None:
                 assert (ROOT / step.argv[index + 1]).is_file(), step.argv[index + 1]
 
 
-@pytest.mark.parametrize("name", ["wfe-realuse-rest", "wfe-realuse-sec"])
+@pytest.mark.parametrize("name", ["wfe-realuse-rest", "wfe-realuse-sec", "wfe-auto-daily-confirm"])
 def test_every_realuse_campaign_step_is_gated_by_a_canary_that_stops_the_job(name: str) -> None:
     spec = _spec(SPEC_DIR / f"{name}.yaml")
 
@@ -275,6 +276,49 @@ def test_realuse_security_runs_the_seat_plan_then_reports() -> None:
     judge_host = urlparse(judge["url"]).hostname
     assert judge_host is not None
     assert ip_address(judge_host).is_private
+
+
+def test_auto_daily_confirm_uses_the_plan_repeats_on_one_workspace() -> None:
+    spec = _spec(SPEC_DIR / "wfe-auto-daily-confirm.yaml")
+    campaign = next(
+        step
+        for step in spec.steps
+        if step.canary_of is None and step.argv[0] == "scripts/wfe_campaign.sh"
+    )
+    report = next(step for step in spec.steps if step.argv[3:5] == ("-m", "tests.wfe.report"))
+
+    assert [step.step_id for step in spec.steps] == [
+        "confirm-canary",
+        "confirm",
+        "confirm-report",
+        "confirm-judge-council",
+    ]
+    assert campaign.argv[1] == "realuse_autodaily_confirm_20261101"
+    plan_path = campaign.argv[campaign.argv.index("--plan") + 1]
+    assert plan_path == "tests/wfe/plans/realuse_v1_autodaily_confirm.yaml"
+    assert campaign.argv[campaign.argv.index("--tier") + 1] == "realuse"
+    assert campaign.argv[campaign.argv.index("--engine") + 1] == "pipeline"
+    assert campaign.argv[campaign.argv.index("--workspace") + 1] == "auto-daily"
+    assert "--judge" in campaign.argv
+    assert "--repeats" not in campaign.argv
+    assert campaign.quiet_host is True
+    assert any(
+        path.endswith("realuse_autodaily_confirm_20261101/manifest.json")
+        for path in campaign.checkpoints
+    )
+    assert report.argv[report.argv.index("--campaign") + 1] == campaign.argv[1]
+    assert report.quiet_host is False
+    plan = yaml.safe_load((ROOT / plan_path).read_text(encoding="utf-8"))
+    workload = plan["workloads"]["auto-daily"]
+    assert plan["repeats"] == 4
+    assert set(plan["workloads"]) == {"auto-daily"}
+    assert workload["tool_mode"] == "production"
+    assert workload["home"] == "realuse_v1"
+    assert workload["arms"]["incumbent"] == "gemma4:26b-a4b-it-qat-ctx16k"
+    assert workload["arms"]["challengers"] == [
+        "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
+        "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+    ]
 
 
 def test_the_recapture_backs_up_the_store_it_rewrites() -> None:
