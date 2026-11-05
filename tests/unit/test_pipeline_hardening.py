@@ -21,6 +21,7 @@ import pytest
 
 import portal.platform.inference.router.non_streaming as ns
 import portal.platform.inference.router.streaming as st
+import portal.platform.inference.router.tools as tool_dispatch
 from portal.platform.inference.router.anthropic_compat import (
     anthropic_to_openai_body,
     openai_stream_to_anthropic_sse,
@@ -315,6 +316,7 @@ async def test_post_tool_reasoning_and_newline_are_not_answer_content(
     hop therefore promoted a one-character reasoning delta to visible answer
     content before the actual final answer.
     """
+    monkeypatch.setattr(tool_dispatch, "_TOOL_RESULT_CARRY_ENABLED", False)
     first_hop = _Resp(
         200,
         [
@@ -364,6 +366,119 @@ async def test_post_tool_reasoning_and_newline_are_not_answer_content(
     assert rendered == "FINAL_ANSWER_SENTINEL"
     assert "POST_TOOL_REASONING_SENTINEL" not in rendered
     assert chunks.count(DONE) == 1 and chunks[-1] == DONE
+
+
+@pytest.mark.anyio
+async def test_tool_result_carry_is_appended_to_streamed_tool_turn(
+    stream_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(tool_dispatch, "_TOOL_RESULT_CARRY_ENABLED", True)
+    call = {
+        "index": 0,
+        "id": "carry-1",
+        "function": {
+            "name": "lookup",
+            "arguments": '{"file_path":"/workspace/a.txt","document_id":"doc-7","query":"omit"}',
+        },
+    }
+    _serve(
+        stream_client,
+        _Resp(
+            200,
+            [
+                _delta(tool_calls=[call]),
+                _data({"choices": [{"index": 0, "delta": {}, "finish_reason": "tool_calls"}]}),
+                "data: [DONE]",
+            ],
+        ),
+        _Resp(
+            200,
+            [
+                _delta(content="Answer."),
+                _data({"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]}),
+                "data: [DONE]",
+            ],
+        ),
+    )
+
+    async def dispatch(calls, *_args):
+        return (
+            {"role": "assistant", "tool_calls": calls},
+            [{"role": "tool", "tool_call_id": "carry-1", "content": "x" * 3000}],
+        )
+
+    monkeypatch.setattr(st, "_dispatch_hop_tool_calls", dispatch)
+    chunks = await _drain(
+        st._stream_with_tool_loop_impl(
+            "http://x/v1/chat/completions",
+            {
+                "messages": [{"role": "user", "content": "lookup"}],
+                "tools": [{"type": "function", "function": {"name": "lookup"}}],
+            },
+            "ws",
+            "m",
+            "p",
+            {"lookup"},
+        )
+    )
+
+    rendered = _content(chunks)
+    record = rendered[rendered.index("<details>") :]
+    assert rendered.startswith("Answer.\n\n<details><summary>Tool results</summary>")
+    assert "lookup" in record and "/workspace/a.txt" in record and "doc-7" in record
+    assert "omit" not in record and len(record) <= tool_dispatch._TOOL_RESULT_CARRY_MAX_CHARS
+    assert "x" * 500 not in record and record.endswith("</details>")
+
+
+@pytest.mark.anyio
+async def test_tool_result_carry_is_absent_for_stream_without_pipeline_tool_calls(
+    stream_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(tool_dispatch, "_TOOL_RESULT_CARRY_ENABLED", True)
+    _serve(
+        stream_client,
+        _Resp(
+            200,
+            [
+                _delta(content="Plain answer."),
+                _data({"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]}),
+                "data: [DONE]",
+            ],
+        ),
+    )
+
+    chunks = await _drain(
+        st._stream_with_tool_loop_impl(
+            "http://x/v1/chat/completions",
+            {"messages": [], "tools": []},
+            "ws",
+            "m",
+            "p",
+            set(),
+        )
+    )
+
+    assert _content(chunks) == "Plain answer."
+
+
+def test_tool_result_carry_obeys_the_total_character_cap(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(tool_dispatch, "_TOOL_RESULT_CARRY_ENABLED", True)
+    calls = [
+        {
+            "function": {
+                "name": f"lookup_{index}",
+                "arguments": json.dumps({"file_path": f"/workspace/{index}.txt"}),
+            }
+        }
+        for index in range(20)
+    ]
+    results = [{"content": "x" * 3000} for _ in calls]
+
+    record = tool_dispatch.format_tool_result_carry(calls, results)
+
+    assert record is not None and len(record) <= tool_dispatch._TOOL_RESULT_CARRY_MAX_CHARS
+    assert record.endswith("</details>") and "Additional tool results omitted." in record
+    assert "x" * 500 not in record
 
 
 @pytest.mark.anyio
@@ -1359,6 +1474,7 @@ async def test_nonstream_trace_records_schemas_attached_to_backend_body(
 
 @pytest.mark.anyio
 async def test_failover_runs_a_tool_loop_until_the_model_answers(monkeypatch, ns_tools) -> None:
+    monkeypatch.setattr(tool_dispatch, "_TOOL_RESULT_CARRY_ENABLED", False)
     client = _SeenClient([_tool_reply(), _tool_reply(), _text_reply("the answer")])
     monkeypatch.setattr(ns, "_http_client", client)
 
@@ -1370,6 +1486,51 @@ async def test_failover_runs_a_tool_loop_until_the_model_answers(monkeypatch, ns
     assert len(client.bodies) == 3
     assert client.bodies[1]["tools"] and client.bodies[2]["tools"]  # tools stay on until the answer
     assert sum(1 for m in client.bodies[2]["messages"] if m["role"] == "tool") == 2
+
+
+@pytest.mark.anyio
+async def test_tool_result_carry_is_appended_to_nonstream_tool_turn(monkeypatch, ns_tools) -> None:
+    monkeypatch.setattr(tool_dispatch, "_TOOL_RESULT_CARRY_ENABLED", True)
+    call = {
+        "id": "carry-ns",
+        "type": "function",
+        "function": {
+            "name": "lookup",
+            "arguments": '{"file_path":"/workspace/a.txt","document_id":"doc-7","query":"omit"}',
+        },
+    }
+    tool_response = httpx.Response(
+        200,
+        json={"choices": [{"message": {"role": "assistant", "content": "", "tool_calls": [call]}}]},
+    )
+    client = _SeenClient([tool_response, _text_reply("Answer.")])
+    monkeypatch.setattr(ns, "_http_client", client)
+
+    async def dispatch(tc, *_args, **_kwargs):
+        return {"role": "tool", "tool_call_id": tc["id"], "content": "x" * 3000}
+
+    monkeypatch.setattr(ns, "_dispatch_tool_call", dispatch)
+    result = await ns._try_non_streaming(_backend("b"), {"messages": []}, ns_tools, 0.0)
+
+    content = json.loads(result.body)["choices"][0]["message"]["content"]
+    record = content[content.index("<details>") :]
+    assert content.startswith("Answer.\n\n<details><summary>Tool results</summary>")
+    assert "lookup" in record and "/workspace/a.txt" in record and "doc-7" in record
+    assert "omit" not in record and len(record) <= tool_dispatch._TOOL_RESULT_CARRY_MAX_CHARS
+    assert "x" * 500 not in record and record.endswith("</details>")
+
+
+@pytest.mark.anyio
+async def test_tool_result_carry_is_absent_for_nonstream_turn_without_tool_calls(
+    monkeypatch, ns_tools
+) -> None:
+    monkeypatch.setattr(tool_dispatch, "_TOOL_RESULT_CARRY_ENABLED", True)
+    client = _SeenClient([_text_reply("Plain answer.")])
+    monkeypatch.setattr(ns, "_http_client", client)
+
+    result = await ns._try_non_streaming(_backend("b"), {"messages": []}, ns_tools, 0.0)
+
+    assert json.loads(result.body)["choices"][0]["message"]["content"] == "Plain answer."
 
 
 @pytest.mark.anyio

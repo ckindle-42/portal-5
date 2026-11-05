@@ -130,6 +130,7 @@ services:
       # above were each found silently inert during a live test.
       - PORTAL_TRACE=${PORTAL_TRACE:-1}
       - PORTAL_TRACE_BODIES=${PORTAL_TRACE_BODIES:-0}
+      - PORTAL_TOOL_RESULT_CARRY=${PORTAL_TOOL_RESULT_CARRY:-false}
       - PORTAL_TRACE_MAX=${PORTAL_TRACE_MAX:-200}
       - PORTAL_TRACE_MAX_BYTES=${PORTAL_TRACE_MAX_BYTES:-32768}
       - PORTAL_TRACE_DIR=/tmp/portal_traces
