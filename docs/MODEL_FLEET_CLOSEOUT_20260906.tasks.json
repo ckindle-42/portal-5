@@ -6704,6 +6704,16 @@
       "identity": "phi4-mini-reasoning",
       "final_disposition": "REMOVED_CLOSED",
       "reason": "not installed; pruned from config 2026-10-28"
+    },
+    {
+      "identity": "flint:40b-a2b-qat-int4",
+      "final_disposition": "REMOVED_CLOSED",
+      "reason": "superseded by hf.co/unsloth/flint-GGUF:UD-Q4_K_XL-ctx256k (operator, 2026-11-04); config/registry refs removed, ollama rm pending"
+    },
+    {
+      "identity": "flint:40b-a2b-qat-int4-ctx32k",
+      "final_disposition": "REMOVED_CLOSED",
+      "reason": "derived num_ctx-32768 bake of the retired QAT build (operator, 2026-11-04); config refs removed, ollama rm pending"
     }
   ],
   "contender_test_plan": [

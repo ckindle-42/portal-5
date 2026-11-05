@@ -224,13 +224,13 @@ kit-huihui36:
     - recall
 
 kit-flint:
-  name: "Kit Flint 40B-A2B QAT INT4 (Recursive)"
+  name: "Kit Flint 40B-A2B (Unsloth UD-Q4_K_XL)"
   client_tools_only: true
-  description: "Screen seat (2026-10-23). Ollama 0.40.8 MLX runner, flint:40b-a2b-qat-int4-ctx32k (baked num_ctx 32768). Direct conformance passed: typed tool_calls, clean post-tool turn, think on/off, 19.7 GiB RSS."
-  model_hint: flint:40b-a2b-qat-int4-ctx32k
-  context_limit: 32768
-  predict_limit: 16384
-  # Card sampling (REPORT_FLINT): 1.0 / 0.95 / 20 / min_p 0.0; not KAT's 1.05/0.05.
+  description: "S8 screen seat. hf.co/unsloth/flint-GGUF:UD-Q4_K_XL-ctx256k (baked num_ctx 262144) with RENDERER flint / PARSER flint applied (config/ollama_modelfiles/README.md, 2026-10-29). Re-probe conformance: the earlier 5/7 BUDGET_EXHAUSTED run was the missing renderer/parser, not the weights."
+  model_hint: hf.co/unsloth/flint-GGUF:UD-Q4_K_XL-ctx256k
+  context_limit: 262144
+  predict_limit: 32768
+  # Card sampling: 1.0 / 0.95 / 20 / min_p 0.0; not KAT's 1.05/0.05.
   temperature: 1.0
   top_p: 0.95
   top_k: 20

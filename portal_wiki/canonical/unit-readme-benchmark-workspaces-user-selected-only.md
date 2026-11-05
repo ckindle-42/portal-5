@@ -34,7 +34,7 @@ List the current set with:
 python3 -c "from portal.platform.inference.router.workspaces import WORKSPACES; [print(k) for k in sorted(WORKSPACES) if k.startswith('bench-')]"
 ```
 
-The live count is currently 23 workspaces. Verified examples from `config/portal.yaml`:
+The live count is currently 22 workspaces. Verified examples from `config/portal.yaml`:
 
 | Workspace | Pinned model (`model_hint`) |
 |---|---|
@@ -48,10 +48,6 @@ The live count is currently 23 workspaces. Verified examples from `config/portal
 The remaining lanes cover security exec chains, LFM micro models, MTP draft pairs
 and additional coding, vision and security variants; the authoritative list is
 `config/portal.yaml`, not this table.
-
-`flint:40b-a2b-qat-int4` is installed on the live Ollama 0.40.8. It is not one
-of these workspaces. Its bench registration was removed while the engine was
-older than 0.40.8, and it has not been added back.
 
 ## Why
 

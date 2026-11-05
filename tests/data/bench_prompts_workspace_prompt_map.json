@@ -38,7 +38,6 @@
   "auto-vision::gemma_vision": "vision",
   "bench-e2b-pentest": "security",
   "bench-exec-reasoning": "reasoning",
-  "bench-flint": "coding",
   "bench-foundation-sec-8b-reasoning": "general",
   "bench-gemma4-26b-optiq": "general",
   "bench-gemma4-e4b-qat": "vision",
