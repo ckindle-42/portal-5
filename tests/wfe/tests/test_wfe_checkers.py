@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from pathlib import Path
 
 import pytest
 
@@ -315,6 +316,157 @@ class TestTimeAndLiteralNormalization:
         assert _canonicalize_times("the 9amp setting") == "the 9amp setting"
         assert _canonicalize_times("camp site 9") == "camp site 9"
         assert _canonicalize_times("13 to 15 june") == "13 to 15 june"
+
+    def test_numbered_duration_abbreviations_match_either_way(self):
+        """ready4 ru-v1-002 turn 0, Qwen3.8 (8d6ea3c536f1): the table says 45 min and 1 hr 30 min."""
+        answer = (
+            "Here's the drive plan from drive_notes.docx:\n\n"
+            "| Leg | Time | Where to eat |\n"
+            "|---|---|---|\n"
+            "| 1. Denver → Boulder | 45 min | The Kitchen |\n"
+            "| 2. Boulder → Vail | 2 hours | Sweet Basil — stop for 90 min if the day is tight |\n"
+            "| 3. Vail → Grand Junction | 3 hours | Bin 707 |\n"
+            "| 4. Grand Junction → Moab | 1 hr 30 min | None noted in the doc |\n\n"
+            "One thing to flag: the notes don't list a restaurant for the Grand Junction → Moab "
+            "leg, so you may want to pick a spot along the way (the notes only say 1 hr 30 min, "
+            "which seems short for that stretch — worth double-checking before you commit).\n\n"
+            "Also, there's a **snow advisory for I-70 westbound on Tuesday and Wednesday** — "
+            "the notes say to pack tire chains."
+        )
+        got = check_answer_contains(
+            {
+                "patterns": [
+                    "The Kitchen",
+                    "Sweet Basil",
+                    "Bin 707",
+                    "45 minutes",
+                    "2 hours",
+                    "3 hours",
+                    "90 minutes",
+                    "1 hour 30 minutes",
+                ]
+            },
+            CheckContext(final_text=answer),
+        )
+        assert got.outcome == Outcome.PASS
+        reverse = check_answer_contains(
+            {"patterns": ["45 min", "2 hrs", "3 hr", "1 hr 30 min"]},
+            CheckContext(final_text="Legs: 45 minutes, 2 hours, 3 hours, and 1 hour 30 minutes."),
+        )
+        assert reverse.outcome == Outcome.PASS
+        wrong = check_answer_contains(
+            {"patterns": ["4 hours", "45 minutes"]},
+            CheckContext(final_text="Only 90 min, then 1 hr 30 min."),
+        )
+        assert wrong.outcome == Outcome.FAIL
+        bare = check_answer_contains(
+            {"patterns": ["minutes"]},
+            CheckContext(final_text="The figure is 180 minutes, not hours."),
+        )
+        assert bare.outcome == Outcome.PASS
+        assert (
+            check_answer_contains(
+                {"patterns": ["minutes"]}, CheckContext(final_text="45 min on the first leg")
+            ).outcome
+            == Outcome.FAIL
+        )
+
+    def test_label_separator_and_markdown_emphasis_are_spaces(self):
+        """ready4 ru-v1-032 Nemotron tool args: **Monday**: and Wrap + U+2011, times with U+202F."""
+        answer = (
+            "# Week Plan\n\n"
+            "- **Monday**: Meeting prep\n"
+            "- **Tuesday**: Coding project (9\u202fAM\u201312\u202fPM)\n"
+            "- **Wednesday**: Travel admin (leave by 8\u202fAM)\n"
+            "- **Thursday**: Research\n"
+            "- **Friday**: Wrap\u2011up (ends at 1\u202fPM)"
+        )
+        got = check_answer_contains(
+            {
+                "patterns": [
+                    "Monday meeting prep",
+                    "Tuesday coding project",
+                    "Wednesday travel admin",
+                    "Thursday research",
+                    "Friday wrap-up",
+                    "9 to 12",
+                    "8am",
+                    "1pm",
+                ]
+            },
+            CheckContext(final_text=answer),
+        )
+        assert got.outcome == Outcome.PASS
+        assert (
+            check_answer_contains(
+                {"patterns": ["Saturday meeting prep"]}, CheckContext(final_text=answer)
+            ).outcome
+            == Outcome.FAIL
+        )
+        assert (
+            check_answer_contains(
+                {"patterns": ["Monday coding project"]}, CheckContext(final_text=answer)
+            ).outcome
+            == Outcome.FAIL
+        )
+        narrow = check_answer_contains(
+            {"patterns": ["Friday wrap-up"]},
+            CheckContext(final_text="Friday: Wrap\u2010up"),
+        )
+        assert narrow.outcome == Outcome.PASS
+
+
+def test_ru_v1_003_answer_accepts_the_thirty_minute_paraphrase():
+    """ready4 ru-v1-003 turn 1: gemma '30-minute constraint', Qwen '30 min hard cap'.
+
+    tool_grounded keeps the note's literal. Nemotron quoted it with a U+202F space.
+    """
+    suite = Path(__file__).resolve().parents[1] / "suites" / "realuse_v1.jsonl"
+    task = next(
+        json.loads(line) for line in suite.read_text().splitlines() if '"ru-v1-003"' in line
+    )
+    turn = task["turns"][1]
+    answer = next(c for c in turn["checks"] if c["type"] == "answer_contains")
+    grounded = next(c for c in turn["checks"] if c["type"] == "tool_grounded")
+    assert answer["patterns"] == [r"(?<!\d)30[\s-]*min", "Lisbon|Tokyo"]
+    assert "30 min max" in grounded["evidence"]
+    excerpts = {
+        "gemma": (
+            "Since you have a globally distributed team (Denver, Lisbon, and Tokyo), "
+            "the 30-minute constraint is even more critical."
+        ),
+        "qwen": (
+            "Read your notes — three things to work with: 30 min hard cap, "
+            "blocker-first question, and half the team split across Denver, Lisbon"
+        ),
+        "nemotron": "Weekly 1:1s are 30\u202fmin max.",
+        "hyphen": "a 30-minute hard cap",
+    }
+    duration = answer["patterns"][0]
+    for name, text in excerpts.items():
+        result = check_answer_contains({"patterns": [duration]}, CheckContext(final_text=text))
+        assert result.outcome == Outcome.PASS, name
+    both = check_answer_contains(
+        {"patterns": answer["patterns"]}, CheckContext(final_text=excerpts["gemma"])
+    )
+    assert both.outcome == Outcome.PASS
+    wrong = check_answer_contains(
+        {"patterns": [duration]},
+        CheckContext(final_text="Keep it to a 20-minute cap, or 130 minutes if needed."),
+    )
+    assert wrong.outcome == Outcome.FAIL
+    note = check_tool_grounded(
+        {"tools": ["read_word_document"], "evidence": ["30 min max"]},
+        CheckContext(
+            tool_calls=[
+                {
+                    "name": "read_word_document",
+                    "output": "Weekly 1:1s are 30 min max. Half the team is in Lisbon.",
+                }
+            ]
+        ),
+    )
+    assert note.outcome == Outcome.PASS
 
 
 class TestAnswerAfterReasoning:

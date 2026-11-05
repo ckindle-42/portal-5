@@ -181,6 +181,50 @@ def test_an_expect_phrase_may_span_one_heading_group(tmp_path):
     )
 
 
+def test_inline_day_labels_match_the_phrase(tmp_path):
+    """ready4 ru-v1-032 Nemotron Week_Plan_3f2a985c.docx bullets, exact paragraph text."""
+    d = docx.Document()
+    d.add_heading("Week Plan", 1)
+    for line in (
+        "Monday: Meeting prep",
+        "Tuesday: Coding project (9\u202fAM\u201312\u202fPM)",
+        "Wednesday: Travel admin (leave by 8\u202fAM)",
+        "Thursday: Research",
+        "Friday: Wrap\u2011up (ends at 1\u202fPM)",
+    ):
+        d.add_paragraph(line, style="List Bullet")
+    d.save(tmp_path / "w.docx")
+    ctx = CheckContext(sandbox_root=tmp_path)
+    spec = {"type": "office_contains", "kind": "docx", "path": "w.docx"}
+    assert (
+        check_office_contains(
+            {
+                **spec,
+                "expect": [
+                    "Monday meeting prep",
+                    "Tuesday coding project",
+                    "Wednesday travel admin",
+                    "Thursday research",
+                    "Friday wrap-up",
+                    "9 to 12",
+                    "8am",
+                    "1pm",
+                ],
+            },
+            ctx,
+        ).outcome
+        == Outcome.PASS
+    )
+    assert (
+        check_office_contains({**spec, "expect": ["Saturday meeting prep"]}, ctx).outcome
+        == Outcome.FAIL
+    )
+    assert (
+        check_office_contains({**spec, "expect": ["Monday coding project"]}, ctx).outcome
+        == Outcome.FAIL
+    )
+
+
 def test_a_time_written_one_way_matches_expect_written_another(tmp_path):
     d = docx.Document()
     d.add_paragraph("Wednesday travel admin, leave by 8:00 AM")

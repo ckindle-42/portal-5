@@ -121,7 +121,25 @@ ANSWER_PATTERN_EXPECTATIONS = {
             ("Misc Supplies", "Misc. Supplies"),
             ("miscellaneous supplies", "supplies"),
         ),
-    )
+    ),
+    "ru-v1-003": (
+        (
+            1,
+            r"(?<!\d)30[\s-]*min",
+            (
+                "30-minute hard cap",
+                "30-minute constraint",
+                "30 min hard cap",
+                "30 min max",
+            ),
+            (
+                "40 min max",
+                "130 minutes",
+                "3 minutes",
+                "20-minute cap",
+            ),
+        ),
+    ),
 }
 SEED_EXPECTATIONS = {
     "ru-v1-009": ("Thursday 2pm", "Friday"),

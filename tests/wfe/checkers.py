@@ -312,6 +312,42 @@ _BARE_RANGE_RE = re.compile(
 )
 
 
+#: Numbered min/mins/minute(s) and hr/hrs/hour(s) share one form. A bare "minutes" pattern does not trigger it.
+_NUMBERED_DURATION_RE = re.compile(
+    r"\b(\d+(?:\.\d+)?)[\s-]*(minutes|minute|mins|min|hours|hour|hrs|hr)\b",
+    re.I,
+)
+#: A colon or dash between words, and markdown emphasis, is a label separator on the literal path.
+_LABEL_SEP_RE = re.compile(r"(?<=[A-Za-z])\s*[:\-]\s*(?=[A-Za-z])")
+
+
+def _canonicalize_durations(text: str) -> str:
+    def repl(m: re.Match) -> str:
+        canon = "min" if m.group(2).lower().startswith("min") else "hr"
+        return f"{m.group(1)} {canon}"
+
+    return _NUMBERED_DURATION_RE.sub(repl, text)
+
+
+def _strip_markdown_emphasis(text: str) -> str:
+    text = text.replace("**", " ").replace("__", " ")
+    return re.sub(r"(?<!\w)\*(?=\w)|(?<=\w)\*(?!\w)", " ", text)
+
+
+def _collapse_label_separators(text: str) -> str:
+    text = _LABEL_SEP_RE.sub(" ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _fold_literal(pattern: str, text: str) -> tuple[str, str]:
+    pattern = _canonicalize_times(_strip_markdown_emphasis(pattern))
+    text = _canonicalize_times(_strip_markdown_emphasis(text))
+    if _NUMBERED_DURATION_RE.search(pattern):
+        pattern = _canonicalize_durations(pattern)
+        text = _canonicalize_durations(text)
+    return _collapse_label_separators(pattern), _collapse_label_separators(text)
+
+
 def _canonicalize_times(text: str) -> str:
     def tighten(m: re.Match) -> str:
         hour, minute, mer = m.group(1), m.group(2), m.group(3).lower()
@@ -335,14 +371,15 @@ def _canonicalize_times(text: str) -> str:
 def _text_match(pattern: str, text: str) -> bool:
     """Literal patterns are normalized on BOTH sides — pattern and text — so a check
     written one way accepts the same fact written another way (unicode punctuation,
-    case, and time/range spellings). Authored regexes keep their exact semantics
-    against the base-normalized text. The decimal guard below applies to both."""
+    case, time/range spellings, numbered duration units, and label separators).
+    Authored regexes keep their exact semantics against the base-normalized text.
+    The decimal guard below applies to both."""
     base = _normalize_match_text(text)
     pat = pattern or ""
     if _REGEX_METACHARS.search(_MERIDIEM_SPELLING_RE.sub("", pat)):
         return _pattern_match(pat, base)
-    lit = _canonicalize_times(_normalize_match_text(pat))
-    return _pattern_match(re.escape(lit), _canonicalize_times(base))
+    lit, folded = _fold_literal(_normalize_match_text(pat), base)
+    return _pattern_match(re.escape(lit), folded)
 
 
 def _pattern_match(pattern: str, text: str) -> bool:
