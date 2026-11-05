@@ -1,0 +1,77 @@
+id: wfe-realuse-mellum
+purpose: >-
+  Mellum 2.1 on the real-use instrument, the rerun that the S8 rejection was retracted
+  pending. kat-coder holds auto-coding::fast-repair; the screen was 12/12 vs 12/12 with
+  overlapping intervals (24 s vs 18 s, 8 vs 21 GB), so the order is open. The plan pins
+  repeats 2 on 16 realuse_v1 tasks (n=32 per arm): the incumbent at the seat, the challenger
+  at its card sampling (0.6/0.95/20). Read the per-arm pass rates, the blind preferences and
+  the latency/memory columns; a swap is the operator's call. The canary runs one incumbent row
+  and its SETUP verdict stops the job before the long step can burn rows. Report and judge
+  council follow the campaign.
+preconditions:
+  stack: up
+  free_memory_gib: 24
+  disk_free_gib: 20
+steps:
+  - id: mellum-canary
+    canary: mellum
+    timeout_seconds: 10800
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_mellum_20261104_canary/manifest.json
+  - id: mellum
+    argv:
+      - scripts/wfe_campaign.sh
+      - realuse_mellum_20261104
+      - "--plan"
+      - tests/wfe/plans/realuse_v1_mellum.yaml
+      - "--tier"
+      - realuse
+      - "--engine"
+      - pipeline
+      - "--judge"
+      - "--workspace"
+      - auto-coding::fast-repair
+    timeout_seconds: 21600
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_mellum_20261104/manifest.json
+  - id: mellum-report
+    argv:
+      - uv
+      - run
+      - python
+      - "-m"
+      - tests.wfe.report
+      - "--campaign"
+      - realuse_mellum_20261104
+      - "--out-dir"
+      - tests/wfe/results/advance
+    timeout_seconds: 900
+    quiet_host: false
+    outputs:
+      - tests/wfe/results/advance/WFE_FITNESS_REPORT_realuse_mellum_20261104.md
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_mellum_20261104/report.json
+  - id: mellum-judge-council
+    argv:
+      - uv
+      - run
+      - python
+      - "-m"
+      - tests.wfe.judge_council
+      - "--campaign"
+      - realuse_mellum_20261104
+    timeout_seconds: 900
+    quiet_host: false
+stop_conditions:
+  on_failure: stop
+  max_job_minutes: 900
+report:
+  fields:
+    - status
+    - purpose
+    - steps
+    - outputs
+    - checkpoints
+    - failures
+    - memory
+    - duration
+    - resume
