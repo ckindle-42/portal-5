@@ -824,6 +824,222 @@ class TestOfflineRescore:
         assert out[0]["rescore"]["outcome"] == "BUDGET_EXHAUSTED"
         assert out[0]["rescore"]["checker_outcome"] == "PASS"
 
+    def test_rescore_regrades_a_scripted_turn_task_per_turn(self, tmp_path):
+        """A multi-turn (turns[]) row must be re-graded through its per-turn checks and
+        expect_tools — the previous rescore graded the task's top-level checkers, which a
+        turns-task does not carry, so every scripted row re-graded PASS."""
+        suite = tmp_path / "mini_realuse.jsonl"
+        task = {
+            "id": "ru-mini",
+            "turns": [
+                {
+                    "user": "run it",
+                    "checks": [{"type": "answer_contains", "patterns": ["total 42"]}],
+                    "expect_tools": ["execute_python"],
+                },
+                {
+                    "user": "again",
+                    "checks": [
+                        {"type": "answer_contains", "patterns": ["total 43"]},
+                        {
+                            "type": "tool_grounded",
+                            "tools": ["execute_python"],
+                            "evidence": ["total 42"],
+                        },
+                    ],
+                    "expect_tools": ["execute_python"],
+                },
+            ],
+        }
+        suite.write_text(json.dumps(task) + "\n")
+        rec = self._debug_record("ws|m:t|coding|ru-mini|r0")
+        rec["suite_path"] = str(suite)
+        rec["task_id"] = "ru-mini"
+        rec["turn_results"] = [
+            {
+                "turn": 0,
+                "final_text": "the run prints total 42",
+                "assistant_texts": ["the run prints total 42"],
+                "tool_call_range": [0, 1],
+                "finish_reason": "stop",
+                "served": None,
+            },
+            {
+                "turn": 1,
+                "final_text": "now total 43",
+                "assistant_texts": ["now total 43"],
+                "tool_call_range": [1, 1],
+                "finish_reason": "stop",
+                "served": None,
+            },
+        ]
+        rec["tool_call_log"] = [
+            {"name": "execute_python", "args": {}, "output": "total 42", "error": None}
+        ]
+        dbg = tmp_path / "debug"
+        dbg.mkdir()
+        (dbg / "m_t.debug.jsonl").write_text(json.dumps(rec) + "\n")
+        out = camp.rescore_debug_dir(dbg)
+        assert len(out) == 1
+        assert out[0]["rescore"]["outcome"] == "PASS"
+        assert out[0]["rescore"]["changed"] is True
+
+    def test_rescore_of_a_scripted_row_with_unregradable_turns_declines(self, tmp_path):
+        """A turn whose checks need a sandbox tree the record does not carry (a non-final
+        office turn with no persisted receipts) is not re-graded: no verdict is invented."""
+        suite = tmp_path / "mini_office.jsonl"
+        task = {
+            "id": "ru-office",
+            "turns": [
+                {"user": "make it", "checks": [{"type": "office_contains", "kind": "docx"}]},
+                {"user": "again", "checks": [{"type": "office_contains", "kind": "docx"}]},
+            ],
+        }
+        suite.write_text(json.dumps(task) + "\n")
+        rec = self._debug_record("ws|m:t|coding|ru-office|r0")
+        rec["suite_path"] = str(suite)
+        rec["task_id"] = "ru-office"
+        rec["turn_results"] = [
+            {
+                "turn": 0,
+                "final_text": "made",
+                "assistant_texts": ["made"],
+                "tool_call_range": [0, 0],
+                "finish_reason": "stop",
+                "served": None,
+            },
+            {
+                "turn": 1,
+                "final_text": "made",
+                "assistant_texts": ["made"],
+                "tool_call_range": [0, 0],
+                "finish_reason": "stop",
+                "served": None,
+            },
+        ]
+        rec["sandbox_tree"] = {}
+        dbg = tmp_path / "debug"
+        dbg.mkdir()
+        (dbg / "m_t.debug.jsonl").write_text(json.dumps(rec) + "\n")
+        out = camp.rescore_debug_dir(dbg)
+        assert out[0]["rescore"]["outcome"] is None
+        assert "incomplete" in out[0]["rescore"]["note"]
+
+    def test_rescore_grades_office_rows_from_persisted_receipts(self, tmp_path):
+        """A production row's receipted artifacts were copied into the campaign's
+        artifacts/<sha12(run_id)>/; the offline re-grade resolves them, so an
+        office_contains verdict is re-derived instead of declined (ru-v1-032)."""
+        docx = pytest.importorskip("docx")
+        suite = tmp_path / "mini_office.jsonl"
+        task = {
+            "id": "ru-office2",
+            "turns": [
+                {
+                    "user": "make it",
+                    "checks": [{"type": "office_contains", "kind": "docx", "expect": ["9 to 12"]}],
+                    "expect_tools": ["create_word_document"],
+                }
+            ],
+        }
+        suite.write_text(json.dumps(task) + "\n")
+        rid = "ws|m:t|coding|ru-office2|r0"
+        d = tmp_path / "campaigns" / "c"
+        (d / "rows").mkdir(parents=True)
+        doc = docx.Document()
+        doc.add_paragraph("Tuesday coding, 9:00 AM - 12:00 PM")
+        keep = d / "artifacts" / __import__("hashlib").sha256(rid.encode()).hexdigest()[:12]
+        keep.mkdir(parents=True)
+        doc.save(keep / "Week_Plan.docx")
+        import hashlib as _h
+
+        receipt = {
+            "tool": "Document",
+            "path": "/app/data/generated/wfe/x/out/Week_Plan.docx",
+            "rel": "out/Week_Plan.docx",
+            "sha256": _h.sha256((keep / "Week_Plan.docx").read_bytes()).hexdigest(),
+            "host_path": "/gone/Week_Plan.docx",
+            "valid": True,
+        }
+        rec = self._debug_record(rid)
+        rec["suite_path"] = str(suite)
+        rec["task_id"] = "ru-office2"
+        rec["evidence"] = {"receipts": [receipt]}
+        rec["tool_call_log"] = [
+            {"name": "create_word_document", "args": {}, "output": "created", "error": None}
+        ]
+        rec["turn_results"] = [
+            {
+                "turn": 0,
+                "final_text": "made",
+                "assistant_texts": ["made"],
+                "tool_call_range": [0, 1],
+                "finish_reason": "stop",
+                "served": None,
+            }
+        ]
+        rec["sandbox_tree"] = {}
+        dbg = tmp_path / "debug"
+        dbg.mkdir()
+        (dbg / "m_t.debug.jsonl").write_text(json.dumps(rec) + "\n")
+        out = camp.rescore_debug_dir(dbg, d)
+        assert out[0]["rescore"]["outcome"] == "PASS"
+        assert out[0]["rescore"]["changed"] is True
+
+    def test_rescore_grades_with_this_instruments_suite_copy(self, tmp_path):
+        """A debug record names the suite by the checkout that ran it. The re-grade uses
+        THIS repo's copy of the suite (same basename), so a pattern fix travels with the
+        checker fix — grading on a stale worktree's answer key would keep the old FAIL."""
+        stale = tmp_path / "suites" / "realuse_v1.jsonl"
+        stale.parent.mkdir()
+        old = {
+            "id": "ru-v1-014",
+            "turns": [
+                {
+                    "user": "run it",
+                    "checks": [
+                        {
+                            "type": "tool_grounded",
+                            "tools": ["execute_python"],
+                            "evidence": ["1.05", "(?<!\\d)105(?!\\d)"],
+                        },
+                        {"type": "answer_contains", "patterns": ["1.05", "8 percent"]},
+                    ],
+                    "expect_tools": ["execute_python"],
+                }
+            ],
+        }
+        stale.write_text(json.dumps(old) + "\n")
+        rec = self._debug_record("ws|m:t|coding|ru-v1-014|r0")
+        rec["suite_path"] = str(stale)
+        rec["task_id"] = "ru-v1-014"
+        rec["turn_results"] = [
+            {
+                "turn": 0,
+                "final_text": "the source has 1.05 (8 percent) and prints 105.0",
+                "assistant_texts": ["the source has 1.05 (8 percent) and prints 105.0"],
+                "tool_call_range": [0, 1],
+                "finish_reason": "stop",
+                "served": None,
+            },
+            {
+                "turn": 1,
+                "final_text": "corrected: 108",
+                "assistant_texts": ["corrected: 108"],
+                "tool_call_range": [1, 2],
+                "finish_reason": "stop",
+                "served": None,
+            },
+        ]
+        rec["tool_call_log"] = [
+            {"name": "execute_python", "args": {}, "output": "return amount * 1.05", "error": None},
+            {"name": "execute_python", "args": {}, "output": "108", "error": None},
+        ]
+        dbg = tmp_path / "debug"
+        dbg.mkdir()
+        (dbg / "m_t.debug.jsonl").write_text(json.dumps(rec) + "\n")
+        out = camp.rescore_debug_dir(dbg)
+        assert out[0]["rescore"]["outcome"] == "PASS"
+
     def test_rescore_updates_campaign_rows_and_manifest(self, tmp_path):
         camp.CAMPAIGNS = tmp_path / "campaigns"
         d = camp.CAMPAIGNS / "c"

@@ -73,7 +73,7 @@ def test_seeded_fixtures_hold_the_gold(tmp_path):
             continue
         path = tmp_path / case["file"]
         path.write_bytes(case["raw"])
-        text, _ = _office_parts(path, case["kind"])
+        text, _, _ = _office_parts(path, case["kind"])
         if case["file"] == "review.pptx":  # speaker notes live outside the shapes
             import pptx
 

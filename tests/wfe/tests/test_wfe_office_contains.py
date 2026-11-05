@@ -137,3 +137,68 @@ def test_one_file_must_satisfy_everything(tmp_path):
         ).outcome
         == Outcome.PASS
     )
+
+
+def test_an_expect_phrase_may_span_one_heading_group(tmp_path):
+    """ready_autodaily_20261105 ru-v1-032: heading "Monday" + bullet "Meeting prep" is the
+    fact "Monday meeting prep" written across structure. The rule: within ONE section group
+    (a heading plus its lines, bullets joined as single spaces) the phrase's normalized
+    words must appear in order and adjacent — not scattered (no bag-of-words), not across
+    sections."""
+    d = docx.Document()
+    d.add_heading("Monday", 1)
+    d.add_paragraph("Meeting prep", style="List Bullet")
+    d.add_heading("Tuesday", 1)
+    d.add_paragraph("Coding project, 9:00 AM - 12:00 PM")
+    d.save(tmp_path / "w.docx")
+    ctx = CheckContext(sandbox_root=tmp_path)
+    spec = {"type": "office_contains", "kind": "docx", "path": "w.docx"}
+    assert (
+        check_office_contains({**spec, "expect": ["Monday meeting prep"]}, ctx).outcome
+        == Outcome.PASS
+    )
+    assert check_office_contains({**spec, "expect": ["9 to 12"]}, ctx).outcome == Outcome.PASS
+    assert check_office_contains({**spec, "expect": ["11am"]}, ctx).outcome == Outcome.FAIL
+    # words from two different sections never join
+    assert (
+        check_office_contains({**spec, "expect": ["Monday coding project"]}, ctx).outcome
+        == Outcome.FAIL
+    )
+    # other words between the phrase's words break the span: not bag-of-words
+    scattered = docx.Document()
+    scattered.add_paragraph("Monday filler meeting prep")
+    scattered.save(tmp_path / "s.docx")
+    assert (
+        check_office_contains(
+            {**spec, "path": "s.docx", "expect": ["Monday meeting prep"]}, ctx
+        ).outcome
+        == Outcome.FAIL
+    )
+    # a wrong time in the section still fails
+    assert (
+        check_office_contains({**spec, "expect": ["Tuesday coding project 9 to 5"]}, ctx).outcome
+        == Outcome.FAIL
+    )
+
+
+def test_a_time_written_one_way_matches_expect_written_another(tmp_path):
+    d = docx.Document()
+    d.add_paragraph("Wednesday travel admin, leave by 8:00 AM")
+    d.save(tmp_path / "w.docx")
+    assert _run(tmp_path, "docx", ["8am"], "w.docx").outcome == Outcome.PASS
+    assert _run(tmp_path, "docx", ["9am"], "w.docx").outcome == Outcome.FAIL
+
+
+def test_section_groups_per_kind(tmp_path):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Float"
+    ws.append(["change", 71])
+    wb.save(tmp_path / "a.xlsx")
+    assert _run(tmp_path, "xlsx", ["Float change"], "a.xlsx").outcome == Outcome.PASS
+    assert _run(tmp_path, "xlsx", ["change nowhere"], "a.xlsx").outcome == Outcome.FAIL
+    p = pptx.Presentation()
+    slide = p.slides.add_slide(p.slide_layouts[5])
+    slide.shapes.title.text = "Car Camp"
+    p.save(tmp_path / "a.pptx")
+    assert _run(tmp_path, "pptx", ["Car Camp"], "a.pptx").outcome == Outcome.PASS

@@ -156,7 +156,11 @@ def prepare(pipe: bool, r: dict, manifest: dict, task: dict, wsc: dict, harness:
 
 
 def receipts(ctx: dict) -> list[dict]:
-    """Creation receipts that hold: inside the run's out/, absent before the run, unchanged."""
+    """Creation receipts that hold: inside the run's out/, absent before the run, unchanged.
+    An offline re-grade passes the receipts persisted on a finished row in ctx["receipts"] —
+    the run root they were derived from is cleaned up after the row."""
+    if ctx.get("receipts") is not None:
+        return ctx["receipts"]
     f = ctx["root"] / ".receipts.jsonl"
     out = []
     for line in f.read_text().splitlines() if f.exists() else []:
