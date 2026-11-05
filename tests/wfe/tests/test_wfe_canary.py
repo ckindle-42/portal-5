@@ -6,6 +6,7 @@ Fake rows only — the canary's live path is exercised by the job that gates on 
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -237,6 +238,17 @@ class TestSelection:
         assert {r["tier"] for r in rows if r["state"] != "NO_ROW"} == {"realuse"}
         assert {r["tier"] for r in rows if r["state"] == "NO_ROW"} == {"canary"}
 
+    def test_scoping_lists_only_the_scoped_workload(self, plan):
+        assert [r["workspace"] for r in select_rows(plan, "confirm", "ws-b")] == ["ws-b"]
+
+    def test_scoping_keeps_the_scoped_workloads_own_stub(self, plan):
+        rows = select_rows(plan, "confirm", "ws-c")
+        assert [r["workspace"] for r in rows] == ["ws-c"]
+        assert rows[0]["state"] == "NO_ROW"
+
+    def test_scoping_to_an_unknown_workspace_lists_nothing(self, plan):
+        assert select_rows(plan, "confirm", "ws-zzz") == []
+
 
 def _suite(path, n=2):
     path.write_text(
@@ -426,6 +438,53 @@ class TestRunCanary:
     def test_the_canary_suffix_is_idempotent(self):
         assert canary_campaign_id("c1") == "c1_canary"
         assert canary_campaign_id("c1_canary") == "c1_canary"
+
+    def test_a_workspace_scoped_run_never_touches_another_workload(
+        self, harness, monkeypatch, capsys
+    ):
+        plan, tmp = harness
+        rows = _rows_for(plan, {"auto-general": _row(outcome="PASS"), "ws-b": _row(outcome="PASS")})
+        monkeypatch.setattr(camp, "execute_arm", _fake_execute(rows))
+        assert run_canary(["--campaign-id", "c1", "--plan", str(plan), "--workspace", "ws-b"]) == 0
+        out = capsys.readouterr().out
+        assert "auto-general" not in out
+        assert "CANARY c1_canary: PASS (0 setup row(s) of 1)" in out
+        excluded = json.loads((tmp / "campaigns" / "c1_canary" / "excluded.json").read_text())
+        assert excluded == []
+
+    def test_a_drifted_canary_is_archived_before_the_run(self, harness, monkeypatch, capsys):
+        plan, tmp = harness
+        stale = tmp / "campaigns" / "c1_canary"
+        stale.mkdir(parents=True)
+        (stale / "manifest.json").write_text(
+            json.dumps({"instrument": {"fingerprint": "stale"}, "rows": []})
+        )
+        rows = _rows_for(plan, {"auto-general": _row(outcome="PASS"), "ws-b": _row(outcome="PASS")})
+        monkeypatch.setattr(camp, "execute_arm", _fake_execute(rows))
+        assert run_canary(["--campaign-id", "c1", "--plan", str(plan)]) == 0
+        out = capsys.readouterr().out
+        assert "archived drifted canary c1_canary ->" in out
+        archived = [p.name for p in (tmp / "campaigns").iterdir() if "stale_" in p.name]
+        assert len(archived) == 1
+        assert re.fullmatch(r"c1_canary\.stale_\d{8}T\d{4}Z(_\d+)?", archived[0])
+        fresh = json.loads((tmp / "campaigns" / "c1_canary" / "manifest.json").read_text())
+        assert camp.instrument_drift(fresh) is None
+        assert "CANARY c1_canary: PASS (0 setup row(s) of 2)" in out
+
+    def test_a_rerun_on_an_unchanged_build_resumes_the_same_dir(self, harness, monkeypatch, capsys):
+        plan, tmp = harness
+        rows = _rows_for(plan, {"auto-general": _row(outcome="PASS"), "ws-b": _row(outcome="PASS")})
+        monkeypatch.setattr(camp, "execute_arm", _fake_execute(rows))
+        args = ["--campaign-id", "c1", "--plan", str(plan)]
+        assert run_canary(args) == 0
+        capsys.readouterr()
+        canary = tmp / "campaigns" / "c1_canary"
+        created = json.loads((canary / "manifest.json").read_text())["created_utc"]
+        assert run_canary(args) == 0
+        out = capsys.readouterr().out
+        assert "archived" not in out
+        assert json.loads((canary / "manifest.json").read_text())["created_utc"] == created
+        assert [p.name for p in (tmp / "campaigns").iterdir() if "stale_" in p.name] == []
 
 
 class TestSetupFaultLedger:
