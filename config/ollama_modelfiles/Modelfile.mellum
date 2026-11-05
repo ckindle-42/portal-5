@@ -1,3 +1,6 @@
+# Mellum 2.1 template repair: the hf.co import ships Ollama's legacy qwen3 template,
+# which prefills <think> even when thinking is on and has no think-off branch.
+# Mirrors JetBrains/Mellum2.1-12B-A2.5B-Thinking chat_template.jinja at 92ddae9.
 FROM hf.co/JetBrains/Mellum2.1-12B-A2.5B-Thinking-GGUF:Q4_K_M-ctx32k
 
 TEMPLATE """
@@ -32,8 +35,11 @@ For each function call, return a json object with function name and arguments wi
 {{- if eq .Role "user" }}<|im_start|>user
 {{ .Content }}<|im_end|>
 {{ else if eq .Role "assistant" }}<|im_start|>assistant
-{{ if (and $.IsThinkSet (and .Thinking (or $last (gt $i $lastUserIdx)))) -}}
-<think>{{ .Thinking }}</think>
+{{ if and .Thinking (or $last (gt $i $lastUserIdx)) -}}
+<think>
+{{ .Thinking }}
+</think>
+
 {{ end -}}
 {{ if .Content }}{{ .Content }}{{ end }}
 {{- if .ToolCalls }}
@@ -50,9 +56,12 @@ For each function call, return a json object with function name and arguments wi
 </tool_response><|im_end|>
 {{ end }}
 {{- if and (ne .Role "assistant") $last }}<|im_start|>assistant
-{{- if and $.IsThinkSet (not $.Think) }}<think></think>{{ else }}<think>{{ end }}
-{{ end }}
-{{- end }}
-"""
+{{ if and $.IsThinkSet (not $.Think) }}<think>
 
+</think>
+
+{{ end }}{{ end }}{{- end }}"""
+
+# qwen3-thinking parses <think> and <tool_call> JSON; no RENDERER because Ollama has
+# no native mellum renderer and the qwen3 renderer emits a different tool-call body.
 PARSER qwen3-thinking
