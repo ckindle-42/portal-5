@@ -7,6 +7,7 @@ purpose: >-
   default false. The flip writes that env key and force-recreates only
   portal-pipeline, with no image build, then requires /health build_sha unchanged
   and the container printenv to match, so the deployed fingerprint stays put.
+  A leading flip forces false so OFF never inherits a stopped run's ON state.
   ON is realuse_toolcarry_on_20261105. Both campaigns pass --fresh-incumbent so
   the ON rows are not reused OFF rows. The closing flip restores false.
   on_failure stop does not run that restore: if the job stops after the ON flip,
@@ -17,6 +18,11 @@ preconditions:
   free_memory_gib: 24
   disk_free_gib: 30
 steps:
+  - id: carry-off-start
+    argv:
+      - scripts/pipeline_tool_carry.sh
+      - "off"
+    timeout_seconds: 900
   - id: "off-canary"
     canary: "off"
     timeout_seconds: 10800

@@ -340,6 +340,7 @@ def test_tool_carry_ab_flips_the_flag_around_two_fresh_incumbent_campaigns() -> 
         if step.canary_of is None and step.argv[0] == "scripts/wfe_campaign.sh"
     ]
     assert [step.step_id for step in spec.steps] == [
+        "carry-off-start",
         "off-canary",
         "off",
         "carry-on",
@@ -366,10 +367,10 @@ def test_tool_carry_ab_flips_the_flag_around_two_fresh_incumbent_campaigns() -> 
         assert "--repeats" not in step.argv
         assert step.quiet_host is True
         assert any(path.endswith(f"{step.argv[1]}/manifest.json") for path in step.checkpoints)
-    assert spec.steps[2].argv == ("scripts/pipeline_tool_carry.sh", "on")
-    assert spec.steps[5].argv == ("scripts/pipeline_tool_carry.sh", "off")
-    assert spec.steps[2].quiet_host is True
-    assert spec.steps[5].quiet_host is True
+    assert spec.steps[0].argv == ("scripts/pipeline_tool_carry.sh", "off")
+    assert spec.steps[3].argv == ("scripts/pipeline_tool_carry.sh", "on")
+    assert spec.steps[6].argv == ("scripts/pipeline_tool_carry.sh", "off")
+    assert all(spec.steps[i].quiet_host is True for i in (0, 3, 6))
     assert spec.stop_conditions.on_failure == "stop"
     reports = [step for step in spec.steps if step.argv[3:5] == ("-m", "tests.wfe.report")]
     councils = [step for step in spec.steps if step.argv[3:5] == ("-m", "tests.wfe.judge_council")]
