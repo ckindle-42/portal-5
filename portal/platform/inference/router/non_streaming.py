@@ -59,6 +59,7 @@ from portal.platform.inference.router.tool_repeat import (
 from portal.platform.inference.router.tools import (
     _dispatch_tool_call,
     _select_explicit_required_tool,
+    format_tool_result_carry,
 )
 from portal.platform.inference.router.trace import (
     add_model_turn,
@@ -386,6 +387,7 @@ def _apply_non_stream_response(
     *,
     successful_creation: bool = False,
     model_elapsed_s: float | None = None,
+    tool_result_carry: str | None = None,
 ) -> JSONResponse:
     """Normalise + record + wrap a completed non-streaming response dict.
 
@@ -424,6 +426,12 @@ def _apply_non_stream_response(
 
     except Exception:
         pass  # Never let normalisation break a valid response
+
+    if tool_result_carry:
+        for choice in data.get("choices") or []:
+            msg = choice.get("message") or {}
+            content = str(msg.get("content") or "")
+            msg["content"] = f"{content}\n\n{tool_result_carry}" if content else tool_result_carry
 
     _elapsed = time.monotonic() - start_time
     _model_total_s = (
@@ -897,6 +905,8 @@ async def _try_non_streaming(
         """POST → tool loop → normalise → return. None on any failure."""
 
         nonlocal _prefill_refusal, _last_request_body
+        carry_tool_calls: list[dict[str, Any]] = []
+        carry_results: list[dict[str, Any]] = []
         _prefill_refusal = None
         _last_request_body = req_body
         try:
@@ -1033,6 +1043,8 @@ async def _try_non_streaming(
                 _ns_creation_succeeded = _ns_creation_succeeded or any(
                     successful_file_creation(result) for result in _ns_dispatch
                 )
+                carry_tool_calls.extend(_ns_tool_calls)
+                carry_results.extend(_ns_dispatch)
                 _ns_assistant_msg = _assistant_turn(
                     data, _ns_tool_calls, _ns_thinking_allowed, _ns_creation_succeeded
                 )
@@ -1115,6 +1127,7 @@ async def _try_non_streaming(
                 start_time,
                 successful_creation=_ns_creation_succeeded,
                 model_elapsed_s=max(0.0, time.monotonic() - _model_started),
+                tool_result_carry=format_tool_result_carry(carry_tool_calls, carry_results),
             )
         except (httpx.TimeoutException, BackendRequestError):
             raise  # timeout: outer handler checks /api/ps; 4xx: caller surfaces it

@@ -102,6 +102,7 @@ from portal.platform.inference.router.tool_repeat import (
 from portal.platform.inference.router.tools import (
     _dispatch_tool_call,
     _select_explicit_required_tool,
+    format_tool_result_carry,
 )
 from portal.platform.inference.router.trace import (
     StreamMeasurement,
@@ -884,6 +885,8 @@ async def _tool_loop_frames(
     _exec_audit_calls: list[
         dict[str, Any]
     ] = []  # accumulates tool calls across all hops when exec_audit=true
+    carry_tool_calls: list[dict[str, Any]] = []
+    carry_results: list[dict[str, Any]] = []
     _repeat_guard = ToolRepeatGuard()
     _download_lines = DownloadLineFilter()
     _successful_creation = False
@@ -1383,6 +1386,11 @@ async def _tool_loop_frames(
 
             # Hop limit guard
             if hop >= hop_limit and not (bite_hops_supplied and client_owned):
+                limit_content = (
+                    f"\n\n[Tool-use limit ({hop_limit} hops) reached. Returning partial result.]"
+                )
+                if carry := format_tool_result_carry(carry_tool_calls, carry_results):
+                    limit_content += f"\n\n{carry}"
                 limit_msg = {
                     "id": request_id,
                     "object": "chat.completion.chunk",
@@ -1391,9 +1399,7 @@ async def _tool_loop_frames(
                     "choices": [
                         {
                             "index": 0,
-                            "delta": {
-                                "content": f"\n\n[Tool-use limit ({hop_limit} hops) reached. Returning partial result.]"
-                            },
+                            "delta": {"content": limit_content},
                             "finish_reason": "stop",
                         }
                     ],
@@ -1414,6 +1420,11 @@ async def _tool_loop_frames(
             # been suppressing (pipeline "owns dispatch" only for its own
             # tools) as the final response instead of auto-resolving them.
             if client_owned:
+                passthrough_delta: dict[str, Any] = {
+                    "tool_calls": _indexed_tool_calls(all_tool_calls)
+                }
+                if carry := format_tool_result_carry(carry_tool_calls, carry_results):
+                    passthrough_delta["content"] = f"\n\n{carry}"
                 if audit_frame := _exec_audit_frame(_exec_audit, _exec_audit_calls):
                     yield audit_frame
                 passthrough_chunk = {
@@ -1424,7 +1435,7 @@ async def _tool_loop_frames(
                     "choices": [
                         {
                             "index": 0,
-                            "delta": {"tool_calls": _indexed_tool_calls(all_tool_calls)},
+                            "delta": passthrough_delta,
                             "finish_reason": None,
                         }
                     ],
@@ -1452,6 +1463,8 @@ async def _tool_loop_frames(
                 hop_limit,
                 _repeat_guard,
             )
+            carry_tool_calls.extend(all_tool_calls)
+            carry_results.extend(dispatch_results)
             assistant_msg["content"] = _content_buf if _content_buf.strip() else None
             if _thinking_allowed and _reasoning_buf:
                 # Keep the OpenAI-compatible history field canonical. The
@@ -1501,6 +1514,8 @@ async def _tool_loop_frames(
                 yield f"data: {json.dumps(_notice)}\n\n".encode()
             if _exec_audit and _exec_audit_calls:
                 yield _exec_audit_event(_exec_audit_calls)
+            if carry := format_tool_result_carry(carry_tool_calls, carry_results):
+                yield _content_chunk(request_id, workspace_id, f"\n\n{carry}")
             if notice := take_truncation_notice():
                 yield _content_chunk(request_id, workspace_id, f"\n\n{notice}")
             yield _completion_finish_chunk(finish_reason or "stop")

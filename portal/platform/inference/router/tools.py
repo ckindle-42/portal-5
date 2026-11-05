@@ -7,8 +7,10 @@ metrics, state, and tool_registry; never imports router_pipe.
 
 from __future__ import annotations
 
+import html
 import json
 import logging
+import os
 import re
 import time
 from typing import Any
@@ -31,6 +33,66 @@ from portal.platform.inference.router.trace import (
 )
 
 logger = logging.getLogger(__name__)
+
+_TOOL_RESULT_CARRY_ENABLED = os.environ.get("PORTAL_TOOL_RESULT_CARRY", "false").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+_TOOL_RESULT_CARRY_MAX_CHARS = 2048
+
+
+def _carry_excerpt(value: Any, limit: int) -> str:
+    text = " ".join(str(value or "").split())
+    return text if len(text) <= limit else f"{text[: limit - 1]}…"
+
+
+def format_tool_result_carry(
+    tool_calls: list[dict[str, Any]], results: list[dict[str, Any]]
+) -> str | None:
+    """Render bounded tool receipts for the returned assistant history."""
+    if not _TOOL_RESULT_CARRY_ENABLED or not tool_calls:
+        return None
+
+    opening = "<details><summary>Tool results</summary>\n<ul>\n"
+    closing = "\n</ul>\n</details>"
+    items: list[str] = []
+    used_chars = len(opening) + len(closing)
+    for call, result in zip(tool_calls, results, strict=True):
+        function = call.get("function") or {}
+        name = _carry_excerpt(function.get("name") or "unknown", 80)
+        raw_args = function.get("arguments") or "{}"
+        try:
+            arguments = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
+        except json.JSONDecodeError:
+            arguments = {}
+        key_args = (
+            {
+                key: value
+                for key, value in arguments.items()
+                if key.casefold().endswith(("path", "id", "ref", "uri"))
+                or key.casefold() in ("file", "filename")
+            }
+            if isinstance(arguments, dict)
+            else {}
+        )
+        args_text = _carry_excerpt(json.dumps(key_args, ensure_ascii=False, default=str), 160)
+        result_text = _carry_excerpt(result.get("content") or "(empty result)", 220)
+        item = f"<li><code>{html.escape(name)}</code>"
+        if key_args:
+            item += f" <code>{html.escape(args_text)}</code>"
+        item += f" — {html.escape(result_text)}</li>\n"
+        if used_chars + len(item) > _TOOL_RESULT_CARRY_MAX_CHARS:
+            omitted = "<li>Additional tool results omitted.</li>\n"
+            if used_chars + len(omitted) <= _TOOL_RESULT_CARRY_MAX_CHARS:
+                items.append(omitted)
+            break
+        items.append(item)
+        used_chars += len(item)
+
+    if not items:
+        return None
+    return opening + "".join(items) + closing
 
 
 _CREATE_ACTION_RE = re.compile(r"\b(?:build|create|generate|make|produce|save)\b")
