@@ -430,7 +430,9 @@ def run_canary(argv: list[str] | None = None) -> int:
     recorded = _record_mode(args, extra, ap)
     if recorded is not None:
         return recorded
-    if [tok for tok in extra if tok != "--judge"]:
+    # wfe_campaign.sh forwards these; the canary already reruns its one incumbent row.
+    forwarded = {"--judge", "--fresh-incumbent"}
+    if [tok for tok in extra if tok not in forwarded]:
         ap.error(f"unrecognized arguments: {' '.join(extra)}")
     if not args.campaign_id:
         ap.error("--campaign-id is required")

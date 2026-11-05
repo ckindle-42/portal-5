@@ -1,0 +1,144 @@
+id: wfe-tool-carry-ab
+purpose: >-
+  Tool-result carry A/B on the eight realuse_v1 tasks whose later turn grades a
+  fact from an earlier tool result. Incumbent only, the same production seat in
+  both campaigns, plan repeats 3 (n=24 per condition). OFF is
+  realuse_toolcarry_off_20261105 with PORTAL_TOOL_RESULT_CARRY at its process
+  default false. The flip writes that env key and force-recreates only
+  portal-pipeline, with no image build, then requires /health build_sha unchanged
+  and the container printenv to match, so the deployed fingerprint stays put.
+  A leading flip forces false so OFF never inherits a stopped run's ON state.
+  ON is realuse_toolcarry_on_20261105. Both campaigns pass --fresh-incumbent so
+  the ON rows are not reused OFF rows. The closing flip restores false.
+  on_failure stop does not run that restore: if the job stops after the ON flip,
+  run scripts/pipeline_tool_carry.sh off before another campaign. Each campaign
+  is gated by its canary. Reports and the judge council follow both.
+preconditions:
+  stack: up
+  free_memory_gib: 24
+  disk_free_gib: 30
+steps:
+  - id: carry-off-start
+    argv:
+      - scripts/pipeline_tool_carry.sh
+      - "off"
+    timeout_seconds: 900
+  - id: "off-canary"
+    canary: "off"
+    timeout_seconds: 10800
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_toolcarry_off_20261105_canary/manifest.json
+  - id: "off"
+    argv:
+      - scripts/wfe_campaign.sh
+      - realuse_toolcarry_off_20261105
+      - "--plan"
+      - tests/wfe/plans/realuse_v1_tool_carry_ab.yaml
+      - "--tier"
+      - realuse
+      - "--engine"
+      - pipeline
+      - "--judge"
+      - "--fresh-incumbent"
+    timeout_seconds: 86400
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_toolcarry_off_20261105/manifest.json
+  - id: carry-on
+    argv:
+      - scripts/pipeline_tool_carry.sh
+      - "on"
+    timeout_seconds: 900
+  - id: "on-canary"
+    canary: "on"
+    timeout_seconds: 10800
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_toolcarry_on_20261105_canary/manifest.json
+  - id: "on"
+    argv:
+      - scripts/wfe_campaign.sh
+      - realuse_toolcarry_on_20261105
+      - "--plan"
+      - tests/wfe/plans/realuse_v1_tool_carry_ab.yaml
+      - "--tier"
+      - realuse
+      - "--engine"
+      - pipeline
+      - "--judge"
+      - "--fresh-incumbent"
+    timeout_seconds: 86400
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_toolcarry_on_20261105/manifest.json
+  - id: carry-off
+    argv:
+      - scripts/pipeline_tool_carry.sh
+      - "off"
+    timeout_seconds: 900
+  - id: off-report
+    argv:
+      - uv
+      - run
+      - python
+      - "-m"
+      - tests.wfe.report
+      - "--campaign"
+      - realuse_toolcarry_off_20261105
+      - "--out-dir"
+      - tests/wfe/results/advance
+    timeout_seconds: 900
+    quiet_host: false
+    outputs:
+      - tests/wfe/results/advance/WFE_FITNESS_REPORT_realuse_toolcarry_off_20261105.md
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_toolcarry_off_20261105/report.json
+  - id: off-judge-council
+    argv:
+      - uv
+      - run
+      - python
+      - "-m"
+      - tests.wfe.judge_council
+      - "--campaign"
+      - realuse_toolcarry_off_20261105
+    timeout_seconds: 900
+    quiet_host: false
+  - id: on-report
+    argv:
+      - uv
+      - run
+      - python
+      - "-m"
+      - tests.wfe.report
+      - "--campaign"
+      - realuse_toolcarry_on_20261105
+      - "--out-dir"
+      - tests/wfe/results/advance
+    timeout_seconds: 900
+    quiet_host: false
+    outputs:
+      - tests/wfe/results/advance/WFE_FITNESS_REPORT_realuse_toolcarry_on_20261105.md
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/realuse_toolcarry_on_20261105/report.json
+  - id: on-judge-council
+    argv:
+      - uv
+      - run
+      - python
+      - "-m"
+      - tests.wfe.judge_council
+      - "--campaign"
+      - realuse_toolcarry_on_20261105
+    timeout_seconds: 900
+    quiet_host: false
+stop_conditions:
+  on_failure: stop
+  # Two 86400s campaigns must fit under max_job_minutes * 60. 3600 covers both plus the canaries.
+  max_job_minutes: 3600
+report:
+  fields:
+    - status
+    - purpose
+    - steps
+    - outputs
+    - checkpoints
+    - failures
+    - memory
+    - duration
+    - resume

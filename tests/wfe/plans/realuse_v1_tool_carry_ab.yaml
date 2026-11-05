@@ -1,0 +1,43 @@
+# Tool-result carry A/B. Eight realuse_v1 tasks where a later turn grades a fact
+# from an earlier turn's tool result and the later user text does not restate it.
+# Incumbent only, production seats, repeats 3: n=24 per condition.
+#
+# auto-daily: ru-v1-001 (misc supplies is not in the first answer check),
+#   ru-v1-004 (keep the $500 stipend), ru-v1-006 (September/October into Word).
+# auto-daily::fast: ru-v1-064 (Dana and Leo), ru-v1-069 (keep March 14).
+# auto-documents: ru-v1-019 (Acme Supply and 1,240), ru-v1-028 (once a week
+#   from birds.docx while turn 2 reads feeder.docx), ru-v1-070 (exam dates).
+# For 004, 006, 028, 064, 069, and 070 the fact is also required in the earlier
+# answer, so a passing first turn already wrote it in prose. The follow-up still
+# depends on that turn: it points at the file or figure without restating it.
+# Left out: ru-v1-002 re-reads the file; ru-v1-008 grades south/57 that turn 1
+# was not required to surface; ru-v1-018's Word check is already in the user text.
+#
+#   uv run python -m tests.wfe.campaign --campaign-id realuse_toolcarry_off_20261105 \
+#       --plan tests/wfe/plans/realuse_v1_tool_carry_ab.yaml --tier realuse --dry-run
+repeats: 3
+workloads:
+  auto-daily:
+    tool_mode: production
+    home: realuse_v1
+    home_tasks: [ru-v1-001, ru-v1-004, ru-v1-006]
+    discovery: []
+    arms:
+      incumbent: gemma4:26b-a4b-it-qat-ctx16k
+      challengers: []
+  auto-daily::fast:
+    tool_mode: production
+    home: realuse_v1
+    home_tasks: [ru-v1-064, ru-v1-069]
+    discovery: []
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k
+      challengers: []
+  auto-documents:
+    tool_mode: production
+    home: realuse_v1
+    home_tasks: [ru-v1-019, ru-v1-028, ru-v1-070]
+    discovery: []
+    arms:
+      incumbent: gemma4:26b-a4b-it-q4_K_M-ctx32k
+      challengers: []

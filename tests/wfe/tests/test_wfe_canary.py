@@ -424,6 +424,26 @@ class TestRunCanary:
         monkeypatch.setattr(camp, "execute_arm", _fake_execute(rows))
         assert run_canary(["--campaign-id", "c1", "--plan", str(plan), "--judge"]) == 0
 
+    def test_a_fresh_incumbent_flag_is_tolerated(self, harness, monkeypatch):
+        plan, _ = harness
+        rows = _rows_for(plan, {"auto-general": _row(), "ws-b": _row()})
+        monkeypatch.setattr(camp, "execute_arm", _fake_execute(rows))
+        assert (
+            run_canary(
+                [
+                    "--campaign-id",
+                    "c1",
+                    "--plan",
+                    str(plan),
+                    "--judge",
+                    "--fresh-incumbent",
+                    "--tier",
+                    "realuse",
+                ]
+            )
+            == 0
+        )
+
     def test_an_unknown_flag_is_rejected(self, harness):
         plan, _ = harness
         with pytest.raises(SystemExit):
