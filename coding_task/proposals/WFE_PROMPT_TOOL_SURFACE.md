@@ -56,12 +56,11 @@ ru-v1-003).
 - `PROXY_TOOLS` — harness-served proxies for named tools the allowlist lacks. For
   `explore_repository` the proxy validates the call against the production implementation's own
   signature (imported via `inspect.signature`, so it tracks pipeline_mcp changes) and rejects
-  malformed args with production's exact registry wording; a valid query is answered by a
-  deterministic, read-only GLOB/GREP-equivalent over the row's staged `in/` tree, citing files at
-  the `/workspace/uploads/...` paths the task prompts use. Result shape matches production
-  (`citations` / `turns_used` / `model` / `note`; `model: wfe_eval_namespace_proxy` marks it as
-  the proxy, since no explorer model ran). Material outside the namespace → `citations: []`,
-  production's out-of-repo behavior.
+  malformed args with production's exact registry wording; a valid query returns production's
+  answer for uploads work: `citations: []` with a note that `/workspace/uploads` is outside the
+  repository the explorer searches (`model: wfe_eval_namespace_proxy`). Reviewer change
+  2026-11-05: the lane's first version keyword-searched the staged uploads and cited them — a
+  capability production users do not have, so the proxy would have measured a kinder world.
 - Any other named-but-unserved tool (e.g. `web_search` on `auto-daily`) gets a **defined** JSON
   result — `{"error": "Tool 'X' is declared by the workspace but not served by this evaluation's
   tool surface"}` — never the sandbox's `"unknown tool"`.

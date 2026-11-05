@@ -13,7 +13,6 @@ import base64
 import hashlib
 import json
 import os
-import re
 import shutil
 import urllib.request
 from collections.abc import Callable
@@ -36,7 +35,6 @@ REPO = Path(__file__).resolve().parents[2]
 PROXY_TOOLS: dict[str, Callable[[dict, dict], str]] = {}
 
 _EXPLORER = "wfe_eval_namespace_proxy"
-_TERM = re.compile(r"[A-Za-z0-9_]{3,}")
 _known_tools: set[str] | None = None
 
 
@@ -65,10 +63,12 @@ def known_tool_names() -> set[str]:
 
 
 def _proxy_explore_repository(args: dict, ctx: dict) -> str:
-    """explore_repository over the run's staged inputs. Production's explorer walks the
-    portal-5 repo with a live model (pipeline_mcp._dispatch_fastcontext_tool) and cannot
-    see /workspace/uploads or the row's namespace, so the harness serves the surface the
-    prompt promises, deterministically and confined to `in/`."""
+    """explore_repository as production serves it to an uploads task. Production's explorer
+    (pipeline_mcp._dispatch_fastcontext_tool) walks only the portal-5 repo and cannot see
+    /workspace/uploads, so a user of this workspace gets no citations for uploaded material.
+    The proxy returns exactly that — it must never be more helpful than production, or the
+    eval measures a capability users do not have. Arguments are gated with production's
+    signature and wording."""
     import inspect
 
     from portal.platform.mcp_host.pipeline_mcp import _impl_explore_repository
@@ -83,44 +83,22 @@ def _proxy_explore_repository(args: dict, ctx: dict) -> str:
                 f"accepted: {sorted(sig.parameters)}",
             }
         )
-    query = str(args.get("query") or "")
-    if not query.strip():
+    if not str(args.get("query") or "").strip():
         return json.dumps(
             {
                 "error": "Tool 'explore_repository' rejected the arguments",
                 "detail": "missing required argument(s) ['query']",
             }
         )
-    root = ctx.get("root")
-    terms = {t.lower() for t in _TERM.findall(query)[:12]}
-    citations = []
-    for path in sorted((root / "in").rglob("*")) if root else []:
-        if not path.is_file():
-            continue
-        try:
-            lines = path.read_text(errors="replace").splitlines()
-        except OSError:
-            continue
-        hits = [i for i, ln in enumerate(lines, 1) if any(t in ln.lower() for t in terms)]
-        if not hits:
-            continue
-        rel = path.relative_to(root / "in")
-        citations.append(
-            {
-                "path": f"{eval_scope.WORKSPACE_MOUNTS[0]}/{rel}",
-                "start_line": hits[0],
-                "end_line": hits[-1],
-                "note": lines[hits[0] - 1].strip()[:100],
-            }
-        )
-        if len(citations) >= 8:
-            break
-    note = (
-        "no staged input matches; the material is not part of a repository"
-        if not citations
-        else "served from the run's staged inputs"
+    return json.dumps(
+        {
+            "citations": [],
+            "turns_used": 1,
+            "model": _EXPLORER,
+            "note": "no repository match; uploaded material under /workspace/uploads is not "
+            "part of the repository the explorer searches",
+        }
     )
-    return json.dumps({"citations": citations, "turns_used": 1, "model": _EXPLORER, "note": note})
 
 
 PROXY_TOOLS["explore_repository"] = _proxy_explore_repository

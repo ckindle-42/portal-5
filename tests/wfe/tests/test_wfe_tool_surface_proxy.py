@@ -52,16 +52,14 @@ def test_a_sandbox_row_gets_no_proxy(out_root):
     assert ctx["production"] is False and "proxy_fns" not in ctx
 
 
-def test_explore_repository_is_answered_from_the_run_namespace(out_root):
-    """A query hit is cited at the /workspace path the task prompt names — the production
-    explorer cannot see uploads (pipeline_mcp walks the portal-5 repo with a live model)."""
+def test_explore_repository_is_no_more_helpful_than_production(out_root):
+    """Production's explorer cannot see uploads, so even a query that names the staged file's
+    content returns no citations — the proxy must not hand the arm a capability users lack."""
     task = {"id": "t", "seed": {"notes.txt": "ship it\nTODO fix the parser\nclean line\n"}}
     _, _, ctx = _prepare_fast_repair(out_root, task)
     out = json.loads(ctx["proxy_fns"]["explore_repository"]({"query": "where are TODO lines"}))
-    assert out["model"] == "wfe_eval_namespace_proxy" and out["citations"]
-    [cite] = out["citations"]
-    assert cite["path"] == "/workspace/uploads/notes.txt"
-    assert cite["start_line"] == 2 and cite["end_line"] == 2 and "TODO" in cite["note"]
+    assert out["model"] == "wfe_eval_namespace_proxy" and out["citations"] == []
+    assert "/workspace/uploads" in out["note"]
 
 
 def test_explore_repository_rejects_arguments_like_production(out_root):
@@ -77,7 +75,7 @@ def test_explore_repository_rejects_arguments_like_production(out_root):
 def test_an_unmatched_query_matches_production_for_out_of_repo_material(out_root):
     _, _, ctx = _prepare_fast_repair(out_root, {"id": "t"})
     out = json.loads(ctx["proxy_fns"]["explore_repository"]({"query": "zzz_nothing_matches"}))
-    assert out["citations"] == [] and "not part of a repository" in out["note"]
+    assert out["citations"] == [] and "not part of the repository" in out["note"]
 
 
 def test_a_named_tool_without_a_handler_gets_a_defined_not_served_result(out_root):
