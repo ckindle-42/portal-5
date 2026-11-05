@@ -2171,6 +2171,70 @@ def _utc_timestamp(value: str) -> float:
         return time.time()
 
 
+_PRIOR_RUN_FILES = ("job_state.json", "receipt.json", "run.lock")
+
+
+def refuse_live_job_lock(job_dir: Path) -> None:
+    """A live run.lock means the job process is still in this directory."""
+    pid, started = _read_run_lock(job_dir / "run.lock")
+    if _foreign_lock_held(pid, started):
+        raise ValueError(f"job {job_dir.name} is already running (pid {pid})")
+
+
+def archive_prior_run(job_dir: Path) -> Path | None:
+    """Move leftover run files under prior_runs/<utc>/. Never deletes them."""
+    present = [job_dir / name for name in _PRIOR_RUN_FILES if (job_dir / name).is_file()]
+    if not present:
+        return None
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
+    dest = job_dir / "prior_runs" / stamp
+    suffix = 1
+    while dest.exists():
+        suffix += 1
+        dest = job_dir / "prior_runs" / f"{stamp}_{suffix}"
+    dest.mkdir(parents=True)
+    for path in present:
+        path.rename(dest / path.name)
+    return dest
+
+
+def reopen_canary_steps(job_dir: Path, plan: str) -> None:
+    """A canary is per-run: resume must not keep one from the previous run."""
+    path = job_dir / "job_state.json"
+    if not path.is_file():
+        return
+    try:
+        payload = json.loads(plan)
+        state = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"cannot resume {job_dir.name}: job state or spec is unreadable") from exc
+    if not isinstance(state, dict) or not isinstance(payload, dict):
+        raise ValueError(f"cannot resume {job_dir.name}: job state or spec is not an object")
+    raw_steps = payload.get("steps")
+    canaries = (
+        {
+            str(step["id"])
+            for step in raw_steps
+            if isinstance(step, dict) and step.get("canary") and step.get("id")
+        }
+        if isinstance(raw_steps, list)
+        else set()
+    )
+    steps = state.get("steps")
+    if not isinstance(steps, dict):
+        return
+    changed = False
+    for step_id in canaries:
+        entry = steps.get(step_id)
+        if not isinstance(entry, dict) or entry.get("state") == "pending":
+            continue
+        entry["state"] = "pending"
+        entry["reason"] = "canary reruns on requeue"
+        changed = True
+    if changed:
+        _write_json(path, state)
+
+
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.write_text(json.dumps(payload, indent=1) + "\n", encoding="utf-8")

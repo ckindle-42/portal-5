@@ -483,15 +483,19 @@ def queue_cancel(
 @orchestration_app.command("queue-requeue")
 def queue_requeue(
     task_id: Annotated[str, typer.Argument()],
+    resume: Annotated[
+        bool,
+        typer.Option("--resume", help="Keep completed non-canary steps. Canary steps run again."),
+    ] = False,
     tasks_dir: Annotated[Path | None, typer.Option("--tasks-dir")] = None,
 ) -> None:
-    """Requeue a blocked or done job from the spec in its job directory."""
+    """Requeue a blocked or done job. Archives the prior run unless --resume is set."""
     _require_enabled()
     from portal.modules.orchestration.control import requeue_job
 
     root = tasks_dir or _tasks_dir()
     try:
-        typer.echo(requeue_job(root, task_id, _repo_root()))
+        typer.echo(requeue_job(root, task_id, _repo_root(), resume=resume))
     except Exception as exc:
         typer.echo(f"arm queue-requeue failed: {exc}", err=True)
         raise typer.Exit(code=1) from exc

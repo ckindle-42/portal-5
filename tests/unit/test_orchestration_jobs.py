@@ -1857,6 +1857,225 @@ def test_queue_requeue_refuses_a_plan(tmp_path: Path) -> None:
     assert _queue_row(tasks_dir)["state"] == "blocked"
 
 
+def _canary_spec(repo: Path, tmp_path: Path) -> tuple[Any, Path, Path]:
+    canary = tmp_path / "canary-ran"
+    main = tmp_path / "main-ran"
+    script = _python_script(
+        repo,
+        "confirm.py",
+        "import sys\n"
+        "from pathlib import Path\n"
+        f"path = Path({str(canary)!r}) if '--canary' in sys.argv else Path({str(main)!r})\n"
+        "path.write_text((path.read_text() if path.exists() else '') + 'x')\n",
+    )
+    spec = _spec(
+        repo,
+        [script],
+        steps=[
+            {
+                "id": "confirm-canary",
+                "canary": "confirm",
+                "timeout_seconds": 5,
+                "quiet_host": False,
+            },
+            {"id": "confirm", "argv": [script], "timeout_seconds": 5, "quiet_host": False},
+        ],
+    )
+    return spec, canary, main
+
+
+def _write_prior_run(task_root: Path, spec: Any, *, canary_state: str, main_state: str) -> None:
+    job_dir = task_root / spec.job_id
+    now = "2026-11-05T02:20:00Z"
+    (job_dir / "job_state.json").write_text(
+        json.dumps(
+            {
+                "job_id": spec.job_id,
+                "created_at": now,
+                "updated_at": now,
+                "first_started_at": now,
+                "run_count": 25,
+                "steps": {
+                    "confirm-canary": {
+                        "state": canary_state,
+                        "attempts": 1,
+                        "history": [{"exit_code": 0}],
+                    },
+                    "confirm": {
+                        "state": main_state,
+                        "attempts": 1,
+                        "started_at": now,
+                        "history": [] if main_state == "running" else [{"exit_code": 0}],
+                    },
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (job_dir / "receipt.json").write_text(
+        json.dumps(
+            {
+                "status": "BLOCKED",
+                "reason": "step child is not alive with its recorded PID and start time",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (job_dir / "run.lock").write_text(
+        json.dumps({"pid": 2**30, "started": "Thu Jan 1 00:00:00 1970"}) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _overnight(tmp_path: Path, repo: Path, task_root: Path) -> OvernightQueue:
+    gate = QueueGate(
+        {},
+        {"yield_lock_dir": str(tmp_path / "locks")},
+        pid_file=tmp_path / "memory-pids",
+    )
+    return OvernightQueue(
+        task_root,
+        None,
+        gate,
+        repo_root=repo,
+        notices=StubNoticeSink(),
+        job_factory=lambda: _runner(tmp_path, repo),
+    )
+
+
+def _last_queued_detail(task_root: Path, job_id: str) -> dict[str, Any]:
+    with sqlite3.connect(task_root / "queue.sqlite3") as db:
+        row = db.execute(
+            "SELECT detail_json FROM queue_event WHERE task_id = ? AND state = 'queued' "
+            "ORDER BY id DESC LIMIT 1",
+            (job_id,),
+        ).fetchone()
+    assert row is not None
+    payload = json.loads(row[0])
+    assert isinstance(payload, dict)
+    return payload
+
+
+def test_queue_requeue_of_a_cancelled_job_starts_at_the_canary(
+    tmp_path: Path, repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(cli_module, "_repo_root", lambda: repo)
+    spec, canary, main = _canary_spec(repo, tmp_path)
+    task_root = tmp_path / "tasks"
+    with QueueLedger(task_root) as ledger:
+        ledger.enqueue_job(spec, repo)
+        ledger.finish(spec.job_id, "blocked", "CANCELLED", "cancelled by operator")
+    _write_prior_run(task_root, spec, canary_state="done", main_state="running")
+
+    result = CliRunner().invoke(
+        orchestration_app, ["queue-requeue", spec.job_id, "--tasks-dir", str(task_root)]
+    )
+
+    assert result.exit_code == 0, result.output
+    job_dir = task_root / spec.job_id
+    assert not (job_dir / "job_state.json").exists()
+    assert not (job_dir / "receipt.json").exists()
+    assert not (job_dir / "run.lock").exists()
+    row = _queue_row(task_root, spec.job_id)
+    assert row["state"] == "queued"
+    assert row["last_error"] is None
+    archive = Path(row["prior_run_archive"])
+    assert archive.is_dir()
+    assert archive.parent == job_dir / "prior_runs"
+    archived = json.loads((archive / "job_state.json").read_text(encoding="utf-8"))
+    assert archived["run_count"] == 25
+    assert archived["steps"]["confirm-canary"]["state"] == "done"
+    assert archived["steps"]["confirm"]["state"] == "running"
+    assert "not alive" in (archive / "receipt.json").read_text(encoding="utf-8")
+    assert (archive / "run.lock").is_file()
+    detail = _last_queued_detail(task_root, spec.job_id)
+    assert detail["archive_path"] == row["prior_run_archive"]
+    assert "resume" not in detail
+
+    run = _overnight(tmp_path, repo, task_root).run_next()
+
+    assert run.status == "DONE", run.reason
+    assert canary.read_text(encoding="utf-8") == "x"
+    assert main.read_text(encoding="utf-8") == "x"
+    state = json.loads((job_dir / "job_state.json").read_text(encoding="utf-8"))
+    assert state["run_count"] == 1
+    assert state["steps"]["confirm-canary"]["state"] == "done"
+    assert state["steps"]["confirm"]["state"] == "done"
+    receipt = _receipt(task_root, spec.job_id)
+    assert [step["id"] for step in receipt["steps"]] == ["confirm-canary", "confirm"]
+    assert [step["state"] for step in receipt["steps"]] == ["done", "done"]
+    assert json.loads((archive / "job_state.json").read_text(encoding="utf-8"))["run_count"] == 25
+
+
+def test_queue_requeue_resume_reruns_the_canary_and_keeps_other_steps(
+    tmp_path: Path, repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(cli_module, "_repo_root", lambda: repo)
+    spec, canary, main = _canary_spec(repo, tmp_path)
+    canary.write_text("x", encoding="utf-8")
+    main.write_text("x", encoding="utf-8")
+    task_root = tmp_path / "tasks"
+    with QueueLedger(task_root) as ledger:
+        ledger.enqueue_job(spec, repo)
+        ledger.finish(spec.job_id, "blocked", "CANCELLED", "cancelled by operator")
+    _write_prior_run(task_root, spec, canary_state="done", main_state="done")
+
+    result = CliRunner().invoke(
+        orchestration_app,
+        ["queue-requeue", spec.job_id, "--resume", "--tasks-dir", str(task_root)],
+    )
+
+    assert result.exit_code == 0, result.output
+    job_dir = task_root / spec.job_id
+    assert not (job_dir / "prior_runs").exists()
+    assert (job_dir / "job_state.json").is_file()
+    assert (job_dir / "receipt.json").is_file()
+    reopened = json.loads((job_dir / "job_state.json").read_text(encoding="utf-8"))
+    assert reopened["run_count"] == 25
+    assert reopened["steps"]["confirm-canary"]["state"] == "pending"
+    assert reopened["steps"]["confirm"]["state"] == "done"
+    row = _queue_row(task_root, spec.job_id)
+    assert row["state"] == "queued"
+    assert row["prior_run_archive"] is None
+    assert _last_queued_detail(task_root, spec.job_id)["resume"] is True
+
+    run = _overnight(tmp_path, repo, task_root).run_next()
+
+    assert run.status == "DONE", run.reason
+    assert canary.read_text(encoding="utf-8") == "xx"
+    assert main.read_text(encoding="utf-8") == "x"
+    receipt = _receipt(task_root, spec.job_id)
+    assert [step["attempts"] for step in receipt["steps"]] == [2, 1]
+    assert receipt["steps"][0]["state"] == "done"
+    assert receipt["steps"][1]["state"] == "done"
+
+
+def test_queue_requeue_refuses_a_live_job_lock(tmp_path: Path) -> None:
+    tasks_dir = _enqueue_job(tmp_path)
+    with QueueLedger(tasks_dir) as ledger:
+        ledger.finish("job-a", "blocked", "CANCELLED", "cancelled by operator")
+    proc = _sleeper()
+    try:
+        started = jobmod._ps_field(proc.pid, "lstart")
+        assert started
+        lock = tasks_dir / "job-a" / "run.lock"
+        lock.write_text(json.dumps({"pid": proc.pid, "started": started}) + "\n", encoding="utf-8")
+
+        result = CliRunner().invoke(
+            orchestration_app, ["queue-requeue", "job-a", "--tasks-dir", str(tasks_dir)]
+        )
+
+        assert result.exit_code == 1, result.output
+        assert "already running" in result.output
+        assert lock.is_file()
+        assert _queue_row(tasks_dir)["state"] == "blocked"
+        assert list(tasks_dir.glob("queue.sqlite3.*.bak")) == []
+    finally:
+        _stop(proc)
+
+
 def _fake_queue(monkeypatch: pytest.MonkeyPatch, statuses: list[str]) -> list[str]:
     from portal.modules.orchestration.queue import QueueRun
 

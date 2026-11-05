@@ -105,9 +105,15 @@ def cancel_job(root: Path, task_id: str, reason: str, *, force: bool = False) ->
     return text
 
 
-def requeue_job(root: Path, task_id: str, repo_root: Path) -> str:
-    """Requeue a blocked or done job from the spec in its job directory."""
-    from portal.modules.orchestration.jobs import job_json, parse_job_spec
+def requeue_job(root: Path, task_id: str, repo_root: Path, *, resume: bool = False) -> str:
+    """Requeue a blocked or done job. A fresh requeue archives the prior run."""
+    from portal.modules.orchestration.jobs import (
+        archive_prior_run,
+        job_json,
+        parse_job_spec,
+        refuse_live_job_lock,
+        reopen_canary_steps,
+    )
     from portal.modules.orchestration.queue import QueueLedger
 
     spec_path = root / task_id / "job.json"
@@ -118,11 +124,27 @@ def requeue_job(root: Path, task_id: str, repo_root: Path) -> str:
     )
     if spec.job_id != task_id:
         raise ValueError(f"job spec id {spec.job_id} does not match queue id {task_id}")
+    job_dir = root / task_id
+    refuse_live_job_lock(job_dir)
+    if resume:
+        reopen_canary_steps(job_dir, job_json(spec))
+        archive = None
+    else:
+        archive = archive_prior_run(job_dir)
+    recorded = str(archive.resolve()) if archive is not None else None
     with QueueLedger(root) as ledger:
-        ledger.requeue_job(task_id, job_json(spec))
+        ledger.requeue_job(
+            task_id,
+            job_json(spec),
+            resume=resume,
+            archive_path=recorded,
+            record_archive=True,
+        )
     spec_path.write_text(
         json.dumps(spec.as_dict(), sort_keys=True, indent=2) + "\n", encoding="utf-8"
     )
+    if recorded:
+        return f"requeued {task_id}; prior run archived at {recorded}"
     return f"requeued {task_id}"
 
 
