@@ -262,3 +262,99 @@ class TestCustomTimeoutFromDiscovery:
             await tr.dispatch("slow-tool", {}, "req1")
 
         assert received_timeout == 120.0
+
+
+class TestDispatchMissRefresh:
+    """A dispatch miss forces one rate-limited refresh before the not-in-registry error."""
+
+    @pytest.mark.asyncio
+    async def test_cold_registry_first_dispatch_succeeds_after_one_refresh(self, monkeypatch):
+        reg = ToolRegistry()
+        refreshes = 0
+        real_refresh = reg.refresh
+
+        async def counting_refresh(force: bool = False) -> int:
+            nonlocal refreshes
+            refreshes += 1
+            return await real_refresh(force=force)
+
+        async def fake_list_tools(client, base_url, timeout_s):
+            return [
+                {
+                    "name": "recall",
+                    "description": "r",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {"query": {"type": "string"}},
+                    },
+                }
+            ]
+
+        async def fake_call_tool(client, base_url, name, arguments, timeout_s, metadata=None):
+            return {"content": [{"type": "text", "text": '{"result": "hit"}'}]}
+
+        monkeypatch.setattr(registry_module, "list_tools", fake_list_tools)
+        monkeypatch.setattr(registry_module, "call_tool", fake_call_tool)
+        monkeypatch.setattr(reg, "refresh", counting_refresh)
+
+        result = await reg.dispatch("recall", {"query": "q"}, "req1")
+
+        assert "error" not in result
+        assert reg.get("recall") is not None
+        assert refreshes == 1
+
+    @pytest.mark.asyncio
+    async def test_unknown_tool_errors_and_refreshes_at_most_once_per_ttl(self, monkeypatch):
+        reg = ToolRegistry()
+        refreshes = 0
+        real_refresh = reg.refresh
+
+        async def counting_refresh(force: bool = False) -> int:
+            nonlocal refreshes
+            refreshes += 1
+            return await real_refresh(force=force)
+
+        async def fake_list_tools(client, base_url, timeout_s):
+            return []
+
+        monkeypatch.setattr(registry_module, "list_tools", fake_list_tools)
+        monkeypatch.setattr(registry_module, "TOOL_REGISTRY_REFRESH_S", 3600.0)
+        monkeypatch.setattr(registry_module, "TOOL_REGISTRY_RETRY_S", 30.0)
+        monkeypatch.setattr(reg, "refresh", counting_refresh)
+
+        first = await reg.dispatch("nonexistent", {}, "req1")
+        second = await reg.dispatch("nonexistent", {}, "req2")
+
+        assert "not in registry" in first["error"]
+        assert "not in registry" in second["error"]
+        assert refreshes == 1
+        assert reg._last_miss_refresh > 0
+
+    @pytest.mark.asyncio
+    async def test_transient_list_failure_keeps_server_tools(self, monkeypatch):
+        reg = ToolRegistry()
+        reg._tools["remember"] = ToolDefinition(
+            name="remember",
+            description="m",
+            parameters={},
+            server_id="memory",
+            server_url=MCP_SERVERS["memory"],
+            healthy=False,
+            next_retry_at=time.time() + 600,
+            consecutive_failures=2,
+        )
+
+        async def fake_list_tools(client, base_url, timeout_s):
+            if base_url == MCP_SERVERS["memory"]:
+                raise httpx.ReadTimeout("timed out")
+            return []
+
+        monkeypatch.setattr(registry_module, "list_tools", fake_list_tools)
+
+        result = await reg.dispatch("recall", {"query": "q"}, "req1")
+
+        assert "not in registry" in result["error"]
+        carried = reg.get("remember")
+        assert carried is not None
+        assert carried.healthy is False
+        assert carried.consecutive_failures == 2

@@ -328,6 +328,7 @@ class ToolRegistry:
         self._tools: dict[str, ToolDefinition] = {}
         self._last_refresh: float = 0.0
         self._partial: bool = False  # last refresh had a server that failed discovery
+        self._last_miss_refresh: float = 0.0  # last dispatch-miss forced refresh
         self._refresh_lock = asyncio.Lock()
         self._http: httpx.AsyncClient | None = None
 
@@ -351,7 +352,8 @@ class ToolRegistry:
         ``asyncio.gather(..., return_exceptions=True)``. Circuit-breaker state is
         preserved across refreshes for tools that re-appear; new tools start
         healthy; tools that disappear from a server's native ``tools/list`` are
-        dropped (next dispatch returns ``"Tool '...' not in registry"``).
+        dropped (a later dispatch forces one rate-limited refresh before
+        reporting ``"Tool '...' not in registry"``).
 
         Args:
             force: When ``True``, run discovery regardless of the TTL.
@@ -530,6 +532,18 @@ class ToolRegistry:
                 result.append(t.to_openai_tool())
         return result
 
+    async def _refresh_on_miss(self) -> None:
+        """One rate-limited forced refresh when a dispatch misses a name."""
+        now = time.time()
+        if now - self._last_miss_refresh < self._ttl():
+            return
+        # Reserved synchronously before the await: atomic under asyncio, so
+        # concurrent misses trigger a single refresh per TTL window.
+        self._last_miss_refresh = now
+        # Shielded so a caller's short timeout (auto-context's 1.5s cap)
+        # cancels the wait, not the discovery.
+        await asyncio.shield(self.refresh(force=True))
+
     async def dispatch(
         self, tool_name: str, arguments: dict[str, Any], request_id: str = ""
     ) -> Any:
@@ -552,8 +566,9 @@ class ToolRegistry:
         ``TOOL_DISPATCH_TIMEOUT_S``.
 
         Args:
-            tool_name: Must match a key in ``self._tools``. Unknown names
-                return an error dict.
+            tool_name: Must match a key in ``self._tools``. A missing name
+                triggers one rate-limited forced refresh and a re-lookup;
+                still-missing names return an error dict.
             arguments: JSON-serialisable kwargs. Unknown keys and missing
                 required keys are rejected before the call so the model sees
                 the error instead of the SDK dropping them.
@@ -566,7 +581,10 @@ class ToolRegistry:
         """
         tool = self.get(tool_name)
         if tool is None:
-            return {"error": f"Tool '{tool_name}' not in registry — call ignored"}
+            await self._refresh_on_miss()
+            tool = self.get(tool_name)
+            if tool is None:
+                return {"error": f"Tool '{tool_name}' not in registry — call ignored"}
 
         now = time.time()
         if not tool.healthy and now < tool.next_retry_at:
