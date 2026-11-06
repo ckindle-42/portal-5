@@ -1,0 +1,11 @@
+# Auto-daily incumbent at production settings only (no overrides): whatever config/portal.yaml serves.
+# 2026-11-06: confirms the seat move to Nemotron 3.5 Lightning (07d63f343) end to end as deployed,
+# after realuse_autodaily_postfix_20261106 (Nemotron challenger arm 28/28, gemma 26/28).
+repeats: 4
+workloads:
+  auto-daily:
+    tool_mode: production
+    home: realuse_v1
+    discovery: []
+    arms:
+      incumbent: hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k
