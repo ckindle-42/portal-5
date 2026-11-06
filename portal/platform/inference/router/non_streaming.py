@@ -589,7 +589,7 @@ async def _settle_client_owned_turn(
     thinking_allowed: bool,
     target_model: str,
     model_started: float,
-) -> tuple[dict[str, Any], float, bool]:
+) -> tuple[dict[str, Any], float, bool, str | None]:
     """Dispatch owned calls on a mixed turn, then keep the all-client and all-owned exits."""
     owned_names = set(pipeline_tools or ())
     owned, client_calls = partition_tool_calls(tool_calls, owned_names)
@@ -626,7 +626,12 @@ async def _settle_client_owned_turn(
             target_model,
             model_started,
         )
-    return data, model_started, creation_succeeded
+    return (
+        data,
+        model_started,
+        creation_succeeded,
+        format_tool_result_carry(carry_tool_calls, carry_results, force=mixed),
+    )
 
 
 def _assistant_turn(
@@ -1214,7 +1219,12 @@ async def _try_non_streaming(
                 )
 
             # Client calls go back to the caller. Owned calls in that turn are dispatched first.
-            data, _model_started, _ns_creation_succeeded = await _settle_client_owned_turn(
+            (
+                data,
+                _model_started,
+                _ns_creation_succeeded,
+                _ns_carry,
+            ) = await _settle_client_owned_turn(
                 data,
                 _ns_tool_calls,
                 set(_ns_tools or ()),
@@ -1256,7 +1266,7 @@ async def _try_non_streaming(
                 start_time,
                 successful_creation=_ns_creation_succeeded,
                 model_elapsed_s=max(0.0, time.monotonic() - _model_started),
-                tool_result_carry=format_tool_result_carry(carry_tool_calls, carry_results),
+                tool_result_carry=_ns_carry,
             )
         except (httpx.TimeoutException, BackendRequestError):
             raise  # timeout: outer handler checks /api/ps; 4xx: caller surfaces it

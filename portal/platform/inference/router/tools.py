@@ -48,10 +48,13 @@ def _carry_excerpt(value: Any, limit: int) -> str:
 
 
 def format_tool_result_carry(
-    tool_calls: list[dict[str, Any]], results: list[dict[str, Any]]
+    tool_calls: list[dict[str, Any]],
+    results: list[dict[str, Any]],
+    *,
+    force: bool = False,
 ) -> str | None:
-    """Render bounded tool receipts for the returned assistant history."""
-    if not _TOOL_RESULT_CARRY_ENABLED or not tool_calls:
+    """Bounded receipts for assistant history; force emits them with the flag off."""
+    if (not force and not _TOOL_RESULT_CARRY_ENABLED) or not tool_calls:
         return None
 
     opening = "<details><summary>Tool results</summary>\n<ul>\n"

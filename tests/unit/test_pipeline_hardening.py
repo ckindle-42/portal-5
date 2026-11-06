@@ -461,6 +461,29 @@ async def test_tool_result_carry_is_absent_for_stream_without_pipeline_tool_call
     assert _content(chunks) == "Plain answer."
 
 
+def test_forced_carry_matches_the_flag_on_receipt_and_stays_bounded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(tool_dispatch, "_TOOL_RESULT_CARRY_ENABLED", False)
+    calls = [
+        {
+            "function": {
+                "name": "lookup",
+                "arguments": '{"file_path":"/workspace/a.txt","query":"omit"}',
+            }
+        }
+    ]
+    results = [{"content": "owned-out" + ("x" * 3000)}]
+
+    forced = tool_dispatch.format_tool_result_carry(calls, results, force=True)
+
+    assert forced is not None and "owned-out" in forced and "omit" not in forced
+    assert len(forced) <= tool_dispatch._TOOL_RESULT_CARRY_MAX_CHARS
+    assert tool_dispatch.format_tool_result_carry(calls, results) is None
+    monkeypatch.setattr(tool_dispatch, "_TOOL_RESULT_CARRY_ENABLED", True)
+    assert tool_dispatch.format_tool_result_carry(calls, results) == forced
+
+
 def test_tool_result_carry_obeys_the_total_character_cap(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(tool_dispatch, "_TOOL_RESULT_CARRY_ENABLED", True)
     calls = [
@@ -2075,3 +2098,149 @@ async def test_nonstream_all_client_turn_passes_the_call_through_untouched(
     assert message["tool_calls"][0]["id"] == "c"
     assert "Tool results" not in (message.get("content") or "")
     assert len(client.bodies) == 1
+
+
+def _owui_v0125_replay(
+    content: str,
+    calls: list[dict[str, typing.Any]],
+    client_result: str = "client-ran",
+) -> list[dict[str, typing.Any]]:
+    """Next OWUI v0.12.5 request: assistant content, returned tool_calls, tool messages."""
+    assistant: dict[str, typing.Any] = {"role": "assistant", "content": content}
+    if calls:
+        assistant["tool_calls"] = calls
+    return [
+        assistant,
+        *[
+            {"role": "tool", "tool_call_id": call.get("id"), "content": client_result}
+            for call in calls
+        ],
+    ]
+
+
+def _stream_tool_calls(chunks: list[bytes]) -> list[dict[str, typing.Any]]:
+    return [
+        call
+        for payload in _payloads(chunks)
+        for choice in payload.get("choices") or []
+        for call in (choice.get("delta") or {}).get("tool_calls") or []
+    ]
+
+
+async def _drain_stream(
+    client: MagicMock,
+    *responses: _Resp,
+    messages: list[dict[str, typing.Any]] | None = None,
+    tools: list[dict[str, typing.Any]] | None = None,
+) -> list[bytes]:
+    _serve(client, *responses)
+    return await _drain(
+        st._stream_with_tool_loop_impl(
+            "http://x/v1/chat/completions",
+            {"messages": messages or [], "tools": tools or []},
+            "ws",
+            "m",
+            "p",
+            {"lookup"},
+        )
+    )
+
+
+@pytest.mark.anyio
+async def test_stream_mixed_flag_off_is_in_the_owui_replay(
+    stream_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _record_dispatch(monkeypatch, st)
+    monkeypatch.setattr(tool_dispatch, "_TOOL_RESULT_CARRY_ENABLED", False)
+    off = await _drain_stream(stream_client, _stream_tool_turn(_owned_call(), _client_call()))
+    monkeypatch.setattr(tool_dispatch, "_TOOL_RESULT_CARRY_ENABLED", True)
+    on = await _drain_stream(stream_client, _stream_tool_turn(_owned_call(), _client_call()))
+
+    assert _content(off) == _content(on)
+    messages = _owui_v0125_replay(_content(off), _stream_tool_calls(off))
+    assistant, *tool_messages = messages
+    assert "owned-out" in assistant["content"] and "/workspace/a.txt" in assistant["content"]
+    assert [call["function"]["name"] for call in assistant["tool_calls"]] == ["client_lookup"]
+    assert [message["tool_call_id"] for message in tool_messages] == ["client_lookup-1"]
+    assert "owned-1" not in {message["tool_call_id"] for message in tool_messages}
+
+
+@pytest.mark.anyio
+async def test_stream_all_owned_and_all_client_flag_off_stay_unchanged(
+    stream_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _record_dispatch(monkeypatch, st)
+    monkeypatch.setattr(tool_dispatch, "_TOOL_RESULT_CARRY_ENABLED", False)
+    owned = await _drain_stream(
+        stream_client,
+        _stream_tool_turn(_owned_call()),
+        _stream_answer("the answer"),
+        messages=[{"role": "user", "content": "lookup"}],
+        tools=[{"type": "function", "function": {"name": "lookup"}}],
+    )
+    client = await _drain_stream(stream_client, _stream_tool_turn(_client_call(index=0)))
+
+    assert _content(owned) == "the answer"
+    assert _returned_tool_names(owned) == []
+    assert "Tool results" not in _content(client)
+    returned = _stream_tool_calls(client)
+    assert returned[0]["index"] == 0
+    assert returned[0]["id"] == "client_lookup-1"
+    assert returned[0]["function"]["arguments"] == "{}"
+
+
+@pytest.mark.anyio
+async def test_nonstream_mixed_flag_off_is_in_the_owui_replay(monkeypatch, ns_tools) -> None:
+    _record_dispatch(monkeypatch, ns)
+    req = {
+        "messages": [],
+        "tools": [
+            {"type": "function", "function": {"name": "lookup"}},
+            {"type": "function", "function": {"name": "client_lookup"}},
+        ],
+    }
+
+    async def run(flag: bool) -> dict[str, typing.Any]:
+        monkeypatch.setattr(tool_dispatch, "_TOOL_RESULT_CARRY_ENABLED", flag)
+        client = _SeenClient([_ns_multi_reply("lookup", "client_lookup")])
+        monkeypatch.setattr(ns, "_http_client", client)
+        result = await ns._try_non_streaming(_backend("b"), req, ns_tools, 0.0)
+        return json.loads(result.body)["choices"][0]["message"]
+
+    off = await run(False)
+    on = await run(True)
+
+    assert off["content"] == on["content"]
+    messages = _owui_v0125_replay(off["content"], off["tool_calls"])
+    assistant, *tool_messages = messages
+    assert "owned-out" in assistant["content"] and "/workspace/a.txt" in assistant["content"]
+    assert [call["function"]["name"] for call in assistant["tool_calls"]] == ["client_lookup"]
+    assert [message["tool_call_id"] for message in tool_messages] == ["client_lookup-1"]
+    assert "client_lookup" not in assistant["content"]
+
+
+@pytest.mark.anyio
+async def test_nonstream_all_owned_and_all_client_flag_off_stay_unchanged(
+    monkeypatch, ns_tools
+) -> None:
+    _record_dispatch(monkeypatch, ns)
+    monkeypatch.setattr(tool_dispatch, "_TOOL_RESULT_CARRY_ENABLED", False)
+    owned_client = _SeenClient([_tool_reply(), _text_reply("the answer")])
+    monkeypatch.setattr(ns, "_http_client", owned_client)
+    owned = await ns._try_non_streaming(_backend("b"), {"messages": []}, ns_tools, 0.0)
+    owned_message = json.loads(owned.body)["choices"][0]["message"]
+
+    client_req = {
+        "messages": [],
+        "tools": [{"type": "function", "function": {"name": "client_lookup", "parameters": {}}}],
+    }
+    client_http = _SeenClient([_tool_reply(name="client_lookup")])
+    monkeypatch.setattr(ns, "_http_client", client_http)
+    client = await ns._try_non_streaming(_backend("b"), client_req, ns_tools, 0.0)
+    client_message = json.loads(client.body)["choices"][0]["message"]
+
+    assert owned_message["content"] == "the answer"
+    assert not owned_message.get("tool_calls")
+    assert [call["function"]["name"] for call in client_message["tool_calls"]] == ["client_lookup"]
+    assert client_message["tool_calls"][0]["id"] == "c"
+    assert "Tool results" not in (client_message.get("content") or "")

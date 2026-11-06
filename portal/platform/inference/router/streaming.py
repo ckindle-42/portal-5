@@ -815,7 +815,8 @@ async def _return_client_owned_calls(
             if released:
                 yield _content_chunk(request_id, workspace_id, released)
     passthrough_delta: dict[str, Any] = {"tool_calls": _indexed_tool_calls(client_calls)}
-    if carry := format_tool_result_carry(carry_tool_calls, carry_results):
+    mixed = bool(owned_calls and client_calls)
+    if carry := format_tool_result_carry(carry_tool_calls, carry_results, force=mixed):
         passthrough_delta["content"] = f"\n\n{carry}"
     if audit_frame := _exec_audit_frame(exec_audit, exec_audit_calls):
         yield audit_frame
