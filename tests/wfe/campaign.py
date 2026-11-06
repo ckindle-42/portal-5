@@ -2576,11 +2576,67 @@ def identity_drift(manifest: dict, r: dict, row: dict) -> str | None:
     return None if same_identity(want, ident) else f"{key}: frozen {want} != served {ident}"
 
 
-def preflight_pipeline(workspaces: list[str], model: str) -> dict:
+_IMAGE_TASKS: dict[str, set[str]] = {}
+#: One-pixel PNG. The pipeline's image gate only checks for an image_url part.
+_PROBE_PNG_B64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+
+
+def _task_sends_inline_image(task: dict) -> bool:
+    """True when the runner puts an image_url part on this task (user_content)."""
+    turns = task.get("turns")
+    if turns is not None:
+        return any(
+            isinstance(turn.get("user"), list)
+            and any(
+                isinstance(part, dict) and part.get("type") == "image_url" for part in turn["user"]
+            )
+            for turn in turns
+        )
+    return bool(task.get("images"))
+
+
+def _image_task_ids(suite_path: str) -> set[str]:
+    """Task ids in this suite whose wire request carries an image. A missing suite has none."""
+    if suite_path not in _IMAGE_TASKS:
+        try:
+            _IMAGE_TASKS[suite_path] = {
+                str(task["id"]) for task in load_suite(suite_path) if _task_sends_inline_image(task)
+            }
+        except (OSError, ValueError):
+            _IMAGE_TASKS[suite_path] = set()
+    return _IMAGE_TASKS[suite_path]
+
+
+def _workspace_rows_carry_images(rows: list[dict] | None, workspace: str, model: str) -> bool:
+    """True when a row this probe covers will send an image on this workspace and model."""
+    if not rows:
+        return False
+    for row in rows:
+        if row.get("workspace") != workspace or row_model(row) != model:
+            continue
+        suite_path, task_id = row.get("suite_path"), row.get("task_id")
+        if suite_path and task_id and str(task_id) in _image_task_ids(str(suite_path)):
+            return True
+    return False
+
+
+def _preflight_content(with_image: bool) -> str | list[dict]:
+    """The probe user turn. An image workload uses the rows' image_url part shape."""
+    text = "Reply with the word ready."
+    if not with_image:
+        return text
+    return [
+        {"type": "text", "text": text},
+        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{_PROBE_PNG_B64}"}},
+    ]
+
+
+def preflight_pipeline(workspaces: list[str], model: str, rows: list[dict] | None = None) -> dict:
     """Pipeline mode: the pipeline owns the wire, so the raw transport probe is
     moot. What must hold is that each seat is actually served by the arm's model
     seat (a failover or a third model would make every row describe another
-    model)."""
+    model). A workspace whose rows attach images is probed with one image, so
+    the frozen identity is the route those rows use."""
     findings = []
     if model not in backend_catalog():
         return {
@@ -2600,7 +2656,14 @@ def preflight_pipeline(workspaces: list[str], model: str) -> dict:
         try:
             r = chat(
                 ws,
-                [{"role": "user", "content": "Reply with the word ready."}],
+                [
+                    {
+                        "role": "user",
+                        "content": _preflight_content(
+                            _workspace_rows_carry_images(rows, ws, model)
+                        ),
+                    }
+                ],
                 tools=False,
                 harness={"pipeline_model": model},
             )
@@ -3103,7 +3166,7 @@ def _arm_preflight(campaign_dir: Path, manifest: dict, arm_rows: list, model: st
     arm is blocked instead of measured on another build (doc: identity)."""
     if ENGINE != "pipeline":
         return preflight_arm(campaign_dir, model, force)
-    pf = preflight_pipeline(sorted({r["workspace"] for r in arm_rows}), model)
+    pf = preflight_pipeline(sorted({r["workspace"] for r in arm_rows}), model, arm_rows)
     drift = freeze_identities(manifest.setdefault("identity_map", {}), pf.get("identities") or {})
     save_manifest(campaign_dir, manifest)
     if not drift:
@@ -4221,7 +4284,7 @@ def _cmd_smoke(args, plan: Path) -> int:
     manifest["instrument"] = instrument_fingerprint()
     save_manifest(d, manifest)
     pf = (
-        preflight_pipeline([r["workspace"]], row_model(r))
+        preflight_pipeline([r["workspace"]], row_model(r), [r])
         if ENGINE == "pipeline"
         else preflight_arm(d, row_model(r), force=True)
     )
@@ -4337,7 +4400,7 @@ def _cmd_preflight(campaign_dir: Path, force: bool) -> int:
     for i, a in enumerate(arms, 1):
         t0 = time.monotonic()
         res = (  # in pipeline mode, ask the pipeline what it serves for this arm
-            preflight_pipeline(sorted(ws_by_model.get(a, ())), a)
+            preflight_pipeline(sorted(ws_by_model.get(a, ())), a, manifest["rows"])
             if ENGINE == "pipeline"
             else preflight_arm(campaign_dir, a, force)
         )

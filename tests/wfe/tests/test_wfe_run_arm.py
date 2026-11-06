@@ -184,7 +184,9 @@ def test_pipeline_preflight_asks_the_pipeline_for_each_arms_workspaces(tmp_path,
     monkeypatch.setattr(campaign, "model_sizes", lambda: {})
     monkeypatch.setattr(campaign, "row_model", lambda r: "m")
     monkeypatch.setattr(
-        campaign, "preflight_pipeline", lambda ws, m: seen.append((ws, m)) or {"verdict": "OK"}
+        campaign,
+        "preflight_pipeline",
+        lambda ws, m, rows=None: seen.append((ws, m)) or {"verdict": "OK"},
     )
 
     def wrong(*a, **k):
