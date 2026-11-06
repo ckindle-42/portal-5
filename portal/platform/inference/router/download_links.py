@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable
 from typing import Any
 
 _DOWNLOAD_LINE_START = re.compile(
@@ -32,15 +33,49 @@ _DOWNLOAD_LEADIN_RE = re.compile(
 )
 
 
-def _office_link_sub(match: re.Match[str]) -> str:
-    label, url = match.group(1), match.group(2)
-    if _OFFICE_EXT_RE.search(label) or _OFFICE_EXT_RE.search(url):
+def _office_link_sub(keep_names: frozenset[str]) -> Callable[[re.Match[str]], str]:
+    def _sub(match: re.Match[str]) -> str:
+        label, url = match.group(1), match.group(2)
+        if not (_OFFICE_EXT_RE.search(label) or _OFFICE_EXT_RE.search(url)):
+            return match.group(0)
+        if _link_basename(url) in keep_names:
+            return match.group(0)
         return ""
-    return match.group(0)
+
+    return _sub
 
 
-def _strip_office_markdown(text: str) -> str:
-    return _MD_LINK_RE.sub(_office_link_sub, text)
+def _link_basename(url: str) -> str:
+    return url.replace("\\", "/").rsplit("/", 1)[-1]
+
+
+def _strip_office_markdown(text: str, keep_names: frozenset[str] = frozenset()) -> str:
+    return _MD_LINK_RE.sub(_office_link_sub(keep_names), text)
+
+
+def _has_kept_office_link(text: str, keep_names: frozenset[str]) -> bool:
+    return any(_link_basename(m.group(2)) in keep_names for m in _MD_LINK_RE.finditer(text))
+
+
+_OFFICE_NAME_RE = re.compile(r"[\w.-]+\.(?:docx|xlsx|pptx)\b", re.IGNORECASE)
+
+
+def prior_office_filenames(messages: list[dict[str, Any]] | None) -> frozenset[str]:
+    """Office filenames named in prior assistant or tool messages: those files are real."""
+    names: set[str] = set()
+    for message in messages or []:
+        if message.get("role") not in {"assistant", "tool"}:
+            continue
+        content = message.get("content")
+        if isinstance(content, str):
+            text: str | None = content
+        elif isinstance(content, list):
+            text = " ".join(str(part.get("text", "")) for part in content if isinstance(part, dict))
+        else:
+            text = None
+        if text:
+            names.update(_OFFICE_NAME_RE.findall(text))
+    return frozenset(names)
 
 
 def _split_ending(line: str) -> tuple[str, str]:
@@ -51,14 +86,15 @@ def _split_ending(line: str) -> tuple[str, str]:
     return line, ""
 
 
-def strip_unbacked_download_lines(content: str) -> str:
-    """Remove download lines and office-file links no create tool returned."""
+def strip_unbacked_download_lines(content: str, keep_names: frozenset[str] = frozenset()) -> str:
+    """Remove download lines and office links no create tool returned; a link a prior
+    turn's tool result already returned (its name in keep_names) is real and survives."""
     kept: list[str] = []
     for line in content.splitlines(keepends=True):
-        if _is_download_link_line(line):
-            continue
         body, ending = _split_ending(line)
-        cleaned = _strip_office_markdown(body)
+        if _is_download_link_line(body) and not _has_kept_office_link(body, keep_names):
+            continue
+        cleaned = _strip_office_markdown(body, keep_names)
         if cleaned != body and (
             not cleaned.strip() or _DOWNLOAD_LEADIN_RE.fullmatch(cleaned.strip()) is not None
         ):
@@ -135,21 +171,36 @@ class DownloadLineFilter:
     created. Ordinary lines stream as soon as they stop matching the line prefix.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, keep_names: frozenset[str] = frozenset()) -> None:
         self._line = ""
         self._link = ""
         self._mode = "prefix"
         self._deferred: list[str] = []
         self._keep_downloads = False
+        self._keep_names = keep_names
+
+    def _settle_download_line(self, line: str) -> str:
+        """Strip unbacked office links; drop the line when only a download lead-in remains."""
+        cleaned = _strip_office_markdown(line, self._keep_names)
+        if cleaned != line and (
+            not cleaned.strip() or _DOWNLOAD_LEADIN_RE.fullmatch(cleaned.strip()) is not None
+        ):
+            return ""
+        return cleaned
 
     def _complete_line(self, emitted: list[str]) -> None:
         line = self._line
         self._line = ""
         self._mode = "prefix"
-        if _is_download_link_line(line) and not self._keep_downloads:
-            self._deferred.append(line)
-        else:
+        if self._keep_downloads:
             emitted.append(line)
+            return
+        if _is_download_link_line(line) and not _has_kept_office_link(line, self._keep_names):
+            self._deferred.append(line)
+            return
+        settled = self._settle_download_line(line)
+        if settled:
+            emitted.append(settled)
 
     def _take_non_download(self) -> str:
         """Emit a non-Download prefix, holding a trailing ``[`` as a possible link."""
@@ -169,7 +220,7 @@ class DownloadLineFilter:
         """Hold a markdown span. An office-file link is deferred until a create succeeds."""
         self._link += char
         if char == "\n":
-            text = _strip_office_markdown(self._link)
+            text = _strip_office_markdown(self._link, self._keep_names)
             self._link = ""
             self._mode = "prefix"
             return text
@@ -177,7 +228,7 @@ class DownloadLineFilter:
             text = self._link
             self._link = ""
             self._mode = "passthrough"
-            if _strip_office_markdown(text) != text:
+            if _strip_office_markdown(text, self._keep_names) != text:
                 self._deferred.append(text)
                 return ""
             return text
@@ -248,11 +299,17 @@ class DownloadLineFilter:
 
     def finish(self) -> str:
         """Flush ordinary pending text and discard unbacked link lines."""
-        link = _strip_office_markdown(self._link)
+        link = _strip_office_markdown(self._link, self._keep_names)
         if self._keep_downloads:
             pending = "".join(self._deferred) + self._line + self._link
         else:
-            pending = "" if self._line and _is_download_link_line(self._line) else self._line
+            pending = self._line
+            if _is_download_link_line(pending) and not _has_kept_office_link(
+                pending, self._keep_names
+            ):
+                pending = ""
+            else:
+                pending = self._settle_download_line(pending)
             pending += link
         self._deferred.clear()
         self._line = ""

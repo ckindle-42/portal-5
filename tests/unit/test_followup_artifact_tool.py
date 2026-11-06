@@ -17,7 +17,10 @@ import pytest
 
 from portal.platform.inference.router import non_streaming as ns
 from portal.platform.inference.router import streaming
-from portal.platform.inference.router.download_links import strip_unbacked_download_lines
+from portal.platform.inference.router.download_links import (
+    prior_office_filenames,
+    strip_unbacked_download_lines,
+)
 from portal.platform.inference.router.tool_repeat import REQUIRED_TOOL_REQUEST
 from portal.platform.inference.router.tools import _select_explicit_required_tool
 
@@ -517,27 +520,87 @@ REPEAT_LINK_REPLY = (
     "\n"
     "Download it here: [Garage_Sale_Float_969565dd.xlsx](out/Garage_Sale_Float_969565dd.xlsx)"
 )
+INVENTED_NAME = "Summary_Notes_83ba1f.docx"
+BOTH_REPLY = (
+    "Here are both files.\n"
+    "\n"
+    "Download the notes: [Summary_Notes_83ba1f.docx](out/Summary_Notes_83ba1f.docx)\n"
+    "Download the float: [Garage_Sale_Float_969565dd.xlsx](out/Garage_Sale_Float_969565dd.xlsx)"
+)
+REPEAT_HISTORY = _history(EXCEL_FILE, EXCEL_PASS, WHERE_AGAIN)
 
 
-def test_a_link_to_a_file_created_in_an_earlier_turn_is_stripped() -> None:
-    """Documented behaviour: the backing tool result lives in a PRIOR turn, and
-    successful_creation only sees this turn's dispatches, so the still-real link
-    is dropped and the prose answer survives."""
-    history = _history(EXCEL_FILE, EXCEL_PASS, WHERE_AGAIN)
-    assert "Garage_Sale_Float_969565dd.xlsx" in history[1]["content"]
-    assert _select_explicit_required_tool(history, _tools()) is None
-    assert "Garage_Sale_Float_969565dd.xlsx" not in strip_unbacked_download_lines(REPEAT_LINK_REPLY)
-    assert "You already have it from the first step." in strip_unbacked_download_lines(
-        REPEAT_LINK_REPLY
-    )
+def test_a_link_to_a_file_created_in_an_earlier_turn_is_kept() -> None:
+    """The prior tool result made this file real: the repeated link survives the strip."""
+    assert "Garage_Sale_Float_969565dd.xlsx" in REPEAT_HISTORY[1]["content"]
+    assert _select_explicit_required_tool(REPEAT_HISTORY, _tools()) is None
+    names = prior_office_filenames(REPEAT_HISTORY)
+    assert names == {"Garage_Sale_Float_969565dd.xlsx"}
+    kept = strip_unbacked_download_lines(REPEAT_LINK_REPLY, names)
+    assert "Garage_Sale_Float_969565dd.xlsx" in kept
+    assert "You already have it from the first step." in kept
     kept_default = ns._apply_non_stream_response(
         {"choices": [{"message": {"role": "assistant", "content": REPEAT_LINK_REPLY}}]},
         SimpleNamespace(id="offline-test"),
         WS,
         "m",
         0.0,
+        keep_names=names,
     )
     assert (
         "Garage_Sale_Float_969565dd.xlsx"
-        not in json.loads(kept_default.body)["choices"][0]["message"]["content"]
+        in json.loads(kept_default.body)["choices"][0]["message"]["content"]
     )
+
+
+def test_an_invented_name_is_stripped_even_alongside_a_real_earlier_name() -> None:
+    stripped = strip_unbacked_download_lines(BOTH_REPLY, prior_office_filenames(REPEAT_HISTORY))
+    assert INVENTED_NAME not in stripped
+    assert "Garage_Sale_Float_969565dd.xlsx" in stripped
+
+
+@pytest.mark.anyio
+async def test_nonstream_keeps_an_earlier_turn_link_and_strips_an_invented_one(
+    monkeypatch: pytest.MonkeyPatch, ns_followup
+) -> None:
+    backend, executed = ns_followup
+    client = _NSClient([_ns_reply(BOTH_REPLY)])
+    monkeypatch.setattr(ns, "_http_client", client)
+    result = await ns._try_non_streaming(
+        backend, {"messages": REPEAT_HISTORY, "model": "m"}, WS, 0.0, max_hops=4
+    )
+    assert result is not None
+    text = json.loads(result.body)["choices"][0]["message"]["content"]
+    assert executed == []
+    assert INVENTED_NAME not in text
+    assert "Garage_Sale_Float_969565dd.xlsx" in text
+
+
+@pytest.mark.anyio
+async def test_stream_keeps_an_earlier_turn_link_and_strips_an_invented_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_registry(monkeypatch, streaming)
+    body, effective, has_tools, _ = await streaming._build_streaming_request(
+        {"messages": REPEAT_HISTORY, "model": "m"},
+        SimpleNamespace(type="omlx"),
+        "m",
+        WS,
+        "",
+    )
+    assert has_tools and body["tool_choice"] == "auto"
+
+    class _Client:
+        def stream(self, _method: str, _url: str, json: dict | None = None):  # noqa: A002
+            return _StreamCtx(_sse(BOTH_REPLY))
+
+    monkeypatch.setattr(streaming, "_http_client", _Client())
+    monkeypatch.setattr(streaming, "_backend_type_for_url", lambda _url: "omlx")
+    out = b""
+    async for chunk in streaming._tool_loop_frames(
+        "http://omlx.test/v1/chat/completions", body, WS, "m", "", set(effective)
+    ):
+        out += chunk
+    text = _joined(out)
+    assert INVENTED_NAME not in text
+    assert "Garage_Sale_Float_969565dd.xlsx" in text

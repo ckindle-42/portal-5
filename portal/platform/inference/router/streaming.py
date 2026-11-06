@@ -54,6 +54,7 @@ from portal.platform.inference.router.correlation import (
 from portal.platform.inference.router.download_links import (
     DownloadLineFilter,
     offers_file_creation,
+    prior_office_filenames,
     successful_file_creation,
 )
 from portal.platform.inference.router.eval_gate import (
@@ -968,7 +969,7 @@ async def _tool_loop_frames(
     _repeat_guard = ToolRepeatGuard()
     _tool_byte_budget = tool_result_byte_budget(workspace_context_limit(workspace_id))
     _tool_result_bytes = 0
-    _download_lines = DownloadLineFilter()
+    _download_lines = DownloadLineFilter(prior_office_filenames(body.get("messages")))
     _successful_creation = False
     if not offers_file_creation(current_body.get("tools")):
         _download_lines.mark_successful_creation()  # no file tools offered: pass through
