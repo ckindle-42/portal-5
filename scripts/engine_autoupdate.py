@@ -323,8 +323,14 @@ def omlx_running() -> str:
 
 
 def omlx_latest() -> str:
-    release = _get("https://api.github.com/repos/jundot/omlx/releases/latest")
-    return str(release["tag_name"]).removeprefix("v")
+    """Newest stable oMLX tag. GitHub's /releases/latest can be a dev build (0.7.4.dev1 on
+    2026-11-04 is not flagged prerelease), which hid the stable 0.7.3 from the updater."""
+    releases = _get("https://api.github.com/repos/jundot/omlx/releases?per_page=30")
+    for release in releases:
+        tag = str(release["tag_name"]).removeprefix("v")
+        if not release.get("prerelease") and not re.search(r"(dev|rc|a|b)\d*$", tag):
+            return tag
+    return str(releases[0]["tag_name"]).removeprefix("v")
 
 
 def _omlx_restart() -> bool:

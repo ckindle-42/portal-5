@@ -296,10 +296,10 @@ def test_omlx_latest_version_comes_from_github_release(monkeypatch):
     monkeypatch.setattr(
         eu,
         "_get",
-        lambda url: seen.append(url) or {"tag_name": "v0.7.2"},
+        lambda url: seen.append(url) or [{"tag_name": "v0.7.2", "prerelease": False}],
     )
     assert eu.omlx_latest() == "0.7.2"
-    assert seen == ["https://api.github.com/repos/jundot/omlx/releases/latest"]
+    assert seen == ["https://api.github.com/repos/jundot/omlx/releases?per_page=30"]
 
 
 def test_ollama_prune_keeps_only_listed_releases(monkeypatch, tmp_path):
@@ -329,3 +329,15 @@ def test_omlx_prune_keeps_only_listed_kegs(monkeypatch, tmp_path):
     monkeypatch.setattr(eu, "omlx_venv_active", lambda: False)
     eu.omlx_prune({"0.7.0", "0.7.1"})
     assert sorted(p.name for p in tmp_path.iterdir()) == ["0.7.0", "0.7.1"]
+
+
+def test_omlx_latest_skips_dev_and_rc_builds(monkeypatch):
+    import scripts.engine_autoupdate as eu
+
+    releases = [
+        {"tag_name": "v0.7.4.dev1", "prerelease": False},
+        {"tag_name": "v0.7.3", "prerelease": False},
+        {"tag_name": "v0.7.3rc1", "prerelease": False},
+    ]
+    monkeypatch.setattr(eu, "_get", lambda url: releases)
+    assert eu.omlx_latest() == "0.7.3"
