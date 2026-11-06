@@ -240,8 +240,14 @@ def test_one_served_turn_is_one_persona_count(
     from fastapi.responses import JSONResponse
 
     import portal.platform.inference.router.handlers as handlers_mod
+    from portal.platform.inference import tool_registry as tool_registry_module
 
     workspace, served = "auto-daily", "persona-count-model"
+
+    async def _offline_no_tools(_client, _url, _timeout_s):
+        return []  # on-miss refresh stays inside the offline boundary
+
+    monkeypatch.setattr(tool_registry_module, "list_tools", _offline_no_tools)
 
     async def capture(*_args: typing.Any, **_kwargs: typing.Any) -> JSONResponse:
         return JSONResponse(

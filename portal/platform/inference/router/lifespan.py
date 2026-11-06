@@ -12,7 +12,7 @@ import logging
 import os
 import time
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from typing import Any
 
 import httpx
@@ -47,6 +47,7 @@ from portal.platform.inference.router.validation import (
     warn_unset_thinking_mode,
 )
 from portal.platform.inference.router.workspaces import WORKSPACES
+from portal.platform.inference.tool_registry import tool_registry
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,7 @@ _ollama_native_client: httpx.AsyncClient | None = None
 registry: BackendRegistry | None = None
 _health_task: asyncio.Task[Any] | None = None
 _state_save_task: asyncio.Task[Any] | None = None
+_tool_registry_task: asyncio.Task[Any] | None = None
 _notification_dispatcher = None  # type annotation deferred to TYPE_CHECKING
 _notification_scheduler = None
 
@@ -272,6 +274,15 @@ async def _run_startup_warmups(registry: BackendRegistry) -> None:
     )
 
 
+async def _refresh_tool_registry_at_startup() -> None:
+    """One forced tool-registry refresh so the first request doesn't miss; never raises."""
+    try:
+        count = await tool_registry.refresh(force=True)
+        logger.info("Startup tool registry refresh: %d tools discovered", count)
+    except Exception as e:
+        logger.warning("Startup tool registry refresh failed (non-fatal): %s", e)
+
+
 def _is_ollama_backend(registry: BackendRegistry, base_url: str) -> bool:
     """True only for a base URL the registry positively knows is Ollama."""
     return _is_backend_type(registry, base_url, "ollama")
@@ -297,12 +308,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     min); construct ``BackendRegistry``; validate ``WORKSPACES`` hints
     (``STRICT_HINT_VALIDATION=true`` raises on unresolvable hints); run one
     synchronous health check; load persisted metrics state; launch warmups,
-    power polling, notifications, the health loop, and the state-save loop.
+    power polling, notifications, the tool-registry refresh, the health loop,
+    and the state-save loop.
 
     Shutdown (roughly LIFO): final synchronous ``_save_state`` before the save
-    task is cancelled; cancel ``_state_save_task``/``_health_task``; close
-    ``_http_client`` after tasks; stop the notification scheduler; close the
-    registry's health-check client.
+    task is cancelled; cancel ``_state_save_task``/``_health_task`` and the
+    startup tool-registry refresh; close ``_http_client`` after tasks; stop
+    the notification scheduler; close the registry's health-check client.
 
     Args:
         app: The FastAPI app. Not used directly — required by the
@@ -314,6 +326,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """
     global registry, _health_task, _http_client, _ollama_native_client
     global _notification_dispatcher, _notification_scheduler, _state_save_task
+    global _tool_registry_task
     _concurrency_mod._request_semaphore = asyncio.Semaphore(_concurrency_mod._MAX_CONCURRENT)
     # Pre-create Prometheus multiproc dir at startup so workers don't race.
     if mp_dir := os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
@@ -440,10 +453,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             await _notification_dispatcher.check_thresholds_and_alert(r)
 
     if not _in_test_mode:
+        # Warm the tool registry so the first request's auto-context recall doesn't miss.
+        _tool_registry_task = asyncio.create_task(_refresh_tool_registry_at_startup())
         _health_task = asyncio.create_task(registry.start_health_loop(on_health_check=_on_health))
         _state_save_task = asyncio.create_task(_state_save_loop(interval=60))
 
     yield
+
+    if _tool_registry_task is not None:
+        _tool_registry_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await _tool_registry_task
 
     if _in_test_mode:
         if _ollama_native_client:
