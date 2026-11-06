@@ -68,6 +68,7 @@ from tests.wfe.realuse_paths import stage_upload_tree
 from tests.wfe.schema import Economics, Outcome, ResultRow, env_fingerprint, sha12
 from tests.wfe.upload_fidelity import (
     apply_turn_prefix,
+    attach_request_attachments,
     row_instrument,
     stamp_upload_delivery,
     turn_injection,
@@ -764,6 +765,7 @@ def _build_payload(
     schemas: list | None,
     think: str,
     wire_stream: bool = True,
+    attachments: list | None = None,
 ) -> tuple[str, dict, list[str]]:
     """Assemble the request actually put on the wire. Split out of chat() so
     the wire contracts stay legible and independently testable.
@@ -790,6 +792,7 @@ def _build_payload(
             wire_stream,
             h.get("pipeline_model"),
             h.get("pipeline_eval"),
+            attachments,
         )
     if endpoint == "v1":
         payload = _build_v1(model, messages, fmt, sampling, think, wire_stream)
@@ -824,6 +827,7 @@ def _build_pipeline(
     wire_stream: bool,
     model_override: str | None = None,
     eval_scope: dict | None = None,
+    attachments: list | None = None,
 ) -> tuple[str, dict, list[str]]:
     """The body Open WebUI would send the pipeline for `workspace`, plus only
     the arm's explicit overrides. A caller-supplied max_tokens applies only when
@@ -861,6 +865,8 @@ def _build_pipeline(
         # attaches the workspace's own production tools, so a "reply ready" probe could
         # create files, query data or write notes. Production tool mode carries a scope.
         payload["portal_no_tools"] = True
+    # The inlet filter's forwarded field: production OWUI pops `files` before this hop.
+    attach_request_attachments(payload, attachments)
     if eval_scope:  # production tool mode: the workspace's own tools, scoped (eval_mode)
         payload["portal_eval"] = eval_scope
         # The pipeline dispatches these tools, so the client never sees a call. exec_audit
@@ -1035,6 +1041,7 @@ def chat(
     sampling: dict | None = None,
     timeout: int = 600,
     tool_schemas: list | None = None,
+    attachments: list | None = None,
 ) -> dict:
     """One completion under explicit harness dimensions.
     Returns {message, finish_reason, economics, harness_caveats, resolved_think}.
@@ -1052,7 +1059,14 @@ def chat(
         think = think_policy(model)
     schemas = TOOL_SCHEMAS if tool_schemas is None else tool_schemas
     url, payload, caveats = _build_payload(
-        model, messages, h, dict(sampling or {}), schemas if tools else None, think, wire_stream
+        model,
+        messages,
+        h,
+        dict(sampling or {}),
+        schemas if tools else None,
+        think,
+        wire_stream,
+        attachments,
     )
     # `timeout` is the caller's remaining budget for this one call. The stall
     # threshold is the smaller of STALL_S and that budget; the hard ceiling for
@@ -1642,6 +1656,7 @@ class _Loop:
         self.upload_ranked = False
         self._owui_context = ""
         self._prefixed: tuple | None = None
+        self._turn_attachments: list[dict] = []
 
     def open_turn(self, index: int, spec: dict) -> None:
         """Send one scripted user turn on the conversation built so far."""
@@ -1653,7 +1668,7 @@ class _Loop:
         self._attach_upload(index, spec)
 
     def _attach_upload(self, index: int, spec: dict) -> None:
-        """Prepend this turn's RAG context onto the new user message only."""
+        """Prepend this turn's RAG context and set the turn's forwarded attachments."""
         users = [user_text(turn.get("user")) for turn in self.scripted]
         injection = turn_injection(ENGINE, self.task, index, users)
         self._prefixed = apply_turn_prefix(
@@ -1663,6 +1678,7 @@ class _Loop:
         self.upload_turns.append({"turn": index, "files": injection.file_ids})
         self.upload_chunks = injection.chunks
         self.upload_ranked = injection.ranked_standin
+        self._turn_attachments = injection.attachments
 
     def close_turn(self, index: int, spec: dict) -> None:
         """Grade one scripted turn against its own checks and expected tools. Tool
@@ -1800,6 +1816,7 @@ class _Loop:
                 sampling=self.sampling,
                 timeout=remaining,
                 tool_schemas=self.schemas if self.use_tools else None,
+                attachments=self._turn_attachments or None,
             )
         except Exception as e:
             self._record_chat_error(turn, e)

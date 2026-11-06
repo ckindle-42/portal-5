@@ -802,8 +802,9 @@ def instrument_fingerprint() -> dict:
         "deployed": deployed_build() if ENGINE == "pipeline" else "",
         "services": deployed_services() if ENGINE == "pipeline" else {},
         "engine": ENGINE,
-        # Realuse pipeline turns prepend OWUI v0.12.5 RAG context. Bumps the hash.
-        "upload_delivery": "owui-rag-v0.12.5",
+        # Realuse pipeline turns prepend OWUI RAG context (Portal template) and carry the
+        # inlet filter's portal_attached_files field. Bumps the hash.
+        "upload_delivery": "owui-rag-v0.12.5+portal-filter-v1",
     }
     blob = json.dumps({k: v for k, v in parts.items() if k != "commit"}, sort_keys=True)
     parts["fingerprint"] = hashlib.sha256(blob.encode()).hexdigest()[:16]

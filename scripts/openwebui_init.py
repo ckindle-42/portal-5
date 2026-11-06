@@ -62,6 +62,10 @@ PERSONAS_DIR = Path("/personas")
 # personas with `prompt_template:` instead of an inline system_prompt read
 # their body from here.
 PERSONA_PROMPTS_DIR = Path("/persona_prompts")
+# Portal-managed OWUI function specs and the RAG template (TASK_OWUI_ATTACHMENT_PATHS).
+FUNCTIONS_DIR = IMPORTS_DIR / "functions"
+ATTACHMENT_FILTER_ID = "portal_attachment_paths"
+RAG_TEMPLATE_FILE = IMPORTS_DIR / "rag_template.txt"
 
 MAX_WAIT_SECONDS = 120
 POLL_INTERVAL = 5
@@ -575,6 +579,71 @@ def _persona_skips_disabled_variant(persona: dict) -> bool:
     return is_workspace_disabled(f"{workspace}::{variant}")
 
 
+async def seed_attachment_filter_async(client: httpx.AsyncClient, token: str) -> None:
+    """Seed the global inlet filter that carries attachment paths to the pipeline.
+
+    Reads imports/openwebui/functions/<id>.json. v0.12.5 creates functions with
+    is_active=False and is_global=False, so both are toggled on when missing
+    (the toggle endpoints flip, so they run only when the state is wrong).
+    Content updates ride /id/{id}/update only when the stored source differs —
+    the same reconcile rule as the role prompts."""
+    spec_file = FUNCTIONS_DIR / f"{ATTACHMENT_FILTER_ID}.json"
+    print("\nSeeding attachment-path filter...")
+    if not spec_file.exists():
+        print(f"  Skipping - {spec_file} not found")
+        return
+    spec = json.loads(spec_file.read_text())
+    fid = spec["id"]
+    payload = {
+        "id": fid,
+        "name": spec.get("name", fid),
+        "content": spec.get("content", ""),
+        "meta": {"description": spec.get("meta", {}).get("description", "")},
+    }
+    try:
+        resp = await client.get(
+            f"{OPENWEBUI_URL}/api/v1/functions/id/{fid}", headers=auth_headers(token), timeout=10.0
+        )
+        existing = resp.json() if resp.status_code == 200 else None
+        if existing is None:
+            resp = await client.post(
+                f"{OPENWEBUI_URL}/api/v1/functions/create",
+                json=payload,
+                headers=auth_headers(token),
+                timeout=10.0,
+            )
+            if resp.status_code not in (200, 201):
+                print(f"  Failed to create {fid}: HTTP {resp.status_code} {resp.text[:150]}")
+                return
+            existing = resp.json()
+            print(f"  Created: {fid}")
+        elif existing.get("content") != payload["content"]:
+            resp = await client.post(
+                f"{OPENWEBUI_URL}/api/v1/functions/id/{fid}/update",
+                json=payload,
+                headers=auth_headers(token),
+                timeout=10.0,
+            )
+            if resp.status_code not in (200, 201):
+                print(f"  Failed to update {fid}: HTTP {resp.status_code}")
+                return
+            print(f"  Updated: {fid}")
+        for flag, endpoint in (("is_active", "toggle"), ("is_global", "toggle/global")):
+            if not existing.get(flag):
+                resp = await client.post(
+                    f"{OPENWEBUI_URL}/api/v1/functions/id/{fid}/{endpoint}",
+                    headers=auth_headers(token),
+                    timeout=10.0,
+                )
+                if resp.status_code not in (200, 201):
+                    print(f"  Failed to set {flag} on {fid}: HTTP {resp.status_code}")
+                    return
+        if not (existing.get("is_active") and existing.get("is_global")):
+            print(f"  Enabled as a global filter: {fid}")
+    except Exception as e:
+        print(f"  Error seeding {fid}: {e}")
+
+
 async def create_persona_presets_async(
     client: httpx.AsyncClient, token: str, personas_dir: Path
 ) -> None:
@@ -889,6 +958,40 @@ def configure_task_model(client: httpx.Client, token: str) -> None:
         print(f"  Warning: task model config failed: {e}")
 
 
+def configure_rag_template(client: httpx.Client, token: str) -> None:
+    """Seed OWUI's rag.template with the stock v0.12.5 text plus Portal's
+    attached-file guideline (imports/openwebui/rag_template.txt). Posted only
+    when the stored value differs, so an operator edit survives until the
+    seeded text itself changes. Rides /api/v1/retrieval/config/update, whose
+    form drops None fields — nothing else is touched."""
+    print("\nConfiguring RAG template...")
+    if not RAG_TEMPLATE_FILE.exists():
+        print(f"  Skipping - {RAG_TEMPLATE_FILE} not found")
+        return
+    template = RAG_TEMPLATE_FILE.read_text()
+    try:
+        resp = client.get(
+            f"{OPENWEBUI_URL}/api/v1/retrieval/config",
+            headers=auth_headers(token),
+            timeout=10.0,
+        )
+        if resp.status_code == 200 and resp.json().get("RAG_TEMPLATE") == template:
+            print("  RAG template already current")
+            return
+        resp = client.post(
+            f"{OPENWEBUI_URL}/api/v1/retrieval/config/update",
+            json={"RAG_TEMPLATE": template},
+            headers=auth_headers(token),
+            timeout=10.0,
+        )
+        if resp.status_code in (200, 201):
+            print("  RAG template seeded (stock v0.12.5 + attached-file guideline)")
+        else:
+            print(f"  Warning: could not set RAG template: HTTP {resp.status_code}")
+    except Exception as e:
+        print(f"  Warning: RAG template config failed: {e}")
+
+
 def configure_audio_settings(client: httpx.Client, token: str) -> None:
     """Audio TTS/STT is configured via Open WebUI environment variables.
 
@@ -1063,7 +1166,8 @@ async def main() -> int:
                     file=sys.stderr,
                 )
 
-    # Seed the instance — P5: parallelize tool servers, workspaces, and persona presets
+    # Seed the instance — P5: parallelize tool servers, workspaces, persona presets,
+    # role prompts and the attachment filter
     # (configure_* are sync print-only helpers, no I/O, so no need to parallelize)
     async_client = httpx.AsyncClient(timeout=30.0)
     try:
@@ -1072,6 +1176,7 @@ async def main() -> int:
             create_workspaces_async(async_client, token),
             create_persona_presets_async(async_client, token, PERSONAS_DIR),
             create_role_prompts_async(async_client, token, PERSONAS_DIR),
+            seed_attachment_filter_async(async_client, token),
         )
     finally:
         await async_client.aclose()
@@ -1080,6 +1185,7 @@ async def main() -> int:
 
     configure_user_settings(client, token)
     configure_task_model(client, token)
+    configure_rag_template(client, token)
     configure_audio_settings(client, token)
     configure_tool_settings(client, token)
 

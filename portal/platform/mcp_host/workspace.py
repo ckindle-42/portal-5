@@ -96,6 +96,17 @@ def assert_public_http_url(url: str) -> None:
             raise ValueError(f"URL resolves to a non-public address: {parsed.hostname} -> {ip}")
 
 
+def _nested_upload_ref(reference: str) -> Path | None:
+    """Relative path under uploads (``realuse_v1/<task>/<file>``). A bare name or ``..`` is None."""
+    text = reference.replace("\\", "/").strip()
+    if not text or text.startswith("/") or "://" in text:
+        return None
+    parts = Path(text).parts
+    if len(parts) < 2 or any(part in {".", ".."} for part in parts):
+        return None
+    return Path(*parts)
+
+
 def resolve_upload_path(file_id_or_name: str) -> Path | None:
     """Resolve an OWUI upload reference to an absolute path on disk.
 
@@ -104,6 +115,7 @@ def resolve_upload_path(file_id_or_name: str) -> Path | None:
     - UUID prefix only (``ba61aacb-...``)
     - Original filename only (``meeting.mp3``)
     - Partial URL fragment (``/api/v1/files/{id}/content`` → extracts the id)
+    - A relative path that already lives under the uploads directory
 
     Returns:
         Absolute Path if found, None otherwise.
@@ -117,6 +129,14 @@ def resolve_upload_path(file_id_or_name: str) -> Path | None:
     _url_match = _re.search(r"/files/([^/]+)/", file_id_or_name)
     if _url_match:
         file_id_or_name = _url_match.group(1)
+
+    nested = _nested_upload_ref(file_id_or_name)
+    if nested is not None:
+        root = uploads.resolve()
+        direct = (uploads / nested).resolve()
+        if direct.is_file() and root in direct.parents:
+            return direct
+        return None
 
     # Reduce to a bare filename before any lookup. Without this, an absolute
     # path (e.g. "/etc/passwd") silently discards `uploads` entirely when

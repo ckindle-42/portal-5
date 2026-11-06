@@ -25,10 +25,16 @@ def bind_eval_scope(body: dict[str, Any]) -> None:
 
 
 def bind_attached_uploads(body: Mapping[str, Any]) -> None:
-    """Bind the OWUI attachment ids of this request (body["files"]) for MCP forwarding, so the
-    code sandbox can mount exactly those uploads and nothing else of the user file store."""
-    files = body.get("files")
-    ids = [f.get("id") for f in files if isinstance(f, Mapping)] if isinstance(files, list) else []
+    """Bind the OWUI attachment ids of this request for MCP forwarding, so the
+    code sandbox can mount exactly those uploads and nothing else of the user
+    file store. Production carries them in ``portal_attached_files`` (the inlet
+    filter's field; OWUI pops ``files`` before the pipeline), direct callers and
+    the eval harness in ``files`` — both bind."""
+    ids: list[Any] = []
+    for key in ("files", "portal_attached_files"):
+        items = body.get(key)
+        if isinstance(items, list):
+            ids.extend(f.get("id") for f in items if isinstance(f, Mapping))
     eval_scope.ATTACHED_UPLOADS.set(eval_scope.upload_ids(ids))
 
 
