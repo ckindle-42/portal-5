@@ -33,6 +33,7 @@ from tests.wfe.checkers import (
     parse_pytest_summary,
 )
 from tests.wfe.schema import Outcome
+from tests.wfe.suites.build_realuse_v1 import RU_V1_001_SLIP_PATTERN
 
 MIXED = "collected 5 items\n\nF...\n=========== 1 failed, 4 passed in 0.31s ==========="
 CLEAN = "collected 4 items\n\n....\n=========== 4 passed in 0.12s ==========="
@@ -585,11 +586,8 @@ def test_ru_v1_001_turn0_accepts_an_auxiliary_before_slipped():
     turn = task["turns"][0]
     answer = next(c for c in turn["checks"] if c["type"] == "answer_contains")
     grounded = next(c for c in turn["checks"] if c["type"] == "tool_grounded")
-    pattern = (
-        r"timeline\s+(?:(?:has(?:\s+been)?|had|was|is|been)\s+)?"
-        r"(?:slipp(?:ed|ing)|extended)\s+by\s+(?:3|three)\s+days"
-    )
-    assert answer["patterns"][0] == pattern
+    pattern = answer["patterns"][0]
+    assert pattern == RU_V1_001_SLIP_PATTERN
     assert "Timeline slipped by 3 days" in grounded["evidence"]
     accepted = (
         "the project timeline has slipped by **3 days**",
@@ -603,6 +601,7 @@ def test_ru_v1_001_turn0_accepts_an_auxiliary_before_slipped():
         "timeline is slipping by three days",
         "timeline been slipped by 3 days",
         "the timeline has been extended by three days",
+        "Timeline delayed by 3 days",
     )
     for text in accepted:
         got = check_answer_contains({"patterns": [pattern]}, CheckContext(final_text=text))
@@ -611,11 +610,52 @@ def test_ru_v1_001_turn0_accepts_an_auxiliary_before_slipped():
         "no slip",
         "slipped by 2 days",
         "timeline has slipped by 2 days",
-        "Timeline delayed by 3 days",
         "Timeline slipped by 30 days",
         "Timeline extended by 30 days",
         "timeline has slipped by 30 days",
     )
+    for text in rejected:
+        got = check_answer_contains({"patterns": [pattern]}, CheckContext(final_text=text))
+        assert got.outcome == Outcome.FAIL, text
+
+
+def test_ru_v1_001_turn0_accepts_a_three_day_slip_about_any_subject():
+    """postfix 20261106 Qwen3.8 ru-v1-001 r0: 'the project slipped by 3 days'."""
+    suite = Path(__file__).resolve().parents[1] / "suites" / "realuse_v1.jsonl"
+    task = next(
+        json.loads(line) for line in suite.read_text().splitlines() if '"ru-v1-001"' in line
+    )
+    answer = next(c for c in task["turns"][0]["checks"] if c["type"] == "answer_contains")
+    pattern = answer["patterns"][0]
+    assert pattern == RU_V1_001_SLIP_PATTERN
+    accepted = (
+        "the project slipped by 3 days",
+        "a 3-day slip",
+        "delayed by three days",
+        "ran 3 days late",
+        "timeline extended by 3 days",
+        "the final timeline: the project slipped by 3 days",
+        "the schedule slipped by 3 days",
+        "delivery delayed by 3 days",
+        "completion extended by three days",
+        "the work slipped by 3 days",
+        "we slipped by 3 days",
+    )
+    rejected = (
+        "2 days",
+        "30 days",
+        "3 weeks",
+        "did not slip",
+        "did not slip by 3 days",
+        "has not slipped by 3 days",
+        "not a 3-day slip",
+        "slipped by 30 days",
+        "ran 30 days late",
+        "a 3-week slip",
+    )
+    for text in accepted:
+        got = check_answer_contains({"patterns": [pattern]}, CheckContext(final_text=text))
+        assert got.outcome == Outcome.PASS, text
     for text in rejected:
         got = check_answer_contains({"patterns": [pattern]}, CheckContext(final_text=text))
         assert got.outcome == Outcome.FAIL, text
