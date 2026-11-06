@@ -41,11 +41,17 @@ DONE = b"data: [DONE]\n\n"
 
 
 @pytest.fixture
-def api() -> typing.Iterator[typing.Any]:
+def api(monkeypatch: pytest.MonkeyPatch) -> typing.Iterator[typing.Any]:
     """FastAPI TestClient over the real app with a fake backend registry."""
     from fastapi.testclient import TestClient
 
     import portal.platform.inference.router.handlers as handlers_mod
+    from portal.platform.inference import tool_registry as tool_registry_module
+
+    async def _offline_no_tools(_client, _url, _timeout_s):
+        return []  # on-miss registry refresh stays inside the offline boundary
+
+    monkeypatch.setattr(tool_registry_module, "list_tools", _offline_no_tools)
     from portal.platform.inference.router_pipe import app
     from tests.unit.test_pipeline import _make_fake_backend
 
