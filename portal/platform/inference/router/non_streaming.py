@@ -53,10 +53,10 @@ from portal.platform.inference.router.thinking import (
 )
 from portal.platform.inference.router.tool_repeat import (
     FINAL_ANSWER_REQUEST,
-    GROUNDING_REQUEST,
     UNGROUNDED_NOTICE,
     ToolRepeatGuard,
     apply_tool_byte_budget,
+    no_tool_call_retry,
     tool_result_byte_budget,
 )
 from portal.platform.inference.router.tools import (
@@ -982,40 +982,45 @@ async def _try_non_streaming(
             _ns_tool_result_bytes = 0
             # no file tools offered: nothing to filter
             _ns_creation_succeeded = not offers_file_creation(req_body.get("tools"))
-            if (
+            _ns_require_tool = bool(
                 WORKSPACES.get(workspace_id, {}).get("require_tool_before_answer")
+            )
+            if (
+                (_ns_require_tool or req_body.get("tool_choice") == "required")
                 and req_body.get("tools")
                 and not _ns_tool_calls
                 and any(
                     (_c.get("message") or {}).get("content") for _c in data.get("choices") or []
                 )
             ):
-                # Answered with no tool call on a workspace that requires one: ask once for a
-                # grounded answer (tools still offered); an answer that is still ungrounded is
-                # delivered with a notice.
-                _answer_without_tool_retried.labels(workspace=workspace_id).inc()
-                logger.warning(
-                    "Non-stream: workspace=%s answered without a tool call; asking once for a "
-                    "grounded answer",
-                    workspace_id,
-                )
-                _ns_messages = [*_ns_messages, GROUNDING_REQUEST]
-                _ns_guard.grounding_retried = True
-                _record_intermediate_model(data, target_model, workspace_id, _model_started)
-                _model_started = time.monotonic()
-                _last_request_body = {**req_body, "messages": _ns_messages}
-                _ns_retry = await _http_client.post(
-                    backend.chat_url,
-                    json=_last_request_body,
-                    timeout=_timeout_obj,
-                )
-                _raise_for_backend_status(_ns_retry)
-                data = _completion_body(_ns_retry, workspace_id)
-                _recover_or_withhold_markup(
-                    data, req_body.get("tools"), req_body.get("model", ""), workspace_id
-                )
-                _ns_tool_calls = _collect_tool_calls(data)
-                _ns_dispatchable = bool(_ns_tools) and _all_offered(_ns_tool_calls, _ns_tools)
+                # Answered with no tool call although one was wanted (a require_tool
+                # workspace, or tool_choice="required" that Ollama cannot express): ask
+                # once for the call (tools still offered); an answer that is still
+                # ungrounded on a require_tool workspace is delivered with a notice.
+                _ask = no_tool_call_retry(_ns_guard, _ns_require_tool)
+                if _ask is not None:
+                    _answer_without_tool_retried.labels(workspace=workspace_id).inc()
+                    logger.warning(
+                        "Non-stream: workspace=%s answered without a tool call; asking once for a %s",
+                        workspace_id,
+                        "grounded answer" if _ns_require_tool else "tool call first",
+                    )
+                    _ns_messages = [*_ns_messages, _ask]
+                    _record_intermediate_model(data, target_model, workspace_id, _model_started)
+                    _model_started = time.monotonic()
+                    _last_request_body = {**req_body, "messages": _ns_messages}
+                    _ns_retry = await _http_client.post(
+                        backend.chat_url,
+                        json=_last_request_body,
+                        timeout=_timeout_obj,
+                    )
+                    _raise_for_backend_status(_ns_retry)
+                    data = _completion_body(_ns_retry, workspace_id)
+                    _recover_or_withhold_markup(
+                        data, req_body.get("tools"), req_body.get("model", ""), workspace_id
+                    )
+                    _ns_tool_calls = _collect_tool_calls(data)
+                    _ns_dispatchable = bool(_ns_tools) and _all_offered(_ns_tool_calls, _ns_tools)
             while _ns_tool_calls and _ns_dispatchable:
                 _record_intermediate_model(data, target_model, workspace_id, _model_started)
                 _ns_hops += 1

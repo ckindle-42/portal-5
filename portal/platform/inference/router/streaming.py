@@ -96,10 +96,10 @@ from portal.platform.inference.router.thinking import (
 )
 from portal.platform.inference.router.tool_repeat import (
     FINAL_ANSWER_REQUEST,
-    GROUNDING_REQUEST,
     UNGROUNDED_NOTICE,
     ToolRepeatGuard,
     apply_tool_byte_budget,
+    no_tool_call_retry,
     tool_result_byte_budget,
 )
 from portal.platform.inference.router.tools import (
@@ -899,6 +899,7 @@ async def _tool_loop_frames(
         _download_lines.mark_successful_creation()  # no file tools offered: pass through
         _successful_creation = True
     _require_tool = bool(WORKSPACES.get(workspace_id, {}).get("require_tool_before_answer"))
+    _required_choice = body.get("tool_choice") == "required"
 
     while hop < hop_limit:
         hop += 1
@@ -924,15 +925,17 @@ async def _tool_loop_frames(
             else None
         )
 
-        # A workspace that requires a tool before it answers: until a tool has run, this hop's
-        # output is held, so an answer given from nothing can be replaced by one retry.
+        # A turn that wanted a tool call (required workspace, or tool_choice="required"
+        # which Ollama cannot express) has this hop's output held until a tool has run,
+        # so an answer given from nothing can be replaced by one retry.
         _held_frames: list[bytes] | None = (
             []
             if (
-                _require_tool
+                (_require_tool or _required_choice)
                 and current_body.get("tools")
                 and _repeat_guard.executed == 0
                 and not _repeat_guard.grounding_retried
+                and not _repeat_guard.required_retried
             )
             else None
         )
@@ -1344,18 +1347,20 @@ async def _tool_loop_frames(
 
         if _held_frames is not None:
             if finish_reason != "tool_calls" and not tool_calls_buf and _content_emitted:
-                # Answered with no tool call on a workspace that requires one: drop the held
+                # Answered with no tool call although one was wanted: drop the held
                 # answer and ask once for a grounded one (tools still offered).
-                _repeat_guard.grounding_retried = True
-                _answer_without_tool_retried.labels(workspace=workspace_id).inc()
-                logger.warning(
-                    "Tool loop hop %d: workspace=%s answered without a tool call; asking once "
-                    "for a grounded answer",
-                    hop,
-                    workspace_id,
-                )
-                current_body["messages"] = [*current_body.get("messages", []), GROUNDING_REQUEST]
-                continue
+                _ask = no_tool_call_retry(_repeat_guard, _require_tool)
+                if _ask is not None:
+                    _answer_without_tool_retried.labels(workspace=workspace_id).inc()
+                    logger.warning(
+                        "Tool loop hop %d: workspace=%s answered without a tool call; asking once "
+                        "for a %s",
+                        hop,
+                        workspace_id,
+                        "grounded answer" if _require_tool else "tool call first",
+                    )
+                    current_body["messages"] = [*current_body.get("messages", []), _ask]
+                    continue
             for _f in _held_frames:
                 yield _f
 

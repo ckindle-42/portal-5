@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sys
 import types
 from pathlib import Path
 from typing import Any
@@ -157,24 +158,72 @@ def test_seeded_filter_spec_is_valid() -> None:
     assert "class Filter" in spec["content"] and "file_handler =" not in spec["content"]
 
 
-def test_filter_inlet_golden() -> None:
+def _install_files_stub(monkeypatch: Any, records: dict[str, Any]) -> None:
+    """An open_webui.models.files stand-in answering get_file_by_id from ``records``
+    (an Exception value raises; a missing id answers None, OWUI's own behaviour)."""
+    module = types.ModuleType("open_webui.models.files")
+
+    class _Files:
+        async def get_file_by_id(self, fid: str) -> Any:
+            record = records.get(fid)
+            if isinstance(record, Exception):
+                raise record
+            return record
+
+    module.Files = _Files()
+    monkeypatch.setitem(sys.modules, "open_webui.models.files", module)
+
+
+def _record(
+    fid: str = "ba61aacb-44",
+    filename: str = "customers.csv",
+    path: str | None = "",
+    meta: dict | None = None,
+) -> Any:
+    return types.SimpleNamespace(
+        id=fid,
+        filename=filename,
+        path=path if path != "" else f"/app/backend/data/uploads/{fid}_customers.csv",
+        meta=meta
+        if meta is not None
+        else {
+            "name": filename,
+            "content_type": "text/csv",
+            "size": 812,
+        },
+    )
+
+
+async def _inlet(
+    body: dict, monkeypatch: Any = None, records: dict[str, Any] | None = None
+) -> dict:
     filter_ = _filter_module().Filter()
-    out = filter_.inlet(
-        {
-            "files": [
-                {
-                    "id": "ba61aacb-44",
-                    "name": "report.csv",
-                    "type": "file",
-                    "meta": {"size": 812},
-                },
-                {"id": "ba61aacb-44", "name": "report.csv", "type": "file"},
-                {"id": "", "name": "no-id", "type": "file"},
-                {"collection_name": "kb", "name": "kb", "type": "collection"},
-                "junk",
-            ],
-            "messages": [],
-        }
+    if records is not None:
+        _install_files_stub(monkeypatch, records)
+    return await filter_.inlet(body)
+
+
+def test_filter_inlet_golden() -> None:
+    """No Files import (repo venv has no open_webui): the item's own fields are the
+    fallback, exactly as round 1 shipped them."""
+    out = asyncio.run(
+        _inlet(
+            {
+                "files": [
+                    {
+                        "id": "ba61aacb-44",
+                        "name": "report.csv",
+                        "type": "file",
+                        "meta": {"size": 812},
+                    },
+                    {"id": "ba61aacb-44", "name": "report.csv", "type": "file"},
+                    {"id": "", "name": "no-id", "type": "file"},
+                    {"collection_name": "kb", "name": "kb", "type": "collection"},
+                    "junk",
+                ],
+                "messages": [],
+            }
+        )
     )
     assert out["portal_attached_files"] == [
         {
@@ -185,11 +234,95 @@ def test_filter_inlet_golden() -> None:
             "path": "/workspace/uploads/ba61aacb-44_report.csv",
         }
     ]
-    assert filter_.inlet({"messages": []}) == {"messages": []}
-    assert filter_.inlet({"files": "not-a-list", "messages": []}) == {
+    assert asyncio.run(_inlet({"messages": []})) == {"messages": []}
+    assert asyncio.run(_inlet({"files": "not-a-list", "messages": []})) == {
         "files": "not-a-list",
         "messages": [],
     }
+
+
+def test_an_id_only_item_resolves_the_stored_record(monkeypatch) -> None:
+    """The defect: OWUI request items often carry {type, id} and nothing else — the
+    record, not the item, knows the real name and staged path."""
+    out = asyncio.run(
+        _inlet(
+            {"files": [{"type": "file", "id": "ba61aacb-44"}], "messages": []},
+            monkeypatch,
+            {"ba61aacb-44": _record()},
+        )
+    )
+    assert out["portal_attached_files"] == [
+        {
+            "id": "ba61aacb-44",
+            "name": "customers.csv",
+            "type": "text/csv",
+            "size": 812,
+            "path": "/workspace/uploads/ba61aacb-44_customers.csv",
+        }
+    ]
+
+
+def test_a_richer_ui_item_defers_to_the_record(monkeypatch) -> None:
+    out = asyncio.run(
+        _inlet(
+            {
+                "files": [
+                    {
+                        "id": "ba61aacb-44",
+                        "name": "",
+                        "type": "file",
+                        "meta": {"size": 1},
+                    }
+                ],
+                "messages": [],
+            },
+            monkeypatch,
+            {"ba61aacb-44": _record()},
+        )
+    )
+    assert out["portal_attached_files"] == [
+        {
+            "id": "ba61aacb-44",
+            "name": "customers.csv",
+            "type": "text/csv",
+            "size": 812,
+            "path": "/workspace/uploads/ba61aacb-44_customers.csv",
+        }
+    ]
+
+
+def test_a_failed_lookup_falls_back_to_the_item(monkeypatch) -> None:
+    body = {"files": [{"type": "file", "id": "ba61aacb-44", "name": "local.csv"}], "messages": []}
+    for records in ({"ba61aacb-44": None}, {"ba61aacb-44": RuntimeError("db down")}):
+        out = asyncio.run(_inlet(dict(body), monkeypatch, records))
+        assert out["portal_attached_files"] == [
+            {
+                "id": "ba61aacb-44",
+                "name": "local.csv",
+                "type": "file",
+                "size": None,
+                "path": "/workspace/uploads/ba61aacb-44_local.csv",
+            }
+        ]
+
+
+def test_a_record_without_a_stored_path_keeps_the_staged_name_guess(monkeypatch) -> None:
+    out = asyncio.run(
+        _inlet(
+            {"files": [{"type": "file", "id": "ba61aacb-44"}], "messages": []},
+            monkeypatch,
+            {"ba61aacb-44": _record(path=None, meta={})},
+        )
+    )
+    assert out["portal_attached_files"] == [
+        {
+            "id": "ba61aacb-44",
+            "name": "customers.csv",
+            "type": "file",
+            "size": None,
+            "path": "/workspace/uploads/ba61aacb-44_customers.csv",
+        }
+    ]
 
 
 def test_rag_seed_file_is_the_harness_portal_template() -> None:

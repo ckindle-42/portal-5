@@ -15,6 +15,8 @@ import json
 import logging
 from typing import Any
 
+from portal.platform.inference.router.trace import note
+
 logger = logging.getLogger(__name__)
 
 # Half the window at ~2 bytes/token (path listings). Prose is ~4, so a document costs fewer tokens.
@@ -39,6 +41,13 @@ FINAL_ANSWER_REQUEST = {
 GROUNDING_REQUEST = {
     "role": "user",
     "content": "Answer only from a query result: call run_sql or profile_table first, then answer.",
+}
+#: Sent once when the request said tool_choice="required" and the first completion
+#: answered with no tool call — Ollama cannot express "required" on /api/chat
+#: (ollama_native._tools_for_choice), so the pipeline enforces it instead.
+REQUIRED_TOOL_REQUEST = {
+    "role": "user",
+    "content": "This request requires a tool call: call one of the offered tools now, then answer from its result.",
 }
 UNGROUNDED_NOTICE = (
     "\n\n*Note: this answer is not grounded in a query — the model answered without running one.*"
@@ -118,6 +127,7 @@ class ToolRepeatGuard:
         self.force_synthesis = False
         self.suppressed = 0
         self.grounding_retried = False
+        self.required_retried = False
 
     def seen(self, call: dict[str, Any]) -> bool:
         """True when this exact call already ran this turn; counts the request."""
@@ -156,6 +166,23 @@ class ToolRepeatGuard:
             "name": name,
             "content": f"{earlier}\n\n[{REPEAT_NOTE}]",
         }
+
+
+def no_tool_call_retry(guard: ToolRepeatGuard, require_tool: bool) -> dict[str, str] | None:
+    """The one follow-up message for an answer given with no tool call, or ``None``
+    when this turn's single retry is spent. A ``require_tool_before_answer`` workspace
+    gets the grounding ask; any other request gets the call-first ask, which is how
+    ``tool_choice="required"`` is enforced (Ollama cannot express it)."""
+    if require_tool:
+        if guard.grounding_retried:
+            return None
+        guard.grounding_retried = True
+        return GROUNDING_REQUEST
+    if guard.required_retried:
+        return None
+    guard.required_retried = True
+    note(required_tool_retried=True)
+    return REQUIRED_TOOL_REQUEST
 
 
 def tool_result_byte_budget(context_limit_tokens: int) -> int:
