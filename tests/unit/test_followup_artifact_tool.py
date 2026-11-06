@@ -10,6 +10,7 @@ carry its tool result into the next turn.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import httpx
@@ -22,7 +23,7 @@ from portal.platform.inference.router.download_links import (
     strip_unbacked_download_lines,
 )
 from portal.platform.inference.router.tool_repeat import REQUIRED_TOOL_REQUEST
-from portal.platform.inference.router.tools import _select_explicit_required_tool
+from portal.platform.inference.router.tools import _own_user_text, _select_explicit_required_tool
 
 OFFERED = [
     "create_word_document",
@@ -604,3 +605,72 @@ async def test_stream_keeps_an_earlier_turn_link_and_strips_an_invented_one(
     text = _joined(out)
     assert INVENTED_NAME not in text
     assert "Garage_Sale_Float_969565dd.xlsx" in text
+
+
+# ru-v1-006 (realuse_s8_fast_followup_20261106, r0): turn 1's create request rode on
+# an attachment turn, so OWUI v0.12.5 had prepended the rendered rag_template with the
+# <context> excerpts to the user's words (utils/misc.py update_message_content,
+# append=False) — the template's "explain" used to trip _NON_PRODUCE_RE and every
+# attachment turn lost forcing.
+TURN0 = (
+    "Read all four notes: note_01.docx, note_02.docx, note_03.docx, and note_04.docx. "
+    "What do they agree on, and where do they clash?"
+)
+TURN1 = "Make a Word file titled Meeting Themes Summary. Include a heading for the clash and both months."
+TURN0_REPLY = (
+    "The notes agree the launch is Priya's; they clash on the date: "
+    "September (note_01.docx) versus October (note_03.docx)."
+)
+_RAG_TEMPLATE = (
+    Path(__file__).resolve().parents[2] / "imports" / "openwebui" / "rag_template.txt"
+).read_text(encoding="utf-8")
+
+
+def _sources(*bodies: str) -> str:
+    return "".join(
+        f'<source id="{i}" name="note_0{i}.docx" resource-type="file" '
+        f'resource-id="realuse_v1/ru-v1-006/note_0{i}.docx">{body}</source>\n'
+        for i, body in enumerate(bodies, 1)
+    ).strip()
+
+
+def _wrapped(user_text: str, context: str) -> str:
+    return _RAG_TEMPLATE.replace("{{CONTEXT}}", context) + "\n" + user_text
+
+
+def test_own_user_text_strips_the_owui_rag_wrapper() -> None:
+    wrapped = _wrapped(TURN1, _sources("Launch target is September. Owner: Priya."))
+    assert _own_user_text([{"role": "user", "content": wrapped}]) == TURN1
+    assert _own_user_text([{"role": "user", "content": NOW_WORD}]) == NOW_WORD
+
+
+def test_own_user_text_strips_a_wrapper_on_multimodal_content() -> None:
+    content = [
+        {"type": "text", "text": _wrapped(TURN1, _sources("Budget is frozen."))},
+        {"type": "text", "text": "Second part."},
+    ]
+    assert _own_user_text([{"role": "user", "content": content}]) == f"{TURN1} Second part."
+
+
+def test_wrapped_006_turn1_still_selects_create_word_document() -> None:
+    wrapped = _wrapped(TURN1, _sources("Launch target is September.", "Budget is frozen."))
+    assert (
+        _select_explicit_required_tool(_history(TURN0, TURN0_REPLY, wrapped), _tools())
+        == "create_word_document"
+    )
+
+
+def test_wrapped_howto_question_stays_unforced() -> None:
+    wrapped = _wrapped(HOWTO_EXCEL, _sources("Budget is frozen."))
+    assert _select_explicit_required_tool(_history(TURN0, TURN0_REPLY, wrapped), _tools()) is None
+
+
+def test_excerpts_containing_howto_phrasing_do_not_block_a_create() -> None:
+    wrapped = _wrapped(
+        TURN1,
+        _sources("How do I file this? See the guide.", "What is the best way to store these?"),
+    )
+    assert (
+        _select_explicit_required_tool(_history(TURN0, TURN0_REPLY, wrapped), _tools())
+        == "create_word_document"
+    )

@@ -164,6 +164,17 @@ def _last_user_content(messages: list[dict[str, Any]]) -> str:
     return ""
 
 
+def _own_user_text(messages: list[dict[str, Any]]) -> str:
+    """The last user turn's own words, minus OWUI's RAG wrapper when present."""
+    text = _last_user_content(messages)
+    # OWUI prepends the rendered rag_template on attachment turns; judge the request, not the excerpts.
+    if text.lstrip().startswith("### Task:") and "provided context" in text:
+        close = text.rfind("</context>")
+        if close != -1:
+            return text[close + len("</context>") :].strip()
+    return text
+
+
 _FOLLOWUP_PRODUCE_RE = re.compile(
     r"\b(?:build|create|generate|make|produce|save|put|redo|revise|update|edit)\b"
     r"|\bnow\s+(?:a|an|the)\b"
@@ -220,7 +231,7 @@ def _select_explicit_required_tool(
     general coding or document-writing prompts retain the full tool set and
     ``tool_choice=auto``.
     """
-    text = _last_user_content(messages).lower()
+    text = _own_user_text(messages).lower()
     if not text:
         return None
     if _NON_PRODUCE_RE.search(text) is not None:
