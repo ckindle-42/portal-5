@@ -1829,3 +1829,249 @@ def test_chain_hop_injects_workspace_budget_on_omlx(monkeypatch) -> None:
 
     assert url == omlx.chat_url
     assert body["thinking_budget"] == 8192
+
+
+# ── mixed pipeline-owned + client-owned tool turns ───────────────────
+
+
+def _stream_tool_turn(*calls: dict[str, typing.Any]) -> _Resp:
+    return _Resp(
+        200,
+        [
+            _delta(tool_calls=list(calls)),
+            _data({"choices": [{"index": 0, "delta": {}, "finish_reason": "tool_calls"}]}),
+            "data: [DONE]",
+        ],
+    )
+
+
+def _stream_answer(text: str) -> _Resp:
+    return _Resp(
+        200,
+        [
+            _delta(content=text),
+            _data({"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]}),
+            "data: [DONE]",
+        ],
+    )
+
+
+def _returned_tool_names(chunks: list[bytes]) -> list[str]:
+    names: list[str] = []
+    for payload in _payloads(chunks):
+        for choice in payload.get("choices") or []:
+            delta = choice.get("delta") or {}
+            for call in delta.get("tool_calls") or []:
+                names.append(str((call.get("function") or {}).get("name") or ""))
+    return names
+
+
+def _owned_call() -> dict[str, typing.Any]:
+    return {
+        "index": 0,
+        "id": "owned-1",
+        "function": {"name": "lookup", "arguments": '{"file_path":"/workspace/a.txt"}'},
+    }
+
+
+def _client_call(name: str = "client_lookup", index: int = 1) -> dict[str, typing.Any]:
+    return {
+        "index": index,
+        "id": f"{name}-1",
+        "function": {"name": name, "arguments": "{}"},
+    }
+
+
+def _record_dispatch(monkeypatch: pytest.MonkeyPatch, module: typing.Any) -> list[str]:
+    seen: list[str] = []
+
+    async def dispatch(call: dict[str, typing.Any], *_args: typing.Any, **_kwargs: typing.Any):
+        seen.append(str((call.get("function") or {}).get("name") or ""))
+        return {
+            "role": "tool",
+            "tool_call_id": call.get("id"),
+            "name": (call.get("function") or {}).get("name"),
+            "content": "owned-out",
+        }
+
+    monkeypatch.setattr(module, "_dispatch_tool_call", dispatch)
+    return seen
+
+
+@pytest.mark.anyio
+async def test_stream_mixed_turn_dispatches_owned_and_returns_client_call(
+    stream_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(tool_dispatch, "_TOOL_RESULT_CARRY_ENABLED", True)
+    seen = _record_dispatch(monkeypatch, st)
+    _serve(stream_client, _stream_tool_turn(_owned_call(), _client_call()))
+
+    chunks = await _drain(
+        st._stream_with_tool_loop_impl(
+            "http://x/v1/chat/completions",
+            {"messages": [], "tools": [], "exec_audit": True},
+            "ws",
+            "m",
+            "p",
+            {"lookup"},
+        )
+    )
+
+    assert seen == ["lookup"]
+    assert _returned_tool_names(chunks) == ["client_lookup"]
+    text = _content(chunks)
+    assert "lookup" in text and "/workspace/a.txt" in text and "owned-out" in text
+    assert "client_lookup" not in text
+    audits = [event for event in _payloads(chunks) if event.get("type") == "exec_audit"]
+    assert [row["tool"] for row in audits[0]["tool_calls"]] == ["lookup"]
+
+
+@pytest.mark.anyio
+async def test_stream_all_owned_turn_stays_inside_the_pipeline(
+    stream_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(tool_dispatch, "_TOOL_RESULT_CARRY_ENABLED", True)
+    seen = _record_dispatch(monkeypatch, st)
+    _serve(stream_client, _stream_tool_turn(_owned_call()), _stream_answer("the answer"))
+
+    chunks = await _drain(
+        st._stream_with_tool_loop_impl(
+            "http://x/v1/chat/completions",
+            {
+                "messages": [{"role": "user", "content": "lookup"}],
+                "tools": [{"type": "function", "function": {"name": "lookup"}}],
+            },
+            "ws",
+            "m",
+            "p",
+            {"lookup"},
+        )
+    )
+
+    assert seen == ["lookup"]
+    assert _returned_tool_names(chunks) == []
+    assert _content(chunks).startswith("the answer")
+    assert "lookup" in _content(chunks) and "owned-out" in _content(chunks)
+
+
+@pytest.mark.anyio
+async def test_stream_all_client_turn_passes_every_call_through(
+    stream_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(tool_dispatch, "_TOOL_RESULT_CARRY_ENABLED", True)
+    seen = _record_dispatch(monkeypatch, st)
+    call = _client_call(index=0)
+    _serve(stream_client, _stream_tool_turn(call))
+
+    chunks = await _drain(
+        st._stream_with_tool_loop_impl(
+            "http://x/v1/chat/completions",
+            {"messages": [], "tools": []},
+            "ws",
+            "m",
+            "p",
+            {"lookup"},
+        )
+    )
+
+    assert seen == []
+    returned = _returned_tool_names(chunks)
+    assert returned == ["client_lookup"]
+    assert "Tool results" not in _content(chunks)
+    indexed = [
+        call
+        for payload in _payloads(chunks)
+        for choice in payload.get("choices") or []
+        for call in (choice.get("delta") or {}).get("tool_calls") or []
+    ]
+    assert indexed[0]["index"] == 0
+    assert indexed[0]["id"] == "client_lookup-1"
+    assert indexed[0]["function"]["arguments"] == "{}"
+
+
+def _ns_multi_reply(*names: str) -> httpx.Response:
+    calls = [
+        {"id": f"{name}-1", "type": "function", "function": {"name": name, "arguments": "{}"}}
+        for name in names
+    ]
+    calls[0]["function"]["arguments"] = '{"file_path":"/workspace/a.txt"}'
+    return httpx.Response(
+        200,
+        json={
+            "choices": [
+                {
+                    "message": {"role": "assistant", "content": "", "tool_calls": calls},
+                    "finish_reason": "tool_calls",
+                }
+            ]
+        },
+    )
+
+
+@pytest.mark.anyio
+async def test_nonstream_mixed_turn_dispatches_owned_and_returns_client_call(
+    monkeypatch, ns_tools
+) -> None:
+    monkeypatch.setattr(tool_dispatch, "_TOOL_RESULT_CARRY_ENABLED", True)
+    seen = _record_dispatch(monkeypatch, ns)
+    client = _SeenClient([_ns_multi_reply("lookup", "client_lookup")])
+    monkeypatch.setattr(ns, "_http_client", client)
+    req = {
+        "messages": [],
+        "tools": [
+            {"type": "function", "function": {"name": "lookup"}},
+            {"type": "function", "function": {"name": "client_lookup"}},
+        ],
+    }
+
+    result = await ns._try_non_streaming(_backend("b"), req, ns_tools, 0.0)
+
+    body = json.loads(result.body)
+    message = body["choices"][0]["message"]
+    assert seen == ["lookup"]
+    assert [call["function"]["name"] for call in message["tool_calls"]] == ["client_lookup"]
+    assert len(client.bodies) == 1
+    assert "lookup" in message["content"] and "owned-out" in message["content"]
+    assert "client_lookup" not in message["content"]
+
+
+@pytest.mark.anyio
+async def test_nonstream_all_owned_turn_still_synthesizes(monkeypatch, ns_tools) -> None:
+    monkeypatch.setattr(tool_dispatch, "_TOOL_RESULT_CARRY_ENABLED", True)
+    seen = _record_dispatch(monkeypatch, ns)
+    client = _SeenClient([_tool_reply(), _text_reply("the answer")])
+    monkeypatch.setattr(ns, "_http_client", client)
+
+    result = await ns._try_non_streaming(_backend("b"), {"messages": []}, ns_tools, 0.0)
+
+    body = json.loads(result.body)
+    message = body["choices"][0]["message"]
+    assert seen == ["lookup"]
+    assert not message.get("tool_calls")
+    assert message["content"].startswith("the answer")
+    assert "lookup" in message["content"] and "owned-out" in message["content"]
+    assert len(client.bodies) == 2
+
+
+@pytest.mark.anyio
+async def test_nonstream_all_client_turn_passes_the_call_through_untouched(
+    monkeypatch, ns_tools
+) -> None:
+    monkeypatch.setattr(tool_dispatch, "_TOOL_RESULT_CARRY_ENABLED", True)
+    seen = _record_dispatch(monkeypatch, ns)
+    client = _SeenClient([_tool_reply(name="client_lookup")])
+    monkeypatch.setattr(ns, "_http_client", client)
+    req = {
+        "messages": [],
+        "tools": [{"type": "function", "function": {"name": "client_lookup", "parameters": {}}}],
+    }
+
+    result = await ns._try_non_streaming(_backend("b"), req, ns_tools, 0.0)
+
+    body = json.loads(result.body)
+    message = body["choices"][0]["message"]
+    assert seen == []
+    assert [call["function"]["name"] for call in message["tool_calls"]] == ["client_lookup"]
+    assert message["tool_calls"][0]["id"] == "c"
+    assert "Tool results" not in (message.get("content") or "")
+    assert len(client.bodies) == 1

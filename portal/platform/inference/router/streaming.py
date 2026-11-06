@@ -106,6 +106,7 @@ from portal.platform.inference.router.tools import (
     _dispatch_tool_call,
     _select_explicit_required_tool,
     format_tool_result_carry,
+    partition_tool_calls,
 )
 from portal.platform.inference.router.trace import (
     StreamMeasurement,
@@ -771,6 +772,78 @@ async def _dispatch_hop_tool_calls(
     return assistant_msg, dispatch_results
 
 
+async def _return_client_owned_calls(
+    all_tool_calls: list[dict[str, Any]],
+    effective_tools: set[str],
+    workspace_id: str,
+    persona: str,
+    request_id: str,
+    hop: int,
+    hop_limit: int,
+    guard: ToolRepeatGuard,
+    carry_tool_calls: list[dict[str, Any]],
+    carry_results: list[dict[str, Any]],
+    exec_audit: bool,
+    exec_audit_calls: list[dict[str, Any]],
+    download_lines: DownloadLineFilter,
+    successful_creation: bool,
+) -> AsyncIterator[bytes]:
+    """Return the client's calls. Dispatch pipeline-owned calls in a mixed turn first."""
+    owned_calls, client_calls = partition_tool_calls(all_tool_calls, effective_tools)
+    if owned_calls:
+        _, results = await _dispatch_hop_tool_calls(
+            owned_calls,
+            effective_tools,
+            workspace_id,
+            persona,
+            request_id,
+            hop,
+            hop_limit,
+            guard,
+        )
+        carry_tool_calls.extend(owned_calls)
+        carry_results.extend(results)
+        if exec_audit:
+            exec_audit_calls.extend(
+                [
+                    {**tc, "_output": dr.get("content", "")}
+                    for tc, dr in zip(owned_calls, results, strict=True)
+                ]
+            )
+        if not successful_creation and any(successful_file_creation(result) for result in results):
+            released = download_lines.mark_successful_creation()
+            if released:
+                yield _content_chunk(request_id, workspace_id, released)
+    passthrough_delta: dict[str, Any] = {"tool_calls": _indexed_tool_calls(client_calls)}
+    if carry := format_tool_result_carry(carry_tool_calls, carry_results):
+        passthrough_delta["content"] = f"\n\n{carry}"
+    if audit_frame := _exec_audit_frame(exec_audit, exec_audit_calls):
+        yield audit_frame
+    passthrough_chunk = {
+        "id": request_id,
+        "object": "chat.completion.chunk",
+        "created": int(time.time()),
+        "model": workspace_id,
+        "choices": [
+            {
+                "index": 0,
+                "delta": passthrough_delta,
+                "finish_reason": None,
+            }
+        ],
+    }
+    yield f"data: {json.dumps(passthrough_chunk)}\n\n".encode()
+    finish_chunk = {
+        "id": request_id,
+        "object": "chat.completion.chunk",
+        "created": int(time.time()),
+        "model": workspace_id,
+        "choices": [{"index": 0, "delta": {}, "finish_reason": "tool_calls"}],
+    }
+    yield f"data: {json.dumps(finish_chunk)}\n\n".encode()
+    yield b"data: [DONE]\n\n"
+
+
 _DONE = b"data: [DONE]\n\n"
 
 
@@ -1420,46 +1493,25 @@ async def _tool_loop_frames(
                 yield b"data: [DONE]\n\n"
                 return
 
-            # Only auto-dispatch when every requested call belongs to the
-            # workspace's own whitelist. A client-injected tool (not in
-            # effective_tools) has no real MCP registry entry —
-            # _dispatch_tool_call would reject it and the loop would burn
-            # through hops on rejection errors instead of letting the caller
-            # handle it. Mirrors the non_streaming.py fix (2026-07-05): if
-            # any call isn't ours to dispatch, surface the tool_calls we'd
-            # been suppressing (pipeline "owns dispatch" only for its own
-            # tools) as the final response instead of auto-resolving them.
+            # Client calls go back to the caller. Owned calls in that turn are dispatched first.
             if client_owned:
-                passthrough_delta: dict[str, Any] = {
-                    "tool_calls": _indexed_tool_calls(all_tool_calls)
-                }
-                if carry := format_tool_result_carry(carry_tool_calls, carry_results):
-                    passthrough_delta["content"] = f"\n\n{carry}"
-                if audit_frame := _exec_audit_frame(_exec_audit, _exec_audit_calls):
-                    yield audit_frame
-                passthrough_chunk = {
-                    "id": request_id,
-                    "object": "chat.completion.chunk",
-                    "created": int(time.time()),
-                    "model": workspace_id,
-                    "choices": [
-                        {
-                            "index": 0,
-                            "delta": passthrough_delta,
-                            "finish_reason": None,
-                        }
-                    ],
-                }
-                yield f"data: {json.dumps(passthrough_chunk)}\n\n".encode()
-                finish_chunk = {
-                    "id": request_id,
-                    "object": "chat.completion.chunk",
-                    "created": int(time.time()),
-                    "model": workspace_id,
-                    "choices": [{"index": 0, "delta": {}, "finish_reason": "tool_calls"}],
-                }
-                yield f"data: {json.dumps(finish_chunk)}\n\n".encode()
-                yield b"data: [DONE]\n\n"
+                async for _frame in _return_client_owned_calls(
+                    all_tool_calls,
+                    effective_tools,
+                    workspace_id,
+                    persona,
+                    request_id,
+                    hop,
+                    hop_limit,
+                    _repeat_guard,
+                    carry_tool_calls,
+                    carry_results,
+                    _exec_audit,
+                    _exec_audit_calls,
+                    _download_lines,
+                    _successful_creation,
+                ):
+                    yield _frame
                 return
 
             # Dispatch the hop's tool calls in emitted order

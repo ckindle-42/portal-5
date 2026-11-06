@@ -63,6 +63,7 @@ from portal.platform.inference.router.tools import (
     _dispatch_tool_call,
     _select_explicit_required_tool,
     format_tool_result_carry,
+    partition_tool_calls,
 )
 from portal.platform.inference.router.trace import (
     add_model_turn,
@@ -514,6 +515,118 @@ def _collect_tool_calls(data: dict[str, Any]) -> list[dict[str, Any]]:
 def _all_offered(tool_calls: list[dict[str, Any]], offered: Collection[str]) -> bool:
     """True when every call names a tool this request offered (else it is not dispatchable)."""
     return all((tc.get("function") or {}).get("name", "").strip() in offered for tc in tool_calls)
+
+
+def _retain_client_tool_calls(data: dict[str, Any], client_calls: list[dict[str, Any]]) -> None:
+    """Leave only ``client_calls`` on the response, preserving their order."""
+    keep = {id(call) for call in client_calls}
+    for choice in data.get("choices") or []:
+        message = choice.get("message") or {}
+        calls = message.get("tool_calls")
+        if not isinstance(calls, list):
+            continue
+        kept = [call for call in calls if id(call) in keep]
+        if kept:
+            message["tool_calls"] = kept
+        else:
+            message.pop("tool_calls", None)
+            if choice.get("finish_reason") == "tool_calls":
+                choice["finish_reason"] = "stop"
+
+
+async def _dispatch_owned_for_carry(
+    calls: list[dict[str, Any]],
+    tools: set[str],
+    workspace_id: str,
+    persona: str,
+    guard: ToolRepeatGuard,
+) -> list[dict[str, Any]]:
+    """Run pipeline-owned calls from a mixed turn, in the order the model emitted them."""
+    repeats = [guard.seen(call) for call in calls]
+    fresh = iter(
+        [
+            await _dispatch_tool_call(call, tools, workspace_id, persona, f"ns-{int(time.time())}")
+            for call, repeated in zip(calls, repeats, strict=True)
+            if not repeated
+        ]
+    )
+    results: list[dict[str, Any]] = []
+    for call, repeated in zip(calls, repeats, strict=True):
+        if repeated:
+            results.append(guard.repeat_result(call))
+            _tool_repeat_suppressed.labels(workspace=workspace_id).inc()
+            logger.warning(
+                "Non-stream tool loop: workspace=%s tool=%s repeated with the same "
+                "arguments; answered from the earlier result",
+                workspace_id,
+                call["function"]["name"],
+            )
+        else:
+            result = next(fresh)
+            guard.remember(call, result)
+            results.append(result)
+    return results
+
+
+async def _settle_client_owned_turn(
+    data: dict[str, Any],
+    tool_calls: list[dict[str, Any]],
+    pipeline_tools: Collection[str],
+    request_tools: list[Any] | None,
+    workspace_id: str,
+    persona: str,
+    guard: ToolRepeatGuard,
+    carry_tool_calls: list[dict[str, Any]],
+    carry_results: list[dict[str, Any]],
+    creation_succeeded: bool,
+    *,
+    client: Any,
+    url: str,
+    timeout: httpx.Timeout,
+    req_body: dict[str, Any],
+    messages: list[dict[str, Any]],
+    hops: int,
+    thinking_allowed: bool,
+    target_model: str,
+    model_started: float,
+) -> tuple[dict[str, Any], float, bool]:
+    """Dispatch owned calls on a mixed turn, then keep the all-client and all-owned exits."""
+    owned_names = set(pipeline_tools or ())
+    owned, client_calls = partition_tool_calls(tool_calls, owned_names)
+    mixed = bool(owned and client_calls)
+    if mixed:
+        results = await _dispatch_owned_for_carry(owned, owned_names, workspace_id, persona, guard)
+        creation_succeeded = creation_succeeded or any(
+            successful_file_creation(result) for result in results
+        )
+        carry_tool_calls.extend(owned)
+        carry_results.extend(results)
+        _retain_client_tool_calls(data, client_calls)
+        tool_calls = client_calls
+    client_owned = {
+        (tool.get("function") or {}).get("name") for tool in request_tools or []
+    } - owned_names
+    if (
+        tool_calls
+        and not mixed
+        and not any((call.get("function") or {}).get("name") in client_owned for call in tool_calls)
+    ):
+        data, model_started = await _final_toolless_answer(
+            client,
+            url,
+            timeout,
+            req_body,
+            messages,
+            data,
+            tool_calls,
+            hops,
+            thinking_allowed,
+            creation_succeeded,
+            workspace_id,
+            target_model,
+            model_started,
+        )
+    return data, model_started, creation_succeeded
 
 
 def _assistant_turn(
@@ -1100,29 +1213,28 @@ async def _try_non_streaming(
                     and _all_offered(_ns_tool_calls, _ns_tools)
                 )
 
-            # A call to a tool the CLIENT offered (in the request but not pipeline-owned) is
-            # the caller's to run: pass it through, as before (harness direct modes, API clients).
-            _client_owned = {
-                (t.get("function") or {}).get("name") for t in body.get("tools") or []
-            } - set(_ns_tools or ())
-            if _ns_tool_calls and not any(
-                (tc.get("function") or {}).get("name") in _client_owned for tc in _ns_tool_calls
-            ):
-                data, _model_started = await _final_toolless_answer(
-                    _http_client,
-                    backend.chat_url,
-                    _timeout_obj,
-                    req_body,
-                    _ns_messages,
-                    data,
-                    _ns_tool_calls,
-                    _ns_hops,
-                    _ns_thinking_allowed,
-                    _ns_creation_succeeded,
-                    workspace_id,
-                    target_model,
-                    _model_started,
-                )
+            # Client calls go back to the caller. Owned calls in that turn are dispatched first.
+            data, _model_started, _ns_creation_succeeded = await _settle_client_owned_turn(
+                data,
+                _ns_tool_calls,
+                set(_ns_tools or ()),
+                body.get("tools"),
+                workspace_id,
+                persona,
+                _ns_guard,
+                carry_tool_calls,
+                carry_results,
+                _ns_creation_succeeded,
+                client=_http_client,
+                url=backend.chat_url,
+                timeout=_timeout_obj,
+                req_body=req_body,
+                messages=_ns_messages,
+                hops=_ns_hops,
+                thinking_allowed=_ns_thinking_allowed,
+                target_model=target_model,
+                model_started=_model_started,
+            )
 
             if _ns_guard.grounding_retried and _ns_guard.executed == 0:
                 for _c in data.get("choices") or []:

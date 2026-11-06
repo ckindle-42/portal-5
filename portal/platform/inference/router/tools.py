@@ -95,6 +95,18 @@ def format_tool_result_carry(
     return opening + "".join(items) + closing
 
 
+def partition_tool_calls(
+    tool_calls: list[dict[str, Any]], owned_names: set[str]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Split one model turn into pipeline-owned calls and the client's calls."""
+    owned: list[dict[str, Any]] = []
+    client: list[dict[str, Any]] = []
+    for call in tool_calls:
+        name = (call.get("function") or {}).get("name", "").strip()
+        (owned if name in owned_names else client).append(call)
+    return owned, client
+
+
 _CREATE_ACTION_RE = re.compile(r"\b(?:build|create|generate|make|produce|save)\b")
 _RUN_ACTION_RE = re.compile(r"\b(?:execute|run)\b")
 # A prompt that also asks to read a source is a multi-step turn: narrowing it to one create
