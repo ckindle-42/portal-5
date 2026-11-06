@@ -164,6 +164,43 @@ def _last_user_content(messages: list[dict[str, Any]]) -> str:
     return ""
 
 
+_FOLLOWUP_PRODUCE_RE = re.compile(
+    r"\b(?:build|create|generate|make|produce|save|put|redo|revise|update|edit)\b"
+    r"|\bnow\s+(?:a|an|the)\b"
+)
+# Nouns the strict matcher misses ("Word file", "Now a PowerPoint", "Put … into an Excel file").
+_FOLLOWUP_ARTIFACTS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("create_powerpoint", re.compile(r"\b(?:power\s*points?|\.pptx|slide\s+decks?)\b")),
+    ("create_excel", re.compile(r"\b(?:excels?|\.xlsx|spreadsheets?|workbooks?)\b")),
+    ("create_word_document", re.compile(r"\b(?:word\s+(?:documents?|files?|docs?)|\.docx)\b")),
+)
+
+
+def _prior_turn(messages: list[dict[str, Any]]) -> bool:
+    """True when an assistant or tool message precedes the latest user turn."""
+    last_user = None
+    for index, message in enumerate(messages):
+        if message.get("role") == "user":
+            last_user = index
+    if last_user is None:
+        return False
+    return any(message.get("role") in {"assistant", "tool"} for message in messages[:last_user])
+
+
+def _select_followup_artifact(
+    messages: list[dict[str, Any]], text: str, effective_tools: set[str]
+) -> str | None:
+    """One create tool when a later turn asks for a file the strict matcher missed."""
+    if not _prior_turn(messages) or _FOLLOWUP_PRODUCE_RE.search(text) is None:
+        return None
+    matched = [
+        name
+        for name, pattern in _FOLLOWUP_ARTIFACTS
+        if pattern.search(text) and name in effective_tools
+    ]
+    return matched[0] if len(matched) == 1 else None
+
+
 def _select_explicit_required_tool(
     messages: list[dict[str, Any]], effective_tools: set[str]
 ) -> str | None:
@@ -219,7 +256,11 @@ def _select_explicit_required_tool(
         return None
     matched = [name for name, hit in candidates if hit and name in effective_tools]
     # Two side effects named (or one file type naming the source, another the target): ambiguous.
-    return matched[0] if len(matched) == 1 else None
+    if len(matched) == 1:
+        return matched[0]
+    if not matched:
+        return _select_followup_artifact(messages, text, effective_tools)
+    return None
 
 
 def split_embedded_call(name: str, arguments: str, offered: set[str]) -> tuple[str, str]:

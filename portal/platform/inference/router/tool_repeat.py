@@ -141,6 +141,7 @@ class ToolRepeatGuard:
         self.suppressed = 0
         self.grounding_retried = False
         self.required_retried = False
+        self.dispatched = False
         self._query_grounded = False
 
     def seen(self, call: dict[str, Any]) -> bool:
@@ -166,6 +167,9 @@ class ToolRepeatGuard:
         return len(self._results)
 
     def remember(self, call: dict[str, Any], result: dict[str, Any]) -> None:
+        self.dispatched = (
+            True  # a write counts: the required-tool retry must not drop the synthesis
+        )
         key = call_key(call)
         name = key[0]
         if name in _QUERY_TOOLS or (name == "execute_python" and _execute_python_succeeded(result)):
@@ -188,6 +192,17 @@ class ToolRepeatGuard:
             "name": name,
             "content": f"{earlier}\n\n[{REPEAT_NOTE}]",
         }
+
+
+def hold_ungrounded_answer(
+    guard: ToolRepeatGuard, require_tool: bool, required_choice: bool, tools_offered: bool
+) -> bool:
+    """True when this hop's answer should be held for one tool-call retry."""
+    if not tools_offered or guard.grounding_retried or guard.required_retried:
+        return False
+    if require_tool and not guard.grounded:
+        return True
+    return required_choice and not guard.dispatched
 
 
 def no_tool_call_retry(guard: ToolRepeatGuard, require_tool: bool) -> dict[str, str] | None:

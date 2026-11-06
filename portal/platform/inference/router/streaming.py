@@ -99,6 +99,7 @@ from portal.platform.inference.router.tool_repeat import (
     UNGROUNDED_NOTICE,
     ToolRepeatGuard,
     apply_tool_byte_budget,
+    hold_ungrounded_answer,
     no_tool_call_retry,
     tool_result_byte_budget,
 )
@@ -1004,12 +1005,11 @@ async def _tool_loop_frames(
         # so an answer given from nothing can be replaced by one retry.
         _held_frames: list[bytes] | None = (
             []
-            if (
-                (_require_tool or _required_choice)
-                and current_body.get("tools")
-                and not _repeat_guard.grounded
-                and not _repeat_guard.grounding_retried
-                and not _repeat_guard.required_retried
+            if hold_ungrounded_answer(
+                _repeat_guard,
+                _require_tool,
+                _required_choice,
+                bool(current_body.get("tools")),
             )
             else None
         )
