@@ -139,6 +139,13 @@ if [ "$fixture_rc" -ne 0 ]; then
     echo "$(ts) ABORT: realuse fixture preflight refused" | tee -a "$PROGRESS_LOG"
     exit 4
 fi
+# A requeue must not block forever on a drifted campaign: an unmeasured one is archived
+# aside (<id>.stale_<utc>) so this opens fresh; one with measured rows keeps the gates'
+# refusal and this call's line is what the job's receipt shows.
+uv run python -c "
+from tests.wfe.campaign import archive_drifted_campaign
+archive_drifted_campaign('${CAMPAIGN_ID}')
+" 2>&1 | tee -a "$PROGRESS_LOG"
 uv run python -m tests.wfe.campaign \
     --campaign-id "$CAMPAIGN_ID" $REPEATS_FLAG $ALL_SUITES_FLAG $PLAN_FLAG \
     --append --status "$@" 2>&1 | tee -a "$PROGRESS_LOG"

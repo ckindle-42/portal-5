@@ -318,3 +318,19 @@ def test_fixture_preflight_refusal_stops_the_campaign(tmp_path: Path) -> None:
     assert "ABORT: realuse fixture preflight refused" in text
     assert "unreadable:" in text
     assert not any("--arm" in call["argv"] for call in calls)
+
+
+def test_a_drifted_campaign_is_archived_aside_before_the_append(tmp_path: Path) -> None:
+    result, calls = _run(tmp_path)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    archive_at = next(
+        (i for i, call in enumerate(calls) if "archive_drifted_campaign" in " ".join(call["argv"])),
+        None,
+    )
+    append_at = next(
+        i for i, call in enumerate(calls) if call["argv"][-2:] == ["--append", "--status"]
+    )
+    assert archive_at is not None, calls
+    assert archive_at < append_at
+    assert "wfe_test" in " ".join(calls[archive_at]["argv"])
