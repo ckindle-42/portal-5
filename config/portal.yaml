@@ -2967,7 +2967,7 @@ workspaces:
     # CIP-003-8 R1, CIP-003-8 R2, CIP-003-9 R1) price over the 32k seat window
     # and fit 65k, so the route is registered even though today's populations
     # are the only ones affected.
-    model_hint: gemma4:26b-a4b-it-q4_K_M-ctx64k
+    model_hint: gemma4:26b-a4b-it-qat-ctx64k
     context_limit: 65536 # the tag's baked window (trained ceiling 262,144); priced against the census
     predict_limit: 24576 # matches compliance-reading: one mapping answer's room
     temperature: 1.0

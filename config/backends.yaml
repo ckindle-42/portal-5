@@ -49,13 +49,13 @@ backends:
     supports_tools: true
   - id: gemma4:26b-a4b-it-q4_K_M-ctx32k
     supports_tools: true
-    keep_reason: "plain 4bit retained for 64k/128k compliance seats, vision fallbacks and bench while per-seat QAT A/Bs complete; auto-documents moved to QAT 2026-11-06"
+    keep_reason: "plain 4bit retained for the 128k compliance seats and vision fallbacks while their QAT A/Bs (jobs 109-111) complete; bench and the 64k overflow seat moved to QAT 2026-11-06, plain 64k tag kept pending that review"
   # PIPELINE_ALIGNMENT_V1 §P2: the reading seat's overflow variant — same
   # gemma-4-26b-a4b-it weights, PARAMETER num_ctx 65536 baked (trained ceiling
-  # 262,144). Serves compliance-reading-overflow, the route for sweep material
-  # priced over the 32k seat window (census 2026-09-26: 4 of 255 register
-  # nodes). The FALLBACK must hold the window too: ollama-native honoured a
-  # 65,536 request window on this tag in the P2 verification.
+  # 262,144). compliance-reading-overflow moved to the QAT ctx64k tag on
+  # 2026-11-06 (overflow64 A/B); this plain tag stays registered pending the
+  # remaining seat A/Bs. ollama-native honoured a 65,536 request window on
+  # this tag in the P2 verification.
   - id: gemma4:26b-a4b-it-q4_K_M-ctx64k
     supports_tools: true
   # DATA_TRUTH Amendment 1 (2026-10-04, operator-approved): compliance-reading's
@@ -131,7 +131,8 @@ backends:
     supports_tools: true
   - id: gemma4:26b-a4b-it-qat-ctx32k
     supports_tools: true
-    keep_reason: "QAT selected as auto-documents build 2026-11-06; auto-daily::gemma-fast retains Gate C evidence. Plain remains for untested 64k/128k, vision and bench seats."
+    keep_reason: "QAT selected as auto-documents build, and for the bench and 64k overflow seats 2026-11-06; auto-daily::gemma-fast retains Gate C evidence. Plain remains for the 128k seats and vision fallbacks (A/Bs pending)."
+  # serves compliance-reading-overflow (moved from the plain ctx64k tag 2026-11-06)
   - id: gemma4:26b-a4b-it-qat-ctx64k
     supports_tools: true
   - id: gemma4:26b-a4b-it-qat-ctx128k
@@ -562,7 +563,7 @@ backends:
     supports_tools: true
   - id: gemma4:26b-a4b-it-qat-ctx32k
     supports_tools: true
-    keep_reason: "QAT selected as auto-documents build 2026-11-06; auto-daily::gemma-fast retains Gate C evidence. Plain remains for untested 64k/128k, vision and bench seats."
+    keep_reason: "QAT selected as auto-documents build, and for the bench and 64k overflow seats 2026-11-06; auto-daily::gemma-fast retains Gate C evidence. Plain remains for the 128k seats and vision fallbacks (A/Bs pending)."
   - id: gemma4:31b-it-qat-ctx8k
     supports_tools: true
   - id: hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf
@@ -719,7 +720,7 @@ backends:
   models:
   - id: gemma-4-26b-a4b-it-QAT-4bit
     supports_tools: true
-    keep_reason: "QAT selected as auto-documents build 2026-11-06; auto-daily::gemma-fast retains Gate C evidence. Plain remains for untested 64k/128k, vision and bench seats."
+    keep_reason: "QAT selected as auto-documents build, and for the bench and 64k overflow seats 2026-11-06; auto-daily::gemma-fast retains Gate C evidence. Plain remains for the 128k seats and vision fallbacks (A/Bs pending)."
   # P5-FANOUT-001: council Challenger conversion (lane contract = response_format
   # json, NO tools — its template does not render tools on oMLX, probed live).
   - id: mlx-community--Mistral-Small-3.2-24B-Instruct-2506-4bit
@@ -733,7 +734,7 @@ backends:
   # A4B-it checkpoint as the GGUF tag; json ✓, tools ✓, 90,041-token needle ✓).
   - id: mlx-community--gemma-4-26b-a4b-it-4bit
     supports_tools: true
-    keep_reason: "plain 4bit retained for 64k/128k compliance seats, vision fallbacks and bench while per-seat QAT A/Bs complete; auto-documents moved to QAT 2026-11-06"
+    keep_reason: "plain 4bit retained for the 128k compliance seats and vision fallbacks while their QAT A/Bs (jobs 109-111) complete; bench and the 64k overflow seat moved to QAT 2026-11-06, plain 64k tag kept pending that review"
   # Nemotron 3.5 Lightning oQ4e-mtp added 2026-08-14 (txgsync/NVIDIA-Nemotron-
   # 3.5-Lightning-30B-A3B-oQ4e-mtp, oMLX 0.6.0.dev1 MTPLX side-car import —
   # real mtp.* weights verified at the tensor level, unlike the plain
