@@ -172,6 +172,75 @@ def test_append_refuses_a_changed_instrument(fake_repo, tmp_path, monkeypatch):
         campaign.open_campaign("c", plan, [], append=True)
 
 
+# ── a requeued job must not block on a drifted campaign ──────────────────────
+
+
+def _stale_campaign(tmp_path, monkeypatch, rows, cid="c"):
+    monkeypatch.setattr(campaign, "CAMPAIGNS", tmp_path / "campaigns")
+    d = tmp_path / "campaigns" / cid
+    d.mkdir(parents=True)
+    (d / "manifest.json").write_text(
+        json.dumps({"instrument": {"fingerprint": "stale"}, "rows": list(rows)})
+    )
+    return d
+
+
+def _plan(tmp_path):
+    plan = tmp_path / "plan.yaml"
+    plan.write_text("workloads: {}\n")
+    return plan
+
+
+def test_a_drifted_unmeasured_campaign_is_archived_and_reopens_fresh(tmp_path, monkeypatch):
+    d = _stale_campaign(tmp_path, monkeypatch, [{"state": "PENDING"}, {"state": "BLOCKED"}])
+    monkeypatch.setattr(
+        campaign, "gate_controls", lambda rows, where: {"suites": {}, "tasks": 0, "failures": []}
+    )
+
+    campaign.archive_drifted_campaign("c")
+
+    archived = [p.name for p in d.parent.iterdir() if "stale_" in p.name]
+    assert len(archived) == 1
+    assert not d.exists()
+    assert campaign.open_campaign("c", _plan(tmp_path), [], append=True).is_dir()
+
+
+def test_a_drifted_campaign_with_measured_rows_is_kept_and_says_what_to_do(
+    tmp_path, monkeypatch, capsys
+):
+    d = _stale_campaign(tmp_path, monkeypatch, [{"state": "COMPLETE"}, {"state": "PENDING"}])
+
+    campaign.archive_drifted_campaign("c")
+
+    assert d.is_dir()
+    assert [p.name for p in d.parent.iterdir() if "stale_" in p.name] == []
+    out = capsys.readouterr().out
+    assert "instrument drift with 1 measured row(s)" in out
+    assert "data must not be mixed" in out
+    assert "new campaign id" in out
+    with pytest.raises(SystemExit, match="append: instrument drift"):
+        campaign.open_campaign("c", _plan(tmp_path), [], append=True)
+
+
+def test_an_undrifted_campaign_is_left_alone(tmp_path, monkeypatch):
+    d = _stale_campaign(tmp_path, monkeypatch, [{"state": "COMPLETE"}])
+    monkeypatch.setattr(campaign, "instrument_drift", lambda manifest: None)
+
+    campaign.archive_drifted_campaign("c")
+
+    assert d.is_dir()
+    assert [p.name for p in d.parent.iterdir() if "stale_" in p.name] == []
+
+
+def test_a_campaign_dir_without_a_manifest_is_left_alone(tmp_path, monkeypatch):
+    monkeypatch.setattr(campaign, "CAMPAIGNS", tmp_path / "campaigns")
+    (tmp_path / "campaigns" / "c").mkdir(parents=True)
+
+    campaign.archive_drifted_campaign("c")
+
+    assert (tmp_path / "campaigns" / "c").is_dir()
+
+
 def test_deployed_build_change_is_drift(fake_repo, tmp_path, monkeypatch):
     monkeypatch.setattr(campaign, "ENGINE", "pipeline")
     build = {"sha": "aaaaaaa"}

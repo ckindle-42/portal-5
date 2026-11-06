@@ -3291,6 +3291,38 @@ def campaign_measurement_exit(rows: list[dict]) -> int:
     return EXIT_NOTHING_MEASURED
 
 
+def archive_drifted_campaign(cid: str) -> None:
+    """A drifted campaign with zero measured rows is archived aside so the same id
+    reopens fresh; one with measured rows stays (data must not be mixed) and the
+    printed line is the refusal remedy the job's receipt shows."""
+    directory = CAMPAIGNS / cid
+    manifest_path = directory / "manifest.json"
+    if not manifest_path.is_file():
+        return
+    try:
+        manifest = json.loads(manifest_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return
+    drift = instrument_drift(manifest)
+    if not drift:
+        return
+    rows = manifest.get("rows") or []
+    measured = sum(
+        1 for r in rows if str(r.get("state") or "PENDING") not in _UNMEASURED_ROW_STATES
+    )
+    if measured:
+        print(
+            f"CAMPAIGN {cid}: instrument drift with {measured} measured row(s); not archived — "
+            "data must not be mixed. Open a new campaign id in the job spec (or archive the "
+            "campaign dir manually), then requeue."
+        )
+        return
+    from portal.modules.orchestration.escalate import archive_stale
+
+    dest = archive_stale(directory)
+    print(f"archived drifted campaign {directory.name} -> {dest.name}: {drift}")
+
+
 def _recorded_stops(campaign_dir: Path) -> list[dict]:
     path = Path(campaign_dir) / "arm_stops.jsonl"
     if not path.is_file():
