@@ -351,9 +351,10 @@ class ToolRegistry:
         ``force=True`` bypasses the TTL. Discovery is parallel via
         ``asyncio.gather(..., return_exceptions=True)``. Circuit-breaker state is
         preserved across refreshes for tools that re-appear; new tools start
-        healthy; tools that disappear from a server's native ``tools/list`` are
-        dropped (a later dispatch forces one rate-limited refresh before
-        reporting ``"Tool '...' not in registry"``).
+        healthy; tools that disappear from a server's successful ``tools/list``
+        — an empty list included — are dropped (only a failed discovery retains;
+        a later dispatch forces one rate-limited refresh before reporting
+        ``"Tool '...' not in registry"``).
 
         Args:
             force: When ``True``, run discovery regardless of the TTL.
@@ -423,7 +424,8 @@ class ToolRegistry:
             # server; log a warning when there is ambiguity.
             self._resolve_duplicates(_candidates, _fleet_order, new_tools)
 
-            # Preserve tools from servers that failed discovery
+            # Preserve tools from servers that failed discovery. A successful
+            # empty tools/list is authoritative — it drops, never retains.
             for sid in MCP_SERVERS:
                 if sid not in succeeded_servers:
                     carried = 0

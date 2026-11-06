@@ -1,12 +1,17 @@
 """Tests for ToolRegistry refresh carry-forward and dispatch fixes."""
 
+import asyncio
+import logging
 import time
 from unittest.mock import patch
 
 import httpx
 import pytest
+from fastapi import FastAPI
 
+import portal.platform.inference.router.lifespan as lifespan_mod
 from portal.platform.inference import tool_registry as registry_module
+from portal.platform.inference.cluster_backends import BackendRegistry
 from portal.platform.inference.tool_registry import (
     MCP_SERVERS,
     ToolDefinition,
@@ -159,6 +164,32 @@ class TestRefreshCarryForward:
 
         assert "old-tool" not in tr._tools
         assert "new-tool" in tr._tools
+
+    @pytest.mark.asyncio
+    async def test_empty_successful_tools_list_is_authoritative(self):
+        """A server answering tools/list with [] drops its previous tools.
+
+        An empty answer is a valid JSON-RPC response from a live server — it
+        carries information, unlike a failed discovery, which retains.
+        """
+        tr = ToolRegistry()
+
+        tr._tools["remember"] = ToolDefinition(
+            name="remember",
+            description="m",
+            parameters={},
+            server_id="memory",
+            server_url=MCP_SERVERS["memory"],
+        )
+        tr._last_refresh = 0
+
+        async def fake_list_tools(client, base_url, timeout_s):
+            return []
+
+        with patch.object(registry_module, "list_tools", fake_list_tools):
+            await tr.refresh(force=True)
+
+        assert "remember" not in tr._tools
 
 
 class TestDispatchTimeoutHandling:
@@ -358,3 +389,104 @@ class TestDispatchMissRefresh:
         assert carried is not None
         assert carried.healthy is False
         assert carried.consecutive_failures == 2
+
+
+class _StubToolRegistry:
+    """tool_registry stand-in that records refresh calls and delegates to a stub."""
+
+    def __init__(self, refresh_impl):
+        self.calls: list[bool] = []
+        self._impl = refresh_impl
+
+    async def refresh(self, force: bool = False) -> int:
+        self.calls.append(force)
+        return await self._impl(force)
+
+
+@pytest.fixture
+def offline_lifespan(monkeypatch):
+    """The real lifespan with every network and disk dependency stubbed offline."""
+    for name in (
+        "registry",
+        "_http_client",
+        "_ollama_native_client",
+        "_health_task",
+        "_state_save_task",
+        "_notification_dispatcher",
+        "_notification_scheduler",
+        "_tool_registry_task",
+    ):
+        monkeypatch.setattr(lifespan_mod, name, getattr(lifespan_mod, name))
+
+    def _sync_noop(*_args, **_kwargs):
+        return None
+
+    async def _async_noop(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(lifespan_mod, "_load_state", _sync_noop)
+    monkeypatch.setattr(lifespan_mod, "_save_state", _sync_noop)
+    monkeypatch.setattr(lifespan_mod, "_run_startup_warmups", _async_noop)
+    monkeypatch.setattr(lifespan_mod, "_power_polling_loop", _async_noop)
+    monkeypatch.setattr(lifespan_mod, "_state_save_loop", _async_noop)
+    monkeypatch.setattr(BackendRegistry, "health_check_all", _async_noop)
+    monkeypatch.setattr(BackendRegistry, "start_health_loop", _async_noop)
+    monkeypatch.setenv("UNIT_TEST_MODE", "0")
+    return lifespan_mod
+
+
+class TestStartupToolRegistryRefresh:
+    """Lifespan warms the tool registry: one forced refresh, failure-safe, cancelled on shutdown."""
+
+    @pytest.mark.asyncio
+    async def test_startup_schedules_exactly_one_forced_refresh(
+        self, offline_lifespan, monkeypatch
+    ):
+        async def fake_refresh(force: bool = False) -> int:
+            return 0
+
+        stub = _StubToolRegistry(fake_refresh)
+        monkeypatch.setattr(offline_lifespan, "tool_registry", stub)
+
+        async with offline_lifespan.lifespan(FastAPI()):
+            task = offline_lifespan._tool_registry_task
+            assert task is not None
+            await task
+
+        assert stub.calls == [True]
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("error", [httpx.ReadTimeout("timed out"), RuntimeError("boom")])
+    async def test_startup_survives_discovery_failure(
+        self, offline_lifespan, monkeypatch, caplog, error
+    ):
+        async def failing_refresh(force: bool = False) -> int:
+            raise error
+
+        monkeypatch.setattr(offline_lifespan, "tool_registry", _StubToolRegistry(failing_refresh))
+
+        with caplog.at_level(logging.WARNING, logger="portal.platform.inference.router.lifespan"):
+            async with offline_lifespan.lifespan(FastAPI()):
+                task = offline_lifespan._tool_registry_task
+                assert task is not None
+                await task
+
+        assert any("Startup tool registry refresh failed" in m for m in caplog.messages)
+
+    @pytest.mark.asyncio
+    async def test_shutdown_cancels_in_flight_refresh(self, offline_lifespan, monkeypatch):
+        in_flight = asyncio.Event()
+
+        async def hanging_refresh(force: bool = False) -> int:
+            in_flight.set()
+            await asyncio.Event().wait()
+
+        monkeypatch.setattr(offline_lifespan, "tool_registry", _StubToolRegistry(hanging_refresh))
+
+        async with offline_lifespan.lifespan(FastAPI()):
+            await in_flight.wait()
+            task = offline_lifespan._tool_registry_task
+            assert task is not None
+            assert not task.done()
+
+        assert task.cancelled()
