@@ -38,12 +38,14 @@ For the full live roster (production + eval workspaces, module, model hint) use 
 | Workspace | model_hint (Ollama) | Key tools |
 |---|---|---|
 | `auto` (Portal Auto Router) | `huihui_ai/qwen3.5-abliterated:9b-ctx8k` | LLM intent classifier routes onward |
-| `auto-daily` | `gemma4:26b-a4b-it-qat-ctx8k` | web_search, create_word_document, execute_python |
+| `auto-daily` | `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k` | web_search, create_word_document, execute_python |
 | `auto-coding` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | execute_python, execute_nodejs, execute_bash |
 | `auto-security` | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` | web_search, classify_vulnerability, execute_bash |
 | `auto-documents` | `granite4.1:8b-ctx16k` | create_word_document, create_excel, create_powerpoint |
 | `auto-music` | `lfm2.5:8b-ctx8k` | minimax_generate, minimax_status, speak, clone_voice, register_voice |
 | `auto-vision` | `qwen3-vl:32b-ctx8k` | transcribe_audio, generate_image |
+
+The `auto-daily` seat is now the Nemotron 3.5 Lightning 30B-A3B text-only lane (no vision tower); image turns on that seat reroute to the `auto-vision` workspace at the router.
 
 `auto-video` is exposed with `generate_video` / `animate_image` (shipped enabled — see the Video Generation unit). Eval workspaces (the `bench-*` set) additionally require `PORTAL_ENABLE_EVAL=1` at pipeline startup.
 

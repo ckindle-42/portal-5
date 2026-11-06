@@ -877,12 +877,12 @@ async def _try_non_streaming(
     in ``_stream_with_tool_loop_impl`` loops up to ``MAX_TOOL_HOPS``
     times; by default this does exactly one synthesis turn (``max_hops=1``;
     a stream's failover passes ``MAX_TOOL_HOPS``; undispatched end-of-turn
-    calls are stripped and answered by one final toolless turn). Reason: Open WebUI
-    sends **two** requests per user message when tools are enabled
-    — one streaming (for the user-visible response) and one
-    non-streaming (for its DB-of-record commit). The streaming
-    side handles multi-hop conversations; the non-streaming commit
-    just needs to capture the final answer.
+    calls are stripped and answered by one final toolless turn). Reason: the
+    non-streaming path today serves callers that own their answer capture
+    rather than an interactive stream — API clients, the channels/Telegram
+    bot, the Anthropic-compat endpoint, and OWUI task calls. When the final
+    toolless turn has no visible answer, the router retries once via
+    ``FINAL_ANSWER_REQUEST`` (counter ``portal5_toolless_synthesis_retried_total``).
 
     Args:
         backend: A ``Backend`` instance from the registry.
