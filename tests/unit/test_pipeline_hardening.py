@@ -1385,6 +1385,22 @@ def _text_reply(text: str) -> httpx.Response:
     )
 
 
+def _empty_synthesis(
+    content: str = "\n", *, tool_call: bool = False, reasoning: str = "counted the header"
+) -> httpx.Response:
+    """A toolless synthesis that spent its tokens on reasoning and did not answer."""
+    message: dict[str, typing.Any] = {
+        "role": "assistant",
+        "content": content,
+        "reasoning": reasoning,
+    }
+    if tool_call:
+        message["tool_calls"] = [
+            {"id": "c2", "type": "function", "function": {"name": "lookup", "arguments": "{}"}}
+        ]
+    return httpx.Response(200, json={"choices": [{"finish_reason": "length", "message": message}]})
+
+
 @pytest.fixture
 def ns_tools(monkeypatch: pytest.MonkeyPatch, ns_env):
     from portal.platform.inference import tool_registry as registry_mod
@@ -1424,7 +1440,10 @@ class _SeenClient(_NSClient):
 
 @pytest.mark.anyio
 async def test_failover_synthesis_never_delivers_tool_call_markup(monkeypatch, ns_tools) -> None:
-    client = _SeenClient([_tool_reply(), _text_reply(_MARKUP)])
+    # Markup-only synthesis has no visible answer, so the one final-answer retry runs.
+    client = _SeenClient(
+        [_tool_reply(), _text_reply(_MARKUP), _text_reply("answered from the result")]
+    )
     monkeypatch.setattr(ns, "_http_client", client)
 
     result = await ns._try_non_streaming(_backend("b"), {"messages": []}, ns_tools, 0.0)
@@ -1680,7 +1699,14 @@ async def test_failover_tool_loop_does_not_carry_reasoning_when_thinking_is_disa
 async def test_failover_tool_loop_ends_with_a_toolless_synthesis_at_the_hop_limit(
     monkeypatch, ns_tools
 ) -> None:
-    client = _SeenClient([_tool_reply(), _tool_reply(), _text_reply(_MARKUP)])
+    client = _SeenClient(
+        [
+            _tool_reply(),
+            _tool_reply(),
+            _text_reply(_MARKUP),
+            _text_reply("answered from the result"),
+        ]
+    )
     monkeypatch.setattr(ns, "_http_client", client)
 
     result = await ns._try_non_streaming(_backend("b"), {"messages": []}, ns_tools, 0.0, max_hops=2)
@@ -1720,6 +1746,108 @@ async def test_final_toolless_turn_still_calling_tools_answers_with_the_notice(
     body = json.loads(result.body)
     assert body["choices"][0]["message"]["content"] == NO_ANSWER_MESSAGE
     assert not body["choices"][0]["message"].get("tool_calls")
+    assert len(client.bodies) == 3
+
+
+def _retried_counter(workspace: str) -> float:
+    return float(ns._toolless_synthesis_retried.labels(workspace=workspace)._value.get())
+
+
+@pytest.mark.anyio
+async def test_toolless_synthesis_tool_call_with_no_content_retries_once(
+    monkeypatch, ns_tools
+) -> None:
+    answer = "the header row is counted\n" + _MARKUP
+    # The retry reply also emits a structured call; both forms of markup must be stripped.
+    retry = httpx.Response(
+        200,
+        json={
+            "choices": [
+                {
+                    "finish_reason": "tool_calls",
+                    "message": {
+                        "role": "assistant",
+                        "content": answer,
+                        "tool_calls": [
+                            {
+                                "id": "late",
+                                "type": "function",
+                                "function": {"name": "lookup", "arguments": "{}"},
+                            }
+                        ],
+                    },
+                }
+            ]
+        },
+    )
+    client = _SeenClient([_tool_reply(), _empty_synthesis(tool_call=True), retry])
+    monkeypatch.setattr(ns, "_http_client", client)
+    before = _retried_counter(ns_tools)
+
+    result = await ns._try_non_streaming(_backend("b"), {"messages": []}, ns_tools, 0.0)
+
+    body = json.loads(result.body)
+    assert body["choices"][0]["message"]["content"] == "the header row is counted"
+    assert "<tool_call>" not in body["choices"][0]["message"]["content"]
+    assert not body["choices"][0]["message"].get("tool_calls")
+    assert len(client.bodies) == 3
+    assert client.bodies[1]["tools"] is None
+    assert FINAL_ANSWER_REQUEST not in client.bodies[1]["messages"]
+    assert client.bodies[2]["tools"] is None
+    assert client.bodies[2]["tool_choice"] is None
+    assert client.bodies[2]["messages"][-1] == FINAL_ANSWER_REQUEST
+    assert _retried_counter(ns_tools) == before + 1
+
+
+@pytest.mark.anyio
+async def test_reasoning_only_toolless_synthesis_retries_once(monkeypatch, ns_tools) -> None:
+    client = _SeenClient(
+        [_tool_reply(), _empty_synthesis(), _text_reply("the filter drops active rows")]
+    )
+    monkeypatch.setattr(ns, "_http_client", client)
+
+    result = await ns._try_non_streaming(_backend("b"), {"messages": []}, ns_tools, 0.0)
+
+    body = json.loads(result.body)
+    assert body["choices"][0]["message"]["content"] == "the filter drops active rows"
+    assert len(client.bodies) == 3
+    assert client.bodies[2]["tools"] is None
+    assert client.bodies[2]["messages"][-1] == FINAL_ANSWER_REQUEST
+
+
+@pytest.mark.anyio
+async def test_visible_toolless_synthesis_is_not_retried(monkeypatch, ns_tools) -> None:
+    client = _SeenClient([_tool_reply(), _text_reply("the header row is counted")])
+    monkeypatch.setattr(ns, "_http_client", client)
+    before = _retried_counter(ns_tools)
+
+    result = await ns._try_non_streaming(_backend("b"), {"messages": []}, ns_tools, 0.0)
+
+    body = json.loads(result.body)
+    assert body["choices"][0]["message"]["content"] == "the header row is counted"
+    assert len(client.bodies) == 2
+    assert client.bodies[1]["tools"] is None
+    assert FINAL_ANSWER_REQUEST not in client.bodies[1]["messages"]
+    assert _retried_counter(ns_tools) == before
+
+
+@pytest.mark.anyio
+async def test_toolless_synthesis_retry_still_empty_is_the_no_answer_notice(
+    monkeypatch, ns_tools
+) -> None:
+    client = _SeenClient(
+        [_tool_reply(), _empty_synthesis(tool_call=True), _empty_synthesis(tool_call=True)]
+    )
+    monkeypatch.setattr(ns, "_http_client", client)
+
+    result = await ns._try_non_streaming(_backend("b"), {"messages": []}, ns_tools, 0.0)
+
+    body = json.loads(result.body)
+    message = body["choices"][0]["message"]
+    assert message["content"] == NO_ANSWER_MESSAGE
+    assert not message.get("tool_calls")
+    assert "<tool_call>" not in message["content"]
+    assert body["choices"][0]["finish_reason"] == "length"
     assert len(client.bodies) == 3
 
 

@@ -204,6 +204,13 @@ _answer_without_tool_retried = Counter(
     ["workspace"],
     registry=_REGISTRY,
 )
+_toolless_synthesis_retried = Counter(
+    "portal5_toolless_synthesis_retried_total",
+    "Toolless synthesis turns with no visible answer that were asked once to answer from the "
+    "tool results already in the turn, by workspace",
+    ["workspace"],
+    registry=_REGISTRY,
+)
 _tool_repeat_suppressed = Counter(
     "portal5_tool_repeat_suppressed_total",
     "Identical tool calls within a turn answered from the earlier result, by workspace",

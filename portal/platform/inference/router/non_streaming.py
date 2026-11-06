@@ -38,6 +38,7 @@ from portal.platform.inference.router.metrics import (
     _hint_fallback_total,
     _tool_calls_recovered,
     _tool_repeat_suppressed,
+    _toolless_synthesis_retried,
 )
 from portal.platform.inference.router.power import _record_engine_call, _record_usage
 from portal.platform.inference.router.state import _record_error
@@ -706,6 +707,60 @@ def _strip_tool_calls(data: dict[str, Any]) -> list[str]:
     return dropped
 
 
+def _visible_answer(message: dict[str, Any]) -> str:
+    """Answer text a client can read: think blocks and call markup do not count."""
+    content = message.get("content")
+    if not isinstance(content, str):
+        return ""
+    return drop_unparsed_markup(strip_think(content)).strip()
+
+
+def _strip_emitted_tool_markup(data: dict[str, Any]) -> None:
+    """Drop structured calls and textual ``<tool_call>`` wrappers from a toolless reply."""
+    _strip_tool_calls(data)
+    for choice in data.get("choices") or []:
+        message = choice.get("message") or {}
+        content = message.get("content")
+        if isinstance(content, str):
+            message["content"] = drop_unparsed_markup(content)
+
+
+async def _retry_empty_toolless_synthesis(
+    client: Any,
+    url: str,
+    timeout: httpx.Timeout,
+    req_body: dict[str, Any],
+    messages: list[dict[str, Any]],
+    data: dict[str, Any],
+    workspace_id: str,
+    target_model: str,
+    model_started: float,
+) -> tuple[dict[str, Any], float, dict[str, Any] | None]:
+    """One toolless retry when the synthesis has no visible answer. ``None`` means it was not retried."""
+    if any(_visible_answer(choice.get("message") or {}) for choice in data.get("choices") or []):
+        return data, model_started, None
+    _record_intermediate_model(data, target_model, workspace_id, model_started)
+    retry_messages = list(messages)
+    if not retry_messages or retry_messages[-1] != FINAL_ANSWER_REQUEST:
+        retry_messages.append(FINAL_ANSWER_REQUEST)
+    _toolless_synthesis_retried.labels(workspace=workspace_id).inc()
+    trace_note(toolless_synthesis_retried=True)
+    logger.warning(
+        "Non-stream tool loop: workspace=%s model=%s toolless synthesis had no visible "
+        "answer; asking once for the final answer",
+        workspace_id,
+        target_model,
+    )
+    retry_body = {**req_body, "messages": retry_messages, "tools": None, "tool_choice": None}
+    started = time.monotonic()
+    retry_resp = await client.post(url, json=retry_body, timeout=timeout)
+    _raise_for_backend_status(retry_resp)
+    data = _completion_body(retry_resp, workspace_id)
+    _recover_or_withhold_markup(data, None, str(req_body.get("model", "")), workspace_id)
+    _strip_emitted_tool_markup(data)
+    return data, started, retry_body
+
+
 async def _final_toolless_answer(
     client: Any,
     url: str,
@@ -1205,6 +1260,20 @@ async def _try_non_streaming(
                 _recover_or_withhold_markup(
                     data, _synth_body.get("tools"), req_body.get("model", ""), workspace_id
                 )
+                if _ns_last:
+                    data, _model_started, _retry_body = await _retry_empty_toolless_synthesis(
+                        _http_client,
+                        backend.chat_url,
+                        _timeout_obj,
+                        req_body,
+                        _ns_messages,
+                        data,
+                        workspace_id,
+                        target_model,
+                        _model_started,
+                    )
+                    if _retry_body is not None:
+                        _last_request_body = _retry_body
                 logger.info(
                     "Non-stream tool loop: workspace=%s hop %d dispatched %d tool(s)",
                     workspace_id,
