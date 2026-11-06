@@ -209,6 +209,104 @@ class TestNormalizedTextMatching:
         )
         assert result.outcome == Outcome.PASS
 
+    def test_office_tool_grounding_accepts_titles_from_args_or_filename(self):
+        from_args = check_tool_grounded(
+            {"tools": ["create_powerpoint"], "evidence": ["Car Camp Checklist"]},
+            CheckContext(
+                tool_calls=[
+                    {
+                        "name": "create_powerpoint",
+                        "args": {"title": "Car Camp Checklist"},
+                        "output": '{"success": true, "path": "artifact.pptx"}',
+                    }
+                ]
+            ),
+        )
+        from_filename = check_tool_grounded(
+            {"tools": ["create_excel"], "evidence": ["Garage Sale Float"]},
+            CheckContext(
+                tool_calls=[
+                    {
+                        "name": "create_excel",
+                        "args": {},
+                        "output": "Garage_Sale_Float_a81c.xlsx",
+                    }
+                ]
+            ),
+        )
+        wrong = check_tool_grounded(
+            {"tools": ["create_powerpoint"], "evidence": ["Car Camp Checklist"]},
+            CheckContext(
+                tool_calls=[
+                    {
+                        "name": "create_powerpoint",
+                        "args": {"title": "Car Camp Notes"},
+                        "output": '{"success": false, "error": "failed"}',
+                    }
+                ]
+            ),
+        )
+        wrong_title = check_tool_grounded(
+            {"tools": ["create_powerpoint"], "evidence": ["Car Camp Checklist"]},
+            CheckContext(
+                tool_calls=[
+                    {
+                        "name": "create_powerpoint",
+                        "args": {"title": "Car Camp Notes"},
+                        "output": '{"success": true, "path": "Car_Camp_Notes_a81c.pptx"}',
+                    }
+                ]
+            ),
+        )
+        assert from_args.outcome == Outcome.PASS
+        assert from_filename.outcome == Outcome.PASS
+        assert wrong.outcome == Outcome.FAIL
+        assert wrong_title.outcome == Outcome.FAIL
+
+    def test_realuse_compute_tool_choices_follow_each_prompt(self):
+        suite = Path(__file__).resolve().parents[1] / "suites" / "realuse_v1.jsonl"
+        rows = {task["id"]: task for task in map(json.loads, suite.read_text().splitlines())}
+        task_022_turn = rows["ru-v1-022"]["turns"][1]
+        compute_022 = next(
+            check for check in task_022_turn["checks"] if check["type"] == "tool_grounded"
+        )
+        assert compute_022["tools"] == ["execute_python", "run_sql", "profile_table"]
+        assert task_022_turn["expect_tools"] == ["create_excel"]
+        for tool in compute_022["tools"]:
+            result = check_tool_grounded(
+                compute_022,
+                CheckContext(tool_calls=[{"name": tool, "output": "stove 2, lantern 1"}]),
+            )
+            assert result.outcome == Outcome.PASS, tool
+        assert (
+            check_tool_grounded(
+                compute_022,
+                CheckContext(
+                    tool_calls=[{"name": "browser_search", "output": "stove 2, lantern 1"}]
+                ),
+            ).outcome
+            == Outcome.FAIL
+        )
+        assert (
+            check_tool_grounded(
+                compute_022,
+                CheckContext(tool_calls=[{"name": "run_sql", "output": "stove 1, lantern 1"}]),
+            ).outcome
+            == Outcome.FAIL
+        )
+
+        task_035_turn = rows["ru-v1-035"]["turns"][1]
+        compute_035 = next(
+            check for check in task_035_turn["checks"] if check["type"] == "tool_grounded"
+        )
+        assert compute_035["tools"] == ["execute_python", "run_sql"]
+        assert task_035_turn["expect_tools"] == []
+        for tool, output in (("execute_python", "8"), ("run_sql", "32")):
+            result = check_tool_grounded(
+                compute_035, CheckContext(tool_calls=[{"name": tool, "output": output}])
+            )
+            assert result.outcome == Outcome.PASS, tool
+
     def test_tool_grounding_keeps_explicit_decimal_prefix_patterns(self):
         result = check_tool_grounded(
             {
@@ -272,6 +370,26 @@ class TestTimeAndLiteralNormalization:
                 {"patterns": ["9 to 12"]}, CheckContext(final_text=f"Tuesday, {written}.")
             )
             assert result.outcome == Outcome.PASS, written
+
+    def test_weekday_time_fillers_match_only_the_same_day_and_clock(self):
+        for expected, answer in (
+            ("Saturday 9:00am", "Saturday at 9:00 AM"),
+            ("Saturdays 8am to noon", "Saturdays, 8 a.m. to 12:00 PM"),
+            ("Saturday 9:00am", "Saturday from 9 a.m."),
+        ):
+            result = check_answer_contains(
+                {"patterns": [expected]}, CheckContext(final_text=answer)
+            )
+            assert result.outcome == Outcome.PASS, (expected, answer)
+        for expected, answer in (
+            ("Saturday 9:00am", "Sunday at 9:00 AM"),
+            ("Saturday 9:00am", "Saturday at 10:00 AM"),
+            ("Saturdays 8am to noon", "Saturdays, 8am to 1pm"),
+        ):
+            result = check_answer_contains(
+                {"patterns": [expected]}, CheckContext(final_text=answer)
+            )
+            assert result.outcome == Outcome.FAIL, (expected, answer)
 
     @pytest.mark.parametrize("answer", ["9:00 PM - 12:00 AM", "10 to 12", "9:30 AM - 12:00 PM"])
     def test_a_wrong_range_still_fails(self, answer):
