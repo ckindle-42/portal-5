@@ -290,12 +290,7 @@ def _resolve_vision_fallback(workspace_id: str, body: dict[str, Any]) -> tuple[s
     if workspace_id != "auto-vision":
         return workspace_id, body
     messages = body.get("messages", [])
-    has_image = any(
-        isinstance(part, dict) and part.get("type") == "image_url"
-        for msg in messages
-        for part in (msg.get("content", []) if isinstance(msg.get("content"), list) else [])
-    )
-    if not has_image:
+    if not _has_image_part(messages):
         logger.info(
             "auto-vision: no image_url in request — rerouting to auto-reasoning "
             "with vision system context injected"
@@ -314,6 +309,92 @@ def _resolve_vision_fallback(workspace_id: str, body: dict[str, Any]) -> tuple[s
                 ),
             }
             body = {**body, "messages": [vision_system] + messages}
+    return workspace_id, body
+
+
+def _has_image_part(messages: list[dict[str, Any]]) -> bool:
+    """True when any message in the conversation carries an image_url part.
+
+    Any turn, not just the last user turn: OWUI resends the full history, so a
+    follow-up about an earlier image still needs a seat that can see it — the
+    same scan both vision gates use.
+    """
+    return any(
+        isinstance(part, dict) and part.get("type") == "image_url"
+        for msg in messages
+        for part in (msg.get("content", []) if isinstance(msg.get("content"), list) else [])
+    )
+
+
+_VISION_GROUP_MODELS: frozenset[str] | None = None
+
+
+def _vision_group_models() -> frozenset[str]:
+    """Model ids registered under a ``vision`` group in config/backends.yaml —
+    the config source of truth for vision capability (same read pattern as
+    _known_backend_models; cached, backends.yaml is read-only at runtime).
+    """
+    global _VISION_GROUP_MODELS
+    if _VISION_GROUP_MODELS is None:
+        import yaml
+
+        from portal.platform.inference.cluster_backends import DEFAULT_CONFIG_PATH
+
+        try:
+            with open(DEFAULT_CONFIG_PATH) as fh:
+                cfg = yaml.safe_load(fh.read())
+        except OSError:
+            _VISION_GROUP_MODELS = frozenset()
+            return _VISION_GROUP_MODELS
+        models: set[str] = set()
+        for backend in cfg.get("backends", []):
+            if backend.get("group") != "vision":
+                continue
+            for m in backend.get("models", []):
+                if isinstance(m, dict) and m.get("id"):
+                    models.add(m["id"])
+        _VISION_GROUP_MODELS = frozenset(models)
+    return _VISION_GROUP_MODELS
+
+
+def _resolve_text_seat_image_reroute(
+    workspace_id: str, body: dict[str, Any]
+) -> tuple[str, dict[str, Any]]:
+    """Reroute image turns off a text-only seat to auto-vision — the mirror of
+    _resolve_vision_fallback (which sends auto-vision's text-only turns away).
+
+    The seat's vision capability is its effective model_hint's membership in
+    the ``vision`` group of config/backends.yaml (no model names in code). The
+    call site runs after the variant/model overrides so the hint checked here
+    is the effective one — a text-only variant on a vision base reroutes too.
+    Unknown workspace ids are left alone (their seat is undeclared; rerouting
+    them would mask a caller bug, e.g. defeat the strict-seat 404). The note
+    follows the existing fallback: a system message, only when none exists.
+
+    Returns (workspace_id, body) — body may be replaced if the reroute fires.
+    """
+    ws_cfg = WORKSPACES.get(workspace_id)
+    messages = body.get("messages", [])
+    if ws_cfg is None or not _has_image_part(messages):
+        return workspace_id, body
+    if ws_cfg.get("model_hint") in _vision_group_models():
+        return workspace_id, body
+    logger.info(
+        "%s: image_url in request but seat %r is text-only — rerouting to auto-vision",
+        workspace_id,
+        ws_cfg.get("model_hint"),
+    )
+    workspace_id = "auto-vision"
+    has_system = any(m.get("role") == "system" for m in messages)
+    if not has_system:
+        note = {
+            "role": "system",
+            "content": (
+                "This request includes image content and arrived on a workspace "
+                "whose seat is text-only, so it was rerouted to the vision lane."
+            ),
+        }
+        body = {**body, "messages": [note] + messages}
     return workspace_id, body
 
 

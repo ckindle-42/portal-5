@@ -924,10 +924,13 @@ workspaces:
     module: general
     name: 🪶 Portal Daily Driver
     description: |-
-      Fast everyday assistant: chat, writing, editing, summarization, planning, light technical help. gemma4:26b-a4b-it-qat primary (Ollama, MoE 4B active, VLM, Apache 2.0, QAT near-BF16). Upgraded from q4_K_M → QAT (V8: +23% TPS, same ~15GB footprint). Daily-driver lane — escalates to specialist workspaces when needed.
-    # S2 2026-10-18: P-4 measured 2996/8192 (37%) before the user types — 16 tool
-    # schemas ~1713 tok; the ctx16k tag bakes the larger window (tool probe clean).
-    model_hint: gemma4:26b-a4b-it-qat-ctx16k
+      Fast everyday assistant: chat, writing, editing, summarization, planning, light technical help. NVIDIA Nemotron 3.5 Lightning 30B-A3B (Ollama GGUF, MoE ~3B active, Apache 2.0) — TEXT-ONLY seat, no vision tower: image turns reroute to auto-vision. Lineage switch from the Gemma-4-26B VLM seat (2026-11-06). Daily-driver lane — escalates to specialist workspaces when needed.
+    # Seat 2026-11-06: realuse_autodaily_postfix_20261106 (production settings,
+    # think on / predict 8192, n=28 per arm) — Nemotron 28/28 vs Gemma 26/28,
+    # so the seat moves off the VLM gemma4:26b-a4b-it-qat-ctx16k onto the
+    # Nemotron ctx32k GGUF tag (text-only, verified: no mmproj/projection blob).
+    # Image_url turns now reroute to auto-vision (router Phase 4d).
+    model_hint: hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k
     inject_memory: true
     # auto_rag disabled: TASK_RAG_COMPOSITION_SEAM_V1 P1 [GATE] (c) — the feature
     # never ran (kb_search dispatched without a kb_id) and the KB set is unsettled.

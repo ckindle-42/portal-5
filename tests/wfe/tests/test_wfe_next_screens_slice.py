@@ -12,10 +12,17 @@ from portal.platform.inference.config import effective_workspace
 from portal.platform.inference.model_cards import card_entry
 
 REPO = Path(__file__).resolve().parents[3]
+# auto_daily_quant_screen_20261019 retired 2026-11-06: realuse_autodaily_postfix_
+# 20261106 moved the auto-daily seat to the Nemotron ctx32k tag, so the gemma
+# QAT-vs-Q4_K_M quant screen no longer screens the lane's seat. No replacement
+# auto-daily next screen is queued yet.
 PLANS = {
     "auto-coding": REPO / "tests/wfe/plans/auto_coding_next_screen_20261019.yaml",
     "auto-daily::fast": REPO / "tests/wfe/plans/general_fast_k2_screen_20261019.yaml",
-    "auto-daily": REPO / "tests/wfe/plans/auto_daily_quant_screen_20261019.yaml",
+}
+EXPECTED = {
+    "auto-coding": ("sandbox", "coding_production", 2),
+    "auto-daily::fast": ("production", "general_production", 1),
 }
 
 
@@ -45,15 +52,10 @@ def _window(tag: str) -> int:
 
 def test_each_next_screen_uses_the_current_seat_and_expected_suite():
     portal = _yaml(REPO / "config/portal.yaml")["workspaces"]
-    expected = {
-        "auto-coding": ("sandbox", "coding_production", 2),
-        "auto-daily::fast": ("production", "general_production", 1),
-        "auto-daily": ("production", "general_production", 1),
-    }
 
     for workspace, path in PLANS.items():
         plan = _yaml(path)["workloads"][workspace]
-        tool_mode, home, challengers = expected[workspace]
+        tool_mode, home, challengers = EXPECTED[workspace]
         assert plan["tool_mode"] == tool_mode
         assert plan["home"] == home
         effective = effective_workspace(portal, workspace)

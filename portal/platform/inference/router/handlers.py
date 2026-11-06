@@ -73,6 +73,7 @@ from portal.platform.inference.router.preinject import (
     _resolve_auto_routing,
     _resolve_model_override,
     _resolve_persona_workspace,
+    _resolve_text_seat_image_reroute,
     _resolve_vision_fallback,
     _resolve_workspace_variant,
     _role_variant_for_workspace,
@@ -588,10 +589,11 @@ async def _resolve_request_route(
     Phases 2-7 of ``chat_completions``: parse the body, resolve a persona
     slug to its workspace, run auto-routing for ``auto``, apply the
     auto-vision text-only fallback, unpack synthetic ``base::variant`` ids,
-    gate on module state, apply variant/model overrides, inject temporal /
-    system-prompt / file-attachment / memory context, acquire the
-    per-workspace semaphore, record counters, and select healthy backend
-    candidates for the resolved workspace.
+    gate on module state, apply variant/model overrides, reroute image turns
+    off text-only seats to auto-vision, inject temporal / system-prompt /
+    file-attachment / memory context, acquire the per-workspace semaphore,
+    record counters, and select healthy backend candidates for the resolved
+    workspace.
 
     Returns:
         ``(workspace_id, body, stream, persona, candidates)``.
@@ -652,6 +654,11 @@ async def _resolve_request_route(
     workspace_id = _resolve_model_override(
         workspace_id, request.query_params.get("model") or _model_pin
     )
+
+    # Phase 4d: image turns on a text-only seat reroute to auto-vision — the
+    # mirror of Phase 4. Deliberately after 4b/4c: the seat check must see the
+    # effective model_hint (a text-only variant on a vision base reroutes too).
+    workspace_id, body = _resolve_text_seat_image_reroute(workspace_id, body)
 
     body = await _prepare_request_context(_original_model_id, workspace_id, body)
 
