@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -323,3 +324,16 @@ def test_input_seconds_rejected_for_speech(capsys):
 
 def test_warm_must_be_positive():
     assert probe.main(["mlx-transcribe", "--warm", "0", "--dry-run"]) == 1
+
+
+def test_measure_mlx_footprint_script_records_phases_without_restarting():
+    script = ROOT / "scripts" / "measure_mlx_footprint.sh"
+    text = script.read_text()
+    for phase in ("idle_bytes", "pre_bytes", "peak_bytes", "post_idle_bytes"):
+        assert phase in text
+    assert "mlx-speech" in text
+    assert "mlx-transcribe" in text
+    assert "REQUESTS:-20" in text
+    for banned in ("bootout", "kickstart", "launchctl stop", "launchctl kill"):
+        assert banned not in text
+    subprocess.run(["bash", "-n", str(script)], check=True)
