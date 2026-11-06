@@ -1007,7 +1007,7 @@ async def _tool_loop_frames(
             if (
                 (_require_tool or _required_choice)
                 and current_body.get("tools")
-                and _repeat_guard.executed == 0
+                and not _repeat_guard.grounded
                 and not _repeat_guard.grounding_retried
                 and not _repeat_guard.required_retried
             )
@@ -1568,7 +1568,7 @@ async def _tool_loop_frames(
             if (
                 _require_tool
                 and current_body.get("tools")
-                and _repeat_guard.executed == 0
+                and not _repeat_guard.grounded
                 and _repeat_guard.grounding_retried
             ):
                 _notice = {

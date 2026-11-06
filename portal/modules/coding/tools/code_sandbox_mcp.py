@@ -33,7 +33,11 @@ from portal.platform.data_loader import load_data
 from portal.platform.mcp_host.eval_scope import ATTACHED_UPLOADS, EVAL_SCOPE, bind_native_context
 from portal.platform.mcp_host.owui_files import publish_file_sync
 from portal.platform.mcp_host.tool_support import align_native_tools
-from portal.platform.mcp_host.workspace import get_uploads_dir, resolve_upload_path
+from portal.platform.mcp_host.workspace import (
+    get_uploads_dir,
+    get_workspace_root,
+    resolve_upload_path,
+)
 
 mcp = MCPServer("code-sandbox")
 
@@ -313,27 +317,39 @@ async def _install_packages(
     return {"installed": safe, "log": (out or b"").decode("utf-8", "replace")[-800:]}
 
 
+def _bind(source: Path, target: str, mode: str = "", *, visible: Path | None = None) -> list[str]:
+    """Skip a bind whose source is missing; Docker mkdirs it and a read-only mount then fails."""
+    if not (visible if visible is not None else source).exists():
+        return []
+    spec = f"{source}:{target}"
+    if mode:
+        spec = f"{spec}:{mode}"
+    return ["-v", spec]
+
+
+def _row_input_bind(scope: dict[str, Any]) -> list[str]:
+    """Bind the row `in/` only when this process can see it; a missing path is not created."""
+    if not SANDBOX_WORKSPACE_DIR:
+        return []
+    relative = Path("wfe") / str(scope["campaign"]) / str(scope["run"]) / "in"
+    visible = get_workspace_root() / relative
+    if not visible.is_dir():
+        return []
+    return _bind(
+        Path(SANDBOX_WORKSPACE_DIR) / relative, "/workspace/uploads", "ro", visible=visible
+    )
+
+
 def _workspace_mount_args(
     work_dir: Path, scope: dict[str, Any] | None, upload_refs: Sequence[str]
 ) -> list[str]:
     workspace = work_dir / "workspace"
-    if scope is not None:
-        # Same layout as production: a writable per-run /workspace with the row's inputs read-only
-        # at /workspace/uploads. Two read-only mounts of one source nested at /workspace and
-        # /workspace/uploads made runc fail every eval run ("OCI runtime create failed", 10-30).
-        (workspace / "uploads").mkdir(parents=True, exist_ok=True)
-        if not SANDBOX_WORKSPACE_DIR:
-            return ["-v", f"{workspace.absolute()}:/workspace:rw"]
-        row_input = Path(SANDBOX_WORKSPACE_DIR) / "wfe" / scope["campaign"] / scope["run"] / "in"
-        return [
-            "-v",
-            f"{workspace.absolute()}:/workspace:rw",
-            "-v",
-            f"{row_input}:/workspace/uploads:ro",
-        ]
-
+    # Writable per-run /workspace; row inputs are a separate read-only mount at /workspace/uploads.
+    # Two read-only mounts of one source nested there made runc fail every eval run (10-30).
     (workspace / "uploads").mkdir(parents=True, exist_ok=True)
-    mounts = ["-v", f"{workspace.absolute()}:/workspace:rw"]
+    mounts = _bind(workspace.absolute(), "/workspace", "rw")
+    if scope is not None:
+        return mounts + _row_input_bind(scope)
     if not SANDBOX_WORKSPACE_DIR or not upload_refs:
         return mounts
 
@@ -353,7 +369,7 @@ def _workspace_mount_args(
         mounted.add(relative)
         source = Path(SANDBOX_WORKSPACE_DIR) / "uploads" / relative
         target = Path("/workspace/uploads") / relative
-        mounts.extend(["-v", f"{source}:{target}:ro"])
+        mounts.extend(_bind(source, target.as_posix(), "ro", visible=upload))
     return mounts
 
 
@@ -518,13 +534,9 @@ async def _run_in_docker(
         + (extra_args or [])
         + (["-v", f"{sess.absolute()}:/session", "--workdir", "/session"] if sess else [])
         + (["--env", "PYTHONPATH=/session/.pylibs"] if sess else [])
-        + [
-            "-v",
-            f"{out_dir.absolute()}:/out",
-            "-v",
-            f"{code_file.absolute()}:/code:ro",
-            image,
-        ]
+        + _bind(out_dir.absolute(), "/out")
+        + _bind(code_file.absolute(), "/code", "ro")
+        + [image]
         + command
     )
 

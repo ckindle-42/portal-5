@@ -55,6 +55,18 @@ def test_prepare_scopes_the_row_and_drops_the_harness_note(out_root):
     assert sandbox[2]["production"] is False and sandbox[2]["scope"]["allow"] == []
 
 
+def test_prepare_creates_the_row_input_dir_without_fixtures(out_root):
+    _, _, ctx = eval_mode.prepare(
+        True,
+        _row(),
+        {"campaign_id": "c"},
+        {"id": "t"},
+        {"system_prompt_pipeline": "", "system_prompt_base": ""},
+        {},
+    )
+    assert (ctx["root"] / "in").is_dir() and not any((ctx["root"] / "in").iterdir())
+
+
 def test_receipts_reject_preexisting_changed_and_outside_files(out_root):
     _, _, ctx = eval_mode.prepare(
         True,

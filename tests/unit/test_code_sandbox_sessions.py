@@ -58,15 +58,24 @@ def test_artifact_caps_and_publishes(tmp_path, monkeypatch):
     ]
 
 
-@pytest.mark.asyncio
-async def test_scoped_docker_mounts_only_the_row_input(tmp_path, monkeypatch):
-    monkeypatch.setattr(sandbox, "SANDBOX_DIR", tmp_path / "sandbox")
-    monkeypatch.setattr(sandbox, "SANDBOX_WORKSPACE_DIR", "/dind/workspace")
-    scope = {
+def _row_scope() -> dict:
+    return {
         "campaign": "wfe_0123456789abcdef",
         "run": "wfe_0123456789abcdef0123456789abcdef01234567",
         "allow": ["execute_python"],
     }
+
+
+@pytest.mark.asyncio
+async def test_scoped_docker_mounts_only_the_row_input(tmp_path, monkeypatch):
+    monkeypatch.setattr(sandbox, "SANDBOX_DIR", tmp_path / "sandbox")
+    monkeypatch.setattr(sandbox, "SANDBOX_WORKSPACE_DIR", "/dind/workspace")
+    workspace = tmp_path / "ai-output"
+    monkeypatch.setenv("WORKSPACE_DIR", str(workspace))
+    scope = _row_scope()
+    row_input_dir = workspace / "wfe" / scope["campaign"] / scope["run"] / "in"
+    row_input_dir.mkdir(parents=True)
+    (row_input_dir / "survey.csv").write_text("a\n1\n")
     token = sandbox.EVAL_SCOPE.set(scope)
     try:
         argv = await _capture_docker_argv(monkeypatch)
@@ -86,6 +95,28 @@ async def test_scoped_docker_mounts_only_the_row_input(tmp_path, monkeypatch):
         m.startswith("/dind/workspace") and m != f"{row_input}:/workspace/uploads:ro"
         for m in mounts
     )
+
+
+@pytest.mark.asyncio
+async def test_scoped_docker_skips_a_missing_row_input(tmp_path, monkeypatch):
+    """A run with no uploads has no `in/`. Binding it makes the daemon mkdir on a ro mount."""
+    monkeypatch.setattr(sandbox, "SANDBOX_DIR", tmp_path / "sandbox")
+    monkeypatch.setattr(sandbox, "SANDBOX_WORKSPACE_DIR", "/dind/workspace")
+    workspace = tmp_path / "ai-output"
+    monkeypatch.setenv("WORKSPACE_DIR", str(workspace))
+    scope = _row_scope()
+    (workspace / "wfe" / scope["campaign"] / scope["run"]).mkdir(parents=True)
+    token = sandbox.EVAL_SCOPE.set(scope)
+    try:
+        argv = await _capture_docker_argv(monkeypatch)
+    finally:
+        sandbox.EVAL_SCOPE.reset(token)
+
+    mounts = _volumes(argv)
+    assert not any("/dind/workspace" in mount for mount in mounts)
+    assert any(mount.endswith(":/workspace:rw") for mount in mounts)
+    assert any(mount.endswith(":/out") for mount in mounts)
+    assert any(mount.endswith(":/code:ro") for mount in mounts)
 
 
 @pytest.mark.asyncio

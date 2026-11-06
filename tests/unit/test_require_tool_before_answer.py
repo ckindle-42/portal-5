@@ -47,7 +47,11 @@ def _answer(text: str) -> _Resp:
 
 
 def _call() -> _Resp:
-    call = {"index": 0, "id": "c", "function": {"name": "run_sql", "arguments": '{"q":"select 1"}'}}
+    return _call_named("run_sql", '{"q":"select 1"}')
+
+
+def _call_named(name: str, arguments: str = "{}") -> _Resp:
+    call = {"index": 0, "id": "c", "function": {"name": name, "arguments": arguments}}
     chunk = {"choices": [{"delta": {"tool_calls": [call]}, "finish_reason": "tool_calls"}]}
     return _Resp([f"data: {json.dumps(chunk)}", "data: [DONE]"])
 
@@ -62,7 +66,14 @@ def _text(out: bytes) -> str:
     return "".join(parts)
 
 
-def _drive(monkeypatch, workspace: str, outcomes: list[_Resp]):
+def _drive(
+    monkeypatch,
+    workspace: str,
+    outcomes: list[_Resp],
+    *,
+    offered: set[str] | None = None,
+    python_success: bool = True,
+):
     monkeypatch.setitem(streaming.WORKSPACES, FLAGGED, {"require_tool_before_answer": True})
     monkeypatch.setitem(streaming.WORKSPACES, PLAIN, {})
     bodies: list[dict] = []
@@ -74,8 +85,15 @@ def _drive(monkeypatch, workspace: str, outcomes: list[_Resp]):
             return _Stream(outcomes.pop(0))
 
     async def fake_dispatch(tc, *_a, **_k):
-        executed.append(tc["function"]["name"])
-        return {"role": "tool", "tool_call_id": tc.get("id"), "name": "run_sql", "content": "42"}
+        name = tc["function"]["name"]
+        executed.append(name)
+        if name == "execute_python":
+            content = json.dumps(
+                {"success": python_success, "exit_code": 0 if python_success else 125}
+            )
+        else:
+            content = "42"
+        return {"role": "tool", "tool_call_id": tc.get("id"), "name": name, "content": content}
 
     monkeypatch.setattr(streaming, "_http_client", _Client())
     monkeypatch.setattr(streaming, "_backend_type_for_url", lambda url: "omlx")
@@ -89,7 +107,7 @@ def _drive(monkeypatch, workspace: str, outcomes: list[_Resp]):
             workspace,
             "m",
             "",
-            {"run_sql"},
+            offered or {"run_sql"},
         ):
             out += chunk
         return out
@@ -128,6 +146,56 @@ def test_a_turn_that_calls_a_tool_is_untouched(monkeypatch) -> None:
     assert GROUNDING_REQUEST not in bodies[1]["messages"]
 
 
+def test_run_sql_stays_grounded_after_a_later_write(monkeypatch) -> None:
+    out, bodies, executed = _drive(
+        monkeypatch,
+        FLAGGED,
+        [_call(), _call_named("create_excel"), _answer("it is 42")],
+        offered={"run_sql", "create_excel"},
+    )
+
+    assert "it is 42" in _text(out) and UNGROUNDED_NOTICE.strip() not in _text(out)
+    assert executed == ["run_sql", "create_excel"]
+    assert all(GROUNDING_REQUEST not in body["messages"] for body in bodies)
+
+
+def test_a_successful_execute_python_grounds_the_turn(monkeypatch) -> None:
+    out, bodies, executed = _drive(
+        monkeypatch,
+        FLAGGED,
+        [
+            _call_named("execute_python", '{"code":"print(1)"}'),
+            _call_named("create_excel"),
+            _answer("total is 9"),
+        ],
+        offered={"execute_python", "create_excel", "run_sql"},
+    )
+
+    assert "total is 9" in _text(out) and UNGROUNDED_NOTICE.strip() not in _text(out)
+    assert executed == ["execute_python", "create_excel"]
+    assert all(GROUNDING_REQUEST not in body["messages"] for body in bodies)
+
+
+def test_a_failed_execute_python_stays_ungrounded(monkeypatch) -> None:
+    out, bodies, executed = _drive(
+        monkeypatch,
+        FLAGGED,
+        [_call_named("execute_python"), _answer("it is 12"), _answer("still 12")],
+        offered={"execute_python", "run_sql"},
+        python_success=False,
+    )
+
+    assert "still 12" in _text(out) and "it is 12" not in _text(out)
+    assert UNGROUNDED_NOTICE.strip() in _text(out)
+    assert executed == ["execute_python"] and len(bodies) == 3
+    assert bodies[2]["messages"][-1] == GROUNDING_REQUEST
+
+
+def test_grounding_request_names_execute_python() -> None:
+    text = GROUNDING_REQUEST["content"]
+    assert "run_sql" in text and "profile_table" in text and "execute_python" in text
+
+
 def test_an_unflagged_workspace_is_untouched(monkeypatch) -> None:
     out, bodies, _ = _drive(monkeypatch, PLAIN, [_answer("hello")])
 
@@ -150,11 +218,11 @@ class _NSClient:
         return resp
 
 
-def _reply(content: str = "", call: bool = False) -> httpx.Response:
+def _reply(content: str = "", call: bool = False, tool: str = "run_sql") -> httpx.Response:
     msg: dict = {"role": "assistant", "content": content}
     if call:
         msg["tool_calls"] = [
-            {"id": "c", "type": "function", "function": {"name": "run_sql", "arguments": "{}"}}
+            {"id": "c", "type": "function", "function": {"name": tool, "arguments": "{}"}}
         ]
     return httpx.Response(200, json={"choices": [{"message": msg}]})
 
@@ -186,7 +254,12 @@ def ns_flagged(monkeypatch: pytest.MonkeyPatch):
 
     async def dispatch(tc, *_a, **_k):
         executed.append(tc["id"])
-        return {"role": "tool", "tool_call_id": tc.get("id"), "content": "42"}
+        name = (tc.get("function") or {}).get("name", "")
+        if name == "execute_python":
+            content = json.dumps({"success": True, "exit_code": 0, "stdout": "9"})
+        else:
+            content = "42"
+        return {"role": "tool", "tool_call_id": tc.get("id"), "name": name, "content": content}
 
     monkeypatch.setattr(ns, "_dispatch_tool_call", dispatch)
     backend = SimpleNamespace(
@@ -221,6 +294,22 @@ async def test_failover_delivers_a_still_ungrounded_answer_with_the_notice(
 
     content = json.loads(result.body)["choices"][0]["message"]["content"]
     assert content == "still 12" + UNGROUNDED_NOTICE and executed == [] and len(client.bodies) == 2
+
+
+@pytest.mark.anyio
+async def test_failover_execute_python_success_is_grounded(monkeypatch, ns_flagged) -> None:
+    backend, executed = ns_flagged
+    monkeypatch.setattr(ns, "_resolve_persona_tools", lambda *_a: ["run_sql", "execute_python"])
+    client = _NSClient(
+        [_reply("it is 12"), _reply(call=True, tool="execute_python"), _reply("total is 9")]
+    )
+    monkeypatch.setattr(ns, "_http_client", client)
+
+    result = await ns._try_non_streaming(backend, {"messages": []}, FLAGGED, 0.0, max_hops=20)
+
+    content = json.loads(result.body)["choices"][0]["message"]["content"]
+    assert content == "total is 9" and executed == ["c"]
+    assert client.bodies[1]["messages"][-1] == GROUNDING_REQUEST
 
 
 def test_a_variant_flag_applies_when_only_the_variant_sets_it(monkeypatch) -> None:

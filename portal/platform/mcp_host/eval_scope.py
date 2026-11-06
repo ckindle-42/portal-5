@@ -112,9 +112,9 @@ def bind_route(handler: Any) -> Any:
 
 
 def run_root(base: Path | str, scope: dict[str, Any]) -> Path:
-    """`<base>/wfe/<campaign>/<run>`, with `base` resolved first; created if absent."""
+    """`<base>/wfe/<campaign>/<run>`, created with an `in/` directory if either is absent."""
     root = Path(base).resolve() / "wfe" / scope["campaign"] / scope["run"]
-    root.mkdir(parents=True, exist_ok=True)
+    (root / "in").mkdir(parents=True, exist_ok=True)
     return Path(root)
 
 

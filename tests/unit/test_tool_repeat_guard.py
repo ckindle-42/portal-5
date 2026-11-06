@@ -73,6 +73,28 @@ def test_a_rerun_after_a_state_change_is_not_a_repeat() -> None:
     assert guard.suppressed == 0 and guard.force_synthesis is False
 
 
+def test_query_tools_and_a_successful_execute_python_stay_grounded_after_a_write() -> None:
+    for name in ("run_sql", "profile_table"):
+        guard = ToolRepeatGuard()
+        call = _call(name, {}, "1")
+        guard.seen(call)
+        guard.remember(call, {"content": "rows"})
+        guard.seen(_call("create_excel", {}, "2"))
+        assert guard.grounded and guard.executed == 0
+
+    guard = ToolRepeatGuard()
+    run = _call("execute_python", {"code": "print(1)"}, "1")
+    guard.seen(run)
+    guard.remember(run, {"content": json.dumps({"success": True, "exit_code": 0})})
+    guard.seen(_call("create_excel", {}, "2"))
+    assert guard.grounded and guard.executed == 0
+
+    failed = ToolRepeatGuard()
+    bad = _call("execute_python", {"code": "print(1)"}, "1")
+    failed.remember(bad, {"content": json.dumps({"success": False, "exit_code": 125})})
+    assert not failed.grounded
+
+
 def test_an_identical_exec_call_is_never_answered_from_the_cache() -> None:
     guard = ToolRepeatGuard()
     run = _call("execute_python", {"code": "print(1)"}, "1")

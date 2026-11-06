@@ -112,6 +112,12 @@ def test_workspace_paths_match_sandbox_and_production(tmp_path, path, relative):
     assert sandbox._resolve(path) == sandbox_path
 
 
+def test_run_root_creates_the_input_directory(tmp_path):
+    root = es.run_root(tmp_path, SCOPE)
+    assert (root / "in").is_dir()
+    assert es.run_root(tmp_path, SCOPE) == root  # a second call keeps the same tree
+
+
 def test_paths_are_confined_to_the_run_root(tmp_path):
     root = es.run_root(tmp_path, SCOPE)
     assert es.confine(tmp_path, SCOPE, "a.docx", sub="in") == root / "in" / "a.docx"
@@ -316,7 +322,6 @@ def _scoped(fn, **kwargs):
 def test_data_scope_owns_the_session_and_confines_attach(data):
     dm, root, sess = data
     fx = es.run_root(root, SCOPE) / "in"
-    fx.mkdir()
     (fx / "sales.csv").write_text("region,amount\neast,10\nwest,5\n")
     body = _scoped(dm.attach_source, session_id="someone_else", path="sales.csv", table="sales")
     assert body["session_id"] == RUN and body["rows"] == 2
@@ -337,7 +342,6 @@ def test_close_session_is_scope_only_and_deletes_only_that_session(data):
     op = {"session_id": "operator", "path": "f.csv", "table": "t"}
     assert dm.attach_source(**op)["rows"] == 1
     fx = es.run_root(root, SCOPE) / "in"
-    fx.mkdir()
     (fx / "f.csv").write_text("a\n1\n")
     _scoped(dm.attach_source, **{**op, "session_id": RUN})
     assert dm.close_session("operator")["error"] == (

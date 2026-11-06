@@ -127,7 +127,6 @@ def scoped(tmp_path, monkeypatch, transcribe_module):
     (tmp_path / "uploads").mkdir()
     (tmp_path / "uploads" / "shared.wav").write_bytes(b"RIFF")  # another user's upload
     in_dir = es.run_root(tmp_path, scope) / "in"
-    in_dir.mkdir()
     (in_dir / "clip.wav").write_bytes(b"RIFF")
     token = es.EVAL_SCOPE.set(scope)
     yield transcribe_module, scope, tmp_path

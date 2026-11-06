@@ -40,8 +40,12 @@ FINAL_ANSWER_REQUEST = {
 #: `require_tool_before_answer`) when a turn ended with an answer and no tool call.
 GROUNDING_REQUEST = {
     "role": "user",
-    "content": "Answer only from a query result: call run_sql or profile_table first, then answer.",
+    "content": (
+        "Answer only from a query result: call run_sql, profile_table, or execute_python "
+        "first, then answer."
+    ),
 }
+_QUERY_TOOLS = frozenset({"run_sql", "profile_table"})
 #: Sent once when the request said tool_choice="required" and the first completion
 #: answered with no tool call — Ollama cannot express "required" on /api/chat
 #: (ollama_native._tools_for_choice), so the pipeline enforces it instead.
@@ -102,6 +106,15 @@ def is_read_only(name: str) -> bool:
     return name.startswith(_READ_ONLY_PREFIXES) and name not in _WRITING
 
 
+def _execute_python_succeeded(result: dict[str, Any]) -> bool:
+    """True when the sandbox reported success. A mount or exit failure is not a computation."""
+    try:
+        payload = json.loads(result.get("content") or "")
+    except (json.JSONDecodeError, TypeError):
+        return False
+    return isinstance(payload, dict) and payload.get("success") is True
+
+
 def _canonical_args(call: dict[str, Any]) -> str:
     raw: Any = (call.get("function") or {}).get("arguments")
     if isinstance(raw, str):
@@ -128,6 +141,7 @@ class ToolRepeatGuard:
         self.suppressed = 0
         self.grounding_retried = False
         self.required_retried = False
+        self._query_grounded = False
 
     def seen(self, call: dict[str, Any]) -> bool:
         """True when this exact call already ran this turn; counts the request."""
@@ -153,8 +167,16 @@ class ToolRepeatGuard:
 
     def remember(self, call: dict[str, Any], result: dict[str, Any]) -> None:
         key = call_key(call)
-        if is_read_only(key[0]):
+        name = key[0]
+        if name in _QUERY_TOOLS or (name == "execute_python" and _execute_python_succeeded(result)):
+            self._query_grounded = True  # a later write clears the read cache, not this
+        if is_read_only(name):
             self._results[key] = str(result.get("content") or "")
+
+    @property
+    def grounded(self) -> bool:
+        """True once a query, a successful execute_python, or any other read-only call has run."""
+        return self._query_grounded or self.executed > 0
 
     def repeat_result(self, call: dict[str, Any]) -> dict[str, Any]:
         """The tool message for a suppressed repeat: the earlier result plus the note."""

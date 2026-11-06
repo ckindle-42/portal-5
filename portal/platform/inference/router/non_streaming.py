@@ -1246,7 +1246,7 @@ async def _try_non_streaming(
                 model_started=_model_started,
             )
 
-            if _ns_guard.grounding_retried and _ns_guard.executed == 0:
+            if _ns_guard.grounding_retried and not _ns_guard.grounded:
                 for _c in data.get("choices") or []:
                     _m = _c.get("message") or {}
                     _m["content"] = (_m.get("content") or "") + UNGROUNDED_NOTICE
