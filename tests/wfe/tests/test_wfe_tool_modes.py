@@ -6,14 +6,17 @@ from pathlib import Path
 
 import yaml
 
-from portal.platform.inference.config import effective_workspace
+from portal.platform.inference.config import effective_workspace, load_bench_workspaces_raw
 
 REPO = Path(__file__).resolve().parents[3]
 
 
 def test_every_allowlist_is_within_the_workspaces_tools():
     modes = yaml.safe_load((REPO / "tests/wfe/tool_modes.yaml").read_text())["workspaces"]
-    portal = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
+    portal = {
+        **yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"],
+        **load_bench_workspaces_raw(REPO),
+    }
     for ws, mode in modes.items():
         assert mode["tool_mode"] == "production", ws
         workspace = effective_workspace(portal, ws)

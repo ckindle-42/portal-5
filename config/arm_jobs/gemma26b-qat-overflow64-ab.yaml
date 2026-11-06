@@ -1,0 +1,59 @@
+id: gemma26b-qat-overflow64-ab
+purpose: >-
+  Compare plain and QAT in the 64k compliance reading overflow seat at its deterministic
+  sampling. Uses twelve 40k long-context rows and four repeats; the 80k/112k tasks exceed this seat.
+preconditions:
+  stack: up
+  free_memory_gib: 24
+  disk_free_gib: 30
+steps:
+  - id: overflow64-seat-ab
+    argv:
+      - scripts/wfe_campaign.sh
+      - gemma26b_reading_overflow64_qat_ab_20261106
+      - --plan
+      - tests/wfe/plans/gemma26b_qat_overflow64k_20261106.yaml
+      - --tier
+      - confirm
+      - --repeats
+      - "4"
+      - --engine
+      - pipeline
+    timeout_seconds: 21600
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/gemma26b_reading_overflow64_qat_ab_20261106/manifest.json
+  - id: register-node-real-read-plain-overflow
+    argv:
+      - uv
+      - run
+      - python
+      - scripts/compliance/closeout_family_sweep.py
+      - --only
+      - CIP-003-8
+      - --overflow-model
+      - gemma4:26b-a4b-it-q4_K_M-ctx64k
+      - --out
+      - /Users/chris/AI_Output/portal-data/reports/compliance/gemma26b_qat_register_plain_20261106.json
+    timeout_seconds: 10800
+    checkpoints:
+      - /Users/chris/AI_Output/portal-data/reports/compliance/gemma26b_qat_register_plain_20261106.json
+  - id: register-node-real-read-qat-overflow
+    argv:
+      - uv
+      - run
+      - python
+      - scripts/compliance/closeout_family_sweep.py
+      - --only
+      - CIP-003-8
+      - --overflow-model
+      - gemma4:26b-a4b-it-qat-ctx64k
+      - --out
+      - /Users/chris/AI_Output/portal-data/reports/compliance/gemma26b_qat_register_qat_20261106.json
+    timeout_seconds: 10800
+    checkpoints:
+      - /Users/chris/AI_Output/portal-data/reports/compliance/gemma26b_qat_register_qat_20261106.json
+stop_conditions:
+  on_failure: stop
+  max_job_minutes: 720
+report:
+  fields: [status, purpose, steps, outputs, checkpoints, failures, memory, duration, resume]

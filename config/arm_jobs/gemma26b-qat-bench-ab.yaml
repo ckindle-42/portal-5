@@ -1,0 +1,29 @@
+id: gemma26b-qat-bench-ab
+purpose: >-
+  Compare both Gemma builds on the bench workspace's ten no-tool general tasks at matching 32k
+  windows and the workspace's sampling. The bench's current window is not pinned in its config.
+preconditions:
+  stack: up
+  free_memory_gib: 24
+  disk_free_gib: 30
+steps:
+  - id: gemma-bench-seat-ab
+    argv:
+      - scripts/wfe_campaign.sh
+      - gemma26b_bench_qat_ab_20261106
+      - --plan
+      - tests/wfe/plans/gemma26b_qat_bench_20261106.yaml
+      - --tier
+      - confirm
+      - --repeats
+      - "4"
+      - --engine
+      - pipeline
+    timeout_seconds: 14400
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/gemma26b_bench_qat_ab_20261106/manifest.json
+stop_conditions:
+  on_failure: stop
+  max_job_minutes: 240
+report:
+  fields: [status, purpose, steps, outputs, checkpoints, failures, memory, duration, resume]

@@ -1,0 +1,29 @@
+id: gemma26b-qat-mapping128-ab
+purpose: >-
+  Compare plain and QAT on the 128k tool-less compliance-mapping machine seat at its own strict-JSON
+  sampling, using the four-repeat long-context needle, aggregation and quote plan.
+preconditions:
+  stack: up
+  free_memory_gib: 24
+  disk_free_gib: 30
+steps:
+  - id: mapping128-seat-ab
+    argv:
+      - scripts/wfe_campaign.sh
+      - gemma26b_mapping128_qat_ab_20261106
+      - --plan
+      - tests/wfe/plans/gemma26b_qat_mapping128k_20261106.yaml
+      - --tier
+      - confirm
+      - --repeats
+      - "4"
+      - --engine
+      - pipeline
+    timeout_seconds: 43200
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/gemma26b_mapping128_qat_ab_20261106/manifest.json
+stop_conditions:
+  on_failure: stop
+  max_job_minutes: 720
+report:
+  fields: [status, purpose, steps, outputs, checkpoints, failures, memory, duration, resume]

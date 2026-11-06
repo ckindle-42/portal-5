@@ -2398,7 +2398,9 @@ workspaces:
     # BETTER than granite4.1:8b (p=0.0156), tied Qwen3.8 at 108/108 and ~5.5x faster
     # (docs/WFE_DECISION_AUTO_DOCUMENTS_20261017.md). Sampling = what was measured:
     # Google card (temperature 1.0, top_p 0.95, top_k 64) plus the lane's min_p 0.05.
-    model_hint: gemma4:26b-a4b-it-q4_K_M-ctx32k
+    # 2026-11-06 same-engine oMLX A/B: plain 31/32, QAT 30/32; pooled 46/48 each.
+    # QAT is selected for consolidation; the seat sampling below stays unchanged.
+    model_hint: gemma4:26b-a4b-it-qat-ctx32k
     context_limit: 16384
     predict_limit: 8192
     temperature: 1.0

@@ -351,9 +351,12 @@ def test_every_production_allowlist_is_the_workspaces_own_tools():
     import yaml
 
     from portal.modules.compliance.core.eval_instance import VERIFIED_TOOLS
-    from portal.platform.inference.config import effective_workspace
+    from portal.platform.inference.config import effective_workspace, load_bench_workspaces_raw
 
-    ws = yaml.safe_load((eval_mode.REPO / "config/portal.yaml").read_text())["workspaces"]
+    ws = {
+        **yaml.safe_load((eval_mode.REPO / "config/portal.yaml").read_text())["workspaces"],
+        **load_bench_workspaces_raw(eval_mode.REPO),
+    }
     modes = yaml.safe_load(eval_mode.TOOL_MODES.read_text())["workspaces"]
     for name, m in modes.items():
         assert set(m["allow"]) <= set(effective_workspace(ws, name).get("tools") or []), name

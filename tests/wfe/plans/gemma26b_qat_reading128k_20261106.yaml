@@ -1,0 +1,19 @@
+# DATA_TRUTH conversation seat. The suite covers 40k, 80k and 112k synthetic needle,
+# aggregation and quote tasks; the queued real-corpus job adds the 124.7k-token check.
+repeats: 4
+workloads:
+  auto-compliance::reading:
+    tool_mode: production
+    home: reading_long_production
+    discovery: [reading_production]
+    arms:
+      incumbent:
+        model: gemma4:26b-a4b-it-q4_K_M-ctx128k
+        label: seat-sampling
+        think: false
+        sampling: {temperature: 1.0, top_p: 0.95, top_k: 64, min_p: 0.0, repeat_penalty: 1.0}
+      challengers:
+        - model: gemma4:26b-a4b-it-qat-ctx128k
+          label: seat-sampling
+          think: false
+          sampling: {temperature: 1.0, top_p: 0.95, top_k: 64, min_p: 0.0, repeat_penalty: 1.0}

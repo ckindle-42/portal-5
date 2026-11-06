@@ -1,0 +1,46 @@
+id: gemma26b-qat-reading128-ab
+purpose: >-
+  Compare plain and QAT in the DATA_TRUTH reading seat at 128k with its own tool surface and
+  sampling. Run the 40k/80k/112k synthetic long-context suite plus the real compliance corpus
+  acceptance through the reader adapter. QAT Ollama ctx128k recipe is supplied separately.
+preconditions:
+  stack: up
+  free_memory_gib: 24
+  disk_free_gib: 30
+steps:
+  - id: reading128-seat-ab
+    argv:
+      - scripts/wfe_campaign.sh
+      - gemma26b_reading128_qat_ab_20261106
+      - --plan
+      - tests/wfe/plans/gemma26b_qat_reading128k_20261106.yaml
+      - --tier
+      - confirm
+      - --repeats
+      - "4"
+      - --engine
+      - pipeline
+    timeout_seconds: 43200
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/gemma26b_reading128_qat_ab_20261106/manifest.json
+  - id: reading128-real-corpus
+    argv:
+      - uv
+      - run
+      - python
+      - scripts/compliance_acceptance.py
+      - --seat
+      - gemma4:26b-a4b-it-q4_K_M-ctx128k
+      - --seat
+      - gemma4:26b-a4b-it-qat-ctx128k
+      - --adapter
+      - reader
+      - --runs
+      - "1"
+    timeout_seconds: 43200
+    quiet_host: true
+stop_conditions:
+  on_failure: stop
+  max_job_minutes: 1440
+report:
+  fields: [status, purpose, steps, outputs, checkpoints, failures, memory, duration, resume]

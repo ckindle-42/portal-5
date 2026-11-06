@@ -1,0 +1,18 @@
+# DATA_TRUTH machine seat. Its strict-JSON sampling differs from the conversation seat.
+repeats: 4
+workloads:
+  compliance-mapping:
+    tool_mode: production
+    home: reading_long_production
+    discovery: []
+    arms:
+      incumbent:
+        model: gemma4:26b-a4b-it-q4_K_M-ctx128k
+        label: seat-sampling
+        think: false
+        sampling: {temperature: 1.0, top_p: 0.95, top_k: 64, min_p: 0.0, repeat_penalty: 1.1}
+      challengers:
+        - model: gemma4:26b-a4b-it-qat-ctx128k
+          label: seat-sampling
+          think: false
+          sampling: {temperature: 1.0, top_p: 0.95, top_k: 64, min_p: 0.0, repeat_penalty: 1.1}
