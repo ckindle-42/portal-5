@@ -269,11 +269,15 @@ class TestInjectOmlxOptions:
 
 class TestBackendIntrospect:
     @pytest.mark.asyncio
-    async def test_omlx_reachable_means_busy(self, monkeypatch):
+    async def test_omlx_loaded_model_means_busy(self, monkeypatch):
         from portal.platform.inference.router import backend_introspect as bi
 
         class _Resp:
             status_code = 200
+
+            @staticmethod
+            def json():
+                return {"models": [{"id": "gemma-4-26b", "loaded": True}]}
 
         class _Client:
             async def __aenter__(self):
@@ -283,12 +287,38 @@ class TestBackendIntrospect:
                 return False
 
             async def get(self, url):
-                assert url.endswith("/v1/models")
+                assert url.endswith("/v1/models/status")
                 return _Resp()
 
         monkeypatch.setattr(bi.httpx, "AsyncClient", lambda *a, **k: _Client())
         monkeypatch.setattr(bi, "_backend_type_for_url", lambda base: "omlx")
         assert await bi.model_still_running("http://omlx:8085/v1/chat/completions") is True
+
+    @pytest.mark.asyncio
+    async def test_omlx_without_loaded_models_is_not_busy(self, monkeypatch):
+        from portal.platform.inference.router import backend_introspect as bi
+
+        class _Resp:
+            status_code = 200
+
+            @staticmethod
+            def json():
+                return {"models": [{"id": "gemma-4-26b", "loaded": False}]}
+
+        class _Client:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+            async def get(self, url):
+                assert url.endswith("/v1/models/status")
+                return _Resp()
+
+        monkeypatch.setattr(bi.httpx, "AsyncClient", lambda *a, **k: _Client())
+        monkeypatch.setattr(bi, "_backend_type_for_url", lambda base: "omlx")
+        assert await bi.model_still_running("http://omlx:8085/v1/chat/completions") is False
 
     @pytest.mark.asyncio
     async def test_omlx_unreachable_means_down(self, monkeypatch):
@@ -302,6 +332,7 @@ class TestBackendIntrospect:
                 return False
 
             async def get(self, url):
+                assert url.endswith("/v1/models/status")
                 raise httpx.ConnectError("down")
 
         import httpx
@@ -331,6 +362,18 @@ class TestBackendIntrospect:
 
         monkeypatch.setattr(validation, "registry", None)
         assert bi._backend_type_for_url("http://anything") == "ollama"
+
+    def test_request_timeout_allows_omlx_prefill(self, monkeypatch):
+        from types import SimpleNamespace
+
+        from portal.platform.inference.router import non_streaming
+
+        monkeypatch.setattr(non_streaming, "registry", SimpleNamespace(request_timeout=300.0))
+        omlx = SimpleNamespace(type="omlx")
+        ollama = SimpleNamespace(type="ollama")
+        assert non_streaming._request_timeout_for(omlx, {}) == 600.0
+        assert non_streaming._request_timeout_for(ollama, {}) == 300.0
+        assert non_streaming._request_timeout_for(ollama, {"emits_reasoning": True}) == 600.0
 
 
 class TestAutoCodingOmlxShadowRouting:

@@ -1233,8 +1233,7 @@ async def _tool_loop_frames(
                 _still_running = await _msr(backend_url, timeout_s=5.0)
                 if _still_running:
                     logger.warning(
-                        "Backend %s: model still in /api/ps after stream timeout — "
-                        "reasoning model mid-generation? (workspace=%s)",
+                        "Backend %s: a model remains loaded after stream timeout (workspace=%s)",
                         backend_url,
                         workspace_id,
                     )
@@ -1245,7 +1244,7 @@ async def _tool_loop_frames(
                     )
                 else:
                     logger.warning(
-                        "Backend %s: no model in /api/ps after timeout — backend may be down (workspace=%s)",
+                        "Backend %s: no loaded model after timeout — backend may be down (workspace=%s)",
                         backend_url,
                         workspace_id,
                     )
@@ -1930,10 +1929,11 @@ async def _stream_from_backend_guarded(
                 _finish_reason or ("tool_calls" if _tool_calls_emitted else "stop")
             )
             yield b"data: [DONE]\n\n"
-    except httpx.TimeoutException:
+    except httpx.TimeoutException as _timeout:
         logger.warning(
-            "Backend %s timed out during stream (workspace=%s) — probing engine state",
+            "Backend %s timed out during stream [%s] (workspace=%s) — probing engine state",
             url,
+            type(_timeout).__name__,
             workspace_id,
         )
         from portal.platform.inference.router.backend_introspect import (
@@ -1943,8 +1943,7 @@ async def _stream_from_backend_guarded(
         _still_running = await _msr(url, timeout_s=5.0)
         if _still_running:
             logger.warning(
-                "Backend %s: model still in /api/ps after stream timeout — "
-                "reasoning model mid-generation? (workspace=%s)",
+                "Backend %s: a model remains loaded after stream timeout (workspace=%s)",
                 url,
                 workspace_id,
             )
@@ -1955,7 +1954,7 @@ async def _stream_from_backend_guarded(
             )
         else:
             logger.warning(
-                "Backend %s: no model in /api/ps after timeout — backend may be down (workspace=%s)",
+                "Backend %s: no loaded model after timeout — backend may be down (workspace=%s)",
                 url,
                 workspace_id,
             )
