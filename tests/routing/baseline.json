@@ -26,7 +26,7 @@
   },
   "bench_prompts[security]": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "bench_prompts[vision]": {
@@ -41,7 +41,7 @@
   },
   "fold_blueteam": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "fold_coding_agentic_laguna": {
@@ -81,7 +81,7 @@
   },
   "fold_pentest": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "fold_phi4_llm": {
@@ -91,22 +91,22 @@
   },
   "fold_purpleteam": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "fold_purpleteam_deep": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "fold_purpleteam_exec": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "fold_redteam_deep": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "fold_security_uncensored": {
@@ -121,47 +121,47 @@
   },
   "routing_examples[10]": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "routing_examples[11]": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "routing_examples[12]": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "routing_examples[13]": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "routing_examples[14]": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "routing_examples[15]": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "routing_examples[16]": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "routing_examples[17]": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "routing_examples[18]": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "routing_examples[19]": {
@@ -311,27 +311,27 @@
   },
   "routing_examples[5]": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "routing_examples[6]": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "routing_examples[7]": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "routing_examples[8]": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "routing_examples[9]": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "rr_bench_prompts[coding]": {
@@ -361,7 +361,7 @@
   },
   "rr_bench_prompts[security]": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "rr_bench_prompts[vision]": {
@@ -371,27 +371,27 @@
   },
   "rr_s06_02_redteam_methodology": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "rr_s06_03_blueteam_incident": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "rr_s06_04_content_aware_security": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "rr_s06_05_redteam_deep_kerberoast": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "rr_s21_01_sqli_auto": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "rr_s21_02_coding_auto": {
@@ -426,7 +426,7 @@
   },
   "rr_variant_security_redteam": {
     "base": "auto-daily",
-    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   }
 }

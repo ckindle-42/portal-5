@@ -125,21 +125,21 @@ The `coding`-group `supports_tools: true` versus `general`-group `false` split i
 
 ### `gemma4:26b-a4b-it-q4_K_M`
 
-`gemma4:26b-a4b-it-q4_K_M` is registered in `config/backends.yaml` under the `general` group with `supports_tools: true` and under the `vision` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-26b-optiq` workspace `model_hint` and names it in the `auto-daily` description as the q4_K_M primary that was upgraded to the QAT variant. It is the Gemma 4 26B VLM Q4, the vision-capable model the general group also serves.
+`gemma4:26b-a4b-it-q4_K_M` is registered in `config/backends.yaml` under the `general` group with `supports_tools: true` and under the `vision` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-26b-optiq` workspace `model_hint`; the `auto-daily` description named it the q4_K_M primary that was upgraded to the QAT variant, until the seat moved to the text-only Nemotron ctx32k tag (2026-11-06). It is the Gemma 4 26B VLM Q4, the vision-capable model the general group also serves.
 
 ## Why
 
-Both the `general` and `vision` group registrations in `config/backends.yaml` assert `supports_tools: true`, and `config/portal.yaml` supplies the `bench-gemma4-26b-optiq` binding plus the `auto-daily` upgrade note. The unit is grounded to both files because the model's reachability and its role as the pre-QAT vision primary are defined by the workspace entries, not the catalog.
+Both the `general` and `vision` group registrations in `config/backends.yaml` assert `supports_tools: true`, and `config/portal.yaml` supplies the `bench-gemma4-26b-optiq` binding plus the `auto-daily` upgrade note (historical since the 2026-11-06 seat move). The unit is grounded to both files because the model's reachability and its role as the pre-QAT vision primary are defined by the workspace entries, not the catalog.
 
 ---
 
 ### `gemma4:26b-a4b-it-qat` — DROPPED (not installed; pruned 2026-10-28)
 
-`gemma4:26b-a4b-it-qat` is registered in `config/backends.yaml` under the `general` group with `supports_tools: true` and under the `vision` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-26b-qat` workspace `model_hint` and names it in the `auto-daily` description as the primary QAT model (26B-A4B MoE, ~15GB, 256K ctx, vision+text, QAT near-BF16), upgraded from the q4_K_M variant. It is bench-compared against the production q4_K_M primary; a separate promotion task swaps the primary if quality is confirmed better at similar TPS.
+`gemma4:26b-a4b-it-qat` is registered in `config/backends.yaml` under the `general` group with `supports_tools: true` and under the `vision` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-26b-qat` workspace `model_hint`; the `auto-daily` description named it the primary QAT model (26B-A4B MoE, ~15GB, 256K ctx, vision+text, QAT near-BF16), upgraded from the q4_K_M variant, until the seat moved to the text-only Nemotron ctx32k tag (2026-11-06). It is bench-compared against the production q4_K_M primary; a separate promotion task swaps the primary if quality is confirmed better at similar TPS.
 
 ## Why
 
-The `general` and `vision` group registrations in `config/backends.yaml` both assert `supports_tools: true`, and `config/portal.yaml` supplies the `bench-gemma4-26b-qat` binding and the `auto-daily` primary reference. The QAT-versus-q4_K_M comparison rationale is preserved as institutional knowledge because it explains why the model is registered as a bench candidate alongside the production primary.
+The `general` and `vision` group registrations in `config/backends.yaml` both assert `supports_tools: true`, and `config/portal.yaml` supplies the `bench-gemma4-26b-qat` binding and the `auto-daily` primary reference (historical since the 2026-11-06 seat move). The QAT-versus-q4_K_M comparison rationale is preserved as institutional knowledge because it explains why the model is registered as a bench candidate alongside the production primary.
 
 ---
 
@@ -1083,11 +1083,11 @@ Earlier this unit stated only that the family carries a tools tag, with no prove
 
 ### `gemma4:26b-a4b-it-q4_K_M`
 
-`gemma4:26b-a4b-it-q4_K_M` is registered in `config/backends.yaml` under the `general` group with `supports_tools: true` and under the `vision` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-26b-optiq` workspace `model_hint` and names it in the `auto-daily` description as the q4_K_M primary that was upgraded to the QAT variant. It is the Gemma 4 26B VLM Q4, the vision-capable model the general group also serves.
+`gemma4:26b-a4b-it-q4_K_M` is registered in `config/backends.yaml` under the `general` group with `supports_tools: true` and under the `vision` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-26b-optiq` workspace `model_hint`; the `auto-daily` description named it the q4_K_M primary that was upgraded to the QAT variant, until the seat moved to the text-only Nemotron ctx32k tag (2026-11-06). It is the Gemma 4 26B VLM Q4, the vision-capable model the general group also serves.
 
 ## Why
 
-Both the `general` and `vision` group registrations in `config/backends.yaml` assert `supports_tools: true`, and `config/portal.yaml` supplies the `bench-gemma4-26b-optiq` binding plus the `auto-daily` upgrade note. The unit is grounded to both files because the model's reachability and its role as the pre-QAT vision primary are defined by the workspace entries, not the catalog.
+Both the `general` and `vision` group registrations in `config/backends.yaml` assert `supports_tools: true`, and `config/portal.yaml` supplies the `bench-gemma4-26b-optiq` binding plus the `auto-daily` upgrade note (historical since the 2026-11-06 seat move). The unit is grounded to both files because the model's reachability and its role as the pre-QAT vision primary are defined by the workspace entries, not the catalog.
 
 ---
 
@@ -1133,11 +1133,11 @@ The vision-group registration asserts `supports_tools: true` while the general g
 
 ### `gemma4:26b-a4b-it-qat` — DROPPED (not installed; pruned 2026-10-28)
 
-`gemma4:26b-a4b-it-qat` is registered in `config/backends.yaml` under the `general` group with `supports_tools: true` and under the `vision` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-26b-qat` workspace `model_hint` and names it in the `auto-daily` description as the primary QAT model (26B-A4B MoE, ~15GB, 256K ctx, vision+text, QAT near-BF16), upgraded from the q4_K_M variant. It is bench-compared against the production q4_K_M primary; a separate promotion task swaps the primary if quality is confirmed better at similar TPS.
+`gemma4:26b-a4b-it-qat` is registered in `config/backends.yaml` under the `general` group with `supports_tools: true` and under the `vision` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-26b-qat` workspace `model_hint`; the `auto-daily` description named it the primary QAT model (26B-A4B MoE, ~15GB, 256K ctx, vision+text, QAT near-BF16), upgraded from the q4_K_M variant, until the seat moved to the text-only Nemotron ctx32k tag (2026-11-06). It is bench-compared against the production q4_K_M primary; a separate promotion task swaps the primary if quality is confirmed better at similar TPS.
 
 ## Why
 
-The `general` and `vision` group registrations in `config/backends.yaml` both assert `supports_tools: true`, and `config/portal.yaml` supplies the `bench-gemma4-26b-qat` binding and the `auto-daily` primary reference. The QAT-versus-q4_K_M comparison rationale is preserved as institutional knowledge because it explains why the model is registered as a bench candidate alongside the production primary.
+The `general` and `vision` group registrations in `config/backends.yaml` both assert `supports_tools: true`, and `config/portal.yaml` supplies the `bench-gemma4-26b-qat` binding and the `auto-daily` primary reference (historical since the 2026-11-06 seat move). The QAT-versus-q4_K_M comparison rationale is preserved as institutional knowledge because it explains why the model is registered as a bench candidate alongside the production primary.
 
 ---
 
@@ -1287,25 +1287,25 @@ The `vision` group registration in `config/backends.yaml` supplies the tool flag
 
 ## Why
 
-The arm budgets 32K of context for fast-seat bites, and the base auto-daily tag holds 16K. A separate tag keeps the daily-driver workspace unchanged while the arm gets the window its bites are planned for. Gate C test_fixing passed 6/6 on this model on 2026-10-22.
+The arm budgets 32K of context for fast-seat bites; the tag was derived when the base auto-daily seat still held the 16K gemma tag (the seat moved to the Nemotron ctx32k tag on 2026-11-06). A separate tag keeps the daily-driver workspace unchanged while the arm gets the window its bites are planned for. Gate C test_fixing passed 6/6 on this model on 2026-10-22.
 
 ### `gemma4:26b-a4b-it-qat-ctx16k`
 
-`gemma4:26b-a4b-it-qat-ctx16k` is the context-bounded version of `gemma4:26b-a4b-it-qat`, holding a 16384-token window, derived from the ctx8k tag (same weights and template). `config/backends.yaml` registers it under the `vision` and `general` groups with `supports_tools: true` (direct Ollama tool probe 2026-10-18: clean typed call) and aliases it onto `gemma-4-26b-a4b-it-QAT-4bit` on oMLX. `config/portal.yaml` selects it as the `auto-daily` workspace `model_hint`: the S2 production smoke measured the empty-turn prompt at 2996 of 8192 tokens (37%), docs/WFE_PRODUCTION_SMOKE_20261018.md.
+`gemma4:26b-a4b-it-qat-ctx16k` is the context-bounded version of `gemma4:26b-a4b-it-qat`, holding a 16384-token window, derived from the ctx8k tag (same weights and template). `config/backends.yaml` registers it under the `vision` and `general` groups with `supports_tools: true` (direct Ollama tool probe 2026-10-18: clean typed call) and aliases it onto `gemma-4-26b-a4b-it-QAT-4bit` on oMLX. `config/portal.yaml` selected it as the `auto-daily` workspace `model_hint` from 2026-10-18 — the S2 production smoke measured the empty-turn prompt at 2996 of 8192 tokens (37%), docs/WFE_PRODUCTION_SMOKE_20261018.md — until 2026-11-06, when the seat moved to the text-only `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k` tag (realuse_autodaily_postfix_20261106: Nemotron 28/28 vs Gemma 26/28).
 
 ## Why
 
-The auto-daily `model_hint` in `config/portal.yaml` resolves to this tag, and the two `config/backends.yaml` registrations plus the oMLX alias are what make it routable and tool-capable.
+The auto-daily `model_hint` in `config/portal.yaml` resolved to this tag until the 2026-11-06 seat move; the two `config/backends.yaml` registrations plus the oMLX alias are what make it routable and tool-capable.
 
 ---
 
 ### `gemma4:26b-a4b-it-qat-ctx8k`
 
-`gemma4:26b-a4b-it-qat-ctx8k` is the context-bounded version of `gemma4:26b-a4b-it-qat`, holding an 8192-token window. `config/backends.yaml` registers it under the `vision` group with `supports_tools: true`. It was the `auto-daily` `model_hint` until 2026-10-18 (superseded by the ctx16k tag) and stays registered as a fallback id. The limit is applied via `portal models apply-params` because the chat-completions API does not honor request-time context parameters, making a derived id necessary.
+`gemma4:26b-a4b-it-qat-ctx8k` is the context-bounded version of `gemma4:26b-a4b-it-qat`, holding an 8192-token window. `config/backends.yaml` registers it under the `vision` group with `supports_tools: true`. It was the `auto-daily` `model_hint` until 2026-10-18 (superseded by the ctx16k tag, then by the text-only Nemotron ctx32k tag on 2026-11-06) and stays registered as a fallback id. The limit is applied via `portal models apply-params` because the chat-completions API does not honor request-time context parameters, making a derived id necessary.
 
 ## Why
 
-The `vision` group entry in `config/backends.yaml` carries the `supports_tools: true` value, and the `auto-daily` `model_hint` in `config/portal.yaml` is why the workspace resolves to this tag. The two files jointly establish the registration and the consuming workspace, which is the grounding this unit needs.
+The `vision` group entry in `config/backends.yaml` carries the `supports_tools: true` value; this tag served `auto-daily` until 2026-10-18 and remains a registered fallback id. The two files jointly establish the registration and the consuming-workspace history, which is the grounding this unit needs.
 
 ---
 

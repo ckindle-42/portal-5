@@ -116,6 +116,7 @@ from portal.platform.inference.router.preinject import (  # noqa: F401
     _inject_temporal_context,
     _resolve_auto_routing,
     _resolve_persona_workspace,
+    _resolve_text_seat_image_reroute,
     _resolve_vision_fallback,
 )
 
