@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 import httpx
+import pytest
 
 from portal.platform.inference import tool_registry as registry_module
 
@@ -61,6 +62,7 @@ def _rpc(request_id: str, result: dict, status_code: int = 200) -> httpx.Respons
     return httpx.Response(status_code, json={"jsonrpc": "2.0", "id": request_id, "result": result})
 
 
+@pytest.mark.real_registry_discovery
 def test_class3_pipeline_rejects_unknown_key_before_the_call(monkeypatch):
     """Default mode probes through ToolRegistry.dispatch: a closed schema rejects the
     extra key before the server is called, an open schema still reports acceptance."""

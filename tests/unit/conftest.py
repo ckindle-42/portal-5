@@ -88,6 +88,12 @@ def pytest_configure(config) -> None:
     # being created during TestClient teardown — they fail in test mode.
     os.environ["UNIT_TEST_MODE"] = "1"
 
+    config.addinivalue_line(
+        "markers",
+        "real_registry_discovery: the test exercises real tool-registry discovery "
+        "through a mocked transport",
+    )
+
     _patch_pdf_parent_requirement_when_the_corpus_is_absent()
 
 
@@ -207,3 +213,16 @@ def _window_probes_never_reach_a_live_engine(monkeypatch):
         return None
 
     monkeypatch.setattr(served_window, "_http_json", _unreachable)
+
+
+@pytest.fixture(autouse=True)
+def _registry_discovery_never_reaches_a_live_mcp(request, monkeypatch):
+    """Auto-context recall's on-miss registry refresh must not reach MCP discovery; a test exercising real discovery marks itself real_registry_discovery."""
+    if request.node.get_closest_marker("real_registry_discovery"):
+        return
+    from portal.platform.inference import tool_registry
+
+    async def _offline_no_tools(_client, _url, _timeout_s):
+        return []
+
+    monkeypatch.setattr(tool_registry, "list_tools", _offline_no_tools)

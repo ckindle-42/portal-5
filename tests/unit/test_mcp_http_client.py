@@ -191,6 +191,7 @@ async def test_call_tool_cancellation_propagates_to_the_http_request() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.real_registry_discovery
 async def test_tool_registry_uses_configured_native_mcp_server(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -236,6 +237,7 @@ async def test_tool_registry_uses_configured_native_mcp_server(
 
 
 @pytest.mark.asyncio
+@pytest.mark.real_registry_discovery
 async def test_native_dispatch_rejects_unknown_and_missing_arguments(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -562,6 +564,7 @@ def test_native_tool_result_maps_to_raw_json() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.real_registry_discovery
 async def test_native_is_error_returns_rest_error_shape_without_tripping_breaker(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

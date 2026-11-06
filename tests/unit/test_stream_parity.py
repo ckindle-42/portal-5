@@ -260,12 +260,6 @@ def test_a_single_candidate_stream_frees_idle_ollama_before_a_large_omlx_prompt(
 ) -> None:
     """The non-streaming path makes room before every attempt; a lone stream used to skip it."""
     import portal.platform.inference.router.handlers as handlers_mod
-    from portal.platform.inference import tool_registry as tool_registry_module
-
-    async def _offline_no_tools(_client, _url, _timeout_s):
-        return []  # on-miss refresh stays inside the offline boundary
-
-    monkeypatch.setattr(tool_registry_module, "list_tools", _offline_no_tools)
 
     events: list[Any] = []
 

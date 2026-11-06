@@ -15,16 +15,10 @@ _ROLE_SLUG = "codereviewer"
 
 
 @pytest.fixture
-def client(monkeypatch: pytest.MonkeyPatch):
+def client():
     import portal.platform.inference.router.handlers as handlers_mod
-    from portal.platform.inference import tool_registry as tool_registry_module
     from portal.platform.inference.router_pipe import app
     from tests.unit.test_pipeline import _make_fake_backend
-
-    async def _offline_no_tools(_client, _url, _timeout_s):
-        return []  # on-miss registry refresh stays inside the offline boundary
-
-    monkeypatch.setattr(tool_registry_module, "list_tools", _offline_no_tools)
 
     handlers_mod.registry = _make_fake_backend()
     with TestClient(app) as test_client:
