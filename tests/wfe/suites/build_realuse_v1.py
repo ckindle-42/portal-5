@@ -99,12 +99,34 @@ TEXT_EXPECTATIONS = {
     "ru-v1-065": ("knee", "jumps"),
     "ru-v1-070": ("October 20", "December 15", "gym"),
 }
+
+
+def _ru_v1_001_slip_pattern() -> str:
+    """A slip, delay, extension, or late finish of 3 days, including under a negation guard."""
+    guard = (
+        r"(?<!\bnot\s)(?<!\bnever\s)(?<!\bno\s)(?<!\bcannot\s)(?<!n't\s)"
+        r"(?<!\bnot\sbeen\s)(?<!\bnever\sbeen\s)(?<!n't\sbeen\s)"
+        r"(?<!\bnot\sa\s)(?<!\bnever\sa\s)(?<!\bno\sa\s)(?<!n't\sa\s)"
+        r"(?<!\bcannot\shave\s)(?<!\bcannot\sbe\s)(?<!\bnot\shave\s)(?<!\bnot\sbe\s)"
+    )
+    number = r"(?<!\d)(?:3|three)"
+    verb = (
+        r"(?:(?:has(?:\s+been)?|had|was|is|been)\s+)?"
+        r"(?:slipp(?:ed|ing)|extended|delay(?:ed|ing)?)\s+by\s+" + number + r"\s+days\b"
+    )
+    noun = number + r"[\s-]days?\s+(?:slips?|delays?|extensions?)\b"
+    late = r"\b(?:ran|running|runs?)\s+" + number + r"\s+days\s+late\b"
+    of_form = r"(?:slips?|delays?|extensions?)\s+of\s+" + number + r"\s+days\b"
+    return guard + "(?:" + "|".join((verb, noun, late, of_form)) + ")"
+
+
+# The fact is the 3-day slip. Any subject counts, and a negation does not.
+RU_V1_001_SLIP_PATTERN = _ru_v1_001_slip_pattern()
 ANSWER_PATTERN_EXPECTATIONS = {
     "ru-v1-001": (
         (
             0,
-            r"timeline\s+(?:(?:has(?:\s+been)?|had|was|is|been)\s+)?"
-            r"(?:slipp(?:ed|ing)|extended)\s+by\s+(?:3|three)\s+days",
+            RU_V1_001_SLIP_PATTERN,
             (
                 "Timeline slipped by 3 days",
                 "Timeline slipping by 3 days",
@@ -115,15 +137,51 @@ ANSWER_PATTERN_EXPECTATIONS = {
                 "timeline is slipping by three days",
                 "timeline been slipped by 3 days",
                 "the timeline has been extended by three days",
+                "the project slipped by 3 days",
+                "a 3-day slip",
+                "delayed by three days",
+                "ran 3 days late",
+                "timeline extended by 3 days",
+                "the final timeline: the project slipped by 3 days",
+                "the schedule slipped by 3 days",
+                "delivery delayed by 3 days",
+                "completion extended by three days",
+                "the work slipped by 3 days",
+                "we slipped by 3 days",
+                "a three-day delay",
+                "a 3 day extension",
+                "Timeline delayed by 3 days",
+                "we ran three days late",
+                "running 3 days late",
+                "a slip of 3 days",
+                "a delay of three days",
+                "an extension of 3 days",
             ),
             (
                 "no slip",
                 "slipped by 2 days",
-                "Timeline delayed by 3 days",
                 "Timeline slipped by 30 days",
                 "Timeline extended by 30 days",
                 "timeline has slipped by 2 days",
                 "timeline has slipped by 30 days",
+                "2 days",
+                "30 days",
+                "3 weeks",
+                "did not slip",
+                "did not slip by 3 days",
+                "the project did not slip by 3 days",
+                "has not slipped by 3 days",
+                "was not extended by 3 days",
+                "not a 3-day slip",
+                "no 3-day slip",
+                "a 3-week slip",
+                "a 30-day slip",
+                "slipped by 3 weeks",
+                "ran 2 days late",
+                "ran 30 days late",
+                "delayed by 2 days",
+                "delayed by 30 days",
+                "has not been extended by 3 days",
             ),
         ),
         (
