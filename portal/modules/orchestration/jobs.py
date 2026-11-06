@@ -731,12 +731,7 @@ class JobRunner:
     def _run_steps(
         self, spec: JobSpec, job_dir: Path, state: dict[str, Any]
     ) -> tuple[str, str | None]:
-        started_at = state.get("first_started_at")
-        deadline = (
-            _utc_timestamp(started_at) + spec.stop_conditions.max_job_minutes * 60
-            if started_at and spec.stop_conditions.max_job_minutes
-            else None
-        )
+        deadline = _start_attempt_clock(state, spec.stop_conditions.max_job_minutes)
         for step in spec.steps:
             entry = state["steps"][step.step_id]
             if entry["state"] == "done":
@@ -762,11 +757,8 @@ class JobRunner:
                     "STOPPED",
                     f"job exceeded max_job_minutes={spec.stop_conditions.max_job_minutes}",
                 )
-            if started_at is None:
-                started_at = _utc_now()
-                state["first_started_at"] = started_at
-                if spec.stop_conditions.max_job_minutes:
-                    deadline = time.time() + spec.stop_conditions.max_job_minutes * 60
+            if state.get("first_started_at") is None:
+                state["first_started_at"] = state["run_started_at"]
             backups, backup_error = self._backup_checkpoints(spec, step, job_dir, state)
             if backup_error:
                 return "BLOCKED", f"checkpoint backup failed for {step.step_id}: {backup_error}"
@@ -1351,6 +1343,8 @@ class JobRunner:
             "workdir": str(job_dir.resolve()),
             "job_id": spec.job_id,
             "purpose": spec.purpose,
+            "first_started_at": state.get("first_started_at"),
+            "run_started_at": state.get("run_started_at"),
             "status": status,
             "reason": reason,
             "report": _report(
@@ -1448,6 +1442,7 @@ class JobRunner:
                 "created_at": _utc_now(),
                 "run_count": 1,
                 "first_started_at": None,
+                "run_started_at": None,
                 "steps": {},
             }
         steps = state.setdefault("steps", {})
@@ -2158,6 +2153,13 @@ def _ps_field(pid: int, field: str) -> str | None:
         return None
     text = result.stdout.strip()
     return text or None
+
+
+def _start_attempt_clock(state: dict[str, Any], max_job_minutes: float | None) -> float | None:
+    state["run_started_at"] = _utc_now()
+    if not max_job_minutes:
+        return None
+    return time.time() + max_job_minutes * 60
 
 
 def _utc_now() -> str:
