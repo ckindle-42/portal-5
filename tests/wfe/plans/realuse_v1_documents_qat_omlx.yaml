@@ -1,0 +1,15 @@
+# Fair engine A/B for the auto-documents gemma build (2026-11-06). realuse_documents_postfix_20261106 had
+# QAT@card 16/16 vs plain-4bit 15/16 (R8 rescore), but the QAT arm (qat-ctx32k) was served by Ollama
+# (median 24 s) while the plain 4bit ran on oMLX (8-9 s). The qat-ctx16k tag aliases onto the oMLX QAT
+# build and the seat's context_limit is 16384, so this pits both builds on oMLX at card sampling.
+# A tie lets one gemma 26B build serve auto-daily::gemma-fast, auto-documents and vision personas.
+repeats: 4
+workloads:
+  auto-documents:
+    tool_mode: production
+    home: realuse_v1
+    discovery: []
+    arms:
+      incumbent: gemma4:26b-a4b-it-q4_K_M-ctx32k
+      challengers:
+        - gemma4:26b-a4b-it-qat-ctx16k
