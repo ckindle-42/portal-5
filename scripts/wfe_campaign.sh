@@ -14,9 +14,10 @@
 #   REPEATS=5 ALL_SUITES=1 ./scripts/wfe_campaign.sh wfe_deep --arm <tag>
 #   ./scripts/wfe_campaign.sh wfe_s8 --plan tests/wfe/plans/s8_x.yaml --tier screen \
 #       --engine pipeline                                  # job-friendly (no env needed)
-#   ./scripts/wfe_campaign.sh wfe_s8 --canary ...          # live canary: one incumbent row
-#       per workload into <id>_canary, classified SETUP vs MODEL; exit 0 only when no
-#       row is SETUP. Gate a long campaign on it (job specs: a `canary: <step>` step).
+#   ./scripts/wfe_campaign.sh wfe_s8 --canary ...          # live canary: one row per arm
+#       (incumbent and challengers) per workload into <id>_canary, classified SETUP vs
+#       MODEL; exit 0 only when no row is SETUP and every arm froze and served its own
+#       identity. Gate a long campaign on it (job specs: a `canary: <step>` step).
 # The final stdout line is `CAMPAIGN <id>: complete|stopped (<reason>) rows done/total`
 # (printed by the --finish call, which is also the script's exit): 0 matrix complete
 # (arm halts are a result, summarised on that line), 5 an arm stopped (instrument
@@ -66,9 +67,9 @@ if [ "${WFE_ENGINE:-}" = "pipeline" ] && [ -z "${PIPELINE_API_KEY:-}" ] \
 fi
 
 # Canary mode: tests/wfe/canary.py owns the whole path — fixture staging, the
-# conformance gate, one live incumbent row per workload, SETUP/MODEL
-# classification, and the exit. One repeat is implied; the sweeps' REPEATS
-# policy does not apply.
+# conformance gate, one live row per arm per workload (incumbent first), the
+# SETUP/MODEL classification and per-arm identity gate, and the exit. One
+# repeat is implied; the sweeps' REPEATS policy does not apply.
 if [ "${CANARY:-0}" = "1" ]; then
     PLAN_ARGS=()
     [ -n "${PLAN:-}" ] && PLAN_ARGS+=(--plan "$PLAN")

@@ -5,9 +5,9 @@ purpose: >-
   overlapping intervals (24 s vs 18 s, 8 vs 21 GB), so the order is open. The plan pins
   repeats 2 on 16 realuse_v1 tasks (n=32 per arm): the incumbent at the seat, the challenger
   at its card sampling (0.6/0.95/20). Read the per-arm pass rates, the blind preferences and
-  the latency/memory columns; a swap is the operator's call. The canary runs one incumbent row
-  and its SETUP verdict stops the job before the long step can burn rows. Report and judge
-  council follow the campaign.
+  the latency/memory columns; a swap is the operator's call. The canary runs one row per arm
+  (incumbent and challenger, same task) and its SETUP or arm-identity verdict stops the job
+  before the long step can burn rows. Report and judge council follow the campaign.
 preconditions:
   stack: up
   free_memory_gib: 24

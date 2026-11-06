@@ -8,8 +8,9 @@ purpose: >-
   pass rates and the blind preferences (reported, not gated). An unset REPEATS on --tier
   realuse leaves the one-or-two draw policy in place. The 96k and 128k general arms are in
   the third plan; the load guard has to keep the other engine unloaded or that step trips.
-  Each campaign step is gated by a live canary (one incumbent row per workload into
-  <id>_canary) whose SETUP verdict stops the job before the long step can burn rows.
+  Each campaign step is gated by a live canary (one row per arm per workload into
+  <id>_canary) whose SETUP or arm-identity verdict stops the job before the long step
+  can burn rows.
 preconditions:
   stack: up
   free_memory_gib: 24

@@ -214,17 +214,27 @@ class TestSelection:
         )
         return p
 
-    def test_one_incumbent_row_per_workload(self, plan):
+    def test_one_row_per_arm_all_on_the_same_task(self, plan):
         rows = select_rows(plan, "confirm")
-        assert [r["workspace"] for r in rows] == ["auto-general", "ws-b", "ws-c"]
-        assert all(r["arm_role"] == "incumbent" for r in rows)
-        assert [r["arm"] for r in rows] == ["inc-a", "inc-b", "inc-c"]
+        assert [r["workspace"] for r in rows] == [
+            "auto-general",
+            "auto-general",
+            "ws-b",
+            "ws-c",
+        ]
+        assert [r["arm"] for r in rows] == ["inc-a", "ch-a", "inc-b", "inc-c"]
+        assert rows[0]["task_id"] == rows[1]["task_id"] == "t02"
+        assert [r["arm_role"] for r in rows] == [
+            "incumbent",
+            "challenger",
+            "incumbent",
+            "incumbent",
+        ]
 
     def test_prefers_a_task_that_exercises_fixtures_and_tools(self, plan):
         rows = select_rows(plan, "confirm")
-        by_ws = {r["workspace"]: r for r in rows}
-        assert by_ws["auto-general"]["task_id"] == "t02"
-        assert by_ws["ws-b"]["task_id"] == "p00"
+        assert rows[0]["task_id"] == rows[1]["task_id"] == "t02"
+        assert rows[2]["task_id"] == "p00"
 
     def test_a_workload_with_no_eligible_row_gets_a_no_row_stub(self, plan):
         rows = select_rows(plan, "confirm")
@@ -259,14 +269,14 @@ def _suite(path, n=2):
     )
 
 
-@pytest.fixture
-def harness(tmp_path, monkeypatch):
-    """Offline canary inputs: fake suites, a plan, and stubbed live gates."""
+def _offline(monkeypatch, tmp_path) -> None:
+    """Stub every live gate so run_canary runs fully offline."""
     suites = tmp_path / "suites"
     suites.mkdir()
     _suite(suites / "home.jsonl")
     monkeypatch.setattr(camp, "SUITE_DIR", suites)
     monkeypatch.setattr(camp, "CAMPAIGNS", tmp_path / "campaigns")
+    monkeypatch.setattr(camp, "workspace_context", lambda *a, **k: {})
     monkeypatch.setattr(camp, "ollama_reachable", lambda: True)
     monkeypatch.setattr(
         camp, "gate_controls", lambda rows, where: {"suites": {}, "tasks": 0, "failures": []}
@@ -276,32 +286,64 @@ def harness(tmp_path, monkeypatch):
 
     monkeypatch.setattr(canary, "_fixture_failures", lambda selected: [])
     monkeypatch.setattr(canary, "_conformance_findings", lambda arms, spaces: [])
+
+
+def _plan_at(tmp_path, arms: dict) -> Path:
     plan = tmp_path / "plan.yaml"
     plan.write_text(
         yaml.safe_dump(
-            {
-                "workloads": {
-                    "auto-general": {"home": "home", "arms": {"incumbent": "inc-a"}},
-                    "ws-b": {"home": "home", "arms": {"incumbent": "inc-b"}},
-                }
-            }
+            {"workloads": {ws: {"home": "home", "arms": arms_} for ws, arms_ in arms.items()}}
         )
+    )
+    return plan
+
+
+@pytest.fixture
+def harness(tmp_path, monkeypatch):
+    """Offline canary inputs: fake suites, a plan, and stubbed live gates."""
+    _offline(monkeypatch, tmp_path)
+    plan = _plan_at(
+        tmp_path,
+        {"auto-general": {"incumbent": "inc-a"}, "ws-b": {"incumbent": "inc-b"}},
     )
     return plan, tmp_path
 
 
-def _fake_execute(outcomes: dict):
-    """execute_arm stand-in: writes the mapped row file, marks the stub."""
+@pytest.fixture
+def ab_harness(tmp_path, monkeypatch):
+    """The same, with a two-arm plan: one incumbent, one challenger."""
+    _offline(monkeypatch, tmp_path)
+    plan = _plan_at(tmp_path, {"auto-general": {"incumbent": "inc-a", "challengers": ["ch-a"]}})
+    return plan, tmp_path
+
+
+def _default_ident(stub: dict) -> dict:
+    """The identity every fake arm freezes and is served on its own row."""
+    return {"backend": "ollama-local", "model": camp.row_model(stub), "content": "c"}
+
+
+def _fake_execute(outcomes: dict, identities: dict | None = None, served: dict | None = None):
+    """execute_arm stand-in: freezes each arm's (workspace, model) identity the way
+    the real preflight does, writes the mapped row file with what served it, and
+    marks the stub. Run ids missing from `outcomes` never ran."""
 
     def fake(cd, arm, *args, **kwargs):
         assert kwargs.get("fresh_incumbent") is True
         assert kwargs.get("curtail") is False
         manifest = camp.load_manifest(cd)
+        frozen = manifest.setdefault("identity_map", {})
         ran = 0
         for stub in manifest["rows"]:
             if stub["arm"] != arm or stub.get("state") == "NO_ROW":
                 continue
-            row = outcomes[stub["run_id"]]
+            ident = (identities or {}).get(stub["run_id"]) or _default_ident(stub)
+            frozen[f"{stub['workspace']}|{camp.row_model(stub)}"] = ident
+            if stub["run_id"] not in outcomes:
+                continue
+            row = {
+                **outcomes[stub["run_id"]],
+                "identity": (served or {}).get(stub["run_id"], ident),
+            }
             camp._row_path(cd, stub["run_id"]).write_text(json.dumps(row))
             stub["state"] = row.get("outcome")
             ran += 1
@@ -534,6 +576,111 @@ class TestRunCanary:
         assert "archived" not in out
         assert json.loads((canary / "manifest.json").read_text())["created_utc"] == created
         assert [p.name for p in (tmp / "campaigns").iterdir() if "stale_" in p.name] == []
+
+
+class TestArmGate:
+    """The gate covers every arm, not just the incumbent (2026-11-06 incidents):
+    served-as-frozen passes; drift, a missing row, or MIXED engines under
+    engine_parity: required fail."""
+
+    def _identities(self, plan, backend_of_arm):
+        selected = select_rows(plan, "confirm")
+        return {
+            r["run_id"]: {
+                "backend": backend_of_arm(r["arm"]),
+                "model": camp.row_model(r),
+                "content": "c",
+            }
+            for r in selected
+        }
+
+    def test_two_arms_served_as_frozen_pass(self, ab_harness, monkeypatch, capsys):
+        plan, tmp = ab_harness
+        monkeypatch.setattr(
+            camp, "execute_arm", _fake_execute(_rows_for(plan, {"auto-general": _row()}))
+        )
+        assert run_canary(["--campaign-id", "c1", "--plan", str(plan)]) == 0
+        out = capsys.readouterr().out
+        assert "ARM auto-general/inc-a backend=ollama-local model=inc-a outcome=PASS" in out
+        assert "ARM auto-general/ch-a backend=ollama-local model=ch-a outcome=PASS" in out
+        assert "ENGINE PARITY: same" in out
+        assert "CANARY c1_canary: PASS (0 setup row(s) of 2)" in out
+        manifest = json.loads((tmp / "campaigns" / "c1_canary" / "manifest.json").read_text())
+        assert [a["arm"] for a in manifest["arms"]] == ["inc-a", "ch-a"]
+        assert manifest["arms"][0]["frozen"] == {
+            "backend": "ollama-local",
+            "model": "inc-a",
+            "content": "c",
+        }
+
+    def test_a_challenger_served_on_another_backend_fails_naming_the_arm(
+        self, ab_harness, monkeypatch, capsys
+    ):
+        plan, _ = ab_harness
+        monkeypatch.setattr(camp, "ENGINE", "pipeline")
+        selected = select_rows(plan, "confirm")
+        rows = {r["run_id"]: _row() for r in selected}
+        served = {
+            r["run_id"]: {"backend": "ollama-failover", "model": camp.row_model(r), "content": "c"}
+            for r in selected
+            if r.get("arm_role") == "challenger"
+        }
+        monkeypatch.setattr(camp, "execute_arm", _fake_execute(rows, served=served))
+        assert run_canary(["--campaign-id", "c1", "--plan", str(plan)]) == 1
+        out = capsys.readouterr().out
+        assert "ARM FAIL auto-general/ch-a" in out
+        assert "served on another build" in out
+        # Parity reads the FROZEN backends; the failover is the drift failure's job.
+        assert "ENGINE PARITY: same" in out
+        assert "CANARY c1_canary: FAIL (1 arm failure(s) of 2)" in out
+
+    def test_a_challenger_with_no_row_fails(self, ab_harness, monkeypatch, capsys):
+        plan, _ = ab_harness
+        selected = select_rows(plan, "confirm")
+        rows = {r["run_id"]: _row() for r in selected if r.get("arm_role") == "incumbent"}
+        monkeypatch.setattr(camp, "execute_arm", _fake_execute(rows))
+        assert run_canary(["--campaign-id", "c1", "--plan", str(plan)]) == 1
+        out = capsys.readouterr().out
+        assert "ARM auto-general/ch-a backend=ollama-local model=ch-a outcome=PENDING" in out
+        assert "ARM FAIL auto-general/ch-a: produced no row (PENDING)" in out
+        assert "CANARY c1_canary: FAIL (1 arm failure(s) of 2)" in out
+
+    def test_mixed_backends_warn_and_pass(self, ab_harness, monkeypatch, capsys):
+        plan, _ = ab_harness
+        identities = self._identities(plan, lambda arm: f"be-{arm}")
+        monkeypatch.setattr(
+            camp, "execute_arm", _fake_execute({rid: _row() for rid in identities}, identities)
+        )
+        assert run_canary(["--campaign-id", "c1", "--plan", str(plan)]) == 0
+        out = capsys.readouterr().out
+        assert "ENGINE PARITY: MIXED (be-ch-a, be-inc-a) WARN" in out
+        assert "CANARY c1_canary: PASS (0 setup row(s) of 2)" in out
+
+    def test_engine_parity_required_fails_mixed(self, ab_harness, monkeypatch, capsys):
+        plan, _ = ab_harness
+        plan.write_text(plan.read_text() + "engine_parity: required\n")
+        identities = self._identities(plan, lambda arm: f"be-{arm}")
+        monkeypatch.setattr(
+            camp, "execute_arm", _fake_execute({rid: _row() for rid in identities}, identities)
+        )
+        assert run_canary(["--campaign-id", "c1", "--plan", str(plan)]) == 1
+        out = capsys.readouterr().out
+        assert "ENGINE PARITY FAIL" in out and "engine_parity: required" in out
+        assert "CANARY c1_canary: FAIL (engine parity required)" in out
+
+    def test_engine_parity_required_passes_when_same(self, ab_harness, monkeypatch):
+        plan, _ = ab_harness
+        plan.write_text(plan.read_text() + "engine_parity: required\n")
+        monkeypatch.setattr(
+            camp, "execute_arm", _fake_execute(_rows_for(plan, {"auto-general": _row()}))
+        )
+        assert run_canary(["--campaign-id", "c1", "--plan", str(plan)]) == 0
+
+    def test_an_unknown_engine_parity_value_is_refused(self, ab_harness, capsys):
+        plan, _ = ab_harness
+        plan.write_text(plan.read_text() + "engine_parity: sometimes\n")
+        assert run_canary(["--campaign-id", "c1", "--plan", str(plan)]) == 1
+        assert "engine_parity must be 'required'" in capsys.readouterr().out
 
 
 class TestSetupFaultLedger:
