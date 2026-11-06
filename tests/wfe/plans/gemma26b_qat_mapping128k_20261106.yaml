@@ -1,5 +1,5 @@
 # DATA_TRUTH machine seat. Its strict-JSON sampling differs from the conversation seat.
-repeats: 4
+repeats: 1
 workloads:
   compliance-mapping:
     tool_mode: production

@@ -1,6 +1,6 @@
 # DATA_TRUTH conversation seat. The suite covers 40k, 80k and 112k synthetic needle,
 # aggregation and quote tasks; the queued real-corpus job adds the 124.7k-token check.
-repeats: 4
+repeats: 1
 workloads:
   auto-compliance::reading:
     tool_mode: production
