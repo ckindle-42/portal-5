@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Dry-run or remove only the injected corpus cousins from portal5_lab."""
+"""Dry-run or remove the injected corpus cousins and unplanned labelled_corpus items."""
 
 from __future__ import annotations
 
 import argparse
 import json
 import os
+import re
 import sys
 import uuid
 from collections.abc import Mapping
@@ -15,6 +16,8 @@ from urllib.parse import quote
 import httpx
 
 INDEX = "portal5_lab"
+LABELLED_CORPUS_INDEX = "labelled_corpus"
+P5_ITEM_ID = re.compile(r"[0-9a-f]{16}\Z")
 SOURCE = "portal5:corpus:cousin:*"
 COUNTS_SEARCH = f'| tstats count where index={INDEX} source="{SOURCE}" by source sourcetype host'
 RAW_COUNT_SEARCH = f'search index={INDEX} source="{SOURCE}" | stats count'
@@ -173,23 +176,16 @@ def delete_role(role: str) -> None:
     rest_request("DELETE", f"authorization/roles/{quote(role)}")
 
 
-def delete_cousins(username: str = "admin") -> dict[str, Any]:
-    before = cousin_inventory()
-    if not before["reconciled"]:
-        raise RuntimeError("tstats and raw cousin counts do not reconcile")
-    initial_roles = account_roles(username)
+def _assert_admin_only(initial_roles: dict[str, list[str]]) -> None:
     if initial_roles["roles"] != ["admin"] or initial_roles["imported_roles"]:
         raise RuntimeError(
             "refusing deletion because the admin account does not have admin-only roles"
         )
-    if before["raw_count"] == 0:
-        return {
-            "before": before,
-            "after": before,
-            "roles_before": initial_roles,
-            "roles_after": initial_roles,
-        }
 
+
+def _delete_search(
+    search: str, username: str, initial_roles: dict[str, list[str]]
+) -> dict[str, list[str]]:
     role: str | None = None
     created = False
     try:
@@ -199,7 +195,7 @@ def delete_cousins(username: str = "admin") -> dict[str, Any]:
             role = create_delete_role()
             created = True
         add_imported_role(username, role)
-        export_rows(DELETE_SEARCH)
+        export_rows(search)
     finally:
         if role is not None:
             try:
@@ -207,18 +203,82 @@ def delete_cousins(username: str = "admin") -> dict[str, Any]:
             finally:
                 if created:
                     delete_role(role)
-
-    after = cousin_inventory()
     final_roles = account_roles(username)
-    if after["raw_count"] != 0 or after["tstats_count"] != 0:
-        raise RuntimeError("cousin events remain after deletion")
     if final_roles != initial_roles:
         raise RuntimeError("admin account roles were not restored after deletion")
+    return final_roles
+
+
+def delete_cousins(username: str = "admin") -> dict[str, Any]:
+    before = cousin_inventory()
+    if not before["reconciled"]:
+        raise RuntimeError("tstats and raw cousin counts do not reconcile")
+    initial_roles = account_roles(username)
+    _assert_admin_only(initial_roles)
+    if before["raw_count"] == 0:
+        return {
+            "before": before,
+            "after": before,
+            "roles_before": initial_roles,
+            "roles_after": initial_roles,
+        }
+
+    final_roles = _delete_search(DELETE_SEARCH, username, initial_roles)
+    after = cousin_inventory()
+    if after["raw_count"] != 0 or after["tstats_count"] != 0:
+        raise RuntimeError("cousin events remain after deletion")
     return {
         "before": before,
         "after": after,
         "roles_before": initial_roles,
         "roles_after": final_roles,
+    }
+
+
+def _p5_item_counts() -> dict[str, int]:
+    rows = export_rows(f"| tstats count where index={LABELLED_CORPUS_INDEX} by p5_item")
+    counts: dict[str, int] = {}
+    for row in rows:
+        item_id = str(row.get("p5_item", ""))
+        if not item_id:
+            continue
+        if not P5_ITEM_ID.fullmatch(item_id):
+            raise RuntimeError(f"labelled_corpus item id is not a p5_item id: {item_id!r}")
+        counts[item_id] = int(row.get("count", 0))
+    return counts
+
+
+def delete_unplanned_p5_items(
+    expected_item_ids: set[str], username: str = "admin"
+) -> dict[str, Any]:
+    if not expected_item_ids:
+        raise ValueError("plan contains no p5_item ids")
+    invalid = [item_id for item_id in expected_item_ids if not P5_ITEM_ID.fullmatch(item_id)]
+    if invalid:
+        raise ValueError("plan contains invalid p5_item ids")
+    actual = _p5_item_counts()
+    extras = sorted(set(actual) - expected_item_ids)
+    if not extras:
+        return {
+            "index": LABELLED_CORPUS_INDEX,
+            "deleted_item_ids": [],
+            "deleted_events": 0,
+            "remaining_unplanned_item_ids": [],
+        }
+    roles_before = account_roles(username)
+    _assert_admin_only(roles_before)
+    predicates = " OR ".join(f'p5_item="{item_id}"' for item_id in extras)
+    _delete_search(
+        f"search index={LABELLED_CORPUS_INDEX} ({predicates}) | delete", username, roles_before
+    )
+    remaining = sorted(set(_p5_item_counts()) - expected_item_ids)
+    if remaining:
+        raise RuntimeError("unplanned p5 items remain after deletion")
+    return {
+        "index": LABELLED_CORPUS_INDEX,
+        "deleted_item_ids": extras,
+        "deleted_events": sum(actual[item_id] for item_id in extras),
+        "remaining_unplanned_item_ids": remaining,
     }
 
 

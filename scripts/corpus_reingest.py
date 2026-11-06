@@ -1408,6 +1408,14 @@ def verify_plan(items_path: Path) -> dict[str, Any]:
     return {"ok": not mismatches and not extras, "mismatches": mismatches, "extra_p5_items": extras}
 
 
+def cleanup_unplanned_items(items_path: Path) -> dict[str, Any]:
+    doc = json.loads(items_path.read_text(encoding="utf-8"))
+    items = doc.get("items")
+    if not isinstance(items, dict):
+        raise ValueError("items.json must contain an items object")
+    return lab_delete_cousins.delete_unplanned_p5_items(set(items))
+
+
 def previous_plan_file_sets(items_path: Path) -> tuple[set[tuple[str, str]], set[tuple[str, str]]]:
     doc = json.loads(items_path.read_text(encoding="utf-8"))
     all_files: set[tuple[str, str]] = set()
@@ -1444,6 +1452,19 @@ def _run_verify(items: Path | None, output_root: Path, parser: argparse.Argument
     return 0 if result["ok"] else 1
 
 
+def _run_delete_unplanned(
+    items: Path | None, output_root: Path, parser: argparse.ArgumentParser
+) -> int:
+    try:
+        resolved = items if items is not None else latest_items_path(output_root)
+    except FileNotFoundError as exc:
+        parser.error(str(exc))
+    result = cleanup_unplanned_items(resolved)
+    print(f"CLEANUP items: {resolved}")
+    print(json.dumps(result, indent=2, sort_keys=True))
+    return 0
+
+
 def _manifest_records(corpora_root: Path) -> dict[str, dict[str, Any]]:
     """The acquisition manifest's records keyed by source_id ({} when there is none)."""
     manifest_path = corpora_root / "manifest.json"
@@ -1471,12 +1492,13 @@ def _ship_file_filter(args: argparse.Namespace) -> set[tuple[str, str]] | None:
     return excluded_files
 
 
-def main() -> int:
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--dry-run", action="store_true")
     mode.add_argument("--ship", action="store_true")
     mode.add_argument("--verify", action="store_true")
+    mode.add_argument("--delete-unplanned", action="store_true")
     parser.add_argument(
         "--sources-root", type=Path, default=Path("/Volumes/data01/portal5_hunt/sources")
     )
@@ -1499,7 +1521,7 @@ def main() -> int:
     parser.add_argument(
         "--items",
         type=Path,
-        help="dry-run items.json; omit to use the latest report under --output-root",
+        help="plan items.json; omit to use the latest report under --output-root",
     )
     parser.add_argument(
         "--only-previously-excluded",
@@ -1509,8 +1531,15 @@ def main() -> int:
     parser.add_argument(
         "--lab-census", action="store_true", help="include read-only portal5_lab cousin counts"
     )
+    return parser
+
+
+def main() -> int:
+    parser = _build_parser()
     args = parser.parse_args()
     _validate_ship_args(args, parser)
+    if args.delete_unplanned:
+        return _run_delete_unplanned(args.items, args.output_root, parser)
     if args.verify:
         return _run_verify(args.items, args.output_root, parser)
 
@@ -1576,6 +1605,8 @@ def main() -> int:
         if scan["totals"].get("events", 0) != sum(scan["by_publisher"].values()):
             print("[BLOCKED] event census did not reconcile", file=sys.stderr)
             return 2
+        cleanup = cleanup_unplanned_items(output / "items.json")
+        print(json.dumps({"mode": "UNPLANNED_CLEANUP", **cleanup}, sort_keys=True))
         excluded_files = {(str(row["publisher"]), str(row["path"])) for row in scan["read_errors"]}
         included_files = _ship_file_filter(args)
         shipped = ship_inputs(files_by_publisher, excluded_files, included_files)
