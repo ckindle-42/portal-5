@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""WFE canary — one live row per workload before a long campaign may start.
+"""WFE canary — one live row per arm before a long campaign may start.
 
 realuse_v1 burned four campaign attempts on setup failures that each showed in
 exactly one live row: a 0 s BLOCKED on a missing tool, "file not found" from
@@ -21,6 +21,15 @@ that workspace. An instrument-error row (HARNESS_ERROR) exits 1. Whole-run
 faults (no row selected, ABORT, FIXTURES, CONFORMANCE, gate refused) exit 1.
 Reached
 through `wfe_campaign.sh <id> ... --canary` (job specs: a `canary: <step>` step).
+
+Every arm runs its row on the same task, and the gate fails when any arm
+cannot freeze an identity, is served on another build than it froze, or
+produces no row — the three ways a campaign dies on an arm the canary never
+touched (gemma26b 2026-11-06: rerouted seats, an oMLX failover, a 0-row
+challenger). The manifest records each arm's frozen identity; the summary
+prints `ARM <label> backend=<b> model=<m> outcome=<o>` per arm and
+`ENGINE PARITY: same|MIXED (<backends>)`. MIXED is a WARN unless the plan
+sets `engine_parity: required`.
 
 A fault appended once is SETUP forever: `--record-fault SIG --cause TEXT --fix SHA`
 writes setup_faults.jsonl (override the path with WFE_SETUP_FAULTS; tests must).
@@ -66,6 +75,9 @@ _SCOPE_REFUSAL_PATH = re.compile(re.escape(_SCOPE_REFUSAL) + r":\s*([^'\"`\n|]+)
 _LEDGER_NARROW = _MISSING_FILE + _TOOL_INFRA + (_SCOPE_REFUSAL,)
 #: A 0-second row never reached a model — the instrument refused it.
 _UNRUN_STATES = frozenset({"PENDING", "MISSING", "SKIPPED_DECIDED", "NO_ROW"})
+#: A selected arm row that ended in one of these produced no measurement. NO_ROW
+#: is excluded: that stub is a workload-level fault on the SETUP exclusion path.
+_ARM_NO_ROW_STATES = frozenset({"PENDING", "MISSING", "SKIPPED_DECIDED"})
 
 
 def canary_campaign_id(cid: str) -> str:
@@ -81,15 +93,15 @@ def _task_exercise(task: dict) -> tuple[bool, bool]:
 
 
 def select_rows(plan_path: Path, tier: str, workspace: str | None = None) -> list[dict]:
-    """One incumbent row per workload, preferring tasks that exercise fixtures
-    AND tool grounding, then tool grounding, then fixtures, then the first
-    home task. A workload with no eligible row gets a NO_ROW stub so the gate
-    reports it instead of skipping it. `workspace` scopes the list to that one
-    workload, so a scoped canary lists nothing outside its scope."""
+    """One row per arm per workload — the incumbent and every challenger — all on
+    the same task, chosen from the incumbent pool by preferring tasks that
+    exercise fixtures AND tool grounding, then tool grounding, then fixtures,
+    then the first home task. A workload with no incumbent row gets a NO_ROW
+    stub so the gate reports it instead of skipping it. `workspace` scopes the
+    list to that one workload, so a scoped canary lists nothing outside its scope."""
     matrix = camp.expand_matrix(plan_path, 1, False, None, None, None, workspace, tier)
-    incumbent = [r for r in matrix if r.get("arm_role") == "incumbent"]
     by_ws: dict[str, list[dict]] = {}
-    for r in incumbent:
+    for r in matrix:
         by_ws.setdefault(r["workspace"], []).append(r)
     plan = yaml.safe_load(plan_path.read_text()) or {}
     out: list[dict] = []
@@ -98,16 +110,24 @@ def select_rows(plan_path: Path, tier: str, workspace: str | None = None) -> lis
         # Out of scope: its NO_ROW stub would be classed SETUP and exclude a never-run workspace.
         if workspace and ws != workspace:
             continue
-        pool = [r for r in by_ws.get(ws, []) if r.get("is_home")] or by_ws.get(ws, [])
-        if not pool:
+        rows = by_ws.get(ws, [])
+        incumbents = [r for r in rows if r.get("arm_role") == "incumbent"]
+        if not incumbents:
             out.append(_no_row_stub(plan_path, plan, ws))
             continue
+        pool = [r for r in incumbents if r.get("is_home")] or incumbents
         best, best_key = pool[0], _task_exercise(_task_of(pool[0], tasks))
         for r in pool[1:]:
             key = _task_exercise(_task_of(r, tasks))
             if key > best_key:
                 best, best_key = r, key
-        out.append(best)
+        chosen = (best["suite"], best["task_id"], best["repeat"])
+        for role in ("incumbent", "challenger"):
+            out += [
+                r
+                for r in rows
+                if r.get("arm_role") == role and (r["suite"], r["task_id"], r["repeat"]) == chosen
+            ]
     return out
 
 
@@ -439,7 +459,7 @@ def run_canary(argv: list[str] | None = None) -> int:
     recorded = _record_mode(args, extra, ap)
     if recorded is not None:
         return recorded
-    # wfe_campaign.sh forwards these; the canary already reruns its one incumbent row.
+    # wfe_campaign.sh forwards these; the canary already reruns its one row per arm.
     forwarded = {"--judge", "--fresh-incumbent"}
     if [tok for tok in extra if tok not in forwarded]:
         ap.error(f"unrecognized arguments: {' '.join(extra)}")
@@ -447,6 +467,10 @@ def run_canary(argv: list[str] | None = None) -> int:
         ap.error("--campaign-id is required")
     cid = canary_campaign_id(args.campaign_id)
     plan = Path(args.plan)
+    parity_key = (yaml.safe_load(plan.read_text()) or {}).get("engine_parity")
+    if parity_key not in (None, "required"):
+        print(f"CANARY {cid}: SETUP — engine_parity must be 'required', not {parity_key!r}")
+        return 1
     selected = select_rows(plan, args.tier, args.workspace)
     if not selected:
         print(f"CANARY {cid}: SETUP — no incumbent row selected (plan {plan})")
@@ -489,16 +513,102 @@ def run_canary(argv: list[str] | None = None) -> int:
             fresh_incumbent=True,
         )
     records = _records_for(cd, selected)
+    arms = _arm_records(cd, selected)
+    manifest = camp.load_manifest(cd)
+    manifest["arms"] = [
+        {k: a[k] for k in ("workspace", "arm", "frozen", "served", "outcome")} for a in arms
+    ]
+    camp.save_manifest(cd, manifest)
     _print_table(records)
-    return _canary_exit(cid, cd, records)
+    return _canary_exit(cid, cd, records, arms, parity_key == "required")
 
 
-def _canary_exit(cid: str, cd: Path, records: list[dict]) -> int:
-    """Fail the gate on HARNESS_ERROR; other SETUP rows are excluded and the gate still passes."""
+def _arm_records(cd: Path, selected: list[dict]) -> list[dict]:
+    """Per-arm canary records: each arm's frozen identity, what served its row,
+    the drift between them, and the row outcome."""
+    manifest = camp.load_manifest(cd)
+    stubs = {r["run_id"]: r for r in manifest["rows"]}
+    out = []
+    for r in selected:
+        stub = stubs.get(r["run_id"], r)
+        path = camp._row_path(cd, r["run_id"])
+        measured = json.loads(path.read_text()) if path.is_file() else {}
+        merged = {**stub, **measured}
+        out.append(
+            {
+                "workspace": r["workspace"],
+                "arm": r["arm"],
+                "frozen": camp.frozen_identity(manifest, stub),
+                "served": merged.get("identity"),
+                "drift": camp.identity_drift(manifest, stub, merged),
+                "outcome": merged.get("outcome") or merged.get("state") or "PENDING",
+            }
+        )
+    return out
+
+
+def _arm_failure(arm: dict) -> str | None:
+    """Why this arm fails the gate, or None: (a) no frozen identity, (b) served on
+    another build than it froze, (c) no row produced. A NO_ROW stub is a
+    workload-level fault and stays on the SETUP exclusion path."""
+    if arm["outcome"] == "NO_ROW":
+        return None
+    if arm["frozen"] is None:
+        return "cannot freeze an identity"
+    if arm["drift"]:
+        return f"served on another build: {arm['drift']}"
+    if arm["outcome"] in _ARM_NO_ROW_STATES:
+        return f"produced no row ({arm['outcome']})"
+    return None
+
+
+def _parity_line(arms: list[dict]) -> tuple[str, bool]:
+    """(`ENGINE PARITY` line, MIXED?) over each arm's frozen (else served) backend.
+    Two backend ids on one daemon are one engine (`_identity_group`)."""
+    idents = [i for i in (a["frozen"] or a["served"] for a in arms) if i]
+    if not idents or len({camp._identity_group(i) for i in idents}) == 1:
+        return "ENGINE PARITY: same", False
+    backends = sorted({str(i.get("backend") or "-") for i in idents})
+    return f"ENGINE PARITY: MIXED ({', '.join(backends)})", True
+
+
+def _canary_exit(
+    cid: str,
+    cd: Path,
+    records: list[dict],
+    arms: list[dict],
+    parity_required: bool,
+) -> int:
+    """Fail the gate on an arm that cannot freeze or serve its frozen identity or
+    produced no row, on MIXED engines under engine_parity: required, or on
+    HARNESS_ERROR; other SETUP rows are excluded and the gate still passes."""
+    for a in arms:
+        ident = a["frozen"] or a["served"] or {}
+        print(
+            f"ARM {a['workspace']}/{a['arm']} backend={ident.get('backend') or '-'} "
+            f"model={ident.get('model') or '-'} outcome={a['outcome']}"
+        )
+    parity, mixed = _parity_line(arms)
+    print(parity + (" WARN" if mixed and not parity_required else ""))
+    bad = [(a, why) for a in arms if (why := _arm_failure(a))]
+    parity_fail = mixed and parity_required
+    if bad or parity_fail:
+        for a, why in bad:
+            print(f"ARM FAIL {a['workspace']}/{a['arm']}: {why}")
+        if parity_fail:
+            print(f"ENGINE PARITY FAIL: {parity} — plan sets engine_parity: required")
     instrument = [r for r in records if str(r.get("outcome") or "") == "HARNESS_ERROR"]
     if instrument:
         n = len(instrument)
         print(f"CANARY {cid}: FAIL ({n} instrument-error row(s) of {len(records)})")
+        return 1
+    if bad or parity_fail:
+        verdict = []
+        if bad:
+            verdict.append(f"{len(bad)} arm failure(s) of {len(arms)}")
+        if parity_fail:
+            verdict.append("engine parity required")
+        print(f"CANARY {cid}: FAIL ({'; '.join(verdict)})")
         return 1
     setup = [r for r in records if r["class"] == SETUP]
     _write_exclusions(cd, setup)

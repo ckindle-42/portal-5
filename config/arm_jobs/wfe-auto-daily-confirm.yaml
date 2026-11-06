@@ -4,7 +4,8 @@ purpose: >-
   Nemotron 3.5 Lightning 30B and Qwen3.8 27B, both at card sampling. The prior cell
   (realuse_s5s7s10_20261030b) was 1/14, 7/14, and 8/14, and the 0.07 interval overlapped
   0.50. The plan sets repeats to 4 (7 tasks, n=28) so those expected rates separate.
-  The canary runs one incumbent row; the report and the judge council follow the campaign.
+  The canary runs one row per arm (incumbent and challengers); the report and the judge
+  council follow the campaign.
 preconditions:
   stack: up
   free_memory_gib: 24
