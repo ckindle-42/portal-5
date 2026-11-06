@@ -30,6 +30,7 @@ EXPECTED = {
     "compliance-recapture",
     "bully-r0b-real-dryrun",
     "bully-r0b-ship",
+    "bully-r0b-delete-unplanned",
     "wfe-fast-baseline",
     "wfe-realuse-rest",
     "wfe-realuse-autocoding-ab",
@@ -90,6 +91,7 @@ def test_repo_only_steps_run_without_a_quiet_host_and_campaign_steps_keep_it(pat
     lab_only = {
         ("scripts/corpus_reingest.py", "--ship"),
         ("scripts/corpus_reingest.py", "--verify"),
+        ("scripts/corpus_reingest.py", "--delete-unplanned"),
     }
     for step in _spec(path).steps:
         is_repo_only = step.argv[:4] == ("uv", "run", "python", "-m") and step.argv[4] in repo_only

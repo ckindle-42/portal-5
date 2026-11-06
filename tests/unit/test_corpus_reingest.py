@@ -515,6 +515,47 @@ def test_delete_cousins_uses_the_builtin_role_and_never_deletes_it(monkeypatch: 
     assert calls == ["grant:can_delete", "delete", "revoke:can_delete"]
 
 
+def test_delete_unplanned_p5_items_removes_only_ids_absent_from_plan(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    planned_id = "0123456789abcdef"
+    extra_id = "c518e9f6dea1de46"
+    plan = tmp_path / "items.json"
+    plan.write_text(json.dumps({"items": {planned_id: {}}}), encoding="utf-8")
+    searches: list[str] = []
+    responses = iter(
+        [
+            [
+                {"p5_item": planned_id, "count": 5},
+                {"p5_item": extra_id, "count": 8947},
+            ],
+            [],
+            [{"p5_item": planned_id, "count": 5}],
+        ]
+    )
+    roles = {"roles": ["admin"], "imported_roles": []}
+    monkeypatch.setattr(
+        lab_delete_cousins,
+        "export_rows",
+        lambda search: searches.append(search) or next(responses),
+    )
+    monkeypatch.setattr(lab_delete_cousins, "account_roles", lambda username="admin": roles)
+    monkeypatch.setattr(lab_delete_cousins, "role_exists", lambda role: True)
+    monkeypatch.setattr(lab_delete_cousins, "add_imported_role", lambda username, role: None)
+    monkeypatch.setattr(lab_delete_cousins, "remove_imported_role", lambda username, role: None)
+
+    result = reingest.cleanup_unplanned_items(plan)
+
+    assert result == {
+        "index": "labelled_corpus",
+        "deleted_item_ids": [extra_id],
+        "deleted_events": 8947,
+        "remaining_unplanned_item_ids": [],
+    }
+    assert searches[1] == ('search index=labelled_corpus (p5_item="c518e9f6dea1de46") | delete')
+    assert planned_id not in searches[1]
+
+
 def test_scan_inputs_counts_fallback_unknown_and_residual_leak(tmp_path: Path) -> None:
     event_path = tmp_path / "sample.jsonl"
     event_path.write_text('{"eventName":"ListUsers"}\n', encoding="utf-8")
@@ -645,7 +686,16 @@ def _configure_ship_main(
     )
     monkeypatch.setattr(reingest, "_report_blocked_sources", lambda facts: False)
     monkeypatch.setattr(reingest, "publisher_files", lambda publisher, path: files)
-    monkeypatch.setattr(reingest, "write_report", lambda output_root, *args: output_root)
+
+    def write_report(output_root: Path, *args: Any) -> Path:
+        output_root.mkdir(parents=True, exist_ok=True)
+        (output_root / "items.json").write_text(
+            json.dumps({"items": args[1]["items"]}), encoding="utf-8"
+        )
+        return output_root
+
+    monkeypatch.setattr(reingest, "write_report", write_report)
+    monkeypatch.setattr(reingest, "cleanup_unplanned_items", lambda items_path: {})
     monkeypatch.setattr(
         reingest,
         "ship_inputs",
@@ -728,6 +778,29 @@ def test_ship_only_previously_excluded_uses_the_plan_file_set(
     assert included == [{("mordor", "recovered.jsonl")}]
 
 
+def test_ship_cleans_unplanned_items_before_ingest(tmp_path: Path, monkeypatch: Any) -> None:
+    root = tmp_path / "source"
+    _init_repo(root)
+    path = root / "current.jsonl"
+    path.write_text('{"timestamp":"2020-01-01T00:00:00Z"}\n', encoding="utf-8")
+    item = reingest.CorpusFile("mordor", "current", path, root)
+    order: list[str] = []
+    _configure_ship_main(monkeypatch, tmp_path, root, [item], [])
+    monkeypatch.setattr(
+        reingest,
+        "cleanup_unplanned_items",
+        lambda items_path: order.append(items_path.name) or {},
+    )
+    monkeypatch.setattr(
+        reingest,
+        "ship_inputs",
+        lambda *args: order.append("ship") or {},
+    )
+
+    assert reingest.main() == 0
+    assert order == ["items.json", "ship"]
+
+
 def test_verify_uses_shippable_event_count(tmp_path: Path, monkeypatch: Any) -> None:
     item_id = reingest.p5_item_id("mordor", "mixed")
     legacy_item_id = reingest.p5_item_id("mordor", "legacy")
@@ -766,6 +839,30 @@ def test_verify_uses_shippable_event_count(tmp_path: Path, monkeypatch: Any) -> 
         "ok": True,
         "mismatches": {},
         "extra_p5_items": [],
+    }
+
+
+def test_verify_fails_on_an_unplanned_p5_item(tmp_path: Path, monkeypatch: Any) -> None:
+    planned_id = "0123456789abcdef"
+    extra_id = "c518e9f6dea1de46"
+    plan = tmp_path / "items.json"
+    plan.write_text(
+        json.dumps({"items": {planned_id: {"events": 5, "missing_time": 0}}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        reingest.lab_delete_cousins,
+        "export_rows",
+        lambda query: [
+            {"p5_item": planned_id, "count": 5},
+            {"p5_item": extra_id, "count": 8947},
+        ],
+    )
+
+    assert reingest.verify_plan(plan) == {
+        "ok": False,
+        "mismatches": {},
+        "extra_p5_items": [extra_id],
     }
 
 

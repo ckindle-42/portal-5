@@ -1,0 +1,37 @@
+# One-off: delete labelled_corpus p5 items that the latest fidelity plan does not name.
+# The ship step now performs this cleanup itself; this job exists for the current leak only.
+# corpus_reingest --delete-unplanned with no --items reads the latest report's items.json.
+id: bully-r0b-delete-unplanned
+purpose: "Remove labelled_corpus p5 items absent from the latest fidelity plan"
+preconditions:
+  stack: up
+  free_memory_gib: 1
+  disk_free_gib: 0
+steps:
+  - id: delete-unplanned
+    idempotent: false
+    argv:
+      - uv
+      - run
+      - python
+      - scripts/corpus_reingest.py
+      - --delete-unplanned
+    timeout_seconds: 1800
+    # Lab-side Splunk deletion, not a measurement: lanes may run alongside.
+    quiet_host: false
+    env_from_dotenv:
+      - LAB_SPLUNK_URL
+      - LAB_SPLUNK_USER
+      - LAB_SPLUNK_PASSWORD
+outputs:
+  - ~/AI_Output/portal-data/reports/review_eval/corpus_fidelity
+stop_conditions:
+  on_failure: stop
+  max_job_minutes: 40
+report:
+  fields:
+    - status
+    - steps
+    - outputs
+    - failures
+    - duration
