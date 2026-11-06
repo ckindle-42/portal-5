@@ -1,4 +1,4 @@
-# The six persona fallback lists remain on plain Gemma until this 8k image A/B is reviewed.
+# The six persona fallback lists remain on plain Gemma until this image A/B is reviewed (both arms 32k).
 repeats: 4
 workloads:
   auto-vision:
@@ -11,6 +11,6 @@ workloads:
         label: seat-sampling
         sampling: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.05, presence_penalty: 0.0, repeat_penalty: 1.0}
       challengers:
-        - model: gemma4:26b-a4b-it-qat-ctx8k
+        - model: gemma4:26b-a4b-it-qat-ctx32k
           label: seat-sampling
           sampling: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.05, presence_penalty: 0.0, repeat_penalty: 1.0}

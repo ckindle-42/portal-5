@@ -14,9 +14,7 @@ steps:
       - --plan
       - tests/wfe/plans/realuse_v1_documents_qat_omlx.yaml
       - --tier
-      - confirm
-      - --repeats
-      - "4"
+      - realuse
       - --engine
       - pipeline
     timeout_seconds: 14400

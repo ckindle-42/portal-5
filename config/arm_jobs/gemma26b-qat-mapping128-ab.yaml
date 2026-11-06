@@ -14,9 +14,7 @@ steps:
       - --plan
       - tests/wfe/plans/gemma26b_qat_mapping128k_20261106.yaml
       - --tier
-      - confirm
-      - --repeats
-      - "4"
+      - realuse
       - --engine
       - pipeline
     timeout_seconds: 43200
