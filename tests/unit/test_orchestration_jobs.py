@@ -478,6 +478,63 @@ def test_resume_skips_done_steps_and_rerun_forces_one_step(tmp_path: Path, repo:
     assert counter.read_text(encoding="utf-8") == "2"
 
 
+def test_resumed_job_with_a_two_day_old_first_start_runs_under_a_fresh_budget(
+    tmp_path: Path, repo: Path
+) -> None:
+    script = _python_script(repo, "ok.py", "print('ok')\n")
+    spec = _spec(repo, [script], stop_conditions={"max_job_minutes": 30})
+    old = (datetime.now(UTC) - timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    job_dir = tmp_path / "tasks" / spec.job_id
+    job_dir.mkdir(parents=True)
+    (job_dir / "job_state.json").write_text(
+        json.dumps(
+            {
+                "job_id": spec.job_id,
+                "created_at": old,
+                "updated_at": old,
+                "first_started_at": old,
+                "run_count": 4,
+                "steps": {"one": {"state": "pending", "attempts": 1, "history": []}},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = _runner(tmp_path, repo).run(spec)
+
+    assert result.status == "PASS", result.reason
+    receipt = _receipt(tmp_path / "tasks")
+    assert receipt["first_started_at"] == old
+    assert receipt["run_started_at"] != old
+    state = json.loads((job_dir / "job_state.json").read_text(encoding="utf-8"))
+    assert state["first_started_at"] == old
+    assert state["run_started_at"] == receipt["run_started_at"]
+    started = datetime.strptime(state["run_started_at"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+    assert datetime.now(UTC) - started < timedelta(minutes=2)
+
+
+def test_one_attempt_that_exceeds_max_job_minutes_stops(tmp_path: Path, repo: Path) -> None:
+    script = _python_script(repo, "long.py", "import time\ntime.sleep(30)\n")
+    spec = parse_job_spec(
+        _raw_spec(
+            [script],
+            steps=[{"id": "one", "argv": [script], "timeout_seconds": 30}],
+            stop_conditions={"max_job_minutes": 0.02},
+        ),
+        repo_root=repo,
+    )
+
+    result = _runner(tmp_path, repo).run(spec)
+
+    assert result.status == "STOPPED", result.reason
+    assert result.reason == "job exceeded max_job_minutes=0.02"
+    receipt = _receipt(tmp_path / "tasks")
+    assert receipt["steps"][0]["state"] == "stopped"
+    assert receipt["first_started_at"]
+    assert receipt["first_started_at"] == receipt["run_started_at"]
+
+
 def test_non_idempotent_rerun_requires_force(tmp_path: Path, repo: Path) -> None:
     marker = tmp_path / "ship-count"
     script = _python_script(
