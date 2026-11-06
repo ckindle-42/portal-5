@@ -69,7 +69,8 @@ def test_same_task_id_in_two_suites_is_two_tasks():
 
 def test_floor_counts_compared_tasks_not_rows():
     inc, cand = arms(29, "FFF", "PPP")
-    assert dc.confirm(rows(inc), rows(cand), ids(29)).verdict == dc.NO_DECISION
+    cell = dc.confirm(rows(inc), rows(cand), ids(29))
+    assert cell.verdict == dc.NO_DECISION and cell.reason.startswith("below-floor:")
 
 
 def test_clear_win_is_better():
@@ -146,12 +147,19 @@ def test_curtail_waits_when_a_remaining_task_can_change_the_verdict():
     assert dc.curtail(rows(inc_spec), rows(cand_spec), expected, completed) is None
 
 
-def test_curtail_stops_when_the_decision_floor_cannot_be_met():
-    expected = ids(12)
-    inc = rows(dict.fromkeys((f"t{i}" for i in range(12)), "FFF"))
-    cell = dc.curtail(inc, [], expected, set())
+def test_curtail_runs_a_plan_that_cannot_reach_the_floor():
+    expected = ids(10)
+    inc = rows(dict.fromkeys((f"t{i}" for i in range(10)), "FFF"))
+    assert dc.curtail(inc, [], expected, set()) is None
+
+
+def test_curtail_stops_when_exclusions_drop_a_reachable_floor():
+    expected = ids(36)
+    inc = rows(dict.fromkeys((f"t{i}" for i in range(36)), "FFF"))
+    fixed = {(S, f"t{i}") for i in range(8)}
+    cell = dc.curtail(inc, [], expected, set(), fixed_excluded=fixed)
     assert cell.verdict == dc.NO_DECISION
-    assert "at most 12" in cell.reason
+    assert "at most 28" in cell.reason
 
 
 def test_screen_uses_repeat_zero_and_drops_only_on_a_clear_margin():

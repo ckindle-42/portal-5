@@ -111,7 +111,7 @@ def confirm(
     if len(pairs) < DECISION_FLOOR:
         return Cell(
             NO_DECISION,
-            f"floor: {len(pairs)} < {DECISION_FLOOR} compared tasks",
+            f"below-floor: {len(pairs)} < {DECISION_FLOOR} compared tasks",
             len(pairs),
             excluded=excluded,
         )
@@ -196,6 +196,32 @@ def _curtail_verdict(wins, losses, arguable_wins, arguable_losses, excluded, exp
     return (BETTER if lead else WORSE), p_worst
 
 
+def _plan_below_floor(expected: set) -> bool:
+    """True when the plan's task count cannot reach the decision floor."""
+    return len(expected) < DECISION_FLOOR
+
+
+def _curtail_lost_floor(expected, inc_scores, pairs, completed, fixed_excluded, wins, losses, ties):
+    """NO_DECISION once exclusions leave a large enough plan short of the floor."""
+    candidate_fixed_excluded = sum(
+        task in inc_scores and task not in pairs for task in completed | fixed_excluded
+    )
+    max_compared = min(len(inc_scores), len(expected)) - candidate_fixed_excluded
+    if max_compared >= DECISION_FLOOR:
+        return None
+    return Cell(
+        NO_DECISION,
+        f"floor: at most {max_compared} of {len(expected)} compared tasks; "
+        f"{DECISION_FLOOR} required",
+        len(pairs),
+        wins,
+        losses,
+        ties,
+        sign_test_p(wins, losses),
+        dict.fromkeys(expected - completed, "not completed"),
+    )
+
+
 def curtail(
     inc_rows: list[dict],
     cand_rows: list[dict],
@@ -223,25 +249,14 @@ def curtail(
     pairs, _ = pair(inc_rows, cand_complete, expected, repeats)
     cand_scores, _ = task_scores(cand_complete, repeats)
     wins, losses, ties = _counts(pairs)
-
-    # If even a perfectly gradeable completion cannot reach the floor, the full
-    # campaign verdict is already fixed at NO_DECISION.
-    candidate_fixed_excluded = sum(
-        task in inc_scores and task not in pairs for task in completed | fixed_excluded
+    # A plan that cannot reach the floor runs in full; confirm() reports below-floor.
+    if _plan_below_floor(expected):
+        return None
+    lost = _curtail_lost_floor(
+        expected, inc_scores, pairs, completed, fixed_excluded, wins, losses, ties
     )
-    max_compared = min(len(inc_scores), len(expected)) - candidate_fixed_excluded
-    if max_compared < DECISION_FLOOR:
-        return Cell(
-            NO_DECISION,
-            f"floor: at most {max_compared} of {len(expected)} compared tasks; "
-            f"{DECISION_FLOOR} required",
-            len(pairs),
-            wins,
-            losses,
-            ties,
-            sign_test_p(wins, losses),
-            dict.fromkeys(expected - completed, "not completed"),
-        )
+    if lost is not None:
+        return lost
 
     fixed_arg = {task for task in pairs if task in arguable}
     cand_arg = {task: cand_scores[task] - inc_scores[task] for task in fixed_arg}
