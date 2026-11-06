@@ -1493,6 +1493,29 @@ def _execute_calls(calls: list, turn: int, sandbox: Sandbox, tool_log: list, mes
     return errors
 
 
+def _unscored_tool_row(
+    task: dict, outcome: Outcome, notes: str, evidence: dict
+) -> tuple[Outcome, str, dict]:
+    """A tool this evaluation cannot run safely is an instrument gap, not a model FAIL."""
+    scope = task.get("_eval") or {}
+    queries = scope.get("web_search_queries")
+    if queries:
+        evidence = {**evidence, "web_search_queries": list(queries)}
+    excluded = scope.get("scoring_excluded")
+    if not excluded or outcome is Outcome.HARNESS_ERROR:
+        return outcome, notes, evidence
+    why = "; ".join(f"{item['tool']}: {item['reason']}" for item in excluded)
+    return (
+        Outcome.BLOCKED,
+        f"excluded from scoring ({why}) | {notes}",
+        {
+            **evidence,
+            "scoring_excluded": list(excluded),
+            "checker_outcome": evidence.get("checker_outcome", outcome.value),
+        },
+    )
+
+
 def _classify(
     task: dict,
     ctx: CheckContext,
@@ -1508,12 +1531,14 @@ def _classify(
         note = (
             transcript[-1].get("harness_error", "harness error") if transcript else "harness error"
         )
-        return Outcome.HARNESS_ERROR, note, {}
+        return _unscored_tool_row(task, Outcome.HARNESS_ERROR, note, {})
     if override is Outcome.FAIL and transcript and "malformed_tool_call" in transcript[-1]:
         # Checkers would grade the half-finished trace; the seat's failure is the malformed call.
-        return (
+        return _unscored_tool_row(
+            task,
             Outcome.FAIL,
-            f"malformed tool call (engine rejected the model's output): {transcript[-1]['malformed_tool_call'][-160:]}",
+            "malformed tool call (engine rejected the model's output): "
+            + transcript[-1]["malformed_tool_call"][-160:],
             {},
         )
     cr = graded if graded is not None else apply_checkers(task, ctx)
@@ -1529,7 +1554,7 @@ def _classify(
     if outcome == Outcome.FAIL and tool_log and tool_errors == len(tool_log):
         outcome = Outcome.TOOL_ERROR
         notes = "every tool call errored — instrument suspect | " + notes
-    return outcome, notes, evidence
+    return _unscored_tool_row(task, outcome, notes, evidence)
 
 
 def _empty_result(outcome: Outcome, notes: str) -> dict:
