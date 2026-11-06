@@ -9,9 +9,8 @@ mid-generation is listed); other engines need their own probe.
 This module is the single place that knows which probe applies to which
 backend ``type`` — the streaming/non-streaming paths call
 ``model_still_running`` instead of hardcoding ``/api/ps`` (P5-FUT-013
-Phase 1: oMLX has no ``/api/ps`` equivalent on its OpenAI surface; its
-loaded/active state lives behind the admin API, which requires auth — see
-the note in ``_omlx_engine_reachable``).
+Phase 1: Ollama uses ``/api/ps`` and oMLX uses its authenticated
+``/v1/models/status`` endpoint).
 """
 
 from __future__ import annotations
@@ -44,7 +43,7 @@ async def model_still_running(backend_url: str, timeout_s: float = 5.0) -> bool:
     """
     base = backend_url.split("/v1/")[0]
     if _backend_type_for_url(base) == "omlx":
-        return await _omlx_engine_reachable(base, timeout_s)
+        return await _omlx_model_loaded(base, timeout_s)
     # Ollama and every other type keep the legacy /api/ps semantics.
     return await _ollama_model_loaded(base, timeout_s)
 
@@ -114,22 +113,17 @@ async def loaded_models(timeout_s: float = 2.0) -> set[str]:
     return names
 
 
-async def _omlx_engine_reachable(base_url: str, timeout_s: float) -> bool:
-    """oMLX probe: engine reachable ⇒ treat as busy; unreachable ⇒ down.
-
-    oMLX serves loaded-model state only via the authenticated admin API
-    (``/admin/api/models``); wiring an admin key into the pipeline is B3
-    scope. Until then the honest degraded semantic is a liveness check on
-    the OpenAI surface: an engine that answers ``/v1/models`` is up and the
-    timeout is almost certainly a long generation (single-user workloads,
-    no queue dropping), so the user-facing "may still be generating" path
-    applies; an engine that does not answer is down, and the caller
-    cascades to the next candidate.
-    """
+async def _omlx_model_loaded(base_url: str, timeout_s: float) -> bool:
+    """Use oMLX's authenticated status endpoint to find a resident model."""
     try:
         async with httpx.AsyncClient(timeout=timeout_s, auth=OmlxKeyAuth()) as client:
-            resp = await client.get(f"{base_url}/v1/models")
-            return resp.status_code == 200
+            resp = await client.get(f"{base_url}/v1/models/status")
+            if resp.status_code != 200:
+                return False
+            return any(
+                isinstance(model, dict) and model.get("loaded")
+                for model in (resp.json().get("models") or [])
+            )
     except Exception:
         return False
 

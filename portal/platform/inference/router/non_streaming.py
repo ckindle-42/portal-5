@@ -827,6 +827,13 @@ async def _final_toolless_answer(
     return data, started
 
 
+def _request_timeout_for(backend: Any, workspace_config: dict[str, Any]) -> float:
+    timeout = getattr(registry, "request_timeout", 300.0)
+    if workspace_config.get("emits_reasoning") or backend.type == "omlx":
+        timeout = max(timeout, 600.0)
+    return timeout
+
+
 async def _try_non_streaming(
     backend: Any,
     body: dict[str, Any],
@@ -988,12 +995,8 @@ async def _try_non_streaming(
             target_model,
         )
 
-    # Per-request timeout: reasoning workspaces get extra runway since their
-    # chain-of-thought generation routinely exceeds the default window.
-    # registry.request_timeout is loaded from backends.yaml defaults.request_timeout.
-    _req_timeout = getattr(registry, "request_timeout", 300.0)
-    if ws_cfg.get("emits_reasoning"):
-        _req_timeout = max(_req_timeout, 600.0)
+    # oMLX prefill and reasoning requests get at least 600s; others use the registry timeout.
+    _req_timeout = _request_timeout_for(backend, ws_cfg)
     _timeout_obj = httpx.Timeout(_req_timeout, connect=5.0)
 
     req_body = {**body, "model": target_model, "stream": False}

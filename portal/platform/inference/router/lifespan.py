@@ -331,10 +331,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Pre-create Prometheus multiproc dir at startup so workers don't race.
     if mp_dir := os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
         os.makedirs(mp_dir, exist_ok=True)
-    # Shared client: the 600s body timeout is the absolute upper bound — per-request
-    # timeouts in _try_non_streaming are the operative control, and reasoning
-    # workspaces get 600s per-request. Connect stays 5s — local backends should
-    # bind immediately.
+    # Streaming uses a 600s read idle timeout; non-streaming applies request-specific sizing.
+    # Connect stays 5s because local backends should bind immediately.
     registry = BackendRegistry()
     _guard = LoadGuard(
         omlx_url=lambda: next((b.url for b in registry.list_backends() if b.type == "omlx"), None),
