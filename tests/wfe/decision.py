@@ -87,8 +87,19 @@ def sign_test_p(wins: int, losses: int) -> float:
     return min(1.0, 2 * sum(comb(n, i) for i in range(min(wins, losses) + 1)) / 2**n)
 
 
-def _counts(pairs: dict) -> tuple[int, int, int]:
-    d = [c - i for i, c in pairs.values()]
+def _validated_margin(non_inferiority_margin: float) -> float:
+    if (
+        isinstance(non_inferiority_margin, bool)
+        or not isinstance(non_inferiority_margin, (int, float))
+        or not 0 <= non_inferiority_margin < 1
+    ):
+        raise ValueError("non-inferiority margin must be in [0, 1)")
+    return float(non_inferiority_margin)
+
+
+def _counts(pairs: dict, non_inferiority_margin: float = 0.0) -> tuple[int, int, int]:
+    margin = _validated_margin(non_inferiority_margin)
+    d = [c - i + margin for i, c in pairs.values()]
     return sum(x > 0 for x in d), sum(x < 0 for x in d), sum(x == 0 for x in d)
 
 
@@ -98,8 +109,10 @@ def confirm(
     expected: set,
     repeats: int = 3,
     arguable: set | frozenset = frozenset(),
+    non_inferiority_margin: float = 0.0,
 ) -> Cell:
     """The confirm-tier verdict for one (candidate, workspace) cell."""
+    margin = _validated_margin(non_inferiority_margin)
     pairs, excluded = pair(inc_rows, cand_rows, expected, repeats)
     if not expected or len(excluded) / len(expected) > MAX_EXCLUDED_FRAC:
         return Cell(
@@ -115,20 +128,30 @@ def confirm(
             len(pairs),
             excluded=excluded,
         )
-    w, lo, t = _counts(pairs)
+    w, lo, t = _counts(pairs, margin)
     p = sign_test_p(w, lo)
+    prefix = f"non-inferiority margin={margin:g}; " if margin else ""
     if p >= ALPHA:
-        return Cell(NOT_SEPARATED, f"sign test p={p:.3f}", len(pairs), w, lo, t, p, excluded)
+        return Cell(
+            NOT_SEPARATED,
+            f"{prefix}sign test p={p:.3f}",
+            len(pairs),
+            w,
+            lo,
+            t,
+            p,
+            excluded,
+        )
     lead = w > lo
     worst = {
         k: ((1.0, 0.0) if lead else (0.0, 1.0)) if k in arguable else v for k, v in pairs.items()
     }
-    w2, l2, _ = _counts(worst)
+    w2, l2, _ = _counts(worst, margin)
     p2 = sign_test_p(w2, l2)
     if p2 >= ALPHA or (w2 > l2) != lead:
         return Cell(
             NO_DECISION,
-            f"arguable-sensitive: worst case p={p2:.3f}",
+            f"{prefix}arguable-sensitive: worst case p={p2:.3f}",
             len(pairs),
             w,
             lo,
@@ -138,7 +161,7 @@ def confirm(
         )
     return Cell(
         BETTER if lead else WORSE,
-        f"sign test p={p:.4f}; worst case p={p2:.4f}",
+        f"{prefix}sign test p={p:.4f}; worst case p={p2:.4f}",
         len(pairs),
         w,
         lo,
@@ -148,18 +171,26 @@ def confirm(
     )
 
 
-def _future_symbols(inc_scores: dict, task: tuple, repeats: int) -> tuple[str, ...]:
+def _future_symbols(
+    inc_scores: dict, task: tuple, repeats: int, non_inferiority_margin: float = 0.0
+) -> tuple[str, ...]:
     if task not in inc_scores:
         raise ValueError("future tasks require a gradeable incumbent score")
     inc_score = inc_scores[task]
     signs = {
-        "W" if score > inc_score else "L" if score < inc_score else "T"
+        "W"
+        if score - inc_score + non_inferiority_margin > 0
+        else "L"
+        if score - inc_score + non_inferiority_margin < 0
+        else "T"
         for score in (i / repeats for i in range(repeats + 1))
     }
     return tuple(sorted(signs))
 
 
-def _reachable_states(inc_scores, future, repeats, initial, arguable):
+def _reachable_states(
+    inc_scores, future, repeats, initial, arguable, non_inferiority_margin: float = 0.0
+):
     states = {initial}
     for task in future:
         is_arguable = task in arguable
@@ -172,7 +203,7 @@ def _reachable_states(inc_scores, future, repeats, initial, arguable):
                 excluded,
             )
             for w, losses, wa, la, excluded in states
-            for symbol in _future_symbols(inc_scores, task, repeats)
+            for symbol in _future_symbols(inc_scores, task, repeats, non_inferiority_margin)
         }
     return states
 
@@ -230,6 +261,7 @@ def curtail(
     repeats: int = 3,
     arguable: set | frozenset = frozenset(),
     fixed_excluded: set | frozenset = frozenset(),
+    non_inferiority_margin: float = 0.0,
 ) -> Cell | None:
     """Return the invariant confirm verdict, or None while any completion can change it.
 
@@ -239,6 +271,7 @@ def curtail(
     observed in candidate or incumbent rows count. An ungradeable incumbent task
     is excluded because the complete incumbent has already established that fact.
     """
+    margin = _validated_margin(non_inferiority_margin)
     fixed_excluded = set(fixed_excluded)
     if not expected or not completed <= expected or not fixed_excluded <= expected:
         raise ValueError("completed tasks must be a subset of a non-empty expected set")
@@ -248,7 +281,7 @@ def curtail(
     cand_complete = [r for r in cand_rows if key(r) in completed]
     pairs, _ = pair(inc_rows, cand_complete, expected, repeats)
     cand_scores, _ = task_scores(cand_complete, repeats)
-    wins, losses, ties = _counts(pairs)
+    wins, losses, ties = _counts(pairs, margin)
     # A plan that cannot reach the floor runs in full; confirm() reports below-floor.
     if _plan_below_floor(expected):
         return None
@@ -259,13 +292,13 @@ def curtail(
         return lost
 
     fixed_arg = {task for task in pairs if task in arguable}
-    cand_arg = {task: cand_scores[task] - inc_scores[task] for task in fixed_arg}
+    cand_arg = {task: cand_scores[task] - inc_scores[task] + margin for task in fixed_arg}
     wa = sum(score > 0 for score in cand_arg.values())
     la = sum(score < 0 for score in cand_arg.values())
     future = sorted((expected - completed - fixed_excluded) & inc_scores.keys())
     excluded = len(expected) - len(pairs) - len(future)
     initial = (wins - wa, losses - la, wa, la, excluded)
-    states = _reachable_states(inc_scores, future, repeats, initial, arguable)
+    states = _reachable_states(inc_scores, future, repeats, initial, arguable, margin)
 
     verdicts = set()
     worst_better_p = 0.0
@@ -307,6 +340,75 @@ def curtail(
                 (task for task in completed if task not in pairs), "ungradeable or missing"
             ),
         },
+    )
+
+
+def curtail_interleaved(
+    inc_rows: list[dict],
+    cand_rows: list[dict],
+    expected: set,
+    completed: set,
+    repeats: int = 3,
+    arguable: set | frozenset = frozenset(),
+    non_inferiority_margin: float = 0.0,
+) -> Cell | None:
+    """Return a verdict only when every completion of the paired rows agrees."""
+    margin = _validated_margin(non_inferiority_margin)
+    if not expected or not completed <= expected:
+        raise ValueError("completed tasks must be a subset of a non-empty expected set")
+    pairs, _ = pair(inc_rows, cand_rows, expected, repeats)
+    inc_scores, _ = task_scores(inc_rows, repeats)
+    cand_scores, _ = task_scores(cand_rows, repeats)
+    wins, losses, ties = _counts(pairs, margin)
+    arguable_pairs = {task for task in pairs if task in arguable}
+    arguable_wins = sum(cand_scores[t] - inc_scores[t] + margin > 0 for t in arguable_pairs)
+    arguable_losses = sum(cand_scores[t] - inc_scores[t] + margin < 0 for t in arguable_pairs)
+    future = sorted(expected - completed)
+    fixed_excluded = completed - set(pairs)
+    initial = (
+        wins - arguable_wins,
+        losses - arguable_losses,
+        arguable_wins,
+        arguable_losses,
+        len(fixed_excluded),
+    )
+    symbols = {
+        "W"
+        if candidate - incumbent + margin > 0
+        else "L"
+        if candidate - incumbent + margin < 0
+        else "T"
+        for incumbent in (i / repeats for i in range(repeats + 1))
+        for candidate in (i / repeats for i in range(repeats + 1))
+    }
+    states = {initial}
+    for task in future:
+        is_arguable = task in arguable
+        states = {
+            (
+                w + int(symbol == "W" and not is_arguable),
+                losses + int(symbol == "L" and not is_arguable),
+                wa + int(symbol == "W" and is_arguable),
+                la + int(symbol == "L" and is_arguable),
+                excluded,
+            )
+            for w, losses, wa, la, excluded in states
+            for symbol in symbols
+        }
+    verdicts = {_curtail_verdict(*state, len(expected))[0] for state in states}
+    if len(verdicts) != 1:
+        return None
+    verdict = next(iter(verdicts))
+    prefix = f"non-inferiority margin={margin:g}; " if margin else ""
+    return Cell(
+        verdict,
+        f"{prefix}curtailed: every paired completion is {verdict}",
+        len(pairs),
+        wins,
+        losses,
+        ties,
+        sign_test_p(wins, losses),
+        dict.fromkeys(fixed_excluded, "ungradeable paired rows"),
     )
 
 

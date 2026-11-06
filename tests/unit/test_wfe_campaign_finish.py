@@ -146,3 +146,184 @@ def test_record_arm_stop_appends_across_arms(tmp_path: Path) -> None:
     stops = campaign._recorded_stops(d)
     assert [s["arm"] for s in stops] == ["m1", "m2"]
     assert stops[-1]["reason"] == "second"
+
+
+def test_time_cap_is_persisted_and_named_by_finish(tmp_path: Path, monkeypatch, capsys) -> None:
+    d = _campaign_dir(tmp_path, _rows("PENDING", "PENDING"))
+    manifest = {
+        "rows": [
+            {
+                "arm": arm,
+                "arm_role": role,
+                "workspace": "ws",
+                "suite": "s",
+                "task_id": "t0",
+                "repeat": 0,
+                "run_id": arm,
+                "state": "PENDING",
+            }
+            for arm, role in (("inc", "incumbent"), ("cand", "challenger"))
+        ]
+    }
+    (d / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    monkeypatch.setattr(campaign.time, "time", lambda: 1000.0)
+
+    outs = campaign._run_interleaved_campaign(
+        d,
+        ["inc", "cand"],
+        type("Args", (), {"rerun_failed": False, "no_curtail": False, "budget_s": 1800})(),
+        {"interleave_block": 1},
+        deadline_epoch=999.0,
+    )
+
+    saved = json.loads((d / "manifest.json").read_text())
+    assert outs == [{"stopped": "time cap"}]
+    assert saved["campaign_stop"]["reason"] == "time cap"
+    assert _finish(monkeypatch, d) == campaign.EXIT_STOPPED
+    assert _last_line(capsys) == "CAMPAIGN s8: stopped (time cap) rows 0/2"
+
+
+def test_interleaved_runner_reoffers_decided_rows_when_no_curtail_is_requested(
+    tmp_path: Path, monkeypatch
+) -> None:
+    d = _campaign_dir(tmp_path, [])
+    decision_id = "cand:ws"
+    rows = [
+        {
+            "arm": arm,
+            "arm_role": role,
+            "workspace": "ws",
+            "suite": "s",
+            "task_id": "t0",
+            "repeat": 0,
+            "run_id": f"{arm}:t0",
+            "tier": "confirm",
+            "state": "SKIPPED_DECIDED",
+            **({"curtailment_id": decision_id} if arm == "cand" else {}),
+        }
+        for arm, role in (("inc", "incumbent"), ("cand", "challenger"))
+    ]
+    manifest = {
+        "rows": rows,
+        "curtailments": [{"id": decision_id, "arm": "cand", "state": "CURTAILED"}],
+    }
+    (d / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    observed = []
+
+    def run_block(campaign_dir, block, _arms, _args, _budget):
+        ids = {
+            run_id for unit in block for run_ids in unit["run_ids"].values() for run_id in run_ids
+        }
+        observed.extend(sorted(ids))
+        current = campaign.load_manifest(campaign_dir)
+        for row in current["rows"]:
+            if row["run_id"] in ids:
+                row["state"] = "PASS"
+        campaign.save_manifest(campaign_dir, current)
+        return [{"ran": len(ids)}]
+
+    monkeypatch.setattr(campaign, "_run_interleaved_block", run_block)
+    args = type("Args", (), {"no_curtail": True, "rerun_failed": False, "budget_s": 1800})()
+
+    campaign._run_interleaved_campaign(
+        d,
+        ["inc", "cand"],
+        args,
+        {"interleave_block": 1, "pilot_tasks": None},
+        deadline_epoch=time.time() + 60,
+    )
+
+    saved = campaign.load_manifest(d)
+    assert observed == ["cand:t0", "inc:t0"] or observed == ["inc:t0", "cand:t0"]
+    assert all(row["state"] == "PASS" for row in saved["rows"])
+    assert saved["curtailments"] == []
+    assert saved["curtailment_history"][0]["state"] == "RESUMED_NO_CURTAIL"
+
+
+def test_interleaved_runner_stops_after_a_persistent_preflight_block(
+    tmp_path: Path, monkeypatch
+) -> None:
+    d = _campaign_dir(tmp_path, [])
+    rows = [
+        {
+            "arm": arm,
+            "arm_role": role,
+            "workspace": "ws",
+            "suite": "s",
+            "task_id": "t0",
+            "repeat": 0,
+            "run_id": f"{arm}:t0",
+            "tier": "confirm",
+            "state": "PENDING",
+        }
+        for arm, role in (("inc", "incumbent"), ("cand", "challenger"))
+    ]
+    (d / "manifest.json").write_text(json.dumps({"rows": rows}), encoding="utf-8")
+    calls = 0
+
+    def blocked_block(campaign_dir, block, _arms, _args, _budget):
+        nonlocal calls
+        calls += 1
+        assert calls == 1, "persistent preflight blocks must not be retried in a busy loop"
+        manifest = campaign.load_manifest(campaign_dir)
+        for row in manifest["rows"]:
+            row.update(state="BLOCKED", note=campaign._PREFLIGHT_BLOCK + "stale readiness")
+        campaign.save_manifest(campaign_dir, manifest)
+        return [{"blocked": True}]
+
+    monkeypatch.setattr(campaign, "_run_interleaved_block", blocked_block)
+    args = type("Args", (), {"no_curtail": False, "rerun_failed": False, "budget_s": 1800})()
+
+    outs = campaign._run_interleaved_campaign(
+        d,
+        ["inc", "cand"],
+        args,
+        {"interleave_block": 1, "pilot_tasks": None},
+        deadline_epoch=time.time() + 60,
+    )
+
+    assert calls == 1
+    assert outs == [{"blocked": True}]
+
+
+def test_interleaved_decision_curtails_both_arms_and_stops_campaign(
+    tmp_path: Path, monkeypatch
+) -> None:
+    d = _campaign_dir(tmp_path, [])
+    rows = []
+    for i in range(40):
+        for arm, role, outcome in (
+            ("inc", "incumbent", "FAIL"),
+            ("cand", "challenger", "PASS"),
+        ):
+            rows.append(
+                {
+                    "arm": arm,
+                    "arm_role": role,
+                    "workspace": "ws",
+                    "suite": "s",
+                    "suite_path": "s.jsonl",
+                    "task_id": f"t{i}",
+                    "repeat": 0,
+                    "run_id": f"{arm}:t{i}",
+                    "tier": "confirm",
+                    "state": outcome if i < 30 else "PENDING",
+                }
+            )
+    manifest = {"campaign_id": "s8", "rows": rows, "execution": {}}
+    (d / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    monkeypatch.setattr(campaign, "load_suite", lambda _path: [])
+    monkeypatch.setattr(
+        campaign,
+        "_manifest_row_result",
+        lambda _directory, row: {**row, "outcome": row["state"]},
+    )
+
+    _new, stopped = campaign._evaluate_interleaved(d, manifest, ["inc", "cand"], 0.0)
+
+    saved = json.loads((d / "manifest.json").read_text())
+    assert stopped is True
+    assert saved["campaign_stop"]["kind"] == "decision"
+    (record,) = [r for r in saved["curtailments"] if r["arm"] == "cand"]
+    assert record["verdict"] == "BETTER"
+    assert not any(r["state"] == "PENDING" for r in saved["rows"])

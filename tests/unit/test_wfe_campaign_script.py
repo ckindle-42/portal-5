@@ -347,3 +347,157 @@ def test_a_drifted_campaign_is_archived_aside_before_the_append(tmp_path: Path) 
     assert archive_at is not None, calls
     assert archive_at < append_at
     assert "wfe_test" in " ".join(calls[archive_at]["argv"])
+
+
+def test_pilot_uses_a_separate_campaign_id_and_reaches_campaign_commands(tmp_path: Path) -> None:
+    result, calls = _run(tmp_path, "--pilot=2")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    campaign_calls = [call["argv"] for call in calls if "--campaign-id" in call["argv"]]
+    assert campaign_calls
+    assert all(argv[argv.index("--campaign-id") + 1] == "wfe_test_pilot" for argv in campaign_calls)
+    assert all(argv[argv.index("--pilot") + 1] == "2" for argv in campaign_calls)
+
+
+def test_execution_options_default_to_interleaved_for_ab_and_keep_sequential_opt_in(
+    tmp_path: Path,
+) -> None:
+    plan = tmp_path / "plan.yaml"
+    matrix = [{"arm": "inc"}, {"arm": "cand"}]
+    plan.write_text("max_minutes: 25\n")
+
+    options = campaign.execution_options(plan, matrix)
+
+    assert options["arm_order"] == "interleaved"
+    assert options["interleave_block"] == 1
+    assert options["max_minutes"] == 25
+    plan.write_text("arm_order: sequential\n")
+    sequential = campaign.execution_options(plan, matrix)
+    assert sequential["arm_order"] == "sequential" and sequential["max_minutes"] == 120
+    manifest = {
+        "rows": [
+            {"arm": "cand", "arm_role": "challenger"},
+            {"arm": "inc", "arm_role": "incumbent"},
+        ]
+    }
+    assert campaign._select_arms(manifest, None) == ["inc", "cand"]
+
+
+def test_pilot_defaults_to_six_tasks() -> None:
+    _parser, args = campaign._parse_args(["--pilot"])
+
+    assert args.pilot == 6
+
+
+def test_interleave_blocks_keep_task_repeat_pairs_adjacent_and_honor_block_size() -> None:
+    rows = [
+        {
+            "workspace": "ws",
+            "arm": arm,
+            "suite": "s",
+            "task_id": task,
+            "repeat": repeat,
+            "run_id": f"{arm}:{task}:r{repeat}",
+            "state": "PENDING",
+        }
+        for arm in ("inc", "cand")
+        for task in ("t1", "t2")
+        for repeat in (0, 1)
+    ]
+
+    single = campaign._interleave_blocks(rows, ["inc", "cand"], 1)
+    block = campaign._interleave_blocks(rows, ["inc", "cand"], 2)
+
+    assert len(single) == 4
+    assert single[0][0]["key"] == ("ws", "s", "t1", 0)
+    assert single[0][0]["run_ids"] == {
+        "inc": ["inc:t1:r0"],
+        "cand": ["cand:t1:r0"],
+    }
+    assert len(block) == 2 and [unit["key"] for unit in block[0]] == [
+        ("ws", "s", "t1", 0),
+        ("ws", "s", "t2", 0),
+    ]
+
+
+def test_pilot_matrix_selects_the_same_tasks_once_for_each_arm() -> None:
+    matrix = [
+        {
+            "workspace": workspace,
+            "arm": arm,
+            "suite": "s",
+            "task_id": f"t{i}",
+            "repeat": repeat,
+        }
+        for arm in ("inc", "cand")
+        for workspace in ("ws", "ws2")
+        for i in range(4)
+        for repeat in range(3)
+    ]
+
+    rows = campaign.pilot_matrix(matrix, 2)
+
+    assert len(rows) == 4
+    assert {r["arm"] for r in rows} == {"inc", "cand"}
+    assert {r["task_id"] for r in rows if r["arm"] == "inc"} == {"t0", "t1"}
+    assert {r["task_id"] for r in rows if r["arm"] == "cand"} == {"t0", "t1"}
+    assert {r["repeat"] for r in rows} == {0}
+    assert {r["workspace"] for r in rows} == {"ws"}
+
+
+def test_arms_file_filters_interleaved_arm_selection_by_id_or_model(tmp_path: Path) -> None:
+    arms_file = tmp_path / "arms.txt"
+    arms_file.write_text("cand-model\n")
+    manifest = {
+        "rows": [
+            {"arm": "inc", "arm_role": "incumbent", "model": "inc-model"},
+            {"arm": "cand@card", "arm_role": "challenger", "model": "cand-model"},
+        ]
+    }
+
+    assert campaign._select_arms(manifest, None, arms_file) == ["cand@card"]
+
+
+def test_interleaved_blocks_launch_a_fresh_arm_worker(tmp_path: Path, monkeypatch) -> None:
+    campaign_dir = tmp_path / "campaigns" / "c"
+    campaign_dir.mkdir(parents=True)
+    calls = []
+
+    def fake_run(command, **kwargs):
+        path = Path(command[command.index("--run-ids-file") + 1])
+        calls.append((command, path.read_text(), kwargs))
+        return type("Result", (), {"returncode": 0})()
+
+    monkeypatch.setattr(campaign, "ollama_reachable", lambda: True)
+    monkeypatch.setattr(campaign.subprocess, "run", fake_run)
+    args = type(
+        "Args",
+        (),
+        {
+            "plan": "plan.yaml",
+            "tier": "confirm",
+            "max_turns": 8,
+            "all_suites": False,
+            "notify": False,
+            "no_halt": False,
+            "no_curtail": False,
+            "rerun_failed": False,
+            "fresh_incumbent": False,
+            "repeats": None,
+            "pilot": None,
+            "debug_dir": None,
+            "force": False,
+        },
+    )()
+    block = [
+        {
+            "run_ids": {"inc": ["inc:t0:r0"], "cand": ["cand:t0:r0"]},
+        }
+    ]
+
+    outs = campaign._run_interleaved_block(campaign_dir, block, ["inc", "cand"], args, 30)
+
+    assert [out["arm"] for out in outs] == ["inc", "cand"]
+    assert [call[1] for call in calls] == ["inc:t0:r0", "cand:t0:r0"]
+    assert all("--block-worker" in call[0] for call in calls)
+    assert all(call[2]["stdin"] is subprocess.DEVNULL for call in calls)

@@ -120,6 +120,18 @@ class TestFitnessView:
         # Intended, tied, and the only member of its lineage -> RETAIN_DIVERSITY.
         assert disp["disposition"] == "RETAIN_DIVERSITY"
 
+    def test_fitness_uses_the_manifest_non_inferiority_margin(self, tmp_path, monkeypatch):
+        d, q = _campaign(tmp_path, monkeypatch)
+        manifest = json.loads((d / "manifest.json").read_text())
+        manifest["execution"] = {"non_inferiority_margin": 0.1}
+        camp.save_manifest(d, manifest)
+
+        res = rep.fitness(d, q)
+
+        (cell,) = [c for c in res["cells"] if c["candidate"] == CAND]
+        assert cell["verdict"] == decision.BETTER and cell["wins"] == N_TOTAL
+        assert "non-inferiority margin=0.1" in cell["reason"]
+
     def test_a_model_with_no_intended_workspace_is_a_no_decision(self, tmp_path, monkeypatch):
         d, q = _campaign(tmp_path, monkeypatch, ws_b=True)
         res = rep.fitness(d, q)
