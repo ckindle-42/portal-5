@@ -164,15 +164,19 @@ def _last_user_content(messages: list[dict[str, Any]]) -> str:
     return ""
 
 
+# preinject._attachment_notes appends "[Attached file — id: …, name: …, type: …(, path: …)]" notes.
+_ATTACHED_NOTE_RE = re.compile(r"\[Attached file — id: .*?, name: .*?, type: .*?(?:, path: .*?)?\]")
+
+
 def _own_user_text(messages: list[dict[str, Any]]) -> str:
-    """The last user turn's own words, minus OWUI's RAG wrapper when present."""
+    """The last user turn's own words, minus OWUI's RAG wrapper and attachment notes."""
     text = _last_user_content(messages)
     # OWUI prepends the rendered rag_template on attachment turns; judge the request, not the excerpts.
     if text.lstrip().startswith("### Task:") and "provided context" in text:
         close = text.rfind("</context>")
         if close != -1:
-            return text[close + len("</context>") :].strip()
-    return text
+            text = text[close + len("</context>") :].strip()
+    return _ATTACHED_NOTE_RE.sub("", text).strip()
 
 
 _FOLLOWUP_PRODUCE_RE = re.compile(

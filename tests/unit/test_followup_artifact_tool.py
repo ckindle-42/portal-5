@@ -22,6 +22,7 @@ from portal.platform.inference.router.download_links import (
     prior_office_filenames,
     strip_unbacked_download_lines,
 )
+from portal.platform.inference.router.preinject import _attachment_notes
 from portal.platform.inference.router.tool_repeat import REQUIRED_TOOL_REQUEST
 from portal.platform.inference.router.tools import _own_user_text, _select_explicit_required_tool
 
@@ -674,3 +675,52 @@ def test_excerpts_containing_howto_phrasing_do_not_block_a_create() -> None:
         _select_explicit_required_tool(_history(TURN0, TURN0_REPLY, wrapped), _tools())
         == "create_word_document"
     )
+
+
+# R2: preinject._attachment_notes also appends "[Attached file — …]" notes to the last
+# user message; an attached .docx/.xlsx name must not sway the selector (noted .docx
+# files made "Make an Excel file" ambiguous: both create candidates matched, so none
+# was selected and the turn ran on auto).
+def _notes_payload(*items: dict) -> str:
+    return "\n".join(_attachment_notes({"portal_attached_files": list(items)}))
+
+
+def test_attachment_notes_do_not_make_an_excel_create_ambiguous() -> None:
+    notes = _notes_payload(
+        {
+            "id": "u1",
+            "name": "q1_notes.docx",
+            "type": "file",
+            "path": "/workspace/uploads/q1_notes.docx",
+        },
+        {
+            "id": "u2",
+            "name": "q2_notes.docx",
+            "type": "file",
+            "path": "/workspace/uploads/q2_notes.docx",
+        },
+    )
+    content = f"Make an Excel file of the totals.\n\n{notes}"
+    assert (
+        _select_explicit_required_tool([{"role": "user", "content": content}], _tools())
+        == "create_excel"
+    )
+
+
+def test_006_turn_with_its_four_docx_notes_still_selects_create_word_document() -> None:
+    notes = _notes_payload(
+        *({"id": f"u{i}", "name": f"note_0{i}.docx", "type": "file"} for i in range(1, 5))
+    )
+    content = _wrapped(TURN1, _sources("Launch target is September.")) + f"\n\n{notes}"
+    assert (
+        _select_explicit_required_tool(_history(TURN0, TURN0_REPLY, content), _tools())
+        == "create_word_document"
+    )
+
+
+def test_a_user_typed_attached_file_bracket_mid_sentence_is_kept() -> None:
+    text = (
+        "The UI shows [Attached file] chips next to each upload and I said "
+        "[Attached file — screenshot attached] in the last note, right?"
+    )
+    assert _own_user_text([{"role": "user", "content": text}]) == text
