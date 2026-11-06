@@ -178,11 +178,18 @@ workspaces:
     name: 🔬 Bench · Gemma-4-26B-A4B (OptiQ)
     description: 'Benchmark: gemma4:26b-a4b-it-qat-ctx32k (QAT 4bit of gemma-4-26b-a4b-it, MoE 4B active), pairs against auto-daily. QAT won the matched-32k seat A/B (gemma26b_bench_qat_ab_rt_20261106: QAT 36/40 vs plain 32/40, same oMLX engine, same speed); sampling unchanged.'
     model_hint: gemma4:26b-a4b-it-qat-ctx32k
+    # ctx_validated by seat record, not a fresh preflight: this exact tag also serves
+    # auto-documents (6d23d5e42, 2026-11-06) and the A/B QAT arm ran 40 rows on it
+    ctx_validated: true
     max_concurrent: 1
     keep_alive: 5m
     # SEAT_CARD_CONFORMANCE_FIX: gemma4 card value (settings_audit served_vs_card)
     temperature: 1.0
     top_p: 0.95
+    # top_k 64 = gemma4 card; the A/B's plain arm served it via the plain conversion's
+    # oMLX per-model seat default (the QAT conversion has none, omlx default 0) —
+    # declared at the seat like auto-documents on this same tag (R2 2026-11-06)
+    top_k: 64
     repeat_penalty: 1.0
     tools: []
     expose_to_owui: true
