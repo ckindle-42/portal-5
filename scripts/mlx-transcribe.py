@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import gc
 import json
 import logging
 import os
@@ -561,6 +562,33 @@ def _run_plain_pipeline(
     return _persist_transcript(tr["segments"], meta, source_name)
 
 
+def _run_pipeline_and_release(
+    audio_path: str,
+    language: str | None,
+    num_speakers: int | None,
+    source_name: str = "audio",
+) -> dict:
+    """Diarized pipeline on this worker, then release its MLX stream cache."""
+    try:
+        return _run_pipeline(audio_path, language, num_speakers, source_name)
+    finally:
+        gc.collect()
+        mlx_cache.release_cache(logger)
+
+
+def _run_plain_pipeline_and_release(
+    audio_path: str,
+    language: str | None,
+    source_name: str = "audio",
+) -> dict:
+    """Plain pipeline on this worker, then release its MLX stream cache."""
+    try:
+        return _run_plain_pipeline(audio_path, language, source_name)
+    finally:
+        gc.collect()
+        mlx_cache.release_cache(logger)
+
+
 _AUDIO_EXTENSIONS = {".mp3", ".wav", ".m4a", ".ogg", ".flac", ".webm", ".aac", ".mp4"}
 _PLACEHOLDER_RE = re.compile(r"^[<\[{].*[>\]}]$")  # matches <file_id>, [filename], {arg}, etc.
 
@@ -703,15 +731,13 @@ async def _dispatch_tool(tool_name: str, arguments: dict) -> JSONResponse:
         async with _pipeline_lock:
             try:
                 result = await asyncio.to_thread(
-                    _run_pipeline, str(path), language, num_speakers, source_name
+                    _run_pipeline_and_release, str(path), language, num_speakers, source_name
                 )
                 result["engine"] = "parakeet+sortformer"
                 return JSONResponse(result)
             except Exception as e:
                 logger.error("invoke_tool transcribe_with_speakers failed: %s", e, exc_info=True)
                 return JSONResponse({"error": str(e)}, status_code=500)
-            finally:
-                mlx_cache.release_cache(logger)
     elif tool_name == "transcribe_audio":
         file_arg = arguments.get("file", arguments.get("audio_path"))
         language = arguments.get("language")
@@ -721,15 +747,13 @@ async def _dispatch_tool(tool_name: str, arguments: dict) -> JSONResponse:
         async with _pipeline_lock:
             try:
                 result = await asyncio.to_thread(
-                    _run_plain_pipeline, str(path), language, source_name
+                    _run_plain_pipeline_and_release, str(path), language, source_name
                 )
                 result["engine"] = "parakeet-tdt-v3"
                 return JSONResponse(result)
             except Exception as e:
                 logger.error("invoke_tool transcribe_audio failed: %s", e, exc_info=True)
                 return JSONResponse({"error": str(e)}, status_code=500)
-            finally:
-                mlx_cache.release_cache(logger)
     else:
         return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
 
@@ -841,14 +865,11 @@ async def http_transcribe(
 
     try:
         async with _pipeline_lock:
-            try:
-                lang = None if language == "auto" else language
-                source_name = file.filename or "upload.wav"
-                result = await asyncio.to_thread(
-                    _run_pipeline, tmp_path, lang, num_speakers, source_name
-                )
-            finally:
-                mlx_cache.release_cache(logger)
+            lang = None if language == "auto" else language
+            source_name = file.filename or "upload.wav"
+            result = await asyncio.to_thread(
+                _run_pipeline_and_release, tmp_path, lang, num_speakers, source_name
+            )
         return JSONResponse(result)
     except Exception as e:
         logger.error("Transcription failed: %s", e, exc_info=True)
@@ -889,15 +910,15 @@ async def transcribe_audio(file: str | None = None, language: str | None = None)
         return {"error": source_name}
     async with _pipeline_lock:
         try:
-            result = await asyncio.to_thread(_run_plain_pipeline, str(path), language, source_name)
+            result = await asyncio.to_thread(
+                _run_plain_pipeline_and_release, str(path), language, source_name
+            )
             result["engine"] = "parakeet-tdt-v3"
             result["source"] = source_name
             return result
         except Exception as e:
             logger.error("MCP transcribe_audio failed: %s", e, exc_info=True)
             return {"error": str(e)}
-        finally:
-            mlx_cache.release_cache(logger)
 
 
 @mcp.tool()
@@ -957,15 +978,13 @@ async def transcribe_with_speakers(
     async with _pipeline_lock:
         try:
             result = await asyncio.to_thread(
-                _run_pipeline, str(path), language, num_speakers, source_name
+                _run_pipeline_and_release, str(path), language, num_speakers, source_name
             )
             result["engine"] = "parakeet+sortformer"
             return result
         except Exception as e:
             logger.error("MCP transcribe_with_speakers failed: %s", e, exc_info=True)
             return {"error": str(e)}
-        finally:
-            mlx_cache.release_cache(logger)
 
 
 # Initialize session manager (must happen after tool definitions, before app start).

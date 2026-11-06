@@ -322,6 +322,35 @@ async def test_repeated_speech_does_not_retain_worker_buffers(
         speech._tts_models.pop("resident", None)
 
 
+async def test_speech_asr_releases_on_the_worker(speech, monkeypatch: pytest.MonkeyPatch):
+    """ASR Metal buffers are allocated on the worker; release has to run there."""
+    streams = _Streams()
+    monkeypatch.setitem(sys.modules, "mlx.core", streams)
+    monkeypatch.setattr(speech.gc, "collect", lambda generation=2: streams.collect())
+
+    def _ok(*_a, **_k):
+        streams.defer(8 * 1024 * 1024)
+        return {"text": "hi"}
+
+    monkeypatch.setattr(speech, "_transcribe", _ok)
+    ok = await speech.openai_audio_transcriptions(_Upload(), language="auto")
+    assert ok.status_code == 200
+    assert streams.retained() == 0
+    assert streams.deferred_on
+    assert streams.deferred_on <= streams.collected_on
+    assert streams.deferred_on <= streams.synced_on
+
+    def _boom(*_a, **_k):
+        streams.defer(8 * 1024 * 1024)
+        raise RuntimeError("asr")
+
+    monkeypatch.setattr(speech, "_transcribe", _boom)
+    bad = await speech.openai_audio_transcriptions(_Upload(), language="auto")
+    assert bad.status_code == 500
+    assert streams.retained() == 0
+    assert streams.deferred_on <= streams.synced_on
+
+
 async def test_speech_asr_clears_after_success_and_exception(speech, fake_mx: _Rec, monkeypatch):
     monkeypatch.setattr(speech, "_transcribe", lambda *_a, **_k: {"text": "hi"})
     ok = await speech.openai_audio_transcriptions(_Upload(), language="auto")
@@ -374,3 +403,54 @@ async def test_transcribe_mcp_and_http_clear(
     assert speakers["engine"] == "parakeet+sortformer"
     assert http.status_code == 200
     assert fake_mx.cleared == 3
+
+
+async def test_transcribe_releases_on_the_worker(
+    transcribe, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    """Every transcribe entry point releases on the thread that ran the model."""
+    streams = _Streams()
+    monkeypatch.setitem(sys.modules, "mlx.core", streams)
+    monkeypatch.setattr(transcribe.gc, "collect", lambda generation=2: streams.collect())
+    audio = tmp_path / "clip.wav"
+    audio.write_bytes(b"wav")
+
+    def _ok(*_a, **_k):
+        streams.defer(4 * 1024 * 1024)
+        return {"text": "hi", "segments": []}
+
+    def _boom(*_a, **_k):
+        streams.defer(4 * 1024 * 1024)
+        raise RuntimeError("oom")
+
+    monkeypatch.setattr(transcribe, "_run_plain_pipeline", _ok)
+    monkeypatch.setattr(transcribe, "_run_pipeline", _ok)
+    tool = await transcribe._dispatch_tool("transcribe_audio", {"file": str(audio)})
+    speakers = await transcribe._dispatch_tool("transcribe_with_speakers", {"file": str(audio)})
+    plain = await transcribe.transcribe_audio(file=str(audio))
+    diarized = await transcribe.transcribe_with_speakers(file=str(audio))
+    http = await transcribe.http_transcribe(_Upload(), language="auto", num_speakers=None)
+    assert tool.status_code == 200
+    assert speakers.status_code == 200
+    assert "error" not in plain
+    assert "error" not in diarized
+    assert http.status_code == 200
+    assert streams.retained() == 0
+    assert streams.deferred_on
+    assert streams.deferred_on <= streams.collected_on
+    assert streams.deferred_on <= streams.synced_on
+
+    monkeypatch.setattr(transcribe, "_run_plain_pipeline", _boom)
+    monkeypatch.setattr(transcribe, "_run_pipeline", _boom)
+    bad_tool = await transcribe._dispatch_tool("transcribe_audio", {"file": str(audio)})
+    bad_speakers = await transcribe._dispatch_tool("transcribe_with_speakers", {"file": str(audio)})
+    bad_plain = await transcribe.transcribe_audio(file=str(audio))
+    bad_diarized = await transcribe.transcribe_with_speakers(file=str(audio))
+    bad_http = await transcribe.http_transcribe(_Upload(), language="auto", num_speakers=None)
+    assert bad_tool.status_code == 500
+    assert bad_speakers.status_code == 500
+    assert "error" in bad_plain
+    assert "error" in bad_diarized
+    assert bad_http.status_code == 500
+    assert streams.retained() == 0
+    assert streams.deferred_on <= streams.synced_on

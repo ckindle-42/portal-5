@@ -560,10 +560,7 @@ async def openai_audio_transcriptions(
     try:
         lang = language if language != "auto" else None
         async with _tts_lock:
-            try:
-                result = await asyncio.to_thread(_transcribe, tmp_path, lang)
-            finally:
-                mlx_cache.release_cache(logger)
+            result = await asyncio.to_thread(_transcribe_and_release, tmp_path, lang)
     except Exception as e:
         logger.error("ASR failed: %s", e, exc_info=True)
         return JSONResponse({"error": str(e)}, status_code=500)
@@ -591,6 +588,15 @@ def _transcribe(file_path: str, language: str | None) -> dict:
     except Exception as e:
         logger.error("Qwen3-ASR error: %s", e)
         return {"error": str(e), "backend": "qwen3_asr"}
+
+
+def _transcribe_and_release(file_path: str, language: str | None) -> dict:
+    """Run ASR on this worker thread, then release its MLX stream cache."""
+    try:
+        return _transcribe(file_path, language)
+    finally:
+        gc.collect()
+        mlx_cache.release_cache(logger)
 
 
 # ── Models endpoint ────────────────────────────────────────────────────────────
