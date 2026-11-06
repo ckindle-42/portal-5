@@ -174,6 +174,14 @@ _FOLLOWUP_ARTIFACTS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("create_excel", re.compile(r"\b(?:excels?|\.xlsx|spreadsheets?|workbooks?)\b")),
     ("create_word_document", re.compile(r"\b(?:word\s+(?:documents?|files?|docs?)|\.docx)\b")),
 )
+# A how-to question, an explanation request, or a first-person statement names a file
+# without asking the assistant to produce it — never force a tool on those turns.
+_NON_PRODUCE_RE = re.compile(
+    r"\bhow\s+(?:do|does|can|could|to|would|should)\b"
+    r"|\b(?:what|which)\b.{0,40}?\bway\b"
+    r"|\b(?:explain|walk\s+me\s+through|show\s+me\s+how)\b"
+    r"|\bi'?ll\b|\bi\s+will\b|\bmyself\b"
+)
 
 
 def _prior_turn(messages: list[dict[str, Any]]) -> bool:
@@ -214,6 +222,8 @@ def _select_explicit_required_tool(
     """
     text = _last_user_content(messages).lower()
     if not text:
+        return None
+    if _NON_PRODUCE_RE.search(text) is not None:
         return None
 
     candidates: list[tuple[str, bool]] = [

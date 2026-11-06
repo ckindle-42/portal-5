@@ -490,3 +490,54 @@ async def test_both_paths_leave_a_first_word_file_on_auto(
     assert client.bodies[0]["tool_choice"] == "auto"
     assert set(_names(client.bodies[0])) == set(OFFERED)
     assert json.loads(result.body)["choices"][0]["message"]["content"] == "Week plan noted."
+
+
+# Produce verb + office noun, but no request for the assistant to produce a file.
+HOWTO_EXCEL = "How do I make a pivot table in Excel?"
+EXPLAIN_WORD = "Can you explain how to update a Word doc's TOC?"
+BESTWAY_PPT = "What's the best way to build a slide deck?"
+EDIT_MYSELF = "I'll edit the spreadsheet myself, thanks"
+MORE_NON_PRODUCE = (
+    "How do I open the file on my iPad tonight?",
+    "Can you explain what a pivot table is before I build one?",
+    "I'll fill in the last two rows myself over the weekend.",
+)
+
+
+def test_followup_howto_and_first_person_turns_never_force_a_file_tool() -> None:
+    for turn in (HOWTO_EXCEL, EXPLAIN_WORD, BESTWAY_PPT, EDIT_MYSELF, *MORE_NON_PRODUCE):
+        assert (
+            _select_explicit_required_tool(_history(EXCEL_FILE, EXCEL_PASS, turn), _tools()) is None
+        )
+
+
+WHERE_AGAIN = "Where can I get the Garage Sale Float file again?"
+REPEAT_LINK_REPLY = (
+    "You already have it from the first step.\n"
+    "\n"
+    "Download it here: [Garage_Sale_Float_969565dd.xlsx](out/Garage_Sale_Float_969565dd.xlsx)"
+)
+
+
+def test_a_link_to_a_file_created_in_an_earlier_turn_is_stripped() -> None:
+    """Documented behaviour: the backing tool result lives in a PRIOR turn, and
+    successful_creation only sees this turn's dispatches, so the still-real link
+    is dropped and the prose answer survives."""
+    history = _history(EXCEL_FILE, EXCEL_PASS, WHERE_AGAIN)
+    assert "Garage_Sale_Float_969565dd.xlsx" in history[1]["content"]
+    assert _select_explicit_required_tool(history, _tools()) is None
+    assert "Garage_Sale_Float_969565dd.xlsx" not in strip_unbacked_download_lines(REPEAT_LINK_REPLY)
+    assert "You already have it from the first step." in strip_unbacked_download_lines(
+        REPEAT_LINK_REPLY
+    )
+    kept_default = ns._apply_non_stream_response(
+        {"choices": [{"message": {"role": "assistant", "content": REPEAT_LINK_REPLY}}]},
+        SimpleNamespace(id="offline-test"),
+        WS,
+        "m",
+        0.0,
+    )
+    assert (
+        "Garage_Sale_Float_969565dd.xlsx"
+        not in json.loads(kept_default.body)["choices"][0]["message"]["content"]
+    )
