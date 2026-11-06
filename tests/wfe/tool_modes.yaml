@@ -90,3 +90,12 @@ workspaces:
   auto-vision:
     tool_mode: production
     allow: [generate_image, edit_image]
+  bench-gemma4-26b-optiq:
+    tool_mode: production
+    allow: []
+  compliance-mapping:
+    tool_mode: production
+    allow: []
+  compliance-reading-overflow:
+    tool_mode: production
+    allow: []

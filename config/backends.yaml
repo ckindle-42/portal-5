@@ -49,7 +49,7 @@ backends:
     supports_tools: true
   - id: gemma4:26b-a4b-it-q4_K_M-ctx32k
     supports_tools: true
-    keep_reason: "gemma-4-26b plain-4bit build: auto-documents WFE seat (G1 2026-10-18, sampling measured on this build) + vision personas; QAT build kept beside it (arm fast seat) until an A/B on both seats picks one — operator 2026-10-28"
+    keep_reason: "plain 4bit retained for 64k/128k compliance seats, vision fallbacks and bench while per-seat QAT A/Bs complete; auto-documents moved to QAT 2026-11-06"
   # PIPELINE_ALIGNMENT_V1 §P2: the reading seat's overflow variant — same
   # gemma-4-26b-a4b-it weights, PARAMETER num_ctx 65536 baked (trained ceiling
   # 262,144). Serves compliance-reading-overflow, the route for sweep material
@@ -131,7 +131,11 @@ backends:
     supports_tools: true
   - id: gemma4:26b-a4b-it-qat-ctx32k
     supports_tools: true
-    keep_reason: "gemma-4-26b QAT build: orchestration arm fast seat auto-daily::gemma-fast (Gate C test_fixing 6/6); plain-4bit build kept beside it (auto-documents WFE seat) until an A/B on both seats picks one — operator 2026-10-28"
+    keep_reason: "QAT selected as auto-documents build 2026-11-06; auto-daily::gemma-fast retains Gate C evidence. Plain remains for untested 64k/128k, vision and bench seats."
+  - id: gemma4:26b-a4b-it-qat-ctx64k
+    supports_tools: true
+  - id: gemma4:26b-a4b-it-qat-ctx128k
+    supports_tools: true
   - id: hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k
     supports_tools: false
   - id: lfm2.5:8b-ctx8k
@@ -558,7 +562,7 @@ backends:
     supports_tools: true
   - id: gemma4:26b-a4b-it-qat-ctx32k
     supports_tools: true
-    keep_reason: "gemma-4-26b QAT build: orchestration arm fast seat auto-daily::gemma-fast (Gate C test_fixing 6/6); plain-4bit build kept beside it (auto-documents WFE seat) until an A/B on both seats picks one — operator 2026-10-28"
+    keep_reason: "QAT selected as auto-documents build 2026-11-06; auto-daily::gemma-fast retains Gate C evidence. Plain remains for untested 64k/128k, vision and bench seats."
   - id: gemma4:31b-it-qat-ctx8k
     supports_tools: true
   - id: hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf
@@ -715,7 +719,7 @@ backends:
   models:
   - id: gemma-4-26b-a4b-it-QAT-4bit
     supports_tools: true
-    keep_reason: "gemma-4-26b QAT build: orchestration arm fast seat auto-daily::gemma-fast (Gate C test_fixing 6/6); plain-4bit build kept beside it (auto-documents WFE seat) until an A/B on both seats picks one — operator 2026-10-28"
+    keep_reason: "QAT selected as auto-documents build 2026-11-06; auto-daily::gemma-fast retains Gate C evidence. Plain remains for untested 64k/128k, vision and bench seats."
   # P5-FANOUT-001: council Challenger conversion (lane contract = response_format
   # json, NO tools — its template does not render tools on oMLX, probed live).
   - id: mlx-community--Mistral-Small-3.2-24B-Instruct-2506-4bit
@@ -729,7 +733,7 @@ backends:
   # A4B-it checkpoint as the GGUF tag; json ✓, tools ✓, 90,041-token needle ✓).
   - id: mlx-community--gemma-4-26b-a4b-it-4bit
     supports_tools: true
-    keep_reason: "gemma-4-26b plain-4bit build: auto-documents WFE seat (G1 2026-10-18, sampling measured on this build) + vision personas; QAT build kept beside it (arm fast seat) until an A/B on both seats picks one — operator 2026-10-28"
+    keep_reason: "plain 4bit retained for 64k/128k compliance seats, vision fallbacks and bench while per-seat QAT A/Bs complete; auto-documents moved to QAT 2026-11-06"
   # Nemotron 3.5 Lightning oQ4e-mtp added 2026-08-14 (txgsync/NVIDIA-Nemotron-
   # 3.5-Lightning-30B-A3B-oQ4e-mtp, oMLX 0.6.0.dev1 MTPLX side-car import —
   # real mtp.* weights verified at the tensor level, unlike the plain
@@ -779,6 +783,9 @@ backends:
   aliases:
     gemma4:26b-a4b-it-qat-ctx8k: gemma-4-26b-a4b-it-QAT-4bit
     gemma4:26b-a4b-it-qat-ctx16k: gemma-4-26b-a4b-it-QAT-4bit
+    gemma4:26b-a4b-it-qat-ctx32k: gemma-4-26b-a4b-it-QAT-4bit
+    gemma4:26b-a4b-it-qat-ctx64k: gemma-4-26b-a4b-it-QAT-4bit
+    gemma4:26b-a4b-it-qat-ctx128k: gemma-4-26b-a4b-it-QAT-4bit
     hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx8k: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
     granite4.1:8b-ctx8k: granite-4.1-8b-mxfp8
     # granite4.1:8b-ctx16k is deliberately NOT aliased (removed 2026-10-17): with tools in the

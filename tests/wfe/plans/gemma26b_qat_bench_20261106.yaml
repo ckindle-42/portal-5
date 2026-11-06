@@ -1,0 +1,27 @@
+# The bench workspace has no declared context_limit; both arms are pinned to 32k for comparison.
+repeats: 4
+workloads:
+  bench-gemma4-26b-optiq:
+    tool_mode: production
+    home: general_production
+    home_tasks:
+      - gen-notool-00
+      - gen-notool-01
+      - gen-notool-02
+      - gen-notool-03
+      - gen-notool-04
+      - gen-notool-05
+      - gen-notool-06
+      - gen-notool-07
+      - gen-notool-08
+      - gen-notool-09
+    discovery: []
+    arms:
+      incumbent:
+        model: gemma4:26b-a4b-it-q4_K_M-ctx32k
+        label: seat-sampling
+        sampling: {temperature: 1.0, top_p: 0.95, repeat_penalty: 1.0}
+      challengers:
+        - model: gemma4:26b-a4b-it-qat-ctx32k
+          label: seat-sampling
+          sampling: {temperature: 1.0, top_p: 0.95, repeat_penalty: 1.0}

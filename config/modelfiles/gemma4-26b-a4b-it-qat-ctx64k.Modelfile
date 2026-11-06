@@ -1,0 +1,5 @@
+# Inherit the QAT GGUF template and native Gemma 4 renderer/parser.
+FROM gemma4:26b-a4b-it-qat-ctx8k
+PARAMETER num_ctx 65536
+PARAMETER stop "<turn|>"
+PARAMETER stop "<eos>"

@@ -37,6 +37,12 @@ EXPECTED = {
     "wfe-auto-daily-confirm",
     "wfe-realuse-mellum",
     "wfe-tool-carry-ab",
+    "gemma26b-qat-bench-ab",
+    "gemma26b-qat-documents-ab",
+    "gemma26b-qat-mapping128-ab",
+    "gemma26b-qat-overflow64-ab",
+    "gemma26b-qat-reading128-ab",
+    "gemma26b-qat-vision-ab",
 }
 
 SHIP_ENV = (

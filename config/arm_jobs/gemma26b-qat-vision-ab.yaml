@@ -1,0 +1,29 @@
+id: gemma26b-qat-vision-ab
+purpose: >-
+  Compare the plain and QAT 26B builds as 8k fallbacks for the OCR, chart, diagram, code screenshot,
+  whiteboard and Gemma edge vision personas. The fallback lists stay unchanged until review.
+preconditions:
+  stack: up
+  free_memory_gib: 24
+  disk_free_gib: 30
+steps:
+  - id: vision-fallback-seat-ab
+    argv:
+      - scripts/wfe_campaign.sh
+      - gemma26b_vision_fallback_qat_ab_20261106
+      - --plan
+      - tests/wfe/plans/gemma26b_qat_vision_fallbacks_20261106.yaml
+      - --tier
+      - confirm
+      - --repeats
+      - "4"
+      - --engine
+      - pipeline
+    timeout_seconds: 21600
+    checkpoints:
+      - ~/AI_Output/portal-data/tests/wfe/results/campaigns/gemma26b_vision_fallback_qat_ab_20261106/manifest.json
+stop_conditions:
+  on_failure: stop
+  max_job_minutes: 360
+report:
+  fields: [status, purpose, steps, outputs, checkpoints, failures, memory, duration, resume]

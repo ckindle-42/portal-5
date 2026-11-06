@@ -1,0 +1,32 @@
+# Overflow-seat A/B. Keep the window at 64k and use the reading-long suite's 40k rows,
+# which fit the seat and exercise the same needle, aggregation and exact-quote checks.
+repeats: 4
+workloads:
+  compliance-reading-overflow:
+    tool_mode: production
+    home: reading_long_production
+    home_tasks:
+      - lr-needle-00-t40k-d10
+      - lr-needle-03-t40k-d30
+      - lr-aggregation-00-t40k
+      - lr-aggregation-03-t40k
+      - lr-quote-00-t40k-d10
+      - lr-quote-03-t40k-d30
+      - lr-needle-06-t40k-d80
+      - lr-needle-09-t40k-d15
+      - lr-aggregation-06-t40k
+      - lr-aggregation-09-t40k
+      - lr-quote-06-t40k-d80
+      - lr-quote-09-t40k-d15
+    discovery: []
+    arms:
+      incumbent:
+        model: gemma4:26b-a4b-it-q4_K_M-ctx64k
+        label: seat-sampling
+        think: false
+        sampling: {temperature: 1.0, top_p: 0.95, top_k: 64, min_p: 0.0, repeat_penalty: 1.1}
+      challengers:
+        - model: gemma4:26b-a4b-it-qat-ctx64k
+          label: seat-sampling
+          think: false
+          sampling: {temperature: 1.0, top_p: 0.95, top_k: 64, min_p: 0.0, repeat_penalty: 1.1}
