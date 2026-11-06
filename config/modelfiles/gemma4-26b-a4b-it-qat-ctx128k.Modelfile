@@ -1,5 +1,3 @@
-# Inherit the QAT GGUF template and native Gemma 4 renderer/parser.
-FROM gemma4:26b-a4b-it-qat-ctx8k
+# Same QAT weights, template and renderer as gemma4:26b-a4b-it-qat-ctx32k; only the window changes.
+FROM gemma4:26b-a4b-it-qat-ctx32k
 PARAMETER num_ctx 131072
-PARAMETER stop "<turn|>"
-PARAMETER stop "<eos>"
