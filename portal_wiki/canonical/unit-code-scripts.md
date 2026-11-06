@@ -7,16 +7,16 @@ sources:
   path: scripts/_archive/analyze_bench_v5.py
   commit: 8015e9381c8a
 - type: code
-  path: scripts/_archive/engine_h2h_20260924/bench_engine_h2h.py
+  path: tests/benchmarks/bench_engine_h2h.py
   commit: 8015e9381c8a
 - type: code
   path: scripts/_archive/engine_h2h_20260924/deep_lane/run_deep.py
   commit: 8015e9381c8a
 - type: code
-  path: scripts/_archive/engine_h2h_20260924/prismml_mlx_server.py
+  path: tests/benchmarks/prismml_mlx_server.py
   commit: 8015e9381c8a
 - type: code
-  path: scripts/_archive/engine_h2h_20260924/tests/test_bench_engine_h2h.py
+  path: tests/unit/test_bench_engine_h2h.py
   commit: 8015e9381c8a
 claims: []
 confidence: high
@@ -32,11 +32,11 @@ updated_at: 1792204748.5158741
 **Files:** 227
 
 - `scripts/_archive/analyze_bench_v5.py`
-- `scripts/_archive/engine_h2h_20260924/bench_engine_h2h.py`
+- `tests/benchmarks/bench_engine_h2h.py`
 - `scripts/_archive/engine_h2h_20260924/deep_lane/run_deep.py`
-- `scripts/_archive/engine_h2h_20260924/prismml_mlx_server.py`
-- `scripts/_archive/engine_h2h_20260924/tests/test_bench_engine_h2h.py`
-- `scripts/_archive/engine_h2h_20260924/tests/test_prismml_mlx_server.py`
+- `tests/benchmarks/prismml_mlx_server.py`
+- `tests/unit/test_bench_engine_h2h.py`
+- `tests/unit/test_prismml_mlx_server.py`
 - `scripts/_archive/mlx-retired-3a0c58e/mlx-proxy.py`
 - `scripts/_archive/mlx-retired-3a0c58e/mlx-watchdog.py`
 - `scripts/_archive/mlx-retired-3a0c58e/smoke_test_mlx.py`

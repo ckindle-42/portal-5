@@ -353,3 +353,129 @@ def test_start_gate_is_absolute_not_fractional():
     assert not h.start_gate_verdict({"used_mb": 10842.0, "total_mb": 12288.0}, 4096)[0]
     assert h.start_gate_verdict({"used_mb": 950.0, "total_mb": 1024.0}, 4096)[0]
     assert h.start_gate_verdict({}, 4096)[0]
+
+
+NOVEMBER_TASKS = {
+    "gemma4_26b_a4b_qat": "ru-v1-001",
+    "qwen38_27b_h2h": "ru-v1-011",
+    "nemotron_35_lightning": "ru-v1-001",
+    "flint_40b": "ru-v1-011",
+}
+
+
+def test_concurrency_summary_aggregates_tokens_over_wall_and_percentiles():
+    samples = [
+        {"completion_tokens": 100, "ttft_s": 1.0},
+        {"completion_tokens": 100, "ttft_s": 2.0},
+        {"completion_tokens": 100, "ttft_s": 3.0},
+        {"completion_tokens": 100, "ttft_s": 4.0},
+    ]
+    row = h.concurrency_summary(samples, 2.0)
+    assert row["n"] == 4
+    assert row["aggregate_decode_tps"] == 200.0
+    assert row["ttft_p50_s"] == 2.5
+    assert row["ttft_p95_s"] == 3.85
+    one = h.concurrency_summary([{"completion_tokens": 10, "ttft_s": 0.5}], 1.0)
+    assert one["aggregate_decode_tps"] == 10.0
+    assert one["ttft_p50_s"] == one["ttft_p95_s"] == 0.5
+    assert (
+        h.concurrency_summary([{"completion_tokens": 10, "ttft_s": 0.5}], 0)["aggregate_decode_tps"]
+        is None
+    )
+
+
+def test_vllm_mlx_0_6_pins_batching_and_leaves_disk_cache_off(cfg):
+    argv, _ = h.launch_command(cfg, "vllm-mlx", "mimo", "plain")
+    assert "vllm-mlx==0.6.0" in argv
+    assert "--continuous-batching" in argv
+    assert "--ssd-cache-dir" not in argv
+    kwargs = argv[argv.index("--default-chat-template-kwargs") + 1]
+    assert "enable_thinking" in kwargs and "false" in kwargs
+
+
+def test_mlxcel_pins_parallel_batch_without_prompt_lookup(cfg):
+    argv, _ = h.launch_command(cfg, "mlxcel", "gemma4_26b_a4b_qat", "plain")
+    assert argv[argv.index("--parallel") + 1] == "4"
+    assert "--kv-unified" in argv
+    assert "--prompt-lookup" not in argv
+    assert argv[argv.index("--ctx-size") + 1] == "16384"
+    with pytest.raises(SystemExit):
+        h.launch_command(cfg, "mlxcel", "gemma4_26b_a4b_qat", "spec")
+
+
+def test_splash_qwen_pins_disk_cache_off_and_local_draft(cfg):
+    plain, _ = h.launch_command(cfg, "splash", "qwen38_27b_h2h", "plain")
+    spec, _ = h.launch_command(cfg, "splash", "qwen38_27b_h2h", "spec")
+    draft = cfg["models"]["qwen38_27b_h2h"]["drafter_dir"]
+    for argv in (plain, spec):
+        assert argv[argv.index("--max-cache-disk") + 1] == "0"
+        assert "--persistent-cache" not in argv
+        assert "--language-only" in argv
+        assert argv[argv.index("--default-reasoning-effort") + 1] == "none"
+        assert argv[argv.index("--draft-model") + 1] == draft
+        assert argv[argv.index("--port") + 1] == "11242"
+    assert plain == spec
+    assert h.served_id(cfg, "splash", "qwen38_27b_h2h", "plain") == "Qwen3.8-27B-4bit"
+
+
+def test_splash_flint_keeps_256k_and_cannot_force_think_off(cfg):
+    argv, _ = h.launch_command(cfg, "splash", "flint_40b", "plain")
+    assert argv[argv.index("--model") + 1] == "unsloth/flint-GGUF:UD-Q4_K_XL"
+    assert argv[argv.index("--max-context") + 1] == "262144"
+    assert "--default-reasoning-effort" not in argv
+    assert "--model-dir" not in argv
+    assert argv[argv.index("--verify-rows") + 1] == "all"
+    assert argv[argv.index("--expert-memory") + 1] == "off"
+    assert h.think_off_fields("splash", "flint_40b", cfg) == {}
+    assert h.think_off_fields("splash") == {"reasoning_effort": "none"}
+    assert "mlx" not in cfg["models"]["flint_40b"]
+    assert not h.model_supports_engine(cfg, "flint_40b", "ollama")
+    assert not h.model_supports_engine(cfg, "flint_40b", "omlx")
+
+
+def test_splash_refuses_gemma_and_gemma_spec_is_null(cfg):
+    with pytest.raises(SystemExit, match="no splash artifact"):
+        h.launch_command(cfg, "splash", "gemma4_26b_a4b_qat", "plain")
+    with pytest.raises(SystemExit):
+        h.launch_command(cfg, "vllm-mlx", "gemma4_26b_a4b_qat", "spec")
+
+
+def test_qwen_drafter_dir_is_absolute_and_vllm_spec_is_null(cfg):
+    argv, _ = h.launch_command(cfg, "rapid-mlx", "qwen38_27b_h2h", "spec")
+    blob = argv[argv.index("--speculative-config") + 1]
+    draft = cfg["models"]["qwen38_27b_h2h"]["drafter_dir"]
+    assert blob.startswith('{"method":"dflash"')
+    assert draft in blob
+    qwen_plain, _ = h.launch_command(cfg, "mlx-serve", "qwen38_27b_h2h", "plain")
+    assert "--drafter" not in qwen_plain and "--no-drafter" in qwen_plain
+    mlx, _ = h.launch_command(cfg, "mlxcel", "qwen38_27b_h2h", "spec")
+    assert mlx[mlx.index("--draft-kind") + 1] == "dflash"
+    assert draft in mlx
+    with pytest.raises(SystemExit):
+        h.launch_command(cfg, "vllm-mlx", "qwen38_27b_h2h", "spec")
+
+
+def test_nemotron_mtp_spec_uses_the_oq4e_dir(cfg):
+    plain, _ = h.launch_command(cfg, "mlx-serve", "nemotron_35_lightning", "plain")
+    spec, _ = h.launch_command(cfg, "mlx-serve", "nemotron_35_lightning", "spec")
+    pack = "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp"
+    assert "--no-mtp" in plain and "--mtp" not in plain
+    assert "--mtp" in spec and "--no-mtp" not in spec
+    assert pack in spec[spec.index("--model") + 1]
+    rapid, _ = h.launch_command(cfg, "rapid-mlx", "nemotron_35_lightning", "spec")
+    blob = rapid[rapid.index("--speculative-config") + 1]
+    assert '"method":"mtp"' in blob
+    with pytest.raises(SystemExit):
+        h.launch_command(cfg, "mlxcel", "nemotron_35_lightning", "spec")
+
+
+def test_november_seats_have_one_quality_task(cfg):
+    from tests.wfe.campaign import expand_matrix
+
+    for model, task in NOVEMBER_TASKS.items():
+        gate = cfg["models"][model]["quality_gate"]
+        assert gate["tool_probe"] == "preflight"
+        assert gate["wfe_task"] == task
+        rows = expand_matrix(h.REPO / gate["wfe_plan"], 1, tier="realuse")
+        assert {row["task_id"] for row in rows} == {task}
+        assert {row["workspace"] for row in rows} == {gate["wfe_workspace"]}

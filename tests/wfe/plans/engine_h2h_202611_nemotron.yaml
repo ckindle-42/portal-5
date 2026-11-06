@@ -1,0 +1,13 @@
+# November engine screen on the seated nemotron variant (ctx32k, not the ctx8k alias).
+# ru-v1-001 declares workspace auto-daily, which matches this variant's base.
+repeats: 1
+workloads:
+  auto-daily::nemotron:
+    tool_mode: production
+    home: realuse_v1
+    home_tasks: [ru-v1-001]
+    discovery: []
+    arms:
+      incumbent: hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k
+      challengers:
+        - NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
