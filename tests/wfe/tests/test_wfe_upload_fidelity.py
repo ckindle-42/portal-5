@@ -13,11 +13,12 @@ from tests.wfe.checkers import (
     check_tool_grounded,
     expect_tools_verdict,
 )
-from tests.wfe.owui_rag import chunk_file, split_text
+from tests.wfe.owui_rag import chunk_file, rag_prefix, split_text
 from tests.wfe.schema import Outcome
 from tests.wfe.upload_fidelity import rendered_user, row_instrument, turn_injection, user_text
 
 _SUITE = Path(__file__).resolve().parents[1] / "suites" / "realuse_v1.jsonl"
+_REPO = Path(__file__).resolve().parents[3]
 _LONG = ("word " * 400) + "\n\n" + ("tail " * 400)
 _LONG_SHA = "5c07ec79a1dc17d7981108e346501e6e05eb6e9b06561ee27e14059012ef314a"
 
@@ -47,7 +48,10 @@ def _invoice_message() -> str:
         "n this to the user and provide the answer using your own understanding"
         ".\n- **Only include inline citations using [id] (e.g., [1], [2]) when t"
         "he <source> tag includes an id attribute.**\n- Do not cite if the <sour"
-        "ce> tag does not contain an id attribute.\n- Do not use XML tags in you"
+        "ce> tag does not contain an id attribute.\n- The context holds excerpts"
+        " of attached files. When the full file matters (data, code, totals, or"
+        " running a script), use the attached-file path with your tools instead"
+        " of answering from excerpts.\n- Do not use XML tags in you"
         "r response.\n- Ensure citations are concise and directly related to the"
         " information provided.\n\n### Example of Citation:\nIf the user asks abou"
         "t a specific topic and the information is found in a source with a pro"
@@ -79,7 +83,10 @@ def _notes_message() -> str:
         "n this to the user and provide the answer using your own understanding"
         ".\n- **Only include inline citations using [id] (e.g., [1], [2]) when t"
         "he <source> tag includes an id attribute.**\n- Do not cite if the <sour"
-        "ce> tag does not contain an id attribute.\n- Do not use XML tags in you"
+        "ce> tag does not contain an id attribute.\n- The context holds excerpts"
+        " of attached files. When the full file matters (data, code, totals, or"
+        " running a script), use the attached-file path with your tools instead"
+        " of answering from excerpts.\n- Do not use XML tags in you"
         "r response.\n- Ensure citations are concise and directly related to the"
         " information provided.\n\n### Example of Citation:\nIf the user asks abou"
         "t a specific topic and the information is found in a source with a pro"
@@ -259,14 +266,97 @@ def test_non_read_tools_stay_required() -> None:
 
 def test_row_instrument_records_the_rag_shape() -> None:
     delivered = {
-        "shape": "owui_rag_v0.12.5",
+        "shape": "owui_rag_v0.12.5+portal_filter_v1",
         "turns": [{"turn": 0, "files": ["realuse_v1/ru-v1-001/final_invoice.pdf"]}],
         "chunks": 1,
         "ranked_standin": False,
     }
     instrument = row_instrument({"fingerprint": "abc"}, {"upload_delivery": delivered})
     assert instrument["upload"] == delivered
-    assert campaign.instrument_fingerprint()["upload_delivery"] == "owui-rag-v0.12.5"
+    assert (
+        campaign.instrument_fingerprint()["upload_delivery"] == "owui-rag-v0.12.5+portal-filter-v1"
+    )
+
+
+def test_pipeline_payload_carries_the_forwarded_attachments(monkeypatch) -> None:
+    """Production-faithful pipeline body: the inlet filter's field, with the staged
+    path each fixture really has; OWUI pops `files` before this hop, so it is absent."""
+    monkeypatch.setattr(runner, "ENGINE", "pipeline")
+    task = _task("ru-v1-005")
+    injection = turn_injection("pipeline", task, 0, _users(task))
+    _, payload, _ = runner._build_pipeline(
+        "auto-daily",
+        [{"role": "user", "content": _users(task)[0]}],
+        "none",
+        {},
+        None,
+        "default",
+        False,
+        None,
+        None,
+        injection.attachments,
+    )
+    assert payload["portal_attached_files"] == [
+        {
+            "id": "realuse_v1/ru-v1-005/customers.csv",
+            "name": "customers.csv",
+            "type": "file",
+            "size": Path(_REPO / "tests/fixtures/realuse_v1/ru-v1-005/customers.csv")
+            .stat()
+            .st_size,
+            "path": "/workspace/uploads/realuse_v1/ru-v1-005/customers.csv",
+        }
+    ]
+    assert "files" not in payload
+    # Direct engines carry neither the field nor the RAG prefix.
+    direct = turn_injection("ollama", task, 0, _users(task))
+    assert direct.attachments == [] and direct.prefix == ""
+
+
+def test_docx_attachments_wait_for_their_turn_and_note_the_staged_path(monkeypatch) -> None:
+    """The docx case: attachment rides the turn that names it, and the pipeline note
+    the forwarded field produces carries the staged path the fixture is staged at."""
+    from portal.platform.inference.router.preinject import _inject_attached_files
+
+    task = _task("ru-v1-003")
+    users = _users(task)
+    assert turn_injection("pipeline", task, 0, users).attachments == []
+    injection = turn_injection("pipeline", task, 1, users)
+    assert injection.attachments == [
+        {
+            "id": "realuse_v1/ru-v1-003/manager_notes.docx",
+            "name": "manager_notes.docx",
+            "type": "file",
+            "size": Path(_REPO / "tests/fixtures/realuse_v1/ru-v1-003/manager_notes.docx")
+            .stat()
+            .st_size,
+            "path": "/workspace/uploads/realuse_v1/ru-v1-003/manager_notes.docx",
+        }
+    ]
+    noted = _inject_attached_files(
+        {
+            "messages": [{"role": "user", "content": users[1]}],
+            "portal_attached_files": injection.attachments,
+        }
+    )
+    note = noted["messages"][-1]["content"]
+    assert (
+        "[Attached file — id: 'realuse_v1/ru-v1-003/manager_notes.docx', "
+        "name: 'manager_notes.docx', type: 'file', "
+        "path: '/workspace/uploads/realuse_v1/ru-v1-003/manager_notes.docx']" in note
+    )
+
+
+def test_the_template_is_stock_plus_exactly_the_portal_guideline() -> None:
+    from tests.wfe.owui_rag import DEFAULT_RAG_TEMPLATE, PORTAL_RAG_GUIDELINE, PORTAL_RAG_TEMPLATE
+
+    stock_lines = set(DEFAULT_RAG_TEMPLATE.splitlines())
+    portal_lines = PORTAL_RAG_TEMPLATE.splitlines()
+    added = [line for line in portal_lines if line not in stock_lines]
+    assert added == [PORTAL_RAG_GUIDELINE]
+    prefix = rag_prefix("<context-x>", "q")
+    assert prefix.startswith("### Task:\n")
+    assert PORTAL_RAG_GUIDELINE in prefix and "{{CONTEXT}}" not in prefix
 
 
 def test_xlsx_and_pptx_use_the_unstructured_missing_fallback(tmp_path: Path) -> None:

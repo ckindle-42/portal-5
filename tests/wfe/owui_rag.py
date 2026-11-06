@@ -42,6 +42,19 @@ Provide a clear and direct response to the user's query, including inline citati
 </context>
 """
 
+# The one guideline Portal adds to the stock template. Seeded as OWUI's
+# rag.template by openwebui_init.py from imports/openwebui/rag_template.txt —
+# the golden test keeps that file and this string byte-equal.
+PORTAL_RAG_GUIDELINE = (
+    "- The context holds excerpts of attached files. When the full file matters "
+    "(data, code, totals, or running a script), use the attached-file path with "
+    "your tools instead of answering from excerpts."
+)
+PORTAL_RAG_TEMPLATE = DEFAULT_RAG_TEMPLATE.replace(
+    "- Do not use XML tags in your response.",
+    f"{PORTAL_RAG_GUIDELINE}\n- Do not use XML tags in your response.",
+)
+
 _W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 _HEADER_SEPS = ("######", "#####", "####", "###", "##", "#")
 _SEPARATORS = ("\n\n", "\n", " ", "")
@@ -365,8 +378,9 @@ def render_sources(rows: list[tuple[str, str, str]]) -> str:
 
 
 def rag_prefix(context: str, query: str) -> str:
-    """Stock template with ``{{CONTEXT}}`` filled. ``prompt_template`` is a no-op on this text."""
-    template = DEFAULT_RAG_TEMPLATE
+    """Portal template (stock v0.12.5 + attached-file guideline) with ``{{CONTEXT}}``
+    filled. ``prompt_template`` is a no-op on this text."""
+    template = PORTAL_RAG_TEMPLATE
     held: list[tuple[str, str]] = []
     if "[query]" in context:
         token = "{{QUERY" + uuid.uuid4().hex + "}}"

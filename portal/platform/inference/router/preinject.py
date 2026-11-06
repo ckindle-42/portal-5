@@ -495,26 +495,55 @@ def _inject_system_prompt_append(workspace_id: str, body: dict[str, Any]) -> dic
     }
 
 
+def _file_note_fields(item: dict[str, Any]) -> tuple[str, str, str, str]:
+    """(id, name, type, sandbox path) of one attachment item. ``files`` items have
+    no path; ``portal_attached_files`` items (the OWUI inlet filter's field) do."""
+    meta = item.get("meta")
+    ftype = str(
+        item.get("type") or (meta.get("content_type") if isinstance(meta, dict) else "") or ""
+    )
+    return (
+        str(item.get("id") or ""),
+        str(item.get("name") or item.get("filename") or ""),
+        ftype,
+        str(item.get("path") or ""),
+    )
+
+
+def _attachment_notes(body: dict[str, Any]) -> list[str]:
+    """One ``[Attached file …]`` note per attachment, ids deduplicated across both
+    sources. ``body["files"]`` is what direct callers and the eval harness send;
+    in production OWUI pops it before the pipeline, so the live path is the
+    ``portal_attached_files`` field the inlet filter forwards, which names the
+    sandbox path the file is staged at."""
+    notes: list[str] = []
+    seen: set[str] = set()
+    for source in (body.get("portal_attached_files"), body.get("files")):
+        for item in source if isinstance(source, list) else []:
+            if not isinstance(item, dict):
+                continue
+            fid, fname, ftype, path = _file_note_fields(item)
+            if not (fid or fname) or (fid and fid in seen):
+                continue
+            if fid:
+                seen.add(fid)
+            note = f"[Attached file — id: {fid!r}, name: {fname!r}, type: {ftype!r}"
+            notes.append(note + (f", path: {path!r}]" if path else "]"))
+    return notes
+
+
 def _inject_attached_files(body: dict[str, Any]) -> dict[str, Any]:
     """Inject OWUI file attachments as notes in the last user message.
 
     OWUI sends uploaded files in body["files"] but does not include them in the
-    messages array. Inject a note into the last user message so the model can
-    reference audio/document file IDs in tool calls. Returns body (possibly with
-    updated messages).
+    messages array, and its production chat flow pops that key before the
+    pipeline call — the portal_attached_files field forwarded by the
+    portal_attachment_paths inlet filter is what a live chat arrives with.
+    Inject a note into the last user message so the model can reference the
+    attachment ids (and staged paths) in tool calls. Returns body (possibly
+    with updated messages).
     """
-    _attached_files = body.get("files") or []
-    if not _attached_files:
-        return body
-    _file_notes: list[str] = []
-    for _f in _attached_files:
-        _fid = _f.get("id") or ""
-        _fname = _f.get("name") or _f.get("filename") or ""
-        _ftype = _f.get("type") or _f.get("meta", {}).get("content_type") or ""
-        if _fid or _fname:
-            _file_notes.append(
-                f"[Attached file — id: {_fid!r}, name: {_fname!r}, type: {_ftype!r}]"
-            )
+    _file_notes = _attachment_notes(body)
     if not _file_notes:
         return body
     _msgs = list(body.get("messages", []))

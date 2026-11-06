@@ -1,4 +1,5 @@
-"""Realuse pipeline turns prepend the Open WebUI v0.12.5 RAG template. No ``files`` key."""
+"""Realuse pipeline turns mirror production: the Open WebUI RAG context (Portal
+template) prepended, and the inlet filter's ``portal_attached_files`` field carried."""
 
 from __future__ import annotations
 
@@ -9,7 +10,9 @@ from tests.wfe.owui_rag import copied_content, prefix_for, prepend_message, rest
 from tests.wfe.realuse_paths import CHECKOUT, upload_tree_suffix
 
 DOCUMENT_SUFFIXES = {".pdf", ".docx", ".xlsx", ".pptx", ".txt", ".csv", ".md"}
-SHAPE = "owui_rag_v0.12.5"
+SHAPE = "owui_rag_v0.12.5+portal_filter_v1"
+#: The code sandbox's view of the uploads mount; the filter derives the same prefix.
+UPLOADS_MOUNT = "/workspace/uploads"
 
 
 def user_text(content) -> str:
@@ -62,15 +65,43 @@ def introduced_documents(task: dict, turn_index: int, users: list[str]) -> list[
 
 
 class TurnInjection:
-    def __init__(self, prefix: str, file_ids: list[str], chunks: int, ranked_standin: bool) -> None:
+    def __init__(
+        self,
+        prefix: str,
+        file_ids: list[str],
+        chunks: int,
+        ranked_standin: bool,
+        attachments: list[dict] | None = None,
+    ) -> None:
         self.prefix = prefix
         self.file_ids = file_ids
         self.chunks = chunks
         self.ranked_standin = ranked_standin
+        self.attachments = attachments or []
+
+
+def attachment_item(item: dict) -> dict:
+    """The inlet filter's carried shape for one fixture, with the staged path the
+    fixture really has (``<root>/uploads/<id>`` mounted at /workspace/uploads)."""
+    src = Path(item["path"])
+    return {
+        "id": item["id"],
+        "name": item["name"],
+        "type": "file",
+        "size": src.stat().st_size if src.is_file() else None,
+        "path": f"{UPLOADS_MOUNT}/{item['id']}",
+    }
+
+
+def attach_request_attachments(payload: dict, attachments: list | None) -> None:
+    """Put the forwarded field on the pipeline body. An empty list omits the key."""
+    if attachments:
+        payload["portal_attached_files"] = attachments
 
 
 def turn_injection(engine: str, task: dict, turn_index: int, users: list[str]) -> TurnInjection:
-    """RAG prefix for one pipeline turn. Direct engines get an empty prefix."""
+    """RAG prefix and forwarded attachments for one pipeline turn. Direct engines
+    get neither."""
     if engine != "pipeline" or turn_index < 0 or turn_index >= len(users):
         return TurnInjection("", [], 0, False)
     items = introduced_documents(task, turn_index, users)
@@ -78,7 +109,7 @@ def turn_injection(engine: str, task: dict, turn_index: int, users: list[str]) -
         [(item["path"], item["suffix"], item["id"], item["name"]) for item in items],
         users[turn_index],
     )
-    return TurnInjection(prefix, file_ids, chunks, ranked)
+    return TurnInjection(prefix, file_ids, chunks, ranked, [attachment_item(i) for i in items])
 
 
 def rendered_user(engine: str, task: dict, turn_index: int) -> str:
