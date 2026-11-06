@@ -104,6 +104,16 @@ def _proxy_explore_repository(args: dict, ctx: dict) -> str:
 PROXY_TOOLS["explore_repository"] = _proxy_explore_repository
 
 
+def _load_production_surface() -> None:
+    """Handlers for prompt-named tools the allowlist does not offer."""
+    from tests.wfe.production_surface import register_proxy_tools
+
+    register_proxy_tools(PROXY_TOOLS)
+
+
+_load_production_surface()
+
+
 def proxy_tools(wsc: dict, allow: list[str], ctx: dict) -> dict[str, Callable[[dict], str]]:
     """The workspace's production-surface tools (declared or prompt-named) the eval scope
     does not serve, each bound to its defined harness answer for this row."""
@@ -316,6 +326,17 @@ def finish(ctx: dict | None, out: dict, campaign_dir: Path, r: dict) -> dict:
     }
     if ctx.get("proxy_tools"):
         ev["proxied_tools"] = ctx["proxy_tools"]
+    if ctx.get("web_search_queries"):
+        ev["web_search_queries"] = list(ctx["web_search_queries"])
+    if ctx.get("scoring_excluded"):
+        ev["scoring_excluded"] = list(ctx["scoring_excluded"])
+        if out.get("outcome") not in ("HARNESS_ERROR", "BLOCKED"):
+            why = "; ".join(f"{item['tool']}: {item['reason']}" for item in ctx["scoring_excluded"])
+            out = {
+                **out,
+                "outcome": "BLOCKED",
+                "notes": f"excluded from scoring ({why}) | {out.get('notes', '')}",
+            }
     out = {**out, "evidence": ev}
     cleanup(ctx, campaign_dir, r)
     return out
