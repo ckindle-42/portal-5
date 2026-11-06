@@ -7,6 +7,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 # Parameter names of portal.modules.coding.tools.code_sandbox_mcp.execute_python.
@@ -210,3 +211,80 @@ def proxy_web_search(args: dict, ctx: dict) -> str:
         reason = f"SearXNG unreachable: {exc}"
         _exclude(ctx, "web_search", reason)
         return _defined("web_search", reason)
+
+
+# The nine tools round 2 executes. Schemas come from the manifests align_native_tools
+# publishes (tool_registry's inputSchema); web_search has no manifest and uses tools/list.
+PROMPT_NAMED_TOOLS = ("execute_python", "web_search", *tuple(sorted(UNSAFE_REASONS)))
+_REPO = Path(__file__).resolve().parents[2]
+_manifest_schemas: dict[str, dict] | None = None
+
+
+def _openai_tool(name: str, description: str, parameters: dict) -> dict:
+    """ToolDefinition.to_openai_tool: name, description, parameters only."""
+    return {
+        "type": "function",
+        "function": {
+            "name": name,
+            "description": description,
+            "parameters": parameters,
+        },
+    }
+
+
+def _manifest_schemas_by_name() -> dict[str, dict]:
+    """OpenAI schemas from config/inference/tools_manifest_*.json, the published source."""
+    global _manifest_schemas
+    if _manifest_schemas is not None:
+        return _manifest_schemas
+    found: dict[str, dict] = {}
+    root = _REPO / "config" / "inference"
+    for path in sorted(root.glob("tools_manifest_*.json")):
+        data = json.loads(path.read_text())
+        tools = data if isinstance(data, list) else data.get("tools") or []
+        for item in tools:
+            if not isinstance(item, dict):
+                continue
+            fn = item["function"] if isinstance(item.get("function"), dict) else item
+            name = fn.get("name")
+            if not isinstance(name, str) or name in found:
+                continue
+            found[name] = _openai_tool(
+                name,
+                str(fn.get("description") or ""),
+                fn.get("parameters") or fn.get("inputSchema") or {},
+            )
+    _manifest_schemas = found
+    return found
+
+
+def _web_search_schema() -> dict:
+    """web_search as research MCP tools/list publishes it (no tools manifest)."""
+    import asyncio
+
+    from portal.modules.research.tools.web_search_mcp import mcp
+
+    tool = next(item for item in asyncio.run(mcp.list_tools()) if item.name == "web_search")
+    return _openai_tool(tool.name, tool.description or "", dict(tool.input_schema))
+
+
+def production_schema(name: str) -> dict | None:
+    """The schema production advertises for one tool, or None when it has no source."""
+    schemas = _manifest_schemas_by_name()
+    if name in schemas:
+        return schemas[name]
+    if name == "web_search":
+        schemas["web_search"] = _web_search_schema()
+        return schemas["web_search"]
+    return None
+
+
+def offered_schemas(declared: list[str], allow: list[str]) -> list[dict]:
+    """Production schemas for prompt-named tools this workspace has off the allowlist."""
+    want = sorted(set(declared) & set(PROMPT_NAMED_TOOLS) - set(allow))
+    out = []
+    for name in want:
+        schema = production_schema(name)
+        if schema is not None:
+            out.append(schema)
+    return out

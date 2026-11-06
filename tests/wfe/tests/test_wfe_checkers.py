@@ -334,6 +334,43 @@ class TestTimeAndLiteralNormalization:
         )
         assert result.outcome == Outcome.FAIL
 
+    @pytest.mark.parametrize(
+        ("pattern", "written"),
+        [
+            ("1pm", "13:00"),
+            ("1pm", "13:00h"),
+            ("1pm", "1300"),
+            ("8am", "08:00"),
+            ("8am", "08:00h"),
+            ("8am", "0800"),
+            ("11am", "11:00"),
+            ("11am", "11:00h"),
+            ("11am", "1100"),
+        ],
+    )
+    def test_twenty_four_hour_clocks_match_the_meridiem_pattern(self, pattern, written):
+        """realuse_autodaily_prod_20261105 ru-v1-032 r0 wrote Ends at 13:00."""
+        result = check_answer_contains(
+            {"patterns": [pattern]}, CheckContext(final_text=f"Ends at {written}.")
+        )
+        assert result.outcome == Outcome.PASS
+
+    @pytest.mark.parametrize(
+        ("pattern", "written"),
+        [
+            ("1pm", "3:00"),
+            ("1pm", "13:30"),
+            ("8am", "20:00"),
+            ("11am", "23:00"),
+            ("11am", "11:30"),
+        ],
+    )
+    def test_a_different_twenty_four_hour_clock_still_fails(self, pattern, written):
+        result = check_answer_contains(
+            {"patterns": [pattern]}, CheckContext(final_text=f"Ends at {written}.")
+        )
+        assert result.outcome == Outcome.FAIL
+
     def test_hour_forms_match_written_out_answers(self):
         ok = check_answer_contains(
             {"patterns": ["8am", "1pm", "11am"]},

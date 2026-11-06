@@ -336,6 +336,32 @@ def test_qwen_week_plan_bare_clocks_match(tmp_path):
     )
 
 
+def test_twenty_four_hour_end_time_matches_1pm(tmp_path):
+    """realuse_autodaily_prod_20261105 ru-v1-032 r0 docx: Ends at 13:00 failed expect 1pm."""
+    d = docx.Document()
+    d.add_paragraph("Friday wrap-up. Ends at 13:00")
+    d.save(tmp_path / "w.docx")
+    assert _run(tmp_path, "docx", ["1pm"], "w.docx").outcome == Outcome.PASS
+    late = docx.Document()
+    late.add_paragraph("Ends at 13:30")
+    late.save(tmp_path / "late.docx")
+    assert _run(tmp_path, "docx", ["1pm"], "late.docx").outcome == Outcome.FAIL
+    three = docx.Document()
+    three.add_paragraph("Ends at 3:00")
+    three.save(tmp_path / "three.docx")
+    assert _run(tmp_path, "docx", ["1pm"], "three.docx").outcome == Outcome.FAIL
+    for written, expect in (
+        ("08:00", "8am"),
+        ("11:00", "11am"),
+        ("13:00h", "1pm"),
+        ("1300", "1pm"),
+    ):
+        doc = docx.Document()
+        doc.add_paragraph(f"Ends at {written}")
+        doc.save(tmp_path / "t.docx")
+        assert _run(tmp_path, "docx", [expect], "t.docx").outcome == Outcome.PASS
+
+
 def test_a_time_written_one_way_matches_expect_written_another(tmp_path):
     d = docx.Document()
     d.add_paragraph("Wednesday travel admin, leave by 8:00 AM")

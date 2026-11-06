@@ -206,6 +206,72 @@ def test_fast_repair_explore_step_sends_uploads_to_execute_bash():
     assert "call explore_repository('what you need to find') first" in other
 
 
+def test_requests_offer_the_production_schemas_for_compliance_and_security(out_root):
+    """Offered prompt-named tools equal the workspace's production list of those tools."""
+    import yaml
+
+    from portal.platform.inference.tool_registry import ToolDefinition
+
+    portal = yaml.safe_load((campaign.REPO / "config/portal.yaml").read_text())
+    modes = yaml.safe_load((campaign.REPO / "tests/wfe/tool_modes.yaml").read_text())["workspaces"]
+    raw = json.loads(
+        (campaign.REPO / "config/inference/tools_manifest_compliance_mcp.json").read_text()
+    )
+    entry = next(item["function"] for item in raw if item["function"]["name"] == "compliance_ask")
+    rendered = ToolDefinition(
+        name=entry["name"],
+        description=entry["description"],
+        parameters=entry["parameters"],
+        server_id="compliance",
+        server_url="",
+    ).to_openai_tool()
+    assert surface.production_schema("compliance_ask") == rendered
+    for workspace in (COMPLIANCE, SECURITY):
+        _task, wsc, ctx = _prepare(out_root, workspace)
+        declared = list(portal["workspaces"][workspace]["tools"])
+        allow = list(modes[workspace]["allow"])
+        production = sorted(set(declared) & set(surface.PROMPT_NAMED_TOOLS))
+        offered = sorted(set(wsc["tool_surface"]) & set(surface.PROMPT_NAMED_TOOLS))
+        assert offered == production
+        request_names = [t["function"]["name"] for t in ctx["offered_schemas"]]
+        assert request_names == sorted(set(production) - set(allow))
+        assert ctx["offered_schemas"] == surface.offered_schemas(declared, allow)
+        _, payload, _ = runner._build_pipeline(
+            workspace,
+            [{"role": "user", "content": "q"}],
+            "none",
+            {},
+            ctx["offered_schemas"],
+            "default",
+            False,
+            None,
+            ctx["scope"],
+        )
+        assert payload["tools"] == ctx["offered_schemas"]
+        assert "portal_client_tools_only" not in payload
+        assert payload["portal_eval"]["allow"] == sorted(allow)
+        assert set(request_names) <= set(ctx["proxy_fns"])
+        wired = [t["function"]["name"] for t in runner._request_schemas(wsc["tool_surface"], _task)]
+        assert request_names == [name for name in wired if name in surface.PROMPT_NAMED_TOOLS]
+
+
+def test_web_search_schema_is_the_research_tools_list_schema():
+    import asyncio
+
+    from portal.modules.research.tools.web_search_mcp import mcp
+    from portal.platform.inference.tool_registry import ToolDefinition
+
+    tool = next(item for item in asyncio.run(mcp.list_tools()) if item.name == "web_search")
+    rendered = ToolDefinition(
+        name=tool.name,
+        description=tool.description or "",
+        parameters=dict(tool.input_schema),
+        server_id="research",
+        server_url="",
+    ).to_openai_tool()
+    assert surface.production_schema("web_search") == rendered
+
+
 def test_every_committed_plan_serves_the_tools_its_prompt_names():
     failures = []
     plans = sorted((campaign.REPO / "tests/wfe/plans").glob("*.yaml"))

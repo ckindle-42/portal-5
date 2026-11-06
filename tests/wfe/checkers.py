@@ -296,6 +296,8 @@ _MERIDIEM_SPELLING_RE = re.compile(r"(?:a|p)\.m\.", re.I)
 #: "08:00 AM" canonicalize to "10am"/"8am". A bare "8:00" stays "8:00"; a
 #: meridiem pattern of that hour also matches it, so "8am" accepts "8:00" and
 #: "1pm" accepts "1:00", while "8:00 PM" stays "8pm" and does not match "8am".
+#: The same minute in 24-hour form matches too: "13:00", "13:00h", and "1300"
+#: for "1pm". "13:30" and "3:00" do not.
 #: "9 to 12", "9-12", "9–12", "9:00-12:00" and "9:00 AM - 12:00 PM" canonicalize
 #: to "9am-12pm" (a bare 12-hour range reads morning-to-afternoon; a range whose
 #: end carries no meridiem ends pm, one that does keeps it). Unambiguous words
@@ -417,14 +419,21 @@ def _fold_minute_range(m: re.Match) -> str:
     return f"{h1}am-{h2}pm"
 
 
+def _twenty_four_clock(hour: int, mer: str) -> tuple[str, str]:
+    """(HH:00, HHMM) for one 12-hour clock. 12am is 00, 12pm is 12."""
+    h24 = hour % 12 + (12 if mer == "pm" else 0)
+    return f"{h24:02d}:00", f"{h24:02d}00"
+
+
 def _with_bare_clock_alts(folded: str) -> str:
-    """A :00 meridiem clock also matches that hour written H:00 with no meridiem."""
+    """A :00 meridiem clock also matches H:00 and that minute as HH:00, HH:00h, or HHMM."""
     parts: list[str] = []
     pos = 0
     for m in _CLOCK_TOKEN_RE.finditer(folded):
         parts.append(re.escape(folded[pos : m.start()]))
         hour, mer = str(int(m.group(1))), m.group(2).lower()
-        parts.append(rf"(?<!\d)(?:{hour}{mer}|{hour}:00)(?!\d)")
+        shown, compact = _twenty_four_clock(int(hour), mer)
+        parts.append(rf"(?<!\d)(?:{hour}{mer}|{hour}:00|{shown}h?|{compact})(?!\d)")
         pos = m.end()
     parts.append(re.escape(folded[pos:]))
     return "".join(parts)

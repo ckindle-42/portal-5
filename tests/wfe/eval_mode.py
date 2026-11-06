@@ -265,10 +265,15 @@ def prepare(pipe: bool, r: dict, manifest: dict, task: dict, wsc: dict, harness:
     ctx["proxy_fns"] = proxy_tools(wsc, m["allow"], ctx)
     if ctx["proxy_fns"]:
         ctx["proxy_tools"] = sorted(ctx["proxy_fns"])
+    from tests.wfe.production_surface import offered_schemas
+
+    # Allowlist stays on the pipeline; these are the prompt-named tools off it.
+    offered = offered_schemas(list(wsc.get("declared_tools") or []), list(m["allow"]))
+    ctx["offered_schemas"] = offered
     wsc = {
         **wsc,
         "system_prompt_pipeline": wsc["system_prompt_base"],
-        "tool_surface": sorted(m["allow"]),
+        "tool_surface": sorted(set(m["allow"]) | {t["function"]["name"] for t in offered}),
     }
     return {**task, "_eval": ctx}, wsc, ctx
 

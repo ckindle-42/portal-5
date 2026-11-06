@@ -817,6 +817,21 @@ def _build_payload(
     return f"{OLLAMA}/api/chat", payload, []
 
 
+def _apply_request_tools(payload: dict, schemas: list | None, eval_scope: dict | None) -> None:
+    """Client schemas when present. Empty allow is client-owned; a real allowlist stays dispatched."""
+    if schemas:
+        payload["tools"] = schemas
+        # Empty allow: harness toolset, client-owned. A real allowlist stays on the pipeline.
+        if not (eval_scope or {}).get("allow"):
+            payload["portal_client_tools_only"] = True
+        return
+    if not eval_scope:
+        # No tools asked for (preflights, probes): say so. Without the flag the pipeline
+        # attaches the workspace's own production tools, so a "reply ready" probe could
+        # create files, query data or write notes. Production tool mode carries a scope.
+        payload["portal_no_tools"] = True
+
+
 def _build_pipeline(
     workspace: str,
     messages: list[dict],
@@ -855,16 +870,7 @@ def _build_pipeline(
         payload["chat_template_kwargs"] = {"enable_thinking": think == "true"}
     if fmt == "json":
         payload["response_format"] = {"type": "json_object"}
-    if schemas:
-        # The seat is measured on the harness toolset (the same proxy the direct
-        # modes use); everything else runs through the pipeline.
-        payload["tools"] = schemas
-        payload["portal_client_tools_only"] = True
-    elif not eval_scope:
-        # No tools asked for (preflights, probes): say so. Without the flag the pipeline
-        # attaches the workspace's own production tools, so a "reply ready" probe could
-        # create files, query data or write notes. Production tool mode carries a scope.
-        payload["portal_no_tools"] = True
+    _apply_request_tools(payload, schemas, eval_scope)
     # The inlet filter's forwarded field: production OWUI pops `files` before this hop.
     attach_request_attachments(payload, attachments)
     if eval_scope:  # production tool mode: the workspace's own tools, scoped (eval_mode)
@@ -1917,6 +1923,19 @@ def _run_turns(lp: _Loop, max_turns: int, budget_s: int) -> None:
         lp.final_text = lp.assistant_texts[-1]
 
 
+def _request_schemas(tool_surface: list[str] | None, task: dict) -> list:
+    """Harness schemas on this surface, plus production schemas the row offers."""
+    schemas = (
+        [t for t in TOOL_SCHEMAS if t["function"]["name"] in tool_surface]
+        if tool_surface
+        else list(TOOL_SCHEMAS)
+    )
+    have = {t["function"]["name"] for t in schemas}
+    extra = (task.get("_eval") or {}).get("offered_schemas") or []
+    schemas.extend(t for t in extra if (t.get("function") or {}).get("name") not in have)
+    return schemas
+
+
 def run_task(
     model: str,
     system_prompt: str,
@@ -1967,11 +1986,7 @@ def run_task(
     # Production tool mode: the workspace's own prompt/tools can name a tool the eval scope
     # does not serve; the harness answers it (never "unknown tool") and records the proxy.
     sandbox.proxy = dict((task.get("_eval") or {}).get("proxy_fns") or {})
-    schemas = (
-        [t for t in TOOL_SCHEMAS if t["function"]["name"] in tool_surface]
-        if tool_surface
-        else TOOL_SCHEMAS
-    )
+    schemas = _request_schemas(tool_surface, task)
     if not sandbox.allow_repo_read:
         schemas = [SANDBOX_ONLY_SCHEMAS.get(t["function"]["name"], t) for t in schemas]
     lp = _Loop(model, task, sandbox, schemas, harness, sampling, use_tools)
