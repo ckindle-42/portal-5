@@ -114,7 +114,7 @@ def _ru_v1_001_slip_pattern() -> str:
         r"(?:(?:has(?:\s+been)?|had|was|is|been)\s+)?"
         r"(?:slipp(?:ed|ing)|extended|delay(?:ed|ing)?)\s+by\s+" + number + r"\s+days\b"
     )
-    noun = number + r"[\s-]days?\s+(?:slips?|delays?|extensions?)\b"
+    noun = number + r"[\s-]days?\s+(?:timeline\s+)?(?:slips?|delays?|extensions?)\b"
     late = r"\b(?:ran|running|runs?)\s+" + number + r"\s+days\s+late\b"
     of_form = r"(?:slips?|delays?|extensions?)\s+of\s+" + number + r"\s+days\b"
     return guard + "(?:" + "|".join((verb, noun, late, of_form)) + ")"
@@ -149,6 +149,8 @@ ANSWER_PATTERN_EXPECTATIONS = {
                 "the work slipped by 3 days",
                 "we slipped by 3 days",
                 "a three-day delay",
+                "a 3-day timeline slip",
+                "a three day timeline delay",
                 "a 3 day extension",
                 "Timeline delayed by 3 days",
                 "we ran three days late",
@@ -176,6 +178,8 @@ ANSWER_PATTERN_EXPECTATIONS = {
                 "no 3-day slip",
                 "a 3-week slip",
                 "a 30-day slip",
+                "a 2-day timeline slip",
+                "a 30-day timeline slip",
                 "slipped by 3 weeks",
                 "ran 2 days late",
                 "ran 30 days late",

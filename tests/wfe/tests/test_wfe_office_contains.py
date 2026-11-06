@@ -370,6 +370,69 @@ def test_a_time_written_one_way_matches_expect_written_another(tmp_path):
     assert _run(tmp_path, "docx", ["9am"], "w.docx").outcome == Outcome.FAIL
 
 
+def test_office_phrases_ignore_case_and_punctuation_between_words(tmp_path):
+    d = docx.Document()
+    d.add_paragraph("Tuesday — Coding Project")
+    d.add_paragraph("Friday wrap-up")
+    d.save(tmp_path / "w.docx")
+    assert _run(tmp_path, "docx", ["tuesday coding project"], "w.docx").outcome == Outcome.PASS
+    assert _run(tmp_path, "docx", ["FRIDAY wrap up"], "w.docx").outcome == Outcome.PASS
+    assert _run(tmp_path, "docx", ["Wednesday coding project"], "w.docx").outcome == Outcome.FAIL
+
+
+def test_xlsx_header_aliases_apply_to_headers_only(tmp_path):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["Item", "APPROVED Amount"])
+    ws.append(["approved_amount", "draft"])
+    wb.save(tmp_path / "header.xlsx")
+    assert _run(tmp_path, "xlsx", ["approved_amount"], "header.xlsx").outcome == Outcome.PASS
+
+    wrong = openpyxl.Workbook()
+    wrong.active.append(["Item", "Approved Balance"])
+    wrong.active.append(["Approved Amount", "draft"])
+    wrong.save(tmp_path / "body.xlsx")
+    assert _run(tmp_path, "xlsx", ["approved_amount"], "body.xlsx").outcome == Outcome.FAIL
+
+
+def test_xlsx_exact_values_evaluate_simple_sum_and_addition_formulas(tmp_path):
+    for name, formula in (("sum", "=SUM(B2:B4)"), ("addition", "=B2+B3+B4")):
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(["Item", "Amount"])
+        ws.append(["venue", 38])
+        ws.append(["food", 29])
+        ws.append(["decorations", 19])
+        ws["B5"] = formula
+        wb.save(tmp_path / f"{name}.xlsx")
+        spec = {
+            "type": "office_contains",
+            "kind": "xlsx",
+            "path": f"{name}.xlsx",
+            "expect": ["Amount"],
+            "exact": ["86"],
+        }
+        result = check_office_contains(spec, CheckContext(sandbox_root=tmp_path))
+        assert result.outcome == Outcome.PASS, (name, result.notes)
+
+    wrong = openpyxl.Workbook()
+    ws = wrong.active
+    ws.append(["Item", "Amount"])
+    ws.append(["venue", 38])
+    ws.append(["food", 29])
+    ws.append(["decorations", 19])
+    ws["B5"] = "=SUM(B2:B3)"
+    wrong.save(tmp_path / "wrong.xlsx")
+    spec = {
+        "type": "office_contains",
+        "kind": "xlsx",
+        "path": "wrong.xlsx",
+        "expect": ["Amount"],
+        "exact": ["86"],
+    }
+    assert check_office_contains(spec, CheckContext(sandbox_root=tmp_path)).outcome == Outcome.FAIL
+
+
 def test_section_groups_per_kind(tmp_path):
     wb = openpyxl.Workbook()
     ws = wb.active

@@ -339,7 +339,7 @@ _LABEL_SEP_RE = re.compile(r"(?<=[A-Za-z])\s*[:\-]\s*(?=[A-Za-z])")
 #: Full weekday names and their standard abbreviations, optional trailing period. Longest first.
 _WEEKDAY_TOKEN = re.compile(
     r"\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday"
-    r"|thurs|thur|tues|thu|tue|wed|fri|mon|sat|sun)\b\.?",
+    r"|thurs|thur|tues|thu|tue|wed|fri|mon|sat|sun)(?:s)?\b\.?",
     re.I,
 )
 _WEEKDAY_CANON = {
@@ -377,9 +377,25 @@ def _canonicalize_weekdays(text: str) -> str:
     """Whole-word weekday names and abbreviations share one form; a range is not filled in."""
 
     def repl(m: re.Match) -> str:
-        return _WEEKDAY_CANON[m.group(0).rstrip(".").lower()]
+        token = m.group(0).rstrip(".").lower()
+        if token in _WEEKDAY_CANON:
+            return _WEEKDAY_CANON[token]
+        return _WEEKDAY_CANON[token[:-1]] + "s"
 
     return _WEEKDAY_TOKEN.sub(repl, text)
+
+
+_WEEKDAY_TIME_GLUE_RE = re.compile(
+    r"\b(?P<day>monday|tuesday|wednesday|thursday|friday|saturday|sunday)(?P<plural>s)?\b"
+    r"(?:\s*,?\s*(?:at|from)\b)?\s*,?\s*(?=\d{1,2}(?:am|pm)\b)",
+    re.I,
+)
+
+
+def _canonicalize_weekday_time_glue(text: str) -> str:
+    return _WEEKDAY_TIME_GLUE_RE.sub(
+        lambda m: f"{m.group('day').lower()}{m.group('plural') or ''} ", text
+    )
 
 
 def missing_office_parsers() -> list[str]:
@@ -406,6 +422,8 @@ def _collapse_label_separators(text: str) -> str:
 def _fold_literal(pattern: str, text: str) -> tuple[str, str]:
     pattern = _canonicalize_weekdays(_canonicalize_times(_strip_markdown_emphasis(pattern)))
     text = _canonicalize_weekdays(_canonicalize_times(_strip_markdown_emphasis(text)))
+    pattern = _canonicalize_weekday_time_glue(pattern)
+    text = _canonicalize_weekday_time_glue(text)
     if _NUMBERED_DURATION_RE.search(pattern):
         pattern = _canonicalize_durations(pattern)
         text = _canonicalize_durations(text)
@@ -828,13 +846,81 @@ def _xlsx_parts(f: Path) -> tuple[list[str], list[str], list[list[str]]]:
     """(cell values, sheet names, one section per sheet: its name then its values)."""
     import openpyxl
 
-    wb = openpyxl.load_workbook(str(f), data_only=True)
+    wb = openpyxl.load_workbook(str(f), data_only=False)
     parts, sections = [], []
     for ws in wb:
-        vals = [str(c.value) for row in ws.iter_rows() for c in row if c.value is not None]
+        vals = []
+        for row in ws.iter_rows():
+            for cell in row:
+                value = cell.value
+                if isinstance(value, str) and value.startswith("="):
+                    value = _evaluate_xlsx_formula(value, ws)
+                if value is not None:
+                    vals.append(str(value))
         parts += vals
         sections.append([str(ws.title)] + vals)
     return parts, list(wb.sheetnames), sections
+
+
+_XLSX_SUM_RANGE_RE = re.compile(
+    r"SUM\(\s*(\$?[A-Z]{1,3}\$?\d+)\s*:\s*(\$?[A-Z]{1,3}\$?\d+)\s*\)",
+    re.I,
+)
+_XLSX_CELL_REF_RE = re.compile(r"\$?[A-Z]{1,3}\$?\d+", re.I)
+_XLSX_NUMBER_RE = re.compile(r"(?:\d+(?:\.\d+)?|\.\d+)")
+
+
+def _xlsx_numeric_value(value):
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return value
+    return None
+
+
+def _xlsx_formula_term(term: str, worksheet):
+    from openpyxl.utils.cell import range_boundaries
+
+    total = 0
+    summed = _XLSX_SUM_RANGE_RE.fullmatch(term)
+    if summed:
+        min_col, min_row, max_col, max_row = range_boundaries(
+            f"{summed.group(1)}:{summed.group(2)}"
+        )
+        for row in range(min_row, max_row + 1):
+            for col in range(min_col, max_col + 1):
+                cell = worksheet.cell(row, col)
+                value = _xlsx_numeric_value(cell.value)
+                if value is None and cell.value is not None:
+                    return None
+                total += value or 0
+        return total
+    if _XLSX_CELL_REF_RE.fullmatch(term):
+        value = worksheet[term.replace("$", "")].value
+        return _xlsx_numeric_value(value)
+    if _XLSX_NUMBER_RE.fullmatch(term):
+        return float(term) if "." in term else int(term)
+    return None
+
+
+def _evaluate_xlsx_formula(formula: str, worksheet):
+    if not formula.startswith("="):
+        return None
+    terms = formula[1:].split("+")
+    values = [_xlsx_formula_term(term.strip(), worksheet) for term in terms]
+    if not terms or any(value is None for value in values):
+        return None
+    total = sum(values)
+    return int(total) if total == int(total) else total
+
+
+def _xlsx_headers(f: Path) -> list[str]:
+    import openpyxl
+
+    wb = openpyxl.load_workbook(str(f), data_only=False)
+    return [str(cell.value) for ws in wb for cell in ws[1] if cell.value is not None]
+
+
+def _header_key(value: str) -> str:
+    return re.sub(r"[_\s-]+", " ", value).strip().casefold()
 
 
 def _pptx_parts(f: Path) -> tuple[list[str], list[str], list[list[str]]]:
@@ -884,7 +970,23 @@ def _missing_expect(expect: list[str], sections: list[list[str]]) -> list[str]:
     words scattered across a section with other words between them do not — order and
     adjacency are required, this is not bag-of-words."""
     groups = [" ".join(sec) for sec in sections if any(ln.strip() for ln in sec)]
-    return [e for e in expect if not any(_text_match(e, g) for g in groups)]
+    return [e for e in expect if not any(_office_text_match(e, g) for g in groups)]
+
+
+def _office_text_match(pattern: str, text: str) -> bool:
+    if _REGEX_METACHARS.search(_MERIDIEM_SPELLING_RE.sub("", pattern or "")):
+        return _text_match(pattern, text)
+    pat, folded = _fold_literal(_normalize_match_text(pattern), _normalize_match_text(text))
+
+    def punctuation_separator(match: re.Match) -> str:
+        before, after = match.string[match.start() - 1], match.string[match.end()]
+        return match.group() if before.isdigit() and after.isdigit() else " "
+
+    pat = re.sub(r"(?<=\w)[^\w\s]+(?=\w)", punctuation_separator, pat)
+    folded = re.sub(r"(?<=\w)[^\w\s]+(?=\w)", punctuation_separator, folded)
+    pat = re.sub(r"\s+", " ", pat).strip()
+    folded = re.sub(r"\s+", " ", folded).strip()
+    return _pattern_match(_with_bare_clock_alts(pat), folded)
 
 
 def _has_line(lines: list[str], want: str) -> bool:
@@ -937,6 +1039,7 @@ def check_office_contains(spec: dict, ctx: CheckContext) -> CheckResult:
     for f in files:
         try:
             text, names, sections = _office_parts(f, kind)
+            headers = _xlsx_headers(f) if kind == "xlsx" else []
         except ImportError as e:
             return CheckResult(
                 Outcome.HARNESS_ERROR,
@@ -947,6 +1050,9 @@ def check_office_contains(spec: dict, ctx: CheckContext) -> CheckResult:
             best = best or [f"unparseable {f.name}: {e}"]
             continue
         missing = _missing_expect(expect, sections)
+        if headers and missing:
+            header_keys = {_header_key(header) for header in headers}
+            missing = [e for e in missing if _header_key(e) not in header_keys]
         lines = [ln.strip() for ln in text.split("\n")]
         missing += [f"exact:{e}" for e in spec.get("exact") or [] if not _has_line(lines, e)]
         missing += [f"{_OFFICE_NAMES[kind]}:{n}" for n in names_want if n not in names]
@@ -998,7 +1104,18 @@ def check_tool_grounded(spec: dict, ctx: CheckContext) -> CheckResult:
             or _output_failed(out)
         ):
             continue
-        if all(_text_match(p, out) for p in evidence):
+        grounded_texts = [out]
+        if c.get("name") in {"create_excel", "create_powerpoint"}:
+            args = c.get("args") or {}
+            if isinstance(args, str):
+                try:
+                    args = json.loads(args)
+                except ValueError:
+                    args = {}
+            if isinstance(args, dict) and args.get("title"):
+                grounded_texts.append(str(args["title"]))
+            grounded_texts.append(out.replace("_", " "))
+        if all(any(_text_match(p, text) for text in grounded_texts) for p in evidence):
             return CheckResult(
                 Outcome.PASS, f"grounded by {c.get('name')}", {"grounded_by": c.get("name")}
             )
