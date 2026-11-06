@@ -77,22 +77,14 @@ if [ "${CANARY:-0}" = "1" ]; then
         --campaign-id "$CAMPAIGN_ID" ${PLAN_ARGS[@]+"${PLAN_ARGS[@]}"} "$@"
 fi
 
-# Unset REPEATS on --tier realuse omits --repeats (realuse_repeats: 1 draw, 2 only
-# above temperature 0). A job step cannot export REPEATS. An explicit REPEATS still wins.
-_realuse=0
-_prev=""
-for _arg in "$@"; do
-    [ "$_prev" = "--tier" ] && [ "$_arg" = "realuse" ] && _realuse=1
-    [ "$_arg" = "--tier=realuse" ] && _realuse=1
-    _prev="$_arg"
-done
-if [ "$_realuse" = 1 ] && [ -z "${REPEATS+x}" ]; then
+# Unset REPEATS omits --repeats. A plan-level `repeats:` then wins over the tier
+# default (confirm: repeats_policy, 1 when every arm served temperature 0 else 3;
+# realuse: one draw, two only above temperature 0). A job step cannot export
+# REPEATS. An explicit REPEATS still wins.
+if [ -z "${REPEATS:-}" ]; then
     REPEATS=policy
-else
-    REPEATS="${REPEATS:-3}"
 fi
-# REPEATS=policy leaves --repeats off, so a confirm takes the harness's repeats policy
-# (1 when every arm in the cell served temperature 0, else 3 — campaign.repeats_policy).
+# REPEATS=policy leaves --repeats off so campaign._planned_matrix reads the plan.
 REPEATS_FLAG="--repeats ${REPEATS}"
 [ "$REPEATS" = "policy" ] && REPEATS_FLAG=""
 BUDGET_S="${BUDGET_S:-1800}"

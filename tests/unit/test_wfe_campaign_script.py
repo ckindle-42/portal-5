@@ -246,6 +246,19 @@ def test_realuse_tier_omits_repeats_when_repeats_is_unset(tmp_path: Path) -> Non
         assert call["argv"][-2:] == ["--tier", "realuse"]
 
 
+def test_confirm_tier_omits_repeats_when_repeats_is_unset(tmp_path: Path) -> None:
+    plan = "tests/wfe/plans/gemma26b_qat_bench_20261106.yaml"
+
+    result, calls = _run(tmp_path, "--plan", plan, "--tier", "confirm", drop_env=("REPEATS",))
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    campaign_calls = _campaign_calls(calls)
+    assert campaign_calls
+    for call in campaign_calls:
+        assert "--repeats" not in call["argv"]
+        assert call["argv"][-2:] == ["--tier", "confirm"]
+
+
 def test_an_explicit_repeats_still_reaches_a_realuse_tier(tmp_path: Path) -> None:
     result, calls = _run(
         tmp_path,

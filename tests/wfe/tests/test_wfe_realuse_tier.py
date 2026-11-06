@@ -263,6 +263,33 @@ def test_a_plan_repeats_count_beats_the_realuse_policy(plan, tmp_path, monkeypat
     assert len(matrix) == 12
 
 
+def test_a_plan_repeats_count_beats_the_confirm_default(plan, tmp_path, monkeypatch):
+    monkeypatch.setattr(camp, "CAMPAIGNS", tmp_path / "campaigns")
+    document = yaml.safe_load(plan.read_text())
+    document["repeats"] = 4
+    plan.write_text(yaml.safe_dump(document))
+    (tmp_path / "campaigns" / "c" / "rows").mkdir(parents=True)
+    args = SimpleNamespace(
+        campaign_id="c",
+        all_suites=False,
+        arm=None,
+        suite=None,
+        task=None,
+        workspace=None,
+        tier="confirm",
+        advance=None,
+        repeats=None,
+    )
+    repeats, matrix = camp._planned_matrix(plan, args)
+    assert repeats == 4
+    assert len(matrix) == 24
+
+    args.repeats = 3
+    repeats, matrix = camp._planned_matrix(plan, args)
+    assert repeats == 3
+    assert len(matrix) == 18
+
+
 def test_plan_repeats_rejects_a_non_positive_count(plan):
     document = yaml.safe_load(plan.read_text())
     document["repeats"] = True

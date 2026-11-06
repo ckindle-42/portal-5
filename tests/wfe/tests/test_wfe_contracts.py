@@ -537,28 +537,41 @@ class TestWfeCurtailment:
         )
         return directory
 
-    def test_floor_curtailment_is_complete_and_reported(self, tmp_path):
-        from tests.wfe.report import build, fitness, render_markdown
+    def test_a_ten_task_confirm_plan_runs_and_reports_below_floor(self, tmp_path):
+        from tests.wfe.report import fitness
 
-        directory = self._campaign(tmp_path)
+        directory = self._campaign(tmp_path, tasks=10, repeats=4)
         manifest = camp.load_manifest(directory)
-        record = camp._curtail_workspace(directory, manifest, "ch", "ws")
-        assert record["state"] == "CURTAILED"
-        assert record["verdict"] == "NO_DECISION"
-        assert record["rows_saved"] == 36
-        assert all(
-            r["state"] == "SKIPPED_DECIDED"
-            for r in camp.load_manifest(directory)["rows"]
-            if r["arm"] == "ch"
-        )
-        assert camp.completion_problems(directory) == []
-        fit = fitness(directory)
-        json.dumps(fit)
-        assert [(c["candidate"], c["verdict"]) for c in fit["cells"]] == [("ch", "NO_DECISION")]
-        assert fit["cells"][0]["excluded"] == {}
-        report = build(directory)
-        assert len(report["not_run"]) == 36
-        assert "36 row(s) saved" in render_markdown(report)
+        assert camp._curtail_workspace(directory, manifest, "ch", "ws") is None
+        saved = camp.load_manifest(directory)
+        assert saved.get("curtailments", []) == []
+        challenger = [r for r in saved["rows"] if r["arm"] == "ch"]
+        assert challenger and all(r["state"] == "PENDING" for r in challenger)
+        for row in saved["rows"]:
+            if row["arm"] != "ch":
+                continue
+            row["state"] = "PASS"
+            camp._row_path(directory, row["run_id"]).write_text(
+                json.dumps(
+                    {
+                        "run_id": row["run_id"],
+                        "workspace": "ws",
+                        "arm": "ch",
+                        "suite": "suite",
+                        "task_id": row["task_id"],
+                        "repeat": row["repeat"],
+                        "outcome": "PASS",
+                        "instrument": {"fingerprint": "base"},
+                        "env": {"fingerprint": "env"},
+                    }
+                )
+            )
+        camp.save_manifest(directory, saved)
+        cell = fitness(directory)["cells"][0]
+        assert cell["verdict"] == "NO_DECISION"
+        assert cell["reason"].startswith("below-floor:")
+        assert cell["curtailment"] is None
+        assert cell["n"] == 10
 
     def test_better_curtailment_is_the_fitness_verdict_and_skips_do_not_reduce_floor(
         self, tmp_path
@@ -626,16 +639,72 @@ class TestWfeCurtailment:
             if row["arm"] == "ch" and row["tier"] == "confirm"
         )
 
-    def test_execute_arm_curtails_floor_before_challenger_preflight(self, tmp_path, monkeypatch):
-        directory = self._campaign(tmp_path)
+    def test_execute_arm_curtails_a_decided_cell_before_challenger_preflight(
+        self, tmp_path, monkeypatch
+    ):
+        directory = self._campaign(tmp_path, tasks=36, incumbent_outcome="FAIL")
+        manifest = camp.load_manifest(directory)
+        for row in manifest["rows"]:
+            if row["arm"] != "ch" or int(row["task_id"][1:]) >= 33:
+                continue
+            row["state"] = "PASS"
+            camp._row_path(directory, row["run_id"]).write_text(
+                json.dumps(
+                    {
+                        "run_id": row["run_id"],
+                        "workspace": "ws",
+                        "arm": "ch",
+                        "suite": "suite",
+                        "task_id": row["task_id"],
+                        "repeat": row["repeat"],
+                        "outcome": "PASS",
+                        "instrument": {"fingerprint": "base"},
+                        "env": {"fingerprint": "env"},
+                    }
+                )
+            )
+        camp.save_manifest(directory, manifest)
 
         def unexpected_preflight(*_args, **_kwargs):
-            raise AssertionError("floor-limited challenger must not need preflight or model calls")
+            raise AssertionError("a decided challenger must not need preflight or model calls")
 
         monkeypatch.setattr(camp, "preflight_arm", unexpected_preflight)
         result = camp.execute_arm(directory, "ch", 4, 60, None, False, False)
         assert result["ran"] == 0
-        assert camp.load_manifest(directory)["curtailments"][0]["rows_saved"] == 36
+        record = camp.load_manifest(directory)["curtailments"][0]
+        assert record["verdict"] == "BETTER"
+        assert record["rows_saved"] == 9
+
+    def test_execute_arm_runs_a_below_floor_challenger(self, tmp_path, monkeypatch):
+        directory = self._campaign(tmp_path, tasks=10, repeats=4)
+        monkeypatch.setattr(camp, "ENGINE", "ollama")
+        monkeypatch.setattr(camp, "drain_others", lambda keep: [])
+        monkeypatch.setattr(camp, "drain_model", lambda _model: True)
+        monkeypatch.setattr(camp, "drain_omlx", lambda: "stub")
+        monkeypatch.setattr(camp, "instrument_drift", lambda _manifest: None)
+        monkeypatch.setattr(camp, "identity_drift", lambda *_args, **_kwargs: None)
+        monkeypatch.setattr(
+            camp, "preflight_arm", lambda *_args, **_kwargs: {"verdict": "OK", "findings": []}
+        )
+        monkeypatch.setattr(camp, "workspace_context", lambda *_args, **_kwargs: {})
+        camp._KIND_ROWS.clear()
+        camp._RECENT.clear()
+
+        def _row(*_args, **_kwargs):
+            return {
+                "outcome": "PASS",
+                "turns": 1,
+                "tool_calls": 1,
+                "tool_errors": 0,
+                "economics": {"wall_s": 0.1},
+            }
+
+        monkeypatch.setattr(camp, "run_row", _row)
+        result = camp.execute_arm(directory, "ch", 4, 60, None, False, False)
+        assert result["ran"] == 40
+        manifest = camp.load_manifest(directory)
+        assert manifest.get("curtailments", []) == []
+        assert all(r["state"] == "PASS" for r in manifest["rows"] if r["arm"] == "ch")
 
     def test_incomplete_incumbent_bypasses_curtailment(self, tmp_path):
         directory = self._campaign(tmp_path, incumbent_complete=False)
@@ -661,13 +730,36 @@ class TestWfeCurtailment:
         assert record["rows_saved"] == 0
 
     def test_no_curtail_resumes_skipped_rows(self, tmp_path):
-        directory = self._campaign(tmp_path)
+        directory = self._campaign(tmp_path, tasks=36, incumbent_outcome="FAIL")
         manifest = camp.load_manifest(directory)
-        camp._curtail_workspace(directory, manifest, "ch", "ws")
+        for row in manifest["rows"]:
+            if row["arm"] != "ch" or int(row["task_id"][1:]) >= 33:
+                continue
+            row["state"] = "PASS"
+            camp._row_path(directory, row["run_id"]).write_text(
+                json.dumps(
+                    {
+                        "run_id": row["run_id"],
+                        "workspace": "ws",
+                        "arm": "ch",
+                        "suite": "suite",
+                        "task_id": row["task_id"],
+                        "repeat": row["repeat"],
+                        "outcome": "PASS",
+                        "instrument": {"fingerprint": "base"},
+                        "env": {"fingerprint": "env"},
+                    }
+                )
+            )
+        camp.save_manifest(directory, manifest)
+        camp._curtail_workspace(directory, manifest, "ch", "ws", "suite/t32")
         manifest = camp.load_manifest(directory)
         camp._resume_curtailed_rows(directory, manifest, "ch")
         resumed = camp.load_manifest(directory)
-        assert all(r["state"] == "PENDING" for r in resumed["rows"] if r["arm"] == "ch")
+        held = [r for r in resumed["rows"] if r["arm"] == "ch" and int(r["task_id"][1:]) >= 33]
+        done = [r for r in resumed["rows"] if r["arm"] == "ch" and int(r["task_id"][1:]) < 33]
+        assert held and all(r["state"] == "PENDING" for r in held)
+        assert all(r["state"] == "PASS" for r in done)
         assert resumed["curtailment_history"][0]["state"] == "RESUMED_NO_CURTAIL"
         assert resumed.get("curtailments", []) == []
 
