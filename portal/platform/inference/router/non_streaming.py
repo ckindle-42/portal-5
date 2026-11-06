@@ -23,6 +23,7 @@ from portal.platform.inference.router.backend_introspect import _approx_prompt_t
 from portal.platform.inference.router.correlation import get_correlation_id
 from portal.platform.inference.router.download_links import (
     offers_file_creation,
+    prior_office_filenames,
     strip_unbacked_download_lines,
     successful_file_creation,
 )
@@ -391,6 +392,7 @@ def _apply_non_stream_response(
     start_time: float,
     *,
     successful_creation: bool = False,
+    keep_names: frozenset[str] = frozenset(),
     model_elapsed_s: float | None = None,
     tool_result_carry: str | None = None,
 ) -> JSONResponse:
@@ -404,7 +406,7 @@ def _apply_non_stream_response(
         for choice in data.get("choices") or []:
             msg = choice.get("message") or {}
             if isinstance(msg.get("content"), str):
-                msg["content"] = strip_unbacked_download_lines(msg["content"])
+                msg["content"] = strip_unbacked_download_lines(msg["content"], keep_names)
 
     try:
         from portal.platform.inference.router.thinking import (
@@ -640,6 +642,7 @@ def _assistant_turn(
     tool_calls: list[dict[str, Any]],
     thinking_allowed: bool,
     creation_succeeded: bool,
+    keep_names: frozenset[str] = frozenset(),
 ) -> dict[str, Any]:
     """The model's tool-calling turn as history for the next hop: visible prose and, when
     thinking is on, its reasoning, so an interleaved-thinking model keeps its plan.
@@ -652,7 +655,7 @@ def _assistant_turn(
         if isinstance(text, str):
             visible = strip_think(text)
             if not creation_succeeded:
-                visible = strip_unbacked_download_lines(visible)
+                visible = strip_unbacked_download_lines(visible, keep_names)
             if visible:
                 content.append(visible)
         if thinking_allowed and (r := _reasoning_text(message)):
@@ -792,7 +795,13 @@ async def _final_toolless_answer(
     final_messages = list(messages)
     if hops == 0:
         final_messages.append(
-            _assistant_turn(data, tool_calls, thinking_allowed, creation_succeeded)
+            _assistant_turn(
+                data,
+                tool_calls,
+                thinking_allowed,
+                creation_succeeded,
+                keep_names=prior_office_filenames(messages),
+            )
         )
     final_messages.append(FINAL_ANSWER_REQUEST)
     final_body = {**req_body, "messages": final_messages, "tools": None, "tool_choice": None}
@@ -1155,6 +1164,7 @@ async def _try_non_streaming(
             _ns_tool_result_bytes = 0
             # no file tools offered: nothing to filter
             _ns_creation_succeeded = not offers_file_creation(req_body.get("tools"))
+            _ns_keep_names = prior_office_filenames(req_body.get("messages"))
             _ns_require_tool = bool(
                 WORKSPACES.get(workspace_id, {}).get("require_tool_before_answer")
             )
@@ -1229,7 +1239,11 @@ async def _try_non_streaming(
                 carry_tool_calls.extend(_ns_tool_calls)
                 carry_results.extend(_ns_dispatch)
                 _ns_assistant_msg = _assistant_turn(
-                    data, _ns_tool_calls, _ns_thinking_allowed, _ns_creation_succeeded
+                    data,
+                    _ns_tool_calls,
+                    _ns_thinking_allowed,
+                    _ns_creation_succeeded,
+                    keep_names=_ns_keep_names,
                 )
                 _ns_messages = _ns_messages + [_ns_assistant_msg] + list(_ns_dispatch)
                 _ns_tool_result_bytes = apply_tool_byte_budget(
@@ -1334,6 +1348,7 @@ async def _try_non_streaming(
                 target_model,
                 start_time,
                 successful_creation=_ns_creation_succeeded,
+                keep_names=_ns_keep_names,
                 model_elapsed_s=max(0.0, time.monotonic() - _model_started),
                 tool_result_carry=_ns_carry,
             )
