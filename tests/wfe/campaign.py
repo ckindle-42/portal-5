@@ -145,6 +145,9 @@ def campaign_harness(wsc: dict, overrides: dict | None = None) -> dict:
         # here ran auto-coding::laguna / ::uncensored-fast / ::reap288 with
         # thinking OFF while production runs them with it ON (2026-09-25).
         h["think"] = "native"
+    backend = (overrides or {}).get("backend")
+    if backend:  # engine is stamped per row by the pipeline's own trace either way
+        h["pipeline_backend"] = backend
     return h
 
 
@@ -400,7 +403,14 @@ def arm_spec(entry) -> tuple[str, str, dict]:
     added 0 rows ("already present") and the card arm silently never ran."""
     if isinstance(entry, dict):
         model = str(entry["model"])
-        ov = {k: entry[k] for k in ("sampling", "think", "persona") if entry.get(k) is not None}
+        # `backend` pins the SERVING backend (plan-level arm option -> pipeline
+        # `portal_backend`); without it a tag both engines declare is served by
+        # whichever candidate the routing ladder reaches first.
+        ov = {
+            k: entry[k]
+            for k in ("sampling", "think", "persona", "backend")
+            if entry.get(k) is not None
+        }
         label = entry.get("label")
     else:
         model, ov, label = str(entry), {}, None
@@ -2451,22 +2461,28 @@ def rescore_debug_dir(debug_dir: Path, campaign_dir: Path | None = None) -> list
 # --------------------------------------------------------------------------
 
 
-def _serving_seat(workspace: str, model: str) -> tuple[str, str]:
-    """(backend id, native model) production routes this workspace hint to."""
+def _serving_seat(workspace: str, model: str, backend: str | None = None) -> tuple[str, str]:
+    """(backend id, native model) production routes this workspace hint to.
+
+    `backend` (a row's `backend` arm override) restricts the ladder to that
+    backend: a tag both engines declare is then resolved AS THAT BACKEND serves
+    it, so a pinned row's seat evidence is judged against the pinned engine."""
     # Pin shuffle so the first candidate that serves the tag is stable (N-8).
     import random
     from unittest import mock
 
     reg = _seat_registry()
     with mock.patch.object(random, "shuffle", lambda _xs: None):
-        for backend in reg.get_backend_candidates(workspace):
-            resolved = backend.resolve_model(model)
+        for backend_entry in reg.get_backend_candidates(workspace):
+            if backend and backend_entry.id != backend:
+                continue
+            resolved = backend_entry.resolve_model(model)
             if resolved is not None:
-                return backend.id, resolved
+                return backend_entry.id, resolved
     return "", model
 
 
-def seat_primary(workspace: str, model: str) -> str:
+def seat_primary(workspace: str, model: str, backend: str | None = None) -> str:
     """The model id production routes this arm to when every backend is
     healthy: the workspace's routing groups in order (then the fallback group),
     backends within a group by descending priority, first one that serves the
@@ -2474,7 +2490,7 @@ def seat_primary(workspace: str, model: str) -> str:
     tags onto priority-10 oMLX seats (auto-compliance -> Qwen3.8-27B-oQ4e-mtp),
     so that alias IS the seat. The raw tag on Ollama behind it is the failover,
     a different engine and build: V2 counted 17 failover rows as seat evidence."""
-    return _serving_seat(workspace, model)[1]
+    return _serving_seat(workspace, model, backend)[1]
 
 
 @functools.lru_cache(maxsize=1)
@@ -3083,7 +3099,10 @@ def run_row(
         out = _raised_out(e)
     out = eval_mode.finish(prod, out, campaign_dir, r)
     mismatch = (
-        served_mismatch(out.get("transcript") or [], seat_primary(r["workspace"], row_model(r)))
+        served_mismatch(
+            out.get("transcript") or [],
+            seat_primary(r["workspace"], row_model(r), overrides.get("backend")),
+        )
         if pipe and out.get("transcript")
         else None
     )

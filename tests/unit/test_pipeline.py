@@ -506,6 +506,101 @@ class TestStrictSeatEnforcement:
         assert resp.status_code == 200
 
 
+class TestBackendPin:
+    """The WFE arm `backend` pin (`portal_backend`): a tag both engines declare
+    (the 128k gemma tag resolves on oMLX by alias and on Ollama literally) is
+    addressed to ONE backend instead of whichever candidate the routing ladder
+    reaches first. Same eval-override surface as portal_strict_seat: popped
+    from the body, filtered against the healthy candidates, 400 on an unknown
+    id — an eval arm that silently measured the other engine is worse than a
+    failed row."""
+
+    def _post(self, client, **extra):
+        return client.post(
+            "/v1/chat/completions",
+            json={
+                "model": "auto-daily",
+                "messages": [{"role": "user", "content": "hi"}],
+                "stream": False,
+                **extra,
+            },
+            headers=HEADERS,
+        )
+
+    def _ok_response(self):
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(
+            {
+                "id": "chatcmpl-test",
+                "choices": [
+                    {"message": {"role": "assistant", "content": "ok"}, "finish_reason": "stop"}
+                ],
+                "usage": {"prompt_tokens": 1, "completion_tokens": 1},
+            },
+            headers={"x-portal-route": "auto-daily;test-backend;test-model"},
+        )
+
+    def _install_fake_registry(self, monkeypatch):
+        """The app lifespan replaces handlers.registry with the real BackendRegistry
+        at startup; the pin must be judged against a candidate list this test owns."""
+        import portal.platform.inference.router.handlers as handlers_mod
+
+        monkeypatch.setattr(handlers_mod, "registry", _make_fake_backend())
+
+    def test_pin_selects_the_named_backend_and_pops_the_field(self, client, monkeypatch):
+        import portal.platform.inference.router.handlers as handlers_mod
+
+        self._install_fake_registry(monkeypatch)
+        seen: dict = {}
+
+        async def fake_non_streaming(backend, body, *_args, **_kwargs):
+            seen["backend"], seen["body"] = backend.id, body
+            return self._ok_response()
+
+        monkeypatch.setattr(handlers_mod, "_try_non_streaming", fake_non_streaming)
+        resp = self._post(client, portal_backend="test-backend")
+        assert resp.status_code == 200
+        assert seen["backend"] == "test-backend"
+        assert "portal_backend" not in seen["body"]
+
+    def test_unknown_pin_is_a_400_naming_the_id_and_the_candidates(self, client, monkeypatch):
+        self._install_fake_registry(monkeypatch)
+        resp = self._post(client, portal_backend="not-a-backend")
+        assert resp.status_code == 400
+        detail = resp.json()["detail"]
+        assert "not-a-backend" in detail and "test-backend" in detail
+
+    def test_pin_holds_on_the_streaming_path_too(self, client, monkeypatch):
+        self._install_fake_registry(monkeypatch)
+        resp = client.post(
+            "/v1/chat/completions",
+            json={
+                "model": "auto-daily",
+                "messages": [{"role": "user", "content": "hi"}],
+                "stream": True,
+                "portal_backend": "not-a-backend",
+            },
+            headers=HEADERS,
+        )
+        assert resp.status_code == 400
+
+    def test_no_pin_leaves_the_ladder_untouched(self, client, monkeypatch):
+        import portal.platform.inference.router.handlers as handlers_mod
+
+        self._install_fake_registry(monkeypatch)
+        seen: list = []
+
+        async def fake_non_streaming(*args, **kwargs):
+            seen.append(args)
+            return self._ok_response()
+
+        monkeypatch.setattr(handlers_mod, "_try_non_streaming", fake_non_streaming)
+        resp = self._post(client)
+        assert resp.status_code == 200
+        assert seen and seen[0][0].id == "test-backend"
+
+
 class TestMetricsEndpoint:
     def test_metrics_endpoint_returns_200(self, client):
         resp = client.get("/metrics", headers=HEADERS)

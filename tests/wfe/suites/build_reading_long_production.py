@@ -289,6 +289,31 @@ def render_document(spec: dict) -> str:
     return _cached(json.dumps(key, sort_keys=True))[0]
 
 
+#: One ledger line of an aggregation document: date, qty, item, the 5-digit entry id.
+AGG_ENTRY_RE = re.compile(r"On (\S+) the .*? depot logged (\d+) units of (.+?) \(entry (\d{5})\),")
+
+
+def aggregation_entries(doc_spec: dict) -> list[dict]:
+    """The asked item's entries in a rendered aggregation document — the
+    recomputed key the report's entries-found-vs-expected diagnostic diffs the
+    model's cited entry ids against. Positions are percent through the text, so
+    a skipped entry is located in the document, not just counted."""
+    if doc_spec.get("kind") != "aggregation":
+        raise ValueError("aggregation_entries needs an aggregation doc_spec")
+    item = _facts(doc_spec)["item"]
+    text = render_document(doc_spec)
+    return [
+        {
+            "id": m.group(4),
+            "pos_pct": round(m.start() / len(text) * 100, 1),
+            "qty": int(m.group(2)),
+            "date": m.group(1),
+        }
+        for m in AGG_ENTRY_RE.finditer(text)
+        if m.group(3) == item  # decoys share a prefix; the instruction says "exactly"
+    ]
+
+
 def _facts(spec: dict) -> dict:
     key = {k: v for k, v in spec.items() if k not in ("generator", "sha256")}
     return _cached(json.dumps(key, sort_keys=True))[1]

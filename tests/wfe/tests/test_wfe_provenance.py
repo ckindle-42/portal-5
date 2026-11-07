@@ -288,7 +288,7 @@ def test_preflight_blocks_on_a_stale_service(monkeypatch):
         campaign, "deployed_services", lambda: {"memory": {"build_sha": "0" * 40, "build_dirty": 0}}
     )
     monkeypatch.setattr(campaign, "chat", lambda *a, **k: {"served": {"model": "x"}})
-    monkeypatch.setattr(campaign, "seat_primary", lambda ws, m: "x")
+    monkeypatch.setattr(campaign, "seat_primary", lambda ws, m, backend=None: "x")
     monkeypatch.setattr(campaign, "backend_catalog", lambda: {"m"})
     res = campaign.preflight_pipeline(["w"], "m")
     assert any("memory service runs build" in f for f in res["findings"]) and res["verdict"] != "OK"
