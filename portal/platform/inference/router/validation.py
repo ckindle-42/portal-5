@@ -208,10 +208,32 @@ def _resolve_sampling_values(ws_cfg_local: dict[str, Any]) -> dict[str, Any]:
     return resolved
 
 
+def _served_is_seat(served: str, seat_hint: str) -> bool:
+    """True when `served` is the seat tag or the engine id that tag aliases to."""
+    if served == seat_hint:
+        return True
+    if registry is None:
+        return False
+    return any(backend.resolve_model(seat_hint) == served for backend in registry.list_backends())
+
+
+def _sampling_for_served_model(body: dict[str, Any], ws_cfg: dict[str, Any]) -> dict[str, Any]:
+    """Seat sampling for the seat model; a fallback uses its card (build-provider, else vendor)."""
+    served = str(body.get("model") or "")
+    seat = str(ws_cfg.get("seat_model_hint") or ws_cfg.get("model_hint") or "")
+    if not served or not seat or _served_is_seat(served, seat):
+        return _resolve_sampling_values(ws_cfg)
+    think = body.get("think", ws_cfg.get("think"))
+    ctk = body.get("chat_template_kwargs")
+    if "think" not in body and isinstance(ctk, dict) and "enable_thinking" in ctk:
+        think = ctk.get("enable_thinking")
+    return card_sampling(served, think)
+
+
 def _resolve_request_sampling_values(
     body: dict[str, Any], ws_cfg_local: dict[str, Any]
 ) -> dict[str, Any]:
-    values = _resolve_sampling_values(ws_cfg_local)
+    values = _sampling_for_served_model(body, ws_cfg_local)
     ctk = body.get("chat_template_kwargs") or {}
     if "portal_bite_tools" not in body:
         return values
@@ -397,7 +419,7 @@ def _inject_ollama_options(body: dict[str, Any], workspace_id: str = "") -> dict
         body.setdefault("stream_options", {})["include_usage"] = True
 
     # ── Per-workspace sampling tuning ────────────────────────────────────────
-    # setdefault — caller wins; values from _resolve_sampling_values. These
+    # setdefault — caller wins. The seat block applies only when this model is the seat.
     # reach the model because Ollama backends are served from native /api/chat
     # (ollama_native.OllamaNativeTransport); Ollama's /v1 silently drops the
     # whole `options` object, so until 2026-09-25 none of this was applied.
