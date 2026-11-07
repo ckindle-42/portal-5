@@ -66,6 +66,53 @@ def test_sysmon_resolves_entity_timestamp_action() -> None:
     assert role_map.action_fields
 
 
+def test_windows_raw_key_values_are_profiled_without_reclassifying_raw() -> None:
+    records = [
+        {
+            "_time": "2026-11-07 21:17:32 UTC",
+            "_raw": "EventCode=4624 TimeCreated=2026-11-07 21:17:32 UTC "
+            "Account=WIN-MVQO0PT39IO$ LogonId=0xc20239 LogonType=3 IpAddress=::1",
+        },
+        {
+            "_time": "2026-11-07 21:50:12 UTC",
+            "_raw": "EventCode=4688 TimeCreated=2026-11-07 21:50:12 UTC "
+            "NewProcessName=C:\\Windows\\System32\\powershell.exe Account=Administrator",
+        },
+    ]
+
+    role_map = fr.infer_field_roles(records, source_id="portal5_lab:windows:security")
+
+    assert role_map.extraction_valid, role_map.failure_reasons
+    assert role_map.profiles["IpAddress"].role == "ENTITY"
+    assert role_map.profiles["TimeCreated"].role == "TIMESTAMP"
+    assert role_map.profiles["_raw"].role == "PAYLOAD"
+
+
+def test_raw_fields_do_not_shadow_real_record_fields() -> None:
+    records = [
+        {
+            "Account": "record-account",
+            "_raw": "EventCode=4624 TimeCreated=2026-11-07 21:17:32 UTC "
+            "Account=WIN-MVQO0PT39IO$ LogonId=0xc20239 LogonType=3 IpAddress=::1",
+        },
+        {
+            "Account": "record-account",
+            "_raw": "EventCode=4688 TimeCreated=2026-11-07 21:50:12 UTC "
+            "NewProcessName=C:\\Windows\\System32\\powershell.exe Account=Administrator",
+        },
+    ]
+
+    role_map = fr.infer_field_roles(records, source_id="portal5_lab:windows:security")
+
+    assert role_map.profiles["Account"].distinct_count == 1
+
+
+def test_raw_without_key_value_content_adds_no_profiles() -> None:
+    role_map = fr.infer_field_roles([{"_raw": "header line with no pairs"}], source_id="windows")
+
+    assert set(role_map.profiles) == {"_raw"}
+
+
 def test_schemas_share_zero_field_names() -> None:
     def flat_field_names(records: list[dict[str, object]]) -> set[str]:
         role_map = fr.infer_field_roles(records)
