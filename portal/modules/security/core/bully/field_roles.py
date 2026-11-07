@@ -42,6 +42,8 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from typing import Any
 
+from .telemetry_behavior import _raw_kv_fields
+
 ALGORITHM_VERSION = "field-roles-v1"
 
 ROLES: tuple[str, ...] = ("ENTITY", "TIMESTAMP", "ACTION", "PAYLOAD", "CONSTANT", "EMPTY")
@@ -149,6 +151,13 @@ def _flatten(record: dict[str, Any], prefix: str = "") -> dict[str, Any]:
         else:
             out[path] = value
     return out
+
+
+def _flatten_with_raw_kv(record: dict[str, Any]) -> dict[str, Any]:
+    flat = _flatten(record)
+    for name, value in _raw_kv_fields(record).items():
+        flat.setdefault(name, value)
+    return flat
 
 
 def _parse_syslog_time(candidate: str, year: int, *, is_utc: bool = False) -> float | None:
@@ -516,7 +525,7 @@ def infer_field_roles(
     at all) is unaffected: with one source, "that field's home sources"
     is the whole pool, identical to the old denominator.
     """
-    flat = [_flatten(r) for r in records if isinstance(r, dict)]
+    flat = [_flatten_with_raw_kv(r) for r in records if isinstance(r, dict)]
     n = len(flat)
     if n == 0:
         return FieldRoleMap(source_id, 0, {}, False, 0.0, 0.0, 0.0, ("empty_sample",))
