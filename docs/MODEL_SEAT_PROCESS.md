@@ -34,6 +34,6 @@ One row per open seat question. A row closes with a decision, never with "more t
 |---|---|---|---|---|---|
 | `auto-compliance::reading` (128k) | gemma-4-26b plain | gemma-4-26b QAT; Qwen3.8-27B | Better long-document reading? | Keep plain | Closed 11-07: tie → keep plain (live OWUI 0.13.0, 4 real-corpus questions, full docs 20–38k tokens, trace-verified arms; blind judges GLM + Codex split per question: QAT q1, plain q3, q2/q4 split). Both arms overstate coverage — a reading-quality issue, not a quant one |
 | Vision fallback | gemma-4-26b plain | gemma-4-26b QAT | Better image turns as fallback? | Keep plain | Closed 11-07: tie → keep plain (live OWUI 0.13.0, 3 real-use image tasks; blind judges GLM + Codex: equivalent). Revisit only as disk consolidation if 128k moves to QAT |
-| Arm read/check bites | `auto-daily::gemma-fast` | Spark-X2.6 (shadow) | Agree on real arm work, no false accepts? | Keep gemma-fast | Open — live shadow on real jobs |
+| Arm read/check bites | `auto-daily::gemma-fast` | Spark-X2.6 (shadow) | Agree on real arm work, no false accepts? | Keep gemma-fast | Closed 11-07: unproven → keep gemma-fast. All 76 shadow rows are two generated fixtures and the verdict is a format check (`Finding:` present), so they don't count. Shadow stays on passively; reopen at ≥20 real arm comparisons, judged on transcripts |
 | `auto-overflow64` | — | gemma-4-26b QAT | — | — | Closed 11-06: QAT (job 108) |
 | Bench seat | gemma-4-26b plain | gemma-4-26b QAT | — | — | Closed 11-06: QAT (job 106) |
