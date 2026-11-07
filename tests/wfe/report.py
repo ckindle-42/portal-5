@@ -1158,6 +1158,31 @@ def aggregation_diagnostics(rows: list[dict]) -> list[dict]:
     return out
 
 
+def aggregation_arm_summary(diag: list[dict]) -> list[dict]:
+    """Per-arm totals printed beside the pass rate: entry recall (found expected
+    entries / expected entries, summed over rows) and the count of rows whose
+    cited id list was complete and exact yet still failed — arithmetic errors."""
+    out = []
+    for arm in sorted({str(d.get("arm")) for d in diag}):
+        rows = [d for d in diag if str(d.get("arm")) == arm]
+        found = sum(len(d["found"]) for d in rows)
+        expected = sum(len(d["expected"]) for d in rows)
+        exact = [d for d in rows if not d["missing"] and not d["extra"]]
+        gradeable = [d for d in rows if d.get("outcome") in MODEL_QUALITY_OUTCOMES]
+        out.append(
+            {
+                "arm": arm,
+                "pass": (
+                    sum(1 for d in gradeable if d["outcome"] == Outcome.PASS.value),
+                    len(gradeable),
+                ),
+                "recall": (found, expected),
+                "arith": sum(1 for d in exact if d.get("outcome") == Outcome.FAIL.value),
+            }
+        )
+    return out
+
+
 def _sec_aggregation(a, rep) -> None:
     diag = rep.get("aggregation_diagnostics") or []
     if not diag:
@@ -1169,6 +1194,15 @@ def _sec_aggregation(a, rep) -> None:
         "`cited` is what the model named anywhere in its output. A miss is located by "
         "position, not just counted._"
     )
+    a("")
+    for s in aggregation_arm_summary(diag):
+        p, n = s["pass"]
+        found, expected = s["recall"]
+        recall = f"{found}/{expected}" + (f" ({found / expected:.0%})" if expected else "")
+        a(
+            f"- **{s['arm']}** — pass {_fmt_ci(p, n)} · entry recall {recall} · "
+            f"correct id list, wrong arithmetic: {s['arith']}"
+        )
     a("")
     for d in diag:
         exp = ", ".join(f"{e['id']}@{e['pos_pct']}%" for e in d["expected"])

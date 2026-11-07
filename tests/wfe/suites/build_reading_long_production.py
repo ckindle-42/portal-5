@@ -54,6 +54,9 @@ CHARS_PER_TOKEN = {"needle": 2.68, "aggregation": 2.57, "quote": 3.14}
 DEPTHS = (10, 50, 90, 30, 70, 20, 80, 40, 60, 15, 85, 50)
 DOC_MARK = "{{DOCUMENT}}"
 FORMAT = 'Answer only as JSON {"answer": ...}.'
+#: Aggregation only: cite the entries summed (ids feed the report's recall
+#: parser); the example is a placeholder so the prompt never names a real id.
+AGG_FORMAT = 'Answer only as JSON {"entries": ["entry <id>", ...], "answer": ...}.'
 
 _A = ["Ost", "Quill", "Marr", "Tal", "Vess", "Brin", "Hadr", "Corv", "Pell", "Ember", "Wyn", "Dray"]
 _B = ["rel", "mere", "ow", "ick", "ane", "ford", "wick", "stow", "moor", "ley"]
@@ -358,22 +361,23 @@ def _question(kind: str, spec: dict, facts: dict) -> tuple[str, str, str, str]:
         )
     item = facts["item"]
     scope = f"Count only log entries whose item is exactly '{item}'. "
+    cite = "List every such entry's id exactly as written in the log (e.g. entry <id>), then"
     if spec["variant"] == 0:
         return (
-            f"{scope}What is the total number of units logged across those entries? Answer with the number.",
+            f"{scope}{cite} give the total number of units logged across those entries.",
             str(facts["sum"]),
             _pattern(str(facts["sum"])),
             str(facts["sum"] + 1),
         )
     if spec["variant"] == 1:
         return (
-            f"{scope}What is the latest date among those entries? Answer as YYYY-MM-DD.",
+            f"{scope}{cite} give the latest date among those entries as YYYY-MM-DD.",
             facts["latest"],
             _pattern(facts["latest"]),
             "2026-01-01",
         )
     return (
-        f"{scope}How many such entries are there? Answer with the number.",
+        f"{scope}{cite} give how many such entries there are.",
         str(facts["count"]),
         _pattern(str(facts["count"])),
         str(facts["count"] + 1),
@@ -414,6 +418,18 @@ def build_task(kind: str, n: int) -> dict:
     spec = {**spec, "sha256": hashlib.sha256(text.encode()).hexdigest()}
     depth = f"-d{spec['depth']}" if "depth" in spec else ""
     tid = f"lr-{kind}-{n:02d}-t{spec['tokens'] // 1000}k{depth}"
+    fmt = AGG_FORMAT if kind == "aggregation" else FORMAT
+    if kind == "aggregation":
+        cited = [f"entry {e['id']}" for e in aggregation_entries(spec)]
+        controls = {
+            "pass": [{"answer": json.dumps({"entries": cited, "answer": answer})}],
+            "fail": [{"answer": json.dumps({"entries": cited, "answer": wrong})}],
+        }
+    else:
+        controls = {
+            "pass": [{"answer": json.dumps({"answer": answer})}],
+            "fail": [{"answer": json.dumps({"answer": wrong})}],
+        }
     return {
         "id": tid,
         "kind": kind,
@@ -423,15 +439,12 @@ def build_task(kind: str, n: int) -> dict:
         "instruction": (
             "Read the whole fictional document below, then answer the question that follows it.\n"
             f"--- fictional document ---\n{DOC_MARK}\n--- end of document ---\n"
-            f"{question} {FORMAT}"
+            f"{question} {fmt}"
         ),
         "doc_spec": spec,
         "requires_tools": [],
         "checkers": [{"type": "answer_contains", "patterns": [pattern]}],
-        "controls": {
-            "pass": [{"answer": json.dumps({"answer": answer})}],
-            "fail": [{"answer": json.dumps({"answer": wrong})}],
-        },
+        "controls": controls,
         "no_tools": True,
     }
 

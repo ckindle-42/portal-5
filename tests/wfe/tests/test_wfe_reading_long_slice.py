@@ -20,6 +20,7 @@ import yaml
 from portal.platform.inference.config import effective_workspace
 from tests.wfe import controls
 from tests.wfe.checkers import CheckContext, apply_checkers
+from tests.wfe.report import _CITED_ENTRY_RE
 from tests.wfe.runner import DOC_MARK, expand_doc, load_suite
 from tests.wfe.schema import Outcome
 from tests.wfe.suites import build_reading_long_production as gen
@@ -130,6 +131,41 @@ def test_aggregations_combine_three_to_five_facts_among_decoys():
         assert 3 <= t["doc_spec"]["k"] <= 5, t["id"]
     variants = {t["doc_spec"]["variant"] for t in _kind("aggregation")}
     assert variants == {0, 1, 2}
+
+
+def test_aggregation_tasks_ask_for_the_cited_entries_and_other_kinds_keep_the_format():
+    """Aggregation questions demand the entry-id list and grade the entries+answer
+    JSON shape (ids must match the report's citation regex); needle and quote keep
+    the answer-only FORMAT byte-identical."""
+    for t in _kind("aggregation"):
+        question = t["instruction"].split("--- end of document ---", 1)[1]
+        assert "List every such entry's id" in question, t["id"]
+        assert t["instruction"].endswith(gen.AGG_FORMAT), t["id"]
+        expected_ids = [f"entry {e['id']}" for e in gen.aggregation_entries(t["doc_spec"])]
+        pass_ctl = json.loads(t["controls"]["pass"][0]["answer"])
+        fail_ctl = json.loads(t["controls"]["fail"][0]["answer"])
+        assert set(pass_ctl) == {"entries", "answer"} == set(fail_ctl), t["id"]
+        assert pass_ctl["entries"] == fail_ctl["entries"] == expected_ids, t["id"]
+        assert pass_ctl["answer"] != fail_ctl["answer"], t["id"]
+        assert all(_CITED_ENTRY_RE.search(e) for e in pass_ctl["entries"]), t["id"]
+    for kind in ("needle", "quote"):
+        for t in _kind(kind):
+            assert t["instruction"].endswith(gen.FORMAT), t["id"]
+            assert set(json.loads(t["controls"]["pass"][0]["answer"])) == {"answer"}, t["id"]
+
+
+def test_aggregation_instructions_leak_no_entry_id():
+    """The example id is a placeholder, never a real entry: entry 00022 is an
+    expected entry of lr-aggregation-01-t80k, and the instruction must not hand
+    the model one of the ids it is being graded on."""
+    assert not _CITED_ENTRY_RE.search(gen.AGG_FORMAT)
+    for t in _kind("aggregation"):
+        head, rest = t["instruction"].split("--- fictional document ---", 1)
+        _doc, tail = rest.split("--- end of document ---", 1)
+        outside = head + tail
+        for e in gen.aggregation_entries(t["doc_spec"]):
+            assert e["id"] not in outside, t["id"]
+        assert not re.search(r"(?<!\d)\d{4,5}(?!\d)", outside), t["id"]
 
 
 def test_quotes_are_graded_as_the_exact_string():
