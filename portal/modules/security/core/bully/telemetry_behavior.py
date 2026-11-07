@@ -71,6 +71,7 @@ against published ground truth. No discovery path may import or call it.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -237,6 +238,12 @@ _AUDITD_TYPES: dict[str, str] = {
 _FIELD_EVENTCODE = ("EventCode", "EventID", "event_id", "eventcode", "signature_id")
 _FIELD_AUDIT_TYPE = ("type", "record_type")
 
+# One line may carry SEVERAL `key=value` pairs (live: `EventCode=4634
+# TimeCreated=2026-11-07 07:29:27`). A new pair starts only at an
+# identifier-like key preceded by line start or whitespace, so a value may
+# contain spaces and an inner `=` (base64 padding, `foo=a=b`) never splits.
+_KV_PAIR_BOUNDARY = re.compile(r"(?:^|\s)([^\W\d]\w*)=")
+
 
 def _raw_kv_fields(record: dict[str, Any]) -> dict[str, str]:
     """This lab's Splunk only surfaces a field in captured JSON when the
@@ -268,12 +275,12 @@ def _raw_kv_fields(record: dict[str, Any]) -> dict[str, str]:
             return {k: str(v) for k, v in parsed.items() if not isinstance(v, (dict, list))}
     out: dict[str, str] = {}
     for line in raw.splitlines():
-        if "=" not in line:
+        boundaries = list(_KV_PAIR_BOUNDARY.finditer(line))
+        if not boundaries:
             continue
-        key, _, value = line.strip().partition("=")
-        key = key.strip()
-        if key and key.isidentifier():
-            out.setdefault(key, value.strip())
+        for i, m in enumerate(boundaries):
+            end = boundaries[i + 1].start() if i + 1 < len(boundaries) else len(line)
+            out.setdefault(m.group(1), line[m.end() : end].strip())
     return out
 
 
