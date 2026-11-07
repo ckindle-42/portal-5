@@ -73,6 +73,27 @@ def anchor_label(record: Mapping[str, Any], default: str) -> str:
     return default
 
 
+def record_techniques(record: Mapping[str, Any]) -> tuple[str, ...]:
+    """ATT&CK ids the record itself asserts (``technique_ids``/``techniques``/``technique``
+    or ``attack_mappings`` shapes), deduplicated in order; empty when it names none."""
+    raw: list[Any] = []
+    for key in ("technique_ids", "techniques", "technique"):
+        value = record.get(key)
+        if isinstance(value, (list, tuple, set)):
+            raw.extend(value)
+        elif value:
+            raw.append(value)
+    for mapping in record.get("attack_mappings") or ():
+        if isinstance(mapping, Mapping) and mapping.get("technique_id"):
+            raw.append(mapping["technique_id"])
+    out: list[str] = []
+    for value in raw:
+        identifier = str(value).strip().upper()
+        if identifier and identifier not in out:
+            out.append(identifier)
+    return tuple(out)
+
+
 def cards_from_anchors(anchors: Sequence[Any]) -> list[AnchorCard]:
     """``AnchorCard`` per ``bully.anchors.Anchor``; quarantined anchors are not knowledge."""
     cards: list[AnchorCard] = []
