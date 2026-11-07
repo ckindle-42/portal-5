@@ -1025,12 +1025,20 @@ def _task_of(stub: dict, cache: dict) -> dict | None:
     return cache[sp].get(stub.get("task_id"))
 
 
+_tree_at_cache: dict[tuple[str, str], str] = {}
+
+
 def tree_at(sha: str, path: str) -> str:
-    """The git tree (or blob) hash of `path` at `sha`. Empty when it cannot be read."""
+    """The git tree (or blob) hash of `path` at `sha`. Empty when it cannot be read.
+
+    A sha is immutable: one `_git` call per (sha, path) per process; non-sha input is not cached."""
     if not _SHA_RE.fullmatch(sha or ""):
         return ""
-    out = _git("rev-parse", "--verify", f"{sha}:{path}").strip()
-    return out if re.fullmatch(r"[0-9a-f]{40}", out) else ""
+    key = (sha, path)
+    if key not in _tree_at_cache:
+        out = _git("rev-parse", "--verify", f"{sha}:{path}").strip()
+        _tree_at_cache[key] = out if re.fullmatch(r"[0-9a-f]{40}", out) else ""
+    return _tree_at_cache[key]
 
 
 #: config/ paths that shape a served answer. The rest of config/ (complexity budget,
@@ -1050,17 +1058,27 @@ _SERVING_CONFIG = (
 )
 
 
-def _workspace_block(sha: str, workspace: str) -> str:
-    """Hash the base block and selected variant block at sha (portal.yaml or the bench config)."""
-    if not workspace or not _SHA_RE.fullmatch(sha or ""):
-        return ""
-    workspaces: dict = {}
-    for path in ("config/portal.yaml", "config/bench_workspaces.yaml"):
-        try:
-            doc = yaml.safe_load(_git("show", f"{sha}:{path}")) or {}
-        except yaml.YAMLError:
-            continue
-        workspaces.update(doc.get("workspaces") or {})
+_workspaces_cache: dict[str, dict] = {}
+_workspace_block_cache: dict[tuple[str, str], str] = {}
+
+
+def _workspaces_at(sha: str) -> dict:
+    """portal.yaml + bench_workspaces.yaml workspaces at sha, parsed once per sha."""
+    if sha not in _workspaces_cache:
+        workspaces: dict = {}
+        for path in ("config/portal.yaml", "config/bench_workspaces.yaml"):
+            try:
+                doc = yaml.safe_load(_git("show", f"{sha}:{path}")) or {}
+            except yaml.YAMLError:
+                continue
+            workspaces.update(doc.get("workspaces") or {})
+        _workspaces_cache[sha] = workspaces
+    return _workspaces_cache[sha]
+
+
+def _workspace_block_digest(sha: str, workspace: str) -> str:
+    """The workspace's base/variant block hash at sha, computed uncached."""
+    workspaces = _workspaces_at(sha)
     base_id, _, variant = workspace.partition("::")
     base = workspaces.get(base_id)
     if not isinstance(base, dict):
@@ -1079,17 +1097,39 @@ def _workspace_block(sha: str, workspace: str) -> str:
     return hashlib.sha256(json.dumps(block, sort_keys=True, default=str).encode()).hexdigest()
 
 
+def _workspace_block(sha: str, workspace: str) -> str:
+    """Hash the base block and selected variant block at sha (portal.yaml or the bench config).
+
+    A sha is immutable: the parse runs once per sha, the hash once per (sha, workspace)."""
+    if not workspace or not _SHA_RE.fullmatch(sha or ""):
+        return ""
+    key = (sha, workspace)
+    if key not in _workspace_block_cache:
+        _workspace_block_cache[key] = _workspace_block_digest(sha, workspace)
+    return _workspace_block_cache[key]
+
+
+_pipeline_cache: dict[tuple[str, str], dict] = {}
+
+
 def pipeline_at(sha: str, workspace: str) -> dict:
-    """Hash the router, serving config paths and workspace block at a build sha."""
-    inference = tree_at(sha, "portal/platform/inference")
-    block = _workspace_block(sha, workspace)
-    if not inference or not block:
+    """Hash the router, serving config paths and workspace block at a build sha. Memoized."""
+    if not workspace or not _SHA_RE.fullmatch(sha or ""):
         return {}
-    return {
-        "inference": inference,
-        "workspace": block,
-        **{path: tree_at(sha, path) for path in _SERVING_CONFIG},
-    }
+    key = (sha, workspace)
+    if key not in _pipeline_cache:
+        inference = tree_at(sha, "portal/platform/inference")
+        block = _workspace_block(sha, workspace)
+        _pipeline_cache[key] = (
+            {}
+            if not inference or not block
+            else {
+                "inference": inference,
+                "workspace": block,
+                **{path: tree_at(sha, path) for path in _SERVING_CONFIG},
+            }
+        )
+    return dict(_pipeline_cache[key])
 
 
 def _tool_index(sha: str) -> dict[str, str]:
@@ -1183,13 +1223,11 @@ def _index_native_tools(sha: str, index: dict[str, str]) -> None:
             index[found.group(1)] = module
 
 
-def tool_module_trees(sha: str, tools: list | None) -> dict | None:
-    """Tree hash of each portal module the row was offered, at the deployed sha.
+_tool_trees_cache: dict[tuple[str, tuple], dict | None] = {}
 
-    Harness sandbox tools have no module. None means a non-harness tool could
-    not be placed, or the sha has no tree, so the row is run rather than copied."""
-    if not _SHA_RE.fullmatch(sha or ""):
-        return None
+
+def _tool_module_trees_at(sha: str, tools: list | None) -> dict | None:
+    """The module tree map for one tool surface at sha, computed uncached."""
     index = _tool_index(sha)
     modules: set[str] = set()
     for name in tools or []:
@@ -1206,6 +1244,21 @@ def tool_module_trees(sha: str, tools: list | None) -> dict | None:
             return None
         trees[path] = tree
     return trees
+
+
+def tool_module_trees(sha: str, tools: list | None) -> dict | None:
+    """Tree hash of each portal module the row was offered, at the deployed sha.
+
+    Harness sandbox tools have no module. None means a non-harness tool could
+    not be placed, or the sha has no tree, so the row is run rather than copied.
+    A sha is immutable: memoized per (sha, tool surface), copied per call."""
+    if not _SHA_RE.fullmatch(sha or ""):
+        return None
+    key = (sha, tuple(tools or []))
+    if key not in _tool_trees_cache:
+        _tool_trees_cache[key] = _tool_module_trees_at(sha, tools)
+    found = _tool_trees_cache[key]
+    return dict(found) if found is not None else None
 
 
 def _deployed_sha(instrument: dict | None) -> str:

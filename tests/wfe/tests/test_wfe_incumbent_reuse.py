@@ -569,6 +569,43 @@ class TestInterleavedReusePolicy:
         assert len(builds) == 1
         assert campaign._row_path(dst, stub["run_id"]).is_file()
 
+    def test_two_rows_same_sha_workspace_call_git_once_per_sha_path(self, tmp_path, monkeypatch):
+        suite = _suite(tmp_path)
+        stub = _stub(suite)
+        d = _open(tmp_path, "dst", suite, [stub], fp="new-fp")
+        row = _source_row(suite, campaign.expected_incumbent_surface(stub))
+
+        calls: list = []
+
+        def counting(*a):
+            calls.append(tuple(a))
+            if a[0] == "rev-parse":
+                return "a" * 40
+            if a[:2] == ("show", f"{DEPLOYED}:config/portal.yaml"):
+                return f"workspaces:\n  {WS}:\n    model: m\n"
+            if a[:2] == ("show", f"{DEPLOYED}:config/bench_workspaces.yaml"):
+                return ""
+            return ""
+
+        monkeypatch.setattr(campaign, "_git", counting)
+        for name in (
+            "_tree_at_cache",
+            "_workspaces_cache",
+            "_workspace_block_cache",
+            "_pipeline_cache",
+            "_tool_trees_cache",
+            "_tool_index_cache",
+        ):
+            monkeypatch.setattr(campaign, name, {})
+
+        key1 = campaign.recorded_reuse_key(d, dict(row))
+        after_first = list(calls)
+        key2 = campaign.recorded_reuse_key(d, dict(row))
+
+        assert key1 == key2 and key1["pipeline"]
+        assert calls == after_first
+        assert len(calls) == len(set(calls))
+
 
 class TestScreenReuse:
     def _pair(self, tmp_path, monkeypatch):
