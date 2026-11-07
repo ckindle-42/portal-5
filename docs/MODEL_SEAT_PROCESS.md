@@ -34,5 +34,6 @@ One row per open seat question. A row closes with a decision, never with "more t
 |---|---|---|---|---|---|
 | `auto-compliance::reading` (128k) | gemma-4-26b plain | gemma-4-26b QAT; Qwen3.8-27B | Better long-document reading? | Keep plain | Open — live proof first |
 | Vision fallback | gemma-4-26b plain | gemma-4-26b QAT | Better image turns as fallback? | Keep plain | Open — live proof first |
+| Arm read/check bites | `auto-daily::gemma-fast` | Spark-X2.6 (shadow) | Agree on real arm work, no false accepts? | Keep gemma-fast | Open — live shadow on real jobs |
 | `auto-overflow64` | — | gemma-4-26b QAT | — | — | Closed 11-06: QAT (job 108) |
 | Bench seat | gemma-4-26b plain | gemma-4-26b QAT | — | — | Closed 11-06: QAT (job 106) |
