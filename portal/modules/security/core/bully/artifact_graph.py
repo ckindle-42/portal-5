@@ -54,7 +54,13 @@ from typing import Any, Protocol
 
 from . import telemetry_behavior
 from .field_roles import FieldRoleMap, infer_field_roles
-from .field_roles import _flatten as _fr_flatten
+
+# The SAME flat view role inference used, so a role the map names is a key
+# this graph can actually read. Live 2026-11-07: inference gained `_raw`'s
+# key=value fields while this still used the plain flatten, so TimeCreated
+# won the TIMESTAMP role and every artifact came back untimed (2360 of
+# 2360 'no parseable timestamp').
+from .field_roles import _flatten_with_raw_kv as _fr_flatten
 from .field_roles import _parse_time as _fr_parse_time
 
 ALGORITHM_VERSION = "artifact-graph-v1"

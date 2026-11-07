@@ -95,6 +95,10 @@ def test_record_without_usable_time_is_receipted_not_silent() -> None:
     for record in records[:5]:
         del record["_time"]
         del record["_indextime"]
+        # The event's own clock lives in `_raw` too, and intake now reads it
+        # (2026-11-07): deleting only the wrapper fields leaves a perfectly
+        # timed event. A genuinely untimed record carries no clock anywhere.
+        record["_raw"] = str(record["_raw"]).split(" TimeCreated=")[0]
     result = intake.build_window_units(window_dict)
     receipt = next(r for r in result.receipts if r.name == "intake.timed_events")
     assert (receipt.examined, receipt.resolved) == (613, 608)
@@ -135,6 +139,8 @@ def test_untimed_events_degrade_the_run() -> None:
     for record in window_dict["portal5_lab:windows:security"][:5]:
         del record["_time"]
         del record["_indextime"]
+        # Genuinely untimed: no wrapper clock AND no clock in `_raw`.
+        record["_raw"] = str(record["_raw"]).split(" TimeCreated=")[0]
     window = intake.build_window_units(window_dict)
     config = ReviewConfig(
         policy=funnel.FunnelPolicy(alpha_unusual=0.2, alpha_similar=0.2, levels=("L3_CHAIN",))
