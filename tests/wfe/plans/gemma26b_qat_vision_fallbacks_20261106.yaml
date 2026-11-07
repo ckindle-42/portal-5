@@ -1,5 +1,9 @@
 # Vision persona fallback lists: plain gemma4:26b-a4b-it-q4_K_M (what six personas list) vs the vision-group QAT tag
-# qat-ctx8k (already on four personas). Only vision-group tags serve images; ctx32k tags are rerouted to auto-vision.
+# qat-ctx8k (already on four personas). Both arms are Gemma 4, so they sample at the Gemma 4 card
+# (temperature 1.0, top_p 0.95, top_k 64, min_p 0 — generation_config.json and the oMLX gemma
+# model_settings), not the auto-vision qwen3-vl seat (top_k 20, min_p 0.05). The 2026-11-06 run
+# labeled seat-sampling and measured that qwen seat on these gemma models.
+# Only vision-group tags serve images; ctx32k tags are rerouted to auto-vision.
 repeats: 4
 workloads:
   auto-vision:
@@ -9,9 +13,9 @@ workloads:
     arms:
       incumbent:
         model: gemma4:26b-a4b-it-q4_K_M
-        label: seat-sampling
-        sampling: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.05, presence_penalty: 0.0, repeat_penalty: 1.0}
+        label: gemma-card
+        sampling: {temperature: 1.0, top_p: 0.95, top_k: 64, min_p: 0.0}
       challengers:
         - model: gemma4:26b-a4b-it-qat-ctx8k
-          label: seat-sampling
-          sampling: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.05, presence_penalty: 0.0, repeat_penalty: 1.0}
+          label: gemma-card
+          sampling: {temperature: 1.0, top_p: 0.95, top_k: 64, min_p: 0.0}

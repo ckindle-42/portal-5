@@ -197,7 +197,13 @@ def _resolve_model_override(workspace_id: str, model_param: str | None) -> str:
 
     synthetic_id = f"{workspace_id}::model={model_param}"
     if synthetic_id not in WORKSPACES:
-        WORKSPACES[synthetic_id] = {**WORKSPACES.get(workspace_id, {}), "model_hint": model_param}
+        base = WORKSPACES.get(workspace_id, {})
+        # Keep the original seat so a persona/?model= fallback does not inherit its sampling.
+        WORKSPACES[synthetic_id] = {
+            **base,
+            "model_hint": model_param,
+            "seat_model_hint": base.get("seat_model_hint") or base.get("model_hint") or "",
+        }
     return synthetic_id
 
 
