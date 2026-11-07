@@ -504,6 +504,109 @@ class TestReuseKey:
         assert campaign.load_manifest(dst)["rows"][0]["state"] == "PASS"
 
 
+class TestInterleavedReusePolicy:
+    def _todo(self, campaign_dir, monkeypatch):
+        def _rows(_cd, manifest, *_a):
+            return [dict(r) for r in manifest["rows"] if r.get("state") == "PENDING"], None
+
+        monkeypatch.setattr(campaign, "_rows_to_run", _rows)
+        return campaign._arm_todo(
+            campaign_dir,
+            campaign.load_manifest(campaign_dir),
+            MODEL,
+            False,
+            False,
+            False,
+            False,
+            False,
+        )
+
+    def test_interleaved_campaign_runs_the_row_instead_of_copying(self, tmp_path, monkeypatch):
+        _src, dst, stub, _row = _pair(tmp_path, monkeypatch)
+        man = campaign.load_manifest(dst)
+        man["execution"] = {"arm_order": "interleaved"}
+        campaign.save_manifest(dst, man)
+
+        todo, early, reused = self._todo(dst, monkeypatch)
+
+        assert reused == []
+        assert [r["run_id"] for r in todo] == [stub["run_id"]]
+        assert early is None
+        assert not campaign._row_path(dst, stub["run_id"]).is_file()
+        assert campaign.load_manifest(dst)["rows"][0]["state"] == "PENDING"
+
+    def test_sequential_campaign_still_copies(self, tmp_path, monkeypatch):
+        _src, dst, stub, src_row = _pair(tmp_path, monkeypatch)
+        man = campaign.load_manifest(dst)
+        man["execution"] = {"arm_order": "sequential"}
+        campaign.save_manifest(dst, man)
+
+        assert campaign.reuse_incumbent_rows(dst, man, [stub]) == [stub["run_id"]]
+
+        body = json.loads(campaign._row_path(dst, stub["run_id"]).read_text())
+        assert body["reused_from"] == f"src/{src_row['run_id']}"
+
+    def test_reuse_index_is_built_once_across_two_arm_todo_calls(self, tmp_path, monkeypatch):
+        _src, dst, stub, _row = _pair(tmp_path, monkeypatch)
+        builds = []
+        real_build = campaign._build_reusable_incumbent_index
+
+        def counting(cd, root):
+            builds.append(cd.name)
+            return real_build(cd, root)
+
+        monkeypatch.setattr(campaign, "_build_reusable_incumbent_index", counting)
+
+        def _rows(_cd, _manifest, *_a):
+            return [dict(stub)], None
+
+        monkeypatch.setattr(campaign, "_rows_to_run", _rows)
+        for _ in range(2):
+            campaign._arm_todo(
+                dst, campaign.load_manifest(dst), MODEL, False, False, False, False, False
+            )
+
+        assert len(builds) == 1
+        assert campaign._row_path(dst, stub["run_id"]).is_file()
+
+    def test_two_rows_same_sha_workspace_call_git_once_per_sha_path(self, tmp_path, monkeypatch):
+        suite = _suite(tmp_path)
+        stub = _stub(suite)
+        d = _open(tmp_path, "dst", suite, [stub], fp="new-fp")
+        row = _source_row(suite, campaign.expected_incumbent_surface(stub))
+
+        calls: list = []
+
+        def counting(*a):
+            calls.append(tuple(a))
+            if a[0] == "rev-parse":
+                return "a" * 40
+            if a[:2] == ("show", f"{DEPLOYED}:config/portal.yaml"):
+                return f"workspaces:\n  {WS}:\n    model: m\n"
+            if a[:2] == ("show", f"{DEPLOYED}:config/bench_workspaces.yaml"):
+                return ""
+            return ""
+
+        monkeypatch.setattr(campaign, "_git", counting)
+        for name in (
+            "_tree_at_cache",
+            "_workspaces_cache",
+            "_workspace_block_cache",
+            "_pipeline_cache",
+            "_tool_trees_cache",
+            "_tool_index_cache",
+        ):
+            monkeypatch.setattr(campaign, name, {})
+
+        key1 = campaign.recorded_reuse_key(d, dict(row))
+        after_first = list(calls)
+        key2 = campaign.recorded_reuse_key(d, dict(row))
+
+        assert key1 == key2 and key1["pipeline"]
+        assert calls == after_first
+        assert len(calls) == len(set(calls))
+
+
 class TestScreenReuse:
     def _pair(self, tmp_path, monkeypatch):
         _stub_trees(monkeypatch)
