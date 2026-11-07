@@ -162,6 +162,10 @@ class SplunkTruthSource:
     reconciliation compares like with like. Raw reads are partitioned because a single
     whole-span export exceeds the read timeout on a large window (T2 lost a 616k-event
     window that way), and a timeout there is indistinguishable from absent truth.
+
+    Every search is scoped by the declared sourcetype's indexed source values, resolved
+    from tsidx metadata, instead of a raw ``sourcetype=`` filter: the BOTS corpora rename
+    ``wineventlog:*`` at search time, and that filter live-measured to match nothing.
     """
 
     def __init__(
@@ -174,16 +178,32 @@ class SplunkTruthSource:
         self.match_all = match_all
         self.census = FetchCensus()
         self._seen_ids: set[str] = set()
+        self._source_scopes: dict[tuple[str, str], tuple[str, ...]] = {}
 
     def _entity_filter(self, entities: Sequence[str]) -> str:
         if not self.match_all:
             return _entity_clause(entities)
         return ' NOT source="portal5:*"' + "".join(f" {_quote(e)}" for e in entities)
 
+    def _source_scoped_base(self, index: str, sourcetype: str) -> str:
+        """Search scoped to the declared sourcetype's indexed sources, or "" when none exist."""
+        key = (index, sourcetype)
+        if key not in self._source_scopes:
+            self._source_scopes[key] = self.source.indexed_source_values(
+                SourceSpec(index, sourcetype)
+            )
+        sources = self._source_scopes[key]
+        if not sources:
+            return ""
+        clause = " OR ".join(f"source={_quote(s)}" for s in sources)
+        return f"search index={_quote(index)} ({clause})"
+
     def query_stats(self, index: str, sourcetype: str, entities: Sequence[str]) -> EntitySearchStat:
+        base = self._source_scoped_base(index, sourcetype)
+        if not base:
+            return EntitySearchStat(0, None, None)
         search = (
-            f"search index={_quote(index)} sourcetype={_quote(sourcetype)}"
-            f"{self._entity_filter(entities)}"
+            f"{base}{self._entity_filter(entities)}"
             " | stats count as count, min(_time) as first, max(_time) as last"
         )
         rows = list(self.source.iter_post(search, 0.0, time.time() + 1.0))
@@ -199,9 +219,11 @@ class SplunkTruthSource:
         self, index: str, sourcetype: str, entities: Sequence[str]
     ) -> dict[float, int]:
         """Matching event counts per UTC day; the same filter as ``query_stats``, bucketed."""
+        base = self._source_scoped_base(index, sourcetype)
+        if not base:
+            return {}
         search = (
-            f"search index={_quote(index)} sourcetype={_quote(sourcetype)}"
-            f"{self._entity_filter(entities)}"
+            f"{base}{self._entity_filter(entities)}"
             " | eval day=floor(_time/86400)*86400 | stats count as count by day"
         )
         out: dict[float, int] = {}
@@ -223,10 +245,10 @@ class SplunkTruthSource:
         if end <= start:
             return
         spec = SourceSpec(index, sourcetype)
-        search = (
-            f"search index={_quote(index)} sourcetype={_quote(sourcetype)}"
-            f"{self._entity_filter(entities)}"
-        )
+        base = self._source_scoped_base(index, sourcetype)
+        if not base:
+            return
+        search = f"{base}{self._entity_filter(entities)}"
         cursor = start
         while cursor < end:
             boundary = min(cursor + self.partition_seconds, end)

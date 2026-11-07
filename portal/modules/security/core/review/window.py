@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol
@@ -196,11 +197,11 @@ class SplunkWindowSource:
     def _post(self, search: str, start: float, end: float) -> list[Mapping[str, Any]]:
         return list(self.iter_post(search, start, end))
 
-    def _count(self, source: SourceSpec, start: float, end: float) -> int:
-        search = (
-            f"search index={_quote(source.index)} sourcetype={_quote(source.sourcetype)} "
-            "| stats count"
-        )
+    def _base_search(self, source: SourceSpec) -> str:
+        return f"search index={_quote(source.index)} sourcetype={_quote(source.sourcetype)}"
+
+    def _count(self, base_search: str, source: SourceSpec, start: float, end: float) -> int:
+        search = f"{base_search} | stats count"
         rows = self._post(search, start, end)
         if len(rows) != 1 or "count" not in rows[0]:
             raise WindowFetchError(
@@ -214,9 +215,10 @@ class SplunkWindowSource:
             raise WindowFetchError(f"negative raw-search count for {source.source_id}")
         return count
 
-    def _events(self, source: SourceSpec, start: float, end: float) -> list[dict[str, Any]]:
-        search = f"search index={_quote(source.index)} sourcetype={_quote(source.sourcetype)}"
-        rows = self._post(search, start, end)
+    def _events(
+        self, base_search: str, source: SourceSpec, start: float, end: float
+    ) -> list[dict[str, Any]]:
+        rows = self._post(base_search, start, end)
         records: list[dict[str, Any]] = []
         for row in rows:
             record = normalize_splunk_record(source, row)
@@ -259,20 +261,21 @@ class SplunkWindowSource:
             counts[name] = count
         return {"reachable": True, "index_count": len(counts), "indexes": counts}
 
-    def fetch(self, sources: Sequence[SourceSpec], start: float, end: float) -> WindowBatch:
-        if end <= start:
-            raise ValueError("end must be greater than start")
-        batch = WindowBatch()
-        for source in sources:
-            cursor = start
-            records = batch.records_by_source.setdefault(source.source_id, [])
-            while cursor < end:
-                boundary = min(cursor + self.partition_seconds, end)
-                expected = self._count(source, cursor, boundary)
-                partition_rows = self._events(source, cursor, boundary)
-                records.extend(partition_rows)
-                mismatch = expected != len(partition_rows)
-                receipt = PartitionReceipt(
+    def _fetch_source(
+        self, base_search: str, source: SourceSpec, start: float, end: float
+    ) -> tuple[list[dict[str, Any]], list[PartitionReceipt], list[str]]:
+        records: list[dict[str, Any]] = []
+        receipts: list[PartitionReceipt] = []
+        degraded: list[str] = []
+        cursor = start
+        while cursor < end:
+            boundary = min(cursor + self.partition_seconds, end)
+            expected = self._count(base_search, source, cursor, boundary)
+            partition_rows = self._events(base_search, source, cursor, boundary)
+            records.extend(partition_rows)
+            mismatch = expected != len(partition_rows)
+            receipts.append(
+                PartitionReceipt(
                     source.source_id,
                     cursor,
                     boundary,
@@ -280,13 +283,68 @@ class SplunkWindowSource:
                     len(partition_rows),
                     mismatch,
                 )
-                batch.receipts.append(receipt)
-                if mismatch:
-                    batch.degraded.append(
-                        f"{source.source_id} [{_epoch(cursor)}, {_epoch(boundary)}): "
-                        f"expected {expected}, fetched {len(partition_rows)}"
-                    )
-                cursor = boundary
+            )
+            if mismatch:
+                degraded.append(
+                    f"{source.source_id} [{_epoch(cursor)}, {_epoch(boundary)}): "
+                    f"expected {expected}, fetched {len(partition_rows)}"
+                )
+            cursor = boundary
+        return records, receipts, degraded
+
+    def fetch(self, sources: Sequence[SourceSpec], start: float, end: float) -> WindowBatch:
+        if end <= start:
+            raise ValueError("end must be greater than start")
+        batch = WindowBatch()
+        for source in sources:
+            records, receipts, degraded = self._fetch_source(
+                self._base_search(source), source, start, end
+            )
+            batch.records_by_source.setdefault(source.source_id, []).extend(records)
+            batch.receipts.extend(receipts)
+            batch.degraded.extend(degraded)
+        return batch
+
+    def indexed_source_values(self, source: SourceSpec) -> tuple[str, ...]:
+        """Source values carrying this declared sourcetype, from tsidx metadata (aggregates only).
+
+        BOTS corpora rename ``wineventlog:*`` at search time (the Windows TA collapses it to
+        ``WinEventLog``), so a raw ``sourcetype=`` filter can match the indexed events never;
+        tstats resolves the declared name either way and ``source`` is not renamed.
+        """
+        rows = self._post(
+            f"| tstats count where index={_quote(source.index)}"
+            f" sourcetype={_quote(source.sourcetype)} by source",
+            0.0,
+            time.time() + 1.0,
+        )
+        return tuple(str(row["source"]) for row in rows if row.get("source") is not None)
+
+    def fetch_by_indexed_source(self, source: SourceSpec, start: float, end: float) -> WindowBatch:
+        """Read one declared sourcetype's window scoped by its indexed source values.
+
+        Where a corpus's search-time sourcetype rename makes the ``sourcetype=`` read of
+        :meth:`fetch` match nothing (measured live on botsv1/2/3 Windows sourcetypes), the
+        declared sourcetype is resolved to its indexed sources via tsidx metadata and those
+        scope the same partitioned count+read, so expected-vs-fetched still compares like
+        with like. Raises when the metadata holds no source, so a declared-but-absent
+        sourcetype fails loudly instead of silently fetching an empty window.
+        """
+        if end <= start:
+            raise ValueError("end must be greater than start")
+        resolved = self.indexed_source_values(source)
+        if not resolved:
+            raise WindowFetchError(f"index metadata holds no source for {source.source_id}")
+        scoped = (
+            f"search index={_quote(source.index)} ("
+            + " OR ".join(f"source={_quote(value)}" for value in resolved)
+            + ")"
+        )
+        batch = WindowBatch()
+        records, receipts, degraded = self._fetch_source(scoped, source, start, end)
+        batch.records_by_source.setdefault(source.source_id, []).extend(records)
+        batch.receipts.extend(receipts)
+        batch.degraded.extend(degraded)
         return batch
 
 
