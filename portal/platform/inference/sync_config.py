@@ -28,6 +28,7 @@ from typing import Any
 
 import yaml
 
+from portal.platform.inference.config import WorkspaceSpec
 from portal.platform.inference.owui_tools import all_tools_dead, compute_tool_ids
 
 REPO: Path = Path(__file__).resolve().parents[3]
@@ -37,8 +38,8 @@ REPO: Path = Path(__file__).resolve().parents[3]
 
 
 def _ws_filename(ws_id: str) -> str:
-    """workspace_auto_coding_agentic.json for ws_id='auto-coding-agentic'."""
-    return "workspace_" + ws_id.replace("-", "_") + ".json"
+    """workspace_auto_coding_bigfix.json for ws_id='auto-coding::bigfix'."""
+    return "workspace_" + ws_id.replace("::", "_").replace("-", "_") + ".json"
 
 
 def _owui_preset(ws_id: str, spec: Any) -> dict[str, Any]:
@@ -195,6 +196,20 @@ def _bundle_text(presets: list[dict[str, Any]]) -> str:
     return json.dumps(ordered, indent=2, ensure_ascii=False) + "\n"
 
 
+def _exposed_variant_spec(
+    ws_id: str, vid: str, spec: WorkspaceSpec, vcfg: dict[str, Any]
+) -> WorkspaceSpec | None:
+    """Typed spec of an OWUI-exposed variant, None when not exposed or module-disabled."""
+    if vcfg.get("expose_to_owui") is not True:
+        return None
+    from portal.platform.wiki.adapters.modules import is_workspace_disabled
+
+    if is_workspace_disabled(f"{ws_id}::{vid}"):
+        return None
+    base = spec.model_dump(exclude_none=True, exclude={"variants"})
+    return WorkspaceSpec.model_validate({**base, **vcfg})
+
+
 def _write_preset_bundle(ws_dir: Path, presets: list[dict[str, Any]]) -> bool:
     """Rewrite workspaces_all.json from the presets just emitted. True if the file changed."""
     path = ws_dir / "workspaces_all.json"
@@ -211,6 +226,7 @@ def emit_owui_presets(config: Any) -> tuple[int, int, int]:
     Gate 1 (M7 toggle layer): workspaces belonging to a disabled module are
     skipped, same as any other expose_to_owui=False workspace — a disabled
     module's presets simply don't exist for OWUI to pick up on next seed.
+    Each OWUI-exposed variant also gets a preset under its synthetic id.
 
     """
     from portal.platform.wiki.adapters.modules import owui_workspaces
@@ -219,22 +235,15 @@ def emit_owui_presets(config: Any) -> tuple[int, int, int]:
     ws_dir.mkdir(parents=True, exist_ok=True)
 
     created = updated = removed = 0
-
     hidden_by_module = set(owui_workspaces() or ())
-
-    # Emit presets for all workspaces with expose_to_owui=True
     emitted_files: set[str] = set()
     presets: list[dict[str, Any]] = []
-    for ws_id, spec in config.workspaces.items():
-        if not spec.expose_to_owui:
-            continue
-        if spec.module == "eval":
-            continue
-        if ws_id in hidden_by_module:
-            continue
-        preset = _owui_preset(ws_id, spec)
+
+    def _emit(preset_id: str, spec: Any) -> None:
+        nonlocal created, updated
+        preset = _owui_preset(preset_id, spec)
         presets.append(preset)
-        fname = _ws_filename(ws_id)
+        fname = _ws_filename(preset_id)
         fpath = ws_dir / fname
         new_content = json.dumps(preset, indent=2, ensure_ascii=False) + "\n"
         if fpath.exists():
@@ -246,6 +255,19 @@ def emit_owui_presets(config: Any) -> tuple[int, int, int]:
             fpath.write_text(new_content, encoding="utf-8")
             created += 1
         emitted_files.add(fname)
+
+    for ws_id, spec in config.workspaces.items():
+        for vid, vcfg in (spec.variants or {}).items():
+            variant_spec = _exposed_variant_spec(ws_id, vid, spec, vcfg)
+            if variant_spec is not None:
+                _emit(f"{ws_id}::{vid}", variant_spec)
+        if not spec.expose_to_owui:
+            continue
+        if spec.module == "eval":
+            continue
+        if ws_id in hidden_by_module:
+            continue
+        _emit(ws_id, spec)
 
     # Remove orphan preset files (workspace no longer in catalog or expose_to_owui=False)
     for fpath in sorted(ws_dir.glob("workspace_*.json")):

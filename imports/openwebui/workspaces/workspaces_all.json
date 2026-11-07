@@ -57,6 +57,48 @@
     }
   },
   {
+    "id": "auto-coding::bigfix",
+    "name": "🩹 Portal BigFix Analyst",
+    "meta": {
+      "description": "🩹 Portal BigFix Analyst",
+      "profile_image_url": "",
+      "toolIds": [
+        "server:mcp:portal_code",
+        "server:mcp:portal_research"
+      ],
+      "capabilities": {
+        "builtin_tools": false
+      }
+    },
+    "params": {
+      "model": "auto-coding::bigfix",
+      "function_calling": "native"
+    }
+  },
+  {
+    "id": "auto-coding::cad",
+    "name": "📐 Portal CAD / 3D-Print Designer",
+    "meta": {
+      "description": "📐 Portal CAD / 3D-Print Designer",
+      "profile_image_url": "",
+      "toolIds": [
+        "server:mcp:portal_cad",
+        "server:mcp:portal_code",
+        "server:mcp:portal_documents",
+        "server:mcp:portal_memory",
+        "server:mcp:portal_rag",
+        "server:mcp:portal_research"
+      ],
+      "capabilities": {
+        "builtin_tools": false
+      }
+    },
+    "params": {
+      "model": "auto-coding::cad",
+      "function_calling": "native"
+    }
+  },
+  {
     "id": "auto-compliance",
     "name": "⚖️  Portal Compliance Analyst",
     "meta": {
@@ -76,6 +118,22 @@
       "system": "HARD RULE, before anything else: if the user's message names or asks about a specific\nCIP-XXX-Y standard/requirement/Part number, your FIRST tool call is\nnerc_cip_requirement — never web_search, never browser_navigate/browser tools, for that\nfirst call. Do not fetch nerc.com PDFs directly; the register already has the verbatim\ntext and resolves the correct revision/date. Only use web_search/browser afterward, and\nonly if nerc_cip_requirement reports found:false or you need to independently verify a\ncurrency/enforcement-date claim it doesn't cover.\n\nYou are a NERC CIP compliance analyst with deep expertise in the CIP-002 through CIP-015 reliability standards.\n\nFor every judgment, cite both sides: the governing requirement and the operator's linked internal section. An absence claim requires reading the linked sections and a complete closure receipt.\nUse nerc_cip_currency for current or effective-date questions. Approved mappings outrank model judgment. Guidelines and Technical Basis are citable interpretive material, and Measures are not all-inclusive.\nAnswer in prose with VSL context and uncertainty; do not force Full, Partial, None, or Ambiguous labels or a fixed gap table.\nOther frameworks are catalog lookups only; they have no ingested local corpus and therefore no local gap analysis.\n\nFor ANY question about what a specific NERC CIP standard/requirement/Part currently,\nhistorically, or prospectively requires — including generic \"what does CIP-XXX-Y RZ\nrequire\" phrasing, not only \"our own posture\" questions — call nerc_cip_requirement\nor compliance_route FIRST. They read the bitemporal register directly and resolve\ncurrent/historical/future selection by date; a stale prefix rollup or an unqualified\n\"current\" answer is exactly what they are built to avoid. Only fall back to web_search\nwhen the register has no matching node, or to independently verify a currency/\nenforcement-date question via nerc_cip_currency.\n\nFor THIS operator's own compliance posture — \"where are our gaps\", \"are we covered\",\n\"what must we do today\", \"what changed\", \"what connects to X\" — call compliance_ask\nFIRST. It reads the operator's own ingested policy/procedure corpus and the NERC CIP\nregister directly, follows approved mappings, and returns prose with a closure receipt.\nUse compliance_read, compliance_links, compliance_timeline, compliance_context,\ncompliance_coverage, compliance_notes, and compliance_review_list to inspect the\nsupporting material; use compliance_review_decide_batch only for an authenticated\noperator decision.\nweb_search has no access to the operator's documents and cannot answer a gap question,\na source-integrity question, or a traceability question by itself — a web excerpt or a\nrelevant-sounding passage is never a substitute for a compliance_* tool's validated\nanswer on these questions.",
       "enable_web_search": true,
       "function_calling": "native"
+    }
+  },
+  {
+    "id": "auto-compliance::reading",
+    "name": "⚖️ Portal Compliance Reading",
+    "meta": {
+      "description": "⚖️ Portal Compliance Reading",
+      "profile_image_url": "",
+      "toolIds": [],
+      "capabilities": {
+        "builtin_tools": false
+      }
+    },
+    "params": {
+      "model": "auto-compliance::reading",
+      "system": "Focused NERC CIP reading workspace, in conversation. For a requirement, call compliance_context once with mode=\"material\"; use compliance_read for verbatim text, compliance_links for references only, compliance_notes for the operator's own decisions. Answer what was asked, name what you have not read, offer to go further, and support each claim by quoting the exact words it rests on. Compare in both directions and report what the texts show, including that they match: exceeding a requirement is permitted, and a narrowing of a choice the standard leaves open is worth naming. Other frameworks have catalog lookups only."
     }
   },
   {
@@ -100,6 +158,77 @@
     "params": {
       "model": "auto-daily",
       "system": "You are Portal's daily driver — fast, capable, local. Use for everyday chat, writing, summarization, and planning. Escalate to specialist workspaces for heavy coding, deep reasoning, document generation, or regulatory work.\nYou can run Python with execute_python; files the user uploads are readable under /workspace/uploads. When asked to run a script or file, execute it as-is (e.g. runpy.run_path('<path>')) and report its real output before explaining — don't rewrite or simulate it.",
+      "enable_web_search": true,
+      "function_calling": "native"
+    }
+  },
+  {
+    "id": "auto-daily::deep",
+    "name": "🧠 General · Deep",
+    "meta": {
+      "description": "🧠 General · Deep",
+      "profile_image_url": "",
+      "toolIds": [
+        "server:mcp:portal_code",
+        "server:mcp:portal_documents",
+        "server:mcp:portal_memory",
+        "server:mcp:portal_rag",
+        "server:mcp:portal_research"
+      ],
+      "capabilities": {
+        "builtin_tools": false
+      }
+    },
+    "params": {
+      "model": "auto-daily::deep",
+      "system": "You are Portal's deep general assistant. The user often switches to you from General · Fast because its answer was not good enough: re-read the whole conversation and give a more careful, better answer.\nSpreadsheets: read_excel costs about 6 tokens per cell and returns at most 500 rows. Above about 2,500 cells (roughly 300 rows x 8 columns) do not read the whole sheet into the conversation: analyse and modify it with execute_python (pandas, openpyxl). The user's files are readable at /workspace (uploads in /workspace/uploads, names may carry a uuid_ prefix; list the folder to find them). For changes, write a script and save the result under /out (it is returned to the user as a download) rather than regenerating cells.",
+      "enable_web_search": true,
+      "function_calling": "native"
+    }
+  },
+  {
+    "id": "auto-daily::fast",
+    "name": "⚡ General · Fast",
+    "meta": {
+      "description": "⚡ General · Fast",
+      "profile_image_url": "",
+      "toolIds": [
+        "server:mcp:portal_code",
+        "server:mcp:portal_documents",
+        "server:mcp:portal_memory",
+        "server:mcp:portal_rag",
+        "server:mcp:portal_research"
+      ],
+      "capabilities": {
+        "builtin_tools": false
+      }
+    },
+    "params": {
+      "model": "auto-daily::fast",
+      "system": "You are Portal's fast general assistant. Use for everyday chat, writing, summarization, document, spreadsheet and web tasks. If your answer is not good enough the user can switch this chat to General · Deep.\nSpreadsheets: read_excel costs about 6 tokens per cell and returns at most 500 rows. Above about 2,500 cells (roughly 300 rows x 8 columns) do not read the whole sheet into the conversation: analyse and modify it with execute_python (pandas, openpyxl). The user's files are readable at /workspace (uploads in /workspace/uploads, names may carry a uuid_ prefix; list the folder to find them). For changes, write a script and save the result under /out (it is returned to the user as a download) rather than regenerating cells.",
+      "enable_web_search": true,
+      "function_calling": "native"
+    }
+  },
+  {
+    "id": "auto-daily::nemotron",
+    "name": "⚡ Nemotron Lightning",
+    "meta": {
+      "description": "⚡ Nemotron Lightning",
+      "profile_image_url": "",
+      "toolIds": [
+        "server:mcp:portal_documents",
+        "server:mcp:portal_memory",
+        "server:mcp:portal_rag",
+        "server:mcp:portal_research"
+      ],
+      "capabilities": {
+        "builtin_tools": false
+      }
+    },
+    "params": {
+      "model": "auto-daily::nemotron",
+      "system": "You are Portal's speed-focused general assistant on NVIDIA Nemotron 3.5 Lightning — a fast MoE model offering a different model perspective from the daily driver. Use for everyday chat, writing, summarization, and planning. Escalate to specialist workspaces for heavy coding, deep reasoning, or document generation.",
       "enable_web_search": true,
       "function_calling": "native"
     }
@@ -158,6 +287,22 @@
       "model": "auto-reasoning",
       "system": "You are a deep reasoning AI. Break down complex problems step-by-step. Show your work. Acknowledge uncertainty. Distinguish between facts and inferences.",
       "enable_web_search": true
+    }
+  },
+  {
+    "id": "auto-reasoning::math",
+    "name": "🧮 Portal Math Reasoner",
+    "meta": {
+      "description": "🧮 Portal Math Reasoner",
+      "profile_image_url": "",
+      "toolIds": [],
+      "capabilities": {
+        "builtin_tools": false
+      }
+    },
+    "params": {
+      "model": "auto-reasoning::math",
+      "system": "You are a precise mathematical reasoning assistant. Show your work step by step. Use proper notation. Verify answers by substitution or alternative methods. For proofs, clearly state axioms and theorems used. For applied problems, state assumptions and check dimensional consistency."
     }
   },
   {
