@@ -2326,6 +2326,82 @@ class TestCanarySteps:
         with pytest.raises(ValueError, match="argv"):
             parse_job_spec(raw, repo_root=repo)
 
+    def test_a_pilot_canary_drops_pilot_and_keeps_the_base_campaign_id(self, repo: Path) -> None:
+        script = _script(repo, "wfe_campaign.sh", "#!/usr/bin/env sh\nexit 0\n")
+        campaign = [
+            script,
+            "realuse_s8",
+            "--plan",
+            "tests/wfe/plans/s8.yaml",
+            "--tier",
+            "realuse",
+            "--engine",
+            "pipeline",
+            "--pilot",
+            "6",
+            "--judge",
+        ]
+        steps = [
+            {"id": "gate", "canary": "long", "timeout_seconds": 5},
+            {"id": "long", "argv": campaign, "timeout_seconds": 900},
+        ]
+
+        spec = parse_job_spec(_raw_spec([script], steps=steps), repo_root=repo)
+
+        gate, long_step = spec.steps
+        assert gate.argv == (
+            script,
+            "realuse_s8",
+            "--plan",
+            "tests/wfe/plans/s8.yaml",
+            "--tier",
+            "realuse",
+            "--engine",
+            "pipeline",
+            "--judge",
+            "--canary",
+        )
+        assert long_step.argv == tuple(campaign)
+        assert parse_job_spec(spec.as_dict(), repo_root=repo).steps == spec.steps
+
+    def test_pilot_equals_form_strips_a_baked_pilot_suffix(self, repo: Path) -> None:
+        script = _script(repo, "wfe_campaign.sh", "#!/usr/bin/env sh\nexit 0\n")
+        steps = [
+            {"id": "gate", "canary": "long", "timeout_seconds": 5},
+            {
+                "id": "long",
+                "argv": [script, "realuse_s8_pilot", "--pilot=4", "--fresh-incumbent"],
+                "timeout_seconds": 900,
+            },
+        ]
+
+        spec = parse_job_spec(_raw_spec([script], steps=steps), repo_root=repo)
+
+        assert spec.steps[0].argv == (script, "realuse_s8", "--fresh-incumbent", "--canary")
+
+    def test_a_bare_pilot_flag_does_not_eat_the_next_token(self, repo: Path) -> None:
+        script = _script(repo, "wfe_campaign.sh", "#!/usr/bin/env sh\nexit 0\n")
+        steps = [
+            {"id": "gate", "canary": "long", "timeout_seconds": 5},
+            {"id": "long", "argv": [script, "camp", "--pilot", "--judge"], "timeout_seconds": 900},
+        ]
+
+        spec = parse_job_spec(_raw_spec([script], steps=steps), repo_root=repo)
+
+        assert spec.steps[0].argv == (script, "camp", "--judge", "--canary")
+
+    def test_a_non_pilot_campaign_canary_is_the_same_argv_plus_canary(self, repo: Path) -> None:
+        script = _script(repo, "wfe_campaign.sh", "#!/usr/bin/env sh\nexit 0\n")
+        campaign = [script, "weekly_pilot", "--plan", "p.yaml", "--tier", "confirm"]
+        steps = [
+            {"id": "gate", "canary": "long", "timeout_seconds": 5},
+            {"id": "long", "argv": campaign, "timeout_seconds": 900},
+        ]
+
+        spec = parse_job_spec(_raw_spec([script], steps=steps), repo_root=repo)
+
+        assert spec.steps[0].argv == (*campaign, "--canary")
+
 
 def _window_claim(tmp_path: Path, job: str, *, dispatch_dir: Path | None = None) -> Path:
     lock_dir = dispatch_dir or (tmp_path / "orchestrate" / "locks")
