@@ -81,6 +81,8 @@ def test_nothing_measured_keeps_exit_ten_and_still_prints_the_final_line(
     assert _finish(monkeypatch, d) == campaign.EXIT_NOTHING_MEASURED == 10
     out = capsys.readouterr().out.strip().splitlines()
     assert out == [
+        "OVERHEAD harness_s=0.000 model_s=0.000 ratio=0.000",
+        "unattributed_s=0.000",
         "NOTHING MEASURED: 1 PENDING",
         "CAMPAIGN s8: stopped (nothing measured: 1 PENDING) rows 0/3",
     ]

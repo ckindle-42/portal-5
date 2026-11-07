@@ -2403,6 +2403,51 @@ class TestCanarySteps:
         assert spec.steps[0].argv == (*campaign, "--canary")
 
 
+class TestRehearseSteps:
+    def test_rehearse_derives_the_referenced_argv_and_round_trips(self, repo: Path) -> None:
+        script = _script(repo, "wfe_campaign.sh", "#!/usr/bin/env sh\nexit 0\n")
+        steps = [
+            {"id": "gate", "rehearse": "sprint", "timeout_seconds": 5},
+            {
+                "id": "sprint",
+                "argv": [script, "campaign", "--plan", "p.yaml"],
+                "timeout_seconds": 900,
+            },
+        ]
+
+        spec = parse_job_spec(_raw_spec([script], steps=steps), repo_root=repo)
+
+        assert spec.steps[0].rehearse_of == "sprint"
+        assert spec.steps[0].argv == (*spec.steps[1].argv, "--rehearse")
+        assert parse_job_spec(spec.as_dict(), repo_root=repo).steps == spec.steps
+
+    def test_failed_rehearsal_gate_blocks_the_sprint_step(self, tmp_path: Path, repo: Path) -> None:
+        marker = tmp_path / "sprint-started"
+        script = _script(
+            repo,
+            "wfe_campaign.sh",
+            "#!/usr/bin/env python3\n"
+            "import pathlib, sys\n"
+            "if '--rehearse' in sys.argv:\n"
+            "    print('rehearsal timing gate failed')\n"
+            "    raise SystemExit(11)\n"
+            f"pathlib.Path({str(marker)!r}).write_text('started')\n",
+        )
+        steps = [
+            {"id": "gate", "rehearse": "sprint", "timeout_seconds": 5},
+            {"id": "sprint", "argv": [script, "campaign"], "timeout_seconds": 900},
+        ]
+        spec = _spec(repo, [script], steps=steps)
+
+        result = _runner(tmp_path, repo).run(spec)
+
+        assert result.status == "BLOCKED"
+        assert "step exited 11" in str(result.reason)
+        assert not marker.exists()
+        receipt = _receipt(tmp_path / "tasks")
+        assert receipt["steps"][0]["stdout_tail"] == "rehearsal timing gate failed\n"
+
+
 def _window_claim(tmp_path: Path, job: str, *, dispatch_dir: Path | None = None) -> Path:
     lock_dir = dispatch_dir or (tmp_path / "orchestrate" / "locks")
     claim = lock_dir.parent / "state" / "jarvis_local_window.json"
