@@ -266,6 +266,81 @@ def test_report_section_renders_positions():
     assert "found 0/1" in text and "00042@51.2%" in text and "arm@x-1a2b3c4d" in text
 
 
+def test_arm_summary_recall_and_arithmetic_rows():
+    """Recall is found-expected/expected summed over the arm's rows; a row with a
+    complete, exact id list that still FAILed counts as a wrong-arithmetic row."""
+    entries = gen.aggregation_entries(_suite_spec("lr-aggregation-00-t40k"))
+    assert len(entries) == 3  # the fixture task's k
+    ids = [f"entry {e['id']}" for e in entries]
+
+    def row(arm: str, text: str, outcome: str) -> dict:
+        return {
+            "run_id": "r",
+            "suite": "reading_long_production",
+            "arm": arm,
+            "task_id": "lr-aggregation-00-t40k",
+            "repeat": 0,
+            "outcome": outcome,
+            "final_text": text,
+            "transcript": [],
+        }
+
+    # cites 1 of 3
+    diag = report.aggregation_diagnostics(
+        [row("a", f'{{"entries": ["{ids[0]}"], "answer": 12}}', "FAIL")]
+    )
+    assert report.aggregation_arm_summary(diag) == [
+        {"arm": "a", "pass": (0, 1), "recall": (1, 3), "arith": 0}
+    ]
+
+    complete = json.dumps({"entries": ids, "answer": 999})
+    summed = report.aggregation_arm_summary(
+        report.aggregation_diagnostics([row("b", complete, "FAIL")])
+    )[0]
+    assert summed["recall"] == (3, 3) and summed["arith"] == 1 and summed["pass"] == (0, 1)
+
+    # a complete list that passed is not an arithmetic error; REFUSED is gradeable but no pass
+    passed = report.aggregation_arm_summary(
+        report.aggregation_diagnostics(
+            [row("c", json.dumps({"entries": ids, "answer": 12}), "PASS")]
+        )
+    )[0]
+    assert passed["pass"] == (1, 1) and passed["recall"] == (3, 3) and passed["arith"] == 0
+    refused = report.aggregation_arm_summary(
+        report.aggregation_diagnostics(
+            [row("d", json.dumps({"entries": ids, "answer": 12}), "REFUSED")]
+        )
+    )[0]
+    assert refused["pass"] == (0, 1) and refused["arith"] == 0
+
+    # a stray id spoils the list: complete expected set but extra cited — not arithmetic
+    stray = report.aggregation_arm_summary(
+        report.aggregation_diagnostics([row("e", f"{complete[:-1]} entry 99999}}", "FAIL")])
+    )[0]
+    assert stray["recall"] == (3, 3) and stray["arith"] == 0
+
+
+def test_report_section_prints_recall_beside_the_pass_rate():
+    entries = gen.aggregation_entries(_suite_spec("lr-aggregation-00-t40k"))
+    ids = [f"entry {e['id']}" for e in entries]
+    record = {
+        "task_id": "lr-aggregation-00-t40k",
+        "repeat": 0,
+        "arm": "arm@x-1a2b3c4d",
+        "outcome": "FAIL",
+        "expected": entries,
+        "cited": ids[:1],
+        "found": ids[:1],
+        "missing": entries[1:],
+        "extra": [],
+    }
+    lines: list[str] = []
+    report._sec_aggregation(lines.append, {"aggregation_diagnostics": [record]})
+    text = "\n".join(lines)
+    assert "pass 0/1 = 0.00" in text and "entry recall 1/3 (33%)" in text
+    assert "correct id list, wrong arithmetic: 0" in text
+
+
 # --------------------------------------------- identity freeze under the pin (R2)
 
 
