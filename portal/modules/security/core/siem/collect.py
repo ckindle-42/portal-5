@@ -79,9 +79,13 @@ def strip_nxc_line_prefix(text: str) -> str:
 
 
 def _normalize_windows_security_events(raw_text: str) -> list[str]:
-    """Turn Get-WinEvent's `Format-List Id,TimeCreated,Message` output into flat
+    """Turn Get-WinEvent's `Format-List Id,TimeCreatedUtc,Message` output into flat
     EventCode=... key=value lines that match what siem/spl_detections.yaml's SPL
     queries actually filter on.
+
+    Callers render the stamp as a `TimeCreatedUtc` calculated property so the
+    event's own clock survives as UTC; a block without one still yields a line,
+    just an untimed one.
 
     Best-effort: an event whose EventCode we recognize but whose expected fields
     don't match (Windows message text formatting drift, redacted fields, etc.)
@@ -98,6 +102,15 @@ def _normalize_windows_security_events(raw_text: str) -> list[str]:
             continue
         event_code = m.group(1)
         fields = [f"EventCode={event_code}"]
+        # The event's own clock, carried through as UTC. Without it these
+        # enriched attack-relevant events reach a consumer untimed, and any
+        # consumer that needs event times has to drop them -- which is exactly
+        # what happened live 2026-11-07: a real kerberoast/spray episode shipped
+        # with its 4625/4768/4769 lines discarded while the 4624/4634 noise,
+        # which comes from the compact pass, survived.
+        tm = re.search(r"^\s*TimeCreatedUtc\s*:\s*(\S.*?)\s*$", block, re.MULTILINE)
+        if tm:
+            fields.append(f"TimeCreated={tm.group(1)}")
         for name, pattern in _WINDOWS_EVENT_FIELD_PATTERNS.get(event_code, []):
             fm = re.search(pattern, block)
             if fm:
@@ -386,7 +399,9 @@ def collect_target(
                 ps_detail = (
                     f"$start=[DateTimeOffset]::FromUnixTimeSeconds({since}).LocalDateTime; "
                     f"Get-WinEvent -FilterHashtable @{{LogName='Security';Id={_aid};StartTime=$start}} "
-                    "-MaxEvents 15 | Format-List Id,TimeCreated,Message"
+                    "-MaxEvents 15 | Select-Object Id,@{n='TimeCreatedUtc';"
+                    "e={$_.TimeCreated.ToUniversalTime().ToString('yyyy-MM-dd HH:mm:ss')+' UTC'}},"
+                    "Message | Format-List"
                 )
                 b64_detail = base64.b64encode(ps_detail.encode("utf-16-le")).decode()
                 code_detail = (
@@ -468,7 +483,9 @@ def collect_target(
                 f"$start=[DateTimeOffset]::FromUnixTimeSeconds({since}).LocalDateTime; "
                 "Get-WinEvent -FilterHashtable @{LogName='Security';StartTime=$start} "
                 "-MaxEvents 200 -ErrorAction SilentlyContinue "
-                "| Format-List Id,TimeCreated,Message",
+                "| Select-Object Id,@{n='TimeCreatedUtc';"
+                "e={$_.TimeCreated.ToUniversalTime().ToString('yyyy-MM-dd HH:mm:ss')+' UTC'}},"
+                "Message | Format-List",
                 120,
             )
             if proc_out:
