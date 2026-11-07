@@ -119,12 +119,13 @@ _TIME_FORMATS = (
     "%Y-%m-%dT%H:%M:%S.%fZ",
     "%Y-%m-%d %H:%M:%S",
     "%Y-%m-%d %H:%M:%S.%f",
-    "%b %d %H:%M:%S",
     "%m/%d/%Y %H:%M:%S",
     "%a %b %d %H:%M:%S %Y",
     "%a %b %d %H:%M:%S %Y %Z",
     "%Y-%m-%dT%H:%M:%S.%f%z",
 )
+# syslog-style, year-less: parsed below with an explicit year appended
+_YEARLESS_TIME_FORMAT = "%b %d %H:%M:%S"
 
 
 def _flatten(record: dict[str, Any], prefix: str = "") -> dict[str, Any]:
@@ -144,6 +145,38 @@ def _flatten(record: dict[str, Any], prefix: str = "") -> dict[str, Any]:
         else:
             out[path] = value
     return out
+
+
+def _parse_syslog_time(candidate: str, year: int) -> float | None:
+    """Year-less syslog stamp; strptime's 1900 default is deprecated (py3.13)."""
+    import datetime as _dt
+
+    try:
+        return _dt.datetime.strptime(
+            f"{candidate} {year}", f"{_YEARLESS_TIME_FORMAT} %Y"
+        ).timestamp()
+    except ValueError:
+        return None
+
+
+def _parse_stamp_text(text: str, year: int) -> float | None:
+    """Year-bearing formats first, then the syslog stamp with the year appended."""
+    import datetime as _dt
+
+    candidates = [text]
+    if text.endswith(" UTC"):
+        candidates.append(text[:-4])
+    for candidate in candidates:
+        for fmt in _TIME_FORMATS:
+            try:
+                return _dt.datetime.strptime(candidate, fmt).timestamp()
+            except ValueError:
+                continue
+    for candidate in candidates:
+        parsed = _parse_syslog_time(candidate, year)
+        if parsed is not None:
+            return parsed
+    return None
 
 
 def _parse_time(value: Any) -> float | None:
@@ -167,16 +200,7 @@ def _parse_time(value: Any) -> float | None:
         return _parse_time(numeric)
     import datetime as _dt
 
-    candidates = [text]
-    if text.endswith(" UTC"):
-        candidates.append(text[:-4])
-    for candidate in candidates:
-        for fmt in _TIME_FORMATS:
-            try:
-                return _dt.datetime.strptime(candidate, fmt).timestamp()
-            except ValueError:
-                continue
-    return None
+    return _parse_stamp_text(text, _dt.datetime.now().year)
 
 
 def _looks_entity(value: Any) -> bool:

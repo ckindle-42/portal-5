@@ -7,14 +7,32 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import time
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
 HEC_URL = os.environ.get("LAB_SPLUNK_HEC_URL", "https://portal5-lab-splunk:8088")
 HEC_TOKEN = os.environ.get("LAB_SPLUNK_HEC_TOKEN", "")
 INDEX = os.environ.get("LAB_SPLUNK_INDEX", "portal5_lab")
+
+
+def _dns_hint(exc: Exception) -> str | None:
+    """Name the fix when the HEC host itself fails DNS resolution."""
+    cur: BaseException | None = exc
+    for _ in range(5):
+        if cur is None:
+            return None
+        if isinstance(cur, socket.gaierror):
+            host = urlparse(HEC_URL).hostname
+            return (
+                f"HEC host '{host}' does not resolve (HEC_URL={HEC_URL}); export "
+                "LAB_SPLUNK_HEC_URL with a host reachable from this runner"
+            )
+        cur = cur.__cause__ or cur.__context__
+    return None
 
 
 def ship(
@@ -68,7 +86,7 @@ def ship(
         body = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
         return {"ok": r.status_code == 200 and body.get("code") == 0, "code": r.status_code}
     except Exception as e:
-        return {"ok": False, "code": None, "error": str(e)}
+        return {"ok": False, "code": None, "error": _dns_hint(e) or str(e)}
 
 
 def ship_batch(
@@ -144,4 +162,4 @@ def ship_batch(
         )
         return {"ok": r.status_code == 200, "code": r.status_code, "count": len(events)}
     except Exception as e:
-        return {"ok": False, "code": None, "error": str(e)}
+        return {"ok": False, "code": None, "error": _dns_hint(e) or str(e)}

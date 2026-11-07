@@ -172,11 +172,43 @@ def _check_vulhub_clone() -> str:
     return "GREEN" if p.exists() else "RED"
 
 
+_CHALLENGE_DESC = CHECKS["challenge_dirs"]["desc"]
+
+
+def _declared_purpose_built() -> list[tuple[str, str]]:
+    """(class id, declared compose dir) for classes that declare purpose_built."""
+    import yaml
+
+    cc = yaml.safe_load((REPO_ROOT / "config" / "challenge_classes.yaml").read_text())
+    return [(c["id"], c["purpose_built"]) for c in cc.get("classes", []) if c.get("purpose_built")]
+
+
+def _compose_ready(base: Path, rel: str) -> bool:
+    d = base / rel
+    return d.is_dir() and ((d / "docker-compose.yml").is_file() or (d / "compose.yaml").is_file())
+
+
 def _check_challenge_dirs() -> str:
-    p = Path(LAB_DIR) / "challenges"
-    if p.exists() and any(p.iterdir()):
+    base = Path(LAB_DIR) / "challenges"
+    try:
+        declared = _declared_purpose_built()
+    except Exception:
+        CHECKS["challenge_dirs"]["desc"] = f"{_CHALLENGE_DESC} (config unreadable)"
+        return "RED"
+    if not declared:
         return "GREEN"
-    return "AMBER" if p.exists() else "RED"
+    present = [(cid, _compose_ready(base, rel)) for cid, rel in declared]
+    ready = [cid for cid, ok in present if ok]
+    if len(ready) == len(declared):
+        return "GREEN"
+    if ready:
+        CHECKS["challenge_dirs"]["desc"] = (
+            f"{_CHALLENGE_DESC} ({len(ready)}/{len(declared)} composes ready)"
+        )
+        return "AMBER"
+    missing = ", ".join(cid for cid, ok in present if not ok)
+    CHECKS["challenge_dirs"]["desc"] = f"{_CHALLENGE_DESC} (missing: {missing})"
+    return "RED"
 
 
 def _check_telemetry() -> str:

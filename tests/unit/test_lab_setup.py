@@ -6,6 +6,8 @@ import hashlib
 import json
 from types import SimpleNamespace
 
+import yaml
+
 
 class TestLabSetup:
     def test_setup_dry_run_completes(self):
@@ -59,6 +61,73 @@ class TestLabReady:
         monkeypatch.setattr("subprocess.run", fake_run)
         assert lab_ready._check_port_reachable("10.10.11.21", 445) == "GREEN"
         assert observed["args"][-6:] == ["nc", "-z", "-w", "3", "10.10.11.21", "445"]
+
+
+class TestChallengeDirsCheck:
+    """_check_challenge_dirs must verify what it claims (2026-11-07: empty
+    placeholder dirs scored GREEN). GREEN = every declared purpose-built class
+    has a dir with a compose file; AMBER with the count when some; RED with the
+    missing names when none. Hermetic: synthetic config + LAB_DIR."""
+
+    @staticmethod
+    def _config(tmp_path, entries):
+        cfg = tmp_path / "config"
+        cfg.mkdir(exist_ok=True)
+        classes = [{"id": cid, "purpose_built": pb} for cid, pb in entries]
+        (cfg / "challenge_classes.yaml").write_text(yaml.safe_dump({"classes": classes}))
+
+    def _patch(self, monkeypatch, tmp_path):
+        from scripts import lab_ready
+
+        self._config(tmp_path, self.ENTRIES)
+        monkeypatch.setattr(lab_ready, "REPO_ROOT", tmp_path)
+        monkeypatch.setattr(lab_ready, "LAB_DIR", str(tmp_path / "lab"))
+        return lab_ready
+
+    def _materialise(self, tmp_path, rel, compose="docker-compose.yml"):
+        base = tmp_path / "lab" / "challenges" / rel
+        base.mkdir(parents=True)
+        (base / compose).write_text("services: {}\n")
+
+    ENTRIES = [("alpha", "challenges/alpha/"), ("beta", "meta3/beta/")]
+
+    def test_green_when_all_declared_composes_exist(self, monkeypatch, tmp_path):
+        lab_ready = self._patch(monkeypatch, tmp_path)
+        self._materialise(tmp_path, "challenges/alpha/")
+        self._materialise(tmp_path, "meta3/beta/")
+        assert lab_ready._check_challenge_dirs() == "GREEN"
+
+    def test_compose_dot_yaml_also_counts(self, monkeypatch, tmp_path):
+        lab_ready = self._patch(monkeypatch, tmp_path)
+        self._materialise(tmp_path, "challenges/alpha/", compose="compose.yaml")
+        self._materialise(tmp_path, "meta3/beta/")
+        assert lab_ready._check_challenge_dirs() == "GREEN"
+
+    def test_empty_placeholder_dirs_are_not_green(self, monkeypatch, tmp_path):
+        lab_ready = self._patch(monkeypatch, tmp_path)
+        (tmp_path / "lab" / "challenges" / "challenges" / "alpha").mkdir(parents=True)
+        (tmp_path / "lab" / "challenges" / "meta3" / "beta").mkdir(parents=True)
+        assert lab_ready._check_challenge_dirs() == "RED"
+        assert "alpha" in lab_ready.CHECKS["challenge_dirs"]["desc"]
+
+    def test_amber_reports_count_when_some_materialised(self, monkeypatch, tmp_path):
+        lab_ready = self._patch(monkeypatch, tmp_path)
+        self._materialise(tmp_path, "challenges/alpha/")
+        assert lab_ready._check_challenge_dirs() == "AMBER"
+        assert "1/2" in lab_ready.CHECKS["challenge_dirs"]["desc"]
+
+    def test_red_lists_missing_names_when_none_materialised(self, monkeypatch, tmp_path):
+        lab_ready = self._patch(monkeypatch, tmp_path)
+        assert lab_ready._check_challenge_dirs() == "RED"
+        desc = lab_ready.CHECKS["challenge_dirs"]["desc"]
+        assert "alpha" in desc and "beta" in desc
+
+    def test_real_config_declares_purpose_built(self):
+        from scripts import lab_ready
+
+        declared = lab_ready._declared_purpose_built()
+        assert len(declared) >= 1
+        assert all(rel for _, rel in declared)
 
 
 class TestLabTargets:

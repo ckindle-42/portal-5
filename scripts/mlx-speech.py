@@ -149,6 +149,28 @@ def _get_tts_model(model_id: str):
     return _tts_models[model_id]
 
 
+def _hf_hub_cache() -> Path:
+    for var in ("HF_HUB_CACHE", "HUGGINGFACE_HUB_CACHE"):
+        if os.getenv(var):
+            return Path(os.environ[var]).expanduser()
+    home = os.getenv("HF_HOME")
+    if not home:
+        xdg = os.getenv("XDG_CACHE_HOME", str(Path.home() / ".cache"))
+        home = str(Path(xdg) / "huggingface")
+    return Path(home) / "hub"
+
+
+def _asr_model_cached(model_id: str) -> bool:
+    """Servable offline: a local dir, or a snapshot already in the HF cache."""
+    if Path(model_id).exists():
+        return True
+    snapshots = _hf_hub_cache() / ("models--" + model_id.replace("/", "--")) / "snapshots"
+    try:
+        return snapshots.is_dir() and any(snapshots.iterdir())
+    except OSError:
+        return False
+
+
 def _get_asr_model():
     """Lazy-load and cache the Qwen3-ASR model."""
     global _asr_model
@@ -440,6 +462,8 @@ async def health():
         "tts_default_voice": DEFAULT_TTS_VOICE,
         "voice_cloning": CLONE_MODEL,
         "trainer_profiles": list_voice_profiles(),
+        "asr_model": QWEN3_ASR_MODEL,
+        "asr_available": _asr_model_cached(QWEN3_ASR_MODEL),
     }
 
 
@@ -624,6 +648,20 @@ async def openai_audio_transcriptions(
 
     Open WebUI sends multipart/form-data with 'file' field containing audio.
     """
+    if not _asr_model_cached(QWEN3_ASR_MODEL):
+        return JSONResponse(
+            {
+                "error": (
+                    f"ASR model '{QWEN3_ASR_MODEL}' cannot be served: not present in the "
+                    "local HuggingFace cache and HF_HUB_OFFLINE blocks downloading. Fetch "
+                    "the model once with HF_HUB_OFFLINE unset, or set MLX_QWEN3_ASR to a "
+                    "cached model."
+                ),
+                "model": QWEN3_ASR_MODEL,
+                "reason": "asr_model_not_cached",
+            },
+            status_code=503,
+        )
     tmp_path = None
     try:
         contents = await file.read()
