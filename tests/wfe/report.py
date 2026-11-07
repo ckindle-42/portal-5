@@ -37,7 +37,12 @@ import yaml
 
 from portal.platform.inference.router.trace import MIN_ANSWER_TOKENS_FOR_RATE
 from tests.wfe import decision, judge
-from tests.wfe.campaign import SUITE_DIR, same_identity, setup_exclusions
+from tests.wfe.campaign import (
+    SUITE_DIR,
+    identity_pair_key,
+    same_identity,
+    setup_exclusions,
+)
 from tests.wfe.schema import (
     INSTRUMENT_OUTCOMES,
     MODEL_QUALITY_OUTCOMES,
@@ -293,7 +298,11 @@ def _identity_check(rows: list[dict], manifest: dict, allow_mixed: bool) -> list
     for r in rows:
         if r.get("outcome") not in scored:
             continue
-        key = f"{r.get('workspace')}|{r.get('model') or r.get('arm')}"
+        key = identity_pair_key(
+            str(r.get("workspace")),
+            str(r.get("model") or r.get("arm")),
+            (r.get("overrides") or {}).get("backend"),
+        )
         ident, want = r.get("identity") or {}, frozen.get(key)
         if not ident.get("content") or not same_identity(ident, want):
             bad.append(f"{key}: served {ident or None}, frozen {want}")
@@ -762,6 +771,7 @@ def record_ledger(
     fit = fitness(campaign_dir, queue_path, allow_mixed)
     ident = manifest.get("identity_map") or {}
     model_of = {m["arm"]: m.get("model") or m["arm"] for m in manifest["rows"]}
+    backend_of = {m["arm"]: (m.get("overrides") or {}).get("backend") for m in manifest["rows"]}
     instrument = manifest.get("instrument") or {}
     receipts = {
         path: digest
@@ -785,8 +795,16 @@ def record_ledger(
             "p": c["p"],
             "campaign": manifest.get("campaign_id"),
             "instrument": instrument.get("fingerprint"),
-            "served": ident.get(f"{c['workspace']}|{model_of.get(c['candidate'])}"),
-            "incumbent_served": ident.get(f"{c['workspace']}|{model_of.get(c['incumbent'])}"),
+            "served": ident.get(
+                identity_pair_key(
+                    c["workspace"], model_of.get(c["candidate"]), backend_of.get(c["candidate"])
+                )
+            ),
+            "incumbent_served": ident.get(
+                identity_pair_key(
+                    c["workspace"], model_of.get(c["incumbent"]), backend_of.get(c["incumbent"])
+                )
+            ),
             "receipts": receipts,
             "recorded_utc": now,
         }
