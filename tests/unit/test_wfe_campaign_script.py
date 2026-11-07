@@ -12,6 +12,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from tests.wfe import campaign
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -103,6 +105,114 @@ def _run(
         else []
     )
     return result, calls
+
+
+def _run_real_interleaved_script(
+    tmp_path: Path, campaign_id: str, *, pilot: bool = False, expired: bool = False
+) -> tuple[subprocess.CompletedProcess[str], Path]:
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    real_python = Path(sys.executable)
+    python = bindir / "python"
+    python.write_text(
+        "#!/usr/bin/env bash\n"
+        'if [ "$1" = "-m" ] && [ "$2" = "tests.wfe.campaign" ]; then\n'
+        "  shift 2\n"
+        '  exec "$WFE_TEST_REAL_PYTHON" -c \'import os,sys; import tests.wfe.campaign as c; '
+        "from wfe_campaign_test_support import patch_campaign; patch_campaign(c); "
+        'sys.executable=os.environ["WFE_TEST_PYTHON"]; '
+        'sys.argv=["tests.wfe.campaign",*sys.argv[1:]]; raise SystemExit(c.main())\' "$@"\n'
+        "fi\n"
+        'if [ "$1" = "-m" ] && [ "$2" = "tests.wfe.realuse_paths" ]; then\n'
+        '  echo "fixture preflight: PASS (test transport)"; exit 0\n'
+        "fi\n"
+        'exec "$WFE_TEST_REAL_PYTHON" "$@"\n',
+        encoding="utf-8",
+    )
+    python.chmod(0o755)
+    uv = bindir / "uv"
+    uv.write_text('#!/usr/bin/env bash\n[ "$1" = run ] && shift\nexec "$@"\n', encoding="utf-8")
+    uv.chmod(0o755)
+    support = tmp_path / "wfe_campaign_test_support.py"
+    support.write_text(
+        "import json, os\n"
+        "from pathlib import Path\n"
+        "\n"
+        "def patch_campaign(campaign):\n"
+        "    campaign._engine_swap_profiles = lambda: {}\n"
+        "    campaign._row_wall_history = lambda _matrix: {}\n"
+        '    campaign._load_guard_plan = lambda _models: {"guard_enabled": False, "fits": False, "busy": False}\n'
+        '    campaign.instrument_fingerprint = lambda: {"fingerprint": "test-instrument", "engine": "pipeline"}\n'
+        '    campaign.env_fingerprint = lambda _base: {"fingerprint": "test-environment", "engine": "pipeline"}\n'
+        "    campaign._ready = lambda _directory: True\n"
+        "    campaign.ollama_reachable = lambda: True\n"
+        "    campaign.gate_execution = lambda _directory: None\n"
+        "    campaign._warn_prompt_surface = lambda _matrix: None\n"
+        "    campaign._realuse_tool_preflight = lambda _plan: None\n"
+        '    campaign._arm_preflight = lambda *_args: {"verdict": "OK", "findings": [], "identities": {}}\n'
+        "    campaign._evaluate_interleaved = lambda *_args: (0, False)\n"
+        "    def execute_arm(directory, arm, *args, only_run_ids=None, **kwargs):\n"
+        "        manifest = campaign.load_manifest(directory)\n"
+        "        selected = set(only_run_ids or ())\n"
+        "        done = []\n"
+        '        for row in manifest["rows"]:\n'
+        '            if row.get("arm") != arm or (selected and row["run_id"] not in selected):\n'
+        "                continue\n"
+        '            row["state"] = "PASS"\n'
+        '            result = {key: row.get(key) for key in ("run_id", "workspace", "suite", "task_id", "repeat")}\n'
+        '            result.update(outcome="PASS", economics={"wall_s": 0.01})\n'
+        '            campaign._row_path(directory, row["run_id"]).write_text(json.dumps(result))\n'
+        "            done.append(row)\n"
+        "        campaign.save_manifest(directory, manifest)\n"
+        '        with open(os.environ["WFE_TEST_RUNS"], "a", encoding="utf-8") as log:\n'
+        '            log.write(arm + "\\n")\n'
+        '        return {"arm": arm, "ran": len(done), "tally": {"PASS": len(done)}}\n'
+        "    campaign.execute_arm = execute_arm\n",
+        encoding="utf-8",
+    )
+    run_log = tmp_path / "arms-ran.txt"
+    env = {
+        **os.environ,
+        "PATH": f"{bindir}{os.pathsep}{os.environ['PATH']}",
+        "PYTHONPATH": f"{tmp_path}{os.pathsep}{os.environ.get('PYTHONPATH', '')}",
+        "WFE_TEST_REAL_PYTHON": str(real_python),
+        "WFE_TEST_PYTHON": str(python),
+        "WFE_TEST_RUNS": str(run_log),
+        "PORTAL_DATA_ROOT": str(tmp_path / "data"),
+        "LOG_DIR": str(tmp_path / "logs"),
+        "DEBUG_DIR": str(tmp_path / "debug"),
+        "WFE_ENGINE": "pipeline",
+        "WFE_SKIP_CONFORMANCE": "1",
+        "WFE_ALLOW_DIRTY_INSTRUMENT": "1",
+        "PIPELINE_API_KEY": "test-key",
+        "OLLAMA": "file:///no-ollama-in-test",
+        "OLLAMA_URL": "file:///no-ollama-in-test",
+    }
+    argv = [
+        "bash",
+        str(SCRIPT),
+        campaign_id,
+        "--plan",
+        "tests/wfe/plans/gemma26b_qat_vision_fallbacks_20261106.yaml",
+        "--tier",
+        "realuse",
+        "--engine",
+        "pipeline",
+    ]
+    if pilot:
+        argv.extend(("--pilot", "8"))
+    if expired:
+        env["WFE_CAMPAIGN_START_EPOCH"] = "1"
+    result = subprocess.run(
+        argv,
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=120,
+    )
+    return result, run_log
 
 
 def test_wfe_campaign_has_valid_shell_syntax() -> None:
@@ -357,6 +467,53 @@ def test_pilot_uses_a_separate_campaign_id_and_reaches_campaign_commands(tmp_pat
     assert campaign_calls
     assert all(argv[argv.index("--campaign-id") + 1] == "wfe_test_pilot" for argv in campaign_calls)
     assert all(argv[argv.index("--pilot") + 1] == "2" for argv in campaign_calls)
+
+
+@pytest.mark.parametrize(
+    ("pilot", "expired"),
+    [(False, False), (True, False), (True, True)],
+    ids=("full-interleaved", "pilot-interleaved", "pilot-time-cap"),
+)
+def test_real_campaign_script_runs_interleaved_workers_without_a_live_stack(
+    tmp_path: Path, pilot: bool, expired: bool
+) -> None:
+    campaign_id = f"wfe_r3_{int(pilot)}_{int(expired)}"
+    result, run_log = _run_real_interleaved_script(
+        tmp_path, campaign_id, pilot=pilot, expired=expired
+    )
+    effective_id = campaign_id + ("_pilot" if pilot else "")
+    manifest_path = (
+        tmp_path
+        / "data"
+        / "tests"
+        / "wfe"
+        / "results"
+        / "campaigns"
+        / effective_id
+        / "manifest.json"
+    )
+    assert manifest_path.is_file(), result.stdout + result.stderr
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    output = result.stdout + result.stderr
+
+    if expired:
+        assert result.returncode == campaign.EXIT_STOPPED, output
+        assert manifest["campaign_stop"]["reason"] == "time cap"
+        assert not run_log.exists()
+        return
+
+    assert result.returncode == 0, output
+    rows = manifest["rows"]
+    arms = {row["arm"] for row in rows}
+    assert len(arms) == 2
+    assert set(run_log.read_text(encoding="utf-8").splitlines()) == arms
+    assert all(row["state"] == "PASS" for row in rows)
+    if pilot:
+        assert effective_id.endswith("_pilot") and not effective_id.endswith("_pilot_pilot")
+        assert {arm: sum(row["arm"] == arm for row in rows) for arm in arms} == dict.fromkeys(
+            arms, 8
+        )
+    assert "--pilot requires at least two arms" not in output
 
 
 def test_execution_options_default_to_interleaved_for_ab_and_keep_sequential_opt_in(
