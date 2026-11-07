@@ -3582,10 +3582,20 @@ def pilot_floor_check(campaign_id: str, campaigns: Path = CAMPAIGNS) -> dict | N
 
 
 def _timing_totals(timing: dict) -> tuple[float, float, float]:
-    harness_s = float(timing.get("harness_s") or 0)
     model_s = float(timing.get("model_s") or 0)
-    total = harness_s + model_s
-    return harness_s, model_s, harness_s / total if total else 0.0
+    wall_s = float(timing.get("wall_s") or 0)
+    harness_s = wall_s - model_s if "wall_s" in timing else float(timing.get("harness_s") or 0)
+    return harness_s, model_s, harness_s / wall_s if wall_s else 0.0
+
+
+def _timing_unattributed_s(timing: dict) -> float:
+    named_s = sum(
+        float((block.get("phases") or {}).get(f"{phase}_s") or 0)
+        for block in timing.get("blocks") or []
+        for phase in _TIMING_PHASES
+    )
+    wall_s = float(timing["wall_s"]) if "wall_s" in timing else named_s
+    return wall_s - named_s
 
 
 def _rehearsal_failures(execution: dict, timing: dict) -> list[str]:
@@ -3609,6 +3619,9 @@ def _rehearsal_failures(execution: dict, timing: dict) -> list[str]:
         failures.append("no interleaved block timing recorded")
     if ratio > max_overhead:
         failures.append(f"overhead ratio={ratio:.3f} > {max_overhead:.3f}")
+    unattributed_s = _timing_unattributed_s(timing)
+    if unattributed_s > max_phase_s:
+        failures.append(f"unattributed_s={unattributed_s:.3f} > {max_phase_s:.3f}")
     return failures
 
 
@@ -3623,6 +3636,7 @@ def _print_timing_report(execution: dict) -> tuple[float, float, float]:
             print(f"PHASE TABLE {block.get('block_id')} {block.get('arm')} {values}")
     harness_s, model_s, ratio = _timing_totals(timing)
     print(f"OVERHEAD harness_s={harness_s:.3f} model_s={model_s:.3f} ratio={ratio:.3f}")
+    print(f"unattributed_s={_timing_unattributed_s(timing):.3f}")
     return harness_s, model_s, ratio
 
 
@@ -4103,7 +4117,12 @@ def _arm_todo(
 
 
 def _record_block_timing(
-    campaign_dir: Path, arm: str, block_id: str | None, phases: dict[str, float], model_s: float
+    campaign_dir: Path,
+    arm: str,
+    block_id: str | None,
+    phases: dict[str, float],
+    model_s: float,
+    first_row_started_monotonic: float | None = None,
 ) -> None:
     manifest = load_manifest(campaign_dir)
     execution = manifest.setdefault("execution", {})
@@ -4120,6 +4139,8 @@ def _record_block_timing(
         "harness_s": round(harness_s, 3),
         "model_s": round(model_s, 3),
     }
+    if first_row_started_monotonic is not None:
+        record["first_row_started_monotonic"] = first_row_started_monotonic
     blocks[:] = [row for row in blocks if (row.get("block_id"), row.get("arm")) != (ident, arm)]
     blocks.append(record)
     timing["harness_s"] = round(sum(row["harness_s"] for row in blocks), 3)
@@ -4150,7 +4171,7 @@ def _execute_arm_rows(
     halt: bool,
     curtail: bool,
     deadline_epoch: float | None,
-) -> tuple[dict, dict[str, float], float]:
+) -> tuple[dict, dict[str, float], float, float | None]:
     _log(campaign_dir, f"arm {arm}: {len(todo)} runs pending")
     if notify:
         _notify("test_start", f"WFE arm started: {arm}\n{len(todo)} task-runs")
@@ -4158,6 +4179,7 @@ def _execute_arm_rows(
     suite_cache: dict[str, dict] = {}
     tally: dict = {}
     ran = model_s = 0
+    first_row_started_monotonic: float | None = None
     stop = halted = None
     t_arm = t_rows = time.monotonic()
     for i, r in enumerate(todo, 1):
@@ -4178,6 +4200,7 @@ def _execute_arm_rows(
             save_manifest(campaign_dir, manifest)
             continue
         _log(campaign_dir, f"  [{i}/{len(todo)}] {r['run_id']}")
+        first_row_started_monotonic = first_row_started_monotonic or time.monotonic()
         row = run_row(
             campaign_dir,
             manifest,
@@ -4216,7 +4239,7 @@ def _execute_arm_rows(
     release_s = time.monotonic() - t_release
     out["reused"] = len(reused)
     out["stopped"] = (load_manifest(campaign_dir).get("campaign_stop") or {}).get("reason")
-    return out, {"rows": rows_s, "release": release_s}, model_s
+    return out, {"rows": rows_s, "release": release_s}, model_s, first_row_started_monotonic
 
 
 def execute_arm(
@@ -4266,7 +4289,7 @@ def execute_arm(
         set((manifest.get("execution") or {}).get("resident_fit_workspaces") or []),
     )
     phases["model_prepare"] = time.monotonic() - t_prepare
-    out, tail_phases, model_s = _execute_arm_rows(
+    out, tail_phases, model_s, first_row_started_monotonic = _execute_arm_rows(
         campaign_dir,
         manifest,
         arm,
@@ -4284,7 +4307,9 @@ def execute_arm(
     )
     phases.update(tail_phases)
     if timing:
-        _record_block_timing(campaign_dir, arm, block_id, phases, model_s)
+        _record_block_timing(
+            campaign_dir, arm, block_id, phases, model_s, first_row_started_monotonic
+        )
     return out
 
 
@@ -4483,15 +4508,38 @@ def _evaluate_interleaved(campaign_dir: Path, manifest: dict, arms: list[str], m
     return new_records, False
 
 
-def _run_interleaved_block(
-    campaign_dir: Path, block: list[dict], arms: list[str], args, budget: int
-):
-    outs = []
-    block_id = sha12(
+def _interleaved_block_id(block: list[dict]) -> str:
+    return sha12(
         "|".join(
             sorted(run_id for unit in block for ids in unit["run_ids"].values() for run_id in ids)
         )
     )
+
+
+def _record_parent_block_gap(
+    campaign_dir: Path, block_id: str, previous_block_end: float, block_end: float
+) -> None:
+    manifest = load_manifest(campaign_dir)
+    execution = manifest.setdefault("execution", {})
+    timing = execution.setdefault("timing", {"blocks": []})
+    records = [record for record in timing.get("blocks", []) if record.get("block_id") == block_id]
+    starts = [
+        float(start)
+        for record in records
+        if (start := record.pop("first_row_started_monotonic", None)) is not None
+    ]
+    next_event = min(starts) if starts else block_end
+    gap_before_s = round(max(0.0, next_event - previous_block_end), 3)
+    for record in records:
+        record["gap_before_s"] = gap_before_s
+    save_manifest(campaign_dir, manifest)
+
+
+def _run_interleaved_block(
+    campaign_dir: Path, block: list[dict], arms: list[str], args, budget: int
+):
+    outs = []
+    block_id = _interleaved_block_id(block)
     for arm in arms:
         run_ids = {run_id for unit in block for run_id in unit["run_ids"].get(arm, [])}
         if not run_ids:
@@ -4530,6 +4578,21 @@ def _run_interleaved_block(
         else:
             outs.append({"arm": arm, "ran": len(run_ids)})
     return outs
+
+
+def _run_timed_interleaved_block(
+    campaign_dir: Path,
+    block: list[dict],
+    run_arms: list[str],
+    args,
+    budget: int,
+    previous_block_end: float,
+) -> tuple[list[dict], float]:
+    block_id = _interleaved_block_id(block)
+    outs = _run_interleaved_block(campaign_dir, block, run_arms, args, budget)
+    block_end = time.monotonic()
+    _record_parent_block_gap(campaign_dir, block_id, previous_block_end, block_end)
+    return outs, block_end
 
 
 def _block_worker_command(
@@ -4580,9 +4643,30 @@ def _block_worker_command(
     return command
 
 
+def _finish_interleaved_timing(
+    campaign_dir: Path, campaign_started: float, last_block_end: float | None
+) -> None:
+    manifest = load_manifest(campaign_dir)
+    execution = manifest.setdefault("execution", {})
+    timing = execution.setdefault("timing", {"blocks": []})
+    if last_block_end is not None:
+        timing["wall_s"] = round(last_block_end - campaign_started, 3)
+        timing["model_s"] = round(
+            sum(float(block.get("model_s") or 0) for block in timing["blocks"]), 3
+        )
+        timing["harness_s"] = round(timing["wall_s"] - timing["model_s"], 3)
+        timing["ratio"] = (
+            round(timing["harness_s"] / timing["wall_s"], 4) if timing["wall_s"] else 0.0
+        )
+    save_manifest(campaign_dir, manifest)
+
+
 def _run_interleaved_campaign(
     campaign_dir: Path, arms: list[str], args, options: dict, deadline_epoch: float
 ) -> list[dict]:
+    campaign_started = time.monotonic()
+    previous_block_end = campaign_started
+    last_block_end = None
     roles = {r["arm"]: r.get("arm_role") for r in load_manifest(campaign_dir)["rows"]}
     run_arms = sorted(arms, key=lambda arm: (roles.get(arm) != "incumbent", arms.index(arm)))
     if args.no_curtail:
@@ -4621,7 +4705,10 @@ def _run_interleaved_campaign(
             outs.append({"stopped": "time cap"})
             break
         budget = min(args.budget_s, max(1, int(remaining / max(row_count, 1))))
-        block_outs = _run_interleaved_block(campaign_dir, block, run_arms, args, budget)
+        block_outs, previous_block_end = _run_timed_interleaved_block(
+            campaign_dir, block, run_arms, args, budget, previous_block_end
+        )
+        last_block_end = previous_block_end
         outs.extend(block_outs)
         if any(out.get("stopped") or out.get("halted") or out.get("blocked") for out in block_outs):
             break
@@ -4633,6 +4720,7 @@ def _run_interleaved_campaign(
             if stopped:
                 outs.append({"stopped": "decision"})
                 break
+    _finish_interleaved_timing(campaign_dir, campaign_started, last_block_end)
     return outs
 
 

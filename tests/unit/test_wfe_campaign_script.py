@@ -138,6 +138,7 @@ def _run_real_interleaved_script(
     plan["interleave_block"] = 4
     if rehearse:
         plan["rehearsal_max_phase_s"] = 0.1 if slow_setup else 120
+        plan["rehearsal_max_overhead"] = 0.6
     workload = next(iter(plan["workloads"].values()))
     suite_path = ROOT / "tests/wfe/suites" / f"{workload['home']}.jsonl"
     task_ids = [
@@ -238,7 +239,10 @@ def _run_real_interleaved_script(
         "        campaign.drain_model = lambda _model: True\n"
         "        campaign.workspace_context = lambda *_args, **_kwargs: {}\n"
         "        campaign._prepare_arm_resources = lambda _directory, _arm, todo, _resident=None: (campaign.row_model(todo[0]), False)\n"
-        '        campaign.run_row = lambda *_args, **_kwargs: {"outcome": "PASS", "turns": 1, "tool_calls": 1, "tool_errors": 0, "economics": {"wall_s": 0.1}}\n'
+        "        def run_row(*_args, **_kwargs):\n"
+        "            time.sleep(0.5)\n"
+        '            return {"outcome": "PASS", "turns": 1, "tool_calls": 1, "tool_errors": 0, "economics": {"wall_s": 0.5}}\n'
+        "        campaign.run_row = run_row\n"
         "        campaign.arm_stop_reason = lambda *_args, **_kwargs: None\n"
         "        campaign._halt_arm = lambda *_args, **_kwargs: None\n"
         "        campaign._curtail_after_task = lambda *_args, **_kwargs: None\n"
@@ -291,10 +295,12 @@ def _run_real_interleaved_script(
         "OLLAMA": "file:///no-ollama-in-test",
         "OLLAMA_URL": "file:///no-ollama-in-test",
     }
-    if rehearse:
-        env["WFE_TEST_PHASES"] = "1"
-    if slow_setup:
-        env["WFE_TEST_SETUP_DELAY"] = "0.2"
+    env.update(
+        {
+            **({"WFE_TEST_PHASES": "1"} if rehearse else {}),
+            **({"WFE_TEST_SETUP_DELAY": "0.2"} if slow_setup else {}),
+        }
+    )
     argv = [
         "bash",
         str(SCRIPT),
@@ -695,6 +701,89 @@ def test_rehearsal_runs_two_blocks_and_gates_phase_timing(
         assert "block_setup arm=" in output and "> 0.100" in output
     else:
         assert result.returncode == 0, output
+
+
+@pytest.mark.parametrize("parent_gap", [0.0, 0.2], ids=("no-gap", "unattributed-gap-fails"))
+def test_rehearsal_wall_gate_counts_parent_gap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys, parent_gap: float
+) -> None:
+    started = time.monotonic()
+    campaign_dir = tmp_path / "parent-gap-campaign"
+    campaign_dir.mkdir()
+    rows = [
+        {"run_id": f"{arm}:t{index}", "arm": arm, "arm_role": "incumbent", "state": "PENDING"}
+        for arm in ("plain", "qat")
+        for index in range(2)
+    ]
+    execution = {
+        "rehearsal": True,
+        "rehearsal_max_overhead": 0.25,
+        "rehearsal_max_phase_s": 0.1,
+        "timing": {"blocks": []},
+    }
+    campaign.save_manifest(campaign_dir, {"execution": execution, "rows": rows})
+    blocks = [
+        [{"run_ids": {"plain": ["plain:t0"], "qat": ["qat:t0"]}}],
+        [{"run_ids": {"plain": ["plain:t1"], "qat": ["qat:t1"]}}],
+    ]
+    block_calls = 0
+
+    def next_block(*_args, **_kwargs):
+        nonlocal block_calls
+        block_calls += 1
+        if block_calls == 2 and parent_gap:
+            time.sleep(parent_gap)
+        return [blocks[block_calls - 1]] if block_calls <= len(blocks) else []
+
+    def run_block(directory, block, arms, _args, _budget):
+        block_id = campaign._interleaved_block_id(block)
+        for arm in arms:
+            row_started = time.monotonic()
+            time.sleep(0.1)
+            campaign._record_block_timing(
+                directory,
+                arm,
+                block_id,
+                {"block_setup": 0.0, "model_prepare": 0.0, "rows": 0.1, "release": 0.0},
+                0.1,
+                row_started,
+            )
+        manifest = campaign.load_manifest(directory)
+        run_ids = {run_id for unit in block for ids in unit["run_ids"].values() for run_id in ids}
+        for row in manifest["rows"]:
+            if row["run_id"] in run_ids:
+                row["state"] = "PASS"
+        campaign.save_manifest(directory, manifest)
+        return [{"arm": arm, "ran": 1} for arm in arms]
+
+    monkeypatch.setattr(campaign, "_interleave_blocks", next_block)
+    monkeypatch.setattr(campaign, "_run_interleaved_block", run_block)
+    args = type("Args", (), {"no_curtail": False, "rerun_failed": False, "budget_s": 10})()
+    campaign._run_interleaved_campaign(
+        campaign_dir,
+        ["plain", "qat"],
+        args,
+        {"interleave_block": 1, "pilot_tasks": 2},
+        time.time() + 60,
+    )
+    manifest = campaign.load_manifest(campaign_dir)
+    result = campaign.campaign_finish(campaign_dir, "parent-gap")
+    elapsed = time.monotonic() - started
+    timing = manifest["execution"]["timing"]
+    output = capsys.readouterr().out
+    gaps = {row["block_id"]: row["gap_before_s"] for row in timing["blocks"]}
+
+    assert elapsed < 5
+    assert len(gaps) == 2
+    assert "unattributed_s=" in output
+    assert timing["harness_s"] + timing["model_s"] == pytest.approx(timing["wall_s"], abs=0.002)
+    if parent_gap:
+        assert result == campaign.EXIT_REHEARSAL_FAILED, f"{timing=} {output=}"
+        assert max(gaps.values()) > parent_gap
+        assert "unattributed_s=" in output and "> 0.100" in output
+    else:
+        assert result == 0
+        assert max(gaps.values()) < 0.1
 
 
 def _pilot_manifest(plain_passes: int, qat_passes: int) -> dict:
