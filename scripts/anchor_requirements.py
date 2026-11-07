@@ -345,7 +345,13 @@ def main() -> int:
     if args.report:
         REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
         REPORT_PATH.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
-        print(f"\nwrote {REPORT_PATH.relative_to(REPO_ROOT)}")
+        # DATA_ROOT is configurable and normally outside the repo, so a
+        # repo-relative display is only possible when it happens to be inside.
+        try:
+            shown: Path | str = REPORT_PATH.relative_to(REPO_ROOT)
+        except ValueError:
+            shown = REPORT_PATH
+        print(f"\nwrote {shown}")
     return 0
 
 
