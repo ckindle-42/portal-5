@@ -64,9 +64,11 @@ import datetime as dt
 import functools
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
+import statistics
 import subprocess
 import sys
 import tempfile
@@ -1919,6 +1921,7 @@ def open_campaign(
     matrix: list[dict],
     append: bool,
     reuse_screen: list[str] | None = None,
+    execution: dict | None = None,
 ) -> Path:
     """Create a campaign, or append rows to a live one.
 
@@ -1931,7 +1934,14 @@ def open_campaign(
     mpath = d / "manifest.json"
     if mpath.exists():
         manifest = json.loads(mpath.read_text())
+        added_execution = execution is not None and not (
+            (manifest.get("execution") or {}).get("interleave_block_by_workspace")
+        )
+        if added_execution:
+            manifest["execution"] = execution
         if not append:
+            if added_execution:
+                save_manifest(d, manifest)
             if _record_screen_reuse_sources(manifest, reuse_screen):
                 save_manifest(d, manifest)
             return _opened(d)
@@ -1939,6 +1949,25 @@ def open_campaign(
             raise GateRefused(f"append: {instrument_drift(manifest)}; open a new campaign")
         known = {r["run_id"] for r in manifest["rows"]}
         added = [r for r in matrix if r["run_id"] not in known]
+        changed_workspaces = {r.get("workspace") for r in added if r.get("workspace")}
+        if execution is not None and changed_workspaces:
+            saved = manifest.setdefault("execution", {})
+            for key in (
+                "interleave_block_by_workspace",
+                "interleave_block_reason_by_workspace",
+                "interleave_models_by_workspace",
+            ):
+                target = saved.setdefault(key, {})
+                source = execution.get(key) or {}
+                for workspace in changed_workspaces:
+                    if workspace in source:
+                        target[workspace] = source[workspace]
+            saved["interleave_block"] = max(
+                (saved.get("interleave_block_by_workspace") or {}).values(),
+                default=execution.get("interleave_block", 4),
+            )
+            saved["interleave_swap_profiles"] = execution.get("interleave_swap_profiles", {})
+            saved["interleave_block_override"] = execution.get("interleave_block_override", False)
         keep_receipt(d, gate_controls([*manifest["rows"], *added], "append"))
         manifest["rows"].extend(added)
         manifest["rows"].sort(
@@ -1969,6 +1998,7 @@ def open_campaign(
                 "env": env_fingerprint(OLLAMA),
                 "config_dirty_at_start": config_dirty(),
                 "reuse_screen": list(dict.fromkeys(reuse_screen or [])),
+                "execution": execution or {},
                 "rows": matrix,
             },
             indent=1,
@@ -3212,6 +3242,27 @@ def record_arm_stop(campaign_dir: Path, arm: str, reason: str) -> None:
         fh.write(json.dumps({"arm": arm, "reason": reason}) + "\n")
 
 
+def record_campaign_stop(campaign_dir: Path, manifest: dict, reason: str, kind: str) -> None:
+    """Persist the campaign-level stop receipt used by --finish and report."""
+    manifest.setdefault(
+        "campaign_stop",
+        {"kind": kind, "reason": reason, "utc": dt.datetime.now(dt.UTC).isoformat()},
+    )
+    save_manifest(campaign_dir, manifest)
+
+
+def _campaign_row_budget(
+    campaign_dir: Path, manifest: dict, deadline_epoch: float | None, requested: int
+) -> int | None:
+    if deadline_epoch is None:
+        return requested
+    remaining = deadline_epoch - time.time()
+    if remaining < 1:
+        record_campaign_stop(campaign_dir, manifest, "time cap", "time_cap")
+        return None
+    return min(requested, max(1, int(remaining)))
+
+
 def arm_stop_reason(
     arm: str, row: dict, campaign_dir: Path | None = None, manifest: dict | None = None, r=None
 ) -> str | None:
@@ -3353,16 +3404,22 @@ def campaign_finish(campaign_dir: Path, campaign_id: str) -> int:
     is summarised on the line. The line is the job receipt's reason."""
     manifest_path = Path(campaign_dir) / "manifest.json"
     rows: list[dict] = []
+    campaign_stop = None
     if manifest_path.is_file():
         with contextlib.suppress(Exception):
-            rows = json.loads(manifest_path.read_text()).get("rows") or []
+            manifest = json.loads(manifest_path.read_text())
+            rows = manifest.get("rows") or []
+            campaign_stop = manifest.get("campaign_stop")
     states = [str(r.get("state") or "PENDING") for r in rows]
     done = sum(1 for s in states if s not in _UNMEASURED_ROW_STATES)
     left = sum(1 for s in states if s in ("PENDING", "MISSING"))
     blocked = sum(1 for s in states if s == "BLOCKED")
     stops, halts = _recorded_stops(campaign_dir), _recorded_halts(campaign_dir)
     verdict, reason, code = "complete", "all rows measured", EXIT_OK
-    if stops:
+    if campaign_stop:
+        verdict, code = "stopped", EXIT_STOPPED
+        reason = str(campaign_stop.get("reason") or "campaign stopped")
+    elif stops:
         verdict, code = "stopped", EXIT_STOPPED
         reason = str(stops[-1].get("reason") or "arm stopped")
     elif done == 0:
@@ -3445,6 +3502,7 @@ def _evaluate_curtailment(
             for task in load_suite(suite_path)
             if task.get("arguable")
         )
+    execution = load_manifest(campaign_dir).get("execution") or {}
     return decision.curtail(
         inc_results,
         cand_results,
@@ -3453,6 +3511,7 @@ def _evaluate_curtailment(
         repeats=repeats,
         arguable=arguable,
         fixed_excluded=fixed_excluded,
+        non_inferiority_margin=execution.get("non_inferiority_margin") or 0.0,
     )
 
 
@@ -3648,15 +3707,22 @@ def _cmd_verify_complete(campaign_dir: Path) -> int:
     return EXIT_INCOMPLETE if problems else EXIT_OK
 
 
-def _prepare_arm_resources(campaign_dir: Path, arm: str, todo: list[dict]) -> str:
+def _prepare_arm_resources(
+    campaign_dir: Path, arm: str, todo: list[dict], resident_workspaces: set[str] | None = None
+) -> tuple[str, bool]:
     model = row_model(todo[0])
+    todo_workspaces = {str(row.get("workspace") or "") for row in todo}
+    keep_resident = bool(todo_workspaces) and todo_workspaces.issubset(resident_workspaces or set())
+    if keep_resident:
+        _log(campaign_dir, f"arm {arm}: retaining load-guard-fit resident model {model}")
+        return model, True
     seat = seat_primary(todo[0]["workspace"], model) if ENGINE == "pipeline" else model
     evicted = drain_others(model if seat == model else "")
     if evicted:
         _log(campaign_dir, f"arm {arm}: drained {len(evicted)} resident model(s): {evicted}")
     if ENGINE == "omlx" or (ENGINE == "pipeline" and model not in model_sizes()):
         _log(campaign_dir, f"arm {arm}: {drain_omlx()}")
-    return model
+    return model, False
 
 
 def _order_pending_rows(todo: list[dict], manifest: dict) -> list[dict]:
@@ -3684,10 +3750,53 @@ def _order_pending_rows(todo: list[dict], manifest: dict) -> list[dict]:
     ]
 
 
-def _finish_arm(campaign_dir, arm, model, tally, elapsed_start, notify, stop, halted, ran):
+def _interleave_blocks(
+    rows: list[dict], arms: list[str], block_size: int | dict, retry_states: set | None = None
+) -> list[list[dict]]:
+    """Group runnable task/repeat rows across arms, then divide them into pair blocks."""
+    runnable = {"PENDING", *(retry_states or set())}
+    groups: dict[tuple, dict[str, list[str]]] = {}
+    for row in rows:
+        stale_preflight = row.get("state") == Outcome.BLOCKED.value and str(
+            row.get("note") or ""
+        ).startswith(_PREFLIGHT_BLOCK)
+        if row.get("arm") not in arms or (row.get("state") not in runnable and not stale_preflight):
+            continue
+        key = (row["workspace"], row["suite"], row["task_id"], row["repeat"])
+        groups.setdefault(key, {}).setdefault(row["arm"], []).append(row["run_id"])
+    units = [
+        {"key": key, "run_ids": groups[key]}
+        for key in sorted(groups, key=lambda item: (item[3], item[0], item[1], item[2]))
+    ]
+    by_workspace: dict[str, list[dict]] = {}
+    for unit in units:
+        by_workspace.setdefault(unit["key"][0], []).append(unit)
+    blocks = []
+    for workspace, workspace_units in by_workspace.items():
+        size = block_size.get(workspace, 4) if isinstance(block_size, dict) else block_size
+        blocks.extend(
+            workspace_units[index : index + size] for index in range(0, len(workspace_units), size)
+        )
+    return blocks
+
+
+def _campaign_deadline(options: dict) -> float:
+    started = os.environ.get("WFE_CAMPAIGN_START_EPOCH")
+    try:
+        start_epoch = float(started) if started else time.time()
+    except ValueError:
+        start_epoch = time.time()
+    return start_epoch + options["max_minutes"] * 60
+
+
+def _finish_arm(
+    campaign_dir, arm, model, tally, elapsed_start, notify, stop, halted, ran, keep_resident=False
+):
     if stop:
         record_arm_stop(campaign_dir, arm, stop)
-    if not drain_model(model):
+    if keep_resident and not stop and not halted:
+        _log(campaign_dir, f"arm {arm}: retained resident model {model} for next interleave block")
+    elif not drain_model(model):
         _log(campaign_dir, f"arm {arm}: WARNING — still resident after {DRAIN_TIMEOUT_S}s")
     elapsed = round(time.monotonic() - elapsed_start)
     summary = f"{arm}: {tally} in {elapsed}s"
@@ -3713,6 +3822,7 @@ def _arm_todo(
     rerun_failed: bool,
     fresh_incumbent: bool,
     curtail: bool,
+    only_run_ids: set[str] | None = None,
 ) -> tuple[list[dict], dict | None, list[str]]:
     """Pending rows for one arm, after a fresh release, curtailment, or a row copy.
 
@@ -3731,6 +3841,8 @@ def _arm_todo(
     todo, early = _rows_to_run(campaign_dir, manifest, arm, retry_states, force_preflight, notify)
     if early is not None:
         return todo, early, []
+    if only_run_ids is not None:
+        todo = [row for row in todo if row["run_id"] in only_run_ids]
     reused = []
     if not fresh_incumbent:
         reused.extend(reuse_incumbent_rows(campaign_dir, manifest, todo))
@@ -3756,11 +3868,15 @@ def execute_arm(
     halt: bool = True,
     curtail: bool = True,
     fresh_incumbent: bool = False,
+    only_run_ids: set[str] | None = None,
+    deadline_epoch: float | None = None,
 ) -> dict:
     """Run every pending row for ONE arm. Fresh process per arm is the house
     pattern for long sweeps: a leaked handle or a wedged connection in one model
     must not poison the remaining arms."""
     manifest = load_manifest(campaign_dir)
+    if _campaign_row_budget(campaign_dir, manifest, deadline_epoch, budget_s) is None:
+        return {"arm": arm, "ran": 0, "stopped": "time cap"}
     apply_setup_exclusions(campaign_dir, manifest)
     todo, early, reused = _arm_todo(
         campaign_dir,
@@ -3771,13 +3887,19 @@ def execute_arm(
         rerun_failed,
         fresh_incumbent,
         curtail,
+        only_run_ids,
     )
     if early is not None:
         return early
 
     # Evict before the first row so stale weights or a pinned classifier cannot
     # consume the memory this arm needs.
-    model = _prepare_arm_resources(campaign_dir, arm, todo)
+    model, keep_resident = _prepare_arm_resources(
+        campaign_dir,
+        arm,
+        todo,
+        set((manifest.get("execution") or {}).get("resident_fit_workspaces") or []),
+    )
 
     _log(campaign_dir, f"arm {arm}: {len(todo)} runs pending")
     if notify:
@@ -3790,6 +3912,9 @@ def execute_arm(
     stop = halted = None
     t_arm = time.monotonic()
     for i, r in enumerate(todo, 1):
+        row_budget = _campaign_row_budget(campaign_dir, manifest, deadline_epoch, budget_s)
+        if row_budget is None:
+            break
         if r.get("state") == "SKIPPED_DECIDED":
             continue
         ws_key = (r["workspace"], row_overrides(r).get("persona"))
@@ -3811,7 +3936,7 @@ def execute_arm(
             ws_cache[ws_key],
             task,
             max_turns,
-            budget_s,
+            row_budget,
             debug_dir,
             cold=(i == 1),
         )
@@ -3832,9 +3957,349 @@ def execute_arm(
             break
         _curtail_after_task(campaign_dir, manifest, arm, r, curtail)
 
-    out = _finish_arm(campaign_dir, arm, model, tally, t_arm, notify, stop, halted, ran)
+    out = _finish_arm(
+        campaign_dir, arm, model, tally, t_arm, notify, stop, halted, ran, keep_resident
+    )
     out["reused"] = len(reused)
+    out["stopped"] = (load_manifest(campaign_dir).get("campaign_stop") or {}).get("reason")
     return out
+
+
+def _interleaved_comparisons(manifest: dict, arms: list[str]) -> list[dict]:
+    rows = [
+        row
+        for row in manifest["rows"]
+        if row.get("arm") in arms and row.get("tier", "confirm") == "confirm"
+    ]
+    comparisons = []
+    workspaces = sorted({row["workspace"] for row in rows})
+    for workspace in workspaces:
+        scoped = [row for row in rows if row["workspace"] == workspace]
+        incumbents = sorted({r["arm"] for r in scoped if r.get("arm_role") == "incumbent"})
+        if len(incumbents) != 1:
+            continue
+        incumbent = incumbents[0]
+        candidates = sorted({r["arm"] for r in scoped if r.get("arm_role") == "challenger"})
+        for candidate in candidates:
+            expected = {(r["suite"], r["task_id"]) for r in scoped if r.get("arm") == candidate}
+            if expected:
+                comparisons.append(
+                    {
+                        "workspace": workspace,
+                        "incumbent": incumbent,
+                        "candidate": candidate,
+                        "expected": expected,
+                    }
+                )
+    return comparisons
+
+
+def _interleaved_cell(
+    campaign_dir: Path, manifest: dict, spec: dict, margin: float
+) -> decision.Cell | None:
+    ws, inc, cand, expected = (
+        spec["workspace"],
+        spec["incumbent"],
+        spec["candidate"],
+        spec["expected"],
+    )
+    rows = [
+        r
+        for r in manifest["rows"]
+        if r.get("workspace") == ws
+        and r.get("arm") in (inc, cand)
+        and (r["suite"], r["task_id"]) in expected
+        and r.get("tier", "confirm") == "confirm"
+    ]
+    repeats = max((r["repeat"] for r in rows), default=0) + 1
+    task_rows: dict[tuple[str, str], list[dict]] = {task: [] for task in expected}
+    for row in rows:
+        task_rows[(row["suite"], row["task_id"])].append(row)
+    completed = {
+        task
+        for task, group in task_rows.items()
+        if group and all(r.get("state") not in ("PENDING", "SKIPPED_DECIDED") for r in group)
+    }
+    results = {inc: [], cand: []}
+    for row in rows:
+        if row.get("state") in ("PENDING", "SKIPPED_DECIDED"):
+            continue
+        results[row["arm"]].append(_manifest_row_result(campaign_dir, row))
+    arguable = set()
+    for suite_path in {r.get("suite_path") for r in rows if r.get("suite_path")}:
+        arguable.update(
+            (Path(suite_path).stem, task["id"])
+            for task in load_suite(suite_path)
+            if task.get("arguable")
+        )
+    return decision.curtail_interleaved(
+        results[inc],
+        results[cand],
+        expected,
+        completed,
+        repeats=repeats,
+        arguable=arguable,
+        non_inferiority_margin=margin,
+    )
+
+
+def _record_interleaved_decision(
+    campaign_dir: Path, manifest: dict, spec: dict, cell: decision.Cell
+) -> bool:
+    remaining = [
+        r
+        for r in manifest["rows"]
+        if r.get("workspace") == spec["workspace"]
+        and r.get("arm") == spec["candidate"]
+        and r.get("state") == "PENDING"
+        and r.get("tier", "confirm") == "confirm"
+    ]
+    if not remaining:
+        return False
+    record = {
+        "id": _curtail_id(spec["workspace"], spec["candidate"]),
+        "workspace": spec["workspace"],
+        "arm": spec["candidate"],
+        "incumbent": spec["incumbent"],
+        "state": "CURTAILED",
+        "verdict": cell.verdict,
+        "reason": cell.reason,
+        "after_task": "paired interleave block",
+        "tasks_compared": cell.n,
+        "tasks_remaining": len({(r["suite"], r["task_id"]) for r in remaining}),
+        "rows_saved": len(remaining),
+        "cell": {
+            key: getattr(cell, key)
+            for key in ("verdict", "reason", "n", "wins", "losses", "ties", "p")
+        },
+    }
+    for row in remaining:
+        row.update(
+            state="SKIPPED_DECIDED",
+            note=f"curtailed: {cell.verdict}; {cell.reason}",
+            curtailment_id=record["id"],
+        )
+    curtailments = manifest.setdefault("curtailments", [])
+    existing = next((r for r in curtailments if r.get("id") == record["id"]), None)
+    if existing:
+        existing.clear()
+        existing.update(record)
+    else:
+        curtailments.append(record)
+    save_manifest(campaign_dir, manifest)
+    _log(
+        campaign_dir,
+        f"{spec['candidate']} [{spec['workspace']}]: interleaved decision "
+        f"{cell.verdict} after {cell.n} paired task(s); saved {len(remaining)} row(s)",
+    )
+    return True
+
+
+def _evaluate_interleaved(campaign_dir: Path, manifest: dict, arms: list[str], margin: float):
+    specs = _interleaved_comparisons(manifest, arms)
+    new_records = []
+    for spec in specs:
+        existing = next(
+            (
+                r
+                for r in manifest.get("curtailments", [])
+                if r.get("id") == _curtail_id(spec["workspace"], spec["candidate"])
+                and r.get("state") == "CURTAILED"
+            ),
+            None,
+        )
+        if existing:
+            continue
+        cell = _interleaved_cell(campaign_dir, manifest, spec, margin)
+        if cell and _record_interleaved_decision(campaign_dir, manifest, spec, cell):
+            new_records.append({**spec, "verdict": cell.verdict})
+    if not specs:
+        return new_records, False
+    settled = all(
+        any(
+            record.get("id") == _curtail_id(spec["workspace"], spec["candidate"])
+            and record.get("state") == "CURTAILED"
+            for record in manifest.get("curtailments", [])
+        )
+        or not any(
+            r.get("workspace") == spec["workspace"]
+            and r.get("arm") == spec["candidate"]
+            and r.get("state") == "PENDING"
+            and r.get("tier", "confirm") == "confirm"
+            for r in manifest["rows"]
+        )
+        for spec in specs
+    )
+    early = any(
+        r.get("id") == _curtail_id(spec["workspace"], spec["candidate"])
+        and r.get("state") == "CURTAILED"
+        for spec in specs
+        for r in manifest.get("curtailments", [])
+    )
+    paired_cells = {
+        (spec["workspace"], arm) for spec in specs for arm in (spec["incumbent"], spec["candidate"])
+    }
+    all_cells = {
+        (r["workspace"], r["arm"])
+        for r in manifest["rows"]
+        if r.get("tier", "confirm") == "confirm"
+    }
+    if settled and early and all_cells <= paired_cells:
+        reasons = [f"{r['candidate']}={r['verdict']}" for r in new_records]
+        for row in manifest["rows"]:
+            if (
+                (row.get("workspace"), row.get("arm")) in paired_cells
+                and row.get("state") == "PENDING"
+                and row.get("tier", "confirm") == "confirm"
+            ):
+                row.update(state="SKIPPED_DECIDED", note="all paired comparisons are decided")
+        reason = "decision: " + (", ".join(reasons) or "all comparisons invariant")
+        record_campaign_stop(campaign_dir, manifest, reason, "decision")
+        return new_records, True
+    save_manifest(campaign_dir, manifest)
+    return new_records, False
+
+
+def _run_interleaved_block(
+    campaign_dir: Path, block: list[dict], arms: list[str], args, budget: int
+):
+    outs = []
+    for arm in arms:
+        run_ids = {run_id for unit in block for run_id in unit["run_ids"].get(arm, [])}
+        if not run_ids:
+            continue
+        if not ollama_reachable():
+            record_arm_stop(campaign_dir, arm, "Ollama unreachable")
+            outs.append({"stopped": "Ollama unreachable"})
+            break
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", prefix="wfe_interleave_", delete=False
+        ) as run_file:
+            run_file.write("\n".join(sorted(run_ids)))
+            run_ids_path = Path(run_file.name)
+        try:
+            rc = subprocess.run(
+                _block_worker_command(campaign_dir, arm, run_ids_path, args, budget),
+                cwd=REPO,
+                stdin=subprocess.DEVNULL,
+                check=False,
+            ).returncode
+        finally:
+            run_ids_path.unlink(missing_ok=True)
+        if rc == 6:
+            outs.append({"blocked": True})
+        elif rc == 9:
+            outs.append({"halted": "arm worker halted"})
+            break
+        elif rc == EXIT_STOPPED:
+            outs.append({"stopped": "arm worker stopped"})
+            break
+        elif rc != 0:
+            reason = f"arm worker exited {rc}"
+            record_arm_stop(campaign_dir, arm, reason)
+            outs.append({"stopped": reason})
+            break
+        else:
+            outs.append({"arm": arm, "ran": len(run_ids)})
+    return outs
+
+
+def _block_worker_command(campaign_dir: Path, arm: str, run_ids_path: Path, args, budget: int):
+    command = [
+        sys.executable,
+        "-m",
+        "tests.wfe.campaign",
+        "--campaign-id",
+        campaign_dir.name,
+        "--plan",
+        args.plan,
+        "--tier",
+        args.tier,
+        "--arm",
+        arm,
+        "--run-ids-file",
+        str(run_ids_path),
+        "--block-worker",
+        "--budget-s",
+        str(budget),
+        "--max-turns",
+        str(args.max_turns),
+    ]
+    for flag, enabled in (
+        ("--all-suites", args.all_suites),
+        ("--notify", args.notify),
+        ("--no-halt", args.no_halt),
+        ("--no-curtail", args.no_curtail),
+        ("--rerun-failed", args.rerun_failed),
+        ("--fresh-incumbent", args.fresh_incumbent),
+    ):
+        if enabled:
+            command.append(flag)
+    if args.repeats is not None:
+        command.extend(("--repeats", str(args.repeats)))
+    if args.pilot is not None:
+        command.extend(("--pilot", str(args.pilot)))
+    if args.debug_dir:
+        command.extend(("--debug-dir", str(args.debug_dir)))
+    if args.force:
+        command.append("--force")
+    return command
+
+
+def _run_interleaved_campaign(
+    campaign_dir: Path, arms: list[str], args, options: dict, deadline_epoch: float
+) -> list[dict]:
+    roles = {r["arm"]: r.get("arm_role") for r in load_manifest(campaign_dir)["rows"]}
+    run_arms = sorted(arms, key=lambda arm: (roles.get(arm) != "incumbent", arms.index(arm)))
+    if args.no_curtail:
+        manifest = load_manifest(campaign_dir)
+        for arm in run_arms:
+            _resume_curtailed_rows(campaign_dir, manifest, arm)
+        for row in manifest["rows"]:
+            if row.get("arm") in run_arms and row.get("state") == "SKIPPED_DECIDED":
+                row.update(state="PENDING")
+                row.pop("note", None)
+                row.pop("curtailment_id", None)
+        save_manifest(campaign_dir, manifest)
+    retry = (
+        {Outcome.HARNESS_ERROR.value, Outcome.TOOL_ERROR.value, Outcome.BLOCKED.value}
+        if args.rerun_failed
+        else set()
+    )
+    outs = []
+    while True:
+        manifest = load_manifest(campaign_dir)
+        if manifest.get("campaign_stop"):
+            break
+        blocks = _interleave_blocks(
+            manifest["rows"],
+            run_arms,
+            options.get("interleave_block_by_workspace") or options["interleave_block"],
+            retry,
+        )
+        if not blocks:
+            break
+        block = blocks[0]
+        row_count = sum(len(ids) for unit in block for ids in unit["run_ids"].values())
+        remaining = deadline_epoch - time.time()
+        if remaining < max(row_count, 1):
+            record_campaign_stop(campaign_dir, manifest, "time cap", "time_cap")
+            outs.append({"stopped": "time cap"})
+            break
+        budget = min(args.budget_s, max(1, int(remaining / max(row_count, 1))))
+        block_outs = _run_interleaved_block(campaign_dir, block, run_arms, args, budget)
+        outs.extend(block_outs)
+        if any(out.get("stopped") or out.get("halted") or out.get("blocked") for out in block_outs):
+            break
+        if not args.no_curtail and options.get("pilot_tasks") is None:
+            manifest = load_manifest(campaign_dir)
+            _new, stopped = _evaluate_interleaved(
+                campaign_dir, manifest, run_arms, options.get("non_inferiority_margin") or 0.0
+            )
+            if stopped:
+                outs.append({"stopped": "decision"})
+                break
+    return outs
 
 
 def build_review_queue(campaign_dir: Path) -> int:
@@ -3912,6 +4377,16 @@ def _parse_args(argv=None):
     )
     ap.add_argument("--advance", type=Path, help="advance.yaml from report --screen-out")
     ap.add_argument("--campaign-id", help="create or continue this campaign")
+    ap.add_argument("--run-ids-file", type=Path, help=argparse.SUPPRESS)
+    ap.add_argument("--block-worker", action="store_true", help=argparse.SUPPRESS)
+    ap.add_argument("--arms-file", type=Path, help=argparse.SUPPRESS)
+    ap.add_argument(
+        "--pilot",
+        type=int,
+        nargs="?",
+        const=6,
+        help="run this many one-draw tasks per arm in an interleaved <id>_pilot campaign (default 6)",
+    )
     ap.add_argument("--arm", help="run exactly one model tag (one arm per process)")
     ap.add_argument("--workspace", help="restrict to one workspace")
     ap.add_argument("--suite", help="restrict to one suite")
@@ -4395,17 +4870,25 @@ def _inspect_command(args, campaign_dir: Path) -> int | None:
     return None
 
 
-def _select_arms(manifest: dict, want: str | None) -> list[str]:
+def _select_arms(manifest: dict, want: str | None, arms_file: Path | None = None) -> list[str]:
     """Arm ids to run. `--arm` may name an arm id or a model tag (every variant)."""
     roles = {}
     for row in manifest["rows"]:
         arm = row.get("arm")
         if arm:
             roles[arm] = min(roles.get(arm, 1), 0 if row.get("arm_role") == "incumbent" else 1)
-    return sorted(
+    selected = sorted(
         {r["arm"] for r in manifest["rows"] if want in (None, r["arm"], row_model(r))},
         key=lambda arm: (roles.get(arm, 1), arm),
     )
+    if arms_file is None:
+        return selected
+    requested = {line.strip() for line in arms_file.read_text().splitlines() if line.strip()}
+    models = {
+        arm: {row_model(row) for row in manifest["rows"] if row.get("arm") == arm}
+        for arm in selected
+    }
+    return [arm for arm in selected if arm in requested or models[arm] & requested]
 
 
 def _ready(campaign_dir: Path) -> bool:
@@ -4460,6 +4943,269 @@ def plan_repeats(plan_path: Path) -> int | None:
     return raw
 
 
+def execution_options(plan_path: Path, matrix: list[dict], pilot_tasks: int | None = None) -> dict:
+    """Read bounded scheduling choices from the workload plan."""
+    data = yaml.safe_load(plan_path.read_text()) or {}
+    if not isinstance(data, dict):
+        raise ValueError(f"{plan_path.name}: plan must be a mapping")
+    arm_count = len({row["arm"] for row in matrix})
+    order = data.get("arm_order")
+    if pilot_tasks is not None:
+        order = "interleaved"
+    elif order is None:
+        order = "interleaved" if arm_count >= 2 else "sequential"
+    if order not in ("interleaved", "sequential"):
+        raise ValueError(f"{plan_path.name}: arm_order must be interleaved or sequential")
+    block = data.get("interleave_block")
+    if block is not None and (isinstance(block, bool) or not isinstance(block, int) or block < 1):
+        raise ValueError(f"{plan_path.name}: interleave_block must be a positive integer")
+    max_minutes = data.get("max_minutes", 120)
+    if isinstance(max_minutes, bool) or not isinstance(max_minutes, int) or max_minutes < 1:
+        raise ValueError(f"{plan_path.name}: max_minutes must be a positive integer")
+    margin = data.get("non_inferiority_margin")
+    if margin is not None:
+        margin = decision._validated_margin(margin)
+    workspaces = {str(row.get("workspace") or "") for row in matrix} - {""}
+    if order == "interleaved" and arm_count >= 2 and workspaces:
+        row_walls = _row_wall_history(matrix)
+        swap_profiles = _engine_swap_profiles()
+        block_by_workspace, reason_by_workspace, models_by_workspace = _choose_interleave_blocks(
+            matrix, block, row_walls, swap_profiles
+        )
+    else:
+        default_block = block or 4
+        block_by_workspace = dict.fromkeys(sorted(workspaces), default_block)
+        reason = f"plan override interleave_block={block}" if block else "fallback block 4"
+        reason_by_workspace = dict.fromkeys(block_by_workspace, reason)
+        models_by_workspace = {}
+        swap_profiles = {}
+    return {
+        "arm_order": order,
+        "interleave_block": max(block_by_workspace.values(), default=4),
+        "interleave_block_by_workspace": block_by_workspace,
+        "interleave_block_reason_by_workspace": reason_by_workspace,
+        "interleave_models_by_workspace": models_by_workspace,
+        "interleave_swap_profiles": swap_profiles,
+        "interleave_block_override": block is not None,
+        "resident_fit_workspaces": [],
+        "max_minutes": max_minutes,
+        "non_inferiority_margin": margin,
+        "pilot_tasks": pilot_tasks,
+    }
+
+
+def _summary(values: list[float]) -> dict | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    return {
+        "n": len(ordered),
+        "median_s": round(statistics.median(ordered), 2),
+        "p95_s": round(ordered[max(0, math.ceil(0.95 * len(ordered)) - 1)], 2),
+    }
+
+
+def _latest_log_day(path: Path, pattern: re.Pattern) -> str | None:
+    latest = None
+    try:
+        with path.open(errors="replace") as log:
+            for line in log:
+                match = pattern.search(line)
+                if match:
+                    day = match["ts"][:10]
+                    latest = max(latest, day) if latest else day
+    except OSError:
+        return None
+    return latest
+
+
+def _omlx_swap_profile(path: Path) -> dict | None:
+    pending: dict[tuple[str, str], list[dt.datetime]] = {}
+    spans: dict[str, list[float]] = {"load": [], "unload": []}
+    pattern = re.compile(
+        r"^(?P<ts>\d{4}-\d\d-\d\d \d\d:\d\d:\d\d[.,]\d+) - "
+        r"omlx\.engine_pool - INFO - (?P<event>Loading model|Loaded model|"
+        r"Unloading model|Unloaded model): (?P<model>[^,(]+)"
+    )
+    latest = _latest_log_day(path, pattern)
+    if latest is None:
+        return None
+    try:
+        with path.open(errors="replace") as log:
+            for line in log:
+                match = pattern.match(line)
+                if match is None or match["ts"][:10] != latest:
+                    continue
+                stamp = dt.datetime.fromisoformat(match["ts"].replace(",", "."))
+                event = match["event"]
+                kind = "load" if event in ("Loading model", "Loaded model") else "unload"
+                model = match["model"].strip()
+                key = (kind, model)
+                if event in ("Loading model", "Unloading model"):
+                    pending.setdefault(key, []).append(stamp)
+                    continue
+                starts = pending.get(key) or []
+                if starts:
+                    index = -1 if kind == "unload" else 0
+                    elapsed = (stamp - starts.pop(index)).total_seconds()
+                    if 0 < elapsed <= 600:
+                        spans[kind].append(elapsed)
+    except OSError:
+        return None
+    load = _summary(spans["load"])
+    if load is None:
+        return None
+    unload = _summary(spans["unload"])
+    return {
+        "load": load,
+        "unload": unload,
+        "swap_median_s": round(load["median_s"] + (unload or {}).get("median_s", 0), 2),
+        "swap_p95_s": round(load["p95_s"] + (unload or {}).get("p95_s", 0), 2),
+        "p95_method": "sum of component p95 values",
+        "log_day": latest,
+    }
+
+
+def _ollama_swap_profile(path: Path) -> dict | None:
+    pending = 0
+    starts = re.compile(r'msg="loading model via llama-server"')
+    durations = re.compile(r'msg="llama-server started in ([\d.]+) seconds"')
+    day_pattern = re.compile(
+        r'time=(?P<ts>\d{4}-\d\d-\d\dT[^ ]+).*msg="(?:loading model via llama-server|'
+        r"llama-server started in)"
+    )
+    latest = _latest_log_day(path, day_pattern)
+    if latest is None:
+        return None
+    loads = []
+    try:
+        with path.open(errors="replace") as log:
+            for line in log:
+                day = day_pattern.search(line)
+                if day is None or day["ts"][:10] != latest:
+                    continue
+                if starts.search(line):
+                    pending += 1
+                match = durations.search(line)
+                if match and pending:
+                    pending -= 1
+                    loads.append(float(match.group(1)))
+    except OSError:
+        return None
+    load = _summary(loads)
+    if load is None:
+        return None
+    return {
+        "load": load,
+        "unload": None,
+        "swap_median_s": load["median_s"],
+        "swap_p95_s": load["p95_s"],
+        "p95_method": "logged startup duration; unload duration unavailable",
+        "log_day": latest,
+    }
+
+
+def _engine_swap_profiles() -> dict:
+    omlx_path = Path(os.environ.get("WFE_OMLX_LOG", "/opt/homebrew/var/log/omlx.log"))
+    ollama_path = Path(os.environ.get("WFE_OLLAMA_LOG", "/opt/homebrew/var/log/ollama.log"))
+    return {
+        "omlx": _omlx_swap_profile(omlx_path),
+        "ollama": _ollama_swap_profile(ollama_path),
+    }
+
+
+def _row_wall_history(matrix: list[dict]) -> dict[str, dict]:
+    identities = {(row.get("workspace"), row.get("suite"), row.get("task_id")) for row in matrix}
+    walls: dict[str, list[float]] = {}
+    for path in CAMPAIGNS.glob("*/rows/*.json"):
+        try:
+            row = json.loads(path.read_text())
+            key = (row.get("workspace"), row.get("suite"), row.get("task_id"))
+            wall = (row.get("economics") or {}).get("wall_s")
+        except (OSError, ValueError, TypeError):
+            continue
+        if key not in identities or isinstance(wall, bool) or not isinstance(wall, (int, float)):
+            continue
+        if math.isfinite(wall) and wall > 0:
+            walls.setdefault(str(row["workspace"]), []).append(float(wall))
+    return {
+        workspace: {"n": len(values), "median_s": round(statistics.median(values), 2)}
+        for workspace, values in walls.items()
+    }
+
+
+def _models_by_workspace(matrix: list[dict]) -> dict[str, list[dict[str, str]]]:
+    models: dict[str, set[tuple[str, str]]] = {}
+    for row in matrix:
+        workspace = str(row.get("workspace") or "")
+        model = row_model(row)
+        if ENGINE == "pipeline":
+            backend, model = _serving_seat(workspace, model)
+            engine = backend_engine(backend)
+        else:
+            engine = ENGINE
+        if workspace and engine in ("omlx", "ollama"):
+            models.setdefault(workspace, set()).add((engine, model))
+    return {
+        workspace: [{"engine": engine, "model": model} for engine, model in sorted(entries)]
+        for workspace, entries in models.items()
+    }
+
+
+def _choose_interleave_blocks(
+    matrix: list[dict], override: int | None, row_walls: dict, swap_profiles: dict
+) -> tuple[dict[str, int], dict[str, str], dict[str, list[dict[str, str]]]]:
+    models = _models_by_workspace(matrix)
+    choices, reasons = {}, {}
+    for workspace in sorted({str(row.get("workspace") or "") for row in matrix} - {""}):
+        if override is not None:
+            choices[workspace] = override
+            reasons[workspace] = f"plan override interleave_block={override}"
+            continue
+        wall = row_walls.get(workspace)
+        engines = sorted({model["engine"] for model in models.get(workspace, [])})
+        profiles = [swap_profiles.get(engine) for engine in engines]
+        if len(models.get(workspace, [])) == 1:
+            choices[workspace] = 1
+            reasons[workspace] = "same resident model serves all arms"
+        elif not wall or not profiles or any(profile is None for profile in profiles):
+            choices[workspace] = 4
+            reasons[workspace] = (
+                "fallback block 4; matching row history or engine swap timing unavailable"
+            )
+        else:
+            swap_s = max(profile["swap_median_s"] for profile in profiles)
+            choices[workspace] = max(1, math.ceil(swap_s / (0.10 * wall["median_s"])))
+            profile_text = ", ".join(
+                f"{engine} median={profile['swap_median_s']}s p95={profile['swap_p95_s']}s"
+                for engine, profile in zip(engines, profiles, strict=True)
+            )
+            reasons[workspace] = (
+                f"ceil(max engine swap median / 10% of median row wall): {profile_text}; "
+                f"row median={wall['median_s']}s n={wall['n']}"
+            )
+    return choices, reasons, models
+
+
+def pilot_matrix(matrix: list[dict], task_limit: int) -> list[dict]:
+    """Keep the first N task identities and one draw per arm."""
+    if task_limit < 1:
+        raise ValueError("pilot task count must be a positive integer")
+    tasks = list(dict.fromkeys((r["workspace"], r["suite"], r["task_id"]) for r in matrix))
+    selected = set(tasks[:task_limit])
+    return [
+        row
+        for row in matrix
+        if row["repeat"] == 0 and (row["workspace"], row["suite"], row["task_id"]) in selected
+    ]
+
+
+def _effective_campaign_id(campaign_id: str | None, pilot_tasks: int | None) -> str | None:
+    if campaign_id is None or pilot_tasks is None or campaign_id.endswith("_pilot"):
+        return campaign_id
+    return f"{campaign_id}_pilot"
+
+
 def _planned_matrix(plan: Path, args) -> tuple[int | dict[str, int], list[dict]]:
     """The matrix and its repeats. Without --repeats a confirm gives each arm 1 repeat when its
     screen rows recorded a served temperature of 0, and the default otherwise; a realuse tier
@@ -4490,6 +5236,9 @@ def _planned_matrix(plan: Path, args) -> tuple[int | dict[str, int], list[dict]]
     if chosen is None and args.tier == "realuse":
         repeats = realuse_repeats(CAMPAIGNS / args.campaign_id, matrix)
         matrix = expand(repeats)
+    pilot_tasks = getattr(args, "pilot", None)
+    if pilot_tasks is not None:
+        matrix = pilot_matrix(matrix, pilot_tasks)
     return repeats, matrix
 
 
@@ -4525,7 +5274,7 @@ def _plan_command(args, plan: Path) -> int | None:
     refuse them for workspaces the campaign never touches (readiness pass 5, 2026-11-05)."""
     if args.rescore:
         return _cmd_rescore(args)
-    if not _is_inspect_only(args):
+    if not _is_inspect_only(args) and not args.block_worker:
         _realuse_tool_preflight(plan)
     if args.list_arms:
         return _cmd_list_arms(plan, args.all_suites)
@@ -4534,40 +5283,126 @@ def _plan_command(args, plan: Path) -> int | None:
     return None
 
 
-def main() -> int:
-    ap, args = _parse_args()
-    _validate_reuse_screen_args(ap, args)
-    plan = Path(args.plan)
-    rc = _plan_command(args, plan)
-    if rc is not None:
-        return rc
+def _load_guard_plan(models: list[dict[str, str]]) -> dict:
+    key = os.environ.get("PIPELINE_API_KEY", "")
+    headers = {"Content-Type": "application/json"}
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
+    request = urllib.request.Request(
+        f"{CHAT_BASE.rstrip('/')}/admin/load-plan",
+        data=json.dumps({"models": models}).encode(),
+        headers=headers,
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=5) as response:
+            return json.load(response)
+    except Exception as exc:
+        return {"status": "unavailable", "error": f"{type(exc).__name__}: {exc}"}
 
+
+def _apply_load_guard_choices(
+    campaign_dir: Path, manifest: dict, execution: dict, arms: list[str]
+) -> dict:
+    rows = [row for row in manifest["rows"] if row.get("arm") in arms]
+    models_by_workspace = _models_by_workspace(rows)
+    block_map = dict(execution.get("interleave_block_by_workspace") or {})
+    reasons = dict(execution.get("interleave_block_reason_by_workspace") or {})
+    resident = set(execution.get("resident_fit_workspaces") or [])
+    results = {}
+    for workspace in sorted({str(row.get("workspace") or "") for row in rows} - {""}):
+        workspace_arms = {row.get("arm") for row in rows if row.get("workspace") == workspace}
+        if len(workspace_arms) < 2:
+            continue
+        models = models_by_workspace.get(workspace, [])
+        if len(models) == 1:
+            resident.add(workspace)
+            results[workspace] = {"status": "same resident model"}
+            continue
+        if not models:
+            results[workspace] = {"status": "unavailable", "reason": "serving seats unresolved"}
+            continue
+        if ENGINE != "pipeline":
+            results[workspace] = {"status": "unavailable", "reason": "load plan requires pipeline"}
+            continue
+        plan = _load_guard_plan(models)
+        results[workspace] = plan
+        if (
+            plan.get("guard_enabled") is True
+            and plan.get("fits") is True
+            and plan.get("busy") is False
+        ):
+            resident.add(workspace)
+            if not execution.get("interleave_block_override"):
+                block_map[workspace] = 1
+                reasons[workspace] = "load guard confirms both arms fit resident together; block 1"
+    execution["interleave_block_by_workspace"] = block_map
+    execution["interleave_block_reason_by_workspace"] = reasons
+    execution["interleave_block"] = max(
+        block_map.values(), default=execution.get("interleave_block", 4)
+    )
+    execution["resident_fit_workspaces"] = sorted(resident)
+    execution["interleave_load_guard"] = results
+    manifest["execution"] = execution
+    save_manifest(campaign_dir, manifest)
+    return execution
+
+
+def _prepare_campaign(ap, args, plan: Path) -> tuple[Path | None, dict, int | None]:
     if not args.campaign_id:
         ap.error("--campaign-id is required (or use --smoke / --rescore / --list-arms)")
+    if args.pilot is not None:
+        if args.pilot < 1:
+            ap.error("--pilot must be a positive task count")
+        args.campaign_id = _effective_campaign_id(args.campaign_id, args.pilot)
     repeats, matrix = _planned_matrix(plan, args)
-    _warn_prompt_surface(matrix)
+    if args.pilot is not None and len({row["arm"] for row in matrix}) < 2:
+        ap.error("--pilot requires at least two arms")
+    stored_manifest = CAMPAIGNS / args.campaign_id / "manifest.json"
+    if args.block_worker and stored_manifest.is_file():
+        execution = load_manifest(stored_manifest.parent).get("execution")
+        if not execution:
+            execution = execution_options(plan, matrix, args.pilot)
+    else:
+        execution = execution_options(plan, matrix, args.pilot)
+    if not args.block_worker:
+        _warn_prompt_surface(matrix)
     if args.dry_run:
-        return _cmd_dry_run(matrix, repeats)
-
+        return None, execution, _cmd_dry_run(matrix, repeats)
     campaign_dir = open_campaign(
-        args.campaign_id, plan, matrix, args.append, reuse_screen=args.reuse_screen
+        args.campaign_id,
+        plan,
+        matrix,
+        args.append,
+        reuse_screen=args.reuse_screen,
+        execution=execution,
     )
-    rc = _inspect_command(args, campaign_dir)
-    if rc is not None:
-        return rc
-    if not _ready(campaign_dir):
-        return 3
-    # Re-gate every row before it runs: suites change and keys expire after open.
-    gate_execution(campaign_dir)
-    if args.preflight:
-        return _cmd_preflight(campaign_dir, args.force)
+    return campaign_dir, execution, None
+
+
+def _run_selected_arms(
+    campaign_dir: Path, args, execution: dict
+) -> tuple[list[str], list[dict], int | None]:
     manifest = load_manifest(campaign_dir)
-    arms = _select_arms(manifest, args.arm)
+    arms = _select_arms(manifest, args.arm, args.arms_file)
+    only_run_ids = (
+        {line.strip() for line in args.run_ids_file.read_text().splitlines() if line.strip()}
+        if args.run_ids_file
+        else None
+    )
+    deadline = _campaign_deadline(execution)
+    if execution.get("arm_order") == "interleaved" and len(arms) > 1:
+        if not args.block_worker:
+            execution = _apply_load_guard_choices(campaign_dir, manifest, execution, arms)
+        return arms, _run_interleaved_campaign(campaign_dir, arms, args, execution, deadline), None
     outs = []
     for arm in arms:
+        manifest = load_manifest(campaign_dir)
+        if manifest.get("campaign_stop"):
+            break
         if not ollama_reachable():
             _log(campaign_dir, f"ABORT before {arm}: Ollama unreachable")
-            return 3
+            return arms, outs, 3
         out = execute_arm(
             campaign_dir,
             arm,
@@ -4580,10 +5415,25 @@ def main() -> int:
             not args.no_halt,
             curtail=not args.no_curtail,
             fresh_incumbent=args.fresh_incumbent,
+            only_run_ids=only_run_ids,
+            deadline_epoch=deadline,
         )
         outs.append(out or {})
         if (out or {}).get("halted"):
             break
+    return arms, outs, None
+
+
+def _resume_stopped_campaign(campaign_dir: Path, manifest: dict, args) -> dict:
+    stop = manifest.get("campaign_stop") or {}
+    if stop and (stop.get("kind") == "time_cap" or args.no_curtail or args.append):
+        manifest.setdefault("campaign_stop_history", []).append(stop)
+        manifest.pop("campaign_stop", None)
+        save_manifest(campaign_dir, manifest)
+    return manifest
+
+
+def _complete_campaign(campaign_dir: Path, args, arms: list[str], outs: list[dict]) -> int:
     _maybe_judge(campaign_dir, args.judge)
     n = build_review_queue(campaign_dir)
     dirty = config_dirty()
@@ -4594,7 +5444,46 @@ def main() -> int:
         _log(campaign_dir, f"WARNING: config/ changed during the campaign: {dirty}")
     print(f"\ncampaign dir: {campaign_dir}   creative queue: {n} item(s)")
     print(f"next: uv run python -m tests.wfe.report --campaign {campaign_dir.name}")
-    return exit_status(outs, arms)
+    return EXIT_STOPPED if manifest.get("campaign_stop") else exit_status(outs, arms)
+
+
+def _execute_campaign(campaign_dir: Path, execution: dict, args) -> int:
+    rc = _inspect_command(args, campaign_dir)
+    if rc is not None:
+        return rc
+    if not _ready(campaign_dir):
+        return 3
+    # Re-gate every row before it runs: suites change and keys expire after open.
+    gate_execution(campaign_dir)
+    if args.preflight:
+        return _cmd_preflight(campaign_dir, args.force)
+    manifest = load_manifest(campaign_dir)
+    if not manifest.get("execution"):
+        manifest["execution"] = execution
+        save_manifest(campaign_dir, manifest)
+    execution = manifest.get("execution") or execution
+    _resume_stopped_campaign(campaign_dir, manifest, args)
+    arms, outs, rc = _run_selected_arms(campaign_dir, args, execution)
+    if rc is not None:
+        return rc
+    if args.block_worker:
+        manifest = load_manifest(campaign_dir)
+        return EXIT_STOPPED if manifest.get("campaign_stop") else exit_status(outs, arms)
+    return _complete_campaign(campaign_dir, args, arms, outs)
+
+
+def main() -> int:
+    ap, args = _parse_args()
+    _validate_reuse_screen_args(ap, args)
+    plan = Path(args.plan)
+    rc = _plan_command(args, plan)
+    if rc is not None:
+        return rc
+    campaign_dir, execution, rc = _prepare_campaign(ap, args, plan)
+    if rc is not None:
+        return rc
+    assert campaign_dir is not None
+    return _execute_campaign(campaign_dir, execution, args)
 
 
 def _finish_exit() -> int | None:
@@ -4605,11 +5494,13 @@ def _finish_exit() -> int | None:
     if args.finish:
         if not args.campaign_id:
             ap.error("--finish needs --campaign-id")
+        args.campaign_id = _effective_campaign_id(args.campaign_id, args.pilot)
         return campaign_finish(CAMPAIGNS / args.campaign_id, args.campaign_id)
     if not args.require_measured:
         return None
     if not args.campaign_id:
         ap.error("--require-measured needs --campaign-id")
+    args.campaign_id = _effective_campaign_id(args.campaign_id, args.pilot)
     return _cmd_require_measured(CAMPAIGNS / args.campaign_id)
 
 

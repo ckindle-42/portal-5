@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
 # WFE fitness campaign — unattended multi-day driver.
 #
-# One arm per PROCESS, in sequence. Per scripts/run_hauhaucs_full_sweep.sh: a
-# persistent connection failure or a leaked handle in one model must not poison
-# every remaining arm in a 30-60 hour sweep. This trades process startup
-# overhead for failure isolation, which is the right trade at this duration.
+# A/B plans interleave paired blocks in campaign.py. Sequential plans keep one
+# arm per process so a connection failure or leaked handle cannot poison later arms.
 #
-# Resume-safe: an arm with no PENDING rows is skipped, so killing this script
+# Resume-safe: rows already complete are skipped, so killing this script
 # and re-running it continues rather than restarts. Safe to Ctrl-C.
 #
 #   ./scripts/wfe_campaign.sh wfe_full_20260908            # all arms, n=3
@@ -37,6 +35,8 @@ shift || true
 # --plan/--engine are parsed here, not passed through: a job step has no env channel,
 # and PLAN/WFE_ENGINE used to be settable only by one.
 ARGS=()
+PILOT_FLAG=()
+PILOT_COUNT=""
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --plan)
@@ -51,6 +51,17 @@ while [ "$#" -gt 0 ]; do
             WFE_ENGINE="${1#--engine=}"; shift ;;
         --canary)
             CANARY=1; shift ;;
+        --pilot)
+            PILOT_COUNT=6
+            if [ "$#" -ge 2 ] && [[ "$2" =~ ^[0-9]+$ ]]; then
+                PILOT_COUNT="$2"; shift
+            fi
+            [ "$PILOT_COUNT" -gt 0 ] || { echo "wfe-campaign: --pilot needs a positive integer" >&2; exit 2; }
+            PILOT_FLAG+=(--pilot "$PILOT_COUNT"); shift ;;
+        --pilot=*)
+            PILOT_COUNT="${1#--pilot=}"
+            [[ "$PILOT_COUNT" =~ ^[0-9]+$ ]] && [ "$PILOT_COUNT" -gt 0 ] || { echo "wfe-campaign: --pilot needs a positive integer" >&2; exit 2; }
+            PILOT_FLAG+=(--pilot "$PILOT_COUNT"); shift ;;
         *)
             ARGS+=("$1"); shift ;;
     esac
@@ -58,6 +69,11 @@ done
 set -- "${ARGS[@]+"${ARGS[@]}"}"
 [ -n "${PLAN:-}" ] && export PLAN
 [ -n "${WFE_ENGINE:-}" ] && export WFE_ENGINE
+if [ -n "$PILOT_COUNT" ] && [[ "$CAMPAIGN_ID" != *_pilot ]]; then
+    CAMPAIGN_ID="${CAMPAIGN_ID}_pilot"
+fi
+WFE_CAMPAIGN_START_EPOCH="${WFE_CAMPAIGN_START_EPOCH:-$(date +%s)}"
+export WFE_CAMPAIGN_START_EPOCH
 # Pipeline mode authenticates to :9099. Take ONLY the key from the repo .env: sourcing the
 # whole file exports container hostnames/paths that break host-side runners.
 if [ "${WFE_ENGINE:-}" = "pipeline" ] && [ -z "${PIPELINE_API_KEY:-}" ] \
@@ -71,6 +87,7 @@ fi
 # SETUP/MODEL classification and per-arm identity gate, and the exit. One
 # repeat is implied; the sweeps' REPEATS policy does not apply.
 if [ "${CANARY:-0}" = "1" ]; then
+    [ -z "$PILOT_COUNT" ] || { echo "wfe-campaign: --pilot cannot be combined with --canary" >&2; exit 2; }
     PLAN_ARGS=()
     [ -n "${PLAN:-}" ] && PLAN_ARGS+=(--plan "$PLAN")
     exec uv run python -m tests.wfe.canary \
@@ -113,6 +130,7 @@ echo "$(ts) CAMPAIGN ${CAMPAIGN_ID} repeats=${REPEATS} all_suites=${ALL_SUITES:-
 # materialisation failure here would otherwise be invisible for the whole sweep.
 uv run python -m tests.wfe.campaign \
     --campaign-id "$CAMPAIGN_ID" $REPEATS_FLAG $ALL_SUITES_FLAG $PLAN_FLAG \
+    ${PILOT_FLAG[@]+"${PILOT_FLAG[@]}"} \
     --append --dry-run "$@" 2>&1 | tee -a "$PROGRESS_LOG"
 DRY_RUN_RC=$?
 if [ "$DRY_RUN_RC" -ne 0 ]; then
@@ -141,6 +159,7 @@ archive_drifted_campaign('${CAMPAIGN_ID}')
 " 2>&1 | tee -a "$PROGRESS_LOG"
 uv run python -m tests.wfe.campaign \
     --campaign-id "$CAMPAIGN_ID" $REPEATS_FLAG $ALL_SUITES_FLAG $PLAN_FLAG \
+    ${PILOT_FLAG[@]+"${PILOT_FLAG[@]}"} \
     --append --status "$@" 2>&1 | tee -a "$PROGRESS_LOG"
 
 # `mapfile`/`readarray` is bash 4+; macOS ships bash 3.2, so read into the array
@@ -185,6 +204,8 @@ if [ "${#ARMS[@]}" -eq 0 ]; then
     exit 2
 fi
 echo "$(ts) ARMS ${#ARMS[@]}" | tee -a "$PROGRESS_LOG"
+ARMS_FILE_FLAG=()
+[ -z "${ARMS_FILE:-}" ] || ARMS_FILE_FLAG+=(--arms-file "$ARMS_FILE")
 
 # Serving conformance gate: refuse to spend hours measuring a misconfigured path. The
 # campaign's workspace(s) must audit clean on the engine that serves them, and every arm's
@@ -216,6 +237,19 @@ print('CONFORMANCE', 'CLEAN' if not bad else f'{len(bad)} finding(s)')
     fi
 fi
 
+ARM_ORDER="$(uv run python -c 'import sys; from tests.wfe.campaign import CAMPAIGNS, load_manifest; print((load_manifest(CAMPAIGNS / sys.argv[1]).get("execution") or {}).get("arm_order", "sequential"))' "$CAMPAIGN_ID")"
+if [ "$ARM_ORDER" = "interleaved" ]; then
+    echo "$(ts) START interleaved arms" | tee -a "$PROGRESS_LOG"
+    uv run python -m tests.wfe.campaign \
+        --campaign-id "$CAMPAIGN_ID" $REPEATS_FLAG \
+        --budget-s "$BUDGET_S" --max-turns "$MAX_TURNS" --debug-dir "$DEBUG_DIR" \
+        $ALL_SUITES_FLAG $NOTIFY_FLAG $PLAN_FLAG \
+        ${ARMS_FILE_FLAG[@]+"${ARMS_FILE_FLAG[@]}"} \
+        ${PILOT_FLAG[@]+"${PILOT_FLAG[@]}"} "$@" \
+        < /dev/null >> "${LOG_DIR}/interleaved.log" 2>&1
+    exit_code=$?
+    echo "$(ts) DONE interleaved exit=${exit_code}" | tee -a "$PROGRESS_LOG"
+else
 for arm in "${ARMS[@]}"; do
     [ -z "$arm" ] && continue
     safe=$(echo "$arm" | tr '/:' '__')
@@ -247,6 +281,7 @@ record_arm_stop(*sys.argv[1:])
         --max-turns "$MAX_TURNS" \
         --debug-dir "$DEBUG_DIR" \
         $ALL_SUITES_FLAG $NOTIFY_FLAG $PLAN_FLAG "$@" \
+        ${PILOT_FLAG[@]+"${PILOT_FLAG[@]}"} \
         < /dev/null >> "${LOG_DIR}/${safe}.log" 2>&1
     exit_code=$?
 
@@ -261,12 +296,15 @@ record_arm_stop(*sys.argv[1:])
 
     echo "$(ts) DONE ${arm} exit=${exit_code}" | tee -a "$PROGRESS_LOG"
 done
+fi
 
 echo "$(ts) CAMPAIGN FINISH" | tee -a "$PROGRESS_LOG"
-uv run python -m tests.wfe.campaign --campaign-id "$CAMPAIGN_ID" --status 2>&1 | tee -a "$PROGRESS_LOG"
+uv run python -m tests.wfe.campaign --campaign-id "$CAMPAIGN_ID" \
+    ${PILOT_FLAG[@]+"${PILOT_FLAG[@]}"} --status 2>&1 | tee -a "$PROGRESS_LOG"
 echo "report: uv run python -m tests.wfe.report --campaign ${CAMPAIGN_ID}" | tee -a "$PROGRESS_LOG"
 # --finish is the last call so its single CAMPAIGN line is the script's final stdout
 # line and its code is the script's: a stopped campaign must not ride home as 0.
-uv run python -m tests.wfe.campaign --campaign-id "$CAMPAIGN_ID" --finish 2>&1 | tee -a "$PROGRESS_LOG"
+uv run python -m tests.wfe.campaign --campaign-id "$CAMPAIGN_ID" \
+    ${PILOT_FLAG[@]+"${PILOT_FLAG[@]}"} --finish 2>&1 | tee -a "$PROGRESS_LOG"
 finish_rc=${PIPESTATUS[0]}
 exit "$finish_rc"

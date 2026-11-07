@@ -162,6 +162,43 @@ def test_curtail_stops_when_exclusions_drop_a_reachable_floor():
     assert "at most 28" in cell.reason
 
 
+def test_interleaved_curtailment_stops_on_a_verdict_robust_to_every_future_pair():
+    expected = ids(40)
+    completed = {(S, f"t{i}") for i in range(30)}
+    inc = rows({f"t{i}": "FFF" for i in range(30)})
+    cand = rows({f"t{i}": "PPP" for i in range(30)})
+
+    cell = dc.curtail_interleaved(inc, cand, expected, completed)
+
+    assert cell and cell.verdict == dc.BETTER
+    assert cell.n == 30 and cell.wins == 30
+
+
+def test_interleaved_curtailment_stops_when_exclusions_make_the_floor_unreachable():
+    expected = ids(40)
+    completed = {(S, f"t{i}") for i in range(11)}
+    inc = rows({f"t{i}": "PPP" for i in range(11)})
+    cand = rows({f"t{i}": "HHH" for i in range(11)})
+
+    cell = dc.curtail_interleaved(inc, cand, expected, completed)
+
+    assert cell and cell.verdict == dc.NO_DECISION
+    assert len(cell.excluded) == 11
+
+
+def test_confirm_applies_a_non_inferiority_margin_to_the_sign_test():
+    expected = ids(31)
+    inc = rows({f"t{i}": "PPP" for i in range(31)})
+    cand = rows({f"t{i}": "PPF" for i in range(31)})
+
+    plain = dc.confirm(inc, cand, expected)
+    within_margin = dc.confirm(inc, cand, expected, non_inferiority_margin=0.5)
+
+    assert plain.verdict == dc.WORSE and plain.losses == 31
+    assert within_margin.verdict == dc.BETTER and within_margin.wins == 31
+    assert "non-inferiority margin=0.5" in within_margin.reason
+
+
 def test_screen_uses_repeat_zero_and_drops_only_on_a_clear_margin():
     tasks = {f"s{i}" for i in range(10)}
     exp = {(S, t) for t in tasks}

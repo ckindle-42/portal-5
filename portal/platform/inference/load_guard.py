@@ -1872,6 +1872,7 @@ class LoadGuard:
         )
         busy_requests = sum(self._busy.values())
         return {
+            "guard_enabled": self.enabled(),
             "busy": busy_requests > 0,
             "busy_requests": busy_requests,
             "fits": None if available is None else need <= available,

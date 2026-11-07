@@ -529,6 +529,7 @@ def fitness(campaign_dir: Path, queue_path: Path | None = None, allow_mixed: boo
     suites = [r["suite_path"] for r in manifest["rows"] if r.get("suite_path")]
     arguable = arguable_tasks(suites)
     repeats = max((r["repeat"] for r in manifest["rows"]), default=0) + 1
+    margin = (manifest.get("execution") or {}).get("non_inferiority_margin") or 0.0
     # `tier` is a property of the matrix, so the manifest is what says whether a
     # cell was ever confirmed: a candidate the screen dropped has screen rows and
     # nothing else, which is an absent cell rather than a mismatched comparison.
@@ -552,6 +553,7 @@ def fitness(campaign_dir: Path, queue_path: Path | None = None, allow_mixed: boo
                 expected,
                 repeats=repeats,
                 arguable=arguable,
+                non_inferiority_margin=margin,
             )
             curtailment = curtailments.get(_curtail_key(ws, arm))
             if curtailment:

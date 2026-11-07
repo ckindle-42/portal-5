@@ -1975,7 +1975,7 @@ async def test_plan_counts_only_what_the_set_adds_against_idle_capacity():
     assert plan["fits"] is True  # 12 + 10 + 12 - 2 = 32 >= 26
 
 
-async def test_plan_reports_active_pipeline_traffic():
+async def test_plan_reports_active_pipeline_traffic(monkeypatch):
     e = Engines(omlx={"seat": {"size": GIB, "loaded": True}})
     g = guard(e)
     end = g.begin(OMLX, "seat")
@@ -1984,6 +1984,10 @@ async def test_plan_reports_active_pipeline_traffic():
     end()
     idle = await g.plan(OLLAMA_URL, [(OMLX, "seat")])
     assert idle["busy"] is False and idle["busy_requests"] == 0
+    assert idle["guard_enabled"] is True
+    monkeypatch.setenv("LOAD_GUARD", "0")
+    disabled = await g.plan(OLLAMA_URL, [(OMLX, "seat")])
+    assert disabled["guard_enabled"] is False
 
 
 async def test_job_memory_reclaim_uses_idle_signals_and_skips_inflight_models():
