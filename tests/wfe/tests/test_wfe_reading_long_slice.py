@@ -154,6 +154,20 @@ def test_aggregation_tasks_ask_for_the_cited_entries_and_other_kinds_keep_the_fo
             assert set(json.loads(t["controls"]["pass"][0]["answer"])) == {"answer"}, t["id"]
 
 
+def test_aggregation_instructions_leak_no_entry_id():
+    """The example id is a placeholder, never a real entry: entry 00022 is an
+    expected entry of lr-aggregation-01-t80k, and the instruction must not hand
+    the model one of the ids it is being graded on."""
+    assert not _CITED_ENTRY_RE.search(gen.AGG_FORMAT)
+    for t in _kind("aggregation"):
+        head, rest = t["instruction"].split("--- fictional document ---", 1)
+        _doc, tail = rest.split("--- end of document ---", 1)
+        outside = head + tail
+        for e in gen.aggregation_entries(t["doc_spec"]):
+            assert e["id"] not in outside, t["id"]
+        assert not re.search(r"(?<!\d)\d{4,5}(?!\d)", outside), t["id"]
+
+
 def test_quotes_are_graded_as_the_exact_string():
     for t in _kind("quote"):
         sentence = _answer(t)

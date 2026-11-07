@@ -54,9 +54,9 @@ CHARS_PER_TOKEN = {"needle": 2.68, "aggregation": 2.57, "quote": 3.14}
 DEPTHS = (10, 50, 90, 30, 70, 20, 80, 40, 60, 15, 85, 50)
 DOC_MARK = "{{DOCUMENT}}"
 FORMAT = 'Answer only as JSON {"answer": ...}.'
-#: Aggregation only: the answer must cite the entries it summed (entry ids feed
-#: the report's _CITED_ENTRY_RE recall diagnostic).
-AGG_FORMAT = 'Answer only as JSON {"entries": ["entry 00022", ...], "answer": ...}.'
+#: Aggregation only: cite the entries summed (ids feed the report's recall
+#: parser); the example is a placeholder so the prompt never names a real id.
+AGG_FORMAT = 'Answer only as JSON {"entries": ["entry <id>", ...], "answer": ...}.'
 
 _A = ["Ost", "Quill", "Marr", "Tal", "Vess", "Brin", "Hadr", "Corv", "Pell", "Ember", "Wyn", "Dray"]
 _B = ["rel", "mere", "ow", "ick", "ane", "ford", "wick", "stow", "moor", "ley"]
@@ -361,7 +361,7 @@ def _question(kind: str, spec: dict, facts: dict) -> tuple[str, str, str, str]:
         )
     item = facts["item"]
     scope = f"Count only log entries whose item is exactly '{item}'. "
-    cite = "List every such entry's id exactly as written in the log (e.g. entry 00022), then"
+    cite = "List every such entry's id exactly as written in the log (e.g. entry <id>), then"
     if spec["variant"] == 0:
         return (
             f"{scope}{cite} give the total number of units logged across those entries.",
