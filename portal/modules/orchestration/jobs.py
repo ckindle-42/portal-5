@@ -168,7 +168,7 @@ class JobStep:
     quiet_host: bool = True
     env_from_dotenv: tuple[str, ...] = ()
     idempotent: bool = True
-    #: The step this canary gates: argv is that step's argv with --canary appended.
+    #: The step this canary gates. argv is that step's, minus flags the canary refuses, plus --canary.
     canary_of: str | None = None
 
 
@@ -376,10 +376,52 @@ def _resolve_canaries(steps: list[JobStep], repo_root: Path) -> tuple[JobStep, .
             raise ValueError(f"step {step.step_id}: canary must name a step with its own argv")
         if j <= i:
             raise ValueError(f"step {step.step_id}: canary must precede step {step.canary_of!r}")
-        argv = (*ref.argv, "--canary")
+        argv = _canary_argv(ref.argv)
         _validate_argv(argv, repo_root)
         out.append(replace(step, argv=argv))
     return tuple(out)
+
+
+_PILOT_COUNT = re.compile(r"^[0-9]+$")
+_PILOT_SUFFIX = "_pilot"
+_WFE_CAMPAIGN_SCRIPT = "wfe_campaign.sh"
+
+
+def _canary_argv(argv: tuple[str, ...]) -> tuple[str, ...]:
+    """Drop --pilot so the gate writes <campaign>_canary, then append --canary."""
+    kept, pilot = _without_pilot(argv)
+    if pilot and len(kept) > 1 and Path(kept[0]).name == _WFE_CAMPAIGN_SCRIPT:
+        campaign_id = _unsuffixed_pilot_id(kept[1])
+        kept = (kept[0], campaign_id, *kept[2:])
+    return (*kept, "--canary")
+
+
+def _without_pilot(argv: tuple[str, ...]) -> tuple[tuple[str, ...], bool]:
+    kept: list[str] = []
+    dropped = False
+    index = 0
+    while index < len(argv):
+        token = argv[index]
+        if token == "--pilot":
+            dropped = True
+            index += 1
+            if index < len(argv) and _PILOT_COUNT.fullmatch(argv[index]):
+                index += 1
+            continue
+        if token.startswith("--pilot="):
+            dropped = True
+            index += 1
+            continue
+        kept.append(token)
+        index += 1
+    return tuple(kept), dropped
+
+
+def _unsuffixed_pilot_id(campaign_id: str) -> str:
+    """A pilot rewrites <campaign> to <campaign>_pilot; the canary must not inherit that."""
+    if campaign_id.endswith(_PILOT_SUFFIX) and len(campaign_id) > len(_PILOT_SUFFIX):
+        return campaign_id[: -len(_PILOT_SUFFIX)]
+    return campaign_id
 
 
 def _validate_argv(argv: tuple[str, ...], repo_root: Path) -> None:
