@@ -55,7 +55,7 @@ from .funnel import (
     split_units,
     unusual_score,
 )
-from .intake import IntakeResult, IntakeUnit
+from .intake import EventView, IntakeResult, IntakeUnit
 from .knowledge import AnchorCard, AnchorIndex, Embedder, embed_texts, explain
 
 #: How many evidence refs a concern carries (presentation bound; the total is in the brief).
@@ -230,6 +230,15 @@ def _resemblances(
     return out
 
 
+def _degrade_untimed_events(window: IntakeResult, result: ReviewResult) -> None:
+    """An event whose clock never parsed cannot back a time claim; the run says so."""
+    untimed = sum(1 for view in window.events.values() if view.time is None)
+    if untimed:
+        result.degraded.append(
+            f"{untimed} event(s) carry no parseable timestamp; cited evidence time is null"
+        )
+
+
 def review_window(
     window: IntakeResult,
     *,
@@ -248,6 +257,7 @@ def review_window(
     result.degraded.extend(reference.degraded)
     if window.blind_sources:
         result.degraded.append(f"blind sources (no usable roles): {sorted(window.blind_sources)}")
+    _degrade_untimed_events(window, result)
 
     levels = config.policy.levels
     scored = [u for u in window.units if u.unit.level in levels]
@@ -299,6 +309,7 @@ def review_window(
             reference,
             index,
             config,
+            window.events,
         )
         if concern.outcome == Outcome.RECOGNIZED_NORMAL:
             result.suppressed.append(concern)
@@ -346,6 +357,7 @@ def _concern_for(
     reference: Reference,
     index: AnchorIndex | None,
     config: ReviewConfig,
+    events: Mapping[str, EventView],
 ) -> ReviewConcern:
     resembles: list[Resemblance] = []
     absence: AbsenceReceipt | None = None
@@ -372,7 +384,11 @@ def _concern_for(
             resembles = _resemblances(unit, hits[:1], reference.calibrations)
 
     refs = tuple(
-        EvidenceRef(event_id=eid, source_id=eid.rsplit(":", 1)[0])
+        EvidenceRef(
+            event_id=eid,
+            source_id=eid.rsplit(":", 1)[0],
+            time=events[eid].time if eid in events else None,
+        )
         for eid in unit.event_ids[:EVIDENCE_REFS_SHOWN]
     )
     channels = tuple(

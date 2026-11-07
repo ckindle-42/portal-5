@@ -190,6 +190,15 @@ def build_window_units(
     result.receipts.append(
         StageReceipt("intake.events", examined=total_records, resolved=len(artifacts))
     )
+    untimed = sum(1 for artifact in artifacts if artifact.timestamp is None)
+    result.receipts.append(
+        StageReceipt(
+            "intake.timed_events",
+            examined=len(artifacts),
+            resolved=len(artifacts) - untimed,
+            note=f"no parseable timestamp: {untimed}",
+        )
+    )
     if not artifacts:
         return result
 

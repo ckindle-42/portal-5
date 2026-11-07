@@ -421,6 +421,40 @@ def _decide_role(
     return "PAYLOAD", (f"high_card_freetext dr={distinct_ratio:.2f} strong={strong_rate:.2f}",)
 
 
+def _demote_redundant_timestamps(
+    profiles: dict[str, FieldProfile], flat: list[dict[str, Any]], n: int
+) -> None:
+    """A field keeps TIMESTAMP only if it covers records no already-kept
+    timestamp field covers; a wrapper clock redundant with the event clock
+    (same records, batch-constant -- `_indextime` vs `_time`) is demoted to
+    PAYLOAD. Letting a redundant parseable wrapper win stamped every artifact
+    with one instant (live run-c966ec5292b3: span_seconds 0.0 on 305-event
+    chains). Complementary per-schema clocks in a blend survive: each covers
+    records the others do not."""
+    candidates = sorted(
+        (p for p in profiles.values() if p.role == "TIMESTAMP"),
+        key=lambda p: (-p.time_parse_rate, -p.distinct_count, -p.coverage, p.name),
+    )
+    if len(candidates) <= 1:
+        return
+    covered: list[bool] = [False] * n
+    for candidate in candidates:
+        fresh = False
+        for idx, record in enumerate(flat):
+            if covered[idx] or record.get(candidate.name) in (None, "", ()):
+                continue
+            covered[idx] = True
+            fresh = True
+        if not fresh:
+            profiles[candidate.name] = FieldProfile(
+                **{
+                    **candidate.__dict__,
+                    "role": "PAYLOAD",
+                    "reasons": candidate.reasons + ("demoted_redundant_timestamp",),
+                }
+            )
+
+
 def infer_field_roles(
     records: list[dict[str, Any]],
     *,
@@ -520,6 +554,10 @@ def infer_field_roles(
                     "reasons": demoted.reasons + ("demoted_secondary_action",),
                 }
             )
+
+    # There is usually exactly one true event-time field per record; let the
+    # helper decide which candidates are redundant wrappers vs real clocks.
+    _demote_redundant_timestamps(profiles, flat, n)
 
     entity_cov = _role_record_coverage(flat, profiles, "ENTITY")
     time_cov = _role_record_coverage(flat, profiles, "TIMESTAMP")
