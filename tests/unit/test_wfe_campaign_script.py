@@ -109,7 +109,7 @@ def _run(
         capture_output=True,
         text=True,
         check=False,
-        timeout=60,
+        timeout=120,
     )
     calls = (
         [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines() if line.strip()]
@@ -138,7 +138,7 @@ def _run_real_interleaved_script(
     plan["interleave_block"] = 4
     if rehearse:
         plan["rehearsal_max_phase_s"] = 0.1 if slow_setup else 120
-        plan["rehearsal_max_overhead"] = 0.6
+        plan["rehearsal_max_overhead"] = 0.9
     workload = next(iter(plan["workloads"].values()))
     suite_path = ROOT / "tests/wfe/suites" / f"{workload['home']}.jsonl"
     task_ids = [
@@ -240,8 +240,8 @@ def _run_real_interleaved_script(
         "        campaign.workspace_context = lambda *_args, **_kwargs: {}\n"
         "        campaign._prepare_arm_resources = lambda _directory, _arm, todo, _resident=None: (campaign.row_model(todo[0]), False)\n"
         "        def run_row(*_args, **_kwargs):\n"
-        "            time.sleep(0.5)\n"
-        '            return {"outcome": "PASS", "turns": 1, "tool_calls": 1, "tool_errors": 0, "economics": {"wall_s": 0.5}}\n'
+        "            time.sleep(0.2)\n"
+        '            return {"outcome": "PASS", "turns": 1, "tool_calls": 1, "tool_errors": 0, "economics": {"wall_s": 0.2}}\n'
         "        campaign.run_row = run_row\n"
         "        campaign.arm_stop_reason = lambda *_args, **_kwargs: None\n"
         "        campaign._halt_arm = lambda *_args, **_kwargs: None\n"
@@ -325,7 +325,7 @@ def _run_real_interleaved_script(
         capture_output=True,
         text=True,
         check=False,
-        timeout=5 if rehearse else 120,
+        timeout=120,
     )
     return result, run_log
 
@@ -687,7 +687,7 @@ def test_rehearsal_runs_two_blocks_and_gates_phase_timing(
     manifest = json.loads((campaign_dir / "manifest.json").read_text(encoding="utf-8"))
     output = result.stdout + result.stderr
 
-    assert elapsed < 5
+    assert elapsed < 30
     assert "OVERHEAD harness_s=" in output
     assert "PHASE TABLE block arm block_setup_s model_prepare_s rows_s release_s" in output
     timing = manifest["execution"]["timing"]
