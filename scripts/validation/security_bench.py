@@ -1546,6 +1546,38 @@ def check_candidate_eval_integrity() -> tuple[str, str, list[dict]]:
     )
 
 
+_LAUNCHER = "execute_local_sec_bench.sh"
+
+
+def _launcher_sub(root: Path) -> dict:
+    """AE check 6 verdict: absent+gitignored launcher is a WARN (local-only artifact), absent+tracked stays FAIL."""
+    launcher = root / _LAUNCHER
+    if launcher.exists():
+        import stat
+
+        if launcher.stat().st_mode & stat.S_IXUSR:
+            return {"name": "launcher script", "status": "PASS", "detail": str(launcher)}
+        return {"name": "launcher script", "status": "FAIL", "detail": "launcher not executable"}
+    ignored = subprocess.run(
+        ["git", "check-ignore", "-q", str(launcher)],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if ignored.returncode == 0:
+        return {
+            "name": "launcher script",
+            "status": "WARN",
+            "detail": f"local-only launcher not present in this checkout: {launcher}",
+        }
+    return {
+        "name": "launcher script",
+        "status": "FAIL",
+        "detail": f"launcher not found: {launcher}",
+    }
+
+
 @register("bench_supervisor", "AE. bench supervisor integrity", order=30)
 def check_bench_supervisor_integrity() -> tuple[str, str, list[dict]]:
     """AF. Bench supervisor integrity.
@@ -1620,18 +1652,13 @@ def check_bench_supervisor_integrity() -> tuple[str, str, list[dict]]:
         subs.append({"name": "resume logic", "status": "FAIL", "detail": str(e)})
         return "FAIL", f"resume logic check failed: {e}", subs
 
-    # Check 6: launcher script exists and is executable
-    try:
-        launcher = REPO_ROOT / "execute_local_sec_bench.sh"
-        assert launcher.exists(), f"launcher not found: {launcher}"
-        import stat
-
-        mode = launcher.stat().st_mode
-        assert mode & stat.S_IXUSR, "launcher not executable"
-        subs.append({"name": "launcher script", "status": "PASS", "detail": str(launcher)})
-    except Exception as e:
-        subs.append({"name": "launcher script", "status": "FAIL", "detail": str(e)})
-        return "FAIL", f"launcher check failed: {e}", subs
+    # Check 6: launcher script exists and is executable (WARN when local-only and absent)
+    sub = _launcher_sub(REPO_ROOT)
+    subs.append(sub)
+    if sub["status"] == "FAIL":
+        return "FAIL", f"launcher check failed: {sub['detail']}", subs
+    if sub["status"] == "WARN":
+        return "WARN", sub["detail"], subs
 
     return (
         "PASS",
