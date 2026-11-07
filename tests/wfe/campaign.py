@@ -1311,7 +1311,10 @@ def _iter_incumbent_results(campaign_dir: Path) -> list[tuple[str, dict]]:
     return out
 
 
-def _index_reusable_incumbents(
+_REUSE_INDEX_CACHE: dict[tuple[Path, Path], dict[tuple, list[tuple[str, Path, dict]]]] = {}
+
+
+def _build_reusable_incumbent_index(
     campaign_dir: Path, campaigns_root: Path
 ) -> dict[tuple, list[tuple[str, Path, dict]]]:
     """Earlier campaigns' graded incumbent rows, keyed by the reuse fingerprint."""
@@ -1334,6 +1337,16 @@ def _index_reusable_incumbents(
                 continue
             index.setdefault(_freeze_reuse_key(recorded), []).append((cid, other, row))
     return index
+
+
+def _index_reusable_incumbents(
+    campaign_dir: Path, campaigns_root: Path
+) -> dict[tuple, list[tuple[str, Path, dict]]]:
+    """Memoized per (campaigns_root, campaign_dir): one cold build per process."""
+    key = (campaigns_root, campaign_dir)
+    if key not in _REUSE_INDEX_CACHE:
+        _REUSE_INDEX_CACHE[key] = _build_reusable_incumbent_index(campaign_dir, campaigns_root)
+    return _REUSE_INDEX_CACHE[key]
 
 
 def _provenance(campaign_id: str, row: dict) -> str:
@@ -1551,11 +1564,15 @@ def reuse_incumbent_rows(
     The copy records `reused_from: <campaign>/<row>`, `original_outcome` and
     `regraded_outcome`. The regraded outcome is the one that counts. Two sources
     that match the fingerprint and disagree on the recorded outcome are not
-    copied. A suite file that no longer matches the receipt is run, not copied."""
+    copied. A suite file that no longer matches the receipt is run, not copied.
+    An interleaved campaign never copies: both arms run every row live under the
+    same conditions — rows already graded in THIS campaign still resume."""
     pending = [
         s for s in stubs if s.get("arm_role") == "incumbent" and s.get("state") in (None, "PENDING")
     ]
     if not pending:
+        return []
+    if (manifest.get("execution") or {}).get("arm_order") == "interleaved":
         return []
     root = campaigns_root if campaigns_root is not None else CAMPAIGNS
     index = _index_reusable_incumbents(campaign_dir, root)
@@ -5248,12 +5265,66 @@ def _choose_interleave_blocks(
     return choices, reasons, models
 
 
+def _pilot_suite_tasks(rows: list[dict]) -> dict[str, dict[str, dict]]:
+    """suite -> task_id -> task, for declared family/category lookups."""
+    out: dict[str, dict[str, dict]] = {}
+    for suite, path in {r["suite"]: r.get("suite_path") for r in rows}.items():
+        tasks: dict[str, dict] = {}
+        if path:
+            try:
+                tasks = {t["id"]: t for t in load_suite(path)}
+            except (OSError, ValueError):
+                tasks = {}
+        out[suite] = tasks
+    return out
+
+
+def _task_family(task_id: str, task: dict | None) -> str:
+    """A task's family: its declared family/category, else its id with the
+    trailing draw-index and size components stripped (`lr-aggregation-02-t112k`
+    -> `lr-aggregation`)."""
+    for field in ("family", "category"):
+        value = (task or {}).get(field)
+        if value:
+            return str(value)
+    parts = task_id.split("-")
+    while len(parts) > 1 and (parts[-1].isdigit() or re.fullmatch(r"[a-z]\d+[km]?", parts[-1])):
+        parts.pop()
+    return "-".join(parts)
+
+
 def pilot_matrix(matrix: list[dict], task_limit: int) -> list[dict]:
-    """Keep the first N task identities and one draw per arm."""
+    """Keep one draw per arm of N task identities, SPREAD across task families.
+
+    A task's group is its suite plus its family (see `_task_family`). The
+    selection round-robins the groups in stable first-appearance order — one
+    task per group per pass, each group's tasks in stable order — until N
+    identities are picked, so a pilot samples the families instead of the first
+    N identities in suite order. The same identities are selected for every arm."""
     if task_limit < 1:
         raise ValueError("pilot task count must be a positive integer")
-    tasks = list(dict.fromkeys((r["workspace"], r["suite"], r["task_id"]) for r in matrix))
-    selected = set(tasks[:task_limit])
+    identities = list(dict.fromkeys((r["workspace"], r["suite"], r["task_id"]) for r in matrix))
+    suite_tasks = _pilot_suite_tasks(matrix)
+    groups: dict[tuple[str, str], list[tuple[str, str, str]]] = {}
+    for ident in identities:
+        _ws, suite, task_id = ident
+        group = (suite, _task_family(task_id, suite_tasks.get(suite, {}).get(task_id)))
+        groups.setdefault(group, []).append(ident)
+    picked: list[tuple[str, str, str]] = []
+    cursor = dict.fromkeys(groups, 0)
+    while len(picked) < task_limit:
+        progressed = False
+        for group in groups:
+            if cursor[group] >= len(groups[group]):
+                continue
+            picked.append(groups[group][cursor[group]])
+            cursor[group] += 1
+            progressed = True
+            if len(picked) == task_limit:
+                break
+        if not progressed:
+            break
+    selected = set(picked)
     return [
         row
         for row in matrix

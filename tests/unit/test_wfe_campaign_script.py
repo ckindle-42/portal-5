@@ -865,6 +865,72 @@ def test_pilot_matrix_selects_the_same_tasks_once_for_each_arm() -> None:
     assert {r["workspace"] for r in rows} == {"ws"}
 
 
+def test_pilot_matrix_spreads_selection_round_robin_across_families() -> None:
+    matrix = [
+        {
+            "workspace": "ws",
+            "arm": arm,
+            "suite": "s",
+            "task_id": f"{family}-{i:02d}",
+            "repeat": repeat,
+        }
+        for arm in ("inc", "cand")
+        for family in ("alpha", "beta", "gamma")
+        for i in range(4)
+        for repeat in range(2)
+    ]
+
+    rows = campaign.pilot_matrix(matrix, 6)
+
+    assert len(rows) == 12
+    assert {r["repeat"] for r in rows} == {0}
+    inc = {r["task_id"] for r in rows if r["arm"] == "inc"}
+    assert inc == {"alpha-00", "alpha-01", "beta-00", "beta-01", "gamma-00", "gamma-01"}
+    assert {r["task_id"] for r in rows if r["arm"] == "cand"} == inc
+
+
+def test_pilot_matrix_with_fewer_tasks_than_families_takes_first_families_in_order() -> None:
+    matrix = [
+        {
+            "workspace": "ws",
+            "arm": "inc",
+            "suite": "s",
+            "task_id": f"{family}-{i:02d}",
+            "repeat": 0,
+        }
+        for family in ("alpha", "beta", "gamma")
+        for i in range(4)
+    ]
+
+    assert [r["task_id"] for r in campaign.pilot_matrix(matrix, 2)] == ["alpha-00", "beta-00"]
+
+
+def test_pilot_matrix_groups_by_declared_category_when_the_suite_has_one(tmp_path: Path) -> None:
+    suite = tmp_path / "realuse.jsonl"
+    suite.write_text(
+        "\n".join(
+            json.dumps({"id": f"ru-{i:03d}", "category": "writing" if i <= 2 else "coding"})
+            for i in range(1, 7)
+        )
+        + "\n"
+    )
+    matrix = [
+        {
+            "workspace": "ws",
+            "arm": "inc",
+            "suite": "realuse",
+            "suite_path": str(suite),
+            "task_id": f"ru-{i:03d}",
+            "repeat": 0,
+        }
+        for i in range(1, 7)
+    ]
+
+    # Ids alone are one family (ru); the declared category splits writing/coding,
+    # so the pilot takes the first task of each instead of the first two ids.
+    assert [r["task_id"] for r in campaign.pilot_matrix(matrix, 2)] == ["ru-001", "ru-003"]
+
+
 def test_arms_file_filters_interleaved_arm_selection_by_id_or_model(tmp_path: Path) -> None:
     arms_file = tmp_path / "arms.txt"
     arms_file.write_text("cand-model\n")
