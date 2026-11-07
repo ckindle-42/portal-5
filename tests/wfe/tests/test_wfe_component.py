@@ -126,7 +126,7 @@ def rig(tmp_path, monkeypatch):
     monkeypatch.setattr(camp, "instrument_dirty", lambda: [])
     monkeypatch.setattr(camp, "deployed_build", lambda: "deadbeef")
     monkeypatch.setattr(camp, "deployed_matches", lambda build: True)
-    monkeypatch.setattr(camp, "seat_primary", lambda ws, model: f"served-{model}")
+    monkeypatch.setattr(camp, "seat_primary", lambda ws, model, backend=None: f"served-{model}")
     monkeypatch.setattr(camp, "drain_model", lambda *a, **k: True)
     monkeypatch.setattr(camp, "drain_others", lambda *a, **k: [])
 

@@ -28,6 +28,7 @@ import datetime as dt
 import json
 import math
 import os
+import re
 from collections import Counter, defaultdict
 from pathlib import Path
 from statistics import median
@@ -36,7 +37,7 @@ import yaml
 
 from portal.platform.inference.router.trace import MIN_ANSWER_TOKENS_FOR_RATE
 from tests.wfe import decision, judge
-from tests.wfe.campaign import same_identity, setup_exclusions
+from tests.wfe.campaign import SUITE_DIR, same_identity, setup_exclusions
 from tests.wfe.schema import (
     INSTRUMENT_OUTCOMES,
     MODEL_QUALITY_OUTCOMES,
@@ -976,6 +977,7 @@ def build(campaign_dir: Path, allow_mixed: bool = False, only_arm: str | None = 
         },
         "decision_packets": packets,
         "coverage": dims,
+        "aggregation_diagnostics": aggregation_diagnostics(rows),
     }
 
 
@@ -1057,6 +1059,110 @@ def _coverage(rows: list[dict]) -> dict:
             "A disposition that depends on a dimension this campaign did not exercise is provisional.",
         ),
     }
+
+
+#: Entry ids as a model would cite them (`(entry 01234)`, `entry 1234`).
+_CITED_ENTRY_RE = re.compile(r"entry\s*#?\s*(\d{4,5})\b")
+
+
+def _cited_entry_ids(row: dict) -> list[str]:
+    """Entry ids the model cited anywhere in its emitted text — the final
+    answer, the reasoning channel and every transcript turn — deduplicated in
+    first-seen order. Empty is a real finding: the model named no entries."""
+    parts = [row.get("final_text") or row.get("final_text_head") or ""]
+    for turn in row.get("transcript") or []:
+        if isinstance(turn, dict):
+            parts.extend(str(turn.get(k)) for k in ("content", "reasoning") if turn.get(k))
+    seen, hit = [], _CITED_ENTRY_RE.finditer(" ".join(parts))
+    for m in hit:
+        if m.group(1) not in seen:
+            seen.append(m.group(1))
+    return seen
+
+
+def _suite_doc_specs(suite: str) -> dict[str, dict]:
+    """task_id -> doc_spec for one suite file, read raw (no document rendering)."""
+    path = SUITE_DIR / f"{suite}.jsonl"
+    if not path.is_file():
+        return {}
+    out = {}
+    for line in path.read_text().splitlines():
+        if line.strip():
+            t = json.loads(line)
+            if isinstance(t.get("doc_spec"), dict):
+                out[t["id"]] = t["doc_spec"]
+    return out
+
+
+def aggregation_diagnostics(rows: list[dict]) -> list[dict]:
+    """Per-row entries-found-vs-expected for reading-long aggregation rows.
+
+    The expected side is recomputed from the task's doc_spec — the same seeded
+    document the row was served, so the key is exact. The found side is the
+    entry ids the model cited. A miss is located by the entry's percent position
+    in the document, which is the question the 128k aggregation misses ask:
+    which of the 3-5 target entries did the model skip, and where did they sit.
+    """
+    agg = [r for r in rows if str(r.get("task_id") or "").startswith("lr-aggregation-")]
+    if not agg:
+        return []
+    from tests.wfe.suites import build_reading_long_production as gen
+
+    specs: dict[str, dict[str, dict]] = {}
+    out = []
+    for r in sorted(agg, key=lambda r: (r["task_id"], r["arm"], r["repeat"])):
+        suite = str(r.get("suite") or "reading_long_production")
+        if suite not in specs:
+            specs[suite] = _suite_doc_specs(suite)
+        spec = specs[suite].get(r["task_id"])
+        if spec is None or spec.get("kind") != "aggregation":
+            # Another suite's aggregation-prefixed ids carry no usable key here.
+            continue
+        expected = gen.aggregation_entries(spec)
+        cited = _cited_entry_ids(r)
+        by_id = {e["id"]: e for e in expected}
+        found = [i for i in cited if i in by_id]
+        missing = [e for e in expected if e["id"] not in found]
+        out.append(
+            {
+                "run_id": r.get("run_id"),
+                "arm": r.get("arm"),
+                "task_id": r["task_id"],
+                "repeat": r.get("repeat"),
+                "outcome": r.get("outcome"),
+                "expected": expected,
+                "cited": cited,
+                "found": found,
+                "missing": missing,
+                "extra": [i for i in cited if i not in by_id],
+            }
+        )
+    return out
+
+
+def _sec_aggregation(a, rep) -> None:
+    diag = rep.get("aggregation_diagnostics") or []
+    if not diag:
+        return
+    a("## Aggregation diagnostics — entries found vs expected")
+    a("")
+    a(
+        "_Expected ids are recomputed from each task's seeded document (id, % position); "
+        "`cited` is what the model named anywhere in its output. A miss is located by "
+        "position, not just counted._"
+    )
+    a("")
+    for d in diag:
+        exp = ", ".join(f"{e['id']}@{e['pos_pct']}%" for e in d["expected"])
+        miss = ", ".join(f"{e['id']}@{e['pos_pct']}%" for e in d["missing"]) or "-"
+        extra = ",".join(d["extra"]) or "-"
+        cited = ",".join(d["cited"]) or "-"
+        a(
+            f"- `{d['task_id']}` r{d['repeat']} **{d['arm']}** {d['outcome']}: "
+            f"found {len(d['found'])}/{len(d['expected'])} — expected [{exp}] · "
+            f"cited [{cited}] · missing [{miss}] · extra [{extra}]"
+        )
+    a("")
 
 
 def _sec_header(a, rep) -> None:
@@ -1367,6 +1473,7 @@ def render_markdown(rep: dict) -> str:
         _sec_curtailments,
         _sec_packets,
         _sec_coverage,
+        _sec_aggregation,
     ):
         section(a, rep)
     return "\n".join(lines)

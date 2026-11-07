@@ -1,0 +1,74 @@
+# Controlled diagnostic, not a seat decision: why gemma-4-26b-a4b fails the 128k
+# aggregation tier (needle 30/43, quote 17/33, aggregation 6/61 — every lr-* row is
+# gemma-4-26b-a4b on oMLX, think=false; cold prefill rows fail like cache hits, so the
+# SSD cache is exonerated). One factor changed per arm vs A. Tasks are the aggregation
+# t40k+t80k rows only; the t112k tier is excluded (the Ollama GGUF bakes 131072 and the
+# workspace window is 131072, so 112k still fits, but the diagnostic asks the failure
+# question at the tiers where the seat has the most recorded misses).
+# Arm C pins the SERVING BACKEND: the ctx128k tag resolves on both engines and the
+# priority-10 omlx-general alias shadows it onto oMLX, so without the pin "the same tag
+# on Ollama" is not addressable. The pin rides the pipeline eval-override surface
+# (body field `portal_backend`, like `portal_eval`/`portal_strict_seat`), is stamped in
+# every row's overrides, and rows served off the pinned backend are failover evidence.
+# Per-arm record (served engine / artifact / context / think / sampling / source):
+#   A gemma plain, oMLX via omlx-general | mlx-community--gemma-4-26b-a4b-it-4bit (alias
+#     of gemma4:26b-a4b-it-q4_K_M-ctx128k) | native window 262,144 (workspace budget
+#     131072) | think false | gemma card 1.0/0.95/64/min_p 0, repeat 1.0 | card
+#     generation_config.json (model_card_expectations gemma4); the 128k pilot config.
+#   B = A with think=true only (Gemma 4 thinking mode, sent the way production sends a
+#     workspace think: body `think` + chat_template_kwargs.enable_thinking, applied by
+#     the pipeline on both engines) | sampling unchanged (the one changed factor).
+#   C same gemma family as GGUF on Ollama | gemma4:26b-a4b-it-q4_K_M-ctx128k GGUF
+#     (q4_K_M, num_ctx 131072 baked) on ollama-general via the backend pin | think false
+#     | sampling identical to A | weights family = google/gemma-4-26B-A4B-it; card source
+#     as A (quantisation differs, card does not).
+#   D different lineage, long-context seat already in the fleet: Qwen3.8-27B-oQ4e-mtp on
+#     oMLX (omlx-general). Why this seat: dense Qwen3.8-27B is a different lineage from
+#     gemma; its card max_context is 262,144 and oMLX serves the native window (the
+#     fleet's matched-context rule), its seat declares context_limit 131072
+#     (auto-coding::heavy), it is the landscape's named long-read challenger (AA-LCR
+#     82.0 vs the seated gemma's 65.7, docs/WFE_LANDSCAPE_FLEET_20261018.md), and it is
+#     registered in omlx-general (the group auto-compliance::reading routes to). Caveat
+#     recorded: no prior lr-* rows exist for it — its 128k read on oMLX is part of what
+#     this diagnostic measures. Think as its card says: harness_policy think "false"
+#     (unsloth card; the kit A/B think-on arm timed out, 2026-10-22). Sampling = its
+#     vendor card instruct profile (presence 1.5 "to curb endless loops").
+repeats: 2
+arm_order: interleaved
+workloads:
+  auto-compliance::reading:
+    tool_mode: production
+    home: reading_long_production
+    home_tasks:
+      - lr-aggregation-00-t40k
+      - lr-aggregation-01-t80k
+      - lr-aggregation-03-t40k
+      - lr-aggregation-04-t80k
+      - lr-aggregation-06-t40k
+      - lr-aggregation-07-t80k
+      - lr-aggregation-09-t40k
+      - lr-aggregation-10-t80k
+    discovery: []
+    arms:
+      incumbent:
+        model: gemma4:26b-a4b-it-q4_K_M-ctx128k
+        label: seat-omlx
+        backend: omlx-general
+        think: false
+        sampling: {temperature: 1.0, top_p: 0.95, top_k: 64, min_p: 0.0, repeat_penalty: 1.0}
+      challengers:
+        - model: gemma4:26b-a4b-it-q4_K_M-ctx128k
+          label: think-on
+          backend: omlx-general
+          think: true
+          sampling: {temperature: 1.0, top_p: 0.95, top_k: 64, min_p: 0.0, repeat_penalty: 1.0}
+        - model: gemma4:26b-a4b-it-q4_K_M-ctx128k
+          label: ollama-gguf
+          backend: ollama-general
+          think: false
+          sampling: {temperature: 1.0, top_p: 0.95, top_k: 64, min_p: 0.0, repeat_penalty: 1.0}
+        - model: Qwen3.8-27B-oQ4e-mtp
+          label: qwen38-omlx
+          backend: omlx-general
+          think: false
+          sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}

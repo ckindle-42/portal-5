@@ -52,6 +52,37 @@ def apply_eval_scope(body: dict[str, Any], tools: list[str]) -> list[str]:
     return offered
 
 
+def apply_backend_pin(body: dict[str, Any], candidates: list[Any]) -> list[Any]:
+    """Restrict the workspace's candidate backends to a `portal_backend` pin.
+
+    The WFE harness's arm-level `backend` option rides the same eval-override
+    surface as `portal_eval`/`portal_strict_seat`: a tag both engines declare
+    (the 128k gemma tag resolves on oMLX by alias and on Ollama literally) is
+    otherwise served by whichever candidate the ladder reaches first, so an
+    engine A/B cannot address "the same tag on the other engine". The pin pops
+    here so it never reaches a backend as a stray request field; an unknown or
+    unhealthy id is a 400, not a silent fallback — an eval arm that measured
+    the wrong engine would be worse than a failed row.
+    """
+    requested = body.pop("portal_backend", None)
+    if not requested:
+        return candidates
+    if not isinstance(requested, str):
+        raise HTTPException(status_code=400, detail="portal_backend must be a backend id string")
+    pinned = [b for b in candidates if b.id == requested]
+    if not pinned:
+        known = sorted({b.id for b in candidates})
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"portal_backend: {requested!r} is not a healthy candidate backend for this "
+                f"workspace (healthy candidates: {known or 'none'})"
+            ),
+        )
+    trace_note(portal_backend=requested)
+    return pinned
+
+
 def offered_tool_names(body: Mapping[str, Any]) -> list[str]:
     """Return the tool names present in the backend request schemas."""
     schemas = body.get("tools")

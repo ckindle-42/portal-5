@@ -793,6 +793,7 @@ def _build_payload(
             h.get("pipeline_model"),
             h.get("pipeline_eval"),
             attachments,
+            h.get("pipeline_backend"),
         )
     if endpoint == "v1":
         payload = _build_v1(model, messages, fmt, sampling, think, wire_stream)
@@ -843,11 +844,15 @@ def _build_pipeline(
     model_override: str | None = None,
     eval_scope: dict | None = None,
     attachments: list | None = None,
+    backend_override: str | None = None,
 ) -> tuple[str, dict, list[str]]:
     """The body Open WebUI would send the pipeline for `workspace`, plus only
     the arm's explicit overrides. A caller-supplied max_tokens applies only when
     the arm explicitly overrides its cap. `model_override` (the arm)
-    goes out as production's ?model= (preinject._resolve_model_override)."""
+    goes out as production's ?model= (preinject._resolve_model_override);
+    `backend_override` (the arm's `backend` pin) goes out as `portal_backend`,
+    the same eval-override surface as `portal_eval` — without it the routing
+    ladder, not the arm, picks which declared backend serves a shared tag."""
     payload: dict = {"model": workspace, "messages": messages, "stream": wire_stream}
     if wire_stream:
         # Per-turn usage is how a silent context truncation is detected.
@@ -878,6 +883,8 @@ def _build_pipeline(
         # The pipeline dispatches these tools, so the client never sees a call. exec_audit
         # makes it report each call's tool, arguments and output: the row's own trace.
         payload["exec_audit"] = True
+    if backend_override:
+        payload["portal_backend"] = backend_override
     url = f"{CHAT_BASE}/v1/chat/completions"
     if model_override:
         url += "?" + urllib.parse.urlencode({"model": model_override})

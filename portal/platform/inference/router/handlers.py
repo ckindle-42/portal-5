@@ -48,7 +48,11 @@ from portal.platform.inference.router.council import (
     stream_council_review,
 )
 from portal.platform.inference.router.disconnect import cancel_on_disconnect
-from portal.platform.inference.router.eval_gate import bind_attached_uploads, bind_eval_scope
+from portal.platform.inference.router.eval_gate import (
+    apply_backend_pin,
+    bind_attached_uploads,
+    bind_eval_scope,
+)
 from portal.platform.inference.router.lifespan import (
     _startup_time,
 )
@@ -710,6 +714,10 @@ async def _resolve_request_route(
                 "Check config/backends.yaml."
             ),
         )
+
+    # Eval arm pin (portal_backend) before hot-seat protection: a pinned arm
+    # measures exactly one backend, so the ladder must not widen the list again.
+    candidates = apply_backend_pin(body, candidates)
 
     # Hot-seat prefix-cache protection (P5-OMLX-PREFIX-CACHE-001): advisory reorder, off by default.
     candidates = placement.protect_hot_seat(
