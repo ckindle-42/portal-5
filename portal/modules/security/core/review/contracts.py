@@ -107,7 +107,8 @@ class Claim:
 
 @dataclass(frozen=True)
 class Resemblance:
-    """What a unit resembles. ``anchor_label`` is knowledge about the KNOWN thing."""
+    """What a unit resembles. ``anchor_label`` is knowledge about the KNOWN thing;
+    ``techniques`` are the ids its record asserts (data), never scraped from the label."""
 
     anchor_id: str
     anchor_kind: str
@@ -117,6 +118,7 @@ class Resemblance:
     malice: str = "unknown"
     shares: tuple[str, ...] = ()
     diverges: tuple[str, ...] = ()
+    techniques: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

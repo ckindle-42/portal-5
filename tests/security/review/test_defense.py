@@ -5,7 +5,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from portal.modules.security.core.review import defense, service
+from portal.modules.security.core.review import defense, intake, pipeline, service
+from portal.modules.security.core.review.calibration import CalibrationSet
 from portal.modules.security.core.review.contracts import (
     Channel,
     DefenseResponse,
@@ -16,8 +17,11 @@ from portal.modules.security.core.review.contracts import (
     ReviewResult,
 )
 from portal.modules.security.core.review.intake import EventView, IntakeResult
+from portal.modules.security.core.review.knowledge import AnchorCard
 from portal.modules.security.core.review.store import ReviewStore
 from portal.modules.security.core.review.window import SourceSpec, WindowBatch
+
+from ._fakes import linux_records
 
 
 def _concern(label: str = "T1059") -> ReviewConcern:
@@ -264,3 +268,125 @@ def _reference() -> Any:
 
     empty = IntakeResult()
     return Reference(fit_baseline([], "env"), CalibrationSet(), "test", calibration_window=empty)
+
+
+def test_resemblances_carry_the_anchor_record_techniques() -> None:
+    """Part A: technique ids flow from the anchor's record data, not its display label."""
+    window = intake.build_window_units({"linux:audit": linux_records(1, seed=3)})
+    unit = window.units[0]
+    card = AnchorCard(
+        "an-1",
+        "confirmed_finding",
+        "analyst-confirmed",
+        "malicious",
+        unit.card,
+        {"card": unit.card, "technique_ids": ["T1059"]},
+    )
+    resemblance = pipeline._resemblances(unit, [(card, 0.9)], CalibrationSet())[0]
+    assert resemblance.techniques == ("T1059",)
+    assert "T1059" not in resemblance.anchor_label
+
+
+def test_detections_resolve_from_record_techniques_without_a_label() -> None:
+    """A concern resembling an operator-confirmed anchor (label carries no technique id)
+    whose record asserts the ids still gets its detections resolved."""
+    concern = _concern("analyst-confirmed")
+    top = concern.resembles[0]
+    concern.resembles = (
+        Resemblance(
+            top.anchor_id,
+            top.anchor_kind,
+            top.anchor_label,
+            top.similarity,
+            top.empirical_p,
+            malice=top.malice,
+            techniques=("T1059",),
+        ),
+    )
+    calls: list[str] = []
+
+    def search(spl: str, _start: float, _end: float) -> list[Mapping[str, Any]]:
+        calls.append(spl)
+        return [{"_time": 10.0000005}]
+
+    assessment = defense.assess(
+        concern,
+        start=10.0,
+        end=10.000001,
+        context_start=0.0,
+        context_end=20.0,
+        searcher=search,
+    )
+    assert assessment.response == DefenseResponse.COVERED
+    assert calls and all('"host-1"' in spl for spl in calls)
+
+
+def test_technique_less_confirmed_anchor_is_unsearchable_and_not_searched() -> None:
+    """Live defect (run-093a51020837): the 'analyst-confirmed' label carries no technique,
+    so no detection can be resolved -- assessed, never searched, and named as such."""
+    calls: list[str] = []
+
+    def search(spl: str, _start: float, _end: float) -> list[Mapping[str, Any]]:
+        calls.append(spl)
+        return []
+
+    assessment = defense.assess(
+        _concern("analyst-confirmed"),
+        start=10.0,
+        end=10.000001,
+        context_start=0.0,
+        context_end=20.0,
+        searcher=search,
+    )
+    assert assessment.response == DefenseResponse.INDETERMINATE
+    assert calls == []
+    assert assessment.unsearchable_reason == "no detection resolvable for this anchor"
+
+
+def test_unsearchable_reasons_name_the_blocker() -> None:
+    no_searcher = defense.assess(
+        _concern(),
+        start=10.0,
+        end=10.000001,
+        context_start=0.0,
+        context_end=20.0,
+        searcher=None,
+    )
+    assert no_searcher.unsearchable_reason == "no searcher configured"
+
+    no_entities = _concern()
+    no_entities.entities = ()
+    unbounded = defense.assess(
+        no_entities,
+        start=10.0,
+        end=10.000001,
+        context_start=0.0,
+        context_end=20.0,
+        searcher=lambda _spl, _start, _end: [],
+    )
+    assert unbounded.unsearchable_reason == "no entity values"
+
+
+def test_receipt_counts_unsearchable_concerns_separately_from_searched_ones() -> None:
+    unsearchable = ReviewResult("run-1", {}, concerns=[_concern("analyst-confirmed")])
+    receipt, _errors = defense.apply_to_result(
+        unsearchable,
+        _window(),
+        request_start=0.0,
+        request_end=20.0,
+        searcher=lambda _spl, _start, _end: [],
+    )
+    assert receipt.examined == 0
+    assert "unsearchable=1" in receipt.note
+    assert "no detection resolvable for this anchor=1" in receipt.note
+
+    searched = ReviewResult("run-2", {}, concerns=[_concern()])
+    receipt, _errors = defense.apply_to_result(
+        searched,
+        _window(),
+        request_start=0.0,
+        request_end=20.0,
+        searcher=lambda _spl, _start, _end: [],
+    )
+    assert receipt.examined > 0
+    assert "unsearchable=" not in receipt.note

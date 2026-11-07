@@ -23,11 +23,12 @@ from __future__ import annotations
 
 import uuid
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
 from .contracts import ReviewConcern, ReviewResult, TruthClass, Verdict, to_plain
+from .defense import techniques_from_label
 from .intake import IntakeResult
 from .knowledge import AnchorCard, record_from_unit
 from .store import ReviewStore
@@ -44,6 +45,28 @@ class WriteBack:
     verdict_id: str
     anchor_id: str | None = None
     quarantined: list[str] = field(default_factory=list)
+
+
+def _inherited_techniques(payload: Mapping[str, Any]) -> list[str]:
+    """Technique ids the concern was raised under: resemblance data first; payloads written
+    before the data existed fall back to the top resemblance's published label ids, read
+    once here -- never re-parsed by the defense path afterwards."""
+    out: list[str] = []
+    for entry in payload.get("resembles") or ():
+        if not isinstance(entry, Mapping):
+            continue
+        for technique in entry.get("techniques") or ():
+            identifier = str(technique).strip().upper()
+            if identifier and identifier not in out:
+                out.append(identifier)
+    if out:
+        return out
+    resembles = payload.get("resembles") or []
+    if resembles and isinstance(resembles[0], Mapping):
+        for identifier in techniques_from_label(str(resembles[0].get("anchor_label") or "")):
+            if identifier not in out:
+                out.append(identifier)
+    return out
 
 
 def persist_run(store: ReviewStore, result: ReviewResult, window: IntakeResult) -> list[str]:
@@ -132,6 +155,10 @@ def record_verdict(
         return out
     malicious = verdict == Verdict.SOMETHING
     anchor_id = f"an-{uuid.uuid4().hex[:12]}"
+    record = dict(concern.record)
+    inherited = _inherited_techniques(concern.payload)
+    if inherited:
+        record.setdefault("technique_ids", inherited)
     store.put_anchor(
         anchor_id=anchor_id,
         kind="confirmed_finding" if malicious else "benign_pattern",
@@ -139,7 +166,7 @@ def record_verdict(
         label=_label_for(
             concern.payload, "analyst-confirmed" if malicious else "analyst-closed-benign"
         ),
-        record=concern.record,
+        record=record,
         derived_from=concern_id,
         truth_class=TruthClass.OPERATOR_DECISION,
         at=at,

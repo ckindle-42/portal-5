@@ -250,3 +250,36 @@ def test_poisoned_benign_knowledge_is_quarantined_and_cycle_three_raises_again()
         item["kind"] == "analyst_reversal" and item["concern_ids"] == [malicious.concern_id]
         for item in verdicts.contradictions(store)
     )
+
+
+def test_confirmed_finding_inherits_the_techniques_it_was_raised_under() -> None:
+    """Part A: the anchor record carries the ids the concern's resemblance asserted."""
+    store = ReviewStore()
+    payload: dict[str, Any] = {
+        "resembles": [{"anchor_label": "analyst-confirmed", "techniques": ["T1059"]}],
+    }
+    store.put_concern("run-1", "cn-tech", "u-tech", "COUSIN", 0.01, payload, dict(RECORD))
+    out = verdicts.record_verdict(store, "cn-tech", Verdict.SOMETHING, actor="analyst:a")
+    assert out.anchor_id is not None
+    anchor = next(a for a in store.anchors() if a.anchor_id == out.anchor_id)
+    assert anchor.label == "analyst-confirmed"
+    assert anchor.record.get("technique_ids") == ["T1059"]
+
+
+def test_write_back_invents_no_technique_when_none_was_known() -> None:
+    store = ReviewStore()
+    seeded(store, "cn-plain")
+    out = verdicts.record_verdict(store, "cn-plain", Verdict.SOMETHING, actor="analyst:a")
+    anchor = next(a for a in store.anchors() if a.anchor_id == out.anchor_id)
+    assert "technique_ids" not in anchor.record
+
+
+def test_techniques_in_a_pre_data_payload_are_carried_from_the_raising_label_once() -> None:
+    """Payloads written before resemblances carried techniques: the raising label's
+    published ids move onto the record once, at write-back, never re-parsed again."""
+    store = ReviewStore()
+    payload: dict[str, Any] = {"resembles": [{"anchor_label": "T1059 encoded command"}]}
+    store.put_concern("run-1", "cn-old", "u-old", "COUSIN", 0.01, payload, dict(RECORD))
+    out = verdicts.record_verdict(store, "cn-old", Verdict.SOMETHING, actor="analyst:a")
+    anchor = next(a for a in store.anchors() if a.anchor_id == out.anchor_id)
+    assert anchor.record.get("technique_ids") == ["T1059"]

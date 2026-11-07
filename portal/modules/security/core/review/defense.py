@@ -40,11 +40,21 @@ class DefenseAssessment:
     matching_rows: int
     errors: int
     expected_signals: tuple[str, ...]
+    unsearchable_reason: str = ""
 
 
 def techniques_from_label(label: str) -> tuple[str, ...]:
     """Extract only published ATT&CK identifiers from a knowledge-plane label."""
     return tuple(dict.fromkeys(match.upper() for match in _TECHNIQUE.findall(label)))
+
+
+def _top_techniques(concern: ReviewConcern) -> tuple[str, ...]:
+    """The top resemblance's techniques: the anchor record's ids, falling back to the
+    label's published ids for knowledge written before records carried them."""
+    if not concern.resembles:
+        return ()
+    top = concern.resembles[0]
+    return top.techniques or techniques_from_label(top.anchor_label)
 
 
 def detections_for(concern: ReviewConcern) -> list[Detection]:
@@ -57,7 +67,7 @@ def detections_for(concern: ReviewConcern) -> list[Detection]:
     }
     out: list[Detection] = []
     seen: set[tuple[str, str]] = set()
-    for technique in techniques_from_label(concern.resembles[0].anchor_label):
+    for technique in _top_techniques(concern):
         if technique not in covered:
             continue
         signature = technique_signature_full(technique)
@@ -96,6 +106,21 @@ def _entity_values(entities: Sequence[str]) -> tuple[str, ...]:
         if (value := entity.partition("=")[2] or entity).strip()
     }
     return tuple(sorted(values))
+
+
+def _unsearchable_reason(
+    detections: Sequence[Detection],
+    searcher: ReadOnlySearcher | None,
+    entities: Sequence[str],
+) -> str:
+    """Why no bounded search can run at all; empty when one can."""
+    if not detections:
+        return "no detection resolvable for this anchor"
+    if searcher is None:
+        return "no searcher configured"
+    if not _entity_values(entities):
+        return "no entity values"
+    return ""
 
 
 def _quote(value: str) -> str:
@@ -208,16 +233,15 @@ def assess(
     """Apply the explicit COVERED/MISSED/NEAR_MISS/INDETERMINATE mapping rule."""
     techniques = tuple(
         technique
-        for technique in techniques_from_label(
-            concern.resembles[0].anchor_label if concern.resembles else ""
-        )
+        for technique in _top_techniques(concern)
         if technique in set(techniques_covered())
     )
     detections = detections_for(concern)
     expected = tuple(
         dict.fromkeys(item.expected_signal for item in detections if item.expected_signal)
     )
-    if not detections or searcher is None or not _entity_values(concern.entities):
+    unsearchable = _unsearchable_reason(detections, searcher, concern.entities)
+    if unsearchable or searcher is None:
         return DefenseAssessment(
             DefenseResponse.INDETERMINATE,
             techniques,
@@ -226,6 +250,7 @@ def assess(
             0,
             0,
             expected,
+            unsearchable,
         )
 
     exact_rows = exact_resolved = exact_errors = exact_unknown_time = 0
@@ -324,6 +349,24 @@ def _concern_bounds(
     return start, min(request_end, end) if end > start else request_end
 
 
+def _receipt_note(
+    concerns: int,
+    counts: Mapping[DefenseResponse, int],
+    unsearchable: Mapping[str, int],
+    errors: int,
+) -> str:
+    note = (
+        f"concerns={concerns}; covered={counts[DefenseResponse.COVERED]}; "
+        f"missed={counts[DefenseResponse.MISSED]}; "
+        f"near_miss={counts[DefenseResponse.NEAR_MISS]}; "
+        f"indeterminate={counts[DefenseResponse.INDETERMINATE]}; "
+    )
+    if unsearchable:
+        reasons = "; ".join(f"{reason}={unsearchable[reason]}" for reason in sorted(unsearchable))
+        note += f"unsearchable={sum(unsearchable.values())} ({reasons}); "
+    return note + f"search errors={errors}; no rows persisted"
+
+
 def apply_to_result(
     result: ReviewResult,
     window: IntakeResult,
@@ -336,6 +379,7 @@ def apply_to_result(
     concerns = [*result.concerns, *result.suppressed]
     examined = resolved = errors = 0
     counts = dict.fromkeys(DefenseResponse, 0)
+    unsearchable: dict[str, int] = {}
     unit_events = {unit.unit.unit_id: unit.event_ids for unit in window.units}
     for concern in concerns:
         start, end = _concern_bounds(concern, window, request_start, request_end, unit_events)
@@ -349,6 +393,9 @@ def apply_to_result(
         )
         concern.defense_response = assessment.response
         counts[assessment.response] += 1
+        if assessment.unsearchable_reason:
+            reason = assessment.unsearchable_reason
+            unsearchable[reason] = unsearchable.get(reason, 0) + 1
         examined += assessment.queries_examined
         resolved += assessment.queries_resolved
         errors += assessment.errors
@@ -357,13 +404,7 @@ def apply_to_result(
             "defense.search",
             examined=examined,
             resolved=resolved,
-            note=(
-                f"concerns={len(concerns)}; covered={counts[DefenseResponse.COVERED]}; "
-                f"missed={counts[DefenseResponse.MISSED]}; "
-                f"near_miss={counts[DefenseResponse.NEAR_MISS]}; "
-                f"indeterminate={counts[DefenseResponse.INDETERMINATE]}; "
-                f"search errors={errors}; no rows persisted"
-            ),
+            note=_receipt_note(len(concerns), counts, unsearchable, errors),
         ),
         errors,
     )

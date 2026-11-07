@@ -56,7 +56,7 @@ from .funnel import (
     unusual_score,
 )
 from .intake import EventView, IntakeResult, IntakeUnit
-from .knowledge import AnchorCard, AnchorIndex, Embedder, embed_texts, explain
+from .knowledge import AnchorCard, AnchorIndex, Embedder, embed_texts, explain, record_techniques
 
 #: How many evidence refs a concern carries (presentation bound; the total is in the brief).
 EVIDENCE_REFS_SHOWN = 200
@@ -225,6 +225,7 @@ def _resemblances(
                 malice=card.malice,
                 shares=shares,
                 diverges=diverges,
+                techniques=record_techniques(card.record),
             )
         )
     return out
