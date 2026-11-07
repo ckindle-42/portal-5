@@ -335,7 +335,12 @@ def collect_target(
                 f"$start=[DateTimeOffset]::FromUnixTimeSeconds({since}).LocalDateTime; "
                 "Get-WinEvent -FilterHashtable @{LogName='Security';StartTime=$start} "
                 "-MaxEvents 500 "
-                "| ForEach-Object { $_.Id.ToString() + ' ' + $_.TimeCreated.ToString('yyyy-MM-dd HH:mm:ss') }"
+                # UTC, not local: the collected host and whatever reads this
+                # need not share a timezone (live 2026-11-07: the lab DC runs
+                # Pacific while the collector host runs Central, so a naive
+                # local stamp was read two hours out).
+                "| ForEach-Object { $_.Id.ToString() + ' ' "
+                "+ $_.TimeCreated.ToUniversalTime().ToString('yyyy-MM-dd HH:mm:ss') + ' UTC' }"
             )
             b64_all = base64.b64encode(ps_all.encode("utf-16-le")).decode()
             code_all = (
@@ -348,7 +353,7 @@ def collect_target(
                 stdout_all = unwrap_mcp_stdout(r_all["output"])
                 for line in stdout_all.splitlines():
                     line = strip_nxc_line_prefix(line).strip()
-                    # Format: "4624 2026-07-06 10:30:45"
+                    # Format: "4624 2026-07-06 10:30:45 UTC"
                     parts = line.split(None, 1)
                     if len(parts) == 2 and parts[0].isdigit():
                         all_events.append(f"EventCode={parts[0]} TimeCreated={parts[1]}")
