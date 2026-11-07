@@ -2631,9 +2631,27 @@ def freeze_identities(frozen: dict, identities: dict) -> list[str]:
     return drift
 
 
+def identity_pair_key(workspace: str, model: str, backend: str | None = None) -> str:
+    """The identity_map key for one (workspace, model, arm pin) triple. A pin
+    gets its own key: two arms may share one tag across engines (the 128k gemma
+    tag resolves on oMLX by alias and on Ollama literally), and a shared key
+    would freeze one engine's identity onto both."""
+    base = f"{workspace}|{model}"
+    return f"{base}|backend={backend}" if backend else base
+
+
+def row_identity_key(r: dict) -> str:
+    """identity_pair_key for a row (manifest stub or saved row), from the row's
+    own stored overrides — env overrides are deliberately not consulted, so a
+    key never depends on the shell a resume runs in."""
+    return identity_pair_key(
+        str(r.get("workspace")), row_model(r), (r.get("overrides") or {}).get("backend")
+    )
+
+
 def frozen_identity(manifest: dict, r: dict) -> dict | None:
-    """The identity preflight froze for this row's (workspace, model) pair."""
-    return (manifest.get("identity_map") or {}).get(f"{r['workspace']}|{row_model(r)}")
+    """The identity preflight froze for this row's (workspace, model, pin) triple."""
+    return (manifest.get("identity_map") or {}).get(row_identity_key(r))
 
 
 def row_identity(transcript: list) -> dict | None:
@@ -2685,7 +2703,7 @@ def identity_drift(manifest: dict, r: dict, row: dict) -> str | None:
         return None
     if _is_routed_row(r):
         return None
-    key = f"{r['workspace']}|{row_model(r)}"
+    key = row_identity_key(r)
     if not ident.get("content"):
         return f"{key}: the build serving {ident.get('model')!r} cannot be observed"
     want = frozen_identity(manifest, r)
@@ -2747,12 +2765,20 @@ def _preflight_content(with_image: bool) -> str | list[dict]:
     ]
 
 
-def preflight_pipeline(workspaces: list[str], model: str, rows: list[dict] | None = None) -> dict:
+def preflight_pipeline(
+    workspaces: list[str],
+    model: str,
+    rows: list[dict] | None = None,
+    backend: str | None = None,
+) -> dict:
     """Pipeline mode: the pipeline owns the wire, so the raw transport probe is
     moot. What must hold is that each seat is actually served by the arm's model
     seat (a failover or a third model would make every row describe another
     model). A workspace whose rows attach images is probed with one image, so
-    the frozen identity is the route those rows use."""
+    the frozen identity is the route those rows use. `backend` (the arm's pin)
+    pins the probe the way the rows are pinned and freezes under the pin-aware
+    key: an arm pinned across engines must freeze the pinned engine's build, or
+    every row it serves would read as drift."""
     findings = []
     if model not in backend_catalog():
         return {
@@ -2768,6 +2794,9 @@ def preflight_pipeline(workspaces: list[str], model: str, rows: list[dict] | Non
         findings.append(f"deployed pipeline build {build!r} is not HEAD's portal/: rebuild first")
     findings += service_findings(deployed_services())
     identities: dict[str, dict] = {}
+    harness = {"pipeline_model": model}
+    if backend:
+        harness["pipeline_backend"] = backend
     for ws in workspaces:
         try:
             r = chat(
@@ -2781,14 +2810,14 @@ def preflight_pipeline(workspaces: list[str], model: str, rows: list[dict] | Non
                     }
                 ],
                 tools=False,
-                harness={"pipeline_model": model},
+                harness=harness,
             )
             served_rec = r.get("served") or {}
             served = served_rec.get("model")
         except Exception as e:
             served, findings = None, [*findings, f"{ws}: request failed: {e}"]
             continue
-        routed, primary = _serving_seat(ws, model)
+        routed, primary = _serving_seat(ws, model, backend)
         if served != primary:
             findings.append(
                 f"{ws}: pipeline served {served!r}, seat is {primary!r} (arm {model!r})"
@@ -2796,7 +2825,7 @@ def preflight_pipeline(workspaces: list[str], model: str, rows: list[dict] | Non
         if served:
             # Freeze the workspace route. The trace's group id is not the seat.
             ident, why = observe_identity(routed or (served_rec.get("backend") or ""), served)
-            identities[f"{ws}|{model}"] = ident
+            identities[identity_pair_key(ws, model, backend)] = ident
             if why:
                 findings.append(f"{ws}: the build serving {served!r} cannot be observed: {why}")
     return {
@@ -3280,12 +3309,16 @@ def _rows_to_run(
 
 
 def _arm_preflight(campaign_dir: Path, manifest: dict, arm_rows: list, model: str, force) -> dict:
-    """The arm's preflight. In pipeline mode it also freezes each (workspace, model)
-    pair's identity on first sight, and a later change becomes a finding, so the
-    arm is blocked instead of measured on another build (doc: identity)."""
+    """The arm's preflight. In pipeline mode it also freezes each (workspace,
+    model, pin) triple's identity on first sight, and a later change becomes a
+    finding, so the arm is blocked instead of measured on another build (doc:
+    identity). The probe is pinned the way the arm's rows are pinned."""
     if ENGINE != "pipeline":
         return preflight_arm(campaign_dir, model, force)
-    pf = preflight_pipeline(sorted({r["workspace"] for r in arm_rows}), model, arm_rows)
+    backend = (arm_rows[0].get("overrides") or {}).get("backend") if arm_rows else None
+    pf = preflight_pipeline(
+        sorted({r["workspace"] for r in arm_rows}), model, arm_rows, backend=backend
+    )
     drift = freeze_identities(manifest.setdefault("identity_map", {}), pf.get("identities") or {})
     save_manifest(campaign_dir, manifest)
     if not drift:
@@ -4934,20 +4967,26 @@ def _cmd_preflight(campaign_dir: Path, force: bool) -> int:
     sizes = model_sizes()
     manifest = load_manifest(campaign_dir)
     # Preflight probes the MODEL's transport; variant arms of one model share it.
-    arms = sorted(
-        {row_model(r) for r in manifest["rows"]},
-        key=lambda a: (sizes.get(a, 0), a),
-    )
+    # A backend pin splits the group: two arms may share a tag across engines,
+    # and each pin must be probed and frozen on its own engine.
+    groups: dict[tuple[str, str | None], set] = {}
+    for r in manifest["rows"]:
+        groups.setdefault((row_model(r), (r.get("overrides") or {}).get("backend")), set()).add(
+            r["workspace"]
+        )
+    ordered = sorted(groups, key=lambda g: (sizes.get(g[0], 0), g[0], g[1] or ""))
     # Arms served by another engine (WFE_ENGINE) are not Ollama tags at all.
-    missing = [a for a in arms if a not in sizes] if sizes and ENGINE == "ollama" else []
+    missing = (
+        [a for a in {g[0] for g in ordered} if a not in sizes]
+        if sizes and ENGINE == "ollama"
+        else []
+    )
     frozen = manifest.setdefault("identity_map", {})
-    ws_by_model: dict[str, set] = {}
     budgets_by_model: dict[str, list[tuple[str, str, int]]] = {}
     seen_budgets: set[tuple[str, str, str]] = set()
     for r in manifest["rows"]:
         model = row_model(r)
         workspace = r["workspace"]
-        ws_by_model.setdefault(model, set()).add(workspace)
         key = (model, r["arm"], workspace)
         if key in seen_budgets:
             continue
@@ -4959,28 +4998,30 @@ def _cmd_preflight(campaign_dir: Path, force: bool) -> int:
         )
     bad = []
     drift: list[str] = []
-    for i, a in enumerate(arms, 1):
+    for i, (model, pin) in enumerate(ordered, 1):
         t0 = time.monotonic()
         res = (  # in pipeline mode, ask the pipeline what it serves for this arm
-            preflight_pipeline(sorted(ws_by_model.get(a, ())), a, manifest["rows"])
+            preflight_pipeline(sorted(groups[(model, pin)]), model, manifest["rows"], backend=pin)
             if ENGINE == "pipeline"
-            else preflight_arm(campaign_dir, a, force)
+            else preflight_arm(campaign_dir, model, force)
         )
         verdict = str(res.get("verdict"))
         # The first preflight of a pair freezes its identity; a later change
         # means the two halves of the comparison describe different builds.
         drift += freeze_identities(frozen, res.get("identities") or {})
-        _print_preflight(i, len(arms), a, res, time.monotonic() - t0, budgets_by_model.get(a, []))
+        _print_preflight(
+            i, len(ordered), model, res, time.monotonic() - t0, budgets_by_model.get(model, [])
+        )
         if verdict != "OK":
-            bad.append(a)
-        drain_model(a)
+            bad.append(f"{model} @ backend={pin}" if pin else model)
+        drain_model(model)
         sys.stdout.flush()
     save_manifest(campaign_dir, manifest)
     for d in drift:
         print(f"          IDENTITY DRIFT: {d}")
     if drift:
         bad.append("identity-drift")
-    print(f"\npreflight: {len(arms) - len(bad)}/{len(arms)} OK")
+    print(f"\npreflight: {len(ordered) - len(bad)}/{len(ordered)} OK")
     if missing:
         print("NOT INSTALLED: " + ", ".join(missing))
     if bad:

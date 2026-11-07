@@ -1633,13 +1633,15 @@ class TestModelIdentity:
         camp.save_manifest(d, manifest)
         seen = {"content": "c1"}
 
-        def fake_pf(workspaces, model, rows=None):
+        def fake_pf(workspaces, model, rows=None, backend=None):
             ident = {"backend": "omlx-reasoning", "model": "g", "content": seen["content"]}
             return {
                 "model": model,
                 "verdict": "OK",
                 "findings": [],
-                "identities": {f"{w}|{model}": ident for w in workspaces},
+                "identities": {
+                    camp.identity_pair_key(w, model, backend): ident for w in workspaces
+                },
             }
 
         monkeypatch.setattr(camp, "preflight_pipeline", fake_pf)

@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from tests.wfe import campaign, report
+from tests.wfe import campaign, canary, report
 from tests.wfe.runner import _build_pipeline
 from tests.wfe.suites import build_reading_long_production as gen
 
@@ -25,6 +25,8 @@ SUITE = REPO / "tests/wfe/suites/reading_long_production.jsonl"
 WORKSPACE = "auto-compliance::reading"
 GEMMA_TAG = "gemma4:26b-a4b-it-q4_K_M-ctx128k"
 QWEN_TAG = "Qwen3.8-27B-oQ4e-mtp"
+MLX_ID = "mlx-community--gemma-4-26b-a4b-it-4bit"
+WS = WORKSPACE
 TASKS = [
     "lr-aggregation-00-t40k",
     "lr-aggregation-01-t80k",
@@ -262,3 +264,171 @@ def test_report_section_renders_positions():
     report._sec_aggregation(lines.append, {"aggregation_diagnostics": [record]})
     text = "\n".join(lines)
     assert "found 0/1" in text and "00042@51.2%" in text and "arm@x-1a2b3c4d" in text
+
+
+# --------------------------------------------- identity freeze under the pin (R2)
+
+
+def _stub(arm_id: str, backend: str | None = None, model: str = GEMMA_TAG) -> dict:
+    return {
+        "run_id": f"{WS}|{arm_id}|reading_long_production|lr-aggregation-00-t40k|r0",
+        "workspace": WS,
+        "arm": arm_id,
+        "model": model,
+        "overrides": {"backend": backend} if backend else {},
+    }
+
+
+@pytest.fixture
+def frozen_pair(monkeypatch):
+    """A manifest with both freezes — the unpinned gemma arm on oMLX and the
+    pinned arm on Ollama — the exact longread-agg-diag layout whose shared
+    (workspace, model) key froze one engine's identity onto both arms."""
+    monkeypatch.setattr(campaign, "ENGINE", "pipeline")
+    omlx = {
+        "backend": "omlx-general",
+        "model": "mlx-community--gemma-4-26b-a4b-it-4bit",
+        "content": "omlx-c1",
+    }
+    ollama = {"backend": "ollama-general", "model": GEMMA_TAG, "content": "ollama-c1"}
+    manifest = {
+        "identity_map": {
+            campaign.identity_pair_key(WS, GEMMA_TAG): omlx,
+            campaign.identity_pair_key(WS, GEMMA_TAG, "ollama-general"): ollama,
+        }
+    }
+    return manifest, omlx, ollama
+
+
+def test_pinned_preflight_probes_and_freezes_the_pinned_identity(monkeypatch):
+    """The preflight probe goes out pinned and freezes the pinned engine's build
+    under the pin-aware key — never the unpinned ladder's answer."""
+    seen: dict = {}
+
+    def fake_chat(ws, messages, tools=False, harness=None):
+        seen["harness"] = harness
+        if harness and harness.get("pipeline_backend"):
+            return {"served": {"backend": "ollama-general", "model": GEMMA_TAG}}
+        return {"served": {"backend": "omlx-general", "model": MLX_ID}}
+
+    monkeypatch.setattr(campaign, "chat", fake_chat)
+    monkeypatch.setattr(campaign, "deployed_build", lambda: "deadbeef")
+    monkeypatch.setattr(campaign, "deployed_matches", lambda build: True)
+    monkeypatch.setattr(campaign, "service_findings", lambda services: [])
+    monkeypatch.setattr(campaign, "ollama_content_id", lambda m: ("ollama-c1", ""))
+    monkeypatch.setattr(campaign, "omlx_content_id", lambda m: ("omlx-c1", ""))
+
+    pinned = campaign.preflight_pipeline(
+        [WS], GEMMA_TAG, [_stub("g@ollama-gguf-x", "ollama-general")], backend="ollama-general"
+    )
+    assert pinned["verdict"] == "OK", pinned["findings"]
+    assert seen["harness"]["pipeline_backend"] == "ollama-general"
+    key = campaign.identity_pair_key(WS, GEMMA_TAG, "ollama-general")
+    assert pinned["identities"][key] == {
+        "backend": "ollama-general",
+        "model": GEMMA_TAG,
+        "content": "ollama-c1",
+    }
+
+    unpinned = campaign.preflight_pipeline([WS], GEMMA_TAG, [_stub("g@seat-omlx-x")])
+    assert unpinned["verdict"] == "OK", unpinned["findings"]
+    assert "pipeline_backend" not in seen["harness"]
+    assert unpinned["identities"][campaign.identity_pair_key(WS, GEMMA_TAG)]["content"] == (
+        "omlx-c1"
+    )
+
+    manifest: dict = {"identity_map": {}}
+    campaign.freeze_identities(manifest["identity_map"], pinned["identities"])
+    campaign.freeze_identities(manifest["identity_map"], unpinned["identities"])
+    assert (
+        campaign.frozen_identity(manifest, _stub("g@ollama-gguf-x", "ollama-general"))
+        == (pinned["identities"][key])
+    )
+    assert campaign.frozen_identity(manifest, _stub("g@seat-omlx-x"))["content"] == "omlx-c1"
+
+
+def test_arm_preflight_passes_the_rows_pin(monkeypatch, tmp_path):
+    """_arm_preflight derives the pin from the arm's own rows and hands it to the
+    probe — this is the path the live canary's execute_arm drives."""
+    captured: dict = {}
+
+    def fake_preflight(workspaces, model, rows=None, backend=None):
+        captured["backend"] = backend
+        return {"verdict": "OK", "findings": [], "identities": {}}
+
+    monkeypatch.setattr(campaign, "ENGINE", "pipeline")
+    monkeypatch.setattr(campaign, "preflight_pipeline", fake_preflight)
+    monkeypatch.setattr(campaign, "save_manifest", lambda d, m: None)
+    rows = [_stub("g@ollama-gguf-x", "ollama-general")]
+    campaign._arm_preflight(tmp_path, {"identity_map": {}}, rows, GEMMA_TAG, False)
+    assert captured["backend"] == "ollama-general"
+
+
+def test_drift_enforces_the_pin_both_ways(frozen_pair):
+    """Served on the pinned backend is not drift; served on the unpinned primary
+    is — and the unpinned arm is held to its own engine symmetrically."""
+    manifest, omlx, ollama = frozen_pair
+    pinned = {**_stub("g@ollama-gguf-x", "ollama-general"), "identity": ollama}
+    assert campaign.frozen_identity(manifest, pinned) == ollama
+    assert campaign.identity_drift(manifest, pinned, pinned) is None
+    served_on_unpinned_primary = {**pinned, "identity": omlx}
+    drift = campaign.identity_drift(manifest, pinned, served_on_unpinned_primary)
+    assert drift and "frozen" in drift  # the pin is enforced, not just recorded
+
+    unpinned = {**_stub("g@seat-omlx-x"), "identity": omlx}
+    assert campaign.frozen_identity(manifest, unpinned) == omlx
+    assert campaign.identity_drift(manifest, unpinned, unpinned) is None
+    assert campaign.identity_drift(manifest, unpinned, {**unpinned, "identity": ollama})
+
+
+def test_served_mismatch_enforces_the_pin_per_turn():
+    pinned_primary = campaign.seat_primary(WS, GEMMA_TAG, "ollama-general")
+    assert pinned_primary == GEMMA_TAG
+    # served_mismatch reads the served record off the turns that called tools.
+    turn = {"tool_calls": [], "served": {"model": GEMMA_TAG}}
+    assert campaign.served_mismatch([turn], pinned_primary) is None
+    failover = {"tool_calls": [], "served": {"model": MLX_ID}}
+    assert campaign.served_mismatch([failover], pinned_primary)
+
+
+def test_identity_check_understands_pinned_keys(frozen_pair):
+    manifest, omlx, ollama = frozen_pair
+    pipeline = {"instrument": {"engine": "pipeline"}}
+    pinned_ok = {
+        **_stub("g@ollama-gguf-x", "ollama-general"),
+        "identity": ollama,
+        "outcome": "PASS",
+    }
+    assert (
+        report._identity_check(
+            [pinned_ok], {**pipeline, "identity_map": manifest["identity_map"]}, False
+        )
+        == []
+    )
+    with pytest.raises(SystemExit, match="IDENTITY DRIFT"):
+        report._identity_check(
+            [{**pinned_ok, "identity": omlx}],
+            {**pipeline, "identity_map": manifest["identity_map"]},
+            False,
+        )
+
+
+def test_canary_prints_the_pinned_backend(frozen_pair, capsys, tmp_path):
+    """The ARM line names the pinned engine: `ARM … backend=ollama-general`."""
+    _, _omlx, ollama = frozen_pair
+    arm = f"{GEMMA_TAG}@ollama-gguf-693a1e02"
+    arms = [
+        {
+            "workspace": WS,
+            "arm": arm,
+            "frozen": ollama,
+            "served": ollama,
+            "drift": None,
+            "outcome": "PASS",
+        }
+    ]
+    records = [{**a, "class": None} for a in arms]
+    rc = canary._canary_exit("longread-agg-diag-1_canary", tmp_path, records, arms, False)
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert f"ARM {WS}/{arm} backend=ollama-general" in out

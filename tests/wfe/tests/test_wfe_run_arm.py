@@ -186,7 +186,7 @@ def test_pipeline_preflight_asks_the_pipeline_for_each_arms_workspaces(tmp_path,
     monkeypatch.setattr(
         campaign,
         "preflight_pipeline",
-        lambda ws, m, rows=None: seen.append((ws, m)) or {"verdict": "OK"},
+        lambda ws, m, rows=None, backend=None: seen.append((ws, m, backend)) or {"verdict": "OK"},
     )
 
     def wrong(*a, **k):
@@ -194,7 +194,7 @@ def test_pipeline_preflight_asks_the_pipeline_for_each_arms_workspaces(tmp_path,
 
     monkeypatch.setattr(campaign, "preflight_arm", wrong)
     assert campaign._cmd_preflight(d, False) == 0
-    assert seen == [(["auto-coding", "auto-compliance"], "m")]
+    assert seen == [(["auto-coding", "auto-compliance"], "m", None)]
 
 
 def test_a_gate_refusal_exits_4_with_its_reason(tmp_path, monkeypatch, capsys):
