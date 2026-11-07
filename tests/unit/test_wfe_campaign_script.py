@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 from tests.wfe import campaign
 
@@ -108,8 +109,59 @@ def _run(
 
 
 def _run_real_interleaved_script(
-    tmp_path: Path, campaign_id: str, *, pilot: bool = False, expired: bool = False
+    tmp_path: Path,
+    campaign_id: str,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    pilot: bool = False,
+    expired: bool = False,
 ) -> tuple[subprocess.CompletedProcess[str], Path]:
+    plan = yaml.safe_load(
+        (ROOT / "tests/wfe/plans/gemma26b_qat_vision_fallbacks_20261106.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    plan["repeats"] = 1
+    plan["interleave_block"] = 4
+    workload = next(iter(plan["workloads"].values()))
+    suite_path = ROOT / "tests/wfe/suites" / f"{workload['home']}.jsonl"
+    task_ids = [
+        json.loads(line)["id"]
+        for line in suite_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ][:2]
+    assert len(task_ids) == 2
+    workload["home_tasks"] = task_ids
+    plan_path = tmp_path / "two-task-interleaved-plan.yaml"
+    plan_path.write_text(yaml.safe_dump(plan), encoding="utf-8")
+    matrix = campaign.expand_matrix(plan_path, 1, tier="realuse")
+    if pilot:
+        matrix = campaign.pilot_matrix(matrix, 8)
+    arms = list(dict.fromkeys(row["arm"] for row in matrix))
+    assert len(arms) == 2
+    campaign_root = tmp_path / "data" / "tests" / "wfe" / "results" / "campaigns"
+    for name, value in (
+        ("CAMPAIGNS", campaign_root),
+        (
+            "instrument_fingerprint",
+            lambda: {"fingerprint": "test-instrument", "engine": "pipeline"},
+        ),
+        (
+            "env_fingerprint",
+            lambda _base: {"fingerprint": "test-environment", "engine": "pipeline"},
+        ),
+        ("config_dirty", lambda: []),
+        ("gate_controls", lambda *_args: {}),
+        ("_engine_swap_profiles", lambda: {}),
+        ("_row_wall_history", lambda _matrix: {}),
+    ):
+        monkeypatch.setattr(campaign, name, value)
+    effective_id = campaign._effective_campaign_id(campaign_id, 8 if pilot else None)
+    execution = campaign.execution_options(plan_path, matrix, 8 if pilot else None)
+    campaign.open_campaign(effective_id, plan_path, matrix, append=False, execution=execution)
+    arms_path = tmp_path / "arms.txt"
+    arms_path.write_text("\n".join(arms) + "\n", encoding="utf-8")
+
     bindir = tmp_path / "bin"
     bindir.mkdir()
     real_python = Path(sys.executable)
@@ -118,6 +170,11 @@ def _run_real_interleaved_script(
         "#!/usr/bin/env bash\n"
         'if [ "$1" = "-m" ] && [ "$2" = "tests.wfe.campaign" ]; then\n'
         "  shift 2\n"
+        '  case " $* " in\n'
+        '    *" --dry-run "*) echo "matrix rows: 4 arms: 2 repeats: 1"; exit 0 ;;\n'
+        '    *" --status "*) exit 0 ;;\n'
+        '    *" --finish "*) exec "$WFE_TEST_REAL_PYTHON" -c \'import json,os,sys; p=os.path.join(os.environ["PORTAL_DATA_ROOT"],"tests/wfe/results/campaigns",os.environ["WFE_TEST_CAMPAIGN_ID"],"manifest.json"); m=json.load(open(p)); print("CAMPAIGN",os.environ["WFE_TEST_CAMPAIGN_ID"],"stopped" if m.get("campaign_stop") else "complete"); raise SystemExit(5 if m.get("campaign_stop") else 0)\' ;;\n'
+        "  esac\n"
         '  exec "$WFE_TEST_REAL_PYTHON" -c \'import os,sys; import tests.wfe.campaign as c; '
         "from wfe_campaign_test_support import patch_campaign; patch_campaign(c); "
         'sys.executable=os.environ["WFE_TEST_PYTHON"]; '
@@ -125,6 +182,11 @@ def _run_real_interleaved_script(
         "fi\n"
         'if [ "$1" = "-m" ] && [ "$2" = "tests.wfe.realuse_paths" ]; then\n'
         '  echo "fixture preflight: PASS (test transport)"; exit 0\n'
+        "fi\n"
+        'if [ "$1" = "-c" ] && [[ "$2" == *archive_drifted_campaign* ]]; then exit 0; fi\n'
+        'if [ "$1" = "-c" ] && [[ "$2" == *"load_manifest"* ]]; then\n'
+        "  shift 2\n"
+        '  exec "$WFE_TEST_REAL_PYTHON" -c \'import json,os,sys; p=os.path.join(os.environ["PORTAL_DATA_ROOT"],"tests/wfe/results/campaigns",sys.argv[1],"manifest.json"); print(json.load(open(p))["execution"]["arm_order"])\' "$@"\n'
         "fi\n"
         'exec "$WFE_TEST_REAL_PYTHON" "$@"\n',
         encoding="utf-8",
@@ -144,6 +206,9 @@ def _run_real_interleaved_script(
         '    campaign._load_guard_plan = lambda _models: {"guard_enabled": False, "fits": False, "busy": False}\n'
         '    campaign.instrument_fingerprint = lambda: {"fingerprint": "test-instrument", "engine": "pipeline"}\n'
         '    campaign.env_fingerprint = lambda _base: {"fingerprint": "test-environment", "engine": "pipeline"}\n'
+        "    campaign.config_dirty = lambda: []\n"
+        "    campaign.gate_controls = lambda *_args: {}\n"
+        "    campaign.instrument_drift = lambda _manifest: None\n"
         "    campaign._ready = lambda _directory: True\n"
         "    campaign.ollama_reachable = lambda: True\n"
         "    campaign.gate_execution = lambda _directory: None\n"
@@ -178,12 +243,17 @@ def _run_real_interleaved_script(
         "WFE_TEST_REAL_PYTHON": str(real_python),
         "WFE_TEST_PYTHON": str(python),
         "WFE_TEST_RUNS": str(run_log),
+        "WFE_TEST_CAMPAIGN_ID": str(effective_id),
+        "ARMS_FILE": str(arms_path),
         "PORTAL_DATA_ROOT": str(tmp_path / "data"),
         "LOG_DIR": str(tmp_path / "logs"),
         "DEBUG_DIR": str(tmp_path / "debug"),
         "WFE_ENGINE": "pipeline",
         "WFE_SKIP_CONFORMANCE": "1",
         "WFE_ALLOW_DIRTY_INSTRUMENT": "1",
+        "WFE_OMLX_URL": "file:///no-omlx-in-test",
+        "WFE_DRAIN_TIMEOUT_S": "1",
+        "WFE_DRAIN_POLL_S": "0.01",
         "PIPELINE_API_KEY": "test-key",
         "OLLAMA": "file:///no-ollama-in-test",
         "OLLAMA_URL": "file:///no-ollama-in-test",
@@ -193,7 +263,7 @@ def _run_real_interleaved_script(
         str(SCRIPT),
         campaign_id,
         "--plan",
-        "tests/wfe/plans/gemma26b_qat_vision_fallbacks_20261106.yaml",
+        str(plan_path),
         "--tier",
         "realuse",
         "--engine",
@@ -475,11 +545,11 @@ def test_pilot_uses_a_separate_campaign_id_and_reaches_campaign_commands(tmp_pat
     ids=("full-interleaved", "pilot-interleaved", "pilot-time-cap"),
 )
 def test_real_campaign_script_runs_interleaved_workers_without_a_live_stack(
-    tmp_path: Path, pilot: bool, expired: bool
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pilot: bool, expired: bool
 ) -> None:
     campaign_id = f"wfe_r3_{int(pilot)}_{int(expired)}"
     result, run_log = _run_real_interleaved_script(
-        tmp_path, campaign_id, pilot=pilot, expired=expired
+        tmp_path, campaign_id, monkeypatch, pilot=pilot, expired=expired
     )
     effective_id = campaign_id + ("_pilot" if pilot else "")
     manifest_path = (
@@ -499,6 +569,7 @@ def test_real_campaign_script_runs_interleaved_workers_without_a_live_stack(
     if expired:
         assert result.returncode == campaign.EXIT_STOPPED, output
         assert manifest["campaign_stop"]["reason"] == "time cap"
+        assert len(manifest["rows"]) == 4
         assert not run_log.exists()
         return
 
@@ -506,12 +577,18 @@ def test_real_campaign_script_runs_interleaved_workers_without_a_live_stack(
     rows = manifest["rows"]
     arms = {row["arm"] for row in rows}
     assert len(arms) == 2
-    assert set(run_log.read_text(encoding="utf-8").splitlines()) == arms
+    assert len(rows) == 4
+    assert len({row["task_id"] for row in rows}) == 2
+    roles = {row["arm"]: row["arm_role"] for row in rows}
+    assert manifest["execution"]["arm_order"] == "interleaved"
+    assert run_log.read_text(encoding="utf-8").splitlines() == sorted(
+        arms, key=lambda arm: (roles[arm] != "incumbent", arm)
+    )
     assert all(row["state"] == "PASS" for row in rows)
     if pilot:
         assert effective_id.endswith("_pilot") and not effective_id.endswith("_pilot_pilot")
         assert {arm: sum(row["arm"] == arm for row in rows) for arm in arms} == dict.fromkeys(
-            arms, 8
+            arms, 2
         )
     assert "--pilot requires at least two arms" not in output
 

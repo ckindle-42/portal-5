@@ -221,8 +221,8 @@ def ollama_reachable() -> bool:
 
 #: Ceiling on waiting for a model to leave memory. Reached only if Ollama never
 #: reports the release; the normal path returns as soon as /api/ps is clean.
-DRAIN_TIMEOUT_S = 180
-_DRAIN_POLL_S = 2
+DRAIN_TIMEOUT_S = max(1, int(os.environ.get("WFE_DRAIN_TIMEOUT_S", "180")))
+_DRAIN_POLL_S = max(0.01, float(os.environ.get("WFE_DRAIN_POLL_S", "2")))
 
 
 def unload_model(tag: str) -> None:
