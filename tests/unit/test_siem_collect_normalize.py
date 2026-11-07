@@ -140,6 +140,43 @@ def test_a_digits_first_line_that_lost_its_stamp_still_ships_code_and_clock() ->
     assert _pass1_event_line("[*] Initializing WMI protocol database") is None
 
 
+# Lab DC Format-List, 2026-11-07. 5140 labels the client `Source Address:`.
+FORMAT_LIST_5140 = r"""
+
+Id             : 5140
+TimeCreatedUtc : 2026-11-07 22:15:59 UTC
+Message        : A network share object was accessed.
+
+Subject:
+Security ID:        S-1-5-21-2386157369-3867013896-3369801996-500
+Account Name:       Administrator
+Account Domain:     PORTAL
+Logon ID:       0xD8BC6A
+
+Network Information:
+Object Type:        File
+Source Address:     10.0.0.25
+Source Port:        55859
+
+Share Information:
+Share Name:     \\*\C$
+Share Path:     \??\C:\
+
+Access Request Information:
+Access Mask:        0x1
+Accesses:       ReadData (or ListDirectory)
+"""
+
+
+def test_a_5140_share_access_carries_share_name_and_account() -> None:
+    """T1021.002 filters ShareName, Account, and IpAddress; Logon ID emits as LogonId."""
+    lines = _normalize_windows_security_events(FORMAT_LIST_5140)
+    assert lines == [
+        "EventCode=5140 TimeCreated=2026-11-07 22:15:59 UTC "
+        "ShareName=\\\\*\\C$ Account=Administrator IpAddress=10.0.0.25 LogonId=0xD8BC6A"
+    ]
+
+
 def test_the_identity_map_never_claims_a_code_pass_2_owns() -> None:
     """A compact identity line for a pass-2 code would survive the merge's
     `"Account=" not in e` guard and duplicate that code's detailed lines, so

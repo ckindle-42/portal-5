@@ -76,5 +76,23 @@
       "Account",
       "Account Name:[ \\t]*(\\S+)"
     ]
+  ],
+  "5140": [
+    [
+      "ShareName",
+      "Share Name:[ \\t]*(\\S.*)"
+    ],
+    [
+      "Account",
+      "Account Name:[ \\t]*(\\S+)"
+    ],
+    [
+      "IpAddress",
+      "Source Address:[ \\t]*(\\S+)"
+    ],
+    [
+      "LogonId",
+      "Logon ID:[ \\t]*(\\S+)"
+    ]
   ]
 }
