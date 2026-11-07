@@ -43,13 +43,18 @@ For each Splunk partition, `SplunkWindowSource` obtains `expected` from an
 independent bounded `search index=... sourcetype=... | stats count` export and
 compares it with the rows returned by the uncapped event export.
 
-`defense` reads the configured technique-to-SPL library from the knowledge
-plane's top resemblance label and selects source-applicable detections. It adds the concern's entities before each
+`defense` reads the configured technique-to-SPL library using the technique ids
+the knowledge plane's top resemblance asserts as data, falling back to ids
+published in its label only for knowledge written before records carried them,
+and selects source-applicable detections. It adds the concern's entities before each
 SPL pipeline and bounds the read-only export to the concern's event times; a
 wider request-window search can identify a `NEAR_MISS` only when returned rows
 carry timestamps outside the concern interval. Rows inside the interval mean
 `COVERED`, applicable detections with no rows mean `MISSED`, and a missing
 detection, unavailable searcher, or unresolved time means `INDETERMINATE`.
+An `INDETERMINATE` that no search could have resolved is counted separately in
+the `defense.search` receipt as `unsearchable`, with its reason, so a concern
+defense could not check never reads as one it searched and found nothing for.
 Nothing defaults to `COVERED`, and only aggregate query counts are receipted.
 
 ## Why
