@@ -21,7 +21,12 @@ pass-1 emitter's exact output shape, first line still carrying nxc's prefix.
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 from portal.modules.security.core.siem.collect import (
+    _event_key,
+    _logger,
+    _merge_windows_events,
     _normalize_windows_security_events,
     _pass1_event_line,
     _pass1_identity_ps,
@@ -187,3 +192,132 @@ def test_the_identity_map_never_claims_a_code_pass_2_owns() -> None:
         assert f"'{code}'=@" not in script
     assert "'4624'=@('Account=TargetUserName'" in script
     assert "'WorkstationName=Workstation'" in script
+
+
+# ── merge: per-event identity, not per-code sweep ───────────────────────────
+# Regression for a defect found live on 2026-11-07: 67 compact 4688 events
+# were read by pass 1, only 15 shipped because the old merge dropped every
+# compact line for a code once pass 2 returned any event for that code.
+# The fix matches on (EventCode, TimeCreated) so surplus compact lines survive.
+
+
+def test_surplus_compact_events_survive_the_merge() -> None:
+    """A code whose pass-1 had more compact lines than pass-2 returned must
+    not silently lose the surplus. Found live 2026-11-07: 67 compact 4688,
+    15 shipped."""
+    pass1 = [
+        "EventCode=4688 TimeCreated=2026-11-07 20:00:00 UTC",
+        "EventCode=4688 TimeCreated=2026-11-07 20:00:01 UTC",
+        "EventCode=4688 TimeCreated=2026-11-07 20:00:02 UTC",
+        "EventCode=4688 TimeCreated=2026-11-07 20:00:03 UTC",
+        "EventCode=4688 TimeCreated=2026-11-07 20:00:04 UTC",
+    ]
+    # Pass 2 returned only two of the five timestamps (simulating its cap).
+    pass2 = [
+        "EventCode=4688 TimeCreated=2026-11-07 20:00:01 UTC Account=victim",
+        "EventCode=4688 TimeCreated=2026-11-07 20:00:03 UTC Account=admin",
+    ]
+
+    merged, dropped = _merge_windows_events(pass1, pass2)
+
+    # Two drops for the exact matches.
+    assert dropped == 2
+    # Five total: three surviving compact + two detailed.
+    assert len(merged) == 5
+    assert "EventCode=4688 TimeCreated=2026-11-07 20:00:00 UTC" in merged
+    assert "EventCode=4688 TimeCreated=2026-11-07 20:00:02 UTC" in merged
+    assert "EventCode=4688 TimeCreated=2026-11-07 20:00:04 UTC" in merged
+    assert any("Account=victim" in e for e in merged)
+    assert any("Account=admin" in e for e in merged)
+
+
+def test_dropped_count_is_returned() -> None:
+    """The caller must be able to see how many compact events were replaced."""
+    pass1 = [
+        "EventCode=4688 TimeCreated=2026-11-07 20:00:00 UTC",
+        "EventCode=4688 TimeCreated=2026-11-07 20:00:01 UTC",
+    ]
+    pass2 = [
+        "EventCode=4688 TimeCreated=2026-11-07 20:00:00 UTC Account=victim",
+    ]
+
+    merged, dropped = _merge_windows_events(pass1, pass2)
+    assert dropped == 1
+    assert len(merged) == 2  # 1 surviving compact + 1 detailed
+
+
+def test_no_drop_when_detail_covrage_misses_all_timestamps() -> None:
+    """When pass 2 returned zero exact matches, nothing is dropped — the
+    compact line survives even for attack codes."""
+    pass1 = [
+        "EventCode=4688 TimeCreated=2026-11-07 20:00:00 UTC",
+    ]
+    pass2 = [
+        "EventCode=4688 TimeCreated=2026-11-07 20:00:01 UTC Account=victim",
+    ]
+
+    merged, dropped = _merge_windows_events(pass1, pass2)
+    assert dropped == 0
+    assert len(merged) == 2
+
+
+def test_an_event_without_timestamp_is_never_dropped() -> None:
+    """Best-effort: a line without TimeCreated is never matched to a detailed
+    event, because we can't establish identity. It always ships through."""
+    pass1 = ["EventCode=4769"]
+    pass2 = ["EventCode=4769 TimeCreated=2026-11-07 20:00:00 UTC ServiceName=svc"]
+
+    merged, dropped = _merge_windows_events(pass1, pass2)
+    assert dropped == 0
+    assert "EventCode=4769" in merged
+
+
+def test_different_codes_dont_merge_across() -> None:
+    """A compact line for code A must never be dropped by a detailed event
+    for code B, even if their timestamps match."""
+    pass1 = [
+        "EventCode=4625 TimeCreated=2026-11-07 20:00:00 UTC",
+    ]
+    pass2 = [
+        "EventCode=4769 TimeCreated=2026-11-07 20:00:00 UTC ServiceName=svc",
+    ]
+
+    merged, dropped = _merge_windows_events(pass1, pass2)
+    assert dropped == 0
+    assert "EventCode=4625 TimeCreated=2026-11-07 20:00:00 UTC" in merged
+
+
+def test_event_key_parses_untimed_lines_as_none() -> None:
+    """A line without TimeCreated returns None, so it is never matched."""
+    assert _event_key("EventCode=4769") is None
+    assert _event_key("[*] nxc banner") is None
+    assert _event_key("") is None
+
+
+def test_event_key_parses_stamped_lines() -> None:
+    trailing_id = "EventCode=4688 TimeCreated=2026-11-07 20:00:00 UTC Account=victim"
+    assert _event_key(trailing_id) == ("4688", "2026-11-07 20:00:00 UTC")
+
+
+def test_warning_logs_when_dropped_is_positive() -> None:
+    """The dropped count must be surfaced; a dropped=0 run must not log a warning."""
+
+    # Suppress noisy upstream logging; capture only this module's output.
+    with (
+        patch.object(_logger, "warning") as mock_warn,
+        patch("portal.modules.security.core.siem.collect._logger", _logger),
+    ):
+        # Non-zero drop triggers a warning.
+        _merge_windows_events(
+            ["EventCode=4688 TimeCreated=2026-11-07 20:00:00 UTC"],
+            ["EventCode=4688 TimeCreated=2026-11-07 20:00:00 UTC Account=v"],
+        )
+        assert mock_warn.called
+
+    mock_warn.reset_mock()
+    # Zero drop must not log.
+    _merge_windows_events(
+        ["EventCode=4688 TimeCreated=2026-11-07 20:00:00 UTC"],
+        ["EventCode=4688 TimeCreated=2026-11-07 20:00:01 UTC Account=v"],
+    )
+    assert not mock_warn.called

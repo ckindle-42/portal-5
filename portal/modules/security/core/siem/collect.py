@@ -12,6 +12,7 @@ nxc genuinely needs attacker-network reach to the DC over WinRM.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import sys
@@ -23,6 +24,8 @@ from portal.platform.data_loader import load_data
 _PROJECT_ROOT = Path(__file__).resolve().parents[5]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
+
+_logger = logging.getLogger(__name__)
 
 
 def unwrap_mcp_stdout(raw: str) -> str:
@@ -106,6 +109,58 @@ _PASS1_IDENTITY_FIELDS: dict[str, tuple[tuple[str, str], ...]] = {
         ("TargetUserName", "Group"),
     ),
 }
+
+
+def _event_key(line: str) -> tuple[str, str] | None:
+    """Extract (EventCode, TimeCreated) from a normalized event line.
+
+    Returns None when the line does not carry a recognisable TimeCreated stamp
+    (e.g. an unparsed nxc banner or a best-effort EventCode-only line), so the
+    caller can treat it as unmatchable rather than accidentally matching it.
+    """
+    m = re.match(r"^EventCode=(\d+) TimeCreated=(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC)", line)
+    if m:
+        return m.group(1), m.group(2)
+    return None
+
+
+def _merge_windows_events(
+    all_events: list[str], detailed_events: list[str]
+) -> tuple[list[str], int]:
+    """Merge pass-1 compact lines with pass-2 detailed events.
+
+    Only drops a compact line when an exact (EventCode, TimeCreated) match
+    exists in the detailed events. Surplus compact lines are preserved so the
+    caller receives every event that was actually read, not just the ones
+    pass-2 returned. The old behaviour dropped every compact line for a code
+    once pass-2 returned any event for that code, silently losing all surplus.
+    """
+    # Build the set of (code, timestamp) present in detailed events.
+    detailed_keys: set[tuple[str, str]] = set()
+    for d in detailed_events:
+        key = _event_key(d)
+        if key is not None:
+            detailed_keys.add(key)
+
+    dropped = 0
+    merged: list[str] = []
+    for e in all_events:
+        key = _event_key(e)
+        if key is not None and key in detailed_keys:
+            dropped += 1
+        else:
+            merged.append(e)
+    merged.extend(detailed_events)
+    if dropped:
+        _logger.warning(
+            "windows:security: %d compact events had an exact detail match "
+            "and were replaced (kept %d compact + %d detailed = %d total)",
+            dropped,
+            len(all_events) - dropped,
+            len(detailed_events),
+            len(all_events) - dropped + len(detailed_events),
+        )
+    return merged, dropped
 
 
 def _pass1_identity_ps() -> str:
@@ -500,24 +555,10 @@ def collect_target(
                     stdout_detail = unwrap_mcp_stdout(r_detail["output"])
                     detailed_events.extend(_normalize_windows_security_events(stdout_detail))
 
-            # Merge: all compact events + detailed attack events (detailed takes precedence).
-            # The model sees the full landscape AND has the detail it needs for grounding.
-            merged = list(all_events)  # copy
-            detail_codes = set()
-            for de in detailed_events:
-                if "EventCode=" in de:
-                    detail_codes.add(de.split("EventCode=")[1].split()[0])
-            # Remove compact entries for event codes we have detailed versions of
-            merged = [
-                e
-                for e in merged
-                if not any(
-                    f"EventCode={c}" in e and e.startswith(f"EventCode={c}") and "Account=" not in e
-                    for c in detail_codes
-                )
-            ]
-            merged.extend(detailed_events)
-
+            # Merge: all compact events + detailed attack events (detailed takes
+            # precedence for exact (code, timestamp) matches; surplus compact
+            # lines survive so the caller sees every event that was read).
+            merged, dropped = _merge_windows_events(all_events, detailed_events)
             if merged:
                 out["windows:security"] = merged
 
