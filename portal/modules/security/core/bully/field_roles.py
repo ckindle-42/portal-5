@@ -126,6 +126,10 @@ _TIME_FORMATS = (
 )
 # syslog-style, year-less: parsed below with an explicit year appended
 _YEARLESS_TIME_FORMAT = "%b %d %H:%M:%S"
+# strptime treats a trailing literal `Z` as a character, not a zone, so a format
+# ending in one yields a NAIVE datetime that then falls through to the reader's
+# local offset. These formats mean Zulu and are stamped UTC explicitly below.
+_UTC_LITERAL_FORMATS = frozenset(fmt for fmt in _TIME_FORMATS if fmt.endswith("Z"))
 
 
 def _flatten(record: dict[str, Any], prefix: str = "") -> dict[str, Any]:
@@ -147,33 +151,43 @@ def _flatten(record: dict[str, Any], prefix: str = "") -> dict[str, Any]:
     return out
 
 
-def _parse_syslog_time(candidate: str, year: int) -> float | None:
+def _parse_syslog_time(candidate: str, year: int, *, is_utc: bool = False) -> float | None:
     """Year-less syslog stamp; strptime's 1900 default is deprecated (py3.13)."""
     import datetime as _dt
 
     try:
-        return _dt.datetime.strptime(
-            f"{candidate} {year}", f"{_YEARLESS_TIME_FORMAT} %Y"
-        ).timestamp()
+        stamp = _dt.datetime.strptime(f"{candidate} {year}", f"{_YEARLESS_TIME_FORMAT} %Y")
     except ValueError:
         return None
+    if is_utc:
+        stamp = stamp.replace(tzinfo=_dt.UTC)
+    return stamp.timestamp()
 
 
 def _parse_stamp_text(text: str, year: int) -> float | None:
-    """Year-bearing formats first, then the syslog stamp with the year appended."""
+    """Year-bearing formats first, then the syslog stamp with the year appended.
+
+    A `" UTC"` suffix is an explicit zone, so the stamp under it is read AS UTC.
+    Dropping the marker and letting a naive stamp fall through to local time put
+    every such event out by the reader's own offset -- found live 2026-11-07,
+    six hours on a Central host reading a UTC-stamped Windows collection.
+    """
     import datetime as _dt
 
-    candidates = [text]
+    candidates: list[tuple[str, bool]] = [(text, False)]
     if text.endswith(" UTC"):
-        candidates.append(text[:-4])
-    for candidate in candidates:
+        candidates.append((text[:-4], True))
+    for candidate, is_utc in candidates:
         for fmt in _TIME_FORMATS:
             try:
-                return _dt.datetime.strptime(candidate, fmt).timestamp()
+                stamp = _dt.datetime.strptime(candidate, fmt)
             except ValueError:
                 continue
-    for candidate in candidates:
-        parsed = _parse_syslog_time(candidate, year)
+            if stamp.tzinfo is None and (is_utc or fmt in _UTC_LITERAL_FORMATS):
+                stamp = stamp.replace(tzinfo=_dt.UTC)
+            return stamp.timestamp()
+    for candidate, is_utc in candidates:
+        parsed = _parse_syslog_time(candidate, year, is_utc=is_utc)
         if parsed is not None:
             return parsed
     return None

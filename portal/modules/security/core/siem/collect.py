@@ -68,6 +68,78 @@ _WINDOWS_EVENT_FIELD_PATTERNS: dict[str, list[tuple[str, str]]] = {
 _NXC_LINE_PREFIX = re.compile(r"^[A-Za-z0-9_-]+\s+[\d.]+\s+\d+\s+\S+\s{2,}", re.MULTILINE)
 
 
+# Identity fields the compact pass 1 appends to each flat line, per EventCode:
+# (EventData name, emitted name). Emitted names are the vocabulary
+# siem/spl_detections.yaml already filters on (Account/LogonId/LogonType/
+# IpAddress/WorkstationName), so a compact line matches the same SPL filters
+# as the enriched pass-2 lines. Codes owned by pass 2 (_attack_ids) stay
+# unmapped — their compact lines are dropped in the merge in favor of the
+# full-Message detail. A field the event does not carry is simply not
+# emitted; nothing is defaulted. Names, not positional Properties indices:
+# the DC's 4624 carries 27 EventData fields (IpAddress at 18, not the usual
+# 15) and 4776 names its workstation field `Workstation` — both live
+# 2026-11-07, Windows Server 2022.
+_PASS1_IDENTITY_FIELDS: dict[str, tuple[tuple[str, str], ...]] = {
+    "4624": (
+        ("TargetUserName", "Account"),
+        ("TargetLogonId", "LogonId"),
+        ("LogonType", "LogonType"),
+        ("IpAddress", "IpAddress"),
+        ("WorkstationName", "WorkstationName"),
+    ),
+    "4634": (
+        ("TargetUserName", "Account"),
+        ("TargetLogonId", "LogonId"),
+        ("LogonType", "LogonType"),
+    ),
+    "4648": (
+        ("TargetUserName", "Account"),
+        ("SubjectUserName", "SubjectUserName"),
+        ("TargetLogonId", "LogonId"),
+        ("IpAddress", "IpAddress"),
+    ),
+    "4672": (("SubjectUserName", "Account"), ("SubjectLogonId", "LogonId")),
+    "4776": (("TargetUserName", "Account"), ("Workstation", "WorkstationName")),
+    "4799": (
+        ("SubjectUserName", "Account"),
+        ("SubjectLogonId", "LogonId"),
+        ("TargetUserName", "Group"),
+    ),
+}
+
+
+def _pass1_identity_ps() -> str:
+    """Serialize _PASS1_IDENTITY_FIELDS as the PowerShell hashtable the pass-1
+    emitter consults: @{'4624'=@('Account=TargetUserName',...)}. Each spec is
+    `emitted=EventData`; the emitter renames on output."""
+    entries = []
+    for code, pairs in _PASS1_IDENTITY_FIELDS.items():
+        specs = ",".join(f"'{out}={src}'" for src, out in pairs)
+        entries.append(f"'{code}'=@({specs})")
+    return "@{" + ";".join(entries) + "}"
+
+
+# `4624 2026-07-06 10:30:45 UTC` plus an optional identity tail. The stamp is
+# fixed-format from the emitter, so a regex can split it from the tail.
+_PASS1_LINE = re.compile(r"^(\d+) (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC)(.*)$")
+
+
+def _pass1_event_line(line: str) -> str | None:
+    """One pass-1 stdout line -> its flat `EventCode=... TimeCreated=...` form,
+    identity tail passed through verbatim (a value may contain spaces). A
+    digits-first line that somehow lost the stamp shape still ships code+clock,
+    exactly as before this pass carried identity; anything else (nxc banners,
+    PowerShell errors) is not an event."""
+    stripped = strip_nxc_line_prefix(line).strip()
+    m = _PASS1_LINE.match(stripped)
+    if m:
+        return f"EventCode={m.group(1)} TimeCreated={m.group(2)}{m.group(3)}"
+    parts = stripped.split(None, 1)
+    if len(parts) == 2 and parts[0].isdigit():
+        return f"EventCode={parts[0]} TimeCreated={parts[1]}"
+    return None
+
+
 def strip_nxc_line_prefix(text: str) -> str:
     """Strip nxc's per-line status-column prefix, exposing the real PowerShell
     output underneath. Shared with blue.py's WinEventBackend.query and
@@ -79,9 +151,13 @@ def strip_nxc_line_prefix(text: str) -> str:
 
 
 def _normalize_windows_security_events(raw_text: str) -> list[str]:
-    """Turn Get-WinEvent's `Format-List Id,TimeCreated,Message` output into flat
+    """Turn Get-WinEvent's `Format-List Id,TimeCreatedUtc,Message` output into flat
     EventCode=... key=value lines that match what siem/spl_detections.yaml's SPL
     queries actually filter on.
+
+    Callers render the stamp as a `TimeCreatedUtc` calculated property so the
+    event's own clock survives as UTC; a block without one still yields a line,
+    just an untimed one.
 
     Best-effort: an event whose EventCode we recognize but whose expected fields
     don't match (Windows message text formatting drift, redacted fields, etc.)
@@ -98,6 +174,15 @@ def _normalize_windows_security_events(raw_text: str) -> list[str]:
             continue
         event_code = m.group(1)
         fields = [f"EventCode={event_code}"]
+        # The event's own clock, carried through as UTC. Without it these
+        # enriched attack-relevant events reach a consumer untimed, and any
+        # consumer that needs event times has to drop them -- which is exactly
+        # what happened live 2026-11-07: a real kerberoast/spray episode shipped
+        # with its 4625/4768/4769 lines discarded while the 4624/4634 noise,
+        # which comes from the compact pass, survived.
+        tm = re.search(r"^\s*TimeCreatedUtc\s*:\s*(\S.*?)\s*$", block, re.MULTILINE)
+        if tm:
+            fields.append(f"TimeCreated={tm.group(1)}")
         for name, pattern in _WINDOWS_EVENT_FIELD_PATTERNS.get(event_code, []):
             fm = re.search(pattern, block)
             if fm:
@@ -328,14 +413,36 @@ def collect_target(
                 timeout=60,
             )
 
-            # Pass 1: ALL events — compact format (Id + TimeCreated only).
-            # This gives the model the full event landscape including background
-            # noise (logon/logoff, privilege use, etc.) without blowing up output size.
+            # Pass 1: ALL events — fixed `Id + UTC stamp` prefix plus the
+            # event's own identity fields (logon family: account, session id,
+            # logon type, source), read by NAME from the event's XML EventData
+            # and appended as key=value pairs on the same line. Identity is
+            # the point: without an account/session on these lines, entity
+            # extraction has nothing to key on and one principal's activity
+            # cannot be separated from another's (live 2026-11-07: a real
+            # 5-user spray plus kerberoast scored zero because ~90% of events
+            # reached the grader as a code and a clock). Still compact — named
+            # fields only, never the whole Message: a combined full-Message
+            # query produced 466KB live 2026-07-18, 9x this MCP's then-output
+            # cap, silently losing most events.
             ps_all = (
                 f"$start=[DateTimeOffset]::FromUnixTimeSeconds({since}).LocalDateTime; "
+                f"$idmap={_pass1_identity_ps()}; "
                 "Get-WinEvent -FilterHashtable @{LogName='Security';StartTime=$start} "
                 "-MaxEvents 500 "
-                "| ForEach-Object { $_.Id.ToString() + ' ' + $_.TimeCreated.ToString('yyyy-MM-dd HH:mm:ss') }"
+                # UTC, not local: the collected host and whatever reads this
+                # need not share a timezone (live 2026-11-07: the lab DC runs
+                # Pacific while the collector host runs Central, so a naive
+                # local stamp was read two hours out).
+                "| ForEach-Object { $tail=''; $want=$idmap[[string]$_.Id]; "
+                "if ($want) { $x=[xml]$_.ToXml(); "
+                "if ($x.Event.EventData) { foreach ($s in $want) { $p=$s.Split('='); "
+                "foreach ($d in $x.Event.EventData.Data) { if ($d.Name -eq $p[1]) { "
+                "$v=$d.'#text'; if ($v -and $v -ne '-') { $tail += ' ' + $p[0] + '=' + $v } "
+                "break } } } } } "
+                "$_.Id.ToString() + ' ' "
+                "+ $_.TimeCreated.ToUniversalTime().ToString('yyyy-MM-dd HH:mm:ss') + ' UTC' "
+                "+ $tail }"
             )
             b64_all = base64.b64encode(ps_all.encode("utf-16-le")).decode()
             code_all = (
@@ -347,11 +454,9 @@ def collect_target(
             if r_all.get("ok") and r_all.get("output", "").strip():
                 stdout_all = unwrap_mcp_stdout(r_all["output"])
                 for line in stdout_all.splitlines():
-                    line = strip_nxc_line_prefix(line).strip()
-                    # Format: "4624 2026-07-06 10:30:45"
-                    parts = line.split(None, 1)
-                    if len(parts) == 2 and parts[0].isdigit():
-                        all_events.append(f"EventCode={parts[0]} TimeCreated={parts[1]}")
+                    event_line = _pass1_event_line(line)
+                    if event_line:
+                        all_events.append(event_line)
 
             # Pass 2: Attack-relevant events with full Message detail, one
             # event ID per call. Found live 2026-07-18: a single combined
@@ -381,7 +486,9 @@ def collect_target(
                 ps_detail = (
                     f"$start=[DateTimeOffset]::FromUnixTimeSeconds({since}).LocalDateTime; "
                     f"Get-WinEvent -FilterHashtable @{{LogName='Security';Id={_aid};StartTime=$start}} "
-                    "-MaxEvents 15 | Format-List Id,TimeCreated,Message"
+                    "-MaxEvents 15 | Select-Object Id,@{n='TimeCreatedUtc';"
+                    "e={$_.TimeCreated.ToUniversalTime().ToString('yyyy-MM-dd HH:mm:ss')+' UTC'}},"
+                    "Message | Format-List"
                 )
                 b64_detail = base64.b64encode(ps_detail.encode("utf-16-le")).decode()
                 code_detail = (
@@ -463,7 +570,9 @@ def collect_target(
                 f"$start=[DateTimeOffset]::FromUnixTimeSeconds({since}).LocalDateTime; "
                 "Get-WinEvent -FilterHashtable @{LogName='Security';StartTime=$start} "
                 "-MaxEvents 200 -ErrorAction SilentlyContinue "
-                "| Format-List Id,TimeCreated,Message",
+                "| Select-Object Id,@{n='TimeCreatedUtc';"
+                "e={$_.TimeCreated.ToUniversalTime().ToString('yyyy-MM-dd HH:mm:ss')+' UTC'}},"
+                "Message | Format-List",
                 120,
             )
             if proc_out:
