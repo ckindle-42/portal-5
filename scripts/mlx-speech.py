@@ -30,6 +30,7 @@ import sys
 import tempfile
 import time
 import uuid
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import uvicorn
@@ -111,6 +112,25 @@ QWEN3_SPEAKERS = [
 _tts_models: dict = {}  # keyed by model path
 _asr_model = None
 
+# Idle models are dropped after this many unused seconds; 0 keeps them resident.
+MLX_AUDIO_IDLE_UNLOAD_S = float(os.getenv("MLX_AUDIO_IDLE_UNLOAD_S", "300"))
+_model_last_used: dict[str, float] = {}
+
+
+def _touch_model(name: str) -> None:
+    _model_last_used[name] = time.monotonic()
+
+
+def _loaded_models() -> list[str]:
+    """Names of the models currently holding memory."""
+    loaded = [f"tts:{mid}" for mid in _tts_models]
+    if _asr_model is not None:
+        loaded.append("asr")
+    if _clone_model is not None:
+        loaded.append("clone")
+    return loaded
+
+
 # Serialize TTS requests — concurrent Metal GPU command buffer encoding crashes
 # AGXG16XFamilyCommandBuffer (macOS Apple Silicon). Semaphore(1) ensures one
 # TTS generation at a time across all backends (Kokoro, Qwen3-TTS).
@@ -125,6 +145,7 @@ def _get_tts_model(model_id: str):
         logger.info("Loading TTS model: %s", model_id)
         _tts_models[model_id] = load_model(model_id)
         logger.info("TTS model loaded: %s", model_id)
+    _touch_model(f"tts:{model_id}")
     return _tts_models[model_id]
 
 
@@ -137,6 +158,7 @@ def _get_asr_model():
         logger.info("Loading ASR model: %s", QWEN3_ASR_MODEL)
         _asr_model = load(QWEN3_ASR_MODEL)
         logger.info("ASR model loaded: %s", QWEN3_ASR_MODEL)
+    _touch_model("asr")
     return _asr_model
 
 
@@ -155,7 +177,53 @@ def _get_clone_model():
         logger.info("Loading voice-clone model: %s", CLONE_MODEL)
         _clone_model = load_model(CLONE_MODEL)
         logger.info("Voice-clone model loaded")
+    _touch_model("clone")
     return _clone_model
+
+
+# ── Idle unload (TASK F4) ─────────────────────────────────────────────────────
+
+
+def _drop_models(names: list[str]) -> None:
+    """Null the module references for `names`; the next use lazy-loads again."""
+    global _asr_model, _clone_model
+    for name in names:
+        _model_last_used.pop(name, None)
+        if name.startswith("tts:"):
+            _tts_models.pop(name[len("tts:") :], None)
+        elif name == "asr":
+            _asr_model = None
+        elif name == "clone":
+            _clone_model = None
+        logger.info("Idle-unloaded model: %s", name)
+
+
+async def _unload_idle_models() -> list[str]:
+    """Drop models idle past MLX_AUDIO_IDLE_UNLOAD_S; returns the unloaded names.
+
+    Runs under the request lock so an unload never races a request — every model
+    touch happens under that lock, so the stamps are stable once we hold it.
+    """
+    if MLX_AUDIO_IDLE_UNLOAD_S <= 0:
+        return []
+    async with _tts_lock:
+        now = time.monotonic()
+        idle = [n for n, t in _model_last_used.items() if now - t >= MLX_AUDIO_IDLE_UNLOAD_S]
+        if not idle:
+            return []
+        _drop_models(idle)
+        gc.collect()
+        await asyncio.to_thread(mlx_cache.release_cache, logger)
+        return idle
+
+
+_IDLE_POLL_S = 15.0  # unload fires within ~15 s of the idle threshold
+
+
+async def _idle_unload_loop() -> None:
+    while True:
+        await asyncio.sleep(_IDLE_POLL_S)
+        await _unload_idle_models()
 
 
 def _profile_dir(name: str) -> Path:
@@ -336,7 +404,20 @@ def _is_qwen3_speaker(voice: str) -> bool:
 
 # ── FastAPI App ────────────────────────────────────────────────────────────────
 
-app = FastAPI(title="MLX Speech Server", version="1.0.0")
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    unloader = asyncio.create_task(_idle_unload_loop()) if MLX_AUDIO_IDLE_UNLOAD_S > 0 else None
+    try:
+        yield
+    finally:
+        if unloader is not None:
+            unloader.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await unloader
+
+
+app = FastAPI(title="MLX Speech Server", version="1.0.0", lifespan=_lifespan)
 
 
 @app.get("/health")
@@ -353,6 +434,8 @@ async def health():
         "service": "mlx-speech",
         "port": PORT,
         "backends": backends,
+        "loaded_models": _loaded_models(),
+        "idle_unload_s": MLX_AUDIO_IDLE_UNLOAD_S,
         "tts_default_backend": DEFAULT_TTS_BACKEND,
         "tts_default_voice": DEFAULT_TTS_VOICE,
         "voice_cloning": CLONE_MODEL,
