@@ -14,6 +14,12 @@ entries can be found where they say they are. This reads aggregates only (``tsta
 * for an entry with more than one entity, whether they ever appear together in one event of the
   declared sourcetypes, outside Portal-written sources (D-T11 matches an entry's entities with AND).
 
+Entities are resolved against indexed term metadata (``TERM()`` -- the full entity term when the
+index holds it, otherwise its major tokens ANDed) and never through a search-time ``sourcetype=``
+field: BOTS corpora rename ``wineventlog:*`` at search time, which is exactly what made this audit
+report an entity absent from a sourcetype while its own elsewhere map showed it there. An internal
+consistency check turns that contradiction into its own finding instead of an absence verdict.
+
 It decides nothing and edits nothing. Raw telemetry is never read or written.
 """
 
@@ -22,6 +28,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 from collections.abc import Iterable, Mapping
@@ -50,10 +57,13 @@ def _q(value: str) -> str:
 
 
 class Probe:
-    """Read-only aggregate queries. Preview rows precede final ones, so the last row per key wins."""
+    """Read-only aggregate queries over indexed metadata. Preview rows precede final ones,
+    so the last row per key wins."""
 
     def __init__(self, source: Search) -> None:
         self.source = source
+        self._presence: dict[tuple[str, str], dict[str, int]] = {}
+        self._forms: dict[tuple[str, str], str] = {}
 
     def _rows(self, search: str) -> list[Mapping[str, Any]]:
         return list(self.source.iter_post(search, 0.0, time.time() + 1.0))
@@ -80,26 +90,77 @@ class Probe:
         return {key[0]: count for key, count in rows.items()}
 
     def entity_days(self, index: str, sourcetype: str, entity: str) -> dict[str, int]:
+        form = self._form(index, entity)
+        if not form:
+            return {}
         rows = self._keyed(
-            f"search index={index} sourcetype={_q(sourcetype)} {_q(entity)}"
-            " | eval day=floor(_time/86400)*86400 | stats count as count by day",
-            "day",
+            f"| tstats count where index={index} sourcetype={_q(sourcetype)} {form}"
+            " by _time span=1d",
+            "_time",
         )
         return {key[0]: count for key, count in rows.items()}
 
     def joint_events(self, index: str, sourcetype: str, entities: Iterable[str]) -> int:
-        terms = "".join(f" {_q(entity)}" for entity in entities)
+        forms = " ".join(form for form in (self._form(index, e) for e in entities) if form)
+        if not forms:
+            return 0
         rows = self._rows(
-            f'search index={index} sourcetype={_q(sourcetype)} NOT source="{PORTAL_SOURCE_PREFIX}*"'
-            f"{terms} | stats count as count"
+            f"| tstats count where index={index} sourcetype={_q(sourcetype)}"
+            f' NOT source="{PORTAL_SOURCE_PREFIX}*" {forms}'
         )
         return int(float(str(rows[-1].get("count", 0)))) if rows else 0
 
     def entity_elsewhere(self, index: str, entity: str) -> dict[str, int]:
-        rows = self._keyed(
-            f"| tstats count where index={index} TERM({_q(entity)}) by sourcetype", "sourcetype"
-        )
-        return {key[0]: count for key, count in rows.items()}
+        return dict(self._presence_map(index, entity))
+
+    def _presence_map(self, index: str, entity: str) -> dict[str, int]:
+        """Resolve the entity's metadata term form and where it lives, once per (index, entity).
+
+        The full entity is tried as a ``TERM()`` first; when the index holds none of it and the
+        entity spans major breakers (``BSTOLL-L``, ``bstoll@froth.ly``), its alphanumeric tokens
+        are tried ANDed -- verified per entity against the live index, and upper-bounding real
+        presence for the token form.
+        """
+        key = (index, entity)
+        if key not in self._presence:
+            chosen = ""
+            presence: dict[str, int] = {}
+            candidates = [f"TERM({_q(entity)})"]
+            tokens = re.findall(r"[A-Za-z0-9]+", entity)
+            if len(tokens) > 1:
+                candidates.append(" ".join(f"TERM({_q(t)})" for t in tokens))
+            for candidate in candidates:
+                rows = self._keyed(
+                    f"| tstats count where index={index} {candidate} by sourcetype", "sourcetype"
+                )
+                if rows:
+                    chosen = candidate
+                    presence = {k[0]: count for k, count in rows.items()}
+                    break
+            self._forms[key] = chosen
+            self._presence[key] = dict(sorted(presence.items(), key=lambda kv: -kv[1]))
+        return self._presence[key]
+
+    def _form(self, index: str, entity: str) -> str:
+        self._presence_map(index, entity)
+        return self._forms[(index, entity)]
+
+
+def _record_absence(
+    problems: list[str],
+    entity: str,
+    entities: dict[str, Any],
+    sourcetypes: Iterable[str],
+    elsewhere: Mapping[str, int],
+) -> None:
+    """Absence must never contradict the elsewhere map: when the map names a declared
+    sourcetype with events, the verdict is recorded as that contradiction instead."""
+    contradicted = sorted(st for st in sourcetypes if elsewhere.get(st, 0) > 0)
+    if contradicted:
+        problems.append(f"entity_metadata_contradiction:{entity}:" + ",".join(contradicted))
+    else:
+        problems.append(f"entity_absent_in_declared_sourcetypes:{entity}")
+    entities[entity]["elsewhere"] = dict(sorted(elsewhere.items(), key=lambda kv: -kv[1])[:5])
 
 
 def audit_entry(entry: AnswerKeyEntry, probe: Probe, duplicates: list[str]) -> dict[str, Any]:
@@ -133,11 +194,12 @@ def audit_entry(entry: AnswerKeyEntry, probe: Probe, duplicates: list[str]) -> d
             "last_day": max(days, key=float) if days else None,
         }
         if not days:
-            problems.append(f"entity_absent_in_declared_sourcetypes:{entity}")
-            entities[entity]["elsewhere"] = dict(
-                sorted(
-                    probe.entity_elsewhere(entry.dataset, entity).items(), key=lambda kv: -kv[1]
-                )[:5]
+            _record_absence(
+                problems,
+                entity,
+                entities,
+                entry.sourcetypes,
+                probe.entity_elsewhere(entry.dataset, entity),
             )
         elif len(sensor_days) > 1 and sensor_days <= set(days):
             problems.append(f"entity_on_every_sensor_day:{entity}")

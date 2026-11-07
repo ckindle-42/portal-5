@@ -1175,8 +1175,8 @@ def _run_main(args: argparse.Namespace) -> int:  # noqa: C901, PLR0912, PLR0915 
     all_batch_hashes: dict[str, str] = {}
     truth_manifest_sha = hashlib.sha256(TRUTH_MANIFEST.read_bytes()).hexdigest()
     for proof_slice in PLAN:
-        calibration_batch = source.fetch(
-            [proof_slice.source], proof_slice.calibration_start, proof_slice.calibration_end
+        calibration_batch = source.fetch_by_indexed_source(
+            proof_slice.source, proof_slice.calibration_start, proof_slice.calibration_end
         )
         live_cal.setdefault(proof_slice.environment, {}).update(calibration_batch.records_by_source)
         calibration_metadata.setdefault(proof_slice.environment, []).append(
@@ -1193,7 +1193,9 @@ def _run_main(args: argparse.Namespace) -> int:  # noqa: C901, PLR0912, PLR0915 
                 "count_method": "bounded raw-search stats count plus uncapped event export",
             }
         )
-        test_batch = source.fetch([proof_slice.source], proof_slice.start, proof_slice.end)
+        test_batch = source.fetch_by_indexed_source(
+            proof_slice.source, proof_slice.start, proof_slice.end
+        )
         test_batches[proof_slice.window_id] = test_batch
         all_batch_hashes[proof_slice.window_id] = hashlib.sha256(
             "|".join(_event_ids(test_batch)).encode()

@@ -116,6 +116,53 @@ def test_splunk_count_mismatch_is_degraded_and_label_keys_fail_closed() -> None:
         label_source.fetch([SourceSpec("i", "s")], 0, 1)
 
 
+def test_fetch_by_indexed_source_scopes_the_raw_read_with_metadata_sources() -> None:
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        params = parse_qs(request.content.decode())
+        search = params["search"][0]
+        calls.append(search)
+        if search.startswith("| tstats"):
+            return httpx.Response(
+                200, text='{"result":{"source":"wineventlog:security","count":"46469"}}'
+            )
+        body = '{"result":{"count":"2"}}' if "| stats count" in search else _events()
+        return httpx.Response(200, text=body)
+
+    source = SplunkWindowSource(
+        url="https://splunk.test:8089",
+        partition_seconds=10,
+        transport=httpx.MockTransport(handler),
+    )
+    spec = SourceSpec("botsv3", "wineventlog:security")
+    batch = source.fetch_by_indexed_source(spec, 0, 2)
+
+    assert batch.expected == batch.fetched == 2
+    assert batch.degraded == []
+    records = batch.records_by_source[spec.source_id]
+    assert [row["_raw"] for row in records] == ["raw-0", "raw-1"]
+    assert all(row["sourcetype"] == "wineventlog:security" for row in records)
+    resolution, count_search, event_search = calls
+    assert resolution.startswith("| tstats count where index=")
+    assert 'sourcetype="wineventlog:security" by source' in resolution
+    assert '(source="wineventlog:security")' in count_search
+    assert count_search.endswith("| stats count")
+    assert "sourcetype=" not in count_search and "sourcetype=" not in event_search
+    assert event_search.startswith('search index="botsv3" (source="wineventlog:security")')
+
+
+def test_fetch_by_indexed_source_fails_loudly_when_metadata_has_no_source() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="")
+
+    source = SplunkWindowSource(
+        url="https://splunk.test:8089", transport=httpx.MockTransport(handler)
+    )
+    with pytest.raises(WindowFetchError, match="no source"):
+        source.fetch_by_indexed_source(SourceSpec("botsv3", "xmlwineventlog:sysmon"), 0, 1)
+
+
 def test_splunk_stream_parser_handles_json_objects_split_across_chunks() -> None:
     first = '{"result":{"_raw":"a\\nb","_time":"1"}}'
     second = '{"result":{"_raw":"c","_time":"2"}}'

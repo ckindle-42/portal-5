@@ -228,20 +228,32 @@ def test_cross_index_benign_needs_the_daily_counts() -> None:
 
 
 class _Rows:
-    def __init__(self, rows: list[dict[str, Any]]) -> None:
+    """Duck-typed SplunkWindowSource: metadata resolution plus canned data rows."""
+
+    def __init__(
+        self, rows: list[dict[str, Any]], sources: tuple[str, ...] = ("stream:http",)
+    ) -> None:
         self.rows = rows
+        self.sources = sources
         self.searches: list[str] = []
+        self.resolved: list[str] = []
 
     def iter_post(self, search: str, start: float, end: float) -> Any:
         self.searches.append(search)
         return iter(self.rows)
+
+    def indexed_source_values(self, spec: Any) -> tuple[str, ...]:
+        self.resolved.append(f"{spec.index}:{spec.sourcetype}")
+        return self.sources
 
 
 def test_day_counts_use_the_entity_filter_and_keep_the_final_row() -> None:
     rows = _Rows([{"day": "864000", "count": "3"}, {"day": "864000", "count": "7"}, {"day": None}])
     source = runner.SplunkTruthSource(rows, partition_seconds=600.0)
     assert source.query_day_counts("botsv1", "stream:http", ("a.example",)) == {864000.0: 7}
-    assert '("a.example")' in rows.searches[0]
+    assert rows.resolved == ["botsv1:stream:http"]
+    assert '(source="stream:http")' in rows.searches[0]
+    assert "sourcetype=" not in rows.searches[0]
     assert "floor(_time/86400)*86400" in rows.searches[0]
 
 
@@ -251,3 +263,30 @@ def test_the_rebuilt_key_filter_is_and_matched_and_skips_portal_sources() -> Non
     source.query_day_counts("botsv1", "stream:http", ("a.example", "10.0.0.1"))
     assert 'NOT source="portal5:*" "a.example" "10.0.0.1"' in rows.searches[0]
     assert " OR " not in rows.searches[0]
+
+
+def test_stats_are_scoped_by_indexed_sources_and_carry_count_min_max() -> None:
+    rows = _Rows(
+        [{"count": "46469", "first": "1534723300", "last": "1534760000"}],
+        sources=("wineventlog:security",),
+    )
+    source = runner.SplunkTruthSource(rows, partition_seconds=600.0)
+    stat = source.query_stats("botsv3", "wineventlog:security", ("bstoll",))
+    assert (stat.event_count, stat.first_epoch, stat.last_epoch) == (
+        46469,
+        1534723300.0,
+        1534760000.0,
+    )
+    assert '(source="wineventlog:security")' in rows.searches[0]
+    assert "min(_time) as first" in rows.searches[0]
+
+
+def test_a_declared_sourcetype_absent_from_index_metadata_reports_nothing() -> None:
+    rows = _Rows([], sources=())
+    source = runner.SplunkTruthSource(rows, partition_seconds=600.0)
+    assert source.query_stats(
+        "botsv3", "xmlwineventlog:sysmon", ("bstoll",)
+    ) == runner.EntitySearchStat(0, None, None)
+    assert source.query_day_counts("botsv3", "xmlwineventlog:sysmon", ("bstoll",)) == {}
+    assert not list(source.fetch_records("botsv3", "xmlwineventlog:sysmon", ("bstoll",), 0.0, 10.0))
+    assert rows.searches == []
