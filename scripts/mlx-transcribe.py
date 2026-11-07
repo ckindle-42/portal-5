@@ -94,12 +94,29 @@ DIARIZE_MODEL = os.getenv("MLX_DIARIZE_MODEL", "mlx-community/diar_sortformer_4s
 # is returned single-speaker with a warning. Streaming diarization has bounded
 # memory, so this is really an OWUI-wall-clock guard, not a memory one.
 DIARIZE_MAX_S = float(os.getenv("MLX_DIARIZE_MAX_S", "10800"))
+# Idle models are dropped after this many unused seconds; 0 keeps them resident.
+MLX_AUDIO_IDLE_UNLOAD_S = float(os.getenv("MLX_AUDIO_IDLE_UNLOAD_S", "300"))
 
 # ── Model cache ────────────────────────────────────────────────────────────────
 
 _parakeet_model: Any = None
 _diarizer_model: Any = None
 _pipeline_lock = asyncio.Semaphore(1)  # GPU-heavy; serialize.
+_model_last_used: dict[str, float] = {}
+
+
+def _touch_model(name: str) -> None:
+    _model_last_used[name] = time.monotonic()
+
+
+def _loaded_models() -> list[str]:
+    """Names of the models currently holding memory."""
+    loaded = []
+    if _parakeet_model is not None:
+        loaded.append("parakeet")
+    if _diarizer_model is not None:
+        loaded.append("diarizer")
+    return loaded
 
 
 def _get_parakeet() -> Any:
@@ -111,6 +128,7 @@ def _get_parakeet() -> Any:
         logger.info("Loading Parakeet ASR: %s", PARAKEET_MODEL)
         _parakeet_model = load(PARAKEET_MODEL)
         logger.info("Parakeet ready")
+    _touch_model("parakeet")
     return _parakeet_model
 
 
@@ -123,7 +141,51 @@ def _get_diarizer() -> Any:
         logger.info("Loading Sortformer diarizer: %s", DIARIZE_MODEL)
         _diarizer_model = load(DIARIZE_MODEL)
         logger.info("Sortformer ready")
+    _touch_model("diarizer")
     return _diarizer_model
+
+
+# ── Idle unload (TASK F4) ─────────────────────────────────────────────────────
+
+
+def _drop_models(names: list[str]) -> None:
+    """Null the module references for `names`; the next use lazy-loads again."""
+    global _parakeet_model, _diarizer_model
+    for name in names:
+        _model_last_used.pop(name, None)
+        if name == "parakeet":
+            _parakeet_model = None
+        elif name == "diarizer":
+            _diarizer_model = None
+        logger.info("Idle-unloaded model: %s", name)
+
+
+async def _unload_idle_models() -> list[str]:
+    """Drop models idle past MLX_AUDIO_IDLE_UNLOAD_S; returns the unloaded names.
+
+    Runs under the request lock so an unload never races a request — every model
+    touch happens under that lock, so the stamps are stable once we hold it.
+    """
+    if MLX_AUDIO_IDLE_UNLOAD_S <= 0:
+        return []
+    async with _pipeline_lock:
+        now = time.monotonic()
+        idle = [n for n, t in _model_last_used.items() if now - t >= MLX_AUDIO_IDLE_UNLOAD_S]
+        if not idle:
+            return []
+        _drop_models(idle)
+        gc.collect()
+        await asyncio.to_thread(mlx_cache.release_cache, logger)
+        return idle
+
+
+_IDLE_POLL_S = 15.0  # unload fires within ~15 s of the idle threshold
+
+
+async def _idle_unload_loop() -> None:
+    while True:
+        await asyncio.sleep(_IDLE_POLL_S)
+        await _unload_idle_models()
 
 
 # ── Core pipeline ──────────────────────────────────────────────────────────────
@@ -678,8 +740,15 @@ from contextlib import asynccontextmanager  # noqa: E402
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
-    async with _mcp_session_manager.run():
-        yield
+    unloader = asyncio.create_task(_idle_unload_loop()) if MLX_AUDIO_IDLE_UNLOAD_S > 0 else None
+    try:
+        async with _mcp_session_manager.run():
+            yield
+    finally:
+        if unloader is not None:
+            unloader.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await unloader
 
 
 app = FastAPI(title="Portal 5 MLX Transcribe", version="1.0.0", lifespan=_lifespan)
@@ -695,6 +764,8 @@ async def health() -> JSONResponse:
             "diarization_model": DIARIZE_MODEL,
             "parakeet_loaded": _parakeet_model is not None,
             "diarizer_loaded": _diarizer_model is not None,
+            "loaded_models": _loaded_models(),
+            "idle_unload_s": MLX_AUDIO_IDLE_UNLOAD_S,
         }
     )
 
