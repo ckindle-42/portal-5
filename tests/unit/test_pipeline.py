@@ -349,12 +349,22 @@ class TestPipelineAPI:
         # DESIGN_OPENCODE_ADDRESSING_V1.md §3.2: /v1/models also advertises
         # IDE-curated (ide_expose: true) personas alongside base workspaces,
         # so it agrees with opencode.jsonc's picker instead of diverging
-        # from it. One entry per WORKSPACES key + one per ide_expose persona.
+        # from it. One entry per WORKSPACES key + one per OWUI-exposed
+        # variant (synthetic id) + one per ide_expose persona.
+        from portal.platform.inference.config import load_portal_config
         from portal.platform.inference.router.workspaces import _PERSONA_MAP
+        from portal.platform.wiki.adapters.modules import is_workspace_disabled
 
         ide_persona_count = sum(1 for p in _PERSONA_MAP.values() if p.ide_expose)
         assert ide_persona_count > 0, "expected at least one ide_expose persona"
-        assert len(ids) == len(WORKSPACES) + ide_persona_count
+        exposed_variants = {
+            f"{ws_id}::{vid}"
+            for ws_id, spec in load_portal_config().workspaces.items()
+            for vid, vcfg in spec.variants.items()
+            if vcfg.get("expose_to_owui") is True and not is_workspace_disabled(f"{ws_id}::{vid}")
+        }
+        assert exposed_variants, "expected at least one OWUI-exposed variant"
+        assert len(ids) == len(WORKSPACES) + len(exposed_variants) + ide_persona_count
 
     def test_models_includes_ide_curated_personas(self, client):
         resp = client.get("/v1/models", headers=HEADERS)

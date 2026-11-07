@@ -467,10 +467,68 @@ async def metrics() -> PlainTextResponse:
     return PlainTextResponse("\n".join(lines) + "\n" + prometheus_output)
 
 
+def _model_entry(
+    model_id: str, ws_cfg: dict[str, Any], ts: int, category_id: str | None = None
+) -> dict[str, Any]:
+    """One /v1/models entry; category derives from ``category_id`` (a synthetic id uses its base)."""
+    derive_id = category_id or model_id
+    is_benchmark = derive_id.startswith("bench-")
+    if is_benchmark:
+        category = "benchmark"
+    elif derive_id.startswith("auto-"):
+        category = derive_id[5:]  # strip "auto-"
+    else:
+        category = derive_id
+    category = ws_cfg.get("category", category)
+    return {
+        "id": model_id,
+        "object": "model",
+        "created": ts,
+        "owned_by": "portal-5",
+        "name": ws_cfg["name"],
+        "description": ws_cfg.get("description", ""),
+        "category": category,
+        "tags": ws_cfg.get("tags", [category]),
+        "tools": ws_cfg.get("tools", []),
+        "is_benchmark": is_benchmark,
+    }
+
+
+def _exposed_variant_models(
+    base_id: str, base_cfg: dict[str, Any], ts: int
+) -> list[dict[str, Any]]:
+    """One entry per OWUI-exposed variant of ``base_id``, module-gated like the serving path."""
+    from portal.platform.inference.config import load_portal_config, merge_workspace_variant
+    from portal.platform.wiki.adapters.modules import is_workspace_disabled
+
+    spec = load_portal_config().workspaces.get(base_id)
+    if spec is None:
+        return []
+    entries = []
+    for vid, vcfg in spec.variants.items():
+        # Absence of the key on a variant is not a declaration — only an
+        # explicit expose_to_owui: true exposes it.
+        if vcfg.get("expose_to_owui") is not True:
+            continue
+        synthetic_id = f"{base_id}::{vid}"
+        if is_workspace_disabled(synthetic_id):
+            continue
+        entries.append(
+            _model_entry(
+                synthetic_id,
+                merge_workspace_variant(base_cfg, vcfg),
+                ts,
+                category_id=base_id,
+            )
+        )
+    return entries
+
+
 async def list_models(authorization: str | None = Header(None)) -> dict[str, Any]:
     """GET /v1/models — OpenAI-compatible model catalogue.
 
-    One entry per ``WORKSPACES`` key, plus one entry per IDE-curated persona
+    One entry per ``WORKSPACES`` key, one per OWUI-exposed variant under its synthetic
+    ``base::variant`` id, plus one entry per IDE-curated persona
     (``ide_expose: true``). Portal 5 is Open WebUI's sole model source — OWUI
     sees workspaces as models, and the user's pick becomes the ``model`` field
     that ``chat_completions`` routes on. Persona entries keep this endpoint
@@ -495,29 +553,8 @@ async def list_models(authorization: str | None = Header(None)) -> dict[str, Any
     ts = int(time.time())
     models = []
     for ws_id, ws_cfg in WORKSPACES.items():
-        is_benchmark = ws_id.startswith("bench-")
-        # Derive category from workspace ID: auto-coding → coding, bench-* → benchmark
-        if is_benchmark:
-            category = "benchmark"
-        elif ws_id.startswith("auto-"):
-            category = ws_id[5:]  # strip "auto-"
-        else:
-            category = ws_id
-        category = ws_cfg.get("category", category)
-        models.append(
-            {
-                "id": ws_id,
-                "object": "model",
-                "created": ts,
-                "owned_by": "portal-5",
-                "name": ws_cfg["name"],
-                "description": ws_cfg.get("description", ""),
-                "category": category,
-                "tags": ws_cfg.get("tags", [category]),
-                "tools": ws_cfg.get("tools", []),
-                "is_benchmark": is_benchmark,
-            }
-        )
+        models.append(_model_entry(ws_id, ws_cfg, ts))
+        models.extend(_exposed_variant_models(ws_id, ws_cfg, ts))
     for slug, persona in _PERSONA_MAP.items():
         if not getattr(persona, "ide_expose", False):
             continue

@@ -1,0 +1,19 @@
+{
+  "id": "auto-coding::bigfix",
+  "name": "🩹 Portal BigFix Analyst",
+  "meta": {
+    "description": "🩹 Portal BigFix Analyst",
+    "profile_image_url": "",
+    "toolIds": [
+      "server:mcp:portal_code",
+      "server:mcp:portal_research"
+    ],
+    "capabilities": {
+      "builtin_tools": false
+    }
+  },
+  "params": {
+    "model": "auto-coding::bigfix",
+    "function_calling": "native"
+  }
+}

@@ -182,6 +182,7 @@ def _preset_spec(module: str, expose: bool, name: str) -> SimpleNamespace:
         tools=[],
         owui_system_prompt="",
         enable_web_search=False,
+        variants={},
     )
 
 
@@ -230,11 +231,18 @@ def test_owui_presets_cover_all_exposed_workspaces() -> None:
     workspaces = portal_raw.get("workspaces", {})
 
     hidden_by_module = set(owui_workspaces() or ())
-    exposed = {
-        ws_id
-        for ws_id, spec in workspaces.items()
-        if spec.get("expose_to_owui", True) and ws_id not in hidden_by_module
-    }
+    from portal.platform.wiki.adapters.modules import is_workspace_disabled
+
+    exposed = set()
+    for ws_id, spec in workspaces.items():
+        if spec.get("expose_to_owui", True) and ws_id not in hidden_by_module:
+            exposed.add(ws_id)
+        for vid, vcfg in (spec.get("variants") or {}).items():
+            if vcfg.get("expose_to_owui") is not True:
+                continue
+            if is_workspace_disabled(f"{ws_id}::{vid}"):
+                continue
+            exposed.add(f"{ws_id}::{vid}")
     preset_ids = {
         json.loads(f.read_text()).get("id", "") for f in sorted(ws_dir.glob("workspace_*.json"))
     }
@@ -250,11 +258,16 @@ def test_no_orphan_owui_presets() -> None:
 
     portal_raw = yaml.safe_load(portal_yaml_path.read_text()) or {}
     live_ws = set(portal_raw.get("workspaces", {}).keys())
+    live_variant_ids = {
+        f"{ws_id}::{vid}"
+        for ws_id, spec in portal_raw.get("workspaces", {}).items()
+        for vid in (spec.get("variants") or {})
+    }
 
     orphans = []
     for f in sorted(ws_dir.glob("workspace_*.json")):
         ws_id = json.loads(f.read_text()).get("id", "")
-        if ws_id and ws_id not in live_ws:
+        if ws_id and ws_id not in live_ws and ws_id not in live_variant_ids:
             orphans.append(ws_id)
 
     assert not orphans, (
