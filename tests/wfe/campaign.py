@@ -64,9 +64,11 @@ import datetime as dt
 import functools
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
+import statistics
 import subprocess
 import sys
 import tempfile
@@ -1932,7 +1934,9 @@ def open_campaign(
     mpath = d / "manifest.json"
     if mpath.exists():
         manifest = json.loads(mpath.read_text())
-        added_execution = not manifest.get("execution") and execution is not None
+        added_execution = execution is not None and not (
+            (manifest.get("execution") or {}).get("interleave_block_by_workspace")
+        )
         if added_execution:
             manifest["execution"] = execution
         if not append:
@@ -1945,6 +1949,25 @@ def open_campaign(
             raise GateRefused(f"append: {instrument_drift(manifest)}; open a new campaign")
         known = {r["run_id"] for r in manifest["rows"]}
         added = [r for r in matrix if r["run_id"] not in known]
+        changed_workspaces = {r.get("workspace") for r in added if r.get("workspace")}
+        if execution is not None and changed_workspaces:
+            saved = manifest.setdefault("execution", {})
+            for key in (
+                "interleave_block_by_workspace",
+                "interleave_block_reason_by_workspace",
+                "interleave_models_by_workspace",
+            ):
+                target = saved.setdefault(key, {})
+                source = execution.get(key) or {}
+                for workspace in changed_workspaces:
+                    if workspace in source:
+                        target[workspace] = source[workspace]
+            saved["interleave_block"] = max(
+                (saved.get("interleave_block_by_workspace") or {}).values(),
+                default=execution.get("interleave_block", 4),
+            )
+            saved["interleave_swap_profiles"] = execution.get("interleave_swap_profiles", {})
+            saved["interleave_block_override"] = execution.get("interleave_block_override", False)
         keep_receipt(d, gate_controls([*manifest["rows"], *added], "append"))
         manifest["rows"].extend(added)
         manifest["rows"].sort(
@@ -3684,15 +3707,22 @@ def _cmd_verify_complete(campaign_dir: Path) -> int:
     return EXIT_INCOMPLETE if problems else EXIT_OK
 
 
-def _prepare_arm_resources(campaign_dir: Path, arm: str, todo: list[dict]) -> str:
+def _prepare_arm_resources(
+    campaign_dir: Path, arm: str, todo: list[dict], resident_workspaces: set[str] | None = None
+) -> tuple[str, bool]:
     model = row_model(todo[0])
+    todo_workspaces = {str(row.get("workspace") or "") for row in todo}
+    keep_resident = bool(todo_workspaces) and todo_workspaces.issubset(resident_workspaces or set())
+    if keep_resident:
+        _log(campaign_dir, f"arm {arm}: retaining load-guard-fit resident model {model}")
+        return model, True
     seat = seat_primary(todo[0]["workspace"], model) if ENGINE == "pipeline" else model
     evicted = drain_others(model if seat == model else "")
     if evicted:
         _log(campaign_dir, f"arm {arm}: drained {len(evicted)} resident model(s): {evicted}")
     if ENGINE == "omlx" or (ENGINE == "pipeline" and model not in model_sizes()):
         _log(campaign_dir, f"arm {arm}: {drain_omlx()}")
-    return model
+    return model, False
 
 
 def _order_pending_rows(todo: list[dict], manifest: dict) -> list[dict]:
@@ -3721,7 +3751,7 @@ def _order_pending_rows(todo: list[dict], manifest: dict) -> list[dict]:
 
 
 def _interleave_blocks(
-    rows: list[dict], arms: list[str], block_size: int, retry_states: set | None = None
+    rows: list[dict], arms: list[str], block_size: int | dict, retry_states: set | None = None
 ) -> list[list[dict]]:
     """Group runnable task/repeat rows across arms, then divide them into pair blocks."""
     runnable = {"PENDING", *(retry_states or set())}
@@ -3738,7 +3768,16 @@ def _interleave_blocks(
         {"key": key, "run_ids": groups[key]}
         for key in sorted(groups, key=lambda item: (item[3], item[0], item[1], item[2]))
     ]
-    return [units[i : i + block_size] for i in range(0, len(units), block_size)]
+    by_workspace: dict[str, list[dict]] = {}
+    for unit in units:
+        by_workspace.setdefault(unit["key"][0], []).append(unit)
+    blocks = []
+    for workspace, workspace_units in by_workspace.items():
+        size = block_size.get(workspace, 4) if isinstance(block_size, dict) else block_size
+        blocks.extend(
+            workspace_units[index : index + size] for index in range(0, len(workspace_units), size)
+        )
+    return blocks
 
 
 def _campaign_deadline(options: dict) -> float:
@@ -3750,10 +3789,14 @@ def _campaign_deadline(options: dict) -> float:
     return start_epoch + options["max_minutes"] * 60
 
 
-def _finish_arm(campaign_dir, arm, model, tally, elapsed_start, notify, stop, halted, ran):
+def _finish_arm(
+    campaign_dir, arm, model, tally, elapsed_start, notify, stop, halted, ran, keep_resident=False
+):
     if stop:
         record_arm_stop(campaign_dir, arm, stop)
-    if not drain_model(model):
+    if keep_resident and not stop and not halted:
+        _log(campaign_dir, f"arm {arm}: retained resident model {model} for next interleave block")
+    elif not drain_model(model):
         _log(campaign_dir, f"arm {arm}: WARNING — still resident after {DRAIN_TIMEOUT_S}s")
     elapsed = round(time.monotonic() - elapsed_start)
     summary = f"{arm}: {tally} in {elapsed}s"
@@ -3851,7 +3894,12 @@ def execute_arm(
 
     # Evict before the first row so stale weights or a pinned classifier cannot
     # consume the memory this arm needs.
-    model = _prepare_arm_resources(campaign_dir, arm, todo)
+    model, keep_resident = _prepare_arm_resources(
+        campaign_dir,
+        arm,
+        todo,
+        set((manifest.get("execution") or {}).get("resident_fit_workspaces") or []),
+    )
 
     _log(campaign_dir, f"arm {arm}: {len(todo)} runs pending")
     if notify:
@@ -3909,7 +3957,9 @@ def execute_arm(
             break
         _curtail_after_task(campaign_dir, manifest, arm, r, curtail)
 
-    out = _finish_arm(campaign_dir, arm, model, tally, t_arm, notify, stop, halted, ran)
+    out = _finish_arm(
+        campaign_dir, arm, model, tally, t_arm, notify, stop, halted, ran, keep_resident
+    )
     out["reused"] = len(reused)
     out["stopped"] = (load_manifest(campaign_dir).get("campaign_stop") or {}).get("reason")
     return out
@@ -4221,7 +4271,12 @@ def _run_interleaved_campaign(
         manifest = load_manifest(campaign_dir)
         if manifest.get("campaign_stop"):
             break
-        blocks = _interleave_blocks(manifest["rows"], run_arms, options["interleave_block"], retry)
+        blocks = _interleave_blocks(
+            manifest["rows"],
+            run_arms,
+            options.get("interleave_block_by_workspace") or options["interleave_block"],
+            retry,
+        )
         if not blocks:
             break
         block = blocks[0]
@@ -4901,8 +4956,8 @@ def execution_options(plan_path: Path, matrix: list[dict], pilot_tasks: int | No
         order = "interleaved" if arm_count >= 2 else "sequential"
     if order not in ("interleaved", "sequential"):
         raise ValueError(f"{plan_path.name}: arm_order must be interleaved or sequential")
-    block = data.get("interleave_block", 1)
-    if isinstance(block, bool) or not isinstance(block, int) or block < 1:
+    block = data.get("interleave_block")
+    if block is not None and (isinstance(block, bool) or not isinstance(block, int) or block < 1):
         raise ValueError(f"{plan_path.name}: interleave_block must be a positive integer")
     max_minutes = data.get("max_minutes", 120)
     if isinstance(max_minutes, bool) or not isinstance(max_minutes, int) or max_minutes < 1:
@@ -4910,13 +4965,226 @@ def execution_options(plan_path: Path, matrix: list[dict], pilot_tasks: int | No
     margin = data.get("non_inferiority_margin")
     if margin is not None:
         margin = decision._validated_margin(margin)
+    workspaces = {str(row.get("workspace") or "") for row in matrix} - {""}
+    if order == "interleaved" and arm_count >= 2 and workspaces:
+        row_walls = _row_wall_history(matrix)
+        swap_profiles = _engine_swap_profiles()
+        block_by_workspace, reason_by_workspace, models_by_workspace = _choose_interleave_blocks(
+            matrix, block, row_walls, swap_profiles
+        )
+    else:
+        default_block = block or 4
+        block_by_workspace = dict.fromkeys(sorted(workspaces), default_block)
+        reason = f"plan override interleave_block={block}" if block else "fallback block 4"
+        reason_by_workspace = dict.fromkeys(block_by_workspace, reason)
+        models_by_workspace = {}
+        swap_profiles = {}
     return {
         "arm_order": order,
-        "interleave_block": block,
+        "interleave_block": max(block_by_workspace.values(), default=4),
+        "interleave_block_by_workspace": block_by_workspace,
+        "interleave_block_reason_by_workspace": reason_by_workspace,
+        "interleave_models_by_workspace": models_by_workspace,
+        "interleave_swap_profiles": swap_profiles,
+        "interleave_block_override": block is not None,
+        "resident_fit_workspaces": [],
         "max_minutes": max_minutes,
         "non_inferiority_margin": margin,
         "pilot_tasks": pilot_tasks,
     }
+
+
+def _summary(values: list[float]) -> dict | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    return {
+        "n": len(ordered),
+        "median_s": round(statistics.median(ordered), 2),
+        "p95_s": round(ordered[max(0, math.ceil(0.95 * len(ordered)) - 1)], 2),
+    }
+
+
+def _latest_log_day(path: Path, pattern: re.Pattern) -> str | None:
+    latest = None
+    try:
+        with path.open(errors="replace") as log:
+            for line in log:
+                match = pattern.search(line)
+                if match:
+                    day = match["ts"][:10]
+                    latest = max(latest, day) if latest else day
+    except OSError:
+        return None
+    return latest
+
+
+def _omlx_swap_profile(path: Path) -> dict | None:
+    pending: dict[tuple[str, str], list[dt.datetime]] = {}
+    spans: dict[str, list[float]] = {"load": [], "unload": []}
+    pattern = re.compile(
+        r"^(?P<ts>\d{4}-\d\d-\d\d \d\d:\d\d:\d\d[.,]\d+) - "
+        r"omlx\.engine_pool - INFO - (?P<event>Loading model|Loaded model|"
+        r"Unloading model|Unloaded model): (?P<model>[^,(]+)"
+    )
+    latest = _latest_log_day(path, pattern)
+    if latest is None:
+        return None
+    try:
+        with path.open(errors="replace") as log:
+            for line in log:
+                match = pattern.match(line)
+                if match is None or match["ts"][:10] != latest:
+                    continue
+                stamp = dt.datetime.fromisoformat(match["ts"].replace(",", "."))
+                event = match["event"]
+                kind = "load" if event in ("Loading model", "Loaded model") else "unload"
+                model = match["model"].strip()
+                key = (kind, model)
+                if event in ("Loading model", "Unloading model"):
+                    pending.setdefault(key, []).append(stamp)
+                    continue
+                starts = pending.get(key) or []
+                if starts:
+                    index = -1 if kind == "unload" else 0
+                    elapsed = (stamp - starts.pop(index)).total_seconds()
+                    if 0 < elapsed <= 600:
+                        spans[kind].append(elapsed)
+    except OSError:
+        return None
+    load = _summary(spans["load"])
+    if load is None:
+        return None
+    unload = _summary(spans["unload"])
+    return {
+        "load": load,
+        "unload": unload,
+        "swap_median_s": round(load["median_s"] + (unload or {}).get("median_s", 0), 2),
+        "swap_p95_s": round(load["p95_s"] + (unload or {}).get("p95_s", 0), 2),
+        "p95_method": "sum of component p95 values",
+        "log_day": latest,
+    }
+
+
+def _ollama_swap_profile(path: Path) -> dict | None:
+    pending = 0
+    starts = re.compile(r'msg="loading model via llama-server"')
+    durations = re.compile(r'msg="llama-server started in ([\d.]+) seconds"')
+    day_pattern = re.compile(
+        r'time=(?P<ts>\d{4}-\d\d-\d\dT[^ ]+).*msg="(?:loading model via llama-server|'
+        r"llama-server started in)"
+    )
+    latest = _latest_log_day(path, day_pattern)
+    if latest is None:
+        return None
+    loads = []
+    try:
+        with path.open(errors="replace") as log:
+            for line in log:
+                day = day_pattern.search(line)
+                if day is None or day["ts"][:10] != latest:
+                    continue
+                if starts.search(line):
+                    pending += 1
+                match = durations.search(line)
+                if match and pending:
+                    pending -= 1
+                    loads.append(float(match.group(1)))
+    except OSError:
+        return None
+    load = _summary(loads)
+    if load is None:
+        return None
+    return {
+        "load": load,
+        "unload": None,
+        "swap_median_s": load["median_s"],
+        "swap_p95_s": load["p95_s"],
+        "p95_method": "logged startup duration; unload duration unavailable",
+        "log_day": latest,
+    }
+
+
+def _engine_swap_profiles() -> dict:
+    omlx_path = Path(os.environ.get("WFE_OMLX_LOG", "/opt/homebrew/var/log/omlx.log"))
+    ollama_path = Path(os.environ.get("WFE_OLLAMA_LOG", "/opt/homebrew/var/log/ollama.log"))
+    return {
+        "omlx": _omlx_swap_profile(omlx_path),
+        "ollama": _ollama_swap_profile(ollama_path),
+    }
+
+
+def _row_wall_history(matrix: list[dict]) -> dict[str, dict]:
+    identities = {(row.get("workspace"), row.get("suite"), row.get("task_id")) for row in matrix}
+    walls: dict[str, list[float]] = {}
+    for path in CAMPAIGNS.glob("*/rows/*.json"):
+        try:
+            row = json.loads(path.read_text())
+            key = (row.get("workspace"), row.get("suite"), row.get("task_id"))
+            wall = (row.get("economics") or {}).get("wall_s")
+        except (OSError, ValueError, TypeError):
+            continue
+        if key not in identities or isinstance(wall, bool) or not isinstance(wall, (int, float)):
+            continue
+        if math.isfinite(wall) and wall > 0:
+            walls.setdefault(str(row["workspace"]), []).append(float(wall))
+    return {
+        workspace: {"n": len(values), "median_s": round(statistics.median(values), 2)}
+        for workspace, values in walls.items()
+    }
+
+
+def _models_by_workspace(matrix: list[dict]) -> dict[str, list[dict[str, str]]]:
+    models: dict[str, set[tuple[str, str]]] = {}
+    for row in matrix:
+        workspace = str(row.get("workspace") or "")
+        model = row_model(row)
+        if ENGINE == "pipeline":
+            backend, model = _serving_seat(workspace, model)
+            engine = backend_engine(backend)
+        else:
+            engine = ENGINE
+        if workspace and engine in ("omlx", "ollama"):
+            models.setdefault(workspace, set()).add((engine, model))
+    return {
+        workspace: [{"engine": engine, "model": model} for engine, model in sorted(entries)]
+        for workspace, entries in models.items()
+    }
+
+
+def _choose_interleave_blocks(
+    matrix: list[dict], override: int | None, row_walls: dict, swap_profiles: dict
+) -> tuple[dict[str, int], dict[str, str], dict[str, list[dict[str, str]]]]:
+    models = _models_by_workspace(matrix)
+    choices, reasons = {}, {}
+    for workspace in sorted({str(row.get("workspace") or "") for row in matrix} - {""}):
+        if override is not None:
+            choices[workspace] = override
+            reasons[workspace] = f"plan override interleave_block={override}"
+            continue
+        wall = row_walls.get(workspace)
+        engines = sorted({model["engine"] for model in models.get(workspace, [])})
+        profiles = [swap_profiles.get(engine) for engine in engines]
+        if len(models.get(workspace, [])) == 1:
+            choices[workspace] = 1
+            reasons[workspace] = "same resident model serves all arms"
+        elif not wall or not profiles or any(profile is None for profile in profiles):
+            choices[workspace] = 4
+            reasons[workspace] = (
+                "fallback block 4; matching row history or engine swap timing unavailable"
+            )
+        else:
+            swap_s = max(profile["swap_median_s"] for profile in profiles)
+            choices[workspace] = max(1, math.ceil(swap_s / (0.10 * wall["median_s"])))
+            profile_text = ", ".join(
+                f"{engine} median={profile['swap_median_s']}s p95={profile['swap_p95_s']}s"
+                for engine, profile in zip(engines, profiles, strict=True)
+            )
+            reasons[workspace] = (
+                f"ceil(max engine swap median / 10% of median row wall): {profile_text}; "
+                f"row median={wall['median_s']}s n={wall['n']}"
+            )
+    return choices, reasons, models
 
 
 def pilot_matrix(matrix: list[dict], task_limit: int) -> list[dict]:
@@ -5015,6 +5283,71 @@ def _plan_command(args, plan: Path) -> int | None:
     return None
 
 
+def _load_guard_plan(models: list[dict[str, str]]) -> dict:
+    key = os.environ.get("PIPELINE_API_KEY", "")
+    headers = {"Content-Type": "application/json"}
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
+    request = urllib.request.Request(
+        f"{CHAT_BASE.rstrip('/')}/admin/load-plan",
+        data=json.dumps({"models": models}).encode(),
+        headers=headers,
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=5) as response:
+            return json.load(response)
+    except Exception as exc:
+        return {"status": "unavailable", "error": f"{type(exc).__name__}: {exc}"}
+
+
+def _apply_load_guard_choices(
+    campaign_dir: Path, manifest: dict, execution: dict, arms: list[str]
+) -> dict:
+    rows = [row for row in manifest["rows"] if row.get("arm") in arms]
+    models_by_workspace = _models_by_workspace(rows)
+    block_map = dict(execution.get("interleave_block_by_workspace") or {})
+    reasons = dict(execution.get("interleave_block_reason_by_workspace") or {})
+    resident = set(execution.get("resident_fit_workspaces") or [])
+    results = {}
+    for workspace in sorted({str(row.get("workspace") or "") for row in rows} - {""}):
+        workspace_arms = {row.get("arm") for row in rows if row.get("workspace") == workspace}
+        if len(workspace_arms) < 2:
+            continue
+        models = models_by_workspace.get(workspace, [])
+        if len(models) == 1:
+            resident.add(workspace)
+            results[workspace] = {"status": "same resident model"}
+            continue
+        if not models:
+            results[workspace] = {"status": "unavailable", "reason": "serving seats unresolved"}
+            continue
+        if ENGINE != "pipeline":
+            results[workspace] = {"status": "unavailable", "reason": "load plan requires pipeline"}
+            continue
+        plan = _load_guard_plan(models)
+        results[workspace] = plan
+        if (
+            plan.get("guard_enabled") is True
+            and plan.get("fits") is True
+            and plan.get("busy") is False
+        ):
+            resident.add(workspace)
+            if not execution.get("interleave_block_override"):
+                block_map[workspace] = 1
+                reasons[workspace] = "load guard confirms both arms fit resident together; block 1"
+    execution["interleave_block_by_workspace"] = block_map
+    execution["interleave_block_reason_by_workspace"] = reasons
+    execution["interleave_block"] = max(
+        block_map.values(), default=execution.get("interleave_block", 4)
+    )
+    execution["resident_fit_workspaces"] = sorted(resident)
+    execution["interleave_load_guard"] = results
+    manifest["execution"] = execution
+    save_manifest(campaign_dir, manifest)
+    return execution
+
+
 def _prepare_campaign(ap, args, plan: Path) -> tuple[Path | None, dict, int | None]:
     if not args.campaign_id:
         ap.error("--campaign-id is required (or use --smoke / --rescore / --list-arms)")
@@ -5025,7 +5358,13 @@ def _prepare_campaign(ap, args, plan: Path) -> tuple[Path | None, dict, int | No
     repeats, matrix = _planned_matrix(plan, args)
     if args.pilot is not None and len({row["arm"] for row in matrix}) < 2:
         ap.error("--pilot requires at least two arms")
-    execution = execution_options(plan, matrix, args.pilot)
+    stored_manifest = CAMPAIGNS / args.campaign_id / "manifest.json"
+    if args.block_worker and stored_manifest.is_file():
+        execution = load_manifest(stored_manifest.parent).get("execution")
+        if not execution:
+            execution = execution_options(plan, matrix, args.pilot)
+    else:
+        execution = execution_options(plan, matrix, args.pilot)
     if not args.block_worker:
         _warn_prompt_surface(matrix)
     if args.dry_run:
@@ -5053,6 +5392,8 @@ def _run_selected_arms(
     )
     deadline = _campaign_deadline(execution)
     if execution.get("arm_order") == "interleaved" and len(arms) > 1:
+        if not args.block_worker:
+            execution = _apply_load_guard_choices(campaign_dir, manifest, execution, arms)
         return arms, _run_interleaved_campaign(campaign_dir, arms, args, execution, deadline), None
     outs = []
     for arm in arms:

@@ -369,7 +369,7 @@ def test_execution_options_default_to_interleaved_for_ab_and_keep_sequential_opt
     options = campaign.execution_options(plan, matrix)
 
     assert options["arm_order"] == "interleaved"
-    assert options["interleave_block"] == 1
+    assert options["interleave_block"] == 4
     assert options["max_minutes"] == 25
     plan.write_text("arm_order: sequential\n")
     sequential = campaign.execution_options(plan, matrix)
@@ -381,6 +381,192 @@ def test_execution_options_default_to_interleaved_for_ab_and_keep_sequential_opt
         ]
     }
     assert campaign._select_arms(manifest, None) == ["inc", "cand"]
+
+
+def test_interleave_block_uses_swap_median_and_workspace_row_history(monkeypatch) -> None:
+    matrix = [
+        {"workspace": workspace, "arm": arm}
+        for workspace in ("slow", "fast")
+        for arm in ("inc", "cand")
+    ]
+    monkeypatch.setattr(
+        campaign,
+        "_models_by_workspace",
+        lambda _matrix: {
+            workspace: [{"engine": "omlx", "model": arm} for arm in ("inc", "cand")]
+            for workspace in ("slow", "fast")
+        },
+    )
+    profile = {"swap_median_s": 20.0, "swap_p95_s": 27.0}
+
+    blocks, reasons, _models = campaign._choose_interleave_blocks(
+        matrix,
+        None,
+        {"slow": {"median_s": 80.0, "n": 12}, "fast": {"median_s": 10.0, "n": 8}},
+        {"omlx": profile},
+    )
+
+    assert blocks == {"fast": 20, "slow": 3}
+    assert "p95=27.0s" in reasons["slow"]
+    assert "row median=80.0s n=12" in reasons["slow"]
+
+
+def test_row_wall_history_matches_planned_workspace_suite_and_tasks(
+    tmp_path: Path, monkeypatch
+) -> None:
+    campaign_dir = tmp_path / "old" / "rows"
+    campaign_dir.mkdir(parents=True)
+    for name, row in (
+        ("a", {"workspace": "ws", "suite": "s", "task_id": "t1", "economics": {"wall_s": 2}}),
+        ("b", {"workspace": "ws", "suite": "s", "task_id": "t1", "economics": {"wall_s": 6}}),
+        ("c", {"workspace": "ws", "suite": "s", "task_id": "other", "economics": {"wall_s": 100}}),
+    ):
+        (campaign_dir / f"{name}.json").write_text(json.dumps(row), encoding="utf-8")
+    monkeypatch.setattr(campaign, "CAMPAIGNS", tmp_path)
+
+    history = campaign._row_wall_history(
+        [{"workspace": "ws", "suite": "s", "task_id": "t1", "arm": "inc"}]
+    )
+
+    assert history == {"ws": {"n": 2, "median_s": 4.0}}
+
+
+def test_interleave_block_uses_fallback_or_explicit_plan_override(monkeypatch) -> None:
+    matrix = [{"workspace": "ws", "arm": arm} for arm in ("inc", "cand")]
+    monkeypatch.setattr(
+        campaign,
+        "_models_by_workspace",
+        lambda _matrix: {"ws": [{"engine": "ollama", "model": arm} for arm in ("i", "c")]},
+    )
+
+    fallback, fallback_reasons, _ = campaign._choose_interleave_blocks(
+        matrix, None, {}, {"ollama": {"swap_median_s": 11.0, "swap_p95_s": 16.0}}
+    )
+    override, override_reasons, _ = campaign._choose_interleave_blocks(
+        matrix,
+        7,
+        {"ws": {"median_s": 80.0, "n": 4}},
+        {"ollama": {"swap_median_s": 11.0, "swap_p95_s": 16.0}},
+    )
+
+    assert fallback == {"ws": 4}
+    assert "history or engine swap timing unavailable" in fallback_reasons["ws"]
+    assert override == {"ws": 7}
+    assert override_reasons["ws"] == "plan override interleave_block=7"
+
+
+def test_omlx_swap_profile_pairs_load_and_unload_spans(tmp_path: Path) -> None:
+    log = tmp_path / "omlx.log"
+    log.write_text(
+        "2026-11-06 12:00:00,000 - omlx.engine_pool - INFO - Loading model: m\n"
+        "2026-11-06 12:00:10.000 - omlx.engine_pool - INFO - Loaded model: m (actual: 1GB)\n"
+        "2026-11-06 12:00:11.000 - omlx.engine_pool - INFO - Unloading model: m (immediate abort)\n"
+        "2026-11-06 12:00:12.000 - omlx.engine_pool - INFO - Unloaded model: m, freed=1GB\n"
+        "2026-11-06 12:01:00.000 - omlx.engine_pool - INFO - Loading model: m\n"
+        "2026-11-06 12:01:20.000 - omlx.engine_pool - INFO - Loaded model: m (actual: 1GB)\n"
+        "2026-11-06 12:01:21.000 - omlx.engine_pool - INFO - Unloading model: m (immediate abort)\n"
+        "2026-11-06 12:01:23.000 - omlx.engine_pool - INFO - Unloaded model: m, freed=1GB\n",
+        encoding="utf-8",
+    )
+
+    profile = campaign._omlx_swap_profile(log)
+
+    assert profile["load"] == {"n": 2, "median_s": 15.0, "p95_s": 20.0}
+    assert profile["unload"] == {"n": 2, "median_s": 1.5, "p95_s": 2.0}
+    assert profile["swap_median_s"] == 16.5
+    assert profile["swap_p95_s"] == 22.0
+
+
+def test_ollama_swap_profile_uses_one_startup_span_per_load(tmp_path: Path) -> None:
+    log = tmp_path / "ollama.log"
+    log.write_text(
+        'time=2026-11-06T12:00:00.000-06:00 msg="loading model via llama-server" model=m\n'
+        'time=2026-11-06T12:00:12.000-06:00 msg="llama-server started in 12 seconds"\n'
+        'time=2026-11-06T12:00:12.001-06:00 msg="llama-server started in 12.01 seconds"\n'
+        'time=2026-11-06T12:01:00.000-06:00 msg="loading model via llama-server" model=m\n'
+        'time=2026-11-06T12:01:20.000-06:00 msg="llama-server started in 20 seconds"\n',
+        encoding="utf-8",
+    )
+
+    profile = campaign._ollama_swap_profile(log)
+
+    assert profile["load"] == {"n": 2, "median_s": 16.0, "p95_s": 20.0}
+    assert profile["swap_median_s"] == 16.0
+    assert profile["unload"] is None
+
+
+def test_load_guard_fit_sets_block_one_and_records_the_verdict(tmp_path: Path, monkeypatch) -> None:
+    rows = [
+        {"workspace": "ws", "arm": arm, "model": arm, "state": "PENDING"} for arm in ("inc", "cand")
+    ]
+    manifest = {"rows": rows}
+    execution = {
+        "interleave_block": 4,
+        "interleave_block_by_workspace": {"ws": 4},
+        "interleave_block_reason_by_workspace": {"ws": "measured timing"},
+        "interleave_block_override": False,
+        "resident_fit_workspaces": [],
+    }
+    (tmp_path / "manifest.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(campaign, "ENGINE", "pipeline")
+    monkeypatch.setattr(
+        campaign,
+        "_models_by_workspace",
+        lambda _rows: {"ws": [{"engine": "omlx", "model": arm} for arm in ("inc", "cand")]},
+    )
+    monkeypatch.setattr(
+        campaign,
+        "_load_guard_plan",
+        lambda models: {
+            "guard_enabled": True,
+            "fits": True,
+            "busy": False,
+            "models": models,
+        },
+    )
+
+    result = campaign._apply_load_guard_choices(tmp_path, manifest, execution, ["inc", "cand"])
+
+    assert result["interleave_block_by_workspace"]["ws"] == 1
+    assert result["interleave_block_reason_by_workspace"]["ws"] == (
+        "load guard confirms both arms fit resident together; block 1"
+    )
+    assert result["resident_fit_workspaces"] == ["ws"]
+    assert json.loads((tmp_path / "manifest.json").read_text())["execution"][
+        "interleave_load_guard"
+    ]["ws"]["fits"]
+
+
+def test_disabled_load_guard_does_not_select_block_one(tmp_path: Path, monkeypatch) -> None:
+    manifest = {
+        "rows": [
+            {"workspace": "ws", "arm": arm, "model": arm, "state": "PENDING"}
+            for arm in ("inc", "cand")
+        ]
+    }
+    execution = {
+        "interleave_block": 4,
+        "interleave_block_by_workspace": {"ws": 4},
+        "interleave_block_reason_by_workspace": {"ws": "measured timing"},
+        "interleave_block_override": False,
+    }
+    (tmp_path / "manifest.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(campaign, "ENGINE", "pipeline")
+    monkeypatch.setattr(
+        campaign,
+        "_models_by_workspace",
+        lambda _rows: {"ws": [{"engine": "omlx", "model": arm} for arm in ("inc", "cand")]},
+    )
+    monkeypatch.setattr(
+        campaign,
+        "_load_guard_plan",
+        lambda _models: {"guard_enabled": False, "fits": True, "busy": False},
+    )
+
+    result = campaign._apply_load_guard_choices(tmp_path, manifest, execution, ["inc", "cand"])
+
+    assert result["interleave_block_by_workspace"]["ws"] == 4
+    assert result["resident_fit_workspaces"] == []
 
 
 def test_pilot_defaults_to_six_tasks() -> None:
@@ -405,8 +591,8 @@ def test_interleave_blocks_keep_task_repeat_pairs_adjacent_and_honor_block_size(
         for repeat in (0, 1)
     ]
 
-    single = campaign._interleave_blocks(rows, ["inc", "cand"], 1)
-    block = campaign._interleave_blocks(rows, ["inc", "cand"], 2)
+    single = campaign._interleave_blocks(rows, ["inc", "cand"], {"ws": 1})
+    block = campaign._interleave_blocks(rows, ["inc", "cand"], {"ws": 2})
 
     assert len(single) == 4
     assert single[0][0]["key"] == ("ws", "s", "t1", 0)
