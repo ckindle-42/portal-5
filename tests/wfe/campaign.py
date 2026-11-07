@@ -4237,8 +4237,6 @@ def _block_worker_command(campaign_dir: Path, arm: str, run_ids_path: Path, args
             command.append(flag)
     if args.repeats is not None:
         command.extend(("--repeats", str(args.repeats)))
-    if args.pilot is not None:
-        command.extend(("--pilot", str(args.pilot)))
     if args.debug_dir:
         command.extend(("--debug-dir", str(args.debug_dir)))
     if args.force:
