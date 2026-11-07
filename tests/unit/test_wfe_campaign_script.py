@@ -235,12 +235,20 @@ def _run_real_interleaved_script(
         '    campaign._arm_preflight = lambda *_args: {"verdict": "OK", "findings": [], "identities": {}}\n'
         "    campaign._evaluate_interleaved = lambda *_args: (0, False)\n"
         '    if os.environ.get("WFE_TEST_PHASES"):\n'
-        "        import time\n"
+        "        class FakeClock:\n"
+        "            def __init__(self):\n"
+        "                self.now = 0.0\n"
+        "            def __call__(self):\n"
+        "                return self.now\n"
+        "            def advance(self, seconds):\n"
+        "                self.now += seconds\n"
+        "        fake_clock = FakeClock()\n"
+        "        campaign._clock = fake_clock\n"
         "        campaign.drain_model = lambda _model: True\n"
         "        campaign.workspace_context = lambda *_args, **_kwargs: {}\n"
         "        campaign._prepare_arm_resources = lambda _directory, _arm, todo, _resident=None: (campaign.row_model(todo[0]), False)\n"
         "        def run_row(*_args, **_kwargs):\n"
-        "            time.sleep(0.2)\n"
+        "            fake_clock.advance(0.2)\n"
         '            return {"outcome": "PASS", "turns": 1, "tool_calls": 1, "tool_errors": 0, "economics": {"wall_s": 0.2}}\n'
         "        campaign.run_row = run_row\n"
         "        campaign.arm_stop_reason = lambda *_args, **_kwargs: None\n"
@@ -249,7 +257,7 @@ def _run_real_interleaved_script(
         '        if os.environ.get("WFE_TEST_SETUP_DELAY"):\n'
         "            arm_todo = campaign._arm_todo\n"
         "            def delayed_arm_todo(*args, **kwargs):\n"
-        '                time.sleep(float(os.environ["WFE_TEST_SETUP_DELAY"]))\n'
+        '                fake_clock.advance(float(os.environ["WFE_TEST_SETUP_DELAY"]))\n'
         "                return arm_todo(*args, **kwargs)\n"
         "            campaign._arm_todo = delayed_arm_todo\n"
         "        return\n"
@@ -707,7 +715,18 @@ def test_rehearsal_runs_two_blocks_and_gates_phase_timing(
 def test_rehearsal_wall_gate_counts_parent_gap(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys, parent_gap: float
 ) -> None:
-    started = time.monotonic()
+    class FakeClock:
+        def __init__(self):
+            self.now = 1.0
+
+        def __call__(self):
+            return self.now
+
+        def advance(self, seconds: float) -> None:
+            self.now += seconds
+
+    clock = FakeClock()
+    monkeypatch.setattr(campaign, "_clock", clock)
     campaign_dir = tmp_path / "parent-gap-campaign"
     campaign_dir.mkdir()
     rows = [
@@ -732,14 +751,14 @@ def test_rehearsal_wall_gate_counts_parent_gap(
         nonlocal block_calls
         block_calls += 1
         if block_calls == 2 and parent_gap:
-            time.sleep(parent_gap)
+            clock.advance(parent_gap)
         return [blocks[block_calls - 1]] if block_calls <= len(blocks) else []
 
     def run_block(directory, block, arms, _args, _budget):
         block_id = campaign._interleaved_block_id(block)
         for arm in arms:
-            row_started = time.monotonic()
-            time.sleep(0.1)
+            row_started = clock()
+            clock.advance(0.1)
             campaign._record_block_timing(
                 directory,
                 arm,
@@ -768,22 +787,25 @@ def test_rehearsal_wall_gate_counts_parent_gap(
     )
     manifest = campaign.load_manifest(campaign_dir)
     result = campaign.campaign_finish(campaign_dir, "parent-gap")
-    elapsed = time.monotonic() - started
     timing = manifest["execution"]["timing"]
     output = capsys.readouterr().out
     gaps = {row["block_id"]: row["gap_before_s"] for row in timing["blocks"]}
 
-    assert elapsed < 5
+    block_ids = [campaign._interleaved_block_id(block) for block in blocks]
     assert len(gaps) == 2
-    assert "unattributed_s=" in output
-    assert timing["harness_s"] + timing["model_s"] == pytest.approx(timing["wall_s"], abs=0.002)
+    assert gaps == {block_ids[0]: 0.0, block_ids[1]: parent_gap}
+    assert timing["wall_s"] == pytest.approx(0.4 + parent_gap)
+    assert timing["model_s"] == pytest.approx(0.4)
+    assert timing["harness_s"] == pytest.approx(parent_gap)
+    assert timing["ratio"] == round(parent_gap / (0.4 + parent_gap), 4)
+    assert all(row["phases"]["rows_s"] == 0.1 for row in timing["blocks"])
+    assert campaign._timing_unattributed_s(timing) == pytest.approx(parent_gap)
+    assert f"unattributed_s={parent_gap:.3f}" in output
     if parent_gap:
         assert result == campaign.EXIT_REHEARSAL_FAILED, f"{timing=} {output=}"
-        assert max(gaps.values()) > parent_gap
-        assert "unattributed_s=" in output and "> 0.100" in output
+        assert f"unattributed_s={parent_gap:.3f} > 0.100" in output
     else:
         assert result == 0
-        assert max(gaps.values()) < 0.1
 
 
 def _pilot_manifest(plain_passes: int, qat_passes: int) -> dict:

@@ -118,6 +118,7 @@ DEFAULT_REPEATS = 3
 #: Production fidelity base: the pipeline serves /v1 non-streaming, no forced
 #: response format. `think` is filled in per workspace by campaign_harness().
 CAMPAIGN_HARNESS = {"endpoint": "v1", "stream": False, "think": "default", "format": "none"}
+_clock = time.monotonic
 
 
 def campaign_harness(wsc: dict, overrides: dict | None = None) -> dict:
@@ -3073,7 +3074,7 @@ def run_row(
     overrides = row_overrides(r)
     sampling = _sampling_for(wsc, r["repeat"], overrides)
     harness = campaign_harness(wsc, overrides)
-    t0 = time.monotonic()
+    t0 = _clock()
     pipe = ENGINE == "pipeline"
     harness["pipeline_model"] = row_model(r) if pipe else None
     task, wsc, prod = eval_mode.prepare(pipe, r, manifest, task, wsc, harness)
@@ -3198,7 +3199,7 @@ def run_row(
                 "sandbox_tree": capture_tree(sandbox.root),
                 "finish_reason": out["finish_reason"],
                 "economics": econ,
-                "wall_s": round(time.monotonic() - t0, 1),
+                "wall_s": round(_clock() - t0, 1),
                 "env": manifest["env"],
             },
         )
@@ -4200,7 +4201,7 @@ def _execute_arm_rows(
     ran = model_s = 0
     first_row_started_monotonic: float | None = None
     stop = halted = None
-    t_arm = t_rows = time.monotonic()
+    t_arm = t_rows = _clock()
     for i, r in enumerate(todo, 1):
         row_budget = _campaign_row_budget(campaign_dir, manifest, deadline_epoch, budget_s)
         if row_budget is None:
@@ -4219,7 +4220,7 @@ def _execute_arm_rows(
             save_manifest(campaign_dir, manifest)
             continue
         _log(campaign_dir, f"  [{i}/{len(todo)}] {r['run_id']}")
-        first_row_started_monotonic = first_row_started_monotonic or time.monotonic()
+        first_row_started_monotonic = first_row_started_monotonic or _clock()
         row = run_row(
             campaign_dir,
             manifest,
@@ -4250,12 +4251,12 @@ def _execute_arm_rows(
         if halted := _halt_arm(campaign_dir, arm, task, row, halt, tier=r.get("tier", "confirm")):
             break
         _curtail_after_task(campaign_dir, manifest, arm, r, curtail)
-    rows_s = time.monotonic() - t_rows
-    t_release = time.monotonic()
+    rows_s = _clock() - t_rows
+    t_release = _clock()
     out = _finish_arm(
         campaign_dir, arm, model, tally, t_arm, notify, stop, halted, ran, keep_resident
     )
-    release_s = time.monotonic() - t_release
+    release_s = _clock() - t_release
     out["reused"] = len(reused)
     out["stopped"] = (load_manifest(campaign_dir).get("campaign_stop") or {}).get("reason")
     return out, {"rows": rows_s, "release": release_s}, model_s, first_row_started_monotonic
@@ -4282,7 +4283,7 @@ def execute_arm(
     manifest = load_manifest(campaign_dir)
     if _campaign_row_budget(campaign_dir, manifest, deadline_epoch, budget_s) is None:
         return {"arm": arm, "ran": 0, "stopped": "time cap"}
-    t_setup = time.monotonic()
+    t_setup = _clock()
     apply_setup_exclusions(campaign_dir, manifest)
     todo, early, reused = _arm_todo(
         campaign_dir,
@@ -4295,19 +4296,19 @@ def execute_arm(
         curtail,
         only_run_ids,
     )
-    phases = {"block_setup": time.monotonic() - t_setup, "model_prepare": 0.0}
+    phases = {"block_setup": _clock() - t_setup, "model_prepare": 0.0}
     if early is not None:
         if timing:
             _record_block_timing(campaign_dir, arm, block_id, phases, 0.0)
         return early
-    t_prepare = time.monotonic()
+    t_prepare = _clock()
     model, keep_resident = _prepare_arm_resources(
         campaign_dir,
         arm,
         todo,
         set((manifest.get("execution") or {}).get("resident_fit_workspaces") or []),
     )
-    phases["model_prepare"] = time.monotonic() - t_prepare
+    phases["model_prepare"] = _clock() - t_prepare
     out, tail_phases, model_s, first_row_started_monotonic = _execute_arm_rows(
         campaign_dir,
         manifest,
@@ -4609,7 +4610,7 @@ def _run_timed_interleaved_block(
 ) -> tuple[list[dict], float]:
     block_id = _interleaved_block_id(block)
     outs = _run_interleaved_block(campaign_dir, block, run_arms, args, budget)
-    block_end = time.monotonic()
+    block_end = _clock()
     _record_parent_block_gap(campaign_dir, block_id, previous_block_end, block_end)
     return outs, block_end
 
@@ -4683,7 +4684,7 @@ def _finish_interleaved_timing(
 def _run_interleaved_campaign(
     campaign_dir: Path, arms: list[str], args, options: dict, deadline_epoch: float
 ) -> list[dict]:
-    campaign_started = time.monotonic()
+    campaign_started = _clock()
     previous_block_end = campaign_started
     last_block_end = None
     roles = {r["arm"]: r.get("arm_role") for r in load_manifest(campaign_dir)["rows"]}
