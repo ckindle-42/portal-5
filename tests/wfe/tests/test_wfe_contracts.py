@@ -1633,7 +1633,7 @@ class TestModelIdentity:
         camp.save_manifest(d, manifest)
         seen = {"content": "c1"}
 
-        def fake_pf(workspaces, model):
+        def fake_pf(workspaces, model, rows=None):
             ident = {"backend": "omlx-reasoning", "model": "g", "content": seen["content"]}
             return {
                 "model": model,
