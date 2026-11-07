@@ -3328,7 +3328,7 @@ def kind_halt_reason(
             else None
         )
     passes = sum(x["outcome"] == Outcome.PASS.value for x in rows)
-    if passes * n <= len(rows):
+    if _at_or_below_pass_floor(passes, len(rows), n=n):
         return f"pass rate {passes}/{len(rows)} <= 1/{n}"
     if tools and not any(x["tool_calls"] for x in rows):
         return f"0 tool calls on all {len(rows)} rows"
@@ -3337,6 +3337,13 @@ def kind_halt_reason(
     if any(x["hop"] for x in rows):
         return "hop-limit row"
     return None
+
+
+def _at_or_below_pass_floor(
+    passes: int, graded_rows: int, *, floor_rate: float | None = None, n: int = HALT_AFTER_ROWS
+) -> bool:
+    rate = floor_rate if floor_rate is not None else 1 / n
+    return graded_rows > 0 and passes / graded_rows <= rate
 
 
 def _halt_arm(
@@ -3426,6 +3433,7 @@ EXIT_OK, EXIT_STOPPED, EXIT_BLOCKED, EXIT_NO_SELECTION, EXIT_INCOMPLETE = 0, 5, 
 EXIT_HALT = 9
 #: wfe_campaign.sh exits 10 when every row is BLOCKED, PENDING, or MISSING.
 EXIT_NOTHING_MEASURED = 10
+EXIT_REHEARSAL_FAILED = 11
 _UNMEASURED_ROW_STATES = frozenset({"BLOCKED", "PENDING", "MISSING"})
 
 
@@ -3528,6 +3536,96 @@ def _recorded_halts(campaign_dir: Path) -> list[str]:
     return [ln.strip() for ln in path.read_text().splitlines() if ln.startswith("HALT ")]
 
 
+_TIMING_PHASES = ("block_setup", "model_prepare", "rows", "release")
+
+
+def _pilot_floor_summary(manifest: dict) -> dict | None:
+    execution = manifest.get("execution") or {}
+    if not execution.get("pilot_tasks") or execution.get("rehearsal"):
+        return None
+    rows = manifest.get("rows") or []
+    if not rows or any(
+        str(row.get("state") or "PENDING") in _UNMEASURED_ROW_STATES for row in rows
+    ):
+        return None
+    floor_rate = float(execution.get("pilot_floor_rate", 1 / HALT_AFTER_ROWS))
+    arm_results = []
+    for arm in sorted({str(row["arm"]) for row in rows if row.get("arm")}):
+        arm_rows = [row for row in rows if row.get("arm") == arm]
+        graded = [row for row in arm_rows if str(row.get("state")) in MODEL_QUALITY_OUTCOMES]
+        passes = sum(str(row.get("state")) == Outcome.PASS.value for row in graded)
+        if not graded:
+            return None
+        rate = passes / len(graded)
+        arm_results.append(
+            {
+                "arm": arm,
+                "passes": passes,
+                "graded_rows": len(graded),
+                "rate": rate,
+                "below_floor": _at_or_below_pass_floor(passes, len(graded), floor_rate=floor_rate),
+            }
+        )
+    return {
+        "floor_rate": floor_rate,
+        "arms": arm_results,
+        "no_signal": bool(arm_results) and all(arm["below_floor"] for arm in arm_results),
+    }
+
+
+def pilot_floor_check(campaign_id: str, campaigns: Path = CAMPAIGNS) -> dict | None:
+    path = campaigns / f"{campaign_id}_pilot" / "manifest.json"
+    try:
+        return _pilot_floor_summary(json.loads(path.read_text()))
+    except (OSError, ValueError):
+        return None
+
+
+def _timing_totals(timing: dict) -> tuple[float, float, float]:
+    harness_s = float(timing.get("harness_s") or 0)
+    model_s = float(timing.get("model_s") or 0)
+    total = harness_s + model_s
+    return harness_s, model_s, harness_s / total if total else 0.0
+
+
+def _rehearsal_failures(execution: dict, timing: dict) -> list[str]:
+    failures = []
+    max_phase_s = float(execution.get("rehearsal_max_phase_s", 120))
+    max_overhead = float(execution.get("rehearsal_max_overhead", 0.25))
+    blocks = timing.get("blocks") or []
+    for arm in sorted({str(block.get("arm")) for block in blocks}):
+        count = len({block.get("block_id") for block in blocks if block.get("arm") == arm})
+        if count < 2:
+            failures.append(f"arm {arm} ran {count} block(s); 2 required")
+    for block in blocks:
+        for phase in _TIMING_PHASES:
+            seconds = float((block.get("phases") or {}).get(f"{phase}_s") or 0)
+            if phase != "rows" and seconds > max_phase_s:
+                failures.append(
+                    f"{phase} arm={block.get('arm')} s={seconds:.3f} > {max_phase_s:.3f}"
+                )
+    _harness_s, _model_s, ratio = _timing_totals(timing)
+    if not blocks:
+        failures.append("no interleaved block timing recorded")
+    if ratio > max_overhead:
+        failures.append(f"overhead ratio={ratio:.3f} > {max_overhead:.3f}")
+    return failures
+
+
+def _print_timing_report(execution: dict) -> tuple[float, float, float]:
+    timing = execution.get("timing") or {}
+    blocks = timing.get("blocks") or []
+    if blocks:
+        print("PHASE TABLE block arm block_setup_s model_prepare_s rows_s release_s")
+        for block in blocks:
+            phases = block.get("phases") or {}
+            values = " ".join(f"{phases.get(f'{phase}_s', 0):.3f}" for phase in _TIMING_PHASES)
+            print(f"PHASE TABLE {block.get('block_id')} {block.get('arm')} {values}")
+    harness_s, model_s, ratio = _timing_totals(timing)
+    print(f"OVERHEAD harness_s={harness_s:.3f} model_s={model_s:.3f} ratio={ratio:.3f}")
+    return harness_s, model_s, ratio
+
+
 def campaign_finish(campaign_dir: Path, campaign_id: str) -> int:
     """Print the final `CAMPAIGN <id>: ...` line and exit for the matrix that was run.
 
@@ -3538,11 +3636,15 @@ def campaign_finish(campaign_dir: Path, campaign_id: str) -> int:
     manifest_path = Path(campaign_dir) / "manifest.json"
     rows: list[dict] = []
     campaign_stop = None
+    manifest = {}
     if manifest_path.is_file():
         with contextlib.suppress(Exception):
             manifest = json.loads(manifest_path.read_text())
             rows = manifest.get("rows") or []
             campaign_stop = manifest.get("campaign_stop")
+    execution = manifest.get("execution") or {}
+    timing = execution.get("timing") or {}
+    _print_timing_report(execution)
     states = [str(r.get("state") or "PENDING") for r in rows]
     done = sum(1 for s in states if s not in _UNMEASURED_ROW_STATES)
     left = sum(1 for s in states if s in ("PENDING", "MISSING"))
@@ -3567,6 +3669,17 @@ def campaign_finish(campaign_dir: Path, campaign_id: str) -> int:
         reason = f"{left} row(s) left PENDING with no stop recorded"
     elif blocked:
         reason = f"{blocked} row(s) BLOCKED, rest measured"
+    pilot = _pilot_floor_summary(manifest)
+    if verdict == "complete" and pilot and pilot["no_signal"]:
+        counts = ", ".join(
+            f"{arm['arm']}={arm['passes']}/{arm['graded_rows']}" for arm in pilot["arms"]
+        )
+        verdict = "NO_SIGNAL"
+        reason = f"all arms below floor {pilot['floor_rate']:.0%}: {counts}"
+    rehearsal = _rehearsal_failures(execution, timing) if execution.get("rehearsal") else []
+    if verdict == "complete" and rehearsal:
+        verdict, code = "failed", EXIT_REHEARSAL_FAILED
+        reason = "rehearsal gate: " + "; ".join(rehearsal)
     print(f"CAMPAIGN {campaign_id}: {verdict} ({reason}) rows {done}/{len(rows)}")
     return code
 
@@ -3989,61 +4102,64 @@ def _arm_todo(
     return [], {"arm": arm, "ran": 0, "reused": len(reused)}, reused
 
 
-def execute_arm(
+def _record_block_timing(
+    campaign_dir: Path, arm: str, block_id: str | None, phases: dict[str, float], model_s: float
+) -> None:
+    manifest = load_manifest(campaign_dir)
+    execution = manifest.setdefault("execution", {})
+    timing = execution.setdefault("timing", {"blocks": []})
+    blocks = timing.setdefault("blocks", [])
+    ident = block_id or f"{arm}-{len(blocks) + 1}"
+    phases = {f"{name}_s": round(max(0.0, phases.get(name, 0.0)), 3) for name in _TIMING_PHASES}
+    elapsed = sum(phases.values())
+    harness_s = max(0.0, elapsed - model_s)
+    record = {
+        "block_id": ident,
+        "arm": arm,
+        "phases": phases,
+        "harness_s": round(harness_s, 3),
+        "model_s": round(model_s, 3),
+    }
+    blocks[:] = [row for row in blocks if (row.get("block_id"), row.get("arm")) != (ident, arm)]
+    blocks.append(record)
+    timing["harness_s"] = round(sum(row["harness_s"] for row in blocks), 3)
+    timing["model_s"] = round(sum(row["model_s"] for row in blocks), 3)
+    total = timing["harness_s"] + timing["model_s"]
+    timing["ratio"] = round(timing["harness_s"] / total, 4) if total else 0.0
+    save_manifest(campaign_dir, manifest)
+    for phase, seconds in phases.items():
+        name = phase.removesuffix("_s")
+        line = f"PHASE {name} arm={arm} s={seconds:.3f}"
+        print(line, flush=True)
+        with (campaign_dir / "progress.log").open("a", encoding="utf-8") as log:
+            log.write(line + "\n")
+
+
+def _execute_arm_rows(
     campaign_dir: Path,
+    manifest: dict,
     arm: str,
+    todo: list[dict],
+    reused: list[str],
+    model: str,
+    keep_resident: bool,
     max_turns: int,
     budget_s: int,
     debug_dir: Path | None,
-    force_preflight: bool,
     notify: bool,
-    rerun_failed: bool = False,
-    halt: bool = True,
-    curtail: bool = True,
-    fresh_incumbent: bool = False,
-    only_run_ids: set[str] | None = None,
-    deadline_epoch: float | None = None,
-) -> dict:
-    """Run every pending row for ONE arm. Fresh process per arm is the house
-    pattern for long sweeps: a leaked handle or a wedged connection in one model
-    must not poison the remaining arms."""
-    manifest = load_manifest(campaign_dir)
-    if _campaign_row_budget(campaign_dir, manifest, deadline_epoch, budget_s) is None:
-        return {"arm": arm, "ran": 0, "stopped": "time cap"}
-    apply_setup_exclusions(campaign_dir, manifest)
-    todo, early, reused = _arm_todo(
-        campaign_dir,
-        manifest,
-        arm,
-        force_preflight,
-        notify,
-        rerun_failed,
-        fresh_incumbent,
-        curtail,
-        only_run_ids,
-    )
-    if early is not None:
-        return early
-
-    # Evict before the first row so stale weights or a pinned classifier cannot
-    # consume the memory this arm needs.
-    model, keep_resident = _prepare_arm_resources(
-        campaign_dir,
-        arm,
-        todo,
-        set((manifest.get("execution") or {}).get("resident_fit_workspaces") or []),
-    )
-
+    halt: bool,
+    curtail: bool,
+    deadline_epoch: float | None,
+) -> tuple[dict, dict[str, float], float]:
     _log(campaign_dir, f"arm {arm}: {len(todo)} runs pending")
     if notify:
         _notify("test_start", f"WFE arm started: {arm}\n{len(todo)} task-runs")
-
     ws_cache: dict[tuple, dict] = {}
     suite_cache: dict[str, dict] = {}
     tally: dict = {}
-    ran = 0
+    ran = model_s = 0
     stop = halted = None
-    t_arm = time.monotonic()
+    t_arm = t_rows = time.monotonic()
     for i, r in enumerate(todo, 1):
         row_budget = _campaign_row_budget(campaign_dir, manifest, deadline_epoch, budget_s)
         if row_budget is None:
@@ -4074,13 +4190,16 @@ def execute_arm(
             cold=(i == 1),
         )
         ran += 1
+        row_wall = (row.get("economics") or {}).get("wall_s")
+        if isinstance(row_wall, (int, float)):
+            model_s += max(0.0, float(row_wall))
         r["state"] = row["outcome"]
         tally[row["outcome"]] = tally.get(row["outcome"], 0) + 1
         save_manifest(campaign_dir, manifest)
         _log(
             campaign_dir,
             f"      -> {row['outcome']} turns={row['turns']} tools={row['tool_calls']} "
-            f"errs={row['tool_errors']} {row['economics'].get('wall_s')}s",
+            f"errs={row['tool_errors']} {(row.get('economics') or {}).get('wall_s')}s",
         )
         stop = arm_stop_reason(arm, row, campaign_dir, manifest, r)
         if stop:
@@ -4089,12 +4208,83 @@ def execute_arm(
         if halted := _halt_arm(campaign_dir, arm, task, row, halt, tier=r.get("tier", "confirm")):
             break
         _curtail_after_task(campaign_dir, manifest, arm, r, curtail)
-
+    rows_s = time.monotonic() - t_rows
+    t_release = time.monotonic()
     out = _finish_arm(
         campaign_dir, arm, model, tally, t_arm, notify, stop, halted, ran, keep_resident
     )
+    release_s = time.monotonic() - t_release
     out["reused"] = len(reused)
     out["stopped"] = (load_manifest(campaign_dir).get("campaign_stop") or {}).get("reason")
+    return out, {"rows": rows_s, "release": release_s}, model_s
+
+
+def execute_arm(
+    campaign_dir: Path,
+    arm: str,
+    max_turns: int,
+    budget_s: int,
+    debug_dir: Path | None,
+    force_preflight: bool,
+    notify: bool,
+    rerun_failed: bool = False,
+    halt: bool = True,
+    curtail: bool = True,
+    fresh_incumbent: bool = False,
+    only_run_ids: set[str] | None = None,
+    deadline_epoch: float | None = None,
+    timing: bool = False,
+    block_id: str | None = None,
+) -> dict:
+    """Run every pending row for one arm in its own worker process."""
+    manifest = load_manifest(campaign_dir)
+    if _campaign_row_budget(campaign_dir, manifest, deadline_epoch, budget_s) is None:
+        return {"arm": arm, "ran": 0, "stopped": "time cap"}
+    t_setup = time.monotonic()
+    apply_setup_exclusions(campaign_dir, manifest)
+    todo, early, reused = _arm_todo(
+        campaign_dir,
+        manifest,
+        arm,
+        force_preflight,
+        notify,
+        rerun_failed,
+        fresh_incumbent,
+        curtail,
+        only_run_ids,
+    )
+    phases = {"block_setup": time.monotonic() - t_setup, "model_prepare": 0.0}
+    if early is not None:
+        if timing:
+            _record_block_timing(campaign_dir, arm, block_id, phases, 0.0)
+        return early
+    t_prepare = time.monotonic()
+    model, keep_resident = _prepare_arm_resources(
+        campaign_dir,
+        arm,
+        todo,
+        set((manifest.get("execution") or {}).get("resident_fit_workspaces") or []),
+    )
+    phases["model_prepare"] = time.monotonic() - t_prepare
+    out, tail_phases, model_s = _execute_arm_rows(
+        campaign_dir,
+        manifest,
+        arm,
+        todo,
+        reused,
+        model,
+        keep_resident,
+        max_turns,
+        budget_s,
+        debug_dir,
+        notify,
+        halt,
+        curtail,
+        deadline_epoch,
+    )
+    phases.update(tail_phases)
+    if timing:
+        _record_block_timing(campaign_dir, arm, block_id, phases, model_s)
     return out
 
 
@@ -4297,6 +4487,11 @@ def _run_interleaved_block(
     campaign_dir: Path, block: list[dict], arms: list[str], args, budget: int
 ):
     outs = []
+    block_id = sha12(
+        "|".join(
+            sorted(run_id for unit in block for ids in unit["run_ids"].values() for run_id in ids)
+        )
+    )
     for arm in arms:
         run_ids = {run_id for unit in block for run_id in unit["run_ids"].get(arm, [])}
         if not run_ids:
@@ -4312,7 +4507,7 @@ def _run_interleaved_block(
             run_ids_path = Path(run_file.name)
         try:
             rc = subprocess.run(
-                _block_worker_command(campaign_dir, arm, run_ids_path, args, budget),
+                _block_worker_command(campaign_dir, arm, run_ids_path, block_id, args, budget),
                 cwd=REPO,
                 stdin=subprocess.DEVNULL,
                 check=False,
@@ -4337,7 +4532,9 @@ def _run_interleaved_block(
     return outs
 
 
-def _block_worker_command(campaign_dir: Path, arm: str, run_ids_path: Path, args, budget: int):
+def _block_worker_command(
+    campaign_dir: Path, arm: str, run_ids_path: Path, block_id: str, args, budget: int
+):
     command = [
         sys.executable,
         "-m",
@@ -4352,6 +4549,8 @@ def _block_worker_command(campaign_dir: Path, arm: str, run_ids_path: Path, args
         arm,
         "--run-ids-file",
         str(run_ids_path),
+        "--block-id",
+        block_id,
         "--block-worker",
         "--budget-s",
         str(budget),
@@ -4370,6 +4569,10 @@ def _block_worker_command(campaign_dir: Path, arm: str, run_ids_path: Path, args
             command.append(flag)
     if args.repeats is not None:
         command.extend(("--repeats", str(args.repeats)))
+    if getattr(args, "pilot", None) is not None:
+        command.extend(("--pilot", str(args.pilot)))
+    if getattr(args, "rehearse", False):
+        command.append("--rehearse")
     if args.debug_dir:
         command.extend(("--debug-dir", str(args.debug_dir)))
     if args.force:
@@ -4510,6 +4713,8 @@ def _parse_args(argv=None):
     ap.add_argument("--campaign-id", help="create or continue this campaign")
     ap.add_argument("--run-ids-file", type=Path, help=argparse.SUPPRESS)
     ap.add_argument("--block-worker", action="store_true", help=argparse.SUPPRESS)
+    ap.add_argument("--block-id", help=argparse.SUPPRESS)
+    ap.add_argument("--pilot-floor-check", action="store_true", help=argparse.SUPPRESS)
     ap.add_argument("--arms-file", type=Path, help=argparse.SUPPRESS)
     ap.add_argument(
         "--pilot",
@@ -4517,6 +4722,9 @@ def _parse_args(argv=None):
         nargs="?",
         const=6,
         help="run this many one-draw tasks per arm in an interleaved <id>_pilot campaign (default 6)",
+    )
+    ap.add_argument(
+        "--rehearse", action="store_true", help="run two spread tasks per arm for a timing gate"
     )
     ap.add_argument("--arm", help="run exactly one model tag (one arm per process)")
     ap.add_argument("--workspace", help="restrict to one workspace")
@@ -5074,7 +5282,12 @@ def plan_repeats(plan_path: Path) -> int | None:
     return raw
 
 
-def execution_options(plan_path: Path, matrix: list[dict], pilot_tasks: int | None = None) -> dict:
+def execution_options(
+    plan_path: Path,
+    matrix: list[dict],
+    pilot_tasks: int | None = None,
+    rehearsal: bool = False,
+) -> dict:
     """Read bounded scheduling choices from the workload plan."""
     data = yaml.safe_load(plan_path.read_text()) or {}
     if not isinstance(data, dict):
@@ -5096,8 +5309,11 @@ def execution_options(plan_path: Path, matrix: list[dict], pilot_tasks: int | No
     margin = data.get("non_inferiority_margin")
     if margin is not None:
         margin = decision._validated_margin(margin)
+    pilot_floor_rate = _plan_fraction(data, "pilot_floor_rate", 1 / HALT_AFTER_ROWS, exclusive=True)
+    rehearsal_max_overhead = _plan_fraction(data, "rehearsal_max_overhead", 0.25)
+    rehearsal_max_phase_s = _plan_positive_number(data, "rehearsal_max_phase_s", 120)
     workspaces = {str(row.get("workspace") or "") for row in matrix} - {""}
-    if order == "interleaved" and arm_count >= 2 and workspaces:
+    if order == "interleaved" and arm_count >= 2 and workspaces and not rehearsal:
         row_walls = _row_wall_history(matrix)
         swap_profiles = _engine_swap_profiles()
         block_by_workspace, reason_by_workspace, models_by_workspace = _choose_interleave_blocks(
@@ -5110,6 +5326,11 @@ def execution_options(plan_path: Path, matrix: list[dict], pilot_tasks: int | No
         reason_by_workspace = dict.fromkeys(block_by_workspace, reason)
         models_by_workspace = {}
         swap_profiles = {}
+    if rehearsal:
+        block_by_workspace = dict.fromkeys(sorted(workspaces), 1)
+        reason_by_workspace = dict.fromkeys(workspaces, "rehearsal requires one task per block")
+        models_by_workspace = {}
+        swap_profiles = {}
     return {
         "arm_order": order,
         "interleave_block": max(block_by_workspace.values(), default=4),
@@ -5117,12 +5338,40 @@ def execution_options(plan_path: Path, matrix: list[dict], pilot_tasks: int | No
         "interleave_block_reason_by_workspace": reason_by_workspace,
         "interleave_models_by_workspace": models_by_workspace,
         "interleave_swap_profiles": swap_profiles,
-        "interleave_block_override": block is not None,
+        "interleave_block_override": block is not None or rehearsal,
         "resident_fit_workspaces": [],
         "max_minutes": max_minutes,
         "non_inferiority_margin": margin,
         "pilot_tasks": pilot_tasks,
+        "pilot_floor_rate": pilot_floor_rate,
+        "rehearsal": rehearsal,
+        "rehearsal_max_overhead": rehearsal_max_overhead,
+        "rehearsal_max_phase_s": rehearsal_max_phase_s,
     }
+
+
+def _plan_fraction(data: dict, key: str, default: float, *, exclusive: bool = False) -> float:
+    raw = data.get(key, default)
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)) or not math.isfinite(raw):
+        raise ValueError(f"{key} must be a finite number")
+    low_ok = raw > 0 if exclusive else raw >= 0
+    high_ok = raw < 1 if exclusive else raw <= 1
+    if not low_ok or not high_ok:
+        interval = "(0, 1)" if exclusive else "[0, 1]"
+        raise ValueError(f"{key} must be in {interval}")
+    return float(raw)
+
+
+def _plan_positive_number(data: dict, key: str, default: float) -> float:
+    raw = data.get(key, default)
+    if (
+        isinstance(raw, bool)
+        or not isinstance(raw, (int, float))
+        or not math.isfinite(raw)
+        or raw <= 0
+    ):
+        raise ValueError(f"{key} must be a finite positive number")
+    return float(raw)
 
 
 def _summary(values: list[float]) -> dict | None:
@@ -5385,7 +5634,13 @@ def pilot_matrix(matrix: list[dict], task_limit: int) -> list[dict]:
     ]
 
 
-def _effective_campaign_id(campaign_id: str | None, pilot_tasks: int | None) -> str | None:
+def _effective_campaign_id(
+    campaign_id: str | None, pilot_tasks: int | None, rehearsal: bool = False
+) -> str | None:
+    if rehearsal:
+        if campaign_id is None or campaign_id.endswith("_rehearsal"):
+            return campaign_id
+        return f"{campaign_id}_rehearsal"
     if campaign_id is None or pilot_tasks is None or campaign_id.endswith("_pilot"):
         return campaign_id
     return f"{campaign_id}_pilot"
@@ -5402,7 +5657,7 @@ def _planned_matrix(plan: Path, args) -> tuple[int | dict[str, int], list[dict]]
             plan,
             n,
             args.all_suites,
-            args.arm,
+            None if getattr(args, "block_worker", False) else args.arm,
             args.suite,
             args.task,
             args.workspace,
@@ -5536,20 +5791,28 @@ def _apply_load_guard_choices(
 def _prepare_campaign(ap, args, plan: Path) -> tuple[Path | None, dict, int | None]:
     if not args.campaign_id:
         ap.error("--campaign-id is required (or use --smoke / --rescore / --list-arms)")
-    if args.pilot is not None:
+    if args.rehearse:
+        args.pilot = 2
+        args.campaign_id = _effective_campaign_id(args.campaign_id, 2, rehearsal=True)
+    elif args.pilot is not None:
         if args.pilot < 1:
             ap.error("--pilot must be a positive task count")
         args.campaign_id = _effective_campaign_id(args.campaign_id, args.pilot)
     repeats, matrix = _planned_matrix(plan, args)
+    if (
+        args.rehearse
+        and len({(row["workspace"], row["suite"], row["task_id"]) for row in matrix}) != 2
+    ):
+        ap.error("--rehearse requires exactly two selected task identities")
     if args.pilot is not None and len({row["arm"] for row in matrix}) < 2:
         ap.error("--pilot requires at least two arms")
     stored_manifest = CAMPAIGNS / args.campaign_id / "manifest.json"
     if args.block_worker and stored_manifest.is_file():
         execution = load_manifest(stored_manifest.parent).get("execution")
         if not execution:
-            execution = execution_options(plan, matrix, args.pilot)
+            execution = execution_options(plan, matrix, args.pilot, rehearsal=args.rehearse)
     else:
-        execution = execution_options(plan, matrix, args.pilot)
+        execution = execution_options(plan, matrix, args.pilot, rehearsal=args.rehearse)
     if not args.block_worker:
         _warn_prompt_surface(matrix)
     if args.dry_run:
@@ -5602,6 +5865,8 @@ def _run_selected_arms(
             fresh_incumbent=args.fresh_incumbent,
             only_run_ids=only_run_ids,
             deadline_epoch=deadline,
+            timing=bool(args.block_worker),
+            block_id=getattr(args, "block_id", None),
         )
         outs.append(out or {})
         if (out or {}).get("halted"):
@@ -5676,16 +5941,34 @@ def _finish_exit() -> int | None:
     ap, args = _parse_args()
     if args.dry_run:
         return None
+    if args.pilot_floor_check:
+        if not args.campaign_id:
+            ap.error("--pilot-floor-check needs --campaign-id")
+        result = pilot_floor_check(args.campaign_id)
+        if result and result["no_signal"]:
+            counts = ", ".join(
+                f"{arm['arm']}={arm['passes']}/{arm['graded_rows']}" for arm in result["arms"]
+            )
+            print(f"NO_SIGNAL all pilot arms below {result['floor_rate']:.0%}: {counts}")
+            return EXIT_OK
+        print("PILOT_FLOOR CLEAR_OR_UNAVAILABLE")
+        return EXIT_NO_SELECTION
     if args.finish:
         if not args.campaign_id:
             ap.error("--finish needs --campaign-id")
-        args.campaign_id = _effective_campaign_id(args.campaign_id, args.pilot)
+        if args.rehearse:
+            args.pilot = 2
+        args.campaign_id = _effective_campaign_id(
+            args.campaign_id, args.pilot, rehearsal=args.rehearse
+        )
         return campaign_finish(CAMPAIGNS / args.campaign_id, args.campaign_id)
     if not args.require_measured:
         return None
     if not args.campaign_id:
         ap.error("--require-measured needs --campaign-id")
-    args.campaign_id = _effective_campaign_id(args.campaign_id, args.pilot)
+    if args.rehearse:
+        args.pilot = 2
+    args.campaign_id = _effective_campaign_id(args.campaign_id, args.pilot, rehearsal=args.rehearse)
     return _cmd_require_measured(CAMPAIGNS / args.campaign_id)
 
 

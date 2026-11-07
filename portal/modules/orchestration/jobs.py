@@ -64,9 +64,15 @@ _STEP_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
     "required": ["id", "timeout_seconds"],
-    # A canary step derives its argv from the step it gates, so only plain
-    # steps must carry argv.
-    "if": {"not": {"required": ["canary"]}},
+    # Gate steps derive argv from the step they gate.
+    "if": {
+        "not": {
+            "anyOf": [
+                {"required": ["canary"]},
+                {"required": ["rehearse"]},
+            ]
+        }
+    },
     "then": {"required": ["argv"]},
     "properties": {
         "id": {"type": "string", "pattern": _STEP_ID.pattern},
@@ -76,6 +82,7 @@ _STEP_SCHEMA: dict[str, Any] = {
             "items": {"type": "string", "minLength": 1},
         },
         "canary": {"type": "string", "minLength": 1},
+        "rehearse": {"type": "string", "minLength": 1},
         "timeout_seconds": {"type": "number", "exclusiveMinimum": 0},
         "quiet_host": {"type": "boolean"},
         "idempotent": {"type": "boolean"},
@@ -168,8 +175,9 @@ class JobStep:
     quiet_host: bool = True
     env_from_dotenv: tuple[str, ...] = ()
     idempotent: bool = True
-    #: The step this canary gates. argv is that step's, minus flags the canary refuses, plus --canary.
+    #: Gate references are resolved into argv during parsing.
     canary_of: str | None = None
+    rehearse_of: str | None = None
 
 
 @dataclass(frozen=True)
@@ -207,9 +215,8 @@ class JobSpec:
             "steps": [
                 {
                     "id": step.step_id,
-                    # A canary step omits argv so the round-trip re-derives it
-                    # from its reference instead of double-applying --canary.
-                    **({} if step.canary_of else {"argv": list(step.argv)}),
+                    # Gate steps omit argv so parsing derives it without duplicating flags.
+                    **({} if step.canary_of or step.rehearse_of else {"argv": list(step.argv)}),
                     "timeout_seconds": step.timeout_seconds,
                     "outputs": list(step.outputs),
                     "checkpoints": list(step.checkpoints),
@@ -222,6 +229,7 @@ class JobSpec:
                         else {}
                     ),
                     **({"canary": step.canary_of} if step.canary_of else {}),
+                    **({"rehearse": step.rehearse_of} if step.rehearse_of else {}),
                 }
                 for step in self.steps
             ],
@@ -330,11 +338,12 @@ def job_json(spec: JobSpec) -> str:
 
 def _parse_step(raw: dict[str, Any], repo_root: Path) -> JobStep:
     canary_of = str(raw["canary"]) if raw.get("canary") else None
-    if canary_of and "argv" in raw:
-        raise ValueError(
-            f"step {raw['id']}: a canary step derives its argv from {canary_of!r}; drop argv"
-        )
-    if canary_of:
+    rehearse_of = str(raw["rehearse"]) if raw.get("rehearse") else None
+    if canary_of and rehearse_of:
+        raise ValueError(f"step {raw['id']}: choose either canary or rehearse")
+    if (canary_of or rehearse_of) and "argv" in raw:
+        raise ValueError(f"step {raw['id']}: a gate step derives its argv; drop argv")
+    if canary_of or rehearse_of:
         argv: tuple[str, ...] = ()
     else:
         argv = tuple(str(token) for token in raw["argv"])
@@ -356,27 +365,28 @@ def _parse_step(raw: dict[str, Any], repo_root: Path) -> JobStep:
         env_from_dotenv=env_from_dotenv,
         idempotent=bool(raw.get("idempotent", True)),
         canary_of=canary_of,
+        rehearse_of=rehearse_of,
     )
 
 
 def _resolve_canaries(steps: list[JobStep], repo_root: Path) -> tuple[JobStep, ...]:
-    """A `canary: <step>` step runs the named step's argv with --canary appended.
-    It must precede the step it gates, and that step must have its own argv."""
+    """Resolve canary and rehearsal gates from an earlier plain step."""
     index = {step.step_id: i for i, step in enumerate(steps)}
     out: list[JobStep] = []
     for i, step in enumerate(steps):
-        if step.canary_of is None:
+        gate_of = step.canary_of or step.rehearse_of
+        if gate_of is None:
             out.append(step)
             continue
-        j = index.get(step.canary_of)
+        j = index.get(gate_of)
         if j is None:
-            raise ValueError(f"step {step.step_id}: canary names unknown step {step.canary_of!r}")
+            raise ValueError(f"step {step.step_id}: gate names unknown step {gate_of!r}")
         ref = steps[j]
-        if ref.canary_of is not None:
-            raise ValueError(f"step {step.step_id}: canary must name a step with its own argv")
+        if ref.canary_of is not None or ref.rehearse_of is not None:
+            raise ValueError(f"step {step.step_id}: gate must name a step with its own argv")
         if j <= i:
-            raise ValueError(f"step {step.step_id}: canary must precede step {step.canary_of!r}")
-        argv = _canary_argv(ref.argv)
+            raise ValueError(f"step {step.step_id}: gate must precede step {gate_of!r}")
+        argv = (*ref.argv, "--rehearse") if step.rehearse_of else _canary_argv(ref.argv)
         _validate_argv(argv, repo_root)
         out.append(replace(step, argv=argv))
     return tuple(out)

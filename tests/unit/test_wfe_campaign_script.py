@@ -10,6 +10,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -28,6 +29,16 @@ log, engine, plan, *argv = sys.argv[1:]
 with open(log, "a") as handle:
     handle.write(json.dumps({"argv": argv, "engine": engine, "plan": plan}) + "\\n")
 PY
+for arg in "$@"; do
+    if [ "$arg" = "--pilot-floor-check" ]; then
+        if [ "${WFE_PILOT_NO_SIGNAL:-0}" = "1" ]; then
+            echo "NO_SIGNAL all pilot arms below 25%: plain=1/8, qat=0/8"
+            exit 0
+        fi
+        echo "PILOT_FLOOR CLEAR_OR_UNAVAILABLE"
+        exit 7
+    fi
+done
 for arg in "$@"; do
     [ "$arg" = "-c" ] && { echo "True"; exit 0; }
 done
@@ -115,6 +126,8 @@ def _run_real_interleaved_script(
     *,
     pilot: bool = False,
     expired: bool = False,
+    rehearse: bool = False,
+    slow_setup: bool = False,
 ) -> tuple[subprocess.CompletedProcess[str], Path]:
     plan = yaml.safe_load(
         (ROOT / "tests/wfe/plans/gemma26b_qat_vision_fallbacks_20261106.yaml").read_text(
@@ -123,6 +136,8 @@ def _run_real_interleaved_script(
     )
     plan["repeats"] = 1
     plan["interleave_block"] = 4
+    if rehearse:
+        plan["rehearsal_max_phase_s"] = 0.1 if slow_setup else 120
     workload = next(iter(plan["workloads"].values()))
     suite_path = ROOT / "tests/wfe/suites" / f"{workload['home']}.jsonl"
     task_ids = [
@@ -135,8 +150,9 @@ def _run_real_interleaved_script(
     plan_path = tmp_path / "two-task-interleaved-plan.yaml"
     plan_path.write_text(yaml.safe_dump(plan), encoding="utf-8")
     matrix = campaign.expand_matrix(plan_path, 1, tier="realuse")
-    if pilot:
-        matrix = campaign.pilot_matrix(matrix, 8)
+    pilot_tasks = 2 if rehearse else 8 if pilot else None
+    if pilot_tasks:
+        matrix = campaign.pilot_matrix(matrix, pilot_tasks)
     arms = list(dict.fromkeys(row["arm"] for row in matrix))
     assert len(arms) == 2
     campaign_root = tmp_path / "data" / "tests" / "wfe" / "results" / "campaigns"
@@ -156,8 +172,8 @@ def _run_real_interleaved_script(
         ("_row_wall_history", lambda _matrix: {}),
     ):
         monkeypatch.setattr(campaign, name, value)
-    effective_id = campaign._effective_campaign_id(campaign_id, 8 if pilot else None)
-    execution = campaign.execution_options(plan_path, matrix, 8 if pilot else None)
+    effective_id = campaign._effective_campaign_id(campaign_id, pilot_tasks, rehearsal=rehearse)
+    execution = campaign.execution_options(plan_path, matrix, pilot_tasks, rehearsal=rehearse)
     campaign.open_campaign(effective_id, plan_path, matrix, append=False, execution=execution)
     arms_path = tmp_path / "arms.txt"
     arms_path.write_text("\n".join(arms) + "\n", encoding="utf-8")
@@ -171,9 +187,10 @@ def _run_real_interleaved_script(
         'if [ "$1" = "-m" ] && [ "$2" = "tests.wfe.campaign" ]; then\n'
         "  shift 2\n"
         '  case " $* " in\n'
+        '    *" --pilot-floor-check "*) exec "$WFE_TEST_REAL_PYTHON" -c \'import sys; import tests.wfe.campaign as c; sys.argv=["tests.wfe.campaign",*sys.argv[1:]]; raise SystemExit(c._cli())\' "$@" ;;\n'
         '    *" --dry-run "*) echo "matrix rows: 4 arms: 2 repeats: 1"; exit 0 ;;\n'
         '    *" --status "*) exit 0 ;;\n'
-        '    *" --finish "*) exec "$WFE_TEST_REAL_PYTHON" -c \'import json,os,sys; p=os.path.join(os.environ["PORTAL_DATA_ROOT"],"tests/wfe/results/campaigns",os.environ["WFE_TEST_CAMPAIGN_ID"],"manifest.json"); m=json.load(open(p)); print("CAMPAIGN",os.environ["WFE_TEST_CAMPAIGN_ID"],"stopped" if m.get("campaign_stop") else "complete"); raise SystemExit(5 if m.get("campaign_stop") else 0)\' ;;\n'
+        '    *" --finish "*) if [ -n "$WFE_TEST_PHASES" ]; then exec "$WFE_TEST_REAL_PYTHON" -c \'import sys; import tests.wfe.campaign as c; sys.argv=["tests.wfe.campaign",*sys.argv[1:]]; raise SystemExit(c._cli())\' "$@"; fi; exec "$WFE_TEST_REAL_PYTHON" -c \'import json,os,sys; p=os.path.join(os.environ["PORTAL_DATA_ROOT"],"tests/wfe/results/campaigns",os.environ["WFE_TEST_CAMPAIGN_ID"],"manifest.json"); m=json.load(open(p)); print("CAMPAIGN",os.environ["WFE_TEST_CAMPAIGN_ID"],"stopped" if m.get("campaign_stop") else "complete"); raise SystemExit(5 if m.get("campaign_stop") else 0)\' ;;\n'
         "  esac\n"
         '  exec "$WFE_TEST_REAL_PYTHON" -c \'import os,sys; import tests.wfe.campaign as c; '
         "from wfe_campaign_test_support import patch_campaign; patch_campaign(c); "
@@ -216,6 +233,22 @@ def _run_real_interleaved_script(
         "    campaign._realuse_tool_preflight = lambda _plan: None\n"
         '    campaign._arm_preflight = lambda *_args: {"verdict": "OK", "findings": [], "identities": {}}\n'
         "    campaign._evaluate_interleaved = lambda *_args: (0, False)\n"
+        '    if os.environ.get("WFE_TEST_PHASES"):\n'
+        "        import time\n"
+        "        campaign.drain_model = lambda _model: True\n"
+        "        campaign.workspace_context = lambda *_args, **_kwargs: {}\n"
+        "        campaign._prepare_arm_resources = lambda _directory, _arm, todo, _resident=None: (campaign.row_model(todo[0]), False)\n"
+        '        campaign.run_row = lambda *_args, **_kwargs: {"outcome": "PASS", "turns": 1, "tool_calls": 1, "tool_errors": 0, "economics": {"wall_s": 0.1}}\n'
+        "        campaign.arm_stop_reason = lambda *_args, **_kwargs: None\n"
+        "        campaign._halt_arm = lambda *_args, **_kwargs: None\n"
+        "        campaign._curtail_after_task = lambda *_args, **_kwargs: None\n"
+        '        if os.environ.get("WFE_TEST_SETUP_DELAY"):\n'
+        "            arm_todo = campaign._arm_todo\n"
+        "            def delayed_arm_todo(*args, **kwargs):\n"
+        '                time.sleep(float(os.environ["WFE_TEST_SETUP_DELAY"]))\n'
+        "                return arm_todo(*args, **kwargs)\n"
+        "            campaign._arm_todo = delayed_arm_todo\n"
+        "        return\n"
         "    def execute_arm(directory, arm, *args, only_run_ids=None, **kwargs):\n"
         "        manifest = campaign.load_manifest(directory)\n"
         "        selected = set(only_run_ids or ())\n"
@@ -258,6 +291,10 @@ def _run_real_interleaved_script(
         "OLLAMA": "file:///no-ollama-in-test",
         "OLLAMA_URL": "file:///no-ollama-in-test",
     }
+    if rehearse:
+        env["WFE_TEST_PHASES"] = "1"
+    if slow_setup:
+        env["WFE_TEST_SETUP_DELAY"] = "0.2"
     argv = [
         "bash",
         str(SCRIPT),
@@ -271,6 +308,8 @@ def _run_real_interleaved_script(
     ]
     if pilot:
         argv.extend(("--pilot", "8"))
+    if rehearse:
+        argv.append("--rehearse")
     if expired:
         env["WFE_CAMPAIGN_START_EPOCH"] = "1"
     result = subprocess.run(
@@ -280,7 +319,7 @@ def _run_real_interleaved_script(
         capture_output=True,
         text=True,
         check=False,
-        timeout=120,
+        timeout=5 if rehearse else 120,
     )
     return result, run_log
 
@@ -539,6 +578,40 @@ def test_pilot_uses_a_separate_campaign_id_and_reaches_campaign_commands(tmp_pat
     assert all(argv[argv.index("--pilot") + 1] == "2" for argv in campaign_calls)
 
 
+def test_rehearse_refuses_canary(tmp_path: Path) -> None:
+    result, _calls = _run(tmp_path, "--rehearse", "--canary")
+
+    assert result.returncode == 2
+    assert "cannot be combined with --canary" in result.stderr
+
+
+def test_rehearse_passes_two_task_and_rehearse_flags_to_campaign_calls(tmp_path: Path) -> None:
+    result, calls = _run(tmp_path, "--rehearse")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    calls = [call["argv"] for call in calls if "tests.wfe.campaign" in call["argv"]]
+    assert calls
+    assert all(argv[argv.index("--campaign-id") + 1] == "wfe_test_rehearsal" for argv in calls)
+    assert all(argv[argv.index("--pilot") + 1] == "2" for argv in calls)
+    assert all("--rehearse" in argv for argv in calls if "--append" in argv or "--finish" in argv)
+
+
+def test_sprint_refuses_a_no_signal_pilot_without_override(tmp_path: Path) -> None:
+    result, calls = _run(tmp_path, env_extra={"WFE_PILOT_NO_SIGNAL": "1"})
+
+    assert result.returncode == 4
+    assert "refusing sprint after below-floor pilot" in result.stderr
+    assert any("--pilot-floor-check" in call["argv"] for call in calls)
+    assert not any("--append" in call["argv"] for call in calls)
+
+
+def test_sprint_can_override_a_no_signal_pilot(tmp_path: Path) -> None:
+    result, calls = _run(tmp_path, "--allow-below-floor", env_extra={"WFE_PILOT_NO_SIGNAL": "1"})
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert not any("--pilot-floor-check" in call["argv"] for call in calls)
+
+
 @pytest.mark.parametrize(
     ("pilot", "expired"),
     [(False, False), (True, False), (True, True)],
@@ -591,6 +664,90 @@ def test_real_campaign_script_runs_interleaved_workers_without_a_live_stack(
             arms, 2
         )
     assert "--pilot requires at least two arms" not in output
+
+
+@pytest.mark.parametrize("slow_setup", [False, True], ids=("pass", "slow-setup-fails"))
+def test_rehearsal_runs_two_blocks_and_gates_phase_timing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, slow_setup: bool
+) -> None:
+    started = time.monotonic()
+    campaign_id = f"wfe_rehearsal_{int(slow_setup)}"
+    result, _run_log = _run_real_interleaved_script(
+        tmp_path, campaign_id, monkeypatch, rehearse=True, slow_setup=slow_setup
+    )
+    elapsed = time.monotonic() - started
+    effective_id = f"{campaign_id}_rehearsal"
+    campaign_dir = tmp_path / "data" / "tests" / "wfe" / "results" / "campaigns" / effective_id
+    manifest = json.loads((campaign_dir / "manifest.json").read_text(encoding="utf-8"))
+    output = result.stdout + result.stderr
+
+    assert elapsed < 5
+    assert "OVERHEAD harness_s=" in output
+    assert "PHASE TABLE block arm block_setup_s model_prepare_s rows_s release_s" in output
+    timing = manifest["execution"]["timing"]
+    assert len(timing["blocks"]) == 4
+    assert {row["arm"] for row in timing["blocks"]} == {row["arm"] for row in manifest["rows"]}
+    assert all("harness_s" in row and "model_s" in row for row in timing["blocks"])
+    interleaved_log = (tmp_path / "logs" / "interleaved.log").read_text()
+    assert all(f"PHASE {phase} arm=" in interleaved_log for phase in campaign._TIMING_PHASES)
+    if slow_setup:
+        assert result.returncode == campaign.EXIT_REHEARSAL_FAILED
+        assert "block_setup arm=" in output and "> 0.100" in output
+    else:
+        assert result.returncode == 0, output
+
+
+def _pilot_manifest(plain_passes: int, qat_passes: int) -> dict:
+    rows = [
+        {"arm": arm, "state": "PASS" if index < passes else "FAIL"}
+        for arm, passes in (("plain", plain_passes), ("qat", qat_passes))
+        for index in range(8)
+    ]
+    return {
+        "execution": {"pilot_tasks": 8},
+        "rows": rows,
+    }
+
+
+def test_pilot_floor_stops_when_all_arms_are_below_the_floor(tmp_path: Path, capsys) -> None:
+    manifest = _pilot_manifest(1, 0)
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    result = campaign.campaign_finish(tmp_path, "pilot")
+
+    output = capsys.readouterr().out
+    assert result == 0
+    assert "CAMPAIGN pilot: NO_SIGNAL (all arms below floor 25%: plain=1/8, qat=0/8)" in output
+
+
+def test_pilot_floor_keeps_normal_verdict_when_one_arm_is_above_floor(
+    tmp_path: Path, capsys
+) -> None:
+    manifest = _pilot_manifest(6, 5)
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    result = campaign.campaign_finish(tmp_path, "vision")
+
+    output = capsys.readouterr().out
+    assert result == 0
+    assert "CAMPAIGN vision: complete" in output
+    assert "NO_SIGNAL" not in output
+
+
+def test_plan_validates_pilot_floor_rate_and_rehearsal_limits(tmp_path: Path) -> None:
+    plan = tmp_path / "plan.yaml"
+    plan.write_text(
+        "pilot_floor_rate: 0.2\nrehearsal_max_overhead: 0.3\nrehearsal_max_phase_s: 1.5\n"
+    )
+    options = campaign.execution_options(plan, [{"arm": "inc"}, {"arm": "cand"}])
+    assert options["pilot_floor_rate"] == 0.2
+    assert options["rehearsal_max_overhead"] == 0.3
+    assert options["rehearsal_max_phase_s"] == 1.5
+
+    for value in (0, 1, True, "0.2"):
+        plan.write_text(f"pilot_floor_rate: {value!r}\n")
+        with pytest.raises(ValueError, match="pilot_floor_rate"):
+            campaign.execution_options(plan, [{"arm": "inc"}, {"arm": "cand"}])
 
 
 def test_execution_options_default_to_interleaved_for_ab_and_keep_sequential_opt_in(
@@ -970,7 +1127,8 @@ def test_interleaved_blocks_launch_a_fresh_arm_worker(tmp_path: Path, monkeypatc
             "rerun_failed": False,
             "fresh_incumbent": False,
             "repeats": None,
-            "pilot": None,
+            "pilot": 2,
+            "rehearse": True,
             "debug_dir": None,
             "force": False,
         },
@@ -986,4 +1144,7 @@ def test_interleaved_blocks_launch_a_fresh_arm_worker(tmp_path: Path, monkeypatc
     assert [out["arm"] for out in outs] == ["inc", "cand"]
     assert [call[1] for call in calls] == ["inc:t0:r0", "cand:t0:r0"]
     assert all("--block-worker" in call[0] for call in calls)
+    assert all(call[0][call[0].index("--pilot") + 1] == "2" for call in calls)
+    assert all("--rehearse" in call[0] for call in calls)
+    assert len({call[0][call[0].index("--block-id") + 1] for call in calls}) == 1
     assert all(call[2]["stdin"] is subprocess.DEVNULL for call in calls)

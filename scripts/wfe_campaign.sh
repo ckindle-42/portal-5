@@ -36,7 +36,10 @@ shift || true
 # and PLAN/WFE_ENGINE used to be settable only by one.
 ARGS=()
 PILOT_FLAG=()
+REHEARSE_FLAG=()
 PILOT_COUNT=""
+REHEARSE=0
+ALLOW_BELOW_FLOOR=0
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --plan)
@@ -51,6 +54,10 @@ while [ "$#" -gt 0 ]; do
             WFE_ENGINE="${1#--engine=}"; shift ;;
         --canary)
             CANARY=1; shift ;;
+        --rehearse)
+            REHEARSE=1; shift ;;
+        --allow-below-floor)
+            ALLOW_BELOW_FLOOR=1; shift ;;
         --pilot)
             PILOT_COUNT=6
             if [ "$#" -ge 2 ] && [[ "$2" =~ ^[0-9]+$ ]]; then
@@ -69,7 +76,18 @@ done
 set -- "${ARGS[@]+"${ARGS[@]}"}"
 [ -n "${PLAN:-}" ] && export PLAN
 [ -n "${WFE_ENGINE:-}" ] && export WFE_ENGINE
-if [ -n "$PILOT_COUNT" ] && [[ "$CAMPAIGN_ID" != *_pilot ]]; then
+if [ "$REHEARSE" -eq 1 ] && [ "${CANARY:-0}" = "1" ]; then
+    echo "wfe-campaign: --rehearse cannot be combined with --canary" >&2
+    exit 2
+fi
+if [ "$REHEARSE" -eq 1 ]; then
+    PILOT_COUNT=2
+    PILOT_FLAG=(--pilot 2)
+    REHEARSE_FLAG=(--rehearse)
+    if [[ "$CAMPAIGN_ID" != *_rehearsal ]]; then
+        CAMPAIGN_ID="${CAMPAIGN_ID}_rehearsal"
+    fi
+elif [ -n "$PILOT_COUNT" ] && [[ "$CAMPAIGN_ID" != *_pilot ]]; then
     CAMPAIGN_ID="${CAMPAIGN_ID}_pilot"
 fi
 WFE_CAMPAIGN_START_EPOCH="${WFE_CAMPAIGN_START_EPOCH:-$(date +%s)}"
@@ -107,6 +125,25 @@ REPEATS_FLAG="--repeats ${REPEATS}"
 BUDGET_S="${BUDGET_S:-1800}"
 MAX_TURNS="${MAX_TURNS:-16}"
 DATA_ROOT="${PORTAL_DATA_ROOT:-$HOME/AI_Output/portal-data}"
+if [ -z "$PILOT_COUNT" ] && [ "$REHEARSE" -eq 0 ] \
+    && [ "${CANARY:-0}" != "1" ] && [ "$ALLOW_BELOW_FLOOR" -eq 0 ] \
+    && [[ "$CAMPAIGN_ID" != *_pilot ]]; then
+    dry_run=0
+    for arg in "$@"; do [ "$arg" = "--dry-run" ] && dry_run=1; done
+    if [ "$dry_run" -eq 0 ]; then
+        pilot_rc=0
+        pilot_status=$(uv run python -m tests.wfe.campaign \
+            --campaign-id "$CAMPAIGN_ID" --pilot-floor-check 2>&1) || pilot_rc=$?
+        if [ "$pilot_rc" -eq 0 ]; then
+            echo "wfe-campaign: refusing sprint after below-floor pilot; pass --allow-below-floor to continue" >&2
+            echo "$pilot_status" >&2
+            exit 4
+        elif [ "$pilot_rc" -ne 7 ]; then
+            echo "$pilot_status" >&2
+            exit "$pilot_rc"
+        fi
+    fi
+fi
 DEBUG_DIR="${DEBUG_DIR:-${DATA_ROOT}/tests/wfe/results/campaigns/${CAMPAIGN_ID}/debug}"
 LOG_DIR="${LOG_DIR:-/tmp/wfe_${CAMPAIGN_ID}}"
 PROGRESS_LOG="${LOG_DIR}/progress.log"
@@ -131,6 +168,7 @@ echo "$(ts) CAMPAIGN ${CAMPAIGN_ID} repeats=${REPEATS} all_suites=${ALL_SUITES:-
 uv run python -m tests.wfe.campaign \
     --campaign-id "$CAMPAIGN_ID" $REPEATS_FLAG $ALL_SUITES_FLAG $PLAN_FLAG \
     ${PILOT_FLAG[@]+"${PILOT_FLAG[@]}"} \
+    ${REHEARSE_FLAG[@]+"${REHEARSE_FLAG[@]}"} \
     --append --dry-run "$@" 2>&1 | tee -a "$PROGRESS_LOG"
 DRY_RUN_RC=$?
 if [ "$DRY_RUN_RC" -ne 0 ]; then
@@ -160,6 +198,7 @@ archive_drifted_campaign('${CAMPAIGN_ID}')
 uv run python -m tests.wfe.campaign \
     --campaign-id "$CAMPAIGN_ID" $REPEATS_FLAG $ALL_SUITES_FLAG $PLAN_FLAG \
     ${PILOT_FLAG[@]+"${PILOT_FLAG[@]}"} \
+    ${REHEARSE_FLAG[@]+"${REHEARSE_FLAG[@]}"} \
     --append --status "$@" 2>&1 | tee -a "$PROGRESS_LOG"
 
 # `mapfile`/`readarray` is bash 4+; macOS ships bash 3.2, so read into the array
@@ -245,7 +284,7 @@ if [ "$ARM_ORDER" = "interleaved" ]; then
         --budget-s "$BUDGET_S" --max-turns "$MAX_TURNS" --debug-dir "$DEBUG_DIR" \
         $ALL_SUITES_FLAG $NOTIFY_FLAG $PLAN_FLAG \
         ${ARMS_FILE_FLAG[@]+"${ARMS_FILE_FLAG[@]}"} \
-        ${PILOT_FLAG[@]+"${PILOT_FLAG[@]}"} "$@" \
+        ${PILOT_FLAG[@]+"${PILOT_FLAG[@]}"} ${REHEARSE_FLAG[@]+"${REHEARSE_FLAG[@]}"} "$@" \
         < /dev/null >> "${LOG_DIR}/interleaved.log" 2>&1
     exit_code=$?
     echo "$(ts) DONE interleaved exit=${exit_code}" | tee -a "$PROGRESS_LOG"
@@ -280,7 +319,7 @@ record_arm_stop(*sys.argv[1:])
         --budget-s "$BUDGET_S" \
         --max-turns "$MAX_TURNS" \
         --debug-dir "$DEBUG_DIR" \
-        $ALL_SUITES_FLAG $NOTIFY_FLAG $PLAN_FLAG "$@" \
+        $ALL_SUITES_FLAG $NOTIFY_FLAG $PLAN_FLAG ${REHEARSE_FLAG[@]+"${REHEARSE_FLAG[@]}"} "$@" \
         ${PILOT_FLAG[@]+"${PILOT_FLAG[@]}"} \
         < /dev/null >> "${LOG_DIR}/${safe}.log" 2>&1
     exit_code=$?
@@ -300,11 +339,13 @@ fi
 
 echo "$(ts) CAMPAIGN FINISH" | tee -a "$PROGRESS_LOG"
 uv run python -m tests.wfe.campaign --campaign-id "$CAMPAIGN_ID" \
-    ${PILOT_FLAG[@]+"${PILOT_FLAG[@]}"} --status 2>&1 | tee -a "$PROGRESS_LOG"
+    ${PILOT_FLAG[@]+"${PILOT_FLAG[@]}"} ${REHEARSE_FLAG[@]+"${REHEARSE_FLAG[@]}"} \
+    --status 2>&1 | tee -a "$PROGRESS_LOG"
 echo "report: uv run python -m tests.wfe.report --campaign ${CAMPAIGN_ID}" | tee -a "$PROGRESS_LOG"
 # --finish is the last call so its single CAMPAIGN line is the script's final stdout
 # line and its code is the script's: a stopped campaign must not ride home as 0.
 uv run python -m tests.wfe.campaign --campaign-id "$CAMPAIGN_ID" \
-    ${PILOT_FLAG[@]+"${PILOT_FLAG[@]}"} --finish 2>&1 | tee -a "$PROGRESS_LOG"
+    ${PILOT_FLAG[@]+"${PILOT_FLAG[@]}"} ${REHEARSE_FLAG[@]+"${REHEARSE_FLAG[@]}"} \
+    --finish 2>&1 | tee -a "$PROGRESS_LOG"
 finish_rc=${PIPESTATUS[0]}
 exit "$finish_rc"
