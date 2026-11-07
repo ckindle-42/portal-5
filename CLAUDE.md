@@ -24,6 +24,8 @@ An Open WebUI enhancement layer, not a replacement web stack. It extends Open We
 **Surgical changes.** Touch only what you must. Every changed line traces to the task. Remove imports/variables your change made unused; mention pre-existing dead code, don't delete it.
 **Goal-driven.** Define success criteria, loop until verified. Verification ladder: per-commit gate `uv run pytest tests/unit/ -q && uv run ruff check . && uv run ruff format --check .`, final gate `bash scripts/ci_local.sh`, live streaming gate `./scripts/smoke_stream.sh`, doc reconciliation (Rule 12).
 
+**Model evaluation follows `docs/MODEL_SEAT_PROCESS.md`.** A measurement runs only when a named seat decision depends on it; it runs live through Open WebUI → Pipeline, never against a simulation; the setup is proven live and judged by independent models before rows count; bugs seen are fixed and the run continues; "unproven — keep the incumbent" is a final answer. When the operator pushes back, remove scope — never answer with a new mechanism.
+
 ## Tech Stack
 
 `uv` (not pip); `uv pip install -e ".[dev]"`; `uv run ruff check . --fix` / `uv run ruff format .`; `uv run mypy portal/` (strict); `uv run pytest tests/ -v --tb=short`; Python 3.10+; FastAPI + Pydantic v2, async; `./launch.sh up`; operator CLI `portal config show`.
