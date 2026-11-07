@@ -324,6 +324,7 @@ async def test_repeated_speech_does_not_retain_worker_buffers(
 
 async def test_speech_asr_releases_on_the_worker(speech, monkeypatch: pytest.MonkeyPatch):
     """ASR Metal buffers are allocated on the worker; release has to run there."""
+    monkeypatch.setattr(speech, "_asr_model_cached", lambda *_a, **_k: True)
     streams = _Streams()
     monkeypatch.setitem(sys.modules, "mlx.core", streams)
     monkeypatch.setattr(speech.gc, "collect", lambda generation=2: streams.collect())
@@ -352,6 +353,7 @@ async def test_speech_asr_releases_on_the_worker(speech, monkeypatch: pytest.Mon
 
 
 async def test_speech_asr_clears_after_success_and_exception(speech, fake_mx: _Rec, monkeypatch):
+    monkeypatch.setattr(speech, "_asr_model_cached", lambda *_a, **_k: True)
     monkeypatch.setattr(speech, "_transcribe", lambda *_a, **_k: {"text": "hi"})
     ok = await speech.openai_audio_transcriptions(_Upload(), language="auto")
     assert ok.status_code == 200
