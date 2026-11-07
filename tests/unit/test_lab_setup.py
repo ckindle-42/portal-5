@@ -65,21 +65,24 @@ class TestLabReady:
 
 class TestChallengeDirsCheck:
     """_check_challenge_dirs must verify what it claims (2026-11-07: empty
-    placeholder dirs scored GREEN). GREEN = every declared purpose-built class
-    has a dir with a compose file; AMBER with the count when some; RED with the
-    missing names when none. Hermetic: synthetic config + LAB_DIR."""
+    placeholder dirs scored GREEN). A class is only *promised* once its status
+    leaves `aspirational`: GREEN = every promised class has a dir with a compose
+    file; AMBER with the count when some; RED when none. An aspirational class
+    with no compose is reported but never fails the gate — the live config
+    declares 31 purpose-built classes and all 80 are still aspirational.
+    Hermetic: synthetic config + LAB_DIR."""
 
     @staticmethod
-    def _config(tmp_path, entries):
+    def _config(tmp_path, entries, status="built"):
         cfg = tmp_path / "config"
         cfg.mkdir(exist_ok=True)
-        classes = [{"id": cid, "purpose_built": pb} for cid, pb in entries]
+        classes = [{"id": cid, "purpose_built": pb, "status": status} for cid, pb in entries]
         (cfg / "challenge_classes.yaml").write_text(yaml.safe_dump({"classes": classes}))
 
-    def _patch(self, monkeypatch, tmp_path):
+    def _patch(self, monkeypatch, tmp_path, status="built"):
         from scripts import lab_ready
 
-        self._config(tmp_path, self.ENTRIES)
+        self._config(tmp_path, self.ENTRIES, status=status)
         monkeypatch.setattr(lab_ready, "REPO_ROOT", tmp_path)
         monkeypatch.setattr(lab_ready, "LAB_DIR", str(tmp_path / "lab"))
         return lab_ready
@@ -122,12 +125,45 @@ class TestChallengeDirsCheck:
         desc = lab_ready.CHECKS["challenge_dirs"]["desc"]
         assert "alpha" in desc and "beta" in desc
 
+    def test_aspirational_classes_do_not_fail_the_gate(self, monkeypatch, tmp_path):
+        """A class nobody promised is not a readiness failure — but it is reported."""
+        lab_ready = self._patch(monkeypatch, tmp_path, status="aspirational")
+        assert lab_ready._check_challenge_dirs() == "GREEN"
+        desc = lab_ready.CHECKS["challenge_dirs"]["desc"]
+        assert "aspirational" in desc and "2 not built" in desc
+
+    def test_a_promised_class_still_fails_when_its_compose_is_missing(self, monkeypatch, tmp_path):
+        """Status must not become an escape hatch: promised-and-missing is still RED."""
+        from scripts import lab_ready
+
+        cfg = tmp_path / "config"
+        cfg.mkdir(exist_ok=True)
+        (cfg / "challenge_classes.yaml").write_text(
+            yaml.safe_dump(
+                {
+                    "classes": [
+                        {"id": "alpha", "purpose_built": "challenges/alpha/", "status": "built"},
+                        {
+                            "id": "beta",
+                            "purpose_built": "meta3/beta/",
+                            "status": "aspirational",
+                        },
+                    ]
+                }
+            )
+        )
+        monkeypatch.setattr(lab_ready, "REPO_ROOT", tmp_path)
+        monkeypatch.setattr(lab_ready, "LAB_DIR", str(tmp_path / "lab"))
+        assert lab_ready._check_challenge_dirs() == "RED"
+        assert "alpha" in lab_ready.CHECKS["challenge_dirs"]["desc"]
+
     def test_real_config_declares_purpose_built(self):
         from scripts import lab_ready
 
         declared = lab_ready._declared_purpose_built()
         assert len(declared) >= 1
-        assert all(rel for _, rel in declared)
+        assert all(len(row) == 3 for row in declared)
+        assert all(rel for _, rel, _status in declared)
 
 
 class TestLabTargets:

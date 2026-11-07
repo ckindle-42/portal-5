@@ -175,12 +175,21 @@ def _check_vulhub_clone() -> str:
 _CHALLENGE_DESC = CHECKS["challenge_dirs"]["desc"]
 
 
-def _declared_purpose_built() -> list[tuple[str, str]]:
-    """(class id, declared compose dir) for classes that declare purpose_built."""
+# A class whose status is still aspirational is declared, not promised: its compose is
+# not expected to exist, so its absence is reported but never fails the gate.
+_ASPIRATIONAL = "aspirational"
+
+
+def _declared_purpose_built() -> list[tuple[str, str, str]]:
+    """(class id, declared compose dir, status) for classes that declare purpose_built."""
     import yaml
 
     cc = yaml.safe_load((REPO_ROOT / "config" / "challenge_classes.yaml").read_text())
-    return [(c["id"], c["purpose_built"]) for c in cc.get("classes", []) if c.get("purpose_built")]
+    return [
+        (c["id"], c["purpose_built"], str(c.get("status") or _ASPIRATIONAL))
+        for c in cc.get("classes", [])
+        if c.get("purpose_built")
+    ]
 
 
 def _compose_ready(base: Path, rel: str) -> bool:
@@ -197,18 +206,31 @@ def _check_challenge_dirs() -> str:
         return "RED"
     if not declared:
         return "GREEN"
-    present = [(cid, _compose_ready(base, rel)) for cid, rel in declared]
-    ready = [cid for cid, ok in present if ok]
-    if len(ready) == len(declared):
-        return "GREEN"
-    if ready:
+    promised = [(cid, rel) for cid, rel, status in declared if status != _ASPIRATIONAL]
+    aspirational_missing = [
+        cid
+        for cid, rel, status in declared
+        if status == _ASPIRATIONAL and not _compose_ready(base, rel)
+    ]
+    if not promised:
         CHECKS["challenge_dirs"]["desc"] = (
-            f"{_CHALLENGE_DESC} ({len(ready)}/{len(declared)} composes ready)"
+            f"{_CHALLENGE_DESC} ({len(declared)} declared, all aspirational; "
+            f"{len(aspirational_missing)} not built)"
         )
-        return "AMBER"
-    missing = ", ".join(cid for cid, ok in present if not ok)
-    CHECKS["challenge_dirs"]["desc"] = f"{_CHALLENGE_DESC} (missing: {missing})"
-    return "RED"
+        return "GREEN"
+    missing = [cid for cid, rel in promised if not _compose_ready(base, rel)]
+    built = len(promised) - len(missing)
+    if not missing:
+        CHECKS["challenge_dirs"]["desc"] = (
+            f"{_CHALLENGE_DESC} ({built}/{len(promised)} promised composes ready; "
+            f"{len(aspirational_missing)} aspirational not built)"
+        )
+        return "GREEN"
+    CHECKS["challenge_dirs"]["desc"] = (
+        f"{_CHALLENGE_DESC} ({built}/{len(promised)} promised composes ready; "
+        f"missing: {', '.join(missing)})"
+    )
+    return "AMBER" if built else "RED"
 
 
 def _check_telemetry() -> str:
