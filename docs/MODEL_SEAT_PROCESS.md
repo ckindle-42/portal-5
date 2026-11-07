@@ -9,6 +9,11 @@ found the evaluation program had lost its decision boundary.
    if the candidate wins, and a budget (rows, hours). No decision, no run.
 2. **Live, never simulated.** Tests go through the real product: Open WebUI → Pipeline → engine, with real uploads
    and real tasks from that seat's use. No harness imitation of Open WebUI behaviour, no generated test documents.
+   This rule is not seat-specific — it governs the whole project (see `CLAUDE.md`): **live against the system,
+   never synthetic and never a test.** Security work runs real lab telemetry through the real review service,
+   compliance work uses the real store and corpus, a service change is exercised over real HTTP. A passing test
+   suite is a merge gate, never evidence. "Could not be tested live" is a finding to report, not a licence to
+   substitute anything else.
 3. **Prove the setup live before it carries rows.** One real task per seat through the real UI; the request the
    Pipeline receives is captured as the reference. Judges approve that proof (setup and grading) before any row counts.
 4. **Every row carries its own validity evidence:** its Pipeline-side request diffs clean against the live

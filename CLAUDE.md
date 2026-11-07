@@ -24,7 +24,22 @@ An Open WebUI enhancement layer, not a replacement web stack. It extends Open We
 **Surgical changes.** Touch only what you must. Every changed line traces to the task. Remove imports/variables your change made unused; mention pre-existing dead code, don't delete it.
 **Goal-driven.** Define success criteria, loop until verified. Verification ladder: per-commit gate `uv run pytest tests/unit/ -q && uv run ruff check . && uv run ruff format --check .`, final gate `bash scripts/ci_local.sh`, live streaming gate `./scripts/smoke_stream.sh`, doc reconciliation (Rule 12).
 
-**Model evaluation follows `docs/MODEL_SEAT_PROCESS.md`.** A measurement runs only when a named seat decision depends on it; it runs live through Open WebUI → Pipeline, never against a simulation; the setup is proven live and judged by independent models before rows count; bugs seen are fixed and the run continues; "unproven — keep the incumbent" is a final answer. When the operator pushes back, remove scope — never answer with a new mechanism.
+**Live against the system — never synthetic, never a test. This governs everything.** Any claim
+that something works, is fixed, is fast enough, or is better is made by exercising the running
+system and reading what it actually did: Open WebUI → Pipeline → engine for inference, real lab
+telemetry through the real review service for security, the real store and corpus for compliance,
+the real service over real HTTP for a service change. **A passing test is not evidence.** The
+suites are a merge gate and a regression net — mandatory, and never the proof. Neither is a
+simulation, a fabricated document, a generated fixture, a hand-built record shape, or a mocked
+dependency, however green. Corollaries: a result whose setup was not proven live does not count;
+rows graded by a format-only check are not rows; a fix is not fixed until the live system shows
+it fixed, which means restarting the service that holds the old code and re-reading the receipt;
+"could not be tested live" is a finding to report, never a licence to substitute something else.
+Anything measured offline is a hypothesis until the live run agrees. **Running it against the
+system is what finds the real bugs** — every defect worth fixing here surfaced the first time
+something ran for real, while the synthetic path stayed green.
+
+**Model evaluation additionally follows `docs/MODEL_SEAT_PROCESS.md`.** A measurement runs only when a named seat decision depends on it; the setup is proven live and judged by independent models before rows count; bugs seen are fixed and the run continues; "unproven — keep the incumbent" is a final answer. When the operator pushes back, remove scope — never answer with a new mechanism.
 
 ## Tech Stack
 
