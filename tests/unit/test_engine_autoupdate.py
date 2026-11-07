@@ -14,9 +14,11 @@ from scripts import omlx_venv_install as omlx_install
 
 
 @pytest.fixture(autouse=True)
-def _no_router_repin(monkeypatch):
-    """A sourced .env sets LLM_ROUTER_MODEL, which would send _repin_router to live Ollama."""
+def _no_router_repin(monkeypatch, tmp_path):
+    """A sourced env or the repo .env names LLM_ROUTER_MODEL, which would send _repin_router
+    to live Ollama: clear the env and point the .env lookup at an empty dir."""
     monkeypatch.delenv("LLM_ROUTER_MODEL", raising=False)
+    monkeypatch.setattr(eu.host_quiet, "ROOT", tmp_path)
 
 
 def test_repin_router_loads_the_router_model_pinned(monkeypatch):
@@ -34,6 +36,24 @@ def test_repin_router_loads_the_router_model_pinned(monkeypatch):
     monkeypatch.setattr(eu.urllib.request, "urlopen", _urlopen)
     eu._repin_router()
     assert sent == [(f"{eu.OLLAMA_URL}/api/generate", {"model": "router-tag", "keep_alive": -1})]
+
+
+def test_repin_router_reads_the_repo_env_when_unset(monkeypatch, tmp_path):
+    """launchd runs the updater without the stack env; the .env key must still pin."""
+    (tmp_path / ".env").write_text('LLM_ROUTER_MODEL="router-from-dotenv"\n', encoding="utf-8")
+    sent = []
+
+    class _Resp:
+        def read(self):
+            return b"{}"
+
+    monkeypatch.setattr(
+        eu.urllib.request,
+        "urlopen",
+        lambda req, timeout: sent.append(json.loads(req.data)) or _Resp(),
+    )
+    eu._repin_router()
+    assert sent == [{"model": "router-from-dotenv", "keep_alive": -1}]
 
 
 @pytest.fixture

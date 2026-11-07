@@ -55,6 +55,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
+from scripts import host_quiet  # noqa: E402
 from scripts.check_updates import (  # noqa: E402
     _get,
     _pushover,
@@ -217,9 +218,10 @@ def _repin_router() -> None:
     only re-warms it on the next routed request, so until then OWUI's task model
     (`task-router`, same tag) loads cold. Load it pinned now; the routing prompt
     prefix still warms on the first routed request."""
-    model = os.environ.get("LLM_ROUTER_MODEL", "")
+    # launchd runs this without the stack's env: fall back to the repo .env key.
+    model = host_quiet._env_value("LLM_ROUTER_MODEL")
     if not model:
-        log("ollama: LLM_ROUTER_MODEL unset — router NOT re-pinned (export it, or source .env)")
+        log("ollama: LLM_ROUTER_MODEL unset in env and .env — router NOT re-pinned")
         return
     body = json.dumps({"model": model, "keep_alive": -1}).encode()
     req = urllib.request.Request(
