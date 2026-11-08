@@ -151,16 +151,20 @@ def _reconciliation(
 
 
 def _per_event_row(metrics: EventMetrics) -> dict[str, Any]:
-    row = asdict(metrics)
-    for key in (
-        "precision_strict",
-        "precision_matched_only",
-        "recall",
-        "f1_strict",
-        "f1_matched_only",
-    ):
-        row[key] = round(row[key], 6)
-    return row
+    return {
+        "attack_total": metrics.attack_total,
+        "tp": metrics.tp,
+        "fp_strict": metrics.fp_strict,
+        "fp_matched_only": metrics.fp_matched_only,
+        "fn": metrics.fn,
+        "flagged": metrics.flagged,
+        "unmatched_flagged": metrics.unmatched_flagged,
+        "precision_strict": round(metrics.precision_strict, 6),
+        "precision_matched_only": round(metrics.precision_matched_only, 6),
+        "recall": round(metrics.recall, 6),
+        "f1_strict": round(metrics.f1_strict, 6),
+        "f1_matched_only": round(metrics.f1_matched_only, 6),
+    }
 
 
 def _per_stage_rows(stages: list[StageTruth], results: list[StageResult]) -> list[dict[str, Any]]:
