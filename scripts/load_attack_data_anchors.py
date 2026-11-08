@@ -43,7 +43,7 @@ from portal.modules.security.core.review_eval.item_identity import (
     attack_data_test_id,
     canonical_attack_data_root,
 )
-from scripts.corpus_ingest import load_manifest_catalog
+from scripts.corpus_ingest import ManifestStep, load_manifest_catalog
 
 COMMIT_PROVENANCE = "4145e8b60fd8a3d44bc2170d1eb343fe7247387b"
 LABEL_PROVENANCE = f"attack_data:data_yml::{COMMIT_PROVENANCE}"
@@ -104,6 +104,46 @@ def _anchor_id_for_episode(episode_path: Path, root: Path) -> str:
     return f"an-{p5_item_id('attack_data', attack_data_test_id(episode_path, root))}"
 
 
+def _episode_descriptions(
+    manifest_items: list[Any],
+) -> list[tuple[str, tuple[ManifestStep, ...]]]:
+    """Distinct (description, parsed steps) pairs in catalog order. Entries of
+    one episode share a single data.yml description, so this is one pair in
+    practice; genuinely distinct manifest descriptions are all kept."""
+    seen: list[tuple[str, tuple[ManifestStep, ...]]] = []
+    for item in manifest_items:
+        text = (item.description or "").strip()
+        if text and all(text != prior for prior, _steps in seen):
+            seen.append((text, item.steps))
+    return seen
+
+
+def episode_card(
+    manifest_items: list[Any], data_file_key: str, episode_techniques: tuple[str, ...]
+) -> str:
+    """The text the embedder sees: the publisher's own attack description when
+    any manifest carries one (distinct ones joined in order), else today's
+    provenance path card. Provenance stays in record fields either way."""
+    descriptions = _episode_descriptions(manifest_items)
+    body = " ".join(text for text, _steps in descriptions)
+    if not body:
+        return f"attack_data:{data_file_key} techniques={','.join(episode_techniques)}"
+    return f"attack_data techniques={','.join(episode_techniques)}: {body}"
+
+
+def _step_fields(steps: tuple[ManifestStep, ...]) -> list[dict[str, Any]]:
+    """JSON-safe step records for the anchor payload."""
+    return [
+        {
+            "step_index": step.step_index,
+            "step_id": step.step_id,
+            "text": step.text,
+            "outcome": step.outcome,
+        }
+        for step in steps
+    ]
+
+
 def _load_single_episode(
     ep_path: Path,
     manifest_items: list[Any],
@@ -119,6 +159,8 @@ def _load_single_episode(
 
     data_file_key = manifest_items[0].path.relative_to(root).as_posix()
     anchor_id = _anchor_id_for_episode(ep_path, root)
+    descriptions = _episode_descriptions(manifest_items)
+    description, steps = descriptions[0] if descriptions else ("", ())
     payload = {
         "record_id": anchor_id,
         "source_id": "attack_data",
@@ -128,7 +170,9 @@ def _load_single_episode(
         "file": data_file_key,
         "sourcetype": manifest_items[0].sourcetype,
         "dataset_epoch": manifest_items[0].dataset_epoch,
-        "card": f"attack_data:{data_file_key} techniques={','.join(episode_techniques)}",
+        "description": description or None,
+        "steps": _step_fields(steps),
+        "card": episode_card(manifest_items, data_file_key, episode_techniques),
     }
 
     try:
