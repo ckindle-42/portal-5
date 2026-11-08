@@ -80,6 +80,10 @@ def _grade_anchor(kind: str, label_basis: str | None) -> str:
     return "strong" if kind in _STRONG_KINDS else "moderate"
 
 
+class EmptySpineError(ValueError):
+    """Raised when an episode's records produce no behavioural classes."""
+
+
 @dataclass(frozen=True)
 class Anchor:
     anchor_id: str
@@ -248,20 +252,9 @@ class AnchorLibrary:
         logs: list[dict[str, Any]] | None = None,
         action_of: Any = None,
         behavior_classifier: Any = None,
+        record_classifier: Any = None,
     ) -> Anchor:
-        """attack_data episode: `data.yml`-declared techniques are the
-        label basis when present; an episode with no manifest techniques is
-        stored `weak`, not dropped (S1).
-
-        R.3c: an `attack_data` technique is a SERIES of logs, not one
-        flattened record. When the caller passes the ordered `logs` for this
-        episode plus `action_of` (log -> action verb), a `BehaviouralSeries`
-        is derived (`series_cousin.series_from_logs`) and stored on the
-        anchor. A single-log episode (or one loaded via `record` alone, the
-        pre-R.3c path) is still stored -- `record` never becomes required to
-        change -- but its series is `is_multi_log=False`, visibly thin, never
-        silently treated as a full technique series.
-        """
+        """Create a labeled episode anchor and derive a non-empty series when logs are supplied."""
         payload = dict(record)
         if techniques:
             payload.setdefault("attack_mappings", [{"technique_id": t} for t in techniques])
@@ -269,14 +262,24 @@ class AnchorLibrary:
         technique = techniques[0] if techniques else None
         anchor_id = payload.get("record_id")
         series: series_cousin_mod.BehaviouralSeries | None = None
-        if logs is not None and action_of is not None:
+        if logs is not None and (action_of is not None or record_classifier is not None):
             series = series_cousin_mod.series_from_logs(
                 anchor_id or f"attack_episode:{source_id}",
                 logs,
                 action_of=action_of,
                 classifier=behavior_classifier,
+                record_classifier=record_classifier,
                 technique=technique,
                 source_ids=(source_id,),
+            )
+            if not series.spine:
+                raise EmptySpineError(
+                    f"refusing attack_episode {anchor_id or source_id!r}: every log was "
+                    "unclassified, so the anchor would carry an empty behavioural spine"
+                )
+            payload.setdefault("action_sequence", list(series.spine))
+            payload.setdefault(
+                "event_graph", {"class_sequence": list(series.spine), "size": len(series.spine)}
             )
         return self.add(
             make_anchor(

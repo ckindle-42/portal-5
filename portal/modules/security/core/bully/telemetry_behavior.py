@@ -390,6 +390,567 @@ def classify_record(record: dict[str, Any], sourcetype: str) -> str:
     return ""
 
 
+# Content-derived classification reads the event fields without consulting sourcetype.
+
+_CONTENT_EVENTCODE = ("eventcode", "eventid", "event_id")
+_CONTENT_COMMAND_FIELDS = (
+    "commandline",
+    "command_line",
+    "cmdline",
+    "cmd",
+    "proctitle",
+    "scriptblocktext",
+    "process",
+    "parameters",
+)
+_CONTENT_PATH_FIELDS = ("targetfilename", "filename", "file_path", "path", "objectid")
+_CONTENT_SKIP_KEYS = frozenset(
+    {
+        "_time",
+        "_indextime",
+        "_cd",
+        "_bkt",
+        "_serial",
+        "_sourcetype",
+        "_raw",
+        "timestamp",
+        "utctime",
+        "timecreated",
+        "eventtime",
+    }
+)
+
+# PowerShell engine, script-block, and operational events indicate execution.
+_POWERSHELL_EVENTS: dict[str, str] = {
+    "400": "execute",
+    "403": "execute",
+    "600": "execute",
+    "800": "execute",
+    "4103": "execute",
+    "4104": "execute",
+}
+# Windows service installation indicates persistence.
+_SERVICE_EVENTS: dict[str, str] = {"7045": "persist"}
+
+# Endpoint-agent event names map to their behaviour classes.
+_EDR_EVENTS: dict[str, str] = {
+    "processrollup2": "execute",
+    "processrollup2v19": "execute",
+    "networkconnectip4": "c2_exfil",
+    "networkconnectip6": "c2_exfil",
+    "dnsrequest": "enumerate",
+    "filedeleteinfo": "destroy",
+    "filewritten": "persist",
+    "sensitiveprocessaccess": "collect",
+    "remotethreadcreated": "lateral",
+    "serviceinstalled": "persist",
+    "userlogon": "auth",
+}
+
+# Cisco ASA syslog message IDs distinguish execution from connection events.
+_ASA_MESSAGE_CLASS: dict[str, str] = {
+    "111008": "execute",
+    "111009": "execute",
+    "111010": "execute",
+    "302013": "c2_exfil",
+    "302014": "c2_exfil",
+    "302015": "c2_exfil",
+    "302016": "c2_exfil",
+    "302017": "c2_exfil",
+    "302018": "c2_exfil",
+    "113039": "auth",
+    "605005": "auth",
+}
+_ASA_MESSAGE_RE = re.compile(r"%ASA-\d-(\d+)")
+_CMDLET_RE = re.compile(r"Cmdlet\s+([A-Za-z][\w-]*)", re.IGNORECASE)
+_SSH_AUTH_RE = re.compile(r"sshd.*(?:Accepted|Failed) password", re.IGNORECASE)
+_XML_EVENT_ID = re.compile(r"<EventID(?:\s[^>]*)?>([^<]+)</EventID>", re.IGNORECASE)
+_XML_DATA = re.compile(r"<Data\s+Name=['\"]([^'\"]+)['\"]>(.*?)</Data>", re.IGNORECASE | re.DOTALL)
+
+# Credential stores and persistence locations are classified from event paths.
+_COLLECT_PATH_MARKERS = (
+    "\\windows\\system32\\config\\sam",
+    "\\windows\\system32\\config\\system",
+    "\\windows\\system32\\config\\security",
+    "ntds.dit",
+    "/etc/shadow",
+    "/etc/gshadow",
+    "/etc/passwd",
+    "id_rsa",
+    ".ssh/",
+    ".aws/credentials",
+    "lsass.dmp",
+)
+_PERSIST_PATH_MARKERS = (
+    "\\startup\\",
+    "\\tasks\\",
+    "\\currentversion\\run",
+    "/etc/cron",
+    "/etc/systemd/",
+    ".bashrc",
+    "authorized_keys",
+)
+
+# Specific command patterns precede generic interpreter patterns.
+_COMMAND_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
+    (
+        re.compile(
+            r"vssadmin\s+delete|wmic\s+shadowcopy\s+delete|rm\s+-rf\s+/|wbadmin\s+delete|"
+            r"fsutil\s+usn\s+deletejournal|recoveryenabled\s+no|dd\s+if=/dev/zero|"
+            r"\bshred\b|wipefs|\bmkfs\b|drop\s+table|drop\s+database"
+        ),
+        "destroy",
+    ),
+    (
+        re.compile(
+            r"wevtutil\s+cl|clear-eventlog|auditpol\s+/clear|set-mppreference.*disable|"
+            r"netsh\s+advfirewall\s+set.*off|logman\s+stop|reg\s+delete.*\\run"
+        ),
+        "evade",
+    ),
+    (
+        re.compile(
+            r"schtasks\s+/create|schtasks\s+-create|new-scheduledtask|\bsc(?:\.exe)?\s+create|"
+            r"new-service|\bsc(?:\.exe)?\s+config|reg\s+add.*\\(?:run|runonce|services)\b|"
+            r"new-itemproperty.*\\run|crontab|systemctl\s+enable|\buseradd\b|"
+            r"net\s+user\s+\S+\s+\S+\s+/add|new-localuser|add-localgroupmember"
+        ),
+        "persist",
+    ),
+    (
+        re.compile(
+            r"\bsudo\b|\bsu\b(?::|\s+-)|runas\s+|"
+            r"net\s+localgroup\s+administrators\s+\S+\s+/add|add-localgroupmember|"
+            r"set-executionpolicy|whoami\s+/priv|sedebugprivilege|icacls\s+.*grant|takeown\s+/f"
+        ),
+        "escalate",
+    ),
+    (
+        re.compile(
+            r"psexec|wmic\s+/node:|enter-pssession|new-pssession|"
+            r"invoke-command.*computername|winrs\b|\bsmbclient\b|net\s+use\s+\\\\|copy-item\s+\\\\"
+        ),
+        "lateral",
+    ),
+    (
+        re.compile(
+            r"procdump|lsass|comsvcs\.dll|minidump|reg\s+save|ntdsutil|esentutl|"
+            r"vssadmin\s+create\s+shadow|cat\s+/etc/|get-content|tar\s+-?c?zf|"
+            r"compress-archive|\b7z\s+a\b|search-mailbox"
+        ),
+        "collect",
+    ),
+    (
+        re.compile(
+            r"\bcurl\b|\bwget\b|invoke-webrequest|\biwr\b|invoke-restmethod|downloadstring|"
+            r"downloadfile|certutil\s+-urlcache|bitsadmin\s+/transfer|\bftp\b|\bnc\b|ncat|socat|"
+            r"rclone|aws\s+s3\s+cp|azcopy|mshta\s+https?:|regsvr32.*https?:"
+        ),
+        "c2_exfil",
+    ),
+    (
+        re.compile(
+            r"\bwhoami\b|\bnet\s+user\b|\bnet\s+group\b|\bnet\s+localgroup\b|\bnet\s+view\b|"
+            r"nltest|dsquery|dsget|adfind|get-aduser|get-adcomputer|get-adgroup|systeminfo|"
+            r"ipconfig|ifconfig|\bhostname\b|uname\s+-a|netstat|route\s+print|arp\s+-a|getmac|"
+            r"nslookup|\bdig\b|\bping\b|quser|qwinsta|get-childitem|get-wmiobject|reg\s+query|"
+            r"\btasklist\b|get-process|get-service|\bsc\s+query|schtasks\s+/query"
+        ),
+        "enumerate",
+    ),
+    (
+        re.compile(
+            r"powershell|pwsh|cmd\s*/c|\bcmd(?:\.exe)?\b|bash\s+-c|sh\s+-c|\bpython[23]?\b|"
+            r"perl\s|ruby\s|rundll32|regsvr32|mshta|cscript|wscript|msiexec|installutil|"
+            r"regasm|regsvcs|certutil|wmic\b|systemd-run"
+        ),
+        "execute",
+    ),
+)
+
+# Process names can identify tools when no command line is present.
+_TOOL_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"procdump|mimikatz|ntdsutil|vssadmin"), "collect"),
+    (re.compile(r"psexec|wsmprovhost|winrs"), "lateral"),
+    (
+        re.compile(r"nmap|masscan|adfind|nltest|whoami|dsquery|net\.exe|systeminfo|socketfilterfw"),
+        "enumerate",
+    ),
+    (re.compile(r"schtasks|useradd|adduser"), "persist"),
+    (re.compile(r"sudo|\bsu\b"), "escalate"),
+    (re.compile(r"\bcurl\b|\bwget\b|\bnc\b|ncat|socat"), "c2_exfil"),
+    (
+        re.compile(r"powershell|pwsh|\bcmd\.exe\b|\bbash\b|\bsh\b|rundll32|regsvr32|mshta"),
+        "execute",
+    ),
+)
+
+
+def _content_key(name: str) -> str:
+    return name.strip().lower().replace(" ", "_")
+
+
+def _flatten_content(value: Any, out: dict[str, str], prefix: str = "") -> None:
+    """Flatten nested JSON to lowercase dotted keys plus their leaf alias."""
+    if not isinstance(value, dict):
+        return
+    for key, inner in value.items():
+        name = _content_key(f"{prefix}{key}")
+        if isinstance(inner, dict):
+            _flatten_content(inner, out, f"{name}.")
+        elif isinstance(inner, (list, tuple)):
+            for item in inner:
+                if isinstance(item, dict):
+                    _flatten_content(item, out, f"{name}.")
+                elif item not in (None, ""):
+                    out.setdefault(name, str(item))
+        elif inner not in (None, ""):
+            out.setdefault(name, str(inner))
+            out.setdefault(_content_key(str(key)), str(inner))
+
+
+def _parse_raw_content(raw: str) -> dict[str, str]:
+    """Fields carried by a raw record: JSON, Windows Event XML, or key=value."""
+    text = raw.strip()
+    if not text:
+        return {}
+    if text.startswith("{"):
+        try:
+            parsed = json.loads(text)
+        except (json.JSONDecodeError, TypeError):
+            parsed = None
+        if isinstance(parsed, dict):
+            out: dict[str, str] = {}
+            _flatten_content(parsed, out)
+            return out
+    if text.startswith("<"):
+        out = {}
+        if code := _XML_EVENT_ID.search(text):
+            out["eventid"] = code.group(1).strip()
+        for name, value in _XML_DATA.findall(text):
+            clean = re.sub(r"\s+", " ", value).strip()
+            if clean:
+                out[_content_key(name)] = clean
+        if channel := re.search(r"<Channel>([^<]+)</Channel>", text):
+            out["channel"] = channel.group(1).strip()
+        if provider := re.search(r"<Provider\s+Name=['\"]([^'\"]+)['\"]", text):
+            out["provider"] = provider.group(1).strip()
+        if out:
+            return out
+    out = _raw_kv_fields({"_raw": text})
+    if out:
+        return out
+    return {"_text": text}
+
+
+def _content_fields(record: dict[str, Any]) -> dict[str, str]:
+    fields: dict[str, str] = {}
+    _flatten_content(record, fields)
+    raw = record.get("_raw")
+    if isinstance(raw, str):
+        for key, value in _parse_raw_content(raw).items():
+            fields.setdefault(key, value)
+    return {key: value for key, value in fields.items() if key not in _CONTENT_SKIP_KEYS}
+
+
+def _first(fields: dict[str, str], names: tuple[str, ...]) -> str:
+    for name in names:
+        value = fields.get(name)
+        if value:
+            return value
+    return ""
+
+
+def _is_sysmon_event(fields: dict[str, str]) -> bool:
+    marker = " ".join(
+        fields.get(key, "") for key in ("channel", "logname", "provider", "provider_name", "source")
+    ).lower()
+    if "sysmon" in marker:
+        return True
+    return any(
+        key in fields for key in ("processguid", "targetfilename", "image", "destinationport")
+    )
+
+
+def _class_from_event_id(fields: dict[str, str]) -> str:
+    raw = _first(fields, _CONTENT_EVENTCODE)
+    if not raw:
+        return ""
+    match = re.match(r"\s*(\d+)", raw)
+    if match is None:
+        return ""
+    code = match.group(1)
+    if _is_sysmon_event(fields) and code in _SYSMON_EVENTS:
+        return _SYSMON_EVENTS[code]
+    if code in _WINSEC_EVENTS:
+        return _WINSEC_EVENTS[code]
+    if code in _POWERSHELL_EVENTS:
+        return _POWERSHELL_EVENTS[code]
+    if code in _SERVICE_EVENTS:
+        return _SERVICE_EVENTS[code]
+    return ""
+
+
+def _content_command_text(fields: dict[str, str]) -> str:
+    for name in _CONTENT_COMMAND_FIELDS:
+        if value := fields.get(name):
+            return value
+    audit_args = " ".join(fields.get(f"a{i}", "") for i in range(10)).strip()
+    return audit_args
+
+
+def _command_class(text: str) -> str:
+    low = text.lower()
+    for pattern, cls in _COMMAND_RULES:
+        if pattern.search(low):
+            return cls
+    return ""
+
+
+def _refine_event(base: str, fields: dict[str, str]) -> str:
+    if base == "execute":
+        return _command_class(_content_command_text(fields)) or base
+    if base == "persist":
+        path = _first(fields, _CONTENT_PATH_FIELDS).lower()
+        if any(marker in path for marker in _COLLECT_PATH_MARKERS):
+            return "collect"
+        return base
+    if base == "c2_exfil":
+        port = _first(fields, ("destinationport", "dest_port", "dst_port", "destination_port"))
+        if port in {"445", "139", "3389", "22"}:
+            return "lateral"
+        if port == "53":
+            return "enumerate"
+    return base
+
+
+def _cloudtrail_class(event_name: str) -> str:
+    low = event_name.strip().lower()
+    if low in {
+        "assumerole",
+        "assumerolewithsaml",
+        "assumerolewithwebidentity",
+        "getsessiontoken",
+        "getfederationtoken",
+        "consolelogin",
+    }:
+        return "auth"
+    if low.startswith(("createpolicyversion", "putuserpolicy", "putrolepolicy", "putgrouppolicy")):
+        return "escalate"
+    if low.startswith(("attachuserpolicy", "attachrolepolicy", "attachgrouppolicy")):
+        return "escalate"
+    if low.startswith(("addusertogroup", "updateroleassumerolepolicyt", "updateassumerolepolicy")):
+        return "escalate"
+    if low.startswith(
+        ("createuser", "createloginprofile", "createaccesskey", "updateloginprofile")
+    ):
+        return "persist"
+    if low.startswith(("getsecretvalue", "getparameter", "getobject", "getpassworddata")):
+        return "collect"
+    if low.startswith(("download", "export")):
+        return "collect"
+    if low.startswith(("describe", "list", "lookup", "get")):
+        return "enumerate"
+    if low.startswith(("delete", "terminate", "remove", "stop")):
+        return "destroy"
+    if low.startswith(("create", "run", "start", "invoke", "send", "publish", "execute")):
+        return "execute"
+    if low.startswith(("put", "update", "modify", "set", "enable", "disable")):
+        return "persist"
+    return ""
+
+
+def _operation_class(operation: str) -> str:
+    low = operation.strip().lower()
+    if any(token in low for token in ("login", "logon", "loggedin", "signin", "authenticate")):
+        return "auth"
+    if any(token in low for token in ("inboxrule", "mailredirect", "forwarding")):
+        return "persist"
+    if "permission" in low:
+        return "escalate" if low.startswith(("add", "set", "grant", "new")) else "persist"
+    if low.startswith(("download", "export", "filesync")) or "download" in low:
+        return "collect"
+    if low.startswith(("delete", "remove")):
+        return "destroy"
+    if low.startswith(("new", "create", "add", "set", "update")):
+        return "persist"
+    if low.startswith(("search", "get", "list", "find", "read", "view", "preview")):
+        return "enumerate"
+    if low.startswith("send"):
+        return "c2_exfil"
+    return ""
+
+
+def _azure_operation_class(operation: str) -> str:
+    low = operation.strip().lower()
+    if "sign-in" in low or "signin" in low or "login" in low:
+        return "auth"
+    if "add member to role" in low or ("role" in low and low.startswith("add")):
+        return "escalate"
+    if "consent" in low or "reset password" in low:
+        return "persist"
+    if low.startswith("delete"):
+        return "destroy"
+    if low.startswith(("add", "create", "update", "reset", "set")):
+        return "persist"
+    if low.startswith(("list", "get")):
+        return "enumerate"
+    return ""
+
+
+def _azure_resource_action(action: str) -> str:
+    low = action.strip().lower()
+    if low.endswith("/write"):
+        return "persist"
+    if low.endswith("/delete"):
+        return "destroy"
+    if low.endswith("/read"):
+        return "enumerate"
+    if low.endswith("/action"):
+        return "execute"
+    return ""
+
+
+def _generic_event_type(value: str) -> str:
+    low = value.strip().lower()
+    if any(token in low for token in ("login", "logon", "signin", "sign-in", "session.start")):
+        return "auth"
+    if any(token in low for token in ("authentication", "sso")):
+        return "auth"
+    if "dns" in low:
+        return "enumerate"
+    if any(token in low for token in ("delete", "remove", "terminate", "stop")):
+        return "destroy"
+    if any(token in low for token in ("process", "exec", "command")):
+        return "execute"
+    if any(token in low for token in ("network", "connection", "connect")):
+        return "c2_exfil"
+    if any(token in low for token in ("download", "export", "read", "get")):
+        return "collect"
+    if any(token in low for token in ("create", "write", "add", "update", "set", "install")):
+        return "persist"
+    if any(token in low for token in ("list", "search", "query", "enumerate", "discover")):
+        return "enumerate"
+    return ""
+
+
+def _kubernetes_verb_class(verb: str) -> str:
+    low = verb.strip().lower()
+    if low in {"get", "list", "watch"}:
+        return "enumerate"
+    if low in {"create", "update", "patch"}:
+        return "persist"
+    if low in {"delete", "deletecollection"}:
+        return "destroy"
+    if low in {"exec", "attach", "portforward"}:
+        return "execute"
+    return ""
+
+
+def _category_class(category: str) -> str:
+    low = category.strip().lower()
+    if "signin" in low or "sign-in" in low:
+        return "auth"
+    return _SURICATA_CATEGORY_MAP.get(low, "")
+
+
+def _class_from_event_type(fields: dict[str, str]) -> str:
+    event_type = _first(fields, ("eventtype", "event_type", "event_name"))
+    if not event_type:
+        return ""
+    low = event_type.strip().lower()
+    if low == "alert":
+        return _category_class(fields.get("alert.category", ""))
+    return _generic_event_type(low)
+
+
+def _class_from_platform_fields(fields: dict[str, str]) -> str:
+    if event_name := fields.get("eventname"):
+        return _cloudtrail_class(event_name)
+    if operation := fields.get("operation"):
+        return _operation_class(operation)
+    if operation_name := fields.get("operationname"):
+        return _azure_operation_class(operation_name)
+    if simple := fields.get("event_simplename"):
+        return _EDR_EVENTS.get(simple.strip().lower(), "") or _generic_event_type(simple)
+    if (action := _first(fields, ("authorization.action", "action"))) and "/" in action:
+        return _azure_resource_action(action)
+    if cls := _class_from_event_type(fields):
+        return cls
+    if (category := fields.get("category")) and (cls := _category_class(category)):
+        return cls
+    if (verb := fields.get("verb")) and (cls := _kubernetes_verb_class(verb)):
+        return cls
+    if fields.get("readonly", "").strip().lower() == "true":
+        return "enumerate"
+    return ""
+
+
+def _class_from_path_fields(fields: dict[str, str]) -> str:
+    tool = _first(fields, ("image", "exe", "process_name", "comm", "processpath")).lower()
+    for pattern, cls in _TOOL_RULES:
+        if pattern.search(tool):
+            return cls
+    path = _first(fields, _CONTENT_PATH_FIELDS).lower()
+    if any(marker in path for marker in _COLLECT_PATH_MARKERS):
+        return "collect"
+    if any(marker in path for marker in _PERSIST_PATH_MARKERS):
+        return "persist"
+    return ""
+
+
+def _cmdlet_class(cmdlet: str) -> str:
+    low = cmdlet.strip().lower()
+    if "search" in low and "mailbox" in low:
+        return "collect"
+    if "permission" in low:
+        return "escalate"
+    if low.startswith(("search", "get", "find", "list", "read")):
+        return "enumerate"
+    if low.startswith(("export", "download")):
+        return "collect"
+    if low.startswith(("remove", "delete", "disable", "clear")):
+        return "destroy"
+    if low.startswith(("new", "set", "add", "enable", "install")):
+        return "persist"
+    return ""
+
+
+def _class_from_raw_format(fields: dict[str, str]) -> str:
+    audit_type = fields.get("type")
+    if audit_type:
+        key = audit_type.upper().split(":")[0]
+        if key in _AUDITD_TYPES:
+            return _AUDITD_TYPES[key]
+    text = _first(fields, ("_text", "message", "raw"))
+    if not text:
+        return ""
+    if match := _ASA_MESSAGE_RE.search(text):
+        return _ASA_MESSAGE_CLASS.get(match.group(1), "")
+    if match := _CMDLET_RE.search(text):
+        return _cmdlet_class(match.group(1))
+    if _SSH_AUTH_RE.search(text):
+        return "auth"
+    return _command_class(text)
+
+
+def classify_content(record: dict[str, Any], sourcetype: str = "") -> str:
+    """Classify an event from its content without consulting the sourcetype."""
+    del sourcetype
+    fields = _content_fields(record)
+    if not fields:
+        return ""
+    base = _class_from_event_id(fields)
+    if base:
+        return _refine_event(base, fields)
+    if (command := _content_command_text(fields)) and (cls := _command_class(command)):
+        return cls
+    for matcher in (_class_from_platform_fields, _class_from_path_fields, _class_from_raw_format):
+        if cls := matcher(fields):
+            return cls
+    return ""
+
+
 ClassifierFn = Callable[[dict[str, Any], str], str]
 
 

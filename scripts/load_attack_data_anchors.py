@@ -21,14 +21,13 @@ import json
 import sys
 import time
 from collections import Counter
-from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from portal.modules.security.core.bully import telemetry_behavior
-from portal.modules.security.core.bully.anchors import AnchorLibrary
+from portal.modules.security.core.bully.anchors import AnchorLibrary, EmptySpineError
 from portal.modules.security.core.bully.unit_measurement import (
     HeldOutSplit,
     assert_no_contamination,
@@ -100,26 +99,14 @@ def _load_single_episode(
     store: ReviewStore,
     library: AnchorLibrary,
     root: Path,
-) -> tuple[int, set[str]]:
-    """Load one episode into library + store. Returns (anchors_added, new_techniques)."""
-    from portal.modules.security.core.bully import series_cousin as sc
-
+) -> tuple[int, set[str], str | None]:
+    """Load one episode using content-derived classes and persist its spine."""
     records = _read_episode_records(ep_path)
     if not records:
-        return 0, set()
+        return 0, set(), "empty_episode"
 
     data_file_key = manifest_items[0].path.relative_to(root).as_posix()
-
     anchor_id = f"an-{p5_item_id('attack_data', data_file_key)}"
-    classified: list[dict[str, Any]] = []
-    for rec in records:
-        rec_copy = dict(rec) if isinstance(rec, dict) else {"_raw": str(rec)}
-        cls = telemetry_behavior.classify_record(
-            rec_copy, manifest_items[0].sourcetype or "corpus:raw"
-        )
-        rec_copy["_class"] = cls
-        classified.append(rec_copy)
-
     payload = {
         "record_id": anchor_id,
         "source_id": "attack_data",
@@ -132,43 +119,32 @@ def _load_single_episode(
         "card": f"attack_data:{data_file_key} techniques={','.join(episode_techniques)}",
     }
 
-    logs = classified
-
-    def action_of(r: dict[str, Any]) -> Any:
-        return r.get("_class", "")
-
-    dominant_st = manifest_items[0].sourcetype or "corpus:raw"
-    series = None
-    if logs and action_of is not None:
-        series = sc.series_from_logs(
-            anchor_id,
-            logs,
-            action_of=action_of,
-            sourcetype_of=lambda _r, _st=dominant_st: _st,
-            technique=episode_techniques[0] if episode_techniques else None,
-            source_ids=("attack_data",),
+    try:
+        anchor = library.load_attack_episode(
+            source_id="attack_data",
+            record=payload,
+            techniques=episode_techniques,
+            label_basis="data_yml",
+            logs=records,
+            record_classifier=telemetry_behavior.classify_content,
         )
+    except EmptySpineError:
+        return 0, set(), "empty_spine"
 
-    anchor = library.load_attack_episode(
-        source_id="attack_data",
-        record=payload,
-        techniques=episode_techniques,
-        label_basis="data_yml",
-        logs=logs,
-        action_of=action_of,
-        behavior_classifier=None,
-    )
-
+    # Persist the review fields together with the derived series.
+    stored = dict(anchor.record)
+    if anchor.behavioural_series is not None:
+        stored["behavioural_series"] = anchor.behavioural_series.to_dict()
     store.put_anchor(
         anchor_id=anchor.anchor_id,
         kind="attack_episode",
         malice="malicious",
         label=anchor.label_basis or "data_yml",
-        record=asdict(anchor),
+        record=stored,
         derived_from="attack_data_manifest",
         truth_class=TruthClass.MACHINE_DERIVED,
     )
-    return 1, set(episode_techniques)
+    return 1, set(episode_techniques), None
 
 
 def load_episodes(
@@ -252,9 +228,13 @@ def load_episodes(
             report["episodes_skipped"].append(str(ep_path))
             continue
 
-        anchors_added, new_techs = _load_single_episode(
+        anchors_added, new_techs, skip_reason = _load_single_episode(
             ep_path, manifest_items, episode_techniques, store, library, root
         )
+        if skip_reason is not None:
+            report["skipped_reasons"][skip_reason] += 1
+            report["episodes_skipped"].append(str(ep_path))
+            continue
         report["anchors_stored"] += anchors_added
         technique_set.update(new_techs)
 
