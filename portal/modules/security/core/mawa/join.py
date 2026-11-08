@@ -190,10 +190,10 @@ def group_graph(
                 edges[(i, j)].add(entity)
     out = [
         GroupEdge(
-            group_a=i,
-            group_b=j,
+            group_a=groups[i].group_id,
+            group_b=groups[j].group_id,
             shared_entities=frozenset(ents),
-            delta_s=max(0.0, ts_lo[i] - ts_hi[j]),
+            delta_s=max(0.0, ts_lo[j] - ts_hi[i]),
         )
         for (i, j), ents in edges.items()
     ]
