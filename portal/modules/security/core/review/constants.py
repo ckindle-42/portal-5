@@ -111,6 +111,14 @@ REGISTRY: dict[str, tuple[str, str]] = {
         "protocol",
         "one Splunk epoch tick because bounded search windows serialize to six decimals",
     ),
+    "build_calibration_slice.build.target_units": (
+        "budget",
+        "calibration-slice fetch target half-units; larger slices buy finer p-resolution",
+    ),
+    "build_calibration_slice.MAX_WINDOW_EXPANSIONS": (
+        "budget",
+        "bounded symmetric pages before reporting a calibration-half shortfall",
+    ),
 }
 
 # D-T6-PROOF preregisters a single concern per replay window for both arms.
