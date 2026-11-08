@@ -23,7 +23,9 @@ makes that split a first-class, checkable object rather than an assumption.
 
 from __future__ import annotations
 
+import math
 import random
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -151,6 +153,108 @@ def assert_no_contamination(evaluation_dataset_keys: list[str], split: HeldOutSp
         raise ContaminationError(
             f"evaluation datasets also contributed a type: {sorted(set(offenders))}"
         )
+
+
+def _window_bucket(timestamp_s: float, window_s: float) -> int:
+    if timestamp_s <= 0:
+        return 0
+    return int(math.floor(timestamp_s / window_s))
+
+
+def attack_instance_id(src_ip: str, timestamp_s: float, *, window_s: float = 120.0) -> str:
+    """SOC-MLD instance id (extract_features.py). Mai et al. 2026, CC-BY-4.0, doi:10.5281/zenodo.23097106."""
+    return f"ATT_{src_ip}_{_window_bucket(timestamp_s, window_s)}"
+
+
+def session_id(src_ip: str, timestamp_s: float, *, window_s: float = 30.0) -> str:
+    """SOC-MLD session id (extract_features.py). Mai et al. 2026, CC-BY-4.0, doi:10.5281/zenodo.23097106."""
+    return f"S_{src_ip}_{_window_bucket(timestamp_s, window_s)}"
+
+
+def _cover_labels_in_train(
+    instance_labels: Mapping[str, Collection[str]], train: set[str], test: set[str]
+) -> tuple[set[str], set[str]]:
+    train_labels: set[str] = set()
+    for unit in train:
+        train_labels.update(instance_labels[unit])
+    labels = sorted({label for group in instance_labels.values() for label in group})
+    for label in labels:
+        if label in train_labels:
+            continue
+        movable = sorted(unit for unit in test if label in instance_labels[unit])
+        if not movable:
+            continue
+        moved = movable[0]
+        test.remove(moved)
+        train.add(moved)
+        train_labels.update(instance_labels[moved])
+    return train, test
+
+
+def split_attack_instances(
+    instance_labels: Mapping[str, Collection[str]],
+    *,
+    test_ratio: float = 0.2,
+    seed: int = 42,
+) -> HeldOutSplit:
+    """Instance-disjoint split (benchmark_paper1.py). Mai et al. 2026, CC-BY-4.0, doi:10.5281/zenodo.23097106."""
+    units = sorted(instance_labels)
+    random.Random(seed).shuffle(units)
+    n_test = max(1, int(len(units) * test_ratio)) if units else 0
+    test = set(units[:n_test])
+    train = set(units[n_test:])
+    train, test = _cover_labels_in_train(instance_labels, train, test)
+    return HeldOutSplit(type_dataset_keys=frozenset(train), eval_dataset_keys=frozenset(test))
+
+
+@dataclass(frozen=True)
+class LayerCorrelation:
+    """How many groups contain every required layer. Co-presence only."""
+
+    group_count: int
+    covered_group_count: int
+    layer_group_counts: tuple[tuple[str, int], ...]
+
+    @property
+    def covered_fraction(self) -> float | None:
+        if self.group_count == 0:
+            return None
+        return self.covered_group_count / self.group_count
+
+
+def verify_layer_correlation(
+    group_layers: Mapping[str, Collection[str]],
+    required_layers: Collection[str],
+) -> LayerCorrelation:
+    """Layer co-presence per group (verify_correlation.py). Mai et al. 2026, CC-BY-4.0, doi:10.5281/zenodo.23097106."""
+    required = frozenset(required_layers)
+    counts: dict[str, int] = dict.fromkeys(sorted(required), 0)
+    covered = 0
+    for layers in group_layers.values():
+        present = frozenset(layers)
+        if required <= present:
+            covered += 1
+        for layer in present:
+            counts[layer] = counts.get(layer, 0) + 1
+    return LayerCorrelation(
+        group_count=len(group_layers),
+        covered_group_count=covered,
+        layer_group_counts=tuple(sorted(counts.items())),
+    )
+
+
+def session_overlap(
+    split: HeldOutSplit, sessions_by_instance: Mapping[str, Collection[str]]
+) -> frozenset[str]:
+    """Sessions on both halves (benchmark_paper1.py). Mai et al. 2026, CC-BY-4.0, doi:10.5281/zenodo.23097106."""
+    train: set[str] = set()
+    test: set[str] = set()
+    for instance_id, sessions in sessions_by_instance.items():
+        if instance_id in split.type_dataset_keys:
+            train.update(sessions)
+        elif instance_id in split.eval_dataset_keys:
+            test.update(sessions)
+    return frozenset(train & test)
 
 
 # ── T.3: precision/recall per unit level and outcome class ─────────────────
