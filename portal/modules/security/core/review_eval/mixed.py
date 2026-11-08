@@ -17,6 +17,10 @@ from portal.modules.security.core.bully.unit_measurement import (
     assert_no_contamination,
     split_datasets,
 )
+from portal.modules.security.core.review_eval.item_identity import (
+    attack_data_test_id,
+    canonical_attack_data_root,
+)
 
 PROOF = "assert_no_contamination:ok"
 DEFINITIONS = (
@@ -357,12 +361,14 @@ def labels_from_attack_data(
     """One label per data.yml. The technique list is the label; prose files are ignored."""
     if not corpus or not publisher:
         raise ValueError("corpus and publisher are required")
+    checkout = canonical_attack_data_root(root)
+    datasets_root = checkout / "datasets"
     labels: list[AttackLabel] = []
-    for path in sorted(root.rglob("data.yml")):
+    for path in sorted(datasets_root.rglob("data.yml")):
         techniques = _techniques(path)
         if techniques is None:
             continue
-        test_id = path.parent.relative_to(root).as_posix()
+        test_id = attack_data_test_id(path.parent, checkout)
         identifier = item_id(publisher, test_id)
         labels.append(
             AttackLabel(

@@ -32,6 +32,10 @@ from portal.modules.security.core.review_eval.corpus_truth import (  # noqa: E40
     pair_score,
     rank_entity_pairs,
 )
+from portal.modules.security.core.review_eval.item_identity import (  # noqa: E402
+    attack_data_test_id,
+    canonical_attack_data_root,
+)
 from scripts.corpus_ingest import load_manifest_catalog  # noqa: E402
 from scripts.corpus_reingest import p5_item_id  # noqa: E402
 
@@ -62,10 +66,11 @@ class CatalogItem:
 
 def load_attack_items(root: Path) -> dict[str, CatalogItem]:
     """Join each attack_data directory to its data.yml techniques and p5_item id."""
+    checkout = canonical_attack_data_root(root)
     grouped: dict[str, set[str]] = {}
-    for manifest in load_manifest_catalog(root):
+    for manifest in load_manifest_catalog(checkout / "datasets"):
         try:
-            test_id = manifest.path.parent.relative_to(root).as_posix()
+            test_id = attack_data_test_id(manifest.path.parent, checkout)
         except ValueError:
             continue
         grouped.setdefault(test_id, set()).update(manifest.techniques)

@@ -1278,6 +1278,8 @@ def test_dry_run_prefers_pinned_sibling_and_records_it(
     sources = tmp_path / "sources"
     main_repo = sources / "attack_data"
     _init_repo(main_repo)
+    (main_repo / "datasets").mkdir()
+    (main_repo / "datasets" / "layout.txt").write_text("", encoding="utf-8")
     (main_repo / "events.jsonl").write_text('{"eventName":"ListUsers"}\n', encoding="utf-8")
     commit = _commit_all(main_repo, "events")
     sibling = acquisition.sibling_checkout(main_repo, commit)
