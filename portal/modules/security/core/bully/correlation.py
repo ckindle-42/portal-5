@@ -9,9 +9,9 @@ unambiguous (SANS/UEBA/SIEM correlation literature):
     the finding is in piecing them together across sources into one timeline.
   - The unit of assembly is the ENTITY (user/host/IP/process), and the same
     entity appears under DIFFERENT identifiers in different sources: `jsmith`,
-    `jsmith@corp.com`, `CORP\\jsmith`, `10.0.1.45`, a numeric UID -- all one
-    principal. Linking these is ENTITY STITCHING, and poorly-stitched entities
-    are the single most common cause of missed detections.
+    `jsmith@corp.com`, `CORP\\jsmith`, `10.0.1.45`, a numeric UID. Identity
+    stitching uses explicit authority or identity-core equivalence; co-occurrence
+    relates distinct entities but does not prove they are the same principal.
   - Sparse sources are the norm, not a defect. A lone firewall allow, one DNS
     query, a single 4624 -- individually thin, worthless alone, decisive in
     combination.
@@ -26,11 +26,11 @@ Two capabilities:
 
 1. **Entity resolution (stitching).** Resolve the many identifiers of one
    entity across heterogeneous sources into a single `ResolvedEntity`, using
-   an identity graph: values that co-occur on the same record are candidate
-   aliases (a 4624 carrying both `CORP\\jsmith` and `10.0.1.45` links them);
+   an identity graph: identity-core equivalence and authority can join aliases;
+   values that co-occur on a record remain related but distinct identities;
    an authority store (AD, from the lab) can assert canonical links; and
    value-shape equivalence (`jsmith` ~ `jsmith@corp.com` ~ `CORP\\jsmith`)
-   proposes links that co-occurrence confirms. Deliberately CONSERVATIVE:
+   proposes links without merging unrelated principals. Deliberately CONSERVATIVE:
    a wrong stitch fabricates a false narrative, so links require evidence,
    and every resolution carries its evidence and a confidence.
 
@@ -159,8 +159,8 @@ def resolve_entities(
 
     Three evidence sources, strongest first:
       1. authority assertion (AD says these are one) -- confidence 1.0
-      2. co-occurrence on the same record (a 4624 with user+IP together) --
-         high confidence, because the source itself asserts the pairing
+      2. co-occurrence confirms a same-core alias pair but never merges distinct
+         identity cores
       3. identity-core equivalence (jsmith ~ CORP\\jsmith) -- proposed, then
          only merged when co-occurrence or authority also supports it, OR the
          core match is exact and unambiguous (one core -> one raw per kind)
@@ -188,20 +188,7 @@ def resolve_entities(
     for v in values:
         core_bucket[identity_core(v)].append(v)
 
-    # (2) co-occurrence as a PRIMARY linker: when a single record carries a
-    # user and an IP (a 4624 with TargetUserName + IpAddress), the source itself
-    # asserts they belong to one session -- the strongest everyday evidence. Only
-    # link ACROSS kinds (user<->ip, user<->host, host<->ip); same-kind co-occurrence
-    # (two IPs, two users) is peers or delegation, never an alias -- linking it
-    # fabricates identity and is the classic false-stitch.
-    def _kind(v: str) -> str:
-        return identity_core(v)[0]
-
-    for pair in cooccur:
-        a, b = tuple(pair)
-        ka, kb = _kind(a), _kind(b)
-        if ka != kb and {ka, kb} <= {"user", "host", "ip"}:
-            uf.union(a, b, f"cooccur:{ka}-{kb}")
+    # Co-occurrence can confirm a same-core alias, but never merges distinct cores.
 
     # authority first
     if authority is not None:

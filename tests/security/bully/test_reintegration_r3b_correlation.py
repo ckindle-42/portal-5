@@ -37,8 +37,8 @@ def test_four_source_jsmith_chain_resolves_to_one_entity_one_timeline() -> None:
     entities, value_to_id = resolve_entities(observations)
     jsmith_eid = value_to_id["CORP\\jsmith"]
     assert value_to_id["jsmith@corp.com"] == jsmith_eid
-    assert value_to_id["10.0.1.45"] == jsmith_eid
-    assert value_to_id["ws01"] != jsmith_eid  # host stays distinct kind/root
+    assert value_to_id["10.0.1.45"] != jsmith_eid
+    assert value_to_id["ws01"] != jsmith_eid
 
     timelines = assemble_timelines(
         artifacts,
@@ -52,15 +52,14 @@ def test_four_source_jsmith_chain_resolves_to_one_entity_one_timeline() -> None:
         artifact_source=lambda a: a["source_id"],
     )
     jsmith_timeline = next(t for t in timelines if t.entity.entity_id == jsmith_eid)
-    assert jsmith_timeline.n_sources == 4
+    assert jsmith_timeline.n_sources == 3
     assert jsmith_timeline.is_cross_source
-    assert set(jsmith_timeline.source_ids) == {"win", "dns", "cloud", "fw"}
+    assert set(jsmith_timeline.source_ids) == {"win", "dns", "cloud"}
+    ip_timeline = next(t for t in timelines if t.entity.entity_id == value_to_id["10.0.1.45"])
+    assert set(ip_timeline.source_ids) == {"cloud", "fw"}
 
 
-def test_seeded_violation_disabling_cooccurrence_fragments_the_chain() -> None:
-    """Seeded violation: without cross-kind co-occurrence linking, the
-    username observed in win/dns/cloud never joins the IP observed in
-    cloud/fw -- the exact UEBA false-negative the research names."""
+def test_cross_kind_cooccurrence_keeps_user_and_ip_distinct() -> None:
     observations = [
         _obs("CORP\\jsmith", "user", "win", "a1"),
         _obs("jsmith@corp.com", "user", "dns", "a2"),
@@ -69,21 +68,10 @@ def test_seeded_violation_disabling_cooccurrence_fragments_the_chain() -> None:
         _obs("10.0.1.45", "ip", "fw", "a4"),
     ]
 
-    # correct behavior: co-occurrence (jsmith@corp.com + 10.0.1.45 on a3) links them
     entities, value_to_id = resolve_entities(observations)
-    assert value_to_id["CORP\\jsmith"] == value_to_id["10.0.1.45"]
-
-    # seeded violation: simulate co-occurrence disabled by stripping the
-    # shared-artifact evidence (only single-identifier observations survive)
-    solo_observations = [
-        _obs("CORP\\jsmith", "user", "win", "a1"),
-        _obs("jsmith@corp.com", "user", "dns", "a2"),
-        _obs("jsmith@corp.com", "user", "cloud", "a2b"),
-        _obs("10.0.1.45", "ip", "cloud", "a2c"),
-        _obs("10.0.1.45", "ip", "fw", "a4"),
-    ]
-    entities2, value_to_id2 = resolve_entities(solo_observations)
-    assert value_to_id2["CORP\\jsmith"] != value_to_id2["10.0.1.45"]
+    assert value_to_id["CORP\\jsmith"] == value_to_id["jsmith@corp.com"]
+    assert value_to_id["CORP\\jsmith"] != value_to_id["10.0.1.45"]
+    assert len(entities) == 2
 
 
 def test_two_users_on_one_runas_record_stay_distinct() -> None:
@@ -93,6 +81,64 @@ def test_two_users_on_one_runas_record_stay_distinct() -> None:
     ]
     entities, value_to_id = resolve_entities(observations)
     assert value_to_id["alice"] != value_to_id["bob"]
+
+
+def test_same_kind_cooccurring_aliases_keep_core_and_cooccur_evidence() -> None:
+    observations = [
+        _obs("FROTH\\bstoll", "user", "win", "a1"),
+        _obs("bstoll@froth.ly", "user", "win", "a1"),
+    ]
+
+    entities, value_to_id = resolve_entities(observations)
+    entity = entities[value_to_id["FROTH\\bstoll"]]
+
+    assert value_to_id["bstoll@froth.ly"] == entity.entity_id
+    assert entity.evidence == ("core_and_cooccur:bstoll",)
+    assert entity.confidence == 0.9
+
+
+def test_same_kind_aliases_still_merge_with_evidence() -> None:
+    observations = [
+        _obs("FROTH\\bstoll", "user", "win", "a1"),
+        _obs("bstoll@froth.ly", "user", "cloud", "a2"),
+    ]
+
+    entities, value_to_id = resolve_entities(observations)
+    entity = entities[value_to_id["FROTH\\bstoll"]]
+
+    assert value_to_id["bstoll@froth.ly"] == entity.entity_id
+    assert set(entity.aliases) == {"FROTH\\bstoll", "bstoll@froth.ly"}
+    assert entity.evidence == ("core_equiv:user:bstoll",)
+    assert entity.confidence == 0.75
+
+
+def test_account_cooccurrence_does_not_merge_hosts_and_addresses() -> None:
+    observations = [
+        _obs("CORP\\Administrator", "Account", "win", "a1"),
+        _obs("WIN-MVQO0PT39IO.corp.local", "Computer", "win", "a1"),
+        _obs("10.0.0.25", "IpAddress", "win", "a1"),
+        _obs("CORP\\Administrator", "Account", "win", "a2"),
+        _obs("WIN-MVQO0PT39IO.corp.local", "Computer", "win", "a2"),
+        _obs("10.0.0.26", "IpAddress", "win", "a2"),
+        _obs("CORP\\Administrator", "Account", "win", "a3"),
+        _obs("WIN-OTHER.corp.local", "Computer", "win", "a3"),
+        _obs("10.0.0.25", "IpAddress", "win", "a3"),
+        _obs("CORP\\Administrator", "Account", "win", "a4"),
+        _obs("WIN-OTHER.corp.local", "Computer", "win", "a4"),
+        _obs("10.0.0.26", "IpAddress", "win", "a4"),
+    ]
+
+    entities, value_to_id = resolve_entities(observations)
+
+    assert len(entities) == 5
+    assert {entity.canonical: len(entity.aliases) for entity in entities.values()} == {
+        "10.0.0.25": 1,
+        "10.0.0.26": 1,
+        "CORP\\Administrator": 1,
+        "WIN-MVQO0PT39IO.corp.local": 1,
+        "WIN-OTHER.corp.local": 1,
+    }
+    assert len({value_to_id[o.value] for o in observations}) == 5
 
 
 def test_two_ips_on_one_netflow_record_stay_distinct() -> None:
