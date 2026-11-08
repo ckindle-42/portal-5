@@ -97,7 +97,7 @@ The `steps/` view is a strict subset of the campaign archives: 0 bundle steps ar
 
 ### The brief's 5,554-sequence / 11,388-step baseline does not reproduce
 
-Per bundle the three views hold 2760 `attackmate.json` files and 4791 step lines. Counting both bundles and the campaign archives gives 5554 files and 11388 steps — exactly the brief's quoted 5554 / 11388. The baseline is therefore a file-and-line double-count across views and bundles, not a count of distinct attack episodes.
+Per bundle the three views hold 2760 `attackmate.json` files and 4791 step lines. Counting both bundles and the campaign archives gives 5554 files and 11388 steps — exactly the brief's quoted 5,554 / 11,388. The baseline is therefore a file-and-line double-count across views and bundles, not a count of distinct attack episodes.
 
 ## Unlabelled steps — bundle
 

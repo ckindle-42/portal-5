@@ -1081,14 +1081,10 @@ def _table(headers: list[str], rows: list[list[Any]]) -> list[str]:
     return out
 
 
-def render_markdown(  # noqa: C901, PLR0912, PLR0915 - linear Markdown assembler
-    report: dict[str, Any],
-    filtered: dict[str, Any] | None = None,
-) -> str:
-    """Render the report as Markdown; every value comes from the report dicts."""
-    readers = report["readers"]
-    join_summary = report["join"]["summary"]
-    lines: list[str] = [
+def _md_header(
+    report: dict[str, Any], filtered: dict[str, Any] | None, archives: dict[str, Any]
+) -> list[str]:
+    lines = [
         "# CAM-LDS extraction — attack steps, manifestations and sequence granularity",
         "",
         "Generated from the JSON report by `scripts/cam_lds_extract.py`; no number below is",
@@ -1096,15 +1092,17 @@ def render_markdown(  # noqa: C901, PLR0912, PLR0915 - linear Markdown assembler
         "",
         f"- Bundle root: `{report['root']}`",
     ]
-    archives = report.get("archives") or {}
     if archives:
         lines.append(f"- Campaign archives: {len(archives['info'])}")
     if filtered:
         lines.append(f"- Filtered comparison root: `{filtered['root']}`")
     lines.append("")
+    return lines
 
-    # ---------------------------------------------------------------- readers
-    lines += [
+
+def _md_readers(report: dict[str, Any]) -> list[str]:
+    readers = report["readers"]
+    lines = [
         "## Readers",
         "",
         "| view | files | lines/records | parse failures |",
@@ -1114,14 +1112,16 @@ def render_markdown(  # noqa: C901, PLR0912, PLR0915 - linear Markdown assembler
         data = readers[name]
         records = data.get("parsed", data.get("lines"))
         lines.append(f"| {name} | {data['files']} | {records} | {len(data['failures'])} |")
-    lines.append("")
     failures = readers["events"].get("failures_by_kind") or {}
-    lines.append(
-        f"Defender event parse failures by kind: `{json.dumps(failures, sort_keys=True)}`."
-    )
-    lines.append("")
-
-    lines += ["### Defender events", "", "| host | events |", "|---|---|"]
+    lines += [
+        "",
+        f"Defender event parse failures by kind: `{json.dumps(failures, sort_keys=True)}`.",
+        "",
+        "### Defender events",
+        "",
+        "| host | events |",
+        "|---|---|",
+    ]
     for host, count in sorted(report["events_by_host"].items(), key=lambda kv: -kv[1]):
         lines.append(f"| {host} | {count} |")
     lines += ["", "| kind | events |", "|---|---|"]
@@ -1133,11 +1133,13 @@ def render_markdown(  # noqa: C901, PLR0912, PLR0915 - linear Markdown assembler
         "(`events_by_host_by_sequence`, `events_by_host_by_campaign`).",
         "",
     ]
+    return lines
 
-    # ------------------------------------------------------------ granularity
+
+def _md_granularity(report: dict[str, Any]) -> list[str]:
     views = report["views"]
     g = report["granularity"]
-    lines += [
+    lines = [
         "## Sequence granularity — what a `sequences/<name>` directory is",
         "",
         "| view | directories | `attackmate.json` files |",
@@ -1160,8 +1162,6 @@ def render_markdown(  # noqa: C901, PLR0912, PLR0915 - linear Markdown assembler
         f"({g['group_rule']['failure_count']} exceptions recorded).",
         "",
     ]
-
-    per_campaign = g["per_campaign"]
     lines += _table(
         ["campaign", "runs", "max ordinal", "median step gap (s)", "run-index inversions"],
         [
@@ -1172,13 +1172,12 @@ def render_markdown(  # noqa: C901, PLR0912, PLR0915 - linear Markdown assembler
                 data["median_gap_s"],
                 data["run_index_inversions"],
             ]
-            for name, data in per_campaign.items()
+            for name, data in g["per_campaign"].items()
         ],
     )
-    lines.append("")
-
     window = g["window_check"]
     lines += [
+        "",
         "### Publisher window check",
         "",
         f"The publisher's per-sequence slices were checked against the campaign step clock: "
@@ -1190,41 +1189,46 @@ def render_markdown(  # noqa: C901, PLR0912, PLR0915 - linear Markdown assembler
         f"Events without any step: {window['events_without_step']}.",
         "",
     ]
+    return lines
 
+
+def _md_episodes(report: dict[str, Any], archives: dict[str, Any]) -> list[str]:
     bundle_cmp = archives.get("bundle_compare") or {}
-    if bundle_cmp:
-        lines += [
-            "### Episodes: bundle vs campaign archives",
-            "",
-            f"The `steps/` view is a strict subset of the campaign archives: "
-            f"{bundle_cmp['bundle_steps_missing_from_archive']} bundle steps are absent from the "
-            f"archives, while {bundle_cmp['archive_steps_missing_from_bundle']} archive steps are "
-            f"absent from the bundle (all unlabelled: {bundle_cmp['dropped_labelled']} labelled "
-            f"steps dropped). The episode unit is therefore one campaign archive "
-            f"({bundle_cmp['archive_steps']} steps over {len(bundle_cmp['archives'])} archives), "
-            f"not a bundle sequence directory ({bundle_cmp['bundle_steps']} steps).",
-            "",
-        ]
-
-    # The brief's baseline, quoted only to show what it decomposes into.
-    baseline_files = 5554  # quoted from the task brief
-    baseline_steps = 11388  # quoted from the task brief
+    if not bundle_cmp:
+        return []
+    views = report["views"]
+    readers = report["readers"]
+    lines = [
+        "### Episodes: bundle vs campaign archives",
+        "",
+        f"The `steps/` view is a strict subset of the campaign archives: "
+        f"{bundle_cmp['bundle_steps_missing_from_archive']} bundle steps are absent from the "
+        f"archives, while {bundle_cmp['archive_steps_missing_from_bundle']} archive steps are "
+        f"absent from the bundle (all unlabelled: {bundle_cmp['dropped_labelled']} labelled "
+        f"steps dropped). The episode unit is therefore one campaign archive "
+        f"({bundle_cmp['archive_steps']} steps over {len(bundle_cmp['archives'])} archives), "
+        f"not a bundle sequence directory ({bundle_cmp['bundle_steps']} steps).",
+        "",
+    ]
     files_per_bundle = sum(views[name]["step_files"] for name in views)
     lines_per_bundle = sum(readers[name]["lines"] for name in ("steps", "sequences", "techniques"))
-    rebuilt_files = files_per_bundle * 2 + len(archives["info"]) if archives else None
-    rebuilt_steps = lines_per_bundle * 2 + archives["steps"] if archives else None
+    rebuilt_files = files_per_bundle * 2 + len(archives["info"])
+    rebuilt_steps = lines_per_bundle * 2 + archives["steps"]
     lines += [
         "### The brief's 5,554-sequence / 11,388-step baseline does not reproduce",
         "",
         f"Per bundle the three views hold {files_per_bundle} `attackmate.json` files and "
         f"{lines_per_bundle} step lines. Counting both bundles and the campaign archives gives "
         f"{rebuilt_files} files and {rebuilt_steps} steps — exactly the brief's quoted "
-        f"{baseline_files} / {baseline_steps}. The baseline is therefore a file-and-line "
-        f"double-count across views and bundles, not a count of distinct attack episodes.",
+        "5,554 / 11,388. The baseline is therefore a file-and-line double-count across views "
+        "and bundles, not a count of distinct attack episodes.",
         "",
     ]
+    return lines
 
-    # ------------------------------------------------------------- unlabelled
+
+def _md_unlabelled(report: dict[str, Any], archives: dict[str, Any]) -> list[str]:
+    lines: list[str] = []
     for label, profile in (
         ("bundle", report["unlabelled"]),
         ("campaign archives", archives.get("unlabelled")),
@@ -1247,32 +1251,38 @@ def render_markdown(  # noqa: C901, PLR0912, PLR0915 - linear Markdown assembler
         for name, count in sorted(profile["by_shape"].items(), key=lambda kv: -kv[1]):
             lines.append(f"| {name} | {count} |")
         lines.append("")
+    return lines
 
-    # --------------------------------------------------------- filtered vs raw
+
+def _md_filtered(report: dict[str, Any]) -> list[str]:
     compare = report.get("bundle_compare")
-    if compare:
-        lines += [
-            "## filtered vs raw",
-            "",
-            f"- `filtered` files: {compare['files_a']}; `raw` files: {compare['files_b']}; "
-            f"shared paths: {compare['shared_paths']}.",
-            f"- Files only in `filtered`: {compare['only_in_a']}; only in `raw`: {compare['only_in_b']}.",
-            f"- Identical CRC on shared paths: {compare['identical_crc']}; differing content: "
-            f"{compare['differing_content']}.",
-            f"- Line-subset check on {compare['line_subset_checked']} differing files: "
-            f"{compare['line_subset_violations']} violations. `filtered` is a strict line-subset of "
-            "`raw` at identical paths; `raw` is the superset and the primary analysis root.",
-            "",
-            "| path kind present only in `raw` | files |",
-            "|---|---|",
-        ]
-        for name, count in sorted(compare["only_in_b_kinds"].items(), key=lambda kv: -kv[1]):
-            lines.append(f"| `{name}` | {count} |")
-        lines.append("")
+    if not compare:
+        return []
+    lines = [
+        "## filtered vs raw",
+        "",
+        f"- `filtered` files: {compare['files_a']}; `raw` files: {compare['files_b']}; "
+        f"shared paths: {compare['shared_paths']}.",
+        f"- Files only in `filtered`: {compare['only_in_a']}; only in `raw`: {compare['only_in_b']}.",
+        f"- Identical CRC on shared paths: {compare['identical_crc']}; differing content: "
+        f"{compare['differing_content']}.",
+        f"- Line-subset check on {compare['line_subset_checked']} differing files: "
+        f"{compare['line_subset_violations']} violations. `filtered` is a strict line-subset of "
+        "`raw` at identical paths; `raw` is the superset and the primary analysis root.",
+        "",
+        "| path kind present only in `raw` | files |",
+        "|---|---|",
+    ]
+    for name, count in sorted(compare["only_in_b_kinds"].items(), key=lambda kv: -kv[1]):
+        lines.append(f"| `{name}` | {count} |")
+    lines.append("")
+    return lines
 
-    # ------------------------------------------------------------------- join
+
+def _md_join(report: dict[str, Any], filtered: dict[str, Any] | None) -> list[str]:
     params = report["join"]["parameters"]
-    lines += [
+    summary = report["join"]["summary"]
+    lines = [
         "## Step → manifestation join",
         "",
         "Design: sort each campaign's steps by timestamp; a step's window is "
@@ -1291,17 +1301,17 @@ def render_markdown(  # noqa: C901, PLR0912, PLR0915 - linear Markdown assembler
         "",
         "| metric | value |",
         "|---|---|",
-        f"| steps | {join_summary['steps']} |",
-        f"| steps with ≥1 manifestation | {join_summary['with_manifestation']} |",
-        f"| silent steps | {join_summary['silent']} |",
-        f"| steps with an empty publisher slice | {join_summary['steps_with_empty_publisher_slice']} |",
-        f"| raw token edges | {join_summary['raw_token_edges']} |",
-        f"| shared-entity edges | {join_summary['shared_entity_edges']} |",
-        f"| steps with a cross-host edge | {join_summary['steps_with_cross_host_edge']} |",
-        f"| **cross-host edges** | **{join_summary['cross_host_edges']}** |",
+        f"| steps | {summary['steps']} |",
+        f"| steps with ≥1 manifestation | {summary['with_manifestation']} |",
+        f"| silent steps | {summary['silent']} |",
+        f"| steps with an empty publisher slice | {summary['steps_with_empty_publisher_slice']} |",
+        f"| raw token edges | {summary['raw_token_edges']} |",
+        f"| shared-entity edges | {summary['shared_entity_edges']} |",
+        f"| steps with a cross-host edge | {summary['steps_with_cross_host_edge']} |",
+        f"| **cross-host edges** | **{summary['cross_host_edges']}** |",
         "",
-        f"Shared-entity edges by kind: `{json.dumps(join_summary['shared_entity_edges_by_kind'], sort_keys=True)}`. "
-        f"Cross-host edges by entity: `{json.dumps(join_summary['cross_host_edges_by_kind'], sort_keys=True)}`.",
+        f"Shared-entity edges by kind: `{json.dumps(summary['shared_entity_edges_by_kind'], sort_keys=True)}`. "
+        f"Cross-host edges by entity: `{json.dumps(summary['cross_host_edges_by_kind'], sort_keys=True)}`.",
         "",
         "The cross-host count is not zero, so the stopping condition (report zero with numbers) "
         "does not apply. It is small relative to the shared-entity total and rests on the "
@@ -1309,7 +1319,6 @@ def render_markdown(  # noqa: C901, PLR0912, PLR0915 - linear Markdown assembler
         "names resolve to the same gateway address in `dnsmasq`.",
         "",
     ]
-
     if filtered:
         fj = filtered["join"]["summary"]
         lines += [
@@ -1317,17 +1326,19 @@ def render_markdown(  # noqa: C901, PLR0912, PLR0915 - linear Markdown assembler
             "",
             "| metric | raw | filtered |",
             "|---|---|---|",
-            f"| events | {readers['events']['parsed']} | {filtered['readers']['events']['parsed']} |",
-            f"| silent steps | {join_summary['silent']} | {fj['silent']} |",
-            f"| shared-entity edges | {join_summary['shared_entity_edges']} | {fj['shared_entity_edges']} |",
-            f"| cross-host edges | {join_summary['cross_host_edges']} | {fj['cross_host_edges']} |",
-            f"| steps with cross-host edge | {join_summary['steps_with_cross_host_edge']} | {fj['steps_with_cross_host_edge']} |",
+            f"| events | {report['readers']['events']['parsed']} | {filtered['readers']['events']['parsed']} |",
+            f"| silent steps | {summary['silent']} | {fj['silent']} |",
+            f"| shared-entity edges | {summary['shared_entity_edges']} | {fj['shared_entity_edges']} |",
+            f"| cross-host edges | {summary['cross_host_edges']} | {fj['cross_host_edges']} |",
+            f"| steps with cross-host edge | {summary['steps_with_cross_host_edge']} | {fj['steps_with_cross_host_edge']} |",
             "",
         ]
+    return lines
 
-    # ------------------------------------------------------------------- grid
+
+def _md_grid(report: dict[str, Any], archives: dict[str, Any]) -> list[str]:
     grid = report["grid"]
-    lines += [
+    lines = [
         "## Variant grid",
         "",
         "| variant | sequences | runs | steps | archive steps | distinct techniques | unlabelled |",
@@ -1362,19 +1373,40 @@ def render_markdown(  # noqa: C901, PLR0912, PLR0915 - linear Markdown assembler
     for row in grid:
         lines.append(f"- **{row['variant']}** — `{row['chain']}`")
     lines.append("")
+    return lines
 
-    lines += [
+
+def _md_limits(report: dict[str, Any]) -> list[str]:
+    summary = report["join"]["summary"]
+    return [
         "## What this cannot evidence",
         "",
         "- CAM-LDS has no per-event ground truth. The join is a reproducible attribution, not a",
         "  scored accuracy result; nothing here validates it against published truth.",
         "- Cross-host identity depends on `facts.json`; entities that never appear in an IP-to-host",
         "  mapping cannot become a cross-host edge.",
-        f"- {join_summary['silent']} steps produce no manifestation in the window and "
-        f"{join_summary['steps_with_empty_publisher_slice']} sit in sequence dirs whose publisher "
+        f"- {summary['silent']} steps produce no manifestation in the window and "
+        f"{summary['steps_with_empty_publisher_slice']} sit in sequence dirs whose publisher "
         "slice is empty. These are reported, not repaired.",
         "",
     ]
+
+
+def render_markdown(
+    report: dict[str, Any],
+    filtered: dict[str, Any] | None = None,
+) -> str:
+    """Render the report as Markdown; every value comes from the report dicts."""
+    archives = report.get("archives") or {}
+    lines = _md_header(report, filtered, archives)
+    lines += _md_readers(report)
+    lines += _md_granularity(report)
+    lines += _md_episodes(report, archives)
+    lines += _md_unlabelled(report, archives)
+    lines += _md_filtered(report)
+    lines += _md_join(report, filtered)
+    lines += _md_grid(report, archives)
+    lines += _md_limits(report)
     return "\n".join(lines)
 
 
