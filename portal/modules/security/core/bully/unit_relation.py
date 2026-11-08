@@ -31,12 +31,15 @@ Pure compute over injected units and anchor records (COLD).
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
 from .artifact_graph import DEFAULT_ACTION_CLASSIFIER, ActionClassifier, GradeableUnit
 
-ALGORITHM_VERSION = "unit-relation-v2"
+ALGORITHM_VERSION = "unit-relation-v3"
+
+_WINDOW_ENTITY_TOKEN = re.compile(r"entity=ent-\d{10}\Z", re.ASCII)
 
 CHANNELS: tuple[str, ...] = ("shape", "vocabulary")
 
@@ -109,13 +112,28 @@ def _type_shape_tokens(
 
 
 def unit_vocabulary_tokens(unit: GradeableUnit) -> set[str]:
-    return _as_token_set(unit.vocabulary) | _as_token_set(unit.entities)
+    tokens = _as_token_set(unit.vocabulary) | _as_token_set(unit.entities)
+    return _comparison_tokens(tokens, _as_token_set(unit.provenance_tokens))
 
 
 def _type_vocabulary_tokens(anchor_record: dict[str, Any]) -> set[str]:
-    return _as_token_set(anchor_record.get("action_sequence")) | _as_token_set(
+    tokens = _as_token_set(anchor_record.get("action_sequence")) | _as_token_set(
         anchor_record.get("parameter_families")
     )
+    provenance = _as_token_set(anchor_record.get("provenance_tokens"))
+    for field_name in ("source", "sourcetype"):
+        values = _as_token_set(anchor_record.get(field_name))
+        provenance |= values
+        provenance.update(f"{field_name}={value}" for value in values)
+    return _comparison_tokens(tokens, provenance)
+
+
+def _comparison_tokens(tokens: set[str], provenance: set[str]) -> set[str]:
+    return {
+        token
+        for token in tokens
+        if token not in provenance and not _WINDOW_ENTITY_TOKEN.fullmatch(token)
+    }
 
 
 def _jaccard_distance(a: set[str], b: set[str]) -> float:

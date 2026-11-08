@@ -379,6 +379,7 @@ def _unit_type_record(unit: GradeableUnit) -> dict[str, Any]:
         "action_sequence": list(unit.vocabulary),
         "event_graph": dict(unit.structural_signature),
         "parameter_families": list(unit.entities),
+        "provenance_tokens": list(unit.provenance_tokens),
     }
 
 
