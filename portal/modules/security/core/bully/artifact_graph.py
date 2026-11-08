@@ -325,6 +325,7 @@ class GradeableUnit:
     structural_signature: dict[str, Any]
     vocabulary: tuple[str, ...]
     source_ids: tuple[str, ...]
+    provenance_tokens: tuple[str, ...] = ()
 
     @property
     def size(self) -> int:
@@ -343,6 +344,7 @@ class GradeableUnit:
             "structural_signature": dict(self.structural_signature),
             "vocabulary": list(self.vocabulary),
             "source_ids": list(self.source_ids),
+            "provenance_tokens": list(self.provenance_tokens),
         }
 
     def grading_projection(self) -> UnitSignature:
@@ -600,6 +602,19 @@ def _unit_id(level: str, artifact_ids: tuple[str, ...]) -> str:
     return f"u-{digest[:14]}"
 
 
+def _unit_provenance_tokens(members: list[Artifact]) -> tuple[str, ...]:
+    tokens: set[str] = set()
+    for artifact in members:
+        for field_name in ("source", "sourcetype"):
+            value = artifact.record.get(field_name)
+            values = value if isinstance(value, (list, tuple, set)) else (value,)
+            for item in values:
+                text = str(item or "").strip()
+                if text:
+                    tokens.update((text, f"{field_name}={text}"))
+    return tuple(sorted(tokens))
+
+
 def _make_unit(graph: ArtifactGraph, level: str, artifact_ids: tuple[str, ...]) -> GradeableUnit:
     members = [graph.artifacts[i] for i in artifact_ids if i in graph.artifacts]
     member_set = set(artifact_ids)
@@ -628,6 +643,7 @@ def _make_unit(graph: ArtifactGraph, level: str, artifact_ids: tuple[str, ...]) 
         structural_signature=_structural_signature(graph, artifact_ids, edge_kinds),
         vocabulary=tuple(vocabulary),
         source_ids=tuple(sorted({a.source_id for a in members if a.source_id})),
+        provenance_tokens=_unit_provenance_tokens(members),
     )
 
 

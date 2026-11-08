@@ -52,6 +52,7 @@ def record_from_unit(unit: ag.GradeableUnit, terms: Sequence[str], card: str) ->
         "action_sequence": list(unit.vocabulary),
         "event_graph": dict(unit.structural_signature),
         "parameter_families": list(unit.entities),
+        "provenance_tokens": list(unit.provenance_tokens),
         "terms": list(terms),
         "card": card,
     }

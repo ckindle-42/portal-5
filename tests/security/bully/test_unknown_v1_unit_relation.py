@@ -55,6 +55,60 @@ def test_unclassified_gap_matches_anchor_on_classified_projection():
     assert not any(token.startswith("class_") for token in bl._feature_tokens(empty_unit))
 
 
+def test_provenance_and_window_local_entities_do_not_change_same_shape_grade():
+    unit = _unit_from_chain(["AssumeRole", "ListBuckets"], "attacker")
+    unit = replace(
+        unit,
+        structural_signature={
+            **unit.structural_signature,
+            "class_sequence": ["auth", "enumerate"],
+        },
+        vocabulary=("XmlWinEventLog:Security", "XmlWinEventLog"),
+        entities=("entity=ent-1111111111",),
+        provenance_tokens=(
+            "XmlWinEventLog:Security",
+            "source=XmlWinEventLog:Security",
+            "XmlWinEventLog",
+            "sourcetype=XmlWinEventLog",
+        ),
+    )
+    anchor = {
+        "record_id": "cross-source-type",
+        "source": "Sysmon:Operational",
+        "sourcetype": "sysmon:linux",
+        "action_sequence": ["Sysmon:Operational", "sysmon:linux"],
+        "parameter_families": ["entity=ent-2222222222"],
+        "event_graph": {"class_sequence": ["auth", "enumerate"]},
+    }
+
+    relation = ur.grade_unit_against_type(unit, anchor)
+
+    assert relation.shape.distance == 0.0
+    assert relation.overall_relation == "EXACT"
+    assert relation.algorithm_version == "unit-relation-v3"
+    assert relation.vocabulary.unobservable
+    assert not ur.unit_vocabulary_tokens(unit)
+    assert not ur._type_vocabulary_tokens(anchor)
+
+
+def test_artifact_graph_carries_source_metadata_as_nonbehavioral_provenance():
+    records = [
+        {
+            "eventName": verb,
+            "source": "XmlWinEventLog:Security",
+            "sourcetype": "XmlWinEventLog",
+            "user": "attacker",
+            "eventTime": 1_700_000_000.0 + i * 40.0,
+        }
+        for i, verb in enumerate(("AssumeRole", "ListBuckets"))
+    ]
+    graph = ag.build_graph(records)
+    unit = next(u for u in ag.enumerate_units(graph) if u.level == "L4_WINDOW")
+
+    assert "XmlWinEventLog:Security" in unit.provenance_tokens
+    assert "sourcetype=XmlWinEventLog" in unit.provenance_tokens
+
+
 def test_identical_chain_grades_exact_on_both_channels():
     verbs = ["AssumeRole", "ListBuckets", "AttachUserPolicy"]
     unit = _unit_from_chain(verbs, "attacker")
