@@ -104,10 +104,12 @@ def build_reference(
     environment_id: str,
     basis: str = "benign_slice",
 ) -> Reference:
-    """Fit the baseline on one half of a benign window and the null distributions on the other.
-
-    Levels with too few held-out benign units to certify ``alpha`` are skipped (and reported):
-    a channel that cannot be certified raises nothing rather than guessing."""
+    """Fit held-out calibration and refuse a self-window basis."""
+    if basis == "self_window":
+        raise ValueError(
+            f"refused basis={basis!r}: calibration must come from a benign slice disjoint "
+            "from the window under review; pass a held-out benign_window instead"
+        )
     by_unit = {u.unit.unit_id: u for u in benign.units}
     fit_half, cal_half = split_units([u.unit for u in benign.units], salt=environment_id)
     model = fit_baseline(fit_half, environment_id)

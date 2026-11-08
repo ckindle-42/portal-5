@@ -10,6 +10,7 @@ import argparse
 import json
 import sys
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Any
 
 from .review.contracts import Verdict, to_plain
@@ -45,6 +46,23 @@ def _parser() -> argparse.ArgumentParser:
 
     doctor = commands.add_parser("doctor")
     doctor.add_argument("--fix", action="store_true")
+
+    build = commands.add_parser(
+        "build-calibration-slice",
+        help="build a benign calibration slice from the live portal5_lab index and write it to disk",
+    )
+    build.add_argument("--start", type=float, required=True, help="inclusive epoch time")
+    build.add_argument("--end", type=float, required=True, help="exclusive epoch time")
+    build.add_argument("--rule", required=True, help="operator-stated rule for this benign window")
+    build.add_argument("--sources", nargs="+", default=None, metavar="INDEX:SOURCETYPE")
+    build.add_argument(
+        "--target-units",
+        type=int,
+        default=600,
+        help="minimum calibration-half units; 600 gives p_step=1/601 and 120 steps at alpha=0.2",
+    )
+    build.add_argument("--output-dir", default=None)
+
     return parser
 
 
@@ -62,7 +80,20 @@ def _plain_dict(value: Any) -> dict[str, Any]:
     return plain
 
 
-def _run(runtime: ReviewRuntime, args: argparse.Namespace) -> dict[str, Any]:
+def _run(runtime: ReviewRuntime | None, args: argparse.Namespace) -> dict[str, Any]:
+    if args.command == "build-calibration-slice":
+        from .review.build_calibration_slice import build
+
+        return build(
+            start=args.start,
+            end=args.end,
+            rule=args.rule,
+            sources=[_source_spec(value) for value in args.sources] if args.sources else None,
+            target_units=args.target_units,
+            output_dir=Path(args.output_dir) if args.output_dir else None,
+        )
+    if runtime is None:
+        raise RuntimeError("review runtime was not initialized")
     if args.command == "run":
         request = ReviewRequest(
             sources=[_source_spec(value) for value in args.source],
@@ -114,13 +145,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     runtime = None
     try:
-        runtime = build_default_runtime()
+        if args.command != "build-calibration-slice":
+            runtime = build_default_runtime()
         output = _run(runtime, args)
         print(json.dumps(output, sort_keys=True, indent=2, default=str))
         return 1 if "error" in output else 0
     except Exception as exc:  # noqa: BLE001 -- CLI renders adapter/runtime errors as JSON
+        message = str(exc)
+        if args.command == "build-calibration-slice":
+            from .review.build_calibration_slice import _redact_credentials
+
+            message = _redact_credentials(message)
         print(
-            json.dumps({"error": f"{type(exc).__name__}: {exc}"}, sort_keys=True), file=sys.stderr
+            json.dumps({"error": f"{type(exc).__name__}: {message}"}, sort_keys=True),
+            file=sys.stderr,
         )
         return 1
     finally:
