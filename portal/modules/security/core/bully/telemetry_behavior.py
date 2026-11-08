@@ -463,7 +463,11 @@ _ASA_MESSAGE_CLASS: dict[str, str] = {
 }
 _ASA_MESSAGE_RE = re.compile(r"%ASA-\d-(\d+)")
 _CMDLET_RE = re.compile(r"Cmdlet\s+([A-Za-z][\w-]*)", re.IGNORECASE)
-_SSH_AUTH_RE = re.compile(r"sshd.*(?:Accepted|Failed) password", re.IGNORECASE)
+_SSH_AUTH_RE = re.compile(
+    r"(?:sshd.*(?:Accepted|Failed) (?:password|publickey)|authentication failure|"
+    r"Accepted (?:password|publickey)|Failed password)",
+    re.IGNORECASE,
+)
 _XML_EVENT_ID = re.compile(r"<EventID(?:\s[^>]*)?>([^<]+)</EventID>", re.IGNORECASE)
 _XML_DATA = re.compile(r"<Data\s+Name=['\"]([^'\"]+)['\"]>(.*?)</Data>", re.IGNORECASE | re.DOTALL)
 
@@ -609,6 +613,28 @@ def _flatten_content(value: Any, out: dict[str, str], prefix: str = "") -> None:
             out.setdefault(_content_key(str(key)), str(inner))
 
 
+def _strip_wrapping_quotes(value: str) -> str:
+    text = value.strip()
+    if len(text) >= 2 and text[0] == text[-1] and text[0] in {'"', "'"}:
+        return text[1:-1]
+    return text
+
+
+def _kv_content_fields(text: str) -> dict[str, str]:
+    """Lowercase key=value fields and keep the line when it has no message."""
+    raw = _raw_kv_fields({"_raw": text})
+    if not raw:
+        return {}
+    out = {
+        _content_key(key): _strip_wrapping_quotes(value)
+        for key, value in raw.items()
+        if value.strip()
+    }
+    if "message" not in out:
+        out["_text"] = text
+    return out
+
+
 def _parse_raw_content(raw: str) -> dict[str, str]:
     """Fields carried by a raw record: JSON, Windows Event XML, or key=value."""
     text = raw.strip()
@@ -637,7 +663,7 @@ def _parse_raw_content(raw: str) -> dict[str, str]:
             out["provider"] = provider.group(1).strip()
         if out:
             return out
-    out = _raw_kv_fields({"_raw": text})
+    out = _kv_content_fields(text)
     if out:
         return out
     return {"_text": text}
@@ -778,6 +804,8 @@ def _operation_class(operation: str) -> str:
         return "enumerate"
     if low.startswith("send"):
         return "c2_exfil"
+    if low.startswith("invoke"):
+        return "execute"
     return ""
 
 
@@ -789,7 +817,7 @@ def _azure_operation_class(operation: str) -> str:
         return "escalate"
     if "consent" in low or "reset password" in low:
         return "persist"
-    if low.startswith("delete"):
+    if low.startswith(("delete", "wipe")):
         return "destroy"
     if low.startswith(("add", "create", "update", "reset", "set")):
         return "persist"
@@ -916,22 +944,304 @@ def _cmdlet_class(cmdlet: str) -> str:
     return ""
 
 
+def _unstructured_text(fields: dict[str, str]) -> str:
+    """Command text from a message, or from a line that is not a field dump."""
+    message = _first(fields, ("message", "raw"))
+    if message:
+        return message
+    if any(key != "_text" for key in fields):
+        return ""
+    return fields.get("_text", "")
+
+
 def _class_from_raw_format(fields: dict[str, str]) -> str:
     audit_type = fields.get("type")
     if audit_type:
         key = audit_type.upper().split(":")[0]
         if key in _AUDITD_TYPES:
             return _AUDITD_TYPES[key]
-    text = _first(fields, ("_text", "message", "raw"))
+    text = _unstructured_text(fields)
     if not text:
         return ""
     if match := _ASA_MESSAGE_RE.search(text):
         return _ASA_MESSAGE_CLASS.get(match.group(1), "")
-    if match := _CMDLET_RE.search(text):
-        return _cmdlet_class(match.group(1))
+    for match in _CMDLET_RE.finditer(text):
+        if cls := _cmdlet_class(match.group(1)):
+            return cls
     if _SSH_AUTH_RE.search(text):
         return "auth"
     return _command_class(text)
+
+
+_ADMIN_ACTIONS: dict[str, str] = {
+    "admin_login": "auth",
+    "policy_create": "persist",
+    "policy_update": "persist",
+    "user_create": "persist",
+    "user_update": "persist",
+    "policy_bulk_delete": "evade",
+    "bypass_create": "evade",
+    "user_delete": "destroy",
+}
+_LATERAL_FLOW_PORTS = {"3389", "445", "139", "5985", "5986", "22"}
+_EXFIL_FLOW_PORTS = {"21", "25", "587", "465"}
+_FLOW_PORT_FIELDS = (
+    "id.resp_p",
+    "dest_port",
+    "dst_port",
+    "destinationport",
+    "destination_port",
+    "resp_p",
+    "dport",
+)
+_TRANSFER_BYTES = 10_000_000
+_SCANNER_UA_RE = re.compile(
+    r"\b(?:gobuster|nikto|sqlmap|dirbuster|ffuf|wpscan|nuclei|masscan|zgrab)\b",
+    re.IGNORECASE,
+)
+_DNS_QTYPE_RE = re.compile(r"\b\d+ \((?:A|AAAA|CNAME|TXT|MX|PTR|NS|SOA)\)")
+_DNS_RCODE_RE = re.compile(r"\b(?:NOERROR|NXDOMAIN|SERVFAIL|REFUSED)\b")
+_HTTP_COMMAND_RE = re.compile(r"(?:^|[?&*])command=([A-Za-z0-9_]+)")
+_HTTP_COMMAND_CLASS = {
+    "zip": "collect",
+    "createfile": "persist",
+    "runcustomcmd": "execute",
+    "delete": "destroy",
+}
+_SYSLOG_TEXT_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
+    (
+        re.compile(
+            r"authentication failure|Accepted (?:password|publickey)|Failed password|"
+            r"%SEC_LOGIN-\d-LOGIN_(?:SUCCESS|FAILED)|%SSH-5-SSH2_(?:USERAUTH|CLOSE|SESSION)|"
+            r"%SYS-6-LOGOUT|AAA_RESULT_(?:REJECT|ACCEPT)",
+            re.IGNORECASE,
+        ),
+        "auth",
+    ),
+    (re.compile(r"%AAA-6-USER_PRIVILEGE_UPDATE", re.IGNORECASE), "escalate"),
+    (re.compile(r"%SYS-5-CONFIG_I\b", re.IGNORECASE), "persist"),
+    (
+        re.compile(r"\[vob\.user\.ssh\.enabled\]|SSH access has been enabled", re.IGNORECASE),
+        "persist",
+    ),
+    (re.compile(r"File download\b", re.IGNORECASE), "collect"),
+    (re.compile(r"\bDispatch\s+\S+\.(?:get|list)\b", re.IGNORECASE), "enumerate"),
+    (re.compile(r"\bDispatch\s+\S+\.set\b", re.IGNORECASE), "persist"),
+)
+_TACTIC_CLASSES: tuple[tuple[str, str], ...] = (
+    ("command and control", "c2_exfil"),
+    ("exfiltration", "c2_exfil"),
+    ("lateral movement", "lateral"),
+    ("credential access", "collect"),
+    ("defense evasion", "evade"),
+    ("privilege escalation", "escalate"),
+    ("persistence", "persist"),
+    ("discovery", "enumerate"),
+    ("execution", "execute"),
+    ("impact", "destroy"),
+    ("collection", "collect"),
+)
+_HTTP_COLLECT_MARKERS = (
+    "/.env",
+    "/.git/",
+    "wp-config",
+    "web.config",
+    "/etc/passwd",
+    "/etc/shadow",
+    "id_rsa",
+    ".aws/credentials",
+)
+
+
+def _identity_event_class(fields: dict[str, str]) -> str:
+    name = _first(fields, ("event.name", "event_name")).strip().lower()
+    event_type = fields.get("event.type", "").strip().lower()
+    if "unenroll" in name or name.startswith("bypass"):
+        return "evade"
+    if name.startswith("login_") or name in {"login", "logout"} or event_type == "login":
+        return "auth"
+    return ""
+
+
+def _admin_action_class(fields: dict[str, str]) -> str:
+    action = fields.get("action.name", "").strip().lower()
+    if not action:
+        raw = fields.get("action", "").strip().lower()
+        if raw and "/" not in raw and " " not in raw:
+            action = raw
+    if not action:
+        return ""
+    detail = " ".join(
+        fields.get(key, "") for key in ("target.details", "description", "outcome", "details")
+    ).lower()
+    if action == "user_update" and "bypass" in detail:
+        return "evade"
+    return _ADMIN_ACTIONS.get(action, "")
+
+
+def _syslog_text_class(fields: dict[str, str]) -> str:
+    text = _first(fields, ("syslog_descriptor", "message", "_text"))
+    if not text:
+        return ""
+    for pattern, cls in _SYSLOG_TEXT_RULES:
+        if pattern.search(text):
+            return cls
+    return ""
+
+
+def _tactic_class(fields: dict[str, str]) -> str:
+    text = _first(fields, ("mitreattackgroups", "mitre_attack_groups")).lower()
+    if not text:
+        return ""
+    for needle, cls in _TACTIC_CLASSES:
+        if needle in text:
+            return cls
+    return ""
+
+
+def _flow_service_class(service: str) -> str:
+    tokens = {part.strip() for part in re.split(r"[,/]", service.lower()) if part.strip()}
+    if tokens & {"smb", "rdp", "ssh"}:
+        return "lateral"
+    if tokens & {"ftp", "smtp"}:
+        return "c2_exfil"
+    if "dns" in tokens:
+        return "enumerate"
+    return ""
+
+
+def _flow_port_class(fields: dict[str, str]) -> str:
+    port = _first(fields, _FLOW_PORT_FIELDS).split(".", 1)[0]
+    marker = fields.get("proto") or fields.get("conn_state") or fields.get("service")
+    if not marker:
+        return ""
+    if port in _LATERAL_FLOW_PORTS:
+        return "lateral"
+    if port in _EXFIL_FLOW_PORTS:
+        return "c2_exfil"
+    if port == "53":
+        return "enumerate"
+    return ""
+
+
+def _flow_class(fields: dict[str, str]) -> str:
+    if _first(fields, ("http_method", "requestmethod", "uri_path", "method")):
+        return ""
+    if cls := _flow_service_class(fields.get("service", "")):
+        return cls
+    return _flow_port_class(fields)
+
+
+def _dns_class(fields: dict[str, str]) -> str:
+    query = _first(fields, ("query", "query_name", "qname", "dns.query"))
+    if query and query not in {"-", "."} and "." in query and " " not in query:
+        return "enumerate"
+    text = fields.get("_text", "")
+    if text and _DNS_QTYPE_RE.search(text) and _DNS_RCODE_RE.search(text):
+        return "enumerate"
+    return ""
+
+
+def _threat_class(fields: dict[str, str]) -> str:
+    name = _first(
+        fields, ("threatname", "threat_name", "threatcategory", "threat_category")
+    ).lower()
+    if not name or name in {"none", "null", "-", "n/a"}:
+        return ""
+    if "phish" in name or "scam" in name:
+        return ""
+    if "dos" in name or "denial of service" in name:
+        return "destroy"
+    if "exploit" in name:
+        return "execute"
+    if any(token in name for token in ("virus", "malware", "trojan", "adware", "miner", "ransom")):
+        return "c2_exfil"
+    return ""
+
+
+def _executed_process_class(fields: dict[str, str]) -> str:
+    binary = fields.get("binary", "")
+    arguments = fields.get("arguments", "")
+    if not binary and not arguments:
+        return ""
+    return _command_class(f"{binary} {arguments}")
+
+
+def _request_target(fields: dict[str, str]) -> str:
+    """URL, query, or request body the record names, else an unstructured line."""
+    parts = [
+        fields.get(name, "")
+        for name in (
+            "uri_path",
+            "url",
+            "http.url",
+            "http.uri",
+            "uri_query",
+            "request_body",
+            "requestbody",
+        )
+    ]
+    target = " ".join(part for part in parts if part and part != "-")
+    return target or _unstructured_text(fields)
+
+
+def _http_path_class(target: str) -> str:
+    """Class a request target. A field dump is not a request."""
+    lowered = target.lower()
+    if not lowered:
+        return ""
+    if "/recovery/backup" in lowered:
+        return "collect"
+    if "/recovery/restore" in lowered:
+        return "persist"
+    if any(marker in lowered for marker in _HTTP_COLLECT_MARKERS):
+        return "collect"
+    if match := _HTTP_COMMAND_RE.search(target):
+        return _HTTP_COMMAND_CLASS.get(match.group(1).lower(), "")
+    return ""
+
+
+def _http_transfer_class(fields: dict[str, str]) -> str:
+    method = _first(fields, ("http_method", "requestmethod", "method")).upper()
+    size = 0
+    for name in ("bytes_out", "bytes_in", "requestsize", "responsesize"):
+        raw = fields.get(name, "").replace(",", "")
+        if raw.isdigit():
+            size = max(size, int(raw))
+    if size < _TRANSFER_BYTES:
+        return ""
+    if method in {"POST", "PUT", "PATCH"}:
+        return "c2_exfil"
+    if method in {"GET", "HEAD"}:
+        return "collect"
+    return ""
+
+
+def _http_class(fields: dict[str, str]) -> str:
+    target = _request_target(fields)
+    if cls := _http_path_class(target):
+        return cls
+    agent = _first(fields, ("http_user_agent", "useragent", "user_agent")) or target
+    if agent and _SCANNER_UA_RE.search(agent):
+        return "enumerate"
+    return _http_transfer_class(fields)
+
+
+def _class_from_network_content(fields: dict[str, str]) -> str:
+    for matcher in (
+        _identity_event_class,
+        _admin_action_class,
+        _syslog_text_class,
+        _tactic_class,
+        _flow_class,
+        _dns_class,
+        _threat_class,
+        _executed_process_class,
+        _http_class,
+    ):
+        if cls := matcher(fields):
+            return cls
+    return ""
 
 
 def classify_content(record: dict[str, Any], sourcetype: str = "") -> str:
@@ -945,7 +1255,12 @@ def classify_content(record: dict[str, Any], sourcetype: str = "") -> str:
         return _refine_event(base, fields)
     if (command := _content_command_text(fields)) and (cls := _command_class(command)):
         return cls
-    for matcher in (_class_from_platform_fields, _class_from_path_fields, _class_from_raw_format):
+    for matcher in (
+        _class_from_platform_fields,
+        _class_from_path_fields,
+        _class_from_raw_format,
+        _class_from_network_content,
+    ):
         if cls := matcher(fields):
             return cls
     return ""
