@@ -258,6 +258,21 @@ The cross-host count is not zero, so the stopping condition (report zero with nu
 | cross-host edges | 80 | 54 |
 | steps with cross-host edge | 22 | 21 |
 
+## Episode join — one campaign archive per episode
+
+The bundle join above uses the publisher's per-sequence slices. Because the episode unit is a campaign archive, the same join is run over every extracted campaign archive: all archive steps, full campaign telemetry, same window and entity rules.
+
+| metric | bundle join | episode join |
+|---|---|---|
+| steps | 1332 | 1806 |
+| events | 477050 | 713963 |
+| silent steps | 586 | 706 |
+| shared-entity edges | 7447 | 7548 |
+| steps with a cross-host edge | 22 | 27 |
+| **cross-host edges** | **80** | **112** |
+
+Episode events by host: `{"corpdns": 244041, "inetfw": 251006, "videoserver": 218296, "wazuh": 620}`. Cross-host by entity: `{"host:attacker": 77, "host:client": 5, "host:docker": 1, "host:videoserver": 29}`. Event parse failures: 0.
+
 ## Variant grid
 
 | variant | sequences | runs | steps | archive steps | distinct techniques | unlabelled |
@@ -355,4 +370,5 @@ technique and labels the unlabelled command shape. Full chains are also in the J
   scored accuracy result; nothing here validates it against published truth.
 - Cross-host identity depends on `facts.json`; entities that never appear in an IP-to-host
   mapping cannot become a cross-host edge.
-- 586 steps produce no manifestation in the window and 236 sit in sequence dirs whose publisher slice is empty. These are reported, not repaired.
+- 706 steps produce no manifestation in the window. These are reported,
+  not repaired.

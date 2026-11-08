@@ -10,7 +10,9 @@ Usage::
 
     ./.venv/bin/python -I scripts/cam_lds_extract.py \
         --root /data/extract/raw/manifestations_raw \
-        --archive-dir /data/cam_lds --out /data/extract/cam_lds.json
+        --archive-dir /data/cam_lds \
+        --episodes-dir /data/extract/archives \
+        --out /data/extract/cam_lds.json
 """
 
 from __future__ import annotations
@@ -426,6 +428,61 @@ def read_sequence_events(
         else:
             out[seq].extend(read_syslog(path, year, reader, "syslog", host))
     return out
+
+
+def read_episode_events(
+    episodes_dir: Path,
+    year_of: dict[str, int],
+    syslog_hosts: set[str] | None,
+    reader: Reader,
+) -> dict[str, list[Event]]:
+    """Defender events from one extracted campaign archive per episode directory."""
+    out: dict[str, list[Event]] = defaultdict(list)
+    for archive_dir in sorted(p for p in episodes_dir.iterdir() if p.is_dir()):
+        root = archive_dir / archive_dir.name
+        if not root.is_dir():
+            root = archive_dir
+        if not (root / "attacker/logs/attackmate.json").exists():
+            continue
+        campaign = root.name.removeprefix("scenario_")
+        year = year_of.get(campaign, 1970)
+        for path in sorted(root.rglob("*")):
+            if not path.is_file():
+                continue
+            classified = _classify_defender(path)
+            if classified is None:
+                continue
+            kind, host = classified
+            if kind == "syslog" and syslog_hosts is not None and host not in syslog_hosts:
+                continue
+            if kind == "wazuh":
+                out[campaign].extend(read_wazuh(path, year, reader))
+            elif kind == "fast":
+                out[campaign].extend(read_fast_log(path, year, reader, host))
+            else:
+                out[campaign].extend(read_syslog(path, year, reader, "syslog", host))
+    return out
+
+
+def read_episode_inventory(episodes_dir: Path) -> dict[str, str]:
+    """IP -> host name across every extracted campaign archive's Ansible facts."""
+    inventory: dict[str, str] = {}
+    for archive_dir in sorted(p for p in episodes_dir.iterdir() if p.is_dir()):
+        root = archive_dir / archive_dir.name
+        if not root.is_dir():
+            root = archive_dir
+        for path in sorted(root.glob("*/facts.json")):
+            host = path.parent.name
+            try:
+                facts = json.loads(path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                continue
+            if isinstance(facts.get("inventory_hostname"), str):
+                inventory.setdefault(facts["inventory_hostname"], host)
+            addresses = facts.get("ansible_all_ipv4_addresses") or []
+            for address in addresses if isinstance(addresses, list) else []:
+                inventory.setdefault(str(address), host)
+    return inventory
 
 
 # ---------------------------------------------------------------------- join
@@ -961,6 +1018,63 @@ def sequence_group_rule(seq_steps: list[Step], step_steps: list[Step]) -> dict[s
     }
 
 
+def _episode_join_report(
+    episodes_dir: Path,
+    archive_steps: list[Step],
+    syslog_hosts: set[str] | None,
+    syslog_label: str,
+) -> dict[str, Any]:
+    """Run the step -> manifestation join over one extracted campaign archive per episode."""
+    episode_reader = Reader()
+    episode_years: dict[str, int] = {}
+    for step in archive_steps:
+        episode_years.setdefault(step.campaign, step.ts.year)
+    episode_events = read_episode_events(episodes_dir, episode_years, syslog_hosts, episode_reader)
+    episode_inventory = read_episode_inventory(episodes_dir)
+    episode_all = [event for bucket in episode_events.values() for event in bucket]
+    _episode_dns, episode_agents = host_map(episode_all)
+    episode_index = {
+        campaign: CampaignEvents(bucket) for campaign, bucket in episode_events.items()
+    }
+    episode_rows, episode_summary = join(
+        archive_steps,
+        episode_index,
+        {**episode_agents, **episode_inventory},
+        episode_inventory,
+    )
+    return {
+        "root": str(episodes_dir),
+        "readers": {
+            "events": {
+                "files": episode_reader.files,
+                "lines": episode_reader.lines,
+                "parsed": len(episode_all),
+                "failures": [f.__dict__ for f in episode_reader.failures],
+                "failures_by_kind": dict(
+                    Counter(f.error.split(":")[0] for f in episode_reader.failures)
+                ),
+            }
+        },
+        "events_by_host": dict(Counter(event.host for event in episode_all).most_common()),
+        "events_by_kind": dict(Counter(event.kind for event in episode_all).most_common()),
+        "events_by_campaign": {
+            campaign: len(bucket) for campaign, bucket in sorted(episode_events.items())
+        },
+        "join": {
+            "parameters": {
+                "window": "[step_ts, next_step_ts) per campaign, half-open",
+                "last_step_tail_s": LAST_STEP_TAIL_S,
+                "lookback_s": LOOKBACK_S,
+                "entity_kinds": ["ip", "host", "url"],
+                "cross_host": "shared entity resolves (facts ip->host) to a host != observing host",
+                "syslog_hosts": syslog_label,
+            },
+            "summary": episode_summary,
+            "rows": [row.__dict__ for row in episode_rows],
+        },
+    }
+
+
 def build_report(args: argparse.Namespace) -> dict[str, Any]:
     """Run every reader and analysis; return the whole report."""
     root = Path(args.root)
@@ -990,6 +1104,13 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     if args.archive_dir:
         archive_steps, archive_failures, archive_info = read_archive_steps(Path(args.archive_dir))
     rows, join_summary = join(steps, campaign_index, hosts, inventory)
+    episode_report = (
+        _episode_join_report(
+            Path(args.episodes_dir), archive_steps, syslog_hosts, args.syslog_hosts
+        )
+        if args.episodes_dir
+        else {}
+    )
     slice_counts = {sequence: len(bucket) for sequence, bucket in seq_events.items()}
     join_summary["steps_with_empty_publisher_slice"] = sum(
         1 for step in seq_reader.records if slice_counts.get(step.sequence, 0) == 0
@@ -1061,6 +1182,8 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         },
         "grid": variant_grid(steps, seq_dirs, step_dirs, archive_steps),
     }
+    if episode_report:
+        report["episodes"] = episode_report
     if args.archive_dir:
         report["archives"] = {
             "info": archive_info,
@@ -1376,8 +1499,39 @@ def _md_grid(report: dict[str, Any], archives: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _md_episode_join(report: dict[str, Any]) -> list[str]:
+    episode = report.get("episodes")
+    if not episode:
+        return []
+    summary = episode["join"]["summary"]
+    bundle = report["join"]["summary"]
+    events = episode["readers"]["events"]
+    return [
+        "## Episode join — one campaign archive per episode",
+        "",
+        "The bundle join above uses the publisher's per-sequence slices. Because the episode "
+        "unit is a campaign archive, the same join is run over every extracted campaign "
+        "archive: all archive steps, full campaign telemetry, same window and entity rules.",
+        "",
+        "| metric | bundle join | episode join |",
+        "|---|---|---|",
+        f"| steps | {bundle['steps']} | {summary['steps']} |",
+        f"| events | {report['readers']['events']['parsed']} | {events['parsed']} |",
+        f"| silent steps | {bundle['silent']} | {summary['silent']} |",
+        f"| shared-entity edges | {bundle['shared_entity_edges']} | {summary['shared_entity_edges']} |",
+        f"| steps with a cross-host edge | {bundle['steps_with_cross_host_edge']} | {summary['steps_with_cross_host_edge']} |",
+        f"| **cross-host edges** | **{bundle['cross_host_edges']}** | **{summary['cross_host_edges']}** |",
+        "",
+        f"Episode events by host: `{json.dumps(episode['events_by_host'], sort_keys=True)}`. "
+        f"Cross-host by entity: `{json.dumps(summary['cross_host_edges_by_kind'], sort_keys=True)}`. "
+        f"Event parse failures: {len(events['failures'])}.",
+        "",
+    ]
+
+
 def _md_limits(report: dict[str, Any]) -> list[str]:
-    summary = report["join"]["summary"]
+    episode = report.get("episodes") or {}
+    summary = (episode.get("join") or {}).get("summary") or report["join"]["summary"]
     return [
         "## What this cannot evidence",
         "",
@@ -1385,9 +1539,8 @@ def _md_limits(report: dict[str, Any]) -> list[str]:
         "  scored accuracy result; nothing here validates it against published truth.",
         "- Cross-host identity depends on `facts.json`; entities that never appear in an IP-to-host",
         "  mapping cannot become a cross-host edge.",
-        f"- {summary['silent']} steps produce no manifestation in the window and "
-        f"{summary['steps_with_empty_publisher_slice']} sit in sequence dirs whose publisher "
-        "slice is empty. These are reported, not repaired.",
+        f"- {summary['silent']} steps produce no manifestation in the window. These are reported,",
+        "  not repaired.",
         "",
     ]
 
@@ -1405,6 +1558,7 @@ def render_markdown(
     lines += _md_unlabelled(report, archives)
     lines += _md_filtered(report)
     lines += _md_join(report, filtered)
+    lines += _md_episode_join(report)
     lines += _md_grid(report, archives)
     lines += _md_limits(report)
     return "\n".join(lines)
@@ -1422,6 +1576,15 @@ def _summary(report: dict[str, Any]) -> str:
         f"grid variants        {len(report['grid'])}",
         f"parse failures       {sum(len(v['failures']) for k, v in report['readers'].items())}",
     ]
+    episode = report.get("episodes") or {}
+    if episode:
+        summary = episode["join"]["summary"]
+        lines += [
+            f"episode steps        {summary['steps']}",
+            f"episode events       {episode['readers']['events']['parsed']}",
+            f"episode cross-host   {summary['cross_host_edges']} over "
+            f"{summary['steps_with_cross_host_edge']} steps",
+        ]
     return "\n".join(lines)
 
 
@@ -1429,6 +1592,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", required=True, help="extracted bundle root (contains sequences/)")
     parser.add_argument("--archive-dir", help="directory of scenario_*.zip campaign archives")
+    parser.add_argument(
+        "--episodes-dir", help="directory of extracted campaign archives, one per episode"
+    )
     parser.add_argument("--compare-a", help="baseline bundle zip (e.g. filtered)")
     parser.add_argument("--compare-b", help="larger bundle zip (e.g. raw)")
     parser.add_argument("--syslog-hosts", default="inetfw,corpdns", help="comma list or 'all'")

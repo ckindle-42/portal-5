@@ -22,6 +22,8 @@ from scripts.cam_lds_extract import (
     load_steps,
     parse_iso,
     parse_syslog_ts,
+    read_episode_events,
+    read_episode_inventory,
     read_fast_log,
     read_step_file,
     read_syslog,
@@ -158,6 +160,50 @@ def test_defender_readers_parse_and_report_bad_lines(tmp_path: Path) -> None:
     assert {f.path.rsplit("/", 1)[-1] for f in reader.failures} == {"alerts.json", "fast.log"}
     assert "ip:192.42.1.174" in events[0].entities
     assert events[0].host == "inetfw"
+
+
+def test_read_episode_events_and_inventory(tmp_path: Path) -> None:
+    inner = tmp_path / "archives" / "scenario_c" / "scenario_c"
+    (inner / "attacker/logs").mkdir(parents=True)
+    (inner / "attacker/logs/attackmate.json").write_text(
+        json.dumps(_step("2025-09-22T18:00:00", "id")) + "\n"
+    )
+    (inner / "videoserver").mkdir()
+    (inner / "videoserver/facts.json").write_text(
+        json.dumps(
+            {
+                "inventory_hostname": "172.17.100.121",
+                "ansible_all_ipv4_addresses": ["172.17.100.121"],
+            }
+        )
+    )
+    alerts = inner / "wazuh/logs/alerts/alerts.json"
+    alerts.parent.mkdir(parents=True)
+    alerts.write_text(
+        json.dumps(
+            {
+                "timestamp": "2025-09-22T18:00:01.000+0000",
+                "rule": {},
+                "agent": {"name": "inetfw", "ip": "192.168.100.254"},
+                "data": {},
+            }
+        )
+        + "\n"
+    )
+    corpdns = inner / "corpdns/logs/log/syslog"
+    corpdns.parent.mkdir(parents=True)
+    corpdns.write_text("Sep 22 18:00:02 corpdns dnsmasq[1]: query[A] x from 192.42.2.2\n")
+    excluded = inner / "videoserver/logs/log/syslog"
+    excluded.parent.mkdir(parents=True)
+    excluded.write_text("Sep 22 18:00:03 videoserver sshd[1]: accepted\n")
+
+    reader = Reader()
+    got = read_episode_events(tmp_path / "archives", {"c": 2025}, {"corpdns"}, reader)
+    assert set(got) == {"c"}
+    assert sorted(e.host for e in got["c"]) == ["corpdns", "inetfw"]
+    assert len(reader.failures) == 0
+    inventory = read_episode_inventory(tmp_path / "archives")
+    assert inventory["172.17.100.121"] == "videoserver"
 
 
 def test_host_map_and_canonical_resolve_ip_to_inventory_host() -> None:
