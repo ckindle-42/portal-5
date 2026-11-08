@@ -21,6 +21,7 @@ import json
 import sys
 import time
 from collections import Counter
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -31,7 +32,10 @@ from portal.modules.security.core.bully.anchors import AnchorLibrary, EmptySpine
 from portal.modules.security.core.bully.unit_measurement import (
     HeldOutSplit,
     assert_no_contamination,
+    measure_technique_split,
     split_datasets,
+    split_grouped_datasets,
+    technique_component_groups,
 )
 from portal.modules.security.core.review.contracts import TruthClass
 from portal.modules.security.core.review.store import ReviewStore
@@ -147,6 +151,91 @@ def _load_single_episode(
     return 1, set(episode_techniques), None
 
 
+@dataclass(frozen=True)
+class _EpisodeSplitPlan:
+    dataset_key_by_episode: dict[Path, str]
+    techniques_by_dataset: dict[str, tuple[str, ...]]
+    component_count: int
+    largest_component_size: int
+    split: HeldOutSplit
+
+
+def _prepare_episode_split(
+    episode_keys: list[Path],
+    labelled_episodes: dict[Path, list[Any]],
+    root: Path,
+    dataset_key_fn: Any,
+    *,
+    split_strategy: str,
+    type_fraction: float,
+    seed: int,
+) -> _EpisodeSplitPlan:
+    dataset_key_by_episode = {ep: dataset_key_fn(ep, root) for ep in episode_keys}
+    techniques_by_dataset = {
+        dataset_key_by_episode[ep]: tuple(
+            sorted({technique for item in labelled_episodes[ep] for technique in item.techniques})
+        )
+        for ep in episode_keys
+    }
+    component_groups = technique_component_groups(techniques_by_dataset)
+    component_sizes = Counter(component_groups.values())
+    dataset_keys = list(dataset_key_by_episode.values())
+    if split_strategy == "episode":
+        split = split_datasets(dataset_keys, type_fraction=type_fraction, seed=seed)
+    elif split_strategy == "technique_component":
+        split = split_grouped_datasets(
+            dataset_keys, group_of=component_groups, type_fraction=type_fraction, seed=seed
+        )
+    else:
+        raise ValueError(f"unknown split strategy: {split_strategy}")
+    return _EpisodeSplitPlan(
+        dataset_key_by_episode=dataset_key_by_episode,
+        techniques_by_dataset=techniques_by_dataset,
+        component_count=len(component_sizes),
+        largest_component_size=max(component_sizes.values(), default=0),
+        split=split,
+    )
+
+
+def _split_report(plan: _EpisodeSplitPlan, split_strategy: str) -> dict[str, Any]:
+    metrics = measure_technique_split(plan.split, plan.techniques_by_dataset)
+    return {
+        "split_strategy": split_strategy,
+        "split_strategy_default": "technique_component",
+        "split_strategy_default_reason": "shared techniques remain on one side of the split",
+        "technique_component_count": plan.component_count,
+        "largest_technique_component_episodes": plan.largest_component_size,
+        "split_techniques_anchored": metrics.anchored_technique_count,
+        "split_techniques_only_in_eval": metrics.eval_only_technique_count,
+        "split_leak_eval_episodes_with_anchored_sibling_technique": metrics.leak_episode_count,
+        "split_leak_eval_episodes": metrics.eval_episode_count,
+        "split_leak_fraction": metrics.leak_fraction,
+        "split_leak_percent": round(metrics.leak_fraction * 100, 2)
+        if metrics.leak_fraction is not None
+        else None,
+    }
+
+
+def _stored_anchor_leak(
+    split: HeldOutSplit,
+    techniques_by_dataset: dict[str, tuple[str, ...]],
+    anchored_techniques: set[str],
+) -> dict[str, Any]:
+    leaked = sum(
+        bool(anchored_techniques.intersection(techniques_by_dataset.get(key, ())))
+        for key in split.eval_dataset_keys
+    )
+    eval_count = len(split.eval_dataset_keys)
+    fraction = leaked / eval_count if eval_count else None
+    return {
+        "anchored_technique_count": len(anchored_techniques),
+        "eval_episodes_with_anchored_sibling_technique": leaked,
+        "eval_episodes": eval_count,
+        "leak_fraction": fraction,
+        "leak_percent": round(fraction * 100, 2) if fraction is not None else None,
+    }
+
+
 def load_episodes(
     root: Path,
     store: ReviewStore,
@@ -155,6 +244,7 @@ def load_episodes(
     check_fn: Any = check_split_and_assert_no_contamination,
     split_seed: int = 0,
     type_fraction: float = 0.5,
+    split_strategy: str = "technique_component",
 ) -> dict[str, Any]:
     """Load every labelled episode under ``root`` into ``store``, enforcing a
     held-out split. Returns a report with shape, techniques, skip reasons, and
@@ -183,8 +273,16 @@ def load_episodes(
 
     # Build deterministic keys and split.
     episode_keys = sorted(labelled_episodes.keys(), key=lambda p: str(p))
-    ep_keys_list: list[str] = [dataset_key_fn(ep, root) for ep in episode_keys]
-    split = split_datasets(ep_keys_list, type_fraction=type_fraction, seed=split_seed)
+    plan = _prepare_episode_split(
+        episode_keys,
+        labelled_episodes,
+        root,
+        dataset_key_fn,
+        split_strategy=split_strategy,
+        type_fraction=type_fraction,
+        seed=split_seed,
+    )
+    split = plan.split
 
     # Guard: eval datasets must not also have contributed a type.
     check_fn(list(split.eval_dataset_keys), split)
@@ -205,12 +303,13 @@ def load_episodes(
         "wall_time_s": 0.0,
         "store_health": {},
     }
+    report.update(_split_report(plan, split_strategy))
 
     library = AnchorLibrary()
     technique_set: set[str] = set()
 
     for ep_path in episode_keys:
-        ep_key = dataset_key_fn(ep_path, root)
+        ep_key = plan.dataset_key_by_episode[ep_path]
         if ep_key not in split.type_dataset_keys:
             continue
 
@@ -239,6 +338,9 @@ def load_episodes(
         technique_set.update(new_techs)
 
     report["techniques_covered"] = sorted(technique_set)
+    report["stored_anchor_leak"] = _stored_anchor_leak(
+        split, plan.techniques_by_dataset, technique_set
+    )
     report["wall_time_s"] = round(time.time() - started_at, 3)
     report["store_health"] = dict(store.health())
     return report
@@ -265,6 +367,12 @@ def main() -> int:
         type=float,
         default=0.5,
         help="fraction of episodes to use as type-library (default 0.5)",
+    )
+    ap.add_argument(
+        "--split-strategy",
+        choices=("technique_component", "episode"),
+        default="technique_component",
+        help="split by shared-technique components (default) or individual episodes",
     )
     ap.add_argument(
         "--seed",
@@ -304,6 +412,7 @@ def main() -> int:
         store,
         split_seed=args.seed,
         type_fraction=args.type_fraction,
+        split_strategy=args.split_strategy,
     )
     store.close()
 

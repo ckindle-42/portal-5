@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import math
 import random
-from collections.abc import Collection, Mapping
+from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -142,6 +142,124 @@ def split_datasets(
     cut = round(len(ordered) * type_fraction)
     return HeldOutSplit(
         type_dataset_keys=frozenset(ordered[:cut]), eval_dataset_keys=frozenset(ordered[cut:])
+    )
+
+
+def technique_component_groups(
+    techniques_by_dataset: Mapping[str, Collection[str]],
+) -> dict[str, str]:
+    """Map each dataset to its connected component through shared techniques."""
+    parent = {key: key for key in techniques_by_dataset}
+
+    def find(key: str) -> str:
+        while parent[key] != key:
+            parent[key] = parent[parent[key]]
+            key = parent[key]
+        return key
+
+    first_for_technique: dict[str, str] = {}
+    for key in sorted(techniques_by_dataset):
+        for technique in sorted(set(techniques_by_dataset[key])):
+            first = first_for_technique.setdefault(technique, key)
+            left, right = find(key), find(first)
+            if left != right:
+                parent[max(left, right)] = min(left, right)
+    return {key: find(key) for key in sorted(techniques_by_dataset)}
+
+
+def _closest_group_subset(group_sizes: list[tuple[str, int]], target: float) -> set[str]:
+    reachable = {0}
+    parents: dict[int, tuple[int, str]] = {}
+    for group, size in group_sizes:
+        additions: dict[int, tuple[int, str]] = {}
+        for total in sorted(reachable):
+            combined = total + size
+            if combined not in reachable and combined not in additions:
+                additions[combined] = (total, group)
+        parents.update(additions)
+        reachable.update(additions)
+
+    selected_total = min(reachable, key=lambda total: (abs(total - target), total < target))
+    selected_groups: set[str] = set()
+    while selected_total:
+        previous_total, group = parents[selected_total]
+        selected_groups.add(group)
+        selected_total = previous_total
+    return selected_groups
+
+
+def split_grouped_datasets(
+    dataset_keys: list[str],
+    *,
+    group_of: Mapping[str, str] | Callable[[str], str],
+    type_fraction: float = 0.5,
+    seed: int = 0,
+) -> HeldOutSplit:
+    """Split whole groups, choosing the closest achievable type-side size."""
+    if not 0 <= type_fraction <= 1:
+        raise ValueError("type_fraction must be between 0 and 1")
+    ordered = sorted(set(dataset_keys))
+    if callable(group_of):
+        key_groups = {key: group_of(key) for key in ordered}
+    else:
+        missing = sorted(set(ordered) - group_of.keys())
+        if missing:
+            raise KeyError(f"missing groups for datasets: {missing}")
+        key_groups = {key: group_of[key] for key in ordered}
+
+    grouped: dict[str, list[str]] = {}
+    for key in ordered:
+        grouped.setdefault(key_groups[key], []).append(key)
+    groups = sorted(grouped)
+    random.Random(seed).shuffle(groups)
+    target = len(ordered) * type_fraction
+    group_sizes = [(group, len(grouped[group])) for group in groups]
+    selected_groups = _closest_group_subset(group_sizes, target)
+    type_keys = frozenset(key for key in ordered if key_groups[key] in selected_groups)
+    return HeldOutSplit(
+        type_dataset_keys=type_keys, eval_dataset_keys=frozenset(ordered) - type_keys
+    )
+
+
+@dataclass(frozen=True)
+class TechniqueSplitMetrics:
+    """Technique coverage and sibling leakage implied by a split."""
+
+    anchored_technique_count: int
+    eval_only_technique_count: int
+    leak_episode_count: int
+    eval_episode_count: int
+
+    @property
+    def leak_fraction(self) -> float | None:
+        if not self.eval_episode_count:
+            return None
+        return self.leak_episode_count / self.eval_episode_count
+
+
+def measure_technique_split(
+    split: HeldOutSplit, techniques_by_dataset: Mapping[str, Collection[str]]
+) -> TechniqueSplitMetrics:
+    """Measure technique coverage and eval episodes sharing an anchored technique."""
+    anchored = {
+        technique
+        for key in split.type_dataset_keys
+        for technique in techniques_by_dataset.get(key, ())
+    }
+    evaluation = {
+        technique
+        for key in split.eval_dataset_keys
+        for technique in techniques_by_dataset.get(key, ())
+    }
+    leak_count = sum(
+        bool(anchored.intersection(techniques_by_dataset.get(key, ())))
+        for key in split.eval_dataset_keys
+    )
+    return TechniqueSplitMetrics(
+        anchored_technique_count=len(anchored),
+        eval_only_technique_count=len(evaluation - anchored),
+        leak_episode_count=leak_count,
+        eval_episode_count=len(split.eval_dataset_keys),
     )
 
 
