@@ -24,9 +24,16 @@ def _row(serial: int, event_time: float) -> dict[str, Any]:
     }
 
 
+def _window_with_levels(levels: list[str]) -> SimpleNamespace:
+    units = [
+        SimpleNamespace(unit=SimpleNamespace(unit_id=f"u{i}", level=level))
+        for i, level in enumerate(levels)
+    ]
+    return SimpleNamespace(units=units, events={}, receipts=[], blind_sources=[])
+
+
 def _window(unit_count: int) -> SimpleNamespace:
-    units = [SimpleNamespace(unit=SimpleNamespace(unit_id=str(i))) for i in range(unit_count)]
-    return SimpleNamespace(units=units, events={})
+    return _window_with_levels([("L2_ENTITY", "L3_CHAIN")[i % 2] for i in range(unit_count)])
 
 
 def _patch_unit_builder(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -38,6 +45,19 @@ def _patch_unit_builder(monkeypatch: pytest.MonkeyPatch) -> None:
         "build_window_units",
         lambda records: _window(sum(len(rows) for rows in records.values())),
     )
+    monkeypatch.setattr(
+        funnel,
+        "split_units",
+        lambda units, salt: (units[: len(units) // 2], units[len(units) // 2 :]),
+    )
+    monkeypatch.setattr(builder, "build_reference", lambda *args, **kwargs: None)
+
+
+def _patch_levels(monkeypatch: pytest.MonkeyPatch, levels: list[str]) -> None:
+    from portal.modules.security.core.review import build_calibration_slice as builder
+    from portal.modules.security.core.review import funnel
+
+    monkeypatch.setattr(builder, "build_window_units", lambda records: _window_with_levels(levels))
     monkeypatch.setattr(
         funnel,
         "split_units",
@@ -114,6 +134,58 @@ def test_insufficient_window_reports_shortfall_and_p_step(
         )
 
     assert not (tmp_path / "calibration_slice.json").exists()
+
+
+def test_slice_with_no_units_at_a_required_level_fails_instead_of_writing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from portal.modules.security.core.review import build_calibration_slice as builder
+
+    _patch_levels(monkeypatch, ["L2_ENTITY"] * 40)
+    source = _Source({"all": [_row(i, 100) for i in range(40)]})
+
+    with pytest.raises(builder.LevelUnavailableError, match="L3_CHAIN"):
+        builder.build(
+            start=100,
+            end=200,
+            target_units=10,
+            output_dir=tmp_path,
+            splunk_source=source,
+            rule="stated benign window rule",
+        )
+
+    assert not (tmp_path / "calibration_slice.json").exists()
+
+
+def test_slice_reports_an_uncertified_level_instead_of_claiming_it_works(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from portal.modules.security.core.review.build_calibration_slice import build
+
+    _patch_levels(monkeypatch, ["L3_CHAIN", *["L2_ENTITY"] * 39])
+    source = _Source({"all": [_row(i, 100) for i in range(40)]})
+
+    summary = build(
+        start=100,
+        end=200,
+        target_units=10,
+        output_dir=tmp_path,
+        splunk_source=source,
+        rule="stated benign window rule",
+    )
+
+    chain = summary["levels"]["L3_CHAIN"]
+    assert chain["constructed"] == 1
+    assert chain["not_in_calibration_half"] == 1
+    assert chain["benign_scores_recorded"] == 0
+    assert chain["required_benign_scores"] == 4
+    assert chain["certified"] is False
+    assert "calibration half" in chain["reason"]
+    assert summary["uncertified_levels"] == ["L3_CHAIN"]
+    assert summary["levels"]["L2_ENTITY"]["certified"] is True
+    provenance = json.loads(Path(summary["written_provenance"]).read_text(encoding="utf-8"))
+    assert provenance["uncertified_levels"] == ["L3_CHAIN"]
+    assert provenance["levels"]["L3_CHAIN"]["certified"] is False
 
 
 def test_cli_requires_rule_and_passes_selected_sources(monkeypatch: pytest.MonkeyPatch) -> None:

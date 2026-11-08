@@ -7,12 +7,15 @@ import json
 import os
 import re
 import sys
+from collections import Counter
 from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from shutil import copy2
 from typing import Any
 
+from .calibration import level_report
+from .funnel import FunnelPolicy
 from .intake import IntakeResult, build_window_units
 from .pipeline import build_reference
 from .service import disjoint_calibration_slice
@@ -24,10 +27,17 @@ DEFAULT_SOURCES = (
     SourceSpec("portal5_lab", "windows:security"),
 )
 MAX_WINDOW_EXPANSIONS = 8
+CALIBRATION_POLICY = FunnelPolicy(
+    alpha_unusual=0.2, alpha_similar=0.2, levels=("L2_ENTITY", "L3_CHAIN")
+)
 
 
 class TargetUnitsUnavailableError(RuntimeError):
     """The bounded fetch did not produce the requested calibration-half size."""
+
+
+class LevelUnavailableError(RuntimeError):
+    """The slice produced no units at a level the review funnel must calibrate."""
 
 
 def _default_output_dir() -> Path:
@@ -110,6 +120,27 @@ def _p_step(calibration_half_units: int) -> float:
     return 1.0 / (calibration_half_units + 1)
 
 
+def _levels(units: IntakeResult, cal_half: Sequence[Any]) -> dict[str, dict[str, Any]]:
+    levels = level_report(
+        CALIBRATION_POLICY.levels,
+        Counter(item.unit.level for item in units.units),
+        Counter(unit.level for unit in cal_half),
+        CALIBRATION_POLICY.alpha_unusual,
+    )
+    missing = sorted(level for level, item in levels.items() if item["constructed"] == 0)
+    if missing:
+        raise LevelUnavailableError(
+            f"slice produced no units at {missing}; the funnel cannot calibrate or raise that "
+            f"level. blind sources: {sorted(units.blind_sources)}; "
+            f"levels: {json.dumps(levels, sort_keys=True)}"
+        )
+    return levels
+
+
+def _uncertified(levels: dict[str, dict[str, Any]]) -> list[str]:
+    return sorted(level for level, item in levels.items() if not item["certified"])
+
+
 def _provenance(
     *,
     records: dict[str, list[dict[str, Any]]],
@@ -123,6 +154,7 @@ def _provenance(
     p_step: float,
     excluded_events: int,
     expansions: int,
+    levels: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
     return {
         "built_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),  # noqa: UP017
@@ -140,6 +172,9 @@ def _provenance(
         "disjoint_excluded": excluded_events,
         "expansions": expansions,
         "sources": sorted(records),
+        "blind_sources": sorted(units.blind_sources),
+        "levels": levels,
+        "uncertified_levels": _uncertified(levels),
     }
 
 
@@ -169,17 +204,47 @@ def _write_slice(
 
 
 def _fit_reference(units: IntakeResult, environment_id: str) -> None:
-    from .funnel import FunnelPolicy
-
-    policy = FunnelPolicy(alpha_unusual=0.2, alpha_similar=0.2, levels=("L2_ENTITY", "L3_CHAIN"))
     build_reference(
         units,
-        policy=policy,
+        policy=CALIBRATION_POLICY,
         index=None,
         embedder=None,
         environment_id=environment_id,
         basis="benign_slice",
     )
+
+
+def _summary(
+    *,
+    records: dict[str, list[dict[str, Any]]],
+    units: IntakeResult,
+    levels: dict[str, dict[str, Any]],
+    rule: str,
+    sources: Sequence[SourceSpec],
+    achieved: int,
+    target_units: int,
+    p_step: float,
+    excluded_count: int,
+    lower: float,
+    upper: float,
+    expansions: int,
+) -> dict[str, Any]:
+    return {
+        "records": sum(len(rows) for rows in records.values()),
+        "units": len(units.units),
+        "calibration_half_units": achieved,
+        "target_units": target_units,
+        "target_reached": True,
+        "p_step": p_step,
+        "disjoint_excluded": excluded_count,
+        "rule": rule,
+        "sources": [source.source_id for source in sources],
+        "blind_sources": sorted(units.blind_sources),
+        "levels": levels,
+        "uncertified_levels": _uncertified(levels),
+        "window": f"{lower:.6f}:{upper:.6f}",
+        "expansions": expansions,
+    }
 
 
 def build(
@@ -219,6 +284,7 @@ def build(
             f"short by {target_units - achieved}; p_step={p_step:.6f}; "
             f"expanded window={lower:.6f}:{upper:.6f} after {expansions} pages"
         )
+    levels = _levels(units, cal_half)
     _fit_reference(units, environment_id)
     provenance = _provenance(
         records=records,
@@ -232,25 +298,30 @@ def build(
         p_step=p_step,
         excluded_events=excluded_count,
         expansions=expansions,
+        levels=levels,
     )
     output = output_dir or _default_output_dir()
     output.mkdir(parents=True, exist_ok=True)
     slice_path, provenance_path, backup = _write_slice(output, records, provenance)
+    summary = _summary(
+        records=records,
+        units=units,
+        levels=levels,
+        rule=rule,
+        sources=selected_sources,
+        achieved=achieved,
+        target_units=target_units,
+        p_step=p_step,
+        excluded_count=excluded_count,
+        lower=lower,
+        upper=upper,
+        expansions=expansions,
+    )
     return {
         "written_slice": str(slice_path),
         "written_provenance": str(provenance_path),
         "backup_slice": str(backup) if backup else None,
-        "records": sum(len(rows) for rows in records.values()),
-        "units": len(units.units),
-        "calibration_half_units": achieved,
-        "target_units": target_units,
-        "target_reached": True,
-        "p_step": p_step,
-        "disjoint_excluded": excluded_count,
-        "rule": rule,
-        "sources": [source.source_id for source in selected_sources],
-        "window": f"{lower:.6f}:{upper:.6f}",
-        "expansions": expansions,
+        **summary,
     }
 
 

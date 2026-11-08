@@ -21,7 +21,7 @@ from __future__ import annotations
 import hashlib
 import json
 from bisect import bisect_left
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from math import ceil
 from typing import Any
@@ -61,6 +61,42 @@ def empirical_p(null_sorted: Sequence[float], score: float) -> float:
 def digest_scores(scores: Sequence[float]) -> str:
     joined = ",".join(f"{s:.9g}" for s in sorted(scores))
     return hashlib.sha256(joined.encode("utf-8")).hexdigest()[:16]
+
+
+def level_report(
+    levels: Sequence[str],
+    constructed: Mapping[str, int],
+    recorded: Mapping[str, int],
+    alpha: float,
+) -> dict[str, dict[str, Any]]:
+    """Per-level sufficiency of a calibration slice: built, scored, and why it cannot certify."""
+    required = required_n(alpha)
+    report: dict[str, dict[str, Any]] = {}
+    for level in levels:
+        built = int(constructed.get(level, 0))
+        scored = int(recorded.get(level, 0))
+        report[level] = {
+            "constructed": built,
+            "not_in_calibration_half": built - scored,
+            "benign_scores_recorded": scored,
+            "required_benign_scores": required,
+            "certified": scored >= required,
+            "reason": "" if scored >= required else _shortfall(level, built, scored, required),
+        }
+    return report
+
+
+def _shortfall(level: str, constructed: int, recorded: int, required: int) -> str:
+    if constructed == 0:
+        return f"no {level} units were constructed; alpha needs {required} benign scores"
+    if recorded == 0:
+        return (
+            f"none of the {constructed} {level} unit(s) fell in the calibration half; "
+            f"alpha needs {required}"
+        )
+    return (
+        f"the calibration half holds {recorded} of the {required} benign {level} scores alpha needs"
+    )
 
 
 @dataclass(frozen=True)
