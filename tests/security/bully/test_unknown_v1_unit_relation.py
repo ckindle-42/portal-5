@@ -3,7 +3,10 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from portal.modules.security.core.bully import artifact_graph as ag
+from portal.modules.security.core.bully import baseline as bl
 from portal.modules.security.core.bully import unit_relation as ur
 
 
@@ -17,6 +20,39 @@ def _unit_from_chain(
     graph = ag.build_graph(records)
     level = "L1_ARTIFACT" if len(records) < 2 else "L4_WINDOW"
     return next(u for u in ag.enumerate_units(graph) if u.level == level)
+
+
+def test_unclassified_gap_matches_anchor_on_classified_projection():
+    unit = _unit_from_chain(["AssumeRole", "ListBuckets"], "attacker")
+    unit = replace(
+        unit,
+        structural_signature={
+            **unit.structural_signature,
+            "class_sequence": ["auth", "", "enumerate"],
+        },
+    )
+    anchor = {
+        "record_id": "type-1",
+        "event_graph": {"class_sequence": ["auth", "enumerate"]},
+    }
+
+    relation = ur.grade_unit_against_type(unit, anchor)
+
+    assert relation.shape.distance == 0.0
+    assert relation.shape.relation == "EXACT"
+    assert relation.overall_relation == "EXACT"
+    assert not relation.shape.diverging_tokens
+    baseline_tokens = bl._feature_tokens(unit)
+    assert "class_bigram=auth>enumerate" in baseline_tokens
+    assert not any(token.startswith("class_present=") for token in baseline_tokens)
+    assert "class_bigram=auth>" not in baseline_tokens
+    assert "class_bigram=>enumerate" not in baseline_tokens
+    empty_unit = replace(
+        unit,
+        structural_signature={**unit.structural_signature, "class_sequence": [""]},
+    )
+    assert not ur.unit_shape_tokens(empty_unit)
+    assert not any(token.startswith("class_") for token in bl._feature_tokens(empty_unit))
 
 
 def test_identical_chain_grades_exact_on_both_channels():

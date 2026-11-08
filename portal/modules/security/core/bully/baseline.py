@@ -47,6 +47,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .artifact_graph import GradeableUnit
+from .unit_relation import _class_sequence_tokens
 
 ALGORITHM_VERSION = "baseline-v1"
 
@@ -72,10 +73,7 @@ def _feature_tokens(unit: GradeableUnit) -> set[str]:
     shape vocabulary U.1/U.2 already compute, never the anchor library."""
     tokens: set[str] = set()
     classes = tuple(unit.structural_signature.get("class_sequence") or ())
-    for left, right in zip(classes, classes[1:], strict=False):
-        tokens.add(f"class_bigram={left}>{right}")
-    if len(classes) == 1:
-        tokens.add(f"class_unigram={classes[0]}")
+    tokens.update(_class_sequence_tokens(classes, include_presence=False, include_unigram=True))
     for role in unit.structural_signature.get("entity_role_profile") or {}:
         tokens.add(f"entity_role={role}")
     tokens.add(f"size_bucket={_bucket(float(unit.size), _SIZE_BUCKET_EDGES)}")
