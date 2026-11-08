@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from pathlib import Path
 
 import httpx
 import pytest
 
-from portal.modules.security.core.review import funnel, intake, pipeline, service
+from portal.modules.security.core.review import calibration, funnel, intake, pipeline, service
 from portal.modules.security.core.review.contracts import Claim, JudgeRecord, ReviewConcern, Verdict
 from portal.modules.security.core.review.knowledge import AnchorIndex, Embedder
 from portal.modules.security.core.review.pipeline import JudgeFn
@@ -143,6 +144,77 @@ def test_explain_includes_concern_evidence_without_reader_claims(tmp_path: Path)
         assert all(event["text"] for event in explanation["events"].values())
     finally:
         runtime.close()
+
+
+def test_recorded_slice_metadata_is_not_reported_as_a_source(tmp_path: Path) -> None:
+    records, _training, source, request, reference = _fixture()
+    (tmp_path / "calibration_slice.json").write_text(
+        json.dumps({**records, "_provenance": {"records": 240}}), encoding="utf-8"
+    )
+    runtime = ReviewRuntime(
+        source=source,
+        embedder=None,
+        index=None,
+        reference=reference,
+        config=request.config,
+        environment_id=request.environment_id,
+        review_dir=tmp_path,
+    )
+    try:
+        assert runtime.calibration_window is not None
+        assert "_provenance" not in runtime.calibration_window.blind_sources
+    finally:
+        runtime.close()
+
+
+def test_doctor_reports_a_level_the_recorded_slice_cannot_certify(tmp_path: Path) -> None:
+    """`stale: false` is not certification: the slice to be refit must certify every level."""
+    records, training, source, request, _reference = _fixture()
+    policy = funnel.FunnelPolicy(
+        alpha_unusual=0.2, alpha_similar=0.2, levels=("L2_ENTITY", "L3_CHAIN")
+    )
+    cals = calibration.CalibrationSet()
+    for level in policy.levels:
+        cals.put(
+            calibration.fit_calibration(
+                funnel.CHANNEL_UNUSUAL, level, [-1.0] * 8, 0.2, basis="benign_slice"
+            )
+        )
+    reference = pipeline.Reference(
+        funnel.fit_baseline([unit.unit for unit in training.units], request.environment_id),
+        cals,
+        "benign_slice",
+        calibration_window=training,
+    )
+    runtime = ReviewRuntime(
+        source=source,
+        embedder=None,
+        index=None,
+        reference=reference,
+        config=pipeline.ReviewConfig(policy=policy),
+        environment_id=request.environment_id,
+        review_dir=tmp_path,
+        calibration_records_by_source=records,
+    )
+    try:
+        health = runtime.doctor()
+    finally:
+        runtime.close()
+
+    assert health["embedder"]["stale"] is False
+    assert {item["key"] for item in health["embedder"]["calibrations"]} == {
+        "unusual|L2_ENTITY",
+        "unusual|L3_CHAIN",
+    }
+    slice_health = health["calibration_slice"]
+    assert slice_health["available"] is True
+    assert slice_health["certified"] is False
+    assert slice_health["uncertified"] == ["L3_CHAIN"]
+    chain = slice_health["levels"]["L3_CHAIN"]
+    assert chain["constructed"] == 2
+    assert chain["benign_scores_recorded"] == 0
+    assert chain["certified"] is False
+    assert slice_health["levels"]["L2_ENTITY"]["certified"] is True
 
 
 def test_stale_embedder_refuses_run_then_doctor_reprojects_and_recalibrates(

@@ -5,13 +5,16 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from . import defense, verdicts
+from .calibration import level_report
 from .contracts import ReviewResult, StageReceipt, Verdict, to_plain
+from .funnel import FunnelPolicy, split_units
 from .intake import IntakeResult, build_window_units
 from .knowledge import AnchorCard, AnchorIndex, Embedder
 from .pipeline import (
@@ -81,6 +84,40 @@ def disjoint_calibration_slice(
         receipts=receipts,
         blind_sources=list(benign.blind_sources),
     )
+
+
+def _recorded_sources(raw: Mapping[str, Any]) -> dict[str, Any]:
+    """A recorded slice carries `_provenance` beside its sources; that key is not a source."""
+    return {str(key): value for key, value in raw.items() if not str(key).startswith("_")}
+
+
+def _slice_certification(
+    window: IntakeResult | None, policy: FunnelPolicy, environment_id: str
+) -> dict[str, Any]:
+    """Whether the recorded benign slice can certify every level the funnel may raise."""
+    if window is None:
+        return {
+            "available": False,
+            "levels": {},
+            "uncertified": [],
+            "blind_sources": [],
+            "certified": None,
+        }
+    _fit_half, cal_half = split_units([item.unit for item in window.units], salt=environment_id)
+    levels = level_report(
+        policy.levels,
+        Counter(item.unit.level for item in window.units),
+        Counter(unit.level for unit in cal_half),
+        policy.alpha_unusual,
+    )
+    uncertified = sorted(level for level, item in levels.items() if not item["certified"])
+    return {
+        "available": True,
+        "levels": levels,
+        "uncertified": uncertified,
+        "blind_sources": sorted(window.blind_sources),
+        "certified": not uncertified,
+    }
 
 
 def _combined_index(
@@ -372,7 +409,7 @@ class ReviewRuntime:
             raw = json.loads(self._calibration_path.read_text(encoding="utf-8"))
             if not isinstance(raw, dict):
                 raise ValueError("recorded calibration slice must be a JSON object")
-            self.calibration_window = build_window_units(raw)
+            self.calibration_window = build_window_units(_recorded_sources(raw))
 
         self.run_store = RunStore(self.review_dir / "runs.sqlite3")
         self.review_store = ReviewStore(self.review_dir / "review.sqlite3")
@@ -539,6 +576,9 @@ class ReviewRuntime:
                 "anchor_index_stale": index_stale and not bool(fix_result.get("applied")),
                 "stale": bool(after_stale) or (index_stale and not bool(fix_result.get("applied"))),
             },
+            "calibration_slice": _slice_certification(
+                self.calibration_window, self.config.policy, self.environment_id
+            ),
             "splunk": source_health,
             "reasoning_models": {"models": models, "error": model_error},
             "databases": {
@@ -674,7 +714,7 @@ def build_default_runtime(*, review_dir: str | Path | None = None) -> ReviewRunt
         if not isinstance(raw, Mapping):
             raise ValueError("recorded benign calibration slice must be an object") from None
         reference = build_reference(
-            build_window_units(raw),
+            build_window_units(_recorded_sources(raw)),
             policy=config.policy,
             index=index,
             embedder=embedder,
