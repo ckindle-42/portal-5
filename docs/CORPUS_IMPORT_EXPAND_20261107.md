@@ -168,6 +168,10 @@ All 19 are in one episode: `datasets/attack_techniques/T1546.003/atomic_red_team
 telemetry. Those 19 events cannot anchor or be scored; the remaining 50 events of that episode are
 clean. No event names a literal `T####`.
 
+Safety check over the downloaded tree, run isolated (`python -I`, no repository imports): all 47
+manifests parse, and 19 of the 5,461 raw data lines match the leak patterns — the same 19, split
+9/10 across that episode's `sysmon.log` and `wmi.log`.
+
 For context, the existing `labelled_corpus` was not re-scanned; the key generator's 1,764 / 363,214
 figure from the brief is a sample of that corpus.
 
