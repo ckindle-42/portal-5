@@ -36,7 +36,7 @@ from typing import Any
 
 from .artifact_graph import DEFAULT_ACTION_CLASSIFIER, ActionClassifier, GradeableUnit
 
-ALGORITHM_VERSION = "unit-relation-v1"
+ALGORITHM_VERSION = "unit-relation-v2"
 
 CHANNELS: tuple[str, ...] = ("shape", "vocabulary")
 
@@ -66,6 +66,18 @@ def _as_token_set(value: Any) -> set[str]:
     return {text} if text else set()
 
 
+def _class_sequence_tokens(
+    classes: tuple[Any, ...], *, include_presence: bool = True, include_unigram: bool = False
+) -> set[str]:
+    known_classes = tuple(cls for cls in classes if cls)
+    tokens = {f"class_present={cls}" for cls in known_classes} if include_presence else set()
+    for left, right in zip(known_classes, known_classes[1:], strict=False):
+        tokens.add(f"class_bigram={left}>{right}")
+    if include_unigram and len(known_classes) == 1:
+        tokens.add(f"class_unigram={known_classes[0]}")
+    return tokens
+
+
 def _class_shape_tokens(action_sequence: Any, classifier: ActionClassifier | None) -> set[str]:
     """Bigrams + presence over the classified action sequence -- the same
     encoding a unit's `structural_signature['class_sequence']` already
@@ -73,12 +85,7 @@ def _class_shape_tokens(action_sequence: Any, classifier: ActionClassifier | Non
     clf = classifier or DEFAULT_ACTION_CLASSIFIER
     sequence = action_sequence if isinstance(action_sequence, (list, tuple)) else []
     classes = tuple(clf.classify(str(a)) for a in sequence)
-    tokens: set[str] = set()
-    for left, right in zip(classes, classes[1:], strict=False):
-        tokens.add(f"class_bigram={left}>{right}")
-    for cls in classes:
-        tokens.add(f"class_present={cls}")
-    return tokens
+    return _class_sequence_tokens(classes)
 
 
 def unit_shape_tokens(unit: GradeableUnit) -> set[str]:
@@ -88,12 +95,7 @@ def unit_shape_tokens(unit: GradeableUnit) -> set[str]:
     pre-populated `event_graph` and which one was classified on the fly."""
     signature = unit.structural_signature
     classes = tuple(signature.get("class_sequence") or ())
-    tokens: set[str] = set()
-    for left, right in zip(classes, classes[1:], strict=False):
-        tokens.add(f"class_bigram={left}>{right}")
-    for cls in classes:
-        tokens.add(f"class_present={cls}")
-    return tokens
+    return _class_sequence_tokens(classes)
 
 
 def _type_shape_tokens(
@@ -102,12 +104,7 @@ def _type_shape_tokens(
     event_graph = anchor_record.get("event_graph")
     if isinstance(event_graph, dict) and event_graph.get("class_sequence"):
         classes = tuple(event_graph["class_sequence"])
-        tokens: set[str] = set()
-        for left, right in zip(classes, classes[1:], strict=False):
-            tokens.add(f"class_bigram={left}>{right}")
-        for cls in classes:
-            tokens.add(f"class_present={cls}")
-        return tokens
+        return _class_sequence_tokens(classes)
     return _class_shape_tokens(anchor_record.get("action_sequence"), classifier)
 
 
