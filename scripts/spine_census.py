@@ -235,12 +235,294 @@ def totals(units: list[Unit]) -> dict:
     }
 
 
+def _corpus_commit(root: Path) -> str:
+    """HEAD of the corpus checkout, when the dataset tree is a git work tree."""
+    for candidate in (root, root.parent):
+        if not (candidate / ".git").exists():
+            continue
+        try:
+            result = subprocess.run(
+                ["git", "-C", str(candidate), "rev-parse", "HEAD"],
+                capture_output=True,
+                check=True,
+                timeout=20,
+                text=True,
+            )
+        except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            return ""
+        return result.stdout.strip()
+    return ""
+
+
+def _record_from_event_line(line: str) -> dict:
+    """Same record shape the attack-data anchor loader classifies."""
+    stripped = line.strip()
+    if stripped.startswith("{"):
+        try:
+            parsed = json.loads(stripped)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, dict):
+            return parsed
+    return {"_raw": stripped}
+
+
+def _classify_episode(episode: Path, items: list, classify) -> dict:
+    """Classify every record in one episode directory."""
+    from scripts.corpus_ingest import iter_events_text
+
+    declared = {item.path: (item.sourcetype or "(none)") for item in items}
+    techniques = sorted({tech for item in items for tech in item.techniques})
+    per_st: dict[str, list] = {}
+    spine: list[str] = []
+    n_records = 0
+    for path in sorted(episode.iterdir()):
+        if not path.is_file() or path.suffix.lower() in {".yml", ".yaml"}:
+            continue
+        sourcetype = declared.get(path, "(unlisted)")
+        bucket = per_st.setdefault(sourcetype, [0, 0, Counter()])
+        try:
+            lines = iter_events_text(path)
+        except OSError:
+            continue
+        try:
+            for line in lines:
+                if not line:
+                    continue
+                n_records += 1
+                bucket[0] += 1
+                cls = classify(_record_from_event_line(line)) or ""
+                if cls:
+                    bucket[1] += 1
+                    bucket[2][cls] += 1
+                    spine.append(cls)
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            continue
+    return {
+        "techniques": techniques,
+        "per_st": per_st,
+        "spine": spine,
+        "n_records": n_records,
+        "sourcetypes": sorted(declared.values()),
+    }
+
+
+def _median(values: list[int]) -> float:
+    if not values:
+        return 0
+    ordered = sorted(values)
+    mid = len(ordered) // 2
+    if len(ordered) % 2:
+        return float(ordered[mid])
+    return (ordered[mid - 1] + ordered[mid]) / 2
+
+
+def _spine_shape(lengths: list[int], distinct_counts: list[int]) -> dict:
+    single = sum(1 for count in distinct_counts if count == 1)
+    multi = sum(1 for count in distinct_counts if count >= 2)
+    return {
+        "empty": 0,
+        "single_class": single,
+        "multi_class": multi,
+        "median_length": _median(lengths),
+        "stored": len(lengths),
+    }
+
+
+def _accumulate_sourcetype(totals: dict, sourcetype: str, bucket: list) -> None:
+    row = totals.setdefault(
+        sourcetype,
+        {"records": 0, "classified": 0, "episodes": 0, "class_distribution": Counter()},
+    )
+    row["records"] += bucket[0]
+    row["classified"] += bucket[1]
+    row["episodes"] += 1
+    row["class_distribution"].update(bucket[2])
+
+
+def _sourcetype_rows(totals: dict) -> list[dict]:
+    rows = []
+    for sourcetype, row in totals.items():
+        records = row["records"]
+        classified = row["classified"]
+        rows.append(
+            {
+                "sourcetype": sourcetype,
+                "records": records,
+                "classified": classified,
+                "rate": round(classified / records, 4) if records else 0.0,
+                "episodes": row["episodes"],
+                "class_distribution": dict(row["class_distribution"]),
+            }
+        )
+    return sorted(rows, key=lambda item: (item["rate"], item["sourcetype"]))
+
+
+def content_census(root: Path, *, seed: int = 0, type_fraction: float = 0.5) -> dict:
+    """Classify every record of every labelled episode under ``root``."""
+    from portal.modules.security.core.bully import telemetry_behavior
+    from portal.modules.security.core.bully.unit_measurement import split_datasets
+    from scripts.corpus_ingest import load_manifest_catalog
+    from scripts.load_attack_data_anchors import _episode_key
+
+    catalog = load_manifest_catalog(root)
+    episodes: dict[Path, list] = {}
+    for item in catalog:
+        episodes.setdefault(item.path.parent, []).append(item)
+    labelled = {
+        episode: items
+        for episode, items in episodes.items()
+        if any(item.techniques for item in items)
+    }
+    ordered = sorted(labelled, key=lambda path: str(path))
+    keys = [_episode_key(episode, root) for episode in ordered]
+    split = split_datasets(keys, type_fraction=type_fraction, seed=seed)
+    classify = telemetry_behavior.classify_content
+
+    totals: dict = {}
+    empty_all: list[dict] = []
+    train_empty: list[dict] = []
+    train_lengths: list[int] = []
+    train_distinct: list[int] = []
+    train_techniques: set[str] = set()
+    train_episodes = 0
+    empty_episode = 0
+    for index, episode in enumerate(ordered, start=1):
+        measured = _classify_episode(episode, labelled[episode], classify)
+        for sourcetype, bucket in measured["per_st"].items():
+            if bucket[0]:
+                _accumulate_sourcetype(totals, sourcetype, bucket)
+        relative = episode.relative_to(root).as_posix()
+        entry = {
+            "episode": relative,
+            "sourcetypes": measured["sourcetypes"],
+            "techniques": measured["techniques"],
+            "records": measured["n_records"],
+        }
+        key = _episode_key(episode, root)
+        in_train = key in split.type_dataset_keys
+        if in_train:
+            train_episodes += 1
+        if measured["n_records"] == 0:
+            empty_episode += 1
+            continue
+        if not measured["spine"]:
+            empty_all.append(entry)
+            if in_train:
+                train_empty.append(entry)
+            continue
+        if in_train:
+            train_lengths.append(len(measured["spine"]))
+            train_distinct.append(len(set(measured["spine"])))
+            train_techniques.update(measured["techniques"])
+        if index % 100 == 0:
+            print(f"[content-census] {index}/{len(ordered)} episodes", file=sys.stderr)
+    return _content_report(
+        root,
+        seed=seed,
+        type_fraction=type_fraction,
+        labelled=len(labelled),
+        empty_episode=empty_episode,
+        empty_all=empty_all,
+        rows=_sourcetype_rows(totals),
+        train_episodes=train_episodes,
+        train_empty=train_empty,
+        train_lengths=train_lengths,
+        train_distinct=train_distinct,
+        train_techniques=train_techniques,
+    )
+
+
+def _content_report(
+    root: Path,
+    *,
+    seed: int,
+    type_fraction: float,
+    labelled: int,
+    empty_episode: int,
+    empty_all: list[dict],
+    rows: list[dict],
+    train_episodes: int,
+    train_empty: list[dict],
+    train_lengths: list[int],
+    train_distinct: list[int],
+    train_techniques: set[str],
+) -> dict:
+    """Census document. The train half uses the anchor loader's split."""
+    return {
+        "schema": "CONTENT_CLASSIFIER_CENSUS_V1",
+        "root": str(root),
+        "corpus_commit": _corpus_commit(root),
+        "labelled_episodes": labelled,
+        "episodes_with_no_records": empty_episode,
+        "episodes_empty_spine": len(empty_all),
+        "empty_spine_episodes": empty_all,
+        "sourcetypes_measured": len(rows),
+        "sourcetypes_at_0": sum(1 for row in rows if row["records"] and row["rate"] == 0.0),
+        "sourcetypes": rows,
+        "train_split": {
+            "seed": seed,
+            "type_fraction": type_fraction,
+            "train_episodes": train_episodes,
+            "empty_spine": len(train_empty),
+            "anchors_stored": len(train_lengths),
+            "techniques_covered": len(train_techniques),
+            "technique_ids": sorted(train_techniques),
+            "spine_shape": _spine_shape(train_lengths, train_distinct),
+            "empty_spine_episodes": train_empty,
+        },
+    }
+
+
+def _print_content_summary(report: dict) -> None:
+    train = report["train_split"]
+    shape = train["spine_shape"]
+    print(
+        f"labelled_episodes {report['labelled_episodes']}  "
+        f"sourcetypes {report['sourcetypes_measured']}  "
+        f"at_0 {report['sourcetypes_at_0']}  "
+        f"empty_spine {report['episodes_empty_spine']}"
+    )
+    print(
+        f"train_episodes {train['train_episodes']}  "
+        f"empty_spine {train['empty_spine']}  "
+        f"anchors {train['anchors_stored']}  "
+        f"techniques {train['techniques_covered']}  "
+        f"shape empty/single/multi/median "
+        f"{shape['empty']}/{shape['single_class']}/{shape['multi_class']}/{shape['median_length']}"
+    )
+    print(f"{'rate':>8} {'records':>10} {'episodes':>8}  sourcetype  classes")
+    for row in report["sourcetypes"]:
+        print(
+            f"{row['rate']:8.1%} {row['records']:10} {row['episodes']:8}  "
+            f"{row['sourcetype']}  {row['class_distribution']}"
+        )
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Portal wiki spine census")
     ap.add_argument("--json", action="store_true", help="machine-readable totals")
     ap.add_argument("--surfaces", action="store_true", help="emit the proposed surface manifest")
     ap.add_argument("--top", type=int, default=20)
+    ap.add_argument("--content-root", type=Path, help="labelled attack_data datasets root")
+    ap.add_argument("--output", type=Path, help="write the content census JSON here")
+    ap.add_argument("--seed", type=int, default=0, help="train/eval split seed (loader default 0)")
+    ap.add_argument("--type-fraction", type=float, default=0.5)
     args = ap.parse_args()
+
+    if args.content_root is not None:
+        if args.output is None:
+            print("[spine] --output is required with --content-root", file=sys.stderr)
+            return 2
+        if not args.content_root.is_dir():
+            print(f"[spine] --content-root {args.content_root} is not a directory", file=sys.stderr)
+            return 2
+        report = content_census(args.content_root, seed=args.seed, type_fraction=args.type_fraction)
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+        _print_content_summary(report)
+        print(f"[spine] wrote {args.output}")
+        return 0
 
     units = load_units(CANONICAL)
     if not units:
