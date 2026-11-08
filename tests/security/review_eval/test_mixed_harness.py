@@ -194,7 +194,7 @@ def test_haystack_counts_every_concern_as_a_false_positive() -> None:
 
 
 def test_data_yml_technique_is_the_label(tmp_path: Path) -> None:
-    item = tmp_path / "T1003.001" / "atomic_red_team"
+    item = tmp_path / "datasets" / "T1003.001" / "atomic_red_team"
     item.mkdir(parents=True)
     (item / "data.yml").write_text("mitre_technique:\n  - T1003.001\n", encoding="utf-8")
     (item / "note.txt").write_text("the write-up says T9999.001\n", encoding="utf-8")

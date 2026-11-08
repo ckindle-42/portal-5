@@ -39,6 +39,10 @@ from portal.modules.security.core.bully.unit_measurement import (
 )
 from portal.modules.security.core.review.contracts import TruthClass
 from portal.modules.security.core.review.store import ReviewStore
+from portal.modules.security.core.review_eval.item_identity import (
+    attack_data_test_id,
+    canonical_attack_data_root,
+)
 from scripts.corpus_ingest import load_manifest_catalog
 
 COMMIT_PROVENANCE = "4145e8b60fd8a3d44bc2170d1eb343fe7247387b"
@@ -96,6 +100,10 @@ def _episode_key(episode_path: Path, root: Path) -> str:
     return f"attack_data:{relative.as_posix()}"
 
 
+def _anchor_id_for_episode(episode_path: Path, root: Path) -> str:
+    return f"an-{p5_item_id('attack_data', attack_data_test_id(episode_path, root))}"
+
+
 def _load_single_episode(
     ep_path: Path,
     manifest_items: list[Any],
@@ -110,7 +118,7 @@ def _load_single_episode(
         return 0, set(), "empty_episode"
 
     data_file_key = manifest_items[0].path.relative_to(root).as_posix()
-    anchor_id = f"an-{p5_item_id('attack_data', data_file_key)}"
+    anchor_id = _anchor_id_for_episode(ep_path, root)
     payload = {
         "record_id": anchor_id,
         "source_id": "attack_data",
@@ -256,7 +264,9 @@ def load_episodes(
     """
     started_at = time.time()
 
-    catalog = load_manifest_catalog(root)
+    root = canonical_attack_data_root(root)
+
+    catalog = load_manifest_catalog(root / "datasets")
 
     # Group manifests by episode (parent directory). An episode may have
     # multiple data files (powershell + security + sysmon) -- the union of
@@ -350,7 +360,9 @@ def main() -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    ap.add_argument("--root", required=True, type=Path, help="attack_data datasets root")
+    ap.add_argument(
+        "--root", required=True, type=Path, help="attack_data checkout or datasets root"
+    )
     ap.add_argument(
         "--store",
         required=True,

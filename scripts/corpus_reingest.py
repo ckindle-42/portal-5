@@ -25,6 +25,10 @@ import yaml
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from portal.modules.security.core.review_eval.item_identity import (  # noqa: E402
+    attack_data_test_id,
+    canonical_attack_data_root,
+)
 from portal.modules.security.core.siem.hec_ship import ship_batch  # noqa: E402
 from scripts import acquire_corpus_sources as acquisition  # noqa: E402
 from scripts import corpus_ingest as legacy  # noqa: E402
@@ -198,17 +202,18 @@ def p5_item_id(publisher: str, test_id: str) -> str:
 
 
 def read_attack_data(root: Path) -> list[CorpusFile]:
+    checkout = canonical_attack_data_root(root)
     return [
         CorpusFile(
             "attack_data",
-            item.path.parent.relative_to(root).as_posix(),
+            attack_data_test_id(item.path.parent, checkout),
             item.path,
-            root,
+            checkout,
             item.sourcetype,
             item.source,
             item.dataset_epoch,
         )
-        for item in legacy.load_manifest_catalog(root)
+        for item in legacy.load_manifest_catalog(checkout / "datasets")
     ]
 
 
