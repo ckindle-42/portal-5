@@ -416,6 +416,75 @@ def event_epoch(ev: Any, fallback: float) -> float:
 
 
 @dataclass(frozen=True)
+class ManifestStep:
+    """One atomic step the manifest's description enumerates, with its stated outcome."""
+
+    step_index: int
+    step_id: str
+    text: str
+    outcome: str
+
+
+# Outcomes follow the text exactly; failed or otherwise stated outcomes map to `other`.
+_STEP_OUTCOME_PHRASES = (
+    "Successful Execution",
+    "Return value unclear",
+    "Failed Execution",
+    "Execution failed",
+)
+_STEP_RE = re.compile(
+    rf"(?P<outcome>{'|'.join(_STEP_OUTCOME_PHRASES)})\s+(?:of|for)\s+test\s+"
+    rf"(?P<technique>T\d{{4}}(?:\.\d{{3}})?)-(?P<index>\d+)\s+(?P<text>.*?)"
+    rf"(?=(?:{'|'.join(_STEP_OUTCOME_PHRASES)})\s+(?:of|for)\s+test\s+T\d{{4}}|$)",
+    re.IGNORECASE | re.DOTALL,
+)
+# Only whitespace and separators may occur between steps.
+_STEP_GAP_RE = re.compile(r"^(?:\s|[·•;|,-])*$")
+_STEP_SECTION = "atomic test results:"
+_STEP_ID_MENTION_RE = re.compile(r"\btest\s+T\d{4}(?:\.\d{3})?-\d+\b", re.IGNORECASE)
+_STEP_OUTCOME_MENTION_RE = re.compile(rf"(?:{'|'.join(_STEP_OUTCOME_PHRASES)})", re.IGNORECASE)
+
+
+def _step_outcome(phrase: str) -> str:
+    low = phrase.strip().lower()
+    if low.startswith("successful"):
+        return "successful"
+    if low.startswith("return value unclear"):
+        return "unclear"
+    return "other"
+
+
+def parse_description_steps(description: str | None) -> tuple[ManifestStep, ...]:
+    """Parse the ordered test steps and their stated outcomes, or return empty for prose."""
+    if not isinstance(description, str) or not description.strip():
+        return ()
+    # Ignore a preamble before the atomic-test section.
+    section = description.lower().find(_STEP_SECTION)
+    body = description[section + len(_STEP_SECTION) :] if section >= 0 else description
+    steps: list[ManifestStep] = []
+    last_end = 0
+    for match in _STEP_RE.finditer(body):
+        if not _STEP_GAP_RE.match(body[last_end : match.start()]):
+            return ()
+        text = re.sub(r"\s+", " ", match.group("text")).strip()
+        if not text:
+            return ()
+        index = match.group("index")
+        steps.append(
+            ManifestStep(
+                step_index=int(index),
+                step_id=f"{match.group('technique')}-{index}",
+                text=text,
+                outcome=_step_outcome(match.group("outcome")),
+            )
+        )
+        last_end = match.end()
+    if not steps or not _STEP_GAP_RE.match(body[last_end:]):
+        return ()
+    return tuple(steps)
+
+
+@dataclass(frozen=True)
 class ManifestDataset:
     path: Path
     sourcetype: str | None
@@ -423,6 +492,9 @@ class ManifestDataset:
     dataset_epoch: float | None
     techniques: tuple[str, ...]
     mapped_sourcetype: str
+    manifest: Path | None = None
+    description: str | None = None
+    steps: tuple[ManifestStep, ...] = ()
 
 
 def load_manifest_catalog(root: Path) -> tuple[ManifestDataset, ...]:
@@ -437,6 +509,8 @@ def load_manifest_catalog(root: Path) -> tuple[ManifestDataset, ...]:
             continue
         date_epoch = _parse_ts(f"{doc['date']} 00:00:00") if doc.get("date") else None
         techniques = tuple(sorted({str(item) for item in doc.get("mitre_technique") or []}))
+        description = doc.get("description") if isinstance(doc.get("description"), str) else None
+        steps = parse_description_steps(description)
         for entry in doc["datasets"]:
             if not isinstance(entry, dict) or not entry.get("path"):
                 continue
@@ -453,9 +527,55 @@ def load_manifest_catalog(root: Path) -> tuple[ManifestDataset, ...]:
                     mapped_sourcetype=resolve_sourcetype(
                         declared_st, declared_src, {}, data_file.name
                     ),
+                    manifest=yml,
+                    description=description,
+                    steps=steps,
                 )
             )
     return tuple(sorted(records, key=lambda item: str(item.path)))
+
+
+def description_census(catalog: tuple[ManifestDataset, ...]) -> dict[str, Any]:
+    """Census parsed descriptions at MANIFEST granularity (datasets repeat them)."""
+    per_manifest: dict[Path, tuple[str | None, tuple[ManifestStep, ...]]] = {}
+    for item in catalog:
+        per_manifest.setdefault(item.manifest or item.path, (item.description, item.steps))
+    step_counts: Counter[int] = Counter()
+    unparsed: list[dict[str, Any]] = []
+    parseable = 0
+    prose = 0
+    missing = 0
+    for manifest, (description, steps) in sorted(per_manifest.items(), key=lambda kv: str(kv[0])):
+        if steps:
+            parseable += 1
+            step_counts[len(steps)] += 1
+        elif not description:
+            missing += 1
+        elif (
+            _STEP_SECTION in description.lower()
+            or _STEP_ID_MENTION_RE.search(description)
+            or _STEP_OUTCOME_MENTION_RE.search(description)
+        ):
+            unparsed.append(
+                {
+                    "manifest": str(manifest),
+                    "description": description[:300],
+                }
+            )
+        else:
+            prose += 1
+    return {
+        "schema": "ATTACK_DATA_DESCRIPTION_CENSUS_V1",
+        "manifests_observed": len(per_manifest),
+        "with_parseable_steps": parseable,
+        "with_description_unparsed": len(unparsed) + prose,
+        "with_step_like_description_unparsed": len(unparsed),
+        "with_prose_description": prose,
+        "without_description": missing,
+        "step_count_distribution": {str(k): v for k, v in sorted(step_counts.items())},
+        "steps_total": sum(k * v for k, v in step_counts.items()),
+        "unparsed": unparsed,
+    }
 
 
 def load_manifests(root: Path) -> dict[str, tuple[str | None, str | None, float | None]]:

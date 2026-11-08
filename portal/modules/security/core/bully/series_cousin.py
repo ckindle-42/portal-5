@@ -110,24 +110,16 @@ def series_from_logs(
     action_of: Any,
     classifier: Any = None,
     sourcetype_of: Any = None,
+    record_classifier: Any = None,
     technique: str | None = None,
     source_ids: tuple[str, ...] = (),
 ) -> BehaviouralSeries:
-    """Build a behavioural series from an ordered list of log records.
-
-    When `sourcetype_of` is supplied (T1, TASK_BULLY_REAL_TELEMETRY_V1) each
-    log contributes its behavioural class read from real telemetry semantics
-    (`telemetry_behavior.classify_record`, per the log's own sourcetype) --
-    real logs carry no verb, so `action_of`/the pyramid substring table
-    cannot read them regardless of which classifier is swapped in behind it.
-    Without `sourcetype_of` (the pre-T1 path, still correct for synthetic
-    `universe.py`/`attack_data` verb tokens) each log contributes its class
-    via the pyramid classifier over `action_of(log)`. Unclassifiable logs
-    contribute nothing to the spine but ARE counted in `n_logs` (so a series
-    that is mostly unreadable is visibly thin, not silently short)."""
+    """Build an ordered behaviour series using the supplied record classifier when available."""
     spine: list[str] = []
     for log in logs:
-        if sourcetype_of is not None:
+        if record_classifier is not None:
+            cls = record_classifier(log)
+        elif sourcetype_of is not None:
             cls = telemetry_behavior.classify_record(log, sourcetype_of(log) or "")
         else:
             verb = action_of(log)
