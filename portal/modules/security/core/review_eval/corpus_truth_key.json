@@ -1,0 +1,318 @@
+{
+ "entries": [
+  {
+   "artifact_corpus": 209,
+   "artifact_days": 0,
+   "behavioural_spine": [
+    "collect"
+   ],
+   "confirmed_at": 1604361600.0,
+   "cooccurrence": 46,
+   "dataset": "labelled_corpus",
+   "dominant_day": 1604361600,
+   "entities": [
+    "win-dc-807.attackrange.local",
+    "lsass.exe"
+   ],
+   "host_corpus": 7171,
+   "host_days": 1,
+   "joint_events": 4,
+   "p5_item": "21e76c44f2c33834",
+   "score": 3.054205508193238e-05,
+   "sensor_days": 961,
+   "sourcetypes": [
+    "XmlWinEventLog"
+   ],
+   "technique": "T1003.001",
+   "test_id": "datasets/attack_techniques/T1003.001/atomic_red_team",
+   "why": "cooccur=46 host_corpus=7171 artifact_corpus=209 joint=4 score=3.05421e-05 sensor_days=961"
+  },
+  {
+   "artifact_corpus": 28,
+   "artifact_days": 0,
+   "behavioural_spine": [
+    "collect"
+   ],
+   "confirmed_at": 1611014400.0,
+   "cooccurrence": 77,
+   "dataset": "labelled_corpus",
+   "dominant_day": 1611014400,
+   "entities": [
+    "win-dc-397.attackrange.local",
+    "setup.exe"
+   ],
+   "host_corpus": 31128,
+   "host_days": 1,
+   "joint_events": 1,
+   "p5_item": "180c4231d4367aac",
+   "score": 8.529578251126292e-05,
+   "sensor_days": 961,
+   "sourcetypes": [
+    "XmlWinEventLog"
+   ],
+   "technique": "T1059.001",
+   "test_id": "datasets/attack_techniques/T1059.001/obfuscated_powershell",
+   "why": "cooccur=77 host_corpus=31128 artifact_corpus=28 joint=1 score=8.52958e-05 sensor_days=961"
+  },
+  {
+   "artifact_corpus": 18,
+   "artifact_days": 0,
+   "behavioural_spine": [
+    "collect"
+   ],
+   "confirmed_at": 1617840000.0,
+   "cooccurrence": 8633,
+   "dataset": "labelled_corpus",
+   "dominant_day": 1617840000,
+   "entities": [
+    "win-dc-877.attackrange.local",
+    "OfficeClickToRun.exe"
+   ],
+   "host_corpus": 128086,
+   "host_days": 2,
+   "joint_events": 2,
+   "p5_item": "01e857af07207c5c",
+   "score": 0.0035473422053185068,
+   "sensor_days": 961,
+   "sourcetypes": [
+    "XmlWinEventLog"
+   ],
+   "technique": "T1053.005",
+   "test_id": "datasets/attack_techniques/T1053.005/taskschedule",
+   "why": "cooccur=8633 host_corpus=128086 artifact_corpus=18 joint=2 score=0.00354734 sensor_days=961"
+  },
+  {
+   "artifact_corpus": 209,
+   "artifact_days": 0,
+   "behavioural_spine": [
+    "collect"
+   ],
+   "confirmed_at": 1606435200.0,
+   "cooccurrence": 66,
+   "dataset": "labelled_corpus",
+   "dominant_day": 1606435200,
+   "entities": [
+    "win-dc-942.attackrange.local",
+    "lsass.exe"
+   ],
+   "host_corpus": 6287,
+   "host_days": 1,
+   "joint_events": 1,
+   "p5_item": "4bf16a8ccdaa486d",
+   "score": 4.99818247909851e-05,
+   "sensor_days": 961,
+   "sourcetypes": [
+    "XmlWinEventLog"
+   ],
+   "technique": "T1547.001",
+   "test_id": "datasets/attack_techniques/T1547.001/atomic_red_team",
+   "why": "cooccur=66 host_corpus=6287 artifact_corpus=209 joint=1 score=4.99818e-05 sensor_days=961"
+  },
+  {
+   "artifact_corpus": 46,
+   "artifact_days": 0,
+   "behavioural_spine": [
+    "collect"
+   ],
+   "confirmed_at": 1618790400.0,
+   "cooccurrence": 3426,
+   "dataset": "labelled_corpus",
+   "dominant_day": 1618790400,
+   "entities": [
+    "win-host-5.attackrange.local",
+    "WINWORD.EXE"
+   ],
+   "host_corpus": 85363,
+   "host_days": 4,
+   "joint_events": 10,
+   "p5_item": "9b2b60f2eadbe85f",
+   "score": 0.0008539151986935546,
+   "sensor_days": 961,
+   "sourcetypes": [
+    "XmlWinEventLog"
+   ],
+   "technique": "T1055",
+   "test_id": "datasets/attack_techniques/T1055/cobalt_strike",
+   "why": "cooccur=3426 host_corpus=85363 artifact_corpus=46 joint=10 score=0.000853915 sensor_days=961"
+  },
+  {
+   "artifact_corpus": 61,
+   "artifact_days": 0,
+   "behavioural_spine": [
+    "destroy"
+   ],
+   "confirmed_at": 1646697600.0,
+   "cooccurrence": 39,
+   "dataset": "labelled_corpus",
+   "dominant_day": 1646697600,
+   "entities": [
+    "win-dc-tcontreras-attack-range-462.attackrange.local",
+    "Sysmon64.exe"
+   ],
+   "host_corpus": 5443,
+   "host_days": 1,
+   "joint_events": 3,
+   "p5_item": "ee8b7de166839c84",
+   "score": 0.00011554596951956578,
+   "sensor_days": 961,
+   "sourcetypes": [
+    "XmlWinEventLog"
+   ],
+   "technique": "T1112",
+   "test_id": "datasets/attack_techniques/T1112/ransomware_disable_reg",
+   "why": "cooccur=39 host_corpus=5443 artifact_corpus=61 joint=3 score=0.000115546 sensor_days=961"
+  },
+  {
+   "artifact_corpus": 16,
+   "artifact_days": 0,
+   "behavioural_spine": [
+    "auth"
+   ],
+   "confirmed_at": 1679875200.0,
+   "cooccurrence": 3,
+   "dataset": "labelled_corpus",
+   "dominant_day": 1679875200,
+   "entities": [
+    "ar-win-3.attackrange.local",
+    "klist.exe"
+   ],
+   "host_corpus": 448,
+   "host_days": 0,
+   "joint_events": 3,
+   "p5_item": "85a220e935bfd15d",
+   "score": 0.0003930302633302764,
+   "sensor_days": 961,
+   "sourcetypes": [
+    "XmlWinEventLog"
+   ],
+   "technique": "T1078",
+   "test_id": "datasets/attack_techniques/T1078/special_logon_on_mulitple_hosts",
+   "why": "cooccur=3 host_corpus=448 artifact_corpus=16 joint=3 score=0.00039303 sensor_days=961"
+  },
+  {
+   "artifact_corpus": 12061,
+   "artifact_days": 267,
+   "behavioural_spine": [
+    "execute"
+   ],
+   "confirmed_at": 1706486400.0,
+   "cooccurrence": 5,
+   "dataset": "labelled_corpus",
+   "dominant_day": 1706486400,
+   "entities": [
+    "ar-win-dc.attackrange.local",
+    "cmd.exe"
+   ],
+   "host_corpus": 6640,
+   "host_days": 91,
+   "joint_events": 47,
+   "p5_item": "1773813f023f066f",
+   "score": 6.241905652797094e-08,
+   "sensor_days": 961,
+   "sourcetypes": [
+    "XmlWinEventLog"
+   ],
+   "technique": "T1021.002",
+   "test_id": "datasets/attack_techniques/T1021.002/impacket_wmiexec",
+   "why": "cooccur=5 host_corpus=6640 artifact_corpus=12061 joint=47 score=6.24191e-08 sensor_days=961"
+  },
+  {
+   "artifact_corpus": 138,
+   "artifact_days": 0,
+   "behavioural_spine": [
+    "c2_exfil"
+   ],
+   "confirmed_at": 1617148800.0,
+   "cooccurrence": 807,
+   "dataset": "labelled_corpus",
+   "dominant_day": 1617148800,
+   "entities": [
+    "win-dc-892.attackrange.local",
+    "splunk-winevtlog.exe"
+   ],
+   "host_corpus": 11618,
+   "host_days": 1,
+   "joint_events": 2,
+   "p5_item": "fb4495f837f991f6",
+   "score": 0.0004996777171601217,
+   "sensor_days": 961,
+   "sourcetypes": [
+    "XmlWinEventLog"
+   ],
+   "technique": "T1562.001",
+   "test_id": "datasets/attack_techniques/T1562.001/win_app_defender_disabling",
+   "why": "cooccur=807 host_corpus=11618 artifact_corpus=138 joint=2 score=0.000499678 sensor_days=961"
+  }
+ ],
+ "failures": [
+  {
+   "reason": "no_pair_passed_rarity_cooccurrence_and_term_rules",
+   "technique": "T1110"
+  }
+ ],
+ "provenance": {
+  "attack_data_commit": "4145e8b60fd8a3d44bc2170d1eb343fe7247387b",
+  "attack_data_root": "/Volumes/data01/portal5_hunt/sources/attack_data",
+  "generated_at": "2026-11-08T00:33:50.314114+00:00",
+  "index": "labelled_corpus",
+  "label_basis": "data_yml",
+  "leak_filter": {
+   "by_technique": {
+    "T1003.001": {
+     "events_excluded": 212,
+     "events_seen": 8064
+    },
+    "T1021.002": {
+     "events_excluded": 0,
+     "events_seen": 5
+    },
+    "T1053.005": {
+     "events_excluded": 1175,
+     "events_seen": 177156
+    },
+    "T1055": {
+     "events_excluded": 27,
+     "events_seen": 112966
+    },
+    "T1059.001": {
+     "events_excluded": 44,
+     "events_seen": 29943
+    },
+    "T1078": {
+     "events_excluded": 0,
+     "events_seen": 3979
+    },
+    "T1112": {
+     "events_excluded": 8,
+     "events_seen": 8067
+    },
+    "T1547.001": {
+     "events_excluded": 138,
+     "events_seen": 6338
+    },
+    "T1562.001": {
+     "events_excluded": 160,
+     "events_seen": 16696
+    }
+   },
+   "events_excluded": 1764,
+   "events_seen": 363214,
+   "match": "match(_raw, \"\\bT\\d{4}(\\.\\d{3})?\\b\") OR match(_raw, \"(?i)atomic[\\s_-]*red[\\s_-]*team\") OR match(_raw, \"(?i)stratus[\\s_-]*red[\\s_-]*team\")",
+   "scans_raw": true
+  },
+  "publisher": "attack_data",
+  "rule": "dominant UTC day of one single-technique attack_data item; host plus artifact by cooccurrence/((1+host_corpus)*(1+artifact_corpus)); full TERM() only; drop events whose _raw names a technique id or Atomic/Stratus Red Team; drop an entity on every sensor day; match_all; unique entity sets",
+  "techniques": [
+   "T1003.001",
+   "T1059.001",
+   "T1053.005",
+   "T1547.001",
+   "T1055",
+   "T1112",
+   "T1078",
+   "T1021.002",
+   "T1562.001",
+   "T1110"
+  ]
+ }
+}

@@ -253,7 +253,7 @@ def test_run_inject_capture_reaches_live_plane_and_seals_ground_truth(
     assert run.plane == "live"
     assert run.reason == ""
     # capture now reads every corpus lane (C.3) -- the fake connector returns
-    # the same 2 fixture records per index, times 4 default indexes.
+    # the same 2 fixture records per index resolve_indexes names.
     from portal.modules.security.core.bully import corpus_bed as cb
 
     assert len(run.records) == 2 * len(cb.resolve_indexes())

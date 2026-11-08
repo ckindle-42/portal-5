@@ -306,8 +306,8 @@ def capture_records(
     family/technique/injected label ever rides on a captured record.
 
     Reads across every index `corpus_bed.resolve_indexes()` names -- Lane B/C
-    (`LAB_SPLUNK_INDEX`, default `portal5_lab`) plus Lane A's `botsv1`/
-    `botsv2`/`botsv3` -- not the single hardcoded `portal5_lab` this function
+    (`LAB_SPLUNK_INDEX`, default `portal5_lab`), `labelled_corpus`, plus Lane A's
+    `botsv1`/`botsv2`/`botsv3` -- not the single hardcoded `portal5_lab` this function
     used to read exclusively (every bully run through D.4 could see only the
     `gen:*` synthetic universe it had just written itself; BOTS lives under a
     different index name and was invisible to a single-index capture).

@@ -25,6 +25,7 @@ python3 scripts/execute_preflight.py               # ground-truth preflight befo
 python3 scripts/security_capture_recipes.py        # capture replayable lab data by recipe
 python3 scripts/security_corpus_report.py          # combined red-corpus readiness report
 python3 scripts/security_replay_verify.py          # verify live captures replay into Splunk
+python3 scripts/corpus_truth_key.py                # labelled_corpus answer key from attack_data labels
 ```
 
 ## Dashboards and results

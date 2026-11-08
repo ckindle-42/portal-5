@@ -43,7 +43,7 @@ if str(REPO) not in sys.path:
 from portal.modules.security.core.bully.bots_answer_key import BOTS_ANSWER_KEY  # noqa: E402
 from portal.modules.security.core.bully.corpus_bed import AnswerKeyEntry  # noqa: E402
 from portal.modules.security.core.review.window import SplunkWindowSource  # noqa: E402
-from portal.modules.security.core.review_eval import bots_truth_key  # noqa: E402
+from portal.modules.security.core.review_eval import bots_truth_key, corpus_truth  # noqa: E402
 
 PORTAL_SOURCE_PREFIX = "portal5:"
 
@@ -244,9 +244,29 @@ def audit(entries: Iterable[AnswerKeyEntry], probe: Probe) -> dict[str, Any]:
     }
 
 
+def _load_entries(key: str) -> list[AnswerKeyEntry]:
+    if key == "bots_truth_key":
+        return [entry.answer_key_entry() for entry in bots_truth_key.load()]
+    if key == "corpus":
+        return list(corpus_truth.load())
+    return list(BOTS_ANSWER_KEY)
+
+
+def _audit_name(key: str) -> str:
+    return {
+        "bots_answer_key": "answer_key_audit",
+        "bots_truth_key": "truth_key_audit",
+        "corpus": "corpus_key_audit",
+    }[key]
+
+
 def render(doc: Mapping[str, Any]) -> str:
+    titles = {
+        "corpus": "# labelled_corpus answer-key audit",
+        "bots_truth_key": "# BOTS truth-key audit",
+    }
     lines = [
-        "# BOTS answer-key audit",
+        titles.get(str(doc.get("key", "")), "# BOTS answer-key audit"),
         "",
         f"{doc['usable_entry_count']} of {doc['entry_count']} entries have no problem.",
         "",
@@ -264,21 +284,19 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--timeout-seconds", type=float, default=900.0)
     parser.add_argument(
-        "--key", choices=("bots_answer_key", "bots_truth_key"), default="bots_answer_key"
+        "--key",
+        choices=("bots_answer_key", "bots_truth_key", "corpus"),
+        default="bots_answer_key",
     )
     parser.add_argument(
         "--out", type=Path, default=DATA_ROOT / "reports" / "review_eval" / "truth_audit"
     )
     args = parser.parse_args(argv)
-    entries = (
-        [entry.answer_key_entry() for entry in bots_truth_key.load()]
-        if args.key == "bots_truth_key"
-        else list(BOTS_ANSWER_KEY)
-    )
+    entries = _load_entries(args.key)
     doc = audit(entries, Probe(SplunkWindowSource(timeout_seconds=args.timeout_seconds)))
     doc["key"] = args.key
     args.out.mkdir(parents=True, exist_ok=True)
-    name = "answer_key_audit" if args.key == "bots_answer_key" else "truth_key_audit"
+    name = _audit_name(args.key)
     (args.out / f"{name}.json").write_text(
         json.dumps(doc, indent=1, sort_keys=True), encoding="utf-8"
     )

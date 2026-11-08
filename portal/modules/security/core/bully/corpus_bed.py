@@ -66,8 +66,9 @@ ALGORITHM_VERSION = "corpus-bed-v1"
 # Lane A indexes, as installed by scripts/lab_bots_install.py.
 BOTS_INDEXES: tuple[str, ...] = ("botsv1", "botsv2", "botsv3")
 
-# Lane B / live lane.
+# Lane B / live lane. labelled_corpus is the publisher-labelled attack index.
 CORPUS_INDEX = "portal5_lab"
+LABELLED_CORPUS_INDEX = "labelled_corpus"
 
 # A haystack must actually be a haystack. Below this the run is not a needle
 # search, it is a sample, and its false-positive and rarity numbers do not
@@ -114,6 +115,7 @@ LANES: tuple[CorpusLane, ...] = (
     CorpusLane("A", "botsv2", True, True, "real haystack + published answers"),
     CorpusLane("A", "botsv3", True, True, "real haystack + published answers"),
     CorpusLane("B", CORPUS_INDEX, True, False, "technique-tagged corpora + injected cousins"),
+    CorpusLane("B", LABELLED_CORPUS_INDEX, True, True, "publisher-labelled attack corpora"),
     CorpusLane("C", CORPUS_INDEX, False, False, "unlabelled novelty (discovery)"),
 )
 
@@ -149,6 +151,7 @@ def resolve_indexes(*, include_bots: bool = True, extra: tuple[str, ...] = ()) -
     out: list[str] = [live]
     if include_bots:
         out.extend(BOTS_INDEXES)
+    out.append(LABELLED_CORPUS_INDEX)
     out.extend(extra)
     seen: set[str] = set()
     deduped: list[str] = []
