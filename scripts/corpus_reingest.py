@@ -1350,6 +1350,9 @@ def ship_inputs(
     files_by_publisher: Mapping[str, list[CorpusFile]],
     excluded_files: set[tuple[str, str]] | None = None,
     included_files: set[tuple[str, str]] | None = None,
+    *,
+    index: str = INDEX,
+    fields: Mapping[str, str] | None = None,
 ) -> dict[str, int]:
     buffers: dict[tuple[str, str, str, str], list[tuple[dict[str, Any] | str, float]]] = (
         defaultdict(list)
@@ -1364,9 +1367,9 @@ def ship_inputs(
             sourcetype=sourcetype,
             source=source,
             host=host,
-            index=INDEX,
+            index=index,
             event_times=[epoch for _, epoch in entries],
-            fields={"p5_item": item_id},
+            fields={"p5_item": item_id, **dict(fields or {})},
         )
         if not result.get("ok"):
             raise RuntimeError(f"HEC batch failed for p5_item={item_id}")
