@@ -44,7 +44,13 @@ def test_capture_reads_from_all_four_indexes_when_bots_counts_present(monkeypatc
     monkeypatch.setattr(ip, "lab_available", lambda: (True, ""))
     from portal.modules.security.core.bully import live_connect
 
-    counts = {"portal5_lab": 50_000, "botsv1": 3_000_000, "botsv2": 5_000_000, "botsv3": 5_650_000}
+    counts = {
+        "portal5_lab": 50_000,
+        "botsv1": 3_000_000,
+        "botsv2": 5_000_000,
+        "botsv3": 5_650_000,
+        "labelled_corpus": 50_000,
+    }
     rows = {idx: [{"fields": {"sourcetype": "st"}, "host": "h", "_time": 1.0}] for idx in counts}
     monkeypatch.setattr(live_connect, "lab_splunk_connector", _fake_connector_factory(counts, rows))
 

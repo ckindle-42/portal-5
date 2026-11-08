@@ -312,9 +312,13 @@ def _item_id_for(entry: AnswerKeyEntry, index: str) -> str:
     return f"{index}:{entry.technique}:{digest}"
 
 
-def _index_for(entry: AnswerKeyEntry) -> str:
-    if entry.dataset not in BOTS_INDEXES:
-        raise ValueError(f"answer-key dataset {entry.dataset!r} is not a BOTS index")
+def _index_for(entry: AnswerKeyEntry, allowed_indexes: Sequence[str]) -> str:
+    if entry.dataset not in allowed_indexes:
+        if tuple(allowed_indexes) == BOTS_INDEXES:
+            raise ValueError(f"answer-key dataset {entry.dataset!r} is not a BOTS index")
+        raise ValueError(
+            f"answer-key dataset {entry.dataset!r} is not one of {tuple(allowed_indexes)}"
+        )
     return entry.dataset
 
 
@@ -325,6 +329,7 @@ def derive_bots_truth(
     entries: Sequence[AnswerKeyEntry] = BOTS_ANSWER_KEY,
     query_days: DayCountFetcher | None = None,
     match_all: bool = False,
+    allowed_indexes: Sequence[str] = BOTS_INDEXES,
 ) -> TruthDerivation:
     """Search every declared entity/source pair and keep only fully located entries.
 
@@ -344,7 +349,9 @@ def derive_bots_truth(
     items: list[TruthItem] = []
     receipts: list[EntryReceipt] = []
     for entry in entries:
-        item, receipt = _derive_entry(entry, fetch_records, query_stats, query_days, match_all)
+        item, receipt = _derive_entry(
+            entry, fetch_records, query_stats, query_days, match_all, allowed_indexes
+        )
         if item is not None:
             items.append(item)
         receipts.append(receipt)
@@ -357,8 +364,9 @@ def _derive_entry(
     query_stats: StatsFetcher,
     query_days: DayCountFetcher | None = None,
     match_all: bool = False,
+    allowed_indexes: Sequence[str] = BOTS_INDEXES,
 ) -> tuple[TruthItem | None, EntryReceipt]:
-    index = _index_for(entry)
+    index = _index_for(entry, allowed_indexes)
     item_id = _item_id_for(entry, index)
     entities = tuple(dict.fromkeys(entry.entities))
     sourcetypes = tuple(dict.fromkeys(entry.sourcetypes))
