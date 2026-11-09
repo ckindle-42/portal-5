@@ -47,7 +47,7 @@ lead whose host and time bucket hold no keyed attack record.
 | AIT santos | 3 / 4 | **4 / 4** | 1, 3, 4, 14 | 5 / 17 | 7 / 19 (**miss**: wpscan, dirb, webshell, service scan; exfil in separate cases) | 21.3 min |
 | AIT wheeler | 4 / 5 | 4 / 5 (5/5 by top 50) | 1, 2, 4, 6, 33 | 4 / 16 | 8 / 17 (**miss**, just under half: wpscan, dirb, webshell, scans, DNSteal) | 27.1 min |
 | AWS cloud_obs | 4 / 35 | 5 / 35 (11 by top 50) | 4, 5, 7, 9, 12, … | 5 / 15 | case 2 holds 9 attacks' records (account creation, credentials from password stores, data encrypted for impact, exfiltration, …) | 9.9 min |
-| BOTS v1 | **2 / 2** | 2 / 2 | **Cerber 1, web defacement 2** | 3 / 17 | *investigation crashed in P1; re-run pending (below)* | leads ~60 min |
+| BOTS v1 | **2 / 2** | 2 / 2 | **Cerber 1, web defacement 2** (re-runs: 1, 3) | 3 / 17 | *re-run 4 in progress at push time; follow-up commit* | leads ~60 min; dig >90 min |
 
 **Against the bar:**
 - *≥1 attack episode per environment in the top 25:* **met in 6 / 6**. Every environment
@@ -84,9 +84,27 @@ lead whose host and time bucket hold no keyed attack record.
 | cloud_obs | data | publisher's CloudWatch exports are invalid JSON (redaction) and duplicate CloudTrail; `-jq-` files are duplicates | excluded; recorded |
 | P1 | lab | Splunk 4 cores / 4 GB → `503` under concurrent hunts | scaled to 12 cores / 16 GB, `base_max_searches` 20 |
 | BOTS v1 | investigator | multivalue Splunk fields arrive as lists → crash after ~1 h | fixed `dd56e36a4`; re-run |
+| BOTS v1 re-runs | investigator | a punctuation run (`........`) became a pivot whose exact lookup scanned all 33M events (>20 min); then a common fragment (`10.10`) exceeded the 600 s read timeout and failed the whole dig | fixed `6bfe43615` (a value needs a letter/digit) and `eca1af2c8` (exact counting bounded at an average hour of the environment; a failed lookup degrades one pivot) |
 | wheeler | **product** | the 8B model **mis-copied the hunt job id** (`…963382f` → `…9633a2f`) and later rendered it with spaces; an analyst would be stuck | **open**: ids a small model can't garble, or tools that accept "latest hunt on <env>" |
 | all | ingest | earlier corpora carry labels in `source`/`host`/`p5_item`; `imported_observed` is attack data | hunt bed re-ingests everything label-free; old indexes left untouched |
 | — | current review service | 86 min on one hour of one environment without finishing; Splunk time ≈ 1 min, the rest single-threaded Python over raw events | recorded; not used for hunting |
+
+## Job-id corruption: probe through the real path (not yet root-caused)
+
+8 analyst questions through Open WebUI that require copying a hunt id. The streamed path is served
+by oMLX `granite-4.1-8b-mxfp8`.
+- **Tool calls carried the correct id in 8/8.** Every lookup returned real data; no "unknown
+  hunt" errors.
+- **The answer text corrupted the id in 6/8,** every time the same way: a space after `hunt-`,
+  stray `**`, typographic characters (U+202F narrow no-break space, U+2011 non-breaking hyphen),
+  and once a digit split (`e606e96 3382f`).
+- A consistent `hunt- ` space points first at **our path** (stream assembly / detokenisation /
+  sampling penalties on oMLX), not model choice. The Ollama variant of this seat runs with
+  Ollama's default `repeat_penalty 1.1` over 64 tokens (its Modelfile sets only `num_ctx`).
+- Next: A/B the same request stream vs non-stream and oMLX vs Ollama, with penalties neutralised,
+  before considering a different model.
+- Harness-side fix either way: tools that accept "latest hunt on <environment>" so no id is
+  retyped.
 
 ## Open, for the next decision
 
