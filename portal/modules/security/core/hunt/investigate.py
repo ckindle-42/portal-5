@@ -105,6 +105,16 @@ class Investigator:
         self.search, self.index, self.start, self.end = search, index, start, end
         rows = list(search.iter_post(f"| tstats count where index={index}", start, end))
         self.total = int(rows[0]["count"]) if rows else 1
+        span = list(
+            search.iter_post(
+                f"| tstats min(_time) as lo max(_time) as hi where index={index}", start, end
+            )
+        )
+        hours = max(1.0, (float(span[0]["hi"]) - float(span[0]["lo"])) / HOUR) if span else 1.0
+        # A value seen more often than an average hour of this environment is background-scale;
+        # exact counting stops there (its weight is already low). Derived from the data.
+        self.background_scale = max(2, int(self.total / hours))
+        self.degraded: list[str] = []
         self._footprints: dict[tuple[str, bool], tuple[int, int, int]] = {}
         q = f"| tstats count where index={index} by host source punct"
         self.template_count = {
@@ -126,7 +136,10 @@ class Investigator:
             rows = list(self._rows(q, self.start, self.end))
             if rows:
                 return rows
-        q = f'search index={self.index} "{token}" | stats count by host source'
+        q = (
+            f'search index={self.index} "{token}" | head {self.background_scale} '
+            "| stats count by host source"
+        )
         return list(self._rows(q, self.start, self.end))
 
     def footprint(self, token: str, *, exact: bool = False) -> tuple[int, int, int]:
@@ -137,7 +150,11 @@ class Investigator:
         footprint -- measured live: TERM found 179 of the attacker address's 455 events."""
         key = (token, exact)
         if key not in self._footprints:
-            rows = self._footprint_rows(token, exact)
+            try:
+                rows = self._footprint_rows(token, exact)
+            except Exception as exc:  # noqa: BLE001 -- one failed lookup degrades one pivot
+                self.degraded.append(f"{token}: {type(exc).__name__}")
+                rows = []
             self._footprints[key] = (
                 sum(int(r["count"]) for r in rows),
                 len({r["host"] for r in rows}),
@@ -161,7 +178,11 @@ class Investigator:
             f'search index={self.index} "{token}" '
             f"| dedup {per_kind} host source punct | table _time host source _raw"
         )
-        return [dict(r) for r in self._rows(q, self.start, self.end)]
+        try:
+            return [dict(r) for r in self._rows(q, self.start, self.end)]
+        except Exception as exc:  # noqa: BLE001 -- one failed lookup degrades one pivot
+            self.degraded.append(f"kinds {token}: {type(exc).__name__}")
+            return []
 
     def neighborhood(
         self, event: dict[str, Any], *, minutes: int, kinds: int
@@ -174,7 +195,11 @@ class Investigator:
             f'search index={self.index} host="{event["host"]}" '
             "| dedup 2 source punct | table _time host source punct _raw"
         )
-        rows = [dict(r) for r in self._rows(q, t - 60 * minutes, t + 60 * minutes)]
+        try:
+            rows = [dict(r) for r in self._rows(q, t - 60 * minutes, t + 60 * minutes)]
+        except Exception as exc:  # noqa: BLE001 -- one failed look-around degrades, not fails
+            self.degraded.append(f"near {event['host']}@{t:.0f}: {type(exc).__name__}")
+            return []
         rows.sort(
             key=lambda r: self.template_count.get((r["host"], r["source"], r.get("punct", "")), 0)
         )

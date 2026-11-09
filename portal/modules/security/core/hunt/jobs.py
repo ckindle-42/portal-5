@@ -66,6 +66,7 @@ def _run(job_id: str, search: Search, index: str, start: float, end: float, dig:
             stage="done",
             finished=time.time(),
             cases=[{**c.summary(), "evidence": list(c.events.values())} for c in cases],
+            degraded=inv.degraded,
         )
     except Exception as exc:  # noqa: BLE001 -- the analyst sees the failure, not a hang
         state.update(status="FAILED", error=f"{type(exc).__name__}: {exc}")
