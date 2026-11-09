@@ -33,6 +33,9 @@ from typing import Any, Protocol
 
 HOUR = 3600
 _TOKEN = re.compile(r"[A-Za-z0-9_.:/@%\-]{4,}")
+# A value has at least one letter or digit; a run of punctuation ("........") is formatting.
+# Found live on BOTS v1: such a pivot became a full-index plain search (>20 min).
+_HAS_VALUE = re.compile(r"[A-Za-z0-9]")
 _TIME_OF_DAY = re.compile(r"\d{1,2}:\d{2}:\d{2}")
 _TERM_UNSAFE = re.compile(r"[\"\\=\[\]()|,;]")
 
@@ -160,7 +163,7 @@ def value_bursts(
         t
         for e in events
         for t in set(_TOKEN.findall(str(e.get("_raw", ""))))
-        if not _is_time_token(t) and not _TERM_UNSAFE.search(t)
+        if _HAS_VALUE.search(t) and not _is_time_token(t) and not _TERM_UNSAFE.search(t)
     )
     chosen = [t for t, _ in tokens.most_common(top)]
     with ThreadPoolExecutor(max_workers=8) as pool:

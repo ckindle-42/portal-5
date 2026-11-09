@@ -23,6 +23,9 @@ from typing import Any
 from .engine import HOUR, Lead, Search, _is_time_token
 
 _TOKEN = re.compile(r"[A-Za-z0-9_.:/@%\-]{4,}")
+# A value has at least one letter or digit; a run of punctuation ("........") is formatting.
+# Found live on BOTS v1: such a pivot became a full-index plain search (>20 min).
+_HAS_VALUE = re.compile(r"[A-Za-z0-9]")
 _TERM_UNSAFE = re.compile(r"[\"\\=\[\]()|,;']")
 
 
@@ -81,7 +84,12 @@ def _tokens(raw: str) -> set[str]:
     out: set[str] = set()
     for t in _TOKEN.findall(raw):
         for piece in (t, *_PART.split(t)):
-            if len(piece) >= 4 and not _is_time_token(piece) and not _TERM_UNSAFE.search(piece):
+            if (
+                len(piece) >= 4
+                and _HAS_VALUE.search(piece)
+                and not _is_time_token(piece)
+                and not _TERM_UNSAFE.search(piece)
+            ):
                 out.add(piece)
     return out
 
