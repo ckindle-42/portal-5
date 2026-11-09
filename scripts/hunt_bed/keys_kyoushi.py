@@ -38,7 +38,7 @@ def main() -> int:
         open(args.ingest / "keys.jsonl", "w") as out,
     ):
         for raw in manifest:
-            host, source, line, digest = json.loads(raw)
+            host, source, line, digest = json.loads(raw)[:4]
             labels = wanted.get((host, source, line))
             if labels is not None:
                 joined += 1

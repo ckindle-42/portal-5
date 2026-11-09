@@ -15,7 +15,7 @@ from __future__ import annotations
 import math
 import re
 from collections import Counter
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
@@ -101,17 +101,25 @@ class Investigator:
         q = f"| tstats count where index={index} by host source punct"
         self.template_count = {
             (r["host"], r["source"], r.get("punct", "")): int(r["count"])
-            for r in search.iter_post(q, start, end)
+            for r in self._rows(q, start, end)
         }
 
-    def _footprint_rows(self, token: str, exact: bool) -> list[Mapping[str, Any]]:
+    def _rows(self, q: str, start: float, end: float) -> list[dict[str, Any]]:
+        """Splunk returns multivalue fields as lists (found live on BOTS v1: the investigation
+        crashed with `unhashable type: list`); a row is flattened to its first value per field."""
+        return [
+            {k: (v[0] if isinstance(v, list) and v else v) for k, v in r.items()}
+            for r in self.search.iter_post(q, start, end)
+        ]
+
+    def _footprint_rows(self, token: str, exact: bool) -> list[dict[str, Any]]:
         if not exact:
             q = f'| tstats count where index={self.index} TERM("{token}") by host source'
-            rows = list(self.search.iter_post(q, self.start, self.end))
+            rows = list(self._rows(q, self.start, self.end))
             if rows:
                 return rows
         q = f'search index={self.index} "{token}" | stats count by host source'
-        return list(self.search.iter_post(q, self.start, self.end))
+        return list(self._rows(q, self.start, self.end))
 
     def footprint(self, token: str, *, exact: bool = False) -> tuple[int, int, int]:
         """(index-wide count, distinct hosts, distinct sources) for one value.
@@ -145,7 +153,7 @@ class Investigator:
             f'search index={self.index} "{token}" '
             f"| dedup {per_kind} host source punct | table _time host source _raw"
         )
-        return [dict(r) for r in self.search.iter_post(q, self.start, self.end)]
+        return [dict(r) for r in self._rows(q, self.start, self.end)]
 
     def neighborhood(
         self, event: dict[str, Any], *, minutes: int, kinds: int
@@ -158,7 +166,7 @@ class Investigator:
             f'search index={self.index} host="{event["host"]}" '
             "| dedup 2 source punct | table _time host source punct _raw"
         )
-        rows = [dict(r) for r in self.search.iter_post(q, t - 60 * minutes, t + 60 * minutes)]
+        rows = [dict(r) for r in self._rows(q, t - 60 * minutes, t + 60 * minutes)]
         rows.sort(
             key=lambda r: self.template_count.get((r["host"], r["source"], r.get("punct", "")), 0)
         )
@@ -176,7 +184,7 @@ class Investigator:
         events: list[dict[str, Any]] = []
         for source, punct, _ in lead.novel_templates[:10]:
             q = f'search index={self.index} host="{lead.host}" source="{source}" | table _raw punct'
-            rows = self.search.iter_post(q, lead.hour, lead.hour + lead.span)
+            rows = self._rows(q, lead.hour, lead.hour + lead.span)
             events.extend(dict(r) for r in rows if r.get("punct", "") == punct)
             if len(events) > 400:
                 break
