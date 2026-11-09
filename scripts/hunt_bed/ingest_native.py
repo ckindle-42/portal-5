@@ -52,41 +52,64 @@ def _tz(text: str | None) -> int:
     return sign * (int(digits[:2]) * 3600 + int(digits[2:4]) * 60)
 
 
+def _gm(y: int, mo: int, d: int, h: str, mi: str, s: str) -> int:
+    return calendar.timegm((y, mo, d, int(h), int(mi), int(s)))
+
+
+def _iso(m: re.Match, _y: int) -> float | None:
+    y, mo, d, h, mi, s, frac, tz = m.groups()
+    return _gm(int(y), int(mo), int(d), h, mi, s) - _tz(tz) + float(frac or 0)
+
+
+def _clf(m: re.Match, _y: int) -> float | None:
+    d, mon, y, h, mi, s, tz = m.groups()
+    return float(_gm(int(y), _MON[mon], int(d), h, mi, s) - _tz(tz)) if mon in _MON else None
+
+
+def _ctime(m: re.Match, _y: int) -> float | None:
+    mon, d, h, mi, s, frac, y = m.groups()
+    return _gm(int(y), _MON[mon], int(d), h, mi, s) + float(frac or 0) if mon in _MON else None
+
+
+def _syslog(m: re.Match, year: int) -> float | None:
+    mon, d, h, mi, s = m.groups()
+    return float(_gm(year, _MON[mon], int(d), h, mi, s)) if mon in _MON else None
+
+
+def _epoch(m: re.Match, _y: int) -> float | None:
+    return float(m.group(1)) + float(m.group(2) or 0)
+
+
+def _numdate(m: re.Match, _y: int) -> float | None:
+    a, b, y, h, mi, s, frac = m.groups()
+    mo, d = (int(b), int(a)) if int(a) > 12 else (int(a), int(b))  # d/m only when unambiguous
+    if not (1 <= mo <= 12 and 1 <= d <= 31):
+        return None
+    return _gm(int(y), mo, d, h, mi, s) + float(frac or 0)
+
+
+def _daymon(m: re.Match, year: int) -> float | None:
+    d, mon, h, mi, s, frac = m.groups()
+    return _gm(year, _MON[mon], int(d), h, mi, s) + float(frac or 0) if mon in _MON else None
+
+
+_SHAPES = (
+    (_ISO, _iso),
+    (_CLF, _clf),
+    (_CTIME, _ctime),
+    (_SYSLOG, _syslog),
+    (_EPOCH, _epoch),
+    (_NUMDATE, _numdate),
+    (_DAYMON, _daymon),
+)
+
+
 def parse_time(line: str, default_year: int) -> float | None:
     """Earliest timestamp-shaped span in the line -> epoch seconds (naive = UTC)."""
-    found: list[tuple[int, float]] = []
-    if m := _ISO.search(line):
-        y, mo, d, h, mi, s, frac, tz = m.groups()
-        t = calendar.timegm((int(y), int(mo), int(d), int(h), int(mi), int(s))) - _tz(tz)
-        found.append((m.start(), t + float(frac or 0)))
-    if m := _CLF.search(line):
-        d, mon, y, h, mi, s, tz = m.groups()
-        if mon in _MON:
-            t = calendar.timegm((int(y), _MON[mon], int(d), int(h), int(mi), int(s))) - _tz(tz)
-            found.append((m.start(), float(t)))
-    if m := _CTIME.search(line):
-        mon, d, h, mi, s, frac, y = m.groups()
-        if mon in _MON:
-            t = calendar.timegm((int(y), _MON[mon], int(d), int(h), int(mi), int(s)))
-            found.append((m.start(), t + float(frac or 0)))
-    if m := _SYSLOG.search(line):
-        mon, d, h, mi, s = m.groups()
-        if mon in _MON:
-            t = calendar.timegm((default_year, _MON[mon], int(d), int(h), int(mi), int(s)))
-            found.append((m.start(), float(t)))
-    if m := _EPOCH.search(line):
-        found.append((m.start(), float(m.group(1)) + float(m.group(2) or 0)))
-    if m := _NUMDATE.search(line):
-        a, b, y, h, mi, s, frac = m.groups()
-        mo, d = (int(b), int(a)) if int(a) > 12 else (int(a), int(b))  # d/m only when unambiguous
-        if 1 <= mo <= 12 and 1 <= d <= 31:
-            t = calendar.timegm((int(y), mo, d, int(h), int(mi), int(s)))
-            found.append((m.start(), t + float(frac or 0)))
-    if m := _DAYMON.search(line):
-        d, mon, h, mi, s, frac = m.groups()
-        if mon in _MON:
-            t = calendar.timegm((default_year, _MON[mon], int(d), int(h), int(mi), int(s)))
-            found.append((m.start(), t + float(frac or 0)))
+    found = []
+    for rx, conv in _SHAPES:
+        if (m := rx.search(line)) and (t := conv(m, default_year)) is not None:
+            found.append((m.start(), t))
     return min(found)[1] if found else None
 
 

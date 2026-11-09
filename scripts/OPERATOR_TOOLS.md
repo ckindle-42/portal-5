@@ -15,6 +15,22 @@ python3 scripts/register_trainer_voice.py --audio <clip> --name <name> --text "<
                                     # clean a recording + register it as a voice-clone trainer profile (host :8918)
 ```
 
+## Blind threat hunt — hunt bed and Milestone P1 (docs/HUNT_P1_RESULTS_20261109.md)
+
+```bash
+python3 scripts/hunt_bed/ingest_native.py --root <dir> --index hb_<env> --default-year <y> --out <dir>
+                                    # native, label-free ingest of one environment (keys stay out of band)
+python3 scripts/hunt_bed/keys_kyoushi.py --labels <labels/> --ingest <out>     # AIT/Kyoushi per-line key
+python3 scripts/hunt_bed/keys_cloudobs.py --ingest <out>                       # cloud_obs y/n-run key
+python3 scripts/hunt_bed/keys_bots.py --source <cited.json> --out <key.jsonl>  # BOTS cited key, live-audited
+python3 scripts/hunt_run.py --index <idx> --out <leads.json>                   # blind hunt, leads only
+python3 scripts/hunt_investigate.py --leads <leads.json> --out <cases.json>    # dig leads into cases
+python3 scripts/hunt_bed/owui_proof.py --index <idx> --out <dir>               # hunt through Open WebUI like an analyst
+python3 scripts/hunt_bed/score_leads.py --leads <job.json> --keys ... --manifest ...   # lead recall / false leads
+python3 scripts/hunt_bed/score_cases.py --cases <job.json> --keys ...          # stage coverage per case
+python3 scripts/hunt_bed/score_bots.py --index botsv1 --key ... --leads ... --cases ... # BOTS scenario recall
+```
+
 ## Lab and corpus operations
 
 ```bash
