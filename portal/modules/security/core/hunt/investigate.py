@@ -15,7 +15,7 @@ from __future__ import annotations
 import math
 import re
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
@@ -65,7 +65,11 @@ class Case:
     def picture(self, n: int = 25) -> list[dict[str, Any]]:
         """The analyst's view: evidence reached through the most specific pivots, in time order."""
         weight = {p.token: p.weight for p in self.pivots}
-        top = sorted(self.events.values(), key=lambda e: -weight.get(e["via"], 0.0))[:n]
+
+        def w(e: dict[str, Any]) -> float:
+            return float(weight.get(e["via"], e.get("near_weight", 0.0)))
+
+        top = sorted(self.events.values(), key=lambda e: -w(e))[:n]
         return sorted(top, key=lambda e: e["time"])
 
 
@@ -93,26 +97,44 @@ class Investigator:
         self.search, self.index, self.start, self.end = search, index, start, end
         rows = list(search.iter_post(f"| tstats count where index={index}", start, end))
         self.total = int(rows[0]["count"]) if rows else 1
-        self._footprints: dict[str, tuple[int, int, int]] = {}
+        self._footprints: dict[tuple[str, bool], tuple[int, int, int]] = {}
+        q = f"| tstats count where index={index} by host source punct"
+        self.template_count = {
+            (r["host"], r["source"], r.get("punct", "")): int(r["count"])
+            for r in search.iter_post(q, start, end)
+        }
 
-    def footprint(self, token: str) -> tuple[int, int, int]:
-        """(index-wide count, distinct hosts, distinct sources) for one value."""
-        if token not in self._footprints:
+    def _footprint_rows(self, token: str, exact: bool) -> list[Mapping[str, Any]]:
+        if not exact:
             q = f'| tstats count where index={self.index} TERM("{token}") by host source'
             rows = list(self.search.iter_post(q, self.start, self.end))
-            self._footprints[token] = (
+            if rows:
+                return rows
+        q = f'search index={self.index} "{token}" | stats count by host source'
+        return list(self.search.iter_post(q, self.start, self.end))
+
+    def footprint(self, token: str, *, exact: bool = False) -> tuple[int, int, int]:
+        """(index-wide count, distinct hosts, distinct sources) for one value.
+
+        Ranking candidates uses TERM() (fast, index-only, but blind to a value inside a compound
+        such as `192.42.0.255:41607`). A value chosen as a pivot gets the exact plain-search
+        footprint -- measured live: TERM found 179 of the attacker address's 455 events."""
+        key = (token, exact)
+        if key not in self._footprints:
+            rows = self._footprint_rows(token, exact)
+            self._footprints[key] = (
                 sum(int(r["count"]) for r in rows),
                 len({r["host"] for r in rows}),
                 len({(r["host"], r["source"]) for r in rows}),
             )
-        return self._footprints[token]
+        return self._footprints[key]
 
-    def pivot_weight(self, token: str) -> float:
+    def pivot_weight(self, token: str, *, exact: bool = False) -> float:
         """Specific (rare in the environment) and recurring in at least two places.
 
         Recurrence is the condition (a value seen in one place leads nowhere); rarity is the
         rank. Rewarding spread would favour background words that are everywhere."""
-        count, _hosts, sources = self.footprint(token)
+        count, _hosts, sources = self.footprint(token, exact=exact)
         if count < 2 or sources < 2:
             return 0.0
         return math.log(self.total / count)
@@ -120,10 +142,27 @@ class Investigator:
     def kinds(self, token: str, per_kind: int = 2) -> list[dict[str, Any]]:
         """Every distinct kind of event the value appears in, a couple of examples of each."""
         q = (
-            f'search index={self.index} TERM("{token}") '
+            f'search index={self.index} "{token}" '
             f"| dedup {per_kind} host source punct | table _time host source _raw"
         )
         return [dict(r) for r in self.search.iter_post(q, self.start, self.end)]
+
+    def neighborhood(
+        self, event: dict[str, Any], *, minutes: int, kinds: int
+    ) -> list[dict[str, Any]]:
+        """What else happened on this host around this moment -- rarest kinds of event first.
+
+        `minutes` is how far the analyst looks around, not a judgement of what is odd."""
+        t = float(event["time"])
+        q = (
+            f'search index={self.index} host="{event["host"]}" '
+            "| dedup 2 source punct | table _time host source punct _raw"
+        )
+        rows = [dict(r) for r in self.search.iter_post(q, t - 60 * minutes, t + 60 * minutes)]
+        rows.sort(
+            key=lambda r: self.template_count.get((r["host"], r["source"], r.get("punct", "")), 0)
+        )
+        return rows[:kinds]
 
     def score_candidates(self, tokens: Iterable[str]) -> dict[str, float]:
         chosen = list(tokens)
@@ -147,33 +186,40 @@ class Investigator:
         return list(dict.fromkeys(seeds))
 
     def investigate(
-        self, lead: Lead, *, depth: int = 3, breadth: int = 6, examine: int = 120
+        self,
+        lead: Lead,
+        *,
+        depth: int = 3,
+        breadth: int = 6,
+        examine: int = 120,
+        minutes: int = 15,
     ) -> Case:
         case = Case(seed=f"{lead.host}@{lead.hour}", seed_hour=lead.hour)
         frontier = self.seed_tokens(lead, examine)[:breadth]
         visited: set[str] = set()
+        looked_around: set[tuple[str, float]] = set()
         for level in range(depth):
             seen_here: Counter[str] = Counter()
+            reached: list[tuple[float, dict[str, Any]]] = []
             for token in frontier:
                 if token in visited:
                     continue
                 visited.add(token)
-                count, hosts, sources = self.footprint(token)
-                case.pivots.append(
-                    Pivot(token, count, hosts, sources, level, round(self.pivot_weight(token), 2))
-                )
+                count, hosts, sources = self.footprint(token, exact=True)
+                weight = round(self.pivot_weight(token, exact=True), 2)
+                case.pivots.append(Pivot(token, count, hosts, sources, level, weight))
                 for e in self.kinds(token):
-                    key = f"{e['host']}|{e['source']}|{e['_raw']}"
-                    case.events.setdefault(
-                        key,
-                        {
-                            "host": e["host"],
-                            "source": e["source"],
-                            "time": float(e["_time"]),
-                            "raw": e["_raw"],
-                            "via": token,
-                        },
-                    )
+                    ev = self._add(case, e, via=token)
+                    reached.append((weight, ev))
+                    seen_here.update(_tokens(str(e["_raw"])) - visited)
+            # time/place pivot: around the most specific events this round, on their host
+            for weight, ev in sorted(reached, key=lambda we: -we[0])[:breadth]:
+                spot = (ev["host"], float(ev["time"]) // 60)
+                if spot in looked_around:
+                    continue
+                looked_around.add(spot)
+                for e in self.neighborhood(ev, minutes=minutes, kinds=breadth):
+                    self._add(case, e, via=f"near:{ev['via']}", weight=weight)
                     seen_here.update(_tokens(str(e["_raw"])) - visited)
             scored = self.score_candidates(_recurring_least_common(seen_here, examine))
             frontier = [t for t, w in sorted(scored.items(), key=lambda kv: -kv[1]) if w > 0][
@@ -182,6 +228,25 @@ class Investigator:
             if not frontier:
                 break
         return case
+
+    @staticmethod
+    def _add(
+        case: Case, e: dict[str, Any], *, via: str, weight: float | None = None
+    ) -> dict[str, Any]:
+        key = f"{e['host']}|{e['source']}|{e['_raw']}"
+        ev = case.events.setdefault(
+            key,
+            {
+                "host": e["host"],
+                "source": e["source"],
+                "time": float(e["_time"]),
+                "raw": e["_raw"],
+                "via": via,
+            },
+        )
+        if weight is not None:
+            ev.setdefault("near_weight", weight)
+        return ev
 
 
 def _specific_shared(a: Case, b: Case) -> set[str]:

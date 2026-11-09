@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from collections.abc import Awaitable, Callable
 from typing import Any, cast
 
@@ -16,6 +17,7 @@ from mcp.server import MCPServer
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from portal.modules.security.core.hunt import jobs as hunt_jobs
 from portal.modules.security.core.review.contracts import Verdict, to_plain
 from portal.modules.security.core.review.service import (
     ReviewRequest,
@@ -163,6 +165,61 @@ def review_explain(concern_id: str) -> dict[str, Any]:
 def review_doctor(fix: bool = False) -> dict[str, Any]:
     """Check Splunk, reasoning models, databases, and embedder-bound calibrations."""
     return _guard("review_doctor", lambda: _get_runtime().doctor(fix=fix))
+
+
+def _hunt_search() -> Any:
+    from portal.modules.security.core.review.window import SplunkWindowSource
+
+    return SplunkWindowSource(timeout_seconds=600)
+
+
+@mcp.tool()
+def hunt_sources() -> dict[str, Any]:
+    """List the indexed environments (Splunk indexes) with event counts and time span."""
+
+    def run() -> dict[str, Any]:
+        rows = _hunt_search().iter_post(
+            "| tstats count min(_time) as first max(_time) as last where index=* by index",
+            0,
+            time.time(),
+        )
+        return {"environments": [dict(r) for r in rows]}
+
+    return _guard("hunt_sources", run)
+
+
+@mcp.tool()
+def hunt_start(
+    index: str, start: float | None = None, end: float | None = None, investigate: int = 10
+) -> dict[str, Any]:
+    """Blind hunt over one environment (index): rank host-hours where generic signals come
+    together, then dig the top leads into cases. Runs in the background; poll hunt_status."""
+
+    def run() -> dict[str, Any]:
+        job_id = hunt_jobs.start(
+            _hunt_search(), index, start or 0.0, end or time.time(), investigate
+        )
+        return {"job_id": job_id, "status": "RUNNING"}
+
+    return _guard("hunt_start", run)
+
+
+@mcp.tool()
+def hunt_status(job_id: str) -> dict[str, Any]:
+    """Progress of a hunt: stage, elapsed seconds, cases found."""
+    return _guard("hunt_status", lambda: hunt_jobs.status(job_id))
+
+
+@mcp.tool()
+def hunt_leads(job_id: str, n: int = 10) -> dict[str, Any]:
+    """The ranked leads (host-hours) of a hunt, with the strongest signal behind each."""
+    return _guard("hunt_leads", lambda: hunt_jobs.leads_view(job_id, n))
+
+
+@mcp.tool()
+def hunt_case(job_id: str, case: int = 1, n: int = 15) -> dict[str, Any]:
+    """One assembled case: the values it pivoted on and its evidence picture in time order."""
+    return _guard("hunt_case", lambda: hunt_jobs.case_view(job_id, case, n))
 
 
 def _route(

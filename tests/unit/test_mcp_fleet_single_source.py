@@ -326,6 +326,11 @@ NATIVE_TOOL_NAMES = {
     "data": ["attach_source", "list_session", "profile_table", "run_sql"],
     "netforensics": ["conversations", "extract_fields", "protocol_hierarchy", "recon_scan"],
     "review": [
+        "hunt_case",
+        "hunt_leads",
+        "hunt_sources",
+        "hunt_start",
+        "hunt_status",
         "review_cancel",
         "review_doctor",
         "review_explain",

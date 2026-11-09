@@ -2592,6 +2592,11 @@ workspaces:
     - review_queue
     - review_explain
     - review_doctor
+    - hunt_sources
+    - hunt_start
+    - hunt_status
+    - hunt_leads
+    - hunt_case
     expose_to_owui: true
     # C3 growth guard: declared user-facing engine — security engine (merge scope excludes security; unchanged)
     engine: true
