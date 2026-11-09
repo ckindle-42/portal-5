@@ -116,7 +116,7 @@ class Investigator:
         for source, punct, _ in lead.novel_templates[:10]:
             q = f'search index={self.index} host="{lead.host}" source="{source}" | table _raw punct'
             rows = self.search.iter_post(q, lead.hour, lead.hour + HOUR)
-            events.extend(r for r in rows if r.get("punct", "") == punct)
+            events.extend(dict(r) for r in rows if r.get("punct", "") == punct)
             if len(events) > 400:
                 break
         candidates = Counter(t for e in events[:400] for t in _tokens(str(e.get("_raw", ""))))
