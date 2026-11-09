@@ -27,6 +27,7 @@ import re
 import ssl
 import sys
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -103,6 +104,11 @@ def _post(url: str, token: str, body: bytes) -> None:
                 if payload.get("code", 0) != 0:
                     raise RuntimeError(f"HEC error: {payload}")
                 return
+        except urllib.error.HTTPError as exc:
+            body = exc.read()[:300]
+            if exc.code == 400 or attempt == 4:
+                raise RuntimeError(f"HEC {exc.code}: {body!r}") from exc
+            time.sleep(2 * (attempt + 1))
         except Exception:
             if attempt == 4:
                 raise
@@ -125,8 +131,52 @@ def iter_files(root: Path, include: list[str], exclude: list[str]) -> list[tuple
     return out
 
 
+def _unpage(obj):
+    """A page of records (an object whose bulk is one list of objects, e.g. a CloudWatch
+    `{"events": [...], "nextToken": ...}` response) is its records, not one event."""
+    if isinstance(obj, list):
+        return [x for item in obj for x in _unpage(item)]
+    if isinstance(obj, dict):
+        lists = [
+            v
+            for v in obj.values()
+            if isinstance(v, list) and v and all(isinstance(x, dict) for x in v)
+        ]
+        if len(lists) == 1 and len(json.dumps(lists[0])) > 0.5 * len(json.dumps(obj)):
+            return lists[0]
+    return [obj]
+
+
+def _records(path: Path):
+    """One raw record per event, by the file's own structure: a JSON array / concatenated JSON
+    documents yield one compact record per object (CloudTrail delivers records this way);
+    anything else yields lines."""
+    with open(path, "rb") as fh:
+        head = fh.read(64).lstrip()
+    if head[:1] in (b"[", b"{"):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        dec, i, n, objs = json.JSONDecoder(), 0, len(text), []
+        while i < n:
+            while i < n and text[i] in " \t\r\n,[]":
+                i += 1
+            if i >= n:
+                break
+            try:
+                obj, i = dec.raw_decode(text, i)
+            except json.JSONDecodeError:
+                objs = None
+                break
+            objs.extend(_unpage(obj))
+        if objs is not None:
+            for k, obj in enumerate(objs, 1):
+                yield k, json.dumps(obj, separators=(",", ":")).encode()
+            return
+    with open(path, "rb") as fh:
+        yield from enumerate(fh, 1)
+
+
 def _ingest_file(host, source, path, args, hec, token, manifest) -> dict:
-    sourcetype = _ROTATION.sub("", path.name)
+    sourcetype = _ROTATION.sub("", source.rstrip("/").rsplit("/", 1)[-1])
     last_t: float | None = None
     stats = {
         "host": host,
@@ -139,8 +189,9 @@ def _ingest_file(host, source, path, args, hec, token, manifest) -> dict:
         "time_none": 0,
     }
     batch: list[bytes] = []
-    with open(path, "rb") as fh:
-        for lineno, raw_bytes in enumerate(fh, 1):
+    batch_bytes = 0
+    if True:
+        for lineno, raw_bytes in _records(path):
             stats["lines"] += 1
             raw = raw_bytes.decode("utf-8", errors="replace").rstrip("\r\n")
             if not raw.strip():
@@ -152,7 +203,7 @@ def _ingest_file(host, source, path, args, hec, token, manifest) -> dict:
                 t = last_t
             last_t = t
             digest = hashlib.sha256(f"{host}|{source}|{raw}".encode()).hexdigest()[:24]
-            manifest.write(json.dumps([host, source, lineno, digest]) + "\n")
+            manifest.write(json.dumps([host, source, lineno, digest, str(path)]) + "\n")
             event = {
                 "host": host,
                 "source": source,
@@ -163,8 +214,10 @@ def _ingest_file(host, source, path, args, hec, token, manifest) -> dict:
             if t is not None:
                 event["time"] = f"{t:.6f}"
             batch.append(json.dumps(event).encode())
+            batch_bytes += len(batch[-1])
             stats["sent"] += 1
-            if len(batch) >= args.batch:
+            if len(batch) >= args.batch or batch_bytes > 512_000:
+                batch_bytes = 0
                 if not args.dry_run:
                     _post(hec, token, b"\n".join(batch))
                 batch = []
@@ -183,6 +236,13 @@ def main() -> int:
     ap.add_argument("--out", required=True, type=Path, help="receipt + digest manifest dir")
     ap.add_argument("--batch", type=int, default=5000)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--host", help="fixed host when the data has no machine (e.g. a cloud trail)")
+    ap.add_argument(
+        "--source-depth",
+        type=int,
+        default=0,
+        help="keep only the first N path components of source (when file names carry labels)",
+    )
     args = ap.parse_args()
 
     hec = os.environ["LAB_SPLUNK_HEC_URL"].rstrip("/") + "/services/collector/event"
@@ -192,6 +252,10 @@ def main() -> int:
     receipt = {"index": args.index, "root": str(args.root), "started": time.time(), "files": []}
     with open(args.out / "digests.jsonl", "w") as manifest:
         for host, source, path in files:
+            if args.host:  # the root's children are streams, not machines
+                host, source = args.host, f"/{host}{source}"
+            if args.source_depth:
+                source = "/" + "/".join(source.strip("/").split("/")[: args.source_depth])
             stats = _ingest_file(host, source, path, args, hec, token, manifest)
             receipt["files"].append(stats)
             print(json.dumps(stats), flush=True)

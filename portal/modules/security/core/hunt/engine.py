@@ -60,31 +60,51 @@ class Lead:
     novel_templates: list[tuple[str, str, int]]
     bursts: list[Burst] = field(default_factory=list)
     score: float = 0.0
+    span: int = HOUR  # the zoom level this lead was seen at; `hour` is the bucket start
 
     def as_dict(self) -> dict[str, Any]:
         out = asdict(self)
-        out["hour_utc"] = time.strftime("%Y-%m-%d %H:00", time.gmtime(self.hour))
+        out["hour_utc"] = time.strftime("%Y-%m-%d %H:%M", time.gmtime(self.hour))
         return out
 
 
-def _hour(value: Any) -> int:
-    return int(float(value)) // HOUR * HOUR
+# Zoom ladder: the clock resolutions an analyst flips between. A level is used only when the
+# data spans enough of it to have history; it is a set of views, not a tuned threshold.
+LADDER = (60, 600, HOUR, 86400)
 
 
-def template_rows(search: Search, index: str, start: float, end: float) -> list[dict[str, Any]]:
-    q = f"| tstats count where index={index} by host source punct _time span=1h"
+def _hour(value: Any, span: int = HOUR) -> int:
+    return int(float(value)) // span * span
+
+
+def ladder(search: Search, index: str, start: float, end: float) -> list[int]:
+    rows = list(
+        search.iter_post(
+            f"| tstats min(_time) as lo max(_time) as hi where index={index}", start, end
+        )
+    )
+    if not rows or rows[0].get("lo") is None:
+        return [HOUR]
+    data_span = float(rows[0]["hi"]) - float(rows[0]["lo"])
+    return [s for s in LADDER if data_span >= 2 * s] or [LADDER[0]]
+
+
+def template_rows(
+    search: Search, index: str, start: float, end: float, span: int = HOUR
+) -> list[dict[str, Any]]:
+    q = f"| tstats count where index={index} by host source punct _time span={span}s"
     return [dict(r) for r in search.iter_post(q, start, end)]
 
 
 def host_hour_novelty(
-    rows: list[dict[str, Any]],
+    rows: list[dict[str, Any]], span: int = HOUR
 ) -> dict[tuple[int, str], tuple[float, list[tuple[str, str, int]]]]:
-    """Prior-only template novelty per host-hour, before the concentration discount."""
+    """Prior-only template novelty per host-bucket, before the concentration discount."""
     by_stream: dict[tuple[str, str], dict[int, list[tuple[str, int]]]] = defaultdict(
         lambda: defaultdict(list)
     )
     for r in rows:
-        by_stream[(r["host"], r["source"])][_hour(r["_time"])].append(
+        by_stream[(r["host"], r["source"])][_hour(r["_time"], span)].append(
             (r.get("punct", ""), int(r["count"]))
         )
     out: dict[tuple[int, str], tuple[float, list[tuple[str, str, int]]]] = {}
@@ -107,10 +127,10 @@ def _is_time_token(token: str) -> bool:
 
 
 def _token_series(
-    search: Search, index: str, token: str, start: float, end: float
+    search: Search, index: str, token: str, start: float, end: float, span: int = HOUR
 ) -> dict[int, int]:
-    q = f'| tstats count where index={index} TERM("{token}") by _time span=1h'
-    return {_hour(r["_time"]): int(r["count"]) for r in search.iter_post(q, start, end)}
+    q = f'| tstats count where index={index} TERM("{token}") by _time span={span}s'
+    return {_hour(r["_time"], span): int(r["count"]) for r in search.iter_post(q, start, end)}
 
 
 def _burst(token: str, hour: int, series: dict[int, int]) -> Burst | None:
@@ -135,7 +155,7 @@ def value_bursts(
         f'search index={index} host="{lead.host}" | eval r=random() % 1000 '
         f"| sort r | head {sample} | table _raw"
     )
-    events = list(search.iter_post(q, lead.hour, lead.hour + HOUR))
+    events = list(search.iter_post(q, lead.hour, lead.hour + lead.span))
     tokens = Counter(
         t
         for e in events
@@ -144,14 +164,18 @@ def value_bursts(
     )
     chosen = [t for t, _ in tokens.most_common(top)]
     with ThreadPoolExecutor(max_workers=8) as pool:
-        series = list(pool.map(lambda t: _token_series(search, index, t, start, end), chosen))
+        series = list(
+            pool.map(lambda t: _token_series(search, index, t, start, end, lead.span), chosen)
+        )
     bursts = [b for t, s in zip(chosen, series, strict=True) if (b := _burst(t, lead.hour, s))]
     return sorted(bursts, key=lambda b: -b.z)
 
 
-def link(search: Search, index: str, burst: Burst, hour: int) -> list[tuple[str, str, int]]:
+def link(
+    search: Search, index: str, burst: Burst, hour: int, span: int = HOUR
+) -> list[tuple[str, str, int]]:
     q = f'| tstats count where index={index} TERM("{burst.token}") by host source'
-    rows = search.iter_post(q, hour - HOUR, hour + 2 * HOUR)
+    rows = search.iter_post(q, hour - span, hour + 2 * span)
     return sorted(((r["host"], r["source"], int(r["count"])) for r in rows), key=lambda x: -x[2])
 
 
@@ -166,24 +190,30 @@ def hunt(
     tokens: int = 60,
     bursts_kept: int = 5,
 ) -> list[Lead]:
-    """Rank host-hours by template novelty x concentration, then value burst x linkage."""
-    novelty = host_hour_novelty(template_rows(search, index, start, end))
-    hosts_novel = Counter(hour for hour, _ in novelty)
-    leads = [
-        Lead(hour, host, round(score / hosts_novel[hour], 2), hosts_novel[hour], items[:20])
-        for (hour, host), (score, items) in novelty.items()
-    ]
-    leads.sort(key=lambda lead: -lead.novelty)
-    pool = leads[:candidates]
+    """Rank host-buckets, at every zoom level, by template novelty x concentration, then
+    value burst x linkage. `candidates` is the digging budget per zoom level."""
+    leads: list[Lead] = []
+    pool: list[Lead] = []
+    for span in ladder(search, index, start, end):
+        novelty = host_hour_novelty(template_rows(search, index, start, end, span), span)
+        hosts_novel = Counter(bucket for bucket, _ in novelty)
+        level = [
+            Lead(b, host, round(score / hosts_novel[b], 2), hosts_novel[b], items[:20], span=span)
+            for (b, host), (score, items) in novelty.items()
+        ]
+        level.sort(key=lambda lead: -lead.novelty)
+        leads += level
+        pool += level[:candidates]
     for lead in pool:
         lead.bursts = value_bursts(search, index, lead, start, end, sample=sample, top=tokens)[
             :bursts_kept
         ]
         for b in lead.bursts:
-            b.links = link(search, index, b, lead.hour)
+            b.links = link(search, index, b, lead.hour, lead.span)
     rank_coherence(pool)
-    for lead in leads[candidates:]:
-        lead.score = 0.0
+    for lead in leads:
+        if lead not in pool:
+            lead.score = 0.0
     return sorted(leads, key=lambda lead: -lead.score)
 
 

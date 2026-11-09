@@ -23,6 +23,7 @@ def _lead(d: dict) -> Lead:
         d["novelty"],
         d["hosts_novel_that_hour"],
         [tuple(t) for t in d["novel_templates"]],
+        span=d.get("span", 3600),
     )
     lead.bursts = [Burst(**b) for b in d["bursts"]]
     lead.score = d["score"]

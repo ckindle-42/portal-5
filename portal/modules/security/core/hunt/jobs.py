@@ -100,13 +100,14 @@ def leads_view(job_id: str, n: int) -> dict[str, Any]:
         rows.append(
             {
                 "rank": rank,
-                "hour_utc": lead["hour_utc"],
+                "start_utc": lead["hour_utc"],
+                "span_s": lead.get("span", 3600),
                 "host": lead["host"],
                 "score": lead["score"],
                 "template_novelty": lead["novelty"],
                 "top_burst": None
                 if top is None
-                else f"{top['token']} {top['this_hour']}/hour vs usual {top['prior_median']}",
+                else f"{top['token']} {top['this_hour']} this bucket vs usual {top['prior_median']}",
             }
         )
     return {"job_id": job_id, "leads": rows}
