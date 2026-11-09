@@ -59,11 +59,33 @@ class Case:
             "sources": len({(e["host"], e["source"]) for e in self.events.values()}),
             "span_hours": (hours[-1] - hours[0]) // HOUR + 1 if hours else 0,
             "pivots": [p.__dict__ for p in self.pivots],
+            "picture": self.picture(),
         }
+
+    def picture(self, n: int = 25) -> list[dict[str, Any]]:
+        """The analyst's view: evidence reached through the most specific pivots, in time order."""
+        weight = {p.token: p.weight for p in self.pivots}
+        top = sorted(self.events.values(), key=lambda e: -weight.get(e["via"], 0.0))[:n]
+        return sorted(top, key=lambda e: e["time"])
+
+
+_PART = re.compile(r"[:/=@]+")
 
 
 def _tokens(raw: str) -> set[str]:
-    return {t for t in _TOKEN.findall(raw) if not _is_time_token(t) and not _TERM_UNSAFE.search(t)}
+    """Whole tokens plus their parts: `www-data:msperl` is also `www-data` and `msperl`."""
+    out: set[str] = set()
+    for t in _TOKEN.findall(raw):
+        for piece in (t, *_PART.split(t)):
+            if len(piece) >= 4 and not _is_time_token(piece) and not _TERM_UNSAFE.search(piece):
+                out.add(piece)
+    return out
+
+
+def _recurring_least_common(counts: Counter[str], n: int) -> list[str]:
+    """Candidates an analyst would look at: values that recur in the evidence, least common
+    first (frequent-in-evidence values are mostly background)."""
+    return [t for t, c in sorted(counts.items(), key=lambda kv: (kv[1], kv[0])) if c >= 2][:n]
 
 
 class Investigator:
@@ -125,7 +147,7 @@ class Investigator:
         return list(dict.fromkeys(seeds))
 
     def investigate(
-        self, lead: Lead, *, depth: int = 3, breadth: int = 6, examine: int = 40
+        self, lead: Lead, *, depth: int = 3, breadth: int = 6, examine: int = 120
     ) -> Case:
         case = Case(seed=f"{lead.host}@{lead.hour}", seed_hour=lead.hour)
         frontier = self.seed_tokens(lead, examine)[:breadth]
@@ -153,7 +175,7 @@ class Investigator:
                         },
                     )
                     seen_here.update(_tokens(str(e["_raw"])) - visited)
-            scored = self.score_candidates(t for t, _ in seen_here.most_common(examine))
+            scored = self.score_candidates(_recurring_least_common(seen_here, examine))
             frontier = [t for t, w in sorted(scored.items(), key=lambda kv: -kv[1]) if w > 0][
                 :breadth
             ]
@@ -162,11 +184,25 @@ class Investigator:
         return case
 
 
+def _specific_shared(a: Case, b: Case) -> set[str]:
+    """Shared pivots at least as specific as the median pivot of *both* cases (relative to the
+    cases themselves -- no fixed constant)."""
+
+    def median(case: Case) -> float:
+        ws = sorted(p.weight for p in case.pivots)
+        return ws[len(ws) // 2] if ws else 0.0
+
+    wa = {p.token: p.weight for p in a.pivots}
+    wb = {p.token: p.weight for p in b.pivots}
+    bar = max(median(a), median(b))
+    return {t for t in wa.keys() & wb.keys() if min(wa[t], wb[t]) >= bar}
+
+
 def merge_cases(cases: list[Case]) -> list[Case]:
-    """Cases that pivoted through the same value are one story."""
+    """Cases that pivoted through the same specific value are one story."""
     merged: list[Case] = []
     for case in cases:
-        home = next((m for m in merged if m.pivot_tokens & case.pivot_tokens), None)
+        home = next((m for m in merged if _specific_shared(m, case)), None)
         if home is None:
             case.merged_from = [case.seed]
             merged.append(case)
