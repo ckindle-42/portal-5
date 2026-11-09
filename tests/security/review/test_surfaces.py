@@ -42,6 +42,11 @@ def test_every_review_surface_is_registered_natively() -> None:
         "review_queue",
         "review_explain",
         "review_doctor",
+        "hunt_sources",
+        "hunt_start",
+        "hunt_status",
+        "hunt_leads",
+        "hunt_case",
     }
 
 
