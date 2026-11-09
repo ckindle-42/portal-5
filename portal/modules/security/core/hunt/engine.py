@@ -185,7 +185,7 @@ def hunt(
     start: float,
     end: float,
     *,
-    candidates: int = 40,
+    candidates: int = 15,
     sample: int = 2000,
     tokens: int = 60,
     bursts_kept: int = 5,
@@ -214,7 +214,24 @@ def hunt(
     for lead in leads:
         if lead not in pool:
             lead.score = 0.0
-    return sorted(leads, key=lambda lead: -lead.score)
+    return fold_overlaps(sorted(leads, key=lambda lead: -lead.score))
+
+
+def fold_overlaps(ranked: list[Lead]) -> list[Lead]:
+    """One incident seen at several zoom levels is one lead: a lead whose host matches and whose
+    time bucket overlaps an already-ranked lead is folded into it (kept, but ranked after)."""
+    kept: list[Lead] = []
+    folded: list[Lead] = []
+    spans: dict[str, list[tuple[int, int]]] = {}
+    for lead in ranked:
+        lo, hi = lead.hour, lead.hour + lead.span
+        if lead.score > 0 and any(a < hi and lo < b for a, b in spans.get(lead.host, [])):
+            folded.append(lead)
+            continue
+        kept.append(lead)
+        if lead.score > 0:
+            spans.setdefault(lead.host, []).append((lo, hi))
+    return kept + folded
 
 
 def _percentiles(values: list[float]) -> list[float]:

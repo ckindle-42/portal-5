@@ -20,7 +20,7 @@ def main() -> int:
     ap.add_argument("--index", required=True)
     ap.add_argument("--start", type=float, default=0.0)
     ap.add_argument("--end", type=float, default=time.time())
-    ap.add_argument("--candidates", type=int, default=40)
+    ap.add_argument("--candidates", type=int, default=15)
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
     t0 = time.time()
