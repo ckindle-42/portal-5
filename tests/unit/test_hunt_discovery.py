@@ -214,8 +214,9 @@ class _DiscoverySplunk:
         max_results: int | None,
     ) -> list[dict[str, Any]]:
         out = self._rows(q, start, end)
-        self.seen.append((q, query_budget_kind(q), max_results, len(out)))
-        return out[: max_results or None]
+        returned = out[: max_results or None]
+        self.seen.append((q, query_budget_kind(q), max_results, len(returned)))
+        return returned
 
     def _rows(self, q: str, start: float, end: float) -> list[dict[str, Any]]:
         rows = [r for r in self.rows if start <= float(r["_time"]) < end]
@@ -374,9 +375,109 @@ def test_discovery_cardinality_over_the_evidence_budget_still_yields_leads(
     assert cases
     assert ATTACK in {p["token"] for p in cases[0]["pivots"]}
 
-    # every discovery query streamed without an evidence cap; every evidence query had one
-    for _q, kind, cap, _rows in search.seen:
-        if kind == "discovery":
-            assert cap is None
-        else:
-            assert isinstance(cap, int) and cap > 0
+    # ranking samples kept their per-sample cap; link enumerations streamed; investigation
+    # evidence reads were bound by the events budget
+    for q, _kind, cap, _rows in search.seen:
+        if "eval r=random()" in q:
+            assert cap == 2000, q
+        elif q.endswith("by host source"):
+            assert cap is None, q
+        elif "table _time host source punct _raw" in q:
+            assert isinstance(cap, int) and 0 < cap <= 5000, q
+
+
+LINK_HOSTS = 1764  # BOTS-scale host count for one link() enumeration
+LINK_ROWS = 12000
+
+
+def _ranking_universe() -> list[dict[str, Any]]:
+    """Three hosts, each with known-value priors and a 20000-event lead hour: ranking alone
+    streams far more than the evidence budgets hold, and investigation's first raw read
+    fills the events budget exactly."""
+    rows: list[dict[str, Any]] = []
+    for host in ("v1", "v2", "v3"):
+        rows.append(
+            {
+                "_time": float(T0),
+                "host": host,
+                "source": "svc",
+                "punct": "prior..",
+                "count": 1,
+                "_raw": "svc heartbeat ok",
+            }
+        )
+        for hour in (1, 2, 3, 4):
+            rows.append(
+                {
+                    "_time": float(T0 + hour * HOUR),
+                    "host": host,
+                    "source": "svc",
+                    "punct": "prior..",
+                    "count": 2,
+                    "_raw": f"x={ATTACK} y=qqzz",
+                }
+            )
+        for j in range(20000):
+            rows.append(
+                {
+                    "_time": float(LEAD),
+                    "host": host,
+                    "source": "svc",
+                    "punct": " Victim !",
+                    "count": 1,
+                    "_raw": f"user={ATTACK} cmd=runx note=val{j}",
+                }
+            )
+    return rows
+
+
+class _RankingSplunk(_DiscoverySplunk):
+    """Serves link() with a host-count-scale enumeration; records every cap like the transport."""
+
+    def _rows(self, q: str, start: float, end: float) -> list[dict[str, Any]]:
+        if q.endswith("by host source") and "TERM(" in q:
+            return [
+                {
+                    "_time": float(LEAD),
+                    "host": f"h{i % LINK_HOSTS}",
+                    "source": f"s{i % 3}",
+                    "count": 1,
+                }
+                for i in range(LINK_ROWS)
+            ]
+        return super()._rows(q, start, end)
+
+
+def test_ranking_reads_never_starve_lead_persistence_or_evidence_budgets(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(jobs, "_ROOT", tmp_path)
+    search = _RankingSplunk(_ranking_universe())
+    job_id = "hunt-ranking1"
+
+    jobs._run(job_id, search, "idx", float(T0), float(LEAD + HOUR), dig=1)
+
+    job = jobs.load(job_id)
+    assert job is not None
+    assert job["status"] == "PARTIAL"  # honest: investigation hit its evidence budget
+    assert "budget" in str(job["progress"]["exhausted_reason"])
+    # ranking streamed 12 full 2000-row samples and 12 link enumerations, yet leads persisted
+    leads = job.get("leads", [])
+    assert leads and leads[0]["host"] == "v1"
+    assert ATTACK in {b["token"] for lead in leads for b in lead.get("bursts", [])}
+
+    progress = job["progress"]
+    assert progress["discovery_row_count"] >= 12 * 2000 + 12 * LINK_ROWS
+    assert progress["event_count"] == 5000  # investigation spent exactly the evidence budget
+    assert progress["cell_count"] <= progress["limits"]["cells"]
+
+    sample_caps = {cap for q, _k, cap, _r in search.seen if "eval r=random()" in q}
+    assert sample_caps == {2000}  # per-sample budget held for every ranking sample
+    assert all(cap is None for q, _k, cap, _r in search.seen if q.endswith("by host source"))
+    # the investigator's unheaded raw read was capped by the events budget, then refused
+    seed_reads = [
+        (cap, rows)
+        for q, _k, cap, rows in search.seen
+        if "table _raw punct" in q and "TERM(" not in q
+    ]
+    assert seed_reads and seed_reads[0] == (5000, 5000)

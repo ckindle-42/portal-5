@@ -324,11 +324,17 @@ def test_query_budget_kinds_cover_every_owned_query_shape() -> None:
     }
     for query, kind in cases.items():
         assert query_budget_kind(query) == kind, query
+    # ranking reads are discovery effort regardless of shape
+    for query in cases:
+        assert query_budget_kind(query, phase="ranking") == "discovery", query
 
 
 class _RowSource:
+    """Records the result cap each query was given, then serves its rows up to that cap."""
+
     def __init__(self, rows: list[dict[str, Any]]) -> None:
         self.rows = rows
+        self.caps: list[int | None] = []
 
     def iter_post_bounded(
         self,
@@ -339,6 +345,7 @@ class _RowSource:
         timeout_seconds: float,
         max_results: int | None,
     ) -> list[dict[str, Any]]:
+        self.caps.append(max_results)
         return self.rows[: max_results or None]
 
 
@@ -359,6 +366,8 @@ def test_discovery_streaming_does_not_consume_evidence_budgets() -> None:
     assert progress["cell_count"] == 0
     assert progress["event_count"] == 0
 
+    budget.update(phase="investigating")
+
     assert len(list(search.iter_post('search index="i" | table _raw', 0.0, 1.0))) == 5
     assert budget.snapshot()["event_count"] == 5
 
@@ -376,3 +385,32 @@ def test_discovery_streaming_does_not_consume_evidence_budgets() -> None:
 
     with pytest.raises(HuntBudgetExceededError, match="result_budget_exhausted"):
         list(search.iter_post('| tstats count where index="i" TERM("x") by host source', 0.0, 1.0))
+
+
+def test_ranking_reads_are_discovery_effort_with_per_sample_caps() -> None:
+    budget = HuntBudget(
+        {"query_seconds": 1, "job_seconds": 10, "requests": 9, "cells": 5, "events": 5}
+    )
+    source = _RowSource([{"i": str(i)} for i in range(20000)])
+    search = BudgetedSearch(source, budget)  # the job lifecycle starts in the ranking phase
+    sample = 'search index="i" host="h" | eval r=random() % 1000 | sort r | head 2000 | table _raw'
+    link = '| tstats count where index="i" TERM("t") by host source'
+
+    assert len(list(search.iter_post(sample, 0.0, 1.0))) == 2000  # per-sample cap, not events
+    assert source.caps[-1] == 2000
+    assert len(list(search.iter_post(link, 0.0, 1.0))) == 20000  # link enumerations stream
+    assert source.caps[-1] is None
+
+    progress = budget.snapshot()
+    assert progress["discovery_row_count"] == 22000
+    assert progress["event_count"] == 0
+    assert progress["cell_count"] == 0
+
+    budget.update(phase="investigating")
+
+    assert len(list(search.iter_post(sample, 0.0, 1.0))) == 5  # now bound by events remaining
+    assert source.caps[-1] == 5
+    assert budget.snapshot()["event_count"] == 5
+
+    with pytest.raises(HuntBudgetExceededError, match="result_budget_exhausted"):
+        list(search.iter_post(sample, 0.0, 1.0))

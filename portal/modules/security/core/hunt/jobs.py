@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 import time
 import uuid
@@ -32,10 +33,12 @@ DEFAULT_BUDGETS: dict[str, float] = {
 }
 
 
-def query_budget_kind(query: str) -> str:
-    """discovery | cells | events, by query shape. Indexed aggregates (totals, series, the
-    server-reduced template inventory) stream under the wall clock; `by host source`
-    enumerations are evidence locations; every raw read is evidence rows."""
+def query_budget_kind(query: str, phase: str = "investigating") -> str:
+    """discovery | cells | events, by execution phase then query shape. Ranking reads
+    (samples, peers, links, aggregates) are discovery effort; investigation raw reads are
+    events and its location enumerations are cells. Ranking keeps per-sample caps."""
+    if phase != "investigating":
+        return "discovery"
     if not query.lstrip().startswith("| tstats"):
         return "events"
     if " by host source punct" in query:
@@ -43,6 +46,12 @@ def query_budget_kind(query: str) -> str:
     if " by host source" in query:
         return "cells"
     return "discovery"
+
+
+def _per_sample_cap(query: str) -> int | None:
+    """A ranking read is bounded by the sample size its own query declares."""
+    head = re.search(r"head (\d+)", query)
+    return int(head.group(1)) if head else None
 
 
 class HuntBudgetExceededError(RuntimeError):
@@ -77,7 +86,7 @@ class HuntBudget:
     cells: int = 0
     events: int = 0
     discovery_rows: int = 0
-    phase: str = "starting"
+    phase: str = "ranking"
     seed_rank: int | None = None
     lead_count: int = 0
     pivot_count: int = 0
@@ -94,7 +103,11 @@ class HuntBudget:
     def remaining(self) -> float:
         return max(0.0, self.deadline - time.monotonic())
 
-    def reserve_query(self) -> float:
+    def reserve_query(self, query: str) -> tuple[float, str, int | None]:
+        """One shared decision per query, made under the lock: deadline, budget kind, and
+        result cap. The phase cannot race active discovery workers -- a phase change only
+        happens after `hunt()` returns (its pools joined), and each query keeps the kind
+        decided here for both its limit and its row counting."""
         with self.lock:
             if self.remaining() <= 0:
                 self.exhausted = "job_wall_time_budget_exhausted"
@@ -103,10 +116,19 @@ class HuntBudget:
                 self.exhausted = "request_budget_exhausted"
                 raise HuntBudgetExceededError(self.exhausted)
             self.queries += 1
-            return min(self.limits["query_seconds"], self.remaining())
+            kind = query_budget_kind(query, self.phase)
+            if kind == "events":
+                cap: int | None = int(self.limits["events"] - self.events)
+            elif kind == "cells":
+                cap = int(self.limits["cells"] - self.cells)
+            else:
+                cap = _per_sample_cap(query)
+            if cap is not None and cap <= 0:
+                self.exhausted = "result_budget_exhausted"
+                raise HuntBudgetExceededError(self.exhausted)
+            return min(self.limits["query_seconds"], self.remaining()), kind, cap
 
-    def record_rows(self, query: str, count: int) -> None:
-        kind = query_budget_kind(query)
+    def record_rows(self, kind: str, count: int) -> None:
         with self.lock:
             if kind == "events":
                 self.events += count
@@ -179,15 +201,10 @@ class BudgetedSearch:
         self.on_case_checkpoint: Callable[[str, dict[str, Any], list[Any]], None] | None = None
 
     def iter_post(self, query: str, start: float, end: float) -> Iterator[Mapping[str, Any]]:
-        timeout = self.budget.reserve_query()
+        timeout, kind, max_results = self.budget.reserve_query(query)
         bounded = getattr(self.search, "iter_post_bounded", None)
         if not callable(bounded):
             raise HuntSearchFailedError("search_adapter_has_no_server_job_cancellation")
-        kind = query_budget_kind(query)
-        max_results = _remaining_results(self.budget, kind)
-        if max_results is not None and max_results <= 0:
-            self.budget.exhausted = "result_budget_exhausted"
-            raise HuntBudgetExceededError(self.budget.exhausted)
         try:
             for row in bounded(
                 query,
@@ -196,7 +213,7 @@ class BudgetedSearch:
                 timeout_seconds=timeout,
                 max_results=max_results,
             ):
-                self.budget.record_rows(query, 1)
+                self.budget.record_rows(kind, 1)
                 yield row
             if self.budget.remaining() <= 0:
                 self.budget.exhausted = "job_wall_time_budget_exhausted"
@@ -224,15 +241,6 @@ class BudgetedSearch:
         self.budget.update(phase=phase, **values)
         if cases is not None and self.on_case_checkpoint is not None:
             self.on_case_checkpoint(phase, self.budget.snapshot(), cases)
-
-
-def _remaining_results(budget: HuntBudget, kind: str) -> int | None:
-    """Evidence reads stop at their budget. Discovery streams until the job clock ends."""
-    if kind == "events":
-        return int(budget.limits["events"] - budget.events)
-    if kind == "cells":
-        return int(budget.limits["cells"] - budget.cells)
-    return None
 
 
 def _path(job_id: str) -> Path:
