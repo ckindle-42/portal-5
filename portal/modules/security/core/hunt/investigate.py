@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import math
 import re
-import statistics
 from collections import Counter
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
@@ -52,6 +51,8 @@ class Case:
     events: dict[str, dict[str, Any]] = field(default_factory=dict)
     merged_from: list[str] = field(default_factory=list)
     degraded: list[str] = field(default_factory=list)
+    # the seed leads' own windows: (host, bucket start, bucket end)
+    seed_windows: list[tuple[str, int, int]] = field(default_factory=list)
 
     @property
     def pivot_tokens(self) -> set[str]:
@@ -78,19 +79,29 @@ class Case:
         }
 
     def core(self, cap: int = CORE_EVENTS) -> list[dict[str, Any]]:
-        """Events at least as specific as the case's median event weight, most specific first
-        within the effort cap, in time order."""
+        """The case read outward from its seed leads, diversified by kind, in time order."""
         events = list(self.events.values())
         if not events:
             return []
-        median = statistics.median(float(e.get("weight", 0.0)) for e in events)
-        eligible = [e for e in events if float(e.get("weight", 0.0)) >= median]
-        # Rarer kinds of event first (an analyst reads the unusual kind, not the 400k-line scan
-        # template), then pivot specificity; at most PER_KIND examples of any one kind.
-        eligible.sort(key=lambda e: (e.get("kind_count") or 1, -float(e.get("weight", 0.0))))
+        depth = {p.token: p.depth for p in self.pivots}
+
+        def in_seed(e: dict[str, Any]) -> bool:
+            return any(h == e["host"] and lo <= e["time"] < hi for h, lo, hi in self.seed_windows)
+
+        def order(e: dict[str, Any]) -> tuple[int, int, int, float]:
+            token = str(e.get("via", "")).split(":", 1)[-1]
+            # outward from the lead, as an analyst reads a case: what happened in the lead's own
+            # window on its host first, then the closest pivots, then rarer kinds and specificity
+            return (
+                0 if in_seed(e) else 1,
+                depth.get(token, 99),
+                int(e.get("kind_count") or 1),
+                -float(e.get("weight", 0.0)),
+            )
+
         taken: Counter[str] = Counter()
         focused: list[dict[str, Any]] = []
-        for e in eligible:
+        for e in sorted(events, key=order):
             # an event with no recorded kind is its own kind (never collapsed with others)
             kind = e.get("kind") or f"{e['host']}|{e['source']}|{e['raw']}"
             if taken[kind] >= PER_KIND:
@@ -330,7 +341,11 @@ class Investigator:
         examine: int = 120,
         minutes: int = 15,
     ) -> Case:
-        case = Case(seed=f"{lead.host}@{lead.hour}", seed_hour=lead.hour)
+        case = Case(
+            seed=f"{lead.host}@{lead.hour}",
+            seed_hour=lead.hour,
+            seed_windows=[(lead.host, lead.hour, lead.hour + lead.span)],
+        )
         mark = len(self.degraded)
         frontier = self.seed_tokens(lead, examine)[:breadth]
         visited: set[str] = set()
@@ -432,6 +447,7 @@ def merge_cases(cases: list[Case]) -> list[Case]:
             continue
         home.merged_from.append(case.seed)
         home.degraded.extend(case.degraded)
+        home.seed_windows.extend(case.seed_windows)
         known = home.pivot_tokens
         home.pivots += [p for p in case.pivots if p.token not in known]
         for key, ev in case.events.items():

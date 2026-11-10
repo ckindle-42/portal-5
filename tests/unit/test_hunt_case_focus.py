@@ -363,7 +363,7 @@ def test_case_view_shows_the_core_not_every_event(
 
     assert "events" not in view
     assert "hosts" not in view
-    assert view["core_events"] == 20
+    assert view["core_events"] == len(case.core())
     assert len(view["core"]) == 10
     assert len(view["picture"]) == 10
     assert view["core"][0].split(": ", 1)[1] == case.core()[0]["raw"][:180]
