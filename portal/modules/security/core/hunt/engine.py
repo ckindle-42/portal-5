@@ -10,7 +10,8 @@ possible (the search tier does the volume; this process does the reasoning):
 2. Concentration. Novelty seen on every host at once is an environment event (boot, sensor
    start), not an intrusion; a host-hour's novelty is divided by the hosts novel that hour.
 3. Value burst. Tokens from the host-hour's events are scored by how far this hour's count
-   sits above that value's own prior hours (robust z on log counts).
+   sits above that value's own prior hours and above the values holding the same slot in the
+   same shape of event on that host (robust z on log counts, then peer-relative).
 4. Linkage. A bursting value is pivoted across the whole environment: how many other hosts and
    sources it touches in the same span -- the "this and that came together" step.
 
@@ -38,6 +39,9 @@ _TOKEN = re.compile(r"[A-Za-z0-9_.:/@%\-]{4,}")
 _HAS_VALUE = re.compile(r"[A-Za-z0-9]")
 _TIME_OF_DAY = re.compile(r"\d{1,2}:\d{2}:\d{2}")
 _TERM_UNSAFE = re.compile(r"[\"\\=\[\]()|,;]")
+PEERS = 12  # effort budget: distinct peer values compared for one burst
+PEER_SAMPLE = 200  # effort budget: events read to locate a value's slot and its peers
+PEER_SHAPES = 4  # effort budget: event shapes read per burst when looking for peers
 
 
 class Search(Protocol):
@@ -51,6 +55,9 @@ class Burst:
     prior_median: float
     prior_hours_active: int
     z: float
+    peer_z: float = 0.0
+    peers: int = 0
+    peer_median_z: float = 0.0
     links: list[tuple[str, str, int]] = field(default_factory=list)
 
 
@@ -129,6 +136,14 @@ def _is_time_token(token: str) -> bool:
     return bool(_TIME_OF_DAY.search(token))
 
 
+def _pivotable(token: str) -> bool:
+    return (
+        bool(_HAS_VALUE.search(token))
+        and not _is_time_token(token)
+        and not _TERM_UNSAFE.search(token)
+    )
+
+
 def _token_series(
     search: Search, index: str, token: str, start: float, end: float, span: int = HOUR
 ) -> dict[int, int]:
@@ -160,10 +175,7 @@ def value_bursts(
     )
     events = list(search.iter_post(q, lead.hour, lead.hour + lead.span))
     tokens = Counter(
-        t
-        for e in events
-        for t in set(_TOKEN.findall(str(e.get("_raw", ""))))
-        if _HAS_VALUE.search(t) and not _is_time_token(t) and not _TERM_UNSAFE.search(t)
+        t for e in events for t in set(_TOKEN.findall(str(e.get("_raw", "")))) if _pivotable(t)
     )
     chosen = [t for t, _ in tokens.most_common(top)]
     with ThreadPoolExecutor(max_workers=8) as pool:
@@ -172,6 +184,84 @@ def value_bursts(
         )
     bursts = [b for t, s in zip(chosen, series, strict=True) if (b := _burst(t, lead.hour, s))]
     return sorted(bursts, key=lambda b: -b.z)
+
+
+def _search_literal(value: str) -> str:
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _slots(rows: Iterable[Mapping[str, Any]], token: str) -> dict[str, int]:
+    """Each event shape's slot for the token: its position among that shape's tokens."""
+    out: dict[str, int] = {}
+    for row in rows:
+        punct = str(row.get("punct", ""))
+        if punct not in out:
+            found = _TOKEN.findall(str(row.get("_raw", "")))
+            if token in found:
+                out[punct] = found.index(token)
+    return out
+
+
+def peer_tokens(
+    search: Search,
+    index: str,
+    lead: Lead,
+    burst: Burst,
+    start: float,
+    *,
+    sample: int = PEER_SAMPLE,
+) -> list[str]:
+    """Values in the burst token's slot of the same event shape on the lead's host, from history."""
+    q = (
+        f'search index={index} host="{lead.host}" TERM("{burst.token}") '
+        f"| head {sample} | table _raw punct"
+    )
+    shapes = _slots(search.iter_post(q, lead.hour, lead.hour + lead.span), burst.token)
+    peers: list[str] = []
+    for punct, slot in list(shapes.items())[:PEER_SHAPES]:
+        prior = (
+            f'search index={index} host="{lead.host}" punct={_search_literal(punct)} '
+            f"| head {sample} | table _raw"
+        )
+        for row in search.iter_post(prior, start, lead.hour):
+            tokens = _TOKEN.findall(str(row.get("_raw", "")))
+            candidate = tokens[slot] if slot < len(tokens) else ""
+            if (
+                candidate
+                and candidate != burst.token
+                and _pivotable(candidate)
+                and candidate not in peers
+            ):
+                peers.append(candidate)
+            if len(peers) >= PEERS:
+                return peers
+    return peers
+
+
+def peer_bursts(search: Search, index: str, lead: Lead, start: float, end: float) -> None:
+    """Rank each kept burst against the same-slot values instead of only its own history."""
+    found = [peer_tokens(search, index, lead, burst, start) for burst in lead.bursts]
+    flat = [token for peers in found for token in peers]
+
+    def series(token: str) -> dict[int, int]:
+        return _token_series(search, index, token, start, end, lead.span)
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        values = list(pool.map(series, flat))
+    offset = 0
+    for burst, peers in zip(lead.bursts, found, strict=True):
+        rows = values[offset : offset + len(peers)]
+        offset += len(peers)
+        if len(peers) < 2:
+            burst.peer_z = burst.z
+            continue
+        zs = [
+            pb.z if (pb := _burst(t, lead.hour, s)) else 0.0
+            for t, s in zip(peers, rows, strict=True)
+        ]
+        burst.peers = len(peers)
+        burst.peer_median_z = round(statistics.median(zs), 2)
+        burst.peer_z = round(burst.z - burst.peer_median_z, 2)
 
 
 def link(
@@ -213,11 +303,12 @@ def hunt(
         ]
         for b in lead.bursts:
             b.links = link(search, index, b, lead.hour, lead.span)
+        peer_bursts(search, index, lead, start, end)
     rank_coherence(pool)
     for lead in leads:
         if lead not in pool:
             lead.score = 0.0
-    return fold_overlaps(sorted(leads, key=lambda lead: -lead.score))
+    return fold_shared_values(fold_overlaps(sorted(leads, key=lambda lead: -lead.score)))
 
 
 def fold_overlaps(ranked: list[Lead]) -> list[Lead]:
@@ -237,6 +328,31 @@ def fold_overlaps(ranked: list[Lead]) -> list[Lead]:
     return kept + folded
 
 
+def _top_token(lead: Lead) -> str | None:
+    return max(lead.bursts, key=lambda b: b.z).token if lead.bursts else None
+
+
+def fold_shared_values(ranked: list[Lead]) -> list[Lead]:
+    """One actor on several hosts is one lead: a lead whose top burst value already heads a kept
+    lead on another host in an overlapping bucket is folded into it (kept, but ranked after)."""
+    kept: list[Lead] = []
+    folded: list[Lead] = []
+    seen: list[tuple[str, int, int, str]] = []
+    for lead in ranked:
+        token = _top_token(lead)
+        lo, hi = lead.hour, lead.hour + lead.span
+        shared = token is not None and any(
+            token == t and host != lead.host and a < hi and lo < b for t, a, b, host in seen
+        )
+        if lead.score > 0 and shared:
+            folded.append(lead)
+            continue
+        kept.append(lead)
+        if lead.score > 0 and token is not None:
+            seen.append((token, lo, hi, lead.host))
+    return kept + folded
+
+
 def _percentiles(values: list[float]) -> list[float]:
     order = sorted(values)
     return [(order.index(v) + 1) / len(order) for v in values]
@@ -248,7 +364,7 @@ def rank_coherence(pool: list[Lead]) -> None:
     if not pool:
         return
     nov = _percentiles([lead.novelty for lead in pool])
-    bur = _percentiles([max((b.z for b in lead.bursts), default=0.0) for lead in pool])
+    bur = _percentiles([max((b.peer_z for b in lead.bursts), default=0.0) for lead in pool])
     for lead, a, b in zip(pool, nov, bur, strict=True):
         lead.score = round(a * b, 4)
 
