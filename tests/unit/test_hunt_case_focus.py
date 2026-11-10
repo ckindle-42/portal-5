@@ -37,6 +37,8 @@ class FakeSearch:
             raise RuntimeError("search failed")
         rows = [e for e in self.events if start <= float(e["_time"]) < end]
         if q.startswith("| tstats count where index="):
+            if " by _time span=1h | stats count" in q:  # populated hours
+                return [{"count": len({int(float(e["_time"])) // 3600 for e in rows})}]
             if " by host source punct" in q:
                 counts = Counter((e["host"], e["source"], e.get("punct", "")) for e in rows)
                 return [

@@ -29,6 +29,7 @@ _TOKEN = re.compile(r"[A-Za-z0-9_.:/@%\-]{4,}")
 _HAS_VALUE = re.compile(r"[A-Za-z0-9]")
 _TERM_UNSAFE = re.compile(r"[\"\\=\[\]()|,;']")
 CORE_EVENTS = 200  # effort budget: how many events the focused case core may hold
+PER_KIND = 3  # effort budget: examples of any one kind of event shown in the core
 TIMELINE_DAYS = 5  # effort budget: how many other days of a value's timeline are read
 _TOP_DECILE = 0.1  # a level's own top decile -- a relative band, not a suspicion threshold
 
@@ -79,12 +80,26 @@ class Case:
     def core(self, cap: int = CORE_EVENTS) -> list[dict[str, Any]]:
         """Events at least as specific as the case's median event weight, most specific first
         within the effort cap, in time order."""
-        weighted = [(float(e.get("weight", 0.0)), e) for e in self.events.values()]
-        if not weighted:
+        events = list(self.events.values())
+        if not events:
             return []
-        median = statistics.median(w for w, _ in weighted)
-        focused = sorted((we for we in weighted if we[0] >= median), key=lambda we: -we[0])[:cap]
-        return [e for _w, e in sorted(focused, key=lambda we: we[1]["time"])]
+        median = statistics.median(float(e.get("weight", 0.0)) for e in events)
+        eligible = [e for e in events if float(e.get("weight", 0.0)) >= median]
+        # Rarer kinds of event first (an analyst reads the unusual kind, not the 400k-line scan
+        # template), then pivot specificity; at most PER_KIND examples of any one kind.
+        eligible.sort(key=lambda e: (e.get("kind_count") or 1, -float(e.get("weight", 0.0))))
+        taken: Counter[str] = Counter()
+        focused: list[dict[str, Any]] = []
+        for e in eligible:
+            # an event with no recorded kind is its own kind (never collapsed with others)
+            kind = e.get("kind") or f"{e['host']}|{e['source']}|{e['raw']}"
+            if taken[kind] >= PER_KIND:
+                continue
+            taken[kind] += 1
+            focused.append(e)
+            if len(focused) >= cap:
+                break
+        return sorted(focused, key=lambda e: e["time"])
 
     def picture(self, n: int = 25) -> list[dict[str, Any]]:
         """The analyst's view: the core's most specific events, in time order."""
@@ -141,14 +156,17 @@ class Investigator:
         self.search, self.index, self.start, self.end = search, index, start, end
         rows = list(search.iter_post(f"| tstats count where index={index}", start, end))
         self.total = int(rows[0]["count"]) if rows else 1
-        span = list(
+        # Populated hours, not min..max span: a handful of events stamped with their ingest time
+        # (no timestamp in their file) stretched Kyoushi's span from 6 days to ~5 years, shrank
+        # this scale to ~550 and capped nearly every pivot to one identical weight (found live, P2).
+        populated = list(
             search.iter_post(
-                f"| tstats min(_time) as lo max(_time) as hi where index={index}", start, end
+                f"| tstats count where index={index} by _time span=1h | stats count", start, end
             )
         )
-        hours = max(1.0, (float(span[0]["hi"]) - float(span[0]["lo"])) / HOUR) if span else 1.0
-        # A value seen more often than an average hour of this environment is background-scale;
-        # exact counting stops there (its weight is already low). Derived from the data.
+        hours = max(1.0, float(populated[0]["count"])) if populated else 1.0
+        # A value seen more often than an average populated hour of this environment is
+        # background-scale; exact counting stops there (its weight is already low).
         self.background_scale = max(2, int(self.total / hours))
         self.degraded: list[str] = []
         self._footprints: dict[tuple[str, bool], tuple[int, int, int]] = {}
@@ -212,7 +230,7 @@ class Investigator:
         """Every distinct kind of event the value appears in, a couple of examples of each."""
         q = (
             f'search index={self.index} "{token}" '
-            f"| dedup {per_kind} host source punct | table _time host source _raw"
+            f"| dedup {per_kind} host source punct | table _time host source punct _raw"
         )
         try:
             return [dict(r) for r in self._rows(q, self.start, self.end)]
@@ -254,7 +272,7 @@ class Investigator:
     def _timeline_kinds(self, token: str, lo: int, hi: int, out: list[dict[str, Any]]) -> None:
         q = (
             f'search index={self.index} "{token}" '
-            "| dedup 2 host source punct | table _time host source _raw"
+            "| dedup 2 host source punct | table _time host source punct _raw"
         )
         try:
             out.extend(dict(r) for r in self._rows(q, lo, hi))
@@ -365,9 +383,9 @@ class Investigator:
         ]
         return merge_cases([self.investigate(lead) for lead in chosen[:dig]])
 
-    @staticmethod
-    def _add(case: Case, e: dict[str, Any], *, via: str, weight: float) -> dict[str, Any]:
+    def _add(self, case: Case, e: dict[str, Any], *, via: str, weight: float) -> dict[str, Any]:
         key = f"{e['host']}|{e['source']}|{e['_raw']}"
+        kind = (e["host"], e["source"], e.get("punct", ""))
         return case.events.setdefault(
             key,
             {
@@ -377,6 +395,9 @@ class Investigator:
                 "raw": e["_raw"],
                 "via": via,
                 "weight": weight,
+                "kind": "|".join(kind),
+                # how common this kind of event is in the environment (0 = unknown)
+                "kind_count": self.template_count.get(kind, 0),
             },
         )
 
