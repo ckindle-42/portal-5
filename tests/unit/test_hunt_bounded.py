@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -414,3 +415,102 @@ def test_ranking_reads_are_discovery_effort_with_per_sample_caps() -> None:
 
     with pytest.raises(HuntBudgetExceededError, match="result_budget_exhausted"):
         list(search.iter_post(sample, 0.0, 1.0))
+
+
+def _results_source(sid: str, rows: list[dict[str, Any]]) -> SplunkWindowSource:
+    """A bounded source over a results-API-shaped payload, served in 5000-row pages."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/results"):
+            offset = int(request.url.params["offset"])
+            return _response(request, {"results": rows[offset : offset + 5000]})
+        if request.url.path.endswith(f"/{sid}"):
+            return _response(
+                request, {"entry": [{"content": {"isDone": True, "dispatchState": "DONE"}}]}
+            )
+        if request.url.path.endswith("/services/search/jobs"):
+            return _response(request, {"sid": sid})
+        raise AssertionError(request.url)
+
+    return SplunkWindowSource(
+        url="http://splunk",
+        user="user",
+        password="password",
+        transport=httpx.MockTransport(handler),
+    )
+
+
+ISO_TIME = "2021-03-22T15:06:00.000+00:00"
+ISO_EPOCH = datetime(2021, 3, 22, 15, 6, tzinfo=UTC).timestamp()
+
+
+def test_results_api_iso_time_normalizes_to_epoch_for_capped_reads() -> None:
+    rows = [
+        {
+            "_time": ISO_TIME,
+            "host": ["web01", "web01"],  # real results-API multivalue shape
+            "source": "auth",
+            "punct": ":::: ",
+            "count": "3",
+        }
+    ]
+
+    out = list(
+        _results_source("sid-iso", rows).iter_post_bounded(
+            '| tstats count where index="idx"', 0.0, 1.0, timeout_seconds=1, max_results=10
+        )
+    )
+
+    assert out[0]["_time"] == ISO_EPOCH
+    assert out[0]["host"] == "web01"  # multivalue flattened to its first value
+    assert out[0]["count"] == "3"  # non-time fields keep their wire values
+
+
+def test_fractional_seconds_and_tz_offsets_survive_normalization() -> None:
+    rows = [{"_time": "2021-03-22T10:06:00.250-05:00"}]
+
+    out = list(
+        _results_source("sid-frac", rows).iter_post_bounded(
+            'search index="idx"', 0.0, 1.0, timeout_seconds=1, max_results=10
+        )
+    )
+
+    assert out[0]["_time"] == datetime(2021, 3, 22, 15, 6, 0, 250000, tzinfo=UTC).timestamp()
+
+
+def test_export_style_numeric_time_strings_still_normalize() -> None:
+    rows = [{"_time": "1616430360.0"}]
+
+    out = list(
+        _results_source("sid-num", rows).iter_post_bounded(
+            'search index="idx"', 0.0, 1.0, timeout_seconds=1, max_results=10
+        )
+    )
+
+    assert out[0]["_time"] == 1616430360.0
+
+
+def test_malformed_time_fails_loudly_and_never_yields_zero() -> None:
+    rows = [{"_time": "2021-13-99T99:99:99+00:00"}]
+
+    with pytest.raises(WindowFetchError, match="unparseable _time") as excinfo:
+        list(
+            _results_source("sid-bad", rows).iter_post_bounded(
+                'search index="idx"', 0.0, 1.0, timeout_seconds=1, max_results=10
+            )
+        )
+    assert excinfo.value.sid == "sid-bad"
+    assert not excinfo.value.censored  # a decode failure is a failure, not censored coverage
+
+
+def test_paginated_results_normalize_iso_time_on_every_page() -> None:
+    rows = [{"_time": ISO_TIME, "i": str(i)} for i in range(5002)]
+
+    out = list(
+        _results_source("sid-page", rows).iter_post_bounded(
+            "| tstats count where index=idx", 0.0, 1.0, timeout_seconds=5, max_results=None
+        )
+    )
+
+    assert len(out) == 5002
+    assert all(row["_time"] == ISO_EPOCH for row in out)

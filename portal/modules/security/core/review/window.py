@@ -12,7 +12,7 @@ import sys
 import time
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Protocol
 
 import httpx
@@ -214,7 +214,28 @@ def _splunk_epoch(value: Any) -> float | None:
         parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
     except ValueError:
         return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
     return parsed.timestamp()
+
+
+def _normalized_result(sid: str, result: Mapping[str, Any]) -> dict[str, Any]:
+    """Decode one results-API row: /jobs/{sid}/results emits ISO8601 `_time` (the old export
+    emits numeric epoch), so event time is normalized to epoch seconds here for every bounded
+    read. Multivalue fields flatten to their first value, matching the consumers' scalar use."""
+    row = {
+        key: (value[0] if isinstance(value, list) and value else value)
+        for key, value in result.items()
+    }
+    if "_time" in row:
+        epoch = _splunk_epoch(row["_time"])
+        if epoch is None:
+            raise WindowFetchError(
+                f"Splunk search job {sid} returned an unparseable _time {row['_time']!r}",
+                sid=sid,
+            )
+        row["_time"] = epoch
+    return row
 
 
 def _cursor_behind(content: Mapping[str, Any]) -> bool:
@@ -526,7 +547,7 @@ class SplunkWindowSource:
         for result in results:
             if not isinstance(result, Mapping):
                 raise WindowFetchError(f"Splunk search job {sid} returned an invalid row", sid=sid)
-            rows.append(result)
+            rows.append(_normalized_result(sid, result))
         return rows
 
     def _paged_results(
