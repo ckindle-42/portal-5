@@ -14,7 +14,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from .engine import HOUR, Search, hunt
+from .engine import HOUR, Lead, Search, hunt
 from .investigate import Investigator, merge_cases
 
 _ROOT = Path(
@@ -46,6 +46,14 @@ def _hm(t: float) -> str:
     return time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(t))
 
 
+def _stripped(lead: Lead) -> dict[str, Any]:
+    """Scalar fields, top 3 bursts without link lists, 5 novel templates: full list, bounded file."""
+    out = lead.as_dict()
+    out["bursts"] = [{k: v for k, v in b.items() if k != "links"} for b in out["bursts"][:3]]
+    out["novel_templates"] = out["novel_templates"][:5]
+    return out
+
+
 def _run(job_id: str, search: Search, index: str, start: float, end: float, dig: int) -> None:
     state: dict[str, Any] = {
         "job_id": job_id,
@@ -57,7 +65,7 @@ def _run(job_id: str, search: Search, index: str, start: float, end: float, dig:
     _write(job_id, state)
     try:
         leads = hunt(search, index, start, end)
-        state.update(stage="investigating", leads=[lead.as_dict() for lead in leads[:50]])
+        state.update(stage="investigating", leads=[_stripped(lead) for lead in leads])
         _write(job_id, state)
         inv = Investigator(search, index, start, end)
         cases = merge_cases([inv.investigate(lead) for lead in leads[:dig]])
@@ -82,21 +90,81 @@ def start(search: Search, index: str, start_t: float, end_t: float, dig: int) ->
     return job_id
 
 
-def status(job_id: str) -> dict[str, Any]:
-    job = load(job_id)
+_MAX_CHARS = 6000  # an 8K-context seat
+
+
+def _levenshtein(a: str, b: str) -> int:
+    row = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        prev, row[0] = row[0], i
+        for j, cb in enumerate(b, 1):
+            prev, row[j] = row[j], min(row[j] + 1, row[j - 1] + 1, prev + (ca != cb))
+    return row[-1]
+
+
+def _all() -> list[dict[str, Any]]:
+    """Every stored job, most recently started first."""
+    found = [job for p in _ROOT.glob("hunt-*.json") if (job := load(p.stem)) is not None]
+    found.sort(key=lambda j: j.get("started", 0.0), reverse=True)
+    return found
+
+
+def _recent(found: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [{k: j.get(k) for k in ("job_id", "index", "status", "started")} for j in found[:3]]
+
+
+def _resolve(job_id: str | None, index: str | None) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+    """The job to read: an exact id, else the newest hunt on the index, else a near-miss id
+    (edit distance <= 3 -- a mis-copied id resolves instead of stranding the analyst)."""
+    found = _all()
+    if not job_id and not index:
+        return None, {"error": "give job_id or index"}
+    if job_id:
+        job = next((j for j in found if j.get("job_id") == job_id), None)
+        if job is not None:
+            return job, {}
+        near = [j for j in found if _levenshtein(str(j.get("job_id", "")), job_id) <= 3]
+        if len(near) == 1:
+            return near[0], {"resolved_from": job_id}
+        return None, {"error": f"unknown hunt {job_id!r}", "recent": _recent(found)}
+    job = next((j for j in found if j.get("index") == index), None)
     if job is None:
-        return {"error": f"unknown hunt {job_id!r}"}
-    keep = ("job_id", "index", "status", "stage", "started", "finished", "error")
-    out = {k: job[k] for k in keep if k in job}
-    out["elapsed_s"] = round(job.get("finished", time.time()) - job["started"], 1)
-    out["cases"] = len(job.get("cases", []))
+        return None, {"error": f"no hunt for index {index!r}", "recent": _recent(found)}
+    return job, {}
+
+
+def compact(out: dict[str, Any]) -> dict[str, Any]:
+    """Trim the tail of the largest list field until the response fits an 8K-context seat."""
+    trimmed = False
+    while len(json.dumps(out)) >= _MAX_CHARS:
+        sizes = {k: len(v) for k, v in out.items() if isinstance(v, list) and v}
+        if not sizes:
+            break
+        big = max(sizes, key=lambda k: sizes[k])
+        out[big] = out[big][:-1]
+        trimmed = True
+    if trimmed:
+        out["truncated"] = True
     return out
 
 
-def leads_view(job_id: str, n: int) -> dict[str, Any]:
-    job = load(job_id) or {}
+def status(job_id: str | None = None, index: str | None = None) -> dict[str, Any]:
+    job, out = _resolve(job_id, index)
+    if job is None:
+        return compact(out)
+    keep = ("job_id", "index", "status", "stage", "started", "finished", "error")
+    out.update({k: job[k] for k in keep if k in job})
+    out["elapsed_s"] = round(job.get("finished", time.time()) - job["started"], 1)
+    out["cases"] = len(job.get("cases", []))
+    return compact(out)
+
+
+def leads_view(job_id: str | None = None, index: str | None = None, n: int = 10) -> dict[str, Any]:
+    job, out = _resolve(job_id, index)
+    if job is None:
+        return compact(out)
     rows = []
-    for rank, lead in enumerate(job.get("leads", [])[:n], 1):
+    for rank, lead in enumerate(job.get("leads", [])[: max(0, min(n, 25))], 1):
         top = lead["bursts"][0] if lead.get("bursts") else None
         rows.append(
             {
@@ -111,29 +179,39 @@ def leads_view(job_id: str, n: int) -> dict[str, Any]:
                 else f"{top['token']} {top['this_hour']} this bucket vs usual {top['prior_median']}",
             }
         )
-    return {"job_id": job_id, "leads": rows}
+    out["job_id"] = job["job_id"]
+    out["leads"] = rows
+    return compact(out)
 
 
-def case_view(job_id: str, case_no: int, n: int) -> dict[str, Any]:
-    job = load(job_id) or {}
+def case_view(
+    job_id: str | None = None, index: str | None = None, case_no: int = 1, n: int = 15
+) -> dict[str, Any]:
+    job, out = _resolve(job_id, index)
+    if job is None:
+        return compact(out)
     cases = job.get("cases", [])
     if not 1 <= case_no <= len(cases):
-        return {"error": f"case {case_no} not in 1..{len(cases)}"}
+        out["error"] = f"case {case_no} not in 1..{len(cases)}"
+        return compact(out)
     c = cases[case_no - 1]
     pivots = sorted(c["pivots"], key=lambda p: -p["weight"])[:10]
-    return {
-        "job_id": job_id,
-        "case": case_no,
-        "seeds": c["merged_from"],
-        "events": c["events"],
-        "hosts": c["hosts"],
-        "span_hours": c["span_hours"],
-        "pivots": [f"{p['token']} ({p['count']} events, {p['hosts']} hosts)" for p in pivots],
-        "picture": [
-            f"{_hm(e['time'])} {e['host']} {e['source']}: {e['raw'][:180]}"
-            for e in c["picture"][:n]
-        ],
-    }
+    out.update(
+        {
+            "job_id": job["job_id"],
+            "case": case_no,
+            "seeds": c["merged_from"],
+            "events": c["events"],
+            "hosts": c["hosts"],
+            "span_hours": c["span_hours"],
+            "pivots": [f"{p['token']} ({p['count']} events, {p['hosts']} hosts)" for p in pivots],
+            "picture": [
+                f"{_hm(e['time'])} {e['host']} {e['source']}: {e['raw'][:180]}"
+                for e in c["picture"][:n]
+            ],
+        }
+    )
+    return compact(out)
 
 
-__all__ = ["HOUR", "case_view", "leads_view", "load", "start", "status"]
+__all__ = ["HOUR", "case_view", "compact", "leads_view", "load", "start", "status"]
