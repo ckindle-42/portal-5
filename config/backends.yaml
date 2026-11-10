@@ -788,7 +788,13 @@ backends:
     gemma4:26b-a4b-it-qat-ctx64k: gemma-4-26b-a4b-it-QAT-4bit
     gemma4:26b-a4b-it-qat-ctx128k: gemma-4-26b-a4b-it-QAT-4bit
     hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx8k: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
-    granite4.1:8b-ctx8k: granite-4.1-8b-mxfp8
+    # granite4.1:8b-ctx8k is deliberately NOT aliased (removed 2026-11-09, operator-approved):
+    # the same nightmedia conversion garbles tool-call arguments on this tag too -- a hunt job id
+    # 'hunt-c6b38fef36aa' came back as 'hunt- c6b38fef36aa' inside a text-form <tool_call> with
+    # malformed JSON and no native tool_calls (direct oMLX, 0/4 exact; the streamed request
+    # returned empty), while the seat's own Ollama GGUF returned native tool calls with the exact
+    # id 4/4. Seats on this tag (security-reviewer, auto-security variants, blueteam,
+    # toolcomposer) now run on Ollama. Evidence: docs/HUNT_P1_RESULTS_20261109.md.
     # granite4.1:8b-ctx16k is deliberately NOT aliased (removed 2026-10-17): with tools in the
     # request the nightmedia granite-4.1-8b-mxfp8 conversion emits U+200B inside paths (10/10 on
     # a captured request, byte-exact in the raw oMLX stream), and mangled tool/file names
@@ -924,7 +930,7 @@ backends:
     hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k: VulnLLM-R-7B-4bit
     fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k: Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit
     fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx24k: Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit
-    granite4.1:8b-ctx8k: granite-4.1-8b-mxfp8
+    # granite4.1:8b-ctx8k: NOT aliased (removed 2026-11-09) -- see the omlx-general note above.
     huihui_ai/qwen3.5-abliterated:9b-ctx8k: huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit
     huihui_ai/qwen3.5-abliterated:9b-ctx64k: huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit
     supergemma4-26b-uncensored:Q4_K_M-ctx64k: Jiunsong--supergemma4-26b-uncensored-mlx-4bit-v2

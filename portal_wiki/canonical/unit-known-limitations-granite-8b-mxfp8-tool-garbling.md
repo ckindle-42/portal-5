@@ -17,10 +17,17 @@ tags:
 - omlx
 ---
 
-### oMLX granite-4.1-8b-mxfp8 emits U+200B and splits names when tools are present (MITIGATED)
+### oMLX granite-4.1-8b-mxfp8 emits U+200B and splits names when tools are present (RESOLVED — no seat aliased)
 
 - **ID**: OMLX-GRANITE-8B-MXFP8-GARBLE-001
-- **Status**: MITIGATED (2026-10-17). The `granite4.1:8b-ctx16k` seat tag is no longer aliased onto
+- **Status**: RESOLVED (2026-11-09, operator-approved): the `granite4.1:8b-ctx8k` alias is removed
+  from `omlx-general` and `omlx-security` too, so no seat is served by the conversion. Trigger: the
+  security-reviewer tool set grew the hunt tools (`hunt_status`/`hunt_leads`/`hunt_case` take a
+  12-hex job id); direct to oMLX the model wrote `"job_id": "hunt- c6b38fef36aa"` inside a
+  text-form `<tool_call>` with malformed JSON and no native `tool_calls` (0/4 exact; the streamed
+  request returned empty), while the seat's own Ollama GGUF returned native tool calls with the
+  exact id 4/4. Through Open WebUI after the change: tool-call ids exact 8/8. Evidence:
+  `docs/HUNT_P1_RESULTS_20261109.md`. Earlier history: MITIGATED (2026-10-17). The `granite4.1:8b-ctx16k` seat tag is no longer aliased onto
   the conversion in `omlx-general` or `omlx-reasoning`, so auto-documents, auto-video and
   auto-image are served by the Ollama GGUF. The `granite4.1:8b-ctx8k` alias (compliance fan-out
   and security lanes) is kept: probed clean with those lanes' own tool sets.

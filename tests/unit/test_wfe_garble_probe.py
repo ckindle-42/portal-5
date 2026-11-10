@@ -37,7 +37,10 @@ def test_probe_flags_zwsp_bad_names_and_dotdot():
 #: clean 10/10 with the lanes' own tool sets (tools-specialist, security-reviewer, auto-security).
 #: Adding a pair needs a new `scripts/wfe_garble_probe.py` run and an update to the KNOWN_LIMITATIONS
 #: unit unit-known-limitations-granite-8b-mxfp8-tool-garbling.
-PROBED_ALIASES = {("omlx-general", "granite4.1:8b-ctx8k"), ("omlx-security", "granite4.1:8b-ctx8k")}
+#: 2026-11-09: emptied -- the ctx8k alias was removed from omlx-general and omlx-security after
+#: the hunt tools' id arguments came back corrupted on the conversion (0/4 exact direct; Ollama
+#: GGUF 4/4). Nothing may alias onto the conversion without a new probe.
+PROBED_ALIASES: set[tuple[str, str]] = set()
 
 
 def test_no_unprobed_alias_onto_the_mxfp8_conversion():
