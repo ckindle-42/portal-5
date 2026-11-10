@@ -47,13 +47,13 @@ lead whose host and time bucket hold no keyed attack record.
 | AIT santos | 3 / 4 | **4 / 4** | 1, 3, 4, 14 | 5 / 17 | 7 / 19 (**miss**: wpscan, dirb, webshell, service scan; exfil in separate cases) | 21.3 min |
 | AIT wheeler | 4 / 5 | 4 / 5 (5/5 by top 50) | 1, 2, 4, 6, 33 | 4 / 16 | 8 / 17 (**miss**, just under half: wpscan, dirb, webshell, scans, DNSteal) | 27.1 min |
 | AWS cloud_obs | 4 / 35 | 5 / 35 (11 by top 50) | 4, 5, 7, 9, 12, … | 5 / 15 | case 2 holds 9 attacks' records (account creation, credentials from password stores, data encrypted for impact, exfiltration, …) | 9.9 min |
-| BOTS v1 | **2 / 2** | 2 / 2 | **Cerber 1, web defacement 2** (re-runs: 1, 3) | 3 / 17 | *re-run 4 in progress at push time; follow-up commit* | leads ~60 min; dig >90 min |
+| BOTS v1 | **2 / 2** | 2 / 2 | **Cerber 1, web defacement 2** (re-run 4: 1, 3) | 3 / 17 (re-run 4: 4 / 17) | re-run 4 (`eca1af2c8`): all 4 cases hold artefacts; case 1 holds **both** scenarios (`121214.tmp`, `MIRANDA_PRI`, `40.80.148.42`, `23.22.63.114`, `3791.exe`) but is bloated (17.5k events, 1,762 hosts) | leads ~60 min; dig 108 min (1 lookup degraded) |
 
 **Against the bar:**
 - *≥1 attack episode per environment in the top 25:* **met in 6 / 6**. Every environment
   actually has one at rank ≤ 4.
 - *Best case covers ≥ half its stages:* **met in Kyoushi and russellmitchell**, missed in santos
-  (7/19) and wheeler (8/17), pending for BOTS v1. Cloud has no stage structure; its cases are
+  (7/19) and wheeler (8/17), BOTS v1 cases contain both scenarios' artefacts but are not focused (17.5k–21k events). Cloud has no stage structure; its cases are
   reported by attacks contained.
 - *False leads:* 3–6 of the top 10 and 15–20 of the top 25 in every environment. **Reported,
   not tuned.**
