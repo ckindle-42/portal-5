@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from .engine import HOUR, Lead, Search, hunt
-from .investigate import Investigator, merge_cases
+from .investigate import Investigator
 
 _ROOT = Path(
     os.environ.get("PORTAL5_HUNT_DIR", str(Path.home() / "AI_Output" / "review" / "hunts"))
@@ -68,7 +68,7 @@ def _run(job_id: str, search: Search, index: str, start: float, end: float, dig:
         state.update(stage="investigating", leads=[_stripped(lead) for lead in leads])
         _write(job_id, state)
         inv = Investigator(search, index, start, end)
-        cases = merge_cases([inv.investigate(lead) for lead in leads[:dig]])
+        cases = inv.investigate_all(leads, dig=dig)
         state.update(
             status="COMPLETE",
             stage="done",
@@ -196,15 +196,19 @@ def case_view(
         return compact(out)
     c = cases[case_no - 1]
     pivots = sorted(c["pivots"], key=lambda p: -p["weight"])[:10]
+    core = c.get("core", c["picture"])
     out.update(
         {
             "job_id": job["job_id"],
             "case": case_no,
             "seeds": c["merged_from"],
-            "events": c["events"],
-            "hosts": c["hosts"],
+            "core_events": c.get("core_events", c["events"]),
+            "core_hosts": c.get("core_hosts", len(c["hosts"])),
             "span_hours": c["span_hours"],
             "pivots": [f"{p['token']} ({p['count']} events, {p['hosts']} hosts)" for p in pivots],
+            "core": [
+                f"{_hm(e['time'])} {e['host']} {e['source']}: {e['raw'][:180]}" for e in core[:n]
+            ],
             "picture": [
                 f"{_hm(e['time'])} {e['host']} {e['source']}: {e['raw'][:180]}"
                 for e in c["picture"][:n]

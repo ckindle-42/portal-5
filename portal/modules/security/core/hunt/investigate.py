@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import math
 import re
+import statistics
 from collections import Counter
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
@@ -27,6 +28,9 @@ _TOKEN = re.compile(r"[A-Za-z0-9_.:/@%\-]{4,}")
 # Found live on BOTS v1: such a pivot became a full-index plain search (>20 min).
 _HAS_VALUE = re.compile(r"[A-Za-z0-9]")
 _TERM_UNSAFE = re.compile(r"[\"\\=\[\]()|,;']")
+CORE_EVENTS = 200  # effort budget: how many events the focused case core may hold
+TIMELINE_DAYS = 5  # effort budget: how many other days of a value's timeline are read
+_TOP_DECILE = 0.1  # a level's own top decile -- a relative band, not a suspicion threshold
 
 
 @dataclass
@@ -46,6 +50,7 @@ class Case:
     pivots: list[Pivot] = field(default_factory=list)
     events: dict[str, dict[str, Any]] = field(default_factory=dict)
     merged_from: list[str] = field(default_factory=list)
+    degraded: list[str] = field(default_factory=list)
 
     @property
     def pivot_tokens(self) -> set[str]:
@@ -54,26 +59,39 @@ class Case:
     def summary(self) -> dict[str, Any]:
         hosts = Counter(e["host"] for e in self.events.values())
         hours = sorted({int(e["time"]) // HOUR * HOUR for e in self.events.values()})
+        core = self.core()
         return {
             "seed": self.seed,
             "merged_from": self.merged_from,
             "events": len(self.events),
+            "core_events": len(core),
+            "core_hosts": len({e["host"] for e in core}),
             "hosts": dict(hosts.most_common()),
             "sources": len({(e["host"], e["source"]) for e in self.events.values()}),
             "span_hours": (hours[-1] - hours[0]) // HOUR + 1 if hours else 0,
+            "pivot_depths": dict(sorted(Counter(p.depth for p in self.pivots).items())),
+            "degraded": self.degraded,
             "pivots": [p.__dict__ for p in self.pivots],
+            "core": core,
             "picture": self.picture(),
         }
 
+    def core(self, cap: int = CORE_EVENTS) -> list[dict[str, Any]]:
+        """Events at least as specific as the case's median event weight, most specific first
+        within the effort cap, in time order."""
+        weighted = [(float(e.get("weight", 0.0)), e) for e in self.events.values()]
+        if not weighted:
+            return []
+        median = statistics.median(w for w, _ in weighted)
+        focused = sorted((we for we in weighted if we[0] >= median), key=lambda we: -we[0])[:cap]
+        return [e for _w, e in sorted(focused, key=lambda we: we[1]["time"])]
+
     def picture(self, n: int = 25) -> list[dict[str, Any]]:
-        """The analyst's view: evidence reached through the most specific pivots, in time order."""
-        weight = {p.token: p.weight for p in self.pivots}
-
-        def w(e: dict[str, Any]) -> float:
-            return float(weight.get(e["via"], e.get("near_weight", 0.0)))
-
-        top = sorted(self.events.values(), key=lambda e: -w(e))[:n]
-        return sorted(top, key=lambda e: e["time"])
+        """The analyst's view: the core's most specific events, in time order."""
+        focused = sorted(
+            ((float(e.get("weight", 0.0)), e) for e in self.core()), key=lambda we: -we[0]
+        )
+        return [e for _w, e in sorted(focused[:n], key=lambda we: we[1]["time"])]
 
 
 _PART = re.compile(r"[:/=@]+")
@@ -98,6 +116,24 @@ def _recurring_least_common(counts: Counter[str], n: int) -> list[str]:
     """Candidates an analyst would look at: values that recur in the evidence, least common
     first (frequent-in-evidence values are mostly background)."""
     return [t for t, c in sorted(counts.items(), key=lambda kv: (kv[1], kv[0])) if c >= 2][:n]
+
+
+def _top_decile_cut(values: list[int]) -> int | None:
+    """A zoom level's environment-wide band: the rarest value band holding at most a tenth of
+    the level. A level with spread but no clean decile still has its maximum as that band."""
+    if not values:
+        return None
+    counts = Counter(values)
+    at_or_above = 0
+    cut: int | None = None
+    for value in sorted(counts, reverse=True):
+        at_or_above += counts[value]
+        if at_or_above / len(values) > _TOP_DECILE:
+            break
+        cut = value
+    if cut is None and len(counts) > 1:
+        return max(counts)
+    return cut
 
 
 class Investigator:
@@ -184,6 +220,47 @@ class Investigator:
             self.degraded.append(f"kinds {token}: {type(exc).__name__}")
             return []
 
+    def timeline(
+        self, token: str, *, seed_day: int, days: int = TIMELINE_DAYS
+    ) -> list[dict[str, Any]]:
+        """The kinds of event a value appears in on days other than the seed's -- the link a
+        value pivot alone never reaches, because the seed day's examples fill the per-kind cap."""
+        q = (
+            f'search index={self.index} "{token}" | head {self.background_scale} '
+            "| bin _time span=1h | stats count by _time host source"
+        )
+        try:
+            rows = self._rows(q, self.start, self.end)
+        except Exception as exc:  # noqa: BLE001 -- one failed lookup degrades one pivot
+            self.degraded.append(f"timeline {token}: {type(exc).__name__}")
+            return []
+        per_hour: Counter[int] = Counter()
+        for r in rows:
+            t = int(float(r["_time"]))
+            if t // 86400 != seed_day:
+                per_hour[t // HOUR * HOUR] += int(r["count"])
+        blocks: list[tuple[int, int, int]] = []
+        for hour in sorted(per_hour):
+            if blocks and blocks[-1][1] == hour:
+                lo, _hi, count = blocks[-1]
+                blocks[-1] = (lo, hour + HOUR, count + per_hour[hour])
+            else:
+                blocks.append((hour, hour + HOUR, per_hour[hour]))
+        out: list[dict[str, Any]] = []
+        for lo, hi, _count in sorted(blocks, key=lambda b: -b[2])[:days]:
+            self._timeline_kinds(token, lo, hi, out)
+        return out
+
+    def _timeline_kinds(self, token: str, lo: int, hi: int, out: list[dict[str, Any]]) -> None:
+        q = (
+            f'search index={self.index} "{token}" '
+            "| dedup 2 host source punct | table _time host source _raw"
+        )
+        try:
+            out.extend(dict(r) for r in self._rows(q, lo, hi))
+        except Exception as exc:  # noqa: BLE001 -- one failed block degrades, not fails
+            self.degraded.append(f"timeline kinds {token}: {type(exc).__name__}")
+
     def neighborhood(
         self, event: dict[str, Any], *, minutes: int, kinds: int
     ) -> list[dict[str, Any]]:
@@ -236,6 +313,7 @@ class Investigator:
         minutes: int = 15,
     ) -> Case:
         case = Case(seed=f"{lead.host}@{lead.hour}", seed_hour=lead.hour)
+        mark = len(self.degraded)
         frontier = self.seed_tokens(lead, examine)[:breadth]
         visited: set[str] = set()
         looked_around: set[tuple[str, float]] = set()
@@ -250,9 +328,12 @@ class Investigator:
                 weight = round(self.pivot_weight(token, exact=True), 2)
                 case.pivots.append(Pivot(token, count, hosts, sources, level, weight))
                 for e in self.kinds(token):
-                    ev = self._add(case, e, via=token)
+                    ev = self._add(case, e, via=token, weight=weight)
                     reached.append((weight, ev))
                     seen_here.update(_tokens(str(e["_raw"])) - visited)
+                if weight > 0:
+                    for e in self.timeline(token, seed_day=lead.hour // 86400):
+                        self._add(case, e, via=f"timeline:{token}", weight=weight)
             # time/place pivot: around the most specific events this round, on their host
             for weight, ev in sorted(reached, key=lambda we: -we[0])[:breadth]:
                 spot = (ev["host"], float(ev["time"]) // 60)
@@ -268,14 +349,26 @@ class Investigator:
             ]
             if not frontier:
                 break
+        case.degraded = self.degraded[mark:]
         return case
 
+    def investigate_all(self, leads: list[Lead], *, dig: int) -> list[Case]:
+        """Dig the top `dig` leads that are not their zoom level's environment-wide band."""
+        values: dict[int, list[int]] = {}
+        for lead in leads:
+            values.setdefault(lead.span, []).append(lead.hosts_novel_that_hour)
+        cuts = {span: _top_decile_cut(v) for span, v in values.items()}
+        chosen = [
+            lead
+            for lead in leads
+            if (cut := cuts[lead.span]) is None or lead.hosts_novel_that_hour < cut
+        ]
+        return merge_cases([self.investigate(lead) for lead in chosen[:dig]])
+
     @staticmethod
-    def _add(
-        case: Case, e: dict[str, Any], *, via: str, weight: float | None = None
-    ) -> dict[str, Any]:
+    def _add(case: Case, e: dict[str, Any], *, via: str, weight: float) -> dict[str, Any]:
         key = f"{e['host']}|{e['source']}|{e['_raw']}"
-        ev = case.events.setdefault(
+        return case.events.setdefault(
             key,
             {
                 "host": e["host"],
@@ -283,37 +376,41 @@ class Investigator:
                 "time": float(e["_time"]),
                 "raw": e["_raw"],
                 "via": via,
+                "weight": weight,
             },
         )
-        if weight is not None:
-            ev.setdefault("near_weight", weight)
-        return ev
 
 
-def _specific_shared(a: Case, b: Case) -> set[str]:
-    """Shared pivots at least as specific as the median pivot of *both* cases (relative to the
-    cases themselves -- no fixed constant)."""
+def _shared_pivots(a: Case, b: Case) -> set[str]:
+    """A value worth merging two cases on: no more common than the less-specific case's median
+    pivot count (relative, not a constant), and reached near a seed in at least one of them."""
 
-    def median(case: Case) -> float:
-        ws = sorted(p.weight for p in case.pivots)
-        return ws[len(ws) // 2] if ws else 0.0
+    def median_count(case: Case) -> float:
+        counts = sorted(p.count for p in case.pivots)
+        return counts[len(counts) // 2] if counts else 0.0
 
-    wa = {p.token: p.weight for p in a.pivots}
-    wb = {p.token: p.weight for p in b.pivots}
-    bar = max(median(a), median(b))
-    return {t for t in wa.keys() & wb.keys() if min(wa[t], wb[t]) >= bar}
+    bar = min(median_count(a), median_count(b))
+    pa = {p.token: p for p in a.pivots}
+    pb = {p.token: p for p in b.pivots}
+    return {
+        token
+        for token in pa.keys() & pb.keys()
+        if min(pa[token].count, pb[token].count) <= bar
+        and min(pa[token].depth, pb[token].depth) <= 1
+    }
 
 
 def merge_cases(cases: list[Case]) -> list[Case]:
     """Cases that pivoted through the same specific value are one story."""
     merged: list[Case] = []
     for case in cases:
-        home = next((m for m in merged if _specific_shared(m, case)), None)
+        home = next((m for m in merged if _shared_pivots(m, case)), None)
         if home is None:
             case.merged_from = [case.seed]
             merged.append(case)
             continue
         home.merged_from.append(case.seed)
+        home.degraded.extend(case.degraded)
         known = home.pivot_tokens
         home.pivots += [p for p in case.pivots if p.token not in known]
         for key, ev in case.events.items():
