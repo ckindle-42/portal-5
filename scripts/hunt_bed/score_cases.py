@@ -50,6 +50,17 @@ def main() -> int:
                     hit[stage] += 1
                     keyed += 1
                     break
+        core_hit: dict[str, int] = defaultdict(int)
+        for ev in case.get("core", []):
+            for host in (ev["host"], ev["host"].replace("-", "_")):
+                stage = stage_of.get(_digest(host, ev["source"], ev["raw"]))
+                if stage:
+                    core_hit[stage] += 1
+                    break
+        print(
+            f"case {i} core={case.get('core_events', '-')} core_hosts={case.get('core_hosts', '-')} "
+            f"core stages {len(core_hit)}/{len(stage_size)}: {dict(core_hit)}"
+        )
         print(
             f"case {i} seeds={case['merged_from']} events={case['events']} "
             f"hosts={len(case['hosts'])} span={case['span_hours']}h keyed_events={keyed}\n"

@@ -84,7 +84,14 @@ def main() -> int:
         for i, c in enumerate(cases, 1):
             text = "\n".join(e["raw"] for e in c["evidence"]).lower()
             got = sorted({(k["scenario"], k["value"]) for k in arts if k["value"].lower() in text})
+            core_text = "\n".join(e["raw"] for e in c.get("core", [])).lower()
+            core_got = sorted(
+                {(k["scenario"], k["value"]) for k in arts if k["value"].lower() in core_text}
+            )
             print(f"case {i}: events {c['events']} artefacts {got}")
+            print(
+                f"case {i}: core {c.get('core_events', '-')} core_hosts {c.get('core_hosts', '-')} core artefacts {core_got}"
+            )
     return 0
 
 
