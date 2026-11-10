@@ -183,7 +183,7 @@ def hunt_sources() -> dict[str, Any]:
             0,
             time.time(),
         )
-        return {"environments": [dict(r) for r in rows]}
+        return hunt_jobs.compact({"environments": [dict(r) for r in rows]})
 
     return _guard("hunt_sources", run)
 
@@ -199,27 +199,38 @@ def hunt_start(
         job_id = hunt_jobs.start(
             _hunt_search(), index, start or 0.0, end or time.time(), investigate
         )
-        return {"job_id": job_id, "status": "RUNNING"}
+        nxt = (
+            f"call hunt_status(index={index!r}) until COMPLETE, then "
+            f"hunt_leads(index={index!r}) and hunt_case(index={index!r}, case=1)"
+        )
+        return hunt_jobs.compact(
+            {"job_id": job_id, "index": index, "status": "RUNNING", "next": nxt}
+        )
 
     return _guard("hunt_start", run)
 
 
 @mcp.tool()
-def hunt_status(job_id: str) -> dict[str, Any]:
-    """Progress of a hunt: stage, elapsed seconds, cases found."""
-    return _guard("hunt_status", lambda: hunt_jobs.status(job_id))
+def hunt_status(job_id: str | None = None, index: str | None = None) -> dict[str, Any]:
+    """Progress of a hunt: stage, elapsed seconds, cases found. Prefer index= over job_id:
+    it resolves to the newest hunt started on that environment."""
+    return _guard("hunt_status", lambda: hunt_jobs.status(job_id, index))
 
 
 @mcp.tool()
-def hunt_leads(job_id: str, n: int = 10) -> dict[str, Any]:
-    """The ranked leads (host-hours) of a hunt, with the strongest signal behind each."""
-    return _guard("hunt_leads", lambda: hunt_jobs.leads_view(job_id, n))
+def hunt_leads(job_id: str | None = None, index: str | None = None, n: int = 10) -> dict[str, Any]:
+    """The ranked leads (host-hours) of a hunt, with the strongest signal behind each.
+    Prefer index= over job_id; n is capped at 25."""
+    return _guard("hunt_leads", lambda: hunt_jobs.leads_view(job_id, index, n))
 
 
 @mcp.tool()
-def hunt_case(job_id: str, case: int = 1, n: int = 15) -> dict[str, Any]:
-    """One assembled case: the values it pivoted on and its evidence picture in time order."""
-    return _guard("hunt_case", lambda: hunt_jobs.case_view(job_id, case, n))
+def hunt_case(
+    job_id: str | None = None, index: str | None = None, case: int = 1, n: int = 15
+) -> dict[str, Any]:
+    """One assembled case: the values it pivoted on and its evidence picture in time order.
+    Prefer index= over job_id."""
+    return _guard("hunt_case", lambda: hunt_jobs.case_view(job_id, index, case, n))
 
 
 def _route(

@@ -87,8 +87,11 @@ def main() -> int:
     rec["job_status"] = st.get("status")
     rec["job_error"] = st.get("error")
     if st.get("status") == "COMPLETE":
-        turn(f"Show me the top 10 leads for hunt {job}.")
-        turn(f"Show me case 1 for hunt {job}: what it pivoted on and its evidence picture.")
+        turn(f"Show me the top 10 leads for the latest hunt on {args.index}.")
+        turn(
+            f"Show me case 1 for the latest hunt on {args.index}: "
+            "what it pivoted on and its evidence picture."
+        )
     rec["finished"] = time.time()
     (args.out / f"{args.index}.json").write_text(json.dumps(rec, indent=1))
     print(f"{args.index}: job {job} {rec['job_status']} in {rec['finished'] - rec['started']:.0f}s")
