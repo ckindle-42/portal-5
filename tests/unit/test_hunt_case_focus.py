@@ -17,6 +17,8 @@ from portal.modules.security.core.hunt.investigate import (
     Case,
     Investigator,
     Pivot,
+    _slot_variability,
+    _tokens,
     merge_cases,
 )
 
@@ -26,9 +28,15 @@ DAY = 86400
 class FakeSearch:
     """Only the query shapes the investigator issues, over a fixed event list."""
 
-    def __init__(self, events: list[dict[str, Any]], fail_on: str = "") -> None:
+    def __init__(
+        self,
+        events: list[dict[str, Any]],
+        fail_on: str = "",
+        force_term_miss: bool = False,
+    ) -> None:
         self.events = events
         self.fail_on = fail_on
+        self.force_term_miss = force_term_miss
         self.queries: list[str] = []
 
     def iter_post(self, q: str, start: float, end: float) -> list[dict[str, Any]]:
@@ -37,6 +45,29 @@ class FakeSearch:
             raise RuntimeError("search failed")
         rows = [e for e in self.events if start <= float(e["_time"]) < end]
         if q.startswith("| tstats count where index="):
+            if " by host source _time span=3600s" in q:
+                term = _term(q)
+                source = _clause(q, "source")
+                host = _clause(q, "host")
+                selected = [
+                    e
+                    for e in rows
+                    if (term is None or (not self.force_term_miss and term in e["_raw"]))
+                    and (source is None or source == e["source"])
+                    and (host is None or host == e["host"])
+                ]
+                counts = Counter(
+                    (
+                        e["host"],
+                        e["source"],
+                        int(float(e["_time"])) // HOUR * HOUR,
+                    )
+                    for e in selected
+                )
+                return [
+                    {"host": h, "source": s, "_time": t, "count": n}
+                    for (h, s, t), n in counts.items()
+                ]
             if " by _time span=1h | stats count" in q:  # populated hours
                 return [{"count": len({int(float(e["_time"])) // 3600 for e in rows})}]
             if " by host source punct" in q:
@@ -64,18 +95,42 @@ class FakeSearch:
         source = _clause(q, "source")
         token = _quoted_token(q)
         tail = q.split("|", 1)[1]
+        scopes = [
+            (h, s, int(lo), int(hi))
+            for h, s, lo, hi in re.findall(
+                r'\(host="([^"]+)" source="([^"]+)" _time>=(\d+) _time<(\d+)\)', q
+            )
+        ]
         selected = [
             e
             for e in rows
-            if (host is None or e["host"] == host)
-            and (source is None or e["source"] == source)
+            if (scopes or host is None or e["host"] == host)
+            and (scopes or source is None or e["source"] == source)
             and (token is None or token in e["_raw"])
+            and (
+                not scopes
+                or any(
+                    e["host"] == h and e["source"] == s and lo <= float(e["_time"]) < hi
+                    for h, s, lo, hi in scopes
+                )
+            )
         ]
         if tail.startswith(" table _raw punct"):
             return [{"_raw": e["_raw"], "punct": e.get("punct", "")} for e in selected]
         if tail.startswith(" head "):
             n = int(re.search(r"head (\d+)", tail).group(1))
             selected = selected[:n]
+            if "table _time host source punct _raw" in tail:
+                return [
+                    {
+                        "_time": e["_time"],
+                        "host": e["host"],
+                        "source": e["source"],
+                        "punct": e.get("punct", ""),
+                        "_raw": e["_raw"],
+                    }
+                    for e in selected
+                ]
             if "bin _time" in tail:
                 counts = Counter(
                     (int(float(e["_time"])) // HOUR * HOUR, e["host"], e["source"])
@@ -101,9 +156,9 @@ def _clause(q: str, name: str) -> str | None:
 
 
 def _quoted_token(q: str) -> str | None:
-    head = re.sub(r'\b(?:host|source)="[^"]+"', "", q.split("|", 1)[0])
-    m = re.search(r'"([^"]+)"', head)
-    return m.group(1) if m else None
+    head = re.sub(r'\b(?:index|host|source)="[^"]+"', "", q.split("|", 1)[0])
+    matches = re.findall(r'"([^"]+)"', head)
+    return matches[-1] if matches else None
 
 
 def _term(q: str) -> str | None:
@@ -197,12 +252,12 @@ def _entity_lead() -> Lead:
     )
 
 
-def test_environment_wide_lead_is_not_investigated() -> None:
+def test_investigation_effort_limit_uses_rank_order() -> None:
     leads = [_lead(i, v) for i, v in enumerate([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])]
     search = FakeSearch([FILLER[0]])
     investigator = Investigator(search, "idx", 0.0, 10**9)
 
-    cases = investigator.investigate_all(leads, dig=20)
+    cases = investigator.investigate_all(leads, dig=9)
 
     seeds = {c.seed for c in cases}
     assert "h9@1009" not in seeds
@@ -211,7 +266,7 @@ def test_environment_wide_lead_is_not_investigated() -> None:
     assert any("tok8x" in q for q in search.queries)
 
 
-def test_environment_wide_is_relative_to_its_own_zoom_level() -> None:
+def test_investigation_does_not_filter_by_zoom_level_population() -> None:
     # The same hosts-novel count is the rarest band of one level and the whole of another.
     hour_level = [_lead(i, v) for i, v in enumerate([10, 1, 1, 1, 1, 1, 1, 1, 1, 1])]
     minute_level = [_lead(100 + i, 10, span=60) for i in range(10)]
@@ -220,18 +275,27 @@ def test_environment_wide_is_relative_to_its_own_zoom_level() -> None:
 
     seeds = {c.seed for c in investigator.investigate_all(hour_level + minute_level, dig=40)}
 
-    assert "h0@1000" not in seeds
+    assert "h0@1000" in seeds
     assert "h100@1100" in seeds
 
 
-def test_level_maximum_is_skipped_even_without_a_clean_decile() -> None:
+def test_high_spread_lead_remains_in_the_ranked_effort_budget() -> None:
     leads = [_lead(0, 10, host="boot"), _lead(1, 1, host="quiet")]
     investigator = Investigator(FakeSearch([FILLER[0]]), "idx", 0.0, 10**9)
 
     seeds = {c.seed for c in investigator.investigate_all(leads, dig=10)}
 
-    assert "boot@1000" not in seeds
+    assert "boot@1000" in seeds
     assert "quiet@1001" in seeds
+
+
+def test_investigation_budget_does_not_apply_a_decile_filter() -> None:
+    leads = [_lead(0, 10, host="wide"), _lead(1, 1, host="quiet")]
+    investigator = Investigator(FakeSearch([FILLER[0]]), "idx", 0.0, 10**9)
+
+    cases = investigator.investigate_all(leads, dig=2)
+
+    assert {case.seed for case in cases} == {"wide@1000", "quiet@1001"}
 
 
 def test_pivot_seen_on_two_days_pulls_the_other_days_kinds() -> None:
@@ -247,6 +311,165 @@ def test_pivot_seen_on_two_days_pulls_the_other_days_kinds() -> None:
         e["raw"] == "session from 10.9.0.10 again" and e["via"] == "10.9.0.10"
         for e in case.events.values()
     )
+
+
+def test_compound_term_miss_uses_observed_and_expanded_cells() -> None:
+    events = [
+        {
+            "_time": float(FIRST_DAY),
+            "host": "web01",
+            "source": "access",
+            "punct": "::::",
+            "_raw": "GET /1.1 status",
+        },
+        {
+            "_time": float(SECOND_DAY),
+            "host": "web02",
+            "source": "access",
+            "punct": "::::",
+            "_raw": "GET /1.1 again",
+        },
+    ]
+    lead = Lead(
+        hour=FIRST_DAY,
+        host="web01",
+        novelty=1.0,
+        hosts_novel_that_hour=1,
+        novel_templates=[],
+        bursts=[Burst("/1.1", 2, 0.0, 1, 3.0)],
+    )
+    search = FakeSearch(events, force_term_miss=True)
+    investigator = Investigator(search, "idx", 0.0, 10**9)
+
+    case = investigator.investigate(lead, depth=1)
+
+    pivot = next(p for p in case.pivots if p.token == "/1.1")
+    assert pivot.indexed_count is None
+    assert pivot.verified_count == 2
+    assert pivot.count_semantics == "verified_local_sample_global_unknown"
+    assert pivot.weight == 0.0
+    assert {event["host"] for event in case.events.values()} == {"web01", "web02"}
+    assert any(event["time"] == SECOND_DAY for event in case.events.values())
+    assert case.coverage[0]["reason"] == "term_miss_seeded_from_observation"
+    assert all(
+        "host=" in query and "source=" in query and "_time>=" in query
+        for query in search.queries
+        if query.startswith("search index=") and "head 501" in query
+    )
+
+
+def test_no_index_or_observation_has_no_raw_whole_index_fallback() -> None:
+    search = FakeSearch([FILLER[0]])
+    investigator = Investigator(search, "idx", 0.0, 10**9)
+
+    assert investigator.kinds("unobserved") == []
+
+    assert not any(query.startswith("search index=") for query in search.queries)
+
+
+def test_indexed_plan_cache_respects_environment_window_and_query_semantics() -> None:
+    search = FakeSearch(ENTITIES + FILLER)
+    investigator = Investigator(search, "idx", 0.0, 10**9)
+
+    plan = investigator._plan("10.9.0.10")
+    query_count = len(search.queries)
+
+    assert investigator._plan("10.9.0.10") is plan
+    assert len(search.queries) == query_count
+    assert next(iter(investigator._plans)) == (
+        "idx",
+        0.0,
+        10**9,
+        "10.9.0.10",
+        "term-host-source-hour-v1",
+    )
+    assert investigator.pivot_weight("missing") == 0.0
+
+
+def test_shape_slot_variability_discounts_constant_values_and_dates() -> None:
+    events = [
+        {"source": "a", "punct": "shape", "_raw": "fixed action target"},
+        {"source": "a", "punct": "shape", "_raw": "fixed action-2 target-2"},
+        {"source": "b", "punct": "other", "_raw": "fixed event-1"},
+        {"source": "b", "punct": "other", "_raw": "fixed event-2"},
+    ]
+
+    variability = _slot_variability(events)
+
+    assert variability["fixed"] < variability["action"]
+    assert variability["fixed"] < variability["target"]
+    assert "2026-11-10" not in _tokens("observed 2026-11-10 fixed")
+
+
+def test_quoted_token_is_escaped_as_a_literal() -> None:
+    search = FakeSearch([])
+    investigator = Investigator(search, "idx", 0.0, 10**9)
+    token = 'value" OR index=*'
+
+    investigator._plan(token)
+
+    term_query = next(query for query in search.queries if "TERM(" in query)
+    assert 'TERM("value\\" OR index=*")' in term_query
+    assert 'TERM("value") OR index=*' not in term_query
+
+
+def test_raw_verification_checks_token_boundaries_after_search() -> None:
+    events = [
+        {
+            "_time": float(FIRST_DAY),
+            "host": "web01",
+            "source": "access",
+            "punct": "shape",
+            "_raw": "agent connected",
+        },
+        {
+            "_time": float(FIRST_DAY),
+            "host": "web01",
+            "source": "access",
+            "punct": "shape",
+            "_raw": "xagent123 connected",
+        },
+    ]
+    search = FakeSearch(events)
+    investigator = Investigator(search, "idx", 0.0, 10**9)
+    investigator._remember("agent", events[0], "agent", ("access", "shape"), 0)
+
+    rows = investigator.kinds("agent")
+
+    assert [row["_raw"] for row in rows] == ["agent connected"]
+
+
+def test_censored_local_sample_never_becomes_a_rare_global_count() -> None:
+    events = [
+        {
+            "_time": float(FIRST_DAY),
+            "host": f"web{i % 2}",
+            "source": "access",
+            "punct": "::::",
+            "_raw": f"token-unique event {i}",
+        }
+        for i in range(501)
+    ] + [
+        {
+            "_time": float(FIRST_DAY),
+            "host": "filler",
+            "source": "metrics",
+            "punct": ".",
+            "_raw": f"ordinary event {i}",
+        }
+        for i in range(100)
+    ]
+    search = FakeSearch(events)
+    investigator = Investigator(search, "idx", 0.0, 10**9)
+
+    assert investigator.pivot_weight("token-unique", exact=True) == 0.0
+
+    plan = investigator._plan("token-unique")
+    assert plan.indexed_count == 501
+    assert plan.verified_count == 500
+    assert plan.count_semantics == "indexed_estimate_and_verified_sample"
+    assert plan.censored is True
+    assert plan.coverage_complete is False
 
 
 def _case(seed: str, pivots: list[Pivot]) -> Case:
@@ -272,6 +495,18 @@ def test_deep_common_pivot_does_not_merge() -> None:
     )
 
     assert len(merge_cases([a, b])) == 2
+
+
+def test_merge_cases_preserves_coverage_from_both_seeds() -> None:
+    left = _case("left", [Pivot("shared", 1, 1, 1, 0, 1.0)])
+    right = _case("right", [Pivot("shared", 1, 1, 1, 0, 1.0)])
+    left.coverage.append({"token": "left-token", "coverage_complete": False})
+    right.coverage.append({"token": "right-token", "coverage_complete": False})
+
+    merged = merge_cases([left, right])
+
+    assert len(merged) == 1
+    assert [row["token"] for row in merged[0].coverage] == ["left-token", "right-token"]
 
 
 def test_deep_pivot_never_merges_even_when_specific() -> None:
@@ -435,20 +670,50 @@ def test_core_keeps_seed_priority_kind_budget_and_zero_cap() -> None:
     core = case.core(cap=4)
 
     assert len(core) == 4
-    assert all(event["host"] == "seed" for event in core)
+    assert sum(event["host"] == "seed" for event in core) == 3
+    assert sum(event["host"] == "other" for event in core) == 1
     assert sum(event["kind"] == "shared" for event in core) == 3
     assert [event["time"] for event in core] == sorted(event["time"] for event in core)
     assert case.core(cap=0) == []
 
 
+def test_core_keeps_outward_relations_when_seed_routes_are_many() -> None:
+    case = Case(seed="s", seed_hour=0, seed_windows=[("seed", 0, 1000)])
+    case.pivots = [Pivot(f"p{i}", 2, 2, 2, 0, 1.0) for i in range(20)]
+    for i in range(20):
+        case.events[f"seed-{i}"] = {
+            "host": "seed",
+            "source": "s",
+            "time": float(i),
+            "raw": f"seed event {i}",
+            "via": f"p{i}",
+            "kind": f"seed-kind-{i}",
+        }
+        case.events[f"out-{i}"] = {
+            "host": f"other-{i}",
+            "source": "s",
+            "time": float(1000 + i),
+            "raw": f"outward event {i}",
+            "via": f"timeline:p{i}",
+            "kind": f"out-kind-{i}",
+        }
+
+    core = case.core(cap=10)
+
+    assert len(core) == 10
+    assert sum(event["host"] == "seed" for event in core) == 5
+    assert sum(event["host"].startswith("other-") for event in core) == 5
+    assert any(event["via"].startswith("timeline:") for event in core)
+
+
 def test_failed_lookups_degrade_only_their_case() -> None:
-    search = FakeSearch(ENTITIES + FILLER, fail_on="dedup 2 host source punct")
+    search = FakeSearch(ENTITIES + FILLER, fail_on="table _time host source punct _raw")
     investigator = Investigator(search, "idx", 0.0, 10**9)
 
     case = investigator.investigate(_entity_lead(), depth=1)
 
     assert case.degraded == investigator.degraded
-    assert any(d.startswith("kinds 10.9.0.10") for d in case.degraded)
+    assert any(d.startswith("evidence 10.9.0.10") for d in case.degraded)
 
 
 def test_case_view_shows_the_core_not_every_event(

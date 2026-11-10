@@ -14,13 +14,14 @@ from __future__ import annotations
 
 import math
 import re
+import time
 from collections import Counter
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
 
-from .engine import HOUR, Lead, Search, _is_time_token
+from .engine import HOUR, Lead, Search, _is_time_token, _search_literal
 
 _TOKEN = re.compile(r"[A-Za-z0-9_.:/@%\-]{4,}")
 # A value has at least one letter or digit; a run of punctuation ("........") is formatting.
@@ -30,7 +31,35 @@ _TERM_UNSAFE = re.compile(r"[\"\\=\[\]()|,;']")
 CORE_EVENTS = 200  # effort budget: how many events the focused case core may hold
 PER_KIND = 3  # effort budget: examples of any one kind of event shown in the core
 TIMELINE_DAYS = 5  # effort budget: how many other days of a value's timeline are read
-_TOP_DECILE = 0.1  # a level's own top decile -- a relative band, not a suspicion threshold
+DAY = 86400
+MAX_PLAN_CELLS = 500  # effort budget: indexed locations planned for one pivot
+MAX_EVIDENCE_EVENTS = 500  # effort budget: raw examples retained for one pivot
+CELL_QUERY_SIZE = 40  # effort budget: indexed cells represented in one raw request
+
+
+@dataclass(frozen=True)
+class RetrievalCell:
+    host: str
+    source: str
+    start: int
+    end: int
+    indexed_count: int | None
+
+
+@dataclass
+class RetrievalPlan:
+    token: str
+    cells: tuple[RetrievalCell, ...]
+    indexed_count: int | None
+    verified_count: int | None = None
+    count_semantics: str = "unknown"
+    reason: str | None = None
+    elapsed_s: float = 0.0
+    work: dict[str, int] = field(default_factory=dict)
+    censored: bool = False
+    coverage_complete: bool = False
+    events: list[dict[str, Any]] = field(default_factory=list)
+    events_loaded: bool = False
 
 
 @dataclass
@@ -41,6 +70,11 @@ class Pivot:
     sources: int
     depth: int
     weight: float
+    indexed_count: int | None = None
+    verified_count: int | None = None
+    count_semantics: str = "unknown"
+    coverage_reason: str | None = None
+    provenance: list[dict[str, Any]] = field(default_factory=list)
 
 
 def _via_pivot(via: Any, pivots: set[str]) -> str | None:
@@ -55,6 +89,28 @@ def _via_pivot(via: Any, pivots: set[str]) -> str | None:
     return token or None
 
 
+def _take_core_event(
+    queues: list[list[dict[str, Any]]],
+    positions: list[int],
+    active: list[int],
+    taken: Counter[str],
+) -> dict[str, Any] | None:
+    while active:
+        route_index = active.pop(0)
+        queue = queues[route_index]
+        while positions[route_index] < len(queue):
+            event = queue[positions[route_index]]
+            positions[route_index] += 1
+            kind = event.get("kind") or f"{event['host']}|{event['source']}|{event['raw']}"
+            if taken[kind] >= PER_KIND:
+                continue
+            taken[kind] += 1
+            if positions[route_index] < len(queue):
+                active.append(route_index)
+            return event
+    return None
+
+
 @dataclass
 class Case:
     seed: str
@@ -63,6 +119,7 @@ class Case:
     events: dict[str, dict[str, Any]] = field(default_factory=dict)
     merged_from: list[str] = field(default_factory=list)
     degraded: list[str] = field(default_factory=list)
+    coverage: list[dict[str, Any]] = field(default_factory=list)
     # the seed leads' own windows: (host, bucket start, bucket end)
     seed_windows: list[tuple[str, int, int]] = field(default_factory=list)
 
@@ -85,6 +142,7 @@ class Case:
             "span_hours": (hours[-1] - hours[0]) // HOUR + 1 if hours else 0,
             "pivot_depths": dict(sorted(Counter(p.depth for p in self.pivots).items())),
             "degraded": self.degraded,
+            "coverage": self.coverage,
             "pivots": [p.__dict__ for p in self.pivots],
             "core": core,
             "picture": self.picture(),
@@ -121,33 +179,24 @@ class Case:
             route = ("pivot", token) if token is not None else ("event", index)
             routes[priority].setdefault(route, []).append(event)
 
+        queues = {priority: list(routes[priority].values()) for priority in (0, 1)}
+        positions = {priority: [0] * len(queues[priority]) for priority in (0, 1)}
+        active = {priority: list(range(len(queues[priority]))) for priority in (0, 1)}
         taken: Counter[str] = Counter()
         focused: list[dict[str, Any]] = []
-        for priority in (0, 1):
-            queues = list(routes[priority].values())
-            positions = [0] * len(queues)
-            active = list(range(len(queues)))
-            while active and len(focused) < cap:
-                next_active = []
-                for route_index in active:
-                    queue = queues[route_index]
-                    while positions[route_index] < len(queue):
-                        event = queue[positions[route_index]]
-                        positions[route_index] += 1
-                        # an event with no recorded kind is its own kind (never collapsed with others)
-                        kind = (
-                            event.get("kind") or f"{event['host']}|{event['source']}|{event['raw']}"
-                        )
-                        if taken[kind] >= PER_KIND:
-                            continue
-                        taken[kind] += 1
-                        focused.append(event)
-                        break
-                    if positions[route_index] < len(queue):
-                        next_active.append(route_index)
-                    if len(focused) >= cap:
-                        break
-                active = next_active
+        while len(focused) < cap:
+            progressed = False
+            for priority in (0, 1):
+                picked = _take_core_event(
+                    queues[priority], positions[priority], active[priority], taken
+                )
+                if picked is not None:
+                    focused.append(picked)
+                    progressed = True
+                if len(focused) >= cap:
+                    break
+            if not progressed:
+                break
         return sorted(focused, key=lambda e: e["time"])
 
     def picture(self, n: int = 25) -> list[dict[str, Any]]:
@@ -176,41 +225,60 @@ def _tokens(raw: str) -> set[str]:
     return out
 
 
-def _recurring_least_common(counts: Counter[str], n: int) -> list[str]:
-    """Candidates an analyst would look at: values that recur in the evidence, least common
-    first (frequent-in-evidence values are mostly background)."""
-    return [t for t, c in sorted(counts.items(), key=lambda kv: (kv[1], kv[0])) if c >= 2][:n]
+def _token_parts(raw: str) -> list[tuple[str, str, int]]:
+    """Retain the whole observed value beside lexical parts and their slot position."""
+    out = []
+    for position, match in enumerate(_TOKEN.finditer(raw)):
+        compound = match.group()
+        for piece in (compound, *_PART.split(compound)):
+            if (
+                len(piece) >= 4
+                and _HAS_VALUE.search(piece)
+                and not _is_time_token(piece)
+                and not _TERM_UNSAFE.search(piece)
+            ):
+                out.append((piece, compound, position))
+    return out
 
 
-def _top_decile_cut(values: list[int]) -> int | None:
-    """A zoom level's environment-wide band: the rarest value band holding at most a tenth of
-    the level. A level with spread but no clean decile still has its maximum as that band."""
-    if not values:
-        return None
-    counts = Counter(values)
-    at_or_above = 0
-    cut: int | None = None
-    for value in sorted(counts, reverse=True):
-        at_or_above += counts[value]
-        if at_or_above / len(values) > _TOP_DECILE:
-            break
-        cut = value
-    if cut is None and len(counts) > 1:
-        return max(counts)
-    return cut
+def _raw_contains_token(raw: str, token: str) -> bool:
+    return any(candidate == token for candidate, _compound, _position in _token_parts(raw))
+
+
+def _rank_evidence_candidates(counts: Counter[str], n: int) -> list[str]:
+    """Rank by observed recurrence while leaving selection to the explicit effort budget."""
+    return [token for token, _ in sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:n]]
+
+
+def _slot_variability(events: list[dict[str, Any]]) -> dict[str, float]:
+    slots: dict[tuple[str, str, int], Counter[str]] = {}
+    for event in events:
+        shape = (str(event.get("source", "")), str(event.get("punct", "")))
+        for token, _compound, position in _token_parts(str(event.get("_raw", ""))):
+            slots.setdefault((*shape, position), Counter())[token] += 1
+    return {
+        token: max(
+            (len(values) / sum(values.values()) for values in slots.values() if token in values),
+            default=1.0,
+        )
+        for token in {token for values in slots.values() for token in values}
+    }
 
 
 class Investigator:
     def __init__(self, search: Search, index: str, start: float, end: float) -> None:
         self.search, self.index, self.start, self.end = search, index, start, end
-        rows = list(search.iter_post(f"| tstats count where index={index}", start, end))
+        index_q = _search_literal(index)
+        rows = list(search.iter_post(f"| tstats count where index={index_q}", start, end))
         self.total = int(rows[0]["count"]) if rows else 1
         # Populated hours, not min..max span: a handful of events stamped with their ingest time
         # (no timestamp in their file) stretched Kyoushi's span from 6 days to ~5 years, shrank
         # this scale to ~550 and capped nearly every pivot to one identical weight (found live, P2).
         populated = list(
             search.iter_post(
-                f"| tstats count where index={index} by _time span=1h | stats count", start, end
+                f"| tstats count where index={index_q} by _time span=1h | stats count",
+                start,
+                end,
             )
         )
         hours = max(1.0, float(populated[0]["count"])) if populated else 1.0
@@ -218,8 +286,14 @@ class Investigator:
         # background-scale; exact counting stops there (its weight is already low).
         self.background_scale = max(2, int(self.total / hours))
         self.degraded: list[str] = []
+        self._plans: dict[tuple[str, float, float, str, str], RetrievalPlan] = {}
         self._footprints: dict[tuple[str, bool], tuple[int, int, int]] = {}
-        q = f"| tstats count where index={index} by host source punct"
+        self._handle_cells: dict[str, dict[tuple[str, str, int, int], RetrievalCell]] = {}
+        self._observed: dict[str, set[RetrievalCell]] = {}
+        self._compound_handles: dict[str, set[str]] = {}
+        self._provenance: dict[str, list[dict[str, Any]]] = {}
+        self.completed_cases: list[Case] = []
+        q = f"| tstats count where index={index_q} by host source punct"
         self.template_count = {
             (r["host"], r["source"], r.get("punct", "")): int(r["count"])
             for r in self._rows(q, start, end)
@@ -233,24 +307,268 @@ class Investigator:
             for r in self.search.iter_post(q, start, end)
         ]
 
-    def _footprint_rows(self, token: str, exact: bool) -> list[dict[str, Any]]:
-        if not exact:
-            q = f'| tstats count where index={self.index} TERM("{token}") by host source'
-            rows = list(self._rows(q, self.start, self.end))
-            if rows:
-                return rows
-        q = (
-            f'search index={self.index} "{token}" | head {self.background_scale} '
-            "| stats count by host source"
+    @staticmethod
+    def _cell_key(cell: RetrievalCell) -> tuple[str, str, int, int]:
+        return cell.host, cell.source, cell.start, cell.end
+
+    @staticmethod
+    def _merge_cells(
+        cells: dict[tuple[str, str, int, int], RetrievalCell],
+        incoming: dict[tuple[str, str, int, int], RetrievalCell],
+    ) -> None:
+        for key, cell in incoming.items():
+            prior = cells.get(key)
+            count = max(cell.indexed_count or 0, (prior.indexed_count or 0) if prior else 0)
+            cells[key] = RetrievalCell(cell.host, cell.source, cell.start, cell.end, count)
+
+    def _term_cells(
+        self, token: str, handles: set[str]
+    ) -> tuple[dict[tuple[str, str, int, int], RetrievalCell], int]:
+        index_q = _search_literal(self.index)
+        cells: dict[tuple[str, str, int, int], RetrievalCell] = {}
+        scans = 0
+        for handle in sorted(handles):
+            # One handle's cells are fixed for the run's index and window: scan it once.
+            scan = self._handle_cells.get(handle)
+            if scan is None:
+                scans += 1
+                q = (
+                    f"| tstats count where index={index_q} "
+                    f"TERM({_search_literal(handle)}) by host source _time span=3600s"
+                )
+                scan = {}
+                for row in self._rows(q, self.start, self.end):
+                    cell = self._cell(row)
+                    if cell is None:
+                        continue
+                    key = self._cell_key(cell)
+                    prior = scan.get(key)
+                    count = max(cell.indexed_count or 0, (prior.indexed_count or 0) if prior else 0)
+                    scan[key] = RetrievalCell(cell.host, cell.source, cell.start, cell.end, count)
+                self._handle_cells[handle] = scan
+            self._merge_cells(cells, scan)
+        return cells, scans
+
+    def _source_neighbors(
+        self, sources: set[str]
+    ) -> dict[tuple[str, str, int, int], RetrievalCell]:
+        index_q = _search_literal(self.index)
+        cells = {}
+        for source in sorted(sources):
+            q = (
+                f"| tstats count where index={index_q} "
+                f"source={_search_literal(source)} by host source _time span=3600s"
+            )
+            for row in self._rows(q, self.start, self.end):
+                cell = self._cell(row)
+                if cell is not None:
+                    cells[self._cell_key(cell)] = RetrievalCell(
+                        cell.host, cell.source, cell.start, cell.end, None
+                    )
+        return cells
+
+    def _host_neighbors(
+        self, observed: set[RetrievalCell]
+    ) -> dict[tuple[str, str, int, int], RetrievalCell]:
+        index_q = _search_literal(self.index)
+        cells = {}
+        for host in sorted({cell.host for cell in observed}):
+            for origin in sorted(
+                (cell for cell in observed if cell.host == host), key=lambda cell: cell.start
+            ):
+                lo = max(int(self.start), origin.start - DAY)
+                hi = min(int(self.end), origin.end + DAY)
+                q = (
+                    f"| tstats count where index={index_q} "
+                    f"host={_search_literal(host)} _time>={lo} _time<{hi} "
+                    "by host source _time span=3600s"
+                )
+                for row in self._rows(q, lo, hi):
+                    cell = self._cell(row)
+                    if cell is not None:
+                        cells[self._cell_key(cell)] = RetrievalCell(
+                            cell.host, cell.source, cell.start, cell.end, None
+                        )
+        return cells
+
+    def _plan(self, token: str) -> RetrievalPlan:
+        key = (self.index, self.start, self.end, token, "term-host-source-hour-v1")
+        if key in self._plans:
+            return self._plans[key]
+        began = time.monotonic()
+        handles = {token, *self._compound_handles.get(token, set())}
+        try:
+            term_cells, queries = self._term_cells(token, handles)
+        except Exception as exc:  # noqa: BLE001 -- failed discovery stays unknown
+            term_cells, queries = {}, len(handles)
+            self.degraded.append(f"indexed {token}: {type(exc).__name__}")
+        observed = self._observed.get(token, set())
+        cells = dict(term_cells)
+        for cell in observed:
+            cells.setdefault(self._cell_key(cell), cell)
+        reason = None
+        censored = False
+        if not term_cells and observed:
+            reason = "term_miss_seeded_from_observation"
+            try:
+                expanded = self._source_neighbors({cell.source for cell in observed})
+                expanded.update(self._host_neighbors(observed))
+                for cell_key, cell in expanded.items():
+                    cells.setdefault(cell_key, cell)
+                queries += len({cell.source for cell in observed}) + len(observed)
+            except Exception as exc:  # noqa: BLE001 -- retain observed cells on failure
+                reason = "neighborhood_expansion_failed"
+                censored = True
+                self.degraded.append(f"neighborhood {token}: {type(exc).__name__}")
+        if not term_cells and not observed:
+            reason = "no_indexed_or_observed_location"
+        ordered = sorted(cells.values(), key=lambda cell: (cell.start, cell.host, cell.source))
+        if len(ordered) > MAX_PLAN_CELLS:
+            ordered = ordered[:MAX_PLAN_CELLS]
+            reason = "cell_budget_exhausted"
+            censored = True
+        plan = RetrievalPlan(
+            token=token,
+            cells=tuple(ordered),
+            indexed_count=sum(cell.indexed_count or 0 for cell in term_cells.values())
+            if term_cells
+            else None,
+            count_semantics="indexed_estimate" if term_cells else "unknown",
+            reason=reason or ("indexed_cells_have_unknown_raw_coverage" if term_cells else None),
+            elapsed_s=round(time.monotonic() - began, 4),
+            work={"queries": queries, "cells": len(ordered), "events": 0},
+            censored=censored,
         )
-        return list(self._rows(q, self.start, self.end))
+        self._plans[key] = plan
+        checkpoint = getattr(self.search, "checkpoint", None)
+        if callable(checkpoint):
+            checkpoint("investigating", pivot_delta=1)
+        return plan
+
+    @staticmethod
+    def _cell(row: dict[str, Any]) -> RetrievalCell | None:
+        if not row.get("host") or not row.get("source") or row.get("_time") is None:
+            return None
+        start = int(float(row["_time"])) // HOUR * HOUR
+        return RetrievalCell(
+            str(row["host"]),
+            str(row["source"]),
+            start,
+            start + HOUR,
+            int(row.get("count") or 0),
+        )
+
+    def _remember(
+        self,
+        token: str,
+        event: dict[str, Any],
+        compound: str,
+        shape: tuple[str, str],
+        slot: int,
+    ) -> None:
+        start = int(float(event.get("_time", self.start))) // HOUR * HOUR
+        cell = RetrievalCell(
+            str(event.get("host", "")), str(event.get("source", "")), start, start + HOUR, None
+        )
+        locations = self._observed.setdefault(token, set())
+        new_location = bool(cell.host and cell.source and cell not in locations)
+        if cell.host and cell.source:
+            locations.add(cell)
+        handles = self._compound_handles.setdefault(token, set())
+        new_handle = compound != token and compound not in handles
+        if compound != token:
+            handles.add(compound)
+        if new_location or new_handle:
+            self._plans.pop(
+                (self.index, self.start, self.end, token, "term-host-source-hour-v1"), None
+            )
+            self._footprints.pop((token, False), None)
+            self._footprints.pop((token, True), None)
+        self._provenance.setdefault(token, []).append(
+            {
+                "host": cell.host,
+                "source": cell.source,
+                "time": start,
+                "shape": shape,
+                "slot": slot,
+                "compound": compound,
+            }
+        )
+
+    def _events_for_plan(self, plan: RetrievalPlan) -> list[dict[str, Any]]:
+        if plan.events_loaded:
+            return plan.events
+        plan.events_loaded = True
+        if not plan.cells:
+            return plan.events
+        index_q = _search_literal(self.index)
+        found: dict[tuple[str, str, float, str], dict[str, Any]] = {}
+        for offset in range(0, len(plan.cells), CELL_QUERY_SIZE):
+            group = plan.cells[offset : offset + CELL_QUERY_SIZE]
+            scopes = " OR ".join(
+                f"(host={_search_literal(cell.host)} source={_search_literal(cell.source)} "
+                f"_time>={cell.start} _time<{cell.end})"
+                for cell in group
+            )
+            q = (
+                f"search index={index_q} ({scopes}) {_search_literal(plan.token)} "
+                f"| head {MAX_EVIDENCE_EVENTS + 1} | table _time host source punct _raw"
+            )
+            lo = min(cell.start for cell in group)
+            hi = max(cell.end for cell in group)
+            try:
+                rows = self._rows(q, lo, hi)
+            except Exception as exc:  # noqa: BLE001 -- unknown local verification
+                plan.reason = f"raw_verification_failed:{type(exc).__name__}"
+                plan.censored = True
+                self.degraded.append(f"evidence {plan.token}: {type(exc).__name__}")
+                break
+            if len(rows) > MAX_EVIDENCE_EVENTS:
+                plan.censored = True
+                plan.reason = "event_budget_exhausted"
+                rows = rows[:MAX_EVIDENCE_EVENTS]
+            for row in rows:
+                if not _raw_contains_token(str(row.get("_raw", "")), plan.token):
+                    continue
+                key = (
+                    str(row.get("host", "")),
+                    str(row.get("source", "")),
+                    float(row.get("_time", 0.0)),
+                    str(row.get("_raw", "")),
+                )
+                found.setdefault(key, dict(row))
+            if len(found) > MAX_EVIDENCE_EVENTS:
+                plan.censored = True
+                plan.reason = "event_budget_exhausted"
+                break
+        plan.events = list(found.values())[:MAX_EVIDENCE_EVENTS]
+        plan.verified_count = len(plan.events)
+        plan.work["events"] = len(plan.events)
+        if plan.verified_count:
+            plan.count_semantics = (
+                "indexed_estimate_and_verified_sample"
+                if plan.indexed_count is not None
+                else "verified_local_sample_global_unknown"
+            )
+        return plan.events
+
+    def _footprint_rows(self, token: str, exact: bool) -> list[dict[str, Any]]:
+        plan = self._plan(token)
+        if exact:
+            events = self._events_for_plan(plan)
+            counts = Counter((r["host"], r["source"]) for r in events)
+        else:
+            counts = Counter()
+            for cell in plan.cells:
+                if cell.indexed_count is not None:
+                    counts[(cell.host, cell.source)] += cell.indexed_count
+        return [
+            {"host": host, "source": source, "count": count}
+            for (host, source), count in counts.items()
+        ]
 
     def footprint(self, token: str, *, exact: bool = False) -> tuple[int, int, int]:
-        """(index-wide count, distinct hosts, distinct sources) for one value.
-
-        Ranking candidates uses TERM() (fast, index-only, but blind to a value inside a compound
-        such as `192.42.0.255:41607`). A value chosen as a pivot gets the exact plain-search
-        footprint -- measured live: TERM found 179 of the attacker address's 455 events."""
+        """Return an indexed estimate or verified local sample with its observed spread."""
         key = (token, exact)
         if key not in self._footprints:
             try:
@@ -266,46 +584,39 @@ class Investigator:
         return self._footprints[key]
 
     def pivot_weight(self, token: str, *, exact: bool = False) -> float:
-        """Specific (rare in the environment) and recurring in at least two places.
-
-        Recurrence is the condition (a value seen in one place leads nowhere); rarity is the
-        rank. Rewarding spread would favour background words that are everywhere."""
-        count, _hosts, sources = self.footprint(token, exact=exact)
-        if count < 2 or sources < 2:
+        """Rank from indexed estimates only; local samples never imply global rarity."""
+        plan = self._plan(token)
+        if exact:
+            self._events_for_plan(plan)
+        count = plan.indexed_count
+        sources = len(
+            {(cell.host, cell.source) for cell in plan.cells if cell.indexed_count is not None}
+        )
+        if count is None or count <= 0 or sources == 0 or plan.censored:
             return 0.0
-        return math.log(self.total / count)
+        return math.log((self.total + 1) / (count + 1)) * math.log1p(sources)
 
     def kinds(self, token: str, per_kind: int = 2) -> list[dict[str, Any]]:
-        """Every distinct kind of event the value appears in, a couple of examples of each."""
-        q = (
-            f'search index={self.index} "{token}" '
-            f"| dedup {per_kind} host source punct | table _time host source punct _raw"
-        )
-        try:
-            return [dict(r) for r in self._rows(q, self.start, self.end)]
-        except Exception as exc:  # noqa: BLE001 -- one failed lookup degrades one pivot
-            self.degraded.append(f"kinds {token}: {type(exc).__name__}")
-            return []
+        """Return cached literal matches from indexed or observed cells only."""
+        seen: Counter[tuple[str, str, str]] = Counter()
+        out = []
+        for row in self._events_for_plan(self._plan(token)):
+            key = (str(row["host"]), str(row["source"]), str(row.get("punct", "")))
+            if seen[key] < per_kind:
+                seen[key] += 1
+                out.append(row)
+        return out
 
     def timeline(
         self, token: str, *, seed_day: int, days: int = TIMELINE_DAYS
     ) -> list[dict[str, Any]]:
-        """The kinds of event a value appears in on days other than the seed's -- the link a
-        value pivot alone never reaches, because the seed day's examples fill the per-kind cap."""
-        q = (
-            f'search index={self.index} "{token}" | head {self.background_scale} '
-            "| bin _time span=1h | stats count by _time host source"
-        )
-        try:
-            rows = self._rows(q, self.start, self.end)
-        except Exception as exc:  # noqa: BLE001 -- one failed lookup degrades one pivot
-            self.degraded.append(f"timeline {token}: {type(exc).__name__}")
-            return []
+        """Read other-day examples from the cached, localized evidence."""
+        rows = self._events_for_plan(self._plan(token))
         per_hour: Counter[int] = Counter()
-        for r in rows:
-            t = int(float(r["_time"]))
+        for row in rows:
+            t = int(float(row["_time"]))
             if t // 86400 != seed_day:
-                per_hour[t // HOUR * HOUR] += int(r["count"])
+                per_hour[t // HOUR * HOUR] += 1
         blocks: list[tuple[int, int, int]] = []
         for hour in sorted(per_hour):
             if blocks and blocks[-1][1] == hour:
@@ -314,19 +625,42 @@ class Investigator:
             else:
                 blocks.append((hour, hour + HOUR, per_hour[hour]))
         out: list[dict[str, Any]] = []
-        for lo, hi, _count in sorted(blocks, key=lambda b: -b[2])[:days]:
+        for lo, hi, _count in sorted(blocks, key=lambda block: -block[2])[:days]:
             self._timeline_kinds(token, lo, hi, out)
         return out
 
+    def _token_evidence(
+        self, case: Case, token: str, plan: RetrievalPlan, lead: Lead, weight: float
+    ) -> tuple[Counter[str], list[dict[str, Any]], list[tuple[float, dict[str, Any]]]]:
+        seen: Counter[str] = Counter()
+        events: list[dict[str, Any]] = []
+        reached: list[tuple[float, dict[str, Any]]] = []
+        sources = [(self.kinds(token), token, True)] if plan.cells else []
+        if weight > 0 or (plan.reason or "").startswith("term_miss_seeded"):
+            sources.append(
+                (self.timeline(token, seed_day=lead.hour // 86400), f"timeline:{token}", False)
+            )
+        for rows, via, is_reached in sources:
+            for event in rows:
+                self._remember_event(event)
+                added = self._add(case, event, via=via, weight=weight)
+                if is_reached:
+                    reached.append((weight, added))
+                events.append(event)
+                seen.update(_tokens(str(event["_raw"])))
+        return seen, events, reached
+
+    def _remember_event(self, event: dict[str, Any]) -> None:
+        for token, compound, position in _token_parts(str(event.get("_raw", ""))):
+            shape = (str(event.get("source", "")), str(event.get("punct", "")))
+            self._remember(token, event, compound, shape, position)
+
     def _timeline_kinds(self, token: str, lo: int, hi: int, out: list[dict[str, Any]]) -> None:
-        q = (
-            f'search index={self.index} "{token}" '
-            "| dedup 2 host source punct | table _time host source punct _raw"
+        out.extend(
+            row
+            for row in self._events_for_plan(self._plan(token))
+            if lo <= float(row["_time"]) < hi
         )
-        try:
-            out.extend(dict(r) for r in self._rows(q, lo, hi))
-        except Exception as exc:  # noqa: BLE001 -- one failed block degrades, not fails
-            self.degraded.append(f"timeline kinds {token}: {type(exc).__name__}")
 
     def neighborhood(
         self, event: dict[str, Any], *, minutes: int, kinds: int
@@ -336,8 +670,10 @@ class Investigator:
         `minutes` is how far the analyst looks around, not a judgement of what is odd."""
         t = float(event["time"])
         q = (
-            f'search index={self.index} host="{event["host"]}" '
-            "| dedup 2 source punct | table _time host source punct _raw"
+            f"search index={_search_literal(self.index)} "
+            f"host={_search_literal(str(event['host']))} "
+            f"| dedup 2 source punct | head {MAX_EVIDENCE_EVENTS} "
+            "| table _time host source punct _raw"
         )
         try:
             rows = [dict(r) for r in self._rows(q, t - 60 * minutes, t + 60 * minutes)]
@@ -349,24 +685,70 @@ class Investigator:
         )
         return rows[:kinds]
 
-    def score_candidates(self, tokens: Iterable[str]) -> dict[str, float]:
+    def score_candidates(
+        self,
+        tokens: Iterable[str],
+        variability: dict[str, float] | None = None,
+        recurrence: dict[str, int] | None = None,
+    ) -> dict[str, float]:
         chosen = list(tokens)
         with ThreadPoolExecutor(max_workers=8) as pool:
             weights = list(pool.map(self.pivot_weight, chosen))
-        return dict(zip(chosen, weights, strict=True))
+        return {
+            token: weight
+            * (variability.get(token, 1.0) if variability is not None else 1.0)
+            * (math.log1p(recurrence.get(token, 0)) if recurrence is not None else 1.0)
+            for token, weight in zip(chosen, weights, strict=True)
+        }
 
     def seed_tokens(self, lead: Lead, examine: int) -> list[str]:
         """The lead's bursting values plus values from its never-before-seen kinds of event."""
         seeds = [b.token for b in lead.bursts if b.z > 0]
+        if seeds:
+            q = (
+                f"| tstats count where index={_search_literal(self.index)} "
+                f"host={_search_literal(lead.host)} _time>={lead.hour} "
+                f"_time<{lead.hour + lead.span} by host source _time span=3600s"
+            )
+            for row in self._rows(q, lead.hour, lead.hour + lead.span):
+                cell = self._cell(row)
+                if cell is None:
+                    continue
+                location = {"host": cell.host, "source": cell.source, "_time": cell.start}
+                for token in seeds:
+                    self._remember(token, location, token, ("", ""), 0)
         events: list[dict[str, Any]] = []
         for source, punct, _ in lead.novel_templates[:10]:
-            q = f'search index={self.index} host="{lead.host}" source="{source}" | table _raw punct'
+            q = (
+                f"search index={_search_literal(self.index)} "
+                f"host={_search_literal(lead.host)} source={_search_literal(source)} "
+                "| table _raw punct"
+            )
             rows = self._rows(q, lead.hour, lead.hour + lead.span)
-            events.extend(dict(r) for r in rows if r.get("punct", "") == punct)
+            for row in rows:
+                if row.get("punct", "") != punct:
+                    continue
+                event = {
+                    **row,
+                    "host": lead.host,
+                    "source": source,
+                    "_time": lead.hour,
+                }
+                events.append(event)
+                for token, compound, position in _token_parts(str(row.get("_raw", ""))):
+                    self._remember(token, event, compound, (source, str(punct)), position)
             if len(events) > 400:
                 break
         candidates = Counter(t for e in events[:400] for t in _tokens(str(e.get("_raw", ""))))
-        scored = self.score_candidates(t for t, _ in candidates.most_common(examine))
+        variability = _slot_variability(events[:400])
+        considered = sorted(
+            candidates,
+            key=lambda token: (
+                -variability.get(token, 1.0) * math.log1p(candidates[token]),
+                token,
+            ),
+        )[:examine]
+        scored = self.score_candidates(considered, variability, dict(candidates))
         seeds += [t for t, w in sorted(scored.items(), key=lambda kv: -kv[1]) if w > 0]
         return list(dict.fromkeys(seeds))
 
@@ -390,6 +772,7 @@ class Investigator:
         looked_around: set[tuple[str, float]] = set()
         for level in range(depth):
             seen_here: Counter[str] = Counter()
+            seen_events: list[dict[str, Any]] = []
             reached: list[tuple[float, dict[str, Any]]] = []
             for token in frontier:
                 if token in visited:
@@ -397,14 +780,27 @@ class Investigator:
                 visited.add(token)
                 count, hosts, sources = self.footprint(token, exact=True)
                 weight = round(self.pivot_weight(token, exact=True), 2)
-                case.pivots.append(Pivot(token, count, hosts, sources, level, weight))
-                for e in self.kinds(token):
-                    ev = self._add(case, e, via=token, weight=weight)
-                    reached.append((weight, ev))
-                    seen_here.update(_tokens(str(e["_raw"])) - visited)
-                if weight > 0:
-                    for e in self.timeline(token, seed_day=lead.hour // 86400):
-                        self._add(case, e, via=f"timeline:{token}", weight=weight)
+                plan = self._plan(token)
+                case.pivots.append(
+                    Pivot(
+                        token,
+                        count,
+                        hosts,
+                        sources,
+                        level,
+                        weight,
+                        indexed_count=plan.indexed_count,
+                        verified_count=plan.verified_count,
+                        count_semantics=plan.count_semantics,
+                        coverage_reason=plan.reason,
+                        provenance=self._provenance.get(token, [])[:5],
+                    )
+                )
+                case.coverage.append(self._coverage_row(plan))
+                seen, events, token_reached = self._token_evidence(case, token, plan, lead, weight)
+                seen_here.update({key: count for key, count in seen.items() if key not in visited})
+                seen_events.extend(events)
+                reached.extend(token_reached)
             # time/place pivot: around the most specific events this round, on their host
             for weight, ev in sorted(reached, key=lambda we: -we[0])[:breadth]:
                 spot = (ev["host"], float(ev["time"]) // 60)
@@ -412,9 +808,14 @@ class Investigator:
                     continue
                 looked_around.add(spot)
                 for e in self.neighborhood(ev, minutes=minutes, kinds=breadth):
+                    self._remember_event(e)
                     self._add(case, e, via=f"near:{ev['via']}", weight=weight)
+                    seen_events.append(e)
                     seen_here.update(_tokens(str(e["_raw"])) - visited)
-            scored = self.score_candidates(_recurring_least_common(seen_here, examine))
+            candidates = _rank_evidence_candidates(seen_here, examine)
+            scored = self.score_candidates(
+                candidates, _slot_variability(seen_events), dict(seen_here)
+            )
             frontier = [t for t, w in sorted(scored.items(), key=lambda kv: -kv[1]) if w > 0][
                 :breadth
             ]
@@ -423,18 +824,36 @@ class Investigator:
         case.degraded = self.degraded[mark:]
         return case
 
+    @staticmethod
+    def _coverage_row(plan: RetrievalPlan) -> dict[str, Any]:
+        return {
+            "token": plan.token,
+            "cells": len(plan.cells),
+            "indexed_count": plan.indexed_count,
+            "verified_count": plan.verified_count,
+            "count_semantics": plan.count_semantics,
+            "reason": plan.reason,
+            "elapsed_s": plan.elapsed_s,
+            "work": dict(plan.work),
+            "censored": plan.censored,
+            "coverage_complete": plan.coverage_complete,
+        }
+
     def investigate_all(self, leads: list[Lead], *, dig: int) -> list[Case]:
-        """Dig the top `dig` leads that are not their zoom level's environment-wide band."""
-        values: dict[int, list[int]] = {}
-        for lead in leads:
-            values.setdefault(lead.span, []).append(lead.hosts_novel_that_hour)
-        cuts = {span: _top_decile_cut(v) for span, v in values.items()}
-        chosen = [
-            lead
-            for lead in leads
-            if (cut := cuts[lead.span]) is None or lead.hosts_novel_that_hour < cut
-        ]
-        return merge_cases([self.investigate(lead) for lead in chosen[:dig]])
+        """Spend the explicit dig budget in the order already supplied by the ranker."""
+        self.completed_cases = []
+        checkpoint = getattr(self.search, "checkpoint", None)
+        for rank, lead in enumerate(leads[: max(0, dig)], start=1):
+            if callable(checkpoint):
+                checkpoint("investigating", seed_rank=rank)
+            self.completed_cases.append(self.investigate(lead))
+            if callable(checkpoint):
+                checkpoint(
+                    "investigating",
+                    seed_rank=rank,
+                    cases=self.completed_cases,
+                )
+        return merge_cases(self.completed_cases)
 
     def _add(self, case: Case, e: dict[str, Any], *, via: str, weight: float) -> dict[str, Any]:
         key = f"{e['host']}|{e['source']}|{e['_raw']}"
@@ -486,6 +905,7 @@ def merge_cases(cases: list[Case]) -> list[Case]:
         home.merged_from.append(case.seed)
         home.degraded.extend(case.degraded)
         home.seed_windows.extend(case.seed_windows)
+        home.coverage.extend(case.coverage)
         known = home.pivot_tokens
         home.pivots += [p for p in case.pivots if p.token not in known]
         for key, ev in case.events.items():

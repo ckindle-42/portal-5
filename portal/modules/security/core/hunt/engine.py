@@ -31,6 +31,7 @@ from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
+from datetime import datetime
 from typing import Any, Protocol
 
 HOUR = 3600
@@ -91,7 +92,9 @@ def _hour(value: Any, span: int = HOUR) -> int:
 def ladder(search: Search, index: str, start: float, end: float) -> list[int]:
     rows = list(
         search.iter_post(
-            f"| tstats min(_time) as lo max(_time) as hi where index={index}", start, end
+            f"| tstats min(_time) as lo max(_time) as hi where index={_search_literal(index)}",
+            start,
+            end,
         )
     )
     if not rows or rows[0].get("lo") is None:
@@ -103,7 +106,14 @@ def ladder(search: Search, index: str, start: float, end: float) -> list[int]:
 def template_rows(
     search: Search, index: str, start: float, end: float, span: int = HOUR
 ) -> list[dict[str, Any]]:
-    q = f"| tstats count where index={index} by host source punct _time span={span}s"
+    # First occurrence per (host, source, template), reduced on the server: novelty weighs a
+    # template only at its first bucket, so later rows cannot change the score (found live:
+    # the unreduced by-hour grid streamed 1.84M rows for one index).
+    q = (
+        f"| tstats count where index={_search_literal(index)} "
+        f"by host source punct _time span={span}s "
+        "| dedup host source punct sortby +_time"
+    )
     return [dict(r) for r in search.iter_post(q, start, end)]
 
 
@@ -136,7 +146,13 @@ def host_hour_novelty(
 
 
 def _is_time_token(token: str) -> bool:
-    return bool(_TIME_OF_DAY.search(token))
+    if _TIME_OF_DAY.search(token):
+        return True
+    try:
+        datetime.fromisoformat(token.replace("Z", "+00:00"))
+        return True
+    except ValueError:
+        return False
 
 
 def _pivotable(token: str) -> bool:
@@ -150,8 +166,29 @@ def _pivotable(token: str) -> bool:
 def _token_series(
     search: Search, index: str, token: str, start: float, end: float, span: int = HOUR
 ) -> dict[int, int]:
-    q = f'| tstats count where index={index} TERM("{token}") by _time span={span}s'
+    q = (
+        f"| tstats count where index={_search_literal(index)} "
+        f"TERM({_search_literal(token)}) by _time span={span}s"
+    )
     return {_hour(r["_time"], span): int(r["count"]) for r in search.iter_post(q, start, end)}
+
+
+def _cached_series(
+    cache: dict[tuple[str, int], dict[int, int]] | None,
+    search: Search,
+    index: str,
+    token: str,
+    start: float,
+    end: float,
+    span: int,
+) -> dict[int, int]:
+    # One token's series is identical for every lead of the same span: scan it once per hunt.
+    key = (token, span)
+    if cache is None:
+        return _token_series(search, index, token, start, end, span)
+    if key not in cache:
+        cache[key] = _token_series(search, index, token, start, end, span)
+    return cache[key]
 
 
 def _burst(token: str, hour: int, series: dict[int, int]) -> Burst | None:
@@ -170,10 +207,19 @@ def _burst(token: str, hour: int, series: dict[int, int]) -> Burst | None:
 
 
 def value_bursts(
-    search: Search, index: str, lead: Lead, start: float, end: float, *, sample: int, top: int
+    search: Search,
+    index: str,
+    lead: Lead,
+    start: float,
+    end: float,
+    *,
+    sample: int,
+    top: int,
+    cache: dict[tuple[str, int], dict[int, int]] | None = None,
 ) -> list[Burst]:
     q = (
-        f'search index={index} host="{lead.host}" | eval r=random() % 1000 '
+        f"search index={_search_literal(index)} host={_search_literal(lead.host)} "
+        f"| eval r=random() % 1000 "
         f"| sort r | head {sample} | table _raw"
     )
     events = list(search.iter_post(q, lead.hour, lead.hour + lead.span))
@@ -183,7 +229,10 @@ def value_bursts(
     chosen = [t for t, _ in tokens.most_common(top)]
     with ThreadPoolExecutor(max_workers=8) as pool:
         series = list(
-            pool.map(lambda t: _token_series(search, index, t, start, end, lead.span), chosen)
+            pool.map(
+                lambda t: _cached_series(cache, search, index, t, start, end, lead.span),
+                chosen,
+            )
         )
     bursts = [b for t, s in zip(chosen, series, strict=True) if (b := _burst(t, lead.hour, s))]
     return sorted(bursts, key=lambda b: -b.z)
@@ -216,14 +265,16 @@ def peer_tokens(
 ) -> list[str]:
     """Values in the burst token's slot of the same event shape on the lead's host, from history."""
     q = (
-        f'search index={index} host="{lead.host}" TERM("{burst.token}") '
+        f"search index={_search_literal(index)} host={_search_literal(lead.host)} "
+        f"TERM({_search_literal(burst.token)}) "
         f"| head {sample} | table _raw punct"
     )
     shapes = _slots(search.iter_post(q, lead.hour, lead.hour + lead.span), burst.token)
     peers: list[str] = []
     for punct, slot in list(shapes.items())[:PEER_SHAPES]:
         prior = (
-            f'search index={index} host="{lead.host}" punct={_search_literal(punct)} '
+            f"search index={_search_literal(index)} host={_search_literal(lead.host)} "
+            f"punct={_search_literal(punct)} "
             f"| head {sample} | table _raw"
         )
         for row in search.iter_post(prior, start, lead.hour):
@@ -241,13 +292,20 @@ def peer_tokens(
     return peers
 
 
-def peer_bursts(search: Search, index: str, lead: Lead, start: float, end: float) -> None:
+def peer_bursts(
+    search: Search,
+    index: str,
+    lead: Lead,
+    start: float,
+    end: float,
+    cache: dict[tuple[str, int], dict[int, int]] | None = None,
+) -> None:
     """Rank each kept burst against the same-slot values instead of only its own history."""
     found = [peer_tokens(search, index, lead, burst, start) for burst in lead.bursts]
     flat = [token for peers in found for token in peers]
 
     def series(token: str) -> dict[int, int]:
-        return _token_series(search, index, token, start, end, lead.span)
+        return _cached_series(cache, search, index, token, start, end, lead.span)
 
     with ThreadPoolExecutor(max_workers=8) as pool:
         values = list(pool.map(series, flat))
@@ -271,7 +329,10 @@ def peer_bursts(search: Search, index: str, lead: Lead, start: float, end: float
 def link(
     search: Search, index: str, burst: Burst, hour: int, span: int = HOUR
 ) -> list[tuple[str, str, int]]:
-    q = f'| tstats count where index={index} TERM("{burst.token}") by host source'
+    q = (
+        f"| tstats count where index={_search_literal(index)} "
+        f"TERM({_search_literal(burst.token)}) by host source"
+    )
     rows = search.iter_post(q, hour - span, hour + 2 * span)
     return sorted(((r["host"], r["source"], int(r["count"])) for r in rows), key=lambda x: -x[2])
 
@@ -296,6 +357,7 @@ def hunt(
     value burst x linkage. `candidates` is the digging budget per zoom level."""
     leads: list[Lead] = []
     pool: list[Lead] = []
+    series_cache: dict[tuple[str, int], dict[int, int]] = {}
     levels = [
         (span, host_hour_novelty(template_rows(search, index, start, end, span), span))
         for span in ladder(search, index, start, end)
@@ -313,12 +375,12 @@ def hunt(
         leads += level
         pool += level[:candidates]
     for lead in pool:
-        lead.bursts = value_bursts(search, index, lead, start, end, sample=sample, top=tokens)[
-            :bursts_kept
-        ]
+        lead.bursts = value_bursts(
+            search, index, lead, start, end, sample=sample, top=tokens, cache=series_cache
+        )[:bursts_kept]
         for b in lead.bursts:
             b.links = link(search, index, b, lead.hour, lead.span)
-        peer_bursts(search, index, lead, start, end)
+        peer_bursts(search, index, lead, start, end, cache=series_cache)
     rank_coherence(pool)
     for lead in leads:
         if lead not in pool:

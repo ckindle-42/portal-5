@@ -11,6 +11,8 @@ import os
 import threading
 import time
 import uuid
+from collections.abc import Callable, Iterator, Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +23,216 @@ _ROOT = Path(
     os.environ.get("PORTAL5_HUNT_DIR", str(Path.home() / "AI_Output" / "review" / "hunts"))
 )
 _lock = threading.Lock()
+DEFAULT_BUDGETS: dict[str, float] = {
+    "query_seconds": 30.0,  # effort budget: server-side duration for one query
+    "job_seconds": 720.0,  # effort budget: shared hunt wall time across every worker
+    "requests": 2000,  # effort budget: total Splunk requests, including parallel calls
+    "cells": 10000,  # effort budget: evidence location cells, not discovery aggregates
+    "events": 5000,  # effort budget: raw evidence rows, not ranking samples
+}
+
+
+def query_budget_kind(query: str) -> str:
+    """discovery | cells | events, by query shape. Indexed aggregates (totals, series, the
+    server-reduced template inventory) stream under the wall clock; `by host source`
+    enumerations are evidence locations; every raw read is evidence rows."""
+    if not query.lstrip().startswith("| tstats"):
+        return "events"
+    if " by host source punct" in query:
+        return "discovery"
+    if " by host source" in query:
+        return "cells"
+    return "discovery"
+
+
+class HuntBudgetExceededError(RuntimeError):
+    """A hunt ran out of its shared request, result, or wall-time effort."""
+
+
+class HuntSearchFailedError(RuntimeError):
+    """A bounded search could not run or return trustworthy results."""
+
+
+class HuntCoverageError(RuntimeError):
+    """A search stopped early; returned rows are not an exact count."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        sid: str | None = None,
+        coverage: Mapping[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.sid = sid
+        self.coverage = dict(coverage or {})
+
+
+@dataclass
+class HuntBudget:
+    limits: dict[str, float]
+    seed_budget: int = 0
+    started: float = field(default_factory=time.monotonic)
+    queries: int = 0
+    cells: int = 0
+    events: int = 0
+    discovery_rows: int = 0
+    phase: str = "starting"
+    seed_rank: int | None = None
+    lead_count: int = 0
+    pivot_count: int = 0
+    exhausted: str | None = None
+    last_write: float = 0.0
+    last_write_query: int = -1
+    lock: threading.RLock = field(default_factory=threading.RLock)
+    on_progress: Callable[[dict[str, Any]], None] | None = None
+
+    @property
+    def deadline(self) -> float:
+        return self.started + self.limits["job_seconds"]
+
+    def remaining(self) -> float:
+        return max(0.0, self.deadline - time.monotonic())
+
+    def reserve_query(self) -> float:
+        with self.lock:
+            if self.remaining() <= 0:
+                self.exhausted = "job_wall_time_budget_exhausted"
+                raise HuntBudgetExceededError(self.exhausted)
+            if self.queries >= self.limits["requests"]:
+                self.exhausted = "request_budget_exhausted"
+                raise HuntBudgetExceededError(self.exhausted)
+            self.queries += 1
+            return min(self.limits["query_seconds"], self.remaining())
+
+    def record_rows(self, query: str, count: int) -> None:
+        kind = query_budget_kind(query)
+        with self.lock:
+            if kind == "events":
+                self.events += count
+                if self.events > self.limits["events"]:
+                    self.exhausted = "event_budget_exhausted"
+                    raise HuntBudgetExceededError(self.exhausted)
+            elif kind == "cells":
+                self.cells += count
+                if self.cells > self.limits["cells"]:
+                    self.exhausted = "cell_budget_exhausted"
+                    raise HuntBudgetExceededError(self.exhausted)
+            else:
+                self.discovery_rows += count
+        self.publish()
+
+    def update(self, **values: Any) -> None:
+        with self.lock:
+            for key, value in values.items():
+                setattr(self, key, value)
+        self.publish(force=True)
+
+    def snapshot(self) -> dict[str, Any]:
+        return {
+            "phase": self.phase,
+            "seed_rank": self.seed_rank,
+            "lead_count": self.lead_count,
+            "pivot_count": self.pivot_count,
+            "query_count": self.queries,
+            "cell_count": self.cells,
+            "event_count": self.events,
+            "discovery_row_count": self.discovery_rows,
+            "remaining_requests": max(0, int(self.limits["requests"] - self.queries)),
+            "remaining_cells": max(0, int(self.limits["cells"] - self.cells)),
+            "remaining_events": max(0, int(self.limits["events"] - self.events)),
+            "remaining_seed_budget": max(
+                0,
+                min(self.seed_budget, self.lead_count) - (self.seed_rank or 0),
+            ),
+            "elapsed_s": round(time.monotonic() - self.started, 1),
+            "remaining_s": round(self.remaining(), 1),
+            "exhausted_reason": self.exhausted,
+            "limits": dict(self.limits),
+            "last_progress_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "coverage_complete": False,
+        }
+
+    def publish(self, *, force: bool = False) -> None:
+        if self.on_progress is None:
+            return
+        now = time.monotonic()
+        with self.lock:
+            if (
+                not force
+                and now - self.last_write < 5
+                and self.queries - self.last_write_query < 10
+            ):
+                return
+            self.last_write = now
+            self.last_write_query = self.queries
+            snapshot = self.snapshot()
+        self.on_progress(snapshot)
+
+
+class BudgetedSearch:
+    """Apply one deadline and shared work limits to all parallel hunt requests."""
+
+    def __init__(self, search: Search, budget: HuntBudget) -> None:
+        self.search = search
+        self.budget = budget
+        self.on_case_checkpoint: Callable[[str, dict[str, Any], list[Any]], None] | None = None
+
+    def iter_post(self, query: str, start: float, end: float) -> Iterator[Mapping[str, Any]]:
+        timeout = self.budget.reserve_query()
+        bounded = getattr(self.search, "iter_post_bounded", None)
+        if not callable(bounded):
+            raise HuntSearchFailedError("search_adapter_has_no_server_job_cancellation")
+        kind = query_budget_kind(query)
+        max_results = _remaining_results(self.budget, kind)
+        if max_results is not None and max_results <= 0:
+            self.budget.exhausted = "result_budget_exhausted"
+            raise HuntBudgetExceededError(self.budget.exhausted)
+        try:
+            for row in bounded(
+                query,
+                start,
+                end,
+                timeout_seconds=timeout,
+                max_results=max_results,
+            ):
+                self.budget.record_rows(query, 1)
+                yield row
+            if self.budget.remaining() <= 0:
+                self.budget.exhausted = "job_wall_time_budget_exhausted"
+                raise HuntBudgetExceededError(self.budget.exhausted)
+        except HuntBudgetExceededError:
+            raise
+        except Exception as exc:  # noqa: BLE001 -- transport failures are incomplete hunt work
+            if getattr(exc, "censored", False):
+                raise HuntCoverageError(
+                    str(exc),
+                    sid=getattr(exc, "sid", None),
+                    coverage=getattr(exc, "coverage", None),
+                ) from exc
+            raise HuntSearchFailedError(f"bounded_search_failed:{type(exc).__name__}") from exc
+
+    def checkpoint(self, phase: str, **values: Any) -> None:
+        if self.budget.remaining() <= 0:
+            self.budget.exhausted = "job_wall_time_budget_exhausted"
+            raise HuntBudgetExceededError(self.budget.exhausted)
+        cases = values.pop("cases", None)
+        pivot_delta = int(values.pop("pivot_delta", 0))
+        if pivot_delta:
+            with self.budget.lock:
+                self.budget.pivot_count += pivot_delta
+        self.budget.update(phase=phase, **values)
+        if cases is not None and self.on_case_checkpoint is not None:
+            self.on_case_checkpoint(phase, self.budget.snapshot(), cases)
+
+
+def _remaining_results(budget: HuntBudget, kind: str) -> int | None:
+    """Evidence reads stop at their budget. Discovery streams until the job clock ends."""
+    if kind == "events":
+        return int(budget.limits["events"] - budget.events)
+    if kind == "cells":
+        return int(budget.limits["cells"] - budget.cells)
+    return None
 
 
 def _path(job_id: str) -> Path:
@@ -54,38 +266,180 @@ def _stripped(lead: Lead) -> dict[str, Any]:
     return out
 
 
-def _run(job_id: str, search: Search, index: str, start: float, end: float, dig: int) -> None:
+def _pivot_view(pivot: dict[str, Any]) -> str:
+    indexed = pivot.get("indexed_count")
+    verified = pivot.get("verified_count")
+    if indexed is not None:
+        count = f"indexed estimate {indexed}"
+    elif verified is not None:
+        count = f"verified sample {verified}; global count unknown"
+    else:
+        count = "count unknown"
+    return f"{pivot['token']} ({count}; observed hosts {pivot.get('hosts', 0)})"
+
+
+def _limits(values: dict[str, float] | None) -> dict[str, float]:
+    limits = dict(DEFAULT_BUDGETS)
+    if values:
+        if set(values) - set(limits):
+            raise ValueError("unknown hunt effort budget")
+        limits.update({key: float(value) for key, value in values.items()})
+    if any(value <= 0 for value in limits.values()):
+        raise ValueError("hunt effort budgets must be positive")
+    if limits["query_seconds"] > limits["job_seconds"]:
+        raise ValueError("query budget cannot exceed the job budget")
+    return limits
+
+
+def _case_payload(case: Any) -> dict[str, Any]:
+    payload = {**case.summary(), "evidence": list(case.events.values())}
+    payload["coverage_complete"] = bool(case.coverage) and all(
+        row.get("coverage_complete", False) for row in case.coverage
+    )
+    return payload
+
+
+def _persist_progress(
+    job_id: str, state: dict[str, Any], lock: threading.RLock, snapshot: dict[str, Any]
+) -> None:
+    with lock:
+        state.update(stage=snapshot["phase"], progress=snapshot)
+        _write(job_id, state)
+
+
+def _persist_cases(
+    job_id: str,
+    state: dict[str, Any],
+    lock: threading.RLock,
+    phase: str,
+    snapshot: dict[str, Any],
+    cases: list[Any],
+) -> None:
+    with lock:
+        state.update(
+            stage=phase,
+            progress=snapshot,
+            cases=[_case_payload(case) for case in cases],
+            completed_case_count=len(cases),
+        )
+        _write(job_id, state)
+
+
+def _perform_hunt(
+    job_id: str,
+    state: dict[str, Any],
+    state_lock: threading.RLock,
+    search: BudgetedSearch,
+    index: str,
+    start: float,
+    end: float,
+    dig: int,
+    effort: HuntBudget,
+) -> None:
+    inv: Investigator | None = None
+    try:
+        leads = hunt(search, index, start, end)
+        effort.update(phase="investigating", lead_count=len(leads))
+        with state_lock:
+            state.update(stage="investigating", leads=[_stripped(lead) for lead in leads])
+            state["progress"] = effort.snapshot()
+            _write(job_id, state)
+        inv = Investigator(search, index, start, end)
+        cases = inv.investigate_all(leads, dig=dig)
+        complete = bool(cases) and all(
+            bool(case.coverage) and _case_payload(case)["coverage_complete"] for case in cases
+        )
+        progress = effort.snapshot()
+        progress["coverage_complete"] = complete and not effort.exhausted
+        state.update(
+            status="COMPLETE" if complete and not effort.exhausted else "PARTIAL",
+            stage="done" if complete and not effort.exhausted else "partial",
+            finished=time.time(),
+            cases=[_case_payload(case) for case in cases],
+            degraded=inv.degraded,
+            coverage_complete=complete and not effort.exhausted,
+            coverage_reason=None
+            if complete and not effort.exhausted
+            else "indexed_and_verified_scope_does_not_cover_the_full_raw_index",
+            progress=progress,
+        )
+    except (HuntBudgetExceededError, HuntCoverageError) as exc:
+        effort.exhausted = effort.exhausted or str(exc)
+        progress = effort.snapshot()
+        if isinstance(exc, HuntCoverageError) and exc.sid:
+            progress["search_sid"] = exc.sid
+        state.update(
+            status="PARTIAL",
+            stage="partial",
+            finished=time.time(),
+            error=str(exc),
+            coverage_complete=False,
+            coverage_reason=str(exc),
+            degraded=inv.degraded if inv is not None else [],
+            progress=progress,
+        )
+    except Exception as exc:  # noqa: BLE001 -- surface an unexpected job failure
+        failure = f"{type(exc).__name__}: {exc}"
+        state.update(
+            status="FAILED",
+            stage="failed",
+            finished=time.time(),
+            error=failure,
+            coverage_complete=False,
+            coverage_reason=failure,
+            degraded=inv.degraded if inv is not None else [],
+            progress=effort.snapshot(),
+        )
+    with state_lock:
+        _write(job_id, state)
+
+
+def _run(
+    job_id: str,
+    search: Search,
+    index: str,
+    start: float,
+    end: float,
+    dig: int,
+    budgets: dict[str, float] | None = None,
+) -> None:
+    started = time.time()
     state: dict[str, Any] = {
         "job_id": job_id,
         "index": index,
         "status": "RUNNING",
         "stage": "leads",
-        "started": time.time(),
+        "started": started,
+        "coverage_complete": False,
+        "cases": [],
     }
+    state_lock = threading.RLock()
+    effort = HuntBudget(_limits(budgets), seed_budget=dig)
+    state["progress"] = effort.snapshot()
+    effort.on_progress = lambda snapshot: _persist_progress(job_id, state, state_lock, snapshot)
+    bounded_search = BudgetedSearch(search, effort)
+    bounded_search.on_case_checkpoint = lambda phase, snapshot, cases: _persist_cases(
+        job_id, state, state_lock, phase, snapshot, cases
+    )
     _write(job_id, state)
-    try:
-        leads = hunt(search, index, start, end)
-        state.update(stage="investigating", leads=[_stripped(lead) for lead in leads])
-        _write(job_id, state)
-        inv = Investigator(search, index, start, end)
-        cases = inv.investigate_all(leads, dig=dig)
-        state.update(
-            status="COMPLETE",
-            stage="done",
-            finished=time.time(),
-            cases=[{**c.summary(), "evidence": list(c.events.values())} for c in cases],
-            degraded=inv.degraded,
-        )
-    except Exception as exc:  # noqa: BLE001 -- the analyst sees the failure, not a hang
-        state.update(status="FAILED", error=f"{type(exc).__name__}: {exc}")
-    _write(job_id, state)
+    _perform_hunt(job_id, state, state_lock, bounded_search, index, start, end, dig, effort)
 
 
-def start(search: Search, index: str, start_t: float, end_t: float, dig: int) -> str:
+def start(
+    search: Search,
+    index: str,
+    start_t: float,
+    end_t: float,
+    dig: int,
+    budgets: dict[str, float] | None = None,
+) -> str:
     job_id = "hunt-" + uuid.uuid4().hex[:12]
+    limits = _limits(budgets)
     with _lock:
         threading.Thread(
-            target=_run, args=(job_id, search, index, start_t, end_t, dig), daemon=True
+            target=_run,
+            args=(job_id, search, index, start_t, end_t, dig, limits),
+            daemon=True,
         ).start()
     return job_id
 
@@ -152,10 +506,44 @@ def status(job_id: str | None = None, index: str | None = None) -> dict[str, Any
     job, out = _resolve(job_id, index)
     if job is None:
         return compact(out)
-    keep = ("job_id", "index", "status", "stage", "started", "finished", "error")
+    keep = (
+        "job_id",
+        "index",
+        "status",
+        "stage",
+        "started",
+        "finished",
+        "error",
+        "coverage_complete",
+        "coverage_reason",
+    )
     out.update({k: job[k] for k in keep if k in job})
     out["elapsed_s"] = round(job.get("finished", time.time()) - job["started"], 1)
     out["cases"] = len(job.get("cases", []))
+    progress = job.get("progress")
+    if isinstance(progress, dict):
+        out["progress"] = progress
+        for key in (
+            "phase",
+            "seed_rank",
+            "lead_count",
+            "pivot_count",
+            "query_count",
+            "cell_count",
+            "event_count",
+            "discovery_row_count",
+            "search_sid",
+            "remaining_requests",
+            "remaining_cells",
+            "remaining_events",
+            "remaining_seed_budget",
+            "remaining_s",
+            "exhausted_reason",
+            "last_progress_utc",
+        ):
+            if key in progress:
+                out[key] = progress[key]
+    out["degraded_reasons"] = job.get("degraded", [])[:3]
     return compact(out)
 
 
@@ -205,10 +593,25 @@ def case_view(
             "core_events": c.get("core_events", c["events"]),
             "core_hosts": c.get("core_hosts", len(c["hosts"])),
             "span_hours": c["span_hours"],
-            "pivots": [f"{p['token']} ({p['count']} events, {p['hosts']} hosts)" for p in pivots],
+            "pivots": [_pivot_view(p) for p in pivots],
             "core": [
                 f"{_hm(e['time'])} {e['host']} {e['source']}: {e['raw'][:180]}" for e in core[:n]
             ],
+            "coverage": {
+                "complete": c.get("coverage_complete", False),
+                "pivots": len(c.get("coverage", [])),
+                "unknown": sum(
+                    item.get("count_semantics") == "unknown"
+                    or str(item.get("count_semantics", "")).endswith("global_unknown")
+                    for item in c.get("coverage", [])
+                ),
+                "censored": sum(bool(item.get("censored")) for item in c.get("coverage", [])),
+                "reasons": list(
+                    dict.fromkeys(
+                        item.get("reason") for item in c.get("coverage", []) if item.get("reason")
+                    )
+                )[:5],
+            },
             "picture": [
                 f"{_hm(e['time'])} {e['host']} {e['source']}: {e['raw'][:180]}"
                 for e in c["picture"][:n]

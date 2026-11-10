@@ -153,7 +153,7 @@ def test_peer_tokens_take_the_same_slot_on_the_same_host() -> None:
     peers = peer_tokens(search, "idx", lead, lead.bursts[0], BASE)
 
     token_query, prior_query = search.queries[-2:]
-    assert token_query.startswith('search index=idx host="h1" TERM("10.0.0.1")')
+    assert token_query.startswith('search index="idx" host="h1" TERM("10.0.0.1")')
     assert token_query.endswith("| head 200 | table _raw punct")
     assert 'host="h1" punct="=... =..."' in prior_query
     assert peers == ["10.0.0.2", "10.0.0.3", "10.0.0.4"]

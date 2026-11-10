@@ -190,17 +190,35 @@ def hunt_sources() -> dict[str, Any]:
 
 @mcp.tool()
 def hunt_start(
-    index: str, start: float | None = None, end: float | None = None, investigate: int = 10
+    index: str,
+    start: float | None = None,
+    end: float | None = None,
+    investigate: int = 10,
+    query_seconds: float = 30.0,
+    job_seconds: float = 720.0,
+    request_budget: int = 2000,
+    cell_budget: int = 10000,
+    event_budget: int = 5000,
 ) -> dict[str, Any]:
-    """Blind hunt over one environment (index): rank host-hours where generic signals come
-    together, then dig the top leads into cases. Runs in the background; poll hunt_status."""
+    """Start a blind hunt with per-query, total-time, request, cell, and event effort budgets."""
 
     def run() -> dict[str, Any]:
         job_id = hunt_jobs.start(
-            _hunt_search(), index, start or 0.0, end or time.time(), investigate
+            _hunt_search(),
+            index,
+            start or 0.0,
+            end or time.time(),
+            investigate,
+            budgets={
+                "query_seconds": query_seconds,
+                "job_seconds": job_seconds,
+                "requests": request_budget,
+                "cells": cell_budget,
+                "events": event_budget,
+            },
         )
         nxt = (
-            f"call hunt_status(index={index!r}) until COMPLETE, then "
+            f"call hunt_status(index={index!r}) until COMPLETE, PARTIAL, or FAILED, then "
             f"hunt_leads(index={index!r}) and hunt_case(index={index!r}, case=1)"
         )
         return hunt_jobs.compact(
@@ -212,8 +230,7 @@ def hunt_start(
 
 @mcp.tool()
 def hunt_status(job_id: str | None = None, index: str | None = None) -> dict[str, Any]:
-    """Progress of a hunt: stage, elapsed seconds, cases found. Prefer index= over job_id:
-    it resolves to the newest hunt started on that environment."""
+    """Read hunt progress and coverage; COMPLETE, PARTIAL, and FAILED are terminal statuses."""
     return _guard("hunt_status", lambda: hunt_jobs.status(job_id, index))
 
 
