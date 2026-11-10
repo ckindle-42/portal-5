@@ -43,6 +43,18 @@ class Pivot:
     weight: float
 
 
+def _via_pivot(via: Any, pivots: set[str]) -> str | None:
+    token = str(via) if via else ""
+    while token and token not in pivots:
+        if token.startswith("timeline:"):
+            token = token[len("timeline:") :]
+        elif token.startswith("near:"):
+            token = token[len("near:") :]
+        else:
+            break
+    return token or None
+
+
 @dataclass
 class Case:
     seed: str
@@ -80,36 +92,62 @@ class Case:
 
     def core(self, cap: int = CORE_EVENTS) -> list[dict[str, Any]]:
         """The case read outward from its seed leads, diversified by kind, in time order."""
+        if cap <= 0:
+            return []
         events = list(self.events.values())
         if not events:
             return []
         depth = {p.token: p.depth for p in self.pivots}
+        pivot_tokens = set(depth)
 
         def in_seed(e: dict[str, Any]) -> bool:
             return any(h == e["host"] and lo <= e["time"] < hi for h, lo, hi in self.seed_windows)
 
         def order(e: dict[str, Any]) -> tuple[int, int, int, float]:
-            token = str(e.get("via", "")).split(":", 1)[-1]
+            token = _via_pivot(e.get("via"), pivot_tokens)
             # outward from the lead, as an analyst reads a case: what happened in the lead's own
             # window on its host first, then the closest pivots, then rarer kinds and specificity
             return (
                 0 if in_seed(e) else 1,
-                depth.get(token, 99),
+                depth.get(token, 99) if token is not None else 99,
                 int(e.get("kind_count") or 1),
                 -float(e.get("weight", 0.0)),
             )
 
+        routes: dict[int, dict[tuple[str, str | int], list[dict[str, Any]]]] = {0: {}, 1: {}}
+        for index, event in enumerate(sorted(events, key=order)):
+            priority = int(not in_seed(event))
+            token = _via_pivot(event.get("via"), pivot_tokens)
+            route = ("pivot", token) if token is not None else ("event", index)
+            routes[priority].setdefault(route, []).append(event)
+
         taken: Counter[str] = Counter()
         focused: list[dict[str, Any]] = []
-        for e in sorted(events, key=order):
-            # an event with no recorded kind is its own kind (never collapsed with others)
-            kind = e.get("kind") or f"{e['host']}|{e['source']}|{e['raw']}"
-            if taken[kind] >= PER_KIND:
-                continue
-            taken[kind] += 1
-            focused.append(e)
-            if len(focused) >= cap:
-                break
+        for priority in (0, 1):
+            queues = list(routes[priority].values())
+            positions = [0] * len(queues)
+            active = list(range(len(queues)))
+            while active and len(focused) < cap:
+                next_active = []
+                for route_index in active:
+                    queue = queues[route_index]
+                    while positions[route_index] < len(queue):
+                        event = queue[positions[route_index]]
+                        positions[route_index] += 1
+                        # an event with no recorded kind is its own kind (never collapsed with others)
+                        kind = (
+                            event.get("kind") or f"{event['host']}|{event['source']}|{event['raw']}"
+                        )
+                        if taken[kind] >= PER_KIND:
+                            continue
+                        taken[kind] += 1
+                        focused.append(event)
+                        break
+                    if positions[route_index] < len(queue):
+                        next_active.append(route_index)
+                    if len(focused) >= cap:
+                        break
+                active = next_active
         return sorted(focused, key=lambda e: e["time"])
 
     def picture(self, n: int = 25) -> list[dict[str, Any]]:

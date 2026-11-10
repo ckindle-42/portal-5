@@ -341,6 +341,106 @@ def test_core_is_median_weighted_capped_and_in_time_order() -> None:
     assert {e["time"] for e in summary["picture"]} <= {e["time"] for e in core}
 
 
+def test_core_is_fair_across_normalized_via_routes() -> None:
+    case = Case(seed="s", seed_hour=0)
+    url = "https://example.test/a:b"
+    case.pivots = [
+        Pivot(token, 2, 2, 2, 0, 1.0)
+        for token in ("dominant", "route-a", "route-b", "route-c", url)
+    ]
+    next_event = 0
+
+    def add(route: str, via: str, count: int) -> None:
+        nonlocal next_event
+        for _ in range(count):
+            case.events[f"e{next_event}"] = {
+                "host": "h",
+                "source": "s",
+                "time": float(next_event),
+                "raw": f"event {next_event}",
+                "via": via,
+                "weight": 1.0,
+                "kind": f"{route}-{next_event}",
+                "kind_count": 1,
+            }
+            next_event += 1
+
+    add("dominant", "dominant", 240)
+    add("route-a", "route-a", 80)
+    add("route-a", "timeline:route-a", 80)
+    add("route-a", "near:timeline:route-a", 80)
+    add("route-b", "near:route-b", 120)
+    add("route-c", "near:timeline:route-c", 120)
+    add("url", url, 40)
+    add("url", f"near:{url}", 40)
+
+    core = case.core()
+    counts: dict[str, int] = {}
+    for event in core:
+        via = event["via"]
+        route = (
+            "route-a"
+            if via in {"route-a", "timeline:route-a", "near:timeline:route-a"}
+            else "route-b"
+            if via == "near:route-b"
+            else "route-c"
+            if via == "near:timeline:route-c"
+            else "url"
+            if via in {url, f"near:{url}"}
+            else "dominant"
+        )
+        counts[route] = counts.get(route, 0) + 1
+
+    assert len(core) == 200
+    assert counts == {"dominant": 40, "route-a": 40, "route-b": 40, "route-c": 40, "url": 40}
+    assert any(event["via"] == url for event in core)
+    assert [event["time"] for event in core] == sorted(event["time"] for event in core)
+
+
+def test_core_keeps_seed_priority_kind_budget_and_zero_cap() -> None:
+    case = Case(seed="s", seed_hour=0, seed_windows=[("seed", 100, 110)])
+    case.pivots = [Pivot(token, 2, 2, 2, 0, 1.0) for token in ("a", "b", "c", "d", "out")]
+    for route in ("a", "b", "c", "d"):
+        case.events[f"seed-{route}"] = {
+            "host": "seed",
+            "source": "s",
+            "time": 100.0 + ord(route) - ord("a"),
+            "raw": f"seed {route}",
+            "via": route,
+            "weight": 1.0,
+            "kind": "shared",
+            "kind_count": 1,
+        }
+        case.events[f"unique-{route}"] = {
+            "host": "seed",
+            "source": "s",
+            "time": 104.0 + ord(route) - ord("a"),
+            "raw": f"unique {route}",
+            "via": route,
+            "weight": 1.0,
+            "kind": f"unique-{route}",
+            "kind_count": 1,
+        }
+    case.events["outward"] = {
+        "host": "other",
+        "source": "s",
+        "time": 200.0,
+        "raw": "outward high weight",
+        "via": "out",
+        "weight": 1000.0,
+        "kind": "outward",
+        "kind_count": 1,
+    }
+
+    core = case.core(cap=4)
+
+    assert len(core) == 4
+    assert all(event["host"] == "seed" for event in core)
+    assert sum(event["kind"] == "shared" for event in core) == 3
+    assert [event["time"] for event in core] == sorted(event["time"] for event in core)
+    assert case.core(cap=0) == []
+
+
 def test_failed_lookups_degrade_only_their_case() -> None:
     search = FakeSearch(ENTITIES + FILLER, fail_on="dedup 2 host source punct")
     investigator = Investigator(search, "idx", 0.0, 10**9)
