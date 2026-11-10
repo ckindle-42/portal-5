@@ -175,6 +175,23 @@ def test_fewer_than_two_peers_leaves_the_raw_z() -> None:
     assert lead.bursts[0].peer_z == lead.bursts[0].z
 
 
+def test_quiet_peers_leave_the_raw_z_untouched() -> None:
+    """Peers gone quiet in the lead hour (z < 0) must not lift a burst above its own z."""
+    prior = {BASE + i * HOUR: 2 for i in range(4)}
+    events = _events("h4", "10.4.0.1", {**prior, H: 10})
+    events += _events("h4", "10.4.0.2", prior)
+    events += _events("h4", "10.4.0.3", prior)
+    search = FakeSearch(events)
+    lead = _lead("h4")
+    lead.bursts = [_burst_of(search, "10.4.0.1")]
+
+    peer_bursts(search, "idx", lead, BASE, H + HOUR)
+
+    burst = lead.bursts[0]
+    assert burst.peer_median_z < 0
+    assert burst.peer_z == burst.z
+
+
 def test_coherence_uses_peer_z_not_raw_z() -> None:
     loud = Lead(H, "h1", 1.0, 2, [], bursts=[Burst("a", 20, 1.0, 3, 9.0, peer_z=0.1)])
     quiet = Lead(H, "h2", 1.0, 2, [], bursts=[Burst("b", 2, 1.0, 3, 1.0, peer_z=8.0)])

@@ -6,9 +6,10 @@ possible (the search tier does the volume; this process does the reasoning):
 
 1. Template novelty. Splunk's indexed ``punct`` (the event's punctuation skeleton) is a
    format-agnostic template. A template never seen before on a host/source is novel; its weight
-   grows with how much prior history said it was absent (no history -> no surprise).
+   grows with how long a prior history said it was absent (no history -> no surprise).
 2. Concentration. Novelty seen on every host at once is an environment event (boot, sensor
-   start), not an intrusion; a host-hour's novelty is divided by the hosts novel that hour.
+   start), not an intrusion; a bucket's novelty is divided by the most hosts any zoom level
+   saw novel around it.
 3. Value burst. Tokens from the host-hour's events are scored by how far this hour's count
    sits above that value's own prior hours and above the values holding the same slot in the
    same shape of event on that host (robust z on log counts, then peer-relative).
@@ -109,7 +110,7 @@ def template_rows(
 def host_hour_novelty(
     rows: list[dict[str, Any]], span: int = HOUR
 ) -> dict[tuple[int, str], tuple[float, list[tuple[str, str, int]]]]:
-    """Prior-only template novelty per host-bucket, before the concentration discount."""
+    """Prior-only template novelty per host-bucket, weighted by prior history in hours."""
     by_stream: dict[tuple[str, str], dict[int, list[tuple[str, int]]]] = defaultdict(
         lambda: defaultdict(list)
     )
@@ -120,12 +121,14 @@ def host_hour_novelty(
     out: dict[tuple[int, str], tuple[float, list[tuple[str, str, int]]]] = {}
     for (host, source), hours in by_stream.items():
         seen: set[str] = set()
-        for n_prior, hour in enumerate(sorted(hours)):
+        first = min(hours)
+        for hour in sorted(hours):
             novel = [(p, c) for p, c in hours[hour] if p not in seen]
             seen.update(p for p, _ in hours[hour])
-            if not novel or n_prior == 0:
+            prior_hours = (hour - first) / HOUR
+            if not novel or prior_hours <= 0:
                 continue
-            weight = math.log1p(n_prior) * len(novel)
+            weight = math.log1p(prior_hours) * len(novel)
             score, items = out.get((hour, host), (0.0, []))
             items = items + [(source, p, c) for p, c in novel]
             out[(hour, host)] = (score + weight, items)
@@ -261,7 +264,8 @@ def peer_bursts(search: Search, index: str, lead: Lead, start: float, end: float
         ]
         burst.peers = len(peers)
         burst.peer_median_z = round(statistics.median(zs), 2)
-        burst.peer_z = round(burst.z - burst.peer_median_z, 2)
+        # Peers bursting together discount the burst; quiet peers leave it as it is.
+        burst.peer_z = round(burst.z - max(0.0, burst.peer_median_z), 2)
 
 
 def link(
@@ -270,6 +274,11 @@ def link(
     q = f'| tstats count where index={index} TERM("{burst.token}") by host source'
     rows = search.iter_post(q, hour - span, hour + 2 * span)
     return sorted(((r["host"], r["source"], int(r["count"])) for r in rows), key=lambda x: -x[2])
+
+
+def _enclosing_hosts(bucket: int, coarse: list[tuple[int, Counter[int]]]) -> int:
+    """Hosts novel in this bucket's enclosing slot at each coarser zoom level; widest wins."""
+    return max((m.get(bucket // s * s, 0) for s, m in coarse), default=0)
 
 
 def hunt(
@@ -287,13 +296,19 @@ def hunt(
     value burst x linkage. `candidates` is the digging budget per zoom level."""
     leads: list[Lead] = []
     pool: list[Lead] = []
-    for span in ladder(search, index, start, end):
-        novelty = host_hour_novelty(template_rows(search, index, start, end, span), span)
-        hosts_novel = Counter(bucket for bucket, _ in novelty)
-        level = [
-            Lead(b, host, round(score / hosts_novel[b], 2), hosts_novel[b], items[:20], span=span)
-            for (b, host), (score, items) in novelty.items()
-        ]
+    levels = [
+        (span, host_hour_novelty(template_rows(search, index, start, end, span), span))
+        for span in ladder(search, index, start, end)
+    ]
+    maps = {span: Counter(bucket for bucket, _ in nov) for span, nov in levels}
+    for i, (span, novelty) in enumerate(levels):
+        coarse = [(s, maps[s]) for s, _ in levels[i + 1 :]]
+        level: list[Lead] = []
+        for (bucket, host), (score, items) in novelty.items():
+            spread = max(maps[span][bucket], _enclosing_hosts(bucket, coarse))
+            level.append(
+                Lead(bucket, host, round(score / spread, 2), spread, items[:20], span=span)
+            )
         level.sort(key=lambda lead: -lead.novelty)
         leads += level
         pool += level[:candidates]
