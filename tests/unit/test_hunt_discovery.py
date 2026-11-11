@@ -973,9 +973,9 @@ def test_narrow_screen_stays_within_budget_and_does_not_pollute_cache() -> None:
     assert wide_terms_after > wide_terms_before
 
 
-def test_narrow_budget_spent_drops_tokens_gracefully() -> None:
-    """When the shared request budget is exhausted mid-wave, _screen_hours returns what it
-    got so far and does not raise."""
+def test_narrow_budget_spent_propagates_instead_of_pruning() -> None:
+    """A spent budget mid-screen must end the ranking as incomplete; an unscreened token
+    defaulting to 0 would be pruned by the burst bound, a silent approximation."""
 
     class _SpendSearch(_CountingSearch):
         def iter_post(self, q: str, start: float, end: float) -> list[dict[str, Any]]:
@@ -988,9 +988,8 @@ def test_narrow_budget_spent_drops_tokens_gracefully() -> None:
     cache: dict[tuple[str, int], dict[int, int]] = {}
     hours: dict[tuple[str, int, int], int] = {}
 
-    engine._screen_hours(search, "idx", tokens, LEAD, HOUR, cache, hours)
-    # the drop is silent; hours gets whatever the pool returned before the raise
-    assert all(isinstance(v, int) for v in hours.values())
+    with pytest.raises(engine.SearchBudgetExceededError):
+        engine._screen_hours(search, "idx", tokens, LEAD, HOUR, cache, hours)
 
 
 def test_shaped_paths_yield_identical_leads() -> None:
