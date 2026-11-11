@@ -21,7 +21,15 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
 
-from .engine import HOUR, Lead, Search, _is_time_token, _search_literal
+from .engine import (
+    HOUR,
+    Lead,
+    Search,
+    SearchBudgetExceeded,
+    SearchCoverageCensored,
+    _is_time_token,
+    _search_literal,
+)
 
 _TOKEN = re.compile(r"[A-Za-z0-9_.:/@%\-]{4,}")
 # A value has at least one letter or digit; a run of punctuation ("........") is formatting.
@@ -35,6 +43,7 @@ DAY = 86400
 MAX_PLAN_CELLS = 500  # effort budget: indexed locations planned for one pivot
 MAX_EVIDENCE_EVENTS = 500  # effort budget: raw examples retained for one pivot
 CELL_QUERY_SIZE = 40  # effort budget: indexed cells represented in one raw request
+SEED_SAMPLE = 400  # effort budget: events sampled per novel template when seeding tokens
 
 
 @dataclass(frozen=True)
@@ -122,6 +131,7 @@ class Case:
     coverage: list[dict[str, Any]] = field(default_factory=list)
     # the seed leads' own windows: (host, bucket start, bucket end)
     seed_windows: list[tuple[str, int, int]] = field(default_factory=list)
+    partial: bool = False  # evidence gathered before work ran out; never a whole-case claim
 
     @property
     def pivot_tokens(self) -> set[str]:
@@ -143,6 +153,7 @@ class Case:
             "pivot_depths": dict(sorted(Counter(p.depth for p in self.pivots).items())),
             "degraded": self.degraded,
             "coverage": self.coverage,
+            "partial": self.partial,
             "pivots": [p.__dict__ for p in self.pivots],
             "core": core,
             "picture": self.picture(),
@@ -265,6 +276,12 @@ def _slot_variability(events: list[dict[str, Any]]) -> dict[str, float]:
     }
 
 
+def _where_literal(value: str) -> str:
+    """A where-expression string literal: exact comparison, immune to * wildcard search."""
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
 class Investigator:
     def __init__(self, search: Search, index: str, start: float, end: float) -> None:
         self.search, self.index, self.start, self.end = search, index, start, end
@@ -293,6 +310,7 @@ class Investigator:
         self._compound_handles: dict[str, set[str]] = {}
         self._provenance: dict[str, list[dict[str, Any]]] = {}
         self.completed_cases: list[Case] = []
+        self._stalled: Case | None = None
         q = f"| tstats count where index={index_q} by host source punct"
         self.template_count = {
             (r["host"], r["source"], r.get("punct", "")): int(r["count"])
@@ -399,6 +417,8 @@ class Investigator:
         handles = {token, *self._compound_handles.get(token, set())}
         try:
             term_cells, queries = self._term_cells(token, handles)
+        except (SearchBudgetExceeded, SearchCoverageCensored):
+            raise  # spent effort or censored coverage must surface, not degrade
         except Exception as exc:  # noqa: BLE001 -- failed discovery stays unknown
             term_cells, queries = {}, len(handles)
             self.degraded.append(f"indexed {token}: {type(exc).__name__}")
@@ -719,21 +739,24 @@ class Investigator:
                     self._remember(token, location, token, ("", ""), 0)
         events: list[dict[str, Any]] = []
         for source, punct, _ in lead.novel_templates[:10]:
+            # The indexed host/source restriction stays; the punct match is an exact literal
+            # `where` before head sampling -- SPL search equality would read * as a wildcard
+            # and let broad templates consume the sample. Python re-validates exactly.
             q = (
                 f"search index={_search_literal(self.index)} "
                 f"host={_search_literal(lead.host)} source={_search_literal(source)} "
-                "| table _raw punct"
+                f"| where punct={_where_literal(str(punct))} "
+                f"| head {SEED_SAMPLE + 1} "
+                "| table _time host source punct _raw"
             )
             rows = self._rows(q, lead.hour, lead.hour + lead.span)
+            if len(rows) > SEED_SAMPLE:
+                self.degraded.append(f"seed sample truncated {lead.host}@{lead.hour} {source}")
+                rows = rows[:SEED_SAMPLE]
             for row in rows:
-                if row.get("punct", "") != punct:
+                if str(row.get("punct", "")) != punct:
                     continue
-                event = {
-                    **row,
-                    "host": lead.host,
-                    "source": source,
-                    "_time": lead.hour,
-                }
+                event = {**row, "host": lead.host, "source": source}
                 events.append(event)
                 for token, compound, position in _token_parts(str(row.get("_raw", ""))):
                     self._remember(token, event, compound, (source, str(punct)), position)
@@ -765,8 +788,30 @@ class Investigator:
             seed=f"{lead.host}@{lead.hour}",
             seed_hour=lead.hour,
             seed_windows=[(lead.host, lead.hour, lead.hour + lead.span)],
+            partial=True,  # in progress; reset only after the whole case is investigated
         )
         mark = len(self.degraded)
+        self._stalled = None
+        try:
+            self._investigate_into(case, lead, depth, breadth, examine, minutes)
+        except Exception:
+            case.degraded = self.degraded[mark:]
+            if case.pivots or case.events:
+                self._stalled = case
+            raise
+        case.partial = False
+        case.degraded = self.degraded[mark:]
+        return case
+
+    def _investigate_into(
+        self,
+        case: Case,
+        lead: Lead,
+        depth: int,
+        breadth: int,
+        examine: int,
+        minutes: int,
+    ) -> None:
         frontier = self.seed_tokens(lead, examine)[:breadth]
         visited: set[str] = set()
         looked_around: set[tuple[str, float]] = set()
@@ -801,6 +846,12 @@ class Investigator:
                 seen_here.update({key: count for key, count in seen.items() if key not in visited})
                 seen_events.extend(events)
                 reached.extend(token_reached)
+                checkpoint = getattr(self.search, "checkpoint", None)
+                if callable(checkpoint):
+                    # Persist at pivot boundaries AFTER evidence integration, carrying prior
+                    # completed cases plus the in-progress one, so mid-run views never erase
+                    # earlier cases or drop the newest events.
+                    checkpoint("investigating", cases=[*self.completed_cases, case])
             # time/place pivot: around the most specific events this round, on their host
             for weight, ev in sorted(reached, key=lambda we: -we[0])[:breadth]:
                 spot = (ev["host"], float(ev["time"]) // 60)
@@ -821,8 +872,6 @@ class Investigator:
             ]
             if not frontier:
                 break
-        case.degraded = self.degraded[mark:]
-        return case
 
     @staticmethod
     def _coverage_row(plan: RetrievalPlan) -> dict[str, Any]:
@@ -846,7 +895,26 @@ class Investigator:
         for rank, lead in enumerate(leads[: max(0, dig)], start=1):
             if callable(checkpoint):
                 checkpoint("investigating", seed_rank=rank)
-            self.completed_cases.append(self.investigate(lead))
+            self._stalled = None
+            try:
+                case = self.investigate(lead)
+            except Exception:
+                # Work ran out mid-case: persist the usable evidence gathered so far as an
+                # explicitly partial case, then let the original exhaustion surface. The
+                # checkpoint itself may raise on the spent wall clock -- it persists first,
+                # and the terminal handler below also falls back to completed_cases.
+                stalled = self._stalled
+                if stalled is None:
+                    raise
+                stalled.partial = True
+                self.completed_cases.append(stalled)
+                if callable(checkpoint):
+                    try:
+                        checkpoint("investigating", seed_rank=rank, cases=self.completed_cases)
+                    except Exception:  # noqa: BLE001 -- the original exhaustion still surfaces
+                        pass
+                raise
+            self.completed_cases.append(case)
             if callable(checkpoint):
                 checkpoint(
                     "investigating",

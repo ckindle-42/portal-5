@@ -50,6 +50,14 @@ class Search(Protocol):
     def iter_post(self, search: str, start: float, end: float) -> Iterable[Mapping[str, Any]]: ...
 
 
+class SearchBudgetExceeded(RuntimeError):
+    """A shared hunt effort budget ran out inside one search call."""
+
+
+class SearchCoverageCensored(RuntimeError):
+    """A search stopped early; its rows are not an exact count."""
+
+
 @dataclass
 class Burst:
     token: str
@@ -103,18 +111,56 @@ def ladder(search: Search, index: str, start: float, end: float) -> list[int]:
     return [s for s in LADDER if data_span >= 2 * s] or [LADDER[0]]
 
 
-def template_rows(
-    search: Search, index: str, start: float, end: float, span: int = HOUR
-) -> list[dict[str, Any]]:
-    # First occurrence per (host, source, template), reduced on the server: novelty weighs a
-    # template only at its first bucket, so later rows cannot change the score (found live:
-    # the unreduced by-hour grid streamed 1.84M rows for one index).
-    q = (
-        f"| tstats count where index={_search_literal(index)} "
+TEMPLATE_HOST_GROUP = 64  # effort budget: indexed hosts per novelty partition job
+TEMPLATE_PARTITION_PARALLEL = 8  # effort budget: concurrent novelty partition jobs
+
+
+def indexed_hosts(search: Search, index: str, start: float, end: float) -> list[str]:
+    """The indexed host inventory, learned from the environment's own metadata."""
+    q = f"| tstats count where index={_search_literal(index)} by host"
+    return sorted({str(r["host"]) for r in search.iter_post(q, start, end)})
+
+
+def _template_query(index: str, span: int, hosts: list[str]) -> str:
+    clause = ""
+    if hosts:
+        clause = "(" + " OR ".join(f"host={_search_literal(h)}" for h in hosts) + ") "
+    return (
+        f"| tstats count where index={_search_literal(index)} {clause}"
         f"by host source punct _time span={span}s "
         "| dedup host source punct sortby +_time"
     )
-    return [dict(r) for r in search.iter_post(q, start, end)]
+
+
+def template_rows(
+    search: Search,
+    index: str,
+    start: float,
+    end: float,
+    span: int = HOUR,
+    hosts: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    # First occurrence per (host, source, template), reduced on the server: novelty weighs a
+    # template only at its first bucket, so later rows cannot change the score (found live:
+    # the unreduced by-hour grid streamed 1.84M rows for one index). High-cardinality indexes
+    # are partitioned by discovered host inventory, each host wholly in one group, so the
+    # first-occurrence rows and counts stay exactly equivalent at every zoom span.
+    if hosts is None:
+        hosts = indexed_hosts(search, index, start, end)
+    if not hosts or len(hosts) <= TEMPLATE_HOST_GROUP:
+        query = _template_query(index, span, hosts)
+        return [dict(r) for r in search.iter_post(query, start, end)]
+    groups = [hosts[i : i + TEMPLATE_HOST_GROUP] for i in range(0, len(hosts), TEMPLATE_HOST_GROUP)]
+    with ThreadPoolExecutor(max_workers=min(TEMPLATE_PARTITION_PARALLEL, len(groups))) as pool:
+        pages = list(
+            pool.map(
+                lambda group: list(
+                    search.iter_post(_template_query(index, span, group), start, end)
+                ),
+                groups,
+            )
+        )
+    return [dict(r) for page in pages for r in page]
 
 
 def host_hour_novelty(
@@ -173,22 +219,127 @@ def _token_series(
     return {_hour(r["_time"], span): int(r["count"]) for r in search.iter_post(q, start, end)}
 
 
-def _cached_series(
-    cache: dict[tuple[str, int], dict[int, int]] | None,
+SERIES_BATCH = 8  # effort budget: token series packed into one parent search job
+# Live evidence: append children run serially inside a parent, so peak active jobs is
+# PACK_PARENTS parents + one child each = 16, under the lab's 20 (pack_concurrency.json).
+PACK_PARENTS = 8
+
+
+def _packed_series_query(
+    index: str, tokens: list[str], span: int, subsearch_seconds: int
+) -> str:
+    """One parent job carrying every token's series as a single packed row (term id, declared
+    cell count, serialized cells), joined by append subsearches. maxtime stays longer than the
+    enclosing job's allowance so a subsearch cannot finalize partial first; maxout is explicit."""
+    parts = []
+    for i, token in enumerate(tokens):
+        parts.append(
+            f'| tstats count where index={_search_literal(index)} '
+            f"TERM({_search_literal(token)}) by _time span={span}s "
+            '| eval _hc=printf("%d:%d",_time,count) '
+            "| stats count as _hn values(_hc) as _hv "
+            '| eval _hs=mvjoin(_hv,",") '
+            f'| eval _ht="{i}" '
+            "| fields _ht _hn _hs"
+        )
+    query = parts[0]
+    for part in parts[1:]:
+        query += f" | append maxtime={subsearch_seconds} maxout=2 [ {part} ]"
+    return query
+
+
+def _unpack_packed_row(row: Mapping[str, Any]) -> tuple[int, dict[int, int]] | None:
+    """Decode one packed row exactly: the raw serialized cell list must match the declared
+    count with no duplicate buckets and no negative counts -- never coerced to exact."""
+    try:
+        term = int(str(row.get("_ht", "")))
+        declared = int(str(row.get("_hn", "")))
+    except (TypeError, ValueError):
+        return None
+    raw_cells = str(row.get("_hs") or "").split(",") if row.get("_hs") else []
+    parsed: dict[int, int] = {}
+    for cell in raw_cells:
+        try:
+            bucket_s, count_s = cell.split(":")
+            bucket, count = int(bucket_s), int(count_s)
+        except ValueError:
+            return None
+        if count < 0 or bucket in parsed:
+            return None
+        parsed[bucket] = count
+    if len(raw_cells) != len(parsed) or declared != len(parsed):
+        return None
+    return term, parsed
+
+
+def _packed_series(
+    search: Search, index: str, tokens: list[str], start: float, end: float, span: int
+) -> dict[str, dict[int, int]] | None:
+    """Run one packed batch job and unpack the exact series, or None when the job cannot be
+    trusted as exact (missing/duplicated/malformed term records, declared cell count mismatch,
+    truncated serialized cells, subsearch warnings). None never poisons the cache."""
+    allowance = getattr(search, "query_allowance_seconds", None)
+    maxtime = int(allowance) + 60 if allowance else 90
+    try:
+        rows = list(
+            search.iter_post(_packed_series_query(index, tokens, span, maxtime), start, end)
+        )
+    except Exception:  # noqa: BLE001 -- a failed pack falls back to exact per-token scans
+        return None
+    series: dict[int, dict[int, int]] = {}
+    for row in rows:
+        unpacked = _unpack_packed_row(row)
+        if unpacked is None:
+            return None
+        term, parsed = unpacked
+        if term not in range(len(tokens)) or term in series:
+            return None
+        series[term] = parsed
+    if len(series) != len(tokens):
+        return None
+    return {tokens[term]: cells for term, cells in series.items()}
+
+
+def _fill_series_cache(
+    cache: dict[tuple[str, int], dict[int, int]],
     search: Search,
     index: str,
-    token: str,
+    tokens: list[str],
     start: float,
     end: float,
     span: int,
-) -> dict[int, int]:
-    # One token's series is identical for every lead of the same span: scan it once per hunt.
-    key = (token, span)
-    if cache is None:
-        return _token_series(search, index, token, start, end, span)
-    if key not in cache:
-        cache[key] = _token_series(search, index, token, start, end, span)
-    return cache[key]
+) -> None:
+    """Fill the run's series cache for pending tokens with bounded parallel parent packs
+    (live-measured: 8 parents finish 32 tokens in 3.5s vs 6.5s at 2, peak 16 active
+    parent+child jobs inside the lab's 20), then exact per-token scans for whatever a pack
+    could not return exactly."""
+    pending = [t for t in dict.fromkeys(tokens) if (t, span) not in cache]
+    while pending:
+        wave, pending = (
+            pending[: SERIES_BATCH * PACK_PARENTS],
+            pending[SERIES_BATCH * PACK_PARENTS :],
+        )
+        batches = [wave[i : i + SERIES_BATCH] for i in range(0, len(wave), SERIES_BATCH)]
+        if len(batches) == 1:
+            packed = [(batches[0], _packed_series(search, index, batches[0], start, end, span))]
+        else:
+            with ThreadPoolExecutor(max_workers=min(PACK_PARENTS, len(batches))) as pool:
+                packed = list(
+                    pool.map(
+                        lambda batch: (
+                            batch,
+                            _packed_series(search, index, batch, start, end, span),
+                        ),
+                        batches,
+                    )
+                )
+        for batch, got in packed:
+            if got is not None:
+                cache.update({(token, span): cells for token, cells in got.items()})
+                continue
+            for token in batch:  # exact per-token fallback: never cache a partial pack
+                if (token, span) not in cache:
+                    cache[(token, span)] = _token_series(search, index, token, start, end, span)
 
 
 def _burst(token: str, hour: int, series: dict[int, int]) -> Burst | None:
@@ -227,13 +378,10 @@ def value_bursts(
         t for e in events for t in set(_TOKEN.findall(str(e.get("_raw", "")))) if _pivotable(t)
     )
     chosen = [t for t, _ in tokens.most_common(top)]
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        series = list(
-            pool.map(
-                lambda t: _cached_series(cache, search, index, t, start, end, lead.span),
-                chosen,
-            )
-        )
+    if cache is None:
+        cache = {}
+    _fill_series_cache(cache, search, index, chosen, start, end, lead.span)
+    series = [cache[(t, lead.span)] for t in chosen]
     bursts = [b for t, s in zip(chosen, series, strict=True) if (b := _burst(t, lead.hour, s))]
     return sorted(bursts, key=lambda b: -b.z)
 
@@ -304,11 +452,10 @@ def peer_bursts(
     found = [peer_tokens(search, index, lead, burst, start) for burst in lead.bursts]
     flat = [token for peers in found for token in peers]
 
-    def series(token: str) -> dict[int, int]:
-        return _cached_series(cache, search, index, token, start, end, lead.span)
-
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        values = list(pool.map(series, flat))
+    if cache is None:
+        cache = {}
+    _fill_series_cache(cache, search, index, flat, start, end, lead.span)
+    values = [cache[(t, lead.span)] for t in flat]
     offset = 0
     for burst, peers in zip(lead.bursts, found, strict=True):
         rows = values[offset : offset + len(peers)]
@@ -358,8 +505,9 @@ def hunt(
     leads: list[Lead] = []
     pool: list[Lead] = []
     series_cache: dict[tuple[str, int], dict[int, int]] = {}
+    hosts = indexed_hosts(search, index, start, end)
     levels = [
-        (span, host_hour_novelty(template_rows(search, index, start, end, span), span))
+        (span, host_hour_novelty(template_rows(search, index, start, end, span, hosts), span))
         for span in ladder(search, index, start, end)
     ]
     maps = {span: Counter(bucket for bucket, _ in nov) for span, nov in levels}

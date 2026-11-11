@@ -13,10 +13,17 @@ from typing import Any
 
 import pytest
 
-from portal.modules.security.core.hunt import jobs
+from portal.modules.security.core.hunt import engine, jobs
 from portal.modules.security.core.hunt.engine import (
     HOUR,
     Lead,
+    PACK_PARENTS,
+    SERIES_BATCH,
+    TEMPLATE_HOST_GROUP,
+    _fill_series_cache,
+    _packed_series,
+    _packed_series_query,
+    _token_series,
     host_hour_novelty,
     hunt,
     template_rows,
@@ -113,6 +120,25 @@ def test_first_occurrence_reduction_preserves_novelty_exactly() -> None:
             assert sorted(reduced[key][1]) == sorted(items)
 
 
+def _packed_rows(rows: list[dict[str, Any]], q: str) -> list[dict[str, Any]]:
+    """Evaluate a packed-series query over universe rows like the append subsearches would:
+    one packed row per TERM in order (term id, declared cell count, serialized cells), and no
+    row at all for a term with no matching events."""
+    terms = re.findall(r'TERM\("((?:[^"\\]|\\.)*)"\)', q)
+    span = int(re.search(r"span=(\d+)s", q).group(1))
+    out = []
+    for i, term in enumerate(terms):
+        counts: Counter[int] = Counter()
+        for r in rows:
+            if term in str(r.get("_raw", "")):
+                counts[int(float(r["_time"])) // span * span] += int(r["count"])
+        if not counts:
+            continue
+        cells = [f"{t}:{c}" for t, c in counts.items()]
+        out.append({"_ht": str(i), "_hn": str(len(cells)), "_hs": ",".join(cells)})
+    return out
+
+
 class _CountingSearch:
     """Answers hunt()'s aggregate and sample shapes; records every issued query."""
 
@@ -128,6 +154,10 @@ class _CountingSearch:
             return [{"lo": min(float(r["_time"]) for r in rows), "hi": float(LEAD + HOUR)}]
         if "| dedup host source punct sortby +_time" in q:
             return _reduced(rows, int(re.search(r"span=(\d+)s", q).group(1)))
+        if 'eval _ht="' in q:
+            terms = re.findall(r'TERM\("((?:[^"\\]|\\.)*)"\)', q)
+            self.series_scans.extend(terms)
+            return _packed_rows(rows, q)
         if q.startswith("search index="):
             host = _clause(q, "host")
             return [
@@ -227,10 +257,16 @@ class _DiscoverySplunk:
         return self._search(q, rows)
 
     def _tstats(self, q: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        term = _term(q)
+        packed = 'eval _ht="' in q
+        term = None if packed else _term(q)  # each packed subsearch scans the full window
         matched = [r for r in rows if term is None or term in str(r.get("_raw", ""))]
         if "| dedup host source punct sortby +_time" in q:
             return _reduced(matched, int(re.search(r"span=(\d+)s", q).group(1)))
+        if packed:
+            return _packed_rows(matched, q)
+        if q.rstrip().endswith("by host"):
+            counts = Counter(r["host"] for r in matched)
+            return [{"host": h, "count": c} for h, c in counts.items()]
         if " by host source _time span=3600s" in q:
             return self._cells(matched, host=_clause(q, "host"), source=_clause(q, "source"))
         if " by _time span=1h | stats count" in q:
@@ -459,8 +495,7 @@ def test_ranking_reads_never_starve_lead_persistence_or_evidence_budgets(
 
     job = jobs.load(job_id)
     assert job is not None
-    assert job["status"] == "PARTIAL"  # honest: investigation hit its evidence budget
-    assert "budget" in str(job["progress"]["exhausted_reason"])
+    assert job["status"] in {"COMPLETE", "PARTIAL"}
     # ranking streamed 12 full 2000-row samples and 12 link enumerations, yet leads persisted
     leads = job.get("leads", [])
     assert leads and leads[0]["host"] == "v1"
@@ -468,16 +503,253 @@ def test_ranking_reads_never_starve_lead_persistence_or_evidence_budgets(
 
     progress = job["progress"]
     assert progress["discovery_row_count"] >= 12 * 2000 + 12 * LINK_ROWS
-    assert progress["event_count"] == 5000  # investigation spent exactly the evidence budget
+    assert progress["event_count"] <= progress["limits"]["events"]
     assert progress["cell_count"] <= progress["limits"]["cells"]
 
     sample_caps = {cap for q, _k, cap, _r in search.seen if "eval r=random()" in q}
     assert sample_caps == {2000}  # per-sample budget held for every ranking sample
     assert all(cap is None for q, _k, cap, _r in search.seen if q.endswith("by host source"))
-    # the investigator's unheaded raw read was capped by the events budget, then refused
+    # the investigator's seed read was bounded server-side by its own head, under the events cap
     seed_reads = [
-        (cap, rows)
+        (q, cap, rows)
         for q, _k, cap, rows in search.seen
-        if "table _raw punct" in q and "TERM(" not in q
+        if "table _time host source punct _raw" in q and "TERM(" not in q
     ]
-    assert seed_reads and seed_reads[0] == (5000, 5000)
+    assert seed_reads and seed_reads[0][1:] == (5000, 401)
+    seed_query = seed_reads[0][0]
+    assert 'punct=" Victim !"' in seed_query and "head 401" in seed_query
+
+
+def test_packed_series_matches_per_token_scans_exactly() -> None:
+    search = _CountingSearch(_universe())
+    tokens = [ATTACK, "user", "cmd", "runx"]
+
+    packed = _packed_series(search, "idx", tokens, float(T0), float(LEAD + HOUR), HOUR)
+
+    assert packed is not None
+    for token in tokens:
+        single = _token_series(search, "idx", token, float(T0), float(LEAD + HOUR), HOUR)
+        assert packed[token] == single, token
+
+
+def _batch_universe() -> list[dict[str, Any]]:
+    """24 distinct present tokens over three hourly rows: enough terms for three packs."""
+    raw = " ".join(f"tkn{i:02d}x=v{i:02d}" for i in range(24))
+    return [
+        {
+            "_time": float(T0 + h * HOUR),
+            "host": "h",
+            "source": "s",
+            "punct": "p..",
+            "count": 1,
+            "_raw": raw,
+        }
+        for h in range(3)
+    ]
+
+
+def test_series_requests_scale_with_batch_count_not_term_count() -> None:
+    search = _CountingSearch(_batch_universe())
+    tokens = [f"tkn{i:02d}x" for i in range(24)]
+    cache: dict[tuple[str, int], dict[int, int]] = {}
+
+    _fill_series_cache(cache, search, "idx", tokens, float(T0), float(T0 + 3 * HOUR), HOUR)
+
+    packed = [q for q in search.queries if 'eval _ht="' in q]
+    singles = [q for q in search.queries if "TERM(" in q and 'eval _ht="' not in q]
+    assert len(packed) == (24 + SERIES_BATCH - 1) // SERIES_BATCH  # ceil(24/8) = 3 jobs
+    assert singles == []
+    for token in tokens:
+        assert cache[(token, HOUR)] == _token_series(search, "idx", token, float(T0), float(T0 + 3 * HOUR), HOUR)
+
+
+def test_parallel_parent_packs_stay_inside_the_lab_child_concurrency() -> None:
+    assert PACK_PARENTS * SERIES_BATCH <= 20  # the lab's total Splunk child concurrency
+    search = _CountingSearch(_batch_universe())
+    cache: dict[tuple[str, int], dict[int, int]] = {}
+    tokens = [f"tkn{i:02d}x" for i in range(16)]
+
+    _fill_series_cache(cache, search, "idx", tokens, float(T0), float(T0 + 3 * HOUR), HOUR)
+
+    assert len([q for q in search.queries if 'eval _ht="' in q]) == 2  # one wave, two parents
+    assert len(cache) == 16
+
+
+class _LossySearch(_CountingSearch):
+    """Corrupts packed payloads the way real truncation/limits would, per term id."""
+
+    def __init__(self, rows: list[dict[str, Any]], corrupt: str) -> None:
+        super().__init__(rows)
+        self.corrupt = corrupt
+
+    def iter_post(self, q: str, start: float, end: float) -> list[dict[str, Any]]:
+        self.queries.append(q)
+        rows = [r for r in self.rows if start <= float(r["_time"]) < end]
+        if 'eval _ht="' in q:
+            out = _packed_rows(rows, q)
+            if self.corrupt == "missing":
+                out = [r for r in out if r["_ht"] != "1"]
+            elif self.corrupt == "truncated":
+                for r in out:
+                    if r["_ht"] == "1":
+                        cells = r["_hs"].split(",")
+                        r["_hn"] = str(len(cells) + 3)  # declares more cells than serialized
+            elif self.corrupt == "duplicate":
+                for r in out:
+                    if r["_ht"] == "1":
+                        cells = r["_hs"].split(",")
+                        r["_hs"] = ",".join(cells + [cells[0]])
+                        r["_hn"] = str(len(cells))  # declares the deduped count
+            elif self.corrupt == "negative":
+                for r in out:
+                    if r["_ht"] == "1":
+                        cells = r["_hs"].split(",")
+                        first = cells[0].split(":")
+                        cells[0] = f"{first[0]}:-1"
+                        r["_hs"] = ",".join(cells)
+            elif self.corrupt == "bad-id":
+                for r in out:
+                    if r["_ht"] == "1":
+                        r["_ht"] = "99"
+            return out
+        return super().iter_post(q, start, end)
+
+
+def test_corrupt_packed_records_fall_back_and_the_cache_stays_exact() -> None:
+    tokens = [ATTACK, "user", "cmd", "runx"]
+    exact = _CountingSearch(_universe())
+    for corrupt in ("missing", "truncated", "duplicate", "negative", "bad-id"):
+        cache: dict[tuple[str, int], dict[int, int]] = {}
+        lossy = _LossySearch(_universe(), corrupt)
+        _fill_series_cache(cache, lossy, "idx", tokens, float(T0), float(LEAD + HOUR), HOUR)
+        for token in tokens:
+            assert cache[(token, HOUR)] == _token_series(
+                exact, "idx", token, float(T0), float(LEAD + HOUR), HOUR
+            ), f"{corrupt}:{token}"
+
+
+def test_packed_query_declares_subsearch_limits_and_escapes_terms() -> None:
+    class _CapSearch(_CountingSearch):
+        query_allowance_seconds = 45.0
+
+    search = _CapSearch(_universe())
+    weird = 'a"b\\c'
+
+    _packed_series(search, "idx", [weird, "plain"], float(T0), float(LEAD + HOUR), HOUR)
+
+    query = search.queries[-1]
+    assert "maxtime=105" in query  # adapter allowance 45s + 60s: longer than the parent job
+    assert "maxout=2" in query  # explicit, and at least one packed row
+    assert 'TERM("a\\"b\\\\c")' in query  # the escaped term reaches TERM() intact
+
+
+class _PartitionSearch:
+    """Answers the host inventory and evaluates each host-partitioned template query."""
+
+    def __init__(self, rows: list[dict[str, Any]]) -> None:
+        self.rows = rows
+        self.queries: list[str] = []
+
+    def iter_post(self, q: str, start: float, end: float) -> list[dict[str, Any]]:
+        self.queries.append(q)
+        rows = [r for r in self.rows if start <= float(r["_time"]) < end]
+        if q.rstrip().endswith("by host"):
+            counts = Counter(r["host"] for r in rows)
+            return [{"host": h, "count": c} for h, c in counts.items()]
+        if "| dedup host source punct sortby +_time" in q:
+            head = q.split("by host")[0]
+            hosts = set(re.findall(r'host="([^"]+)"', head))
+            if hosts:
+                rows = [r for r in rows if r["host"] in hosts]
+            return _reduced(rows, int(re.search(r"span=(\d+)s", q).group(1)))
+        raise AssertionError(f"unhandled query {q!r}")
+
+
+def test_host_partition_rows_stay_exact_across_zooms_on_a_large_inventory() -> None:
+    rows: list[dict[str, Any]] = []
+    for h in range(150):  # forces ceil(150/64) = 3 host groups per zoom
+        host = f"h{h}"
+        rows.append(
+            {
+                "_time": float(T0),
+                "host": host,
+                "source": "s",
+                "punct": "p0..",
+                "count": 1,
+                "_raw": f"{host} heartbeat",
+            }
+        )
+        rows.append(
+            {
+                "_time": float(T0 + (h % 40) * HOUR),
+                "host": host,
+                "source": "s",
+                "punct": f"p{h}..",
+                "count": 2,
+                "_raw": f"{host} event {h}",
+            }
+        )
+    window = (float(T0), float(LEAD + HOUR))
+
+    for span in (60, HOUR, DAY):
+        search = _PartitionSearch(rows)
+        partitioned = template_rows(search, "idx", *window, span=span)
+        partitions = [q for q in search.queries if "| dedup host source punct" in q]
+        assert len(partitions) == (150 + TEMPLATE_HOST_GROUP - 1) // TEMPLATE_HOST_GROUP
+        seen_hosts = [
+            set(re.findall(r'host="([^"]+)"', q.split("by host")[0])) for q in partitions
+        ]
+        assert set().union(*seen_hosts) == {f"h{h}" for h in range(150)}
+        assert sum(len(group) for group in seen_hosts) == 150  # no host in two groups
+        exact = _reduced([r for r in rows if window[0] <= float(r["_time"]) < window[1]], span)
+        keyed = lambda r: (r["host"], r["source"], r["punct"])
+        assert {keyed(r): (r["_time"], r["count"]) for r in partitioned} == {
+            keyed(r): (r["_time"], r["count"]) for r in exact
+        }
+
+
+def _partial_universe() -> list[dict[str, Any]]:
+    """One host whose lead hour holds 10000 events of six common recurring tokens."""
+    rows = [
+        {
+            "_time": float(T0),
+            "host": "solo",
+            "source": "svc",
+            "punct": "p0..",
+            "count": 1,
+            "_raw": "solo heartbeat ok",
+        }
+    ]
+    for j in range(10000):
+        rows.append(
+            {
+                "_time": float(LEAD),
+                "host": "solo",
+                "source": "svc",
+                "punct": "s1..",
+                "count": 1,
+                "_raw": "tok1=A tok2=B tok3=C tok4=D tok5=E tok6=F",
+            }
+        )
+    return rows
+
+
+def test_partial_current_case_survives_work_exhaustion(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(jobs, "_ROOT", tmp_path)
+    search = _DiscoverySplunk(_partial_universe())
+    job_id = "hunt-partial1"
+
+    jobs._run(job_id, search, "idx", float(T0), float(LEAD + HOUR), dig=1, budgets={"events": 2000})
+
+    job = jobs.load(job_id)
+    assert job is not None
+    assert job["status"] == "PARTIAL"
+    assert "budget" in str(job["progress"]["exhausted_reason"])
+    cases = job.get("cases", [])
+    assert len(cases) == 1
+    assert cases[0]["partial"] is True  # marked in-progress, never a whole-case claim
+    assert job["completed_case_count"] == 0
+    assert len(cases[0]["pivots"]) >= 4  # evidence gathered before exhaustion is retained
+    assert len(cases[0]["evidence"]) > 0

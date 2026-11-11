@@ -198,6 +198,7 @@ class BudgetedSearch:
     def __init__(self, search: Search, budget: HuntBudget) -> None:
         self.search = search
         self.budget = budget
+        self.query_allowance_seconds = budget.limits["query_seconds"]
         self.on_case_checkpoint: Callable[[str, dict[str, Any], list[Any]], None] | None = None
 
     def iter_post(self, query: str, start: float, end: float) -> Iterator[Mapping[str, Any]]:
@@ -230,17 +231,18 @@ class BudgetedSearch:
             raise HuntSearchFailedError(f"bounded_search_failed:{type(exc).__name__}") from exc
 
     def checkpoint(self, phase: str, **values: Any) -> None:
+        cases = values.pop("cases", None)
+        if cases is not None and self.on_case_checkpoint is not None:
+            # persist current evidence first: a spent wall clock must not lose the case
+            self.on_case_checkpoint(phase, self.budget.snapshot(), cases)
         if self.budget.remaining() <= 0:
             self.budget.exhausted = "job_wall_time_budget_exhausted"
             raise HuntBudgetExceededError(self.budget.exhausted)
-        cases = values.pop("cases", None)
         pivot_delta = int(values.pop("pivot_delta", 0))
         if pivot_delta:
             with self.budget.lock:
                 self.budget.pivot_count += pivot_delta
         self.budget.update(phase=phase, **values)
-        if cases is not None and self.on_case_checkpoint is not None:
-            self.on_case_checkpoint(phase, self.budget.snapshot(), cases)
 
 
 def _path(job_id: str) -> Path:
@@ -328,7 +330,9 @@ def _persist_cases(
             stage=phase,
             progress=snapshot,
             cases=[_case_payload(case) for case in cases],
-            completed_case_count=len(cases),
+            completed_case_count=sum(
+                1 for case in cases if not getattr(case, "partial", False)
+            ),
         )
         _write(job_id, state)
 
@@ -364,6 +368,9 @@ def _perform_hunt(
             stage="done" if complete and not effort.exhausted else "partial",
             finished=time.time(),
             cases=[_case_payload(case) for case in cases],
+            completed_case_count=sum(
+                1 for case in cases if not getattr(case, "partial", False)
+            ),
             degraded=inv.degraded,
             coverage_complete=complete and not effort.exhausted,
             coverage_reason=None
@@ -376,11 +383,16 @@ def _perform_hunt(
         progress = effort.snapshot()
         if isinstance(exc, HuntCoverageError) and exc.sid:
             progress["search_sid"] = exc.sid
+        retained = inv.completed_cases if inv is not None else []
         state.update(
             status="PARTIAL",
             stage="partial",
             finished=time.time(),
             error=str(exc),
+            cases=[_case_payload(case) for case in retained],
+            completed_case_count=sum(
+                1 for case in retained if not getattr(case, "partial", False)
+            ),
             coverage_complete=False,
             coverage_reason=str(exc),
             degraded=inv.degraded if inv is not None else [],
@@ -388,11 +400,16 @@ def _perform_hunt(
         )
     except Exception as exc:  # noqa: BLE001 -- surface an unexpected job failure
         failure = f"{type(exc).__name__}: {exc}"
+        retained = inv.completed_cases if inv is not None else []
         state.update(
             status="FAILED",
             stage="failed",
             finished=time.time(),
             error=failure,
+            cases=[_case_payload(case) for case in retained],
+            completed_case_count=sum(
+                1 for case in retained if not getattr(case, "partial", False)
+            ),
             coverage_complete=False,
             coverage_reason=failure,
             degraded=inv.degraded if inv is not None else [],
@@ -607,6 +624,7 @@ def case_view(
             ],
             "coverage": {
                 "complete": c.get("coverage_complete", False),
+                "partial": bool(c.get("partial", False)),
                 "pivots": len(c.get("coverage", [])),
                 "unknown": sum(
                     item.get("count_semantics") == "unknown"

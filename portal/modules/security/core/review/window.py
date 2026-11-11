@@ -200,6 +200,35 @@ def _message_text(content: Mapping[str, Any]) -> str:
     return " ".join(parts).lower()
 
 
+_COMPLETENESS_MARKERS = (
+    "subsearch",
+    "truncat",
+    "maxout",
+    "maxtime",
+    "partial result",
+    "finaliz",
+    "auto-canceled",
+)
+
+
+def _incomplete_message(content: Mapping[str, Any]) -> str | None:
+    """The first WARN/ERROR message claiming incomplete subsearch/truncation work, if any.
+    Benign metadata messages (info level, other topics) are not completeness failures."""
+    messages = content.get("messages")
+    if not isinstance(messages, list):
+        return None
+    for message in messages:
+        if not isinstance(message, Mapping):
+            continue
+        level = str(message.get("type", "")).upper()
+        text = str(message.get("text", ""))
+        if level in {"WARN", "ERROR"} and any(
+            marker in text.lower() for marker in _COMPLETENESS_MARKERS
+        ):
+            return text
+    return None
+
+
 def _splunk_epoch(value: Any) -> float | None:
     if value is None or value == "":
         return None
@@ -273,6 +302,10 @@ def _coverage_problem(sid: str, content: Mapping[str, Any]) -> tuple[str, bool] 
         return (f"Splunk search job {sid} {why}", True)
     if state in _STOPPED_STATES or state not in {"", "DONE"}:
         return (f"Splunk search job {sid} ended in {state or 'unknown'} before completion", True)
+    warning = _incomplete_message(content)
+    if warning:
+        # a DONE job whose subsearches timed out or truncated is censored, never exact
+        return (f"Splunk search job {sid} reported incomplete work: {warning}", True)
     if state == "DONE" or _splunk_flag(content.get("isDone")):
         return None
     return (f"Splunk search job {sid} failed or was finalized early", True)
@@ -533,7 +566,16 @@ class SplunkWindowSource:
             timeout=max(0.1, remaining),
         )
         response.raise_for_status()
-        results = response.json().get("results")
+        payload = response.json()
+        warning = _incomplete_message(payload)
+        if warning:
+            raise WindowFetchError(
+                f"Splunk search job {sid} results reported incomplete work: {warning}",
+                sid=sid,
+                censored=True,
+                coverage={"sid": sid, "censored": True, "message": warning},
+            )
+        results = payload.get("results")
         if not isinstance(results, list):
             raise WindowFetchError(f"Splunk search job {sid} returned no results list", sid=sid)
         if cap is not None and len(results) > cap:
