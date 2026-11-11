@@ -50,11 +50,11 @@ class Search(Protocol):
     def iter_post(self, search: str, start: float, end: float) -> Iterable[Mapping[str, Any]]: ...
 
 
-class SearchBudgetExceeded(RuntimeError):
+class SearchBudgetExceededError(RuntimeError):
     """A shared hunt effort budget ran out inside one search call."""
 
 
-class SearchCoverageCensored(RuntimeError):
+class SearchCoverageCensoredError(RuntimeError):
     """A search stopped early; its rows are not an exact count."""
 
 
@@ -220,21 +220,20 @@ def _token_series(
 
 
 SERIES_BATCH = 8  # effort budget: token series packed into one parent search job
-# Live evidence: append children run serially inside a parent, so peak active jobs is
-# PACK_PARENTS parents + one child each = 16, under the lab's 20 (pack_concurrency.json).
+# Append children run serially inside a parent, so peak active jobs is one parent plus
+# its one running child: 2 * PACK_PARENTS, inside the lab search concurrency allowance.
 PACK_PARENTS = 8
+LAB_SEARCH_CONCURRENCY = 20  # effort budget: lab Splunk search concurrency allowance
 
 
-def _packed_series_query(
-    index: str, tokens: list[str], span: int, subsearch_seconds: int
-) -> str:
+def _packed_series_query(index: str, tokens: list[str], span: int, subsearch_seconds: int) -> str:
     """One parent job carrying every token's series as a single packed row (term id, declared
     cell count, serialized cells), joined by append subsearches. maxtime stays longer than the
     enclosing job's allowance so a subsearch cannot finalize partial first; maxout is explicit."""
     parts = []
     for i, token in enumerate(tokens):
         parts.append(
-            f'| tstats count where index={_search_literal(index)} '
+            f"| tstats count where index={_search_literal(index)} "
             f"TERM({_search_literal(token)}) by _time span={span}s "
             '| eval _hc=printf("%d:%d",_time,count) '
             "| stats count as _hn values(_hc) as _hv "
@@ -284,6 +283,8 @@ def _packed_series(
         rows = list(
             search.iter_post(_packed_series_query(index, tokens, span, maxtime), start, end)
         )
+    except SearchBudgetExceededError:
+        raise  # a spent budget must not fall through into more per-token scans
     except Exception:  # noqa: BLE001 -- a failed pack falls back to exact per-token scans
         return None
     series: dict[int, dict[int, int]] = {}

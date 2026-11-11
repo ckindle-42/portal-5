@@ -8,6 +8,8 @@ rows than the evidence budgets could ever hold.
 from __future__ import annotations
 
 import re
+import threading
+import time
 from collections import Counter
 from typing import Any
 
@@ -16,13 +18,12 @@ import pytest
 from portal.modules.security.core.hunt import engine, jobs
 from portal.modules.security.core.hunt.engine import (
     HOUR,
-    Lead,
     PACK_PARENTS,
     SERIES_BATCH,
     TEMPLATE_HOST_GROUP,
+    Lead,
     _fill_series_cache,
     _packed_series,
-    _packed_series_query,
     _token_series,
     host_hour_novelty,
     hunt,
@@ -560,11 +561,37 @@ def test_series_requests_scale_with_batch_count_not_term_count() -> None:
     assert len(packed) == (24 + SERIES_BATCH - 1) // SERIES_BATCH  # ceil(24/8) = 3 jobs
     assert singles == []
     for token in tokens:
-        assert cache[(token, HOUR)] == _token_series(search, "idx", token, float(T0), float(T0 + 3 * HOUR), HOUR)
+        assert cache[(token, HOUR)] == _token_series(
+            search, "idx", token, float(T0), float(T0 + 3 * HOUR), HOUR
+        )
+
+
+class _PeakSearch(_CountingSearch):
+    """Counts packed parent jobs in flight while each one holds the slot briefly."""
+
+    def __init__(self, rows: list[dict[str, Any]]) -> None:
+        super().__init__(rows)
+        self._active = 0
+        self.peak = 0
+        self._lock = threading.Lock()
+
+    def iter_post(self, q: str, start: float, end: float) -> list[dict[str, Any]]:
+        if 'eval _ht="' not in q:
+            return super().iter_post(q, start, end)
+        with self._lock:
+            self._active += 1
+            self.peak = max(self.peak, self._active)
+        try:
+            time.sleep(0.1)
+            return super().iter_post(q, start, end)
+        finally:
+            with self._lock:
+                self._active -= 1
 
 
 def test_parallel_parent_packs_stay_inside_the_lab_child_concurrency() -> None:
-    assert PACK_PARENTS * SERIES_BATCH <= 20  # the lab's total Splunk child concurrency
+    # Append children run serially, so the live peak is parent + one child, not batch * parents.
+    assert 2 * PACK_PARENTS <= engine.LAB_SEARCH_CONCURRENCY
     search = _CountingSearch(_batch_universe())
     cache: dict[tuple[str, int], dict[int, int]] = {}
     tokens = [f"tkn{i:02d}x" for i in range(16)]
@@ -573,6 +600,37 @@ def test_parallel_parent_packs_stay_inside_the_lab_child_concurrency() -> None:
 
     assert len([q for q in search.queries if 'eval _ht="' in q]) == 2  # one wave, two parents
     assert len(cache) == 16
+
+    wide = _PeakSearch(_batch_universe())
+    wide_cache: dict[tuple[str, int], dict[int, int]] = {}
+    wide_tokens = [f"tkn{i:02d}x" for i in range(SERIES_BATCH * (PACK_PARENTS + 1))]
+    _fill_series_cache(wide_cache, wide, "idx", wide_tokens, float(T0), float(T0 + 3 * HOUR), HOUR)
+
+    packed = [q for q in wide.queries if 'eval _ht="' in q]
+    assert len(packed) == PACK_PARENTS + 1  # one extra batch proves the wave split
+    assert 1 < wide.peak <= PACK_PARENTS
+
+
+def _apply_pack_corruption(out: list[dict[str, Any]], corrupt: str) -> list[dict[str, Any]]:
+    """One malformed packed term, the way truncation, duplicates, and bad ids arrive."""
+    if corrupt == "missing":
+        return [row for row in out if row["_ht"] != "1"]
+    for row in out:
+        if row["_ht"] != "1":
+            continue
+        cells = str(row["_hs"]).split(",")
+        if corrupt == "truncated":
+            row["_hn"] = str(len(cells) + 3)  # declares more cells than serialized
+        elif corrupt == "duplicate":
+            row["_hs"] = ",".join(cells + [cells[0]])
+            row["_hn"] = str(len(cells))  # declares the deduped count
+        elif corrupt == "negative":
+            bucket, _count = cells[0].split(":")
+            cells[0] = f"{bucket}:-1"
+            row["_hs"] = ",".join(cells)
+        elif corrupt == "bad-id":
+            row["_ht"] = "99"
+    return out
 
 
 class _LossySearch(_CountingSearch):
@@ -586,33 +644,43 @@ class _LossySearch(_CountingSearch):
         self.queries.append(q)
         rows = [r for r in self.rows if start <= float(r["_time"]) < end]
         if 'eval _ht="' in q:
-            out = _packed_rows(rows, q)
-            if self.corrupt == "missing":
-                out = [r for r in out if r["_ht"] != "1"]
-            elif self.corrupt == "truncated":
-                for r in out:
-                    if r["_ht"] == "1":
-                        cells = r["_hs"].split(",")
-                        r["_hn"] = str(len(cells) + 3)  # declares more cells than serialized
-            elif self.corrupt == "duplicate":
-                for r in out:
-                    if r["_ht"] == "1":
-                        cells = r["_hs"].split(",")
-                        r["_hs"] = ",".join(cells + [cells[0]])
-                        r["_hn"] = str(len(cells))  # declares the deduped count
-            elif self.corrupt == "negative":
-                for r in out:
-                    if r["_ht"] == "1":
-                        cells = r["_hs"].split(",")
-                        first = cells[0].split(":")
-                        cells[0] = f"{first[0]}:-1"
-                        r["_hs"] = ",".join(cells)
-            elif self.corrupt == "bad-id":
-                for r in out:
-                    if r["_ht"] == "1":
-                        r["_ht"] = "99"
-            return out
+            return _apply_pack_corruption(_packed_rows(rows, q), self.corrupt)
         return super().iter_post(q, start, end)
+
+
+def test_censored_pack_falls_back_to_exact_singles_and_a_spent_budget_does_not() -> None:
+    tokens = [f"tkn{i:02d}x" for i in range(SERIES_BATCH)]
+    window = (float(T0), float(T0 + 3 * HOUR))
+
+    class _Censor(_CountingSearch):
+        def iter_post(self, q: str, start: float, end: float) -> list[dict[str, Any]]:
+            if 'eval _ht="' in q:
+                self.queries.append(q)
+                raise jobs.HuntCoverageError("subsearch truncated", sid="sid-pack")
+            return super().iter_post(q, start, end)
+
+    censored = _Censor(_batch_universe())
+    cache: dict[tuple[str, int], dict[int, int]] = {}
+    _fill_series_cache(cache, censored, "idx", tokens, *window, HOUR)
+    assert any('eval _ht="' in q for q in censored.queries)
+    singles = [q for q in censored.queries if "TERM(" in q and 'eval _ht="' not in q]
+    assert len(singles) == len(tokens)
+    exact = _CountingSearch(_batch_universe())
+    for token in tokens:
+        assert cache[(token, HOUR)] == _token_series(exact, "idx", token, *window, HOUR)
+
+    class _Spent(_CountingSearch):
+        def iter_post(self, q: str, start: float, end: float) -> list[dict[str, Any]]:
+            if 'eval _ht="' in q:
+                self.queries.append(q)
+                raise engine.SearchBudgetExceededError("result_budget_exhausted")
+            return super().iter_post(q, start, end)
+
+    spent = _Spent(_batch_universe())
+    with pytest.raises(engine.SearchBudgetExceededError):
+        _fill_series_cache({}, spent, "idx", tokens, *window, HOUR)
+    assert spent.queries
+    assert all('eval _ht="' in q for q in spent.queries)
 
 
 def test_corrupt_packed_records_fall_back_and_the_cache_stays_exact() -> None:
@@ -696,13 +764,14 @@ def test_host_partition_rows_stay_exact_across_zooms_on_a_large_inventory() -> N
         partitioned = template_rows(search, "idx", *window, span=span)
         partitions = [q for q in search.queries if "| dedup host source punct" in q]
         assert len(partitions) == (150 + TEMPLATE_HOST_GROUP - 1) // TEMPLATE_HOST_GROUP
-        seen_hosts = [
-            set(re.findall(r'host="([^"]+)"', q.split("by host")[0])) for q in partitions
-        ]
+        seen_hosts = [set(re.findall(r'host="([^"]+)"', q.split("by host")[0])) for q in partitions]
         assert set().union(*seen_hosts) == {f"h{h}" for h in range(150)}
         assert sum(len(group) for group in seen_hosts) == 150  # no host in two groups
         exact = _reduced([r for r in rows if window[0] <= float(r["_time"]) < window[1]], span)
-        keyed = lambda r: (r["host"], r["source"], r["punct"])
+
+        def keyed(row: dict[str, Any]) -> tuple[str, str, str]:
+            return (row["host"], row["source"], row["punct"])
+
         assert {keyed(r): (r["_time"], r["count"]) for r in partitioned} == {
             keyed(r): (r["_time"], r["count"]) for r in exact
         }
@@ -720,7 +789,7 @@ def _partial_universe() -> list[dict[str, Any]]:
             "_raw": "solo heartbeat ok",
         }
     ]
-    for j in range(10000):
+    for _j in range(10000):
         rows.append(
             {
                 "_time": float(LEAD),
@@ -753,3 +822,40 @@ def test_partial_current_case_survives_work_exhaustion(
     assert job["completed_case_count"] == 0
     assert len(cases[0]["pivots"]) >= 4  # evidence gathered before exhaustion is retained
     assert len(cases[0]["evidence"]) > 0
+
+
+class _CensoredNeighborhood(_DiscoverySplunk):
+    """Every look-around query is finalized early by the server: censored, not failed."""
+
+    def iter_post_bounded(
+        self, q: str, start: float, end: float, **kw: Any
+    ) -> list[dict[str, Any]]:
+        if "| dedup 2 source punct" in q:
+            exc = RuntimeError("search finalized before completion")
+            exc.censored = True  # type: ignore[attr-defined]
+            raise exc
+        return super().iter_post_bounded(q, start, end, **kw)
+
+
+def test_a_censored_lookup_censors_itself_and_the_case_continues(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(jobs, "_ROOT", tmp_path)
+    jobs._run(
+        "hunt-cens1",
+        _CensoredNeighborhood(_universe()),
+        "idx",
+        float(T0),
+        float(LEAD + HOUR),
+        dig=1,
+    )
+
+    job = jobs.load("hunt-cens1")
+    assert job is not None
+    assert job["status"] != "FAILED"
+    assert job.get("progress", {}).get("exhausted_reason") is None  # no shared budget was spent
+    cases = job.get("cases", [])
+    assert (
+        len(cases) == 1 and cases[0]["pivots"]
+    )  # investigation went on past the censored look-around
+    assert any(str(d).startswith("near ") for d in cases[0]["degraded"])

@@ -12,6 +12,7 @@ decision thresholds -- they bound how long the analyst digs, never what counts a
 
 from __future__ import annotations
 
+import contextlib
 import math
 import re
 import time
@@ -25,8 +26,8 @@ from .engine import (
     HOUR,
     Lead,
     Search,
-    SearchBudgetExceeded,
-    SearchCoverageCensored,
+    SearchBudgetExceededError,
+    SearchCoverageCensoredError,
     _is_time_token,
     _search_literal,
 )
@@ -282,6 +283,12 @@ def _where_literal(value: str) -> str:
     return f'"{escaped}"'
 
 
+def _exhausted_reason(search: Search) -> str | None:
+    """The shared hunt budget's exhaustion reason, when this search is budgeted."""
+    reason = getattr(getattr(search, "budget", None), "exhausted", None)
+    return str(reason) if reason else None
+
+
 class Investigator:
     def __init__(self, search: Search, index: str, start: float, end: float) -> None:
         self.search, self.index, self.start, self.end = search, index, start, end
@@ -409,6 +416,28 @@ class Investigator:
                         )
         return cells
 
+    def _expand_observed(
+        self,
+        token: str,
+        observed: set[RetrievalCell],
+        cells: dict[tuple[str, str, int, int], RetrievalCell],
+        queries: int,
+    ) -> tuple[int, str, bool]:
+        """Seed a term miss from observed cells. Budget errors propagate; any other failure censors."""
+        reason = "term_miss_seeded_from_observation"
+        try:
+            expanded = self._source_neighbors({cell.source for cell in observed})
+            expanded.update(self._host_neighbors(observed))
+            for cell_key, cell in expanded.items():
+                cells.setdefault(cell_key, cell)
+            queries += len({cell.source for cell in observed}) + len(observed)
+        except SearchBudgetExceededError:
+            raise  # shared effort ends the case; a censored lookup censors only itself
+        except Exception as exc:  # noqa: BLE001 -- retain observed cells on failure
+            self.degraded.append(f"neighborhood {token}: {type(exc).__name__}")
+            return queries, "neighborhood_expansion_failed", True
+        return queries, reason, False
+
     def _plan(self, token: str) -> RetrievalPlan:
         key = (self.index, self.start, self.end, token, "term-host-source-hour-v1")
         if key in self._plans:
@@ -417,7 +446,7 @@ class Investigator:
         handles = {token, *self._compound_handles.get(token, set())}
         try:
             term_cells, queries = self._term_cells(token, handles)
-        except (SearchBudgetExceeded, SearchCoverageCensored):
+        except (SearchBudgetExceededError, SearchCoverageCensoredError):
             raise  # spent effort or censored coverage must surface, not degrade
         except Exception as exc:  # noqa: BLE001 -- failed discovery stays unknown
             term_cells, queries = {}, len(handles)
@@ -429,17 +458,7 @@ class Investigator:
         reason = None
         censored = False
         if not term_cells and observed:
-            reason = "term_miss_seeded_from_observation"
-            try:
-                expanded = self._source_neighbors({cell.source for cell in observed})
-                expanded.update(self._host_neighbors(observed))
-                for cell_key, cell in expanded.items():
-                    cells.setdefault(cell_key, cell)
-                queries += len({cell.source for cell in observed}) + len(observed)
-            except Exception as exc:  # noqa: BLE001 -- retain observed cells on failure
-                reason = "neighborhood_expansion_failed"
-                censored = True
-                self.degraded.append(f"neighborhood {token}: {type(exc).__name__}")
+            queries, reason, censored = self._expand_observed(token, observed, cells, queries)
         if not term_cells and not observed:
             reason = "no_indexed_or_observed_location"
         ordered = sorted(cells.values(), key=lambda cell: (cell.start, cell.host, cell.source))
@@ -538,6 +557,8 @@ class Investigator:
             hi = max(cell.end for cell in group)
             try:
                 rows = self._rows(q, lo, hi)
+            except SearchBudgetExceededError:
+                raise  # shared effort ends the case; a censored lookup censors only itself
             except Exception as exc:  # noqa: BLE001 -- unknown local verification
                 plan.reason = f"raw_verification_failed:{type(exc).__name__}"
                 plan.censored = True
@@ -593,6 +614,8 @@ class Investigator:
         if key not in self._footprints:
             try:
                 rows = self._footprint_rows(token, exact)
+            except SearchBudgetExceededError:
+                raise  # shared effort ends the case; a censored lookup censors only itself
             except Exception as exc:  # noqa: BLE001 -- one failed lookup degrades one pivot
                 self.degraded.append(f"{token}: {type(exc).__name__}")
                 rows = []
@@ -697,6 +720,8 @@ class Investigator:
         )
         try:
             rows = [dict(r) for r in self._rows(q, t - 60 * minutes, t + 60 * minutes)]
+        except SearchBudgetExceededError:
+            raise  # shared effort ends the case; a censored lookup censors only itself
         except Exception as exc:  # noqa: BLE001 -- one failed look-around degrades, not fails
             self.degraded.append(f"near {event['host']}@{t:.0f}: {type(exc).__name__}")
             return []
@@ -799,8 +824,15 @@ class Investigator:
             if case.pivots or case.events:
                 self._stalled = case
             raise
-        case.partial = False
         case.degraded = self.degraded[mark:]
+        spent = _exhausted_reason(self.search)
+        if spent:
+            if case.pivots or case.events:
+                self._stalled = case
+            from .jobs import HuntBudgetExceededError  # jobs imports Investigator at module scope
+
+            raise HuntBudgetExceededError(spent)
+        case.partial = False
         return case
 
     def _investigate_into(
@@ -909,10 +941,9 @@ class Investigator:
                 stalled.partial = True
                 self.completed_cases.append(stalled)
                 if callable(checkpoint):
-                    try:
+                    # A spent wall clock raises after the case is persisted; keep the original error.
+                    with contextlib.suppress(Exception):
                         checkpoint("investigating", seed_rank=rank, cases=self.completed_cases)
-                    except Exception:  # noqa: BLE001 -- the original exhaustion still surfaces
-                        pass
                 raise
             self.completed_cases.append(case)
             if callable(checkpoint):

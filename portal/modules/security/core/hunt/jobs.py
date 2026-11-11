@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .engine import HOUR, Lead, Search, hunt
+from .engine import HOUR, Lead, Search, SearchBudgetExceededError, SearchCoverageCensoredError, hunt
 from .investigate import Investigator
 
 _ROOT = Path(
@@ -54,7 +54,7 @@ def _per_sample_cap(query: str) -> int | None:
     return int(head.group(1)) if head else None
 
 
-class HuntBudgetExceededError(RuntimeError):
+class HuntBudgetExceededError(SearchBudgetExceededError):
     """A hunt ran out of its shared request, result, or wall-time effort."""
 
 
@@ -62,7 +62,7 @@ class HuntSearchFailedError(RuntimeError):
     """A bounded search could not run or return trustworthy results."""
 
 
-class HuntCoverageError(RuntimeError):
+class HuntCoverageError(SearchCoverageCensoredError):
     """A search stopped early; returned rows are not an exact count."""
 
     def __init__(
@@ -109,6 +109,8 @@ class HuntBudget:
         happens after `hunt()` returns (its pools joined), and each query keeps the kind
         decided here for both its limit and its row counting."""
         with self.lock:
+            if self.exhausted:
+                raise HuntBudgetExceededError(self.exhausted)
             if self.remaining() <= 0:
                 self.exhausted = "job_wall_time_budget_exhausted"
                 raise HuntBudgetExceededError(self.exhausted)
@@ -330,9 +332,7 @@ def _persist_cases(
             stage=phase,
             progress=snapshot,
             cases=[_case_payload(case) for case in cases],
-            completed_case_count=sum(
-                1 for case in cases if not getattr(case, "partial", False)
-            ),
+            completed_case_count=sum(1 for case in cases if not getattr(case, "partial", False)),
         )
         _write(job_id, state)
 
@@ -368,9 +368,7 @@ def _perform_hunt(
             stage="done" if complete and not effort.exhausted else "partial",
             finished=time.time(),
             cases=[_case_payload(case) for case in cases],
-            completed_case_count=sum(
-                1 for case in cases if not getattr(case, "partial", False)
-            ),
+            completed_case_count=sum(1 for case in cases if not getattr(case, "partial", False)),
             degraded=inv.degraded,
             coverage_complete=complete and not effort.exhausted,
             coverage_reason=None
@@ -390,9 +388,7 @@ def _perform_hunt(
             finished=time.time(),
             error=str(exc),
             cases=[_case_payload(case) for case in retained],
-            completed_case_count=sum(
-                1 for case in retained if not getattr(case, "partial", False)
-            ),
+            completed_case_count=sum(1 for case in retained if not getattr(case, "partial", False)),
             coverage_complete=False,
             coverage_reason=str(exc),
             degraded=inv.degraded if inv is not None else [],
@@ -407,9 +403,7 @@ def _perform_hunt(
             finished=time.time(),
             error=failure,
             cases=[_case_payload(case) for case in retained],
-            completed_case_count=sum(
-                1 for case in retained if not getattr(case, "partial", False)
-            ),
+            completed_case_count=sum(1 for case in retained if not getattr(case, "partial", False)),
             coverage_complete=False,
             coverage_reason=failure,
             degraded=inv.degraded if inv is not None else [],

@@ -1110,7 +1110,9 @@ def test_tier_escalate_picks_the_first_seat_with_headroom(monkeypatch: pytest.Mo
         module, "_plan_headroom", lambda _reg, plan: 0.0 if plan == "codex" else 1.0
     )
     chosen, why = module._resolve_escalate({}, "code", 0)
-    assert chosen == "grok-max"
+    # the ladder is operator-tuned; the contract is "first seat whose plan has headroom"
+    expected = next(t for t in module.ESCALATION if module.TIERS[t].get("plan") != "codex")
+    assert chosen == expected
     assert any("sol" in line and "skipped" in line for line in why)
     assert module._escalated_effort(module.TIERS["grok-max"]) == "high"
     assert module._escalated_effort(module.TIERS["sol"]) == "high"

@@ -14,9 +14,11 @@ import pytest
 from portal.modules.security.core.hunt import jobs
 from portal.modules.security.core.hunt.engine import HOUR, Burst, Lead
 from portal.modules.security.core.hunt.investigate import (
+    SEED_SAMPLE,
     Case,
     Investigator,
     Pivot,
+    RetrievalPlan,
     _slot_variability,
     _tokens,
     merge_cases,
@@ -399,6 +401,123 @@ def test_shape_slot_variability_discounts_constant_values_and_dates() -> None:
     assert variability["fixed"] < variability["action"]
     assert variability["fixed"] < variability["target"]
     assert "2026-11-10" not in _tokens("observed 2026-11-10 fixed")
+
+
+def test_seed_punct_where_is_exact_before_head_for_star_and_quote() -> None:
+    star = 'user=* "admin"'
+    quoted = 'say "hi" *'
+    neighbor = "user= admin"
+    events = [
+        {"_time": 1000.0, "host": "h", "source": "svc", "punct": star, "_raw": "user admin login"},
+        {
+            "_time": 1001.0,
+            "host": "h",
+            "source": "svc",
+            "punct": neighbor,
+            "_raw": "user other login",
+        },
+        {"_time": 1002.0, "host": "h", "source": "svc", "punct": quoted, "_raw": "say hi there"},
+    ]
+
+    class _SeedSearch:
+        def __init__(self) -> None:
+            self.queries: list[str] = []
+
+        def iter_post(self, q: str, start: float, end: float) -> list[dict[str, Any]]:
+            self.queries.append(q)
+            if " by host source punct" in q:
+                return [{"host": "h", "source": "svc", "punct": star, "count": 1}]
+            if " by _time span=1h" in q:
+                return [{"count": 1}]
+            if q.startswith("| tstats"):
+                return [{"count": 1, "host": "h", "source": "svc", "_time": 1000.0}]
+            if q.startswith("search "):
+                # Every event comes back, including one a punct=* search would have admitted.
+                return [
+                    {
+                        "_time": event["_time"],
+                        "host": event["host"],
+                        "source": event["source"],
+                        "punct": event["punct"],
+                        "_raw": event["_raw"],
+                    }
+                    for event in events
+                    if start <= float(event["_time"]) < end
+                ]
+            raise AssertionError(q)
+
+    search = _SeedSearch()
+    investigator = Investigator(search, "idx", 0.0, 10**9)
+    lead = Lead(
+        hour=1000,
+        host="h",
+        novelty=1.0,
+        hosts_novel_that_hour=1,
+        novel_templates=[("svc", star, 1), ("svc", quoted, 1)],
+        span=HOUR,
+    )
+
+    investigator.seed_tokens(lead, examine=20)
+
+    seed_queries = [q for q in search.queries if q.startswith("search ")]
+    assert len(seed_queries) == 2
+    expected = (
+        '| where punct="user=* \\"admin\\""',
+        '| where punct="say \\"hi\\" *"',
+    )
+    for query, where in zip(seed_queries, expected, strict=True):
+        head, rest = query.split("|", 1)
+        assert "punct" not in head
+        assert 'host="h"' in head and 'source="svc"' in head
+        assert where in query
+        assert query.index("| where punct=") < query.index("| head ")
+        assert f"| head {SEED_SAMPLE + 1} " in query
+        assert rest.strip().startswith("where punct=")
+    shapes = {row["shape"][1] for rows in investigator._provenance.values() for row in rows}
+    assert shapes == {star, quoted}
+    assert "other" not in investigator._provenance
+
+
+def test_pivot_checkpoint_carries_prior_cases_and_the_current_one() -> None:
+    recorded: list[list[Case]] = []
+
+    class _CheckpointSearch:
+        def iter_post(self, q: str, start: float, end: float) -> list[dict[str, Any]]:
+            if " by _time span=1h" in q:
+                return [{"count": 1}]
+            if " by host source punct" in q:
+                return []
+            if q.startswith("| tstats"):
+                return [{"count": 1}]
+            raise AssertionError(q)
+
+        def checkpoint(self, phase: str, **values: Any) -> None:
+            assert phase == "investigating"
+            recorded.append(list(values["cases"]))
+
+    investigator = Investigator(_CheckpointSearch(), "idx", 0.0, 10.0)
+    prior = Case(seed="prior", seed_hour=0, partial=False)
+    investigator.completed_cases = [prior]
+    plan = RetrievalPlan(token="tok1", cells=(), indexed_count=1, coverage_complete=True)
+    investigator.seed_tokens = lambda _lead, examine: ["tok1"]  # type: ignore[method-assign]
+    investigator.footprint = lambda _token, exact=False: (1, 1, 1)  # type: ignore[method-assign]
+    investigator.pivot_weight = lambda _token, exact=False: 1.0  # type: ignore[method-assign]
+    investigator._plan = lambda _token: plan  # type: ignore[method-assign]
+    investigator._token_evidence = lambda *_a, **_k: (Counter(), [], [])  # type: ignore[method-assign]
+    current = Case(seed="h@0", seed_hour=0, partial=True)
+    lead = Lead(
+        hour=0,
+        host="h",
+        novelty=1.0,
+        hosts_novel_that_hour=1,
+        novel_templates=[],
+    )
+
+    investigator._investigate_into(current, lead, depth=1, breadth=1, examine=1, minutes=1)
+
+    assert recorded
+    assert recorded[0] == [prior, current]
+    assert current in recorded[0]
 
 
 def test_quoted_token_is_escaped_as_a_literal() -> None:

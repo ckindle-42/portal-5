@@ -9,10 +9,14 @@ from typing import Any
 import httpx
 import pytest
 
+from portal.modules.security.core.hunt import jobs as hunt_jobs
+from portal.modules.security.core.hunt.engine import Lead
+from portal.modules.security.core.hunt.investigate import Case, Investigator, Pivot
 from portal.modules.security.core.hunt.jobs import (
     BudgetedSearch,
     HuntBudget,
     HuntBudgetExceededError,
+    HuntCoverageError,
     HuntSearchFailedError,
     query_budget_kind,
 )
@@ -514,3 +518,218 @@ def test_paginated_results_normalize_iso_time_on_every_page() -> None:
 
     assert len(out) == 5002
     assert all(row["_time"] == ISO_EPOCH for row in out)
+
+
+def _message_source(
+    sid: str,
+    job_messages: list[dict[str, str]],
+    results: dict[str, Any],
+) -> SplunkWindowSource:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/services/search/jobs"):
+            return _response(request, {"sid": sid})
+        if request.url.path.endswith("/control"):
+            return _response(request, {})
+        if request.url.path.endswith("/results"):
+            return _response(request, results)
+        if request.url.path.endswith(f"/{sid}"):
+            return _response(
+                request,
+                {
+                    "entry": [
+                        {
+                            "content": {
+                                "isDone": True,
+                                "dispatchState": "DONE",
+                                "messages": job_messages,
+                            }
+                        }
+                    ]
+                },
+            )
+        raise AssertionError(request.url)
+
+    return SplunkWindowSource(
+        url="http://splunk",
+        user="user",
+        password="password",
+        transport=httpx.MockTransport(handler),
+    )
+
+
+def test_subsearch_warnings_censor_a_done_job_and_benign_warnings_do_not() -> None:
+    job_warn = _message_source(
+        "sid-sub",
+        [{"type": "WARN", "text": "subsearch maxtime limit reached"}],
+        {"results": [{"count": "9"}]},
+    )
+    with pytest.raises(WindowFetchError, match="incomplete work") as job_error:
+        list(
+            job_warn.iter_post_bounded(
+                "search index=idx", 0.0, 1.0, timeout_seconds=1, max_results=10
+            )
+        )
+    assert job_error.value.censored is True
+    assert job_error.value.sid == "sid-sub"
+
+    results_warn = _message_source(
+        "sid-out",
+        [],
+        {
+            "messages": [{"type": "ERROR", "text": "maxout truncation in subsearch"}],
+            "results": [{"_ht": "0", "_hn": "1", "_hs": "1:1"}],
+        },
+    )
+    with pytest.raises(WindowFetchError, match="results reported incomplete") as results_error:
+        list(
+            results_warn.iter_post_bounded(
+                "search index=idx", 0.0, 1.0, timeout_seconds=1, max_results=10
+            )
+        )
+    assert results_error.value.censored is True
+    assert results_error.value.sid == "sid-out"
+
+    benign = _message_source(
+        "sid-ok",
+        [
+            {"type": "INFO", "text": "The search scanned 2 buckets"},
+            {"type": "WARN", "text": "lookup table geo is not available"},
+        ],
+        {"messages": [{"type": "INFO", "text": "results ready"}], "results": [{"count": "3"}]},
+    )
+    rows = list(
+        benign.iter_post_bounded("search index=idx", 0.0, 1.0, timeout_seconds=1, max_results=10)
+    )
+    assert rows == [{"count": "3"}]
+
+
+def test_censored_transport_stays_a_coverage_error() -> None:
+    class _Censored:
+        def iter_post_bounded(self, *_args: Any, **_kwargs: Any) -> list[dict[str, Any]]:
+            raise WindowFetchError(
+                "subsearch truncated",
+                sid="sid-c",
+                censored=True,
+                coverage={"sid": "sid-c", "censored": True},
+            )
+
+    search = BudgetedSearch(
+        _Censored(),
+        HuntBudget(
+            {"query_seconds": 1, "job_seconds": 2, "requests": 2, "cells": 10, "events": 10}
+        ),
+    )
+
+    with pytest.raises(HuntCoverageError, match="subsearch truncated") as excinfo:
+        list(search.iter_post("search index=idx", 0.0, 1.0))
+    assert excinfo.value.sid == "sid-c"
+
+
+def test_checkpoint_persists_cases_before_a_spent_wall_clock_raises() -> None:
+    seen: list[list[Any]] = []
+    budget = HuntBudget(
+        {"query_seconds": 1.0, "job_seconds": 0.0, "requests": 10, "cells": 10, "events": 10}
+    )
+    search = BudgetedSearch(object(), budget)
+    search.on_case_checkpoint = lambda _phase, _snapshot, cases: seen.append(list(cases))
+
+    with pytest.raises(HuntBudgetExceededError, match="job_wall_time_budget_exhausted"):
+        search.checkpoint("investigating", cases=["prior", "current"])
+
+    assert seen == [["prior", "current"]]
+
+
+def test_no_further_query_is_reserved_after_the_budget_is_spent() -> None:
+    budget = HuntBudget(
+        {"query_seconds": 1, "job_seconds": 10, "requests": 10, "cells": 10, "events": 1}
+    )
+    budget.update(phase="investigating")
+    search = BudgetedSearch(_RowSource([{"i": "0"}]), budget)
+
+    assert list(search.iter_post('search index="i" | table _raw', 0.0, 1.0)) == [{"i": "0"}]
+    with pytest.raises(HuntBudgetExceededError, match="result_budget_exhausted"):
+        list(search.iter_post('search index="i" | table _raw', 0.0, 1.0))
+    reserved = budget.queries
+    with pytest.raises(HuntBudgetExceededError, match="result_budget_exhausted"):
+        budget.reserve_query('search index="i" | table _raw')
+    assert budget.queries == reserved
+
+
+class _InitSearch:
+    """Answers the investigator's startup aggregates through the bounded transport."""
+
+    def iter_post_bounded(
+        self,
+        q: str,
+        _start: float,
+        _end: float,
+        *,
+        timeout_seconds: float,
+        max_results: int | None,
+    ) -> list[dict[str, Any]]:
+        if " by _time span=1h" in q:
+            return [{"count": 1}]
+        if " by host source punct" in q:
+            return []
+        if q.startswith("| tstats"):
+            return [{"count": 1}]
+        raise AssertionError(q)
+
+
+def _stalled_case() -> Case:
+    case = Case(seed="h@1", seed_hour=1, partial=True)
+    case.pivots.append(Pivot("tok1", 1, 1, 1, 0, 1.0))
+    case.events["e"] = {
+        "host": "h",
+        "source": "s",
+        "time": 1.0,
+        "raw": "tok1 event",
+        "via": "tok1",
+        "weight": 1.0,
+    }
+    return case
+
+
+def test_budget_and_unexpected_terminals_keep_the_in_progress_partial_case(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(hunt_jobs, "_ROOT", tmp_path)
+    lead = Lead(hour=1, host="h", novelty=1.0, hosts_novel_that_hour=1, novel_templates=[])
+    monkeypatch.setattr(hunt_jobs, "hunt", lambda *_args, **_kwargs: [lead])
+    real_checkpoint = hunt_jobs.BudgetedSearch.checkpoint
+
+    def checkpoint_then_wall(self: BudgetedSearch, phase: str, **values: Any) -> None:
+        has_cases = "cases" in values
+        real_checkpoint(self, phase, **values)
+        if has_cases:
+            raise HuntBudgetExceededError("job_wall_time_budget_exhausted")
+
+    monkeypatch.setattr(hunt_jobs.BudgetedSearch, "checkpoint", checkpoint_then_wall)
+
+    def budget_blow(self: Investigator, _lead: Lead, **_kwargs: Any) -> Case:
+        case = _stalled_case()
+        self._stalled = case
+        raise HuntBudgetExceededError("result_budget_exhausted")
+
+    monkeypatch.setattr(Investigator, "investigate", budget_blow)
+    hunt_jobs._run("hunt-wall", _InitSearch(), "idx", 0.0, 2.0, 1)
+    budget_job = hunt_jobs.load("hunt-wall")
+    assert budget_job is not None
+    assert budget_job["status"] == "PARTIAL"
+    assert budget_job["completed_case_count"] == 0
+    assert budget_job["cases"][0]["partial"] is True
+    assert budget_job["cases"][0]["pivots"][0]["token"] == "tok1"
+
+    def unexpected_blow(self: Investigator, _lead: Lead, **_kwargs: Any) -> Case:
+        case = _stalled_case()
+        self._stalled = case
+        raise RuntimeError("lookup failed")
+
+    monkeypatch.setattr(Investigator, "investigate", unexpected_blow)
+    hunt_jobs._run("hunt-fail", _InitSearch(), "idx", 0.0, 2.0, 1)
+    failed = hunt_jobs.load("hunt-fail")
+    assert failed is not None
+    assert failed["status"] == "FAILED"
+    assert failed["completed_case_count"] == 0
+    assert failed["cases"][0]["partial"] is True
+    assert failed["cases"][0]["evidence"]

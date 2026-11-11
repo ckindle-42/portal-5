@@ -56,6 +56,8 @@ class LadderSearch:
         if q.startswith("| tstats min(_time)"):
             times = [float(r["_time"]) for r in rows]
             return [{"lo": min(times), "hi": max(times)}]
+        if q.rstrip().endswith("by host"):
+            return [{"host": host, "count": 1} for host in sorted({r["host"] for r in rows})]
         if q.startswith("| tstats count where index="):
             span = int(re.search(r"span=(\d+)s", q).group(1))
             counts = Counter(
