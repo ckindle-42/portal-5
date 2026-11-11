@@ -66,6 +66,26 @@ def note_ranking(search: object, reason: str) -> None:
         notes.add(reason)
 
 
+def query_progress_shape(query: str, start: float, end: float) -> str:
+    """Decide whether one issued search is a packed parent, a narrow standalone screen,
+    or other. Packed parents carry every token as an append subsearch. Single-bucket
+    tstats TERM scans are standalone because live-measured at ~0.37 s each while a
+    packed window parent is ~15.2 s."""
+    if "eval _ht=" in query:
+        return "packed"
+    span_match = _KIND_SPAN.search(query)
+    if span_match is not None:
+        narrow = end - start <= int(span_match.group(1)) + 1e-6
+        if (
+            narrow
+            and query.startswith("| tstats")
+            and "TERM(" in query
+            and " by _time span=" in query
+        ):
+            return "standalone"
+    return "other"
+
+
 def query_progress_kind(query: str, start: float, end: float) -> str:
     """Stable hunt-progress kind for one issued search."""
     if "where punct=" in query:

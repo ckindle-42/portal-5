@@ -440,19 +440,23 @@ def _screen_hours(
             hours[key] = known
     if not missing:
         return
-    screened: dict[tuple[str, int], dict[int, int]] = {}
-    _fill_series_cache(
-        screened,
-        search,
-        index,
-        missing,
-        float(bucket),
-        float(bucket + span),
-        span,
-        batch=HOUR_BATCH,
-    )
-    for token in missing:
-        hours[(token, bucket, span)] = int(screened.get((token, span), {}).get(bucket, 0))
+
+    # Narrow one-bucket screens use standalone per-token scans: live-measured
+    # ~0.37 s each versus ~15.2 s for a packed window parent. We do not feed
+    # ``cache`` (full-window series are emitted later by ``_select_bursts``).
+    def _safe_screen(token: str) -> tuple[str, dict[int, int]] | None:
+        try:
+            return (
+                token,
+                _token_series(search, index, token, float(bucket), float(bucket + span), span),
+            )
+        except SearchBudgetExceededError:
+            return None
+
+    with ThreadPoolExecutor(max_workers=min(LAB_SEARCH_CONCURRENCY, len(missing))) as pool:
+        results = [r for r in pool.map(_safe_screen, missing) if r is not None]
+    for token, series in results:
+        hours[(token, bucket, span)] = int(series.get(bucket, 0))
 
 
 def _select_bursts(

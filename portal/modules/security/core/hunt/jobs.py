@@ -19,7 +19,7 @@ from typing import Any
 
 from .engine import HOUR, Lead, Search, SearchBudgetExceededError, SearchCoverageCensoredError, hunt
 from .investigate import Investigator
-from .ranking import query_progress_kind
+from .ranking import query_progress_kind, query_progress_shape
 
 _ROOT = Path(
     os.environ.get("PORTAL5_HUNT_DIR", str(Path.home() / "AI_Output" / "review" / "hunts"))
@@ -94,7 +94,7 @@ class HuntBudget:
     exhausted: str | None = None
     last_write: float = 0.0
     last_write_query: int = -1
-    kind_stats: dict[str, dict[str, float]] = field(default_factory=dict)
+    kind_stats: dict[str, dict[str, Any]] = field(default_factory=dict)
     ranking_notes: set[str] = field(default_factory=set)
     lock: threading.RLock = field(default_factory=threading.RLock)
     on_progress: Callable[[dict[str, Any]], None] | None = None
@@ -149,11 +149,21 @@ class HuntBudget:
                 self.discovery_rows += count
         self.publish()
 
-    def add_kind(self, kind: str, seconds: float) -> None:
+    def add_kind(
+        self,
+        kind: str,
+        seconds: float,
+        *,
+        query: str | None = None,
+        query_start: float = 0.0,
+        query_end: float = 0.0,
+    ) -> None:
         with self.lock:
             slot = self.kind_stats.setdefault(kind, {"requests": 0, "seconds": 0.0})
             slot["requests"] += 1
             slot["seconds"] += seconds
+            if query is not None:
+                slot["shape"] = query_progress_shape(query, query_start, query_end)
 
     def update(self, **values: Any) -> None:
         with self.lock:
@@ -164,7 +174,11 @@ class HuntBudget:
     def snapshot(self) -> dict[str, Any]:
         with self.lock:
             kinds = {
-                kind: {"requests": int(slot["requests"]), "seconds": round(slot["seconds"], 3)}
+                kind: {
+                    "requests": int(slot["requests"]),
+                    "seconds": round(slot["seconds"], 3),
+                    **({"shape": slot["shape"]} if "shape" in slot else {}),
+                }
                 for kind, slot in sorted(self.kind_stats.items())
             }
             reasons = sorted(self.ranking_notes)
@@ -251,7 +265,13 @@ class BudgetedSearch:
                 ) from exc
             raise HuntSearchFailedError(f"bounded_search_failed:{type(exc).__name__}") from exc
         finally:
-            self.budget.add_kind(query_progress_kind(query, start, end), time.monotonic() - started)
+            self.budget.add_kind(
+                query_progress_kind(query, start, end),
+                time.monotonic() - started,
+                query=query,
+                query_start=start,
+                query_end=end,
+            )
 
     def checkpoint(self, phase: str, **values: Any) -> None:
         cases = values.pop("cases", None)

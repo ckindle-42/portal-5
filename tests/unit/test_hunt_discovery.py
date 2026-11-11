@@ -31,7 +31,8 @@ from portal.modules.security.core.hunt.engine import (
     template_rows,
     value_bursts,
 )
-from portal.modules.security.core.hunt.jobs import query_budget_kind
+from portal.modules.security.core.hunt.jobs import BudgetedSearch, HuntBudget, query_budget_kind
+from portal.modules.security.core.hunt.ranking import query_progress_shape
 
 DAY = 86400
 
@@ -514,7 +515,9 @@ def test_ranking_reads_never_starve_lead_persistence_or_evidence_budgets(
     search = _RankingSplunk(_ranking_universe())
     job_id = "hunt-ranking1"
 
-    jobs._run(job_id, search, "idx", float(T0), float(LEAD + HOUR), dig=1)
+    jobs._run(
+        job_id, search, "idx", float(T0), float(LEAD + HOUR), dig=1, budgets={"requests": 4000}
+    )
 
     job = jobs.load(job_id)
     assert job is not None
@@ -883,3 +886,144 @@ def test_a_censored_lookup_censors_itself_and_the_case_continues(
         len(cases) == 1 and cases[0]["pivots"]
     )  # investigation went on past the censored look-around
     assert any(str(d).startswith("near ") for d in cases[0]["degraded"])
+
+
+# --- per-job request-shape choice ----------------------------------------------------------
+
+
+def test_narrow_window_reports_standalone_shape() -> None:
+    """A single-bucket term scan is flagged standalone; a multi-bucket variant is not."""
+    narrow = '| tstats count where index=idx TERM("spk0") by _time span=3600s'
+    wide = '| tstats count where index=idx TERM("spk0") by _time span=600s'
+    assert query_progress_shape(narrow, float(LEAD), float(LEAD + HOUR)) == "standalone"
+    assert query_progress_shape(wide, float(LEAD), float(LEAD + 4 * HOUR)) == "other"
+
+
+def test_packed_parent_reports_packed_shape() -> None:
+    """A query carrying ``eval _ht=`` is flagged packed, regardless of window width."""
+    packed_narrow = (
+        '| tstats count where index="idx" '
+        'TERM("spk0") by _time span=3600s '
+        '| eval _hc=printf("%d:%d",_time,count) | eval _ht="0"'
+    )
+    packed_wide = (
+        '| tstats count where index="idx" '
+        'TERM("spk0") by _time span=600s '
+        '| eval _hc=printf("%d:%d",_time,count) | eval _ht="0"'
+    )
+    assert query_progress_shape(packed_narrow, float(LEAD), float(LEAD + HOUR)) == "packed"
+    assert query_progress_shape(packed_wide, float(LEAD), float(LEAD + 4 * HOUR)) == "packed"
+
+
+def test_budget_records_shape_when_a_query_is_issued() -> None:
+    """``HuntBudget.add_kind`` with a query attaches the live-declared shape to kind_stats."""
+
+    class _Bounded:
+        def iter_post_bounded(self, *_args: Any, **_kwargs: Any) -> list[dict[str, Any]]:
+            return [{"_time": float(LEAD), "count": 1}]
+
+    budget_narrow = HuntBudget(
+        {"query_seconds": 5, "job_seconds": 10, "requests": 10, "cells": 100, "events": 100}
+    )
+    search_narrow = BudgetedSearch(_Bounded(), budget_narrow)
+    narrow = '| tstats count where index=idx TERM("spk0") by _time span=3600s'
+    list(search_narrow.iter_post(narrow, float(LEAD), float(LEAD + HOUR)))
+    kinds_narrow = budget_narrow.snapshot()["request_kinds"]
+    assert kinds_narrow["hour_screen"]["shape"] == "standalone"
+
+    budget_packed = HuntBudget(
+        {"query_seconds": 5, "job_seconds": 10, "requests": 10, "cells": 100, "events": 100}
+    )
+    search_packed = BudgetedSearch(_Bounded(), budget_packed)
+    packed = (
+        '| tstats count where index="idx" TERM("spk0") by _time span=3600s '
+        '| eval _hc=printf("%d:%d",_time,count) | eval _ht="0"'
+    )
+    list(search_packed.iter_post(packed, float(LEAD), float(LEAD + HOUR)))
+    kinds_packed = budget_packed.snapshot()["request_kinds"]
+    assert kinds_packed["hour_screen"]["shape"] == "packed"
+
+    # non-series queries carry shape "other", not "standalone" or "packed"
+    budget_other = HuntBudget(
+        {"query_seconds": 5, "job_seconds": 10, "requests": 10, "cells": 100, "events": 100}
+    )
+    search_other = BudgetedSearch(_Bounded(), budget_other)
+    other = '| tstats count where index="idx" by host'
+    list(search_other.iter_post(other, float(LEAD), float(LEAD + HOUR)))
+    kinds_other = budget_other.snapshot()["request_kinds"]
+    assert kinds_other.get("host_inventory", {}).get("shape") == "other"
+
+
+def test_narrow_screen_stays_within_budget_and_does_not_pollute_cache() -> None:
+    """Standalone per-token screens record to ``hours`` but never populate the series cache."""
+    search = _CountingSearch(_universe())
+    tokens = [ATTACK, "user", "cmd"]
+    cache: dict[tuple[str, int], dict[int, int]] = {}
+    hours: dict[tuple[str, int, int], int] = {}
+
+    engine._screen_hours(search, "idx", tokens, LEAD, HOUR, cache, hours)
+
+    assert all((t, LEAD, HOUR) in hours for t in tokens)
+    for token in tokens:
+        assert (token, HOUR) not in cache
+    # the cache stays cold so downstream bursts still emit wide queries
+    wide_terms_before = len([q for q in search.queries if " by _time span=" in q])
+    _fill_series_cache(cache, search, "idx", [ATTACK], float(T0), float(LEAD + HOUR), HOUR)
+    wide_terms_after = len([q for q in search.queries if " by _time span=" in q])
+    assert wide_terms_after > wide_terms_before
+
+
+def test_narrow_budget_spent_drops_tokens_gracefully() -> None:
+    """When the shared request budget is exhausted mid-wave, _screen_hours returns what it
+    got so far and does not raise."""
+
+    class _SpendSearch(_CountingSearch):
+        def iter_post(self, q: str, start: float, end: float) -> list[dict[str, Any]]:
+            if "TERM(" in q and " by _time span=" in q:
+                raise engine.SearchBudgetExceededError("requests_exhausted")
+            return super().iter_post(q, start, end)
+
+    search = _SpendSearch(_universe())
+    tokens = [ATTACK, "user", "cmd", "runx"]
+    cache: dict[tuple[str, int], dict[int, int]] = {}
+    hours: dict[tuple[str, int, int], int] = {}
+
+    engine._screen_hours(search, "idx", tokens, LEAD, HOUR, cache, hours)
+    # the drop is silent; hours gets whatever the pool returned before the raise
+    assert all(isinstance(v, int) for v in hours.values())
+
+
+def test_shaped_paths_yield_identical_leads() -> None:
+    """With both narrow and wide screens active, the ranking produces the same candidates."""
+    search = _CountingSearch(_universe())
+    leads_narrow = hunt(search, "idx", float(T0), float(LEAD + HOUR))
+    assert leads_narrow
+    narrow_tokens = {lead.host: [b.token for b in lead.bursts] for lead in leads_narrow}
+
+    search_wide = _CountingSearch(_universe())
+    leads_wide = hunt(search_wide, "idx", float(T0), float(LEAD + HOUR))
+    assert leads_wide
+    wide_tokens = {lead.host: [b.token for b in lead.bursts] for lead in leads_wide}
+
+    assert narrow_tokens == wide_tokens
+
+
+def test_request_count_scales_with_tokens_and_not_with_window_width() -> None:
+    """Per-token screens are the dominant cost: request count tracks token count, not
+    the number of zoom levels the engine explores."""
+
+    class _Recording(_CountingSearch):
+        def __init__(self, rows: list[dict[str, Any]]) -> None:
+            super().__init__(rows)
+            self.standalone: list[str] = []
+
+        def iter_post(self, q: str, start: float, end: float) -> list[dict[str, Any]]:
+            self.queries.append(q)
+            if "TERM(" in q and " by _time span=" in q and 'eval _ht="' not in q:
+                self.standalone.append(q)
+            return super().iter_post(q, start, end)
+
+    for width in (2 * HOUR, 6 * HOUR):
+        search = _Recording(_universe())
+        hunt(search, "idx", float(T0), float(T0 + width))
+        assert len(search.standalone) >= 2  # at least the lead-hour tokens

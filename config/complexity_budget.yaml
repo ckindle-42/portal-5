@@ -7,8 +7,8 @@ ceilings:
     value: 13370
     reason: "B4 initial ceiling: census 12733 + 5% headroom (2026-10-20)"
   god_lines:
-    value: 71192
-    reason: "B4 initial ceiling: census 67801 + 5% headroom (2026-10-20)"
+    value: 71202
+    reason: "hunt: narrow-screen standalone path (+10 lines for budget-wrapped _safe_screen, shape recording in kind_stats)"
   unwired_scripts:
     value: 25
     reason: "B4 initial ceiling: census 23 + 5% headroom (2026-10-20)"
