@@ -7,6 +7,7 @@ rows than the evidence budgets could ever hold.
 
 from __future__ import annotations
 
+import functools
 import re
 import threading
 import time
@@ -121,18 +122,39 @@ def test_first_occurrence_reduction_preserves_novelty_exactly() -> None:
             assert sorted(reduced[key][1]) == sorted(items)
 
 
+_TOKEN_FULL = re.compile(r"[A-Za-z0-9_.:/@%\-]{4,}")
+
+
+@functools.lru_cache(maxsize=200000)
+def _raw_tokens(raw: str) -> tuple[str, ...]:
+    return tuple(_TOKEN_FULL.findall(raw))
+
+
 def _packed_rows(rows: list[dict[str, Any]], q: str) -> list[dict[str, Any]]:
     """Evaluate a packed-series query over universe rows like the append subsearches would:
     one packed row per TERM in order (term id, declared cell count, serialized cells), and no
     row at all for a term with no matching events."""
     terms = re.findall(r'TERM\("((?:[^"\\]|\\.)*)"\)', q)
     span = int(re.search(r"span=(\d+)s", q).group(1))
+    # Token-shaped terms match the engine's tokenizer. Substring scans stay for the rest,
+    # so a packed parent of the census tail does not become term×row Python work.
+    token_terms = {term for term in terms if _TOKEN_FULL.fullmatch(term)}
+    other = [term for term in terms if term not in token_terms]
+    counts_by_term: dict[str, Counter[int]] = {term: Counter() for term in terms}
+    for row in rows:
+        raw = str(row.get("_raw", ""))
+        bucket = int(float(row["_time"])) // span * span
+        weight = int(row["count"])
+        if token_terms:
+            for token in set(_raw_tokens(raw)):
+                if token in token_terms:
+                    counts_by_term[token][bucket] += weight
+        for term in other:
+            if term in raw:
+                counts_by_term[term][bucket] += weight
     out = []
     for i, term in enumerate(terms):
-        counts: Counter[int] = Counter()
-        for r in rows:
-            if term in str(r.get("_raw", "")):
-                counts[int(float(r["_time"])) // span * span] += int(r["count"])
+        counts = counts_by_term[term]
         if not counts:
             continue
         cells = [f"{t}:{c}" for t, c in counts.items()]
@@ -415,7 +437,7 @@ def test_discovery_cardinality_over_the_evidence_budget_still_yields_leads(
     # ranking samples kept their per-sample cap; link enumerations streamed; investigation
     # evidence reads were bound by the events budget
     for q, _kind, cap, _rows in search.seen:
-        if "eval r=random()" in q:
+        if "md5(_raw)" in q and "where punct=" not in q:
             assert cap == 2000, q
         elif q.endswith("by host source"):
             assert cap is None, q
@@ -507,7 +529,9 @@ def test_ranking_reads_never_starve_lead_persistence_or_evidence_budgets(
     assert progress["event_count"] <= progress["limits"]["events"]
     assert progress["cell_count"] <= progress["limits"]["cells"]
 
-    sample_caps = {cap for q, _k, cap, _r in search.seen if "eval r=random()" in q}
+    sample_caps = {
+        cap for q, _k, cap, _r in search.seen if "md5(_raw)" in q and "where punct=" not in q
+    }
     assert sample_caps == {2000}  # per-sample budget held for every ranking sample
     assert all(cap is None for q, _k, cap, _r in search.seen if q.endswith("by host source"))
     # the investigator's seed read was bounded server-side by its own head, under the events cap

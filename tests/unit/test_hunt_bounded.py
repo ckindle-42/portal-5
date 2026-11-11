@@ -324,6 +324,8 @@ def test_query_budget_kinds_cover_every_owned_query_shape() -> None:
         '| tstats count where index="i" TERM("t") by host source': "cells",
         # raw reads
         'search index="i" host="h" | eval r=random() % 1000 | sort r | head 2000 | table _raw': "events",
+        'search index="i" host="h" | eval _k=md5(_raw) | sort 2000 _k _time _raw '
+        "| head 2000 | table _raw punct": "events",
         'search index="i" (host="h" source="s" _time>=0 _time<1) "t" '
         "| head 501 | table _time host source punct _raw": "events",
     }

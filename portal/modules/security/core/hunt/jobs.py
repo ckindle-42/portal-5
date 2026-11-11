@@ -19,6 +19,7 @@ from typing import Any
 
 from .engine import HOUR, Lead, Search, SearchBudgetExceededError, SearchCoverageCensoredError, hunt
 from .investigate import Investigator
+from .ranking import query_progress_kind
 
 _ROOT = Path(
     os.environ.get("PORTAL5_HUNT_DIR", str(Path.home() / "AI_Output" / "review" / "hunts"))
@@ -93,6 +94,8 @@ class HuntBudget:
     exhausted: str | None = None
     last_write: float = 0.0
     last_write_query: int = -1
+    kind_stats: dict[str, dict[str, float]] = field(default_factory=dict)
+    ranking_notes: set[str] = field(default_factory=set)
     lock: threading.RLock = field(default_factory=threading.RLock)
     on_progress: Callable[[dict[str, Any]], None] | None = None
 
@@ -146,6 +149,12 @@ class HuntBudget:
                 self.discovery_rows += count
         self.publish()
 
+    def add_kind(self, kind: str, seconds: float) -> None:
+        with self.lock:
+            slot = self.kind_stats.setdefault(kind, {"requests": 0, "seconds": 0.0})
+            slot["requests"] += 1
+            slot["seconds"] += seconds
+
     def update(self, **values: Any) -> None:
         with self.lock:
             for key, value in values.items():
@@ -153,6 +162,12 @@ class HuntBudget:
         self.publish(force=True)
 
     def snapshot(self) -> dict[str, Any]:
+        with self.lock:
+            kinds = {
+                kind: {"requests": int(slot["requests"]), "seconds": round(slot["seconds"], 3)}
+                for kind, slot in sorted(self.kind_stats.items())
+            }
+            reasons = sorted(self.ranking_notes)
         return {
             "phase": self.phase,
             "seed_rank": self.seed_rank,
@@ -175,6 +190,9 @@ class HuntBudget:
             "limits": dict(self.limits),
             "last_progress_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "coverage_complete": False,
+            "request_kinds": kinds,
+            "ranking_coverage_complete": not reasons,
+            "ranking_coverage_reasons": reasons,
         }
 
     def publish(self, *, force: bool = False) -> None:
@@ -208,6 +226,7 @@ class BudgetedSearch:
         bounded = getattr(self.search, "iter_post_bounded", None)
         if not callable(bounded):
             raise HuntSearchFailedError("search_adapter_has_no_server_job_cancellation")
+        started = time.monotonic()
         try:
             for row in bounded(
                 query,
@@ -231,6 +250,8 @@ class BudgetedSearch:
                     coverage=getattr(exc, "coverage", None),
                 ) from exc
             raise HuntSearchFailedError(f"bounded_search_failed:{type(exc).__name__}") from exc
+        finally:
+            self.budget.add_kind(query_progress_kind(query, start, end), time.monotonic() - started)
 
     def checkpoint(self, phase: str, **values: Any) -> None:
         cases = values.pop("cases", None)

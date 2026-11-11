@@ -34,6 +34,15 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Any, Protocol
 
+from .ranking import (
+    census_query,
+    note_ranking,
+    peer_history_query,
+    rollup_series,
+    slot_query,
+    z_upper,
+)
+
 HOUR = 3600
 _TOKEN = re.compile(r"[A-Za-z0-9_.:/@%\-]{4,}")
 # A value has at least one letter or digit; a run of punctuation ("........") is formatting.
@@ -179,7 +188,11 @@ def host_hour_novelty(
         seen: set[str] = set()
         first = min(hours)
         for hour in sorted(hours):
-            novel = [(p, c) for p, c in hours[hour] if p not in seen]
+            # punct order is the total order for a tied template list (items[:20] is a prefix)
+            novel = sorted(
+                ((p, c) for p, c in hours[hour] if p not in seen),
+                key=lambda item: (item[0], item[1]),
+            )
             seen.update(p for p, _ in hours[hour])
             prior_hours = (hour - first) / HOUR
             if not novel or prior_hours <= 0:
@@ -220,6 +233,7 @@ def _token_series(
 
 
 SERIES_BATCH = 8  # effort budget: token series packed into one parent search job
+HOUR_BATCH = 32  # effort budget: narrow hour-count terms per parent; each child is one bucket
 # Append children run serially inside a parent, so peak active jobs is one parent plus
 # its one running child: 2 * PACK_PARENTS, inside the lab search concurrency allowance.
 PACK_PARENTS = 8
@@ -301,6 +315,23 @@ def _packed_series(
     return {tokens[term]: cells for term, cells in series.items()}
 
 
+def _remember_rollup(
+    cache: dict[tuple[str, int], dict[int, int]], token: str, span: int
+) -> dict[int, int] | None:
+    """Reuse a finer full-window series. Narrow hour screens never enter ``cache``."""
+    finer = [
+        (fine, series)
+        for (tok, fine), series in cache.items()
+        if tok == token and 0 < fine < span and span % fine == 0
+    ]
+    if not finer:
+        return None
+    fine, series = min(finer)
+    rolled = rollup_series(series, span)
+    cache[(token, span)] = rolled
+    return rolled
+
+
 def _fill_series_cache(
     cache: dict[tuple[str, int], dict[int, int]],
     search: Search,
@@ -309,36 +340,40 @@ def _fill_series_cache(
     start: float,
     end: float,
     span: int,
+    *,
+    batch: int = SERIES_BATCH,
 ) -> None:
     """Fill the run's series cache for pending tokens with bounded parallel parent packs
     (live-measured: 8 parents finish 32 tokens in 3.5s vs 6.5s at 2, peak 16 active
     parent+child jobs inside the lab's 20), then exact per-token scans for whatever a pack
     could not return exactly."""
-    pending = [t for t in dict.fromkeys(tokens) if (t, span) not in cache]
+    pending: list[str] = []
+    for token in dict.fromkeys(tokens):
+        if (token, span) in cache:
+            continue
+        if _remember_rollup(cache, token, span) is None:
+            pending.append(token)
     while pending:
-        wave, pending = (
-            pending[: SERIES_BATCH * PACK_PARENTS],
-            pending[SERIES_BATCH * PACK_PARENTS :],
-        )
-        batches = [wave[i : i + SERIES_BATCH] for i in range(0, len(wave), SERIES_BATCH)]
+        wave, pending = pending[: batch * PACK_PARENTS], pending[batch * PACK_PARENTS :]
+        batches = [wave[i : i + batch] for i in range(0, len(wave), batch)]
         if len(batches) == 1:
             packed = [(batches[0], _packed_series(search, index, batches[0], start, end, span))]
         else:
             with ThreadPoolExecutor(max_workers=min(PACK_PARENTS, len(batches))) as pool:
                 packed = list(
                     pool.map(
-                        lambda batch: (
-                            batch,
-                            _packed_series(search, index, batch, start, end, span),
+                        lambda group: (
+                            group,
+                            _packed_series(search, index, group, start, end, span),
                         ),
                         batches,
                     )
                 )
-        for batch, got in packed:
+        for group, got in packed:
             if got is not None:
                 cache.update({(token, span): cells for token, cells in got.items()})
                 continue
-            for token in batch:  # exact per-token fallback: never cache a partial pack
+            for token in group:  # exact per-token fallback: never cache a partial pack
                 if (token, span) not in cache:
                     cache[(token, span)] = _token_series(search, index, token, start, end, span)
 
@@ -358,6 +393,98 @@ def _burst(token: str, hour: int, series: dict[int, int]) -> Burst | None:
     return Burst(token, now, round(math.expm1(med), 1), active, round(z, 2))
 
 
+def _burst_sort(bursts: list[Burst]) -> list[Burst]:
+    """Total order: higher z first, then the token. Ties are not left to row order."""
+    return sorted(bursts, key=lambda burst: (-burst.z, burst.token))
+
+
+def _census_tokens(events: Iterable[Mapping[str, Any]]) -> Counter[str]:
+    return Counter(
+        token
+        for event in events
+        for token in set(_TOKEN.findall(str(event.get("_raw", ""))))
+        if _pivotable(token)
+    )
+
+
+def _known_hour(
+    cache: dict[tuple[str, int], dict[int, int]], token: str, bucket: int, span: int
+) -> int | None:
+    series = cache.get((token, span))
+    if series is None:
+        series = _remember_rollup(cache, token, span)
+    if series is None:
+        return None
+    return int(series.get(bucket, 0))
+
+
+def _screen_hours(
+    search: Search,
+    index: str,
+    tokens: list[str],
+    bucket: int,
+    span: int,
+    cache: dict[tuple[str, int], dict[int, int]],
+    hours: dict[tuple[str, int, int], int],
+) -> None:
+    """Exact lead-bucket counts. A narrow tstats is not stored as a full-window series."""
+    missing: list[str] = []
+    for token in dict.fromkeys(tokens):
+        key = (token, bucket, span)
+        if key in hours:
+            continue
+        known = _known_hour(cache, token, bucket, span)
+        if known is None:
+            missing.append(token)
+        else:
+            hours[key] = known
+    if not missing:
+        return
+    screened: dict[tuple[str, int], dict[int, int]] = {}
+    _fill_series_cache(
+        screened,
+        search,
+        index,
+        missing,
+        float(bucket),
+        float(bucket + span),
+        span,
+        batch=HOUR_BATCH,
+    )
+    for token in missing:
+        hours[(token, bucket, span)] = int(screened.get((token, span), {}).get(bucket, 0))
+
+
+def _select_bursts(
+    search: Search,
+    index: str,
+    lead: Lead,
+    tokens: list[str],
+    start: float,
+    end: float,
+    cache: dict[tuple[str, int], dict[int, int]],
+    hours: dict[tuple[str, int, int], int],
+    keep: int,
+) -> list[Burst]:
+    """History series only for an hour-count group that can still enter the kept bursts."""
+    bucket, span = lead.hour, lead.span
+    pending = sorted(tokens, key=lambda token: (-hours.get((token, bucket, span), 0), token))
+    found: list[Burst] = []
+    while pending:
+        now = hours.get((pending[0], bucket, span), 0)
+        upper = z_upper(now)
+        if len(found) >= keep and upper < _burst_sort(found)[keep - 1].z - 0.01:
+            break
+        group = [token for token in pending if hours.get((token, bucket, span), 0) == now]
+        pending = pending[len(group) :]
+        _fill_series_cache(cache, search, index, group, start, end, span)
+        for token in group:
+            burst = _burst(token, bucket, cache[(token, span)])
+            if burst is not None:
+                found.append(burst)
+    return _burst_sort(found)[:keep]
+
+
 def value_bursts(
     search: Search,
     index: str,
@@ -368,23 +495,39 @@ def value_bursts(
     sample: int,
     top: int,
     cache: dict[tuple[str, int], dict[int, int]] | None = None,
+    keep: int | None = None,
+    hour_cache: dict[tuple[str, int, int], int] | None = None,
+    census_cache: dict[tuple[int, str, int], list[Mapping[str, Any]]] | None = None,
 ) -> list[Burst]:
-    q = (
-        f"search index={_search_literal(index)} host={_search_literal(lead.host)} "
-        f"| eval r=random() % 1000 "
-        f"| sort r | head {sample} | table _raw"
+    events = list(
+        search.iter_post(
+            census_query(_search_literal(index), _search_literal(lead.host), sample),
+            lead.hour,
+            lead.hour + lead.span,
+        )
     )
-    events = list(search.iter_post(q, lead.hour, lead.hour + lead.span))
-    tokens = Counter(
-        t for e in events for t in set(_TOKEN.findall(str(e.get("_raw", "")))) if _pivotable(t)
-    )
-    chosen = [t for t, _ in tokens.most_common(top)]
+    if len(events) >= sample:
+        note_ranking(search, "census_budget_exhausted")
+    if census_cache is not None:
+        census_cache[(lead.hour, lead.host, lead.span)] = events
+    counts = _census_tokens(events)
     if cache is None:
         cache = {}
-    _fill_series_cache(cache, search, index, chosen, start, end, lead.span)
-    series = [cache[(t, lead.span)] for t in chosen]
-    bursts = [b for t, s in zip(chosen, series, strict=True) if (b := _burst(t, lead.hour, s))]
-    return sorted(bursts, key=lambda b: -b.z)
+    if keep is None:
+        # ``top`` is the legacy caller budget. Hunt passes ``keep`` and does not cut here.
+        chosen = [
+            token for token, _count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+        ][:top]
+        _fill_series_cache(cache, search, index, chosen, start, end, lead.span)
+        bursts = [
+            burst
+            for token in chosen
+            if (burst := _burst(token, lead.hour, cache[(token, lead.span)]))
+        ]
+        return _burst_sort(bursts)
+    hours = hour_cache if hour_cache is not None else {}
+    _screen_hours(search, index, list(counts), lead.hour, lead.span, cache, hours)
+    return _select_bursts(search, index, lead, list(counts), start, end, cache, hours, keep)
 
 
 def _search_literal(value: str) -> str:
@@ -411,32 +554,57 @@ def peer_tokens(
     start: float,
     *,
     sample: int = PEER_SAMPLE,
+    rows: Iterable[Mapping[str, Any]] | None = None,
+    history_cache: dict[tuple[Any, ...], list[Mapping[str, Any]]] | None = None,
 ) -> list[str]:
-    """Values in the burst token's slot of the same event shape on the lead's host, from history."""
-    q = (
-        f"search index={_search_literal(index)} host={_search_literal(lead.host)} "
-        f"TERM({_search_literal(burst.token)}) "
-        f"| head {sample} | table _raw punct"
-    )
-    shapes = _slots(search.iter_post(q, lead.hour, lead.hour + lead.span), burst.token)
-    peers: list[str] = []
-    for punct, slot in list(shapes.items())[:PEER_SHAPES]:
-        prior = (
-            f"search index={_search_literal(index)} host={_search_literal(lead.host)} "
-            f"punct={_search_literal(punct)} "
-            f"| head {sample} | table _raw"
+    """Values in the burst token's slot of the same event shape on the lead's host, from history.
+
+    Shape order is the punct string. History rows are md5(_raw) order. ``where punct=`` is
+    exact; a row whose punct field disagrees is dropped, never counted.
+    """
+    if rows is None:
+        rows = search.iter_post(
+            slot_query(
+                _search_literal(index),
+                _search_literal(lead.host),
+                _search_literal(burst.token),
+                sample,
+            ),
+            lead.hour,
+            lead.hour + lead.span,
         )
-        for row in search.iter_post(prior, start, lead.hour):
+    shapes = _slots(rows, burst.token)
+    peers: list[str] = []
+    seen: set[str] = set()
+    index_literal, host_literal = _search_literal(index), _search_literal(lead.host)
+    for punct, slot in sorted(shapes.items())[:PEER_SHAPES]:
+        key = (index, lead.host, punct, float(start), lead.hour, sample)
+        history = None if history_cache is None else history_cache.get(key)
+        if history is None:
+            history = list(
+                search.iter_post(
+                    peer_history_query(index_literal, host_literal, punct, sample),
+                    start,
+                    lead.hour,
+                )
+            )
+            if history_cache is not None:
+                history_cache[key] = history
+        for row in history:
+            if "punct" in row and str(row.get("punct")) != punct:
+                continue
             tokens = _TOKEN.findall(str(row.get("_raw", "")))
             candidate = tokens[slot] if slot < len(tokens) else ""
             if (
                 candidate
                 and candidate != burst.token
                 and _pivotable(candidate)
-                and candidate not in peers
+                and candidate not in seen
             ):
+                seen.add(candidate)
                 peers.append(candidate)
             if len(peers) >= PEERS:
+                note_ranking(search, "peer_budget_exhausted")
                 return peers
     return peers
 
@@ -448,9 +616,15 @@ def peer_bursts(
     start: float,
     end: float,
     cache: dict[tuple[str, int], dict[int, int]] | None = None,
+    census_cache: dict[tuple[int, str, int], list[Mapping[str, Any]]] | None = None,
+    history_cache: dict[tuple[Any, ...], list[Mapping[str, Any]]] | None = None,
 ) -> None:
     """Rank each kept burst against the same-slot values instead of only its own history."""
-    found = [peer_tokens(search, index, lead, burst, start) for burst in lead.bursts]
+    census = None if census_cache is None else census_cache.get((lead.hour, lead.host, lead.span))
+    found = [
+        peer_tokens(search, index, lead, burst, start, rows=census, history_cache=history_cache)
+        for burst in lead.bursts
+    ]
     flat = [token for peers in found for token in peers]
 
     if cache is None:
@@ -482,7 +656,10 @@ def link(
         f"TERM({_search_literal(burst.token)}) by host source"
     )
     rows = search.iter_post(q, hour - span, hour + 2 * span)
-    return sorted(((r["host"], r["source"], int(r["count"])) for r in rows), key=lambda x: -x[2])
+    return sorted(
+        ((r["host"], r["source"], int(r["count"])) for r in rows),
+        key=lambda item: (-item[2], item[0], item[1]),
+    )
 
 
 def _enclosing_hosts(bucket: int, coarse: list[tuple[int, Counter[int]]]) -> int:
@@ -506,6 +683,9 @@ def hunt(
     leads: list[Lead] = []
     pool: list[Lead] = []
     series_cache: dict[tuple[str, int], dict[int, int]] = {}
+    hour_cache: dict[tuple[str, int, int], int] = {}
+    census_cache: dict[tuple[int, str, int], list[Mapping[str, Any]]] = {}
+    history_cache: dict[tuple[Any, ...], list[Mapping[str, Any]]] = {}
     hosts = indexed_hosts(search, index, start, end)
     levels = [
         (span, host_hour_novelty(template_rows(search, index, start, end, span, hosts), span))
@@ -517,24 +697,47 @@ def hunt(
         level: list[Lead] = []
         for (bucket, host), (score, items) in novelty.items():
             spread = max(maps[span][bucket], _enclosing_hosts(bucket, coarse))
-            level.append(
-                Lead(bucket, host, round(score / spread, 2), spread, items[:20], span=span)
-            )
-        level.sort(key=lambda lead: -lead.novelty)
+            # Total order for the displayed prefix: punct, then source, then count.
+            shown = sorted(items, key=lambda item: (item[1], item[0], item[2]))[:20]
+            level.append(Lead(bucket, host, round(score / spread, 2), spread, shown, span=span))
+        level.sort(key=lambda lead: (-lead.novelty, lead.hour, lead.host, lead.span))
         leads += level
         pool += level[:candidates]
     for lead in pool:
         lead.bursts = value_bursts(
-            search, index, lead, start, end, sample=sample, top=tokens, cache=series_cache
-        )[:bursts_kept]
-        for b in lead.bursts:
-            b.links = link(search, index, b, lead.hour, lead.span)
-        peer_bursts(search, index, lead, start, end, cache=series_cache)
+            search,
+            index,
+            lead,
+            start,
+            end,
+            sample=sample,
+            top=tokens,
+            cache=series_cache,
+            keep=bursts_kept,
+            hour_cache=hour_cache,
+            census_cache=census_cache,
+        )
+        for burst in lead.bursts:
+            burst.links = link(search, index, burst, lead.hour, lead.span)
+        peer_bursts(
+            search,
+            index,
+            lead,
+            start,
+            end,
+            cache=series_cache,
+            census_cache=census_cache,
+            history_cache=history_cache,
+        )
     rank_coherence(pool)
     for lead in leads:
         if lead not in pool:
             lead.score = 0.0
-    return fold_shared_values(fold_overlaps(sorted(leads, key=lambda lead: -lead.score)))
+    return fold_shared_values(
+        fold_overlaps(
+            sorted(leads, key=lambda lead: (-lead.score, lead.hour, lead.host, lead.span))
+        )
+    )
 
 
 def fold_overlaps(ranked: list[Lead]) -> list[Lead]:
