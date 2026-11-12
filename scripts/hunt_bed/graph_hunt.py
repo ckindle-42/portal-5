@@ -15,8 +15,10 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from portal.modules.security.core.hunt import graph as _graph  # noqa: E402
 from portal.modules.security.core.hunt.baselines import BASELINES  # noqa: E402
 from portal.modules.security.core.hunt.engine import HOUR  # noqa: E402
+from portal.modules.security.core.hunt.executor import HuntBudgetExceededError  # noqa: E402
 from portal.modules.security.core.hunt.observations import (  # noqa: E402
     Observation,
     ObservationRun,
@@ -28,15 +30,20 @@ from portal.modules.security.core.hunt.observations import (  # noqa: E402
 )
 from portal.modules.security.core.review.window import SplunkWindowSource  # noqa: E402
 
-try:  # swap point: the pure graph lane (`values`, `build`, `notables`)
-    from portal.modules.security.core.hunt import graph as _graph  # noqa: E402
-except ImportError:  # thin stand-in, replaced when that lane is merged
-    from scripts.hunt_bed import graph_shim as _graph  # noqa: E402
+_executor: Any = None  # the run's HuntExecutor: observations and cell reads share one budget
 
-try:  # swap point: the single budgeted executor lane (`read`, `Read`)
-    from portal.modules.security.core.hunt import executor as _executor  # noqa: E402
-except ImportError:  # thin stand-in, replaced when that lane is merged
-    from scripts.hunt_bed import graph_shim as _executor  # noqa: E402
+
+def _reader() -> Any:
+    """The run's executor, switched to the evidence phase so cell reads spend `events`."""
+    global _executor
+    if _executor is None:
+        window = SplunkWindowSource(url=os.environ.get("LAB_SPLUNK_URL"), timeout_seconds=600)
+        _executor = budgeted_search(window).executor
+    budget = getattr(_executor, "budget", None)
+    if budget is not None:
+        budget.phase = "investigating"
+    return _executor
+
 
 CELL_BUDGET = 24  # effort budget: host-hours read, 24 x 200 events stays inside one hunt budget
 EVENTS_PER_CELL = 200  # effort budget: md5-ordered events sampled from one host-hour
@@ -68,6 +75,7 @@ class CellRead:
     censored: bool
     reason: str | None
     seconds: float
+    stopped: bool = False  # the shared budget or job deadline ended reading here
 
 
 def _prior_hours(obs: Observation) -> list[int]:
@@ -106,9 +114,16 @@ def _sample_query(literal: str) -> str:
 def read_cell(cell: Cell) -> CellRead:
     query = _sample_query(cell.literal)
     began = time.monotonic()
-    result = _executor.read(
-        query, float(cell.hour), float(cell.hour + HOUR), kind=READ_KIND, row_cap=EVENTS_PER_CELL
-    )
+    try:
+        result = _reader().read(
+            query,
+            float(cell.hour),
+            float(cell.hour + HOUR),
+            kind=READ_KIND,
+            row_cap=EVENTS_PER_CELL,
+        )
+    except HuntBudgetExceededError as exc:  # shared budget or job deadline spent: stop reading
+        return CellRead(cell, query, [], True, str(exc) or "budget", 0.0, stopped=True)
     return CellRead(
         cell=cell,
         query=query,
@@ -190,7 +205,7 @@ def progress_payload(
         "observation_count": len(run.observations),
         "cell_count": len(reads),
         "event_count": sum(len(read.rows) for read in reads),
-        "modules": {"graph": _graph.__name__, "executor": _executor.__name__},
+        "modules": {"graph": _graph.__name__, "executor": type(_executor).__name__},
     }
 
 
@@ -276,7 +291,11 @@ def observation_run(args: argparse.Namespace) -> tuple[ObservationRun, dict[str,
         return run, meta
     end = time.time() if args.end is None else args.end
     window = SplunkWindowSource(url=os.environ.get("LAB_SPLUNK_URL"), timeout_seconds=600)
-    run = observe(budgeted_search(window), args.index, args.start, end, baseline=args.baseline)
+    global _executor
+    search = budgeted_search(window)
+    if _executor is None:
+        _executor = search.executor
+    run = observe(search, args.index, args.start, end, baseline=args.baseline)
     meta = {
         "index": args.index,
         "start": args.start,
@@ -305,7 +324,11 @@ def main() -> int:
     started = time.monotonic()
     run, meta = observation_run(args)
     plan = cell_plan(args.index, run.observations)
-    reads = [read_cell(cell) for cell in plan]
+    reads: list[CellRead] = []
+    for cell in plan:
+        reads.append(read_cell(cell))
+        if reads[-1].stopped:
+            break
     graph = _graph.build(samples(reads))
     notables = list(_graph.notables(graph, run.observations))
     leads = [_lead_row(notable) for notable in notables]

@@ -11,7 +11,7 @@ import pytest
 
 from portal.modules.security.core.hunt.engine import HOUR
 from portal.modules.security.core.hunt.observations import Observation
-from scripts.hunt_bed import graph_hunt, graph_shim
+from scripts.hunt_bed import graph_hunt
 
 START = 1_700_000_000 // HOUR * HOUR
 END = START + 4 * HOUR
@@ -224,7 +224,7 @@ def test_runner_writes_leads_cells_and_progress(tmp_path: Path, monkeypatch: Any
         "reasons": [],
     }
     assert progress["coverage_complete"] is True
-    assert progress["modules"] == {"graph": "fake.graph", "executor": "fake.executor"}
+    assert progress["modules"] == {"graph": "fake.graph", "executor": "FakeExecutor"}
     assert progress["from_grids"] == str(tmp_path / "saved")
 
 
@@ -273,53 +273,6 @@ def test_censored_cell_makes_coverage_incomplete(tmp_path: Path, monkeypatch: An
     assert progress["coverage_complete"] is False
 
 
-def test_shim_build_links_values_that_share_an_event() -> None:
-    graph = graph_shim.build(
-        {
-            ("h1", "svc", START): [
-                {
-                    "_time": float(START),
-                    "host": "h1",
-                    "source": "svc",
-                    "_raw": "uid=alpha pid=4242",
-                },
-                {"_time": float(START), "host": "h1", "source": "svc", "_raw": "uid=beta pid=4242"},
-            ]
-        }
-    )
-
-    assert graph.links["alpha"] == {"4242"}
-    assert graph.links["4242"] == {"alpha", "beta"}
-    assert graph.cells["4242"] == {("h1", "svc", START): 2}
-
-
-def test_shim_notables_rank_by_accumulated_deviation_over_the_observed_window() -> None:
-    graph = graph_shim.build(
-        {
-            ("h1", "svc", START): [
-                {"_time": float(START), "host": "h1", "source": "svc", "_raw": "alpha beta"}
-            ]
-        }
-    )
-    observations = [
-        _obs("value", "h1", "uid=alpha", START + 2 * HOUR, 4.0),
-        _obs("value", "h2", "uid=beta", START + 5 * HOUR, 9.0),
-        _obs("value", "h2", "uid=beta", START + 6 * HOUR, 1.0),
-    ]
-
-    rows = graph_shim.notables(graph, observations)
-
-    assert [row.entity for row in rows] == ["beta", "alpha"]
-    assert rows[0].as_lead() == {
-        "host": "h2",
-        "hour": START + 5 * HOUR,
-        "span": 2 * HOUR,
-        "score": 10.0,
-        "entity": "beta",
-    }
-    assert rows[0].neighbours == ["alpha"]
-
-
 def test_saved_grids_for_another_index_are_refused(tmp_path: Path, monkeypatch: Any) -> None:
     saved = _saved(tmp_path, [_obs("volume", "h2", "", START, 5.0)])
     monkeypatch.setattr(graph_hunt, "_graph", _fake_graph()[0])
@@ -339,13 +292,6 @@ def test_saved_grids_for_another_index_are_refused(tmp_path: Path, monkeypatch: 
 
     with pytest.raises(SystemExit, match="does not match"):
         graph_hunt.main()
-
-
-def test_shim_exposes_the_runner_api() -> None:
-    assert callable(graph_shim.build)
-    assert callable(graph_shim.notables)
-    assert callable(graph_shim.read)
-    assert callable(graph_shim.values)
 
 
 @pytest.mark.parametrize("name", ["leads.json", "notables.jsonl", "cells.jsonl", "progress.json"])
