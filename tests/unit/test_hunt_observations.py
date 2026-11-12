@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import math
 import re
 import statistics
@@ -20,7 +21,12 @@ from portal.modules.security.core.hunt.observations import (
     ObservationRun,
     budgeted_search,
     literal_matches,
+    literal_query,
+    load_receipts,
     observe,
+    reorder,
+    rescore,
+    write_receipts,
 )
 
 START = 1_700_000_000 // HOUR * HOUR
@@ -571,3 +577,60 @@ def test_sample_over_the_hour_volume_marks_key_coverage_incomplete(
     assert run.coverage["value"]["slices"][0]["returned"] == 1
     assert run.coverage["value"]["slices"][0]["volume"] == 3
     assert any(obs.kind == "value" for obs in run.observations)
+
+
+def test_single_host_observations_keep_the_existing_bytes() -> None:
+    run = observe(GridSearch(_event(START, "solo", "uid=first")), INDEX, float(START), float(END))
+    payload = json.dumps(
+        [item.as_dict() for item in run.observations], sort_keys=True, separators=(",", ":")
+    )
+
+    assert hashlib.sha256(payload.encode()).hexdigest() == (
+        "a8f86c4484284bbe0d061dc585ea81d8f3d475dc7f360c3fccf08cd0c4e2d31d"
+    )
+
+
+def test_separator_aliases_fold_before_scoring_and_are_recorded(tmp_path) -> None:
+    events = _event(START, "node-core", "uid=first", n=2)
+    events += _event(START + HOUR, "NODE_core", "uid=first", n=3)
+
+    run = observe(GridSearch(events), INDEX, float(START), float(END))
+
+    assert {item.host for item in run.observations} == {"NODE_core"}
+    for kind in ("volume", "source", "shape", "stream", "value"):
+        assert {
+            item.hour: item.evidence["now"] for item in run.observations if item.kind == kind
+        } == {START: 2, START + HOUR: 3}
+    assert all(
+        item.evidence["host_aliases"] == ["NODE_core", "node-core"] for item in run.observations
+    )
+    assert run.host_name_count == 2
+    assert run.host_machine_count == 1
+
+    write_receipts(tmp_path, run, {"index": INDEX})
+    progress = json.loads((tmp_path / "progress.json").read_text())
+    assert progress["host_name_count"] == 2
+    assert progress["host_machine_count"] == 1
+    saved_grids, _saved_progress = load_receipts(tmp_path)
+    assert rescore(saved_grids, run.coverage, INDEX).observations == run.observations
+    replayed = reorder(run.observations, "current", run.coverage, run.request_kinds)
+    assert (replayed.host_name_count, replayed.host_machine_count) == (2, 1)
+
+    tied = _event(START, "node-core", "uid=first", n=2)
+    tied += _event(START, "NODE_core", "uid=first", n=2)
+    tied_run = observe(GridSearch(tied), INDEX, float(START), float(END))
+    assert {item.host for item in tied_run.observations} == {"NODE_core"}
+
+
+def test_literal_queries_match_each_spelling_in_an_alias_group() -> None:
+    query = literal_query(
+        "shape", INDEX, "NODE_core", "abc", host_aliases=("NODE_core", "node-core")
+    )
+    first = {"host": "NODE_core", "punct": "abc"}
+    second = {"host": "node-core", "punct": "abc"}
+    other = {"host": "node_core", "punct": "abc"}
+
+    assert '(host="NODE_core" OR host="node-core")' in query
+    assert literal_matches(first, query)
+    assert literal_matches(second, query)
+    assert not literal_matches(other, query)
