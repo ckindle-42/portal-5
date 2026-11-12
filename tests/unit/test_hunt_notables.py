@@ -7,15 +7,18 @@ from portal.modules.security.core.hunt.notables.cards import (
     SourceCard,
     apply_answer,
     build_card,
+    build_cards,
     build_prompt,
 )
 from portal.modules.security.core.hunt.notables.parse import (
+    choose_partition,
     field_stats,
     parse_events,
     parse_json,
     parse_kv,
     parse_row,
     parse_xml,
+    partition_groups,
     tokenise,
 )
 from portal.modules.security.core.hunt.notables.run import card_from_dict
@@ -89,6 +92,45 @@ def test_a_multi_line_xml_event_is_read_whole():
     assert parsed[0].fields["Data[Name=User]"] == "bob"
 
 
+def _mixed_rows() -> list[dict[str, object]]:
+    rows = []
+    for index in range(8):
+        if index < 4:
+            raw = json.dumps({"kind": "alert", "sig": f"s{index}", "src": "a"})
+        else:
+            raw = json.dumps({"kind": "flow", "src": "a", "dst": "b", "bytes": index})
+        rows.append({"_raw": raw, "_time": 1000.0 + index, "host": "h1"})
+    return rows
+
+
+def test_a_low_variety_field_that_selects_the_field_set_splits_the_source():
+    parsed = parse_events([str(row["_raw"]) for row in _mixed_rows()])
+    partition = choose_partition(parsed)
+    assert partition is not None
+    assert partition.field == "kind"
+    assert partition.values == ("alert", "flow")
+    groups = partition_groups(parsed, _mixed_rows(), partition)
+    assert [len(groups[value][0]) for value in partition.values] == [4, 4]
+
+
+def test_build_cards_gives_each_structure_its_own_card(tmp_path):
+    answer = json.dumps({"kind": "activity", "actor": ["src"], "action": []})
+    cards = build_cards(
+        _facts(),
+        _mixed_rows(),
+        windows=1,
+        client=_Client(answer),
+        model="seat",
+        cache=CardCache(tmp_path),
+    )
+    assert len(cards) == 2
+    assert {card.part_value for card in cards} == {"alert", "flow"}
+    assert {card.source_id for card in cards} == {"ix:st"}
+    assert len({card.card_id for card in cards}) == 2
+    assert all(card.understood for card in cards)
+    assert [len(card.fields) for card in cards] == [3, 4]
+
+
 def test_line_oriented_log_gets_named_positions_with_their_variety():
     lines = [
         "Jan 12 10:00:00 web01 sshd[123]: Accepted password for bob from 10.0.0.5 port 22 ssh2",
@@ -118,8 +160,8 @@ def test_key_value_needs_two_pairs_and_delimited_uses_its_header():
     assert parse_kv("user=bob action=login") == {"user": "bob", "action": "login"}
     assert parse_kv("just one=thing") == {}
     parsed = parse_events(["time,user,action", "1,bob,login", "2,amy,run"])
-    assert [item.fmt for item in parsed] == ["delimited", "delimited"]
-    assert parsed[0].fields == {"time": "1", "user": "bob", "action": "login"}
+    assert [item.fmt for item in parsed] == ["header", "delimited", "delimited"]
+    assert parsed[1].fields == {"time": "1", "user": "bob", "action": "login"}
 
 
 def test_free_text_stays_text_and_field_stats_count_repeats():
@@ -145,13 +187,13 @@ def test_quoted_delimited_records_keep_their_real_columns():
         "host,[01/Jan/2020:00:00:00,123],logout",
     ]
     parsed = parse_events(lines)
-    assert {item.fmt for item in parsed} == {"delimited"}
-    assert parsed[0].fields == {
+    assert {item.fmt for item in parsed} == {"header", "delimited"}
+    assert parsed[1].fields == {
         "time": "2020-01-01 00:00:00",
         "user": "bob",
         "action": "login, ok",
     }
-    assert parsed[1].fields == {
+    assert parsed[2].fields == {
         "time": "host",
         "user": "[01/Jan/2020:00:00:00,123]",
         "action": "logout",

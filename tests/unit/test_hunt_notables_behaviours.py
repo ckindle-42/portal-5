@@ -4,6 +4,7 @@ import duckdb
 
 from portal.modules.security.core.hunt.notables.behaviours import (
     ExampleEvent,
+    _extract,
     aggregate_events,
     behaviour_key,
     create_events,
@@ -87,6 +88,33 @@ def test_keyed_row_reproduces_only_literal_parts_of_the_key():
     assert "/tmp/7" not in query
     assert 'index="ix"' in query
     assert rows[0][11] == 0.0 and rows[0][12] == 3600.0
+
+
+def test_a_part_card_keys_only_its_own_events():
+    card = SourceCard(
+        index="ix",
+        sourcetype="st",
+        kind="activity",
+        roles={"actor": ("user",), "action": ("image",)},
+        understood=True,
+        reason=None,
+        fmt="json",
+        coverage=1.0,
+        fields=(),
+        sample={},
+        facts={},
+        model={},
+        cache_key="key",
+        part_field="kind",
+        part_value="run",
+    )
+    rows = [
+        {"_raw": '{"kind": "run", "user": "bob", "image": "cmd.exe"}', "_time": 1.0},
+        {"_raw": '{"kind": "stats", "user": "bob", "image": "cmd.exe"}', "_time": 2.0},
+        {"_raw": '{"kind": "run", "user": "amy", "image": "cmd.exe"}', "_time": 3.0},
+    ]
+    events = _extract(card, rows, [(0.0, 10.0)])
+    assert [event.fields["user"] for event in events] == ["bob", "amy"]
 
 
 def test_window_bounds_slices_a_range_deterministically():

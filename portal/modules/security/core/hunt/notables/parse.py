@@ -19,6 +19,8 @@ MAX_LIST_ITEMS = 20  # effort budget: list entries flattened for one JSON field
 POSITIONAL_TOKENS = 12  # effort budget: leading line positions described for one source
 POSITIONAL_MIN_POSITIONS = 3  # a positional structure needs this many stable slots
 MIN_DELIMITED_WIDTH = 3  # a delimiter describes a record only when it yields this many columns
+MAX_PARTITIONS = 8  # effort budget: distinct structures one source is split into
+MIN_PARTITION_LINES = 4  # a part needs this many sampled events to be described
 _OPENERS = "([{"
 _CLOSERS = ")]}"
 _KV = re.compile(r"(?<![\w.\-])([A-Za-z_][\w./\-]{0,60})=(\"[^\"]*\"|'[^']*'|[^\s,;]+)")
@@ -32,6 +34,14 @@ class Parsed:
 
     fmt: str
     fields: Mapping[str, str]
+
+
+@dataclass(frozen=True)
+class Partition:
+    """A field whose value selects which other fields an event carries."""
+
+    field: str
+    values: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -232,23 +242,26 @@ def _delimited(lines: Sequence[str]) -> list[Parsed] | None:
         width = _width(rows)
         if width < MIN_DELIMITED_WIDTH:
             continue
-        matched = [row for row in rows if len(row) == width]
+        matched = [(index, row) for index, row in enumerate(rows) if len(row) == width]
         if len(matched) / len(lines) < MIN_STRUCTURE_SHARE:
             continue
-        header = _header(matched[0], matched[1:])
+        header = _header(matched[0][1], [row for _index, row in matched[1:]])
         names = header or [f"c{index + 1}" for index in range(width)]
-        body = matched[1:] if header else matched
+        header_index = matched[0][0] if header else -1
         parsed: list[Parsed] = []
-        for row in body:
-            if len(row) == width:
-                fields = {
-                    _clip(name, MAX_KEY_CHARS): _clip(_clean(cell), MAX_VALUE_CHARS)
-                    for name, cell in zip(names, row, strict=True)
-                }
-                parsed.append(Parsed("delimited", fields))
-            else:
+        for index, row in enumerate(rows):
+            if index == header_index:
+                parsed.append(Parsed("header", {}))
+                continue
+            if len(row) != width:
                 parsed.append(Parsed("text", {}))
-        return parsed or None
+                continue
+            fields = {
+                _clip(name, MAX_KEY_CHARS): _clip(_clean(cell), MAX_VALUE_CHARS)
+                for name, cell in zip(names, row, strict=True)
+            }
+            parsed.append(Parsed("delimited", fields))
+        return parsed
     return None
 
 
@@ -269,8 +282,12 @@ def _apply(name: str, parser: Parser, lines: Sequence[str]) -> list[Parsed] | No
 
 
 def parse_events(raws: Sequence[str]) -> list[Parsed]:
-    """Read a sample with the first structure most of its lines support, else free text."""
-    lines = [str(raw) for raw in raws if str(raw).strip()]
+    """Read a sample with the first structure most of its lines support, else free text.
+
+    The result keeps one item per input line, in input order, so callers can align
+    parsed fields with the events they came from.
+    """
+    lines = [str(raw) for raw in raws]
     if not lines:
         return []
     for name, parser in _PARSERS:
@@ -332,6 +349,7 @@ def field_stats(parsed: Sequence[Parsed]) -> list[FieldStat]:
     order: list[str] = []
     present: dict[str, int] = {}
     distinct: dict[str, set[str]] = {}
+    lines = sum(1 for item in parsed if item.fmt != "header")
     for item in parsed:
         for name, value in item.fields.items():
             if name not in present:
@@ -346,7 +364,69 @@ def field_stats(parsed: Sequence[Parsed]) -> list[FieldStat]:
             present[name],
             len(distinct[name]),
             tuple(value[:EXAMPLE_CHARS] for value in sorted(distinct[name])[:EXAMPLES_PER_FIELD]),
-            len(parsed),
+            lines,
         )
         for name in order[:MAX_FIELDS]
     ]
+
+
+def choose_partition(parsed: Sequence[Parsed]) -> Partition | None:
+    """The low-variety field whose value changes which other fields an event carries.
+
+    Every candidate is scored by how many distinct field sets its values produce; the
+    field with the most distinct sets wins, ties broken by fewer values then name.
+    """
+    stats = {stat.name: stat for stat in field_stats(parsed)}
+    best: tuple[int, int, str, tuple[str, ...]] | None = None
+    for name, stat in stats.items():
+        if stat.distinct < 2 or stat.distinct > MAX_PARTITIONS or not stat.repeats:
+            continue
+        groups: dict[str, list[Parsed]] = {}
+        for item in parsed:
+            value = (item.fields.get(name) or "").strip()
+            if value:
+                groups.setdefault(value, []).append(item)
+        kept = {
+            value: items for value, items in groups.items() if len(items) >= MIN_PARTITION_LINES
+        }
+        shapes = {tuple(sorted(item.fields)) for items in kept.values() for item in items}
+        if len(kept) < 2 or len(shapes) < 2:
+            continue
+        score = (len(shapes), -stat.distinct, name, tuple(sorted(kept)))
+        if best is None or score[:3] > best[:3]:
+            best = score
+    if best is None:
+        return None
+    return Partition(best[2], best[3])
+
+
+def partition_groups(
+    parsed: Sequence[Parsed], rows: Sequence[Mapping[str, Any]], partition: Partition
+) -> dict[str, tuple[list[Mapping[str, Any]], list[Parsed]]]:
+    """Rows and parsed items for each partition value that has enough support."""
+    found: dict[str, tuple[list[Mapping[str, Any]], list[Parsed]]] = {}
+    for row, item in zip(rows, parsed, strict=True):
+        value = (item.fields.get(partition.field) or "").strip()
+        if value not in partition.values:
+            continue
+        group_rows, group_parsed = found.setdefault(value, ([], []))
+        group_rows.append(row)
+        group_parsed.append(item)
+    return found
+
+
+__all__ = [
+    "FieldStat",
+    "MAX_FIELDS",
+    "Partition",
+    "Parsed",
+    "choose_partition",
+    "field_stats",
+    "parse_events",
+    "parse_row",
+    "parse_with",
+    "partition_groups",
+    "split_record",
+    "tokenise",
+    "words",
+]

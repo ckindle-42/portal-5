@@ -18,7 +18,7 @@ from .behaviours import (
     load_behaviours,
     load_source_stats,
 )
-from .cards import CardCache, SourceCard, build_card
+from .cards import CardCache, SourceCard, build_cards
 from .generators import generate
 from .judge_notables import judge_all
 from .parse import FieldStat
@@ -48,7 +48,8 @@ def _sources_payload(
         "end": end,
         "generated": utc_now(),
         "totals": {
-            "sources": len(cards),
+            "sources": len({card.source_id for card in cards}),
+            "cards": len(cards),
             "understood": sum(1 for card in cards if card.understood),
             "kinds": counts,
             "model_requests": sum(int(card.model.get("requests") or 0) for card in cards),
@@ -151,25 +152,38 @@ def cards_stage(
         read = read_windows(
             executor, item, sample_windows(item), per_window=SAMPLE_LINES, kind="source_sample"
         )
-        card = build_card(
+        found = build_cards(
             item, read.rows, windows=read.windows, client=client, model=model, cache=cache
         )
-        cards.append(card)
+        cards.extend(found)
+        assigned = sum(int(card.sample.get("lines") or 0) for card in found)
+        for card in found:
+            source_receipts.append(
+                {
+                    "card_id": card.card_id,
+                    "source_id": card.source_id,
+                    "part": {"field": card.part_field, "value": card.part_value}
+                    if card.part_field
+                    else None,
+                    "kind": card.kind,
+                    "understood": card.understood,
+                    "reason": card.reason,
+                    "roles": {role: list(names) for role, names in card.roles.items()},
+                    "structure": card.fmt,
+                    "sample_lines": card.sample.get("lines"),
+                    "parse_coverage": round(card.coverage, 3),
+                    "model_requests": int(card.model.get("requests") or 0),
+                    "model_seconds": card.model.get("seconds"),
+                    "cached": bool(card.model.get("cached")),
+                    "seconds": round(time.monotonic() - started, 3),
+                    "notes": read.notes,
+                }
+            )
         source_receipts.append(
             {
-                "source_id": card.source_id,
-                "kind": card.kind,
-                "understood": card.understood,
-                "reason": card.reason,
-                "roles": {role: list(names) for role, names in card.roles.items()},
-                "structure": card.fmt,
-                "sample_lines": len(read.rows),
-                "parse_coverage": round(card.coverage, 3),
-                "model_requests": int(card.model.get("requests") or 0),
-                "model_seconds": card.model.get("seconds"),
-                "cached": bool(card.model.get("cached")),
-                "seconds": round(time.monotonic() - started, 3),
-                "notes": read.notes,
+                "source_id": f"{item.index}:{item.sourcetype}",
+                "parts": len(found),
+                "sample_unassigned": max(0, len(read.rows) - assigned),
             }
         )
     write_json(out / SOURCES_FILE, _sources_payload(index, start, end, cards))
@@ -177,7 +191,8 @@ def cards_stage(
         "index": index,
         "start": start,
         "end": end,
-        "sources": len(cards),
+        "sources": len({card.source_id for card in cards}),
+        "cards": len(cards),
         "understood": sum(1 for card in cards if card.understood),
         "unparsed": sum(1 for card in cards if not card.understood),
         "model_requests": sum(int(card.model.get("requests") or 0) for card in cards),

@@ -131,18 +131,65 @@ def _alert_query(facts: SourceFacts, action: str, entity: str) -> str:
     return f"search index={_quote(facts.index)} {route}{tail} | head 5"
 
 
+def _add_alert(
+    grouped: dict[tuple[str, str, str], dict[str, Any]],
+    card: SourceCard,
+    row: Mapping[str, Any],
+    fields: Mapping[str, str],
+) -> bool:
+    action = _first_present(fields, card.role_fields("action")) or _first_present(
+        fields, card.role_fields("object")
+    )
+    entity = _first_present(fields, card.role_fields("actor")) or _first_present(
+        fields, card.role_fields("to")
+    )
+    entity = (
+        entity or _first_present(fields, card.role_fields("from")) or str(row.get("host") or "")
+    )
+    if not action:
+        return False
+    key = (card.card_id, action, entity)
+    slot = grouped.setdefault(
+        key,
+        {
+            "source_id": card.source_id,
+            "count": 0,
+            "first": float("inf"),
+            "last": 0.0,
+            "hosts": set(),
+            "raw": str(row.get("_raw") or "")[:EVIDENCE_CHARS],
+            "earliest": None,
+            "latest": None,
+        },
+    )
+    slot["count"] += 1
+    try:
+        ts = float(row.get("_time") or 0.0)
+    except (TypeError, ValueError):
+        ts = 0.0
+    slot["first"] = min(float(slot["first"]), ts)
+    slot["last"] = max(float(slot["last"]), ts)
+    slot["hosts"].add(str(row.get("host") or ""))
+    hour = ts - ts % 3600.0
+    slot["earliest"], slot["latest"] = hour, hour + 3600.0
+    return True
+
+
 def _alert_rows(
     executor: HuntExecutor, cards: Sequence[SourceCard], facts_by_source: Mapping[str, SourceFacts]
 ) -> tuple[dict[tuple[str, str, str], dict[str, Any]], list[dict[str, Any]], list[str]]:
-    """Distinct (action, entity) in each alert stream, over a declared slice."""
+    """Distinct (alert, entity) in each alert stream, over a declared slice."""
     grouped: dict[tuple[str, str, str], dict[str, Any]] = {}
     receipts: list[dict[str, Any]] = []
     notes: list[str] = []
-    alert_cards = [card for card in cards if card.understood and card.kind == "alert"]
-    for card in alert_cards:
-        facts = facts_by_source.get(card.source_id)
+    sources: dict[str, list[SourceCard]] = {}
+    for card in cards:
+        if card.understood and card.kind == "alert":
+            sources.setdefault(card.source_id, []).append(card)
+    for source_id, group in sources.items():
+        facts = facts_by_source.get(source_id)
         if facts is None:
-            receipts.append({"source_id": card.source_id, "reason": "no_index_facts"})
+            receipts.extend({"card_id": card.card_id, "reason": "no_index_facts"} for card in group)
             continue
         started = time.monotonic()
         windows = window_bounds(facts.first, facts.last, ALERT_WINDOWS)
@@ -154,60 +201,33 @@ def _alert_rows(
             kind="alert_events",
             max_sources=BEHAVIOUR_SOURCES,
         )
-        missing = 0
-        for row in read.rows:
-            parsed_raw = str(row.get("_raw") or "")
-            fields = _alert_fields(card, parsed_raw)
-            action = _first_present(fields, card.role_fields("action")) or _first_present(
-                fields, card.role_fields("object")
-            )
-            entity = _first_present(fields, card.role_fields("actor")) or _first_present(
-                fields, card.role_fields("to")
-            )
-            entity = (
-                entity
-                or _first_present(fields, card.role_fields("from"))
-                or str(row.get("host") or "")
-            )
-            if not action:
-                missing += 1
-                continue
-            key = (card.source_id, action, entity)
-            slot = grouped.setdefault(
-                key,
+        for card in group:
+            missing = 0
+            seen = 0
+            for row in read.rows:
+                fields = _alert_fields(card, str(row.get("_raw") or ""))
+                if not card.in_part(fields):
+                    continue
+                seen += 1
+                if not _add_alert(grouped, card, row, fields):
+                    missing += 1
+            receipts.append(
                 {
-                    "count": 0,
-                    "first": float("inf"),
-                    "last": 0.0,
-                    "hosts": set(),
-                    "raw": parsed_raw[:EVIDENCE_CHARS],
-                    "earliest": None,
-                    "latest": None,
-                },
+                    "card_id": card.card_id,
+                    "source_id": card.source_id,
+                    "part": {"field": card.part_field, "value": card.part_value}
+                    if card.part_field
+                    else None,
+                    "events_available": facts.events,
+                    "events_read": seen,
+                    "events_without_action": missing,
+                    "windows": read.windows,
+                    "share_of_source": round(len(read.rows) / facts.events, 6)
+                    if facts.events
+                    else None,
+                    "seconds": round(time.monotonic() - started, 3),
+                }
             )
-            slot["count"] += 1
-            try:
-                ts = float(row.get("_time") or 0.0)
-            except (TypeError, ValueError):
-                ts = 0.0
-            slot["first"] = min(float(slot["first"]), ts)
-            slot["last"] = max(float(slot["last"]), ts)
-            slot["hosts"].add(str(row.get("host") or ""))
-            hour = ts - ts % 3600.0
-            slot["earliest"], slot["latest"] = hour, hour + 3600.0
-        receipts.append(
-            {
-                "source_id": card.source_id,
-                "events_available": facts.events,
-                "events_read": len(read.rows),
-                "events_without_action": missing,
-                "windows": read.windows,
-                "share_of_source": round(len(read.rows) / facts.events, 6)
-                if facts.events
-                else None,
-                "seconds": round(time.monotonic() - started, 3),
-            }
-        )
         notes.extend(read.notes)
     return grouped, receipts, notes
 
@@ -222,7 +242,8 @@ def alerts(
     grouped, receipts, notes = _alert_rows(executor, cards, facts_by_source)
     ordered = sorted(grouped.items(), key=lambda item: (-item[1]["count"], item[0]))
     notables: list[Notable] = []
-    for (source_id, action, entity), slot in ordered[:NOTABLE_BUDGET]:
+    for (_card_id, action, entity), slot in ordered[:NOTABLE_BUDGET]:
+        source_id = str(slot["source_id"])
         card_facts = facts_by_source.get(source_id)
         query = _alert_query(card_facts, action, entity) if card_facts else ""
         notables.append(

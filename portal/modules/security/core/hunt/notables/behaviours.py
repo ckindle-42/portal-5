@@ -141,7 +141,7 @@ def _extract(
     found: list[ExampleEvent] = []
     for row in rows:
         parsed = parse_row(str(row.get("_raw") or ""), card.fmt, card.columns)
-        if not parsed.fields:
+        if not parsed.fields or not card.in_part(parsed.fields):
             continue
         try:
             ts = float(row.get("_time") or 0.0)
@@ -246,36 +246,74 @@ def aggregate_events(con: duckdb.DuckDBPyConnection) -> tuple[list[Behaviour], i
     return [Behaviour(*row) for row in con.execute("SELECT * FROM behaviours").fetchall()], existed
 
 
+def _source_groups(cards: Sequence[SourceCard]) -> dict[str, list[SourceCard]]:
+    grouped: dict[str, list[SourceCard]] = {}
+    for card in cards:
+        grouped.setdefault(card.source_id, []).append(card)
+    return grouped
+
+
+def _skip_reason(card: SourceCard) -> str:
+    return card.reason or ("no_roles" if card.kind == "activity" else f"kind:{card.kind}")
+
+
+def _source_receipt(
+    card: SourceCard,
+    facts: SourceFacts,
+    read: Any,
+    events: int,
+    seconds: float,
+    per_window: int,
+) -> dict[str, Any]:
+    return {
+        "card_id": card.card_id,
+        "source_id": card.source_id,
+        "part": {"field": card.part_field, "value": card.part_value} if card.part_field else None,
+        "kind": card.kind,
+        "events_available": facts.events,
+        "events_read": len(read.rows),
+        "events_parsed": events,
+        "windows": read.windows,
+        "per_window": per_window,
+        "selection": "newest events of each equal time slice",
+        "route": read.route,
+        "share_of_source": round(len(read.rows) / facts.events, 6) if facts.events else None,
+        "seconds": round(seconds, 3),
+        "notes": read.notes,
+    }
+
+
 def collect_behaviours(
     executor: HuntExecutor,
     cards: Sequence[SourceCard],
     facts_by_source: Mapping[str, SourceFacts],
     store_path: Path,
 ) -> tuple[list[Behaviour], dict[str, Any]]:
-    """Read each activity source's declared slice, key every event, and count on DuckDB."""
+    """Read each activity source once, key each structure's events, and count on DuckDB."""
     began = time.monotonic()
-    usable = [card for card in cards if card.usable]
+    grouped = _source_groups(cards)
+    usable_sources = sum(1 for group in grouped.values() if any(card.usable for card in group))
+    skipped: list[dict[str, str]] = []
     receipts: list[dict[str, Any]] = []
-    skipped = [
-        {
-            "source_id": card.source_id,
-            "reason": card.reason
-            or ("no_roles" if card.kind == "activity" else f"kind:{card.kind}"),
-        }
-        for card in cards
-        if not card.usable
-    ]
-    per_window = per_window_events(len(usable))
+    per_window = per_window_events(usable_sources)
     store_path.parent.mkdir(parents=True, exist_ok=True)
     store_path.unlink(missing_ok=True)
     con = duckdb.connect(str(store_path))
     total = 0
     try:
         create_events(con)
-        for card in usable:
-            facts = facts_by_source.get(card.source_id)
+        for source_id, group in grouped.items():
+            usable = [card for card in group if card.usable]
+            if not usable:
+                skipped.extend(
+                    {"card_id": card.card_id, "reason": _skip_reason(card)} for card in group
+                )
+                continue
+            facts = facts_by_source.get(source_id)
             if facts is None:
-                skipped.append({"source_id": card.source_id, "reason": "no_index_facts"})
+                skipped.extend(
+                    {"card_id": card.card_id, "reason": "no_index_facts"} for card in usable
+                )
                 continue
             started = time.monotonic()
             windows = window_bounds(facts.first, facts.last, BEHAVIOUR_WINDOWS)
@@ -287,29 +325,22 @@ def collect_behaviours(
                 kind="behavior_events",
                 max_sources=BEHAVIOUR_SOURCES,
             )
-            events = _extract(card, read.rows, windows)
-            rows = keyed_rows(card, facts, events)
-            if rows:
-                con.executemany(_INSERT, rows)
-            total += len(rows)
-            receipts.append(
-                {
-                    "source_id": card.source_id,
-                    "kind": card.kind,
-                    "events_available": facts.events,
-                    "events_read": len(read.rows),
-                    "events_parsed": len(events),
-                    "windows": read.windows,
-                    "per_window": per_window,
-                    "selection": "newest events of each equal time slice",
-                    "route": read.route,
-                    "share_of_source": round(len(read.rows) / facts.events, 6)
-                    if facts.events
-                    else None,
-                    "seconds": round(time.monotonic() - started, 3),
-                    "notes": read.notes,
-                }
-            )
+            for card in usable:
+                events = _extract(card, read.rows, windows)
+                rows = keyed_rows(card, facts, events)
+                if rows:
+                    con.executemany(_INSERT, rows)
+                total += len(rows)
+                receipts.append(
+                    _source_receipt(
+                        card,
+                        facts,
+                        read,
+                        len(events),
+                        time.monotonic() - started,
+                        per_window,
+                    )
+                )
         behaviours, existed = aggregate_events(con)
     finally:
         con.close()

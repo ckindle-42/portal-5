@@ -13,7 +13,14 @@ from pathlib import Path
 from typing import Any
 
 from ..judge import JudgeClient
-from .parse import FieldStat, Parsed, field_stats, parse_events
+from .parse import (
+    FieldStat,
+    Parsed,
+    choose_partition,
+    field_stats,
+    parse_events,
+    partition_groups,
+)
 from .sample import SourceFacts
 
 KINDS = ("activity", "alert", "measurement", "other")
@@ -86,13 +93,27 @@ class SourceCard:
     basis: str = ""
     rejected: tuple[str, ...] = ()
     columns: tuple[str, ...] = ()
+    part_field: str = ""
+    part_value: str = ""
 
     @property
     def source_id(self) -> str:
         return f"{self.index}:{self.sourcetype}"
 
+    @property
+    def card_id(self) -> str:
+        if not self.part_field:
+            return self.source_id
+        return f"{self.source_id}#{self.part_field}={self.part_value}"
+
     def role_fields(self, role: str) -> tuple[str, ...]:
         return tuple(self.roles.get(role, ()))
+
+    def in_part(self, fields: Mapping[str, str]) -> bool:
+        """True when an event's parsed fields select this card's part."""
+        if not self.part_field:
+            return True
+        return (fields.get(self.part_field) or "").strip() == self.part_value
 
     @property
     def usable(self) -> bool:
@@ -104,6 +125,10 @@ class SourceCard:
             "index": self.index,
             "sourcetype": self.sourcetype,
             "source_id": self.source_id,
+            "card_id": self.card_id,
+            "part": (
+                {"field": self.part_field, "value": self.part_value} if self.part_field else None
+            ),
             "kind": self.kind,
             "understood": self.understood,
             "reason": self.reason,
@@ -325,6 +350,8 @@ def _failure(
     sample: Mapping[str, Any],
     model: Mapping[str, Any],
     cache_key: str,
+    part_field: str = "",
+    part_value: str = "",
 ) -> SourceCard:
     return SourceCard(
         index=facts.index,
@@ -340,6 +367,8 @@ def _failure(
         facts=_facts(facts),
         model=model,
         cache_key=cache_key,
+        part_field=part_field,
+        part_value=part_value,
     )
 
 
@@ -358,15 +387,22 @@ def _facts(facts: SourceFacts) -> dict[str, Any]:
 class _Inputs:
     """What the sample says before any model call: the prompt and the evidence behind it."""
 
-    def __init__(self, rows: Sequence[Mapping[str, Any]], windows: int, model: str) -> None:
-        self.parsed = parse_events([str(row.get("_raw") or "") for row in rows])
+    def __init__(
+        self,
+        rows: Sequence[Mapping[str, Any]],
+        parsed: Sequence[Parsed],
+        windows: int,
+        model: str,
+    ) -> None:
+        self.parsed = list(parsed)
         self.stats = field_stats(self.parsed)
         self.fmt, hits = _structure(self.parsed)
-        self.coverage = hits / len(self.parsed) if self.parsed else 0.0
+        considered = sum(1 for item in self.parsed if item.fmt != "header")
+        self.coverage = hits / considered if considered else 0.0
         self.hits = hits
         self.sample = _sample_facts(rows, self.parsed)
         self.sample["windows"] = windows
-        self.prompt = build_prompt(self.stats, len(self.parsed), self.fmt)
+        self.prompt = build_prompt(self.stats, considered, self.fmt)
         self.cache_key = hashlib.sha256(f"{model}\n{self.prompt}".encode()).hexdigest()
 
 
@@ -403,17 +439,19 @@ def _model_facts(
     }
 
 
-def build_card(
+def _card(
     facts: SourceFacts,
-    rows: Sequence[Mapping[str, Any]],
+    given: _Inputs,
     *,
-    windows: int,
     client: JudgeClient,
     model: str,
     cache: CardCache,
+    part_field: str = "",
+    part_value: str = "",
 ) -> SourceCard:
-    """One card per source: parse the sample, ask once, validate, and keep the evidence."""
-    given = _Inputs(rows, windows, model)
+    """One card from one structure: ask once, validate, and keep the evidence."""
+    if part_field:
+        given.sample["part"] = {"field": part_field, "value": part_value}
     if not given.parsed or not given.hits:
         reason = (
             "no_sample" if not given.parsed else f"unparsed_sample:coverage={given.coverage:.2f}"
@@ -427,6 +465,8 @@ def build_card(
             sample=given.sample,
             model={"requests": 0, "cached": False},
             cache_key=given.cache_key,
+            part_field=part_field,
+            part_value=part_value,
         )
     answer, requests, was_cached = _answer(given, client, model, cache)
     applied = apply_answer(answer.text, [stat.name for stat in given.stats])
@@ -450,6 +490,8 @@ def build_card(
             sample=given.sample,
             model=model_facts,
             cache_key=given.cache_key,
+            part_field=part_field,
+            part_value=part_value,
         )
     return SourceCard(
         index=facts.index,
@@ -468,4 +510,81 @@ def build_card(
         basis=applied.basis,
         rejected=applied.rejected,
         columns=_columns(given.parsed, given.fmt),
+        part_field=part_field,
+        part_value=part_value,
     )
+
+
+def _raws(rows: Sequence[Mapping[str, Any]]) -> list[str]:
+    return [str(row.get("_raw") or "") for row in rows]
+
+
+def build_card(
+    facts: SourceFacts,
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    windows: int,
+    client: JudgeClient,
+    model: str,
+    cache: CardCache,
+) -> SourceCard:
+    """One card for one sample, without partitioning."""
+    parsed = parse_events(_raws(rows))
+    return _card(
+        facts,
+        _Inputs(rows, parsed, windows, model),
+        client=client,
+        model=model,
+        cache=cache,
+    )
+
+
+def build_cards(
+    facts: SourceFacts,
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    windows: int,
+    client: JudgeClient,
+    model: str,
+    cache: CardCache,
+) -> list[SourceCard]:
+    """One card per distinct structure in the sample, split on the field that selects it."""
+    parsed = parse_events(_raws(rows))
+    partition = choose_partition(parsed)
+    if partition is None:
+        return [
+            _card(
+                facts,
+                _Inputs(rows, parsed, windows, model),
+                client=client,
+                model=model,
+                cache=cache,
+            )
+        ]
+    groups = partition_groups(parsed, rows, partition)
+    cards: list[SourceCard] = []
+    for value in partition.values:
+        group = groups.get(value)
+        if group is None:
+            continue
+        group_rows, group_parsed = group
+        cards.append(
+            _card(
+                facts,
+                _Inputs(group_rows, group_parsed, windows, model),
+                client=client,
+                model=model,
+                cache=cache,
+                part_field=partition.field,
+                part_value=value,
+            )
+        )
+    return cards or [
+        _card(
+            facts,
+            _Inputs(rows, parsed, windows, model),
+            client=client,
+            model=model,
+            cache=cache,
+        )
+    ]

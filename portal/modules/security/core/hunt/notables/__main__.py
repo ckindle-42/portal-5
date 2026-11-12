@@ -89,15 +89,24 @@ def _print_notables(receipt: dict[str, Any]) -> None:
 
 def _print_cards(receipt: dict[str, Any]) -> None:
     for item in receipt.get("sources_receipt", []):
+        if "parts" in item:
+            print(
+                f"  {item['source_id']} parts={item['parts']} "
+                f"sample_unassigned={item['sample_unassigned']}"
+            )
+            continue
         reason = f" reason={item['reason']}" if item.get("reason") else ""
+        part = item.get("part")
+        label = f" [{part['field']}={part['value']}]" if part else ""
         print(
-            f"  {item['source_id']} kind={item['kind']} understood={item['understood']} "
+            f"  {item['card_id']}{label} kind={item['kind']} understood={item['understood']} "
             f"roles=[{item['roles']}] structure={item['structure']} "
             f"sample={item['sample_lines']} coverage={item['parse_coverage']:.2f} "
             f"model={item['model_seconds']}s{reason}"
         )
     print(
-        f"cards: sources={receipt['sources']} understood={receipt['understood']} "
+        f"cards: sources={receipt['sources']} cards={receipt['cards']} "
+        f"understood={receipt['understood']} "
         f"unparsed={receipt['unparsed']} model_requests={receipt['model_requests']} "
         f"model_seconds={receipt['model_seconds']} wall={receipt['seconds']}s "
         f"peak={receipt['peak_memory_mb']}MB -> sources.json"
