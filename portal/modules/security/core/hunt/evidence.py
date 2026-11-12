@@ -15,7 +15,12 @@ from .observations import Observation, literal_matches
 EVIDENCE_REQUESTS = 100  # effort budget: evidence reads issued through the shared executor
 JUDGE_CELLS = EVIDENCE_REQUESTS  # effort budget: at most one read for each judged host-hour
 MAX_OBSERVATIONS_PER_CELL = 12  # effort budget: top literal observations shown for one cell
+CANDIDATE_OBSERVATIONS = (
+    48  # effort budget: observations named in the one read, above the number shown
+)
 EVENTS_PER_OBSERVATION = 2  # effort budget: matching events retained for one observation
+# Rows one cell read may return. 160 judged cells stay inside the 5,000-event budget.
+ROW_BUDGET = MAX_OBSERVATIONS_PER_CELL * EVENTS_PER_OBSERVATION
 MAX_EVENT_CHARACTERS = 300  # effort budget: raw characters retained per event
 READ_CONCURRENCY = 6  # effort budget: evidence reads inside the shared executor
 EVIDENCE_KIND = "evidence"
@@ -55,12 +60,56 @@ def evidence_cells(observations: Iterable[Observation]) -> list[EvidenceCell]:
     return cells
 
 
-def _cell_query(index: str, host: str) -> str:
-    """One read. Sort then dedup so the same window returns the same rows."""
+def _searchmatch_term(entity: str) -> str:
+    quoted = _search_literal(entity)
+    embedded = quoted.replace("\\", "\\\\").replace('"', '\\"')
+    return f'searchmatch("TERM({embedded})")'
+
+
+def _observation_tests(observation: Observation) -> tuple[str, str] | None:
+    """Search predicate and eval equality. Both quote through `_search_literal`."""
+    entity = observation.entity
+    if observation.kind == "shape":
+        test = f"punct={_search_literal(entity)}"
+        return test, test
+    if observation.kind == "source" and "\t" in entity:
+        source, sourcetype = entity.split("\t", 1)
+        search = f"source={_search_literal(source)} sourcetype={_search_literal(sourcetype)}"
+        eval_test = f"source={_search_literal(source)} AND sourcetype={_search_literal(sourcetype)}"
+        return search, eval_test
+    if observation.kind == "stream" and "\t" in entity:
+        sourcetype, punct = entity.split("\t", 1)
+        search = f"sourcetype={_search_literal(sourcetype)} punct={_search_literal(punct)}"
+        eval_test = f"sourcetype={_search_literal(sourcetype)} AND punct={_search_literal(punct)}"
+        return search, eval_test
+    if observation.kind == "value" and entity:
+        return f"TERM({_search_literal(entity)})", _searchmatch_term(entity)
+    return None
+
+
+def _cell_query(index: str, cell: EvidenceCell) -> str | None:
+    """One read of the candidate observations, capped at the rows the judge can show."""
+    searches: list[str] = []
+    cases: list[str] = []
+    for observation_index, observation in enumerate(cell.observations[:CANDIDATE_OBSERVATIONS]):
+        built = _observation_tests(observation)
+        if built is None:
+            continue
+        search, eval_test = built
+        searches.append(f"({search})")
+        cases.append(f"({eval_test}),{observation_index}")
+    if not searches:
+        return None
     return (
-        f"search index={_search_literal(index)} host={_search_literal(host)} "
-        f"| sort 0 _time _raw source punct sourcetype "
-        f"| dedup {EVENTS_PER_OBSERVATION} punct source"
+        f"search index={_search_literal(index)} host={_search_literal(cell.host)} "
+        f"({' OR '.join(searches)}) "
+        f"| eval _hunt_observation=case({', '.join(cases)}) "
+        f"| where isnotnull(_hunt_observation) "
+        f"| sort 0 _hunt_observation _time _raw "
+        f"| dedup _hunt_observation _raw "
+        f"| dedup {EVENTS_PER_OBSERVATION} _hunt_observation "
+        f"| head {ROW_BUDGET} "
+        f"| table _time source sourcetype punct _hunt_observation _raw"
     )
 
 
@@ -85,6 +134,16 @@ def _row_sort_key(row: Mapping[str, Any]) -> tuple[Any, ...]:
     )
 
 
+def _owns(row: Mapping[str, Any], observation_index: int, query: str) -> bool:
+    marker = row.get("_hunt_observation")
+    if marker is not None and marker != "":
+        try:
+            return int(float(marker)) == observation_index
+        except (TypeError, ValueError):
+            return False
+    return literal_matches(row, query)
+
+
 def _select_evidence(
     rows: Iterable[Mapping[str, Any]],
     observations: tuple[Observation, ...],
@@ -97,7 +156,7 @@ def _select_evidence(
     used: set[int] = set()
     evidence: list[dict[str, Any]] = []
     shown = 0
-    for observation in observations:
+    for observation_index, observation in enumerate(observations):
         if shown >= MAX_OBSERVATIONS_PER_CELL:
             break
         query = observation.evidence.get("literal")
@@ -106,7 +165,7 @@ def _select_evidence(
         picked = [
             index
             for index, row in enumerate(ordered)
-            if index not in used and literal_matches(row, str(query))
+            if index not in used and _owns(row, observation_index, str(query))
         ][:EVENTS_PER_OBSERVATION]
         if not picked:
             continue
@@ -140,10 +199,11 @@ def read_cell(
         return EvidenceRead(cell, [], False, "outside_window", 0.0)
     if not cell.observations:
         return EvidenceRead(cell, [], False, "no_narrowing_observations", 0.0)
+    query = _cell_query(index, cell)
+    if query is None:
+        return EvidenceRead(cell, [], False, "no_narrowing_observations", 0.0)
     try:
-        result = executor.read(
-            _cell_query(index, cell.host), earliest, latest, kind=EVIDENCE_KIND, row_cap=None
-        )
+        result = executor.read(query, earliest, latest, kind=EVIDENCE_KIND, row_cap=None)
     except HuntBudgetExceededError as exc:
         return EvidenceRead(cell, [], True, str(exc), round(time.monotonic() - began, 3))
     except Exception as exc:  # noqa: BLE001 -- record failed coverage for this cell

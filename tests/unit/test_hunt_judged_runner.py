@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 
+from portal.modules.security.core.hunt.executor import DEFAULT_BUDGETS, HuntBudgetExceededError
 from portal.modules.security.core.hunt.observations import (
     Observation,
     ObservationRun,
@@ -381,6 +384,90 @@ def _keys(payload: object) -> set[str]:
         for value in payload:
             found.update(_keys(value))
     return found
+
+
+class _BudgetingExecutor:
+    """Splunk stand-in: honor `| head N`, otherwise return the wide host-hour."""
+
+    def __init__(self, wide_rows: int, events_limit: int):
+        self.wide_rows = wide_rows
+        self.events_limit = events_limit
+        self.events = 0
+        self.calls: list[str] = []
+        self._lock = threading.Lock()
+        self.budget = SimpleNamespace(limits={"events": events_limit, "requests": 2000})
+        self._evidence = {"requests": 0, "seconds": 0.0, "censored": 0}
+
+    def stats(self):
+        return {"evidence": dict(self._evidence)}
+
+    def read(self, query, earliest, latest, *, kind, row_cap):
+        head = re.search(r"\| head (\d+)", query)
+        count = int(head.group(1)) if head else self.wide_rows
+        count = min(count, self.wide_rows)
+        with self._lock:
+            self.calls.append(query)
+            self._evidence["requests"] += 1
+            if self.events + count > self.events_limit:
+                raise HuntBudgetExceededError("event_budget_exhausted")
+            self.events += count
+        host = query.split('host="', 1)[1].split('"', 1)[0]
+        rows = [
+            {
+                "_time": earliest + 1,
+                "host": host,
+                "source": "svc",
+                "sourcetype": "log",
+                "punct": "abc",
+                "_raw": f"event-{index}",
+                "_hunt_observation": 0,
+            }
+            for index in range(min(count, 2))
+        ]
+        # The budget counts every row the search returns, not only the lines shown.
+        rows.extend(rows[:1] * (count - len(rows)))
+        return SimpleNamespace(rows=rows[:count], reason=None)
+
+
+def test_bounded_cell_reads_judge_the_whole_budget_the_wide_read_cannot(tmp_path: Path):
+    """160 cells of the old 300-row read exceed 5,000 events; the bounded read must not."""
+    cell_count = 20
+    wide_rows = 300
+    events_limit = int(DEFAULT_BUDGETS["events"])
+    assert wide_rows * cell_count > events_limit
+    observations = [
+        _observation(f"h{index}", 0, float(cell_count - index)) for index in range(cell_count)
+    ]
+    executor = _BudgetingExecutor(wide_rows, events_limit)
+
+    progress = judged_hunt.run_judged_hunt(
+        _args(tmp_path, judge_cells=cell_count, budget_order="layer1", order="judged"),
+        prepare=_prepare(observations, executor),
+        client=_Judge(),
+    )
+
+    head = re.search(r"\| head (\d+)", executor.calls[0])
+    assert head is not None
+    assert int(head.group(1)) * 160 <= events_limit
+    assert "punct source" not in executor.calls[0]
+    assert progress["coverage"]["cells_judged"] == cell_count
+    assert progress["coverage_complete"] is True
+    assert executor.events <= events_limit
+
+
+def test_event_budget_exhaustion_remains_on_the_receipt(tmp_path: Path):
+    observations = [_observation(f"h{index}", 0, float(4 - index)) for index in range(4)]
+    executor = _BudgetingExecutor(wide_rows=30, events_limit=10)
+
+    progress = judged_hunt.run_judged_hunt(
+        _args(tmp_path, judge_cells=4, budget_order="layer1", order="budget"),
+        prepare=_prepare(observations, executor),
+        client=_Judge(),
+    )
+
+    assert progress["coverage_complete"] is False
+    reasons = {row["reason"] for row in progress["coverage"]["unjudged"]}
+    assert "event_budget_exhausted" in reasons
 
 
 def test_help_names_the_pipeline_workspace_and_the_new_options():
