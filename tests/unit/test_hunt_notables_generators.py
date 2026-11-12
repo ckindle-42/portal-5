@@ -109,6 +109,20 @@ def test_peer_rare_orders_by_share_of_possible_hosts_and_actors():
     assert notables[-1].measure_value == 1.0
 
 
+def test_a_missing_actor_is_unknown_not_rare_and_sorts_last():
+    behaviours = [
+        _behaviour("ix:st", "", hosts=7, actors=0, events=100, first=1.0),
+        _behaviour("ix:st", "bob", hosts=1, actors=1, events=1, first=2.0),
+    ]
+    stats = {"ix:st": {"hosts_possible": 7, "actors_possible": 150}}
+    notables, receipt = peer_rare(behaviours, stats)
+    assert receipt == {"existed": 2, "kept": 2}
+    assert notables[0].measure_value == round(1 / 7 * 1 / 150, 10)
+    assert notables[1].measure_value == 1.0
+    assert "actor not present in this behaviour" in notables[1].why
+    assert "0/150" not in notables[1].why
+
+
 def test_robust_z_and_source_deviations_rank_a_burst_first():
     steady = [10, 11, 9, 10, 12]
     spike = [10, 10, 10, 10, 900]

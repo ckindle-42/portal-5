@@ -90,6 +90,12 @@ def test_keyed_row_reproduces_only_literal_parts_of_the_key():
     assert rows[0][11] == 0.0 and rows[0][12] == 3600.0
 
 
+def test_an_event_with_neither_actor_nor_object_is_not_a_behaviour():
+    card = _card()
+    event = ExampleEvent("ix:st", "h1", 1.0, "raw", {"image": "stats"}, 0.0, 3600.0)
+    assert keyed_rows(card, _facts(), [event]) == []
+
+
 def test_a_part_card_keys_only_its_own_events():
     card = SourceCard(
         index="ix",

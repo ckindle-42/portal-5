@@ -283,19 +283,38 @@ def alerts(
     }
 
 
+def rarity(behaviour: Behaviour, stats: Mapping[str, Any]) -> tuple[float, str]:
+    """Rarity over the denominators that exist; a role the behaviour lacks is unknown, not rare."""
+    hosts_possible = int(stats.get("hosts_possible") or 0)
+    actors_possible = int(stats.get("actors_possible") or 0)
+    factors: list[float] = []
+    clauses: list[str] = []
+    if hosts_possible:
+        factors.append(behaviour.hosts / hosts_possible)
+        clauses.append(f"on {behaviour.hosts}/{hosts_possible} hosts")
+    if behaviour.actors and actors_possible:
+        factors.append(behaviour.actors / actors_possible)
+        clauses.append(f"{behaviour.actors}/{actors_possible} actors")
+    if not behaviour.actors:
+        clauses.append("actor not present in this behaviour")
+    if not factors:
+        return 1.0, "no host or actor denominator for this source"
+    measure = 1.0
+    for factor in factors:
+        measure *= factor
+    return round(measure, 10), " and ".join(clauses)
+
+
 def peer_rare(
     behaviours: Sequence[Behaviour], source_stats: Mapping[str, Mapping[str, Any]]
 ) -> tuple[list[Notable], dict[str, Any]]:
     """Behaviours shared by few hosts and actors, relative to how many could share them."""
-    ranked: list[tuple[float, int, str, Behaviour]] = []
+    ranked: list[tuple[float, int, str, Behaviour, str]] = []
     for behaviour in behaviours:
-        stats = source_stats.get(behaviour.source_id, {})
-        hosts_possible = int(stats.get("hosts_possible") or 0)
-        actors_possible = int(stats.get("actors_possible") or 0)
-        host_share = behaviour.hosts / hosts_possible if hosts_possible else 1.0
-        actor_share = behaviour.actors / actors_possible if actors_possible else 1.0
-        measure = round(host_share * actor_share, 10)
-        ranked.append((measure, -behaviour.events, behaviour.source_id, behaviour))
+        if not behaviour.actor and not behaviour.object:
+            continue
+        measure, why = rarity(behaviour, source_stats.get(behaviour.source_id, {}))
+        ranked.append((measure, -behaviour.events, behaviour.source_id, behaviour, why))
     ranked.sort(
         key=lambda item: (
             item[0],
@@ -307,14 +326,12 @@ def peer_rare(
         )
     )
     notables: list[Notable] = []
-    for measure, _events, source_id, behaviour in ranked[:NOTABLE_BUDGET]:
-        stats = source_stats.get(source_id, {})
-        what = _behaviour_words(behaviour)
+    for measure, _events, source_id, behaviour, why in ranked[:NOTABLE_BUDGET]:
         notables.append(
             _make(
                 generator="peer_rare",
                 basis="behaviour_share",
-                what=what,
+                what=_behaviour_words(behaviour),
                 entities=(
                     ("actor", behaviour.actor),
                     ("action", behaviour.action),
@@ -330,10 +347,7 @@ def peer_rare(
                 },
                 measure_name="host_share_x_actor_share",
                 measure_value=measure,
-                why=(
-                    f"on {behaviour.hosts}/{int(stats.get('hosts_possible') or 0)} hosts and "
-                    f"{behaviour.actors}/{int(stats.get('actors_possible') or 0)} actors"
-                ),
+                why=why,
                 evidence=(
                     {
                         "line": behaviour.example_raw,

@@ -182,6 +182,8 @@ def keyed_rows(
         actor_field, actor, action_field, action, object_field, object_value = behaviour_key(
             card, event.fields, modes
         )
+        if not actor and not object_value:
+            continue
         query = reproduction_query(
             card,
             facts,
@@ -226,7 +228,7 @@ def aggregate_events(con: duckdb.DuckDBPyConnection) -> tuple[list[Behaviour], i
     con.execute(
         "CREATE TABLE behaviour_all AS SELECT source_id, actor_field, actor, action_field,"
         " action, object_field, object, count(*) AS events, min(ts) AS first_seen,"
-        " max(ts) AS last_seen, count(DISTINCT host) AS hosts,"
+        " max(ts) AS last_seen, count(DISTINCT NULLIF(host, '')) AS hosts,"
         " count(DISTINCT NULLIF(actor, '')) AS actors, arg_min(ts, ts) AS example_time,"
         " arg_min(query, ts) AS example_query, arg_min(raw, ts) AS example_raw,"
         " arg_min(earliest, ts) AS example_earliest, arg_min(latest, ts) AS example_latest"
@@ -240,7 +242,7 @@ def aggregate_events(con: duckdb.DuckDBPyConnection) -> tuple[list[Behaviour], i
     )
     con.execute(
         "CREATE TABLE source_stats AS SELECT source_id, count(*) AS events,"
-        " count(DISTINCT host) AS hosts_possible,"
+        " count(DISTINCT NULLIF(host, '')) AS hosts_possible,"
         " count(DISTINCT NULLIF(actor, '')) AS actors_possible FROM events GROUP BY source_id"
     )
     return [Behaviour(*row) for row in con.execute("SELECT * FROM behaviours").fetchall()], existed
