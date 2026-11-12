@@ -19,7 +19,6 @@ EVENTS_PER_OBSERVATION = 2  # effort budget: matching events retained for one ob
 MAX_EVENT_CHARACTERS = 300  # effort budget: raw characters retained per event
 READ_CONCURRENCY = 6  # effort budget: evidence reads inside the shared executor
 EVIDENCE_KIND = "evidence"
-_ROW_CAP = MAX_OBSERVATIONS_PER_CELL * EVENTS_PER_OBSERVATION  # effort budget: rows per cell read
 
 
 @dataclass(frozen=True)
@@ -28,6 +27,7 @@ class EvidenceCell:
     hour: int
     l1_rank: int
     observations: tuple[Observation, ...]
+    budget_rank: int = 0
 
 
 @dataclass(frozen=True)
@@ -49,53 +49,79 @@ def evidence_cells(observations: Iterable[Observation]) -> list[EvidenceCell]:
         selected = [
             observation
             for observation in rows
-            if observation.evidence.get("literal") and _condition(observation) is not None
+            if observation.evidence.get("literal") and observation.kind != "volume"
         ]
-        cells.append(EvidenceCell(host, hour, rank, tuple(selected[:MAX_OBSERVATIONS_PER_CELL])))
+        cells.append(EvidenceCell(host, hour, rank, tuple(selected)))
     return cells
 
 
-def _condition(observation: Observation) -> str | None:
-    entity = observation.entity
-    if observation.kind == "volume":
-        return None
-    if observation.kind == "shape":
-        return f"punct={_search_literal(entity)}"
-    if observation.kind == "source":
-        source, sourcetype = entity.split("\t", 1)
-        return f"source={_search_literal(source)} sourcetype={_search_literal(sourcetype)}"
-    if observation.kind == "stream":
-        sourcetype, punct = entity.split("\t", 1)
-        return f"sourcetype={_search_literal(sourcetype)} punct={_search_literal(punct)}"
-    if observation.kind == "value":
-        return f"TERM({_search_literal(entity)})"
-    return None
+def _cell_query(index: str, host: str) -> str:
+    """One read. Sort then dedup so the same window returns the same rows."""
+    return (
+        f"search index={_search_literal(index)} host={_search_literal(host)} "
+        f"| sort 0 _time _raw source punct sourcetype "
+        f"| dedup {EVENTS_PER_OBSERVATION} punct source"
+    )
 
 
-def _query(index: str, cell: EvidenceCell) -> str:
-    branches = []
-    for observation_index, observation in enumerate(cell.observations):
-        condition = _condition(observation)
-        if condition is None:
-            continue
-        base = (
-            f"search index={_search_literal(index)} host={_search_literal(cell.host)} {condition}"
-        )
-        branches.append(
-            f"{base} | sort 0 _time _raw source punct sourcetype "
-            f"| head {EVENTS_PER_OBSERVATION} | eval _hunt_observation={observation_index}"
-        )
-    query = branches[0]
-    for branch in branches[1:]:
-        query += f" | append [ {branch} ]"
-    return query + " | sort 0 _hunt_observation _time _raw source punct sourcetype"
-
-
-def _event_line(row: Mapping[str, Any]) -> str:
+def _event_line(row: Mapping[str, Any], event_chars: int) -> str:
     source = str(row.get("source", "")).replace("\r", " ").replace("\n", " ")
     raw = str(row.get("_raw", "")).replace("\r", " ").replace("\n", " ")
-    raw = raw[:MAX_EVENT_CHARACTERS]
+    raw = raw[:event_chars]
     return f"{source} | {raw}"
+
+
+def _row_sort_key(row: Mapping[str, Any]) -> tuple[Any, ...]:
+    try:
+        stamp = float(row.get("_time", 0))
+    except (TypeError, ValueError):
+        stamp = 0.0
+    return (
+        stamp,
+        str(row.get("_raw", "")),
+        str(row.get("source", "")),
+        str(row.get("punct", "")),
+        str(row.get("sourcetype", "")),
+    )
+
+
+def _select_evidence(
+    rows: Iterable[Mapping[str, Any]],
+    observations: tuple[Observation, ...],
+    earliest: float,
+    latest: float,
+    event_chars: int,
+) -> list[dict[str, Any]]:
+    """First matching observation owns each event. A repeat spends no observation slot."""
+    ordered = sorted(rows, key=_row_sort_key)
+    used: set[int] = set()
+    evidence: list[dict[str, Any]] = []
+    shown = 0
+    for observation in observations:
+        if shown >= MAX_OBSERVATIONS_PER_CELL:
+            break
+        query = observation.evidence.get("literal")
+        if not query:
+            continue
+        picked = [
+            index
+            for index, row in enumerate(ordered)
+            if index not in used and literal_matches(row, str(query))
+        ][:EVENTS_PER_OBSERVATION]
+        if not picked:
+            continue
+        shown += 1
+        for index in picked:
+            used.add(index)
+            evidence.append(
+                {
+                    "line": _event_line(ordered[index], event_chars),
+                    "query": str(query),
+                    "earliest": earliest,
+                    "latest": latest,
+                }
+            )
+    return evidence
 
 
 def read_cell(
@@ -104,8 +130,10 @@ def read_cell(
     cell: EvidenceCell,
     start: float,
     end: float,
+    *,
+    event_chars: int = MAX_EVENT_CHARACTERS,
 ) -> EvidenceRead:
-    """Read a cell once and preserve only lines that match its selected observations."""
+    """Read a cell once. Each event is kept for the first observation it matches."""
     began = time.monotonic()
     earliest, latest = max(start, float(cell.hour)), min(end, float(cell.hour + HOUR))
     if latest <= earliest:
@@ -114,7 +142,7 @@ def read_cell(
         return EvidenceRead(cell, [], False, "no_narrowing_observations", 0.0)
     try:
         result = executor.read(
-            _query(index, cell), earliest, latest, kind=EVIDENCE_KIND, row_cap=_ROW_CAP
+            _cell_query(index, cell.host), earliest, latest, kind=EVIDENCE_KIND, row_cap=None
         )
     except HuntBudgetExceededError as exc:
         return EvidenceRead(cell, [], True, str(exc), round(time.monotonic() - began, 3))
@@ -124,33 +152,16 @@ def read_cell(
         )
     seconds = round(time.monotonic() - began, 3)
     reason = getattr(result, "reason", None)
-    rows = list(getattr(result, "rows", []))
-    evidence: list[dict[str, Any]] = []
-    for observation_index, observation in enumerate(cell.observations):
-        query = str(observation.evidence["literal"])
-        matched = [row for row in rows if _matches_observation(row, observation_index, query)]
-        for row in matched[:EVENTS_PER_OBSERVATION]:
-            evidence.append(
-                {
-                    "line": _event_line(row),
-                    "query": query,
-                    "earliest": earliest,
-                    "latest": latest,
-                }
-            )
+    evidence = _select_evidence(
+        list(getattr(result, "rows", [])),
+        cell.observations,
+        earliest,
+        latest,
+        event_chars,
+    )
     if not evidence:
         return EvidenceRead(cell, [], bool(reason), str(reason or "empty_evidence"), seconds)
     return EvidenceRead(cell, evidence, bool(reason), str(reason) if reason else None, seconds)
-
-
-def _matches_observation(row: Mapping[str, Any], index: int, query: str) -> bool:
-    marker = row.get("_hunt_observation")
-    if marker is None:
-        return literal_matches(row, query)
-    try:
-        return int(marker) == index
-    except (TypeError, ValueError):
-        return False
 
 
 def read_cells(
@@ -159,9 +170,14 @@ def read_cells(
     cells: Iterable[EvidenceCell],
     start: float,
     end: float,
+    *,
+    event_chars: int = MAX_EVENT_CHARACTERS,
 ) -> list[EvidenceRead]:
     """Read cells concurrently under the executor's existing shared budget and deadline."""
     ordered = list(cells)
     with ThreadPoolExecutor(max_workers=READ_CONCURRENCY) as pool:
-        futures = [pool.submit(read_cell, executor, index, cell, start, end) for cell in ordered]
+        futures = [
+            pool.submit(read_cell, executor, index, cell, start, end, event_chars=event_chars)
+            for cell in ordered
+        ]
         return [future.result() for future in futures]

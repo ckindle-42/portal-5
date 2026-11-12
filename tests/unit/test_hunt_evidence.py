@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from portal.modules.security.core.hunt.engine import HOUR
 from portal.modules.security.core.hunt.evidence import (
+    EVENTS_PER_OBSERVATION,
     MAX_EVENT_CHARACTERS,
     MAX_OBSERVATIONS_PER_CELL,
     evidence_cells,
@@ -23,7 +24,7 @@ def _observation(kind: str, entity: str, hour: int, score: float) -> Observation
     )
 
 
-def test_evidence_cells_keep_layer_one_order_and_bound_observations():
+def test_evidence_cells_keep_layer_one_order():
     rows = [
         _observation("shape", f"p{index}", 2 * HOUR, float(30 - index))
         for index in range(MAX_OBSERVATIONS_PER_CELL + 1)
@@ -35,9 +36,9 @@ def test_evidence_cells_keep_layer_one_order_and_bound_observations():
         ("node-a", 2 * HOUR, 1),
         ("node-a", HOUR, 2),
     ]
-    assert len(cells[0].observations) == MAX_OBSERVATIONS_PER_CELL
+    assert len(cells[0].observations) == MAX_OBSERVATIONS_PER_CELL + 1
     assert [obs.entity for obs in cells[0].observations] == [
-        f"p{index}" for index in range(MAX_OBSERVATIONS_PER_CELL)
+        f"p{index}" for index in range(MAX_OBSERVATIONS_PER_CELL + 1)
     ]
 
 
@@ -88,9 +89,11 @@ def test_one_bounded_read_returns_only_matching_events_with_reproducible_bounds(
 
     assert len(executor.calls) == 1
     query, earliest, latest, kind, row_cap = executor.calls[0]
-    assert "punct=" in query and "source=" in query and "append" in query
+    assert "append" not in query
+    assert f"dedup {EVENTS_PER_OBSERVATION} punct source" in query
+    assert "sort 0 _time _raw source punct sourcetype" in query
     assert (earliest, latest, kind) == (HOUR, 2 * HOUR, "evidence")
-    assert row_cap is not None
+    assert row_cap is None
     assert result.reason is None
     assert result.evidence
     assert all(item["earliest"] == HOUR and item["latest"] == 2 * HOUR for item in result.evidence)
@@ -144,3 +147,81 @@ def test_executor_censored_read_preserves_available_matching_lines():
     assert result.censored is True
     assert result.reason == "row_budget"
     assert len(result.evidence) == 1
+
+
+def test_each_event_is_kept_once_and_a_repeat_does_not_spend_the_observation_budget():
+    shapes = [
+        _observation("shape", "abc", HOUR, float(100 - index))
+        for index in range(MAX_OBSERVATIONS_PER_CELL)
+    ]
+    later = _observation("source", "svc\tlog", HOUR, 1.0)
+    cell = evidence_cells([*shapes, later])[0]
+    shared = {
+        "_time": HOUR + 1,
+        "host": "node-a",
+        "source": "svc",
+        "sourcetype": "log",
+        "punct": "abc",
+        "_raw": "shared",
+    }
+    extra = {
+        "_time": HOUR + 2,
+        "host": "node-a",
+        "source": "svc",
+        "sourcetype": "log",
+        "punct": "other",
+        "_raw": "only-source",
+    }
+
+    result = read_cell(_Executor([extra, shared]), INDEX, cell, HOUR, 2 * HOUR)
+    again = read_cell(_Executor([shared, extra]), INDEX, cell, HOUR, 2 * HOUR)
+
+    assert len(cell.observations) == MAX_OBSERVATIONS_PER_CELL + 1
+    assert [item["line"].split(" | ", 1)[1] for item in result.evidence] == [
+        "shared",
+        "only-source",
+    ]
+    assert result.evidence[0]["query"] == shapes[0].evidence["literal"]
+    assert result.evidence[1]["query"] == later.evidence["literal"]
+    assert [item["line"] for item in again.evidence] == [item["line"] for item in result.evidence]
+
+
+def test_observation_budget_stops_after_twelve_contributing_observations():
+    observations = [
+        _observation("shape", f"p{index}", HOUR, float(100 - index))
+        for index in range(MAX_OBSERVATIONS_PER_CELL + 1)
+    ]
+    cell = evidence_cells(observations)[0]
+    rows = [
+        {
+            "_time": HOUR + index,
+            "host": "node-a",
+            "source": "svc",
+            "sourcetype": "log",
+            "punct": f"p{index}",
+            "_raw": f"e{index}",
+        }
+        for index in range(MAX_OBSERVATIONS_PER_CELL + 1)
+    ]
+
+    result = read_cell(_Executor(rows), INDEX, cell, HOUR, 2 * HOUR)
+
+    assert len(result.evidence) == MAX_OBSERVATIONS_PER_CELL
+    assert all(item["query"] != observations[-1].evidence["literal"] for item in result.evidence)
+
+
+def test_event_chars_overrides_the_default_line_budget():
+    observation = _observation("shape", "abc", HOUR, 4.0)
+    cell = evidence_cells([observation])[0]
+    row = {
+        "_time": HOUR + 1,
+        "host": "node-a",
+        "source": "svc",
+        "sourcetype": "log",
+        "punct": "abc",
+        "_raw": "abcdefghij",
+    }
+
+    result = read_cell(_Executor([row]), INDEX, cell, HOUR, 2 * HOUR, event_chars=4)
+
+    assert result.evidence[0]["line"] == "svc | abcd"
