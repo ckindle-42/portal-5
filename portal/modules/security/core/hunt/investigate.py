@@ -764,12 +764,11 @@ class Investigator:
                     self._remember(token, location, token, ("", ""), 0)
         events: list[dict[str, Any]] = []
         for source, punct, _ in lead.novel_templates[:10]:
-            # The indexed host/source restriction stays; the punct match is an exact literal
-            # `where` before head sampling -- SPL search equality would read * as a wildcard
-            # and let broad templates consume the sample. Python re-validates exactly.
+            # Shape seeds have no source: restrict on host and the literal punct.
+            where_source = f" source={_search_literal(source)}" if source else ""
             q = (
                 f"search index={_search_literal(self.index)} "
-                f"host={_search_literal(lead.host)} source={_search_literal(source)} "
+                f"host={_search_literal(lead.host)}{where_source} "
                 f"| where punct={_where_literal(str(punct))} "
                 f"| head {SEED_SAMPLE + 1} "
                 "| table _time host source punct _raw"
@@ -781,7 +780,7 @@ class Investigator:
             for row in rows:
                 if str(row.get("punct", "")) != punct:
                     continue
-                event = {**row, "host": lead.host, "source": source}
+                event = {**row, "host": lead.host, "source": source or str(row.get("source") or "")}
                 events.append(event)
                 for token, compound, position in _token_parts(str(row.get("_raw", ""))):
                     self._remember(token, event, compound, (source, str(punct)), position)

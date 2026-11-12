@@ -35,6 +35,10 @@ class SearchCoverageCensoredError(RuntimeError):
     """A search stopped early; its rows are not an exact count."""
 
 
+class SearchQueryBoundError(SearchCoverageCensoredError):
+    """One search exceeded its own query time bound."""
+
+
 @dataclass
 class Burst:
     token: str

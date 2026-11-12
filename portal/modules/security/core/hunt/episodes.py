@@ -208,7 +208,9 @@ def _templates(observations: list[Observation], host: str) -> list[tuple[str, st
         if obs.kind != "shape" or obs.host != host:
             continue
         count = int(obs.evidence.get("now") or 0)
-        for source in _sources(observations, host, obs.hour):
+        # Shape grids are host x punct, so a seed with no source is host + literal punct.
+        sources = _sources(observations, host, obs.hour) or [""]
+        for source in sources:
             found.append((source, obs.entity, count))
     return found
 

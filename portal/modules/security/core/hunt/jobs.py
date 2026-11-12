@@ -17,7 +17,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .engine import HOUR, Lead, Search, SearchBudgetExceededError, SearchCoverageCensoredError, hunt
+from .engine import (
+    HOUR,
+    Lead,
+    Search,
+    SearchBudgetExceededError,
+    SearchCoverageCensoredError,
+    SearchQueryBoundError,
+    hunt,
+)
 from .investigate import Investigator
 from .ranking import query_progress_kind, query_progress_shape
 
@@ -231,6 +239,12 @@ class HuntBudget:
         self.on_progress(snapshot)
 
 
+def _time_bound(exc: BaseException) -> bool:
+    """True when the transport reports that this one query overran its time bound."""
+    text = str(exc).lower()
+    return "exceeded" in text or "timed out" in text or "timeout" in text
+
+
 class BudgetedSearch:
     """Apply one deadline and shared work limits to all parallel hunt requests."""
 
@@ -261,9 +275,13 @@ class BudgetedSearch:
                 raise HuntBudgetExceededError(self.budget.exhausted)
         except HuntBudgetExceededError:
             raise
+        except SearchQueryBoundError:
+            raise
         except SearchCoverageCensoredError as exc:
             raise HuntCoverageError(str(exc)) from exc
         except Exception as exc:  # noqa: BLE001 -- transport failures are incomplete hunt work
+            if _time_bound(exc):
+                raise SearchQueryBoundError(str(exc)) from exc
             if getattr(exc, "censored", False):
                 raise HuntCoverageError(
                     str(exc),
@@ -499,7 +517,7 @@ def _perform_hunt(
         inv = Investigator(search, index, start, end)
         cases = inv.investigate_all(leads, dig=dig)
         state.update(_close_success(cases, effort, effort.snapshot(), inv.degraded))
-    except (SearchBudgetExceededError, HuntCoverageError) as exc:
+    except (SearchBudgetExceededError, HuntCoverageError, SearchQueryBoundError) as exc:
         state.update(_close_partial(exc, effort, inv))
     except Exception as exc:  # noqa: BLE001 -- surface an unexpected job failure
         state.update(_close_failed(exc, effort, inv))

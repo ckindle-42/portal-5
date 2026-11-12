@@ -2,12 +2,65 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from portal.modules.security.core.hunt import jobs
 from portal.modules.security.core.hunt.engine import HOUR, hunt
 from portal.modules.security.core.hunt.observations import literal_matches, observe
+from portal.modules.security.core.review.window import WindowFetchError
 from tests.unit.test_hunt_observations import END, INDEX, START, GridSearch, _event, _keyed
+
+
+def _quoted(query: str, name: str) -> str | None:
+    found = re.search(rf'\b{name}="([^"]*)"', query)
+    return found.group(1) if found else None
+
+
+def _raw_rows(query: str, window: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Events a seed or evidence read would return: host, optional source, literal punct."""
+    host = _quoted(query, "host")
+    source = _quoted(query, "source")
+    punct = re.search(r'where punct="((?:\\.|[^"\\])*)"', query)
+    punct_value = punct.group(1).replace('\\"', '"') if punct else None
+    scopes = [
+        (item_host, item_source, int(lo), int(hi))
+        for item_host, item_source, lo, hi in re.findall(
+            r'\(host="([^"]*)" source="([^"]*)" _time>=(\d+) _time<(\d+)\)', query
+        )
+    ]
+    term = re.search(r'TERM\("([^"]*)"\)', query)
+    selected = []
+    for row in window:
+        if host is not None and row["host"] != host:
+            continue
+        if source is not None and row["source"] != source:
+            continue
+        if punct_value is not None and row["punct"] != punct_value:
+            continue
+        if term is not None and term.group(1) not in str(row.get("_raw", "")):
+            continue
+        if scopes and not any(
+            row["host"] == item_host
+            and row["source"] == item_source
+            and lo <= float(row["_time"]) < hi
+            for item_host, item_source, lo, hi in scopes
+        ):
+            continue
+        selected.append(row)
+    head = re.search(r"head (\d+)", query)
+    if head:
+        selected = selected[: int(head.group(1))]
+    return [
+        {
+            "_time": row["_time"],
+            "host": row["host"],
+            "source": row["source"],
+            "punct": row["punct"],
+            "_raw": row["_raw"],
+        }
+        for row in selected
+    ]
 
 
 def _plant() -> list[dict[str, Any]]:
@@ -25,6 +78,8 @@ class JobSearch(GridSearch):
     """Observation grids plus the template inventory investigation reads at startup."""
 
     def iter_post(self, query: str, start: float, end: float) -> list[dict[str, Any]]:
+        if "table _time host source punct _raw" in query:
+            return _raw_rows(query, self._window(start, end))
         if "by host source punct" in query and "sourcetype" not in query and "span=" not in query:
             counts: dict[tuple[str, str, str], int] = {}
             for row in self._window(start, end):
@@ -207,10 +262,11 @@ def test_censored_observations_are_not_a_complete_job(tmp_path: Any, monkeypatch
 
 
 def test_a_shared_value_becomes_a_case(tmp_path: Any, monkeypatch: Any) -> None:
+    """Shape seeds carry no source, the same shape the live grids give investigation."""
     monkeypatch.setattr(jobs, "_ROOT", tmp_path)
     jobs._run(
         "hunt-wire-case",
-        JobSearch(_plant()),
+        JobSearch(_plant(), censored="source sourcetype"),
         INDEX,
         float(START),
         float(END),
@@ -228,6 +284,10 @@ def test_a_shared_value_becomes_a_case(tmp_path: Any, monkeypatch: Any) -> None:
     assert job is not None
     assert job["status"] != "FAILED"
     assert job.get("error") is None
+    templates = [item for lead in job["leads"] for item in lead.get("novel_templates", [])]
+    assert templates
+    assert all(item[0] == "" for item in templates)
+    assert job["cases"][0]["evidence"]
     hosts = {
         row["host"]
         for lead in job["leads"]
@@ -242,3 +302,71 @@ def test_a_shared_value_becomes_a_case(tmp_path: Any, monkeypatch: Any) -> None:
         any(not row["investigated"] for row in job["observations"])
         or len(job["observations"]) <= 20
     )
+
+
+class _SlowVolume(JobSearch):
+    """The whole-index volume grid overruns one query bound. Narrower slices answer."""
+
+    def __init__(self, events: list[dict[str, Any]], *, always: bool) -> None:
+        super().__init__(events)
+        self.always = always
+
+    def iter_post_bounded(
+        self,
+        query: str,
+        start: float,
+        end: float,
+        timeout_seconds: float = 0,
+        max_results: int | None = None,
+    ) -> list[dict[str, Any]]:
+        wide = "by host _time span=1h" in query and (self.always or end - start > HOUR)
+        if wide:
+            raise WindowFetchError(
+                f"Splunk bounded search failed: timed out after {timeout_seconds}s"
+            )
+        return super().iter_post_bounded(
+            query, start, end, timeout_seconds=timeout_seconds, max_results=max_results
+        )
+
+
+def _run_slow(tmp_path: Any, monkeypatch: Any, *, always: bool, job_id: str) -> dict[str, Any]:
+    monkeypatch.setattr(jobs, "_ROOT", tmp_path)
+    jobs._run(
+        job_id,
+        _SlowVolume(_plant(), always=always),
+        INDEX,
+        float(START),
+        float(END),
+        5,
+        budgets={
+            "query_seconds": 30,
+            "job_seconds": 60,
+            "requests": 200,
+            "cells": 1000,
+            "events": 1000,
+        },
+    )
+    job = jobs.load(job_id)
+    assert job is not None
+    return job
+
+
+def test_a_slow_volume_grid_is_split_and_the_job_continues(tmp_path: Any, monkeypatch: Any) -> None:
+    job = _run_slow(tmp_path, monkeypatch, always=False, job_id="hunt-wire-split")
+
+    assert job["status"] != "FAILED"
+    assert "HuntSearchFailedError" not in str(job.get("error"))
+    assert "volume" in job["progress"]["observation_request_kinds"]
+    reasons = job["progress"]["ranking_coverage_reasons"]
+    assert not any(reason.startswith("volume:") for reason in reasons)
+
+
+def test_a_grid_that_still_overruns_is_partial_not_failed(tmp_path: Any, monkeypatch: Any) -> None:
+    job = _run_slow(tmp_path, monkeypatch, always=True, job_id="hunt-wire-bound")
+
+    assert job["status"] == "PARTIAL"
+    assert job["status"] != "FAILED"
+    assert job["coverage_complete"] is False
+    reasons = job["progress"]["ranking_coverage_reasons"]
+    assert any(reason == "volume:query_bound" for reason in reasons)
+    assert "HuntSearchFailedError" not in str(job.get("error"))

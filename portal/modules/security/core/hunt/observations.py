@@ -26,6 +26,7 @@ from portal.modules.security.core.hunt.engine import (
     Search,
     SearchBudgetExceededError,
     SearchCoverageCensoredError,
+    SearchQueryBoundError,
     _burst,
     _search_literal,
     host_hour_novelty,
@@ -36,6 +37,7 @@ from portal.modules.security.core.hunt.ranking import where_literal
 KEY_SLICES = 4  # effort budget: time slices read while learning keys
 KEY_SLICE_SAMPLE = 200  # effort budget: md5-ordered events read from one slice
 KEY_BUDGET = 8  # effort budget: PREFIX grids; keys beyond this stay uncovered
+GRID_SPLITS = 8  # effort budget: hour-partitions of one grid that did not finish in one query
 _KEY = re.compile(r"""(?<![\w.])([A-Za-z_][\w.]{1,30})=(?=[^\s"=])""")
 _PAIR = re.compile(r"""(?<![\w.])([A-Za-z_][\w.]{1,30})=([^\s"=]*)""")
 _QUOTED = r'"((?:\\.|[^"])*)"'
@@ -168,6 +170,8 @@ def _issue(
     try:
         for row in search.iter_post(query, start, end):
             rows.append(dict(row))
+    except SearchQueryBoundError:
+        rows, reason = [], "query_bound"
     except SearchCoverageCensoredError:
         rows, reason = [], "censored"
     except SearchBudgetExceededError:
@@ -198,7 +202,30 @@ def _tstats(index: str, by: str) -> str:
     return f"| tstats count where index={_search_literal(index)} {by}"
 
 
-def _load_grid(
+def _hour_partitions(start: float, end: float, pieces: int) -> list[tuple[float, float]]:
+    """Contiguous hour slices of [start, end). One slice when the window is a single hour."""
+    if end <= start or pieces <= 1:
+        return [(start, end)]
+    first = int(start // HOUR)
+    last = int((end - 1e-9) // HOUR)
+    hours = last - first + 1
+    if hours <= 1:
+        return [(start, end)]
+    count = min(pieces, hours)
+    base, extra = divmod(hours, count)
+    parts: list[tuple[float, float]] = []
+    cursor = first
+    for index in range(count):
+        take = base + (1 if index < extra else 0)
+        lo = start if cursor == first else float(cursor * HOUR)
+        hi_hour = cursor + take - 1
+        hi = end if hi_hour == last else float((hi_hour + 1) * HOUR)
+        parts.append((float(lo), float(hi)))
+        cursor += take
+    return parts
+
+
+def _load_once(
     search: Search,
     index: str,
     by: str,
@@ -206,7 +233,7 @@ def _load_grid(
     end: float,
     stats: dict[str, dict[str, Any]],
     kind: str,
-    suffix: str = "",
+    suffix: str,
 ) -> tuple[list[dict[str, Any]], str | None]:
     counted, reason = _issue(
         search, f"{_tstats(index, by)} | stats count as groups", start, end, stats, kind
@@ -222,6 +249,36 @@ def _load_grid(
     if len(fetched) != expected:
         return [], "truncated"
     return fetched, None
+
+
+def _load_grid(
+    search: Search,
+    index: str,
+    by: str,
+    start: float,
+    end: float,
+    stats: dict[str, dict[str, Any]],
+    kind: str,
+    suffix: str = "",
+    *,
+    allow_split: bool = True,
+) -> tuple[list[dict[str, Any]], str | None]:
+    """One grid. A query that overruns its time bound is re-read in hour partitions."""
+    rows, reason = _load_once(search, index, by, start, end, stats, kind, suffix)
+    if reason != "query_bound" or not allow_split:
+        return rows, reason
+    parts = _hour_partitions(start, end, GRID_SPLITS)
+    if len(parts) <= 1:
+        return [], reason
+    merged: list[dict[str, Any]] = []
+    for lo, hi in parts:
+        part, part_reason = _load_grid(
+            search, index, by, lo, hi, stats, kind, suffix, allow_split=False
+        )
+        if part_reason:
+            return [], part_reason
+        merged.extend(part)
+    return merged, None
 
 
 def _coverage(reason: str | None, **extra: Any) -> dict[str, Any]:
