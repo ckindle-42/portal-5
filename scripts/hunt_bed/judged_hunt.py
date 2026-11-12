@@ -9,6 +9,7 @@ import os
 import sys
 import time
 from collections.abc import Callable, Mapping
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -23,7 +24,7 @@ from portal.modules.security.core.hunt.evidence import (  # noqa: E402
     MAX_EVENT_CHARACTERS,
     MAX_OBSERVATIONS_PER_CELL,
     EvidenceCell,
-    evidence_cells,
+    accumulated_host_hours,
     read_cells,
 )
 from portal.modules.security.core.hunt.judge import (  # noqa: E402
@@ -40,6 +41,14 @@ from portal.modules.security.core.hunt.observations import (  # noqa: E402
 from portal.modules.security.core.review.window import SplunkWindowSource  # noqa: E402
 
 HOST_DAY_SPAN = 86400  # grouping granularity: one host's UTC day, not a time filter
+_ORDER_STATEMENT = {
+    "fused": (
+        "judged cells by ascending sum of P(yes) rank (ties by acc_rank) and budget position, "
+        "ties by budget position; remaining cells by accumulated risk"
+    ),
+    "judged": "judged cells by descending P(yes); remaining cells by accumulated risk",
+    "budget": "budget sequence",
+}
 
 
 def _window(args: argparse.Namespace) -> tuple[ObservationRun, dict[str, Any], Any]:
@@ -136,6 +145,7 @@ def _lead(
     result: Any = None,
     evidence: list[dict[str, Any]] | None = None,
     reason: str | None = None,
+    evidence_selection: str | None = None,
 ) -> dict[str, Any]:
     shown = evidence or []
     return {
@@ -143,10 +153,13 @@ def _lead(
         "hour": cell.hour,
         "span": HOUR,
         "p_yes": result.p_yes if result is not None else None,
+        "risk": cell.risk,
         "l1_rank": cell.l1_rank,
+        "acc_rank": cell.acc_rank,
         "budget_rank": cell.budget_rank,
         "judged": bool(result is not None and result.p_yes is not None),
         "reason": reason,
+        "evidence_selection": evidence_selection,
         "evidence": shown,
         "observations": _shown_observations(cell, shown),
     }
@@ -212,19 +225,16 @@ def _judge_selected(
     return judged, {"requests": attempts, "seconds": round(seconds, 3)}, served
 
 
-def _budget_sequence(cells: list[EvidenceCell], budget_order: str) -> list[EvidenceCell]:
-    ordered = sorted(cells, key=lambda cell: cell.l1_rank)
-    if budget_order == "layer1":
-        return ordered
-    groups: dict[tuple[str, int], list[EvidenceCell]] = {}
-    for cell in ordered:
-        groups.setdefault((cell.host, int(cell.hour) // HOST_DAY_SPAN), []).append(cell)
-    ordered_groups = sorted(groups.values(), key=lambda group: group[0].l1_rank)
+def _by_accumulated(cells: list[EvidenceCell]) -> list[EvidenceCell]:
+    return sorted(cells, key=lambda cell: cell.acc_rank)
+
+
+def _interleave(groups: list[list[EvidenceCell]]) -> list[EvidenceCell]:
     sequence: list[EvidenceCell] = []
     depth = 0
     while True:
         progressed = False
-        for group in ordered_groups:
+        for group in groups:
             if depth < len(group):
                 sequence.append(group[depth])
                 progressed = True
@@ -233,31 +243,38 @@ def _budget_sequence(cells: list[EvidenceCell], budget_order: str) -> list[Evide
         depth += 1
 
 
+def _round_robin(cells: list[EvidenceCell]) -> list[EvidenceCell]:
+    groups: dict[tuple[str, int], list[EvidenceCell]] = {}
+    for cell in _by_accumulated(cells):
+        groups.setdefault((cell.host, int(cell.hour) // HOST_DAY_SPAN), []).append(cell)
+    ordered = sorted(groups.values(), key=lambda group: group[0].acc_rank)
+    return _interleave(ordered)
+
+
+def _budget_sequence(cells: list[EvidenceCell], budget_order: str) -> list[EvidenceCell]:
+    if budget_order == "layer1":
+        return sorted(cells, key=lambda cell: cell.l1_rank)
+    if budget_order == "round_robin":
+        return _round_robin(cells)
+    return _by_accumulated(cells)
+
+
 def _with_budget_ranks(cells: list[EvidenceCell], budget_order: str) -> list[EvidenceCell]:
     ranks = {
         (cell.host, cell.hour): rank
         for rank, cell in enumerate(_budget_sequence(cells, budget_order), 1)
     }
-    return [
-        EvidenceCell(
-            cell.host,
-            cell.hour,
-            cell.l1_rank,
-            cell.observations,
-            ranks[(cell.host, cell.hour)],
-        )
-        for cell in cells
-    ]
+    return [replace(cell, budget_rank=ranks[(cell.host, cell.hour)]) for cell in cells]
 
 
-def _p_yes_order(judged_leads: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return sorted(judged_leads, key=lambda lead: (-float(lead["p_yes"]), int(lead["budget_rank"])))
+def _p_yes_order(judged_leads: list[dict[str, Any]], tie: str) -> list[dict[str, Any]]:
+    return sorted(judged_leads, key=lambda lead: (-float(lead["p_yes"]), int(lead[tie])))
 
 
 def _fuse(judged_leads: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ranks = {
         (lead["host"], lead["hour"]): rank
-        for rank, lead in enumerate(_p_yes_order(judged_leads), 1)
+        for rank, lead in enumerate(_p_yes_order(judged_leads, "acc_rank"), 1)
     }
     return sorted(
         judged_leads,
@@ -268,53 +285,64 @@ def _fuse(judged_leads: list[dict[str, Any]]) -> list[dict[str, Any]]:
     )
 
 
+def _accumulated_tail(leads: list[dict[str, Any]], beyond: bool) -> list[dict[str, Any]]:
+    chosen = [
+        lead
+        for lead in leads
+        if not lead["judged"] and (lead["reason"] == "beyond_judge_cell_budget") is beyond
+    ]
+    chosen.sort(key=lambda lead: int(lead["acc_rank"]))
+    return chosen
+
+
 def _arrange(leads: list[dict[str, Any]], order_mode: str) -> list[dict[str, Any]]:
     """Fused or P(yes) put judged cells first. Budget order is the budget sequence alone."""
     if order_mode == "budget":
         return sorted(leads, key=lambda lead: (int(lead["budget_rank"]), int(lead["l1_rank"])))
     judged_leads = [lead for lead in leads if lead["judged"]]
-    unjudged = [
-        lead
-        for lead in leads
-        if not lead["judged"] and lead["reason"] != "beyond_judge_cell_budget"
-    ]
-    beyond_leads = [lead for lead in leads if lead["reason"] == "beyond_judge_cell_budget"]
-    unjudged.sort(key=lambda lead: int(lead["l1_rank"]))
-    beyond_leads.sort(key=lambda lead: int(lead["l1_rank"]))
-    head = _p_yes_order(judged_leads) if order_mode == "judged" else _fuse(judged_leads)
-    return head + unjudged + beyond_leads
+    head = (
+        _p_yes_order(judged_leads, "budget_rank") if order_mode == "judged" else _fuse(judged_leads)
+    )
+    return head + _accumulated_tail(leads, False) + _accumulated_tail(leads, True)
+
+
+def _case_member(rank: int, lead: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "hour": int(lead["hour"]),
+        "risk": lead["risk"],
+        "p_yes": lead["p_yes"],
+        "acc_rank": lead["acc_rank"],
+        "l1_rank": lead["l1_rank"],
+        "lead_rank": rank,
+    }
+
+
+def _case_evidence(members: list[tuple[int, dict[str, Any]]]) -> list[dict[str, Any]]:
+    judged = [item for item in members if item[1]["judged"]]
+    if not judged:
+        return []
+    best = min(judged, key=lambda item: item[0])
+    return list(best[1]["evidence"])
 
 
 def _cases(leads: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """One case per host-day that has a judged cell, ordered by its best lead."""
+    """One case per host-day, members in lead order, ordered by the best lead."""
     grouped: dict[tuple[str, int], list[tuple[int, dict[str, Any]]]] = {}
     for lead_rank, lead in enumerate(leads, 1):
-        if not lead["judged"]:
-            continue
         grouped.setdefault((str(lead["host"]), int(lead["hour"]) // HOST_DAY_SPAN), []).append(
             (lead_rank, lead)
         )
     cases: list[dict[str, Any]] = []
     for (host, _day), members in grouped.items():
-        by_hour = sorted(members, key=lambda item: int(item[1]["hour"]))
-        best = min(members, key=lambda item: item[0])
-        first_hour = int(by_hour[0][1]["hour"])
-        last_hour = int(by_hour[-1][1]["hour"])
+        hours = [int(lead["hour"]) for _rank, lead in members]
         cases.append(
             {
                 "host": host,
-                "start": first_hour,
-                "end": last_hour + HOUR,
-                "members": [
-                    {
-                        "hour": int(lead["hour"]),
-                        "p_yes": lead["p_yes"],
-                        "l1_rank": lead["l1_rank"],
-                        "lead_rank": rank,
-                    }
-                    for rank, lead in by_hour
-                ],
-                "evidence": list(best[1]["evidence"]),
+                "start": min(hours),
+                "end": max(hours) + HOUR,
+                "risk": sum(float(lead["risk"]) for _rank, lead in members),
+                "members": [_case_member(rank, lead) for rank, lead in members],
+                "evidence": _case_evidence(members),
             }
         )
     cases.sort(key=lambda case: min(int(member["lead_rank"]) for member in case["members"]))
@@ -351,13 +379,14 @@ def _lead_for(
         return _lead(cell, reason="beyond_judge_cell_budget")
     read = reads_by_cell[key]
     if not read.evidence:
-        return _lead(cell, reason=read.reason)
+        return _lead(cell, reason=read.reason, evidence_selection=read.evidence_selection)
     evidence_read, verdict = judged[key]
     return _lead(
         cell,
         result=verdict,
         evidence=evidence_read.evidence if verdict.p_yes is not None else [],
         reason=evidence_read.reason or verdict.reason,
+        evidence_selection=evidence_read.evidence_selection,
     )
 
 
@@ -390,6 +419,7 @@ def _hunt_progress(
     judge_cells: int,
     budget_order: str,
     order_mode: str,
+    evidence_mode: str,
     event_chars: int,
     served_models: set[str],
     executor: Any,
@@ -407,6 +437,7 @@ def _hunt_progress(
             "baseline": args.baseline,
             "budget_order": budget_order,
             "order": order_mode,
+            "evidence": evidence_mode,
             "judge_cells": judge_cells,
             "event_chars": event_chars,
             "judge_key_env": args.judge_key_env,
@@ -420,7 +451,9 @@ def _hunt_progress(
             "executor": dict(executor.budget.limits),
         },
         "order": order_mode,
+        "order_statement": _ORDER_STATEMENT[order_mode],
         "budget_order": budget_order,
+        "evidence": evidence_mode,
         "coverage": coverage,
         "request_kinds": {
             "observe": _observation_cost(run, bool(args.from_grids)),
@@ -473,14 +506,15 @@ def run_judged_hunt(
 ) -> dict[str, Any]:
     """Compose observation, evidence and judgement stages and write bounded receipts."""
     began = time.monotonic()
-    judge_cells, budget_order, order_mode, event_chars = (
+    judge_cells, budget_order, order_mode, evidence_mode, event_chars = (
         int(_option(args, "judge_cells", JUDGE_CELLS)),
-        str(_option(args, "budget_order", "round_robin")),
+        str(_option(args, "budget_order", "accumulated")),
         str(_option(args, "order", "fused")),
+        str(_option(args, "evidence", "rarest")),
         int(_option(args, "event_chars", MAX_EVENT_CHARACTERS)),
     )
     run, meta, executor = prepare(args)
-    cells = _with_budget_ranks(evidence_cells(run.observations), budget_order)
+    cells = _with_budget_ranks(accumulated_host_hours(run.observations), budget_order)
     selected = sorted(cells, key=lambda cell: cell.budget_rank)[: max(0, judge_cells)]
     if client is None:
         api_key = os.environ.get(args.judge_key_env) if args.judge_key_env else None
@@ -493,6 +527,7 @@ def run_judged_hunt(
         float(meta["start"]),
         float(meta["end"]),
         event_chars=event_chars,
+        evidence_mode=evidence_mode,
     )
     judged, judged_cost, served_models = _judge_selected(
         client,
@@ -510,6 +545,7 @@ def run_judged_hunt(
         judge_cells=judge_cells,
         budget_order=budget_order,
         order_mode=order_mode,
+        evidence_mode=evidence_mode,
         event_chars=event_chars,
         served_models=served_models,
         executor=executor,
@@ -548,9 +584,9 @@ def _parse() -> argparse.Namespace:
     )
     parser.add_argument(
         "--budget-order",
-        choices=("round_robin", "layer1"),
-        default="round_robin",
-        help="How host-hours are chosen for the judge budget (default: round_robin)",
+        choices=("accumulated", "round_robin", "layer1"),
+        default="accumulated",
+        help="How host-hours are chosen for the judge budget (default: accumulated)",
     )
     parser.add_argument(
         "--judge-cells",
@@ -563,6 +599,12 @@ def _parse() -> argparse.Namespace:
         choices=("fused", "judged", "budget"),
         default="fused",
         help="Lead order: fused rank-sum, P(yes) only, or budget order only",
+    )
+    parser.add_argument(
+        "--evidence",
+        choices=("rarest", "strongest"),
+        default="rarest",
+        help="Evidence read: rarest shapes first, or strongest deviation (default: rarest)",
     )
     parser.add_argument(
         "--event-chars",
