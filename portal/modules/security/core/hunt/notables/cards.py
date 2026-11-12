@@ -65,6 +65,8 @@ class ModelAnswer:
     served_model: str
     prompt_tokens: int | None
     error: str | None
+    completion_tokens: int | None = None
+    finish_reason: str = ""
 
 
 @dataclass(frozen=True)
@@ -189,6 +191,8 @@ class CardCache:
             str(stored.get("served_model") or ""),
             None,
             None,
+            _optional_int(stored.get("completion_tokens")),
+            str(stored.get("finish_reason") or ""),
         )
 
     def put(self, key: str, answer: ModelAnswer) -> None:
@@ -198,6 +202,8 @@ class CardCache:
             "seconds": answer.seconds,
             "served_model": answer.served_model,
             "prompt_tokens": answer.prompt_tokens,
+            "completion_tokens": answer.completion_tokens,
+            "finish_reason": answer.finish_reason,
         }
         self._path(key).write_text(json.dumps(payload, sort_keys=True))
 
@@ -207,6 +213,13 @@ def _prompt_tokens(response: Mapping[str, Any]) -> int | None:
     if not isinstance(usage, Mapping):
         return None
     value = usage.get("prompt_tokens", usage.get("input_tokens"))
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _optional_int(value: Any) -> int | None:
     try:
         return int(value) if value is not None else None
     except (TypeError, ValueError):
@@ -237,12 +250,23 @@ def ask_model(client: JudgeClient, model: str, prompt: str) -> ModelAnswer:
     seconds = round(time.monotonic() - began, 3)
     if not isinstance(response, Mapping):
         return ModelAnswer("", seconds, "", None, "invalid_response")
+    text = _content(response)[:MAX_ANSWER_CHARS]
+    usage = response.get("usage")
+    completion = (
+        _optional_int(usage.get("completion_tokens")) if isinstance(usage, Mapping) else None
+    )
+    choices = response.get("choices")
+    reason = ""
+    if isinstance(choices, list) and choices and isinstance(choices[0], Mapping):
+        reason = str(choices[0].get("finish_reason") or "")
     return ModelAnswer(
-        _content(response)[:MAX_ANSWER_CHARS],
+        text,
         seconds,
         str(response.get("model") or ""),
         _prompt_tokens(response),
-        None,
+        None if "{" in text else "no_answer",
+        completion,
+        reason,
     )
 
 
@@ -494,6 +518,10 @@ def _model_facts(
         "seconds": answer.seconds,
         "served_model": answer.served_model,
         "prompt_tokens": answer.prompt_tokens,
+        "completion_tokens": answer.completion_tokens,
+        "finish_reason": answer.finish_reason,
+        "raw_answer": answer.text,
+        "answer_chars": len(answer.text),
         "cached": cached,
         "error": error,
         "prompt_chars": len(prompt),

@@ -7,6 +7,7 @@ from portal.modules.security.core.hunt.notables.cards import (
     SourceCard,
     answer_cards,
     apply_answer,
+    ask_model,
     assemble_cards,
     build_card,
     build_cards,
@@ -365,7 +366,7 @@ def test_card_says_why_it_is_not_understood(tmp_path):
         _facts(), _rows(), windows=1, client=client, model="seat", cache=CardCache(tmp_path)
     )
     assert card.understood is False
-    assert card.reason == "unparseable_answer"
+    assert card.reason == "model_no_answer"
     blank = build_card(
         _facts(), [], windows=1, client=client, model="seat", cache=CardCache(tmp_path)
     )
@@ -380,6 +381,48 @@ def test_card_says_why_it_is_not_understood(tmp_path):
     )
     assert unparsed.reason == "unparsed_sample:coverage=0.00"
     assert len(client.calls) == 1
+
+
+def test_a_no_answer_response_records_tokens_and_finish_reason():
+    class _Full:
+        def complete(self, **request: object) -> dict[str, object]:
+            del request
+            return {
+                "model": "seat",
+                "usage": {"prompt_tokens": 5, "completion_tokens": 84},
+                "choices": [{"finish_reason": "stop", "message": {"content": "retry"}}],
+            }
+
+    answer = ask_model(_Full(), "seat", "prompt")
+    assert answer.error == "no_answer"
+    assert answer.completion_tokens == 84
+    assert answer.finish_reason == "stop"
+    assert answer.prompt_tokens == 5
+
+
+def test_no_answer_is_its_own_reason_and_the_raw_text_is_kept(tmp_path):
+    placeholder = "The model did not produce an answer. Please retry."
+    card = build_card(
+        _facts(),
+        _rows(),
+        windows=1,
+        client=_Client(placeholder),
+        model="seat",
+        cache=CardCache(tmp_path),
+    )
+    assert card.understood is False
+    assert card.reason == "model_no_answer"
+    assert card.model["raw_answer"] == placeholder
+    assert card.model["answer_chars"] == len(placeholder)
+
+
+def test_a_bad_answer_keeps_its_raw_text_and_is_not_confused_with_no_answer(tmp_path):
+    bad = '{"kind": "activity",'
+    card = build_card(
+        _facts(), _rows(), windows=1, client=_Client(bad), model="seat", cache=CardCache(tmp_path)
+    )
+    assert card.reason == "unparseable_answer"
+    assert card.model["raw_answer"] == bad
 
 
 def test_card_reload_keeps_everything_a_later_stage_needs(tmp_path):
