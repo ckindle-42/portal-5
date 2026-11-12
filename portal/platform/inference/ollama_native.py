@@ -179,6 +179,10 @@ def _think_value(body: dict[str, Any]) -> bool | str | None:
     return None
 
 
+def _wants_logprobs_passthrough(body: dict[str, Any]) -> bool:
+    return not body.get("stream") and body.get("logprobs") is True
+
+
 def _tools_for_choice(tools: list[dict[str, Any]], choice: Any) -> list[dict[str, Any]]:
     """Apply ``tool_choice`` the one way /api/chat allows — by what is offered.
 
@@ -533,6 +537,24 @@ class OllamaNativeTransport(httpx.AsyncBaseTransport):
             return can, renderer
         return self._shown[key]
 
+    async def _ollama_logprobs(
+        self, request: httpx.Request, base: str, model: str
+    ) -> httpx.Response:
+        """Pass logprob requests through Ollama's /v1 surface, which supplies the field."""
+        release: Callable[[], None] | None = None
+        end: Callable[[], None] | None = None
+        if self._guard is not None:
+            try:
+                release, end = await self._guard.admit_and_begin_ollama(base, model)
+            except LoadRefusedError as exc:
+                return _refused(request, exc)
+        try:
+            response = await self._inner.handle_async_request(request)
+            await response.aread()
+            return response
+        finally:
+            _run_all((release, end))
+
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
         url = str(request.url)
         if request.method != "POST" or not request.url.path.endswith(_CHAT_PATH):
@@ -544,6 +566,8 @@ class OllamaNativeTransport(httpx.AsyncBaseTransport):
             return await self._inner.handle_async_request(request)
 
         body = json.loads(await request.aread() or b"{}")
+        if _wants_logprobs_passthrough(body):
+            return await self._ollama_logprobs(request, base, str(body.get("model", "")))
         can_think, renderer = await self._show(base, str(body.get("model", "")), request.extensions)
         native = to_native_request(body, can_think, renderer)
         native_req = httpx.Request(
