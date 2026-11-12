@@ -258,6 +258,8 @@ def observation_run(args: argparse.Namespace) -> tuple[ObservationRun, dict[str,
     if args.from_grids:
         saved_dir = Path(args.from_grids)
         saved = json.loads((saved_dir / "progress.json").read_text())
+        if saved.get("index") not in (None, args.index):
+            raise SystemExit(f"--index {args.index} does not match saved index {saved['index']}")
         run = reorder(
             load_observations(saved_dir),
             args.baseline,

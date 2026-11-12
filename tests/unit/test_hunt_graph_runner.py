@@ -207,7 +207,8 @@ def test_runner_writes_leads_cells_and_progress(tmp_path: Path, monkeypatch: Any
     ]
     assert cells[0]["events"] == 2
     assert cells[0]["query"].endswith(
-        "| eval _k=md5(_raw) | sort 200 _k _time _raw | head 200 | table _time host source _raw"
+        f"| eval _k=md5(_raw) | sort {graph_hunt.EVENTS_PER_CELL} _k _time _raw "
+        f"| head {graph_hunt.EVENTS_PER_CELL} | table _time host source _raw"
     )
     assert progress["lead_count"] == 2
     assert progress["cell_count"] == 5
@@ -317,6 +318,27 @@ def test_shim_notables_rank_by_accumulated_deviation_over_the_observed_window() 
         "entity": "beta",
     }
     assert rows[0].neighbours == ["alpha"]
+
+
+def test_saved_grids_for_another_index_are_refused(tmp_path: Path, monkeypatch: Any) -> None:
+    saved = _saved(tmp_path, [_obs("volume", "h2", "", START, 5.0)])
+    monkeypatch.setattr(graph_hunt, "_graph", _fake_graph()[0])
+    monkeypatch.setattr(graph_hunt, "_executor", FakeExecutor())
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "graph_hunt.py",
+            "--index",
+            "other",
+            "--out",
+            str(tmp_path / "out"),
+            "--from-grids",
+            str(saved),
+        ],
+    )
+
+    with pytest.raises(SystemExit, match="does not match"):
+        graph_hunt.main()
 
 
 def test_shim_exposes_the_runner_api() -> None:
