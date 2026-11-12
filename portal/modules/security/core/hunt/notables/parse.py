@@ -178,7 +178,7 @@ def _apply(name: str, parser: Parser, lines: Sequence[str]) -> list[Parsed] | No
 
 def parse_events(raws: Sequence[str]) -> list[Parsed]:
     """Read a sample with the first structure most of its lines support, else free text."""
-    lines = [_clip(str(raw), MAX_VALUE_CHARS * 8) for raw in raws if str(raw).strip()]
+    lines = [str(raw) for raw in raws if str(raw).strip()]
     if not lines:
         return []
     for name, parser in _PARSERS:

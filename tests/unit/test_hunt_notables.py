@@ -75,6 +75,19 @@ def test_xml_fields_are_named_by_tag_and_distinguishing_attribute():
     assert fields["ID"] == "5"
 
 
+def test_a_multi_line_xml_event_is_read_whole():
+    raw = """<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <EventData>
+    <Data Name="Image">C:\\Windows\\System32\\cmd.exe</Data>
+    <Data Name="User">bob</Data>
+  </EventData>
+</Event>"""
+    parsed = parse_events([raw])
+    assert parsed[0].fmt == "xml"
+    assert parsed[0].fields["Data[Name=Image]"].endswith("cmd.exe")
+    assert parsed[0].fields["Data[Name=User]"] == "bob"
+
+
 def test_key_value_needs_two_pairs_and_delimited_uses_its_header():
     assert parse_kv("user=bob action=login") == {"user": "bob", "action": "login"}
     assert parse_kv("just one=thing") == {}
@@ -130,6 +143,21 @@ def test_card_asks_once_validates_and_caches_its_answer(tmp_path):
     assert second.model["requests"] == 0
     assert second.model["cached"] is True
     assert len(client.calls) == 1
+
+
+def test_a_card_answer_naming_a_field_the_sample_lacks_is_rejected(tmp_path):
+    answer = json.dumps({"kind": "activity", "actor": ["user", "invented"]})
+    card = build_card(
+        _facts(),
+        _rows(),
+        windows=1,
+        client=_Client(answer),
+        model="seat",
+        cache=CardCache(tmp_path),
+    )
+    assert card.understood is False
+    assert card.reason == "unknown_fields:invented"
+    assert card.roles == {}
 
 
 def test_card_says_why_it_is_not_understood(tmp_path):

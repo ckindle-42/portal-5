@@ -416,10 +416,13 @@ def build_card(
         error=answer.error or applied.error,
         prompt=given.prompt,
     )
-    if answer.error is not None or applied.error is not None:
+    if answer.error is not None or applied.error is not None or applied.rejected:
+        reason = f"model_{answer.error}" if answer.error else str(applied.error)
+        if not reason or reason == "None":
+            reason = "unknown_fields:" + ",".join(applied.rejected)
         return _failure(
             facts,
-            reason=f"model_{answer.error}" if answer.error else str(applied.error),
+            reason=reason,
             fmt=given.fmt,
             coverage=given.coverage,
             stats=given.stats,
