@@ -106,8 +106,9 @@ def _print_cards(receipt: dict[str, Any]) -> None:
         )
     print(
         f"cards: sources={receipt['sources']} cards={receipt['cards']} "
-        f"understood={receipt['understood']} "
-        f"unparsed={receipt['unparsed']} model_requests={receipt['model_requests']} "
+        f"understood={receipt['understood']} unparsed={receipt['unparsed']} "
+        f"structures={receipt['structures']} model_requests={receipt['model_requests']} "
+        f"answers_reused={receipt['answers_reused']} cache_hits={receipt['cache_hits']} "
         f"model_seconds={receipt['model_seconds']} wall={receipt['seconds']}s "
         f"peak={receipt['peak_memory_mb']}MB -> sources.json"
     )

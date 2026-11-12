@@ -5,11 +5,14 @@ import json
 from portal.modules.security.core.hunt.notables.cards import (
     CardCache,
     SourceCard,
+    answer_cards,
     apply_answer,
+    assemble_cards,
     build_card,
     build_cards,
     build_prompt,
     cadence_facts,
+    prepare_cards,
     reconcile_kind,
     value_facts,
 )
@@ -149,6 +152,28 @@ def test_a_process_creation_source_classed_measurement_stays_in_behaviours(tmp_p
     assert card.kind_said == "measurement"
     assert str(card.kind_note).startswith("facts_override:")
     assert card.usable is True
+
+
+def test_identical_structures_share_one_request_and_report_reuse(tmp_path):
+    answer = json.dumps({"kind": "activity", "actor": ["user"], "action": ["image"]})
+    client = _Client(answer)
+    other = SourceFacts("ix2", "st2", 999, 5.0, 6.0, ("h9",), 1, ("s9",), 1)
+    prepared = [
+        *prepare_cards(_facts(), _rows(), 1, "seat"),
+        *prepare_cards(other, _rows(), 1, "seat"),
+    ]
+    answers, stats = answer_cards(prepared, client, "seat", CardCache(tmp_path))
+    cards = assemble_cards(prepared, answers)
+    assert stats["structures"] == 1
+    assert stats["requests"] == 1
+    assert stats["disk_hits"] == 0
+    assert len(client.calls) == 1
+    assert [card.model["requests"] for card in cards] == [1, 0]
+    assert all(card.kind == "activity" for card in cards)
+    _answers, again = answer_cards(prepared[:1], client, "seat", CardCache(tmp_path))
+    assert again["requests"] == 0
+    assert again["disk_hits"] == 1
+    assert len(client.calls) == 1
 
 
 def test_identical_structure_gets_the_same_card_key_and_kind(tmp_path):

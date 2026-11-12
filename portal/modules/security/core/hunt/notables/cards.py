@@ -8,6 +8,7 @@ import re
 import time
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -30,6 +31,7 @@ MAX_ANSWER_CHARS = 4000  # effort budget: characters read from one model answer
 MAX_BASIS_CHARS = 240  # effort budget: the model's own reason kept on the card
 CARD_SEED = 0
 NUMERIC_SHARE_FOR_MEASUREMENT = 0.5  # a measurement stream is mostly numeric samples
+CARD_CONCURRENCY = 8  # effort budget: concurrent model requests for distinct structures
 
 CARD_QUESTION = """You are given the fields that one kind of machine-written log event carries: how often
 each field appears in a sample, how many distinct values it holds, and a few example values. Decide
@@ -499,20 +501,83 @@ def _model_facts(
     }
 
 
-def _card(
-    facts: SourceFacts,
-    given: _Inputs,
-    *,
-    client: JudgeClient,
-    model: str,
-    cache: CardCache,
-    part_field: str = "",
-    part_value: str = "",
+@dataclass
+class Prepared:
+    """One structure ready to ask about, before any model request is made."""
+
+    facts: SourceFacts
+    given: _Inputs
+    part_field: str = ""
+    part_value: str = ""
+
+
+def prepare_cards(
+    facts: SourceFacts, rows: Sequence[Mapping[str, Any]], windows: int, model: str
+) -> list[Prepared]:
+    """Parse one source's sample into one prepared structure per part."""
+    parsed = parse_events(_raws(rows))
+    partition = choose_partition(parsed)
+    if partition is None:
+        return [Prepared(facts, _Inputs(rows, parsed, windows, model))]
+    groups = partition_groups(parsed, rows, partition)
+    prepared: list[Prepared] = []
+    for value in partition.values:
+        group = groups.get(value)
+        if group is None:
+            continue
+        group_rows, group_parsed = group
+        prepared.append(
+            Prepared(
+                facts,
+                _Inputs(group_rows, group_parsed, windows, model),
+                partition.field,
+                value,
+            )
+        )
+    return prepared or [Prepared(facts, _Inputs(rows, parsed, windows, model))]
+
+
+def answer_cards(
+    prepared: Sequence[Prepared], client: JudgeClient, model: str, cache: CardCache
+) -> tuple[dict[str, tuple[ModelAnswer, int, bool]], dict[str, Any]]:
+    """One request per distinct structure; duplicates wait on the same answer."""
+    unique: dict[str, Prepared] = {}
+    for item in prepared:
+        if item.given.parsed and item.given.hits:
+            unique.setdefault(item.given.cache_key, item)
+    answers: dict[str, tuple[ModelAnswer, int, bool]] = {}
+    with ThreadPoolExecutor(max_workers=CARD_CONCURRENCY) as pool:
+        futures = {
+            pool.submit(_answer, item.given, client, model, cache): key
+            for key, item in unique.items()
+        }
+        for future in as_completed(futures):
+            answers[futures[future]] = future.result()
+    return answers, {
+        "structures": len(unique),
+        "requests": sum(1 for _answer_value, requests, _cached in answers.values() if requests),
+        "disk_hits": sum(1 for _answer_value, _requests, cached in answers.values() if cached),
+        "model_seconds": round(
+            sum(answer.seconds for answer, _requests, _cached in answers.values()), 3
+        ),
+    }
+
+
+def _model_seconds(answer: ModelAnswer) -> float:  # kept for receipt symmetry
+    return answer.seconds
+
+
+def _assemble(
+    item: Prepared,
+    answer: ModelAnswer,
+    requests: int,
+    cached: bool,
 ) -> SourceCard:
-    """One card from one structure: ask once, validate, and keep the evidence."""
+    """Apply one structure's answer to its card, or record exactly why it was not used."""
+    facts, given = item.facts, item.given
     kind_facts = {**given.value_facts, **cadence_facts(facts)}
-    if part_field:
-        given.sample["part"] = {"field": part_field, "value": part_value}
+    if item.part_field:
+        given.sample["part"] = {"field": item.part_field, "value": item.part_value}
     if not given.parsed or not given.hits:
         reason = (
             "no_sample" if not given.parsed else f"unparsed_sample:coverage={given.coverage:.2f}"
@@ -526,16 +591,15 @@ def _card(
             sample=given.sample,
             model={"requests": 0, "cached": False},
             cache_key=given.cache_key,
-            part_field=part_field,
-            part_value=part_value,
+            part_field=item.part_field,
+            part_value=item.part_value,
             kind_facts=kind_facts,
         )
-    answer, requests, was_cached = _answer(given, client, model, cache)
     applied = apply_answer(answer.text, [stat.name for stat in given.stats])
     model_facts = _model_facts(
         answer,
         requests=requests,
-        cached=was_cached,
+        cached=cached,
         error=answer.error or applied.error,
         prompt=given.prompt,
     )
@@ -552,8 +616,8 @@ def _card(
             sample=given.sample,
             model=model_facts,
             cache_key=given.cache_key,
-            part_field=part_field,
-            part_value=part_value,
+            part_field=item.part_field,
+            part_value=item.part_value,
             kind_facts=kind_facts,
         )
     kind, note = reconcile_kind(applied.kind, kind_facts)
@@ -574,12 +638,30 @@ def _card(
         basis=applied.basis,
         rejected=applied.rejected,
         columns=_columns(given.parsed, given.fmt),
-        part_field=part_field,
-        part_value=part_value,
+        part_field=item.part_field,
+        part_value=item.part_value,
         kind_said=applied.kind,
         kind_note=note,
         kind_facts=kind_facts,
     )
+
+
+def assemble_cards(
+    prepared: Sequence[Prepared], answers: Mapping[str, tuple[ModelAnswer, int, bool]]
+) -> list[SourceCard]:
+    """Build every card, charging a request only to the first card that needed it."""
+    used: set[str] = set()
+    cards: list[SourceCard] = []
+    for item in prepared:
+        key = item.given.cache_key
+        answer, requests, cached = answers.get(
+            key, (ModelAnswer("", 0.0, "", None, None), 0, False)
+        )
+        if key in used:
+            requests, cached = 0, True
+        used.add(key)
+        cards.append(_assemble(item, answer, requests, cached))
+    return cards
 
 
 def _raws(rows: Sequence[Mapping[str, Any]]) -> list[str]:
@@ -595,15 +677,10 @@ def build_card(
     model: str,
     cache: CardCache,
 ) -> SourceCard:
-    """One card for one sample, without partitioning."""
-    parsed = parse_events(_raws(rows))
-    return _card(
-        facts,
-        _Inputs(rows, parsed, windows, model),
-        client=client,
-        model=model,
-        cache=cache,
-    )
+    """One card for one sample, without partitioning (the stage uses prepare/assemble)."""
+    prepared = prepare_cards(facts, rows, windows, model)
+    answers, _stats = answer_cards(prepared, client, model, cache)
+    return assemble_cards(prepared, answers)[0]
 
 
 def build_cards(
@@ -616,42 +693,6 @@ def build_cards(
     cache: CardCache,
 ) -> list[SourceCard]:
     """One card per distinct structure in the sample, split on the field that selects it."""
-    parsed = parse_events(_raws(rows))
-    partition = choose_partition(parsed)
-    if partition is None:
-        return [
-            _card(
-                facts,
-                _Inputs(rows, parsed, windows, model),
-                client=client,
-                model=model,
-                cache=cache,
-            )
-        ]
-    groups = partition_groups(parsed, rows, partition)
-    cards: list[SourceCard] = []
-    for value in partition.values:
-        group = groups.get(value)
-        if group is None:
-            continue
-        group_rows, group_parsed = group
-        cards.append(
-            _card(
-                facts,
-                _Inputs(group_rows, group_parsed, windows, model),
-                client=client,
-                model=model,
-                cache=cache,
-                part_field=partition.field,
-                part_value=value,
-            )
-        )
-    return cards or [
-        _card(
-            facts,
-            _Inputs(rows, parsed, windows, model),
-            client=client,
-            model=model,
-            cache=cache,
-        )
-    ]
+    prepared = prepare_cards(facts, rows, windows, model)
+    answers, _stats = answer_cards(prepared, client, model, cache)
+    return assemble_cards(prepared, answers)

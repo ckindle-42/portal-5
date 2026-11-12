@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import time
 from collections.abc import Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -18,12 +19,21 @@ from .behaviours import (
     load_behaviours,
     load_source_stats,
 )
-from .cards import CardCache, SourceCard, build_cards
+from .cards import (
+    CardCache,
+    Prepared,
+    SourceCard,
+    answer_cards,
+    assemble_cards,
+    prepare_cards,
+)
 from .generators import generate
 from .judge_notables import judge_all
 from .parse import FieldStat
 from .receipt import peak_memory_mb, progress_update, read_json, utc_now, write_json
 from .sample import SAMPLE_LINES, SourceFacts, index_facts, read_windows, sample_windows
+
+CARD_SOURCE_CONCURRENCY = 2  # effort budget: with READ_CONCURRENCY, below the lab's 19 searches
 
 STAGES = ("cards", "behaviours", "notables", "judge")
 GENERATORS = ("alerts", "peer_rare", "deviation")
@@ -142,6 +152,56 @@ def facts_by_source(cards: Sequence[SourceCard]) -> dict[str, SourceFacts]:
     return {card.source_id: _fact_dict(card) for card in cards}
 
 
+def _sample_source(executor: Any, facts: SourceFacts) -> tuple[SourceFacts, Any]:
+    read = read_windows(
+        executor, facts, sample_windows(facts), per_window=SAMPLE_LINES, kind="source_sample"
+    )
+    return facts, read
+
+
+def _card_receipt(card: SourceCard, notes: Sequence[str]) -> dict[str, Any]:
+    return {
+        "card_id": card.card_id,
+        "source_id": card.source_id,
+        "part": {"field": card.part_field, "value": card.part_value} if card.part_field else None,
+        "kind": card.kind,
+        "kind_said": card.kind_said,
+        "kind_note": card.kind_note,
+        "kind_facts": dict(card.kind_facts),
+        "understood": card.understood,
+        "reason": card.reason,
+        "roles": {role: list(names) for role, names in card.roles.items()},
+        "structure": card.fmt,
+        "sample_lines": card.sample.get("lines"),
+        "parse_coverage": round(card.coverage, 3),
+        "model_requests": int(card.model.get("requests") or 0),
+        "model_seconds": card.model.get("seconds"),
+        "cached": bool(card.model.get("cached")),
+        "notes": notes,
+    }
+
+
+def _source_receipts(cards: Sequence[SourceCard], reads: Mapping[str, Any]) -> list[dict[str, Any]]:
+    receipts = [
+        _card_receipt(
+            card,
+            list(getattr(reads.get(card.source_id), "notes", ()) or ()),
+        )
+        for card in cards
+    ]
+    for source_id, read in reads.items():
+        group = [card for card in cards if card.source_id == source_id]
+        assigned = sum(int(card.sample.get("lines") or 0) for card in group)
+        receipts.append(
+            {
+                "source_id": source_id,
+                "parts": len(group),
+                "sample_unassigned": max(0, len(read.rows) - assigned),
+            }
+        )
+    return receipts
+
+
 def cards_stage(
     *,
     index: str,
@@ -152,53 +212,21 @@ def cards_stage(
     model: str,
     search: Search,
 ) -> dict[str, Any]:
-    """One card per source: a deterministic sample, one bounded model request, validated."""
+    """Sample every source, then ask once per distinct structure, concurrently."""
     began = time.monotonic()
     executor = executor_for(search)
     facts, notes = index_facts(executor, index, start, end)
     cache = CardCache(out / "cache" / "cards")
-    cards: list[SourceCard] = []
-    source_receipts: list[dict[str, Any]] = []
-    for item in facts:
-        started = time.monotonic()
-        read = read_windows(
-            executor, item, sample_windows(item), per_window=SAMPLE_LINES, kind="source_sample"
-        )
-        found = build_cards(
-            item, read.rows, windows=read.windows, client=client, model=model, cache=cache
-        )
-        cards.extend(found)
-        assigned = sum(int(card.sample.get("lines") or 0) for card in found)
-        for card in found:
-            source_receipts.append(
-                {
-                    "card_id": card.card_id,
-                    "source_id": card.source_id,
-                    "part": {"field": card.part_field, "value": card.part_value}
-                    if card.part_field
-                    else None,
-                    "kind": card.kind,
-                    "understood": card.understood,
-                    "reason": card.reason,
-                    "roles": {role: list(names) for role, names in card.roles.items()},
-                    "structure": card.fmt,
-                    "sample_lines": card.sample.get("lines"),
-                    "parse_coverage": round(card.coverage, 3),
-                    "model_requests": int(card.model.get("requests") or 0),
-                    "model_seconds": card.model.get("seconds"),
-                    "cached": bool(card.model.get("cached")),
-                    "seconds": round(time.monotonic() - started, 3),
-                    "notes": read.notes,
-                }
-            )
-        source_receipts.append(
-            {
-                "source_id": f"{item.index}:{item.sourcetype}",
-                "parts": len(found),
-                "sample_unassigned": max(0, len(read.rows) - assigned),
-            }
-        )
+    with ThreadPoolExecutor(max_workers=CARD_SOURCE_CONCURRENCY) as pool:
+        sampled = list(pool.map(lambda item: _sample_source(executor, item), facts))
+    reads = {f"{item.index}:{item.sourcetype}": read for item, read in sampled}
+    prepared: list[Prepared] = []
+    for item, read in sampled:
+        prepared.extend(prepare_cards(item, read.rows, read.windows, model))
+    answers, answer_stats = answer_cards(prepared, client, model, cache)
+    cards = assemble_cards(prepared, answers)
     write_json(out / SOURCES_FILE, _sources_payload(index, start, end, cards))
+    requests = int(answer_stats["requests"])
     receipt = {
         "index": index,
         "start": start,
@@ -207,13 +235,16 @@ def cards_stage(
         "cards": len(cards),
         "understood": sum(1 for card in cards if card.understood),
         "unparsed": sum(1 for card in cards if not card.understood),
-        "model_requests": sum(int(card.model.get("requests") or 0) for card in cards),
-        "model_seconds": round(sum(float(card.model.get("seconds") or 0.0) for card in cards), 3),
+        "structures": answer_stats["structures"],
+        "model_requests": requests,
+        "answers_reused": len(prepared) - requests,
+        "cache_hits": answer_stats["disk_hits"],
+        "model_seconds": answer_stats["model_seconds"],
         "cached": sum(1 for card in cards if card.model.get("cached")),
         "seconds": round(time.monotonic() - began, 3),
         "peak_memory_mb": peak_memory_mb(),
         "notes": notes,
-        "sources_receipt": source_receipts,
+        "sources_receipt": _source_receipts(cards, reads),
     }
     progress_update(out, "cards", receipt)
     return receipt
