@@ -217,12 +217,13 @@ def _width(rows: Sequence[list[str]]) -> int:
 
 def _header(first: Sequence[str], body: Sequence[Sequence[str]]) -> list[str] | None:
     """A first row of label-like cells that never recurs as data names the columns."""
-    if len(first) < 2 or not all(_WORD.fullmatch(cell.strip()) for cell in first):
+    cells = [_clean(cell) for cell in first]
+    if len(cells) < 2 or not all(_WORD.fullmatch(cell) for cell in cells):
         return None
-    seen = {cell.strip() for row in body for cell in row}
-    if any(cell.strip() in seen for cell in first):
+    seen = {_clean(cell) for row in body for cell in row}
+    if any(cell in seen for cell in cells):
         return None
-    return [cell.strip() for cell in first]
+    return cells
 
 
 def _delimited(lines: Sequence[str]) -> list[Parsed] | None:

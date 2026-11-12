@@ -138,6 +138,49 @@ def test_delimited_row_reads_with_the_columns_the_sample_established():
     assert parse_row("3,carl,stop", "delimited", ()) == parse_row("3,carl,stop", "text", ())
 
 
+def test_quoted_delimited_records_keep_their_real_columns():
+    lines = [
+        '"time","user","action"',
+        '"2020-01-01 00:00:00",bob,"login, ok"',
+        "host,[01/Jan/2020:00:00:00,123],logout",
+    ]
+    parsed = parse_events(lines)
+    assert {item.fmt for item in parsed} == {"delimited"}
+    assert parsed[0].fields == {
+        "time": "2020-01-01 00:00:00",
+        "user": "bob",
+        "action": "login, ok",
+    }
+    assert parsed[1].fields == {
+        "time": "host",
+        "user": "[01/Jan/2020:00:00:00,123]",
+        "action": "logout",
+    }
+
+
+def test_one_field_in_several_core_roles_is_rejected():
+    answer = apply_answer(
+        json.dumps({"kind": "activity", "actor": ["c1"], "action": ["c1"], "object": ["c1"]}),
+        ["c1", "c2", "c3"],
+    )
+    assert answer.error == "ambiguous_roles:c1"
+    assert answer.roles == {}
+
+
+def test_a_card_with_one_field_in_every_core_role_is_not_understood(tmp_path):
+    answer = json.dumps({"kind": "activity", "actor": ["user"], "action": ["user"], "object": []})
+    card = build_card(
+        _facts(),
+        _rows(),
+        windows=1,
+        client=_Client(answer),
+        model="seat",
+        cache=CardCache(tmp_path),
+    )
+    assert card.understood is False
+    assert card.reason == "ambiguous_roles:user"
+
+
 def test_model_answer_is_rejected_when_it_names_a_field_the_sample_lacks():
     answer = apply_answer(
         json.dumps({"kind": "activity", "actor": ["user", "invented"], "action": ["image"]}),
