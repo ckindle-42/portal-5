@@ -1,0 +1,13 @@
+# November engine screen, one realuse task. Repeats 1. Run only after a cell beats the incumbent on speed.
+# WFE_ENGINE / WFE_CHAT_BASE_URL point the challenger at the engine under test. Think-off is the harness dialect.
+repeats: 1
+workloads:
+  auto-daily:
+    tool_mode: production
+    home: realuse_v1
+    home_tasks: [ru-v1-001]
+    discovery: []
+    arms:
+      incumbent: gemma4:26b-a4b-it-qat-ctx16k
+      challengers:
+        - gemma-4-26b-a4b-it-QAT-4bit

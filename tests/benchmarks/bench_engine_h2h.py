@@ -49,6 +49,7 @@ import threading
 import time
 import urllib.request
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -112,6 +113,14 @@ def local_dir_for(cfg: dict, repo: str | None) -> str | None:
     return f"{cfg['drafter_root']}/{repo.split('/')[-1]}" if repo else None
 
 
+def artifact_dir(cfg: dict, model: str, key_repo: str, key_dir: str) -> str:
+    """Absolute dir when the registry names one, else the fetch-drafters checkout."""
+    m = cfg["models"][model]
+    if m.get(key_dir):
+        return os.path.expanduser(str(m[key_dir]))
+    return local_dir_for(cfg, m.get(key_repo)) or ""
+
+
 def model_root(cfg: dict, engine: str) -> str:
     """The directory an engine's model dirs live under (mlx_root unless the engine names one)."""
     return cfg[cfg["engines"][engine].get("root", "mlx_root")]
@@ -123,6 +132,8 @@ def model_dir_for(cfg: dict, model: str, engine: str, mode: str) -> str:
         return m["prismml_mlx"]
     if engine == "mtplx":
         return m["mtplx"]
+    if engine == "splash":
+        return m.get("mlx") or m.get("served") or m.get("splash") or ""
     if mode == "spec":
         s = spec_entry(cfg, model, engine) or {}
         return s.get("model_dir") or m["mlx"]
@@ -160,11 +171,11 @@ def render_one(part, values: dict) -> str:
 
 
 def render(template: list[str], values: dict) -> list[str]:
-    """Render argv parts, splicing a list-valued `{spec_args}` placeholder."""
+    """Render argv parts, splicing list-valued `{spec_args}` and `{splash_extra}`."""
     argv: list[str] = []
     for part in template:
-        if part == "{spec_args}":
-            argv.extend(render_one(arg, values) for arg in (values.get("spec_args") or []))
+        if part in ("{spec_args}", "{splash_extra}"):
+            argv.extend(render_one(arg, values) for arg in (values.get(part.strip("{}")) or []))
         else:
             argv.append(render_one(part, values))
     return argv
@@ -193,12 +204,14 @@ def launch_command(cfg: dict, engine: str, model: str, mode: str) -> tuple[list[
         "mlx_root": cfg["mlx_root"],
         "model_root": model_root(cfg, engine),
         "model_dir": model_dir,
-        "served": model_dir,
+        "served": m.get("served") or model_dir,
         "port": e.get("port", ""),
         "ctx": m["ctx"],
         "tool_parser": per_engine(m.get("tool_parser"), engine) or "auto",
-        "drafter_path": local_dir_for(cfg, m.get("drafter")) or "",
+        "drafter_path": artifact_dir(cfg, model, "drafter", "drafter_dir"),
         "draft_path": local_dir_for(cfg, m.get("draft_model")) or "",
+        "splash_model": m.get("splash_model") or m.get("splash") or "",
+        "splash_extra": m.get("splash_extra") or [],
         "gguf_path": gguf_path_for(cfg, model) if e.get("requires") == "gguf" else "",
         "draft_gguf_path": str(draft_gguf_path),
         "llama_server": e.get("server_path", ""),
@@ -234,17 +247,22 @@ def served_id(cfg: dict, engine: str, model: str, mode: str) -> str:
         return cfg["models"][model]["ollama"]
     if cfg["engines"][engine].get("requires") == "gguf":
         return model
+    m = cfg["models"][model]
+    if engine == "splash":
+        return m.get("served") or m.get("splash") or model_dir_for(cfg, model, engine, mode)
     return model_dir_for(cfg, model, engine, mode)
 
 
-def think_off_fields(engine: str) -> dict:
-    """Thinking OFF in each engine's dialect (same intent everywhere).
-
-    Keep Ollama's `think` switch required by this probe and its OpenAI-compatible
-    `reasoning_effort` spelling for the other harness users. MLX engines take
-    the chat template's own switch."""
+def think_off_fields(engine: str, model: str | None = None, cfg: dict | None = None) -> dict:
+    """Thinking OFF in each engine's dialect. A model's think_off entry wins, including {}."""
+    if cfg and model:
+        custom = (cfg["models"][model].get("think_off") or {}).get(engine)
+        if custom is not None:
+            return custom
     if engine == "ollama":
         return {"think": False, "reasoning_effort": "none"}
+    if engine == "splash":
+        return {"reasoning_effort": "none"}
     return {"chat_template_kwargs": {"enable_thinking": False}}
 
 
@@ -580,7 +598,7 @@ def omlx_settings_for(cfg: dict, model: str, mode: str) -> dict | None:
     s = spec_entry(cfg, model, "omlx")
     if s is None:
         raise SystemExit(f"no oMLX spec path for {model}")
-    vals = {"drafter_path": local_dir_for(cfg, cfg["models"][model].get("drafter")) or ""}
+    vals = {"drafter_path": artifact_dir(cfg, model, "drafter", "drafter_dir")}
     return {k: render_one(v, vals) if isinstance(v, str) else v for k, v in s["settings"].items()}
 
 
@@ -686,7 +704,7 @@ def _payload(cfg, engine, model, mode, messages, max_tokens, *, thinking=False, 
     thinking_fields = (
         ({"think": True} if thinking and engine == "ollama" else {})
         if thinking
-        else think_off_fields(engine)
+        else think_off_fields(engine, model, cfg)
     )
     return {
         "model": served_id(cfg, engine, model, mode),
@@ -770,6 +788,86 @@ def speed_measurement_errors(res: dict) -> list[str]:
             ):
                 errors.append(f"{label}: missing completion token count")
     return errors
+
+
+def percentile(values: list[float], pct: float) -> float | None:
+    """Linear percentile. One sample is that sample at every percentile."""
+    xs = sorted(v for v in values if v is not None)
+    if not xs:
+        return None
+    if len(xs) == 1:
+        return float(xs[0])
+    rank = (len(xs) - 1) * pct / 100
+    lo = int(rank)
+    hi = min(lo + 1, len(xs) - 1)
+    frac = rank - lo
+    return xs[lo] * (1 - frac) + xs[hi] * frac
+
+
+def concurrency_summary(samples: list[dict], wall_s: float) -> dict:
+    """Aggregate decode tok/s is summed completion tokens over the parallel wall clock."""
+    tokens = sum(int(s.get("completion_tokens") or 0) for s in samples)
+    ttfts = [s.get("ttft_s") for s in samples]
+    p50, p95 = percentile(ttfts, 50), percentile(ttfts, 95)
+    return {
+        "n": len(samples),
+        "aggregate_decode_tps": round(tokens / wall_s, 2) if wall_s else None,
+        "ttft_p50_s": None if p50 is None else round(p50, 3),
+        "ttft_p95_s": None if p95 is None else round(p95, 3),
+        "completion_tokens": tokens,
+        "wall_s": round(wall_s, 3),
+    }
+
+
+def concurrency_errors(widths: list[dict]) -> list[str]:
+    errors = []
+    for row in widths:
+        n = row.get("n")
+        if row.get("aggregate_decode_tps") is None:
+            errors.append(f"n={n}: missing aggregate decode tok/s")
+        if row.get("ttft_p50_s") is None or row.get("ttft_p95_s") is None:
+            errors.append(f"n={n}: missing TTFT percentiles")
+        if any(sample.get("error") for sample in row.get("samples") or []):
+            errors.append(f"n={n}: a request failed")
+    return errors
+
+
+def parse_widths(raw: str) -> list[int]:
+    widths = [int(part) for part in str(raw).split(",") if part.strip()]
+    if not widths or any(n < 1 for n in widths):
+        raise SystemExit(f"concurrency widths must be positive integers, got {raw!r}")
+    return widths
+
+
+def _one_chat(url: str, payload: dict) -> dict:
+    try:
+        row = stream_chat(url, payload)
+    except Exception as exc:
+        return {"ttft_s": None, "completion_tokens": 0, "usage_reported": False, "error": str(exc)}
+    row.pop("content", None)
+    return row
+
+
+def _parallel_chats(url: str, payload: dict, n: int) -> tuple[list[dict], float]:
+    t0 = time.monotonic()
+    with ThreadPoolExecutor(max_workers=n) as pool:
+        samples = list(pool.map(lambda _i: _one_chat(url, payload), range(n)))
+    return samples, time.monotonic() - t0
+
+
+def measure_concurrency(
+    cfg: dict, engine: str, model: str, mode: str, widths: list[int], max_tokens: int = 400
+) -> dict:
+    """n parallel copies of the same decode prompt. Prefix cache may already be warm."""
+    url = base_url(cfg, engine)
+    payload = _payload(
+        cfg, engine, model, mode, [{"role": "user", "content": DECODE_PROMPT}], max_tokens
+    )
+    rows = []
+    for n in widths:
+        samples, wall = _parallel_chats(url, payload, n)
+        rows.append({**concurrency_summary(samples, wall), "samples": samples})
+    return {"widths": rows}
 
 
 TOOL_SPEC = [
@@ -1278,11 +1376,13 @@ def engine_version(engine: str) -> str:
         "ollama": ["ollama", "--version"],
         "omlx": ["omlx", "--version"],
         "mlx-serve": ["mlx-serve", "--version"],
+        "splash": ["splash", "--version"],
+        "mlxcel": ["mlxcel", "--version"],
         "rapid-mlx": ["rapid-mlx", "--no-telemetry", "--version"],
         "vllm-mlx": [
             "uvx",
             "--from",
-            "vllm-mlx==0.5.0",
+            "vllm-mlx==0.6.0",
             "python",
             "-c",
             "import vllm_mlx;print(vllm_mlx.__version__)",
@@ -1403,7 +1503,28 @@ def summarize(cfg: dict) -> str:
                 f"{fmt((q.get('summary') or {}).get('clean_false_positives'))} | "
                 f"{fmt(off)}/{fmt(on)} | {fmt(pct_off)}/{fmt(pct_on)} |"
             )
-    return "\n".join(lines)
+    return "\n".join(lines + concurrency_lines(rows))
+
+
+def concurrency_lines(rows: list[dict]) -> list[str]:
+    found = latest(rows, "concurrency")
+    if not found:
+        return []
+    lines = [
+        "",
+        "## Concurrency",
+        "",
+        "| model | engine | mode | n | aggregate decode tok/s | TTFT p50 s | TTFT p95 s | valid |",
+        "|---|---|---|---:|---:|---:|---:|---|",
+    ]
+    for (model, engine, mode), row in sorted(found.items()):
+        for width in row.get("widths") or []:
+            lines.append(
+                f"| {model} | {engine} | {mode} | {width.get('n')} | "
+                f"{fmt(width.get('aggregate_decode_tps'))} | {fmt(width.get('ttft_p50_s'))} | "
+                f"{fmt(width.get('ttft_p95_s'))} | {'yes' if row.get('valid') else 'INVALID'} |"
+            )
+    return lines
 
 
 # ── CLI ────────────────────────────────────────────────────────────────────
@@ -1419,6 +1540,8 @@ def cmd_doctor(cfg: dict) -> int:
         "uvx",
         "mlx_lm.server",
         "mtplx",
+        "splash",
+        "mlxcel",
         "footprint",
         "llama-server",
         "lsof",
@@ -1450,6 +1573,7 @@ def cmd_doctor(cfg: dict) -> int:
                 root = model_root(cfg, engine)
                 exists = bool(d and (Path(root) / d).is_dir())
                 print(f"{'OK ' if exists else 'NOT FETCHED'} {name}: {root}/{d or 'unset'}")
+        doctor_extra_artifacts(name, m)
         for key in ("drafter", "draft_model"):
             if m.get(key):
                 exists = Path(local_dir_for(cfg, m[key])).is_dir()
@@ -1462,6 +1586,16 @@ def cmd_doctor(cfg: dict) -> int:
     )
     print(_run(["rapid-mlx", "--no-telemetry", "telemetry", "status"]).strip().splitlines()[:1])
     return 0 if ok and gate else 1
+
+
+def doctor_extra_artifacts(name: str, m: dict) -> None:
+    if m.get("drafter_dir"):
+        path = Path(os.path.expanduser(str(m["drafter_dir"])))
+        print(f"{'OK ' if path.is_dir() else 'MISSING'} {name} drafter_dir: {path}")
+    if m.get("splash"):
+        print(f"SPLASH {name}: {m['splash']}")
+    for engine, reason in (m.get("na") or {}).items():
+        print(f"N/A {name} × {engine}: {reason}")
 
 
 def cmd_fetch_drafters(cfg: dict) -> int:
@@ -1495,6 +1629,69 @@ def cmd_build_prefill(cfg: dict) -> int:
 def cmd_summarize(cfg: dict) -> int:
     print(summarize(cfg))
     return 0
+
+
+def cmd_quality_gate(cfg: dict, a) -> int:
+    """Print the one-task WFE plan. Does not start an engine or a campaign."""
+    gate = cfg["models"][a.model].get("quality_gate") or {}
+    rel = gate.get("wfe_plan")
+    if not rel:
+        raise SystemExit(f"no quality gate plan for {a.model}")
+    plan = REPO / rel
+    print(
+        json.dumps(
+            {
+                "model": a.model,
+                "tool_probe": gate.get("tool_probe"),
+                "wfe_plan": str(plan),
+                "wfe_workspace": gate.get("wfe_workspace"),
+                "wfe_task": gate.get("wfe_task"),
+                "wfe_arm": gate.get("wfe_arm"),
+                "exists": plan.is_file(),
+                "note": "print-only; set WFE_ENGINE and WFE_CHAT_BASE_URL when a cell wins on speed",
+            },
+            indent=1,
+        )
+    )
+    return 0 if plan.is_file() else 1
+
+
+def cmd_concurrency(cfg: dict, a) -> int:
+    gate, msg = start_gate(cfg)
+    if not gate:
+        raise SystemExit(f"rule 3: {msg} — clear swap before measuring")
+    widths = parse_widths(a.widths)
+    with Guard(cfg, a.engine, a.model) as g:
+        res = measure_concurrency(cfg, a.engine, a.model, a.mode, widths, a.max_tokens)
+    errors = concurrency_errors(res["widths"])
+    verdict = g.verdict()
+    summary = {
+        str(width["n"]): {
+            k: width[k] for k in ("aggregate_decode_tps", "ttft_p50_s", "ttft_p95_s", "wall_s")
+        }
+        for width in res["widths"]
+    }
+    row = {
+        **base_row(cfg, "concurrency", a.engine, a.model, a.mode),
+        **res,
+        "summary": summary,
+        "measurement_errors": errors,
+        "guard": verdict,
+        "valid": verdict["valid"] and not errors,
+    }
+    path = append_row(a.model, row)
+    print(
+        json.dumps(
+            {
+                "summary": summary,
+                "measurement_errors": errors,
+                "guard": verdict,
+                "written": str(path),
+            },
+            indent=1,
+        )
+    )
+    return 0 if row["valid"] else 2
 
 
 def cmd_commands(cfg: dict) -> int:
@@ -1535,6 +1732,14 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--rounds", type=int, default=3)
         p.add_argument("--repeats", type=int, default=3)
         p.add_argument("--max-tokens", type=int, default=400)
+    gate_p = sub.add_parser("quality-gate")
+    gate_p.add_argument("--model", required=True)
+    conc = sub.add_parser("concurrency")
+    conc.add_argument("--engine", required=True)
+    conc.add_argument("--model", required=True)
+    conc.add_argument("--mode", choices=["plain", "spec"], default="plain")
+    conc.add_argument("--widths", default="1,2,4")
+    conc.add_argument("--max-tokens", type=int, default=400)
     a = ap.parse_args(argv)
     cfg = load_config()
     handlers = {
@@ -1544,9 +1749,13 @@ def main(argv: list[str] | None = None) -> int:
         "summarize": cmd_summarize,
         "commands": cmd_commands,
     }
+    if a.cmd == "quality-gate":
+        return cmd_quality_gate(cfg, a)
     if a.cmd in handlers:
         return handlers[a.cmd](cfg)
     with single_flight():
+        if a.cmd == "concurrency":
+            return cmd_concurrency(cfg, a)
         return dispatch(cfg, a)
 
 

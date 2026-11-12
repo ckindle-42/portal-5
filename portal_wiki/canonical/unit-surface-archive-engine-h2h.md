@@ -18,10 +18,12 @@ updated_at: 1790305358.8005278
 The September 2026 engine head-to-head (Ollama, oMLX, mlx-serve, Rapid-MLX,
 vllm-mlx, mlx_lm.server, MTPLX, PrismML llama.cpp and MLX forks) and the Bonsai
 compression probe ran on this harness, its registry, the PrismML MLX adapter,
-its fixtures, WFE engine-mode plans and a thinking-on deep-lane runner. All of
-it is archived under `scripts/_archive/engine_h2h_20260924/`, with a README
-covering the verdicts, what was removed from the host, and how to revive it.
-Result receipts stay live in `tests/benchmarks/results/engine_h2h/`.
+its fixtures, WFE engine-mode plans and a thinking-on deep-lane runner. On
+2026-11-05 the harness, registry, adapter, fixtures and unit tests were
+restored to `tests/benchmarks/` and `tests/unit/` for a re-screen. What remains
+under `scripts/_archive/engine_h2h_20260924/` is the deep-lane runner, the
+September WFE plans, and a README that points at the restored paths. Result
+receipts stay live in `tests/benchmarks/results/engine_h2h/`.
 
 ## Why
 

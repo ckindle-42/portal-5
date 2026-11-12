@@ -1,0 +1,13 @@
+# November engine screen. auto-coding applies this seat's prompt and execute_python.
+# The seated auto-coding incumbent is still Qwen3-Coder-30B; this plan compares Qwen3.8 GGUF vs MLX.
+repeats: 1
+workloads:
+  auto-coding:
+    tool_mode: production
+    home: realuse_v1
+    home_tasks: [ru-v1-011]
+    discovery: []
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+      challengers:
+        - Qwen3.8-27B-4bit

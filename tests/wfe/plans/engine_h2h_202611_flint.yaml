@@ -1,0 +1,11 @@
+# November engine screen. Flint is splash-only: one arm, the splash served id. No Ollama arm.
+# Think-off is impossible (splash 1.4.1). Context stays 262144.
+repeats: 1
+workloads:
+  auto-coding:
+    tool_mode: production
+    home: realuse_v1
+    home_tasks: [ru-v1-011]
+    discovery: []
+    arms:
+      incumbent: unsloth/flint-GGUF:UD-Q4_K_XL
