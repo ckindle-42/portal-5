@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from portal.modules.security.core.hunt.engine import HOUR
+from portal.modules.security.core.hunt.engine import HOUR, _search_literal
 from portal.modules.security.core.hunt.evidence import (
+    CANDIDATE_OBSERVATIONS,
     EVENTS_PER_OBSERVATION,
     MAX_EVENT_CHARACTERS,
     MAX_OBSERVATIONS_PER_CELL,
+    ROW_BUDGET,
     evidence_cells,
     read_cell,
 )
@@ -90,8 +92,10 @@ def test_one_bounded_read_returns_only_matching_events_with_reproducible_bounds(
     assert len(executor.calls) == 1
     query, earliest, latest, kind, row_cap = executor.calls[0]
     assert "append" not in query
-    assert f"dedup {EVENTS_PER_OBSERVATION} punct source" in query
-    assert "sort 0 _time _raw source punct sourcetype" in query
+    assert f"dedup {EVENTS_PER_OBSERVATION} _hunt_observation" in query
+    assert f"| head {ROW_BUDGET}" in query
+    assert 'punct="abc"' in query
+    assert "searchmatch" not in query
     assert (earliest, latest, kind) == (HOUR, 2 * HOUR, "evidence")
     assert row_cap is None
     assert result.reason is None
@@ -208,6 +212,47 @@ def test_observation_budget_stops_after_twelve_contributing_observations():
 
     assert len(result.evidence) == MAX_OBSERVATIONS_PER_CELL
     assert all(item["query"] != observations[-1].evidence["literal"] for item in result.evidence)
+
+
+def test_marker_keeps_the_row_on_the_observation_the_read_named():
+    shape = _observation("shape", "abc", HOUR, 4.0)
+    source = _observation("source", "svc\tlog", HOUR, 3.0)
+    cell = evidence_cells([shape, source])[0]
+    row = {
+        "_time": HOUR + 1,
+        "host": "node-a",
+        "source": "svc",
+        "sourcetype": "log",
+        "punct": "abc",
+        "_raw": "once",
+        "_hunt_observation": 1,
+    }
+
+    result = read_cell(_Executor([row]), INDEX, cell, HOUR, 2 * HOUR)
+
+    assert len(result.evidence) == 1
+    assert result.evidence[0]["query"] == source.evidence["literal"]
+
+
+def test_query_names_candidates_with_equality_and_bounds_the_rows():
+    assert CANDIDATE_OBSERVATIONS > MAX_OBSERVATIONS_PER_CELL
+    assert ROW_BUDGET == MAX_OBSERVATIONS_PER_CELL * EVENTS_PER_OBSERVATION
+    observations = [_observation("value", 'a"b', HOUR, 1000.0)]
+    observations.extend(
+        _observation("shape", f"p{index}", HOUR, float(500 - index))
+        for index in range(CANDIDATE_OBSERVATIONS)
+    )
+    cell = evidence_cells(observations)[0]
+    executor = _Executor([])
+
+    read_cell(executor, INDEX, cell, HOUR, 2 * HOUR)
+
+    query = executor.calls[0][0]
+    assert f"TERM({_search_literal('a"b')})" in query
+    assert 'searchmatch("TERM(' in query
+    assert f"punct={_search_literal('p0')}" in query
+    assert f"punct={_search_literal(f'p{CANDIDATE_OBSERVATIONS - 1}')}" not in query
+    assert f"| head {ROW_BUDGET}" in query
 
 
 def test_event_chars_overrides_the_default_line_budget():
