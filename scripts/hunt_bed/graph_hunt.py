@@ -9,6 +9,7 @@ import os
 import sys
 import time
 from collections.abc import Iterable, Mapping
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
 from typing import Any
@@ -17,8 +18,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from portal.modules.security.core.hunt import graph as _graph  # noqa: E402
 from portal.modules.security.core.hunt.baselines import BASELINES  # noqa: E402
-from portal.modules.security.core.hunt.engine import HOUR  # noqa: E402
+from portal.modules.security.core.hunt.engine import HOUR, _search_literal  # noqa: E402
 from portal.modules.security.core.hunt.executor import HuntBudgetExceededError  # noqa: E402
+from portal.modules.security.core.hunt.graph import is_term, values  # noqa: E402
 from portal.modules.security.core.hunt.observations import (  # noqa: E402
     Observation,
     ObservationRun,
@@ -49,10 +51,20 @@ CELL_BUDGET = 24  # effort budget: host-hours read, 24 x 200 events stays inside
 EVENTS_PER_CELL = 200  # effort budget: md5-ordered events sampled from one host-hour
 BASELINE_HOURS = 2  # effort budget: a chosen cell's own prior hours, nearest first
 READ_KIND = "events"  # executor budget kind for one raw evidence read
+HISTORY_TERMS = 256  # effort budget: indexed-term history reads per run
+HISTORY_TRIGGER_TERMS = 128  # effort budget: reads reserved for the trigger's own entities
+HISTORY_CONCURRENCY = 8  # effort budget: history reads in flight inside the shared budget
+HISTORY_KIND = "history"  # executor receipt kind for one retention history read
+SKIP_RECEIPTS = 512  # effort budget: skipped entities written into progress.json
 ORDER = (
     "observations in their total order (-score, kind, host, entity, signal, hour); for each, "
     "its own cell first and then its prior hours nearest first; a (host, hour) is read once, "
     "with the literal of the first observation that chose it"
+)
+NOTABLE_ORDER = (
+    "a checked own-history deviation first (burst z, then learned-peer share); then the "
+    "strongest backing layer-1 observation score; then distinct cells, hosts, hours; then "
+    "signal kinds, new edges, summed z; then entity"
 )
 
 
@@ -134,6 +146,159 @@ def read_cell(cell: Cell) -> CellRead:
     )
 
 
+def history_query(index: str, entity: str) -> str:
+    """One entity's hourly count over the whole retention, from the indexer's lexicon."""
+    return (
+        f"| tstats count where index={_search_literal(index)} "
+        f"TERM({_search_literal(entity)}) by _time span=1h"
+    )
+
+
+def _history_series(rows: Iterable[Mapping[str, Any]]) -> dict[int, int]:
+    found: dict[int, int] = {}
+    for row in rows:
+        try:
+            hour = int(float(row["_time"])) // HOUR * HOUR
+            count = int(float(row["count"]))
+        except (KeyError, TypeError, ValueError):
+            continue
+        found[hour] = found.get(hour, 0) + count
+    return found
+
+
+@dataclass(frozen=True)
+class HistoryRead:
+    entity: str
+    series: dict[int, int]
+    reason: str | None
+    seconds: float
+
+
+def read_history(entity: str, index: str, start: float, end: float) -> HistoryRead:
+    """One indexed-term read: an empty result says the value is not a term in the lexicon."""
+    began = time.monotonic()
+    try:
+        result = _reader().read(history_query(index, entity), start, end, kind=HISTORY_KIND)
+    except HuntBudgetExceededError as exc:
+        return HistoryRead(entity, {}, str(exc) or "budget", round(time.monotonic() - began, 3))
+    seconds = round(time.monotonic() - began, 3)
+    if result.reason is not None:
+        return HistoryRead(entity, {}, str(result.reason), seconds)
+    series = _history_series(result.rows)
+    if not series:
+        return HistoryRead(entity, {}, "no_indexed_term", seconds)
+    return HistoryRead(entity, series, None, seconds)
+
+
+def read_histories(
+    entities: list[str], index: str, start: float, end: float
+) -> tuple[list[HistoryRead], float]:
+    """Read each entity's retention history concurrently; the executor keeps one budget."""
+    began = time.monotonic()
+    with ThreadPoolExecutor(max_workers=HISTORY_CONCURRENCY) as pool:
+        reads = list(pool.map(lambda entity: read_history(entity, index, start, end), entities))
+    return reads, round(time.monotonic() - began, 3)
+
+
+@dataclass
+class HistoryRun:
+    targets: list[str]
+    skipped: list[tuple[str, str]]
+    reads: list[HistoryRead]
+    wall_seconds: float
+
+    @property
+    def series(self) -> dict[str, dict[int, int]]:
+        return {read.entity: read.series for read in self.reads if read.reason is None}
+
+    @property
+    def missing(self) -> dict[str, str]:
+        found = dict(self.skipped)
+        found.update(
+            {read.entity: str(read.reason) for read in self.reads if read.reason is not None}
+        )
+        return found
+
+    @property
+    def failed(self) -> list[HistoryRead]:
+        return [read for read in self.reads if read.reason not in (None, "no_indexed_term")]
+
+    def payload(self) -> dict[str, Any]:
+        skipped = [{"entity": entity, "reason": reason} for entity, reason in self.skipped]
+        skipped.extend(
+            {"entity": read.entity, "reason": str(read.reason)}
+            for read in self.reads
+            if read.reason is not None
+        )
+        return {
+            "budget": HISTORY_TERMS,
+            "trigger_terms": HISTORY_TRIGGER_TERMS,
+            "concurrency": HISTORY_CONCURRENCY,
+            "requested": len(self.targets),
+            "read": len(self.series),
+            "wall_seconds": self.wall_seconds,
+            "skipped_count": len(skipped),
+            "skipped": skipped[:SKIP_RECEIPTS],
+        }
+
+
+def seed_hours(plan: Iterable[Cell]) -> set[tuple[str, int]]:
+    return {(cell.host, cell.hour) for cell in plan if not cell.baseline}
+
+
+def seed_values(
+    cells: Mapping[tuple[str, str, int], list[dict[str, Any]]],
+    seeds: set[tuple[str, int]],
+) -> set[str]:
+    """Every value the seed cells' own samples hold: the evidence history is chosen from."""
+    found: set[str] = set()
+    for (host, _source, hour), events in cells.items():
+        if (host, hour) not in seeds:
+            continue
+        for event in events:
+            found.update(values(str(event.get("_raw", ""))))
+    return found
+
+
+def _candidates(
+    seeds: set[str], observations: Iterable[Observation], provisional: Iterable[Any]
+) -> tuple[list[str], list[str], list[tuple[str, str]]]:
+    """The trigger's own entities and the graph's entities, each deduped and term-checked."""
+    trigger: list[str] = []
+    graph: list[str] = []
+    skipped: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for block, target in (
+        ([obs.entity for obs in observations], trigger),
+        ([item.entity for item in provisional], graph),
+    ):
+        for value in block:
+            if value in seen or value not in seeds:
+                continue
+            seen.add(value)
+            if not is_term(value):
+                skipped.append((value, "not_a_term"))
+            else:
+                target.append(value)
+    return trigger, graph, skipped
+
+
+def history_plan(
+    seeds: set[str], observations: Iterable[Observation], provisional: Iterable[Any]
+) -> tuple[list[str], list[tuple[str, str]]]:
+    """The terms to read: a trigger share, then the graph's order, then unused trigger slots."""
+    trigger, graph, skipped = _candidates(seeds, observations, provisional)
+    ordered = trigger[:HISTORY_TRIGGER_TERMS] + graph + trigger[HISTORY_TRIGGER_TERMS:]
+    targets = ordered[:HISTORY_TERMS]
+    skipped.extend((value, "budget") for value in ordered[HISTORY_TERMS:])
+    return targets, skipped
+
+
+def _window(meta: Mapping[str, Any]) -> tuple[float, float]:
+    end = meta.get("end")
+    return float(meta.get("start") or 0.0), float(end) if end is not None else time.time()
+
+
 def _flat(row: Mapping[str, Any]) -> dict[str, Any]:
     return {
         key: (value[0] if isinstance(value, list) and value else value)
@@ -173,15 +338,27 @@ def _slot(reads: list[CellRead]) -> dict[str, Any]:
     }
 
 
+def _history_slot(reads: list[HistoryRead]) -> dict[str, Any]:
+    return {
+        "requests": len(reads),
+        "seconds": round(sum(read.seconds for read in reads), 3),
+        "censored": sum(1 for read in reads if read.reason not in (None, "no_indexed_term")),
+    }
+
+
 def progress_payload(
     meta: Mapping[str, Any],
     run: ObservationRun,
     plan: list[Cell],
     reads: list[CellRead],
     wall_seconds: float,
+    history: HistoryRun,
 ) -> dict[str, Any]:
     censored = sum(1 for read in reads if read.censored)
-    complete = run.coverage_complete and censored == 0 and len(reads) == len(plan)
+    failed = history.failed
+    complete = run.coverage_complete and censored == 0 and len(reads) == len(plan) and not failed
+    reasons = {str(read.reason) for read in reads if read.reason}
+    reasons.update(str(read.reason) for read in failed)
     return {
         **meta,
         "wall_seconds": wall_seconds,
@@ -189,17 +366,24 @@ def progress_payload(
             "cells": CELL_BUDGET,
             "events_per_cell": EVENTS_PER_CELL,
             "baseline_hours": BASELINE_HOURS,
+            "history_terms": HISTORY_TERMS,
+            "history_concurrency": HISTORY_CONCURRENCY,
         },
         "order": ORDER,
+        "notable_order": NOTABLE_ORDER,
         "coverage_complete": complete,
         "coverage": {
             "observation_complete": run.coverage_complete,
             "cells_planned": len(plan),
             "cells_read": len(reads),
             "cells_censored": censored,
-            "reasons": sorted({str(read.reason) for read in reads if read.reason}),
+            "history_planned": len(history.targets),
+            "history_read": len(history.series),
+            "history_censored": len(failed),
+            "reasons": sorted(reasons),
         },
-        "request_kinds": {READ_KIND: _slot(reads)},
+        "request_kinds": {READ_KIND: _slot(reads), HISTORY_KIND: _history_slot(history.reads)},
+        "history": history.payload(),
         "observation_request_kinds": run.request_kinds,
         "observation_coverage": run.coverage,
         "observation_count": len(run.observations),
@@ -329,17 +513,29 @@ def main() -> int:
         reads.append(read_cell(cell))
         if reads[-1].stopped:
             break
-    graph = _graph.build(samples(reads))
+    samples_by_cell = samples(reads)
+    provisional = _graph.build(samples_by_cell)
+    targets, skipped = history_plan(
+        seed_values(samples_by_cell, seed_hours(plan)),
+        run.observations,
+        _graph.notables(provisional, []),
+    )
+    history_reads, history_wall = read_histories(targets, args.index, *_window(meta))
+    history = HistoryRun(targets, skipped, history_reads, history_wall)
+    graph = _graph.build(samples_by_cell, history.series, history.missing)
     notables = list(_graph.notables(graph, run.observations))
     leads = [_lead_row(notable) for notable in notables]
     rows = [notable_row(notable) for notable in notables]
-    progress = progress_payload(meta, run, plan, reads, round(time.monotonic() - started, 1))
+    progress = progress_payload(
+        meta, run, plan, reads, round(time.monotonic() - started, 1), history
+    )
     progress["lead_count"] = len(leads)
     progress["notable_count"] = len(rows)
     write_run(Path(args.out), leads, rows, [cell_row(read) for read in reads], progress)
     print(
         f"{len(leads)} leads from {len(reads)}/{len(plan)} cells "
         f"({progress['coverage']['cells_censored']} censored), "
+        f"history {history.payload()['read']}/{len(targets)} terms in {history_wall}s, "
         f"coverage_complete={progress['coverage_complete']} in {progress['wall_seconds']}s "
         f"-> {args.out}"
     )

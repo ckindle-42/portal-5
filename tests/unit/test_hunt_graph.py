@@ -11,6 +11,7 @@ from portal.modules.security.core.hunt.graph import (
     Cell,
     build,
     deviations,
+    is_term,
     notables,
     values,
 )
@@ -26,13 +27,23 @@ def _event(hour: int, raw: str, host: str = "h1", source: str = "s1") -> dict[st
     return {"_time": float(hour), "host": host, "source": source, "_raw": raw}
 
 
-def _graph(rows: list[tuple[int, str, str, str, int]]) -> Any:
+def _graph(
+    rows: list[tuple[int, str, str, str, int]],
+    history: dict[str, dict[int, int]] | None = None,
+    missing: dict[str, str] | None = None,
+) -> Any:
     cells: dict[Cell, list[dict[str, Any]]] = {}
     for hour, host, source, raw, count in rows:
         cells.setdefault((host, source, hour), [])
         for _ in range(count):
             cells[(host, source, hour)].append(_event(hour, raw, host, source))
-    return build(cells)
+    return build(cells, history, missing)
+
+
+def _series(hour: int, count: int, prior: int, back: int = 24) -> dict[int, int]:
+    series = {hour - step * HOUR: prior for step in range(1, back + 1)}
+    series[hour] = count
+    return series
 
 
 def test_values_are_the_major_segments_in_appearance_order() -> None:
@@ -230,3 +241,103 @@ def test_observations_back_the_deviating_host_hour() -> None:
 
     assert [row["entity"] for row in notable.observations] == ["other=thing", "user=admin"]
     assert {row["hour"] for row in notable.observations} == {H1}
+
+
+def test_a_value_is_a_single_indexed_term_only_when_it_segments_back_to_itself() -> None:
+    assert is_term("uid=alpha")
+    assert is_term("10.0.0.1")
+    assert is_term(":")
+    assert is_term("--")
+    assert not is_term("a,b")
+    assert not is_term("a\tb")
+    assert not is_term("__::_[]:__..__<>")
+    assert not is_term("")
+
+
+def test_retention_history_decides_a_steady_value_is_not_a_deviation() -> None:
+    graph = _graph(
+        [
+            (H0, "h1", "s1", "steady burst", 1),
+            (H1, "h1", "s1", "steady burst", 1),
+            (H2, "h1", "s1", "steady burst", 10),
+        ],
+        {
+            "steady": _series(H2, 3, 3),
+            "burst": _series(H2, 9, 1),
+        },
+    )
+    recorded = {(dev.entity, dev.hour): dev for dev in deviations(graph)}
+
+    steady = recorded[("steady", H2)]
+    assert steady.history is True
+    assert steady.volume == 3  # the index's count, not the 10 sampled events
+    assert steady.sampled == 10
+    assert steady.volume_z == 0.0
+    assert steady.signals == ()
+    assert [notable.entity for notable in notables(graph, [])] == ["burst"]
+
+
+def test_an_entity_without_history_is_scored_and_says_why() -> None:
+    graph = _graph(
+        [
+            (H0, "h1", "s1", "loose x", 1),
+            (H1, "h1", "s1", "loose y", 1),
+        ],
+        missing={"loose": "not_a_term"},
+    )
+    recorded = {(dev.entity, dev.hour): dev for dev in deviations(graph)}[("loose", H1)]
+
+    assert recorded.history is False
+    assert recorded.history_reason == "not_a_term"
+    assert recorded.volume == recorded.sampled == 1
+    assert recorded.signals == ("new_edge",)
+    assert notables(graph, [])[0].entity == "loose"
+    assert notables(graph, [])[0].checked is False
+
+
+def test_a_checked_deviation_outranks_an_unchecked_one() -> None:
+    graph = _graph(
+        [
+            (H0, "h1", "s1", "ana off", 1),
+            (H1, "h1", "s1", "ana off", 5),
+            (H0, "h1", "s1", "bob p", 1),
+            (H1, "h1", "s1", "bob q r s", 1),
+        ],
+        {"ana": _series(H1, 5, 1)},
+        {"bob": "budget"},
+    )
+    ranked = notables(graph, [])
+    names = [notable.entity for notable in ranked]
+
+    assert names[0] == "ana"
+    assert ranked[0].checked is True
+    assert ranked[names.index("bob")].checked is False
+
+
+def test_the_strongest_backing_observation_orders_the_notables() -> None:
+    graph = _graph(
+        [
+            (H0, "h1", "s1", "low x", 1),
+            (H1, "h1", "s1", "low x", 2),
+            (H0, "h2", "s2", "high y", 1),
+            (H1, "h2", "s2", "high y", 2),
+        ]
+    )
+    weak = Observation("volume", "h1", "", H1, 1.0, {"signal": "burst"})
+    strong = Observation("volume", "h2", "", H1, 9.0, {"signal": "burst"})
+    names = [notable.entity for notable in notables(graph, [weak, strong])]
+
+    assert names.index("high") < names.index("low")
+    assert names.index("y") < names.index("low")
+    lead = next(item.as_lead() for item in notables(graph, [weak, strong]) if item.entity == "high")
+    assert lead["trigger_score"] == 9.0
+    assert [row["host"] for row in lead["observations"]] == ["h2"]
+
+
+def test_first_seen_without_prior_history_is_kept_out_of_the_notables() -> None:
+    graph = _graph([(H2, "h1", "s1", "new only", 3)], {"new": {H2: 3}})
+    recorded = {(dev.entity, dev.hour): dev for dev in deviations(graph)}
+
+    assert recorded[("new", H2)].first_seen is True
+    assert recorded[("new", H2)].signals == ()
+    assert notables(graph, []) == []

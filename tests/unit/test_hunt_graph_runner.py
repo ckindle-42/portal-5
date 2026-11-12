@@ -45,6 +45,7 @@ class FakeNotable:
     def __init__(self, lead: dict[str, Any], evidence: dict[str, Any]) -> None:
         self.lead = lead
         self.evidence = evidence
+        self.entity = str(lead.get("entity", ""))
 
     def as_lead(self) -> dict[str, Any]:
         return dict(self.lead)
@@ -61,10 +62,18 @@ class FakeExecutor:
         self.calls: list[dict[str, Any]] = []
 
     def read(
-        self, query: str, start: float, end: float, *, kind: str, row_cap: int
+        self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
     ) -> SimpleNamespace:
-        host = query.split('host="', 1)[1].split('"', 1)[0]
         self.calls.append({"query": query, "start": start, "end": end, "kind": kind})
+        if query.startswith("| tstats"):
+            term = query.split('TERM("', 1)[1].split('")', 1)[0]
+            censored = term == "pid=censored"
+            return SimpleNamespace(
+                rows=[{"_time": start + HOUR * step, "count": 3} for step in range(4)],
+                censored=censored,
+                reason="query_bound" if censored else None,
+            )
+        host = query.split('host="', 1)[1].split('"', 1)[0]
         rows = [
             {"_time": start + 60, "host": host, "source": "svc", "_raw": "uid=alpha pid=4242"},
             {"_time": start + 120, "host": host, "source": "svc", "_raw": "uid=alpha pid=9999"},
@@ -78,15 +87,26 @@ class FakeExecutor:
 def _fake_graph() -> tuple[SimpleNamespace, dict[str, Any]]:
     seen: dict[str, Any] = {}
 
-    def build(samples: Any) -> dict[str, Any]:
+    def build(
+        samples: Any,
+        history: Any = None,
+        missing: Any = None,
+    ) -> dict[str, Any]:
         seen["samples"] = samples
+        seen["history"] = history
+        seen["missing"] = missing
         return {"built": True}
 
     def notables(graph: Any, observations: Any) -> list[FakeNotable]:
         seen["observations"] = observations
         return [
-            FakeNotable({"host": "h1", "hour": START + 2 * HOUR, "span": 2 * HOUR}, {"why": 1}),
-            FakeNotable({"host": "h2", "hour": START, "span": HOUR}, {"why": 2}),
+            FakeNotable(
+                {"entity": "uid=alpha", "host": "h1", "hour": START + 2 * HOUR, "span": 2 * HOUR},
+                {"why": 1},
+            ),
+            FakeNotable(
+                {"entity": "pid=4242", "host": "h2", "hour": START, "span": HOUR}, {"why": 2}
+            ),
         ]
 
     return SimpleNamespace(__name__="fake.graph", build=build, notables=notables), seen
@@ -172,7 +192,7 @@ def test_cells_follow_the_observation_order_then_prior_hours() -> None:
         ("h2", START + 3 * HOUR, False),
         ("h2", START + HOUR, True),
     ]
-    assert plan[0].literal == 'search index="idx" host="h1" | where uid="alpha"'
+    assert plan[0].literal == 'search index="idx" host="h1" TERM("uid=alpha")'
 
 
 def test_cell_plan_stops_at_the_budget() -> None:
@@ -215,12 +235,29 @@ def test_runner_writes_leads_cells_and_progress(tmp_path: Path, monkeypatch: Any
     assert progress["event_count"] == 10
     assert progress["request_kinds"]["events"]["requests"] == 5
     assert progress["request_kinds"]["events"]["censored"] == 0
+    assert progress["request_kinds"]["history"]["requests"] == 2
+    assert progress["request_kinds"]["history"]["censored"] == 0
+    assert progress["history"] == {
+        "budget": graph_hunt.HISTORY_TERMS,
+        "trigger_terms": graph_hunt.HISTORY_TRIGGER_TERMS,
+        "concurrency": graph_hunt.HISTORY_CONCURRENCY,
+        "requested": 2,
+        "read": 2,
+        "wall_seconds": progress["history"]["wall_seconds"],
+        "skipped_count": 0,
+        "skipped": [],
+    }
+    assert progress["budgets"]["history_terms"] == graph_hunt.HISTORY_TERMS
+    assert progress["budgets"]["history_concurrency"] == graph_hunt.HISTORY_CONCURRENCY
     assert progress["observation_request_kinds"] == {"volume": {"requests": 3, "seconds": 1.0}}
     assert progress["coverage"] == {
         "observation_complete": True,
         "cells_planned": 5,
         "cells_read": 5,
         "cells_censored": 0,
+        "history_planned": 2,
+        "history_read": 2,
+        "history_censored": 0,
         "reasons": [],
     }
     assert progress["coverage_complete"] is True
@@ -260,6 +297,74 @@ def test_runner_hands_the_graph_cell_samples_keyed_by_host_source_hour(
     events = [event for cell in seen["samples"].values() for event in cell]
     assert all(set(event) == {"_time", "host", "source", "_raw"} for event in events)
     assert [obs.host for obs in seen["observations"]] == ["h1"]
+    assert set(seen["history"]) == {"uid=alpha", "pid=4242"}
+    assert seen["missing"] == {}
+
+
+def test_history_query_is_the_indexed_term_over_the_whole_retention() -> None:
+    assert (
+        graph_hunt.history_query(INDEX, "op=pam:accounting")
+        == '| tstats count where index="idx" TERM("op=pam:accounting") by _time span=1h'
+    )
+
+
+def test_history_reads_are_budgeted_and_skips_say_why(monkeypatch: Any) -> None:
+    monkeypatch.setattr(graph_hunt, "HISTORY_TERMS", 1)
+    observation = _obs("value", "h1", "uid=alpha", START, 9.0)
+    targets, skipped = graph_hunt.history_plan(
+        {"uid=alpha", "pid=4242"}, [observation], [_obs("volume", "h1", "pid=4242", START, 2.0)]
+    )
+
+    assert targets == ["uid=alpha"]
+    assert skipped == [("pid=4242", "budget")]
+
+
+def test_the_graph_keeps_a_share_of_the_history_budget(monkeypatch: Any) -> None:
+    monkeypatch.setattr(graph_hunt, "HISTORY_TERMS", 3)
+    monkeypatch.setattr(graph_hunt, "HISTORY_TRIGGER_TERMS", 1)
+    observations = [_obs("value", "h1", "t1", START, 9.0), _obs("value", "h1", "t2", START, 8.0)]
+    provisional = [_obs("volume", "h1", name, START, 1.0) for name in ("g1", "g2", "g3")]
+
+    targets, skipped = graph_hunt.history_plan(
+        {"t1", "t2", "g1", "g2", "g3"}, observations, provisional
+    )
+
+    assert targets == ["t1", "g1", "g2"]
+    assert skipped == [("g3", "budget"), ("t2", "budget")]
+
+
+def test_a_value_that_is_not_a_term_is_recorded_not_dropped() -> None:
+    observation = _obs("value", "h1", "msg=a,b", START, 9.0)
+
+    targets, skipped = graph_hunt.history_plan({"msg=a,b"}, [observation], [])
+
+    assert targets == []
+    assert skipped == [("msg=a,b", "not_a_term")]
+
+
+def test_a_censored_history_read_makes_coverage_incomplete(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    class CensoredExecutor(FakeExecutor):
+        def read(
+            self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+        ) -> SimpleNamespace:
+            if query.startswith("| tstats") and 'TERM("pid=4242")' in query:
+                self.calls.append({"query": query, "start": start, "end": end, "kind": kind})
+                return SimpleNamespace(rows=[], censored=True, reason="query_bound")
+            return super().read(query, start, end, kind=kind, row_cap=row_cap)
+
+    out = _run(tmp_path, monkeypatch, CensoredExecutor())
+    progress = json.loads((out / "progress.json").read_text())
+    history = progress["history"]
+
+    assert history["requested"] == 2
+    assert history["read"] == 1
+    assert {"entity": "pid=4242", "reason": "query_bound"} in history["skipped"]
+    assert progress["coverage"]["history_censored"] == 1
+    assert progress["coverage"]["reasons"] == ["query_bound"]
+    assert progress["request_kinds"]["history"]["censored"] == 1
+    assert progress["coverage_complete"] is False
 
 
 def test_censored_cell_makes_coverage_incomplete(tmp_path: Path, monkeypatch: Any) -> None:

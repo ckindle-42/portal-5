@@ -47,6 +47,7 @@ _PAIR = re.compile(r"""(?<![\w.])([A-Za-z_][\w.]{1,30})=([^\s"=]*)""")
 _QUOTED = r'"((?:\\.|[^"])*)"'
 _HOST_CONSTRAINT = re.compile(rf"host={_QUOTED}")
 _WHERE_CONSTRAINT = re.compile(rf"where\s+([A-Za-z_][\w.]*)={_QUOTED}")
+_TERM_CONSTRAINT = re.compile(rf"TERM\({_QUOTED}\)")
 
 
 @dataclass(frozen=True)
@@ -117,16 +118,22 @@ def literal_query(kind: str, index: str, host: str, entity: str) -> str:
             f"| where sourcetype={where_literal(sourcetype)} "
             f"| where punct={where_literal(punct)}"
         )
-    key, _, value = entity.partition("=")
-    return f"search index={index_lit} host={host_lit} | where {key}={where_literal(value)}"
+    # A learned value is one indexed term; a field comparison is not what the grid counted.
+    return f"search index={index_lit} host={host_lit} TERM({_search_literal(entity)})"
 
 
 def _unescape(inner: str) -> str:
     return re.sub(r"\\(.)", r"\1", inner)
 
 
+def _term_matches(raw: str, term: str) -> bool:
+    """The key=value a value literal encodes, as the PREFIX grid grouped it."""
+    key, sep, value = term.partition("=")
+    return bool(sep) and learned_pairs(raw).get(key) == value
+
+
 def literal_matches(event: Mapping[str, Any], query: str) -> bool:
-    """Exact field match for a literal_query. A `*` in the value matches only a star."""
+    """Exact field or indexed-term match for a literal_query; a `*` matches only a star."""
     constraints: list[tuple[str, str]] = []
     host = _HOST_CONSTRAINT.search(query)
     if host:
@@ -134,7 +141,8 @@ def literal_matches(event: Mapping[str, Any], query: str) -> bool:
     constraints.extend(
         (match.group(1), _unescape(match.group(2))) for match in _WHERE_CONSTRAINT.finditer(query)
     )
-    if not constraints:
+    terms = [_unescape(match.group(1)) for match in _TERM_CONSTRAINT.finditer(query)]
+    if not constraints and not terms:
         return False
     fields: dict[str, str] = {
         "host": str(event.get("host", "")),
@@ -143,7 +151,10 @@ def literal_matches(event: Mapping[str, Any], query: str) -> bool:
         "punct": str(event.get("punct", "")),
     }
     fields.update(learned_pairs(str(event.get("_raw", ""))))
-    return all(fields.get(name) == value for name, value in constraints)
+    raw = str(event.get("_raw", ""))
+    return all(fields.get(name) == value for name, value in constraints) and all(
+        _term_matches(raw, term) for term in terms
+    )
 
 
 def _sort_key(obs: Observation) -> tuple[bool, float, str, str, str, str, int]:

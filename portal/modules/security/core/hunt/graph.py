@@ -13,6 +13,7 @@ from portal.modules.security.core.hunt.observations import Observation
 
 Cell = tuple[str, str, int]
 Pair = tuple[str, str]
+History = Mapping[str, Mapping[int, int]]
 
 # Effort budget: distinct values read from one event.
 MAX_VALUES_PER_EVENT = 64
@@ -32,6 +33,11 @@ _BREAKER = re.compile(
 def values(raw: str) -> list[str]:
     """The major segments of `raw`, in appearance order. Repeats are kept."""
     return [piece for piece in _BREAKER.split(raw) if piece]
+
+
+def is_term(value: str) -> bool:
+    """True when the indexer keeps `value` as one token: one major segment or a breaker."""
+    return bool(value) and (value in _MAJOR_BREAKERS or values(value) == [value])
 
 
 @dataclass(frozen=True)
@@ -77,6 +83,8 @@ class Graph:
     edges: dict[Pair, Edge]
     adjacency: dict[str, set[str]]
     truncations: dict[str, Truncation]
+    history: dict[str, dict[int, int]] = field(default_factory=dict)
+    missing: dict[str, str] = field(default_factory=dict)
 
     def neighbours(self, value: str) -> set[str]:
         return set(self.adjacency.get(value, ()))
@@ -171,8 +179,12 @@ def _degree(nodes: Mapping[str, Node], edges: Mapping[Pair, Edge]) -> None:
                 nodes[value].degree[hour] = nodes[value].degree.get(hour, 0) + 1
 
 
-def build(cells: Mapping[Cell, Iterable[Mapping[str, Any]]]) -> Graph:
-    """Build the graph from bounded event samples; a cell owns its host, source and hour."""
+def build(
+    cells: Mapping[Cell, Iterable[Mapping[str, Any]]],
+    history: History | None = None,
+    missing: Mapping[str, str] | None = None,
+) -> Graph:
+    """The graph from bounded cells; `history` and `missing` are the caller's index read."""
     nodes: dict[str, Node] = {}
     edges: dict[Pair, Edge] = {}
     adjacency: dict[str, set[str]] = {}
@@ -182,7 +194,8 @@ def build(cells: Mapping[Cell, Iterable[Mapping[str, Any]]]) -> Graph:
             _record_event(nodes, edges, adjacency, truncations, (host, source, hour), event)
     _degree(nodes, edges)
     recorded = {kind: Truncation(kind, slot[0], slot[1]) for kind, slot in truncations.items()}
-    return Graph(nodes, edges, adjacency, recorded)
+    series = {value: dict(hours) for value, hours in (history or {}).items()}
+    return Graph(nodes, edges, adjacency, recorded, series, dict(missing or {}))
 
 
 @dataclass(frozen=True)
@@ -201,9 +214,16 @@ class Deviation:
     peer_degree: float | None
     hosts: tuple[tuple[str, int], ...]
     cells: tuple[Pair, ...]
+    sampled: int = 0
+    history: bool = False
+    history_reason: str | None = None
+    history_hours: int = 0
 
     @property
     def signals(self) -> tuple[str, ...]:
+        # A checked entity that is not above its own normal is not a deviation.
+        if self.history and not (self.volume_z is not None and self.volume_z > 0):
+            return ()
         found: list[str] = []
         if self.volume_z is not None and self.volume_z > 0:
             found.append("volume")
@@ -230,6 +250,10 @@ class Deviation:
             "hosts": [{"host": host, "count": count} for host, count in self.hosts],
             "cells": [{"host": host, "source": source} for host, source in self.cells],
             "signals": list(self.signals),
+            "sampled": self.sampled,
+            "history": self.history,
+            "history_reason": self.history_reason,
+            "history_hours": self.history_hours,
         }
 
 
@@ -262,6 +286,17 @@ def _new_edges(graph: Graph, value: str, hour: int) -> tuple[str, ...]:
     return tuple(sorted(found))
 
 
+def _peer_share(
+    now: float, name: str, measures: Mapping[str, float], active: Iterable[str]
+) -> float | None:
+    """Fraction of comparable peers strictly below `now`, on the same measure."""
+    others = [other for other in active if other != name]
+    if not others:
+        return None
+    lower = sum(1 for other in others if measures.get(other, 0.0) < now)
+    return lower / len(others)
+
+
 def _deviation(
     graph: Graph,
     node: Node,
@@ -271,12 +306,21 @@ def _deviation(
     active: set[str],
     volumes: Mapping[str, int],
     degrees: Mapping[str, int],
+    measures: Mapping[str, float],
 ) -> Deviation:
-    volume = node.hours[hour]
+    series = graph.history.get(node.value)
+    sampled = node.hours[hour]
+    volume = sampled if series is None else series.get(hour, 0)
     degree = node.degree.get(hour, 0)
-    volume_burst = None if first_seen else _burst(node.value, hour, node.hours)
+    burst_series = node.hours if series is None else series
+    volume_burst = None if first_seen else _burst(node.value, hour, burst_series)
     degree_burst = None if first_seen else _burst(node.value, hour, node.degree)
     shared = peers & active
+    if series is None or volume_burst is None:
+        peer_volume = peer_proportion(volume, node.value, volumes, shared)
+    else:
+        comparable = {peer for peer in shared if peer in measures}
+        peer_volume = _peer_share(volume_burst.z, node.value, measures, comparable)
     hosts, cells = _host_cells(node.events.get(hour, ()))
     return Deviation(
         entity=node.value,
@@ -289,10 +333,16 @@ def _deviation(
         degree=degree,
         degree_z=None if degree_burst is None else degree_burst.z,
         new_edges=() if first_seen else _new_edges(graph, node.value, hour),
-        peer_volume=peer_proportion(volume, node.value, volumes, shared),
+        peer_volume=peer_volume,
         peer_degree=peer_proportion(degree, node.value, degrees, shared),
         hosts=hosts,
         cells=cells,
+        sampled=sampled,
+        history=series is not None,
+        history_reason=None
+        if series is not None
+        else graph.missing.get(node.value, "not_requested"),
+        history_hours=0 if series is None else len(series),
     )
 
 
@@ -302,12 +352,22 @@ def _entity_deviations(
     active: Mapping[int, set[str]],
     volumes: Mapping[int, Mapping[str, int]],
     degrees: Mapping[int, Mapping[str, int]],
+    measures: Mapping[int, Mapping[str, float]],
 ) -> list[Deviation]:
-    origin = min(node.hours)
+    series = graph.history.get(node.value, node.hours)
+    origin = min(series) if series else min(node.hours)
     peers = _peers(graph, node.value)
     return [
         _deviation(
-            graph, node, hour, hour == origin, peers, active[hour], volumes[hour], degrees[hour]
+            graph,
+            node,
+            hour,
+            hour == origin,
+            peers,
+            active[hour],
+            volumes[hour],
+            degrees[hour],
+            measures.get(hour, {}),
         )
         for hour in sorted(node.hours)
     ]
@@ -327,12 +387,29 @@ def _hour_counts(
     return active, volumes, degrees
 
 
+def _history_measures(graph: Graph) -> dict[int, dict[str, float]]:
+    """Entity-hour burst z against the entity's own retention series, for peers to compare."""
+    found: dict[int, dict[str, float]] = {}
+    for value, series in graph.history.items():
+        node = graph.nodes.get(value)
+        if node is None:
+            continue
+        for hour in node.hours:
+            burst = _burst(value, hour, series)
+            if burst is not None:
+                found.setdefault(hour, {})[value] = burst.z
+    return found
+
+
 def deviations(graph: Graph) -> list[Deviation]:
     """One record per entity-hour, ordered by (entity, hour); first-seen hours are flagged."""
     active, volumes, degrees = _hour_counts(graph)
+    measures = _history_measures(graph)
     found: list[Deviation] = []
     for value in sorted(graph.nodes):
-        found.extend(_entity_deviations(graph, graph.nodes[value], active, volumes, degrees))
+        found.extend(
+            _entity_deviations(graph, graph.nodes[value], active, volumes, degrees, measures)
+        )
     return found
 
 
@@ -350,6 +427,10 @@ class Notable:
     signals: tuple[str, ...]
     new_edges: int
     strength: float
+    checked: bool
+    deviation: float
+    peer: float
+    trigger_score: float | None
 
     def as_lead(self) -> dict[str, Any]:
         """Strongest deviation's dominant host-hour, with the whole accumulation attached."""
@@ -365,6 +446,10 @@ class Notable:
             "hours": self.hours,
             "signals": list(self.signals),
             "new_edges": self.new_edges,
+            "checked": self.checked,
+            "deviation": self.deviation,
+            "peer": self.peer,
+            "trigger_score": self.trigger_score,
             "host_hours": [
                 {"host": host, "hour": hour, "span": span} for host, hour, span in self.host_hours
             ],
@@ -374,10 +459,14 @@ class Notable:
             "deviations": [dev.as_dict() for dev in self.deviations],
         }
 
+    def as_dict(self) -> dict[str, Any]:
+        return self.as_lead()
 
-def _best(dev: Deviation) -> tuple[float, float, int, int, str]:
+
+def _best(dev: Deviation) -> tuple[float, int, float, int, int, str]:
     return (
         -(dev.volume_z or 0.0),
+        -int(dev.history),
         -(dev.degree_z or 0.0),
         -len(dev.new_edges),
         dev.hour,
@@ -426,12 +515,15 @@ def _notable(
             refs[(ref.time, ref.host, ref.source)] = ref
     cells = {(host, source) for dev in rows for host, source in dev.cells}
     strength = sum(max(dev.volume_z or 0.0, 0.0) + max(dev.degree_z or 0.0, 0.0) for dev in rows)
+    backing = _backing(rows, observations)
+    scores = [row["score"] for row in backing if row.get("score") is not None]
+    checked = any(dev.history for dev in rows)
     return Notable(
         entity=entity,
         deviations=tuple(rows),
         host_hours=host_hours,
         events=tuple(refs[key].as_dict() for key in sorted(refs)),
-        observations=_backing(rows, observations),
+        observations=backing,
         neighbours=_neighbours(graph, entity),
         cells=len(cells),
         hosts=len({host for host, _hour, _span in host_hours}),
@@ -439,14 +531,26 @@ def _notable(
         signals=tuple(sorted({signal for dev in rows for signal in dev.signals})),
         new_edges=sum(len(dev.new_edges) for dev in rows),
         strength=round(strength, 9),
+        checked=checked,
+        deviation=max((max(dev.volume_z or 0.0, 0.0) for dev in rows), default=0.0),
+        peer=max((dev.peer_volume or 0.0 for dev in rows if dev.history), default=0.0),
+        trigger_score=None if not scores else max(float(score) for score in scores),
     )
 
 
-def _rank(notable: Notable) -> tuple[int, int, int, int, int, float, str]:
+def _rank(
+    notable: Notable,
+) -> tuple[int, float, float, bool, float, int, int, int, float, int, int, float, str]:
     return (
+        0 if notable.checked else 1,
+        -notable.deviation if notable.checked else 0.0,
+        -notable.peer if notable.checked else 0.0,
+        notable.trigger_score is None,
+        -(notable.trigger_score or 0.0),
         -notable.cells,
         -notable.hosts,
         -notable.hours,
+        -notable.deviation,
         -len(notable.signals),
         -notable.new_edges,
         -notable.strength,
@@ -455,8 +559,7 @@ def _rank(notable: Notable) -> tuple[int, int, int, int, int, float, str]:
 
 
 def notables(graph: Graph, observations: Iterable[Observation]) -> list[Notable]:
-    """Entities with a non-first-seen deviation, ranked by convergence: distinct (host,
-    source) cells, then hosts, hours, signal kinds, new edges, positive burst z, entity."""
+    """Checked own-history z and peer share, then trigger score, then convergence, then entity."""
     obs = list(observations)
     grouped: dict[str, list[Deviation]] = {}
     for dev in deviations(graph):

@@ -536,7 +536,7 @@ def test_learned_values_match_literally_including_star_and_quote() -> None:
 
     assert 'where punct="a*b"' in star.evidence["literal"]
     assert 'where punct="say \\"hi\\" *"' in quoted.evidence["literal"]
-    assert 'where msg="a*b"' in value.evidence["literal"]
+    assert 'TERM("msg=a*b")' in value.evidence["literal"]
     assert literal_matches(star_row, star.evidence["literal"])
     assert not literal_matches(wild, star.evidence["literal"])
     assert literal_matches(quote_row, quoted.evidence["literal"])
