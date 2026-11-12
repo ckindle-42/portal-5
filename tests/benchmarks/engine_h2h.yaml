@@ -48,9 +48,9 @@ engines:
     kind: managed
     requires: mlx
     port: 11234
-    version: "26.11.1"
+    version: "26.11.2"
     # brew tap ddalcu/mlx-serve https://github.com/ddalcu/mlx-serve && brew trust ddalcu/mlx-serve && brew install mlx-serve
-    # CLI formula, arm64. Not the cask. mlx-serve --version must print 26.11.1.
+    # CLI formula, arm64. Not the cask. mlx-serve --version must print 26.11.2.
     # Drafter flags are unchanged from 26.9.2: plain is --no-pld --no-drafter --no-mtp.
     # PLD (prompt-lookup speculation) is ON by default in mlx-serve, and it
     # auto-loads an MTP head or a drafter/ subdir it finds — plain must turn all three off.
@@ -61,7 +61,7 @@ engines:
     kind: managed
     requires: mlx
     port: 11235
-    version: "1.0.1"
+    version: "1.0.2"
     # Install: curl -fsSL https://rapidmlx.com/install.sh | bash
     # Bundles Python 3.12. Do not install into the portal 3.10 venv. arm64 host.
     # 1.0 keeps --speculative-config (dflash/mtp/suffix). --no-telemetry stays on.
@@ -140,9 +140,11 @@ engines:
     kind: managed
     requires: splash
     port: 11242
-    version: "1.5.0"
+    version: "1.6.1"
     # brew install incoai/tap/splash
-    # CLI formula, arm64 bottle. Not the splash-app cask. splash --version must print 1.5.0.
+    # CLI formula, arm64 bottle. Not the splash-app cask. splash --version must print 1.6.1.
+    # 1.6.1 changes INT8 activations by default on M5 and later, so a 1.5.0 vs 1.6.1
+    # quality compare is not the same graph (docs/ENGINE_LANDSCAPE_20261111.md).
     # No draft-off flag: plain and spec are both DFlash2. {splash_extra} is the
     # model tail (model-dir, local draft, served name, reasoning). --max-cache-disk 0
     # keeps Splash's SSD KV tier off. Do not pass --persistent-cache.
@@ -163,6 +165,29 @@ engines:
     plain: [mlxcel, serve, -m, "{mlx_root}/{model_dir}", --alias, "{served}", --host, 127.0.0.1, --port, "{port}", --ctx-size, "{ctx}", --parallel, "4", --kv-unified]
     base_spec: [mlxcel, serve, -m, "{mlx_root}/{model_dir}", --alias, "{served}", --host, 127.0.0.1, --port, "{port}", --ctx-size, "{ctx}", --parallel, "4", --kv-unified]
     stop_signal: INT
+  vllm-metal:
+    kind: managed
+    requires: mlx
+    port: 11244
+    version: "0.33.0"
+    # brew tap vllm-project/vllm-metal https://github.com/vllm-project/vllm-metal
+    # brew install vllm-project/vllm-metal/vllm-metal
+    # Stable channel is the 2026-11-04 release; the dev install script tracks main, do not use it.
+    # macOS 15+, arm64, formula Python 3.12. Refuse an x86_64 wheel. pip install vllm-metal is unsupported.
+    # --host/--port are upstream vLLM CLI, not printed on the 2026-09-22 Metal blog: confirm
+    # with `vllm serve --help` first. No SSD-cache flag exists there; do not add one.
+    # --gpu-memory-utilization 0.7 is the blog's 64 GB example for Qwen3.8-27B-4bit.
+    # No --tool-call-parser until --help on this install lists it.
+    # Think-off: the blog shows no think flag, so preflight must show whether
+    # chat_template_kwargs.enable_thinking is honoured; if it is not, the cell is REVIEW.
+    # The doc prints {spec_json} here; the harness splices a per-model spec args list instead,
+    # so a cell renders as `--no-async-scheduling --speculative-config <json>`. No seat has a
+    # method until docs/supported_models.md on v0.33.0 is read at bench time.
+    # The doc gives no --served-model-name, so vLLM serves the model path rather than {served}:
+    # preflight `listed` is expected False until that flag is confirmed on this install.
+    # stop_signal is unstated in the doc; the harness default INT applies.
+    plain: [vllm, serve, "{mlx_root}/{model_dir}", --host, 127.0.0.1, --port, "{port}", --gpu-memory-utilization, "0.7", --max-model-len, "{ctx}"]
+    base_spec: [vllm, serve, "{mlx_root}/{model_dir}", --host, 127.0.0.1, --port, "{port}", --gpu-memory-utilization, "0.7", --max-model-len, "{ctx}", --no-async-scheduling, --speculative-config, "{spec_args}"]
 
 models:
   mimo:
@@ -462,6 +487,8 @@ models:
       omlx: null
       mlx_lm.server: null
       mlxcel: null
+      # vLLM Metal MTP method for this seat unread on v0.33.0: plain cell only.
+      vllm-metal: null
     na:
       splash: "not a splash family (1.5.0: Qwen3.8, Qwen3.6, Ornith, Flint, Flash-Next)"
     quality_gate:
@@ -499,6 +526,8 @@ models:
       mlxcel: {method: dflash, args: [--draft-model, "{drafter_path}", --draft-kind, dflash]}
       vllm-mlx: null
       mlx_lm.server: null
+      # vLLM Metal MTP method for this seat unread on v0.33.0: plain cell only.
+      vllm-metal: null
     quality_gate:
       tool_probe: preflight
       wfe_plan: tests/wfe/plans/engine_h2h_202611_qwen38.yaml
@@ -521,6 +550,8 @@ models:
       # No separate drafter file, and mlxcel MTP requires --draft-model. Plain mlxcel still runs.
       mlxcel: null
       mlx_lm.server: null
+      # vLLM Metal MTP method for this seat unread on v0.33.0: plain cell only.
+      vllm-metal: null
     na:
       splash: "not a splash family"
     quality_gate:

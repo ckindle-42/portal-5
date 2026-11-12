@@ -479,3 +479,91 @@ def test_november_seats_have_one_quality_task(cfg):
         rows = expand_matrix(h.REPO / gate["wfe_plan"], 1, tier="realuse")
         assert {row["task_id"] for row in rows} == {task}
         assert {row["workspace"] for row in rows} == {gate["wfe_workspace"]}
+
+
+LANDSCAPE_PINS = {"splash": "1.6.1", "mlx-serve": "26.11.2", "rapid-mlx": "1.0.2"}
+VLLM_METAL_SEATS = ("gemma4_26b_a4b_qat", "qwen38_27b_h2h", "nemotron_35_lightning")
+MANAGED_ENGINE_KEYS = {"kind", "requires", "port", "plain", "base_spec"}
+
+
+def test_registry_pins_are_the_landscape_versions(cfg):
+    versions = {name: e.get("version") for name, e in cfg["engines"].items()}
+    for engine, version in LANDSCAPE_PINS.items():
+        assert versions[engine] == version
+    assert versions["vllm-metal"] == "0.33.0"
+
+
+def test_version_bumps_keep_each_engines_fairness_pins(cfg):
+    splash, _ = h.launch_command(cfg, "splash", "qwen38_27b_h2h", "spec")
+    assert splash[splash.index("--max-cache-disk") + 1] == "0"
+    assert "--persistent-cache" not in splash
+    assert "--language-only" in splash
+    mlx, _ = h.launch_command(cfg, "mlx-serve", "qwen38_27b_h2h", "plain")
+    assert {"--no-pld", "--no-drafter", "--no-mtp"} <= set(mlx)
+    rapid_plain, _ = h.launch_command(cfg, "rapid-mlx", "qwen38_27b_h2h", "plain")
+    assert "--no-telemetry" in rapid_plain and "--no-spec-decode" in rapid_plain
+    rapid_spec, _ = h.launch_command(cfg, "rapid-mlx", "qwen38_27b_h2h", "spec")
+    assert "--speculative-config" in rapid_spec
+
+
+def test_every_managed_engine_declares_the_same_schema(cfg):
+    managed = {name: e for name, e in cfg["engines"].items() if e["kind"] == "managed"}
+    assert "vllm-metal" in managed
+    for name, e in managed.items():
+        assert set(e) >= MANAGED_ENGINE_KEYS, name
+        assert isinstance(e["plain"], list) and isinstance(e["base_spec"], list), name
+    ports = [e["port"] for e in cfg["engines"].values() if "port" in e]
+    assert len(ports) == len(set(ports))
+    assert managed["vllm-metal"]["port"] == 11244
+    assert managed["vllm-metal"]["requires"] == "mlx"
+
+
+def test_vllm_metal_renders_the_documented_plain_argv(cfg):
+    argv, cwd = h.launch_command(cfg, "vllm-metal", "qwen38_27b_h2h", "plain")
+    assert argv[:2] == ["vllm", "serve"]
+    assert cwd is None
+    assert argv[argv.index("--port") + 1] == "11244"
+    assert argv[argv.index("--gpu-memory-utilization") + 1] == "0.7"
+    assert argv[argv.index("--max-model-len") + 1] == "32768"
+    assert "--tool-call-parser" not in argv
+    assert "--persistent-cache" not in argv
+
+
+def test_vllm_metal_covers_the_shortlist_seats(cfg):
+    for model in VLLM_METAL_SEATS:
+        assert h.model_supports_engine(cfg, model, "vllm-metal"), model
+        argv, _ = h.launch_command(cfg, "vllm-metal", model, "plain")
+        assert argv[2] == f"{cfg['mlx_root']}/{cfg['models'][model]['mlx']}"
+    assert h.served_id(cfg, "vllm-metal", "qwen38_27b_h2h", "plain") == "Qwen3.8-27B-4bit"
+
+
+def test_vllm_metal_spec_cells_stay_null_until_the_model_matrix_is_read(cfg):
+    for model in VLLM_METAL_SEATS:
+        assert h.spec_entry(cfg, model, "vllm-metal") is None, model
+        with pytest.raises(SystemExit, match="no spec path"):
+            h.launch_command(cfg, "vllm-metal", model, "spec")
+
+
+def test_vllm_metal_spec_args_splice_where_the_doc_wrote_spec_json(cfg, monkeypatch):
+    blob = '{"method":"mtp","num_speculative_tokens":1}'
+    monkeypatch.setitem(
+        cfg["models"]["qwen38_27b_h2h"]["spec"],
+        "vllm-metal",
+        {"method": "mtp", "args": [blob]},
+    )
+    argv, _ = h.launch_command(cfg, "vllm-metal", "qwen38_27b_h2h", "spec")
+    assert "--no-async-scheduling" in argv
+    assert argv[argv.index("--speculative-config") + 1] == blob
+    assert not any("{" in a and "}" in a and '"' not in a for a in argv)
+
+
+def test_engine_version_knows_the_new_engine(monkeypatch):
+    seen = {}
+
+    def fake_run(argv, timeout=15):
+        seen["argv"] = argv
+        return "vllm 0.33.0\n"
+
+    monkeypatch.setattr(h, "_run", fake_run)
+    assert h.engine_version("vllm-metal") == "vllm 0.33.0"
+    assert seen["argv"][0] == "vllm"

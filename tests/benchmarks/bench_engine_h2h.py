@@ -1387,6 +1387,8 @@ def engine_version(engine: str) -> str:
             "-c",
             "import vllm_mlx;print(vllm_mlx.__version__)",
         ],
+        # vllm-metal installs the upstream `vllm` CLI; its --version wording is unconfirmed here.
+        "vllm-metal": ["vllm", "--version"],
         "mlx_lm.server": ["python3", "-c", "import mlx_lm;print(mlx_lm.__version__)"],
         "mtplx": ["mtplx", "--version"],
         "prismml-llama": [
@@ -1542,6 +1544,7 @@ def cmd_doctor(cfg: dict) -> int:
         "mtplx",
         "splash",
         "mlxcel",
+        "vllm",
         "footprint",
         "llama-server",
         "lsof",
