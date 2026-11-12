@@ -10,9 +10,20 @@ from typing import Any, Protocol
 
 import httpx
 
+DEFAULT_KEY_ENV = "PIPELINE_API_KEY"  # env var name whose value is the Pipeline credential
 JUDGE_SEED = 0
 JUDGE_TOP_LOGPROBS = 20  # effort budget: alternatives returned for the first token
 JUDGE_TIMEOUT_SECONDS = 60  # effort budget: maximum wait for one local judgement
+_CHAT_COMPLETIONS = "/v1/chat/completions"
+
+
+def chat_completions_endpoint(url: str) -> str:
+    """Pipeline chat-completions path. The caller supplies the workspace URL."""
+    root = url.rstrip("/")
+    if root.endswith(_CHAT_COMPLETIONS):
+        return root
+    return root + _CHAT_COMPLETIONS
+
 
 QUESTION = """You are a security analyst. Below are log events from one host during one hour. They were
 selected only because their format or volume is unusual for this host. Decide whether they show

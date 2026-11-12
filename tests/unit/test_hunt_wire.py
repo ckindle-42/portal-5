@@ -120,32 +120,42 @@ def test_two_runs_return_the_same_seeds_episodes_and_lead_order() -> None:
 
 
 def test_episode_order_matches_the_brute_force_grouping() -> None:
+    """Leads follow host-hour position. Ties would keep the episode order."""
+    from portal.modules.security.core.hunt.evidence import accumulated_host_hours
+
     rows = _plant()
     run = observe(GridSearch(rows), INDEX, float(START), float(END))
     leads = hunt(GridSearch(rows), INDEX, float(START), float(END), candidates=50)
-    seeds = [(obs.kind, obs.host, obs.entity, obs.hour) for obs in run.observations[:50]]
     investigated = [
         (row["kind"], row["host"], row["entity"], row["hour"])
         for lead in leads
         for row in lead.observations
     ]
+    scored = {
+        (obs.kind, obs.host, obs.entity, obs.hour): obs.score
+        for obs in run.observations
+        if obs.score is not None and obs.score > 0
+    }
 
-    assert seeds
-    assert set(seeds) <= set(investigated)
+    assert investigated
+    assert set(investigated) <= set(scored)
     linked = next(lead for lead in leads if _hosts(lead.observations) == {"h1", "h2"})
-    assert START in _hours(linked.observations)
-    assert START + HOUR in _hours(linked.observations)
+    assert _hours(linked.observations) == {START + HOUR}
     assert START + 3 * HOUR not in _hours(linked.observations)
     later = next(lead for lead in leads if START + 3 * HOUR in _hours(lead.observations))
     assert _hosts(later.observations) == {"h1"}
-    assert leads[0] is linked
+    assert START not in {hour for lead in leads for hour in _hours(lead.observations)}
+    position = {
+        (cell.host, cell.hour): index
+        for index, cell in enumerate(accumulated_host_hours(run.observations))
+    }
 
-    def _key(lead: Any) -> tuple[int, int, int, str]:
-        kinds = len({row["kind"] for row in lead.observations})
-        hosts = len(_hosts(lead.observations))
-        return (-kinds, -hosts, lead.hour, lead.host)
+    def _best(lead: Any) -> int:
+        return min(position[(row["host"], int(row["hour"]))] for row in lead.observations)
 
-    assert [_key(lead) for lead in leads] == sorted(_key(lead) for lead in leads)
+    assert [_best(lead) for lead in leads] == sorted(_best(lead) for lead in leads)
+    assert all(lead.p_yes is None for lead in leads)
+    assert all(lead.acc_rank >= 1 for lead in leads)
 
 
 def test_ranking_requests_stay_constant_as_tokens_grow() -> None:

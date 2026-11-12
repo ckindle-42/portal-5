@@ -1,8 +1,8 @@
-"""Hunt engine: layer-1 observations are the seeds, episodes are the leads.
+"""Hunt engine: host-hours are the seeds, episodes are the leads.
 
 One pass scores volume, source, shape, stream, and learned values with the current
-baseline. The top of that total order, bounded by the candidates effort budget, is
-grouped into episodes and handed to investigation as leads. Observations outside
+baseline. Host-hours in the final order, bounded by the candidates effort budget,
+supply the positive-scored observations that become episodes. Observations outside
 that budget stay listed. Nothing here names a technique, a field, or a format.
 """
 
@@ -18,6 +18,8 @@ from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Any, Protocol
+
+from portal.modules.security.core.hunt.judge import JudgeClient
 
 HOUR = 3600
 _TIME_OF_DAY = re.compile(r"\d{1,2}:\d{2}:\d{2}")
@@ -63,6 +65,9 @@ class Lead:
     score: float = 0.0
     span: int = HOUR  # episode window; `hour` is the first hour of the episode
     observations: list[dict[str, Any]] = field(default_factory=list)
+    risk: float = 0.0  # accumulated risk of this lead's best host-hour
+    acc_rank: int = 0  # that host-hour's place in the accumulated order
+    p_yes: float | None = None  # judge mass for that host-hour; null when unjudged
 
     def as_dict(self) -> dict[str, Any]:
         out = asdict(self)
@@ -182,6 +187,116 @@ def _budget_stopped(run: Any) -> bool:
     return any("budget" in slot.get("reasons", []) for slot in run.coverage.values())
 
 
+# effort budget: positive-scored observations of one host-hour passed to episode grouping
+SEEDS_PER_HOST_HOUR = 12
+
+
+def _judge_stopped(search: Search) -> bool:
+    budget = getattr(search, "budget", None)
+    remaining = getattr(budget, "remaining", None)
+    if not callable(remaining):
+        return False
+    return bool(remaining() <= 0)
+
+
+def _publish_order(search: Search, rows: list[dict[str, Any]], block: dict[str, Any]) -> None:
+    budget = getattr(search, "budget", None)
+    if budget is None:
+        return
+    from portal.modules.security.core.hunt.order import host_hour_record
+
+    budget.host_hours = [host_hour_record(row) for row in rows]
+    budget.judge_block = dict(block)
+    budget.judge_requests = int(block.get("requests", 0))
+    budget.judge_seconds = float(block.get("seconds", 0.0))
+
+
+def _host_hour_rows(
+    search: Search,
+    index: str,
+    start: float,
+    end: float,
+    ordered: list[Any],
+    judge: JudgeClient | None,
+    judge_model: str | None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Final host-hour order. Unconfigured and stopped judges say so and do not score."""
+    from portal.modules.security.core.hunt.evidence import (
+        JUDGE_CELLS,
+        MAX_EVENT_CHARACTERS,
+    )
+    from portal.modules.security.core.hunt.order import accumulated_rows, rank_from_observations
+
+    if judge is None or not judge_model:
+        return accumulated_rows(ordered, "judge_not_configured"), {"configured": False}
+    if _judge_stopped(search):
+        return accumulated_rows(ordered, "job_deadline_exceeded"), {
+            "configured": True,
+            "requests": 0,
+            "seconds": 0.0,
+            "order": "fused",
+        }
+    executor = getattr(search, "executor", None)
+    if executor is None:
+        return accumulated_rows(ordered, "no_budgeted_executor"), {
+            "configured": True,
+            "reason": "no_budgeted_executor",
+        }
+    ranked = rank_from_observations(
+        ordered,
+        executor,
+        index,
+        start,
+        end,
+        judge,
+        judge_model,
+        budget_order="accumulated",
+        judge_cells=JUDGE_CELLS,
+        order_mode="fused",
+        evidence_mode="rarest",
+        event_chars=MAX_EVENT_CHARACTERS,
+        stop=lambda: _judge_stopped(search),
+    )
+    cost = ranked["judge_cost"]
+    return ranked["leads"], {
+        "configured": True,
+        "requests": cost["requests"],
+        "seconds": cost["seconds"],
+        "served": sorted(ranked["served_models"]),
+        "order": "fused",
+    }
+
+
+def _episode_hours(episode: Any) -> list[tuple[str, int]]:
+    found: list[tuple[str, int]] = []
+    seen: set[tuple[str, int]] = set()
+    for obs in episode.observations:
+        key = (obs.host, obs.hour)
+        if key not in seen:
+            seen.add(key)
+            found.append(key)
+    return found
+
+
+def _order_leads(episodes: list[Any], leads: list[Lead], rows: list[dict[str, Any]]) -> list[Lead]:
+    """Best host-hour position first. Equal positions keep the episode order."""
+    from portal.modules.security.core.hunt.order import best_host_hour, order_group_indexes
+
+    groups = [_episode_hours(episode) for episode in episodes]
+    info = {(str(row["host"]), int(row["hour"])): row for row in rows}
+    ordered: list[Lead] = []
+    for index in order_group_indexes(groups, rows):
+        lead = leads[index]
+        key = best_host_hour(groups[index], rows)
+        row = None if key is None else info.get(key)
+        if row is not None:
+            lead.risk = float(row["risk"])
+            lead.acc_rank = int(row["acc_rank"])
+            lead.p_yes = None if row["p_yes"] is None else float(row["p_yes"])
+        ordered.append(lead)
+    return ordered
+
+
 def hunt(
     search: Search,
     index: str,
@@ -189,26 +304,31 @@ def hunt(
     end: float,
     *,
     candidates: int = 15,
+    judge: JudgeClient | None = None,
+    judge_model: str | None = None,
 ) -> list[Lead]:
-    """Seeds are the top of the observation order. `candidates` bounds how many are investigated."""
+    """Seeds are host-hours. `candidates` bounds how many host-hours are investigated."""
     from portal.modules.security.core.hunt.episodes import accumulate, to_lead
     from portal.modules.security.core.hunt.observations import observe
+    from portal.modules.security.core.hunt.order import positive_seeds
 
     run = observe(search, index, start, end, baseline="current")
     ordered = list(run.observations)
-    seeds = ordered[: max(0, candidates)]
+    rows, block = _host_hour_rows(search, index, start, end, ordered, judge, judge_model)
+    seeds = positive_seeds(ordered, rows, candidates, SEEDS_PER_HOST_HOUR)
     place = {
         (obs.kind, obs.host, obs.entity, obs.hour, str(obs.evidence.get("signal", ""))): index
         for index, obs in enumerate(ordered)
     }
     episodes = accumulate(seeds, ordered, place)
-    leads = [to_lead(episode, place) for episode in episodes]
+    leads = _order_leads(episodes, [to_lead(episode, place) for episode in episodes], rows)
     investigated = {
         (row["kind"], row["host"], row["entity"], row["hour"])
         for lead in leads
         for row in lead.observations
     }
     _record(search, run, investigated)
+    _publish_order(search, rows, block)
     if _budget_stopped(run):
         raise SearchBudgetExceededError("observation_budget_exhausted")
     return leads

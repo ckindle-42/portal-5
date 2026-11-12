@@ -9,27 +9,23 @@ import os
 import sys
 import time
 from collections.abc import Callable, Mapping
-from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from portal.modules.security.core.hunt.baselines import BASELINES  # noqa: E402
-from portal.modules.security.core.hunt.engine import HOUR  # noqa: E402
 from portal.modules.security.core.hunt.evidence import (  # noqa: E402
     EVENTS_PER_OBSERVATION,
     EVIDENCE_REQUESTS,
     JUDGE_CELLS,
     MAX_EVENT_CHARACTERS,
     MAX_OBSERVATIONS_PER_CELL,
-    EvidenceCell,
-    accumulated_host_hours,
-    read_cells,
 )
 from portal.modules.security.core.hunt.judge import (  # noqa: E402
+    DEFAULT_KEY_ENV,
     OpenAICompatibleClient,
-    judge_cell,
+    chat_completions_endpoint,
 )
 from portal.modules.security.core.hunt.observations import (  # noqa: E402
     ObservationRun,
@@ -38,17 +34,12 @@ from portal.modules.security.core.hunt.observations import (  # noqa: E402
     observe,
     reorder,
 )
+from portal.modules.security.core.hunt.order import (  # noqa: E402
+    ORDER_STATEMENT,
+    coverage_complete,
+    rank_from_observations,
+)
 from portal.modules.security.core.review.window import SplunkWindowSource  # noqa: E402
-
-HOST_DAY_SPAN = 86400  # grouping granularity: one host's UTC day, not a time filter
-_ORDER_STATEMENT = {
-    "fused": (
-        "judged cells by ascending sum of P(yes) rank (ties by acc_rank) and budget position, "
-        "ties by budget position; remaining cells by accumulated risk"
-    ),
-    "judged": "judged cells by descending P(yes); remaining cells by accumulated risk",
-    "budget": "budget sequence",
-}
 
 
 def _window(args: argparse.Namespace) -> tuple[ObservationRun, dict[str, Any], Any]:
@@ -92,25 +83,6 @@ def _window(args: argparse.Namespace) -> tuple[ObservationRun, dict[str, Any], A
     return run, meta, search.executor
 
 
-def _endpoint(url: str) -> str:
-    suffix = "/v1/chat/completions"
-    return url.rstrip("/") if url.rstrip("/").endswith(suffix) else url.rstrip("/") + suffix
-
-
-def _compact_observations(observations: Any) -> list[dict[str, Any]]:
-    return [
-        {
-            "kind": observation.kind,
-            "entity": observation.entity,
-            "hour": observation.hour,
-            "score": observation.score,
-            "signal": observation.evidence.get("signal"),
-            "literal": observation.evidence.get("literal"),
-        }
-        for observation in observations
-    ]
-
-
 def _executor_delta(
     before: Mapping[str, Mapping[str, Any]], after: Mapping[str, Mapping[str, Any]]
 ) -> dict[str, dict[str, Any]]:
@@ -139,276 +111,9 @@ def _observation_cost(run: ObservationRun, saved: bool) -> dict[str, Any]:
     }
 
 
-def _lead(
-    cell: Any,
-    *,
-    result: Any = None,
-    evidence: list[dict[str, Any]] | None = None,
-    reason: str | None = None,
-    evidence_selection: str | None = None,
-) -> dict[str, Any]:
-    shown = evidence or []
-    return {
-        "host": cell.host,
-        "hour": cell.hour,
-        "span": HOUR,
-        "p_yes": result.p_yes if result is not None else None,
-        "risk": cell.risk,
-        "l1_rank": cell.l1_rank,
-        "acc_rank": cell.acc_rank,
-        "budget_rank": cell.budget_rank,
-        "judged": bool(result is not None and result.p_yes is not None),
-        "reason": reason,
-        "evidence_selection": evidence_selection,
-        "evidence": shown,
-        "observations": _shown_observations(cell, shown),
-    }
-
-
-def _shown_observations(cell: Any, evidence: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Contributing observations when the cell was read; otherwise the bounded prefix."""
-    if not evidence:
-        return _compact_observations(cell.observations)[:MAX_OBSERVATIONS_PER_CELL]
-    remaining = list(evidence)
-    chosen: list[Any] = []
-    for observation in cell.observations:
-        literal = str(observation.evidence.get("literal") or "")
-        take = [item for item in remaining if item["query"] == literal][:EVENTS_PER_OBSERVATION]
-        if not take:
-            continue
-        chosen.append(observation)
-        for item in take:
-            remaining.remove(item)
-        if len(chosen) == MAX_OBSERVATIONS_PER_CELL:
-            break
-    return _compact_observations(chosen)
-
-
-def _coverage(
-    leads: list[dict[str, Any]], total: int, beyond: list[dict[str, Any]]
-) -> dict[str, Any]:
-    unjudged = [
-        {key: lead[key] for key in ("host", "hour", "l1_rank", "budget_rank", "reason")}
-        for lead in leads
-        if not lead["judged"] and lead["reason"] != "beyond_judge_cell_budget"
-    ]
-    return {
-        "cells_total": total,
-        "cells_judged": sum(bool(lead["judged"]) for lead in leads),
-        "cells_unjudged": len(unjudged),
-        "unjudged": unjudged,
-        "cells_beyond_budget": len(beyond),
-        "beyond_budget": beyond,
-    }
-
-
-def _judge_selected(
-    client: Any,
-    model: str,
-    selected: list[Any],
-    reads_by_cell: Mapping[tuple[str, int], Any],
-) -> tuple[dict[tuple[str, int], tuple[Any, Any]], dict[str, Any], set[str]]:
-    judged: dict[tuple[str, int], tuple[Any, Any]] = {}
-    seconds = 0.0
-    attempts = 0
-    served: set[str] = set()
-    for cell in selected:
-        read = reads_by_cell[(cell.host, cell.hour)]
-        if not read.evidence:
-            continue
-        verdict = judge_cell(client, model=model, evidence=read.evidence)
-        attempts += 1
-        seconds += verdict.seconds
-        if verdict.served_model:
-            served.add(verdict.served_model)
-        judged[(cell.host, cell.hour)] = (read, verdict)
-    return judged, {"requests": attempts, "seconds": round(seconds, 3)}, served
-
-
-def _by_accumulated(cells: list[EvidenceCell]) -> list[EvidenceCell]:
-    return sorted(cells, key=lambda cell: cell.acc_rank)
-
-
-def _interleave(groups: list[list[EvidenceCell]]) -> list[EvidenceCell]:
-    sequence: list[EvidenceCell] = []
-    depth = 0
-    while True:
-        progressed = False
-        for group in groups:
-            if depth < len(group):
-                sequence.append(group[depth])
-                progressed = True
-        if not progressed:
-            return sequence
-        depth += 1
-
-
-def _round_robin(cells: list[EvidenceCell]) -> list[EvidenceCell]:
-    groups: dict[tuple[str, int], list[EvidenceCell]] = {}
-    for cell in _by_accumulated(cells):
-        groups.setdefault((cell.host, int(cell.hour) // HOST_DAY_SPAN), []).append(cell)
-    ordered = sorted(groups.values(), key=lambda group: group[0].acc_rank)
-    return _interleave(ordered)
-
-
-def _budget_sequence(cells: list[EvidenceCell], budget_order: str) -> list[EvidenceCell]:
-    if budget_order == "layer1":
-        return sorted(cells, key=lambda cell: cell.l1_rank)
-    if budget_order == "round_robin":
-        return _round_robin(cells)
-    return _by_accumulated(cells)
-
-
-def _with_budget_ranks(cells: list[EvidenceCell], budget_order: str) -> list[EvidenceCell]:
-    ranks = {
-        (cell.host, cell.hour): rank
-        for rank, cell in enumerate(_budget_sequence(cells, budget_order), 1)
-    }
-    return [replace(cell, budget_rank=ranks[(cell.host, cell.hour)]) for cell in cells]
-
-
-def _p_yes_order(judged_leads: list[dict[str, Any]], tie: str) -> list[dict[str, Any]]:
-    return sorted(judged_leads, key=lambda lead: (-float(lead["p_yes"]), int(lead[tie])))
-
-
-def _fuse(judged_leads: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    ranks = {
-        (lead["host"], lead["hour"]): rank
-        for rank, lead in enumerate(_p_yes_order(judged_leads, "acc_rank"), 1)
-    }
-    return sorted(
-        judged_leads,
-        key=lambda lead: (
-            ranks[(lead["host"], lead["hour"])] + int(lead["budget_rank"]),
-            int(lead["budget_rank"]),
-        ),
-    )
-
-
-def _accumulated_tail(leads: list[dict[str, Any]], beyond: bool) -> list[dict[str, Any]]:
-    chosen = [
-        lead
-        for lead in leads
-        if not lead["judged"] and (lead["reason"] == "beyond_judge_cell_budget") is beyond
-    ]
-    chosen.sort(key=lambda lead: int(lead["acc_rank"]))
-    return chosen
-
-
-def _arrange(leads: list[dict[str, Any]], order_mode: str) -> list[dict[str, Any]]:
-    """Fused or P(yes) put judged cells first. Budget order is the budget sequence alone."""
-    if order_mode == "budget":
-        return sorted(leads, key=lambda lead: (int(lead["budget_rank"]), int(lead["l1_rank"])))
-    judged_leads = [lead for lead in leads if lead["judged"]]
-    head = (
-        _p_yes_order(judged_leads, "budget_rank") if order_mode == "judged" else _fuse(judged_leads)
-    )
-    return head + _accumulated_tail(leads, False) + _accumulated_tail(leads, True)
-
-
-def _case_member(rank: int, lead: Mapping[str, Any]) -> dict[str, Any]:
-    return {
-        "hour": int(lead["hour"]),
-        "risk": lead["risk"],
-        "p_yes": lead["p_yes"],
-        "acc_rank": lead["acc_rank"],
-        "l1_rank": lead["l1_rank"],
-        "lead_rank": rank,
-    }
-
-
-def _case_evidence(members: list[tuple[int, dict[str, Any]]]) -> list[dict[str, Any]]:
-    judged = [item for item in members if item[1]["judged"]]
-    if not judged:
-        return []
-    best = min(judged, key=lambda item: item[0])
-    return list(best[1]["evidence"])
-
-
-def _cases(leads: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """One case per host-day, members in lead order, ordered by the best lead."""
-    grouped: dict[tuple[str, int], list[tuple[int, dict[str, Any]]]] = {}
-    for lead_rank, lead in enumerate(leads, 1):
-        grouped.setdefault((str(lead["host"]), int(lead["hour"]) // HOST_DAY_SPAN), []).append(
-            (lead_rank, lead)
-        )
-    cases: list[dict[str, Any]] = []
-    for (host, _day), members in grouped.items():
-        hours = [int(lead["hour"]) for _rank, lead in members]
-        cases.append(
-            {
-                "host": host,
-                "start": min(hours),
-                "end": max(hours) + HOUR,
-                "risk": sum(float(lead["risk"]) for _rank, lead in members),
-                "members": [_case_member(rank, lead) for rank, lead in members],
-                "evidence": _case_evidence(members),
-            }
-        )
-    cases.sort(key=lambda case: min(int(member["lead_rank"]) for member in case["members"]))
-    return cases
-
-
-def _coverage_complete(
-    run: ObservationRun,
-    coverage: Mapping[str, Any],
-    leads: list[dict[str, Any]],
-    beyond: list[dict[str, Any]],
-) -> bool:
-    return bool(
-        run.coverage_complete
-        and coverage["cells_judged"] == coverage["cells_total"]
-        and not coverage["unjudged"]
-        and not beyond
-        and not any(lead["reason"] for lead in leads)
-    )
-
-
 def _option(args: argparse.Namespace, name: str, default: Any) -> Any:
     value = getattr(args, name, None)
     return default if value is None else value
-
-
-def _lead_for(
-    cell: EvidenceCell,
-    reads_by_cell: Mapping[tuple[str, int], Any],
-    judged: Mapping[tuple[str, int], tuple[Any, Any]],
-) -> dict[str, Any]:
-    key = (cell.host, cell.hour)
-    if key not in reads_by_cell:
-        return _lead(cell, reason="beyond_judge_cell_budget")
-    read = reads_by_cell[key]
-    if not read.evidence:
-        return _lead(cell, reason=read.reason, evidence_selection=read.evidence_selection)
-    evidence_read, verdict = judged[key]
-    return _lead(
-        cell,
-        result=verdict,
-        evidence=evidence_read.evidence if verdict.p_yes is not None else [],
-        reason=evidence_read.reason or verdict.reason,
-        evidence_selection=evidence_read.evidence_selection,
-    )
-
-
-def _ordered_leads(
-    cells: list[EvidenceCell],
-    reads_by_cell: Mapping[tuple[str, int], Any],
-    judged: Mapping[tuple[str, int], tuple[Any, Any]],
-    order_mode: str,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    leads = _arrange([_lead_for(cell, reads_by_cell, judged) for cell in cells], order_mode)
-    beyond = [
-        {
-            "host": lead["host"],
-            "hour": lead["hour"],
-            "l1_rank": lead["l1_rank"],
-            "budget_rank": lead["budget_rank"],
-            "reason": lead["reason"],
-        }
-        for lead in leads
-        if lead["reason"] == "beyond_judge_cell_budget"
-    ]
-    return leads, beyond
 
 
 def _hunt_progress(
@@ -451,7 +156,7 @@ def _hunt_progress(
             "executor": dict(executor.budget.limits),
         },
         "order": order_mode,
-        "order_statement": _ORDER_STATEMENT[order_mode],
+        "order_statement": ORDER_STATEMENT[order_mode],
         "budget_order": budget_order,
         "evidence": evidence_mode,
         "coverage": coverage,
@@ -465,33 +170,16 @@ def _hunt_progress(
     }
 
 
-def _judged_rows(
-    leads: list[dict[str, Any]], judged: Mapping[tuple[str, int], tuple[Any, Any]]
-) -> list[dict[str, Any]]:
-    return [
-        {
-            "host": lead["host"],
-            "hour": lead["hour"],
-            "l1_rank": lead["l1_rank"],
-            "budget_rank": lead["budget_rank"],
-            "p_yes": lead["p_yes"],
-            "prompt_tokens": judged[(lead["host"], lead["hour"])][1].prompt_tokens,
-            "seconds": judged[(lead["host"], lead["hour"])][1].seconds,
-        }
-        for lead in leads
-        if lead["judged"]
-    ]
-
-
 def _write_receipts(
     out: Path,
     leads: list[dict[str, Any]],
+    cases: list[dict[str, Any]],
     progress: dict[str, Any],
     judged_rows: list[dict[str, Any]],
 ) -> None:
     out.mkdir(parents=True, exist_ok=True)
     (out / "leads.json").write_text(json.dumps({"leads": leads}, indent=1) + "\n")
-    (out / "cases.json").write_text(json.dumps({"cases": _cases(leads)}, indent=1) + "\n")
+    (out / "cases.json").write_text(json.dumps({"cases": cases}, indent=1) + "\n")
     (out / "progress.json").write_text(json.dumps(progress, indent=1, sort_keys=True) + "\n")
     (out / "cells.jsonl").write_text(
         "".join(json.dumps(row, sort_keys=True) + "\n" for row in judged_rows)
@@ -514,30 +202,24 @@ def run_judged_hunt(
         int(_option(args, "event_chars", MAX_EVENT_CHARACTERS)),
     )
     run, meta, executor = prepare(args)
-    cells = _with_budget_ranks(accumulated_host_hours(run.observations), budget_order)
-    selected = sorted(cells, key=lambda cell: cell.budget_rank)[: max(0, judge_cells)]
     if client is None:
         api_key = os.environ.get(args.judge_key_env) if args.judge_key_env else None
-        client = OpenAICompatibleClient(_endpoint(args.judge_url), api_key)
+        client = OpenAICompatibleClient(chat_completions_endpoint(args.judge_url), api_key)
     before = executor.stats()
-    reads = read_cells(
+    ranked = rank_from_observations(
+        run.observations,
         executor,
         args.index,
-        selected,
         float(meta["start"]),
         float(meta["end"]),
-        event_chars=event_chars,
-        evidence_mode=evidence_mode,
-    )
-    judged, judged_cost, served_models = _judge_selected(
         client,
         args.judge_model,
-        selected,
-        {(read.cell.host, read.cell.hour): read for read in reads},
+        budget_order=budget_order,
+        judge_cells=judge_cells,
+        order_mode=order_mode,
+        evidence_mode=evidence_mode,
+        event_chars=event_chars,
     )
-    reads_by_cell = {(read.cell.host, read.cell.hour): read for read in reads}
-    leads, beyond = _ordered_leads(cells, reads_by_cell, judged, order_mode)
-    coverage = _coverage(leads, len(cells), beyond)
     progress = _hunt_progress(
         args,
         meta,
@@ -547,15 +229,17 @@ def run_judged_hunt(
         order_mode=order_mode,
         evidence_mode=evidence_mode,
         event_chars=event_chars,
-        served_models=served_models,
+        served_models=set(ranked["served_models"]),
         executor=executor,
-        coverage=coverage,
-        complete=_coverage_complete(run, coverage, leads, beyond),
+        coverage=ranked["coverage"],
+        complete=coverage_complete(run, ranked["coverage"], ranked["leads"], ranked["beyond"]),
         run=run,
         before=before,
-        judged_cost=judged_cost,
+        judged_cost=ranked["judge_cost"],
     )
-    _write_receipts(Path(args.out), leads, progress, _judged_rows(leads, judged))
+    _write_receipts(
+        Path(args.out), ranked["leads"], ranked["cases"], progress, ranked["judged_rows"]
+    )
     return progress
 
 
@@ -579,7 +263,7 @@ def _parse() -> argparse.Namespace:
     )
     parser.add_argument(
         "--judge-key-env",
-        default=os.environ.get("PORTAL_HUNT_JUDGE_KEY_ENV", "PIPELINE_API_KEY"),
+        default=os.environ.get("PORTAL_HUNT_JUDGE_KEY_ENV", DEFAULT_KEY_ENV),
         help="Environment variable name that holds the Pipeline API key",
     )
     parser.add_argument(

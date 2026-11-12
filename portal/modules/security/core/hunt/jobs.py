@@ -34,6 +34,12 @@ from .executor import (
     query_budget_kind,
 )
 from .investigate import Investigator
+from .judge import (
+    DEFAULT_KEY_ENV,
+    JudgeClient,
+    OpenAICompatibleClient,
+    chat_completions_endpoint,
+)
 
 _ROOT = Path(
     os.environ.get("PORTAL5_HUNT_DIR", str(Path.home() / "AI_Output" / "review" / "hunts"))
@@ -129,7 +135,26 @@ def _case_payload(case: Any) -> dict[str, Any]:
     payload["coverage_complete"] = bool(case.coverage) and all(
         row.get("coverage_complete", False) for row in case.coverage
     )
+    payload["risk"] = getattr(case, "risk", None)
+    payload["acc_rank"] = getattr(case, "acc_rank", None)
+    payload["p_yes"] = getattr(case, "p_yes", None)
     return payload
+
+
+def _order_state(effort: HuntBudget) -> dict[str, Any]:
+    block = dict(effort.judge_block) or {"configured": False}
+    return {"host_hours": list(effort.host_hours), "judge": block}
+
+
+def _copy_lead_rank(cases: list[Any], leads: list[Lead]) -> None:
+    by_seed = {f"{lead.host}@{lead.hour}": lead for lead in leads}
+    for case in cases:
+        lead = by_seed.get(getattr(case, "seed", ""))
+        if lead is None:
+            continue
+        case.risk = lead.risk
+        case.acc_rank = lead.acc_rank
+        case.p_yes = lead.p_yes
 
 
 def _persist_progress(
@@ -176,6 +201,7 @@ def _store_leads(
             stage="investigating",
             leads=[_stripped(lead) for lead in leads],
             observations=list(effort.listed_observations),
+            **_order_state(effort),
         )
         state["progress"] = effort.snapshot()
         _write(job_id, state)
@@ -206,6 +232,7 @@ def _close_success(
         if ok
         else "indexed_and_verified_scope_does_not_cover_the_full_raw_index",
         "progress": progress,
+        **_order_state(effort),
     }
 
 
@@ -230,6 +257,7 @@ def _close_partial(
         "coverage_reason": str(exc),
         "degraded": inv.degraded if inv is not None else [],
         "progress": progress,
+        **_order_state(effort),
     }
 
 
@@ -250,6 +278,7 @@ def _close_failed(
         "coverage_reason": failure,
         "degraded": inv.degraded if inv is not None else [],
         "progress": effort.snapshot(),
+        **_order_state(effort),
     }
 
 
@@ -263,18 +292,35 @@ def _perform_hunt(
     end: float,
     dig: int,
     effort: HuntBudget,
+    judge: JudgeClient | None = None,
+    judge_model: str | None = None,
 ) -> None:
     inv: Investigator | None = None
+    leads: list[Lead] = []
+    effort.judge_block = {"configured": judge is not None and bool(judge_model)}
     try:
-        leads = hunt(search, index, start, end, candidates=dig)
+        leads = hunt(
+            search,
+            index,
+            start,
+            end,
+            candidates=dig,
+            judge=judge,
+            judge_model=judge_model,
+        )
         effort.update(phase="investigating", lead_count=len(leads))
         _store_leads(job_id, state, state_lock, effort, leads)
         inv = Investigator(search, index, start, end)
         cases = inv.investigate_all(leads, dig=dig)
+        _copy_lead_rank(cases, leads)
         state.update(_close_success(cases, effort, effort.snapshot(), inv.degraded))
     except (SearchBudgetExceededError, HuntCoverageError, SearchQueryBoundError) as exc:
+        if inv is not None:
+            _copy_lead_rank(inv.completed_cases, leads)
         state.update(_close_partial(exc, effort, inv))
     except Exception as exc:  # noqa: BLE001 -- surface an unexpected job failure
+        if inv is not None:
+            _copy_lead_rank(inv.completed_cases, leads)
         state.update(_close_failed(exc, effort, inv))
     with state_lock:
         _write(job_id, state)
@@ -288,6 +334,8 @@ def _run(
     end: float,
     dig: int,
     budgets: dict[str, float] | None = None,
+    judge: JudgeClient | None = None,
+    judge_model: str | None = None,
 ) -> None:
     started = time.time()
     state: dict[str, Any] = {
@@ -308,7 +356,30 @@ def _run(
         job_id, state, state_lock, phase, snapshot, cases
     )
     _write(job_id, state)
-    _perform_hunt(job_id, state, state_lock, bounded_search, index, start, end, dig, effort)
+    _perform_hunt(
+        job_id,
+        state,
+        state_lock,
+        bounded_search,
+        index,
+        start,
+        end,
+        dig,
+        effort,
+        judge,
+        judge_model,
+    )
+
+
+def _judge_from_env() -> tuple[JudgeClient, str] | None:
+    """Read the Pipeline judge once. Core ordering never sees the environment."""
+    url = os.environ.get("PORTAL_HUNT_JUDGE_URL")
+    model = os.environ.get("PORTAL_HUNT_JUDGE_MODEL")
+    if not url or not model:
+        return None
+    key_env = os.environ.get("PORTAL_HUNT_JUDGE_KEY_ENV", DEFAULT_KEY_ENV)
+    api_key = os.environ.get(key_env) if key_env else None
+    return OpenAICompatibleClient(chat_completions_endpoint(url), api_key), model
 
 
 def start(
@@ -321,10 +392,15 @@ def start(
 ) -> str:
     job_id = "hunt-" + uuid.uuid4().hex[:12]
     limits = _limits(budgets)
+    target = _judge_from_env()
+    client: JudgeClient | None = None
+    model: str | None = None
+    if target is not None:
+        client, model = target
     with _lock:
         threading.Thread(
             target=_run,
-            args=(job_id, search, index, start_t, end_t, dig, limits),
+            args=(job_id, search, index, start_t, end_t, dig, limits, client, model),
             daemon=True,
         ).start()
     return job_id
@@ -426,10 +502,17 @@ def status(job_id: str | None = None, index: str | None = None) -> dict[str, Any
             "remaining_s",
             "exhausted_reason",
             "last_progress_utc",
+            "judge_requests",
+            "judge_seconds",
         ):
             if key in progress:
                 out[key] = progress[key]
     out["degraded_reasons"] = job.get("degraded", [])[:3]
+    if "judge" in job:
+        out["judge"] = job["judge"]
+    hours = job.get("host_hours")
+    if isinstance(hours, list):
+        out["host_hours"] = hours
     return compact(out)
 
 
@@ -448,6 +531,9 @@ def leads_view(job_id: str | None = None, index: str | None = None, n: int = 10)
                 "host": lead["host"],
                 "score": lead["score"],
                 "template_novelty": lead["novelty"],
+                "risk": lead.get("risk"),
+                "acc_rank": lead.get("acc_rank"),
+                "p_yes": lead.get("p_yes"),
                 "top_burst": None
                 if top is None
                 else f"{top['token']} {top['this_hour']} this bucket vs usual {top['prior_median']}",
@@ -479,6 +565,9 @@ def case_view(
             "core_events": c.get("core_events", c["events"]),
             "core_hosts": c.get("core_hosts", len(c["hosts"])),
             "span_hours": c["span_hours"],
+            "risk": c.get("risk"),
+            "acc_rank": c.get("acc_rank"),
+            "p_yes": c.get("p_yes"),
             "pivots": [_pivot_view(p) for p in pivots],
             "core": [
                 f"{_hm(e['time'])} {e['host']} {e['source']}: {e['raw'][:180]}" for e in core[:n]
