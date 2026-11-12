@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -31,6 +32,7 @@ from portal.modules.security.core.hunt.executor import (
     DEFAULT_BUDGETS,
     QUERY_BOUND,
     HuntBudget,
+    HuntBudgetExceededError,
     HuntExecutor,
     executor_for,
     per_sample_cap,
@@ -48,7 +50,7 @@ from portal.modules.security.core.hunt.ranking import where_literal
 KEY_SLICES = 4  # effort budget: time slices read while learning keys
 KEY_SLICE_SAMPLE = 200  # effort budget: md5-ordered events read from one slice
 KEY_BUDGET = 8  # effort budget: PREFIX grids; keys beyond this stay uncovered
-GRID_SPLITS = 8  # effort budget: hour-partitions of one grid that did not finish in one query
+GRID_SPLITS = 8  # effort budget: initial partitions after a query bound
 _KEY = re.compile(r"""(?<![\w.])([A-Za-z_][\w.]{1,30})=(?=[^\s"=])""")
 _PAIR = re.compile(r"""(?<![\w.])([A-Za-z_][\w.]{1,30})=([^\s"=]*)""")
 _QUOTED = r'"((?:\\.|[^"])*)"'
@@ -188,7 +190,10 @@ def _issue(
     end: float,
     kind: str,
 ) -> tuple[list[dict[str, Any]], str | None]:
-    read = executor.read(query, start, end, kind=kind, row_cap=per_sample_cap(query))
+    try:
+        read = executor.read(query, start, end, kind=kind, row_cap=per_sample_cap(query))
+    except HuntBudgetExceededError:
+        return [], executor.budget.exhausted or "request_budget_exhausted"
     return read.rows, read.reason
 
 
@@ -214,11 +219,10 @@ def _tstats(index: str, by: str) -> str:
 
 
 def _hour_partitions(start: float, end: float, pieces: int) -> list[tuple[float, float]]:
-    """Contiguous hour slices of [start, end). One slice when the window is a single hour."""
     if end <= start or pieces <= 1:
         return [(start, end)]
     first = int(start // HOUR)
-    last = int((end - 1e-9) // HOUR)
+    last = int(math.nextafter(end, -math.inf) // HOUR)
     hours = last - first + 1
     if hours <= 1:
         return [(start, end)]
@@ -226,8 +230,8 @@ def _hour_partitions(start: float, end: float, pieces: int) -> list[tuple[float,
     base, extra = divmod(hours, count)
     parts: list[tuple[float, float]] = []
     cursor = first
-    for index in range(count):
-        take = base + (1 if index < extra else 0)
+    for _ in range(count):
+        take = base + (1 if len(parts) < extra else 0)
         lo = start if cursor == first else float(cursor * HOUR)
         hi_hour = cursor + take - 1
         hi = end if hi_hour == last else float((hi_hour + 1) * HOUR)
@@ -261,6 +265,143 @@ def _load_once(
     return fetched, None
 
 
+@dataclass
+class _GridLoad:
+    rows: list[dict[str, Any]] = field(default_factory=list)
+    pieces: int = 0
+    loaded_pieces: int = 0
+    reasons: list[str] = field(default_factory=list)
+    unread_ranges: list[dict[str, Any]] = field(default_factory=list)
+    stopped: bool = False
+
+
+def _weighted_hour_groups(
+    totals: Mapping[int, int], hours: list[int], pieces: int
+) -> list[list[int]]:
+    count = min(max(1, pieces), len(hours))
+    groups: list[list[int]] = []
+    offset = 0
+    remaining = sum(totals[hour] for hour in hours)
+    while count > 1:
+        target = remaining / count
+        max_stop = len(hours) - (count - 1)
+        stop = offset + 1
+        weight = 0
+        while stop <= max_stop:
+            weight += totals[hours[stop - 1]]
+            if weight >= target:
+                previous = weight - totals[hours[stop - 1]]
+                if stop > offset + 1 and abs(previous - target) < abs(weight - target):
+                    weight = previous
+                    stop -= 1
+                break
+            stop += 1
+        group = hours[offset:stop]
+        groups.append(group)
+        remaining -= sum(totals[hour] for hour in group)
+        offset = stop
+        count -= 1
+    groups.append(hours[offset:])
+    return [group for group in groups if group]
+
+
+def _data_partitions(
+    totals: Mapping[int, int], start: float, end: float, pieces: int
+) -> list[tuple[float, float, list[int]]]:
+    hours = [
+        hour
+        for hour, count in sorted(totals.items())
+        if count > 0 and hour < end and hour + HOUR > start
+    ]
+    groups = _weighted_hour_groups(totals, hours, pieces) if hours else []
+    return [
+        (max(start, float(group[0])), min(end, float(group[-1] + HOUR)), group) for group in groups
+    ]
+
+
+def _mark_unread(
+    state: _GridLoad,
+    totals: Mapping[int, int] | None,
+    start: float,
+    end: float,
+    reason: str,
+) -> None:
+    if reason not in state.reasons:
+        state.reasons.append(reason)
+    hours = [hour for hour in (totals or {}) if hour < end and hour + HOUR > start]
+    events = sum((totals or {})[hour] for hour in hours)
+    total_events = sum((totals or {}).values())
+    state.unread_ranges.append(
+        {
+            "start": start,
+            "end": end,
+            "data_hours": len(hours) if totals is not None else None,
+            "events": events if totals is not None else None,
+            "event_share": events / total_events if totals is not None and total_events else None,
+            "reason": reason,
+        }
+    )
+    if "budget_exhausted" in reason or reason == "job_deadline_exceeded":
+        state.stopped = True
+
+
+def _read_piece(
+    executor: HuntExecutor,
+    index: str,
+    by: str,
+    kind: str,
+    suffix: str,
+    start: float,
+    end: float,
+    hours: list[int],
+    totals: Mapping[int, int],
+    state: _GridLoad,
+) -> None:
+    if state.stopped:
+        _mark_unread(state, totals, start, end, executor.budget.exhausted or "budget_exhausted")
+        return
+    state.pieces += 1
+    rows, reason = _load_once(executor, index, by, start, end, kind, suffix)
+    if reason is None:
+        state.rows.extend(rows)
+        state.loaded_pieces += 1
+        return
+    if reason == QUERY_BOUND and len(hours) > 1:
+        parts = _data_partitions(totals, start, end, 2)
+        if len(parts) > 1:
+            for lo, hi, group in parts:
+                _read_piece(executor, index, by, kind, suffix, lo, hi, group, totals, state)
+            return
+    _mark_unread(state, totals, start, end, reason)
+
+
+def _read_time_piece(
+    executor: HuntExecutor,
+    index: str,
+    by: str,
+    kind: str,
+    suffix: str,
+    start: float,
+    end: float,
+    state: _GridLoad,
+) -> None:
+    if state.stopped:
+        _mark_unread(state, None, start, end, executor.budget.exhausted or "budget_exhausted")
+        return
+    state.pieces += 1
+    rows, reason = _load_once(executor, index, by, start, end, kind, suffix)
+    if reason is None:
+        state.rows.extend(rows)
+        state.loaded_pieces += 1
+        return
+    parts = _hour_partitions(start, end, 2) if reason == QUERY_BOUND else []
+    if len(parts) > 1:
+        for lo, hi in parts:
+            _read_time_piece(executor, index, by, kind, suffix, lo, hi, state)
+        return
+    _mark_unread(state, None, start, end, reason)
+
+
 def _load_grid(
     executor: HuntExecutor,
     index: str,
@@ -269,23 +410,45 @@ def _load_grid(
     end: float,
     kind: str,
     suffix: str = "",
-    *,
-    allow_split: bool = True,
-) -> tuple[list[dict[str, Any]], str | None]:
-    """One grid. A query the executor cut by its own time bound is re-read in hour partitions."""
+    totals: Mapping[int, int] | None = None,
+) -> tuple[list[dict[str, Any]], str | None, dict[str, Any]]:
+    """Load one grid, splitting a bounded read over the populated hour buckets."""
     rows, reason = _load_once(executor, index, by, start, end, kind, suffix)
-    if reason != QUERY_BOUND or not allow_split:
-        return rows, reason
-    parts = _hour_partitions(start, end, GRID_SPLITS)
-    if len(parts) <= 1:
-        return [], reason
-    merged: list[dict[str, Any]] = []
-    for lo, hi in parts:
-        part, part_reason = _load_grid(executor, index, by, lo, hi, kind, suffix, allow_split=False)
-        if part_reason:
-            return [], part_reason
-        merged.extend(part)
-    return merged, None
+    state = _GridLoad(rows=list(rows), pieces=1, loaded_pieces=int(reason is None))
+    if reason:
+        if reason == QUERY_BOUND and kind == "volume" and totals is None:
+            for lo, hi in _hour_partitions(start, end, GRID_SPLITS):
+                _read_time_piece(executor, index, by, kind, suffix, lo, hi, state)
+        elif reason != QUERY_BOUND or totals is None:
+            _mark_unread(state, totals, start, end, reason)
+        else:
+            parts = _data_partitions(totals, start, end, GRID_SPLITS)
+            narrowed = len(parts) > 1 or bool(parts and (parts[0][0] > start or parts[0][1] < end))
+            if narrowed:
+                for lo, hi, hours in parts:
+                    _read_piece(executor, index, by, kind, suffix, lo, hi, hours, totals, state)
+            else:
+                _mark_unread(state, totals, start, end, reason)
+    total_events = sum(totals.values(), 0) if totals is not None else 0
+    unread_event_count = (
+        None
+        if any(item["events"] is None for item in state.unread_ranges)
+        else sum(int(item["events"] or 0) for item in state.unread_ranges)
+    )
+    stats = {
+        "pieces": state.pieces,
+        "loaded_pieces": state.loaded_pieces,
+        "rows": len(state.rows),
+        "reasons": state.reasons,
+        "unread_ranges": state.unread_ranges,
+        "unread_event_count": unread_event_count,
+        "unread_event_share": (
+            unread_event_count / total_events
+            if unread_event_count is not None and total_events
+            else None
+        ),
+    }
+    return state.rows, state.reasons[0] if state.reasons else None, stats
 
 
 def _coverage(reason: str | None, **extra: Any) -> dict[str, Any]:
@@ -670,6 +833,38 @@ def _score_loaded(
     raise KeyError(kind)
 
 
+def _folded_volume(
+    volume_rows: list[dict[str, Any]] | None, host_aliases: HostAliases | None
+) -> list[dict[str, Any]] | None:
+    if volume_rows is None or host_aliases is None:
+        return volume_rows
+    return fold_host_rows(volume_rows, host_aliases)
+
+
+def _safe_partial_observations(
+    found: list[Observation],
+    volume_rows: list[dict[str, Any]] | None,
+    unread_ranges: list[dict[str, Any]],
+) -> tuple[list[Observation], int]:
+    if not unread_ranges or volume_rows is None:
+        return found, 0
+    missed: dict[str, int] = {}
+    for row in volume_rows:
+        hour = _epoch_hour(row["_time"])
+        if any(part["start"] < hour + HOUR and hour < part["end"] for part in unread_ranges):
+            host = str(row["host"])
+            missed[host] = min(hour, missed.get(host, hour))
+    kept: list[Observation] = []
+    for obs in found:
+        history_missing = obs.hour >= missed.get(obs.host, float("inf"))
+        value_origin_missing = obs.evidence.get("signal") == "new_host" and any(
+            part["start"] < obs.hour + HOUR for part in unread_ranges
+        )
+        if not history_missing and not value_origin_missing:
+            kept.append(obs)
+    return kept, len(found) - len(kept)
+
+
 def _observe_one(
     executor: HuntExecutor,
     index: str,
@@ -679,10 +874,12 @@ def _observe_one(
     end: float,
     coverage: dict[str, dict[str, Any]],
     host_aliases: HostAliases | None = None,
+    totals: Mapping[int, int] | None = None,
+    volume_rows: list[dict[str, Any]] | None = None,
 ) -> tuple[list[Observation], list[dict[str, Any]] | None, HostAliases | None]:
-    rows, reason = _load_grid(executor, index, by, start, end, kind)
-    if reason:
-        coverage[kind] = _coverage(reason)
+    rows, reason, stats = _load_grid(executor, index, by, start, end, kind, totals=totals)
+    if reason and not rows:
+        coverage[kind] = _coverage(reason, **stats)
         return [], None, host_aliases
     try:
         if kind == "volume":
@@ -690,9 +887,19 @@ def _observe_one(
         scoring_rows = fold_host_rows(rows, host_aliases) if host_aliases is not None else rows
         scored, score_reason = _score_loaded(kind, scoring_rows, index)
     except (KeyError, TypeError, ValueError):
-        coverage[kind] = _coverage("censored")
+        coverage[kind] = {
+            "complete": False,
+            **stats,
+            "reasons": _unique([*stats["reasons"], "censored"]),
+        }
         return [], rows, host_aliases
-    coverage[kind] = _coverage(score_reason)
+    history = _folded_volume(volume_rows, host_aliases)
+    scored, suppressed = _safe_partial_observations(scored, history, stats["unread_ranges"])
+    reasons = _unique([*stats["reasons"], *[item for item in (reason, score_reason) if item]])
+    coverage[kind] = {"complete": not reasons, "reasons": reasons, **stats}
+    if suppressed:
+        coverage[kind]["unscored_observations"] = suppressed
+        coverage[kind]["unscored_reason"] = "unread host history is withheld"
     return (scored, rows, host_aliases) if score_reason is None else ([], rows, host_aliases)
 
 
@@ -715,8 +922,10 @@ def _observe_structural(
     grids: dict[str, list[dict[str, Any]]] = {}
     host_aliases: HostAliases | None = None
     for kind, by in _STRUCTURAL:
+        volume_rows = grids.get("volume") if coverage.get("volume", {}).get("complete") else None
+        totals = _hour_volume(volume_rows) if volume_rows is not None else None
         scored, rows, host_aliases = _observe_one(
-            executor, index, kind, by, start, end, coverage, host_aliases
+            executor, index, kind, by, start, end, coverage, host_aliases, totals, volume_rows
         )
         found.extend(scored)
         if rows is not None:
@@ -770,16 +979,32 @@ def _query_keys(
     end: float,
     reasons: list[str],
     host_aliases: HostAliases | None,
-) -> tuple[list[Observation], dict[str, list[dict[str, Any]]]]:
+    totals: Mapping[int, int],
+    volume_rows: list[dict[str, Any]],
+) -> tuple[list[Observation], dict[str, list[dict[str, Any]]], dict[str, dict[str, Any]]]:
     found: list[Observation] = []
     grids: dict[str, list[dict[str, Any]]] = {}
+    details: dict[str, dict[str, Any]] = {}
     for key, _count in queried:
         by = f"by host PREFIX({key}=) _time span=1h"
-        rows, reason = _load_grid(
-            executor, index, by, start, end, f"value:{key}", suffix=f' | rename "{key}=" as v'
+        rows, reason, stats = _load_grid(
+            executor,
+            index,
+            by,
+            start,
+            end,
+            f"value:{key}",
+            suffix=f' | rename "{key}=" as v',
+            totals=totals,
         )
-        if reason:
-            reasons.append(reason)
+        reasons.extend(stats["reasons"])
+        details[key] = {
+            "complete": reason is None,
+            "reasons": _unique([*stats["reasons"], *([reason] if reason else [])]),
+            "unscored_observations": 0,
+            **stats,
+        }
+        if reason and not rows:
             continue
         grids[f"value:{key}"] = rows
         try:
@@ -787,22 +1012,39 @@ def _query_keys(
             scored, score_reason = _from_values(key, scoring_rows, index)
         except (KeyError, TypeError, ValueError):
             reasons.append("censored")
+            details[key]["complete"] = False
+            details[key]["reasons"] = _unique([*details[key]["reasons"], "censored"])
             continue
         if score_reason:
             reasons.append(score_reason)
+            details[key]["complete"] = False
+            details[key]["reasons"] = _unique([*details[key]["reasons"], score_reason])
             continue
+        scored, suppressed = _safe_partial_observations(scored, volume_rows, stats["unread_ranges"])
+        details[key]["unscored_observations"] = suppressed
+        if suppressed:
+            details[key]["unscored_reason"] = "unread host history is withheld"
         found.extend(scored)
-    return found, grids
+    return found, grids, details
 
 
 def _value_coverage(
-    reasons: list[str], skipped: list[str], slices: list[dict[str, Any]]
+    reasons: list[str],
+    skipped: list[str],
+    slices: list[dict[str, Any]],
+    grid_coverage: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
+    grids = grid_coverage or {}
     return {
         "complete": not reasons,
         "reasons": _unique(reasons),
         "unqueried_keys": skipped,
         "slices": slices,
+        "grid_coverage": grids,
+        "pieces": sum(int(slot["pieces"]) for slot in grids.values()),
+        "loaded_pieces": sum(int(slot["loaded_pieces"]) for slot in grids.values()),
+        "rows": sum(int(slot["rows"]) for slot in grids.values()),
+        "unscored_observations": sum(int(slot["unscored_observations"]) for slot in grids.values()),
     }
 
 
@@ -822,8 +1064,18 @@ def _observe_values(
     skipped = [key for key, _count in ranked[KEY_BUDGET:]]
     if skipped:
         reasons.append("key_budget")
-    found, grids = _query_keys(executor, index, queried, start, end, reasons, host_aliases)
-    return found, grids, _value_coverage(reasons, skipped, slices)
+    found, grids, grid_coverage = _query_keys(
+        executor,
+        index,
+        queried,
+        start,
+        end,
+        reasons,
+        host_aliases,
+        _hour_volume(volume_rows),
+        _folded_volume(volume_rows, host_aliases) or [],
+    )
+    return found, grids, _value_coverage(reasons, skipped, slices, grid_coverage)
 
 
 def _split_grid(name: str) -> tuple[str, str]:
@@ -832,8 +1084,15 @@ def _split_grid(name: str) -> tuple[str, str]:
     return name, ""
 
 
-def _score_present(grids: dict[str, list[dict[str, Any]]], index: str) -> list[Observation]:
+def _score_present(
+    grids: dict[str, list[dict[str, Any]]],
+    index: str,
+    coverage: dict[str, dict[str, Any]] | None = None,
+) -> list[Observation]:
     found: list[Observation] = []
+    volume_rows = (
+        grids.get("volume") if (coverage or {}).get("volume", {}).get("complete") else None
+    )
     for name in sorted(grids):
         kind, key = _split_grid(name)
         try:
@@ -844,6 +1103,12 @@ def _score_present(grids: dict[str, list[dict[str, Any]]], index: str) -> list[O
         except (KeyError, TypeError, ValueError):
             continue
         if reason is None:
+            detail = (coverage or {}).get(kind, {})
+            if kind == "value":
+                detail = detail.get("grid_coverage", {}).get(key, {})
+            scored, _suppressed = _safe_partial_observations(
+                scored, volume_rows, detail.get("unread_ranges", [])
+            )
             found.extend(scored)
     return found
 
@@ -1050,6 +1315,24 @@ def _finish(
     )
 
 
+def _attach_cost(
+    coverage: dict[str, dict[str, Any]], request_kinds: dict[str, dict[str, Any]]
+) -> None:
+    for kind, slot in coverage.items():
+        matching = (
+            {name: stats for name, stats in request_kinds.items() if name.startswith("value:")}
+            if kind == "value"
+            else ({kind: request_kinds[kind]} if kind in request_kinds else {})
+        )
+        slot["requests"] = sum(int(stats["requests"]) for stats in matching.values())
+        slot["seconds"] = round(sum(float(stats["seconds"]) for stats in matching.values()), 3)
+        if kind == "value":
+            for key, detail in slot.get("grid_coverage", {}).items():
+                stats = request_kinds.get(f"value:{key}", {})
+                detail["requests"] = int(stats.get("requests", 0))
+                detail["seconds"] = round(float(stats.get("seconds", 0.0)), 3)
+
+
 def observe(
     search: Search, index: str, start: float, end: float, baseline: str = "current"
 ) -> ObservationRun:
@@ -1067,7 +1350,9 @@ def observe(
     grids.update(value_grids)
     coverage["value"] = value_coverage
     found.extend(values)
-    return _finish(found, grids, coverage, executor.delta(before), baseline, index, aliases)
+    request_kinds = executor.delta(before)
+    _attach_cost(coverage, request_kinds)
+    return _finish(found, grids, coverage, request_kinds, baseline, index, aliases)
 
 
 def rescore(
@@ -1081,7 +1366,7 @@ def rescore(
     _check_baseline(baseline)
     aliases = _host_aliases_for_grids(grids)
     folded_grids = {name: fold_host_rows(rows, aliases) for name, rows in grids.items()}
-    found = _score_present(folded_grids, index)
+    found = _score_present(folded_grids, index, coverage)
     return _finish(found, grids, coverage, request_kinds or {}, baseline, index, aliases)
 
 
