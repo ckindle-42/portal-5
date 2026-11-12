@@ -95,6 +95,8 @@ class HuntBudget:
     last_write: float = 0.0
     last_write_query: int = -1
     kind_stats: dict[str, dict[str, Any]] = field(default_factory=dict)
+    observation_request_kinds: dict[str, dict[str, Any]] = field(default_factory=dict)
+    listed_observations: list[dict[str, Any]] = field(default_factory=list)
     ranking_notes: set[str] = field(default_factory=set)
     lock: threading.RLock = field(default_factory=threading.RLock)
     on_progress: Callable[[dict[str, Any]], None] | None = None
@@ -205,6 +207,9 @@ class HuntBudget:
             "last_progress_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "coverage_complete": False,
             "request_kinds": kinds,
+            "observation_request_kinds": {
+                kind: dict(slot) for kind, slot in sorted(self.observation_request_kinds.items())
+            },
             "ranking_coverage_complete": not reasons,
             "ranking_coverage_reasons": reasons,
         }
@@ -256,6 +261,8 @@ class BudgetedSearch:
                 raise HuntBudgetExceededError(self.budget.exhausted)
         except HuntBudgetExceededError:
             raise
+        except SearchCoverageCensoredError as exc:
+            raise HuntCoverageError(str(exc)) from exc
         except Exception as exc:  # noqa: BLE001 -- transport failures are incomplete hunt work
             if getattr(exc, "censored", False):
                 raise HuntCoverageError(
@@ -378,6 +385,101 @@ def _persist_cases(
         _write(job_id, state)
 
 
+def _case_rows(cases: list[Any]) -> tuple[list[dict[str, Any]], int]:
+    rows = [_case_payload(case) for case in cases]
+    done = sum(1 for case in cases if not getattr(case, "partial", False))
+    return rows, done
+
+
+def _store_leads(
+    job_id: str,
+    state: dict[str, Any],
+    state_lock: threading.RLock,
+    effort: HuntBudget,
+    leads: list[Lead],
+) -> None:
+    with state_lock:
+        state.update(
+            stage="investigating",
+            leads=[_stripped(lead) for lead in leads],
+            observations=list(effort.listed_observations),
+        )
+        state["progress"] = effort.snapshot()
+        _write(job_id, state)
+
+
+def _close_success(
+    cases: list[Any], effort: HuntBudget, progress: dict[str, Any], degraded: list[Any]
+) -> dict[str, Any]:
+    """COMPLETE only when observation coverage and every case are both complete."""
+    rows, done = _case_rows(cases)
+    complete = (
+        bool(cases)
+        and not effort.exhausted
+        and progress["ranking_coverage_complete"]
+        and all(bool(case.coverage) and _case_payload(case)["coverage_complete"] for case in cases)
+    )
+    progress["coverage_complete"] = complete
+    ok = complete and not effort.exhausted
+    return {
+        "status": "COMPLETE" if ok else "PARTIAL",
+        "stage": "done" if ok else "partial",
+        "finished": time.time(),
+        "cases": rows,
+        "completed_case_count": done,
+        "degraded": degraded,
+        "coverage_complete": ok,
+        "coverage_reason": None
+        if ok
+        else "indexed_and_verified_scope_does_not_cover_the_full_raw_index",
+        "progress": progress,
+    }
+
+
+def _close_partial(
+    exc: BaseException, effort: HuntBudget, inv: Investigator | None
+) -> dict[str, Any]:
+    effort.exhausted = effort.exhausted or str(exc)
+    progress = effort.snapshot()
+    if isinstance(exc, HuntCoverageError) and exc.sid:
+        progress["search_sid"] = exc.sid
+    retained = inv.completed_cases if inv is not None else []
+    rows, done = _case_rows(retained)
+    return {
+        "status": "PARTIAL",
+        "stage": "partial",
+        "finished": time.time(),
+        "error": str(exc),
+        "observations": list(getattr(effort, "listed_observations", [])),
+        "cases": rows,
+        "completed_case_count": done,
+        "coverage_complete": False,
+        "coverage_reason": str(exc),
+        "degraded": inv.degraded if inv is not None else [],
+        "progress": progress,
+    }
+
+
+def _close_failed(
+    exc: BaseException, effort: HuntBudget, inv: Investigator | None
+) -> dict[str, Any]:
+    failure = f"{type(exc).__name__}: {exc}"
+    retained = inv.completed_cases if inv is not None else []
+    rows, done = _case_rows(retained)
+    return {
+        "status": "FAILED",
+        "stage": "failed",
+        "finished": time.time(),
+        "error": failure,
+        "cases": rows,
+        "completed_case_count": done,
+        "coverage_complete": False,
+        "coverage_reason": failure,
+        "degraded": inv.degraded if inv is not None else [],
+        "progress": effort.snapshot(),
+    }
+
+
 def _perform_hunt(
     job_id: str,
     state: dict[str, Any],
@@ -391,65 +493,16 @@ def _perform_hunt(
 ) -> None:
     inv: Investigator | None = None
     try:
-        leads = hunt(search, index, start, end)
+        leads = hunt(search, index, start, end, candidates=dig)
         effort.update(phase="investigating", lead_count=len(leads))
-        with state_lock:
-            state.update(stage="investigating", leads=[_stripped(lead) for lead in leads])
-            state["progress"] = effort.snapshot()
-            _write(job_id, state)
+        _store_leads(job_id, state, state_lock, effort, leads)
         inv = Investigator(search, index, start, end)
         cases = inv.investigate_all(leads, dig=dig)
-        complete = bool(cases) and all(
-            bool(case.coverage) and _case_payload(case)["coverage_complete"] for case in cases
-        )
-        progress = effort.snapshot()
-        progress["coverage_complete"] = complete and not effort.exhausted
-        state.update(
-            status="COMPLETE" if complete and not effort.exhausted else "PARTIAL",
-            stage="done" if complete and not effort.exhausted else "partial",
-            finished=time.time(),
-            cases=[_case_payload(case) for case in cases],
-            completed_case_count=sum(1 for case in cases if not getattr(case, "partial", False)),
-            degraded=inv.degraded,
-            coverage_complete=complete and not effort.exhausted,
-            coverage_reason=None
-            if complete and not effort.exhausted
-            else "indexed_and_verified_scope_does_not_cover_the_full_raw_index",
-            progress=progress,
-        )
-    except (HuntBudgetExceededError, HuntCoverageError) as exc:
-        effort.exhausted = effort.exhausted or str(exc)
-        progress = effort.snapshot()
-        if isinstance(exc, HuntCoverageError) and exc.sid:
-            progress["search_sid"] = exc.sid
-        retained = inv.completed_cases if inv is not None else []
-        state.update(
-            status="PARTIAL",
-            stage="partial",
-            finished=time.time(),
-            error=str(exc),
-            cases=[_case_payload(case) for case in retained],
-            completed_case_count=sum(1 for case in retained if not getattr(case, "partial", False)),
-            coverage_complete=False,
-            coverage_reason=str(exc),
-            degraded=inv.degraded if inv is not None else [],
-            progress=progress,
-        )
+        state.update(_close_success(cases, effort, effort.snapshot(), inv.degraded))
+    except (SearchBudgetExceededError, HuntCoverageError) as exc:
+        state.update(_close_partial(exc, effort, inv))
     except Exception as exc:  # noqa: BLE001 -- surface an unexpected job failure
-        failure = f"{type(exc).__name__}: {exc}"
-        retained = inv.completed_cases if inv is not None else []
-        state.update(
-            status="FAILED",
-            stage="failed",
-            finished=time.time(),
-            error=failure,
-            cases=[_case_payload(case) for case in retained],
-            completed_case_count=sum(1 for case in retained if not getattr(case, "partial", False)),
-            coverage_complete=False,
-            coverage_reason=failure,
-            degraded=inv.degraded if inv is not None else [],
-            progress=effort.snapshot(),
-        )
+        state.update(_close_failed(exc, effort, inv))
     with state_lock:
         _write(job_id, state)
 
