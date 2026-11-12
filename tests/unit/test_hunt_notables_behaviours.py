@@ -78,22 +78,27 @@ def test_behaviour_key_uses_the_first_present_role_field_and_shapes_variety():
     assert shaped[0:2] == ("user", "aaa")
 
 
-def test_keyed_row_reproduces_only_literal_parts_of_the_key():
+def test_keyed_row_reproduces_every_literal_part_of_the_key():
     card = _card()
     rows = keyed_rows(card, _facts(), [_event(7, "bob", "raw line")])
     assert len(rows) == 1
     query = str(rows[0][10])
     assert 'TERM("bob")' in query
     assert 'TERM("cmd.exe")' in query
-    assert "/tmp/7" not in query
+    assert 'TERM("/tmp/7")' in query
     assert 'index="ix"' in query
     assert rows[0][11] == 0.0 and rows[0][12] == 3600.0
 
 
-def test_an_event_with_neither_actor_nor_object_is_not_a_behaviour():
+def test_a_generalised_value_is_left_out_of_the_query(monkeypatch):
+    monkeypatch.setattr(
+        "portal.modules.security.core.hunt.notables.behaviours.BEHAVIOUR_FIELD_VALUES", 1
+    )
     card = _card()
-    event = ExampleEvent("ix:st", "h1", 1.0, "raw", {"image": "stats"}, 0.0, 3600.0)
-    assert keyed_rows(card, _facts(), [event]) == []
+    rows = keyed_rows(card, _facts(), [_event(7, "bob"), _event(8, "bob")])
+    query = str(rows[0][10])
+    assert 'TERM("bob")' in query
+    assert "/tmp/7" not in query and "/tmp/8" not in query
 
 
 def test_a_part_card_keys_only_its_own_events():
@@ -121,6 +126,12 @@ def test_a_part_card_keys_only_its_own_events():
     ]
     events = _extract(card, rows, [(0.0, 10.0)])
     assert [event.fields["user"] for event in events] == ["bob", "amy"]
+
+
+def test_an_event_with_neither_actor_nor_object_is_not_a_behaviour():
+    card = _card()
+    event = ExampleEvent("ix:st", "h1", 1.0, "raw", {"image": "stats"}, 0.0, 3600.0)
+    assert keyed_rows(card, _facts(), [event]) == []
 
 
 def test_window_bounds_slices_a_range_deterministically():
@@ -200,6 +211,7 @@ def test_aggregate_counts_behaviours_and_source_possible_sharers(tmp_path):
     assert existed == 2
     top = behaviours[0]
     assert (top.actor, top.action, top.events, top.hosts) == ("bob", "cmd.exe", 2, 2)
+    assert (top.example_earliest, top.example_latest) == (10.0, 20.0)
     assert [item.actor for item in behaviours] == ["bob", "amy"]
     loaded = load_behaviours(path)
     assert len(loaded) == 2

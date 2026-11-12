@@ -22,7 +22,7 @@ BEHAVIOUR_FIELD_VALUES = 2000  # effort budget: a field stays literal in keys up
 MAX_BEHAVIOURS = 200_000  # effort budget: rows kept in the behaviour table
 SHAPE_CHARS = 64  # effort budget: characters that describe a generalised value
 EXAMPLE_CHARS = 400  # effort budget: raw characters kept on one behaviour
-MAX_TERMS = 2  # effort budget: literal values used to reproduce one behaviour
+MAX_TERMS = 3  # effort budget: literal role values used to reproduce one behaviour
 
 
 @dataclass(frozen=True)
@@ -117,7 +117,7 @@ def _quote(value: str) -> str:
 def reproduction_query(
     card: SourceCard, facts: SourceFacts, components: Sequence[tuple[str, str, str]]
 ) -> str:
-    """A literal query and time bounds that find the behaviour's example event again."""
+    """Every literal role value together, so the query selects this behaviour, not a common word."""
     route, _ = route_filter(facts, BEHAVIOUR_SOURCES)
     terms = [
         f"TERM({_quote(value)})"
@@ -231,7 +231,7 @@ def aggregate_events(con: duckdb.DuckDBPyConnection) -> tuple[list[Behaviour], i
         " max(ts) AS last_seen, count(DISTINCT NULLIF(host, '')) AS hosts,"
         " count(DISTINCT NULLIF(actor, '')) AS actors, arg_min(ts, ts) AS example_time,"
         " arg_min(query, ts) AS example_query, arg_min(raw, ts) AS example_raw,"
-        " arg_min(earliest, ts) AS example_earliest, arg_min(latest, ts) AS example_latest"
+        " min(ts) AS example_earliest, max(ts) AS example_latest"
         " FROM events GROUP BY ALL"
     )
     row = con.execute("SELECT count(*) FROM behaviour_all").fetchone()
