@@ -485,6 +485,193 @@ def test_help_names_the_pipeline_workspace_and_the_new_options():
     assert "PORTAL_HUNT_JUDGE_URL" in help_text
     assert "PORTAL_HUNT_JUDGE_MODEL" in help_text
     assert "--budget-order" in help_text and "round_robin" in help_text
+    assert "accumulated" in help_text and "layer1" in help_text
     assert "--order" in help_text and "{fused,judged,budget}" in help_text
+    assert "--evidence" in help_text and "{rarest,strongest}" in help_text
     assert "--judge-cells" in help_text
     assert "--event-chars" in help_text
+
+
+def test_parse_defaults_accumulated_rarest_and_fifty_cells(monkeypatch):
+    monkeypatch.setenv("PORTAL_HUNT_JUDGE_URL", "http://pipeline.example/v1")
+    monkeypatch.setenv("PORTAL_HUNT_JUDGE_MODEL", "security-reviewer")
+    monkeypatch.setattr(sys, "argv", ["judged_hunt.py", "--index", "events", "--out", "out"])
+
+    args = judged_hunt._parse()
+
+    assert args.judge_cells == 50
+    assert args.budget_order == "accumulated"
+    assert args.evidence == "rarest"
+    assert args.order == "fused"
+
+
+def test_accumulated_budget_judges_the_sum_before_first_appearance(tmp_path: Path):
+    observations = [
+        _observation("node-a", 0, 1),
+        _observation("node-b", 0, 2),
+        _observation("node-b", 0, 2),
+    ]
+
+    judged_hunt.run_judged_hunt(
+        _args(tmp_path, judge_cells=1, budget_order="accumulated", order="budget"),
+        prepare=_prepare(observations, _Executor()),
+        client=_Judge(),
+    )
+
+    leads = json.loads((tmp_path / "leads.json").read_text())["leads"]
+    progress = json.loads((tmp_path / "progress.json").read_text())
+    assert [(lead["host"], lead["judged"], lead["risk"], lead["acc_rank"]) for lead in leads] == [
+        ("node-b", True, 4.0, 1),
+        ("node-a", False, 1.0, 2),
+    ]
+    assert leads[0]["evidence_selection"] == "rarest"
+    assert leads[0]["span"] == 3600
+    assert progress["options"]["budget_order"] == "accumulated"
+    assert progress["options"]["evidence"] == "rarest"
+    assert progress["order_statement"] == "budget sequence"
+    assert progress["request_kinds"]["judge"]["requests"] == 1
+
+
+def test_round_robin_follows_accumulated_order_within_and_across_hosts(tmp_path: Path):
+    observations = [
+        _observation("node-a", 0, 9),
+        _observation("node-a", 3600, 8),
+        _observation("node-b", 0, 1),
+        _observation("node-b", 0, 1),
+        _observation("node-b", 3600, 7),
+    ]
+
+    judged_hunt.run_judged_hunt(
+        _args(tmp_path, judge_cells=4, budget_order="round_robin", order="budget"),
+        prepare=_prepare(observations, _Executor()),
+        client=_Judge(),
+    )
+
+    leads = json.loads((tmp_path / "leads.json").read_text())["leads"]
+    assert [(lead["host"], lead["hour"], lead["budget_rank"]) for lead in leads] == [
+        ("node-a", 0, 1),
+        ("node-b", 3600, 2),
+        ("node-a", 3600, 3),
+        ("node-b", 0, 4),
+    ]
+
+
+def test_fused_order_breaks_equal_p_yes_by_accumulated_rank(tmp_path: Path):
+    observations = [
+        _observation("b", 0, 5),
+        _observation("c", 0, 4),
+        _observation("a", 0, 9),
+    ]
+
+    judged_hunt.run_judged_hunt(
+        _args(tmp_path, judge_cells=3, budget_order="layer1", order="fused"),
+        prepare=_prepare(observations, _Executor()),
+        client=_Judge(),
+    )
+
+    leads = json.loads((tmp_path / "leads.json").read_text())["leads"]
+    assert [lead["host"] for lead in leads] == ["b", "a", "c"]
+    assert [lead["acc_rank"] for lead in leads] == [2, 1, 3]
+    assert [lead["budget_rank"] for lead in leads] == [1, 3, 2]
+    progress = json.loads((tmp_path / "progress.json").read_text())
+    assert "acc_rank" in progress["order_statement"]
+    assert progress["order"] == "fused"
+
+
+def test_unjudged_tail_follows_accumulated_order(tmp_path: Path):
+    observations = [
+        _observation("node-a", 0, 1),
+        _observation("node-b", 0, 5),
+        _observation("node-c", 0, 9),
+    ]
+
+    judged_hunt.run_judged_hunt(
+        _args(tmp_path, judge_cells=1, budget_order="layer1", order="judged"),
+        prepare=_prepare(observations, _Executor()),
+        client=_Judge(),
+    )
+
+    leads = json.loads((tmp_path / "leads.json").read_text())["leads"]
+    assert [(lead["host"], lead["reason"]) for lead in leads] == [
+        ("node-a", None),
+        ("node-c", "beyond_judge_cell_budget"),
+        ("node-b", "beyond_judge_cell_budget"),
+    ]
+
+
+class _HourExecutor(_Executor):
+    def read(self, query, earliest, latest, *, kind, row_cap):
+        host = query.split('host="', 1)[1].split('"', 1)[0]
+        return SimpleNamespace(
+            rows=[
+                {
+                    "_time": earliest + 1,
+                    "host": host,
+                    "source": "svc",
+                    "sourcetype": "log",
+                    "punct": "abc",
+                    "_raw": f"hour-{int(earliest)}",
+                }
+            ],
+            reason=None,
+        )
+
+
+class _PreferLater:
+    def complete(self, **kwargs):
+        prompt = kwargs["messages"][0]["content"]
+        value = 0.9 if "hour-3600" in prompt else 0.2
+        yes = -0.1 if value == 0.9 else -1.0
+        no = -1.0 if value == 0.9 else -0.1
+        return {
+            "model": "served-seat",
+            "usage": {"prompt_tokens": 12},
+            "choices": [
+                {
+                    "logprobs": {
+                        "content": [
+                            {
+                                "top_logprobs": [
+                                    {"token": "yes", "logprob": yes},
+                                    {"token": "no", "logprob": no},
+                                ]
+                            }
+                        ]
+                    }
+                }
+            ],
+        }
+
+
+def test_cases_cover_every_host_day_and_members_follow_lead_order(tmp_path: Path):
+    observations = [
+        _observation("node-a", 0, 4),
+        _observation("node-a", 3600, 3),
+        _observation("node-b", 86400, 1),
+    ]
+
+    judged_hunt.run_judged_hunt(
+        _args(tmp_path, judge_cells=2, budget_order="layer1", order="judged"),
+        prepare=_prepare(observations, _HourExecutor()),
+        client=_PreferLater(),
+    )
+
+    leads = json.loads((tmp_path / "leads.json").read_text())["leads"]
+    cases = json.loads((tmp_path / "cases.json").read_text())["cases"]
+    assert [(lead["host"], lead["hour"]) for lead in leads] == [
+        ("node-a", 3600),
+        ("node-a", 0),
+        ("node-b", 86400),
+    ]
+    assert [case["host"] for case in cases] == ["node-a", "node-b"]
+    assert cases[0]["risk"] == 7.0
+    assert [member["hour"] for member in cases[0]["members"]] == [3600, 0]
+    assert cases[0]["members"][0]["p_yes"] > cases[0]["members"][1]["p_yes"]
+    assert cases[0]["evidence"] == leads[0]["evidence"]
+    assert cases[1]["risk"] == 1.0
+    assert cases[1]["evidence"] == []
+    member = cases[1]["members"][0]
+    assert member["p_yes"] is None
+    assert member["hour"] == 86400
+    assert {"risk", "acc_rank", "l1_rank", "lead_rank"} <= set(member)
+    assert _keys(cases).isdisjoint({"seconds", "wall_seconds", "prompt_tokens"})

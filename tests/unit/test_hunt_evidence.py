@@ -7,6 +7,7 @@ from portal.modules.security.core.hunt.evidence import (
     MAX_EVENT_CHARACTERS,
     MAX_OBSERVATIONS_PER_CELL,
     ROW_BUDGET,
+    accumulated_host_hours,
     evidence_cells,
     read_cell,
 )
@@ -87,7 +88,7 @@ def test_one_bounded_read_returns_only_matching_events_with_reproducible_bounds(
     ]
     executor = _Executor(rows)
 
-    result = read_cell(executor, INDEX, cell, HOUR, 3 * HOUR)
+    result = read_cell(executor, INDEX, cell, HOUR, 3 * HOUR, evidence_mode="strongest")
 
     assert len(executor.calls) == 1
     query, earliest, latest, kind, row_cap = executor.calls[0]
@@ -109,7 +110,9 @@ def test_one_bounded_read_returns_only_matching_events_with_reproducible_bounds(
         item["query"] in {shape.evidence["literal"], source.evidence["literal"]}
         for item in result.evidence
     )
-    assert result == read_cell(_Executor(rows), INDEX, cell, HOUR, 3 * HOUR)
+    assert result == read_cell(
+        _Executor(rows), INDEX, cell, HOUR, 3 * HOUR, evidence_mode="strongest"
+    )
 
 
 def test_censored_read_keeps_its_reason_and_does_not_claim_evidence():
@@ -177,8 +180,12 @@ def test_each_event_is_kept_once_and_a_repeat_does_not_spend_the_observation_bud
         "_raw": "only-source",
     }
 
-    result = read_cell(_Executor([extra, shared]), INDEX, cell, HOUR, 2 * HOUR)
-    again = read_cell(_Executor([shared, extra]), INDEX, cell, HOUR, 2 * HOUR)
+    result = read_cell(
+        _Executor([extra, shared]), INDEX, cell, HOUR, 2 * HOUR, evidence_mode="strongest"
+    )
+    again = read_cell(
+        _Executor([shared, extra]), INDEX, cell, HOUR, 2 * HOUR, evidence_mode="strongest"
+    )
 
     assert len(cell.observations) == MAX_OBSERVATIONS_PER_CELL + 1
     assert [item["line"].split(" | ", 1)[1] for item in result.evidence] == [
@@ -228,7 +235,7 @@ def test_marker_keeps_the_row_on_the_observation_the_read_named():
         "_hunt_observation": 1,
     }
 
-    result = read_cell(_Executor([row]), INDEX, cell, HOUR, 2 * HOUR)
+    result = read_cell(_Executor([row]), INDEX, cell, HOUR, 2 * HOUR, evidence_mode="strongest")
 
     assert len(result.evidence) == 1
     assert result.evidence[0]["query"] == source.evidence["literal"]
@@ -245,7 +252,7 @@ def test_query_names_candidates_with_equality_and_bounds_the_rows():
     cell = evidence_cells(observations)[0]
     executor = _Executor([])
 
-    read_cell(executor, INDEX, cell, HOUR, 2 * HOUR)
+    read_cell(executor, INDEX, cell, HOUR, 2 * HOUR, evidence_mode="strongest")
 
     query = executor.calls[0][0]
     assert f"TERM({_search_literal('a"b')})" in query
@@ -270,3 +277,148 @@ def test_event_chars_overrides_the_default_line_budget():
     result = read_cell(_Executor([row]), INDEX, cell, HOUR, 2 * HOUR, event_chars=4)
 
     assert result.evidence[0]["line"] == "svc | abcd"
+
+
+def _scored(
+    host: str, hour: int, kind: str, score: float | None, entity: str = "abc"
+) -> Observation:
+    return Observation(
+        kind,
+        host,
+        entity,
+        hour,
+        score,
+        {"signal": "burst", "literal": literal_query(kind, INDEX, host, entity)},
+    )
+
+
+def test_accumulated_host_hours_sum_positive_scores_and_tie_by_layer1_rank():
+    rows = [
+        _scored("h1", 0, "shape", 5),
+        _scored("h2", 0, "shape", 9),
+        _scored("h1", 0, "volume", 6, ""),
+        _scored("h3", 0, "value", 11, "k=v"),
+        _scored("h1", 0, "source", None, "svc\tlog"),
+        _scored("h1", 0, "stream", -3, "log\tabc"),
+        _scored("h4", 0, "shape", 11, "later"),
+        _scored("h5", HOUR, "shape", 0),
+    ]
+
+    cells = accumulated_host_hours(rows)
+
+    assert [(cell.host, cell.risk, cell.acc_rank, cell.l1_rank) for cell in cells] == [
+        ("h1", 11.0, 1, 1),
+        ("h3", 11.0, 2, 3),
+        ("h4", 11.0, 3, 4),
+        ("h2", 9.0, 4, 2),
+        ("h5", 0.0, 5, 5),
+    ]
+    assert [item.kind for item in cells[0].observations] == ["shape", "source", "stream"]
+
+
+def _shape(
+    entity: str,
+    score: float,
+    signal: str,
+    active: int | None,
+    prior_len: int,
+) -> Observation:
+    return Observation(
+        "shape",
+        "node-a",
+        entity,
+        HOUR,
+        score,
+        {
+            "signal": signal,
+            "prior_hours_active": active,
+            "prior": [{"hour": index, "count": 1} for index in range(prior_len)],
+            "literal": literal_query("shape", INDEX, "node-a", entity),
+        },
+    )
+
+
+def _event(punct: str, raw: str, stamp: int) -> dict[str, object]:
+    return {
+        "_time": stamp,
+        "host": "node-a",
+        "source": "svc",
+        "sourcetype": "log",
+        "punct": punct,
+        "_raw": raw,
+    }
+
+
+def test_rarest_shapes_are_read_one_event_at_a_time_before_a_second():
+    fresh = _shape("fresh", 1, "novelty", None, 0)
+    unseen = _shape("unseen", 50, "burst", 0, 5)
+    rare = _shape("rare", 2, "burst", 1, 10)
+    common = _shape("common", 100, "burst", 8, 10)
+    same = _shape("same", 3, "burst", 1, 10)
+    cell = evidence_cells([common, unseen, rare, same, fresh])[0]
+    rows = []
+    for entity in ("fresh", "unseen", "rare", "same", "common"):
+        rows.append(_event(entity, f"{entity}-1", HOUR + 1))
+        rows.append(_event(entity, f"{entity}-2", HOUR + 2))
+    executor = _Executor(rows)
+
+    result = read_cell(executor, INDEX, cell, HOUR, 2 * HOUR)
+
+    assert result.evidence_selection == "rarest"
+    assert len(executor.calls) == 1
+    query = executor.calls[0][0]
+    assert "streamstats count as _hunt_nth by _hunt_observation" in query
+    assert f"| where _hunt_nth<={EVENTS_PER_OBSERVATION}" in query
+    assert f"| head {ROW_BUDGET}" in query
+    assert f"dedup {EVENTS_PER_OBSERVATION} _hunt_observation" not in query
+    assert [item["line"].split(" | ", 1)[1] for item in result.evidence] == [
+        "fresh-1",
+        "unseen-1",
+        "rare-1",
+        "same-1",
+        "common-1",
+        "fresh-2",
+        "unseen-2",
+        "rare-2",
+        "same-2",
+        "common-2",
+    ]
+
+
+def test_rarest_falls_back_to_strongest_when_no_shape_event_matches():
+    shape = _observation("shape", "missing", HOUR, 9)
+    source = _observation("source", "svc\tlog", HOUR, 1)
+    cell = evidence_cells([shape, source])[0]
+    row = {
+        "_time": HOUR + 1,
+        "host": "node-a",
+        "source": "svc",
+        "sourcetype": "log",
+        "punct": "other",
+        "_raw": "kept",
+    }
+    executor = _Executor([row])
+
+    result = read_cell(executor, INDEX, cell, HOUR, 2 * HOUR)
+
+    assert len(executor.calls) == 1
+    assert result.evidence_selection == "strongest"
+    assert [item["query"] for item in result.evidence] == [source.evidence["literal"]]
+
+
+def test_rarest_names_shapes_before_other_kinds_inside_the_candidate_budget():
+    observations = [_observation("value", 'a"b', HOUR, 1000.0)]
+    observations.extend(
+        _observation("shape", f"p{index}", HOUR, float(500 - index))
+        for index in range(CANDIDATE_OBSERVATIONS)
+    )
+    cell = evidence_cells(observations)[0]
+    executor = _Executor([])
+
+    read_cell(executor, INDEX, cell, HOUR, 2 * HOUR)
+
+    query = executor.calls[0][0]
+    assert f"punct={_search_literal('p0')}" in query
+    assert f"punct={_search_literal(f'p{CANDIDATE_OBSERVATIONS - 1}')}" in query
+    assert "searchmatch" not in query
+    assert f"| head {ROW_BUDGET}" in query
