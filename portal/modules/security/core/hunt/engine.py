@@ -137,7 +137,11 @@ def _search_literal(value: str) -> str:
 
 def _copy_kinds(stats: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
     return {
-        kind: {"requests": int(slot["requests"]), "seconds": round(float(slot["seconds"]), 3)}
+        kind: {
+            "requests": int(slot["requests"]),
+            "seconds": round(float(slot["seconds"]), 3),
+            "censored": int(slot.get("censored", 0)),
+        }
         for kind, slot in stats.items()
     }
 

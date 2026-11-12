@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import re
-import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -24,14 +23,19 @@ from portal.modules.security.core.hunt.baselines import (
 from portal.modules.security.core.hunt.engine import (
     HOUR,
     Search,
-    SearchBudgetExceededError,
-    SearchCoverageCensoredError,
-    SearchQueryBoundError,
     _burst,
     _search_literal,
     host_hour_novelty,
 )
-from portal.modules.security.core.hunt.jobs import DEFAULT_BUDGETS, BudgetedSearch, HuntBudget
+from portal.modules.security.core.hunt.executor import (
+    DEFAULT_BUDGETS,
+    QUERY_BOUND,
+    HuntBudget,
+    HuntExecutor,
+    executor_for,
+    per_sample_cap,
+)
+from portal.modules.security.core.hunt.jobs import BudgetedSearch
 from portal.modules.security.core.hunt.ranking import where_literal
 
 KEY_SLICES = 4  # effort budget: time slices read while learning keys
@@ -150,35 +154,15 @@ def _sort_key(obs: Observation) -> tuple[bool, float, str, str, str, str, int]:
     return (False, -obs.score, obs.kind, obs.host, obs.entity, signal, obs.hour)
 
 
-def _note(stats: dict[str, dict[str, Any]], kind: str, started: float) -> None:
-    slot = stats.setdefault(kind, {"requests": 0, "seconds": 0.0})
-    slot["requests"] = int(slot["requests"]) + 1
-    slot["seconds"] = round(float(slot["seconds"]) + time.monotonic() - started, 3)
-
-
 def _issue(
-    search: Search,
+    executor: HuntExecutor,
     query: str,
     start: float,
     end: float,
-    stats: dict[str, dict[str, Any]],
     kind: str,
 ) -> tuple[list[dict[str, Any]], str | None]:
-    started = time.monotonic()
-    rows: list[dict[str, Any]] = []
-    reason: str | None = None
-    try:
-        for row in search.iter_post(query, start, end):
-            rows.append(dict(row))
-    except SearchQueryBoundError:
-        rows, reason = [], "query_bound"
-    except SearchCoverageCensoredError:
-        rows, reason = [], "censored"
-    except SearchBudgetExceededError:
-        rows, reason = [], "budget"
-    finally:
-        _note(stats, kind, started)
-    return rows, reason
+    read = executor.read(query, start, end, kind=kind, row_cap=per_sample_cap(query))
+    return read.rows, read.reason
 
 
 def _as_int(rows: list[dict[str, Any]], field: str) -> int | None:
@@ -226,24 +210,23 @@ def _hour_partitions(start: float, end: float, pieces: int) -> list[tuple[float,
 
 
 def _load_once(
-    search: Search,
+    executor: HuntExecutor,
     index: str,
     by: str,
     start: float,
     end: float,
-    stats: dict[str, dict[str, Any]],
     kind: str,
     suffix: str,
 ) -> tuple[list[dict[str, Any]], str | None]:
     counted, reason = _issue(
-        search, f"{_tstats(index, by)} | stats count as groups", start, end, stats, kind
+        executor, f"{_tstats(index, by)} | stats count as groups", start, end, kind
     )
     if reason:
         return [], reason
     expected = _as_int(counted, "groups")
     if expected is None:
         return [], "censored"
-    fetched, reason = _issue(search, f"{_tstats(index, by)}{suffix}", start, end, stats, kind)
+    fetched, reason = _issue(executor, f"{_tstats(index, by)}{suffix}", start, end, kind)
     if reason:
         return [], reason
     if len(fetched) != expected:
@@ -252,29 +235,26 @@ def _load_once(
 
 
 def _load_grid(
-    search: Search,
+    executor: HuntExecutor,
     index: str,
     by: str,
     start: float,
     end: float,
-    stats: dict[str, dict[str, Any]],
     kind: str,
     suffix: str = "",
     *,
     allow_split: bool = True,
 ) -> tuple[list[dict[str, Any]], str | None]:
-    """One grid. A query that overruns its time bound is re-read in hour partitions."""
-    rows, reason = _load_once(search, index, by, start, end, stats, kind, suffix)
-    if reason != "query_bound" or not allow_split:
+    """One grid. A query the executor cut by its own time bound is re-read in hour partitions."""
+    rows, reason = _load_once(executor, index, by, start, end, kind, suffix)
+    if reason != QUERY_BOUND or not allow_split:
         return rows, reason
     parts = _hour_partitions(start, end, GRID_SPLITS)
     if len(parts) <= 1:
         return [], reason
     merged: list[dict[str, Any]] = []
     for lo, hi in parts:
-        part, part_reason = _load_grid(
-            search, index, by, lo, hi, stats, kind, suffix, allow_split=False
-        )
+        part, part_reason = _load_grid(executor, index, by, lo, hi, kind, suffix, allow_split=False)
         if part_reason:
             return [], part_reason
         merged.extend(part)
@@ -664,16 +644,15 @@ def _score_loaded(
 
 
 def _observe_one(
-    search: Search,
+    executor: HuntExecutor,
     index: str,
     kind: str,
     by: str,
     start: float,
     end: float,
-    stats: dict[str, dict[str, Any]],
     coverage: dict[str, dict[str, Any]],
 ) -> tuple[list[Observation], list[dict[str, Any]] | None]:
-    rows, reason = _load_grid(search, index, by, start, end, stats, kind)
+    rows, reason = _load_grid(executor, index, by, start, end, kind)
     if reason:
         coverage[kind] = _coverage(reason)
         return [], None
@@ -695,17 +674,16 @@ _STRUCTURAL = (
 
 
 def _observe_structural(
-    search: Search,
+    executor: HuntExecutor,
     index: str,
     start: float,
     end: float,
-    stats: dict[str, dict[str, Any]],
     coverage: dict[str, dict[str, Any]],
 ) -> tuple[list[Observation], dict[str, list[dict[str, Any]]]]:
     found: list[Observation] = []
     grids: dict[str, list[dict[str, Any]]] = {}
     for kind, by in _STRUCTURAL:
-        scored, rows = _observe_one(search, index, kind, by, start, end, stats, coverage)
+        scored, rows = _observe_one(executor, index, kind, by, start, end, coverage)
         found.extend(scored)
         if rows is not None:
             grids[kind] = rows
@@ -721,10 +699,9 @@ def _unique(reasons: list[str]) -> list[str]:
 
 
 def _read_slices(
-    search: Search,
+    executor: HuntExecutor,
     index: str,
     volume_rows: list[dict[str, Any]],
-    stats: dict[str, dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[str], list[dict[str, Any]]]:
     totals = _hour_volume(volume_rows)
     chosen = _slice_hours(list(totals))
@@ -734,7 +711,7 @@ def _read_slices(
     rows: list[dict[str, Any]] = []
     slices: list[dict[str, Any]] = []
     for hour in chosen:
-        got, reason = _issue(search, _slice_query(index), hour, hour + HOUR, stats, "key_sample")
+        got, reason = _issue(executor, _slice_query(index), hour, hour + HOUR, "key_sample")
         entry: dict[str, Any] = {
             "hour": hour,
             "returned": 0 if reason else len(got),
@@ -752,12 +729,11 @@ def _read_slices(
 
 
 def _query_keys(
-    search: Search,
+    executor: HuntExecutor,
     index: str,
     queried: list[tuple[str, int]],
     start: float,
     end: float,
-    stats: dict[str, dict[str, Any]],
     reasons: list[str],
 ) -> tuple[list[Observation], dict[str, list[dict[str, Any]]]]:
     found: list[Observation] = []
@@ -765,7 +741,7 @@ def _query_keys(
     for key, _count in queried:
         by = f"by host PREFIX({key}=) _time span=1h"
         rows, reason = _load_grid(
-            search, index, by, start, end, stats, f"value:{key}", suffix=f' | rename "{key}=" as v'
+            executor, index, by, start, end, f"value:{key}", suffix=f' | rename "{key}=" as v'
         )
         if reason:
             reasons.append(reason)
@@ -795,22 +771,21 @@ def _value_coverage(
 
 
 def _observe_values(
-    search: Search,
+    executor: HuntExecutor,
     index: str,
     start: float,
     end: float,
-    stats: dict[str, dict[str, Any]],
     volume_rows: list[dict[str, Any]] | None,
 ) -> tuple[list[Observation], dict[str, list[dict[str, Any]]], dict[str, Any]]:
     if volume_rows is None:
         return [], {}, _value_coverage(["volume_incomplete"], [], [])
-    sample, reasons, slices = _read_slices(search, index, volume_rows, stats)
+    sample, reasons, slices = _read_slices(executor, index, volume_rows)
     ranked = _learned_keys(sample)
     queried = ranked[:KEY_BUDGET]
     skipped = [key for key, _count in ranked[KEY_BUDGET:]]
     if skipped:
         reasons.append("key_budget")
-    found, grids = _query_keys(search, index, queried, start, end, stats, reasons)
+    found, grids = _query_keys(executor, index, queried, start, end, reasons)
     return found, grids, _value_coverage(reasons, skipped, slices)
 
 
@@ -994,18 +969,17 @@ def observe(
 ) -> ObservationRun:
     """Exact entity-hour scores over full grids. A short or censored grid is incomplete."""
     _check_baseline(baseline)
-    stats: dict[str, dict[str, Any]] = {}
+    executor = executor_for(search)
+    before = executor.stats()
     coverage: dict[str, dict[str, Any]] = {}
-    found, grids = _observe_structural(search, index, start, end, stats, coverage)
+    found, grids = _observe_structural(executor, index, start, end, coverage)
     volume_slot = coverage.get("volume", {})
     volume_rows = grids.get("volume") if volume_slot.get("complete") else None
-    values, value_grids, value_coverage = _observe_values(
-        search, index, start, end, stats, volume_rows
-    )
+    values, value_grids, value_coverage = _observe_values(executor, index, start, end, volume_rows)
     grids.update(value_grids)
     coverage["value"] = value_coverage
     found.extend(values)
-    return _finish(found, grids, coverage, stats, baseline)
+    return _finish(found, grids, coverage, executor.delta(before), baseline)
 
 
 def rescore(

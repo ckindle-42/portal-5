@@ -8,12 +8,10 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import threading
 import time
 import uuid
 from collections.abc import Callable, Iterator, Mapping
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -22,281 +20,38 @@ from .engine import (
     Lead,
     Search,
     SearchBudgetExceededError,
-    SearchCoverageCensoredError,
     SearchQueryBoundError,
     hunt,
 )
+from .executor import (
+    DEFAULT_BUDGETS,
+    HuntBudget,
+    HuntBudgetExceededError,
+    HuntCoverageError,
+    HuntDeadlineExceededError,
+    HuntExecutor,
+    HuntSearchFailedError,
+    query_budget_kind,
+)
 from .investigate import Investigator
-from .ranking import query_progress_kind, query_progress_shape
 
 _ROOT = Path(
     os.environ.get("PORTAL5_HUNT_DIR", str(Path.home() / "AI_Output" / "review" / "hunts"))
 )
 _lock = threading.Lock()
-DEFAULT_BUDGETS: dict[str, float] = {
-    "query_seconds": 30.0,  # effort budget: server-side duration for one query
-    "job_seconds": 720.0,  # effort budget: shared hunt wall time across every worker
-    "requests": 2000,  # effort budget: total Splunk requests, including parallel calls
-    "cells": 10000,  # effort budget: evidence location cells, not discovery aggregates
-    "events": 5000,  # effort budget: raw evidence rows, not ranking samples
-}
-
-
-def query_budget_kind(query: str, phase: str = "investigating") -> str:
-    """discovery | cells | events, by execution phase then query shape. Ranking reads
-    (samples, peers, links, aggregates) are discovery effort; investigation raw reads are
-    events and its location enumerations are cells. Ranking keeps per-sample caps."""
-    if phase != "investigating":
-        return "discovery"
-    if not query.lstrip().startswith("| tstats"):
-        return "events"
-    if " by host source punct" in query:
-        return "discovery"
-    if " by host source" in query:
-        return "cells"
-    return "discovery"
-
-
-def _per_sample_cap(query: str) -> int | None:
-    """A ranking read is bounded by the sample size its own query declares."""
-    head = re.search(r"head (\d+)", query)
-    return int(head.group(1)) if head else None
-
-
-class HuntBudgetExceededError(SearchBudgetExceededError):
-    """A hunt ran out of its shared request, result, or wall-time effort."""
-
-
-class HuntSearchFailedError(RuntimeError):
-    """A bounded search could not run or return trustworthy results."""
-
-
-class HuntCoverageError(SearchCoverageCensoredError):
-    """A search stopped early; returned rows are not an exact count."""
-
-    def __init__(
-        self,
-        message: str,
-        *,
-        sid: str | None = None,
-        coverage: Mapping[str, Any] | None = None,
-    ) -> None:
-        super().__init__(message)
-        self.sid = sid
-        self.coverage = dict(coverage or {})
-
-
-@dataclass
-class HuntBudget:
-    limits: dict[str, float]
-    seed_budget: int = 0
-    started: float = field(default_factory=time.monotonic)
-    queries: int = 0
-    cells: int = 0
-    events: int = 0
-    discovery_rows: int = 0
-    phase: str = "ranking"
-    seed_rank: int | None = None
-    lead_count: int = 0
-    pivot_count: int = 0
-    exhausted: str | None = None
-    last_write: float = 0.0
-    last_write_query: int = -1
-    kind_stats: dict[str, dict[str, Any]] = field(default_factory=dict)
-    observation_request_kinds: dict[str, dict[str, Any]] = field(default_factory=dict)
-    listed_observations: list[dict[str, Any]] = field(default_factory=list)
-    ranking_notes: set[str] = field(default_factory=set)
-    lock: threading.RLock = field(default_factory=threading.RLock)
-    on_progress: Callable[[dict[str, Any]], None] | None = None
-
-    @property
-    def deadline(self) -> float:
-        return self.started + self.limits["job_seconds"]
-
-    def remaining(self) -> float:
-        return max(0.0, self.deadline - time.monotonic())
-
-    def reserve_query(self, query: str) -> tuple[float, str, int | None]:
-        """One shared decision per query, made under the lock: deadline, budget kind, and
-        result cap. The phase cannot race active discovery workers -- a phase change only
-        happens after `hunt()` returns (its pools joined), and each query keeps the kind
-        decided here for both its limit and its row counting."""
-        with self.lock:
-            if self.exhausted:
-                raise HuntBudgetExceededError(self.exhausted)
-            if self.remaining() <= 0:
-                self.exhausted = "job_wall_time_budget_exhausted"
-                raise HuntBudgetExceededError(self.exhausted)
-            if self.queries >= self.limits["requests"]:
-                self.exhausted = "request_budget_exhausted"
-                raise HuntBudgetExceededError(self.exhausted)
-            self.queries += 1
-            kind = query_budget_kind(query, self.phase)
-            if kind == "events":
-                cap: int | None = int(self.limits["events"] - self.events)
-            elif kind == "cells":
-                cap = int(self.limits["cells"] - self.cells)
-            else:
-                cap = _per_sample_cap(query)
-            if cap is not None and cap <= 0:
-                self.exhausted = "result_budget_exhausted"
-                raise HuntBudgetExceededError(self.exhausted)
-            return min(self.limits["query_seconds"], self.remaining()), kind, cap
-
-    def record_rows(self, kind: str, count: int) -> None:
-        with self.lock:
-            if kind == "events":
-                self.events += count
-                if self.events > self.limits["events"]:
-                    self.exhausted = "event_budget_exhausted"
-                    raise HuntBudgetExceededError(self.exhausted)
-            elif kind == "cells":
-                self.cells += count
-                if self.cells > self.limits["cells"]:
-                    self.exhausted = "cell_budget_exhausted"
-                    raise HuntBudgetExceededError(self.exhausted)
-            else:
-                self.discovery_rows += count
-        self.publish()
-
-    def add_kind(
-        self,
-        kind: str,
-        seconds: float,
-        *,
-        query: str | None = None,
-        query_start: float = 0.0,
-        query_end: float = 0.0,
-    ) -> None:
-        with self.lock:
-            slot = self.kind_stats.setdefault(kind, {"requests": 0, "seconds": 0.0})
-            slot["requests"] += 1
-            slot["seconds"] += seconds
-            if query is not None:
-                slot["shape"] = query_progress_shape(query, query_start, query_end)
-
-    def update(self, **values: Any) -> None:
-        with self.lock:
-            for key, value in values.items():
-                setattr(self, key, value)
-        self.publish(force=True)
-
-    def snapshot(self) -> dict[str, Any]:
-        with self.lock:
-            kinds = {
-                kind: {
-                    "requests": int(slot["requests"]),
-                    "seconds": round(slot["seconds"], 3),
-                    **({"shape": slot["shape"]} if "shape" in slot else {}),
-                }
-                for kind, slot in sorted(self.kind_stats.items())
-            }
-            reasons = sorted(self.ranking_notes)
-        return {
-            "phase": self.phase,
-            "seed_rank": self.seed_rank,
-            "lead_count": self.lead_count,
-            "pivot_count": self.pivot_count,
-            "query_count": self.queries,
-            "cell_count": self.cells,
-            "event_count": self.events,
-            "discovery_row_count": self.discovery_rows,
-            "remaining_requests": max(0, int(self.limits["requests"] - self.queries)),
-            "remaining_cells": max(0, int(self.limits["cells"] - self.cells)),
-            "remaining_events": max(0, int(self.limits["events"] - self.events)),
-            "remaining_seed_budget": max(
-                0,
-                min(self.seed_budget, self.lead_count) - (self.seed_rank or 0),
-            ),
-            "elapsed_s": round(time.monotonic() - self.started, 1),
-            "remaining_s": round(self.remaining(), 1),
-            "exhausted_reason": self.exhausted,
-            "limits": dict(self.limits),
-            "last_progress_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "coverage_complete": False,
-            "request_kinds": kinds,
-            "observation_request_kinds": {
-                kind: dict(slot) for kind, slot in sorted(self.observation_request_kinds.items())
-            },
-            "ranking_coverage_complete": not reasons,
-            "ranking_coverage_reasons": reasons,
-        }
-
-    def publish(self, *, force: bool = False) -> None:
-        if self.on_progress is None:
-            return
-        now = time.monotonic()
-        with self.lock:
-            if (
-                not force
-                and now - self.last_write < 5
-                and self.queries - self.last_write_query < 10
-            ):
-                return
-            self.last_write = now
-            self.last_write_query = self.queries
-            snapshot = self.snapshot()
-        self.on_progress(snapshot)
-
-
-def _time_bound(exc: BaseException) -> bool:
-    """True when the transport reports that this one query overran its time bound."""
-    text = str(exc).lower()
-    return "exceeded" in text or "timed out" in text or "timeout" in text
 
 
 class BudgetedSearch:
-    """Apply one deadline and shared work limits to all parallel hunt requests."""
+    """The hunt's shared budget and checkpoint surface; every read is the executor's."""
 
     def __init__(self, search: Search, budget: HuntBudget) -> None:
         self.search = search
         self.budget = budget
-        self.query_allowance_seconds = budget.limits["query_seconds"]
+        self.executor = HuntExecutor(search, budget)
         self.on_case_checkpoint: Callable[[str, dict[str, Any], list[Any]], None] | None = None
 
     def iter_post(self, query: str, start: float, end: float) -> Iterator[Mapping[str, Any]]:
-        timeout, kind, max_results = self.budget.reserve_query(query)
-        bounded = getattr(self.search, "iter_post_bounded", None)
-        if not callable(bounded):
-            raise HuntSearchFailedError("search_adapter_has_no_server_job_cancellation")
-        started = time.monotonic()
-        try:
-            for row in bounded(
-                query,
-                start,
-                end,
-                timeout_seconds=timeout,
-                max_results=max_results,
-            ):
-                self.budget.record_rows(kind, 1)
-                yield row
-            if self.budget.remaining() <= 0:
-                self.budget.exhausted = "job_wall_time_budget_exhausted"
-                raise HuntBudgetExceededError(self.budget.exhausted)
-        except HuntBudgetExceededError:
-            raise
-        except SearchQueryBoundError:
-            raise
-        except SearchCoverageCensoredError as exc:
-            raise HuntCoverageError(str(exc)) from exc
-        except Exception as exc:  # noqa: BLE001 -- transport failures are incomplete hunt work
-            if _time_bound(exc):
-                raise SearchQueryBoundError(str(exc)) from exc
-            if getattr(exc, "censored", False):
-                raise HuntCoverageError(
-                    str(exc),
-                    sid=getattr(exc, "sid", None),
-                    coverage=getattr(exc, "coverage", None),
-                ) from exc
-            raise HuntSearchFailedError(f"bounded_search_failed:{type(exc).__name__}") from exc
-        finally:
-            self.budget.add_kind(
-                query_progress_kind(query, start, end),
-                time.monotonic() - started,
-                query=query,
-                query_start=start,
-                query_end=end,
-            )
+        return self.executor.iter_post(query, start, end)
 
     def checkpoint(self, phase: str, **values: Any) -> None:
         cases = values.pop("cases", None)
@@ -304,8 +59,8 @@ class BudgetedSearch:
             # persist current evidence first: a spent wall clock must not lose the case
             self.on_case_checkpoint(phase, self.budget.snapshot(), cases)
         if self.budget.remaining() <= 0:
-            self.budget.exhausted = "job_wall_time_budget_exhausted"
-            raise HuntBudgetExceededError(self.budget.exhausted)
+            self.budget.exhausted = "job_deadline_exceeded"
+            raise HuntDeadlineExceededError(self.budget.exhausted)
         pivot_delta = int(values.pop("pivot_delta", 0))
         if pivot_delta:
             with self.budget.lock:
@@ -753,4 +508,20 @@ def case_view(
     return compact(out)
 
 
-__all__ = ["HOUR", "case_view", "compact", "leads_view", "load", "start", "status"]
+__all__ = [
+    "HOUR",
+    "BudgetedSearch",
+    "DEFAULT_BUDGETS",
+    "HuntBudget",
+    "HuntBudgetExceededError",
+    "HuntCoverageError",
+    "HuntDeadlineExceededError",
+    "HuntSearchFailedError",
+    "case_view",
+    "compact",
+    "leads_view",
+    "load",
+    "query_budget_kind",
+    "start",
+    "status",
+]

@@ -9,8 +9,9 @@ from __future__ import annotations
 import json
 import os
 import sys
+import threading
 import time
-from collections.abc import Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Protocol
@@ -35,11 +36,13 @@ class WindowFetchError(RuntimeError):
         sid: str | None = None,
         censored: bool = False,
         coverage: Mapping[str, Any] | None = None,
+        reason: str | None = None,
     ) -> None:
         super().__init__(message)
         self.sid = sid
         self.censored = censored
         self.coverage = dict(coverage or {})
+        self.reason = reason
 
 
 @dataclass(frozen=True)
@@ -81,6 +84,39 @@ class WindowSource(Protocol):
     """Read every event in a set of source/time partitions."""
 
     def fetch(self, sources: Sequence[SourceSpec], start: float, end: float) -> WindowBatch: ...
+
+
+class JobCancel:
+    """Cancel handle for one bounded read; the transport binds its own job cancellation.
+
+    Binding happens once the job has a sid; a cancel requested before the bind fires as
+    soon as it is bound, and a cancel requested after the read finished does nothing.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._cancel: Callable[[], None] | None = None
+        self._closed = False
+
+    def bind(self, cancel: Callable[[], None]) -> None:
+        with self._lock:
+            late = self._closed
+            if not late:
+                self._cancel = cancel
+        if late:
+            cancel()
+
+    def release(self) -> None:
+        with self._lock:
+            self._closed = True
+            self._cancel = None
+
+    def cancel(self) -> None:
+        with self._lock:
+            self._closed = True
+            cancel, self._cancel = self._cancel, None
+        if cancel is not None:
+            cancel()
 
 
 def normalize_splunk_record(source: SourceSpec, row: Mapping[str, Any]) -> dict[str, Any]:
@@ -321,6 +357,7 @@ def _ensure_job_succeeded(sid: str, content: Mapping[str, Any]) -> None:
         sid=sid,
         censored=censored,
         coverage=_job_coverage(sid, content, censored=censored),
+        reason="censored" if censored else None,
     )
 
 
@@ -444,6 +481,7 @@ class SplunkWindowSource:
                 sid=sid,
                 censored=bool(getattr(pending, "censored", False)),
                 coverage=coverage,
+                reason=getattr(pending, "reason", None),
             ) from cause
 
     def iter_post_bounded(
@@ -454,11 +492,13 @@ class SplunkWindowSource:
         *,
         timeout_seconds: float,
         max_results: int | None,
+        cancel: JobCancel | None = None,
     ) -> Iterator[Mapping[str, Any]]:
         """Run a hunt search as a cancellable job with a server and client deadline.
 
         ``max_results`` caps an evidence read. ``None`` pages until the job's own
         result set ends; a finalized job is still censored, not an exact count.
+        ``cancel`` is bound to the run's own job so a caller's hard stop can stop it.
         """
         if timeout_seconds <= 0 or (max_results is not None and max_results <= 0):
             raise ValueError("bounded search limits must be positive")
@@ -473,12 +513,17 @@ class SplunkWindowSource:
             ) as client:
                 try:
                     sid = self._submit_bounded(client, search, start, end, deadline)
+                    if cancel is not None:
+                        job_sid = sid
+                        cancel.bind(lambda: self._cancel_job(client, job_sid))
                     self._wait_bounded(client, sid, deadline, timeout_seconds)
                     terminal = True
                     yield from self._bounded_results(client, sid, deadline, max_results)
                 except httpx.HTTPError as exc:
                     raise WindowFetchError(f"Splunk bounded search failed: {exc}", sid=sid) from exc
         finally:
+            if cancel is not None:
+                cancel.release()
             if sid and not terminal:
                 self._cancel_preserving(sid, timeout_seconds)
 
@@ -514,6 +559,7 @@ class SplunkWindowSource:
                     sid=sid,
                     censored=True,
                     coverage={"sid": sid, "censored": True, "doneProgress": None},
+                    reason="query_bound",
                 )
             response = client.get(
                 f"{self.url}/services/search/jobs/{sid}",
@@ -540,7 +586,22 @@ class SplunkWindowSource:
         if max_results is None:
             yield from self._paged_results(client, sid, deadline)
             return
-        yield from self._one_result_page(client, sid, deadline, max_results + 1, 0, max_results)
+        rows, cut = self._one_result_page(client, sid, deadline, max_results + 1, 0, max_results)
+        yield from rows
+        if cut:
+            # The rows read before the cap are still usable evidence; the query is censored.
+            raise WindowFetchError(
+                f"Splunk search job {sid} result budget exceeded ({max_results + 1} > {max_results})",
+                sid=sid,
+                censored=True,
+                coverage={
+                    "sid": sid,
+                    "censored": True,
+                    "returned": max_results + 1,
+                    "cap": max_results,
+                },
+                reason="row_cap",
+            )
 
     def _one_result_page(
         self,
@@ -550,7 +611,7 @@ class SplunkWindowSource:
         count: int,
         offset: int,
         cap: int | None,
-    ) -> list[Mapping[str, Any]]:
+    ) -> tuple[list[Mapping[str, Any]], bool]:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise WindowFetchError(
@@ -558,6 +619,7 @@ class SplunkWindowSource:
                 sid=sid,
                 censored=True,
                 coverage={"sid": sid, "censored": True},
+                reason="query_bound",
             )
         response = client.get(
             f"{self.url}/services/search/jobs/{sid}/results",
@@ -574,30 +636,27 @@ class SplunkWindowSource:
                 sid=sid,
                 censored=True,
                 coverage={"sid": sid, "censored": True, "message": warning},
+                reason="censored",
             )
         results = payload.get("results")
         if not isinstance(results, list):
             raise WindowFetchError(f"Splunk search job {sid} returned no results list", sid=sid)
-        if cap is not None and len(results) > cap:
-            raise WindowFetchError(
-                f"Splunk search job {sid} result budget exceeded ({len(results)} > {cap})",
-                sid=sid,
-                censored=True,
-                coverage={"sid": sid, "censored": True, "returned": len(results), "cap": cap},
-            )
+        cut = cap is not None and len(results) > cap
+        if cut and cap is not None:
+            results = results[:cap]
         rows: list[Mapping[str, Any]] = []
         for result in results:
             if not isinstance(result, Mapping):
                 raise WindowFetchError(f"Splunk search job {sid} returned an invalid row", sid=sid)
             rows.append(_normalized_result(sid, result))
-        return rows
+        return rows, cut
 
     def _paged_results(
         self, client: httpx.Client, sid: str, deadline: float
     ) -> Iterator[Mapping[str, Any]]:
         offset = 0
         while True:
-            page = self._one_result_page(client, sid, deadline, _RESULT_PAGE, offset, None)
+            page, _cut = self._one_result_page(client, sid, deadline, _RESULT_PAGE, offset, None)
             yield from page
             if len(page) < _RESULT_PAGE:
                 return

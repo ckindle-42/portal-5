@@ -11,6 +11,7 @@ import pytest
 
 from portal.modules.security.core.hunt import jobs as hunt_jobs
 from portal.modules.security.core.hunt.engine import Lead
+from portal.modules.security.core.hunt.executor import HuntExecutor
 from portal.modules.security.core.hunt.investigate import Case, Investigator, Pivot
 from portal.modules.security.core.hunt.jobs import (
     BudgetedSearch,
@@ -20,7 +21,11 @@ from portal.modules.security.core.hunt.jobs import (
     HuntSearchFailedError,
     query_budget_kind,
 )
-from portal.modules.security.core.review.window import SplunkWindowSource, WindowFetchError
+from portal.modules.security.core.review.window import (
+    JobCancel,
+    SplunkWindowSource,
+    WindowFetchError,
+)
 
 
 def _response(request: httpx.Request, payload: dict[str, Any], status: int = 200) -> httpx.Response:
@@ -635,7 +640,7 @@ def test_checkpoint_persists_cases_before_a_spent_wall_clock_raises() -> None:
     search = BudgetedSearch(object(), budget)
     search.on_case_checkpoint = lambda _phase, _snapshot, cases: seen.append(list(cases))
 
-    with pytest.raises(HuntBudgetExceededError, match="job_wall_time_budget_exhausted"):
+    with pytest.raises(HuntBudgetExceededError, match="job_deadline_exceeded"):
         search.checkpoint("investigating", cases=["prior", "current"])
 
     assert seen == [["prior", "current"]]
@@ -653,7 +658,7 @@ def test_no_further_query_is_reserved_after_the_budget_is_spent() -> None:
         list(search.iter_post('search index="i" | table _raw', 0.0, 1.0))
     reserved = budget.queries
     with pytest.raises(HuntBudgetExceededError, match="result_budget_exhausted"):
-        budget.reserve_query('search index="i" | table _raw')
+        search.executor.read('search index="i" | table _raw', 0.0, 1.0, kind="read")
     assert budget.queries == reserved
 
 
@@ -735,3 +740,43 @@ def test_budget_and_unexpected_terminals_keep_the_in_progress_partial_case(
     assert failed["completed_case_count"] == 0
     assert failed["cases"][0]["partial"] is True
     assert failed["cases"][0]["evidence"]
+
+
+def test_a_row_cap_yields_its_rows_and_is_never_a_time_bound_cut() -> None:
+    """Wheeler's fatal read: the cap message says "exceeded", so text matching called a
+    capped query slow. The transport now names the cut, and the executor keeps the rows."""
+    source = _results_source("sid-cap", [{"i": str(index)} for index in range(4)])
+    budget = HuntBudget(
+        {"query_seconds": 1, "job_seconds": 5, "requests": 10, "cells": 10, "events": 10}
+    )
+
+    read = HuntExecutor(source, budget).read(
+        'search index="idx" | table _raw', 0.0, 1.0, kind="sample", row_cap=3
+    )
+
+    assert [row["i"] for row in read.rows] == ["0", "1", "2"]
+    assert read.censored is True
+    assert read.reason == "row_cap"
+    assert budget.exhausted is None
+
+
+def test_a_cancel_requested_before_the_job_binds_still_cancels_it() -> None:
+    token = JobCancel()
+    fired: list[str] = []
+
+    token.cancel()
+    token.bind(lambda: fired.append("first"))
+    token.bind(lambda: fired.append("second"))
+
+    assert fired == ["first", "second"]
+
+
+def test_a_cancel_after_release_does_nothing() -> None:
+    token = JobCancel()
+    fired: list[str] = []
+
+    token.bind(lambda: fired.append("late"))
+    token.release()
+    token.cancel()
+
+    assert fired == []

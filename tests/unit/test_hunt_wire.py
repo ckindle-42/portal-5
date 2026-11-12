@@ -259,6 +259,7 @@ def test_censored_observations_are_not_a_complete_job(tmp_path: Any, monkeypatch
     assert any("censored" in reason for reason in reasons)
     assert "volume" in job["progress"]["observation_request_kinds"]
     assert "volume" not in job["progress"]["request_kinds"]
+    assert job["progress"]["observation_request_kinds"]["shape"]["censored"] == 1
 
 
 def test_a_shared_value_becomes_a_case(tmp_path: Any, monkeypatch: Any) -> None:
@@ -322,7 +323,11 @@ class _SlowVolume(JobSearch):
         wide = "by host _time span=1h" in query and (self.always or end - start > HOUR)
         if wide:
             raise WindowFetchError(
-                f"Splunk bounded search failed: timed out after {timeout_seconds}s"
+                f"Splunk search job sid-slow exceeded {timeout_seconds}s",
+                sid="sid-slow",
+                censored=True,
+                coverage={"sid": "sid-slow", "censored": True, "doneProgress": None},
+                reason="query_bound",
             )
         return super().iter_post_bounded(
             query, start, end, timeout_seconds=timeout_seconds, max_results=max_results
