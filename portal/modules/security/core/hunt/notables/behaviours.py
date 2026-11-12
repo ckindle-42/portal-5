@@ -23,7 +23,6 @@ MAX_BEHAVIOURS = 200_000  # effort budget: rows kept in the behaviour table
 SHAPE_CHARS = 64  # effort budget: characters that describe a generalised value
 EXAMPLE_CHARS = 400  # effort budget: raw characters kept on one behaviour
 MAX_TERMS = 2  # effort budget: literal values used to reproduce one behaviour
-MIN_EVENTS_PER_SOURCE = 1000  # effort budget: floor for one source's share of the event budget
 
 
 @dataclass(frozen=True)
@@ -214,7 +213,7 @@ def keyed_rows(
 
 def per_window_events(sources: int) -> int:
     """Each source's share of the total event budget, expressed per time slice."""
-    share = max(MIN_EVENTS_PER_SOURCE, BEHAVIOUR_TOTAL_EVENTS // max(1, sources))
+    share = max(1, BEHAVIOUR_TOTAL_EVENTS // max(1, sources))
     return max(1, min(BEHAVIOUR_EVENTS_PER_WINDOW, share // BEHAVIOUR_WINDOWS))
 
 
@@ -258,7 +257,11 @@ def collect_behaviours(
     usable = [card for card in cards if card.usable]
     receipts: list[dict[str, Any]] = []
     skipped = [
-        {"source_id": card.source_id, "reason": card.reason or card.kind}
+        {
+            "source_id": card.source_id,
+            "reason": card.reason
+            or ("no_roles" if card.kind == "activity" else f"kind:{card.kind}"),
+        }
         for card in cards
         if not card.usable
     ]
