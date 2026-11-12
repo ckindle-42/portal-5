@@ -64,6 +64,7 @@ def test_judge_uses_fixed_question_and_scores_first_token_yes_no_mass():
     assert call["max_tokens"] == 1
     assert call["logprobs"] is True
     assert call["top_logprobs"] > 1
+    assert call["reasoning_effort"] == "none"
     assert result.p_yes == pytest.approx(0.75)
     assert result.prompt_tokens == 17
     assert result.served_model == "served-seat"
@@ -86,6 +87,18 @@ def test_missing_logprobs_and_transport_failures_are_unjudged():
     assert missing.p_yes is None and missing.reason == "missing_logprobs"
     assert failed.p_yes is None and failed.reason == "request_failed"
     assert timeout.p_yes is None and timeout.reason == "timeout"
+
+
+def test_http_error_stays_unjudged_without_a_default_score():
+    request = httpx.Request("POST", "https://pipeline.invalid/v1/chat/completions")
+    error = httpx.HTTPStatusError(
+        "unavailable", request=request, response=httpx.Response(503, request=request)
+    )
+
+    result = judge_cell(_Client(error=error), model="workspace", evidence=[{"line": "svc | x=1"}])
+
+    assert result.p_yes is None
+    assert result.reason == "http_error"
 
 
 def test_default_client_uses_supplied_endpoint_and_credentials():

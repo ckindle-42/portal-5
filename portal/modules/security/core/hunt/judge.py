@@ -1,4 +1,4 @@
-"""One-token local-model judgement from bounded evidence for one host-hour cell."""
+"""One-token judgement of one host-hour, asked through the Portal Pipeline."""
 
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ class JudgeResult:
 
 
 class OpenAICompatibleClient:
-    """POST to a configured OpenAI-compatible chat-completions endpoint."""
+    """POST a chat completion to the Portal Pipeline's workspace endpoint."""
 
     def __init__(
         self,
@@ -121,10 +121,13 @@ def judge_cell(
             max_tokens=1,
             logprobs=True,
             top_logprobs=JUDGE_TOP_LOGPROBS,
+            reasoning_effort="none",
             stream=False,
         )
     except (httpx.TimeoutException, TimeoutError):
         return JudgeResult(None, None, round(time.monotonic() - began, 3), "", "timeout")
+    except httpx.HTTPStatusError:
+        return JudgeResult(None, None, round(time.monotonic() - began, 3), "", "http_error")
     except Exception:  # noqa: BLE001 -- failure is per-cell unjudged coverage
         return JudgeResult(None, None, round(time.monotonic() - began, 3), "", "request_failed")
     seconds = round(time.monotonic() - began, 3)
