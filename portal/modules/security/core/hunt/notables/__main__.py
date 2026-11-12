@@ -1,4 +1,4 @@
-"""python -m portal.modules.security.core.hunt.notables — source cards for an unseen index."""
+"""python -m portal.modules.security.core.hunt.notables — source cards and behaviours."""
 
 from __future__ import annotations
 
@@ -8,8 +8,9 @@ import time
 from pathlib import Path
 from typing import Any
 
+from .behaviours import Behaviour
 from .pipeline import model_from_env, model_requirement
-from .run import STAGES, cards_stage, default_search
+from .run import STAGES, behaviours_stage, cards_stage, default_search
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -25,6 +26,26 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--start", type=float, default=0.0, help="earliest epoch seconds")
     parser.add_argument("--end", type=float, default=None, help="latest epoch seconds")
     return parser
+
+
+def _print_behaviours(behaviours: list[Behaviour], receipt: dict[str, Any]) -> None:
+    counts: dict[str, int] = {}
+    for behaviour in behaviours:
+        counts[behaviour.source_id] = counts.get(behaviour.source_id, 0) + 1
+    for item in receipt.get("receipts", []):
+        print(
+            f"  {item['source_id']} events={item['events_read']} "
+            f"of={item['events_available']} share={item['share_of_source']} "
+            f"windows={item['windows']} behaviours={counts.get(item['source_id'], 0)} "
+            f"seconds={item['seconds']}"
+        )
+    for item in receipt.get("skipped", []):
+        print(f"  skipped {item['source_id']}: {item['reason']}")
+    print(
+        f"behaviours: events_read={receipt['events_read']} "
+        f"existed={receipt['behaviours_existed']} kept={receipt['behaviours_kept']} "
+        f"wall={receipt['seconds']}s peak={receipt['peak_memory_mb']}MB -> {receipt['store']}"
+    )
 
 
 def _print_cards(receipt: dict[str, Any]) -> None:
@@ -49,21 +70,27 @@ def main(argv: list[str] | None = None) -> int:
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     end = args.end if args.end is not None else time.time() + 1.0
+    stages = STAGES if args.stage == "all" else (args.stage,)
     target = model_from_env()
-    if target is None:
-        print(model_requirement(), file=sys.stderr)
-        return 2
-    client, model = target
-    receipt = cards_stage(
-        index=args.index,
-        out=out,
-        start=args.start,
-        end=end,
-        client=client,
-        model=model,
-        search=default_search(),
-    )
-    _print_cards(receipt)
+    search = default_search()
+    if "cards" in stages:
+        if target is None:
+            print(model_requirement(), file=sys.stderr)
+            return 2
+        client, model = target
+        receipt = cards_stage(
+            index=args.index,
+            out=out,
+            start=args.start,
+            end=end,
+            client=client,
+            model=model,
+            search=search,
+        )
+        _print_cards(receipt)
+    if "behaviours" in stages:
+        behaviours, receipt = behaviours_stage(out=out, search=search)
+        _print_behaviours(behaviours, receipt)
     return 0
 
 

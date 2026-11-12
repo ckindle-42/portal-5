@@ -1,0 +1,343 @@
+"""Distinct behaviours — who did what to what — counted on DuckDB over a declared slice."""
+
+from __future__ import annotations
+
+import time
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import duckdb
+
+from ..executor import HuntExecutor
+from .cards import SourceCard
+from .parse import parse_row
+from .sample import SourceFacts, read_windows, route_filter, window_bounds
+
+BEHAVIOUR_WINDOWS = 12  # effort budget: time slices read per activity source
+BEHAVIOUR_EVENTS_PER_WINDOW = 2500  # effort budget: events read from one slice
+BEHAVIOUR_TOTAL_EVENTS = 400_000  # effort budget: parsed events across the whole stage
+BEHAVIOUR_FIELD_VALUES = 2000  # effort budget: a field stays literal in keys up to this many values
+MAX_BEHAVIOURS = 200_000  # effort budget: rows kept in the behaviour table
+SHAPE_CHARS = 64  # effort budget: characters that describe a generalised value
+EXAMPLE_CHARS = 400  # effort budget: raw characters kept on one behaviour
+MAX_TERMS = 2  # effort budget: literal values used to reproduce one behaviour
+MIN_EVENTS_PER_SOURCE = 1000  # effort budget: floor for one source's share of the event budget
+
+
+@dataclass(frozen=True)
+class ExampleEvent:
+    source_id: str
+    host: str
+    ts: float
+    raw: str
+    fields: Mapping[str, str]
+    earliest: float
+    latest: float
+
+
+@dataclass(frozen=True)
+class Behaviour:
+    """One behaviour row in the order the DuckDB table returns it."""
+
+    source_id: str
+    actor_field: str
+    actor: str
+    action_field: str
+    action: str
+    object_field: str
+    object: str
+    events: int
+    first_seen: float
+    last_seen: float
+    hosts: int
+    actors: int
+    example_time: float
+    example_query: str
+    example_raw: str
+    example_earliest: float
+    example_latest: float
+
+
+_COLUMNS = (
+    "source_id VARCHAR, host VARCHAR, ts DOUBLE, actor_field VARCHAR, actor VARCHAR, "
+    "action_field VARCHAR, action VARCHAR, object_field VARCHAR, object VARCHAR, "
+    "raw VARCHAR, query VARCHAR, earliest DOUBLE, latest DOUBLE"
+)
+_INSERT = "INSERT INTO events VALUES (" + ",".join("?" for _ in range(13)) + ")"
+
+
+def value_shape(value: str) -> str:
+    """A value's character classes: digits become 9, letters a, punctuation is kept."""
+    shaped = "".join(
+        "9" if char.isdigit() else "a" if char.isalpha() else char for char in value[:SHAPE_CHARS]
+    )
+    return shaped or value[:SHAPE_CHARS]
+
+
+def field_modes(fields: Sequence[str], events: Sequence[ExampleEvent]) -> dict[str, str]:
+    """Literal values for fields whose catalogue fits the effort budget, shapes otherwise."""
+    distinct: dict[str, set[str]] = {}
+    for event in events:
+        for name in fields:
+            value = (event.fields.get(name) or "").strip()
+            if value:
+                distinct.setdefault(name, set()).add(value)
+    return {
+        name: "literal" if len(distinct.get(name, ())) <= BEHAVIOUR_FIELD_VALUES else "shape"
+        for name in fields
+    }
+
+
+def _first_value(
+    fields: Mapping[str, str], names: Sequence[str], modes: Mapping[str, str]
+) -> tuple[str, str]:
+    for name in names:
+        value = (fields.get(name) or "").strip()
+        if value:
+            return name, value if modes.get(name) == "literal" else value_shape(value)
+    return "", ""
+
+
+def behaviour_key(
+    card: SourceCard, fields: Mapping[str, str], modes: Mapping[str, str]
+) -> tuple[str, str, str, str, str, str]:
+    """(actor_field, actor, action_field, action, object_field, object) for one event."""
+    return (
+        *_first_value(fields, card.role_fields("actor"), modes),
+        *_first_value(fields, card.role_fields("action"), modes),
+        *_first_value(fields, card.role_fields("object"), modes),
+    )
+
+
+def _quote(value: str) -> str:
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def reproduction_query(
+    card: SourceCard, facts: SourceFacts, components: Sequence[tuple[str, str, str]]
+) -> str:
+    """A literal query and time bounds that find the behaviour's example event again."""
+    route, _ = route_filter(facts)
+    terms = [
+        f"TERM({_quote(value)})"
+        for _field, value, mode in components
+        if mode == "literal" and value
+    ][:MAX_TERMS]
+    tail = " " + " ".join(terms) if terms else ""
+    return f"search index={_quote(facts.index)} {route}{tail} | head 5"
+
+
+def _window_for(ts: float, windows: Sequence[tuple[float, float]]) -> tuple[float, float]:
+    for start, end in windows:
+        if start <= ts < end:
+            return start, end
+    return windows[0] if windows else (ts, ts + 3600.0)
+
+
+def _extract(
+    card: SourceCard, rows: Sequence[Mapping[str, Any]], windows: Sequence[tuple[float, float]]
+) -> list[ExampleEvent]:
+    found: list[ExampleEvent] = []
+    for row in rows:
+        parsed = parse_row(str(row.get("_raw") or ""), card.fmt, card.columns)
+        if not parsed.fields:
+            continue
+        try:
+            ts = float(row.get("_time") or 0.0)
+        except (TypeError, ValueError):
+            ts = 0.0
+        earliest, latest = _window_for(ts, windows)
+        found.append(
+            ExampleEvent(
+                card.source_id,
+                str(row.get("host") or ""),
+                ts,
+                str(row.get("_raw") or "")[:EXAMPLE_CHARS],
+                parsed.fields,
+                earliest,
+                latest,
+            )
+        )
+    return found
+
+
+def role_fields(card: SourceCard) -> list[str]:
+    return sorted(
+        {
+            *card.role_fields("actor"),
+            *card.role_fields("action"),
+            *card.role_fields("object"),
+        }
+    )
+
+
+def keyed_rows(
+    card: SourceCard, facts: SourceFacts, events: Sequence[ExampleEvent]
+) -> list[tuple[Any, ...]]:
+    """One row per event: the behaviour key, the reproducing query and the event's window."""
+    modes = field_modes(role_fields(card), events)
+    rows: list[tuple[Any, ...]] = []
+    for event in events:
+        actor_field, actor, action_field, action, object_field, object_value = behaviour_key(
+            card, event.fields, modes
+        )
+        query = reproduction_query(
+            card,
+            facts,
+            [
+                (actor_field, actor, modes.get(actor_field, "shape")),
+                (action_field, action, modes.get(action_field, "shape")),
+                (object_field, object_value, modes.get(object_field, "shape")),
+            ],
+        )
+        rows.append(
+            (
+                event.source_id,
+                event.host,
+                event.ts,
+                actor_field,
+                actor,
+                action_field,
+                action,
+                object_field,
+                object_value,
+                event.raw,
+                query,
+                event.earliest,
+                event.latest,
+            )
+        )
+    return rows
+
+
+def per_window_events(sources: int) -> int:
+    """Each source's share of the total event budget, expressed per time slice."""
+    share = max(MIN_EVENTS_PER_SOURCE, BEHAVIOUR_TOTAL_EVENTS // max(1, sources))
+    return max(1, min(BEHAVIOUR_EVENTS_PER_WINDOW, share // BEHAVIOUR_WINDOWS))
+
+
+def create_events(con: duckdb.DuckDBPyConnection) -> None:
+    con.execute(f"CREATE TABLE events ({_COLUMNS})")
+
+
+def aggregate_events(con: duckdb.DuckDBPyConnection) -> tuple[list[Behaviour], int]:
+    """Group keyed events into behaviours and source statistics; return the kept table."""
+    con.execute(
+        "CREATE TABLE behaviour_all AS SELECT source_id, actor_field, actor, action_field,"
+        " action, object_field, object, count(*) AS events, min(ts) AS first_seen,"
+        " max(ts) AS last_seen, count(DISTINCT host) AS hosts,"
+        " count(DISTINCT NULLIF(actor, '')) AS actors, arg_min(ts, ts) AS example_time,"
+        " arg_min(query, ts) AS example_query, arg_min(raw, ts) AS example_raw,"
+        " arg_min(earliest, ts) AS example_earliest, arg_min(latest, ts) AS example_latest"
+        " FROM events GROUP BY ALL"
+    )
+    row = con.execute("SELECT count(*) FROM behaviour_all").fetchone()
+    existed = int(row[0]) if row else 0
+    con.execute(
+        "CREATE TABLE behaviours AS SELECT * FROM behaviour_all"
+        f" ORDER BY events DESC, source_id, actor, action, object LIMIT {MAX_BEHAVIOURS}"
+    )
+    con.execute(
+        "CREATE TABLE source_stats AS SELECT source_id, count(*) AS events,"
+        " count(DISTINCT host) AS hosts_possible,"
+        " count(DISTINCT NULLIF(actor, '')) AS actors_possible FROM events GROUP BY source_id"
+    )
+    return [Behaviour(*row) for row in con.execute("SELECT * FROM behaviours").fetchall()], existed
+
+
+def collect_behaviours(
+    executor: HuntExecutor,
+    cards: Sequence[SourceCard],
+    facts_by_source: Mapping[str, SourceFacts],
+    store_path: Path,
+) -> tuple[list[Behaviour], dict[str, Any]]:
+    """Read each activity source's declared slice, key every event, and count on DuckDB."""
+    began = time.monotonic()
+    usable = [card for card in cards if card.usable]
+    receipts: list[dict[str, Any]] = []
+    skipped = [
+        {"source_id": card.source_id, "reason": card.reason or card.kind}
+        for card in cards
+        if not card.usable
+    ]
+    per_window = per_window_events(len(usable))
+    store_path.parent.mkdir(parents=True, exist_ok=True)
+    store_path.unlink(missing_ok=True)
+    con = duckdb.connect(str(store_path))
+    total = 0
+    try:
+        create_events(con)
+        for card in usable:
+            facts = facts_by_source.get(card.source_id)
+            if facts is None:
+                skipped.append({"source_id": card.source_id, "reason": "no_index_facts"})
+                continue
+            started = time.monotonic()
+            windows = window_bounds(facts.first, facts.last, BEHAVIOUR_WINDOWS)
+            read = read_windows(
+                executor, facts, windows, per_window=per_window, kind="behavior_events"
+            )
+            events = _extract(card, read.rows, windows)
+            rows = keyed_rows(card, facts, events)
+            if rows:
+                con.executemany(_INSERT, rows)
+            total += len(rows)
+            receipts.append(
+                {
+                    "source_id": card.source_id,
+                    "kind": card.kind,
+                    "events_available": facts.events,
+                    "events_read": len(read.rows),
+                    "events_parsed": len(events),
+                    "windows": read.windows,
+                    "route": read.route,
+                    "share_of_source": round(len(read.rows) / facts.events, 6)
+                    if facts.events
+                    else None,
+                    "seconds": round(time.monotonic() - started, 3),
+                    "notes": read.notes,
+                }
+            )
+        behaviours, existed = aggregate_events(con)
+    finally:
+        con.close()
+    return behaviours, {
+        "receipts": receipts,
+        "skipped": skipped,
+        "events_read": total,
+        "per_window": per_window,
+        "behaviours_existed": existed,
+        "behaviours_kept": len(behaviours),
+        "store": str(store_path),
+        "seconds": round(time.monotonic() - began, 3),
+    }
+
+
+def load_behaviours(path: Path) -> list[Behaviour]:
+    """Read back the stored behaviour table for a later stage."""
+    con = duckdb.connect(str(path), read_only=True)
+    try:
+        rows = con.execute("SELECT * FROM behaviours").fetchall()
+    finally:
+        con.close()
+    return [Behaviour(*row) for row in rows]
+
+
+def load_source_stats(path: Path) -> dict[str, dict[str, Any]]:
+    """Hosts and actors that could share a behaviour, per source, from the stored table."""
+    con = duckdb.connect(str(path), read_only=True)
+    try:
+        rows = con.execute(
+            "SELECT source_id, hosts_possible, actors_possible FROM source_stats"
+        ).fetchall()
+    finally:
+        con.close()
+    return {
+        str(source_id): {
+            "hosts_possible": int(hosts),
+            "actors_possible": int(actors),
+        }
+        for source_id, hosts, actors in rows
+    }

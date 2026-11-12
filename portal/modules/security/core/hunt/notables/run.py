@@ -1,4 +1,4 @@
-"""Stage orchestration: source cards, with one receipt per stage."""
+"""Stage orchestration: source cards and behaviours, with one receipt per stage."""
 
 from __future__ import annotations
 
@@ -11,14 +11,16 @@ from ...review.window import SplunkWindowSource
 from ..engine import Search
 from ..executor import executor_for
 from ..judge import JudgeClient
+from .behaviours import Behaviour, collect_behaviours
 from .cards import CardCache, SourceCard, build_card
 from .parse import FieldStat
 from .receipt import peak_memory_mb, progress_update, read_json, utc_now, write_json
 from .sample import SourceFacts, index_facts, read_windows, sample_windows
 
-STAGES = ("cards",)
+STAGES = ("cards", "behaviours")
 SOURCES_FILE = "sources.json"
 PROGRESS_FILE = "progress.json"
+STORE_FILE = "behaviours.duckdb"
 
 
 def default_search() -> SplunkWindowSource:
@@ -171,3 +173,16 @@ def cards_stage(
     }
     progress_update(out, "cards", receipt)
     return receipt
+
+
+def behaviours_stage(*, out: Path, search: Search) -> tuple[list[Behaviour], dict[str, Any]]:
+    """Count distinct behaviours for every activity source on DuckDB, declaring coverage."""
+    cards = load_cards(out)
+    began = time.monotonic()
+    behaves, receipt = collect_behaviours(
+        executor_for(search), cards, facts_by_source(cards), out / STORE_FILE
+    )
+    receipt["seconds_total"] = round(time.monotonic() - began, 3)
+    receipt["peak_memory_mb"] = peak_memory_mb()
+    progress_update(out, "behaviours", receipt)
+    return behaves, receipt
