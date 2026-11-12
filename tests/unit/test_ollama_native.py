@@ -388,3 +388,77 @@ async def test_renderer_read_from_show_modelfile_drives_the_prefill():
         json={"model": "g", "messages": _POST_TOOL, "reasoning_effort": "none"},
     )
     assert r.json()["choices"][0]["message"]["content"] == "ok"
+
+
+@pytest.mark.asyncio
+async def test_ollama_non_stream_logprobs_use_openai_endpoint_unchanged():
+    request_body = {
+        "model": "m",
+        "messages": [{"role": "user", "content": "classify"}],
+        "stream": False,
+        "logprobs": True,
+        "top_logprobs": 5,
+    }
+    response_body = {
+        "model": "m",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "yes"},
+                "logprobs": {"content": [{"token": "yes", "logprob": -0.2}]},
+                "finish_reason": "stop",
+            }
+        ],
+    }
+
+    def handler(req):
+        assert req.url.path == "/v1/chat/completions"
+        assert json.loads(req.content) == request_body
+        return httpx.Response(200, json=response_body)
+
+    client, seen = _mock(handler)
+    response = await client.post(f"{BASE}/v1/chat/completions", json=request_body)
+
+    assert [request.url.path for request in seen] == ["/v1/chat/completions"]
+    assert response.json() == response_body
+
+
+@pytest.mark.asyncio
+async def test_omlx_non_stream_logprobs_pass_through_unchanged():
+    base = "http://omlx:8085"
+    request_body = {
+        "model": "m",
+        "messages": [{"role": "user", "content": "classify"}],
+        "stream": False,
+        "logprobs": True,
+        "top_logprobs": 5,
+    }
+    response_body = {
+        "model": "m",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "yes"},
+                "logprobs": {"content": [{"token": "yes", "logprob": -0.2}]},
+                "finish_reason": "stop",
+            }
+        ],
+    }
+    seen = []
+
+    def handler(req):
+        seen.append(req)
+        assert req.url.path == "/v1/chat/completions"
+        assert json.loads(req.content) == request_body
+        return httpx.Response(200, json=response_body)
+
+    transport = OllamaNativeTransport(
+        httpx.MockTransport(handler),
+        is_ollama=lambda candidate: candidate == BASE,
+        is_omlx=lambda candidate: candidate == base,
+    )
+    async with httpx.AsyncClient(transport=transport) as client:
+        response = await client.post(f"{base}/v1/chat/completions", json=request_body)
+
+    assert [request.url.path for request in seen] == ["/v1/chat/completions"]
+    assert response.json() == response_body
