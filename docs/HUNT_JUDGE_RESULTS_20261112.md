@@ -108,3 +108,73 @@ Pipeline — `gemma4:e4b` AUC 0.80 at 1.6 s per cell, `Qwen3.6-35B-A3B` 0.79 at 
 2. Speed: about 3.9 s per judged cell.
 3. Layer-1 `coverage_complete` is false on every run (value grid).
 4. P(yes) is not bit-stable across runs.
+
+---
+
+## Round 3 (2026-11-12, evening) — the core cause: host-hours were ranked by one observation
+
+### Core cause (traced in code)
+
+Layer 1 emits about 340,000 scored observations per index and sorts them by single score
+(`observations._sort_key`). Every consumer then reduced a host-hour to its one strongest
+observation: `engine.hunt` takes `ordered[:15]` as seeds, `graph_hunt.py` the first 8 seed cells,
+`evidence.evidence_cells` ranked cells by first appearance. `engine.host_hour_novelty` accumulates
+per host-hour, but `observations._novelty` calls it one shape at a time. So every layer built
+after layer 1 (investigator, graph, judge) was fed a handful of single observations and ranked
+worse than layer 1, as the problem statement recorded.
+
+### Fix (lane `hunt-accumulate`, `b8d418ffc`, merged `64147bf42`)
+
+- Host-hour `risk` = sum of the positive scores of all its observations; order by risk
+  (ties by the old order). No weights, no kind selection, no threshold.
+- Judge only the first N cells of that order (`--judge-cells`, default 50); evidence is the
+  hour's shapes rarest-on-this-host first (was: strongest deviation, which showed no keyed event
+  in 9 of 23 keyed cells).
+- Fused order among judged cells, the rest in accumulated order. `cases.json` covers every
+  host-day.
+
+### Live dev result (`results/hunt/judged_dev_r4/`, 20 judged cells, `security-reviewer` through the Pipeline; 0 unjudged, 0 censored, 0 Splunk jobs after)
+
+| Index | Order | Keyed cells in top 5 / 10 / 25 / 50 / 100 | Episode first-hit ranks | Episodes' first case | Wall |
+|---|---|---|---|---|---|
+| santos | old layer 1 | 2 / 3 / 7 / 11 / 11 | 1, 3, 32, 508 | | |
+| santos | accumulated | 3 / 8 / 20 / 39 / 48 | 1, 3, 16, 19 | | |
+| santos | fused (output) | 4 / 9 / 20 / 39 / 48 | 1, 4, 10, 11 | 1, 3, 4, 5 | 159 s |
+| russellmitchell | old layer 1 | 2 / 3 / 6 / 8 / 11 | 1, 4, 17, 298 | | |
+| russellmitchell | accumulated | 3 / 8 / 22 / 33 / 60 | 1, 3, 16, 18 | | |
+| russellmitchell | fused (output) | 4 / 9 / 22 / 33 / 60 | 1, 3, 7, 17 | 1, 3, 4, 6 | 147 s |
+| kyoushi | old layer 1 | 1 / 1 / 1 / 1 / 1 | 3, 372 | | |
+| kyoushi | accumulated | 0 / 1 / 2 / 2 / 3 | 6, 64 | | |
+| kyoushi | fused (output) | 1 / 1 / 2 / 2 / 3 | 2, 64 | 2, 32 | 120 s |
+
+Run twice (kyoushi, same window): same lead order, same evidence; 5 of 20 P(yes) values differ
+by at most 0.01, so files are not byte-identical.
+
+Role of the judge (combined probe, 50 cells, live): where the accumulated order is already dense
+(santos 39 of 50 keyed, russellmitchell 33 of 50) the judge says yes to nearly everything and adds
+little; on kyoushi it separates keyed from unkeyed perfectly in the top 50 and moves the first
+hit from 6 to 1.
+
+**Verdict: beats the old layer-1 order on all three dev indexes. Held-out indexes not run** — see
+the limits below; the operator decides when to spend the single held-out run.
+
+### Limits found by the same review (all measured live on dev)
+
+1. **The shape signal only exists for free-text logs.** `eve.json` has 1.1 M events and 7
+   shapes, `stats.log` 20 M and 39, `audit.log` 15; `dnsmasq.log` has 13,938 in santos. The
+   ranking is mostly "how many unusual free-text strings did this host log this hour". Attacks
+   that live in JSON, cloud or Windows event data are close to invisible.
+2. **The value grid, the only content signal for structured data, is the weakest part**: four
+   sample hours of 200 events, key budget exhausted, AUC 0.54–0.61 alone, and the reason
+   `coverage_complete` is always false.
+3. **The three dev indexes are one testbed family.** Two of the three held-out indexes are cloud
+   JSON and Windows. Dev cannot predict them.
+4. **Six days of history.** New host-shape pairs per day in santos: 12,172 / 13,355 / 8,281 /
+   2,661 / 346 / 82. The top 50 cells sit mostly on days 2–3.
+5. **Host aliases** (`a-b` and `a_b` for one machine) split evidence: 16–17 host names for 11
+   machines. Merging lifted kyoushi's whole-index AUC from 0.76 to 0.84 in re-analysis.
+6. The product path (`engine.hunt`, review MCP `hunt_*`) still uses the 15-seed order.
+
+Tried and dropped this round: judging a whole host-day in one prompt (judge AUC 0.64, mixed
+ranks, 5.5–7.5 min); scoring the judge relative to each host's own answers (worse); weighting a
+new shape by its stream's new-shape rate (no gain).
