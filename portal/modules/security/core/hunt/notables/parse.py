@@ -16,6 +16,11 @@ EXAMPLES_PER_FIELD = 3  # effort budget: distinct values shown to the model per 
 MAX_FIELDS = 24  # effort budget: fields described for one source
 MIN_STRUCTURE_SHARE = 0.5  # a structure describes a sample only when most lines share it
 MAX_LIST_ITEMS = 20  # effort budget: list entries flattened for one JSON field
+POSITIONAL_TOKENS = 12  # effort budget: leading line positions described for one source
+POSITIONAL_MIN_POSITIONS = 3  # a positional structure needs this many stable slots
+MIN_DELIMITED_WIDTH = 3  # a delimiter describes a record only when it yields this many columns
+_OPENERS = "([{"
+_CLOSERS = ")]}"
 _KV = re.compile(r"(?<![\w.\-])([A-Za-z_][\w./\-]{0,60})=(\"[^\"]*\"|'[^']*'|[^\s,;]+)")
 _WORD = re.compile(r"[A-Za-z][A-Za-z0-9_.\- ]{0,40}")
 _DELIMITERS = ("\t", ",", "|", ";")
@@ -43,6 +48,92 @@ class FieldStat:
     def repeats(self) -> bool:
         """True when some value is observed at least twice in the sample."""
         return self.distinct < self.present
+
+    @property
+    def variety(self) -> str:
+        """constant | identity (values recur) | free (nearly every value is new)."""
+        if self.distinct <= 1:
+            return "constant"
+        return "identity" if self.repeats else "free"
+
+
+def _clean(cell: str) -> str:
+    text = cell.strip()
+    if len(text) >= 2 and text[:1] in {'"', "'"} and text[-1:] == text[:1]:
+        text = text[1:-1]
+    return text
+
+
+def split_record(line: str, delimiter: str) -> list[str]:
+    """Split one record on a delimiter that is outside quotes, brackets and braces."""
+    cells: list[str] = []
+    current: list[str] = []
+    depth = 0
+    quote = ""
+    for char in line.strip():
+        if quote:
+            current.append(char)
+            if char == quote:
+                quote = ""
+            continue
+        if char in {'"', "'"}:
+            quote = char
+            current.append(char)
+            continue
+        if char in _OPENERS:
+            depth += 1
+            current.append(char)
+            continue
+        if char in _CLOSERS:
+            depth = max(0, depth - 1)
+            current.append(char)
+            continue
+        if depth == 0 and char == delimiter:
+            cells.append("".join(current))
+            current = []
+            continue
+        current.append(char)
+    cells.append("".join(current))
+    return cells
+
+
+def words(line: str) -> list[str]:
+    """Whitespace-separated positions, keeping a quoted phrase or [bracketed] value whole."""
+    return [clean for cell in split_record(line, " ") if (clean := _clean(cell))]
+
+
+def tokenise(line: str, width: int) -> list[str]:
+    """At most `width` positions; the last one carries the rest of the line."""
+    parts = words(line)
+    if width <= 0:
+        return []
+    if len(parts) <= width:
+        return parts
+    return parts[: width - 1] + [" ".join(parts[width - 1 :])]
+
+
+def _positional(lines: Sequence[str]) -> list[Parsed] | None:
+    """Leading whitespace positions stable across the sample, as p1..pN."""
+    rows = [tokenise(line, POSITIONAL_TOKENS) for line in lines]
+    width = 0
+    while width < POSITIONAL_TOKENS and (
+        sum(1 for row in rows if len(row) > width) / len(rows) >= MIN_STRUCTURE_SHARE
+    ):
+        width += 1
+    if width < POSITIONAL_MIN_POSITIONS:
+        return None
+    names = [f"p{index + 1}" for index in range(width)]
+    parsed: list[Parsed] = []
+    for row in rows:
+        fields = {
+            name: _clip(value, MAX_VALUE_CHARS)
+            for name, value in zip(names, row, strict=False)
+            if value
+        }
+        parsed.append(
+            Parsed("positional" if len(fields) >= POSITIONAL_MIN_POSITIONS else "text", fields)
+        )
+    return parsed
 
 
 def _clip(value: str, limit: int) -> str:
@@ -136,9 +227,9 @@ def _header(first: Sequence[str], body: Sequence[Sequence[str]]) -> list[str] | 
 
 def _delimited(lines: Sequence[str]) -> list[Parsed] | None:
     for delimiter in _DELIMITERS:
-        rows = [line.split(delimiter) for line in lines]
+        rows = [split_record(line, delimiter) for line in lines]
         width = _width(rows)
-        if width < 2:
+        if width < MIN_DELIMITED_WIDTH:
             continue
         matched = [row for row in rows if len(row) == width]
         if len(matched) / len(lines) < MIN_STRUCTURE_SHARE:
@@ -150,7 +241,7 @@ def _delimited(lines: Sequence[str]) -> list[Parsed] | None:
         for row in body:
             if len(row) == width:
                 fields = {
-                    _clip(name, MAX_KEY_CHARS): _clip(cell, MAX_VALUE_CHARS)
+                    _clip(name, MAX_KEY_CHARS): _clip(_clean(cell), MAX_VALUE_CHARS)
                     for name, cell in zip(names, row, strict=True)
                 }
                 parsed.append(Parsed("delimited", fields))
@@ -188,12 +279,18 @@ def parse_events(raws: Sequence[str]) -> list[Parsed]:
     delimited = _delimited(lines)
     if delimited is not None:
         return delimited
+    positional = _positional(lines)
+    if positional is not None:
+        return positional
     return [Parsed("text", {}) for _ in lines]
 
 
 def parse_with(raw: str, fmt: str) -> Parsed:
     """Read one event with the structure its source was sampled with."""
     parsers: dict[str, Parser] = dict(_PARSERS)
+    if fmt == "positional":
+        parsed = _positional([raw])
+        return parsed[0] if parsed else Parsed("text", {})
     if fmt == "delimited":
         parsed = _delimited([raw])
         if parsed:
@@ -206,12 +303,20 @@ def parse_with(raw: str, fmt: str) -> Parsed:
 
 def parse_row(raw: str, fmt: str, columns: Sequence[str] = ()) -> Parsed:
     """Read one event into the column names the sample established."""
+    if fmt in {"delimited", "positional"} and not columns:
+        return Parsed("text", {})
+    if fmt == "positional":
+        values = tokenise(raw, len(columns))
+        fields = {
+            _clip(name, MAX_KEY_CHARS): _clip(value, MAX_VALUE_CHARS)
+            for name, value in zip(columns, values, strict=False)
+            if value
+        }
+        return Parsed("positional" if fields else "text", fields)
     if fmt != "delimited":
         return parse_with(raw, fmt)
-    if not columns:
-        return Parsed("text", {})
     for delimiter in _DELIMITERS:
-        cells = raw.split(delimiter)
+        cells = [_clean(cell) for cell in split_record(raw, delimiter)]
         if len(cells) == len(columns):
             fields = {
                 _clip(name, MAX_KEY_CHARS): _clip(cell, MAX_VALUE_CHARS)

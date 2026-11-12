@@ -16,6 +16,7 @@ from portal.modules.security.core.hunt.notables.parse import (
     parse_kv,
     parse_row,
     parse_xml,
+    tokenise,
 )
 from portal.modules.security.core.hunt.notables.run import card_from_dict
 from portal.modules.security.core.hunt.notables.sample import SourceFacts
@@ -88,6 +89,31 @@ def test_a_multi_line_xml_event_is_read_whole():
     assert parsed[0].fields["Data[Name=User]"] == "bob"
 
 
+def test_line_oriented_log_gets_named_positions_with_their_variety():
+    lines = [
+        "Jan 12 10:00:00 web01 sshd[123]: Accepted password for bob from 10.0.0.5 port 22 ssh2",
+        "Jan 12 10:00:05 web02 sshd[124]: Accepted password for amy from 10.0.0.6 port 22 ssh2",
+        "Jan 12 10:01:00 web01 sshd[125]: Failed password for root from 10.0.0.7 port 22 ssh2",
+        "Jan 12 10:02:00 web02 sshd[126]: Accepted password for bob from 10.0.0.5 port 22 ssh2",
+    ]
+    parsed = parse_events(lines)
+    assert {item.fmt for item in parsed} == {"positional"}
+    stats = {stat.name: stat for stat in field_stats(parsed)}
+    assert stats["p1"].variety == "constant"
+    assert stats["p4"].variety == "identity"
+    assert stats["p3"].variety == "free"
+    assert stats["p9"].examples == ("amy", "bob", "root")
+    assert parsed[0].fields["p5"] == "sshd[123]:"
+
+
+def test_positions_keep_a_bracketed_stamp_and_a_quoted_phrase_whole():
+    line = '1.2.3.4 - - [01/Jan/2020:00:00:00 +0000] "GET /a b HTTP/1.1" 200 12'
+    positions = tokenise(line, 12)
+    assert positions[3] == "[01/Jan/2020:00:00:00 +0000]"
+    assert positions[4] == "GET /a b HTTP/1.1"
+    assert positions[5] == "200"
+
+
 def test_key_value_needs_two_pairs_and_delimited_uses_its_header():
     assert parse_kv("user=bob action=login") == {"user": "bob", "action": "login"}
     assert parse_kv("just one=thing") == {}
@@ -97,7 +123,7 @@ def test_key_value_needs_two_pairs_and_delimited_uses_its_header():
 
 
 def test_free_text_stays_text_and_field_stats_count_repeats():
-    parsed = parse_events(["nothing here parses as any structure at all"] * 4)
+    parsed = parse_events(["x"] * 4)
     assert {item.fmt for item in parsed} == {"text"}
     assert not field_stats(parsed)
     stats = field_stats(parse_events([json.dumps({"a": index % 2}) for index in range(6)]))
@@ -173,13 +199,13 @@ def test_card_says_why_it_is_not_understood(tmp_path):
     assert blank.reason == "no_sample"
     unparsed = build_card(
         _facts(),
-        [{"_raw": "prose without any fields", "_time": 1.0}],
+        [{"_raw": "x", "_time": 1.0}],
         windows=1,
         client=client,
         model="seat",
         cache=CardCache(tmp_path),
     )
-    assert unparsed.reason == "unparsed_sample"
+    assert unparsed.reason == "unparsed_sample:coverage=0.00"
     assert len(client.calls) == 1
 
 

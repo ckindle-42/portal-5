@@ -118,6 +118,7 @@ class SourceCard:
                     "name": stat.name,
                     "present": stat.present,
                     "distinct": stat.distinct,
+                    "variety": stat.variety,
                     "examples": list(stat.examples),
                 }
                 for stat in self.fields
@@ -216,14 +217,15 @@ def describe_fields(stats: Sequence[FieldStat], lines: int) -> str:
         return "(no field could be read from the sample)"
     rows = [
         f"- {stat.name} present={stat.present}/{lines} distinct={stat.distinct} "
-        f"examples: " + " | ".join(f'"{value}"' for value in stat.examples)
+        f"variety={stat.variety} examples: " + " | ".join(f'"{value}"' for value in stat.examples)
         for stat in stats
     ]
     return "\n".join(rows)
 
 
-def build_prompt(stats: Sequence[FieldStat], lines: int) -> str:
-    return f"{CARD_QUESTION}\n{describe_fields(stats, lines)}"
+def build_prompt(stats: Sequence[FieldStat], lines: int, structure: str = "") -> str:
+    shape = f"\nEVENT STRUCTURE: {structure}" if structure else ""
+    return f"{CARD_QUESTION}{shape}\n{describe_fields(stats, lines)}"
 
 
 def _field_list(value: Any) -> list[str]:
@@ -347,7 +349,7 @@ class _Inputs:
         self.hits = hits
         self.sample = _sample_facts(rows, self.parsed)
         self.sample["windows"] = windows
-        self.prompt = build_prompt(self.stats, len(self.parsed))
+        self.prompt = build_prompt(self.stats, len(self.parsed), self.fmt)
         self.cache_key = hashlib.sha256(f"{model}\n{self.prompt}".encode()).hexdigest()
 
 
@@ -396,7 +398,9 @@ def build_card(
     """One card per source: parse the sample, ask once, validate, and keep the evidence."""
     given = _Inputs(rows, windows, model)
     if not given.parsed or not given.hits:
-        reason = "no_sample" if not given.parsed else "unparsed_sample"
+        reason = (
+            "no_sample" if not given.parsed else f"unparsed_sample:coverage={given.coverage:.2f}"
+        )
         return _failure(
             facts,
             reason=reason,
