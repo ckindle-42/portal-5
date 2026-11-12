@@ -1,0 +1,331 @@
+"""The graph runner reads bounded cells in one order and reports its own coverage."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
+
+import pytest
+
+from portal.modules.security.core.hunt.engine import HOUR
+from portal.modules.security.core.hunt.observations import Observation
+from scripts.hunt_bed import graph_hunt, graph_shim
+
+START = 1_700_000_000 // HOUR * HOUR
+END = START + 4 * HOUR
+INDEX = "idx"
+
+
+def _obs(
+    kind: str,
+    host: str,
+    entity: str,
+    hour: int,
+    score: float,
+    prior: tuple[int, ...] = (),
+) -> Observation:
+    return Observation(
+        kind,
+        host,
+        entity,
+        hour,
+        score,
+        {
+            "signal": "burst",
+            "now": 1,
+            "prior": [{"hour": stamp, "count": 1} for stamp in prior],
+            "scores": {"current": score, "seasonal": None, "peer": None, "left": None},
+        },
+    )
+
+
+class FakeNotable:
+    def __init__(self, lead: dict[str, Any], evidence: dict[str, Any]) -> None:
+        self.lead = lead
+        self.evidence = evidence
+
+    def as_lead(self) -> dict[str, Any]:
+        return dict(self.lead)
+
+    def as_dict(self) -> dict[str, Any]:
+        return {**self.lead, "evidence": self.evidence}
+
+
+class FakeExecutor:
+    __name__ = "fake.executor"
+
+    def __init__(self, censored_hosts: frozenset[str] = frozenset()) -> None:
+        self.censored_hosts = censored_hosts
+        self.calls: list[dict[str, Any]] = []
+
+    def read(
+        self, query: str, start: float, end: float, *, kind: str, row_cap: int
+    ) -> SimpleNamespace:
+        host = query.split('host="', 1)[1].split('"', 1)[0]
+        self.calls.append({"query": query, "start": start, "end": end, "kind": kind})
+        rows = [
+            {"_time": start + 60, "host": host, "source": "svc", "_raw": "uid=alpha pid=4242"},
+            {"_time": start + 120, "host": host, "source": "svc", "_raw": "uid=alpha pid=9999"},
+        ][:row_cap]
+        censored = host in self.censored_hosts
+        return SimpleNamespace(
+            rows=rows, censored=censored, reason="query_bound" if censored else None
+        )
+
+
+def _fake_graph() -> tuple[SimpleNamespace, dict[str, Any]]:
+    seen: dict[str, Any] = {}
+
+    def build(samples: Any) -> dict[str, Any]:
+        seen["samples"] = samples
+        return {"built": True}
+
+    def notables(graph: Any, observations: Any) -> list[FakeNotable]:
+        seen["observations"] = observations
+        return [
+            FakeNotable({"host": "h1", "hour": START + 2 * HOUR, "span": 2 * HOUR}, {"why": 1}),
+            FakeNotable({"host": "h2", "hour": START, "span": HOUR}, {"why": 2}),
+        ]
+
+    return SimpleNamespace(__name__="fake.graph", build=build, notables=notables), seen
+
+
+def _saved(tmp_path: Path, observations: list[Observation]) -> Path:
+    out = tmp_path / "saved"
+    out.mkdir()
+    lines = [json.dumps(obs.as_dict(), sort_keys=True) for obs in observations]
+    (out / "observations.jsonl").write_text("\n".join(lines) + "\n")
+    (out / "progress.json").write_text(
+        json.dumps(
+            {
+                "index": INDEX,
+                "start": START,
+                "end": float(END),
+                "coverage": {"volume": {"complete": True, "reasons": []}},
+                "request_kinds": {"volume": {"requests": 3, "seconds": 1.0}},
+            }
+        )
+    )
+    return out
+
+
+def _run(tmp_path: Path, monkeypatch: Any, executor: FakeExecutor | None = None) -> Path:
+    saved = _saved(
+        tmp_path,
+        [
+            _obs(
+                "value",
+                "h1",
+                "uid=alpha",
+                START + 2 * HOUR,
+                9.0,
+                prior=(START + HOUR, START),
+            ),
+            _obs("volume", "h2", "", START + 3 * HOUR, 5.0, prior=(START + HOUR,)),
+        ],
+    )
+    graph, _seen = _fake_graph()
+    monkeypatch.setattr(graph_hunt, "_graph", graph)
+    monkeypatch.setattr(graph_hunt, "_executor", executor or FakeExecutor())
+    out = tmp_path / "out"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "graph_hunt.py",
+            "--index",
+            INDEX,
+            "--out",
+            str(out),
+            "--from-grids",
+            str(saved),
+        ],
+    )
+    assert graph_hunt.main() == 0
+    return out
+
+
+def test_one_cell_is_read_once_with_the_first_observations_literal() -> None:
+    plan = graph_hunt.cell_plan(
+        INDEX,
+        [_obs("volume", "h0", "", START, 2.0), _obs("value", "h0", "uid=a", START, 9.0)],
+    )
+
+    assert [(cell.host, cell.hour, cell.baseline) for cell in plan] == [("h0", START, False)]
+    assert plan[0].literal == 'search index="idx" host="h0"'
+
+
+def test_cells_follow_the_observation_order_then_prior_hours() -> None:
+    plan = graph_hunt.cell_plan(
+        INDEX,
+        [
+            _obs("value", "h1", "uid=alpha", START + 2 * HOUR, 9.0, prior=(START + HOUR, START)),
+            _obs("volume", "h2", "", START + 3 * HOUR, 5.0, prior=(START + HOUR,)),
+        ],
+    )
+
+    assert [(cell.host, cell.hour, cell.baseline) for cell in plan] == [
+        ("h1", START + 2 * HOUR, False),
+        ("h1", START + HOUR, True),
+        ("h1", START, True),
+        ("h2", START + 3 * HOUR, False),
+        ("h2", START + HOUR, True),
+    ]
+    assert plan[0].literal == 'search index="idx" host="h1" | where uid="alpha"'
+
+
+def test_cell_plan_stops_at_the_budget() -> None:
+    observations = [
+        _obs("volume", f"h{index}", "", START + index * HOUR, 1.0)
+        for index in range(graph_hunt.CELL_BUDGET + 10)
+    ]
+
+    plan = graph_hunt.cell_plan(INDEX, observations)
+
+    assert len(plan) == graph_hunt.CELL_BUDGET
+    assert len({(cell.host, cell.hour) for cell in plan}) == len(plan)
+
+
+def test_runner_writes_leads_cells_and_progress(tmp_path: Path, monkeypatch: Any) -> None:
+    _run(tmp_path, monkeypatch)
+    out = tmp_path / "out"
+    leads = json.loads((out / "leads.json").read_text())["leads"]
+    cells = [json.loads(line) for line in (out / "cells.jsonl").read_text().splitlines()]
+    notables = [json.loads(line) for line in (out / "notables.jsonl").read_text().splitlines()]
+    progress = json.loads((out / "progress.json").read_text())
+
+    assert [lead["host"] for lead in leads] == ["h1", "h2"]
+    assert [lead["hour"] for lead in leads] == [START + 2 * HOUR, START]
+    assert [row["evidence"] for row in notables] == [{"why": 1}, {"why": 2}]
+    assert [(cell["host"], cell["hour"], cell["baseline"]) for cell in cells] == [
+        ("h1", START + 2 * HOUR, False),
+        ("h1", START + HOUR, True),
+        ("h1", START, True),
+        ("h2", START + 3 * HOUR, False),
+        ("h2", START + HOUR, True),
+    ]
+    assert cells[0]["events"] == 2
+    assert cells[0]["query"].endswith(
+        "| eval _k=md5(_raw) | sort 200 _k _time _raw | head 200 | table _time host source _raw"
+    )
+    assert progress["lead_count"] == 2
+    assert progress["cell_count"] == 5
+    assert progress["event_count"] == 10
+    assert progress["request_kinds"]["events"]["requests"] == 5
+    assert progress["request_kinds"]["events"]["censored"] == 0
+    assert progress["observation_request_kinds"] == {"volume": {"requests": 3, "seconds": 1.0}}
+    assert progress["coverage"] == {
+        "observation_complete": True,
+        "cells_planned": 5,
+        "cells_read": 5,
+        "cells_censored": 0,
+        "reasons": [],
+    }
+    assert progress["coverage_complete"] is True
+    assert progress["modules"] == {"graph": "fake.graph", "executor": "fake.executor"}
+    assert progress["from_grids"] == str(tmp_path / "saved")
+
+
+def test_runner_hands_the_graph_cell_samples_keyed_by_host_source_hour(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    saved = _saved(
+        tmp_path,
+        [_obs("value", "h1", "uid=alpha", START + 2 * HOUR, 9.0, prior=(START + HOUR,))],
+    )
+    graph, seen = _fake_graph()
+    monkeypatch.setattr(graph_hunt, "_graph", graph)
+    monkeypatch.setattr(graph_hunt, "_executor", FakeExecutor())
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "graph_hunt.py",
+            "--index",
+            INDEX,
+            "--out",
+            str(tmp_path / "out"),
+            "--from-grids",
+            str(saved),
+        ],
+    )
+
+    assert graph_hunt.main() == 0
+
+    assert set(seen["samples"]) == {
+        ("h1", "svc", START + 2 * HOUR),
+        ("h1", "svc", START + HOUR),
+    }
+    events = [event for cell in seen["samples"].values() for event in cell]
+    assert all(set(event) == {"_time", "host", "source", "_raw"} for event in events)
+    assert [obs.host for obs in seen["observations"]] == ["h1"]
+
+
+def test_censored_cell_makes_coverage_incomplete(tmp_path: Path, monkeypatch: Any) -> None:
+    out = _run(tmp_path, monkeypatch, FakeExecutor(censored_hosts=frozenset({"h2"})))
+    cells = [json.loads(line) for line in (out / "cells.jsonl").read_text().splitlines()]
+    progress = json.loads((out / "progress.json").read_text())
+
+    assert [cell["censored"] for cell in cells] == [False, False, False, True, True]
+    assert progress["coverage"]["cells_censored"] == 2
+    assert progress["coverage"]["reasons"] == ["query_bound"]
+    assert progress["coverage_complete"] is False
+
+
+def test_shim_build_links_values_that_share_an_event() -> None:
+    graph = graph_shim.build(
+        {
+            ("h1", "svc", START): [
+                {
+                    "_time": float(START),
+                    "host": "h1",
+                    "source": "svc",
+                    "_raw": "uid=alpha pid=4242",
+                },
+                {"_time": float(START), "host": "h1", "source": "svc", "_raw": "uid=beta pid=4242"},
+            ]
+        }
+    )
+
+    assert graph.links["alpha"] == {"4242"}
+    assert graph.links["4242"] == {"alpha", "beta"}
+    assert graph.cells["4242"] == {("h1", "svc", START): 2}
+
+
+def test_shim_notables_rank_by_accumulated_deviation_over_the_observed_window() -> None:
+    graph = graph_shim.build(
+        {
+            ("h1", "svc", START): [
+                {"_time": float(START), "host": "h1", "source": "svc", "_raw": "alpha beta"}
+            ]
+        }
+    )
+    observations = [
+        _obs("value", "h1", "uid=alpha", START + 2 * HOUR, 4.0),
+        _obs("value", "h2", "uid=beta", START + 5 * HOUR, 9.0),
+        _obs("value", "h2", "uid=beta", START + 6 * HOUR, 1.0),
+    ]
+
+    rows = graph_shim.notables(graph, observations)
+
+    assert [row.entity for row in rows] == ["beta", "alpha"]
+    assert rows[0].as_lead() == {
+        "host": "h2",
+        "hour": START + 5 * HOUR,
+        "span": 2 * HOUR,
+        "score": 10.0,
+        "entity": "beta",
+    }
+    assert rows[0].neighbours == ["alpha"]
+
+
+def test_shim_exposes_the_runner_api() -> None:
+    assert callable(graph_shim.build)
+    assert callable(graph_shim.notables)
+    assert callable(graph_shim.read)
+    assert callable(graph_shim.values)
+
+
+@pytest.mark.parametrize("name", ["leads.json", "notables.jsonl", "cells.jsonl", "progress.json"])
+def test_runner_writes_every_documented_file(tmp_path: Path, monkeypatch: Any, name: str) -> None:
+    assert (_run(tmp_path, monkeypatch) / name).exists()
