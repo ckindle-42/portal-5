@@ -17,6 +17,7 @@ SAMPLE_SOURCES = 2  # effort budget: indexed sources sampled for one source card
 BEHAVIOUR_SOURCES = 8  # effort budget: indexed sources one behaviour read covers
 MAX_HOST_NAMES = 24  # effort budget: host names listed on one source's facts
 METADATA_ROWS = 50_000  # effort budget: sourcetype/source/host aggregate rows read
+CADENCE_ROWS = 200_000  # effort budget: hourly sourcetype counts read for cadence
 READ_CONCURRENCY = 6  # effort budget: concurrent reads inside the shared executor
 EMPTY_SAMPLE_WINDOWS = (
     48  # effort budget: fixed windows per source when its own time range is unknown
@@ -36,6 +37,9 @@ class SourceFacts:
     host_count: int
     sources: tuple[str, ...]
     source_count: int
+    hours_active: int = 0
+    hours_span: int = 0
+    count_cv: float = 0.0
 
 
 @dataclass
@@ -102,6 +106,42 @@ def _meta_rows(
     return _read_range(executor, query, start, end, kind="discovery", row_cap=METADATA_ROWS)
 
 
+def cadence_facts(
+    executor: HuntExecutor, index: str, start: float, end: float
+) -> tuple[dict[str, tuple[int, int, float]], list[str]]:
+    """Per sourcetype: active hours, hours spanned and the variation of hourly counts."""
+    rows, reason = _read_range(
+        executor,
+        f"| tstats count where index={_quoted(index)} by sourcetype _time span=1h",
+        start,
+        end,
+        kind="discovery",
+        row_cap=CADENCE_ROWS,
+    )
+    notes = [f"cadence:{reason}"] if reason else []
+    grouped: dict[str, list[tuple[float, int]]] = {}
+    for row in rows:
+        name = str(row.get("sourcetype") or "")
+        if not name:
+            continue
+        stamp = _number(row.get("_time")) or 0.0
+        grouped.setdefault(name, []).append((stamp, _count(row.get("count"))))
+    found: dict[str, tuple[int, int, float]] = {}
+    for name, series in grouped.items():
+        series.sort()
+        counts = [count for _stamp, count in series]
+        active = sum(1 for count in counts if count > 0)
+        span = max(1, int(round((series[-1][0] - series[0][0]) / 3600.0)) + 1)
+        mean = sum(counts) / len(counts)
+        if len(counts) < 2 or mean <= 0:
+            cv = 0.0
+        else:
+            variance = sum((count - mean) ** 2 for count in counts) / len(counts)
+            cv = (variance**0.5) / mean
+        found[name] = (active, span, round(cv, 4))
+    return found, notes
+
+
 def _group_meta(
     rows: Iterable[Mapping[str, Any]], key: str, value: str
 ) -> dict[str, list[tuple[str, int]]]:
@@ -135,6 +175,8 @@ def index_facts(
         return [], notes + ["index_metadata_empty"]
     sources, source_reason = _meta_rows(executor, index, "by sourcetype source", start, end)
     hosts, host_reason = _meta_rows(executor, index, "by sourcetype host", start, end)
+    cadence, cadence_notes = cadence_facts(executor, index, start, end)
+    notes.extend(cadence_notes)
     for label, cause in (("source", source_reason), ("host", host_reason)):
         if cause:
             notes.append(f"{label}_metadata:{cause}")
@@ -147,6 +189,7 @@ def index_facts(
             continue
         ranked_sources = sorted(by_source.get(name, []), key=lambda item: (-item[1], item[0]))
         ranked_hosts = sorted(by_host.get(name, []), key=lambda item: (-item[1], item[0]))
+        active, span, cv = cadence.get(name, (0, 0, 0.0))
         facts.append(
             SourceFacts(
                 index=index,
@@ -158,6 +201,9 @@ def index_facts(
                 host_count=len(ranked_hosts),
                 sources=tuple(source for source, _ in ranked_sources),
                 source_count=len(ranked_sources),
+                hours_active=active,
+                hours_span=span,
+                count_cv=cv,
             )
         )
     return facts, notes
@@ -221,6 +267,7 @@ def sample_windows(facts: SourceFacts) -> list[tuple[float, float]]:
 __all__ = [
     "RowSet",
     "SourceFacts",
+    "cadence_facts",
     "index_facts",
     "read_windows",
     "route_filter",

@@ -70,6 +70,9 @@ def _fact_dict(card: SourceCard) -> SourceFacts:
         host_count=int(facts.get("host_count") or 0),
         sources=tuple(str(name) for name in facts.get("sources") or ()),
         source_count=int(facts.get("source_count") or 0),
+        hours_active=int(facts.get("hours_active") or 0),
+        hours_span=int(facts.get("hours_span") or 0),
+        count_cv=float(facts.get("count_cv") or 0.0),
     )
 
 
@@ -115,6 +118,15 @@ def card_from_dict(raw: Mapping[str, Any]) -> SourceCard:
         basis=str(raw.get("basis") or ""),
         rejected=tuple(str(name) for name in raw.get("rejected_fields") or ()),
         columns=tuple(str(name) for name in raw.get("columns") or ()),
+        part_field=str(raw.get("part", {}).get("field") or "")
+        if isinstance(raw.get("part"), Mapping)
+        else "",
+        part_value=str(raw.get("part", {}).get("value") or "")
+        if isinstance(raw.get("part"), Mapping)
+        else "",
+        kind_said=str(raw.get("kind_said") or ""),
+        kind_note=str(raw["kind_note"]) if raw.get("kind_note") else None,
+        kind_facts=dict(raw.get("kind_facts") or {}),
     )
 
 

@@ -8,7 +8,7 @@ import re
 import time
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +29,7 @@ MAX_ANSWER_TOKENS = 300  # effort budget: one compact JSON answer per source
 MAX_ANSWER_CHARS = 4000  # effort budget: characters read from one model answer
 MAX_BASIS_CHARS = 240  # effort budget: the model's own reason kept on the card
 CARD_SEED = 0
+NUMERIC_SHARE_FOR_MEASUREMENT = 0.5  # a measurement stream is mostly numeric samples
 
 CARD_QUESTION = """You are given the fields that one kind of machine-written log event carries: how often
 each field appears in a sample, how many distinct values it holds, and a few example values. Decide
@@ -95,6 +96,9 @@ class SourceCard:
     columns: tuple[str, ...] = ()
     part_field: str = ""
     part_value: str = ""
+    kind_said: str = ""
+    kind_note: str | None = None
+    kind_facts: Mapping[str, Any] = field(default_factory=dict)
 
     @property
     def source_id(self) -> str:
@@ -130,6 +134,9 @@ class SourceCard:
                 {"field": self.part_field, "value": self.part_value} if self.part_field else None
             ),
             "kind": self.kind,
+            "kind_said": self.kind_said or self.kind,
+            "kind_note": self.kind_note,
+            "kind_facts": dict(self.kind_facts),
             "understood": self.understood,
             "reason": self.reason,
             "roles": {role: list(fields) for role, fields in sorted(self.roles.items())},
@@ -328,6 +335,53 @@ def _columns(parsed: Sequence[Parsed], fmt: str) -> tuple[str, ...]:
     return ()
 
 
+def _is_number(value: str) -> bool:
+    try:
+        float(value.replace(",", ""))
+    except (AttributeError, TypeError, ValueError):
+        return False
+    return True
+
+
+def value_facts(parsed: Sequence[Parsed], stats: Sequence[FieldStat]) -> dict[str, float]:
+    """How numeric the values are, and how much of them belong to recurring identities."""
+    total = 0
+    numeric = 0
+    for item in parsed:
+        for value in item.fields.values():
+            if not value:
+                continue
+            total += 1
+            if _is_number(value):
+                numeric += 1
+    recurring = sum(stat.present for stat in stats if stat.variety == "identity")
+    return {
+        "numeric_share": round(numeric / total, 4) if total else 0.0,
+        "identity_share": round(recurring / total, 4) if total else 0.0,
+    }
+
+
+def cadence_facts(facts: SourceFacts) -> dict[str, Any]:
+    active = facts.hours_active
+    span = facts.hours_span
+    return {
+        "hours_active": active,
+        "hours_span": span,
+        "active_share": round(active / span, 4) if span else 0.0,
+        "count_cv": facts.count_cv,
+    }
+
+
+def reconcile_kind(kind: str, facts: Mapping[str, Any]) -> tuple[str, str | None]:
+    """Facts overrule a measurement claim that is not numeric; other conflicts are recorded."""
+    numeric = float(facts.get("numeric_share") or 0.0)
+    if kind == "measurement" and numeric < NUMERIC_SHARE_FOR_MEASUREMENT:
+        return "activity", f"facts_override:measurement_numeric_share={numeric:.2f}"
+    if kind == "activity" and numeric >= NUMERIC_SHARE_FOR_MEASUREMENT:
+        return kind, f"kind_conflict:activity_numeric_share={numeric:.2f}"
+    return kind, None
+
+
 def _sample_facts(rows: Sequence[Mapping[str, Any]], parsed: Sequence[Parsed]) -> dict[str, Any]:
     hits = sum(1 for item in parsed if item.fields)
     hosts = sorted({str(row.get("host") or "") for row in rows} - {""})
@@ -352,6 +406,7 @@ def _failure(
     cache_key: str,
     part_field: str = "",
     part_value: str = "",
+    kind_facts: Mapping[str, Any] | None = None,
 ) -> SourceCard:
     return SourceCard(
         index=facts.index,
@@ -369,6 +424,7 @@ def _failure(
         cache_key=cache_key,
         part_field=part_field,
         part_value=part_value,
+        kind_facts=dict(kind_facts or {}),
     )
 
 
@@ -381,6 +437,9 @@ def _facts(facts: SourceFacts) -> dict[str, Any]:
         "source_count": facts.source_count,
         "hosts": list(facts.hosts),
         "sources": list(facts.sources[:12]),
+        "hours_active": facts.hours_active,
+        "hours_span": facts.hours_span,
+        "count_cv": facts.count_cv,
     }
 
 
@@ -404,6 +463,7 @@ class _Inputs:
         self.sample["windows"] = windows
         self.prompt = build_prompt(self.stats, considered, self.fmt)
         self.cache_key = hashlib.sha256(f"{model}\n{self.prompt}".encode()).hexdigest()
+        self.value_facts = value_facts(self.parsed, self.stats)
 
 
 def _answer(
@@ -450,6 +510,7 @@ def _card(
     part_value: str = "",
 ) -> SourceCard:
     """One card from one structure: ask once, validate, and keep the evidence."""
+    kind_facts = {**given.value_facts, **cadence_facts(facts)}
     if part_field:
         given.sample["part"] = {"field": part_field, "value": part_value}
     if not given.parsed or not given.hits:
@@ -467,6 +528,7 @@ def _card(
             cache_key=given.cache_key,
             part_field=part_field,
             part_value=part_value,
+            kind_facts=kind_facts,
         )
     answer, requests, was_cached = _answer(given, client, model, cache)
     applied = apply_answer(answer.text, [stat.name for stat in given.stats])
@@ -492,11 +554,13 @@ def _card(
             cache_key=given.cache_key,
             part_field=part_field,
             part_value=part_value,
+            kind_facts=kind_facts,
         )
+    kind, note = reconcile_kind(applied.kind, kind_facts)
     return SourceCard(
         index=facts.index,
         sourcetype=facts.sourcetype,
-        kind=applied.kind,
+        kind=kind,
         roles=applied.roles,
         understood=True,
         reason=None,
@@ -512,6 +576,9 @@ def _card(
         columns=_columns(given.parsed, given.fmt),
         part_field=part_field,
         part_value=part_value,
+        kind_said=applied.kind,
+        kind_note=note,
+        kind_facts=kind_facts,
     )
 
 

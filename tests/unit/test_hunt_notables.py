@@ -9,6 +9,9 @@ from portal.modules.security.core.hunt.notables.cards import (
     build_card,
     build_cards,
     build_prompt,
+    cadence_facts,
+    reconcile_kind,
+    value_facts,
 )
 from portal.modules.security.core.hunt.notables.parse import (
     choose_partition,
@@ -101,6 +104,66 @@ def _mixed_rows() -> list[dict[str, object]]:
             raw = json.dumps({"kind": "flow", "src": "a", "dst": "b", "bytes": index})
         rows.append({"_raw": raw, "_time": 1000.0 + index, "host": "h1"})
     return rows
+
+
+def test_kind_facts_measure_numeric_and_recurring_values():
+    rows = [
+        json.dumps({"n": str(index % 2), "who": "bob" if index % 2 else "amy"})
+        for index in range(4)
+    ]
+    parsed = parse_events(rows)
+    stats = field_stats(parsed)
+    facts = value_facts(parsed, stats)
+    assert facts == {"numeric_share": 0.5, "identity_share": 1.0}
+    assert cadence_facts(
+        SourceFacts(
+            "ix", "st", 10, 0.0, 1.0, (), 0, (), 0, hours_active=10, hours_span=20, count_cv=0.3
+        )
+    ) == {"hours_active": 10, "hours_span": 20, "active_share": 0.5, "count_cv": 0.3}
+
+
+def test_facts_overrule_a_non_numeric_measurement_and_record_other_conflicts():
+    assert reconcile_kind("measurement", {"numeric_share": 0.1}) == (
+        "activity",
+        "facts_override:measurement_numeric_share=0.10",
+    )
+    assert reconcile_kind("measurement", {"numeric_share": 0.9}) == ("measurement", None)
+    assert reconcile_kind("activity", {"numeric_share": 0.9}) == (
+        "activity",
+        "kind_conflict:activity_numeric_share=0.90",
+    )
+    assert reconcile_kind("alert", {"numeric_share": 0.9}) == ("alert", None)
+
+
+def test_a_process_creation_source_classed_measurement_stays_in_behaviours(tmp_path):
+    answer = json.dumps({"kind": "measurement", "actor": ["user"], "action": ["image"]})
+    card = build_card(
+        _facts(),
+        _rows(),
+        windows=1,
+        client=_Client(answer),
+        model="seat",
+        cache=CardCache(tmp_path),
+    )
+    assert card.kind == "activity"
+    assert card.kind_said == "measurement"
+    assert str(card.kind_note).startswith("facts_override:")
+    assert card.usable is True
+
+
+def test_identical_structure_gets_the_same_card_key_and_kind(tmp_path):
+    answer = json.dumps({"kind": "activity", "actor": ["user"], "action": ["image"]})
+    client = _Client(answer)
+    first = build_card(
+        _facts(), _rows(), windows=1, client=client, model="seat", cache=CardCache(tmp_path)
+    )
+    other = SourceFacts("ix2", "st2", 999, 5.0, 6.0, ("h9",), 1, ("s9",), 1)
+    second = build_card(
+        other, _rows(), windows=1, client=client, model="seat", cache=CardCache(tmp_path)
+    )
+    assert first.cache_key == second.cache_key
+    assert first.kind == second.kind
+    assert len(client.calls) == 1
 
 
 def test_a_low_variety_field_that_selects_the_field_set_splits_the_source():
