@@ -88,7 +88,7 @@ def test_one_bounded_read_returns_only_matching_events_with_reproducible_bounds(
 
     assert len(executor.calls) == 1
     query, earliest, latest, kind, row_cap = executor.calls[0]
-    assert "punct=" in query and "source=" in query and "dedup" in query
+    assert "punct=" in query and "source=" in query and "append" in query
     assert (earliest, latest, kind) == (HOUR, 2 * HOUR, "evidence")
     assert row_cap is not None
     assert result.reason is None
@@ -116,8 +116,19 @@ def test_censored_read_keeps_its_reason_and_does_not_claim_evidence():
     assert result.evidence == []
 
 
-def test_executor_read_that_reaches_the_spl_cap_is_marked_censored():
+def test_volume_only_cell_has_no_narrowing_observations():
     observation = _observation("volume", "", HOUR, 4.0)
+    cell = evidence_cells([observation])[0]
+
+    result = read_cell(_Executor([]), INDEX, cell, HOUR, 2 * HOUR)
+
+    assert cell.observations == ()
+    assert result.reason == "no_narrowing_observations"
+    assert result.evidence == []
+
+
+def test_executor_censored_read_preserves_available_matching_lines():
+    observation = _observation("shape", "abc", HOUR, 4.0)
     cell = evidence_cells([observation])[0]
     row = {
         "_time": HOUR + 1,
@@ -128,14 +139,8 @@ def test_executor_read_that_reaches_the_spl_cap_is_marked_censored():
         "_raw": "x=1",
     }
 
-    result = read_cell(
-        _Executor([row] * (MAX_OBSERVATIONS_PER_CELL * 2 + 2)),
-        INDEX,
-        cell,
-        HOUR,
-        2 * HOUR,
-    )
+    result = read_cell(_Executor([row], "row_budget"), INDEX, cell, HOUR, 2 * HOUR)
 
     assert result.censored is True
-    assert result.reason == "row_cap"
-    assert result.evidence == []
+    assert result.reason == "row_budget"
+    assert len(result.evidence) == 1

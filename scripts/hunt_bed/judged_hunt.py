@@ -146,7 +146,7 @@ def _lead(
         "p_yes": result.p_yes if result is not None else None,
         "l1_rank": cell.l1_rank,
         "judged": bool(result is not None and result.p_yes is not None),
-        "reason": reason if result is None or result.p_yes is None else None,
+        "reason": reason,
         "evidence": evidence or [],
         "observations": _compact_observations(cell),
     }
@@ -182,7 +182,7 @@ def _judge_selected(
     served: set[str] = set()
     for cell in selected:
         read = reads_by_cell[(cell.host, cell.hour)]
-        if read.reason is not None:
+        if not read.evidence:
             continue
         verdict = judge_cell(client, model=model, evidence=read.evidence)
         attempts += 1
@@ -205,7 +205,7 @@ def _ordered_leads(
             leads_by_cell[key] = _lead(cell, reason="beyond_judge_cell_budget")
             continue
         read = reads_by_cell[key]
-        if read.reason is not None:
+        if not read.evidence:
             leads_by_cell[key] = _lead(cell, reason=read.reason)
             continue
         evidence_read, verdict = judged[key]
@@ -213,7 +213,7 @@ def _ordered_leads(
             cell,
             result=verdict,
             evidence=evidence_read.evidence if verdict.p_yes is not None else [],
-            reason=verdict.reason,
+            reason=evidence_read.reason or verdict.reason,
         )
     scored = sorted(
         (lead for lead in leads_by_cell.values() if lead["judged"]),
@@ -271,6 +271,7 @@ def run_judged_hunt(
         and coverage["cells_judged"] == coverage["cells_total"]
         and not coverage["unjudged"]
         and not beyond
+        and not any(lead["reason"] for lead in leads)
     )
     progress = {
         **meta,

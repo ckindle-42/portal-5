@@ -14,12 +14,23 @@ from scripts.hunt_bed import judged_hunt
 
 def _observation(host: str, hour: int, score: float) -> Observation:
     return Observation(
-        "volume",
+        "shape",
         host,
-        "",
+        "abc",
         hour,
         score,
-        {"signal": "burst", "literal": literal_query("volume", "events", host, "")},
+        {"signal": "burst", "literal": literal_query("shape", "events", host, "abc")},
+    )
+
+
+def _specific_observation(kind: str, entity: str, score: float) -> Observation:
+    return Observation(
+        kind,
+        "node-a",
+        entity,
+        3600,
+        score,
+        {"signal": "burst", "literal": literal_query(kind, "events", "node-a", entity)},
     )
 
 
@@ -71,6 +82,111 @@ class _Judge:
                 }
             ],
         }
+
+
+class _EvidenceExecutor(_Executor):
+    def __init__(self, rows, reason=None):
+        super().__init__()
+        self.rows = rows
+        self.reason = reason
+
+    def read(self, query, earliest, latest, *, kind, row_cap):
+        return SimpleNamespace(rows=self.rows, reason=self.reason)
+
+
+def _run_single_cell(tmp_path: Path, monkeypatch, observations, rows, reason=None):
+    monkeypatch.setattr(judged_hunt, "JUDGE_CELLS", 1)
+    run = ObservationRun(observations, {}, {"shape": {"complete": True}})
+    executor = _EvidenceExecutor(rows, reason)
+    args = SimpleNamespace(
+        index="events",
+        out=str(tmp_path),
+        start=0,
+        end=7200,
+        baseline="current",
+        from_grids=None,
+        judge_url="endpoint",
+        judge_model="security-workspace",
+        judge_key_env="KEY",
+    )
+    judged_hunt.run_judged_hunt(
+        args,
+        prepare=lambda _args: (run, {"index": "events", "start": 0, "end": 7200}, executor),
+        client=_Judge(),
+    )
+    return json.loads((tmp_path / "leads.json").read_text())["leads"][0]
+
+
+def _events(count: int, *, source: str = "svc", distinct_sources: bool = False):
+    return [
+        {
+            "_time": 3601 + index,
+            "host": "node-a",
+            "source": f"source-{index // 2}" if distinct_sources else source,
+            "sourcetype": "log",
+            "punct": f"p{index // 2}" if source == "svc" and not distinct_sources else "abc",
+            "_raw": f"event={index}",
+        }
+        for index in range(count)
+    ]
+
+
+def test_one_selected_punct_across_twenty_sources_is_judged(tmp_path: Path, monkeypatch):
+    lead = _run_single_cell(
+        tmp_path,
+        monkeypatch,
+        [_specific_observation("shape", "abc", 4.0)],
+        _events(40, distinct_sources=True),
+    )
+
+    assert lead["judged"] is True
+    assert len(lead["evidence"]) == 2
+    assert lead["observations"][0]["entity"] == "abc"
+
+
+def test_one_selected_source_across_forty_puncts_is_judged(tmp_path: Path, monkeypatch):
+    lead = _run_single_cell(
+        tmp_path,
+        monkeypatch,
+        [_specific_observation("source", "svc\tlog", 4.0)],
+        _events(80),
+    )
+
+    assert lead["judged"] is True
+    assert len(lead["evidence"]) == 2
+    assert lead["observations"][0]["entity"] == "svc\tlog"
+
+
+def test_volume_ranked_first_does_not_widen_selected_evidence(tmp_path: Path, monkeypatch):
+    volume = _specific_observation("volume", "", 9.0)
+    shape = _specific_observation("shape", "abc", 8.0)
+    rows = _events(3, distinct_sources=True)
+    rows[2]["punct"] = "other"
+
+    lead = _run_single_cell(tmp_path, monkeypatch, [volume, shape], rows)
+
+    assert lead["judged"] is True
+    assert [item["kind"] for item in lead["observations"]] == ["shape"]
+    assert len(lead["evidence"]) == 2
+    assert all(item["query"] == shape.evidence["literal"] for item in lead["evidence"])
+
+
+def test_truncated_read_with_lines_is_still_judged_and_reason_is_kept(tmp_path: Path, monkeypatch):
+    lead = _run_single_cell(
+        tmp_path,
+        monkeypatch,
+        [_specific_observation("shape", "abc", 4.0)],
+        _events(1, distinct_sources=True),
+        "row_budget",
+    )
+
+    assert lead["judged"] is True
+    assert lead["reason"] == "row_budget"
+    assert len(lead["evidence"]) == 1
+    progress = json.loads((tmp_path / "progress.json").read_text())
+    assert progress["coverage"]["cells_judged"] == 1
+    assert progress["coverage"]["cells_unjudged"] == 0
+    assert progress["coverage_complete"] is False
 
 
 def test_runner_writes_one_ordered_lead_per_cell_and_records_budget_coverage(

@@ -19,7 +19,7 @@ EVENTS_PER_OBSERVATION = 2  # effort budget: matching events retained for one ob
 MAX_EVENT_CHARACTERS = 300  # effort budget: raw characters retained per event
 READ_CONCURRENCY = 6  # effort budget: evidence reads inside the shared executor
 EVIDENCE_KIND = "evidence"
-_ROW_CAP = MAX_OBSERVATIONS_PER_CELL * EVENTS_PER_OBSERVATION + 1
+_ROW_CAP = MAX_OBSERVATIONS_PER_CELL * EVENTS_PER_OBSERVATION  # effort budget: rows per cell read
 
 
 @dataclass(frozen=True)
@@ -43,13 +43,16 @@ def evidence_cells(observations: Iterable[Observation]) -> list[EvidenceCell]:
     """Collapse the layer-one total order to one bounded record per host-hour."""
     grouped: dict[tuple[str, int], list[Observation]] = {}
     for observation in observations:
-        if not observation.evidence.get("literal"):
-            continue
         grouped.setdefault((observation.host, observation.hour), []).append(observation)
-    return [
-        EvidenceCell(host, hour, rank, tuple(rows[:MAX_OBSERVATIONS_PER_CELL]))
-        for rank, ((host, hour), rows) in enumerate(grouped.items(), 1)
-    ]
+    cells = []
+    for rank, ((host, hour), rows) in enumerate(grouped.items(), 1):
+        selected = [
+            observation
+            for observation in rows
+            if observation.evidence.get("literal") and _condition(observation) is not None
+        ]
+        cells.append(EvidenceCell(host, hour, rank, tuple(selected[:MAX_OBSERVATIONS_PER_CELL])))
+    return cells
 
 
 def _condition(observation: Observation) -> str | None:
@@ -70,19 +73,22 @@ def _condition(observation: Observation) -> str | None:
 
 
 def _query(index: str, cell: EvidenceCell) -> str:
-    base = f"search index={_search_literal(index)} host={_search_literal(cell.host)}"
-    if not any(observation.kind == "volume" for observation in cell.observations):
-        conditions = [
-            condition
-            for observation in cell.observations
-            if (condition := _condition(observation)) is not None
-        ]
-        if conditions:
-            base += " (" + " OR ".join(f"({condition})" for condition in conditions) + ")"
-    return (
-        f"{base} | sort 0 _time _raw source punct sourcetype "
-        f"| dedup {EVENTS_PER_OBSERVATION} punct source | head {_ROW_CAP + 1}"
-    )
+    branches = []
+    for observation_index, observation in enumerate(cell.observations):
+        condition = _condition(observation)
+        if condition is None:
+            continue
+        base = (
+            f"search index={_search_literal(index)} host={_search_literal(cell.host)} {condition}"
+        )
+        branches.append(
+            f"{base} | sort 0 _time _raw source punct sourcetype "
+            f"| head {EVENTS_PER_OBSERVATION} | eval _hunt_observation={observation_index}"
+        )
+    query = branches[0]
+    for branch in branches[1:]:
+        query += f" | append [ {branch} ]"
+    return query + " | sort 0 _hunt_observation _time _raw source punct sourcetype"
 
 
 def _event_line(row: Mapping[str, Any]) -> str:
@@ -105,7 +111,7 @@ def read_cell(
     if latest <= earliest:
         return EvidenceRead(cell, [], False, "outside_window", 0.0)
     if not cell.observations:
-        return EvidenceRead(cell, [], False, "no_literal_observations", 0.0)
+        return EvidenceRead(cell, [], False, "no_narrowing_observations", 0.0)
     try:
         result = executor.read(
             _query(index, cell), earliest, latest, kind=EVIDENCE_KIND, row_cap=_ROW_CAP
@@ -118,15 +124,11 @@ def read_cell(
         )
     seconds = round(time.monotonic() - began, 3)
     reason = getattr(result, "reason", None)
-    if reason:
-        return EvidenceRead(cell, [], True, str(reason), seconds)
     rows = list(getattr(result, "rows", []))
-    if len(rows) >= _ROW_CAP + 1:
-        return EvidenceRead(cell, [], True, "row_cap", seconds)
     evidence: list[dict[str, Any]] = []
-    for observation in cell.observations:
+    for observation_index, observation in enumerate(cell.observations):
         query = str(observation.evidence["literal"])
-        matched = [row for row in rows if literal_matches(row, query)]
+        matched = [row for row in rows if _matches_observation(row, observation_index, query)]
         for row in matched[:EVENTS_PER_OBSERVATION]:
             evidence.append(
                 {
@@ -137,8 +139,18 @@ def read_cell(
                 }
             )
     if not evidence:
-        return EvidenceRead(cell, [], False, "empty_evidence", seconds)
-    return EvidenceRead(cell, evidence, False, None, seconds)
+        return EvidenceRead(cell, [], bool(reason), str(reason or "empty_evidence"), seconds)
+    return EvidenceRead(cell, evidence, bool(reason), str(reason) if reason else None, seconds)
+
+
+def _matches_observation(row: Mapping[str, Any], index: int, query: str) -> bool:
+    marker = row.get("_hunt_observation")
+    if marker is None:
+        return literal_matches(row, query)
+    try:
+        return int(marker) == index
+    except (TypeError, ValueError):
+        return False
 
 
 def read_cells(
