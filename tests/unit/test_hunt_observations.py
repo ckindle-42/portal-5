@@ -15,7 +15,8 @@ from portal.modules.security.core.hunt.engine import HOUR
 from portal.modules.security.core.hunt.jobs import DEFAULT_BUDGETS
 from portal.modules.security.core.hunt.observations import (
     KEY_BUDGET,
-    KEY_SAMPLE,
+    KEY_SLICE_SAMPLE,
+    KEY_SLICES,
     ObservationRun,
     budgeted_search,
     literal_matches,
@@ -145,19 +146,30 @@ class GridSearch:
                 for value in values:
                     counts[(row["host"], value, hour)] += 1
                 continue
-            if "source sourcetype" in query:
+            stream = "sourcetype punct" in query
+            if stream:
+                counts[(row["host"], row["sourcetype"], row["punct"], hour)] += 1
+            elif "source sourcetype" in query:
                 counts[(row["host"], row["source"], row["sourcetype"], hour)] += 1
             elif " punct " in query:
                 counts[(row["host"], row["punct"], hour)] += 1
             else:
                 counts[(row["host"], hour)] += 1
         return _emit_groups(
-            counts, prefix is not None, "source sourcetype" in query, " punct " in query
+            counts,
+            prefix is not None,
+            "sourcetype punct" in query,
+            "source sourcetype" in query,
+            " punct " in query and "sourcetype punct" not in query,
         )
 
 
 def _emit_groups(
-    counts: dict[tuple[Any, ...], int], prefix: bool, source: bool, shape: bool
+    counts: dict[tuple[Any, ...], int],
+    prefix: bool,
+    stream: bool,
+    source: bool,
+    shape: bool,
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for key in sorted(counts):
@@ -165,6 +177,17 @@ def _emit_groups(
         if prefix:
             host, value, hour = key
             rows.append({"host": host, "v": value, "_time": hour, "count": count})
+        elif stream:
+            host, sourcetype, punct, hour = key
+            rows.append(
+                {
+                    "host": host,
+                    "sourcetype": sourcetype,
+                    "punct": punct,
+                    "_time": hour,
+                    "count": count,
+                }
+            )
         elif source:
             host, src, sourcetype, hour = key
             rows.append(
@@ -244,17 +267,38 @@ def _pairs(raw: str) -> list[tuple[str, str]]:
     return found
 
 
+def _slice_hours(hours: list[int]) -> list[int]:
+    unique = sorted(set(hours))
+    if len(unique) <= KEY_SLICES:
+        return unique
+    if KEY_SLICES <= 1:
+        return unique[:1]
+    last = len(unique) - 1
+    picked: list[int] = []
+    for step in range(KEY_SLICES):
+        hour = unique[round(step * last / (KEY_SLICES - 1))]
+        if not picked or picked[-1] != hour:
+            picked.append(hour)
+    return picked
+
+
 def _learned(window: list[dict[str, Any]]) -> list[str]:
-    ordered = sorted(
-        window,
-        key=lambda row: (
-            hashlib.md5(str(row["_raw"]).encode()).hexdigest(),
-            float(row["_time"]),
-            str(row["_raw"]),
-        ),
-    )[:KEY_SAMPLE]
+    by_hour: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    for row in window:
+        by_hour[_hour(float(row["_time"]))].append(row)
+    sample: list[dict[str, Any]] = []
+    for hour in _slice_hours(list(by_hour)):
+        ordered = sorted(
+            by_hour[hour],
+            key=lambda row: (
+                hashlib.md5(str(row["_raw"]).encode()).hexdigest(),
+                float(row["_time"]),
+                str(row["_raw"]),
+            ),
+        )
+        sample.extend(ordered[:KEY_SLICE_SAMPLE])
     counts: dict[str, int] = defaultdict(int)
-    for row in ordered:
+    for row in sample:
         for key, _value in _pairs(str(row["_raw"])):
             counts[key] += 1
     ranked = sorted(counts, key=lambda key: (-counts[key], key))
@@ -337,6 +381,24 @@ def _reference(events: list[dict[str, Any]]) -> list[tuple[Any, ...]]:
     for host, punct in sorted(shape):
         expected.extend(
             _score_ref("shape", host, punct, dict(shape[(host, punct)]), host_shape[host])
+        )
+    stream: dict[tuple[str, str, str], dict[int, int]] = defaultdict(lambda: defaultdict(int))
+    for row in window:
+        hour = _hour(float(row["_time"]))
+        stream[(str(row["host"]), str(row["sourcetype"]), str(row["punct"]))][hour] += 1
+    host_stream: dict[str, int] = {}
+    for (host, _sourcetype, _punct), series in stream.items():
+        host_stream[host] = min(host_stream.get(host, min(series)), min(series))
+    for host, sourcetype, punct in sorted(stream):
+        entity = f"{sourcetype}\t{punct}"
+        expected.extend(
+            _score_ref(
+                "stream",
+                host,
+                entity,
+                dict(stream[(host, sourcetype, punct)]),
+                host_stream[host],
+            )
         )
     expected.extend(_value_reference(window))
     return expected
@@ -494,16 +556,18 @@ def test_budgeted_search_keeps_the_shared_hunt_limits() -> None:
     assert wrapped.budget.phase == "ranking"
 
 
-def test_sample_over_the_event_total_marks_key_coverage_incomplete(
+def test_sample_over_the_hour_volume_marks_key_coverage_incomplete(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    events = _keyed(3, ["uid"], tokens=0)
+    events = _event(START, "h", "uid=one", n=3)
     monkeypatch.setattr(
-        "portal.modules.security.core.hunt.observations.KEY_SAMPLE",
+        "portal.modules.security.core.hunt.observations.KEY_SLICE_SAMPLE",
         1,
     )
     run = observe(GridSearch(events), INDEX, float(START), float(END))
 
     assert "sample_budget" in run.coverage["value"]["reasons"]
     assert run.coverage["value"]["complete"] is False
+    assert run.coverage["value"]["slices"][0]["returned"] == 1
+    assert run.coverage["value"]["slices"][0]["volume"] == 3
     assert any(obs.kind == "value" for obs in run.observations)

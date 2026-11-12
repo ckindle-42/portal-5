@@ -2,12 +2,24 @@
 
 from __future__ import annotations
 
+import json
 import re
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
+from portal.modules.security.core.hunt.baselines import (
+    BASELINES,
+    active_hosts,
+    counts_by_hour,
+    cycle_seconds,
+    index_entities,
+    index_volume,
+    peer_proportion,
+    phase_burst,
+)
 from portal.modules.security.core.hunt.engine import (
     HOUR,
     Search,
@@ -20,7 +32,8 @@ from portal.modules.security.core.hunt.engine import (
 from portal.modules.security.core.hunt.jobs import DEFAULT_BUDGETS, BudgetedSearch, HuntBudget
 from portal.modules.security.core.hunt.ranking import where_literal
 
-KEY_SAMPLE = 3000  # effort budget: md5-ordered events read while learning keys
+KEY_SLICES = 4  # effort budget: time slices read while learning keys
+KEY_SLICE_SAMPLE = 200  # effort budget: md5-ordered events read from one slice
 KEY_BUDGET = 8  # effort budget: PREFIX grids; keys beyond this stay uncovered
 _KEY = re.compile(r"""(?<![\w.])([A-Za-z_][\w.]{1,30})=(?=[^\s"=])""")
 _PAIR = re.compile(r"""(?<![\w.])([A-Za-z_][\w.]{1,30})=([^\s"=]*)""")
@@ -35,7 +48,7 @@ class Observation:
     host: str
     entity: str
     hour: int
-    score: float
+    score: float | None
     evidence: dict[str, Any]
 
     def as_dict(self) -> dict[str, Any]:
@@ -54,6 +67,8 @@ class ObservationRun:
     observations: list[Observation]
     request_kinds: dict[str, dict[str, Any]]
     coverage: dict[str, dict[str, Any]] = field(default_factory=dict)
+    grids: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    baseline: str = "current"
 
     @property
     def coverage_complete(self) -> bool:
@@ -88,6 +103,13 @@ def literal_query(kind: str, index: str, host: str, entity: str) -> str:
         )
     if kind == "shape":
         return f"search index={index_lit} host={host_lit} | where punct={where_literal(entity)}"
+    if kind == "stream":
+        sourcetype, punct = entity.split("\t", 1)
+        return (
+            f"search index={index_lit} host={host_lit} "
+            f"| where sourcetype={where_literal(sourcetype)} "
+            f"| where punct={where_literal(punct)}"
+        )
     key, _, value = entity.partition("=")
     return f"search index={index_lit} host={host_lit} | where {key}={where_literal(value)}"
 
@@ -117,10 +139,12 @@ def literal_matches(event: Mapping[str, Any], query: str) -> bool:
     return all(fields.get(name) == value for name, value in constraints)
 
 
-def _sort_key(obs: Observation) -> tuple[float, str, str, str, str, int]:
-    # Total order: higher score, then kind, host, entity, signal, hour.
+def _sort_key(obs: Observation) -> tuple[bool, float, str, str, str, str, int]:
+    # Total order: scored rows by descending score, then kind, host, entity, signal, hour.
     signal = str(obs.evidence.get("signal", ""))
-    return (-obs.score, obs.kind, obs.host, obs.entity, signal, obs.hour)
+    if obs.score is None:
+        return (True, 0.0, obs.kind, obs.host, obs.entity, signal, obs.hour)
+    return (False, -obs.score, obs.kind, obs.host, obs.entity, signal, obs.hour)
 
 
 def _note(stats: dict[str, dict[str, Any]], kind: str, started: float) -> None:
@@ -385,12 +409,35 @@ def _from_pairs(
     return found, None
 
 
-def _sample_query(index: str) -> str:
+def _slice_query(index: str) -> str:
     literal = _search_literal(index)
     return (
-        f"search index={literal} | eval _k=md5(_raw) | sort {KEY_SAMPLE} _k _time _raw "
-        f"| head {KEY_SAMPLE} | table _raw"
+        f"search index={literal} | eval _k=md5(_raw) | sort {KEY_SLICE_SAMPLE} _k _time _raw "
+        f"| head {KEY_SLICE_SAMPLE} | table _raw"
     )
+
+
+def _slice_hours(hours: list[int]) -> list[int]:
+    ordered = sorted(set(hours))
+    if len(ordered) <= KEY_SLICES:
+        return ordered
+    if KEY_SLICES <= 1:
+        return ordered[:1]
+    last = len(ordered) - 1
+    picked: list[int] = []
+    for step in range(KEY_SLICES):
+        hour = ordered[round(step * last / (KEY_SLICES - 1))]
+        if not picked or picked[-1] != hour:
+            picked.append(hour)
+    return picked
+
+
+def _hour_volume(rows: list[dict[str, Any]]) -> dict[int, int]:
+    totals: dict[int, int] = {}
+    for row in rows:
+        hour = _epoch_hour(row["_time"])
+        totals[hour] = totals.get(hour, 0) + _cell_count(row)
+    return totals
 
 
 def _learned_keys(rows: list[dict[str, Any]]) -> list[tuple[str, int]]:
@@ -481,7 +528,11 @@ def _score_loaded(
         return _from_volume(rows, index)
     if kind == "source":
         return _from_pairs("source", rows, index, "source", "sourcetype")
-    return _from_pairs("shape", rows, index, "punct", "punct")
+    if kind == "shape":
+        return _from_pairs("shape", rows, index, "punct", "punct")
+    if kind == "stream":
+        return _from_pairs("stream", rows, index, "sourcetype", "punct")
+    raise KeyError(kind)
 
 
 def _observe_one(
@@ -493,18 +544,26 @@ def _observe_one(
     end: float,
     stats: dict[str, dict[str, Any]],
     coverage: dict[str, dict[str, Any]],
-) -> list[Observation]:
+) -> tuple[list[Observation], list[dict[str, Any]] | None]:
     rows, reason = _load_grid(search, index, by, start, end, stats, kind)
     if reason:
         coverage[kind] = _coverage(reason)
-        return []
+        return [], None
     try:
         scored, score_reason = _score_loaded(kind, rows, index)
     except (KeyError, TypeError, ValueError):
         coverage[kind] = _coverage("censored")
-        return []
+        return [], rows
     coverage[kind] = _coverage(score_reason)
-    return scored if score_reason is None else []
+    return (scored, rows) if score_reason is None else ([], rows)
+
+
+_STRUCTURAL = (
+    ("volume", "by host _time span=1h"),
+    ("source", "by host source sourcetype _time span=1h"),
+    ("shape", "by host punct _time span=1h"),
+    ("stream", "by host sourcetype punct _time span=1h"),
+)
 
 
 def _observe_structural(
@@ -514,70 +573,76 @@ def _observe_structural(
     end: float,
     stats: dict[str, dict[str, Any]],
     coverage: dict[str, dict[str, Any]],
-) -> list[Observation]:
+) -> tuple[list[Observation], dict[str, list[dict[str, Any]]]]:
     found: list[Observation] = []
-    for kind, by in (
-        ("volume", "by host _time span=1h"),
-        ("source", "by host source sourcetype _time span=1h"),
-        ("shape", "by host punct _time span=1h"),
-    ):
-        found.extend(_observe_one(search, index, kind, by, start, end, stats, coverage))
+    grids: dict[str, list[dict[str, Any]]] = {}
+    for kind, by in _STRUCTURAL:
+        scored, rows = _observe_one(search, index, kind, by, start, end, stats, coverage)
+        found.extend(scored)
+        if rows is not None:
+            grids[kind] = rows
+    return found, grids
+
+
+def _unique(reasons: list[str]) -> list[str]:
+    found: list[str] = []
+    for reason in reasons:
+        if reason not in found:
+            found.append(reason)
     return found
 
 
-def _event_total(
+def _read_slices(
     search: Search,
     index: str,
-    start: float,
-    end: float,
+    volume_rows: list[dict[str, Any]],
     stats: dict[str, dict[str, Any]],
-) -> tuple[int | None, str | None]:
-    rows, reason = _issue(search, _tstats(index, "").rstrip(), start, end, stats, "event_total")
-    if reason:
-        return None, reason
-    return _as_int(rows, "count"), None if _as_int(rows, "count") is not None else "censored"
-
-
-def _observe_values(
-    search: Search,
-    index: str,
-    start: float,
-    end: float,
-    stats: dict[str, dict[str, Any]],
-) -> tuple[list[Observation], dict[str, Any]]:
-    total, total_reason = _event_total(search, index, start, end, stats)
-    sample, sample_reason = _issue(search, _sample_query(index), start, end, stats, "key_sample")
+) -> tuple[list[dict[str, Any]], list[str], list[dict[str, Any]]]:
+    totals = _hour_volume(volume_rows)
+    chosen = _slice_hours(list(totals))
     reasons: list[str] = []
-    if total_reason or sample_reason:
-        reasons.append(total_reason or sample_reason or "censored")
-    if total is None and "censored" not in reasons and "budget" not in reasons:
-        reasons.append("censored")
-    if sample_reason is None and total is not None and total > len(sample):
-        reasons.append("sample_budget")
-    if sample_reason is not None:
-        coverage = {"complete": False, "reasons": reasons, "unqueried_keys": []}
-        return [], coverage
-    ranked = _learned_keys(sample)
-    queried = ranked[:KEY_BUDGET]
-    skipped = [key for key, _count in ranked[KEY_BUDGET:]]
-    if skipped:
-        reasons.append("key_budget")
+    if len(totals) > len(chosen):
+        reasons.append("slice_budget")
+    rows: list[dict[str, Any]] = []
+    slices: list[dict[str, Any]] = []
+    for hour in chosen:
+        got, reason = _issue(search, _slice_query(index), hour, hour + HOUR, stats, "key_sample")
+        entry: dict[str, Any] = {
+            "hour": hour,
+            "returned": 0 if reason else len(got),
+            "volume": totals[hour],
+        }
+        if reason:
+            entry["reason"] = reason
+            reasons.append(reason)
+        else:
+            if len(got) < totals[hour]:
+                reasons.append("sample_budget")
+            rows.extend(got)
+        slices.append(entry)
+    return rows, reasons, slices
+
+
+def _query_keys(
+    search: Search,
+    index: str,
+    queried: list[tuple[str, int]],
+    start: float,
+    end: float,
+    stats: dict[str, dict[str, Any]],
+    reasons: list[str],
+) -> tuple[list[Observation], dict[str, list[dict[str, Any]]]]:
     found: list[Observation] = []
+    grids: dict[str, list[dict[str, Any]]] = {}
     for key, _count in queried:
         by = f"by host PREFIX({key}=) _time span=1h"
         rows, reason = _load_grid(
-            search,
-            index,
-            by,
-            start,
-            end,
-            stats,
-            f"value:{key}",
-            suffix=f' | rename "{key}=" as v',
+            search, index, by, start, end, stats, f"value:{key}", suffix=f' | rename "{key}=" as v'
         )
         if reason:
             reasons.append(reason)
             continue
+        grids[f"value:{key}"] = rows
         try:
             scored, score_reason = _from_values(key, rows, index)
         except (KeyError, TypeError, ValueError):
@@ -587,17 +652,261 @@ def _observe_values(
             reasons.append(score_reason)
             continue
         found.extend(scored)
-    coverage = {"complete": not reasons, "reasons": reasons, "unqueried_keys": skipped}
-    return found, coverage
+    return found, grids
 
 
-def observe(search: Search, index: str, start: float, end: float) -> ObservationRun:
+def _value_coverage(
+    reasons: list[str], skipped: list[str], slices: list[dict[str, Any]]
+) -> dict[str, Any]:
+    return {
+        "complete": not reasons,
+        "reasons": _unique(reasons),
+        "unqueried_keys": skipped,
+        "slices": slices,
+    }
+
+
+def _observe_values(
+    search: Search,
+    index: str,
+    start: float,
+    end: float,
+    stats: dict[str, dict[str, Any]],
+    volume_rows: list[dict[str, Any]] | None,
+) -> tuple[list[Observation], dict[str, list[dict[str, Any]]], dict[str, Any]]:
+    if volume_rows is None:
+        return [], {}, _value_coverage(["volume_incomplete"], [], [])
+    sample, reasons, slices = _read_slices(search, index, volume_rows, stats)
+    ranked = _learned_keys(sample)
+    queried = ranked[:KEY_BUDGET]
+    skipped = [key for key, _count in ranked[KEY_BUDGET:]]
+    if skipped:
+        reasons.append("key_budget")
+    found, grids = _query_keys(search, index, queried, start, end, stats, reasons)
+    return found, grids, _value_coverage(reasons, skipped, slices)
+
+
+def _split_grid(name: str) -> tuple[str, str]:
+    if name.startswith("value:"):
+        return "value", name.split(":", 1)[1]
+    return name, ""
+
+
+def _score_present(grids: dict[str, list[dict[str, Any]]], index: str) -> list[Observation]:
+    found: list[Observation] = []
+    for name in sorted(grids):
+        kind, key = _split_grid(name)
+        try:
+            if kind == "value":
+                scored, reason = _from_values(key, grids[name], index)
+            else:
+                scored, reason = _score_loaded(kind, grids[name], index)
+        except (KeyError, TypeError, ValueError):
+            continue
+        if reason is None:
+            found.extend(scored)
+    return found
+
+
+@dataclass
+class _View:
+    cycles: dict[str, int | None]
+    host_first: dict[str, int]
+    active: dict[int, set[str]]
+    series: dict[str, dict[tuple[str, str], dict[int, int]]]
+    by_hour: dict[str, dict[tuple[str, int], dict[str, int]]]
+
+
+def _baseline_view(grids: dict[str, list[dict[str, Any]]]) -> _View:
+    volume = index_volume(grids.get("volume", []))
+    cycles = {host: cycle_seconds(series) for host, series in volume.items()}
+    host_first = {host: min(series) for host, series in volume.items() if series}
+    series: dict[str, dict[tuple[str, str], dict[int, int]]] = {}
+    by_hour: dict[str, dict[tuple[str, int], dict[str, int]]] = {}
+    for name, rows in grids.items():
+        kind, key = _split_grid(name)
+        grouped = index_entities(kind, rows, key)
+        series[name] = grouped
+        by_hour[name] = counts_by_hour(grouped)
+    return _View(cycles, host_first, active_hosts(volume), series, by_hour)
+
+
+def _grid_key(obs: Observation) -> str:
+    if obs.kind == "value":
+        return "value:" + obs.entity.split("=", 1)[0]
+    return obs.kind
+
+
+def _current(obs: Observation) -> float:
+    if obs.score is None:
+        raise ValueError("current score")
+    return obs.score
+
+
+def _seasonal_score(
+    obs: Observation, series: dict[int, int], measured: int | None, has_volume: bool
+) -> tuple[float | None, str | None]:
+    if not has_volume:
+        return None, "no_volume"
+    if measured is None:
+        return None, "no_cycle"
+    positive = sorted(hour for hour, count in series.items() if count > 0)
+    if obs.evidence["signal"] in {"novelty", "new_host"} or obs.hour == positive[0]:
+        return _current(obs), None
+    score = phase_burst(obs.entity, obs.hour, series, measured)
+    if score is None:
+        return None, "no_phase_history"
+    return score, None
+
+
+def _left_score(
+    obs: Observation, series: dict[int, int], view: _View
+) -> tuple[float | None, bool, str | None, int | None, str]:
+    if obs.host not in view.host_first:
+        return _current(obs), False, None, None, "no_volume"
+    measured = view.cycles.get(obs.host)
+    period = HOUR if measured is None else measured
+    source = "one_bucket" if measured is None else "cycle"
+    first = min(hour for hour, count in series.items() if count > 0)
+    censored = first < view.host_first[obs.host] + period
+    withheld = censored and obs.evidence["signal"] in {"novelty", "new_host"} and obs.hour == first
+    if withheld:
+        return None, True, "first-seen at retention start", period, source
+    return _current(obs), False, None, period, source
+
+
+def _with_baselines(obs: Observation, view: _View) -> Observation:
+    series = view.series[_grid_key(obs)][(obs.host, obs.entity)]
+    measured = view.cycles.get(obs.host)
+    seasonal, seasonal_fallback = _seasonal_score(
+        obs, series, measured, obs.host in view.host_first
+    )
+    counts = view.by_hour[_grid_key(obs)].get((obs.entity, obs.hour), {})
+    peer = peer_proportion(
+        int(obs.evidence["now"]), obs.host, counts, view.active.get(obs.hour, ())
+    )
+    left_score, censored, mark, left_period, left_source = _left_score(obs, series, view)
+    evidence = dict(obs.evidence)
+    evidence["scores"] = {
+        "current": _current(obs),
+        "seasonal": seasonal,
+        "peer": peer,
+        "left": left_score,
+    }
+    evidence["seasonal_period"] = measured
+    evidence["seasonal_fallback"] = seasonal_fallback
+    evidence["peer_fallback"] = None if peer is not None else "no_peers"
+    evidence["left_censored"] = censored
+    evidence["left_period"] = left_period
+    evidence["left_period_source"] = left_source
+    if mark:
+        evidence["mark"] = mark
+    return Observation(obs.kind, obs.host, obs.entity, obs.hour, obs.score, evidence)
+
+
+def _select(obs: Observation, baseline: str) -> Observation:
+    scores = obs.evidence["scores"]
+    if baseline == "left":
+        score = scores["left"]
+    elif baseline == "seasonal" and scores["seasonal"] is not None:
+        score = scores["seasonal"]
+    elif baseline == "peer" and scores["peer"] is not None:
+        score = scores["peer"]
+    else:
+        score = scores["current"]
+    if score == obs.score:
+        return obs
+    return Observation(obs.kind, obs.host, obs.entity, obs.hour, score, obs.evidence)
+
+
+def _check_baseline(baseline: str) -> None:
+    if baseline not in BASELINES:
+        raise ValueError(baseline)
+
+
+def _finish(
+    found: list[Observation],
+    grids: dict[str, list[dict[str, Any]]],
+    coverage: dict[str, dict[str, Any]],
+    stats: dict[str, dict[str, Any]],
+    baseline: str,
+) -> ObservationRun:
+    view = _baseline_view(grids)
+    chosen = [_select(_with_baselines(obs, view), baseline) for obs in found]
+    chosen.sort(key=_sort_key)
+    return ObservationRun(chosen, stats, coverage, grids, baseline)
+
+
+def observe(
+    search: Search, index: str, start: float, end: float, baseline: str = "current"
+) -> ObservationRun:
     """Exact entity-hour scores over full grids. A short or censored grid is incomplete."""
+    _check_baseline(baseline)
     stats: dict[str, dict[str, Any]] = {}
     coverage: dict[str, dict[str, Any]] = {}
-    found = _observe_structural(search, index, start, end, stats, coverage)
-    values, value_coverage = _observe_values(search, index, start, end, stats)
+    found, grids = _observe_structural(search, index, start, end, stats, coverage)
+    volume_slot = coverage.get("volume", {})
+    volume_rows = grids.get("volume") if volume_slot.get("complete") else None
+    values, value_grids, value_coverage = _observe_values(
+        search, index, start, end, stats, volume_rows
+    )
+    grids.update(value_grids)
     coverage["value"] = value_coverage
     found.extend(values)
-    found.sort(key=_sort_key)
-    return ObservationRun(found, stats, coverage)
+    return _finish(found, grids, coverage, stats, baseline)
+
+
+def rescore(
+    grids: dict[str, list[dict[str, Any]]],
+    coverage: dict[str, dict[str, Any]],
+    index: str,
+    baseline: str = "current",
+    request_kinds: dict[str, dict[str, Any]] | None = None,
+) -> ObservationRun:
+    """Score saved grids. The baseline flag selects which side-by-side number is primary."""
+    _check_baseline(baseline)
+    found = _score_present(grids, index)
+    return _finish(found, grids, coverage, request_kinds or {}, baseline)
+
+
+def _grid_rel(name: str) -> Path:
+    if name.startswith("value:"):
+        key = name.split(":", 1)[1]
+        if not key or "/" in key or key in {".", ".."}:
+            raise ValueError(name)
+        return Path("grids") / "value" / f"{key}.jsonl"
+    if "/" in name:
+        raise ValueError(name)
+    return Path("grids") / f"{name}.jsonl"
+
+
+def write_receipts(directory: Path, run: ObservationRun, progress: dict[str, Any]) -> None:
+    """Write observations, the raw grids, and coverage so a later run can rescore offline."""
+    directory.mkdir(parents=True, exist_ok=True)
+    lines = [json.dumps(obs.as_dict(), sort_keys=True) for obs in run.observations]
+    (directory / "observations.jsonl").write_text(("\n".join(lines) + "\n") if lines else "")
+    grid_paths: dict[str, str] = {}
+    for name, rows in sorted(run.grids.items()):
+        rel = _grid_rel(name)
+        path = directory / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in rows))
+        grid_paths[name] = rel.as_posix()
+    body = dict(progress)
+    body["baseline"] = run.baseline
+    body["coverage_complete"] = run.coverage_complete
+    body["coverage"] = run.coverage
+    body["request_kinds"] = run.request_kinds
+    body["observation_count"] = len(run.observations)
+    body["order"] = "(-score, kind, host, entity, signal, hour); missing scores sort last"
+    body["grids"] = grid_paths
+    (directory / "progress.json").write_text(json.dumps(body, indent=1, sort_keys=True) + "\n")
+
+
+def load_receipts(directory: Path) -> tuple[dict[str, list[dict[str, Any]]], dict[str, Any]]:
+    progress = json.loads((directory / "progress.json").read_text())
+    grids: dict[str, list[dict[str, Any]]] = {}
+    for name, rel in progress.get("grids", {}).items():
+        text = (directory / str(rel)).read_text().splitlines()
+        grids[str(name)] = [json.loads(line) for line in text if line]
+    return grids, progress
