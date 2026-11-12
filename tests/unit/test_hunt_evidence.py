@@ -422,3 +422,33 @@ def test_rarest_names_shapes_before_other_kinds_inside_the_candidate_budget():
     assert f"punct={_search_literal(f'p{CANDIDATE_OBSERVATIONS - 1}')}" in query
     assert "searchmatch" not in query
     assert f"| head {ROW_BUDGET}" in query
+
+
+def test_aliased_evidence_cell_reads_both_spellings_in_one_query():
+    aliases = ("NODE_core", "node-core")
+    observation = Observation(
+        "shape",
+        "NODE_core",
+        "abc",
+        HOUR,
+        4.0,
+        {
+            "signal": "burst",
+            "host_aliases": list(aliases),
+            "literal": literal_query("shape", INDEX, "NODE_core", "abc", host_aliases=aliases),
+        },
+    )
+    cell = evidence_cells([observation])[0]
+    rows = [
+        _event("abc", "first", HOUR + 1) | {"host": "NODE_core"},
+        _event("abc", "second", HOUR + 2) | {"host": "node-core"},
+    ]
+    executor = _Executor(rows)
+
+    result = read_cell(executor, INDEX, cell, HOUR, 2 * HOUR)
+
+    assert cell.host_aliases == aliases
+    assert len(executor.calls) == 1
+    assert '(host="NODE_core" OR host="node-core")' in executor.calls[0][0]
+    assert {item["line"] for item in result.evidence} == {"svc | first", "svc | second"}
+    assert all(item["query"] == observation.evidence["literal"] for item in result.evidence)

@@ -10,6 +10,7 @@ from typing import Any
 
 from .engine import HOUR, _search_literal
 from .executor import HuntBudgetExceededError, HuntExecutor
+from .identity import host_filter
 from .observations import Observation, literal_matches
 
 EVIDENCE_REQUESTS = 100  # effort budget: evidence reads issued through the shared executor
@@ -35,6 +36,7 @@ class EvidenceCell:
     budget_rank: int = 0
     risk: float = 0.0
     acc_rank: int = 0
+    host_aliases: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -62,12 +64,27 @@ def evidence_cells(observations: Iterable[Observation]) -> list[EvidenceCell]:
         grouped.setdefault((observation.host, observation.hour), []).append(observation)
     cells = []
     for rank, ((host, hour), rows) in enumerate(grouped.items(), 1):
+        aliases = sorted(
+            {
+                str(name)
+                for observation in rows
+                for name in observation.evidence.get("host_aliases", [])
+            }
+        )
         selected = [
             observation
             for observation in rows
             if observation.evidence.get("literal") and observation.kind != "volume"
         ]
-        cells.append(EvidenceCell(host, hour, rank, tuple(selected)))
+        cells.append(
+            EvidenceCell(
+                host,
+                hour,
+                rank,
+                tuple(selected),
+                host_aliases=tuple(aliases) if len(aliases) > 1 else (),
+            )
+        )
     return cells
 
 
@@ -95,6 +112,7 @@ def accumulated_host_hours(observations: Iterable[Observation]) -> list[Evidence
             cell.observations,
             risk=totals[(cell.host, cell.hour)],
             acc_rank=place[(cell.host, cell.hour)],
+            host_aliases=cell.host_aliases,
         )
         for cell in ranked
     ]
@@ -155,6 +173,7 @@ def _cell_query(
     observations: Sequence[Observation],
     *,
     breadth_first: bool,
+    host_aliases: Sequence[str] = (),
 ) -> str | None:
     """One read of the candidate observations, capped at the rows the judge can show."""
     searches: list[str] = []
@@ -169,7 +188,7 @@ def _cell_query(
     if not searches:
         return None
     return (
-        f"search index={_search_literal(index)} host={_search_literal(host)} "
+        f"search index={_search_literal(index)} {host_filter(host, host_aliases, _search_literal)} "
         f"({' OR '.join(searches)}) "
         f"| eval _hunt_observation=case({', '.join(cases)}) "
         f"| where isnotnull(_hunt_observation) "
@@ -419,7 +438,13 @@ def read_cell(
         return _empty_read(cell, "outside_window", False, 0.0, plan.selection)
     if not plan.named:
         return _empty_read(cell, "no_narrowing_observations", False, 0.0, plan.selection)
-    query = _cell_query(index, cell.host, plan.named, breadth_first=plan.breadth)
+    query = _cell_query(
+        index,
+        cell.host,
+        plan.named,
+        breadth_first=plan.breadth,
+        host_aliases=cell.host_aliases,
+    )
     if query is None:
         return _empty_read(cell, "no_narrowing_observations", False, 0.0, plan.selection)
     try:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -34,6 +34,13 @@ from portal.modules.security.core.hunt.executor import (
     HuntExecutor,
     executor_for,
     per_sample_cap,
+)
+from portal.modules.security.core.hunt.identity import (
+    HostAliases,
+    build_host_aliases,
+    fold_host_rows,
+    host_filter,
+    identity_only,
 )
 from portal.modules.security.core.hunt.jobs import BudgetedSearch
 from portal.modules.security.core.hunt.ranking import where_literal
@@ -77,6 +84,8 @@ class ObservationRun:
     coverage: dict[str, dict[str, Any]] = field(default_factory=dict)
     grids: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     baseline: str = "current"
+    host_name_count: int = 0
+    host_machine_count: int = 0
 
     @property
     def coverage_complete(self) -> bool:
@@ -96,30 +105,37 @@ def learned_pairs(raw: str) -> dict[str, str]:
     return found
 
 
-def literal_query(kind: str, index: str, host: str, entity: str) -> str:
+def literal_query(
+    kind: str,
+    index: str,
+    host: str,
+    entity: str,
+    *,
+    host_aliases: Sequence[str] | None = None,
+) -> str:
     """Put a learned value back as a where-literal, never as a search wildcard."""
     index_lit = _search_literal(index)
-    host_lit = _search_literal(host)
+    host_lit = host_filter(host, host_aliases, _search_literal)
     if kind == "volume":
-        return f"search index={index_lit} host={host_lit}"
+        return f"search index={index_lit} {host_lit}"
     if kind == "source":
         source, sourcetype = entity.split("\t", 1)
         return (
-            f"search index={index_lit} host={host_lit} "
+            f"search index={index_lit} {host_lit} "
             f"| where source={where_literal(source)} "
             f"| where sourcetype={where_literal(sourcetype)}"
         )
     if kind == "shape":
-        return f"search index={index_lit} host={host_lit} | where punct={where_literal(entity)}"
+        return f"search index={index_lit} {host_lit} | where punct={where_literal(entity)}"
     if kind == "stream":
         sourcetype, punct = entity.split("\t", 1)
         return (
-            f"search index={index_lit} host={host_lit} "
+            f"search index={index_lit} {host_lit} "
             f"| where sourcetype={where_literal(sourcetype)} "
             f"| where punct={where_literal(punct)}"
         )
     # A learned value is one indexed term; a field comparison is not what the grid counted.
-    return f"search index={index_lit} host={host_lit} TERM({_search_literal(entity)})"
+    return f"search index={index_lit} {host_lit} TERM({_search_literal(entity)})"
 
 
 def _unescape(inner: str) -> str:
@@ -134,15 +150,13 @@ def _term_matches(raw: str, term: str) -> bool:
 
 def literal_matches(event: Mapping[str, Any], query: str) -> bool:
     """Exact field or indexed-term match for a literal_query; a `*` matches only a star."""
+    hosts = [_unescape(match.group(1)) for match in _HOST_CONSTRAINT.finditer(query)]
     constraints: list[tuple[str, str]] = []
-    host = _HOST_CONSTRAINT.search(query)
-    if host:
-        constraints.append(("host", _unescape(host.group(1))))
     constraints.extend(
         (match.group(1), _unescape(match.group(2))) for match in _WHERE_CONSTRAINT.finditer(query)
     )
     terms = [_unescape(match.group(1)) for match in _TERM_CONSTRAINT.finditer(query)]
-    if not constraints and not terms:
+    if not hosts and not constraints and not terms:
         return False
     fields: dict[str, str] = {
         "host": str(event.get("host", "")),
@@ -152,8 +166,10 @@ def literal_matches(event: Mapping[str, Any], query: str) -> bool:
     }
     fields.update(learned_pairs(str(event.get("_raw", ""))))
     raw = str(event.get("_raw", ""))
-    return all(fields.get(name) == value for name, value in constraints) and all(
-        _term_matches(raw, term) for term in terms
+    return (
+        (not hosts or fields["host"] in hosts)
+        and all(fields.get(name) == value for name, value in constraints)
+        and all(_term_matches(raw, term) for term in terms)
     )
 
 
@@ -662,18 +678,22 @@ def _observe_one(
     start: float,
     end: float,
     coverage: dict[str, dict[str, Any]],
-) -> tuple[list[Observation], list[dict[str, Any]] | None]:
+    host_aliases: HostAliases | None = None,
+) -> tuple[list[Observation], list[dict[str, Any]] | None, HostAliases | None]:
     rows, reason = _load_grid(executor, index, by, start, end, kind)
     if reason:
         coverage[kind] = _coverage(reason)
-        return [], None
+        return [], None, host_aliases
     try:
-        scored, score_reason = _score_loaded(kind, rows, index)
+        if kind == "volume":
+            host_aliases = build_host_aliases(rows)
+        scoring_rows = fold_host_rows(rows, host_aliases) if host_aliases is not None else rows
+        scored, score_reason = _score_loaded(kind, scoring_rows, index)
     except (KeyError, TypeError, ValueError):
         coverage[kind] = _coverage("censored")
-        return [], rows
+        return [], rows, host_aliases
     coverage[kind] = _coverage(score_reason)
-    return (scored, rows) if score_reason is None else ([], rows)
+    return (scored, rows, host_aliases) if score_reason is None else ([], rows, host_aliases)
 
 
 _STRUCTURAL = (
@@ -690,15 +710,18 @@ def _observe_structural(
     start: float,
     end: float,
     coverage: dict[str, dict[str, Any]],
-) -> tuple[list[Observation], dict[str, list[dict[str, Any]]]]:
+) -> tuple[list[Observation], dict[str, list[dict[str, Any]]], HostAliases | None]:
     found: list[Observation] = []
     grids: dict[str, list[dict[str, Any]]] = {}
+    host_aliases: HostAliases | None = None
     for kind, by in _STRUCTURAL:
-        scored, rows = _observe_one(executor, index, kind, by, start, end, coverage)
+        scored, rows, host_aliases = _observe_one(
+            executor, index, kind, by, start, end, coverage, host_aliases
+        )
         found.extend(scored)
         if rows is not None:
             grids[kind] = rows
-    return found, grids
+    return found, grids, host_aliases
 
 
 def _unique(reasons: list[str]) -> list[str]:
@@ -746,6 +769,7 @@ def _query_keys(
     start: float,
     end: float,
     reasons: list[str],
+    host_aliases: HostAliases | None,
 ) -> tuple[list[Observation], dict[str, list[dict[str, Any]]]]:
     found: list[Observation] = []
     grids: dict[str, list[dict[str, Any]]] = {}
@@ -759,7 +783,8 @@ def _query_keys(
             continue
         grids[f"value:{key}"] = rows
         try:
-            scored, score_reason = _from_values(key, rows, index)
+            scoring_rows = fold_host_rows(rows, host_aliases) if host_aliases is not None else rows
+            scored, score_reason = _from_values(key, scoring_rows, index)
         except (KeyError, TypeError, ValueError):
             reasons.append("censored")
             continue
@@ -787,6 +812,7 @@ def _observe_values(
     start: float,
     end: float,
     volume_rows: list[dict[str, Any]] | None,
+    host_aliases: HostAliases | None,
 ) -> tuple[list[Observation], dict[str, list[dict[str, Any]]], dict[str, Any]]:
     if volume_rows is None:
         return [], {}, _value_coverage(["volume_incomplete"], [], [])
@@ -796,7 +822,7 @@ def _observe_values(
     skipped = [key for key, _count in ranked[KEY_BUDGET:]]
     if skipped:
         reasons.append("key_budget")
-    found, grids = _query_keys(executor, index, queried, start, end, reasons)
+    found, grids = _query_keys(executor, index, queried, start, end, reasons, host_aliases)
     return found, grids, _value_coverage(reasons, skipped, slices)
 
 
@@ -962,17 +988,66 @@ def _check_baseline(baseline: str) -> None:
         raise ValueError(baseline)
 
 
+def _host_aliases_for_grids(grids: Mapping[str, list[dict[str, Any]]]) -> HostAliases:
+    volume = grids.get("volume")
+    if volume:
+        return build_host_aliases(volume)
+    names = {str(row["host"]) for rows in grids.values() for row in rows}
+    return identity_only(names)
+
+
+def _with_host_aliases(
+    observations: Iterable[Observation], index: str, aliases: HostAliases
+) -> list[Observation]:
+    found: list[Observation] = []
+    for observation in observations:
+        host = aliases.display(observation.host)
+        spellings = aliases.spellings(host)
+        evidence = dict(observation.evidence)
+        evidence["literal"] = literal_query(
+            observation.kind, index, host, observation.entity, host_aliases=spellings
+        )
+        if len(spellings) > 1:
+            evidence["host_aliases"] = list(spellings)
+        else:
+            evidence.pop("host_aliases", None)
+        found.append(
+            Observation(
+                observation.kind,
+                host,
+                observation.entity,
+                observation.hour,
+                observation.score,
+                evidence,
+            )
+        )
+    return found
+
+
 def _finish(
     found: list[Observation],
     grids: dict[str, list[dict[str, Any]]],
     coverage: dict[str, dict[str, Any]],
     stats: dict[str, dict[str, Any]],
     baseline: str,
+    index: str,
+    aliases: HostAliases | None = None,
 ) -> ObservationRun:
-    view = _baseline_view(grids)
-    chosen = [_select(_with_baselines(obs, view), baseline) for obs in found]
+    aliases = aliases or _host_aliases_for_grids(grids)
+    folded_grids = {name: fold_host_rows(rows, aliases) for name, rows in grids.items()}
+    view = _baseline_view(folded_grids)
+    aliased = _with_host_aliases(found, index, aliases)
+    chosen = [_select(_with_baselines(obs, view), baseline) for obs in aliased]
     chosen.sort(key=_sort_key)
-    return ObservationRun(chosen, stats, coverage, grids, baseline)
+    return ObservationRun(
+        chosen,
+        stats,
+        coverage,
+        grids,
+        baseline,
+        aliases.name_count,
+        aliases.machine_count,
+    )
 
 
 def observe(
@@ -983,14 +1058,16 @@ def observe(
     executor = executor_for(search)
     before = executor.stats()
     coverage: dict[str, dict[str, Any]] = {}
-    found, grids = _observe_structural(executor, index, start, end, coverage)
+    found, grids, aliases = _observe_structural(executor, index, start, end, coverage)
     volume_slot = coverage.get("volume", {})
     volume_rows = grids.get("volume") if volume_slot.get("complete") else None
-    values, value_grids, value_coverage = _observe_values(executor, index, start, end, volume_rows)
+    values, value_grids, value_coverage = _observe_values(
+        executor, index, start, end, volume_rows, aliases
+    )
     grids.update(value_grids)
     coverage["value"] = value_coverage
     found.extend(values)
-    return _finish(found, grids, coverage, executor.delta(before), baseline)
+    return _finish(found, grids, coverage, executor.delta(before), baseline, index, aliases)
 
 
 def rescore(
@@ -1002,8 +1079,10 @@ def rescore(
 ) -> ObservationRun:
     """Score saved grids. The baseline flag selects which side-by-side number is primary."""
     _check_baseline(baseline)
-    found = _score_present(grids, index)
-    return _finish(found, grids, coverage, request_kinds or {}, baseline)
+    aliases = _host_aliases_for_grids(grids)
+    folded_grids = {name: fold_host_rows(rows, aliases) for name, rows in grids.items()}
+    found = _score_present(folded_grids, index)
+    return _finish(found, grids, coverage, request_kinds or {}, baseline, index, aliases)
 
 
 def _observation_from_dict(row: Mapping[str, Any]) -> Observation:
@@ -1033,7 +1112,21 @@ def reorder(
     _check_baseline(baseline)
     chosen = [_select(obs, baseline) for obs in observations]
     chosen.sort(key=_sort_key)
-    return ObservationRun(chosen, dict(request_kinds or {}), dict(coverage or {}), {}, baseline)
+    names = {
+        str(name)
+        for observation in chosen
+        for name in observation.evidence.get("host_aliases", [observation.host])
+    }
+    aliases = identity_only(names)
+    return ObservationRun(
+        chosen,
+        dict(request_kinds or {}),
+        dict(coverage or {}),
+        {},
+        baseline,
+        aliases.name_count,
+        aliases.machine_count,
+    )
 
 
 def _grid_rel(name: str) -> Path:
@@ -1065,6 +1158,8 @@ def write_receipts(directory: Path, run: ObservationRun, progress: dict[str, Any
     body["coverage"] = run.coverage
     body["request_kinds"] = run.request_kinds
     body["observation_count"] = len(run.observations)
+    body["host_name_count"] = run.host_name_count
+    body["host_machine_count"] = run.host_machine_count
     body["order"] = "(-score, kind, host, entity, signal, hour); missing scores sort last"
     body["grids"] = grid_paths
     (directory / "progress.json").write_text(json.dumps(body, indent=1, sort_keys=True) + "\n")
