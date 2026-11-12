@@ -1,4 +1,4 @@
-"""python -m portal.modules.security.core.hunt.notables — cards, behaviours and notables."""
+"""python -m portal.modules.security.core.hunt.notables — cards, behaviours, notables, judge."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ from .run import (
     behaviours_stage,
     cards_stage,
     default_search,
+    judge_stage,
     notables_stage,
 )
 
@@ -57,6 +58,16 @@ def _print_behaviours(behaviours: list[Behaviour], receipt: dict[str, Any]) -> N
         f"behaviours: events_read={receipt['events_read']} "
         f"existed={receipt['behaviours_existed']} kept={receipt['behaviours_kept']} "
         f"wall={receipt['seconds']}s peak={receipt['peak_memory_mb']}MB -> {receipt['store']}"
+    )
+
+
+def _print_judge(receipt: dict[str, Any]) -> None:
+    print(
+        f"judge: notables={receipt['notables']} judged={receipt['judged']} "
+        f"unjudged={receipt['unjudged']} reasons={receipt['unjudged_reasons']} "
+        f"requests={receipt['requests']} cached={receipt['cached']} "
+        f"model_seconds={receipt['model_seconds']} wall={receipt['seconds']}s "
+        f"served={receipt['served_models']} -> {receipt['file']}"
     )
 
 
@@ -130,6 +141,13 @@ def main(argv: list[str] | None = None) -> int:
             enabled=enabled,
         )
         _print_notables(receipt)
+    if "judge" in stages:
+        if target is None:
+            print(model_requirement(), file=sys.stderr)
+            return 2
+        client, model = target
+        _judged, receipt = judge_stage(out=out, client=client, model=model)
+        _print_judge(receipt)
     return 0
 
 

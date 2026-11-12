@@ -119,14 +119,16 @@ def judge_cell(
     client: JudgeClient,
     *,
     model: str,
-    evidence: Sequence[Mapping[str, Any]],
+    evidence: Sequence[Mapping[str, Any]] = (),
+    prompt: str | None = None,
 ) -> JudgeResult:
     """Judge one cell; missing probabilities or transport failures remain unjudged."""
     began = time.monotonic()
+    content = prompt if prompt is not None else build_prompt(evidence)
     try:
         response = client.complete(
             model=model,
-            messages=[{"role": "user", "content": build_prompt(evidence)}],
+            messages=[{"role": "user", "content": content}],
             temperature=0,
             seed=JUDGE_SEED,
             max_tokens=1,

@@ -1,4 +1,4 @@
-"""Stage orchestration: cards, behaviours and notables, with one receipt per stage."""
+"""Stage orchestration: cards, behaviours, notables and the judge, one receipt per stage."""
 
 from __future__ import annotations
 
@@ -20,11 +20,12 @@ from .behaviours import (
 )
 from .cards import CardCache, SourceCard, build_card
 from .generators import generate
+from .judge_notables import judge_all
 from .parse import FieldStat
 from .receipt import peak_memory_mb, progress_update, read_json, utc_now, write_json
 from .sample import SourceFacts, index_facts, read_windows, sample_windows
 
-STAGES = ("cards", "behaviours", "notables")
+STAGES = ("cards", "behaviours", "notables", "judge")
 GENERATORS = ("alerts", "peer_rare", "deviation")
 SOURCES_FILE = "sources.json"
 PROGRESS_FILE = "progress.json"
@@ -237,3 +238,19 @@ def read_notables(path: Path) -> list[dict[str, Any]]:
             if isinstance(stored, dict):
                 rows.append(stored)
     return rows
+
+
+def judge_stage(
+    *, out: Path, client: JudgeClient, model: str
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Judge every distinct notable once through the Pipeline and write p_yes back."""
+    path = out / NOTABLES_FILE
+    rows = read_notables(path)
+    judged, receipt = judge_all(
+        rows, client=client, model=model, cache_path=out / "cache" / "judge.json"
+    )
+    path.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in judged))
+    receipt["file"] = str(path)
+    receipt["peak_memory_mb"] = peak_memory_mb()
+    progress_update(out, "judge", receipt)
+    return judged, receipt
