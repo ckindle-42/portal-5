@@ -124,11 +124,11 @@ def judge_cell(
 ) -> JudgeResult:
     """Judge one cell; missing probabilities or transport failures remain unjudged."""
     began = time.monotonic()
-    content = prompt if prompt is not None else build_prompt(evidence)
+    prompt_text = prompt if prompt is not None else build_prompt(evidence)
     try:
         response = client.complete(
             model=model,
-            messages=[{"role": "user", "content": content}],
+            messages=[{"role": "user", "content": prompt_text}],
             temperature=0,
             seed=JUDGE_SEED,
             max_tokens=1,

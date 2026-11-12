@@ -63,7 +63,6 @@ def notable_prompt(notable: Mapping[str, Any]) -> str:
         for part in (
             str(notable.get("what") or "")[:JUDGE_STATEMENT_CHARS],
             f"entities: {entities}" if entities else "",
-            f"source: {notable.get('source_id')}",
             f"generator: {notable.get('generator')} / {notable.get('basis')}",
             f"why raised: {notable.get('why')}",
             "examples:",

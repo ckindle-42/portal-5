@@ -132,6 +132,10 @@ def main(argv: list[str] | None = None) -> int:
         _print_behaviours(behaviours, receipt)
     if "notables" in stages:
         enabled = [name.strip() for name in args.generators.split(",") if name.strip()]
+        unknown = sorted(set(enabled) - set(GENERATORS))
+        if unknown:
+            print(f"unknown generators: {', '.join(unknown)}", file=sys.stderr)
+            return 2
         _rows, receipt = notables_stage(
             index=args.index,
             out=out,

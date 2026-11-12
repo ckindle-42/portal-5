@@ -14,7 +14,7 @@ from ..executor import HuntExecutor
 from .behaviours import Behaviour
 from .cards import SourceCard
 from .parse import parse_row
-from .sample import SourceFacts, read_windows, route_filter, window_bounds
+from .sample import BEHAVIOUR_SOURCES, SourceFacts, read_windows, route_filter, window_bounds
 
 NOTABLE_BUDGET = 300  # effort budget: notables kept per generator
 ALERT_WINDOWS = 8  # effort budget: time slices read per alert stream
@@ -125,7 +125,7 @@ def _term(value: str) -> str:
 
 
 def _alert_query(facts: SourceFacts, action: str, entity: str) -> str:
-    route, _ = route_filter(facts)
+    route, _ = route_filter(facts, BEHAVIOUR_SOURCES)
     terms = " ".join(_term(value) for value in (action, entity) if value)
     tail = f" {terms}" if terms else ""
     return f"search index={_quote(facts.index)} {route}{tail} | head 5"
@@ -147,7 +147,12 @@ def _alert_rows(
         started = time.monotonic()
         windows = window_bounds(facts.first, facts.last, ALERT_WINDOWS)
         read = read_windows(
-            executor, facts, windows, per_window=ALERT_EVENTS_PER_WINDOW, kind="alert_events"
+            executor,
+            facts,
+            windows,
+            per_window=ALERT_EVENTS_PER_WINDOW,
+            kind="alert_events",
+            max_sources=BEHAVIOUR_SOURCES,
         )
         missing = 0
         for row in read.rows:
@@ -270,7 +275,16 @@ def peer_rare(
         actor_share = behaviour.actors / actors_possible if actors_possible else 1.0
         measure = round(host_share * actor_share, 10)
         ranked.append((measure, -behaviour.events, behaviour.source_id, behaviour))
-    ranked.sort(key=lambda item: (item[0], item[1], item[2], item[3].actor, item[3].action))
+    ranked.sort(
+        key=lambda item: (
+            item[0],
+            item[1],
+            item[2],
+            item[3].actor,
+            item[3].action,
+            item[3].object,
+        )
+    )
     notables: list[Notable] = []
     for measure, _events, source_id, behaviour in ranked[:NOTABLE_BUDGET]:
         stats = source_stats.get(source_id, {})
@@ -386,6 +400,7 @@ def _source_deviations(
         firsts.append((series[0][0] - index_start, name, series[0][0]))
     bursts.sort(key=lambda item: (-item[0], item[1]))
     firsts.sort(key=lambda item: (-item[0], item[1]))
+    series_query = f"| tstats count where index={_quote(index)} by sourcetype _time span=1h"
     burst_notables = [
         _make(
             generator="deviation",
@@ -402,7 +417,7 @@ def _source_deviations(
             evidence=(
                 {
                     "line": f"sourcetype={name} hour={hour:.0f} count={count} z={value}",
-                    "query": "",
+                    "query": series_query,
                     "earliest": hour,
                     "latest": hour + 3600.0,
                 },
@@ -426,7 +441,7 @@ def _source_deviations(
             evidence=(
                 {
                     "line": f"sourcetype={name} first_hour={hour:.0f}",
-                    "query": "",
+                    "query": series_query,
                     "earliest": hour,
                     "latest": hour + 3600.0,
                 },
@@ -525,8 +540,13 @@ def generate(
         started = time.monotonic()
         rows, series_receipt = hourly_series(executor, index, start, end)
         grouped = _series_by_source(rows)
-        bursts, firsts, detail = _source_deviations(grouped, index, start)
-        behaviour_firsts, behaviour_detail = _behaviour_deviations(behaviours, start)
+        origin = (
+            start
+            if start > 0
+            else min((series[0][0] for series in grouped.values() if series), default=start)
+        )
+        bursts, firsts, detail = _source_deviations(grouped, index, origin)
+        behaviour_firsts, behaviour_detail = _behaviour_deviations(behaviours, origin)
         found = _interleave([bursts, firsts, behaviour_firsts], NOTABLE_BUDGET)
         notables.extend(found)
         receipt["deviation"] = {

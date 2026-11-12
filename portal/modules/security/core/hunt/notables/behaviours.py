@@ -13,7 +13,7 @@ import duckdb
 from ..executor import HuntExecutor
 from .cards import SourceCard
 from .parse import parse_row
-from .sample import SourceFacts, read_windows, route_filter, window_bounds
+from .sample import BEHAVIOUR_SOURCES, SourceFacts, read_windows, route_filter, window_bounds
 
 BEHAVIOUR_WINDOWS = 12  # effort budget: time slices read per activity source
 BEHAVIOUR_EVENTS_PER_WINDOW = 2500  # effort budget: events read from one slice
@@ -119,7 +119,7 @@ def reproduction_query(
     card: SourceCard, facts: SourceFacts, components: Sequence[tuple[str, str, str]]
 ) -> str:
     """A literal query and time bounds that find the behaviour's example event again."""
-    route, _ = route_filter(facts)
+    route, _ = route_filter(facts, BEHAVIOUR_SOURCES)
     terms = [
         f"TERM({_quote(value)})"
         for _field, value, mode in components
@@ -277,7 +277,12 @@ def collect_behaviours(
             started = time.monotonic()
             windows = window_bounds(facts.first, facts.last, BEHAVIOUR_WINDOWS)
             read = read_windows(
-                executor, facts, windows, per_window=per_window, kind="behavior_events"
+                executor,
+                facts,
+                windows,
+                per_window=per_window,
+                kind="behavior_events",
+                max_sources=BEHAVIOUR_SOURCES,
             )
             events = _extract(card, read.rows, windows)
             rows = keyed_rows(card, facts, events)
@@ -292,6 +297,8 @@ def collect_behaviours(
                     "events_read": len(read.rows),
                     "events_parsed": len(events),
                     "windows": read.windows,
+                    "per_window": per_window,
+                    "selection": "newest events of each equal time slice",
                     "route": read.route,
                     "share_of_source": round(len(read.rows) / facts.events, 6)
                     if facts.events

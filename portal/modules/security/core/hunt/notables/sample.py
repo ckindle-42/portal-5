@@ -13,9 +13,10 @@ from ..executor import HuntBudgetExceededError, HuntExecutor
 
 SAMPLE_WINDOWS = 3  # effort budget: raw reads spread across each source's own time range
 SAMPLE_LINES = 40  # effort budget: events read per window for a source card
-SAMPLE_SOURCES = 2  # effort budget: indexed sources sampled for one sourcetype
+SAMPLE_SOURCES = 2  # effort budget: indexed sources sampled for one source card
+BEHAVIOUR_SOURCES = 8  # effort budget: indexed sources one behaviour read covers
 MAX_HOST_NAMES = 24  # effort budget: host names listed on one source's facts
-METADATA_ROWS = 5000  # effort budget: sourcetype/source/host aggregate rows read
+METADATA_ROWS = 50_000  # effort budget: sourcetype/source/host aggregate rows read
 READ_CONCURRENCY = 6  # effort budget: concurrent reads inside the shared executor
 EMPTY_SAMPLE_WINDOWS = (
     48  # effort budget: fixed windows per source when its own time range is unknown
@@ -45,10 +46,6 @@ class RowSet:
     windows: int = 0
     route: str = ""
     notes: list[str] = field(default_factory=list)
-
-    @property
-    def covered_seconds(self) -> float:
-        return float(self.windows)
 
     def as_dict(self) -> dict[str, Any]:
         return {"rows": len(self.rows), "windows": self.windows, "route": self.route}
@@ -166,11 +163,11 @@ def index_facts(
     return facts, notes
 
 
-def route_filter(facts: SourceFacts) -> tuple[str, str]:
+def route_filter(facts: SourceFacts, max_sources: int = SAMPLE_SOURCES) -> tuple[str, str]:
     """Filter that selects this source's events: indexed sources where known, else the name."""
-    selected = facts.sources[:SAMPLE_SOURCES]
+    selected = facts.sources[:max_sources]
     if selected:
-        predicates = " ".join(f"source={_quoted(name)}" for name in selected)
+        predicates = " OR ".join(f"source={_quoted(name)}" for name in selected)
         return f"({predicates})", "source"
     return f"sourcetype={_quoted(facts.sourcetype)}", "sourcetype"
 
@@ -182,9 +179,14 @@ def read_windows(
     *,
     per_window: int,
     kind: str,
+    max_sources: int = SAMPLE_SOURCES,
 ) -> RowSet:
-    """Read at most `per_window` events from each window, concurrently, in a stable order."""
-    route, route_name = route_filter(facts)
+    """Read the newest `per_window` events of each equal time slice, concurrently.
+
+    The slice is the declared, deterministic sample: the source's own range cut into
+    equal windows, newest events first inside each. Nothing is extrapolated beyond it.
+    """
+    route, route_name = route_filter(facts, max_sources)
     query = f"search index={_quoted(facts.index)} {route} | head {per_window}"
     readable = [bounds for bounds in windows if bounds[1] > bounds[0]]
     found = RowSet(windows=len(readable), route=route_name)

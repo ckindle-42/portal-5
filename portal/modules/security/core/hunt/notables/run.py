@@ -23,12 +23,11 @@ from .generators import generate
 from .judge_notables import judge_all
 from .parse import FieldStat
 from .receipt import peak_memory_mb, progress_update, read_json, utc_now, write_json
-from .sample import SourceFacts, index_facts, read_windows, sample_windows
+from .sample import SAMPLE_LINES, SourceFacts, index_facts, read_windows, sample_windows
 
 STAGES = ("cards", "behaviours", "notables", "judge")
 GENERATORS = ("alerts", "peer_rare", "deviation")
 SOURCES_FILE = "sources.json"
-PROGRESS_FILE = "progress.json"
 STORE_FILE = "behaviours.duckdb"
 NOTABLES_FILE = "notables.jsonl"
 
@@ -73,33 +72,41 @@ def _fact_dict(card: SourceCard) -> SourceFacts:
     )
 
 
+def _field_from(item: Mapping[str, Any], lines: int) -> FieldStat:
+    return FieldStat(
+        str(item.get("name") or ""),
+        int(item.get("present") or 0),
+        int(item.get("distinct") or 0),
+        tuple(str(value) for value in item.get("examples") or ()),
+        lines,
+    )
+
+
+def _roles_from(raw: Mapping[str, Any]) -> dict[str, tuple[str, ...]]:
+    found = raw.get("roles")
+    if not isinstance(found, Mapping):
+        return {}
+    return {str(role): tuple(str(name) for name in names or ()) for role, names in found.items()}
+
+
 def card_from_dict(raw: Mapping[str, Any]) -> SourceCard:
     sample = raw.get("sample") or {}
     lines = int(sample.get("lines") or 0)
-    fields = tuple(
-        FieldStat(
-            str(item.get("name") or ""),
-            int(item.get("present") or 0),
-            int(item.get("distinct") or 0),
-            tuple(str(value) for value in item.get("examples") or ()),
-            lines,
-        )
-        for item in raw.get("fields") or ()
-    )
-    roles = {
-        str(role): tuple(str(name) for name in names)
-        for role, names in (raw.get("roles") or {}).items()
-    }
+    reason = raw.get("reason")
     return SourceCard(
         index=str(raw.get("index") or ""),
         sourcetype=str(raw.get("sourcetype") or ""),
         kind=str(raw.get("kind") or "other"),
-        roles=roles,
+        roles=_roles_from(raw),
         understood=bool(raw.get("understood")),
-        reason=str(raw["reason"]) if raw.get("reason") else None,
+        reason=str(reason) if reason else None,
         fmt=str(raw.get("structure") or "text"),
         coverage=float(raw.get("parse_coverage") or 0.0),
-        fields=fields,
+        fields=tuple(
+            _field_from(item, lines)
+            for item in raw.get("fields") or ()
+            if isinstance(item, Mapping)
+        ),
         sample=sample,
         facts=dict(raw.get("facts") or {}),
         model=dict(raw.get("model") or {}),
@@ -142,7 +149,7 @@ def cards_stage(
     for item in facts:
         started = time.monotonic()
         read = read_windows(
-            executor, item, sample_windows(item), per_window=40, kind="source_sample"
+            executor, item, sample_windows(item), per_window=SAMPLE_LINES, kind="source_sample"
         )
         card = build_card(
             item, read.rows, windows=read.windows, client=client, model=model, cache=cache

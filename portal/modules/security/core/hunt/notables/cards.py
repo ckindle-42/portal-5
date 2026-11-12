@@ -336,6 +336,54 @@ def _facts(facts: SourceFacts) -> dict[str, Any]:
     }
 
 
+class _Inputs:
+    """What the sample says before any model call: the prompt and the evidence behind it."""
+
+    def __init__(self, rows: Sequence[Mapping[str, Any]], windows: int, model: str) -> None:
+        self.parsed = parse_events([str(row.get("_raw") or "") for row in rows])
+        self.stats = field_stats(self.parsed)
+        self.fmt, hits = _structure(self.parsed)
+        self.coverage = hits / len(self.parsed) if self.parsed else 0.0
+        self.hits = hits
+        self.sample = _sample_facts(rows, self.parsed)
+        self.sample["windows"] = windows
+        self.prompt = build_prompt(self.stats, len(self.parsed))
+        self.cache_key = hashlib.sha256(f"{model}\n{self.prompt}".encode()).hexdigest()
+
+
+def _answer(
+    given: _Inputs, client: JudgeClient, model: str, cache: CardCache
+) -> tuple[ModelAnswer, int, bool]:
+    """The cached answer for this exact prompt, or one request whose answer is then cached."""
+    cached = cache.get(given.cache_key)
+    if cached is not None:
+        return cached, 0, True
+    answer = ask_model(client, model, given.prompt)
+    if answer.error is None:
+        cache.put(given.cache_key, answer)
+    return answer, 1, False
+
+
+def _model_facts(
+    answer: ModelAnswer,
+    *,
+    requests: int,
+    cached: bool,
+    error: str | None,
+    prompt: str,
+) -> dict[str, Any]:
+    return {
+        "requests": requests,
+        "seconds": answer.seconds,
+        "served_model": answer.served_model,
+        "prompt_tokens": answer.prompt_tokens,
+        "cached": cached,
+        "error": error,
+        "prompt_chars": len(prompt),
+        "prompt": prompt,
+    }
+
+
 def build_card(
     facts: SourceFacts,
     rows: Sequence[Mapping[str, Any]],
@@ -346,77 +394,38 @@ def build_card(
     cache: CardCache,
 ) -> SourceCard:
     """One card per source: parse the sample, ask once, validate, and keep the evidence."""
-    parsed = parse_events([str(row.get("_raw") or "") for row in rows])
-    stats = field_stats(parsed)
-    fmt, hits = _structure(parsed)
-    coverage = hits / len(parsed) if parsed else 0.0
-    sample = _sample_facts(rows, parsed)
-    sample["windows"] = windows
-    prompt = build_prompt(stats, len(parsed))
-    cache_key = hashlib.sha256(f"{model}\n{prompt}".encode()).hexdigest()
-    if not parsed:
+    given = _Inputs(rows, windows, model)
+    if not given.parsed or not given.hits:
+        reason = "no_sample" if not given.parsed else "unparsed_sample"
         return _failure(
             facts,
-            reason="no_sample",
+            reason=reason,
             fmt="text",
             coverage=0.0,
-            stats=stats,
-            sample=sample,
+            stats=given.stats,
+            sample=given.sample,
             model={"requests": 0, "cached": False},
-            cache_key=cache_key,
+            cache_key=given.cache_key,
         )
-    if not hits:
+    answer, requests, was_cached = _answer(given, client, model, cache)
+    applied = apply_answer(answer.text, [stat.name for stat in given.stats])
+    model_facts = _model_facts(
+        answer,
+        requests=requests,
+        cached=was_cached,
+        error=answer.error or applied.error,
+        prompt=given.prompt,
+    )
+    if answer.error is not None or applied.error is not None:
         return _failure(
             facts,
-            reason="unparsed_sample",
-            fmt="text",
-            coverage=0.0,
-            stats=stats,
-            sample=sample,
-            model={"requests": 0, "cached": False},
-            cache_key=cache_key,
-        )
-    cached = cache.get(cache_key)
-    if cached is not None:
-        answer = cached
-        requests = 0
-    else:
-        answer = ask_model(client, model, prompt)
-        if answer.error is None:
-            cache.put(cache_key, answer)
-        requests = 1
-    applied = apply_answer(answer.text, [stat.name for stat in stats])
-    model_facts = {
-        "requests": requests,
-        "seconds": answer.seconds,
-        "served_model": answer.served_model,
-        "prompt_tokens": answer.prompt_tokens,
-        "cached": cached is not None,
-        "error": answer.error or applied.error,
-        "prompt_chars": len(prompt),
-        "prompt": prompt,
-    }
-    if answer.error is not None:
-        return _failure(
-            facts,
-            reason=f"model_{answer.error}",
-            fmt=fmt,
-            coverage=coverage,
-            stats=stats,
-            sample=sample,
+            reason=f"model_{answer.error}" if answer.error else str(applied.error),
+            fmt=given.fmt,
+            coverage=given.coverage,
+            stats=given.stats,
+            sample=given.sample,
             model=model_facts,
-            cache_key=cache_key,
-        )
-    if applied.error is not None:
-        return _failure(
-            facts,
-            reason=applied.error,
-            fmt=fmt,
-            coverage=coverage,
-            stats=stats,
-            sample=sample,
-            model=model_facts,
-            cache_key=cache_key,
+            cache_key=given.cache_key,
         )
     return SourceCard(
         index=facts.index,
@@ -425,14 +434,14 @@ def build_card(
         roles=applied.roles,
         understood=True,
         reason=None,
-        fmt=fmt,
-        coverage=coverage,
-        fields=tuple(stats),
-        sample=sample,
+        fmt=given.fmt,
+        coverage=given.coverage,
+        fields=tuple(given.stats),
+        sample=given.sample,
         facts=_facts(facts),
         model=model_facts,
-        cache_key=cache_key,
+        cache_key=given.cache_key,
         basis=applied.basis,
         rejected=applied.rejected,
-        columns=_columns(parsed, fmt),
+        columns=_columns(given.parsed, given.fmt),
     )
