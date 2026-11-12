@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 import time
@@ -14,9 +15,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from portal.modules.security.core.hunt.baselines import BASELINES  # noqa: E402
 from portal.modules.security.core.hunt.observations import (  # noqa: E402
     budgeted_search,
-    load_receipts,
+    load_observations,
     observe,
-    rescore,
+    reorder,
     write_receipts,
 )
 from portal.modules.security.core.review.window import SplunkWindowSource  # noqa: E402
@@ -36,20 +37,29 @@ def main() -> int:
     )
     parser.add_argument("--baseline", default="current", choices=BASELINES)
     parser.add_argument(
-        "--from-grids", default=None, help="rescore a saved grids/ directory; does not search"
+        "--from-grids",
+        default=None,
+        help="reorder a saved observations.jsonl onto --baseline; does not recompute",
     )
     parser.add_argument("--start", type=float, default=0.0)
     parser.add_argument("--end", type=float, default=None)
     args = parser.parse_args()
     started = time.time()
     if args.from_grids:
-        grids, saved = load_receipts(Path(args.from_grids))
-        run = rescore(grids, saved["coverage"], args.index, args.baseline)
+        saved_dir = Path(args.from_grids)
+        saved = json.loads((saved_dir / "progress.json").read_text())
+        run = reorder(
+            load_observations(saved_dir),
+            args.baseline,
+            saved.get("coverage"),
+            saved.get("request_kinds"),
+        )
         meta = {
             "index": args.index,
             "start": saved.get("start"),
             "end": saved.get("end"),
             "from_grids": args.from_grids,
+            "reordered": True,
         }
     else:
         end = time.time() if args.end is None else args.end

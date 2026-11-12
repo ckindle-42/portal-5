@@ -3,15 +3,23 @@
 from __future__ import annotations
 
 import random
+import time
 from typing import Any
 
-from portal.modules.security.core.hunt.baselines import cycle_lag, cycle_seconds, peer_proportion
+from portal.modules.security.core.hunt.baselines import (
+    cycle_lag,
+    cycle_seconds,
+    episodes,
+    peer_proportion,
+)
 from portal.modules.security.core.hunt.engine import HOUR
 from portal.modules.security.core.hunt.observations import (
     KEY_SLICES,
     Observation,
+    load_observations,
     load_receipts,
     observe,
+    reorder,
     rescore,
     write_receipts,
 )
@@ -40,6 +48,86 @@ def test_cycle_lag_is_the_fundamental_of_the_series_itself() -> None:
     assert cycle_lag([3] * 40) is None
     gapped = {index * HOUR: count for index, count in enumerate([1, 0, 0, 5] * 8) if count}
     assert cycle_seconds(gapped) == 4 * HOUR
+    day = {index * HOUR: count for index, count in enumerate(([5] * 8 + [0] * 16) * 4) if count}
+    assert cycle_seconds(day) == 24 * HOUR
+
+
+def _identity(obs: Observation) -> tuple[str, str, str, int, str]:
+    return (obs.kind, obs.host, obs.entity, obs.hour, str(obs.evidence["signal"]))
+
+
+def _same_shared(plain_obs: list[Observation], contaminated_obs: list[Observation]) -> None:
+    plain_by = {_identity(obs): obs for obs in plain_obs}
+    seen = {_identity(obs) for obs in contaminated_obs}
+    assert plain_by.keys() <= seen
+    for obs in contaminated_obs:
+        key = _identity(obs)
+        if key in plain_by:
+            assert obs == plain_by[key]
+
+
+def test_a_far_hour_does_not_change_the_cycle_or_the_other_scores() -> None:
+    rows: list[dict[str, Any]] = []
+    for index in range(48):
+        hour = START + index * HOUR
+        rows += _event(hour, "h", "uid=a", n=(5 if index % 4 == 0 else 1))
+    plain = observe(GridSearch(rows), INDEX, float(START), float(START + 48 * HOUR))
+    series = {START + index * HOUR: (5 if index % 4 == 0 else 1) for index in range(48)}
+    # One isolated hour on either side of the same periodic host.
+    for far_hour in (START + 100_000 * HOUR, START - 100_000 * HOUR):
+        with_far = rows + _event(far_hour, "h", "uid=a", n=7)
+        window_start = min(START, far_hour)
+        window_end = max(START + 48 * HOUR, far_hour + HOUR)
+        contaminated = observe(GridSearch(with_far), INDEX, float(window_start), float(window_end))
+        _same_shared(plain.observations, contaminated.observations)
+        stray = dict(series)
+        stray[far_hour] = 7
+        primary = max(episodes(stray), key=lambda group: (len(group), -group[0]))
+        assert primary == sorted(series)
+        started = time.perf_counter()
+        assert cycle_seconds(series) == cycle_seconds(stray) == 4 * HOUR
+        assert time.perf_counter() - started < 1
+    assert episodes({**series, START + 100_000 * HOUR: 7})[0] == sorted(series)
+    assert episodes({START: 1, START + HOUR: 5}) == [[START, START + HOUR]]
+    assert any(
+        obs.evidence["seasonal_period"] == 4 * HOUR
+        for obs in plain.observations
+        if obs.kind == "volume"
+    )
+
+
+def test_cycle_span_over_the_effort_budget_is_not_densified(monkeypatch: Any) -> None:
+    monkeypatch.setattr(
+        "portal.modules.security.core.hunt.baselines.CYCLE_HOURS",
+        8,
+    )
+    series = {index * HOUR: (5 if index % 4 == 0 else 1) for index in range(10)}
+
+    assert cycle_seconds(series) is None
+
+
+def test_reorder_uses_the_stored_scores(tmp_path: Any, monkeypatch: Any) -> None:
+    rows: list[dict[str, Any]] = []
+    for index in range(16):
+        rows += _event(START + index * HOUR, "h", "uid=a", n=(1 if index % 2 == 0 else 100))
+    end = float(START + 16 * HOUR)
+    current = observe(GridSearch(rows), INDEX, float(START), end)
+    seasonal = observe(GridSearch(rows), INDEX, float(START), end, baseline="seasonal")
+    write_receipts(tmp_path, current, {"index": INDEX, "start": START, "end": end, "elapsed_s": 0})
+    monkeypatch.setattr(
+        "portal.modules.security.core.hunt.observations.cycle_seconds",
+        lambda _series: (_ for _ in ()).throw(AssertionError("recomputed")),
+    )
+    ordered = reorder(
+        load_observations(tmp_path), "seasonal", current.coverage, current.request_kinds
+    )
+
+    assert [obs.score for obs in ordered.observations] == [
+        obs.score for obs in seasonal.observations
+    ]
+    assert [obs.hour for obs in ordered.observations] == [obs.hour for obs in seasonal.observations]
+    assert ordered.baseline == "seasonal"
+    assert ordered.grids == {}
 
 
 def test_peer_proportion_is_the_share_of_hosts_strictly_lower() -> None:

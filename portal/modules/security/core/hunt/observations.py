@@ -15,6 +15,7 @@ from portal.modules.security.core.hunt.baselines import (
     active_hosts,
     counts_by_hour,
     cycle_seconds,
+    episodes,
     index_entities,
     index_volume,
     peer_proportion,
@@ -324,10 +325,6 @@ def _score_series(
     return found, None
 
 
-def _host_first(grouped: dict[str, dict[int, int]]) -> dict[str, int]:
-    return {host: min(hours) for host, hours in grouped.items() if hours}
-
-
 def _add_hour(grouped: dict[str, dict[int, int]], host: str, hour: int, count: int) -> None:
     bucket = grouped.setdefault(host, {})
     bucket[hour] = bucket.get(hour, 0) + count
@@ -370,14 +367,68 @@ def _value_series(rows: list[dict[str, Any]], key: str) -> dict[tuple[str, str],
     return grouped
 
 
+def _episode_bounds(series: Mapping[int, int]) -> list[tuple[int, int]]:
+    return [(group[0], group[-1]) for group in episodes(series)]
+
+
+def _primary_start(series: Mapping[int, int]) -> int | None:
+    groups = episodes(series)
+    if not groups:
+        return None
+    return max(groups, key=lambda group: (len(group), -group[0]))[0]
+
+
+def _clip(series: Mapping[int, int], start: int, stop: int) -> dict[int, int]:
+    return {hour: count for hour, count in series.items() if start <= hour <= stop and count > 0}
+
+
+def _host_windows(
+    host_hours: Mapping[str, Mapping[int, int]],
+) -> dict[str, tuple[int, list[tuple[int, int]]]]:
+    windows: dict[str, tuple[int, list[tuple[int, int]]]] = {}
+    for host, series in host_hours.items():
+        start = _primary_start(series)
+        if start is None:
+            continue
+        windows[host] = (start, _episode_bounds(series))
+    return windows
+
+
+def _score_pieces(
+    kind: str,
+    host: str,
+    entity: str,
+    series: Mapping[int, int],
+    bounds: list[tuple[int, int]],
+    primary_start: int,
+    primary_origin: int,
+    index: str,
+) -> tuple[list[Observation], str | None]:
+    found: list[Observation] = []
+    for start, stop in bounds:
+        piece = _clip(series, start, stop)
+        if not piece:
+            continue
+        origin = primary_origin if start == primary_start else start
+        scored, reason = _score_series(kind, host, entity, piece, origin, index)
+        if reason:
+            return [], reason
+        found.extend(scored)
+    return found, None
+
+
 def _from_volume(rows: list[dict[str, Any]], index: str) -> tuple[list[Observation], str | None]:
     grouped = _volume_series(rows)
     if not grouped:
         return [], None
-    origin = min(_host_first(grouped).values())
+    windows = _host_windows(grouped)
+    origin = min(start for start, _bounds in windows.values())
     found: list[Observation] = []
     for host in sorted(grouped):
-        scored, reason = _score_series("volume", host, "", grouped[host], origin, index)
+        start, bounds = windows[host]
+        scored, reason = _score_pieces(
+            "volume", host, "", grouped[host], bounds, start, origin, index
+        )
         if reason:
             return [], reason
         found.extend(scored)
@@ -396,12 +447,20 @@ def _from_pairs(
     for (host, _left, _right), series in grouped.items():
         for hour, count in series.items():
             _add_hour(host_hours, host, hour, count)
-    origins = _host_first(host_hours)
+    windows = _host_windows(host_hours)
     found: list[Observation] = []
     for host, left_value, right_value in sorted(grouped):
         entity = right_value if kind == "shape" else f"{left_value}\t{right_value}"
-        scored, reason = _score_series(
-            kind, host, entity, grouped[(host, left_value, right_value)], origins[host], index
+        start, bounds = windows[host]
+        scored, reason = _score_pieces(
+            kind,
+            host,
+            entity,
+            grouped[(host, left_value, right_value)],
+            bounds,
+            start,
+            start,
+            index,
         )
         if reason:
             return [], reason
@@ -495,6 +554,22 @@ def _new_host_records(
     return found
 
 
+def _primary_values(
+    grouped: dict[tuple[str, str], dict[int, int]],
+    windows: Mapping[str, tuple[int, list[tuple[int, int]]]],
+) -> dict[tuple[str, str], dict[int, int]]:
+    kept: dict[tuple[str, str], dict[int, int]] = {}
+    for (host, value), series in grouped.items():
+        start, bounds = windows[host]
+        for begin, end in bounds:
+            if begin != start:
+                continue
+            piece = _clip(series, begin, end)
+            if piece:
+                kept[(host, value)] = piece
+    return kept
+
+
 def _from_values(
     key: str, rows: list[dict[str, Any]], index: str
 ) -> tuple[list[Observation], str | None]:
@@ -503,21 +578,17 @@ def _from_values(
     for (host, _value), series in grouped.items():
         for hour, count in series.items():
             _add_hour(host_hours, host, hour, count)
-    origins = _host_first(host_hours)
+    windows = _host_windows(host_hours)
     found: list[Observation] = []
     for host, value in sorted(grouped):
-        scored, reason = _score_series(
-            "value",
-            host,
-            f"{key}={value}",
-            grouped[(host, value)],
-            origins[host],
-            index,
+        start, bounds = windows[host]
+        scored, reason = _score_pieces(
+            "value", host, f"{key}={value}", grouped[(host, value)], bounds, start, start, index
         )
         if reason:
             return [], reason
         found.extend(scored)
-    found.extend(_new_host_records(key, grouped, index))
+    found.extend(_new_host_records(key, _primary_values(grouped, windows), index))
     return found, None
 
 
@@ -712,6 +783,7 @@ def _score_present(grids: dict[str, list[dict[str, Any]]], index: str) -> list[O
 class _View:
     cycles: dict[str, int | None]
     host_first: dict[str, int]
+    bounds: dict[str, list[tuple[int, int]]]
     active: dict[int, set[str]]
     series: dict[str, dict[tuple[str, str], dict[int, int]]]
     by_hour: dict[str, dict[tuple[str, int], dict[str, int]]]
@@ -720,7 +792,12 @@ class _View:
 def _baseline_view(grids: dict[str, list[dict[str, Any]]]) -> _View:
     volume = index_volume(grids.get("volume", []))
     cycles = {host: cycle_seconds(series) for host, series in volume.items()}
-    host_first = {host: min(series) for host, series in volume.items() if series}
+    host_first = {
+        host: start
+        for host, series in volume.items()
+        if (start := _primary_start(series)) is not None
+    }
+    bounds = {host: _episode_bounds(series) for host, series in volume.items()}
     series: dict[str, dict[tuple[str, str], dict[int, int]]] = {}
     by_hour: dict[str, dict[tuple[str, int], dict[str, int]]] = {}
     for name, rows in grids.items():
@@ -728,7 +805,16 @@ def _baseline_view(grids: dict[str, list[dict[str, Any]]]) -> _View:
         grouped = index_entities(kind, rows, key)
         series[name] = grouped
         by_hour[name] = counts_by_hour(grouped)
-    return _View(cycles, host_first, active_hosts(volume), series, by_hour)
+    return _View(cycles, host_first, bounds, active_hosts(volume), series, by_hour)
+
+
+def _clip_to_episode(
+    series: Mapping[int, int], hour: int, bounds: list[tuple[int, int]]
+) -> dict[int, int]:
+    for start, stop in bounds:
+        if start <= hour <= stop:
+            return _clip(series, start, stop)
+    return dict(series)
 
 
 def _grid_key(obs: Observation) -> str:
@@ -768,15 +854,24 @@ def _left_score(
     period = HOUR if measured is None else measured
     source = "one_bucket" if measured is None else "cycle"
     first = min(hour for hour, count in series.items() if count > 0)
-    censored = first < view.host_first[obs.host] + period
+    host_first = _episode_start(view, obs.host, obs.hour)
+    censored = first < host_first + period
     withheld = censored and obs.evidence["signal"] in {"novelty", "new_host"} and obs.hour == first
     if withheld:
         return None, True, "first-seen at retention start", period, source
     return _current(obs), False, None, period, source
 
 
+def _episode_start(view: _View, host: str, hour: int) -> int:
+    for start, stop in view.bounds.get(host, ()):
+        if start <= hour <= stop:
+            return start
+    return view.host_first[host]
+
+
 def _with_baselines(obs: Observation, view: _View) -> Observation:
-    series = view.series[_grid_key(obs)][(obs.host, obs.entity)]
+    raw = view.series[_grid_key(obs)][(obs.host, obs.entity)]
+    series = _clip_to_episode(raw, obs.hour, view.bounds.get(obs.host, []))
     measured = view.cycles.get(obs.host)
     seasonal, seasonal_fallback = _seasonal_score(
         obs, series, measured, obs.host in view.host_first
@@ -867,6 +962,36 @@ def rescore(
     _check_baseline(baseline)
     found = _score_present(grids, index)
     return _finish(found, grids, coverage, request_kinds or {}, baseline)
+
+
+def _observation_from_dict(row: Mapping[str, Any]) -> Observation:
+    score = row["score"]
+    return Observation(
+        str(row["kind"]),
+        str(row["host"]),
+        str(row["entity"]),
+        int(row["hour"]),
+        None if score is None else float(score),
+        dict(row["evidence"]),
+    )
+
+
+def load_observations(directory: Path) -> list[Observation]:
+    text = (directory / "observations.jsonl").read_text().splitlines()
+    return [_observation_from_dict(json.loads(line)) for line in text if line]
+
+
+def reorder(
+    observations: list[Observation],
+    baseline: str,
+    coverage: dict[str, dict[str, Any]] | None = None,
+    request_kinds: dict[str, dict[str, Any]] | None = None,
+) -> ObservationRun:
+    """Select one stored score and sort. Does not read grids or remeasure a cycle."""
+    _check_baseline(baseline)
+    chosen = [_select(obs, baseline) for obs in observations]
+    chosen.sort(key=_sort_key)
+    return ObservationRun(chosen, dict(request_kinds or {}), dict(coverage or {}), {}, baseline)
 
 
 def _grid_rel(name: str) -> Path:

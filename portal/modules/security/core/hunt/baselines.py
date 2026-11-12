@@ -3,24 +3,45 @@
 from __future__ import annotations
 
 import math
-import statistics
 from collections.abc import Iterable, Mapping
 from typing import Any
+
+import numpy as np
 
 from portal.modules.security.core.hunt.engine import HOUR, _burst
 
 BASELINES = ("current", "seasonal", "peer", "stream", "left")
+# Effort budget: densified hours in one episode. A longer episode is not scanned.
+CYCLE_HOURS = 65536
+
+
+def _above(value: float, other: float) -> bool:
+    return value > other and not math.isclose(value, other)
 
 
 def _correlations(samples: list[int]) -> dict[int, float]:
-    found: dict[int, float] = {}
+    """Pearson autocorrelation at every lag. One FFT, so the cost follows the series length."""
     width = len(samples)
+    if width < 4:
+        return {}
+    values = np.asarray(samples, dtype=np.float64)
+    transformed = np.fft.rfft(values, 1 << (2 * width - 1).bit_length())
+    convolved = np.fft.irfft(transformed * np.conjugate(transformed))
+    prefix = np.cumsum(values)
+    squares = np.cumsum(values * values)
+    found: dict[int, float] = {}
     for lag in range(1, width // 2 + 1):
-        left = samples[: width - lag]
-        right = samples[lag:]
-        if len(set(left)) < 2 or len(set(right)) < 2:
+        overlap = width - lag
+        sum_left = float(prefix[overlap - 1])
+        sum_right = float(prefix[width - 1] - prefix[lag - 1])
+        sum_left_sq = float(squares[overlap - 1])
+        sum_right_sq = float(squares[width - 1] - squares[lag - 1])
+        var_left = sum_left_sq - (sum_left * sum_left) / overlap
+        var_right = sum_right_sq - (sum_right * sum_right) / overlap
+        if var_left <= 0 or var_right <= 0:
             continue
-        found[lag] = statistics.correlation(left, right)
+        covariance = float(convolved[lag]) - (sum_left * sum_right) / overlap
+        found[lag] = covariance / math.sqrt(var_left * var_right)
     return found
 
 
@@ -29,12 +50,12 @@ def _is_peak(lag: int, value: float, corr: Mapping[int, float], max_lag: int) ->
     if lag < 2 or value <= 0:
         return False
     earlier = corr.get(lag - 1)
-    if earlier is None or value <= earlier:
+    if earlier is None or not _above(value, earlier):
         return False
     later = corr.get(lag + 1)
     if later is None:
         return lag == max_lag
-    return value > later
+    return _above(value, later)
 
 
 def cycle_lag(samples: list[int]) -> int | None:
@@ -51,16 +72,49 @@ def cycle_lag(samples: list[int]) -> int | None:
     return min(tied)
 
 
+def _split_at_majority(hours: list[int]) -> list[list[int]]:
+    """Split where one unoccupied stretch is strictly more of this series' timeline than the rest."""
+    if len(hours) < 2:
+        return [hours] if hours else []
+    cut: int | None = None
+    widest = -1
+    last = len(hours) - 1
+    for index in range(last):
+        gap = hours[index + 1] - hours[index] - HOUR
+        others = (hours[index] - hours[0]) + (hours[last] - hours[index + 1])
+        if gap > others and gap > widest:
+            widest = gap
+            cut = index
+    if cut is None:
+        return [hours]
+    return _split_at_majority(hours[: cut + 1]) + _split_at_majority(hours[cut + 1 :])
+
+
+def episodes(series: Mapping[int, int]) -> list[list[int]]:
+    """Observed hours split into episodes. Empty hours are not points on the timeline."""
+    hours = sorted(hour for hour, count in series.items() if count > 0)
+    return _split_at_majority(hours)
+
+
+def _primary(groups: list[list[int]]) -> list[int]:
+    return max(groups, key=lambda group: (len(group), -group[0]))
+
+
 def dense_counts(series: Mapping[int, int]) -> list[int]:
-    """Hourly counts from the first hour to the last, with missing hours as zeros."""
-    if not series:
+    """Hourly counts across the primary episode, with its own missing hours as zeros."""
+    groups = episodes(series)
+    if not groups:
         return []
-    start, stop = min(series), max(series)
-    return [int(series.get(hour, 0)) for hour in range(start, stop + HOUR, HOUR)]
+    chosen = _primary(groups)
+    start, stop = chosen[0], chosen[-1]
+    width = (stop - start) // HOUR + 1
+    if width > CYCLE_HOURS:
+        return []
+    return [int(series.get(start + step * HOUR, 0)) for step in range(width)]
 
 
 def cycle_seconds(series: Mapping[int, int]) -> int | None:
-    """Measured host cycle in seconds, or None when the volume series has no peak."""
+    """Measured host cycle in seconds, or None when the primary episode has no peak."""
     lag = cycle_lag(dense_counts(series))
     if lag is None:
         return None
