@@ -113,6 +113,10 @@ class HuntBudget:
     ranking_notes: set[str] = field(default_factory=set)
     lock: threading.RLock = field(default_factory=threading.RLock)
     on_progress: Callable[[dict[str, Any]], None] | None = None
+    judge_requests: int = 0
+    judge_seconds: float = 0.0
+    host_hours: list[dict[str, Any]] = field(default_factory=list)
+    judge_block: dict[str, Any] = field(default_factory=dict)
 
     @property
     def deadline(self) -> float:
@@ -202,6 +206,8 @@ class HuntBudget:
             },
             "ranking_coverage_complete": not reasons,
             "ranking_coverage_reasons": reasons,
+            "judge_requests": self.judge_requests,
+            "judge_seconds": round(float(self.judge_seconds), 3),
         }
 
     def publish(self, *, force: bool = False) -> None:
