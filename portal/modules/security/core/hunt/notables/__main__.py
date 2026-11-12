@@ -1,4 +1,4 @@
-"""python -m portal.modules.security.core.hunt.notables — source cards and behaviours."""
+"""python -m portal.modules.security.core.hunt.notables — cards, behaviours and notables."""
 
 from __future__ import annotations
 
@@ -10,7 +10,14 @@ from typing import Any
 
 from .behaviours import Behaviour
 from .pipeline import model_from_env, model_requirement
-from .run import STAGES, behaviours_stage, cards_stage, default_search
+from .run import (
+    GENERATORS,
+    STAGES,
+    behaviours_stage,
+    cards_stage,
+    default_search,
+    notables_stage,
+)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -25,6 +32,11 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--start", type=float, default=0.0, help="earliest epoch seconds")
     parser.add_argument("--end", type=float, default=None, help="latest epoch seconds")
+    parser.add_argument(
+        "--generators",
+        default=",".join(GENERATORS),
+        help="comma-separated generators (default: all)",
+    )
     return parser
 
 
@@ -45,6 +57,22 @@ def _print_behaviours(behaviours: list[Behaviour], receipt: dict[str, Any]) -> N
         f"behaviours: events_read={receipt['events_read']} "
         f"existed={receipt['behaviours_existed']} kept={receipt['behaviours_kept']} "
         f"wall={receipt['seconds']}s peak={receipt['peak_memory_mb']}MB -> {receipt['store']}"
+    )
+
+
+def _print_notables(receipt: dict[str, Any]) -> None:
+    raw_seconds = receipt.get("seconds")
+    seconds: dict[str, Any] = raw_seconds if isinstance(raw_seconds, dict) else {}
+    for name in GENERATORS:
+        detail = receipt.get(name)
+        if isinstance(detail, dict):
+            print(
+                f"  {name}: existed={detail.get('existed')} kept={detail.get('kept')} "
+                f"seconds={seconds.get(name)}"
+            )
+    print(
+        f"notables: total={receipt['total']} wall={seconds.get('total')}s "
+        f"peak={receipt['peak_memory_mb']}MB -> {receipt['file']}"
     )
 
 
@@ -91,6 +119,17 @@ def main(argv: list[str] | None = None) -> int:
     if "behaviours" in stages:
         behaviours, receipt = behaviours_stage(out=out, search=search)
         _print_behaviours(behaviours, receipt)
+    if "notables" in stages:
+        enabled = [name.strip() for name in args.generators.split(",") if name.strip()]
+        _rows, receipt = notables_stage(
+            index=args.index,
+            out=out,
+            start=args.start,
+            end=end,
+            search=search,
+            enabled=enabled,
+        )
+        _print_notables(receipt)
     return 0
 
 

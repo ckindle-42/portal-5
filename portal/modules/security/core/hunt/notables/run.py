@@ -1,7 +1,8 @@
-"""Stage orchestration: source cards and behaviours, with one receipt per stage."""
+"""Stage orchestration: cards, behaviours and notables, with one receipt per stage."""
 
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -11,16 +12,24 @@ from ...review.window import SplunkWindowSource
 from ..engine import Search
 from ..executor import executor_for
 from ..judge import JudgeClient
-from .behaviours import Behaviour, collect_behaviours
+from .behaviours import (
+    Behaviour,
+    collect_behaviours,
+    load_behaviours,
+    load_source_stats,
+)
 from .cards import CardCache, SourceCard, build_card
+from .generators import generate
 from .parse import FieldStat
 from .receipt import peak_memory_mb, progress_update, read_json, utc_now, write_json
 from .sample import SourceFacts, index_facts, read_windows, sample_windows
 
-STAGES = ("cards", "behaviours")
+STAGES = ("cards", "behaviours", "notables")
+GENERATORS = ("alerts", "peer_rare", "deviation")
 SOURCES_FILE = "sources.json"
 PROGRESS_FILE = "progress.json"
 STORE_FILE = "behaviours.duckdb"
+NOTABLES_FILE = "notables.jsonl"
 
 
 def default_search() -> SplunkWindowSource:
@@ -186,3 +195,45 @@ def behaviours_stage(*, out: Path, search: Search) -> tuple[list[Behaviour], dic
     receipt["peak_memory_mb"] = peak_memory_mb()
     progress_update(out, "behaviours", receipt)
     return behaves, receipt
+
+
+def notables_stage(
+    *, index: str, out: Path, start: float, end: float, search: Search, enabled: Sequence[str]
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Raise notables from each independent generator, bounded and ordered, to notables.jsonl."""
+    cards = load_cards(out)
+    store = out / STORE_FILE
+    if not store.exists():
+        raise FileNotFoundError(f"{store} holds no behaviour table; run the behaviours stage")
+    behaviours = load_behaviours(store)
+    notables, receipt = generate(
+        executor_for(search),
+        index,
+        start,
+        end,
+        cards,
+        facts_by_source(cards),
+        behaviours,
+        load_source_stats(store),
+        enabled,
+    )
+    rows = [notable.as_dict() for notable in notables]
+    path = out / NOTABLES_FILE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in rows))
+    receipt["file"] = str(path)
+    receipt["peak_memory_mb"] = peak_memory_mb()
+    progress_update(out, "notables", receipt)
+    return rows, receipt
+
+
+def read_notables(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        raise FileNotFoundError(f"{path} holds no notables; run the notables stage")
+    rows: list[dict[str, Any]] = []
+    for line in path.read_text().splitlines():
+        if line.strip():
+            stored = json.loads(line)
+            if isinstance(stored, dict):
+                rows.append(stored)
+    return rows
