@@ -55,3 +55,56 @@ The earlier probe (`results/hunt/judge_probe_r1/`) showed a larger gain (santos 
 - Run-twice identity not checked. Through-Pipeline logprobs not checked (needs merge + rebuild).
 - Not tried: a different judge model, a campaign-level case (onset followed outward) as the unit
   judged instead of one host-hour.
+
+---
+
+## Round 2 (2026-11-12, later) — clean evidence, fair budget, fused order, cases, Pipeline only
+
+All judge calls below went through the Portal Pipeline (`security-reviewer` unless stated). Nothing
+was asked of an engine directly.
+
+### What changed
+
+| Change | Where | Why (measured live) |
+|---|---|---|
+| Chat logprobs carried on the native Ollama path | main `1c60bc7cb`, `be8e39346` (merge `bfa40d2f3`) | The first passthrough used the engine's `/v1` surface: `security-reviewer` failed with `time: missing unit in duration "-1"` and thinking models returned a reasoning marker as the first token. Now verified live on `security-reviewer` and five bench workspaces. `bench-foundation-sec-8b-reasoning` still returns no answer token. |
+| Each event shown to the judge once | `6943358b2` | Shape and stream observations selected the same events, so every line appeared twice. Judge AUC (keyed vs unkeyed, 300 cells) 0.77 → 0.85. |
+| One bounded evidence read per cell | `6943358b2`, `8a24facde` | 6.7 s → about 0.8 s per cell. The first form returned every shape of the hour and exhausted the executor's 5,000-event budget after 8–25 cells (`judged_dev_r3_eventbudget_fail/`). |
+| Judge budget taken round-robin per host-day | `82b7c8ac5` | Layer 1 spends the budget on a few noisy hosts; episodes first appear at layer-1 cell 298–508. |
+| Fused order (rank-sum of P(yes) rank and budget rank) | `82b7c8ac5` | P(yes) alone discards layer 1. |
+| `cases.json` (one case per judged host-day) | `82b7c8ac5` | Product unit is a case. |
+
+Tried and dropped: per-kind counts in the prompt (model answered yes to 81–99 of 89–99 unkeyed
+cells); 160-character events (AUC 0.84, only 11 % faster); four other judge models through the
+Pipeline — `gemma4:e4b` AUC 0.80 at 1.6 s per cell, `Qwen3.6-35B-A3B` 0.79 at 2.1 s,
+`gemma4:26b-a4b` 0.80 at 3.3 s — none beat `granite4.1:8b` (0.85 at 3.9 s).
+
+### Live dev result (`results/hunt/judged_dev_r3/`, 160 judged cells, 0 unjudged, 0 censored)
+
+| Index | Order | Episode first-hit ranks | Keyed cells in top 10 / 25 / 50 | Wall |
+|---|---|---|---|---|
+| santos | layer 1 | 1, 3, 32, 508 | 3 / 7 / 11 | |
+| santos | fused | 1, 7, 24, 562 | 3 / 5 / 6 | 628 s |
+| russellmitchell | layer 1 | 1, 4, 17, 298 | 3 / 6 / 8 | |
+| russellmitchell | fused | 1, 3, 19, 42 | 4 / 5 / 7 | 671 s |
+| kyoushi | layer 1 | 3, 372 | 1 / 1 / 1 | |
+| kyoushi | fused | 3, 34 | 1 / 1 / 2 | 743 s |
+
+- First hit unchanged on all three. The last episode moves from 298 to 42 (russellmitchell) and
+  372 to 34 (kyoushi). Santos: second episode 3 → 7; fourth episode not reached (one cell past
+  the budget).
+- Fewer keyed cells in the top 25 and 50 than layer 1, because the budget is spread over host-days.
+- Cases: 98–120 per index; episodes' first case at 1/7/24, 1/3/19/40 and 3/34.
+- Wall 10–12 minutes: judge 3.5–4.2 s per cell; evidence about 125 s per run; layer 1 about 38 s.
+- Run twice (santos, same window): identical lead order and identical evidence; 2 of 160 P(yes)
+  values differ by at most 0.0035, so the files are not byte-identical. Splunk running jobs
+  after: 0.
+
+**Verdict: not a clean beat of layer 1. Held-out indexes not run.**
+
+### Open
+
+1. The judge answers yes to 24–51 % of unkeyed cells; no local model tested does better.
+2. Speed: about 3.9 s per judged cell.
+3. Layer-1 `coverage_complete` is false on every run (value grid).
+4. P(yes) is not bit-stable across runs.
