@@ -93,6 +93,24 @@ def test_the_route_is_registered() -> None:
     assert ("/v1/embeddings", "POST") in routes
 
 
+def test_the_app_serves_the_route(embedder, monkeypatch) -> None:
+    """The real app binds the Authorization header and the JSON body to the handler."""
+    from fastapi.testclient import TestClient
+
+    from portal.platform.inference.router_pipe import app
+
+    async def post(_config, _payload):
+        return _vectors(1)
+
+    monkeypatch.setattr(route, "_post_upstream", post)
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/embeddings", json={"input": "x"}, headers={"Authorization": _AUTH}
+        )
+    assert response.status_code == 200
+    assert len(response.json()["data"][0]["embedding"]) == 768
+
+
 @pytest.mark.anyio
 async def test_auth_is_the_same_as_chat(embedder) -> None:
     with pytest.raises(HTTPException) as caught:
