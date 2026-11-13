@@ -174,11 +174,12 @@ def _probe_workspace(cfg: dict[str, Any]) -> None:
 # ── Ollama ──────────────────────────────────────────────────────────────────
 
 
-def _ollama_version() -> str:
+def _ollama_version() -> tuple[str, str | None]:
     try:
-        return str(httpx.get(f"{OLLAMA}/api/version", timeout=5).json()["version"])
+        served = str(httpx.get(f"{OLLAMA}/api/version", timeout=5).json()["version"])
     except Exception as e:
         raise CannotRunError(f"Ollama unreachable at {OLLAMA}: {e}") from e
+    return served, None
 
 
 def _png(rgb: tuple[int, int, int], side: int = 32) -> str:
@@ -349,17 +350,44 @@ async def check_ollama(models: dict[str, str]) -> list[Result]:
 # ── oMLX ────────────────────────────────────────────────────────────────────
 
 
-def _omlx_version() -> str:
+def _omlx_installed_version() -> str | None:
+    """Package the active service would start: venv wheel, else the Homebrew keg."""
     try:
-        httpx.get(f"{OMLX}/health", timeout=5).raise_for_status()
+        from scripts.engine_autoupdate import omlx_running  # noqa: PLC0415
+    except Exception as e:
+        raise CannotRunError(f"could not read installed oMLX version: {e}") from e
+    try:
+        return omlx_running()
+    except RuntimeError as e:
+        raise CannotRunError(f"could not read installed oMLX version: {e}") from e
+    except OSError:
+        return None
+
+
+def _omlx_version() -> tuple[str, str | None]:
+    """Version the running server serves, plus the installed package if readable."""
+    try:
+        response = httpx.get(f"{OMLX}/api/status", headers=_OMLX_AUTH, timeout=5)
+        response.raise_for_status()
+        served = str((response.json() or {}).get("version") or "").strip()
     except Exception as e:
         raise CannotRunError(f"oMLX unreachable at {OMLX}: {e}") from e
-    try:
-        # The keg the service runs, not `brew list --versions` (which lists every
-        # kept keg, so after an upgrade its last word can be the old one).
-        return os.readlink("/opt/homebrew/opt/omlx").rstrip("/").rsplit("/", 1)[-1]
-    except OSError:
-        return "unknown"
+    if not served:
+        raise CannotRunError(f"oMLX {OMLX}/api/status returned no version")
+    return served, _omlx_installed_version()
+
+
+def _version_label(served: str, installed: str | None) -> str:
+    if installed and installed != served:
+        return f"{served} (installed {installed}; changed — needs verify/restart)"
+    return served
+
+
+def _needs_probe(state: dict[str, Any], engine: str, served: str, installed: str | None) -> bool:
+    """A package/process split is due even when the served version was verified."""
+    if installed and installed != served:
+        return True
+    return _due(state, engine, served)
 
 
 async def check_omlx(models: dict[str, str]) -> list[Result]:
@@ -384,7 +412,10 @@ async def check_omlx(models: dict[str, str]) -> list[Result]:
 # ── runner ──────────────────────────────────────────────────────────────────
 
 ENGINES: dict[
-    str, tuple[Callable[[], str], Callable[[dict[str, str]], Awaitable[list[Result]]]]
+    str,
+    tuple[
+        Callable[[], tuple[str, str | None]], Callable[[dict[str, str]], Awaitable[list[Result]]]
+    ],
 ] = {
     "ollama": (_ollama_version, check_ollama),
     "omlx": (_omlx_version, check_omlx),
@@ -427,9 +458,9 @@ def main(argv: list[str]) -> int:
     for engine in wanted:
         version_fn, check = ENGINES[engine]
         try:
-            version = version_fn()
-            if if_changed and not _due(state, engine, version):
-                print(f"[SKIP] {engine} {version}: verified {state[engine]['verified_utc']}")
+            served, installed = version_fn()
+            if if_changed and not _needs_probe(state, engine, served, installed):
+                print(f"[SKIP] {engine} {served}: verified {state[engine]['verified_utc']}")
                 continue
             results = asyncio.run(check(dict(probes.get(engine) or {})))
         except CannotRunError as e:
@@ -444,11 +475,12 @@ def main(argv: list[str]) -> int:
             )
             continue
         failed = [r for r in results if not r.ok]
-        print(f"[{'FAIL' if failed else 'OK'}] {engine} {version}")
+        label = _version_label(served, installed)
+        print(f"[{'FAIL' if failed else 'OK'}] {engine} {label}")
         for r in results:
             print(f"    {'ok  ' if r.ok else 'FAIL'} {r.name}: {r.detail}")
         state[engine] = {
-            "version": version,
+            "version": served,
             "ok": not failed,
             "verified_utc": dt.datetime.now(dt.UTC).isoformat(),
             "failed": [f"{r.name}: {r.detail}" for r in failed],
@@ -456,7 +488,7 @@ def main(argv: list[str]) -> int:
         if failed:
             worst = max(worst, 1)
             _notify(
-                f"Engine contract FAILED: {engine} {version}",
+                f"Engine contract FAILED: {engine} {label}",
                 "Values Portal sends are not reaching the model:\n"
                 + "\n".join(f"- {r.name}: {r.detail}" for r in failed),
             )
