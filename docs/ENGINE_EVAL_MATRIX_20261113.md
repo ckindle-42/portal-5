@@ -26,16 +26,25 @@ Same-bytes subset: engines that load that oQ4e directory. mlxcel cannot read oQ4
 MTP on this checkpoint is an oMLX question; the 11-13 screen's other engines are not
 scored as the same weights. Ollama's GGUF is a different artifact.
 
+Stage 0 seat id: `daily-moe`. The instrument claims the engine-reported context,
+not the Pipeline cap of 16384. Ollama's tag blob stores `num_ctx` 32768
+(`sha256:cca9f403c312…`, the ctx32k manifest). oMLX `config.json`
+`max_position_embeddings` is 262144, which `/v1/models/status` reports as
+`model_context_length`. The 16384 cap is excluded from the comparison.
+
 Decision: MLX engine for the resident daily MoE seat.
 
 ## Dense coding, with its speed lever
 
 Plain checkpoint: `Qwen3.8-27B-4bit`.
 MTP sidecar: `Qwen3.8-27B-oQ4e-mtp` (different bytes; upstream ships no MTP head on the plain dir).
-DFlash2 drafter directory `Qwen3.8-27B-DFlash2` was removed. Spec arms that need it are
-unrunnable until it is fetched again. Do not substitute another drafter.
-Splash plain carries the drafter (`{splash_extra}` on both plain and base_spec). A plain
-label with a drafter loaded is invalid. Do not invent a draft-off flag.
+DFlash2 drafter `/Volumes/data01/omlx-models/Qwen3.8-27B-DFlash2` is on disk (symlink
+to the hf-cache incoai snapshot, restored 2026-11-12). Spec arms that name it can run.
+Do not substitute another drafter.
+`splash serve --help` on Splash 1.6.1 loads every model with its DFlash2 draft.
+`--draft-model` only selects a different drafter. There is no draft-off switch.
+The plain Splash cell is excluded. A scored plain cell that still passes
+`--draft-model` stays invalid. Do not invent a flag.
 vLLM Metal cannot load this MLX dir ("Unrecognized image processor" on the 11-13 screen).
 
 Production `auto-coding` hints the GGUF ctx96k tag, context 98304, predict 32768, think true,
