@@ -12,6 +12,7 @@ from portal.modules.security.core.hunt.notables.generators import (
     _series_by_source,
     _source_deviations,
     alerts,
+    exact_counts,
     generate,
     peer_rare,
 )
@@ -34,7 +35,13 @@ class _Executor:
 
 
 def _behaviour(
-    source: str, actor: str, hosts: int, actors: int, events: int, first: float
+    source: str,
+    actor: str,
+    hosts: int,
+    actors: int,
+    events: int,
+    first: float,
+    object_value: str = "shape",
 ) -> Behaviour:
     return Behaviour(
         source,
@@ -43,7 +50,7 @@ def _behaviour(
         "image",
         "cmd.exe",
         "path",
-        "shape",
+        object_value,
         "literal",
         "literal",
         "shape",
@@ -155,6 +162,67 @@ def test_the_receipt_reports_how_many_candidates_tied_at_the_cut():
     notables, receipt = peer_rare(behaviours, stats)
     assert len(notables) == 300
     assert receipt["tied_at_cut"] == 301
+
+
+class _CountExecutor:
+    def __init__(self, count: object = "42") -> None:
+        self.count = count
+        self.queries: list[str] = []
+
+    def read(
+        self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+    ) -> Read:
+        del start, end, kind, row_cap
+        self.queries.append(query)
+        return Read([{"count": self.count}], False, None)
+
+
+def test_exact_counts_replace_sampled_events_where_the_terms_are_indexed():
+    behaviours = [_behaviour("ix:st", "bob", hosts=1, actors=1, events=5, first=1.0)]
+    notables, _receipt = peer_rare(
+        behaviours, {"ix:st": {"hosts_possible": 4, "actors_possible": 4}}
+    )
+    executor = _CountExecutor("42")
+    updated, receipt = exact_counts(executor, "ix", 0.0, 100.0, notables)
+    assert receipt["counted"] == 1
+    assert receipt["queries"] == 1
+    assert receipt["by_source"] == {"ix:st": 1}
+    assert updated[0].counts["events"] == 42
+    assert updated[0].counts["sampled_events"] == 5
+    assert updated[0].counts["counted_from"] == "index_terms"
+    assert 'TERM("bob")' in executor.queries[0]
+
+
+def test_a_non_term_or_below_sample_count_is_declared_not_used():
+    behaviours = [
+        _behaviour(
+            "ix:st", "bob smith", hosts=1, actors=1, events=1, first=1.0, object_value="two words"
+        ),
+        _behaviour("ix:st", "bob", hosts=1, actors=1, events=5, first=2.0),
+    ]
+    notables, _receipt = peer_rare(
+        behaviours, {"ix:st": {"hosts_possible": 4, "actors_possible": 4}}
+    )
+    _updated, receipt = exact_counts(_CountExecutor("1"), "ix", 0.0, 100.0, notables)
+    assert receipt["counted"] == 0
+    assert receipt["reasons"] == {"no_index_terms": 1, "below_sample": 1}
+
+
+def test_generate_reports_exact_counts_for_peer_rare():
+    behaviours = [_behaviour("ix:st", "bob", hosts=1, actors=1, events=5, first=1.0)]
+    notables, receipt = generate(
+        _CountExecutor("42"),
+        "ix",
+        0.0,
+        100.0,
+        [],
+        {},
+        behaviours,
+        {"ix:st": {"hosts_possible": 4, "actors_possible": 4}},
+        ["peer_rare"],
+    )
+    assert notables[0].counts["events"] == 42
+    assert receipt["peer_rare"]["exact_counts"]["counted"] == 1
 
 
 def test_robust_z_and_source_deviations_rank_a_burst_first():

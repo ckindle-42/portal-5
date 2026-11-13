@@ -98,9 +98,16 @@ def _print_notables(receipt: dict[str, Any]) -> None:
     for name in GENERATORS:
         detail = receipt.get(name)
         if isinstance(detail, dict):
+            exact = _mapping(detail.get("exact_counts"))
+            counted = (
+                f" exact={exact.get('counted', 0)}/{detail.get('kept', 0)}"
+                f" tied_at_cut={detail.get('tied_at_cut', 0)}"
+                if exact
+                else ""
+            )
             print(
                 f"  {name}: existed={detail.get('existed')} kept={detail.get('kept')} "
-                f"seconds={seconds.get(name)}"
+                f"seconds={seconds.get(name)}{counted}"
             )
     print(
         f"notables: total={receipt.get('total', 0)} wall={seconds.get('total')}s "

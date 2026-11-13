@@ -7,7 +7,8 @@ import math
 import statistics
 import time
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, replace
 from typing import Any
 
 from ..executor import HuntExecutor
@@ -26,6 +27,9 @@ SERIES_ROWS = 40_000  # effort budget: per-period source-count rows (below the 5
 SERIES_SPAN_SECONDS = 4 * 3600  # effort budget: deviation bucket width
 MAX_ENTITIES = 8  # effort budget: entities attached to one notable
 EVIDENCE_CHARS = 400  # effort budget: raw characters kept on one notable evidence line
+EXACT_COUNT_BUDGET = 300  # effort budget: whole-index counts for kept peer-rare notables
+EXACT_COUNT_CONCURRENCY = 4  # effort budget: concurrent tstats reads for exact counts
+EXACT_TERMS = 3  # effort budget: identity terms in one exact count
 
 GENERATORS = ("alerts", "peer_rare", "deviation")
 
@@ -386,6 +390,95 @@ def peer_rare(
     }
 
 
+def _index_terms(notable: Notable) -> list[str]:
+    """Identity values that are single indexed terms; a wildcard or a phrase cannot be counted."""
+    terms: list[str] = []
+    for role, value in notable.entities:
+        if role not in ("actor", "object"):
+            continue
+        text = value.strip()
+        if not text or text == "*" or any(char.isspace() for char in text):
+            continue
+        terms.append(text)
+    return terms[:EXACT_TERMS]
+
+
+def _exact_count(
+    executor: HuntExecutor, index: str, start: float, end: float, notable: Notable
+) -> tuple[int | None, str | None]:
+    """Whole-index event count for one notable's identity terms, or why it was not counted."""
+    terms = _index_terms(notable)
+    if not terms:
+        return None, "no_index_terms"
+    query = f"| tstats count where index={_quote(index)} " + " ".join(
+        f"TERM({_quote(value)})" for value in terms
+    )
+    try:
+        read = executor.read(query, start, end, kind="exact_count", row_cap=1)
+    except Exception as exc:  # noqa: BLE001 -- an exact count that cannot run is declared
+        return None, f"read_failed:{type(exc).__name__}"
+    if not read.rows:
+        return None, "no_count_row"
+    value = read.rows[0].get("count")
+    if value is None:
+        return None, "bad_count"
+    try:
+        count = int(float(value))
+    except (TypeError, ValueError):
+        return None, "bad_count"
+    sampled = int(notable.counts.get("events") or 0)
+    if count == 0:
+        return None, "no_index_match"
+    if count < sampled:
+        return None, "below_sample"
+    return count, None
+
+
+def exact_counts(
+    executor: HuntExecutor,
+    index: str,
+    start: float,
+    end: float,
+    notables: Sequence[Notable],
+    *,
+    budget: int = EXACT_COUNT_BUDGET,
+) -> tuple[list[Notable], dict[str, Any]]:
+    """Replace sampled events with exact whole-index counts where the identity terms allow it."""
+    began = time.monotonic()
+    chosen = list(notables[: max(0, budget)])
+    updated = list(notables)
+    with ThreadPoolExecutor(max_workers=EXACT_COUNT_CONCURRENCY) as pool:
+        futures = [
+            pool.submit(_exact_count, executor, index, start, end, notable) for notable in chosen
+        ]
+        results = [future.result() for future in futures]
+    reasons: dict[str, int] = {}
+    by_source: dict[str, int] = {}
+    counted = 0
+    for position, (count, reason) in enumerate(results):
+        if count is None:
+            key = reason or "unknown"
+            reasons[key] = reasons.get(key, 0) + 1
+            continue
+        notable = chosen[position]
+        counts = dict(notable.counts)
+        counts["sampled_events"] = counts.get("events")
+        counts["events"] = count
+        counts["counted_from"] = "index_terms"
+        updated[position] = replace(notable, counts=counts)
+        counted += 1
+        by_source[notable.source_id] = by_source.get(notable.source_id, 0) + 1
+    return updated, {
+        "candidates": len(notables),
+        "budget": min(max(0, budget), len(notables)),
+        "counted": counted,
+        "queries": len(chosen),
+        "reasons": reasons,
+        "by_source": by_source,
+        "seconds": round(time.monotonic() - began, 3),
+    }
+
+
 def _behaviour_words(behaviour: Behaviour) -> str:
     parts = []
     if behaviour.actor:
@@ -594,6 +687,8 @@ def generate(
         receipt["seconds"]["alerts"] = round(time.monotonic() - started, 3)
     if "peer_rare" in enabled:
         found, detail = peer_rare(behaviours, source_stats)
+        if found:
+            found, detail["exact_counts"] = exact_counts(executor, index, start, end, found)
         notables.extend(found)
         receipt["peer_rare"] = detail
     if "deviation" in enabled:
