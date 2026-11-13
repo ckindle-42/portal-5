@@ -248,6 +248,9 @@ def test_daily_omlx_sources_come_from_server_log_and_status() -> None:
     failed = judge_cell(assemble_cell(spec, obs))
     assert failed["valid"] is False
     assert any("n/a" in item for item in failed["failures"])
+    obs["server_log"] = ""
+    unloaded = judge_cell(assemble_cell(spec, obs))
+    assert any("invalidates" in item for item in unloaded["failures"])
 
 
 def test_show_parser_ignores_template_text_and_plist_reads_kv(tmp_path: Path) -> None:

@@ -1024,7 +1024,17 @@ def omlx_settings(
         excluded["temperature"] = _exclude(
             "neither server.log nor model_settings.json reports temperature"
         )
-    _omlx_flags(applied, stored, log_text, row, readback, sources, excluded, conflicts)
+    _omlx_flags(
+        applied,
+        stored,
+        log_text,
+        row,
+        spec["claims"].get("spec_method"),
+        readback,
+        sources,
+        excluded,
+        conflicts,
+    )
     return readback, sources, excluded, conflicts
 
 
@@ -1033,6 +1043,7 @@ def _omlx_flags(
     stored: dict[str, Any],
     log_text: str,
     row: dict[str, Any],
+    claimed_spec: Any,
     readback: dict[str, Any],
     sources: dict[str, str],
     excluded: dict[str, dict[str, str]],
@@ -1040,7 +1051,14 @@ def _omlx_flags(
 ) -> None:
     spec_method = _omlx_mtp(applied, stored, log_text, readback, sources, conflicts)
     if spec_method is None and "spec_method" not in readback:
-        excluded["spec_method"] = _exclude("server.log has no applied mtp_enabled for this model")
+        if claimed_spec in _SPEC_OFF:
+            excluded["spec_method"] = _exclude(
+                "server.log has no applied mtp_enabled for this model"
+            )
+        else:
+            excluded["spec_method"] = _invalidate(
+                "server.log window has no Applied initial settings mtp_enabled"
+            )
     _omlx_acceptance(log_text, spec_method, readback, sources, conflicts)
     drafter = (
         True
@@ -1314,9 +1332,9 @@ def _measured_pair(spec: dict[str, Any], pipeline: str, obs: dict[str, Any]) -> 
     url = f"{pipeline.rstrip('/')}/v1/chat/completions"
     body = {
         "model": spec["workspace"],
-        "messages": [{"role": "user", "content": "Reply with exactly: OK"}],
+        "messages": [{"role": "user", "content": "Name three planets, one per line."}],
         "temperature": 0,
-        "max_tokens": 64,
+        "max_tokens": 128,
         "stream": False,
         "portal_backend": spec["backend"],
     }
