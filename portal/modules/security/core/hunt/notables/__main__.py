@@ -59,6 +59,8 @@ def _print_behaviours(behaviours: list[Behaviour], receipt: dict[str, Any]) -> N
             f"of={item.get('events_available', 0)} share={item.get('share_of_source')} "
             f"windows={item.get('windows', 0)} "
             f"behaviours={item.get('behaviours', counts.get(_label(item), 0))} "
+            f"singletons={item.get('singletons', 0)} "
+            f"singleton_share={item.get('singleton_share')} "
             f"seconds={item.get('seconds')}"
         )
     for item in receipt.get("skipped", []):

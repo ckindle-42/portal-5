@@ -18,7 +18,10 @@ from .sample import BEHAVIOUR_SOURCES, SourceFacts, read_windows, route_filter, 
 BEHAVIOUR_WINDOWS = 12  # effort budget: time slices read per activity source
 BEHAVIOUR_EVENTS_PER_WINDOW = 2500  # effort budget: events read from one slice
 BEHAVIOUR_TOTAL_EVENTS = 400_000  # effort budget: parsed events across the whole stage
-BEHAVIOUR_FIELD_VALUES = 2000  # effort budget: a field stays literal in keys up to this many values
+IDENTITY_RECURRENCE = 2.0  # an identity is seen at least twice on average
+IDENTITY_BUCKET_SECONDS = 3600  # identities recur across hours, not inside one burst
+IDENTITY_BUCKET_SHARE = 0.5  # most occurrences of an identity recur in separate hours
+IDENTITY_VALUE_BUDGET = 2000  # effort budget: an identity field keys values up to this many
 MAX_BEHAVIOURS = 200_000  # effort budget: rows kept in the behaviour table
 SHAPE_CHARS = 64  # effort budget: characters that describe a generalised value
 EXAMPLE_CHARS = 400  # effort budget: raw characters kept on one behaviour
@@ -47,6 +50,9 @@ class Behaviour:
     action: str
     object_field: str
     object: str
+    actor_mode: str
+    action_mode: str
+    object_mode: str
     events: int
     first_seen: float
     last_seen: float
@@ -59,12 +65,46 @@ class Behaviour:
     example_latest: float
 
 
+@dataclass(frozen=True)
+class FieldIdentity:
+    """What a field's values do across events and time, per source."""
+
+    name: str
+    present: int
+    distinct: int
+    recurrence: float
+    bucket_share: float
+    identity: bool
+
+
+@dataclass(frozen=True)
+class IdentityPlan:
+    """Which fields key a behaviour and which are generalised, decided from the data."""
+
+    actor_field: str
+    actor_mode: str
+    action_field: str
+    action_mode: str
+    objects: tuple[tuple[str, str], ...]
+    overrides: tuple[Mapping[str, Any], ...]
+    stats: Mapping[str, FieldIdentity]
+
+    @property
+    def object_field(self) -> str:
+        return " ".join(name for name, _mode in self.objects) or "slots"
+
+    @property
+    def object_mode(self) -> str:
+        return "shape" if any(mode == "shape" for _name, mode in self.objects) else "literal"
+
+
 _COLUMNS = (
     "source_id VARCHAR, host VARCHAR, ts DOUBLE, actor_field VARCHAR, actor VARCHAR, "
     "action_field VARCHAR, action VARCHAR, object_field VARCHAR, object VARCHAR, "
+    "actor_mode VARCHAR, action_mode VARCHAR, object_mode VARCHAR, "
     "raw VARCHAR, query VARCHAR, earliest DOUBLE, latest DOUBLE"
 )
-_INSERT = "INSERT INTO events VALUES (" + ",".join("?" for _ in range(13)) + ")"
+_INSERT = "INSERT INTO events VALUES (" + ",".join("?" for _ in range(16)) + ")"
 
 
 def value_shape(value: str) -> str:
@@ -75,48 +115,174 @@ def value_shape(value: str) -> str:
     return shaped or value[:SHAPE_CHARS]
 
 
-def field_modes(fields: Sequence[str], events: Sequence[ExampleEvent]) -> dict[str, str]:
-    """Literal values for fields whose catalogue fits the effort budget, shapes otherwise."""
-    distinct: dict[str, set[str]] = {}
+def _value(fields: Mapping[str, str], name: str, mode: str) -> str:
+    value = (fields.get(name) or "").strip()
+    if not value or not mode:
+        return ""
+    return value if mode == "literal" else value_shape(value)
+
+
+def identity_stats(
+    fields: Sequence[str], events: Sequence[ExampleEvent]
+) -> dict[str, FieldIdentity]:
+    """Per field: recurrence and the share of occurrences seen in more than one hour."""
+    occurrences: dict[str, dict[str, int]] = {}
+    buckets: dict[str, dict[str, set[int]]] = {}
     for event in events:
+        bucket = int(event.ts // IDENTITY_BUCKET_SECONDS)
         for name in fields:
             value = (event.fields.get(name) or "").strip()
-            if value:
-                distinct.setdefault(name, set()).add(value)
-    return {
-        name: "literal" if len(distinct.get(name, ())) <= BEHAVIOUR_FIELD_VALUES else "shape"
-        for name in fields
-    }
+            if not value:
+                continue
+            per_value = occurrences.setdefault(name, {})
+            per_value[value] = per_value.get(value, 0) + 1
+            buckets.setdefault(name, {}).setdefault(value, set()).add(bucket)
+    stats: dict[str, FieldIdentity] = {}
+    for name in fields:
+        per_value = occurrences.get(name, {})
+        present = sum(per_value.values())
+        distinct = len(per_value)
+        recurrence = present / distinct if distinct else 0.0
+        recurring = sum(
+            count for value, count in per_value.items() if len(buckets[name][value]) >= 2
+        )
+        bucket_share = recurring / present if present else 0.0
+        identity = (
+            distinct >= 2
+            and recurrence >= IDENTITY_RECURRENCE
+            and bucket_share >= IDENTITY_BUCKET_SHARE
+            and distinct <= IDENTITY_VALUE_BUDGET
+        )
+        stats[name] = FieldIdentity(
+            name, present, distinct, round(recurrence, 3), round(bucket_share, 3), identity
+        )
+    return stats
 
 
-def _first_value(
-    fields: Mapping[str, str], names: Sequence[str], modes: Mapping[str, str]
-) -> tuple[str, str]:
-    for name in names:
-        value = (fields.get(name) or "").strip()
-        if value:
-            return name, value if modes.get(name) == "literal" else value_shape(value)
-    return "", ""
+def _choose(
+    names: Sequence[str], stats: Mapping[str, FieldIdentity], role: str
+) -> tuple[str, str, dict[str, Any] | None]:
+    """The first field whose values behave like an identity, else the first present, generalised."""
+    present = [name for name in names if name in stats and stats[name].present]
+    if not present:
+        return "", "", None
+    qualifying = [name for name in present if stats[name].identity]
+    chosen = qualifying[0] if qualifying else present[0]
+    safe = stats[chosen].identity or stats[chosen].distinct == 1
+    mode = "literal" if safe else "shape"
+    if chosen == present[0] and mode == "literal":
+        return chosen, mode, None
+    return (
+        chosen,
+        mode,
+        {
+            "role": role,
+            "chosen": chosen,
+            "first_present": present[0],
+            "identity": stats[chosen].identity,
+            "recurrence": stats[chosen].recurrence,
+            "bucket_share": stats[chosen].bucket_share,
+            "mode": mode,
+        },
+    )
+
+
+def identity_plan(card: SourceCard, events: Sequence[ExampleEvent]) -> IdentityPlan:
+    """Decide actor, action and object fields from recurrence across events and time."""
+    stats = identity_stats(role_fields(card), events)
+    overrides: list[Mapping[str, Any]] = []
+    if card.fmt == "template":
+        if "program" in stats and stats["program"].present:
+            actor_field, actor_mode = "program", "literal"
+        else:
+            candidates = [
+                name for name in card.role_fields("object") if name in stats and stats[name].present
+            ]
+            qualifying = [name for name in candidates if stats[name].identity]
+            actor_field = qualifying[0] if qualifying else ""
+            actor_mode = "literal" if qualifying else ""
+            if actor_field:
+                overrides.append(
+                    {"role": "actor", "chosen": actor_field, "reason": "first_identity_slot"}
+                )
+        action_field, action_mode = "template", "literal"
+        objects = tuple(
+            (
+                name,
+                "literal" if stats[name].identity or stats[name].distinct == 1 else "shape",
+            )
+            for name in card.role_fields("object")
+            if name in stats and stats[name].present and name != actor_field
+        )
+    else:
+        actor_field, actor_mode, actor_override = _choose(card.role_fields("actor"), stats, "actor")
+        action_field, action_mode, action_override = _choose(
+            card.role_fields("action"), stats, "action"
+        )
+        object_field, object_mode, object_override = _choose(
+            card.role_fields("object"), stats, "object"
+        )
+        overrides.extend(
+            item for item in (actor_override, action_override, object_override) if item
+        )
+        objects = ((object_field, object_mode),) if object_field else ()
+    return IdentityPlan(
+        actor_field,
+        actor_mode,
+        action_field,
+        action_mode,
+        objects,
+        tuple(overrides),
+        stats,
+    )
+
+
+def _query_terms(plan: IdentityPlan, fields: Mapping[str, str]) -> list[str]:
+    values = [_value(fields, plan.actor_field, plan.actor_mode)] if plan.actor_field else []
+    if plan.action_field and plan.action_field != "template":
+        values.append(_value(fields, plan.action_field, plan.action_mode))
+    values.extend(_value(fields, name, mode) for name, mode in plan.objects if mode == "literal")
+    return [value for value in values if value][:MAX_TERMS]
 
 
 def behaviour_key(
-    card: SourceCard, fields: Mapping[str, str], modes: Mapping[str, str]
+    card: SourceCard, fields: Mapping[str, str], plan: IdentityPlan
 ) -> tuple[str, str, str, str, str, str]:
     """(actor_field, actor, action_field, action, object_field, object) for one event."""
     if card.fmt == "template":
-        actor = (fields.get("program") or "").strip()
+        actor = _value(fields, plan.actor_field, plan.actor_mode)
         action = (fields.get("template") or "").strip()
-        slots = [
-            value if modes.get(name, "literal") == "literal" else value_shape(value)
-            for name in card.role_fields("object")
-            if (value := (fields.get(name) or "").strip())
-        ]
-        return ("program", actor, "template", action, "slots", " ".join(slots))
+        parts = [value for name, mode in plan.objects if (value := _value(fields, name, mode))]
+        return (plan.actor_field, actor, "template", action, "slots", " ".join(parts))
+    object_value = _value(fields, plan.objects[0][0], plan.objects[0][1]) if plan.objects else ""
     return (
-        *_first_value(fields, card.role_fields("actor"), modes),
-        *_first_value(fields, card.role_fields("action"), modes),
-        *_first_value(fields, card.role_fields("object"), modes),
+        plan.actor_field,
+        _value(fields, plan.actor_field, plan.actor_mode),
+        plan.action_field,
+        _value(fields, plan.action_field, plan.action_mode),
+        plan.object_field,
+        object_value,
     )
+
+
+def plan_summary(plan: IdentityPlan) -> dict[str, Any]:
+    """Recorded form of one source's keying decision, written back onto its card."""
+    return {
+        "actor": {"field": plan.actor_field, "mode": plan.actor_mode},
+        "action": {"field": plan.action_field, "mode": plan.action_mode},
+        "objects": [{"field": name, "mode": mode} for name, mode in plan.objects],
+        "overrides": [dict(item) for item in plan.overrides],
+        "fields": {
+            name: {
+                "present": stat.present,
+                "distinct": stat.distinct,
+                "recurrence": stat.recurrence,
+                "bucket_share": stat.bucket_share,
+                "identity": stat.identity,
+            }
+            for name, stat in sorted(plan.stats.items())
+        },
+    }
 
 
 def _quote(value: str) -> str:
@@ -176,35 +342,21 @@ def role_fields(card: SourceCard) -> list[str]:
 
 
 def keyed_rows(
-    card: SourceCard, facts: SourceFacts, events: Sequence[ExampleEvent]
+    card: SourceCard,
+    facts: SourceFacts,
+    events: Sequence[ExampleEvent],
+    plan: IdentityPlan | None = None,
 ) -> list[tuple[Any, ...]]:
     """One row per event: the behaviour key, the reproducing query and the event's window."""
-    modes = field_modes(role_fields(card), events)
+    plan = plan or identity_plan(card, events)
     rows: list[tuple[Any, ...]] = []
     for event in events:
         actor_field, actor, action_field, action, object_field, object_value = behaviour_key(
-            card, event.fields, modes
+            card, event.fields, plan
         )
         if not actor and not object_value:
             continue
-        if card.fmt == "template":
-            terms = [actor] + [
-                value
-                for name in card.role_fields("object")
-                if (value := (event.fields.get(name) or "").strip())
-                and modes.get(name) == "literal"
-            ]
-        else:
-            terms = [
-                value
-                for _field, value, mode in (
-                    (actor_field, actor, modes.get(actor_field, "shape")),
-                    (action_field, action, modes.get(action_field, "shape")),
-                    (object_field, object_value, modes.get(object_field, "shape")),
-                )
-                if mode == "literal"
-            ]
-        query = reproduction_query(facts, terms)
+        query = reproduction_query(facts, _query_terms(plan, event.fields))
         rows.append(
             (
                 event.source_id,
@@ -216,6 +368,9 @@ def keyed_rows(
                 action,
                 object_field,
                 object_value,
+                plan.actor_mode,
+                plan.action_mode,
+                plan.object_mode,
                 event.raw,
                 query,
                 event.earliest,
@@ -239,7 +394,8 @@ def aggregate_events(con: duckdb.DuckDBPyConnection) -> tuple[list[Behaviour], i
     """Group keyed events into behaviours and source statistics; return the kept table."""
     con.execute(
         "CREATE TABLE behaviour_all AS SELECT source_id, actor_field, actor, action_field,"
-        " action, object_field, object, count(*) AS events, min(ts) AS first_seen,"
+        " action, object_field, object, actor_mode, action_mode, object_mode,"
+        " count(*) AS events, min(ts) AS first_seen,"
         " max(ts) AS last_seen, count(DISTINCT NULLIF(host, '')) AS hosts,"
         " count(DISTINCT NULLIF(actor, '')) AS actors, arg_min(ts, ts) AS example_time,"
         " arg_min(query, ts) AS example_query, arg_min(raw, ts) AS example_raw,"
@@ -307,7 +463,7 @@ def _key_source(
     per_window: int,
     executor: HuntExecutor,
     started: float,
-) -> tuple[list[dict[str, Any]], int]:
+) -> tuple[list[dict[str, Any]], int, dict[str, dict[str, Any]]]:
     """Read one source once and key each of its structures' events into the store."""
     windows = window_bounds(facts.first, facts.last, BEHAVIOUR_WINDOWS)
     read = read_windows(
@@ -319,25 +475,29 @@ def _key_source(
         max_sources=BEHAVIOUR_SOURCES,
     )
     receipts: list[dict[str, Any]] = []
+    overrides: dict[str, dict[str, Any]] = {}
     total = 0
     for card in usable:
         events = _extract(card, read.rows, windows)
-        rows = keyed_rows(card, facts, events)
+        plan = identity_plan(card, events)
+        rows = keyed_rows(card, facts, events, plan)
         if rows:
             con.executemany(_INSERT, rows)
         total += len(rows)
-        receipts.append(
-            _source_receipt(
-                card,
-                facts,
-                read,
-                len(events),
-                len(rows),
-                time.monotonic() - started,
-                per_window,
-            )
+        summary = plan_summary(plan)
+        overrides[card.card_id] = summary
+        receipt = _source_receipt(
+            card,
+            facts,
+            read,
+            len(events),
+            len(rows),
+            time.monotonic() - started,
+            per_window,
         )
-    return receipts, total
+        receipt["identity"] = summary
+        receipts.append(receipt)
+    return receipts, total, overrides
 
 
 def collect_behaviours(
@@ -352,6 +512,7 @@ def collect_behaviours(
     usable_sources = sum(1 for group in grouped.values() if any(card.usable for card in group))
     skipped: list[dict[str, Any]] = []
     receipts: list[dict[str, Any]] = []
+    overrides: dict[str, dict[str, Any]] = {}
     per_window = per_window_events(usable_sources)
     store_path.parent.mkdir(parents=True, exist_ok=True)
     store_path.unlink(missing_ok=True)
@@ -385,20 +546,33 @@ def collect_behaviours(
                 )
                 continue
             started = time.monotonic()
-            found, count = _key_source(con, usable, facts, per_window, executor, started)
+            found, count, found_overrides = _key_source(
+                con, usable, facts, per_window, executor, started
+            )
             receipts.extend(found)
+            overrides.update(found_overrides)
             total += count
         behaviours, existed = aggregate_events(con)
     finally:
         con.close()
     counts: dict[str, int] = {}
+    singletons: dict[str, int] = {}
     for behaviour in behaviours:
         counts[behaviour.source_id] = counts.get(behaviour.source_id, 0) + 1
+        if behaviour.events == 1:
+            singletons[behaviour.source_id] = singletons.get(behaviour.source_id, 0) + 1
     for item in receipts:
-        item["behaviours"] = counts.get(str(item.get("source_id")), 0)
+        source = str(item.get("source_id"))
+        distinct = counts.get(source, 0)
+        once = singletons.get(source, 0)
+        item["behaviours"] = distinct
+        item["singletons"] = once
+        item["singleton_share"] = round(once / distinct, 3) if distinct else None
     return behaviours, {
         "receipts": receipts,
         "skipped": skipped,
+        "identity_overrides": overrides,
+        "singletons": sum(singletons.values()),
         "events_read": total,
         "per_window": per_window,
         "behaviours_existed": existed,

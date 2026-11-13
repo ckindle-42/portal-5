@@ -23,8 +23,7 @@ MIN_TEMPLATE_LINES = 3  # a template needs this many lines to be kept
 MIN_TEMPLATE_TOKENS = 2  # a message template needs this many tokens
 MAX_TEMPLATES_PER_PROGRAM = 12  # effort budget: templates kept for one program
 MAX_TEMPLATES_PER_SOURCE = 24  # effort budget: templates kept for one source
-MAX_TEMPLATE_SLOTS = 6  # effort budget: recurring slots carried into a behaviour key
-TEMPLATE_SLOT_VALUES = 2000  # effort budget: a slot stays literal up to this many values
+MAX_TEMPLATE_SLOTS = 6  # effort budget: variable positions carried from one template
 TIME_ORDER_SHARE = 0.9  # a value that moves with event order is time or a sequence
 MAX_PARTITIONS = 8  # effort budget: distinct structures one source is split into
 MIN_PARTITION_LINES = 4  # a part needs this many sampled events to be described
@@ -263,23 +262,13 @@ def _mine(program: str, messages: Sequence[Sequence[str]]) -> list[Template]:
     return templates
 
 
-def _with_slots(template: Template, messages: Sequence[Sequence[str]]) -> Template:
-    """Recurring slot values only; a value that repeats is an identity, a unique one is an id."""
-    matching = [message for message in messages if template.matches(message)]
-    slots: list[tuple[int, str]] = []
-    for position in range(len(template.tokens)):
-        if template.tokens[position] is not None:
-            continue
-        values = [message[position] for message in matching]
-        distinct = len(set(values))
-        if len(values) < MIN_TEMPLATE_LINES or distinct >= len(values):
-            continue
-        if distinct > TEMPLATE_SLOT_VALUES:
-            continue
-        slots.append((position, f"s{len(slots) + 1}"))
-        if len(slots) >= MAX_TEMPLATE_SLOTS:
-            break
-    return Template(template.program, template.tokens, template.count, tuple(slots))
+def _slot_fields(template: Template) -> Template:
+    """Every variable position becomes a field; the behaviour stage decides which are identities."""
+    positions = [index for index, token in enumerate(template.tokens) if token is None][
+        :MAX_TEMPLATE_SLOTS
+    ]
+    slots = tuple((position, f"v{index + 1}") for index, position in enumerate(positions))
+    return Template(template.program, template.tokens, template.count, slots)
 
 
 def learn_templates(lines: Sequence[str]) -> TemplateModel | None:
@@ -308,9 +297,7 @@ def learn_templates(lines: Sequence[str]) -> TemplateModel | None:
         selected.extend(templates[:MAX_TEMPLATES_PER_PROGRAM])
     selected.sort(key=lambda item: (-item.count, item.program, item.text))
     selected = selected[:MAX_TEMPLATES_PER_SOURCE]
-    with_slots = [
-        _with_slots(template, by_program.get(template.program, [])) for template in selected
-    ]
+    with_slots = [_slot_fields(template) for template in selected]
     states: dict[str, Any] = {"existed": len(kept), "kept": len(with_slots), "lines": len(rows)}
     model = TemplateModel(header_tokens, program_position, tuple(with_slots), states)
     explained = sum(1 for line in lines if model.parse(line).fields)

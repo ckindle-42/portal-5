@@ -274,6 +274,20 @@ def cards_stage(
     return receipt
 
 
+def _write_role_overrides(out: Path, overrides: Mapping[str, Any]) -> None:
+    """Record each source's keying decision on its card so the override is auditable."""
+    payload = read_json(out / SOURCES_FILE)
+    cards = payload.get("cards")
+    if not isinstance(cards, list) or not overrides:
+        return
+    for card in cards:
+        if isinstance(card, dict):
+            summary = overrides.get(str(card.get("card_id") or ""))
+            if summary is not None:
+                card["role_overrides"] = summary
+    write_json(out / SOURCES_FILE, payload)
+
+
 def behaviours_stage(*, out: Path, search: Search) -> tuple[list[Behaviour], dict[str, Any]]:
     """Count distinct behaviours for every activity source on DuckDB, declaring coverage."""
     cards = load_cards(out)
@@ -281,6 +295,8 @@ def behaviours_stage(*, out: Path, search: Search) -> tuple[list[Behaviour], dic
     behaves, receipt = collect_behaviours(
         executor_for(search), cards, facts_by_source(cards), out / STORE_FILE
     )
+    _write_role_overrides(out, receipt.get("identity_overrides") or {})
+    receipt.pop("identity_overrides", None)
     receipt["seconds_total"] = round(time.monotonic() - began, 3)
     receipt["peak_memory_mb"] = peak_memory_mb()
     progress_update(out, "behaviours", receipt)

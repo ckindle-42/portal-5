@@ -11,7 +11,8 @@ from portal.modules.security.core.hunt.notables.behaviours import (
     behaviour_key,
     collect_behaviours,
     create_events,
-    field_modes,
+    identity_plan,
+    identity_stats,
     keyed_rows,
     load_behaviours,
     load_source_stats,
@@ -20,18 +21,20 @@ from portal.modules.security.core.hunt.notables.behaviours import (
     window_bounds,
 )
 from portal.modules.security.core.hunt.notables.cards import SourceCard
+from portal.modules.security.core.hunt.notables.receipt import read_json, write_json
+from portal.modules.security.core.hunt.notables.run import _write_role_overrides
 from portal.modules.security.core.hunt.notables.sample import SourceFacts
 
 
-def _card() -> SourceCard:
+def _card(roles: dict[str, tuple[str, ...]] | None = None, fmt: str = "json") -> SourceCard:
     return SourceCard(
         index="ix",
         sourcetype="st",
         kind="activity",
-        roles={"actor": ("user",), "action": ("image",), "object": ("path",)},
+        roles=roles or {"actor": ("user",), "action": ("image",), "object": ("path",)},
         understood=True,
         reason=None,
-        fmt="json",
+        fmt=fmt,
         coverage=1.0,
         fields=(),
         sample={},
@@ -45,63 +48,132 @@ def _facts() -> SourceFacts:
     return SourceFacts("ix", "st", 10, 0.0, 7200.0, ("h1",), 1, ("s1",), 1)
 
 
-def _event(index: int, user: str, raw: str = "") -> ExampleEvent:
+def _event(
+    ts: float,
+    user: str = "",
+    *,
+    image: str = "cmd.exe",
+    path: str = "",
+    pid: str = "",
+    program: str = "",
+    template: str = "",
+    v1: str = "",
+    v2: str = "",
+) -> ExampleEvent:
+    fields = {
+        "user": user,
+        "image": image,
+        "path": path,
+        "pid": pid,
+        "program": program,
+        "template": template,
+        "v1": v1,
+        "v2": v2,
+    }
     return ExampleEvent(
         "ix:st",
         "h1",
-        float(index),
-        raw or raw,
-        {"user": user, "image": "cmd.exe", "path": f"/tmp/{index}"},
+        ts,
+        "raw",
+        {name: value for name, value in fields.items() if value},
         0.0,
         3600.0,
     )
 
 
-def test_value_shape_keeps_classes_and_field_modes_respect_the_effort_budget(monkeypatch):
+def _identity_events() -> list[ExampleEvent]:
+    """bob and amy recur across two hours; pid is new on every event."""
+    events = [
+        _event(1.0, "bob", pid="7916"),
+        _event(2.0, "bob", pid="7917"),
+        _event(3.0, "amy", pid="7918"),
+        _event(3601.0, "bob", pid="7919"),
+        _event(3602.0, "bob", pid="7920"),
+        _event(3603.0, "amy", pid="7921"),
+    ]
+    for index, event in enumerate(events):
+        event.fields["path"] = f"/tmp/{index}"  # type: ignore[index]
+    return events
+
+
+def test_value_shape_keeps_character_classes():
     assert value_shape("ab12-CD") == "aa99-aa"
     assert value_shape("") == ""
-    events = [_event(index, "bob" if index < 2 else "amy") for index in range(4)]
-    modes = field_modes(["user"], events)
-    assert modes["user"] == "literal"
-    monkeypatch.setattr(
-        "portal.modules.security.core.hunt.notables.behaviours.BEHAVIOUR_FIELD_VALUES", 1
-    )
-    assert field_modes(["user"], events)["user"] == "shape"
 
 
-def test_behaviour_key_uses_the_first_present_role_field_and_shapes_variety():
-    fields = {"user": "bob", "image": "cmd.exe", "path": "/tmp/1"}
-    literal = behaviour_key(
-        _card(), fields, {"user": "literal", "image": "literal", "path": "shape"}
+def test_identity_needs_recurrence_across_events_and_hours():
+    stats = identity_stats(["user", "pid"], _identity_events())
+    assert stats["user"].present == 6
+    assert stats["user"].distinct == 2
+    assert stats["user"].recurrence == 3.0
+    assert stats["user"].bucket_share == 1.0
+    assert stats["user"].identity is True
+    assert stats["pid"].distinct == 6
+    assert stats["pid"].identity is False
+
+
+def test_the_actor_is_the_first_identity_field_and_the_override_is_recorded():
+    card = _card(
+        {
+            "actor": ("pid", "user"),
+            "action": ("image",),
+            "object": ("path",),
+        }
     )
-    assert literal == ("user", "bob", "image", "cmd.exe", "path", "/aaa/9")
-    shaped = behaviour_key(
-        _card(), fields, {"user": "shape", "image": "literal", "path": "literal"}
+    plan = identity_plan(card, _identity_events())
+    assert plan.actor_field == "user"
+    assert plan.actor_mode == "literal"
+    assert plan.overrides[0]["role"] == "actor"
+    assert plan.overrides[0]["chosen"] == "user"
+    assert plan.overrides[0]["first_present"] == "pid"
+
+
+def test_a_field_with_no_identity_is_generalised_and_a_constant_stays_literal():
+    card = _card({"actor": ("pid",), "action": ("image",), "object": ("path",)})
+    plan = identity_plan(card, _identity_events())
+    assert plan.actor_field == "pid"
+    assert plan.actor_mode == "shape"
+    assert plan.action_mode == "literal"  # constant image
+    assert plan.overrides[0]["mode"] == "shape"
+
+
+def test_behaviour_key_uses_the_plan_modes():
+    card = _card({"actor": ("pid", "user"), "action": ("image",), "object": ("path",)})
+    plan = identity_plan(card, _identity_events())
+    fields = {"pid": "7916", "user": "bob", "image": "cmd.exe", "path": "/tmp/1"}
+    assert behaviour_key(card, fields, plan) == (
+        "user",
+        "bob",
+        "image",
+        "cmd.exe",
+        "path",
+        "/aaa/9",
     )
-    assert shaped[0:2] == ("user", "aaa")
 
 
 def test_keyed_row_reproduces_every_literal_part_of_the_key():
     card = _card()
-    rows = keyed_rows(card, _facts(), [_event(7, "bob", "raw line")])
-    assert len(rows) == 1
-    query = str(rows[0][10])
+    rows = keyed_rows(card, _facts(), _identity_events())
+    assert len(rows) == 6
+    query = str(rows[0][13])
     assert 'TERM("bob")' in query
     assert 'TERM("cmd.exe")' in query
-    assert 'TERM("/tmp/7")' in query
+    assert "/tmp/0" not in query
     assert 'index="ix"' in query
-    assert rows[0][11] == 0.0 and rows[0][12] == 3600.0
+    assert rows[0][14] == 0.0 and rows[0][15] == 3600.0
 
 
-def test_a_generalised_value_is_left_out_of_the_query(monkeypatch):
+def test_an_identity_over_the_value_budget_is_generalised(monkeypatch):
     monkeypatch.setattr(
-        "portal.modules.security.core.hunt.notables.behaviours.BEHAVIOUR_FIELD_VALUES", 1
+        "portal.modules.security.core.hunt.notables.behaviours.IDENTITY_VALUE_BUDGET", 1
     )
     card = _card()
-    rows = keyed_rows(card, _facts(), [_event(7, "bob"), _event(8, "bob")])
-    query = str(rows[0][10])
-    assert 'TERM("bob")' in query
-    assert "/tmp/7" not in query and "/tmp/8" not in query
+    plan = identity_plan(card, _identity_events())
+    assert plan.actor_mode == "shape"
+    rows = keyed_rows(card, _facts(), _identity_events(), plan)
+    query = str(rows[0][13])
+    assert 'TERM("bob")' not in query
+    assert 'TERM("cmd.exe")' in query
 
 
 def test_a_part_card_keys_only_its_own_events():
@@ -131,48 +203,46 @@ def test_a_part_card_keys_only_its_own_events():
     assert [event.fields["user"] for event in events] == ["bob", "amy"]
 
 
-def test_a_template_behaviour_is_program_template_and_slot_values():
-    card = SourceCard(
-        index="ix",
-        sourcetype="st",
-        kind="activity",
-        roles={"actor": ("program",), "action": ("template",), "object": ("s1", "s2")},
-        understood=True,
-        reason=None,
+def test_a_template_behaviour_is_program_template_and_identity_slots():
+    card = _card(
+        {"actor": ("program",), "action": ("template",), "object": ("v1", "v2")},
         fmt="template",
-        coverage=1.0,
-        fields=(),
-        sample={},
-        facts={},
-        model={},
-        cache_key="key",
     )
-    fields = {
-        "program": "sshd",
-        "template": "Accepted password for *",
-        "s1": "bob",
-        "s2": "10.0.0.5",
-    }
-    key = behaviour_key(card, fields, {"s1": "literal", "s2": "literal"})
-    assert key == (
-        "program",
-        "sshd",
-        "template",
-        "Accepted password for *",
-        "slots",
-        "bob 10.0.0.5",
-    )
-    event = ExampleEvent("ix:st", "h1", 1.0, "raw", fields, 0.0, 3600.0)
-    query = str(keyed_rows(card, _facts(), [event])[0][10])
+    events = [
+        _event(1.0, program="sshd", template="Accepted *", v1="bob", v2="10.0.0.5"),
+        _event(2.0, program="sshd", template="Accepted *", v1="amy", v2="10.0.0.6"),
+        _event(3601.0, program="sshd", template="Accepted *", v1="bob", v2="10.0.0.5"),
+        _event(3602.0, program="sshd", template="Accepted *", v1="amy", v2="10.0.0.6"),
+    ]
+    plan = identity_plan(card, events)
+    assert plan.actor_field == "program"
+    assert [mode for _name, mode in plan.objects] == ["literal", "literal"]
+    key = behaviour_key(card, events[0].fields, plan)
+    assert key == ("program", "sshd", "template", "Accepted *", "slots", "bob 10.0.0.5")
+    query = str(keyed_rows(card, _facts(), events, plan)[0][13])
     assert 'TERM("sshd")' in query
     assert 'TERM("bob")' in query
     assert 'TERM("10.0.0.5")' in query
-    assert "Accepted password" not in query
+
+
+def test_a_template_without_a_program_takes_its_first_identity_slot_as_actor():
+    card = _card(
+        {"actor": ("program",), "action": ("template",), "object": ("v1", "v2")}, fmt="template"
+    )
+    events = [
+        _event(1.0, template="* - - *", v1="1.2.3.4", v2="GET"),
+        _event(2.0, template="* - - *", v1="1.2.3.5", v2="GET"),
+        _event(3601.0, template="* - - *", v1="1.2.3.4", v2="POST"),
+        _event(3602.0, template="* - - *", v1="1.2.3.5", v2="POST"),
+    ]
+    plan = identity_plan(card, events)
+    assert plan.actor_field == "v1"
+    assert plan.overrides[0]["reason"] == "first_identity_slot"
 
 
 def test_an_event_with_neither_actor_nor_object_is_not_a_behaviour():
-    card = _card()
-    event = ExampleEvent("ix:st", "h1", 1.0, "raw", {"image": "stats"}, 0.0, 3600.0)
+    card = _card({"actor": ("user",), "action": ("image",), "object": ()})
+    event = _event(1.0, image="stats")
     assert keyed_rows(card, _facts(), [event]) == []
 
 
@@ -214,35 +284,27 @@ class _RowsExecutor:
         return Read([dict(row) for row in self.rows], False, None)
 
 
-def test_each_source_reports_its_own_distinct_behaviour_count(tmp_path):
-    card = SourceCard(
-        index="ix",
-        sourcetype="st",
-        kind="activity",
-        roles={"actor": ("user",), "action": ("image",)},
-        understood=True,
-        reason=None,
-        fmt="json",
-        coverage=1.0,
-        fields=(),
-        sample={},
-        facts={},
-        model={},
-        cache_key="key",
-    )
+def test_each_source_reports_behaviours_and_singletons(tmp_path):
+    card = _card({"actor": ("user",), "action": ("image",), "object": ()})
     rows = [
         {"_raw": '{"user": "bob", "image": "cmd.exe"}', "_time": 1.0, "host": "h1"},
-        {"_raw": '{"user": "bob", "image": "cmd.exe"}', "_time": 2.0, "host": "h2"},
-        {"_raw": '{"user": "amy", "image": "cmd.exe"}', "_time": 3.0, "host": "h1"},
+        {"_raw": '{"user": "bob", "image": "cmd.exe"}', "_time": 3601.0, "host": "h1"},
+        {"_raw": '{"user": "bob", "image": "cmd.exe"}', "_time": 3602.0, "host": "h2"},
+        {"_raw": '{"user": "amy", "image": "cmd.exe"}', "_time": 2.0, "host": "h1"},
+        {"_raw": '{"user": "amy", "image": "cmd.exe"}', "_time": 3603.0, "host": "h1"},
     ]
     behaviours, receipt = collect_behaviours(
         _RowsExecutor(rows),  # type: ignore[arg-type]
         [card],
-        {"ix:st": SourceFacts("ix", "st", 3, 0.0, 3600.0, ("h1",), 1, ("s1",), 1)},
+        {"ix:st": SourceFacts("ix", "st", 5, 0.0, 7200.0, ("h1",), 1, ("s1",), 1)},
         tmp_path / "b.duckdb",
     )
     assert len(behaviours) == 2
-    assert receipt["receipts"][0]["behaviours"] == 2
+    entry = receipt["receipts"][0]
+    assert entry["behaviours"] == 2
+    assert entry["singletons"] == 0
+    assert entry["singleton_share"] == 0.0
+    assert entry["identity"]["actor"]["field"] == "user"
 
 
 def test_the_behaviour_printer_survives_a_partial_receipt(capsys):
@@ -256,6 +318,17 @@ def test_the_behaviour_printer_survives_a_partial_receipt(capsys):
     output = capsys.readouterr().out
     assert "skipped ix:other: no_roles" in output
     assert "behaviours: events_read=0" in output
+
+
+def test_role_overrides_are_written_back_onto_the_cards(tmp_path):
+    write_json(
+        tmp_path / "sources.json",
+        {"cards": [{"card_id": "ix:st", "source_id": "ix:st"}, {"card_id": "ix:other"}]},
+    )
+    _write_role_overrides(tmp_path, {"ix:st": {"actor": {"field": "user", "mode": "literal"}}})
+    payload = read_json(tmp_path / "sources.json")
+    assert payload["cards"][0]["role_overrides"]["actor"]["field"] == "user"
+    assert "role_overrides" not in payload["cards"][1]
 
 
 def test_window_bounds_slices_a_range_deterministically():
@@ -272,7 +345,7 @@ def test_per_window_events_never_exceeds_the_slice_budget():
 
 def _insert(con: duckdb.DuckDBPyConnection, row: tuple[object, ...]) -> None:
     con.execute(
-        "INSERT INTO events VALUES (" + ",".join("?" for _ in range(13)) + ")",
+        "INSERT INTO events VALUES (" + ",".join("?" for _ in range(16)) + ")",
         list(row),
     )
 
@@ -292,6 +365,9 @@ def test_aggregate_counts_behaviours_and_source_possible_sharers(tmp_path):
             "cmd.exe",
             "path",
             "shape",
+            "literal",
+            "literal",
+            "shape",
             "raw",
             "q",
             0.0,
@@ -306,6 +382,9 @@ def test_aggregate_counts_behaviours_and_source_possible_sharers(tmp_path):
             "image",
             "cmd.exe",
             "path",
+            "shape",
+            "literal",
+            "literal",
             "shape",
             "raw",
             "q",
@@ -322,6 +401,9 @@ def test_aggregate_counts_behaviours_and_source_possible_sharers(tmp_path):
             "cmd.exe",
             "path",
             "shape",
+            "literal",
+            "literal",
+            "shape",
             "raw",
             "q",
             0.0,
@@ -336,6 +418,7 @@ def test_aggregate_counts_behaviours_and_source_possible_sharers(tmp_path):
     top = behaviours[0]
     assert (top.actor, top.action, top.events, top.hosts) == ("bob", "cmd.exe", 2, 2)
     assert (top.example_earliest, top.example_latest) == (10.0, 20.0)
+    assert (top.actor_mode, top.action_mode, top.object_mode) == ("literal", "literal", "shape")
     assert [item.actor for item in behaviours] == ["bob", "amy"]
     loaded = load_behaviours(path)
     assert len(loaded) == 2

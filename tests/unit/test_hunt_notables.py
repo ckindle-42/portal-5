@@ -252,10 +252,10 @@ def test_a_line_oriented_log_is_mined_into_a_header_and_templates():
     assert model.states["explained"] == 6
     assert parsed[0].fields["program"] == "sshd"
     assert parsed[0].fields["template"] == "* password for * from * port 22 ssh2"
-    assert parsed[0].fields["s1"] == "Accepted"
-    assert parsed[0].fields["s2"] == "bob"
-    assert parsed[0].fields["s3"] == "10.0.0.5"
-    assert parsed[3].fields["s1"] == "Failed"
+    assert parsed[0].fields["v1"] == "Accepted"
+    assert parsed[0].fields["v2"] == "bob"
+    assert parsed[0].fields["v3"] == "10.0.0.5"
+    assert parsed[3].fields["v1"] == "Failed"
 
 
 def test_template_events_read_with_the_learned_model_after_the_sample():
@@ -263,7 +263,7 @@ def test_template_events_read_with_the_learned_model_after_the_sample():
     assert model is not None
     row = parse_row(_SYSLOG[5], "template", template=model)
     assert row.fields["program"] == "sshd"
-    assert row.fields["s2"] == "bob"
+    assert row.fields["v2"] == "bob"
     assert parse_row(_SYSLOG[5], "template", template=None).fields == {}
 
 
@@ -281,7 +281,7 @@ def test_a_line_oriented_source_is_one_card_and_is_never_partitioned_on_time(tmp
     assert card.kind == "activity"
     assert card.roles["actor"] == ("program",)
     assert card.roles["action"] == ("template",)
-    assert "s1" in card.roles["object"]
+    assert "v1" in card.roles["object"]
     assert card.template_model is not None
     assert len(client.calls) == 0
 
