@@ -547,7 +547,18 @@ def expand_matrix(
                 task_ids = (
                     {str(task_id) for task_id in home_tasks} if home_tasks is not None else None
                 )
-                rows += _suite_rows(ws_id, spec, role, suite, home, tier, n, only_task, task_ids)
+                rows += _suite_rows(
+                    ws_id,
+                    spec,
+                    role,
+                    suite,
+                    home,
+                    tier,
+                    n,
+                    only_task,
+                    task_ids,
+                    wl.get("source_workspace"),
+                )
     # Arm-major: every task for a model runs while its weights are resident.
     rows.sort(key=lambda r: (r["arm"], r["workspace"], r["suite"], r["task_id"], r["repeat"]))
     return _with_tool_modes(rows, plan)
@@ -647,7 +658,16 @@ def _planned_arms(arms: dict, ws_id: str, only_arm: str | None, want: set | None
 
 
 def _suite_rows(
-    ws_id, spec, role, suite, home, tier, repeats, only_task, task_ids: set[str] | None = None
+    ws_id,
+    spec,
+    role,
+    suite,
+    home,
+    tier,
+    repeats,
+    only_task,
+    task_ids: set[str] | None = None,
+    source_workspace: str | None = None,
 ) -> list[dict]:
     """Every row one (workspace, arm, suite) contributes at this tier."""
     suite_path = SUITE_DIR / f"{suite}.jsonl"
@@ -668,7 +688,7 @@ def _suite_rows(
         # A real-use task names the workspace it was written for: running it in another
         # would grade the wrong seat's tools and prompt. A variant lane is its base.
         declared = str(task.get("workspace") or "")
-        if declared and declared not in (ws_id, ws_id.split("::", 1)[0]):
+        if declared and declared not in {ws_id, ws_id.split("::", 1)[0], source_workspace}:
             continue
         if tier == "screen" and not task.get("screen"):
             continue

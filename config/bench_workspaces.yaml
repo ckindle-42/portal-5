@@ -671,7 +671,7 @@ workspaces:
     module: eval
     router: false
     name: Bench engine · hunt
-    description: hunt-reasoning seat on gemma-4-26b-a4b-it-QAT-4bit. No think field; the seat does not set one.
+    description: hunt-reasoning seat with the registered WFE PDF quality probe enabled. No think field; the seat does not set one.
     model_hint: gemma-4-26b-a4b-it-QAT-4bit
     context_limit: 8192
     temperature: 0.0
@@ -679,14 +679,15 @@ workspaces:
       reason: the hunt parses JSON answers from this seat; 0.0 is the requested deterministic decode and the card's 1.0 is chat guidance
       evidence: pending
     max_concurrent: 8
-    tools: []
+    tools:
+    - read_pdf
     expose_to_owui: false
     enable_web_search: false
   bench-engine-council-json:
     module: eval
     router: false
     name: Bench engine · council JSON
-    description: compliance-council-qwen38 sampling on plain Qwen3.8-27B-4bit. Not the oQ4e-mtp sidecar.
+    description: compliance-council-qwen38 sampling on plain Qwen3.8-27B-4bit with its registered WFE coding probe enabled. Not the oQ4e-mtp sidecar.
     model_hint: Qwen3.8-27B-4bit
     context_limit: 32768
     predict_limit: 8192
@@ -698,6 +699,7 @@ workspaces:
     presence_penalty: 1.5
     think: false
     emits_reasoning: false
-    tools: []
+    tools:
+    - execute_python
     expose_to_owui: false
     enable_web_search: false

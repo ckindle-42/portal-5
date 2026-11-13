@@ -72,7 +72,8 @@ engines:
     # auto-loads an MTP head or a drafter/ subdir it finds — plain must turn all three off.
     plain: [mlx-serve, --serve, --model, "{mlx_root}/{model_dir}", --host, 127.0.0.1, --port, "{port}", --ctx-size, "{ctx}", --no-pld, --no-drafter, --no-mtp]
     base_spec: [mlx-serve, --serve, --model, "{mlx_root}/{model_dir}", --host, 127.0.0.1, --port, "{port}", --ctx-size, "{ctx}"]
-    stop_signal: INT
+    stop_signal: TERM
+    readiness: {path: /v1/models, timeout_s: 900, collection: data, id_field: id, state_field: state, ready_state: ready, loaded_field: loaded}
   rapid-mlx:
     kind: managed
     requires: mlx
@@ -85,6 +86,7 @@ engines:
     plain: [rapid-mlx, --no-telemetry, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --no-spec-decode, --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}"]
     base_spec: [rapid-mlx, --no-telemetry, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}"]
     stop_signal: INT
+    readiness: {path: /v1/models, timeout_s: 900, collection: data, id_field: id}
   vllm-mlx:
     kind: managed
     requires: mlx
@@ -98,6 +100,7 @@ engines:
     plain: [uvx, --from, vllm-mlx==0.6.0, vllm-mlx, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}", --continuous-batching, --default-chat-template-kwargs, '{"enable_thinking": false}']
     base_spec: [uvx, --from, vllm-mlx==0.6.0, vllm-mlx, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}", --continuous-batching, --default-chat-template-kwargs, '{"enable_thinking": false}']
     stop_signal: INT
+    readiness: {path: /v1/models, timeout_s: 900, collection: data, id_field: id}
   mlx_lm.server:
     kind: managed
     requires: mlx
@@ -111,6 +114,7 @@ engines:
     # Measured: mlx_lm.server ignores SIGINT.
     stop_signal: TERM
     list_models_is_cache: true
+    readiness: {path: /v1/models, timeout_s: 900, collection: data, id_field: id}
   prismml-llama:
     kind: managed
     requires: gguf
@@ -119,6 +123,7 @@ engines:
     plain: ["{llama_server}", -m, "{gguf_path}", -ngl, "99", -c, "{ctx}", --jinja, --alias, "{served}", --host, 127.0.0.1, --port, "{port}"]
     base_spec: ["{llama_server}", -m, "{gguf_path}", -ngl, "99", -c, "{ctx}", --jinja, --alias, "{served}", --host, 127.0.0.1, --port, "{port}", "{spec_args}"]
     stop_signal: INT
+    readiness: {path: /v1/models, timeout_s: 900, collection: data, id_field: id}
   brew-llama:
     kind: managed
     requires: gguf
@@ -127,6 +132,7 @@ engines:
     plain: ["{llama_server}", -m, "{gguf_path}", -ngl, "99", -c, "{ctx}", --jinja, --alias, "{served}", --host, 127.0.0.1, --port, "{port}"]
     base_spec: ["{llama_server}", -m, "{gguf_path}", -ngl, "99", -c, "{ctx}", --jinja, --alias, "{served}", --host, 127.0.0.1, --port, "{port}", "{spec_args}"]
     stop_signal: INT
+    readiness: {path: /v1/models, timeout_s: 900, collection: data, id_field: id}
   prismml-mlx:
     kind: managed
     requires: prismml_mlx
@@ -135,6 +141,7 @@ engines:
     plain: ["{python}", "{mlx_server_script}", --model-dir, "{mlx_root}/{model_dir}", --host, 127.0.0.1, --port, "{port}", --ctx, "{ctx}"]
     base_spec: ["{python}", "{mlx_server_script}", --model-dir, "{mlx_root}/{model_dir}", --host, 127.0.0.1, --port, "{port}", --ctx, "{ctx}", "{spec_args}"]
     stop_signal: INT
+    readiness: {path: /v1/models, timeout_s: 900, collection: data, id_field: id}
   mtplx:
     kind: managed
     requires: mtplx
@@ -152,6 +159,7 @@ engines:
     plain: [mtplx, serve, --model, "{model_root}/{model_dir}", --model-id, "{served}", --host, 127.0.0.1, --port, "{port}", --no-auth, --yes, --context-window, "{ctx}", --profile, sustained, --no-stats-footer, --ssd-session-cache, "off", --tool-prompt-mode, native, --no-mtp]
     base_spec: [mtplx, serve, --model, "{model_root}/{model_dir}", --model-id, "{served}", --host, 127.0.0.1, --port, "{port}", --no-auth, --yes, --context-window, "{ctx}", --profile, sustained, --no-stats-footer, --ssd-session-cache, "off", --tool-prompt-mode, native, "{spec_args}"]
     stop_signal: INT
+    readiness: {path: /v1/models, timeout_s: 900, collection: data, id_field: id}
   splash:
     kind: managed
     requires: splash
@@ -169,6 +177,7 @@ engines:
     plain: [splash, serve, --model, "{splash_model}", --host, 127.0.0.1, --port, "{port}", --max-context, "{ctx}", --max-cache-disk, "0", --language-only, "{splash_extra}"]
     base_spec: [splash, serve, --model, "{splash_model}", --host, 127.0.0.1, --port, "{port}", --max-context, "{ctx}", --max-cache-disk, "0", --language-only, "{splash_extra}"]
     stop_signal: INT
+    readiness: {path: /v1/models, timeout_s: 900, collection: data, id_field: id}
   mlxcel:
     kind: managed
     requires: mlx
@@ -183,6 +192,7 @@ engines:
     plain: [mlxcel, serve, -m, "{mlx_root}/{model_dir}", --alias, "{served}", --host, 127.0.0.1, --port, "{port}", --ctx-size, "{ctx}", --parallel, "4", --kv-unified]
     base_spec: [mlxcel, serve, -m, "{mlx_root}/{model_dir}", --alias, "{served}", --host, 127.0.0.1, --port, "{port}", --ctx-size, "{ctx}", --parallel, "4", --kv-unified]
     stop_signal: INT
+    readiness: {path: /v1/models, timeout_s: 900, collection: data, id_field: id}
   vllm-metal:
     kind: managed
     requires: mlx
@@ -210,6 +220,7 @@ engines:
     # Qwen3.8 processor.
     plain: [vllm, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --trust-remote-code, --host, 127.0.0.1, --port, "{port}", --gpu-memory-utilization, "0.45", --max-model-len, "{ctx}"]
     base_spec: [vllm, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --trust-remote-code, --host, 127.0.0.1, --port, "{port}", --gpu-memory-utilization, "0.45", --max-model-len, "{ctx}", --no-async-scheduling, --speculative-config, "{spec_args}"]
+    readiness: {path: /v1/models, timeout_s: 900, collection: data, id_field: id}
 
 models:
   mimo:
@@ -623,6 +634,7 @@ models:
   "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k":
     source_repo: mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF
     gguf:
+      path: /Volumes/data01/ollama/models/blobs/sha256-261dd5feb414b973867491cc98e29f0b104d1a22f36299d8aea43421f835fa54
       repo: mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF
       file: gemma-4-E4B-it-OBLITERATED.Q4_K_M.gguf
     ollama: hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k

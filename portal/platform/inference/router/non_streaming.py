@@ -104,10 +104,28 @@ class BackendRequestError(Exception):
     into an opaque 502 after sending the request to unrelated models.
     """
 
-    def __init__(self, status_code: int, detail: str) -> None:
+    def __init__(self, status_code: int, detail: str, raw_body: bytes = b"") -> None:
         super().__init__(f"HTTP {status_code}: {detail}")
         self.status_code = status_code
         self.detail = detail
+        self.raw_body = raw_body
+
+
+def _log_eval_upstream_error(
+    backend: Any, workspace_id: str, model_id: str, status: int, raw_body: bytes | str
+) -> None:
+    """Keep candidate-engine rejection details in Pipeline logs for bench/eval requests."""
+    if getattr(backend, "type", "") != EVAL_OPENAI:
+        return
+    body = raw_body.decode("utf-8", "replace") if isinstance(raw_body, bytes) else raw_body
+    logger.error(
+        "Backend %s upstream HTTP %d for workspace=%s model=%s body=%s",
+        backend.id,
+        status,
+        workspace_id,
+        model_id,
+        body[:500],
+    )
 
 
 #: Statuses meaning the request itself is malformed. 404 (model not on this
@@ -198,7 +216,7 @@ def _raise_for_backend_status(resp: httpx.Response) -> None:
         if resp.status_code == 400 and _is_capacity_error(detail):
             resp.raise_for_status()  # a capacity rejection, not a bad request — cascade
             return
-        raise BackendRequestError(resp.status_code, detail)
+        raise BackendRequestError(resp.status_code, detail, resp.content)
     resp.raise_for_status()
 
 
@@ -1435,27 +1453,42 @@ async def _try_non_streaming(
                 model_elapsed_s=max(0.0, time.monotonic() - _model_started),
                 tool_result_carry=_ns_carry,
             )
-        except (httpx.TimeoutException, BackendRequestError):
+        except (httpx.TimeoutException, BackendRequestError) as exc:
+            if isinstance(exc, BackendRequestError) and backend.type == EVAL_OPENAI:
+                _log_eval_upstream_error(
+                    backend,
+                    workspace_id,
+                    target_model,
+                    exc.status_code,
+                    exc.raw_body or exc.detail,
+                )
             raise  # timeout: outer handler checks /api/ps; 4xx: caller surfaces it
         except Exception as exc:
             # The cause used to be swallowed: a cascade to the next candidate
             # left only "Backend X failed" in the log.
-            detail = (
-                backend_error_detail(exc.response.content)
-                if isinstance(exc, httpx.HTTPStatusError)
-                else str(exc)
-            )
+            status = exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None
+            raw_body = exc.response.content if isinstance(exc, httpx.HTTPStatusError) else b""
+            detail = backend_error_detail(raw_body) if status is not None else str(exc)
             _prefill_refusal = _omlx_prefill_refusal_detail(backend, exc)
             if tried is not None:
                 tried[(backend.chat_url, target_model)] = f"{target_model}: {detail[:300]}"
-            logger.warning(
-                "Backend %s request failed for workspace=%s model=%s: %s: %s",
-                backend.id,
-                workspace_id,
-                target_model,
-                type(exc).__name__,
-                detail[:300],
-            )
+            if status is not None and backend.type == EVAL_OPENAI:
+                _log_eval_upstream_error(
+                    backend,
+                    workspace_id,
+                    target_model,
+                    status,
+                    raw_body,
+                )
+            else:
+                logger.warning(
+                    "Backend %s request failed for workspace=%s model=%s: %s: %s",
+                    backend.id,
+                    workspace_id,
+                    target_model,
+                    type(exc).__name__,
+                    detail[:300],
+                )
             return None
 
     try:

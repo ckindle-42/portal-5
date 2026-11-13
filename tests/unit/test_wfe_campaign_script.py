@@ -119,6 +119,33 @@ def _run(
     return result, calls
 
 
+def test_registered_task_can_be_executed_through_a_bench_workspace(tmp_path: Path):
+    plan = {
+        "repeats": 1,
+        "workloads": {
+            "bench-engine-hunt": {
+                "tool_mode": "production",
+                "home": "realuse_v1",
+                "home_tasks": ["ru-v1-001"],
+                "discovery": [],
+                "source_workspace": "auto-daily",
+                "arms": {
+                    "incumbent": "gemma-4-26b-a4b-it-QAT-4bit",
+                    "challengers": [],
+                },
+            }
+        },
+    }
+    path = tmp_path / "bench-plan.yaml"
+    path.write_text(yaml.safe_dump(plan), encoding="utf-8")
+
+    rows = campaign.expand_matrix(path, 1, tier="realuse")
+
+    assert len(rows) == 1
+    assert rows[0]["task_id"] == "ru-v1-001"
+    assert rows[0]["workspace"] == "bench-engine-hunt"
+
+
 def _run_real_interleaved_script(
     tmp_path: Path,
     campaign_id: str,

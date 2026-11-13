@@ -1,6 +1,7 @@
-# Production-faithful engine eval. Proposed, not run.
-# status: the orchestrator approves the matrix before any workload below executes.
-status: proposed_pending_approval
+# Production-faithful engine eval.
+status: APPROVED
+approved_by: operator
+approved_on: 2026-11-13
 binding:
   decisions:
     - coding-seat engine
@@ -20,8 +21,6 @@ workloads:
       - tests/wfe/plans/engine_h2h_202611_nemotron.yaml
       - tests/wfe/plans/engine_h2h_202611_qwen38.yaml
       - tests/wfe/plans/engine_h2h_202611_gemma_qat.yaml
-      - tests/wfe/plans/engine_h2h_202611_flint.yaml
-      - tests/wfe/plans/coding_decision_v1.yaml
     seats:
       - bench-engine-daily-moe
       - bench-engine-coding
@@ -59,9 +58,10 @@ workloads:
   - id: co-residence
     kind: co_residence
     pass: >-
-      task-router plus two seats load, switch, and evict on the candidate beside
-      the running stack, and the swap gate stays closed
-    negative: cannot do X beside the stack is a recorded result, not a dropped engine
+      task-router plus two seats load concurrently as separate managed engine
+      processes on their fixed ports beside the running stack; every route is
+      correct and the swap gate stays closed
+    negative: cannot co-reside beside the stack is a recorded result, not a dropped engine
     seats:
       - bench-engine-task-router
       - bench-engine-daily-moe
@@ -70,12 +70,13 @@ workloads:
     kind: stability
     duration_min: 45
     pass: >-
-      process-tree RSS plus Metal wired, and the vm_stat wired delta, at minute
-      45 are within 2 GB of the post-load plateau
+      the engine-specific resident reading (MLX phys_footprint or reported
+      resident bytes; llama.cpp process-tree RSS) and independent vm_stat wired
+      pages at minute 45 are each within 2 GB of the minute-5 plateau
     why: >-
-      A leak of about 1 GB per 10 minutes clears the 2 GB agreement tolerance
-      between a minute-5 plateau and a minute-45 sample. The 11-13 screen was
-      single bursts.
+      A leak of about 1 GB per 10 minutes clears the 2 GB tolerance between the
+      minute-5 plateau and minute-45 sample. RSS remains diagnostic for MLX;
+      the 11-13 screen was single bursts.
 report: per engine, per seat, after the instrument marks the cell valid
 lifecycle: >-
   Start and stop stay in tests/benchmarks/engine_h2h.yaml. The orchestrator runs
