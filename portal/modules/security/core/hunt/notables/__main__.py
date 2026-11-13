@@ -9,8 +9,10 @@ from pathlib import Path
 from typing import Any
 
 from .behaviours import Behaviour
+from .embedding import embedding_from_env, embedding_requirement
 from .pipeline import model_from_env, model_requirement
 from .run import (
+    DEFAULT_GENERATORS,
     GENERATORS,
     STAGES,
     behaviours_stage,
@@ -35,8 +37,16 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--end", type=float, default=None, help="latest epoch seconds")
     parser.add_argument(
         "--generators",
-        default=",".join(GENERATORS),
+        default=",".join(DEFAULT_GENERATORS),
         help="comma-separated generators (default: all)",
+    )
+    parser.add_argument("--family", help="optional expected family assertion for --index")
+    parser.add_argument(
+        "--knowledge-store", type=Path, help="persisted labelled behaviour DuckDB store"
+    )
+    parser.add_argument(
+        "--knowledge-families",
+        help="optional comma-separated families to use from the store",
     )
     return parser
 
@@ -99,15 +109,21 @@ def _print_notables(receipt: dict[str, Any]) -> None:
         detail = receipt.get(name)
         if isinstance(detail, dict):
             exact = _mapping(detail.get("exact_counts"))
+            reliability = _mapping(detail.get("reliability"))
             counted = (
                 f" exact={exact.get('counted', 0)}/{detail.get('kept', 0)}"
                 f" tied_at_cut={detail.get('tied_at_cut', 0)}"
                 if exact
                 else ""
             )
+            measured = (
+                f" reliability_auc={reliability.get('auc')} score={reliability.get('score')}"
+                if reliability
+                else ""
+            )
             print(
                 f"  {name}: existed={detail.get('existed')} kept={detail.get('kept')} "
-                f"seconds={seconds.get(name)}{counted}"
+                f"seconds={seconds.get(name)}{counted}{measured}"
             )
     print(
         f"notables: total={receipt.get('total', 0)} wall={seconds.get('total')}s "
@@ -188,14 +204,36 @@ def main(argv: list[str] | None = None) -> int:
         if unknown:
             print(f"unknown generators: {', '.join(unknown)}", file=sys.stderr)
             return 2
-        _rows, receipt = notables_stage(
-            index=args.index,
-            out=out,
-            start=args.start,
-            end=end,
-            search=search,
-            enabled=enabled,
+        embedder = None
+        if "similar_to_known" in enabled:
+            if args.knowledge_store is None:
+                print("similar_to_known requires --knowledge-store", file=sys.stderr)
+                return 2
+            embedder = embedding_from_env()
+            if embedder is None:
+                print(embedding_requirement(), file=sys.stderr)
+                return 2
+        knowledge_families = (
+            tuple(name.strip() for name in args.knowledge_families.split(",") if name.strip())
+            if args.knowledge_families
+            else None
         )
+        try:
+            _rows, receipt = notables_stage(
+                index=args.index,
+                out=out,
+                start=args.start,
+                end=end,
+                search=search,
+                enabled=enabled,
+                family=args.family,
+                knowledge_store=args.knowledge_store,
+                knowledge_families=knowledge_families,
+                embedder=embedder,
+            )
+        finally:
+            if embedder is not None:
+                embedder.close()
         _print_notables(receipt)
     if "judge" in stages:
         if target is None:

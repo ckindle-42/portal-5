@@ -27,16 +27,19 @@ from .cards import (
     assemble_cards,
     prepare_cards,
 )
+from .generators import GENERATORS as BASE_GENERATORS
 from .generators import generate
 from .judge_notables import judge_all
 from .parse import FieldStat, TemplateModel
 from .receipt import peak_memory_mb, progress_update, read_json, utc_now, write_json
 from .sample import SAMPLE_LINES, SourceFacts, index_facts, read_windows, sample_windows
+from .similar import SIMILAR_GENERATOR, generate_similar
 
 CARD_SOURCE_CONCURRENCY = 2  # effort budget: with READ_CONCURRENCY, below the lab's 19 searches
 
 STAGES = ("cards", "behaviours", "notables", "judge")
-GENERATORS = ("alerts", "peer_rare", "deviation")
+GENERATORS = (*BASE_GENERATORS, SIMILAR_GENERATOR)
+DEFAULT_GENERATORS = BASE_GENERATORS
 SOURCES_FILE = "sources.json"
 STORE_FILE = "behaviours.duckdb"
 NOTABLES_FILE = "notables.jsonl"
@@ -304,14 +307,26 @@ def behaviours_stage(*, out: Path, search: Search) -> tuple[list[Behaviour], dic
 
 
 def notables_stage(
-    *, index: str, out: Path, start: float, end: float, search: Search, enabled: Sequence[str]
+    *,
+    index: str,
+    out: Path,
+    start: float,
+    end: float,
+    search: Search,
+    enabled: Sequence[str],
+    family: str | None = None,
+    knowledge_store: Path | None = None,
+    knowledge_families: Sequence[str] | None = None,
+    embedder: Any | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Raise notables from each independent generator, bounded and ordered, to notables.jsonl."""
+    began = time.monotonic()
     cards = load_cards(out)
     store = out / STORE_FILE
     if not store.exists():
         raise FileNotFoundError(f"{store} holds no behaviour table; run the behaviours stage")
     behaviours = load_behaviours(store)
+    standard_enabled = [name for name in enabled if name != SIMILAR_GENERATOR]
     notables, receipt = generate(
         executor_for(search),
         index,
@@ -321,8 +336,27 @@ def notables_stage(
         facts_by_source(cards),
         behaviours,
         load_source_stats(store),
-        enabled,
+        standard_enabled,
     )
+    if SIMILAR_GENERATOR in enabled:
+        if not family or knowledge_store is None or embedder is None:
+            raise ValueError(
+                "similar_to_known requires --family, --knowledge-store, and Pipeline embedding settings"
+            )
+        similar, detail = generate_similar(
+            behaviours,
+            cards,
+            store_path=knowledge_store,
+            run_index=index,
+            expected_family=family,
+            allowed_families=knowledge_families,
+            embedder=embedder,
+        )
+        notables = [*similar, *notables]
+        receipt[SIMILAR_GENERATOR] = detail
+        receipt["seconds"][SIMILAR_GENERATOR] = detail["seconds"]
+        receipt["total"] = len(notables)
+        receipt["seconds"]["total"] = round(time.monotonic() - began, 3)
     rows = [notable.as_dict() for notable in notables]
     path = out / NOTABLES_FILE
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -351,11 +385,38 @@ def judge_stage(
     """Judge every distinct notable once through the Pipeline and write p_yes back."""
     path = out / NOTABLES_FILE
     rows = read_notables(path)
+    ordered = _judge_order(rows)
     judged, receipt = judge_all(
-        rows, client=client, model=model, cache_path=out / "cache" / "judge.json"
+        ordered, client=client, model=model, cache_path=out / "cache" / "judge.json"
     )
+    receipt["ranking"] = {
+        "priority_generator": SIMILAR_GENERATOR,
+        "prioritized": sum(1 for item in ordered if item.get("generator") == SIMILAR_GENERATOR),
+    }
     path.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in judged))
     receipt["file"] = str(path)
     receipt["peak_memory_mb"] = peak_memory_mb()
     progress_update(out, "judge", receipt)
     return judged, receipt
+
+
+def _judge_order(rows: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Spend the bounded judge budget on the highest similarity-ranked notables first."""
+    indexed = list(enumerate(rows))
+
+    def rank(item: tuple[int, dict[str, Any]]) -> tuple[int, float, int]:
+        index, row = item
+        if row.get("generator") != SIMILAR_GENERATOR:
+            return (1, 0.0, index)
+        measure = row.get("measure")
+        value = measure.get("value") if isinstance(measure, Mapping) else 0.0
+        if value is None:
+            score = 0.0
+        else:
+            try:
+                score = float(value)
+            except (TypeError, ValueError):
+                score = 0.0
+        return (0, -score, index)
+
+    return [row for _index, row in sorted(indexed, key=rank)]

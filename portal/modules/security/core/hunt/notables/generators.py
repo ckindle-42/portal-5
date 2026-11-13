@@ -49,13 +49,15 @@ class Notable:
     why: str
     evidence: tuple[Mapping[str, Any], ...]
     content_key: str
+    nearest_known: tuple[Mapping[str, Any], ...] = ()
+    generator_reliability: float | None = None
 
     @property
     def notable_id(self) -> str:
         return hashlib.sha1(self.content_key.encode()).hexdigest()[:16]
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        result = {
             "notable_id": self.notable_id,
             "generator": self.generator,
             "basis": self.basis,
@@ -70,6 +72,11 @@ class Notable:
             "evidence": [dict(item) for item in self.evidence],
             "content_key": self.content_key,
         }
+        if self.nearest_known:
+            result["nearest_known"] = [dict(item) for item in self.nearest_known]
+        if self.generator_reliability is not None:
+            result["generator_reliability"] = self.generator_reliability
+        return result
 
 
 def _quote(value: str) -> str:
@@ -98,6 +105,8 @@ def _make(
     measure_value: float,
     why: str,
     evidence: Sequence[Mapping[str, Any]],
+    nearest_known: Sequence[Mapping[str, Any]] = (),
+    generator_reliability: float | None = None,
 ) -> Notable:
     shaped = tuple((role, value) for role, value in entities if value)[:MAX_ENTITIES]
     return Notable(
@@ -114,6 +123,8 @@ def _make(
         why,
         tuple(evidence),
         _content_key(generator, what, shaped, source_id),
+        tuple(dict(item) for item in nearest_known),
+        generator_reliability,
     )
 
 

@@ -8,6 +8,20 @@ from typing import Any
 
 from ..judge import DEFAULT_KEY_ENV, JudgeClient, OpenAICompatibleClient, chat_completions_endpoint
 
+DEFAULT_JUDGE_BACKEND = "omlx-general"
+
+
+class BackendPinnedClient:
+    """Pin hunt reasoning requests to the backend selected for its parallel seat."""
+
+    def __init__(self, inner: JudgeClient, backend: str) -> None:
+        self.inner = inner
+        self.backend = backend
+
+    def complete(self, **request: Any) -> Mapping[str, Any]:
+        request["portal_backend"] = self.backend
+        return self.inner.complete(**request)
+
 
 def model_from_env() -> tuple[JudgeClient, str] | None:
     """Read the Pipeline model once; no URL, workspace or key literal lives in code."""
@@ -17,14 +31,17 @@ def model_from_env() -> tuple[JudgeClient, str] | None:
         return None
     key_env = os.environ.get("PORTAL_HUNT_JUDGE_KEY_ENV", DEFAULT_KEY_ENV)
     api_key = os.environ.get(key_env) if key_env else None
-    return OpenAICompatibleClient(chat_completions_endpoint(url), api_key), model
+    backend = os.environ.get("PORTAL_HUNT_JUDGE_BACKEND", DEFAULT_JUDGE_BACKEND)
+    client = OpenAICompatibleClient(chat_completions_endpoint(url), api_key)
+    return BackendPinnedClient(client, backend), model
 
 
 def model_requirement() -> str:
     return (
         "the Portal Pipeline workspace URL and workspace id are required: set "
         "PORTAL_HUNT_JUDGE_URL and PORTAL_HUNT_JUDGE_MODEL (and the key variable named "
-        "by PORTAL_HUNT_JUDGE_KEY_ENV, default " + DEFAULT_KEY_ENV + ")"
+        "by PORTAL_HUNT_JUDGE_KEY_ENV, default " + DEFAULT_KEY_ENV + "); "
+        "PORTAL_HUNT_JUDGE_BACKEND defaults to " + DEFAULT_JUDGE_BACKEND
     )
 
 

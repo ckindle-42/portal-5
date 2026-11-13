@@ -15,6 +15,7 @@ from ..judge import BackpressureClient, JudgeClient, JudgeResult, judge_cell
 JUDGE_CONCURRENCY = 2  # effort budget: the seat serves one request at a time
 JUDGE_REQUEST_BUDGET = 80  # effort budget: judge's share of ~200 model requests per hunt
 JUDGE_MAX_EVIDENCE = 3  # effort budget: example events shown for one notable
+JUDGE_MAX_KNOWN_MATCHES = 3  # effort budget: nearest labelled items shown to the judge
 JUDGE_EVIDENCE_CHARS = 300  # effort budget: raw characters shown per example
 JUDGE_STATEMENT_CHARS = 1200  # effort budget: characters of the notable statement kept
 JUDGE_PROMPT_CHARS = 6000  # effort budget: an 8K-context seat
@@ -52,6 +53,21 @@ def _lines(notable: Mapping[str, Any]) -> list[str]:
     return [line for line in found if line]
 
 
+def _known_lines(notable: Mapping[str, Any]) -> list[str]:
+    """Compact the nearest labelled behaviours for the judge prompt."""
+    nearest = notable.get("nearest_known")
+    if not isinstance(nearest, list):
+        return []
+    lines = []
+    for item in nearest[:JUDGE_MAX_KNOWN_MATCHES]:
+        if isinstance(item, Mapping):
+            lines.append(
+                f"- {item.get('label')} ({item.get('label_kind')}, basis={item.get('label_basis')}, "
+                f"similarity={item.get('similarity')}, family={item.get('family')})"
+            )
+    return lines
+
+
 def notable_prompt(notable: Mapping[str, Any]) -> str:
     """A compact statement plus a few example events, inside the seat's context."""
     entities = "; ".join(
@@ -59,13 +75,24 @@ def notable_prompt(notable: Mapping[str, Any]) -> str:
         for item in notable.get("entities", [])
         if isinstance(item, Mapping)
     )
+    reliability = notable.get("generator_reliability")
+    if reliability is None:
+        reliability_line = ""
+    else:
+        try:
+            reliability_line = f"generator reliability (measured AUC): {float(reliability):.3f}"
+        except (TypeError, ValueError):
+            reliability_line = ""
     body = "\n".join(
         part
         for part in (
             str(notable.get("what") or "")[:JUDGE_STATEMENT_CHARS],
             f"entities: {entities}" if entities else "",
             f"generator: {notable.get('generator')} / {notable.get('basis')}",
+            reliability_line,
             f"why raised: {notable.get('why')}",
+            "nearest known items:",
+            *_known_lines(notable),
             "examples:",
             *[f"- {line}" for line in _lines(notable)],
         )
