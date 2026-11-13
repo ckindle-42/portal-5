@@ -958,8 +958,8 @@
       "decision_question": null,
       "test_if_needed": null,
       "stop_rule": null,
-      "final_disposition": "RETAINED_FOR_PURPOSE",
-      "decision_reason": "FOLD VACATED 2026-09-12, and it is NOT re-folded. Two independent faults in the original removal. (1) Invalid evidence: all 39 auto-compliance rows ran think=false over /v1, where suppression is silently dropped — it emitted a median 1661 reasoning chars, so the 16/30 = 0.53 was measured with thinking forced on. Re-run clean it scores 18/30 = 0.60 home, 7/9 = 0.78 discovery. (2) Mis-specified venue: its recorded question is 'does GPT-OSS add reasoning DIVERSITY over DeepSeek-R1-0528 + Qwen3.6-35B', and no run has ever made that comparison — the WFE arm tested it as a compliance judge against Qwen3.8-27B, which is a different job. Decisive fact the removal missed: it is registered in THREE live backend pools (general, coding, reasoning), reachable from 25 production workspaces, and named in auto-coding's description as Fallback 2. That is a wired production role, not a bench seat. RETAINED as a pool fallback; its diversity stop rule remains UNEVALUATED and needs the recorded head-to-head, not another compliance-lane number.",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
       "purpose_or_replacement": "CONTENDER — auto-reasoning second-opinion seat (gptossanalyst persona is named for it; never wired)",
       "evidence_refs": [
         "config/backends.yaml (general/coding/reasoning pools)",
@@ -975,7 +975,7 @@
         "docs/WFE_CLOSEOUT_20260912.md"
       ],
       "verified_storage_effect_bytes": null,
-      "closed_at": "fold vacated 2026-09-12; re-pulled and RETAINED as a wired pool fallback; diversity stop rule still unevaluated",
+      "closed_at": "removed 2026-11-13 (operator removal round: parsed-config usage analysis, weights deleted from disk)",
       "purpose": "OpenAI-lineage reasoning-DIVERSITY seat (only gpt-oss architecture in fleet; gptossanalyst persona named for it: 'different reasoning approach than Qwen/DeepSeek/Mistral'); native-arm F2 0.904/exact 0.80 @ 53 t/s"
     },
     {
@@ -1640,8 +1640,8 @@
       "decision_question": null,
       "test_if_needed": null,
       "stop_rule": null,
-      "final_disposition": "INTEGRATED",
-      "decision_reason": "no home: bench-only / registered-only / dashboards-only (ruling 2026-09-07: bench-only does not confer a purpose)",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
       "purpose_or_replacement": "routed: workspaces.auto-nemotron.model_hint — CONFIG CASE-FIX REQUIRED: config says :Q4_K_M-ctx8k, installed tag is :q4_K_M-ctx8k; retarget hint + backends id to installed spelling",
       "evidence_refs": [
         "judgment_probe_v6_rescored (F2 0.8523)",
@@ -1651,7 +1651,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_bartowski_NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF-q4_K_M-ctx8k"
       ],
       "verified_storage_effect_bytes": null,
-      "closed_at": "2026-09-07"
+      "closed_at": "removed 2026-11-13 (operator removal round: parsed-config usage analysis, weights deleted from disk)"
     },
     {
       "item_id": "ollama:hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M",
@@ -1712,8 +1712,8 @@
       "decision_question": null,
       "test_if_needed": null,
       "stop_rule": null,
-      "final_disposition": "INTEGRATED",
-      "decision_reason": "persona pins: devopsengineer, itarchitect, soc2auditor, datascientist",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
       "purpose_or_replacement": "persona pins: devopsengineer, itarchitect, soc2auditor, datascientist",
       "evidence_refs": [
         "config refs (dep scan)"
@@ -1722,7 +1722,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_bartowski_THUDM_GLM-Z1-Rumination-32B-0414-GGUF-THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf"
       ],
       "verified_storage_effect_bytes": null,
-      "closed_at": "2026-09-07"
+      "closed_at": "removed 2026-11-13 (operator removal round: parsed-config usage analysis, weights deleted from disk)"
     },
     {
       "item_id": "ollama:hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k",
@@ -1743,8 +1743,8 @@
       "decision_question": null,
       "test_if_needed": null,
       "stop_rule": null,
-      "final_disposition": "INTEGRATED",
-      "decision_reason": "persona pins: glm_thinker",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
       "purpose_or_replacement": "persona pins: glm_thinker",
       "evidence_refs": [
         "config refs (dep scan)"
@@ -1753,7 +1753,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_bartowski_THUDM_GLM-Z1-Rumination-32B-0414-GGUF-THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k"
       ],
       "verified_storage_effect_bytes": null,
-      "closed_at": "2026-09-07"
+      "closed_at": "removed 2026-11-13 (operator removal round: parsed-config usage analysis, weights deleted from disk)"
     },
     {
       "item_id": "ollama:hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M",
@@ -2507,8 +2507,8 @@
       "decision_question": null,
       "test_if_needed": null,
       "stop_rule": null,
-      "final_disposition": "INTEGRATED",
-      "decision_reason": "tool-preselection probe (tool_preselect config)",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
       "purpose_or_replacement": "tool-preselection probe (tool_preselect config)",
       "evidence_refs": [
         "dep scan"
@@ -2517,7 +2517,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_openbmb_MiniCPM5-1B-GGUF-Q4_K_M"
       ],
       "verified_storage_effect_bytes": null,
-      "closed_at": "2026-09-07"
+      "closed_at": "removed 2026-11-13 (operator removal round: parsed-config usage analysis, weights deleted from disk)"
     },
     {
       "item_id": "ollama:hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M",
@@ -4407,8 +4407,8 @@
       "decision_question": null,
       "test_if_needed": null,
       "stop_rule": null,
-      "final_disposition": "INTEGRATED",
-      "decision_reason": "routed: model_hint",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
       "purpose_or_replacement": "routed: model_hint",
       "evidence_refs": [
         "config refs (dep scan)"
@@ -4417,7 +4417,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#qwen3-coder-30b-a3b-q4_K_M-ctx256k"
       ],
       "verified_storage_effect_bytes": null,
-      "closed_at": "2026-09-07"
+      "closed_at": "removed 2026-11-13 (operator removal round: parsed-config usage analysis, weights deleted from disk)"
     },
     {
       "item_id": "ollama:qwen3-coder:30b-a3b-q4_K_M-ctx8k",
@@ -5003,8 +5003,8 @@
       "symlink_target": "/Users/chris/.cache/huggingface/hub/models--incoai--Qwen3.8-27B-DFlash2/snapshots/dedf8df68adfb1afeaf7b7480c0a0243108177b4",
       "logical_bytes": 3849113004,
       "required_action": "Verify checkpoint/draft purpose, serving/alias dependencies and recorded acceptance; close integrated or retained-for-purpose, or retire unneeded copy with shared-cache review.",
-      "final_disposition": "INTEGRATED",
-      "decision_reason": "oMLX pool member registered in config/backends.yaml (MLX backend alias); manual/pool serving",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
       "purpose_or_replacement": "oMLX pool member registered in config/backends.yaml (MLX backend alias); manual/pool serving",
       "evidence_refs": [
         "config/backends.yaml",
@@ -5014,7 +5014,7 @@
       "closure_record_refs": [
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#Qwen3.8-27B-DFlash2"
       ],
-      "closed_at": "2026-09-07",
+      "closed_at": "removed 2026-11-13 (operator removal round: parsed-config usage analysis, weights deleted from disk)",
       "verified_storage_effect_bytes": null,
       "decision_question": null,
       "test_if_needed": null,
@@ -5201,8 +5201,8 @@
       "symlink_target": "/Volumes/data01/hf-cache/models--nightmedia--granite-4.1-8b-mxfp8-mlx/snapshots/f57974d8dbf0dcf6e8c1a91e9c3f5386e3159028",
       "logical_bytes": 9073944959,
       "required_action": "Verify checkpoint/draft purpose, serving/alias dependencies and recorded acceptance; close integrated or retained-for-purpose, or retire unneeded copy with shared-cache review.",
-      "final_disposition": "INTEGRATED",
-      "decision_reason": "oMLX pool member registered in config/backends.yaml (MLX backend alias); manual/pool serving",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
       "purpose_or_replacement": "oMLX pool member registered in config/backends.yaml (MLX backend alias); manual/pool serving",
       "evidence_refs": [
         "config/backends.yaml",
@@ -5212,7 +5212,7 @@
       "closure_record_refs": [
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#granite-4.1-8b-mxfp8"
       ],
-      "closed_at": "2026-09-07",
+      "closed_at": "removed 2026-11-13 (operator removal round: parsed-config usage analysis, weights deleted from disk)",
       "verified_storage_effect_bytes": null,
       "decision_question": null,
       "test_if_needed": null,
@@ -6337,8 +6337,8 @@
       "kind": "ollama_manifest",
       "exact_identity": "laguna-xs-2.1:latest",
       "observed_present": true,
-      "final_disposition": "INTEGRATED",
-      "decision_reason": "Ollama library base of the derived laguna-seat tag (shares its blob, poolside-v1 renderer/parser)",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
       "purpose_or_replacement": "base of portal5/laguna-xs21:q4_K_M-ctx128k",
       "evidence_refs": [
         "docs/TASK_SEAT_VENDOR_FIT_V1.md",
@@ -6347,7 +6347,7 @@
       "closure_record_refs": [
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#10-decisions-2026-09-25-laguna-mimo-bonsai-vulnllm"
       ],
-      "closed_at": "2026-09-25"
+      "closed_at": "removed 2026-11-13 (operator removal round: parsed-config usage analysis, weights deleted from disk)"
     },
     {
       "item_id": "omlx:Laguna-XS-2.1-4bit",
@@ -6569,6 +6569,146 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#10-decisions-2026-09-25-laguna-mimo-bonsai-vulnllm"
       ],
       "closed_at": "2026-09-25"
+    },
+    {
+      "item_id": "ollama:gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "kind": "ollama_manifest",
+      "exact_identity": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "observed_present": false,
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
+      "closed_at": "removed 2026-11-13 (operator removal round: parsed-config usage analysis, weights deleted from disk)",
+      "closure_record_refs": []
+    },
+    {
+      "item_id": "ollama:gemma4:26b-a4b-it-qat-ctx16k",
+      "kind": "ollama_manifest",
+      "exact_identity": "gemma4:26b-a4b-it-qat-ctx16k",
+      "observed_present": false,
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
+      "closed_at": "removed 2026-11-13 (operator removal round: parsed-config usage analysis, weights deleted from disk)",
+      "closure_record_refs": []
+    },
+    {
+      "item_id": "ollama:hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx96k",
+      "kind": "ollama_manifest",
+      "exact_identity": "hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx96k",
+      "observed_present": false,
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
+      "closed_at": "removed 2026-11-13 (operator removal round: parsed-config usage analysis, weights deleted from disk)",
+      "closure_record_refs": []
+    },
+    {
+      "item_id": "ollama:hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+      "kind": "ollama_manifest",
+      "exact_identity": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
+      "observed_present": false,
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
+      "closed_at": "removed 2026-11-13 (operator removal round: parsed-config usage analysis, weights deleted from disk)",
+      "closure_record_refs": []
+    },
+    {
+      "item_id": "ollama:hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx128k",
+      "kind": "ollama_manifest",
+      "exact_identity": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx128k",
+      "observed_present": false,
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
+      "closed_at": "removed 2026-11-13 (operator removal round: parsed-config usage analysis, weights deleted from disk)",
+      "closure_record_refs": []
+    },
+    {
+      "item_id": "ollama:hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx48k",
+      "kind": "ollama_manifest",
+      "exact_identity": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx48k",
+      "observed_present": false,
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
+      "closed_at": "removed 2026-11-13 (operator removal round: parsed-config usage analysis, weights deleted from disk)",
+      "closure_record_refs": []
+    },
+    {
+      "item_id": "ollama:hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx128k",
+      "kind": "ollama_manifest",
+      "exact_identity": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx128k",
+      "observed_present": false,
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
+      "closed_at": "removed 2026-11-13 (operator removal round: parsed-config usage analysis, weights deleted from disk)",
+      "closure_record_refs": []
+    },
+    {
+      "item_id": "ollama:huihui_ai/Qwen3.6-abliterated:27b-ctx128k",
+      "kind": "ollama_manifest",
+      "exact_identity": "huihui_ai/Qwen3.6-abliterated:27b-ctx128k",
+      "observed_present": false,
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
+      "closed_at": "removed 2026-11-13 (operator removal round: parsed-config usage analysis, weights deleted from disk)",
+      "closure_record_refs": []
+    },
+    {
+      "item_id": "ollama:kat-coder-v2.5-dev:Q4_K_M-ctx128k",
+      "kind": "ollama_manifest",
+      "exact_identity": "kat-coder-v2.5-dev:Q4_K_M-ctx128k",
+      "observed_present": false,
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
+      "closed_at": "removed 2026-11-13 (operator removal round: parsed-config usage analysis, weights deleted from disk)",
+      "closure_record_refs": []
+    },
+    {
+      "item_id": "ollama:lfm3:1.7b-qad-q4_0",
+      "kind": "ollama_manifest",
+      "exact_identity": "lfm3:1.7b-qad-q4_0",
+      "observed_present": false,
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
+      "closed_at": "removed 2026-11-13 (operator removal round: parsed-config usage analysis, weights deleted from disk)",
+      "closure_record_refs": []
+    },
+    {
+      "item_id": "ollama:lfm3:1.7b-qad-q4_0-ctx8k",
+      "kind": "ollama_manifest",
+      "exact_identity": "lfm3:1.7b-qad-q4_0-ctx8k",
+      "observed_present": false,
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
+      "closed_at": "removed 2026-11-13 (operator removal round: parsed-config usage analysis, weights deleted from disk)",
+      "closure_record_refs": []
+    },
+    {
+      "item_id": "ollama:ling30-tiny-test:latest",
+      "kind": "ollama_manifest",
+      "exact_identity": "ling30-tiny-test:latest",
+      "observed_present": false,
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
+      "closed_at": "removed 2026-11-13 (operator removal round: parsed-config usage analysis, weights deleted from disk)",
+      "closure_record_refs": []
+    },
+    {
+      "item_id": "ollama:portal5/spark-x2.6:q4_K_M-ctx16k",
+      "kind": "ollama_manifest",
+      "exact_identity": "portal5/spark-x2.6:q4_K_M-ctx16k",
+      "observed_present": false,
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
+      "closed_at": "removed 2026-11-13 (operator removal round: parsed-config usage analysis, weights deleted from disk)",
+      "closure_record_refs": []
+    },
+    {
+      "item_id": "omlx:mlx-community--gemma-3-12b-it-4bit",
+      "kind": "omlx_entry",
+      "exact_identity": "mlx-community--gemma-3-12b-it-4bit",
+      "observed_present": false,
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
+      "closed_at": "removed 2026-11-13 (operator removal round: parsed-config usage analysis, weights deleted from disk)",
+      "closure_record_refs": []
     }
   ],
   "determination_date": "2026-09-07",
