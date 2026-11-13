@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import threading
 import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -14,6 +15,11 @@ DEFAULT_KEY_ENV = "PIPELINE_API_KEY"  # env var name whose value is the Pipeline
 JUDGE_SEED = 0
 JUDGE_TOP_LOGPROBS = 20  # effort budget: alternatives returned for the first token
 JUDGE_TIMEOUT_SECONDS = 60  # effort budget: maximum wait for one local judgement
+MODEL_CONCURRENCY = 2  # effort budget: the engine behind the seat serves one request at a time
+MODEL_WORK_SECONDS = 300.0  # effort budget: wall time one stage may spend asking the Pipeline
+RETRY_AFTER_MAX_SECONDS = 30.0  # effort budget: longest wait honoured from Retry-After
+BACKOFF_MAX_SECONDS = 8.0  # effort budget: longest deterministic backoff between retries
+THROTTLE_STATUSES = frozenset({429, 503})
 _CHAT_COMPLETIONS = "/v1/chat/completions"
 
 
@@ -38,6 +44,86 @@ EVENTS:"""
 
 class JudgeClient(Protocol):
     def complete(self, **request: Any) -> Mapping[str, Any]: ...
+
+
+class ThrottleBudgetExceededError(RuntimeError):
+    """The model-work time budget ran out while the Pipeline was asking for back-pressure."""
+
+
+def retry_after_seconds(response: httpx.Response) -> float | None:
+    """Retry-After in seconds, bounded; an HTTP-date form falls back to deterministic backoff."""
+    value = response.headers.get("Retry-After")
+    if not value:
+        return None
+    try:
+        seconds = float(value)
+    except (TypeError, ValueError):
+        return None
+    return max(0.0, min(RETRY_AFTER_MAX_SECONDS, seconds))
+
+
+class BackpressureClient:
+    """Honour Pipeline back-pressure: bounded concurrency, bounded waits, one time budget."""
+
+    def __init__(
+        self,
+        inner: JudgeClient,
+        *,
+        budget_seconds: float = MODEL_WORK_SECONDS,
+        concurrency: int = MODEL_CONCURRENCY,
+        sleep: Any = time.sleep,
+        clock: Any = time.monotonic,
+    ) -> None:
+        self.inner = inner
+        self.budget_seconds = budget_seconds
+        self.concurrency = max(1, concurrency)
+        self._sleep = sleep
+        self._clock = clock
+        self._deadline = clock() + budget_seconds
+        self._slots = threading.BoundedSemaphore(self.concurrency)
+        self._lock = threading.Lock()
+        self.throttles = 0
+        self.retries = 0
+        self.wait_seconds = 0.0
+        self.exhausted = False
+
+    def complete(self, **request: Any) -> Mapping[str, Any]:
+        attempt = 0
+        while True:
+            with self._slots:
+                try:
+                    return self.inner.complete(**request)
+                except httpx.HTTPStatusError as exc:
+                    if exc.response.status_code not in THROTTLE_STATUSES:
+                        raise
+                    response = exc.response
+            attempt += 1
+            with self._lock:
+                self.throttles += 1
+                self.retries += 1
+            delay = retry_after_seconds(response) or min(
+                BACKOFF_MAX_SECONDS, float(2 ** (attempt - 1))
+            )
+            remaining = self._deadline - self._clock()
+            if remaining <= 0:
+                with self._lock:
+                    self.exhausted = True
+                raise ThrottleBudgetExceededError("model_work_budget_exhausted")
+            wait = min(delay, remaining)
+            with self._lock:
+                self.wait_seconds += wait
+            self._sleep(wait)
+
+    def stats(self) -> dict[str, Any]:
+        with self._lock:
+            return {
+                "concurrency": self.concurrency,
+                "budget_seconds": self.budget_seconds,
+                "throttles": self.throttles,
+                "retries": self.retries,
+                "wait_seconds": round(self.wait_seconds, 3),
+                "exhausted": self.exhausted,
+            }
 
 
 @dataclass(frozen=True)
@@ -139,6 +225,8 @@ def judge_cell(
         )
     except (httpx.TimeoutException, TimeoutError):
         return JudgeResult(None, None, round(time.monotonic() - began, 3), "", "timeout")
+    except ThrottleBudgetExceededError:
+        return JudgeResult(None, None, round(time.monotonic() - began, 3), "", "throttled")
     except httpx.HTTPStatusError:
         return JudgeResult(None, None, round(time.monotonic() - began, 3), "", "http_error")
     except Exception:  # noqa: BLE001 -- failure is per-cell unjudged coverage

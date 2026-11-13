@@ -5,14 +5,15 @@ from __future__ import annotations
 import json
 import time
 from collections.abc import Mapping, Sequence
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ..judge import JudgeClient, JudgeResult, judge_cell
+from ..judge import BackpressureClient, JudgeClient, JudgeResult, judge_cell
 
-JUDGE_CONCURRENCY = 4  # effort budget: concurrent model requests, well inside the seat's capacity
+JUDGE_CONCURRENCY = 2  # effort budget: the seat serves one request at a time
+JUDGE_REQUEST_BUDGET = 80  # effort budget: judge's share of ~200 model requests per hunt
 JUDGE_MAX_EVIDENCE = 3  # effort budget: example events shown for one notable
 JUDGE_EVIDENCE_CHARS = 300  # effort budget: raw characters shown per example
 JUDGE_STATEMENT_CHARS = 1200  # effort budget: characters of the notable statement kept
@@ -112,21 +113,26 @@ def _result(notable: Mapping[str, Any], result: JudgeResult, cached: bool) -> Ju
     )
 
 
+def _cached(notable: Mapping[str, Any], cache: JudgeCache) -> Judged | None:
+    key = str(notable.get("content_key") or "")
+    stored = cache.get(key)
+    if stored is None or stored.get("p_yes") is None:
+        return None
+    return Judged(
+        key,
+        _float_or_none(stored.get("p_yes")),
+        str(stored.get("served_model") or ""),
+        float(stored.get("seconds") or 0.0),
+        None,
+        None,
+        True,
+    )
+
+
 def _judge_one(
     notable: Mapping[str, Any], client: JudgeClient, model: str, cache: JudgeCache
 ) -> Judged:
     key = str(notable.get("content_key") or "")
-    stored = cache.get(key)
-    if stored is not None and stored.get("p_yes") is not None:
-        return Judged(
-            key,
-            _float_or_none(stored.get("p_yes")),
-            str(stored.get("served_model") or ""),
-            float(stored.get("seconds") or 0.0),
-            None,
-            None,
-            True,
-        )
     prompt = notable_prompt(notable)
     result = judge_cell(client, model=model, prompt=prompt)
     if result.p_yes is not None:
@@ -156,16 +162,33 @@ def judge_all(
     client: JudgeClient,
     model: str,
     cache_path: Path,
+    request_budget: int = JUDGE_REQUEST_BUDGET,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Judge every distinct notable once, bounded concurrency, failures left unjudged."""
+    """Cache first, then judge in notable order inside the model-request budget."""
     began = time.monotonic()
     cache = JudgeCache(cache_path)
-    judged: list[Judged] = []
+    results: list[Judged | None] = [None] * len(notables)
+    pending: list[int] = []
+    for index, notable in enumerate(notables):
+        found = _cached(notable, cache)
+        if found is not None:
+            results[index] = found
+        else:
+            pending.append(index)
+    budget = max(0, request_budget)
+    ask, unasked = pending[:budget], pending[budget:]
+    asker = client if isinstance(client, BackpressureClient) else BackpressureClient(client)
     with ThreadPoolExecutor(max_workers=JUDGE_CONCURRENCY) as pool:
-        futures = [pool.submit(_judge_one, notable, client, model, cache) for notable in notables]
-        for future in futures:
-            judged.append(future.result())
+        futures = {
+            pool.submit(_judge_one, notables[index], asker, model, cache): index for index in ask
+        }
+        for future in as_completed(futures):
+            results[futures[future]] = future.result()
+    for index in unasked:
+        key = str(notables[index].get("content_key") or "")
+        results[index] = Judged(key, None, "", 0.0, None, "model_budget_exhausted", False)
     cache.save()
+    judged = [result for result in results if result is not None]
     out: list[dict[str, Any]] = []
     reasons: dict[str, int] = {}
     served: set[str] = set()
@@ -182,7 +205,7 @@ def judge_all(
             "cached": result.cached,
         }
         out.append(item)
-        if not result.cached:
+        if not result.cached and result.reason != "model_budget_exhausted":
             requests += 1
             seconds += result.seconds
         if result.served_model:
@@ -201,5 +224,8 @@ def judge_all(
         "seconds": round(time.monotonic() - began, 3),
         "model_seconds": round(seconds, 3),
         "served_models": sorted(served),
+        "request_budget": budget,
+        "unasked": len(unasked),
         "cache": str(cache_path),
+        "backpressure": asker.stats() if isinstance(asker, BackpressureClient) else {},
     }

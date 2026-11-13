@@ -13,7 +13,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from ..judge import JudgeClient
+import httpx
+
+from ..judge import (
+    BackpressureClient,
+    JudgeClient,
+    ThrottleBudgetExceededError,
+)
 from .parse import (
     FieldStat,
     Parsed,
@@ -31,7 +37,8 @@ MAX_ANSWER_CHARS = 4000  # effort budget: characters read from one model answer
 MAX_BASIS_CHARS = 240  # effort budget: the model's own reason kept on the card
 CARD_SEED = 0
 NUMERIC_SHARE_FOR_MEASUREMENT = 0.5  # a measurement stream is mostly numeric samples
-CARD_CONCURRENCY = 8  # effort budget: concurrent model requests for distinct structures
+CARD_CONCURRENCY = 2  # effort budget: the seat serves one request at a time
+CARDS_REQUEST_BUDGET = 120  # effort budget: cards' share of ~200 model requests per hunt
 
 CARD_QUESTION = """You are given the fields that one kind of machine-written log event carries: how often
 each field appears in a sample, how many distinct values it holds, and a few example values. Decide
@@ -245,6 +252,10 @@ def ask_model(client: JudgeClient, model: str, prompt: str) -> ModelAnswer:
             reasoning_effort="none",
             stream=False,
         )
+    except ThrottleBudgetExceededError:
+        return ModelAnswer("", round(time.monotonic() - began, 3), "", None, "throttled")
+    except httpx.HTTPStatusError:
+        return ModelAnswer("", round(time.monotonic() - began, 3), "", None, "http_error")
     except Exception:  # noqa: BLE001 -- per-source unclassified coverage
         return ModelAnswer("", round(time.monotonic() - began, 3), "", None, "request_failed")
     seconds = round(time.monotonic() - began, 3)
@@ -565,30 +576,65 @@ def prepare_cards(
     return prepared or [Prepared(facts, _Inputs(rows, parsed, windows, model))]
 
 
-def answer_cards(
-    prepared: Sequence[Prepared], client: JudgeClient, model: str, cache: CardCache
-) -> tuple[dict[str, tuple[ModelAnswer, int, bool]], dict[str, Any]]:
-    """One request per distinct structure; duplicates wait on the same answer."""
+def _ordered_structures(prepared: Sequence[Prepared]) -> list[Prepared]:
+    """Distinct structures, highest-volume source first, then by content key."""
     unique: dict[str, Prepared] = {}
     for item in prepared:
         if item.given.parsed and item.given.hits:
             unique.setdefault(item.given.cache_key, item)
+    return sorted(unique.values(), key=lambda item: (-item.facts.events, item.given.cache_key))
+
+
+def answer_cards(
+    prepared: Sequence[Prepared],
+    client: JudgeClient,
+    model: str,
+    cache: CardCache,
+    *,
+    request_budget: int = CARDS_REQUEST_BUDGET,
+) -> tuple[dict[str, tuple[ModelAnswer, int, bool]], dict[str, Any]]:
+    """Cache first, then one request per distinct structure in priority order, inside the budget."""
     answers: dict[str, tuple[ModelAnswer, int, bool]] = {}
+    pending: list[Prepared] = []
+    for item in _ordered_structures(prepared):
+        cached = cache.get(item.given.cache_key)
+        if cached is not None:
+            answers[item.given.cache_key] = (cached, 0, True)
+        else:
+            pending.append(item)
+    budget = max(0, request_budget)
+    ask, unasked = pending[:budget], pending[budget:]
+    asker = client if isinstance(client, BackpressureClient) else BackpressureClient(client)
     with ThreadPoolExecutor(max_workers=CARD_CONCURRENCY) as pool:
         futures = {
-            pool.submit(_answer, item.given, client, model, cache): key
-            for key, item in unique.items()
+            pool.submit(_answer, item.given, asker, model, cache): item.given.cache_key
+            for item in ask
         }
         for future in as_completed(futures):
             answers[futures[future]] = future.result()
-    return answers, {
-        "structures": len(unique),
+    for item in unasked:
+        answers[item.given.cache_key] = (
+            ModelAnswer("", 0.0, "", None, "budget_exhausted"),
+            0,
+            False,
+        )
+    stats: dict[str, Any] = {
+        "structures": len(answers),
         "requests": sum(1 for _answer_value, requests, _cached in answers.values() if requests),
         "disk_hits": sum(1 for _answer_value, _requests, cached in answers.values() if cached),
+        "unasked": len(unasked),
+        "request_budget": budget,
+        "unasked_sources": sorted(
+            {f"{item.facts.index}:{item.facts.sourcetype}" for item in unasked}
+        )[:12],
         "model_seconds": round(
-            sum(answer.seconds for answer, _requests, _cached in answers.values()), 3
+            sum(answer.seconds for answer, requests, _cached in answers.values() if requests),
+            3,
         ),
     }
+    if isinstance(asker, BackpressureClient):
+        stats["backpressure"] = asker.stats()
+    return answers, stats
 
 
 def _model_seconds(answer: ModelAnswer) -> float:  # kept for receipt symmetry

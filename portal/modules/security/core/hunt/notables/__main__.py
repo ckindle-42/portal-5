@@ -66,6 +66,9 @@ def _print_judge(receipt: dict[str, Any]) -> None:
         f"judge: notables={receipt['notables']} judged={receipt['judged']} "
         f"unjudged={receipt['unjudged']} reasons={receipt['unjudged_reasons']} "
         f"requests={receipt['requests']} cached={receipt['cached']} "
+        f"budget={receipt['request_budget']} unasked={receipt['unasked']} "
+        f"throttles={receipt.get('backpressure', {}).get('throttles', 0)} "
+        f"retries={receipt.get('backpressure', {}).get('retries', 0)} "
         f"model_seconds={receipt['model_seconds']} wall={receipt['seconds']}s "
         f"served={receipt['served_models']} -> {receipt['file']}"
     )
@@ -109,6 +112,10 @@ def _print_cards(receipt: dict[str, Any]) -> None:
         f"understood={receipt['understood']} unparsed={receipt['unparsed']} "
         f"structures={receipt['structures']} model_requests={receipt['model_requests']} "
         f"answers_reused={receipt['answers_reused']} cache_hits={receipt['cache_hits']} "
+        f"budget={receipt['request_budget']} unasked={receipt['unasked']} "
+        f"throttles={receipt.get('backpressure', {}).get('throttles', 0)} "
+        f"retries={receipt.get('backpressure', {}).get('retries', 0)} "
+        f"waited={receipt.get('backpressure', {}).get('wait_seconds', 0)}s "
         f"model_seconds={receipt['model_seconds']} wall={receipt['seconds']}s "
         f"peak={receipt['peak_memory_mb']}MB -> sources.json"
     )
