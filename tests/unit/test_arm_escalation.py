@@ -1102,6 +1102,18 @@ def _load_dispatch() -> Any:
 @pytest.mark.skipif(not DISPATCH.is_file(), reason="dispatcher is not installed on this machine")
 def test_tier_escalate_picks_the_first_seat_with_headroom(monkeypatch: pytest.MonkeyPatch) -> None:
     module = _load_dispatch()
+    # Injected roster: the machine's ESCALATION order changes with the operator's seats,
+    # so the property under test — first roster seat with headroom wins — is asserted
+    # hermetically against this roster, not the live one.
+    tiers = {
+        "seat-codex": {"plan": "codex", "variant": "high"},
+        "seat-retired": {"plan": "glm-lite", "variant": "high", "retired": True},
+        "seat-open": {"plan": "glm-lite", "variant": "high"},
+        "seat-warm": {"plan": "glm-lite", "variant": "medium"},
+        "seat-cool": {"plan": "glm-lite", "variant": "low"},
+    }
+    monkeypatch.setattr(module, "TIERS", tiers)
+    monkeypatch.setattr(module, "ESCALATION", ["seat-codex", "seat-retired", "seat-open"])
     monkeypatch.setattr(module, "_context_misfit", lambda *_a, **_k: None)
     monkeypatch.setattr(module, "_recent_quota", lambda *_a, **_k: None)
     monkeypatch.setattr(module, "_plan_busy", lambda *_a, **_k: None)
@@ -1110,11 +1122,11 @@ def test_tier_escalate_picks_the_first_seat_with_headroom(monkeypatch: pytest.Mo
         module, "_plan_headroom", lambda _reg, plan: 0.0 if plan == "codex" else 1.0
     )
     chosen, why = module._resolve_escalate({}, "code", 0)
-    assert chosen == "grok-max"
-    assert any("sol" in line and "skipped" in line for line in why)
-    assert module._escalated_effort(module.TIERS["grok-max"]) == "high"
-    assert module._escalated_effort(module.TIERS["sol"]) == "high"
-    assert module._escalated_effort(module.TIERS["astra"]) == "medium"
+    assert chosen == "seat-open"
+    assert any("seat-codex" in line and "skipped" in line for line in why)
+    assert module._escalated_effort(module.TIERS["seat-open"]) == "high"
+    assert module._escalated_effort(module.TIERS["seat-warm"]) == "high"
+    assert module._escalated_effort(module.TIERS["seat-cool"]) == "medium"
     assert module._escalate_skip({}, "or-inkling", "security", 0)
 
 
