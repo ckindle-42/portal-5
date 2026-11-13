@@ -69,6 +69,7 @@ from portal.platform.inference.router.non_streaming import (
 )
 from portal.platform.inference.router.preinject import (
     _apply_client_tools_only,
+    _apply_no_tools_request,
     _apply_role_slash,
     _inject_attached_files,
     _inject_requested_prompts,
@@ -782,6 +783,7 @@ async def _prepare_request_context(
 ) -> dict[str, Any]:
     is_bite = "portal_bite_tools" in body
     if not is_bite:
+        body = _apply_no_tools_request(body)
         body = _apply_client_tools_only(workspace_id, body)
         body = _inject_requested_prompts(original_model_id, body)
         body = _inject_temporal_context(workspace_id, body)

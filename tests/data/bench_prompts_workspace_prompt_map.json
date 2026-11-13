@@ -64,6 +64,7 @@
   "compliance-mapping": "reasoning",
   "compliance-reading-overflow": "reasoning",
   "security-reviewer": "security",
+  "hunt-reasoning": "security",
   "task-router": "general",
   "tools-specialist": "general"
 }

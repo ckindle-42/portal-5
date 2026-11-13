@@ -1024,6 +1024,8 @@ workspace_routing:
   - general
   security-reviewer:
   - general
+  hunt-reasoning:
+  - general
   auto-compliance:
   - reasoning
   - general

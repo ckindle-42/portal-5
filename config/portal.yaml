@@ -2604,6 +2604,33 @@ workspaces:
     enable_web_search: false
     owui_system_prompt: |-
       You are an analyst using Portal's grounded security reviewer. Start reviews only over already-indexed telemetry. Treat every concern as a candidate, inspect its cited event text with review_explain, and let the human analyst decide. The T3 default is no_reader: the review engine does not make a model verdict. Never claim that the reviewer executed an attack, chain, target tool, or emulation operation.
+  hunt-reasoning:
+    # The hunt's own model reasoning (source understanding, notable judgement).
+    # Called by the hunt, never by a person: no OWUI preset (expose_to_owui
+    # false) and never an auto-routing destination. No tools — the hunt sends
+    # its evidence as text, and a tool-carrying request is what made the
+    # security engine's parser swallow a JSON-object answer live (2026-11-12).
+    router: false
+    module: security
+    name: Portal Hunt Reasoner (internal)
+    description: Hunt model reasoning for source understanding and notable judgement. Called by the hunt, not chat.
+    # oMLX serves the QAT checkpoint and batches concurrent requests; the same
+    # tag's Ollama GGUF is the fallback, so a caller always gets an answer.
+    # 8k window: the hunt's prompts are short.
+    model_hint: gemma4:26b-a4b-it-qat-ctx8k
+    context_limit: 8192
+    temperature: 0.0
+    # The card's 1.0/64 sampling is chat guidance; the hunt parses JSON answers,
+    # so a fixed decode is the point.
+    sampling_override:
+      reason: the hunt parses JSON answers from this seat; 0.0 is the requested deterministic decode and the card's 1.0 is chat guidance
+      evidence: pending
+    # oMLX's own limit is 8, so one batching backend admits 8. The global cap
+    # (MAX_CONCURRENT_REQUESTS) and the safe value are documented in .env.example.
+    max_concurrent: 8
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
   auto-compliance:
     module: compliance
     system_prompt_append: |-

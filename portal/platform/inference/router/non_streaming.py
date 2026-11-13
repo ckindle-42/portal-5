@@ -36,6 +36,7 @@ from portal.platform.inference.router.eval_gate import (
 )
 from portal.platform.inference.router.metrics import (
     _answer_without_tool_retried,
+    _empty_answer_retried,
     _hint_fallback_total,
     _tool_calls_recovered,
     _tool_repeat_suppressed,
@@ -728,6 +729,75 @@ def _strip_emitted_tool_markup(data: dict[str, Any]) -> None:
             message["content"] = drop_unparsed_markup(content)
 
 
+def _needs_toolless_first_answer(
+    req_body: dict[str, Any], data: dict[str, Any], workspace_id: str
+) -> bool:
+    """A tool-carrying first turn whose answer the engine swallowed: no text, no call."""
+    if not req_body.get("tools") or req_body.get("tool_choice") not in (None, "auto"):
+        return False
+    if WORKSPACES.get(workspace_id, {}).get("require_tool_before_answer"):
+        return False
+    if _collect_tool_calls(data):
+        return False
+    return not any(
+        _visible_answer(choice.get("message") or {}) for choice in data.get("choices") or []
+    )
+
+
+async def _retry_empty_toolless_first_answer(
+    client: Any,
+    url: str,
+    timeout: httpx.Timeout,
+    req_body: dict[str, Any],
+    data: dict[str, Any],
+    workspace_id: str,
+    target_model: str,
+    model_started: float,
+) -> tuple[dict[str, Any], float, dict[str, Any]]:
+    """One toolless retry when tools swallowed the answer; returns the body actually sent."""
+    if not _needs_toolless_first_answer(req_body, data, workspace_id):
+        return data, model_started, req_body
+    _record_intermediate_model(data, target_model, workspace_id, model_started)
+    _empty_answer_retried.labels(workspace=workspace_id).inc()
+    trace_note(empty_answer_retried=True)
+    logger.warning(
+        "Non-stream: workspace=%s model=%s answered nothing with tools attached; "
+        "asking once with tools off",
+        workspace_id,
+        target_model,
+    )
+    retry_body = {**req_body, "tools": None, "tool_choice": None}
+    started = time.monotonic()
+    retry_resp = await client.post(url, json=retry_body, timeout=timeout)
+    _raise_for_backend_status(retry_resp)
+    data = _completion_body(retry_resp, workspace_id)
+    _recover_or_withhold_markup(data, None, str(req_body.get("model", "")), workspace_id)
+    _strip_emitted_tool_markup(data)
+    return data, started, retry_body
+
+
+async def _first_answer(
+    client: Any,
+    url: str,
+    timeout: httpx.Timeout,
+    req_body: dict[str, Any],
+    workspace_id: str,
+    target_model: str,
+    model_started: float,
+) -> tuple[dict[str, Any], float, dict[str, Any]]:
+    """POST the turn, recover call markup, then retry once without tools if it came back empty."""
+    resp = await client.post(url, json=req_body, timeout=timeout)
+    _raise_for_backend_status(resp)
+    data = _completion_body(resp, workspace_id)
+    # P5-OMLX-QWEN3CODER-TOOLTEXT-001: a call the engine's parser missed arrives as content.
+    _recover_or_withhold_markup(
+        data, req_body.get("tools"), req_body.get("model", ""), workspace_id
+    )
+    return await _retry_empty_toolless_first_answer(
+        client, url, timeout, req_body, data, workspace_id, target_model, model_started
+    )
+
+
 async def _retry_empty_toolless_synthesis(
     client: Any,
     url: str,
@@ -1020,8 +1090,8 @@ async def _try_non_streaming(
     # stream's non-streaming fallback) behaves the same in either mode.
     _ns_tools = apply_eval_scope(req_body, _ns_tools)
     _ns_tools, _bite_allowlist = apply_bite_tool_scope(req_body, _ns_tools)
-    if req_body.pop("portal_client_tools_only", False):
-        _ns_tools = []
+    if req_body.pop("portal_client_tools_only", False) or req_body.get("tool_choice") == "none":
+        _ns_tools = []  # client-only tools, or an explicit no-tool turn
     _supports_tools = _model_supports_tools(target_model)
     if req_body.pop("portal_no_tools", False) or not _supports_tools:
         req_body.pop("tools", None)
@@ -1116,13 +1186,14 @@ async def _try_non_streaming(
             logger.info("NON-STREAM tools: %s", _tool_names)
             trace_capture(backend_request=req_body)
             _model_started = time.monotonic()
-            resp = await _http_client.post(backend.chat_url, json=req_body, timeout=_timeout_obj)
-            _raise_for_backend_status(resp)
-            data = _completion_body(resp, workspace_id)
-            # P5-OMLX-QWEN3CODER-TOOLTEXT-001: a call the engine's parser
-            # missed arrives as content; recover it before the tool loop.
-            _recover_or_withhold_markup(
-                data, req_body.get("tools"), req_body.get("model", ""), workspace_id
+            data, _model_started, _last_request_body = await _first_answer(
+                _http_client,
+                backend.chat_url,
+                _timeout_obj,
+                req_body,
+                workspace_id,
+                target_model,
+                _model_started,
             )
             _resp_tc: list[dict[str, Any]] = []
             for _c in data.get("choices") or []:
