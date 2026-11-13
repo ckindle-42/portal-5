@@ -28,6 +28,22 @@ guard:
   # absolute amount, not a fraction: macOS sizes the swap total to fit usage.
   max_start_swap_used_mb: 4096
 
+engine_eval:
+  seats:
+    daily-moe: {workspace: bench-engine-daily-moe, model: nemotron_35_lightning}
+    coding: {workspace: bench-engine-coding, model: qwen38_27b_h2h}
+    task-router:
+      workspace: bench-engine-task-router
+      model: hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k
+    hunt: {workspace: bench-engine-hunt, model: gemma4_26b_a4b_qat}
+    council-json: {workspace: bench-engine-council-json, model: qwen38_27b_h2h}
+  excluded_cells:
+    - {seat: coding, engine: splash, mode: plain, reason: Splash 1.6.1 always loads its registered DFlash2 drafter}
+    - {seat: coding, engine: vllm-metal, mode: plain, reason: the approved matrix records an Unrecognized image processor load failure}
+    - {seat: coding, engine: vllm-metal, mode: spec, reason: the approved matrix records an Unrecognized image processor load failure}
+    - {seat: daily-moe, engine: mlxcel, mode: plain, reason: the approved matrix says mlxcel cannot read oQ4e}
+    - {seat: daily-moe, engine: mlxcel, mode: spec, reason: the approved matrix says mlxcel cannot read oQ4e}
+
 engines:
   ollama:
     kind: external
@@ -603,3 +619,13 @@ models:
       wfe_workspace: auto-coding
       wfe_task: ru-v1-011
       wfe_arm: unsloth/flint-GGUF:UD-Q4_K_XL
+
+  "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k":
+    source_repo: mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF
+    gguf:
+      repo: mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF
+      file: gemma-4-E4B-it-OBLITERATED.Q4_K_M.gguf
+    ollama: hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k
+    ctx: 2048
+    prefill_tokens: 512
+    tool_parser: auto

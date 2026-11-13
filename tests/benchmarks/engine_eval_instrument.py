@@ -641,7 +641,10 @@ def _check_residency(evidence: dict[str, Any], failures: list[str]) -> None:
         return
     cell_engine = evidence.get("engine")
     cell_model = evidence.get("expected_model")
-    for engine in ("ollama", "omlx"):
+    engines = sorted(set(before) | set(after))
+    if not engines:
+        _fail(failures, "memory: no engines in residency snapshots")
+    for engine in engines:
         old, new = before.get(engine), after.get(engine)
         if not isinstance(old, dict) or not isinstance(new, dict):
             _fail(failures, f"memory: {engine} resident snapshot unreadable")
@@ -1402,6 +1405,12 @@ def completion_text(message: dict[str, Any]) -> str:
         if isinstance(extra, str) and extra and extra not in seen:
             seen.add(extra)
             parts.append(extra)
+    for call in message.get("tool_calls") or []:
+        function = call.get("function") if isinstance(call, dict) else None
+        if isinstance(function, dict):
+            parts.extend(
+                str(value) for value in (function.get("name"), function.get("arguments")) if value
+            )
     return "\n".join(parts)
 
 
@@ -1561,6 +1570,7 @@ def _one_chat(url: str, body: dict[str, Any], headers: dict[str, str]) -> dict[s
     header = sent["headers"].get("x-portal-route") or sent["headers"].get("X-Portal-Route") or ""
     return {
         "header": header,
+        "engine_model": sent["json"].get("model"),
         "text": completion_text(message),
         "tokens": tokens if isinstance(tokens, int) else None,
         "elapsed": time.monotonic() - started,
@@ -1858,6 +1868,7 @@ def stage0(argv: list[str]) -> int:
             "readback": evidence.get("readback"),
             "preflight": evidence.get("preflight"),
             "memory": evidence.get("memory"),
+            "residency": evidence.get("residency"),
             "tokens": evidence.get("tokens"),
             "source_conflicts": evidence.get("source_conflicts"),
         }
