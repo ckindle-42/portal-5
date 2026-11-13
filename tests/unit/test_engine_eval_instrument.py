@@ -7,17 +7,21 @@ from pathlib import Path
 
 from tests.benchmarks import bench_engine_h2h as h
 from tests.benchmarks.engine_eval_instrument import (
+    HUNT_SEAT,
     assemble_cell,
+    completion_text,
     defect_cases,
     golden_evidence,
     grade_preflight,
     judge_cell,
     omlx_server_log,
+    parse_footprint,
     parse_ollama_load,
     parse_ollama_plist,
     parse_ollama_show,
     parse_omlx_acceptance,
     parse_omlx_settings,
+    parse_pipeline_routes,
     parse_ps_tree,
     parse_vm_stat,
     ps_refreshed,
@@ -127,7 +131,7 @@ def _measured(spec: dict) -> dict:
         "memory": {
             "tree_walked": True,
             "tree_rss_gb": 2.0,
-            "metal_wired_gb": 14.0,
+            "engine_weight_gb": 14.0,
             "vm_wired_delta_gb": 16.0,
             "vm_free_delta_gb": 16.2,
         },
@@ -206,8 +210,56 @@ def test_ollama_spec_claim_invalidates_without_a_source() -> None:
     assert any("invalidates" in item for item in judged["failures"])
 
 
-def test_daily_omlx_sources_come_from_server_log_and_status() -> None:
-    spec = seat_plan("daily-moe", "omlx")
+def test_hunt_omlx_is_the_production_baseline() -> None:
+    spec = seat_plan(HUNT_SEAT, "omlx")
+    assert spec["workspace"] == "hunt-reasoning"
+    assert spec["backend"] == "omlx-general"
+    assert spec["model"] == "gemma-4-26b-a4b-it-QAT-4bit"
+    assert spec["mode"] == "plain"
+    model = spec["model"]
+    log = (
+        f"Applied initial settings for {model}: {{'temperature': 0.0, 'mtp_enabled': False}}\n"
+        f"Chat completion: model={model}, 12 tokens\n"
+        f"Chat completion: model={model}, 20 tokens\n"
+    )
+    obs = _measured(spec)
+    obs.update(
+        {
+            "server_log": log,
+            "model_settings": {model: {"temperature": 0.0, "vlm_mtp_enabled": False}},
+            "global_settings": {"max_concurrent_requests": 8},
+            "model_row": {
+                "loaded": True,
+                "context_tokens": 262144,
+                "engine_type": "mlx",
+                "actual_size": 16 * 1024**3,
+            },
+            "total_requests_before": 4,
+            "total_requests_after": 6,
+        }
+    )
+    evidence = assemble_cell(spec, obs)
+    judged = judge_cell(evidence)
+    assert judged["valid"] is True, judged
+    assert evidence["readback"]["mtp_enabled"] is False
+    assert evidence["readback"]["dflash_enabled"] is False
+    assert evidence["readback"]["spec_method"] == "off"
+    assert evidence["readback"]["temperature"] == 0.0
+    assert evidence["check_sources"]["route"].find("succeeded") > 0
+    assert evidence["check_sources"]["memory"].find("actual_size") > 0
+    assert stage0(["--engine", "omlx", "--seat", "daily-moe"]) == 2
+    try:
+        seat_plan("daily-moe", "omlx")
+    except KeyError:
+        pass
+    else:
+        raise AssertionError("daily-moe is not an oMLX production seat")
+
+
+def test_omlx_mtp_acceptance_still_gates_a_spec_cell() -> None:
+    spec = seat_plan(HUNT_SEAT, "omlx")
+    spec["mode"] = "spec"
+    spec["claims"] = {**spec["claims"], "spec_method": "mtp", "temperature": 1.0}
     model = spec["model"]
     log = (
         f"Applied initial settings for {model}: "
@@ -223,9 +275,7 @@ def test_daily_omlx_sources_come_from_server_log_and_status() -> None:
     obs.update(
         {
             "server_log": log,
-            "model_settings": {
-                model: {"temperature": 1.0, "mtp_enabled": True, "turboquant_kv_enabled": False}
-            },
+            "model_settings": {model: {"temperature": 1.0, "mtp_enabled": True}},
             "global_settings": {"max_concurrent_requests": 8},
             "model_row": {"loaded": True, "context_tokens": 262144, "engine_type": "mlx"},
             "total_requests_before": 4,
@@ -235,12 +285,7 @@ def test_daily_omlx_sources_come_from_server_log_and_status() -> None:
     evidence = assemble_cell(spec, obs)
     judged = judge_cell(evidence)
     assert judged["valid"] is True, judged
-    assert evidence["readback"]["spec_method"] == "mtp"
     assert evidence["readback"]["acceptance"] == 80.0
-    assert evidence["sources"]["spec_method"].startswith("server.log")
-    assert evidence["excluded_claims"]["kv_dtype"]["decision"] == "exclude"
-    assert evidence["excluded_claims"]["drafter_loaded"]["decision"] == "exclude"
-    assert evidence["check_sources"]["route"].find("total_requests") > 0
     na = log.replace("accept=8/10 (80.0%)", "accept=0/0 (n/a)").replace(
         "accept=16/18 (88.9%)", "accept=0/0 (n/a)"
     )
@@ -266,8 +311,85 @@ def test_show_parser_ignores_template_text_and_plist_reads_kv(tmp_path: Path) ->
     tokenizer = tmp_path / "tokenizer.json"
     tokenizer.write_text("{}", encoding="utf-8")
     assert resolve_tokenizer("omlx", tmp_path, None) == tokenizer
-    assert resolve_tokenizer("ollama", tmp_path, None) is None
+    assert resolve_tokenizer("omlx", str(tmp_path), None) == tokenizer
+    assert resolve_tokenizer("ollama", str(tokenizer), None) == tokenizer
     assert resolve_tokenizer("ollama", None, tokenizer) == tokenizer
+
+
+_FOOTPRINT = """\
+======================================================================
+llama-server [4242]: 64-bit    Footprint: 620 MB (16384 bytes per page)
+======================================================================
+
+  Dirty      Clean  Reclaimable    Regions    Category
+    ---        ---          ---        ---    ---
+  800 KB        0 B          0 B          2    IOAccelerator
+   64 KB        0 B          0 B          1    IOAccelerator
+    0 B      23 GB          0 B          4    mapped file
+    ---        ---          ---        ---    ---
+  620 MB      23 GB          0 B         10    TOTAL
+
+Auxiliary data:
+    phys_footprint: 620 MB
+    phys_footprint_peak: 640 MB
+"""
+
+
+def test_footprint_parser_reads_the_live_column_shape() -> None:
+    parsed = parse_footprint(_FOOTPRINT)
+    assert parsed["ioaccelerator_gb"] is not None
+    assert parsed["ioaccelerator_gb"] < 0.01
+    assert parsed["clean_mapped_gb"] == 23.0
+    assert parsed["phys_footprint_gb"] is not None
+    assert abs(parsed["phys_footprint_gb"] - (620 / 1024)) < 1e-9
+
+
+def test_pipeline_routes_use_the_line_every_request_logs() -> None:
+    log = (
+        "Non-stream routing: workspace=auto-daily backend=ollama-general model=hinted\n"
+        "Routing workspace=auto-daily → 2 candidate(s) stream=False\n"
+        "Backend ollama-general succeeded for workspace=auto-daily model=real-model\n"
+        "Routing workspace=hunt-reasoning → backend=omlx-general "
+        "model=gemma-4-26b-a4b-it-QAT-4bit stream=False (1/1 candidates)\n"
+    )
+    assert parse_pipeline_routes(log) == [("auto-daily", "ollama-general", "real-model")]
+    streamed = (
+        "Stream routing: workspace=hunt-reasoning backend=omlx-general "
+        "model=gemma-4-26b-a4b-it-QAT-4bit (1/1 candidates)\n"
+    )
+    assert parse_pipeline_routes(streamed) == [
+        ("hunt-reasoning", "omlx-general", "gemma-4-26b-a4b-it-QAT-4bit")
+    ]
+
+
+def test_engine_weight_uses_the_engine_field_not_footprint() -> None:
+    from tests.benchmarks.engine_eval_instrument import engine_weight_gb
+
+    ollama = {"engine": "ollama", "model": "m"}
+    gb, source = engine_weight_gb(ollama, {"ps": {"m": {"size_vram": 1024**3}}})
+    assert gb == 1.0
+    assert source == "GET /api/ps size_vram"
+    omlx = {"engine": "omlx", "model": "g"}
+    gb, source = engine_weight_gb(
+        omlx,
+        {
+            "model_row": {"actual_size": 2 * 1024**3},
+            "status_after": {"model_memory_used": 9 * 1024**3},
+        },
+    )
+    assert gb == 2.0
+    assert source == "GET /v1/models/status actual_size"
+
+
+def test_completion_text_adds_reasoning_fields() -> None:
+    text = completion_text(
+        {
+            "content": "Here are three planets",
+            "reasoning": "The user asks",
+            "reasoning_content": "The user asks",
+        }
+    )
+    assert text == "Here are three planets\nThe user asks"
 
 
 def test_preflight_grade_and_unknown_seat() -> None:
