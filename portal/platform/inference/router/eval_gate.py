@@ -52,7 +52,9 @@ def apply_eval_scope(body: dict[str, Any], tools: list[str]) -> list[str]:
     return offered
 
 
-def apply_backend_pin(body: dict[str, Any], candidates: list[Any]) -> list[Any]:
+def apply_backend_pin(
+    body: dict[str, Any], candidates: list[Any], model_hint: str = ""
+) -> list[Any]:
     """Restrict the workspace's candidate backends to a `portal_backend` pin.
 
     The WFE harness's arm-level `backend` option rides the same eval-override
@@ -62,7 +64,9 @@ def apply_backend_pin(body: dict[str, Any], candidates: list[Any]) -> list[Any]:
     engine A/B cannot address "the same tag on the other engine". The pin pops
     here so it never reaches a backend as a stray request field; an unknown or
     unhealthy id is a 400, not a silent fallback — an eval arm that measured
-    the wrong engine would be worse than a failed row.
+    the wrong engine would be worse than a failed row. A pin whose backend does
+    not resolve the workspace hint is also a 400: the last-candidate ladder
+    would otherwise serve that backend's ``models[0]``.
     """
     requested = body.pop("portal_backend", None)
     if not requested:
@@ -78,6 +82,11 @@ def apply_backend_pin(body: dict[str, Any], candidates: list[Any]) -> list[Any]:
                 f"portal_backend: {requested!r} is not a healthy candidate backend for this "
                 f"workspace (healthy candidates: {known or 'none'})"
             ),
+        )
+    if model_hint and pinned[0].resolve_model(model_hint) is None:
+        raise HTTPException(
+            status_code=400,
+            detail=(f"portal_backend: {requested!r} does not serve model_hint {model_hint!r}"),
         )
     trace_note(portal_backend=requested)
     return pinned

@@ -9,11 +9,19 @@ oMLX per-request lines are ``~/.omlx/logs/server.log``.
     uv run python tests/benchmarks/engine_eval_instrument.py self-test
     uv run python tests/benchmarks/engine_eval_instrument.py judge --evidence cell.json
     uv run python tests/benchmarks/engine_eval_instrument.py stage0 --engine ollama --seat daily-moe
-    uv run python tests/benchmarks/engine_eval_instrument.py stage0 --engine omlx --seat daily-moe
+    uv run python tests/benchmarks/engine_eval_instrument.py stage0 --engine omlx --seat hunt-reasoning
 
 ``stage0`` reads the running services. It does not start, stop, or unload them.
-The orchestrator unloads the seat model first. ``stage0`` then captures
-``vm_stat`` itself before the first request.
+The orchestrator unloads the seat model first (Ollama ``keep_alive`` 0 on the
+daily GGUF tag; oMLX ``POST /v1/models/gemma-4-26b-a4b-it-QAT-4bit/unload``).
+``stage0`` then captures ``vm_stat`` itself before the first request. The first
+response's ``x-portal-route`` must name the seat model or the command stops
+before the second sample, preflight, and the memory comparison.
+
+Ollama 0.40 has no ``/api/tokenize``. Token counts use the same-base
+checkpoint's ``tokenizer.json``. ``completion_tokens`` is compared to the
+tokenizer count of ``content`` plus ``reasoning`` and ``reasoning_content``,
+with a tolerance for template and stop tokens.
 """
 
 from __future__ import annotations
@@ -34,7 +42,8 @@ from typing import Any
 
 MEMORY_ABS_TOLERANCE_GB = 2.0
 MEMORY_REL_TOLERANCE = 0.15
-TOKEN_ABS_TOLERANCE = 2
+# Engine usage counts template and stop tokens the text tokenizer does not see.
+TOKEN_ABS_TOLERANCE = 16
 
 REQUIRED_CLAIMS = (
     "spec_method",
@@ -55,15 +64,21 @@ _N_CTX_RE = re.compile(r"n_ctx\s*=\s*(\d+)")
 _N_SEQ_RE = re.compile(r"n_seq_max\s*=\s*(\d+)")
 _OLLAMA_MODEL_RE = re.compile(r"\bmodel=([^\s]+)")
 _ROUTE_RE = re.compile(r"^([^;]+);([^;]*);(.*)$")
-_PIPE_ROUTE_RE = re.compile(r"Non-stream routing: workspace=(\S+) backend=(\S+) model=(\S+)")
+_PIPE_SUCCEEDED_RE = re.compile(r"Backend (\S+) succeeded for workspace=(\S+) model=(\S+)")
+_PIPE_STREAM_RE = re.compile(r"Stream routing: workspace=(\S+) backend=(\S+) model=(\S+)")
+_PIPE_ROUTE_RE = re.compile(r"Routing workspace=(\S+) → backend=(\S+) model=(\S+)")
 _PARAM_RE = re.compile(r"^([A-Za-z0-9_]+)\s+(\S+)")
 _MTP_PATH_RE = re.compile(r"MTP path activated")
 _ACCEPT_NA_RE = re.compile(r"accept=\d+/\d+ \((?:n/a|N/A)\)")
 _LAUNCHD_LOGS = frozenset({"/opt/homebrew/var/log/omlx.log", "/opt/homebrew/var/log/ollama.log"})
 _OLLAMA_PLIST = Path("/Library/LaunchDaemons/com.portal5.ollama.plist")
 DAILY_SEAT = "daily-moe"
+HUNT_SEAT = "hunt-reasoning"
 _DAILY_OLLAMA = "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k"
-_DAILY_OMLX = "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp"
+_DAILY_TOKENIZER = (
+    Path("/Volumes/data01/omlx-models") / "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp"
+)
+_HUNT_OMLX = "gemma-4-26b-a4b-it-QAT-4bit"
 _TOOL_SPEC = [
     {
         "type": "function",
@@ -80,11 +95,12 @@ _TOOL_SPEC = [
 ]
 _VM_PAGE_RE = re.compile(r"page size of (\d+) bytes")
 _VM_PAGES_RE = re.compile(r"^Pages (.+?):\s+([\d.]+)\.?\s*$", re.M)
-_FOOTPRINT_RE = re.compile(r"Footprint:\s*([\d.]+)\s*(KB|MB|GB)", re.I)
-_METAL_RE = re.compile(
-    r"(?:IOAccelerator|Metal|graphics).{0,40}?([0-9.]+)\s*(KB|MB|GB)",
-    re.I,
+_FOOT_ROW_RE = re.compile(
+    r"^\s*(\d+(?:\.\d+)?)\s*([KMG]?B)\s+(\d+(?:\.\d+)?)\s*([KMG]?B)\s+"
+    r"(\d+(?:\.\d+)?)\s*([KMG]?B)\s+\d+\s+(.+?)\s*$"
 )
+_PHYS_RE = re.compile(r"phys_footprint:\s*([\d.]+)\s*([KMG]?B)", re.I)
+_GB = {"B": 1 / (1024**3), "KB": 1 / (1024**2), "MB": 1 / 1024, "GB": 1.0}
 
 
 def _agree(left: float, right: float) -> bool:
@@ -159,55 +175,62 @@ def omlx_server_log() -> Path:
 
 
 def seat_plan(seat: str, engine: str) -> dict[str, Any]:
-    """Production-baseline claims for one matrix seat. Daily only."""
-    if seat != DAILY_SEAT or engine not in {"ollama", "omlx"}:
-        raise KeyError(seat)
-    shared: dict[str, Any] = {
-        "seat": seat,
-        "engine": engine,
+    """Production baseline the workspace routing actually serves on this engine."""
+    if engine == "ollama" and seat == DAILY_SEAT:
+        return _daily_ollama_plan()
+    if engine == "omlx" and seat == HUNT_SEAT:
+        return _hunt_omlx_plan()
+    raise KeyError(seat)
+
+
+def _daily_ollama_plan() -> dict[str, Any]:
+    """``auto-daily`` hints the Nemotron GGUF. ``general`` has no oMLX alias for it."""
+    return {
+        "seat": DAILY_SEAT,
+        "engine": "ollama",
         "workspace": "auto-daily",
         "same_checkpoint": False,
         "pipeline_context_limit": 16384,
+        "model": _DAILY_OLLAMA,
+        "backend": "ollama-general",
+        "base": "http://127.0.0.1:11434",
+        "mode": "plain",
+        "checkpoint": _DAILY_TOKENIZER,
+        "claims": {
+            "spec_method": "off",
+            "drafter_loaded": False,
+            "context_tokens": 32768,
+            "parallel_slots": 1,
+            "kv_dtype": "q8_0",
+            "thinking": True,
+            "temperature": 1.0,
+        },
     }
-    if engine == "ollama":
-        shared.update(
-            {
-                "model": _DAILY_OLLAMA,
-                "backend": "ollama-general",
-                "base": "http://127.0.0.1:11434",
-                "mode": "plain",
-                "checkpoint": None,
-                "claims": {
-                    "spec_method": "off",
-                    "drafter_loaded": False,
-                    "context_tokens": 32768,
-                    "parallel_slots": 1,
-                    "kv_dtype": "q8_0",
-                    "thinking": True,
-                    "temperature": 1.0,
-                },
-            }
-        )
-        return shared
-    shared.update(
-        {
-            "model": _DAILY_OMLX,
-            "backend": "omlx-general",
-            "base": "http://127.0.0.1:8085",
-            "mode": "spec",
-            "checkpoint": Path("/Volumes/data01/omlx-models") / _DAILY_OMLX,
-            "claims": {
-                "spec_method": "mtp",
-                "drafter_loaded": False,
-                "context_tokens": 262144,
-                "parallel_slots": 8,
-                "kv_dtype": "unreported",
-                "thinking": True,
-                "temperature": 1.0,
-            },
-        }
-    )
-    return shared
+
+
+def _hunt_omlx_plan() -> dict[str, Any]:
+    """``hunt-reasoning`` aliases onto ``omlx-general``'s Gemma QAT id."""
+    return {
+        "seat": HUNT_SEAT,
+        "engine": "omlx",
+        "workspace": HUNT_SEAT,
+        "same_checkpoint": False,
+        "pipeline_context_limit": 8192,
+        "model": _HUNT_OMLX,
+        "backend": "omlx-general",
+        "base": "http://127.0.0.1:8085",
+        "mode": "plain",
+        "checkpoint": Path("/Volumes/data01/omlx-models") / _HUNT_OMLX,
+        "claims": {
+            "spec_method": "off",
+            "drafter_loaded": False,
+            "context_tokens": 262144,
+            "parallel_slots": 8,
+            "kv_dtype": "unreported",
+            "thinking": False,
+            "temperature": 0.0,
+        },
+    }
 
 
 def parse_ollama_ps(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -272,11 +295,12 @@ def parse_omlx_api_status(payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "total_requests": payload.get("total_requests"),
         "loaded_models": list(payload.get("loaded_models") or []),
+        "model_memory_used": payload.get("model_memory_used"),
     }
 
 
 def parse_omlx_model_row(payload: dict[str, Any], model: str) -> dict[str, Any]:
-    """One model from ``/v1/models/status``: loaded, declared context, engine type."""
+    """One model from ``/v1/models/status``: loaded, declared context, weight bytes."""
     for row in payload.get("models") or []:
         if isinstance(row, dict) and row.get("id") == model:
             return {
@@ -284,11 +308,29 @@ def parse_omlx_model_row(payload: dict[str, Any], model: str) -> dict[str, Any]:
                 "context_tokens": row.get("model_context_length"),
                 "engine_type": row.get("engine_type"),
                 "thinking_default": row.get("thinking_default"),
+                "actual_size": row.get("actual_size"),
+                "estimated_size": row.get("estimated_size"),
             }
     return {}
 
 
 def parse_pipeline_routes(log_text: str) -> list[tuple[str, str, str]]:
+    """Per-request lines that name backend and model.
+
+    Non-stream success is ``Backend … succeeded``. Streaming selection is
+    ``Stream routing`` or ``Routing workspace=… → backend=… model=…``.
+    ``Non-stream routing`` is only logged when ``enforce_hint`` is set, so an
+    auto seat never emits it. Succeeded lines win when both shapes are present.
+    """
+    succeeded = [
+        (workspace, backend, model)
+        for backend, workspace, model in _PIPE_SUCCEEDED_RE.findall(log_text)
+    ]
+    if succeeded:
+        return succeeded
+    streamed = _PIPE_STREAM_RE.findall(log_text)
+    if streamed:
+        return streamed
     return _PIPE_ROUTE_RE.findall(log_text)
 
 
@@ -303,15 +345,37 @@ def acceptance_from_log(log_text: str) -> tuple[str, float | None]:
 
 
 def resolve_tokenizer(
-    engine: str, checkpoint: Path | None, matrix_tokenizer: Path | None
+    engine: str,
+    checkpoint: str | Path | None,
+    matrix_tokenizer: str | Path | None,
 ) -> Path | None:
-    """MLX checkpoint ``tokenizer.json``, else the HF tokenizer the matrix records."""
-    if engine == "omlx" and checkpoint is not None:
-        path = checkpoint / "tokenizer.json"
-        if path.is_file():
-            return path
-    if matrix_tokenizer is not None and matrix_tokenizer.is_file():
-        return matrix_tokenizer
+    """``tokenizer.json`` for the checkpoint, else the HF file the matrix records.
+
+    ``checkpoint`` may be a directory, a ``tokenizer.json`` path, or a string.
+    Ollama 0.40 does not serve ``/api/tokenize``; the GGUF seat uses the
+    same-base checkpoint's ``tokenizer.json``.
+    """
+    del engine
+    found = _tokenizer_file(checkpoint)
+    if found is not None:
+        return found
+    return _tokenizer_file(matrix_tokenizer)
+
+
+def _tokenizer_file(checkpoint: str | Path | None) -> Path | None:
+    if checkpoint is None:
+        return None
+    path = Path(checkpoint)
+    if path.is_file() and path.name == "tokenizer.json":
+        return path
+    if path.is_dir():
+        candidate = path / "tokenizer.json"
+        if candidate.is_file():
+            return candidate
+    if path.suffix == ".gguf":
+        sibling = path.parent / "tokenizer.json"
+        if sibling.is_file():
+            return sibling
     return None
 
 
@@ -386,20 +450,41 @@ def tree_rss_gb(rows: list[tuple[int, int, int]], root_pid: int) -> float | None
     return sum(rss[pid] for pid in seen) / (1024**2)
 
 
-def parse_metal_wired_gb(footprint_text: str) -> float | None:
-    """Sum of Metal/IOAccelerator wired sizes in a ``footprint`` report."""
-    factor = {"KB": 1 / (1024**2), "MB": 1 / 1024, "GB": 1.0}
-    total = 0.0
-    found = False
-    for match in _METAL_RE.finditer(footprint_text):
-        total += float(match.group(1)) * factor[match.group(2).upper()]
-        found = True
-    return total if found else None
+def parse_footprint(footprint_text: str) -> dict[str, float | None]:
+    """Read a ``footprint -p`` report. Sizes are columns; the category is last.
+
+    IOAccelerator on this host is hundreds of KB. The GGUF shows up as clean
+    mapped-file pages. Neither number is the Metal weight allocation.
+    """
+    ioaccelerator = 0.0
+    clean_mapped = 0.0
+    saw_io = False
+    saw_mapped = False
+    for line in footprint_text.splitlines():
+        match = _FOOT_ROW_RE.match(line)
+        if not match:
+            continue
+        dirty = float(match.group(1)) * _GB[match.group(2).upper()]
+        clean = float(match.group(3)) * _GB[match.group(4).upper()]
+        category = match.group(7).strip()
+        if category == "IOAccelerator":
+            ioaccelerator += dirty + clean
+            saw_io = True
+        elif category == "mapped file":
+            clean_mapped += clean
+            saw_mapped = True
+    phys = _PHYS_RE.search(footprint_text)
+    phys_gb = float(phys.group(1)) * _GB[phys.group(2).upper()] if phys else None
+    return {
+        "ioaccelerator_gb": ioaccelerator if saw_io else None,
+        "clean_mapped_gb": clean_mapped if saw_mapped else None,
+        "phys_footprint_gb": phys_gb,
+    }
 
 
-def method_a_gb(tree_rss_gb: float, metal_wired_gb: float) -> float:
-    """Process-tree RSS plus Metal wired. The 11-13 footprint missed both pieces."""
-    return tree_rss_gb + metal_wired_gb
+def method_a_gb(tree_rss_gb: float, engine_weight_gb: float) -> float:
+    """Process-tree RSS plus the engine's own weight report."""
+    return tree_rss_gb + engine_weight_gb
 
 
 def served_id_is_filesystem_path(model_id: str) -> bool:
@@ -532,21 +617,24 @@ def _check_memory(evidence: dict[str, Any], failures: list[str]) -> None:
     if not isinstance(memory, dict) or not memory.get("tree_walked"):
         _fail(failures, "memory: process tree was not walked")
         return
-    metal = memory.get("metal_wired_gb")
+    weight = memory.get("engine_weight_gb")
     rss = memory.get("tree_rss_gb")
     wired = memory.get("vm_wired_delta_gb")
     free = memory.get("vm_free_delta_gb")
-    if metal is None:
-        _fail(failures, "memory: Metal/IOAccelerator wired unread")
+    if weight is None:
+        _fail(failures, "memory: engine weight unread")
         return
     if rss is None or wired is None or free is None:
         _fail(failures, "memory: rss or vm_stat delta missing")
         return
     if not _agree(float(wired), float(free)):
         _fail(failures, "memory: vm_stat wired and free deltas disagree")
-    combined = method_a_gb(float(rss), float(metal))
+    combined = method_a_gb(float(rss), float(weight))
     if not _agree(combined, float(wired)):
-        _fail(failures, f"memory: tree+metal {combined:.2f}GB vs wired delta {float(wired):.2f}GB")
+        _fail(
+            failures,
+            f"memory: tree+engine {combined:.2f}GB vs wired delta {float(wired):.2f}GB",
+        )
 
 
 def _check_tokens(evidence: dict[str, Any], failures: list[str]) -> None:
@@ -560,7 +648,11 @@ def _check_tokens(evidence: dict[str, Any], failures: list[str]) -> None:
         _fail(failures, "tokens: engine usage or tokenizer count missing")
         return
     if abs(int(engine) - int(local)) > TOKEN_ABS_TOLERANCE:
-        _fail(failures, f"tokens: engine {engine} vs tokenizer {local}")
+        _fail(
+            failures,
+            f"tokens: engine {engine} vs tokenizer {local} "
+            f"(tolerance {TOKEN_ABS_TOLERANCE} covers template and stop tokens)",
+        )
 
 
 def _check_noise(evidence: dict[str, Any], failures: list[str]) -> None:
@@ -672,7 +764,7 @@ def golden_evidence() -> dict[str, Any]:
         "memory": {
             "tree_walked": True,
             "tree_rss_gb": 2.0,
-            "metal_wired_gb": 14.0,
+            "engine_weight_gb": 14.0,
             "vm_wired_delta_gb": 16.0,
             "vm_free_delta_gb": 16.2,
         },
@@ -709,11 +801,15 @@ def defect_cases() -> list[tuple[str, dict[str, Any], str]]:
         "foreign model",
     )
     add("memory-no-tree", lambda ev: ev["memory"].__setitem__("tree_walked", False), "process tree")
-    add("memory-no-metal", lambda ev: ev["memory"].__setitem__("metal_wired_gb", None), "Metal")
+    add(
+        "memory-no-engine-weight",
+        lambda ev: ev["memory"].__setitem__("engine_weight_gb", None),
+        "engine weight",
+    )
     add(
         "memory-disagree",
         lambda ev: ev["memory"].__setitem__("vm_wired_delta_gb", 40.0),
-        "tree+metal",
+        "tree+engine",
     )
     add("tokens", lambda ev: ev["tokens"].__setitem__("tokenizer_completion", 90), "tokens:")
     add(
@@ -1105,25 +1201,54 @@ def _omlx_flags(
         "GET /v1/models/status engine_type",
         "GET /v1/models/status has no engine_type for this model",
     )
+    _record_disabled_spec(applied, stored, readback, sources)
     excluded["pipeline_context_limit"] = _exclude(
         "seat context_limit is a Pipeline cap; /v1/models/status reports model_context_length"
     )
 
 
+def _record_disabled_spec(
+    applied: dict[str, Any],
+    stored: dict[str, Any],
+    readback: dict[str, Any],
+    sources: dict[str, str],
+) -> None:
+    """Plain cells need an explicit off. Absence of an enable flag is that evidence."""
+    mtp_on = (
+        applied.get("mtp_enabled") is True
+        or stored.get("mtp_enabled") is True
+        or stored.get("vlm_mtp_enabled") is True
+    )
+    dflash_on = applied.get("dflash_enabled") is True or stored.get("dflash_enabled") is True
+    if readback.get("mtp_enabled") is None and not mtp_on:
+        readback["mtp_enabled"] = False
+        sources["mtp_enabled"] = "server.log and model_settings.json did not enable MTP"
+    if not dflash_on:
+        readback["dflash_enabled"] = False
+        sources["dflash_enabled"] = "server.log and model_settings.json did not enable a drafter"
+
+
 def _check_sources(spec: dict[str, Any]) -> dict[str, str]:
     if spec["engine"] == "omlx":
         route = (
-            "Pipeline Non-stream routing log + x-portal-route + "
+            "Pipeline Backend succeeded log + x-portal-route + "
             "server.log Chat completion + GET /api/status total_requests"
         )
-        tokens = "Pipeline usage vs checkpoint tokenizer.json"
+        memory = (
+            "GET /v1/models/status actual_size (oMLX 0.7.3 engine_pool; "
+            "/api/status model_memory_used is the pool sum) + ps tree RSS, "
+            "and vm_stat wired/free delta"
+        )
     else:
-        route = "Pipeline Non-stream routing log + x-portal-route + GET /api/ps expires_at refresh"
-        tokens = "Pipeline usage vs POST /api/tokenize"
+        route = "Pipeline Backend succeeded log + x-portal-route + GET /api/ps expires_at refresh"
+        memory = "GET /api/ps size_vram + ps tree RSS, and vm_stat wired/free delta"
     return {
         "route": route,
-        "memory": "ps tree RSS + footprint Metal, and vm_stat captured before the first request",
-        "tokens": tokens,
+        "memory": memory,
+        "tokens": (
+            "Pipeline usage.completion_tokens vs tokenizer.json of content + reasoning "
+            f"(tolerance {TOKEN_ABS_TOLERANCE} for template and stop tokens)"
+        ),
         "noise": "two back-to-back Pipeline requests",
         "preflight": "instrument think-off probe, tool-call probe, and served id",
         "swap": "sysctl vm.swapusage",
@@ -1160,7 +1285,7 @@ def assemble_cell(spec: dict[str, Any], obs: dict[str, Any]) -> dict[str, Any]:
         route["engine_model"] = model
     pipe = [model for _ws, _be, model in obs.get("pipeline_routes") or []]
     excluded["template"] = _exclude(
-        "single-engine stage0; daily Ollama GGUF and oMLX oQ4e are different bytes"
+        "single-engine stage0; the Ollama GGUF and the oMLX checkpoint are different bytes"
     )
     return {
         "engine": spec["engine"],
@@ -1218,6 +1343,19 @@ def tool_from_message(message: dict[str, Any]) -> dict[str, Any]:
             return {"ok": False, "why": "arguments not JSON"}
     ok = function.get("name") == "get_weather" and "boston" in str(raw).lower()
     return {"ok": ok, "name": function.get("name"), "arguments": raw}
+
+
+def completion_text(message: dict[str, Any]) -> str:
+    """Content plus each distinct reasoning field. The engine counts both."""
+    content = str(message.get("content") or "")
+    parts = [content] if content else []
+    seen = {content}
+    for key in ("reasoning", "reasoning_content", "thinking"):
+        extra = message.get(key)
+        if isinstance(extra, str) and extra and extra not in seen:
+            seen.add(extra)
+            parts.append(extra)
+    return "\n".join(parts)
 
 
 def _visible_reply(message: dict[str, Any]) -> str:
@@ -1308,6 +1446,7 @@ def _observe_after(spec: dict[str, Any]) -> dict[str, Any]:
     models = _get_json(f"{spec['base']}/v1/models/status", headers)
     return {
         "total_requests_after": status.get("total_requests"),
+        "status_after": status,
         "model_row": parse_omlx_model_row(models, spec["model"]),
     }
 
@@ -1321,11 +1460,20 @@ def _one_chat(url: str, body: dict[str, Any], headers: dict[str, str]) -> dict[s
     header = sent["headers"].get("x-portal-route") or sent["headers"].get("X-Portal-Route") or ""
     return {
         "header": header,
-        "text": message.get("content") or "",
+        "text": completion_text(message),
         "tokens": tokens if isinstance(tokens, int) else None,
         "elapsed": time.monotonic() - started,
         "message": message,
     }
+
+
+def _require_pinned_route(spec: dict[str, Any], header: str) -> None:
+    """Stop before the rest of the cell when the first route is a different model."""
+    expected = f"{spec['workspace']};{spec['backend']};{spec['model']}"
+    match = _ROUTE_RE.match(header)
+    got = match.groups() if match else ()
+    if got != (spec["workspace"], spec["backend"], spec["model"]):
+        raise ValueError(f"route: first x-portal-route {header!r} is not the seat {expected}")
 
 
 def _measured_pair(spec: dict[str, Any], pipeline: str, obs: dict[str, Any]) -> dict[str, Any]:
@@ -1342,11 +1490,13 @@ def _measured_pair(spec: dict[str, Any], pipeline: str, obs: dict[str, Any]) -> 
     texts: list[str] = []
     samples: list[tuple[int | None, float]] = []
     hdrs = _pipeline_headers()
-    for _ in range(2):
+    for index in range(2):
         before = None
         if spec["engine"] == "ollama":
             before = parse_ollama_ps(_get_json(f"{spec['base']}/api/ps", {}))
         sent = _one_chat(url, body, hdrs)
+        if index == 0:
+            _require_pinned_route(spec, str(sent["header"]))
         headers_out.append(str(sent["header"]))
         texts.append(str(sent["text"]))
         samples.append((sent["tokens"], float(sent["elapsed"])))
@@ -1367,7 +1517,9 @@ def _appended_log(log_path: Path, offset: int) -> str:
         return handle.read().decode("utf-8", "replace")
 
 
-def _memory_from_text(engine: str, vm_before: str) -> dict[str, Any]:
+def _memory_from_text(
+    engine: str, vm_before: str, weight: tuple[float | None, str]
+) -> dict[str, Any]:
     try:
         before = parse_vm_stat(vm_before)
         after = parse_vm_stat(subprocess.check_output(["vm_stat"], text=True, timeout=10))
@@ -1380,11 +1532,12 @@ def _memory_from_text(engine: str, vm_before: str) -> dict[str, Any]:
         rows = []
     root = _root_pid(engine)
     rss = tree_rss_gb(rows, root) if root else None
-    metal = _metal_gb(rows, root) if root else None
+    weight_gb, weight_source = weight
     return {
         "tree_walked": root is not None and rss is not None,
         "tree_rss_gb": rss,
-        "metal_wired_gb": metal,
+        "engine_weight_gb": weight_gb,
+        "engine_weight_source": weight_source,
         "root": root,
         **deltas,
     }
@@ -1399,33 +1552,27 @@ def _root_pid(engine: str) -> int | None:
     return int(text[0]) if text else None
 
 
-def _metal_gb(rows: list[tuple[int, int, int]], root: int) -> float | None:
-    by_parent: dict[int, list[int]] = {}
-    for pid, ppid, _rss in rows:
-        by_parent.setdefault(ppid, []).append(pid)
-    seen = {root}
-    stack = [root]
-    while stack:
-        pid = stack.pop()
-        for child in by_parent.get(pid, []):
-            if child not in seen:
-                seen.add(child)
-                stack.append(child)
-    total = 0.0
-    found = False
-    for pid in seen:
-        text = subprocess.run(
-            ["footprint", "-p", str(pid)],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=60,
-        ).stdout
-        wired = parse_metal_wired_gb(text)
-        if wired is not None:
-            total += wired
-            found = True
-    return total if found else None
+def engine_weight_gb(spec: dict[str, Any], obs: dict[str, Any]) -> tuple[float | None, str]:
+    """Bytes the engine itself attributes to weights, as GB, plus the field name."""
+    if spec["engine"] == "ollama":
+        row = (obs.get("ps") or {}).get(spec["model"]) or {}
+        size = row.get("size_vram")
+        if isinstance(size, (int, float)) and size > 0:
+            return float(size) / (1024**3), "GET /api/ps size_vram"
+        return None, ""
+    row = obs.get("model_row") or {}
+    status = obs.get("status_after") or {}
+    for key, source in (
+        ("actual_size", "GET /v1/models/status actual_size"),
+        ("estimated_size", "GET /v1/models/status estimated_size"),
+    ):
+        size = row.get(key)
+        if isinstance(size, (int, float)) and size > 0:
+            return float(size) / (1024**3), source
+    used = status.get("model_memory_used")
+    if isinstance(used, (int, float)) and used > 0:
+        return float(used) / (1024**3), "GET /api/status model_memory_used"
+    return None, ""
 
 
 def _served_for(spec: dict[str, Any]) -> str | None:
@@ -1511,15 +1658,6 @@ def _run_preflight(spec: dict[str, Any]) -> dict[str, Any]:
 
 
 def _tokenizer_count(spec: dict[str, Any], text: str) -> int | None:
-    if spec["engine"] == "ollama":
-        sent = _http_json(
-            f"{spec['base']}/api/tokenize",
-            {"model": spec["model"], "prompt": text},
-            {"Content-Type": "application/json"},
-            60,
-        )
-        tokens = sent["json"].get("tokens")
-        return len(tokens) if isinstance(tokens, list) else None
     path = resolve_tokenizer(spec["engine"], spec.get("checkpoint"), None)
     if path is None:
         return None
@@ -1550,7 +1688,7 @@ def collect_stage0(spec: dict[str, Any], pipeline: str) -> dict[str, Any]:
     since = time.strftime("%Y-%m-%dT%H:%M:%S")
     measured = _measured_pair(spec, pipeline, obs)
     obs.update(_observe_after(spec))
-    memory = _memory_from_text(spec["engine"], vm_before)
+    memory = _memory_from_text(spec["engine"], vm_before, engine_weight_gb(spec, obs))
     root = memory.pop("root")
     text = measured["texts"][0] if measured["texts"] else ""
     preflight = _run_preflight(spec)
@@ -1615,6 +1753,8 @@ def stage0(argv: list[str]) -> int:
             "check_sources": evidence.get("check_sources"),
             "readback": evidence.get("readback"),
             "preflight": evidence.get("preflight"),
+            "memory": evidence.get("memory"),
+            "tokens": evidence.get("tokens"),
             "source_conflicts": evidence.get("source_conflicts"),
         }
     )
@@ -1626,7 +1766,8 @@ def main(argv: list[str] | None = None) -> int:
     if not argv or argv[0] not in {"self-test", "judge", "stage0"}:
         print(
             "usage: engine_eval_instrument.py self-test | judge --evidence FILE | "
-            "stage0 --engine {ollama|omlx} --seat daily-moe",
+            "stage0 --engine ollama --seat daily-moe | "
+            "stage0 --engine omlx --seat hunt-reasoning",
             file=sys.stderr,
         )
         return 2
