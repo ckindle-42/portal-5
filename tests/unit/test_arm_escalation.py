@@ -1110,7 +1110,10 @@ def test_tier_escalate_picks_the_first_seat_with_headroom(monkeypatch: pytest.Mo
         module, "_plan_headroom", lambda _reg, plan: 0.0 if plan == "codex" else 1.0
     )
     chosen, why = module._resolve_escalate({}, "code", 0)
-    assert chosen == "grok-max"
+    # The installed dispatcher owns this ladder. Codex plans are out of headroom
+    # under the fake above, so the first other ESCALATION seat is the choice.
+    expected = next(tier for tier in module.ESCALATION if module.TIERS[tier]["plan"] != "codex")
+    assert chosen == expected
     assert any("sol" in line and "skipped" in line for line in why)
     assert module._escalated_effort(module.TIERS["grok-max"]) == "high"
     assert module._escalated_effort(module.TIERS["sol"]) == "high"
