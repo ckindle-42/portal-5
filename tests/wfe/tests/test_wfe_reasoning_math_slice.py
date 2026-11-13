@@ -26,6 +26,9 @@ PLAN = REPO / "tests/wfe/plans/reasoning_math_decision_v1.yaml"
 TASKS = {t["id"]: t for t in map(json.loads, SUITE.read_text().splitlines())}
 KINDS = {"arithmetic": 12, "combinatorics": 12, "logic-grid": 12}
 WORKSPACES = ("auto-reasoning", "auto-reasoning::math")
+# 2026-11-13: auto-reasoning lost the GLM-Z1-Rumination ctx64k challenger to the
+# fleet removal; ::math is unchanged.
+EXPECTED_CHALLENGERS = {"auto-reasoning": 2, "auto-reasoning::math": 3}
 ORD = {"first": 1, "second": 2, "third": 3, "fourth": 4}
 IMPERATIVE = {"Work", "Count", "Determine"}
 
@@ -257,7 +260,7 @@ def test_the_plan_arms_are_served_by_the_workspaces_groups_and_fit_its_window():
             arms["incumbent"],
             *arms["challengers"],
         ]
-        assert len(arms["challengers"]) == 3
+        assert len(arms["challengers"]) == EXPECTED_CHALLENGERS[ws]
         for tag in [arms["incumbent"], *arms["challengers"]]:
             assert tag in served, (ws, tag)
             window = int(re.search(r"ctx(\d+)k", tag).group(1)) * 1024

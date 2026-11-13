@@ -187,7 +187,7 @@ def test_the_plan_arms_are_served_by_the_workspaces_groups_and_fit_its_window():
     arms = plan["arms"]
     assert portal["model_hint"] in [arms["incumbent"], *arms["challengers"]]
     assert plan["home"] == "audio_production"
-    assert plan["discovery"] == [] and len(arms["challengers"]) == 2
+    assert plan["discovery"] == [] and len(arms["challengers"]) == 1
     mode = yaml.safe_load((REPO / "tests/wfe/tool_modes.yaml").read_text())["workspaces"]
     assert mode["auto-audio"]["tool_mode"] == "production"
     assert set(mode["auto-audio"]["allow"]) == set(portal["tools"])

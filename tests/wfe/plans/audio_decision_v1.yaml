@@ -22,6 +22,6 @@ workloads:
     discovery: []
     arms:
       incumbent: gemma4:12b-it-qat-ctx8k
+      # 2026-11-13: the gemma-4-26b plain ctx32k challenger tag was removed from the fleet.
       challengers:
         - gemma4:e4b-it-qat-ctx8k
-        - gemma4:26b-a4b-it-q4_K_M-ctx32k

@@ -359,7 +359,6 @@ items:
       tags:
         - gemma4:26b-a4b-it-q4_K_M-ctx128k
         - gemma4:26b-a4b-it-q4_K_M-ctx64k
-        - gemma4:26b-a4b-it-q4_K_M-ctx32k
         - gemma4:26b-a4b-it-qat-ctx32k
         - gemma4:26b-a4b-it-qat-ctx16k
       upstream_repo: google/gemma-4-26B-A4B-it
