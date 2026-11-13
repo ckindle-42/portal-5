@@ -18,6 +18,7 @@ import httpx
 from fastapi.responses import JSONResponse
 
 from portal.platform.inference.config import PersonaSpec
+from portal.platform.inference.eval_openai import EVAL_OPENAI, uses_openai_seat_injection
 from portal.platform.inference.model_addressing import workspace_context_limit
 from portal.platform.inference.router.backend_introspect import _approx_prompt_tokens
 from portal.platform.inference.router.correlation import get_correlation_id
@@ -269,11 +270,19 @@ def resolve_hop_target(
     """
     if registry is None:
         return primary_url, hop_body
-    seen: set[str] = set()
-    for b in [*registry.get_backend_candidates(workspace_id), *registry.list_healthy_backends()]:
-        if b.id in seen:
-            continue
-        seen.add(b.id)
+    ordered = list(registry.get_backend_candidates(workspace_id))
+    seen = {b.id for b in ordered}
+    exclusive = bool(getattr(registry, "is_exclusive", lambda _ws: False)(workspace_id))
+    extra = (
+        []
+        if exclusive
+        else [
+            b
+            for b in registry.list_healthy_backends()
+            if b.id not in seen and getattr(b, "type", "") != EVAL_OPENAI
+        ]
+    )
+    for b in [*ordered, *extra]:
         native = b.resolve_model(hop_model)
         if native is None:
             continue
@@ -282,7 +291,7 @@ def resolve_hop_target(
             body.pop(key, None)
         if b.type == "ollama":
             body = _inject_ollama_options(body, workspace_id)
-        elif b.type == "omlx":
+        elif uses_openai_seat_injection(b.type):
             body = _inject_omlx_options(body, workspace_id)
         return b.chat_url, body
     logger.warning(
@@ -899,7 +908,7 @@ async def _final_toolless_answer(
 
 def _request_timeout_for(backend: Any, workspace_config: dict[str, Any]) -> float:
     timeout = getattr(registry, "request_timeout", 300.0)
-    if workspace_config.get("emits_reasoning") or backend.type == "omlx":
+    if workspace_config.get("emits_reasoning") or uses_openai_seat_injection(backend.type):
         timeout = max(timeout, 600.0)
     return timeout
 
@@ -1073,7 +1082,7 @@ async def _try_non_streaming(
     req_body.pop("portal_bite_max_hops", None)
     if backend.type == "ollama":
         req_body = _inject_ollama_options(req_body, workspace_id)
-    elif backend.type == "omlx":
+    elif uses_openai_seat_injection(backend.type):
         req_body = _inject_omlx_options(req_body, workspace_id)
     _ns_thinking_allowed = _thinking_enabled(req_body)
 

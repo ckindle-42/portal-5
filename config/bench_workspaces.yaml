@@ -588,3 +588,105 @@ workspaces:
     - kb_list
     expose_to_owui: false
     enable_web_search: false
+  bench-engine-daily-moe:
+    module: eval
+    router: false
+    name: Bench engine · daily MoE
+    description: auto-daily sampling and tools on the Nemotron oQ4e checkpoint. Eval engines only.
+    model_hint: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
+    context_limit: 16384
+    predict_limit: 8192
+    think: true
+    temperature: 1
+    top_p: 0.95
+    top_k: 64
+    repeat_penalty: 1.0
+    tools:
+    - web_search
+    - web_fetch
+    - kb_search
+    - kb_list
+    - read_pdf
+    - read_word_document
+    - read_excel
+    - create_word_document
+    - create_excel
+    - create_powerpoint
+    - execute_python
+    - remember
+    - recall
+    - minimax_generate
+    - minimax_status
+    - transcribe_audio
+    expose_to_owui: false
+    enable_web_search: false
+  bench-engine-coding:
+    module: eval
+    router: false
+    name: Bench engine · coding
+    description: auto-coding sampling and tools on plain Qwen3.8-27B-4bit. Not the oQ4e-mtp sidecar.
+    model_hint: Qwen3.8-27B-4bit
+    context_limit: 98304
+    predict_limit: 32768
+    temperature: 1.0
+    top_p: 0.95
+    top_k: 20
+    min_p: 0.0
+    presence_penalty: 0.0
+    repeat_penalty: 1.0
+    think: true
+    tools:
+    - execute_python
+    - execute_nodejs
+    - execute_bash
+    - sandbox_status
+    - read_word_document
+    - read_pdf
+    - remember
+    - recall
+    expose_to_owui: false
+    enable_web_search: false
+  bench-engine-task-router:
+    module: eval
+    router: false
+    name: Bench engine · task router
+    description: task-router seat. The GGUF tag is the checkpoint; do not substitute another Gemma.
+    model_hint: hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k
+    context_limit: 2048
+    predict_limit: 128
+    temperature: 0.2
+    think: false
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  bench-engine-hunt:
+    module: eval
+    router: false
+    name: Bench engine · hunt
+    description: hunt-reasoning seat on gemma-4-26b-a4b-it-QAT-4bit. No think field; the seat does not set one.
+    model_hint: gemma-4-26b-a4b-it-QAT-4bit
+    context_limit: 8192
+    temperature: 0.0
+    max_concurrent: 8
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  bench-engine-council-json:
+    module: eval
+    router: false
+    name: Bench engine · council JSON
+    description: compliance-council-qwen38 sampling on plain Qwen3.8-27B-4bit. Not the oQ4e-mtp sidecar.
+    model_hint: Qwen3.8-27B-4bit
+    context_limit: 32768
+    predict_limit: 8192
+    temperature: 0.7
+    top_p: 0.8
+    top_k: 20
+    min_p: 0.0
+    repeat_penalty: 1.0
+    presence_penalty: 1.5
+    think: false
+    emits_reasoning: false
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false

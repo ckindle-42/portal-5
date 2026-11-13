@@ -1,0 +1,26 @@
+# Eval-only OpenAI engines. Not part of the operator-owned backends: block.
+# Exclusive workspace ids are always loaded. Backend entries merge only when
+# module eval is enabled or PORTAL_ENABLE_EVAL / PORTAL_BENCH_WORKSPACES is set.
+# Do not alias a production GGUF tag onto a different MLX id here.
+exclusive_workspaces:
+  - bench-engine-daily-moe
+  - bench-engine-coding
+  - bench-engine-task-router
+  - bench-engine-hunt
+  - bench-engine-council-json
+backends:
+  - id: eval-openai
+    type: eval_openai
+    group: eval
+    url: ${PORTAL_EVAL_ENGINE_URL:-http://127.0.0.1:11234}
+    health_path: /v1/models
+    priority: 10
+    models:
+      - id: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
+        supports_tools: true
+      - id: Qwen3.8-27B-4bit
+        supports_tools: true
+      - id: gemma-4-26b-a4b-it-QAT-4bit
+        supports_tools: true
+      - id: hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k
+        supports_tools: false
