@@ -248,6 +248,10 @@ def test_line_oriented_log_gets_named_positions_with_their_variety():
     assert parsed[0].fields["p5"] == "sshd[123]:"
 
 
+def test_an_apostrophe_does_not_swallow_the_rest_of_a_line():
+    assert tokenise("a b don't stop c d", 12) == ["a", "b", "don't", "stop", "c", "d"]
+
+
 def test_positions_keep_a_bracketed_stamp_and_a_quoted_phrase_whole():
     line = '1.2.3.4 - - [01/Jan/2020:00:00:00 +0000] "GET /a b HTTP/1.1" 200 12'
     positions = tokenise(line, 12)

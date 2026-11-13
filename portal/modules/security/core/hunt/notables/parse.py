@@ -86,7 +86,7 @@ def split_record(line: str, delimiter: str) -> list[str]:
             if char == quote:
                 quote = ""
             continue
-        if char in {'"', "'"}:
+        if char == '"':
             quote = char
             current.append(char)
             continue

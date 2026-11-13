@@ -290,9 +290,11 @@ def rarity(behaviour: Behaviour, stats: Mapping[str, Any]) -> tuple[float, str]:
     actors_possible = int(stats.get("actors_possible") or 0)
     factors: list[float] = []
     clauses: list[str] = []
-    if hosts_possible:
+    if hosts_possible and behaviour.hosts:
         factors.append(behaviour.hosts / hosts_possible)
         clauses.append(f"on {behaviour.hosts}/{hosts_possible} hosts")
+    if not behaviour.hosts:
+        clauses.append("host not present in this behaviour")
     if behaviour.actors and actors_possible:
         factors.append(behaviour.actors / actors_possible)
         clauses.append(f"{behaviour.actors}/{actors_possible} actors")

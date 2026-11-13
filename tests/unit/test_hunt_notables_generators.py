@@ -123,6 +123,15 @@ def test_a_missing_actor_is_unknown_not_rare_and_sorts_last():
     assert "0/150" not in notables[1].why
 
 
+def test_a_behaviour_without_a_host_is_not_rare_by_zero_hosts():
+    behaviours = [_behaviour("ix:st", "bob", hosts=0, actors=1, events=2, first=1.0)]
+    stats = {"ix:st": {"hosts_possible": 7, "actors_possible": 150}}
+    notables, _receipt = peer_rare(behaviours, stats)
+    assert notables[0].measure_value == round(1 / 150, 10)
+    assert "host not present in this behaviour" in notables[0].why
+    assert "0/7" not in notables[0].why
+
+
 def test_robust_z_and_source_deviations_rank_a_burst_first():
     steady = [10, 11, 9, 10, 12]
     spike = [10, 10, 10, 10, 900]

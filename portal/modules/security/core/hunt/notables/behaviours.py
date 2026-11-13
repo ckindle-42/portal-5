@@ -264,6 +264,7 @@ def _source_receipt(
     facts: SourceFacts,
     read: Any,
     events: int,
+    keyed: int,
     seconds: float,
     per_window: int,
 ) -> dict[str, Any]:
@@ -275,6 +276,8 @@ def _source_receipt(
         "events_available": facts.events,
         "events_read": len(read.rows),
         "events_parsed": events,
+        "events_keyed": keyed,
+        "events_keyless": max(0, events - keyed),
         "windows": read.windows,
         "per_window": per_window,
         "selection": "newest events of each equal time slice",
@@ -339,6 +342,7 @@ def collect_behaviours(
                         facts,
                         read,
                         len(events),
+                        len(rows),
                         time.monotonic() - started,
                         per_window,
                     )
