@@ -162,6 +162,29 @@ _no_answer_total = Counter(
     registry=_REGISTRY,
 )
 
+# ── Embeddings (POST /v1/embeddings) ──────────────────────────────────────
+# Counts and latency only: input text is never a label or a log line.
+_embeddings_requests_total = Counter(
+    "portal5_embeddings_requests_total",
+    "Embedding requests by outcome "
+    "(ok | busy | timeout | unreachable | not_ready | upstream_error | malformed)",
+    ["outcome"],
+    registry=_REGISTRY,
+)
+_embeddings_items_total = Counter(
+    "portal5_embeddings_items_total",
+    "Embedding items embedded through the Pipeline, by served model",
+    ["model"],
+    registry=_REGISTRY,
+)
+_embeddings_seconds = Histogram(
+    "portal5_embeddings_request_seconds",
+    "End-to-end embedding request latency by outcome",
+    ["outcome"],
+    buckets=[0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60],
+    registry=_REGISTRY,
+)
+
 _concurrent_requests = Gauge(
     "portal_concurrent_requests",
     "Number of requests currently being processed",

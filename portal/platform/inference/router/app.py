@@ -9,7 +9,7 @@ import os
 from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
 
-from portal.platform.inference.router import handlers, ollama_passthrough
+from portal.platform.inference.router import embeddings, handlers, ollama_passthrough
 from portal.platform.inference.router.lifespan import lifespan
 from portal.platform.inference.router.request_limits import (
     MAX_REQUEST_BYTES,
@@ -59,6 +59,7 @@ app.get("/metrics", response_class=PlainTextResponse)(handlers.metrics)
 app.get("/v1/models")(handlers.list_models)
 app.get("/v1/backends")(handlers.list_backends_endpoint)
 app.post("/v1/chat/completions")(handlers.chat_completions)
+app.post("/v1/embeddings")(embeddings.embeddings)
 app.post("/v1/messages")(handlers.anthropic_messages)
 app.get("/v1/trace")(handlers.list_traces)
 app.get("/v1/trace/{correlation_id}")(handlers.get_trace)

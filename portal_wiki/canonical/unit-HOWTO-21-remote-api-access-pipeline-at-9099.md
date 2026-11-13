@@ -23,6 +23,8 @@ updated_at: 1783195000.860634
 
 - `GET /v1/models` — `list_models`, workspaces + IDE-curated persona entries
 - `POST /v1/chat/completions` — `chat_completions`, streaming included
+- `POST /v1/embeddings` — OpenAI-compatible embeddings forwarded to the configured platform
+  embedder (EmbeddingGemma 2); raw passthrough, bounded batch/input, typed errors
 - `POST /v1/messages` — Anthropic-compatible message passthrough
 - `GET /v1/backends` — registry health
 - `GET /health` — liveness, plus `build_sha` / `build_dirty`: the commit the running image was built
