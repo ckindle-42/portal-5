@@ -32,5 +32,7 @@ omlx-coding-models:
 # 2026-11-13: empty — the two belt-and-braces GGUF-tag aliases this block used to
 # carry (Qwen3.8-27B ctx128k, Qwen3.6-35B ctx128k) named tags removed from the fleet.
 # The existing live alias hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M -> oQ4e stays in the file.
+# If the oQ4e tool probe fails, retarget that one line to Qwen3.8-27B-4bit.
+# Do not point it at Qwen3.8-27B-DFlash2.
 omlx-coding-aliases: {}
 

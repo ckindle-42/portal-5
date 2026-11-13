@@ -13,7 +13,7 @@ import pytest
 from portal.platform.inference.config import load_portal_config
 from portal.platform.inference.router import preinject as pi
 
-_VISION = frozenset({"vl-seat:tag", "gemma4:26b-a4b-it-qat-ctx8k"})
+_VISION = frozenset({"vl-seat:tag", "gemma4:26b-a4b-it-qat-ctx16k"})
 _TEXT_SEAT = "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k"
 
 
@@ -62,7 +62,7 @@ def test_text_turn_on_text_only_seat_unchanged(monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_vision_capable_seat_with_image_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setitem(pi.WORKSPACES, "auto-daily", {"model_hint": "gemma4:26b-a4b-it-qat-ctx8k"})
+    monkeypatch.setitem(pi.WORKSPACES, "auto-daily", {"model_hint": "gemma4:26b-a4b-it-qat-ctx16k"})
     body = _image_body()
     ws_id, out = pi._resolve_text_seat_image_reroute("auto-daily", body)
     assert ws_id == "auto-daily"

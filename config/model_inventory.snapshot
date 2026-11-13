@@ -12,6 +12,7 @@ gemma4:12b-it-qat-ctx8k
 gemma4:26b-a4b-it-q4_K_M
 gemma4:26b-a4b-it-qat
 gemma4:26b-a4b-it-qat-ctx8k
+gemma4:26b-a4b-it-qat-ctx16k
 gemma4:31b-it-qat
 gemma4:31b-it-qat-ctx8k
 gemma4:e2b-it-qat
@@ -55,6 +56,7 @@ hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF
 hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M
 hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k
 hf.co/Nguuma/security-slm-unsloth-1.5b:latest
+hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M
 hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF:latest
 hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M
 hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL

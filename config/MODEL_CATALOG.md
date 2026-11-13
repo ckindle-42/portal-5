@@ -1305,9 +1305,7 @@ Prepared as the 65536-token QAT overflow tag from `gemma4:26b-a4b-it-qat-ctx8k`;
 
 Prepared as the 131072-token QAT reading tag from `gemma4:26b-a4b-it-qat-ctx8k`; `config/modelfiles/gemma4-26b-a4b-it-qat-ctx128k.Modelfile` sets `num_ctx` and inherits the QAT GGUF template. It is registered for the general Ollama group and aliased to `gemma-4-26b-a4b-it-QAT-4bit` on oMLX. The local QAT conversion config advertises 262144 text positions; the 128k Ollama tag has not been created or run yet.
 
-### `gemma4:26b-a4b-it-qat-ctx16k` — RETIRED (2026-11-13, operator)
-
-**Removed 2026-11-13:** unused by any workspace/persona/router; weights deleted from disk (operator removal round 2026-11-13). The rest of this section is retained history.
+### `gemma4:26b-a4b-it-qat-ctx16k`
 
 `gemma4:26b-a4b-it-qat-ctx16k` is the context-bounded version of `gemma4:26b-a4b-it-qat`, holding a 16384-token window, derived from the ctx8k tag (same weights and template). `config/backends.yaml` registers it under the `vision` and `general` groups with `supports_tools: true` (direct Ollama tool probe 2026-10-18: clean typed call) and aliases it onto `gemma-4-26b-a4b-it-QAT-4bit` on oMLX. `config/portal.yaml` selected it as the `auto-daily` workspace `model_hint` from 2026-10-18 — the S2 production smoke measured the empty-turn prompt at 2996 of 8192 tokens (37%), docs/WFE_PRODUCTION_SMOKE_20261018.md — until 2026-11-06, when the seat moved to the text-only `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k` tag (realuse_autodaily_postfix_20261106: Nemotron 28/28 vs Gemma 26/28).
 

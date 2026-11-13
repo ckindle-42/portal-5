@@ -104,6 +104,8 @@ backends:
     supports_tools: true
   - id: gemma4:26b-a4b-it-qat-ctx8k
     supports_tools: true
+  - id: gemma4:26b-a4b-it-qat-ctx16k
+    supports_tools: true
   - id: gemma4:26b-a4b-it-qat-ctx32k
     supports_tools: true
     keep_reason: "QAT selected as auto-documents build, and for the bench and 64k overflow seats 2026-11-06; auto-daily::gemma-fast retains Gate C evidence. Plain remains for the 128k seats and vision fallbacks (A/Bs pending)."
@@ -510,6 +512,8 @@ backends:
     supports_tools: true
   - id: gemma4:26b-a4b-it-qat-ctx8k
     supports_tools: true
+  - id: gemma4:26b-a4b-it-qat-ctx16k
+    supports_tools: true
   - id: gemma4:26b-a4b-it-qat-ctx32k
     supports_tools: true
     keep_reason: "QAT selected as auto-documents build, and for the bench and 64k overflow seats 2026-11-06; auto-daily::gemma-fast retains Gate C evidence. Plain remains for the 128k seats and vision fallbacks (A/Bs pending)."
@@ -728,6 +732,7 @@ backends:
   priority: 10
   aliases:
     gemma4:26b-a4b-it-qat-ctx8k: gemma-4-26b-a4b-it-QAT-4bit
+    gemma4:26b-a4b-it-qat-ctx16k: gemma-4-26b-a4b-it-QAT-4bit
     gemma4:26b-a4b-it-qat-ctx32k: gemma-4-26b-a4b-it-QAT-4bit
     gemma4:26b-a4b-it-qat-ctx64k: gemma-4-26b-a4b-it-QAT-4bit
     gemma4:26b-a4b-it-qat-ctx128k: gemma-4-26b-a4b-it-QAT-4bit

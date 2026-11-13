@@ -2507,8 +2507,8 @@
       "decision_question": null,
       "test_if_needed": null,
       "stop_rule": null,
-      "final_disposition": "REMOVED_CLOSED",
-      "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
+      "final_disposition": "INTEGRATED",
+      "decision_reason": "tool-preselection probe (tool_preselect config)",
       "purpose_or_replacement": "tool-preselection probe (tool_preselect config)",
       "evidence_refs": [
         "dep scan"
@@ -2517,7 +2517,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_openbmb_MiniCPM5-1B-GGUF-Q4_K_M"
       ],
       "verified_storage_effect_bytes": null,
-      "closed_at": "removed 2026-11-13 (operator removal round: parsed-config usage analysis, weights deleted from disk)"
+      "closed_at": "2026-09-07"
     },
     {
       "item_id": "ollama:hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M",
@@ -5003,8 +5003,8 @@
       "symlink_target": "/Users/chris/.cache/huggingface/hub/models--incoai--Qwen3.8-27B-DFlash2/snapshots/dedf8df68adfb1afeaf7b7480c0a0243108177b4",
       "logical_bytes": 3849113004,
       "required_action": "Verify checkpoint/draft purpose, serving/alias dependencies and recorded acceptance; close integrated or retained-for-purpose, or retire unneeded copy with shared-cache review.",
-      "final_disposition": "REMOVED_CLOSED",
-      "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
+      "final_disposition": "INTEGRATED",
+      "decision_reason": "oMLX pool member registered in config/backends.yaml (MLX backend alias); manual/pool serving",
       "purpose_or_replacement": "oMLX pool member registered in config/backends.yaml (MLX backend alias); manual/pool serving",
       "evidence_refs": [
         "config/backends.yaml",
@@ -5014,7 +5014,7 @@
       "closure_record_refs": [
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#Qwen3.8-27B-DFlash2"
       ],
-      "closed_at": "removed 2026-11-13 (operator removal round: parsed-config usage analysis, weights deleted from disk)",
+      "closed_at": "2026-09-07",
       "verified_storage_effect_bytes": null,
       "decision_question": null,
       "test_if_needed": null,
@@ -6574,16 +6574,6 @@
       "item_id": "ollama:gemma4:26b-a4b-it-q4_K_M-ctx32k",
       "kind": "ollama_manifest",
       "exact_identity": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
-      "observed_present": false,
-      "final_disposition": "REMOVED_CLOSED",
-      "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
-      "closed_at": "removed 2026-11-13 (operator removal round: parsed-config usage analysis, weights deleted from disk)",
-      "closure_record_refs": []
-    },
-    {
-      "item_id": "ollama:gemma4:26b-a4b-it-qat-ctx16k",
-      "kind": "ollama_manifest",
-      "exact_identity": "gemma4:26b-a4b-it-qat-ctx16k",
       "observed_present": false,
       "final_disposition": "REMOVED_CLOSED",
       "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
