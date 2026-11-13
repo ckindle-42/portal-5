@@ -472,6 +472,8 @@ models:
     spec:
       mtplx: {method: mtp, args: [--mtp]}
   # November 2026 seats. Historical rows above stay so the September tests still render.
+  # 2026-11-13: the ctx16k Ollama arm tag was removed from the fleet, so this
+  # single-arm seat can no longer run; the row stays as the launch record.
   gemma4_26b_a4b_qat:
     source_repo: google/gemma-4-26B-A4B-it
     ollama: gemma4:26b-a4b-it-qat-ctx16k
@@ -503,6 +505,9 @@ models:
     mlx: Qwen3.8-27B-4bit
     served: Qwen3.8-27B-4bit
     # Already on disk inside mlx_root. drafter_dir wins, so fetch-drafters does not re-download.
+    # 2026-11-13: the DFlash2 drafter checkpoint was removed from the fleet — the
+    # dflash spec arms below are unrunnable until a drafter is re-fetched; the
+    # omlx and ollama arms are unaffected.
     drafter_dir: /Volumes/data01/omlx-models/Qwen3.8-27B-DFlash2
     splash: local/Qwen3.8-27B-4bit
     splash_extra:

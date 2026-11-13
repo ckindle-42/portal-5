@@ -182,12 +182,11 @@ CANDIDATES = [
         32768,
         "mamba2-moe",
     ),
-    ("hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx48k", 49152, "gdn-moe"),
     ("hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k", 32768, "gdn-moe"),
-    ("gemma4:26b-a4b-it-q4_K_M-ctx32k", 32768, "sliding-global"),
     ("granite4:tiny-h-ctx32k", 32768, "granitehybrid"),
     ("granite4:small-h-ctx32k", 32768, "granitehybrid"),
-    ("ling30-tiny-test", 32768, "kda-mla"),
+    # ctx48k / gemma-4-26b ctx32k / ling30-tiny-test rows removed 2026-11-13 with
+    # the fleet removal (the sliding-global and kda-mla families lost their tags).
 ]
 
 

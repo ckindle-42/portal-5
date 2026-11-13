@@ -12,7 +12,6 @@ gemma4:12b-it-qat-ctx8k
 gemma4:26b-a4b-it-q4_K_M
 gemma4:26b-a4b-it-qat
 gemma4:26b-a4b-it-qat-ctx8k
-gemma4:26b-a4b-it-qat-ctx16k
 gemma4:31b-it-qat
 gemma4:31b-it-qat-ctx8k
 gemma4:e2b-it-qat
@@ -21,7 +20,6 @@ gemma4:e4b-it-q4_K_M
 gemma4:e4b-it-qat
 gemma4:e4b-it-qat-ctx8k
 glm-4.7-flash:Q4_K_M
-gpt-oss:20b
 granite4.1:30b
 granite4.1:30b-ctx64k
 granite4.1:8b
@@ -33,8 +31,6 @@ hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M
 hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M
 hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k
 hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M
-hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
-hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k
 hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K
 hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4
 hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4-ctx8k
@@ -59,7 +55,6 @@ hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF
 hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M
 hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k
 hf.co/Nguuma/security-slm-unsloth-1.5b:latest
-hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M
 hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF:latest
 hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M
 hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL

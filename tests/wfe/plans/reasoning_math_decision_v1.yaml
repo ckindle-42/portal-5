@@ -22,8 +22,8 @@ workloads:
     arms:
       # Seat moved to K2-Horizon 2026-10-19 (docs/DECISION_AUTO_REASONING_K2_20261019.md).
       incumbent: hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx64k
+      # 2026-11-13: the GLM-Z1-Rumination ctx64k challenger tag was removed from the fleet.
       challengers:
-        - hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k
         - granite4.1:30b-ctx64k
         - glm-4.7-flash:Q4_K_M-ctx64k
   auto-reasoning::math:

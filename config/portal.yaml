@@ -1277,7 +1277,7 @@ workspaces:
         guardrail: default
       heavy:
         name: ⚡ Portal Agentic Coder (Heavy)
-        description: 'Agentic coding workspace for long-horizon multi-file tasks, SWE-agent-style workflows, and complex refactors. Qwen3.8-27B oQ4e MTP (dense 27B, 4-bit MLX with real MTP heads, ~1.45x decode, 262K native ctx, oMLX). 2026-10-22 coder-seat A/B screen: PASS think-off (arm A); think-on failed (arm B). Fallbacks remain AgentWorld 35B (the lite variant) and gpt-oss:20b in the coding pool.'
+        description: 'Agentic coding workspace for long-horizon multi-file tasks, SWE-agent-style workflows, and complex refactors. Qwen3.8-27B oQ4e MTP (dense 27B, 4-bit MLX with real MTP heads, ~1.45x decode, 262K native ctx, oMLX). 2026-10-22 coder-seat A/B screen: PASS think-off (arm A); think-on failed (arm B). Fallbacks remain AgentWorld 35B (the lite variant).'
         # 2026-10-22: think-off arm winner (kit-qwen38-27b-a). Card instruct sampling, think pinned off.
         # Source: unsloth Qwen3.8-27B-GGUF card (2026-09-24; re-confirmed 2026-10-16, presence 1.5 "to curb endless loops") — 0.7/0.8/20/min_p 0/presence 1.5/repeat 1.0.
         model_hint: Qwen3.8-27B-oQ4e-mtp
