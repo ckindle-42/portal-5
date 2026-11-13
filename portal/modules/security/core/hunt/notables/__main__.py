@@ -53,11 +53,15 @@ def _print_behaviours(behaviours: list[Behaviour], receipt: dict[str, Any]) -> N
         print(
             f"  {_label(item)} events={item.get('events_read', 0)} "
             f"of={item.get('events_available', 0)} share={item.get('share_of_source')} "
-            f"windows={item.get('windows', 0)} behaviours={counts.get(_label(item), 0)} "
+            f"windows={item.get('windows', 0)} "
+            f"behaviours={item.get('behaviours', counts.get(_label(item), 0))} "
             f"seconds={item.get('seconds')}"
         )
     for item in receipt.get("skipped", []):
-        print(f"  skipped {_label(item)}: {item.get('reason') or 'unknown'}")
+        print(
+            f"  skipped {_label(item)}: {item.get('reason') or 'unknown'} "
+            f"behaviours={item.get('behaviours', 0)}"
+        )
     print(
         f"behaviours: events_read={receipt.get('events_read', 0)} "
         f"existed={receipt.get('behaviours_existed', 0)} "

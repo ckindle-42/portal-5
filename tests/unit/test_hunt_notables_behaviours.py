@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import duckdb
 
+from portal.modules.security.core.hunt.executor import Read
 from portal.modules.security.core.hunt.notables.__main__ import _print_behaviours
 from portal.modules.security.core.hunt.notables.behaviours import (
     ExampleEvent,
@@ -197,8 +198,51 @@ def test_a_skipped_source_receipt_carries_its_source_id(tmp_path):
             "card_id": "ix:st",
             "source_id": "ix:st",
             "reason": "unparsed_sample:coverage=0.00",
+            "behaviours": 0,
         }
     ]
+
+
+class _RowsExecutor:
+    def __init__(self, rows: list[dict[str, object]]) -> None:
+        self.rows = rows
+
+    def read(
+        self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+    ) -> Read:
+        del query, start, end, kind, row_cap
+        return Read([dict(row) for row in self.rows], False, None)
+
+
+def test_each_source_reports_its_own_distinct_behaviour_count(tmp_path):
+    card = SourceCard(
+        index="ix",
+        sourcetype="st",
+        kind="activity",
+        roles={"actor": ("user",), "action": ("image",)},
+        understood=True,
+        reason=None,
+        fmt="json",
+        coverage=1.0,
+        fields=(),
+        sample={},
+        facts={},
+        model={},
+        cache_key="key",
+    )
+    rows = [
+        {"_raw": '{"user": "bob", "image": "cmd.exe"}', "_time": 1.0, "host": "h1"},
+        {"_raw": '{"user": "bob", "image": "cmd.exe"}', "_time": 2.0, "host": "h2"},
+        {"_raw": '{"user": "amy", "image": "cmd.exe"}', "_time": 3.0, "host": "h1"},
+    ]
+    behaviours, receipt = collect_behaviours(
+        _RowsExecutor(rows),  # type: ignore[arg-type]
+        [card],
+        {"ix:st": SourceFacts("ix", "st", 3, 0.0, 3600.0, ("h1",), 1, ("s1",), 1)},
+        tmp_path / "b.duckdb",
+    )
+    assert len(behaviours) == 2
+    assert receipt["receipts"][0]["behaviours"] == 2
 
 
 def test_the_behaviour_printer_survives_a_partial_receipt(capsys):

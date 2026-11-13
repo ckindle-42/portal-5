@@ -350,7 +350,7 @@ def collect_behaviours(
     began = time.monotonic()
     grouped = _source_groups(cards)
     usable_sources = sum(1 for group in grouped.values() if any(card.usable for card in group))
-    skipped: list[dict[str, str]] = []
+    skipped: list[dict[str, Any]] = []
     receipts: list[dict[str, Any]] = []
     per_window = per_window_events(usable_sources)
     store_path.parent.mkdir(parents=True, exist_ok=True)
@@ -367,6 +367,7 @@ def collect_behaviours(
                         "card_id": card.card_id,
                         "source_id": card.source_id,
                         "reason": _skip_reason(card),
+                        "behaviours": 0,
                     }
                     for card in group
                 )
@@ -378,6 +379,7 @@ def collect_behaviours(
                         "card_id": card.card_id,
                         "source_id": card.source_id,
                         "reason": "no_index_facts",
+                        "behaviours": 0,
                     }
                     for card in usable
                 )
@@ -389,6 +391,11 @@ def collect_behaviours(
         behaviours, existed = aggregate_events(con)
     finally:
         con.close()
+    counts: dict[str, int] = {}
+    for behaviour in behaviours:
+        counts[behaviour.source_id] = counts.get(behaviour.source_id, 0) + 1
+    for item in receipts:
+        item["behaviours"] = counts.get(str(item.get("source_id")), 0)
     return behaviours, {
         "receipts": receipts,
         "skipped": skipped,
