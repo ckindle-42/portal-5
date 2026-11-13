@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import yaml
 
 from portal.platform.inference.cluster_backends import Backend, BackendRegistry
 from portal.platform.inference.router import council, non_streaming
@@ -65,6 +67,99 @@ def test_enabled_eval_backend_is_exclusive_and_not_a_degrade_target(
     production = reg.get_backend_candidates("auto-coding")
     assert production
     assert all(b.type != "eval_openai" for b in production)
+
+
+@pytest.mark.parametrize(
+    ("override", "expected"),
+    [
+        (None, "http://host.docker.internal:11234"),
+        ("http://eval-engine:11234", "http://eval-engine:11234"),
+    ],
+)
+def test_eval_engine_url_uses_host_default_and_environment_override(
+    monkeypatch: pytest.MonkeyPatch, override: str | None, expected: str
+) -> None:
+    if override is None:
+        monkeypatch.delenv("PORTAL_EVAL_ENGINE_URL", raising=False)
+    else:
+        monkeypatch.setenv("PORTAL_EVAL_ENGINE_URL", override)
+
+    registry = BackendRegistry(config_path=CONFIG, include_eval_backends=True)
+    backend = next(b for b in registry.list_backends() if b.id == "eval-openai")
+    assert backend.url == expected
+
+
+def test_eval_engine_url_override_reaches_pipeline_container() -> None:
+    compose = yaml.safe_load(Path("deploy/portal-5/docker-compose.yml").read_text(encoding="utf-8"))
+    environment = compose["services"]["portal-pipeline"]["environment"]
+    variables = dict(item.split("=", 1) for item in environment if isinstance(item, str))
+    assert variables["PORTAL_EVAL_ENGINE_URL"] == (
+        "${PORTAL_EVAL_ENGINE_URL:-http://host.docker.internal:11234}"
+    )
+
+
+def test_pipeline_health_counts_eval_backends_separately(monkeypatch: pytest.MonkeyPatch) -> None:
+    from portal.platform.inference.router import handlers
+
+    production = Backend(
+        id="production", type="ollama", url="http://ollama", group="general", models=[]
+    )
+    evaluation = Backend(
+        id="eval-openai",
+        type="eval_openai",
+        url="http://host.docker.internal:11234",
+        group="eval",
+        models=[],
+        healthy=False,
+    )
+    registry = SimpleNamespace(
+        list_backends=lambda: [production, evaluation],
+        list_healthy_backends=lambda: [production],
+        health_checked=True,
+    )
+    monkeypatch.setattr(handlers, "registry", registry)
+
+    data = asyncio.run(handlers.health())
+
+    assert data["status"] == "ok"
+    assert data["backends_healthy"] == 1
+    assert data["backends_total"] == 1
+    assert data["eval_backends_healthy"] == 0
+    assert data["eval_backends_total"] == 1
+    metrics = asyncio.run(handlers.metrics()).body.decode()
+    assert "portal_backends_healthy 1\n" in metrics
+    assert "portal_backends_total 1\n" in metrics
+
+
+def test_healthy_eval_backend_does_not_make_production_health_ok(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from portal.platform.inference.router import handlers
+
+    evaluation = Backend(
+        id="eval-openai",
+        type="eval_openai",
+        url="http://host.docker.internal:11234",
+        group="eval",
+        models=[],
+    )
+    registry = SimpleNamespace(
+        list_backends=lambda: [evaluation],
+        list_healthy_backends=lambda: [evaluation],
+        health_checked=True,
+    )
+    monkeypatch.setattr(handlers, "registry", registry)
+
+    data = asyncio.run(handlers.health())
+
+    assert data["status"] == "degraded"
+    assert data["backends_healthy"] == 0
+    assert data["backends_total"] == 0
+    assert data["eval_backends_healthy"] == 1
+    assert data["eval_backends_total"] == 1
+    metrics = asyncio.run(handlers.metrics()).body.decode()
+    assert "portal_backends_healthy 0\n" in metrics
+    assert "portal_backends_total 0\n" in metrics
 
 
 def test_eval_openai_health_defaults_to_models() -> None:

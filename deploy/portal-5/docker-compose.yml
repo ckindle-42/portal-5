@@ -125,6 +125,7 @@ services:
       # at all) — red-side dispatch never hit this since it uses raw Ollama
       # model IDs directly, bypassing workspace resolution.
       - PORTAL_ENABLE_EVAL=${PORTAL_ENABLE_EVAL:-false}
+      - PORTAL_EVAL_ENGINE_URL=${PORTAL_EVAL_ENGINE_URL:-http://host.docker.internal:11234}
       # Turn trace — a var missing from this block never reaches the
       # container, which is how PORTAL_ENABLE_EVAL and STRICT_HINT_VALIDATION
       # above were each found silently inert during a live test.

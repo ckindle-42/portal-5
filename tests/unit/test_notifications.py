@@ -382,6 +382,45 @@ class TestNotificationDispatcher:
                 event = mock_dispatch.call_args[0][0]
                 assert event.type == EventType.BACKEND_RECOVERED
 
+    def test_eval_backend_never_fires_backend_or_all_down_alerts(self):
+        with patch.dict(os.environ, {"NOTIFICATIONS_ENABLED": "true"}):
+            import importlib
+
+            import portal.platform.inference.notifications.dispatcher as disp_mod
+
+            importlib.reload(disp_mod)
+            from portal.platform.inference.notifications.dispatcher import (
+                NotificationDispatcher,
+            )
+            from portal.platform.inference.notifications.events import EventType
+
+            disp = NotificationDispatcher()
+            eval_backend = MagicMock()
+            eval_backend.type = "eval_openai"
+            eval_backend.healthy = False
+            registry = MagicMock()
+            registry._backends = {"eval-openai": eval_backend}
+
+            with (
+                patch.object(disp, "dispatch", new_callable=AsyncMock) as mock_dispatch,
+                patch("asyncio.ensure_future"),
+            ):
+                for _ in range(3):
+                    asyncio.run(disp.check_thresholds_and_alert(registry))
+                eval_backend.healthy = True
+                asyncio.run(disp.check_thresholds_and_alert(registry))
+
+            assert disp._failure_counts.get("eval-openai", 0) == 0
+            assert not any(
+                call.args[0].type
+                in {
+                    EventType.BACKEND_DOWN,
+                    EventType.BACKEND_RECOVERED,
+                    EventType.ALL_BACKENDS_DOWN,
+                }
+                for call in mock_dispatch.call_args_list
+            )
+
     def test_all_backends_down_fires_once(self):
         with patch.dict(os.environ, {"NOTIFICATIONS_ENABLED": "true"}):
             import importlib
