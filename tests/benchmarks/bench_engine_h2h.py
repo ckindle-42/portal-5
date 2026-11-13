@@ -308,9 +308,18 @@ def pid_on_port(port: int) -> int | None:
     return int(out[0]) if out else None
 
 
+def _headers(url: str) -> dict:
+    """oMLX on this host now requires its API key (OMLX_API_KEY) on every route."""
+    h = {"Content-Type": "application/json"}
+    key = os.environ.get("OMLX_API_KEY")
+    if key and ":8085" in url:
+        h["Authorization"] = f"Bearer {key}"
+    return h
+
+
 def http_json(url: str, payload: dict | None = None, timeout: float = 30) -> dict:
     data = json.dumps(payload).encode() if payload is not None else None
-    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+    req = urllib.request.Request(url, data=data, headers=_headers(url))
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.load(r)
 
@@ -618,7 +627,7 @@ def stream_chat(url: str, payload: dict, timeout: float = 1800) -> dict:
     req = urllib.request.Request(
         f"{url}/v1/chat/completions",
         data=json.dumps(body).encode(),
-        headers={"Content-Type": "application/json"},
+        headers=_headers(url),
     )
     t0 = time.monotonic()
     first = last = None

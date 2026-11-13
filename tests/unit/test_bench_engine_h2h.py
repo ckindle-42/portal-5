@@ -523,7 +523,10 @@ def test_vllm_metal_renders_the_documented_plain_argv(cfg):
     assert argv[:2] == ["vllm", "serve"]
     assert cwd is None
     assert argv[argv.index("--port") + 1] == "11244"
-    assert argv[argv.index("--gpu-memory-utilization") + 1] == "0.7"
+    # 0.45, not the blog's 0.7: 0.7 tripped the swap guard beside the running stack (2026-11-13).
+    assert argv[argv.index("--gpu-memory-utilization") + 1] == "0.45"
+    # Without a served name vLLM serves the model path and every request by id is a 404.
+    assert argv[argv.index("--served-model-name") + 1] == "Qwen3.8-27B-4bit"
     assert argv[argv.index("--max-model-len") + 1] == "32768"
     assert "--tool-call-parser" not in argv
     assert "--persistent-cache" not in argv

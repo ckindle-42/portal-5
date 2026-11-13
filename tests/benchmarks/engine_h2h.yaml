@@ -42,7 +42,7 @@ engines:
     # are applied by editing this file (backed up first) and restarting the
     # launchd service. Discovery of a new model dir also needs the restart.
     settings_file: ~/.omlx/model_settings.json
-    restart: [launchctl, kickstart, -k, "gui/{uid}/homebrew.mxcl.omlx"]
+    restart: [launchctl, kickstart, -k, "gui/{uid}/com.portal5.omlx"]
     process_name: omlx-server
   mlx-serve:
     kind: managed
@@ -186,8 +186,12 @@ engines:
     # The doc gives no --served-model-name, so vLLM serves the model path rather than {served}:
     # preflight `listed` is expected False until that flag is confirmed on this install.
     # stop_signal is unstated in the doc; the harness default INT applies.
-    plain: [vllm, serve, "{mlx_root}/{model_dir}", --host, 127.0.0.1, --port, "{port}", --gpu-memory-utilization, "0.7", --max-model-len, "{ctx}"]
-    base_spec: [vllm, serve, "{mlx_root}/{model_dir}", --host, 127.0.0.1, --port, "{port}", --gpu-memory-utilization, "0.7", --max-model-len, "{ctx}", --no-async-scheduling, --speculative-config, "{spec_args}"]
+    # 2026-11-13: 0.7 (the blog's 64 GB example) pushed swap to 7.4 GB beside the running stack and
+    # tripped rule 3; 0.45 (~29 GB) holds every seat here plus KV. --served-model-name so the
+    # request id matches (without it vLLM serves the path → 404). --trust-remote-code for the
+    # Qwen3.8 processor.
+    plain: [vllm, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --trust-remote-code, --host, 127.0.0.1, --port, "{port}", --gpu-memory-utilization, "0.45", --max-model-len, "{ctx}"]
+    base_spec: [vllm, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --trust-remote-code, --host, 127.0.0.1, --port, "{port}", --gpu-memory-utilization, "0.45", --max-model-len, "{ctx}", --no-async-scheduling, --speculative-config, "{spec_args}"]
 
 models:
   mimo:
