@@ -225,6 +225,66 @@ class TestProtectHotSeat:
         assert candidates == snapshot
 
 
+HUNT_HINT = "gemma4:26b-a4b-it-qat-ctx8k-hunt"
+HUNT_NATIVE = "gemma-4-26b-a4b-it-QAT-4bit"
+
+
+def _hunt_fleet() -> list[Backend]:
+    return [
+        _omlx("omlx-general", [HUNT_NATIVE], {HUNT_HINT: HUNT_NATIVE}),
+        _ollama("ollama-general", [HUNT_HINT]),
+    ]
+
+
+class TestParallelSeatPrefersBatching:
+    """A declared parallel seat stays on oMLX after hot-seat protection."""
+
+    def test_hot_other_model_does_not_steer_a_parallel_seat_to_ollama(self, monkeypatch) -> None:
+        from portal.platform.inference.router.parallel_seat import prefer_batching_engine
+        from portal.platform.inference.router.workspaces import WORKSPACES
+
+        monkeypatch.setitem(
+            WORKSPACES, "hunt-reasoning", {"max_concurrent": 8, "model_hint": HUNT_HINT}
+        )
+        ordered = protect_hot_seat(
+            _hunt_fleet(), "hunt-reasoning", HUNT_HINT, 900, tracker=_hot_tracker(), now=1_001.0
+        )
+        assert _ids(ordered)[0] == "ollama-general"
+        assert _ids(prefer_batching_engine(ordered, "hunt-reasoning")) == [
+            "omlx-general",
+            "ollama-general",
+        ]
+
+    def test_a_non_parallel_seat_keeps_the_ollama_promotion(self, monkeypatch) -> None:
+        from portal.platform.inference.router.parallel_seat import prefer_batching_engine
+        from portal.platform.inference.router.workspaces import WORKSPACES
+
+        monkeypatch.setitem(
+            WORKSPACES, "auto-daily", {"max_concurrent": 1, "model_hint": HUNT_HINT}
+        )
+        ordered = protect_hot_seat(
+            _hunt_fleet(), "auto-daily", HUNT_HINT, 900, tracker=_hot_tracker(), now=1_001.0
+        )
+        assert _ids(prefer_batching_engine(ordered, "auto-daily")) == _ids(ordered)
+        assert _ids(ordered)[0] == "ollama-general"
+
+    def test_ollama_stays_first_when_omlx_cannot_serve_the_hint(self, monkeypatch) -> None:
+        from portal.platform.inference.router.parallel_seat import prefer_batching_engine
+        from portal.platform.inference.router.workspaces import WORKSPACES
+
+        monkeypatch.setitem(
+            WORKSPACES, "hunt-reasoning", {"max_concurrent": 8, "model_hint": HUNT_HINT}
+        )
+        candidates = [
+            _omlx("omlx-general", ["unrelated"]),
+            _ollama("ollama-general", [HUNT_HINT]),
+        ]
+        ordered = protect_hot_seat(
+            candidates, "hunt-reasoning", HUNT_HINT, 900, tracker=_hot_tracker(), now=1_001.0
+        )
+        assert _ids(prefer_batching_engine(ordered, "hunt-reasoning"))[0] == "ollama-general"
+
+
 def _write_config(tmp_path: Path, extra_defaults: str = "") -> Path:
     cfg = tmp_path / "backends.yaml"
     cfg.write_text(
