@@ -2493,8 +2493,8 @@ async def _build_streaming_request(
     # loop still runs, so a call written as text is recovered and passed back
     # to the client; the workspace's MCP tools are neither offered nor dispatched.
     _client_tools_only = bool(backend_body.pop("portal_client_tools_only", False))
-    if _client_tools_only:
-        effective_tools = []
+    if _client_tools_only or backend_body.get("tool_choice") == "none":
+        effective_tools = []  # client-only tools, or a turn that asks for no tools
     effective_tools = apply_eval_scope(backend_body, effective_tools)
     effective_tools, _bite_allowlist = apply_bite_tool_scope(backend_body, effective_tools)
     # Per-model supports_tools lookup for both backend types — see

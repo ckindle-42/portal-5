@@ -31,6 +31,7 @@ from portal.platform.inference.router.context_inject import (
     _salient_user_text,
 )
 from portal.platform.inference.router.preinject import (
+    _apply_no_tools_request,
     _inject_system_prompt_append,
     append_text_to_content,
 )
@@ -1823,6 +1824,70 @@ async def test_visible_toolless_synthesis_is_not_retried(monkeypatch, ns_tools) 
     assert client.bodies[1]["tools"] is None
     assert FINAL_ANSWER_REQUEST not in client.bodies[1]["messages"]
     assert _retried_counter(ns_tools) == before
+
+
+def _empty_retried_counter(workspace: str) -> float:
+    return float(ns._empty_answer_retried.labels(workspace=workspace)._value.get())
+
+
+@pytest.mark.anyio
+async def test_an_empty_answer_with_tools_retries_once_without_tools(monkeypatch, ns_tools) -> None:
+    """The security seat's live failure: tools attached, JSON answer swallowed to ''."""
+    client = _SeenClient([_text_reply(""), _text_reply('{"verdict": "notable"}')])
+    monkeypatch.setattr(ns, "_http_client", client)
+    before = _empty_retried_counter(ns_tools)
+
+    result = await ns._try_non_streaming(_backend("b"), {"messages": []}, ns_tools, 0.0)
+
+    body = json.loads(result.body)
+    assert body["choices"][0]["message"]["content"] == '{"verdict": "notable"}'
+    assert len(client.bodies) == 2
+    assert client.bodies[1]["tools"] is None
+    assert client.bodies[1]["tool_choice"] is None
+    assert _empty_retried_counter(ns_tools) == before + 1
+
+
+@pytest.mark.anyio
+async def test_an_empty_answer_without_tools_is_not_retried(monkeypatch, ns_env) -> None:
+    client = _SeenClient([_text_reply("")])
+    monkeypatch.setattr(ns, "_http_client", client)
+    before = _empty_retried_counter(ns_env)
+
+    result = await ns._try_non_streaming(_backend("b"), {"messages": []}, ns_env, 0.0)
+
+    assert json.loads(result.body)["choices"][0]["message"]["content"] == NO_ANSWER_MESSAGE
+    assert len(client.bodies) == 1
+    assert _empty_retried_counter(ns_env) == before
+
+
+@pytest.mark.anyio
+async def test_tool_choice_none_sends_no_workspace_tools_non_streaming(
+    monkeypatch, ns_tools
+) -> None:
+    client = _SeenClient([_text_reply('{"ok": true}')])
+    monkeypatch.setattr(ns, "_http_client", client)
+
+    result = await ns._try_non_streaming(
+        _backend("b"), {"messages": [], "tool_choice": "none"}, ns_tools, 0.0
+    )
+
+    assert json.loads(result.body)["choices"][0]["message"]["content"] == '{"ok": true}'
+    assert "tools" not in client.bodies[0]
+    assert client.bodies[0]["tool_choice"] == "none"
+
+
+@pytest.mark.anyio
+async def test_tools_array_empty_sends_no_workspace_tools_non_streaming(
+    monkeypatch, ns_tools
+) -> None:
+    body = _apply_no_tools_request({"messages": [], "tools": []})
+    client = _SeenClient([_text_reply("answered")])
+    monkeypatch.setattr(ns, "_http_client", client)
+
+    await ns._try_non_streaming(_backend("b"), body, ns_tools, 0.0)
+
+    assert "tools" not in client.bodies[0]
+    assert "portal_no_tools" not in client.bodies[0]
 
 
 @pytest.mark.anyio

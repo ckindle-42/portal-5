@@ -159,6 +159,25 @@ def test_workspace_tools_match_snapshot() -> None:
     assert not failures, "Workspace tools drifted from snapshot:\n" + "\n".join(failures[:10])
 
 
+def test_hunt_reasoning_is_an_internal_batching_seat() -> None:
+    """The hunt's reasoning seat: internal, tool-free, deterministic, admits 8."""
+    spec = load_portal_config().workspaces["hunt-reasoning"]
+    assert spec.router is False, "the hunt seat must never be an auto-routing destination"
+    assert spec.expose_to_owui is False, "it is called by the hunt, not by a person"
+    assert spec.tools == [] and spec.temperature == 0.0
+    assert spec.max_concurrent == 8, "one batching (oMLX) backend admits 8 concurrent"
+
+
+def test_hunt_reasoning_has_a_batching_seat_and_a_gguf_fallback() -> None:
+    """The hint resolves on an oMLX checkpoint and on its own Ollama GGUF tag."""
+    from portal.platform.inference.cluster_backends import BackendRegistry
+
+    hint = load_portal_config().workspaces["hunt-reasoning"].model_hint
+    registry = BackendRegistry(str(REPO / "config" / "backends.yaml"))
+    serving = {b.type for b in registry.list_backends() if b.resolve_model(hint or "")}
+    assert {"omlx", "ollama"} <= serving
+
+
 def test_resolve_preset_tools_typed_path() -> None:
     """resolve_preset_tools with PersonaSpec gives same result as dict path."""
     persona_spec = PersonaSpec(

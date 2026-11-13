@@ -957,6 +957,23 @@ defaults:
   # 0 = off (today's first-candidate order). Never applies to a pinned ?model=.
   # 900 s = 15 min: enabled by the operator 2026-10-22.
   hot_seat_protect_s: 900
+# The platform's single embedder, served by the host EG2 service (config/portal.yaml
+# host_jobs com.portal5.eg2-embedding). POST /v1/embeddings on the Pipeline forwards
+# here — raw OpenAI passthrough, no task prefixes applied (callers such as Open WebUI
+# apply their own). `model` + `aliases` are the only names the route accepts; a caller
+# naming anything else gets a 400 listing them. Limits are per request: `max_batch`
+# items, `max_input_chars` characters each; `max_concurrent` is the route's own
+# semaphore (separate from chat's, so an embeddings batch neither starves chat nor is
+# starved by it — a 429 carries Retry-After). `url` uses the container-reachable form;
+# host processes override with EG2_EMBEDDING_URL.
+platform_embedder:
+  model: google/embeddinggemma-2
+  url: ${EG2_EMBEDDING_URL:-http://host.docker.internal:8946}
+  aliases: []
+  max_batch: 64
+  max_input_chars: 8192
+  max_concurrent: 4
+  timeout_s: 120
 embedding_candidates:
 - id: google/embeddinggemma-2
   notes: 'EmbeddingGemma 2 (740M total; 270M text backbone + selectable 170M vision / 300M audio encoders; Apache 2.0;
@@ -1006,6 +1023,8 @@ workspace_routing:
   - vision
   - general
   security-reviewer:
+  - general
+  hunt-reasoning:
   - general
   auto-compliance:
   - reasoning
