@@ -145,9 +145,11 @@ engines:
     # CLI formula, arm64 bottle. Not the splash-app cask. splash --version must print 1.6.1.
     # 1.6.1 changes INT8 activations by default on M5 and later, so a 1.5.0 vs 1.6.1
     # quality compare is not the same graph (docs/ENGINE_LANDSCAPE_20261111.md).
-    # No draft-off flag: plain and spec are both DFlash2. {splash_extra} is the
-    # model tail (model-dir, local draft, served name, reasoning). --max-cache-disk 0
-    # keeps Splash's SSD KV tier off. Do not pass --persistent-cache.
+    # splash serve --help (1.6.1, 2026-11-13) always loads a DFlash2 draft.
+    # --draft-model selects a different drafter. There is no draft-off switch.
+    # The plain Splash cell is excluded from the matrix. {splash_extra} stays
+    # on both argv lines (model-dir, local draft, served name, reasoning).
+    # --max-cache-disk 0 keeps Splash's SSD KV tier off. Do not pass --persistent-cache.
     plain: [splash, serve, --model, "{splash_model}", --host, 127.0.0.1, --port, "{port}", --max-context, "{ctx}", --max-cache-disk, "0", --language-only, "{splash_extra}"]
     base_spec: [splash, serve, --model, "{splash_model}", --host, 127.0.0.1, --port, "{port}", --max-context, "{ctx}", --max-cache-disk, "0", --language-only, "{splash_extra}"]
     stop_signal: INT
@@ -508,10 +510,8 @@ models:
     ollama: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
     mlx: Qwen3.8-27B-4bit
     served: Qwen3.8-27B-4bit
-    # Already on disk inside mlx_root. drafter_dir wins, so fetch-drafters does not re-download.
-    # 2026-11-13: the DFlash2 drafter checkpoint was removed from the fleet — the
-    # dflash spec arms below are unrunnable until a drafter is re-fetched; the
-    # omlx and ollama arms are unaffected.
+    # On disk: symlink to the hf-cache incoai snapshot, restored 2026-11-12.
+    # drafter_dir wins, so fetch-drafters does not re-download.
     drafter_dir: /Volumes/data01/omlx-models/Qwen3.8-27B-DFlash2
     splash: local/Qwen3.8-27B-4bit
     splash_extra:

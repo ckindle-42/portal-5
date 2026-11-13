@@ -222,6 +222,48 @@ _CTX_HYGIENE_GRANDFATHERED = {
 }
 
 
+def _eval_openai_model_ids() -> tuple[dict, set[str]]:
+    """Routing table plus model ids served by the eval_openai backend.
+
+    BW uses this so an eval-group workspace is judged by backend type. The
+    eval module stays disabled; the ids are read from bench_engines.yaml and
+    are not production groups in backends.yaml.
+    """
+    import yaml
+
+    from portal.platform.inference.eval_openai import EVAL_OPENAI, load_bench_engines
+
+    backends = REPO_ROOT / "config" / "backends.yaml"
+    raw = yaml.safe_load(backends.read_text()) if backends.is_file() else {}
+    routing = (raw or {}).get("workspace_routing") or {}
+    ids: set[str] = set()
+    for be in load_bench_engines(str(backends)).get("backends") or []:
+        if not isinstance(be, dict) or be.get("type") != EVAL_OPENAI:
+            continue
+        for model in be.get("models") or []:
+            mid = model.get("id") if isinstance(model, dict) else model
+            if isinstance(mid, str) and mid:
+                ids.add(mid)
+    return routing, ids
+
+
+def _context_comes_from_engine_launch(
+    ws_id: str, model_hint: str, routing: dict, eval_ids: set[str]
+) -> bool:
+    """True when this seat's window is the eval engine's launch context.
+
+    Rule: P5-OLLAMA-OPTIONS-001 is Ollama's /v1 endpoint dropping runtime
+    ``num_ctx``, so an Ollama seat that sets ``context_limit`` must bake
+    ``-ctxNk`` into the tag. An eval-group workspace whose hint is on the
+    eval_openai backend gets its context from the engine launch (checkpoint
+    config / server context), not from that dropped option. A baked ``-ctxNk``
+    tag still needs ``ctx_validated: true`` on every backend type — the tag
+    name is a claim that a working-ctx preflight was recorded for this model.
+    """
+    groups = routing.get(ws_id) or []
+    return "eval" in groups and model_hint in eval_ids
+
+
 @register("eval_workspace_config_hygiene", "BW. eval-workspace config hygiene", order=72)
 def check_eval_workspace_config_hygiene() -> tuple[str, str, list[dict]]:
     """BW. eval/bench-* workspaces don't repeat the Deepwen CAD config churn.
@@ -229,14 +271,19 @@ def check_eval_workspace_config_hygiene() -> tuple[str, str, list[dict]]:
     Two footguns cost three benching passes (TASK-BENCH-FOLLOWUP-001):
       1. P5-OLLAMA-OPTIONS-001 — context_limit: is silently dropped by Ollama's
          /v1 endpoint; ctx must be baked into the model tag (-ctxNk).
+         eval_openai is the exception: an eval-group workspace served by the
+         eval backend in config/bench_engines.yaml takes context from the
+         engine launch, so context_limit without a baked tag is not that drop.
+         See ``_context_comes_from_engine_launch``.
       2. tool_choice: required inherited from a cloned workspace without being
          re-verified for the new model's architecture (auto-cad -> Deepwen).
 
     Does NOT enforce a uniform ctx across a lane — a baked -ctxNk tag is only
     accepted if the workspace also carries `ctx_validated: true`, proving a
     working-ctx preflight was actually run for *this* model rather than
-    copied from whatever workspace it was cloned from. Same pattern for
-    `tool_choice: required`, gated on `tool_choice_verified: true`.
+    copied from whatever workspace it was cloned from. That requirement does
+    not change with backend type. Same pattern for `tool_choice: required`,
+    gated on `tool_choice_verified: true`.
     """
     import re
 
@@ -246,6 +293,7 @@ def check_eval_workspace_config_hygiene() -> tuple[str, str, list[dict]]:
 
     cfg = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())
     workspaces = {**(cfg.get("workspaces", {}) or {}), **load_bench_workspaces_raw(REPO_ROOT)}
+    routing, eval_ids = _eval_openai_model_ids()
     ctx_suffix_re = re.compile(r"-ctx\d+k?$", re.IGNORECASE)
 
     dropped_context_limit: list[str] = []
@@ -262,8 +310,9 @@ def check_eval_workspace_config_hygiene() -> tuple[str, str, list[dict]]:
         checked += 1
         model_hint = ws.get("model_hint", "") or ""
         has_baked_ctx = bool(ctx_suffix_re.search(model_hint))
+        launch_context = _context_comes_from_engine_launch(ws_id, model_hint, routing, eval_ids)
 
-        if "context_limit" in ws and not has_baked_ctx:
+        if "context_limit" in ws and not has_baked_ctx and not launch_context:
             dropped_context_limit.append(ws_id)
 
         if has_baked_ctx and not ws.get("ctx_validated"):

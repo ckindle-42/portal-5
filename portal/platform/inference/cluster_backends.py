@@ -35,6 +35,12 @@ from typing import Any
 import httpx
 import yaml
 
+from portal.platform.inference.eval_openai import (
+    EVAL_OPENAI,
+    eval_backends_enabled,
+    exclusive_workspace_ids,
+    load_bench_engines,
+)
 from portal.platform.inference.omlx_auth import OmlxKeyAuth
 
 logger = logging.getLogger(__name__)
@@ -200,7 +206,7 @@ class Backend:
             return f"{self.url.rstrip('/')}{self.health_path}"
         if self.type == "ollama":
             return f"{self.url.rstrip('/')}/api/tags"
-        if self.type == "omlx":
+        if self.type in {"omlx", EVAL_OPENAI}:
             return f"{self.url.rstrip('/')}/v1/models"
         return f"{self.url.rstrip('/')}/health"
 
@@ -256,7 +262,9 @@ class BackendRegistry:
     _health_client: httpx.AsyncClient | None = None
     _health_semaphore: asyncio.Semaphore | None = None
 
-    def __init__(self, config_path: str | None = None) -> None:
+    def __init__(
+        self, config_path: str | None = None, *, include_eval_backends: bool = False
+    ) -> None:
         """Initialize the registry and load ``config_path``.
 
         State is set to safe defaults before ``_load_config`` runs, so a
@@ -267,8 +275,14 @@ class BackendRegistry:
         Args:
             config_path: Override the auto-detected path; ``None`` →
                 ``DEFAULT_CONFIG_PATH``.
+            include_eval_backends: Load ``config/bench_engines.yaml`` backends
+                even when the eval module is off. Audit and validation use this
+                so an eval-group workspace is judged against the eval backend.
+                Production routing leaves it false: those backends stay out of
+                the registry until eval is enabled.
         """
         self.config_path = config_path or DEFAULT_CONFIG_PATH
+        self._include_eval_backends = include_eval_backends
         self._backends: dict[str, Backend] = {}
         self._workspace_routes: dict[str, list[str]] = {}
         self._fallback_group: str = "general"
@@ -291,6 +305,7 @@ class BackendRegistry:
         self._last_healthy_count: int = -1
         self._last_memory_pct: float = 0.0
         self._memory_gate_source: str | None = None  # logged when it changes
+        self._exclusive_workspaces: frozenset[str] = frozenset()
 
         self._load_config()
 
@@ -326,51 +341,9 @@ class BackendRegistry:
         # Expand environment variables
         cfg = _expand_env(cfg)
 
-        # Load backends
         for be in cfg.get("backends", []):
-            # Accept `models: [str]` OR `models: [dict]`; dict entries populate
-            # ollama_metadata, strings leave it empty.
-            ollama_meta: list[dict[str, Any]] = []
-            raw_models = be.get("models", [])
-            flat_models = []
-            for m in raw_models:
-                if isinstance(m, dict):
-                    flat_models.append(m["id"])
-                    # keep_reason: exempts a deliberate second variant from the
-                    # fleet fallback rule (validate_system HY). Normalised so
-                    # consumers always see a string, never None.
-                    ollama_meta.append({**m, "keep_reason": str(m.get("keep_reason") or "")})
-                elif isinstance(m, str):
-                    flat_models.append(m)
-                else:
-                    logger.warning(
-                        "Backend %s: unexpected model entry type %s, skipping",
-                        be.get("id"),
-                        type(m).__name__,
-                    )
-            backend = Backend(
-                id=be["id"],
-                type=be.get("type", "ollama"),
-                url=be["url"],
-                group=be.get("group", "general"),
-                models=flat_models,
-                ollama_metadata=ollama_meta,
-                health_path=be.get("health_path"),
-                priority=int(be.get("priority", 0) or 0),
-                aliases={str(k): str(v) for k, v in (be.get("aliases") or {}).items()},
-            )
-            self._backends[backend.id] = backend
-            logger.info(
-                "Registered backend: %s (%s) in group '%s' (%d models, %d with metadata, "
-                "priority=%d, %d aliases)",
-                backend.id,
-                backend.type,
-                backend.group,
-                len(flat_models),
-                len(ollama_meta),
-                backend.priority,
-                len(backend.aliases),
-            )
+            self._register_backend(be)
+        self._merge_bench_engines()
 
         # Load workspace routing
         self._workspace_routes = cfg.get("workspace_routing", {})
@@ -408,6 +381,94 @@ class BackendRegistry:
             self._request_timeout,
             self._hot_seat_protect_s,
         )
+
+    def _register_backend(self, be: dict[str, Any]) -> None:
+        """Add one YAML backend. Dict model entries keep tool metadata."""
+        ollama_meta: list[dict[str, Any]] = []
+        flat_models: list[str] = []
+        for m in be.get("models", []):
+            if isinstance(m, dict):
+                flat_models.append(m["id"])
+                ollama_meta.append({**m, "keep_reason": str(m.get("keep_reason") or "")})
+            elif isinstance(m, str):
+                flat_models.append(m)
+            else:
+                logger.warning(
+                    "Backend %s: unexpected model entry type %s, skipping",
+                    be.get("id"),
+                    type(m).__name__,
+                )
+        backend = Backend(
+            id=be["id"],
+            type=be.get("type", "ollama"),
+            url=be["url"],
+            group=be.get("group", "general"),
+            models=flat_models,
+            ollama_metadata=ollama_meta,
+            health_path=be.get("health_path"),
+            priority=int(be.get("priority", 0) or 0),
+            aliases={str(k): str(v) for k, v in (be.get("aliases") or {}).items()},
+        )
+        self._backends[backend.id] = backend
+        logger.info(
+            "Registered backend: %s (%s) in group '%s' (%d models, %d with metadata, "
+            "priority=%d, %d aliases)",
+            backend.id,
+            backend.type,
+            backend.group,
+            len(flat_models),
+            len(ollama_meta),
+            backend.priority,
+            len(backend.aliases),
+        )
+
+    def _merge_bench_engines(self) -> None:
+        """Load exclusive ids always. Load eval backends only when eval is on.
+
+        ``include_eval_backends`` is the audit exception: the eval module stays
+        off in production, and the settings audit still has to resolve group
+        ``eval`` against ``config/bench_engines.yaml``. It does not register
+        those model ids in the production groups of ``backends.yaml``.
+        """
+        self._exclusive_workspaces = exclusive_workspace_ids(self.config_path)
+        if not eval_backends_enabled(self.config_path) and not self._include_eval_backends:
+            return
+        for be in load_bench_engines(self.config_path).get("backends") or []:
+            if not isinstance(be, dict) or not be.get("id") or not be.get("url"):
+                logger.error("bench engine entry missing id or url")
+                continue
+            if be.get("type") != EVAL_OPENAI:
+                logger.error("bench engine %s is not %s", be.get("id"), EVAL_OPENAI)
+                continue
+            self._register_backend(be)
+
+    def is_exclusive(self, workspace_id: str) -> bool:
+        """True when this workspace must not fall through to a production engine."""
+        return workspace_id.split("::", 1)[0] in self._exclusive_workspaces
+
+    def _exclusive_candidates(self, workspace_id: str) -> list[Backend]:
+        """Eval backends in the workspace's groups. No production fallback."""
+        cache_key = f"exclusive:{workspace_id}"
+        now = time.time()
+        cached = self._candidate_cache.get(cache_key)
+        if cached is not None and now - cached[1] < self._candidate_cache_ttl:
+            return list(cached[0])
+        groups = self._ws_group_cache.get(workspace_id) or ["eval"]
+        healthy = self.list_healthy_backends()
+        result: list[Backend] = []
+        seen: set[str] = set()
+        for group in groups:
+            tier = [
+                b
+                for b in healthy
+                if b.group == group and b.type == EVAL_OPENAI and b.id not in seen
+            ]
+            if tier:
+                ordered = _priority_ordered(tier)
+                result.extend(ordered)
+                seen.update(b.id for b in ordered)
+        self._candidate_cache[cache_key] = (result, now)
+        return list(result)
 
     def list_backends(self) -> list[Backend]:
         """Return all registered backends."""
@@ -464,6 +525,8 @@ class BackendRegistry:
         # workspace for candidate selection; otherwise use the ordinary
         # unknown-id fallback.
         base_workspace_id = workspace_id.split("::", 1)[0]
+        if base_workspace_id in self._exclusive_workspaces:
+            return self._exclusive_candidates(base_workspace_id)
         routing_workspace_id = (
             base_workspace_id if base_workspace_id in self._ws_group_cache else workspace_id
         )
@@ -497,14 +560,18 @@ class BackendRegistry:
                 seen.update(b.id for b in group_backends)
 
         # Append fallback group backends if not already included
-        fallback = [b for b in healthy if b.group == self._fallback_group and b.id not in seen]
+        fallback = [
+            b
+            for b in healthy
+            if b.group == self._fallback_group and b.id not in seen and b.type != EVAL_OPENAI
+        ]
         if fallback:
             random.shuffle(fallback)
             result.extend(fallback)
             seen.update(b.id for b in fallback)
 
         # Append any remaining healthy backends as absolute fallback
-        remaining = [b for b in healthy if b.id not in seen]
+        remaining = [b for b in healthy if b.id not in seen and b.type != EVAL_OPENAI]
         if remaining:
             random.shuffle(remaining)
             result.extend(remaining)
@@ -707,7 +774,7 @@ class BackendRegistry:
 
             if ok:
                 backend.consecutive_failures = 0
-                if backend.type == "omlx" and resp is not None:
+                if backend.type in {"omlx", EVAL_OPENAI} and resp is not None:
                     self._update_omlx_live_models(backend, resp)
                 if not backend.healthy:
                     backend.healthy = True

@@ -384,15 +384,21 @@ class Guard:
         self.samples.append(self._sample())
 
     def verdict(self) -> dict:
-        return guard_verdict(self.samples, self.g["max_swap_growth_mb"])
+        return guard_verdict(
+            self.samples, self.g["max_swap_growth_mb"], self.g.get("max_start_swap_used_mb")
+        )
 
 
-def guard_verdict(samples: list[dict], max_growth_mb: float) -> dict:
+def guard_verdict(
+    samples: list[dict], max_growth_mb: float, max_used_mb: float | None = None
+) -> dict:
     used = [s["used_mb"] for s in samples if "used_mb" in s]
     growth = round(max(used) - used[0], 1) if used else None
     reasons = []
     if growth is not None and growth > max_growth_mb:
         reasons.append(f"swap grew {growth}MB (> {max_growth_mb}MB)")
+    if max_used_mb is not None and any(sample > max_used_mb for sample in used):
+        reasons.append(f"swap used {max(used)}MB (> {max_used_mb}MB ceiling)")
     split = [s["gpu_fraction"] for s in samples if s.get("gpu_fraction", 1.0) < 1.0]
     if split:
         reasons.append(f"Ollama CPU split (gpu fraction {min(split)})")
@@ -601,9 +607,9 @@ def switch(cfg: dict, engine: str, model: str, mode: str) -> dict:
 
 
 def omlx_settings_for(cfg: dict, model: str, mode: str) -> dict | None:
-    """The spec keys oMLX needs for this model, or None for plain."""
+    """Spec keys for this model. Plain writes MTP and DFlash off; absence turns MTP on."""
     if mode == "plain":
-        return None
+        return {"mtp_enabled": False, "dflash_enabled": False}
     s = spec_entry(cfg, model, "omlx")
     if s is None:
         raise SystemExit(f"no oMLX spec path for {model}")
@@ -1668,6 +1674,18 @@ def cmd_quality_gate(cfg: dict, a) -> int:
     return 0 if plan.is_file() else 1
 
 
+def attach_instrument(row: dict, evidence_path: str | None) -> None:
+    """AND independent evidence into ``row['valid']``. No file is an invalid cell."""
+    from tests.benchmarks.engine_eval_instrument import judge_cell
+
+    evidence = (
+        json.loads(Path(evidence_path).read_text(encoding="utf-8")) if evidence_path else None
+    )
+    judged = judge_cell(evidence)
+    row["instrument"] = judged
+    row["valid"] = bool(row.get("valid")) and bool(judged["valid"])
+
+
 def cmd_concurrency(cfg: dict, a) -> int:
     gate, msg = start_gate(cfg)
     if not gate:
@@ -1691,6 +1709,7 @@ def cmd_concurrency(cfg: dict, a) -> int:
         "guard": verdict,
         "valid": verdict["valid"] and not errors,
     }
+    attach_instrument(row, getattr(a, "evidence", None))
     path = append_row(a.model, row)
     print(
         json.dumps(
@@ -1744,6 +1763,8 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--rounds", type=int, default=3)
         p.add_argument("--repeats", type=int, default=3)
         p.add_argument("--max-tokens", type=int, default=400)
+        if name in {"preflight", "sanity", "speed", "security", "quality"}:
+            p.add_argument("--evidence", default=None)
     gate_p = sub.add_parser("quality-gate")
     gate_p.add_argument("--model", required=True)
     conc = sub.add_parser("concurrency")
@@ -1752,6 +1773,7 @@ def main(argv: list[str] | None = None) -> int:
     conc.add_argument("--mode", choices=["plain", "spec"], default="plain")
     conc.add_argument("--widths", default="1,2,4")
     conc.add_argument("--max-tokens", type=int, default=400)
+    conc.add_argument("--evidence", default=None)
     a = ap.parse_args(argv)
     cfg = load_config()
     handlers = {
@@ -1771,55 +1793,50 @@ def main(argv: list[str] | None = None) -> int:
         return dispatch(cfg, a)
 
 
-def dispatch(cfg: dict, a) -> int:
-    if a.cmd == "stop":
-        stop_managed(cfg, a.engine)
-        return 0
-    if a.cmd == "switch":
-        print(json.dumps(switch(cfg, a.engine, a.model, a.mode), indent=1))
-        return 0
-    if a.cmd == "start-only":
-        print(json.dumps(start_managed(cfg, a.engine, a.model, a.mode), indent=1))
-        return 0
-    if a.cmd == "preflight":
-        gate, msg = start_gate(cfg)
-        if not gate:
-            raise SystemExit(f"rule 3: {msg} — clear swap before measuring")
-        with Guard(cfg, a.engine, a.model) as g:
-            res = preflight(cfg, a.engine, a.model, a.mode)
-        guard = g.verdict()
-        append_row(
-            a.model,
-            {
-                **base_row(cfg, "preflight", a.engine, a.model, a.mode),
-                "result": res,
-                "guard": guard,
-                "valid": guard["valid"],
-            },
-        )
-        print(json.dumps({**res, "guard": guard}, indent=1))
-        return 0 if res["verdict"] == "OK" and guard["valid"] else 1
-    if a.cmd == "sanity":
-        if not model_supports_engine(cfg, a.model, a.engine):
-            raise SystemExit(f"{a.engine} does not support {a.model}")
-        gate, msg = start_gate(cfg)
-        if not gate:
-            raise SystemExit(f"rule 3: {msg} — clear swap before measuring")
-        with Guard(cfg, a.engine, a.model) as g:
-            result = run_compatibility_sanity(cfg, a.engine, a.model, a.mode)
-        verdict = g.verdict()
-        row = {
-            **base_row(cfg, "compatibility", a.engine, a.model, a.mode),
-            **result,
-            "guard": verdict,
-            "valid": verdict["valid"],
-        }
-        path = append_row(a.model, row)
-        print(json.dumps({**result, "guard": verdict, "written": str(path)}, indent=1))
-        return 0 if verdict["valid"] else 2
+def _require_start_gate(cfg: dict) -> None:
     gate, msg = start_gate(cfg)
     if not gate:
         raise SystemExit(f"rule 3: {msg} — clear swap before measuring")
+
+
+def cmd_preflight(cfg: dict, a) -> int:
+    _require_start_gate(cfg)
+    with Guard(cfg, a.engine, a.model) as g:
+        res = preflight(cfg, a.engine, a.model, a.mode)
+    guard = g.verdict()
+    stored = {
+        **base_row(cfg, "preflight", a.engine, a.model, a.mode),
+        "result": res,
+        "guard": guard,
+        "valid": res["verdict"] == "OK" and guard["valid"],
+    }
+    attach_instrument(stored, getattr(a, "evidence", None))
+    append_row(a.model, stored)
+    print(json.dumps({**res, "guard": guard, "instrument": stored["instrument"]}, indent=1))
+    return 0 if stored["valid"] else 1
+
+
+def cmd_sanity(cfg: dict, a) -> int:
+    if not model_supports_engine(cfg, a.model, a.engine):
+        raise SystemExit(f"{a.engine} does not support {a.model}")
+    _require_start_gate(cfg)
+    with Guard(cfg, a.engine, a.model) as g:
+        result = run_compatibility_sanity(cfg, a.engine, a.model, a.mode)
+    verdict = g.verdict()
+    row = {
+        **base_row(cfg, "compatibility", a.engine, a.model, a.mode),
+        **result,
+        "guard": verdict,
+        "valid": verdict["valid"],
+    }
+    attach_instrument(row, getattr(a, "evidence", None))
+    path = append_row(a.model, row)
+    print(json.dumps({**result, "guard": verdict, "written": str(path)}, indent=1))
+    return 0 if row["valid"] else 2
+
+
+def cmd_measured(cfg: dict, a) -> int:
+    _require_start_gate(cfg)
     with Guard(cfg, a.engine, a.model) as g:
         if a.cmd == "speed":
             res = measure_speed(cfg, a.engine, a.model, a.mode, a.rounds, a.max_tokens)
@@ -1843,6 +1860,7 @@ def dispatch(cfg: dict, a) -> int:
         "guard": v,
         "valid": v["valid"] and payload.get("measurement_valid", True),
     }
+    attach_instrument(row, getattr(a, "evidence", None))
     path = append_row(a.model, row)
     print(
         json.dumps(
@@ -1857,6 +1875,23 @@ def dispatch(cfg: dict, a) -> int:
         )
     )
     return 0 if row["valid"] else 2
+
+
+def dispatch(cfg: dict, a) -> int:
+    if a.cmd == "stop":
+        stop_managed(cfg, a.engine)
+        return 0
+    if a.cmd == "switch":
+        print(json.dumps(switch(cfg, a.engine, a.model, a.mode), indent=1))
+        return 0
+    if a.cmd == "start-only":
+        print(json.dumps(start_managed(cfg, a.engine, a.model, a.mode), indent=1))
+        return 0
+    if a.cmd == "preflight":
+        return cmd_preflight(cfg, a)
+    if a.cmd == "sanity":
+        return cmd_sanity(cfg, a)
+    return cmd_measured(cfg, a)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,83 @@
+# Production-faithful engine eval. Proposed, not run.
+# status: the orchestrator approves the matrix before any workload below executes.
+status: proposed_pending_approval
+binding:
+  decisions:
+    - coding-seat engine
+    - MLX engine for the resident Gemma QAT seats and the daily MoE seat
+  incumbent: oMLX
+  pass: >-
+    instrument-valid, quality not worse than the incumbent on the registered
+    quality_gate task, speed faster than that cell's noise floor, and
+    co-resident with the task-router plus two seats without the swap gate
+    (growth 2048 MB, absolute used 4096 MB). Otherwise Unproven — keep the incumbent.
+  ollama_gguf: failover and different bytes; it does not decide the MLX engine
+workloads:
+  - id: quality-seat
+    kind: quality_gate
+    pass: the registered WFE task is not worse than the incumbent arm
+    plans:
+      - tests/wfe/plans/engine_h2h_202611_nemotron.yaml
+      - tests/wfe/plans/engine_h2h_202611_qwen38.yaml
+      - tests/wfe/plans/engine_h2h_202611_gemma_qat.yaml
+      - tests/wfe/plans/engine_h2h_202611_flint.yaml
+      - tests/wfe/plans/coding_decision_v1.yaml
+    seats:
+      - bench-engine-daily-moe
+      - bench-engine-coding
+      - bench-engine-hunt
+      - bench-engine-council-json
+  - id: tool-turn
+    kind: tool
+    pass: a tool call and the post-tool turn both complete through the pipeline
+    note: >-
+      The Gemma anchor is the post-tool turn. The 11-13 preflight stored REVIEW
+      as valid; a REVIEW on that turn is a fail.
+    seats:
+      - bench-engine-daily-moe
+      - bench-engine-coding
+  - id: concurrency-mix
+    kind: concurrency
+    pass: >-
+      hunt JSON batch at 8 to 12, plus 2 chats, plus task-router calls, all in
+      one window, every request on the intended engine and model
+    seats:
+      - bench-engine-hunt
+      - bench-engine-daily-moe
+      - bench-engine-task-router
+  - id: long-context
+    kind: long_context
+    pass: the engine log reads back the launched context, and the needle is in the answer
+    windows:
+      - {seat: bench-engine-daily-moe, context_tokens: 32768}
+      - {seat: bench-engine-coding, context_tokens: 98304}
+      - {seat: bench-engine-council-json, context_tokens: 32768}
+    note: >-
+      Daily production context_limit is 16384. The 32768 cell is the long-context
+      cell, not the seat's everyday window. 128k is the Gemma QAT tag ceiling
+      (gemma4 ctx128k) and is a separate launch from the 8192 hunt window.
+  - id: co-residence
+    kind: co_residence
+    pass: >-
+      task-router plus two seats load, switch, and evict on the candidate beside
+      the running stack, and the swap gate stays closed
+    negative: cannot do X beside the stack is a recorded result, not a dropped engine
+    seats:
+      - bench-engine-task-router
+      - bench-engine-daily-moe
+      - bench-engine-hunt
+  - id: soak
+    kind: stability
+    duration_min: 45
+    pass: >-
+      process-tree RSS plus Metal wired, and the vm_stat wired delta, at minute
+      45 are within 2 GB of the post-load plateau
+    why: >-
+      A leak of about 1 GB per 10 minutes clears the 2 GB agreement tolerance
+      between a minute-5 plateau and a minute-45 sample. The 11-13 screen was
+      single bursts.
+report: per engine, per seat, after the instrument marks the cell valid
+lifecycle: >-
+  Start and stop stay in tests/benchmarks/engine_h2h.yaml. The orchestrator runs
+  them. 64 GB argv is the argv already in that file. Source URLs are that file's
+  comments and were not re-verified against vendor docs.
