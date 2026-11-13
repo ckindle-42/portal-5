@@ -106,6 +106,12 @@ def test_identity_needs_recurrence_across_events_and_hours():
     assert stats["pid"].identity is False
 
 
+def test_identities_in_a_short_sample_are_judged_on_its_own_span():
+    events = [_event(float(ts), "bob" if (ts // 60) % 2 else "amy") for ts in range(0, 600, 60)]
+    stats = identity_stats(["user"], events)
+    assert stats["user"].identity is True
+
+
 def test_the_actor_is_the_first_identity_field_and_the_override_is_recorded():
     card = _card(
         {

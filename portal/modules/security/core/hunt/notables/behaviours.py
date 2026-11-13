@@ -20,6 +20,7 @@ BEHAVIOUR_EVENTS_PER_WINDOW = 2500  # effort budget: events read from one slice
 BEHAVIOUR_TOTAL_EVENTS = 400_000  # effort budget: parsed events across the whole stage
 IDENTITY_RECURRENCE = 2.0  # an identity is seen at least twice on average
 IDENTITY_BUCKET_SECONDS = 3600  # identities recur across hours, not inside one burst
+IDENTITY_MIN_BUCKETS = 12  # a short sample is cut into at least this many time buckets
 IDENTITY_BUCKET_SHARE = 0.5  # most occurrences of an identity recur in separate hours
 IDENTITY_VALUE_BUDGET = 2000  # effort budget: an identity field keys values up to this many
 MAX_BEHAVIOURS = 200_000  # effort budget: rows kept in the behaviour table
@@ -120,8 +121,12 @@ def identity_stats(
     """Per field: recurrence and the share of occurrences seen in more than one hour."""
     occurrences: dict[str, dict[str, int]] = {}
     buckets: dict[str, dict[str, set[int]]] = {}
+    span = max((event.ts for event in events), default=0.0) - min(
+        (event.ts for event in events), default=0.0
+    )
+    width = min(IDENTITY_BUCKET_SECONDS, max(60.0, span / IDENTITY_MIN_BUCKETS))
     for event in events:
-        bucket = int(event.ts // IDENTITY_BUCKET_SECONDS)
+        bucket = int(event.ts // width)
         for name in fields:
             value = (event.fields.get(name) or "").strip()
             if not value:
