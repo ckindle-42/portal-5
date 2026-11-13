@@ -173,9 +173,13 @@ def test_hunt_reasoning_has_a_batching_seat_and_a_gguf_fallback() -> None:
     from portal.platform.inference.cluster_backends import BackendRegistry
 
     hint = load_portal_config().workspaces["hunt-reasoning"].model_hint
+    assert hint == "gemma4:26b-a4b-it-qat-ctx8k-hunt"
     registry = BackendRegistry(str(REPO / "config" / "backends.yaml"))
     serving = {b.type for b in registry.list_backends() if b.resolve_model(hint or "")}
     assert {"omlx", "ollama"} <= serving
+    modelfile = (REPO / "config/modelfiles/gemma4-26b-a4b-it-qat-ctx8k-hunt.Modelfile").read_text()
+    assert "FROM gemma4:26b-a4b-it-qat-ctx8k" in modelfile
+    assert "PARAMETER temperature 0" in modelfile
 
 
 def test_resolve_preset_tools_typed_path() -> None:

@@ -127,6 +127,10 @@ backends:
     supports_tools: true
   - id: gemma4:26b-a4b-it-qat-ctx8k
     supports_tools: true
+  # hunt-reasoning fallback. Bakes temperature 0 over the shared ctx8k parent
+  # (settings_audit sampling_baked_hot). Same weights, 0 extra bytes.
+  - id: gemma4:26b-a4b-it-qat-ctx8k-hunt
+    supports_tools: true
   - id: gemma4:26b-a4b-it-qat-ctx16k
     supports_tools: true
   - id: gemma4:26b-a4b-it-qat-ctx32k
@@ -783,6 +787,7 @@ backends:
   priority: 10
   aliases:
     gemma4:26b-a4b-it-qat-ctx8k: gemma-4-26b-a4b-it-QAT-4bit
+    gemma4:26b-a4b-it-qat-ctx8k-hunt: gemma-4-26b-a4b-it-QAT-4bit
     gemma4:26b-a4b-it-qat-ctx16k: gemma-4-26b-a4b-it-QAT-4bit
     gemma4:26b-a4b-it-qat-ctx32k: gemma-4-26b-a4b-it-QAT-4bit
     gemma4:26b-a4b-it-qat-ctx64k: gemma-4-26b-a4b-it-QAT-4bit
