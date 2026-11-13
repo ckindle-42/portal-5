@@ -116,6 +116,12 @@ Evidence is in [TASK_SEAT_VENDOR_FIT_V1](TASK_SEAT_VENDOR_FIT_V1.md) and the bri
 | `…VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` | INTEGRATED (role change pending) | detector contract verified (17/18, 0/3 FP with its trained prompt); moves behind a `scan_code` tool (operator option B) |
 | 6 `bonsai-*` Ollama tags, 3 Bonsai/Ternary MLX builds | REMOVED_CLOSED (deleted) | faster, but agentic WFE 21/42 and 11/42 vs 33/42; a single-use deep-lane win was not worth a third engine |
 
+## 11. Register correction 2026-11-13
+
+### gemma4-e4b-it-qat-ctx8k
+
+`gemma4:e4b-it-qat-ctx8k` is INTEGRATED. It is `tools-specialist.variants.fast.model_hint` in `config/portal.yaml` and a model id under `ollama-general` and `ollama-vision` in `config/backends.yaml`. The 2026-09-07 row closed it as a historical absent tag. The parent `gemma4:e4b-it-qat` was INTEGRATED on 2026-09-12 for this same variant (WFE `wfe_full_20260911`: 9/9 home:coding and 9/9 discovery:research). The ctx8k tag is the 2026-09-25 bake of that seat's declared `context_limit` 8192. `hf.co/bartowski/nex-agi_Nex-N2.5-mini-GGUF:Q4_K_M` stays REMOVED_CLOSED.
+
 ## 8. Provenance
 
 Instruments: repo-native probes (judgment_probe_v6 + native-arm variant, research/refusal/vision/CUA probes, bench_repair exam), same scorer/corpus per comparison, incumbents re-run same-batch. Ollama 0.33.2, Apple M4 Pro. Key artifacts: `tests/benchmarks/results/{research_probe_20260907T030136Z,research_probe_20260907T032401Z,refusal_preservation_probe_20260907T025849Z,vision_probe_20260907T030047Z,judgment_probe_v6_20260907T034934Z,judgment_probe_v6_gptoss_native_20260907T043151Z,BENCH_REPAIR_20260907T081156Z,BENCH_REPAIR_CHECKPOINT_00e9d1b544a2}.json|md`. Limitations: repair exam run on Ollama 0.33.2 (Aug trio baseline was 0.32.15 — cross-version treated as reference); vision probe is a 4-case synthetic floor; CUA full harness absent; APFS clone sharing not resolved (union is inode-dedup).
