@@ -1,6 +1,8 @@
 """Pure-logic contracts for the engine head-to-head harness
 (tests/benchmarks/bench_engine_h2h.py). No network, no engines."""
 
+import json
+import signal
 from pathlib import Path
 
 import pytest
@@ -21,10 +23,105 @@ def test_wait_ready_fails_fast_when_managed_child_exits(monkeypatch):
     def unavailable(*_args, **_kwargs):
         raise ConnectionError("connection refused")
 
-    monkeypatch.setattr(h, "http_json", unavailable)
+    monkeypatch.setattr(h, "_models_response", unavailable)
     monkeypatch.setattr(h.time, "sleep", lambda _seconds: pytest.fail("waited for dead child"))
     with pytest.raises(SystemExit, match=r"process exited during startup \(exit 1\)"):
         h.wait_ready("http://127.0.0.1:11240", 900, ExitedProcess())
+
+
+def test_readiness_requires_200_and_the_listed_served_id(cfg, monkeypatch):
+    expected = h.served_id(cfg, "mlx-serve", "nemotron_35_lightning", "plain")
+    assert not h._models_ready(
+        cfg,
+        "mlx-serve",
+        {"data": [{"id": expected, "state": "loading", "loaded": False}]},
+        503,
+        expected,
+    )
+    assert not h._models_ready(
+        cfg,
+        "mlx-serve",
+        {"data": [{"id": expected, "state": "ready", "loaded": False}]},
+        200,
+        expected,
+    )
+    assert not h._models_ready(cfg, "rapid-mlx", {"data": [{"id": "other"}]}, 200, expected)
+    assert h._models_ready(
+        cfg,
+        "mlx-serve",
+        {"data": [{"id": expected, "state": "ready", "loaded": True}]},
+        200,
+        expected,
+    )
+
+    responses = iter(
+        [
+            (503, {"error": {"message": "The model is still loading"}}, "loading"),
+            (200, {"data": [{"id": expected, "state": "ready", "loaded": True}]}, "ready"),
+        ]
+    )
+    monkeypatch.setattr(h, "_models_response", lambda *_a, **_kw: next(responses))
+    monkeypatch.setattr(h.time, "sleep", lambda _seconds: None)
+    assert (
+        h.wait_ready(
+            "http://127.0.0.1:11234",
+            1,
+            cfg=cfg,
+            engine="mlx-serve",
+            expected_model=expected,
+        )
+        >= 0
+    )
+
+
+@pytest.mark.parametrize(
+    ("engine", "expected_signal"),
+    [("mlx-serve", signal.SIGTERM), ("rapid-mlx", signal.SIGINT)],
+)
+def test_stop_managed_signals_owned_pid_and_verifies_port_free(
+    monkeypatch, tmp_path: Path, cfg, engine: str, expected_signal: signal.Signals
+):
+    monkeypatch.setattr(h, "STATE_DIR", tmp_path)
+    pid = 43210
+    state = tmp_path / f"{engine}.json"
+    state.write_text(json.dumps({"pid": pid, "process_group": pid}))
+    monkeypatch.setattr(h.os, "getpgid", lambda _pid: pid)
+    monkeypatch.setattr(h, "pid_on_port", lambda _port: None)
+    calls = []
+
+    def fake_kill(target, current_signal):
+        calls.append((target, current_signal))
+        if current_signal == 0:
+            raise ProcessLookupError
+
+    monkeypatch.setattr(h.os, "kill", fake_kill)
+    monkeypatch.setattr(h.os, "killpg", lambda *_a: pytest.fail("sent to process group"))
+
+    h.stop_managed(cfg, engine)
+
+    assert (pid, expected_signal) in calls
+    assert not state.exists()
+
+
+def test_rapid_mlx_renders_registry_tool_parser_for_the_cell(cfg):
+    argv, _ = h.launch_command(cfg, "rapid-mlx", "nemotron_35_lightning", "plain")
+
+    assert argv[argv.index("--tool-call-parser") + 1] == "auto"
+    assert all("{tool_parser}" not in part for part in argv)
+
+
+def test_local_gguf_path_skips_hugging_face_cache_lookup(monkeypatch, tmp_path: Path):
+    artifact = tmp_path / "ollama-blob.gguf"
+    artifact.write_bytes(b"local blob marker")
+    monkeypatch.setattr(
+        h,
+        "cached_hf_file",
+        lambda *_a: pytest.fail("local Ollama blob should avoid the HF cache"),
+    )
+
+    assert h.gguf_path_for(
+        {"models": {"task-router": {"gguf": {"path": str(artifact)}}}}, "task-router"
+    ) == str(artifact.resolve())
 
 
 def test_every_managed_engine_renders_a_plain_command_for_every_model(cfg):

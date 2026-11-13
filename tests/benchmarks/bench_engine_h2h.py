@@ -49,6 +49,7 @@ import threading
 import time
 import urllib.request
 import uuid
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
@@ -162,7 +163,13 @@ def cached_hf_file(gguf: dict | None, label: str) -> str:
 
 def gguf_path_for(cfg: dict, model: str) -> str:
     """Resolve one registered model GGUF from the local HF cache only."""
-    return cached_hf_file(cfg["models"][model].get("gguf"), model)
+    gguf = cfg["models"][model].get("gguf")
+    if gguf and gguf.get("path"):
+        path = Path(os.path.expanduser(str(gguf["path"]))).resolve()
+        if not path.is_file():
+            raise SystemExit(f"registered local GGUF path is missing: {path}")
+        return str(path)
+    return cached_hf_file(gguf, model)
 
 
 def render_one(part, values: dict) -> str:
@@ -181,7 +188,38 @@ def render(template: list[str], values: dict) -> list[str]:
     return argv
 
 
-def launch_command(cfg: dict, engine: str, model: str, mode: str) -> tuple[list[str], str | None]:
+def _draft_gguf_path(model_cfg: dict, model: str, mode: str) -> str:
+    override = model_cfg.get("draft_gguf_override") if mode == "spec" else None
+    if override:
+        path = Path(os.path.expanduser(override)).resolve()
+        if not path.is_file():
+            raise SystemExit(f"local draft GGUF override is missing: {path}")
+        return str(path)
+    if mode == "spec" and model_cfg.get("draft_gguf"):
+        return cached_hf_file(model_cfg["draft_gguf"], f"{model} drafter")
+    return ""
+
+
+def _launch_argv(engine_cfg: dict, mode: str, spec: dict | None, values: dict) -> list[str]:
+    if mode == "plain":
+        return render(engine_cfg["plain"], values)
+    if spec is None:
+        raise SystemExit("no spec path: registry cell has no spec settings")
+    if "{spec_args}" in engine_cfg["base_spec"]:
+        return render(engine_cfg["base_spec"], values)
+    return render(engine_cfg["base_spec"], values) + render(spec.get("args") or [], values)
+
+
+def _unrendered_placeholders(argv: list[str], cwd: str | None) -> list[str]:
+    parts = [*argv, *([cwd] if cwd else [])]
+    return sorted(
+        {match for part in parts for match in re.findall(r"\{([A-Za-z_][A-Za-z0-9_]*)\}", part)}
+    )
+
+
+def launch_command(
+    cfg: dict, engine: str, model: str, mode: str, context_tokens: int | None = None
+) -> tuple[list[str], str | None]:
     """The exact argv (and cwd) for a managed engine. Raises on a null spec cell."""
     e = cfg["engines"][engine]
     m = cfg["models"][model]
@@ -189,31 +227,21 @@ def launch_command(cfg: dict, engine: str, model: str, mode: str) -> tuple[list[
         raise SystemExit(f"no {e.get('requires')} artifact for {engine} × {model}")
     model_dir = model if e.get("requires") == "gguf" else model_dir_for(cfg, model, engine, mode)
     spec = spec_entry(cfg, model, engine) if mode == "spec" else None
-    draft_gguf_override = m.get("draft_gguf_override") if mode == "spec" else None
-    if draft_gguf_override:
-        draft_gguf_path = Path(os.path.expanduser(draft_gguf_override)).resolve()
-        if not draft_gguf_path.is_file():
-            raise SystemExit(f"local draft GGUF override is missing: {draft_gguf_path}")
-    else:
-        draft_gguf_path = (
-            cached_hf_file(m.get("draft_gguf"), f"{model} drafter")
-            if mode == "spec" and m.get("draft_gguf")
-            else ""
-        )
+    draft_gguf_path = _draft_gguf_path(m, model, mode)
     values = {
         "mlx_root": cfg["mlx_root"],
         "model_root": model_root(cfg, engine),
         "model_dir": model_dir,
         "served": m.get("served") or model_dir,
         "port": e.get("port", ""),
-        "ctx": m["ctx"],
+        "ctx": context_tokens or m["ctx"],
         "tool_parser": per_engine(m.get("tool_parser"), engine) or "auto",
         "drafter_path": artifact_dir(cfg, model, "drafter", "drafter_dir"),
         "draft_path": local_dir_for(cfg, m.get("draft_model")) or "",
         "splash_model": m.get("splash_model") or m.get("splash") or "",
         "splash_extra": m.get("splash_extra") or [],
         "gguf_path": gguf_path_for(cfg, model) if e.get("requires") == "gguf" else "",
-        "draft_gguf_path": str(draft_gguf_path),
+        "draft_gguf_path": draft_gguf_path,
         "llama_server": e.get("server_path", ""),
         "mlx_server_script": str(REPO / e["server_script"]) if e.get("server_script") else "",
         "python": os.path.expanduser(
@@ -221,16 +249,11 @@ def launch_command(cfg: dict, engine: str, model: str, mode: str) -> tuple[list[
         ),
         "spec_args": (spec or {}).get("args") or [],
     }
-    if mode == "plain":
-        argv = render(e["plain"], values)
-    else:
-        if spec is None:
-            raise SystemExit(f"no spec path for {engine} × {model} (registry cell is null)")
-        if "{spec_args}" in e["base_spec"]:
-            argv = render(e["base_spec"], values)
-        else:
-            argv = render(e["base_spec"], values) + render(spec.get("args") or [], values)
+    argv = _launch_argv(e, mode, spec, values)
     cwd = render_one(e["cwd"], values) if e.get("cwd") else None
+    unresolved = _unrendered_placeholders(argv, cwd)
+    if unresolved:
+        raise SystemExit(f"unrendered launch placeholders for {engine} × {model}: {unresolved}")
     return argv, cwd
 
 
@@ -442,68 +465,248 @@ def _state_file(engine: str) -> Path:
     return STATE_DIR / f"{engine}.json"
 
 
-def wait_ready(url: str, timeout_s: float, process: subprocess.Popen | None = None) -> float:
-    """Poll /v1/models until ready or fail promptly if its managed child exits."""
+def _models_response(
+    url: str, timeout_s: float = 3, path: str = "/v1/models"
+) -> tuple[int, dict, str]:
+    """Return a model-list status, JSON body, and raw response text."""
+    req = urllib.request.Request(f"{url.rstrip('/')}{path}", headers=_headers(url))
+    try:
+        with urllib.request.urlopen(req, timeout=timeout_s) as response:
+            raw = response.read().decode("utf-8", "replace")
+            return response.status, json.loads(raw), raw
+    except urllib.error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", "replace")
+        try:
+            return exc.code, json.loads(raw), raw
+        except json.JSONDecodeError:
+            return exc.code, {}, raw
+
+
+def _models_ready(
+    cfg: dict, engine: str | None, payload: dict, status: int, expected_model: str | None
+) -> bool:
+    """Require a listed served id; mlx-serve also has an explicit load state."""
+    if status != 200 or expected_model is None:
+        return False
+    rule = cfg.get("engines", {}).get(engine or "", {}).get("readiness") or {}
+    rows = payload.get(rule.get("collection", "data"))
+    if not isinstance(rows, list):
+        return False
+    row = next(
+        (
+            item
+            for item in rows
+            if isinstance(item, dict) and item.get(rule.get("id_field", "id")) == expected_model
+        ),
+        None,
+    )
+    if row is None:
+        return False
+    state_field = rule.get("state_field")
+    loaded_field = rule.get("loaded_field")
+    if state_field and row.get(state_field, payload.get(state_field)) != rule.get(
+        "ready_state", "ready"
+    ):
+        return False
+    return not loaded_field or row.get(loaded_field, payload.get(loaded_field)) is True
+
+
+def wait_ready(
+    url: str,
+    timeout_s: float,
+    process: subprocess.Popen | None = None,
+    *,
+    cfg: dict | None = None,
+    engine: str | None = None,
+    expected_model: str | None = None,
+) -> float:
+    """Poll until the expected served id is ready or the process exits."""
     t0 = time.monotonic()
+    path = (
+        (cfg.get("engines", {}).get(engine or "", {}).get("readiness") or {}).get(
+            "path", "/v1/models"
+        )
+        if cfg is not None
+        else "/v1/models"
+    )
     while time.monotonic() - t0 < timeout_s:
-        with contextlib.suppress(Exception):
-            http_json(f"{url}/v1/models", timeout=3)
-            return round(time.monotonic() - t0, 2)
+        try:
+            status, payload, _raw = _models_response(url, path=path)
+            if cfg is None or engine is None:
+                ready = status == 200
+            else:
+                ready = _models_ready(cfg, engine, payload, status, expected_model)
+            if ready:
+                return round(time.monotonic() - t0, 2)
+        except (OSError, ValueError, json.JSONDecodeError):
+            pass
         if process is not None:
             exit_code = process.poll()
             if exit_code is not None:
-                raise SystemExit(
-                    f"engine process exited during startup (exit {exit_code}) — see its log"
-                )
+                raise SystemExit(f"engine process exited during startup (exit {exit_code})")
         time.sleep(1)
-    raise SystemExit(f"{url} not ready after {timeout_s}s")
+    raise SystemExit(f"{url}{path} did not list {expected_model!r} as ready after {timeout_s:g}s")
 
 
-def start_managed(cfg: dict, engine: str, model: str, mode: str) -> dict:
-    argv, cwd = launch_command(cfg, engine, model, mode)
+def start_managed(
+    cfg: dict,
+    engine: str,
+    model: str,
+    mode: str,
+    *,
+    context_tokens: int | None = None,
+    log_paths: tuple[Path, Path] | None = None,
+    on_started: Callable[[], None] | None = None,
+) -> dict:
+    argv, cwd = launch_command(cfg, engine, model, mode, context_tokens=context_tokens)
     STATE_DIR.mkdir(parents=True, exist_ok=True)
-    log = RESULTS / "logs" / f"{engine}__{model}__{mode}__{_stamp()}.log"
-    log.parent.mkdir(parents=True, exist_ok=True)
+    if log_paths is None:
+        stem = RESULTS / "logs" / f"{engine}__{model}__{mode}__{_stamp()}"
+        log_paths = (stem.with_suffix(".stdout.log"), stem.with_suffix(".stderr.log"))
+    stdout_log, stderr_log = log_paths
+    stdout_log.parent.mkdir(parents=True, exist_ok=True)
+    stderr_log.parent.mkdir(parents=True, exist_ok=True)
     env = {**os.environ, "DO_NOT_TRACK": "1", "RAPID_MLX_TELEMETRY": "0"}
-    with log.open("w") as fh:
+    with stdout_log.open("w") as stdout, stderr_log.open("w") as stderr:
         proc = subprocess.Popen(
-            argv, cwd=cwd, stdout=fh, stderr=subprocess.STDOUT, env=env, start_new_session=True
+            argv, cwd=cwd, stdout=stdout, stderr=stderr, env=env, start_new_session=True
         )
-    ready_s = wait_ready(base_url(cfg, engine), 900, proc)
     st = {
         "engine": engine,
         "model": model,
         "mode": mode,
         "control_model": cfg["models"][model].get("control"),
         "pid": proc.pid,
+        "process_group": proc.pid,
         "argv": argv,
-        "log": str(log),
-        "ready_s": ready_s,
+        "log": str(stdout_log),
+        "stdout_log": str(stdout_log),
+        "stderr_log": str(stderr_log),
+        "context_tokens": context_tokens or cfg["models"][model]["ctx"],
         "started": _stamp(),
     }
+    _state_file(engine).write_text(json.dumps(st, indent=1))
+    if on_started is not None:
+        on_started()
+    readiness = cfg["engines"][engine].get("readiness") or {}
+    ready_s = wait_ready(
+        base_url(cfg, engine),
+        float(readiness.get("timeout_s", 900)),
+        proc,
+        cfg=cfg,
+        engine=engine,
+        expected_model=served_id(cfg, engine, model, mode),
+    )
+    st["ready_s"] = ready_s
     _state_file(engine).write_text(json.dumps(st, indent=1))
     return st
 
 
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+def _managed_stopped(pid: int, port: int) -> bool:
+    return not _pid_alive(pid) and not pid_on_port(port)
+
+
+def _wait_managed_stopped(pid: int, port: int, timeout_s: float) -> bool:
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        if _managed_stopped(pid, port):
+            return True
+        if not _pid_alive(pid):
+            return False
+        time.sleep(0.5)
+    return _managed_stopped(pid, port)
+
+
+def _verify_owned_process_group(engine: str, pid: int, group: int, port: int) -> None:
+    try:
+        actual = os.getpgid(pid)
+    except ProcessLookupError:
+        listener = pid_on_port(port)
+        if not listener:
+            return
+        try:
+            actual = os.getpgid(listener)
+        except ProcessLookupError:
+            raise SystemExit(
+                f"{engine} port {port} has an unverified listener {listener}"
+            ) from None
+    if actual != group:
+        raise SystemExit(
+            f"{engine} listener is outside the owned process group {group} (found {actual})"
+        )
+
+
+def _signal_owned_pid(engine: str, pid: int, current_signal: signal.Signals) -> None:
+    try:
+        os.kill(pid, current_signal)
+    except ProcessLookupError:
+        return
+    except PermissionError as exc:
+        raise SystemExit(
+            f"cannot send {current_signal.name} to owned {engine} pid {pid}: {exc}"
+        ) from exc
+
+
+def _signal_owned_group(engine: str, group: int, port: int, current_signal: signal.Signals) -> None:
+    listener = pid_on_port(port)
+    if listener:
+        try:
+            listener_group = os.getpgid(listener)
+        except ProcessLookupError:
+            return
+        if listener_group != group:
+            raise SystemExit(
+                f"{engine} port {port} is held by unowned pid {listener} "
+                f"outside process group {group}"
+            )
+    try:
+        os.killpg(group, current_signal)
+    except ProcessLookupError:
+        pass
+    except PermissionError as exc:
+        raise SystemExit(
+            f"cannot send {current_signal.name} to owned {engine} process group {group}: {exc}"
+        ) from exc
+
+
 def stop_managed(cfg: dict, engine: str) -> None:
     sf = _state_file(engine)
-    if not sf.exists():
+    state = json.loads(sf.read_text()) if sf.exists() else {}
+    pid = state.get("pid")
+    port = int(cfg["engines"][engine]["port"])
+    if not pid:
+        listener = pid_on_port(port)
+        if listener:
+            raise SystemExit(f"{engine} port {port} still listening on unowned pid {listener}")
         return
-    pid = json.loads(sf.read_text())["pid"]
+    group = state.get("process_group", pid)
+    _verify_owned_process_group(engine, pid, group, port)
     sig = getattr(signal, "SIG" + cfg["engines"][engine].get("stop_signal", "INT"))
-    for s, wait in ((sig, 60), (signal.SIGTERM, 30)):
-        with contextlib.suppress(ProcessLookupError):
-            os.killpg(pid, s)
-        deadline = time.monotonic() + wait
-        while time.monotonic() < deadline:
-            try:
-                os.kill(pid, 0)
-            except ProcessLookupError:
-                sf.unlink()
-                return
-            time.sleep(1)
+    _signal_owned_pid(engine, pid, sig)
+    if _wait_managed_stopped(pid, port, 20):
+        sf.unlink(missing_ok=True)
+        return
+    _signal_owned_group(engine, group, port, sig)
+    if _wait_managed_stopped(pid, port, 10):
+        sf.unlink(missing_ok=True)
+        return
+    if sig != signal.SIGTERM:
+        _signal_owned_group(engine, group, port, signal.SIGTERM)
+        if _wait_managed_stopped(pid, port, 10):
+            sf.unlink(missing_ok=True)
+            return
+    listener = pid_on_port(port)
     raise SystemExit(
-        f"{engine} (pid {pid}) did not exit on {sig.name} or SIGTERM — investigate, not kill -9"
+        f"{engine} did not stop cleanly: pid={pid} listener={listener} port={port}; "
+        f"signals tried: {sig.name}, SIGTERM"
     )
 
 

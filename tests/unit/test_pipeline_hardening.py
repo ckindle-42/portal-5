@@ -1029,6 +1029,30 @@ async def test_malformed_request_raises_instead_of_cascading(monkeypatch, ns_env
     assert exc.value.status_code == 400 and "bad param" in exc.value.detail
 
 
+def test_eval_upstream_error_log_keeps_backend_status_and_body(caplog) -> None:
+    backend = SimpleNamespace(id="eval-openai-rapid-mlx", type=ns.EVAL_OPENAI)
+    body = b'{"error":{"message":"The model is still loading"}}'
+
+    with caplog.at_level(logging.ERROR, logger=ns.__name__):
+        ns._log_eval_upstream_error(backend, "bench-engine-daily-moe", "nemotron", 503, body)
+
+    assert "eval-openai-rapid-mlx" in caplog.text
+    assert "HTTP 503" in caplog.text
+    assert "The model is still loading" in caplog.text
+
+
+def test_backend_request_error_retains_raw_upstream_body() -> None:
+    body = b'{"error":{"message":"bad parameter"}}'
+    response = httpx.Response(
+        422, content=body, request=httpx.Request("POST", "http://engine/v1/chat/completions")
+    )
+
+    with pytest.raises(ns.BackendRequestError) as exc:
+        ns._raise_for_backend_status(response)
+
+    assert exc.value.raw_body == body
+
+
 @pytest.mark.anyio
 async def test_omlx_capacity_400_cascades_instead_of_surfacing(monkeypatch, ns_env) -> None:
     """oMLX's prefill_memory_guard returns 400 too, but it's an engine-capacity
