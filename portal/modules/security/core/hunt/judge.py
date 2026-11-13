@@ -154,7 +154,10 @@ class OpenAICompatibleClient:
     def complete(self, **request: Any) -> Mapping[str, Any]:
         headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
         with httpx.Client(transport=self.transport, timeout=self.timeout_seconds) as client:
-            response = client.post(self.endpoint, headers=headers, json=request)
+            # A hunt request is an answer, never a tool call. A workspace that attaches tools
+            # otherwise lets the engine's tool-call parser swallow a JSON-object answer.
+            body = {"tool_choice": "none", **request}
+            response = client.post(self.endpoint, headers=headers, json=body)
             response.raise_for_status()
             payload: Mapping[str, Any] = response.json()
         return payload
