@@ -23,9 +23,10 @@ from ..judge import (
 from .parse import (
     FieldStat,
     Parsed,
+    TemplateModel,
     choose_partition,
     field_stats,
-    parse_events,
+    parse_sample,
     partition_groups,
 )
 from .sample import SourceFacts
@@ -110,6 +111,7 @@ class SourceCard:
     kind_said: str = ""
     kind_note: str | None = None
     kind_facts: Mapping[str, Any] = field(default_factory=dict)
+    template_model: TemplateModel | None = None
 
     @property
     def source_id(self) -> str:
@@ -170,6 +172,7 @@ class SourceCard:
             "facts": dict(self.facts),
             "model": dict(self.model),
             "cache_key": self.cache_key,
+            "template": self.template_model.to_dict() if self.template_model else None,
         }
 
 
@@ -548,13 +551,16 @@ class Prepared:
     given: _Inputs
     part_field: str = ""
     part_value: str = ""
+    template: TemplateModel | None = None
 
 
 def prepare_cards(
     facts: SourceFacts, rows: Sequence[Mapping[str, Any]], windows: int, model: str
 ) -> list[Prepared]:
     """Parse one source's sample into one prepared structure per part."""
-    parsed = parse_events(_raws(rows))
+    parsed, template = parse_sample(_raws(rows))
+    if template is not None:
+        return [Prepared(facts, _Inputs(rows, parsed, windows, model), template=template)]
     partition = choose_partition(parsed)
     if partition is None:
         return [Prepared(facts, _Inputs(rows, parsed, windows, model))]
@@ -580,7 +586,7 @@ def _ordered_structures(prepared: Sequence[Prepared]) -> list[Prepared]:
     """Distinct structures, highest-volume source first, then by content key."""
     unique: dict[str, Prepared] = {}
     for item in prepared:
-        if item.given.parsed and item.given.hits:
+        if item.template is None and item.given.parsed and item.given.hits:
             unique.setdefault(item.given.cache_key, item)
     return sorted(unique.values(), key=lambda item: (-item.facts.events, item.given.cache_key))
 
@@ -641,6 +647,62 @@ def _model_seconds(answer: ModelAnswer) -> float:  # kept for receipt symmetry
     return answer.seconds
 
 
+def _template_card(item: Prepared, kind_facts: Mapping[str, Any]) -> SourceCard:
+    """A free-text source understood by its header and templates, with roles taken from data."""
+    facts, given, model = item.facts, item.given, item.template
+    assert model is not None
+    states = dict(model.states)
+    given.sample["templates"] = states
+    given.sample["header"] = {
+        "tokens": model.header_tokens,
+        "program_position": model.program_position,
+    }
+    model_facts = {
+        "requests": 0,
+        "reason": "structure",
+        "templates": states,
+        "header": given.sample["header"],
+    }
+    if not given.hits:
+        return _failure(
+            facts,
+            reason=f"no_templates:coverage={given.coverage:.2f}",
+            fmt="template",
+            coverage=0.0,
+            stats=given.stats,
+            sample=given.sample,
+            model=model_facts,
+            cache_key=given.cache_key,
+            kind_facts=kind_facts,
+        )
+    slot_fields = tuple(
+        sorted({name for template in model.templates for _position, name in template.slots})
+    )
+    return SourceCard(
+        index=facts.index,
+        sourcetype=facts.sourcetype,
+        kind="activity",
+        roles={"actor": ("program",), "action": ("template",), "object": slot_fields},
+        understood=True,
+        reason=None,
+        fmt="template",
+        coverage=given.coverage,
+        fields=tuple(given.stats),
+        sample=given.sample,
+        facts=_facts(facts),
+        model=model_facts,
+        cache_key=given.cache_key,
+        basis=(
+            "log template mining: header, per-program template and recurring slot values; "
+            "roles from the data"
+        ),
+        kind_said="structure",
+        kind_note="roles_from_data",
+        kind_facts=kind_facts,
+        template_model=model,
+    )
+
+
 def _assemble(
     item: Prepared,
     answer: ModelAnswer,
@@ -650,6 +712,8 @@ def _assemble(
     """Apply one structure's answer to its card, or record exactly why it was not used."""
     facts, given = item.facts, item.given
     kind_facts = {**given.value_facts, **cadence_facts(facts)}
+    if item.template is not None:
+        return _template_card(item, kind_facts)
     if item.part_field:
         given.sample["part"] = {"field": item.part_field, "value": item.part_value}
     if not given.parsed or not given.hits:

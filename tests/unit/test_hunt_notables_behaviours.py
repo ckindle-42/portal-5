@@ -130,6 +130,45 @@ def test_a_part_card_keys_only_its_own_events():
     assert [event.fields["user"] for event in events] == ["bob", "amy"]
 
 
+def test_a_template_behaviour_is_program_template_and_slot_values():
+    card = SourceCard(
+        index="ix",
+        sourcetype="st",
+        kind="activity",
+        roles={"actor": ("program",), "action": ("template",), "object": ("s1", "s2")},
+        understood=True,
+        reason=None,
+        fmt="template",
+        coverage=1.0,
+        fields=(),
+        sample={},
+        facts={},
+        model={},
+        cache_key="key",
+    )
+    fields = {
+        "program": "sshd",
+        "template": "Accepted password for *",
+        "s1": "bob",
+        "s2": "10.0.0.5",
+    }
+    key = behaviour_key(card, fields, {"s1": "literal", "s2": "literal"})
+    assert key == (
+        "program",
+        "sshd",
+        "template",
+        "Accepted password for *",
+        "slots",
+        "bob 10.0.0.5",
+    )
+    event = ExampleEvent("ix:st", "h1", 1.0, "raw", fields, 0.0, 3600.0)
+    query = str(keyed_rows(card, _facts(), [event])[0][10])
+    assert 'TERM("sshd")' in query
+    assert 'TERM("bob")' in query
+    assert 'TERM("10.0.0.5")' in query
+    assert "Accepted password" not in query
+
+
 def test_an_event_with_neither_actor_nor_object_is_not_a_behaviour():
     card = _card()
     event = ExampleEvent("ix:st", "h1", 1.0, "raw", {"image": "stats"}, 0.0, 3600.0)

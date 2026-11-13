@@ -24,9 +24,10 @@ from portal.modules.security.core.hunt.notables.parse import (
     parse_json,
     parse_kv,
     parse_row,
+    parse_sample,
     parse_xml,
     partition_groups,
-    tokenise,
+    words,
 )
 from portal.modules.security.core.hunt.notables.run import card_from_dict
 from portal.modules.security.core.hunt.notables.sample import SourceFacts
@@ -102,7 +103,7 @@ def test_a_multi_line_xml_event_is_read_whole():
 def _mixed_rows() -> list[dict[str, object]]:
     rows = []
     for index in range(8):
-        if index < 4:
+        if index % 2 == 0:
             raw = json.dumps({"kind": "alert", "sig": f"s{index}", "src": "a"})
         else:
             raw = json.dumps({"kind": "flow", "src": "a", "dst": "b", "bytes": index})
@@ -231,33 +232,82 @@ def test_build_cards_gives_each_structure_its_own_card(tmp_path):
     assert [len(card.fields) for card in cards] == [3, 4]
 
 
-def test_line_oriented_log_gets_named_positions_with_their_variety():
-    lines = [
-        "Jan 12 10:00:00 web01 sshd[123]: Accepted password for bob from 10.0.0.5 port 22 ssh2",
-        "Jan 12 10:00:05 web02 sshd[124]: Accepted password for amy from 10.0.0.6 port 22 ssh2",
-        "Jan 12 10:01:00 web01 sshd[125]: Failed password for root from 10.0.0.7 port 22 ssh2",
-        "Jan 12 10:02:00 web02 sshd[126]: Accepted password for bob from 10.0.0.5 port 22 ssh2",
+_SYSLOG = [
+    "Mar 24 10:00:00 web01 sshd[123]: Accepted password for bob from 10.0.0.5 port 22 ssh2",
+    "Mar 24 10:00:05 web02 sshd[124]: Accepted password for amy from 10.0.0.6 port 22 ssh2",
+    "Mar 24 10:01:00 web01 sshd[125]: Accepted password for bob from 10.0.0.5 port 22 ssh2",
+    "Mar 24 10:02:00 web02 sshd[126]: Failed password for root from 10.0.0.7 port 22 ssh2",
+    "Mar 25 11:00:00 web01 sshd[127]: Accepted password for amy from 10.0.0.6 port 22 ssh2",
+    "Mar 25 11:01:00 web02 sshd[128]: Accepted password for bob from 10.0.0.5 port 22 ssh2",
+]
+
+
+def test_a_line_oriented_log_is_mined_into_a_header_and_templates():
+    parsed, model = parse_sample(_SYSLOG)
+    assert model is not None
+    assert (model.header_tokens, model.program_position) == (5, 4)
+    assert {item.fmt for item in parsed} == {"template"}
+    assert model.states["existed"] == 1
+    assert model.states["kept"] == 1
+    assert model.states["explained"] == 6
+    assert parsed[0].fields["program"] == "sshd"
+    assert parsed[0].fields["template"] == "* password for * from * port 22 ssh2"
+    assert parsed[0].fields["s1"] == "Accepted"
+    assert parsed[0].fields["s2"] == "bob"
+    assert parsed[0].fields["s3"] == "10.0.0.5"
+    assert parsed[3].fields["s1"] == "Failed"
+
+
+def test_template_events_read_with_the_learned_model_after_the_sample():
+    _parsed, model = parse_sample(_SYSLOG)
+    assert model is not None
+    row = parse_row(_SYSLOG[5], "template", template=model)
+    assert row.fields["program"] == "sshd"
+    assert row.fields["s2"] == "bob"
+    assert parse_row(_SYSLOG[5], "template", template=None).fields == {}
+
+
+def test_a_line_oriented_source_is_one_card_and_is_never_partitioned_on_time(tmp_path):
+    rows = [
+        {"_raw": line, "_time": 1000.0 + index, "host": "h1"} for index, line in enumerate(_SYSLOG)
     ]
-    parsed = parse_events(lines)
-    assert {item.fmt for item in parsed} == {"positional"}
-    stats = {stat.name: stat for stat in field_stats(parsed)}
-    assert stats["p1"].variety == "constant"
-    assert stats["p4"].variety == "identity"
-    assert stats["p3"].variety == "free"
-    assert stats["p9"].examples == ("amy", "bob", "root")
-    assert parsed[0].fields["p5"] == "sshd[123]:"
+    client = _Client("{}")
+    cards = build_cards(
+        _facts(), rows, windows=1, client=client, model="seat", cache=CardCache(tmp_path)
+    )
+    assert len(cards) == 1
+    card = cards[0]
+    assert card.fmt == "template"
+    assert card.kind == "activity"
+    assert card.roles["actor"] == ("program",)
+    assert card.roles["action"] == ("template",)
+    assert "s1" in card.roles["object"]
+    assert card.template_model is not None
+    assert len(client.calls) == 0
 
 
-def test_an_apostrophe_does_not_swallow_the_rest_of_a_line():
-    assert tokenise("a b don't stop c d", 12) == ["a", "b", "don't", "stop", "c", "d"]
+def test_a_time_ordered_discriminator_never_splits_a_source():
+    rows = []
+    for day in (1, 2, 3):
+        for _index in range(4):
+            fields = {"day": str(day), "a": "x"}
+            for extra in "bcd"[:day]:
+                fields[extra] = extra
+            rows.append(json.dumps(fields))
+    parsed = parse_events(rows)
+    assert choose_partition(parsed) is None
 
 
-def test_positions_keep_a_bracketed_stamp_and_a_quoted_phrase_whole():
+def test_words_keep_a_bracketed_stamp_and_a_quoted_phrase_whole():
     line = '1.2.3.4 - - [01/Jan/2020:00:00:00 +0000] "GET /a b HTTP/1.1" 200 12'
-    positions = tokenise(line, 12)
+    positions = words(line)
     assert positions[3] == "[01/Jan/2020:00:00:00 +0000]"
     assert positions[4] == "GET /a b HTTP/1.1"
     assert positions[5] == "200"
+
+
+def test_an_apostrophe_does_not_swallow_the_rest_of_a_line():
+    assert words("a b don't stop c d") == ["a", "b", "don't", "stop", "c", "d"]
 
 
 def test_key_value_needs_two_pairs_and_delimited_uses_its_header():
@@ -438,6 +488,19 @@ def test_a_bad_answer_keeps_its_raw_text_and_is_not_confused_with_no_answer(tmp_
     )
     assert card.reason == "unparseable_answer"
     assert card.model["raw_answer"] == bad
+
+
+def test_a_template_card_reload_keeps_its_learned_templates(tmp_path):
+    rows = [
+        {"_raw": line, "_time": 1000.0 + index, "host": "h1"} for index, line in enumerate(_SYSLOG)
+    ]
+    cards = build_cards(
+        _facts(), rows, windows=1, client=_Client("{}"), model="seat", cache=CardCache(tmp_path)
+    )
+    loaded = card_from_dict(cards[0].as_dict())
+    assert loaded.template_model is not None
+    assert cards[0].template_model is not None
+    assert loaded.template_model.to_dict() == cards[0].template_model.to_dict()
 
 
 def test_card_reload_keeps_everything_a_later_stage_needs(tmp_path):

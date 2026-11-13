@@ -16,9 +16,16 @@ EXAMPLES_PER_FIELD = 3  # effort budget: distinct values shown to the model per 
 MAX_FIELDS = 24  # effort budget: fields described for one source
 MIN_STRUCTURE_SHARE = 0.5  # a structure describes a sample only when most lines share it
 MAX_LIST_ITEMS = 20  # effort budget: list entries flattened for one JSON field
-POSITIONAL_TOKENS = 12  # effort budget: leading line positions described for one source
-POSITIONAL_MIN_POSITIONS = 3  # a positional structure needs this many stable slots
 MIN_DELIMITED_WIDTH = 3  # a delimiter describes a record only when it yields this many columns
+HEADER_MAX_TOKENS = 8  # effort budget: leading tokens searched for the program boundary
+MIN_PROGRAM_LINES = 3  # a program needs this many sampled lines to be described
+MIN_TEMPLATE_LINES = 3  # a template needs this many lines to be kept
+MIN_TEMPLATE_TOKENS = 2  # a message template needs this many tokens
+MAX_TEMPLATES_PER_PROGRAM = 12  # effort budget: templates kept for one program
+MAX_TEMPLATES_PER_SOURCE = 24  # effort budget: templates kept for one source
+MAX_TEMPLATE_SLOTS = 6  # effort budget: recurring slots carried into a behaviour key
+TEMPLATE_SLOT_VALUES = 2000  # effort budget: a slot stays literal up to this many values
+TIME_ORDER_SHARE = 0.9  # a value that moves with event order is time or a sequence
 MAX_PARTITIONS = 8  # effort budget: distinct structures one source is split into
 MIN_PARTITION_LINES = 4  # a part needs this many sampled events to be described
 _OPENERS = "([{"
@@ -34,6 +41,98 @@ class Parsed:
 
     fmt: str
     fields: Mapping[str, str]
+
+
+@dataclass(frozen=True)
+class Template:
+    """One message template: constant tokens, slots (None), and the recurring slots carried."""
+
+    program: str
+    tokens: tuple[str | None, ...]
+    count: int
+    slots: tuple[tuple[int, str], ...] = ()
+
+    @property
+    def text(self) -> str:
+        return " ".join(token if token is not None else "*" for token in self.tokens)
+
+    def matches(self, message: Sequence[str]) -> bool:
+        return len(message) == len(self.tokens) and all(
+            expected is None or expected == actual
+            for expected, actual in zip(self.tokens, message, strict=True)
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "program": self.program,
+            "tokens": list(self.tokens),
+            "count": self.count,
+            "slots": [[position, name] for position, name in self.slots],
+        }
+
+    @classmethod
+    def from_dict(cls, raw: Mapping[str, Any]) -> Template:
+        tokens = tuple(None if token is None else str(token) for token in raw.get("tokens") or ())
+        slots = tuple(
+            (int(item[0]), str(item[1]))
+            for item in raw.get("slots") or ()
+            if isinstance(item, (list, tuple)) and len(item) == 2
+        )
+        return cls(str(raw.get("program") or ""), tokens, int(raw.get("count") or 0), slots)
+
+
+@dataclass(frozen=True)
+class TemplateModel:
+    """The header split and templates learned from one source's own sample."""
+
+    header_tokens: int
+    program_position: int
+    templates: tuple[Template, ...]
+    states: Mapping[str, Any]
+
+    def parse(self, line: str) -> Parsed:
+        row = words(line)
+        if len(row) <= self.header_tokens:
+            return Parsed("text", {})
+        program = _program_of(row, self.program_position, self.header_tokens)
+        message = row[self.header_tokens :]
+        for template in self.templates:
+            if template.program and template.program != program:
+                continue
+            if not template.matches(message):
+                continue
+            fields: dict[str, str] = {"program": program, "template": template.text}
+            for position, name in template.slots:
+                value = message[position] if position < len(message) else ""
+                if value:
+                    fields[name] = value
+            return Parsed(
+                "template",
+                {name: _clip(value, MAX_VALUE_CHARS) for name, value in fields.items() if value},
+            )
+        return Parsed("text", {})
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "header_tokens": self.header_tokens,
+            "program_position": self.program_position,
+            "states": dict(self.states),
+            "templates": [template.to_dict() for template in self.templates],
+        }
+
+    @classmethod
+    def from_dict(cls, raw: Any) -> TemplateModel | None:
+        if not isinstance(raw, Mapping):
+            return None
+        templates = raw.get("templates")
+        if not isinstance(templates, list):
+            return None
+        return cls(
+            int(raw.get("header_tokens") or 0),
+            int(raw.get("program_position") or 0),
+            tuple(Template.from_dict(item) for item in templates if isinstance(item, Mapping)),
+            dict(raw.get("states") or {}),
+        )
 
 
 @dataclass(frozen=True)
@@ -112,38 +211,112 @@ def words(line: str) -> list[str]:
     return [clean for cell in split_record(line, " ") if (clean := _clean(cell))]
 
 
-def tokenise(line: str, width: int) -> list[str]:
-    """At most `width` positions; the last one carries the rest of the line."""
-    parts = words(line)
-    if width <= 0:
-        return []
-    if len(parts) <= width:
-        return parts
-    return parts[: width - 1] + [" ".join(parts[width - 1 :])]
+def _program_stem(token: str) -> str:
+    """'sshd[123]:' -> 'sshd'; a bare token is its own stem."""
+    stem = token[:-1] if token.endswith(":") else token
+    bracket = stem.find("[")
+    if bracket > 0:
+        stem = stem[:bracket]
+    return stem.strip()
 
 
-def _positional(lines: Sequence[str]) -> list[Parsed] | None:
-    """Leading whitespace positions stable across the sample, as p1..pN."""
-    rows = [tokenise(line, POSITIONAL_TOKENS) for line in lines]
-    width = 0
-    while width < POSITIONAL_TOKENS and (
-        sum(1 for row in rows if len(row) > width) / len(rows) >= MIN_STRUCTURE_SHARE
-    ):
-        width += 1
-    if width < POSITIONAL_MIN_POSITIONS:
-        return None
-    names = [f"p{index + 1}" for index in range(width)]
-    parsed: list[Parsed] = []
+def _colon_stem(token: str) -> str:
+    return _program_stem(token) if token.endswith(":") else ""
+
+
+def _program_of(row: Sequence[str], position: int, header_tokens: int) -> str:
+    if not header_tokens or position >= len(row):
+        return ""
+    return _program_stem(row[position])
+
+
+def _header_shape(rows: Sequence[Sequence[str]]) -> tuple[int, int]:
+    """Where the shared header ends: the program token's colon, else the whole line is message."""
+    votes: dict[int, int] = {}
     for row in rows:
-        fields = {
-            name: _clip(value, MAX_VALUE_CHARS)
-            for name, value in zip(names, row, strict=False)
-            if value
-        }
-        parsed.append(
-            Parsed("positional" if len(fields) >= POSITIONAL_MIN_POSITIONS else "text", fields)
-        )
-    return parsed
+        for index in range(min(len(row), HEADER_MAX_TOKENS)):
+            if _colon_stem(row[index]):
+                votes[index] = votes.get(index, 0) + 1
+                break
+    if votes:
+        position = sorted(votes.items(), key=lambda item: (-item[1], item[0]))[0][0]
+        if votes[position] / len(rows) >= MIN_STRUCTURE_SHARE:
+            return position + 1, position
+    return 0, 0
+
+
+def _mine(program: str, messages: Sequence[Sequence[str]]) -> list[Template]:
+    """Length-bucketed positional templates: a position constant across the bucket stays literal."""
+    buckets: dict[int, list[Sequence[str]]] = {}
+    for message in messages:
+        if len(message) >= MIN_TEMPLATE_TOKENS:
+            buckets.setdefault(len(message), []).append(message)
+    templates: list[Template] = []
+    for length, group in sorted(buckets.items()):
+        if len(group) < MIN_TEMPLATE_LINES:
+            continue
+        tokens: list[str | None] = []
+        for position in range(length):
+            values = {message[position] for message in group}
+            tokens.append(values.pop() if len(values) == 1 else None)
+        templates.append(Template(program, tuple(tokens), len(group)))
+    return templates
+
+
+def _with_slots(template: Template, messages: Sequence[Sequence[str]]) -> Template:
+    """Recurring slot values only; a value that repeats is an identity, a unique one is an id."""
+    matching = [message for message in messages if template.matches(message)]
+    slots: list[tuple[int, str]] = []
+    for position in range(len(template.tokens)):
+        if template.tokens[position] is not None:
+            continue
+        values = [message[position] for message in matching]
+        distinct = len(set(values))
+        if len(values) < MIN_TEMPLATE_LINES or distinct >= len(values):
+            continue
+        if distinct > TEMPLATE_SLOT_VALUES:
+            continue
+        slots.append((position, f"s{len(slots) + 1}"))
+        if len(slots) >= MAX_TEMPLATE_SLOTS:
+            break
+    return Template(template.program, template.tokens, template.count, tuple(slots))
+
+
+def learn_templates(lines: Sequence[str]) -> TemplateModel | None:
+    """Header plus per-program templates, both learned from how tokens repeat across lines."""
+    rows = [words(line) for line in lines]
+    if not rows:
+        return None
+    header_tokens, program_position = _header_shape(rows)
+    by_program: dict[str, list[Sequence[str]]] = {}
+    for row in rows:
+        program = _program_of(row, program_position, header_tokens)
+        by_program.setdefault(program, []).append(row[header_tokens:])
+    mined: list[Template] = []
+    for program, messages in sorted(by_program.items()):
+        if len(messages) >= MIN_PROGRAM_LINES:
+            mined.extend(_mine(program, messages))
+    kept = [template for template in mined if template.count >= MIN_TEMPLATE_LINES]
+    if not kept:
+        return None
+    per_program: dict[str, list[Template]] = {}
+    for template in kept:
+        per_program.setdefault(template.program, []).append(template)
+    selected: list[Template] = []
+    for templates in per_program.values():
+        templates.sort(key=lambda item: (-item.count, item.text))
+        selected.extend(templates[:MAX_TEMPLATES_PER_PROGRAM])
+    selected.sort(key=lambda item: (-item.count, item.program, item.text))
+    selected = selected[:MAX_TEMPLATES_PER_SOURCE]
+    with_slots = [
+        _with_slots(template, by_program.get(template.program, [])) for template in selected
+    ]
+    states: dict[str, Any] = {"existed": len(kept), "kept": len(with_slots), "lines": len(rows)}
+    model = TemplateModel(header_tokens, program_position, tuple(with_slots), states)
+    explained = sum(1 for line in lines if model.parse(line).fields)
+    states["explained"] = explained
+    states["explained_share"] = round(explained / len(rows), 4) if rows else 0.0
+    return model
 
 
 def _clip(value: str, limit: int) -> str:
@@ -281,34 +454,36 @@ def _apply(name: str, parser: Parser, lines: Sequence[str]) -> list[Parsed] | No
     return parsed
 
 
-def parse_events(raws: Sequence[str]) -> list[Parsed]:
-    """Read a sample with the first structure most of its lines support, else free text.
+def parse_sample(raws: Sequence[str]) -> tuple[list[Parsed], TemplateModel | None]:
+    """Read a sample with the first structure most lines support, else mine log templates.
 
     The result keeps one item per input line, in input order, so callers can align
     parsed fields with the events they came from.
     """
     lines = [str(raw) for raw in raws]
     if not lines:
-        return []
+        return [], None
     for name, parser in _PARSERS:
         parsed = _apply(name, parser, lines)
         if parsed is not None:
-            return parsed
+            return parsed, None
     delimited = _delimited(lines)
     if delimited is not None:
-        return delimited
-    positional = _positional(lines)
-    if positional is not None:
-        return positional
-    return [Parsed("text", {}) for _ in lines]
+        return delimited, None
+    model = learn_templates(lines)
+    if model is not None:
+        return [model.parse(line) for line in lines], model
+    return [Parsed("text", {}) for _ in lines], None
+
+
+def parse_events(raws: Sequence[str]) -> list[Parsed]:
+    """Parsed items only; callers that need the learned templates use parse_sample."""
+    return parse_sample(raws)[0]
 
 
 def parse_with(raw: str, fmt: str) -> Parsed:
     """Read one event with the structure its source was sampled with."""
     parsers: dict[str, Parser] = dict(_PARSERS)
-    if fmt == "positional":
-        parsed = _positional([raw])
-        return parsed[0] if parsed else Parsed("text", {})
     if fmt == "delimited":
         parsed = _delimited([raw])
         if parsed:
@@ -319,18 +494,17 @@ def parse_with(raw: str, fmt: str) -> Parsed:
     return Parsed(fmt if fields else "text", fields)
 
 
-def parse_row(raw: str, fmt: str, columns: Sequence[str] = ()) -> Parsed:
-    """Read one event into the column names the sample established."""
-    if fmt in {"delimited", "positional"} and not columns:
+def parse_row(
+    raw: str,
+    fmt: str,
+    columns: Sequence[str] = (),
+    template: TemplateModel | None = None,
+) -> Parsed:
+    """Read one event with the structure (or template model) the sample established."""
+    if fmt == "template":
+        return template.parse(raw) if template is not None else Parsed("text", {})
+    if fmt == "delimited" and not columns:
         return Parsed("text", {})
-    if fmt == "positional":
-        values = tokenise(raw, len(columns))
-        fields = {
-            _clip(name, MAX_KEY_CHARS): _clip(value, MAX_VALUE_CHARS)
-            for name, value in zip(columns, values, strict=False)
-            if value
-        }
-        return Parsed("positional" if fields else "text", fields)
     if fmt != "delimited":
         return parse_with(raw, fmt)
     for delimiter in _DELIMITERS:
@@ -381,6 +555,8 @@ def choose_partition(parsed: Sequence[Parsed]) -> Partition | None:
     for name, stat in stats.items():
         if stat.distinct < 2 or stat.distinct > MAX_PARTITIONS or not stat.repeats:
             continue
+        if _time_ordered(parsed, name):
+            continue
         groups: dict[str, list[Parsed]] = {}
         for item in parsed:
             value = (item.fields.get(name) or "").strip()
@@ -398,6 +574,25 @@ def choose_partition(parsed: Sequence[Parsed]) -> Partition | None:
     if best is None:
         return None
     return Partition(best[2], best[3])
+
+
+def _time_ordered(parsed: Sequence[Parsed], field: str) -> bool:
+    """True when a field's values move with event order, so they are time or a sequence."""
+    values = [item.fields.get(field) for item in parsed]
+    pairs = [
+        (left, right) for left, right in zip(values, values[1:], strict=False) if left and right
+    ]
+    if len(pairs) < MIN_PARTITION_LINES:
+        return False
+    ordered = sum(1 for left, right in pairs if _value_leq(str(left), str(right)))
+    return ordered / len(pairs) >= TIME_ORDER_SHARE
+
+
+def _value_leq(left: str, right: str) -> bool:
+    try:
+        return float(left.replace(",", "")) <= float(right.replace(",", ""))
+    except (AttributeError, TypeError, ValueError):
+        return left <= right
 
 
 def partition_groups(
@@ -427,6 +622,5 @@ __all__ = [
     "parse_with",
     "partition_groups",
     "split_record",
-    "tokenise",
     "words",
 ]

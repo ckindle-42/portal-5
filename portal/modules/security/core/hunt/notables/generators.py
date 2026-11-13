@@ -234,7 +234,7 @@ def _alert_rows(
 
 
 def _alert_fields(card: SourceCard, raw: str) -> Mapping[str, str]:
-    return parse_row(raw, card.fmt, card.columns).fields
+    return parse_row(raw, card.fmt, card.columns, card.template_model).fields
 
 
 def alerts(

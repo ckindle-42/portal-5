@@ -109,12 +109,19 @@ def _print_cards(receipt: dict[str, Any]) -> None:
         reason = f" reason={item.get('reason')}" if item.get("reason") else ""
         part = item.get("part")
         label = f" [{part.get('field')}={part.get('value')}]" if isinstance(part, dict) else ""
+        templates = item.get("templates")
+        mined = (
+            f" templates={templates.get('kept')}/{templates.get('existed')} "
+            f"explained={templates.get('explained_share')}"
+            if isinstance(templates, dict)
+            else ""
+        )
         print(
             f"  {_label(item)}{label} kind={item.get('kind')} "
             f"understood={item.get('understood')} roles={item.get('roles')} "
             f"structure={item.get('structure')} sample={item.get('sample_lines')} "
             f"coverage={item.get('parse_coverage', 0):.2f} "
-            f"model={item.get('model_seconds')}s{reason}"
+            f"model={item.get('model_seconds')}s{mined}{reason}"
         )
     print(
         f"cards: sources={receipt.get('sources', 0)} cards={receipt.get('cards', 0)} "

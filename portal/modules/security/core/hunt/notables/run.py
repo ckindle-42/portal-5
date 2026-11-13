@@ -29,7 +29,7 @@ from .cards import (
 )
 from .generators import generate
 from .judge_notables import judge_all
-from .parse import FieldStat
+from .parse import FieldStat, TemplateModel
 from .receipt import peak_memory_mb, progress_update, read_json, utc_now, write_json
 from .sample import SAMPLE_LINES, SourceFacts, index_facts, read_windows, sample_windows
 
@@ -155,6 +155,7 @@ def card_from_dict(raw: Mapping[str, Any]) -> SourceCard:
         kind_said=str(raw.get("kind_said") or ""),
         kind_note=_optional_text(raw.get("kind_note")),
         kind_facts=dict(raw.get("kind_facts") or {}),
+        template_model=TemplateModel.from_dict(raw.get("template")),
     )
 
 
@@ -195,6 +196,7 @@ def _card_receipt(card: SourceCard, notes: Sequence[str]) -> dict[str, Any]:
         "model_requests": int(card.model.get("requests") or 0),
         "model_seconds": card.model.get("seconds"),
         "cached": bool(card.model.get("cached")),
+        "templates": card.sample.get("templates"),
         "notes": notes,
     }
 

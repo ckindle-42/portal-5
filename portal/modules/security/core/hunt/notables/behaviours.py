@@ -103,6 +103,15 @@ def behaviour_key(
     card: SourceCard, fields: Mapping[str, str], modes: Mapping[str, str]
 ) -> tuple[str, str, str, str, str, str]:
     """(actor_field, actor, action_field, action, object_field, object) for one event."""
+    if card.fmt == "template":
+        actor = (fields.get("program") or "").strip()
+        action = (fields.get("template") or "").strip()
+        slots = [
+            value if modes.get(name, "literal") == "literal" else value_shape(value)
+            for name in card.role_fields("object")
+            if (value := (fields.get(name) or "").strip())
+        ]
+        return ("program", actor, "template", action, "slots", " ".join(slots))
     return (
         *_first_value(fields, card.role_fields("actor"), modes),
         *_first_value(fields, card.role_fields("action"), modes),
@@ -114,17 +123,11 @@ def _quote(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-def reproduction_query(
-    card: SourceCard, facts: SourceFacts, components: Sequence[tuple[str, str, str]]
-) -> str:
+def reproduction_query(facts: SourceFacts, terms: Sequence[str]) -> str:
     """Every literal role value together, so the query selects this behaviour, not a common word."""
     route, _ = route_filter(facts, BEHAVIOUR_SOURCES)
-    terms = [
-        f"TERM({_quote(value)})"
-        for _field, value, mode in components
-        if mode == "literal" and value
-    ][:MAX_TERMS]
-    tail = " " + " ".join(terms) if terms else ""
+    picked = [value for value in terms if value][:MAX_TERMS]
+    tail = " " + " ".join(f"TERM({_quote(value)})" for value in picked) if picked else ""
     return f"search index={_quote(facts.index)} {route}{tail} | head 5"
 
 
@@ -140,7 +143,7 @@ def _extract(
 ) -> list[ExampleEvent]:
     found: list[ExampleEvent] = []
     for row in rows:
-        parsed = parse_row(str(row.get("_raw") or ""), card.fmt, card.columns)
+        parsed = parse_row(str(row.get("_raw") or ""), card.fmt, card.columns, card.template_model)
         if not parsed.fields or not card.in_part(parsed.fields):
             continue
         try:
@@ -184,15 +187,24 @@ def keyed_rows(
         )
         if not actor and not object_value:
             continue
-        query = reproduction_query(
-            card,
-            facts,
-            [
-                (actor_field, actor, modes.get(actor_field, "shape")),
-                (action_field, action, modes.get(action_field, "shape")),
-                (object_field, object_value, modes.get(object_field, "shape")),
-            ],
-        )
+        if card.fmt == "template":
+            terms = [actor] + [
+                value
+                for name in card.role_fields("object")
+                if (value := (event.fields.get(name) or "").strip())
+                and modes.get(name) == "literal"
+            ]
+        else:
+            terms = [
+                value
+                for _field, value, mode in (
+                    (actor_field, actor, modes.get(actor_field, "shape")),
+                    (action_field, action, modes.get(action_field, "shape")),
+                    (object_field, object_value, modes.get(object_field, "shape")),
+                )
+                if mode == "literal"
+            ]
+        query = reproduction_query(facts, terms)
         rows.append(
             (
                 event.source_id,
@@ -288,6 +300,46 @@ def _source_receipt(
     }
 
 
+def _key_source(
+    con: duckdb.DuckDBPyConnection,
+    usable: Sequence[SourceCard],
+    facts: SourceFacts,
+    per_window: int,
+    executor: HuntExecutor,
+    started: float,
+) -> tuple[list[dict[str, Any]], int]:
+    """Read one source once and key each of its structures' events into the store."""
+    windows = window_bounds(facts.first, facts.last, BEHAVIOUR_WINDOWS)
+    read = read_windows(
+        executor,
+        facts,
+        windows,
+        per_window=per_window,
+        kind="behavior_events",
+        max_sources=BEHAVIOUR_SOURCES,
+    )
+    receipts: list[dict[str, Any]] = []
+    total = 0
+    for card in usable:
+        events = _extract(card, read.rows, windows)
+        rows = keyed_rows(card, facts, events)
+        if rows:
+            con.executemany(_INSERT, rows)
+        total += len(rows)
+        receipts.append(
+            _source_receipt(
+                card,
+                facts,
+                read,
+                len(events),
+                len(rows),
+                time.monotonic() - started,
+                per_window,
+            )
+        )
+    return receipts, total
+
+
 def collect_behaviours(
     executor: HuntExecutor,
     cards: Sequence[SourceCard],
@@ -331,32 +383,9 @@ def collect_behaviours(
                 )
                 continue
             started = time.monotonic()
-            windows = window_bounds(facts.first, facts.last, BEHAVIOUR_WINDOWS)
-            read = read_windows(
-                executor,
-                facts,
-                windows,
-                per_window=per_window,
-                kind="behavior_events",
-                max_sources=BEHAVIOUR_SOURCES,
-            )
-            for card in usable:
-                events = _extract(card, read.rows, windows)
-                rows = keyed_rows(card, facts, events)
-                if rows:
-                    con.executemany(_INSERT, rows)
-                total += len(rows)
-                receipts.append(
-                    _source_receipt(
-                        card,
-                        facts,
-                        read,
-                        len(events),
-                        len(rows),
-                        time.monotonic() - started,
-                        per_window,
-                    )
-                )
+            found, count = _key_source(con, usable, facts, per_window, executor, started)
+            receipts.extend(found)
+            total += count
         behaviours, existed = aggregate_events(con)
     finally:
         con.close()
