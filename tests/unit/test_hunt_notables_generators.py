@@ -106,7 +106,7 @@ def test_peer_rare_orders_by_share_of_possible_hosts_and_actors():
     ]
     stats = {"ix:st": {"hosts_possible": 4, "actors_possible": 4}}
     notables, receipt = peer_rare(behaviours, stats)
-    assert receipt == {"existed": 3, "kept": 3}
+    assert (receipt["existed"], receipt["kept"], receipt["tied_at_cut"]) == (3, 3, 0)
     assert [item.entities[0][1] for item in notables] == ["lonely", "middle", "common"]
     assert notables[0].measure_value == 0.0625
     assert notables[-1].measure_value == 1.0
@@ -119,7 +119,7 @@ def test_a_missing_actor_is_unknown_not_rare_and_sorts_last():
     ]
     stats = {"ix:st": {"hosts_possible": 7, "actors_possible": 150}}
     notables, receipt = peer_rare(behaviours, stats)
-    assert receipt == {"existed": 2, "kept": 2}
+    assert (receipt["existed"], receipt["kept"], receipt["tied_at_cut"]) == (2, 2, 0)
     assert notables[0].measure_value == round(1 / 7 * 1 / 150, 10)
     assert notables[1].measure_value == 1.0
     assert "actor not present in this behaviour" in notables[1].why
@@ -133,6 +133,28 @@ def test_a_behaviour_without_a_host_is_not_rare_by_zero_hosts():
     assert notables[0].measure_value == round(1 / 150, 10)
     assert "host not present in this behaviour" in notables[0].why
     assert "0/7" not in notables[0].why
+
+
+def test_equal_rarity_prefers_the_more_specific_and_better_evidenced_behaviour():
+    behaviours = [
+        _behaviour("ix:st", "bob", hosts=1, actors=1, events=1, first=1.0),
+        _behaviour("ix:st", "amy", hosts=1, actors=1, events=5, first=2.0),
+    ]
+    stats = {"ix:st": {"hosts_possible": 4, "actors_possible": 4}}
+    notables, receipt = peer_rare(behaviours, stats)
+    assert notables[0].counts["events"] == 5
+    assert receipt["tie_break"] == ["measure", "specificity", "events", "lexical"]
+
+
+def test_the_receipt_reports_how_many_candidates_tied_at_the_cut():
+    behaviours = [
+        _behaviour("ix:st", f"actor{index}", hosts=1, actors=1, events=1, first=1.0)
+        for index in range(301)
+    ]
+    stats = {"ix:st": {"hosts_possible": 4, "actors_possible": 400}}
+    notables, receipt = peer_rare(behaviours, stats)
+    assert len(notables) == 300
+    assert receipt["tied_at_cut"] == 301
 
 
 def test_robust_z_and_source_deviations_rank_a_burst_first():

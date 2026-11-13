@@ -17,7 +17,6 @@ from portal.modules.security.core.hunt.notables.behaviours import (
     load_behaviours,
     load_source_stats,
     per_window_events,
-    value_shape,
     window_bounds,
 )
 from portal.modules.security.core.hunt.notables.cards import SourceCard
@@ -96,11 +95,6 @@ def _identity_events() -> list[ExampleEvent]:
     return events
 
 
-def test_value_shape_keeps_character_classes():
-    assert value_shape("ab12-CD") == "aa99-aa"
-    assert value_shape("") == ""
-
-
 def test_identity_needs_recurrence_across_events_and_hours():
     stats = identity_stats(["user", "pid"], _identity_events())
     assert stats["user"].present == 6
@@ -147,7 +141,7 @@ def test_behaviour_key_uses_the_plan_modes():
         "image",
         "cmd.exe",
         "path",
-        "/aaa/9",
+        "*",
     )
 
 

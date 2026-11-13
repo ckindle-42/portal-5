@@ -308,28 +308,45 @@ def rarity(behaviour: Behaviour, stats: Mapping[str, Any]) -> tuple[float, str]:
     return round(measure, 10), " and ".join(clauses)
 
 
+def _specificity(behaviour: Behaviour) -> int:
+    """How many of actor, action and object the behaviour actually names."""
+    return sum(1 for part in (behaviour.actor, behaviour.action, behaviour.object) if part)
+
+
 def peer_rare(
     behaviours: Sequence[Behaviour], source_stats: Mapping[str, Mapping[str, Any]]
 ) -> tuple[list[Notable], dict[str, Any]]:
     """Behaviours shared by few hosts and actors, relative to how many could share them."""
-    ranked: list[tuple[float, int, str, Behaviour, str]] = []
+    ranked: list[tuple[float, int, int, str, Behaviour, str]] = []
     for behaviour in behaviours:
         if not behaviour.actor and not behaviour.object:
             continue
         measure, why = rarity(behaviour, source_stats.get(behaviour.source_id, {}))
-        ranked.append((measure, -behaviour.events, behaviour.source_id, behaviour, why))
+        ranked.append(
+            (
+                measure,
+                -_specificity(behaviour),
+                -behaviour.events,
+                behaviour.source_id,
+                behaviour,
+                why,
+            )
+        )
     ranked.sort(
         key=lambda item: (
             item[0],
             item[1],
             item[2],
-            item[3].actor,
-            item[3].action,
-            item[3].object,
+            item[3],
+            item[4].actor,
+            item[4].action,
+            item[4].object,
         )
     )
+    cut = ranked[NOTABLE_BUDGET - 1][0] if len(ranked) > NOTABLE_BUDGET else None
+    tied_at_cut = sum(1 for item in ranked if item[0] == cut) if cut is not None else 0
     notables: list[Notable] = []
-    for measure, _events, source_id, behaviour, why in ranked[:NOTABLE_BUDGET]:
+    for measure, _specificity_value, _events, source_id, behaviour, why in ranked[:NOTABLE_BUDGET]:
         notables.append(
             _make(
                 generator="peer_rare",
@@ -361,7 +378,12 @@ def peer_rare(
                 ),
             )
         )
-    return notables, {"existed": len(ranked), "kept": len(notables)}
+    return notables, {
+        "existed": len(ranked),
+        "kept": len(notables),
+        "tied_at_cut": tied_at_cut,
+        "tie_break": ["measure", "specificity", "events", "lexical"],
+    }
 
 
 def _behaviour_words(behaviour: Behaviour) -> str:

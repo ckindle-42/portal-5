@@ -23,7 +23,6 @@ IDENTITY_BUCKET_SECONDS = 3600  # identities recur across hours, not inside one 
 IDENTITY_BUCKET_SHARE = 0.5  # most occurrences of an identity recur in separate hours
 IDENTITY_VALUE_BUDGET = 2000  # effort budget: an identity field keys values up to this many
 MAX_BEHAVIOURS = 200_000  # effort budget: rows kept in the behaviour table
-SHAPE_CHARS = 64  # effort budget: characters that describe a generalised value
 EXAMPLE_CHARS = 400  # effort budget: raw characters kept on one behaviour
 MAX_TERMS = 3  # effort budget: literal role values used to reproduce one behaviour
 
@@ -107,19 +106,12 @@ _COLUMNS = (
 _INSERT = "INSERT INTO events VALUES (" + ",".join("?" for _ in range(16)) + ")"
 
 
-def value_shape(value: str) -> str:
-    """A value's character classes: digits become 9, letters a, punctuation is kept."""
-    shaped = "".join(
-        "9" if char.isdigit() else "a" if char.isalpha() else char for char in value[:SHAPE_CHARS]
-    )
-    return shaped or value[:SHAPE_CHARS]
-
-
 def _value(fields: Mapping[str, str], name: str, mode: str) -> str:
+    """A literal identity, or a wildcard for a generalised value (it must not key a behaviour)."""
     value = (fields.get(name) or "").strip()
     if not value or not mode:
         return ""
-    return value if mode == "literal" else value_shape(value)
+    return value if mode == "literal" else "*"
 
 
 def identity_stats(
