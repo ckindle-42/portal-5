@@ -206,8 +206,8 @@ def split_record(line: str, delimiter: str) -> list[str]:
 
 
 def words(line: str) -> list[str]:
-    """Whitespace-separated positions, keeping a quoted phrase or [bracketed] value whole."""
-    return [clean for cell in split_record(line, " ") if (clean := _clean(cell))]
+    """Whitespace positions: a [bracketed] value stays whole, a quoted phrase is split into words."""
+    return [clean for cell in split_record(line.replace('"', " "), " ") if (clean := _clean(cell))]
 
 
 def _program_stem(token: str) -> str:

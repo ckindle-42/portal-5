@@ -298,12 +298,28 @@ def test_a_time_ordered_discriminator_never_splits_a_source():
     assert choose_partition(parsed) is None
 
 
-def test_words_keep_a_bracketed_stamp_and_a_quoted_phrase_whole():
+def test_words_keep_a_bracketed_stamp_whole_and_split_a_quoted_phrase():
     line = '1.2.3.4 - - [01/Jan/2020:00:00:00 +0000] "GET /a b HTTP/1.1" 200 12'
     positions = words(line)
     assert positions[3] == "[01/Jan/2020:00:00:00 +0000]"
-    assert positions[4] == "GET /a b HTTP/1.1"
-    assert positions[5] == "200"
+    assert positions[4:9] == ["GET", "/a", "b", "HTTP/1.1", "200"]
+
+
+def test_a_web_access_line_separates_the_client_method_and_path():
+    lines = [
+        '1.2.3.4 - - [01/Jan/2020:00:00:00 +0000] "GET /a HTTP/1.1" 200 12',
+        '1.2.3.5 - - [01/Jan/2020:00:00:01 +0000] "GET /b HTTP/1.1" 200 34',
+        '1.2.3.6 - - [01/Jan/2020:00:00:02 +0000] "POST /c HTTP/1.1" 404 56',
+        '1.2.3.4 - - [01/Jan/2020:00:00:03 +0000] "GET /a HTTP/1.1" 200 12',
+    ]
+    parsed, model = parse_sample(lines)
+    assert model is not None
+    assert model.header_tokens == 0
+    assert parsed[0].fields["v1"] == "1.2.3.4"
+    assert parsed[0].fields["v3"] == "GET"
+    assert parsed[0].fields["v4"] == "/a"
+    assert parsed[2].fields["v3"] == "POST"
+    assert "HTTP/1.1" in parsed[0].fields["template"]
 
 
 def test_an_apostrophe_does_not_swallow_the_rest_of_a_line():
