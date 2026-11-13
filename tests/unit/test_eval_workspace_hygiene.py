@@ -105,6 +105,40 @@ def test_flags_unverified_tool_choice(monkeypatch):
     assert "tool_choice_verified" in detail
 
 
+def test_eval_openai_context_limit_is_the_engine_launch_window(monkeypatch):
+    """eval_openai gets context from the engine launch, not a baked Ollama tag."""
+    _patch_portal_yaml(
+        monkeypatch,
+        {
+            "bench-engine-coding": {
+                "module": "eval",
+                "model_hint": "Qwen3.8-27B-4bit",
+                "context_limit": 98304,
+            },
+        },
+    )
+    status, detail, _ = personas.check_eval_workspace_config_hygiene()
+    assert status == "PASS", detail
+
+
+def test_eval_openai_baked_tag_still_needs_a_recorded_working_context(monkeypatch):
+    _patch_portal_yaml(
+        monkeypatch,
+        {
+            "bench-engine-task-router": {
+                "module": "eval",
+                "model_hint": "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k",
+                "context_limit": 2048,
+            },
+        },
+    )
+    status, detail, _ = personas.check_eval_workspace_config_hygiene()
+    assert status == "FAIL"
+    assert "bench-engine-task-router" in detail
+    assert "ctx_validated" in detail
+    assert "P5-OLLAMA-OPTIONS-001" not in detail
+
+
 def test_grandfathered_workspaces_exempt_from_ctx_validation(monkeypatch):
     workspaces = {
         wid: {"module": "eval", "model_hint": "some-model:q4-ctx8k"}

@@ -262,7 +262,9 @@ class BackendRegistry:
     _health_client: httpx.AsyncClient | None = None
     _health_semaphore: asyncio.Semaphore | None = None
 
-    def __init__(self, config_path: str | None = None) -> None:
+    def __init__(
+        self, config_path: str | None = None, *, include_eval_backends: bool = False
+    ) -> None:
         """Initialize the registry and load ``config_path``.
 
         State is set to safe defaults before ``_load_config`` runs, so a
@@ -273,8 +275,14 @@ class BackendRegistry:
         Args:
             config_path: Override the auto-detected path; ``None`` →
                 ``DEFAULT_CONFIG_PATH``.
+            include_eval_backends: Load ``config/bench_engines.yaml`` backends
+                even when the eval module is off. Audit and validation use this
+                so an eval-group workspace is judged against the eval backend.
+                Production routing leaves it false: those backends stay out of
+                the registry until eval is enabled.
         """
         self.config_path = config_path or DEFAULT_CONFIG_PATH
+        self._include_eval_backends = include_eval_backends
         self._backends: dict[str, Backend] = {}
         self._workspace_routes: dict[str, list[str]] = {}
         self._fallback_group: str = "general"
@@ -415,9 +423,15 @@ class BackendRegistry:
         )
 
     def _merge_bench_engines(self) -> None:
-        """Load exclusive ids always. Load eval backends only when eval is on."""
+        """Load exclusive ids always. Load eval backends only when eval is on.
+
+        ``include_eval_backends`` is the audit exception: the eval module stays
+        off in production, and the settings audit still has to resolve group
+        ``eval`` against ``config/bench_engines.yaml``. It does not register
+        those model ids in the production groups of ``backends.yaml``.
+        """
         self._exclusive_workspaces = exclusive_workspace_ids(self.config_path)
-        if not eval_backends_enabled(self.config_path):
+        if not eval_backends_enabled(self.config_path) and not self._include_eval_backends:
             return
         for be in load_bench_engines(self.config_path).get("backends") or []:
             if not isinstance(be, dict) or not be.get("id") or not be.get("url"):

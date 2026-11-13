@@ -23,6 +23,23 @@ def _registry(monkeypatch: pytest.MonkeyPatch, enabled: bool) -> BackendRegistry
     return BackendRegistry(config_path=CONFIG)
 
 
+def test_include_eval_backends_loads_the_eval_group_while_eval_stays_off(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PORTAL_ENABLE_EVAL", raising=False)
+    monkeypatch.delenv("PORTAL_BENCH_WORKSPACES", raising=False)
+    reg = BackendRegistry(config_path=CONFIG, include_eval_backends=True)
+    assert "eval-openai" in {b.id for b in reg.list_backends()}
+    coding = reg.get_backend_candidates("bench-engine-coding")
+    assert [b.id for b in coding] == ["eval-openai"]
+    assert coding[0].resolve_model("Qwen3.8-27B-4bit") == "Qwen3.8-27B-4bit"
+    production = reg.get_backend_candidates("auto-coding")
+    assert production
+    assert all(b.type != "eval_openai" for b in production)
+    off = BackendRegistry(config_path=CONFIG)
+    assert "eval-openai" not in {b.id for b in off.list_backends()}
+
+
 def test_exclusive_ids_do_not_fall_through_when_eval_is_off(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

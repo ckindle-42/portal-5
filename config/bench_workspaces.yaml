@@ -635,6 +635,7 @@ workspaces:
     presence_penalty: 0.0
     repeat_penalty: 1.0
     think: true
+    think_override_reason: "realuse_s5s7s10_20261030b — every row reasoned with think unset (template default ON), 15/16 vs Qwen3-Coder 5/16; thinking stays on and predict_limit 32768 bounds the trace (card harness_policy.think is false)"
     tools:
     - execute_python
     - execute_nodejs
@@ -654,7 +655,14 @@ workspaces:
     model_hint: hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k
     context_limit: 2048
     predict_limit: 128
+    # Same tag as production task-router. MODEL_CATALOG records PARAMETER
+    # num_ctx 2048 baked 2026-10-06, and portal.yaml task-router carries
+    # ctx_validated for that window. Not a new preflight.
+    ctx_validated: true
     temperature: 0.2
+    sampling_override:
+      reason: a classifier (gemma-4 E4B at 0.2) whose routing label must be stable; the card's 1.0 is for chat
+      evidence: pending
     think: false
     tools: []
     expose_to_owui: false
@@ -667,6 +675,9 @@ workspaces:
     model_hint: gemma-4-26b-a4b-it-QAT-4bit
     context_limit: 8192
     temperature: 0.0
+    sampling_override:
+      reason: the hunt parses JSON answers from this seat; 0.0 is the requested deterministic decode and the card's 1.0 is chat guidance
+      evidence: pending
     max_concurrent: 8
     tools: []
     expose_to_owui: false
