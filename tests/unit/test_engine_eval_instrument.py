@@ -6,8 +6,12 @@ import json
 from pathlib import Path
 
 from tests.benchmarks import bench_engine_h2h as h
+from tests.benchmarks import engine_eval_instrument as instrument
 from tests.benchmarks.engine_eval_instrument import (
     HUNT_SEAT,
+    _check_memory,
+    _check_sources,
+    _served_ids,
     assemble_cell,
     completion_text,
     defect_cases,
@@ -99,6 +103,129 @@ def test_memory_parsers_walk_the_tree_and_vm_stat() -> None:
     assert deltas["vm_free_delta_gb"] > 0
 
 
+def test_memory_fixtures_compare_engine_weight_to_wired_without_double_counting() -> None:
+    ollama = {
+        "tree_walked": True,
+        "tree_rss_gb": 23.38,
+        "engine_weight_gb": 22.91,
+        "engine_weight_source": "GET /api/ps size_vram",
+        "vm_wired_delta_gb": 23.08,
+        "vm_free_delta_gb": 4.35,
+    }
+    failures: list[str] = []
+    _check_memory(
+        {
+            "engine": "ollama",
+            "expected_model": "daily-moe-model",
+            "memory": ollama,
+            "residency": {
+                "before": {"ollama": {}, "omlx": {}},
+                "after": {"ollama": {"daily-moe-model": 22.91 * 1024**3}, "omlx": {}},
+            },
+        },
+        failures,
+    )
+    assert failures == []
+
+    # The observed -8.57 GB delta is covered below; this is the uncontaminated match case.
+    omlx = {
+        "tree_walked": True,
+        "tree_rss_gb": 9.70,
+        "engine_weight_gb": 15.35,
+        "engine_weight_source": "GET /v1/models/status actual_size",
+        "vm_wired_delta_gb": 15.35,
+    }
+    failures = []
+    _check_memory(
+        {
+            "engine": "omlx",
+            "expected_model": "hunt-model",
+            "memory": omlx,
+            "residency": {
+                "before": {"ollama": {}, "omlx": {}},
+                "after": {"ollama": {}, "omlx": {"hunt-model": 15.35 * 1024**3}},
+            },
+        },
+        failures,
+    )
+    assert failures == []
+
+
+def test_memory_fails_with_real_omlx_deltas_and_reports_resident_contamination() -> None:
+    failures: list[str] = []
+    _check_memory(
+        {
+            "engine": "omlx",
+            "expected_model": "hunt-model",
+            "memory": {
+                "tree_walked": True,
+                "tree_rss_gb": 9.70,
+                "engine_weight_gb": 15.35,
+                "vm_wired_delta_gb": -8.57,
+                "vm_free_delta_gb": 11.35,
+            },
+            "residency": {
+                "before": {"ollama": {"task-router": 1}, "omlx": {}},
+                "after": {"ollama": {}, "omlx": {"hunt-model": 15.35}},
+            },
+        },
+        failures,
+    )
+    assert any("contaminated: ollama resident set changed" in item for item in failures)
+    assert any("engine weight 15.35GB vs wired delta -8.57GB" in item for item in failures)
+
+
+def test_omlx_served_ids_send_the_api_key_and_fail_closed(monkeypatch) -> None:
+    monkeypatch.setenv("OMLX_API_KEY", "test-key")
+    captured: dict[str, object] = {}
+
+    def fake_http_json(url, payload, headers, timeout):
+        captured.update({"url": url, "headers": headers})
+        return {"json": {"data": [{"id": "gemma-4-26b-a4b-it-QAT-4bit"}]}}
+
+    monkeypatch.setattr(instrument, "_http_json", fake_http_json)
+    assert _served_ids("http://127.0.0.1:8085") == ["gemma-4-26b-a4b-it-QAT-4bit"]
+    assert captured["headers"]["Authorization"] == "Bearer test-key"
+
+    def unauthorized(url, payload, headers, timeout):
+        raise instrument.urllib.error.HTTPError(url, 401, "unauthorized", {}, None)
+
+    monkeypatch.setattr(instrument, "_http_json", unauthorized)
+    served = _served_ids("http://127.0.0.1:8085")
+    assert served is None
+    assert instrument.grade_preflight("OK", {"ok": True}, served)["verdict"] == "REVIEW"
+
+
+def test_residency_snapshots_capture_both_engines_and_weight_fields(monkeypatch) -> None:
+    def fake_get_json(url, headers):
+        if url.endswith("/api/ps"):
+            return {
+                "models": [
+                    {"name": "router", "size_vram": 123},
+                    {"name": "nemotron", "size_vram": 456},
+                ]
+            }
+        return {
+            "models": [
+                {"id": "gemma", "loaded": True, "actual_size": 789},
+                {"id": "cold", "loaded": False, "actual_size": 999},
+            ]
+        }
+
+    monkeypatch.setattr(instrument, "_get_json", fake_get_json)
+    snapshots = instrument._resident_snapshots({"engine": "omlx", "base": "http://127.0.0.1:8085"})
+    assert snapshots == {"ollama": {"router": 123, "nemotron": 456}, "omlx": {"gemma": 789}}
+
+
+def test_memory_check_sources_explain_engine_coverage_and_free_delta() -> None:
+    ollama = _check_sources({"engine": "ollama"})["memory"].lower()
+    omlx = _check_sources({"engine": "omlx"})["memory"].lower()
+    assert "size_vram" in ollama and "includes" in ollama and "do not add" in ollama
+    assert "actual_size" in omlx and "excludes" in omlx and "do not add" in omlx
+    assert "free delta informational" in ollama and "page cache" in ollama
+    assert "free delta informational" in omlx and "page cache" in omlx
+
+
 def test_served_id_rejects_a_path_and_keeps_a_hf_tag() -> None:
     assert served_id_is_filesystem_path("/Volumes/data01/omlx-models/Qwen3.8-27B-4bit")
     assert not served_id_is_filesystem_path("hf.co/example/Model:Q4_K_M-ctx32k")
@@ -132,8 +259,16 @@ def _measured(spec: dict) -> dict:
             "tree_walked": True,
             "tree_rss_gb": 2.0,
             "engine_weight_gb": 14.0,
+            "engine_weight_source": "fixture",
             "vm_wired_delta_gb": 16.0,
             "vm_free_delta_gb": 16.2,
+        },
+        "residency": {
+            "before": {"ollama": {}, "omlx": {}},
+            "after": {
+                "ollama": {model: 14 * 1024**3} if spec["engine"] == "ollama" else {},
+                "omlx": {model: 14 * 1024**3} if spec["engine"] == "omlx" else {},
+            },
         },
         "tokens": {"engine_completion": 32, "tokenizer_completion": 33},
         "noise": {"run_a_tps": 50.0, "run_b_tps": 51.5},

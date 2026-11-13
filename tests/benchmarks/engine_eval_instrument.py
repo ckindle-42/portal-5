@@ -42,6 +42,7 @@ from typing import Any
 
 MEMORY_ABS_TOLERANCE_GB = 2.0
 MEMORY_REL_TOLERANCE = 0.15
+_ENGINE_BASES = {"ollama": "http://127.0.0.1:11434", "omlx": "http://127.0.0.1:8085"}
 # Engine usage counts template and stop tokens the text tokenizer does not see.
 TOKEN_ABS_TOLERANCE = 16
 
@@ -482,11 +483,6 @@ def parse_footprint(footprint_text: str) -> dict[str, float | None]:
     }
 
 
-def method_a_gb(tree_rss_gb: float, engine_weight_gb: float) -> float:
-    """Process-tree RSS plus the engine's own weight report."""
-    return tree_rss_gb + engine_weight_gb
-
-
 def served_id_is_filesystem_path(model_id: str) -> bool:
     """True when the id is a path (vLLM Metal served the checkpoint path → 404)."""
     return model_id.startswith("/") or model_id.startswith("~") or "/omlx-models/" in model_id
@@ -613,6 +609,7 @@ def _check_route_corroboration(
 
 
 def _check_memory(evidence: dict[str, Any], failures: list[str]) -> None:
+    _check_residency(evidence, failures)
     memory = evidence.get("memory")
     if not isinstance(memory, dict) or not memory.get("tree_walked"):
         _fail(failures, "memory: process tree was not walked")
@@ -620,21 +617,52 @@ def _check_memory(evidence: dict[str, Any], failures: list[str]) -> None:
     weight = memory.get("engine_weight_gb")
     rss = memory.get("tree_rss_gb")
     wired = memory.get("vm_wired_delta_gb")
-    free = memory.get("vm_free_delta_gb")
     if weight is None:
         _fail(failures, "memory: engine weight unread")
         return
-    if rss is None or wired is None or free is None:
-        _fail(failures, "memory: rss or vm_stat delta missing")
+    if rss is None or wired is None:
+        _fail(failures, "memory: tree RSS or vm_stat wired delta missing")
         return
-    if not _agree(float(wired), float(free)):
-        _fail(failures, "memory: vm_stat wired and free deltas disagree")
-    combined = method_a_gb(float(rss), float(weight))
-    if not _agree(combined, float(wired)):
+    if not _agree(float(weight), float(wired)):
         _fail(
             failures,
-            f"memory: tree+engine {combined:.2f}GB vs wired delta {float(wired):.2f}GB",
+            f"memory: engine weight {float(weight):.2f}GB vs wired delta {float(wired):.2f}GB",
         )
+
+
+def _check_residency(evidence: dict[str, Any], failures: list[str]) -> None:
+    residency = evidence.get("residency")
+    if not isinstance(residency, dict):
+        _fail(failures, "memory: engine residency snapshots missing")
+        return
+    before, after = residency.get("before"), residency.get("after")
+    if not isinstance(before, dict) or not isinstance(after, dict):
+        _fail(failures, "memory: engine residency snapshots missing")
+        return
+    cell_engine = evidence.get("engine")
+    cell_model = evidence.get("expected_model")
+    for engine in ("ollama", "omlx"):
+        old, new = before.get(engine), after.get(engine)
+        if not isinstance(old, dict) or not isinstance(new, dict):
+            _fail(failures, f"memory: {engine} resident snapshot unreadable")
+            continue
+        changes = []
+        for model in sorted(set(old) | set(new)):
+            if engine == cell_engine and model == cell_model:
+                continue
+            if old.get(model) == new.get(model):
+                continue
+            if model not in old:
+                changes.append(f"{model} loaded ({new[model]} bytes)")
+            elif model not in new:
+                changes.append(f"{model} unloaded (was {old[model]} bytes)")
+            else:
+                changes.append(f"{model} size changed ({old[model]} to {new[model]} bytes)")
+        if changes:
+            _fail(
+                failures,
+                f"memory: contaminated: {engine} resident set changed: {', '.join(changes)}",
+            )
 
 
 def _check_tokens(evidence: dict[str, Any], failures: list[str]) -> None:
@@ -765,8 +793,13 @@ def golden_evidence() -> dict[str, Any]:
             "tree_walked": True,
             "tree_rss_gb": 2.0,
             "engine_weight_gb": 14.0,
+            "engine_weight_source": "fixture",
             "vm_wired_delta_gb": 16.0,
             "vm_free_delta_gb": 16.2,
+        },
+        "residency": {
+            "before": {"ollama": {}, "omlx": {}},
+            "after": {"ollama": {}, "omlx": {}},
         },
         "tokens": {"engine_completion": 32, "tokenizer_completion": 33},
         "noise": {"run_a_tps": 50.0, "run_b_tps": 51.5},
@@ -809,7 +842,12 @@ def defect_cases() -> list[tuple[str, dict[str, Any], str]]:
     add(
         "memory-disagree",
         lambda ev: ev["memory"].__setitem__("vm_wired_delta_gb", 40.0),
-        "tree+engine",
+        "engine weight",
+    )
+    add(
+        "memory-contaminated-resident",
+        lambda ev: ev["residency"]["after"]["omlx"].__setitem__("foreign-model", 1),
+        "contaminated: omlx resident set changed",
     )
     add("tokens", lambda ev: ev["tokens"].__setitem__("tokenizer_completion", 90), "tokens:")
     add(
@@ -894,7 +932,7 @@ def _http_json(
 def _served_ids(engine_base: str) -> list[str] | None:
     """Ids from the engine's own ``/v1/models``. None when the endpoint is unreadable."""
     try:
-        sent = _http_json(f"{engine_base.rstrip('/')}/v1/models", None, {}, 10)
+        sent = _http_json(f"{engine_base.rstrip('/')}/v1/models", None, _engine_headers("omlx"), 10)
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError):
         return None
     data = sent["json"].get("data") if isinstance(sent.get("json"), dict) else None
@@ -1235,13 +1273,21 @@ def _check_sources(spec: dict[str, Any]) -> dict[str, str]:
             "server.log Chat completion + GET /api/status total_requests"
         )
         memory = (
-            "GET /v1/models/status actual_size (oMLX 0.7.3 engine_pool; "
-            "/api/status model_memory_used is the pool sum) + ps tree RSS, "
-            "and vm_stat wired/free delta"
+            "GET /v1/models/status actual_size is the oMLX model weight; omlx-server process-tree "
+            "RSS excludes these weights and is reported separately (do not add). Compare actual_size "
+            "to vm_stat wired delta within max(2 GB, 15%); free delta informational because page "
+            "cache can make it differ. Before/after Ollama /api/ps and oMLX /v1/models/status "
+            "resident sets must be unchanged except for this cell's model."
         )
     else:
         route = "Pipeline Backend succeeded log + x-portal-route + GET /api/ps expires_at refresh"
-        memory = "GET /api/ps size_vram + ps tree RSS, and vm_stat wired/free delta"
+        memory = (
+            "Ollama process-tree RSS includes the llama-server GGUF weights; GET /api/ps size_vram "
+            "reports that same residency (report RSS separately; do not add). Compare size_vram to "
+            "vm_stat wired delta within max(2 GB, 15%); free delta informational because page cache "
+            "can make it differ. Before/after Ollama /api/ps and oMLX /v1/models/status resident "
+            "sets must be unchanged except for this cell's model."
+        )
     return {
         "route": route,
         "memory": memory,
@@ -1303,6 +1349,7 @@ def assemble_cell(spec: dict[str, Any], obs: dict[str, Any]) -> dict[str, Any]:
         "pipeline_models": pipe,
         "request_counter": counter,
         "memory": obs.get("memory") or {},
+        "residency": obs.get("residency"),
         "tokens": obs.get("tokens") or {},
         "noise": obs.get("noise") or {},
         "template": {"same_checkpoint": spec["same_checkpoint"]},
@@ -1384,6 +1431,60 @@ def _engine_headers(engine: str) -> dict[str, str]:
     if engine == "omlx" and os.environ.get("OMLX_API_KEY"):
         headers["Authorization"] = f"Bearer {os.environ['OMLX_API_KEY']}"
     return headers
+
+
+def _ollama_resident_snapshot(base: str) -> dict[str, int | float] | None:
+    payload = _get_json(f"{base}/api/ps", {})
+    models = payload.get("models")
+    if not isinstance(models, list):
+        return None
+    sizes = {}
+    for row in models:
+        if not isinstance(row, dict):
+            return None
+        name = row.get("name") or row.get("model")
+        size = row.get("size_vram")
+        if not name or not isinstance(size, (int, float)) or size <= 0:
+            return None
+        sizes[str(name)] = size
+    return sizes
+
+
+def _omlx_resident_snapshot(base: str) -> dict[str, int | float] | None:
+    payload = _get_json(f"{base}/v1/models/status", _engine_headers("omlx"))
+    models = payload.get("models")
+    if not isinstance(models, list):
+        return None
+    sizes = {}
+    for row in models:
+        if not isinstance(row, dict) or not row.get("id"):
+            return None
+        loaded = row.get("loaded")
+        if not isinstance(loaded, bool):
+            return None
+        if loaded:
+            size = row.get("actual_size")
+            if not isinstance(size, (int, float)) or size <= 0:
+                return None
+            sizes[str(row["id"])] = size
+    return sizes
+
+
+def _resident_snapshot(engine: str, base: str) -> dict[str, int | float] | None:
+    reader = _ollama_resident_snapshot if engine == "ollama" else _omlx_resident_snapshot
+    try:
+        return reader(base)
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError, ValueError):
+        return None
+
+
+def _resident_snapshots(spec: dict[str, Any]) -> dict[str, dict[str, int | float] | None]:
+    return {
+        engine: _resident_snapshot(
+            engine, spec["base"] if spec["engine"] == engine else _ENGINE_BASES[engine]
+        )
+        for engine in ("ollama", "omlx")
+    }
 
 
 def _pipeline_headers() -> dict[str, str]:
@@ -1684,19 +1785,22 @@ def collect_stage0(spec: dict[str, Any], pipeline: str) -> dict[str, Any]:
     """Capture vm_stat, send the Pipeline pair, then preflight. Does not unload."""
     vm_before = subprocess.check_output(["vm_stat"], text=True, timeout=10)
     swap_before = _swap_used_mb()
+    resident_before = _resident_snapshots(spec)
     obs = _observe_before(spec)
     since = time.strftime("%Y-%m-%dT%H:%M:%S")
     measured = _measured_pair(spec, pipeline, obs)
     obs.update(_observe_after(spec))
-    memory = _memory_from_text(spec["engine"], vm_before, engine_weight_gb(spec, obs))
-    root = memory.pop("root")
     text = measured["texts"][0] if measured["texts"] else ""
     preflight = _run_preflight(spec)
+    resident_after = _resident_snapshots(spec)
+    memory = _memory_from_text(spec["engine"], vm_before, engine_weight_gb(spec, obs))
+    root = memory.pop("root")
     obs.update(
         {
             "route_headers": measured["headers"],
             "pipeline_routes": parse_pipeline_routes(_pipeline_log_since(since)),
             "memory": memory,
+            "residency": {"before": resident_before, "after": resident_after},
             "tokens": {
                 "engine_completion": measured["samples"][0][0] if measured["samples"] else None,
                 "tokenizer_completion": _tokenizer_count(spec, text),
