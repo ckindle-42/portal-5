@@ -98,6 +98,20 @@ workspaces:
   bench-gemma4-26b-optiq:
     tool_mode: production
     allow: []
+  # Engine-eval WFE plans reuse registered real-use tasks through these bench seats.
+  # Each evaluation scope exposes only the tools that task is graded on.
+  bench-engine-daily-moe:
+    tool_mode: production
+    allow: [read_pdf]
+  bench-engine-hunt:
+    tool_mode: production
+    allow: [read_pdf]
+  bench-engine-coding:
+    tool_mode: production
+    allow: [execute_python]
+  bench-engine-council-json:
+    tool_mode: production
+    allow: [execute_python]
   compliance-mapping:
     tool_mode: production
     allow: []

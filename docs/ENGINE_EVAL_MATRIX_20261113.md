@@ -1,6 +1,6 @@
 # Engine eval matrix — 2026-11-13
 
-Status: proposal. The orchestrator approves this before any Stage 3 workload runs.
+Status: APPROVED by operator 2026-11-13.
 Nothing here was measured live in this lane. Same-bytes means every compared engine
 loads one checkpoint directory or one GGUF blob. A different quant, an oQ4e sidecar,
 or a GGUF tag is a different artifact and is not a win over the other.

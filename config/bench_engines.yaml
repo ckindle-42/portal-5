@@ -9,6 +9,16 @@ exclusive_workspaces:
   - bench-engine-hunt
   - bench-engine-council-json
 backends:
+  - id: eval-openai-omlx-incumbent
+    type: eval_openai
+    group: eval
+    url: http://host.docker.internal:8085
+    health_path: /v1/models
+    priority: 10
+    models:
+      - {id: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp, supports_tools: true}
+      - {id: Qwen3.8-27B-4bit, supports_tools: true}
+      - {id: gemma-4-26b-a4b-it-QAT-4bit, supports_tools: true}
   - id: eval-openai
     type: eval_openai
     group: eval
