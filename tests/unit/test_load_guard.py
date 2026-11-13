@@ -312,6 +312,11 @@ def _fast(monkeypatch, tmp_path):
     monkeypatch.delenv("LOAD_GUARD", raising=False)
     lg.set_load_wait(None)
     monkeypatch.setattr(lg, "_WAIT_S", 0.0)  # refuse at once unless a test opts into waiting
+    from portal.platform.inference.router.parallel_seat import YIELD
+
+    YIELD._pins = 0
+    YIELD._held.clear()
+    YIELD._clear.set()
 
 
 def guard(e: Engines, ollama_url: str | None = OLLAMA_URL) -> lg.LoadGuard:
@@ -1088,6 +1093,102 @@ def test_ollama_global_kv_cache_type_is_used_when_show_has_no_override(monkeypat
     assert lg._estimate_ollama_need(GIB, show, "granite") == pytest.approx(
         GIB * lg._FACTOR + expected_kv
     )
+
+
+async def test_the_measured_chat_need_does_not_fit_beside_the_hunt() -> None:
+    """2026-11-12: final_ceiling 38.6 GiB already includes the hunt's footprint.
+
+    Headroom 20.6 GiB is additional room, and 29.8 GiB does not fit in the
+    18.6 GiB left after the 2 GiB margin. 58% host-free is a different quantity.
+    """
+    resident = (38.6 - 20.6) * GIB
+    e = Engines(
+        omlx={"gemma-4-26b-a4b-it-QAT-4bit": {"size": resident, "loaded": True}},
+        ceiling=38.6 * GIB,
+        omlx_memory=resident,
+    )
+    g = guard(e)
+    async with g._client() as client:
+        capacity = await g._headroom(client)
+    assert capacity is not None
+    headroom, used = capacity
+    available = g._ollama_available(headroom, {}, 0.0) - lg._MARGIN
+    assert used / GIB == pytest.approx(18.0)
+    assert headroom / GIB == pytest.approx(20.6)
+    assert available / GIB == pytest.approx(18.6)
+    assert available < 29.8 * GIB
+
+
+def _seat_map(monkeypatch: pytest.MonkeyPatch, seat: str, workspace: str | None) -> None:
+    monkeypatch.setattr(
+        "portal.platform.inference.router.parallel_seat.seat_for_loaded_model",
+        lambda model_id: workspace if model_id == seat else None,
+    )
+
+
+async def test_a_busy_parallel_seat_yields_then_unloads_for_the_chat(monkeypatch) -> None:
+    """Chat that cannot fit waits out the busy seat, then the idle unload admits it."""
+    from portal.platform.inference.router.parallel_seat import YIELD
+
+    seat = "gemma-4-26b-a4b-it-QAT-4bit"
+    _seat_map(monkeypatch, seat, "hunt-reasoning")
+    e = Engines(
+        tags={"chat": 24 * GIB},  # 30 GiB projected; 22 GiB available beside 16 GiB
+        omlx={seat: {"size": 16 * GIB, "loaded": True}},
+        ceiling=40 * GIB,
+    )
+    g = guard(e)
+    end = g.begin(OMLX, seat)
+    lg.set_load_wait("30")
+    task = asyncio.create_task(g.admit(OLLAMA_URL, "chat"))
+    await settle()
+    assert not task.done()
+    assert YIELD.holding("hunt-reasoning")
+    assert e.unloaded == []
+    end()
+    release = await asyncio.wait_for(task, 2)
+    assert e.unloaded == [seat]
+    assert release is not None
+    assert YIELD.holding("hunt-reasoning")  # held until the chat load is resident
+    e.ollama["chat"] = int(30 * GIB)
+    await settle()
+    assert not YIELD.holding("hunt-reasoning")
+    release()
+
+
+async def test_an_idle_parallel_seat_unloads_without_holding_the_yield(monkeypatch) -> None:
+    from portal.platform.inference.router.parallel_seat import YIELD
+
+    seat = "gemma-4-26b-a4b-it-QAT-4bit"
+    _seat_map(monkeypatch, seat, "hunt-reasoning")
+    e = Engines(
+        tags={"chat": 24 * GIB},
+        omlx={seat: {"size": 16 * GIB, "loaded": True}},
+        ceiling=40 * GIB,
+    )
+    release = await guard(e).admit(OLLAMA_URL, "chat")
+    assert e.unloaded == [seat]
+    assert release is not None
+    assert not YIELD.holding("hunt-reasoning")
+    release()
+
+
+async def test_a_busy_non_parallel_model_is_not_evicted_for_chat(monkeypatch) -> None:
+    from portal.platform.inference.router.parallel_seat import YIELD
+
+    _seat_map(monkeypatch, "other", None)
+    e = Engines(
+        tags={"chat": 24 * GIB},
+        omlx={"other": {"size": 16 * GIB, "loaded": True}},
+        ceiling=40 * GIB,
+    )
+    g = guard(e)
+    end = g.begin(OMLX, "other")
+    with pytest.raises(lg.LoadRefusedError):
+        await g.admit(OLLAMA_URL, "chat")
+    assert e.unloaded == []
+    assert not YIELD.holding("hunt-reasoning")
+    end()
 
 
 async def test_a_freed_ollama_resident_lifts_the_ceiling_before_the_quiet_refusal():
