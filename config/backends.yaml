@@ -148,8 +148,8 @@ backends:
   # CLAUDE.md discipline: never infer tool support from a model card).
   - id: qwen3-coder:30b-a3b-q4_K_M
     supports_tools: true
-  - id: granite4.1:30b
-    supports_tools: true
+  # Base granite4.1:30b is REMOVED_CLOSED. Seats hint granite4.1:30b-ctx16k;
+  # resolve_model matches that id, so the base is not registered (same as granite4.1:8b).
   - id: granite4.1:30b-ctx16k
     supports_tools: true
   # supports_tools was `false` here and `true` for the same tag under
@@ -463,8 +463,7 @@ backends:
     # 71f0970), measured when /v1 served every Ollama seat at 1.0/1.0 with no
     # top_k/min_p/repeat_penalty; confirm in the next lab UAT (taskfile B8).
     supports_tools: true
-  - id: granite4.1:30b
-    supports_tools: true
+  # Base granite4.1:30b is REMOVED_CLOSED. Seats hint the ctx tags below.
   - id: granite4.1:30b-ctx16k
     supports_tools: true
   - id: granite4.1:30b-ctx64k

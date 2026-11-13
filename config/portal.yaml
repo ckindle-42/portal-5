@@ -2196,7 +2196,7 @@ workspaces:
     variants:
       fast:
         name: 🔧 Portal Tool Composer (Fast)
-        description: 'Faster tool-composition option — gemma4:e4b-it-qat (Google DeepMind, ~6.1GB effective 4B QAT, thinking, 128K ctx). WFE wfe_full_20260911 (2026-09-12): 9/9=1.00 home:coding and 9/9=1.00 discovery:research vs the granite4.1:8b-ctx8k incumbent''s 6/9=0.67 / 9/9=1.00 (NOT SEPARATED, small n). [BENCH-GATED PROVISIONAL model_hint — not a default; promotion requires a passing GC/CC bench run + operator promotion task.]'
+        description: 'Faster tool-composition option — gemma4:e4b-it-qat-ctx8k (Google DeepMind, ~6.1GB effective 4B QAT, thinking, context baked to 8192). WFE wfe_full_20260911 (2026-09-12): 9/9=1.00 home:coding and 9/9=1.00 discovery:research vs the granite4.1:8b-ctx8k incumbent''s 6/9=0.67 / 9/9=1.00 (NOT SEPARATED, small n). INTEGRATED: this variant''s model_hint is a wired role with that WFE evidence (closeout rule: route/hint/pin/persona/council/code). The bench-gated provisional marker does not apply.'
         # 2026-09-25: sampling set to the gemma4 card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: gemma4:e4b-it-qat-ctx8k
         top_k: 64
