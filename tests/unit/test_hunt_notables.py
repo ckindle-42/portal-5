@@ -121,9 +121,20 @@ def test_kind_facts_measure_numeric_and_recurring_values():
     assert facts == {"numeric_share": 0.5, "identity_share": 1.0}
     assert cadence_facts(
         SourceFacts(
-            "ix", "st", 10, 0.0, 1.0, (), 0, (), 0, hours_active=10, hours_span=20, count_cv=0.3
+            "ix",
+            "st",
+            10,
+            0.0,
+            1.0,
+            (),
+            0,
+            (),
+            0,
+            active_periods=10,
+            periods=20,
+            count_cv=0.3,
         )
-    ) == {"hours_active": 10, "hours_span": 20, "active_share": 0.5, "count_cv": 0.3}
+    ) == {"active_periods": 10, "periods": 20, "active_share": 0.5, "count_cv": 0.3}
 
 
 def test_facts_overrule_a_non_numeric_measurement_and_record_other_conflicts():

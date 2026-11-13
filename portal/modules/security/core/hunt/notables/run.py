@@ -80,8 +80,8 @@ def _fact_dict(card: SourceCard) -> SourceFacts:
         host_count=int(facts.get("host_count") or 0),
         sources=tuple(str(name) for name in facts.get("sources") or ()),
         source_count=int(facts.get("source_count") or 0),
-        hours_active=int(facts.get("hours_active") or 0),
-        hours_span=int(facts.get("hours_span") or 0),
+        active_periods=int(facts.get("active_periods") or 0),
+        periods=int(facts.get("periods") or 0),
         count_cv=float(facts.get("count_cv") or 0.0),
     )
 
@@ -103,17 +103,39 @@ def _roles_from(raw: Mapping[str, Any]) -> dict[str, tuple[str, ...]]:
     return {str(role): tuple(str(name) for name in names or ()) for role, names in found.items()}
 
 
+def _fields_from(raw: Mapping[str, Any], lines: int) -> tuple[FieldStat, ...]:
+    found = raw.get("fields")
+    if not isinstance(found, list):
+        return ()
+    return tuple(_field_from(item, lines) for item in found if isinstance(item, Mapping))
+
+
+def _strings_from(value: Any) -> tuple[str, ...]:
+    return tuple(str(item) for item in value or ())
+
+
+def _part_from(raw: Mapping[str, Any]) -> tuple[str, str]:
+    part = raw.get("part")
+    if not isinstance(part, Mapping):
+        return "", ""
+    return str(part.get("field") or ""), str(part.get("value") or "")
+
+
+def _optional_text(value: Any) -> str | None:
+    return str(value) if value else None
+
+
 def card_from_dict(raw: Mapping[str, Any]) -> SourceCard:
     sample = raw.get("sample") or {}
     lines = int(sample.get("lines") or 0)
-    reason = raw.get("reason")
+    part_field, part_value = _part_from(raw)
     return SourceCard(
         index=str(raw.get("index") or ""),
         sourcetype=str(raw.get("sourcetype") or ""),
         kind=str(raw.get("kind") or "other"),
         roles=_roles_from(raw),
         understood=bool(raw.get("understood")),
-        reason=str(reason) if reason else None,
+        reason=_optional_text(raw.get("reason")),
         fmt=str(raw.get("structure") or "text"),
         coverage=float(raw.get("parse_coverage") or 0.0),
         fields=tuple(
@@ -126,16 +148,12 @@ def card_from_dict(raw: Mapping[str, Any]) -> SourceCard:
         model=dict(raw.get("model") or {}),
         cache_key=str(raw.get("cache_key") or ""),
         basis=str(raw.get("basis") or ""),
-        rejected=tuple(str(name) for name in raw.get("rejected_fields") or ()),
-        columns=tuple(str(name) for name in raw.get("columns") or ()),
-        part_field=str(raw.get("part", {}).get("field") or "")
-        if isinstance(raw.get("part"), Mapping)
-        else "",
-        part_value=str(raw.get("part", {}).get("value") or "")
-        if isinstance(raw.get("part"), Mapping)
-        else "",
+        rejected=_strings_from(raw.get("rejected_fields")),
+        columns=_strings_from(raw.get("columns")),
+        part_field=part_field,
+        part_value=part_value,
         kind_said=str(raw.get("kind_said") or ""),
-        kind_note=str(raw["kind_note"]) if raw.get("kind_note") else None,
+        kind_note=_optional_text(raw.get("kind_note")),
         kind_facts=dict(raw.get("kind_facts") or {}),
     )
 

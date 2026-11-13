@@ -388,11 +388,11 @@ def value_facts(parsed: Sequence[Parsed], stats: Sequence[FieldStat]) -> dict[st
 
 
 def cadence_facts(facts: SourceFacts) -> dict[str, Any]:
-    active = facts.hours_active
-    span = facts.hours_span
+    active = facts.active_periods
+    span = facts.periods
     return {
-        "hours_active": active,
-        "hours_span": span,
+        "active_periods": active,
+        "periods": span,
         "active_share": round(active / span, 4) if span else 0.0,
         "count_cv": facts.count_cv,
     }
@@ -463,8 +463,8 @@ def _facts(facts: SourceFacts) -> dict[str, Any]:
         "source_count": facts.source_count,
         "hosts": list(facts.hosts),
         "sources": list(facts.sources[:12]),
-        "hours_active": facts.hours_active,
-        "hours_span": facts.hours_span,
+        "active_periods": facts.active_periods,
+        "periods": facts.periods,
         "count_cv": facts.count_cv,
     }
 

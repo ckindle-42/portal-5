@@ -21,8 +21,9 @@ ALERT_WINDOWS = 8  # effort budget: time slices read per alert stream
 ALERT_EVENTS_PER_WINDOW = 1000  # effort budget: alert events read from one slice
 DEVIATION_SOURCE_BUDGET = 100  # effort budget: source-level deviations kept per ordering
 DEVIATION_BEHAVIOUR_BUDGET = 100  # effort budget: behaviour-level deviations considered
-MIN_SERIES_HOURS = 3  # a deviation needs at least this many observed hours
-SERIES_ROWS = 200_000  # effort budget: hourly source-count rows read
+MIN_SERIES_PERIODS = 3  # a deviation needs at least this many observed buckets
+SERIES_ROWS = 40_000  # effort budget: per-period source-count rows (below the 50k result cap)
+SERIES_SPAN_SECONDS = 4 * 3600  # effort budget: deviation bucket width
 MAX_ENTITIES = 8  # effort budget: entities attached to one notable
 EVIDENCE_CHARS = 400  # effort budget: raw characters kept on one notable evidence line
 
@@ -387,7 +388,7 @@ def hourly_series(
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Per-source event counts by hour, read from indexed terms only."""
     began = time.monotonic()
-    query = f"| tstats count where index={_quote(index)} by sourcetype _time span=1h"
+    query = f"| tstats count where index={_quote(index)} by sourcetype _time span=4h"
     try:
         result = executor.read(query, start, end, kind="deviation_series", row_cap=SERIES_ROWS)
     except Exception as exc:  # noqa: BLE001 -- a failed series read is declared coverage
@@ -429,7 +430,7 @@ def _source_deviations(
     bursts: list[tuple[float, str, float, int]] = []
     firsts: list[tuple[float, str, float]] = []
     for name, series in grouped.items():
-        if len(series) >= MIN_SERIES_HOURS:
+        if len(series) >= MIN_SERIES_PERIODS:
             z, peak = _robust_z([count for _hour_value, count in series])
             bursts.append((z, name, series[peak][0], series[peak][1]))
         firsts.append((series[0][0] - index_start, name, series[0][0]))
@@ -444,17 +445,17 @@ def _source_deviations(
             entities=(("source", name),),
             source_id=f"{index}:{name}",
             first_seen=hour,
-            last_seen=hour + 3600.0,
+            last_seen=hour + SERIES_SPAN_SECONDS,
             counts={"events": count},
             measure_name="robust_z",
             measure_value=value,
             why=f"log count {value} robust deviations above its own hourly median",
             evidence=(
                 {
-                    "line": f"sourcetype={name} hour={hour:.0f} count={count} z={value}",
+                    "line": f"sourcetype={name} at={hour:.0f} count={count} z={value}",
                     "query": series_query,
                     "earliest": hour,
-                    "latest": hour + 3600.0,
+                    "latest": hour + SERIES_SPAN_SECONDS,
                 },
             ),
         )
@@ -468,17 +469,17 @@ def _source_deviations(
             entities=(("source", name),),
             source_id=f"{index}:{name}",
             first_seen=hour,
-            last_seen=hour + 3600.0,
+            last_seen=hour + SERIES_SPAN_SECONDS,
             counts={},
             measure_name="seconds_after_index_start",
             measure_value=round(late, 3),
             why="first hour this source was observed, relative to the index start",
             evidence=(
                 {
-                    "line": f"sourcetype={name} first_hour={hour:.0f}",
+                    "line": f"sourcetype={name} first_at={hour:.0f}",
                     "query": series_query,
                     "earliest": hour,
-                    "latest": hour + 3600.0,
+                    "latest": hour + SERIES_SPAN_SECONDS,
                 },
             ),
         )

@@ -16,8 +16,9 @@ SAMPLE_LINES = 40  # effort budget: events read per window for a source card
 SAMPLE_SOURCES = 2  # effort budget: indexed sources sampled for one source card
 BEHAVIOUR_SOURCES = 8  # effort budget: indexed sources one behaviour read covers
 MAX_HOST_NAMES = 24  # effort budget: host names listed on one source's facts
-METADATA_ROWS = 50_000  # effort budget: sourcetype/source/host aggregate rows read
-CADENCE_ROWS = 200_000  # effort budget: hourly sourcetype counts read for cadence
+# The results endpoint returns at most 50,000 rows per request; caps stay below it.
+METADATA_ROWS = 40_000  # effort budget: sourcetype/source/host aggregate rows read
+CADENCE_ROWS = 40_000  # effort budget: per-period sourcetype counts read for cadence
 READ_CONCURRENCY = 6  # effort budget: concurrent reads inside the shared executor
 EMPTY_SAMPLE_WINDOWS = (
     48  # effort budget: fixed windows per source when its own time range is unknown
@@ -37,8 +38,8 @@ class SourceFacts:
     host_count: int
     sources: tuple[str, ...]
     source_count: int
-    hours_active: int = 0
-    hours_span: int = 0
+    active_periods: int = 0
+    periods: int = 0
     count_cv: float = 0.0
 
 
@@ -109,10 +110,10 @@ def _meta_rows(
 def cadence_facts(
     executor: HuntExecutor, index: str, start: float, end: float
 ) -> tuple[dict[str, tuple[int, int, float]], list[str]]:
-    """Per sourcetype: active hours, hours spanned and the variation of hourly counts."""
+    """Per sourcetype: active days, days spanned and the variation of daily counts."""
     rows, reason = _read_range(
         executor,
-        f"| tstats count where index={_quoted(index)} by sourcetype _time span=1h",
+        f"| tstats count where index={_quoted(index)} by sourcetype _time span=1d",
         start,
         end,
         kind="discovery",
@@ -131,7 +132,7 @@ def cadence_facts(
         series.sort()
         counts = [count for _stamp, count in series]
         active = sum(1 for count in counts if count > 0)
-        span = max(1, int(round((series[-1][0] - series[0][0]) / 3600.0)) + 1)
+        span = max(1, int(round((series[-1][0] - series[0][0]) / 86400.0)) + 1)
         mean = sum(counts) / len(counts)
         if len(counts) < 2 or mean <= 0:
             cv = 0.0
@@ -201,8 +202,8 @@ def index_facts(
                 host_count=len(ranked_hosts),
                 sources=tuple(source for source, _ in ranked_sources),
                 source_count=len(ranked_sources),
-                hours_active=active,
-                hours_span=span,
+                active_periods=active,
+                periods=span,
                 count_cv=cv,
             )
         )
