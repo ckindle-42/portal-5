@@ -1833,6 +1833,21 @@ class TestEffectiveSampling:
         _audit_sampling("w", ws, "x", {}, {"x"}, v)
         assert any(x["kind"] == "sampling_defaulted" and x["severity"] == "FAIL" for x in v)
 
+    def test_a_tag_that_bakes_zero_is_not_sampling_baked_hot(self):
+        """hunt-reasoning's fallback bakes temperature 0, so the WARN is clear."""
+        from tests.wfe.settings_audit import _audit_sampling
+
+        hint = "gemma4:26b-a4b-it-qat-ctx8k-hunt"
+        ws = {
+            "module": "security",
+            "model_hint": hint,
+            "temperature": 0.0,
+            "sampling_override": {"reason": "json", "evidence": "pending"},
+        }
+        v: list[dict] = []
+        _audit_sampling("hunt-reasoning", ws, hint, {"temperature": 0.0}, {hint}, v)
+        assert not any(x["kind"] == "sampling_baked_hot" for x in v)
+
 
 class TestSeatSamplingFollowsTheGuidance:
     """C-FIX: a lane cap once lowered auto-compliance's temperature below Qwen3.8's published

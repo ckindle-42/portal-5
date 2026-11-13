@@ -1317,6 +1317,16 @@ The `vision` group entry in `config/backends.yaml` carries the `supports_tools: 
 
 ---
 
+### `gemma4:26b-a4b-it-qat-ctx8k-hunt`
+
+`gemma4:26b-a4b-it-qat-ctx8k-hunt` is the hunt-reasoning fallback tag (weights shared with `gemma4:26b-a4b-it-qat-ctx8k` — 0 extra bytes) that bakes `PARAMETER temperature 0` over the parent's 8192-token window. Modelfile: `config/modelfiles/gemma4-26b-a4b-it-qat-ctx8k-hunt.Modelfile`. Created 2026-11-12 because settings audit `sampling_baked_hot` warned on the parent, which bakes temperature 1, while the seat serves 0. Registered in `general` (`supports_tools: true`) and aliased on `omlx-general` to `gemma-4-26b-a4b-it-QAT-4bit`, so the seat still batches on oMLX and falls back to this tag. `hunt-reasoning` is the only `model_hint`. The parent tag stays in place for every other seat.
+
+## Why
+
+The audit treats a hot baked tag as a gap even when the workspace pins a compliant temperature. A derived tag with the same weights removes that gap without moving the seat off its oMLX checkpoint.
+
+---
+
 ### `gemma4:31b-it-qat-ctx8k`
 
 `gemma4:31b-it-qat-ctx8k` is a derived variant of `gemma4:31b-it-qat` that pins the 8192-token window into the Modelfile. `config/backends.yaml` registers it under the `vision` group with `supports_tools: true`, the same placement as its 31B Dense QAT parent. The cap is applied with `portal models apply-params` because the chat-completions endpoint refuses per-request `options.num_ctx` overrides; a separate tag is the only way to bound context per workspace. Unlike the base model, this derived id has no workspace `model_hint` of its own in `config/portal.yaml`.

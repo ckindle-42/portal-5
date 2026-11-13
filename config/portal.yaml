@@ -2614,10 +2614,11 @@ workspaces:
     module: security
     name: Portal Hunt Reasoner (internal)
     description: Hunt model reasoning for source understanding and notable judgement. Called by the hunt, not chat.
-    # oMLX serves the QAT checkpoint and batches concurrent requests; the same
-    # tag's Ollama GGUF is the fallback, so a caller always gets an answer.
-    # 8k window: the hunt's prompts are short.
-    model_hint: gemma4:26b-a4b-it-qat-ctx8k
+    # oMLX serves the QAT checkpoint and batches concurrent requests. The Ollama
+    # fallback is a derived tag of the ctx8k GGUF that bakes temperature 0, so a
+    # caller always gets an answer and the tag itself is lane-cold. 8k window:
+    # the hunt's prompts are short.
+    model_hint: gemma4:26b-a4b-it-qat-ctx8k-hunt
     context_limit: 8192
     temperature: 0.0
     # The card's 1.0/64 sampling is chat guidance; the hunt parses JSON answers,

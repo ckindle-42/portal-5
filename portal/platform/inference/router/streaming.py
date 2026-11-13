@@ -83,6 +83,7 @@ from portal.platform.inference.router.non_streaming import (
     is_omlx_prefill_refusal,
     resolve_hop_target,
 )
+from portal.platform.inference.router.parallel_seat import release_omlx_fallback
 from portal.platform.inference.router.state import _record_error
 from portal.platform.inference.router.text_tool_calls import (
     TextToolCallHoldback,
@@ -2675,15 +2676,22 @@ def _select_stream_fn(
 
 
 async def _with_room_for_omlx(
-    backend: Any, body: dict[str, Any], frames: AsyncIterator[bytes]
+    backend: Any,
+    body: dict[str, Any],
+    frames: AsyncIterator[bytes],
+    workspace_id: str = "",
 ) -> AsyncIterator[bytes]:
     """Free idle Ollama for a large oMLX prompt before the first frame.
 
     The non-streaming path does this before every attempt; a single-candidate stream used
-    to skip it entirely, so its large prompt met the guard instead of avoiding it."""
+    to skip it entirely, so its large prompt met the guard instead of avoiding it.
+    A parallel seat served here drops its idle Ollama twin once the stream ends."""
     await make_room_for_omlx(backend, body)
-    async for chunk in frames:
-        yield chunk
+    try:
+        async for chunk in frames:
+            yield chunk
+    finally:
+        await release_omlx_fallback(backend, workspace_id)
 
 
 async def _stream_with_fallback(
@@ -2818,6 +2826,7 @@ async def _stream_with_fallback(
         from portal.platform.inference.router.correlation import get_correlation_id
 
         schedule_writeback(workspace_id, body.get("messages", []), get_correlation_id())
+        await release_omlx_fallback(backend, workspace_id)
 
     if stream_failed and (
         _output_sent or _is_noncascadable_stream_error(_error_status, _error_buffer)

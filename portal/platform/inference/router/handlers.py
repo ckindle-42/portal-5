@@ -67,6 +67,7 @@ from portal.platform.inference.router.non_streaming import (
     _try_non_streaming,
     is_omlx_capacity_refusal,
 )
+from portal.platform.inference.router.parallel_seat import release_omlx_fallback
 from portal.platform.inference.router.preinject import (
     _apply_client_tools_only,
     _apply_no_tools_request,
@@ -97,7 +98,9 @@ from portal.platform.inference.router.streaming import (
     _select_stream_fn,
     _select_streaming_backend,
     _stream_with_fallback,
-    _with_room_for_omlx,
+)
+from portal.platform.inference.router.streaming import (
+    _with_room_for_omlx as _room,
 )
 from portal.platform.inference.router.trace import (
     capture as trace_capture,
@@ -611,6 +614,21 @@ async def list_backends_endpoint(authorization: str | None = Header(None)) -> di
     }
 
 
+def _order_candidates(candidates: list[Any], workspace_id: str, registry: Any) -> list[Any]:
+    """Hot-seat order, then put a declared parallel seat back on its batching engine."""
+    from portal.platform.inference.router.parallel_seat import prefer_batching_engine
+
+    return prefer_batching_engine(
+        placement.protect_hot_seat(
+            candidates,
+            workspace_id,
+            WORKSPACES.get(workspace_id, {}).get("model_hint", ""),
+            getattr(registry, "hot_seat_protect_s", 0.0),
+        ),
+        workspace_id,
+    )
+
+
 def _reject_disabled_workspace(workspace_id: str) -> None:
     """Same 404 a disabled workspace gets today, for a workspace or ``engine::variant``."""
     from portal.platform.wiki.adapters.modules import is_workspace_disabled
@@ -757,13 +775,8 @@ async def _resolve_request_route(
     # measures exactly one backend, so the ladder must not widen the list again.
     candidates = apply_backend_pin(body, candidates)
 
-    # Hot-seat prefix-cache protection (P5-OMLX-PREFIX-CACHE-001): advisory reorder, off by default.
-    candidates = placement.protect_hot_seat(
-        candidates,
-        workspace_id,
-        WORKSPACES.get(workspace_id, {}).get("model_hint", ""),
-        getattr(registry, "hot_seat_protect_s", 0.0),
-    )
+    # Hot-seat prefix-cache protection, then a parallel seat returns to its batching engine.
+    candidates = _order_candidates(candidates, workspace_id, registry)
 
     trace_span(
         "route.resolved",
@@ -948,6 +961,7 @@ async def _dispatch_non_streaming(
             trace_span("backend.attempt", backend=backend.id, outcome=f"http_{exc.status_code}")
             raise HTTPException(status_code=exc.status_code, detail=exc.detail) from None
         if result is not None:
+            await release_omlx_fallback(backend, workspace_id)
             route_header = result.headers.get("x-portal-route", ";;")
             resolved_model = (
                 route_header.split(";")[2] if len(route_header.split(";")) > 2 else "unknown"
@@ -1112,7 +1126,7 @@ async def chat_completions(
                 _has_tools,
             )
             _streaming_response = StreamingResponse(
-                _with_portal_timings(_with_room_for_omlx(backend, backend_body, _stream_fn)),
+                _with_portal_timings(_room(backend, backend_body, _stream_fn, workspace_id)),
                 media_type="text/event-stream",
                 headers={"x-portal-route": f"{workspace_id};{backend.id};{target_model}"},
             )
