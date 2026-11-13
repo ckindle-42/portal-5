@@ -9,6 +9,8 @@ from collections import defaultdict
 from collections.abc import Coroutine
 from typing import TYPE_CHECKING, Any
 
+from portal.platform.inference.eval_openai import EVAL_OPENAI
+
 if TYPE_CHECKING:
     from portal.platform.inference.cluster_backends import BackendRegistry
     from portal.platform.inference.notifications.channels import NotificationChannel
@@ -100,10 +102,15 @@ class NotificationDispatcher:
         if down_threshold is None:
             down_threshold = int(os.environ.get("ALERT_BACKEND_DOWN_THRESHOLD", "3"))
 
-        all_backend_ids = set(registry._backends.keys())
+        production_backends = {
+            backend_id: backend
+            for backend_id, backend in registry._backends.items()
+            if backend.type != EVAL_OPENAI
+        }
+        all_backend_ids = set(production_backends)
         currently_healthy: set[str] = set()
 
-        for backend_id, backend in registry._backends.items():
+        for backend_id, backend in production_backends.items():
             if backend.healthy:
                 currently_healthy.add(backend_id)
                 if self._failure_counts.get(backend_id, 0) >= down_threshold:

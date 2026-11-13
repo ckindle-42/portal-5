@@ -433,7 +433,8 @@ class BackendRegistry:
         self._exclusive_workspaces = exclusive_workspace_ids(self.config_path)
         if not eval_backends_enabled(self.config_path) and not self._include_eval_backends:
             return
-        for be in load_bench_engines(self.config_path).get("backends") or []:
+        bench_engines = _expand_env(load_bench_engines(self.config_path))
+        for be in bench_engines.get("backends") or []:
             if not isinstance(be, dict) or not be.get("id") or not be.get("url"):
                 logger.error("bench engine entry missing id or url")
                 continue

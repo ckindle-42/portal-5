@@ -26,6 +26,7 @@ from prometheus_client import generate_latest
 
 from portal.platform.inference.cluster_backends import BackendRegistry
 from portal.platform.inference.config import ollama_url
+from portal.platform.inference.eval_openai import EVAL_OPENAI
 from portal.platform.inference.router import no_answer, placement
 from portal.platform.inference.router.anthropic_compat import (
     anthropic_to_openai_body,
@@ -201,14 +202,21 @@ async def health() -> dict[str, Any]:
     """
     if registry is None:
         raise HTTPException(status_code=503, detail="Backend registry not initialised")
+    backends = registry.list_backends()
     healthy = registry.list_healthy_backends()
+    production_backends = [backend for backend in backends if backend.type != EVAL_OPENAI]
+    eval_backends = [backend for backend in backends if backend.type == EVAL_OPENAI]
+    production_healthy = [backend for backend in healthy if backend.type != EVAL_OPENAI]
+    eval_healthy = [backend for backend in healthy if backend.type == EVAL_OPENAI]
     return {
-        "status": "ok" if healthy else "degraded",
+        "status": "ok" if production_healthy else "degraded",
         "version": _PKG_VERSION,
         "build_sha": os.environ.get("PORTAL_BUILD_SHA", "unknown"),
         "build_dirty": int(os.environ.get("PORTAL_BUILD_DIRTY", "-1") or -1),
-        "backends_healthy": len(healthy),
-        "backends_total": len(registry.list_backends()),
+        "backends_healthy": len(production_healthy),
+        "backends_total": len(production_backends),
+        "eval_backends_healthy": len(eval_healthy),
+        "eval_backends_total": len(eval_backends),
         "backends_checked": registry.health_checked,
         "workspaces": len(WORKSPACES),
     }
@@ -432,14 +440,14 @@ async def metrics() -> PlainTextResponse:
     uptime = time.time() - _startup_time
     if registry is None:
         raise HTTPException(status_code=503, detail="Backend registry not initialised")
-    healthy = len(registry.list_healthy_backends())
-    total = len(registry.list_backends())
+    healthy = sum(backend.type != EVAL_OPENAI for backend in registry.list_healthy_backends())
+    total = sum(backend.type != EVAL_OPENAI for backend in registry.list_backends())
 
     lines = [
-        "# HELP portal_backends_healthy Number of healthy backends",
+        "# HELP portal_backends_healthy Number of healthy production backends",
         "# TYPE portal_backends_healthy gauge",
         f"portal_backends_healthy {healthy}",
-        "# HELP portal_backends_total Total registered backends",
+        "# HELP portal_backends_total Total registered production backends",
         "# TYPE portal_backends_total gauge",
         f"portal_backends_total {total}",
         "# HELP portal_uptime_seconds Process uptime in seconds",

@@ -131,10 +131,10 @@ async def test_pipeline_health_reports_its_build(monkeypatch):
         health_checked = True
 
         def list_healthy_backends(self):
-            return [1]
+            return []
 
         def list_backends(self):
-            return [1]
+            return []
 
     monkeypatch.setattr(handlers, "registry", Reg())
     monkeypatch.setenv("PORTAL_BUILD_SHA", "abc1234")
