@@ -41,6 +41,10 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _mapping(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
 def _label(item: dict[str, Any]) -> str:
     return str(item.get("source_id") or item.get("card_id") or "?")
 
@@ -78,8 +82,8 @@ def _print_judge(receipt: dict[str, Any]) -> None:
         f"reasons={receipt.get('unjudged_reasons', {})} "
         f"requests={receipt.get('requests', 0)} cached={receipt.get('cached', 0)} "
         f"budget={receipt.get('request_budget')} unasked={receipt.get('unasked', 0)} "
-        f"throttles={receipt.get('backpressure', {}).get('throttles', 0)} "
-        f"retries={receipt.get('backpressure', {}).get('retries', 0)} "
+        f"throttles={_mapping(receipt.get('backpressure')).get('throttles', 0)} "
+        f"retries={_mapping(receipt.get('backpressure')).get('retries', 0)} "
         f"model_seconds={receipt.get('model_seconds', 0)} "
         f"wall={receipt.get('seconds')}s served={receipt.get('served_models', [])} "
         f"-> {receipt.get('file')}"
@@ -135,9 +139,9 @@ def _print_cards(receipt: dict[str, Any]) -> None:
         f"answers_reused={receipt.get('answers_reused', 0)} "
         f"cache_hits={receipt.get('cache_hits', 0)} "
         f"budget={receipt.get('request_budget')} unasked={receipt.get('unasked', 0)} "
-        f"throttles={receipt.get('backpressure', {}).get('throttles', 0)} "
-        f"retries={receipt.get('backpressure', {}).get('retries', 0)} "
-        f"waited={receipt.get('backpressure', {}).get('wait_seconds', 0)}s "
+        f"throttles={_mapping(receipt.get('backpressure')).get('throttles', 0)} "
+        f"retries={_mapping(receipt.get('backpressure')).get('retries', 0)} "
+        f"waited={_mapping(receipt.get('backpressure')).get('wait_seconds', 0)}s "
         f"model_seconds={receipt.get('model_seconds', 0)} "
         f"wall={receipt.get('seconds')}s peak={receipt.get('peak_memory_mb')}MB -> sources.json"
     )
