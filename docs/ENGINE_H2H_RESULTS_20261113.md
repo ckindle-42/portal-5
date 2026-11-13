@@ -1,4 +1,15 @@
-# Engine head-to-head — live results, 2026-11-13
+# Engine head-to-head — raw throughput screen, 2026-11-13
+
+> **Scope — read first.** This is a single-model raw-throughput screen, **not** a production
+> engine comparison, and no engine decision may be taken from it. Not equal-tuned (Ollama and oMLX
+> ran as the tuned production services; the others on harness argv only); one model per engine,
+> no co-residence with router / embedder / hunt / council seats, no eviction or swap behaviour;
+> concurrency only 1 and 4 identical short requests; ctx ≤ 32k with a 6k prompt (production
+> seats run 32k–128k); no tool turns, seat sampling or seat templates; direct to the engine,
+> not through the Pipeline; no quality gate; memory unmeasured or wrong for three engines.
+> It supports only: per-engine single-stream decode/prefill on identical weights, and which
+> engines cannot load which checkpoints. A production comparison needs a named seat decision
+> (docs/MODEL_SEAT_PROCESS.md) and a production-faithful protocol.
 
 Host: M4 Pro, 64 GB, macOS 27.2, Portal stack **up** (production conditions), no Pipeline traffic
 in any cell window (checked in the Pipeline log), swap growth 0 in every reported cell.
