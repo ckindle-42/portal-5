@@ -311,13 +311,23 @@ def collect_behaviours(
             usable = [card for card in group if card.usable]
             if not usable:
                 skipped.extend(
-                    {"card_id": card.card_id, "reason": _skip_reason(card)} for card in group
+                    {
+                        "card_id": card.card_id,
+                        "source_id": card.source_id,
+                        "reason": _skip_reason(card),
+                    }
+                    for card in group
                 )
                 continue
             facts = facts_by_source.get(source_id)
             if facts is None:
                 skipped.extend(
-                    {"card_id": card.card_id, "reason": "no_index_facts"} for card in usable
+                    {
+                        "card_id": card.card_id,
+                        "source_id": card.source_id,
+                        "reason": "no_index_facts",
+                    }
+                    for card in usable
                 )
                 continue
             started = time.monotonic()

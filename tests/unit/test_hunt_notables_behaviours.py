@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import duckdb
 
+from portal.modules.security.core.hunt.notables.__main__ import _print_behaviours
 from portal.modules.security.core.hunt.notables.behaviours import (
     ExampleEvent,
     _extract,
     aggregate_events,
     behaviour_key,
+    collect_behaviours,
     create_events,
     field_modes,
     keyed_rows,
@@ -132,6 +134,45 @@ def test_an_event_with_neither_actor_nor_object_is_not_a_behaviour():
     card = _card()
     event = ExampleEvent("ix:st", "h1", 1.0, "raw", {"image": "stats"}, 0.0, 3600.0)
     assert keyed_rows(card, _facts(), [event]) == []
+
+
+def test_a_skipped_source_receipt_carries_its_source_id(tmp_path):
+    card = SourceCard(
+        index="ix",
+        sourcetype="st",
+        kind="other",
+        roles={},
+        understood=False,
+        reason="unparsed_sample:coverage=0.00",
+        fmt="text",
+        coverage=0.0,
+        fields=(),
+        sample={},
+        facts={},
+        model={},
+        cache_key="key",
+    )
+    _behaviours, receipt = collect_behaviours(None, [card], {}, tmp_path / "b.duckdb")  # type: ignore[arg-type]
+    assert receipt["skipped"] == [
+        {
+            "card_id": "ix:st",
+            "source_id": "ix:st",
+            "reason": "unparsed_sample:coverage=0.00",
+        }
+    ]
+
+
+def test_the_behaviour_printer_survives_a_partial_receipt(capsys):
+    _print_behaviours(
+        [],
+        {
+            "receipts": [{"source_id": "ix:st"}],
+            "skipped": [{"card_id": "ix:other", "reason": "no_roles"}],
+        },
+    )
+    output = capsys.readouterr().out
+    assert "skipped ix:other: no_roles" in output
+    assert "behaviours: events_read=0" in output
 
 
 def test_window_bounds_slices_a_range_deterministically():

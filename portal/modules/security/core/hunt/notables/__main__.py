@@ -41,36 +41,44 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _label(item: dict[str, Any]) -> str:
+    return str(item.get("source_id") or item.get("card_id") or "?")
+
+
 def _print_behaviours(behaviours: list[Behaviour], receipt: dict[str, Any]) -> None:
     counts: dict[str, int] = {}
     for behaviour in behaviours:
         counts[behaviour.source_id] = counts.get(behaviour.source_id, 0) + 1
     for item in receipt.get("receipts", []):
         print(
-            f"  {item['source_id']} events={item['events_read']} "
-            f"of={item['events_available']} share={item['share_of_source']} "
-            f"windows={item['windows']} behaviours={counts.get(item['source_id'], 0)} "
-            f"seconds={item['seconds']}"
+            f"  {_label(item)} events={item.get('events_read', 0)} "
+            f"of={item.get('events_available', 0)} share={item.get('share_of_source')} "
+            f"windows={item.get('windows', 0)} behaviours={counts.get(_label(item), 0)} "
+            f"seconds={item.get('seconds')}"
         )
     for item in receipt.get("skipped", []):
-        print(f"  skipped {item['source_id']}: {item['reason']}")
+        print(f"  skipped {_label(item)}: {item.get('reason') or 'unknown'}")
     print(
-        f"behaviours: events_read={receipt['events_read']} "
-        f"existed={receipt['behaviours_existed']} kept={receipt['behaviours_kept']} "
-        f"wall={receipt['seconds']}s peak={receipt['peak_memory_mb']}MB -> {receipt['store']}"
+        f"behaviours: events_read={receipt.get('events_read', 0)} "
+        f"existed={receipt.get('behaviours_existed', 0)} "
+        f"kept={receipt.get('behaviours_kept', 0)} "
+        f"wall={receipt.get('seconds')}s peak={receipt.get('peak_memory_mb')}MB "
+        f"-> {receipt.get('store')}"
     )
 
 
 def _print_judge(receipt: dict[str, Any]) -> None:
     print(
-        f"judge: notables={receipt['notables']} judged={receipt['judged']} "
-        f"unjudged={receipt['unjudged']} reasons={receipt['unjudged_reasons']} "
-        f"requests={receipt['requests']} cached={receipt['cached']} "
-        f"budget={receipt['request_budget']} unasked={receipt['unasked']} "
+        f"judge: notables={receipt.get('notables', 0)} judged={receipt.get('judged', 0)} "
+        f"unjudged={receipt.get('unjudged', 0)} "
+        f"reasons={receipt.get('unjudged_reasons', {})} "
+        f"requests={receipt.get('requests', 0)} cached={receipt.get('cached', 0)} "
+        f"budget={receipt.get('request_budget')} unasked={receipt.get('unasked', 0)} "
         f"throttles={receipt.get('backpressure', {}).get('throttles', 0)} "
         f"retries={receipt.get('backpressure', {}).get('retries', 0)} "
-        f"model_seconds={receipt['model_seconds']} wall={receipt['seconds']}s "
-        f"served={receipt['served_models']} -> {receipt['file']}"
+        f"model_seconds={receipt.get('model_seconds', 0)} "
+        f"wall={receipt.get('seconds')}s served={receipt.get('served_models', [])} "
+        f"-> {receipt.get('file')}"
     )
 
 
@@ -85,8 +93,8 @@ def _print_notables(receipt: dict[str, Any]) -> None:
                 f"seconds={seconds.get(name)}"
             )
     print(
-        f"notables: total={receipt['total']} wall={seconds.get('total')}s "
-        f"peak={receipt['peak_memory_mb']}MB -> {receipt['file']}"
+        f"notables: total={receipt.get('total', 0)} wall={seconds.get('total')}s "
+        f"peak={receipt.get('peak_memory_mb')}MB -> {receipt.get('file')}"
     )
 
 
@@ -94,30 +102,33 @@ def _print_cards(receipt: dict[str, Any]) -> None:
     for item in receipt.get("sources_receipt", []):
         if "parts" in item:
             print(
-                f"  {item['source_id']} parts={item['parts']} "
-                f"sample_unassigned={item['sample_unassigned']}"
+                f"  {_label(item)} parts={item.get('parts')} "
+                f"sample_unassigned={item.get('sample_unassigned')}"
             )
             continue
-        reason = f" reason={item['reason']}" if item.get("reason") else ""
+        reason = f" reason={item.get('reason')}" if item.get("reason") else ""
         part = item.get("part")
-        label = f" [{part['field']}={part['value']}]" if part else ""
+        label = f" [{part.get('field')}={part.get('value')}]" if isinstance(part, dict) else ""
         print(
-            f"  {item['card_id']}{label} kind={item['kind']} understood={item['understood']} "
-            f"roles=[{item['roles']}] structure={item['structure']} "
-            f"sample={item['sample_lines']} coverage={item['parse_coverage']:.2f} "
-            f"model={item['model_seconds']}s{reason}"
+            f"  {_label(item)}{label} kind={item.get('kind')} "
+            f"understood={item.get('understood')} roles={item.get('roles')} "
+            f"structure={item.get('structure')} sample={item.get('sample_lines')} "
+            f"coverage={item.get('parse_coverage', 0):.2f} "
+            f"model={item.get('model_seconds')}s{reason}"
         )
     print(
-        f"cards: sources={receipt['sources']} cards={receipt['cards']} "
-        f"understood={receipt['understood']} unparsed={receipt['unparsed']} "
-        f"structures={receipt['structures']} model_requests={receipt['model_requests']} "
-        f"answers_reused={receipt['answers_reused']} cache_hits={receipt['cache_hits']} "
-        f"budget={receipt['request_budget']} unasked={receipt['unasked']} "
+        f"cards: sources={receipt.get('sources', 0)} cards={receipt.get('cards', 0)} "
+        f"understood={receipt.get('understood', 0)} unparsed={receipt.get('unparsed', 0)} "
+        f"structures={receipt.get('structures', 0)} "
+        f"model_requests={receipt.get('model_requests', 0)} "
+        f"answers_reused={receipt.get('answers_reused', 0)} "
+        f"cache_hits={receipt.get('cache_hits', 0)} "
+        f"budget={receipt.get('request_budget')} unasked={receipt.get('unasked', 0)} "
         f"throttles={receipt.get('backpressure', {}).get('throttles', 0)} "
         f"retries={receipt.get('backpressure', {}).get('retries', 0)} "
         f"waited={receipt.get('backpressure', {}).get('wait_seconds', 0)}s "
-        f"model_seconds={receipt['model_seconds']} wall={receipt['seconds']}s "
-        f"peak={receipt['peak_memory_mb']}MB -> sources.json"
+        f"model_seconds={receipt.get('model_seconds', 0)} "
+        f"wall={receipt.get('seconds')}s peak={receipt.get('peak_memory_mb')}MB -> sources.json"
     )
 
 
