@@ -175,6 +175,29 @@ def test_memory_fails_with_real_omlx_deltas_and_reports_resident_contamination()
     assert any("engine weight 15.35GB vs wired delta -8.57GB" in item for item in failures)
 
 
+def test_residency_checks_candidate_engines_as_well_as_production_engines() -> None:
+    failures: list[str] = []
+    _check_memory(
+        {
+            "engine": "rapid-mlx",
+            "expected_model": "candidate-model",
+            "memory": {
+                "tree_walked": True,
+                "tree_rss_gb": 1.0,
+                "engine_weight_gb": 1.0,
+                "vm_wired_delta_gb": 1.0,
+            },
+            "residency": {
+                "before": {"rapid-mlx": {}, "ollama": {}},
+                "after": {"rapid-mlx": {"candidate-model": 1}, "ollama": {"other": 1}},
+            },
+        },
+        failures,
+    )
+
+    assert any("contaminated: ollama resident set changed" in item for item in failures)
+
+
 def test_omlx_served_ids_send_the_api_key_and_fail_closed(monkeypatch) -> None:
     monkeypatch.setenv("OMLX_API_KEY", "test-key")
     captured: dict[str, object] = {}
@@ -525,6 +548,17 @@ def test_completion_text_adds_reasoning_fields() -> None:
         }
     )
     assert text == "Here are three planets\nThe user asks"
+
+
+def test_completion_text_includes_tool_name_and_arguments() -> None:
+    text = completion_text(
+        {
+            "content": "OK",
+            "tool_calls": [{"function": {"name": "get_weather", "arguments": '{"city":"Boston"}'}}],
+        }
+    )
+
+    assert text == 'OK\nget_weather\n{"city":"Boston"}'
 
 
 def test_preflight_grade_and_unknown_seat() -> None:

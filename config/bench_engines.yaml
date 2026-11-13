@@ -12,7 +12,7 @@ backends:
   - id: eval-openai
     type: eval_openai
     group: eval
-    url: ${PORTAL_EVAL_ENGINE_URL:-http://host.docker.internal:11234}
+    url: http://host.docker.internal:11234
     health_path: /v1/models
     priority: 10
     models:
@@ -24,3 +24,77 @@ backends:
         supports_tools: true
       - id: hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k
         supports_tools: false
+  - id: eval-openai-rapid-mlx
+    type: eval_openai
+    group: eval
+    url: http://host.docker.internal:11235
+    health_path: /v1/models
+    priority: 10
+    models: &engine_eval_models
+      - {id: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp, supports_tools: true}
+      - {id: Qwen3.8-27B-4bit, supports_tools: true}
+      - {id: gemma-4-26b-a4b-it-QAT-4bit, supports_tools: true}
+      - {id: hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k, supports_tools: false}
+  - id: eval-openai-vllm-mlx
+    type: eval_openai
+    group: eval
+    url: http://host.docker.internal:11236
+    health_path: /v1/models
+    priority: 10
+    models: *engine_eval_models
+  - id: eval-openai-mlx_lm.server
+    type: eval_openai
+    group: eval
+    url: http://host.docker.internal:11237
+    health_path: /v1/models
+    priority: 10
+    models: *engine_eval_models
+  - id: eval-openai-prismml-llama
+    type: eval_openai
+    group: eval
+    url: http://host.docker.internal:11238
+    health_path: /v1/models
+    priority: 10
+    models: *engine_eval_models
+  - id: eval-openai-prismml-mlx
+    type: eval_openai
+    group: eval
+    url: http://host.docker.internal:11239
+    health_path: /v1/models
+    priority: 10
+    models: *engine_eval_models
+  - id: eval-openai-brew-llama
+    type: eval_openai
+    group: eval
+    url: http://host.docker.internal:11240
+    health_path: /v1/models
+    priority: 10
+    models: *engine_eval_models
+  - id: eval-openai-mtplx
+    type: eval_openai
+    group: eval
+    url: http://host.docker.internal:11241
+    health_path: /v1/models
+    priority: 10
+    models: *engine_eval_models
+  - id: eval-openai-splash
+    type: eval_openai
+    group: eval
+    url: http://host.docker.internal:11242
+    health_path: /v1/models
+    priority: 10
+    models: *engine_eval_models
+  - id: eval-openai-mlxcel
+    type: eval_openai
+    group: eval
+    url: http://host.docker.internal:11243
+    health_path: /v1/models
+    priority: 10
+    models: *engine_eval_models
+  - id: eval-openai-vllm-metal
+    type: eval_openai
+    group: eval
+    url: http://host.docker.internal:11244
+    health_path: /v1/models
+    priority: 10
+    models: *engine_eval_models

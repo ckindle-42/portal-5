@@ -36,7 +36,12 @@ def test_eval_group_hints_resolve_on_the_eval_backend(monkeypatch: pytest.Monkey
     audit._audit_routable(seats, backends, rows)
     assert rows == []
     served = audit._served_path("bench-engine-coding", _QWEN, reg)
-    assert served == ("eval_openai", "eval-openai", _QWEN)
+    assert served is not None
+    assert served[0] == "eval_openai"
+    assert served[1] in {
+        backend.id for backend in reg.list_backends() if backend.type == "eval_openai"
+    }
+    assert served[2] == _QWEN
 
 
 def test_an_eval_only_hint_on_a_production_group_stays_unroutable() -> None:

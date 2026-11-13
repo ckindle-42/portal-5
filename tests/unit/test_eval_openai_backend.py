@@ -33,13 +33,44 @@ def test_include_eval_backends_loads_the_eval_group_while_eval_stays_off(
     reg = BackendRegistry(config_path=CONFIG, include_eval_backends=True)
     assert "eval-openai" in {b.id for b in reg.list_backends()}
     coding = reg.get_backend_candidates("bench-engine-coding")
-    assert [b.id for b in coding] == ["eval-openai"]
+    assert "eval-openai" in {b.id for b in coding}
     assert coding[0].resolve_model("Qwen3.8-27B-4bit") == "Qwen3.8-27B-4bit"
     production = reg.get_backend_candidates("auto-coding")
     assert production
     assert all(b.type != "eval_openai" for b in production)
     off = BackendRegistry(config_path=CONFIG)
     assert "eval-openai" not in {b.id for b in off.list_backends()}
+
+
+def test_each_managed_candidate_has_a_fixed_eval_backend_port(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PORTAL_ENABLE_EVAL", "1")
+    registry = BackendRegistry(config_path=CONFIG, include_eval_backends=True)
+    expected = {
+        "mlx-serve": 11234,
+        "rapid-mlx": 11235,
+        "vllm-mlx": 11236,
+        "mlx_lm.server": 11237,
+        "prismml-llama": 11238,
+        "prismml-mlx": 11239,
+        "brew-llama": 11240,
+        "mtplx": 11241,
+        "splash": 11242,
+        "mlxcel": 11243,
+        "vllm-metal": 11244,
+    }
+    by_id = {backend.id: backend for backend in registry.list_backends()}
+    for engine, port in expected.items():
+        backend_id = "eval-openai" if engine == "mlx-serve" else f"eval-openai-{engine}"
+        assert by_id[backend_id].url == f"http://host.docker.internal:{port}"
+        assert by_id[backend_id].health_url.endswith("/v1/models")
+        assert by_id[backend_id].type == "eval_openai"
+
+    assert {b.id for b in registry.get_backend_candidates("bench-engine-coding")} == {
+        backend.id for backend in registry.list_backends() if backend.type == "eval_openai"
+    }
+    assert all(b.type != "eval_openai" for b in registry.get_backend_candidates("auto-coding"))
 
 
 def test_exclusive_ids_do_not_fall_through_when_eval_is_off(
@@ -59,7 +90,9 @@ def test_enabled_eval_backend_is_exclusive_and_not_a_degrade_target(
 ) -> None:
     reg = _registry(monkeypatch, True)
     coding = reg.get_backend_candidates("bench-engine-coding")
-    assert [b.id for b in coding] == ["eval-openai"]
+    assert {b.id for b in coding} == {
+        backend.id for backend in reg.list_backends() if backend.type == "eval_openai"
+    }
     assert coding[0].type == "eval_openai"
     assert coding[0].health_url.endswith("/v1/models")
     assert coding[0].resolve_model("Qwen3.8-27B-4bit") == "Qwen3.8-27B-4bit"
@@ -69,15 +102,9 @@ def test_enabled_eval_backend_is_exclusive_and_not_a_degrade_target(
     assert all(b.type != "eval_openai" for b in production)
 
 
-@pytest.mark.parametrize(
-    ("override", "expected"),
-    [
-        (None, "http://host.docker.internal:11234"),
-        ("http://eval-engine:11234", "http://eval-engine:11234"),
-    ],
-)
-def test_eval_engine_url_uses_host_default_and_environment_override(
-    monkeypatch: pytest.MonkeyPatch, override: str | None, expected: str
+@pytest.mark.parametrize("override", [None, "http://eval-engine:11234"])
+def test_eval_engine_url_is_fixed_per_port(
+    monkeypatch: pytest.MonkeyPatch, override: str | None
 ) -> None:
     if override is None:
         monkeypatch.delenv("PORTAL_EVAL_ENGINE_URL", raising=False)
@@ -86,16 +113,14 @@ def test_eval_engine_url_uses_host_default_and_environment_override(
 
     registry = BackendRegistry(config_path=CONFIG, include_eval_backends=True)
     backend = next(b for b in registry.list_backends() if b.id == "eval-openai")
-    assert backend.url == expected
+    assert backend.url == "http://host.docker.internal:11234"
 
 
-def test_eval_engine_url_override_reaches_pipeline_container() -> None:
+def test_pipeline_container_does_not_have_a_switchable_eval_engine_url() -> None:
     compose = yaml.safe_load(Path("deploy/portal-5/docker-compose.yml").read_text(encoding="utf-8"))
     environment = compose["services"]["portal-pipeline"]["environment"]
     variables = dict(item.split("=", 1) for item in environment if isinstance(item, str))
-    assert variables["PORTAL_EVAL_ENGINE_URL"] == (
-        "${PORTAL_EVAL_ENGINE_URL:-http://host.docker.internal:11234}"
-    )
+    assert "PORTAL_EVAL_ENGINE_URL" not in variables
 
 
 def test_pipeline_health_counts_eval_backends_separately(monkeypatch: pytest.MonkeyPatch) -> None:
