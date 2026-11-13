@@ -5408,6 +5408,11 @@
       "kind": "historical_absent_ollama_tag",
       "exact_identity": "gemma4:e4b-it-qat-ctx8k",
       "observed_present": false,
+      "known_nonbench_config_references": [
+        "tools-specialist.variants.fast.model_hint",
+        "config/backends.yaml [ollama-general].models.id",
+        "config/backends.yaml [ollama-vision].models.id"
+      ],
       "known_attempt_artifacts": [
         "tests/benchmarks/results/omlx_v3_vision_followup2_ollama_20260806T010238Z.json",
         "tests/benchmarks/results/omlx_v3_vision_followup2_thinkoff_ollama_20260806T010441Z.json",
@@ -5418,17 +5423,20 @@
       ],
       "required_action": "Confirm absent exact identity after current job; check surviving aliases/other runtimes and stale references. Record removed-closed disposition with historical reason, or explicitly unknown reason if not recoverable. Do not repull merely to clear the ledger.",
       "proposed_disposition": "REMOVED_CLOSED",
-      "final_disposition": "REMOVED_CLOSED",
-      "decision_reason": "absent from store at closeout; old ledger keep-open (open-ended, not a purpose)",
-      "purpose_or_replacement": "close without repull; retire backends.yaml registration/stale references",
+      "final_disposition": "INTEGRATED",
+      "decision_reason": "Register correction 2026-11-13: the 2026-09-07 REMOVED_CLOSED row (historical absent tag) contradicted live seating. INTEGRATED because it is the wired model_hint of tools-specialist.variants.fast (config/portal.yaml) and a model id in config/backends.yaml groups ollama-general and ollama-vision. That variant is the 2026-09-25 context bake (context_limit 8192) of the seat whose parent gemma4:e4b-it-qat was INTEGRATED 2026-09-12 on WFE wfe_full_20260911 (9/9 home:coding, 9/9 discovery:research).",
+      "purpose_or_replacement": "tools-specialist::fast model_hint; backends registration in ollama-general and ollama-vision",
       "evidence_refs": [
         "audit Appendix A",
-        "tasks.json observed_present=false"
+        "tasks.json observed_present=false",
+        "config/portal.yaml tools-specialist.variants.fast.model_hint",
+        "config/backends.yaml ollama-general and ollama-vision models.id",
+        "docs/MODEL_FLEET_CLOSEOUT_20260906.tasks.json ollama:gemma4:e4b-it-qat INTEGRATED 2026-09-12"
       ],
       "closure_record_refs": [
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#gemma4-e4b-it-qat-ctx8k"
       ],
-      "closed_at": "2026-09-07 (determination; removal pending approval)",
+      "closed_at": "2026-11-13 (register correction: live tools-specialist::fast seat)",
       "verified_storage_effect_bytes": 0,
       "decision_question": null,
       "test_if_needed": null,
