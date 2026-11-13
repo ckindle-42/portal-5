@@ -1,8 +1,9 @@
-"""Eval-only OpenAI-compatible backend. Loaded beside production, never in its place.
+"""Eval-only OpenAI-compatible backends. Loaded beside production, never in its place.
 
 Production routing stays on the ``ollama`` and ``omlx`` groups. Bench workspaces
 listed in ``config/bench_engines.yaml`` are exclusive: a miss returns no
-candidate instead of falling through to a production engine.
+candidate instead of falling through to a production engine. Each candidate
+engine has a fixed port backend so switching needs no environment change.
 """
 
 from __future__ import annotations
