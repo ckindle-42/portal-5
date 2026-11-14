@@ -2599,6 +2599,9 @@ async def _build_streaming_request(
 
     if not _has_tools:
         backend_body.pop("portal_bite_max_hops", None)
+    from portal.platform.inference.tool_registry import canonicalise_eval_tools
+
+    canonicalise_eval_tools(backend_body, backend.type)
     trace_note(tools_offered=offered_tool_names(backend_body))
     return backend_body, effective_tools, _has_tools, _portal_no_tools
 

@@ -88,6 +88,10 @@ def _tool_schema(name: str) -> dict[str, Any]:
     return {"type": "function", "function": {"name": name, "parameters": {}}}
 
 
+async def _noop_refresh() -> None:
+    return None
+
+
 class _StreamResponse:
     status_code = 200
 
@@ -434,6 +438,45 @@ def _stub_tool_registry(monkeypatch: pytest.MonkeyPatch, registered_tools: list[
         "get_openai_tools",
         lambda names: [_tool_schema(name) for name in names if name in registered_tools],
     )
+
+
+@pytest.mark.anyio
+async def test_streaming_request_canonicalises_tool_schemas_for_an_eval_backend(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    schema = {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Get the current weather for a city",
+            "parameters": {
+                "type": "object",
+                "required": ["city"],
+                "properties": {"city": {"type": "string"}},
+            },
+        },
+    }
+    monkeypatch.setitem(streaming.WORKSPACES, "bench-engine-x", {"tools": ["get_weather"]})
+    monkeypatch.setattr(tool_registry.tool_registry, "refresh", _noop_refresh)
+    monkeypatch.setattr(tool_registry.tool_registry, "list_tool_names", lambda: ["get_weather"])
+    monkeypatch.setattr(tool_registry.tool_registry, "get_openai_tools", lambda _n: [schema])
+    monkeypatch.setattr(streaming, "_inject_omlx_options", lambda body, _workspace: body)
+    monkeypatch.setattr(streaming, "_model_supports_tools", lambda _model: True)
+    monkeypatch.setattr(streaming, "_select_explicit_required_tool", lambda *_args: None)
+    monkeypatch.setattr(streaming, "_resolve_persona_tool_choice", lambda _persona: None)
+    body = {"model": "bench-engine-x", "messages": [{"role": "user", "content": "hi"}]}
+
+    eval_body, *_ = await streaming._build_streaming_request(
+        body, SimpleNamespace(type="eval_openai"), "m", "bench-engine-x", ""
+    )
+    prod_body, *_ = await streaming._build_streaming_request(
+        body, SimpleNamespace(type="omlx"), "m", "bench-engine-x", ""
+    )
+
+    eval_parameters = eval_body["tools"][0]["function"]["parameters"]
+    prod_parameters = prod_body["tools"][0]["function"]["parameters"]
+    assert eval_parameters["properties"]["city"]["description"] == ""
+    assert "description" not in prod_parameters["properties"]["city"]
 
 
 @pytest.mark.anyio

@@ -1181,6 +1181,9 @@ async def _try_non_streaming(
                 len(_tools_arr),
             )
 
+    from portal.platform.inference.tool_registry import canonicalise_eval_tools
+
+    canonicalise_eval_tools(req_body, backend.type)
     trace_note(tools_offered=offered_tool_names(req_body))
 
     _prefill_refusal: str | None = None

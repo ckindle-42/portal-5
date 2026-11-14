@@ -43,6 +43,14 @@ from portal.platform.mcp_host.eval_scope import (
 
 logger = logging.getLogger(__name__)
 
+# Backend type of the eval-only arms (config/bench_engines.yaml). Only those get the
+# pre-render schema pass below; production backends never see it.
+EVAL_BACKEND_TYPE = "eval_openai"
+_SCHEMA_CHILD_KEYS = frozenset(
+    {"items", "additionalProperties", "contains", "propertyNames", "not", "if", "then", "else"}
+)
+_SCHEMA_LIST_KEYS = frozenset({"oneOf", "anyOf", "allOf", "prefixItems"})
+
 # MCP server base URLs — derived from the portal.yaml fleet table; env vars
 # MCP_<ID_UPPER>_URL override individual entries.
 _PORTAL_CONFIG = load_portal_config()
@@ -299,6 +307,82 @@ class ToolDefinition:
                 "parameters": self.parameters,
             },
         }
+
+
+def _template_safe_description(value: Any) -> str:
+    """oMLX coerces a non-string description with ``str()``; ``None`` becomes an empty one."""
+    if value is None:
+        return ""
+    return value if isinstance(value, str) else str(value)
+
+
+def canonicalise_schema(value: Any, *, is_schema: bool) -> Any:
+    """Sort object keys and default every schema node's description, as oMLX does."""
+    if isinstance(value, dict):
+        copied: dict[str, Any] = {}
+        for key in sorted(value):
+            child = value[key]
+            if key == "properties" and isinstance(child, dict):
+                copied[key] = {
+                    name: canonicalise_schema(child[name], is_schema=True) for name in sorted(child)
+                }
+            elif key in _SCHEMA_CHILD_KEYS:
+                copied[key] = canonicalise_schema(child, is_schema=True)
+            elif key in _SCHEMA_LIST_KEYS and isinstance(child, list):
+                copied[key] = [canonicalise_schema(item, is_schema=True) for item in child]
+            else:
+                copied[key] = canonicalise_schema(child, is_schema=False)
+        if is_schema:
+            copied["description"] = _template_safe_description(copied.get("description"))
+        return copied
+    if isinstance(value, list):
+        return [canonicalise_schema(item, is_schema=False) for item in value]
+    return value
+
+
+def canonicalise_tools_for_template(tools: list[Any]) -> list[Any]:
+    """The OpenAI ``tools`` array in the shape oMLX hands its chat template.
+
+    Mirrors ``omlx/api/tool_calling.py`` ``convert_tools_for_template`` (live 0.7.3,
+    line 3510) and ``_copy_schema_with_template_defaults`` (line 48): one
+    ``{type, function{name, description, parameters}}`` node per function, schema
+    object keys sorted, and a description key on every schema node.
+    """
+    converted: list[Any] = []
+    for tool in tools:
+        function = tool.get("function") if isinstance(tool, dict) else None
+        if not isinstance(function, dict) or tool.get("type") != "function":
+            converted.append(tool)
+            continue
+        parameters = function.get("parameters")
+        if parameters is None:
+            parameters = {"type": "object", "properties": {}}
+        converted.append(
+            {
+                "type": "function",
+                "function": {
+                    "name": function.get("name", ""),
+                    "description": _template_safe_description(function.get("description", "")),
+                    "parameters": canonicalise_schema(parameters, is_schema=False),
+                },
+            }
+        )
+    return converted
+
+
+def canonicalise_eval_tools(body: dict[str, Any], backend_type: str) -> None:
+    """Give every eval arm byte-identical tool schemas before it renders them.
+
+    oMLX canonicalises tool schemas before handing them to the chat template, so a
+    raw payload renders to a different prompt there than on an engine with no such
+    pass. Canonicalising once, here, makes both legs of an engine comparison see the
+    same bytes; oMLX's own pass on an already-canonical payload is idempotent.
+    """
+    if backend_type != EVAL_BACKEND_TYPE:
+        return
+    tools = body.get("tools")
+    if isinstance(tools, list) and tools:
+        body["tools"] = canonicalise_tools_for_template(tools)
 
 
 class ToolRegistry:
