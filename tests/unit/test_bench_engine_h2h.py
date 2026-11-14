@@ -774,11 +774,55 @@ def test_vllm_metal_covers_the_shortlist_seats(cfg):
     assert h.served_id(cfg, "vllm-metal", "qwen38_27b_h2h", "plain") == "Qwen3.8-27B-4bit"
 
 
-def test_vllm_metal_spec_cells_stay_null_until_the_model_matrix_is_read(cfg):
-    for model in VLLM_METAL_SEATS:
+def test_vllm_metal_spec_is_ngram_only_on_qwen(cfg):
+    """§ Seat-by-seat coding row: n-gram only. Hunt and Nemotron stay null."""
+    entry = h.spec_entry(cfg, "qwen38_27b_h2h", "vllm-metal")
+    assert entry["method"] == "ngram"
+    argv, _ = h.launch_command(cfg, "vllm-metal", "qwen38_27b_h2h", "spec")
+    assert "--no-async-scheduling" in argv
+    assert "ngram" in argv[argv.index("--speculative-config") + 1]
+    for model in ("gemma4_26b_a4b_qat", "nemotron_35_lightning"):
         assert h.spec_entry(cfg, model, "vllm-metal") is None, model
         with pytest.raises(SystemExit, match="no spec path"):
             h.launch_command(cfg, "vllm-metal", model, "spec")
+    with pytest.raises(SystemExit, match="no spec path"):
+        h.launch_command(cfg, "vllm-metal", "gemma4_26b_a4b_qat", "spec", seat="hunt")
+
+
+def test_vllm_metal_seat_argv_follows_the_researched_registry(cfg):
+    """Parse engines.vllm-metal.seats. No engine is started."""
+    coding, _cwd = h.launch_command(cfg, "vllm-metal", "qwen38_27b_h2h", "plain", seat="coding")
+    assert coding[coding.index("--served-model-name") + 1] == "Qwen3.8-27B-4bit"
+    assert "--trust-remote-code" in coding
+    assert coding[coding.index("--tool-call-parser") + 1] == "qwen3_xml"
+    assert coding[coding.index("--reasoning-parser") + 1] == "qwen3"
+    assert coding[coding.index("--gpu-memory-utilization") + 1] == "0.45"
+    assert coding[coding.index("--max-model-len") + 1] == "32768"
+    assert coding[coding.index("--max-num-seqs") + 1] == "4"
+    assert coding[coding.index("--max-num-batched-tokens") + 1] == "4096"
+    assert coding[coding.index("--port") + 1] == "11244"
+    assert "--no-enable-prefix-caching" in coding
+    assert "--enable-prefix-caching" not in coding
+    assert coding[coding.index("--chat-template") + 1].endswith(
+        "/qwen3.8-vllm-metal/froggeric-v22.1/chat_template.jinja"
+    )
+    assert _thinking_flag(coding) is True
+    assert "--kv-cache-memory-bytes" not in coding
+    spec, _cwd = h.launch_command(cfg, "vllm-metal", "qwen38_27b_h2h", "spec", seat="coding")
+    assert "--no-async-scheduling" in spec
+    assert spec[spec.index("--speculative-config") + 1] == (
+        '{"method":"ngram","num_speculative_tokens":3,"prompt_lookup_min":2,"prompt_lookup_max":3}'
+    )
+    hunt, _cwd = h.launch_command(cfg, "vllm-metal", "gemma4_26b_a4b_qat", "plain", seat="hunt")
+    assert hunt[hunt.index("--served-model-name") + 1] == "gemma-4-26b-a4b-it-QAT-4bit"
+    assert hunt[hunt.index("--tool-call-parser") + 1] == "gemma4"
+    assert hunt[hunt.index("--reasoning-parser") + 1] == "gemma4"
+    assert hunt[hunt.index("--max-model-len") + 1] == "16384"
+    assert hunt[hunt.index("--gpu-memory-utilization") + 1] == "0.45"
+    assert "--enable-prefix-caching" in hunt
+    assert "--no-enable-prefix-caching" not in hunt
+    assert "--default-chat-template-kwargs" not in hunt
+    assert "--chat-template" not in hunt
 
 
 def test_vllm_metal_spec_args_splice_where_the_doc_wrote_spec_json(cfg, monkeypatch):
