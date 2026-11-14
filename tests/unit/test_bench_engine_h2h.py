@@ -169,6 +169,20 @@ def test_mtplx_only_covers_models_with_a_pack(cfg):
     assert not h.model_supports_engine(cfg, "vulnllm", "mtplx")
 
 
+def test_mtplx_coding_seat_loads_the_pack_and_serves_the_seat_id(cfg):
+    pack = "Qwen3.8-27B-MTPLX-Optimized-Speed"
+    assert h.model_supports_engine(cfg, "qwen38_27b_h2h", "mtplx")
+    assert pack != cfg["models"]["qwen38_27b_h2h"]["mlx"]
+    plain, _ = h.launch_command(cfg, "mtplx", "qwen38_27b_h2h", "plain")
+    spec, _ = h.launch_command(cfg, "mtplx", "qwen38_27b_h2h", "spec")
+    for argv in (plain, spec):
+        assert argv[argv.index("--model") + 1] == f"{cfg['mtplx_root']}/{pack}"
+        assert argv[argv.index("--model-id") + 1] == "Qwen3.8-27B-4bit"
+    assert plain[-1] == "--no-mtp" and "--mtp" not in plain
+    assert spec[-1] == "--mtp" and "--no-mtp" not in spec
+    assert h.served_id(cfg, "mtplx", "qwen38_27b_h2h", "spec") == "Qwen3.8-27B-4bit"
+
+
 def test_gguf_path_is_resolved_from_cache_and_spec_args_are_spliced(cfg, monkeypatch):
     monkeypatch.setattr(h, "gguf_path_for", lambda _cfg, _model: "/cache/anchor.gguf")
     argv, _ = h.launch_command(cfg, "prismml-llama", "anchor_v2_mtp_n1", "spec")
