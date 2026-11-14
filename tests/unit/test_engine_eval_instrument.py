@@ -224,6 +224,7 @@ def test_vllm_memory_gates_use_engine_readback_and_independent_vm_stat() -> None
             "expected_model": "hunt-model",
             "memory": {
                 **common,
+                "vm_wired_delta_gb": 24.54,
                 "engine_weight_gb": 24.3,
                 "engine_weight_field": "child_phys_footprint",
                 "child_pid": 2993,
@@ -243,6 +244,7 @@ def test_vllm_memory_gates_use_engine_readback_and_independent_vm_stat() -> None
             "expected_model": "hunt-model",
             "memory": {
                 **common,
+                "vm_wired_delta_gb": 15.1,
                 "engine_weight_gb": 16.02,
                 "engine_weight_field": "metal.active_memory_gb",
                 "engine_resident_decimal_gb": 17.2,
@@ -259,6 +261,32 @@ def test_vllm_memory_gates_use_engine_readback_and_independent_vm_stat() -> None
         mlx_failures,
     )
     assert mlx_failures == []
+
+
+def test_vllm_memory_gates_still_require_agreement_with_vm_stat_wired() -> None:
+    """A correct readback source does not excuse disagreement with independent wired pages."""
+    failures: list[str] = []
+    _check_memory(
+        {
+            "engine": "vllm-mlx",
+            "expected_model": "hunt-model",
+            "memory": {
+                "tree_walked": True,
+                "tree_rss_gb": 15.5,
+                "vm_wired_delta_gb": 9.0,
+                "engine_weight_gb": 16.02,
+                "engine_weight_field": "metal.active_memory_gb",
+                "vllm_mlx_status": {
+                    "status": "running",
+                    "readback_status": "readable",
+                    "active_memory_gb": 17.2,
+                },
+            },
+            "residency": {"before": {"vllm-mlx": {}}, "after": {"vllm-mlx": {}}},
+        },
+        failures,
+    )
+    assert any("vs wired delta" in f for f in failures)
 
 
 def test_vllm_memory_gates_fail_closed_when_native_readback_is_missing() -> None:

@@ -653,12 +653,11 @@ def _check_memory(evidence: dict[str, Any], failures: list[str]) -> None:
         _fail(failures, "memory: tree RSS or vm_stat wired delta missing")
         return
     engine = evidence.get("engine")
+    # The vLLM readbacks name the right source; agreement with vm_stat wired still gates.
     if engine == "vllm-metal":
         _check_vllm_metal_memory(memory, failures)
-        return
-    if engine == "vllm-mlx":
+    elif engine == "vllm-mlx":
         _check_vllm_mlx_memory(memory, failures)
-        return
     if not _agree(float(weight), float(wired)):
         resident_decimal = memory.get("engine_resident_decimal_gb")
         resident_detail = (
