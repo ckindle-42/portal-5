@@ -40,11 +40,9 @@ engine_eval:
     council-json: {workspace: bench-engine-council-json, model: qwen38_27b_h2h}
   excluded_cells:
     - {seat: coding, engine: splash, mode: plain, reason: "plain is null: Splash 1.6.1 always loads its registered DFlash2 drafter (docs/engine_research/mlxother_20261114.md § 3)"}
-    # docs/engine_research/vllm_20261114.md § Version-specific risks: both Qwen Metal cells stay
-    # excluded until a local-path canary. The on-disk processor_config.json still names
-    # Qwen3VLImageProcessor (transformers#48511). config/engine_artifacts_20261114.yaml is not on main.
-    - {seat: coding, engine: vllm-metal, mode: plain, reason: "local Qwen3.8-27B-4bit processor_config.json names Qwen3VLImageProcessor; froggeric v22.1 template and corrected revision are pending because config/engine_artifacts_20261114.yaml is not on main"}
-    - {seat: coding, engine: vllm-metal, mode: spec, reason: "local Qwen3.8-27B-4bit processor_config.json names Qwen3VLImageProcessor; froggeric v22.1 template and corrected revision are pending because config/engine_artifacts_20261114.yaml is not on main"}
+    # The plain Qwen cell is text-only and bypasses processor construction. Keep the
+    # speculative row excluded until the Qwen n-gram stream/load path is canaried.
+    - {seat: coding, engine: vllm-metal, mode: spec, reason: "Qwen n-gram speculative load and streaming remain unverified; this fix qualifies the plain text-only path"}
     - {seat: daily-moe, engine: mlxcel, mode: plain, reason: the approved matrix says mlxcel cannot read oQ4e}
     - {seat: daily-moe, engine: mlxcel, mode: spec, reason: the approved matrix says mlxcel cannot read oQ4e}
     - {seat: daily-moe, engine: rapid-mlx, mode: spec, reason: rapid-mlx 1.0.2 MTP eligibility is NONE for model_type nemotron_h (no mtp_num_hidden_layers; num_nextn_predict_layers is read only for hy_v3)}
@@ -285,6 +283,7 @@ engines:
     requires: mlx
     port: 11244
     version: "0.33.0"
+    environment: {VLLM_METAL_MULTIMODAL_MODE: text-only}
     # brew tap vllm-project/vllm-metal https://github.com/vllm-project/vllm-metal
     # brew install vllm-project/vllm-metal/vllm-metal
     # Stable channel is the 2026-11-04 release; the dev install script tracks main, do not use it.
@@ -301,6 +300,9 @@ engines:
     # The doc gives no --served-model-name, so vLLM serves the model path rather than {served}:
     # preflight `listed` is expected False until that flag is confirmed on this install.
     # stop_signal is unstated in the doc; the harness default INT applies.
+    # Qwen3.8's nested processor_config.json names a missing Qwen3VLImageProcessor on the local
+    # Transformers loader (transformers#48511). Leave model metadata unchanged: for this text-only
+    # coding route, v0.33.0's Metal override and --language-model-only skip processor construction.
     # 2026-11-13: 0.7 (the blog's 64 GB example) pushed swap to 7.4 GB beside the running stack and
     # tripped rule 3; 0.45 (~29 GB) holds every seat here plus KV. --served-model-name so the
     # request id matches (without it vLLM serves the path → 404). --trust-remote-code for the
@@ -309,14 +311,19 @@ engines:
     base_spec: [vllm, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --trust-remote-code, --host, 127.0.0.1, --port, "{port}", --gpu-memory-utilization, "0.45", --max-model-len, "{ctx}", --no-async-scheduling, --speculative-config, "{spec_args}"]
     # docs/engine_research/vllm_20261114.md § Shared 64 GB argv and § vllm-metal registry proposal.
     # {port} is this engine's 11244. Do not pin --kv-cache-memory-bytes. Unseated rows keep plain/base_spec.
-    # community_cache is the recipe default. The jinja file is not in the artifact manifest.
-    note: "OpenAI SSE. Qwen n-gram streaming is unverified; canary stream_options.include_usage=true. Speculation requires --no-async-scheduling. Memory readback is /metrics plus vm_stat, not RSS. Coding stays excluded until the local processor path and froggeric template are on disk."
+    # community_cache is the recipe default; see the pinned froggeric template source under coding.
+    note: "OpenAI SSE. Qwen n-gram streaming is unverified; canary stream_options.include_usage=true. Speculation requires --no-async-scheduling. Memory uses the EngineCore child footprint plus /metrics KV usage and vm_stat; RSS is diagnostic."
     community_cache: ~/.cache/qwen3.8-vllm-metal
     seat_base: [vllm, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --trust-remote-code, --host, 127.0.0.1, --port, "{port}", --gpu-memory-utilization, "0.45", --max-model-len, "{ctx}", --max-num-seqs, "4", --max-num-batched-tokens, "4096", --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}"]
     seats:
       # § Seat-by-seat coding row + registry proposal. auto-coding think is true.
-      # Processor: --trust-remote-code does not rewrite processor_config.json. Template path is the
-      # community froggeric v22.1 file; that file is pending. Served name matches the workspace hint.
+      # Processor configs are not rewritten: this coding route is text-only. Transformers issue:
+      # https://github.com/huggingface/transformers/issues/48511
+      # Template: https://huggingface.co/froggeric/Qwen-Fixed-Chat-Templates/tree/7126c90ca63673c674bae367f8ca23e084f50fcf
+      # Installed with `hf download froggeric/Qwen-Fixed-Chat-Templates chat_template.jinja
+      # --revision 7126c90ca63673c674bae367f8ca23e084f50fcf --local-dir ~/.cache/qwen3.8-vllm-metal/froggeric-v22.1`.
+      # SHA-256: e4d4955420645f1a65fb89fc1a4ed676fee7cd8214e76a3f520c8c8f33784da7
+      # Served name matches the workspace hint.
       coding:
         model_dir: Qwen3.8-27B-4bit
         served: Qwen3.8-27B-4bit
@@ -329,11 +336,12 @@ engines:
           - --no-enable-prefix-caching
           - --chat-template
           - "{community_cache}/froggeric-v22.1/chat_template.jinja"
+          - --language-model-only
         spec_argv:
           - --no-async-scheduling
           - --speculative-config
           - '{"method":"ngram","num_speculative_tokens":3,"prompt_lookup_min":2,"prompt_lookup_max":3}'
-        load_status: "excluded until the local processor path is cleared; community template is not in the artifact record"
+        load_status: "standalone plain load passed in 59.1s on vllm-metal 0.33.0; routed canary remains pending"
       # § Seat-by-seat hunt row. Prefix cache on. No MTP. hunt-reasoning sets no think field
       # (model default off), so enable_thinking is omitted despite the proposal's true.
       hunt:

@@ -370,7 +370,7 @@ engine_seats:
     research: docs/engine_research/vllm_20261114.md §vllm-metal
     seats:
       daily-moe: {status: candidate_experimental, artifacts: [{id: nemotron_mlx_4bit, purpose: standard_MLX_target_variant}], research: docs/engine_research/vllm_20261114.md §vllm-metal}
-      coding: {status: preflight_required, artifacts: [{id: qwen_mlx_4bit, purpose: plain_target}], note: "Existing local load failure Unrecognized image processor; n-gram speculation needs no external drafter.", research: [docs/engine_research/vllm_20261114.md §vllm-metal]}
+      coding: {status: preflight_required, artifacts: [{id: qwen_mlx_4bit, purpose: plain_target}], note: "Standalone plain load passed on vllm-metal 0.33.0 in text-only mode; routed canary remains required. The speculative n-gram path is unverified.", research: [docs/engine_research/vllm_20261114.md §vllm-metal]}
       council-json: {status: candidate_same_target, preflight_required: true, artifacts: [{id: qwen_mlx_4bit, purpose: plain_target}], research: [docs/ENGINE_EVAL_MATRIX_20261113.md §Council / JSON, docs/engine_research/vllm_20261114.md §vllm-metal]}
       hunt: {status: candidate_same_target_with_tuned_alternative, artifacts: [{id: gemma_qat_mlx_4bit, purpose: same_target_QAT}, {id: gemma_mlx_oq4_variant, purpose: engine_tuned_target_variant}], research: docs/engine_research/vllm_20261114.md §vllm-metal}
     excluded_seats: {task-router: configured Gemma E4B OBLITERATED is GGUF MoE and outside documented Metal support}

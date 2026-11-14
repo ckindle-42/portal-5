@@ -17,11 +17,17 @@ from tests.benchmarks import engine_eval_runner as runner
 
 
 def test_vllm_metal_candidate_cells_follow_the_researched_seats() -> None:
-    """Coding stays excluded. Hunt launches the Gemma seat with think unset."""
+    """The Qwen coding cell uses the v0.33 text path; hunt keeps think unset."""
     cells = [cell for cell in runner.candidate_cells() if cell["engine"] == "vllm-metal"]
     seats = {(cell["seat"], cell["mode"]) for cell in cells}
-    assert ("coding", "plain") not in seats
+    assert ("coding", "plain") in seats
     assert ("coding", "spec") not in seats
+    coding = next(cell for cell in cells if cell["seat"] == "coding" and cell["mode"] == "plain")
+    assert coding["launch_error"] is None
+    assert "--language-model-only" in coding["argv"]
+    assert coding["argv"][coding["argv"].index("--chat-template") + 1].endswith(
+        "/froggeric-v22.1/chat_template.jinja"
+    )
     hunt = next(cell for cell in cells if cell["seat"] == "hunt" and cell["mode"] == "plain")
     argv = hunt["argv"]
     assert hunt["launch_error"] is None
@@ -30,6 +36,90 @@ def test_vllm_metal_candidate_cells_follow_the_researched_seats() -> None:
     assert "--enable-prefix-caching" in argv
     assert "--default-chat-template-kwargs" not in argv
     assert hunt["model_hint"] == "gemma-4-26b-a4b-it-QAT-4bit"
+
+
+def test_vllm_metal_candidate_memory_uses_enginecore_footprint_and_metrics(monkeypatch) -> None:
+    outputs = {
+        "vm_stat": (
+            "Mach Virtual Memory Statistics: (page size of 16384 bytes)\n"
+            "Pages free: 2000.\nPages wired down: 2000.\n"
+        ),
+        "ps": "100 1 4096\n200 100 1048576\n",
+        "footprint-root": "phys_footprint: 1.26 GB\n",
+        "footprint-child": "phys_footprint: 23.50 GB\n",
+    }
+
+    def check_output(argv, **_kwargs):
+        if argv[0] == "vm_stat":
+            return outputs["vm_stat"]
+        if argv[0] == "ps":
+            return outputs["ps"]
+        if argv[:3] == ["footprint", "-p", "100"]:
+            return outputs["footprint-root"]
+        if argv[:3] == ["footprint", "-p", "200"]:
+            return outputs["footprint-child"]
+        raise AssertionError(argv)
+
+    monkeypatch.setattr(runner.subprocess, "check_output", check_output)
+    monkeypatch.setattr(runner.h2h, "pid_on_port", lambda _port: 100)
+    monkeypatch.setattr(
+        runner,
+        "_engine_memory_readback",
+        lambda engine, _port: {"kv_cache_usage_perc": [0.375]} if engine == "vllm-metal" else {},
+    )
+    memory = runner._candidate_memory(
+        "Mach Virtual Memory Statistics: (page size of 16384 bytes)\n"
+        "Pages free: 3000.\nPages wired down: 1000.\n",
+        11244,
+        "vllm-metal",
+        {"requires": "mlx"},
+        {},
+    )
+
+    assert memory["child_pid"] == 200
+    assert memory["engine_weight_field"] == "child_phys_footprint"
+    assert memory["engine_weight_gb"] == 23.5
+    assert memory["vllm_metal_metrics"]["kv_cache_usage_perc"] == [0.375]
+
+
+def test_vllm_mlx_candidate_memory_uses_status_not_root_footprint(monkeypatch) -> None:
+    def check_output(argv, **_kwargs):
+        if argv[0] == "vm_stat":
+            return (
+                "Mach Virtual Memory Statistics: (page size of 16384 bytes)\n"
+                "Pages free: 2000.\nPages wired down: 2000.\n"
+            )
+        if argv[0] == "ps":
+            return "100 1 4096\n"
+        if argv[:3] == ["footprint", "-p", "100"]:
+            return "phys_footprint: 16.00 GB\n"
+        raise AssertionError(argv)
+
+    monkeypatch.setattr(runner.subprocess, "check_output", check_output)
+    monkeypatch.setattr(runner.h2h, "pid_on_port", lambda _port: 100)
+    monkeypatch.setattr(
+        runner,
+        "_engine_memory_readback",
+        lambda _engine, _port: {
+            "status": "running",
+            "active_memory_gb": 17.2,
+            "peak_memory_gb": 18.1,
+            "cache_memory_gb": 1.58,
+        },
+    )
+    memory = runner._candidate_memory(
+        "Mach Virtual Memory Statistics: (page size of 16384 bytes)\n"
+        "Pages free: 3000.\nPages wired down: 1000.\n",
+        11246,
+        "vllm-mlx",
+        {"requires": "mlx"},
+        {},
+    )
+
+    assert memory["phys_footprint_gb"] == 16.0
+    assert memory["engine_resident_decimal_gb"] == 17.2
+    assert memory["engine_weight_field"] == "metal.active_memory_gb"
+    assert memory["engine_weight_gb"] == pytest.approx(17.2 / (1024**3 / 1_000_000_000))
 
 
 def test_vllm_mlx_candidate_cells_use_per_seat_launch_argv() -> None:

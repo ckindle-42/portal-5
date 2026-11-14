@@ -103,6 +103,37 @@ def test_memory_parsers_walk_the_tree_and_vm_stat() -> None:
     assert deltas["vm_free_delta_gb"] > 0
 
 
+def test_vllm_metal_metrics_readback_parses_kv_usage_gauges() -> None:
+    metrics = """
+# HELP vllm:kv_cache_usage_perc Fraction of used KV cache blocks.
+# TYPE vllm:kv_cache_usage_perc gauge
+vllm:kv_cache_usage_perc{engine="0"} 0.375
+vllm:num_requests_running 0
+"""
+
+    assert instrument.parse_vllm_metal_metrics(metrics) == {"kv_cache_usage_perc": [0.375]}
+
+
+def test_vllm_mlx_status_readback_parses_metal_memory() -> None:
+    status = instrument.parse_vllm_mlx_status(
+        {
+            "status": "running",
+            "metal": {
+                "active_memory_gb": 17.2,
+                "peak_memory_gb": 18.1,
+                "cache_memory_gb": 1.58,
+            },
+        }
+    )
+
+    assert status == {
+        "status": "running",
+        "active_memory_gb": 17.2,
+        "peak_memory_gb": 18.1,
+        "cache_memory_gb": 1.58,
+    }
+
+
 def test_memory_fixtures_compare_engine_weight_to_wired_without_double_counting() -> None:
     ollama = {
         "tree_walked": True,
@@ -173,6 +204,85 @@ def test_memory_fails_with_real_omlx_deltas_and_reports_resident_contamination()
     )
     assert any("contaminated: ollama resident set changed" in item for item in failures)
     assert any("engine resident 15.35GiB vs wired delta -8.57GiB" in item for item in failures)
+
+
+def test_vllm_memory_gates_use_engine_readback_and_independent_vm_stat() -> None:
+    common = {
+        "tree_walked": True,
+        "tree_rss_gb": 15.5,
+        "vm_wired_delta_gb": 13.14,
+        "vm_free_delta_gb": 4.0,
+    }
+    residency = {
+        "before": {"vllm-metal": {}, "vllm-mlx": {}},
+        "after": {"vllm-metal": {}, "vllm-mlx": {}},
+    }
+    metal_failures: list[str] = []
+    _check_memory(
+        {
+            "engine": "vllm-metal",
+            "expected_model": "hunt-model",
+            "memory": {
+                **common,
+                "engine_weight_gb": 24.3,
+                "engine_weight_field": "child_phys_footprint",
+                "child_pid": 2993,
+                "child_phys_footprint_gb": 24.3,
+                "vllm_metal_metrics": {"kv_cache_usage_perc": [0.375]},
+            },
+            "residency": residency,
+        },
+        metal_failures,
+    )
+    assert metal_failures == []
+
+    mlx_failures: list[str] = []
+    _check_memory(
+        {
+            "engine": "vllm-mlx",
+            "expected_model": "hunt-model",
+            "memory": {
+                **common,
+                "engine_weight_gb": 16.02,
+                "engine_weight_field": "metal.active_memory_gb",
+                "engine_resident_decimal_gb": 17.2,
+                "vllm_mlx_status": {
+                    "status": "running",
+                    "readback_status": "readable",
+                    "active_memory_gb": 17.2,
+                    "peak_memory_gb": 18.1,
+                    "cache_memory_gb": 1.58,
+                },
+            },
+            "residency": residency,
+        },
+        mlx_failures,
+    )
+    assert mlx_failures == []
+
+
+def test_vllm_memory_gates_fail_closed_when_native_readback_is_missing() -> None:
+    residency = {"before": {"vllm-metal": {}}, "after": {"vllm-metal": {}}}
+    failures: list[str] = []
+    _check_memory(
+        {
+            "engine": "vllm-metal",
+            "expected_model": "hunt-model",
+            "memory": {
+                "tree_walked": True,
+                "tree_rss_gb": 15.5,
+                "engine_weight_gb": 24.3,
+                "vm_wired_delta_gb": 13.14,
+                "child_pid": 2993,
+                "child_phys_footprint_gb": 24.3,
+                "vllm_metal_metrics": {"kv_cache_usage_perc": []},
+            },
+            "residency": residency,
+        },
+        failures,
+    )
+
+    assert any("vllm-metal /metrics KV cache usage missing" in item for item in failures)
 
 
 def test_residency_checks_candidate_engines_as_well_as_production_engines() -> None:
