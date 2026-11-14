@@ -413,8 +413,8 @@ def _descendant_pids(rows: list[tuple[int, int, int]], root: int) -> list[int] |
     return found
 
 
-def _splash_child_memory(rows: list[tuple[int, int, int]], root: int) -> dict[str, Any]:
-    """The native child holds the weights. The listener is the Python server."""
+def _largest_descendant_memory(rows: list[tuple[int, int, int]], root: int) -> dict[str, Any]:
+    """Read footprints below a listener whose engine core runs in a child."""
     descendants = _descendant_pids(rows, root) or []
     measured: list[dict[str, Any]] = []
     for pid in descendants:
@@ -441,6 +441,32 @@ def _resident_bytes(model_row: dict[str, Any]) -> float | None:
     )
 
 
+def _engine_memory_readback(engine: str, port: int) -> dict[str, Any]:
+    """Read the engine's documented memory endpoint for the two vLLM backends."""
+    endpoint = "/metrics" if engine == "vllm-metal" else "/v1/status"
+    url = f"http://127.0.0.1:{port}{endpoint}"
+    try:
+        with urllib.request.urlopen(url, timeout=10) as response:
+            raw = response.read().decode("utf-8", "replace")
+    except (OSError, TimeoutError, urllib.error.URLError):
+        return {"readback_status": "unreadable"}
+    if engine == "vllm-metal":
+        parsed = instrument.parse_vllm_metal_metrics(raw)
+        return {
+            **parsed,
+            "readback_status": "readable" if parsed["kv_cache_usage_perc"] else "unreadable",
+        }
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return {"readback_status": "unreadable"}
+    if not isinstance(payload, dict):
+        return {"readback_status": "unreadable"}
+    parsed = instrument.parse_vllm_mlx_status(payload)
+    readable = parsed.get("status") == "running" and parsed.get("active_memory_gb") is not None
+    return {**parsed, "readback_status": "readable" if readable else "unreadable"}
+
+
 def _weight_reading(
     engine: str,
     engine_cfg: dict[str, Any],
@@ -449,10 +475,23 @@ def _weight_reading(
     rss: float | None,
     footprint: float | None,
     child_gb: float | None,
+    mlx_active_memory_gb: float | None = None,
 ) -> tuple[float | None, str, str | None]:
-    """Pick the residency number the memory gate compares with vm_stat wired."""
+    """Pick the engine residency number and name its source for the memory gate."""
     if engine_cfg.get("requires") == "gguf":
         return rss, "process-tree RSS (llama.cpp maps the GGUF into its process)", None
+    if engine == "vllm-metal" and child_gb is not None:
+        return (
+            float(child_gb),
+            "macOS footprint phys_footprint of the largest vLLM EngineCore descendant",
+            "child_phys_footprint",
+        )
+    if engine == "vllm-mlx" and mlx_active_memory_gb is not None:
+        return (
+            float(mlx_active_memory_gb) * 1_000_000_000 / (1024**3),
+            "GET /v1/status metal.active_memory_gb",
+            "metal.active_memory_gb",
+        )
     if resident_bytes is not None:
         return resident_bytes / (1024**3), "GET /v1/models bytes_resident", "bytes_resident"
     if engine == "splash" and child_gb is not None:
@@ -473,7 +512,7 @@ def _candidate_memory(
     engine_cfg: dict[str, Any],
     model_row: dict[str, Any],
 ) -> dict[str, Any]:
-    """Compare one engine-specific residency reading with the vm_stat wired delta."""
+    """Collect engine-specific residency and independent vm_stat evidence."""
     try:
         vm_after = subprocess.check_output(["vm_stat"], text=True, timeout=10)
         rows = instrument.parse_ps_tree(
@@ -484,7 +523,11 @@ def _candidate_memory(
     root = h2h.pid_on_port(port)
     rss = instrument.tree_rss_gb(rows, root) if root else None
     footprint = _footprint_gb(root) if root and engine_cfg.get("requires") != "gguf" else None
-    child_memory = _splash_child_memory(rows, root) if engine == "splash" and root else None
+    child_memory = (
+        _largest_descendant_memory(rows, root)
+        if engine in {"splash", "vllm-metal"} and root
+        else None
+    )
     child_gb = None if child_memory is None else child_memory["child_phys_footprint_gb"]
     delta = (
         instrument.vm_deltas_gb(
@@ -493,6 +536,9 @@ def _candidate_memory(
         or {}
     )
     resident_bytes = _resident_bytes(model_row)
+    engine_readback = (
+        _engine_memory_readback(engine, port) if engine in {"vllm-metal", "vllm-mlx"} else {}
+    )
     primary, source, resident_field = _weight_reading(
         engine,
         engine_cfg,
@@ -500,25 +546,41 @@ def _candidate_memory(
         rss=rss,
         footprint=footprint,
         child_gb=child_gb,
+        mlx_active_memory_gb=engine_readback.get("active_memory_gb")
+        if engine == "vllm-mlx"
+        else None,
+    )
+    resident_decimal = (
+        engine_readback.get("active_memory_gb")
+        if engine == "vllm-mlx"
+        else resident_bytes / 1_000_000_000
+        if resident_bytes is not None
+        else None
     )
     reading = {
         "tree_walked": root is not None and rss is not None,
         "tree_rss_gb": rss,
         "phys_footprint_gb": footprint,
         "engine_resident_bytes": resident_bytes,
-        "engine_resident_decimal_gb": resident_bytes / 1_000_000_000
-        if resident_bytes is not None
-        else None,
+        "engine_resident_decimal_gb": resident_decimal,
         "engine_weight_gb": primary,
         "engine_weight_unit": "GiB",
         "engine_weight_field": resident_field,
         "engine_weight_source": source,
-        "engine_weight_reason": "sampled after the first completed request; compared in GiB with independent vm_stat wired pages",
+        "engine_weight_reason": (
+            "native engine readback and vm_stat are recorded as independent memory surfaces"
+            if engine in {"vllm-metal", "vllm-mlx"}
+            else "sampled after the first completed request; compared in GiB with independent vm_stat wired pages"
+        ),
         "engine": engine,
         **delta,
     }
     if child_memory is not None:
         reading.update(child_memory)
+    if engine == "vllm-metal":
+        reading["vllm_metal_metrics"] = engine_readback
+    elif engine == "vllm-mlx":
+        reading["vllm_mlx_status"] = engine_readback
     return reading
 
 
@@ -3058,9 +3120,14 @@ def _process_sample(cell: dict[str, Any]) -> dict[str, Any]:
     tree_rss = instrument.tree_rss_gb(rows, pid)
     engine = cell["engine"]
     engine_cfg = cfg["engines"][engine]
-    child_memory = _splash_child_memory(rows, pid) if engine == "splash" else None
+    child_memory = (
+        _largest_descendant_memory(rows, pid) if engine in {"splash", "vllm-metal"} else None
+    )
     child_gb = None if child_memory is None else child_memory["child_phys_footprint_gb"]
     resident_bytes = _resident_bytes(model_row)
+    engine_readback = (
+        _engine_memory_readback(engine, int(port)) if engine in {"vllm-metal", "vllm-mlx"} else {}
+    )
     primary_gb, primary_source, _field = _weight_reading(
         engine,
         engine_cfg,
@@ -3068,6 +3135,9 @@ def _process_sample(cell: dict[str, Any]) -> dict[str, Any]:
         rss=tree_rss,
         footprint=footprint,
         child_gb=child_gb,
+        mlx_active_memory_gb=engine_readback.get("active_memory_gb")
+        if engine == "vllm-mlx"
+        else None,
     )
     sample = {
         "candidate_resident_gb": primary_gb,
@@ -3080,6 +3150,10 @@ def _process_sample(cell: dict[str, Any]) -> dict[str, Any]:
     }
     if child_memory is not None:
         sample.update(child_memory)
+    if engine == "vllm-metal":
+        sample["vllm_metal_metrics"] = engine_readback
+    elif engine == "vllm-mlx":
+        sample["vllm_mlx_status"] = engine_readback
     return sample
 
 

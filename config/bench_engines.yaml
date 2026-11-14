@@ -147,5 +147,5 @@ backends:
     health_path: /v1/models
     priority: 10
     # docs/engine_research/vllm_20261114.md § vllm-metal 0.33.0 shared argv and registry proposal.
-    note: "Per-seat argv is tests/benchmarks/engine_h2h.yaml engines.vllm-metal.seats. Served ids unchanged. Coding think on; hunt-reasoning leaves think unset. Qwen n-gram SSE is unverified (include_usage). Memory is /metrics plus vm_stat. Froggeric v22.1 template and the corrected Qwen processor revision are pending: config/engine_artifacts_20261114.yaml is not on main."
+    note: "Per-seat argv is tests/benchmarks/engine_h2h.yaml engines.vllm-metal.seats. Served ids unchanged. Coding think on; hunt-reasoning leaves think unset. Qwen n-gram SSE/spec is unverified (include_usage). Memory is the largest EngineCore descendant footprint plus /metrics KV usage and vm_stat. Plain Qwen coding loaded with VLLM_METAL_MULTIMODAL_MODE=text-only and --language-model-only; HF froggeric v22.1 template is pinned in the H2H row."
     models: *engine_eval_models

@@ -1,6 +1,7 @@
 """Pure-logic contracts for the engine head-to-head harness
 (tests/benchmarks/bench_engine_h2h.py). No network, no engines."""
 
+import copy
 import json
 import signal
 from pathlib import Path
@@ -722,6 +723,35 @@ def test_start_managed_threads_the_seat_into_the_launch_argv(monkeypatch):
     with pytest.raises(SystemExit, match="stop before popen"):
         h.start_managed({}, "vllm-mlx", "mimo", "plain")
     assert seen["seat"] is None
+
+
+def test_start_managed_applies_engine_environment(cfg, monkeypatch, tmp_path: Path):
+    local_cfg = copy.deepcopy(cfg)
+    local_cfg["engines"]["vllm-metal"]["environment"] = {"VLLM_METAL_MULTIMODAL_MODE": "text-only"}
+    captured = {}
+
+    class StartedProcess:
+        pid = 12345
+
+    def fake_popen(_argv, **kwargs):
+        captured.update(kwargs)
+        return StartedProcess()
+
+    monkeypatch.setattr(h, "STATE_DIR", tmp_path / "state")
+    monkeypatch.setattr(h.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(h, "wait_ready", lambda *_args, **_kwargs: 0.0)
+    logs = (tmp_path / "engine.stdout.log", tmp_path / "engine.stderr.log")
+
+    h.start_managed(
+        local_cfg,
+        "vllm-metal",
+        "qwen38_27b_h2h",
+        "plain",
+        seat="coding",
+        log_paths=logs,
+    )
+
+    assert captured["env"]["VLLM_METAL_MULTIMODAL_MODE"] == "text-only"
 
 
 def test_mlxcel_pins_parallel_batch_without_prompt_lookup(cfg):

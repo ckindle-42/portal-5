@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import math
 import os
 import plistlib
 import re
@@ -416,6 +417,35 @@ def vm_deltas_gb(before: dict[str, int], after: dict[str, int]) -> dict[str, flo
     }
 
 
+def parse_vllm_metal_metrics(text: str) -> dict[str, list[float]]:
+    """Read vLLM Metal's Prometheus KV-cache usage gauge values."""
+    pattern = re.compile(
+        r"^vllm:kv_cache_usage_perc(?:\{[^}]*\})?\s+([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)"
+        r"(?:\s+\d+)?\s*$"
+    )
+    values = []
+    for line in text.splitlines():
+        match = pattern.match(line.strip())
+        if match:
+            values.append(float(match.group(1)))
+    return {"kv_cache_usage_perc": values}
+
+
+def parse_vllm_mlx_status(payload: dict[str, Any]) -> dict[str, Any]:
+    """Read the documented /v1/status Metal memory fields from vllm-mlx."""
+    metal = payload.get("metal")
+    metal = metal if isinstance(metal, dict) else {}
+    result: dict[str, Any] = {"status": payload.get("status")}
+    for name in ("active_memory_gb", "peak_memory_gb", "cache_memory_gb"):
+        value = metal.get(name)
+        result[name] = (
+            float(value)
+            if isinstance(value, (int, float)) and not isinstance(value, bool)
+            else None
+        )
+    return result
+
+
 def parse_ps_tree(text: str) -> list[tuple[int, int, int]]:
     """Rows of ``pid ppid rss_kb`` from ``ps -axo pid=,ppid=,rss=``."""
     rows: list[tuple[int, int, int]] = []
@@ -622,6 +652,13 @@ def _check_memory(evidence: dict[str, Any], failures: list[str]) -> None:
     if rss is None or wired is None:
         _fail(failures, "memory: tree RSS or vm_stat wired delta missing")
         return
+    engine = evidence.get("engine")
+    if engine == "vllm-metal":
+        _check_vllm_metal_memory(memory, failures)
+        return
+    if engine == "vllm-mlx":
+        _check_vllm_mlx_memory(memory, failures)
+        return
     if not _agree(float(weight), float(wired)):
         resident_decimal = memory.get("engine_resident_decimal_gb")
         resident_detail = (
@@ -633,6 +670,46 @@ def _check_memory(evidence: dict[str, Any], failures: list[str]) -> None:
             f"memory: engine resident {float(weight):.2f}GiB{resident_detail} vs wired delta "
             f"{float(wired):.2f}GiB (tolerance max(2GiB, 15%)={tolerance:.2f}GiB)",
         )
+
+
+def _check_vllm_metal_memory(memory: dict[str, Any], failures: list[str]) -> None:
+    child = memory.get("child_phys_footprint_gb")
+    if (
+        memory.get("child_pid") is None
+        or memory.get("engine_weight_field") != "child_phys_footprint"
+        or not isinstance(child, (int, float))
+        or isinstance(child, bool)
+        or not math.isfinite(float(child))
+        or child <= 0
+    ):
+        _fail(failures, "memory: vllm-metal EngineCore descendant footprint unread")
+    metrics = memory.get("vllm_metal_metrics")
+    values = metrics.get("kv_cache_usage_perc") if isinstance(metrics, dict) else None
+    if (
+        not isinstance(values, list)
+        or not values
+        or any(
+            not isinstance(value, (int, float)) or isinstance(value, bool) or not 0 <= value <= 1
+            for value in values
+        )
+    ):
+        _fail(failures, "memory: vllm-metal /metrics KV cache usage missing or invalid")
+
+
+def _check_vllm_mlx_memory(memory: dict[str, Any], failures: list[str]) -> None:
+    status = memory.get("vllm_mlx_status")
+    active = status.get("active_memory_gb") if isinstance(status, dict) else None
+    if (
+        not isinstance(status, dict)
+        or status.get("status") != "running"
+        or status.get("readback_status") != "readable"
+        or not isinstance(active, (int, float))
+        or isinstance(active, bool)
+        or not math.isfinite(float(active))
+        or active <= 0
+        or memory.get("engine_weight_field") != "metal.active_memory_gb"
+    ):
+        _fail(failures, "memory: vllm-mlx /v1/status Metal active memory unread")
 
 
 def _check_residency(evidence: dict[str, Any], failures: list[str]) -> None:

@@ -802,6 +802,8 @@ def start_managed(
     stdout_log.parent.mkdir(parents=True, exist_ok=True)
     stderr_log.parent.mkdir(parents=True, exist_ok=True)
     env = {**os.environ, "DO_NOT_TRACK": "1", "RAPID_MLX_TELEMETRY": "0"}
+    configured_env = cfg["engines"][engine].get("environment") or {}
+    env.update({str(key): str(value) for key, value in configured_env.items()})
     with stdout_log.open("w") as stdout, stderr_log.open("w") as stderr:
         proc = subprocess.Popen(
             argv, cwd=cwd, stdout=stdout, stderr=stderr, env=env, start_new_session=True
