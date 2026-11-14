@@ -16,6 +16,22 @@ from tests.benchmarks import engine_eval_instrument as instrument
 from tests.benchmarks import engine_eval_runner as runner
 
 
+def test_vllm_metal_candidate_cells_follow_the_researched_seats() -> None:
+    """Coding stays excluded. Hunt launches the Gemma seat with think unset."""
+    cells = [cell for cell in runner.candidate_cells() if cell["engine"] == "vllm-metal"]
+    seats = {(cell["seat"], cell["mode"]) for cell in cells}
+    assert ("coding", "plain") not in seats
+    assert ("coding", "spec") not in seats
+    hunt = next(cell for cell in cells if cell["seat"] == "hunt" and cell["mode"] == "plain")
+    argv = hunt["argv"]
+    assert hunt["launch_error"] is None
+    assert argv[argv.index("--tool-call-parser") + 1] == "gemma4"
+    assert argv[argv.index("--reasoning-parser") + 1] == "gemma4"
+    assert "--enable-prefix-caching" in argv
+    assert "--default-chat-template-kwargs" not in argv
+    assert hunt["model_hint"] == "gemma-4-26b-a4b-it-QAT-4bit"
+
+
 def test_vllm_mlx_candidate_cells_use_per_seat_launch_argv() -> None:
     """The canary cell argv is the seated registry, not the global think-off template."""
     wanted = {

@@ -39,8 +39,11 @@ engine_eval:
     council-json: {workspace: bench-engine-council-json, model: qwen38_27b_h2h}
   excluded_cells:
     - {seat: coding, engine: splash, mode: plain, reason: Splash 1.6.1 always loads its registered DFlash2 drafter}
-    - {seat: coding, engine: vllm-metal, mode: plain, reason: the approved matrix records an Unrecognized image processor load failure}
-    - {seat: coding, engine: vllm-metal, mode: spec, reason: the approved matrix records an Unrecognized image processor load failure}
+    # docs/engine_research/vllm_20261114.md § Version-specific risks: both Qwen Metal cells stay
+    # excluded until a local-path canary. The on-disk processor_config.json still names
+    # Qwen3VLImageProcessor (transformers#48511). config/engine_artifacts_20261114.yaml is not on main.
+    - {seat: coding, engine: vllm-metal, mode: plain, reason: "local Qwen3.8-27B-4bit processor_config.json names Qwen3VLImageProcessor; froggeric v22.1 template and corrected revision are pending because config/engine_artifacts_20261114.yaml is not on main"}
+    - {seat: coding, engine: vllm-metal, mode: spec, reason: "local Qwen3.8-27B-4bit processor_config.json names Qwen3VLImageProcessor; froggeric v22.1 template and corrected revision are pending because config/engine_artifacts_20261114.yaml is not on main"}
     - {seat: daily-moe, engine: mlxcel, mode: plain, reason: the approved matrix says mlxcel cannot read oQ4e}
     - {seat: daily-moe, engine: mlxcel, mode: spec, reason: the approved matrix says mlxcel cannot read oQ4e}
     - {seat: daily-moe, engine: rapid-mlx, mode: spec, reason: rapid-mlx 1.0.2 MTP eligibility is NONE for model_type nemotron_h (no mtp_num_hidden_layers; num_nextn_predict_layers is read only for hy_v3)}
@@ -272,6 +275,43 @@ engines:
     # Qwen3.8 processor.
     plain: [vllm, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --trust-remote-code, --host, 127.0.0.1, --port, "{port}", --gpu-memory-utilization, "0.45", --max-model-len, "{ctx}"]
     base_spec: [vllm, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --trust-remote-code, --host, 127.0.0.1, --port, "{port}", --gpu-memory-utilization, "0.45", --max-model-len, "{ctx}", --no-async-scheduling, --speculative-config, "{spec_args}"]
+    # docs/engine_research/vllm_20261114.md § Shared 64 GB argv and § vllm-metal registry proposal.
+    # {port} is this engine's 11244. Do not pin --kv-cache-memory-bytes. Unseated rows keep plain/base_spec.
+    # community_cache is the recipe default. The jinja file is not in the artifact manifest.
+    note: "OpenAI SSE. Qwen n-gram streaming is unverified; canary stream_options.include_usage=true. Speculation requires --no-async-scheduling. Memory readback is /metrics plus vm_stat, not RSS. Coding stays excluded until the local processor path and froggeric template are on disk."
+    community_cache: ~/.cache/qwen3.8-vllm-metal
+    seat_base: [vllm, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --trust-remote-code, --host, 127.0.0.1, --port, "{port}", --gpu-memory-utilization, "0.45", --max-model-len, "{ctx}", --max-num-seqs, "4", --max-num-batched-tokens, "4096", --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}"]
+    seats:
+      # § Seat-by-seat coding row + registry proposal. auto-coding think is true.
+      # Processor: --trust-remote-code does not rewrite processor_config.json. Template path is the
+      # community froggeric v22.1 file; that file is pending. Served name matches the workspace hint.
+      coding:
+        model_dir: Qwen3.8-27B-4bit
+        served: Qwen3.8-27B-4bit
+        ctx: 32768
+        tool_parser: qwen3_xml
+        reasoning_parser: qwen3
+        enable_thinking: true
+        prefix_cache: false
+        seat_extra_argv:
+          - --no-enable-prefix-caching
+          - --chat-template
+          - "{community_cache}/froggeric-v22.1/chat_template.jinja"
+        spec_argv:
+          - --no-async-scheduling
+          - --speculative-config
+          - '{"method":"ngram","num_speculative_tokens":3,"prompt_lookup_min":2,"prompt_lookup_max":3}'
+        load_status: "excluded until the local processor path is cleared; community template is not in the artifact record"
+      # § Seat-by-seat hunt row. Prefix cache on. No MTP. hunt-reasoning sets no think field
+      # (model default off), so enable_thinking is omitted despite the proposal's true.
+      hunt:
+        model_dir: gemma-4-26b-a4b-it-QAT-4bit
+        ctx: 16384
+        tool_parser: gemma4
+        reasoning_parser: gemma4
+        prefix_cache: true
+        seat_extra_argv: [--enable-prefix-caching]
+        spec_argv: null
     readiness: {path: /v1/models, timeout_s: 300, collection: data, id_field: id}
 
 models:
@@ -574,7 +614,7 @@ models:
       omlx: null
       mlx_lm.server: null
       mlxcel: null
-      # vLLM Metal MTP method for this seat unread on v0.33.0: plain cell only.
+      # § Seat-by-seat hunt row: no documented MTP pair for Gemma 26B A4B QAT.
       vllm-metal: null
     na:
       splash: "not a splash family (1.5.0: Qwen3.8, Qwen3.6, Ornith, Flint, Flash-Next)"
@@ -614,8 +654,8 @@ models:
       mlxcel: {method: dflash, args: [--draft-model, "{drafter_path}", --draft-kind, dflash]}
       vllm-mlx: null
       mlx_lm.server: null
-      # vLLM Metal MTP method for this seat unread on v0.33.0: plain cell only.
-      vllm-metal: null
+      # § Seat-by-seat coding row: n-gram is the only eligible decode speculation. Greedy arm (temperature 0).
+      vllm-metal: {method: ngram, args: ['{"method":"ngram","num_speculative_tokens":3,"prompt_lookup_min":2,"prompt_lookup_max":3}']}
     quality_gate:
       tool_probe: preflight
       wfe_plan: tests/wfe/plans/engine_h2h_202611_qwen38.yaml
@@ -641,7 +681,7 @@ models:
       # No separate drafter file, and mlxcel MTP requires --draft-model. Plain mlxcel still runs.
       mlxcel: null
       mlx_lm.server: null
-      # vLLM Metal MTP method for this seat unread on v0.33.0: plain cell only.
+      # § Seat-by-seat daily-moe row: no MTP/draft on this Mamba2 hybrid. Plain cell only. Not a seated argv in this lane.
       vllm-metal: null
     na:
       splash: "not a splash family"
