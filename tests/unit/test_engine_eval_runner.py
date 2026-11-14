@@ -1514,6 +1514,148 @@ def test_co_residence_takes_its_swap_baseline_after_host_prep(monkeypatch) -> No
     assert result["valid"] is True
 
 
+def test_long_context_window_resolves_every_protocol_seat() -> None:
+    assert runner._long_context_tokens(_seat_cell()) == 32768
+    assert (
+        runner._long_context_tokens(_seat_cell(seat="coding", workspace="bench-engine-coding"))
+        == 98304
+    )
+    assert (
+        runner._long_context_tokens(
+            _seat_cell(seat="council-json", workspace="bench-engine-council-json")
+        )
+        == 32768
+    )
+    assert runner._long_context_tokens({"seat": "daily-moe"}) == 32768
+    assert (
+        runner._long_context_tokens(_seat_cell(seat="hunt", workspace="bench-engine-hunt")) is None
+    )
+
+
+def _mix_target() -> dict:
+    return {
+        "workspace": "bench-engine-hunt",
+        "backend": "eval-openai-vllm-mlx",
+        "expected_model": "gemma-4-26b-a4b-it-QAT-4bit",
+    }
+
+
+def test_hunt_json_mix_opts_out_of_workspace_tools(monkeypatch) -> None:
+    seen: dict = {}
+
+    def capture(target, _pipeline, _messages, **extra):
+        seen["extra"] = extra
+        return {
+            "text": '{"ok": true, "slot": "json-0"}',
+            "workspace": target["workspace"],
+            "backend": target["backend"],
+            "expected_model": target["expected_model"],
+            "engine_model": target["expected_model"],
+            "route": f"{target['workspace']};{target['backend']};{target['expected_model']}",
+        }
+
+    monkeypatch.setattr(runner, "_pipeline_request", capture)
+
+    row = runner._mix_request(_mix_target(), "http://pipeline", "json-0", True)
+
+    assert seen["extra"] == {"response_format": {"type": "json_object"}, "tools": []}
+    assert row["valid"] is True
+
+
+def test_chat_mix_matches_auto_daily_and_does_not_set_response_format(monkeypatch) -> None:
+    seen: dict = {}
+
+    def capture(target, _pipeline, _messages, **extra):
+        seen["extra"] = extra
+        return {
+            "text": "OK",
+            "workspace": target["workspace"],
+            "backend": target["backend"],
+            "expected_model": target["expected_model"],
+            "engine_model": target["expected_model"],
+            "route": f"{target['workspace']};{target['backend']};{target['expected_model']}",
+        }
+
+    monkeypatch.setattr(runner, "_pipeline_request", capture)
+    target = {**_mix_target(), "workspace": "bench-engine-daily-moe"}
+
+    row = runner._mix_request(target, "http://pipeline", "chat-0", False)
+
+    assert seen["extra"] == {}
+    assert row["valid"] is True
+
+
+def test_mix_http_rejection_is_a_failed_row_not_a_crash(monkeypatch) -> None:
+    def reject(*_args, **_kwargs):
+        raise runner.CandidateHTTPError(400, "tools and response_format cannot be combined")
+
+    monkeypatch.setattr(runner, "_pipeline_request", reject)
+
+    row = runner._mix_request(_mix_target(), "http://pipeline", "json-0", True)
+
+    assert row["valid"] is False
+    assert row["upstream_http"]["status"] == 400
+    assert "cannot be combined" in row["reason"]
+
+
+def test_workload_swap_growth_over_the_protocol_limit_fails_and_stops(monkeypatch) -> None:
+    monkeypatch.setattr(
+        runner.h2h,
+        "load_config",
+        lambda: {"guard": {"max_swap_growth_mb": 2048}},
+    )
+    monkeypatch.setattr(runner.h2h, "swap_now", lambda: {"used_mb": 7480})
+    result = {"valid": True, "status": "PASS", "reason": "status PASS"}
+
+    runner._record_workload_swap(result, 1900)
+
+    assert result["valid"] is False
+    assert result["status"] == "FAIL"
+    assert result["swap_stop"] is True
+    assert result["swap_before_mb"] == 1900
+    assert result["swap_after_mb"] == 7480
+    assert result["swap_growth_mb"] == 5580
+    assert "5580MB" in result["reason"]
+    assert "status PASS" in result["reason"]
+
+
+def test_summary_prints_pending_when_the_incumbent_has_not_run() -> None:
+    rows = runner._summary_rows(
+        [
+            {
+                "cell": {"engine": "mlx-serve", "mode": "plain", "seat": "daily-moe"},
+                "workloads": {},
+            }
+        ]
+    )
+
+    assert rows[0]["incumbent"] == "pending"
+    assert rows[0]["candidate"] == "mlx-serve:plain:daily-moe"
+
+
+def test_staged_cell_stops_after_a_workload_grows_swap(monkeypatch, tmp_path: Path) -> None:
+    calls: list[str] = []
+
+    def fake(_cell, name, build=None, pipeline=""):
+        calls.append(name)
+        if name == "long-context":
+            return {
+                "valid": False,
+                "status": "FAIL",
+                "reason": "swap grew 5580MB (before 1900MB, after 7480MB) > 2048MB",
+                "swap_gate": False,
+                "swap_stop": True,
+            }
+        return {"valid": True, "status": "PASS", "reason": "ok"}
+
+    monkeypatch.setattr(runner, "run_stage3", fake)
+
+    receipt = runner._run_staged_cell(_seat_cell(), tmp_path, "build-a", "http://pipeline")
+
+    assert calls == ["quality-seat", "tool-turn", "long-context"]
+    assert receipt["swap_stop"] is True
+
+
 def test_a_missing_forced_call_fails_the_tool_call_check() -> None:
     graded = runner._grade_cell_preflight(
         _seat_cell(),
