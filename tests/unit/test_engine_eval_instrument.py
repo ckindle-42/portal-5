@@ -172,7 +172,7 @@ def test_memory_fails_with_real_omlx_deltas_and_reports_resident_contamination()
         failures,
     )
     assert any("contaminated: ollama resident set changed" in item for item in failures)
-    assert any("engine weight 15.35GB vs wired delta -8.57GB" in item for item in failures)
+    assert any("engine resident 15.35GiB vs wired delta -8.57GiB" in item for item in failures)
 
 
 def test_residency_checks_candidate_engines_as_well_as_production_engines() -> None:
