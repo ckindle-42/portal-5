@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+from tests.benchmarks import engine_speed as speed
 from tests.benchmarks.engine_speed import (
     UNPROVEN,
     arm_stats,
     decide,
     decode_tps,
     judge_measurement,
+    judge_warmup,
     median,
     spread,
     summarize,
+    warmup_body,
 )
 
 _EXPECT = {
@@ -111,6 +114,29 @@ def test_a_route_or_request_failure_invalidates_the_comparison() -> None:
     assert summary["verdict"] == "invalid"
 
 
+def _measured(
+    *,
+    chunks: int,
+    ttft: float,
+    first: float,
+    last: float,
+    total: float,
+    tokens: int,
+) -> dict:
+    return {
+        "error": None,
+        "route": "bench-engine-coding;eval-openai-vllm-mlx;Qwen3.8-27B-4bit",
+        "ttft_s": ttft,
+        "first_s": first,
+        "last_s": last,
+        "total_s": total,
+        "completion_tokens": tokens,
+        "prompt_tokens": 10,
+        "http_status": 200,
+        "content_chunks": chunks,
+    }
+
+
 def test_missing_tokens_or_an_empty_interval_is_invalid() -> None:
     base = {
         "error": None,
@@ -122,6 +148,7 @@ def test_missing_tokens_or_an_empty_interval_is_invalid() -> None:
         "completion_tokens": 40,
         "prompt_tokens": 10,
         "http_status": 200,
+        "content_chunks": 5,
     }
     assert judge_measurement(base, _EXPECT)["reason"] == "decode interval is empty"
     missing = {**base, "last_s": 2.0, "completion_tokens": None, "ttft_s": None}
@@ -149,3 +176,181 @@ def test_a_matching_route_with_tokens_is_valid() -> None:
     )
     assert row["valid"] is True
     assert row["decode_tps"] == 50.0
+    assert row["streaming"] is True
+
+
+def test_two_or_fewer_chunks_record_throughput_not_decode() -> None:
+    burst = judge_measurement(
+        _measured(chunks=1, ttft=10.0, first=10.0, last=10.0, total=10.5, tokens=800),
+        _EXPECT,
+    )
+    assert burst["valid"] is True
+    assert burst["streaming"] is False
+    assert burst["decode_tps"] is None
+    assert burst["throughput_tok_s"] == 1600.0
+    assert burst["e2e_tok_s"] == 800 / 10.5
+    assert burst["reason"] != "decode interval is empty"
+
+    flat = judge_measurement(
+        _measured(chunks=2, ttft=4.0, first=4.0, last=4.0, total=4.0, tokens=80),
+        _EXPECT,
+    )
+    assert flat["streaming"] is False
+    assert flat["throughput_tok_s"] == 20.0
+
+    streamed = judge_measurement(
+        _measured(chunks=3, ttft=0.5, first=0.5, last=2.5, total=2.6, tokens=100),
+        _EXPECT,
+    )
+    assert streamed["streaming"] is True
+    assert streamed["decode_tps"] == 50.0
+    assert streamed["throughput_tok_s"] is None
+
+
+def test_a_burst_compares_end_to_end_throughput_for_both_arms() -> None:
+    rows: list[dict] = []
+    for repeat, cand_e2e in ((0, 50.0), (1, 51.0)):
+        rows.append(
+            {
+                **_row("candidate", repeat, 0.0),
+                "streaming": False,
+                "decode_tps": None,
+                "throughput_tok_s": 100000.0,
+                "e2e_tok_s": cand_e2e,
+            }
+        )
+        rows.append({**_row("incumbent", repeat, 100.0), "streaming": True, "e2e_tok_s": 20.0})
+    verdict = decide(rows)
+    assert verdict["metric"] == "e2e_tok_s"
+    assert verdict["verdict"] == "FASTER"
+    assert "did not stream" in verdict["reason"]
+    assert "end-to-end" in verdict["reason"]
+
+    one = [
+        {
+            **_row("candidate", 0, 1.0),
+            "streaming": False,
+            "decode_tps": None,
+            "throughput_tok_s": 1000.0,
+            "e2e_tok_s": 40.0,
+        },
+        {**_row("incumbent", 0, 100.0), "streaming": True, "e2e_tok_s": 10.0},
+    ]
+    unproven = decide(one)
+    assert unproven["verdict"] == UNPROVEN
+    assert unproven["metric"] == "e2e_tok_s"
+    assert "spread is undefined" in unproven["reason"]
+    assert "end-to-end" in unproven["reason"]
+
+
+def test_both_streaming_arms_keep_the_decode_comparison() -> None:
+    rows: list[dict] = []
+    for repeat, cand, inc in ((0, 20.0, 10.0), (1, 21.0, 10.5)):
+        rows.append({**_row("candidate", repeat, cand), "streaming": True, "e2e_tok_s": 5.0})
+        rows.append({**_row("incumbent", repeat, inc), "streaming": True, "e2e_tok_s": 40.0})
+    verdict = decide(rows)
+    assert verdict["metric"] == "decode_tps"
+    assert verdict["verdict"] == "FASTER"
+    assert "end-to-end" not in verdict["reason"]
+
+
+def test_warmup_is_short_same_seat_and_timed_separately(monkeypatch) -> None:
+    body = warmup_body("bench-engine-coding", "eval-openai-vllm-mlx")
+    assert body["model"] == "bench-engine-coding"
+    assert body["portal_backend"] == "eval-openai-vllm-mlx"
+    assert body["max_tokens"] == 16
+    assert body["messages"][0]["content"] == "Reply with ok."
+    failed = judge_warmup(
+        {
+            "error": "HTTP 500: down",
+            "route": "",
+            "http_status": 500,
+            "total_s": None,
+            "ttft_s": None,
+            "completion_tokens": None,
+        },
+        _EXPECT,
+    )
+    assert failed["warmup_s"] is None
+    assert failed["error"] == "HTTP 500: down"
+
+    calls: list[int] = []
+
+    def fake_stream(_pipeline: str, body: dict, _timeout_s: float = 1800.0) -> dict:
+        calls.append(int(body["max_tokens"]))
+        short = body["max_tokens"] == 16
+        return {
+            "error": None,
+            "route": "bench-engine-coding;eval-openai-vllm-mlx;Qwen3.8-27B-4bit",
+            "http_status": 200,
+            "ttft_s": 0.2,
+            "first_s": 0.2,
+            "last_s": 0.4 if short else 1.2,
+            "total_s": 0.5 if short else 9.0,
+            "completion_tokens": 4 if short else 100,
+            "prompt_tokens": 3,
+            "content_chunks": 1 if short else 4,
+        }
+
+    def ready(*_args: object, **_kwargs: object) -> dict:
+        return {"backend": {}}
+
+    monkeypatch.setattr(speed.runner, "wait_pipeline_eval_backend", ready)
+    monkeypatch.setattr(speed, "_resident", lambda *_a, **_k: {"available": False})
+    monkeypatch.setattr(speed, "stream_once", fake_stream)
+    record: dict = {}
+    speed._measure_loaded(
+        {},
+        "http://127.0.0.1:9099",
+        _EXPECT,
+        [{"id": "coding-01", "text": "timed prompt"}],
+        "incumbent",
+        0,
+        record,
+    )
+    assert calls == [16, 800]
+    assert record["warmup"]["warmup_s"] == 0.5
+    assert record["warmup"]["error"] is None
+    assert [row["prompt_id"] for row in record["rows"]] == ["coding-01"]
+    assert record["rows"][0]["total_s"] == 9.0
+    assert record["rows"][0]["ttft_s"] == 0.2
+
+
+def test_a_failed_warmup_is_not_a_timed_row(monkeypatch) -> None:
+    calls: list[int] = []
+
+    def fake_stream(_pipeline: str, body: dict, _timeout_s: float = 1800.0) -> dict:
+        calls.append(int(body["max_tokens"]))
+        return {
+            "error": "HTTP 500: down",
+            "route": "",
+            "http_status": 500,
+            "ttft_s": None,
+            "first_s": None,
+            "last_s": None,
+            "total_s": None,
+            "completion_tokens": None,
+            "prompt_tokens": None,
+            "content_chunks": 0,
+        }
+
+    def ready(*_args: object, **_kwargs: object) -> dict:
+        return {"backend": {}}
+
+    monkeypatch.setattr(speed.runner, "wait_pipeline_eval_backend", ready)
+    monkeypatch.setattr(speed, "_resident", lambda *_a, **_k: {"available": False})
+    monkeypatch.setattr(speed, "stream_once", fake_stream)
+    record: dict = {}
+    speed._measure_loaded(
+        {},
+        "http://127.0.0.1:9099",
+        _EXPECT,
+        [{"id": "coding-01", "text": "timed prompt"}],
+        "candidate",
+        0,
+        record,
+    )
+    assert calls == [16]
+    assert record["rows"][0]["prompt_id"] == "warmup"
+    assert record["rows"][0]["valid"] is False
+    assert str(record["rows"][0]["reason"]).startswith("warm-up failed:")
