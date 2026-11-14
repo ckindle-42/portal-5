@@ -1393,11 +1393,27 @@ def assemble_cell(spec: dict[str, Any], obs: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def grade_preflight(reply: str, tool: dict[str, Any], served: str | None) -> dict[str, Any]:
-    """Think-off, a real tool call, and a non-path served id. Anything else is REVIEW."""
+def grade_preflight(
+    reply: str,
+    tool: dict[str, Any],
+    served: str | None,
+    *,
+    tool_not_applicable: str | None = None,
+) -> dict[str, Any]:
+    """Think-off, a real tool call, and a non-path served id. Anything else is REVIEW.
+
+    ``tool_not_applicable`` names why this seat cannot receive tools at all (the
+    Pipeline strips them); the tool half is then excluded with its reason instead
+    of failing. The think-off and served-id halves still apply.
+    """
     served_ok = isinstance(served, str) and not served_id_is_filesystem_path(served)
     think_ok = reply.upper().startswith("OK") and "<think>" not in reply.lower()
-    verdict = "OK" if served_ok and think_ok and tool.get("ok") else "REVIEW"
+    if tool_not_applicable:
+        tool = {**_exclude(f"not applicable: {tool_not_applicable}"), "applicable": False}
+        tool_ok = True
+    else:
+        tool_ok = bool(tool.get("ok"))
+    verdict = "OK" if served_ok and think_ok and tool_ok else "REVIEW"
     return {
         "verdict": verdict,
         "think_off_reply": reply[:80],

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import io
 import json
 import urllib.error
@@ -214,7 +215,7 @@ def test_candidate_memory_uses_engine_readback_after_first_completion(monkeypatc
     monkeypatch.setattr(
         runner.instrument,
         "grade_preflight",
-        lambda _reply, _tool, served: {"verdict": "OK", "served_model_id": served},
+        lambda _reply, _tool, served, **_kwargs: {"verdict": "OK", "served_model_id": served},
     )
     monkeypatch.setattr(runner, "_candidate_tokenizer", lambda _cfg, _cell: None)
 
@@ -1213,7 +1214,11 @@ def test_preflight_sends_think_off_without_tools_and_a_separate_forced_call(monk
     monkeypatch.setattr(
         runner.instrument,
         "grade_preflight",
-        lambda reply, tool, served: {"verdict": "OK", "think_off_reply": reply, "tool_call": tool},
+        lambda reply, tool, served, **_kwargs: {
+            "verdict": "OK",
+            "think_off_reply": reply,
+            "tool_call": tool,
+        },
     )
 
     ctx = runner._candidate_cell_inputs(cell, "http://pipeline", vm_before="vm", resident_before={})
@@ -1242,16 +1247,183 @@ def test_prose_under_a_forced_choice_is_recorded_as_not_honoured() -> None:
     assert suppressed["rule"] == runner.FORCED_CHOICE_RULE
 
 
+def _seat_cell(**overrides) -> dict:
+    cell = {
+        "engine": "mlx-serve",
+        "mode": "plain",
+        "seat": "daily-moe",
+        "workspace": "bench-engine-daily-moe",
+        "expected_model": "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp",
+        "backend": "eval-openai",
+        "port": 11234,
+        "base": "http://engine",
+    }
+    cell.update(overrides)
+    return cell
+
+
+def test_co_residence_takes_its_swap_baseline_after_host_prep(monkeypatch) -> None:
+    """Growth must measure the co-resident engines, not the unload that preceded them."""
+    order: list[str] = []
+    prep = {"valid": True, "unloaded": {"omlx": ["resident/model"], "ollama": []}}
+    monkeypatch.setattr(
+        runner.h2h,
+        "load_config",
+        lambda: {
+            "engines": {},
+            "guard": {"max_start_swap_used_mb": 4096, "max_swap_growth_mb": 2048},
+        },
+    )
+
+    def other_seat(seat, *_args):
+        return {
+            "seat": seat,
+            "workspace": f"bench-engine-{seat}",
+            "engine": seat,
+            "port": 2000,
+            "backend": f"eval-openai-{seat}",
+            "expected_model": "m",
+            "base": "http://engine",
+        }
+
+    monkeypatch.setattr(runner, "_valid_cell_for_seat", other_seat)
+    monkeypatch.setattr(runner, "_prepare_host", lambda _cfg: order.append("prep") or prep)
+    swaps = {"n": 0}
+
+    def swap_now():
+        swaps["n"] += 1
+        order.append(f"swap{swaps['n']}")
+        return {"used_mb": 100 + swaps["n"]}
+
+    monkeypatch.setattr(runner.h2h, "swap_now", swap_now)
+    monkeypatch.setattr(runner, "_candidate_residency", lambda _cfg: {})
+    monkeypatch.setattr(runner.subprocess, "check_output", lambda *_a, **_k: "vm_stat")
+    seen: dict = {}
+
+    def request(target, _pipeline, _messages, **_extra):
+        return {
+            "workspace": target["workspace"],
+            "backend": target["backend"],
+            "expected_model": target["expected_model"],
+            "engine_model": target["expected_model"],
+            "route": f"{target['workspace']};{target['backend']};{target['expected_model']}",
+            "text": "OK",
+            "elapsed_s": 0.1,
+        }
+
+    monkeypatch.setattr(runner, "_pipeline_request", request)
+
+    @contextlib.contextmanager
+    def fake_running(cells, _root, _build, context_tokens=None, host_prep=None):
+        seen["order_at_start"] = list(order)
+        seen["host_prep"] = host_prep
+        yield {}, host_prep
+
+    monkeypatch.setattr(runner, "_running_cells", fake_running)
+    cell = _seat_cell()
+
+    result = runner._run_co_residence(cell, Path("."), "build-a", "http://pipeline")
+
+    assert seen["order_at_start"] == ["prep", "swap1"]
+    assert seen["host_prep"] is prep
+    assert result["swap_before_mb"] == 101
+    assert result["swap_after_mb"] == 102
+    assert result["swap_growth_mb"] == 1
+    assert result["host_prep"] is prep
+    assert result["valid"] is True
+
+
 def test_a_missing_forced_call_fails_the_tool_call_check() -> None:
     graded = runner._grade_cell_preflight(
+        _seat_cell(),
         {
-            "engine": "mlx-serve",
-            "expected_model": "served-m",
+            "message": {"content": "OK\n\n"},
+            "engine_model": "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp",
         },
-        {"message": {"content": "OK\n\n"}, "engine_model": "served-m"},
-        {"message": {"content": "OK\n\n"}, "engine_model": "served-m"},
+        {
+            "message": {"content": "OK\n\n"},
+            "engine_model": "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp",
+        },
     )
 
     assert graded["verdict"] == "REVIEW"
     assert graded["tool_choice"]["honoured"] is False
     assert "no valid get_weather call" in graded["tool_choice"]["evidence"]
+
+
+def test_a_workspace_without_tools_excludes_the_tool_half_instead_of_failing() -> None:
+    """The Pipeline strips tools for bench-engine-task-router; the engine is not graded on it."""
+    model = "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k"
+    row = {"message": {"content": "OK"}, "engine_model": model}
+
+    graded = runner._grade_cell_preflight(
+        _seat_cell(seat="task-router", workspace="bench-engine-task-router", expected_model=model),
+        row,
+        {"message": {"content": "OK"}, "engine_model": model},
+    )
+
+    assert graded["verdict"] == "OK"
+    assert graded["tool_call"]["decision"] == "exclude"
+    assert graded["tool_call"]["applicable"] is False
+    assert "bench-engine-task-router declares no tools" in graded["tool_call"]["reason"]
+    assert graded["tool_choice"]["applicable"] is False
+    assert graded["think_off_reply"] == "OK"
+
+
+def test_a_model_declared_without_tool_support_excludes_the_tool_half() -> None:
+    model = "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k"
+    row = {"message": {"content": "OK"}, "engine_model": model}
+
+    graded = runner._grade_cell_preflight(
+        _seat_cell(expected_model=model),
+        row,
+        {"message": {"content": "OK"}, "engine_model": model},
+    )
+
+    assert graded["verdict"] == "OK"
+    assert "supports_tools: false" in graded["tool_call"]["reason"]
+
+
+def test_the_think_off_half_still_applies_when_tools_are_excluded() -> None:
+    model = "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k"
+    graded = runner._grade_cell_preflight(
+        _seat_cell(seat="task-router", workspace="bench-engine-task-router", expected_model=model),
+        {"message": {"content": "hello"}, "engine_model": model},
+        {"message": {"content": "hello"}, "engine_model": model},
+    )
+
+    assert graded["verdict"] == "REVIEW"
+    assert graded["tool_call"]["decision"] == "exclude"
+
+
+def test_tool_turn_is_not_applicable_when_the_seat_cannot_take_tools(monkeypatch) -> None:
+    monkeypatch.setattr(runner, "protocol_issues", lambda: {})
+    monkeypatch.setattr(runner, "_workspace_tools", lambda _workspace: ())
+    monkeypatch.setattr(
+        runner, "_run_quality_workload", lambda *_a, **_k: pytest.fail("workload ran")
+    )
+
+    result = runner._execute_stage3_workload(
+        _seat_cell(), "tool-turn", Path("."), "build-a", "http://pipeline"
+    )
+
+    assert result["status"] == "NOT_APPLICABLE"
+    assert result["valid"] is True
+    assert "declares no tools" in result["reason"]
+
+
+def test_tool_turn_still_runs_for_a_tool_capable_seat(monkeypatch) -> None:
+    monkeypatch.setattr(runner, "protocol_issues", lambda: {})
+    calls = []
+    monkeypatch.setattr(
+        runner,
+        "_run_quality_workload",
+        lambda *args, **kwargs: calls.append(args) or {"valid": True},
+    )
+
+    result = runner._execute_stage3_workload(
+        _seat_cell(), "tool-turn", Path("."), "build-a", "http://pipeline"
+    )
+
+    assert result == {"valid": True}
+    assert calls

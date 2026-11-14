@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import ast
 import contextlib
+import functools
 import hashlib
 import json
 import os
@@ -25,6 +26,7 @@ from urllib.parse import quote
 
 import yaml
 
+from portal.platform.inference.cluster_backends import BackendRegistry
 from scripts import host_quiet
 from tests.benchmarks import bench_engine_h2h as h2h
 from tests.benchmarks import engine_eval_instrument as instrument
@@ -513,22 +515,57 @@ def _forced_tool_choice(engine: str, tool_row: dict[str, Any]) -> dict[str, Any]
     }
 
 
+@functools.lru_cache(maxsize=1)
+def _tool_registry() -> BackendRegistry:
+    """The registry whose tool map the Pipeline consults, eval engines included."""
+    return BackendRegistry(
+        config_path=str(REPO / "config" / "backends.yaml"), include_eval_backends=True
+    )
+
+
+@functools.lru_cache(maxsize=32)
+def _workspace_tools(workspace: str) -> tuple[str, ...]:
+    """The workspace's declared tools, from config/bench_workspaces.yaml."""
+    declared = (_bench_workspaces().get(workspace) or {}).get("tools") or []
+    return tuple(str(item) for item in declared)
+
+
+def _tool_surface_reason(cell: dict[str, Any]) -> str | None:
+    """Why this seat cannot receive tools at all, or None when it can.
+
+    The Pipeline strips ``tools``/``tool_choice`` when the workspace declares no
+    tools or the model is not declared tool-capable, so a forced call cannot be
+    delivered and is not the engine's to pass.
+    """
+    if not _workspace_tools(str(cell.get("workspace") or "")):
+        return f"{cell['workspace']} declares no tools in config/bench_workspaces.yaml"
+    if not _tool_registry().model_supports_tools(str(cell.get("expected_model") or "")):
+        return f"{cell['expected_model']!r} is declared supports_tools: false"
+    return None
+
+
 def _grade_cell_preflight(
     cell: dict[str, Any], think_row: dict[str, Any], tool_row: dict[str, Any]
 ) -> dict[str, Any]:
     """Grade the separate think-off and tool-call requests, then record the choice."""
     served = think_row.get("engine_model")
+    not_applicable = _tool_surface_reason(cell)
     graded = instrument.grade_preflight(
         instrument._visible_reply(think_row["message"]),
         instrument.tool_from_message(tool_row["message"]),
         served if served == cell["expected_model"] else None,
+        tool_not_applicable=not_applicable,
     )
     graded["separate_requests"] = True
     graded["requests"] = {
         "think_off": {"prompt": THINK_OFF_PROMPT, "tools": "none (explicit empty list)"},
         "tool_call": {"prompt": TOOL_CALL_PROMPT, "tool_choice": "get_weather"},
     }
-    graded["tool_choice"] = _forced_tool_choice(cell["engine"], tool_row)
+    graded["tool_choice"] = (
+        {**instrument._exclude(f"not applicable: {not_applicable}"), "applicable": False}
+        if not_applicable
+        else _forced_tool_choice(cell["engine"], tool_row)
+    )
     return graded
 
 
@@ -1969,11 +2006,27 @@ def _run_wfe_arm(
     }
 
 
+def _prepare_host(cfg: dict[str, Any]) -> dict[str, Any]:
+    """Unload both production engines and refuse to start if anything is left resident."""
+    host_prep = _prepare_production_models(cfg)
+    if not host_prep["valid"]:
+        raise Stage3BlockedError(f"pre-workload unload failed: {host_prep['failures']}")
+    return host_prep
+
+
 @contextlib.contextmanager
 def _running_cells(
-    cells: list[dict[str, Any]], root: Path, build: str, context_tokens: int | None = None
+    cells: list[dict[str, Any]],
+    root: Path,
+    build: str,
+    context_tokens: int | None = None,
+    host_prep: dict[str, Any] | None = None,
 ):
-    """Start distinct canary-qualified managed engines and always verify shutdown."""
+    """Start distinct canary-qualified managed engines and always verify shutdown.
+
+    ``host_prep`` lets a caller prep the host itself (and take its baseline
+    snapshots after that) instead of having the unload land inside the window.
+    """
     cfg = h2h.load_config()
     managed = [cell for cell in cells if not _is_external(cell)]
     if len({cell["engine"] for cell in managed}) != len(managed):
@@ -1984,9 +2037,7 @@ def _running_cells(
             raise Stage3BlockedError(f"candidate port {cell['port']} is already occupied")
     # Every workload gets a quiet host: an engine left resident by the workload
     # before this one fails the next engine's memory preflight.
-    host_prep = _prepare_production_models(cfg)
-    if not host_prep["valid"]:
-        raise Stage3BlockedError(f"pre-workload unload failed: {host_prep['failures']}")
+    host_prep = host_prep if host_prep is not None else _prepare_host(cfg)
     okay, reason = h2h.start_gate(cfg)
     if not okay:
         raise Stage3BlockedError(f"swap start gate: {reason}")
@@ -2111,9 +2162,7 @@ def _run_one_wfe_selection(
         return run
     # The incumbent arm loads its model on oMLX through the Pipeline. The host
     # still has to be quiet first, or that load meets the previous model's footprint.
-    host_prep = _prepare_production_models(h2h.load_config())
-    if not host_prep["valid"]:
-        raise Stage3BlockedError(f"pre-workload unload failed: {host_prep['failures']}")
+    host_prep = _prepare_host(h2h.load_config())
     okay, reason = h2h.start_gate(h2h.load_config())
     if not okay:
         raise Stage3BlockedError(f"swap start gate: {reason}")
@@ -2549,16 +2598,20 @@ def _run_co_residence(
                 f"no distinct current-build canary-qualified engine for {seat}"
             )
         chosen.append(candidate)
+    # Unload the production engines BEFORE the baseline: growth then measures
+    # only the co-resident engines, not the release of a model they displaced.
+    cfg = h2h.load_config()
+    host_prep = _prepare_host(cfg)
     vm_before = subprocess.check_output(["vm_stat"], text=True, timeout=10)
-    residency_before = _candidate_residency(h2h.load_config())
+    residency_before = _candidate_residency(cfg)
     swap_before = h2h.swap_now().get("used_mb")
-    with _running_cells(chosen, root, build) as (_infos, host_prep):
+    with _running_cells(chosen, root, build, host_prep=host_prep) as (_infos, _prep):
         requests = [
             _pipeline_request(target, pipeline, [{"role": "user", "content": "Reply exactly OK."}])
             for target in chosen
         ]
         swap_after = h2h.swap_now().get("used_mb")
-        residency_after = _candidate_residency(h2h.load_config())
+        residency_after = _candidate_residency(cfg)
         vm_after = subprocess.check_output(["vm_stat"], text=True, timeout=10)
     growth = None if swap_before is None or swap_after is None else swap_after - swap_before
     delta = instrument.vm_deltas_gb(
@@ -2566,9 +2619,9 @@ def _run_co_residence(
     )
     swap_gate = (
         swap_after is not None
-        and swap_after <= float(h2h.load_config()["guard"]["max_start_swap_used_mb"])
+        and swap_after <= float(cfg["guard"]["max_start_swap_used_mb"])
         and growth is not None
-        and growth <= float(h2h.load_config()["guard"]["max_swap_growth_mb"])
+        and growth <= float(cfg["guard"]["max_swap_growth_mb"])
     )
     valid = all(_route_valid(row) for row in requests) and swap_gate
     return {
@@ -2614,6 +2667,13 @@ def _execute_stage3_workload(
             cell, workload, root, build, pipeline, compare=not _is_external(cell)
         )
     if workload == "tool-turn":
+        not_applicable = _tool_surface_reason(cell)
+        if not_applicable:
+            return {
+                "status": "NOT_APPLICABLE",
+                "valid": True,
+                "reason": f"tool turn: not applicable — {not_applicable}",
+            }
         return _run_quality_workload(cell, workload, root, build, pipeline, compare=False)
     if workload == "concurrency-mix":
         return _run_concurrency_workload(cell, root, build, pipeline)
