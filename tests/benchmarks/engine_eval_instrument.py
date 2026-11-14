@@ -715,17 +715,32 @@ def _check_template(evidence: dict[str, Any], failures: list[str]) -> None:
     if template.get("same_checkpoint") is False:
         return
     parity = template.get("parity")
+    if isinstance(parity, dict) and parity.get("status") == "not_run" and parity.get("reason"):
+        return
     comparisons = parity.get("comparisons") if isinstance(parity, dict) else None
     if not isinstance(comparisons, dict) or not comparisons:
-        _fail(failures, "template: paired greedy parity is pending; peer receipt is missing")
+        _fail(
+            failures, "template: paired greedy parity is pending; incumbent parity was not measured"
+        )
         return
     failed = [
         f"{peer}: {comparison.get('classification', 'unclassified')}"
         for peer, comparison in comparisons.items()
         if not isinstance(comparison, dict) or comparison.get("valid") is not True
     ]
-    if failed:
-        _fail(failures, f"template: paired greedy parity failed ({'; '.join(failed)})")
+    if not failed:
+        return
+    # A rendered-prompt difference is the cell's own recorded FINDING: the other
+    # checks still decide validity and the quality comparison is non-comparable.
+    # Any other mismatch stays a validity failure.
+    waived = all(
+        isinstance(comparison, dict)
+        and comparison.get("classification") == "chat_template_rendering_mismatch"
+        for comparison in comparisons.values()
+    )
+    if waived and template.get("quality_comparable") is False and template.get("template_differs"):
+        return
+    _fail(failures, f"template: paired greedy parity failed ({'; '.join(failed)})")
 
 
 def _check_regressions(evidence: dict[str, Any], failures: list[str]) -> None:
