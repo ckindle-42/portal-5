@@ -229,10 +229,9 @@ def seated_launch_argv(
     if not isinstance(block, dict) or not template:
         return None
     rendered = dict(values)
-    if engine_cfg.get("community_cache"):
-        rendered["community_cache"] = os.path.expanduser(str(engine_cfg["community_cache"]))
-    if block.get("community_cache"):
-        rendered["community_cache"] = os.path.expanduser(str(block["community_cache"]))
+    cache = block.get("community_cache") or engine_cfg.get("community_cache")
+    if cache:
+        rendered["community_cache"] = os.path.expanduser(str(cache))
     if block.get("tool_parser"):
         rendered["tool_parser"] = block["tool_parser"]
     if block.get("model_dir"):
@@ -252,9 +251,7 @@ def seated_launch_argv(
                 '{"enable_thinking":' + _thinking_flag(bool(block["enable_thinking"])) + "}",
             ]
         )
-    extra_argv = block.get("seat_extra_argv") or []
-    if extra_argv:
-        argv.extend(render(list(extra_argv), rendered))
+    argv.extend(render(list(block.get("seat_extra_argv") or []), rendered))
     if mode == "spec":
         extra = block.get("spec_argv")
         if not extra:
