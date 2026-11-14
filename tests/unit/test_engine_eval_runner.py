@@ -145,7 +145,93 @@ def test_candidate_parity_accepts_a_count_inside_the_stated_tolerance() -> None:
 
     assert result["classification"] == "match"
     assert result["rendered_prompt_token_delta"]["delta"] == 32
-    assert result["prompt_token_tolerance"] == runner.PROMPT_TOKEN_TOLERANCE
+    assert result["prompt_token_tolerance"] == runner.parity_settings()["prompt_token_tolerance"]
+
+
+def test_the_protocol_carries_the_operator_parity_rule() -> None:
+    """K and the prompt tolerance are protocol numbers set by the operator, not code."""
+    settings = yaml.safe_load(runner.PROTOCOL.read_text(encoding="utf-8"))["template_parity"]
+
+    assert settings["set_by"] == "operator"
+    assert settings["set_on"] == "2026-11-14"
+    assert settings["prompt_token_tolerance"] == 0.02
+    assert isinstance(settings["prefix_tokens"], int)
+    assert settings["prefix_tokens"] >= 0
+    assert runner.parity_settings() == {
+        "prompt_token_tolerance": float(settings["prompt_token_tolerance"]),
+        "prefix_tokens": settings["prefix_tokens"],
+    }
+
+
+def test_a_protocol_without_the_parity_rule_blocks_rather_than_guesses(
+    monkeypatch, tmp_path
+) -> None:
+    bare = tmp_path / "protocol.yaml"
+    bare.write_text("status: APPROVED\n", encoding="utf-8")
+    monkeypatch.setattr(runner, "PROTOCOL", bare)
+
+    with pytest.raises(runner.Stage3BlockedError, match="template_parity"):
+        runner.parity_settings()
+
+
+def _drift_pair(left_content: str, right_content: str) -> tuple[dict, dict]:
+    request = {"messages": [{"role": "user", "content": "OK"}], "temperature": 0, "max_tokens": 64}
+    left = {
+        "engine": "mlx-serve",
+        "request": {**request, "portal_backend": "eval-a"},
+        "outputs": [{"content": left_content}],
+        "rendered_prompt_token_count": 3719,
+        "effective_temperature": 0,
+    }
+    right = {
+        "engine": "omlx",
+        "request": {**request, "portal_backend": "eval-b"},
+        "outputs": [{"content": right_content}],
+        "rendered_prompt_token_count": 3687,
+        "effective_temperature": 0,
+    }
+    return left, right
+
+
+def test_greedy_divergence_after_the_matched_prefix_is_recorded_drift(monkeypatch) -> None:
+    monkeypatch.setattr(
+        runner, "parity_settings", lambda: {"prompt_token_tolerance": 0.02, "prefix_tokens": 2}
+    )
+    left, right = _drift_pair("OK the weather", "OK the weather in Boston is")
+
+    result = runner._compare_candidate_parity(left, right)
+
+    assert result["valid"] is True
+    assert result["classification"] == "greedy_numerical_drift"
+    assert result["outputs_equal"] is False
+    assert result["greedy_divergence"]["index"] == 3
+    assert result["greedy_divergence"]["left_output"] == {"content": "OK the weather"}
+    assert result["greedy_divergence"]["right_output"] == {"content": "OK the weather in Boston is"}
+    assert result["prefix_tokens"] == 2
+
+
+def test_greedy_divergence_before_the_matched_prefix_stays_invalid(monkeypatch) -> None:
+    monkeypatch.setattr(
+        runner, "parity_settings", lambda: {"prompt_token_tolerance": 0.02, "prefix_tokens": 2}
+    )
+    left, right = _drift_pair("Boston and clear", "OK the weather in Boston")
+
+    result = runner._compare_candidate_parity(left, right)
+
+    assert result["valid"] is False
+    assert result["classification"] == "greedy_output_mismatch_unexplained"
+    assert result["greedy_divergence"]["index"] == 0
+    assert "before the 2 the protocol requires to match" in result["findings"][-1]
+
+
+def test_identical_greedy_outputs_still_report_a_match() -> None:
+    left, right = _drift_pair("OK", "OK")
+
+    result = runner._compare_candidate_parity(left, right)
+
+    assert result["valid"] is True
+    assert result["classification"] == "match"
+    assert result["greedy_divergence"]["identical"] is True
 
 
 def test_candidate_parity_records_an_engine_that_drops_the_tool_schemas() -> None:
