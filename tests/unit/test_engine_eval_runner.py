@@ -112,7 +112,7 @@ def test_candidate_parity_labels_prompt_rendering_difference() -> None:
     right = {
         "request": {**request, "portal_backend": "eval-b"},
         "outputs": [{"content": "OK"}, {"content": "OK"}],
-        "rendered_prompt_token_count": 3490,
+        "rendered_prompt_token_count": 3100,
         "effective_temperature": None,
         "effective_temperature_note": "engine log has no effective sampling readback",
     }
@@ -121,8 +121,60 @@ def test_candidate_parity_labels_prompt_rendering_difference() -> None:
 
     assert result["valid"] is False
     assert result["classification"] == "chat_template_rendering_mismatch"
-    assert result["rendered_prompt_token_counts"] == {"left": 3506, "right": 3490}
+    assert result["rendered_prompt_token_counts"] == {"left": 3506, "right": 3100}
+    assert result["rendered_prompt_token_delta"]["within_tolerance"] is False
     assert "effective sampling readback" in result["findings"][0]
+
+
+def test_candidate_parity_accepts_a_count_inside_the_stated_tolerance() -> None:
+    request = {"messages": [{"role": "user", "content": "OK"}], "temperature": 0, "max_tokens": 64}
+    left = {
+        "request": {**request, "portal_backend": "eval-a"},
+        "outputs": [{"content": "OK"}],
+        "rendered_prompt_token_count": 3506,
+        "effective_temperature": 0,
+    }
+    right = {
+        "request": {**request, "portal_backend": "eval-b"},
+        "outputs": [{"content": "OK"}],
+        "rendered_prompt_token_count": 3474,
+        "effective_temperature": 0,
+    }
+
+    result = runner._compare_candidate_parity(left, right)
+
+    assert result["classification"] == "match"
+    assert result["rendered_prompt_token_delta"]["delta"] == 32
+    assert result["prompt_token_tolerance"] == runner.PROMPT_TOKEN_TOLERANCE
+
+
+def test_candidate_parity_records_an_engine_that_drops_the_tool_schemas() -> None:
+    request = {"messages": [{"role": "user", "content": "OK"}], "temperature": 0, "max_tokens": 64}
+    left = {
+        "engine": "mlx-serve",
+        "request": {**request, "portal_backend": "eval-a"},
+        "outputs": [{"content": "OK"}],
+        "rendered_prompt_token_count": 219,
+        "effective_temperature": 0,
+        "tool_rendering": {
+            "rendered": False,
+            "with_tools_prompt_tokens": 219,
+            "without_tools_prompt_tokens": 219,
+        },
+    }
+    right = {
+        "engine": "omlx",
+        "request": {**request, "portal_backend": "eval-b"},
+        "outputs": [{"content": "OK"}],
+        "rendered_prompt_token_count": 219,
+        "effective_temperature": 0,
+    }
+
+    comparison = runner._compare_candidate_parity(left, right)
+    finding = runner._template_difference({"engine": "mlx-serve"}, comparison)
+
+    assert comparison["classification"] == "tool_schema_not_rendered"
+    assert "Tool-use quality is not comparable" in finding
 
 
 def test_candidate_parity_records_greedy_nondeterminism_as_sampling_finding() -> None:
@@ -153,6 +205,9 @@ def test_candidate_parity_reads_rendered_prompt_tokens_from_engine_logs() -> Non
         "cell": {"engine": "mlx_lm.server"},
         "body": {"temperature": 0, "max_tokens": 128},
         "engine_log_text": "Prompt processing progress: 2048/3490",
+        "prompt_blocks": runner._engine_prompt_blocks(
+            "mlx_lm.server", "Prompt processing progress: 2048/3490"
+        ),
         "log": "NON-STREAM tools: ['get_weather']",
         "parity_rows": [{"message": {"content": "OK"}}, {"message": {"content": "OK"}}],
     }
@@ -167,6 +222,37 @@ def test_candidate_parity_reads_rendered_prompt_tokens_from_engine_logs() -> Non
     assert evidence["rendered_prompt_token_count"] == 3490
     assert evidence["effective_temperature"] is None
     assert evidence["tools_exposed"] == ["get_weather"]
+    assert evidence["tool_rendering"]["rendered"] is None
+
+
+def test_parity_prompt_count_comes_from_the_parity_request_not_the_preflight() -> None:
+    """The preflight's no-tools request is logged first; its count is not the parity one."""
+    log = "\n".join(
+        [
+            "POST /v1/chat/completions (2 msgs, max_tokens=128, temp=0.00, sys=869b, "
+            "user=38b, tools=0b, tool_msgs=0)",
+            "  prompt=219 tokens, max_gen=128, ctx=32768",
+            "POST /v1/chat/completions (2 msgs, max_tokens=128, temp=0.00, sys=869b, "
+            "user=72b, tools=9273b, tool_msgs=0)",
+            "  prompt=3506 tokens, max_gen=128, ctx=32768",
+            "POST /v1/chat/completions (2 msgs, max_tokens=128, temp=0.00, sys=869b, "
+            "user=72b, tools=9273b, tool_msgs=0)",
+            "  prompt=3506 tokens, max_gen=128, ctx=32768",
+        ]
+    )
+
+    blocks = runner._engine_prompt_blocks("mlx-serve", log)
+
+    assert runner._parity_prompt_tokens(blocks, user_bytes=len(runner.PARITY_PROMPT)) == 3506
+    assert runner._tool_rendering(blocks)["rendered"] is True
+    assert runner._tool_rendering(blocks)["without_tools_prompt_tokens"] == 219
+
+
+def test_parity_prompt_count_is_unmeasured_when_the_log_has_no_parity_block() -> None:
+    blocks = runner._engine_prompt_blocks("mlx-serve", "")
+
+    assert runner._parity_prompt_tokens(blocks, user_bytes=72) is None
+    assert runner._tool_rendering(blocks)["rendered"] is None
 
 
 def test_candidate_memory_uses_engine_readback_after_first_completion(monkeypatch) -> None:
@@ -315,7 +401,7 @@ def test_incumbent_parity_pairs_the_cell_with_omlx_inside_the_cell(monkeypatch) 
 
 
 def test_incumbent_parity_records_a_rendering_difference_as_a_finding(monkeypatch) -> None:
-    evidence = _candidate_evidence(3490)
+    evidence = _candidate_evidence(3100)
     monkeypatch.setattr(runner, "_measure_incumbent_parity", lambda *args: _incumbent(3506))
 
     runner._attach_incumbent_parity(_parity_cell(), _parity_cfg(), "http://pipeline", evidence)
@@ -325,8 +411,8 @@ def test_incumbent_parity_records_a_rendering_difference_as_a_finding(monkeypatc
     assert comparison["classification"] == "chat_template_rendering_mismatch"
     assert comparison["differs_from_incumbent"] == "left"
     assert template["quality_comparable"] is False
-    assert "3490" in template["template_differs"] and "3506" in template["template_differs"]
-    assert "-16" in template["template_differs"]
+    assert "3100" in template["template_differs"] and "3506" in template["template_differs"]
+    assert "-406" in template["template_differs"]
     assert template["reconciliation"]["available"] is False
     assert "chat_template.jinja" in template["reconciliation"]["detail"]
 
@@ -1104,6 +1190,15 @@ def test_stage3_plan_lists_only_valid_current_build_cells(
     assert started == []
     assert "upper bound" in capsys.readouterr().out
 
+    bounded = runner.build_stage3_plan("build-a", seats=["coding"], skip_incumbents=("ollama",))
+    bounded_engines = [entry["cell"]["engine"] for entry in bounded["cells"]]
+    assert bounded_engines == ["rapid-mlx", "omlx"]
+    assert bounded["seats"] == ["coding"]
+    assert bounded["estimate_s"] == 2 * sum(runner._WORKLOAD_ESTIMATE_S.values())
+
+    with pytest.raises(runner.Stage3BlockedError, match="no current-build valid canary cell"):
+        runner.build_stage3_plan("build-a", seats=["hunt"])
+
 
 def test_stage3_run_refuses_a_busy_host_and_skips_a_finished_cell(
     monkeypatch, tmp_path: Path
@@ -1417,8 +1512,8 @@ def test_tool_turn_still_runs_for_a_tool_capable_seat(monkeypatch) -> None:
     calls = []
     monkeypatch.setattr(
         runner,
-        "_run_quality_workload",
-        lambda *args, **kwargs: calls.append(args) or {"valid": True},
+        "_run_tool_turn",
+        lambda *args: calls.append(args) or {"valid": True},
     )
 
     result = runner._execute_stage3_workload(
@@ -1427,3 +1522,88 @@ def test_tool_turn_still_runs_for_a_tool_capable_seat(monkeypatch) -> None:
 
     assert result == {"valid": True}
     assert calls
+
+
+@contextlib.contextmanager
+def _fake_running_cells(*_args, **_kwargs):
+    yield [], {"valid": True}
+
+
+def _tool_turn_messages(answer: str) -> list[dict]:
+    call = {
+        "id": "call_1",
+        "type": "function",
+        "function": {"name": "get_weather", "arguments": '{"city": "Boston"}'},
+    }
+    return [
+        {
+            "header": "bench-engine-daily-moe;eval-openai;NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp",
+            "engine_model": "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp",
+            "message": {"content": "", "tool_calls": [call]},
+        },
+        {
+            "header": "bench-engine-daily-moe;eval-openai;NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp",
+            "engine_model": "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp",
+            "message": {"content": answer},
+        },
+    ]
+
+
+def test_tool_turn_passes_on_a_call_and_a_post_tool_answer(monkeypatch) -> None:
+    monkeypatch.setattr(runner, "_running_cells", _fake_running_cells)
+    responses = iter(_tool_turn_messages("The tool reported 18C and clear."))
+    monkeypatch.setattr(runner, "_candidate_request", lambda _url, _body: next(responses))
+
+    result = runner._run_tool_turn(_seat_cell(), Path("."), "build-a", "http://pipeline")
+
+    assert result["valid"] is True
+    assert result["verdict"] == "pass"
+    assert result["tool_calls"] == 1
+    assert result["turns"] == 2
+    assert "post-tool turn used its result" in result["reason"]
+    assert result["requests"][1]["messages"][2]["role"] == "tool"
+
+
+def test_tool_turn_fails_with_a_reason_when_no_tool_call_comes_back(monkeypatch) -> None:
+    monkeypatch.setattr(runner, "_running_cells", _fake_running_cells)
+    responses = iter(
+        [
+            {
+                "header": "bench-engine-daily-moe;eval-openai;NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp",
+                "engine_model": "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp",
+                "message": {"content": "I cannot call tools."},
+            },
+            {
+                "header": "bench-engine-daily-moe;eval-openai;NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp",
+                "engine_model": "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp",
+                "message": {"content": "no answer"},
+            },
+        ]
+    )
+    monkeypatch.setattr(runner, "_candidate_request", lambda _url, _body: next(responses))
+
+    result = runner._run_tool_turn(_seat_cell(), Path("."), "build-a", "http://pipeline")
+
+    assert result["valid"] is False
+    assert result["verdict"] == "fail"
+    assert result["reason"].startswith("tool turn: no usable get_weather call")
+
+
+def test_tool_turn_fails_when_the_post_tool_answer_ignores_the_result(monkeypatch) -> None:
+    monkeypatch.setattr(runner, "_running_cells", _fake_running_cells)
+    responses = iter(_tool_turn_messages("I do not know the temperature."))
+    monkeypatch.setattr(runner, "_candidate_request", lambda _url, _body: next(responses))
+
+    result = runner._run_tool_turn(_seat_cell(), Path("."), "build-a", "http://pipeline")
+
+    assert result["valid"] is False
+    assert "did not use the tool result" in result["reason"]
+
+
+def test_a_receipt_without_a_reason_still_carries_one_and_a_verdict() -> None:
+    result = {"status": "FAIL", "valid": False, "tool_calls": 0, "turns": 2, "tool_errors": 0}
+
+    runner._stamp_outcome(result)
+
+    assert result["verdict"] == "fail"
+    assert result["reason"] == "status FAIL, tool_calls=0, turns=2, tool_errors=0"

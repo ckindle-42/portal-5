@@ -14,10 +14,18 @@ decide the MLX engine. Template parity runs only when `same_checkpoint` is true.
 
 Template parity is measured inside the cell: the candidate and the oMLX incumbent are sent
 the identical greedy probe on the same checkpoint in that one cell, so a single `--cell` run
-is self-contained. A rendered-prompt token-count difference is recorded as a finding
-(`template_differs`) and makes that cell's quality comparison non-comparable; it does not
-invalidate the instrument checks (route, memory, settings, tokens). A greedy-output
-difference at equal prompt counts stays a validity failure.
+is self-contained. oMLX canonicalises tool schemas before it renders them
+(`omlx/api/tool_calling.py` `convert_tools_for_template`), so the Pipeline now applies that
+same pass to every eval arm's request and both legs render byte-identical tool payloads. A
+rendered-prompt token-count difference beyond 2% stays a finding (`template_differs`) and
+makes that cell's quality comparison non-comparable; it does not invalidate the instrument
+checks (route, memory, settings, tokens). An engine whose tools-bearing request renders to
+the same size as its no-tools request is recorded as not rendering the tool schemas, and its
+tool-use quality is not comparable — a per-engine finding, not a hidden one. A greedy-output
+difference at equal prompt counts stays a validity failure. The tool-turn workload is a
+through-the-Pipeline forced call plus its post-tool turn: the registered WFE quality task is
+graded by the injected RAG context, so it can pass without ever calling a tool and cannot
+evidence a tool turn.
 
 ## Daily MoE
 
