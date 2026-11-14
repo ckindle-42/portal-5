@@ -428,7 +428,7 @@ engine_seats:
   brew-llama:
     research: docs/engine_research/gguf_20261114.md §1
     seats:
-      daily-moe: {status: candidate_best, artifacts: [{id: nemotron_gguf_q4km, purpose: target_with_embedded_mtp}], research: docs/engine_research/gguf_20261114.md §1.1}
+      daily-moe: {status: candidate_best, artifacts: [{id: nemotron_gguf_q4km, purpose: target_with_embedded_mtp}], note: "Same production Ollama bytes (sha256-b520a899, HF revision f0eec2267ae843d9eb21ea3926ab0046da0a8628). llama.cpp 1.0.0 loads this 417-tensor file; Homebrew b9950 exits expected 417, got 408. Do not download a second GGUF.", research: docs/engine_research/gguf_20261114.md §1.1}
       coding: {status: candidate_spec, artifacts: [{id: qwen_gguf_q4km, purpose: target}, {id: qwen_gguf_mtp, purpose: MTP_drafter}], research: [docs/engine_research/gguf_20261114.md §1.1, §1.2]}
       council-json: {status: candidate_same_target_spec, artifacts: [{id: qwen_gguf_q4km, purpose: Qwen_target}, {id: qwen_gguf_mtp, purpose: MTP_drafter}], research: [docs/ENGINE_EVAL_MATRIX_20261113.md §Council / JSON, docs/engine_research/gguf_20261114.md §1.1]}
       hunt: {status: candidate_engine_tuned_variants, configs: [{name: official_google_q4_0_with_ggml_mtp, artifacts: [{id: gemma_google_gguf_q4_0, purpose: official_QAT_target}, {id: gemma_ggml_mtp_q4_0, purpose: MTP_drafter}]}, {name: official_google_q4_0_with_ggml_dflash, artifacts: [{id: gemma_google_gguf_q4_0, purpose: official_QAT_target}, {id: gemma_ggml_dflash_q8_0, purpose: DFlash_drafter}]}, {name: unsloth_qat_udq4_k_xl_with_mtp, artifacts: [{id: gemma_unsloth_qat_udq4_k_xl, purpose: tuned_QAT_target}, {id: gemma_unsloth_mtp_q4_0, purpose: matching_MTP_drafter}]}], research: [docs/engine_research/gguf_20261114.md §1.1, §1.2]}
