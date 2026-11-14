@@ -1121,7 +1121,7 @@ def test_tier_escalate_picks_the_first_seat_with_headroom(monkeypatch: pytest.Mo
     monkeypatch.setattr(
         module, "_plan_headroom", lambda _reg, plan: 0.0 if plan == "codex" else 1.0
     )
-    chosen, why = module._resolve_escalate({}, "code", 0)
+    chosen, why, _ranked = module._resolve_escalate({}, "code", 0)
     assert chosen == "seat-open"
     assert any("seat-codex" in line and "skipped" in line for line in why)
     assert module._escalated_effort(module.TIERS["seat-open"]) == "high"
@@ -1135,7 +1135,11 @@ def test_tier_escalate_sets_effort_under_max(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     module = _load_dispatch()
-    monkeypatch.setattr(module, "_resolve_escalate", lambda *_a, **_k: ("grok-max", ["picked"]))
+    monkeypatch.setattr(
+        module, "_resolve_escalate", lambda *_a, **_k: ("grok-max", ["picked"], ["grok-max"])
+    )
+    # Routing claims the winner's plan lock; stub it so the test never writes a real lock.
+    monkeypatch.setattr(module, "_claim_ranked_plan", lambda c, *_a, **_k: (c[0], None, []))
     monkeypatch.setattr(module, "_brief_tokens", lambda *_a, **_k: 0)
     args = argparse.Namespace(
         tier="escalate",
@@ -1145,6 +1149,9 @@ def test_tier_escalate_sets_effort_under_max(
         brief=None,
         effort=None,
         peak_ok=False,
+        share_plan=False,
+        force=False,
+        lock_wait=0,
     )
     module._apply_tier_route(args, {}, Path("."))
     assert args.tier == "grok-max"
