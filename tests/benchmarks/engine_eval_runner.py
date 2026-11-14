@@ -1654,6 +1654,7 @@ def _execute_candidate_cell(
             cell["engine"],
             cell["model"],
             cell["mode"],
+            seat=cell.get("seat"),
             log_paths=log_paths,
             on_started=mark_started,
         )
@@ -2383,6 +2384,7 @@ def _running_cells(
                     cell["engine"],
                     cell["model"],
                     cell["mode"],
+                    seat=cell.get("seat"),
                     context_tokens=context_tokens,
                     log_paths=(log_dir / "engine.stdout.log", log_dir / "engine.stderr.log"),
                     on_started=remember_started,

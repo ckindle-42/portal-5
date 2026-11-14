@@ -506,7 +506,7 @@ def test_vllm_mlx_seat_argv_follows_the_researched_registry(cfg):
             "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp",
             "32768",
             "nemotron",
-            None,
+            "qwen3",
             True,
         ),
         "coding": ("qwen38_27b_h2h", "Qwen3.8-27B-4bit", "32768", "hermes", "qwen3", True),
@@ -627,6 +627,32 @@ def test_brew_llama_pins_fa_slots_and_cache_reuse_per_the_gguf_research(cfg, mon
     assert {m["id"] for m in backend["models"] if m["supports_tools"]} == {
         "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp"
     }
+
+
+def test_seated_launch_keeps_an_explicit_workload_window(cfg):
+    """A long-context cell's window wins over the seat's everyday ctx."""
+    argv, _ = h.launch_command(
+        cfg, "vllm-mlx", "qwen38_27b_h2h", "plain", context_tokens=98304, seat="coding"
+    )
+    assert argv[argv.index("--max-kv-size") + 1] == "98304"
+    everyday, _ = h.launch_command(cfg, "vllm-mlx", "qwen38_27b_h2h", "plain", seat="coding")
+    assert everyday[everyday.index("--max-kv-size") + 1] == "32768"
+
+
+def test_start_managed_threads_the_seat_into_the_launch_argv(monkeypatch):
+    seen = {}
+
+    def fake_launch(*_args, **kwargs):
+        seen.update(kwargs)
+        raise SystemExit("stop before popen")
+
+    monkeypatch.setattr(h, "launch_command", fake_launch)
+    with pytest.raises(SystemExit, match="stop before popen"):
+        h.start_managed({}, "vllm-mlx", "nemotron_35_lightning", "plain", seat="daily-moe")
+    assert seen["seat"] == "daily-moe"
+    with pytest.raises(SystemExit, match="stop before popen"):
+        h.start_managed({}, "vllm-mlx", "mimo", "plain")
+    assert seen["seat"] is None
 
 
 def test_mlxcel_pins_parallel_batch_without_prompt_lookup(cfg):
