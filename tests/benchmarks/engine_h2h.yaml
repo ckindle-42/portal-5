@@ -230,23 +230,36 @@ engines:
     requires: mtplx
     port: 11241
     root: mtplx_root
-    # MTPLX 2.12.0 (uv tool install mtplx). Native-MTP only: it drafts with the
-    # model's own mtp head from a Youssofal pack, never an external drafter or PLD.
-    # Plain = --no-mtp (target-only AR in the same loaded runtime). Fairness pins:
-    # --no-stats-footer (else a TPS footer is appended to every reply), SSD session
-    # cache off (a disk tier no other engine gets), --profile sustained (the default
-    # resolves to Turbo for the 27B/9B packs; sustained matches MTP_BENCH_20260528).
+    version: "2.12.3"
+    # MTPLX 2.12.3, the vendor's brew path (brew install youssofal/mtplx/mtplx): the
+    # formula is arch: :arm64 and bootstraps a python@3.13 venv; `file` reads arm64 on that
+    # python and on mlx/core.cpython-313-darwin.so. Every flag below is in
+    # `mtplx serve --help` on the installed build (read 2026-11-14).
+    # Native-MTP only: it drafts with the model's own mtp head from a Youssofal pack,
+    # never an external drafter or PLD. Plain = --no-mtp (target-only AR in the same
+    # loaded runtime).
+    # --no-stats-footer: else a TPS footer is appended to every reply. Fairness pin.
+    # --ssd-session-cache off: a persistent SSD KV tier no other engine gets. Fairness pin
+    # that costs nothing on a cold cell (the pack's RAM session bank stays on; the flag is
+    # the cold tier), but it does forfeit the vendor's cross-restart session restore — a
+    # restored turn decodes as if never paused (README) — so a warm-restart number is not
+    # comparable and this pin is a deliberate forfeit, not a free one.
+    # --profile turbo: the vendor recommendation for these packs, not a fairness pin. The
+    # pack's mtplx_runtime.json says recommended_profile turbo, `mtplx inspect` on the pack
+    # prints the same, the README's Qwen3.8-27B rows read "Turbo, depth 3", and
+    # `serve --help` resolves the default to Turbo for the quantized 27B/9B flagships. The
+    # old `sustained` pin only matched MTP_BENCH_20260528 and undersold the engine.
     # --tool-prompt-mode native: the default is `hybrid`, MTPLX's legacy tool
     # contract, so tool calls/results were not rendered by the model's own chat
     # template (visible as tool_prompt_mode in the per-request mtplx_stats).
-    # Thinking: mtplx 2.12.0 `serve --help` takes --reasoning {auto,on,off}
-    # (default auto) and the Qwen3.8 codec resolves auto to enable_thinking
-    # true with effort medium, so this argv serves think ON — bench-engine-coding
-    # pins think: true. Nothing here forces reasoning off; a request may still
-    # override with chat_template_kwargs.enable_thinking. This engine has no
-    # --default-chat-template-kwargs, so never append one.
-    plain: [mtplx, serve, --model, "{model_root}/{model_dir}", --model-id, "{served}", --host, 127.0.0.1, --port, "{port}", --no-auth, --yes, --context-window, "{ctx}", --profile, sustained, --no-stats-footer, --ssd-session-cache, "off", --tool-prompt-mode, native, --no-mtp]
-    base_spec: [mtplx, serve, --model, "{model_root}/{model_dir}", --model-id, "{served}", --host, 127.0.0.1, --port, "{port}", --no-auth, --yes, --context-window, "{ctx}", --profile, sustained, --no-stats-footer, --ssd-session-cache, "off", --tool-prompt-mode, native, "{spec_args}"]
+    # Thinking: `serve --help` takes --reasoning {auto,on,off} (default auto) and the
+    # Qwen3.8 codec resolves auto to enable_thinking true with effort medium (read back as
+    # mtplx_stats.request_enable_thinking/request_reasoning_effort), so this argv serves
+    # think ON — bench-engine-coding pins think: true. Nothing here forces reasoning off;
+    # a request may still override with chat_template_kwargs.enable_thinking. This engine
+    # has no --default-chat-template-kwargs, so never append one.
+    plain: [mtplx, serve, --model, "{model_root}/{model_dir}", --model-id, "{served}", --host, 127.0.0.1, --port, "{port}", --no-auth, --yes, --context-window, "{ctx}", --profile, turbo, --no-stats-footer, --ssd-session-cache, "off", --tool-prompt-mode, native, --no-mtp]
+    base_spec: [mtplx, serve, --model, "{model_root}/{model_dir}", --model-id, "{served}", --host, 127.0.0.1, --port, "{port}", --no-auth, --yes, --context-window, "{ctx}", --profile, turbo, --no-stats-footer, --ssd-session-cache, "off", --tool-prompt-mode, native, "{spec_args}"]
     stop_signal: INT
     readiness: {path: /v1/models, timeout_s: 300, collection: data, id_field: id}
   splash:
