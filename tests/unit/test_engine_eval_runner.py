@@ -151,7 +151,7 @@ def test_candidate_parity_reads_rendered_prompt_tokens_from_engine_logs() -> Non
         "body": {"temperature": 0, "max_tokens": 128},
         "engine_log_text": "Prompt processing progress: 2048/3490",
         "log": "NON-STREAM tools: ['get_weather']",
-        "rows": [{"message": {"content": "OK"}}, {"message": {"content": "OK"}}],
+        "parity_rows": [{"message": {"content": "OK"}}, {"message": {"content": "OK"}}],
     }
     evidence = runner._candidate_parity(ctx)
 
@@ -218,7 +218,7 @@ def test_candidate_memory_uses_engine_readback_after_first_completion(monkeypatc
 
     ctx = runner._candidate_cell_inputs(cell, "http://pipeline", vm_before="vm", resident_before={})
 
-    assert events == ["request", "memory", "request"]
+    assert events == ["request", "memory", "request", "request", "request"]
     assert ctx["memory_models_response"]["json"]["data"][0]["bytes_resident"] == 200
     assert ctx["preflight"]["served_model_id"] == "served-m"
 
@@ -882,3 +882,94 @@ def test_matrix_verdict_stays_unproven_without_speed() -> None:
         },
     }
     assert runner._matrix_verdict(result) == "Unproven — keep the incumbent"
+
+
+def _tool_call_message(content: str = "", arguments: str = '{"city":"Boston"}') -> dict:
+    return {
+        "content": content,
+        "tool_calls": [
+            {"type": "function", "function": {"name": "get_weather", "arguments": arguments}}
+        ],
+    }
+
+
+def test_preflight_sends_think_off_without_tools_and_a_separate_forced_call(monkeypatch) -> None:
+    cell = {
+        "engine": "mlx-serve",
+        "mode": "plain",
+        "seat": "daily-moe",
+        "workspace": "bench-engine-daily-moe",
+        "model": "m",
+        "backend": "eval-openai",
+        "base": "http://127.0.0.1:11234",
+        "port": 11234,
+        "expected_model": "served-m",
+    }
+    sent: list[dict] = []
+
+    def fake_request(_url: str, body: dict) -> dict:
+        sent.append(dict(body))
+        message = _tool_call_message() if body.get("tool_choice") else {"content": "OK\n\n"}
+        return {
+            "header": "w;eval-openai;served-m",
+            "engine_model": "served-m",
+            "text": "OK",
+            "tokens": 2,
+            "elapsed": 0.1,
+            "message": message,
+        }
+
+    monkeypatch.setattr(
+        runner.h2h, "load_config", lambda: {"models": {}, "engines": {"mlx-serve": {}}}
+    )
+    monkeypatch.setattr(runner, "_candidate_residency", lambda _cfg: {})
+    monkeypatch.setattr(runner, "_models_payload", lambda _base: {"status": 200, "json": {}})
+    monkeypatch.setattr(runner, "_model_row", lambda _payload, _model: {})
+    monkeypatch.setattr(runner, "_candidate_request", fake_request)
+    monkeypatch.setattr(runner, "_candidate_tokenizer", lambda _cfg, _cell: None)
+    monkeypatch.setattr(runner.instrument, "_pipeline_log_since", lambda _since: "")
+    monkeypatch.setattr(
+        runner.instrument,
+        "grade_preflight",
+        lambda reply, tool, served: {"verdict": "OK", "think_off_reply": reply, "tool_call": tool},
+    )
+
+    ctx = runner._candidate_cell_inputs(cell, "http://pipeline", vm_before="vm", resident_before={})
+
+    think_off, tool_call, parity_a, parity_b = sent
+    assert think_off["tools"] == [] and "tool_choice" not in think_off
+    assert think_off["messages"][0]["content"] == runner.THINK_OFF_PROMPT
+    assert tool_call["tool_choice"] == {"type": "function", "function": {"name": "get_weather"}}
+    assert tool_call["tools"] == runner.instrument._TOOL_SPEC
+    assert parity_a == parity_b
+    assert parity_a["tool_choice"]["function"]["name"] == "get_weather"
+    assert len(ctx["parity_rows"]) == 2
+    assert ctx["preflight"]["separate_requests"] is True
+
+
+def test_prose_under_a_forced_choice_is_recorded_as_not_honoured() -> None:
+    row = {"message": _tool_call_message(content="OK\n\n")}
+
+    honoured = runner._forced_tool_choice("mlx_lm.server", row)
+    suppressed = runner._forced_tool_choice("mlx-serve", {"message": _tool_call_message()})
+
+    assert honoured["honoured"] is False
+    assert "prose" in honoured["evidence"]
+    assert "mlx_lm/server.py" in honoured["evidence"]
+    assert suppressed["honoured"] is True
+    assert suppressed["rule"] == runner.FORCED_CHOICE_RULE
+
+
+def test_a_missing_forced_call_fails_the_tool_call_check() -> None:
+    graded = runner._grade_cell_preflight(
+        {
+            "engine": "mlx-serve",
+            "expected_model": "served-m",
+        },
+        {"message": {"content": "OK\n\n"}, "engine_model": "served-m"},
+        {"message": {"content": "OK\n\n"}, "engine_model": "served-m"},
+    )
+
+    assert graded["verdict"] == "REVIEW"
+    assert graded["tool_choice"]["honoured"] is False
+    assert "no valid get_weather call" in graded["tool_choice"]["evidence"]

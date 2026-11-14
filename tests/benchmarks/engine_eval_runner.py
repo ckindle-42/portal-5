@@ -390,27 +390,98 @@ def _candidate_memory(
     }
 
 
-def _candidate_body(cell: dict[str, Any]) -> dict[str, Any]:
-    """Build the same two-request preflight/noise probe for every cell."""
+THINK_OFF_PROMPT = "Reply with exactly OK in visible text."
+TOOL_CALL_PROMPT = "Invoke get_weather for Boston."
+PARITY_PROMPT = "Reply with exactly OK in visible text and invoke get_weather for Boston."
+FORCED_CHOICE_RULE = (
+    "honoured means the forced call came back with no prose: prose under a named tool_choice "
+    "is recorded as the engine not forcing the function"
+)
+_GET_WEATHER_CHOICE = {"type": "function", "function": {"name": "get_weather"}}
+
+
+def _probe_body(cell: dict[str, Any], prompt: str, extra: dict[str, Any]) -> dict[str, Any]:
+    """One Pipeline probe body carrying this cell's seat defaults."""
     return {
         "model": cell["workspace"],
-        "messages": [
-            {
-                "role": "user",
-                "content": (
-                    "Reply with exactly OK in visible text and invoke get_weather for Boston."
-                ),
-            }
-        ],
+        "messages": [{"role": "user", "content": prompt}],
         "temperature": 0,
         "max_tokens": 128,
         "stream": False,
-        "tools": instrument._TOOL_SPEC,
-        "tool_choice": {"type": "function", "function": {"name": "get_weather"}},
         "think": False,
         "chat_template_kwargs": {"enable_thinking": False},
         "portal_backend": cell["backend"],
+        **extra,
     }
+
+
+def _candidate_body(cell: dict[str, Any]) -> dict[str, Any]:
+    """The greedy pair parity compares: this seat's tools and a forced function."""
+    return _probe_body(
+        cell,
+        PARITY_PROMPT,
+        {"tools": instrument._TOOL_SPEC, "tool_choice": _GET_WEATHER_CHOICE},
+    )
+
+
+def _think_off_body(cell: dict[str, Any]) -> dict[str, Any]:
+    """Think-off alone. An explicit empty tools list switches tools and tool_choice off."""
+    return _probe_body(cell, THINK_OFF_PROMPT, {"tools": []})
+
+
+def _tool_call_body(cell: dict[str, Any]) -> dict[str, Any]:
+    """The tool-call check alone, under a named forced function."""
+    return _probe_body(
+        cell,
+        TOOL_CALL_PROMPT,
+        {"tools": instrument._TOOL_SPEC, "tool_choice": _GET_WEATHER_CHOICE},
+    )
+
+
+def _forced_tool_choice(engine: str, tool_row: dict[str, Any]) -> dict[str, Any]:
+    """Whether a named forced function was enforced, not merely requested."""
+    message = tool_row["message"]
+    reply = instrument._visible_reply(message)
+    tool = instrument.tool_from_message(message)
+    if not tool.get("ok"):
+        honoured = False
+        why = f"no valid get_weather call: {tool.get('why') or tool}"
+    elif reply.strip():
+        honoured = False
+        why = f"prose {reply.strip()[:40]!r} accompanied the forced call"
+        if engine == "mlx_lm.server":
+            why += (
+                "; mlx_lm/server.py _tokenize passes only tools to apply_chat_template, "
+                "so tool_choice never reaches the template"
+            )
+    else:
+        honoured = True
+        why = "the forced call came back with no prose"
+    return {
+        "requested": _GET_WEATHER_CHOICE,
+        "honoured": honoured,
+        "evidence": why,
+        "rule": FORCED_CHOICE_RULE,
+    }
+
+
+def _grade_cell_preflight(
+    cell: dict[str, Any], think_row: dict[str, Any], tool_row: dict[str, Any]
+) -> dict[str, Any]:
+    """Grade the separate think-off and tool-call requests, then record the choice."""
+    served = think_row.get("engine_model")
+    graded = instrument.grade_preflight(
+        instrument._visible_reply(think_row["message"]),
+        instrument.tool_from_message(tool_row["message"]),
+        served if served == cell["expected_model"] else None,
+    )
+    graded["separate_requests"] = True
+    graded["requests"] = {
+        "think_off": {"prompt": THINK_OFF_PROMPT, "tools": "none (explicit empty list)"},
+        "tool_call": {"prompt": TOOL_CALL_PROMPT, "tool_choice": "get_weather"},
+    }
+    graded["tool_choice"] = _forced_tool_choice(cell["engine"], tool_row)
+    return graded
 
 
 def _candidate_tokenizer(cfg: dict, cell: dict[str, Any]) -> Path | None:
@@ -512,7 +583,7 @@ def _candidate_parity(ctx: dict[str, Any]) -> dict[str, Any]:
     log_text = ctx["engine_log_text"]
     return {
         "requests": [body, body],
-        "outputs": [_candidate_output(row["message"]) for row in ctx["rows"]],
+        "outputs": [_candidate_output(row["message"]) for row in ctx["parity_rows"]],
         "requested_temperature": body.get("temperature"),
         "max_tokens": body.get("max_tokens"),
         "effective_temperature": _candidate_effective_temperature(cell["engine"], log_text),
@@ -758,6 +829,68 @@ TEMPLATE_RULE = (
 )
 
 
+def _parity_unmeasured(
+    template: dict[str, Any],
+    parity: dict[str, Any],
+    classification: str,
+    findings: list[str],
+    extra: dict[str, Any] | None = None,
+) -> None:
+    """Record a pair that could not be compared. The cell stays instrument-invalid."""
+    parity["status"] = "unmeasured"
+    parity["comparisons"] = {
+        "omlx": {
+            "valid": False,
+            "classification": classification,
+            "findings": findings,
+            **(extra or {}),
+        }
+    }
+    template["quality_comparable"] = True
+
+
+def _tool_payloads_differ(parity: dict[str, Any], incumbent: dict[str, Any]) -> list[str] | None:
+    """The tool names each leg was offered, when the Pipeline did not offer the same set."""
+    candidate_tools = parity.get("tools_exposed")
+    incumbent_tools = incumbent.get("tools_exposed")
+    if candidate_tools is None or incumbent_tools is None or candidate_tools == incumbent_tools:
+        return None
+    return [str(candidate_tools), str(incumbent_tools)]
+
+
+def _classify_incumbent_leg(
+    cell: dict[str, Any],
+    template: dict[str, Any],
+    parity: dict[str, Any],
+    incumbent: dict[str, Any],
+) -> None:
+    """Compare the two legs, or record why their payloads are not comparable."""
+    differing_tools = _tool_payloads_differ(parity, incumbent)
+    if differing_tools:
+        _parity_unmeasured(
+            template,
+            parity,
+            "tool_payload_mismatch",
+            [
+                "the Pipeline offered different tools to each leg: "
+                f"{differing_tools[0]} vs {differing_tools[1]}"
+            ],
+            {"engines": {"left": cell["engine"], "right": "omlx"}},
+        )
+        return
+    comparison = _compare_candidate_parity(parity, incumbent)
+    comparison["engines"] = {"left": cell["engine"], "right": "omlx"}
+    comparison["reference"] = "omlx"
+    comparison["differs_from_incumbent"] = _differs_from_incumbent(comparison)
+    parity["status"] = "compared"
+    parity["comparisons"] = {"omlx": comparison}
+    difference = _template_difference(cell, comparison)
+    template["template_differs"] = difference
+    template["quality_comparable"] = difference is None
+    if difference:
+        template["reconciliation"] = _template_reconciliation(cell)
+
+
 def _attach_incumbent_parity(
     cell: dict[str, Any], cfg: dict[str, Any], pipeline: str, evidence: dict[str, Any]
 ) -> None:
@@ -771,16 +904,14 @@ def _attach_incumbent_parity(
         }
         return
     if not isinstance(parity, dict):
-        template["parity"] = {
-            "status": "unmeasured",
-            "comparisons": {
-                "omlx": {
-                    "valid": False,
-                    "classification": "candidate_probe_missing",
-                    "findings": ["the candidate's own greedy probe was not recorded"],
-                }
-            },
-        }
+        parity = {}
+        template["parity"] = parity
+        _parity_unmeasured(
+            template,
+            parity,
+            "candidate_probe_missing",
+            ["the candidate's own greedy probe was not recorded"],
+        )
         return
     template["rule"] = TEMPLATE_RULE
     blocker = _incumbent_parity_blocker(cell, cfg)
@@ -791,62 +922,25 @@ def _attach_incumbent_parity(
         return
     body = _parity_request(parity)
     if body is None:
-        parity["status"] = "unmeasured"
-        parity["comparisons"] = {
-            "omlx": {
-                "valid": False,
-                "classification": "candidate_probe_missing",
-                "findings": ["candidate request body missing from the cell's parity evidence"],
-            }
-        }
-        template["quality_comparable"] = True
+        _parity_unmeasured(
+            template,
+            parity,
+            "candidate_probe_missing",
+            ["candidate request body missing from the cell's parity evidence"],
+        )
         return
     body.pop("_repeated_request_mismatch", None)
     incumbent = _measure_incumbent_parity(cell, cfg, pipeline, body)
     parity["incumbent"] = incumbent
     if incumbent.get("status") != "measured":
-        parity["status"] = "unmeasured"
-        parity["comparisons"] = {
-            "omlx": {
-                "valid": False,
-                "classification": "incumbent_parity_unmeasured",
-                "findings": [str(incumbent.get("reason") or "incumbent parity not measured")],
-            }
-        }
-        template["quality_comparable"] = True
+        _parity_unmeasured(
+            template,
+            parity,
+            "incumbent_parity_unmeasured",
+            [str(incumbent.get("reason") or "incumbent parity not measured")],
+        )
         return
-    candidate_tools = parity.get("tools_exposed")
-    incumbent_tools = incumbent.get("tools_exposed")
-    if (
-        candidate_tools is not None
-        and incumbent_tools is not None
-        and (candidate_tools != incumbent_tools)
-    ):
-        parity["status"] = "compared"
-        parity["comparisons"] = {
-            "omlx": {
-                "valid": False,
-                "classification": "tool_payload_mismatch",
-                "engines": {"left": cell["engine"], "right": "omlx"},
-                "findings": [
-                    f"the Pipeline offered different tools to each leg: "
-                    f"{candidate_tools} vs {incumbent_tools}"
-                ],
-            }
-        }
-        template["quality_comparable"] = True
-        return
-    comparison = _compare_candidate_parity(parity, incumbent)
-    comparison["engines"] = {"left": cell["engine"], "right": "omlx"}
-    comparison["reference"] = "omlx"
-    comparison["differs_from_incumbent"] = _differs_from_incumbent(comparison)
-    parity["status"] = "compared"
-    parity["comparisons"] = {"omlx": comparison}
-    difference = _template_difference(cell, comparison)
-    template["template_differs"] = difference
-    template["quality_comparable"] = difference is None
-    if difference:
-        template["reconciliation"] = _template_reconciliation(cell)
+    _classify_incumbent_leg(cell, template, parity, incumbent)
 
 
 def _parity_request(parity: dict[str, Any]) -> dict[str, Any] | None:
@@ -993,29 +1087,21 @@ def _candidate_cell_inputs(
     log_since = time.strftime("%Y-%m-%dT%H:%M:%S")
     body = _candidate_body(cell)
     url = f"{pipeline.rstrip('/')}/v1/chat/completions"
-    rows = []
-    memory_models_response = None
-    memory = None
-    for index in range(2):
-        rows.append(_candidate_request(url, body))
-        if index == 0:
-            memory_models_response = _models_payload(cell["base"])
-            memory = _candidate_memory(
-                vm_before,
-                cell["port"],
-                cell["engine"],
-                cfg["engines"][cell["engine"]],
-                _model_row(memory_models_response["json"], cell["expected_model"]),
-            )
+    think_row = _candidate_request(url, _think_off_body(cell))
+    memory_models_response = _models_payload(cell["base"])
+    memory = _candidate_memory(
+        vm_before,
+        cell["port"],
+        cell["engine"],
+        cfg["engines"][cell["engine"]],
+        _model_row(memory_models_response["json"], cell["expected_model"]),
+    )
+    tool_row = _candidate_request(url, _tool_call_body(cell))
+    parity_rows = [_candidate_request(url, body) for _ in range(2)]
+    rows = [think_row, tool_row, *parity_rows]
     resident_after = _candidate_residency(cfg)
     log = instrument._pipeline_log_since(log_since)
-    first_message = rows[0]["message"]
-    request_served_model = rows[0].get("engine_model")
-    preflight = instrument.grade_preflight(
-        instrument._visible_reply(first_message),
-        instrument.tool_from_message(first_message),
-        request_served_model if request_served_model == cell["expected_model"] else None,
-    )
+    preflight = _grade_cell_preflight(cell, think_row, tool_row)
     tokenizer = _candidate_tokenizer(cfg, cell)
     return {
         "cell": cell,
@@ -1030,6 +1116,9 @@ def _candidate_cell_inputs(
         "served": served,
         "body": body,
         "rows": rows,
+        "think_row": think_row,
+        "tool_row": tool_row,
+        "parity_rows": parity_rows,
         "log": log,
         "engine_log_text": _candidate_engine_log_text(started_info or {}),
         "preflight": preflight,
@@ -1107,14 +1196,17 @@ def _candidate_settings_evidence(ctx: dict[str, Any], sources: dict[str, Any]) -
             "loaded": model_row.get("loaded"),
         },
         "tokens": {
-            "engine_completion": ctx["rows"][0]["tokens"],
+            "engine_completion": ctx["think_row"]["tokens"],
             "tokenizer_completion": instrument.count_tokens(
-                ctx["rows"][0]["text"], ctx["tokenizer"]
+                ctx["think_row"]["text"], ctx["tokenizer"]
             )
             if ctx["tokenizer"]
             else None,
+            "source": "think-off reply: Pipeline usage vs the registered checkpoint tokenizer",
         },
-        "noise": instrument._pair_noise([(row["tokens"], row["elapsed"]) for row in ctx["rows"]]),
+        "noise": instrument._pair_noise(
+            [(row["tokens"], row["elapsed"]) for row in ctx["parity_rows"]]
+        ),
         "template": template,
     }
 
@@ -1142,7 +1234,7 @@ def _candidate_verdict_evidence(ctx: dict[str, Any], sources: dict[str, Any]) ->
             "memory": sources["memory"],
             "tokens": sources["tokens"],
             "noise": "two back-to-back Pipeline requests with the same body",
-            "preflight": "think-off and get_weather call through the Pipeline",
+            "preflight": "separate think-off request (no tools) then a named tool_choice request, through the Pipeline",
             "residency": sources["residency"],
             "template": "registry model template vs source repository when same_checkpoint is true",
             "endpoint_sources": sources,
