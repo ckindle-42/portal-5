@@ -51,6 +51,8 @@ backends:
     url: http://host.docker.internal:11236
     health_path: /v1/models
     priority: 10
+    # docs/engine_research/vllm_20261114.md § vllm-mlx 0.6.0: MTP does not disable streaming.
+    note: "OpenAI SSE stays available with --enable-mtp and --stream-interval 1. Spec does not disable streaming. The local Nemotron-MTP stream was not tested. Final usage needs stream_options.include_usage=true. Per-seat argv is tests/benchmarks/engine_h2h.yaml engines.vllm-mlx.seats."
     models: *engine_eval_models
   # mlx_lm.server GET /v1/models lists the HF cache plus Path(--model).resolve()
   # (mlx_lm/server.py handle_models_request). The chat `model` it accepts is the

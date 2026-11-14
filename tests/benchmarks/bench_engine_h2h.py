@@ -211,6 +211,43 @@ def _launch_argv(engine_cfg: dict, mode: str, spec: dict | None, values: dict) -
     return render(engine_cfg["base_spec"], values) + render(spec.get("args") or [], values)
 
 
+def _thinking_flag(enabled: bool) -> str:
+    return "true" if enabled else "false"
+
+
+def seated_launch_argv(engine_cfg: dict, seat: str, mode: str, values: dict) -> list[str] | None:
+    """Render engines.<id>.seats.<seat> over seat_base. None keeps the engine template."""
+    block = (engine_cfg.get("seats") or {}).get(seat)
+    template = engine_cfg.get("seat_base")
+    if not isinstance(block, dict) or not template:
+        return None
+    rendered = dict(values)
+    if block.get("tool_parser"):
+        rendered["tool_parser"] = block["tool_parser"]
+    if block.get("model_dir"):
+        rendered["model_dir"] = block["model_dir"]
+        rendered["served"] = block.get("served") or block["model_dir"]
+    if block.get("ctx"):
+        rendered["ctx"] = block["ctx"]
+    argv = render(template, rendered)
+    parser = block.get("reasoning_parser")
+    if parser:
+        argv.extend(["--reasoning-parser", str(parser)])
+    if "enable_thinking" in block:
+        argv.extend(
+            [
+                "--default-chat-template-kwargs",
+                '{"enable_thinking":' + _thinking_flag(bool(block["enable_thinking"])) + "}",
+            ]
+        )
+    if mode == "spec":
+        extra = block.get("spec_argv")
+        if not extra:
+            raise SystemExit("no spec path: registry cell has no spec settings")
+        argv.extend(render(list(extra), rendered))
+    return argv
+
+
 def _unrendered_placeholders(argv: list[str], cwd: str | None) -> list[str]:
     parts = [*argv, *([cwd] if cwd else [])]
     return sorted(
@@ -219,7 +256,13 @@ def _unrendered_placeholders(argv: list[str], cwd: str | None) -> list[str]:
 
 
 def launch_command(
-    cfg: dict, engine: str, model: str, mode: str, context_tokens: int | None = None
+    cfg: dict,
+    engine: str,
+    model: str,
+    mode: str,
+    context_tokens: int | None = None,
+    *,
+    seat: str | None = None,
 ) -> tuple[list[str], str | None]:
     """The exact argv (and cwd) for a managed engine. Raises on a null spec cell."""
     e = cfg["engines"][engine]
@@ -250,7 +293,8 @@ def launch_command(
         ),
         "spec_args": (spec or {}).get("args") or [],
     }
-    argv = _launch_argv(e, mode, spec, values)
+    seated = seated_launch_argv(e, seat, mode, values) if seat else None
+    argv = seated if seated is not None else _launch_argv(e, mode, spec, values)
     cwd = render_one(e["cwd"], values) if e.get("cwd") else None
     unresolved = _unrendered_placeholders(argv, cwd)
     if unresolved:

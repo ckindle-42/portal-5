@@ -16,6 +16,31 @@ from tests.benchmarks import engine_eval_instrument as instrument
 from tests.benchmarks import engine_eval_runner as runner
 
 
+def test_vllm_mlx_candidate_cells_use_per_seat_launch_argv() -> None:
+    """The canary cell argv is the seated registry, not the global think-off template."""
+    wanted = {
+        ("daily-moe", "plain"): (True, False),
+        ("daily-moe", "spec"): (True, True),
+        ("coding", "plain"): (True, False),
+        ("hunt", "plain"): (True, False),
+        ("council-json", "plain"): (False, False),
+    }
+    cells = runner.candidate_cells()
+    found: dict[tuple[str, str], tuple[bool, bool]] = {}
+    for cell in cells:
+        key = (cell["seat"], cell["mode"])
+        if cell["engine"] != "vllm-mlx" or key not in wanted:
+            continue
+        argv = cell["argv"]
+        thinking = json.loads(argv[argv.index("--default-chat-template-kwargs") + 1])
+        found[key] = (bool(thinking["enable_thinking"]), "--enable-mtp" in argv)
+        assert argv[argv.index("--stream-interval") + 1] == "1"
+        assert cell["launch_error"] is None
+    assert found == wanted
+    seated = {cell["seat"] for cell in cells if cell["engine"] == "vllm-mlx"}
+    assert "task-router" not in seated
+
+
 def test_candidate_cells_use_registry_argv_and_fixed_pipeline_backend() -> None:
     cells = runner.candidate_cells()
 

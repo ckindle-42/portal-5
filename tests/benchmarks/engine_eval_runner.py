@@ -197,7 +197,7 @@ def _make_cell(
     """Resolve the process argv and static route identity for one cell."""
     model = mapping["model"]
     try:
-        argv, cwd = h2h.launch_command(cfg, engine, model, mode)
+        argv, cwd = h2h.launch_command(cfg, engine, model, mode, seat=seat)
         launch_error = None
     except SystemExit as exc:
         argv, cwd, launch_error = [], None, str(exc)
