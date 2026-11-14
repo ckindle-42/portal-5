@@ -566,6 +566,69 @@ def test_vllm_mlx_seat_argv_follows_the_researched_registry(cfg):
     assert "does not disable streaming" in backend["note"]
 
 
+def test_brew_llama_pins_fa_slots_and_cache_reuse_per_the_gguf_research(cfg, monkeypatch):
+    """Parse the researched brew-llama registry (gguf_20261114.md §4). No engine is started."""
+    monkeypatch.setattr(h, "gguf_path_for", lambda _cfg, _model: "/store/nemotron-q4km.gguf")
+    plain, _cwd = h.launch_command(cfg, "brew-llama", "nemotron_35_lightning", "plain")
+    assert plain[0] == "/opt/homebrew/bin/llama-server"
+    assert plain[plain.index("-m") + 1] == "/store/nemotron-q4km.gguf"
+    assert plain[plain.index("-c") + 1] == "32768"
+    assert plain[plain.index("-fa") + 1] == "on"
+    assert plain[plain.index("-np") + 1] == "1"
+    assert plain[plain.index("--cache-reuse") + 1] == "256"
+    assert plain[plain.index("--alias") + 1] == "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp"
+    for absent in ("--moe-cache-mib", "-ctk", "-ctv", "--swa-full", "--fit", "--reasoning"):
+        assert absent not in plain
+    spec, _cwd = h.launch_command(cfg, "brew-llama", "nemotron_35_lightning", "spec")
+    assert spec[: len(plain)] == plain  # same-bytes pair: spec adds only its args
+    assert spec[-4:] == ["--spec-type", "draft-mtp", "--spec-draft-n-max", "3"]
+    router, _cwd = h.launch_command(
+        cfg,
+        "brew-llama",
+        "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k",
+        "plain",
+    )
+    assert router[router.index("-c") + 1] == "2048"
+    assert router[router.index("--cache-reuse") + 1] == "256"
+    assert (
+        router[router.index("--alias") + 1]
+        == "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k"
+    )
+    with pytest.raises(SystemExit):
+        h.launch_command(
+            cfg,
+            "brew-llama",
+            "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k",
+            "spec",
+        )
+    assert (
+        h.served_id(cfg, "brew-llama", "nemotron_35_lightning", "plain")
+        == "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp"
+    )
+    assert (
+        h.served_id(
+            cfg,
+            "brew-llama",
+            "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k",
+            "plain",
+        )
+        == "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k"
+    )
+    assert "same Q4_K_M bytes" in cfg["engines"]["brew-llama"]["note"]
+    from portal.platform.inference.eval_openai import load_bench_engines
+
+    loaded = load_bench_engines(str(h.CONFIG.resolve().parents[2] / "config" / "backends.yaml"))
+    backend = next(row for row in loaded["backends"] if row["id"] == "eval-openai-brew-llama")
+    assert "GET /slots" in backend["note"] and "GET /props" in backend["note"]
+    assert {m["id"] for m in backend["models"]} == {
+        "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp",
+        "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k",
+    }
+    assert {m["id"] for m in backend["models"] if m["supports_tools"]} == {
+        "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp"
+    }
+
+
 def test_mlxcel_pins_parallel_batch_without_prompt_lookup(cfg):
     argv, _ = h.launch_command(cfg, "mlxcel", "gemma4_26b_a4b_qat", "plain")
     assert argv[argv.index("--parallel") + 1] == "4"

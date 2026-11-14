@@ -315,13 +315,16 @@ def base_url(cfg: dict, engine: str) -> str:
 
 
 def served_id(cfg: dict, engine: str, model: str, mode: str) -> str:
-    """The `model` field requests must carry. Ollama: its tag. Everything MLX:
+    """The `model` field requests must carry. Ollama: its tag. GGUF engines: the
+    registry key, or the registered `served:` alias when one exists. Everything MLX:
     the directory name (managed engines get --served-model-name / a relative
     --model so the id is identical across engines)."""
     if engine == "ollama":
         return cfg["models"][model]["ollama"]
     if cfg["engines"][engine].get("requires") == "gguf":
-        return model
+        # A gguf engine serves --alias {served}; a campaign model registered with a
+        # `served:` id (the workspace hint the Pipeline forwards) must read back that id.
+        return cfg["models"][model].get("served") or model
     m = cfg["models"][model]
     if engine == "splash":
         return m.get("served") or m.get("splash") or model_dir_for(cfg, model, engine, mode)
