@@ -412,3 +412,48 @@ defaults: {}
 
         assert backend.healthy is False
         assert reg.list_healthy_backends() == []
+
+    def test_publishing_on_transition_leaves_the_cadence_and_threshold_alone(self, tmp_path):
+        """Production probing is unchanged: one GET per check, two failures to flip,
+        immediate recovery. Publishing only moves *when* the list is rebuilt."""
+        import asyncio
+
+        cfg = tmp_path / "backends.yaml"
+        cfg.write_text("""
+backends:
+  - id: b1
+    type: ollama
+    url: http://x
+    group: general
+    models: [m]
+workspace_routing: {}
+defaults: {}
+""")
+        reg = BackendRegistry(config_path=str(cfg))
+        backend = reg._backends["b1"]
+        calls: list[str] = []
+
+        class Client:
+            status_code = 200
+
+            async def get(self, url):
+                calls.append(url)
+                return type("Response", (), {"status_code": self.status_code})()
+
+        client = Client()
+        sem = asyncio.Semaphore(1)
+
+        client.status_code = 503
+        asyncio.run(reg._check_one(backend, sem, client))
+        assert backend.healthy is True and backend.consecutive_failures == 1
+
+        asyncio.run(reg._check_one(backend, sem, client))
+        assert backend.healthy is False and backend.consecutive_failures == 2
+        assert reg.list_healthy_backends() == []
+
+        client.status_code = 200
+        asyncio.run(reg._check_one(backend, sem, client))
+        assert backend.healthy is True and backend.consecutive_failures == 0
+        assert [row.id for row in reg.list_healthy_backends()] == ["b1"]
+
+        assert calls == ["http://x/api/tags"] * 3
