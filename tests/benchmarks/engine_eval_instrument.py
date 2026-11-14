@@ -55,7 +55,6 @@ REQUIRED_CLAIMS = (
     "thinking",
     "temperature",
 )
-_TEMPLATE_REASONS = frozenset({"template", "bos", "stop"})
 _SPEC_OFF = frozenset({"off", "plain", "none"})
 
 _SETTINGS_RE = re.compile(r"Applied initial settings for ([^:]+): (\{.*\})\s*$")
@@ -624,9 +623,15 @@ def _check_memory(evidence: dict[str, Any], failures: list[str]) -> None:
         _fail(failures, "memory: tree RSS or vm_stat wired delta missing")
         return
     if not _agree(float(weight), float(wired)):
+        resident_decimal = memory.get("engine_resident_decimal_gb")
+        resident_detail = (
+            f" ({float(resident_decimal):.2f}GB decimal)" if resident_decimal is not None else ""
+        )
+        tolerance = max(MEMORY_ABS_TOLERANCE_GB, MEMORY_REL_TOLERANCE * abs(float(weight)))
         _fail(
             failures,
-            f"memory: engine weight {float(weight):.2f}GB vs wired delta {float(wired):.2f}GB",
+            f"memory: engine resident {float(weight):.2f}GiB{resident_detail} vs wired delta "
+            f"{float(wired):.2f}GiB (tolerance max(2GiB, 15%)={tolerance:.2f}GiB)",
         )
 
 
@@ -709,12 +714,18 @@ def _check_template(evidence: dict[str, Any], failures: list[str]) -> None:
         return
     if template.get("same_checkpoint") is False:
         return
-    if template.get("match") is True:
+    parity = template.get("parity")
+    comparisons = parity.get("comparisons") if isinstance(parity, dict) else None
+    if not isinstance(comparisons, dict) or not comparisons:
+        _fail(failures, "template: paired greedy parity is pending; peer receipt is missing")
         return
-    reason = template.get("reason")
-    if reason in _TEMPLATE_REASONS and template.get("note"):
-        return
-    _fail(failures, "template: outputs differ without a template, BOS, or stop explanation")
+    failed = [
+        f"{peer}: {comparison.get('classification', 'unclassified')}"
+        for peer, comparison in comparisons.items()
+        if not isinstance(comparison, dict) or comparison.get("valid") is not True
+    ]
+    if failed:
+        _fail(failures, f"template: paired greedy parity failed ({'; '.join(failed)})")
 
 
 def _check_regressions(evidence: dict[str, Any], failures: list[str]) -> None:
@@ -845,7 +856,7 @@ def defect_cases() -> list[tuple[str, dict[str, Any], str]]:
     add(
         "memory-disagree",
         lambda ev: ev["memory"].__setitem__("vm_wired_delta_gb", 40.0),
-        "engine weight",
+        "engine resident",
     )
     add(
         "memory-contaminated-resident",
