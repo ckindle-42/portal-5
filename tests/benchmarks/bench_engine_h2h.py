@@ -203,7 +203,10 @@ def _draft_gguf_path(model_cfg: dict, model: str, mode: str) -> str:
 
 def _launch_argv(engine_cfg: dict, mode: str, spec: dict | None, values: dict) -> list[str]:
     if mode == "plain":
-        return render(engine_cfg["plain"], values)
+        template = engine_cfg.get("plain")
+        if not template:
+            raise SystemExit("no plain path: this engine always loads its drafter")
+        return render(template, values)
     if spec is None:
         raise SystemExit("no spec path: registry cell has no spec settings")
     if "{spec_args}" in engine_cfg["base_spec"]:

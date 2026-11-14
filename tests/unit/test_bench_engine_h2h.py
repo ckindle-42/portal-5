@@ -131,6 +131,11 @@ def test_every_managed_engine_renders_a_plain_command_for_every_model(cfg):
         for model in cfg["models"]:
             if not h.model_supports_engine(cfg, model, eng) or e.get("requires") == "gguf":
                 continue
+            # Splash 1.6.1 has no draft-off switch (mlxother_20261114.md § 3).
+            if not e.get("plain"):
+                with pytest.raises(SystemExit, match="no plain path"):
+                    h.launch_command(cfg, eng, model, "plain")
+                continue
             argv, _ = h.launch_command(cfg, eng, model, "plain")
             assert not any("{" in a and "}" in a and '"' not in a for a in argv), argv
 
@@ -577,22 +582,25 @@ def test_mlxcel_pins_parallel_batch_without_prompt_lookup(cfg):
 
 
 def test_splash_qwen_pins_disk_cache_off_and_local_draft(cfg):
-    plain, _ = h.launch_command(cfg, "splash", "qwen38_27b_h2h", "plain")
+    with pytest.raises(SystemExit, match="no plain path"):
+        h.launch_command(cfg, "splash", "qwen38_27b_h2h", "plain")
     spec, _ = h.launch_command(cfg, "splash", "qwen38_27b_h2h", "spec")
     draft = cfg["models"]["qwen38_27b_h2h"]["drafter_dir"]
-    for argv in (plain, spec):
-        assert argv[argv.index("--max-cache-disk") + 1] == "0"
-        assert "--persistent-cache" not in argv
-        assert "--language-only" in argv
-        assert argv[argv.index("--default-reasoning-effort") + 1] == "none"
-        assert argv[argv.index("--draft-model") + 1] == draft
-        assert argv[argv.index("--port") + 1] == "11242"
-    assert plain == spec
-    assert h.served_id(cfg, "splash", "qwen38_27b_h2h", "plain") == "Qwen3.8-27B-4bit"
+    assert spec[spec.index("--max-cache-disk") + 1] == "0"
+    assert "--persistent-cache" not in spec
+    assert "--language-only" in spec
+    assert "--default-reasoning-effort" not in spec
+    assert spec[spec.index("--host") + 1] == "0.0.0.0"
+    assert spec[spec.index("--allowed-host") + 1] == "host.docker.internal"
+    assert spec[spec.index("--draft-model") + 1] == draft
+    assert spec[spec.index("--served-model-name") + 1] == "Qwen3.8-27B-4bit"
+    assert "--announce-served-name" in spec
+    assert spec[spec.index("--port") + 1] == "11242"
+    assert h.served_id(cfg, "splash", "qwen38_27b_h2h", "spec") == "Qwen3.8-27B-4bit"
 
 
 def test_splash_flint_keeps_256k_and_cannot_force_think_off(cfg):
-    argv, _ = h.launch_command(cfg, "splash", "flint_40b", "plain")
+    argv, _ = h.launch_command(cfg, "splash", "flint_40b", "spec")
     assert argv[argv.index("--model") + 1] == "unsloth/flint-GGUF:UD-Q4_K_XL"
     assert argv[argv.index("--max-context") + 1] == "262144"
     assert "--default-reasoning-effort" not in argv
@@ -745,7 +753,11 @@ def test_every_managed_engine_declares_the_same_schema(cfg):
     assert "vllm-metal" in managed
     for name, e in managed.items():
         assert set(e) >= MANAGED_ENGINE_KEYS, name
-        assert isinstance(e["plain"], list) and isinstance(e["base_spec"], list), name
+        assert isinstance(e["base_spec"], list), name
+        if name == "splash":
+            assert e["plain"] is None
+        else:
+            assert isinstance(e["plain"], list), name
     ports = [e["port"] for e in cfg["engines"].values() if "port" in e]
     assert len(ports) == len(set(ports))
     assert managed["vllm-metal"]["port"] == 11244

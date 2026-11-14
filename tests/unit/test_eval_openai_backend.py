@@ -120,10 +120,19 @@ def test_enabled_eval_backend_is_exclusive_and_not_a_degrade_target(
     assert {b.id for b in coding} == {
         backend.id for backend in reg.list_backends() if backend.type == "eval_openai"
     }
-    assert coding[0].type == "eval_openai"
-    assert coding[0].health_url.endswith("/v1/models")
-    assert coding[0].resolve_model("Qwen3.8-27B-4bit") == "Qwen3.8-27B-4bit"
-    assert coding[0].resolve_model("hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k") is None
+    # Equal priorities shuffle (_priority_ordered), so coding[0] is not a
+    # stable backend. The ollama incumbent aliases the coding hint; every
+    # other eval backend serves that hint as the MLX id. ctx96k is unused.
+    assert coding
+    assert all(b.type == "eval_openai" for b in coding)
+    assert all(b.health_url.endswith("/v1/models") for b in coding)
+    direct = [b for b in coding if "Qwen3.8-27B-4bit" in b.models]
+    aliased = [b for b in coding if b.aliases.get("Qwen3.8-27B-4bit")]
+    assert direct and aliased
+    assert all(b.resolve_model("Qwen3.8-27B-4bit") == "Qwen3.8-27B-4bit" for b in direct)
+    assert all(
+        b.resolve_model("hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k") is None for b in coding
+    )
     production = reg.get_backend_candidates("auto-coding")
     assert production
     assert all(b.type != "eval_openai" for b in production)

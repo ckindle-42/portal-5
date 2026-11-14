@@ -382,6 +382,41 @@ def test_parity_prompt_count_is_unmeasured_when_the_log_has_no_parity_block() ->
     assert runner._tool_rendering(blocks)["rendered"] is None
 
 
+def test_splash_memory_attributes_the_native_child(monkeypatch) -> None:
+    """The listener is the Python server. Weights sit in its native child."""
+
+    def check_output(argv, **_kwargs):
+        if argv[0] == "vm_stat":
+            return (
+                "Mach Virtual Memory Statistics: (page size of 16384 bytes)\n"
+                "Pages free: 1000.\nPages wired down: 2000.\n"
+            )
+        if argv[0] == "ps":
+            return "100 1 4096\n200 100 1048576\n"
+        if argv[:3] == ["footprint", "-p", "100"]:
+            return "    phys_footprint: 40 MB\n"
+        if argv[:3] == ["footprint", "-p", "200"]:
+            return "    phys_footprint: 18.00 GB\n"
+        raise AssertionError(argv)
+
+    monkeypatch.setattr(runner.subprocess, "check_output", check_output)
+    monkeypatch.setattr(runner.h2h, "pid_on_port", lambda _port: 100)
+    memory = runner._candidate_memory(
+        "Mach Virtual Memory Statistics: (page size of 16384 bytes)\n"
+        "Pages free: 3000.\nPages wired down: 100.\n",
+        11242,
+        "splash",
+        {"requires": "splash"},
+        {},
+    )
+    assert memory["child_pid"] == 200
+    assert memory["child_phys_footprint_gb"] == 18.0
+    assert memory["engine_weight_gb"] == 18.0
+    assert memory["engine_weight_field"] == "child_phys_footprint"
+    assert memory["phys_footprint_gb"] == 40 / 1024
+    assert "native child" in memory["engine_weight_source"]
+
+
 def test_candidate_memory_uses_engine_readback_after_first_completion(monkeypatch) -> None:
     cell = {
         "engine": "mlx-serve",
