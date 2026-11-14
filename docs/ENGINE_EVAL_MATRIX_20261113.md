@@ -12,6 +12,13 @@ without tripping the swap gate (growth 2048 MB, absolute used 4096 MB). Otherwis
 result is "Unproven — keep the incumbent." Ollama GGUF rows are failover and do not
 decide the MLX engine. Template parity runs only when `same_checkpoint` is true.
 
+Template parity is measured inside the cell: the candidate and the oMLX incumbent are sent
+the identical greedy probe on the same checkpoint in that one cell, so a single `--cell` run
+is self-contained. A rendered-prompt token-count difference is recorded as a finding
+(`template_differs`) and makes that cell's quality comparison non-comparable; it does not
+invalidate the instrument checks (route, memory, settings, tokens). A greedy-output
+difference at equal prompt counts stays a validity failure.
+
 ## Daily MoE
 
 Checkpoint: `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`.

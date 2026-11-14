@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import contextlib
 import hashlib
 import json
@@ -528,7 +529,324 @@ def _candidate_parity(ctx: dict[str, Any]) -> dict[str, Any]:
         ),
         "rendered_prompt_token_count": _candidate_prompt_token_count(cell["engine"], log_text),
         "rendered_prompt_token_count_source": "engine stderr/stdout log",
+        "tools_exposed": pipeline_tools_exposed(ctx["log"]),
     }
+
+
+OMLX_INCUMBENT_BACKEND = "eval-openai-omlx-incumbent"
+OMLX_PORT = 8085
+_OMLX_CHAT_PROMPT_RE = re.compile(
+    r"Chat completion: model=(?P<model>[^,]+),.*?\bprompt:\s*(?P<prompt>\d+)"
+)
+_PIPE_TOOLS_RE = re.compile(r"NON-STREAM tools: (\[.*\])")
+_TEMPLATE_MISMATCH = "chat_template_rendering_mismatch"
+
+
+def omlx_prompt_token_count(log_text: str, model: str) -> int | None:
+    """Last per-request prompt count oMLX logged for ``model``."""
+    found = None
+    for line in log_text.splitlines():
+        match = _OMLX_CHAT_PROMPT_RE.search(line)
+        if match and match.group("model").strip() == model:
+            found = int(match.group("prompt"))
+    return found
+
+
+def pipeline_tools_exposed(log_text: str) -> list[str] | None:
+    """The tool names the Pipeline last offered a backend on this log slice."""
+    found = None
+    for line in log_text.splitlines():
+        match = _PIPE_TOOLS_RE.search(line)
+        if not match:
+            continue
+        try:
+            parsed = ast.literal_eval(match.group(1))
+        except (SyntaxError, ValueError):
+            continue
+        if isinstance(parsed, list):
+            found = [str(name) for name in parsed]
+    return found
+
+
+def _incumbent_leg(cell: dict[str, Any], cfg: dict[str, Any]) -> dict[str, Any]:
+    """oMLX identity for the checkpoint this cell loaded."""
+    return {
+        "engine": "omlx",
+        "backend": OMLX_INCUMBENT_BACKEND,
+        "base": h2h.base_url(cfg, "omlx"),
+        "port": OMLX_PORT,
+        "model": cell["expected_model"],
+    }
+
+
+def _incumbent_parity_blocker(cell: dict[str, Any], cfg: dict[str, Any]) -> str | None:
+    """Why oMLX cannot render this cell's checkpoint, or None when it can."""
+    if cfg["engines"][cell["engine"]].get("requires") != "mlx":
+        return f"{cell['engine']} does not load the MLX checkpoint oMLX serves"
+    if not h2h.model_supports_engine(cfg, cell["model"], "omlx"):
+        return f"{cell['model']} has no MLX artifact for the oMLX incumbent"
+    return None
+
+
+def _read_log_from(path: Path, offset: int) -> str:
+    try:
+        with path.open("rb") as handle:
+            handle.seek(offset)
+            return handle.read().decode("utf-8", "replace")
+    except OSError:
+        return ""
+
+
+def _unload_incumbent(cfg: dict[str, Any], model: str) -> dict[str, Any]:
+    """Return oMLX to its pre-cell resident set and say whether it did."""
+    unload: dict[str, Any] = {"model": model, "requested": False, "remaining": None}
+    try:
+        loaded = _production_loaded_models("omlx", cfg)
+    except Exception as exc:
+        unload["error"] = str(exc)
+        return unload
+    if model in loaded:
+        try:
+            _unload_production_model("omlx", model, cfg)
+            unload["requested"] = True
+        except Exception as exc:
+            unload["error"] = str(exc)
+    try:
+        unload["remaining"] = _production_loaded_models("omlx", cfg)
+    except Exception as exc:
+        unload["error"] = str(exc)
+    return unload
+
+
+def _measure_incumbent_parity(
+    cell: dict[str, Any], cfg: dict[str, Any], pipeline: str, body: dict[str, Any]
+) -> dict[str, Any]:
+    """Send the cell's own greedy probe to oMLX on the same checkpoint and read it back."""
+    leg = _incumbent_leg(cell, cfg)
+    log_path = instrument.omlx_server_log()
+    try:
+        offset = log_path.stat().st_size
+    except OSError as exc:
+        return {"status": "unmeasured", "reason": f"{log_path} is unreadable: {exc}"}
+    swap_before = h2h.swap_now().get("used_mb")
+    pipeline_mark = time.strftime("%Y-%m-%dT%H:%M:%S")
+    incumbent_body = {**body, "portal_backend": leg["backend"]}
+    try:
+        row = _candidate_request(f"{pipeline.rstrip('/')}/v1/chat/completions", incumbent_body)
+    except Exception as exc:
+        return {
+            "status": "unmeasured",
+            "reason": f"incumbent request failed: {exc}",
+            "unload": _unload_incumbent(cfg, leg["model"]),
+        }
+    log_text = _read_log_from(log_path, offset)
+    route = str(row.get("header") or "")
+    match = instrument._ROUTE_RE.match(route)
+    if (
+        not match
+        or match.group(2) != leg["backend"]
+        or match.group(3) != leg["model"]
+        or row.get("engine_model") != leg["model"]
+    ):
+        unload = _unload_incumbent(cfg, leg["model"])
+        return {
+            "status": "unmeasured",
+            "reason": (
+                f"incumbent route {route!r} model {row.get('engine_model')!r} is not "
+                f"{leg['backend']}/{leg['model']}"
+            ),
+            "unload": unload,
+        }
+    prompt = omlx_prompt_token_count(log_text, leg["model"])
+    measured = {
+        "status": "measured",
+        "engine": leg["engine"],
+        "backend": leg["backend"],
+        "model": leg["model"],
+        "route": route,
+        "engine_model": row.get("engine_model"),
+        "requests": [incumbent_body],
+        "outputs": [_candidate_output(row["message"])],
+        "requested_temperature": incumbent_body.get("temperature"),
+        "max_tokens": incumbent_body.get("max_tokens"),
+        "effective_temperature": None,
+        "effective_temperature_source": None,
+        "effective_temperature_note": (
+            "oMLX server.log has no per-request effective temperature line; the request carried 0"
+        ),
+        "rendered_prompt_token_count": prompt,
+        "rendered_prompt_token_count_source": "~/.omlx/logs/server.log Chat completion prompt",
+        "tools_exposed": pipeline_tools_exposed(instrument._pipeline_log_since(pipeline_mark)),
+        "swap_used_mb": [swap_before, h2h.swap_now().get("used_mb")],
+        "unload": _unload_incumbent(cfg, leg["model"]),
+    }
+    if prompt is None:
+        measured["status"] = "unmeasured"
+        measured["reason"] = "oMLX server.log had no Chat completion prompt line for this request"
+    return measured
+
+
+def _template_reconciliation(cell: dict[str, Any]) -> dict[str, Any]:
+    """What the engine offers for rendering the incumbent's prompt, and why it cannot."""
+    engine = cell["engine"]
+    pre_rendered = (
+        "sending the incumbent's rendered prompt to a completion endpoint would equalise the "
+        "token counts but bypasses the engine's own chat template, so it cannot evidence "
+        "template parity; not applied"
+    )
+    if engine == "mlx_lm.server":
+        detail = (
+            "mlx_lm.server has --chat-template, but it already applies the checkpoint's own "
+            "chat_template.jinja: AutoTokenizer loads it from the model directory and "
+            "mlx_lm/server.py _tokenize calls tokenizer.apply_chat_template(messages, "
+            "add_generation_prompt=True, tools=..., **chat_template_kwargs). The residual "
+            "difference is oMLX's pre-render tool-schema pass, which the flag cannot reproduce."
+        )
+    elif engine == "mlx-serve":
+        detail = (
+            "mlx-serve 26.11.2 exposes no chat-template flag in `mlx-serve --help`; the residual "
+            "difference is oMLX's pre-render tool-schema pass."
+        )
+    else:
+        detail = f"{engine} has no registered chat-template override for this matrix cell"
+    return {
+        "attempted": False,
+        "available": False,
+        "pre_rendered_input": pre_rendered,
+        "detail": detail,
+    }
+
+
+def _differs_from_incumbent(comparison: dict[str, Any]) -> str | None:
+    if comparison.get("valid") is True:
+        return None
+    counts = comparison.get("rendered_prompt_token_counts") or {}
+    if counts.get("left") is None or counts.get("right") is None:
+        return "unmeasured"
+    return "left"
+
+
+def _template_difference(cell: dict[str, Any], comparison: dict[str, Any]) -> str | None:
+    """The recorded FINDING when the candidate renders the same probe differently."""
+    if comparison.get("classification") != _TEMPLATE_MISMATCH:
+        return None
+    counts = comparison.get("rendered_prompt_token_counts") or {}
+    candidate, incumbent = counts.get("left"), counts.get("right")
+    if candidate is None or incumbent is None:
+        return (
+            f"{cell['engine']} rendered-prompt count unreadable against incumbent oMLX "
+            f"({candidate} vs {incumbent})"
+        )
+    delta = int(candidate) - int(incumbent)
+    return (
+        f"{cell['engine']} renders the same greedy probe to {candidate} prompt tokens; "
+        f"incumbent oMLX renders {incumbent} ({delta:+d}); {cell['engine']} is the engine that "
+        f"differs. Both load the checkpoint's own chat_template.jinja, so the divergence is the "
+        f"payload: oMLX canonicalises tool schemas before rendering "
+        f"(omlx/api/tool_calling.py convert_tools_for_template: sorted schema keys and a "
+        f"description key on every schema node), and no candidate engine exposes that pass as a "
+        f"flag. The quality comparison for this cell is not comparable."
+    )
+
+
+TEMPLATE_RULE = (
+    "Template parity is the candidate cell against the oMLX incumbent on the same checkpoint, "
+    "both probed inside this cell with the identical greedy request. A rendered-prompt token "
+    "count difference is a FINDING (template_differs), not a validity failure: route, memory, "
+    "settings and token checks decide validity, and the cell's quality comparison is not "
+    "comparable. A greedy-output difference at equal counts stays a validity failure."
+)
+
+
+def _attach_incumbent_parity(
+    cell: dict[str, Any], cfg: dict[str, Any], pipeline: str, evidence: dict[str, Any]
+) -> None:
+    """Compare this cell's own greedy probe with the oMLX incumbent's, in-cell."""
+    template = evidence.setdefault("template", {})
+    parity = template.get("parity")
+    if template.get("same_checkpoint") is not True:
+        template["parity"] = {
+            "status": "not_run",
+            "reason": "cell does not load the matrix checkpoint, so there is no incumbent pair",
+        }
+        return
+    if not isinstance(parity, dict):
+        template["parity"] = {
+            "status": "unmeasured",
+            "comparisons": {
+                "omlx": {
+                    "valid": False,
+                    "classification": "candidate_probe_missing",
+                    "findings": ["the candidate's own greedy probe was not recorded"],
+                }
+            },
+        }
+        return
+    template["rule"] = TEMPLATE_RULE
+    blocker = _incumbent_parity_blocker(cell, cfg)
+    if blocker:
+        parity["status"] = "not_run"
+        parity["reason"] = blocker
+        template["quality_comparable"] = True
+        return
+    body = _parity_request(parity)
+    if body is None:
+        parity["status"] = "unmeasured"
+        parity["comparisons"] = {
+            "omlx": {
+                "valid": False,
+                "classification": "candidate_probe_missing",
+                "findings": ["candidate request body missing from the cell's parity evidence"],
+            }
+        }
+        template["quality_comparable"] = True
+        return
+    body.pop("_repeated_request_mismatch", None)
+    incumbent = _measure_incumbent_parity(cell, cfg, pipeline, body)
+    parity["incumbent"] = incumbent
+    if incumbent.get("status") != "measured":
+        parity["status"] = "unmeasured"
+        parity["comparisons"] = {
+            "omlx": {
+                "valid": False,
+                "classification": "incumbent_parity_unmeasured",
+                "findings": [str(incumbent.get("reason") or "incumbent parity not measured")],
+            }
+        }
+        template["quality_comparable"] = True
+        return
+    candidate_tools = parity.get("tools_exposed")
+    incumbent_tools = incumbent.get("tools_exposed")
+    if (
+        candidate_tools is not None
+        and incumbent_tools is not None
+        and (candidate_tools != incumbent_tools)
+    ):
+        parity["status"] = "compared"
+        parity["comparisons"] = {
+            "omlx": {
+                "valid": False,
+                "classification": "tool_payload_mismatch",
+                "engines": {"left": cell["engine"], "right": "omlx"},
+                "findings": [
+                    f"the Pipeline offered different tools to each leg: "
+                    f"{candidate_tools} vs {incumbent_tools}"
+                ],
+            }
+        }
+        template["quality_comparable"] = True
+        return
+    comparison = _compare_candidate_parity(parity, incumbent)
+    comparison["engines"] = {"left": cell["engine"], "right": "omlx"}
+    comparison["reference"] = "omlx"
+    comparison["differs_from_incumbent"] = _differs_from_incumbent(comparison)
+    parity["status"] = "compared"
+    parity["comparisons"] = {"omlx": comparison}
+    difference = _template_difference(cell, comparison)
+    template["template_differs"] = difference
+    template["quality_comparable"] = difference is None
+    if difference:
+        template["reconciliation"] = _template_reconciliation(cell)
 
 
 def _parity_request(parity: dict[str, Any]) -> dict[str, Any] | None:
@@ -864,6 +1182,16 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
     temporary.replace(path)
 
 
+def _stop_cell_engine(cell: dict[str, Any], cfg: dict[str, Any]) -> None:
+    """Stop the candidate so the incumbent can hold the same checkpoint."""
+    h2h.stop_managed(cfg, cell["engine"])
+    listener = h2h.pid_on_port(cell["port"])
+    if listener:
+        raise Stage3BlockedError(
+            f"{cell['engine']} still listening on port {cell['port']} (pid {listener})"
+        )
+
+
 def _execute_candidate_cell(
     cell: dict[str, Any],
     pipeline: str,
@@ -898,6 +1226,8 @@ def _execute_candidate_cell(
         receipt["engine_models_response"] = _models_payload(cell["base"])
         evidence = collect_candidate_cell(cell, pipeline, vm_before, resident_before, started_info)
         evidence["launch_argv"] = started_info.get("argv") or cell["argv"]
+        _stop_cell_engine(cell, cfg)
+        _attach_incumbent_parity(cell, cfg, pipeline, evidence)
         judged = instrument.judge_cell(evidence)
         receipt.update(
             {"evidence": evidence, "valid": judged["valid"], "failures": judged["failures"]}
@@ -1089,21 +1419,6 @@ def _canary_should_stop(results: list[dict[str, Any]]) -> str | None:
     """Two consecutive invalid cells with one reason, or a blind readiness check."""
     if results and results[-1].get("structural_readiness"):
         return "structural readiness check cannot pass"
-    last_evidence = results[-1].get("evidence") if results else None
-    last_template = last_evidence.get("template") if isinstance(last_evidence, dict) else None
-    last_parity = last_template.get("parity") if isinstance(last_template, dict) else None
-    failures = results[-1].get("failures") if results else []
-    non_parity_failures = [
-        failure
-        for failure in failures or []
-        if not str(failure).startswith("template: paired greedy parity is pending")
-    ]
-    if (
-        isinstance(last_parity, dict)
-        and not last_parity.get("comparisons")
-        and not non_parity_failures
-    ):
-        return None
     if len(results) < 2 or results[-1].get("valid") is True:
         return None
     prev = results[-2]
@@ -1128,101 +1443,6 @@ def _select_canary_cells(only: str | None) -> list[dict[str, Any]]:
     if len(chosen) != 1:
         raise Stage3BlockedError(f"canary --cell {only} matched {len(chosen)} cells")
     return chosen
-
-
-def _reconcile_candidate_parity(
-    root: Path, build: str, results: list[dict[str, Any]]
-) -> list[dict[str, Any]]:
-    if not results:
-        return results
-    family_keys = {
-        tuple(str(cell.get(key) or "") for key in ("seat", "mode", "model", "workspace"))
-        for result in results
-        if ((result.get("evidence") or {}).get("template") or {}).get("same_checkpoint") is True
-        for cell in [result.get("cell") or {}]
-    }
-    if not family_keys:
-        return results
-    all_cells = candidate_cells()
-    updated = {}
-    for family_key in family_keys:
-        families = _candidate_parity_family(root, build, family_key, all_cells)
-        comparisons = _candidate_family_comparisons(families)
-        updated.update(_save_candidate_parity_comparisons(families, comparisons))
-    return [updated.get(_cell_id(result.get("cell") or {}), result) for result in results]
-
-
-def _candidate_parity_family(
-    root: Path, build: str, family_key: tuple[str, ...], cells: list[dict[str, Any]]
-) -> dict[str, tuple[Path, dict[str, Any], dict[str, Any]]]:
-    families = {}
-    for cell in cells:
-        cell_key = tuple(str(cell.get(key) or "") for key in ("seat", "mode", "model", "workspace"))
-        if cell_key != family_key:
-            continue
-        path = canary_receipt_path(root, build, cell)
-        if not path.is_file():
-            continue
-        try:
-            receipt = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
-        evidence = receipt.get("evidence") or {}
-        template = evidence.get("template") or {}
-        parity = template.get("parity")
-        if (
-            receipt.get("build") == build
-            and template.get("same_checkpoint") is True
-            and isinstance(parity, dict)
-        ):
-            families[cell["engine"]] = (path, receipt, parity)
-    return families
-
-
-def _candidate_family_comparisons(
-    families: dict[str, tuple[Path, dict[str, Any], dict[str, Any]]],
-) -> dict[str, dict[str, Any]]:
-    comparisons = {engine: {} for engine in families}
-    engines = sorted(families)
-    for index, left_engine in enumerate(engines):
-        for right_engine in engines[index + 1 :]:
-            left, right = families[left_engine][2], families[right_engine][2]
-            forward = _compare_candidate_parity(left, right)
-            forward["engines"] = {"left": left_engine, "right": right_engine}
-            reverse = _compare_candidate_parity(right, left)
-            reverse["engines"] = {"left": right_engine, "right": left_engine}
-            comparisons[left_engine][right_engine] = forward
-            comparisons[right_engine][left_engine] = reverse
-    return comparisons
-
-
-def _save_candidate_parity_comparisons(
-    families: dict[str, tuple[Path, dict[str, Any], dict[str, Any]]],
-    comparisons: dict[str, dict[str, Any]],
-) -> dict[str, dict[str, Any]]:
-    updated = {}
-    for engine, (path, receipt, _parity) in families.items():
-        parity = receipt["evidence"]["template"]["parity"]
-        parity["comparisons"] = comparisons[engine]
-        if comparisons[engine]:
-            parity["status"] = "compared"
-        else:
-            parity["status"] = "awaiting_peer"
-            parity["comparisons"] = {
-                "pending": {
-                    "valid": False,
-                    "classification": "awaiting_peer",
-                    "findings": ["same-checkpoint peer cell receipt is missing for this build"],
-                }
-            }
-        judged = instrument.judge_cell(receipt["evidence"])
-        receipt["valid"] = judged["valid"]
-        receipt["failures"] = judged["failures"]
-        _stamp_reason(receipt)
-        if json.loads(path.read_text(encoding="utf-8")) != receipt:
-            _write_json(path, receipt)
-        updated[_cell_id(receipt.get("cell") or {})] = receipt
-    return updated
 
 
 def run_canary(pipeline: str, only: str | None = None) -> tuple[list[dict[str, Any]], int]:
@@ -1255,7 +1475,6 @@ def run_canary(pipeline: str, only: str | None = None) -> tuple[list[dict[str, A
         if stop_reason:
             break
     root = data_root()
-    results = _reconcile_candidate_parity(root, build, results)
     for receipt in results:
         cell = receipt.get("cell") or {}
         _progress(
@@ -2169,6 +2388,23 @@ def _execute_stage3_workload(
     raise Stage3BlockedError(f"workload {workload!r} has no task-specific runner mapping")
 
 
+def _flag_non_comparable_quality(result: dict[str, Any], canary: dict[str, Any]) -> None:
+    """A template difference makes this cell's quality comparison undecidable."""
+    if "candidate_outcome" not in result and "incumbent_outcome" not in result:
+        return
+    template = (canary.get("evidence") or {}).get("template") or {}
+    if not isinstance(template, dict) or template.get("quality_comparable") is not False:
+        return
+    detail = str(template.get("template_differs") or "rendered prompt differs from the incumbent")
+    result.update(
+        {
+            "not_comparable": True,
+            "status": "NOT_COMPARABLE",
+            "reason": f"quality non-comparable: {detail}",
+        }
+    )
+
+
 def run_stage3(
     cell: dict[str, Any],
     workload: str,
@@ -2194,6 +2430,7 @@ def run_stage3(
                 return prior
         result = _execute_stage3_workload(cell, workload, root, build, pipeline)
         result["canary"] = canary.get("receipt", str(canary_receipt_path(root, build, cell)))
+        _flag_non_comparable_quality(result, canary)
     except Stage3BlockedError as exc:
         result = {"valid": False, "status": "BLOCKED", "reason": str(exc)}
     except CandidateHTTPError as exc:
@@ -2529,6 +2766,8 @@ def _cells_should_stop(results: list[dict[str, Any]]) -> str | None:
 
 
 def _quality_not_worse(result: dict[str, Any]) -> bool | None:
+    if result.get("not_comparable") is True:
+        return None
     row = (result.get("workloads") or {}).get("quality-seat") or {}
     cand = row.get("candidate_outcome")
     inc = row.get("incumbent_outcome")

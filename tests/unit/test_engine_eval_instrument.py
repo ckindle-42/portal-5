@@ -598,3 +598,83 @@ def test_attach_instrument_rejects_a_row_with_no_evidence(tmp_path) -> None:
     good = {"valid": True}
     h.attach_instrument(good, str(path))
     assert good["valid"] is True
+
+
+def _rendered_difference_evidence(classification: str = "chat_template_rendering_mismatch") -> dict:
+    evidence = json.loads(json.dumps(golden_evidence()))
+    evidence["template"] = {
+        "same_checkpoint": True,
+        "parity": {
+            "status": "compared",
+            "comparisons": {
+                "omlx": {
+                    "valid": False,
+                    "classification": classification,
+                    "engines": {"left": "mlx_lm.server", "right": "omlx"},
+                    "rendered_prompt_token_counts": {"left": 3490, "right": 3506},
+                }
+            },
+        },
+        "template_differs": "mlx_lm.server renders 3490 prompt tokens; incumbent oMLX renders 3506",
+        "quality_comparable": False,
+        "rule": "a rendered-prompt difference is a finding, not a validity failure",
+    }
+    return evidence
+
+
+def test_rendered_prompt_difference_is_a_recorded_finding_not_a_validity_failure() -> None:
+    judged = judge_cell(_rendered_difference_evidence())
+    assert judged == {"valid": True, "failures": []}
+
+
+def test_rendered_prompt_difference_without_the_finding_still_fails() -> None:
+    evidence = _rendered_difference_evidence()
+    evidence["template"]["quality_comparable"] = True
+    judged = judge_cell(evidence)
+    assert judged["valid"] is False
+    assert judged["failures"] == [
+        "template: paired greedy parity failed (omlx: chat_template_rendering_mismatch)"
+    ]
+
+
+def test_greedy_output_mismatch_is_never_waived_by_the_finding() -> None:
+    evidence = _rendered_difference_evidence("greedy_output_mismatch_unexplained")
+    judged = judge_cell(evidence)
+    assert judged["valid"] is False
+    assert "greedy_output_mismatch_unexplained" in judged["failures"][0]
+
+
+def test_pending_incumbent_parity_is_invalid() -> None:
+    evidence = json.loads(json.dumps(golden_evidence()))
+    evidence["template"] = {"same_checkpoint": True, "parity": {"status": "unmeasured"}}
+    judged = judge_cell(evidence)
+    assert judged["valid"] is False
+    assert judged["failures"] == [
+        "template: paired greedy parity is pending; incumbent parity was not measured"
+    ]
+
+
+def test_a_recorded_skip_is_not_a_parity_failure() -> None:
+    evidence = json.loads(json.dumps(golden_evidence()))
+    evidence["template"] = {
+        "same_checkpoint": True,
+        "parity": {
+            "status": "not_run",
+            "reason": "gguf-llama does not load the MLX checkpoint oMLX serves",
+        },
+    }
+    assert judge_cell(evidence) == {"valid": True, "failures": []}
+
+
+def test_a_missing_candidate_probe_is_still_invalid() -> None:
+    evidence = json.loads(json.dumps(golden_evidence()))
+    evidence["template"] = {
+        "same_checkpoint": True,
+        "parity": {
+            "status": "unmeasured",
+            "comparisons": {"omlx": {"valid": False, "classification": "candidate_probe_missing"}},
+        },
+    }
+    judged = judge_cell(evidence)
+    assert judged["valid"] is False
+    assert "candidate_probe_missing" in judged["failures"][0]

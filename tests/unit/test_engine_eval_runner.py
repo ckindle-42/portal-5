@@ -150,6 +150,7 @@ def test_candidate_parity_reads_rendered_prompt_tokens_from_engine_logs() -> Non
         "cell": {"engine": "mlx_lm.server"},
         "body": {"temperature": 0, "max_tokens": 128},
         "engine_log_text": "Prompt processing progress: 2048/3490",
+        "log": "NON-STREAM tools: ['get_weather']",
         "rows": [{"message": {"content": "OK"}}, {"message": {"content": "OK"}}],
     }
     evidence = runner._candidate_parity(ctx)
@@ -162,6 +163,7 @@ def test_candidate_parity_reads_rendered_prompt_tokens_from_engine_logs() -> Non
     assert evidence["outputs"] == [{"content": "OK"}, {"content": "OK"}]
     assert evidence["rendered_prompt_token_count"] == 3490
     assert evidence["effective_temperature"] is None
+    assert evidence["tools_exposed"] == ["get_weather"]
 
 
 def test_candidate_memory_uses_engine_readback_after_first_completion(monkeypatch) -> None:
@@ -221,80 +223,184 @@ def test_candidate_memory_uses_engine_readback_after_first_completion(monkeypatc
     assert ctx["preflight"]["served_model_id"] == "served-m"
 
 
-def test_canary_pair_reconciliation_updates_both_same_checkpoint_receipts(
-    monkeypatch, tmp_path: Path
-) -> None:
-    cells = [
-        {
-            "engine": "mlx-serve",
-            "mode": "plain",
-            "seat": "daily-moe",
-            "workspace": "w",
-            "model": "m",
-        },
-        {
-            "engine": "mlx_lm.server",
-            "mode": "plain",
-            "seat": "daily-moe",
-            "workspace": "w",
-            "model": "m",
-        },
-    ]
-    monkeypatch.setattr(runner, "candidate_cells", lambda: cells)
-    monkeypatch.setattr(
-        runner.instrument,
-        "judge_cell",
-        lambda evidence: {
-            "valid": all(
-                comparison.get("valid") is True
-                for comparison in evidence["template"]["parity"]["comparisons"].values()
-            ),
-            "failures": ["template: paired greedy parity failed"]
-            if any(
-                comparison.get("valid") is not True
-                for comparison in evidence["template"]["parity"]["comparisons"].values()
-            )
-            else [],
-        },
-    )
-    paths = []
-    for cell, tokens in zip(cells, (3506, 3490), strict=True):
-        path = runner.canary_receipt_path(tmp_path, "build-a", cell)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        parity = {
-            "requests": [{"temperature": 0, "max_tokens": 128}],
-            "outputs": [{"content": "OK"}, {"content": "OK"}],
-            "requested_temperature": 0,
-            "max_tokens": 128,
-            "rendered_prompt_token_count": tokens,
-            "effective_temperature": 0 if cell["engine"] == "mlx-serve" else None,
-        }
-        receipt = {
-            "build": "build-a",
-            "cell": cell,
-            "valid": False,
-            "failures": ["template: paired greedy parity is pending"],
-            "evidence": {"template": {"same_checkpoint": True, "parity": parity}},
-        }
-        path.write_text(json.dumps(receipt), encoding="utf-8")
-        paths.append(path)
+def _parity_cell(engine: str = "mlx_lm.server") -> dict:
+    return {
+        "engine": engine,
+        "mode": "plain",
+        "seat": "daily-moe",
+        "workspace": "bench-engine-daily-moe",
+        "model": "m",
+        "expected_model": "served-m",
+        "backend": "eval-openai",
+    }
 
-    result = runner._reconcile_candidate_parity(
-        tmp_path, "build-a", [json.loads(paths[1].read_text(encoding="utf-8"))]
-    )
-    receipts = [json.loads(path.read_text(encoding="utf-8")) for path in paths]
 
+def _parity_cfg() -> dict:
+    return {
+        "engines": {
+            "mlx_lm.server": {"requires": "mlx"},
+            "omlx": {"base": "http://127.0.0.1:8085"},
+        },
+        "models": {"m": {"mlx": "served-dir", "ollama": "tag"}},
+    }
+
+
+def _candidate_evidence(tokens: int = 3506, content: str = "OK") -> dict:
+    body = {
+        "messages": [{"role": "user", "content": "OK"}],
+        "temperature": 0,
+        "max_tokens": 128,
+        "portal_backend": "eval-openai",
+    }
+    return {
+        "template": {
+            "same_checkpoint": True,
+            "parity": {
+                "requests": [body, body],
+                "outputs": [{"content": content}, {"content": content}],
+                "requested_temperature": 0,
+                "max_tokens": 128,
+                "rendered_prompt_token_count": tokens,
+                "effective_temperature": None,
+                "tools_exposed": ["get_weather"],
+            },
+        }
+    }
+
+
+def _incumbent(tokens: int, content: str = "OK") -> dict:
+    return {
+        "status": "measured",
+        "engine": "omlx",
+        "backend": runner.OMLX_INCUMBENT_BACKEND,
+        "model": "served-m",
+        "route": "bench-engine-daily-moe;eval-openai-omlx-incumbent;served-m",
+        "engine_model": "served-m",
+        "requests": [
+            {
+                "messages": [{"role": "user", "content": "OK"}],
+                "temperature": 0,
+                "max_tokens": 128,
+                "portal_backend": runner.OMLX_INCUMBENT_BACKEND,
+            }
+        ],
+        "outputs": [{"content": content}],
+        "requested_temperature": 0,
+        "max_tokens": 128,
+        "effective_temperature": None,
+        "rendered_prompt_token_count": tokens,
+        "tools_exposed": ["get_weather"],
+    }
+
+
+def test_incumbent_parity_pairs_the_cell_with_omlx_inside_the_cell(monkeypatch) -> None:
+    evidence = _candidate_evidence(3506)
+    monkeypatch.setattr(runner, "_measure_incumbent_parity", lambda *args: _incumbent(3506))
+
+    runner._attach_incumbent_parity(_parity_cell(), _parity_cfg(), "http://pipeline", evidence)
+
+    template = evidence["template"]
+    comparison = template["parity"]["comparisons"]["omlx"]
+    assert template["parity"]["status"] == "compared"
+    assert comparison["classification"] == "match"
+    assert comparison["valid"] is True
+    assert comparison["engines"] == {"left": "mlx_lm.server", "right": "omlx"}
+    assert comparison["rendered_prompt_token_counts"] == {"left": 3506, "right": 3506}
+    assert template["quality_comparable"] is True
+    assert template.get("template_differs") is None
+    assert "oMLX incumbent on the same checkpoint" in template["rule"]
+
+
+def test_incumbent_parity_records_a_rendering_difference_as_a_finding(monkeypatch) -> None:
+    evidence = _candidate_evidence(3490)
+    monkeypatch.setattr(runner, "_measure_incumbent_parity", lambda *args: _incumbent(3506))
+
+    runner._attach_incumbent_parity(_parity_cell(), _parity_cfg(), "http://pipeline", evidence)
+
+    template = evidence["template"]
+    comparison = template["parity"]["comparisons"]["omlx"]
+    assert comparison["classification"] == "chat_template_rendering_mismatch"
+    assert comparison["differs_from_incumbent"] == "left"
+    assert template["quality_comparable"] is False
+    assert "3490" in template["template_differs"] and "3506" in template["template_differs"]
+    assert "-16" in template["template_differs"]
+    assert template["reconciliation"]["available"] is False
+    assert "chat_template.jinja" in template["reconciliation"]["detail"]
+
+
+def test_incumbent_parity_is_unmeasured_when_the_reference_route_is_wrong(monkeypatch) -> None:
+    evidence = _candidate_evidence()
+    bad = {**_incumbent(3506), "status": "unmeasured", "reason": "incumbent route 'w;other;m'"}
+    monkeypatch.setattr(runner, "_measure_incumbent_parity", lambda *args: bad)
+
+    runner._attach_incumbent_parity(_parity_cell(), _parity_cfg(), "http://pipeline", evidence)
+
+    template = evidence["template"]
+    assert template["parity"]["status"] == "unmeasured"
     assert (
-        result[0]["evidence"]["template"]["parity"]["comparisons"]["mlx-serve"]["classification"]
-        == "chat_template_rendering_mismatch"
+        template["parity"]["comparisons"]["omlx"]["classification"] == "incumbent_parity_unmeasured"
     )
-    assert (
-        receipts[0]["evidence"]["template"]["parity"]["comparisons"]["mlx_lm.server"]["valid"]
-        is False
+    assert "incumbent route" in template["parity"]["comparisons"]["omlx"]["findings"][0]
+
+
+def test_incumbent_parity_is_not_run_for_a_checkpoint_omlx_does_not_serve() -> None:
+    evidence = _candidate_evidence()
+    cfg = _parity_cfg()
+    cfg["engines"]["gguf-llama"] = {"requires": "gguf"}
+
+    runner._attach_incumbent_parity(
+        {**_parity_cell(), "engine": "gguf-llama"}, cfg, "http://pipeline", evidence
     )
-    assert (
-        receipts[1]["evidence"]["template"]["parity"]["comparisons"]["mlx-serve"]["valid"] is False
+
+    template = evidence["template"]
+    assert template["parity"]["status"] == "not_run"
+    assert "does not load the MLX checkpoint" in template["parity"]["reason"]
+    assert template["quality_comparable"] is True
+
+
+def test_omlx_prompt_count_reads_the_server_log_per_request() -> None:
+    log = (
+        "Chat completion: model=other, 1 tokens in 0.1s, prompt: 30, finish_reason=stop\n"
+        "Chat completion: model=served-m, 24 tokens in 4.0s (6.0 tok/s), prompt: 3506, "
+        "finish_reason=tool_calls\n"
     )
+    assert runner.omlx_prompt_token_count(log, "served-m") == 3506
+    assert runner.omlx_prompt_token_count(log, "absent") is None
+
+
+def test_pipeline_tools_exposed_reads_the_forwarded_schema_names() -> None:
+    log = (
+        "NON-STREAM tools: ['web_fetch', 'get_weather']\n"
+        "NON-STREAM tools: ['web_fetch', 'get_weather']\n"
+    )
+    assert runner.pipeline_tools_exposed(log) == ["web_fetch", "get_weather"]
+    assert runner.pipeline_tools_exposed("no tools line") is None
+
+
+def test_stage3_marks_a_template_difference_quality_comparison_non_comparable() -> None:
+    result = {
+        "status": "PASS",
+        "valid": True,
+        "candidate_outcome": "PASS",
+        "incumbent_outcome": "PASS",
+    }
+    canary = {"evidence": {"template": {"quality_comparable": False, "template_differs": "x"}}}
+
+    runner._flag_non_comparable_quality(result, canary)
+
+    assert result["not_comparable"] is True
+    assert result["status"] == "NOT_COMPARABLE"
+    assert result["reason"] == "quality non-comparable: x"
+    assert runner._quality_not_worse(result) is None
+
+
+def test_stage3_leaves_a_comparable_quality_result_alone() -> None:
+    result = {"status": "PASS", "valid": True, "candidate_outcome": "PASS"}
+    runner._flag_non_comparable_quality(
+        result, {"evidence": {"template": {"quality_comparable": True}}}
+    )
+    assert result["status"] == "PASS"
+    assert result.get("not_comparable") is None
 
 
 def test_stage3_requires_a_valid_canary_for_this_build_and_cell(tmp_path: Path) -> None:
