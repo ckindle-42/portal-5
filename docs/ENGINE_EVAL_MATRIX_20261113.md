@@ -1,6 +1,8 @@
 # Engine eval matrix — 2026-11-13
 
 Status: APPROVED by operator 2026-11-13.
+
+Operator decision (2026-11-14): judge each engine at its best documented per-seat configuration. Engine-tuned checkpoint variants, quant formats, native MTP, DFlash, EAGLE, and other supported drafter artifacts are in scope; acquire the missing artifacts and evaluate them with their engine. This supersedes matrix notes that say not to download a drafter. Keep target weights quantized; allow BF16/full precision only when a supported engine requires it for a drafter. These engine-specific variants expand the artifact set beyond same-bytes pairs, so record each exact repository revision and artifact identity in `config/engine_artifacts_20261114.yaml`. Launch argv remains owned by the per-engine burn-down lanes.
 Nothing here was measured live in this lane. Same-bytes means every compared engine
 loads one checkpoint directory or one GGUF blob. A different quant, an oQ4e sidecar,
 or a GGUF tag is a different artifact and is not a win over the other.
