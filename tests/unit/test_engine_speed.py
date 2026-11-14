@@ -360,6 +360,28 @@ def test_candidate_cell_uses_requested_seat_engine_and_mode(monkeypatch) -> None
     assert candidate_cell("hunt", "rapid-mlx", "plain") == cell
 
 
+def test_candidate_launch_passes_the_cell_seat_to_the_registry(monkeypatch) -> None:
+    """The researched per-seat argv only reaches the engine when the seat is threaded."""
+    seen: dict = {}
+
+    def fake_start(_cfg, engine, model, mode, **kwargs):
+        seen.update({"engine": engine, "model": model, "mode": mode, **kwargs})
+        return {"ready_s": 1.0, "argv": ["vllm-mlx", "serve"]}
+
+    monkeypatch.setattr(speed.h2h, "start_managed", fake_start)
+    record: dict = {}
+    expect = {
+        "engine": "vllm-mlx",
+        "model_key": "nemotron_35_lightning",
+        "mode": "plain",
+        "seat": "daily-moe",
+        "port": "11236",
+    }
+    speed._start_candidate({}, expect, None, record)
+    assert seen["seat"] == "daily-moe"
+    assert record["argv"] == ["vllm-mlx", "serve"]
+
+
 def test_canary_selection_reports_valid_invalid_and_uninstalled_cells(
     tmp_path, monkeypatch
 ) -> None:

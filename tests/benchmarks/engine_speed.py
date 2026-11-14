@@ -744,7 +744,12 @@ def _start_candidate(
     if log_dir is not None:
         logs = (log_dir / "engine.stdout.log", log_dir / "engine.stderr.log")
     started = h2h.start_managed(
-        cfg, expect["engine"], expect["model_key"], expect["mode"], log_paths=logs
+        cfg,
+        expect["engine"],
+        expect["model_key"],
+        expect["mode"],
+        seat=expect.get("seat"),
+        log_paths=logs,
     )
     record["ready_s"] = started.get("ready_s")
     record["argv"] = started.get("argv")
@@ -765,6 +770,7 @@ def _expects(cell: dict[str, Any], incumbent: str) -> dict[str, dict[str, str]]:
             "engine": cell["engine"],
             "mode": cell["mode"],
             "model_key": cell["model"],
+            "seat": cell["seat"],
             "port": str(cell["port"]),
             "base": cell["base"],
         },

@@ -680,7 +680,8 @@ def test_failed_startup_is_recorded_with_logs_and_engine_models_body(monkeypatch
     stopped = []
     monkeypatch.setattr(runner.h2h, "stop_managed", lambda _cfg, engine: stopped.append(engine))
 
-    def fail_start(_cfg, _engine, _model, _mode, *, log_paths, on_started, **_kwargs):
+    def fail_start(_cfg, _engine, _model, _mode, *, seat, log_paths, on_started, **_kwargs):
+        assert seat == "coding"
         log_paths[0].write_text("startup stdout", encoding="utf-8")
         log_paths[1].write_text("invalid parser value", encoding="utf-8")
         on_started()
@@ -930,8 +931,9 @@ def test_every_stage3_engine_start_preps_the_host_first(monkeypatch, tmp_path: P
         ),
     )
 
-    def start(*_args, on_started=None, **_kwargs):
+    def start(*_args, seat=None, on_started=None, **_kwargs):
         order.append("start")
+        assert seat == "daily-moe"
         if on_started:
             on_started()
         return {"ready_s": 1.0}

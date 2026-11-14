@@ -215,7 +215,14 @@ def _thinking_flag(enabled: bool) -> str:
     return "true" if enabled else "false"
 
 
-def seated_launch_argv(engine_cfg: dict, seat: str, mode: str, values: dict) -> list[str] | None:
+def seated_launch_argv(
+    engine_cfg: dict,
+    seat: str,
+    mode: str,
+    values: dict,
+    *,
+    context_override: bool = False,
+) -> list[str] | None:
     """Render engines.<id>.seats.<seat> over seat_base. None keeps the engine template."""
     block = (engine_cfg.get("seats") or {}).get(seat)
     template = engine_cfg.get("seat_base")
@@ -227,7 +234,8 @@ def seated_launch_argv(engine_cfg: dict, seat: str, mode: str, values: dict) -> 
     if block.get("model_dir"):
         rendered["model_dir"] = block["model_dir"]
         rendered["served"] = block.get("served") or block["model_dir"]
-    if block.get("ctx"):
+    # A workload's explicit window wins over the seat's everyday window.
+    if block.get("ctx") and not context_override:
         rendered["ctx"] = block["ctx"]
     argv = render(template, rendered)
     parser = block.get("reasoning_parser")
@@ -293,7 +301,11 @@ def launch_command(
         ),
         "spec_args": (spec or {}).get("args") or [],
     }
-    seated = seated_launch_argv(e, seat, mode, values) if seat else None
+    seated = (
+        seated_launch_argv(e, seat, mode, values, context_override=context_tokens is not None)
+        if seat
+        else None
+    )
     argv = seated if seated is not None else _launch_argv(e, mode, spec, values)
     cwd = render_one(e["cwd"], values) if e.get("cwd") else None
     unresolved = _unrendered_placeholders(argv, cwd)
@@ -713,11 +725,12 @@ def start_managed(
     model: str,
     mode: str,
     *,
+    seat: str | None = None,
     context_tokens: int | None = None,
     log_paths: tuple[Path, Path] | None = None,
     on_started: Callable[[], None] | None = None,
 ) -> dict:
-    argv, cwd = launch_command(cfg, engine, model, mode, context_tokens=context_tokens)
+    argv, cwd = launch_command(cfg, engine, model, mode, context_tokens=context_tokens, seat=seat)
     refusal = rapid_mlx_argv_refusal(argv)
     if refusal:
         raise SystemExit(refusal)

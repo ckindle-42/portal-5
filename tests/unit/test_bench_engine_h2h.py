@@ -566,6 +566,32 @@ def test_vllm_mlx_seat_argv_follows_the_researched_registry(cfg):
     assert "does not disable streaming" in backend["note"]
 
 
+def test_seated_launch_keeps_an_explicit_workload_window(cfg):
+    """A long-context cell's window wins over the seat's everyday ctx."""
+    argv, _ = h.launch_command(
+        cfg, "vllm-mlx", "qwen38_27b_h2h", "plain", context_tokens=98304, seat="coding"
+    )
+    assert argv[argv.index("--max-kv-size") + 1] == "98304"
+    everyday, _ = h.launch_command(cfg, "vllm-mlx", "qwen38_27b_h2h", "plain", seat="coding")
+    assert everyday[everyday.index("--max-kv-size") + 1] == "32768"
+
+
+def test_start_managed_threads_the_seat_into_the_launch_argv(monkeypatch):
+    seen = {}
+
+    def fake_launch(*_args, **kwargs):
+        seen.update(kwargs)
+        raise SystemExit("stop before popen")
+
+    monkeypatch.setattr(h, "launch_command", fake_launch)
+    with pytest.raises(SystemExit, match="stop before popen"):
+        h.start_managed({}, "vllm-mlx", "nemotron_35_lightning", "plain", seat="daily-moe")
+    assert seen["seat"] == "daily-moe"
+    with pytest.raises(SystemExit, match="stop before popen"):
+        h.start_managed({}, "vllm-mlx", "mimo", "plain")
+    assert seen["seat"] is None
+
+
 def test_mlxcel_pins_parallel_batch_without_prompt_lookup(cfg):
     argv, _ = h.launch_command(cfg, "mlxcel", "gemma4_26b_a4b_qat", "plain")
     assert argv[argv.index("--parallel") + 1] == "4"
