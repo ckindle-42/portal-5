@@ -84,8 +84,12 @@ engines:
     # Bundles Python 3.12. Do not install into the portal 3.10 venv. arm64 host.
     # 1.0 keeps --speculative-config (dflash/mtp/suffix). --no-telemetry stays on.
     # Do not pass --disable-disk-caches: the default was not verified here.
-    plain: [rapid-mlx, --no-telemetry, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --no-spec-decode, --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}"]
-    base_spec: [rapid-mlx, --no-telemetry, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}"]
+    # --trusted-hosts: the Pipeline calls through host.docker.internal and Rapid-MLX's
+    # DNS-rebinding guard 400s any Host outside its allowlist (default loopback only),
+    # so the engine was up but never healthy from the container. Values replace the
+    # defaults, so the loopback names stay.
+    plain: [rapid-mlx, --no-telemetry, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --no-spec-decode, --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}", --trusted-hosts, 127.0.0.1, localhost, host.docker.internal]
+    base_spec: [rapid-mlx, --no-telemetry, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}", --trusted-hosts, 127.0.0.1, localhost, host.docker.internal]
     stop_signal: INT
     readiness: {path: /v1/models, timeout_s: 300, collection: data, id_field: id}
   vllm-mlx:
@@ -177,8 +181,10 @@ engines:
     # The plain Splash cell is excluded from the matrix. {splash_extra} stays
     # on both argv lines (model-dir, local draft, served name, reasoning).
     # --max-cache-disk 0 keeps Splash's SSD KV tier off. Do not pass --persistent-cache.
-    plain: [splash, serve, --model, "{splash_model}", --host, 127.0.0.1, --port, "{port}", --max-context, "{ctx}", --max-cache-disk, "0", --language-only, "{splash_extra}"]
-    base_spec: [splash, serve, --model, "{splash_model}", --host, 127.0.0.1, --port, "{port}", --max-context, "{ctx}", --max-cache-disk, "0", --language-only, "{splash_extra}"]
+    # --allowed-host: the Pipeline's Host is host.docker.internal, and Splash's
+    # server refuses any other Host with 403 (the engine was ready but never healthy).
+    plain: [splash, serve, --model, "{splash_model}", --host, 127.0.0.1, --port, "{port}", --max-context, "{ctx}", --max-cache-disk, "0", --language-only, "{splash_extra}", --allowed-host, host.docker.internal]
+    base_spec: [splash, serve, --model, "{splash_model}", --host, 127.0.0.1, --port, "{port}", --max-context, "{ctx}", --max-cache-disk, "0", --language-only, "{splash_extra}", --allowed-host, host.docker.internal]
     stop_signal: INT
     readiness: {path: /v1/models, timeout_s: 300, collection: data, id_field: id}
   mlxcel:
