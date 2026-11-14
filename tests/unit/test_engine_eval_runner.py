@@ -41,6 +41,25 @@ def test_vllm_mlx_candidate_cells_use_per_seat_launch_argv() -> None:
     assert "task-router" not in seated
 
 
+def test_brew_llama_candidate_cells_cover_daily_moe_and_task_router() -> None:
+    """brew-llama cells are exactly the GGUF seats the researched registry registers."""
+    cells = [c for c in runner.candidate_cells() if c["engine"] == "brew-llama"]
+    assert {(c["seat"], c["mode"]) for c in cells} == {
+        ("daily-moe", "plain"),
+        ("daily-moe", "spec"),
+        ("task-router", "plain"),
+    }
+    for cell in cells:
+        assert cell["launch_error"] is None
+        assert cell["backend"] == "eval-openai-brew-llama"
+        assert cell["port"] == 11240
+        # The engine serves the alias the Pipeline forwards: engine_model == hint.
+        assert cell["expected_model"] == cell["model_hint"]
+        assert cell["argv"][cell["argv"].index("--alias") + 1] == cell["expected_model"]
+    spec = next(c for c in cells if c["mode"] == "spec")
+    assert spec["argv"][-4:] == ["--spec-type", "draft-mtp", "--spec-draft-n-max", "3"]
+
+
 def test_candidate_cells_use_registry_argv_and_fixed_pipeline_backend() -> None:
     cells = runner.candidate_cells()
 

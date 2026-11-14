@@ -179,8 +179,21 @@ engines:
     requires: gguf
     port: 11240
     server_path: /opt/homebrew/bin/llama-server
-    plain: ["{llama_server}", -m, "{gguf_path}", -ngl, "99", -c, "{ctx}", --jinja, --alias, "{served}", --host, 127.0.0.1, --port, "{port}"]
-    base_spec: ["{llama_server}", -m, "{gguf_path}", -ngl, "99", -c, "{ctx}", --jinja, --alias, "{served}", --host, 127.0.0.1, --port, "{port}", "{spec_args}"]
+    version: "1.0.0"
+    # docs/engine_research/gguf_20261114.md §1: brew llama.cpp v1.0.0 (2026-11-13, nightly
+    # b12359); the formula is days behind master at worst, so `brew info llama.cpp` must be
+    # checked before a live cell (§1.6 formula drift). §4 registry proposal applied verbatim:
+    # -fa on pins Flash Attention (§1.2, default is auto), -np 1 keeps -c as the request
+    # window instead of splitting it across slots (§1.2), --cache-reuse 256 is the KV-shift
+    # prefix-cache lever the task-router seat exists for (§1.2), and --jinja stays the
+    # parser pin — tool/reasoning parsing is template-driven, no --tool-call-parser flag
+    # exists (§4). Deliberately absent (§1.2/§1.3): --moe-cache-mib (expert cache stays off
+    # on 64 GB), -ctk/-ctv KV quant (tool seats keep KV f16), --swa-full (memory-lean
+    # default), --fit off (default --fit on). -rea/--reasoning-effort/--reasoning-budget are
+    # not pinned: think rides the per-request chat_template_kwargs each workspace sends.
+    note: "Plain and spec are the same Q4_K_M bytes on daily-moe — draft-mtp reads the MTP tensors inside the quant (§1.1). Whether streamed tokens behave identically under draft-mtp is a preflight question for the orchestrator's canary (§1.2). Usage needs stream_options.include_usage=true on /v1/chat/completions (§1.4); unverified on this build until the canary reads it."
+    plain: ["{llama_server}", -m, "{gguf_path}", -ngl, "99", -c, "{ctx}", -fa, "on", -np, "1", --jinja, --alias, "{served}", --cache-reuse, "256", --host, 127.0.0.1, --port, "{port}"]
+    base_spec: ["{llama_server}", -m, "{gguf_path}", -ngl, "99", -c, "{ctx}", -fa, "on", -np, "1", --jinja, --alias, "{served}", --cache-reuse, "256", --host, 127.0.0.1, --port, "{port}", "{spec_args}"]
     stop_signal: INT
     readiness: {path: /v1/models, timeout_s: 300, collection: data, id_field: id}
   prismml-mlx:
@@ -625,12 +638,30 @@ models:
   nemotron_35_lightning:
     source_repo: nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B
     ollama: hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k
+    # docs/engine_research/gguf_20261114.md §1.1: bartowski Q4_K_M is the README's own
+    # "grab this" default and carries the MTP tensors `--spec-type draft-mtp` reads (§1.2).
+    # Same bytes as the tag production Ollama serves: the ctx32k derived tag's weights layer
+    # in manifests-v2 is sha256-b520a899…8158 at 25,477,403,616 bytes, which equals the HF
+    # LFS oid and size of this file, and the blob exists on disk under that digest.
+    gguf:
+      path: /Volumes/data01/ollama/models/blobs/sha256-b520a8992e94c4d61e6a0833edffc499a46f42522df446c290d75dc5787a9158
+      repo: bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF
+      file: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_K_M.gguf
+    # The eval Pipeline forwards the bench workspace hint verbatim, so --alias must be that
+    # id (engine_eval_runner._route_valid requires engine_model == hint); it is the same id
+    # every MLX engine already serves for this seat. config/engine_artifacts_20261114.yaml
+    # has not landed on main; this registration cites the store manifest + HF tree listing.
+    served: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
     mlx: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
     ctx: 32768
     prefill_tokens: 6000
     tool_parser: {vllm-mlx: nemotron, default: auto}
     # One oQ4e dir is both the plain checkpoint and the MTP sidecar. No separate drafter file.
     spec:
+      # docs/engine_research/gguf_20261114.md §4 daily-moe spec_args: draft-mtp needs no
+      # draft file — the MTP layers are inside this Q4_K_M — so plain vs spec is a
+      # same-bytes pair. Vendor-documented argv (bartowski README, §1.2).
+      brew-llama: {method: draft-mtp, args: [--spec-type, draft-mtp, --spec-draft-n-max, "3"]}
       omlx: {method: mtp, settings: {mtp_enabled: true}}
       mlx-serve: {method: mtp, args: [--mtp, --no-pld, --no-drafter]}
       # rapid-mlx detect_mtp_eligibility is NONE: model_type nemotron_h is outside
@@ -688,6 +719,10 @@ models:
 
   "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k":
     source_repo: mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF
+    # docs/engine_research/gguf_20261114.md §5: the strongest co-residence candidate —
+    # 5.30 GB weights at ctx 2048 leave KV negligible under the engine argv's
+    # --cache-reuse 256, and llama-server is one process per cell (no resident daemon,
+    # no global KV setting). supports_tools false stays (no substitute Gemma, §1.1).
     gguf:
       path: /Volumes/data01/ollama/models/blobs/sha256-261dd5feb414b973867491cc98e29f0b104d1a22f36299d8aea43421f835fa54
       repo: mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF
