@@ -26,6 +26,8 @@ from tests.benchmarks import engine_eval_runner as runner
 PROMPTS = Path(__file__).with_name("fixtures") / "engine_speed" / "prompts.yaml"
 PIPELINE = "http://127.0.0.1:9099"
 MAX_TOKENS = 800
+WARMUP_PROMPT = "Reply with ok."
+WARMUP_MAX_TOKENS = 16
 REQUEST_TIMEOUT_S = 1800.0
 UNPROVEN = "Unproven — keep oMLX"
 ARMS = ("candidate", "incumbent")
@@ -59,6 +61,40 @@ def decode_tps(
     return completion_tokens / span
 
 
+def throughput_tok_s(
+    completion_tokens: int, ttft_s: float | None, total_s: float | None
+) -> float | None:
+    """Tokens over (total − TTFT) when that span is positive, else over total."""
+    if completion_tokens <= 0 or not _positive(total_s):
+        return None
+    assert total_s is not None
+    if _positive(ttft_s):
+        assert ttft_s is not None
+        span = float(total_s) - float(ttft_s)
+        if span > 0:
+            return completion_tokens / span
+    return completion_tokens / float(total_s)
+
+
+def e2e_tok_s(completion_tokens: int, total_s: float | None) -> float | None:
+    """Completion tokens divided by the whole request."""
+    if completion_tokens <= 0 or not _positive(total_s):
+        return None
+    assert total_s is not None
+    return completion_tokens / float(total_s)
+
+
+def _positive(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0
+
+
+def streams_content(content_chunks: object) -> bool:
+    """False when the stream delivered two or fewer content or reasoning chunks."""
+    if isinstance(content_chunks, bool) or not isinstance(content_chunks, int):
+        return True
+    return content_chunks > 2
+
+
 def route_failure(route: str, workspace: str, backend: str, model: str) -> str | None:
     """None when x-portal-route is this workspace, the pinned backend, and the seat model."""
     match = instrument._ROUTE_RE.match(route or "")
@@ -84,6 +120,10 @@ def judge_measurement(measured: dict[str, Any], expect: dict[str, str]) -> dict[
         "prompt_tokens": measured.get("prompt_tokens"),
         "route": measured.get("route") or "",
         "http_status": measured.get("http_status"),
+        "streaming": streams_content(measured.get("content_chunks")),
+        "content_chunks": measured.get("content_chunks"),
+        "throughput_tok_s": None,
+        "e2e_tok_s": None,
     }
     if row["reason"]:
         return row
@@ -100,6 +140,26 @@ def judge_measurement(measured: dict[str, Any], expect: dict[str, str]) -> dict[
     if not isinstance(tokens, int) or isinstance(tokens, bool):
         row["reason"] = "engine usage missing completion_tokens"
         return row
+    return _apply_rate(row, measured, tokens)
+
+
+def _apply_rate(row: dict[str, Any], measured: dict[str, Any], tokens: int) -> dict[str, Any]:
+    """Decode tok/s when the stream has many chunks; otherwise throughput_tok_s."""
+    total = measured.get("total_s")
+    row["e2e_tok_s"] = e2e_tok_s(tokens, total if isinstance(total, (int, float)) else None)
+    if row["streaming"] is False:
+        rate = throughput_tok_s(
+            tokens,
+            row["ttft_s"] if isinstance(row["ttft_s"], (int, float)) else None,
+            total if isinstance(total, (int, float)) else None,
+        )
+        if rate is None:
+            row["reason"] = "throughput interval is empty"
+            return row
+        row["throughput_tok_s"] = rate
+        row["valid"] = True
+        row["reason"] = ""
+        return row
     rate = decode_tps(tokens, measured.get("first_s"), measured.get("last_s"))
     if rate is None:
         row["reason"] = "decode interval is empty"
@@ -114,11 +174,37 @@ def _valid(rows: list[dict[str, Any]], arm: str) -> list[dict[str, Any]]:
     return [row for row in rows if row.get("arm") == arm and row.get("valid") is True]
 
 
-def run_medians(rows: list[dict[str, Any]], arm: str) -> list[float]:
-    """One decode median per repeat that produced a valid row."""
+def comparison_metric(rows: list[dict[str, Any]]) -> str:
+    """Decode tok/s, or end-to-end throughput when an arm did not stream."""
+    valid = [row for row in rows if row.get("valid") is True]
+    if any(row.get("streaming") is False for row in valid):
+        return "e2e_tok_s"
+    return "decode_tps"
+
+
+def _median_key(metric: str) -> str:
+    if metric == "e2e_tok_s":
+        return "median_e2e_tok_s"
+    return "median_decode_tps"
+
+
+def _metric_field(metric: str) -> str:
+    if metric == "e2e_tok_s":
+        return "e2e_tok_s"
+    return "decode_tps"
+
+
+def _e2e_note(metric: str) -> str:
+    if metric != "e2e_tok_s":
+        return ""
+    return "one arm did not stream; compared end-to-end throughput (completion tokens / total_s); "
+
+
+def run_medians(rows: list[dict[str, Any]], arm: str, field: str = "decode_tps") -> list[float]:
+    """One median per repeat that produced a valid row for this rate field."""
     grouped: dict[int, list[float]] = {}
     for row in _valid(rows, arm):
-        rate = row.get("decode_tps")
+        rate = row.get(field)
         if isinstance(rate, (int, float)) and not isinstance(rate, bool):
             grouped.setdefault(int(row["repeat"]), []).append(float(rate))
     found = []
@@ -129,56 +215,82 @@ def run_medians(rows: list[dict[str, Any]], arm: str) -> list[float]:
     return found
 
 
+def _rates(rows: list[dict[str, Any]], field: str) -> list[float]:
+    return [
+        float(row[field])
+        for row in rows
+        if isinstance(row.get(field), (int, float)) and not isinstance(row.get(field), bool)
+    ]
+
+
 def arm_stats(rows: list[dict[str, Any]], arm: str) -> dict[str, Any]:
     chosen = _valid(rows, arm)
     ttft = [float(row["ttft_s"]) for row in chosen if isinstance(row.get("ttft_s"), (int, float))]
-    decode = [
-        float(row["decode_tps"])
-        for row in chosen
-        if isinstance(row.get("decode_tps"), (int, float))
-    ]
     total = [
         float(row["total_s"]) for row in chosen if isinstance(row.get("total_s"), (int, float))
     ]
+    metric = comparison_metric(rows)
     return {
         "median_ttft_s": median(ttft),
-        "median_decode_tps": median(decode),
+        "median_decode_tps": median(_rates(chosen, "decode_tps")),
+        "median_throughput_tok_s": median(_rates(chosen, "throughput_tok_s")),
+        "median_e2e_tok_s": median(_rates(chosen, "e2e_tok_s")),
         "p90_total_s": h2h.percentile(total, 90),
         "runs": len(chosen),
-        "spread": spread(run_medians(rows, arm)),
+        "spread": spread(run_medians(rows, arm, _metric_field(metric))),
     }
+
+
+def _comparison_text(
+    metric: str, cand: float, inc: float, margin: float, floor: float, cleared: bool
+) -> str:
+    name = "e2e" if metric == "e2e_tok_s" else "decode"
+    if cleared:
+        detail = (
+            f"candidate median {name} {cand:.3f} exceeds incumbent {inc:.3f} "
+            f"by {margin:.3f} > spread {floor:.3f}"
+        )
+    else:
+        detail = (
+            f"candidate median {name} {cand:.3f} vs incumbent {inc:.3f} "
+            f"(delta {margin:.3f}) does not exceed spread {floor:.3f}"
+        )
+    return f"{_e2e_note(metric)}{detail}"
 
 
 def decide(rows: list[dict[str, Any]]) -> dict[str, str]:
     """FASTER only when the candidate clears the larger arm's run-to-run spread."""
+    metric = comparison_metric(rows)
     reasons = [str(row.get("reason") or "invalid") for row in rows if row.get("valid") is not True]
     if not rows:
-        return {"verdict": UNPROVEN, "reason": "no measured rows"}
+        return {"verdict": UNPROVEN, "reason": "no measured rows", "metric": metric}
     if reasons:
-        return {"verdict": "invalid", "reason": "; ".join(reasons)}
+        return {"verdict": "invalid", "reason": "; ".join(reasons), "metric": metric}
     stats = {arm: arm_stats(rows, arm) for arm in ARMS}
-    cand = stats["candidate"]["median_decode_tps"]
-    inc = stats["incumbent"]["median_decode_tps"]
+    cand = stats["candidate"][_median_key(metric)]
+    inc = stats["incumbent"][_median_key(metric)]
     cand_spread = stats["candidate"]["spread"]
     inc_spread = stats["incumbent"]["spread"]
-    if None in (cand, inc, cand_spread, inc_spread):
-        return {"verdict": UNPROVEN, "reason": "run-to-run spread is undefined"}
+    if cand is None or inc is None:
+        reason = (
+            "end-to-end throughput is missing"
+            if metric == "e2e_tok_s"
+            else "run-to-run spread is undefined"
+        )
+        return {"verdict": UNPROVEN, "reason": reason, "metric": metric}
+    if cand_spread is None or inc_spread is None:
+        return {
+            "verdict": UNPROVEN,
+            "reason": f"{_e2e_note(metric)}run-to-run spread is undefined",
+            "metric": metric,
+        }
     margin = float(cand) - float(inc)
     floor = max(float(cand_spread), float(inc_spread))
-    if margin > floor:
-        return {
-            "verdict": "FASTER",
-            "reason": (
-                f"candidate median decode {cand:.3f} exceeds incumbent {inc:.3f} "
-                f"by {margin:.3f} > spread {floor:.3f}"
-            ),
-        }
+    cleared = margin > floor
     return {
-        "verdict": UNPROVEN,
-        "reason": (
-            f"candidate median decode {cand:.3f} vs incumbent {inc:.3f} "
-            f"(delta {margin:.3f}) does not exceed spread {floor:.3f}"
-        ),
+        "verdict": "FASTER" if cleared else UNPROVEN,
+        "reason": _comparison_text(metric, float(cand), float(inc), margin, floor, cleared),
+        "metric": metric,
     }
 
 
@@ -188,7 +300,10 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def format_table(summary: dict[str, Any]) -> str:
-    lines = ["arm | median TTFT | median decode tok/s | p90 total | runs"]
+    lines = [
+        "arm | median TTFT | median decode tok/s | median throughput tok/s | "
+        "median e2e tok/s | p90 total | runs"
+    ]
     for arm in ARMS:
         row = summary["arms"][arm]
         lines.append(
@@ -197,11 +312,21 @@ def format_table(summary: dict[str, Any]) -> str:
                     arm,
                     _num(row["median_ttft_s"]),
                     _num(row["median_decode_tps"]),
+                    _num(row["median_throughput_tok_s"]),
+                    _num(row["median_e2e_tok_s"]),
                     _num(row["p90_total_s"]),
                     str(row["runs"]),
                 )
             )
         )
+    metric = summary.get("metric") or "decode_tps"
+    if metric == "e2e_tok_s":
+        lines.append(
+            "compared: end-to-end throughput (completion tokens / total_s) "
+            "because an arm did not stream"
+        )
+    else:
+        lines.append("compared: decode tok/s")
     lines.append(f"verdict: {summary['verdict']}")
     if summary.get("reason"):
         lines.append(f"reason: {summary['reason']}")
@@ -301,6 +426,7 @@ def _note_delta(delta: dict[str, Any], at_s: float, state: dict[str, Any]) -> No
     )
     if not piece:
         return
+    state["chunks"] = int(state.get("chunks") or 0) + 1
     if state.get("first") is None:
         state["first"] = at_s
     state["last"] = at_s
@@ -333,7 +459,7 @@ def stream_once(
         headers=instrument._pipeline_headers(),
     )
     t0 = time.monotonic()
-    state: dict[str, Any] = {"t0": t0, "first": None, "last": None, "usage": {}}
+    state: dict[str, Any] = {"t0": t0, "first": None, "last": None, "usage": {}, "chunks": 0}
     try:
         with urllib.request.urlopen(request, timeout=timeout_s) as response:
             route = response.headers.get("x-portal-route", "")
@@ -356,6 +482,7 @@ def stream_once(
         "total_s": time.monotonic() - t0,
         "completion_tokens": _completion_tokens(usage),
         "prompt_tokens": usage.get("prompt_tokens"),
+        "content_chunks": int(state.get("chunks") or 0),
     }
 
 
@@ -370,6 +497,7 @@ def _stream_error(error: str, route: str, status: int | None) -> dict[str, Any]:
         "total_s": None,
         "completion_tokens": None,
         "prompt_tokens": None,
+        "content_chunks": 0,
     }
 
 
@@ -433,6 +561,9 @@ def _blank_row(arm: str, repeat: int, prompt_id: str, reason: str) -> dict[str, 
         "reason": reason,
         "ttft_s": None,
         "decode_tps": None,
+        "throughput_tok_s": None,
+        "e2e_tok_s": None,
+        "streaming": None,
         "total_s": None,
         "completion_tokens": None,
         "route": "",
@@ -453,8 +584,10 @@ def one_request(
     row.update(arm=arm, repeat=repeat, prompt_id=prompt["id"])
     state = "valid" if row["valid"] else "invalid"
     print(
-        f"{arm} | r{repeat} | {prompt['id']} | {state} | ttft={_num(row['ttft_s'])} "
-        f"| tps={_num(row['decode_tps'])} | tokens={row['completion_tokens']} | {row['reason']}",
+        f"{arm} | r{repeat} | {prompt['id']} | {state} | streaming={row.get('streaming')} | "
+        f"ttft={_num(row['ttft_s'])} | tps={_num(row['decode_tps'])} | "
+        f"throughput={_num(row.get('throughput_tok_s'))} | e2e={_num(row.get('e2e_tok_s'))} | "
+        f"tokens={row['completion_tokens']} | {row['reason']}",
         flush=True,
     )
     return row
@@ -477,7 +610,7 @@ def measure_arm(
     repeat: int,
     log_dir: Path | None,
 ) -> dict[str, Any]:
-    """Host prep, optional launch, pinned prompts, swap, and engine-reported memory."""
+    """Host prep, optional launch, untimed warm-up, pinned prompts, and memory."""
     record: dict[str, Any] = {
         "arm": arm,
         "repeat": repeat,
@@ -510,6 +643,44 @@ def measure_arm(
     return record
 
 
+def warmup_body(workspace: str, backend: str) -> dict[str, Any]:
+    """Same seat as the timed run, with a short untimed generation."""
+    body = request_body(workspace, backend, WARMUP_PROMPT)
+    body["max_tokens"] = WARMUP_MAX_TOKENS
+    return body
+
+
+def judge_warmup(measured: dict[str, Any], expect: dict[str, str]) -> dict[str, Any]:
+    """Warm-up wall time. A transport or route failure is an error, not a sample."""
+    failure = measured.get("error") or route_failure(
+        str(measured.get("route") or ""), expect["workspace"], expect["backend"], expect["model"]
+    )
+    total = measured.get("total_s")
+    return {
+        "warmup_s": float(total) if _non_negative(total) else None,
+        "ttft_s": measured.get("ttft_s"),
+        "error": failure or None,
+        "route": measured.get("route") or "",
+        "http_status": measured.get("http_status"),
+        "completion_tokens": measured.get("completion_tokens"),
+        "max_tokens": WARMUP_MAX_TOKENS,
+    }
+
+
+def _non_negative(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0
+
+
+def _warmup(pipeline: str, expect: dict[str, str], arm: str, repeat: int) -> dict[str, Any]:
+    measured = stream_once(pipeline, warmup_body(expect["workspace"], expect["backend"]))
+    row = judge_warmup(measured, expect)
+    print(
+        f"warmup | {arm} | r{repeat} | {_num(row['warmup_s'])}s | {row['error'] or 'ok'}",
+        flush=True,
+    )
+    return row
+
+
 def _measure_loaded(
     cfg: dict[str, Any],
     pipeline: str,
@@ -519,9 +690,15 @@ def _measure_loaded(
     repeat: int,
     record: dict[str, Any],
 ) -> None:
+    """Time prompts after one untimed warm-up on this seat."""
     health = runner.wait_pipeline_eval_backend(pipeline, expect["backend"])
     record["pipeline_health"] = {"ready": True, "backend_id": health.get("backend", {}).get("id")}
-    record["rows"] = [one_request(pipeline, expect, prompt, arm, repeat) for prompt in prompts]
+    warmup = _warmup(pipeline, expect, arm, repeat)
+    record["warmup"] = warmup
+    if warmup.get("error"):
+        record["rows"] = [_blank_row(arm, repeat, "warmup", f"warm-up failed: {warmup['error']}")]
+    else:
+        record["rows"] = [one_request(pipeline, expect, prompt, arm, repeat) for prompt in prompts]
     record["resident_memory"] = _resident(cfg, expect, arm)
 
 
@@ -675,6 +852,7 @@ def _receipt(
         "arms": arms,
         "rows": rows,
         "summary": summary,
+        "metric": summary.get("metric"),
         "verdict": summary["verdict"],
         "reason": summary["reason"],
         "stop_error": stop_error,
