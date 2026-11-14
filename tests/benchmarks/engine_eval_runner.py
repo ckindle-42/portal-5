@@ -22,6 +22,7 @@ from typing import Any
 
 import yaml
 
+from scripts import host_quiet
 from tests.benchmarks import bench_engine_h2h as h2h
 from tests.benchmarks import engine_eval_instrument as instrument
 
@@ -79,6 +80,38 @@ def require_valid_canary(root: Path, build: str, cell: dict[str, Any]) -> dict[s
     if receipt.get("valid") is not True:
         raise Stage3BlockedError(f"canary invalid for {_cell_id(cell)}: {receipt.get('failures')}")
     return receipt
+
+
+def require_seat_canary(root: Path, build: str, seat: str) -> dict[str, Any]:
+    """A seat may run its incumbent pair when any current-build cell for it is valid."""
+    directory = root / "engine_eval" / "canaries" / build
+    if not directory.is_dir():
+        raise Stage3BlockedError(f"no canary directory for current build {build}")
+    for path in sorted(directory.glob("*.json")):
+        if path.name == "table.json":
+            continue
+        try:
+            receipt = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        cell = receipt.get("cell") or {}
+        if (
+            cell.get("seat") == seat
+            and receipt.get("valid") is True
+            and receipt.get("build") == build
+        ):
+            return receipt
+    raise Stage3BlockedError(f"no valid canary for seat {seat} on current build {build}")
+
+
+def _is_external(cell: dict[str, Any]) -> bool:
+    return cell.get("engine_kind") == "external"
+
+
+def _gate_canary(root: Path, build: str, cell: dict[str, Any]) -> dict[str, Any]:
+    if _is_external(cell):
+        return require_seat_canary(root, build, str(cell["seat"]))
+    return require_valid_canary(root, build, cell)
 
 
 def current_build() -> str:
@@ -453,7 +486,7 @@ def _candidate_settings_evidence(ctx: dict[str, Any], sources: dict[str, Any]) -
         "startup_readiness": {
             "endpoint": f"{cell['base']}/v1/models",
             "timeout_s": (cfg["engines"][cell["engine"]].get("readiness") or {}).get(
-                "timeout_s", 900
+                "timeout_s", 300
             ),
             "ready_s": ctx["started_info"].get("ready_s"),
             "expected_model": cell["expected_model"],
@@ -524,8 +557,11 @@ def collect_candidate_cell(
 
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
-    """Write a receipt atomically outside the checkout."""
+    """Write a receipt atomically. An existing receipt is moved aside first."""
     path.parent.mkdir(parents=True, exist_ok=True)
+    if path.is_file():
+        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
+        path.replace(path.with_name(f"{path.name}.bak-{stamp}"))
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     temporary.replace(path)
@@ -557,6 +593,7 @@ def _execute_candidate_cell(
             log_paths=log_paths,
             on_started=mark_started,
         )
+        receipt["pipeline_backend"] = wait_pipeline_eval_backend(pipeline, cell["backend"])
         receipt["engine_models_response"] = _models_payload(cell["base"])
         evidence = collect_candidate_cell(cell, pipeline, vm_before, resident_before, started_info)
         evidence["launch_argv"] = started_info.get("argv") or cell["argv"]
@@ -615,6 +652,7 @@ def run_cell(cell: dict[str, Any], pipeline: str, build: str | None = None) -> d
     _configure_results(root)
     cfg = h2h.load_config()
     build = build or current_build()
+    started = time.monotonic()
     receipt: dict[str, Any] = {
         "build": build,
         "cell": {key: cell[key] for key in ("engine", "mode", "seat", "workspace", "model")},
@@ -660,17 +698,132 @@ def run_cell(cell: dict[str, Any], pipeline: str, build: str | None = None) -> d
         _finish_candidate_cell(cell, cfg, receipt, log_paths, attempted)
     path = canary_receipt_path(root, build, cell)
     receipt["receipt"] = str(path)
+    receipt["elapsed_s"] = round(time.monotonic() - started, 1)
+    _stamp_reason(receipt)
     _write_json(path, receipt)
     return receipt
 
 
-def run_canary(pipeline: str) -> tuple[list[dict[str, Any]], int]:
-    """Run every registered matrix cell sequentially and print one table."""
+# The live canary saw eval_backends_healthy move about two minutes after the
+# engine answered. The Pipeline probes on a 30s loop. 180s is that lag plus one cycle.
+PIPELINE_HEALTH_TIMEOUT_S = 180.0
+
+
+def wait_pipeline_eval_backend(
+    pipeline: str, backend_id: str, timeout_s: float = PIPELINE_HEALTH_TIMEOUT_S
+) -> dict[str, Any]:
+    """Block until GET /v1/backends reports this eval backend healthy.
+
+    Production health counts and the periodic loop are unchanged. The cell is
+    sent only after the Pipeline's own record says the pin is healthy.
+    """
+    deadline = time.monotonic() + timeout_s
+    last: dict[str, Any] = {}
+    while True:
+        last = _pipeline_backend_list(pipeline)
+        rows = last.get("data") if isinstance(last.get("data"), list) else []
+        row = next((item for item in rows if item.get("id") == backend_id), None)
+        if isinstance(row, dict) and row.get("healthy") is True:
+            return {"ready": True, "backend": row}
+        if time.monotonic() >= deadline:
+            break
+        time.sleep(2)
+    raise Stage3BlockedError(
+        f"pipeline did not report {backend_id} healthy within {timeout_s:.0f}s: "
+        f"{json.dumps(last)[:800]}"
+    )
+
+
+def _pipeline_backend_list(pipeline: str) -> dict[str, Any]:
+    """Read the Pipeline's backend list. Errors are the Pipeline's own answer."""
+    url = f"{pipeline.rstrip('/')}/v1/backends"
+    request = urllib.request.Request(url, headers=instrument._pipeline_headers())
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            body = response.read().decode("utf-8", "replace")
+            payload = json.loads(body)
+            return payload if isinstance(payload, dict) else {"raw": body[:800]}
+    except urllib.error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", "replace")
+        return {"status": exc.code, "raw": raw[:800]}
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        return {"error": str(exc)}
+
+
+def _one_line(text: str) -> str:
+    return " ".join(str(text).split())
+
+
+def normalise_reason(text: str) -> str:
+    """Collapse ids and counts so the same failure matches across cells."""
+    text = _one_line(text)
+    text = re.sub(r"eval-openai[A-Za-z0-9_.-]*", "eval-backend", text)
+    text = re.sub(r"\b\d+\b", "N", text)
+    return text[:300]
+
+
+def _stamp_reason(receipt: dict[str, Any]) -> None:
+    failures = [str(item) for item in receipt.get("failures") or []]
+    if receipt.get("valid") is True and not failures:
+        receipt["reason"] = "ok"
+    else:
+        receipt["reason"] = _one_line(
+            failures[0] if failures else receipt.get("reason") or "invalid"
+        )
+    receipt["reason_norm"] = normalise_reason(str(receipt["reason"]))
+    if "structural readiness" in str(receipt["reason"]):
+        receipt["structural_readiness"] = True
+
+
+def _cell_selector(cell: dict[str, Any]) -> str:
+    return f"{cell['engine']}:{cell['mode']}:{cell['seat']}"
+
+
+def _progress(cell: dict[str, Any], valid: bool, reason: str, elapsed_s: float) -> None:
+    state = "valid" if valid else "invalid"
+    print(f"{_cell_selector(cell)} | {state} | {reason} | {elapsed_s:.0f}s", flush=True)
+
+
+def _canary_should_stop(results: list[dict[str, Any]]) -> str | None:
+    """Two consecutive invalid cells with one reason, or a blind readiness check."""
+    if results and results[-1].get("structural_readiness"):
+        return "structural readiness check cannot pass"
+    if len(results) < 2 or results[-1].get("valid") is True:
+        return None
+    prev = results[-2]
+    if prev.get("valid") is not True and prev.get("reason_norm") == results[-1].get("reason_norm"):
+        return f"2 consecutive cells: {results[-1].get('reason_norm')}"
+    return None
+
+
+def _select_canary_cells(only: str | None) -> list[dict[str, Any]]:
+    cells = candidate_cells()
+    if not only:
+        return cells
+    parts = only.split(":")
+    if len(parts) != 3 or not all(parts):
+        raise Stage3BlockedError(f"canary --cell must be engine:mode:seat, got {only!r}")
+    engine, mode, seat = parts
+    chosen = [
+        cell
+        for cell in cells
+        if cell["engine"] == engine and cell["mode"] == mode and cell["seat"] == seat
+    ]
+    if len(chosen) != 1:
+        raise Stage3BlockedError(f"canary --cell {only} matched {len(chosen)} cells")
+    return chosen
+
+
+def run_canary(pipeline: str, only: str | None = None) -> tuple[list[dict[str, Any]], int]:
+    """Run matrix cells sequentially. Stop on a repeated reason or a blind readiness check."""
     build = current_build()
-    results = []
-    for cell in candidate_cells():
+    results: list[dict[str, Any]] = []
+    stop_reason = None
+    for cell in _select_canary_cells(only):
+        print(f"{_cell_selector(cell)} | start", flush=True)
+        t0 = time.monotonic()
         try:
-            results.append(run_cell(cell, pipeline, build))
+            receipt = run_cell(cell, pipeline, build)
         except Exception as exc:
             root = data_root()
             receipt = {
@@ -681,24 +834,46 @@ def run_canary(pipeline: str) -> tuple[list[dict[str, Any]], int]:
                 "valid": False,
                 "failures": [f"candidate cell: {type(exc).__name__}: {exc}"],
                 "evidence_sources": {},
+                "elapsed_s": round(time.monotonic() - t0, 1),
             }
+            _stamp_reason(receipt)
             receipt["receipt"] = str(canary_receipt_path(root, build, cell))
             _write_json(Path(receipt["receipt"]), receipt)
-            results.append(receipt)
+        results.append(receipt)
+        _progress(
+            cell,
+            bool(receipt.get("valid")),
+            str(receipt.get("reason") or ""),
+            float(receipt.get("elapsed_s") or 0),
+        )
+        stop_reason = _canary_should_stop(results)
+        if stop_reason:
+            break
     root = data_root()
     summary = root / "engine_eval" / "canaries" / build / "table.json"
-    _write_json(summary, {"build": build, "cells": results})
-    print("cell | valid | failures | evidence sources")
+    _write_json(
+        summary,
+        {"build": build, "stopped": stop_reason, "cells": _canary_table(results)},
+    )
+    print(f"cells {len(results)} stopped={stop_reason or 'no'}", flush=True)
+    invalid = any(item.get("valid") is not True for item in results) or bool(stop_reason)
+    return results, 2 if invalid else 0
+
+
+def _canary_table(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    table = []
     for result in results:
-        cell = result["cell"]
-        sources = ", ".join(
-            f"{name}={value}" for name, value in result.get("evidence_sources", {}).items()
+        cell = result.get("cell") or {}
+        table.append(
+            {
+                "cell": cell,
+                "valid": result.get("valid"),
+                "reason": result.get("reason"),
+                "elapsed_s": result.get("elapsed_s"),
+                "failures": result.get("failures"),
+            }
         )
-        print(
-            f"{cell['engine']} / {cell['mode']} / {cell['seat']} | "
-            f"{str(result['valid']).lower()} | {'; '.join(result['failures'])} | {sources}"
-        )
-    return results, 0 if all(item["valid"] for item in results) else 2
+    return table
 
 
 def protocol_issues() -> dict[str, list[str]]:
@@ -953,11 +1128,12 @@ def _running_cells(
 ):
     """Start distinct canary-qualified managed engines and always verify shutdown."""
     cfg = h2h.load_config()
-    if len({cell["engine"] for cell in cells}) != len(cells):
+    managed = [cell for cell in cells if not _is_external(cell)]
+    if len({cell["engine"] for cell in managed}) != len(managed):
         raise Stage3BlockedError("co-resident cells must use distinct fixed engine ports")
     for cell in cells:
-        require_valid_canary(root, build, cell)
-        if h2h.pid_on_port(cell["port"]):
+        _gate_canary(root, build, cell)
+        if not _is_external(cell) and h2h.pid_on_port(cell["port"]):
             raise Stage3BlockedError(f"candidate port {cell['port']} is already occupied")
     okay, reason = h2h.start_gate(cfg)
     if not okay:
@@ -966,7 +1142,7 @@ def _running_cells(
     infos: dict[str, Any] = {}
     with h2h.single_flight():
         try:
-            for cell in cells:
+            for cell in managed:
                 log_dir = root / "engine_eval" / "stage3" / build / "logs" / _cell_id(cell)
 
                 def remember_started(target: dict[str, Any] = cell) -> None:
@@ -1123,9 +1299,34 @@ def _read_wfe_arm_rows(
     return arms
 
 
+def _grade_single_outcome(result: dict[str, Any], arms: list[dict[str, Any]]) -> None:
+    """One pinned arm. Used for an incumbent quality cell, which has no challenger."""
+    row = (arms[0].get("rows") or [{}])[0] if arms else {}
+    outcome = row.get("outcome")
+    if outcome not in ("PASS", "FAIL"):
+        result.update(
+            {
+                "status": "BLOCKED",
+                "valid": False,
+                "reason": "WFE did not produce one gradeable row",
+            }
+        )
+        return
+    result["incumbent_outcome"] = outcome
+    result["valid"] = outcome == "PASS"
+    result["status"] = "PASS" if result["valid"] else "FAIL"
+
+
 def _grade_quality_result(
-    result: dict[str, Any], arms: list[dict[str, Any]], compare: bool
+    result: dict[str, Any],
+    arms: list[dict[str, Any]],
+    compare: bool,
+    *,
+    single_outcome: bool = False,
 ) -> None:
+    if single_outcome:
+        _grade_single_outcome(result, arms)
+        return
     if compare:
         role_rows = {arm["role"]: arm["rows"] for arm in arms}
         inc, cand = role_rows.get("incumbent") or [], role_rows.get("challenger") or []
@@ -1190,7 +1391,9 @@ def _run_quality_workload(
         "runs": runs,
         "arms": arms,
     }
-    _grade_quality_result(result, arms, compare)
+    _grade_quality_result(
+        result, arms, compare, single_outcome=workload_id == "quality-seat" and not compare
+    )
     return result
 
 
@@ -1353,9 +1556,10 @@ def _run_long_context(
 def _process_sample(cell: dict[str, Any]) -> dict[str, Any]:
     """Sample engine-specific resident memory and independent macOS wired pages."""
     cfg = h2h.load_config()
-    pid = h2h.pid_on_port(cell["port"])
+    port = cell.get("observe_port") or cell.get("port")
+    pid = h2h.pid_on_port(port) if port else None
     if not pid:
-        raise Stage3BlockedError(f"no process is listening on {cell['port']}")
+        raise Stage3BlockedError(f"no process is listening on {port}")
     rows = instrument.parse_ps_tree(
         subprocess.check_output(["ps", "-axo", "pid=,ppid=,rss="], text=True, timeout=10)
     )
@@ -1535,7 +1739,9 @@ def _execute_stage3_workload(
     if issues:
         raise Stage3BlockedError("; ".join(issues))
     if workload == "quality-seat":
-        return _run_quality_workload(cell, workload, root, build, pipeline, compare=True)
+        return _run_quality_workload(
+            cell, workload, root, build, pipeline, compare=not _is_external(cell)
+        )
     if workload == "tool-turn":
         return _run_quality_workload(cell, workload, root, build, pipeline, compare=False)
     if workload == "concurrency-mix":
@@ -1561,7 +1767,7 @@ def run_stage3(
     build = build or current_build()
     path = root / "engine_eval" / "stage3" / build / f"{_cell_id(cell)}--{workload}.json"
     try:
-        canary = require_valid_canary(root, build, cell)
+        canary = _gate_canary(root, build, cell)
         if path.is_file():
             prior = json.loads(path.read_text(encoding="utf-8"))
             if (
@@ -1601,6 +1807,462 @@ def run_stage3(
     return result
 
 
+# Upper bounds for the plan print. Not measurements.
+_WORKLOAD_ESTIMATE_S = {
+    "quality-seat": 20 * 60,
+    "tool-turn": 10 * 60,
+    "long-context": 15 * 60,
+    "concurrency-mix": 15 * 60,
+    "co-residence": 10 * 60,
+    "soak": 45 * 60,
+}
+_EARLY_WORKLOADS = ("quality-seat", "tool-turn")
+_LATER_WORKLOADS = ("long-context", "concurrency-mix", "co-residence")
+_EVAL_PORTS = range(11234, 11245)
+_CELL_KEYS = (
+    "seat",
+    "workspace",
+    "engine",
+    "engine_kind",
+    "mode",
+    "model",
+    "expected_model",
+    "backend",
+    "port",
+    "observe_port",
+    "base",
+    "argv",
+    "cwd",
+    "launch_error",
+)
+
+
+def _stage3_dir(root: Path, build: str) -> Path:
+    return root / "engine_eval" / "stage3" / build
+
+
+def _cell_summary_path(root: Path, build: str, cell: dict[str, Any]) -> Path:
+    return _stage3_dir(root, build) / "cells" / f"{_cell_id(cell)}.json"
+
+
+def _plan_workloads() -> list[str]:
+    return [*_EARLY_WORKLOADS, *_LATER_WORKLOADS, "soak"]
+
+
+def _notify(event: str, message: str) -> None:
+    try:
+        from tests.benchmarks.bench.notify import _send_bench_notification
+
+        _send_bench_notification(message, title=f"engine-eval {event}")
+    except Exception:
+        return
+
+
+def _public_cell(cell: dict[str, Any]) -> dict[str, Any]:
+    return {key: cell.get(key) for key in _CELL_KEYS}
+
+
+def incumbent_pair(seat: str) -> list[dict[str, Any]]:
+    """oMLX is the deciding incumbent. Ollama is the failover pair, different bytes."""
+    cfg = h2h.load_config()
+    mapping = (cfg.get("engine_eval") or {}).get("seats", {})[seat]
+    workspace = mapping["workspace"]
+    model = mapping["model"]
+    hint = str(_bench_workspaces()[workspace]["model_hint"])
+    ollama_tag = str(cfg["models"][model]["ollama"])
+    shared = {
+        "seat": seat,
+        "workspace": workspace,
+        "engine_kind": "external",
+        "mode": "plain",
+        "model": model,
+        "argv": [],
+        "cwd": None,
+        "launch_error": None,
+        "port": None,
+    }
+    return [
+        {
+            **shared,
+            "engine": "omlx",
+            "expected_model": hint,
+            "backend": "eval-openai-omlx-incumbent",
+            "base": cfg["engines"]["omlx"]["base"],
+            "observe_port": 8085,
+        },
+        {
+            **shared,
+            "engine": "ollama",
+            "expected_model": ollama_tag,
+            "backend": "eval-openai-ollama-incumbent",
+            "base": cfg["engines"]["ollama"]["base"],
+            "observe_port": 11434,
+        },
+    ]
+
+
+def _valid_canary_cells(root: Path, build: str) -> list[dict[str, Any]]:
+    chosen = []
+    for cell in candidate_cells():
+        path = canary_receipt_path(root, build, cell)
+        if not path.is_file():
+            continue
+        try:
+            receipt = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if receipt.get("valid") is True and receipt.get("build") == build:
+            chosen.append(cell)
+    return chosen
+
+
+def _plan_entry(cell: dict[str, Any], role: str) -> dict[str, Any]:
+    workloads = _plan_workloads()
+    estimate_s = sum(_WORKLOAD_ESTIMATE_S[name] for name in workloads)
+    return {
+        "role": role,
+        "cell": _public_cell(cell),
+        "workloads": workloads,
+        "estimate_s": estimate_s,
+        "estimate_note": "upper bound in seconds, not a measurement; later stages run only after earlier ones pass",
+    }
+
+
+def build_stage3_plan(build: str) -> dict[str, Any]:
+    """List current-build valid canary cells and their incumbent pairs. Does not run."""
+    head = current_build()
+    if build != head:
+        raise Stage3BlockedError(f"canary build {build} is not the current build {head}")
+    root = data_root()
+    candidates = _valid_canary_cells(root, build)
+    seats = list(dict.fromkeys(cell["seat"] for cell in candidates))
+    entries = [_plan_entry(cell, "candidate") for cell in candidates]
+    for seat in seats:
+        entries.extend(_plan_entry(cell, "incumbent") for cell in incumbent_pair(seat))
+    plan = {
+        "build": build,
+        "estimate_note": "upper bound in seconds, not a measurement",
+        "estimate_s": sum(int(entry["estimate_s"]) for entry in entries),
+        "cells": entries,
+    }
+    _write_json(_stage3_dir(root, build) / "plan.json", plan)
+    return plan
+
+
+def _print_plan(plan: dict[str, Any]) -> None:
+    print(
+        f"build {plan['build']} cells {len(plan['cells'])} "
+        f"estimate_s {plan['estimate_s']} (upper bound, not a measurement)",
+        flush=True,
+    )
+    for entry in plan["cells"]:
+        cell = entry["cell"]
+        names = ",".join(entry["workloads"])
+        print(
+            f"{entry['role']} {_cell_selector(cell)} | {names} | {entry['estimate_s']}s",
+            flush=True,
+        )
+
+
+def quiet_host_refusal() -> str | None:
+    """Dispatch workers, a listener on an eval port, or the swap gate."""
+    lines, err = host_quiet._process_lines()
+    if err:
+        return err
+    dispatch = [
+        row for row in host_quiet._scan_processes(lines) if row.get("kind") == "dispatch lane job"
+    ]
+    if dispatch:
+        pids = ",".join(str(row.get("pid")) for row in dispatch)
+        return f"dispatch lane job: {pids}"
+    busy = [f"{port}:{h2h.pid_on_port(port)}" for port in _EVAL_PORTS if h2h.pid_on_port(port)]
+    if busy:
+        return "eval port busy " + ",".join(busy)
+    okay, reason = h2h.start_gate(h2h.load_config())
+    if not okay:
+        return f"swap start gate: {reason}"
+    return None
+
+
+def _eval_listeners() -> list[str]:
+    return [f"{port}:{h2h.pid_on_port(port)}" for port in _EVAL_PORTS if h2h.pid_on_port(port)]
+
+
+def _cell_finished(root: Path, build: str, cell: dict[str, Any]) -> dict[str, Any] | None:
+    path = _cell_summary_path(root, build, cell)
+    if not path.is_file():
+        return None
+    try:
+        receipt = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if receipt.get("finished") is True and receipt.get("build") == build:
+        return receipt
+    return None
+
+
+def _checkpoint_path(root: Path, build: str) -> Path:
+    return _stage3_dir(root, build) / "checkpoint.json"
+
+
+def _write_checkpoint(
+    root: Path, build: str, plan_path: str, completed: list[str], stopped: str | None
+) -> None:
+    _write_json(
+        _checkpoint_path(root, build),
+        {"build": build, "plan": plan_path, "completed": completed, "stopped": stopped},
+    )
+
+
+def _workload_failed(row: dict[str, Any]) -> bool:
+    return row.get("valid") is not True
+
+
+def _first_failure(workloads: dict[str, dict[str, Any]]) -> str:
+    for row in workloads.values():
+        if _workload_failed(row):
+            return _one_line(str(row.get("reason") or row.get("status") or "invalid"))
+    return "ok"
+
+
+def _run_one_staged_workload(
+    cell: dict[str, Any], name: str, root: Path, build: str, pipeline: str
+) -> dict[str, Any]:
+    started = time.monotonic()
+    result = run_stage3(cell, name, build=build, pipeline=pipeline)
+    elapsed = round(time.monotonic() - started, 1)
+    reason = _one_line(str(result.get("reason") or result.get("status") or ""))
+    state = "pass" if result.get("valid") is True else "fail"
+    print(f"{_cell_selector(cell)} | {name} | {state} | {reason} | {elapsed:.0f}s", flush=True)
+    result["elapsed_s"] = elapsed
+    result["reason_norm"] = normalise_reason(reason)
+    if (
+        str(result.get("reason") or "").startswith("swap start gate")
+        or result.get("swap_gate") is False
+    ):
+        result["swap_stop"] = True
+    return result
+
+
+def _run_staged_cell(cell: dict[str, Any], root: Path, build: str, pipeline: str) -> dict[str, Any]:
+    workloads: dict[str, dict[str, Any]] = {}
+    for name in _EARLY_WORKLOADS:
+        workloads[name] = _run_one_staged_workload(cell, name, root, build, pipeline)
+        if workloads[name].get("swap_stop"):
+            break
+    early_ok = len(workloads) == len(_EARLY_WORKLOADS) and all(
+        not _workload_failed(workloads[name]) for name in _EARLY_WORKLOADS
+    )
+    if early_ok:
+        for name in _LATER_WORKLOADS:
+            workloads[name] = _run_one_staged_workload(cell, name, root, build, pipeline)
+            if workloads[name].get("swap_stop"):
+                break
+    earlier = (*_EARLY_WORKLOADS, *_LATER_WORKLOADS)
+    all_earlier_ok = all(
+        name in workloads and not _workload_failed(workloads[name]) for name in earlier
+    )
+    if all_earlier_ok:
+        workloads["soak"] = _run_one_staged_workload(cell, "soak", root, build, pipeline)
+    reason = _first_failure(workloads)
+    receipt = {
+        "build": build,
+        "cell": _public_cell(cell),
+        "cell_id": _cell_id(cell),
+        "finished": True,
+        "valid": reason == "ok",
+        "reason": reason,
+        "reason_norm": normalise_reason(reason),
+        "swap_stop": any(row.get("swap_stop") for row in workloads.values()),
+        "workloads": workloads,
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+    path = _cell_summary_path(root, build, cell)
+    receipt["receipt"] = str(path)
+    _write_json(path, receipt)
+    return receipt
+
+
+def _refused_cell(cell: dict[str, Any], build: str, reason: str, root: Path) -> dict[str, Any]:
+    receipt = {
+        "build": build,
+        "cell": _public_cell(cell),
+        "cell_id": _cell_id(cell),
+        "finished": True,
+        "valid": False,
+        "reason": reason,
+        "reason_norm": normalise_reason(reason),
+        "swap_stop": reason.startswith("swap start gate"),
+        "workloads": {},
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+    path = _cell_summary_path(root, build, cell)
+    receipt["receipt"] = str(path)
+    _write_json(path, receipt)
+    print(f"{_cell_selector(cell)} | quiet | fail | {reason} | 0s", flush=True)
+    return receipt
+
+
+def _cells_should_stop(results: list[dict[str, Any]]) -> str | None:
+    if any(row.get("swap_stop") for row in results):
+        return next(str(row.get("reason")) for row in results if row.get("swap_stop"))
+    if len(results) < 2 or results[-1].get("valid") is True:
+        return None
+    prev = results[-2]
+    if prev.get("valid") is not True and prev.get("reason_norm") == results[-1].get("reason_norm"):
+        return f"2 consecutive cells: {results[-1].get('reason_norm')}"
+    return None
+
+
+def _quality_not_worse(result: dict[str, Any]) -> bool | None:
+    row = (result.get("workloads") or {}).get("quality-seat") or {}
+    cand = row.get("candidate_outcome")
+    inc = row.get("incumbent_outcome")
+    if cand is None or inc is None:
+        return None
+    return cand == "PASS" or inc == "FAIL"
+
+
+def _speed_beats_noise(result: dict[str, Any]) -> bool | None:
+    speed = result.get("speed_tps")
+    noise = result.get("noise") if isinstance(result.get("noise"), dict) else {}
+    if speed is None or "run_a_tps" not in noise or "run_b_tps" not in noise:
+        return None
+    floor = max(float(noise["run_a_tps"]), float(noise["run_b_tps"]))
+    return float(speed) > floor
+
+
+def _flag_from_workload(result: dict[str, Any], name: str) -> bool | None:
+    row = (result.get("workloads") or {}).get(name)
+    if not isinstance(row, dict) or "valid" not in row:
+        return None
+    if row.get("status") == "NOT_APPLICABLE":
+        return None
+    return row.get("valid") is True
+
+
+def _matrix_verdict(result: dict[str, Any]) -> str:
+    checks = (
+        _quality_not_worse(result),
+        _speed_beats_noise(result),
+        _flag_from_workload(result, "soak"),
+        _flag_from_workload(result, "co-residence"),
+    )
+    if any(item is None for item in checks) or not all(checks):
+        return "Unproven — keep the incumbent"
+    return "pass"
+
+
+def _summary_rows(results: list[dict[str, Any]]) -> list[dict[str, str]]:
+    incumbents = {
+        row["cell"]["seat"]: row
+        for row in results
+        if (row.get("cell") or {}).get("engine") == "omlx"
+    }
+    table = []
+    for result in results:
+        cell = result.get("cell") or {}
+        if cell.get("engine") in {"omlx", "ollama"}:
+            continue
+        incumbent = incumbents.get(cell.get("seat"))
+        table.append(
+            {
+                "seat": str(cell.get("seat")),
+                "candidate": _cell_selector(cell),
+                "incumbent": _cell_selector(incumbent["cell"]) if incumbent else "missing",
+                "quality": str(_quality_not_worse(result)),
+                "speed": str(_speed_beats_noise(result)),
+                "memory": str(_flag_from_workload(result, "soak")),
+                "verdict": _matrix_verdict(result),
+            }
+        )
+    return table
+
+
+def _print_summary(rows: list[dict[str, str]]) -> None:
+    print("seat | candidate | incumbent | quality | speed | memory | verdict", flush=True)
+    for row in rows:
+        print(
+            " | ".join(
+                row[key]
+                for key in (
+                    "seat",
+                    "candidate",
+                    "incumbent",
+                    "quality",
+                    "speed",
+                    "memory",
+                    "verdict",
+                )
+            ),
+            flush=True,
+        )
+
+
+def _load_plan(path: Path) -> dict[str, Any]:
+    plan = json.loads(path.read_text(encoding="utf-8"))
+    head = current_build()
+    if plan.get("build") != head:
+        raise Stage3BlockedError(f"plan build {plan.get('build')} is not the current build {head}")
+    return plan
+
+
+def execute_stage3_plan(plan_path: str, pipeline: str) -> int:
+    """Run a printed plan. Skip finished cells. Stop on a repeated reason or the swap gate."""
+    path = Path(plan_path)
+    plan = _load_plan(path)
+    build = str(plan["build"])
+    root = data_root()
+    _configure_results(root)
+    results: list[dict[str, Any]] = []
+    completed: list[str] = []
+    stop_reason = None
+    _notify("start", f"stage3 {build} cells={len(plan.get('cells') or [])}")
+    try:
+        for entry in plan.get("cells") or []:
+            cell = entry["cell"]
+            prior = _cell_finished(root, build, cell)
+            if prior is not None:
+                print(f"{_cell_selector(cell)} | skip | completed | 0s", flush=True)
+                results.append(prior)
+                completed.append(_cell_id(cell))
+                continue
+            refusal = quiet_host_refusal()
+            if refusal:
+                receipt = _refused_cell(cell, build, refusal, root)
+                results.append(receipt)
+                completed.append(_cell_id(cell))
+                if receipt.get("swap_stop"):
+                    stop_reason = refusal
+                    break
+            else:
+                receipt = _run_staged_cell(cell, root, build, pipeline)
+                results.append(receipt)
+                completed.append(_cell_id(cell))
+                if receipt.get("swap_stop"):
+                    stop_reason = str(receipt.get("reason"))
+                    break
+            stop_reason = _cells_should_stop(results)
+            if stop_reason:
+                break
+    finally:
+        _write_checkpoint(root, build, str(path), completed, stop_reason)
+    listeners = _eval_listeners()
+    rows = _summary_rows(results)
+    _print_summary(rows)
+    print(
+        f"cells {len(results)} stopped={stop_reason or 'no'} listeners={listeners or 'none'}",
+        flush=True,
+    )
+    if stop_reason:
+        _notify("stop-on-failure", f"stage3 {build} stopped: {stop_reason}")
+    else:
+        _notify("finish", f"stage3 {build} cells={len(results)}")
+    if listeners or stop_reason or any(row.get("valid") is not True for row in results):
+        return 2
+    return 0
+
+
 def _select_cell(args: argparse.Namespace) -> dict[str, Any]:
     cell = next(
         (
@@ -1625,6 +2287,7 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     canary = sub.add_parser("canary")
     canary.add_argument("--pipeline", default="http://127.0.0.1:9099")
+    canary.add_argument("--cell", default=None, help="engine:mode:seat — run one cell")
     cell = sub.add_parser("cell")
     cell.add_argument("--engine", required=True)
     cell.add_argument("--mode", choices=("plain", "spec"), required=True)
@@ -1636,11 +2299,22 @@ def main(argv: list[str] | None = None) -> int:
     stage3.add_argument("--seat", required=True)
     stage3.add_argument("--workload", required=True)
     stage3.add_argument("--pipeline", default="http://127.0.0.1:9099")
+    plan = sub.add_parser("stage3-plan")
+    plan.add_argument("--from-canary", required=True, dest="from_canary")
+    stage3_run = sub.add_parser("stage3-run")
+    stage3_run.add_argument("--plan", required=True)
+    stage3_run.add_argument("--pipeline", default="http://127.0.0.1:9099")
     args = parser.parse_args(argv)
     try:
         if args.command == "canary":
-            _results, code = run_canary(args.pipeline)
+            _results, code = run_canary(args.pipeline, only=args.cell)
             return code
+        if args.command == "stage3-plan":
+            built = build_stage3_plan(args.from_canary)
+            _print_plan(built)
+            return 0
+        if args.command == "stage3-run":
+            return execute_stage3_plan(args.plan, args.pipeline)
         selected = _select_cell(args)
         if args.command == "cell":
             result = run_cell(selected, args.pipeline)
