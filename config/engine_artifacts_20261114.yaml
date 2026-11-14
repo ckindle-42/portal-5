@@ -1,0 +1,468 @@
+schema_version: 1
+date: 2026-11-14
+operator_decision: >-
+  Judge each engine at its best documented per-seat configuration. Engine-tuned
+  variants, quant formats, native MTP, DFlash, EAGLE, and other supported drafter
+  artifacts are in scope. Target weights remain quantized. The only full BF16
+  checkpoints are model-specific assistant/draft models required by the documented
+  DFlash or Gemma assistant paths; embedded MTP heads are recorded as components
+  of their quantized target packages.
+storage_root: /Volumes/data01
+disk_budget:
+  minimum_free_bytes: 100000000000
+  initial_free_bytes: 288650149888
+  final_free_bytes: 116561219584
+  downloaded_weight_bytes: 171690673107
+  downloaded_weight_files: 38
+  note: Downloads used the data01 Hugging Face cache and engine-specific directories only.
+seat_identity:
+  daily-moe: Nemotron 3.5 Lightning 30B-A3B
+  coding: Qwen3.8-27B
+  council-json: Qwen3.8-27B plain 4-bit seat; keep separate from Gemma hunt
+  hunt: Gemma 4 26B-A4B QAT
+  task-router: Gemma 4 E4B OBLITERATED GGUF Q4_K_M
+precision_exceptions:
+  full_bf16_drafters_only:
+    - artifact: qwen_ddalcu_8bit_dflash
+      reason: The mlx-serve repository's DFlash2DraftModel file is BF16; it is the documented separate drafter component.
+    - artifact: qwen_dflash2
+      reason: Existing on-disk DFlash2 drafter weights are BF16 and are required by the Splash, Rapid-MLX, mlx-serve, and mlxcel DFlash paths.
+    - artifact: gemma_assistant_26b_bf16
+      reason: Rapid-MLX's documented Gemma assistant path uses this BF16 assistant as a drafter.
+    - artifact: gemma_assistant_e4b_bf16
+      reason: mlx-serve's documented Gemma drafter example is this BF16 E4B assistant.
+  mtp_drafter_heads_with_precision_tensors:
+    - {artifact: nemotron_omlx_oq4e_mtp, dtypes: [BF16, F32], location: embedded in the quantized target package}
+    - {artifact: qwen_omlx_oq4e_mtp, dtypes: [BF16, U32], location: embedded in the quantized target package}
+    - {artifact: qwen_ddalcu_8bit_mtp, dtypes: [BF16, U32], location: embedded in the quantized target package}
+    - {artifact: qwen_ddalcu_4bit_mtp, dtypes: [BF16, U32], location: embedded in the quantized target package}
+    - {artifact: qwen_rapid_mtp, dtypes: [BF16, U32], location: MTP sidecar}
+    - {artifact: qwen_mtplx_speed, dtypes: [BF16, U32], location: MTP sidecar}
+    - {artifact: gemma_qat_assistant_4bit, dtypes: [BF16, U32], location: quantized assistant drafter}
+  note: No full-precision BF16 target checkpoint was downloaded. Some MTP heads carry BF16/F32 tensors as the drafter component while the target backbone remains quantized.
+
+# Each files entry records [relative_path, size_bytes, sha256]. The digest is the
+# HF LFS SHA-256 for downloaded/pinned artifacts, except where explicitly marked
+# local_only or mismatch below. Paths are rooted at each artifact's `path`.
+artifacts:
+  nemotron_omlx_oq4e_mtp:
+    path: /Volumes/data01/omlx-models/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
+    hf_repo: txgsync/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
+    hf_revision: 96f1af4e0210e3d7369cafcc6aa8dc4b8632841f
+    state: already_on_disk
+    format: MLX oQ4e mixed 4-bit with embedded MTP head
+    files:
+      - [model-00001-of-00005.safetensors, 5112645788, ec946b0cbf95655a03b7015de700f5b01f4696c3790ede1f1b92485230d8a8b5]
+      - [model-00002-of-00005.safetensors, 5028844759, 3892a1083740bd88f584fe912354b52d4514a0d0dfa3643dd2e2dd694d0941af]
+      - [model-00003-of-00005.safetensors, 5028844766, e8e812ebbd73e7c6a3e7fb40ea244da6a69706a56901d9321ac26335f0cc48d0]
+      - [model-00004-of-00005.safetensors, 5344723448, b23cd440c53a98d34b568f7809d2cbf5f346ab4529c6f501e2b1bf8f4b0005a8]
+      - [model-00005-of-00005.safetensors, 1277165723, 78265c6243262d152fdd10d34e74a2c43057a25cdcce928e12289b4fb34e9907]
+    research: [docs/engine_research/vllm_20261114.md §vllm-mlx, docs/engine_research/mlxserve_20261114.md §mlx-serve, docs/engine_research/mlxother_20261114.md §oMLX]
+
+  nemotron_mlx_4bit:
+    path: /Volumes/data01/omlx-models/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-4bit
+    hf_repo: mlx-community/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-4bit
+    hf_revision: 55ac8c89261109b36c04371cd3f479a4594208c8
+    state: downloaded_and_verified
+    format: MLX affine 4-bit
+    files:
+      - [model-00001-of-00004.safetensors, 5118631442, 12e2ba8a7f0990b7e34ddb25cf4043fe39b105215fe61a0b7dc1447be6b247b3]
+      - [model-00002-of-00004.safetensors, 5291568433, a095b11193a9d58e2c67c83bc2aff0eedde8f76b77ff8ee4781fe08f6c3f5363]
+      - [model-00003-of-00004.safetensors, 5291568429, c55808e0cf33a6b957d34ab57caf4185c4aed49c6ef15c7c69683e7af7e892cc]
+      - [model-00004-of-00004.safetensors, 2073657055, 9c541daef892060fffb831afb9e20251ff18c492df7bacd0bfee4d8e43124d89]
+    research: [docs/engine_research/vllm_20261114.md §vllm-metal, docs/engine_research/mlxserve_20261114.md §rapid-mlx, docs/engine_research/mlxother_20261114.md §mlxcel]
+
+  nemotron_gguf_q4km:
+    path: /Volumes/data01/ollama/models/blobs/sha256-b520a8992e94c4d61e6a0833edffc499a46f42522df446c290d75dc5787a9158
+    hf_repo: bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF
+    hf_revision: f0eec2267ae843d9eb21ea3926ab0046da0a8628
+    state: already_on_disk_exact_hf_match
+    format: GGUF Q4_K_M; MTP tensors are embedded in this target
+    files:
+      - [NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_K_M.gguf, 25477403616, b520a8992e94c4d61e6a0833edffc499a46f42522df446c290d75dc5787a9158]
+    research: [docs/engine_research/gguf_20261114.md §1.1]
+
+  qwen_omlx_oq4e_mtp:
+    path: /Volumes/data01/omlx-models/Qwen3.8-27B-oQ4e-mtp
+    hf_repo: txgsync/Qwen3.8-27B-oQ4e-mtp
+    hf_revision: b8b3fa4e21f170d7296cf98401db42a4fae6bce6
+    state: already_on_disk; original_hf_listing_unavailable_at_audit
+    format: MLX oQ4e mixed 4-bit with embedded MTP head
+    files:
+      - [model-00001-of-00004.safetensors, 5016415582, ee6163d380c835c3c5755fef54b8a3f517e1660bfad740f55cd46699c6cd1cae]
+      - [model-00002-of-00004.safetensors, 5017583687, 3c7720c42bce2ff8b11f758a88ff1a0fce9bb9f47ca5af11da929cd5ee069350]
+      - [model-00003-of-00004.safetensors, 5001653251, eb9d617556370bde29030ea2004271702c57f7fd4b1b0915b7d5ef2ee2e290ae]
+      - [model-00004-of-00004.safetensors, 1936029038, 294cf945e3054c42f1296302574aecad4299ec1c236babc26f22ef7106223398]
+    note: The original txgsync repo currently returns no listing; the Jundot mirror has different file identities. Listed values are local-file SHA-256 only.
+    research: [docs/ENGINE_EVAL_MATRIX_20261113.md §Dense coding, docs/engine_research/mlxother_20261114.md §oMLX]
+
+  qwen_mlx_4bit:
+    path: /Volumes/data01/omlx-models/Qwen3.8-27B-4bit
+    hf_repo: mlx-community/Qwen3.8-27B-4bit
+    hf_revision: b935172e4bb5dcd0543774a34748fb92422e3027
+    state: already_on_disk
+    format: MLX 4-bit; no MTP tensors
+    files:
+      - [model-00001-of-00003.safetensors, 5343268662, 6cc1508e96fb5d0865dfd5753a79f4ec60651bf3e2a82844a7e8ae9c60528c0d]
+      - [model-00002-of-00003.safetensors, 5354185130, 83f2a20ca8058f486a3634a27faf99587f4cd3c156a83dee34fb99e6ac178670]
+      - [model-00003-of-00003.safetensors, 5357087557, 31b8c91ef899f79efaaa69e3d2c096f6e2ebeb2ff20e29222abbd9ebc79e560a]
+    research: [docs/ENGINE_EVAL_MATRIX_20261113.md §Council / JSON, docs/engine_research/vllm_20261114.md §vllm-mlx, docs/engine_research/mlxserve_20261114.md §mlx_lm.server]
+
+  qwen_dflash2:
+    path: /Volumes/data01/omlx-models/Qwen3.8-27B-DFlash2
+    hf_repo: incoai/Qwen3.8-27B-DFlash2
+    hf_revision: 015e795645c74b1a0eeef3b570031fb62e769bc5
+    state: already_on_disk
+    format: MLX BF16 DFlash2 drafter; BF16 is required by this published drafter artifact
+    files:
+      - [model.safetensors, 3848817896, 67fc76d68dc5a9415511a4f394ef744d67510cd20e93b37cc2cc7d28e4bab65c]
+    research: [docs/engine_research/mlxserve_20261114.md §mlx-serve, §rapid-mlx, docs/engine_research/mlxother_20261114.md §mlxcel, §Splash]
+
+  qwen_ddalcu_8bit_mtp:
+    path: /Volumes/data01/omlx-models/Qwen3.8-27B-MLX-Serve-8bit
+    hf_repo: ddalcu/Qwen3.8-27B-MLX-Serve-8bit
+    hf_revision: 7775059e955f60b5a8f5da1b859466390bcad351
+    state: downloaded_and_verified
+    format: MLX affine 8-bit group-64 with native MTP tensors
+    files:
+      - [model-00001.safetensors, 6699043279, 0db4119aaf3269f01e629fe67738632f0a44dc5433f84d5677ca2745e6afd65d]
+      - [model-00002.safetensors, 5382572517, f8a67e1febc7e793e55ac28825fbe34aa671a53211212eb53e59fa57add55f10]
+      - [model-00003.safetensors, 5448802532, 98e5719bc628c9dd5311987120a92d3e9f2cda5604ed071d3a61a5ccb970a6d2]
+      - [model-00004.safetensors, 5398689427, 364692d97424074dd7c9679fe2a78fab1a2ac3cab4fd1d84c2e26a4e93fe7b38]
+      - [model-00005.safetensors, 5420960896, cd1e82cf3a9137e97ba12b3148c6f95dfca6cc194e81d4a981bee1fe2910c24c]
+      - [model-00006.safetensors, 2843508924, 620dc8ebf9b5e2033abfbad38e65d11b22181e1e870404407be659aef6fd0435]
+    research: [docs/engine_research/mlxserve_20261114.md §mlx-serve, 1. Variant per seat]
+
+  qwen_ddalcu_8bit_dflash:
+    path: /Volumes/data01/engine_h2h_drafters/Qwen3.8-27B-MLX-Serve-8bit-DFlash
+    hf_repo: ddalcu/Qwen3.8-27B-MLX-Serve-8bit
+    hf_revision: 7775059e955f60b5a8f5da1b859466390bcad351
+    state: downloaded_and_verified
+    format: MLX BF16 DFlash drafter bundled with the 8-bit vendor pack; BF16 is required by this published drafter artifact
+    files:
+      - [model.safetensors, 3848817896, 67fc76d68dc5a9415511a4f394ef744d67510cd20e93b37cc2cc7d28e4bab65c]
+    research: [docs/engine_research/mlxserve_20261114.md §mlx-serve, 1. Variant per seat]
+
+  qwen_ddalcu_4bit_mtp:
+    path: /Volumes/data01/omlx-models/Qwen3.8-27B-MLX-Serve-4bit
+    hf_repo: ddalcu/Qwen3.8-27B-MLX-Serve-4bit
+    hf_revision: 901aa73a1ff5456752c02e55582609e0040ca470
+    state: downloaded_and_verified
+    format: MLX affine 4-bit with native MTP tensors
+    files:
+      - [model-00001.safetensors, 5392792083, 996629e682e96e9c3df8082b6e340111d13f029a9da9fe35f414e14733ce70b3]
+      - [model-00002.safetensors, 5384057263, e4036e56486133c3c9961844bf8879d7a46fc87137c7d97e433480defaa76062]
+      - [model-00003.safetensors, 5374469267, 1713ee61d25b11f45ac61110b6f8545870926459103eab24bbc20d466292d605]
+      - [model-00004.safetensors, 2045159041, 04435341a3e748688689f4c3e86c3253642bff6840614f85541d647e589b782a]
+    research: [docs/engine_research/mlxserve_20261114.md §mlx-serve, 1. Variant per seat]
+
+  qwen_rapid_mtp:
+    path: /Volumes/data01/omlx-models/Qwen3.8-27B-4bit-MTP-MLX
+    hf_repo: rapid-mlx/Qwen3.8-27B-4bit-MTP-MLX
+    hf_revision: eb4e4dd38cf2f0a34045347e7a4cbfb60487df2a
+    state: downloaded_and_verified
+    format: MLX 4-bit target with MTP sidecar
+    files:
+      - [model-00001-of-00003.safetensors, 5343268662, 6cc1508e96fb5d0865dfd5753a79f4ec60651bf3e2a82844a7e8ae9c60528c0d]
+      - [model-00002-of-00003.safetensors, 5354185130, 83f2a20ca8058f486a3634a27faf99587f4cd3c156a83dee34fb99e6ac178670]
+      - [model-00003-of-00003.safetensors, 5357087557, 31b8c91ef899f79efaaa69e3d2c096f6e2ebeb2ff20e29222abbd9ebc79e560a]
+      - [mtp/model.safetensors, 238934137, 76663c101e7e8ea9c0ae17bcb95183cd7f733ce424c912b8b264a7b1c48e4cc6]
+    research: [docs/engine_research/mlxserve_20261114.md §rapid-mlx, 1. Variant per seat]
+
+  qwen_mtplx_speed:
+    path: /Volumes/data01/mtplx-models/Qwen3.8-27B-MTPLX-Optimized-Speed
+    hf_repo: Youssofal/Qwen3.8-27B-MTPLX-Optimized-Speed
+    hf_revision: 1d5087d2062c02b279180a53e4016cf9cd7a3d7e
+    state: downloaded_and_verified; text_only_pack; vision_shard_not_needed_for_h2h
+    format: MLX 4-bit optimized-speed target with native MTPLX head
+    files:
+      - [model-00001-of-00004.safetensors, 5355017068, aed435f4011667af7772fee7ccec90c86f5a6c85649ef74fe6e397a7504b4578]
+      - [model-00002-of-00004.safetensors, 5326635766, 3f1960306e36255b7f0c7e80c742f03d96131561b766b1f6af9ca138ff77f939]
+      - [model-00003-of-00004.safetensors, 5362328225, 6525c0edae616c0f62b69fc190268c69bdf7a18b0b2ad3de007f3e4464387471]
+      - [model-00004-of-00004.safetensors, 3478828572, cef192620e5ecb23eaac19d2c041edc44d9cbb9fb10265bf1213b649c3eae0d9]
+      - [mtp.safetensors, 238934249, c58feddc584f37971c72af1f0da95e0099478487009936b3c26ddd88844fab10]
+    omitted_files: [model-vision.safetensors]
+    research: [docs/engine_research/mlxother_20261114.md §MTPLX, docs/engine_research/mlxserve_20261114.md §mlx-serve]
+
+  qwen_gguf_q4km:
+    path: /Volumes/data01/hf-cache/models--unsloth--Qwen3.8-27B-GGUF/snapshots/4af51b3542f775b0a8e4b310bfb3f17e01c306c9
+    hf_repo: unsloth/Qwen3.8-27B-GGUF
+    hf_revision: 4af51b3542f775b0a8e4b310bfb3f17e01c306c9
+    state: downloaded_and_verified
+    format: GGUF UD-Q4_K_M target
+    files:
+      - [Qwen3.8-27B-UD-Q4_K_M.gguf, 16564259744, 1bce504dfecd84153666928a41d8a66706f0158d3a317bc5196b72819d7dc529]
+    research: [docs/engine_research/gguf_20261114.md §1.1]
+
+  qwen_gguf_mtp:
+    path: /Volumes/data01/hf-cache/models--unsloth--Qwen3.8-27B-GGUF/snapshots/4af51b3542f775b0a8e4b310bfb3f17e01c306c9
+    hf_repo: unsloth/Qwen3.8-27B-GGUF
+    hf_revision: 4af51b3542f775b0a8e4b310bfb3f17e01c306c9
+    state: downloaded_and_verified
+    format: GGUF Q4_0 MTP drafter
+    files:
+      - [MTP/mtp-Qwen3.8-27B-Q4_0.gguf, 1369590656, 50d9ce5a6da381bbcfb31061cf73df94a90e6faf8efeddee379a9cb8f1501c6e]
+    research: [docs/engine_research/gguf_20261114.md §1.1, §1.2]
+
+  qwen_ollama_gguf:
+    path: /Volumes/data01/ollama/models/blobs/sha256-322e194ff79741c7baa497c240f677f54b201b0efab44ca8e50f122b39123482
+    hf_repo: unsloth/Qwen3.8-27B-GGUF
+    hf_revision: 4af51b3542f775b0a8e4b310bfb3f17e01c306c9
+    state: already_on_disk_but_not_current_hf_file_match
+    format: Ollama GGUF Q4_K_M target; speculative decoding unavailable in researched Ollama 0.40.16 path
+    files:
+      - [sha256-322e194ff79741c7baa497c240f677f54b201b0efab44ca8e50f122b39123482, 16464440224, 322e194ff79741c7baa497c240f677f54b201b0efab44ca8e50f122b39123482]
+    hf_listing_file: Qwen3.8-27B-UD-Q4_K_M.gguf
+    hf_listing_size_bytes: 16564259744
+    hf_listing_sha256: 1bce504dfecd84153666928a41d8a66706f0158d3a317bc5196b72819d7dc529
+    research: [docs/engine_research/gguf_20261114.md §3.1]
+
+  gemma_qat_mlx_4bit:
+    path: /Volumes/data01/omlx-models/gemma-4-26b-a4b-it-QAT-4bit
+    hf_repo: mlx-community/gemma-4-26B-A4B-it-qat-4bit
+    hf_revision: 0e3cbab38ce568cf6e23543010d08d03b731910c
+    state: already_on_disk
+    format: MLX 4-bit QAT
+    files:
+      - [model-00001-of-00003.safetensors, 5275612587, 898863f0d5eba7153a9c9b9443aac1969809f2149e88481c725b6da40783f129]
+      - [model-00002-of-00003.safetensors, 5296718232, 2abdca76ed4a647cfe8af680908894e2709b4e1221ddbbbef1b1edb14f60e303]
+      - [model-00003-of-00003.safetensors, 5036507755, a554f0fdb61bc9e510a5318e723a780c31434fd3e3dcdd3c16c700f835ade7b7]
+    research: [docs/ENGINE_EVAL_MATRIX_20261113.md §Hunt parallel, docs/engine_research/mlxserve_20261114.md §mlx-serve, docs/engine_research/mlxother_20261114.md §mlxcel]
+
+  gemma_mlx_oq4_variant:
+    path: /Volumes/data01/omlx-models/unsloth-gemma-4-26B-A4B-it-qat-oQ4
+    hf_repo: mlx-community/unsloth-gemma-4-26B-A4B-it-qat-oQ4
+    hf_revision: 1d6b563fb127a03f13921d9b80ee68ed8c43ce46
+    state: downloaded_and_verified
+    format: MLX oQ4 tuned QAT target variant
+    files:
+      - [model-00001-of-00004.safetensors, 5058732310, a48371e4c081b8899eac87c27c06c1019d49729d7354ddb248d0dde4fd0c9b50]
+      - [model-00002-of-00004.safetensors, 5073178797, 3c4721c1d53c9eee003e38f2004375d46b1325ba20e098e56a26379ce116565c]
+      - [model-00003-of-00004.safetensors, 5001613004, c427805e8ce2a1ae7ad7c9e3e4017182c000abf74939450ffe8a29cf6c674c60]
+      - [model-00004-of-00004.safetensors, 654366634, 7eb96a29c3b7b62a56a998967544eddb6b6653bb40d22bd5c440afbe09ede3bd]
+    research: [docs/engine_research/vllm_20261114.md §vllm-metal]
+
+  gemma_qat_assistant_4bit:
+    path: /Volumes/data01/engine_h2h_drafters/gemma-4-26B-A4B-it-qat-assistant-4bit
+    hf_repo: mlx-community/gemma-4-26B-A4B-it-qat-assistant-4bit
+    hf_revision: bb94eae1b70a80dac16cbf959bb4b7d56bd1fb8c
+    state: downloaded_and_verified
+    format: MLX 4-bit QAT MTP assistant drafter
+    files:
+      - [model.safetensors, 236124704, 3c4d43863abbbf455ec537c726eff7abeb88bb361e3ab23ff0d2d6006f620f74]
+    research: [docs/engine_research/vllm_20261114.md §vllm-mlx]
+
+  gemma_assistant_26b_bf16:
+    path: /Volumes/data01/engine_h2h_drafters/gemma-4-26B-A4B-it-assistant-bf16
+    hf_repo: mlx-community/gemma-4-26B-A4B-it-assistant-bf16
+    hf_revision: cda74908f1dbe7d3dbd3030e66576a7d4094144f
+    state: downloaded_and_verified; drafter_only
+    format: MLX BF16 assistant; full precision permitted only as Rapid-MLX drafter
+    files:
+      - [model.safetensors, 839427840, 006c8713b29b046e296c0f0b7c524aa9264ae07ae8b0c3888b9bc062242297ff]
+    research: [docs/engine_research/mlxserve_20261114.md §rapid-mlx, 1. Variant per seat]
+
+  gemma_assistant_e4b_bf16:
+    path: /Volumes/data01/engine_h2h_drafters/gemma-4-E4B-it-assistant-bf16
+    hf_repo: mlx-community/gemma-4-E4B-it-assistant-bf16
+    hf_revision: 844e008e06ef5562bdb89428d851d0634d119dcd
+    state: downloaded_and_verified; drafter_only
+    format: MLX BF16 assistant; full precision permitted only as mlx-serve drafter
+    files:
+      - [model.safetensors, 159138208, 12875062fc25c51e8fa9b62abd2de7ad48b7d63f8559d5d604fbd5a3d6bcff16]
+    research: [docs/engine_research/mlxserve_20261114.md §mlx-serve, 1. Variant per seat]
+
+  gemma_google_gguf_q4_0:
+    path: /Volumes/data01/hf-cache/models--google--gemma-4-26B-A4B-it-qat-q4_0-gguf/snapshots/d1c082be9cf3c8a514acf63b8761f4b41935842e
+    hf_repo: google/gemma-4-26B-A4B-it-qat-q4_0-gguf
+    hf_revision: d1c082be9cf3c8a514acf63b8761f4b41935842e
+    state: downloaded_and_verified
+    format: GGUF Q4_0 QAT target
+    files:
+      - [gemma-4-26B_q4_0-it.gguf, 14439363584, 3eca3b8f6d7baf218a7dd6bba5fb59a56ee25fe2d567b6f5f589b4f697eca51d]
+    research: [docs/engine_research/gguf_20261114.md §1.1]
+
+  gemma_ggml_mtp_q4_0:
+    path: /Volumes/data01/hf-cache/models--ggml-org--gemma-4-26B-A4B-it-GGUF/snapshots/1ca99aae748b4b01f609fa51eb23682ee5f00b85
+    hf_repo: ggml-org/gemma-4-26B-A4B-it-GGUF
+    hf_revision: 1ca99aae748b4b01f609fa51eb23682ee5f00b85
+    state: downloaded_and_verified
+    format: GGUF Q4_0 MTP drafter
+    files:
+      - [mtp-gemma-4-26B-A4B-it-Q4_0.gguf, 251939520, e00b0ce326d03d8f6f6972ad2320fe90b6ff25a3da5fc51bec15efe283052aa2]
+    research: [docs/engine_research/gguf_20261114.md §1.1, §1.2]
+
+  gemma_ggml_dflash_q8_0:
+    path: /Volumes/data01/hf-cache/models--ggml-org--gemma-4-26B-A4B-it-GGUF/snapshots/1ca99aae748b4b01f609fa51eb23682ee5f00b85
+    hf_repo: ggml-org/gemma-4-26B-A4B-it-GGUF
+    hf_revision: 1ca99aae748b4b01f609fa51eb23682ee5f00b85
+    state: downloaded_and_verified
+    format: GGUF Q8_0 DFlash drafter
+    files:
+      - [dflash-gemma-4-26B-A4B-it-Q8_0.gguf, 472433824, b353b64a95f4a498ce036969df21a15191cc85800722a3e1f62f6110b91f01b2]
+    research: [docs/engine_research/gguf_20261114.md §1.1, §1.2]
+
+  gemma_unsloth_qat_udq4_k_xl:
+    path: /Volumes/data01/hf-cache/models--unsloth--gemma-4-26B-A4B-it-qat-GGUF/snapshots/7b92b5b28818151e8669af2e45e88d6086f490dd
+    hf_repo: unsloth/gemma-4-26B-A4B-it-qat-GGUF
+    hf_revision: 7b92b5b28818151e8669af2e45e88d6086f490dd
+    state: downloaded_and_verified
+    format: GGUF QAT UD-Q4_K_XL tuned target variant
+    files:
+      - [gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf, 14249047104, a7c5bc715f5ff8e99a3e8901ce7d2b42b402c669bf24f7c5250747633d0f5891]
+    research: [docs/engine_research/gguf_20261114.md §1.1]
+
+  gemma_unsloth_mtp_q4_0:
+    path: /Volumes/data01/hf-cache/models--unsloth--gemma-4-26B-A4B-it-qat-GGUF/snapshots/7b92b5b28818151e8669af2e45e88d6086f490dd
+    hf_repo: unsloth/gemma-4-26B-A4B-it-qat-GGUF
+    hf_revision: 7b92b5b28818151e8669af2e45e88d6086f490dd
+    state: downloaded_and_verified
+    format: GGUF Q4_0 MTP drafter matching the Unsloth QAT target
+    files:
+      - [MTP/mtp-gemma-4-26B-A4B-it-Q4_0.gguf, 251939328, 7272d97595f0d4c74bd7b623492b7dbdaafd8b7c72f329a8270ba4eca68f768a]
+    research: [docs/engine_research/gguf_20261114.md §1.1, §1.2]
+
+  gemma_ollama_gguf:
+    path: /Volumes/data01/ollama/models/blobs/sha256-4c856523d61d77922dbc0b26753a6bf6208e5d69d80db0c04dcd776832d054c5
+    hf_repo: google/gemma-4-26B-A4B-it-qat-q4_0-gguf
+    hf_revision: d1c082be9cf3c8a514acf63b8761f4b41935842e
+    state: already_on_disk_but_not_current_hf_file_match
+    format: Ollama GGUF Gemma QAT target
+    files:
+      - [sha256-4c856523d61d77922dbc0b26753a6bf6208e5d69d80db0c04dcd776832d054c5, 14439361440, 4c856523d61d77922dbc0b26753a6bf6208e5d69d80db0c04dcd776832d054c5]
+    hf_listing_file: gemma-4-26B_q4_0-it.gguf
+    hf_listing_size_bytes: 14439363584
+    hf_listing_sha256: 3eca3b8f6d7baf218a7dd6bba5fb59a56ee25fe2d567b6f5f589b4f697eca51d
+    research: [docs/engine_research/gguf_20261114.md §3.1]
+
+  task_router_gguf:
+    path: /Volumes/data01/ollama/models/blobs/sha256-261dd5feb414b973867491cc98e29f0b104d1a22f36299d8aea43421f835fa54
+    hf_repo: mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF
+    hf_revision: e041f42ae1bb294b514982385d51c2a47e93465d
+    state: already_on_disk_exact_hf_match
+    format: GGUF Q4_K_M tuned OBLITERATED task-router target
+    files:
+      - [gemma-4-E4B-it-OBLITERATED.Q4_K_M.gguf, 5302272672, 261dd5feb414b973867491cc98e29f0b104d1a22f36299d8aea43421f835fa54]
+    research: [docs/ENGINE_EVAL_MATRIX_20261113.md §Task router, docs/engine_research/gguf_20261114.md §1.1]
+
+# Each cell references exact catalog paths/revisions/hashes above. Unsupported
+# cells are explicitly listed under excluded_seats; no engine launch argv is edited.
+engine_seats:
+  oMLX:
+    research: docs/engine_research/mlxother_20261114.md §oMLX
+    seats:
+      daily-moe: {status: candidate_best, artifacts: [{id: nemotron_omlx_oq4e_mtp, purpose: target_with_embedded_mtp}], research: docs/engine_research/mlxother_20261114.md §oMLX}
+      coding: {status: candidate_best, artifacts: [{id: qwen_omlx_oq4e_mtp, purpose: target_with_embedded_mtp}], research: docs/ENGINE_EVAL_MATRIX_20261113.md §Dense coding}
+      council-json: {status: candidate_same_target, artifacts: [{id: qwen_mlx_4bit, purpose: plain_target}], research: docs/ENGINE_EVAL_MATRIX_20261113.md §Council / JSON}
+      hunt: {status: candidate_best, artifacts: [{id: gemma_qat_mlx_4bit, purpose: target}], research: docs/ENGINE_EVAL_MATRIX_20261113.md §Hunt parallel}
+    excluded_seats: {task-router: GGUF OBLITERATED target is outside the MLX seat}
+
+  vllm-mlx:
+    research: docs/engine_research/vllm_20261114.md §vllm-mlx
+    seats:
+      daily-moe: {status: candidate_best, artifacts: [{id: nemotron_omlx_oq4e_mtp, purpose: target_with_embedded_mtp}], research: docs/engine_research/vllm_20261114.md §vllm-mlx registry proposal}
+      coding: {status: candidate_plain_plus_mtp_variant, artifacts: [{id: qwen_mlx_4bit, purpose: same_target_plain}, {id: qwen_omlx_oq4e_mtp, purpose: MTP_target_variant_candidate}], research: docs/engine_research/vllm_20261114.md §vllm-mlx}
+      council-json: {status: candidate_same_target, artifacts: [{id: qwen_mlx_4bit, purpose: plain_target}], research: docs/ENGINE_EVAL_MATRIX_20261113.md §Council / JSON}
+      hunt: {status: candidate_greedy_spec, preflight_required: true, artifacts: [{id: gemma_qat_mlx_4bit, purpose: target}, {id: gemma_qat_assistant_4bit, purpose: MTP_drafter}], note: "v0.6 MLLM MTP is documented only for single-request greedy sampling; this drafter was downloaded under the operator decision, research previously said it was absent.", research: [docs/engine_research/vllm_20261114.md §vllm-mlx]}
+    excluded_seats: {task-router: GGUF target is not served by vllm-mlx}
+
+  vllm-metal:
+    research: docs/engine_research/vllm_20261114.md §vllm-metal
+    seats:
+      daily-moe: {status: candidate_experimental, artifacts: [{id: nemotron_mlx_4bit, purpose: standard_MLX_target_variant}], research: docs/engine_research/vllm_20261114.md §vllm-metal}
+      coding: {status: preflight_required, artifacts: [{id: qwen_mlx_4bit, purpose: plain_target}], note: "Existing local load failure Unrecognized image processor; n-gram speculation needs no external drafter.", research: [docs/engine_research/vllm_20261114.md §vllm-metal]}
+      council-json: {status: candidate_same_target, preflight_required: true, artifacts: [{id: qwen_mlx_4bit, purpose: plain_target}], research: [docs/ENGINE_EVAL_MATRIX_20261113.md §Council / JSON, docs/engine_research/vllm_20261114.md §vllm-metal]}
+      hunt: {status: candidate_same_target_with_tuned_alternative, artifacts: [{id: gemma_qat_mlx_4bit, purpose: same_target_QAT}, {id: gemma_mlx_oq4_variant, purpose: engine_tuned_target_variant}], research: docs/engine_research/vllm_20261114.md §vllm-metal}
+    excluded_seats: {task-router: configured Gemma E4B OBLITERATED is GGUF MoE and outside documented Metal support}
+
+  mlx-serve:
+    research: docs/engine_research/mlxserve_20261114.md §mlx-serve
+    seats:
+      daily-moe: {status: candidate_best, artifacts: [{id: nemotron_omlx_oq4e_mtp, purpose: target_with_embedded_mtp}], research: [docs/engine_research/mlxserve_20261114.md §mlx-serve, §1. Variant per seat]}
+      coding: {status: candidate_engine_tuned_variants, configs: [{name: 8bit_native_mtp, artifacts: [{id: qwen_ddalcu_8bit_mtp, purpose: target_with_native_MTP}]}, {name: 8bit_DFlash, artifacts: [{id: qwen_ddalcu_8bit_mtp, purpose: target}, {id: qwen_ddalcu_8bit_dflash, purpose: drafter}]}, {name: 4bit_native_mtp, artifacts: [{id: qwen_ddalcu_4bit_mtp, purpose: target_with_native_MTP}]}, {name: plain_4bit_DFlash2, artifacts: [{id: qwen_mlx_4bit, purpose: target}, {id: qwen_dflash2, purpose: drafter}]}], research: [docs/engine_research/mlxserve_20261114.md §mlx-serve, §1. Variant per seat]}
+      council-json: {status: candidate_same_target, artifacts: [{id: qwen_mlx_4bit, purpose: plain_Qwen_target}], research: [docs/ENGINE_EVAL_MATRIX_20261113.md §Council / JSON, docs/engine_research/mlxserve_20261114.md §mlx-serve]}
+      hunt: {status: candidate_spec_with_divergence_caveat, artifacts: [{id: gemma_qat_mlx_4bit, purpose: target}, {id: gemma_assistant_e4b_bf16, purpose: BF16_assistant_drafter}], note: "BF16 is used only for the documented mlx-serve Gemma assistant drafter; draft output divergence is documented.", research: [docs/engine_research/mlxserve_20261114.md §mlx-serve, §1. Variant per seat]}
+      task-router: {status: candidate_gguf, artifacts: [{id: task_router_gguf, purpose: exact_GGUF_target}], research: [docs/engine_research/mlxserve_20261114.md §mlx-serve, §1. Variant per seat]}
+
+  rapid-mlx:
+    research: docs/engine_research/mlxserve_20261114.md §rapid-mlx
+    seats:
+      daily-moe: {status: candidate_plain, MTP_ineligible: true, artifacts: [{id: nemotron_mlx_4bit, purpose: target}], research: [docs/engine_research/mlxserve_20261114.md §rapid-mlx, §1. Variant per seat]}
+      coding: {status: candidate_engine_tuned_variants, configs: [{artifacts: [{id: qwen_rapid_mtp, purpose: Rapid_MTP_target_and_head}]}, {artifacts: [{id: qwen_mlx_4bit, purpose: plain_target}, {id: qwen_dflash2, purpose: DFlash2_drafter}]}], research: [docs/engine_research/mlxserve_20261114.md §rapid-mlx, §1. Variant per seat]}
+      council-json: {status: candidate_same_target, artifacts: [{id: qwen_mlx_4bit, purpose: plain_target}], research: [docs/ENGINE_EVAL_MATRIX_20261113.md §Council / JSON, docs/engine_research/mlxserve_20261114.md §rapid-mlx]}
+      hunt: {status: candidate_spec, preflight_required: true, artifacts: [{id: gemma_qat_mlx_4bit, purpose: target}, {id: gemma_assistant_26b_bf16, purpose: BF16_assistant_drafter}], note: "BF16 is required by Rapid-MLX's documented Gemma assistant path and is drafter-only.", research: [docs/engine_research/mlxserve_20261114.md §rapid-mlx, §1. Variant per seat]}
+    excluded_seats: {task-router: Rapid-MLX MLX alias is not the configured OBLITERATED GGUF}
+
+  mlx_lm.server:
+    research: docs/engine_research/mlxserve_20261114.md §mlx_lm.server
+    seats:
+      daily-moe: {status: candidate_unproven, artifacts: [{id: nemotron_omlx_oq4e_mtp, purpose: MLX_target_candidate}], note: "Nemotron-H load is undocumented; MTP tensors are not a decode speed path in mlx-lm.server.", research: [docs/engine_research/mlxserve_20261114.md §mlx_lm.server, §1. Variant per seat]}
+      coding: {status: candidate_plain, artifacts: [{id: qwen_mlx_4bit, purpose: plain_target}], research: [docs/engine_research/mlxserve_20261114.md §mlx_lm.server, §1. Variant per seat]}
+      council-json: {status: candidate_same_target, artifacts: [{id: qwen_mlx_4bit, purpose: plain_target}], research: docs/ENGINE_EVAL_MATRIX_20261113.md §Council / JSON}
+      hunt: {status: candidate_plain, artifacts: [{id: gemma_qat_mlx_4bit, purpose: target}], research: [docs/engine_research/mlxserve_20261114.md §mlx_lm.server, §1. Variant per seat]}
+    excluded_seats: {task-router: GGUF cannot be mlx-lm --model}
+
+  mlxcel:
+    research: docs/engine_research/mlxother_20261114.md §mlxcel
+    seats:
+      daily-moe: {status: candidate_tuned_format, artifacts: [{id: nemotron_mlx_4bit, purpose: mlxcel_compatible_target_variant}], research: docs/engine_research/mlxother_20261114.md §mlxcel}
+      coding: {status: candidate_spec, artifacts: [{id: qwen_mlx_4bit, purpose: target}, {id: qwen_dflash2, purpose: DFlash2_drafter}], research: docs/engine_research/mlxother_20261114.md §mlxcel}
+      council-json: {status: candidate_same_target, artifacts: [{id: qwen_mlx_4bit, purpose: plain_target}], research: [docs/ENGINE_EVAL_MATRIX_20261113.md §Council / JSON, docs/engine_research/mlxother_20261114.md §mlxcel]}
+      hunt: {status: candidate_plain, artifacts: [{id: gemma_qat_mlx_4bit, purpose: QAT_target}], research: docs/engine_research/mlxother_20261114.md §mlxcel}
+    excluded_seats: {task-router: GGUF target does not match MLX loader}
+
+  splash:
+    research: docs/engine_research/mlxother_20261114.md §Splash
+    seats:
+      coding: {status: candidate_always_spec, artifacts: [{id: qwen_mlx_4bit, purpose: target}, {id: qwen_dflash2, purpose: required_DFlash2_drafter}], note: Splash 1.6.1 always loads its registered DFlash2 drafter; plain-only cell is excluded., research: docs/engine_research/mlxother_20261114.md §Splash}
+      council-json: {status: candidate_always_spec, artifacts: [{id: qwen_mlx_4bit, purpose: target}, {id: qwen_dflash2, purpose: required_DFlash2_drafter}], research: [docs/ENGINE_EVAL_MATRIX_20261113.md §Council / JSON, docs/engine_research/mlxother_20261114.md §Splash]}
+    excluded_seats: {daily-moe: not a Splash family, hunt: not a Splash family, task-router: not a supported GGUF family}
+
+  mtplx:
+    research: docs/engine_research/mlxother_20261114.md §MTPLX
+    seats:
+      coding: {status: candidate_engine_tuned_native_mtp, artifacts: [{id: qwen_mtplx_speed, purpose: optimized_speed_target_and_MTP_pack}], research: docs/engine_research/mlxother_20261114.md §MTPLX}
+      council-json: {status: candidate_engine_tuned_variant, not_same_bytes: true, artifacts: [{id: qwen_mtplx_speed, purpose: Qwen_target_variant_with_MTP}], research: [docs/ENGINE_EVAL_MATRIX_20261113.md §Council / JSON, docs/engine_research/mlxother_20261114.md §MTPLX]}
+    excluded_seats: {daily-moe: no documented Nemotron pack, hunt: no exact Gemma-26B QAT pack, task-router: GGUF router is outside MTPLX pack format}
+
+  brew-llama:
+    research: docs/engine_research/gguf_20261114.md §1
+    seats:
+      daily-moe: {status: candidate_best, artifacts: [{id: nemotron_gguf_q4km, purpose: target_with_embedded_mtp}], research: docs/engine_research/gguf_20261114.md §1.1}
+      coding: {status: candidate_spec, artifacts: [{id: qwen_gguf_q4km, purpose: target}, {id: qwen_gguf_mtp, purpose: MTP_drafter}], research: [docs/engine_research/gguf_20261114.md §1.1, §1.2]}
+      council-json: {status: candidate_same_target_spec, artifacts: [{id: qwen_gguf_q4km, purpose: Qwen_target}, {id: qwen_gguf_mtp, purpose: MTP_drafter}], research: [docs/ENGINE_EVAL_MATRIX_20261113.md §Council / JSON, docs/engine_research/gguf_20261114.md §1.1]}
+      hunt: {status: candidate_engine_tuned_variants, configs: [{name: official_google_q4_0_with_ggml_mtp, artifacts: [{id: gemma_google_gguf_q4_0, purpose: official_QAT_target}, {id: gemma_ggml_mtp_q4_0, purpose: MTP_drafter}]}, {name: official_google_q4_0_with_ggml_dflash, artifacts: [{id: gemma_google_gguf_q4_0, purpose: official_QAT_target}, {id: gemma_ggml_dflash_q8_0, purpose: DFlash_drafter}]}, {name: unsloth_qat_udq4_k_xl_with_mtp, artifacts: [{id: gemma_unsloth_qat_udq4_k_xl, purpose: tuned_QAT_target}, {id: gemma_unsloth_mtp_q4_0, purpose: matching_MTP_drafter}]}], research: [docs/engine_research/gguf_20261114.md §1.1, §1.2]}
+      task-router: {status: candidate_same_tag, artifacts: [{id: task_router_gguf, purpose: exact_router_target}], research: docs/ENGINE_EVAL_MATRIX_20261113.md §Task router, docs/engine_research/gguf_20261114.md §1.1}
+
+  prismml-llama:
+    research: docs/engine_research/gguf_20261114.md §2
+    seats:
+      daily-moe: {status: candidate_best, artifacts: [{id: nemotron_gguf_q4km, purpose: target_with_embedded_mtp}], research: docs/engine_research/gguf_20261114.md §2.1–2.5}
+      coding: {status: candidate_spec, version_preflight_required: true, artifacts: [{id: qwen_gguf_q4km, purpose: target}, {id: qwen_gguf_mtp, purpose: MTP_drafter}], research: [docs/engine_research/gguf_20261114.md §2.1–2.5]}
+      council-json: {status: candidate_same_target, version_preflight_required: true, artifacts: [{id: qwen_gguf_q4km, purpose: Qwen_target}, {id: qwen_gguf_mtp, purpose: MTP_drafter}], research: [docs/ENGINE_EVAL_MATRIX_20261113.md §Council / JSON, docs/engine_research/gguf_20261114.md §2.1–2.5]}
+      hunt: {status: candidate_engine_tuned_variants, version_preflight_required: true, configs: [{name: official_google_q4_0_with_ggml_mtp, artifacts: [{id: gemma_google_gguf_q4_0, purpose: official_QAT_target}, {id: gemma_ggml_mtp_q4_0, purpose: MTP_drafter}]}, {name: official_google_q4_0_with_ggml_dflash, artifacts: [{id: gemma_google_gguf_q4_0, purpose: official_QAT_target}, {id: gemma_ggml_dflash_q8_0, purpose: DFlash_drafter}]}, {name: unsloth_qat_udq4_k_xl_with_mtp, artifacts: [{id: gemma_unsloth_qat_udq4_k_xl, purpose: tuned_QAT_target}, {id: gemma_unsloth_mtp_q4_0, purpose: matching_MTP_drafter}]}], research: [docs/engine_research/gguf_20261114.md §2.1–2.5]}
+      task-router: {status: candidate_same_tag, artifacts: [{id: task_router_gguf, purpose: exact_router_target}], research: docs/engine_research/gguf_20261114.md §2.1–2.5}
+
+  Ollama:
+    research: docs/engine_research/gguf_20261114.md §3
+    seats:
+      daily-moe: {status: candidate_best, artifacts: [{id: nemotron_gguf_q4km, purpose: target_with_embedded_mtp}], research: docs/engine_research/gguf_20261114.md §3.1}
+      coding: {status: candidate_local_tag, speculative_decode_unavailable: true, artifacts: [{id: qwen_ollama_gguf, purpose: current_local_tag_target}], note: "Local blob differs from the current pinned HF file; exact HF Q4_K_M target is also staged for direct GGUF engines.", research: [docs/engine_research/gguf_20261114.md §3.1]}
+      council-json: {status: candidate_local_tag, speculative_decode_unavailable: true, artifacts: [{id: qwen_ollama_gguf, purpose: current_local_tag_target}], research: [docs/engine_research/gguf_20261114.md §3.1]}
+      hunt: {status: candidate_local_tag, speculative_decode_unavailable: true, artifacts: [{id: gemma_ollama_gguf, purpose: current_local_QAT_target}], note: "Local blob differs from the current pinned official HF listing; exact Google GGUF is staged for direct engines.", research: [docs/engine_research/gguf_20261114.md §3.1]}
+      task-router: {status: candidate_same_tag, artifacts: [{id: task_router_gguf, purpose: exact_router_target}], research: docs/engine_research/gguf_20261114.md §3.1}
+
+verification:
+  downloaded_weight_files: 38
+  audited_weight_files: 58
+  audited_weight_bytes: 307650254920
+  hf_repositories_checked: 19
+  hf_revision_pinned: true
+  file_size_and_sha256_match_hf_listing: true_for_52_files
+  files_without_current_exact_hf_comparison: 6
+  local_sha256_only_or_current_hf_mismatch: [qwen_omlx_oq4e_mtp, qwen_ollama_gguf, gemma_ollama_gguf]
+  local_hashes_match_manifest: true_for_all_58_files
+  live_services_touched: false
+  launch_argv_changed: false
+  tests_run: false
+  eagles: none_found_for_the_researched_Apple_engine_seats
