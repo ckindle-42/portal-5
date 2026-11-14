@@ -69,3 +69,27 @@ daily-moe:
       "continuous seepage over weeks". A basement drain overflowed during one
       storm and ruined a carpet. Explain what the two clauses are doing and
       what to gather before calling the insurer. Do not call tools. About 500 words.
+hunt:
+  - id: hunt-01
+    text: >
+      Review this incident summary as a security analyst: at 09:14 a workstation
+      began making repeated DNS requests for a newly observed domain; at 09:19
+      its account accessed a file server it had not used before; endpoint
+      protection blocked one executable, and no successful logon from an
+      unfamiliar location is recorded. Return strict JSON with keys summary,
+      observations, hypotheses, confidence, evidence_gaps, and next_checks.
+      Separate observed facts from hypotheses, do not claim compromise is proven,
+      and explain why each next check would help. Do not call tools. Aim for about
+      400 words while keeping the JSON valid.
+council-json:
+  - id: council-json-01
+    text: >
+      Return one valid JSON object with keys decision, supporting_facts,
+      counterpoints, uncertainty, and follow_up. Assess this policy question:
+      an organization requires privileged accounts to use multifactor
+      authentication, but the supplied excerpt only says administrators should
+      use strong passwords and that remote access is logged. State whether the
+      excerpt proves the requirement is met, cite only those supplied facts,
+      distinguish absence of evidence from evidence of absence, and list the
+      smallest useful follow-up records. Do not add markdown fences or call
+      tools. Keep the response around 400 words.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Decode-speed A/B of one vllm-mlx cell against the oMLX incumbent, through the Pipeline.
+"""Measure an eval engine against the oMLX incumbent through the Pipeline.
 
 The orchestrator runs this. It does not start the production stack. Host prep, engine
 launch, readiness, stop, Pipeline health, and the portal_backend pin come from the
@@ -30,6 +30,8 @@ WARMUP_PROMPT = "Reply with ok."
 WARMUP_MAX_TOKENS = 16
 REQUEST_TIMEOUT_S = 1800.0
 UNPROVEN = "Unproven — keep oMLX"
+DEFAULT_ENGINE = "vllm-mlx"
+SEATS = ("coding", "daily-moe", "hunt", "council-json")
 ARMS = ("candidate", "incumbent")
 _RESIDENT_FIELDS = ("bytes_resident", "resident_bytes", "memory_bytes", "actual_size")
 
@@ -59,21 +61,6 @@ def decode_tps(
     if span <= 0:
         return None
     return completion_tokens / span
-
-
-def throughput_tok_s(
-    completion_tokens: int, ttft_s: float | None, total_s: float | None
-) -> float | None:
-    """Tokens over (total − TTFT) when that span is positive, else over total."""
-    if completion_tokens <= 0 or not _positive(total_s):
-        return None
-    assert total_s is not None
-    if _positive(ttft_s):
-        assert ttft_s is not None
-        span = float(total_s) - float(ttft_s)
-        if span > 0:
-            return completion_tokens / span
-    return completion_tokens / float(total_s)
 
 
 def e2e_tok_s(completion_tokens: int, total_s: float | None) -> float | None:
@@ -144,19 +131,13 @@ def judge_measurement(measured: dict[str, Any], expect: dict[str, str]) -> dict[
 
 
 def _apply_rate(row: dict[str, Any], measured: dict[str, Any], tokens: int) -> dict[str, Any]:
-    """Decode tok/s when the stream has many chunks; otherwise throughput_tok_s."""
+    """Use decode rate for streamed output and whole-request rate for bursts."""
     total = measured.get("total_s")
     row["e2e_tok_s"] = e2e_tok_s(tokens, total if isinstance(total, (int, float)) else None)
     if row["streaming"] is False:
-        rate = throughput_tok_s(
-            tokens,
-            row["ttft_s"] if isinstance(row["ttft_s"], (int, float)) else None,
-            total if isinstance(total, (int, float)) else None,
-        )
-        if rate is None:
-            row["reason"] = "throughput interval is empty"
+        if row["e2e_tok_s"] is None:
+            row["reason"] = "end-to-end interval is empty"
             return row
-        row["throughput_tok_s"] = rate
         row["valid"] = True
         row["reason"] = ""
         return row
@@ -235,10 +216,22 @@ def arm_stats(rows: list[dict[str, Any]], arm: str) -> dict[str, Any]:
         "median_decode_tps": median(_rates(chosen, "decode_tps")),
         "median_throughput_tok_s": median(_rates(chosen, "throughput_tok_s")),
         "median_e2e_tok_s": median(_rates(chosen, "e2e_tok_s")),
+        "streaming": _streaming_label(chosen),
         "p90_total_s": h2h.percentile(total, 90),
         "runs": len(chosen),
         "spread": spread(run_medians(rows, arm, _metric_field(metric))),
     }
+
+
+def _streaming_label(rows: list[dict[str, Any]]) -> str:
+    states = [row.get("streaming") for row in rows if isinstance(row.get("streaming"), bool)]
+    if not states:
+        return "unknown"
+    if all(states):
+        return "yes"
+    if not any(states):
+        return "no"
+    return "mixed"
 
 
 def _comparison_text(
@@ -259,13 +252,19 @@ def _comparison_text(
 
 
 def decide(rows: list[dict[str, Any]]) -> dict[str, str]:
-    """FASTER only when the candidate clears the larger arm's run-to-run spread."""
+    """Use valid rows when both arms meet the 80% row coverage floor."""
     metric = comparison_metric(rows)
-    reasons = [str(row.get("reason") or "invalid") for row in rows if row.get("valid") is not True]
     if not rows:
         return {"verdict": UNPROVEN, "reason": "no measured rows", "metric": metric}
-    if reasons:
-        return {"verdict": "invalid", "reason": "; ".join(reasons), "metric": metric}
+    for arm in ARMS:
+        total = sum(row.get("arm") == arm for row in rows)
+        valid = len(_valid(rows, arm))
+        if total == 0 or valid / total < 0.8:
+            return {
+                "verdict": "invalid",
+                "reason": f"{arm} valid rows {valid}/{total} below 80%",
+                "metric": metric,
+            }
     stats = {arm: arm_stats(rows, arm) for arm in ARMS}
     cand = stats["candidate"][_median_key(metric)]
     inc = stats["incumbent"][_median_key(metric)]
@@ -300,10 +299,13 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def format_table(summary: dict[str, Any]) -> str:
-    lines = [
-        "arm | median TTFT | median decode tok/s | median throughput tok/s | "
-        "median e2e tok/s | p90 total | runs"
-    ]
+    metric = summary.get("metric") or "decode_tps"
+    if metric == "e2e_tok_s":
+        lines = ["arm | median TTFT | median e2e tok/s | p90 total | runs"]
+        rate_key = "median_e2e_tok_s"
+    else:
+        lines = ["arm | median TTFT | median decode tok/s | p90 total | runs"]
+        rate_key = "median_decode_tps"
     for arm in ARMS:
         row = summary["arms"][arm]
         lines.append(
@@ -311,15 +313,12 @@ def format_table(summary: dict[str, Any]) -> str:
                 (
                     arm,
                     _num(row["median_ttft_s"]),
-                    _num(row["median_decode_tps"]),
-                    _num(row["median_throughput_tok_s"]),
-                    _num(row["median_e2e_tok_s"]),
+                    _num(row[rate_key]),
                     _num(row["p90_total_s"]),
                     str(row["runs"]),
                 )
             )
         )
-    metric = summary.get("metric") or "decode_tps"
     if metric == "e2e_tok_s":
         lines.append(
             "compared: end-to-end throughput (completion tokens / total_s) "
@@ -351,6 +350,8 @@ def _num(value: Any) -> str:
 
 
 def load_prompts(seat: str, count: int) -> list[dict[str, str]]:
+    if seat not in SEATS:
+        raise runner.Stage3BlockedError(f"unsupported speed seat {seat!r}; choose from {SEATS}")
     data = yaml.safe_load(PROMPTS.read_text(encoding="utf-8")) or {}
     rows = data.get(seat) or []
     if count < 1 or count > len(rows):
@@ -360,15 +361,23 @@ def load_prompts(seat: str, count: int) -> list[dict[str, str]]:
     return [{"id": str(row["id"]), "text": str(row["text"]).strip()} for row in rows[:count]]
 
 
-def candidate_cell(seat: str) -> dict[str, Any]:
-    mode = "plain" if seat == "coding" else "spec"
+def candidate_cell(
+    seat: str, engine: str = DEFAULT_ENGINE, mode: str | None = None
+) -> dict[str, Any]:
+    mode = mode or ("plain" if seat == "coding" else "spec")
+    cells = runner.candidate_cells()
     matches = [
         cell
-        for cell in runner.candidate_cells()
-        if cell["seat"] == seat and cell["engine"] == "vllm-mlx" and cell["mode"] == mode
+        for cell in cells
+        if cell["seat"] == seat and cell["engine"] == engine and cell["mode"] == mode
     ]
     if len(matches) != 1:
-        raise runner.Stage3BlockedError(f"{seat} vllm-mlx {mode} matched {len(matches)} cells")
+        available = sorted(
+            f"{cell['engine']}:{cell['mode']}" for cell in cells if cell["seat"] == seat
+        )
+        raise runner.Stage3BlockedError(
+            f"{seat} {engine}:{mode} matched {len(matches)} cells; available: {available}"
+        )
     return matches[0]
 
 
@@ -583,10 +592,11 @@ def one_request(
     row = judge_measurement(measured, expect)
     row.update(arm=arm, repeat=repeat, prompt_id=prompt["id"])
     state = "valid" if row["valid"] else "invalid"
+    rate_name = "e2e" if row.get("streaming") is False else "decode"
+    rate_value = row.get("e2e_tok_s") if rate_name == "e2e" else row.get("decode_tps")
     print(
         f"{arm} | r{repeat} | {prompt['id']} | {state} | streaming={row.get('streaming')} | "
-        f"ttft={_num(row['ttft_s'])} | tps={_num(row['decode_tps'])} | "
-        f"throughput={_num(row.get('throughput_tok_s'))} | e2e={_num(row.get('e2e_tok_s'))} | "
+        f"ttft={_num(row['ttft_s'])} | {rate_name}={_num(rate_value)} | "
         f"tokens={row['completion_tokens']} | {row['reason']}",
         flush=True,
     )
@@ -636,7 +646,9 @@ def measure_arm(
     ) as exc:
         record["error"] = f"{type(exc).__name__}: {exc}"
         if not record["rows"]:
-            record["rows"] = [_blank_row(arm, repeat, "-", record["error"])]
+            record["rows"] = [
+                _blank_row(arm, repeat, prompt["id"], record["error"]) for prompt in prompts
+            ] or [_blank_row(arm, repeat, "-", record["error"])]
         print(f"{arm} | r{repeat} | invalid | {record['error']}", flush=True)
     finally:
         record["swap_after_mb"] = h2h.swap_now().get("used_mb")
@@ -696,7 +708,10 @@ def _measure_loaded(
     warmup = _warmup(pipeline, expect, arm, repeat)
     record["warmup"] = warmup
     if warmup.get("error"):
-        record["rows"] = [_blank_row(arm, repeat, "warmup", f"warm-up failed: {warmup['error']}")]
+        record["rows"] = [
+            _blank_row(arm, repeat, prompt["id"], f"warm-up failed: {warmup['error']}")
+            for prompt in prompts
+        ]
     else:
         record["rows"] = [one_request(pipeline, expect, prompt, arm, repeat) for prompt in prompts]
     record["resident_memory"] = _resident(cfg, expect, arm)
@@ -757,12 +772,48 @@ def _expects(cell: dict[str, Any], incumbent: str) -> dict[str, dict[str, str]]:
     }
 
 
-def run_seat(seat: str, prompts_n: int, repeats: int, pipeline: str) -> dict[str, Any]:
+def _canary_status(root: Path, build: str, cell: dict[str, Any]) -> tuple[bool, str]:
+    path = runner.canary_receipt_path(root, build, cell)
+    if not path.is_file():
+        return False, f"no canary receipt for {cell['engine']}:{cell['mode']} on build {build}"
+    try:
+        receipt = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return False, f"canary receipt unread: {exc}"
+    if receipt.get("build") != build:
+        return False, f"stale canary build {receipt.get('build')!r} != {build}"
+    reason = str(receipt.get("reason") or "")
+    if receipt.get("skipped"):
+        return False, f"not installed: {reason or 'canary marked skipped'}"
+    if receipt.get("valid") is not True:
+        failures = "; ".join(str(item) for item in receipt.get("failures") or [])
+        return False, f"canary invalid: {reason or failures or 'no reason recorded'}"
+    return True, reason or "valid canary"
+
+
+def select_canary_cells(
+    root: Path, build: str, seat: str
+) -> list[tuple[dict[str, Any], bool, str]]:
+    return [
+        (cell, *_canary_status(root, build, cell))
+        for cell in runner.candidate_cells()
+        if cell["seat"] == seat
+    ]
+
+
+def run_seat(
+    seat: str,
+    prompts_n: int,
+    repeats: int,
+    pipeline: str,
+    engine: str = DEFAULT_ENGINE,
+    mode: str | None = None,
+) -> dict[str, Any]:
     """Interleave candidate then incumbent, once per repeat, and write nothing itself."""
     root = runner.data_root()
     runner._configure_results(root)
     cfg = h2h.load_config()
-    cell = candidate_cell(seat)
+    cell = candidate_cell(seat, engine, mode)
     prompts = load_prompts(seat, prompts_n)
     expects = _expects(cell, incumbent_backend_id())
     build = runner.current_build()
@@ -777,6 +828,9 @@ def run_seat(seat: str, prompts_n: int, repeats: int, pipeline: str) -> dict[str
             if stop_error:
                 break
     summary = summarize(rows)
+    if stop_error:
+        summary["verdict"] = "invalid"
+        summary["reason"] = f"candidate did not stop cleanly: {stop_error}"
     return _receipt(
         build,
         seat,
@@ -807,13 +861,15 @@ def _one_repeat(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str | None]:
     stop_error = None
     for arm in ARMS:
-        log_dir = root / "engine_eval" / "speed" / build / "logs" / seat / arm / f"r{repeat}"
+        cell_id = f"{expects['candidate']['engine']}/{expects['candidate']['mode']}"
+        log_dir = (
+            root / "engine_eval" / "speed" / build / "logs" / seat / cell_id / arm / f"r{repeat}"
+        )
         measured = measure_arm(cfg, pipeline, expects[arm], prompts, arm, repeat, log_dir)
         arms.append({key: value for key, value in measured.items() if key != "rows"})
         rows.extend(measured["rows"])
         if measured.get("stop_error"):
             stop_error = str(measured["stop_error"])
-            rows.append(_blank_row(arm, repeat, "-", f"stop failed: {stop_error}"))
             break
     return rows, arms, stop_error
 
@@ -859,15 +915,124 @@ def _receipt(
     }
 
 
-def receipt_path(root: Path, build: str, seat: str) -> Path:
-    return root / "engine_eval" / "speed" / build / f"{seat}.json"
+def receipt_path(root: Path, build: str, seat: str, engine: str, mode: str) -> Path:
+    return root / "engine_eval" / "speed" / build / f"{seat}--{engine}--{mode}.json"
+
+
+def append_summary_row(
+    root: Path, build: str, seat: str, cell: dict[str, Any], summary: dict[str, Any]
+) -> Path:
+    path = root / "engine_eval" / "speed" / build / "summary.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    metric = str(summary.get("metric") or "decode_tps")
+    rate_key = _median_key(metric)
+    cand = summary["arms"]["candidate"]
+    inc = summary["arms"]["incumbent"]
+    cand_rate = cand.get(rate_key)
+    inc_rate = inc.get(rate_key)
+    delta = ((float(cand_rate) / float(inc_rate)) - 1.0) * 100 if inc_rate else None
+    if not path.is_file() or path.stat().st_size == 0:
+        with path.open("a", encoding="utf-8") as stream:
+            stream.write(
+                "| Seat | Engine | Mode | Metric | Candidate median TTFT (s) | "
+                "Candidate decode/e2e tok/s | Incumbent median TTFT (s) | "
+                "Incumbent decode/e2e tok/s | Delta % | Streaming (candidate / incumbent) | Verdict |\n"
+                "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |\n"
+            )
+    streaming = f"{cand.get('streaming', 'unknown')} / {inc.get('streaming', 'unknown')}"
+    row = (
+        "| "
+        + " | ".join(
+            (
+                seat,
+                str(cell["engine"]),
+                str(cell["mode"]),
+                "e2e" if metric == "e2e_tok_s" else "decode",
+                _num(cand.get("median_ttft_s")),
+                _num(cand_rate),
+                _num(inc.get("median_ttft_s")),
+                _num(inc_rate),
+                f"{delta:.1f}%" if delta is not None else "-",
+                streaming,
+                str(summary["verdict"]),
+            )
+        )
+        + " |\n"
+    )
+    with path.open("a", encoding="utf-8") as stream:
+        stream.write(row)
+    return path
+
+
+def _save_result(root: Path, receipt: dict[str, Any]) -> int:
+    candidate = receipt["candidate"]
+    path = receipt_path(
+        root,
+        str(receipt["build"]),
+        str(receipt["seat"]),
+        str(candidate["engine"]),
+        str(candidate["mode"]),
+    )
+    runner._write_json(path, receipt)
+    summary_path = append_summary_row(
+        root, str(receipt["build"]), str(receipt["seat"]), candidate, receipt["summary"]
+    )
+    invalid = format_invalid(receipt["rows"])
+    if invalid:
+        print(invalid, flush=True)
+    print(format_table(receipt["summary"]), flush=True)
+    print(f"receipt: {path}", flush=True)
+    print(f"summary: {summary_path}", flush=True)
+    if receipt.get("stop_error"):
+        print(f"stop failed: {receipt['stop_error']}", flush=True)
+        return 1
+    return 0
+
+
+def _run_all_valid(args: argparse.Namespace) -> int:
+    root = runner.data_root()
+    build = runner.current_build()
+    selected = select_canary_cells(root, build, args.seat)
+    print(f"all-valid | seat={args.seat} | build={build}", flush=True)
+    if not selected:
+        print(f"no candidate cells for seat {args.seat}", flush=True)
+        return 1
+    print("cell | status | reason", flush=True)
+    for cell, valid, reason in selected:
+        label = f"{cell['engine']}:{cell['mode']}:{cell['seat']}"
+        print(f"{label} | {'VALID' if valid else 'SKIP'} | {reason}", flush=True)
+    ready = [cell for cell, valid, _reason in selected if valid]
+    if not ready:
+        print("no current-build valid canary cells to run", flush=True)
+        return 1
+    status = 0
+    for cell in ready:
+        print(f"run | {cell['engine']}:{cell['mode']}:{cell['seat']}", flush=True)
+        receipt = None
+        try:
+            receipt = run_seat(
+                args.seat,
+                args.prompts,
+                args.repeats,
+                args.pipeline,
+                engine=str(cell["engine"]),
+                mode=str(cell["mode"]),
+            )
+            status = max(status, _save_result(root, receipt))
+        except (runner.Stage3BlockedError, OSError, SystemExit, urllib.error.URLError) as exc:
+            print(f"invalid | {cell['engine']}:{cell['mode']} | {exc}", flush=True)
+            status = 1
+        if receipt and receipt.get("stop_error"):
+            break
+    return status
 
 
 def parse_args(argv: list[str] | None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Pipeline decode-speed A/B against the oMLX incumbent"
-    )
-    parser.add_argument("--seat", required=True, choices=("coding", "daily-moe"))
+    parser = argparse.ArgumentParser(description="Pipeline speed A/B against the oMLX incumbent")
+    parser.add_argument("--seat", required=True, choices=SEATS)
+    parser.add_argument("--engine", default=DEFAULT_ENGINE, help="candidate registry engine")
+    parser.add_argument("--mode", choices=("plain", "spec"))
+    parser.add_argument("--all-valid", action="store_true", help="run current-build valid canaries")
     parser.add_argument("--prompts", type=int, required=True)
     parser.add_argument("--repeats", type=int, required=True)
     parser.add_argument("--pipeline", default=PIPELINE)
@@ -879,23 +1044,26 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    if args.all_valid:
+        try:
+            return _run_all_valid(args)
+        except (runner.Stage3BlockedError, OSError, SystemExit, urllib.error.URLError) as exc:
+            print(f"invalid | {exc}", flush=True)
+            return 1
     try:
-        receipt = run_seat(args.seat, args.prompts, args.repeats, args.pipeline)
+        root = runner.data_root()
+        receipt = run_seat(
+            args.seat,
+            args.prompts,
+            args.repeats,
+            args.pipeline,
+            engine=args.engine,
+            mode=args.mode,
+        )
     except (runner.Stage3BlockedError, OSError, SystemExit, urllib.error.URLError) as exc:
         print(f"invalid | {exc}", flush=True)
         return 1
-    root = runner.data_root()
-    path = receipt_path(root, str(receipt["build"]), args.seat)
-    runner._write_json(path, receipt)
-    invalid = format_invalid(receipt["rows"])
-    if invalid:
-        print(invalid, flush=True)
-    print(format_table(receipt["summary"]), flush=True)
-    print(f"receipt: {path}", flush=True)
-    if receipt.get("stop_error"):
-        print(f"stop failed: {receipt['stop_error']}", flush=True)
-        return 1
-    return 0
+    return _save_result(root, receipt)
 
 
 if __name__ == "__main__":
