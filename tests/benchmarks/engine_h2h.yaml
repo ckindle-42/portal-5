@@ -38,7 +38,7 @@ engine_eval:
     hunt: {workspace: bench-engine-hunt, model: gemma4_26b_a4b_qat}
     council-json: {workspace: bench-engine-council-json, model: qwen38_27b_h2h}
   excluded_cells:
-    - {seat: coding, engine: splash, mode: plain, reason: Splash 1.6.1 always loads its registered DFlash2 drafter}
+    - {seat: coding, engine: splash, mode: plain, reason: "plain is null: Splash 1.6.1 always loads its registered DFlash2 drafter (docs/engine_research/mlxother_20261114.md § 3)"}
     # docs/engine_research/vllm_20261114.md § Version-specific risks: both Qwen Metal cells stay
     # excluded until a local-path canary. The on-disk processor_config.json still names
     # Qwen3VLImageProcessor (transformers#48511). config/engine_artifacts_20261114.yaml is not on main.
@@ -241,17 +241,21 @@ engines:
     version: "1.6.1"
     # brew install incoai/tap/splash
     # CLI formula, arm64 bottle. Not the splash-app cask. splash --version must print 1.6.1.
-    # 1.6.1 changes INT8 activations by default on M5 and later, so a 1.5.0 vs 1.6.1
-    # quality compare is not the same graph (docs/ENGINE_LANDSCAPE_20261111.md).
-    # splash serve --help (1.6.1, 2026-11-13) always loads a DFlash2 draft.
-    # --draft-model selects a different drafter. There is no draft-off switch.
-    # The plain Splash cell is excluded from the matrix. {splash_extra} stays
-    # on both argv lines (model-dir, local draft, served name, reasoning).
-    # --max-cache-disk 0 keeps Splash's SSD KV tier off. Do not pass --persistent-cache.
-    # --allowed-host: the Pipeline's Host is host.docker.internal, and Splash's
-    # server refuses any other Host with 403 (the engine was ready but never healthy).
-    plain: [splash, serve, --model, "{splash_model}", --host, 127.0.0.1, --port, "{port}", --max-context, "{ctx}", --max-cache-disk, "0", --language-only, "{splash_extra}", --allowed-host, host.docker.internal]
-    base_spec: [splash, serve, --model, "{splash_model}", --host, 127.0.0.1, --port, "{port}", --max-context, "{ctx}", --max-cache-disk, "0", --language-only, "{splash_extra}", --allowed-host, host.docker.internal]
+    # docs/engine_research/mlxother_20261114.md § 3) Splash (incoai), coding row + Proposed Splash registry entry.
+    # splash serve --help (1.6.1): serve always loads a DFlash2 draft. No draft-off switch, so plain is null.
+    # --draft-model selects the on-disk drafter. {splash_extra} is model-dir, that draft, and the served name.
+    # --host 0.0.0.0: help's default 127.0.0.1 is unreachable from the pipeline container
+    # (scripts/splash-forwarder.sh). Do not use the :8086 forwarder: it relays to 127.0.0.1:8000.
+    # eval-openai-splash stays http://host.docker.internal:11242.
+    # --allowed-host host.docker.internal: any other Host is 403, so the engine can be
+    # ready on loopback and still never healthy. parse_authority strips the :11242.
+    # --max-cache-disk 0 keeps the SSD KV tier off. Do not pass --persistent-cache.
+    # Do not pass --default-reasoning-effort none. config/portal.yaml auto-coding think: true
+    # and config/bench_workspaces.yaml bench-engine-coding think: true. The pipeline injects
+    # chat_template_kwargs.enable_thinking; Splash follows that, else the template default.
+    # Help: INT8 activations are M5+ only. auto leaves this M4 on bf16. Do not pass --activations.
+    plain: null
+    base_spec: [splash, serve, --model, "{splash_model}", --host, "0.0.0.0", --port, "{port}", --max-context, "{ctx}", --max-cache-disk, "0", --language-only, "{splash_extra}", --allowed-host, host.docker.internal]
     stop_signal: INT
     readiness: {path: /v1/models, timeout_s: 300, collection: data, id_field: id}
   mlxcel:
@@ -650,8 +654,12 @@ models:
     ollama: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
     mlx: Qwen3.8-27B-4bit
     served: Qwen3.8-27B-4bit
-    # On disk: symlink to the hf-cache incoai snapshot, restored 2026-11-12.
-    # drafter_dir wins, so fetch-drafters does not re-download.
+    # On disk 2026-11-14: Qwen3.8-27B-4bit is a directory under mlx_root.
+    # drafter_dir is a symlink to hf-cache models--incoai--Qwen3.8-27B-DFlash2
+    # snapshot 015e795645c7. Splash 1.6.1 model-check accepts the pair as family
+    # Qwen3.8-27B (draft repo incoai/Qwen3.8-27B-DFlash2). drafter_dir wins.
+    # No --default-reasoning-effort: config/portal.yaml auto-coding think: true
+    # (same pin on bench-engine-coding). § 3 coding row's "none" would force thinking off.
     drafter_dir: /Volumes/data01/omlx-models/Qwen3.8-27B-DFlash2
     splash: local/Qwen3.8-27B-4bit
     splash_extra:
@@ -662,8 +670,6 @@ models:
       - --served-model-name
       - "{served}"
       - --announce-served-name
-      - --default-reasoning-effort
-      - none
     ctx: 32768
     prefill_tokens: 6000
     tool_parser: hermes

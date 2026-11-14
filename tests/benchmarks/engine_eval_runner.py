@@ -383,6 +383,89 @@ def _model_row(payload: dict[str, Any], expected_model: str) -> dict[str, Any]:
     return next((row for row in _model_rows(payload) if row.get("id") == expected_model), {})
 
 
+def _footprint_gb(pid: int) -> float | None:
+    try:
+        raw = subprocess.check_output(["footprint", "-p", str(pid)], text=True, timeout=10)
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        return None
+    return instrument.parse_footprint(raw).get("phys_footprint_gb")
+
+
+def _descendant_pids(rows: list[tuple[int, int, int]], root: int) -> list[int] | None:
+    """Pids strictly under root. None when root is not in the ps table."""
+    by_parent: dict[int, list[int]] = {}
+    present: set[int] = set()
+    for pid, ppid, _kb in rows:
+        present.add(pid)
+        by_parent.setdefault(ppid, []).append(pid)
+    if root not in present:
+        return None
+    seen = {root}
+    found: list[int] = []
+    stack = [root]
+    while stack:
+        pid = stack.pop()
+        for child in by_parent.get(pid, []):
+            if child not in seen:
+                seen.add(child)
+                found.append(child)
+                stack.append(child)
+    return found
+
+
+def _splash_child_memory(rows: list[tuple[int, int, int]], root: int) -> dict[str, Any]:
+    """The native child holds the weights. The listener is the Python server."""
+    descendants = _descendant_pids(rows, root) or []
+    measured: list[dict[str, Any]] = []
+    for pid in descendants:
+        gb = _footprint_gb(pid)
+        if gb is not None:
+            measured.append({"pid": pid, "phys_footprint_gb": gb})
+    child = max(measured, key=lambda item: float(item["phys_footprint_gb"])) if measured else None
+    return {
+        "child_pids": descendants,
+        "child_footprints": measured,
+        "child_pid": None if child is None else child["pid"],
+        "child_phys_footprint_gb": None if child is None else child["phys_footprint_gb"],
+    }
+
+
+def _resident_bytes(model_row: dict[str, Any]) -> float | None:
+    return next(
+        (
+            float(model_row[key])
+            for key in ("bytes_resident", "resident_bytes", "memory_bytes")
+            if isinstance(model_row.get(key), (int, float)) and model_row[key] > 0
+        ),
+        None,
+    )
+
+
+def _weight_reading(
+    engine: str,
+    engine_cfg: dict[str, Any],
+    resident_bytes: float | None,
+    *,
+    rss: float | None,
+    footprint: float | None,
+    child_gb: float | None,
+) -> tuple[float | None, str, str | None]:
+    """Pick the residency number the memory gate compares with vm_stat wired."""
+    if engine_cfg.get("requires") == "gguf":
+        return rss, "process-tree RSS (llama.cpp maps the GGUF into its process)", None
+    if resident_bytes is not None:
+        return resident_bytes / (1024**3), "GET /v1/models bytes_resident", "bytes_resident"
+    if engine == "splash" and child_gb is not None:
+        return (
+            float(child_gb),
+            "macOS footprint phys_footprint of the Splash native child",
+            "child_phys_footprint",
+        )
+    if engine == "splash" and rss is not None:
+        return rss, "process-tree RSS including the Splash native child", "tree_rss"
+    return footprint, "macOS footprint phys_footprint", "phys_footprint"
+
+
 def _candidate_memory(
     vm_before: str,
     port: int,
@@ -400,40 +483,25 @@ def _candidate_memory(
         vm_after, rows = "", []
     root = h2h.pid_on_port(port)
     rss = instrument.tree_rss_gb(rows, root) if root else None
-    footprint = None
-    if root and engine_cfg.get("requires") != "gguf":
-        try:
-            raw_footprint = subprocess.check_output(
-                ["footprint", "-p", str(root)], text=True, timeout=10
-            )
-            footprint = instrument.parse_footprint(raw_footprint).get("phys_footprint_gb")
-        except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
-            pass
+    footprint = _footprint_gb(root) if root and engine_cfg.get("requires") != "gguf" else None
+    child_memory = _splash_child_memory(rows, root) if engine == "splash" and root else None
+    child_gb = None if child_memory is None else child_memory["child_phys_footprint_gb"]
     delta = (
         instrument.vm_deltas_gb(
             instrument.parse_vm_stat(vm_before), instrument.parse_vm_stat(vm_after)
         )
         or {}
     )
-    resident_bytes = next(
-        (
-            model_row.get(key)
-            for key in ("bytes_resident", "resident_bytes", "memory_bytes")
-            if isinstance(model_row.get(key), (int, float)) and model_row[key] > 0
-        ),
-        None,
+    resident_bytes = _resident_bytes(model_row)
+    primary, source, resident_field = _weight_reading(
+        engine,
+        engine_cfg,
+        resident_bytes,
+        rss=rss,
+        footprint=footprint,
+        child_gb=child_gb,
     )
-    if engine_cfg.get("requires") == "gguf":
-        primary, source = rss, "process-tree RSS (llama.cpp maps the GGUF into its process)"
-        resident_field = None
-    elif resident_bytes is not None:
-        primary = float(resident_bytes) / (1024**3)
-        source = "GET /v1/models bytes_resident"
-        resident_field = "bytes_resident"
-    else:
-        primary, source = footprint, "macOS footprint phys_footprint"
-        resident_field = "phys_footprint"
-    return {
+    reading = {
         "tree_walked": root is not None and rss is not None,
         "tree_rss_gb": rss,
         "phys_footprint_gb": footprint,
@@ -449,6 +517,9 @@ def _candidate_memory(
         "engine": engine,
         **delta,
     }
+    if child_memory is not None:
+        reading.update(child_memory)
+    return reading
 
 
 THINK_OFF_PROMPT = "Reply with exactly OK in visible text."
@@ -2985,28 +3056,20 @@ def _process_sample(cell: dict[str, Any]) -> dict[str, Any]:
     page = vm.get("page_bytes")
     swap = h2h.swap_now().get("used_mb")
     tree_rss = instrument.tree_rss_gb(rows, pid)
-    resident_bytes = next(
-        (
-            model_row.get(key)
-            for key in ("bytes_resident", "resident_bytes", "memory_bytes")
-            if isinstance(model_row.get(key), (int, float)) and model_row[key] > 0
-        ),
-        None,
+    engine = cell["engine"]
+    engine_cfg = cfg["engines"][engine]
+    child_memory = _splash_child_memory(rows, pid) if engine == "splash" else None
+    child_gb = None if child_memory is None else child_memory["child_phys_footprint_gb"]
+    resident_bytes = _resident_bytes(model_row)
+    primary_gb, primary_source, _field = _weight_reading(
+        engine,
+        engine_cfg,
+        resident_bytes,
+        rss=tree_rss,
+        footprint=footprint,
+        child_gb=child_gb,
     )
-    is_gguf = cfg["engines"][cell["engine"]].get("requires") == "gguf"
-    primary_gb = (
-        tree_rss
-        if is_gguf
-        else (float(resident_bytes) / 1024**3 if resident_bytes is not None else footprint)
-    )
-    primary_source = (
-        "process-tree RSS; llama.cpp maps the GGUF into its process"
-        if is_gguf
-        else "engine /v1/models resident-bytes field"
-        if resident_bytes is not None
-        else "macOS footprint phys_footprint"
-    )
-    return {
+    sample = {
         "candidate_resident_gb": primary_gb,
         "candidate_resident_source": primary_source,
         "engine_resident_bytes": resident_bytes,
@@ -3015,6 +3078,9 @@ def _process_sample(cell: dict[str, Any]) -> dict[str, Any]:
         "vm_wired_gb": wired * page / (1024**3) if wired is not None and page else None,
         "swap_used_mb": swap,
     }
+    if child_memory is not None:
+        sample.update(child_memory)
+    return sample
 
 
 def _run_soak_workload(

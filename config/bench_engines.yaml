@@ -122,6 +122,11 @@ backends:
   - id: eval-openai-splash
     type: eval_openai
     group: eval
+    # docs/engine_research/mlxother_20261114.md § 3) Splash. This URL is 11242, not the
+    # :8086 forwarder (scripts/splash-forwarder.sh relays to 127.0.0.1:8000). Splash binds
+    # 0.0.0.0 so the container can connect, and --allowed-host host.docker.internal is what
+    # makes this GET 200 instead of 403. /v1/models: the socket listens only after the
+    # native child is ready (server.py binds, then activates). /health is not a load signal.
     url: http://host.docker.internal:11242
     health_path: /v1/models
     priority: 10
