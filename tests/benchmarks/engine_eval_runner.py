@@ -2750,7 +2750,7 @@ def _run_long_context(
     tokenizer = _candidate_tokenizer(cfg, cell)
     if tokenizer is None:
         raise Stage3BlockedError("checkpoint tokenizer.json is not available locally")
-    source = h2h.prefill_text(context_tokens * h2h.CHARS_PER_TOKEN * 2)
+    source = h2h.prefill_text(int(context_tokens * h2h.CHARS_PER_TOKEN * 2))
     marker_pos = int(len(source) * 0.72)
     match = re.search(r"\b[A-Za-z_][A-Za-z0-9_]{5,}\b", source[marker_pos:])
     if match is None:
