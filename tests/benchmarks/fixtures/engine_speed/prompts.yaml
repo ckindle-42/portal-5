@@ -1,0 +1,71 @@
+# Fixed prompts for tests/benchmarks/engine_speed.py.
+# Each asks for a 300–800 token reply. The runner caps max_tokens at 800.
+# Think and sampling are left unset so the Pipeline applies the seat.
+coding:
+  - id: coding-01
+    text: >
+      Write a Python function merge_intervals(intervals) that merges overlapping
+      half-open [start, end) integer ranges and returns them sorted. Include a
+      short explanation of the sweep and four doctests: empty, one range, an
+      overlap, and a touch at the boundary that must stay separate. Do not call
+      tools. Put the function, the doctests, and the explanation in the reply,
+      about 500 words.
+  - id: coding-02
+    text: >
+      This token-bucket allows a burst, then sleeps the wrong amount and can go
+      negative: tokens start at capacity, refill is (now-last)*rate added before
+      the check, and the sleep uses 1/rate even when the deficit is fractional.
+      Rewrite it correctly in Python with a clock argument for tests, and explain
+      the bug. Do not call tools. About 500 words including the code.
+  - id: coding-03
+    text: >
+      Implement a streaming JSON-lines reader in Python: a generator that yields
+      one object per line, skips blank lines, and raises a ValueError that names
+      the line number on malformed JSON. Show how a caller stops at the first bad
+      line without losing the objects already yielded. Do not call tools. About
+      500 words.
+  - id: coding-04
+    text: >
+      Write retry(call, attempts, base_delay) in Python. Use exponential backoff
+      with full jitter, retry only OSError and TimeoutError, and reraise the last
+      exception. Include a tiny fake clock so the delays are asserted without
+      sleeping. Do not call tools. About 500 words.
+  - id: coding-05
+    text: >
+      A function parses "name=value" pairs split on the first equals sign and
+      drops pairs with an empty name, but it splits on every equals and keeps
+      empty names. Show the broken function, the fix, and a table of five inputs
+      with the old and new results. Do not call tools. About 500 words.
+daily-moe:
+  - id: daily-01
+    text: >
+      Plan five weeknight dinners for two adults from this pantry: rice, eggs,
+      canned tomatoes, chickpeas, frozen spinach, onions, tortillas, cheddar,
+      and a lemon. Give one dinner per night, the missing shopping items, and a
+      note on leftovers. Do not call tools. Write about 500 words.
+  - id: daily-02
+    text: >
+      A phone bill jumped from $64 to $118. The new lines say "premium SMS $9",
+      "international day pass $12" used on one day, "device protection $15", and
+      a proration of $18. Explain each charge in plain language and list the
+      questions to ask the carrier. Do not call tools. About 500 words.
+  - id: daily-03
+    text: >
+      Draft a note to a neighbor about a shared wooden fence. Two posts lean into
+      our side, the gate scrapes, and we can do the work on a Saturday if we
+      split the lumber cost. Keep it polite and specific, with a suggested date
+      and a rough cost split. Do not call tools. About 500 words.
+  - id: daily-04
+    text: >
+      Compare the bus and a bicycle for a 6 mile trip across town on a rainy
+      Tuesday. The bus is every 20 minutes, takes 35 minutes, and costs $2.50.
+      The ride is 28 minutes in the dry and there is a painted lane for half the
+      way. Give a recommendation for someone carrying a laptop. Do not call
+      tools. About 500 words.
+  - id: daily-05
+    text: >
+      A home policy says it covers sudden discharge of water from a plumbing
+      system, and excludes "water that backs up through sewers or drains" and
+      "continuous seepage over weeks". A basement drain overflowed during one
+      storm and ruined a carpet. Explain what the two clauses are doing and
+      what to gather before calling the insurer. Do not call tools. About 500 words.
