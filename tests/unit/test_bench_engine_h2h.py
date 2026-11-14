@@ -490,6 +490,82 @@ def test_vllm_mlx_0_6_pins_batching_and_leaves_disk_cache_off(cfg):
     assert "enable_thinking" in kwargs and "false" in kwargs
 
 
+def _thinking_flag(argv: list[str]) -> bool:
+    raw = argv[argv.index("--default-chat-template-kwargs") + 1]
+    return bool(json.loads(raw)["enable_thinking"])
+
+
+def test_vllm_mlx_seat_argv_follows_the_researched_registry(cfg):
+    """Parse engines.vllm-mlx.seats. No engine is started."""
+    note = cfg["engines"]["vllm-mlx"]["note"]
+    assert "does not disable streaming" in note
+    assert "include_usage" in note
+    seats = {
+        "daily-moe": (
+            "nemotron_35_lightning",
+            "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp",
+            "32768",
+            "nemotron",
+            None,
+            True,
+        ),
+        "coding": ("qwen38_27b_h2h", "Qwen3.8-27B-4bit", "32768", "hermes", "qwen3", True),
+        "hunt": (
+            "gemma4_26b_a4b_qat",
+            "gemma-4-26b-a4b-it-QAT-4bit",
+            "16384",
+            "gemma4",
+            None,
+            True,
+        ),
+        "council-json": ("qwen38_27b_h2h", "Qwen3.8-27B-4bit", "32768", "hermes", "qwen3", False),
+    }
+    for seat, (model, directory, ctx, parser, reasoning, thinking) in seats.items():
+        argv, _cwd = h.launch_command(cfg, "vllm-mlx", model, "plain", seat=seat)
+        assert argv[argv.index("serve") + 1].endswith("/" + directory)
+        assert argv[argv.index("--served-model-name") + 1] == directory
+        assert argv[argv.index("--tool-call-parser") + 1] == parser
+        assert argv[argv.index("--max-kv-size") + 1] == ctx
+        assert argv[argv.index("--max-num-seqs") + 1] == "4"
+        assert argv[argv.index("--prefill-step-size") + 1] == "512"
+        assert argv[argv.index("--cache-memory-mb") + 1] == "2048"
+        assert argv[argv.index("--stream-interval") + 1] == "1"
+        assert argv[argv.index("--gpu-memory-utilization") + 1] == "0.45"
+        assert argv[argv.index("--max-request-tokens") + 1] == "8192"
+        assert argv[argv.index("--max-tokens") + 1] == "8192"
+        assert argv[argv.index("--port") + 1] == "11236"
+        assert "vllm-mlx==0.6.0" in argv
+        assert "--enable-mtp" not in argv
+        assert "--use-paged-cache" not in argv
+        assert "--ssd-cache-dir" not in argv
+        assert "--mtp-optimistic" not in argv
+        assert _thinking_flag(argv) is thinking
+        if reasoning:
+            assert argv[argv.index("--reasoning-parser") + 1] == reasoning
+        else:
+            assert "--reasoning-parser" not in argv
+    spec, _cwd = h.launch_command(
+        cfg, "vllm-mlx", "nemotron_35_lightning", "spec", seat="daily-moe"
+    )
+    assert "--enable-mtp" in spec
+    assert "--mtp-num-draft-tokens" not in spec
+    assert spec[spec.index("--stream-interval") + 1] == "1"
+    assert spec[spec.index("serve") + 1].endswith("NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp")
+    assert _thinking_flag(spec) is True
+    for seat, model in (
+        ("coding", "qwen38_27b_h2h"),
+        ("hunt", "gemma4_26b_a4b_qat"),
+        ("council-json", "qwen38_27b_h2h"),
+    ):
+        with pytest.raises(SystemExit):
+            h.launch_command(cfg, "vllm-mlx", model, "spec", seat=seat)
+    from portal.platform.inference.eval_openai import load_bench_engines
+
+    loaded = load_bench_engines(str(h.CONFIG.resolve().parents[2] / "config" / "backends.yaml"))
+    backend = next(row for row in loaded["backends"] if row["id"] == "eval-openai-vllm-mlx")
+    assert "does not disable streaming" in backend["note"]
+
+
 def test_mlxcel_pins_parallel_batch_without_prompt_lookup(cfg):
     argv, _ = h.launch_command(cfg, "mlxcel", "gemma4_26b_a4b_qat", "plain")
     assert argv[argv.index("--parallel") + 1] == "4"

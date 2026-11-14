@@ -102,8 +102,51 @@ engines:
     # Apple Silicon only. --continuous-batching is off by default in 0.6.0 and is
     # what makes n>1 a batch. It changes the 0.5.0 single-user default on purpose.
     # No --ssd-cache-dir. No --use-paged-cache.
+    # Unseated historical rows (mimo) keep this argv. Campaign seats use seat_base.
     plain: [uvx, --from, vllm-mlx==0.6.0, vllm-mlx, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}", --continuous-batching, --default-chat-template-kwargs, '{"enable_thinking": false}']
     base_spec: [uvx, --from, vllm-mlx==0.6.0, vllm-mlx, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}", --continuous-batching, --default-chat-template-kwargs, '{"enable_thinking": false}']
+    # docs/engine_research/vllm_20261114.md § vllm-mlx 0.6.0 shared 64 GB argv.
+    # MTP stays on the OpenAI stream route (--stream-interval 1). Spec does not disable streaming.
+    # The local Nemotron-MTP stream was not tested. Usage needs stream_options.include_usage=true.
+    note: "OpenAI SSE stays available with --enable-mtp and --stream-interval 1. Spec does not disable streaming. The local Nemotron-MTP stream was not tested. Final usage needs stream_options.include_usage=true."
+    seat_base: [uvx, --from, vllm-mlx==0.6.0, vllm-mlx, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --gpu-memory-utilization, "0.45", --max-kv-size, "{ctx}", --max-request-tokens, "8192", --max-tokens, "8192", --continuous-batching, --max-num-seqs, "4", --prefill-step-size, "512", --cache-memory-mb, "2048", --stream-interval, "1", --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}"]
+    seats:
+      # § vllm-mlx 0.6.0 seat table: oQ4e-mtp dir; native MTP on the spec arm only; tool nemotron; no reasoning parser.
+      # auto-daily think is true. The proposal left the flag unset; the task sets it on and does not copy the global false.
+      daily-moe:
+        model_dir: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
+        ctx: 32768
+        tool_parser: nemotron
+        reasoning_parser: null
+        enable_thinking: true
+        spec_argv: [--enable-mtp]
+      # § vllm-mlx 0.6.0: plain Qwen3.8-27B-4bit; hermes + reasoning qwen3; DFlash2 is not a spec arm.
+      # auto-coding / bench-engine-coding think is true.
+      coding:
+        model_dir: Qwen3.8-27B-4bit
+        ctx: 32768
+        tool_parser: hermes
+        reasoning_parser: qwen3
+        enable_thinking: true
+        spec_argv: null
+      # § vllm-mlx 0.6.0 proposal: gemma4 tool parser, enable_thinking true, no reasoning parser, no assistant.
+      # hunt-reasoning sets no think field; the proposal keeps raw reasoning rather than the global false.
+      hunt:
+        model_dir: gemma-4-26b-a4b-it-QAT-4bit
+        ctx: 16384
+        tool_parser: gemma4
+        reasoning_parser: null
+        enable_thinking: true
+        spec_argv: null
+      # Same Qwen artifact as coding. compliance-council-qwen38 think is false, so this seat is the non-thinking call.
+      # Do not remap council-json onto Gemma (proposal: that mapping is a separate task).
+      council-json:
+        model_dir: Qwen3.8-27B-4bit
+        ctx: 32768
+        tool_parser: hermes
+        reasoning_parser: qwen3
+        enable_thinking: false
+        spec_argv: null
     stop_signal: INT
     readiness: {path: /v1/models, timeout_s: 300, collection: data, id_field: id}
   mlx_lm.server:
@@ -522,7 +565,7 @@ models:
     mlx: gemma-4-26b-a4b-it-QAT-4bit
     ctx: 16384
     prefill_tokens: 6000
-    tool_parser: auto
+    tool_parser: {vllm-mlx: gemma4, default: auto}
     # No same-tokenizer drafter is on disk. Do not download one. Not a splash family.
     spec:
       mlx-serve: null
@@ -585,7 +628,7 @@ models:
     mlx: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
     ctx: 32768
     prefill_tokens: 6000
-    tool_parser: auto
+    tool_parser: {vllm-mlx: nemotron, default: auto}
     # One oQ4e dir is both the plain checkpoint and the MTP sidecar. No separate drafter file.
     spec:
       omlx: {method: mtp, settings: {mtp_enabled: true}}
