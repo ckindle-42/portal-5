@@ -634,6 +634,8 @@ def test_brew_llama_pins_fa_slots_and_cache_reuse_per_the_gguf_research(cfg, mon
         == "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k"
     )
     assert "same Q4_K_M bytes" in cfg["engines"]["brew-llama"]["note"]
+    assert "b9950" in cfg["engines"]["brew-llama"]["note"]
+    assert "1.0.0" in cfg["engines"]["brew-llama"]["note"]
     from portal.platform.inference.eval_openai import load_bench_engines
 
     loaded = load_bench_engines(str(h.CONFIG.resolve().parents[2] / "config" / "backends.yaml"))
@@ -656,6 +658,52 @@ def test_seated_launch_keeps_an_explicit_workload_window(cfg):
     assert argv[argv.index("--max-kv-size") + 1] == "98304"
     everyday, _ = h.launch_command(cfg, "vllm-mlx", "qwen38_27b_h2h", "plain", seat="coding")
     assert everyday[everyday.index("--max-kv-size") + 1] == "32768"
+
+
+def test_brew_llama_version_gate_accepts_only_stable_1_0_0(monkeypatch):
+    """b9950's version line is refused. The check never starts llama-server."""
+    assert h.brew_llama_version_text_ok("version: 1.0.0 (build 1, commit b1b770d90)\n")
+    assert not h.brew_llama_version_text_ok("version: 9950 (961e4b26a)\n")
+    assert not h.brew_llama_version_text_ok("version: 1.0.0-dev (build 1, commit abc)\n")
+    assert not h.brew_llama_version_text_ok("version: 1.0.0\n")
+    assert h.brew_llama_binary_refusal("ollama", ["/opt/homebrew/bin/llama-server"]) is None
+
+    def missing(*_args, **_kwargs):
+        raise FileNotFoundError("missing")
+
+    monkeypatch.setattr(h.subprocess, "run", missing)
+    missing_reason = h.brew_llama_binary_refusal("brew-llama", ["/no/llama-server"])
+    assert missing_reason is not None and "cannot read" in missing_reason
+
+    def old_build(cmd, **_kwargs):
+        assert cmd == ["/opt/homebrew/bin/llama-server", "--version"]
+        return type(
+            "Result", (), {"returncode": 0, "stdout": "", "stderr": "version: 9950 (961e4b26a)\n"}
+        )()
+
+    monkeypatch.setattr(h.subprocess, "run", old_build)
+    reason = h.brew_llama_binary_refusal("brew-llama", ["/opt/homebrew/bin/llama-server"])
+    assert reason is not None
+    assert "expected 417, got 408" in reason
+    assert "do not swap the GGUF" in reason
+
+    def stable(cmd, **_kwargs):
+        assert cmd[1] == "--version"
+        text = "version: 1.0.0 (build 1, commit b1b770d90)\n"
+        return type("Result", (), {"returncode": 0, "stdout": text, "stderr": ""})()
+
+    monkeypatch.setattr(h.subprocess, "run", stable)
+    assert h.brew_llama_binary_refusal("brew-llama", ["/opt/homebrew/bin/llama-server"]) is None
+
+    monkeypatch.setattr(h.subprocess, "run", old_build)
+    monkeypatch.setattr(
+        h,
+        "launch_command",
+        lambda *_args, **_kwargs: (["/opt/homebrew/bin/llama-server", "-m", "x"], None),
+    )
+    monkeypatch.setattr(h.subprocess, "Popen", lambda *_args, **_kwargs: pytest.fail("popen"))
+    with pytest.raises(SystemExit, match="expected 417, got 408"):
+        h.start_managed({}, "brew-llama", "nemotron_35_lightning", "plain")
 
 
 def test_start_managed_threads_the_seat_into_the_launch_argv(monkeypatch):

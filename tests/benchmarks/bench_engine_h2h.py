@@ -732,6 +732,53 @@ def _rapid_mlx_python() -> str | None:
     return python if python and Path(python).is_file() else None
 
 
+# Stable Homebrew bottle prints "version: 1.0.0 (build N, commit …)".
+# The trailing space rejects "1.0.0-dev". b9950 prints "version: 9950 (…)".
+_BREW_LLAMA_VERSION_PREFIX = "version: 1.0.0 "
+
+
+def brew_llama_version_text_ok(text: str) -> bool:
+    """True when the first llama-server --version line is the 1.0.0 stable build."""
+    lines = text.strip().splitlines()
+    return bool(lines) and lines[0].startswith(_BREW_LLAMA_VERSION_PREFIX)
+
+
+def brew_llama_binary_refusal(engine: str, argv: list[str]) -> str | None:
+    """Refuse brew-llama unless llama-server is llama.cpp 1.0.0.
+
+    Homebrew b9950 (961e4b26a) never reads nextn_predict_layers. On the production
+    bartowski Q4_K_M it classifies blk.52 as a normal MoE block and exits
+    done_getting_tensors expected 417, got 408. v1.0.0 loads that same file,
+    plain and draft-mtp. Do not swap the GGUF; upgrade the formula.
+    """
+    if engine != "brew-llama" or not argv:
+        return None
+    binary = argv[0]
+    try:
+        proc = subprocess.run(
+            [binary, "--version"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return f"brew-llama: cannot read {binary} --version: {exc}"
+    text = f"{proc.stdout or ''}{proc.stderr or ''}"
+    if brew_llama_version_text_ok(text):
+        return None
+    shown = text.strip().splitlines()
+    first = shown[0] if shown else "<empty>"
+    return (
+        "brew-llama: llama-server must be llama.cpp 1.0.0 "
+        f"(got {first!r} from {binary}). "
+        "b9950 rejects bartowski NVIDIA-Nemotron-3.5-Lightning-30B-A3B Q4_K_M "
+        "(done_getting_tensors expected 417, got 408): the file's blk.52 MTP block "
+        "is consumed only by the v1.0.0 nemotron_h loader. "
+        "Upgrade with `brew upgrade llama.cpp` (pulls ggml 1.x); do not swap the GGUF."
+    )
+
+
 def start_managed(
     cfg: dict,
     engine: str,
@@ -744,7 +791,7 @@ def start_managed(
     on_started: Callable[[], None] | None = None,
 ) -> dict:
     argv, cwd = launch_command(cfg, engine, model, mode, context_tokens=context_tokens, seat=seat)
-    refusal = rapid_mlx_argv_refusal(argv)
+    refusal = rapid_mlx_argv_refusal(argv) or brew_llama_binary_refusal(engine, argv)
     if refusal:
         raise SystemExit(refusal)
     STATE_DIR.mkdir(parents=True, exist_ok=True)
