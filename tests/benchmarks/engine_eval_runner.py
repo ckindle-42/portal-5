@@ -40,6 +40,17 @@ OPENAI_CHAT_SOURCE = "https://platform.openai.com/docs/api-reference/chat/create
 class Stage3BlockedError(RuntimeError):
     """A required gate or protocol mapping does not support this run."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        evidence: dict[str, Any] | None = None,
+        failure_class: str = "instrument_error",
+    ) -> None:
+        super().__init__(message)
+        self.evidence = evidence or {}
+        self.failure_class = failure_class
+
 
 def data_root() -> Path:
     """Return the required external evidence directory."""
@@ -1628,9 +1639,13 @@ def _execute_candidate_cell(
         raise Stage3BlockedError(f"pre-canary unload failed: {host_prep['failures']}")
     if h2h.pid_on_port(cell["port"]):
         raise Stage3BlockedError(f"candidate port {cell['port']} is already occupied")
-    okay, reason = h2h.start_gate(cfg)
+    okay, reason, recovery = _start_gate_with_recovery(cfg)
     if not okay:
-        raise Stage3BlockedError(f"swap start gate: {reason}")
+        raise Stage3BlockedError(
+            reason if reason.startswith("swap start gate") else f"swap start gate: {reason}",
+            evidence={"swap_gate_recovery": recovery},
+        )
+    host_prep["swap_gate_recovery"] = recovery
     vm_before = subprocess.check_output(["vm_stat"], text=True, timeout=10)
     resident_before = _candidate_residency(cfg)
     with h2h.single_flight():
@@ -1757,6 +1772,9 @@ def run_cell(cell: dict[str, Any], pipeline: str, build: str | None = None) -> d
     except CandidateHTTPError as exc:
         receipt["failures"] = [f"candidate cell: {exc}"]
         receipt["upstream_http"] = {"status": exc.status, "body": exc.body}
+    except Stage3BlockedError as exc:
+        receipt["failures"] = [f"candidate cell: {exc}"]
+        receipt.update(exc.evidence)
     except (Exception, SystemExit) as exc:
         receipt["failures"] = [f"candidate cell: {type(exc).__name__}: {exc}"]
     finally:
@@ -2230,6 +2248,95 @@ def _prepare_host(cfg: dict[str, Any]) -> dict[str, Any]:
     return host_prep
 
 
+SWAP_RECOVERY_HEALTH_TIMEOUT_S = 90.0
+SWAP_RECOVERY_SERVICES = (
+    ("com.portal5.omlx", "http://127.0.0.1:8085/health"),
+    ("com.portal5.eg2-embedding", "http://127.0.0.1:8946/health"),
+)
+
+
+def _wait_http_health(url: str, timeout_s: float) -> dict[str, Any]:
+    """Wait for one local health endpoint to return HTTP 200."""
+    deadline = time.monotonic() + timeout_s
+    last_status: int | None = None
+    last_error = "not checked"
+    while True:
+        try:
+            with urllib.request.urlopen(url, timeout=5) as response:
+                last_status = int(response.status)
+                last_error = ""
+        except urllib.error.HTTPError as exc:
+            last_status = exc.code
+            last_error = str(exc.reason)
+        except (OSError, TimeoutError) as exc:
+            last_error = f"{type(exc).__name__}: {exc}"
+        if last_status == 200:
+            return {"url": url, "healthy": True, "status": last_status}
+        if time.monotonic() >= deadline:
+            return {
+                "url": url,
+                "healthy": False,
+                "status": last_status,
+                "error": last_error,
+                "timeout_s": timeout_s,
+            }
+        time.sleep(2)
+
+
+def _start_gate_with_recovery(cfg: dict[str, Any]) -> tuple[bool, str, dict[str, Any]]:
+    """Retry a swap refusal after restarting only the two approved host services."""
+    swap_before = h2h.swap_now().get("used_mb")
+    okay, reason = h2h.start_gate(cfg)
+    evidence: dict[str, Any] = {
+        "attempted": False,
+        "swap_before_mb": swap_before,
+        "swap_after_mb": swap_before,
+        "start_gate_before": {"ok": okay, "reason": reason},
+        "services": [],
+        "health": {},
+    }
+    if okay:
+        evidence["start_gate_after"] = {"ok": okay, "reason": reason}
+        return True, reason, evidence
+    if "swap" not in reason.lower():
+        return False, reason, evidence
+
+    evidence["attempted"] = True
+    uid = os.getuid()
+    for label, _url in SWAP_RECOVERY_SERVICES:
+        command = ["launchctl", "kickstart", "-k", f"gui/{uid}/{label}"]
+        try:
+            result = subprocess.run(command, capture_output=True, text=True, timeout=30)
+            service = {
+                "label": label,
+                "command": command,
+                "returncode": result.returncode,
+                "stdout": result.stdout.strip()[-500:],
+                "stderr": result.stderr.strip()[-500:],
+            }
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            service = {
+                "label": label,
+                "command": command,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+        evidence["services"].append(service)
+
+    for label, url in SWAP_RECOVERY_SERVICES:
+        evidence["health"][label] = _wait_http_health(url, SWAP_RECOVERY_HEALTH_TIMEOUT_S)
+    swap_after = h2h.swap_now().get("used_mb")
+    evidence["swap_after_mb"] = swap_after
+    after_ok, after_reason = h2h.start_gate(cfg)
+    evidence["start_gate_after"] = {"ok": after_ok, "reason": after_reason}
+    commands_ok = all(service.get("returncode") == 0 for service in evidence["services"])
+    health_ok = all(item.get("healthy") is True for item in evidence["health"].values())
+    if after_ok and commands_ok and health_ok:
+        return True, after_reason, evidence
+    if after_ok:
+        after_reason = "swap gate passed, but a service restart or health check failed"
+    return False, f"swap start gate after recovery: {after_reason}", evidence
+
+
 @contextlib.contextmanager
 def _running_cells(
     cells: list[dict[str, Any]],
@@ -2254,9 +2361,13 @@ def _running_cells(
     # Every workload gets a quiet host: an engine left resident by the workload
     # before this one fails the next engine's memory preflight.
     host_prep = host_prep if host_prep is not None else _prepare_host(cfg)
-    okay, reason = h2h.start_gate(cfg)
+    okay, reason, recovery = _start_gate_with_recovery(cfg)
     if not okay:
-        raise Stage3BlockedError(f"swap start gate: {reason}")
+        raise Stage3BlockedError(
+            reason if reason.startswith("swap start gate") else f"swap start gate: {reason}",
+            evidence={"swap_gate_recovery": recovery},
+        )
+    host_prep["swap_gate_recovery"] = recovery
     started: list[dict[str, Any]] = []
     infos: dict[str, Any] = {}
     with h2h.single_flight():
@@ -2379,9 +2490,13 @@ def _run_one_wfe_selection(
     # The incumbent arm loads its model on oMLX through the Pipeline. The host
     # still has to be quiet first, or that load meets the previous model's footprint.
     host_prep = _prepare_host(h2h.load_config())
-    okay, reason = h2h.start_gate(h2h.load_config())
+    okay, reason, recovery = _start_gate_with_recovery(h2h.load_config())
     if not okay:
-        raise Stage3BlockedError(f"swap start gate: {reason}")
+        raise Stage3BlockedError(
+            reason if reason.startswith("swap start gate") else f"swap start gate: {reason}",
+            evidence={"swap_gate_recovery": recovery},
+        )
+    host_prep["swap_gate_recovery"] = recovery
     run = _run_wfe_arm(*args, **options)
     run["host_prep"] = host_prep
     return run
@@ -2622,6 +2737,7 @@ def _mix_request(
         if as_json
         else f"Reply exactly OK for request {label}."
     )
+    started = time.monotonic()
     try:
         result = _pipeline_request(
             target, pipeline, [{"role": "user", "content": message}], **_mix_fields(as_json)
@@ -2631,6 +2747,7 @@ def _mix_request(
             "label": label,
             "valid": False,
             "reason": str(exc),
+            "elapsed_s": round(time.monotonic() - started, 3),
             "upstream_http": {"status": exc.status, "body": exc.body},
             "workspace": target["workspace"],
             "backend": target["backend"],
@@ -2645,6 +2762,29 @@ def _mix_request(
     result["label"] = label
     result["valid"] = _route_valid(result) and result.get("json_valid", True)
     return result
+
+
+def _mix_failure_detail(row: dict[str, Any]) -> str:
+    """Name the failed request and include its route, output and latency evidence."""
+    details = []
+    expected = f"{row.get('workspace')};{row.get('backend')};{row.get('expected_model')}"
+    if row.get("upstream_http"):
+        response = row["upstream_http"]
+        details.append(f"HTTP {response.get('status')}: {response.get('body')}")
+    else:
+        if not _route_valid(row):
+            details.append(
+                f"route={row.get('route')!r} engine_model={row.get('engine_model')!r} "
+                f"expected_route={expected!r}"
+            )
+        if row.get("json_valid") is False:
+            output = " ".join(str(row.get("text") or "").split())[:120]
+            details.append(f"JSON quality mismatch: {output!r}")
+    latency = row.get("elapsed_s")
+    details.append(
+        f"latency={float(latency):.3f}s" if latency is not None else "latency=unmeasured"
+    )
+    return f"{row.get('label')}: " + "; ".join(details or ["request failed"])
 
 
 def _run_concurrency_workload(
@@ -2682,9 +2822,17 @@ def _run_concurrency_workload(
         with ThreadPoolExecutor(max_workers=12) as pool:
             requests = list(pool.map(send, specs))
     failed = [row for row in requests if not row["valid"]]
+    reason = (
+        f"concurrency-mix {len(failed)}/{len(requests)} requests failed: "
+        + " | ".join(_mix_failure_detail(row) for row in failed)
+        if failed
+        else "concurrency-mix: all 12 requests routed to their intended engine and passed JSON quality"
+    )
     return {
         "status": "PASS" if not failed else "FAIL",
         "valid": not failed,
+        "reason": reason,
+        "failure_class": "workload_result" if failed else None,
         "pass_rule": _protocol_workload("concurrency-mix").get("pass"),
         "request_shapes": {
             "json": "response_format json_object and tools []; production hunt declares no tools",
@@ -2695,7 +2843,7 @@ def _run_concurrency_workload(
             for item in chosen
         ],
         "requests": requests,
-        "failures": [row["label"] for row in failed],
+        "failures": [_mix_failure_detail(row) for row in failed],
         "host_prep": host_prep,
     }
 
@@ -2920,6 +3068,68 @@ def _run_soak_workload(
     }
 
 
+def _co_residence_requests(
+    chosen: list[dict[str, Any]], pipeline: str
+) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+    requests = []
+    refusal = None
+    for target in chosen:
+        try:
+            requests.append(
+                _pipeline_request(
+                    target, pipeline, [{"role": "user", "content": "Reply exactly OK."}]
+                )
+            )
+        except CandidateHTTPError as exc:
+            refusal = {
+                "engine": target["engine"],
+                "seat": target["seat"],
+                "status": exc.status,
+                "message": exc.body,
+            }
+            requests.append(
+                {
+                    "workspace": target["workspace"],
+                    "backend": target["backend"],
+                    "expected_model": target["expected_model"],
+                    "engine": target["engine"],
+                    "seat": target["seat"],
+                    "valid": False,
+                    "upstream_http": {"status": exc.status, "body": exc.body},
+                }
+            )
+            break
+    return requests, refusal
+
+
+def _co_residence_reason(
+    refusal: dict[str, Any] | None,
+    requests: list[dict[str, Any]],
+    swap_before: float | None,
+    swap_after: float | None,
+    growth: float | None,
+    swap_gate: bool,
+) -> str:
+    if refusal:
+        return (
+            f"cannot co-reside: {refusal['engine']} refused the {refusal['seat']} request "
+            f"with HTTP {refusal['status']}: {refusal['message']}; "
+            f"swap before={swap_before}MB after={swap_after}MB growth={growth}MB"
+        )
+    bad = next((row for row in requests if not _route_valid(row)), None)
+    if bad:
+        return (
+            f"co-residence route failed for {bad['workspace']}: route={bad.get('route')!r}, "
+            f"engine_model={bad.get('engine_model')!r}, expected={bad['expected_model']!r}"
+        )
+    if not swap_gate:
+        return (
+            f"co-residence swap gate failed: before={swap_before}MB after={swap_after}MB "
+            f"growth={growth}MB"
+        )
+    return "co-residence: router and two seats served their pinned routes within the swap gate"
+
+
 def _run_co_residence(
     cell: dict[str, Any], root: Path, build: str, pipeline: str
 ) -> dict[str, Any]:
@@ -2940,18 +3150,14 @@ def _run_co_residence(
                 f"no distinct current-build canary-qualified engine for {seat}"
             )
         chosen.append(candidate)
-    # Unload the production engines BEFORE the baseline: growth then measures
-    # only the co-resident engines, not the release of a model they displaced.
     cfg = h2h.load_config()
     host_prep = _prepare_host(cfg)
+    # Unload before baseline so displaced models do not inflate measured growth.
     vm_before = subprocess.check_output(["vm_stat"], text=True, timeout=10)
     residency_before = _candidate_residency(cfg)
     swap_before = h2h.swap_now().get("used_mb")
     with _running_cells(chosen, root, build, host_prep=host_prep) as (_infos, _prep):
-        requests = [
-            _pipeline_request(target, pipeline, [{"role": "user", "content": "Reply exactly OK."}])
-            for target in chosen
-        ]
+        requests, engine_refusal = _co_residence_requests(chosen, pipeline)
         swap_after = h2h.swap_now().get("used_mb")
         residency_after = _candidate_residency(cfg)
         vm_after = subprocess.check_output(["vm_stat"], text=True, timeout=10)
@@ -2965,10 +3171,15 @@ def _run_co_residence(
         and growth is not None
         and growth <= float(cfg["guard"]["max_swap_growth_mb"])
     )
-    valid = all(_route_valid(row) for row in requests) and swap_gate
+    valid = engine_refusal is None and all(_route_valid(row) for row in requests) and swap_gate
+    reason = _co_residence_reason(
+        engine_refusal, requests, swap_before, swap_after, growth, swap_gate
+    )
     return {
         "status": "PASS" if valid else "FAIL",
         "valid": valid,
+        "reason": reason,
+        "failure_class": "workload_result" if not valid else None,
         "pass_rule": _protocol_workload("co-residence").get("pass"),
         "cells": [
             {"engine": row["engine"], "seat": row["seat"], "port": row["port"]} for row in chosen
@@ -2981,6 +3192,7 @@ def _run_co_residence(
         "swap_after_mb": swap_after,
         "swap_growth_mb": growth,
         "swap_gate": swap_gate,
+        "engine_refusal": engine_refusal,
         "host_prep": host_prep,
     }
 
@@ -3061,6 +3273,7 @@ def _record_workload_swap(result: dict[str, Any], before: float | None) -> None:
     result["status"] = "FAIL"
     result["swap_gate"] = False
     result["swap_stop"] = True
+    result["failure_class"] = "instrument_error"
     reading = (
         f"swap grew {growth:.0f}MB (before {before:.0f}MB, after {after:.0f}MB) > {limit:.0f}MB"
     )
@@ -3096,16 +3309,30 @@ def run_stage3(
         result["canary"] = canary.get("receipt", str(canary_receipt_path(root, build, cell)))
         _flag_non_comparable_quality(result, canary)
     except Stage3BlockedError as exc:
-        result = {"valid": False, "status": "BLOCKED", "reason": str(exc)}
+        result = {
+            "valid": False,
+            "status": "BLOCKED",
+            "reason": str(exc),
+            "failure_class": exc.failure_class,
+            **exc.evidence,
+        }
     except CandidateHTTPError as exc:
         result = {
             "valid": False,
             "status": "FAIL",
             "reason": str(exc),
             "upstream_http": {"status": exc.status, "body": exc.body},
+            "failure_class": "workload_result",
         }
     except (Exception, SystemExit) as exc:
-        result = {"valid": False, "status": "FAIL", "reason": f"{type(exc).__name__}: {exc}"}
+        result = {
+            "valid": False,
+            "status": "FAIL",
+            "reason": f"{type(exc).__name__}: {exc}",
+            "failure_class": "instrument_error",
+        }
+    if result.get("valid") is False:
+        result.setdefault("failure_class", "workload_result")
     _record_workload_swap(result, swap_before)
     _stamp_outcome(result)
     result.update(
@@ -3133,8 +3360,8 @@ _WORKLOAD_ESTIMATE_S = {
     "co-residence": 10 * 60,
     "soak": 45 * 60,
 }
-_EARLY_WORKLOADS = ("quality-seat", "tool-turn")
-_LATER_WORKLOADS = ("long-context", "concurrency-mix", "co-residence")
+_EARLY_WORKLOADS = ("quality-seat", "tool-turn", "long-context", "concurrency-mix")
+_LATER_WORKLOADS = ("co-residence",)
 _EVAL_PORTS = range(11234, 11245)
 _CELL_KEYS = (
     "seat",
@@ -3334,24 +3561,29 @@ def _print_plan(plan: dict[str, Any]) -> None:
         )
 
 
-def quiet_host_refusal() -> str | None:
+def _quiet_host_check() -> tuple[str | None, dict[str, Any] | None]:
     """Dispatch workers, a listener on an eval port, or the swap gate."""
     lines, err = host_quiet._process_lines()
     if err:
-        return err
+        return err, None
     dispatch = [
         row for row in host_quiet._scan_processes(lines) if row.get("kind") == "dispatch lane job"
     ]
     if dispatch:
         pids = ",".join(str(row.get("pid")) for row in dispatch)
-        return f"dispatch lane job: {pids}"
+        return f"dispatch lane job: {pids}", None
     busy = [f"{port}:{h2h.pid_on_port(port)}" for port in _EVAL_PORTS if h2h.pid_on_port(port)]
     if busy:
-        return "eval port busy " + ",".join(busy)
-    okay, reason = h2h.start_gate(h2h.load_config())
+        return "eval port busy " + ",".join(busy), None
+    okay, reason, recovery = _start_gate_with_recovery(h2h.load_config())
     if not okay:
-        return f"swap start gate: {reason}"
-    return None
+        return reason, recovery
+    return None, recovery
+
+
+def quiet_host_refusal() -> str | None:
+    """Return a quiet-host refusal after attempting approved swap recovery."""
+    return _quiet_host_check()[0]
 
 
 def _eval_listeners() -> list[str]:
@@ -3376,16 +3608,31 @@ def _checkpoint_path(root: Path, build: str) -> Path:
 
 
 def _write_checkpoint(
-    root: Path, build: str, plan_path: str, completed: list[str], stopped: str | None
+    root: Path,
+    build: str,
+    plan_path: str,
+    completed: list[str],
+    stopped: str | None,
+    completed_workloads: list[str] | None = None,
 ) -> None:
     _write_json(
         _checkpoint_path(root, build),
-        {"build": build, "plan": plan_path, "completed": completed, "stopped": stopped},
+        {
+            "build": build,
+            "plan": plan_path,
+            "completed": completed,
+            "completed_workloads": completed_workloads or [],
+            "stopped": stopped,
+        },
     )
 
 
 def _workload_failed(row: dict[str, Any]) -> bool:
     return row.get("valid") is not True
+
+
+def _workload_passed(row: dict[str, Any]) -> bool:
+    return row.get("valid") is True and row.get("status") in {"PASS", "NOT_APPLICABLE"}
 
 
 def _first_failure(workloads: dict[str, dict[str, Any]]) -> str:
@@ -3396,10 +3643,23 @@ def _first_failure(workloads: dict[str, dict[str, Any]]) -> str:
 
 
 def _run_one_staged_workload(
-    cell: dict[str, Any], name: str, root: Path, build: str, pipeline: str
+    cell: dict[str, Any],
+    name: str,
+    root: Path,
+    build: str,
+    pipeline: str,
+    swap_recovery: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    saved = _saved_stage3_workload(root, build, cell, name)
+    if saved is not None:
+        print(f"{_cell_selector(cell)} | {name} | resume | saved receipt | 0s", flush=True)
+        return saved
     started = time.monotonic()
     result = run_stage3(cell, name, build=build, pipeline=pipeline)
+    if swap_recovery and swap_recovery.get("attempted"):
+        result["swap_gate_recovery"] = swap_recovery
+        if result.get("receipt"):
+            _write_json(Path(result["receipt"]), result)
     elapsed = round(time.monotonic() - started, 1)
     reason = _one_line(str(result.get("reason") or result.get("status") or ""))
     state = "pass" if result.get("valid") is True else "fail"
@@ -3408,10 +3668,31 @@ def _run_one_staged_workload(
     result["reason_norm"] = normalise_reason(reason, cell)
     if (
         str(result.get("reason") or "").startswith("swap start gate")
-        or result.get("swap_gate") is False
+        or result.get("swap_stop") is True
+        or (result.get("swap_gate") is False and result.get("failure_class") != "workload_result")
     ):
         result["swap_stop"] = True
+        result["failure_class"] = "instrument_error"
     return result
+
+
+def _saved_stage3_workload(
+    root: Path, build: str, cell: dict[str, Any], name: str
+) -> dict[str, Any] | None:
+    path = _stage3_dir(root, build) / f"{_cell_id(cell)}--{name}.json"
+    if not path.is_file():
+        return None
+    try:
+        result = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if result.get("build") != build or result.get("cell_id") != _cell_id(cell):
+        return None
+    if result.get("status") not in {"PASS", "FAIL", "NOT_APPLICABLE", "NOT_COMPARABLE"}:
+        return None
+    if result.get("valid") is True or result.get("failure_class") == "workload_result":
+        return result
+    return None
 
 
 def _run_staged_cell(cell: dict[str, Any], root: Path, build: str, pipeline: str) -> dict[str, Any]:
@@ -3420,19 +3701,17 @@ def _run_staged_cell(cell: dict[str, Any], root: Path, build: str, pipeline: str
         workloads[name] = _run_one_staged_workload(cell, name, root, build, pipeline)
         if workloads[name].get("swap_stop"):
             break
-    early_ok = len(workloads) == len(_EARLY_WORKLOADS) and all(
-        not _workload_failed(workloads[name]) for name in _EARLY_WORKLOADS
-    )
-    if early_ok:
+    primary_done = len(workloads) == len(_EARLY_WORKLOADS)
+    if primary_done and not any(row.get("swap_stop") for row in workloads.values()):
         for name in _LATER_WORKLOADS:
             workloads[name] = _run_one_staged_workload(cell, name, root, build, pipeline)
             if workloads[name].get("swap_stop"):
                 break
-    earlier = (*_EARLY_WORKLOADS, *_LATER_WORKLOADS)
-    all_earlier_ok = all(
-        name in workloads and not _workload_failed(workloads[name]) for name in earlier
+    required = (*_EARLY_WORKLOADS, *_LATER_WORKLOADS)
+    all_prior_passed = all(
+        name in workloads and _workload_passed(workloads[name]) for name in required
     )
-    if all_earlier_ok:
+    if all_prior_passed:
         workloads["soak"] = _run_one_staged_workload(cell, "soak", root, build, pipeline)
     reason = _first_failure(workloads)
     receipt = {
@@ -3444,6 +3723,14 @@ def _run_staged_cell(cell: dict[str, Any], root: Path, build: str, pipeline: str
         "reason": reason,
         "reason_norm": normalise_reason(reason, cell),
         "swap_stop": any(row.get("swap_stop") for row in workloads.values()),
+        "failure_class": next(
+            (
+                row.get("failure_class", "instrument_error")
+                for row in workloads.values()
+                if _workload_failed(row)
+            ),
+            None,
+        ),
         "workloads": workloads,
         "created_at": datetime.now(UTC).isoformat(),
     }
@@ -3458,11 +3745,12 @@ def _refused_cell(cell: dict[str, Any], build: str, reason: str, root: Path) -> 
         "build": build,
         "cell": _public_cell(cell),
         "cell_id": _cell_id(cell),
-        "finished": True,
+        "finished": False,
         "valid": False,
         "reason": reason,
         "reason_norm": normalise_reason(reason, cell),
         "swap_stop": reason.startswith("swap start gate"),
+        "failure_class": "instrument_error",
         "workloads": {},
         "created_at": datetime.now(UTC).isoformat(),
     }
@@ -3473,13 +3761,50 @@ def _refused_cell(cell: dict[str, Any], build: str, reason: str, root: Path) -> 
     return receipt
 
 
+def _blocked_workload(
+    cell: dict[str, Any],
+    workload: str,
+    build: str,
+    reason: str,
+    root: Path,
+    recovery: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "build": build,
+        "cell": {key: cell.get(key) for key in ("engine", "mode", "seat", "workspace", "model")},
+        "cell_id": _cell_id(cell),
+        "workload": workload,
+        "status": "BLOCKED",
+        "valid": False,
+        "failure_class": "instrument_error",
+        "reason": reason,
+        "swap_stop": reason.startswith("swap start gate"),
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+    if recovery is not None:
+        result["swap_gate_recovery"] = recovery
+    _stamp_outcome(result)
+    path = _stage3_dir(root, build) / f"{_cell_id(cell)}--{workload}.json"
+    result["receipt"] = str(path)
+    _write_json(path, result)
+    return result
+
+
 def _cells_should_stop(results: list[dict[str, Any]]) -> str | None:
     if any(row.get("swap_stop") for row in results):
         return next(str(row.get("reason")) for row in results if row.get("swap_stop"))
     if len(results) < 2 or results[-1].get("valid") is True:
         return None
     prev = results[-2]
-    if prev.get("valid") is not True and prev.get("reason_norm") == results[-1].get("reason_norm"):
+    instrument_failures = all(
+        row.get("failure_class", "instrument_error") == "instrument_error"
+        for row in (prev, results[-1])
+    )
+    if (
+        instrument_failures
+        and prev.get("valid") is not True
+        and prev.get("reason_norm") == results[-1].get("reason_norm")
+    ):
         return f"2 consecutive cells: {results[-1].get('reason_norm')}"
     return None
 
@@ -3579,46 +3904,228 @@ def _load_plan(path: Path) -> dict[str, Any]:
     return plan
 
 
+def _run_plan_workload(
+    entry: dict[str, Any],
+    workload: str,
+    root: Path,
+    build: str,
+    pipeline: str,
+) -> tuple[dict[str, Any], bool]:
+    cell = entry["cell"]
+    saved = _saved_stage3_workload(root, build, cell, workload)
+    if saved is not None:
+        print(f"{_cell_selector(cell)} | {workload} | resume | saved receipt | 0s", flush=True)
+        return saved, False
+    refusal, recovery = _quiet_host_check()
+    if refusal:
+        return _blocked_workload(cell, workload, build, refusal, root, recovery), True
+    return (
+        _run_one_staged_workload(cell, workload, root, build, pipeline, swap_recovery=recovery),
+        False,
+    )
+
+
+def _run_plan_phase(
+    entries: list[dict[str, Any]],
+    states: dict[str, dict[str, Any]],
+    prior_cells: dict[str, dict[str, Any]],
+    root: Path,
+    build: str,
+    pipeline: str,
+    workloads: tuple[str, ...],
+    completed_workloads: list[str],
+) -> str | None:
+    for workload in workloads:
+        phase_results = []
+        for entry in entries:
+            cell = entry["cell"]
+            cell_id = _cell_id(cell)
+            if cell_id in prior_cells or workload in states[cell_id]:
+                continue
+            if workload not in (entry.get("workloads") or _plan_workloads()):
+                continue
+            if workload == "soak":
+                earlier = (*_EARLY_WORKLOADS, *_LATER_WORKLOADS)
+                if not all(
+                    name in states[cell_id] and _workload_passed(states[cell_id][name])
+                    for name in earlier
+                ):
+                    continue
+            result, refused = _run_plan_workload(entry, workload, root, build, pipeline)
+            states[cell_id][workload] = result
+            phase_results.append(result)
+            completed_workloads.append(f"{cell_id}:{workload}")
+            if refused:
+                return str(result.get("reason") or "quiet-host refusal")
+            if result.get("swap_stop"):
+                return str(result.get("reason"))
+            stop_reason = _cells_should_stop(phase_results)
+            if stop_reason:
+                return stop_reason
+    return None
+
+
+def _plan_cell_receipt(
+    entry: dict[str, Any], workloads: dict[str, dict[str, Any]], root: Path, build: str
+) -> dict[str, Any]:
+    cell = entry["cell"]
+    cell_id = _cell_id(cell)
+    expected = list(entry.get("workloads") or _plan_workloads())
+    prior_workloads = [name for name in expected if name != "soak"]
+    can_soak = "soak" in expected and all(
+        name in workloads and _workload_passed(workloads[name]) for name in prior_workloads
+    )
+    required = [*prior_workloads, *(["soak"] if can_soak else [])]
+    blocked = any(
+        row.get("status") == "BLOCKED" or row.get("failure_class") == "instrument_error"
+        for row in workloads.values()
+    )
+    finished = all(name in workloads for name in required) and not blocked
+    reason = _first_failure(workloads) if workloads else "incomplete: no workload receipts"
+    if reason == "ok":
+        non_comparable = next(
+            (row for row in workloads.values() if row.get("status") == "NOT_COMPARABLE"), None
+        )
+        if non_comparable:
+            reason = str(non_comparable.get("reason") or "workload is not comparable")
+    if not finished and reason == "ok":
+        pending = [name for name in required if name not in workloads]
+        reason = f"incomplete: pending {','.join(pending)}"
+    receipt = {
+        "build": build,
+        "cell": _public_cell(cell),
+        "cell_id": cell_id,
+        "finished": finished,
+        "valid": finished and all(_workload_passed(row) for row in workloads.values()),
+        "reason": reason,
+        "reason_norm": normalise_reason(reason, cell),
+        "swap_stop": any(row.get("swap_stop") for row in workloads.values()),
+        "failure_class": next(
+            (
+                row.get("failure_class", "instrument_error")
+                for row in workloads.values()
+                if _workload_failed(row)
+            ),
+            None,
+        ),
+        "workloads": workloads,
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+    summary_path = _cell_summary_path(root, build, cell)
+    receipt["receipt"] = str(summary_path)
+    _write_json(summary_path, receipt)
+    return receipt
+
+
+def _load_stage3_plan_state(
+    entries: list[dict[str, Any]], root: Path, build: str
+) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]], list[str], list[str]]:
+    states: dict[str, dict[str, Any]] = {}
+    prior_cells: dict[str, dict[str, Any]] = {}
+    completed = []
+    completed_workloads = []
+    for entry in entries:
+        cell = entry["cell"]
+        cell_id = _cell_id(cell)
+        states[cell_id] = {}
+        prior = _cell_finished(root, build, cell)
+        if prior is None:
+            continue
+        print(f"{_cell_selector(cell)} | skip | completed | 0s", flush=True)
+        prior_cells[cell_id] = prior
+        states[cell_id].update(prior.get("workloads") or {})
+        completed.append(cell_id)
+        completed_workloads.extend(f"{cell_id}:{name}" for name in states[cell_id])
+    return states, prior_cells, completed, completed_workloads
+
+
+def _finish_stage3_plan(
+    entries: list[dict[str, Any]],
+    states: dict[str, dict[str, Any]],
+    prior_cells: dict[str, dict[str, Any]],
+    root: Path,
+    build: str,
+    plan_path: str,
+    completed: list[str],
+    completed_workloads: list[str],
+    stop_reason: str | None,
+) -> list[dict[str, Any]]:
+    results = []
+    for entry in entries:
+        cell = entry["cell"]
+        cell_id = _cell_id(cell)
+        prior = prior_cells.get(cell_id)
+        if prior is not None:
+            results.append(prior)
+            continue
+        receipt = _plan_cell_receipt(entry, states[cell_id], root, build)
+        results.append(receipt)
+        if receipt["finished"]:
+            completed.append(cell_id)
+    _write_checkpoint(root, build, plan_path, completed, stop_reason, completed_workloads)
+    return results
+
+
 def execute_stage3_plan(plan_path: str, pipeline: str) -> int:
-    """Run a printed plan. Skip finished cells. Stop on a repeated reason or the swap gate."""
+    """Run global workload phases and resume from per-workload receipts."""
     path = Path(plan_path)
     plan = _load_plan(path)
     build = str(plan["build"])
     root = data_root()
     _configure_results(root)
-    results: list[dict[str, Any]] = []
-    completed: list[str] = []
+    entries = list(plan.get("cells") or [])
+    states, prior_cells, completed, completed_workloads = _load_stage3_plan_state(
+        entries, root, build
+    )
     stop_reason = None
-    _notify("start", f"stage3 {build} cells={len(plan.get('cells') or [])}")
+    _notify("start", f"stage3 {build} cells={len(entries)}")
     try:
-        for entry in plan.get("cells") or []:
+        for entry in entries:
             cell = entry["cell"]
+            cell_id = _cell_id(cell)
+            states[cell_id] = {}
             prior = _cell_finished(root, build, cell)
             if prior is not None:
                 print(f"{_cell_selector(cell)} | skip | completed | 0s", flush=True)
-                results.append(prior)
+                prior_cells[cell_id] = prior
+                states[cell_id].update(prior.get("workloads") or {})
                 completed.append(_cell_id(cell))
-                continue
-            refusal = quiet_host_refusal()
-            if refusal:
-                receipt = _refused_cell(cell, build, refusal, root)
-                results.append(receipt)
-                completed.append(_cell_id(cell))
-                if receipt.get("swap_stop"):
-                    stop_reason = refusal
-                    break
-            else:
-                receipt = _run_staged_cell(cell, root, build, pipeline)
-                results.append(receipt)
-                completed.append(_cell_id(cell))
-                if receipt.get("swap_stop"):
-                    stop_reason = str(receipt.get("reason"))
-                    break
-            stop_reason = _cells_should_stop(results)
-            if stop_reason:
-                break
+                completed_workloads.extend(f"{cell_id}:{name}" for name in states[cell_id])
+        stop_reason = _run_plan_phase(
+            entries,
+            states,
+            prior_cells,
+            root,
+            build,
+            pipeline,
+            (*_EARLY_WORKLOADS, *_LATER_WORKLOADS),
+            completed_workloads,
+        )
+        if stop_reason is None:
+            stop_reason = _run_plan_phase(
+                entries,
+                states,
+                prior_cells,
+                root,
+                build,
+                pipeline,
+                ("soak",),
+                completed_workloads,
+            )
     finally:
-        _write_checkpoint(root, build, str(path), completed, stop_reason)
+        _write_checkpoint(root, build, str(path), completed, stop_reason, completed_workloads)
+
+    results = _finish_stage3_plan(
+        entries,
+        states,
+        prior_cells,
+        root,
+        build,
+        str(path),
+        completed,
+        completed_workloads,
+        stop_reason,
+    )
     listeners = _eval_listeners()
     rows = _summary_rows(results)
     _print_summary(rows)

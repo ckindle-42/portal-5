@@ -642,6 +642,7 @@ def test_failed_startup_is_recorded_with_logs_and_engine_models_body(monkeypatch
     monkeypatch.setattr(runner, "data_root", lambda: tmp_path)
     monkeypatch.setattr(runner, "_configure_results", lambda _root: None)
     monkeypatch.setattr(runner.h2h, "start_gate", lambda _cfg: (True, "ok"))
+    monkeypatch.setattr(runner.h2h, "swap_now", lambda: {"used_mb": 500})
     monkeypatch.setattr(
         runner,
         "_prepare_production_models",
@@ -893,6 +894,7 @@ def test_every_stage3_engine_start_preps_the_host_first(monkeypatch, tmp_path: P
     monkeypatch.setattr(runner, "_gate_canary", lambda *_a: {})
     monkeypatch.setattr(runner.h2h, "pid_on_port", lambda _port: None)
     monkeypatch.setattr(runner.h2h, "start_gate", lambda _cfg: (True, "ok"))
+    monkeypatch.setattr(runner.h2h, "swap_now", lambda: {"used_mb": 500})
     monkeypatch.setattr(runner.h2h, "single_flight", nullcontext)
     monkeypatch.setattr(
         runner,
@@ -916,6 +918,71 @@ def test_every_stage3_engine_start_preps_the_host_first(monkeypatch, tmp_path: P
         assert host_prep["unloaded"]["omlx"] == ["Qwen3.8-27B-4bit"]
 
     assert order == ["prep", "start", "stop"]
+
+
+def test_swap_start_refusal_restarts_only_the_two_approved_services(monkeypatch) -> None:
+    readings = iter((5000, 3500))
+    gates = iter(((False, "swap used 5000MB > 4096MB"), (True, "swap used 3500MB")))
+    commands = []
+
+    class Completed:
+        returncode = 0
+        stdout = "restarted"
+        stderr = ""
+
+    monkeypatch.setattr(runner.h2h, "swap_now", lambda: {"used_mb": next(readings)})
+    monkeypatch.setattr(runner.h2h, "start_gate", lambda _cfg: next(gates))
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        lambda command, **_kwargs: commands.append(command) or Completed(),
+    )
+    monkeypatch.setattr(
+        runner,
+        "_wait_http_health",
+        lambda url, _timeout: {"url": url, "healthy": True, "status": 200},
+    )
+
+    okay, reason, evidence = runner._start_gate_with_recovery({})
+
+    uid = runner.os.getuid()
+    assert okay is True
+    assert reason == "swap used 3500MB"
+    assert [command[-1] for command in commands] == [
+        f"gui/{uid}/com.portal5.omlx",
+        f"gui/{uid}/com.portal5.eg2-embedding",
+    ]
+    assert all(command[:3] == ["launchctl", "kickstart", "-k"] for command in commands)
+    assert evidence["attempted"] is True
+    assert evidence["swap_before_mb"] == 5000
+    assert evidence["swap_after_mb"] == 3500
+    assert set(evidence["health"]) == {label for label, _ in runner.SWAP_RECOVERY_SERVICES}
+
+
+def test_swap_recovery_stops_when_gate_stays_refused_and_keeps_reading(monkeypatch) -> None:
+    readings = iter((5200, 5300))
+    gates = iter(((False, "swap used 5200MB > 4096MB"), (False, "swap used 5300MB > 4096MB")))
+
+    class Completed:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    monkeypatch.setattr(runner.h2h, "swap_now", lambda: {"used_mb": next(readings)})
+    monkeypatch.setattr(runner.h2h, "start_gate", lambda _cfg: next(gates))
+    monkeypatch.setattr(runner.subprocess, "run", lambda *_a, **_k: Completed())
+    monkeypatch.setattr(
+        runner,
+        "_wait_http_health",
+        lambda url, _timeout: {"url": url, "healthy": True, "status": 200},
+    )
+
+    okay, reason, evidence = runner._start_gate_with_recovery({})
+
+    assert okay is False
+    assert "swap used 5300MB" in reason
+    assert evidence["swap_before_mb"] == 5200
+    assert evidence["swap_after_mb"] == 5300
 
 
 def test_a_failed_pre_workload_unload_refuses_to_start_the_engine(
@@ -1286,6 +1353,86 @@ def test_stage3_plan_lists_only_valid_current_build_cells(
         runner.build_stage3_plan("build-a", seats=["hunt"])
 
 
+def test_stage3_plan_runs_global_workload_phases_before_co_residence_and_soak(
+    monkeypatch, tmp_path: Path
+) -> None:
+    cells = [
+        {
+            "engine": "mlx-serve",
+            "mode": "plain",
+            "seat": "daily-moe",
+            "workspace": "bench-engine-daily-moe",
+            "model": "daily-model",
+        },
+        {
+            "engine": "rapid-mlx",
+            "mode": "plain",
+            "seat": "coding",
+            "workspace": "bench-engine-coding",
+            "model": "coding-model",
+        },
+    ]
+    plan = {
+        "build": "build-a",
+        "cells": [
+            {"role": "candidate", "cell": cell, "workloads": runner._plan_workloads()}
+            for cell in cells
+        ],
+    }
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_text(json.dumps(plan), encoding="utf-8")
+    monkeypatch.setattr(runner, "data_root", lambda: tmp_path)
+    monkeypatch.setattr(runner, "current_build", lambda: "build-a")
+    monkeypatch.setattr(runner, "_configure_results", lambda _root: None)
+    monkeypatch.setattr(runner, "_notify", lambda *_a, **_k: None)
+    monkeypatch.setattr(runner, "_quiet_host_check", lambda: (None, None))
+    monkeypatch.setattr(runner, "_eval_listeners", lambda: [])
+    calls = []
+
+    def run(cell, workload, **_kwargs):
+        calls.append((workload, cell["seat"]))
+        failed = workload == "co-residence" and cell["seat"] == "daily-moe"
+        return {
+            "build": "build-a",
+            "cell_id": runner._cell_id(cell),
+            "workload": workload,
+            "status": "FAIL" if failed else "PASS",
+            "valid": not failed,
+            "failure_class": "workload_result" if failed else None,
+            "reason": "cannot co-reside: engine refused prompt" if failed else "ok",
+        }
+
+    monkeypatch.setattr(runner, "run_stage3", run)
+
+    code = runner.execute_stage3_plan(str(plan_path), "http://pipeline")
+
+    assert code == 2
+    assert calls == [
+        *(("quality-seat", cell["seat"]) for cell in cells),
+        *(("tool-turn", cell["seat"]) for cell in cells),
+        *(("long-context", cell["seat"]) for cell in cells),
+        *(("concurrency-mix", cell["seat"]) for cell in cells),
+        *(("co-residence", cell["seat"]) for cell in cells),
+        ("soak", "coding"),
+    ]
+
+
+def test_stage3_resume_reuses_completed_workload_failure_receipt(tmp_path: Path) -> None:
+    cell = _seat_cell()
+    row = {
+        "build": "build-a",
+        "cell_id": runner._cell_id(cell),
+        "status": "FAIL",
+        "valid": False,
+        "failure_class": "workload_result",
+        "reason": "cannot co-reside: engine refused",
+    }
+    path = runner._stage3_dir(tmp_path, "build-a") / f"{runner._cell_id(cell)}--co-residence.json"
+    runner._write_json(path, row)
+
+    assert runner._saved_stage3_workload(tmp_path, "build-a", cell, "co-residence") == row
+
+
 def test_stage3_run_refuses_a_busy_host_and_skips_a_finished_cell(
     monkeypatch, tmp_path: Path
 ) -> None:
@@ -1314,7 +1461,7 @@ def test_stage3_run_refuses_a_busy_host_and_skips_a_finished_cell(
     monkeypatch.setattr(runner, "_configure_results", lambda _root: None)
     monkeypatch.setattr(runner, "_notify", lambda *_a, **_k: None)
     monkeypatch.setattr(runner, "_eval_listeners", lambda: [])
-    monkeypatch.setattr(runner, "quiet_host_refusal", lambda: "dispatch lane job: 99")
+    monkeypatch.setattr(runner, "_quiet_host_check", lambda: ("dispatch lane job: 99", None))
     called = []
     monkeypatch.setattr(runner, "run_stage3", lambda *_a, **_k: called.append("ran"))
 
@@ -1325,7 +1472,7 @@ def test_stage3_run_refuses_a_busy_host_and_skips_a_finished_cell(
         runner._cell_summary_path(tmp_path, "build-a", cell).read_text(encoding="utf-8")
     )
     assert receipt["reason"] == "dispatch lane job: 99"
-    assert receipt["finished"] is True
+    assert receipt["finished"] is False
 
     code_again = runner.execute_stage3_plan(str(plan_path), "http://pipeline")
     assert called == []
@@ -1514,6 +1661,76 @@ def test_co_residence_takes_its_swap_baseline_after_host_prep(monkeypatch) -> No
     assert result["valid"] is True
 
 
+def test_co_residence_engine_refusal_is_a_failed_result_with_the_engine_message(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        runner.h2h,
+        "load_config",
+        lambda: {
+            "engines": {},
+            "guard": {"max_start_swap_used_mb": 4096, "max_swap_growth_mb": 2048},
+        },
+    )
+    monkeypatch.setattr(
+        runner,
+        "_valid_cell_for_seat",
+        lambda seat, *_a: {
+            "engine": f"engine-{seat}",
+            "seat": seat,
+            "workspace": f"bench-engine-{seat}",
+            "port": 11235,
+            "backend": f"eval-openai-{seat}",
+            "expected_model": f"model-{seat}",
+            "base": "http://engine",
+        },
+    )
+    monkeypatch.setattr(runner, "_prepare_host", lambda _cfg: {"valid": True})
+    monkeypatch.setattr(runner, "_candidate_residency", lambda _cfg: {})
+    monkeypatch.setattr(runner.subprocess, "check_output", lambda *_a, **_k: "vm_stat")
+    monkeypatch.setattr(runner.instrument, "vm_deltas_gb", lambda *_a: {})
+    readings = iter((100, 180))
+    monkeypatch.setattr(runner.h2h, "swap_now", lambda: {"used_mb": next(readings)})
+    requested = []
+
+    def request(target, *_args, **_kwargs):
+        requested.append(target["seat"])
+        if target["seat"] == "daily-moe":
+            raise runner.CandidateHTTPError(507, "prompt needs 2692 MB; 135 MB free")
+        return {
+            "workspace": target["workspace"],
+            "backend": target["backend"],
+            "expected_model": target["expected_model"],
+            "route": f"{target['workspace']};{target['backend']};{target['expected_model']}",
+            "engine_model": target["expected_model"],
+            "text": "OK",
+            "elapsed_s": 0.1,
+        }
+
+    monkeypatch.setattr(runner, "_pipeline_request", request)
+
+    @contextlib.contextmanager
+    def fake_running(_cells, _root, _build, context_tokens=None, host_prep=None):
+        yield {}, host_prep
+
+    monkeypatch.setattr(runner, "_running_cells", fake_running)
+    result = runner._run_co_residence(_seat_cell(), Path("."), "build-a", "http://pipeline")
+
+    assert result["status"] == "FAIL"
+    assert result["valid"] is False
+    assert result["failure_class"] == "workload_result"
+    runner._stamp_outcome(result)
+    assert result["verdict"] == "fail"
+    assert "cannot co-reside" in result["reason"]
+    assert "prompt needs 2692 MB; 135 MB free" in result["reason"]
+    assert "growth=80MB" in result["reason"]
+    assert requested == ["daily-moe"]
+    assert "swap_stop" not in result
+    repeated = {**result, "reason_norm": runner.normalise_reason(result["reason"], _seat_cell())}
+    result["reason_norm"] = repeated["reason_norm"]
+    assert runner._cells_should_stop([result, repeated]) is None
+
+
 def test_long_context_window_resolves_every_protocol_seat() -> None:
     assert runner._long_context_tokens(_seat_cell()) == 32768
     assert (
@@ -1621,6 +1838,28 @@ def test_mix_http_rejection_is_a_failed_row_not_a_crash(monkeypatch) -> None:
     assert row["valid"] is False
     assert row["upstream_http"]["status"] == 400
     assert "cannot be combined" in row["reason"]
+    assert row["elapsed_s"] >= 0
+
+
+def test_concurrency_failure_reason_names_request_route_quality_and_latency() -> None:
+    row = {
+        "label": "json-5",
+        "workspace": "bench-engine-hunt",
+        "backend": "eval-openai-vllm-mlx",
+        "expected_model": "gemma-QAT",
+        "route": "bench-engine-hunt;wrong-backend;other-model",
+        "engine_model": "other-model",
+        "json_valid": False,
+        "text": '{"ok": false, "slot": "json-4"}',
+        "elapsed_s": 0.427,
+    }
+
+    reason = runner._mix_failure_detail(row)
+
+    assert "json-5" in reason
+    assert "wrong-backend" in reason and "gemma-QAT" in reason
+    assert "JSON quality mismatch" in reason and "json-4" in reason
+    assert "latency=0.427s" in reason
 
 
 def test_workload_swap_growth_over_the_protocol_limit_fails_and_stops(monkeypatch) -> None:
