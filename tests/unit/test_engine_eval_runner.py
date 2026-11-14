@@ -1532,6 +1532,31 @@ def test_long_context_window_resolves_every_protocol_seat() -> None:
     )
 
 
+def test_long_context_daily_moe_receipt_uses_integer_prefill_bound(monkeypatch) -> None:
+    cell = _seat_cell(model="nemotron_35_lightning")
+    monkeypatch.setattr(runner.h2h, "load_config", lambda: {})
+    monkeypatch.setattr(runner, "_candidate_tokenizer", lambda *_args: Path("tokenizer.json"))
+    monkeypatch.setattr(instrument, "count_tokens", lambda _text, _tokenizer: 30000)
+    monkeypatch.setattr(runner, "_models_payload", lambda _base: {"json": {}})
+    monkeypatch.setattr(runner, "_context_readback", lambda *_args: {"context_length": 32768})
+    monkeypatch.setattr(
+        runner,
+        "_running_cells",
+        lambda *_args, **_kwargs: nullcontext(([], {"valid": True})),
+    )
+
+    def answer_from_needle(_url, request, _headers):
+        prompt = request["messages"][0]["content"]
+        return {"text": prompt.split("Needle record: ", 1)[1].split()[0]}
+
+    monkeypatch.setattr(instrument, "_one_chat", answer_from_needle)
+
+    result = runner._run_long_context(cell, Path("."), "build-a", "http://pipeline")
+
+    assert result["context_tokens"] == 32768
+    assert result["valid"] is True
+
+
 def _mix_target() -> dict:
     return {
         "workspace": "bench-engine-hunt",
