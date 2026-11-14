@@ -38,7 +38,7 @@ def test_vllm_mlx_candidate_cells_use_per_seat_launch_argv() -> None:
         ("daily-moe", "plain"): (True, False),
         ("daily-moe", "spec"): (True, True),
         ("coding", "plain"): (True, False),
-        ("hunt", "plain"): (True, False),
+        ("hunt", "plain"): (False, False),
         ("council-json", "plain"): (False, False),
     }
     cells = runner.candidate_cells()

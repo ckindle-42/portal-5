@@ -516,7 +516,7 @@ def test_vllm_mlx_seat_argv_follows_the_researched_registry(cfg):
             "16384",
             "gemma4",
             None,
-            True,
+            False,
         ),
         "council-json": ("qwen38_27b_h2h", "Qwen3.8-27B-4bit", "32768", "hermes", "qwen3", False),
     }
