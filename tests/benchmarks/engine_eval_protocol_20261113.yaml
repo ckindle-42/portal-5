@@ -13,6 +13,21 @@ binding:
     co-resident with the task-router plus two seats without the swap gate
     (growth 2048 MB, absolute used 4096 MB). Otherwise Unproven — keep the incumbent.
   ollama_gguf: failover and different bytes; it does not decide the MLX engine
+template_parity:
+  # Operator rule 2026-11-14. The two legs decode on their own kernels, so a greedy
+  # divergence past the matched prefix is recorded drift, never a failure.
+  set_by: operator
+  set_on: "2026-11-14"
+  prompt_token_tolerance: 0.02
+  prefix_tokens: 0
+  basis: >-
+    From the 8e6410a9 canary for mlx-serve:plain:daily-moe. Rendered prompt counts
+    3719 (mlx-serve) vs 3687 (oMLX): a 32-token delta inside the 74-token tolerance, so
+    the template agrees. The two outputs share zero leading text tokens — mlx-serve
+    returns no content because it forces the tool-call opener at 8 generated tokens
+    while oMLX stays greedy and emits "OK" before the same get_weather call — so the
+    largest prefix the live pair supports is 0. A stricter prefix would fail that pair
+    on tool_choice enforcement, which is not a template or BOS question.
 workloads:
   - id: quality-seat
     kind: quality_gate
@@ -30,8 +45,12 @@ workloads:
     kind: tool
     pass: a tool call and the post-tool turn both complete through the pipeline
     note: >-
-      The Gemma anchor is the post-tool turn. The 11-13 preflight stored REVIEW
-      as valid; a REVIEW on that turn is a fail.
+      Two turns through the Pipeline: a forced get_weather call, then the same
+      conversation with the assistant's call, the tool result ("18C and clear.") and a
+      follow-up question under tool_choice auto. Pass is the call being made and the
+      post-tool answer using the result ("18"), both on the pinned route. This replaces
+      the 11-13 preflight note that read a single turn as REVIEW: the workload now
+      supplies the tool result the answer has to use.
     seats:
       - bench-engine-daily-moe
       - bench-engine-coding

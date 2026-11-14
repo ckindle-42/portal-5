@@ -21,11 +21,13 @@ rendered-prompt token-count difference beyond 2% stays a finding (`template_diff
 makes that cell's quality comparison non-comparable; it does not invalidate the instrument
 checks (route, memory, settings, tokens). An engine whose tools-bearing request renders to
 the same size as its no-tools request is recorded as not rendering the tool schemas, and its
-tool-use quality is not comparable — a per-engine finding, not a hidden one. A greedy-output
-difference at equal prompt counts stays a validity failure. The tool-turn workload is a
-through-the-Pipeline forced call plus its post-tool turn: the registered WFE quality task is
-graded by the injected RAG context, so it can pass without ever calling a tool and cannot
-evidence a tool turn.
+tool-use quality is not comparable — a per-engine finding, not a hidden one. Greedy generation is
+judged by the operator's 2026-11-14 rule, carried in the protocol's `template_parity` block:
+parity is template/BOS/stop conformance, not bit-identical bytes, so the first `prefix_tokens`
+generated text tokens must match and a later divergence is recorded numerical drift rather than a
+validity failure. The tool-turn workload is a through-the-Pipeline forced call plus its post-tool
+turn: the registered WFE quality task is graded by the injected RAG context, so it can pass
+without ever calling a tool and cannot evidence a tool turn.
 
 ## Daily MoE
 

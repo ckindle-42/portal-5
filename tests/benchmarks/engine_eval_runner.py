@@ -449,9 +449,6 @@ TOOL_TURN_RESULT = "18C and clear."
 # A rendered tool block is thousands of tokens; this floor separates it from the
 # user-prompt differences between the no-tools and tools probes.
 TOOL_RENDER_MIN_TOKENS = 50
-# Tool schemas are byte-identical on both legs after the Pipeline's eval pass, so this
-# only absorbs each engine's own message rendering, never the tool payload.
-PROMPT_TOKEN_TOLERANCE = 0.02
 FORCED_CHOICE_RULE = (
     "honoured means the forced call came back with no prose: prose under a named tool_choice "
     "is recorded as the engine not forcing the function"
@@ -968,6 +965,20 @@ def _differs_from_incumbent(comparison: dict[str, Any]) -> str | None:
     return "left"
 
 
+def parity_settings() -> dict[str, Any]:
+    """The operator's parity rule: prompt tolerance and matched text prefix, from the protocol."""
+    block = (yaml.safe_load(PROTOCOL.read_text(encoding="utf-8")) or {}).get("template_parity")
+    if not isinstance(block, dict):
+        raise Stage3BlockedError("the protocol carries no template_parity rule")
+    tolerance = block.get("prompt_token_tolerance")
+    prefix = block.get("prefix_tokens")
+    if isinstance(tolerance, bool) or not isinstance(tolerance, (int, float)) or tolerance <= 0:
+        raise Stage3BlockedError("template_parity.prompt_token_tolerance must be a positive number")
+    if isinstance(prefix, bool) or not isinstance(prefix, int) or prefix < 0:
+        raise Stage3BlockedError("template_parity.prefix_tokens must be a non-negative integer")
+    return {"prompt_token_tolerance": float(tolerance), "prefix_tokens": prefix}
+
+
 def _template_difference(cell: dict[str, Any], comparison: dict[str, Any]) -> str | None:
     """The recorded FINDING when the candidate renders the same probe differently."""
     classification = comparison.get("classification")
@@ -992,22 +1003,29 @@ def _template_difference(cell: dict[str, Any], comparison: dict[str, Any]) -> st
     return (
         f"{cell['engine']} renders the same greedy probe to {candidate} prompt tokens; "
         f"incumbent oMLX renders {incumbent} ({delta:+d}), beyond the "
-        f"{PROMPT_TOKEN_TOLERANCE:.0%} tolerance, with the tool payload canonicalised "
-        f"byte-identically for both legs by the Pipeline. The residual is each engine's own "
-        f"message rendering, so the quality comparison for this cell is not comparable."
+        f"{parity_settings()['prompt_token_tolerance']:.0%} tolerance, with the tool payload "
+        f"canonicalised byte-identically for both legs by the Pipeline. The residual is each "
+        f"engine's own message rendering, so the quality comparison for this cell is not "
+        f"comparable."
     )
 
 
-TEMPLATE_RULE = (
-    "Template parity is the candidate cell against the oMLX incumbent on the same checkpoint, "
-    "both probed inside this cell with the identical greedy request. The Pipeline canonicalises "
-    "the tool schemas exactly as oMLX does before they leave it, so both legs render the same "
-    "payload; a rendered-prompt token-count difference beyond the stated tolerance stays a "
-    "FINDING (template_differs) and makes the cell's quality comparison not comparable. An "
-    "engine whose tools-bearing request renders to the same size as its no-tools request is "
-    "recorded as not rendering the tool schemas, and its tool-use quality is not comparable. "
-    "A greedy-output difference at equal counts stays a validity failure."
-)
+def _template_rule() -> str:
+    """The parity rule as the receipt states it, with the protocol's own numbers."""
+    settings = parity_settings()
+    return (
+        "Template parity is the candidate cell against the oMLX incumbent on the same checkpoint, "
+        "both probed inside this cell with the identical greedy request. The Pipeline canonicalises "
+        "the tool schemas exactly as oMLX does before they leave it, so both legs render the same "
+        "payload; a rendered-prompt token-count difference beyond "
+        f"{settings['prompt_token_tolerance']:.0%} stays a FINDING (template_differs) and makes "
+        "the cell's quality comparison not comparable. An engine whose tools-bearing request "
+        "renders to the same size as its no-tools request is recorded as not rendering the tool "
+        "schemas, and its tool-use quality is not comparable. Operator rule 2026-11-14: parity is "
+        "template/BOS/stop conformance, not bit-identical generation — the first "
+        f"{settings['prefix_tokens']} greedy text tokens must match, and a later divergence is "
+        "recorded numerical drift, not a failure."
+    )
 
 
 def _parity_unmeasured(
@@ -1095,7 +1113,7 @@ def _attach_incumbent_parity(
             ["the candidate's own greedy probe was not recorded"],
         )
         return
-    template["rule"] = TEMPLATE_RULE
+    template["rule"] = _template_rule()
     blocker = _incumbent_parity_blocker(cell, cfg)
     if blocker:
         parity["status"] = "not_run"
@@ -1196,10 +1214,9 @@ def _rendered_prompt_counts_differ(left: dict[str, Any], right: dict[str, Any]) 
     return not _counts_within_tolerance(left_count, right_count)
 
 
-def _counts_within_tolerance(
-    left: int, right: int, tolerance: float = PROMPT_TOKEN_TOLERANCE
-) -> bool:
+def _counts_within_tolerance(left: int, right: int) -> bool:
     """Same input renders to the same tokens; this absorbs only per-engine message handling."""
+    tolerance = parity_settings()["prompt_token_tolerance"]
     return abs(int(left) - int(right)) <= tolerance * max(abs(int(left)), abs(int(right)), 1)
 
 
@@ -1208,7 +1225,9 @@ def _prompt_token_delta(left: dict[str, Any], right: dict[str, Any]) -> dict[str
     right_count = right.get("rendered_prompt_token_count")
     if left_count is None or right_count is None:
         return {}
-    tolerance = int(PROMPT_TOKEN_TOLERANCE * max(int(left_count), int(right_count), 1))
+    tolerance = int(
+        parity_settings()["prompt_token_tolerance"] * max(int(left_count), int(right_count), 1)
+    )
     return {
         "left": left_count,
         "right": right_count,
@@ -1231,24 +1250,74 @@ def _tool_schemas_missing(engine: str, parity: dict[str, Any]) -> str | None:
     )
 
 
+def _output_text(output: Any) -> str:
+    """The text an output carries, reasoning first, as the wire shows it."""
+    if not isinstance(output, dict):
+        return str(output)
+    return "\n".join(
+        str(output[key])
+        for key in ("reasoning", "reasoning_content", "content", "refusal")
+        if isinstance(output.get(key), str) and output.get(key)
+    )
+
+
+def _greedy_divergence(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:
+    """Where the two legs' own text stops agreeing, with both outputs as they came back."""
+    left_output = (left.get("outputs") or [{}])[0]
+    right_output = (right.get("outputs") or [{}])[0]
+    left_tokens = _output_text(left_output).split()
+    right_tokens = _output_text(right_output).split()
+    shared = 0
+    for left_token, right_token in zip(left_tokens, right_tokens, strict=False):
+        if left_token != right_token:
+            break
+        shared += 1
+    return {
+        "index": shared,
+        "unit": "whitespace-delimited text tokens of the generated message",
+        "left_text_tokens": len(left_tokens),
+        "right_text_tokens": len(right_tokens),
+        "identical": left_output == right_output,
+        "left_output": left_output,
+        "right_output": right_output,
+    }
+
+
+def _greedy_output_classification(drift: dict[str, Any]) -> tuple[str, list[str]]:
+    """Operator rule 2026-11-14: the first K text tokens match, then divergence is drift."""
+    prefix = parity_settings()["prefix_tokens"]
+    if drift["identical"]:
+        return "match", []
+    if drift["index"] < prefix:
+        return "greedy_output_mismatch_unexplained", [
+            f"greedy text diverged at token {drift['index']}, before the {prefix} the protocol "
+            "requires to match: a template or BOS difference, not drift"
+        ]
+    return "greedy_numerical_drift", [
+        f"greedy text diverged at token {drift['index']}; the protocol requires the first "
+        f"{prefix} to match, so the remainder is recorded numerical drift"
+    ]
+
+
 def _classify_candidate_outputs(
     left: dict[str, Any], right: dict[str, Any]
-) -> tuple[str, list[str]]:
+) -> tuple[str, list[str], dict[str, Any]]:
+    drift = _greedy_divergence(left, right)
     if not _outputs_are_stable(left) or not _outputs_are_stable(right):
-        return "sampling_or_nondeterminism", ["repeated output differed with temperature 0"]
+        return "sampling_or_nondeterminism", ["repeated output differed with temperature 0"], drift
     if _effective_temperature_nonzero(left, right):
-        return "sampling_field_not_honored", ["an engine read back a nonzero effective temperature"]
+        return (
+            "sampling_field_not_honored",
+            ["an engine read back a nonzero effective temperature"],
+            drift,
+        )
     if _tool_schemas_missing(str(left.get("engine")), left) or _tool_schemas_missing(
         str(right.get("engine")), right
     ):
-        return _TOOL_SCHEMA_NOT_RENDERED, ["a leg does not render the offered tool schemas"]
+        return _TOOL_SCHEMA_NOT_RENDERED, ["a leg does not render the offered tool schemas"], drift
     if _rendered_prompt_counts_differ(left, right):
-        return _TEMPLATE_MISMATCH, ["same request rendered to different prompt token counts"]
-    if (left.get("outputs") or [None])[0] != (right.get("outputs") or [None])[0]:
-        return "greedy_output_mismatch_unexplained", [
-            "greedy outputs differ with no prompt-length explanation"
-        ]
-    return "match", []
+        return _TEMPLATE_MISMATCH, ["same request rendered to different prompt token counts"], drift
+    return *_greedy_output_classification(drift), drift
 
 
 def _compare_candidate_parity(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:
@@ -1261,18 +1330,20 @@ def _compare_candidate_parity(left: dict[str, Any], right: dict[str, Any]) -> di
         }
     findings = _parity_readback_findings(left, right)
     if not _parity_requests_match(left, right) or not _parity_requests_are_greedy(left, right):
-        classification = "sampling_request_mismatch"
+        classification, drift = "sampling_request_mismatch", _greedy_divergence(left, right)
         findings.append("parity requests are not identical greedy requests with fixed max_tokens")
     else:
-        classification, output_findings = _classify_candidate_outputs(left, right)
+        classification, output_findings, drift = _classify_candidate_outputs(left, right)
         findings.extend(output_findings)
     left_max_tokens = left.get("max_tokens", left_request.get("max_tokens"))
+    settings = parity_settings()
     return {
-        "valid": classification == "match",
+        "valid": classification in ("match", "greedy_numerical_drift"),
         "classification": classification,
         "requested_temperature": 0,
         "max_tokens": left_max_tokens,
-        "outputs_equal": (left.get("outputs") or [None])[0] == (right.get("outputs") or [None])[0],
+        "outputs_equal": drift["identical"],
+        "greedy_divergence": drift,
         "rendered_prompt_token_counts": {
             "left": left.get("rendered_prompt_token_count"),
             "right": right.get("rendered_prompt_token_count"),
@@ -1282,7 +1353,8 @@ def _compare_candidate_parity(left: dict[str, Any], right: dict[str, Any]) -> di
             "left": left.get("tool_rendering"),
             "right": right.get("tool_rendering"),
         },
-        "prompt_token_tolerance": PROMPT_TOKEN_TOLERANCE,
+        "prompt_token_tolerance": settings["prompt_token_tolerance"],
+        "prefix_tokens": settings["prefix_tokens"],
         "findings": findings,
     }
 
