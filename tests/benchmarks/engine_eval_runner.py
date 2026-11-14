@@ -443,6 +443,15 @@ def _candidate_memory(
 THINK_OFF_PROMPT = "Reply with exactly OK in visible text."
 TOOL_CALL_PROMPT = "Invoke get_weather for Boston."
 PARITY_PROMPT = "Reply with exactly OK in visible text and invoke get_weather for Boston."
+TOOL_TURN_PROMPT = "Invoke get_weather for Boston."
+TOOL_TURN_FOLLOW_UP = "Using the weather result, reply with one sentence giving the temperature."
+TOOL_TURN_RESULT = "18C and clear."
+# A rendered tool block is thousands of tokens; this floor separates it from the
+# user-prompt differences between the no-tools and tools probes.
+TOOL_RENDER_MIN_TOKENS = 50
+# Tool schemas are byte-identical on both legs after the Pipeline's eval pass, so this
+# only absorbs each engine's own message rendering, never the tool payload.
+PROMPT_TOKEN_TOLERANCE = 0.02
 FORCED_CHOICE_RULE = (
     "honoured means the forced call came back with no prose: prose under a named tool_choice "
     "is recorded as the engine not forcing the function"
@@ -606,13 +615,75 @@ def _candidate_template(cfg: dict, cell: dict[str, Any]) -> dict[str, Any]:
 
 
 def _candidate_prompt_token_count(engine: str, log_text: str) -> int | None:
+    """The last prompt count the engine logged. Per-request selection is in
+    ``_parity_prompt_tokens``; this is the engine-format parser."""
     if engine == "mlx-serve":
-        match = re.search(r"\bprompt=(\d+) tokens\b", log_text)
+        matches = _MLX_SERVE_PROMPT_RE.findall(log_text)
     elif engine == "mlx_lm.server":
-        match = re.search(r"Prompt processing progress: \d+/(\d+)", log_text)
+        matches = re.findall(r"Prompt processing progress: \d+/(\d+)", log_text)
     else:
-        match = re.search(r"\bprompt_tokens[=: ]+(\d+)\b", log_text)
-    return int(match.group(1)) if match else None
+        matches = re.findall(r"\bprompt_tokens[=: ]+(\d+)\b", log_text)
+    return int(matches[-1]) if matches else None
+
+
+def _engine_prompt_blocks(engine: str, log_text: str) -> list[dict[str, Any]]:
+    """Per-request prompt counts with the request's own tool bytes, when the log has them.
+
+    mlx-serve logs ``POST /v1/chat/completions (... user=<n>b, tools=<n>b ...)`` then
+    ``prompt=<n> tokens`` for the same request, so a probe's own count can be picked
+    out of a log that also holds the preflight's.
+    """
+    if engine != "mlx-serve":
+        count = _candidate_prompt_token_count(engine, log_text)
+        return [{"tools_bytes": None, "user_bytes": None, "prompt_tokens": count}] if count else []
+    blocks: list[dict[str, Any]] = []
+    current: dict[str, Any] | None = None
+    for line in log_text.splitlines():
+        request = _MLX_SERVE_REQUEST_RE.search(line)
+        if request:
+            current = {
+                "tools_bytes": int(request.group("tools")),
+                "user_bytes": int(request.group("user")),
+                "prompt_tokens": None,
+            }
+            blocks.append(current)
+            continue
+        prompt = _MLX_SERVE_PROMPT_RE.search(line)
+        if prompt and current is not None and current["prompt_tokens"] is None:
+            current["prompt_tokens"] = int(prompt.group(1))
+            current = None
+    return [block for block in blocks if block["prompt_tokens"] is not None]
+
+
+def _parity_prompt_tokens(blocks: list[dict[str, Any]], *, user_bytes: int) -> int | None:
+    """The parity request's own rendered-prompt count, not another probe's."""
+    matching = [
+        block for block in blocks if block["tools_bytes"] and block["user_bytes"] == user_bytes
+    ]
+    if matching:
+        return int(matching[-1]["prompt_tokens"])
+    return int(blocks[-1]["prompt_tokens"]) if blocks else None
+
+
+def _tool_rendering(blocks: list[dict[str, Any]]) -> dict[str, Any]:
+    """Whether the engine put the offered tool schemas into the rendered prompt."""
+    with_tools = [block for block in blocks if (block["tools_bytes"] or 0) > 0]
+    without = [block for block in blocks if block["tools_bytes"] == 0]
+    if not with_tools or not without:
+        return {
+            "rendered": None,
+            "reason": "the engine log carries no tools request beside a no-tools request",
+        }
+    high = max(int(block["prompt_tokens"]) for block in with_tools)
+    low = max(int(block["prompt_tokens"]) for block in without)
+    return {
+        "rendered": high - low >= TOOL_RENDER_MIN_TOKENS,
+        "with_tools_prompt_tokens": high,
+        "without_tools_prompt_tokens": low,
+        "delta_tokens": high - low,
+        "source": "engine log: tools=<bytes> and prompt=<n> logged per request",
+        "rule": f"a rendered tool block adds at least {TOOL_RENDER_MIN_TOKENS} prompt tokens",
+    }
 
 
 def _candidate_engine_log_text(started_info: dict[str, Any]) -> str:
@@ -666,7 +737,9 @@ def _candidate_parity(ctx: dict[str, Any]) -> dict[str, Any]:
     cell = ctx["cell"]
     body = ctx["body"]
     log_text = ctx["engine_log_text"]
+    blocks = ctx["prompt_blocks"]
     return {
+        "engine": cell["engine"],
         "requests": [body, body],
         "outputs": [_candidate_output(row["message"]) for row in ctx["parity_rows"]],
         "requested_temperature": body.get("temperature"),
@@ -683,8 +756,12 @@ def _candidate_parity(ctx: dict[str, Any]) -> dict[str, Any]:
             if cell["engine"] != "mlx-serve"
             else None
         ),
-        "rendered_prompt_token_count": _candidate_prompt_token_count(cell["engine"], log_text),
-        "rendered_prompt_token_count_source": "engine stderr/stdout log",
+        "rendered_prompt_token_count": _parity_prompt_tokens(
+            blocks, user_bytes=len(PARITY_PROMPT.encode())
+        ),
+        "rendered_prompt_token_count_source": "engine log: this request's own prompt line",
+        "rendered_prompt_blocks": blocks,
+        "tool_rendering": _tool_rendering(blocks),
         "tools_exposed": pipeline_tools_exposed(ctx["log"]),
     }
 
@@ -696,6 +773,11 @@ _OMLX_CHAT_PROMPT_RE = re.compile(
 )
 _PIPE_TOOLS_RE = re.compile(r"NON-STREAM tools: (\[.*\])")
 _TEMPLATE_MISMATCH = "chat_template_rendering_mismatch"
+_TOOL_SCHEMA_NOT_RENDERED = "tool_schema_not_rendered"
+_MLX_SERVE_REQUEST_RE = re.compile(
+    r"POST /v1/chat/completions \(.*?user=(?P<user>\d+)b, tools=(?P<tools>\d+)b"
+)
+_MLX_SERVE_PROMPT_RE = re.compile(r"\bprompt=(\d+) tokens\b")
 
 
 def omlx_prompt_token_count(log_text: str, model: str) -> int | None:
@@ -832,6 +914,10 @@ def _measure_incumbent_parity(
         ),
         "rendered_prompt_token_count": prompt,
         "rendered_prompt_token_count_source": "~/.omlx/logs/server.log Chat completion prompt",
+        "tool_rendering": {
+            "rendered": None,
+            "reason": "oMLX server.log logs the prompt count but not the request's tools bytes",
+        },
         "tools_exposed": pipeline_tools_exposed(instrument._pipeline_log_since(pipeline_mark)),
         "swap_used_mb": [swap_before, h2h.swap_now().get("used_mb")],
         "unload": _unload_incumbent(cfg, leg["model"]),
@@ -855,13 +941,13 @@ def _template_reconciliation(cell: dict[str, Any]) -> dict[str, Any]:
             "mlx_lm.server has --chat-template, but it already applies the checkpoint's own "
             "chat_template.jinja: AutoTokenizer loads it from the model directory and "
             "mlx_lm/server.py _tokenize calls tokenizer.apply_chat_template(messages, "
-            "add_generation_prompt=True, tools=..., **chat_template_kwargs). The residual "
-            "difference is oMLX's pre-render tool-schema pass, which the flag cannot reproduce."
+            "add_generation_prompt=True, tools=..., **chat_template_kwargs). The Pipeline "
+            "canonicalises the tool schemas for every eval arm, so the payload is identical."
         )
     elif engine == "mlx-serve":
         detail = (
-            "mlx-serve 26.11.2 exposes no chat-template flag in `mlx-serve --help`; the residual "
-            "difference is oMLX's pre-render tool-schema pass."
+            "mlx-serve 26.11.2 exposes no chat-template flag in `mlx-serve --help`; the Pipeline "
+            "canonicalises the tool schemas for every eval arm, so the payload is identical."
         )
     else:
         detail = f"{engine} has no registered chat-template override for this matrix cell"
@@ -884,7 +970,16 @@ def _differs_from_incumbent(comparison: dict[str, Any]) -> str | None:
 
 def _template_difference(cell: dict[str, Any], comparison: dict[str, Any]) -> str | None:
     """The recorded FINDING when the candidate renders the same probe differently."""
-    if comparison.get("classification") != _TEMPLATE_MISMATCH:
+    classification = comparison.get("classification")
+    if classification == _TOOL_SCHEMA_NOT_RENDERED:
+        rendering = (comparison.get("tool_rendering") or {}).get("left") or {}
+        return (
+            f"{cell['engine']} does not render the offered tool schemas into its prompt "
+            f"({rendering.get('with_tools_prompt_tokens')} tokens with tools, "
+            f"{rendering.get('without_tools_prompt_tokens')} without). Tool-use quality is "
+            f"not comparable for this engine; answer quality is compared on the same payload."
+        )
+    if classification != _TEMPLATE_MISMATCH:
         return None
     counts = comparison.get("rendered_prompt_token_counts") or {}
     candidate, incumbent = counts.get("left"), counts.get("right")
@@ -896,21 +991,22 @@ def _template_difference(cell: dict[str, Any], comparison: dict[str, Any]) -> st
     delta = int(candidate) - int(incumbent)
     return (
         f"{cell['engine']} renders the same greedy probe to {candidate} prompt tokens; "
-        f"incumbent oMLX renders {incumbent} ({delta:+d}); {cell['engine']} is the engine that "
-        f"differs. Both load the checkpoint's own chat_template.jinja, so the divergence is the "
-        f"payload: oMLX canonicalises tool schemas before rendering "
-        f"(omlx/api/tool_calling.py convert_tools_for_template: sorted schema keys and a "
-        f"description key on every schema node), and no candidate engine exposes that pass as a "
-        f"flag. The quality comparison for this cell is not comparable."
+        f"incumbent oMLX renders {incumbent} ({delta:+d}), beyond the "
+        f"{PROMPT_TOKEN_TOLERANCE:.0%} tolerance, with the tool payload canonicalised "
+        f"byte-identically for both legs by the Pipeline. The residual is each engine's own "
+        f"message rendering, so the quality comparison for this cell is not comparable."
     )
 
 
 TEMPLATE_RULE = (
     "Template parity is the candidate cell against the oMLX incumbent on the same checkpoint, "
-    "both probed inside this cell with the identical greedy request. A rendered-prompt token "
-    "count difference is a FINDING (template_differs), not a validity failure: route, memory, "
-    "settings and token checks decide validity, and the cell's quality comparison is not "
-    "comparable. A greedy-output difference at equal counts stays a validity failure."
+    "both probed inside this cell with the identical greedy request. The Pipeline canonicalises "
+    "the tool schemas exactly as oMLX does before they leave it, so both legs render the same "
+    "payload; a rendered-prompt token-count difference beyond the stated tolerance stays a "
+    "FINDING (template_differs) and makes the cell's quality comparison not comparable. An "
+    "engine whose tools-bearing request renders to the same size as its no-tools request is "
+    "recorded as not rendering the tool schemas, and its tool-use quality is not comparable. "
+    "A greedy-output difference at equal counts stays a validity failure."
 )
 
 
@@ -972,6 +1068,7 @@ def _classify_incumbent_leg(
     difference = _template_difference(cell, comparison)
     template["template_differs"] = difference
     template["quality_comparable"] = difference is None
+    template["tool_use_comparable"] = comparison.get("classification") != _TOOL_SCHEMA_NOT_RENDERED
     if difference:
         template["reconciliation"] = _template_reconciliation(cell)
 
@@ -1094,7 +1191,44 @@ def _effective_temperature_nonzero(left: dict[str, Any], right: dict[str, Any]) 
 def _rendered_prompt_counts_differ(left: dict[str, Any], right: dict[str, Any]) -> bool:
     left_count = left.get("rendered_prompt_token_count")
     right_count = right.get("rendered_prompt_token_count")
-    return left_count is not None and right_count is not None and left_count != right_count
+    if left_count is None or right_count is None:
+        return False
+    return not _counts_within_tolerance(left_count, right_count)
+
+
+def _counts_within_tolerance(
+    left: int, right: int, tolerance: float = PROMPT_TOKEN_TOLERANCE
+) -> bool:
+    """Same input renders to the same tokens; this absorbs only per-engine message handling."""
+    return abs(int(left) - int(right)) <= tolerance * max(abs(int(left)), abs(int(right)), 1)
+
+
+def _prompt_token_delta(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:
+    left_count = left.get("rendered_prompt_token_count")
+    right_count = right.get("rendered_prompt_token_count")
+    if left_count is None or right_count is None:
+        return {}
+    tolerance = int(PROMPT_TOKEN_TOLERANCE * max(int(left_count), int(right_count), 1))
+    return {
+        "left": left_count,
+        "right": right_count,
+        "delta": int(left_count) - int(right_count),
+        "tolerance_tokens": tolerance,
+        "within_tolerance": _counts_within_tolerance(left_count, right_count),
+    }
+
+
+def _tool_schemas_missing(engine: str, parity: dict[str, Any]) -> str | None:
+    """The engine that does not put the offered schemas into its prompt, if one does not."""
+    rendering = parity.get("tool_rendering") or {}
+    if rendering.get("rendered") is not False:
+        return None
+    return (
+        f"{engine} renders a tools-bearing request to "
+        f"{rendering.get('with_tools_prompt_tokens')} prompt tokens and the same request "
+        f"without tools to {rendering.get('without_tools_prompt_tokens')}: the offered tool "
+        f"schemas are not in its prompt, so its tool-use quality is not comparable"
+    )
 
 
 def _classify_candidate_outputs(
@@ -1104,10 +1238,12 @@ def _classify_candidate_outputs(
         return "sampling_or_nondeterminism", ["repeated output differed with temperature 0"]
     if _effective_temperature_nonzero(left, right):
         return "sampling_field_not_honored", ["an engine read back a nonzero effective temperature"]
+    if _tool_schemas_missing(str(left.get("engine")), left) or _tool_schemas_missing(
+        str(right.get("engine")), right
+    ):
+        return _TOOL_SCHEMA_NOT_RENDERED, ["a leg does not render the offered tool schemas"]
     if _rendered_prompt_counts_differ(left, right):
-        return "chat_template_rendering_mismatch", [
-            "same request rendered to different prompt token counts"
-        ]
+        return _TEMPLATE_MISMATCH, ["same request rendered to different prompt token counts"]
     if (left.get("outputs") or [None])[0] != (right.get("outputs") or [None])[0]:
         return "greedy_output_mismatch_unexplained", [
             "greedy outputs differ with no prompt-length explanation"
@@ -1141,6 +1277,12 @@ def _compare_candidate_parity(left: dict[str, Any], right: dict[str, Any]) -> di
             "left": left.get("rendered_prompt_token_count"),
             "right": right.get("rendered_prompt_token_count"),
         },
+        "rendered_prompt_token_delta": _prompt_token_delta(left, right),
+        "tool_rendering": {
+            "left": left.get("tool_rendering"),
+            "right": right.get("tool_rendering"),
+        },
+        "prompt_token_tolerance": PROMPT_TOKEN_TOLERANCE,
         "findings": findings,
     }
 
@@ -1186,6 +1328,7 @@ def _candidate_cell_inputs(
     rows = [think_row, tool_row, *parity_rows]
     resident_after = _candidate_residency(cfg)
     log = instrument._pipeline_log_since(log_since)
+    engine_log_text = _candidate_engine_log_text(started_info or {})
     preflight = _grade_cell_preflight(cell, think_row, tool_row)
     tokenizer = _candidate_tokenizer(cfg, cell)
     return {
@@ -1205,7 +1348,8 @@ def _candidate_cell_inputs(
         "tool_row": tool_row,
         "parity_rows": parity_rows,
         "log": log,
-        "engine_log_text": _candidate_engine_log_text(started_info or {}),
+        "engine_log_text": engine_log_text,
+        "prompt_blocks": _engine_prompt_blocks(cell["engine"], engine_log_text),
         "preflight": preflight,
         "tokenizer": tokenizer,
         "started_info": started_info or {},
@@ -2212,6 +2356,86 @@ def _read_wfe_arm_rows(
     return arms
 
 
+def _probe_row(cell: dict[str, Any], raw: dict[str, Any]) -> dict[str, Any]:
+    """The route fields a Pipeline probe row is judged on."""
+    return {
+        "workspace": cell["workspace"],
+        "backend": cell["backend"],
+        "expected_model": cell["expected_model"],
+        "route": raw.get("header"),
+        "engine_model": raw.get("engine_model"),
+        "text": raw.get("text", ""),
+    }
+
+
+def _tool_turn_reason(
+    tool: dict[str, Any], routes_ok: bool, answer_used_result: bool, answer: str
+) -> str:
+    """One line saying what the tool turn did, for a receipt that never has an empty verdict."""
+    if tool.get("ok") is not True:
+        return f"tool turn: no usable get_weather call — {tool.get('why') or tool}"
+    if not routes_ok:
+        return "tool turn: a leg did not route to the pinned engine model"
+    if not answer_used_result:
+        head = " ".join(str(answer).split())[:80]
+        return f"post-tool turn did not use the tool result: {head!r}"
+    return "tool turn: get_weather called and the post-tool turn used its result"
+
+
+def _run_tool_turn(cell: dict[str, Any], root: Path, build: str, pipeline: str) -> dict[str, Any]:
+    """A tool call and the post-tool turn, both through the Pipeline.
+
+    The registered WFE quality task is graded by the injected RAG context, so it can
+    pass without ever calling a tool; this workload supplies the call and its result.
+    """
+    protocol = _protocol_workload("tool-turn")
+    url = f"{pipeline.rstrip('/')}/v1/chat/completions"
+    call_body = _probe_body(
+        cell, TOOL_TURN_PROMPT, {"tools": instrument._TOOL_SPEC, "tool_choice": _GET_WEATHER_CHOICE}
+    )
+    with _running_cells([cell], root, build) as (_infos, host_prep):
+        first = _candidate_request(url, call_body)
+        calls = first["message"].get("tool_calls") or []
+        tool = instrument.tool_from_message(first["message"])
+        call_id = (calls[0] if calls else {}).get("id") or "call_tool_turn"
+        follow_up = {
+            **call_body,
+            "messages": [
+                {"role": "user", "content": TOOL_TURN_PROMPT},
+                {
+                    "role": "assistant",
+                    "content": first["message"].get("content") or "",
+                    "tool_calls": calls,
+                },
+                {"role": "tool", "tool_call_id": call_id, "content": TOOL_TURN_RESULT},
+                {"role": "user", "content": TOOL_TURN_FOLLOW_UP},
+            ],
+            "tool_choice": "auto",
+        }
+        second = _candidate_request(url, follow_up)
+    rows = [_probe_row(cell, first), _probe_row(cell, second)]
+    routes_ok = all(_route_valid(row) for row in rows)
+    answer = str((second["message"] or {}).get("content") or "")
+    used_result = "18" in answer
+    valid = tool.get("ok") is True and routes_ok and used_result
+    return {
+        "status": "PASS" if valid else "FAIL",
+        "valid": valid,
+        "verdict": "pass" if valid else "fail",
+        "reason": _tool_turn_reason(tool, routes_ok, used_result, answer),
+        "pass_rule": protocol.get("pass"),
+        "turns": 2,
+        "tool_calls": 1 if tool.get("ok") is True else 0,
+        "tool_errors": 0,
+        "requests": [call_body, follow_up],
+        "routes": [{"header": row["route"], "engine_model": row["engine_model"]} for row in rows],
+        "tool_call": tool,
+        "tool_result": TOOL_TURN_RESULT,
+        "post_tool_answer": answer,
+        "host_prep": host_prep,
+    }
+
+
 def _grade_single_outcome(result: dict[str, Any], arms: list[dict[str, Any]]) -> None:
     """One pinned arm. Used for an incumbent quality cell, which has no challenger."""
     row = (arms[0].get("rows") or [{}])[0] if arms else {}
@@ -2672,9 +2896,10 @@ def _execute_stage3_workload(
             return {
                 "status": "NOT_APPLICABLE",
                 "valid": True,
+                "verdict": "not_applicable",
                 "reason": f"tool turn: not applicable — {not_applicable}",
             }
-        return _run_quality_workload(cell, workload, root, build, pipeline, compare=False)
+        return _run_tool_turn(cell, root, build, pipeline)
     if workload == "concurrency-mix":
         return _run_concurrency_workload(cell, root, build, pipeline)
     if workload == "long-context":
@@ -2740,6 +2965,7 @@ def run_stage3(
         }
     except (Exception, SystemExit) as exc:
         result = {"valid": False, "status": "FAIL", "reason": f"{type(exc).__name__}: {exc}"}
+    _stamp_outcome(result)
     result.update(
         {
             "build": build,
@@ -2759,7 +2985,7 @@ def run_stage3(
 # Upper bounds for the plan print. Not measurements.
 _WORKLOAD_ESTIMATE_S = {
     "quality-seat": 20 * 60,
-    "tool-turn": 10 * 60,
+    "tool-turn": 5 * 60,
     "long-context": 15 * 60,
     "concurrency-mix": 15 * 60,
     "co-residence": 10 * 60,
@@ -2784,6 +3010,35 @@ _CELL_KEYS = (
     "cwd",
     "launch_error",
 )
+
+
+def _outcome_reason(result: dict[str, Any]) -> str:
+    """One line for a receipt that did not produce a reason of its own."""
+    status = str(result.get("status") or ("PASS" if result.get("valid") else "FAIL"))
+    parts = [f"status {status}"]
+    for key in ("candidate_outcome", "incumbent_outcome", "tool_calls", "turns", "tool_errors"):
+        if result.get(key) is not None:
+            parts.append(f"{key}={result[key]}")
+    return ", ".join(parts)
+
+
+_VERDICT_BY_STATUS = {
+    "PASS": "pass",
+    "FAIL": "fail",
+    "NOT_APPLICABLE": "not_applicable",
+    "NOT_COMPARABLE": "not_comparable",
+    "BLOCKED": "blocked",
+}
+
+
+def _stamp_outcome(result: dict[str, Any]) -> None:
+    """Every receipt carries a pass/fail verdict and a one-line reason."""
+    status = str(result.get("status") or ("PASS" if result.get("valid") is True else "FAIL"))
+    result["verdict"] = _VERDICT_BY_STATUS.get(
+        status, "pass" if result.get("valid") is True else "fail"
+    )
+    if not result.get("reason"):
+        result["reason"] = _outcome_reason(result)
 
 
 def _stage3_dir(root: Path, build: str) -> Path:
@@ -2877,19 +3132,42 @@ def _plan_entry(cell: dict[str, Any], role: str) -> dict[str, Any]:
     }
 
 
-def build_stage3_plan(build: str) -> dict[str, Any]:
-    """List current-build valid canary cells and their incumbent pairs. Does not run."""
+def build_stage3_plan(
+    build: str,
+    seats: list[str] | None = None,
+    skip_incumbents: tuple[str, ...] | list[str] = (),
+) -> dict[str, Any]:
+    """List current-build valid canary cells and their incumbent pairs. Does not run.
+
+    ``seats`` bounds the plan to those seats; ``skip_incumbents`` drops an incumbent
+    engine's pair rows so a bounded rehearsal need not load it.
+    """
     head = current_build()
     if build != head:
         raise Stage3BlockedError(f"canary build {build} is not the current build {head}")
     root = data_root()
     candidates = _valid_canary_cells(root, build)
-    seats = list(dict.fromkeys(cell["seat"] for cell in candidates))
+    if seats:
+        known = {cell["seat"] for cell in candidates}
+        unknown = [seat for seat in seats if seat not in known]
+        if unknown:
+            raise Stage3BlockedError(
+                f"no current-build valid canary cell for seat(s) {unknown}; valid: {sorted(known)}"
+            )
+        candidates = [cell for cell in candidates if cell["seat"] in seats]
+    chosen = list(dict.fromkeys(cell["seat"] for cell in candidates))
+    skipped = set(skip_incumbents)
     entries = [_plan_entry(cell, "candidate") for cell in candidates]
-    for seat in seats:
-        entries.extend(_plan_entry(cell, "incumbent") for cell in incumbent_pair(seat))
+    for seat in chosen:
+        entries.extend(
+            _plan_entry(cell, "incumbent")
+            for cell in incumbent_pair(seat)
+            if cell["engine"] not in skipped
+        )
     plan = {
         "build": build,
+        "seats": chosen,
+        "skip_incumbents": sorted(skipped),
         "estimate_note": "upper bound in seconds, not a measurement",
         "estimate_s": sum(int(entry["estimate_s"]) for entry in entries),
         "cells": entries,
@@ -2901,7 +3179,8 @@ def build_stage3_plan(build: str) -> dict[str, Any]:
 def _print_plan(plan: dict[str, Any]) -> None:
     print(
         f"build {plan['build']} cells {len(plan['cells'])} "
-        f"estimate_s {plan['estimate_s']} (upper bound, not a measurement)",
+        f"estimate_s {plan['estimate_s']} ({plan['estimate_s'] / 3600:.1f}h upper bound, "
+        f"not a measurement)",
         flush=True,
     )
     for entry in plan["cells"]:
@@ -3252,6 +3531,19 @@ def main(argv: list[str] | None = None) -> int:
     stage3.add_argument("--pipeline", default="http://127.0.0.1:9099")
     plan = sub.add_parser("stage3-plan")
     plan.add_argument("--from-canary", required=True, dest="from_canary")
+    plan.add_argument(
+        "--seats",
+        default=None,
+        help="comma-separated seats to plan; every valid canary seat when omitted",
+    )
+    plan.add_argument(
+        "--skip-incumbent",
+        action="append",
+        default=[],
+        dest="skip_incumbents",
+        choices=("omlx", "ollama"),
+        help="leave this incumbent engine's pair rows out (repeatable)",
+    )
     stage3_run = sub.add_parser("stage3-run")
     stage3_run.add_argument("--plan", required=True)
     stage3_run.add_argument("--pipeline", default="http://127.0.0.1:9099")
@@ -3261,7 +3553,10 @@ def main(argv: list[str] | None = None) -> int:
             _results, code = run_canary(args.pipeline, only=args.cell)
             return code
         if args.command == "stage3-plan":
-            built = build_stage3_plan(args.from_canary)
+            seats = [s.strip() for s in (args.seats or "").split(",") if s.strip()] or None
+            built = build_stage3_plan(
+                args.from_canary, seats=seats, skip_incumbents=args.skip_incumbents
+            )
             _print_plan(built)
             return 0
         if args.command == "stage3-run":
