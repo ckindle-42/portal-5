@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import io
 import json
+import urllib.error
 from contextlib import nullcontext
 from pathlib import Path
 
@@ -653,12 +655,277 @@ def _receipt(cell: dict, valid: bool, reason: str) -> dict:
     return receipt
 
 
+def test_a_queued_omlx_unload_settles_instead_of_failing(monkeypatch, capsys) -> None:
+    """oMLX 400s "Model not loaded" while its queued unload drains; it still releases."""
+    loaded_reads = {"n": 0}
+
+    def fake_http_json(url, payload=None, timeout=30):
+        if url.endswith("/v1/models/status"):
+            loaded_reads["n"] += 1
+            loaded = loaded_reads["n"] == 1
+            return {"models": [{"id": "loaded/model", "loaded": loaded, "actual_size": 10}]}
+        if url.endswith("/api/ps"):
+            return {"models": []}
+        if url.endswith("/loaded%2Fmodel/unload"):
+            raise urllib.error.HTTPError(
+                url, 400, "Bad Request", {}, io.BytesIO(b'{"detail":"Model not loaded"}')
+            )
+        raise AssertionError(url)
+
+    monkeypatch.setattr(runner.h2h, "http_json", fake_http_json)
+    cfg = {"engines": {"ollama": {"base": "http://o"}, "omlx": {"base": "http://m"}}}
+
+    result = runner._prepare_production_models(cfg)
+
+    assert result["valid"] is True
+    assert result["unloaded"]["omlx"] == ["loaded/model"]
+    assert result["remaining"]["omlx"] == []
+    assert "unload already queued" in capsys.readouterr().out
+
+
+def test_a_real_unload_refusal_is_still_a_failure(monkeypatch) -> None:
+    def fake_http_json(url, payload=None, timeout=30):
+        if url.endswith("/v1/models/status"):
+            return {"models": [{"id": "busy/model", "loaded": True, "actual_size": 10}]}
+        if url.endswith("/api/ps"):
+            return {"models": []}
+        if url.endswith("/busy%2Fmodel/unload"):
+            raise urllib.error.HTTPError(
+                url, 400, "Bad Request", {}, io.BytesIO(b'{"detail":"model has active requests"}')
+            )
+        raise AssertionError(url)
+
+    monkeypatch.setattr(runner.h2h, "http_json", fake_http_json)
+
+    result = runner._prepare_production_models(
+        {"engines": {"ollama": {"base": "http://o"}, "omlx": {"base": "http://m"}}}
+    )
+
+    assert result["valid"] is False
+    assert any("unload failed for busy/model" in item for item in result["failures"])
+
+
+def test_every_stage3_engine_start_preps_the_host_first(monkeypatch, tmp_path: Path) -> None:
+    order = []
+    cell = {
+        "engine": "mlx-serve",
+        "engine_kind": "managed",
+        "mode": "plain",
+        "seat": "daily-moe",
+        "workspace": "bench-engine-daily-moe",
+        "model": "m",
+        "port": 11234,
+    }
+    monkeypatch.setattr(runner.h2h, "load_config", lambda: {"engines": {}})
+    monkeypatch.setattr(runner, "_gate_canary", lambda *_a: {})
+    monkeypatch.setattr(runner.h2h, "pid_on_port", lambda _port: None)
+    monkeypatch.setattr(runner.h2h, "start_gate", lambda _cfg: (True, "ok"))
+    monkeypatch.setattr(runner.h2h, "single_flight", nullcontext)
+    monkeypatch.setattr(
+        runner,
+        "_prepare_production_models",
+        lambda _cfg: (
+            order.append("prep")
+            or {"valid": True, "unloaded": {"omlx": ["Qwen3.8-27B-4bit"], "ollama": []}}
+        ),
+    )
+
+    def start(*_args, on_started=None, **_kwargs):
+        order.append("start")
+        if on_started:
+            on_started()
+        return {"ready_s": 1.0}
+
+    monkeypatch.setattr(runner.h2h, "start_managed", start)
+    monkeypatch.setattr(runner.h2h, "stop_managed", lambda *_a: order.append("stop"))
+
+    with runner._running_cells([cell], tmp_path, "build-a") as (_infos, host_prep):
+        assert host_prep["unloaded"]["omlx"] == ["Qwen3.8-27B-4bit"]
+
+    assert order == ["prep", "start", "stop"]
+
+
+def test_a_failed_pre_workload_unload_refuses_to_start_the_engine(
+    monkeypatch, tmp_path: Path
+) -> None:
+    cell = {
+        "engine": "mlx-serve",
+        "engine_kind": "managed",
+        "mode": "plain",
+        "seat": "daily-moe",
+        "workspace": "bench-engine-daily-moe",
+        "model": "m",
+        "port": 11234,
+    }
+    started = []
+    monkeypatch.setattr(runner.h2h, "load_config", lambda: {"engines": {}})
+    monkeypatch.setattr(runner, "_gate_canary", lambda *_a: {})
+    monkeypatch.setattr(runner.h2h, "pid_on_port", lambda _port: None)
+    monkeypatch.setattr(
+        runner,
+        "_prepare_production_models",
+        lambda _cfg: {"valid": False, "failures": ["omlx still has loaded model(s): ['m']"]},
+    )
+    monkeypatch.setattr(runner.h2h, "start_managed", lambda *_a, **_k: started.append("start"))
+
+    with (
+        pytest.raises(runner.Stage3BlockedError, match="pre-workload unload failed"),
+        runner._running_cells([cell], tmp_path, "build-a"),
+    ):
+        pass
+
+    assert started == []
+
+
+def test_a_wfe_blocked_arm_reports_its_own_verdict_line() -> None:
+    stdout = (
+        "arm m@omlx-incumbent-1: BLOCKED — bench-engine-daily-moe: the build serving 'm' "
+        "cannot be observed: backend 'eval-openai-omlx-incumbent' has no content identity\n\n"
+        "campaign dir: /tmp/campaign\n"
+    )
+    detail = runner._wfe_failure_detail(stdout, "tool surface preflight: PASS (2 check(s))\n")
+    assert detail.startswith("arm m@omlx-incumbent-1: BLOCKED")
+    assert "content identity" in detail
+    assert runner._wfe_failure_detail("", "tool surface preflight: PASS") == (
+        "tool surface preflight: PASS"
+    )
+
+
+def test_missing_binary_is_the_absent_executable(tmp_path: Path) -> None:
+    assert runner._missing_binary([str(tmp_path / "gone")], None) == str(tmp_path / "gone")
+    exe = tmp_path / "present"
+    exe.write_text("#!/bin/sh\n", encoding="utf-8")
+    exe.chmod(0o755)
+    assert runner._missing_binary([str(exe)], None) is None
+    absent = "definitely-not-installed-engine-xyz"
+    assert runner._missing_binary([absent], None) == absent
+
+
+def test_a_not_installed_cell_is_skipped_and_does_not_stop_the_canary(
+    monkeypatch, tmp_path: Path
+) -> None:
+    cells = [
+        {
+            "engine": "prismml-llama",
+            "mode": "plain",
+            "seat": "task-router",
+            "workspace": "bench-engine-task-router",
+            "model": "m",
+            "not_installed": "prismml-llama not installed: /nope/llama-server is missing",
+        },
+        {"engine": "mlx-serve", "mode": "plain", "seat": "hunt", "workspace": "w", "model": "m"},
+    ]
+    monkeypatch.setattr(runner, "candidate_cells", lambda: cells)
+    monkeypatch.setattr(runner, "current_build", lambda: "build-a")
+    monkeypatch.setattr(runner, "data_root", lambda: tmp_path)
+    started = []
+
+    def fake_run_cell(cell, _pipeline, build):
+        started.append(cell["engine"])
+        if cell.get("not_installed"):
+            return {
+                "build": build,
+                "cell": {
+                    key: cell[key] for key in ("engine", "mode", "seat", "workspace", "model")
+                },
+                "valid": False,
+                "skipped": True,
+                "status": "NOT_INSTALLED",
+                "reason": cell["not_installed"],
+                "failures": [],
+            }
+        return _receipt(cell, True, "ok")
+
+    monkeypatch.setattr(runner, "run_cell", fake_run_cell)
+
+    results, code = runner.run_canary("http://pipeline")
+
+    assert started == ["prismml-llama", "mlx-serve"]
+    assert results[0]["skipped"] is True and results[1]["valid"] is True
+    assert code == 0
+
+
+def test_a_not_installed_cell_writes_a_skip_receipt_without_starting(
+    monkeypatch, tmp_path: Path
+) -> None:
+    cell = {
+        "engine": "prismml-llama",
+        "mode": "plain",
+        "seat": "task-router",
+        "workspace": "bench-engine-task-router",
+        "model": "m",
+        "not_installed": "prismml-llama not installed: /nope/llama-server is missing",
+    }
+    monkeypatch.setattr(runner, "data_root", lambda: tmp_path)
+    monkeypatch.setattr(runner, "_configure_results", lambda _root: None)
+    monkeypatch.setattr(runner.h2h, "load_config", lambda: {"engines": {}})
+    monkeypatch.setattr(runner.h2h, "start_managed", lambda *_a, **_k: pytest.fail("started"))
+
+    receipt = runner.run_cell(cell, "http://pipeline")
+
+    assert receipt["status"] == "NOT_INSTALLED"
+    assert receipt["skipped"] is True and receipt["valid"] is False
+    assert json.loads(Path(receipt["receipt"]).read_text(encoding="utf-8"))["skipped"] is True
+    with pytest.raises(runner.Stage3BlockedError, match="not installed"):
+        runner.require_valid_canary(tmp_path, runner.current_build(), cell)
+
+
+def test_tokens_fall_back_to_the_engine_tokenizer_when_the_checkpoint_has_none(
+    monkeypatch,
+) -> None:
+    ctx = {
+        "cell": {"base": "http://engine"},
+        "tokenizer": None,
+        "think_row": {"text": "OK", "tokens": 2},
+    }
+    monkeypatch.setattr(runner, "_engine_token_count", lambda _cell, _text: 2)
+
+    tokens = runner._token_evidence(ctx)
+
+    assert tokens["engine_completion"] == 2
+    assert tokens["tokenizer_completion"] == 2
+    assert "/tokenize" in tokens["source"]
+
+
+def test_tokens_prefer_the_checkpoint_tokenizer(monkeypatch, tmp_path: Path) -> None:
+    tokenizer = tmp_path / "tokenizer.json"
+    tokenizer.write_text("{}", encoding="utf-8")
+    ctx = {
+        "cell": {"base": "http://engine"},
+        "tokenizer": tokenizer,
+        "think_row": {"text": "OK", "tokens": 2},
+    }
+    monkeypatch.setattr(runner.instrument, "count_tokens", lambda _text, _path: 7)
+    monkeypatch.setattr(runner, "_engine_token_count", lambda *_a: 99)
+
+    tokens = runner._token_evidence(ctx)
+
+    assert tokens["tokenizer_completion"] == 7
+    assert "checkpoint tokenizer" in tokens["source"]
+
+
+def test_engine_token_count_reads_the_tokenize_response(monkeypatch) -> None:
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            return json.dumps({"tokens": [1, 2, 3]}).encode()
+
+    monkeypatch.setattr(runner.urllib.request, "urlopen", lambda *_a, **_k: Response())
+
+    assert runner._engine_token_count({"base": "http://engine"}, "OK") == 3
+
+
 def test_canary_cell_runs_one_cell_and_stops_on_two_consecutive_reasons(
     monkeypatch, tmp_path, capsys
 ):
     cells = [
         {"engine": "rapid-mlx", "mode": "plain", "seat": "coding", "workspace": "w", "model": "m"},
-        {"engine": "mlx-serve", "mode": "plain", "seat": "hunt", "workspace": "w", "model": "m"},
+        {"engine": "rapid-mlx", "mode": "spec", "seat": "coding", "workspace": "w", "model": "m"},
         {
             "engine": "vllm-mlx",
             "mode": "plain",
@@ -680,7 +947,7 @@ def test_canary_cell_runs_one_cell_and_stops_on_two_consecutive_reasons(
 
     monkeypatch.setattr(runner, "run_cell", fake_run_cell)
     _results, code = runner.run_canary("http://pipeline")
-    assert seen == ["rapid-mlx", "mlx-serve"]
+    assert seen == ["rapid-mlx", "rapid-mlx"]
     assert code == 2
     assert "2 consecutive cells" in capsys.readouterr().out
 
@@ -689,6 +956,21 @@ def test_canary_cell_runs_one_cell_and_stops_on_two_consecutive_reasons(
     assert seen == ["vllm-mlx"]
     assert len(one) == 1
     assert code == 2
+
+
+def test_backend_health_reason_keeps_its_engine_so_engines_do_not_merge() -> None:
+    """Two engines can 400 for different root causes; the normalised reason says which."""
+    reason = (
+        "candidate cell: HTTP 400: portal_backend: 'eval-openai-rapid-mlx' is not a healthy "
+        "candidate backend for this workspace (healthy candidates: ['eval-openai-omlx-incumbent'])"
+    )
+    rapid = runner.normalise_reason(reason, {"engine": "rapid-mlx"})
+    splash = runner.normalise_reason(reason, {"engine": "splash"})
+
+    assert "engine=rapid-mlx" in rapid and "engine=splash" in splash
+    assert rapid != splash
+    assert "eval-openai-rapid-mlx" not in rapid  # ids still collapse for grouping
+    assert runner.normalise_reason("startup exit 2", {"engine": "rapid-mlx"}) == "startup exit N"
 
 
 def test_canary_does_not_stop_when_a_valid_cell_splits_the_same_reason(monkeypatch, tmp_path):
