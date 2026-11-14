@@ -30,6 +30,273 @@ def test_candidate_cells_use_registry_argv_and_fixed_pipeline_backend() -> None:
     assert all(cell["backend"] != "eval-openai" or cell["port"] == 11234 for cell in cells)
 
 
+def test_production_models_are_unloaded_before_candidate_start(monkeypatch, capsys) -> None:
+    state = {"ollama": {"production:tag": True}, "omlx": {"production/model": True}}
+    calls = []
+
+    def fake_http_json(url, payload=None, timeout=30):
+        calls.append((url, payload))
+        if url.endswith("/api/ps"):
+            return {"models": [{"name": name} for name in state["ollama"]]}
+        if url.endswith("/v1/models/status"):
+            return {
+                "models": [
+                    {"id": name, "loaded": loaded, "actual_size": 10}
+                    for name, loaded in state["omlx"].items()
+                ]
+            }
+        if url.endswith("/api/generate"):
+            assert payload == {"model": "production:tag", "keep_alive": 0, "stream": False}
+            state["ollama"].clear()
+            return {"done": True}
+        if url.endswith("/production%2Fmodel/unload"):
+            state["omlx"]["production/model"] = False
+            return {"unloaded": True}
+        raise AssertionError(url)
+
+    monkeypatch.setattr(runner.h2h, "http_json", fake_http_json)
+    cfg = {
+        "engines": {
+            "ollama": {"base": "http://127.0.0.1:11434"},
+            "omlx": {"base": "http://127.0.0.1:8085"},
+        }
+    }
+
+    result = runner._prepare_production_models(cfg)
+
+    assert result["valid"] is True
+    assert result["unloaded"] == {"ollama": ["production:tag"], "omlx": ["production/model"]}
+    assert any(
+        payload == {"model": "production:tag", "keep_alive": 0, "stream": False}
+        for _, payload in calls
+    )
+    assert any(
+        "unloaded | ollama | production:tag" in line
+        for line in capsys.readouterr().out.splitlines()
+    )
+
+
+def test_failed_production_unload_is_recorded_and_stops_before_swap_gate(monkeypatch) -> None:
+    receipt = {}
+    gate_calls = []
+    host_prep = {"valid": False, "failures": ["oMLX unload failed for loaded/model"]}
+    monkeypatch.setattr(runner, "_prepare_production_models", lambda _cfg: host_prep)
+    monkeypatch.setattr(runner.h2h, "start_gate", lambda _cfg: gate_calls.append("gate"))
+    cell = {"launch_error": None, "port": 11234}
+
+    with pytest.raises(runner.Stage3BlockedError, match="pre-canary unload failed"):
+        runner._execute_candidate_cell(
+            cell,
+            "http://pipeline",
+            {},
+            receipt,
+            (Path("stdout"), Path("stderr")),
+            lambda: None,
+        )
+
+    assert receipt["host_prep"] == host_prep
+    assert gate_calls == []
+
+
+def test_candidate_parity_labels_prompt_rendering_difference() -> None:
+    request = {"messages": [{"role": "user", "content": "OK"}], "temperature": 0, "max_tokens": 64}
+    left = {
+        "request": {**request, "portal_backend": "eval-a"},
+        "outputs": [{"content": "OK"}, {"content": "OK"}],
+        "rendered_prompt_token_count": 3506,
+        "effective_temperature": 0,
+    }
+    right = {
+        "request": {**request, "portal_backend": "eval-b"},
+        "outputs": [{"content": "OK"}, {"content": "OK"}],
+        "rendered_prompt_token_count": 3490,
+        "effective_temperature": None,
+        "effective_temperature_note": "engine log has no effective sampling readback",
+    }
+
+    result = runner._compare_candidate_parity(left, right)
+
+    assert result["valid"] is False
+    assert result["classification"] == "chat_template_rendering_mismatch"
+    assert result["rendered_prompt_token_counts"] == {"left": 3506, "right": 3490}
+    assert "effective sampling readback" in result["findings"][0]
+
+
+def test_candidate_parity_records_greedy_nondeterminism_as_sampling_finding() -> None:
+    parity = {
+        "request": {
+            "messages": [{"role": "user", "content": "OK"}],
+            "temperature": 0,
+            "max_tokens": 64,
+        },
+        "rendered_prompt_token_count": 12,
+        "effective_temperature": 0,
+    }
+    left = {**parity, "outputs": [{"content": "A"}, {"content": "A"}]}
+    right = {**parity, "outputs": [{"content": "A"}, {"content": "B"}]}
+
+    result = runner._compare_candidate_parity(left, right)
+
+    assert result["valid"] is False
+    assert result["classification"] == "sampling_or_nondeterminism"
+
+
+def test_candidate_parity_reads_rendered_prompt_tokens_from_engine_logs() -> None:
+    mlx_serve = runner._candidate_prompt_token_count("mlx-serve", "prompt=3506 tokens, max_gen=128")
+    mlx_lm = runner._candidate_prompt_token_count(
+        "mlx_lm.server", "Prompt processing progress: 2048/3490"
+    )
+    ctx = {
+        "cell": {"engine": "mlx_lm.server"},
+        "body": {"temperature": 0, "max_tokens": 128},
+        "engine_log_text": "Prompt processing progress: 2048/3490",
+        "rows": [{"message": {"content": "OK"}}, {"message": {"content": "OK"}}],
+    }
+    evidence = runner._candidate_parity(ctx)
+
+    assert mlx_serve == 3506
+    assert mlx_lm == 3490
+    assert evidence["requested_temperature"] == 0
+    assert evidence["max_tokens"] == 128
+    assert evidence["requests"] == [ctx["body"], ctx["body"]]
+    assert evidence["outputs"] == [{"content": "OK"}, {"content": "OK"}]
+    assert evidence["rendered_prompt_token_count"] == 3490
+    assert evidence["effective_temperature"] is None
+
+
+def test_candidate_memory_uses_engine_readback_after_first_completion(monkeypatch) -> None:
+    cell = {
+        "engine": "mlx-serve",
+        "mode": "plain",
+        "model": "m",
+        "workspace": "w",
+        "backend": "eval-a",
+        "base": "http://127.0.0.1:11234",
+        "port": 11234,
+        "expected_model": "served-m",
+    }
+    events = []
+    responses = iter(
+        [
+            {"status": 200, "json": {"data": [{"id": "/cache/served-m"}]}},
+            {"status": 200, "json": {"data": [{"id": "served-m", "bytes_resident": 200}]}},
+        ]
+    )
+    monkeypatch.setattr(
+        runner.h2h, "load_config", lambda: {"models": {}, "engines": {"mlx-serve": {}}}
+    )
+    monkeypatch.setattr(runner, "_candidate_residency", lambda _cfg: {})
+    monkeypatch.setattr(runner, "_models_payload", lambda _base: next(responses))
+
+    def fake_request(_url, _body):
+        events.append("request")
+        return {
+            "header": "w;eval-a;served-m",
+            "engine_model": "served-m",
+            "text": "OK",
+            "tokens": 1,
+            "elapsed": 0.1,
+            "message": {"content": "OK"},
+        }
+
+    def fake_memory(_vm_before, _port, _engine, _engine_cfg, model_row):
+        events.append("memory")
+        assert model_row["bytes_resident"] == 200
+        return {"engine_weight_gb": 200 / 1024**3}
+
+    monkeypatch.setattr(runner, "_candidate_request", fake_request)
+    monkeypatch.setattr(runner, "_candidate_memory", fake_memory)
+    monkeypatch.setattr(runner.instrument, "_pipeline_log_since", lambda _since: "")
+    monkeypatch.setattr(
+        runner.instrument,
+        "grade_preflight",
+        lambda _reply, _tool, served: {"verdict": "OK", "served_model_id": served},
+    )
+    monkeypatch.setattr(runner, "_candidate_tokenizer", lambda _cfg, _cell: None)
+
+    ctx = runner._candidate_cell_inputs(cell, "http://pipeline", vm_before="vm", resident_before={})
+
+    assert events == ["request", "memory", "request"]
+    assert ctx["memory_models_response"]["json"]["data"][0]["bytes_resident"] == 200
+    assert ctx["preflight"]["served_model_id"] == "served-m"
+
+
+def test_canary_pair_reconciliation_updates_both_same_checkpoint_receipts(
+    monkeypatch, tmp_path: Path
+) -> None:
+    cells = [
+        {
+            "engine": "mlx-serve",
+            "mode": "plain",
+            "seat": "daily-moe",
+            "workspace": "w",
+            "model": "m",
+        },
+        {
+            "engine": "mlx_lm.server",
+            "mode": "plain",
+            "seat": "daily-moe",
+            "workspace": "w",
+            "model": "m",
+        },
+    ]
+    monkeypatch.setattr(runner, "candidate_cells", lambda: cells)
+    monkeypatch.setattr(
+        runner.instrument,
+        "judge_cell",
+        lambda evidence: {
+            "valid": all(
+                comparison.get("valid") is True
+                for comparison in evidence["template"]["parity"]["comparisons"].values()
+            ),
+            "failures": ["template: paired greedy parity failed"]
+            if any(
+                comparison.get("valid") is not True
+                for comparison in evidence["template"]["parity"]["comparisons"].values()
+            )
+            else [],
+        },
+    )
+    paths = []
+    for cell, tokens in zip(cells, (3506, 3490), strict=True):
+        path = runner.canary_receipt_path(tmp_path, "build-a", cell)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        parity = {
+            "requests": [{"temperature": 0, "max_tokens": 128}],
+            "outputs": [{"content": "OK"}, {"content": "OK"}],
+            "requested_temperature": 0,
+            "max_tokens": 128,
+            "rendered_prompt_token_count": tokens,
+            "effective_temperature": 0 if cell["engine"] == "mlx-serve" else None,
+        }
+        receipt = {
+            "build": "build-a",
+            "cell": cell,
+            "valid": False,
+            "failures": ["template: paired greedy parity is pending"],
+            "evidence": {"template": {"same_checkpoint": True, "parity": parity}},
+        }
+        path.write_text(json.dumps(receipt), encoding="utf-8")
+        paths.append(path)
+
+    result = runner._reconcile_candidate_parity(
+        tmp_path, "build-a", [json.loads(paths[1].read_text(encoding="utf-8"))]
+    )
+    receipts = [json.loads(path.read_text(encoding="utf-8")) for path in paths]
+
+    assert (
+        result[0]["evidence"]["template"]["parity"]["comparisons"]["mlx-serve"]["classification"]
+        == "chat_template_rendering_mismatch"
+    )
+    assert (
+        receipts[0]["evidence"]["template"]["parity"]["comparisons"]["mlx_lm.server"]["valid"]
+        is False
+    )
+    assert (
+        receipts[1]["evidence"]["template"]["parity"]["comparisons"]["mlx-serve"]["valid"] is False
+    )
+
+
 def test_stage3_requires_a_valid_canary_for_this_build_and_cell(tmp_path: Path) -> None:
     cell = {
         "engine": "rapid-mlx",
@@ -94,6 +361,11 @@ def test_failed_startup_is_recorded_with_logs_and_engine_models_body(monkeypatch
     monkeypatch.setattr(runner, "data_root", lambda: tmp_path)
     monkeypatch.setattr(runner, "_configure_results", lambda _root: None)
     monkeypatch.setattr(runner.h2h, "start_gate", lambda _cfg: (True, "ok"))
+    monkeypatch.setattr(
+        runner,
+        "_prepare_production_models",
+        lambda _cfg: {"valid": True, "loaded": {}, "unloaded": {}, "remaining": {}, "failures": []},
+    )
     monkeypatch.setattr(runner.h2h, "single_flight", nullcontext)
     monkeypatch.setattr(runner.h2h, "pid_on_port", lambda _port: None)
     monkeypatch.setattr(runner, "_candidate_residency", lambda _cfg: {})

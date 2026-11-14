@@ -19,6 +19,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 import yaml
 
@@ -219,6 +220,77 @@ def _candidate_residency(cfg: dict) -> dict[str, dict[str, int] | None]:
     return residents
 
 
+def _production_loaded_models(engine: str, cfg: dict[str, Any]) -> list[str]:
+    base = h2h.base_url(cfg, engine)
+    endpoint = "/api/ps" if engine == "ollama" else "/v1/models/status"
+    payload = h2h.http_json(f"{base}{endpoint}", timeout=15)
+    rows = payload.get("models")
+    if not isinstance(rows, list):
+        raise ValueError(f"{engine} {endpoint} did not return a models list")
+    loaded = []
+    for row in rows:
+        if not isinstance(row, dict):
+            raise ValueError(f"{engine} {endpoint} returned a malformed model row")
+        if engine == "omlx" and row.get("loaded") is not True:
+            continue
+        model = row.get("name") or row.get("model") if engine == "ollama" else row.get("id")
+        if not isinstance(model, str) or not model:
+            raise ValueError(f"{engine} {endpoint} returned a loaded model without an id")
+        loaded.append(model)
+    return loaded
+
+
+def _unload_production_model(engine: str, model: str, cfg: dict[str, Any]) -> None:
+    base = h2h.base_url(cfg, engine)
+    if engine == "ollama":
+        h2h.http_json(
+            f"{base}/api/generate",
+            {"model": model, "keep_alive": 0, "stream": False},
+            timeout=60,
+        )
+        return
+    h2h.http_json(f"{base}/v1/models/{quote(model, safe='')}/unload", {}, timeout=60)
+
+
+def _prepare_production_models(cfg: dict[str, Any]) -> dict[str, Any]:
+    """Unload and verify every model resident on the two production engines."""
+    result: dict[str, Any] = {
+        "valid": True,
+        "loaded": {},
+        "unloaded": {"omlx": [], "ollama": []},
+        "remaining": {},
+        "failures": [],
+    }
+    for engine in ("omlx", "ollama"):
+        try:
+            loaded = _production_loaded_models(engine, cfg)
+            result["loaded"][engine] = loaded
+        except Exception as exc:
+            loaded = []
+            result["loaded"][engine] = None
+            result["failures"].append(f"{engine} loaded-model read failed: {exc}")
+        if not loaded:
+            print(f"pre-canary | no models loaded | {engine}", flush=True)
+        for model in loaded:
+            try:
+                _unload_production_model(engine, model, cfg)
+                result["unloaded"][engine].append(model)
+                print(f"pre-canary | unloaded | {engine} | {model}", flush=True)
+            except Exception as exc:
+                result["failures"].append(f"{engine} unload failed for {model}: {exc}")
+                print(f"pre-canary | unload failed | {engine} | {model} | {exc}", flush=True)
+        try:
+            remaining = _production_loaded_models(engine, cfg)
+            result["remaining"][engine] = remaining
+            if remaining:
+                result["failures"].append(f"{engine} still has loaded model(s): {remaining}")
+        except Exception as exc:
+            result["remaining"][engine] = None
+            result["failures"].append(f"{engine} unload verification failed: {exc}")
+    result["valid"] = not result["failures"]
+    return result
+
+
 class CandidateHTTPError(RuntimeError):
     """An upstream or pipeline HTTP response that invalidated a candidate cell."""
 
@@ -291,19 +363,27 @@ def _candidate_memory(
     )
     if engine_cfg.get("requires") == "gguf":
         primary, source = rss, "process-tree RSS (llama.cpp maps the GGUF into its process)"
+        resident_field = None
     elif resident_bytes is not None:
         primary = float(resident_bytes) / (1024**3)
-        source = "engine /v1/models resident-bytes field"
+        source = "GET /v1/models bytes_resident"
+        resident_field = "bytes_resident"
     else:
         primary, source = footprint, "macOS footprint phys_footprint"
+        resident_field = "phys_footprint"
     return {
         "tree_walked": root is not None and rss is not None,
         "tree_rss_gb": rss,
         "phys_footprint_gb": footprint,
         "engine_resident_bytes": resident_bytes,
+        "engine_resident_decimal_gb": resident_bytes / 1_000_000_000
+        if resident_bytes is not None
+        else None,
         "engine_weight_gb": primary,
+        "engine_weight_unit": "GiB",
+        "engine_weight_field": resident_field,
         "engine_weight_source": source,
-        "engine_weight_reason": "compared with the independent vm_stat wired-memory delta",
+        "engine_weight_reason": "sampled after the first completed request; compared in GiB with independent vm_stat wired pages",
         "engine": engine,
         **delta,
     }
@@ -360,13 +440,211 @@ def _candidate_template(cfg: dict, cell: dict[str, Any]) -> dict[str, Any]:
     try:
         result = h2h.template_check(cfg, cell["engine"], cell["model"], cell["mode"])
     except (KeyError, OSError, SystemExit) as exc:
-        return {"same_checkpoint": True, "match": False, "note": str(exc)}
-    if result.get("ok") is True:
-        return {"same_checkpoint": True, "match": True}
+        return {"same_checkpoint": True, "match": None, "note": str(exc)}
     return {
         "same_checkpoint": True,
-        "match": False,
-        "note": str(result.get("note") or "template comparison unavailable"),
+        "match": result.get("ok") if isinstance(result.get("ok"), bool) else None,
+        "note": str(result.get("note") or ""),
+    }
+
+
+def _candidate_prompt_token_count(engine: str, log_text: str) -> int | None:
+    if engine == "mlx-serve":
+        match = re.search(r"\bprompt=(\d+) tokens\b", log_text)
+    elif engine == "mlx_lm.server":
+        match = re.search(r"Prompt processing progress: \d+/(\d+)", log_text)
+    else:
+        match = re.search(r"\bprompt_tokens[=: ]+(\d+)\b", log_text)
+    return int(match.group(1)) if match else None
+
+
+def _candidate_engine_log_text(started_info: dict[str, Any]) -> str:
+    chunks = []
+    for key in ("stderr_log", "stdout_log"):
+        path = started_info.get(key)
+        if not path:
+            continue
+        try:
+            chunks.append(Path(path).read_text(encoding="utf-8", errors="replace"))
+        except OSError:
+            continue
+    return "\n".join(chunks)
+
+
+def _candidate_effective_temperature(engine: str, log_text: str) -> float | None:
+    if engine != "mlx-serve":
+        return None
+    match = re.search(r"\btemp=([0-9]+(?:\.[0-9]+)?)", log_text)
+    return float(match.group(1)) if match else None
+
+
+def _candidate_output(message: Any) -> dict[str, Any]:
+    if not isinstance(message, dict):
+        return {"content": str(message)}
+    output = {
+        key: message[key]
+        for key in ("content", "reasoning", "reasoning_content", "refusal")
+        if key in message
+    }
+    tool_calls = []
+    for call in message.get("tool_calls") or []:
+        if not isinstance(call, dict):
+            continue
+        function = call.get("function") or {}
+        tool_calls.append(
+            {
+                "type": call.get("type"),
+                "function": {
+                    "name": function.get("name"),
+                    "arguments": function.get("arguments"),
+                },
+            }
+        )
+    if tool_calls:
+        output["tool_calls"] = tool_calls
+    return output
+
+
+def _candidate_parity(ctx: dict[str, Any]) -> dict[str, Any]:
+    cell = ctx["cell"]
+    body = ctx["body"]
+    log_text = ctx["engine_log_text"]
+    return {
+        "requests": [body, body],
+        "outputs": [_candidate_output(row["message"]) for row in ctx["rows"]],
+        "requested_temperature": body.get("temperature"),
+        "max_tokens": body.get("max_tokens"),
+        "effective_temperature": _candidate_effective_temperature(cell["engine"], log_text),
+        "effective_temperature_source": "engine stderr temp field"
+        if cell["engine"] == "mlx-serve"
+        else None,
+        "effective_temperature_note": (
+            "mlx_lm.server log omits the effective value; installed handler reads request.temperature "
+            "and passes it to SamplingArguments"
+            if cell["engine"] == "mlx_lm.server"
+            else "engine log does not emit the effective sampling value"
+            if cell["engine"] != "mlx-serve"
+            else None
+        ),
+        "rendered_prompt_token_count": _candidate_prompt_token_count(cell["engine"], log_text),
+        "rendered_prompt_token_count_source": "engine stderr/stdout log",
+    }
+
+
+def _parity_request(parity: dict[str, Any]) -> dict[str, Any] | None:
+    requests = parity.get("requests")
+    if isinstance(requests, list) and requests and isinstance(requests[0], dict):
+        first = dict(requests[0])
+        if any(item != requests[0] for item in requests[1:]):
+            first["_repeated_request_mismatch"] = True
+        return first
+    request = parity.get("request")
+    return request if isinstance(request, dict) else None
+
+
+def _parity_requests_match(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    left_request, right_request = _parity_request(left), _parity_request(right)
+    if left_request is None or right_request is None:
+        return False
+    left_repeated_mismatch = left_request.pop("_repeated_request_mismatch", False)
+    right_repeated_mismatch = right_request.pop("_repeated_request_mismatch", False)
+    left_request.pop("portal_backend", None)
+    right_request.pop("portal_backend", None)
+    return (
+        left_request == right_request and not left_repeated_mismatch and not right_repeated_mismatch
+    )
+
+
+def _parity_readback_findings(left: dict[str, Any], right: dict[str, Any]) -> list[str]:
+    findings = []
+    for side, parity in (("left", left), ("right", right)):
+        if parity.get("effective_temperature") is None:
+            findings.append(
+                f"{side} effective sampling readback unavailable: "
+                f"{parity.get('effective_temperature_note') or 'no engine setting source'}"
+            )
+    return findings
+
+
+def _parity_requests_are_greedy(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    left_request, right_request = _parity_request(left) or {}, _parity_request(right) or {}
+    left_temperature = left.get("requested_temperature", left_request.get("temperature"))
+    right_temperature = right.get("requested_temperature", right_request.get("temperature"))
+    left_max_tokens = left.get("max_tokens", left_request.get("max_tokens"))
+    right_max_tokens = right.get("max_tokens", right_request.get("max_tokens"))
+    return (
+        left_temperature == 0
+        and right_temperature == 0
+        and left_max_tokens == right_max_tokens
+        and isinstance(left_max_tokens, int)
+        and left_max_tokens > 0
+    )
+
+
+def _outputs_are_stable(parity: dict[str, Any]) -> bool:
+    outputs = parity.get("outputs") or []
+    return bool(outputs) and all(item == outputs[0] for item in outputs)
+
+
+def _effective_temperature_nonzero(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    return any(
+        isinstance(parity.get("effective_temperature"), (int, float))
+        and parity["effective_temperature"] != 0
+        for parity in (left, right)
+    )
+
+
+def _rendered_prompt_counts_differ(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    left_count = left.get("rendered_prompt_token_count")
+    right_count = right.get("rendered_prompt_token_count")
+    return left_count is not None and right_count is not None and left_count != right_count
+
+
+def _classify_candidate_outputs(
+    left: dict[str, Any], right: dict[str, Any]
+) -> tuple[str, list[str]]:
+    if not _outputs_are_stable(left) or not _outputs_are_stable(right):
+        return "sampling_or_nondeterminism", ["repeated output differed with temperature 0"]
+    if _effective_temperature_nonzero(left, right):
+        return "sampling_field_not_honored", ["an engine read back a nonzero effective temperature"]
+    if _rendered_prompt_counts_differ(left, right):
+        return "chat_template_rendering_mismatch", [
+            "same request rendered to different prompt token counts"
+        ]
+    if (left.get("outputs") or [None])[0] != (right.get("outputs") or [None])[0]:
+        return "greedy_output_mismatch_unexplained", [
+            "greedy outputs differ with no prompt-length explanation"
+        ]
+    return "match", []
+
+
+def _compare_candidate_parity(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:
+    left_request, right_request = _parity_request(left), _parity_request(right)
+    if left_request is None or right_request is None:
+        return {
+            "valid": False,
+            "classification": "request_evidence_missing",
+            "findings": ["request body missing from a parity side"],
+        }
+    findings = _parity_readback_findings(left, right)
+    if not _parity_requests_match(left, right) or not _parity_requests_are_greedy(left, right):
+        classification = "sampling_request_mismatch"
+        findings.append("parity requests are not identical greedy requests with fixed max_tokens")
+    else:
+        classification, output_findings = _classify_candidate_outputs(left, right)
+        findings.extend(output_findings)
+    left_max_tokens = left.get("max_tokens", left_request.get("max_tokens"))
+    return {
+        "valid": classification == "match",
+        "classification": classification,
+        "requested_temperature": 0,
+        "max_tokens": left_max_tokens,
+        "outputs_equal": (left.get("outputs") or [None])[0] == (right.get("outputs") or [None])[0],
+        "rendered_prompt_token_counts": {
+            "left": left.get("rendered_prompt_token_count"),
+            "right": right.get("rendered_prompt_token_count"),
+        },
+        "findings": findings,
     }
 
 
@@ -397,14 +675,28 @@ def _candidate_cell_inputs(
     log_since = time.strftime("%Y-%m-%dT%H:%M:%S")
     body = _candidate_body(cell)
     url = f"{pipeline.rstrip('/')}/v1/chat/completions"
-    rows = [_candidate_request(url, body) for _ in range(2)]
+    rows = []
+    memory_models_response = None
+    memory = None
+    for index in range(2):
+        rows.append(_candidate_request(url, body))
+        if index == 0:
+            memory_models_response = _models_payload(cell["base"])
+            memory = _candidate_memory(
+                vm_before,
+                cell["port"],
+                cell["engine"],
+                cfg["engines"][cell["engine"]],
+                _model_row(memory_models_response["json"], cell["expected_model"]),
+            )
     resident_after = _candidate_residency(cfg)
     log = instrument._pipeline_log_since(log_since)
     first_message = rows[0]["message"]
+    request_served_model = rows[0].get("engine_model")
     preflight = instrument.grade_preflight(
         instrument._visible_reply(first_message),
         instrument.tool_from_message(first_message),
-        next((item for item in served or [] if item == cell["expected_model"]), None),
+        request_served_model if request_served_model == cell["expected_model"] else None,
     )
     tokenizer = _candidate_tokenizer(cfg, cell)
     return {
@@ -414,10 +706,14 @@ def _candidate_cell_inputs(
         "resident_before": resident_before,
         "resident_after": resident_after,
         "models_response": models_response,
+        "memory_models_response": memory_models_response,
+        "memory": memory,
         "model_row": model_row,
         "served": served,
+        "body": body,
         "rows": rows,
         "log": log,
+        "engine_log_text": _candidate_engine_log_text(started_info or {}),
         "preflight": preflight,
         "tokenizer": tokenizer,
         "started_info": started_info or {},
@@ -427,7 +723,7 @@ def _candidate_cell_inputs(
 def _candidate_evidence_sources(cell: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     sources = {
         "engine_models": f"POST /v1/chat/completions response.model ({OPENAI_CHAT_SOURCE})",
-        "served_model_id": f"GET /v1/models ({OPENAI_MODELS_SOURCE})",
+        "served_model_id": f"POST /v1/chat/completions response.model ({OPENAI_CHAT_SOURCE})",
         "pipeline_route": "Pipeline x-portal-route, logs, and response model",
         "tokens": "Pipeline usage and the registered checkpoint tokenizer.json",
         "memory": "engine-specific resident reading compared with vm_stat wired delta",
@@ -445,7 +741,6 @@ def _candidate_evidence_sources(cell: dict[str, Any]) -> tuple[dict[str, Any], d
 
 def _candidate_route_evidence(ctx: dict[str, Any]) -> dict[str, Any]:
     cell, rows = ctx["cell"], ctx["rows"]
-    cfg = ctx["cfg"]
     return {
         "engine": cell["engine"],
         "mode": cell["mode"],
@@ -461,13 +756,9 @@ def _candidate_route_evidence(ctx: dict[str, Any]) -> dict[str, Any]:
         "pipeline_models": [
             model for _ws, _be, model in instrument.parse_pipeline_routes(ctx["log"])
         ],
-        "memory": _candidate_memory(
-            ctx["vm_before"],
-            cell["port"],
-            cell["engine"],
-            cfg["engines"][cell["engine"]],
-            ctx["model_row"],
-        ),
+        "memory": ctx["memory"],
+        "memory_sample_timing": "after the first completed Pipeline request",
+        "memory_engine_models_response": ctx["memory_models_response"],
         "residency": {"before": ctx["resident_before"], "after": ctx["resident_after"]},
     }
 
@@ -475,6 +766,8 @@ def _candidate_route_evidence(ctx: dict[str, Any]) -> dict[str, Any]:
 def _candidate_settings_evidence(ctx: dict[str, Any], sources: dict[str, Any]) -> dict[str, Any]:
     cell, model_row, models = ctx["cell"], ctx["model_row"], ctx["models_response"]
     cfg = ctx["cfg"]
+    template = _candidate_template(cfg, cell)
+    template["parity"] = _candidate_parity(ctx)
     return {
         "engine_models_response": models,
         "engine_settings_readback": {
@@ -504,14 +797,13 @@ def _candidate_settings_evidence(ctx: dict[str, Any], sources: dict[str, Any]) -
             else None,
         },
         "noise": instrument._pair_noise([(row["tokens"], row["elapsed"]) for row in ctx["rows"]]),
-        "template": _candidate_template(cfg, cell),
+        "template": template,
     }
 
 
 def _candidate_verdict_evidence(ctx: dict[str, Any], sources: dict[str, Any]) -> dict[str, Any]:
     cell, preflight = ctx["cell"], ctx["preflight"]
     cfg = ctx["cfg"]
-    served = ctx["served"]
     return {
         "preflight_verdict": preflight["verdict"],
         "preflight": preflight,
@@ -519,7 +811,12 @@ def _candidate_verdict_evidence(ctx: dict[str, Any], sources: dict[str, Any]) ->
         "max_swap_growth_mb": cfg["guard"]["max_swap_growth_mb"],
         "max_start_swap_used_mb": cfg["guard"]["max_start_swap_used_mb"],
         "served_model_id": next(
-            (item for item in served or [] if item == cell["expected_model"]), None
+            (
+                row["engine_model"]
+                for row in ctx["rows"]
+                if row.get("engine_model") == cell["expected_model"]
+            ),
+            None,
         ),
         "launch_argv": cell["argv"],
         "check_sources": {
@@ -577,6 +874,10 @@ def _execute_candidate_cell(
 ) -> None:
     if cell.get("launch_error"):
         raise Stage3BlockedError(f"registry argv unavailable: {cell['launch_error']}")
+    host_prep = _prepare_production_models(cfg)
+    receipt["host_prep"] = host_prep
+    if not host_prep["valid"]:
+        raise Stage3BlockedError(f"pre-canary unload failed: {host_prep['failures']}")
     if h2h.pid_on_port(cell["port"]):
         raise Stage3BlockedError(f"candidate port {cell['port']} is already occupied")
     okay, reason = h2h.start_gate(cfg)
@@ -788,6 +1089,21 @@ def _canary_should_stop(results: list[dict[str, Any]]) -> str | None:
     """Two consecutive invalid cells with one reason, or a blind readiness check."""
     if results and results[-1].get("structural_readiness"):
         return "structural readiness check cannot pass"
+    last_evidence = results[-1].get("evidence") if results else None
+    last_template = last_evidence.get("template") if isinstance(last_evidence, dict) else None
+    last_parity = last_template.get("parity") if isinstance(last_template, dict) else None
+    failures = results[-1].get("failures") if results else []
+    non_parity_failures = [
+        failure
+        for failure in failures or []
+        if not str(failure).startswith("template: paired greedy parity is pending")
+    ]
+    if (
+        isinstance(last_parity, dict)
+        and not last_parity.get("comparisons")
+        and not non_parity_failures
+    ):
+        return None
     if len(results) < 2 or results[-1].get("valid") is True:
         return None
     prev = results[-2]
@@ -812,6 +1128,101 @@ def _select_canary_cells(only: str | None) -> list[dict[str, Any]]:
     if len(chosen) != 1:
         raise Stage3BlockedError(f"canary --cell {only} matched {len(chosen)} cells")
     return chosen
+
+
+def _reconcile_candidate_parity(
+    root: Path, build: str, results: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    if not results:
+        return results
+    family_keys = {
+        tuple(str(cell.get(key) or "") for key in ("seat", "mode", "model", "workspace"))
+        for result in results
+        if ((result.get("evidence") or {}).get("template") or {}).get("same_checkpoint") is True
+        for cell in [result.get("cell") or {}]
+    }
+    if not family_keys:
+        return results
+    all_cells = candidate_cells()
+    updated = {}
+    for family_key in family_keys:
+        families = _candidate_parity_family(root, build, family_key, all_cells)
+        comparisons = _candidate_family_comparisons(families)
+        updated.update(_save_candidate_parity_comparisons(families, comparisons))
+    return [updated.get(_cell_id(result.get("cell") or {}), result) for result in results]
+
+
+def _candidate_parity_family(
+    root: Path, build: str, family_key: tuple[str, ...], cells: list[dict[str, Any]]
+) -> dict[str, tuple[Path, dict[str, Any], dict[str, Any]]]:
+    families = {}
+    for cell in cells:
+        cell_key = tuple(str(cell.get(key) or "") for key in ("seat", "mode", "model", "workspace"))
+        if cell_key != family_key:
+            continue
+        path = canary_receipt_path(root, build, cell)
+        if not path.is_file():
+            continue
+        try:
+            receipt = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        evidence = receipt.get("evidence") or {}
+        template = evidence.get("template") or {}
+        parity = template.get("parity")
+        if (
+            receipt.get("build") == build
+            and template.get("same_checkpoint") is True
+            and isinstance(parity, dict)
+        ):
+            families[cell["engine"]] = (path, receipt, parity)
+    return families
+
+
+def _candidate_family_comparisons(
+    families: dict[str, tuple[Path, dict[str, Any], dict[str, Any]]],
+) -> dict[str, dict[str, Any]]:
+    comparisons = {engine: {} for engine in families}
+    engines = sorted(families)
+    for index, left_engine in enumerate(engines):
+        for right_engine in engines[index + 1 :]:
+            left, right = families[left_engine][2], families[right_engine][2]
+            forward = _compare_candidate_parity(left, right)
+            forward["engines"] = {"left": left_engine, "right": right_engine}
+            reverse = _compare_candidate_parity(right, left)
+            reverse["engines"] = {"left": right_engine, "right": left_engine}
+            comparisons[left_engine][right_engine] = forward
+            comparisons[right_engine][left_engine] = reverse
+    return comparisons
+
+
+def _save_candidate_parity_comparisons(
+    families: dict[str, tuple[Path, dict[str, Any], dict[str, Any]]],
+    comparisons: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    updated = {}
+    for engine, (path, receipt, _parity) in families.items():
+        parity = receipt["evidence"]["template"]["parity"]
+        parity["comparisons"] = comparisons[engine]
+        if comparisons[engine]:
+            parity["status"] = "compared"
+        else:
+            parity["status"] = "awaiting_peer"
+            parity["comparisons"] = {
+                "pending": {
+                    "valid": False,
+                    "classification": "awaiting_peer",
+                    "findings": ["same-checkpoint peer cell receipt is missing for this build"],
+                }
+            }
+        judged = instrument.judge_cell(receipt["evidence"])
+        receipt["valid"] = judged["valid"]
+        receipt["failures"] = judged["failures"]
+        _stamp_reason(receipt)
+        if json.loads(path.read_text(encoding="utf-8")) != receipt:
+            _write_json(path, receipt)
+        updated[_cell_id(receipt.get("cell") or {})] = receipt
+    return updated
 
 
 def run_canary(pipeline: str, only: str | None = None) -> tuple[list[dict[str, Any]], int]:
@@ -840,16 +1251,19 @@ def run_canary(pipeline: str, only: str | None = None) -> tuple[list[dict[str, A
             receipt["receipt"] = str(canary_receipt_path(root, build, cell))
             _write_json(Path(receipt["receipt"]), receipt)
         results.append(receipt)
+        stop_reason = _canary_should_stop(results)
+        if stop_reason:
+            break
+    root = data_root()
+    results = _reconcile_candidate_parity(root, build, results)
+    for receipt in results:
+        cell = receipt.get("cell") or {}
         _progress(
             cell,
             bool(receipt.get("valid")),
             str(receipt.get("reason") or ""),
             float(receipt.get("elapsed_s") or 0),
         )
-        stop_reason = _canary_should_stop(results)
-        if stop_reason:
-            break
-    root = data_root()
     summary = root / "engine_eval" / "canaries" / build / "table.json"
     _write_json(
         summary,
