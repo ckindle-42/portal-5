@@ -119,7 +119,7 @@ backends:
     health_path: /v1/models
     priority: 10
     # docs/engine_research/mlxother_20261114.md § 4) MTPLX (Youssofal) coding row.
-    note: "Serves the MTPLX pack Youssofal/Qwen3.8-27B-MTPLX-Optimized-Speed under the seat id Qwen3.8-27B-4bit (--model-id), so every bench workspace hint resolves unchanged. Think stays ON: bench-engine-coding pins think: true and mtplx serve --reasoning defaults to the Qwen3.8 codec default (auto -> enable_thinking true, effort medium). Per-seat argv is tests/benchmarks/engine_h2h.yaml engines.mtplx. Usage tokens, resident-memory readback and the MTP acceptance counters are unverified until the canary reads them."
+    note: "Installed 2.12.3 via the vendor brew path (brew install youssofal/mtplx/mtplx; arm64, python@3.13 venv). Serves the MTPLX pack Youssofal/Qwen3.8-27B-MTPLX-Optimized-Speed under the seat id Qwen3.8-27B-4bit (--model-id), so every bench workspace hint resolves unchanged. Profile is turbo, the pack's recommended_profile and its README preset, not sustained. Think stays ON: bench-engine-coding pins think: true and mtplx serve --reasoning defaults to the Qwen3.8 codec default (auto -> enable_thinking true, effort medium). Per-seat argv is tests/benchmarks/engine_h2h.yaml engines.mtplx. Standalone on 2.12.3 the response carries usage.prompt_tokens/completion_tokens/total_tokens and mtplx_stats (profile, generation_mode, mtp_depth, accepted/drafted per depth), and /metrics carries active_memory_bytes/peak_memory_bytes; the Pipeline canary still has to read them through :11241."
     models: *engine_eval_models
   - id: eval-openai-splash
     type: eval_openai

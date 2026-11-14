@@ -155,7 +155,9 @@ def test_mtplx_serves_its_own_pack_from_mtplx_root_with_fairness_pins(cfg):
         assert argv[argv.index("--model-id") + 1] == pack
         assert "--no-stats-footer" in argv
         assert argv[argv.index("--ssd-session-cache") + 1] == "off"
-        assert argv[argv.index("--profile") + 1] == "sustained"
+        # Turbo is the vendor profile for these packs (mtplx_runtime.json
+        # recommended_profile, README preset, and `mtplx inspect`); it is not a fairness pin.
+        assert argv[argv.index("--profile") + 1] == "turbo"
         assert argv[argv.index("--tool-prompt-mode") + 1] == "native"
         assert "{spec_args}" not in argv
     assert plain[-1] == "--no-mtp" and "--mtp" not in plain
@@ -826,7 +828,12 @@ def test_november_seats_have_one_quality_task(cfg):
         assert {row["workspace"] for row in rows} == {gate["wfe_workspace"]}
 
 
-LANDSCAPE_PINS = {"splash": "1.6.1", "mlx-serve": "26.11.2", "rapid-mlx": "1.0.2"}
+LANDSCAPE_PINS = {
+    "splash": "1.6.1",
+    "mlx-serve": "26.11.2",
+    "rapid-mlx": "1.0.2",
+    "mtplx": "2.12.3",
+}
 VLLM_METAL_SEATS = ("gemma4_26b_a4b_qat", "qwen38_27b_h2h", "nemotron_35_lightning")
 MANAGED_ENGINE_KEYS = {"kind", "requires", "port", "plain", "base_spec"}
 
