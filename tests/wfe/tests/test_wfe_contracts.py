@@ -1513,6 +1513,53 @@ class TestModelIdentity:
             assert now not in seen
             seen.add(now)
 
+    def test_an_eval_backend_identifies_its_checkpoint_on_disk(self, tmp_path, monkeypatch):
+        """An eval arm pins an eval backend; the build is the checkpoint it loads."""
+        monkeypatch.setenv("OMLX_MODEL_DIR", str(tmp_path / "models"))
+        settings = tmp_path / "model_settings.json"
+        settings.write_text(json.dumps({"models": {}}))
+        monkeypatch.setattr(camp, "OMLX_SETTINGS", settings)
+        self._checkpoint(tmp_path / "models", "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp")
+
+        ident, why = camp.observe_identity(
+            "eval-openai", "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp"
+        )
+
+        assert why == ""
+        assert ident["content"]
+        assert ident["backend"] == "eval-openai"
+        assert camp.backend_engine("eval-openai") == "eval_openai"
+        assert camp.backend_engine("eval-openai-omlx-incumbent") == "eval_openai"
+        assert camp.backend_engine("ollama-general") == "ollama"
+
+    def test_an_eval_backend_falls_back_to_the_ollama_tag_digest(self, monkeypatch):
+        monkeypatch.setenv("OMLX_MODEL_DIR", "/nonexistent-engine-eval-models")
+        monkeypatch.setattr(camp, "ollama_content_id", lambda model: ("digest-" + model, ""))
+        ident, why = camp.observe_identity(
+            "eval-openai-brew-llama",
+            "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k",
+        )
+        assert why == ""
+        assert ident["content"] == (
+            "digest-hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k"
+        )
+
+    def test_an_eval_backend_with_neither_store_says_why(self, monkeypatch):
+        monkeypatch.setenv("OMLX_MODEL_DIR", "/nonexistent-engine-eval-models")
+        monkeypatch.setattr(
+            camp, "ollama_content_id", lambda model: ("", f"{model!r} is not in Ollama's /api/tags")
+        )
+        ident, why = camp.observe_identity("eval-openai", "unknown-checkpoint")
+        assert ident["content"] == ""
+        assert "config.json" in why and "Ollama" in why
+
+    def test_two_eval_backends_with_the_same_checkpoint_are_distinct_engines(self, monkeypatch):
+        monkeypatch.setenv("OMLX_MODEL_DIR", "/nonexistent-engine-eval-models")
+        monkeypatch.setattr(camp, "ollama_content_id", lambda model: ("same-digest", ""))
+        a = camp.observe_identity("eval-openai", "m")[0]
+        b = camp.observe_identity("eval-openai-vllm-mlx", "m")[0]
+        assert camp.same_identity(a, b) is False
+
     def test_an_unobservable_omlx_build_has_no_content_and_says_why(self, tmp_path, monkeypatch):
         """Before P1R a missing directory hashed to one constant shared by every
         model, which passed as an identity. Now it is no identity, with a reason."""

@@ -6,10 +6,12 @@ from __future__ import annotations
 import argparse
 import ast
 import contextlib
+import functools
 import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -24,6 +26,7 @@ from urllib.parse import quote
 
 import yaml
 
+from portal.platform.inference.cluster_backends import BackendRegistry
 from scripts import host_quiet
 from tests.benchmarks import bench_engine_h2h as h2h
 from tests.benchmarks import engine_eval_instrument as instrument
@@ -79,6 +82,8 @@ def require_valid_canary(root: Path, build: str, cell: dict[str, Any]) -> dict[s
         raise Stage3BlockedError(
             f"canary receipt for {_cell_id(cell)} is not for the current build"
         )
+    if receipt.get("skipped"):
+        raise Stage3BlockedError(f"{_cell_id(cell)} is not installed: {receipt.get('reason')}")
     if receipt.get("valid") is not True:
         raise Stage3BlockedError(f"canary invalid for {_cell_id(cell)}: {receipt.get('failures')}")
     return receipt
@@ -155,6 +160,19 @@ def candidate_cells() -> list[dict[str, Any]]:
     return cells
 
 
+def _missing_binary(argv: list[str], cwd: str | None) -> str | None:
+    """The executable the argv names when it is absent from this host."""
+    if not argv:
+        return None
+    exe = argv[0]
+    if "/" in exe:
+        path = Path(os.path.expanduser(exe))
+        if not path.is_absolute() and cwd:
+            path = Path(cwd) / path
+        return None if path.exists() else str(path)
+    return None if shutil.which(exe) else exe
+
+
 def _make_cell(
     cfg: dict,
     engine: str,
@@ -174,6 +192,9 @@ def _make_cell(
         argv, cwd, launch_error = [], None, str(exc)
     engine_cfg = cfg["engines"][engine]
     port = int(engine_cfg["port"])
+    missing = None
+    if not launch_error and not engine_cfg.get("install"):
+        missing = _missing_binary(argv, cwd)
     return {
         "seat": seat,
         "workspace": mapping["workspace"],
@@ -189,6 +210,11 @@ def _make_cell(
         "argv": argv,
         "cwd": cwd,
         "launch_error": launch_error,
+        "not_installed": (
+            f"{engine} not installed: {missing} is missing and the registry has no install step"
+            if missing
+            else None
+        ),
         "workspace_settings": workspace_cfg,
     }
 
@@ -241,6 +267,9 @@ def _production_loaded_models(engine: str, cfg: dict[str, Any]) -> list[str]:
     return loaded
 
 
+UNLOAD_SETTLE_TIMEOUT_S = 60.0
+
+
 def _unload_production_model(engine: str, model: str, cfg: dict[str, Any]) -> None:
     base = h2h.base_url(cfg, engine)
     if engine == "ollama":
@@ -250,7 +279,26 @@ def _unload_production_model(engine: str, model: str, cfg: dict[str, Any]) -> No
             timeout=60,
         )
         return
-    h2h.http_json(f"{base}/v1/models/{quote(model, safe='')}/unload", {}, timeout=60)
+    try:
+        h2h.http_json(f"{base}/v1/models/{quote(model, safe='')}/unload", {}, timeout=60)
+    except urllib.error.HTTPError as exc:
+        # oMLX queues an unload behind in-flight work and answers a repeat POST
+        # for that model with 400 "Model not loaded"; the release still lands.
+        body = exc.read().decode("utf-8", "replace")
+        if exc.code != 400 or "not loaded" not in body.lower():
+            raise
+        print(f"pre-canary | unload already queued | {engine} | {model}", flush=True)
+
+
+def _wait_model_unloaded(engine: str, model: str, cfg: dict[str, Any]) -> bool:
+    """Wait until the engine's own loaded set no longer names ``model``."""
+    deadline = time.monotonic() + UNLOAD_SETTLE_TIMEOUT_S
+    while True:
+        if model not in _production_loaded_models(engine, cfg):
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.5)
 
 
 def _prepare_production_models(cfg: dict[str, Any]) -> dict[str, Any]:
@@ -275,6 +323,8 @@ def _prepare_production_models(cfg: dict[str, Any]) -> dict[str, Any]:
         for model in loaded:
             try:
                 _unload_production_model(engine, model, cfg)
+                if not _wait_model_unloaded(engine, model, cfg):
+                    raise TimeoutError(f"not released within {UNLOAD_SETTLE_TIMEOUT_S:.0f}s")
                 result["unloaded"][engine].append(model)
                 print(f"pre-canary | unloaded | {engine} | {model}", flush=True)
             except Exception as exc:
@@ -465,22 +515,57 @@ def _forced_tool_choice(engine: str, tool_row: dict[str, Any]) -> dict[str, Any]
     }
 
 
+@functools.lru_cache(maxsize=1)
+def _tool_registry() -> BackendRegistry:
+    """The registry whose tool map the Pipeline consults, eval engines included."""
+    return BackendRegistry(
+        config_path=str(REPO / "config" / "backends.yaml"), include_eval_backends=True
+    )
+
+
+@functools.lru_cache(maxsize=32)
+def _workspace_tools(workspace: str) -> tuple[str, ...]:
+    """The workspace's declared tools, from config/bench_workspaces.yaml."""
+    declared = (_bench_workspaces().get(workspace) or {}).get("tools") or []
+    return tuple(str(item) for item in declared)
+
+
+def _tool_surface_reason(cell: dict[str, Any]) -> str | None:
+    """Why this seat cannot receive tools at all, or None when it can.
+
+    The Pipeline strips ``tools``/``tool_choice`` when the workspace declares no
+    tools or the model is not declared tool-capable, so a forced call cannot be
+    delivered and is not the engine's to pass.
+    """
+    if not _workspace_tools(str(cell.get("workspace") or "")):
+        return f"{cell['workspace']} declares no tools in config/bench_workspaces.yaml"
+    if not _tool_registry().model_supports_tools(str(cell.get("expected_model") or "")):
+        return f"{cell['expected_model']!r} is declared supports_tools: false"
+    return None
+
+
 def _grade_cell_preflight(
     cell: dict[str, Any], think_row: dict[str, Any], tool_row: dict[str, Any]
 ) -> dict[str, Any]:
     """Grade the separate think-off and tool-call requests, then record the choice."""
     served = think_row.get("engine_model")
+    not_applicable = _tool_surface_reason(cell)
     graded = instrument.grade_preflight(
         instrument._visible_reply(think_row["message"]),
         instrument.tool_from_message(tool_row["message"]),
         served if served == cell["expected_model"] else None,
+        tool_not_applicable=not_applicable,
     )
     graded["separate_requests"] = True
     graded["requests"] = {
         "think_off": {"prompt": THINK_OFF_PROMPT, "tools": "none (explicit empty list)"},
         "tool_call": {"prompt": TOOL_CALL_PROMPT, "tool_choice": "get_weather"},
     }
-    graded["tool_choice"] = _forced_tool_choice(cell["engine"], tool_row)
+    graded["tool_choice"] = (
+        {**instrument._exclude(f"not applicable: {not_applicable}"), "applicable": False}
+        if not_applicable
+        else _forced_tool_choice(cell["engine"], tool_row)
+    )
     return graded
 
 
@@ -1132,7 +1217,7 @@ def _candidate_evidence_sources(cell: dict[str, Any]) -> tuple[dict[str, Any], d
         "engine_models": f"POST /v1/chat/completions response.model ({OPENAI_CHAT_SOURCE})",
         "served_model_id": f"POST /v1/chat/completions response.model ({OPENAI_CHAT_SOURCE})",
         "pipeline_route": "Pipeline x-portal-route, logs, and response model",
-        "tokens": "Pipeline usage and the registered checkpoint tokenizer.json",
+        "tokens": "Pipeline usage and the registered checkpoint tokenizer.json, else the engine's POST /tokenize",
         "memory": "engine-specific resident reading compared with vm_stat wired delta",
         "residency": "Ollama /api/ps; oMLX /v1/models/status; managed-port listeners and state",
         "models_response": f"GET {cell['base']}/v1/models (raw response attached)",
@@ -1170,6 +1255,41 @@ def _candidate_route_evidence(ctx: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _engine_token_count(cell: dict[str, Any], text: str) -> int | None:
+    """Count with the engine's own tokenizer when the checkpoint has no tokenizer.json."""
+    payload = json.dumps({"content": text}).encode()
+    request = urllib.request.Request(
+        f"{cell['base'].rstrip('/')}/tokenize",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            tokens = json.load(response).get("tokens")
+    except (OSError, ValueError):
+        return None
+    return len(tokens) if isinstance(tokens, list) else None
+
+
+def _token_evidence(ctx: dict[str, Any]) -> dict[str, Any]:
+    """Pipeline usage against the checkpoint tokenizer, else the engine's own tokenizer."""
+    text = ctx["think_row"]["text"]
+    tokenizer = ctx["tokenizer"]
+    local = instrument.count_tokens(text, tokenizer) if tokenizer else None
+    source = "think-off reply: Pipeline usage vs the registered checkpoint tokenizer"
+    if local is None:
+        local = _engine_token_count(ctx["cell"], text)
+        source = (
+            "think-off reply: Pipeline usage vs the engine's own POST /tokenize "
+            "(the checkpoint has no tokenizer.json)"
+        )
+    return {
+        "engine_completion": ctx["think_row"]["tokens"],
+        "tokenizer_completion": local,
+        "source": source,
+    }
+
+
 def _candidate_settings_evidence(ctx: dict[str, Any], sources: dict[str, Any]) -> dict[str, Any]:
     cell, model_row, models = ctx["cell"], ctx["model_row"], ctx["models_response"]
     cfg = ctx["cfg"]
@@ -1195,15 +1315,7 @@ def _candidate_settings_evidence(ctx: dict[str, Any], sources: dict[str, Any]) -
             "state": model_row.get("state"),
             "loaded": model_row.get("loaded"),
         },
-        "tokens": {
-            "engine_completion": ctx["think_row"]["tokens"],
-            "tokenizer_completion": instrument.count_tokens(
-                ctx["think_row"]["text"], ctx["tokenizer"]
-            )
-            if ctx["tokenizer"]
-            else None,
-            "source": "think-off reply: Pipeline usage vs the registered checkpoint tokenizer",
-        },
+        "tokens": _token_evidence(ctx),
         "noise": instrument._pair_noise(
             [(row["tokens"], row["elapsed"]) for row in ctx["parity_rows"]]
         ),
@@ -1393,6 +1505,20 @@ def run_cell(cell: dict[str, Any], pipeline: str, build: str | None = None) -> d
             "engine_served_models": OPENAI_MODELS_SOURCE,
         },
     }
+    if cell.get("not_installed"):
+        path = canary_receipt_path(root, build, cell)
+        receipt.update(
+            {
+                "skipped": True,
+                "status": "NOT_INSTALLED",
+                "reason": cell["not_installed"],
+                "reason_norm": normalise_reason(cell["not_installed"], cell),
+                "receipt": str(path),
+                "elapsed_s": round(time.monotonic() - started, 1),
+            }
+        )
+        _write_json(path, receipt)
+        return receipt
     log_dir = root / "engine_eval" / "logs" / build / _cell_id(cell)
     log_paths = (log_dir / "engine.stdout.log", log_dir / "engine.stderr.log")
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -1477,11 +1603,22 @@ def _one_line(text: str) -> str:
     return " ".join(str(text).split())
 
 
-def normalise_reason(text: str) -> str:
-    """Collapse ids and counts so the same failure matches across cells."""
-    text = _one_line(text)
-    text = re.sub(r"eval-openai[A-Za-z0-9_.-]*", "eval-backend", text)
+_BACKEND_HEALTH_REASON_RE = re.compile(
+    r"not a healthy candidate backend|did not report eval-openai[A-Za-z0-9_.-]* healthy"
+)
+
+
+def normalise_reason(text: str, cell: dict[str, Any] | None = None) -> str:
+    """Collapse ids and counts so the same failure matches across cells.
+
+    A backend-health refusal keeps its engine in the normalised text: two engines
+    can answer 400 for different root causes, and merging them hides that.
+    """
+    raw = _one_line(text)
+    text = re.sub(r"eval-openai[A-Za-z0-9_.-]*", "eval-backend", raw)
     text = re.sub(r"\b\d+\b", "N", text)
+    if cell is not None and cell.get("engine") and _BACKEND_HEALTH_REASON_RE.search(raw):
+        return f"{text[:280]}; engine={cell['engine']}"
     return text[:300]
 
 
@@ -1493,7 +1630,7 @@ def _stamp_reason(receipt: dict[str, Any]) -> None:
         receipt["reason"] = _one_line(
             failures[0] if failures else receipt.get("reason") or "invalid"
         )
-    receipt["reason_norm"] = normalise_reason(str(receipt["reason"]))
+    receipt["reason_norm"] = normalise_reason(str(receipt["reason"]), receipt.get("cell"))
     if "structural readiness" in str(receipt["reason"]):
         receipt["structural_readiness"] = True
 
@@ -1502,8 +1639,10 @@ def _cell_selector(cell: dict[str, Any]) -> str:
     return f"{cell['engine']}:{cell['mode']}:{cell['seat']}"
 
 
-def _progress(cell: dict[str, Any], valid: bool, reason: str, elapsed_s: float) -> None:
-    state = "valid" if valid else "invalid"
+def _progress(
+    cell: dict[str, Any], valid: bool, reason: str, elapsed_s: float, *, skipped: bool = False
+) -> None:
+    state = "not installed" if skipped else ("valid" if valid else "invalid")
     print(f"{_cell_selector(cell)} | {state} | {reason} | {elapsed_s:.0f}s", flush=True)
 
 
@@ -1511,9 +1650,13 @@ def _canary_should_stop(results: list[dict[str, Any]]) -> str | None:
     """Two consecutive invalid cells with one reason, or a blind readiness check."""
     if results and results[-1].get("structural_readiness"):
         return "structural readiness check cannot pass"
+    if not results or results[-1].get("skipped"):
+        return None
     if len(results) < 2 or results[-1].get("valid") is True:
         return None
     prev = results[-2]
+    if prev.get("skipped"):
+        return None
     if prev.get("valid") is not True and prev.get("reason_norm") == results[-1].get("reason_norm"):
         return f"2 consecutive cells: {results[-1].get('reason_norm')}"
     return None
@@ -1574,6 +1717,7 @@ def run_canary(pipeline: str, only: str | None = None) -> tuple[list[dict[str, A
             bool(receipt.get("valid")),
             str(receipt.get("reason") or ""),
             float(receipt.get("elapsed_s") or 0),
+            skipped=bool(receipt.get("skipped")),
         )
     summary = root / "engine_eval" / "canaries" / build / "table.json"
     _write_json(
@@ -1581,7 +1725,9 @@ def run_canary(pipeline: str, only: str | None = None) -> tuple[list[dict[str, A
         {"build": build, "stopped": stop_reason, "cells": _canary_table(results)},
     )
     print(f"cells {len(results)} stopped={stop_reason or 'no'}", flush=True)
-    invalid = any(item.get("valid") is not True for item in results) or bool(stop_reason)
+    invalid = any(
+        item.get("valid") is not True and not item.get("skipped") for item in results
+    ) or bool(stop_reason)
     return results, 2 if invalid else 0
 
 
@@ -1593,6 +1739,8 @@ def _canary_table(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
             {
                 "cell": cell,
                 "valid": result.get("valid"),
+                "status": result.get("status") or ("valid" if result.get("valid") else "invalid"),
+                "skipped": bool(result.get("skipped")),
                 "reason": result.get("reason"),
                 "elapsed_s": result.get("elapsed_s"),
                 "failures": result.get("failures"),
@@ -1771,6 +1919,16 @@ def _wfe_plan(
     return output, str(source_path), selections, plan
 
 
+def _wfe_failure_detail(stdout: str, stderr: str) -> str:
+    """The arm's own verdict line, not just the last helper log line."""
+    lines = [line.strip() for line in stdout.splitlines() if line.strip()]
+    blocked = [line for line in lines if line.startswith("BLOCKED") or " BLOCKED " in line]
+    if blocked:
+        return blocked[-1][-1000:]
+    tail = stderr.strip() or (lines[-1] if lines else "no output")
+    return tail[-1000:]
+
+
 def _run_wfe_arm(
     plan_path: Path,
     campaign_id: str,
@@ -1827,7 +1985,8 @@ def _run_wfe_arm(
     (output_base / f"{arm['role']}.stderr.log").write_text(result.stderr, encoding="utf-8")
     if result.returncode:
         raise Stage3BlockedError(
-            f"WFE {arm['role']} exited {result.returncode}: {result.stderr[-1000:]}"
+            f"WFE {arm['role']} exited {result.returncode}: "
+            f"{_wfe_failure_detail(result.stdout, result.stderr)}"
         )
     if not (campaign_dir / "manifest.json").is_file():
         raise Stage3BlockedError(f"WFE campaign did not write {campaign_dir / 'manifest.json'}")
@@ -1847,11 +2006,27 @@ def _run_wfe_arm(
     }
 
 
+def _prepare_host(cfg: dict[str, Any]) -> dict[str, Any]:
+    """Unload both production engines and refuse to start if anything is left resident."""
+    host_prep = _prepare_production_models(cfg)
+    if not host_prep["valid"]:
+        raise Stage3BlockedError(f"pre-workload unload failed: {host_prep['failures']}")
+    return host_prep
+
+
 @contextlib.contextmanager
 def _running_cells(
-    cells: list[dict[str, Any]], root: Path, build: str, context_tokens: int | None = None
+    cells: list[dict[str, Any]],
+    root: Path,
+    build: str,
+    context_tokens: int | None = None,
+    host_prep: dict[str, Any] | None = None,
 ):
-    """Start distinct canary-qualified managed engines and always verify shutdown."""
+    """Start distinct canary-qualified managed engines and always verify shutdown.
+
+    ``host_prep`` lets a caller prep the host itself (and take its baseline
+    snapshots after that) instead of having the unload land inside the window.
+    """
     cfg = h2h.load_config()
     managed = [cell for cell in cells if not _is_external(cell)]
     if len({cell["engine"] for cell in managed}) != len(managed):
@@ -1860,6 +2035,9 @@ def _running_cells(
         _gate_canary(root, build, cell)
         if not _is_external(cell) and h2h.pid_on_port(cell["port"]):
             raise Stage3BlockedError(f"candidate port {cell['port']} is already occupied")
+    # Every workload gets a quiet host: an engine left resident by the workload
+    # before this one fails the next engine's memory preflight.
+    host_prep = host_prep if host_prep is not None else _prepare_host(cfg)
     okay, reason = h2h.start_gate(cfg)
     if not okay:
         raise Stage3BlockedError(f"swap start gate: {reason}")
@@ -1882,7 +2060,7 @@ def _running_cells(
                     log_paths=(log_dir / "engine.stdout.log", log_dir / "engine.stderr.log"),
                     on_started=remember_started,
                 )
-            yield infos
+            yield infos, host_prep
         finally:
             errors = []
             for cell in reversed(started):
@@ -1978,9 +2156,19 @@ def _run_one_wfe_selection(
     }
     run_candidate = selection["role"] == ("challenger" if compare else "incumbent")
     if run_candidate:
-        with _running_cells([cell], root, build):
-            return _run_wfe_arm(*args, **options)
-    return _run_wfe_arm(*args, **options)
+        with _running_cells([cell], root, build) as (_infos, host_prep):
+            run = _run_wfe_arm(*args, **options)
+        run["host_prep"] = host_prep
+        return run
+    # The incumbent arm loads its model on oMLX through the Pipeline. The host
+    # still has to be quiet first, or that load meets the previous model's footprint.
+    host_prep = _prepare_host(h2h.load_config())
+    okay, reason = h2h.start_gate(h2h.load_config())
+    if not okay:
+        raise Stage3BlockedError(f"swap start gate: {reason}")
+    run = _run_wfe_arm(*args, **options)
+    run["host_prep"] = host_prep
+    return run
 
 
 def _run_wfe_selections(
@@ -2143,7 +2331,7 @@ def _run_concurrency_workload(
             )
         chosen.append(candidate)
     by_seat = {item["seat"]: item for item in chosen}
-    with _running_cells(chosen, root, build):
+    with _running_cells(chosen, root, build) as (_infos, host_prep):
         specs = []
         for index in range(8):
             specs.append((by_seat["hunt"], f"json-{index}", True))
@@ -2185,6 +2373,7 @@ def _run_concurrency_workload(
         ],
         "requests": requests,
         "failures": [row["label"] for row in failed],
+        "host_prep": host_prep,
     }
 
 
@@ -2247,7 +2436,10 @@ def _run_long_context(
         raise Stage3BlockedError(
             f"local repository text only fills {input_tokens} tokens of {context_tokens}"
         )
-    with _running_cells([cell], root, build, context_tokens=context_tokens):
+    with _running_cells([cell], root, build, context_tokens=context_tokens) as (
+        _infos,
+        host_prep,
+    ):
         models = _models_payload(cell["base"])
         settings = _context_readback(models["json"], cell["expected_model"])
         url = f"{cell['base'].rstrip('/')}/v1/chat/completions"
@@ -2275,6 +2467,7 @@ def _run_long_context(
         "needle": needle,
         "answer": response.get("text", ""),
         "route": "direct engine request; engine context readback and needle response are recorded",
+        "host_prep": host_prep,
     }
 
 
@@ -2340,7 +2533,7 @@ def _run_soak_workload(
     samples: list[dict[str, Any]] = []
     started = time.monotonic()
     next_sample_s = 300
-    with _running_cells([cell], root, build):
+    with _running_cells([cell], root, build) as (_infos, host_prep):
         while time.monotonic() - started < duration_s:
             _pipeline_request(
                 cell,
@@ -2381,6 +2574,7 @@ def _run_soak_workload(
         "independent_memory_source": "vm_stat wired pages, compared with the 5-minute plateau",
         "plateau_to_final_gb": deltas,
         "tolerance_gb": 2.0,
+        "host_prep": host_prep,
     }
 
 
@@ -2404,16 +2598,20 @@ def _run_co_residence(
                 f"no distinct current-build canary-qualified engine for {seat}"
             )
         chosen.append(candidate)
+    # Unload the production engines BEFORE the baseline: growth then measures
+    # only the co-resident engines, not the release of a model they displaced.
+    cfg = h2h.load_config()
+    host_prep = _prepare_host(cfg)
     vm_before = subprocess.check_output(["vm_stat"], text=True, timeout=10)
-    residency_before = _candidate_residency(h2h.load_config())
+    residency_before = _candidate_residency(cfg)
     swap_before = h2h.swap_now().get("used_mb")
-    with _running_cells(chosen, root, build):
+    with _running_cells(chosen, root, build, host_prep=host_prep) as (_infos, _prep):
         requests = [
             _pipeline_request(target, pipeline, [{"role": "user", "content": "Reply exactly OK."}])
             for target in chosen
         ]
         swap_after = h2h.swap_now().get("used_mb")
-        residency_after = _candidate_residency(h2h.load_config())
+        residency_after = _candidate_residency(cfg)
         vm_after = subprocess.check_output(["vm_stat"], text=True, timeout=10)
     growth = None if swap_before is None or swap_after is None else swap_after - swap_before
     delta = instrument.vm_deltas_gb(
@@ -2421,9 +2619,9 @@ def _run_co_residence(
     )
     swap_gate = (
         swap_after is not None
-        and swap_after <= float(h2h.load_config()["guard"]["max_start_swap_used_mb"])
+        and swap_after <= float(cfg["guard"]["max_start_swap_used_mb"])
         and growth is not None
-        and growth <= float(h2h.load_config()["guard"]["max_swap_growth_mb"])
+        and growth <= float(cfg["guard"]["max_swap_growth_mb"])
     )
     valid = all(_route_valid(row) for row in requests) and swap_gate
     return {
@@ -2441,6 +2639,7 @@ def _run_co_residence(
         "swap_after_mb": swap_after,
         "swap_growth_mb": growth,
         "swap_gate": swap_gate,
+        "host_prep": host_prep,
     }
 
 
@@ -2468,6 +2667,13 @@ def _execute_stage3_workload(
             cell, workload, root, build, pipeline, compare=not _is_external(cell)
         )
     if workload == "tool-turn":
+        not_applicable = _tool_surface_reason(cell)
+        if not_applicable:
+            return {
+                "status": "NOT_APPLICABLE",
+                "valid": True,
+                "reason": f"tool turn: not applicable — {not_applicable}",
+            }
         return _run_quality_workload(cell, workload, root, build, pipeline, compare=False)
     if workload == "concurrency-mix":
         return _run_concurrency_workload(cell, root, build, pipeline)
@@ -2778,7 +2984,7 @@ def _run_one_staged_workload(
     state = "pass" if result.get("valid") is True else "fail"
     print(f"{_cell_selector(cell)} | {name} | {state} | {reason} | {elapsed:.0f}s", flush=True)
     result["elapsed_s"] = elapsed
-    result["reason_norm"] = normalise_reason(reason)
+    result["reason_norm"] = normalise_reason(reason, cell)
     if (
         str(result.get("reason") or "").startswith("swap start gate")
         or result.get("swap_gate") is False
@@ -2815,7 +3021,7 @@ def _run_staged_cell(cell: dict[str, Any], root: Path, build: str, pipeline: str
         "finished": True,
         "valid": reason == "ok",
         "reason": reason,
-        "reason_norm": normalise_reason(reason),
+        "reason_norm": normalise_reason(reason, cell),
         "swap_stop": any(row.get("swap_stop") for row in workloads.values()),
         "workloads": workloads,
         "created_at": datetime.now(UTC).isoformat(),
@@ -2834,7 +3040,7 @@ def _refused_cell(cell: dict[str, Any], build: str, reason: str, root: Path) -> 
         "finished": True,
         "valid": False,
         "reason": reason,
-        "reason_norm": normalise_reason(reason),
+        "reason_norm": normalise_reason(reason, cell),
         "swap_stop": reason.startswith("swap start gate"),
         "workloads": {},
         "created_at": datetime.now(UTC).isoformat(),

@@ -81,6 +81,7 @@ import yaml
 from portal.platform.inference import identity as _omlx_identity
 from portal.platform.inference.cluster_backends import BackendRegistry
 from portal.platform.inference.config import effective_workspace
+from portal.platform.inference.eval_openai import EVAL_OPENAI
 from tests.wfe import decision, eval_mode
 from tests.wfe.checkers import CheckContext, CheckResult, apply_checkers, expect_tools_verdict
 from tests.wfe.runner import (
@@ -2516,7 +2517,15 @@ def seat_primary(workspace: str, model: str, backend: str | None = None) -> str:
 
 @functools.lru_cache(maxsize=1)
 def _seat_registry() -> BackendRegistry:
-    return BackendRegistry(config_path=str(REPO / "config/backends.yaml"))
+    """Production routing plus the eval engines, so a pinned eval arm resolves.
+
+    ``include_eval_backends`` is the registry's audit exception: eval backends
+    are registered only for the exclusive bench workspaces, so a production
+    workspace still routes exactly as it did.
+    """
+    return BackendRegistry(
+        config_path=str(REPO / "config/backends.yaml"), include_eval_backends=True
+    )
 
 
 def served_mismatch(transcript: list, primary: str) -> str | None:
@@ -2552,11 +2561,12 @@ OMLX_IDENTITY_FILES = _omlx_identity.OMLX_IDENTITY_FILES
 
 
 def backend_engine(backend_id: str) -> str:
-    """The engine a backends.yaml entry id names ('ollama', 'omlx', ...)."""
-    cfg = yaml.safe_load((REPO / "config/backends.yaml").read_text()) or {}
-    for b in cfg.get("backends") or []:
-        if b.get("id") == backend_id:
-            return str(b.get("type") or "")
+    """The engine a backends.yaml or bench_engines.yaml entry id names."""
+    for name in ("backends.yaml", "bench_engines.yaml"):
+        cfg = yaml.safe_load((REPO / "config" / name).read_text()) or {}
+        for b in cfg.get("backends") or []:
+            if b.get("id") == backend_id:
+                return str(b.get("type") or "")
     return ""
 
 
@@ -2594,6 +2604,19 @@ def omlx_content_id(model: str) -> tuple[str, str]:
     )
 
 
+def eval_content_id(model: str) -> tuple[str, str]:
+    """Content id for an eval engine's checkpoint: its MLX directory, else its Ollama
+    tag digest. The bench workspace hint is that id (a checkpoint dir or a GGUF tag),
+    so the same two stores that identity a production seat identity the eval one."""
+    content, why = omlx_content_id(model)
+    if content:
+        return content, ""
+    digest, ollama_why = ollama_content_id(model)
+    if digest:
+        return digest, ""
+    return "", f"{why}; {ollama_why}"
+
+
 def observe_identity(backend_id: str, model: str) -> tuple[dict, str]:
     """What serves one model now, observed in the engine's own store: backend id,
     model id and content id, plus why the content could not be observed."""
@@ -2602,6 +2625,8 @@ def observe_identity(backend_id: str, model: str) -> tuple[dict, str]:
         content, why = ollama_content_id(model)
     elif engine == "omlx":
         content, why = omlx_content_id(model)
+    elif engine == EVAL_OPENAI:
+        content, why = eval_content_id(model)
     else:
         content, why = "", f"backend {backend_id!r} has no content identity"
     return {"backend": backend_id, "model": model, "content": content}, why
