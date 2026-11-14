@@ -2606,6 +2606,47 @@ def _run_quality_workload(
     return result
 
 
+def _mix_fields(as_json: bool) -> dict[str, Any]:
+    """JSON leg is tool-less, like production hunt; chat leaves workspace tools alone."""
+    if not as_json:
+        return {}
+    return {"response_format": {"type": "json_object"}, "tools": []}
+
+
+def _mix_request(
+    target: dict[str, Any], pipeline: str, label: str, as_json: bool
+) -> dict[str, Any]:
+    """One mix request. An engine HTTP rejection is a failed row, not a raised crash."""
+    message = (
+        f"Return only a JSON object with keys ok=true and slot={label}."
+        if as_json
+        else f"Reply exactly OK for request {label}."
+    )
+    try:
+        result = _pipeline_request(
+            target, pipeline, [{"role": "user", "content": message}], **_mix_fields(as_json)
+        )
+    except CandidateHTTPError as exc:
+        return {
+            "label": label,
+            "valid": False,
+            "reason": str(exc),
+            "upstream_http": {"status": exc.status, "body": exc.body},
+            "workspace": target["workspace"],
+            "backend": target["backend"],
+            "expected_model": target["expected_model"],
+        }
+    if as_json:
+        try:
+            parsed = json.loads(result["text"])
+            result["json_valid"] = parsed.get("ok") is True and parsed.get("slot") == label
+        except json.JSONDecodeError:
+            result["json_valid"] = False
+    result["label"] = label
+    result["valid"] = _route_valid(result) and result.get("json_valid", True)
+    return result
+
+
 def _run_concurrency_workload(
     cell: dict[str, Any], root: Path, build: str, pipeline: str
 ) -> dict[str, Any]:
@@ -2635,34 +2676,20 @@ def _run_concurrency_workload(
             specs.append((by_seat["daily-moe"], f"chat-{index}", False))
             specs.append((by_seat["task-router"], f"router-{index}", False))
 
-        def request(spec: tuple[dict[str, Any], str, bool]) -> dict[str, Any]:
-            target, label, as_json = spec
-            message = (
-                f"Return only a JSON object with keys ok=true and slot={label}."
-                if as_json
-                else f"Reply exactly OK for request {label}."
-            )
-            extra = {"response_format": {"type": "json_object"}} if as_json else {}
-            result = _pipeline_request(
-                target, pipeline, [{"role": "user", "content": message}], **extra
-            )
-            if as_json:
-                try:
-                    parsed = json.loads(result["text"])
-                    result["json_valid"] = parsed.get("ok") is True and parsed.get("slot") == label
-                except json.JSONDecodeError:
-                    result["json_valid"] = False
-            result["label"] = label
-            result["valid"] = _route_valid(result) and (result.get("json_valid", True))
-            return result
+        def send(spec: tuple[dict[str, Any], str, bool]) -> dict[str, Any]:
+            return _mix_request(spec[0], pipeline, spec[1], spec[2])
 
         with ThreadPoolExecutor(max_workers=12) as pool:
-            requests = list(pool.map(request, specs))
+            requests = list(pool.map(send, specs))
     failed = [row for row in requests if not row["valid"]]
     return {
         "status": "PASS" if not failed else "FAIL",
         "valid": not failed,
         "pass_rule": _protocol_workload("concurrency-mix").get("pass"),
+        "request_shapes": {
+            "json": "response_format json_object and tools []; production hunt declares no tools",
+            "chat": "no response_format; workspace tools stay, matching auto-daily",
+        },
         "cells": [
             {"engine": item["engine"], "seat": item["seat"], "port": item["port"]}
             for item in chosen
@@ -2688,18 +2715,37 @@ def _context_readback(payload: dict[str, Any], expected_model: str) -> dict[str,
     return {key: row[key] for key in keys if key in row}
 
 
+def _long_context_tokens(cell: dict[str, Any]) -> int | None:
+    """Protocol windows name the bench workspace; the seat slug is the same window."""
+    windows = {
+        str(row["seat"]): int(row["context_tokens"])
+        for row in (_protocol_workload("long-context").get("windows") or [])
+    }
+    for key in (cell.get("workspace"), cell.get("seat")):
+        if key in windows:
+            return windows[key]
+    aliases = {
+        name.removeprefix("bench-engine-"): tokens
+        for name, tokens in windows.items()
+        if str(name).startswith("bench-engine-")
+    }
+    seat = cell.get("seat")
+    if seat in aliases:
+        return aliases[seat]
+    return None
+
+
 def _run_long_context(
     cell: dict[str, Any], root: Path, build: str, pipeline: str
 ) -> dict[str, Any]:
     protocol = _protocol_workload("long-context")
-    windows = {row["seat"]: int(row["context_tokens"]) for row in protocol.get("windows") or []}
-    if cell["workspace"] not in windows:
+    context_tokens = _long_context_tokens(cell)
+    if context_tokens is None:
         return {
             "status": "NOT_APPLICABLE",
             "valid": True,
             "reason": "seat has no registered long-context window",
         }
-    context_tokens = windows[cell["seat"]]
     cfg = h2h.load_config()
     tokenizer = _candidate_tokenizer(cfg, cell)
     if tokenizer is None:
@@ -3000,6 +3046,28 @@ def _flag_non_comparable_quality(result: dict[str, Any], canary: dict[str, Any])
     )
 
 
+def _record_workload_swap(result: dict[str, Any], before: float | None) -> None:
+    """Rule 4: growth past the protocol limit fails this workload and stops the run."""
+    after = h2h.swap_now().get("used_mb")
+    growth = None if before is None or after is None else after - before
+    limit = float(h2h.load_config()["guard"]["max_swap_growth_mb"])
+    result["swap_before_mb"] = before
+    result["swap_after_mb"] = after
+    result["swap_growth_mb"] = growth
+    result["swap_growth_limit_mb"] = limit
+    if growth is None or growth <= limit:
+        return
+    result["valid"] = False
+    result["status"] = "FAIL"
+    result["swap_gate"] = False
+    result["swap_stop"] = True
+    reading = (
+        f"swap grew {growth:.0f}MB (before {before:.0f}MB, after {after:.0f}MB) > {limit:.0f}MB"
+    )
+    prior = str(result.get("reason") or "")
+    result["reason"] = reading if not prior or prior == reading else f"{reading}; {prior}"
+
+
 def run_stage3(
     cell: dict[str, Any],
     workload: str,
@@ -3011,6 +3079,7 @@ def run_stage3(
     _configure_results(root)
     build = build or current_build()
     path = root / "engine_eval" / "stage3" / build / f"{_cell_id(cell)}--{workload}.json"
+    swap_before = h2h.swap_now().get("used_mb")
     try:
         canary = _gate_canary(root, build, cell)
         if path.is_file():
@@ -3037,6 +3106,7 @@ def run_stage3(
         }
     except (Exception, SystemExit) as exc:
         result = {"valid": False, "status": "FAIL", "reason": f"{type(exc).__name__}: {exc}"}
+    _record_workload_swap(result, swap_before)
     _stamp_outcome(result)
     result.update(
         {
@@ -3471,7 +3541,7 @@ def _summary_rows(results: list[dict[str, Any]]) -> list[dict[str, str]]:
             {
                 "seat": str(cell.get("seat")),
                 "candidate": _cell_selector(cell),
-                "incumbent": _cell_selector(incumbent["cell"]) if incumbent else "missing",
+                "incumbent": _cell_selector(incumbent["cell"]) if incumbent else "pending",
                 "quality": str(_quality_not_worse(result)),
                 "speed": str(_speed_beats_noise(result)),
                 "memory": str(_flag_from_workload(result, "soak")),
