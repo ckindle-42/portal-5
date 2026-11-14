@@ -506,7 +506,7 @@ def test_vllm_mlx_seat_argv_follows_the_researched_registry(cfg):
             "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp",
             "32768",
             "nemotron",
-            None,
+            "qwen3",
             True,
         ),
         "coding": ("qwen38_27b_h2h", "Qwen3.8-27B-4bit", "32768", "hermes", "qwen3", True),

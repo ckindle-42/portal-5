@@ -108,17 +108,25 @@ engines:
     # docs/engine_research/vllm_20261114.md § vllm-mlx 0.6.0 shared 64 GB argv.
     # MTP stays on the OpenAI stream route (--stream-interval 1). Spec does not disable streaming.
     # The local Nemotron-MTP stream was not tested. Usage needs stream_options.include_usage=true.
-    note: "OpenAI SSE stays available with --enable-mtp and --stream-interval 1. Spec does not disable streaming. The local Nemotron-MTP stream was not tested. Final usage needs stream_options.include_usage=true."
+    note: "OpenAI SSE stays available with --enable-mtp and --stream-interval 1. Spec does not disable streaming. On 0.6.0 --enable-mtp is inert for nemotron_h: validation logs num_nextn_predict_layers=0 and model.mtp is None, and no injection path exists outside qwen3_next/qwen3_5. Final usage needs stream_options.include_usage=true."
     seat_base: [uvx, --from, vllm-mlx==0.6.0, vllm-mlx, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --gpu-memory-utilization, "0.45", --max-kv-size, "{ctx}", --max-request-tokens, "8192", --max-tokens, "8192", --continuous-batching, --max-num-seqs, "4", --prefill-step-size, "512", --cache-memory-mb, "2048", --stream-interval, "1", --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}"]
     seats:
       # § vllm-mlx 0.6.0 seat table: oQ4e-mtp dir; native MTP on the spec arm only; tool nemotron; no reasoning parser.
       # auto-daily think is true. The proposal left the flag unset; the task sets it on and does not copy the global false.
+      # Live 2026-11-14 (build 2e1047ad0): with no parser, vllm-mlx re-opens the template's
+      # implicit <think> in content and the Pipeline discards the unterminated block, so an
+      # all-thinking turn reaches the client as one terminal no-answer chunk. qwen3 is the
+      # generic <think> tag parser; it is not a Nemotron identity claim. The engine
+      # reads implicit mode from the template, so reasoning arrives on its own channel.
+      # Evidence: docs/engine_research/vllm_20261114.findings.md § 1.
       daily-moe:
         model_dir: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
         ctx: 32768
         tool_parser: nemotron
-        reasoning_parser: null
+        reasoning_parser: qwen3
         enable_thinking: true
+        # 0.6.0 has no NemotronH MTP path (patches are qwen3_next/qwen3_5 only) and
+        # validation reports model.mtp is None, so this arm runs the flag inert.
         spec_argv: [--enable-mtp]
       # § vllm-mlx 0.6.0: plain Qwen3.8-27B-4bit; hermes + reasoning qwen3; DFlash2 is not a spec arm.
       # auto-coding / bench-engine-coding think is true.
