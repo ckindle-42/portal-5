@@ -782,6 +782,18 @@ async def _resolve_request_route(
     # Eval arm pin (portal_backend) before hot-seat protection: a pinned arm
     # measures exactly one backend, so the ladder must not widen the list again.
     model_hint = str(WORKSPACES.get(workspace_id, {}).get("model_hint") or "")
+    requested_pin = body.get("portal_backend")
+    registered = isinstance(requested_pin, str) and any(
+        backend.id == requested_pin for backend in registry.list_backends()
+    )
+    if (
+        registered
+        and all(candidate.id != requested_pin for candidate in candidates)
+        # Another worker may already have probed this engine healthy; this
+        # worker's candidate list is only as fresh as its last cycle.
+        and await registry.refresh_backend_health(str(requested_pin))
+    ):
+        candidates = registry.get_backend_candidates(workspace_id)
     candidates = apply_backend_pin(body, candidates, model_hint)
 
     # Hot-seat prefix-cache protection, then a parallel seat returns to its batching engine.

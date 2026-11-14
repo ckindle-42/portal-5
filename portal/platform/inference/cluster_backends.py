@@ -480,6 +480,22 @@ class BackendRegistry:
         """Return all registered backends."""
         return list(self._backends.values())
 
+    async def refresh_backend_health(self, backend_id: str) -> bool:
+        """Probe one backend now and publish the result.
+
+        Each uvicorn worker owns a registry, so a backend one worker has already
+        seen recover can still be missing from another worker's candidate list
+        for a whole health interval. A pinned eval request re-probes its one
+        backend instead of waiting for that worker's next cycle.
+        """
+        backend = self._backends.get(backend_id)
+        if backend is None:
+            return False
+        sem = self._get_health_semaphore()
+        client = await self._get_health_client(self._health_timeout)
+        await self._check_one(backend, sem, client)
+        return backend.healthy
+
     @property
     def health_checked(self) -> bool:
         """True once a health cycle has completed (counts before that are assumed)."""
@@ -503,6 +519,19 @@ class BackendRegistry:
 
         Called from ``health_check_all`` after every cycle; the invalidation is
         what lets a health change take effect within the 5s TTL window.
+        """
+        self._cached_healthy = [b for b in self._backends.values() if b.healthy]
+        self._invalidate_candidate_cache()
+
+    def _publish_health_change(self) -> None:
+        """Publish one backend's health transition before the cycle ends.
+
+        ``/v1/backends`` reads ``Backend.healthy`` live, so a caller that waits
+        on it can proceed while ``_cached_healthy`` still holds the previous
+        cycle's list (a 25-backend cycle with a 2-slot semaphore takes long
+        enough to matter). Requests then see the stale candidate list and 400 a
+        backend the wait just reported healthy. Transitions are rare, so this
+        rebuilds the two caches on change only.
         """
         self._cached_healthy = [b for b in self._backends.values() if b.healthy]
         self._invalidate_candidate_cache()
@@ -788,6 +817,7 @@ class BackendRegistry:
                     self._update_omlx_live_models(backend, resp)
                 if not backend.healthy:
                     backend.healthy = True
+                    self._publish_health_change()
                     logger.info("Health check recovered: %s", backend.id)
             else:
                 backend.consecutive_failures += 1
@@ -799,6 +829,7 @@ class BackendRegistry:
                             backend.consecutive_failures,
                         )
                         backend.healthy = False
+                        self._publish_health_change()
                 else:
                     logger.debug(
                         "Health check failed for %s: %d/%d consecutive failures",

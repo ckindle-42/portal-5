@@ -341,3 +341,74 @@ defaults: {}
         reg = BackendRegistry(config_path=str(cfg))
         assert reg._tool_support == {}
         assert reg.model_supports_tools("anything") is False
+
+
+class TestHealthTransitionPublishes:
+    """A published flag and the candidate list must agree inside a health cycle.
+
+    ``/v1/backends`` reads ``Backend.healthy`` live, while requests read
+    ``_cached_healthy``. A caller that waits for a "healthy" flag read then sent
+    a pinned request could 400 with "not a healthy candidate" because the cache
+    was still the previous cycle's list.
+    """
+
+    def test_a_recovery_is_a_candidate_before_the_cycle_ends(self, tmp_path):
+        import asyncio
+
+        cfg = tmp_path / "backends.yaml"
+        cfg.write_text("""
+backends:
+  - id: eval-openai
+    type: eval_openai
+    url: http://127.0.0.1:11234
+    group: eval
+    models: [m]
+workspace_routing:
+  bench-engine-x: [eval]
+defaults: {}
+""")
+        reg = BackendRegistry(config_path=str(cfg), include_eval_backends=True)
+        backend = reg._backends["eval-openai"]
+        backend.healthy = False
+        backend.consecutive_failures = 2
+        reg._cached_healthy = []  # the previous cycle's list
+        reg._candidate_cache["exclusive:bench-engine-x"] = ([], 0.0)
+
+        class Client:
+            async def get(self, _url):
+                return type("Response", (), {"status_code": 200})()
+
+        asyncio.run(reg._check_one(backend, asyncio.Semaphore(1), Client()))
+
+        assert backend.healthy is True
+        assert [row.id for row in reg.list_healthy_backends()] == ["eval-openai"]
+        assert [row.id for row in reg.get_backend_candidates("bench-engine-x")] == ["eval-openai"]
+
+    def test_a_healthy_flag_and_the_published_list_never_disagree(self, tmp_path):
+        import asyncio
+
+        cfg = tmp_path / "backends.yaml"
+        cfg.write_text("""
+backends:
+  - id: b1
+    type: ollama
+    url: http://x
+    group: general
+    models: [m]
+workspace_routing: {}
+defaults: {}
+""")
+        reg = BackendRegistry(config_path=str(cfg))
+        backend = reg._backends["b1"]
+        backend.healthy = True
+        reg._cached_healthy = [backend]
+
+        class Client:
+            async def get(self, _url):
+                return type("Response", (), {"status_code": 503})()
+
+        asyncio.run(reg._check_one(backend, asyncio.Semaphore(1), Client()))
+        asyncio.run(reg._check_one(backend, asyncio.Semaphore(1), Client()))
+
+        assert backend.healthy is False
+        assert reg.list_healthy_backends() == []
