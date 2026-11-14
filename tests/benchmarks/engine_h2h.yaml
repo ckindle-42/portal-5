@@ -129,14 +129,14 @@ engines:
         reasoning_parser: qwen3
         enable_thinking: true
         spec_argv: null
-      # § vllm-mlx 0.6.0 proposal: gemma4 tool parser, enable_thinking true, no reasoning parser, no assistant.
-      # hunt-reasoning sets no think field; the proposal keeps raw reasoning rather than the global false.
+      # § vllm-mlx 0.6.0 proposal: gemma4 tool parser, no reasoning parser, no assistant.
+      # config/portal.yaml hunt-reasoning sets no think field; the Gemma template defaults to off, so the seat is false.
       hunt:
         model_dir: gemma-4-26b-a4b-it-QAT-4bit
         ctx: 16384
         tool_parser: gemma4
         reasoning_parser: null
-        enable_thinking: true
+        enable_thinking: false
         spec_argv: null
       # Same Qwen artifact as coding. compliance-council-qwen38 think is false, so this seat is the non-thinking call.
       # Do not remap council-json onto Gemma (proposal: that mapping is a separate task).
