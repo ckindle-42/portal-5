@@ -325,6 +325,9 @@ def served_id(cfg: dict, engine: str, model: str, mode: str) -> str:
     m = cfg["models"][model]
     if engine == "splash":
         return m.get("served") or m.get("splash") or model_dir_for(cfg, model, engine, mode)
+    # MTPLX launches --model-id {served}: the pack dir it loads is not the served id.
+    if engine == "mtplx":
+        return m.get("served") or model_dir_for(cfg, model, engine, mode)
     return model_dir_for(cfg, model, engine, mode)
 
 
