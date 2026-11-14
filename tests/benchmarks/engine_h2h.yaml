@@ -244,7 +244,7 @@ engines:
     # docs/engine_research/mlxother_20261114.md § 3) Splash (incoai), coding row + Proposed Splash registry entry.
     # splash serve --help (1.6.1): serve always loads a DFlash2 draft. No draft-off switch, so plain is null.
     # --draft-model selects the on-disk drafter. {splash_extra} is model-dir, that draft, and the served name.
-    # --host 0.0.0.0: help's default 127.0.0.1 is unreachable from the pipeline container
+    # --host stays 127.0.0.1: other managed engines bind loopback and the pipeline reaches them via host.docker.internal; 0.0.0.0 would expose an unauthenticated model on the LAN (orchestrator 2026-11-14).
     # (scripts/splash-forwarder.sh). Do not use the :8086 forwarder: it relays to 127.0.0.1:8000.
     # eval-openai-splash stays http://host.docker.internal:11242.
     # --allowed-host host.docker.internal: any other Host is 403, so the engine can be
@@ -255,7 +255,7 @@ engines:
     # chat_template_kwargs.enable_thinking; Splash follows that, else the template default.
     # Help: INT8 activations are M5+ only. auto leaves this M4 on bf16. Do not pass --activations.
     plain: null
-    base_spec: [splash, serve, --model, "{splash_model}", --host, "0.0.0.0", --port, "{port}", --max-context, "{ctx}", --max-cache-disk, "0", --language-only, "{splash_extra}", --allowed-host, host.docker.internal]
+    base_spec: [splash, serve, --model, "{splash_model}", --host, 127.0.0.1, --port, "{port}", --max-context, "{ctx}", --max-cache-disk, "0", --language-only, "{splash_extra}", --allowed-host, host.docker.internal]
     stop_signal: INT
     readiness: {path: /v1/models, timeout_s: 300, collection: data, id_field: id}
   mlxcel:

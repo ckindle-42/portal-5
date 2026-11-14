@@ -679,7 +679,7 @@ def test_splash_qwen_pins_disk_cache_off_and_local_draft(cfg):
     assert "--persistent-cache" not in spec
     assert "--language-only" in spec
     assert "--default-reasoning-effort" not in spec
-    assert spec[spec.index("--host") + 1] == "0.0.0.0"
+    assert spec[spec.index("--host") + 1] == "127.0.0.1"
     assert spec[spec.index("--allowed-host") + 1] == "host.docker.internal"
     assert spec[spec.index("--draft-model") + 1] == draft
     assert spec[spec.index("--served-model-name") + 1] == "Qwen3.8-27B-4bit"
