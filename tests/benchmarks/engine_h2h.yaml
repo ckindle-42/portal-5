@@ -43,6 +43,7 @@ engine_eval:
     - {seat: coding, engine: vllm-metal, mode: spec, reason: the approved matrix records an Unrecognized image processor load failure}
     - {seat: daily-moe, engine: mlxcel, mode: plain, reason: the approved matrix says mlxcel cannot read oQ4e}
     - {seat: daily-moe, engine: mlxcel, mode: spec, reason: the approved matrix says mlxcel cannot read oQ4e}
+    - {seat: daily-moe, engine: rapid-mlx, mode: spec, reason: rapid-mlx 1.0.2 MTP eligibility is NONE for model_type nemotron_h (no mtp_num_hidden_layers; num_nextn_predict_layers is read only for hy_v3)}
 
 engines:
   ollama:
@@ -73,7 +74,7 @@ engines:
     plain: [mlx-serve, --serve, --model, "{mlx_root}/{model_dir}", --host, 127.0.0.1, --port, "{port}", --ctx-size, "{ctx}", --no-pld, --no-drafter, --no-mtp]
     base_spec: [mlx-serve, --serve, --model, "{mlx_root}/{model_dir}", --host, 127.0.0.1, --port, "{port}", --ctx-size, "{ctx}"]
     stop_signal: TERM
-    readiness: {path: /v1/models, timeout_s: 900, collection: data, id_field: id, state_field: state, ready_state: ready, loaded_field: loaded}
+    readiness: {path: /v1/models, timeout_s: 300, collection: data, id_field: id, state_field: state, ready_state: ready, loaded_field: loaded}
   rapid-mlx:
     kind: managed
     requires: mlx
@@ -86,7 +87,7 @@ engines:
     plain: [rapid-mlx, --no-telemetry, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --no-spec-decode, --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}"]
     base_spec: [rapid-mlx, --no-telemetry, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}"]
     stop_signal: INT
-    readiness: {path: /v1/models, timeout_s: 900, collection: data, id_field: id}
+    readiness: {path: /v1/models, timeout_s: 300, collection: data, id_field: id}
   vllm-mlx:
     kind: managed
     requires: mlx
@@ -100,21 +101,23 @@ engines:
     plain: [uvx, --from, vllm-mlx==0.6.0, vllm-mlx, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}", --continuous-batching, --default-chat-template-kwargs, '{"enable_thinking": false}']
     base_spec: [uvx, --from, vllm-mlx==0.6.0, vllm-mlx, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}", --continuous-batching, --default-chat-template-kwargs, '{"enable_thinking": false}']
     stop_signal: INT
-    readiness: {path: /v1/models, timeout_s: 900, collection: data, id_field: id}
+    readiness: {path: /v1/models, timeout_s: 300, collection: data, id_field: id}
   mlx_lm.server:
     kind: managed
     requires: mlx
     port: 11237
-    # Reference baseline only. Its /v1/models lists the whole HF cache and the
-    # request `model` must be the --model path, so it is launched from mlx_root
-    # with a RELATIVE path: the id then equals the served name every engine uses.
+    # Reference baseline. GET /v1/models lists the HF cache plus the resolved
+    # --model path (mlx_lm 0.31.3 server.py handle_models_request), not the
+    # relative id passed to --model. Readiness matches that resolved path.
+    # Chat accepts the relative --model value when cwd is mlx_root
+    # (ModelProvider.load). Launched from mlx_root with that relative path.
     cwd: "{mlx_root}"
     plain: [mlx_lm.server, --model, "{model_dir}", --host, 127.0.0.1, --port, "{port}"]
     base_spec: [mlx_lm.server, --model, "{model_dir}", --host, 127.0.0.1, --port, "{port}"]
     # Measured: mlx_lm.server ignores SIGINT.
     stop_signal: TERM
     list_models_is_cache: true
-    readiness: {path: /v1/models, timeout_s: 900, collection: data, id_field: id}
+    readiness: {path: /v1/models, timeout_s: 300, collection: data, id_field: id}
   prismml-llama:
     kind: managed
     requires: gguf
@@ -123,7 +126,7 @@ engines:
     plain: ["{llama_server}", -m, "{gguf_path}", -ngl, "99", -c, "{ctx}", --jinja, --alias, "{served}", --host, 127.0.0.1, --port, "{port}"]
     base_spec: ["{llama_server}", -m, "{gguf_path}", -ngl, "99", -c, "{ctx}", --jinja, --alias, "{served}", --host, 127.0.0.1, --port, "{port}", "{spec_args}"]
     stop_signal: INT
-    readiness: {path: /v1/models, timeout_s: 900, collection: data, id_field: id}
+    readiness: {path: /v1/models, timeout_s: 300, collection: data, id_field: id}
   brew-llama:
     kind: managed
     requires: gguf
@@ -132,7 +135,7 @@ engines:
     plain: ["{llama_server}", -m, "{gguf_path}", -ngl, "99", -c, "{ctx}", --jinja, --alias, "{served}", --host, 127.0.0.1, --port, "{port}"]
     base_spec: ["{llama_server}", -m, "{gguf_path}", -ngl, "99", -c, "{ctx}", --jinja, --alias, "{served}", --host, 127.0.0.1, --port, "{port}", "{spec_args}"]
     stop_signal: INT
-    readiness: {path: /v1/models, timeout_s: 900, collection: data, id_field: id}
+    readiness: {path: /v1/models, timeout_s: 300, collection: data, id_field: id}
   prismml-mlx:
     kind: managed
     requires: prismml_mlx
@@ -141,7 +144,7 @@ engines:
     plain: ["{python}", "{mlx_server_script}", --model-dir, "{mlx_root}/{model_dir}", --host, 127.0.0.1, --port, "{port}", --ctx, "{ctx}"]
     base_spec: ["{python}", "{mlx_server_script}", --model-dir, "{mlx_root}/{model_dir}", --host, 127.0.0.1, --port, "{port}", --ctx, "{ctx}", "{spec_args}"]
     stop_signal: INT
-    readiness: {path: /v1/models, timeout_s: 900, collection: data, id_field: id}
+    readiness: {path: /v1/models, timeout_s: 300, collection: data, id_field: id}
   mtplx:
     kind: managed
     requires: mtplx
@@ -159,7 +162,7 @@ engines:
     plain: [mtplx, serve, --model, "{model_root}/{model_dir}", --model-id, "{served}", --host, 127.0.0.1, --port, "{port}", --no-auth, --yes, --context-window, "{ctx}", --profile, sustained, --no-stats-footer, --ssd-session-cache, "off", --tool-prompt-mode, native, --no-mtp]
     base_spec: [mtplx, serve, --model, "{model_root}/{model_dir}", --model-id, "{served}", --host, 127.0.0.1, --port, "{port}", --no-auth, --yes, --context-window, "{ctx}", --profile, sustained, --no-stats-footer, --ssd-session-cache, "off", --tool-prompt-mode, native, "{spec_args}"]
     stop_signal: INT
-    readiness: {path: /v1/models, timeout_s: 900, collection: data, id_field: id}
+    readiness: {path: /v1/models, timeout_s: 300, collection: data, id_field: id}
   splash:
     kind: managed
     requires: splash
@@ -177,7 +180,7 @@ engines:
     plain: [splash, serve, --model, "{splash_model}", --host, 127.0.0.1, --port, "{port}", --max-context, "{ctx}", --max-cache-disk, "0", --language-only, "{splash_extra}"]
     base_spec: [splash, serve, --model, "{splash_model}", --host, 127.0.0.1, --port, "{port}", --max-context, "{ctx}", --max-cache-disk, "0", --language-only, "{splash_extra}"]
     stop_signal: INT
-    readiness: {path: /v1/models, timeout_s: 900, collection: data, id_field: id}
+    readiness: {path: /v1/models, timeout_s: 300, collection: data, id_field: id}
   mlxcel:
     kind: managed
     requires: mlx
@@ -192,7 +195,7 @@ engines:
     plain: [mlxcel, serve, -m, "{mlx_root}/{model_dir}", --alias, "{served}", --host, 127.0.0.1, --port, "{port}", --ctx-size, "{ctx}", --parallel, "4", --kv-unified]
     base_spec: [mlxcel, serve, -m, "{mlx_root}/{model_dir}", --alias, "{served}", --host, 127.0.0.1, --port, "{port}", --ctx-size, "{ctx}", --parallel, "4", --kv-unified]
     stop_signal: INT
-    readiness: {path: /v1/models, timeout_s: 900, collection: data, id_field: id}
+    readiness: {path: /v1/models, timeout_s: 300, collection: data, id_field: id}
   vllm-metal:
     kind: managed
     requires: mlx
@@ -220,7 +223,7 @@ engines:
     # Qwen3.8 processor.
     plain: [vllm, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --trust-remote-code, --host, 127.0.0.1, --port, "{port}", --gpu-memory-utilization, "0.45", --max-model-len, "{ctx}"]
     base_spec: [vllm, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --trust-remote-code, --host, 127.0.0.1, --port, "{port}", --gpu-memory-utilization, "0.45", --max-model-len, "{ctx}", --no-async-scheduling, --speculative-config, "{spec_args}"]
-    readiness: {path: /v1/models, timeout_s: 900, collection: data, id_field: id}
+    readiness: {path: /v1/models, timeout_s: 300, collection: data, id_field: id}
 
 models:
   mimo:
@@ -581,7 +584,10 @@ models:
     spec:
       omlx: {method: mtp, settings: {mtp_enabled: true}}
       mlx-serve: {method: mtp, args: [--mtp, --no-pld, --no-drafter]}
-      rapid-mlx: {method: mtp, args: [--speculative-config, '{"method":"mtp","num_speculative_tokens":3}']}
+      # rapid-mlx detect_mtp_eligibility is NONE: model_type nemotron_h is outside
+      # the allowlist and config.json has no mtp_num_hidden_layers. Rendering
+      # --speculative-config mtp exits 2 after load (canary 384fc7677).
+      rapid-mlx: null
       vllm-mlx: {method: mtp, args: [--enable-mtp]}
       # No separate drafter file, and mlxcel MTP requires --draft-model. Plain mlxcel still runs.
       mlxcel: null

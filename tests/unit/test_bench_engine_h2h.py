@@ -552,6 +552,68 @@ def test_qwen_drafter_dir_is_absolute_and_vllm_spec_is_null(cfg):
         h.launch_command(cfg, "vllm-mlx", "qwen38_27b_h2h", "spec")
 
 
+def test_cache_listing_is_ready_when_the_resolved_path_is_listed(cfg, tmp_path: Path):
+    model = "listed-model"
+    root = tmp_path / "models"
+    (root / model).mkdir(parents=True)
+    local = {**cfg, "mlx_root": str(root)}
+    listed = str((root / model).resolve())
+
+    assert h._models_ready(local, "mlx_lm.server", {"data": [{"id": listed}]}, 200, model)
+    assert not h._models_ready(local, "mlx_lm.server", {"data": [{"id": "other"}]}, 200, model)
+
+
+def test_structural_readiness_does_not_wait_out_the_timeout(cfg, monkeypatch):
+    monkeypatch.setattr(h.time, "sleep", lambda _seconds: pytest.fail("slept"))
+    monkeypatch.setattr(
+        h,
+        "_models_response",
+        lambda *_args, **_kwargs: (200, {"data": [{"id": "other-cache-id"}]}, "ok"),
+    )
+
+    with pytest.raises(SystemExit, match="structural readiness"):
+        h.wait_ready(
+            "http://127.0.0.1:11237",
+            300,
+            cfg=cfg,
+            engine="mlx_lm.server",
+            expected_model="not-on-disk-model",
+        )
+
+
+def test_rapid_mlx_mtp_refusal_is_none_for_dflash_and_blocks_before_popen(cfg, monkeypatch):
+    dflash = [
+        "rapid-mlx",
+        "serve",
+        "/tmp/model",
+        "--speculative-config",
+        '{"method":"dflash"}',
+    ]
+    assert h.rapid_mlx_argv_refusal(dflash) is None
+    monkeypatch.setattr(h, "_rapid_mlx_python", lambda: "/usr/bin/python3")
+
+    def fake_run(_cmd, **_kwargs):
+        return type("Result", (), {"returncode": 0, "stdout": "none\n", "stderr": ""})()
+
+    monkeypatch.setattr(h.subprocess, "run", fake_run)
+    reason = h.rapid_mlx_argv_refusal(
+        ["rapid-mlx", "serve", "/tmp/model", "--speculative-config", '{"method":"mtp"}']
+    )
+    assert reason and "none" in reason
+    monkeypatch.setattr(
+        h,
+        "launch_command",
+        lambda *_a, **_k: (
+            ["rapid-mlx", "serve", "/m", "--speculative-config", '{"method":"mtp"}'],
+            None,
+        ),
+    )
+    monkeypatch.setattr(h, "rapid_mlx_argv_refusal", lambda _argv: "refused mtp")
+    monkeypatch.setattr(h.subprocess, "Popen", lambda *_a, **_k: pytest.fail("popen"))
+    with pytest.raises(SystemExit, match="refused mtp"):
+        h.start_managed(cfg, "rapid-mlx", "mimo", "spec")
+
+
 def test_nemotron_mtp_spec_uses_the_oq4e_dir(cfg):
     plain, _ = h.launch_command(cfg, "mlx-serve", "nemotron_35_lightning", "plain")
     spec, _ = h.launch_command(cfg, "mlx-serve", "nemotron_35_lightning", "spec")
@@ -559,9 +621,8 @@ def test_nemotron_mtp_spec_uses_the_oq4e_dir(cfg):
     assert "--no-mtp" in plain and "--mtp" not in plain
     assert "--mtp" in spec and "--no-mtp" not in spec
     assert pack in spec[spec.index("--model") + 1]
-    rapid, _ = h.launch_command(cfg, "rapid-mlx", "nemotron_35_lightning", "spec")
-    blob = rapid[rapid.index("--speculative-config") + 1]
-    assert '"method":"mtp"' in blob
+    with pytest.raises(SystemExit, match="no spec path"):
+        h.launch_command(cfg, "rapid-mlx", "nemotron_35_lightning", "spec")
     with pytest.raises(SystemExit):
         h.launch_command(cfg, "mlxcel", "nemotron_35_lightning", "spec")
 
