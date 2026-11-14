@@ -34,12 +34,39 @@ def test_include_eval_backends_loads_the_eval_group_while_eval_stays_off(
     assert "eval-openai" in {b.id for b in reg.list_backends()}
     coding = reg.get_backend_candidates("bench-engine-coding")
     assert "eval-openai" in {b.id for b in coding}
-    assert coding[0].resolve_model("Qwen3.8-27B-4bit") == "Qwen3.8-27B-4bit"
+    mlx = next(backend for backend in coding if backend.id == "eval-openai")
+    assert mlx.resolve_model("Qwen3.8-27B-4bit") == "Qwen3.8-27B-4bit"
     production = reg.get_backend_candidates("auto-coding")
     assert production
     assert all(b.type != "eval_openai" for b in production)
     off = BackendRegistry(config_path=CONFIG)
     assert "eval-openai" not in {b.id for b in off.list_backends()}
+
+
+def test_mlx_lm_cache_listing_does_not_become_the_served_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PORTAL_ENABLE_EVAL", "1")
+    registry = BackendRegistry(config_path=CONFIG, include_eval_backends=True)
+    backend = next(
+        item for item in registry.list_backends() if item.id == "eval-openai-mlx_lm.server"
+    )
+    assert backend.listing_is_served_set is False
+
+    class _Response:
+        status_code = 200
+
+        def json(self) -> dict[str, list[dict[str, str]]]:
+            return {"data": [{"id": "/Volumes/cache/some-model"}]}
+
+    class _Client:
+        async def get(self, _url: str) -> _Response:
+            return _Response()
+
+    asyncio.run(registry._check_one(backend, asyncio.Semaphore(1), _Client()))
+    assert backend.healthy is True
+    assert backend.live_models is None
+    assert backend.resolve_model("Qwen3.8-27B-4bit") == "Qwen3.8-27B-4bit"
 
 
 def test_each_managed_candidate_has_a_fixed_eval_backend_port(

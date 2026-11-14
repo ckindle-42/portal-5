@@ -52,13 +52,36 @@ backends:
     health_path: /v1/models
     priority: 10
     models: *engine_eval_models
+  # mlx_lm.server GET /v1/models lists the HF cache plus Path(--model).resolve()
+  # (mlx_lm/server.py handle_models_request). The chat `model` it accepts is the
+  # --model value, which this registry launches as a cwd-relative directory
+  # (ModelProvider.load). That id is the seat hint below. The cache listing is
+  # not the served set, so a health probe must not filter resolve_model by it.
   - id: eval-openai-mlx_lm.server
     type: eval_openai
     group: eval
     url: http://host.docker.internal:11237
     health_path: /v1/models
     priority: 10
+    listing_is_served_set: false
     models: *engine_eval_models
+  # Ollama pair for Stage 3. Exclusive bench workspaces cannot pin the production
+  # ollama backend. Tags are the registry ollama ids; hints alias onto them.
+  - id: eval-openai-ollama-incumbent
+    type: eval_openai
+    group: eval
+    url: http://host.docker.internal:11434
+    health_path: /v1/models
+    priority: 10
+    aliases:
+      NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp: hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k
+      Qwen3.8-27B-4bit: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+      gemma-4-26b-a4b-it-QAT-4bit: gemma4:26b-a4b-it-qat-ctx16k
+    models:
+      - {id: hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k, supports_tools: true}
+      - {id: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k, supports_tools: true}
+      - {id: gemma4:26b-a4b-it-qat-ctx16k, supports_tools: true}
+      - {id: hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k, supports_tools: false}
   - id: eval-openai-prismml-llama
     type: eval_openai
     group: eval

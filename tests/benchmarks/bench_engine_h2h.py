@@ -41,6 +41,7 @@ import fcntl
 import json
 import os
 import re
+import shutil
 import signal
 import subprocess
 import sys
@@ -482,22 +483,49 @@ def _models_response(
             return exc.code, {}, raw
 
 
+def _cache_listed_path(cfg: dict, engine: str | None, expected_model: str | None) -> str | None:
+    """Absolute path mlx_lm.server appends to a cache listing for ``--model``."""
+    entry = cfg.get("engines", {}).get(engine or "", {})
+    if not entry.get("list_models_is_cache") or not expected_model:
+        return None
+    root = Path(os.path.expanduser(str(cfg.get("mlx_root", ""))))
+    if entry.get("cwd"):
+        root = Path(
+            os.path.expanduser(render_one(str(entry["cwd"]), {"mlx_root": cfg.get("mlx_root", "")}))
+        )
+    path = Path(expected_model)
+    if not path.is_absolute():
+        path = root / path
+    return str(path.resolve()) if path.exists() else None
+
+
+def _listing_ids(cfg: dict, engine: str | None, payload: dict) -> list[str]:
+    rule = cfg.get("engines", {}).get(engine or "", {}).get("readiness") or {}
+    rows = payload.get(rule.get("collection", "data"))
+    if not isinstance(rows, list):
+        return []
+    field = rule.get("id_field", "id")
+    return [str(item[field]) for item in rows if isinstance(item, dict) and item.get(field)]
+
+
 def _models_ready(
     cfg: dict, engine: str | None, payload: dict, status: int, expected_model: str | None
 ) -> bool:
-    """Require a listed served id; mlx-serve also has an explicit load state."""
+    """Require a listed served id; mlx-serve also has an explicit load state.
+
+    mlx_lm.server's listing is the HF cache plus the resolved ``--model`` path.
+    A relative id that is absent is ready when that resolved path is listed.
+    """
     if status != 200 or expected_model is None:
         return False
     rule = cfg.get("engines", {}).get(engine or "", {}).get("readiness") or {}
     rows = payload.get(rule.get("collection", "data"))
     if not isinstance(rows, list):
         return False
+    field = rule.get("id_field", "id")
+    accepted = {expected_model, _cache_listed_path(cfg, engine, expected_model)} - {None}
     row = next(
-        (
-            item
-            for item in rows
-            if isinstance(item, dict) and item.get(rule.get("id_field", "id")) == expected_model
-        ),
+        (item for item in rows if isinstance(item, dict) and item.get(field) in accepted),
         None,
     )
     if row is None:
@@ -538,6 +566,13 @@ def wait_ready(
                 ready = _models_ready(cfg, engine, payload, status, expected_model)
             if ready:
                 return round(time.monotonic() - t0, 2)
+            if _listing_cannot_identify(cfg, engine, payload, status, expected_model):
+                listed = _listing_ids(cfg, engine, payload)
+                raise SystemExit(
+                    "structural readiness: "
+                    f"{url}{path} returned 200 without {expected_model!r} "
+                    f"or its resolved path; listing has {len(listed)} other id(s)"
+                )
         except (OSError, ValueError, json.JSONDecodeError):
             pass
         if process is not None:
@@ -546,6 +581,86 @@ def wait_ready(
                 raise SystemExit(f"engine process exited during startup (exit {exit_code})")
         time.sleep(1)
     raise SystemExit(f"{url}{path} did not list {expected_model!r} as ready after {timeout_s:g}s")
+
+
+def _listing_cannot_identify(
+    cfg: dict | None,
+    engine: str | None,
+    payload: dict,
+    status: int,
+    expected_model: str | None,
+) -> bool:
+    """True when a 200 listing can never grow to include the served id."""
+    if cfg is None or status != 200 or not expected_model:
+        return False
+    entry = cfg.get("engines", {}).get(engine or "", {})
+    if not entry.get("list_models_is_cache"):
+        return False
+    return not _models_ready(cfg, engine, payload, status, expected_model)
+
+
+def rapid_mlx_argv_refusal(argv: list[str]) -> str | None:
+    """Refuse an MTP argv rapid-mlx's own eligibility check rejects.
+
+    The check is ``detect_mtp_eligibility`` in the rapid-mlx install. It runs
+    before the server process starts. A missing checker refuses the launch.
+    """
+    if not argv or Path(argv[0]).name != "rapid-mlx" or "--speculative-config" not in argv:
+        return None
+    raw = argv[argv.index("--speculative-config") + 1]
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return "rapid-mlx --speculative-config is not JSON"
+    if payload.get("method") != "mtp":
+        return None
+    try:
+        model = argv[argv.index("serve") + 1]
+    except (ValueError, IndexError):
+        return "rapid-mlx MTP argv has no model path"
+    script = (
+        "import json,sys\n"
+        "from pathlib import Path\n"
+        "from rapid_mlx.spec_decode.mtp.detect import detect_mtp_eligibility\n"
+        "cfg=json.loads((Path(sys.argv[1])/'config.json').read_text())\n"
+        "print(detect_mtp_eligibility(cfg).value)\n"
+    )
+    python = _rapid_mlx_python()
+    if python is None:
+        return "rapid-mlx MTP eligibility check is unavailable; refusing to launch"
+    try:
+        result = subprocess.run(
+            [python, "-c", script, model],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return f"rapid-mlx MTP eligibility check failed: {exc}"
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "no output").strip()
+        return f"rapid-mlx MTP eligibility check failed: {detail[:400]}"
+    if result.stdout.strip() == "none":
+        return (
+            "rapid-mlx MTP speculative-config requires mtp_num_hidden_layers >= 1 "
+            f"on a supported model_type; detect_mtp_eligibility is none for {model}"
+        )
+    return None
+
+
+def _rapid_mlx_python() -> str | None:
+    exe = shutil.which("rapid-mlx")
+    if not exe:
+        return None
+    try:
+        first = Path(exe).read_text(encoding="utf-8").splitlines()[0]
+    except OSError:
+        return None
+    if not first.startswith("#!"):
+        return None
+    python = first[2:].strip().split()[0]
+    return python if python and Path(python).is_file() else None
 
 
 def start_managed(
@@ -559,6 +674,9 @@ def start_managed(
     on_started: Callable[[], None] | None = None,
 ) -> dict:
     argv, cwd = launch_command(cfg, engine, model, mode, context_tokens=context_tokens)
+    refusal = rapid_mlx_argv_refusal(argv)
+    if refusal:
+        raise SystemExit(refusal)
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     if log_paths is None:
         stem = RESULTS / "logs" / f"{engine}__{model}__{mode}__{_stamp()}"
@@ -591,7 +709,7 @@ def start_managed(
     readiness = cfg["engines"][engine].get("readiness") or {}
     ready_s = wait_ready(
         base_url(cfg, engine),
-        float(readiness.get("timeout_s", 900)),
+        float(readiness.get("timeout_s", 300)),
         proc,
         cfg=cfg,
         engine=engine,

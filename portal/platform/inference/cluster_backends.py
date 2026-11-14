@@ -185,6 +185,10 @@ class Backend:
     # without this check a half-migrated oMLX group reports healthy and silently
     # black-holes every request for an aliased-but-unserved model.
     live_models: set[str] | None = None
+    # False when ``/v1/models`` is a cache dump (mlx_lm.server), not the served
+    # set. Health still uses HTTP 200. The live-set filter stays off so a
+    # configured id is not rejected for being absent from that dump.
+    listing_is_served_set: bool = True
 
     @property
     def chat_url(self) -> str:
@@ -408,6 +412,7 @@ class BackendRegistry:
             health_path=be.get("health_path"),
             priority=int(be.get("priority", 0) or 0),
             aliases={str(k): str(v) for k, v in (be.get("aliases") or {}).items()},
+            listing_is_served_set=be.get("listing_is_served_set", True) is not False,
         )
         self._backends[backend.id] = backend
         logger.info(
@@ -775,7 +780,11 @@ class BackendRegistry:
 
             if ok:
                 backend.consecutive_failures = 0
-                if backend.type in {"omlx", EVAL_OPENAI} and resp is not None:
+                if (
+                    backend.type in {"omlx", EVAL_OPENAI}
+                    and resp is not None
+                    and backend.listing_is_served_set
+                ):
                     self._update_omlx_live_models(backend, resp)
                 if not backend.healthy:
                     backend.healthy = True
