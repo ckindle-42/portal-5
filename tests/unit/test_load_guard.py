@@ -741,27 +741,136 @@ async def test_omlx_cold_load_refuses_a_busy_ollama_resident_past_the_deadline(c
     assert wait_count(OMLX, "in_flight") > before
 
 
-async def test_pinned_or_protected_ollama_blocks_omlx_without_waiting(monkeypatch, caplog):
-    for reason, name in (("pinned", "router"), ("protected", "fallback")):
-        engines, guard_obj = _omlx_short_of_ollama(name)
-        if reason == "protected":
-            monkeypatch.setattr(lg, "GUARD", guard_obj)
-            lg.protect_failover(OLLAMA, name)
-        lg.set_load_wait("30")
-        caplog.clear()
-        started = lg.time.monotonic()
-        with (
-            caplog.at_level(logging.WARNING, logger=lg.logger.name),
-            pytest.raises(lg.LoadRefusedError) as err,
-        ):
-            await guard_obj.admit_omlx("mlx")
-        text = str(err.value)
-        assert lg.time.monotonic() - started < 0.5
-        assert name in text and reason in text
-        assert "need 14.0 GiB" in text and "waited 0.0s" in text
-        assert any(r.levelno == logging.WARNING and text in r.getMessage() for r in caplog.records)
-        assert engines.unload_calls == {}
-        assert not guard_obj._lock.locked()
+async def test_pinned_ollama_blocks_omlx_without_waiting(monkeypatch, caplog):
+    engines, guard_obj = _omlx_short_of_ollama("router")
+    lg.set_load_wait("30")
+    caplog.clear()
+    started = lg.time.monotonic()
+    with (
+        caplog.at_level(logging.WARNING, logger=lg.logger.name),
+        pytest.raises(lg.LoadRefusedError) as err,
+    ):
+        await guard_obj.admit_omlx("mlx")
+    text = str(err.value)
+    assert lg.time.monotonic() - started < 0.5
+    assert "router" in text and "pinned" in text
+    assert "need 14.0 GiB" in text and "waited 0.0s" in text
+    assert any(r.levelno == logging.WARNING and text in r.getMessage() for r in caplog.records)
+    assert engines.unload_calls == {}
+    assert not guard_obj._lock.locked()
+
+
+async def test_protected_idle_ollama_yields_before_an_omlx_refusal(monkeypatch):
+    """Protection orders eviction (last), it does not veto it: the idle protected
+    resident is freed and the load admitted instead of refused."""
+    engines, guard_obj = _omlx_short_of_ollama("fallback")
+    monkeypatch.setattr(lg, "GUARD", guard_obj)
+    lg.protect_failover(OLLAMA, "fallback")
+    lg.set_load_wait("30")
+    release = await guard_obj.admit_omlx("mlx")
+    assert release is not None
+    assert engines.unload_calls.get("fallback") == 1
+    assert "fallback" not in engines.ollama
+    release()
+
+
+async def test_protected_busy_ollama_is_never_evicted(monkeypatch):
+    """In-flight work is never evicted, protection or not."""
+    engines, guard_obj = _omlx_short_of_ollama("fallback")
+    monkeypatch.setattr(lg, "GUARD", guard_obj)
+    lg.protect_failover(OLLAMA, "fallback")
+    end = guard_obj.begin(OLLAMA, "fallback")
+    lg.set_load_wait("0.2")
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await guard_obj.admit_omlx("mlx")
+    end()
+    assert "fallback" in str(err.value) and "busy" in str(err.value)
+    assert engines.unload_calls == {}
+    assert engines.ollama["fallback"] == 2 * GIB
+
+
+async def test_protected_idle_omlx_yields_when_it_is_the_only_idle():
+    e = Engines(
+        tags={"m": 20 * GIB},  # 25 needed
+        omlx={"protected": {"size": 20 * GIB, "loaded": True}},
+        ceiling=30 * GIB,
+    )
+    g = guard(e)
+    g.protect(OMLX, "protected", seconds=60)
+    lg.set_load_wait("5")
+    release = await g.admit(OLLAMA_URL, "m")
+    assert release is not None
+    assert e.unloaded == ["protected"]
+    release()
+
+
+async def test_protected_omlx_is_freed_last_when_the_shortage_needs_it():
+    e = Engines(
+        tags={"m": 20 * GIB},  # 25 needed; 8 available, 17 to free
+        omlx={
+            "plain": {"size": 5 * GIB, "loaded": True, "last": 2},
+            "protected": {"size": 15 * GIB, "loaded": True, "last": 1},
+        },
+        ceiling=30 * GIB,
+    )
+    g = guard(e)
+    g.protect(OMLX, "protected", seconds=60)
+    lg.set_load_wait("5")
+    release = await g.admit(OLLAMA_URL, "m")
+    assert release is not None
+    # LRU alone would free the protected seat first; protection orders it last.
+    assert e.unloaded == ["plain", "protected"]
+    release()
+
+
+async def test_protected_idle_ollama_yields_before_an_ollama_refusal(monkeypatch):
+    e = Engines(
+        ollama={"fallback": 10 * GIB},
+        tags={"m": 20 * GIB},  # 25 needed; 18 available, protected bytes cover the gap
+        ceiling=20 * GIB,
+    )
+    e.hidden["fallback"] = 10 * GIB
+    g = guard(e)
+    monkeypatch.setattr(lg, "GUARD", g)
+    lg.protect_failover(OLLAMA, "fallback")
+    lg.set_load_wait("5")
+    release = await g.admit(OLLAMA_URL, "m")
+    assert release is not None
+    assert e.unload_calls == {"fallback": 1}
+    assert "fallback" not in e.ollama
+    release()
+
+
+async def test_protected_idle_is_not_spent_when_it_cannot_cover_the_gap():
+    e = Engines(
+        ollama={"fallback": 2 * GIB},
+        tags={"m": 30 * GIB},  # 37.5 needed; 18 + 2 cannot cover it
+        ceiling=20 * GIB,
+    )
+    g = guard(e)
+    g.protect(OLLAMA, "fallback", seconds=60)
+    lg.set_load_wait("0.2")
+    with pytest.raises(lg.LoadRefusedError):
+        await g.admit(OLLAMA_URL, "m")
+    assert e.unload_calls == {}
+    assert e.ollama["fallback"] == 2 * GIB
+
+
+async def test_protected_busy_omlx_is_never_evicted():
+    e = Engines(
+        tags={"m": 20 * GIB},
+        omlx={"protected": {"size": 20 * GIB, "loaded": True}},
+        ceiling=30 * GIB,
+    )
+    g = guard(e)
+    g.protect(OMLX, "protected", seconds=60)
+    end = g.begin(OMLX, "protected")
+    lg.set_load_wait("0.2")
+    with pytest.raises(lg.LoadRefusedError):
+        await g.admit(OLLAMA_URL, "m")
+    end()
+    assert e.unloaded == []
+    assert e.omlx["protected"]["loaded"]
 
 
 async def test_omlx_cold_load_waits_for_ollama_active_elsewhere():

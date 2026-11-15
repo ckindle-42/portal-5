@@ -1,0 +1,108 @@
+"""Seat-fit report: every production seat measured against the standard-stack budget.
+
+The report lists seats, it never changes them: a seat whose projected bytes exceed
+the budget left when every evictable resident is reclaimed is flagged ``never_fit``
+so the operator can re-seat or declare it ``stack_down_only``.
+"""
+
+from __future__ import annotations
+
+from types import SimpleNamespace
+from typing import Any
+
+import pytest
+
+from portal.platform.inference.load_guard import OLLAMA
+from portal.platform.inference.router.seat_fit import annotate, production_seats
+from tests.unit.test_load_guard import GIB, OLLAMA_URL, Engines, guard
+
+
+def _seat(seat_id: str, model: str, omlx_model: str | None = None, **extra: Any) -> dict[str, Any]:
+    return {"seat": seat_id, "model": model, "omlx_model": omlx_model, **extra}
+
+
+async def test_seat_that_can_never_fit_is_flagged() -> None:
+    e = Engines(
+        ollama={"router": GIB},  # pinned: stays beside every seat
+        tags={"huge": 40 * GIB, "small": 2 * GIB},
+        ceiling=20 * GIB,
+    )
+    report = await guard(e).seat_fit(
+        OLLAMA_URL, [_seat("ws-huge", "huge"), _seat("ws-small", "small")]
+    )
+    # headroom 20, pinned router not evictable, margin 2 → 18 GiB for any seat.
+    assert report["available_gib"] == pytest.approx(18)
+    huge = next(r for r in report["seats"] if r["seat"] == "ws-huge")
+    assert huge["ollama_projected_gib"] == pytest.approx(50)  # weights x factor
+    assert huge["never_fit"] and huge["fits"] is False
+    small = next(r for r in report["seats"] if r["seat"] == "ws-small")
+    assert small["fits"] and not small["never_fit"]
+    assert report["never_fit"] == ["ws-huge"]
+    assert report["ollama_residents"]["router"]["hold"] == "pinned"
+
+
+async def test_protected_idle_counts_toward_the_fit_budget() -> None:
+    e = Engines(ollama={"fallback": 10 * GIB}, tags={"m": 12 * GIB}, ceiling=10 * GIB)
+    g = guard(e)
+    g.protect(OLLAMA, "fallback", seconds=60)
+    report = await g.seat_fit(OLLAMA_URL, [_seat("ws", "m")])
+    # Protected idle yields before refusal, so its bytes are part of the budget:
+    # 10 headroom + 10 idle - 2 margin = 18 >= 15 projected.
+    assert report["idle_ollama_gib"] == pytest.approx(10)
+    assert report["seats"][0]["fits"]
+
+
+async def test_omlx_seat_fits_via_its_estimated_size() -> None:
+    e = Engines(omlx={"native": {"size": 5 * GIB, "loaded": False}}, ceiling=20 * GIB)
+    report = await guard(e).seat_fit(OLLAMA_URL, [_seat("ws", "gguf-tag", "native")])
+    row = report["seats"][0]
+    assert row["ollama_projected_gib"] is None  # the tag is not on Ollama
+    assert row["omlx_projected_gib"] == pytest.approx(5)
+    assert row["served"] and row["fits"] and not row["never_fit"]
+
+
+async def test_resident_seat_fits_and_is_marked_resident() -> None:
+    e = Engines(ollama={"m": 30 * GIB}, tags={"m": 30 * GIB}, ceiling=20 * GIB)
+    report = await guard(e).seat_fit(OLLAMA_URL, [_seat("ws", "m")])
+    row = report["seats"][0]
+    assert row["resident"] and row["fits"] and not row["never_fit"]
+
+
+async def test_unserved_seat_is_reported_not_flagged_never_fit() -> None:
+    e = Engines(ceiling=20 * GIB)
+    report = annotate(await guard(e).seat_fit(OLLAMA_URL, [_seat("ws", "ghost")]))
+    row = report["seats"][0]
+    assert not row["served"] and row["fits"] is None and not row["never_fit"]
+    assert report["unserved"] == ["ws"]
+
+
+async def test_undeclared_never_fit_is_cross_checked() -> None:
+    e = Engines(tags={"huge": 40 * GIB}, ceiling=20 * GIB)
+    seats = [
+        _seat("ws-declared", "huge", stack_down_only=True),
+        _seat("ws-undeclared", "huge", stack_down_only=False),
+    ]
+    report = annotate(await guard(e).seat_fit(OLLAMA_URL, seats))
+    assert report["never_fit"] == ["ws-declared", "ws-undeclared"]
+    assert report["undeclared_never_fit"] == ["ws-undeclared"]
+
+
+def test_production_seats_enumerates_bases_and_variants_not_bench() -> None:
+    registry = SimpleNamespace(
+        list_backends=lambda: [
+            SimpleNamespace(type="omlx", resolve_model=lambda hint: f"native::{hint}")
+        ]
+    )
+    seats = production_seats(registry)
+    by_id = {s["seat"]: s for s in seats}
+    assert "auto-reasoning" in by_id
+    assert "auto-reasoning::math" in by_id
+    assert by_id["auto-reasoning"]["omlx_model"] == f"native::{by_id['auto-reasoning']['model']}"
+    assert not any(s["seat"].startswith("bench-") for s in seats)
+    assert all(s["model"] for s in seats)
+
+
+def test_seat_fit_route_is_registered() -> None:
+    from portal.platform.inference.router_pipe import app
+
+    assert any(getattr(r, "path", "") == "/admin/seat-fit" for r in app.routes)

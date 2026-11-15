@@ -33,6 +33,7 @@ from portal.platform.inference.router.anthropic_compat import (
     openai_stream_to_anthropic_sse,
 )
 from portal.platform.inference.router.auth import _verify_admin_key, _verify_key
+from portal.platform.inference.router.capacity_fallback import try_capacity_fallback
 from portal.platform.inference.router.concurrency import (
     RequestSlot,
 )
@@ -278,6 +279,28 @@ async def admin_load_plan(
     if load_guard.GUARD is None or not ollama:
         raise HTTPException(status_code=503, detail="load guard not initialised")
     return await load_guard.GUARD.plan(ollama.rstrip("/"), models)
+
+
+async def admin_seat_fit(authorization: str | None = Header(None)) -> dict[str, Any]:
+    """POST /admin/seat-fit — every production seat's projected bytes against the budget
+    left when only the standard residents remain; flags seats that can never fit.
+
+    Pure measurement (``load_guard.LoadGuard.seat_fit``); seats are listed, never
+    changed. Regular API key.
+    """
+    _verify_key(authorization)
+    from portal.platform.inference import load_guard
+    from portal.platform.inference.router.seat_fit import annotate, production_seats
+
+    ollama = (
+        next((b.url for b in registry.list_backends() if b.type == "ollama"), None)
+        if registry
+        else None
+    )
+    if load_guard.GUARD is None or not ollama or registry is None:
+        raise HTTPException(status_code=503, detail="load guard not initialised")
+    report = await load_guard.GUARD.seat_fit(ollama.rstrip("/"), production_seats(registry))
+    return annotate(report)
 
 
 async def admin_reclaim_idle_memory(
@@ -891,6 +914,7 @@ async def _give_up(
     body: dict[str, Any],
     exc: BackendRequestError | None,
     reasons: list[str],
+    persona: str = "",
 ) -> JSONResponse:
     """End a request no candidate could serve: a chat UI gets a completion, a program the status."""
     if not no_answer.chat_ui():
@@ -904,6 +928,11 @@ async def _give_up(
                 + (f" — {'; '.join(reasons)}" if reasons else " — check server logs")
             ),
         )
+    fallback = await try_capacity_fallback(
+        workspace_id, body, reasons, persona=persona, dispatch=_try_non_streaming
+    )
+    if fallback is not None:
+        return fallback
     text = await no_answer.chat_reply(
         workspace_id, no_answer.workspace_model(workspace_id, body), reasons, path="non_streaming"
     )
@@ -1015,9 +1044,9 @@ async def _dispatch_non_streaming(
     # All backends failed
     if capacity_exc is not None:
         _record_error(workspace_id, f"backend_http_{capacity_exc.status_code}")
-        return await _give_up(workspace_id, body, capacity_exc, [capacity_exc.detail])
+        return await _give_up(workspace_id, body, capacity_exc, [capacity_exc.detail], persona)
     _record_error(workspace_id, "all_backends_failed")
-    return await _give_up(workspace_id, body, None, [r for r in tried.values() if r])
+    return await _give_up(workspace_id, body, None, [r for r in tried.values() if r], persona)
 
 
 async def chat_completions(

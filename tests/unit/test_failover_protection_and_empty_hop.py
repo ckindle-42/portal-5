@@ -13,12 +13,13 @@ TOOLS = [
 ]
 
 
-def test_a_protected_model_is_not_evicted_until_its_cool_down_ends():
+def test_protection_orders_eviction_but_never_causes_a_refusal():
     g = lg.LoadGuard(omlx_url=lambda: None, pinned=lambda: "")
     resident = {"a": 10, "b": 20}
     assert g._ollama_idle(resident) == 30.0
     g.protect(lg.OLLAMA, "b")
-    assert g._ollama_idle(resident) == 10.0
+    assert g._ollama_idle(resident) == 10.0  # protected goes last
+    assert g._ollama_idle(resident, include_protected=True) == 30.0  # but yields before refusal
     assert "b" in g.protected(lg.OLLAMA) and "b" not in g.protected(lg.OMLX)
     g.protect(lg.OLLAMA, "b", seconds=-1)  # expired
     assert g._ollama_idle(resident) == 30.0
