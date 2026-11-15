@@ -99,7 +99,7 @@ async def run() -> None:
     except Exception as e:
         record(sec, "S15-04", "workspace helper imports", "FAIL", str(e)[:100], t0=t0)
 
-    # S15-05: AUDIO_STT_ENGINE is disabled in OWUI config
+    # S15-05: AUDIO_STT_ENGINE is wired to Portal's MLX transcribe server
     t0 = time.time()
     try:
         proc = await asyncio.create_subprocess_exec(
@@ -112,21 +112,22 @@ async def run() -> None:
             "open-webui",
             "sh",
             "-c",
-            'echo "${AUDIO_STT_ENGINE}"',
+            'echo "${AUDIO_STT_ENGINE}|${AUDIO_STT_OPENAI_API_BASE_URL}"',
             stdout=asyncio.subprocess.PIPE,
         )
         stdout, _ = await proc.communicate()
         value = stdout.decode().strip()
-        if not value:
-            record(sec, "S15-05", "AUDIO_STT_ENGINE disabled", "PASS", "empty (correct)", t0=t0)
+        engine, _, base = value.partition("|")
+        if engine == "openai" and ":8924/v1" in base:
+            record(sec, "S15-05", "AUDIO_STT_ENGINE wired to Portal", "PASS", value, t0=t0)
         else:
             record(
                 sec,
                 "S15-05",
-                "AUDIO_STT_ENGINE disabled",
+                "AUDIO_STT_ENGINE wired to Portal",
                 "WARN",
                 f"unexpected value: {value!r}",
                 t0=t0,
             )
     except Exception as e:
-        record(sec, "S15-05", "AUDIO_STT_ENGINE disabled", "FAIL", str(e)[:100], t0=t0)
+        record(sec, "S15-05", "AUDIO_STT_ENGINE wired to Portal", "FAIL", str(e)[:100], t0=t0)
