@@ -851,6 +851,7 @@ def run_seat(
         arms,
         summary,
         stop_error,
+        cfg,
     )
 
 
@@ -894,6 +895,7 @@ def _receipt(
     arms: list[dict[str, Any]],
     summary: dict[str, Any],
     stop_error: str | None,
+    cfg: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
         "build": build,
@@ -919,6 +921,9 @@ def _receipt(
         "verdict": summary["verdict"],
         "reason": summary["reason"],
         "stop_error": stop_error,
+        "engine_version": h2h.engine_identity(cfg, str(cell["engine"]))
+        if cfg is not None
+        else None,
     }
 
 

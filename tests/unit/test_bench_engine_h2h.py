@@ -569,9 +569,10 @@ def test_mlx_lm_candidate_cells_are_the_four_plain_seats():
     assert all(cell["backend"] == "eval-openai-mlx_lm.server" for cell in cells)
 
 
-def test_mlx_lm_version_gate_accepts_only_0_32_2(monkeypatch, tmp_path: Path):
-    """The pin is the shebang interpreter's mlx_lm.__version__. No server is started."""
+def test_mlx_lm_version_gate_accepts_0_32_2_and_newer(monkeypatch, tmp_path: Path):
+    """The floor is the shebang interpreter's mlx_lm.__version__. No server is started."""
     assert h.mlx_lm_version_text_ok("0.32.2\n")
+    assert h.mlx_lm_version_text_ok("0.33.0\n")
     assert not h.mlx_lm_version_text_ok("0.31.3\n")
     assert not h.mlx_lm_version_text_ok("0.32.2-dev\n")
     assert h.mlx_lm_binary_refusal("ollama", ["mlx_lm.server"]) is None
@@ -714,7 +715,8 @@ def test_concurrency_summary_aggregates_tokens_over_wall_and_percentiles():
 
 def test_vllm_mlx_0_6_pins_batching_and_leaves_disk_cache_off(cfg):
     argv, _ = h.launch_command(cfg, "vllm-mlx", "mimo", "plain")
-    assert "vllm-mlx==0.6.0" in argv
+    assert argv[0].endswith("/vllm-mlx")
+    assert not any("==" in part for part in argv)
     assert "--continuous-batching" in argv
     assert "--ssd-cache-dir" not in argv
     kwargs = argv[argv.index("--default-chat-template-kwargs") + 1]
@@ -765,7 +767,8 @@ def test_vllm_mlx_seat_argv_follows_the_researched_registry(cfg):
         assert argv[argv.index("--max-request-tokens") + 1] == "8192"
         assert argv[argv.index("--max-tokens") + 1] == "8192"
         assert argv[argv.index("--port") + 1] == "11236"
-        assert "vllm-mlx==0.6.0" in argv
+        assert argv[0].endswith("/vllm-mlx")
+        assert not any("vllm-mlx==" in part for part in argv)
         assert "--enable-mtp" not in argv
         assert "--use-paged-cache" not in argv
         assert "--ssd-cache-dir" not in argv
@@ -872,12 +875,14 @@ def test_seated_launch_keeps_an_explicit_workload_window(cfg):
     assert everyday[everyday.index("--max-kv-size") + 1] == "32768"
 
 
-def test_brew_llama_version_gate_accepts_only_stable_1_0_0(monkeypatch):
-    """b9950's version line is refused. The check never starts llama-server."""
+def test_brew_llama_version_gate_accepts_1_0_0_and_newer(monkeypatch):
+    """b9950's version line is refused. A newer semver passes. No server is started."""
     assert h.brew_llama_version_text_ok("version: 1.0.0 (build 1, commit b1b770d90)\n")
+    assert h.brew_llama_version_text_ok("version: 1.0.0\n")
+    assert h.brew_llama_version_text_ok("version: 1.2.0 (build 9, commit abc)\n")
     assert not h.brew_llama_version_text_ok("version: 9950 (961e4b26a)\n")
     assert not h.brew_llama_version_text_ok("version: 1.0.0-dev (build 1, commit abc)\n")
-    assert not h.brew_llama_version_text_ok("version: 1.0.0\n")
+    assert not h.brew_llama_version_text_ok("version: 0.9.0 (build 1)\n")
     assert h.brew_llama_binary_refusal("ollama", ["/opt/homebrew/bin/llama-server"]) is None
 
     def missing(*_args, **_kwargs):
@@ -934,6 +939,18 @@ def test_start_managed_threads_the_seat_into_the_launch_argv(monkeypatch):
     assert seen["seat"] is None
 
 
+def _ok_identity(installed: str) -> dict:
+    return {
+        "policy": "minimum",
+        "minimum": installed,
+        "pin": None,
+        "installed": installed,
+        "installed_raw": installed,
+        "ok": True,
+        "reason": None,
+    }
+
+
 def test_start_managed_applies_engine_environment(cfg, monkeypatch, tmp_path: Path):
     local_cfg = copy.deepcopy(cfg)
     local_cfg["engines"]["vllm-metal"]["environment"] = {"VLLM_METAL_MULTIMODAL_MODE": "text-only"}
@@ -947,6 +964,7 @@ def test_start_managed_applies_engine_environment(cfg, monkeypatch, tmp_path: Pa
         return StartedProcess()
 
     monkeypatch.setattr(h, "STATE_DIR", tmp_path / "state")
+    monkeypatch.setattr(h, "engine_identity", lambda *_args, **_kwargs: _ok_identity("0.33.0"))
     monkeypatch.setattr(h.subprocess, "Popen", fake_popen)
     monkeypatch.setattr(h, "wait_ready", lambda *_args, **_kwargs: 0.0)
     logs = (tmp_path / "engine.stdout.log", tmp_path / "engine.stderr.log")
@@ -1266,6 +1284,7 @@ def test_start_managed_waits_for_the_seat_listed_id(cfg, monkeypatch, tmp_path: 
         pid = 4242
 
     monkeypatch.setattr(h, "wait_ready", fake_ready)
+    monkeypatch.setattr(h, "engine_identity", lambda *_args, **_kwargs: _ok_identity("26.11.2"))
     monkeypatch.setattr(h.subprocess, "Popen", lambda *_a, **_kw: Started())
 
     h.start_managed(
@@ -1280,6 +1299,7 @@ def test_start_managed_waits_for_the_seat_listed_id(cfg, monkeypatch, tmp_path: 
     state = json.loads((tmp_path / "mlx-serve.json").read_text())
     assert state["listed_model"] == "Qwen3.8-27B-MLX-Serve-8bit"
     assert state["seat"] == "coding"
+    assert state["engine_version"]["installed"] == "26.11.2"
 
 
 def test_nemotron_mtp_spec_uses_the_oq4e_dir(cfg):
@@ -1437,6 +1457,63 @@ def test_vllm_metal_spec_args_splice_where_the_doc_wrote_spec_json(cfg, monkeypa
     assert "--no-async-scheduling" in argv
     assert argv[argv.index("--speculative-config") + 1] == blob
     assert not any("{" in a and "}" in a and '"' not in a for a in argv)
+
+
+def test_registry_version_is_a_minimum_and_fork_tags_stay_pinned(monkeypatch):
+    """No server is started. The floor accepts a newer build; PrismML stays a fork pin."""
+    cfg = {"engines": {"mlx-serve": {"version": "26.11.2"}}}
+    monkeypatch.setattr(h.shutil, "which", lambda cmd: "/opt/homebrew/bin/mlx-serve")
+
+    def newer(argv, timeout=30):
+        assert argv[0] == "mlx-serve" and argv[-1] == "--version"
+        return "mlx-serve 26.12.1 (fast)\n", None
+
+    monkeypatch.setattr(h, "_read_process_text", newer)
+    ident = h.engine_identity(cfg, "mlx-serve")
+    assert ident["policy"] == "minimum" and ident["ok"] is True
+    assert ident["installed"] == "26.12.1" and ident["minimum"] == "26.11.2"
+
+    monkeypatch.setattr(h, "_read_process_text", lambda *_a, **_k: ("mlx-serve 26.9.1\n", None))
+    low = h.engine_identity(cfg, "mlx-serve")
+    assert low["ok"] is False and low["installed"] == "26.9.1" and "26.11.2" in low["reason"]
+
+    fork = {
+        "engines": {
+            "prismml-llama": {
+                "version": "prism-b12128-d7b2896",
+                "version_policy": "fork_tag",
+                "version_match": "d7b2896",
+                "server_path": "/bin/echo",
+            }
+        }
+    }
+    monkeypatch.setattr(
+        h, "_read_process_text", lambda *_a, **_k: ("version: 999 (d7b2896)\n", None)
+    )
+    pinned = h.engine_identity(fork, "prismml-llama")
+    assert pinned["ok"] is True and pinned["pin"] == "prism-b12128-d7b2896"
+    assert pinned["policy"] == "fork_tag"
+    monkeypatch.setattr(
+        h, "_read_process_text", lambda *_a, **_k: ("version: 1.2.0 (b1b770d90)\n", None)
+    )
+    drifted = h.engine_identity(fork, "prismml-llama")
+    assert drifted["ok"] is False and drifted["pin"] == "prism-b12128-d7b2896"
+
+
+def test_vllm_mlx_version_probe_uses_its_own_interpreter(tmp_path: Path):
+    """PATH vllm-mlx is the rapid-mlx shim, so the probe uses this venv's interpreter."""
+    python = tmp_path / "python"
+    python.write_text("#!/bin/sh\n", encoding="utf-8")
+    python.chmod(0o755)
+    binary = tmp_path / "vllm-mlx"
+    binary.write_text(f"#!{python}\n", encoding="utf-8")
+    binary.chmod(0o755)
+    cfg = {"engines": {"vllm-mlx": {"executable": str(binary), "version": "0.6.0"}}}
+
+    argv = h.version_probe_argv("vllm-mlx", cfg)
+
+    assert argv[0] == str(python)
+    assert "import vllm_mlx" in argv[-1]
 
 
 def test_engine_version_knows_the_new_engine(monkeypatch):
