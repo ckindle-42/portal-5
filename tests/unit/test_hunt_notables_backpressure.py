@@ -11,14 +11,26 @@ from portal.modules.security.core.hunt.judge import (
     ThrottleBudgetExceededError,
     judge_cell,
 )
+from portal.modules.security.core.hunt.notables.__main__ import main
 from portal.modules.security.core.hunt.notables.cards import (
     CardCache,
+    ModelAnswer,
+    SourceCard,
     answer_cards,
     ask_model,
     assemble_cards,
     prepare_cards,
 )
 from portal.modules.security.core.hunt.notables.judge_notables import judge_all
+from portal.modules.security.core.hunt.notables.pipeline import (
+    BackendPinnedClient,
+    PreflightRejected,
+    preflight,
+)
+from portal.modules.security.core.hunt.notables.run import (
+    _card_failure_counts,
+    _check_http_error_rate,
+)
 from portal.modules.security.core.hunt.notables.sample import SourceFacts
 
 
@@ -46,14 +58,21 @@ class _Inner:
     def __init__(self, outcomes: list[object]) -> None:
         self.outcomes = outcomes
         self.calls = 0
+        self.requests: list[dict[str, object]] = []
 
     def complete(self, **request: object) -> dict[str, object]:
-        del request
         self.calls += 1
+        self.requests.append(request)
         outcome = self.outcomes.pop(0)
         if isinstance(outcome, BaseException):
             raise outcome
         return dict(outcome)  # type: ignore[arg-type]
+
+
+def _http_error(status: int, detail: str) -> httpx.HTTPStatusError:
+    request = httpx.Request("POST", "http://pipeline.invalid/v1/chat/completions")
+    response = httpx.Response(status, text=detail, request=request)
+    return httpx.HTTPStatusError("pipeline error", request=request, response=response)
 
 
 def test_back_pressure_waits_and_retries_instead_of_failing():
@@ -88,6 +107,84 @@ def test_a_throttled_request_is_not_a_generic_request_failure():
     result = judge_cell(_Throttled(), model="seat", prompt="prompt")
     assert result.p_yes is None
     assert result.reason == "throttled"
+
+
+def test_preflight_rejects_a_bad_backend_model_pair_with_pipeline_error():
+    inner = _Inner([_http_error(400, "model is not served by pinned backend")])
+    client = BackendPinnedClient(inner, "omlx-general")
+
+    rejected = preflight(client, "security-reviewer")
+
+    assert rejected == PreflightRejected(
+        "security-reviewer", "omlx-general", 400, "model is not served by pinned backend"
+    )
+    assert inner.calls == 1
+    assert inner.requests[0]["portal_backend"] == "omlx-general"
+    assert inner.requests[0]["model"] == "security-reviewer"
+
+
+def test_main_stops_before_cards_when_preflight_returns_a_4xx(
+    tmp_path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    inner = _Inner([_http_error(400, "backend does not serve model")])
+    client = BackendPinnedClient(inner, "omlx-general")
+    monkeypatch.setattr(
+        "portal.modules.security.core.hunt.notables.__main__.model_from_env",
+        lambda: (client, "security-reviewer"),
+    )
+    search = type("Search", (), {"iter_post": lambda *_args: iter([])})()
+
+    code = main(["--index", "idx", "--out", str(tmp_path), "--stage", "cards"], search=search)
+
+    assert code == 1
+    assert inner.calls == 1
+    error = capsys.readouterr().err
+    assert "security-reviewer" in error
+    assert "omlx-general" in error
+
+
+def test_card_http_errors_are_separate_from_unparsed_and_over_threshold_fails():
+    cards = [
+        SourceCard(
+            index="ix",
+            sourcetype="st",
+            kind="other",
+            roles={},
+            understood=False,
+            reason="model_http_error",
+            fmt="json",
+            coverage=0.0,
+            fields=(),
+            sample={},
+            facts={},
+            model={},
+            cache_key="http",
+        ),
+        SourceCard(
+            index="ix",
+            sourcetype="st",
+            kind="other",
+            roles={},
+            understood=False,
+            reason="unparseable_answer",
+            fmt="json",
+            coverage=0.0,
+            fields=(),
+            sample={},
+            facts={},
+            model={},
+            cache_key="parse",
+        ),
+    ]
+    answers = {
+        "http": (ModelAnswer("", 0.0, "", None, "http_error"), 1, False),
+        "parse": (ModelAnswer("nonsense", 0.0, "seat", None, None), 1, False),
+    }
+
+    assert _card_failure_counts(cards, answers) == (1, 1)
+    _check_http_error_rate("cards", 1, 5, "seat", unparsed=1)
+    with pytest.raises(RuntimeError, match="model_http_errors=2/5.*unparsed=1"):
+        _check_http_error_rate("cards", 2, 5, "seat", unparsed=1)
 
 
 def _facts() -> SourceFacts:

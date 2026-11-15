@@ -21,6 +21,7 @@ from .behaviours import (
 )
 from .cards import (
     CardCache,
+    ModelAnswer,
     Prepared,
     SourceCard,
     answer_cards,
@@ -36,6 +37,7 @@ from .sample import SAMPLE_LINES, SourceFacts, index_facts, read_windows, sample
 from .similar import SIMILAR_GENERATOR, generate_similar
 
 CARD_SOURCE_CONCURRENCY = 2  # effort budget: with READ_CONCURRENCY, below the lab's 19 searches
+HTTP_ERROR_THRESHOLD = 0.20
 
 STAGES = ("cards", "behaviours", "notables", "judge")
 GENERATORS = (*BASE_GENERATORS, SIMILAR_GENERATOR)
@@ -64,11 +66,37 @@ def _sources_payload(
             "sources": len({card.source_id for card in cards}),
             "cards": len(cards),
             "understood": sum(1 for card in cards if card.understood),
+            "unparsed": sum(
+                1 for card in cards if not card.understood and card.reason != "model_http_error"
+            ),
+            "model_http_error_cards": sum(1 for card in cards if card.reason == "model_http_error"),
             "kinds": counts,
             "model_requests": sum(int(card.model.get("requests") or 0) for card in cards),
         },
         "cards": [card.as_dict() for card in cards],
     }
+
+
+def _card_failure_counts(
+    cards: Sequence[SourceCard],
+    answers: Mapping[str, tuple[ModelAnswer, int, bool]],
+) -> tuple[int, int]:
+    http_errors = sum(
+        1 for answer, _requests, _cached in answers.values() if answer.error == "http_error"
+    )
+    unparsed = sum(1 for card in cards if not card.understood and card.reason != "model_http_error")
+    return http_errors, unparsed
+
+
+def _check_http_error_rate(
+    stage: str, http_errors: int, requests: int, model: str, *, unparsed: int | None = None
+) -> None:
+    if requests and http_errors / requests > HTTP_ERROR_THRESHOLD:
+        detail = f" unparsed={unparsed}" if unparsed is not None else ""
+        raise RuntimeError(
+            f"{stage} failed: model_http_errors={http_errors}/{requests}{detail} "
+            f"exceeds >{HTTP_ERROR_THRESHOLD:.0%}; model={model}"
+        )
 
 
 def _fact_dict(card: SourceCard) -> SourceFacts:
@@ -248,6 +276,10 @@ def cards_stage(
         prepared.extend(prepare_cards(item, read.rows, read.windows, model))
     answers, answer_stats = answer_cards(prepared, client, model, cache)
     cards = assemble_cards(prepared, answers)
+    http_errors, unparsed = _card_failure_counts(cards, answers)
+    _check_http_error_rate(
+        "cards_stage", http_errors, int(answer_stats["requests"]), model, unparsed=unparsed
+    )
     write_json(out / SOURCES_FILE, _sources_payload(index, start, end, cards))
     requests = int(answer_stats["requests"])
     receipt = {
@@ -257,7 +289,8 @@ def cards_stage(
         "sources": len({card.source_id for card in cards}),
         "cards": len(cards),
         "understood": sum(1 for card in cards if card.understood),
-        "unparsed": sum(1 for card in cards if not card.understood),
+        "unparsed": unparsed,
+        "model_http_errors": http_errors,
         "structures": answer_stats["structures"],
         "model_requests": requests,
         "answers_reused": len(prepared) - requests,
@@ -389,6 +422,8 @@ def judge_stage(
     judged, receipt = judge_all(
         ordered, client=client, model=model, cache_path=out / "cache" / "judge.json"
     )
+    http_errors = int(receipt["unjudged_reasons"].get("http_error", 0))
+    _check_http_error_rate("judge_stage", http_errors, int(receipt["requests"]), model)
     receipt["ranking"] = {
         "priority_generator": SIMILAR_GENERATOR,
         "prioritized": sum(1 for item in ordered if item.get("generator") == SIMILAR_GENERATOR),

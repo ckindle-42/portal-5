@@ -33,7 +33,7 @@ export LAB_SPLUNK_PASSWORD="$(grep -E '^LAB_SPLUNK_PASSWORD=' .env | cut -d= -f2
 export LAB_SPLUNK_INDEX="$(grep -E '^LAB_SPLUNK_INDEX=' .env | cut -d= -f2- | tr -d '\"')"
 export PIPELINE_API_KEY="$(grep -E '^PIPELINE_API_KEY=' .env | cut -d= -f2- | tr -d '\"')"
 export PORTAL_HUNT_JUDGE_URL=http://127.0.0.1:9099/v1/chat/completions
-export PORTAL_HUNT_JUDGE_MODEL=security-reviewer
+export PORTAL_HUNT_JUDGE_MODEL=hunt-reasoning
 export PORTAL_HUNT_EMBEDDING_URL=http://127.0.0.1:9099
 export PORTAL_HUNT_EMBEDDING_MODEL=google/embeddinggemma-2
 # If the live Pipeline rejects that model, its 400 names the accepted ones:
@@ -108,8 +108,8 @@ uv run python -m portal.modules.security.core.hunt.notables \
 Expected: `similar_to_known: existed=… kept=… reliability_auc=… score=…` with
 `excluded_family=kyoushi`, `loaded_families=[russell, santos]` in the notables receipt;
 judge receipt `ranking.priority_generator=similar_to_known`, `prioritized>0`.
-(`PORTAL_HUNT_JUDGE_MODEL=hunt-reasoning` is the parallel oMLX seat option; requests
-are already backend-pinned to `omlx-general`.)
+(`hunt-reasoning` is the default because the former `security-reviewer` model was Ollama-only
+and returned HTTP 400 from the `omlx-general` pin after its oMLX alias was removed.)
 Receipts: `$OUT/kyoushi/notables.jsonl` (similar notables carry `nearest_known` with
 labels + provenance queries and `generator_reliability`), `progress.json`,
 `cache/judge.json`. Wall time: `seconds` per stage in `progress.json`.

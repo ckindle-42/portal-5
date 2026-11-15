@@ -4,11 +4,22 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
+
+import httpx
 
 from ..judge import DEFAULT_KEY_ENV, JudgeClient, OpenAICompatibleClient, chat_completions_endpoint
 
 DEFAULT_JUDGE_BACKEND = "omlx-general"
+
+
+@dataclass(frozen=True)
+class PreflightRejected:
+    model: str
+    backend: str
+    status_code: int
+    detail: str
 
 
 class BackendPinnedClient:
@@ -21,6 +32,24 @@ class BackendPinnedClient:
     def complete(self, **request: Any) -> Mapping[str, Any]:
         request["portal_backend"] = self.backend
         return self.inner.complete(**request)
+
+
+def preflight(client: JudgeClient, model: str) -> PreflightRejected | None:
+    backend = str(getattr(client, "backend", DEFAULT_JUDGE_BACKEND))
+    try:
+        client.complete(
+            model=model,
+            messages=[{"role": "user", "content": "probe"}],
+            tool_choice="none",
+            max_tokens=1,
+            temperature=0,
+            stream=False,
+        )
+    except httpx.HTTPStatusError as exc:
+        return PreflightRejected(model, backend, exc.response.status_code, exc.response.text[:200])
+    except httpx.RequestError as exc:
+        return PreflightRejected(model, backend, 0, str(exc)[:200])
+    return None
 
 
 def model_from_env() -> tuple[JudgeClient, str] | None:

@@ -11,7 +11,7 @@ from typing import Any
 from ..engine import Search
 from .behaviours import Behaviour
 from .embedding import embedding_from_env, embedding_requirement
-from .pipeline import model_from_env, model_requirement
+from .pipeline import model_from_env, model_requirement, preflight
 from .run import (
     DEFAULT_GENERATORS,
     GENERATORS,
@@ -56,6 +56,29 @@ def _parser() -> argparse.ArgumentParser:
 
 def _mapping(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
+
+
+def _preflight_or_abort(target: tuple[Any, str]) -> bool:
+    client, model = target
+    rejected = preflight(client, model)
+    if rejected is None:
+        return True
+    status = f"HTTP {rejected.status_code}" if rejected.status_code else "request error"
+    print(
+        f"model preflight FAILED: model={rejected.model} backend={rejected.backend} "
+        f"{status}: {rejected.detail}",
+        file=sys.stderr,
+    )
+    return False
+
+
+def _model_preflight(stages: tuple[str, ...], target: tuple[Any, str] | None) -> int | None:
+    if "cards" not in stages and "judge" not in stages:
+        return None
+    if target is None:
+        print(model_requirement(), file=sys.stderr)
+        return 2
+    return None if _preflight_or_abort(target) else 1
 
 
 def _label(item: dict[str, Any]) -> str:
@@ -162,6 +185,7 @@ def _print_cards(receipt: dict[str, Any]) -> None:
     print(
         f"cards: sources={receipt.get('sources', 0)} cards={receipt.get('cards', 0)} "
         f"understood={receipt.get('understood', 0)} unparsed={receipt.get('unparsed', 0)} "
+        f"model_http_errors={receipt.get('model_http_errors', 0)} "
         f"structures={receipt.get('structures', 0)} "
         f"model_requests={receipt.get('model_requests', 0)} "
         f"answers_reused={receipt.get('answers_reused', 0)} "
@@ -182,11 +206,12 @@ def main(argv: list[str] | None = None, *, search: Search | None = None) -> int:
     end = args.end if args.end is not None else time.time() + 1.0
     stages = STAGES if args.stage == "all" else (args.stage,)
     target = model_from_env()
+    code = _model_preflight(stages, target)
+    if code is not None:
+        return code
     search = default_search() if search is None else search
     if "cards" in stages:
-        if target is None:
-            print(model_requirement(), file=sys.stderr)
-            return 2
+        assert target is not None
         client, model = target
         receipt = cards_stage(
             index=args.index,
@@ -239,9 +264,7 @@ def main(argv: list[str] | None = None, *, search: Search | None = None) -> int:
                 embedder.close()
         _print_notables(receipt)
     if "judge" in stages:
-        if target is None:
-            print(model_requirement(), file=sys.stderr)
-            return 2
+        assert target is not None
         client, model = target
         _judged, receipt = judge_stage(out=out, client=client, model=model)
         _print_judge(receipt)
