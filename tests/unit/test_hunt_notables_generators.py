@@ -90,10 +90,11 @@ def _alert_facts() -> SourceFacts:
     return SourceFacts("ix", "alerts", 100, 0.0, 3600.0, ("h1", "h2"), 2, ("s1",), 1)
 
 
-def test_alert_query_splits_starred_role_values() -> None:
+def test_alert_query_drops_star_adjacent_role_values() -> None:
     query = _alert_query(_alert_facts(), "alpha*medium*verylongsegment", "***")
 
-    assert '"verylongsegment" "medium"' in query
+    assert "verylongsegment" not in query
+    assert "medium" not in query
     assert "*" not in query
     assert 'index="ix"' in query
 
@@ -200,7 +201,8 @@ def test_exact_counts_replace_sampled_events_where_the_terms_are_indexed():
     assert updated[0].counts["events"] == 42
     assert updated[0].counts["sampled_events"] == 5
     assert updated[0].counts["counted_from"] == "index_terms"
-    assert '"bob"' in executor.queries[0]
+    assert '"bob"' not in executor.queries[0]
+    assert '"shape"' in executor.queries[0]
     assert "TERM(" not in executor.queries[0]
 
 

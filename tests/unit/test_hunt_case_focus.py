@@ -167,7 +167,7 @@ def _term(q: str) -> str | None:
     m = re.search(r'TERM\("([^"]+)"\)', q)
     if m:
         return m.group(1)
-    m = re.search(r'index="[^\"]+"\s+"((?:\\.|[^"\\])+)"\s+by', q)
+    m = re.search(r'index="[^\"]+"\s+"((?:\\.|[^"\\])*)"', q)
     return re.sub(r"\\(.)", r"\1", m.group(1)) if m else None
 
 
@@ -271,16 +271,15 @@ def test_investigation_effort_limit_uses_rank_order() -> None:
     assert any("tok8x" in q for q in search.queries)
 
 
-def test_term_cells_split_starred_handles_and_skip_empty_ones() -> None:
+def test_term_cells_use_whole_minor_phrases_and_skip_unclean_handles() -> None:
     search = FakeSearch([FILLER[0]])
     investigator = Investigator(search, "idx", 0.0, 10**9)
 
-    _cells, scans = investigator._term_cells("pivot", {"alpha*medium*verylongsegment", "***"})
+    _cells, scans = investigator._term_cells("pivot", {"alpha=medium=verylongsegment", "foo^bar"})
 
     query = next(q for q in search.queries if "by host source _time span=3600s" in q)
     assert scans == 1
-    assert '"verylongsegment" "medium"' in query
-    assert '"alpha"' not in query
+    assert '"alpha=medium=verylongsegment" "verylongsegment"' in query
     assert "*" not in query
 
 
@@ -548,7 +547,7 @@ def test_quoted_token_is_escaped_as_a_literal() -> None:
         for query in search.queries
         if query.startswith("| tstats") and "by host source _time span=3600s" in query
     )
-    assert '"value\\" OR index="' in term_query
+    assert '"value" "index"' in term_query
     assert "*" not in term_query
     assert ' "value" OR index=* ' not in term_query
 

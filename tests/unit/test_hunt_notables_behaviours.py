@@ -48,11 +48,11 @@ def _facts() -> SourceFacts:
     return SourceFacts("ix", "st", 10, 0.0, 7200.0, ("h1",), 1, ("s1",), 1)
 
 
-def test_reproduction_query_splits_starred_role_values() -> None:
+def test_reproduction_query_drops_star_adjacent_role_values() -> None:
     query = reproduction_query(_facts(), ["alpha*medium*verylongsegment"])
 
-    assert '"verylongsegment" "medium"' in query
-    assert '"alpha"' not in query
+    assert "verylongsegment" not in query
+    assert "medium" not in query
     assert "*" not in query
 
 
@@ -165,7 +165,7 @@ def test_keyed_row_reproduces_every_literal_part_of_the_key():
     rows = keyed_rows(card, _facts(), _identity_events())
     assert len(rows) == 6
     query = str(rows[0][13])
-    assert '"bob"' in query
+    assert '"bob"' not in query
     assert '"cmd.exe"' in query
     assert "TERM(" not in query
     assert "/tmp/0" not in query
@@ -232,7 +232,7 @@ def test_a_template_behaviour_is_program_template_and_identity_slots():
     assert key == ("program", "sshd", "template", "Accepted *", "slots", "bob 10.0.0.5")
     query = str(keyed_rows(card, _facts(), events, plan)[0][13])
     assert '"sshd"' in query
-    assert '"bob"' in query
+    assert '"bob"' not in query
     assert '"10.0.0.5"' in query
     assert "TERM(" not in query
 

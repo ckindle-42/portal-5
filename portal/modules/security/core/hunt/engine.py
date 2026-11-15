@@ -23,6 +23,46 @@ from portal.modules.security.core.hunt.judge import JudgeClient
 
 HOUR = 3600
 _TIME_OF_DAY = re.compile(r"\d{1,2}:\d{2}:\d{2}")
+# Splunk default segmenters.conf breakers: https://help.splunk.com/en/splunk-enterprise/administer/admin-manual/9.2/configuration-file-reference/9.2.5-configuration-file-reference/segmenters.conf
+_MAJOR_BREAKERS = (
+    "%2526",
+    "%2520",
+    "%21",
+    "%26",
+    "%3B",
+    "%7C",
+    "%20",
+    "%2B",
+    "%3D",
+    "%5D",
+    "%5B",
+    "%3A",
+    "%0A",
+    "%2C",
+    "%28",
+    "%29",
+    "--",
+    "[",
+    "]",
+    "<",
+    ">",
+    "(",
+    ")",
+    "{",
+    "}",
+    "|",
+    "!",
+    ";",
+    ",",
+    "'",
+    '"',
+    "*",
+    "&",
+    "?",
+    "+",
+)
+_MINOR_BREAKERS = frozenset("/:=@.-$#%\\_")
+_MAJOR_BREAKER_RE = re.compile(r"\s+|" + "|".join(re.escape(item) for item in _MAJOR_BREAKERS))
 
 
 class Search(Protocol):
@@ -141,11 +181,39 @@ def _search_literal(value: str) -> str:
 
 
 def _literal_term_segments(value: str) -> tuple[str, ...]:
-    """Split wildcard values into at most two long literal search terms."""
-    if "*" not in value:
-        return (value,) if value else ()
-    segments = [segment for segment in value.split("*") if len(segment) >= 4]
-    return tuple(sorted(segments, key=len, reverse=True)[:2])
+    """Return at most two longest whole Splunk terms from one value."""
+    candidates = []
+    start = 0
+    unsafe_left = False
+    for breaker in _MAJOR_BREAKER_RE.finditer(value + " "):
+        segment = value[start : breaker.start()]
+        if segment and all(char.isalnum() or char in _MINOR_BREAKERS for char in segment):
+            pieces = []
+            piece_start = None
+            for offset, char in enumerate(segment):
+                if char.isalnum():
+                    if piece_start is None:
+                        piece_start = offset
+                elif piece_start is not None:
+                    pieces.append((piece_start, offset))
+                    piece_start = None
+            if piece_start is not None:
+                pieces.append((piece_start, len(segment)))
+            # Splunk's wildcard breakers do not make their directly touching fragments searchable.
+            if unsafe_left and pieces and pieces[0][0] == 0:
+                pieces = pieces[1:]
+            if breaker.group() in ("*", "?") and pieces and pieces[-1][1] == len(segment):
+                pieces = pieces[:-1]
+            if pieces:
+                candidates.append(segment[pieces[0][0] : pieces[-1][1]])
+                candidates.extend(segment[left:right] for left, right in pieces)
+        start = breaker.end()
+        unsafe_left = breaker.group() in ("*", "?")
+    return tuple(
+        sorted(dict.fromkeys(term for term in candidates if len(term) >= 4), key=len, reverse=True)[
+            :2
+        ]
+    )
 
 
 def _copy_kinds(stats: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:

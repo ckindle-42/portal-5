@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 
+from portal.modules.security.core.hunt.engine import _literal_term_segments
 from portal.modules.security.core.hunt.executor import DEFAULT_BUDGETS, HuntBudget, HuntExecutor
 from portal.modules.security.core.hunt.notables.cards import SourceCard
 from portal.modules.security.core.hunt.notables.knowledge import load_for_run
@@ -89,7 +90,7 @@ def _keyed_family(tmp_path: Path, name: str, index: str, user: str) -> tuple[str
     logs.mkdir(parents=True)
     lines = [json.dumps({"user": user, "action": "execute", "path": "shell"})]
     lines.extend(
-        json.dumps({"user": f"{user}-good", "action": "read", "path": "file"}) for _ in range(120)
+        json.dumps({"user": "goodperson", "action": "read", "path": "file"}) for _ in range(120)
     )
     (logs / "auth.log").write_text("\n".join(lines) + "\n")
     keys = tmp_path / name / "keys.jsonl"
@@ -107,9 +108,7 @@ def _keyed_family(tmp_path: Path, name: str, index: str, user: str) -> tuple[str
     )
     cards = _cards_dir(tmp_path, f"{name}-cards", [_card(index, "auth.log")])
     spec = f"name={name},index={index},kind=keys,keys={keys},gather={gather},cards={cards}"
-    search = _FakeSearch(
-        {f'"{user}"': [{"_raw": lines[0]}], f'"{user}-good"': [{"_raw": lines[1]}]}
-    )
+    search = _FakeSearch({f'"{user}"': [{"_raw": lines[0]}], '"goodperson"': [{"_raw": lines[1]}]})
     return spec, search
 
 
@@ -117,7 +116,7 @@ def test_build_audits_and_stores_keyed_families_with_lofo_round_trip(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     spec_a, search_a = _keyed_family(tmp_path, "fam_a", "idx_a", "alice")
-    spec_b, search_b = _keyed_family(tmp_path, "fam_b", "idx_b", "bob")
+    spec_b, search_b = _keyed_family(tmp_path, "fam_b", "idx_b", "bobby")
     answers = {**search_a.answers, **search_b.answers}
     search = _FakeSearch(answers)
     monkeypatch.setattr(
@@ -173,7 +172,7 @@ def test_audit_fails_loudly_when_an_item_locates_nothing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     spec, search = _keyed_family(tmp_path, "fam_a", "idx_a", "alice")
-    search.answers.pop('"alice-good"')
+    search.answers.pop('"goodperson"')
     monkeypatch.setattr(
         "portal.modules.security.core.hunt.notables.manifest.embedding_from_env", _Embedder
     )
@@ -310,39 +309,70 @@ def test_source_spec_rejects_duplicate_indexes(tmp_path: Path) -> None:
 
 
 def test_provenance_query_uses_quoted_plain_terms_for_key_value_embedded_values() -> None:
-    """A value like '0' from uid=0 must appear as a plain quoted term, not TERM("0")."""
+    """Whole phrases stay quoted while too-short numeric fragments are omitted."""
     query = _provenance_query(
-        "hb_kyoushi_s1", "intranet_server", "/audit/audit.log", ["0", "CRED_ACQ"]
+        "hb_kyoushi_s1", "intranet_server", "/audit/audit.log", ["type=CRED_ACQ uid=0"]
     )
     assert " TERM(" not in query
-    assert '"0"' in query
-    assert '"CRED_ACQ"' in query
+    assert '"type=CRED_ACQ"' in query
+    assert '"uid=0"' in query
     assert query.startswith(
         'search index="hb_kyoushi_s1" host="intranet_server" source="/audit/audit.log"'
     )
 
 
 def test_provenance_query_escapes_embedded_quotes() -> None:
-    """A role value containing a double-quote must be escaped."""
+    """Quoted boundaries split clean terms without emitting syntax fragments."""
     query = _provenance_query("foo", "h1", "/s", ['he said "yes"'])
-    assert 'he said \\"yes\\"' in query
+    assert '"said"' in query
+    assert '"yes"' not in query
     assert " TERM(" not in query
 
 
 def test_provenance_query_numeric_value_is_quoted() -> None:
-    """Numeric values must appear as plain quoted terms so key=value-embedded lookups match."""
+    """Numeric values under four characters do not become query terms."""
     query = _provenance_query("idx", "host", "/src", ["42", "admin"])
-    assert '"42"' in query
     assert '"admin"' in query
+    assert '"42"' not in query
     assert " TERM(" not in query
 
 
-def test_provenance_query_splits_wildcards_into_two_longest_terms() -> None:
+def test_provenance_query_drops_star_adjacent_pieces() -> None:
     query = _provenance_query("idx", "host", "/src", ["alpha*medium*verylongsegment"])
 
-    assert query.endswith('"verylongsegment" "medium" | head 5')
-    assert '"alpha"' not in query
-    assert "*" not in query
+    assert query == 'search index="idx" host="host" source="/src" | head 5'
+
+
+def test_default_segments_keep_dns_customer_domain_and_drop_star_neighbors() -> None:
+    line = (
+        "dnsmasq[14919]: reply 3x6-.1-.*SadBEXbCFTw*kitMRtD8ch5XbwBwIbmEHDcmi*"
+        "/37v9m99Ips9CCbziwJcl-.customers_2020.xlsx.kiirjekuimkpcrcioastvkeodpnimx.biz "
+        "is 10.195.165.2"
+    )
+
+    terms = _literal_term_segments(line)
+    query = _provenance_query("santos", "hostA", "/dnsmasq.log", [line])
+
+    assert len(terms) <= 2
+    assert any(
+        term == "customers_2020.xlsx.kiirjekuimkpcrcioastvkeodpnimx.biz"
+        or term in {"customers", "2020", "xlsx", "kiirjekuimkpcrcioastvkeodpnimx", "biz"}
+        for term in terms
+    )
+    assert all("*" not in term for term in terms)
+    assert "SadBEXbCFTw" not in terms
+    assert "kitMRtD8ch5XbwBwIbmEHDcmi" not in terms
+    assert any(f'"{term}"' in query for term in terms)
+    assert "kitMRtD8ch5XbwBwIbmEHDcmi" not in query
+
+
+def test_default_segments_keep_key_value_phrases_and_drop_unclean_values() -> None:
+    terms = _literal_term_segments("type=CRED_ACQ uid=0")
+
+    assert terms == ("type=CRED_ACQ", "uid=0")
+    assert all(len(term) >= 4 for term in terms)
+    assert _literal_term_segments("foo^bar") == ()
+    assert _literal_term_segments("alpha?beta") == ()
 
 
 def test_provenance_query_drops_wildcard_value_without_long_segments() -> None:
@@ -351,7 +381,7 @@ def test_provenance_query_drops_wildcard_value_without_long_segments() -> None:
     assert query == 'search index="idx" host="host" source="/src" | head 5'
 
 
-def test_provenance_query_keeps_unaffected_short_values() -> None:
+def test_provenance_query_drops_values_shorter_than_four_characters() -> None:
     query = _provenance_query("idx", "host", "/src", ["bob"])
 
-    assert query.endswith('"bob" | head 5')
+    assert query == 'search index="idx" host="host" source="/src" | head 5'

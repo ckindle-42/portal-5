@@ -245,7 +245,7 @@ def test_marker_keeps_the_row_on_the_observation_the_read_named():
 def test_query_names_candidates_with_equality_and_bounds_the_rows():
     assert CANDIDATE_OBSERVATIONS > MAX_OBSERVATIONS_PER_CELL
     assert ROW_BUDGET == MAX_OBSERVATIONS_PER_CELL * EVENTS_PER_OBSERVATION
-    observations = [_observation("value", 'a"b', HOUR, 1000.0)]
+    observations = [_observation("value", 'alpha"beta', HOUR, 1000.0)]
     observations.extend(
         _observation("shape", f"p{index}", HOUR, float(500 - index))
         for index in range(CANDIDATE_OBSERVATIONS)
@@ -256,7 +256,7 @@ def test_query_names_candidates_with_equality_and_bounds_the_rows():
     read_cell(executor, INDEX, cell, HOUR, 2 * HOUR, evidence_mode="strongest")
 
     query = executor.calls[0][0]
-    assert _search_literal('a"b') in query
+    assert '"alpha" "beta"' in query
     assert "TERM(" not in query
     assert "searchmatch(" in query
     assert f"punct={_search_literal('p0')}" in query
@@ -264,17 +264,16 @@ def test_query_names_candidates_with_equality_and_bounds_the_rows():
     assert f"| head {ROW_BUDGET}" in query
 
 
-def test_value_observation_splits_wildcard_terms_and_drops_empty_values() -> None:
-    observation = Observation("value", "node-a", "alpha*medium*verylongsegment", HOUR, 1.0, {})
-    empty = Observation("value", "node-a", "***", HOUR, 1.0, {})
+def test_value_observation_keeps_whole_minor_phrases_and_drops_unclean_values() -> None:
+    observation = Observation("value", "node-a", "alpha=medium=verylongsegment", HOUR, 1.0, {})
+    unclean = Observation("value", "node-a", "foo^bar", HOUR, 1.0, {})
 
     search, evaluate = _observation_tests(observation)  # type: ignore[misc]
 
-    assert search == '"verylongsegment" "medium"'
-    assert "*" not in search
+    assert search == '"alpha=medium=verylongsegment" "verylongsegment"'
     assert evaluate.count("searchmatch(") == 2
     assert " AND " in evaluate
-    assert _observation_tests(empty) is None
+    assert _observation_tests(unclean) is None
 
 
 def test_event_chars_overrides_the_default_line_budget():

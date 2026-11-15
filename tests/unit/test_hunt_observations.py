@@ -569,7 +569,7 @@ def test_censored_grid_is_incomplete_and_drops_the_kind() -> None:
     assert any(obs.kind == "volume" for obs in run.observations)
 
 
-def test_learned_values_match_literally_including_star_and_quote() -> None:
+def test_learned_values_drop_starred_search_terms_but_keep_shapes() -> None:
     events = _universe()
     run = observe(GridSearch(events), INDEX, float(START), float(END))
     star = next(obs for obs in run.observations if obs.kind == "shape" and obs.entity == "a*b")
@@ -581,16 +581,14 @@ def test_learned_values_match_literally_including_star_and_quote() -> None:
 
     assert 'where punct="a*b"' in star.evidence["literal"]
     assert 'where punct="say \\"hi\\" *"' in quoted.evidence["literal"]
-    assert '"msg=a"' in value.evidence["literal"]
-    assert "*" not in value.evidence["literal"]
-    assert "TERM(" not in value.evidence["literal"]
+    assert value.evidence["literal"] == ""
     assert literal_matches(star_row, star.evidence["literal"])
     assert not literal_matches(wild, star.evidence["literal"])
     assert literal_matches(quote_row, quoted.evidence["literal"])
     assert not literal_matches(star_row, quoted.evidence["literal"])
-    assert literal_matches(star_row, value.evidence["literal"])
+    assert not literal_matches(star_row, value.evidence["literal"])
     assert not literal_matches(wild, value.evidence["literal"])
-    assert literal_matches({**wild, "host": "h1"}, value.evidence["literal"])
+    assert not literal_matches({**wild, "host": "h1"}, value.evidence["literal"])
 
 
 def test_value_query_drops_wildcard_with_no_long_literal_segment() -> None:
@@ -632,7 +630,7 @@ def test_single_host_observation_bytes_use_plain_search_terms() -> None:
     )
 
     assert hashlib.sha256(payload.encode()).hexdigest() == (
-        "51ad474339607e0363548a4641947909d45b0bc523d2cabc285f76ae28380a41"
+        "06cd550829c2cb2e04e370a96dad0d3ce0c4c691b91645d7b9bae5e82f4ecb2b"
     )
 
 
@@ -688,7 +686,7 @@ def test_small_grid_observation_bytes_use_plain_search_terms() -> None:
 
     assert len(run.observations) == 33
     assert hashlib.sha256(encoded.encode()).hexdigest() == (
-        "aa2d5e0705712e4153a3dc0262044d75eadbc8623a65d8ed8fb1f4b71072443d"
+        "45568d0383f8108b0dccba234dd288998ff1d4095ddd9bb740274a649f05e303"
     )
 
 

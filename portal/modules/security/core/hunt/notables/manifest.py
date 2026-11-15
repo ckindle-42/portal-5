@@ -163,14 +163,7 @@ def _normalize(card: SourceCard, plan: IdentityPlan, raw: str) -> tuple[str, lis
 
 
 def _provenance_query(index: str, host: str, source: str, terms: Sequence[str]) -> str:
-    """Build a provenance query: index + host + source + quoted plain terms.
-
-    We emit role values as quoted plain terms ("value") rather than TERM("value") because
-    TERM() only matches tokens bounded by Splunk's MAJOR breakers (space, tab, newline, end).
-    Key=value-embedded values like uid=0 use = as a MINOR breaker, so TERM("0") will not match
-    the payload of a key=value field. Plain quoted terms match wherever the characters appear,
-    which is what we need for provenance recall.
-    """
+    """Build a provenance query from whole Splunk-indexed terms."""
     tail = " ".join(
         _quote(segment) for value in terms[:MAX_TERMS] for segment in _literal_term_segments(value)
     )

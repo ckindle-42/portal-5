@@ -404,7 +404,7 @@ def peer_rare(
 
 
 def _index_terms(notable: Notable) -> list[str]:
-    """Identity values that are single indexed terms; a wildcard or a phrase cannot be counted."""
+    """Whole Splunk terms eligible for exact identity counts."""
     terms: list[str] = []
     for role, value in notable.entities:
         if role not in ("actor", "object"):
