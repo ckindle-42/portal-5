@@ -581,7 +581,8 @@ def test_learned_values_match_literally_including_star_and_quote() -> None:
 
     assert 'where punct="a*b"' in star.evidence["literal"]
     assert 'where punct="say \\"hi\\" *"' in quoted.evidence["literal"]
-    assert 'TERM("msg=a*b")' in value.evidence["literal"]
+    assert '"msg=a*b"' in value.evidence["literal"]
+    assert "TERM(" not in value.evidence["literal"]
     assert literal_matches(star_row, star.evidence["literal"])
     assert not literal_matches(wild, star.evidence["literal"])
     assert literal_matches(quote_row, quoted.evidence["literal"])
@@ -618,14 +619,14 @@ def test_sample_over_the_hour_volume_marks_key_coverage_incomplete(
     assert any(obs.kind == "value" for obs in run.observations)
 
 
-def test_single_host_observations_keep_the_existing_bytes() -> None:
+def test_single_host_observation_bytes_use_plain_search_terms() -> None:
     run = observe(GridSearch(_event(START, "solo", "uid=first")), INDEX, float(START), float(END))
     payload = json.dumps(
         [item.as_dict() for item in run.observations], sort_keys=True, separators=(",", ":")
     )
 
     assert hashlib.sha256(payload.encode()).hexdigest() == (
-        "a8f86c4484284bbe0d061dc585ea81d8f3d475dc7f360c3fccf08cd0c4e2d31d"
+        "51ad474339607e0363548a4641947909d45b0bc523d2cabc285f76ae28380a41"
     )
 
 
@@ -675,13 +676,13 @@ def test_literal_queries_match_each_spelling_in_an_alias_group() -> None:
     assert not literal_matches(other, query)
 
 
-def test_small_grid_observations_keep_their_existing_serialized_bytes() -> None:
+def test_small_grid_observation_bytes_use_plain_search_terms() -> None:
     run = observe(GridSearch(_universe()), INDEX, float(START), float(END))
     encoded = "\n".join(json.dumps(row.as_dict(), sort_keys=True) for row in run.observations)
 
     assert len(run.observations) == 33
     assert hashlib.sha256(encoded.encode()).hexdigest() == (
-        "19817fde84c1a50718737ff627ea2bfaed66b6ec8150a932d1fa427d8c13bb59"
+        "d63825124c2ea7ace831bfa5ce1be63fbfd2433693162d1b48e8d4d6418f826f"
     )
 
 

@@ -137,7 +137,7 @@ def _first_present(fields: Mapping[str, str], names: Sequence[str]) -> str:
 
 
 def _term(value: str) -> str:
-    return f"TERM({_quote(value)})"
+    return _quote(value)
 
 
 def _alert_query(facts: SourceFacts, action: str, entity: str) -> str:
@@ -422,7 +422,7 @@ def _exact_count(
     if not terms:
         return None, "no_index_terms"
     query = f"| tstats count where index={_quote(index)} " + " ".join(
-        f"TERM({_quote(value)})" for value in terms
+        _quote(value) for value in terms
     )
     try:
         read = executor.read(query, start, end, kind="exact_count", row_cap=1)

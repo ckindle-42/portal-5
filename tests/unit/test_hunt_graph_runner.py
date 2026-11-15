@@ -192,7 +192,7 @@ def test_cells_follow_the_observation_order_then_prior_hours() -> None:
         ("h2", START + 3 * HOUR, False),
         ("h2", START + HOUR, True),
     ]
-    assert plan[0].literal == 'search index="idx" host="h1" TERM("uid=alpha")'
+    assert plan[0].literal == 'search index="idx" host="h1" "uid=alpha"'
 
 
 def test_cell_plan_stops_at_the_budget() -> None:

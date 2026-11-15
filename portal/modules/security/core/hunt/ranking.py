@@ -5,6 +5,11 @@ from __future__ import annotations
 import re
 
 _KIND_SPAN = re.compile(r"span=(\d+)s")
+_PLAIN_TERM = re.compile(r'(?<![=\\\w])"(?:\\.|[^"\\])*"')
+
+
+def _has_term_filter(query: str) -> bool:
+    return "TERM(" in query or _PLAIN_TERM.search(query) is not None
 
 
 def where_literal(value: str) -> str:
@@ -14,10 +19,7 @@ def where_literal(value: str) -> str:
 
 
 def query_progress_shape(query: str, start: float, end: float) -> str:
-    """Decide whether one issued search is a packed parent, a narrow standalone screen,
-    or other. Packed parents carry every token as an append subsearch. Single-bucket
-    tstats TERM scans are standalone because live-measured at ~0.37 s each while a
-    packed window parent is ~15.2 s."""
+    """Classify a packed parent, a narrow token scan or another issued search."""
     if "eval _ht=" in query:
         return "packed"
     span_match = _KIND_SPAN.search(query)
@@ -26,7 +28,7 @@ def query_progress_shape(query: str, start: float, end: float) -> str:
         if (
             narrow
             and query.startswith("| tstats")
-            and "TERM(" in query
+            and _has_term_filter(query)
             and " by _time span=" in query
         ):
             return "standalone"
@@ -39,20 +41,20 @@ def query_progress_kind(query: str, start: float, end: float) -> str:
         return "peer_history"
     if "md5(_raw)" in query:
         return "burst_sample"
-    if "TERM(" in query and "table _raw punct" in query:
+    if _has_term_filter(query) and "table _raw punct" in query:
         return "peer_slot"
     span_match = _KIND_SPAN.search(query)
     narrow = span_match is not None and end - start <= int(span_match.group(1)) + 1e-6
     packed = 'eval _ht="' in query or "eval _ht=" in query
     if packed:
         return "hour_screen" if narrow else "packed_series"
-    if query.startswith("| tstats") and "TERM(" in query and " by _time span=" in query:
+    if query.startswith("| tstats") and _has_term_filter(query) and " by _time span=" in query:
         return "hour_screen" if narrow else "token_series"
     if "dedup host source punct" in query:
         return "template"
     if (
         query.startswith("| tstats")
-        and "TERM(" in query
+        and _has_term_filter(query)
         and query.rstrip().endswith("by host source")
     ):
         return "term_tstats"

@@ -165,7 +165,10 @@ def _quoted_token(q: str) -> str | None:
 
 def _term(q: str) -> str | None:
     m = re.search(r'TERM\("([^"]+)"\)', q)
-    return m.group(1) if m else None
+    if m:
+        return m.group(1)
+    m = re.search(r'index="[^\"]+"\s+"((?:\\.|[^"\\])+)"\s+by', q)
+    return re.sub(r"\\(.)", r"\1", m.group(1)) if m else None
 
 
 def _dedup(events: list[dict[str, Any]], fields: tuple[str, ...]) -> list[dict[str, Any]]:
@@ -527,9 +530,13 @@ def test_quoted_token_is_escaped_as_a_literal() -> None:
 
     investigator._plan(token)
 
-    term_query = next(query for query in search.queries if "TERM(" in query)
-    assert 'TERM("value\\" OR index=*")' in term_query
-    assert 'TERM("value") OR index=*' not in term_query
+    term_query = next(
+        query
+        for query in search.queries
+        if query.startswith("| tstats") and "by host source _time span=3600s" in query
+    )
+    assert '"value\\" OR index=*"' in term_query
+    assert ' "value" OR index=* ' not in term_query
 
 
 def test_raw_verification_checks_token_boundaries_after_search() -> None:

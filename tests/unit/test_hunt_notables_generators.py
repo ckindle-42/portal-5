@@ -100,7 +100,8 @@ def test_alerts_raise_one_notable_per_distinct_alert_and_entity():
     assert [item.what for item in notables] == ["alert scan on bob", "alert scan on amy"]
     assert notables[0].counts["occurrences"] == 2
     assert notables[0].counts["hosts"] == 2
-    assert 'TERM("scan")' in str(notables[0].evidence[0]["query"])
+    assert '"scan"' in str(notables[0].evidence[0]["query"])
+    assert "TERM(" not in str(notables[0].evidence[0]["query"])
     again, _ = alerts(_Executor(rows), [_alert_card()], {"ix:alerts": _alert_facts()})
     assert [item.notable_id for item in again] == [item.notable_id for item in notables]
 
@@ -190,7 +191,8 @@ def test_exact_counts_replace_sampled_events_where_the_terms_are_indexed():
     assert updated[0].counts["events"] == 42
     assert updated[0].counts["sampled_events"] == 5
     assert updated[0].counts["counted_from"] == "index_terms"
-    assert 'TERM("bob")' in executor.queries[0]
+    assert '"bob"' in executor.queries[0]
+    assert "TERM(" not in executor.queries[0]
 
 
 def test_a_non_term_or_below_sample_count_is_declared_not_used():

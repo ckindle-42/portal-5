@@ -57,6 +57,7 @@ _QUOTED = r'"((?:\\.|[^"])*)"'
 _HOST_CONSTRAINT = re.compile(rf"host={_QUOTED}")
 _WHERE_CONSTRAINT = re.compile(rf"where\s+([A-Za-z_][\w.]*)={_QUOTED}")
 _TERM_CONSTRAINT = re.compile(rf"TERM\({_QUOTED}\)")
+_PLAIN_TERM_CONSTRAINT = re.compile(rf"\s+{_QUOTED}\s*$")
 
 
 @dataclass(frozen=True)
@@ -115,7 +116,7 @@ def literal_query(
     *,
     host_aliases: Sequence[str] | None = None,
 ) -> str:
-    """Put a learned value back as a where-literal, never as a search wildcard."""
+    """Build the search expression that rechecks a learned observation."""
     index_lit = _search_literal(index)
     host_lit = host_filter(host, host_aliases, _search_literal)
     if kind == "volume":
@@ -136,8 +137,7 @@ def literal_query(
             f"| where sourcetype={where_literal(sourcetype)} "
             f"| where punct={where_literal(punct)}"
         )
-    # A learned value is one indexed term; a field comparison is not what the grid counted.
-    return f"search index={index_lit} {host_lit} TERM({_search_literal(entity)})"
+    return f"search index={index_lit} {host_lit} {_search_literal(entity)}"
 
 
 def _unescape(inner: str) -> str:
@@ -145,9 +145,7 @@ def _unescape(inner: str) -> str:
 
 
 def _term_matches(raw: str, term: str) -> bool:
-    """The key=value a value literal encodes, as the PREFIX grid grouped it."""
-    key, sep, value = term.partition("=")
-    return bool(sep) and learned_pairs(raw).get(key) == value
+    return term in raw
 
 
 def literal_matches(event: Mapping[str, Any], query: str) -> bool:
@@ -158,6 +156,9 @@ def literal_matches(event: Mapping[str, Any], query: str) -> bool:
         (match.group(1), _unescape(match.group(2))) for match in _WHERE_CONSTRAINT.finditer(query)
     )
     terms = [_unescape(match.group(1)) for match in _TERM_CONSTRAINT.finditer(query)]
+    plain_term = _PLAIN_TERM_CONSTRAINT.search(query)
+    if plain_term is not None and "| where" not in query:
+        terms.append(_unescape(plain_term.group(1)))
     if not hosts and not constraints and not terms:
         return False
     fields: dict[str, str] = {

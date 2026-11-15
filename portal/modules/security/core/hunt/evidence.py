@@ -121,7 +121,7 @@ def accumulated_host_hours(observations: Iterable[Observation]) -> list[Evidence
 def _searchmatch_term(entity: str) -> str:
     quoted = _search_literal(entity)
     embedded = quoted.replace("\\", "\\\\").replace('"', '\\"')
-    return f'searchmatch("TERM({embedded})")'
+    return f'searchmatch("{embedded}")'
 
 
 def _observation_tests(observation: Observation) -> tuple[str, str] | None:
@@ -141,7 +141,7 @@ def _observation_tests(observation: Observation) -> tuple[str, str] | None:
         eval_test = f"sourcetype={_search_literal(sourcetype)} AND punct={_search_literal(punct)}"
         return search, eval_test
     if observation.kind == "value" and entity:
-        return f"TERM({_search_literal(entity)})", _searchmatch_term(entity)
+        return _search_literal(entity), _searchmatch_term(entity)
     return None
 
 

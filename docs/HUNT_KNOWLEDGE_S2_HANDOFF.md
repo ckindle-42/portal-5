@@ -79,7 +79,7 @@ uv run python -m portal.modules.security.core.hunt.notables.manifest build \
 What it does: reads each family's out-of-band keys, normalises every labelled line and
 a deterministic stride sample of unlabelled lines from the keyed gather files with the
 recorded card keying, writes the manifest, then **audits every item** by running its
-provenance query (`index + host + source + TERM(literal role values)`) against the lab.
+provenance query (`index + host + source + quoted role-value terms`) against the lab.
 
 Expected stdout: one line per family/label —
 `  kyoushi known_bad <step>: items=N located=N rows=M` — then

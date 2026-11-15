@@ -359,7 +359,7 @@ class Investigator:
                 scans += 1
                 q = (
                     f"| tstats count where index={index_q} "
-                    f"TERM({_search_literal(handle)}) by host source _time span=3600s"
+                    f"{_search_literal(handle)} by host source _time span=3600s"
                 )
                 scan = {}
                 for row in self._rows(q, self.start, self.end):

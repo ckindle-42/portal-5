@@ -15,7 +15,7 @@ from portal.modules.security.core.hunt.jobs import (
     HuntBudget,
     query_budget_kind,
 )
-from portal.modules.security.core.hunt.ranking import query_progress_shape
+from portal.modules.security.core.hunt.ranking import query_progress_kind, query_progress_shape
 from tests.unit.test_hunt_observations import GridSearch
 from tests.unit.test_hunt_wire import _raw_rows
 
@@ -163,6 +163,8 @@ class EpisodeSearch(GridSearch):
         host = _quoted(query, "host")
         source = _quoted(query, "source")
         term = re.search(r'TERM\("([^"]*)"\)', query)
+        if term is None:
+            term = re.search(r'index="[^\"]+"\s+"([^\"]+)"\s+by', query)
         counts: Counter[tuple[str, str, int]] = Counter()
         for row in self._window(start, end):
             if host is not None and row["host"] != host:
@@ -335,6 +337,15 @@ def test_narrow_window_reports_standalone_shape() -> None:
     wide = '| tstats count where index=idx TERM("spk0") by _time span=600s'
     assert query_progress_shape(narrow, float(LEAD), float(LEAD + HOUR)) == "standalone"
     assert query_progress_shape(wide, float(LEAD), float(LEAD + 4 * HOUR)) == "other"
+
+
+def test_plain_quoted_tstats_terms_keep_their_progress_kinds() -> None:
+    narrow = '| tstats count where index="idx" "uid=0" by _time span=3600s'
+    cells = '| tstats count where index="idx" "uid=0" by host source'
+
+    assert query_progress_shape(narrow, float(LEAD), float(LEAD + HOUR)) == "standalone"
+    assert query_progress_kind(narrow, float(LEAD), float(LEAD + HOUR)) == "hour_screen"
+    assert query_progress_kind(cells, float(LEAD), float(LEAD + HOUR)) == "term_tstats"
 
 
 def test_packed_parent_reports_packed_shape() -> None:

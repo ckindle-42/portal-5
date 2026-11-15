@@ -156,8 +156,9 @@ def test_keyed_row_reproduces_every_literal_part_of_the_key():
     rows = keyed_rows(card, _facts(), _identity_events())
     assert len(rows) == 6
     query = str(rows[0][13])
-    assert 'TERM("bob")' in query
-    assert 'TERM("cmd.exe")' in query
+    assert '"bob"' in query
+    assert '"cmd.exe"' in query
+    assert "TERM(" not in query
     assert "/tmp/0" not in query
     assert 'index="ix"' in query
     assert rows[0][14] == 0.0 and rows[0][15] == 3600.0
@@ -172,8 +173,9 @@ def test_an_identity_over_the_value_budget_is_generalised(monkeypatch):
     assert plan.actor_mode == "shape"
     rows = keyed_rows(card, _facts(), _identity_events(), plan)
     query = str(rows[0][13])
-    assert 'TERM("bob")' not in query
-    assert 'TERM("cmd.exe")' in query
+    assert '"bob"' not in query
+    assert '"cmd.exe"' in query
+    assert "TERM(" not in query
 
 
 def test_a_part_card_keys_only_its_own_events():
@@ -220,9 +222,10 @@ def test_a_template_behaviour_is_program_template_and_identity_slots():
     key = behaviour_key(card, events[0].fields, plan)
     assert key == ("program", "sshd", "template", "Accepted *", "slots", "bob 10.0.0.5")
     query = str(keyed_rows(card, _facts(), events, plan)[0][13])
-    assert 'TERM("sshd")' in query
-    assert 'TERM("bob")' in query
-    assert 'TERM("10.0.0.5")' in query
+    assert '"sshd"' in query
+    assert '"bob"' in query
+    assert '"10.0.0.5"' in query
+    assert "TERM(" not in query
 
 
 def test_a_template_without_a_program_takes_its_first_identity_slot_as_actor():

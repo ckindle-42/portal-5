@@ -255,8 +255,9 @@ def test_query_names_candidates_with_equality_and_bounds_the_rows():
     read_cell(executor, INDEX, cell, HOUR, 2 * HOUR, evidence_mode="strongest")
 
     query = executor.calls[0][0]
-    assert f"TERM({_search_literal('a"b')})" in query
-    assert 'searchmatch("TERM(' in query
+    assert _search_literal('a"b') in query
+    assert "TERM(" not in query
+    assert "searchmatch(" in query
     assert f"punct={_search_literal('p0')}" in query
     assert f"punct={_search_literal(f'p{CANDIDATE_OBSERVATIONS - 1}')}" not in query
     assert f"| head {ROW_BUDGET}" in query
