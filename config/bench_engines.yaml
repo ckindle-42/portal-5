@@ -80,6 +80,8 @@ backends:
     health_path: /v1/models
     priority: 10
     listing_is_served_set: false
+    # docs/engine_research/mlxserve_20261114.md §mlx_lm.server: listing stays a cache dump.
+    note: "mlx-lm 0.32.2. listing_is_served_set stays false: GET /v1/models is the HF cache plus Path(--model).resolve(), and the gemma QAT dir resolves to hf-cache snapshot 0e3cbab38ce568cf6e23543010d08d03b731910c. Canary 7edcfeb2 hunt returned 'not a healthy candidate backend' while this backend was ready and the engine received no POST. Main 7dd95401b refreshes candidate health before the pin. This row does not change that path. Per-seat argv is tests/benchmarks/engine_h2h.yaml engines.mlx_lm.server.seats."
     models: *engine_eval_models
   # Ollama pair for Stage 3. Exclusive bench workspaces cannot pin the production
   # ollama backend. Tags are the registry ollama ids; hints alias onto them.
