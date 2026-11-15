@@ -490,15 +490,19 @@ def exact_counts(
     }
 
 
-def _behaviour_words(behaviour: Behaviour) -> str:
+def behaviour_words(actor: str, action: str, object_value: str) -> str:
     parts = []
-    if behaviour.actor:
-        parts.append(f"actor {behaviour.actor}")
-    if behaviour.action:
-        parts.append(f"did {behaviour.action}")
-    if behaviour.object:
-        parts.append(f"to {behaviour.object}")
+    if actor:
+        parts.append(f"actor {actor}")
+    if action:
+        parts.append(f"did {action}")
+    if object_value:
+        parts.append(f"to {object_value}")
     return " ".join(parts) or "an unnamed behaviour"
+
+
+def _behaviour_words(behaviour: Behaviour) -> str:
+    return behaviour_words(behaviour.actor, behaviour.action, behaviour.object)
 
 
 def _robust_z(counts: Sequence[int]) -> tuple[float, int]:
