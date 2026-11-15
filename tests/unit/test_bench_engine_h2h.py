@@ -475,6 +475,117 @@ def test_mlx_lm_runs_from_model_root_with_relative_model(cfg):
     assert argv[argv.index("--model") + 1] == cfg["models"]["vulnllm"]["mlx"]
 
 
+def _mlx_lm_thinking(argv: list[str]) -> bool | None:
+    if "--chat-template-args" not in argv:
+        return None
+    return json.loads(argv[argv.index("--chat-template-args") + 1]).get("enable_thinking")
+
+
+_MLX_LM_SEATS = {
+    "daily-moe": (
+        "nemotron_35_lightning",
+        "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp",
+        True,
+    ),
+    "coding": ("qwen38_27b_h2h", "Qwen3.8-27B-4bit", True),
+    "council-json": ("qwen38_27b_h2h", "Qwen3.8-27B-4bit", False),
+    "hunt": ("gemma4_26b_a4b_qat", "gemma-4-26b-a4b-it-QAT-4bit", None),
+}
+_MLX_LM_FORBIDDEN = (
+    "--draft-model",
+    "--num-draft-tokens",
+    "--kv-bits",
+    "--kv-group-size",
+    "--quantized-kv-start",
+    "--max-kv-size",
+    "--prompt-cache-bytes",
+    "--prompt-cache-size",
+    "--max-tokens",
+    "--chat-template",
+    "--default-chat-template-kwargs",
+    "--reasoning-parser",
+    "--tool-call-parser",
+)
+
+
+def test_mlx_lm_seats_follow_the_researched_registry(cfg):
+    """mlxserve_20261114.md §mlx_lm.server §2: one cell, relative --model, no extra flags."""
+    engine = cfg["engines"]["mlx_lm.server"]
+    assert engine["version"] == "0.32.2"
+    assert "0.32.2" in engine["note"]
+    assert "1118" in engine["note"]
+    assert engine["stop_signal"] == "TERM"
+    assert engine["list_models_is_cache"] is True
+    root = cfg["mlx_root"]
+    for seat, (model, directory, thinking) in _MLX_LM_SEATS.items():
+        argv, cwd = h.launch_command(cfg, "mlx_lm.server", model, "plain", seat=seat)
+        assert cwd == root
+        assert argv[0] == "mlx_lm.server"
+        assert argv[argv.index("--model") + 1] == directory
+        assert argv[argv.index("--host") + 1] == "127.0.0.1"
+        assert argv[argv.index("--port") + 1] == "11237"
+        assert _mlx_lm_thinking(argv) is thinking
+        for flag in _MLX_LM_FORBIDDEN:
+            assert flag not in argv
+        with pytest.raises(SystemExit, match="no spec path"):
+            h.launch_command(cfg, "mlx_lm.server", model, "spec", seat=seat)
+    unseated, _cwd = h.launch_command(cfg, "mlx_lm.server", "vulnllm", "plain")
+    assert "--chat-template-args" not in unseated
+    router = "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k"
+    assert not h.model_supports_engine(cfg, router, "mlx_lm.server")
+
+
+def test_mlx_lm_candidate_cells_are_the_four_plain_seats():
+    """candidate_cells renders the seated argv. It does not start the server."""
+    from tests.benchmarks.engine_eval_runner import candidate_cells
+
+    cells = [cell for cell in candidate_cells() if cell["engine"] == "mlx_lm.server"]
+    assert {(cell["seat"], cell["mode"]) for cell in cells} == {
+        ("daily-moe", "plain"),
+        ("coding", "plain"),
+        ("council-json", "plain"),
+        ("hunt", "plain"),
+    }
+    by_seat = {cell["seat"]: cell for cell in cells}
+    assert by_seat["hunt"]["launch_error"] is None
+    assert "--chat-template-args" not in by_seat["hunt"]["argv"]
+    assert _mlx_lm_thinking(by_seat["coding"]["argv"]) is True
+    assert _mlx_lm_thinking(by_seat["council-json"]["argv"]) is False
+    assert _mlx_lm_thinking(by_seat["daily-moe"]["argv"]) is True
+    assert by_seat["coding"]["cwd"] == "/Volumes/data01/omlx-models"
+    assert all(cell["backend"] == "eval-openai-mlx_lm.server" for cell in cells)
+
+
+def test_mlx_lm_version_gate_accepts_only_0_32_2(monkeypatch, tmp_path: Path):
+    """The pin is the shebang interpreter's mlx_lm.__version__. No server is started."""
+    assert h.mlx_lm_version_text_ok("0.32.2\n")
+    assert not h.mlx_lm_version_text_ok("0.31.3\n")
+    assert not h.mlx_lm_version_text_ok("0.32.2-dev\n")
+    assert h.mlx_lm_binary_refusal("ollama", ["mlx_lm.server"]) is None
+
+    python = tmp_path / "python"
+    python.write_text("#!/bin/sh\n", encoding="utf-8")
+    python.chmod(0o755)
+    binary = tmp_path / "mlx_lm.server"
+    binary.write_text(f"#!{python}\n", encoding="utf-8")
+    binary.chmod(0o755)
+
+    def old(cmd, **_kwargs):
+        assert cmd[0] == str(python)
+        return type("Result", (), {"returncode": 0, "stdout": "0.31.3\n", "stderr": ""})()
+
+    monkeypatch.setattr(h.subprocess, "run", old)
+    reason = h.mlx_lm_binary_refusal("mlx_lm.server", [str(binary)])
+    assert reason is not None and "0.32.2" in reason and "0.31.3" in reason
+
+    def pinned(cmd, **_kwargs):
+        assert cmd[0] == str(python)
+        return type("Result", (), {"returncode": 0, "stdout": "0.32.2\n", "stderr": ""})()
+
+    monkeypatch.setattr(h.subprocess, "run", pinned)
+    assert h.mlx_lm_binary_refusal("mlx_lm.server", [str(binary)]) is None
+
+
 def test_served_id_is_shared_across_mlx_engines(cfg):
     engines = {"omlx", "mlx-serve", "rapid-mlx", "vllm-mlx", "mlx_lm.server"}
     ids = {h.served_id(cfg, e, "laguna", "plain") for e in engines}

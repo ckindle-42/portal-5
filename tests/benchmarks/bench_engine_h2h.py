@@ -898,6 +898,62 @@ def brew_llama_binary_refusal(engine: str, argv: list[str]) -> str | None:
     )
 
 
+# PyPI mlx-lm 0.32.2. Reject 0.31.3 and any dev suffix.
+_MLX_LM_REQUIRED_VERSION = "0.32.2"
+
+
+def mlx_lm_version_text_ok(text: str) -> bool:
+    """True when the interpreter printed exactly mlx-lm 0.32.2."""
+    lines = text.strip().splitlines()
+    return bool(lines) and lines[-1].strip() == _MLX_LM_REQUIRED_VERSION
+
+
+def _script_interpreter(binary: str) -> str | None:
+    """The shebang interpreter of a console script, after resolving symlinks."""
+    try:
+        first = Path(binary).resolve().read_text(encoding="utf-8").splitlines()[0]
+    except (OSError, UnicodeError):
+        return None
+    if not first.startswith("#!"):
+        return None
+    python = first[2:].strip().split()[0]
+    return python if python and Path(python).is_file() else None
+
+
+def mlx_lm_binary_refusal(engine: str, argv: list[str]) -> str | None:
+    """Refuse mlx_lm.server unless its shebang interpreter imports mlx-lm 0.32.2.
+
+    There is no --version flag. Reading the version does not bind the eval port.
+    """
+    if engine != "mlx_lm.server" or not argv or Path(argv[0]).name != "mlx_lm.server":
+        return None
+    binary = shutil.which(argv[0]) if "/" not in argv[0] else argv[0]
+    if not binary:
+        return "mlx_lm.server: mlx_lm.server is not on PATH"
+    python = _script_interpreter(binary)
+    if python is None:
+        return f"mlx_lm.server: cannot read the interpreter shebang of {binary}"
+    try:
+        proc = subprocess.run(
+            [python, "-c", "import mlx_lm; print(mlx_lm.__version__)"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return f"mlx_lm.server: cannot read mlx_lm.__version__ via {python}: {exc}"
+    if proc.returncode == 0 and mlx_lm_version_text_ok(proc.stdout or ""):
+        return None
+    shown = (proc.stdout or proc.stderr or "").strip().splitlines()
+    got = shown[-1] if shown else "<empty>"
+    return (
+        "mlx_lm.server must be mlx-lm 0.32.2 "
+        f"(got {got!r} from {python}). "
+        "docs/engine_research/mlxserve_20261114.md pins PyPI 0.32.2 (2026-10-16)."
+    )
+
+
 def start_managed(
     cfg: dict,
     engine: str,
@@ -911,7 +967,11 @@ def start_managed(
 ) -> dict:
     materialize_seat_link(cfg, engine, model, mode, seat, context_tokens)
     argv, cwd = launch_command(cfg, engine, model, mode, context_tokens=context_tokens, seat=seat)
-    refusal = rapid_mlx_argv_refusal(argv) or brew_llama_binary_refusal(engine, argv)
+    refusal = (
+        rapid_mlx_argv_refusal(argv)
+        or brew_llama_binary_refusal(engine, argv)
+        or mlx_lm_binary_refusal(engine, argv)
+    )
     if refusal:
         raise SystemExit(refusal)
     STATE_DIR.mkdir(parents=True, exist_ok=True)
@@ -1967,7 +2027,15 @@ def engine_version(engine: str) -> str:
         ],
         # vllm-metal installs the upstream `vllm` CLI; its --version wording is unconfirmed here.
         "vllm-metal": ["vllm", "--version"],
-        "mlx_lm.server": ["python3", "-c", "import mlx_lm;print(mlx_lm.__version__)"],
+        # The PATH script's shebang, not whichever python3 is first. 0.32.2 has no --version.
+        "mlx_lm.server": [
+            "python3",
+            "-c",
+            "import pathlib,shutil,subprocess; exe=shutil.which('mlx_lm.server'); "
+            "line=pathlib.Path(exe).resolve().read_text().splitlines()[0]; "
+            "py=line[2:].strip().split()[0]; "
+            "print(subprocess.check_output([py,'-c','import mlx_lm;print(mlx_lm.__version__)'],text=True).strip())",
+        ],
         "mtplx": ["mtplx", "--version"],
         "prismml-llama": [
             str(Path.home() / "src/prismml-llama.cpp/build/bin/llama-server"),

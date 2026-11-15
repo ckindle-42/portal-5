@@ -309,15 +309,42 @@ engines:
     kind: managed
     requires: mlx
     port: 11237
-    # Reference baseline. GET /v1/models lists the HF cache plus the resolved
-    # --model path (mlx_lm 0.31.3 server.py handle_models_request), not the
-    # relative id passed to --model. Readiness matches that resolved path.
-    # Chat accepts the relative --model value when cwd is mlx_root
-    # (ModelProvider.load). Launched from mlx_root with that relative path.
+    version: "0.32.2"
+    # docs/engine_research/mlxserve_20261114.md §mlx_lm.server and Proposed registry entries:
+    # pin 0.32.2, not 0.31.3. One cell. cwd {mlx_root}. Relative --model.
+    # §2: do not add --draft-model, --kv-bits, or --max-kv-size (0.32.2 --help has no
+    # --max-kv-size). --prompt-cache-size stays the argparse default 10.
+    # --prompt-cache-bytes stays unset (issue 1118: ignored on the sequential path).
+    # --max-tokens stays the 0.32.2 default 512. The pipeline body sets max_tokens.
+    # --chat-template-args is the 0.32.2 thinking knob (json.loads). Not
+    # --default-chat-template-kwargs. Do not pass --chat-template (that replaces
+    # the checkpoint template). GET /v1/models is the HF cache plus the resolved
+    # --model path. Readiness matches that path. Chat accepts the relative id.
     cwd: "{mlx_root}"
     plain: [mlx_lm.server, --model, "{model_dir}", --host, 127.0.0.1, --port, "{port}"]
     base_spec: [mlx_lm.server, --model, "{model_dir}", --host, 127.0.0.1, --port, "{port}"]
-    # Measured: mlx_lm.server ignores SIGINT.
+    seat_base: [mlx_lm.server, --model, "{model_dir}", --host, 127.0.0.1, --port, "{port}"]
+    note: "Pin mlx-lm 0.32.2 (docs/engine_research/mlxserve_20261114.md §mlx_lm.server, Proposed registry entries). PATH /opt/homebrew/bin/mlx_lm.server shebang is Homebrew python 3.14; mlx_lm.__version__ is 0.32.2; libmlx.dylib is Mach-O arm64 (verified 2026-11-14). --help on that binary has --chat-template-args, --max-tokens default 512, --prompt-cache-size default 10, --prompt-cache-bytes, and --kv-bits. It has no --max-kv-size, no --prompt-cache-total-bytes, and no --default-chat-template-kwargs. Proposed argv is unchanged: relative --model, host, port. No draft, no KV quant, no rotating cache, no byte cap (issue 1118). Weight sha256 for nemotron_omlx_oq4e_mtp, qwen_mlx_4bit, and gemma_qat_mlx_4bit matched config/engine_artifacts_20261114.yaml (11 files, 0 mismatches, 2026-11-14). The gemma dir is a symlink to hf-cache snapshot 0e3cbab38ce568cf6e23543010d08d03b731910c, so GET /v1/models lists that snapshot path. list_models_is_cache stays true. Canary 7edcfeb2 hunt was invalid with 'not a healthy candidate backend' while the receipt's pipeline_backend was ready and healthy and the engine log had only GET /v1/models 200 and zero POSTs. Coding and daily-moe on that build received POSTs and were valid. The request worker served a stale candidate cache. Main 7dd95401b re-probes via refresh_backend_health before apply_backend_pin. This lane does not edit the Pipeline. Task-router stays unsupported: the GGUF cannot be --model (§1). Spec stays null (§2: do not point --draft-model at DFlash2; MTP tensors are not a speed path). Stop signal stays TERM."
+    seats:
+      # §1 daily-moe: oQ4e dir, load unproven, do not download the mlx-community 4-bit.
+      # auto-daily / bench-engine-daily-moe think true.
+      daily-moe:
+        model_dir: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
+        seat_extra_argv: [--chat-template-args, '{"enable_thinking": true}']
+      # §1 coding: Qwen3.8-27B-4bit. Do not point --draft-model at DFlash2.
+      # auto-coding / bench-engine-coding think true.
+      coding:
+        model_dir: Qwen3.8-27B-4bit
+        seat_extra_argv: [--chat-template-args, '{"enable_thinking": true}']
+      # Same plain 4-bit target. compliance-council-qwen38 think is false.
+      council-json:
+        model_dir: Qwen3.8-27B-4bit
+        seat_extra_argv: [--chat-template-args, '{"enable_thinking": false}']
+      # §1 hunt: QAT dir, no draft on disk. bench-engine-hunt has no think field:
+      # omit --chat-template-args so enable_thinking stays unset.
+      hunt:
+        model_dir: gemma-4-26b-a4b-it-QAT-4bit
+    # Measured: mlx_lm.server ignores SIGINT. §2: leave TERM.
     stop_signal: TERM
     list_models_is_cache: true
     readiness: {path: /v1/models, timeout_s: 300, collection: data, id_field: id}
