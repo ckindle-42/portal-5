@@ -1,0 +1,8 @@
+# Derived GLM coder seat; shares the base weights, with a 24K window and agentic sampling.
+# Create with:
+#   ollama create glm-4.7-flash:Q4_K_M-ctx24k-agentic \
+#     -f config/modelfiles/glm-4.7-flash.Q4_K_M-ctx24k-agentic.Modelfile
+FROM glm-4.7-flash:Q4_K_M
+PARAMETER num_ctx 24576
+PARAMETER temperature 0.7
+PARAMETER top_p 1.0

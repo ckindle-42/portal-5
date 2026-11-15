@@ -46,7 +46,7 @@ These 25 visible directories have no active model id, alias target, direct oMLX 
 |---|---|---|
 | Ollama registered tags, aliases, and fallbacks | `config/backends.yaml`; workspace and variant hints in `config/portal.yaml`; bench seats in `config/bench_workspaces.yaml` | Structured config entries count as use by task definition. This is not a claim that each tag is currently installed. Derived context tags share their base weights. |
 | `glm-4.7-flash:Q4_K_M-ctx24k` | `auto-reasoning::math`; `config/backends.yaml`; Modelfile in `config/modelfiles/` | New 24K math-seat tag; WFE decision remains `wfe_math_20261018d`. |
-| `glm-4.7-flash:Q4_K_M-ctx32k-agentic` | `auto-coding::glm-coder`; `config/backends.yaml`; Modelfile in `config/modelfiles/` | New 32K coding-seat tag, preserving the agentic sampling arm. |
+| `glm-4.7-flash:Q4_K_M-ctx24k-agentic` | `auto-coding::glm-coder`; `config/backends.yaml`; Modelfile in `config/modelfiles/` | 24K coding-seat tag, preserving the agentic sampling arm; re-fit from 32K after the live load guard refused the 32K projection (2026-11-15). |
 | `glm-4.7-flash:Q4_K_M-ctx64k[-agentic]` and base `glm-4.7-flash:Q4_K_M` | `config/backends.yaml`; catalog history and other registered uses | Retained with their base identities; 64K variants are no longer selected by the two seats. |
 | `DeepSeek-R1-0528-Qwen3-8B-4bit` — 4.30 GiB | oMLX symlink `/Volumes/data01/omlx-models/DeepSeek-R1-0528-Qwen3-8B-4bit`; `config/backends.yaml` | Direct symlink into `models--mlx-community--DeepSeek-R1-0528-Qwen3-8B-4bit`. |
 | `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-4bit` — 16.57 GiB | oMLX symlink; `config/engine_artifacts_20261114.yaml` | Explicitly retained as the seat candidate under measurement. |
@@ -92,14 +92,14 @@ These 25 visible directories have no active model id, alias target, direct oMLX 
 
 ## GLM seat sizing
 
-The task's live report gives 17.71 GiB weights, a 1.25 multiplier, 31.21 GiB q8_0 KV at 65,536 context, and a 40–42 GiB empty-host budget. Linear KV scaling gives:
+The task's live report gives 17.71 GiB weights, a 1.25 multiplier, and 31.21 GiB q8_0 KV at 65,536 context against a supplied 40–42 GiB empty-host budget. The 2026-11-15 22:0xZ live refusal measured the effective budget lower: 37.6 GiB (oMLX headroom 39.6 + idle Ollama 0.0 − margin 2). Re-running load_guard's sizing (`_estimate_ollama_need`, the `seat_fit()` per-seat path) on the real on-disk GGUF geometry (47 layers, 20 KV heads, 256-dim keys/values, q8_0) reproduces the refusal (32K → 37.75 GiB) and gives:
 
-| Seat | Context | Estimated weight + KV | Margin to 40–42 GiB | Config |
+| Seat | Context | Estimated weight + KV | Margin to 37.6 GiB live headroom | Config |
 |---|---:|---:|---:|---|
-| `auto-reasoning::math` | 24,576 | 22.14 + 11.70 = 33.84 GiB | 6.16–8.16 GiB | `glm-4.7-flash:Q4_K_M-ctx24k`, 12,288 output tokens |
-| `auto-coding::glm-coder` | 32,768 | 22.14 + 15.61 = 37.75 GiB | 2.25–4.25 GiB | `glm-4.7-flash:Q4_K_M-ctx32k-agentic`, 24,576 output tokens |
+| `auto-reasoning::math` | 24,576 | 22.14 + 11.70 = 33.85 GiB | +3.75 GiB | `glm-4.7-flash:Q4_K_M-ctx24k`, 12,288 output tokens |
+| `auto-coding::glm-coder` | 24,576 | 22.14 + 11.70 = 33.85 GiB | +3.75 GiB | `glm-4.7-flash:Q4_K_M-ctx24k-agentic`, 16,384 output tokens |
 
-Math keeps its established 24,576 context window. Coding keeps the dedicated agentic arm and a 24,576 output budget; 64K no longer fits the supplied budget. These are arithmetic estimates from the supplied seat-fit inputs, not fresh `seat_fit()` output.
+Math keeps its established 24,576 context window. Coding re-fits to the same window after the 32K tag was refused live: it keeps the dedicated agentic arm and drops the output cap 24,576 → 16,384 so prompt + output fit with the designed 8K prompt room; 64K no longer fits the budget. The re-fit row is computed with the guard's own sizing function against the real weights blob, not fresh live `seat_fit()` output — the live seat fit remains an orchestrator check.
 
 ## Closed removals and removal script
 

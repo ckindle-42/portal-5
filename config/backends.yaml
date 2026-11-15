@@ -372,8 +372,9 @@ backends:
   # template as -ctx64k, so the 2026-09-17 tool probe carries over.
   - id: glm-4.7-flash:Q4_K_M-ctx64k-agentic
     supports_tools: true
-  # 32K is the largest GLM coding window that fits the supplied seat budget.
-  - id: glm-4.7-flash:Q4_K_M-ctx32k-agentic
+  # 24K re-fit (2026-11-15 live miss): 32K projected 37.75 GiB vs 37.6 GiB live
+  # headroom; 24K projects 33.85 GiB, +3.75 GiB margin (same window as math).
+  - id: glm-4.7-flash:Q4_K_M-ctx24k-agentic
     supports_tools: true
   - id: hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M
     supports_tools: false
