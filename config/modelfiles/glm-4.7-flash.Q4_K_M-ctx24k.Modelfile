@@ -1,0 +1,6 @@
+# Derived math-seat tag; it shares the base weights and bakes a 24K window.
+# Create with:
+#   ollama create glm-4.7-flash:Q4_K_M-ctx24k \
+#     -f config/modelfiles/glm-4.7-flash.Q4_K_M-ctx24k.Modelfile
+FROM glm-4.7-flash:Q4_K_M
+PARAMETER num_ctx 24576

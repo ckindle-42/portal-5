@@ -489,18 +489,23 @@ The dual `general`/`coding` registration with `supports_tools: true` in both gro
 
 ### `glm-4.7-flash:Q4_K_M-ctx64k`
 
-`glm-4.7-flash:Q4_K_M-ctx64k` is the 64K-context derived tag (baked `PARAMETER num_ctx 65536`, weights shared with the base tag — 0 extra bytes) created 2026-09-07 when the fleet closeout flipped the `glm-coder` persona pin off REAP-23B per its recorded promotion policy. The persona's system prompt promises a 128K window; the base `glm-4.7-flash:Q4_K_M` tag ships no baked `num_ctx`, so the pin would have silently collapsed to the Ollama default — caught by settings review, not by the short-prompt exam that motivated the flip. Registered in `general` (`supports_tools: false`) and `coding` (`true`) to match the base tag.
+`glm-4.7-flash:Q4_K_M-ctx64k` is the 64K-context derived tag (baked `PARAMETER num_ctx 65536`, weights shared with the base tag — 0 extra bytes) created 2026-09-07. It remains registered as an alternate. The current math and coding seats use the smaller `-ctx24k` and `-ctx32k-agentic` tags because the supplied 64K q8 KV estimate exceeds the seat budget.
 
+### `glm-4.7-flash:Q4_K_M-ctx24k`
 
-Since 2026-10-18 it is also the `auto-math` seat (`model_hint`, `context_limit: 24576`, Z.ai card sampling temperature 1.0 / top_p 0.95), chosen on WFE `wfe_math_20261018d`: BETTER than phi4-mini-reasoning (sign test p=0.039, 104/108 PASS), kept over the slightly more accurate Qwen3.8-27B for lineage diversity — GLM held no production seat.
+`glm-4.7-flash:Q4_K_M-ctx24k` derives from the base GLM tag and bakes `PARAMETER num_ctx 24576` (no extra weights). `auto-reasoning::math` uses this tag with `context_limit: 24576` and `predict_limit: 12288`; its WFE selection remains `wfe_math_20261018d` (104/108 PASS versus 93/108 for phi4-mini-reasoning). With the task sizing inputs, the estimated footprint is 33.84 GiB, leaving 6.16–8.16 GiB below the stated 40–42 GiB budget. `config/backends.yaml` registers it in `general` with `supports_tools: false`.
 
 ### `glm-4.7-flash:Q4_K_M-ctx64k-agentic`
 
-`glm-4.7-flash:Q4_K_M-ctx64k-agentic` is the coding-seat derived tag (weights shared with `-ctx64k` — 0 extra bytes) that bakes the GLM-4.7-Flash card's `agentic_coding` arm (`PARAMETER temperature 0.7`, `PARAMETER top_p 1.0`) on top of the inherited 64K window; Modelfile at `config/modelfiles/glm-4.7-flash.Q4_K_M-ctx64k-agentic.Modelfile`. Created 2026-10-21 for `auto-coding::glm-coder`: the seat serves the card's 0.7 arm (above the coding lane's 0.5, card-sanctioned), but the shared `-ctx64k` tag bakes the card's default temperature 1.0, so any request path that omitted the workspace override would exceed the lane — the settings audit's `sampling_baked_hot`. `auto-math` keeps `-ctx64k` (it serves the 1.0 default arm deliberately). Registered in `coding` (`supports_tools: true`); the 2026-09-17 tool probe on `-ctx64k` carries over (same weights and template).
+`glm-4.7-flash:Q4_K_M-ctx64k-agentic` is the former coding-seat derived tag. It bakes the GLM-4.7-Flash card's `agentic_coding` arm (`temperature 0.7`, `top_p 1.0`) on the inherited 64K window; its Modelfile remains at `config/modelfiles/glm-4.7-flash.Q4_K_M-ctx64k-agentic.Modelfile`. The `glm-coder` seat moved to `-ctx32k-agentic` on 2026-11-15 because the supplied 64K q8 KV estimate put it beyond the seat budget. The 64K tag remains registered as an alternate.
+
+### `glm-4.7-flash:Q4_K_M-ctx32k-agentic`
+
+`glm-4.7-flash:Q4_K_M-ctx32k-agentic` derives from the base GLM tag, bakes `PARAMETER num_ctx 32768`, and preserves the agentic sampling arm (`temperature 0.7`, `top_p 1.0`). `auto-coding::glm-coder` uses it with `context_limit: 32768` and `predict_limit: 24576`, leaving 8K for the prompt. Its estimated footprint is 37.74 GiB, leaving 2.26–4.26 GiB below the stated 40–42 GiB budget. `config/backends.yaml` registers it in `coding` with `supports_tools: true`. The orchestrator must create this tag and verify the live seat fit and Pipeline response.
 
 ## Why
 
-The audit treats a hot baked tag as a real defense-in-depth gap even when the workspace pins a compliant value; baking the sanctioned arm into a dedicated tag removes the gap without changing what either seat serves.
+The agentic tag keeps the card-sanctioned sampling arm baked into the served identity. The smaller context keeps the seat within the supplied memory budget while preserving a 24K output allowance.
 
 ### `hf.co/bartowski/nex-agi_Nex-N2.5-mini-GGUF:Q4_K_M` — RETIRED (2026-10-22, operator)
 
@@ -590,7 +595,7 @@ The tool-capable status is asserted by the `coding` and `security` group registr
 
 ### `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL` — DROPPED (not installed; pruned 2026-10-28)
 
-`hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL` is a ~14.2GB Unsloth quant of the GLM-4.7-Flash base using REAP expert pruning plus Unsloth Dynamic imatrix, giving the fleet non-Meta/Qwen lineage diversity. `config/backends.yaml` registers it under the `general` group with `supports_tools: false` and under the `coding` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-glm-reap` workspace `model_hint`, staged head-to-head against the standard `glm-4.7-flash:Q4_K_M` quant with a promotion policy of beating that baseline on quality and a TPS floor. No production workspace or persona consumes it: the `glm-coder` coding role is served by `auto-coding`'s `glm-coder` variant on `glm-4.7-flash:Q4_K_M-ctx64k-agentic`.
+`hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL` is a ~14.2GB Unsloth quant of the GLM-4.7-Flash base using REAP expert pruning plus Unsloth Dynamic imatrix, giving the fleet non-Meta/Qwen lineage diversity. `config/backends.yaml` registers it under the `general` group with `supports_tools: false` and under the `coding` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-glm-reap` workspace `model_hint`, staged head-to-head against the standard `glm-4.7-flash:Q4_K_M` quant with a promotion policy of beating that baseline on quality and a TPS floor. No production workspace or persona consumes it: the `glm-coder` coding role is served by `auto-coding`'s `glm-coder` variant on `glm-4.7-flash:Q4_K_M-ctx32k-agentic` (since 2026-11-15).
 
 ## Why
 
@@ -1027,7 +1032,7 @@ Grounding anchors the tag to the two backends.yaml registrations that carry it �
 
 ### `phi4-mini-reasoning` — DROPPED (not installed; pruned 2026-10-28)
 
-`phi4-mini-reasoning` is Microsoft Phi-4-Mini-Reasoning (2025, MIT, 3.8B, ~2.5GB Q4, 200K ctx), RL-trained for math, formal proofs, and symbolic computation, beating 7B models on AIME, MATH-500, and GPQA at its size. `config/backends.yaml` registers it in `group: reasoning` with `supports_tools: false`, consistent with a math specialist that does not route tools. It seated auto-math through the derived `phi4-mini-reasoning:latest-ctx24k` tag until 2026-10-18, when WFE `wfe_math_20261018d` found all three challengers BETTER and the seat moved to `glm-4.7-flash:Q4_K_M-ctx64k` (docs/WFE_DECISION_AUTO_MATH_20261018.md). The catalog warns against pulling the `:math` variant — the 2026-06-21 bench scored it 0.50 quality versus the base's 1.00 at equal TPS.
+`phi4-mini-reasoning` is Microsoft Phi-4-Mini-Reasoning (2025, MIT, 3.8B, ~2.5GB Q4, 200K ctx), RL-trained for math, formal proofs, and symbolic computation, beating 7B models on AIME, MATH-500, and GPQA at its size. `config/backends.yaml` registers it in `group: reasoning` with `supports_tools: false`, consistent with a math specialist that does not route tools. It seated auto-math through the derived `phi4-mini-reasoning:latest-ctx24k` tag until 2026-10-18, when WFE `wfe_math_20261018d` found all three challengers BETTER and the seat moved to `glm-4.7-flash:Q4_K_M-ctx24k` (docs/WFE_DECISION_AUTO_MATH_20261018.md; the 24K bake preserves its declared window). The catalog warns against pulling the `:math` variant — the 2026-06-21 bench scored it 0.50 quality versus the base's 1.00 at equal TPS.
 
 ## Why
 
@@ -1571,7 +1576,7 @@ The grounding here is routing: `config/portal.yaml` proves the `-ctx64k` tag, no
 
 ### `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k` — DROPPED (not installed; pruned 2026-10-28)
 
-`hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k` is the 64K-context derived tag that `config/portal.yaml` does not route as a workspace `model_hint`, and that no persona or variant selects: the `glm-coder` coding role is served by `auto-coding`'s `glm-coder` variant, whose `model_hint` is `glm-4.7-flash:Q4_K_M-ctx64k-agentic`. `config/backends.yaml` registers it under the `coding` group with `supports_tools: true`, the same group-level flag as its base tag. The `PARAMETER num_ctx 65536` is baked into the derived tag because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, making a context cap a per-tag property. See the base tag's entry for the full REAP detail.
+`hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k` is the 64K-context derived tag that `config/portal.yaml` does not route as a workspace `model_hint`, and that no persona or variant selects: the `glm-coder` coding role is served by `auto-coding`'s `glm-coder` variant, whose `model_hint` is `glm-4.7-flash:Q4_K_M-ctx32k-agentic`. `config/backends.yaml` registers it under the `coding` group with `supports_tools: true`, the same group-level flag as its base tag. The `PARAMETER num_ctx 65536` is baked into the derived tag because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, making a context cap a per-tag property. See the base tag's entry for the full REAP detail.
 
 ## Why
 
@@ -1740,7 +1745,7 @@ An 8K context was far too small for real opencode/agentic use (tool-call round-t
 
 ### `phi4-mini-reasoning:latest-ctx24k`
 
-`phi4-mini-reasoning:latest-ctx24k` is the derived tag of `phi4-mini-reasoning:latest` with `PARAMETER num_ctx 24576` baked in via the `apply-params` command, required because Ollama's `/v1/chat/completions` drops request-time `options.num_ctx`. `config/backends.yaml` registers it in `group: reasoning` with `supports_tools: false`, matching its parent. It was the `auto-math` workspace `model_hint` (with `context_limit: 24576`) until 2026-10-18; auto-math now serves `glm-4.7-flash:Q4_K_M-ctx64k`. See the parent unit for the RL math-specialist background and the `:math` bench warning.
+`phi4-mini-reasoning:latest-ctx24k` is the derived tag of `phi4-mini-reasoning:latest` with `PARAMETER num_ctx 24576` baked in via the `apply-params` command, required because Ollama's `/v1/chat/completions` drops request-time `options.num_ctx`. `config/backends.yaml` registers it in `group: reasoning` with `supports_tools: false`, matching its parent. It was the `auto-math` workspace `model_hint` (with `context_limit: 24576`) until 2026-10-18; auto-math now serves `glm-4.7-flash:Q4_K_M-ctx24k`. See the parent unit for the RL math-specialist background and the `:math` bench warning.
 
 ## Why
 
