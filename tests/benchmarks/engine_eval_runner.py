@@ -30,6 +30,7 @@ from portal.platform.inference.cluster_backends import BackendRegistry
 from scripts import host_quiet
 from tests.benchmarks import bench_engine_h2h as h2h
 from tests.benchmarks import engine_eval_instrument as instrument
+from tests.benchmarks import engine_prodfit
 
 REPO = Path(__file__).resolve().parents[2]
 PROTOCOL = Path(__file__).with_name("engine_eval_protocol_20261113.yaml")
@@ -4385,6 +4386,25 @@ def _select_cell(args: argparse.Namespace) -> dict[str, Any]:
     return cell
 
 
+def prodfit_cell(selector: str) -> dict[str, Any]:
+    """Resolve ``engine:mode:seat`` against the approved matrix."""
+    parts = selector.split(":")
+    if len(parts) != 3:
+        raise Stage3BlockedError(f"--cell must be engine:mode:seat, got {selector!r}")
+    return _select_cell(argparse.Namespace(engine=parts[0], mode=parts[1], seat=parts[2]))
+
+
+def run_prodfit_cell(args: argparse.Namespace) -> int:
+    """Judge one cell's production fit and write its receipt."""
+    receipt = engine_prodfit.run_prodfit(
+        prodfit_cell(args.cell),
+        args.pipeline,
+        build=args.build or current_build(),
+        root=data_root(),
+    )
+    return 0 if receipt.get("verdict") == "PASS" else 2
+
+
 def main(argv: list[str] | None = None) -> int:
     """Dispatch candidate cell, canary, or fail-closed Stage 3 work."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -4421,6 +4441,12 @@ def main(argv: list[str] | None = None) -> int:
     stage3_run = sub.add_parser("stage3-run")
     stage3_run.add_argument("--plan", required=True)
     stage3_run.add_argument("--pipeline", default="http://127.0.0.1:9099")
+    prod = sub.add_parser("prodfit")
+    prod.add_argument("--cell", required=True, help="engine:mode:seat — judge one cell")
+    prod.add_argument("--pipeline", default="http://127.0.0.1:9099")
+    prod.add_argument(
+        "--build", default=None, help="receipt build key (default: the current git HEAD)"
+    )
     args = parser.parse_args(argv)
     try:
         if args.command == "canary":
@@ -4435,6 +4461,8 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "stage3-run":
             return execute_stage3_plan(args.plan, args.pipeline)
+        if args.command == "prodfit":
+            return run_prodfit_cell(args)
         selected = _select_cell(args)
         if args.command == "cell":
             result = run_cell(selected, args.pipeline)
