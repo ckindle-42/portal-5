@@ -288,6 +288,22 @@ def test_a_named_tool_choice_is_released_the_same_way(monkeypatch) -> None:
     assert [b["tool_choice"] for b in engine.bodies] == [named, "auto"]
 
 
+def test_a_named_choice_is_spent_only_by_its_own_call(monkeypatch) -> None:
+    """An engine that ignores the named tool (Ollama) keeps it until the named one is called."""
+    named = {"type": "function", "function": {"name": "execute_python"}}
+    out, bodies, executed = _drive(
+        monkeypatch,
+        {**_required_body(), "tool_choice": named},
+        [
+            _call(),
+            _answer("done"),
+        ],
+    )
+
+    assert executed == ["run_sql"] and len(bodies) == 2
+    assert bodies[1]["tool_choice"] == named
+
+
 def test_an_auto_request_is_never_given_a_choice_it_did_not_send(monkeypatch) -> None:
     """An engine that ignores tool_choice sees the same bodies it always did."""
     text, engine, executed = _drive_strict(monkeypatch, _strict_body("auto"))

@@ -194,10 +194,14 @@ class ToolRepeatGuard:
         }
 
 
-def followup_tool_choice(choice: Any) -> Any:
-    """The choice for a hop that follows a tool result: a forced one covers one turn only."""
-    named = isinstance(choice, dict) and choice.get("type") == "function"
-    return "auto" if choice == "required" or named else choice
+def followup_tool_choice(choice: Any, calls: list[dict[str, Any]]) -> Any:
+    """The choice after a tool result: "required" is spent by any call, a named tool only by its own."""
+    if choice == "required":
+        return "auto"
+    named = (choice.get("function") or {}).get("name") if isinstance(choice, dict) else None
+    if named and any((c.get("function") or {}).get("name") == named for c in calls):
+        return "auto"
+    return choice
 
 
 def hold_ungrounded_answer(

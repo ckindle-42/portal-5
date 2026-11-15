@@ -1557,7 +1557,9 @@ async def _tool_loop_frames(
             current_body["messages"] = (
                 current_body.get("messages", []) + [assistant_msg] + dispatch_results
             )
-            current_body["tool_choice"] = followup_tool_choice(current_body.get("tool_choice"))
+            current_body["tool_choice"] = followup_tool_choice(
+                current_body.get("tool_choice"), all_tool_calls
+            )
             _tool_result_bytes = apply_tool_byte_budget(
                 _repeat_guard,
                 _tool_result_bytes,

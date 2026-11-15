@@ -1264,7 +1264,6 @@ async def _try_non_streaming(
             )
             _ns_messages = list(req_body.get("messages") or [])
             _ns_hops = 0
-            _ns_synth_choice = followup_tool_choice(req_body.get("tool_choice"))
             _ns_guard = ToolRepeatGuard()
             _ns_tool_byte_budget = tool_result_byte_budget(workspace_context_limit(workspace_id))
             _ns_tool_result_bytes = 0
@@ -1364,6 +1363,7 @@ async def _try_non_streaming(
                 _ns_last = _ns_hops >= max_hops or _ns_guard.force_synthesis
                 if _ns_guard.force_synthesis:
                     _ns_messages = [*_ns_messages, FINAL_ANSWER_REQUEST]
+                _ns_synth_choice = followup_tool_choice(req_body.get("tool_choice"), _ns_tool_calls)
                 _synth_body = {
                     **req_body,
                     "messages": _ns_messages,
