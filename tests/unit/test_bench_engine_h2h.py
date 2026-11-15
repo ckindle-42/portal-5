@@ -1168,19 +1168,20 @@ def test_cache_listing_is_ready_when_the_resolved_path_is_listed(cfg, tmp_path: 
     assert not h._models_ready(local, "mlx_lm.server", {"data": [{"id": "other"}]}, 200, model)
 
 
-def test_structural_readiness_does_not_wait_out_the_timeout(cfg, monkeypatch):
+def test_structural_readiness_does_not_wait_out_the_timeout(cfg, monkeypatch, tmp_path: Path):
     monkeypatch.setattr(h.time, "sleep", lambda _seconds: pytest.fail("slept"))
     monkeypatch.setattr(
         h,
         "_models_response",
         lambda *_args, **_kwargs: (200, {"data": [{"id": "other-cache-id"}]}, "ok"),
     )
+    local = {**cfg, "mlx_root": str(tmp_path)}
 
     with pytest.raises(SystemExit, match="structural readiness"):
         h.wait_ready(
             "http://127.0.0.1:11237",
             300,
-            cfg=cfg,
+            cfg=local,
             engine="mlx_lm.server",
             expected_model="not-on-disk-model",
         )

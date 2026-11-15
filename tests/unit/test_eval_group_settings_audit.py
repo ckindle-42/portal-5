@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import random
 from pathlib import Path
 
 import pytest
@@ -35,13 +36,11 @@ def test_eval_group_hints_resolve_on_the_eval_backend(monkeypatch: pytest.Monkey
     backends = yaml.safe_load(Path(CONFIG).read_text(encoding="utf-8"))
     audit._audit_routable(seats, backends, rows)
     assert rows == []
+    # Equal priorities shuffle. Pin registration order so the served id is stable.
+    monkeypatch.setattr(random, "shuffle", lambda _xs: None)
     served = audit._served_path("bench-engine-coding", _QWEN, reg)
-    assert served is not None
-    assert served[0] == "eval_openai"
-    assert served[1] in {
-        backend.id for backend in reg.list_backends() if backend.type == "eval_openai"
-    }
-    assert reg._backends[served[1]].resolve_model(_QWEN) == served[2]
+    assert served == ("eval_openai", "eval-openai-omlx-incumbent", _QWEN)
+    assert {b.type for b in reg.get_backend_candidates("bench-engine-coding")} == {"eval_openai"}
 
 
 def test_an_eval_only_hint_on_a_production_group_stays_unroutable() -> None:

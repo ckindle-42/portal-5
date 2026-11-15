@@ -52,7 +52,11 @@ def test_contract_arm_exposes_explicit_completeness_and_exact_ids():
     assert "gold_rationale" not in visible_packet
 
 
-def test_v2_manifest_matches_live_production_caller_and_workspace_budget():
+def test_v2_manifest_matches_live_production_caller_and_workspace_budget(monkeypatch, tmp_path):
+    from tests.benchmarks import compliance_judgment_r1_experiment_v2 as v2
+
+    monkeypatch.setattr(v2, "R1_CHAT_TEMPLATE", tmp_path / "chat_template.jinja")
+    monkeypatch.setattr(v2, "R1_TOKENIZER_CONFIG", tmp_path / "tokenizer_config.json")
     policy = frozen_manifest()["applied_policy_expected_from_workspace"]
     assert policy["production_caller_answer_budget"] == 8192
     assert policy["production_caller_think_argument"] is False
