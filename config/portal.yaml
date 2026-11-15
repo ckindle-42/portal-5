@@ -1498,16 +1498,15 @@ workspaces:
         think: null
       glm-coder:
         module: "coding"
-        model_hint: "glm-4.7-flash:Q4_K_M-ctx64k-agentic"
-        context_limit: 65536
-        # reasoning_budget_fit target 32768 (card max output 131072, audit ceiling
-        # 32768, half of the 64K window); 16384 truncated hard problems mid-thought.
-        predict_limit: 32768
+        model_hint: "glm-4.7-flash:Q4_K_M-ctx32k-agentic"
+        context_limit: 32768
+        # Leave 8K for the prompt while preserving a 24K coding output budget.
+        predict_limit: 24576
         # sampling: glm-4.7-flash card agentic_coding arm (coding seat) — 0.7 is
         # above the coding lane's 0.5 and card-sanctioned (sampling_card_over_lane).
         # The -agentic derived tag bakes that same arm so the seat stays lane-safe
         # on request paths that omit the workspace override (sampling_baked_hot):
-        # config/modelfiles/glm-4.7-flash.Q4_K_M-ctx64k-agentic.Modelfile
+        # config/modelfiles/glm-4.7-flash.Q4_K_M-ctx32k-agentic.Modelfile
         temperature: 0.7
         top_p: 1.0
         top_k: 20
@@ -2274,7 +2273,7 @@ workspaces:
           Mathematical problem solving, proofs, calculus, algebra, statistics. GLM-4.7-Flash
           (ZhipuAI, 31B MoE ~3B active, MIT) — seated 2026-10-18 on WFE wfe_math_20261018d
           (BETTER than phi4-mini-reasoning, 104/108 vs 93/108; docs/WFE_DECISION_AUTO_MATH_20261018.md).
-        model_hint: glm-4.7-flash:Q4_K_M-ctx64k
+        model_hint: glm-4.7-flash:Q4_K_M-ctx24k
         context_limit: 24576
         predict_limit: 12288
         temperature: 1.0

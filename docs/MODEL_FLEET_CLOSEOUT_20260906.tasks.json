@@ -6856,49 +6856,63 @@
     {
       "identity": "hf.co/bartowski/NousResearch_Arete-27B-GGUF:Q4_K_M",
       "final_disposition": "REMOVED_CLOSED",
-      "reason": "unused: no config or code reference (inventory 2026-11-15); ollama rm pending",
+      "reason": "Removed by the orchestrator before pass 2 (task report, 2026-11-15); no production route or runtime loader uses this tag.",
       "proposed_reclaim_gib": 18.13
     },
     {
       "identity": "models--Qwen--Qwen2.5-Omni-3B",
       "final_disposition": "REMOVED_CLOSED",
-      "reason": "orphaned HF-cache snapshot: no oMLX entry links to it, no config/code reference (inventory 2026-11-15)",
+      "reason": "Removed by the orchestrator before pass 2 (task report, 2026-11-15); empty HF-cache stub.",
       "proposed_reclaim_gib": 4e-06
     },
     {
       "identity": "models--docling-project--docling-layout-heron",
-      "final_disposition": "REMOVED_CLOSED",
-      "reason": "orphaned HF-cache snapshot: no oMLX entry links to it, no config/code reference (inventory 2026-11-15)",
-      "proposed_reclaim_gib": 0.164
+      "final_disposition": "INTEGRATED",
+      "reason": "INTEGRATED: Docling DocumentConverter in the documents MCP resolves this model by library name; current container cache path needs live confirmation."
     },
     {
       "identity": "models--docling-project--docling-models",
-      "final_disposition": "REMOVED_CLOSED",
-      "reason": "orphaned HF-cache snapshot: no oMLX entry links to it, no config/code reference (inventory 2026-11-15)",
-      "proposed_reclaim_gib": 0.342
+      "final_disposition": "INTEGRATED",
+      "reason": "INTEGRATED: Docling DocumentConverter in the documents MCP resolves this model by library name; current container cache path needs live confirmation."
     },
     {
       "identity": "models--ibm-granite--granite-switch-4.1-3b-preview",
       "final_disposition": "REMOVED_CLOSED",
-      "reason": "orphaned HF-cache snapshot: no oMLX entry links to it, no config/code reference (inventory 2026-11-15)",
+      "reason": "Removed by the orchestrator before pass 2 (task report, 2026-11-15); empty HF-cache stub.",
       "proposed_reclaim_gib": 4e-06
     },
     {
       "identity": "models--mlx-community--higgs-audio-v2-tokenizer",
-      "final_disposition": "REMOVED_CLOSED",
-      "reason": "orphaned HF-cache snapshot: no oMLX entry links to it, no config/code reference (inventory 2026-11-15)",
-      "proposed_reclaim_gib": 0.768
+      "final_disposition": "INTEGRATED",
+      "reason": "INTEGRATED: the Higgs Audio v2 host TTS loader needs this tokenizer; the TTS route is configured in scripts/mlx-speech.py."
     },
     {
       "identity": "models--mobiuslabsgmbh--faster-whisper-large-v3-turbo",
-      "final_disposition": "REMOVED_CLOSED",
-      "reason": "orphaned HF-cache snapshot: no oMLX entry links to it, no config/code reference (inventory 2026-11-15)",
-      "proposed_reclaim_gib": 1.5
+      "final_disposition": "INTEGRATED",
+      "reason": "INTEGRATED: faster-whisper maps the :8915 large-v3-turbo preset to this Hub identity; Docker HF cache residency needs live confirmation."
     },
     {
       "identity": "models--tencent--AuK-Flash",
       "final_disposition": "REMOVED_CLOSED",
-      "reason": "orphaned HF-cache snapshot: no oMLX entry links to it, no config/code reference (inventory 2026-11-15)",
+      "reason": "Removed by the orchestrator before pass 2 (task report, 2026-11-15); empty HF-cache stub.",
+      "proposed_reclaim_gib": 4e-06
+    },
+    {
+      "identity": "models--Jiunsong--supergemma4-26b-uncensored-mlx-4bit-v2",
+      "final_disposition": "REMOVED_CLOSED",
+      "reason": "Removed by the orchestrator before pass 2 (task report, 2026-11-15); empty HF-cache stub.",
+      "proposed_reclaim_gib": 4e-06
+    },
+    {
+      "identity": "models--Youssofal--MiMo-V2.6-Qwen-9B-MTPLX-Optimized-Speed",
+      "final_disposition": "REMOVED_CLOSED",
+      "reason": "Removed by the orchestrator before pass 2 (task report, 2026-11-15); empty HF-cache stub.",
+      "proposed_reclaim_gib": 4e-06
+    },
+    {
+      "identity": "models--Youssofal--Qwen3.6-27B-MTPLX-Optimized-Speed",
+      "final_disposition": "REMOVED_CLOSED",
+      "reason": "Removed by the orchestrator before pass 2 (task report, 2026-11-15); empty HF-cache stub.",
       "proposed_reclaim_gib": 4e-06
     }
   ],

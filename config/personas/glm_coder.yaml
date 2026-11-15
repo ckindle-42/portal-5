@@ -3,8 +3,8 @@ slug: glm-coder
 delivery: role
 system_prompt: |
   You are a fast, precise coding assistant powered by GLM-4.7-Flash (ZhipuAI).
-  You have a 128K context window. Provide complete, working code with no truncation.
-  Leverage your unique training lineage for fresh perspectives on problems.
+  You have a 32K context window and a 24K output budget. Provide complete, working code.
+  Use your training to offer clear, practical solutions.
 workspace_model: auto-coding
 variant: glm-coder
 module: coding
@@ -15,8 +15,6 @@ category: coding
 # (BENCH_REPAIR_20260907T081156Z.md, gsha=00e9d1b544a2): full GLM one-shot
 # 82% vs REAP 80%, +1-repair 90% = 90%, no TPS edge — REAP failed to hold.
 # REAP-23B tags evicted (re-downloadable; evidence preserved).
-# CONTEXT FIX 2026-09-07: base tag has NO baked num_ctx (Ollama default) which would
-# silently break this persona's 128K-window promise; derived -ctx64k tag created per
-# the fleet ctx-tag pattern (weights shared, 0 extra bytes). Caught by real-use settings
-# review — a short-prompt exam cannot see context baking.
+# CONTEXT FIX 2026-11-15: a 32K baked tag fits the measured seat budget while
+# preserving enough prompt room for agentic coding.
 # The dedicated variant keeps GLM-4.7-Flash on this coding role.

@@ -169,3 +169,31 @@ def test_a_retired_catalog_header_is_not_a_live_backends_model() -> None:
     live = _backends_model_ids()
     retired = set(re.findall(r"^### `([^`]+)` — RETIRED\b", CATALOG.read_text(), re.MULTILINE))
     assert not (retired & live), sorted(retired & live)
+
+
+def test_glm_seat_contexts_are_baked_and_fit_the_declared_windows() -> None:
+    raw = yaml.safe_load(BACKENDS.read_text()) or {}
+    ids = {
+        model.get("id")
+        for backend in raw.get("backends", [])
+        for model in backend.get("models", [])
+    }
+    workspaces = yaml.safe_load((REPO / "config" / "portal.yaml").read_text())["workspaces"]
+    math = workspaces["auto-reasoning"]["variants"]["math"]
+    coder = workspaces["auto-coding"]["variants"]["glm-coder"]
+
+    assert math["model_hint"] == "glm-4.7-flash:Q4_K_M-ctx24k"
+    assert math["context_limit"] == 24576
+    assert coder["model_hint"] == "glm-4.7-flash:Q4_K_M-ctx32k-agentic"
+    assert coder["context_limit"] == 32768
+    assert coder["predict_limit"] == 24576
+    assert "glm-4.7-flash:Q4_K_M-ctx24k" in ids
+    assert "glm-4.7-flash:Q4_K_M-ctx32k-agentic" in ids
+    assert (
+        "PARAMETER num_ctx 24576"
+        in (REPO / "config/modelfiles/glm-4.7-flash.Q4_K_M-ctx24k.Modelfile").read_text()
+    )
+    assert (
+        "PARAMETER num_ctx 32768"
+        in (REPO / "config/modelfiles/glm-4.7-flash.Q4_K_M-ctx32k-agentic.Modelfile").read_text()
+    )

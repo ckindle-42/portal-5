@@ -194,6 +194,9 @@ backends:
     supports_tools: true
   - id: glm-4.7-flash:Q4_K_M-ctx64k
     supports_tools: true
+  # The math seat needs only 24K and keeps over 6 GiB below the stated budget.
+  - id: glm-4.7-flash:Q4_K_M-ctx24k
+    supports_tools: false
   - id: hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M
     supports_tools: false
   - id: hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M-ctx32k
@@ -368,6 +371,9 @@ backends:
   # parent — settings_audit sampling_baked_hot 2026-10-21. Same weights and
   # template as -ctx64k, so the 2026-09-17 tool probe carries over.
   - id: glm-4.7-flash:Q4_K_M-ctx64k-agentic
+    supports_tools: true
+  # 32K is the largest GLM coding window that fits the supplied seat budget.
+  - id: glm-4.7-flash:Q4_K_M-ctx32k-agentic
     supports_tools: true
   - id: hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M
     supports_tools: false
