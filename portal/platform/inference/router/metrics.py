@@ -162,6 +162,13 @@ _no_answer_total = Counter(
     registry=_REGISTRY,
 )
 
+_capacity_fallback_total = Counter(
+    "portal5_capacity_fallback_total",
+    "Memory-refused chat turns answered by a lighter declared variant of the workspace",
+    ["workspace", "variant"],
+    registry=_REGISTRY,
+)
+
 # ── Embeddings (POST /v1/embeddings) ──────────────────────────────────────
 # Counts and latency only: input text is never a label or a log line.
 _embeddings_requests_total = Counter(

@@ -409,7 +409,12 @@ def _stream_error_frames(request_id: str, workspace_id: str, message: str) -> li
 
 
 async def _backend_error_ending(
-    status: int, raw: bytes, request_id: str, workspace_id: str
+    status: int,
+    raw: bytes,
+    request_id: str,
+    workspace_id: str,
+    body: dict[str, Any] | None = None,
+    persona: str = "",
 ) -> list[bytes]:
     """A non-200 backend reply as the client sees it, by audience.
 
@@ -424,6 +429,10 @@ async def _backend_error_ending(
     if _is_noncascadable_stream_error(status, envelope):
         return _error_terminal_frames(request_id, workspace_id, detail)
     if no_answer.chat_ui():
+        if body is not None:
+            frames = await _capacity_fallback_frames(workspace_id, body, [detail], persona)
+            if frames is not None:
+                return frames
         text = await no_answer.chat_reply(
             workspace_id,
             no_answer.workspace_model(workspace_id),
@@ -444,12 +453,39 @@ def _no_answer_frames(request_id: str, workspace_id: str, text: str) -> list[byt
     ]
 
 
-async def _exhausted_frames(workspace_id: str, body: dict[str, Any], message: str) -> list[bytes]:
+async def _capacity_fallback_frames(
+    workspace_id: str, body: dict[str, Any], reasons: list[str], persona: str = ""
+) -> list[bytes] | None:
+    """A lighter declared seat's answer as SSE, or None when none fits or serves."""
+    from portal.platform.inference.router.capacity_fallback import try_capacity_fallback
+
+    fallback = await try_capacity_fallback(
+        workspace_id,
+        body,
+        reasons,
+        persona=persona,
+        max_hops=MAX_TOOL_HOPS,
+        dispatch=_try_non_streaming,
+    )
+    if fallback is None:
+        return None
+    data = json.loads(_as_bytes(fallback.body))
+    return list(
+        _json_completion_to_sse(data, workspace_id, thinking_enabled=_thinking_enabled(body))
+    )
+
+
+async def _exhausted_frames(
+    workspace_id: str, body: dict[str, Any], message: str, persona: str = ""
+) -> list[bytes]:
     """How a stream with no candidate left ends, by audience."""
     request_id = f"chatcmpl-{workspace_id}"
     if not no_answer.chat_ui():
         no_answer.record_api(workspace_id, [message], path="streaming")
         return _error_terminal_frames(request_id, workspace_id, message)
+    frames = await _capacity_fallback_frames(workspace_id, body, [message], persona)
+    if frames is not None:
+        return frames
     text = await no_answer.chat_reply(
         workspace_id,
         no_answer.workspace_model(workspace_id, body),
@@ -1790,7 +1826,7 @@ async def _stream_from_backend_guarded(
                     f"backend_http_{resp.status_code}",
                 )
                 for _f in await _backend_error_ending(
-                    resp.status_code, err, f"chatcmpl-{workspace_id}", workspace_id
+                    resp.status_code, err, f"chatcmpl-{workspace_id}", workspace_id, body
                 ):
                     yield _f
                 return
@@ -2923,7 +2959,7 @@ async def _stream_with_fallback(
                 or _error_buffer
             )
         _message = _stream_error_detail(_error_buffer) if _error_buffer else "All backends failed"
-        for _f in await _exhausted_frames(workspace_id, body, _message):
+        for _f in await _exhausted_frames(workspace_id, body, _message, persona):
             yield _f
         _record_error(workspace_id, "all_backends_failed")
         trace_note(outcome="error")
