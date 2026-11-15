@@ -225,10 +225,13 @@ def test_vllm_memory_gates_use_engine_readback_and_independent_vm_stat() -> None
             "memory": {
                 **common,
                 "vm_wired_delta_gb": 24.54,
-                "engine_weight_gb": 24.3,
-                "engine_weight_field": "child_phys_footprint",
+                "engine_weight_gb": 24.6,
+                "engine_weight_field": "child_phys_footprint_plus_kv_preallocation",
                 "child_pid": 2993,
                 "child_phys_footprint_gb": 24.3,
+                "kv_preallocation_gb": 0.3,
+                "kv_preallocation_blocks": 203,
+                "kv_preallocation_runtime": "sdpa",
                 "vllm_metal_metrics": {"kv_cache_usage_perc": [0.375]},
             },
             "residency": residency,
@@ -300,9 +303,13 @@ def test_vllm_memory_gates_fail_closed_when_native_readback_is_missing() -> None
                 "tree_walked": True,
                 "tree_rss_gb": 15.5,
                 "engine_weight_gb": 24.3,
+                "engine_weight_field": "child_phys_footprint",
                 "vm_wired_delta_gb": 13.14,
                 "child_pid": 2993,
                 "child_phys_footprint_gb": 24.3,
+                "kv_preallocation_gb": 0.3,
+                "kv_preallocation_blocks": 203,
+                "kv_preallocation_runtime": "hybrid",
                 "vllm_metal_metrics": {"kv_cache_usage_perc": []},
             },
             "residency": residency,
@@ -311,6 +318,151 @@ def test_vllm_memory_gates_fail_closed_when_native_readback_is_missing() -> None
     )
 
     assert any("vllm-metal /metrics KV cache usage missing" in item for item in failures)
+
+
+def test_vllm_metal_kv_preallocation_parses_both_runtime_lines() -> None:
+    sdpa = (
+        "(EngineCore pid=24438) INFO [sdpa.py:92] Shared attention cache: 16245 blocks, "
+        "9.92 GiB across 5 Metal regions\n"
+    )
+    hybrid = (
+        "(EngineCore pid=9892) INFO [hybrid.py:122] Hybrid shared cache: 203 blocks, "
+        "9.71 GiB backing for KV and state\n"
+    )
+    assert instrument.parse_vllm_metal_kv_preallocation(sdpa) == {
+        "kv_preallocation_blocks": 16245,
+        "kv_preallocation_gb": 9.92,
+        "kv_preallocation_runtime": "sdpa",
+    }
+    assert instrument.parse_vllm_metal_kv_preallocation(hybrid) == {
+        "kv_preallocation_blocks": 203,
+        "kv_preallocation_gb": 9.71,
+        "kv_preallocation_runtime": "hybrid",
+    }
+    assert instrument.parse_vllm_metal_kv_preallocation("no pool line here") == {}
+
+
+def test_vllm_metal_hunt_memory_agrees_when_the_wired_kv_pool_is_counted() -> None:
+    """build 91dd4dc5 hunt live shape: EngineCore 17.00GiB + sdpa pool 9.92GiB vs wired 25.36GiB."""
+    failures: list[str] = []
+    _check_memory(
+        {
+            "engine": "vllm-metal",
+            "expected_model": "gemma-4-26b-a4b-it-QAT-4bit",
+            "memory": {
+                "tree_walked": True,
+                "tree_rss_gb": 15.21,
+                "vm_wired_delta_gb": 25.36,
+                "engine_weight_gb": 26.92,
+                "engine_weight_field": "child_phys_footprint_plus_kv_preallocation",
+                "child_pid": 24438,
+                "child_phys_footprint_gb": 17.0,
+                "kv_preallocation_gb": 9.92,
+                "kv_preallocation_blocks": 16245,
+                "kv_preallocation_runtime": "sdpa",
+                "vllm_metal_metrics": {
+                    "kv_cache_usage_perc": [0.0],
+                    "readback_status": "readable",
+                },
+            },
+            "residency": {
+                "before": {"vllm-metal": {}},
+                "after": {"vllm-metal": {"gemma-4-26b-a4b-it-QAT-4bit": 24398}},
+            },
+        },
+        failures,
+    )
+    assert failures == []
+
+
+def test_vllm_metal_hybrid_pool_is_recorded_but_the_claim_stays_the_footprint() -> None:
+    """build 2cdddeb2 coding live shape: the hybrid pool stays lazy, so footprint stands."""
+    failures: list[str] = []
+    _check_memory(
+        {
+            "engine": "vllm-metal",
+            "expected_model": "Qwen3.8-27B-4bit",
+            "memory": {
+                "tree_walked": True,
+                "tree_rss_gb": 25.13,
+                "vm_wired_delta_gb": 25.27,
+                "engine_weight_gb": 26.0,
+                "engine_weight_field": "child_phys_footprint",
+                "child_pid": 9892,
+                "child_phys_footprint_gb": 26.0,
+                "kv_preallocation_gb": 9.71,
+                "kv_preallocation_blocks": 203,
+                "kv_preallocation_runtime": "hybrid",
+                "vllm_metal_metrics": {
+                    "kv_cache_usage_perc": [0.0],
+                    "readback_status": "readable",
+                },
+            },
+            "residency": {
+                "before": {"vllm-metal": {}},
+                "after": {"vllm-metal": {"Qwen3.8-27B-4bit": 9830}},
+            },
+        },
+        failures,
+    )
+    assert failures == []
+
+
+def test_vllm_metal_hybrid_claim_plus_pool_breaks_the_runtime_rule() -> None:
+    failures: list[str] = []
+    _check_memory(
+        {
+            "engine": "vllm-metal",
+            "expected_model": "Qwen3.8-27B-4bit",
+            "memory": {
+                "tree_walked": True,
+                "tree_rss_gb": 25.13,
+                "vm_wired_delta_gb": 25.27,
+                "engine_weight_gb": 35.71,
+                "engine_weight_field": "child_phys_footprint_plus_kv_preallocation",
+                "child_pid": 9892,
+                "child_phys_footprint_gb": 26.0,
+                "kv_preallocation_gb": 9.71,
+                "kv_preallocation_blocks": 203,
+                "kv_preallocation_runtime": "hybrid",
+                "vllm_metal_metrics": {
+                    "kv_cache_usage_perc": [0.0],
+                    "readback_status": "readable",
+                },
+            },
+            "residency": {
+                "before": {"vllm-metal": {}},
+                "after": {"vllm-metal": {"Qwen3.8-27B-4bit": 9830}},
+            },
+        },
+        failures,
+    )
+    assert any("hybrid pool" in item for item in failures)
+
+
+def test_vllm_metal_memory_fails_closed_without_the_kv_pool_line() -> None:
+    residency = {"before": {"vllm-metal": {}}, "after": {"vllm-metal": {}}}
+    failures: list[str] = []
+    _check_memory(
+        {
+            "engine": "vllm-metal",
+            "expected_model": "hunt-model",
+            "memory": {
+                "tree_walked": True,
+                "tree_rss_gb": 15.5,
+                "engine_weight_gb": 17.0,
+                "engine_weight_field": "child_phys_footprint",
+                "vm_wired_delta_gb": 25.36,
+                "child_pid": 24438,
+                "child_phys_footprint_gb": 17.0,
+                "vllm_metal_metrics": {"kv_cache_usage_perc": [0.0]},
+            },
+            "residency": residency,
+        },
+        failures,
+    )
+
+    assert any("vllm-metal KV pool preallocation unread" in item for item in failures)
 
 
 def test_residency_checks_candidate_engines_as_well_as_production_engines() -> None:

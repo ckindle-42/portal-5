@@ -479,11 +479,24 @@ def _weight_reading(
     footprint: float | None,
     child_gb: float | None,
     mlx_active_memory_gb: float | None = None,
+    kv_preallocation: dict[str, Any] | None = None,
 ) -> tuple[float | None, str, str | None]:
     """Pick the engine residency number and name its source for the memory gate."""
     if engine_cfg.get("requires") == "gguf":
         return rss, "process-tree RSS (llama.cpp maps the GGUF into its process)", None
     if engine == "vllm-metal" and child_gb is not None:
+        kv_gb = (
+            float(kv_preallocation["kv_preallocation_gb"])
+            if kv_preallocation and kv_preallocation.get("kv_preallocation_runtime") == "sdpa"
+            else None
+        )
+        if kv_gb is not None:
+            return (
+                float(child_gb) + kv_gb,
+                "macOS footprint of the largest EngineCore descendant plus the engine-emitted "
+                "sdpa KV pool (sdpa.py 'Shared attention cache' nbytes)",
+                "child_phys_footprint_plus_kv_preallocation",
+            )
         return (
             float(child_gb),
             "macOS footprint phys_footprint of the largest vLLM EngineCore descendant",
@@ -508,14 +521,10 @@ def _weight_reading(
     return footprint, "macOS footprint phys_footprint", "phys_footprint"
 
 
-def _candidate_memory(
-    vm_before: str,
-    port: int,
-    engine: str,
-    engine_cfg: dict[str, Any],
-    model_row: dict[str, Any],
+def _residency_sample(
+    vm_before: str, port: int, engine: str, engine_cfg: dict[str, Any]
 ) -> dict[str, Any]:
-    """Collect engine-specific residency and independent vm_stat evidence."""
+    """One process-tree pass: pid walk, footprints, and the vm_stat delta."""
     try:
         vm_after = subprocess.check_output(["vm_stat"], text=True, timeout=10)
         rows = instrument.parse_ps_tree(
@@ -524,21 +533,47 @@ def _candidate_memory(
     except (OSError, subprocess.CalledProcessError):
         vm_after, rows = "", []
     root = h2h.pid_on_port(port)
-    rss = instrument.tree_rss_gb(rows, root) if root else None
-    footprint = _footprint_gb(root) if root and engine_cfg.get("requires") != "gguf" else None
     child_memory = (
         _largest_descendant_memory(rows, root)
         if engine in {"splash", "vllm-metal"} and root
         else None
     )
-    child_gb = None if child_memory is None else child_memory["child_phys_footprint_gb"]
-    delta = (
-        instrument.vm_deltas_gb(
+    return {
+        "root": root,
+        "rss": instrument.tree_rss_gb(rows, root) if root else None,
+        "footprint": _footprint_gb(root) if root and engine_cfg.get("requires") != "gguf" else None,
+        "child_memory": child_memory,
+        "delta": instrument.vm_deltas_gb(
             instrument.parse_vm_stat(vm_before), instrument.parse_vm_stat(vm_after)
         )
-        or {}
+        or {},
+    }
+
+
+def _candidate_memory(
+    vm_before: str,
+    port: int,
+    engine: str,
+    engine_cfg: dict[str, Any],
+    model_row: dict[str, Any],
+    engine_log_text: str | None = None,
+) -> dict[str, Any]:
+    """Collect engine-specific residency and independent vm_stat evidence."""
+    sample = _residency_sample(vm_before, port, engine, engine_cfg)
+    root, rss, footprint, child_memory, delta = (
+        sample["root"],
+        sample["rss"],
+        sample["footprint"],
+        sample["child_memory"],
+        sample["delta"],
     )
+    child_gb = None if child_memory is None else child_memory["child_phys_footprint_gb"]
     resident_bytes = _resident_bytes(model_row)
+    kv_preallocation = (
+        instrument.parse_vllm_metal_kv_preallocation(engine_log_text or "")
+        if engine == "vllm-metal"
+        else {}
+    )
     engine_readback = (
         _engine_memory_readback(engine, port) if engine in {"vllm-metal", "vllm-mlx"} else {}
     )
@@ -552,6 +587,7 @@ def _candidate_memory(
         mlx_active_memory_gb=engine_readback.get("active_memory_gb")
         if engine == "vllm-mlx"
         else None,
+        kv_preallocation=kv_preallocation or None,
     )
     resident_decimal = (
         engine_readback.get("active_memory_gb")
@@ -580,6 +616,8 @@ def _candidate_memory(
     }
     if child_memory is not None:
         reading.update(child_memory)
+    if kv_preallocation:
+        reading.update(kv_preallocation)
     if engine == "vllm-metal":
         reading["vllm_metal_metrics"] = engine_readback
     elif engine == "vllm-mlx":
@@ -1549,6 +1587,7 @@ def _candidate_cell_inputs(
         cell["engine"],
         cfg["engines"][cell["engine"]],
         _model_row(memory_models_response["json"], listed_model),
+        engine_log_text=_candidate_engine_log_text(started_info or {}),
     )
     tool_row = _candidate_request(url, _tool_call_body(cell))
     parity_rows = [_candidate_request(url, body) for _ in range(2)]
@@ -1589,7 +1628,12 @@ def _candidate_evidence_sources(cell: dict[str, Any]) -> tuple[dict[str, Any], d
         "served_model_id": f"POST /v1/chat/completions response.model ({OPENAI_CHAT_SOURCE})",
         "pipeline_route": "Pipeline x-portal-route, logs, and response model",
         "tokens": "Pipeline usage and the registered checkpoint tokenizer.json, else the engine's POST /tokenize",
-        "memory": "engine-specific resident reading compared with vm_stat wired delta",
+        "memory": (
+            "EngineCore footprint plus the engine-emitted sdpa KV pool line, or footprint alone "
+            "for the lazy hybrid pool, compared with the vm_stat wired delta"
+            if cell["engine"] == "vllm-metal"
+            else "engine-specific resident reading compared with vm_stat wired delta"
+        ),
         "residency": "Ollama /api/ps; oMLX /v1/models/status; managed-port listeners and state",
         "models_response": f"GET {cell['base']}/v1/models (raw response attached)",
     }

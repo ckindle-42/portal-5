@@ -71,7 +71,105 @@ def test_vllm_metal_candidate_cells_follow_the_researched_seats() -> None:
     assert hunt["model_hint"] == "gemma-4-26b-a4b-it-QAT-4bit"
 
 
-def test_vllm_metal_candidate_memory_uses_enginecore_footprint_and_metrics(monkeypatch) -> None:
+def test_vllm_metal_candidate_memory_counts_the_engine_kv_pool_and_metrics(monkeypatch) -> None:
+    outputs = {
+        "vm_stat": (
+            "Mach Virtual Memory Statistics: (page size of 16384 bytes)\n"
+            "Pages free: 2000.\nPages wired down: 2000.\n"
+        ),
+        "ps": "100 1 4096\n200 100 1048576\n",
+        "footprint-root": "phys_footprint: 1.26 GB\n",
+        "footprint-child": "phys_footprint: 23.50 GB\n",
+    }
+
+    def check_output(argv, **_kwargs):
+        if argv[0] == "vm_stat":
+            return outputs["vm_stat"]
+        if argv[0] == "ps":
+            return outputs["ps"]
+        if argv[:3] == ["footprint", "-p", "100"]:
+            return outputs["footprint-root"]
+        if argv[:3] == ["footprint", "-p", "200"]:
+            return outputs["footprint-child"]
+        raise AssertionError(argv)
+
+    monkeypatch.setattr(runner.subprocess, "check_output", check_output)
+    monkeypatch.setattr(runner.h2h, "pid_on_port", lambda _port: 100)
+    monkeypatch.setattr(
+        runner,
+        "_engine_memory_readback",
+        lambda engine, _port: {"kv_cache_usage_perc": [0.375]} if engine == "vllm-metal" else {},
+    )
+    memory = runner._candidate_memory(
+        "Mach Virtual Memory Statistics: (page size of 16384 bytes)\n"
+        "Pages free: 3000.\nPages wired down: 1000.\n",
+        11244,
+        "vllm-metal",
+        {"requires": "mlx"},
+        {},
+        engine_log_text=(
+            "(EngineCore pid=200) INFO [sdpa.py:92] Shared attention cache: 16245 blocks, "
+            "9.92 GiB across 5 Metal regions\n"
+        ),
+    )
+
+    assert memory["child_pid"] == 200
+    assert memory["engine_weight_field"] == "child_phys_footprint_plus_kv_preallocation"
+    assert memory["engine_weight_gb"] == 23.5 + 9.92
+    assert memory["kv_preallocation_blocks"] == 16245
+    assert memory["kv_preallocation_runtime"] == "sdpa"
+    assert memory["vllm_metal_metrics"]["kv_cache_usage_perc"] == [0.375]
+
+
+def test_vllm_metal_memory_keeps_the_footprint_claim_for_the_hybrid_runtime(monkeypatch) -> None:
+    outputs = {
+        "vm_stat": (
+            "Mach Virtual Memory Statistics: (page size of 16384 bytes)\n"
+            "Pages free: 2000.\nPages wired down: 2000.\n"
+        ),
+        "ps": "100 1 4096\n200 100 1048576\n",
+        "footprint-root": "phys_footprint: 1.26 GB\n",
+        "footprint-child": "phys_footprint: 23.50 GB\n",
+    }
+
+    def check_output(argv, **_kwargs):
+        if argv[0] == "vm_stat":
+            return outputs["vm_stat"]
+        if argv[0] == "ps":
+            return outputs["ps"]
+        if argv[:3] == ["footprint", "-p", "100"]:
+            return outputs["footprint-root"]
+        if argv[:3] == ["footprint", "-p", "200"]:
+            return outputs["footprint-child"]
+        raise AssertionError(argv)
+
+    monkeypatch.setattr(runner.subprocess, "check_output", check_output)
+    monkeypatch.setattr(runner.h2h, "pid_on_port", lambda _port: 100)
+    monkeypatch.setattr(
+        runner,
+        "_engine_memory_readback",
+        lambda engine, _port: {"kv_cache_usage_perc": [0.0]} if engine == "vllm-metal" else {},
+    )
+    memory = runner._candidate_memory(
+        "Mach Virtual Memory Statistics: (page size of 16384 bytes)\n"
+        "Pages free: 3000.\nPages wired down: 1000.\n",
+        11244,
+        "vllm-metal",
+        {"requires": "mlx"},
+        {},
+        engine_log_text=(
+            "(EngineCore pid=200) INFO [hybrid.py:122] Hybrid shared cache: 203 blocks, "
+            "9.71 GiB backing for KV and state\n"
+        ),
+    )
+
+    assert memory["engine_weight_field"] == "child_phys_footprint"
+    assert memory["engine_weight_gb"] == 23.5
+    assert memory["kv_preallocation_runtime"] == "hybrid"
+    assert memory["kv_preallocation_gb"] == 9.71
+
+
+def test_vllm_metal_memory_without_the_engine_log_records_no_kv_claim(monkeypatch) -> None:
     outputs = {
         "vm_stat": (
             "Mach Virtual Memory Statistics: (page size of 16384 bytes)\n"
@@ -109,10 +207,9 @@ def test_vllm_metal_candidate_memory_uses_enginecore_footprint_and_metrics(monke
         {},
     )
 
-    assert memory["child_pid"] == 200
     assert memory["engine_weight_field"] == "child_phys_footprint"
     assert memory["engine_weight_gb"] == 23.5
-    assert memory["vllm_metal_metrics"]["kv_cache_usage_perc"] == [0.375]
+    assert "kv_preallocation_gb" not in memory
 
 
 def test_vllm_mlx_candidate_memory_uses_status_not_root_footprint(monkeypatch) -> None:
@@ -700,7 +797,7 @@ def test_candidate_memory_uses_engine_readback_after_first_completion(monkeypatc
             "message": {"content": "OK"},
         }
 
-    def fake_memory(_vm_before, _port, _engine, _engine_cfg, model_row):
+    def fake_memory(_vm_before, _port, _engine, _engine_cfg, model_row, engine_log_text=None):
         events.append("memory")
         assert model_row["bytes_resident"] == 200
         return {"engine_weight_gb": 200 / 1024**3}
