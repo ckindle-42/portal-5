@@ -489,7 +489,7 @@ The dual `general`/`coding` registration with `supports_tools: true` in both gro
 
 ### `glm-4.7-flash:Q4_K_M-ctx64k`
 
-`glm-4.7-flash:Q4_K_M-ctx64k` is the 64K-context derived tag (baked `PARAMETER num_ctx 65536`, weights shared with the base tag — 0 extra bytes) created 2026-09-07. It remains registered as an alternate. The current math and coding seats use the smaller `-ctx24k` and `-ctx32k-agentic` tags because the supplied 64K q8 KV estimate exceeds the seat budget.
+`glm-4.7-flash:Q4_K_M-ctx64k` is the 64K-context derived tag (baked `PARAMETER num_ctx 65536`, weights shared with the base tag — 0 extra bytes) created 2026-09-07. It remains registered as an alternate. The current math and coding seats use the smaller `-ctx24k` and `-ctx24k-agentic` tags because the supplied 64K q8 KV estimate exceeds the seat budget.
 
 ### `glm-4.7-flash:Q4_K_M-ctx24k`
 
@@ -497,15 +497,23 @@ The dual `general`/`coding` registration with `supports_tools: true` in both gro
 
 ### `glm-4.7-flash:Q4_K_M-ctx64k-agentic`
 
-`glm-4.7-flash:Q4_K_M-ctx64k-agentic` is the former coding-seat derived tag. It bakes the GLM-4.7-Flash card's `agentic_coding` arm (`temperature 0.7`, `top_p 1.0`) on the inherited 64K window; its Modelfile remains at `config/modelfiles/glm-4.7-flash.Q4_K_M-ctx64k-agentic.Modelfile`. The `glm-coder` seat moved to `-ctx32k-agentic` on 2026-11-15 because the supplied 64K q8 KV estimate put it beyond the seat budget. The 64K tag remains registered as an alternate.
+`glm-4.7-flash:Q4_K_M-ctx64k-agentic` is the former coding-seat derived tag. It bakes the GLM-4.7-Flash card's `agentic_coding` arm (`temperature 0.7`, `top_p 1.0`) on the inherited 64K window; its Modelfile remains at `config/modelfiles/glm-4.7-flash.Q4_K_M-ctx64k-agentic.Modelfile`. The `glm-coder` seat moved off the 64K window on 2026-11-15 — first to `-ctx32k-agentic`, then to `-ctx24k-agentic` after the 32K projection missed the live host headroom — because the supplied 64K q8 KV estimate put it beyond the seat budget. The 64K tag remains registered as an alternate.
 
-### `glm-4.7-flash:Q4_K_M-ctx32k-agentic`
+### `glm-4.7-flash:Q4_K_M-ctx32k-agentic` — RETIRED (2026-11-15, live seat-fit miss)
 
-`glm-4.7-flash:Q4_K_M-ctx32k-agentic` derives from the base GLM tag, bakes `PARAMETER num_ctx 32768`, and preserves the agentic sampling arm (`temperature 0.7`, `top_p 1.0`). `auto-coding::glm-coder` uses it with `context_limit: 32768` and `predict_limit: 24576`, leaving 8K for the prompt. Its estimated footprint is 37.74 GiB, leaving 2.26–4.26 GiB below the stated 40–42 GiB budget. `config/backends.yaml` registers it in `coding` with `supports_tools: true`. The orchestrator must create this tag and verify the live seat fit and Pipeline response.
+`glm-4.7-flash:Q4_K_M-ctx32k-agentic` derived from the base GLM tag, baked `PARAMETER num_ctx 32768`, and preserved the agentic sampling arm (`temperature 0.7`, `top_p 1.0`). Created 2026-11-15 for `auto-coding::glm-coder` and retired the same day: the live load guard refused the seat — projected 37.7 GiB against 37.6 GiB host headroom (oMLX headroom 39.6 + idle Ollama 0.0 − margin 2), measured with oMLX empty and Ollama idle. The seat re-fits to `-ctx24k-agentic`; the Modelfile is removed. The tag shares the base weights (0 extra bytes), so no store reclaim is owed.
 
 ## Why
 
-The agentic tag keeps the card-sanctioned sampling arm baked into the served identity. The smaller context keeps the seat within the supplied memory budget while preserving a 24K output allowance.
+The supplied 40–42 GiB empty-host budget overstated the live headroom: the guard's 2 GiB margin and the oMLX ceiling left 37.6 GiB, and the 32K projection (37.75 GiB) had no margin against it.
+
+### `glm-4.7-flash:Q4_K_M-ctx24k-agentic`
+
+`glm-4.7-flash:Q4_K_M-ctx24k-agentic` derives from the base GLM tag, bakes `PARAMETER num_ctx 24576`, and preserves the agentic sampling arm (`temperature 0.7`, `top_p 1.0`). `auto-coding::glm-coder` uses it with `context_limit: 24576` and `predict_limit: 16384`, leaving 8K for the prompt — the same prompt room the 32K fit reserved. seat_fit sizing (17.71 GiB weights × 1.25 + 11.70 GiB q8_0 KV at 24,576) projects 33.85 GiB, +3.75 GiB against the 37.6 GiB live headroom that refused the 32K tag. `config/backends.yaml` registers it in `coding` with `supports_tools: true`. The orchestrator must create this tag and verify the live seat fit and Pipeline response.
+
+## Why
+
+The agentic tag keeps the card-sanctioned sampling arm baked into the served identity. The 24K window matches the math seat's proven fit; the output cap drops 24K → 16K so prompt + output fit the window while preserving the designed 8K prompt room.
 
 ### `hf.co/bartowski/nex-agi_Nex-N2.5-mini-GGUF:Q4_K_M` — RETIRED (2026-10-22, operator)
 
@@ -595,7 +603,7 @@ The tool-capable status is asserted by the `coding` and `security` group registr
 
 ### `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL` — DROPPED (not installed; pruned 2026-10-28)
 
-`hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL` is a ~14.2GB Unsloth quant of the GLM-4.7-Flash base using REAP expert pruning plus Unsloth Dynamic imatrix, giving the fleet non-Meta/Qwen lineage diversity. `config/backends.yaml` registers it under the `general` group with `supports_tools: false` and under the `coding` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-glm-reap` workspace `model_hint`, staged head-to-head against the standard `glm-4.7-flash:Q4_K_M` quant with a promotion policy of beating that baseline on quality and a TPS floor. No production workspace or persona consumes it: the `glm-coder` coding role is served by `auto-coding`'s `glm-coder` variant on `glm-4.7-flash:Q4_K_M-ctx32k-agentic` (since 2026-11-15).
+`hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL` is a ~14.2GB Unsloth quant of the GLM-4.7-Flash base using REAP expert pruning plus Unsloth Dynamic imatrix, giving the fleet non-Meta/Qwen lineage diversity. `config/backends.yaml` registers it under the `general` group with `supports_tools: false` and under the `coding` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-glm-reap` workspace `model_hint`, staged head-to-head against the standard `glm-4.7-flash:Q4_K_M` quant with a promotion policy of beating that baseline on quality and a TPS floor. No production workspace or persona consumes it: the `glm-coder` coding role is served by `auto-coding`'s `glm-coder` variant on `glm-4.7-flash:Q4_K_M-ctx24k-agentic` (since 2026-11-15).
 
 ## Why
 
@@ -1576,7 +1584,7 @@ The grounding here is routing: `config/portal.yaml` proves the `-ctx64k` tag, no
 
 ### `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k` — DROPPED (not installed; pruned 2026-10-28)
 
-`hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k` is the 64K-context derived tag that `config/portal.yaml` does not route as a workspace `model_hint`, and that no persona or variant selects: the `glm-coder` coding role is served by `auto-coding`'s `glm-coder` variant, whose `model_hint` is `glm-4.7-flash:Q4_K_M-ctx32k-agentic`. `config/backends.yaml` registers it under the `coding` group with `supports_tools: true`, the same group-level flag as its base tag. The `PARAMETER num_ctx 65536` is baked into the derived tag because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, making a context cap a per-tag property. See the base tag's entry for the full REAP detail.
+`hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k` is the 64K-context derived tag that `config/portal.yaml` does not route as a workspace `model_hint`, and that no persona or variant selects: the `glm-coder` coding role is served by `auto-coding`'s `glm-coder` variant, whose `model_hint` is `glm-4.7-flash:Q4_K_M-ctx24k-agentic`. `config/backends.yaml` registers it under the `coding` group with `supports_tools: true`, the same group-level flag as its base tag. The `PARAMETER num_ctx 65536` is baked into the derived tag because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, making a context cap a per-tag property. See the base tag's entry for the full REAP detail.
 
 ## Why
 

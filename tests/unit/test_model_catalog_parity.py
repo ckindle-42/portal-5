@@ -184,16 +184,19 @@ def test_glm_seat_contexts_are_baked_and_fit_the_declared_windows() -> None:
 
     assert math["model_hint"] == "glm-4.7-flash:Q4_K_M-ctx24k"
     assert math["context_limit"] == 24576
-    assert coder["model_hint"] == "glm-4.7-flash:Q4_K_M-ctx32k-agentic"
-    assert coder["context_limit"] == 32768
-    assert coder["predict_limit"] == 24576
+    assert coder["model_hint"] == "glm-4.7-flash:Q4_K_M-ctx24k-agentic"
+    assert coder["context_limit"] == 24576
+    assert coder["predict_limit"] == 16384
+    # prompt + output must fit the baked window with the designed 8K prompt room.
+    assert coder["context_limit"] - coder["predict_limit"] >= 8192
     assert "glm-4.7-flash:Q4_K_M-ctx24k" in ids
-    assert "glm-4.7-flash:Q4_K_M-ctx32k-agentic" in ids
+    assert "glm-4.7-flash:Q4_K_M-ctx24k-agentic" in ids
     assert (
         "PARAMETER num_ctx 24576"
         in (REPO / "config/modelfiles/glm-4.7-flash.Q4_K_M-ctx24k.Modelfile").read_text()
     )
-    assert (
-        "PARAMETER num_ctx 32768"
-        in (REPO / "config/modelfiles/glm-4.7-flash.Q4_K_M-ctx32k-agentic.Modelfile").read_text()
-    )
+    agentic = (REPO / "config/modelfiles/glm-4.7-flash.Q4_K_M-ctx24k-agentic.Modelfile").read_text()
+    assert "PARAMETER num_ctx 24576" in agentic
+    assert "PARAMETER temperature 0.7" in agentic
+    assert "PARAMETER top_p 1.0" in agentic
+    assert not (REPO / "config/modelfiles/glm-4.7-flash.Q4_K_M-ctx32k-agentic.Modelfile").exists()
