@@ -210,6 +210,19 @@ def test_local_gguf_path_skips_hugging_face_cache_lookup(monkeypatch, tmp_path: 
     ) == str(artifact.resolve())
 
 
+def test_prismml_qwen_ggufs_are_engine_scoped_and_manifest_pinned(cfg):
+    model = "qwen38_27b_h2h"
+    assert h.engine_artifact_key(cfg, "prismml-llama", model) == "gguf"
+    assert h.engine_artifact_key(cfg, "brew-llama", model) is None
+    assert h.engine_artifact_key(cfg, "ollama", model) == "ollama"
+    assert h.gguf_path_for(cfg, model, "prismml-llama").endswith(
+        "/blobs/1bce504dfecd84153666928a41d8a66706f0158d3a317bc5196b72819d7dc529"
+    )
+    draft = h._draft_gguf_path(cfg["models"][model], model, "spec", "prismml-llama")
+    assert draft.endswith("/blobs/50d9ce5a6da381bbcfb31061cf73df94a90e6faf8efeddee379a9cb8f1501c6e")
+    assert "gguf" not in cfg["models"][model]
+
+
 def test_every_managed_engine_renders_a_plain_command_for_every_model(cfg):
     for eng, e in cfg["engines"].items():
         if e["kind"] != "managed":
