@@ -218,6 +218,25 @@ def _thinking_flag(enabled: bool) -> str:
     return "true" if enabled else "false"
 
 
+def _seat_checkpoint(block: dict, mode: str) -> str | None:
+    """Plain checkpoint, unless the spec arm names a different directory."""
+    if mode == "spec" and block.get("spec_model_dir"):
+        return str(block["spec_model_dir"])
+    raw = block.get("model_dir")
+    return str(raw) if raw else None
+
+
+def _extend_seat_mode(argv: list[str], block: dict, mode: str, rendered: dict) -> None:
+    """Append spec args, or the plain-only extras. A missing spec arm is a null cell."""
+    if mode == "spec":
+        extra = block.get("spec_argv")
+        if not extra:
+            raise SystemExit("no spec path: registry cell has no spec settings")
+        argv.extend(render(list(extra), rendered))
+        return
+    argv.extend(render(list(block.get("plain_extra_argv") or []), rendered))
+
+
 def seated_launch_argv(
     engine_cfg: dict,
     seat: str,
@@ -237,9 +256,11 @@ def seated_launch_argv(
         rendered["community_cache"] = os.path.expanduser(str(cache))
     if block.get("tool_parser"):
         rendered["tool_parser"] = block["tool_parser"]
-    if block.get("model_dir"):
-        rendered["model_dir"] = block["model_dir"]
-        rendered["served"] = block.get("served") or block["model_dir"]
+    # spec_model_dir splits a seat whose plain pack is not its spec target.
+    model_dir = _seat_checkpoint(block, mode)
+    if model_dir:
+        rendered["model_dir"] = model_dir
+        rendered["served"] = block.get("served") or model_dir
     # A workload's explicit window wins over the seat's everyday window.
     if block.get("ctx") and not context_override:
         rendered["ctx"] = block["ctx"]
@@ -255,11 +276,8 @@ def seated_launch_argv(
             ]
         )
     argv.extend(render(list(block.get("seat_extra_argv") or []), rendered))
-    if mode == "spec":
-        extra = block.get("spec_argv")
-        if not extra:
-            raise SystemExit("no spec path: registry cell has no spec settings")
-        argv.extend(render(list(extra), rendered))
+    # plain_extra_argv stays off the spec arm: --no-spec-decode cannot sit with a drafter.
+    _extend_seat_mode(argv, block, mode, rendered)
     return argv
 
 
@@ -687,19 +705,23 @@ def rapid_mlx_argv_refusal(argv: list[str]) -> str | None:
         model = argv[argv.index("serve") + 1]
     except (ValueError, IndexError):
         return "rapid-mlx MTP argv has no model path"
+    # Gemma 4 is eligible only with an explicit assistant sidecar (detect.py).
+    # A native family stays ineligible when the sidecar cannot supply its head.
+    sidecar = payload.get("model")
+    has_sidecar = "1" if isinstance(sidecar, str) and sidecar.strip() else "0"
     script = (
         "import json,sys\n"
         "from pathlib import Path\n"
         "from rapid_mlx.spec_decode.mtp.detect import detect_mtp_eligibility\n"
         "cfg=json.loads((Path(sys.argv[1])/'config.json').read_text())\n"
-        "print(detect_mtp_eligibility(cfg).value)\n"
+        "print(detect_mtp_eligibility(cfg, has_external_sidecar=sys.argv[2]=='1').value)\n"
     )
     python = _rapid_mlx_python()
     if python is None:
         return "rapid-mlx MTP eligibility check is unavailable; refusing to launch"
     try:
         result = subprocess.run(
-            [python, "-c", script, model],
+            [python, "-c", script, model, has_sidecar],
             capture_output=True,
             text=True,
             timeout=60,
