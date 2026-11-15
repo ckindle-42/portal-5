@@ -14,7 +14,8 @@ from tests.benchmarks import engine_prodfit as prodfit
 
 
 def _cell(selector: str = "mlx-serve:plain:coding") -> dict[str, Any]:
-    return runner.prodfit_cell(selector)
+    # CI has no engine binaries; the run-path tests judge the gate, not the install probe.
+    return {**runner.prodfit_cell(selector), "not_installed": None}
 
 
 def _ctx(tmp_path: Path, selector: str = "mlx-serve:plain:coding") -> dict[str, Any]:
