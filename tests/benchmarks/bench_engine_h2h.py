@@ -138,16 +138,26 @@ def model_dir_for(cfg: dict, model: str, engine: str, mode: str) -> str:
         return m.get("mlx") or m.get("served") or m.get("splash") or ""
     if mode == "spec":
         s = spec_entry(cfg, model, engine) or {}
-        return s.get("model_dir") or m["mlx"]
-    return m["mlx"]
+        return s.get("model_dir") or m.get("mlx") or ""
+    return m.get("mlx") or ""
+
+
+def engine_artifact_key(cfg: dict, engine: str, model: str) -> str | None:
+    """The model field whose artifact this engine consumes (MLX dir or GGUF file)."""
+    entry = cfg["engines"][engine]
+    requires = entry.get("requires")
+    if requires and cfg["models"][model].get(requires):
+        return requires
+    if model in (entry.get("also_requires_models") or []) and cfg["models"][model].get("gguf"):
+        return "gguf"
+    return None
 
 
 def model_supports_engine(cfg: dict, model: str, engine: str) -> bool:
-    """Whether the registry provides the artifact this engine consumes."""
-    requires = cfg["engines"][engine].get("requires")
-    if requires:
-        return bool(cfg["models"][model].get(requires))
-    return True
+    """Whether the registry provides an artifact this engine consumes."""
+    if not cfg["engines"][engine].get("requires"):
+        return True
+    return engine_artifact_key(cfg, engine, model) is not None
 
 
 def cached_hf_file(gguf: dict | None, label: str) -> str:
@@ -234,7 +244,74 @@ def _extend_seat_mode(argv: list[str], block: dict, mode: str, rendered: dict) -
             raise SystemExit("no spec path: registry cell has no spec settings")
         argv.extend(render(list(extra), rendered))
         return
-    argv.extend(render(list(block.get("plain_extra_argv") or []), rendered))
+    plain = list(block.get("plain_extra_argv") or []) + list(block.get("plain_argv") or [])
+    argv.extend(render(plain, rendered))
+
+
+def seat_block(cfg: dict, engine: str, seat: str | None) -> dict:
+    """The engine's seat override, or {} when this seat has none."""
+    block = (cfg.get("engines", {}).get(engine, {}).get("seats") or {}).get(seat or "")
+    return block if isinstance(block, dict) else {}
+
+
+def seat_listed_id(cfg: dict, engine: str, seat: str | None) -> str | None:
+    """The id GET /v1/models lists when the seat's checkpoint is not named after the hint."""
+    listed = seat_block(cfg, engine, seat).get("listed_id")
+    return str(listed) if listed else None
+
+
+def seat_load_path(
+    cfg: dict,
+    engine: str,
+    model: str,
+    mode: str,
+    seat: str | None,
+    context_tokens: int | None = None,
+) -> str | None:
+    """The absolute checkpoint a seat launches, or None when it uses the engine template."""
+    block = seat_block(cfg, engine, seat)
+    if not block.get("load"):
+        return None
+    values = launch_values(cfg, engine, model, mode, context_tokens)
+    return os.path.expanduser(render_one(str(block["load"]), values))
+
+
+def _seat_values(
+    block: dict, engine_cfg: dict, values: dict, context_override: bool, mode: str = "plain"
+) -> dict:
+    """Overlay the seat's checkpoint, parser and window on the cell's placeholders."""
+    rendered = dict(values)
+    cache = block.get("community_cache") or engine_cfg.get("community_cache")
+    if cache:
+        rendered["community_cache"] = os.path.expanduser(str(cache))
+    if block.get("tool_parser"):
+        rendered["tool_parser"] = block["tool_parser"]
+    if block.get("load"):
+        rendered["load"] = render_one(block["load"], rendered)
+    # spec_model_dir splits a seat whose plain pack is not its spec target.
+    model_dir = _seat_checkpoint(block, mode)
+    if model_dir:
+        rendered["model_dir"] = model_dir
+        rendered["served"] = block.get("served") or model_dir
+    # A workload's explicit window wins over the seat's everyday window.
+    if block.get("ctx") and not context_override:
+        rendered["ctx"] = block["ctx"]
+    return rendered
+
+
+def _seat_parser_argv(block: dict) -> list[str]:
+    """The parser/thinking flags a seat adds in engines that take them."""
+    argv: list[str] = []
+    if block.get("reasoning_parser"):
+        argv.extend(["--reasoning-parser", str(block["reasoning_parser"])])
+    if "enable_thinking" in block:
+        argv.extend(
+            [
+                "--default-chat-template-kwargs",
+                '{"enable_thinking":' + _thinking_flag(bool(block["enable_thinking"])) + "}",
+            ]
+        )
+    return argv
 
 
 def seated_launch_argv(
@@ -250,33 +327,11 @@ def seated_launch_argv(
     template = engine_cfg.get("seat_base")
     if not isinstance(block, dict) or not template:
         return None
-    rendered = dict(values)
-    cache = block.get("community_cache") or engine_cfg.get("community_cache")
-    if cache:
-        rendered["community_cache"] = os.path.expanduser(str(cache))
-    if block.get("tool_parser"):
-        rendered["tool_parser"] = block["tool_parser"]
-    # spec_model_dir splits a seat whose plain pack is not its spec target.
-    model_dir = _seat_checkpoint(block, mode)
-    if model_dir:
-        rendered["model_dir"] = model_dir
-        rendered["served"] = block.get("served") or model_dir
-    # A workload's explicit window wins over the seat's everyday window.
-    if block.get("ctx") and not context_override:
-        rendered["ctx"] = block["ctx"]
+    rendered = _seat_values(block, engine_cfg, values, context_override, mode)
     argv = render(template, rendered)
-    parser = block.get("reasoning_parser")
-    if parser:
-        argv.extend(["--reasoning-parser", str(parser)])
-    if "enable_thinking" in block:
-        argv.extend(
-            [
-                "--default-chat-template-kwargs",
-                '{"enable_thinking":' + _thinking_flag(bool(block["enable_thinking"])) + "}",
-            ]
-        )
+    argv.extend(_seat_parser_argv(block))
     argv.extend(render(list(block.get("seat_extra_argv") or []), rendered))
-    # plain_extra_argv stays off the spec arm: --no-spec-decode cannot sit with a drafter.
+    # plain-only extras stay off the spec arm: --no-spec-decode cannot sit with a drafter.
     _extend_seat_mode(argv, block, mode, rendered)
     return argv
 
@@ -286,6 +341,71 @@ def _unrendered_placeholders(argv: list[str], cwd: str | None) -> list[str]:
     return sorted(
         {match for part in parts for match in re.findall(r"\{([A-Za-z_][A-Za-z0-9_]*)\}", part)}
     )
+
+
+def launch_values(
+    cfg: dict,
+    engine: str,
+    model: str,
+    mode: str,
+    context_tokens: int | None = None,
+) -> dict:
+    """Every placeholder an engine template may render for this cell."""
+    e = cfg["engines"][engine]
+    m = cfg["models"][model]
+    artifact = engine_artifact_key(cfg, engine, model)
+    model_dir = model if artifact == "gguf" else model_dir_for(cfg, model, engine, mode)
+    spec = spec_entry(cfg, model, engine) if mode == "spec" else None
+    draft_gguf_path = _draft_gguf_path(m, model, mode)
+    gguf_path = gguf_path_for(cfg, model) if artifact == "gguf" else ""
+    return {
+        "mlx_root": cfg["mlx_root"],
+        "model_root": model_root(cfg, engine),
+        "seat_root": os.path.expanduser(str(cfg.get("seat_root") or "")),
+        "model_dir": model_dir,
+        "load_path": gguf_path or f"{cfg['mlx_root']}/{model_dir}",
+        "served": m.get("served") or model_dir,
+        "port": e.get("port", ""),
+        "ctx": context_tokens or m["ctx"],
+        "tool_parser": per_engine(m.get("tool_parser"), engine) or "auto",
+        "drafter_path": artifact_dir(cfg, model, "drafter", "drafter_dir"),
+        "draft_path": local_dir_for(cfg, m.get("draft_model")) or "",
+        "splash_model": m.get("splash_model") or m.get("splash") or "",
+        "splash_extra": m.get("splash_extra") or [],
+        "gguf_path": gguf_path,
+        "draft_gguf_path": draft_gguf_path,
+        "llama_server": e.get("server_path", ""),
+        "mlx_server_script": str(REPO / e["server_script"]) if e.get("server_script") else "",
+        "python": os.path.expanduser(
+            m.get("prismml_mlx_python", "~/src/prismml-mlx/.venv/bin/python")
+        ),
+        "spec_args": (spec or {}).get("args") or [],
+    }
+
+
+def materialize_seat_link(
+    cfg: dict,
+    engine: str,
+    model: str,
+    mode: str,
+    seat: str | None,
+    context_tokens: int | None = None,
+) -> None:
+    """Create a seat's symlinked checkpoint when the engine keys served ids by path name."""
+    block = seat_block(cfg, engine, seat)
+    link = block.get("link")
+    if not block.get("load") or not isinstance(link, dict) or not link.get("from"):
+        return
+    values = launch_values(cfg, engine, model, mode, context_tokens)
+    path = Path(os.path.expanduser(render_one(str(block["load"]), values)))
+    target = Path(os.path.expanduser(render_one(str(link["from"]), values))).resolve()
+    if not target.exists():
+        raise SystemExit(f"{engine} seat {seat}: link target is missing: {target}")
+    if path.is_symlink() and path.resolve() == target:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.unlink(missing_ok=True)
+    path.symlink_to(target)
 
 
 def launch_command(
@@ -299,33 +419,10 @@ def launch_command(
 ) -> tuple[list[str], str | None]:
     """The exact argv (and cwd) for a managed engine. Raises on a null spec cell."""
     e = cfg["engines"][engine]
-    m = cfg["models"][model]
     if not model_supports_engine(cfg, model, engine):
         raise SystemExit(f"no {e.get('requires')} artifact for {engine} × {model}")
-    model_dir = model if e.get("requires") == "gguf" else model_dir_for(cfg, model, engine, mode)
     spec = spec_entry(cfg, model, engine) if mode == "spec" else None
-    draft_gguf_path = _draft_gguf_path(m, model, mode)
-    values = {
-        "mlx_root": cfg["mlx_root"],
-        "model_root": model_root(cfg, engine),
-        "model_dir": model_dir,
-        "served": m.get("served") or model_dir,
-        "port": e.get("port", ""),
-        "ctx": context_tokens or m["ctx"],
-        "tool_parser": per_engine(m.get("tool_parser"), engine) or "auto",
-        "drafter_path": artifact_dir(cfg, model, "drafter", "drafter_dir"),
-        "draft_path": local_dir_for(cfg, m.get("draft_model")) or "",
-        "splash_model": m.get("splash_model") or m.get("splash") or "",
-        "splash_extra": m.get("splash_extra") or [],
-        "gguf_path": gguf_path_for(cfg, model) if e.get("requires") == "gguf" else "",
-        "draft_gguf_path": draft_gguf_path,
-        "llama_server": e.get("server_path", ""),
-        "mlx_server_script": str(REPO / e["server_script"]) if e.get("server_script") else "",
-        "python": os.path.expanduser(
-            m.get("prismml_mlx_python", "~/src/prismml-mlx/.venv/bin/python")
-        ),
-        "spec_args": (spec or {}).get("args") or [],
-    }
+    values = launch_values(cfg, engine, model, mode, context_tokens)
     seated = (
         seated_launch_argv(e, seat, mode, values, context_override=context_tokens is not None)
         if seat
@@ -812,6 +909,7 @@ def start_managed(
     log_paths: tuple[Path, Path] | None = None,
     on_started: Callable[[], None] | None = None,
 ) -> dict:
+    materialize_seat_link(cfg, engine, model, mode, seat, context_tokens)
     argv, cwd = launch_command(cfg, engine, model, mode, context_tokens=context_tokens, seat=seat)
     refusal = rapid_mlx_argv_refusal(argv) or brew_llama_binary_refusal(engine, argv)
     if refusal:
@@ -830,10 +928,12 @@ def start_managed(
         proc = subprocess.Popen(
             argv, cwd=cwd, stdout=stdout, stderr=stderr, env=env, start_new_session=True
         )
+    listed_model = seat_listed_id(cfg, engine, seat) or served_id(cfg, engine, model, mode)
     st = {
         "engine": engine,
         "model": model,
         "mode": mode,
+        "seat": seat,
         "control_model": cfg["models"][model].get("control"),
         "pid": proc.pid,
         "process_group": proc.pid,
@@ -842,6 +942,7 @@ def start_managed(
         "stdout_log": str(stdout_log),
         "stderr_log": str(stderr_log),
         "context_tokens": context_tokens or cfg["models"][model]["ctx"],
+        "listed_model": listed_model,
         "started": _stamp(),
     }
     _state_file(engine).write_text(json.dumps(st, indent=1))
@@ -854,7 +955,7 @@ def start_managed(
         proc,
         cfg=cfg,
         engine=engine,
-        expected_model=served_id(cfg, engine, model, mode),
+        expected_model=listed_model,
     )
     st["ready_s"] = ready_s
     _state_file(engine).write_text(json.dumps(st, indent=1))
@@ -1437,7 +1538,7 @@ def template_check(cfg: dict, engine: str, model: str, mode: str) -> dict:
             "ok": None,
             "note": "Ollama translates the source template to Go; check its off-mode and tool probes",
         }
-    if cfg["engines"][engine].get("requires") == "gguf":
+    if engine_artifact_key(cfg, engine, model) == "gguf":
         local = gguf_chat_template(cfg, model)
         entry = cfg["models"][model]
         template_repo = entry.get("template_repo") or entry.get("base_repo") or entry["source_repo"]
@@ -2050,6 +2151,8 @@ def cmd_doctor(cfg: dict) -> int:
                     print(f"NOT CACHED {name}: {exc}")
             elif e.get("requires") in {"mlx", "prismml_mlx", "mtplx"}:
                 d = m.get(e["requires"])
+                if not d and e.get("also_requires"):
+                    continue  # this model reaches the engine through also_requires
                 root = model_root(cfg, engine)
                 exists = bool(d and (Path(root) / d).is_dir())
                 print(f"{'OK ' if exists else 'NOT FETCHED'} {name}: {root}/{d or 'unset'}")

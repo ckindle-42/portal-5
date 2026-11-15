@@ -25,6 +25,18 @@ backends:
     url: http://host.docker.internal:11234
     health_path: /v1/models
     priority: 10
+    # docs/engine_research/mlxserve_20261114.md §2 + § "Proposed registry entries";
+    # per-seat argv is tests/benchmarks/engine_h2h.yaml engines.mlx-serve.seats.
+    # mlx-serve has no --served-model-name: GET /v1/models lists the checkpoint basename
+    # and a chat response echoes the request `model` (probed 26.11.2, 2026-11-14), so the
+    # coding seat loads the ddalcu 8-bit native-MTP pack under the Qwen3.8-27B-4bit hint
+    # and task-router loads a linked .gguf (seat_root) under the ctx2k hint. Tokens are
+    # the OpenAI usage object; resident memory is /v1/models bytes_resident, which the
+    # runner reads by the seat's listed_id. The 2026-11-14 coding quality FAIL was the
+    # Pipeline forcing tool_choice=required on every tool-loop hop (mlx-serve honours it,
+    # oMLX ignores it); daily-moe co-residence FAIL was the engine's GPU admission
+    # (2692 MB needed / 135 MB free). Receipts under
+    # /Volumes/data01/portal5_data/engine_eval/stage3/{846f552dc473234e64e6fb97f039213d5fed0e40,61cc1174b1e62f07908135f9fdb91d4db2225638}/.
     models:
       - id: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
         supports_tools: true

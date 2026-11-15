@@ -15,6 +15,10 @@ mlx_root: /Volumes/data01/omlx-models
 # Drafters / draft models stay OUTSIDE mlx_root: oMLX lists any dir with a
 # model config as a servable model, and a drafter dir carries one.
 drafter_root: /Volumes/data01/engine_h2h_drafters
+# Seat views for engines that key the served id by the checkpoint path and have
+# no --served-model-name (mlx-serve). The harness creates seats.<seat>.link at
+# launch; the link's basename is the id GET /v1/models lists.
+seat_root: /Volumes/data01/engine_h2h_seats
 # MTPLX packs (MLX weights + mtp.safetensors + mtplx_runtime.json) stay OUTSIDE
 # mlx_root for the same reason: oMLX would list them as servable models. They
 # live on data01 as symlinks into hf-cache (2026-11-14: 144 Gi free there, so the
@@ -69,6 +73,11 @@ engines:
   mlx-serve:
     kind: managed
     requires: mlx
+    # One binary serves MLX packs and GGUFs (README: any GGUF through embedded llama.cpp).
+    # Only the matrix router registers a GGUF this lane can launch; the blob has no
+    # .gguf name, so `seats.task-router` supplies the linked path.
+    also_requires: [gguf]
+    also_requires_models: ["hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k"]
     port: 11234
     version: "26.11.2"
     # brew tap ddalcu/mlx-serve https://github.com/ddalcu/mlx-serve && brew trust ddalcu/mlx-serve && brew install mlx-serve
@@ -76,8 +85,78 @@ engines:
     # Drafter flags are unchanged from 26.9.2: plain is --no-pld --no-drafter --no-mtp.
     # PLD (prompt-lookup speculation) is ON by default in mlx-serve, and it
     # auto-loads an MTP head or a drafter/ subdir it finds — plain must turn all three off.
-    plain: [mlx-serve, --serve, --model, "{mlx_root}/{model_dir}", --host, 127.0.0.1, --port, "{port}", --ctx-size, "{ctx}", --no-pld, --no-drafter, --no-mtp]
-    base_spec: [mlx-serve, --serve, --model, "{mlx_root}/{model_dir}", --host, 127.0.0.1, --port, "{port}", --ctx-size, "{ctx}"]
+    plain: [mlx-serve, --serve, --model, "{load_path}", --host, 127.0.0.1, --port, "{port}", --ctx-size, "{ctx}", --no-pld, --no-drafter, --no-mtp]
+    base_spec: [mlx-serve, --serve, --model, "{load_path}", --host, 127.0.0.1, --port, "{port}", --ctx-size, "{ctx}"]
+    # docs/engine_research/mlxserve_20261114.md §2 "Launch flags on 64 GB" and
+    # § "Proposed registry entries / mlx-serve": this seat argv is the benchmark
+    # shape. --no-vision on the conditional-generation packs, --prefix-cache-disk off
+    # so a restart is cold, --kv-quant off. The research's --warmup-full is NOT in the
+    # installed 26.11.2 CLI (probed 2026-11-14: "unrecognized argument '--warmup-full'");
+    # the eager warmup stays on by leaving --no-warmup-eager unset.
+    # mlx-serve has no --served-model-name. GET /v1/models lists the checkpoint
+    # basename and a chat response echoes the request's `model` (probed on 26.11.2,
+    # 2026-11-14: the engine accepts any model name for a loaded checkpoint and
+    # returns it verbatim), so {load} names the engine-tuned artifact while the seat
+    # hint stays the route id. `listed_id` is what /v1/models will list; the harness
+    # waits on it and reads memory from that row.
+    seat_base: [mlx-serve, --serve, --model, "{load}", --host, 127.0.0.1, --port, "{port}", --ctx-size, "{ctx}", --no-vision, --kv-quant, "off", --prefix-cache-disk, "off"]
+    seats:
+      # §1 "Variant per seat": the README 48–64 GB row names the ddalcu 8-bit pack,
+      # which carries the native MTP head (29 language_model.mtp.* tensors). This is
+      # the primary. Named alternates, in the research's order: ddalcu 4-bit native
+      # MTP (Qwen3.8-27B-MLX-Serve-4bit), on-disk plain 4-bit + DFlash2
+      # (Qwen3.8-27B-4bit with --drafter {mlx_root}/Qwen3.8-27B-DFlash2 --no-pld
+      # --no-mtp, config/engine_artifacts_20261114.yaml qwen_dflash2), and 8-bit +
+      # the pack's bundled drafter/ (qwen_ddalcu_8bit_dflash).
+      # Think on: bench-engine-coding pins think: true, so --reasoning-budget stays unset
+      # (-1 = unlimited, which is what the checkpoint template's xhigh default expects).
+      coding:
+        load: "{mlx_root}/Qwen3.8-27B-MLX-Serve-8bit"
+        listed_id: Qwen3.8-27B-MLX-Serve-8bit
+        ctx: 32768
+        plain_argv: [--no-pld, --no-drafter, --no-mtp]
+        spec_argv: [--mtp]
+      # §1 (daily-moe): keep the oQ4e dir with its embedded head; whether nemotron_h
+      # consumes num_nextn_predict_layers is unproven and a load failure is a result.
+      # §2 vendor-fast daily-moe argv. auto-daily think is true, so no reasoning budget.
+      # Co-residence: the 2026-11-14 failure was the engine's own GPU admission
+      # (HTTP 400, 2692 MB needed / 135 MB free) beside the other two seats, not argv;
+      # see the receipt cited in config/bench_engines.yaml. No silent ctx or cache cap.
+      daily-moe:
+        load: "{mlx_root}/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp"
+        ctx: 32768
+        plain_argv: [--no-pld, --no-drafter, --no-mtp]
+        spec_argv: [--mtp, --no-pld, --no-drafter]
+      # §1 (hunt): keep the QAT dir. mlx-serve's documented Gemma drafter example is the
+      # BF16 E4B assistant (config/engine_artifacts_20261114.yaml gemma_assistant_e4b_bf16);
+      # known-issues.md: gemma4 drafted output is not exact, so plain is the quality cell
+      # and spec is a speed cell that expects divergence. hunt-reasoning sets no think
+      # field, so the model default stands and no --reasoning-budget is passed.
+      hunt:
+        load: "{mlx_root}/gemma-4-26b-a4b-it-QAT-4bit"
+        ctx: 16384
+        plain_argv: [--no-pld, --no-drafter, --no-mtp]
+        spec_argv: [--drafter, /Volumes/data01/engine_h2h_drafters/gemma-4-E4B-it-assistant-bf16, --no-pld]
+      # Same plain Qwen3.8 4-bit checkpoint as the seat hint. compliance-council-qwen38
+      # think is false; §2 gives 0 as the think-off switch. DFlash2 stays the spec overlay.
+      council-json:
+        load: "{mlx_root}/Qwen3.8-27B-4bit"
+        ctx: 32768
+        seat_extra_argv: [--reasoning-budget, "0"]
+        plain_argv: [--no-pld, --no-drafter, --no-mtp]
+        spec_argv: [--drafter, "{drafter_path}", --no-pld]
+      # §1 (task-router): the seated GGUF. §2: --llama-mtp-drafts 0 is the GGUF MTP off
+      # switch and --no-pld alone does not disable GGUF speculation. The Ollama blob has
+      # no .gguf name and 26.11.2 refuses it (exit "error: NotDir", probed 2026-11-14), so
+      # the harness links it under seat_root with the .gguf name the engine keys its id
+      # from. bench-engine-task-router think is false -> --reasoning-budget 0.
+      task-router:
+        load: "{seat_root}/gemma-4-E4B-it-OBLITERATED.Q4_K_M.gguf"
+        listed_id: gemma-4-E4B-it-OBLITERATED.Q4_K_M
+        link: {from: "{gguf_path}"}
+        ctx: 2048
+        seat_extra_argv: [--reasoning-budget, "0"]
+        plain_argv: [--no-pld, --no-drafter, --no-mtp, --llama-mtp-drafts, "0", --llama-cache-entries, "1"]
     stop_signal: TERM
     readiness: {path: /v1/models, timeout_s: 300, collection: data, id_field: id, state_field: state, ready_state: ready, loaded_field: loaded}
   rapid-mlx:
@@ -731,11 +810,13 @@ models:
     ctx: 16384
     prefill_tokens: 6000
     tool_parser: {vllm-mlx: gemma4, default: auto}
-    # No same-tokenizer drafter for the other engines. Do not download one. Not a splash family.
-    # rapid-mlx hunt spec is the BF16 assistant already on disk (engine_artifacts_20261114.yaml
-    # gemma_assistant_26b_bf16). mlxserve_20261114.md §rapid-mlx §2: name it as the MTP model.
+    # Hunt drafters per engine research (config/engine_artifacts_20261114.yaml):
+    # rapid-mlx: the 26B BF16 assistant as its MTP model (mlxserve_20261114.md §rapid-mlx §2).
+    # mlx-serve: documented E4B BF16 assistant drafter (mlxserve_20261114.md §1 hunt);
+    # known-issues.md: gemma4 drafted output is not exact, so that is a speed cell only.
+    # No other engine gets a drafter. Not a splash family.
     spec:
-      mlx-serve: null
+      mlx-serve: {method: assistant, args: [--drafter, /Volumes/data01/engine_h2h_drafters/gemma-4-E4B-it-assistant-bf16, --no-pld]}
       rapid-mlx:
         method: mtp
         args: [--speculative-config, '{"method":"mtp","model":"/Volumes/data01/engine_h2h_drafters/gemma-4-26B-A4B-it-assistant-bf16"}']

@@ -215,6 +215,7 @@ def _make_cell(
         "model": model,
         "model_hint": hint,
         "expected_model": hint,
+        "listed_model": h2h.seat_listed_id(cfg, engine, seat) or hint,
         "backend": "eval-openai" if port == 11234 else f"eval-openai-{engine}",
         "port": port,
         "base": h2h.base_url(cfg, engine),
@@ -251,7 +252,9 @@ def _candidate_residency(cfg: dict) -> dict[str, dict[str, int] | None]:
         model = state.get("model")
         mode = state.get("mode", "plain")
         try:
-            served = h2h.served_id(cfg, engine, model, mode) if model else f"listener:{pid}"
+            served = state.get("listed_model") or (
+                h2h.served_id(cfg, engine, model, mode) if model else f"listener:{pid}"
+            )
         except (KeyError, SystemExit):
             served = f"listener:{pid}"
         residents[engine] = {str(served): pid}
@@ -722,14 +725,18 @@ def _grade_cell_preflight(
 def _candidate_tokenizer(cfg: dict, cell: dict[str, Any]) -> Path | None:
     """Resolve the loaded checkpoint tokenizer from the benchmark registry."""
     entry = cfg["models"][cell["model"]]
-    if cfg["engines"][cell["engine"]].get("requires") == "gguf":
+    if h2h.engine_artifact_key(cfg, cell["engine"], cell["model"]) == "gguf":
         tokenizer = {"repo": entry["source_repo"], "file": "tokenizer.json"}
         try:
             return Path(h2h.cached_hf_file(tokenizer, cell["model"]))
         except SystemExit:
             return None
-    directory = Path(h2h.model_root(cfg, cell["engine"])) / h2h.model_dir_for(
-        cfg, cell["model"], cell["engine"], cell["mode"]
+    load = h2h.seat_load_path(cfg, cell["engine"], cell["model"], cell["mode"], cell.get("seat"))
+    directory = (
+        Path(load)
+        if load
+        else Path(h2h.model_root(cfg, cell["engine"]))
+        / h2h.model_dir_for(cfg, cell["model"], cell["engine"], cell["mode"])
     )
     return instrument.resolve_tokenizer(cell["engine"], directory, None)
 
@@ -737,11 +744,14 @@ def _candidate_tokenizer(cfg: dict, cell: dict[str, Any]) -> Path | None:
 def _candidate_template(cfg: dict, cell: dict[str, Any]) -> dict[str, Any]:
     """Check templates only for cells that load the same registered checkpoint."""
     entry = cfg["models"][cell["model"]]
-    is_gguf = cfg["engines"][cell["engine"]].get("requires") == "gguf"
-    same = is_gguf or (
-        cell["mode"] == "plain"
-        and h2h.model_dir_for(cfg, cell["model"], cell["engine"], cell["mode"]) == entry.get("mlx")
+    is_gguf = h2h.engine_artifact_key(cfg, cell["engine"], cell["model"]) == "gguf"
+    load = h2h.seat_load_path(cfg, cell["engine"], cell["model"], cell["mode"], cell.get("seat"))
+    loaded = (
+        Path(load).name
+        if load
+        else h2h.model_dir_for(cfg, cell["model"], cell["engine"], cell["mode"])
     )
+    same = is_gguf or (cell["mode"] == "plain" and loaded == entry.get("mlx"))
     if not same:
         return {"same_checkpoint": False}
     try:
@@ -960,7 +970,7 @@ def _incumbent_leg(cell: dict[str, Any], cfg: dict[str, Any]) -> dict[str, Any]:
 
 def _incumbent_parity_blocker(cell: dict[str, Any], cfg: dict[str, Any]) -> str | None:
     """Why oMLX cannot render this cell's checkpoint, or None when it can."""
-    if cfg["engines"][cell["engine"]].get("requires") != "mlx":
+    if h2h.engine_artifact_key(cfg, cell["engine"], cell["model"]) != "mlx":
         return f"{cell['engine']} does not load the MLX checkpoint oMLX serves"
     if not h2h.model_supports_engine(cfg, cell["model"], "omlx"):
         return f"{cell['model']} has no MLX artifact for the oMLX incumbent"
@@ -1525,7 +1535,8 @@ def _candidate_cell_inputs(
     vm_before = vm_before or subprocess.check_output(["vm_stat"], text=True, timeout=10)
     resident_before = resident_before or _candidate_residency(cfg)
     models_response = _models_payload(cell["base"])
-    model_row = _model_row(models_response["json"], cell["expected_model"])
+    listed_model = cell.get("listed_model") or cell["expected_model"]
+    model_row = _model_row(models_response["json"], listed_model)
     served = [str(row.get("id")) for row in _model_rows(models_response["json"]) if row.get("id")]
     log_since = time.strftime("%Y-%m-%dT%H:%M:%S")
     body = _candidate_body(cell)
@@ -1537,7 +1548,7 @@ def _candidate_cell_inputs(
         cell["port"],
         cell["engine"],
         cfg["engines"][cell["engine"]],
-        _model_row(memory_models_response["json"], cell["expected_model"]),
+        _model_row(memory_models_response["json"], listed_model),
     )
     tool_row = _candidate_request(url, _tool_call_body(cell))
     parity_rows = [_candidate_request(url, body) for _ in range(2)]
@@ -3066,7 +3077,8 @@ def _run_long_context(
         host_prep,
     ):
         models = _models_payload(cell["base"])
-        settings = _context_readback(models["json"], cell["expected_model"])
+        listed_model = cell.get("listed_model") or cell["expected_model"]
+        settings = _context_readback(models["json"], listed_model)
         url = f"{cell['base'].rstrip('/')}/v1/chat/completions"
         request = {
             "model": cell["expected_model"],
@@ -3108,11 +3120,12 @@ def _process_sample(cell: dict[str, Any]) -> dict[str, Any]:
     )
     footprint = None
     model_row = {}
-    if cfg["engines"][cell["engine"]].get("requires") != "gguf":
+    if h2h.engine_artifact_key(cfg, cell["engine"], cell["model"]) != "gguf":
         raw = subprocess.check_output(["footprint", "-p", str(pid)], text=True, timeout=10)
         footprint = instrument.parse_footprint(raw).get("phys_footprint_gb")
         models = _models_payload(cell["base"])
-        model_row = _model_row(models["json"], cell["expected_model"])
+        listed_model = cell.get("listed_model") or cell["expected_model"]
+        model_row = _model_row(models["json"], listed_model)
     vm = instrument.parse_vm_stat(subprocess.check_output(["vm_stat"], text=True, timeout=10))
     wired = vm.get("wired_pages")
     page = vm.get("page_bytes")

@@ -32,6 +32,26 @@ _EXPECT = {
 }
 
 
+def test_expects_carry_the_listed_id_for_resident_readback() -> None:
+    """The seat hint stays the route id; the engine's listing names the checkpoint."""
+    cell = {
+        "workspace": "bench-engine-coding",
+        "model_hint": "Qwen3.8-27B-4bit",
+        "backend": "eval-openai",
+        "engine": "mlx-serve",
+        "mode": "plain",
+        "model": "qwen38_27b_h2h",
+        "seat": "coding",
+        "port": 11234,
+        "base": "http://127.0.0.1:11234",
+        "listed_model": "Qwen3.8-27B-MLX-Serve-8bit",
+    }
+    expects = speed._expects(cell, "eval-openai-omlx-incumbent")
+    assert expects["candidate"]["model"] == "Qwen3.8-27B-4bit"
+    assert expects["candidate"]["listed"] == "Qwen3.8-27B-MLX-Serve-8bit"
+    assert expects["incumbent"]["model"] == "Qwen3.8-27B-4bit"
+
+
 def _row(arm: str, repeat: int, rate: float, *, valid: bool = True, reason: str = "") -> dict:
     return {
         "arm": arm,
