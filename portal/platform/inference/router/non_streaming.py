@@ -60,6 +60,7 @@ from portal.platform.inference.router.tool_repeat import (
     UNGROUNDED_NOTICE,
     ToolRepeatGuard,
     apply_tool_byte_budget,
+    followup_tool_choice,
     no_tool_call_retry,
     tool_result_byte_budget,
 )
@@ -1362,11 +1363,12 @@ async def _try_non_streaming(
                 _ns_last = _ns_hops >= max_hops or _ns_guard.force_synthesis
                 if _ns_guard.force_synthesis:
                     _ns_messages = [*_ns_messages, FINAL_ANSWER_REQUEST]
+                _ns_synth_choice = followup_tool_choice(req_body.get("tool_choice"), _ns_tool_calls)
                 _synth_body = {
                     **req_body,
                     "messages": _ns_messages,
                     "tools": None if _ns_last else req_body.get("tools"),
-                    "tool_choice": None if _ns_last else req_body.get("tool_choice"),
+                    "tool_choice": None if _ns_last else _ns_synth_choice,
                 }
                 _last_request_body = _synth_body
                 _model_started = time.monotonic()

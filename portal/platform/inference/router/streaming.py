@@ -102,6 +102,7 @@ from portal.platform.inference.router.tool_repeat import (
     UNGROUNDED_NOTICE,
     ToolRepeatGuard,
     apply_tool_byte_budget,
+    followup_tool_choice,
     hold_ungrounded_answer,
     no_tool_call_retry,
     tool_result_byte_budget,
@@ -1555,6 +1556,9 @@ async def _tool_loop_frames(
                     yield _content_chunk(request_id, workspace_id, _released_downloads)
             current_body["messages"] = (
                 current_body.get("messages", []) + [assistant_msg] + dispatch_results
+            )
+            current_body["tool_choice"] = followup_tool_choice(
+                current_body.get("tool_choice"), all_tool_calls
             )
             _tool_result_bytes = apply_tool_byte_budget(
                 _repeat_guard,

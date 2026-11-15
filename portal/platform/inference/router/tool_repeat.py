@@ -194,6 +194,16 @@ class ToolRepeatGuard:
         }
 
 
+def followup_tool_choice(choice: Any, calls: list[dict[str, Any]]) -> Any:
+    """The choice after a tool result: "required" is spent by any call, a named tool only by its own."""
+    if choice == "required":
+        return "auto"
+    named = (choice.get("function") or {}).get("name") if isinstance(choice, dict) else None
+    if named and any((c.get("function") or {}).get("name") == named for c in calls):
+        return "auto"
+    return choice
+
+
 def hold_ungrounded_answer(
     guard: ToolRepeatGuard, require_tool: bool, required_choice: bool, tools_offered: bool
 ) -> bool:
