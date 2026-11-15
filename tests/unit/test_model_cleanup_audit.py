@@ -62,3 +62,11 @@ def test_report_names_removed_closed_live_refs() -> None:
     assert "REMOVED_CLOSED referenced by live config (1)" in report
     assert "`gone:tag`" in report
     assert "tools-specialist::fast" in report
+
+
+def test_shipped_register_has_no_removed_closed_live_seat() -> None:
+    """The register shipped in the repo must agree with the seating config beside it."""
+    disp = audit._load_register()
+    assert disp is not None
+    refs = audit.removed_closed_live_refs(disp, audit.live_config_model_ids(audit.REPO_ROOT))
+    assert refs == []
