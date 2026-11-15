@@ -10,6 +10,7 @@ from typing import Any
 
 import duckdb
 
+from ..engine import _literal_term_segments
 from ..executor import HuntExecutor
 from .cards import SourceCard
 from .parse import parse_row
@@ -289,7 +290,8 @@ def _quote(value: str) -> str:
 def reproduction_query(facts: SourceFacts, terms: Sequence[str]) -> str:
     """Every literal role value together, so the query selects this behaviour, not a common word."""
     route, _ = route_filter(facts, BEHAVIOUR_SOURCES)
-    picked = [value for value in terms if value][:MAX_TERMS]
+    selected = [value for value in terms if value][:MAX_TERMS]
+    picked = [segment for value in selected for segment in _literal_term_segments(value)]
     tail = " " + " ".join(_quote(value) for value in picked) if picked else ""
     return f"search index={_quote(facts.index)} {route}{tail} | head 5"
 

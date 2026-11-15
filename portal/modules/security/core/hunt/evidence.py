@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any
 
-from .engine import HOUR, _search_literal
+from .engine import HOUR, _literal_term_segments, _search_literal
 from .executor import HuntBudgetExceededError, HuntExecutor
 from .identity import host_filter
 from .observations import Observation, literal_matches
@@ -119,9 +119,12 @@ def accumulated_host_hours(observations: Iterable[Observation]) -> list[Evidence
 
 
 def _searchmatch_term(entity: str) -> str:
-    quoted = _search_literal(entity)
-    embedded = quoted.replace("\\", "\\\\").replace('"', '\\"')
-    return f'searchmatch("{embedded}")'
+    predicates = []
+    for segment in _literal_term_segments(entity):
+        quoted = _search_literal(segment)
+        embedded = quoted.replace("\\", "\\\\").replace('"', '\\"')
+        predicates.append(f'searchmatch("{embedded}")')
+    return " AND ".join(predicates)
 
 
 def _observation_tests(observation: Observation) -> tuple[str, str] | None:
@@ -141,7 +144,10 @@ def _observation_tests(observation: Observation) -> tuple[str, str] | None:
         eval_test = f"sourcetype={_search_literal(sourcetype)} AND punct={_search_literal(punct)}"
         return search, eval_test
     if observation.kind == "value" and entity:
-        return _search_literal(entity), _searchmatch_term(entity)
+        terms = _literal_term_segments(entity)
+        if not terms:
+            return None
+        return " ".join(_search_literal(term) for term in terms), _searchmatch_term(entity)
     return None
 
 

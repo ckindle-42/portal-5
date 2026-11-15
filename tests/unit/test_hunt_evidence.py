@@ -7,6 +7,7 @@ from portal.modules.security.core.hunt.evidence import (
     MAX_EVENT_CHARACTERS,
     MAX_OBSERVATIONS_PER_CELL,
     ROW_BUDGET,
+    _observation_tests,
     accumulated_host_hours,
     evidence_cells,
     read_cell,
@@ -261,6 +262,19 @@ def test_query_names_candidates_with_equality_and_bounds_the_rows():
     assert f"punct={_search_literal('p0')}" in query
     assert f"punct={_search_literal(f'p{CANDIDATE_OBSERVATIONS - 1}')}" not in query
     assert f"| head {ROW_BUDGET}" in query
+
+
+def test_value_observation_splits_wildcard_terms_and_drops_empty_values() -> None:
+    observation = Observation("value", "node-a", "alpha*medium*verylongsegment", HOUR, 1.0, {})
+    empty = Observation("value", "node-a", "***", HOUR, 1.0, {})
+
+    search, evaluate = _observation_tests(observation)  # type: ignore[misc]
+
+    assert search == '"verylongsegment" "medium"'
+    assert "*" not in search
+    assert evaluate.count("searchmatch(") == 2
+    assert " AND " in evaluate
+    assert _observation_tests(empty) is None
 
 
 def test_event_chars_overrides_the_default_line_budget():

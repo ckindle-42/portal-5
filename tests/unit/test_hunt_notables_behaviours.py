@@ -17,6 +17,7 @@ from portal.modules.security.core.hunt.notables.behaviours import (
     load_behaviours,
     load_source_stats,
     per_window_events,
+    reproduction_query,
     window_bounds,
 )
 from portal.modules.security.core.hunt.notables.cards import SourceCard
@@ -45,6 +46,14 @@ def _card(roles: dict[str, tuple[str, ...]] | None = None, fmt: str = "json") ->
 
 def _facts() -> SourceFacts:
     return SourceFacts("ix", "st", 10, 0.0, 7200.0, ("h1",), 1, ("s1",), 1)
+
+
+def test_reproduction_query_splits_starred_role_values() -> None:
+    query = reproduction_query(_facts(), ["alpha*medium*verylongsegment"])
+
+    assert '"verylongsegment" "medium"' in query
+    assert '"alpha"' not in query
+    assert "*" not in query
 
 
 def _event(

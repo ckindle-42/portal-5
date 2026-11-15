@@ -25,6 +25,7 @@ from portal.modules.security.core.hunt.engine import (
     HOUR,
     Search,
     _burst,
+    _literal_term_segments,
     _search_literal,
     host_hour_novelty,
 )
@@ -57,7 +58,7 @@ _QUOTED = r'"((?:\\.|[^"])*)"'
 _HOST_CONSTRAINT = re.compile(rf"host={_QUOTED}")
 _WHERE_CONSTRAINT = re.compile(rf"where\s+([A-Za-z_][\w.]*)={_QUOTED}")
 _TERM_CONSTRAINT = re.compile(rf"TERM\({_QUOTED}\)")
-_PLAIN_TERM_CONSTRAINT = re.compile(rf"\s+{_QUOTED}\s*$")
+_PLAIN_TERM_CONSTRAINT = re.compile(rf"(?<![=\\\w]){_QUOTED}")
 
 
 @dataclass(frozen=True)
@@ -137,6 +138,13 @@ def literal_query(
             f"| where sourcetype={where_literal(sourcetype)} "
             f"| where punct={where_literal(punct)}"
         )
+    if kind == "value":
+        terms = _literal_term_segments(entity)
+        if not terms:
+            return ""
+        return f"search index={index_lit} {host_lit} " + " ".join(
+            _search_literal(term) for term in terms
+        )
     return f"search index={index_lit} {host_lit} {_search_literal(entity)}"
 
 
@@ -156,9 +164,8 @@ def literal_matches(event: Mapping[str, Any], query: str) -> bool:
         (match.group(1), _unescape(match.group(2))) for match in _WHERE_CONSTRAINT.finditer(query)
     )
     terms = [_unescape(match.group(1)) for match in _TERM_CONSTRAINT.finditer(query)]
-    plain_term = _PLAIN_TERM_CONSTRAINT.search(query)
-    if plain_term is not None and "| where" not in query:
-        terms.append(_unescape(plain_term.group(1)))
+    if "| where" not in query:
+        terms.extend(_unescape(match.group(1)) for match in _PLAIN_TERM_CONSTRAINT.finditer(query))
     if not hosts and not constraints and not terms:
         return False
     fields: dict[str, str] = {

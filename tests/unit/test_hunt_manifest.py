@@ -335,3 +335,23 @@ def test_provenance_query_numeric_value_is_quoted() -> None:
     assert '"42"' in query
     assert '"admin"' in query
     assert " TERM(" not in query
+
+
+def test_provenance_query_splits_wildcards_into_two_longest_terms() -> None:
+    query = _provenance_query("idx", "host", "/src", ["alpha*medium*verylongsegment"])
+
+    assert query.endswith('"verylongsegment" "medium" | head 5')
+    assert '"alpha"' not in query
+    assert "*" not in query
+
+
+def test_provenance_query_drops_wildcard_value_without_long_segments() -> None:
+    query = _provenance_query("idx", "host", "/src", ["***"])
+
+    assert query == 'search index="idx" host="host" source="/src" | head 5'
+
+
+def test_provenance_query_keeps_unaffected_short_values() -> None:
+    query = _provenance_query("idx", "host", "/src", ["bob"])
+
+    assert query.endswith('"bob" | head 5')

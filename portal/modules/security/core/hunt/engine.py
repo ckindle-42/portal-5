@@ -140,6 +140,14 @@ def _search_literal(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
+def _literal_term_segments(value: str) -> tuple[str, ...]:
+    """Split wildcard values into at most two long literal search terms."""
+    if "*" not in value:
+        return (value,) if value else ()
+    segments = [segment for segment in value.split("*") if len(segment) >= 4]
+    return tuple(sorted(segments, key=len, reverse=True)[:2])
+
+
 def _copy_kinds(stats: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
     return {
         kind: {

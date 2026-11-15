@@ -29,6 +29,7 @@ from .engine import (
     SearchBudgetExceededError,
     SearchCoverageCensoredError,
     _is_time_token,
+    _literal_term_segments,
     _search_literal,
 )
 
@@ -353,13 +354,17 @@ class Investigator:
         cells: dict[tuple[str, str, int, int], RetrievalCell] = {}
         scans = 0
         for handle in sorted(handles):
+            terms = _literal_term_segments(handle)
+            if not terms:
+                continue
             # One handle's cells are fixed for the run's index and window: scan it once.
             scan = self._handle_cells.get(handle)
             if scan is None:
                 scans += 1
                 q = (
                     f"| tstats count where index={index_q} "
-                    f"{_search_literal(handle)} by host source _time span=3600s"
+                    f"{' '.join(_search_literal(term) for term in terms)} "
+                    "by host source _time span=3600s"
                 )
                 scan = {}
                 for row in self._rows(q, self.start, self.end):

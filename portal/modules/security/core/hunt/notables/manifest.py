@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ..engine import Search
+from ..engine import Search, _literal_term_segments
 from ..executor import (
     DEFAULT_BUDGETS,
     HuntBudget,
@@ -171,7 +171,9 @@ def _provenance_query(index: str, host: str, source: str, terms: Sequence[str]) 
     the payload of a key=value field. Plain quoted terms match wherever the characters appear,
     which is what we need for provenance recall.
     """
-    tail = " ".join(_quote(value) for value in terms[:MAX_TERMS])
+    tail = " ".join(
+        _quote(segment) for value in terms[:MAX_TERMS] for segment in _literal_term_segments(value)
+    )
     head = f"search index={_quote(index)} host={_quote(host)} source={_quote(source)}"
     return head + (f" {tail}" if tail else "") + f" | head {AUDIT_ROWS}"
 

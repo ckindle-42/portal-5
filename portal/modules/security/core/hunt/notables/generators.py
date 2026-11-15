@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
 from typing import Any
 
+from ..engine import _literal_term_segments
 from ..executor import HuntExecutor
 from .behaviours import Behaviour
 from .cards import SourceCard
@@ -137,13 +138,14 @@ def _first_present(fields: Mapping[str, str], names: Sequence[str]) -> str:
 
 
 def _term(value: str) -> str:
-    return _quote(value)
+    return " ".join(_quote(segment) for segment in _literal_term_segments(value))
 
 
 def _alert_query(facts: SourceFacts, action: str, entity: str) -> str:
     route, _ = route_filter(facts, BEHAVIOUR_SOURCES)
-    terms = " ".join(_term(value) for value in (action, entity) if value)
-    tail = f" {terms}" if terms else ""
+    term_groups = [_term(value) for value in (action, entity) if value]
+    terms = " ".join(term for term in term_groups if term)
+    tail = f" {terms}"
     return f"search index={_quote(facts.index)} {route}{tail} | head 5"
 
 
@@ -408,9 +410,9 @@ def _index_terms(notable: Notable) -> list[str]:
         if role not in ("actor", "object"):
             continue
         text = value.strip()
-        if not text or text == "*" or any(char.isspace() for char in text):
+        if not text or any(char.isspace() for char in text):
             continue
-        terms.append(text)
+        terms.extend(_literal_term_segments(text))
     return terms[:EXACT_TERMS]
 
 

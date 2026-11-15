@@ -7,6 +7,7 @@ from portal.modules.security.core.hunt.executor import Read
 from portal.modules.security.core.hunt.notables.behaviours import Behaviour
 from portal.modules.security.core.hunt.notables.cards import SourceCard
 from portal.modules.security.core.hunt.notables.generators import (
+    _alert_query,
     _behaviour_deviations,
     _robust_z,
     _series_by_source,
@@ -87,6 +88,14 @@ def _alert_card() -> SourceCard:
 
 def _alert_facts() -> SourceFacts:
     return SourceFacts("ix", "alerts", 100, 0.0, 3600.0, ("h1", "h2"), 2, ("s1",), 1)
+
+
+def test_alert_query_splits_starred_role_values() -> None:
+    query = _alert_query(_alert_facts(), "alpha*medium*verylongsegment", "***")
+
+    assert '"verylongsegment" "medium"' in query
+    assert "*" not in query
+    assert 'index="ix"' in query
 
 
 def test_alerts_raise_one_notable_per_distinct_alert_and_entity():

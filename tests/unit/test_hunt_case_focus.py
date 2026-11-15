@@ -271,6 +271,19 @@ def test_investigation_effort_limit_uses_rank_order() -> None:
     assert any("tok8x" in q for q in search.queries)
 
 
+def test_term_cells_split_starred_handles_and_skip_empty_ones() -> None:
+    search = FakeSearch([FILLER[0]])
+    investigator = Investigator(search, "idx", 0.0, 10**9)
+
+    _cells, scans = investigator._term_cells("pivot", {"alpha*medium*verylongsegment", "***"})
+
+    query = next(q for q in search.queries if "by host source _time span=3600s" in q)
+    assert scans == 1
+    assert '"verylongsegment" "medium"' in query
+    assert '"alpha"' not in query
+    assert "*" not in query
+
+
 def test_investigation_does_not_filter_by_zoom_level_population() -> None:
     # The same hosts-novel count is the rarest band of one level and the whole of another.
     hour_level = [_lead(i, v) for i, v in enumerate([10, 1, 1, 1, 1, 1, 1, 1, 1, 1])]
@@ -535,7 +548,8 @@ def test_quoted_token_is_escaped_as_a_literal() -> None:
         for query in search.queries
         if query.startswith("| tstats") and "by host source _time span=3600s" in query
     )
-    assert '"value\\" OR index=*"' in term_query
+    assert '"value\\" OR index="' in term_query
+    assert "*" not in term_query
     assert ' "value" OR index=* ' not in term_query
 
 
