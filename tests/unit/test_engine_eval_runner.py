@@ -1060,6 +1060,17 @@ def test_failed_startup_is_recorded_with_logs_and_engine_models_body(monkeypatch
         "launch_error": None,
         "argv": ["rapid-mlx"],
     }
+    # The engine binary is not installed on CI; this test is about startup failure, not the version floor.
+    monkeypatch.setattr(
+        runner.h2h,
+        "engine_identity",
+        lambda _cfg, engine, argv=None: {
+            "engine": engine,
+            "ok": True,
+            "installed": "test",
+            "reason": None,
+        },
+    )
     monkeypatch.setattr(runner, "data_root", lambda: tmp_path)
     monkeypatch.setattr(runner, "_configure_results", lambda _root: None)
     monkeypatch.setattr(runner.h2h, "start_gate", lambda _cfg: (True, "ok"))
