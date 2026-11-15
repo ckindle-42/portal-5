@@ -40,7 +40,6 @@ import httpx
 from fastapi import HTTPException
 
 from portal.platform.inference.config import PersonaSpec
-from portal.platform.inference.eval_openai import uses_openai_seat_injection
 from portal.platform.inference.load_guard import protect_failover
 from portal.platform.inference.model_addressing import workspace_context_limit
 from portal.platform.inference.router import no_answer
@@ -2502,7 +2501,7 @@ async def _build_streaming_request(
     # Ollama; plain-OpenAI max_tokens/stream_options for oMLX.
     if backend.type == "ollama":
         backend_body = _inject_ollama_options(backend_body, workspace_id)
-    elif uses_openai_seat_injection(backend.type):
+    elif backend.type == "omlx":
         backend_body = _inject_omlx_options(backend_body, workspace_id)
 
     # Resolve effective tool list for this request (M2)
@@ -2619,9 +2618,6 @@ async def _build_streaming_request(
 
     if not _has_tools:
         backend_body.pop("portal_bite_max_hops", None)
-    from portal.platform.inference.tool_registry import canonicalise_eval_tools
-
-    canonicalise_eval_tools(backend_body, backend.type)
     trace_note(tools_offered=offered_tool_names(backend_body))
     return backend_body, effective_tools, _has_tools, _portal_no_tools
 

@@ -29,7 +29,6 @@ from typing import Any
 import yaml
 
 from portal.platform.inference.config import WorkspaceSpec
-from portal.platform.inference.eval_openai import exclusive_workspace_ids
 from portal.platform.inference.owui_tools import all_tools_dead, compute_tool_ids
 
 REPO: Path = Path(__file__).resolve().parents[3]
@@ -38,9 +37,9 @@ REPO: Path = Path(__file__).resolve().parents[3]
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 
-def _routing_default(ws_id: str, exclusive: frozenset[str]) -> list[str]:
-    """New bench-engine workspaces route to eval. Every other new id stays general."""
-    return ["eval"] if ws_id in exclusive else ["general"]
+def _routing_default() -> list[str]:
+    """New workspace ids use the general backend group unless configured otherwise."""
+    return ["general"]
 
 
 def _ws_filename(ws_id: str) -> str:
@@ -108,15 +107,13 @@ def emit_workspace_routing(config: Any) -> bool:
     # Parse existing routing to preserve backend groups
     raw = yaml.safe_load(original) or {}
     existing_routing: dict[str, Any] = raw.get("workspace_routing", {})
-    exclusive = exclusive_workspace_ids(str(backends_path))
-
     new_routing: dict[str, list[str]] = {}
     missing: list[str] = []
     for ws_id in config.workspaces:
         if ws_id in existing_routing:
             new_routing[ws_id] = existing_routing[ws_id]
         else:
-            new_routing[ws_id] = _routing_default(ws_id, exclusive)
+            new_routing[ws_id] = _routing_default()
             missing.append(ws_id)
 
     if missing:

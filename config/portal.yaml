@@ -2771,8 +2771,7 @@ workspaces:
           Focused NERC CIP reading loop with only the corpus, reading, currency, and review tools. Requirement reading lives here, in conversation; auto-compliance keeps catalog lookups, CVE triage and document production. Other frameworks remain catalog-only.
         # WINDOW_AND_SEAT_V1 §P8.1 bound the seat; TASK_COMPLIANCE_DELIVER_AND_
         # SETTLE_ENGINE_V1 §A2/A3 RE-BOUND it on the proving instrument. The
-        # §A2 read-test (reports/compliance/prove_then_scale/p1/A2_SPLASH_MODEL_
-        # JUDGMENT.md) ran the six §P1 cases one-call/no-tools on three candidates:
+        # §A2 read-test ran the six §P1 cases one-call/no-tools on three candidates:
         # gemma4, Qwen3.8-27B and Qwen3.6-35B-A3B each read 4/6 with the IDENTICAL
         # two failures (choice: the policy's "and"-joined restatement of Part 2.3
         # goes unflagged; no_operator_side: the policy's verbatim restatement of

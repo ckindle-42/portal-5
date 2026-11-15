@@ -18,7 +18,6 @@ import httpx
 from fastapi.responses import JSONResponse
 
 from portal.platform.inference.config import PersonaSpec
-from portal.platform.inference.eval_openai import EVAL_OPENAI, uses_openai_seat_injection
 from portal.platform.inference.model_addressing import workspace_context_limit
 from portal.platform.inference.router.backend_introspect import _approx_prompt_tokens
 from portal.platform.inference.router.correlation import get_correlation_id
@@ -110,23 +109,6 @@ class BackendRequestError(Exception):
         self.status_code = status_code
         self.detail = detail
         self.raw_body = raw_body
-
-
-def _log_eval_upstream_error(
-    backend: Any, workspace_id: str, model_id: str, status: int, raw_body: bytes | str
-) -> None:
-    """Keep candidate-engine rejection details in Pipeline logs for bench/eval requests."""
-    if getattr(backend, "type", "") != EVAL_OPENAI:
-        return
-    body = raw_body.decode("utf-8", "replace") if isinstance(raw_body, bytes) else raw_body
-    logger.error(
-        "Backend %s upstream HTTP %d for workspace=%s model=%s body=%s",
-        backend.id,
-        status,
-        workspace_id,
-        model_id,
-        body[:500],
-    )
 
 
 #: Statuses meaning the request itself is malformed. 404 (model not on this
@@ -291,16 +273,7 @@ def resolve_hop_target(
         return primary_url, hop_body
     ordered = list(registry.get_backend_candidates(workspace_id))
     seen = {b.id for b in ordered}
-    exclusive = bool(getattr(registry, "is_exclusive", lambda _ws: False)(workspace_id))
-    extra = (
-        []
-        if exclusive
-        else [
-            b
-            for b in registry.list_healthy_backends()
-            if b.id not in seen and getattr(b, "type", "") != EVAL_OPENAI
-        ]
-    )
+    extra = [b for b in registry.list_healthy_backends() if b.id not in seen]
     for b in [*ordered, *extra]:
         native = b.resolve_model(hop_model)
         if native is None:
@@ -310,7 +283,7 @@ def resolve_hop_target(
             body.pop(key, None)
         if b.type == "ollama":
             body = _inject_ollama_options(body, workspace_id)
-        elif uses_openai_seat_injection(b.type):
+        elif b.type == "omlx":
             body = _inject_omlx_options(body, workspace_id)
         return b.chat_url, body
     logger.warning(
@@ -927,7 +900,7 @@ async def _final_toolless_answer(
 
 def _request_timeout_for(backend: Any, workspace_config: dict[str, Any]) -> float:
     timeout = getattr(registry, "request_timeout", 300.0)
-    if workspace_config.get("emits_reasoning") or uses_openai_seat_injection(backend.type):
+    if workspace_config.get("emits_reasoning") or backend.type == "omlx":
         timeout = max(timeout, 600.0)
     return timeout
 
@@ -1101,7 +1074,7 @@ async def _try_non_streaming(
     req_body.pop("portal_bite_max_hops", None)
     if backend.type == "ollama":
         req_body = _inject_ollama_options(req_body, workspace_id)
-    elif uses_openai_seat_injection(backend.type):
+    elif backend.type == "omlx":
         req_body = _inject_omlx_options(req_body, workspace_id)
     _ns_thinking_allowed = _thinking_enabled(req_body)
 
@@ -1182,9 +1155,6 @@ async def _try_non_streaming(
                 len(_tools_arr),
             )
 
-    from portal.platform.inference.tool_registry import canonicalise_eval_tools
-
-    canonicalise_eval_tools(req_body, backend.type)
     trace_note(tools_offered=offered_tool_names(req_body))
 
     _prefill_refusal: str | None = None
@@ -1458,15 +1428,7 @@ async def _try_non_streaming(
                 model_elapsed_s=max(0.0, time.monotonic() - _model_started),
                 tool_result_carry=_ns_carry,
             )
-        except (httpx.TimeoutException, BackendRequestError) as exc:
-            if isinstance(exc, BackendRequestError) and backend.type == EVAL_OPENAI:
-                _log_eval_upstream_error(
-                    backend,
-                    workspace_id,
-                    target_model,
-                    exc.status_code,
-                    exc.raw_body or exc.detail,
-                )
+        except (httpx.TimeoutException, BackendRequestError):
             raise  # timeout: outer handler checks /api/ps; 4xx: caller surfaces it
         except Exception as exc:
             # The cause used to be swallowed: a cascade to the next candidate
@@ -1477,23 +1439,14 @@ async def _try_non_streaming(
             _prefill_refusal = _omlx_prefill_refusal_detail(backend, exc)
             if tried is not None:
                 tried[(backend.chat_url, target_model)] = f"{target_model}: {detail[:300]}"
-            if status is not None and backend.type == EVAL_OPENAI:
-                _log_eval_upstream_error(
-                    backend,
-                    workspace_id,
-                    target_model,
-                    status,
-                    raw_body,
-                )
-            else:
-                logger.warning(
-                    "Backend %s request failed for workspace=%s model=%s: %s: %s",
-                    backend.id,
-                    workspace_id,
-                    target_model,
-                    type(exc).__name__,
-                    detail[:300],
-                )
+            logger.warning(
+                "Backend %s request failed for workspace=%s model=%s: %s: %s",
+                backend.id,
+                workspace_id,
+                target_model,
+                type(exc).__name__,
+                detail[:300],
+            )
             return None
 
     try:

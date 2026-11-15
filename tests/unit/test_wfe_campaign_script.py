@@ -123,7 +123,7 @@ def test_registered_task_can_be_executed_through_a_bench_workspace(tmp_path: Pat
     plan = {
         "repeats": 1,
         "workloads": {
-            "bench-engine-hunt": {
+            "bench-gemma4-26b-optiq": {
                 "tool_mode": "production",
                 "home": "realuse_v1",
                 "home_tasks": ["ru-v1-001"],
@@ -143,7 +143,7 @@ def test_registered_task_can_be_executed_through_a_bench_workspace(tmp_path: Pat
 
     assert len(rows) == 1
     assert rows[0]["task_id"] == "ru-v1-001"
-    assert rows[0]["workspace"] == "bench-engine-hunt"
+    assert rows[0]["workspace"] == "bench-gemma4-26b-optiq"
 
 
 def _run_real_interleaved_script(

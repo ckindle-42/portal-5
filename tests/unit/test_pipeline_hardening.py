@@ -208,9 +208,9 @@ async def test_requested_usage_survives_terminal_engine_finish_frame(stream_clie
 
     chunks = await _drain(
         st._stream_from_backend_guarded(
-            "http://host.docker.internal:11241/v1/chat/completions",
+            "http://host.docker.internal:8085/v1/chat/completions",
             {"stream": True, "stream_options": {"include_usage": True}},
-            "bench-engine-coding",
+            "auto-coding",
             "Qwen3.8-27B-4bit",
         )
     )
@@ -1058,18 +1058,6 @@ async def test_malformed_request_raises_instead_of_cascading(monkeypatch, ns_env
     with pytest.raises(ns.BackendRequestError) as exc:
         await ns._try_non_streaming(_backend("a"), {"messages": []}, ns_env, 0.0)
     assert exc.value.status_code == 400 and "bad param" in exc.value.detail
-
-
-def test_eval_upstream_error_log_keeps_backend_status_and_body(caplog) -> None:
-    backend = SimpleNamespace(id="eval-openai-rapid-mlx", type=ns.EVAL_OPENAI)
-    body = b'{"error":{"message":"The model is still loading"}}'
-
-    with caplog.at_level(logging.ERROR, logger=ns.__name__):
-        ns._log_eval_upstream_error(backend, "bench-engine-daily-moe", "nemotron", 503, body)
-
-    assert "eval-openai-rapid-mlx" in caplog.text
-    assert "HTTP 503" in caplog.text
-    assert "The model is still loading" in caplog.text
 
 
 def test_backend_request_error_retains_raw_upstream_body() -> None:
