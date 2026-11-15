@@ -397,6 +397,9 @@ def launch_values(
         "python": os.path.expanduser(
             m.get("prismml_mlx_python", "~/src/prismml-mlx/.venv/bin/python")
         ),
+        "vllm_mlx_bin": os.path.expanduser(
+            str(cfg["engines"].get("vllm-mlx", {}).get("executable") or "vllm-mlx")
+        ),
         "spec_args": (spec or {}).get("args") or [],
     }
 
@@ -505,6 +508,67 @@ def _run(argv: list[str], timeout: int = 15) -> str:
         return subprocess.run(argv, capture_output=True, text=True, timeout=timeout).stdout
     except Exception:
         return ""
+
+
+# Semver, first X.Y.Z on a line. A pre-release (1.0.0-dev) is below that release.
+_SEMVER_RE = re.compile(r"(?<![\d.])(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*))?")
+_DEFAULT_MINIMUM = {"brew-llama": "1.0.0", "mlx_lm.server": "0.32.2"}
+
+
+def _semver_parts(text: str) -> tuple[int, int, int, tuple[str, ...]] | None:
+    match = _SEMVER_RE.search(text)
+    if not match:
+        return None
+    pre = tuple(match.group(4).split(".")) if match.group(4) else ()
+    return (int(match.group(1)), int(match.group(2)), int(match.group(3)), pre)
+
+
+def _semver_text(text: str) -> str | None:
+    match = _SEMVER_RE.search(text)
+    if not match:
+        return None
+    base = f"{int(match.group(1))}.{int(match.group(2))}.{int(match.group(3))}"
+    return f"{base}-{match.group(4)}" if match.group(4) else base
+
+
+def _pre_cmp(left: tuple[str, ...], right: tuple[str, ...]) -> int:
+    if left == right:
+        return 0
+    if not left:
+        return 1
+    if not right:
+        return -1
+    for one, other in zip(left, right, strict=False):
+        if one.isdigit() and other.isdigit():
+            diff = int(one) - int(other)
+        elif one.isdigit():
+            diff = -1
+        elif other.isdigit():
+            diff = 1
+        else:
+            diff = (one > other) - (one < other)
+        if diff:
+            return 1 if diff > 0 else -1
+    return (len(left) > len(right)) - (len(left) < len(right))
+
+
+def semver_at_least(text: str, minimum: str) -> bool:
+    """True when text's semver is >= minimum. Unparseable text is not."""
+    got = _semver_parts(text)
+    floor = _semver_parts(minimum)
+    if got is None or floor is None:
+        return False
+    for index in range(3):
+        if got[index] != floor[index]:
+            return got[index] > floor[index]
+    return _pre_cmp(got[3], floor[3]) >= 0
+
+
+def _first_semver_line(text: str) -> str:
+    for line in text.splitlines():
+        if _semver_parts(line):
+            return line.strip()
+    return ""
 
 
 def parse_swapusage(text: str) -> dict:
@@ -869,45 +933,27 @@ def _rapid_mlx_python() -> str | None:
     return python if python and Path(python).is_file() else None
 
 
-# Stable Homebrew bottle prints "version: 1.0.0 (build N, commit …)".
-# The trailing space rejects "1.0.0-dev". b9950 prints "version: 9950 (…)".
-_BREW_LLAMA_VERSION_PREFIX = "version: 1.0.0 "
+def brew_llama_version_text_ok(text: str, minimum: str = "1.0.0") -> bool:
+    """True when the first llama-server --version line is llama.cpp >= minimum."""
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    return bool(lines) and semver_at_least(lines[0], minimum)
 
 
-def brew_llama_version_text_ok(text: str) -> bool:
-    """True when the first llama-server --version line is the 1.0.0 stable build."""
-    lines = text.strip().splitlines()
-    return bool(lines) and lines[0].startswith(_BREW_LLAMA_VERSION_PREFIX)
-
-
-def brew_llama_binary_refusal(engine: str, argv: list[str]) -> str | None:
-    """Refuse brew-llama unless llama-server is llama.cpp 1.0.0.
-
-    Homebrew b9950 (961e4b26a) never reads nextn_predict_layers. On the production
-    bartowski Q4_K_M it classifies blk.52 as a normal MoE block and exits
-    done_getting_tensors expected 417, got 408. v1.0.0 loads that same file,
-    plain and draft-mtp. Do not swap the GGUF; upgrade the formula.
-    """
-    if engine != "brew-llama" or not argv:
-        return None
-    binary = argv[0]
+def _read_process_text(argv: list[str], timeout: int = 30) -> tuple[str, str | None]:
     try:
-        proc = subprocess.run(
-            [binary, "--version"],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
+        proc = subprocess.run(argv, check=False, capture_output=True, text=True, timeout=timeout)
     except (OSError, subprocess.SubprocessError) as exc:
-        return f"brew-llama: cannot read {binary} --version: {exc}"
-    text = f"{proc.stdout or ''}{proc.stderr or ''}"
-    if brew_llama_version_text_ok(text):
+        return "", str(exc)
+    return f"{proc.stdout or ''}{proc.stderr or ''}", None
+
+
+def brew_llama_refusal_from_text(text: str, binary: str, minimum: str) -> str | None:
+    if brew_llama_version_text_ok(text, minimum):
         return None
     shown = text.strip().splitlines()
     first = shown[0] if shown else "<empty>"
     return (
-        "brew-llama: llama-server must be llama.cpp 1.0.0 "
+        f"brew-llama: llama-server must be llama.cpp >= {minimum} "
         f"(got {first!r} from {binary}). "
         "b9950 rejects bartowski NVIDIA-Nemotron-3.5-Lightning-30B-A3B Q4_K_M "
         "(done_getting_tensors expected 417, got 408): the file's blk.52 MTP block "
@@ -916,14 +962,27 @@ def brew_llama_binary_refusal(engine: str, argv: list[str]) -> str | None:
     )
 
 
-# PyPI mlx-lm 0.32.2. Reject 0.31.3 and any dev suffix.
-_MLX_LM_REQUIRED_VERSION = "0.32.2"
+def brew_llama_binary_refusal(engine: str, argv: list[str], minimum: str = "1.0.0") -> str | None:
+    """Refuse brew-llama unless llama-server is llama.cpp >= minimum.
+
+    Homebrew b9950 (961e4b26a) never reads nextn_predict_layers. On the production
+    bartowski Q4_K_M it classifies blk.52 as a normal MoE block and exits
+    done_getting_tensors expected 417, got 408. v1.0.0 and later load that same
+    file, plain and draft-mtp. Do not swap the GGUF; upgrade the formula.
+    """
+    if engine != "brew-llama" or not argv:
+        return None
+    binary = argv[0]
+    text, err = _read_process_text([binary, "--version"])
+    if err:
+        return f"brew-llama: cannot read {binary} --version: {err}"
+    return brew_llama_refusal_from_text(text, binary, minimum)
 
 
-def mlx_lm_version_text_ok(text: str) -> bool:
-    """True when the interpreter printed exactly mlx-lm 0.32.2."""
-    lines = text.strip().splitlines()
-    return bool(lines) and lines[-1].strip() == _MLX_LM_REQUIRED_VERSION
+def mlx_lm_version_text_ok(text: str, minimum: str = "0.32.2") -> bool:
+    """True when the interpreter printed mlx-lm >= minimum. Dev suffixes are below."""
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    return bool(lines) and semver_at_least(lines[-1], minimum)
 
 
 def _script_interpreter(binary: str) -> str | None:
@@ -938,8 +997,8 @@ def _script_interpreter(binary: str) -> str | None:
     return python if python and Path(python).is_file() else None
 
 
-def mlx_lm_binary_refusal(engine: str, argv: list[str]) -> str | None:
-    """Refuse mlx_lm.server unless its shebang interpreter imports mlx-lm 0.32.2.
+def mlx_lm_binary_refusal(engine: str, argv: list[str], minimum: str = "0.32.2") -> str | None:
+    """Refuse mlx_lm.server unless its shebang interpreter imports mlx-lm >= minimum.
 
     There is no --version flag. Reading the version does not bind the eval port.
     """
@@ -951,25 +1010,185 @@ def mlx_lm_binary_refusal(engine: str, argv: list[str]) -> str | None:
     python = _script_interpreter(binary)
     if python is None:
         return f"mlx_lm.server: cannot read the interpreter shebang of {binary}"
-    try:
-        proc = subprocess.run(
-            [python, "-c", "import mlx_lm; print(mlx_lm.__version__)"],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-    except (OSError, subprocess.SubprocessError) as exc:
-        return f"mlx_lm.server: cannot read mlx_lm.__version__ via {python}: {exc}"
-    if proc.returncode == 0 and mlx_lm_version_text_ok(proc.stdout or ""):
+    text, err = _read_process_text([python, "-c", "import mlx_lm; print(mlx_lm.__version__)"])
+    if err:
+        return f"mlx_lm.server: cannot read mlx_lm.__version__ via {python}: {err}"
+    if mlx_lm_version_text_ok(text, minimum):
         return None
-    shown = (proc.stdout or proc.stderr or "").strip().splitlines()
+    shown = text.strip().splitlines()
     got = shown[-1] if shown else "<empty>"
     return (
-        "mlx_lm.server must be mlx-lm 0.32.2 "
+        f"mlx_lm.server must be mlx-lm >= {minimum} "
         f"(got {got!r} from {python}). "
-        "docs/engine_research/mlxserve_20261114.md pins PyPI 0.32.2 (2026-10-16)."
+        "The registry version is the minimum; a newer release stays."
     )
+
+
+def _version_policy(entry: dict, engine: str) -> str:
+    declared = entry.get("version_policy")
+    if declared:
+        return str(declared)
+    if entry.get("version") or engine in _DEFAULT_MINIMUM:
+        return "minimum"
+    return "unpinned"
+
+
+def _minimum_for(entry: dict, engine: str) -> str:
+    return str(entry.get("version") or _DEFAULT_MINIMUM.get(engine) or "")
+
+
+def _brew_binary(entry: dict, argv: list[str] | None) -> str:
+    if argv:
+        return argv[0]
+    return str(entry.get("server_path") or "/opt/homebrew/bin/llama-server")
+
+
+def version_probe_argv(engine: str, cfg: dict | None = None) -> list[str]:
+    """Argv that prints the installed version. It does not bind a port."""
+    cfg = cfg or load_config()
+    entry = (cfg.get("engines") or {}).get(engine) or {}
+    if engine == "vllm-mlx":
+        exe = os.path.expanduser(str(entry.get("executable") or ""))
+        python = _script_interpreter(exe) if exe else None
+        if python:
+            return [python, "-c", "import vllm_mlx; print(vllm_mlx.__version__)"]
+        return [exe or "vllm-mlx", "--version"]
+    if engine == "mlx_lm.server":
+        binary = shutil.which("mlx_lm.server") or "mlx_lm.server"
+        python = _script_interpreter(binary)
+        if python:
+            return [python, "-c", "import mlx_lm; print(mlx_lm.__version__)"]
+    if engine == "prismml-llama":
+        binary = os.path.expanduser(str(entry.get("server_path") or ""))
+        return [binary, "--version"] if binary else []
+    if engine == "prismml-mlx":
+        python = os.path.expanduser("~/src/prismml-mlx/.venv/bin/python")
+        return [python, "-c", "import mlx_lm; print(mlx_lm.__version__)"]
+    commands = {
+        "ollama": ["ollama", "--version"],
+        "omlx": ["omlx", "--version"],
+        "mlx-serve": ["mlx-serve", "--version"],
+        "splash": ["splash", "--version"],
+        "mlxcel": ["mlxcel", "--version"],
+        "rapid-mlx": ["rapid-mlx", "--no-telemetry", "--version"],
+        "vllm-metal": ["vllm", "--version"],
+        "mtplx": ["mtplx", "--version"],
+        "brew-llama": ["/opt/homebrew/bin/llama-server", "--version"],
+    }
+    return commands.get(engine, [])
+
+
+def _identity_record(
+    policy: str,
+    minimum: str,
+    pin: str | None,
+    raw: str,
+    *,
+    ok: bool,
+    reason: str | None,
+    installed: str | None,
+) -> dict:
+    return {
+        "policy": policy,
+        "minimum": minimum or None,
+        "pin": pin,
+        "installed": installed,
+        "installed_raw": raw.strip(),
+        "ok": ok,
+        "reason": reason,
+    }
+
+
+def _minimum_identity(engine: str, minimum: str, raw: str, err: str | None) -> dict:
+    line = _first_semver_line(raw)
+    installed = _semver_text(line)
+    if err:
+        reason = f"{engine}: cannot read installed version: {err}"
+    elif not installed or not semver_at_least(line, minimum):
+        shown = line or "<empty>"
+        reason = (
+            f"{engine}: installed version {shown!r} is below the minimum {minimum}. "
+            "engines.*.version is a floor; upgrade the engine."
+        )
+    else:
+        reason = None
+    return _identity_record(
+        "minimum", minimum, None, raw, ok=reason is None, reason=reason, installed=installed
+    )
+
+
+def _fork_identity(engine: str, entry: dict, raw: str, err: str | None) -> dict:
+    pin = str(entry.get("version") or "")
+    token = str(entry.get("version_match") or pin)
+    first = next((line.strip() for line in raw.splitlines() if line.strip()), "")
+    if err:
+        reason = f"{engine}: cannot read the pinned fork build: {err}"
+    elif token and token not in raw:
+        reason = f"{engine}: installed build {first!r} does not contain the pinned fork tag {pin}"
+    else:
+        reason = None
+    return _identity_record(
+        "fork_tag", "", pin or None, raw, ok=reason is None, reason=reason, installed=first or None
+    )
+
+
+def engine_identity(cfg: dict, engine: str, argv: list[str] | None = None) -> dict:
+    """Installed version for receipts. A fork_tag stays a pin; every other version is a minimum."""
+    entry = (cfg.get("engines") or {}).get(engine) or {}
+    policy = _version_policy(entry, engine)
+    if engine == "brew-llama":
+        binary = _brew_binary(entry, argv)
+        minimum = _minimum_for(entry, engine)
+        raw, err = _read_process_text([binary, "--version"])
+        if err:
+            err = f"cannot read {binary} --version: {err}"
+        reason = (
+            brew_llama_refusal_from_text(raw, binary, minimum)
+            if not err
+            else (f"brew-llama: {err}")
+        )
+        return _identity_record(
+            "minimum",
+            minimum,
+            None,
+            raw,
+            ok=reason is None,
+            reason=reason,
+            installed=_semver_text((raw.strip().splitlines() or [""])[0]),
+        )
+    if engine == "mlx_lm.server":
+        minimum = _minimum_for(entry, engine)
+        reason = mlx_lm_binary_refusal(engine, argv or ["mlx_lm.server"], minimum)
+        raw, _err = _read_process_text(version_probe_argv(engine, cfg), timeout=60)
+        installed = _semver_text(_first_semver_line(raw) or raw)
+        return _identity_record(
+            "minimum",
+            minimum,
+            None,
+            raw,
+            ok=reason is None,
+            reason=reason,
+            installed=installed,
+        )
+    if policy == "unpinned":
+        return _identity_record("unpinned", "", None, "", ok=True, reason=None, installed=None)
+    probe = version_probe_argv(engine, cfg)
+    if (
+        not probe
+        or not probe[0]
+        or (
+            probe[0] not in {"uvx"}
+            and not Path(probe[0]).is_file()
+            and shutil.which(probe[0]) is None
+        )
+    ):
+        missing = probe[0] if probe else engine
+        raw, err = "", f"missing {missing}"
+    else:
+        raw, err = _read_process_text(probe, timeout=90)
+    if policy == "fork_tag":
+        return _fork_identity(engine, entry, raw, err)
+    return _minimum_identity(engine, _minimum_for(entry, engine), raw, err)
 
 
 def start_managed(
@@ -985,10 +1204,9 @@ def start_managed(
 ) -> dict:
     materialize_seat_link(cfg, engine, model, mode, seat, context_tokens)
     argv, cwd = launch_command(cfg, engine, model, mode, context_tokens=context_tokens, seat=seat)
-    refusal = (
-        rapid_mlx_argv_refusal(argv)
-        or brew_llama_binary_refusal(engine, argv)
-        or mlx_lm_binary_refusal(engine, argv)
+    version_record = engine_identity(cfg, engine, argv)
+    refusal = rapid_mlx_argv_refusal(argv) or (
+        None if version_record["ok"] else version_record["reason"]
     )
     if refusal:
         raise SystemExit(refusal)
@@ -1022,6 +1240,7 @@ def start_managed(
         "context_tokens": context_tokens or cfg["models"][model]["ctx"],
         "listed_model": listed_model,
         "started": _stamp(),
+        "engine_version": version_record,
     }
     _state_file(engine).write_text(json.dumps(st, indent=1))
     if on_started is not None:
@@ -2028,44 +2247,10 @@ def _stamp() -> str:
 
 
 def engine_version(engine: str) -> str:
-    argv = {
-        "ollama": ["ollama", "--version"],
-        "omlx": ["omlx", "--version"],
-        "mlx-serve": ["mlx-serve", "--version"],
-        "splash": ["splash", "--version"],
-        "mlxcel": ["mlxcel", "--version"],
-        "rapid-mlx": ["rapid-mlx", "--no-telemetry", "--version"],
-        "vllm-mlx": [
-            "uvx",
-            "--from",
-            "vllm-mlx==0.6.0",
-            "python",
-            "-c",
-            "import vllm_mlx;print(vllm_mlx.__version__)",
-        ],
-        # vllm-metal installs the upstream `vllm` CLI; its --version wording is unconfirmed here.
-        "vllm-metal": ["vllm", "--version"],
-        # The PATH script's shebang, not whichever python3 is first. 0.32.2 has no --version.
-        "mlx_lm.server": [
-            "python3",
-            "-c",
-            "import pathlib,shutil,subprocess; exe=shutil.which('mlx_lm.server'); "
-            "line=pathlib.Path(exe).resolve().read_text().splitlines()[0]; "
-            "py=line[2:].strip().split()[0]; "
-            "print(subprocess.check_output([py,'-c','import mlx_lm;print(mlx_lm.__version__)'],text=True).strip())",
-        ],
-        "mtplx": ["mtplx", "--version"],
-        "prismml-llama": [
-            str(Path.home() / "src/prismml-llama.cpp/build/bin/llama-server"),
-            "--version",
-        ],
-        "brew-llama": ["/opt/homebrew/bin/llama-server", "--version"],
-        "prismml-mlx": [
-            str(Path.home() / "src/prismml-mlx/.venv/bin/python"),
-            "-c",
-            "import mlx_lm;print(mlx_lm.__version__)",
-        ],
-    }[engine]
+    """Display string for h2h rows. The parsed floor check is engine_identity."""
+    argv = version_probe_argv(engine)
+    if not argv:
+        return ""
     return " ".join(_run(argv, 60).split()[-3:])
 
 

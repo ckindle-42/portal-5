@@ -1857,6 +1857,28 @@ def _finish_candidate_cell(
     receipt["evidence_sources"]["engine_logs"] = [str(path) for path in log_paths]
 
 
+def _version_refused_receipt(
+    root: Path,
+    build: str,
+    cell: dict[str, Any],
+    cfg: dict[str, Any],
+    receipt: dict[str, Any],
+    started: float,
+) -> dict[str, Any] | None:
+    """Record the installed version. Refuse the cell when it is below the minimum."""
+    receipt["engine_version"] = h2h.engine_identity(cfg, cell["engine"])
+    if receipt["engine_version"].get("ok") is not False:
+        return None
+    path = canary_receipt_path(root, build, cell)
+    receipt["failures"] = [str(receipt["engine_version"].get("reason") or "engine version")]
+    receipt["valid"] = False
+    receipt["receipt"] = str(path)
+    receipt["elapsed_s"] = round(time.monotonic() - started, 1)
+    _stamp_reason(receipt)
+    _write_json(path, receipt)
+    return receipt
+
+
 def run_cell(cell: dict[str, Any], pipeline: str, build: str | None = None) -> dict[str, Any]:
     """Start one managed engine, run two Pipeline requests, and stop it."""
     root = data_root()
@@ -1883,6 +1905,7 @@ def run_cell(cell: dict[str, Any], pipeline: str, build: str | None = None) -> d
     }
     if cell.get("not_installed"):
         path = canary_receipt_path(root, build, cell)
+        receipt["engine_version"] = h2h.engine_identity(cfg, cell["engine"])
         receipt.update(
             {
                 "skipped": True,
@@ -1895,6 +1918,9 @@ def run_cell(cell: dict[str, Any], pipeline: str, build: str | None = None) -> d
         )
         _write_json(path, receipt)
         return receipt
+    refused = _version_refused_receipt(root, build, cell, cfg, receipt, started)
+    if refused is not None:
+        return refused
     log_dir = root / "engine_eval" / "logs" / build / _cell_id(cell)
     log_paths = (log_dir / "engine.stdout.log", log_dir / "engine.stderr.log")
     log_dir.mkdir(parents=True, exist_ok=True)

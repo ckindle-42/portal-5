@@ -9,7 +9,10 @@
 # Placeholders rendered by the harness: {mlx_root} {model_dir} {served} {port}
 # {ctx} {tool_parser} {reasoning_parser} {drafter_path} {draft_path} {gguf_path}
 # {draft_gguf_path} {spec_args} {splash_model} {splash_extra} {llama_server}
-# {mlx_server_script} {python}
+# {mlx_server_script} {python} {vllm_mlx_bin}
+# engines.*.version is a minimum (installed < minimum fails closed). The runner
+# records the installed version on every canary and speed receipt. version_policy
+# fork_tag keeps a PrismML build pin and records it; it is not a semver floor.
 
 mlx_root: /Volumes/data01/omlx-models
 # Drafters / draft models stay OUTSIDE mlx_root: oMLX lists any dir with a
@@ -88,7 +91,7 @@ engines:
     port: 11234
     version: "26.11.2"
     # brew tap ddalcu/mlx-serve https://github.com/ddalcu/mlx-serve && brew trust ddalcu/mlx-serve && brew install mlx-serve
-    # CLI formula, arm64. Not the cask. mlx-serve --version must print 26.11.2.
+    # CLI formula, arm64. Not the cask. version is a minimum: mlx-serve --version must be >= 26.11.2.
     # Drafter flags are unchanged from 26.9.2: plain is --no-pld --no-drafter --no-mtp.
     # PLD (prompt-lookup speculation) is ON by default in mlx-serve, and it
     # auto-loads an MTP head or a drafter/ subdir it finds — plain must turn all three off.
@@ -173,8 +176,9 @@ engines:
     version: "1.0.2"
     # Install: curl -fsSL https://rapidmlx.com/install.sh | bash
     # Own Python 3.12/3.13. Do not install into the portal 3.10 venv. arm64 host.
-    # Stay on 1.0.2 (mlxserve_20261114.md §rapid-mlx §2 and §3): 1.0.3 fused 4-bit MoE is approximate.
-    # This host's binary is 1.0.2. `serve --help` has --reasoning-parser, --no-thinking,
+    # version is a minimum. Research held 1.0.2 because 1.0.3's fused 4-bit MoE is
+    # approximate; the canary's greedy parity/quality check decides, so 1.0.3+ is allowed.
+    # `serve --help` has --reasoning-parser, --no-thinking,
     # --context-length, --speculative-config, --trusted-hosts. It has no
     # --default-chat-template-kwargs, so seats must not emit that flag.
     # Unseated historical rows keep plain/base_spec. Campaign cells use seat_base.
@@ -189,7 +193,7 @@ engines:
     base_spec: [rapid-mlx, --no-telemetry, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}", --trusted-hosts, 127.0.0.1, localhost, host.docker.internal]
     # mlxserve_20261114.md §rapid-mlx §2 quality-plain, minus --no-spec-decode (plain_extra only).
     seat_base: [rapid-mlx, --no-telemetry, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}", --trusted-hosts, 127.0.0.1, localhost, host.docker.internal]
-    note: "Pin 1.0.2 (mlxserve_20261114.md §rapid-mlx §2–§3). Health 400s were the DNS-rebinding allowlist: --trusted-hosts must include host.docker.internal. DFlash forced tool_choice is an engine limit: HTTP 400 {\"detail\":\"DFlash currently supports tool_choice='auto' only.\"} in rapid_mlx/speculative/dflash/server.py on 1.0.2; 1.0.3 changelog does not lift it; no flag. Forced tool_choice synthesis can still HTTP 422 (chat.py #1256) when the call omits a required property; the engine text says retry or use tool_choice=auto. gemma4 is the hunt catalog parser, not a switch that removes that check. Local MTP is explicit {\"method\":\"mtp\",\"model\":<pack or assistant>}; a bare method on a local dir falls back to plain. Per-seat argv is engines.rapid-mlx.seats."
+    note: "Minimum 1.0.2 (mlxserve_20261114.md §rapid-mlx §2–§3). 1.0.3 fused 4-bit MoE is approximate; the canary greedy parity/quality check decides, so a newer release is not refused here. Health 400s were the DNS-rebinding allowlist: --trusted-hosts must include host.docker.internal. DFlash forced tool_choice is an engine limit: HTTP 400 {\"detail\":\"DFlash currently supports tool_choice='auto' only.\"} in rapid_mlx/speculative/dflash/server.py on 1.0.2; 1.0.3 changelog does not lift it; no flag. Forced tool_choice synthesis can still HTTP 422 (chat.py #1256) when the call omits a required property; the engine text says retry or use tool_choice=auto. gemma4 is the hunt catalog parser, not a switch that removes that check. Local MTP is explicit {\"method\":\"mtp\",\"model\":<pack or assistant>}; a bare method on a local dir falls back to plain. Per-seat argv is engines.rapid-mlx.seats."
     seats:
       # §1 daily-moe: alias target is the 4-bit pack, parsers nemotron + qwen3, spec off.
       # auto-daily think is true. Omit --no-thinking (Qwen-style template default is on).
@@ -249,19 +253,20 @@ engines:
     requires: mlx
     port: 11236
     version: "0.6.0"
-    # uvx --from vllm-mlx==0.6.0 vllm-mlx --version
-    # Rapid-MLX ships its own vllm-mlx executable; this pin keeps upstream distinct.
+    # version is a minimum. Upstream vllm-mlx lives in its own venv. PATH vllm-mlx is
+    # Rapid-MLX's shim and must not be launched. No exact uvx pin.
+    executable: ~/.local/share/portal-eval-engines/vllm-mlx/bin/vllm-mlx
     # Apple Silicon only. --continuous-batching is off by default in 0.6.0 and is
     # what makes n>1 a batch. It changes the 0.5.0 single-user default on purpose.
     # No --ssd-cache-dir. No --use-paged-cache.
     # Unseated historical rows (mimo) keep this argv. Campaign seats use seat_base.
-    plain: [uvx, --from, vllm-mlx==0.6.0, vllm-mlx, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}", --continuous-batching, --default-chat-template-kwargs, '{"enable_thinking": false}']
-    base_spec: [uvx, --from, vllm-mlx==0.6.0, vllm-mlx, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}", --continuous-batching, --default-chat-template-kwargs, '{"enable_thinking": false}']
+    plain: ["{vllm_mlx_bin}", serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}", --continuous-batching, --default-chat-template-kwargs, '{"enable_thinking": false}']
+    base_spec: ["{vllm_mlx_bin}", serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}", --continuous-batching, --default-chat-template-kwargs, '{"enable_thinking": false}']
     # docs/engine_research/vllm_20261114.md § vllm-mlx 0.6.0 shared 64 GB argv.
     # MTP stays on the OpenAI stream route (--stream-interval 1). Spec does not disable streaming.
     # The local Nemotron-MTP stream was not tested. Usage needs stream_options.include_usage=true.
     note: "OpenAI SSE stays available with --enable-mtp and --stream-interval 1. Spec does not disable streaming. On 0.6.0 --enable-mtp is inert for nemotron_h: validation logs num_nextn_predict_layers=0 and model.mtp is None, and no injection path exists outside qwen3_next/qwen3_5. Final usage needs stream_options.include_usage=true."
-    seat_base: [uvx, --from, vllm-mlx==0.6.0, vllm-mlx, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --gpu-memory-utilization, "0.45", --max-kv-size, "{ctx}", --max-request-tokens, "8192", --max-tokens, "8192", --continuous-batching, --max-num-seqs, "4", --prefill-step-size, "512", --cache-memory-mb, "2048", --stream-interval, "1", --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}"]
+    seat_base: ["{vllm_mlx_bin}", serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --gpu-memory-utilization, "0.45", --max-kv-size, "{ctx}", --max-request-tokens, "8192", --max-tokens, "8192", --continuous-batching, --max-num-seqs, "4", --prefill-step-size, "512", --cache-memory-mb, "2048", --stream-interval, "1", --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}"]
     seats:
       # § vllm-mlx 0.6.0 seat table: oQ4e-mtp dir; native MTP on the spec arm only; tool nemotron; no reasoning parser.
       # auto-daily think is true. The proposal left the flag unset; the task sets it on and does not copy the global false.
@@ -315,7 +320,7 @@ engines:
     port: 11237
     version: "0.32.2"
     # docs/engine_research/mlxserve_20261114.md §mlx_lm.server and Proposed registry entries:
-    # pin 0.32.2, not 0.31.3. One cell. cwd {mlx_root}. Relative --model.
+    # minimum 0.32.2, not 0.31.3 (a newer release stays). One cell. cwd {mlx_root}. Relative --model.
     # §2: do not add --draft-model, --kv-bits, or --max-kv-size (0.32.2 --help has no
     # --max-kv-size). --prompt-cache-size stays the argparse default 10.
     # --prompt-cache-bytes stays unset (issue 1118: ignored on the sequential path).
@@ -357,6 +362,10 @@ engines:
     requires: gguf
     port: 11238
     server_path: ~/src/prismml-llama.cpp/build/bin/llama-server
+    # Fork build pin, not a package semver. The runner records this tag and the binary's --version.
+    version: "prism-b12128-d7b2896"
+    version_policy: fork_tag
+    version_match: d7b2896
     # docs/engine_research/gguf_20261114.md §2: Prism tag prism-b12128-d7b2896, commit d7b28968306207fd176e7ff10796ccb6be607865; README Metal build keeps Metal enabled.
     # docs/engine_research/gguf_20261114.md §2.1–2.5 + §1.2: pin FA, one slot, and prefix reuse for the coding and router cells.
     plain: ["{llama_server}", -m, "{gguf_path}", -ngl, "99", -c, "{ctx}", -fa, "on", -np, "1", --jinja, --alias, "{served}", --cache-reuse, "256", --host, 127.0.0.1, --port, "{port}"]
@@ -370,6 +379,7 @@ engines:
     port: 11240
     server_path: /opt/homebrew/bin/llama-server
     version: "1.0.0"
+    # version is a minimum. MTP nextn landed in 1.0.0 and later releases keep it.
     # The linked keg at the c0186390a canary was Homebrew llama.cpp b9950 (961e4b26a,
     # 2026-07-10), which prints `version: 9950 (961e4b26a)`. That build never reads
     # nextn_predict_layers (src/llama-model.cpp at 961e4b26a has no
@@ -382,8 +392,9 @@ engines:
     # llama.cpp 1.0.0 (src/llama-model.cpp:1502; src/models/nemotron-h.cpp NextN loop)
     # consumes blk.52. Plain skips MTP with TENSOR_SKIP, which still increments
     # n_created (src/llama-model-loader.cpp), so plain and draft-mtp are this same file.
-    # Homebrew stable bottle is tag v1.0.0 revision b1b770d90 with LLAMA_BUILD_IS_DEV=OFF,
-    # so --version must start `version: 1.0.0 `. start_managed refuses anything else.
+    # Homebrew stable bottle is tag v1.0.0 revision b1b770d90 with LLAMA_BUILD_IS_DEV=OFF.
+    # start_managed refuses a first --version line below 1.0.0, including b9950 and 1.0.0-dev.
+    # 1.0.1 and later pass.
     # Do not point server_path at a private extract: the 1.0.0 bottle links libggml.1
     # and openssl@4, and `brew upgrade llama.cpp` is what installs them together.
     # Flag pins from docs/engine_research/gguf_20261114.md §4: -fa on, -np 1,
@@ -446,7 +457,7 @@ engines:
     port: 11242
     version: "1.6.1"
     # brew install incoai/tap/splash
-    # CLI formula, arm64 bottle. Not the splash-app cask. splash --version must print 1.6.1.
+    # CLI formula, arm64 bottle. Not the splash-app cask. version is a minimum: splash --version >= 1.6.1.
     # docs/engine_research/mlxother_20261114.md § 3) Splash (incoai), coding row + Proposed Splash registry entry.
     # splash serve --help (1.6.1): serve always loads a DFlash2 draft. No draft-off switch, so plain is null.
     # --draft-model selects the on-disk drafter. {splash_extra} is model-dir, that draft, and the served name.
@@ -472,7 +483,7 @@ engines:
     # Pin https://github.com/lablup/mlxcel/releases/download/v0.8.1/mlxcel-macos-aarch64.zip
     # sha256 56c57d3ba56f78d8fa7afaf07d6d7c0b06292364731ee6d327ae30e5fa685560
     # file(1) must be Mach-O arm64. brew tap lablup/tap && brew install lablup/tap/mlxcel
-    # only when mlxcel --version prints 0.8.1. Refuse linux cuda zips and rocm/cuda builds.
+    # version is a minimum: mlxcel --version >= 0.8.1. Refuse linux cuda zips and rocm/cuda builds.
     # Explicit --parallel 4 splits the ctx unless --kv-unified is also set.
     # --prompt-lookup stays off. No disk KV flag. Unseated rows keep plain/base_spec.
     # Campaign cells use seat_base. 0.8.1 has no parser flag and no --allowed-host.
