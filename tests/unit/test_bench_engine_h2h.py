@@ -849,6 +849,108 @@ def test_mlxcel_pins_parallel_batch_without_prompt_lookup(cfg):
         h.launch_command(cfg, "mlxcel", "gemma4_26b_a4b_qat", "spec")
 
 
+def _mlx_flag(argv: list[str], flag: str) -> str:
+    return argv[argv.index(flag) + 1]
+
+
+def _mlx_thinking(argv: list[str]) -> bool | None:
+    if "--chat-template-kwargs" not in argv:
+        return None
+    return json.loads(_mlx_flag(argv, "--chat-template-kwargs")).get("enable_thinking")
+
+
+_MLXCEL_CELLS = {
+    ("daily-moe", "nemotron_35_lightning", "plain"): "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-4bit",
+    ("coding", "qwen38_27b_h2h", "plain"): "Qwen3.8-27B-4bit",
+    ("coding", "qwen38_27b_h2h", "spec"): "Qwen3.8-27B-4bit",
+    ("hunt", "gemma4_26b_a4b_qat", "plain"): "gemma-4-26b-a4b-it-QAT-4bit",
+    ("council-json", "qwen38_27b_h2h", "plain"): "Qwen3.8-27B-4bit",
+}
+_MLXCEL_SERVED = {
+    "daily-moe": "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp",
+    "coding": "Qwen3.8-27B-4bit",
+    "hunt": "gemma-4-26b-a4b-it-QAT-4bit",
+    "council-json": "Qwen3.8-27B-4bit",
+}
+_MLXCEL_CTX = {"daily-moe": "32768", "coding": "32768", "hunt": "16384", "council-json": "32768"}
+
+
+def _mlxcel_rendered(cfg: dict) -> dict[tuple[str, str], list[str]]:
+    root = cfg["mlx_root"]
+    rendered = {}
+    for (seat, model, mode), directory in _MLXCEL_CELLS.items():
+        argv, _cwd = h.launch_command(cfg, "mlxcel", model, mode, seat=seat)
+        rendered[(seat, mode)] = argv
+        assert _mlx_flag(argv, "-m") == f"{root}/{directory}"
+        assert _mlx_flag(argv, "--alias") == _MLXCEL_SERVED[seat]
+        assert h.served_id(cfg, "mlxcel", model, mode) == _MLXCEL_SERVED[seat]
+        assert _mlx_flag(argv, "--ctx-size") == _MLXCEL_CTX[seat]
+        assert _mlx_flag(argv, "--port") == "11243"
+    return rendered
+
+
+def test_mlxcel_seats_follow_the_researched_registry(cfg):
+    """Parse engines.mlxcel.seats. No engine is started."""
+    note = cfg["engines"]["mlxcel"]["note"]
+    assert cfg["engines"]["mlxcel"]["version"] == "0.8.1"
+    assert "56c57d3ba56f78d8fa7afaf07d6d7c0b06292364731ee6d327ae30e5fa685560" in note
+    assert "/v1/models" in note
+    ready = cfg["engines"]["mlxcel"]["readiness"]
+    assert ready == {"path": "/v1/models", "timeout_s": 300, "collection": "data", "id_field": "id"}
+    for argv in _mlxcel_rendered(cfg).values():
+        assert _mlx_flag(argv, "--parallel") == "4"
+        assert "--kv-unified" in argv
+        assert "--prompt-lookup" not in argv
+        assert "--tool-call-parser" not in argv
+        assert "--reasoning-parser" not in argv
+        assert "--default-chat-template-kwargs" not in argv
+        assert _mlx_flag(argv, "--host") == "127.0.0.1"
+    excluded = {
+        (item["seat"], item["engine"], item["mode"])
+        for item in cfg["engine_eval"]["excluded_cells"]
+    }
+    assert ("daily-moe", "mlxcel", "plain") not in excluded
+    assert ("daily-moe", "mlxcel", "spec") in excluded
+    assert ("council-json", "mlxcel", "spec") in excluded
+    with pytest.raises(SystemExit, match="no spec path"):
+        h.launch_command(cfg, "mlxcel", "nemotron_35_lightning", "spec", seat="daily-moe")
+    with pytest.raises(SystemExit, match="no spec path"):
+        h.launch_command(cfg, "mlxcel", "qwen38_27b_h2h", "spec", seat="council-json")
+    with pytest.raises(SystemExit, match="no spec path"):
+        h.launch_command(cfg, "mlxcel", "gemma4_26b_a4b_qat", "spec", seat="hunt")
+
+
+def test_mlxcel_seat_sampling_matches_the_bench_workspace(cfg):
+    """Server defaults are temp 0.8 / top-k 40 / min-p 0.05. Seats pin the workspace."""
+    rendered = _mlxcel_rendered(cfg)
+    draft = cfg["models"]["qwen38_27b_h2h"]["drafter_dir"]
+    daily = rendered[("daily-moe", "plain")]
+    coding_plain = rendered[("coding", "plain")]
+    coding_spec = rendered[("coding", "spec")]
+    hunt = rendered[("hunt", "plain")]
+    council = rendered[("council-json", "plain")]
+    assert _mlx_thinking(daily) is True
+    assert _mlx_thinking(coding_plain) is True
+    assert _mlx_thinking(coding_spec) is True
+    assert _mlx_thinking(council) is False
+    assert _mlx_thinking(hunt) is None
+    assert _mlx_flag(daily, "--temp") == "1.0"
+    assert _mlx_flag(daily, "--top-k") == "64"
+    assert "--min-p" not in daily
+    assert _mlx_flag(coding_plain, "--temp") == "1.0"
+    assert _mlx_flag(coding_plain, "--top-k") == "20"
+    assert _mlx_flag(coding_plain, "--min-p") == "0.0"
+    assert _mlx_flag(coding_plain, "--presence-penalty") == "0.0"
+    assert "--draft-model" not in coding_plain
+    assert _mlx_flag(coding_spec, "--draft-kind") == "dflash"
+    assert _mlx_flag(coding_spec, "--draft-model") == draft
+    assert _mlx_flag(hunt, "--temp") == "0.0"
+    assert "--chat-template-kwargs" not in hunt
+    assert _mlx_flag(council, "--temp") == "0.7"
+    assert _mlx_flag(council, "--presence-penalty") == "1.5"
+    assert "--draft-model" not in council
+
+
 def test_splash_qwen_pins_disk_cache_off_and_local_draft(cfg):
     with pytest.raises(SystemExit, match="no plain path"):
         h.launch_command(cfg, "splash", "qwen38_27b_h2h", "plain")
