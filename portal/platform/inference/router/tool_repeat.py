@@ -194,6 +194,12 @@ class ToolRepeatGuard:
         }
 
 
+def followup_tool_choice(choice: Any) -> Any:
+    """The choice for a hop that follows a tool result: a forced one covers one turn only."""
+    named = isinstance(choice, dict) and choice.get("type") == "function"
+    return "auto" if choice == "required" or named else choice
+
+
 def hold_ungrounded_answer(
     guard: ToolRepeatGuard, require_tool: bool, required_choice: bool, tools_offered: bool
 ) -> bool:

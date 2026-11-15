@@ -7,6 +7,11 @@ tool=execute_python exposed 1 tool, ollama-general answered from the RAG excerpt
 it answers with no tool call, drops it and asks once for the call (same messages and
 tools). The retry is engine-agnostic: an engine that honours required never violates
 it, so oMLX behaviour is unchanged in practice.
+
+A forced choice covers one assistant turn, never the loop: once the call has run and its
+result is in the history the next hop is sent with ``tool_choice="auto"``. An engine that
+enforces the field in-stream (mlx-serve, 2026-11-14) was otherwise made to call a tool on
+every hop until the 20-hop limit replaced the answer.
 """
 
 from __future__ import annotations
@@ -83,7 +88,13 @@ def _drive(monkeypatch, body: dict, outcomes: list[_Resp], ws_config: dict | Non
 
     class _Client:
         def stream(self, method, url, json=None):  # noqa: A002
-            bodies.append({"tools": json.get("tools"), "messages": list(json["messages"])})
+            bodies.append(
+                {
+                    "tools": json.get("tools"),
+                    "messages": list(json["messages"]),
+                    "tool_choice": json.get("tool_choice"),
+                }
+            )
             return _Stream(outcomes.pop(0))
 
     async def fake_dispatch(tc, *_a, **_k):
@@ -177,6 +188,112 @@ def test_a_require_tool_workspace_keeps_the_grounding_ask(monkeypatch) -> None:
 
     assert "still 12" in _text(out) and UNGROUNDED_NOTICE.strip() in _text(out)
     assert bodies[1]["messages"][-1] == GROUNDING_REQUEST and executed == [] and len(bodies) == 2
+
+
+# --- a forced tool_choice covers one turn, never the whole loop ------------------
+#
+# mlx-serve enforces tool_choice in-stream ("call opener enforced in-stream", measured
+# 2026-11-14): every hop that still carried tool_choice="required" was forced to call a
+# tool, so a turn that had already run execute_python and printed 15 was made to call it
+# 14 more times until the 20-hop limit replaced the answer.
+
+STRICT_WS = "test-strict-ws"
+STRICT_TOOLS = [{"type": "function", "function": {"name": "execute_python", "parameters": {}}}]
+
+
+def _strict_args(n: int) -> str:
+    return json.dumps({"code": f"print({n})"})
+
+
+def _strict_call(n: int) -> _Resp:
+    call = {
+        "index": 0,
+        "id": f"c{n}",
+        "function": {"name": "execute_python", "arguments": _strict_args(n)},
+    }
+    chunk = {"choices": [{"delta": {"tool_calls": [call]}, "finish_reason": "tool_calls"}]}
+    return _Resp([f"data: {json.dumps(chunk)}", "data: [DONE]"])
+
+
+class _StrictEngine:
+    """Answers only when the request lets it: a call while forced, prose otherwise."""
+
+    def __init__(self) -> None:
+        self.bodies: list[dict] = []
+
+    def stream(self, method, url, json=None):  # noqa: A002
+        self.bodies.append(dict(json))
+        choice = json.get("tool_choice")
+        if choice == "required" or isinstance(choice, dict):
+            return _Stream(_strict_call(len(self.bodies)))
+        return _Stream(_answer("the total is 15"))
+
+
+def _drive_strict(monkeypatch, body: dict) -> tuple[str, _StrictEngine, list[str]]:
+    monkeypatch.setitem(streaming.WORKSPACES, STRICT_WS, {})
+    engine = _StrictEngine()
+    executed: list[str] = []
+
+    async def fake_dispatch(tc, *_a, **_k):
+        executed.append(tc["function"]["name"])
+        return {
+            "role": "tool",
+            "tool_call_id": tc.get("id"),
+            "name": "execute_python",
+            "content": '{"success": true, "stdout": "15\\n"}',
+        }
+
+    monkeypatch.setattr(streaming, "_http_client", engine)
+    monkeypatch.setattr(streaming, "_backend_type_for_url", lambda url: "openai")
+    monkeypatch.setattr(streaming, "_dispatch_tool_call", fake_dispatch)
+
+    async def run() -> bytes:
+        out = b""
+        async for chunk in streaming._tool_loop_frames(
+            "http://mlx.test/v1/chat/completions",
+            body,
+            STRICT_WS,
+            "m",
+            "",
+            {"execute_python"},
+        ):
+            out += chunk
+        return out
+
+    return _text(asyncio.run(run())), engine, executed
+
+
+def _strict_body(choice) -> dict:
+    return {
+        "messages": [{"role": "user", "content": "Run it with execute_python"}],
+        "model": "m",
+        "tools": STRICT_TOOLS,
+        "tool_choice": choice,
+    }
+
+
+def test_a_forced_choice_is_released_once_the_tool_result_is_in(monkeypatch) -> None:
+    text, engine, executed = _drive_strict(monkeypatch, _strict_body("required"))
+
+    assert text == "the total is 15" and "Tool-use limit" not in text
+    assert executed == ["execute_python"] and len(engine.bodies) == 2
+    assert [b["tool_choice"] for b in engine.bodies] == ["required", "auto"]
+
+
+def test_a_named_tool_choice_is_released_the_same_way(monkeypatch) -> None:
+    named = {"type": "function", "function": {"name": "execute_python"}}
+    text, engine, executed = _drive_strict(monkeypatch, _strict_body(named))
+
+    assert text == "the total is 15" and executed == ["execute_python"]
+    assert [b["tool_choice"] for b in engine.bodies] == [named, "auto"]
+
+
+def test_an_auto_request_is_never_given_a_choice_it_did_not_send(monkeypatch) -> None:
+    """An engine that ignores tool_choice sees the same bodies it always did."""
+    text, engine, executed = _drive_strict(monkeypatch, _strict_body("auto"))
+
+    assert text == "the total is 15" and executed == [] and len(engine.bodies) == 1
+    assert engine.bodies[0]["tool_choice"] == "auto"
 
 
 # --- the non-streaming (failover) path ------------------------------------------
@@ -281,6 +398,58 @@ async def test_failover_untouched_when_the_first_completion_calls_a_tool(
 
     content = json.loads(result.body)["choices"][0]["message"]["content"]
     assert content == "it is 42" and executed == ["c"] and len(client.bodies) == 2
+
+
+class _StrictNSClient:
+    """Non-streaming mlx-serve: a call while the request forces one, prose otherwise."""
+
+    def __init__(self) -> None:
+        self.bodies: list[dict] = []
+
+    async def post(self, url, json, timeout):  # noqa: A002
+        self.bodies.append(dict(json))
+        choice = json.get("tool_choice")
+        if choice == "required" or isinstance(choice, dict):
+            n = len(self.bodies)
+            message: dict = {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": f"c{n}",
+                        "type": "function",
+                        "function": {
+                            "name": "execute_python",
+                            "arguments": _strict_args(n),
+                        },
+                    }
+                ],
+            }
+        else:
+            message = {"role": "assistant", "content": "the total is 15"}
+        resp = httpx.Response(200, json={"choices": [{"message": message}]})
+        resp.request = httpx.Request("POST", url)
+        return resp
+
+
+@pytest.mark.anyio
+async def test_failover_releases_a_forced_choice_after_the_call(monkeypatch, ns_plain) -> None:
+    backend, _ = ns_plain
+    monkeypatch.setattr(ns, "_resolve_persona_tools", lambda *_a: ["execute_python"])
+    client = _StrictNSClient()
+    monkeypatch.setattr(ns, "_http_client", client)
+
+    result = await ns._try_non_streaming(
+        backend,
+        {**_ns_body(), "tools": STRICT_TOOLS, "tool_choice": "required"},
+        PLAIN,
+        0.0,
+        max_hops=20,
+    )
+
+    content = json.loads(result.body)["choices"][0]["message"]["content"]
+    assert content == "the total is 15"
+    assert [b["tool_choice"] for b in client.bodies] == ["required", "auto"]
 
 
 def test_no_tool_call_retry_spends_exactly_once() -> None:
