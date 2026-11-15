@@ -27,7 +27,11 @@ Prerequisites:
 Environment for every command (from the checkout that holds this branch):
 
 ```bash
-set -a; source .env; set +a   # LAB_SPLUNK_* and PIPELINE_API_KEY
+export LAB_SPLUNK_URL="$(grep -E '^LAB_SPLUNK_URL=' .env | cut -d= -f2- | tr -d '\"')"
+export LAB_SPLUNK_USER="$(grep -E '^LAB_SPLUNK_USER=' .env | cut -d= -f2- | tr -d '\"')"
+export LAB_SPLUNK_PASSWORD="$(grep -E '^LAB_SPLUNK_PASSWORD=' .env | cut -d= -f2- | tr -d '\"')"
+export LAB_SPLUNK_INDEX="$(grep -E '^LAB_SPLUNK_INDEX=' .env | cut -d= -f2- | tr -d '\"')"
+export PIPELINE_API_KEY="$(grep -E '^PIPELINE_API_KEY=' .env | cut -d= -f2- | tr -d '\"')"
 export PORTAL_HUNT_JUDGE_URL=http://127.0.0.1:9099/v1/chat/completions
 export PORTAL_HUNT_JUDGE_MODEL=security-reviewer
 export PORTAL_HUNT_EMBEDDING_URL=http://127.0.0.1:9099
