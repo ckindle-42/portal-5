@@ -11,6 +11,7 @@ import yaml
 
 from portal.platform.inference.cluster_backends import Backend, BackendRegistry
 from portal.platform.inference.router import council, non_streaming
+from portal.platform.inference.router.eval_gate import apply_backend_pin
 from portal.platform.inference.sync_config import _routing_default
 
 CONFIG = "config/backends.yaml"
@@ -41,6 +42,46 @@ def test_include_eval_backends_loads_the_eval_group_while_eval_stays_off(
     assert all(b.type != "eval_openai" for b in production)
     off = BackendRegistry(config_path=CONFIG)
     assert "eval-openai" not in {b.id for b in off.list_backends()}
+
+
+@pytest.mark.parametrize(
+    ("model_hint", "listed_id"),
+    [
+        ("Qwen3.8-27B-4bit", "Qwen3.8-27B-MLX-Serve-8bit"),
+        (
+            "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp",
+            "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp",
+        ),
+        (
+            "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k",
+            "gemma-4-E4B-it-OBLITERATED.Q4_K_M",
+        ),
+    ],
+)
+def test_mlx_serve_routes_configured_hints_even_when_listing_checkpoint_ids(
+    monkeypatch: pytest.MonkeyPatch, model_hint: str, listed_id: str
+) -> None:
+    monkeypatch.setenv("PORTAL_ENABLE_EVAL", "1")
+    registry = BackendRegistry(config_path=CONFIG, include_eval_backends=True)
+    backend = next(item for item in registry.list_backends() if item.id == "eval-openai")
+
+    class _Response:
+        status_code = 200
+
+        def json(self) -> dict[str, list[dict[str, str]]]:
+            return {"data": [{"id": listed_id}]}
+
+    class _Client:
+        async def get(self, _url: str) -> _Response:
+            return _Response()
+
+    asyncio.run(registry._check_one(backend, asyncio.Semaphore(1), _Client()))
+
+    body = {"portal_backend": "eval-openai"}
+    assert backend.live_models is None
+    assert apply_backend_pin(body, [backend], model_hint) == [backend]
+    assert backend.resolve_model(model_hint) == model_hint
+    assert body == {}
 
 
 def test_mlx_lm_cache_listing_does_not_become_the_served_set(

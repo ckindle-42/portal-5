@@ -41,7 +41,7 @@ def test_eval_group_hints_resolve_on_the_eval_backend(monkeypatch: pytest.Monkey
     assert served[1] in {
         backend.id for backend in reg.list_backends() if backend.type == "eval_openai"
     }
-    assert served[2] == _QWEN
+    assert reg._backends[served[1]].resolve_model(_QWEN) == served[2]
 
 
 def test_an_eval_only_hint_on_a_production_group_stays_unroutable() -> None:

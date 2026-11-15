@@ -269,6 +269,7 @@ artifacts:
     state: downloaded_and_verified; drafter_only
     format: MLX BF16 assistant; full precision permitted only as mlx-serve drafter
     files:
+      - [config.json, 2315, 13cdf5418e5a89cf951717a953cd11cef4e5c2743c4767e9e5dd72802954f822]
       - [model.safetensors, 159138208, 12875062fc25c51e8fa9b62abd2de7ad48b7d63f8559d5d604fbd5a3d6bcff16]
     research: [docs/engine_research/mlxserve_20261114.md §mlx-serve, 1. Variant per seat]
 
