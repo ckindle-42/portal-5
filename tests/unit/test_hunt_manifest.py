@@ -12,6 +12,7 @@ from portal.modules.security.core.hunt.notables.knowledge import load_for_run
 from portal.modules.security.core.hunt.notables.manifest import (
     FamilySpec,
     _build_indexed,
+    _provenance_query,
     audit_items,
     main,
     parse_source,
@@ -107,7 +108,7 @@ def _keyed_family(tmp_path: Path, name: str, index: str, user: str) -> tuple[str
     cards = _cards_dir(tmp_path, f"{name}-cards", [_card(index, "auth.log")])
     spec = f"name={name},index={index},kind=keys,keys={keys},gather={gather},cards={cards}"
     search = _FakeSearch(
-        {f'TERM("{user}")': [{"_raw": lines[0]}], f'TERM("{user}-good")': [{"_raw": lines[1]}]}
+        {f'"{user}"': [{"_raw": lines[0]}], f'"{user}-good"': [{"_raw": lines[1]}]}
     )
     return spec, search
 
@@ -172,7 +173,7 @@ def test_audit_fails_loudly_when_an_item_locates_nothing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     spec, search = _keyed_family(tmp_path, "fam_a", "idx_a", "alice")
-    search.answers.pop('TERM("alice-good")')
+    search.answers.pop('"alice-good"')
     monkeypatch.setattr(
         "portal.modules.security.core.hunt.notables.manifest.embedding_from_env", _Embedder
     )
@@ -222,7 +223,7 @@ def _indexed_answers(index: str, rows: list[dict[str, Any]]) -> dict[str, list[d
         "by sourcetype host": [{"sourcetype": "winlog", "host": "h1", "count": 10}],
         "span=1d": [{"sourcetype": "winlog", "_time": 0.0, "count": 10}],
         f'search index="{index}"': rows,
-        'TERM("alice")': [{"_raw": "event"}],
+        '"alice"': [{"_raw": "event"}],
     }
 
 
@@ -306,3 +307,31 @@ def test_source_spec_rejects_duplicate_indexes(tmp_path: Path) -> None:
         search=_FakeSearch(),
     )
     assert code == 1
+
+
+def test_provenance_query_uses_quoted_plain_terms_for_key_value_embedded_values() -> None:
+    """A value like '0' from uid=0 must appear as a plain quoted term, not TERM("0")."""
+    query = _provenance_query(
+        "hb_kyoushi_s1", "intranet_server", "/audit/audit.log", ["0", "CRED_ACQ"]
+    )
+    assert " TERM(" not in query
+    assert '"0"' in query
+    assert '"CRED_ACQ"' in query
+    assert query.startswith(
+        'search index="hb_kyoushi_s1" host="intranet_server" source="/audit/audit.log"'
+    )
+
+
+def test_provenance_query_escapes_embedded_quotes() -> None:
+    """A role value containing a double-quote must be escaped."""
+    query = _provenance_query("foo", "h1", "/s", ['he said "yes"'])
+    assert 'he said \\"yes\\"' in query
+    assert " TERM(" not in query
+
+
+def test_provenance_query_numeric_value_is_quoted() -> None:
+    """Numeric values must appear as plain quoted terms so key=value-embedded lookups match."""
+    query = _provenance_query("idx", "host", "/src", ["42", "admin"])
+    assert '"42"' in query
+    assert '"admin"' in query
+    assert " TERM(" not in query
