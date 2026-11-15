@@ -431,6 +431,23 @@ def parse_vllm_metal_metrics(text: str) -> dict[str, list[float]]:
     return {"kv_cache_usage_perc": values}
 
 
+_VLLM_METAL_KV_RE = re.compile(
+    r"(Shared attention cache|Hybrid shared cache): (\d+) blocks, (\d+(?:\.\d+)?) GiB"
+)
+
+
+def parse_vllm_metal_kv_preallocation(log_text: str) -> dict[str, Any]:
+    """The engine-emitted KV pool bytes: sdpa.py and hybrid.py each log storage.nbytes."""
+    out: dict[str, Any] = {}
+    for match in _VLLM_METAL_KV_RE.finditer(log_text):
+        out = {
+            "kv_preallocation_blocks": int(match.group(2)),
+            "kv_preallocation_gb": float(match.group(3)),
+            "kv_preallocation_runtime": "sdpa" if match.group(1).startswith("Shared") else "hybrid",
+        }
+    return out
+
+
 def parse_vllm_mlx_status(payload: dict[str, Any]) -> dict[str, Any]:
     """Read the documented /v1/status Metal memory fields from vllm-mlx."""
     metal = payload.get("metal")
@@ -675,13 +692,47 @@ def _check_vllm_metal_memory(memory: dict[str, Any], failures: list[str]) -> Non
     child = memory.get("child_phys_footprint_gb")
     if (
         memory.get("child_pid") is None
-        or memory.get("engine_weight_field") != "child_phys_footprint"
         or not isinstance(child, (int, float))
         or isinstance(child, bool)
         or not math.isfinite(float(child))
         or child <= 0
     ):
         _fail(failures, "memory: vllm-metal EngineCore descendant footprint unread")
+        return
+    kv_gb = memory.get("kv_preallocation_gb")
+    blocks = memory.get("kv_preallocation_blocks")
+    runtime = memory.get("kv_preallocation_runtime")
+    if (
+        not isinstance(kv_gb, (int, float))
+        or isinstance(kv_gb, bool)
+        or not math.isfinite(float(kv_gb))
+        or kv_gb <= 0
+        or not isinstance(blocks, int)
+        or isinstance(blocks, bool)
+        or blocks <= 0
+        or runtime not in ("sdpa", "hybrid")
+    ):
+        _fail(failures, "memory: vllm-metal KV pool preallocation unread in the engine log")
+        return
+    field = memory.get("engine_weight_field")
+    if runtime == "sdpa":
+        weight = memory.get("engine_weight_gb")
+        if (
+            field != "child_phys_footprint_plus_kv_preallocation"
+            or not isinstance(weight, (int, float))
+            or isinstance(weight, bool)
+            or abs(float(weight) - (float(child) + float(kv_gb))) > 0.01
+        ):
+            _fail(
+                failures,
+                "memory: vllm-metal sdpa pool is Metal-wired outside the footprint; "
+                "the claim must be the footprint plus the pool",
+            )
+    elif field != "child_phys_footprint":
+        _fail(
+            failures,
+            "memory: vllm-metal hybrid pool is lazy; the claim must be the footprint alone",
+        )
     metrics = memory.get("vllm_metal_metrics")
     values = metrics.get("kv_cache_usage_perc") if isinstance(metrics, dict) else None
     if (
