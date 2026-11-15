@@ -6810,13 +6810,13 @@
     },
     {
       "identity": "hf.co/bartowski/nex-agi_Nex-N2.5-mini-GGUF:Q4_K_M",
-      "final_disposition": "REMOVED_CLOSED",
-      "reason": "unused registration — auto-research challenger never seated; removed 2026-10-22 (operator)"
+      "final_disposition": "RETAINED_FOR_PURPOSE",
+      "reason": "Register correction 2026-11-14: the 2026-10-22 retirement is superseded by the operator's explicit reopen (docs/MODEL_INTAKE_FRESHNESS_20261113.md). RETAINED_FOR_PURPOSE as the reopened auto-research challenger: the tag is on disk (23,217,795,786 bytes / 21.62 GiB, Ollama /api/tags 2026-11-14) and is the challenger arm of tests/wfe/plans/research_nex25_screen.yaml against the seated Nex-N2-mini. Not INTEGRATED: never seated; the 2026-10-18 screen did not separate it (2W/0L/27T, slower medians)."
     },
     {
       "identity": "hf.co/bartowski/nex-agi_Nex-N2.5-mini-GGUF:Q4_K_M-ctx16k",
       "final_disposition": "REMOVED_CLOSED",
-      "reason": "unused registration — derived tag of the removed Nex-N2.5 challenger; removed 2026-10-22 (operator)"
+      "reason": "Derived 16K tag, absent from the store — `ollama show` returns \"not found\" (2026-11-14). The base Q4_K_M is retained for the reopened screen, so the screen plan's ctx16k arm needs this tag baked or that arm repointed before it can run."
     },
     {
       "identity": "Nex-N2.5-mini-Uncensored-MLX-4bit",

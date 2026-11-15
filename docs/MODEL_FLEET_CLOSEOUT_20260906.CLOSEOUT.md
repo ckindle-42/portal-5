@@ -120,7 +120,13 @@ Evidence is in [TASK_SEAT_VENDOR_FIT_V1](TASK_SEAT_VENDOR_FIT_V1.md) and the bri
 
 ### gemma4-e4b-it-qat-ctx8k
 
-`gemma4:e4b-it-qat-ctx8k` is INTEGRATED. It is `tools-specialist.variants.fast.model_hint` in `config/portal.yaml` and a model id under `ollama-general` and `ollama-vision` in `config/backends.yaml`. The 2026-09-07 row closed it as a historical absent tag. The parent `gemma4:e4b-it-qat` was INTEGRATED on 2026-09-12 for this same variant (WFE `wfe_full_20260911`: 9/9 home:coding and 9/9 discovery:research). The ctx8k tag is the 2026-09-25 bake of that seat's declared `context_limit` 8192. `hf.co/bartowski/nex-agi_Nex-N2.5-mini-GGUF:Q4_K_M` stays REMOVED_CLOSED.
+`gemma4:e4b-it-qat-ctx8k` is INTEGRATED. It is `tools-specialist.variants.fast.model_hint` in `config/portal.yaml` and a model id under `ollama-general` and `ollama-vision` in `config/backends.yaml`. The 2026-09-07 row closed it as a historical absent tag. The parent `gemma4:e4b-it-qat` was INTEGRATED on 2026-09-12 for this same variant (WFE `wfe_full_20260911`: 9/9 home:coding and 9/9 discovery:research). The ctx8k tag is the 2026-09-25 bake of that seat's declared `context_limit` 8192.
+
+## 12. Register correction 2026-11-14
+
+### nex-N2.5-mini
+
+`hf.co/bartowski/nex-agi_Nex-N2.5-mini-GGUF:Q4_K_M` is RETAINED_FOR_PURPOSE, not REMOVED_CLOSED. The operator reopened the auto-research challenger screen on 2026-11-13 ([MODEL_INTAKE_FRESHNESS_20261113](MODEL_INTAKE_FRESHNESS_20261113.md) §1), which supersedes the 2026-10-22 retirement; the tag is on disk (23,217,795,786 bytes = 21.62 GiB, Ollama `/api/tags`, 2026-11-14) and is the challenger arm of `tests/wfe/plans/research_nex25_screen.yaml` against the seated Nex-N2-mini. It is not INTEGRATED: the 2026-10-18 screen did not separate it from the seat (2 wins / 0 losses / 27 ties, slower medians) and the seat is unchanged. The derived `-ctx16k` tag stays REMOVED_CLOSED — `ollama show` returns "not found" — so that screen arm needs the tag baked or repointed before it can run. `Nex-N2.5-mini-Uncensored-MLX-4bit` (OrcaRouter) is a different artifact and stays REMOVED_CLOSED.
 
 ## 8. Provenance
 
