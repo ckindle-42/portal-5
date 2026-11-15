@@ -7,6 +7,7 @@ import signal
 from pathlib import Path
 
 import pytest
+import yaml
 
 from tests.benchmarks import bench_engine_h2h as h
 
@@ -1113,6 +1114,14 @@ def test_splash_refuses_gemma_and_gemma_spec_is_null(cfg):
         h.launch_command(cfg, "splash", "gemma4_26b_a4b_qat", "plain")
     with pytest.raises(SystemExit):
         h.launch_command(cfg, "vllm-mlx", "gemma4_26b_a4b_qat", "spec")
+
+
+def test_gemma_e4b_assistant_artifact_tracks_loader_config():
+    manifest = yaml.safe_load(Path("config/engine_artifacts_20261114.yaml").read_text())
+    files = {
+        name for name, _size, _digest in manifest["artifacts"]["gemma_assistant_e4b_bf16"]["files"]
+    }
+    assert {"config.json", "model.safetensors"} <= files
 
 
 def test_qwen_drafter_dir_is_absolute_and_vllm_spec_is_null(cfg):
