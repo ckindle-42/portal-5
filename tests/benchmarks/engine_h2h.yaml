@@ -64,6 +64,63 @@ engine_eval:
     # config/engine_artifacts_20261114.yaml rapid-mlx.council-json is candidate_same_target (plain 4-bit only).
     - {seat: council-json, engine: rapid-mlx, mode: spec, reason: "council-json best config is the plain Qwen3.8-27B-4bit target (engine_artifacts_20261114.yaml). The shared qwen spec arm is DFlash, and DFlash rejects forced tool_choice (HTTP 400, no flag)."}
 
+# Production-fit gate (`engine_eval_runner.py prodfit --cell E:M:SEAT`). Answers the
+# operator's 2026-11-14 question — can this engine be used in our setup? — with three
+# recorded blocks per cell: co-residence beside the other production seats and the
+# running stack, lifecycle under Pipeline control, and an operations checklist.
+# Every value here is read by tests/benchmarks/engine_prodfit.py; nothing here changes
+# production config, workspaces or launchd.
+prodfit:
+  # The seats the candidate must co-reside beside. `model` is the oMLX checkpoint the
+  # seat decision is about, and `workspace`/`backend` is how that checkpoint is loaded
+  # on oMLX through the Pipeline. production_route is the route users actually reach
+  # while the candidate is down; fallback_backend is the Ollama seat behind it.
+  production_seats:
+    daily-moe:
+      model: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
+      # Production serves the GGUF tag on ollama-general (ENGINE_EVAL_MATRIX §Daily MoE:
+      # omlx-general does not alias it); the bench cell loads the oQ4e checkpoint on oMLX.
+      workspace: bench-engine-daily-moe
+      backend: eval-openai-omlx-incumbent
+      production_route: {workspace: auto-daily, backend: ollama-general}
+      fallback_backend: ollama-general
+    coding:
+      model: Qwen3.8-27B-oQ4e-mtp
+      # auto-coding aliases the ctx96k GGUF hint onto the oQ4e-mtp sidecar on omlx-coding.
+      workspace: auto-coding
+      backend: omlx-coding
+      production_route: {workspace: auto-coding, backend: omlx-coding}
+      fallback_backend: ollama-general
+    hunt:
+      model: gemma-4-26b-a4b-it-QAT-4bit
+      workspace: hunt-reasoning
+      backend: omlx-general
+      production_route: {workspace: hunt-reasoning, backend: omlx-general}
+      fallback_backend: ollama-general
+  # Up beside the candidate for the whole cell: the Pipeline, the platform embedder and
+  # the Qwen3-VL reranker are the host services oMLX shares the machine with.
+  stack:
+    - {name: pipeline, path: /v1/models}
+    - {name: eg2-embedding, url: "http://127.0.0.1:8946/health"}
+    - {name: vl-reranker, url: "http://127.0.0.1:8942/health"}
+  # Concurrent candidate requests in the mixed load, after one request per seat.
+  concurrency: 2
+  # Install channels, so the operations receipt can say whether a weekly autoupdate
+  # provider is even possible. scripts/engine_autoupdate.py itself covers ollama and
+  # omlx only; a candidate needs its own provider before that job can drive it.
+  autoupdate_channels:
+    mlx-serve: {channel: "brew tap ddalcu/mlx-serve && brew install mlx-serve"}
+    rapid-mlx: {channel: "vendor install script https://rapidmlx.com/install.sh (own python 3.12)"}
+    vllm-mlx: {channel: "PyPI vllm-mlx (uvx --from vllm-mlx==<pin>)"}
+    vllm-metal: {channel: "brew tap vllm-project/vllm-metal && brew install vllm-project/vllm-metal/vllm-metal"}
+    mlx_lm.server: {channel: "PyPI mlx-lm"}
+    prismml-llama: {channel: "source build of PrismML-Eng/llama.cpp at the registered tag"}
+    prismml-mlx: {channel: "repo-local server script on the portal python (no upstream release)"}
+    brew-llama: {channel: "brew install llama.cpp"}
+    mtplx: {channel: "brew install youssofal/mtplx/mtplx"}
+    splash: {channel: "brew install incoai/tap/splash"}
+    mlxcel: {channel: "brew tap lablup/tap && brew install lablup/tap/mlxcel"}
+
 engines:
   ollama:
     kind: external
