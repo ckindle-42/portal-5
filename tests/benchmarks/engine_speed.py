@@ -758,7 +758,7 @@ def _start_candidate(
 def _resident(cfg: dict[str, Any], expect: dict[str, str], arm: str) -> dict[str, Any]:
     if arm == "incumbent":
         return omlx_resident(cfg, expect["model"])
-    return managed_resident(expect["base"], expect["model"])
+    return managed_resident(expect["base"], expect.get("listed") or expect["model"])
 
 
 def _expects(cell: dict[str, Any], incumbent: str) -> dict[str, dict[str, str]]:
@@ -771,6 +771,7 @@ def _expects(cell: dict[str, Any], incumbent: str) -> dict[str, dict[str, str]]:
             "mode": cell["mode"],
             "model_key": cell["model"],
             "seat": cell["seat"],
+            "listed": cell.get("listed_model") or cell["model_hint"],
             "port": str(cell["port"]),
             "base": cell["base"],
         },

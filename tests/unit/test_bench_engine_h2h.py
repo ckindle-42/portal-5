@@ -851,6 +851,96 @@ def test_rapid_mlx_mtp_refusal_is_none_for_dflash_and_blocks_before_popen(cfg, m
         h.start_managed(cfg, "rapid-mlx", "mimo", "spec")
 
 
+def test_mlx_serve_seats_load_the_researched_artifact_under_the_seat_hint(cfg):
+    """Seat argv: quality-plain offs, vendor-fast spec, listed id, think-off budget."""
+    coding_plain, _ = h.launch_command(cfg, "mlx-serve", "qwen38_27b_h2h", "plain", seat="coding")
+    assert coding_plain[coding_plain.index("--model") + 1].endswith("Qwen3.8-27B-MLX-Serve-8bit")
+    assert {"--no-pld", "--no-drafter", "--no-mtp"} <= set(coding_plain)
+    assert "--no-vision" in coding_plain
+    assert "--warmup-full" not in coding_plain  # not in the 26.11.2 CLI
+    assert coding_plain[coding_plain.index("--kv-quant") + 1] == "off"
+    assert coding_plain[coding_plain.index("--prefix-cache-disk") + 1] == "off"
+    assert h.seat_listed_id(cfg, "mlx-serve", "coding") == "Qwen3.8-27B-MLX-Serve-8bit"
+    coding_spec, _ = h.launch_command(cfg, "mlx-serve", "qwen38_27b_h2h", "spec", seat="coding")
+    assert "--mtp" in coding_spec and "--no-mtp" not in coding_spec
+    assert "--no-drafter" not in coding_spec
+    council, _ = h.launch_command(cfg, "mlx-serve", "qwen38_27b_h2h", "plain", seat="council-json")
+    assert council[council.index("--reasoning-budget") + 1] == "0"
+    hunt_spec, _ = h.launch_command(cfg, "mlx-serve", "gemma4_26b_a4b_qat", "spec", seat="hunt")
+    assert any(part.endswith("gemma-4-E4B-it-assistant-bf16") for part in hunt_spec)
+    router, _ = h.launch_command(
+        cfg,
+        "mlx-serve",
+        "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k",
+        "plain",
+        seat="task-router",
+    )
+    assert router[router.index("--llama-mtp-drafts") + 1] == "0"
+    assert router[router.index("--llama-cache-entries") + 1] == "1"
+    assert router[router.index("--model") + 1].endswith("gemma-4-E4B-it-OBLITERATED.Q4_K_M.gguf")
+
+
+def test_mlx_serve_gguf_support_is_scoped_to_the_registered_router(cfg):
+    router = "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k"
+    assert h.model_supports_engine(cfg, router, "mlx-serve")
+    assert not h.model_supports_engine(cfg, router, "mlx_lm.server")
+    other_gguf = next(
+        name
+        for name, m in cfg["models"].items()
+        if m.get("gguf") and not m.get("mlx") and name != router
+    )
+    assert not h.model_supports_engine(cfg, other_gguf, "mlx-serve")
+
+
+def test_materialize_seat_link_creates_the_gguf_link_once(cfg, tmp_path: Path):
+    import copy
+
+    local = copy.deepcopy(cfg)
+    target = tmp_path / "router.gguf"
+    target.write_bytes(b"GGUF")
+    local["models"]["hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k"]["gguf"][
+        "path"
+    ] = str(target)
+    local["seat_root"] = str(tmp_path / "seats")
+    model = "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k"
+
+    h.materialize_seat_link(local, "mlx-serve", model, "plain", "task-router")
+    link = tmp_path / "seats" / "gemma-4-E4B-it-OBLITERATED.Q4_K_M.gguf"
+    assert link.is_symlink() and link.resolve() == target.resolve()
+
+    target.unlink()
+    with pytest.raises(SystemExit, match="registered local GGUF path is missing"):
+        h.materialize_seat_link(local, "mlx-serve", model, "plain", "task-router")
+
+
+def test_start_managed_waits_for_the_seat_listed_id(cfg, monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(h, "STATE_DIR", tmp_path)
+    seen: dict = {}
+
+    def fake_ready(_url, _timeout, _proc=None, **kwargs):
+        seen.update(kwargs)
+        return 0.0
+
+    class Started:
+        pid = 4242
+
+    monkeypatch.setattr(h, "wait_ready", fake_ready)
+    monkeypatch.setattr(h.subprocess, "Popen", lambda *_a, **_kw: Started())
+
+    h.start_managed(
+        cfg,
+        "mlx-serve",
+        "qwen38_27b_h2h",
+        "plain",
+        seat="coding",
+        log_paths=(tmp_path / "out.log", tmp_path / "err.log"),
+    )
+    assert seen["expected_model"] == "Qwen3.8-27B-MLX-Serve-8bit"
+    state = json.loads((tmp_path / "mlx-serve.json").read_text())
+    assert state["listed_model"] == "Qwen3.8-27B-MLX-Serve-8bit"
+    assert state["seat"] == "coding"
+
+
 def test_nemotron_mtp_spec_uses_the_oq4e_dir(cfg):
     plain, _ = h.launch_command(cfg, "mlx-serve", "nemotron_35_lightning", "plain")
     spec, _ = h.launch_command(cfg, "mlx-serve", "nemotron_35_lightning", "spec")

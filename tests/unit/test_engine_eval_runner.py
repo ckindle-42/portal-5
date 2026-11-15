@@ -57,6 +57,45 @@ def test_vllm_mlx_candidate_cells_use_per_seat_launch_argv() -> None:
     assert "task-router" not in seated
 
 
+def test_mlx_serve_candidate_cells_carry_the_researched_seat_argv() -> None:
+    """Every mlx-serve seat is the documented quality-plain / vendor-fast cell."""
+    cells = [c for c in runner.candidate_cells() if c["engine"] == "mlx-serve"]
+    by_seat = {(c["seat"], c["mode"]): c for c in cells}
+    assert set(by_seat) == {
+        ("coding", "plain"),
+        ("coding", "spec"),
+        ("daily-moe", "plain"),
+        ("daily-moe", "spec"),
+        ("hunt", "plain"),
+        ("hunt", "spec"),
+        ("council-json", "plain"),
+        ("council-json", "spec"),
+        ("task-router", "plain"),
+    }
+    coding = by_seat[("coding", "plain")]
+    assert coding["launch_error"] is None
+    assert coding["expected_model"] == "Qwen3.8-27B-4bit"
+    assert coding["listed_model"] == "Qwen3.8-27B-MLX-Serve-8bit"
+    assert coding["argv"][coding["argv"].index("--model") + 1].endswith(
+        "Qwen3.8-27B-MLX-Serve-8bit"
+    )
+    assert {"--no-pld", "--no-drafter", "--no-mtp"} <= set(coding["argv"])
+    coding_spec = by_seat[("coding", "spec")]["argv"]
+    assert "--mtp" in coding_spec and "--no-mtp" not in coding_spec
+    assert "--no-drafter" not in coding_spec
+    router = by_seat[("task-router", "plain")]
+    assert (
+        router["expected_model"]
+        == "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k"
+    )
+    assert router["listed_model"] == "gemma-4-E4B-it-OBLITERATED.Q4_K_M"
+    assert router["argv"][router["argv"].index("--llama-mtp-drafts") + 1] == "0"
+    assert router["argv"][router["argv"].index("--llama-cache-entries") + 1] == "1"
+    hunt_spec = by_seat[("hunt", "spec")]["argv"]
+    assert "gemma-4-E4B-it-assistant-bf16" in " ".join(hunt_spec)
+    assert "--no-pld" in hunt_spec
+
+
 def test_brew_llama_candidate_cells_cover_daily_moe_and_task_router() -> None:
     """brew-llama cells are exactly the GGUF seats the researched registry registers."""
     cells = [c for c in runner.candidate_cells() if c["engine"] == "brew-llama"]
