@@ -92,9 +92,10 @@ launchd-able (a plist built from the registry argv with `KeepAlive` and absolute
 answers 200 and resolves the seat id, or the listing is declared not to be the served
 set), version detectable (a non-interactive probe returns a parseable version and the
 engine has a declared install channel; `engine_autoupdate.py` itself covers ollama and
-omlx only), arm64 (host plus every executable in the launch chain is an arm64 Mach-O or
-universal build), and config surface (a `config/backends.yaml`-shaped entry: url,
-`health_path`, reserved eval port matching the registry, seat model id in `models`).
+omlx only), arm64 (host, the launcher chain, and the executable `ps` reports for the
+process serving the seat — every Mach-O arm64 or universal; a cell whose engine is not
+running gets no arm64 claim), and config surface (a `config/backends.yaml`-shaped entry:
+url, `health_path`, reserved eval port matching the registry, seat model id in `models`).
 
 The overall `verdict` is PASS only when all three blocks and the final shutdown pass.
 A co-residence FAIL is a recorded result, not a dropped engine.

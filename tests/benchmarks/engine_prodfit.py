@@ -965,33 +965,38 @@ def _launch_chain(program: str | None) -> list[dict[str, str]]:
     return readings
 
 
-def _arch_check(ctx: dict[str, Any]) -> dict[str, Any]:
-    """arm64 must hold for the executable that serves the seat, not just the launcher."""
-    port = int(ctx["cell"]["port"])
-    running = _running_executable(port)
-    launcher = _resolve_program(ctx["cell"].get("argv") or [], ctx["cell"].get("cwd"))
-    program = running["executable"] or launcher["path"]
-    readings = _launch_chain(program)
+def _arm64(readings: list[dict[str, str]]) -> bool:
+    """Every Mach-O in the chain is arm64 (or universal), and at least one was read."""
     macho = [row for row in readings if "Mach-O" in row["file"]]
-    arm64 = bool(macho) and all(
+    return bool(macho) and all(
         "arm64" in row["file"] or "universal" in row["file"] for row in macho
     )
+
+
+def _arch_check(ctx: dict[str, Any]) -> dict[str, Any]:
+    """arm64 must hold for the executable that serves the seat, not just the launcher."""
+    running = _running_executable(int(ctx["cell"]["port"]))
+    running_readings = _launch_chain(running["executable"])
+    launcher = _resolve_program(ctx["cell"].get("argv") or [], ctx["cell"].get("cwd"))
+    launcher_readings = _launch_chain(launcher["path"])
     machine = platform.machine()
     return _item(
         "operations-arm64",
-        "host is arm64 and the executable serving the seat (or the launcher, when the cell is "
-        "not up) is an arm64 Mach-O or a universal build",
+        "host is arm64, the launcher chain is arm64, and the executable serving the seat is an "
+        "arm64 Mach-O or a universal build",
         {
             "host_arm64": _check(machine == "arm64", machine=machine),
-            "binary_arm64": _check(
-                arm64,
-                readings=readings,
+            "launcher_arm64": _check(
+                _arm64(launcher_readings),
+                readings=launcher_readings,
                 launcher=launcher["path"],
                 launcher_error=launcher["error"],
-                running=running,
+            ),
+            "engine_executable_arm64": _check(
+                _arm64(running_readings), running=running, readings=running_readings
             ),
         },
-        {"readings": readings, "running": running, "launcher": launcher},
+        {"launcher": launcher, "running": running},
     )
 
 

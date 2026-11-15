@@ -407,16 +407,63 @@ def test_version_check_needs_a_probe_and_a_declared_channel(tmp_path: Path, monk
     assert prodfit._version_check(ctx, None)["status"] == "FAIL"
 
 
-def test_arch_check_reads_the_launch_chain(tmp_path: Path, monkeypatch) -> None:
+def test_arch_check_reads_the_running_executable(tmp_path: Path, monkeypatch) -> None:
     ctx = _ctx(tmp_path)
+    monkeypatch.setattr(
+        prodfit, "_resolve_program", lambda _argv, _cwd: {"path": "/bin/echo", "error": None}
+    )
+    monkeypatch.setattr(
+        prodfit, "_running_executable", lambda _port: {"pid": 77, "executable": "/bin/echo"}
+    )
+    monkeypatch.setattr(prodfit, "_command", lambda *_a, **_k: "Mach-O 64-bit executable arm64")
+    monkeypatch.setattr(prodfit.platform, "machine", lambda: "arm64")
+    item = prodfit._arch_check(ctx)
+    assert item["status"] == "PASS"
+    assert item["evidence"]["running"]["pid"] == 77
+    monkeypatch.setattr(prodfit, "_command", lambda *_a, **_k: "Mach-O 64-bit executable x86_64")
+    assert prodfit._arch_check(ctx)["status"] == "FAIL"
+
+
+def test_arch_check_follows_a_shell_wrapper_to_its_interpreter(tmp_path: Path, monkeypatch) -> None:
+    ctx = _ctx(tmp_path)
+    monkeypatch.setattr(
+        prodfit, "_running_executable", lambda _port: {"pid": 9, "executable": "/opt/x/libexec/py"}
+    )
+    monkeypatch.setattr(
+        prodfit,
+        "_resolve_program",
+        lambda _argv, _cwd: {"path": "/opt/x/bin/engine", "error": None},
+    )
+    chains = {
+        "/opt/x/bin/engine": [
+            {"path": "/opt/x/bin/engine", "file": "POSIX shell script text executable"},
+            {"path": "/opt/x/libexec/python", "file": "Mach-O 64-bit executable arm64"},
+        ],
+        "/opt/x/libexec/py": [{"path": "/opt/x/libexec/py", "file": "Mach-O universal binary"}],
+    }
+    monkeypatch.setattr(prodfit, "_launch_chain", lambda program: chains.get(program, []))
+    monkeypatch.setattr(prodfit.platform, "machine", lambda: "arm64")
+    item = prodfit._arch_check(ctx)
+    assert item["status"] == "PASS"
+    assert len(item["checks"]["launcher_arm64"]["readings"]) == 2
+
+
+def test_arch_check_refuses_to_claim_an_engine_that_is_not_running(
+    tmp_path: Path, monkeypatch
+) -> None:
+    ctx = _ctx(tmp_path)
+    monkeypatch.setattr(
+        prodfit, "_running_executable", lambda _port: {"pid": None, "executable": None}
+    )
     monkeypatch.setattr(
         prodfit, "_resolve_program", lambda _argv, _cwd: {"path": "/bin/echo", "error": None}
     )
     monkeypatch.setattr(prodfit, "_command", lambda *_a, **_k: "Mach-O 64-bit executable arm64")
     monkeypatch.setattr(prodfit.platform, "machine", lambda: "arm64")
-    assert prodfit._arch_check(ctx)["status"] == "PASS"
-    monkeypatch.setattr(prodfit, "_command", lambda *_a, **_k: "Mach-O 64-bit executable x86_64")
-    assert prodfit._arch_check(ctx)["status"] == "FAIL"
+    item = prodfit._arch_check(ctx)
+    assert item["status"] == "FAIL"
+    assert item["checks"]["launcher_arm64"]["pass"] is True
+    assert item["checks"]["engine_executable_arm64"]["pass"] is False
 
 
 def test_config_check_matches_the_registry_port_and_models(tmp_path: Path) -> None:
