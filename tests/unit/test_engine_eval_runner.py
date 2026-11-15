@@ -16,6 +16,39 @@ from tests.benchmarks import engine_eval_instrument as instrument
 from tests.benchmarks import engine_eval_runner as runner
 
 
+def test_prismml_candidates_use_only_the_researched_qwen_and_router_configs() -> None:
+    cells = [cell for cell in runner.candidate_cells() if cell["engine"] == "prismml-llama"]
+    assert {(cell["seat"], cell["mode"]) for cell in cells} == {
+        ("coding", "plain"),
+        ("coding", "spec"),
+        ("task-router", "plain"),
+    }
+    by_seat_mode = {(cell["seat"], cell["mode"]): cell for cell in cells}
+    coding_plain = by_seat_mode[("coding", "plain")]["argv"]
+    assert coding_plain[coding_plain.index("-m") + 1].endswith(
+        "/blobs/1bce504dfecd84153666928a41d8a66706f0158d3a317bc5196b72819d7dc529"
+    )
+    assert coding_plain[coding_plain.index("-c") + 1] == "32768"
+    assert coding_plain[coding_plain.index("-fa") + 1] == "on"
+    assert coding_plain[coding_plain.index("-np") + 1] == "1"
+    assert coding_plain[coding_plain.index("--cache-reuse") + 1] == "256"
+    assert by_seat_mode[("coding", "plain")]["workspace_settings"]["think"] is True
+    coding_spec = by_seat_mode[("coding", "spec")]["argv"]
+    assert coding_spec[coding_spec.index("-md") + 1].endswith(
+        "/blobs/50d9ce5a6da381bbcfb31061cf73df94a90e6faf8efeddee379a9cb8f1501c6e"
+    )
+    assert coding_spec[-4:] == ["--spec-type", "draft-mtp", "--spec-draft-n-max", "3"]
+    router = by_seat_mode[("task-router", "plain")]["argv"]
+    assert router[router.index("-m") + 1].endswith(
+        "sha256-261dd5feb414b973867491cc98e29f0b104d1a22f36299d8aea43421f835fa54"
+    )
+    assert router[router.index("-c") + 1] == "2048"
+    assert (
+        router[router.index("--alias") + 1] == by_seat_mode[("task-router", "plain")]["model_hint"]
+    )
+    assert by_seat_mode[("task-router", "plain")]["workspace_settings"]["think"] is False
+
+
 def test_vllm_metal_candidate_cells_follow_the_researched_seats() -> None:
     """The Qwen coding cell uses the v0.33 text path; hunt keeps think unset."""
     cells = [cell for cell in runner.candidate_cells() if cell["engine"] == "vllm-metal"]

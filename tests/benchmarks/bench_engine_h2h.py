@@ -146,6 +146,9 @@ def engine_artifact_key(cfg: dict, engine: str, model: str) -> str | None:
     """The model field whose artifact this engine consumes (MLX dir or GGUF file)."""
     entry = cfg["engines"][engine]
     requires = entry.get("requires")
+    engine_gguf = (cfg["models"][model].get("engine_gguf") or {}).get(engine)
+    if requires == "gguf" and engine_gguf:
+        return "gguf"
     if requires and cfg["models"][model].get(requires):
         return requires
     if model in (entry.get("also_requires_models") or []) and cfg["models"][model].get("gguf"):
@@ -172,9 +175,11 @@ def cached_hf_file(gguf: dict | None, label: str) -> str:
     return path
 
 
-def gguf_path_for(cfg: dict, model: str) -> str:
+def gguf_path_for(cfg: dict, model: str, engine: str | None = None) -> str:
     """Resolve one registered model GGUF from the local HF cache only."""
-    gguf = cfg["models"][model].get("gguf")
+    model_cfg = cfg["models"][model]
+    gguf = (model_cfg.get("engine_gguf") or {}).get(engine) if engine else None
+    gguf = gguf or model_cfg.get("gguf")
     if gguf and gguf.get("path"):
         path = Path(os.path.expanduser(str(gguf["path"]))).resolve()
         if not path.is_file():
@@ -199,7 +204,13 @@ def render(template: list[str], values: dict) -> list[str]:
     return argv
 
 
-def _draft_gguf_path(model_cfg: dict, model: str, mode: str) -> str:
+def _draft_gguf_path(model_cfg: dict, model: str, mode: str, engine: str | None = None) -> str:
+    engine_draft = (model_cfg.get("engine_draft_gguf") or {}).get(engine) if engine else None
+    if mode == "spec" and engine_draft:
+        path = Path(os.path.expanduser(str(engine_draft["path"]))).resolve()
+        if not path.is_file():
+            raise SystemExit(f"engine draft GGUF path is missing: {path}")
+        return str(path)
     override = model_cfg.get("draft_gguf_override") if mode == "spec" else None
     if override:
         path = Path(os.path.expanduser(override)).resolve()
@@ -356,8 +367,15 @@ def launch_values(
     artifact = engine_artifact_key(cfg, engine, model)
     model_dir = model if artifact == "gguf" else model_dir_for(cfg, model, engine, mode)
     spec = spec_entry(cfg, model, engine) if mode == "spec" else None
-    draft_gguf_path = _draft_gguf_path(m, model, mode)
-    gguf_path = gguf_path_for(cfg, model) if artifact == "gguf" else ""
+    draft_gguf_path = _draft_gguf_path(m, model, mode, engine)
+    if artifact == "gguf":
+        gguf_path = (
+            gguf_path_for(cfg, model, engine)
+            if (m.get("engine_gguf") or {}).get(engine)
+            else gguf_path_for(cfg, model)
+        )
+    else:
+        gguf_path = ""
     return {
         "mlx_root": cfg["mlx_root"],
         "model_root": model_root(cfg, engine),
@@ -1569,7 +1587,7 @@ def source_template(repo: str) -> str | None:
     return None
 
 
-def gguf_chat_template(cfg: dict, model: str) -> str | None:
+def gguf_chat_template(cfg: dict, model: str, engine: str | None = None) -> str | None:
     """Read tokenizer.chat_template from a cached GGUF metadata header."""
     gguf_root = Path.home() / "src/prismml-llama.cpp/gguf-py"
     if gguf_root.is_dir() and str(gguf_root) not in sys.path:
@@ -1577,7 +1595,7 @@ def gguf_chat_template(cfg: dict, model: str) -> str | None:
     try:
         from gguf.gguf_reader import GGUFReader
 
-        field = GGUFReader(gguf_path_for(cfg, model)).fields.get("tokenizer.chat_template")
+        field = GGUFReader(gguf_path_for(cfg, model, engine)).fields.get("tokenizer.chat_template")
     except Exception:
         return None
     if field is None:
@@ -1599,7 +1617,7 @@ def template_check(cfg: dict, engine: str, model: str, mode: str) -> dict:
             "note": "Ollama translates the source template to Go; check its off-mode and tool probes",
         }
     if engine_artifact_key(cfg, engine, model) == "gguf":
-        local = gguf_chat_template(cfg, model)
+        local = gguf_chat_template(cfg, model, engine)
         entry = cfg["models"][model]
         template_repo = entry.get("template_repo") or entry.get("base_repo") or entry["source_repo"]
         source = source_template(template_repo)
