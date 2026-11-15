@@ -13,23 +13,6 @@ import pytest
 
 _LAUNCHD = Path("deploy/launchd")
 
-# Maintenance jobs may legitimately carry Background (update, log-rotate,
-# rebuild, watchdog). Serving inference must NOT.
-_MAINTENANCE_LABELS = frozenset(
-    {
-        "com.portal5.engine-update",
-        "com.portal5.image-update",
-        "com.portal5.model-update",
-        "com.portal5.security-update",
-        "com.portal5.log-rotate",
-        "com.portal5.update-check",
-        "com.portal5.weekly-rebuild",
-        "com.portal5.omlx-watchdog",
-        "com.portal5.arm-queue",
-        "com.portal5.powermetrics",
-    }
-)
-
 
 @pytest.mark.parametrize("plist_path", sorted(_LAUNCHD.glob("*.plist")))
 def test_no_background_on_serving_plists(plist_path: Path) -> None:
