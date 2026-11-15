@@ -15,8 +15,6 @@ verifies, per engine:
   5. behaviour non-streaming.
 
 Usage:
-    SPLASH_API_KEY=... uv run python scripts/prove_then_scale/b5_tool_probe.py \
-        --engine splash --model incoai/Qwen3.8-27B-Splash
     uv run python scripts/prove_then_scale/b5_tool_probe.py --engine ollama --model <tag>
     uv run python scripts/prove_then_scale/b5_tool_probe.py --engine omlx --model <dir>
 """
@@ -42,7 +40,6 @@ ART = DATA_ROOT / "reports" / "compliance" / "prove_then_scale" / "b5"
 ENGINES = {
     "ollama": "http://localhost:11434",
     "omlx": "http://localhost:8085",
-    "splash": os.environ.get("BENCH_SPLASH_URL", "http://localhost:8086"),
 }
 
 QUESTION = (
@@ -183,9 +180,6 @@ def _probe_stream(engine: str, headers: dict, body: dict, out: dict) -> None:
 def probe(engine: str, model: str) -> dict:
     base = ENGINES[engine]
     headers = {"Content-Type": "application/json"}
-    key = os.environ.get("SPLASH_API_KEY")
-    if key and engine == "splash":
-        headers["Authorization"] = f"Bearer {key}"
     if "8085" in base:
         headers |= omlx_headers()
     body = {
@@ -195,10 +189,7 @@ def probe(engine: str, model: str) -> dict:
         "max_tokens": 512,
         "temperature": 0.0,
     }
-    if engine == "splash":
-        body["reasoning_effort"] = "none"
-    else:
-        body["chat_template_kwargs"] = {"enable_thinking": False}
+    body["chat_template_kwargs"] = {"enable_thinking": False}
     out: dict = {"engine": engine, "model": model}
     _probe_nonstream(engine, model, headers, body, out)
     _probe_stream(engine, headers, body, out)
@@ -213,9 +204,6 @@ def main() -> int:
     parser.add_argument("--engine", required=True, choices=sorted(ENGINES))
     parser.add_argument("--model", required=True)
     args = parser.parse_args()
-    if args.engine == "splash" and not os.environ.get("SPLASH_API_KEY"):
-        print("SPLASH_API_KEY missing")
-        return 1
     global SCHEMA
     if not SCHEMA:
         SCHEMA = fetch_real_schema()

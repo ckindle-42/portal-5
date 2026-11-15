@@ -1,3 +1,20 @@
+# Superseded — root cause was our oMLX LaunchAgent (ProcessType Background)
+
+The headline speed comparison below was invalidated by the oMLX LaunchAgent's
+`ProcessType Background` setting. After that setting was corrected, live decode
+speeds aligned with stock mlx_lm:
+
+| model | oMLX before | oMLX after | stock mlx_lm |
+|---|---:|---:|---:|
+| Gemma-4-26B QAT (hunt), through the Pipeline | 32.5 | 73.7 | 73.4 |
+| Nemotron 30B-A3B plain 4bit | 42 | 95 | 97.4 |
+| Qwen3.8-27B 4bit | 13.9 | 15.2 | 15.7 |
+
+The operator closed the engine evaluation. The original report remains below as
+historical evidence; its candidate rankings are superseded by this finding.
+
+---
+
 # Engine grade — 2026-11-15 (from existing receipts; testing stopped by operator)
 
 Scope: production-faithful burn-down, live through Open WebUI's Pipeline (:9099) with the oMLX incumbent measured in the same run. Each row is ONE 800-token prompt (canary valid + `engine_speed --prompts 1 --repeats 1`), receipts under `$PORTAL_DATA_ROOT/engine_eval/{canaries,speed}/<build>/`. Not run for any candidate: tool turn, 5×3 spread, Stage-3 quality, production fit (`engine_eval_runner prodfit`, merged b581aab62).

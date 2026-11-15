@@ -31,7 +31,6 @@ from typing import Any, cast
 
 import httpx
 
-from portal.platform.inference.eval_openai import EVAL_OPENAI, uses_openai_seat_injection
 from portal.platform.inference.model_cards import card_sampling
 
 logger = logging.getLogger(__name__)
@@ -60,7 +59,7 @@ def _apply_think(payload: dict[str, Any], think: bool | str | None, backend_type
     """
     if think is None:
         return
-    if uses_openai_seat_injection(backend_type):
+    if backend_type == "omlx":
         ctk = dict(payload.get("chat_template_kwargs") or {})
         ctk["enable_thinking"] = think
         payload["chat_template_kwargs"] = ctk
@@ -652,13 +651,9 @@ def _backend_for_model(registry: Any, workspace_id: str, model: str) -> Any | No
     """Find a healthy backend that explicitly declares ``model``."""
     ordered = list(registry.get_backend_candidates(workspace_id))
     seen = {backend.id for backend in ordered}
-    exclusive = bool(getattr(registry, "is_exclusive", lambda _ws: False)(workspace_id))
-    if not exclusive:
-        ordered.extend(
-            backend
-            for backend in registry.list_healthy_backends()
-            if backend.id not in seen and getattr(backend, "type", "") != EVAL_OPENAI
-        )
+    ordered.extend(
+        backend for backend in registry.list_healthy_backends() if backend.id not in seen
+    )
     return next((backend for backend in ordered if model in backend.models), None)
 
 
@@ -701,7 +696,7 @@ async def _post_model(
         "max_tokens": max_tokens,
     }
     payload.update(sampling)
-    if uses_openai_seat_injection(backend.type) and "repeat_penalty" in sampling:
+    if backend.type == "omlx" and "repeat_penalty" in sampling:
         payload["repetition_penalty"] = sampling["repeat_penalty"]
     _apply_think(payload, think, backend.type)
     try:

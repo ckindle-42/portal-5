@@ -1037,13 +1037,3 @@ workspace_routing:
   - general
   bench-spark-x26:
   - general
-  bench-engine-daily-moe:
-  - eval
-  bench-engine-coding:
-  - eval
-  bench-engine-task-router:
-  - eval
-  bench-engine-hunt:
-  - eval
-  bench-engine-council-json:
-  - eval

@@ -167,25 +167,15 @@ def seat_engine(hint: str, backends: dict, omlx_ids: set[str]) -> str:
 
 
 def _engine_name(backend_type: str) -> str:
-    """Audit engine for a backend type. eval_openai is not Ollama and not oMLX."""
-    if backend_type == "omlx":
-        return "omlx"
-    if backend_type == "eval_openai":
-        return "eval_openai"
-    return "ollama"
+    """Audit engine for a production backend type."""
+    return "omlx" if backend_type == "omlx" else "ollama"
 
 
 def _audit_registry(config_path: str | None = None) -> BackendRegistry:
-    """Registry that can see group ``eval`` while the eval module stays off.
-
-    Production ``BackendRegistry()`` does not load ``bench_engines.yaml``
-    backends until eval is enabled. The settings audit has to judge those
-    workspaces anyway, against that file, without copying their model ids into
-    the production groups of ``backends.yaml``.
-    """
+    """Registry using the production backend configuration."""
     from portal.platform.inference.cluster_backends import BackendRegistry
 
-    return BackendRegistry(config_path, include_eval_backends=True)
+    return BackendRegistry(config_path)
 
 
 def _served_path(ws_id: str, hint: str, reg: BackendRegistry) -> tuple[str, str, str] | None:
@@ -195,8 +185,7 @@ def _served_path(ws_id: str, hint: str, reg: BackendRegistry) -> tuple[str, str,
     translation. `seat_engine` guesses the engine from the hint; this walks the
     served path, so an oMLX shadow (row identity backend: omlx-general, model:
     unsloth--…-MLX-4bit) reads as oMLX and later checks audit THAT path. An
-    eval_openai hit stays eval_openai: its context comes from the engine
-    launch, not an Ollama baked tag. None when no backend resolves the hint —
+    None when no backend resolves the hint —
     `hint_unroutable` covers the case."""
     for b in reg.get_backend_candidates(ws_id):
         resolved = b.resolve_model(hint)
@@ -993,14 +982,10 @@ def _sampling_defaults(engine: str, hint: str, omlx_entry: dict) -> dict:
     """Engine defaults for keys the seat does not declare.
 
     Ollama: the tag's baked parameters. oMLX: global settings over the model
-    entry. eval_openai: nothing — the launch serves the seat's own sampling,
-    and filling from Ollama or ``~/.omlx/settings.json`` would audit the wrong
-    engine.
+    entry.
     """
     if engine == "ollama":
         return baked_params(hint)
-    if engine == "eval_openai":
-        return {}
     return {**omlx_default_sampling(), **_omlx_entry_sampling(omlx_entry)}
 
 
@@ -1034,10 +1019,6 @@ def _served_sampling_check(
     def _diffs(card: dict) -> list[str]:
         out = []
         for k, want in card.items():
-            # eval_openai has no audited engine default. An omitted key is not
-            # evidence the seat serves a different value.
-            if engine == "eval_openai" and k not in declared:
-                continue
             got, src = (
                 (declared[k], "seat") if k in declared else (defaults.get(k), f"{engine} default")
             )
@@ -1086,16 +1067,6 @@ def _served_sampling_check(
         )
 
 
-def _served_by_eval_backend(hint: str, route_groups: list[str], eval_ids: set[str]) -> bool:
-    """True when this seat's routing group is eval and the hint is on that backend.
-
-    That is registration in ``config/bench_engines.yaml``, not in a production
-    group of ``backends.yaml``. A production seat that names the same id still
-    fails ``hint_unregistered``.
-    """
-    return "eval" in route_groups and hint in eval_ids
-
-
 def _audit_workspace(
     ws_id: str,
     ws: dict,
@@ -1105,20 +1076,13 @@ def _audit_workspace(
     violations: list[dict],
     omlx: bool = False,
     unverifiable: set[str] | None = None,
-    eval_ids: set[str] | None = None,
-    route_groups: list[str] | None = None,
-    eval_tool_flags: dict[str, bool] | None = None,
 ) -> None:
     hint = ws["model_hint"]
     unverifiable = unverifiable or set()
-    on_eval_backend = _served_by_eval_backend(hint, route_groups or [], eval_ids or set())
 
     # Ollama model names are case-insensitive (:q4_k_m and :Q4_K_M are one tag).
-    # An eval_openai hint is not an Ollama tag; install is the eval engine's
-    # own store, which this offline pass does not probe. Missing from
-    # bench_engines.yaml still fails hint_unregistered / hint_unroutable.
     absent = hint not in tags and hint.lower() not in {t.lower() for t in tags}
-    if absent and hint not in unverifiable and not on_eval_backend:
+    if absent and hint not in unverifiable:
         _v(
             violations,
             ws_id,
@@ -1126,7 +1090,7 @@ def _audit_workspace(
             f"model_hint {hint} not installed (workspace cannot serve)",
             "FAIL",
         )
-    if hint not in registered and not on_eval_backend:
+    if hint not in registered:
         _v(
             violations,
             ws_id,
@@ -1136,17 +1100,13 @@ def _audit_workspace(
         )
 
     bp = baked_params(hint) if hint in tags else {}
-    # Baked num_ctx is an Ollama mechanism. oMLX and eval_openai take their
-    # window from the engine (oMLX settings, or the eval engine launch).
-    if not omlx and not on_eval_backend:
+    # Baked num_ctx is an Ollama mechanism; oMLX takes its window from the engine.
+    if not omlx:
         _audit_context(ws_id, ws, hint, bp, tags, violations)
     _audit_sampling(ws_id, ws, hint, bp, tags, violations)
 
-    flags = tool_flags
-    if on_eval_backend and eval_tool_flags and hint in eval_tool_flags:
-        flags = {**tool_flags, hint: eval_tool_flags[hint]}
     ws_tools = ws.get("tools") or []
-    if ws_tools and flags.get(hint) is False:
+    if ws_tools and tool_flags.get(hint) is False:
         _v(
             violations,
             ws_id,
@@ -1864,15 +1824,12 @@ def _audit_routable(seats: list, backends: dict, violations: list[dict]) -> None
         groups = routing.get(seat_id.split("::")[0]) or []
         hint = ws["model_hint"]
         if not any(b.resolve_model(hint) for b in reg.list_backends() if b.group in groups):
-            register_in = (
-                "config/bench_engines.yaml" if "eval" in groups else "config/backends.yaml"
-            )
             _v(
                 violations,
                 seat_id,
                 "hint_unroutable",
                 f"no backend in routing groups {groups} serves {hint} — the router falls back "
-                f"to a DIFFERENT model (backend.models[0]); register the tag in {register_in}",
+                f"to a DIFFERENT model (backend.models[0]); register the tag in config/backends.yaml",
                 "FAIL",
             )
 
@@ -1923,28 +1880,6 @@ def _registered_models(backends: dict) -> tuple[set[str], dict[str, bool]]:
     return registered, tool_flags
 
 
-def _eval_backend_models(config_path: str) -> tuple[set[str], dict[str, bool]]:
-    """Model ids on the eval_openai backend in bench_engines.yaml.
-
-    Kept out of ``_registered_models`` so a production seat or a council id is
-    not treated as registered just because the eval backend lists it.
-    """
-    from portal.platform.inference.eval_openai import EVAL_OPENAI, load_bench_engines
-
-    registered: set[str] = set()
-    tool_flags: dict[str, bool] = {}
-    for be in load_bench_engines(config_path).get("backends") or []:
-        if not isinstance(be, dict) or be.get("type") != EVAL_OPENAI:
-            continue
-        for model in be.get("models") or []:
-            if isinstance(model, dict) and model.get("id"):
-                registered.add(str(model["id"]))
-                tool_flags[str(model["id"])] = bool(model.get("supports_tools"))
-            elif isinstance(model, str):
-                registered.add(model)
-    return registered, tool_flags
-
-
 def _audit_seat(ws_id: str, ws: dict, ctx: dict, violations: list[dict]) -> dict:
     """Every per-seat check, on the path the pipeline actually serves the seat."""
     hint = ws["model_hint"]
@@ -1959,7 +1894,6 @@ def _audit_seat(ws_id: str, ws: dict, ctx: dict, violations: list[dict]) -> dict
             hint,
         )
     tags, registry = ctx["tags"], ctx["registry"]
-    groups = (ctx.get("routing") or {}).get(ws_id.split("::")[0]) or []
     _audit_workspace(
         ws_id,
         ws,
@@ -1969,9 +1903,6 @@ def _audit_seat(ws_id: str, ws: dict, ctx: dict, violations: list[dict]) -> dict
         violations,
         omlx=engine == "omlx",
         unverifiable=ctx["unverifiable"],
-        eval_ids=ctx.get("eval_ids"),
-        route_groups=groups,
-        eval_tool_flags=ctx.get("eval_tool_flags"),
     )
     _audit_reasoning_fit(ws_id, ws, hint, registry, tags, violations)
     _audit_reasoning_budget_fit(
@@ -2004,8 +1935,6 @@ def _config_only_defaults(repo: Path, ws_id: str, hint: str) -> dict:
     no live endpoint. {} when nothing is resolvable, the old degraded behaviour."""
     with contextlib.suppress(Exception):
         resolved = _served_path(ws_id, hint, _audit_registry(str(repo / "config/backends.yaml")))
-        if resolved and resolved[0] == "eval_openai":
-            return {}
         if resolved and resolved[0] == "omlx":
             return {
                 **omlx_default_sampling(),
@@ -2065,7 +1994,6 @@ def run_audit(behavioral: bool = False) -> dict:
     backends = yaml.safe_load((REPO / "config/backends.yaml").read_text())
 
     registered, tool_flags = _registered_models(backends)
-    eval_ids, eval_tool_flags = _eval_backend_models(str(REPO / "config/backends.yaml"))
     omlx_ids, omlx_reason = omlx_inventory()
     tags = installed_tags(backends, omlx_ids)
     council_path = REPO / "config/compliance/council.yaml"
@@ -2101,8 +2029,6 @@ def run_audit(behavioral: bool = False) -> dict:
         "registered": registered,
         "tool_flags": tool_flags,
         "routing": backends.get("workspace_routing") or {},
-        "eval_ids": eval_ids,
-        "eval_tool_flags": eval_tool_flags,
         "registry": registry,
         "shows": shows,
         "tmap": tmap,

@@ -10,10 +10,6 @@ sources:
   path: portal/modules/compliance/core/reading_transport.py
   commit: 26f2ed03
 - type: code
-  path: scripts/compliance/write_splash_report.py
-- type: code
-  path: scripts/validation/splash_sweep_engine.py
-- type: code
   path: tests/unit/test_compliance_reading_transport.py
   commit: 26f2ed03
 claims: []
@@ -39,29 +35,21 @@ dialect.
 
 ## Why
 
-The sweep's endpoint was a hardcoded Ollama constant
-(`reading_transport._ENDPOINT`), which is why registering splash with the
-PIPELINE never moved the sweep: `sweep.map_read` never consults
-`backends.yaml` or the router. Wiring a new engine into the wrong lane would
-change the conversation surface and leave the measured lane untouched — the
-wrong-lane failure SPLASH_SWEEP_ACCELERATION_V1 exists to prevent. The seam
-also carries the attribution rule the promotion decision depends on: every
-result records the dialect and endpoint that served it, an unknown dialect name
-is an error rather than a silent fallback, and splash's context window is a
-serve-line pin (`--max-context 32768`) that a request cannot raise, so a
-receipt can never claim a window its engine did not set.
+The transport defaults to the Portal pipeline, which owns routing, fallback,
+sampling enforcement and tool-call recovery. The native Ollama passthrough is
+the explicit rollback. Every result records the dialect and endpoint that
+served it, and an unknown dialect name is an error rather than a silent
+fallback.
 
 ## Interfaces
 
 `resolve_dialect(dialect)` resolves an explicit name, then the
 `COMPLIANCE_TRANSPORT` env var, and defaults to `pipeline`. The
-`ollama-native` rollback speaks
-`/api/chat` with `options.{temperature,num_predict,num_ctx}` and top-level
-`keep_alive`/`think`. `OpenAICompat` speaks splash 1.0.1's
-`/v1/chat/completions`: `max_tokens`/`temperature` top-level, no
-`keep_alive`, `num_ctx` and `keep_alive` deliberately dropped,
-`reasoning_effort` in place of `think`, and Bearer auth from
-`SPLASH_API_KEY`.
+`ollama-native` rollback speaks `/api/chat` with
+`options.{temperature,num_predict,num_ctx}` and top-level
+`keep_alive`/`think`. The production `PipelineCompat` speaks the pipeline's
+OpenAI-compatible `/v1/chat/completions` endpoint, passes workspace IDs and
+client tools, and records routing attribution from the pipeline trace.
 
 `OllamaNative` defaults `OLLAMA_BASE` to the pipeline's `/ollama` passthrough,
 and authenticates with `PIPELINE_API_KEY`. Its `/api/show` and `/api/ps` reads

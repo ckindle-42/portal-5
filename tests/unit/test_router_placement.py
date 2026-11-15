@@ -79,7 +79,7 @@ class TestEngineKey:
         assert engine_key(url) == "http://host.docker.internal:8085"
 
     def test_different_ports_are_different_engines(self) -> None:
-        assert engine_key("http://host:8085") != engine_key("http://host:8086")
+        assert engine_key("http://host:8085") != engine_key("http://host:8087")
 
 
 class TestHotSeatTracker:
