@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from ..engine import Search
 from .behaviours import Behaviour
 from .embedding import embedding_from_env, embedding_requirement
 from .pipeline import model_from_env, model_requirement
@@ -174,14 +175,14 @@ def _print_cards(receipt: dict[str, Any]) -> None:
     )
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None, *, search: Search | None = None) -> int:
     args = _parser().parse_args(argv)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     end = args.end if args.end is not None else time.time() + 1.0
     stages = STAGES if args.stage == "all" else (args.stage,)
     target = model_from_env()
-    search = default_search()
+    search = default_search() if search is None else search
     if "cards" in stages:
         if target is None:
             print(model_requirement(), file=sys.stderr)
