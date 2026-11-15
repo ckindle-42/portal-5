@@ -105,10 +105,95 @@ def test_stop_managed_signals_owned_pid_and_verifies_port_free(
 
 
 def test_rapid_mlx_renders_registry_tool_parser_for_the_cell(cfg):
-    argv, _ = h.launch_command(cfg, "rapid-mlx", "nemotron_35_lightning", "plain")
+    argv, _ = h.launch_command(cfg, "rapid-mlx", "nemotron_35_lightning", "plain", seat="daily-moe")
 
-    assert argv[argv.index("--tool-call-parser") + 1] == "auto"
+    assert argv[argv.index("--tool-call-parser") + 1] == "nemotron"
     assert all("{tool_parser}" not in part for part in argv)
+
+
+def _rapid_flag(argv: list[str], flag: str) -> str:
+    return argv[argv.index(flag) + 1]
+
+
+def test_rapid_mlx_seat_argv_follows_the_researched_registry(cfg):
+    """Parse engines.rapid-mlx.seats. No engine is started."""
+    root = cfg["mlx_root"]
+    assistant = "/Volumes/data01/engine_h2h_drafters/gemma-4-26B-A4B-it-assistant-bf16"
+    draft = cfg["models"]["qwen38_27b_h2h"]["drafter_dir"]
+    note = cfg["engines"]["rapid-mlx"]["note"]
+    assert "tool_choice='auto'" in note
+    assert "1.0.2" in note
+    cells = {
+        (
+            "daily-moe",
+            "nemotron_35_lightning",
+            "plain",
+        ): "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-4bit",
+        ("coding", "qwen38_27b_h2h", "plain"): "Qwen3.8-27B-4bit-MTP-MLX",
+        ("coding", "qwen38_27b_h2h", "spec"): "Qwen3.8-27B-4bit",
+        ("hunt", "gemma4_26b_a4b_qat", "plain"): "gemma-4-26b-a4b-it-QAT-4bit",
+        ("hunt", "gemma4_26b_a4b_qat", "spec"): "gemma-4-26b-a4b-it-QAT-4bit",
+        ("council-json", "qwen38_27b_h2h", "plain"): "Qwen3.8-27B-4bit",
+    }
+    served = {
+        "daily-moe": "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp",
+        "coding": "Qwen3.8-27B-4bit",
+        "hunt": "gemma-4-26b-a4b-it-QAT-4bit",
+        "council-json": "Qwen3.8-27B-4bit",
+    }
+    parsers = {
+        "daily-moe": ("nemotron", "qwen3"),
+        "coding": ("qwen3_coder_xml", "qwen3"),
+        "hunt": ("gemma4", "gemma4"),
+        "council-json": ("qwen3_coder_xml", "qwen3"),
+    }
+    for (seat, model, mode), directory in cells.items():
+        argv, _cwd = h.launch_command(cfg, "rapid-mlx", model, mode, seat=seat)
+        assert _rapid_flag(argv, "serve").endswith("/" + directory)
+        assert _rapid_flag(argv, "--served-model-name") == served[seat]
+        assert h.served_id(cfg, "rapid-mlx", model, mode) == served[seat]
+        assert _rapid_flag(argv, "--tool-call-parser") == parsers[seat][0]
+        assert _rapid_flag(argv, "--reasoning-parser") == parsers[seat][1]
+        assert _rapid_flag(argv, "--port") == "11235"
+        assert "--no-telemetry" in argv
+        assert "--default-chat-template-kwargs" not in argv
+        assert "--context-length" not in argv
+        assert argv[argv.index("--trusted-hosts") + 1 : argv.index("--trusted-hosts") + 4] == [
+            "127.0.0.1",
+            "localhost",
+            "host.docker.internal",
+        ]
+    daily, _ = h.launch_command(
+        cfg, "rapid-mlx", "nemotron_35_lightning", "plain", seat="daily-moe"
+    )
+    council, _ = h.launch_command(cfg, "rapid-mlx", "qwen38_27b_h2h", "plain", seat="council-json")
+    hunt_plain, _ = h.launch_command(cfg, "rapid-mlx", "gemma4_26b_a4b_qat", "plain", seat="hunt")
+    for argv in (daily, council, hunt_plain):
+        assert "--no-spec-decode" in argv
+        assert "--kv-cache-turboquant" in argv
+        assert _rapid_flag(argv, "--kv-cache-dtype") == "bf16"
+    assert "--no-thinking" in council
+    assert "--no-thinking" not in daily
+    assert "--no-thinking" not in hunt_plain
+    coding_plain, _ = h.launch_command(cfg, "rapid-mlx", "qwen38_27b_h2h", "plain", seat="coding")
+    coding_spec, _ = h.launch_command(cfg, "rapid-mlx", "qwen38_27b_h2h", "spec", seat="coding")
+    hunt_spec, _ = h.launch_command(cfg, "rapid-mlx", "gemma4_26b_a4b_qat", "spec", seat="hunt")
+    mtp = json.loads(_rapid_flag(coding_plain, "--speculative-config"))
+    assert mtp == {"method": "mtp", "model": f"{root}/Qwen3.8-27B-4bit-MTP-MLX"}
+    assert "--no-spec-decode" not in coding_plain
+    assert "--kv-cache-turboquant" not in coding_plain
+    dflash = json.loads(_rapid_flag(coding_spec, "--speculative-config"))
+    assert dflash == {"method": "dflash", "model": draft}
+    assert "--no-spec-decode" not in coding_spec
+    assert f"{root}/Qwen3.8-27B-4bit-MTP-MLX" not in " ".join(coding_spec)
+    assistant_cfg = json.loads(_rapid_flag(hunt_spec, "--speculative-config"))
+    assert assistant_cfg == {"method": "mtp", "model": assistant}
+    assert "--no-spec-decode" not in hunt_spec
+    assert "--no-thinking" not in hunt_spec
+    with pytest.raises(SystemExit, match="no spec path"):
+        h.launch_command(cfg, "rapid-mlx", "nemotron_35_lightning", "spec", seat="daily-moe")
+    with pytest.raises(SystemExit, match="no spec path"):
+        h.launch_command(cfg, "rapid-mlx", "qwen38_27b_h2h", "spec", seat="council-json")
 
 
 def test_local_gguf_path_skips_hugging_face_cache_lookup(monkeypatch, tmp_path: Path):

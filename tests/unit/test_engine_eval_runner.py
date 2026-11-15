@@ -122,6 +122,35 @@ def test_vllm_mlx_candidate_memory_uses_status_not_root_footprint(monkeypatch) -
     assert memory["engine_weight_gb"] == pytest.approx(17.2 / (1024**3 / 1_000_000_000))
 
 
+def test_rapid_mlx_candidate_cells_use_per_seat_launch_argv() -> None:
+    """Seated rapid-mlx cells only. Daily and council spec stay excluded."""
+    wanted = {
+        ("daily-moe", "plain"),
+        ("coding", "plain"),
+        ("coding", "spec"),
+        ("hunt", "plain"),
+        ("hunt", "spec"),
+        ("council-json", "plain"),
+    }
+    cells = [cell for cell in runner.candidate_cells() if cell["engine"] == "rapid-mlx"]
+    assert {(cell["seat"], cell["mode"]) for cell in cells} == wanted
+    for cell in cells:
+        argv = cell["argv"]
+        assert cell["launch_error"] is None
+        assert cell["port"] == 11235
+        assert cell["expected_model"] == cell["model_hint"]
+        assert argv[argv.index("--served-model-name") + 1] == cell["expected_model"]
+        assert "host.docker.internal" in argv
+        assert "--default-chat-template-kwargs" not in argv
+    coding_spec = next(
+        cell for cell in cells if cell["seat"] == "coding" and cell["mode"] == "spec"
+    )
+    assert "dflash" in coding_spec["argv"][coding_spec["argv"].index("--speculative-config") + 1]
+    hunt = next(cell for cell in cells if cell["seat"] == "hunt" and cell["mode"] == "plain")
+    assert "--no-thinking" not in hunt["argv"]
+    assert hunt["argv"][hunt["argv"].index("--tool-call-parser") + 1] == "gemma4"
+
+
 def test_vllm_mlx_candidate_cells_use_per_seat_launch_argv() -> None:
     """The canary cell argv is the seated registry, not the global think-off template."""
     wanted = {

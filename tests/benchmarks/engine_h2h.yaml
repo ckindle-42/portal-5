@@ -45,7 +45,10 @@ engine_eval:
     - {seat: coding, engine: vllm-metal, mode: spec, reason: "Qwen n-gram speculative load and streaming remain unverified; this fix qualifies the plain text-only path"}
     - {seat: daily-moe, engine: mlxcel, mode: plain, reason: the approved matrix says mlxcel cannot read oQ4e}
     - {seat: daily-moe, engine: mlxcel, mode: spec, reason: the approved matrix says mlxcel cannot read oQ4e}
-    - {seat: daily-moe, engine: rapid-mlx, mode: spec, reason: rapid-mlx 1.0.2 MTP eligibility is NONE for model_type nemotron_h (no mtp_num_hidden_layers; num_nextn_predict_layers is read only for hy_v3)}
+    # mlxserve_20261114.md §rapid-mlx §1: Lightning is not an MTP default. Both the oQ4e pack and the 4-bit pack are nemotron_h.
+    - {seat: daily-moe, engine: rapid-mlx, mode: spec, reason: "rapid-mlx 1.0.2 detect_mtp_eligibility is NONE for model_type nemotron_h (mlxserve_20261114.md §rapid-mlx §1). Do not --force-spec-decode. The seated plain target is the 4-bit pack."}
+    # config/engine_artifacts_20261114.yaml rapid-mlx.council-json is candidate_same_target (plain 4-bit only).
+    - {seat: council-json, engine: rapid-mlx, mode: spec, reason: "council-json best config is the plain Qwen3.8-27B-4bit target (engine_artifacts_20261114.yaml). The shared qwen spec arm is DFlash, and DFlash rejects forced tool_choice (HTTP 400, no flag)."}
 
 engines:
   ollama:
@@ -83,15 +86,76 @@ engines:
     port: 11235
     version: "1.0.2"
     # Install: curl -fsSL https://rapidmlx.com/install.sh | bash
-    # Bundles Python 3.12. Do not install into the portal 3.10 venv. arm64 host.
-    # 1.0 keeps --speculative-config (dflash/mtp/suffix). --no-telemetry stays on.
-    # Do not pass --disable-disk-caches: the default was not verified here.
-    # --trusted-hosts: the Pipeline calls through host.docker.internal and Rapid-MLX's
-    # DNS-rebinding guard 400s any Host outside its allowlist (default loopback only),
-    # so the engine was up but never healthy from the container. Values replace the
-    # defaults, so the loopback names stay.
+    # Own Python 3.12/3.13. Do not install into the portal 3.10 venv. arm64 host.
+    # Stay on 1.0.2 (mlxserve_20261114.md §rapid-mlx §2 and §3): 1.0.3 fused 4-bit MoE is approximate.
+    # This host's binary is 1.0.2. `serve --help` has --reasoning-parser, --no-thinking,
+    # --context-length, --speculative-config, --trusted-hosts. It has no
+    # --default-chat-template-kwargs, so seats must not emit that flag.
+    # Unseated historical rows keep plain/base_spec. Campaign cells use seat_base.
+    # --trusted-hosts (mlxserve_20261114.md §rapid-mlx §2): values replace the loopback
+    # default, and the Pipeline's Host is host.docker.internal. A missing allowlist
+    # returns HTTP 400 on /v1/models while the process is listening, so the Pipeline
+    # health check (180s) never flips. The flag is on seat_base, including spec.
+    # Quality-plain argv is §2: --no-spec-decode, catalog parser, turboquant none, dtype bf16.
+    # No --context-length: the documented quality argv omits it. Do not pass --no-thinking
+    # except where the production workspace sets think false and the template default is on.
     plain: [rapid-mlx, --no-telemetry, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --no-spec-decode, --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}", --trusted-hosts, 127.0.0.1, localhost, host.docker.internal]
     base_spec: [rapid-mlx, --no-telemetry, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}", --trusted-hosts, 127.0.0.1, localhost, host.docker.internal]
+    # mlxserve_20261114.md §rapid-mlx §2 quality-plain, minus --no-spec-decode (plain_extra only).
+    seat_base: [rapid-mlx, --no-telemetry, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}", --trusted-hosts, 127.0.0.1, localhost, host.docker.internal]
+    note: "Pin 1.0.2 (mlxserve_20261114.md §rapid-mlx §2–§3). Health 400s were the DNS-rebinding allowlist: --trusted-hosts must include host.docker.internal. DFlash forced tool_choice is an engine limit: HTTP 400 {\"detail\":\"DFlash currently supports tool_choice='auto' only.\"} in rapid_mlx/speculative/dflash/server.py on 1.0.2; 1.0.3 changelog does not lift it; no flag. Forced tool_choice synthesis can still HTTP 422 (chat.py #1256) when the call omits a required property; the engine text says retry or use tool_choice=auto. gemma4 is the hunt catalog parser, not a switch that removes that check. Local MTP is explicit {\"method\":\"mtp\",\"model\":<pack or assistant>}; a bare method on a local dir falls back to plain. Per-seat argv is engines.rapid-mlx.seats."
+    seats:
+      # §1 daily-moe: alias target is the 4-bit pack, parsers nemotron + qwen3, spec off.
+      # auto-daily think is true. Omit --no-thinking (Qwen-style template default is on).
+      # --served-model-name stays the bench hint. Do not serve the oQ4e dir as this cell.
+      daily-moe:
+        model_dir: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-4bit
+        served: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
+        tool_parser: nemotron
+        reasoning_parser: qwen3
+        plain_extra_argv: [--no-spec-decode, --kv-cache-turboquant, none, --kv-cache-dtype, bf16]
+      # §1–§2 coding vendor-fast is the local Rapid MTP pack, not the alias (the alias downloads).
+      # 1.0.2 keeps MTP only when speculative-config model is the pack that holds mtp/model.safetensors.
+      # Parser qwen3_coder_xml, reasoning qwen3. auto-coding think is true: no --no-thinking.
+      # Speed cell leaves KV at the engine default (no turboquant none). --disable-model-downloads.
+      # Spec arm is the plain 4-bit plus the on-disk DFlash2 drafter (experimental 4-bit pair).
+      coding:
+        model_dir: Qwen3.8-27B-4bit-MTP-MLX
+        spec_model_dir: Qwen3.8-27B-4bit
+        served: Qwen3.8-27B-4bit
+        tool_parser: qwen3_coder_xml
+        reasoning_parser: qwen3
+        plain_extra_argv:
+          - --disable-model-downloads
+          - --speculative-config
+          - '{"method":"mtp","model":"{mlx_root}/{model_dir}"}'
+        spec_argv:
+          - --disable-model-downloads
+          - --speculative-config
+          - '{"method":"dflash","model":"{drafter_path}"}'
+      # Artifacts yaml hunt candidate_spec: QAT target plus BF16 assistant. §2 names the assistant
+      # as the model of an MTP config. Parsers gemma4 / gemma4. hunt-reasoning has no think field:
+      # do not pass --no-thinking and do not pass enable_thinking (Gemma template default is off).
+      # Plain is the quality argv. Spec omits --no-spec-decode and the KV override.
+      hunt:
+        model_dir: gemma-4-26b-a4b-it-QAT-4bit
+        served: gemma-4-26b-a4b-it-QAT-4bit
+        tool_parser: gemma4
+        reasoning_parser: gemma4
+        plain_extra_argv: [--no-spec-decode, --kv-cache-turboquant, none, --kv-cache-dtype, bf16]
+        spec_argv:
+          - --disable-model-downloads
+          - --speculative-config
+          - '{"method":"mtp","model":"/Volumes/data01/engine_h2h_drafters/gemma-4-26B-A4B-it-assistant-bf16"}'
+      # Artifacts yaml council-json: same plain 4-bit target. compliance-council think is false.
+      # --no-thinking forces enable_thinking false (1.0.2 helpers._resolve_enable_thinking) and
+      # suppresses the chain-of-thought template. Parser stays qwen3_coder_xml / reasoning qwen3.
+      council-json:
+        model_dir: Qwen3.8-27B-4bit
+        served: Qwen3.8-27B-4bit
+        tool_parser: qwen3_coder_xml
+        reasoning_parser: qwen3
+        plain_extra_argv: [--no-spec-decode, --no-thinking, --kv-cache-turboquant, none, --kv-cache-dtype, bf16]
     stop_signal: INT
     readiness: {path: /v1/models, timeout_s: 300, collection: data, id_field: id}
   vllm-mlx:
@@ -667,10 +731,14 @@ models:
     ctx: 16384
     prefill_tokens: 6000
     tool_parser: {vllm-mlx: gemma4, default: auto}
-    # No same-tokenizer drafter is on disk. Do not download one. Not a splash family.
+    # No same-tokenizer drafter for the other engines. Do not download one. Not a splash family.
+    # rapid-mlx hunt spec is the BF16 assistant already on disk (engine_artifacts_20261114.yaml
+    # gemma_assistant_26b_bf16). mlxserve_20261114.md §rapid-mlx §2: name it as the MTP model.
     spec:
       mlx-serve: null
-      rapid-mlx: null
+      rapid-mlx:
+        method: mtp
+        args: [--speculative-config, '{"method":"mtp","model":"/Volumes/data01/engine_h2h_drafters/gemma-4-26B-A4B-it-assistant-bf16"}']
       vllm-mlx: null
       omlx: null
       mlx_lm.server: null
