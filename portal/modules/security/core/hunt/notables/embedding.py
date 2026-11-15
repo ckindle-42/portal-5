@@ -27,6 +27,34 @@ class EmbeddingError(RuntimeError):
     """The Pipeline embedding route failed or returned invalid vectors."""
 
 
+def _ordered_vectors(rows: Any, expected: int) -> list[list[float]]:
+    """Validate and restore vectors to their request order."""
+    if not isinstance(rows, list) or len(rows) != expected:
+        raise EmbeddingError(f"asked for {expected} embeddings, got invalid response")
+    ordered: list[list[float] | None] = [None] * expected
+    for position, row in enumerate(rows):
+        if not isinstance(row, Mapping):
+            raise EmbeddingError("Pipeline embedding row is not an object")
+        index = row.get("index", position)
+        if isinstance(index, bool) or not isinstance(index, int) or not 0 <= index < expected:
+            raise EmbeddingError("Pipeline embedding row has an invalid index")
+        raw = row.get("embedding")
+        if not isinstance(raw, list) or not raw:
+            raise EmbeddingError("Pipeline returned an empty embedding")
+        try:
+            vector = [float(value) for value in raw]
+        except (TypeError, ValueError) as exc:
+            raise EmbeddingError("Pipeline returned a non-numeric embedding") from exc
+        if not all(math.isfinite(value) for value in vector):
+            raise EmbeddingError("Pipeline returned a non-finite embedding")
+        if ordered[index] is not None:
+            raise EmbeddingError("Pipeline returned a duplicate embedding index")
+        ordered[index] = vector
+    if any(vector is None for vector in ordered):
+        raise EmbeddingError("Pipeline omitted an embedding index")
+    return [vector for vector in ordered if vector is not None]
+
+
 class PipelineEmbeddingClient:
     """Embed bounded batches using only ``POST /v1/embeddings`` on the Pipeline."""
 
@@ -134,36 +162,13 @@ class PipelineEmbeddingClient:
         served = str(body.get("model") or self.model)
         if served != self.model:
             raise EmbeddingError(f"Pipeline served {served!r}, requested {self.model!r}")
-        rows = body.get("data")
-        if not isinstance(rows, list) or len(rows) != expected:
-            raise EmbeddingError(f"asked for {expected} embeddings, got invalid response")
-        ordered: list[list[float] | None] = [None] * expected
-        for position, row in enumerate(rows):
-            if not isinstance(row, Mapping):
-                raise EmbeddingError("Pipeline embedding row is not an object")
-            index = row.get("index", position)
-            if isinstance(index, bool) or not isinstance(index, int) or not 0 <= index < expected:
-                raise EmbeddingError("Pipeline embedding row has an invalid index")
-            raw = row.get("embedding")
-            if not isinstance(raw, list) or not raw:
-                raise EmbeddingError("Pipeline returned an empty embedding")
-            try:
-                vector = [float(value) for value in raw]
-            except (TypeError, ValueError) as exc:
-                raise EmbeddingError("Pipeline returned a non-numeric embedding") from exc
-            if not all(math.isfinite(value) for value in vector):
-                raise EmbeddingError("Pipeline returned a non-finite embedding")
-            if ordered[index] is not None:
-                raise EmbeddingError("Pipeline returned a duplicate embedding index")
-            ordered[index] = vector
-        if any(vector is None for vector in ordered):
-            raise EmbeddingError("Pipeline omitted an embedding index")
+        ordered = _ordered_vectors(body.get("data"), expected)
         with self._lock:
             self._stats["requests"] += 1
             self._stats["items"] += expected
             self._stats["batches"] += 1
             self._stats["seconds"] = round(float(self._stats["seconds"]) + self._clock() - began, 3)
-        return [vector for vector in ordered if vector is not None]
+        return ordered
 
     def _record_throttle(self) -> None:
         with self._lock:
