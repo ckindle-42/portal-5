@@ -153,6 +153,10 @@ backends:
     url: http://host.docker.internal:11243
     health_path: /v1/models
     priority: 10
+    # docs/engine_research/mlxother_20261114.md §2. Bind stays 127.0.0.1. 0.8.1 has no
+    # host allowlist. The socket opens after warmup, so a refused connect during load
+    # is the harness 300s /v1/models poll, not a dead backend. data[].id is --alias.
+    note: "Pin 0.8.1, arm64, zip sha256 56c57d3ba56f78d8fa7afaf07d6d7c0b06292364731ee6d327ae30e5fa685560. health_path stays /v1/models: once listening, data[].id equals --alias (canary 7edcfeb2 host GET was 200). That same canary's pipeline 400 listed only the production incumbents while /v1/backends already had this backend healthy. No API key and no --allowed-host on 0.8.1. Per-seat argv is tests/benchmarks/engine_h2h.yaml engines.mlxcel.seats. Coding think on via --chat-template-kwargs; council think false the same way; hunt omits the flag. Spec coding quality at 846f552dc missed execute_python (10 then 15) on affine 4-bit plus DFlash2, not the oQ4e-mtp bytes oMLX passed. Plain coding was a template render gap (318 vs 1504 prompt tokens)."
     models: *engine_eval_models
   - id: eval-openai-vllm-metal
     type: eval_openai

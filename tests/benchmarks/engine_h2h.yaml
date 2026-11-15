@@ -47,8 +47,11 @@ engine_eval:
     # The plain Qwen cell is text-only and bypasses processor construction. Keep the
     # speculative row excluded until the Qwen n-gram stream/load path is canaried.
     - {seat: coding, engine: vllm-metal, mode: spec, reason: "Qwen n-gram speculative load and streaming remain unverified; this fix qualifies the plain text-only path"}
-    - {seat: daily-moe, engine: mlxcel, mode: plain, reason: the approved matrix says mlxcel cannot read oQ4e}
-    - {seat: daily-moe, engine: mlxcel, mode: spec, reason: the approved matrix says mlxcel cannot read oQ4e}
+    # Plain daily-moe loads the 4-bit pack (engine_artifacts_20261114.yaml nemotron_mlx_4bit).
+    # Spec stays out: mlxcel MTP needs --draft-model and no Nemotron drafter is registered.
+    - {seat: daily-moe, engine: mlxcel, mode: spec, reason: "mlxcel MTP requires --draft-model; no Nemotron drafter is registered. Plain loads the 4-bit pack under the oQ4e alias."}
+    # Artifacts yaml council-json is candidate_same_target (plain 4-bit only).
+    - {seat: council-json, engine: mlxcel, mode: spec, reason: "council-json best config is the plain Qwen3.8-27B-4bit target (engine_artifacts_20261114.yaml). The shared qwen spec arm is DFlash."}
     # mlxserve_20261114.md §rapid-mlx §1: Lightning is not an MTP default. Both the oQ4e pack and the 4-bit pack are nemotron_h.
     - {seat: daily-moe, engine: rapid-mlx, mode: spec, reason: "rapid-mlx 1.0.2 detect_mtp_eligibility is NONE for model_type nemotron_h (mlxserve_20261114.md §rapid-mlx §1). Do not --force-spec-decode. The seated plain target is the 4-bit pack."}
     # config/engine_artifacts_20261114.yaml rapid-mlx.council-json is candidate_same_target (plain 4-bit only).
@@ -437,9 +440,80 @@ engines:
     # file(1) must be Mach-O arm64. brew tap lablup/tap && brew install lablup/tap/mlxcel
     # only when mlxcel --version prints 0.8.1. Refuse linux cuda zips and rocm/cuda builds.
     # Explicit --parallel 4 splits the ctx unless --kv-unified is also set.
-    # --prompt-lookup stays off. No disk KV flag.
+    # --prompt-lookup stays off. No disk KV flag. Unseated rows keep plain/base_spec.
+    # Campaign cells use seat_base. 0.8.1 has no parser flag and no --allowed-host.
     plain: [mlxcel, serve, -m, "{mlx_root}/{model_dir}", --alias, "{served}", --host, 127.0.0.1, --port, "{port}", --ctx-size, "{ctx}", --parallel, "4", --kv-unified]
     base_spec: [mlxcel, serve, -m, "{mlx_root}/{model_dir}", --alias, "{served}", --host, 127.0.0.1, --port, "{port}", --ctx-size, "{ctx}", --parallel, "4", --kv-unified]
+    seat_base: [mlxcel, serve, -m, "{mlx_root}/{model_dir}", --alias, "{served}", --host, 127.0.0.1, --port, "{port}", --ctx-size, "{ctx}", --parallel, "4", --kv-unified]
+    note: "Pin 0.8.1 (docs/engine_research/mlxother_20261114.md §2). Zip sha256 56c57d3ba56f78d8fa7afaf07d6d7c0b06292364731ee6d327ae30e5fa685560 matches the brew formula and the cached mlxcel--0.8.1.zip (verified 2026-11-14). libexec is Mach-O arm64 and mlxcel --version prints 0.8.1. Do not track main: research calls it 0.8.1 plus unreleased work. serve --help has no --tool-call-parser, --reasoning-parser, --default-chat-template-kwargs, or --allowed-host. Hermes stays UNVERIFIED; do not emit a parser flag. --prompt-lookup stays off. The listener binds after warmup. health_path stays /v1/models (data[].id == --alias). Canary 7edcfeb2 plain coding got pipeline HTTP 400 not a healthy candidate backend while host GET /v1/models was 200 and /v1/backends already marked eval-openai-mlxcel healthy; the candidate list was the two production incumbents. This lane does not edit the Pipeline. Sampler flags are the bench workspace values: serve --help defaults are temp 0.8, top-k 40, min-p 0.05. Daily omits min_p, so 0.05 remains. Quality 846f552dc spec coding FAIL: execute_python never returned 10 then 15; oMLX on Qwen3.8-27B-oQ4e-mtp passed. The 4-bit dir is different bytes. Log: no DFlash measurement for an affine-quantized target. Issue #2778: speculative output is not guaranteed to match plain even at temperature 0; this seat samples at 1.0. The same build's get_weather tool-turn canary passed. Plain coding was NOT_COMPARABLE: 318 prompt tokens vs oMLX 1504, tool payload bytes identical, residual chat-template rendering. Startup defaults enable_thinking true when the tokenizer has think markers (upstream PR #1114)."
+    seats:
+      # 4-bit pack, alias the bench hint. auto-daily think true. No drafter, so spec exits.
+      # bench-engine-daily-moe does not set min_p; leave the 0.8.1 default 0.05.
+      daily-moe:
+        model_dir: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-4bit
+        served: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
+        ctx: 32768
+        seat_extra_argv:
+          - --chat-template-kwargs
+          - '{"enable_thinking": true}'
+          - --temp
+          - "1.0"
+          - --top-k
+          - "64"
+          - --top-p
+          - "0.95"
+          - --repeat-penalty
+          - "1"
+      # Qwen3.8-27B-4bit + DFlash2. bench-engine-coding think true, ctx research pin 32768.
+      # Sampler matches that workspace, not the 0.8.1 server defaults (0.8 / 40 / 0.05).
+      coding:
+        model_dir: Qwen3.8-27B-4bit
+        served: Qwen3.8-27B-4bit
+        ctx: 32768
+        seat_extra_argv:
+          - --chat-template-kwargs
+          - '{"enable_thinking": true}'
+          - --temp
+          - "1.0"
+          - --top-k
+          - "20"
+          - --top-p
+          - "0.95"
+          - --min-p
+          - "0.0"
+          - --presence-penalty
+          - "0.0"
+          - --repeat-penalty
+          - "1"
+        spec_argv: [--draft-model, "{drafter_path}", --draft-kind, dflash]
+      # gemma QAT, no drafter. bench-engine-hunt has no think field: omit the flag.
+      # PR #1114 may still force thinking on if the tokenizer has think markers. UNVERIFIED.
+      hunt:
+        model_dir: gemma-4-26b-a4b-it-QAT-4bit
+        served: gemma-4-26b-a4b-it-QAT-4bit
+        ctx: 16384
+        seat_extra_argv: [--temp, "0.0"]
+      # Plain same target. compliance-council think false. 0.8.1 has no --no-thinking.
+      # Qwen jinja treats an undefined enable_thinking as on, so the flag is explicit false.
+      council-json:
+        model_dir: Qwen3.8-27B-4bit
+        served: Qwen3.8-27B-4bit
+        ctx: 32768
+        seat_extra_argv:
+          - --chat-template-kwargs
+          - '{"enable_thinking": false}'
+          - --temp
+          - "0.7"
+          - --top-k
+          - "20"
+          - --top-p
+          - "0.8"
+          - --min-p
+          - "0.0"
+          - --presence-penalty
+          - "1.5"
+          - --repeat-penalty
+          - "1"
     stop_signal: INT
     readiness: {path: /v1/models, timeout_s: 300, collection: data, id_field: id}
   vllm-metal:
