@@ -319,18 +319,24 @@ services:
 
       # ── Speech (MLX-native on host via mlx-audio) ───────────────────────────
       # Primary: mlx-speech server on host (:8918) — Qwen3-TTS + Kokoro for TTS
-      # TTS goes through mlx-speech. STT: measured 2026-10-07 on the running image —
-      # an EMPTY AUDIO_STT_ENGINE is NOT "disabled"; it selects Open WebUI's built-in
-      # local faster-whisper (model "base") with SUPPORTED_CONTENT_TYPES empty, so mic
-      # input and audio uploads may be transcribed in-container. Portal's own
-      # transcription is the transcribe_with_speakers MCP tool. Whether to repoint or
-      # truly disable STT is the G-OWUI decision.
+      # TTS goes through mlx-speech. STT goes through the MLX transcribe server
+      # (:8924) on its OpenAI-compatible /v1/audio/transcriptions. OWUI appends
+      # "/audio/transcriptions" to the base URL, so the base carries /v1.
+      # An EMPTY AUDIO_STT_ENGINE is NOT "disabled": it selects Open WebUI's
+      # in-container faster-whisper "base" (CPU), which this replaces. If :8924
+      # has no cached Parakeet it answers an honest 503 (reason
+      # asr_model_not_cached) and the chat app keeps working — docs/HOWTO.md §12.
       - AUDIO_TTS_ENGINE=openai
       - AUDIO_TTS_OPENAI_API_BASE_URL=${MLX_SPEECH_URL:-http://host.docker.internal:8918}
       - AUDIO_TTS_OPENAI_API_KEY=portal-speech
       - AUDIO_TTS_MODEL=kokoro
       - AUDIO_TTS_VOICE=af_heart
-      - AUDIO_STT_ENGINE=${OWUI_AUDIO_STT_ENGINE:-}
+      - AUDIO_STT_ENGINE=${OWUI_AUDIO_STT_ENGINE:-openai}
+      - AUDIO_STT_OPENAI_API_BASE_URL=${OWUI_AUDIO_STT_API_BASE_URL:-http://host.docker.internal:8924/v1}
+      # Placeholder, not a credential: :8924 authenticates nothing, but OWUI always
+      # sends a bearer header, so the value has to be non-empty.
+      - AUDIO_STT_OPENAI_API_KEY=${OWUI_AUDIO_STT_API_KEY:-portal-stt}
+      - AUDIO_STT_MODEL=${OWUI_AUDIO_STT_MODEL:-parakeet-tdt-0.6b-v3}
       # ── Tool-call timeouts (TASK-OWUI-AUDIO-DROP-001) ──────────────────────
       # Default ~60s breaks any tool that takes longer (e.g., diarized
       # transcription on files >2min). 1800s = 30 min, enough for ~3-hour audio.

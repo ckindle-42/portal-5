@@ -105,6 +105,45 @@ _pipeline_lock = asyncio.Semaphore(1)  # GPU-heavy; serialize.
 _model_last_used: dict[str, float] = {}
 
 
+def _hf_cache_dir() -> Path:
+    """The HF hub cache this service reads — same order launch.sh and the fetch step use."""
+    for var in ("HF_HUB_CACHE", "HUGGINGFACE_HUB_CACHE"):
+        if os.getenv(var):
+            return Path(os.environ[var]).expanduser()
+    home = os.getenv("HF_HOME")
+    if not home:
+        xdg = os.getenv("XDG_CACHE_HOME", str(Path.home() / ".cache"))
+        home = str(Path(xdg) / "huggingface")
+    return Path(home).expanduser() / "hub"
+
+
+_WEIGHT_SUFFIXES = (".safetensors", ".bin", ".npz", ".gguf", ".pt")
+
+
+def _has_weights(path: Path) -> bool:
+    try:
+        return any(
+            p.is_file() and p.suffix in _WEIGHT_SUFFIXES and p.stat().st_size > 0
+            for p in path.rglob("*")
+        )
+    except OSError:
+        return False
+
+
+def _model_cached(model_id: str) -> bool:
+    """Servable with HF_HUB_OFFLINE=1: a local dir, or a cached snapshot, holding weights."""
+    local = Path(model_id)
+    if local.is_dir():
+        return _has_weights(local)
+    snapshots = _hf_cache_dir() / f"models--{model_id.replace('/', '--')}" / "snapshots"
+    if not snapshots.is_dir():
+        return False
+    try:
+        return any(_has_weights(s) for s in snapshots.iterdir() if s.is_dir())
+    except OSError:
+        return False
+
+
 def _touch_model(name: str) -> None:
     _model_last_used[name] = time.monotonic()
 
@@ -651,6 +690,15 @@ def _run_plain_pipeline_and_release(
         mlx_cache.release_cache(logger)
 
 
+def _transcribe_and_release(audio_path: str, language: str | None) -> dict:
+    """Plain ASR on this worker with no sidecars (the OpenAI STT endpoint's path)."""
+    try:
+        return _transcribe(audio_path, language)
+    finally:
+        gc.collect()
+        mlx_cache.release_cache(logger)
+
+
 _AUDIO_EXTENSIONS = {".mp3", ".wav", ".m4a", ".ogg", ".flac", ".webm", ".aac", ".mp4"}
 _PLACEHOLDER_RE = re.compile(r"^[<\[{].*[>\]}]$")  # matches <file_id>, [filename], {arg}, etc.
 
@@ -761,7 +809,9 @@ async def health() -> JSONResponse:
             "status": "ok",
             "service": "mlx-transcribe",
             "asr_model": PARAKEET_MODEL,
+            "asr_available": _model_cached(PARAKEET_MODEL),
             "diarization_model": DIARIZE_MODEL,
+            "diarization_available": _model_cached(DIARIZE_MODEL),
             "parakeet_loaded": _parakeet_model is not None,
             "diarizer_loaded": _diarizer_model is not None,
             "loaded_models": _loaded_models(),
@@ -906,6 +956,57 @@ async def serve_file(filename: str) -> FileResponse | JSONResponse:
     if not path.exists():
         return JSONResponse({"error": "not found"}, status_code=404)
     return FileResponse(path)
+
+
+@app.post("/v1/audio/transcriptions")
+async def openai_audio_transcriptions(
+    file: UploadFile = File(...),  # noqa: B008
+    language: str = Form(default="auto"),  # noqa: B008
+) -> JSONResponse:
+    """OpenAI-compatible STT — the endpoint behind OWUI's AUDIO_STT_ENGINE=openai.
+
+    Parakeet only (no diarization) and no sidecar writes: OWUI calls this once per
+    microphone recording or upload, not once per transcript the user asked for.
+    """
+    if not _model_cached(PARAKEET_MODEL):
+        return JSONResponse(
+            {
+                "error": (
+                    f"ASR model '{PARAKEET_MODEL}' is not in the HuggingFace cache and "
+                    "HF_HUB_OFFLINE blocks downloading. Run: ./launch.sh pull-asr-models"
+                ),
+                "model": PARAKEET_MODEL,
+                "reason": "asr_model_not_cached",
+            },
+            status_code=503,
+        )
+    tmp_path: str | None = None
+    try:
+        contents = await file.read()
+        suffix = ".wav"
+        fname = file.filename or ""
+        for ext in [".webm", ".ogg", ".mp4", ".m4a", ".wav", ".mp3", ".flac"]:
+            if fname.lower().endswith(ext):
+                suffix = ext
+                break
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(contents)
+            tmp_path = tmp.name
+    except Exception as e:
+        return JSONResponse({"error": f"upload failed: {e}"}, status_code=400)
+
+    try:
+        lang = None if language in ("", "auto") else language
+        async with _pipeline_lock:
+            result = await asyncio.to_thread(_transcribe_and_release, tmp_path, lang)
+    except Exception as e:
+        logger.error("OpenAI STT failed: %s", e, exc_info=True)
+        return JSONResponse({"error": str(e)}, status_code=500)
+    finally:
+        if tmp_path:
+            with contextlib.suppress(Exception):
+                os.unlink(tmp_path)
+    return JSONResponse({"text": result.get("text", "")})
 
 
 @app.post("/v1/audio/transcribe-with-speakers")

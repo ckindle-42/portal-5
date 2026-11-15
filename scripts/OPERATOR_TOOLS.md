@@ -13,6 +13,7 @@ report them as unwired.
 ./launch.sh install-video-mlx      # install the MLX-native video MCP (LTX-2.3, :8935); start-video-mlx runs it
 python3 scripts/register_trainer_voice.py --audio <clip> --name <name> --text "<transcript>" --test
                                     # clean a recording + register it as a voice-clone trainer profile (host :8918)
+python3 scripts/fetch_mlx_asr_models.py [--check]  # fetch/verify MLX ASR weights (:8924 Parakeet + Sortformer, :8918 Qwen3-ASR); idempotent, ./launch.sh pull-asr-models is the same step
 ```
 
 ## Blind threat hunt — hunt bed and Milestone P1 (docs/HUNT_P1_RESULTS_20261109.md)

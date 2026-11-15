@@ -33,6 +33,7 @@ All commands below are the actual `case` branches in `launch.sh` (or dispatch in
 ./launch.sh stop-speech     # Stop MLX speech server
 ./launch.sh start-transcribe  # Start mlx-transcribe (:8924)
 ./launch.sh stop-transcribe   # Stop mlx-transcribe
+./launch.sh pull-asr-models   # Fetch/verify MLX ASR weights (:8924 Parakeet+Sortformer, :8918 Qwen3-ASR); idempotent
 
 # User management
 ./launch.sh add-user alice@example.com "Alice Smith"   # optional third arg: user|admin|pending role
