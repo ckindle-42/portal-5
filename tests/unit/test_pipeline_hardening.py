@@ -193,6 +193,37 @@ async def test_spaced_json_content_is_not_reported_empty(stream_client) -> None:
 
 
 @pytest.mark.anyio
+async def test_requested_usage_survives_terminal_engine_finish_frame(stream_client) -> None:
+    usage = _data(
+        {
+            "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 12, "completion_tokens": 7, "total_tokens": 19},
+            "mtplx_stats": {"completion_tokens": 7},
+        }
+    )
+    _serve(
+        stream_client,
+        _Resp(200, [_delta(content="answer"), usage, "data: [DONE]"]),
+    )
+
+    chunks = await _drain(
+        st._stream_from_backend_guarded(
+            "http://host.docker.internal:11241/v1/chat/completions",
+            {"stream": True, "stream_options": {"include_usage": True}},
+            "bench-engine-coding",
+            "Qwen3.8-27B-4bit",
+        )
+    )
+
+    payloads = _payloads(chunks)
+    usage_chunks = [payload for payload in payloads if payload.get("usage")]
+    assert usage_chunks[-1]["usage"]["completion_tokens"] == 7
+    assert usage_chunks[-1]["choices"] == []
+    assert payloads[-2]["choices"][0]["finish_reason"] == "stop"
+    assert chunks[-1] == DONE
+
+
+@pytest.mark.anyio
 async def test_client_tool_call_is_not_reported_empty(stream_client) -> None:
     tc = _delta(tool_calls=[{"index": 0, "id": "c1", "function": {"name": "f", "arguments": "{}"}}])
     usage = _data({"choices": [], "usage": {"completion_tokens": 9}})

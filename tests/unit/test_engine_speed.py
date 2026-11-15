@@ -51,6 +51,22 @@ def _pair(repeat: int, cand: float, inc: float) -> list[dict]:
     return [_row("candidate", repeat, cand), _row("incumbent", repeat, inc)]
 
 
+def test_stream_requests_and_uses_authoritative_engine_usage() -> None:
+    body = speed.request_body(_EXPECT["workspace"], _EXPECT["backend"], "prompt")
+    assert body["stream_options"] == {"include_usage": True}
+
+    state = {"t0": 0.0, "first": None, "last": None, "usage": {}, "chunks": 0}
+    final = {
+        "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+        "usage": {"prompt_tokens": 12, "completion_tokens": 7, "total_tokens": 19},
+        "mtplx_stats": {"completion_tokens": 7},
+    }
+    speed._consume_stream([f"data: {json.dumps(final)}".encode()], state)
+
+    assert speed._completion_tokens(state["usage"]) == 7
+    assert speed._completion_tokens({}) is None
+
+
 def test_decode_tps_is_completion_tokens_over_the_token_interval() -> None:
     assert decode_tps(100, 1.0, 3.0) == 50.0
     assert decode_tps(1, 1.0, 1.0) is None

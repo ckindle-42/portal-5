@@ -336,6 +336,17 @@ def _completion_finish_chunk(reason: str) -> bytes:
     return f"data: {json.dumps({'choices': [{'delta': {}, 'finish_reason': reason}]})}\n\n".encode()
 
 
+def _requested_usage_chunk(body: dict[str, Any], frame: dict[str, Any]) -> bytes | None:
+    """Return a usage-only SSE chunk when the request asked to include engine usage."""
+    options = body.get("stream_options")
+    usage = frame.get("usage")
+    if not isinstance(options, dict) or not options.get("include_usage"):
+        return None
+    if not isinstance(usage, dict):
+        return None
+    return f"data: {json.dumps({'choices': [], 'usage': usage})}\n\n".encode()
+
+
 #: Opens the content notice that carries a Pipeline-originated error to the client.
 _PIPELINE_ERROR_NOTICE = "\n\n[Pipeline stream error — the reply ended early: "
 
@@ -1729,6 +1740,7 @@ async def _stream_from_backend_guarded(
     _tool_calls_emitted = False
     _reasoning_seen = False
     _completion_tokens_seen = 0
+    _usage_chunk: bytes | None = None
     _finish_reason: str | None = None
     _think_filter = ThinkTagFilter()
     _thinking_allowed = _thinking_enabled(body)
@@ -1857,6 +1869,8 @@ async def _stream_from_backend_guarded(
                         finish = choice.get("finish_reason")
                         if finish:
                             _finish_reason = str(finish)
+                            if not delta and _usage_chunk is None:
+                                _usage_chunk = _requested_usage_chunk(body, frame)
                         clean_choice = dict(choice)
                         clean_choice["finish_reason"] = None
                         clean_frame = dict(frame, choices=[clean_choice])
@@ -1930,6 +1944,8 @@ async def _stream_from_backend_guarded(
             yield _completion_finish_chunk(
                 _finish_reason or ("tool_calls" if _tool_calls_emitted else "stop")
             )
+            if _usage_chunk is not None:
+                yield _usage_chunk
             yield b"data: [DONE]\n\n"
     except httpx.TimeoutException as _timeout:
         logger.warning(
