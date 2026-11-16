@@ -426,12 +426,20 @@ def evaluate_family(
     records += _call_records("council", council_results, candidates, common)
     calls_path = directory / CALLS_FILE
     calls_path.write_text("".join(json.dumps(record, sort_keys=True) + "\n" for record in records))
+    single_report = _single_report(single_results[:common], candidates)
+    finding = (
+        "yes-always is model bias: 0 wrapped answers, bare yes/no; the 0.5 gate is not the "
+        "signal, the logprob p_yes rank is. The wrapper parse is defensive only."
+        if single_report["wrapped_answers"] == 0 and single_report["bare_answers"] > 0
+        else "answers include markdown-wrapped yes/no; the parse scores the answer token."
+    )
     report = {
         "family": family,
         "index": index,
         "generated": utc_now(),
         "rule": RULE,
         "labelling": LABELLING,
+        "finding": finding,
         "honesty": honesty,
         "keys": {
             "file": str(keys_path),
@@ -452,7 +460,7 @@ def evaluate_family(
         "single_judge": {
             "model": judge_model,
             "budget_basis": single_basis,
-            **_single_report(single_results[:common], candidates),
+            **single_report,
         },
         "council": {
             "workspace": council_workspace,

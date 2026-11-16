@@ -14,7 +14,7 @@ import httpx
 DEFAULT_KEY_ENV = "PIPELINE_API_KEY"  # env var name whose value is the Pipeline credential
 JUDGE_SEED = 0
 JUDGE_TOP_LOGPROBS = 20  # effort budget: alternatives returned for the answer token
-JUDGE_ANSWER_TOKENS = 8  # effort budget: room for a markdown-wrapped one-word answer (**yes**)
+JUDGE_ANSWER_TOKENS = 8  # effort budget: room for a one-word answer, defensively markdown-wrapped
 JUDGE_TIMEOUT_SECONDS = 60  # effort budget: maximum wait for one local judgement
 MODEL_CONCURRENCY = 2  # effort budget: the engine behind the seat serves one request at a time
 MODEL_WORK_SECONDS = 300.0  # effort budget: wall time one stage may spend asking the Pipeline
@@ -203,7 +203,12 @@ def _token_mass(alternatives: Any) -> tuple[float, float] | None:
 
 
 def _decision_entry(content: Sequence[Any]) -> tuple[int, Mapping[str, Any]] | None:
-    """The first generated token that is the answer itself, not a wrapper like **."""
+    """The first generated token that is the answer itself, not a wrapper like **.
+
+    Defensive: live Stage 2 (receipts_stage2_live1_20261116.log) measured the judge's
+    yes-always as model bias — 0 wrapped answers, 31 bare — so the wrapper skip rarely
+    fires; the logprob p_yes, not a 0.5 yes/no gate, is the signal.
+    """
     for index, entry in enumerate(content):
         if isinstance(entry, Mapping) and _clean_token(str(entry.get("token", ""))) in (
             "yes",
