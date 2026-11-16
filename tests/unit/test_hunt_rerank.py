@@ -10,6 +10,8 @@ from portal.modules.security.core.hunt.notables import rerank
 from portal.modules.security.core.hunt.notables.rerank import (
     Family,
     _council_adjust,
+    _council_budget,
+    _council_second_pass,
     _fusion_order,
     _recall,
     _rule_name,
@@ -111,6 +113,130 @@ def test_council_adjust_without_decisions_keeps_order():
     assert final == [0, 1, 2] and moved == 0
 
 
+def test_council_budget_is_what_the_deadline_buys_at_the_measured_rate():
+    # 720 s at the live council rate (22.89 s/call, concurrency 2) buys 31 reviews
+    assert _council_budget(100, 720.0, 22.8922) == 31
+    assert _council_budget(5, 720.0, 22.8922) == 5
+    assert _council_budget(100, 720.0, None) == 0
+    assert _council_budget(100, 720.0, 0.0) == 0
+
+
+def _council_family(tmp_path: Path, count: int) -> Family:
+    notables = [_notable(i, 0.5, key=f"k{i}") for i in range(count)]
+    return Family("kyoushi", tmp_path, [], notables, {}, 3)
+
+
+def _calls(path: Path, decisions: dict[str, str]) -> None:
+    path.write_text(
+        "".join(
+            json.dumps({"arm": "council", "content_key": key, "decision": decision}) + "\n"
+            for key, decision in decisions.items()
+        )
+    )
+
+
+def test_offline_council_replays_only_inside_the_derived_k(tmp_path):
+    family = _council_family(tmp_path, 10)
+    _calls(
+        tmp_path / "stage2_calls.jsonl",
+        {"k0": "REJECT", "k1": "SUPPORT", "k2": "SUPPORT", "k9": "SUPPORT"},
+    )
+    (tmp_path / "stage2.json").write_text(
+        json.dumps({"council": {"budget_basis": {"seconds_per_call": 100.0}}})
+    )
+    final, receipt = _council_second_pass(
+        family,
+        list(range(10)),
+        offline=True,
+        council_client=None,
+        council_workspace="auto-council",
+        deadline=300.0,
+        concurrency=2,
+        probe=4,
+    )
+    assert receipt["top_k"] == 3  # 300 s // 100 s per call
+    assert receipt["decisions_in_k"] == 3
+    assert receipt["budget_basis"]["seconds_per_call"] == 100.0
+    # k9's SUPPORT is outside K: it stays where the re-rank put it
+    assert final == [1, 2, 0, 3, 4, 5, 6, 7, 8, 9]
+
+
+def test_offline_council_without_a_measured_rate_changes_nothing(tmp_path):
+    family = _council_family(tmp_path, 3)
+    _calls(tmp_path / "stage2_calls.jsonl", {"k0": "REJECT"})
+    final, receipt = _council_second_pass(
+        family,
+        [0, 1, 2],
+        offline=True,
+        council_client=None,
+        council_workspace="auto-council",
+        deadline=300.0,
+        concurrency=2,
+        probe=4,
+    )
+    assert receipt["top_k"] == 0 and receipt["moved_within_k"] == 0
+    assert final == [0, 1, 2]
+
+
+class _StubCouncil:
+    """A Pipeline stand-in: reads the notable's statement, returns a coded council result."""
+
+    def __init__(self, decisions: dict[int, str], count: int) -> None:
+        self._decisions = decisions
+        self._count = count
+
+    def complete(self, **request: Any) -> dict[str, Any]:
+        prompt = request["messages"][0]["content"]
+        index = next(i for i in range(self._count) if f"statement-{i}" in prompt)
+        decision = self._decisions.get(index, "SUPPORT")
+        return {
+            "choices": [{"message": {"content": f"**Code-determined decision: {decision}**"}}],
+            "portal_council": {
+                "aggregate": {
+                    "decision": decision,
+                    "votes": {
+                        "SUPPORT": 2 if decision == "SUPPORT" else 0,
+                        "REVISE": 0,
+                        "REJECT": 2 if decision == "REJECT" else 0,
+                    },
+                    "participating": 2,
+                    "roster": 3,
+                },
+                "reviewers": [],
+            },
+        }
+
+
+def test_live_council_second_pass_calls_the_pipeline_on_the_top_k(tmp_path):
+    rows = [
+        {
+            "what": f"statement-{i}",
+            "generator": "similar_to_known",
+            "content_key": f"k{i}",
+        }
+        for i in range(5)
+    ]
+    notables = [_notable(i, 0.5, key=f"k{i}") for i in range(5)]
+    family = Family("kyoushi", tmp_path, rows, notables, {}, 3)
+    final, receipt = _council_second_pass(
+        family,
+        list(range(5)),
+        offline=False,
+        council_client=_StubCouncil({0: "REJECT"}, 5),
+        council_workspace="auto-council",
+        deadline=720.0,
+        concurrency=1,
+        probe=1,
+    )
+    assert receipt["source"] == "live"
+    assert receipt["top_k"] == 5
+    assert receipt["decisions"] == {"SUPPORT": 4, "REJECT": 1}
+    assert final == [1, 2, 3, 4, 0]
+    records = [json.loads(line) for line in (tmp_path / rerank.CALLS_FILE).read_text().splitlines()]
+    assert len(records) == 5
+    assert {record["content_key"]: record["decision"] for record in records}["k0"] == "REJECT"
+
+
 def _stamp(moment: float) -> str:
     return rerank.time.strftime("%d/%b/%Y:%H:%M:%S", rerank.time.gmtime(moment))
 
@@ -193,13 +319,31 @@ def test_score_offline_reports_before_after_and_lofo(tmp_path):
         assert fam["answer_shape"] == {"wrapped_answers": 0, "bare_answers": 2}
         assert "bias" in fam["finding"]
         assert fam["chosen_weight"] in rerank.FUSION_WEIGHTS
+        assert fam["weight_basis"] == "lofo"
+        assert set(fam["lofo"]) == {
+            "stage1",
+            "fusion_w0.25",
+            "fusion_w0.5",
+            "fusion_w0.75",
+            "p_yes",
+        }
+        assert fam["lofo"]["stage1"] == fam["recall"]["before"]
     assert (krun / "rerank.json").is_file()
+
+
+def test_score_single_family_records_that_the_weight_is_not_lofo(tmp_path):
+    krun, kkeys = _fixture(tmp_path, "kyoushi", "hb_kyoushi_s1")
+    report = score({"kyoushi": krun}, {"kyoushi": kkeys}, council=False)
+    assert report["families"][0]["weight_basis"] == "self"
 
 
 def test_score_offline_replays_stored_council_calls(tmp_path):
     krun, kkeys = _fixture(tmp_path, "kyoushi", "hb_kyoushi_s1")
     (krun / "stage2_calls.jsonl").write_text(
-        json.dumps({"arm": "council", "content_key": "good", "decision": "REJECT"}) + "\n"
+        json.dumps({"arm": "council", "content_key": "bad", "decision": "REJECT"}) + "\n"
+    )
+    (krun / "stage2.json").write_text(
+        json.dumps({"council": {"budget_basis": {"seconds_per_call": 100.0}}})
     )
     srun, skeys = _fixture(tmp_path, "santos", "hb_ait_santos")
     report = score(
@@ -209,7 +353,9 @@ def test_score_offline_replays_stored_council_calls(tmp_path):
     )
     kyoushi = next(f for f in report["families"] if f["family"] == "kyoushi")
     assert kyoushi["council"]["source"] == "stored_calls"
+    assert kyoushi["council"]["top_k"] == 2  # 720 s deadline // 100 s per call, capped at 2
     assert kyoushi["council"]["decisions"] == {"REJECT": 1}
+    assert kyoushi["council"]["moved_within_k"] == 2
 
 
 def test_proof_index_and_lofo_violation_are_refused(tmp_path):

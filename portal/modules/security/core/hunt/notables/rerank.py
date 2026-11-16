@@ -9,9 +9,10 @@ yes-always as model bias, not a parse fault: 0 wrapped answers, 31 bare. The 0.5
 yes/no gate is therefore not the signal — the logprob p_yes rank is. This module
 combines the Stage 1 order with p_yes by a weighted rank fusion whose weight is
 chosen across the training families by leave-one-family-out (no per-corpus
-constant), then runs the Portal council only on the top-K (K from the deadline and
-the measured council s/call) and lets SUPPORT/REJECT adjust order within K.
-Recall@50/@100 is reported before and after. All model calls go through the Pipeline.
+constant), then runs the Portal council only on the top-K (K = the deadline divided
+by the measured council seconds per call) and lets SUPPORT/REJECT adjust order
+within K. Recall@50/@100 is reported before and after. All model calls go through
+the Pipeline; --offline replays the stored Stage 2 council calls instead.
 """
 
 from __future__ import annotations
@@ -28,6 +29,7 @@ from pathlib import Path
 from typing import Any
 
 from ..judge import DEFAULT_KEY_ENV, JudgeClient, OpenAICompatibleClient, chat_completions_endpoint
+from . import stage2 as stage2_run
 from .receipt import read_json, utc_now, write_json
 from .scoreboard import (
     PROGRESS_FILE,
@@ -62,9 +64,15 @@ COUNCIL_PROBE_CALLS = 4  # effort budget: calibration sample measuring the counc
 DECISION_RANK = {"SUPPORT": 0, "REJECT": 2}  # absent / REVISE / ESCALATE -> 1 (abstain)
 REPORT_FILE = "rerank.json"
 CALLS_FILE = "rerank_council_calls.jsonl"
+LOFO_RULE = (
+    "weight chosen on the other training families by recall@50 + recall@100; "
+    "ties take the smallest weight"
+)
 BIAS_NOTE = (
-    "yes-always is model bias (live receipt: 0 wrapped answers, bare yes/no); the 0.5 gate "
-    "is not the signal, the logprob p_yes rank is. The wrapper parse is defensive only."
+    "the measured cause is model bias, not a parse fault: live Stage 2 (kyoushi, 31 common "
+    "notables, 2026-11-16) recorded 0 wrapped answers and 31 bare, yes-rate 1.0/1.0, so the 0.5 "
+    "gate is meaningless and the logprob p_yes rank is the signal. The wrapper parse is "
+    "defensive only."
 )
 
 
@@ -195,18 +203,27 @@ def _council_adjust(
     return head + tail, moved
 
 
-def _stored_council(run: Path) -> dict[str, str]:
-    path = run / "stage2_calls.jsonl"
+def _stored_council(run: Path) -> tuple[dict[str, str], dict[str, Any] | None]:
+    """The stored council decisions and the Stage 2 rate that measured a call, if the run has them."""
     decisions: dict[str, str] = {}
-    if not path.is_file():
-        return decisions
-    for raw in path.read_text().splitlines():
-        if not raw.strip():
-            continue
-        call = json.loads(raw)
-        if call.get("arm") == "council" and call.get("decision"):
-            decisions[str(call.get("content_key"))] = str(call["decision"])
-    return decisions
+    path = run / stage2_run.CALLS_FILE
+    if path.is_file():
+        for raw in path.read_text().splitlines():
+            if not raw.strip():
+                continue
+            call = json.loads(raw)
+            if call.get("arm") == "council" and call.get("decision"):
+                decisions[str(call.get("content_key"))] = str(call["decision"])
+    council = read_json(run / stage2_run.REPORT_FILE).get("council")
+    basis = council.get("budget_basis") if isinstance(council, Mapping) else None
+    return decisions, dict(basis) if isinstance(basis, Mapping) else None
+
+
+def _council_budget(count: int, deadline: float, rate: float | None) -> int:
+    """K: how many council reviews the deadline buys at the measured seconds per call."""
+    if rate is None or rate <= 0:
+        return 0
+    return min(count, int(deadline // rate))
 
 
 def _answer_shape(rows: Sequence[Mapping[str, Any]]) -> dict[str, int]:
@@ -265,18 +282,24 @@ def _council_second_pass(
 ) -> tuple[list[int], dict[str, Any]]:
     notables = family.notables
     if offline:
-        decisions = _stored_council(family.run)
-        top_k = min(len(order), len(decisions))
+        decisions, basis = _stored_council(family.run)
+        rate = basis.get("seconds_per_call") if basis else None
+        top_k = _council_budget(len(order), deadline, float(rate) if rate else None)
         final, moved = _council_adjust(order, notables, decisions, top_k)
         return final, {
             "source": "stored_calls",
             "top_k": top_k,
+            "budget_basis": basis
+            or {"source": "none", "deadline_seconds": deadline, "seconds_per_call": None},
             "decisions": dict(_decision_counts(decisions)),
+            "decisions_in_k": sum(
+                1 for ni in order[:top_k] if notables[ni].content_key in decisions
+            ),
             "moved_within_k": moved,
         }
     assert council_client is not None
     candidates: list[dict[str, Any]] = [
-        {"notable": notables[ni], "content_key": notables[ni].content_key} for ni in order
+        {"notable": family.rows[ni], "content_key": notables[ni].content_key} for ni in order
     ]
 
     def call(item: dict[str, Any]) -> CouncilJudged:
@@ -334,10 +357,20 @@ def _reason_counts(results: Sequence[CouncilJudged]) -> dict[str, int]:
     return counts
 
 
+def _recall_row(scores: Mapping[Any, int]) -> dict[str, int]:
+    return {str(cut): scores[cut] for cut in (*RECALL_CUTS, None)}
+
+
+def _lofo_table(family: Family) -> dict[str, dict[str, int]]:
+    """The training scoreboard: each candidate weight's recall on this family."""
+    return {_rule_name(weight): _recall_row(family.scores[weight]) for weight in FUSION_WEIGHTS}
+
+
 def _family_report(
     family: Family,
     weight: float,
     global_weight: float,
+    weight_basis: str,
     final: list[int],
     council: dict[str, Any],
 ) -> dict[str, Any]:
@@ -357,11 +390,13 @@ def _family_report(
         "finding": BIAS_NOTE,
         "chosen_weight": weight,
         "chosen_rule": _rule_name(weight),
+        "weight_basis": weight_basis,
         "global_weight": global_weight,
+        "lofo": _lofo_table(family),
         "recall": {
-            "before": {str(k): v for k, v in before.items()},
-            "after_rerank": {str(k): v for k, v in after_rerank.items()},
-            "after_council": {str(k): v for k, v in after_council.items()},
+            "before": _recall_row(before),
+            "after_rerank": _recall_row(after_rerank),
+            "after_council": _recall_row(after_council),
         },
         "council": council,
     }
@@ -382,6 +417,7 @@ def score(
 ) -> dict[str, Any]:
     families = {name: _load_family(name, run, keys[name], year) for name, run in runs.items()}
     global_weight, folds = _select_weight(families)
+    basis = "lofo" if len(families) > 1 else "self"
     reports = []
     for name, family in families.items():
         weight = folds[name]
@@ -399,10 +435,11 @@ def score(
             )
         else:
             final, council_receipt = order, {"source": "skipped"}
-        reports.append(_family_report(family, weight, global_weight, final, council_receipt))
+        reports.append(_family_report(family, weight, global_weight, basis, final, council_receipt))
     report = {
         "generated": utc_now(),
         "fusion_weights": list(FUSION_WEIGHTS),
+        "lofo_rule": LOFO_RULE,
         "global_weight": global_weight,
         "global_rule": _rule_name(global_weight),
         "lofo_folds": folds,
@@ -418,10 +455,16 @@ def _fmt_recall(block: Mapping[str, Any], steps: int) -> str:
     return f"@50 {block['50']}/{steps} @100 {block['100']}/{steps} all {block['None']}/{steps}"
 
 
+def _fmt_lofo(table: Mapping[str, Mapping[str, int]]) -> str:
+    return "  ".join(f"{name} {row['50']}/{row['100']}" for name, row in table.items())
+
+
 def render(report: Mapping[str, Any]) -> str:
     lines = [
-        f"global rule {_rule_name(report['global_weight'])} "
-        f"(w={report['global_weight']:g})  LOFO folds {report['lofo_folds']}",
+        f"pooled best {_rule_name(report['global_weight'])} "
+        f"(w={report['global_weight']:g}; diagnostic, not applied)  "
+        f"LOFO folds {report['lofo_folds']}",
+        f"LOFO {report['lofo_rule']}",
         f"finding: {report['finding']}",
     ]
     for fam in report["families"]:
@@ -431,8 +474,10 @@ def render(report: Mapping[str, Any]) -> str:
             "",
             f"family {fam['family']}  notables {fam['notables']} judged {fam['judged']} "
             f"steps {steps}  answers {fam['answer_shape']}",
-            f"  chosen {_rule_name(fam['chosen_weight'])} (w={fam['chosen_weight']:g})  "
+            f"  chosen {_rule_name(fam['chosen_weight'])} (w={fam['chosen_weight']:g}) "
+            f"basis {fam['weight_basis']}  "
             f"honesty excluded {fam['honesty'].get('excluded_family')}",
+            f"  candidates @50/@100  {_fmt_lofo(fam['lofo'])}",
             f"  before        {_fmt_recall(recall['before'], steps)}",
             f"  after rerank  {_fmt_recall(recall['after_rerank'], steps)}",
             f"  after council {_fmt_recall(recall['after_council'], steps)}",
