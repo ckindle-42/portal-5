@@ -61,6 +61,7 @@ from portal.platform.inference.router.tool_repeat import (
     apply_tool_byte_budget,
     followup_tool_choice,
     no_tool_call_retry,
+    prepare_toolless_finalizer,
     tool_result_byte_budget,
 )
 from portal.platform.inference.router.tools import (
@@ -1317,7 +1318,6 @@ async def _try_non_streaming(
                 )
                 _ns_messages = _ns_messages + [_ns_assistant_msg] + list(_ns_dispatch)
                 _ns_tool_result_bytes = apply_tool_byte_budget(
-                    _ns_guard,
                     _ns_tool_result_bytes,
                     _ns_dispatch,
                     _ns_tool_byte_budget,
@@ -1326,7 +1326,9 @@ async def _try_non_streaming(
                 # Every turn but the last keeps the tools, so a turn that needs a second
                 # lookup gets it; the last is the synthesis, run with none.
                 _ns_last = _ns_hops >= max_hops or _ns_guard.force_synthesis
-                if _ns_guard.force_synthesis:
+                if _ns_guard.force_synthesis and (
+                    not _ns_messages or _ns_messages[-1] != FINAL_ANSWER_REQUEST
+                ):
                     _ns_messages = [*_ns_messages, FINAL_ANSWER_REQUEST]
                 _ns_synth_choice = followup_tool_choice(req_body.get("tool_choice"), _ns_tool_calls)
                 _synth_body = {
@@ -1335,6 +1337,8 @@ async def _try_non_streaming(
                     "tools": None if _ns_last else req_body.get("tools"),
                     "tool_choice": None if _ns_last else _ns_synth_choice,
                 }
+                if _ns_guard.force_synthesis:
+                    prepare_toolless_finalizer(_synth_body, _ns_guard)
                 _last_request_body = _synth_body
                 _model_started = time.monotonic()
                 _synth_resp = await _http_client.post(

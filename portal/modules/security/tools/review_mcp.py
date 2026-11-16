@@ -75,12 +75,8 @@ def _hunt_result_byte_limit() -> int:
     return tool_result_byte_budget(min(contexts)) // 8
 
 
-def _hunt_guard(
-    tool: str, fn: Callable[[], dict[str, Any]], *, detail: bool = False
-) -> dict[str, Any]:
+def _hunt_guard(tool: str, fn: Callable[[], dict[str, Any]]) -> dict[str, Any]:
     result = _guard(tool, fn)
-    if detail:
-        return result
     try:
         limit = _hunt_result_byte_limit()
     except Exception as exc:  # noqa: BLE001 -- return a compact tool error
@@ -291,18 +287,10 @@ def hunt_start(
 
 
 @mcp.tool()
-def hunt_status(
-    job_id: str | None = None, index: str | None = None, detail: bool = False
-) -> dict[str, Any]:
-    """Wait for an R2 hunt and return a compact summary; detail includes full progress."""
+def hunt_status(job_id: str | None = None, index: str | None = None) -> dict[str, Any]:
+    """Wait for an R2 hunt and return its bounded compact status."""
     kwargs: dict[str, Any] = {"wait_seconds": r2_hunt_jobs.STATUS_WAIT_MAX_S}
-    if detail:
-        kwargs["detail"] = True
-    return _hunt_guard(
-        "hunt_status",
-        lambda: r2_hunt_jobs.status(job_id, index, **kwargs),
-        detail=detail,
-    )
+    return _hunt_guard("hunt_status", lambda: r2_hunt_jobs.status(job_id, index, **kwargs))
 
 
 @mcp.tool()

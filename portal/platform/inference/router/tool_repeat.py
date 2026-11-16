@@ -199,6 +199,15 @@ class ToolRepeatGuard:
         }
 
 
+def prepare_toolless_finalizer(body: dict[str, Any], guard: ToolRepeatGuard) -> None:
+    body["tools"] = None
+    body["tool_choice"] = None
+    messages = body.get("messages") or []
+    if not messages or messages[-1] != FINAL_ANSWER_REQUEST:
+        body["messages"] = [*messages, FINAL_ANSWER_REQUEST]
+    guard.force_synthesis = True
+
+
 def followup_tool_choice(choice: Any, calls: list[dict[str, Any]]) -> Any:
     """The choice after a tool result: "required" is spent by any call, a named tool only by its own."""
     if choice == "required":
@@ -247,24 +256,51 @@ def _content_bytes(content: Any) -> int:
     return len(json.dumps(content, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
 
 
+def _truncate_tool_content(content: Any, max_bytes: int) -> str:
+    if isinstance(content, bytes):
+        text = content.decode("utf-8", errors="replace")
+    elif isinstance(content, str):
+        text = content
+    else:
+        text = json.dumps(content, ensure_ascii=False, separators=(",", ":"))
+    marker = "\n[Tool result truncated: byte budget reached; remaining output omitted.]"
+    marker_bytes = marker.encode("utf-8")
+    if max_bytes < len(marker_bytes):
+        marker = next(
+            (
+                item
+                for item in ("[cut:budget]", "[cut:limit]", "[cut:b]", "[cut]", "!")
+                if len(item.encode("utf-8")) <= max_bytes
+            ),
+            "",
+        )
+        marker_bytes = marker.encode("utf-8")
+        if not marker_bytes:
+            return ""
+    head_bytes = text.encode("utf-8")[: max_bytes - len(marker_bytes)]
+    return head_bytes.decode("utf-8", errors="ignore") + marker
+
+
 def apply_tool_byte_budget(
-    guard: ToolRepeatGuard,
     accumulated: int,
     results: list[dict[str, Any]],
     budget: int,
     workspace_id: str,
 ) -> int:
-    """Add this hop's role:tool bytes. Past the budget, force one toolless final turn."""
+    """Add role:tool bytes and truncate new results to the remaining context budget."""
     total = accumulated
     for msg in results:
         if msg.get("role") == "tool":
-            total += _content_bytes(msg.get("content"))
-    if budget > 0 and accumulated <= budget < total:
-        guard.force_synthesis = True
-        logger.info(
-            "Tool-loop byte budget exceeded: workspace=%s accumulated=%d budget=%d",
-            workspace_id,
-            total,
-            budget,
-        )
+            size = _content_bytes(msg.get("content"))
+            remaining = max(0, budget - total) if budget > 0 else size
+            if budget > 0 and size > remaining:
+                msg["content"] = _truncate_tool_content(msg.get("content"), remaining)
+                logger.info(
+                    "Tool-loop result truncated: workspace=%s accumulated=%d budget=%d",
+                    workspace_id,
+                    total + size,
+                    budget,
+                )
+                size = _content_bytes(msg.get("content"))
+            total += size
     return total
