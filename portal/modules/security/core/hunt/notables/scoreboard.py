@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import calendar
+import hashlib
 import json
 import re
 import sys
@@ -21,6 +22,7 @@ from typing import Any
 from .cards import CARD_KIND_CONSUMERS, card_consumers
 from .knowledge import PROOF_INDEXES
 from .receipt import read_json
+from .relate import RELATE_FILE
 from .run import GENERATORS, NOTABLES_FILE, SOURCES_FILE, card_from_dict
 
 QUIET_MAX_LINES = 250  # statement §6: quiet steps are 1 to about 250 labelled lines
@@ -28,6 +30,7 @@ CUTS: tuple[int | None, ...] = (50, 100, None)
 PROGRESS_FILE = "progress.json"
 JUDGE_CACHE = Path("cache") / "judge.json"
 STAGE_ORDER = ("cards", "behaviours", "notables", "judge")
+RECALL_GENERATORS = (*GENERATORS, "relate")
 YES = 0.5  # a judge answer counts as yes from p_yes >= 0.5
 
 RULE = (
@@ -479,7 +482,7 @@ def _recall(steps: Sequence[Step]) -> dict[str, Any]:
         },
         "by_generator": {
             name: {str(limit): _count(steps, _generator_rank(name), limit) for limit in CUTS}
-            for name in GENERATORS
+            for name in RECALL_GENERATORS
         },
         "quiet": {
             "steps": sum(1 for step in steps if step.quiet),
@@ -509,7 +512,7 @@ def _step_row(step: Step) -> dict[str, Any]:
         "by_generator": dict(sorted(step.by_generator.items(), key=lambda item: item[1])),
         "by_generator_covered": {
             name: {str(limit): _cut(step.by_generator.get(name), limit) for limit in CUTS}
-            for name in GENERATORS
+            for name in RECALL_GENERATORS
         },
     }
 
@@ -532,19 +535,10 @@ def _family(
     picked = year if year is not None else _year(progress, rows)
     labelled_sources = {line.source for line in keys}
     steps = _steps(keys)
-    notables = [
-        Notable(
-            rank,
-            str(row.get("generator") or ""),
-            _claim(row),
-            float(row["p_yes"]) if row.get("p_yes") is not None else None,
-            str(row.get("content_key") or ""),
-        )
-        for rank, row in enumerate(rows)
-    ]
+    notables = _ranked_notables(rows)
     _coverage(steps, notables, keys, resolved, picked)
     ordered = sorted(steps.values(), key=lambda step: (not step.quiet, step.lines, step.label))
-    return {
+    report = {
         "family": family,
         "index": index,
         "card_contract": _card_contract(directory),
@@ -577,6 +571,140 @@ def _family(
         "judge": _judge_block(notables, read_json(directory / JUDGE_CACHE)),
         "cost": _cost(progress),
         "honesty": _honesty(progress, family),
+    }
+    relation = _relation_report(directory, rows, keys, resolved, picked, ordered)
+    if relation is not None:
+        report["relate"] = relation
+    return report
+
+
+def _ranked_notables(rows: Sequence[Mapping[str, Any]]) -> list[Notable]:
+    return [
+        Notable(
+            rank,
+            str(row.get("generator") or ""),
+            _claim(row),
+            float(row["p_yes"]) if row.get("p_yes") is not None else None,
+            str(row.get("content_key") or ""),
+        )
+        for rank, row in enumerate(rows)
+    ]
+
+
+def _with_related(
+    rows: Sequence[dict[str, Any]], related: Sequence[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    after: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    for row in related:
+        try:
+            raw_anchor = row.get("anchor_rank")
+            if raw_anchor is None:
+                raise ValueError
+            anchor = int(raw_anchor)
+        except (TypeError, ValueError):
+            anchor = len(rows)
+        after[anchor].append(row)
+    ordered: list[dict[str, Any]] = []
+    for rank, row in enumerate(rows):
+        ordered.append(row)
+        ordered.extend(
+            sorted(
+                after.pop(rank, []),
+                key=lambda item: (
+                    -float(item.get("relation_score") or 0.0),
+                    str(item.get("notable_id") or ""),
+                ),
+            )
+        )
+    for anchor in sorted(after):
+        ordered.extend(after[anchor])
+    return ordered
+
+
+def _keyed_event_hashes(
+    keys: Sequence[KeyLine], logs: Path
+) -> dict[tuple[str, str, str], tuple[str, ...]]:
+    wanted: dict[tuple[str, str], dict[int, list[str]]] = defaultdict(dict)
+    for item in keys:
+        wanted[(item.host, item.source)][item.number] = list(item.labels)
+    found: dict[tuple[str, str, str], tuple[str, ...]] = {}
+    for (host, source), lines in sorted(wanted.items()):
+        path = logs / host / "logs" / source.lstrip("/")
+        with path.open(encoding="utf-8", errors="replace") as handle:
+            for number, raw in enumerate(handle, 1):
+                labels = lines.get(number)
+                if labels is None:
+                    continue
+                digest = hashlib.sha256(raw.rstrip("\r\n").encode()).hexdigest()
+                identity = (host, source, digest)
+                found[identity] = tuple(sorted(set(found.get(identity, ()) + tuple(labels))))
+    return found
+
+
+def _case_purity(
+    cases: Sequence[Mapping[str, Any]],
+    keys: Sequence[KeyLine],
+    logs: Path,
+) -> dict[str, Any]:
+    keyed = _keyed_event_hashes(keys, logs)
+    results: list[dict[str, Any]] = []
+    for rank, case in enumerate(cases):
+        events = [item for item in case.get("evidence") or () if isinstance(item, Mapping)]
+        labels: Counter[str] = Counter()
+        matched = 0
+        for event in events:
+            identity = (
+                str(event.get("host") or ""),
+                str(event.get("source") or ""),
+                str(event.get("raw_sha256") or ""),
+            )
+            found = keyed.get(identity)
+            if found is not None:
+                matched += 1
+                labels.update(found)
+        results.append(
+            {
+                "rank": rank,
+                "case_id": str(case.get("case_id") or ""),
+                "events": len(events),
+                "keyed_events": matched,
+                "purity": round(matched / len(events), 6) if events else None,
+                "labels": dict(sorted(labels.items())),
+            }
+        )
+    measurable = [float(row["purity"]) for row in results if row["purity"] is not None]
+    return {
+        "cases": results,
+        "mean": round(sum(measurable) / len(measurable), 6) if measurable else None,
+    }
+
+
+def _relation_report(
+    directory: Path,
+    rows: Sequence[dict[str, Any]],
+    keys: Sequence[KeyLine],
+    logs: Path,
+    year: int,
+    before_steps: Sequence[Step],
+) -> dict[str, Any] | None:
+    path = directory / RELATE_FILE
+    if not path.is_file():
+        return None
+    payload = read_json(path)
+    related = [item for item in payload.get("notables") or () if isinstance(item, dict)]
+    cases = [item for item in payload.get("cases") or () if isinstance(item, Mapping)]
+    after_rows = _with_related(rows, related)
+    after_steps = _steps(keys)
+    _coverage(after_steps, _ranked_notables(after_rows), keys, logs, year)
+    return {
+        "related_notables": len(related),
+        "cases": len(cases),
+        "before": _recall(before_steps),
+        "after": _recall(
+            sorted(after_steps.values(), key=lambda step: (not step.quiet, step.lines, step.label))
+        ),
+        "case_purity": _case_purity(cases, keys, logs),
+        "receipt": payload.get("receipt") or {},
     }
 
 
@@ -682,6 +810,31 @@ def _recall_lines(report: Mapping[str, Any]) -> list[str]:
     return lines
 
 
+def _relate_lines(report: Mapping[str, Any]) -> list[str]:
+    relation = report.get("relate")
+    if not isinstance(relation, Mapping):
+        return []
+    before = relation["before"]
+    after = relation["after"]
+    purity = relation["case_purity"]
+    lines = [
+        f"relate recall before top50 {before['overall']['50']}/{before['steps']} "
+        f"top100 {before['overall']['100']}/{before['steps']} "
+        f"all {before['overall']['None']}/{before['steps']}",
+        f"relate recall after  top50 {after['overall']['50']}/{after['steps']} "
+        f"top100 {after['overall']['100']}/{after['steps']} "
+        f"all {after['overall']['None']}/{after['steps']}",
+        f"relate cases {relation['cases']}  related events {relation['related_notables']}  "
+        f"key overlap mean purity {purity['mean']}",
+    ]
+    lines.extend(
+        f"  case {case['rank'] + 1}: {case['case_id']}  "
+        f"keyed events {case['keyed_events']}/{case['events']}  purity {case['purity']}"
+        for case in purity["cases"]
+    )
+    return lines
+
+
 def _cost_lines(report: Mapping[str, Any]) -> list[str]:
     cost = report["cost"]
     stages = "  ".join(
@@ -723,6 +876,9 @@ def render(report: Mapping[str, Any]) -> str:
     lines += ["", f"LOUD steps (> {QUIET_MAX_LINES} lines)"]
     lines += _step_table(report["steps"], False) or ["  none"]
     lines += ["", *_recall_lines(report)]
+    relation_lines = _relate_lines(report)
+    if relation_lines:
+        lines += ["", *relation_lines]
     lines += _judge_lines(report)
     lines += _cost_lines(report)
     lines += _honesty_lines(report)

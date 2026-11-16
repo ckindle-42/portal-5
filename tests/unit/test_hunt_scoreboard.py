@@ -229,6 +229,66 @@ def test_window_only_notable_covers_lines_inside_its_evidence_window(tmp_path: P
     assert family["notables"]["covering"] == 1
 
 
+def test_relate_reports_step_recall_and_case_purity_against_keys(tmp_path: Path) -> None:
+    import hashlib
+
+    source = "/auth.log"
+    labelled = "Mar 23 20:01:00 alice reverse_shell"
+    unlabelled = "Mar 23 20:02:00 alice status"
+    run = _run(
+        tmp_path,
+        notables=[_notable("peer_rare", source, ["nobody"], content_key="seed")],
+        keys=_keys(source, "web", {1: ["reverse_shell"]}),
+        files={("web", source): [labelled, unlabelled]},
+    )
+    moment = FIRST + 60
+    related = {
+        "notable_id": "relate-1",
+        "generator": "relate",
+        "source_id": "idx:auth.log",
+        "evidence": [
+            {
+                "line": labelled,
+                "query": f'search index="idx" source="{source}" TERM("reverse_shell")',
+                "earliest": moment,
+                "latest": moment + 1,
+            }
+        ],
+    }
+    event_refs = [
+        {
+            "host": "web",
+            "source": source,
+            "time": moment,
+            "raw_sha256": hashlib.sha256(labelled.encode()).hexdigest(),
+        },
+        {
+            "host": "web",
+            "source": source,
+            "time": moment + 60,
+            "raw_sha256": hashlib.sha256(unlabelled.encode()).hexdigest(),
+        },
+    ]
+    (run / "relate.json").write_text(
+        json.dumps(
+            {"notables": [related], "cases": [{"case_id": "case-1", "evidence": event_refs}]}
+        ),
+        encoding="utf-8",
+    )
+
+    family = score(
+        run,
+        [str(run / "keys.jsonl")],
+        logs=tmp_path / "corpus" / "fam" / "gather",
+    )["families"][0]
+
+    assert family["relate"]["before"]["overall"]["None"] == 0
+    assert family["relate"]["after"]["overall"] == {"50": 1, "100": 1, "None": 1}
+    assert family["relate"]["case_purity"]["cases"][0]["purity"] == 0.5
+    assert "relate recall before top50" in board.render(family)
+    assert "case 1: case-1" in board.render(family)
+
+
 def test_a_notable_naming_another_source_never_covers_a_labelled_line(tmp_path: Path) -> None:
     source = "/apache2/access.log.4"
     keys = _keys(source, "web", {1: ["dirb"]})
