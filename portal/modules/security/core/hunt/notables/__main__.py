@@ -22,6 +22,7 @@ from .run import (
     judge_stage,
     notables_stage,
 )
+from .similar import SIMILAR_GENERATOR
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -161,8 +162,11 @@ def _print_notables(receipt: dict[str, Any]) -> None:
                 f"  {name}: existed={detail.get('existed')} kept={detail.get('kept')} "
                 f"seconds={seconds.get(name)}{counted}{measured}"
             )
+    merge = _mapping(receipt.get("merge"))
     print(
-        f"notables: total={receipt.get('total', 0)} wall={seconds.get('total')}s "
+        f"notables: enabled={receipt.get('enabled')} merge={merge.get('method')} "
+        f"fused={merge.get('fused', 0)} total={receipt.get('total', 0)} "
+        f"wall={seconds.get('total')}s "
         f"peak={receipt.get('peak_memory_mb')}MB -> {receipt.get('file')}"
     )
 
@@ -242,10 +246,19 @@ def main(argv: list[str] | None = None, *, search: Search | None = None) -> int:
         if unknown:
             print(f"unknown generators: {', '.join(unknown)}", file=sys.stderr)
             return 2
+        knowledge_flags = args.knowledge_store is not None or args.family or args.knowledge_families
+        if knowledge_flags and SIMILAR_GENERATOR not in enabled:
+            print(
+                f"--family/--knowledge-store/--knowledge-families were passed but "
+                f"{SIMILAR_GENERATOR} is not in --generators; add it to --generators "
+                f"or drop the knowledge flags",
+                file=sys.stderr,
+            )
+            return 2
         embedder = None
-        if "similar_to_known" in enabled:
+        if SIMILAR_GENERATOR in enabled:
             if args.knowledge_store is None:
-                print("similar_to_known requires --knowledge-store", file=sys.stderr)
+                print(f"{SIMILAR_GENERATOR} requires --knowledge-store", file=sys.stderr)
                 return 2
             embedder = embedding_from_env()
             if embedder is None:

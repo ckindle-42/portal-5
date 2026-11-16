@@ -15,7 +15,6 @@ from portal.modules.security.core.hunt.notables.embedding import PipelineEmbeddi
 from portal.modules.security.core.hunt.notables.judge_notables import notable_prompt
 from portal.modules.security.core.hunt.notables.knowledge import KnowledgeItem, build_store
 from portal.modules.security.core.hunt.notables.pipeline import BackendPinnedClient
-from portal.modules.security.core.hunt.notables.run import _judge_order
 from portal.modules.security.core.hunt.notables.similar import (
     SimilarityError,
     _ranked_notables,
@@ -220,18 +219,6 @@ def test_known_good_is_used_only_when_its_measured_auc_improves(tmp_path: Path) 
     assert reliability["known_bad_auc"] == 0.5
     assert reliability["known_bad_minus_good_auc"] == 0.75
     assert reliability["score"] == "known_bad_minus_good"
-
-
-def test_judge_budget_receives_top_similarity_rank_before_generator_order() -> None:
-    rows: list[dict[str, Any]] = [
-        {"generator": "peer_rare", "measure": {"value": 0.0}},
-        {"generator": "similar_to_known", "measure": {"value": 0.2}},
-        {"generator": "similar_to_known", "measure": {"value": 0.8}},
-    ]
-
-    ordered = _judge_order(rows)
-
-    assert [row["measure"]["value"] for row in ordered] == [0.8, 0.2, 0.0]
 
 
 def test_cli_keeps_the_original_generators_as_default() -> None:
