@@ -176,6 +176,10 @@ case "$SERVICE" in
         ;;
     review-mcp)
         export REVIEW_MCP_PORT="${REVIEW_MCP_PORT:-8943}"
+        export PORTAL_HUNT_JUDGE_URL="${PORTAL_HUNT_JUDGE_URL:-http://localhost:9099}"
+        export PORTAL_HUNT_JUDGE_MODEL="${PORTAL_HUNT_JUDGE_MODEL:-hunt-reasoning}"
+        export PORTAL_HUNT_EMBEDDING_URL="${PORTAL_HUNT_EMBEDDING_URL:-http://localhost:9099}"
+        export PORTAL_HUNT_EMBEDDING_MODEL="${PORTAL_HUNT_EMBEDDING_MODEL:-google/embeddinggemma-2}"
         exec "$PY" -m portal.modules.security.tools.review_mcp
         ;;
     wiki-mcp)

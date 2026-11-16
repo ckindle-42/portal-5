@@ -39,10 +39,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--generators",
         default=",".join(DEFAULT_GENERATORS),
-        help="comma-separated generators (similar_to_known requires --family and --knowledge-store)",
+        help="comma-separated generators (similar_to_known requires --knowledge-store)",
     )
     parser.add_argument(
-        "--family", help="expected family for --index (required by similar_to_known)"
+        "--family", help="expected family for --index (inferred from the store when omitted)"
     )
     parser.add_argument(
         "--knowledge-store", type=Path, help="persisted labelled behaviour DuckDB store"

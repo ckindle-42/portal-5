@@ -202,6 +202,33 @@ def test_main_runs_the_real_path_with_an_injected_source_and_lofo(
     assert detail["loaded_families"] == ["fam_a", "fam_b"]
 
 
+def test_lofo_infers_excluded_family_from_the_store_when_omitted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    out, store = _prepare(tmp_path, monkeypatch)
+    code = main(
+        [
+            "--index",
+            "runidx",
+            "--out",
+            str(out),
+            "--stage",
+            "notables",
+            "--generators",
+            "similar_to_known",
+            "--knowledge-store",
+            str(store),
+        ],
+        search=_RecordingSearch(),
+    )
+
+    assert code == 0
+    progress = json.loads((out / "progress.json").read_text())
+    detail = progress["stages"]["notables"]["similar_to_known"]
+    assert detail["excluded_family"] == "fam_run"
+    assert detail["loaded_families"] == ["fam_a", "fam_b"]
+
+
 def test_lofo_guard_holds_on_the_real_run_path(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

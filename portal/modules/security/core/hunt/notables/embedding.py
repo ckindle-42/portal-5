@@ -6,7 +6,7 @@ import math
 import os
 import threading
 import time
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Any
 
@@ -74,8 +74,10 @@ class PipelineEmbeddingClient:
         root = url.rstrip("/")
         self.endpoint = root if root.endswith("/v1/embeddings") else root + "/v1/embeddings"
         self.model = model
+        self.timeout_seconds = timeout_seconds
         self._headers = {"Authorization": f"Bearer {api_key}"}
         self._client = httpx.Client(timeout=timeout_seconds, transport=transport)
+        self._job_deadline: Callable[[], float] | None = None
         self._sleep = sleep
         self._clock = clock
         self._lock = threading.Lock()
@@ -96,6 +98,9 @@ class PipelineEmbeddingClient:
         with self._lock:
             return dict(self._stats)
 
+    def set_job_deadline(self, deadline: Callable[[], float]) -> None:
+        self._job_deadline = deadline
+
     def embed(self, texts: Sequence[str]) -> list[list[float]]:
         """Return vectors in input order, splitting requests at the Pipeline cap."""
         vectors: list[list[float]] = []
@@ -112,6 +117,10 @@ class PipelineEmbeddingClient:
         if not texts:
             return
         deadline = self._clock() + EMBED_WORK_SECONDS
+        if self._job_deadline is not None:
+            deadline = min(deadline, self._job_deadline())
+        if deadline <= self._clock():
+            raise EmbeddingError("hunt job deadline exceeded")
         with ThreadPoolExecutor(max_workers=EMBED_CONCURRENCY) as pool:
             pending: list[tuple[int, Future[list[list[float]]]]] = []
             offset = 0
@@ -127,11 +136,15 @@ class PipelineEmbeddingClient:
     def _embed_batch(self, texts: list[str], deadline: float) -> list[list[float]]:
         began = self._clock()
         for attempt in range(EMBED_RETRIES + 1):
+            remaining = deadline - self._clock()
+            if remaining <= 0:
+                raise EmbeddingError("hunt job deadline exceeded")
             try:
                 response = self._client.post(
                     self.endpoint,
                     headers=self._headers,
                     json={"input": texts, "model": self.model},
+                    timeout=min(self.timeout_seconds, remaining),
                 )
             except httpx.HTTPError as exc:
                 raise EmbeddingError(f"Pipeline embedding request failed: {exc}") from exc

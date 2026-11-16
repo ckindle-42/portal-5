@@ -391,9 +391,9 @@ def notables_stage(
         standard_enabled,
     )
     if SIMILAR_GENERATOR in enabled:
-        if not family or knowledge_store is None or embedder is None:
+        if knowledge_store is None or embedder is None:
             raise ValueError(
-                "similar_to_known requires --family, --knowledge-store, and Pipeline embedding settings"
+                "similar_to_known requires --knowledge-store and Pipeline embedding settings"
             )
         similar, detail = generate_similar(
             behaviours,
