@@ -15,6 +15,9 @@ concurrency
     Global request semaphore, per-workspace/API-key semaphores,
     :class:`RequestSlot` — single-owner lifecycle for all three semaphores
     and the concurrent-requests gauge within one request.
+context_budget
+    Token estimate, resolved seat window, and the head/turn shrink that keeps a
+    prompt inside it (refused in band when it cannot fit).
 handlers
     Route handler function bodies — one async function per endpoint.
 lifespan
