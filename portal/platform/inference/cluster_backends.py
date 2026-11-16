@@ -280,6 +280,9 @@ class BackendRegistry:
         self._request_timeout = 120.0  # Match config/backends.yaml defaults.request_timeout
         # Hot-seat prefix-cache protection window; 0.0 = disabled (today's order).
         self._hot_seat_protect_s = 0.0
+        # Workspace ids whose model stays warm: warmed at startup, kept with keep_alive,
+        # evicted before a refusal but never pinned (defaults.preferred_residents).
+        self._preferred_residents: list[str] = []
         self._health_timeout = 10.0  # Defensive default before _load_config() runs
         self._health_failure_threshold = 2
         # Cached healthy-backend list — rebuilt only after each health check
@@ -345,6 +348,9 @@ class BackendRegistry:
         self._health_check_interval = float(defaults.get("health_check_interval", 30.0))
         self._health_timeout = float(defaults.get("health_timeout", 10.0))
         self._hot_seat_protect_s = float(defaults.get("hot_seat_protect_s", 0.0) or 0.0)
+        self._preferred_residents = [
+            str(ws) for ws in (defaults.get("preferred_residents") or []) if str(ws).strip()
+        ]
         self._health_failure_threshold = int(
             os.environ.get(
                 "HEALTH_FAILURE_THRESHOLD", str(defaults.get("health_failure_threshold", 2))
@@ -361,11 +367,12 @@ class BackendRegistry:
 
         logger.info(
             "BackendRegistry loaded: %d backends, %d workspace routes, request_timeout=%.0fs, "
-            "hot_seat_protect_s=%.0f",
+            "hot_seat_protect_s=%.0f, preferred_residents=%d",
             len(self._backends),
             len(self._workspace_routes),
             self._request_timeout,
             self._hot_seat_protect_s,
+            len(self._preferred_residents),
         )
 
     def _register_backend(self, be: dict[str, Any]) -> None:
@@ -813,6 +820,11 @@ class BackendRegistry:
         ``0.0`` (the default) disables the placement policy entirely.
         """
         return self._hot_seat_protect_s
+
+    @property
+    def preferred_residents(self) -> list[str]:
+        """Workspace ids kept warm from ``defaults.preferred_residents`` (empty = none)."""
+        return list(self._preferred_residents)
 
     @property
     def last_memory_pct(self) -> float:

@@ -39,7 +39,10 @@ Headroom is oMLX's ``final_ceiling`` minus its resident model memory (oMLX deriv
 the ceiling from host free + inactive memory), plus idle Ollama residents, minus
 ``LOAD_GUARD_MARGIN_GB``. ``LOAD_GUARD_CEILING_GB`` replaces that ceiling with a
 fixed budget; the balanced tier's ceiling follows free memory (P5-OMLX-CEILING-001).
-Ollama sizing adds per-layer KV bytes at baked ``num_ctx`` using ``OLLAMA_KV_CACHE_TYPE`` (default q8_0); missing geometry falls back to weights × ``LOAD_GUARD_FACTOR`` and observed residency can raise the estimate.
+Ollama sizing adds per-layer KV bytes at baked ``num_ctx`` using ``OLLAMA_KV_CACHE_TYPE`` (default q8_0); missing geometry falls back to weights × ``LOAD_GUARD_FACTOR`` and observed residency can raise the estimate. An oMLX cold load is admitted only inside the engine's own
+prefill-safe share of that headroom (``memory.prefill_safe_zone_ratio``, read from
+``OMLX_PREFILL_SAFE_ZONE_RATIO`` or the engine's settings file): past it oMLX aborts
+mid-prefill, which no fallback can recover.
 Cold loads unload idle models when current headroom does not cover the incoming model; an
 oMLX cold load frees idle oMLX residents first (LRU, never itself) and waits out each
 accepted unload's release (200 or 202), then frees Ollama's.
@@ -59,6 +62,7 @@ import contextlib
 import contextvars
 import fcntl
 import hashlib
+import json
 import logging
 import os
 import re
@@ -71,6 +75,7 @@ from urllib.parse import quote
 
 import httpx
 
+from portal.platform.inference.identity import OMLX_SERVER_SETTINGS
 from portal.platform.inference.model_names import lookup_model, model_key
 from portal.platform.inference.omlx_auth import OmlxKeyAuth, omlx_api_key
 from portal.platform.inference.router.metrics import (
@@ -108,6 +113,36 @@ _PROCESS_LOCK_DIR = Path("/tmp/portal-5-load-guard")
 #: unloads p50 0.78 s, p95 1.93 s, max 2.29 s (n=114, oMLX 0.7.2, 2026-10-22), doubled.
 _FREE_SETTLE_EXPECTED_S = 4.6
 _CTX_TAG = re.compile(r"(?:^|[-_])ctx(\d+)([km]?)", re.IGNORECASE)
+
+
+def _omlx_prefill_zone(settings: Path | None = None) -> float | None:
+    """oMLX's ``memory.prefill_safe_zone_ratio`` — the share of its ceiling it will
+    prefill inside. Read from the pipeline env (``launch.sh up`` copies it out of the
+    engine's settings) or, on a host run, from the engine's settings file. None when
+    neither is readable: the guard then budgets against the raw headroom."""
+    raw = os.environ.get("OMLX_PREFILL_SAFE_ZONE_RATIO", "").strip()
+    if raw:
+        try:
+            value = float(raw)
+        except ValueError:
+            logger.warning("load_guard: OMLX_PREFILL_SAFE_ZONE_RATIO=%r is not a number", raw)
+        else:
+            if 0 < value <= 1:
+                return value
+            logger.warning("load_guard: OMLX_PREFILL_SAFE_ZONE_RATIO=%r is outside (0, 1]", raw)
+    try:
+        memory = json.loads((settings or OMLX_SERVER_SETTINGS).read_text()).get("memory") or {}
+        value = float(memory.get("prefill_safe_zone_ratio") or 0)
+    except Exception:
+        return None
+    return value if 0 < value <= 1 else None
+
+
+#: oMLX aborts a request mid-prefill once process usage passes its hard watermark, and
+#: prefill needs room above the model's static estimate: on 2026-11-16 an admitted
+#: 16.6 GiB seat reached 19.8 GiB of a 20.7 GiB ceiling and died after the stream had
+#: started. The engine's own prefill-safe share is what that room is called.
+_OMLX_PREFILL_ZONE: float | None = _omlx_prefill_zone()
 #: Set inside one ``admit`` task when that admission armed a parallel-seat yield.
 _ADMIT_YIELD_PIN: contextvars.ContextVar[bool] = contextvars.ContextVar(
     "admit_yield_pin", default=False
@@ -442,6 +477,12 @@ def _never_fit_basis(never_budget: float | None) -> str:
     if never_budget is not None:
         return "fixed LOAD_GUARD_CEILING_GB"
     return "not asserted: oMLX final_ceiling follows host free memory (P5-OMLX-CEILING-001)"
+
+
+def _omlx_available(headroom: float) -> float:
+    """oMLX headroom a cold load may use: the engine's prefill-safe share, less the margin."""
+    budget = headroom * _OMLX_PREFILL_ZONE if _OMLX_PREFILL_ZONE else headroom
+    return budget - _MARGIN
 
 
 def _releasable_ollama_bytes(held: list[tuple[str, int, str]], freed: set[str]) -> float:
@@ -1991,7 +2032,7 @@ class LoadGuard:
             except Exception as e:
                 logger.warning("load_guard: could not inspect Ollama before oMLX load: %s", e)
                 return
-            available = self._ollama_available(headroom, resident, 0) - _MARGIN
+            available = _omlx_available(self._ollama_available(headroom, resident, 0))
             _record_headroom(available)
             if need <= available:
                 return
