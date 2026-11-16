@@ -170,16 +170,18 @@ def revision_hop(
     dirty: list[str],
     built: float = 0.0,
     introduced: tuple[str, float] = ("", 0.0),
+    *,
+    current: bool,
 ) -> Hop:
-    """A label that exists must match HEAD; an absent one is a WARN only if the label postdates the build."""
+    """A label that exists must contain HEAD's newest copied-path commit; an absent one is a WARN only if the label postdates the build."""
     if label:
-        status = Status.PASS if head and label.startswith(head[:12]) else Status.FAIL
+        status = Status.PASS if current else Status.FAIL
         detail = f"uncommitted in copied paths: {', '.join(dirty[:4])}" if dirty else ""
         return Hop(
             f"revision {repo}",
             Status.WARN if status is Status.PASS and dirty else status,
             f"label={label[:12]}",
-            f"head={head[:12] or 'unknown'}",
+            f"label contains head={head[:12] or 'unknown'}",
             detail,
         )
     sha, since = introduced
@@ -288,6 +290,15 @@ def label_commit(repo_root: Path, dockerfile: str) -> tuple[str, float]:
     return (parts[0], float(parts[1])) if len(parts) == 2 else ("", 0.0)
 
 
+def label_contains(repo_root: Path, commit: str, label: str) -> bool:
+    """The label commit contains ``commit``: a merge contains the branch commits it brought in."""
+    if not commit or not label:
+        return False
+    if label.startswith(commit):
+        return True
+    return run_cmd(["git", "-C", str(repo_root), "merge-base", "--is-ancestor", commit, label]).ok
+
+
 def _container_hops(
     container: ContainerRow,
     repo_root: Path,
@@ -317,7 +328,13 @@ def _container_hops(
         label = _image_label(current, _REVISION_LABEL)
         hops.append(
             revision_hop(
-                container.repo, label, head, dirty, built, label_commit(repo_root, dockerfile)
+                container.repo,
+                label,
+                head,
+                dirty,
+                built,
+                label_commit(repo_root, dockerfile),
+                current=label_contains(repo_root, head, label),
             )
         )
     return hops

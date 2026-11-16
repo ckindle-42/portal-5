@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import plistlib
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -230,6 +231,35 @@ def _container(**extra: object) -> containers.ContainerRow:
     return containers.ContainerRow(**values)  # type: ignore[arg-type]
 
 
+def _git(repo: Path, *args: str) -> None:
+    subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True, text=True)
+
+
+def _git_out(repo: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", "-C", str(repo), *args], check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+
+def _merge_repo(path: Path) -> Path:
+    """A merge commit whose branch changed a copied path: the 2026-11-16 false FAIL."""
+    path.mkdir(exist_ok=True)
+    _git(path, "init", "-q", "-b", "main")
+    _git(path, "config", "user.email", "t@example.invalid")
+    _git(path, "config", "user.name", "t")
+    (path / "Dockerfile.pipeline").write_text("FROM scratch\n", encoding="utf-8")
+    (path / "portal").mkdir()
+    (path / "portal" / "copy.py").write_text("one\n", encoding="utf-8")
+    _git(path, "add", ".")
+    _git(path, "commit", "-qm", "base")
+    _git(path, "checkout", "-qb", "lane")
+    (path / "portal" / "copy.py").write_text("two\n", encoding="utf-8")
+    _git(path, "commit", "-qam", "lane touches a copied path")
+    _git(path, "checkout", "-q", "main")
+    _git(path, "merge", "-q", "--no-ff", "-m", "merge lane", "lane")
+    return path
+
+
 def test_parse_iso_handles_docker_nanoseconds() -> None:
     assert containers.parse_iso("2026-11-16T01:04:44.232912389Z") == pytest.approx(1794791084.23)
     assert containers.parse_iso("2026-11-16T01:04:44Z") == containers.parse_iso(
@@ -321,16 +351,48 @@ def test_start_hop_fails_when_the_container_predates_its_image() -> None:
 
 def test_revision_hop_warns_before_the_label_existed_and_fails_after() -> None:
     predated = containers.revision_hop(
-        "repo", "", "abc123456789", [], 1000.0, ("c52e81568aa", 2000.0)
+        "repo", "", "abc123456789", [], 1000.0, ("c52e81568aa", 2000.0), current=False
     )
     assert predated.status is Status.WARN and "predates" in predated.detail
-    late = containers.revision_hop("repo", "", "abc123456789", [], 3000.0, ("c52e81568aa", 2000.0))
+    late = containers.revision_hop(
+        "repo", "", "abc123456789", [], 3000.0, ("c52e81568aa", 2000.0), current=False
+    )
     assert late.status is Status.FAIL and "rebuild" in late.detail
-    assert containers.revision_hop("repo", "", "abc123456789", []).status is Status.FAIL
-    assert containers.revision_hop("repo", "abc123456789", "abc123456789", []).status is Status.PASS
-    dirty = containers.revision_hop("repo", "abc123456789", "abc123456789", ["M portal/x.py"])
+    assert (
+        containers.revision_hop("repo", "", "abc123456789", [], current=False).status is Status.FAIL
+    )
+    assert (
+        containers.revision_hop("repo", "abc123456789", "abc123456789", [], current=True).status
+        is Status.PASS
+    )
+    dirty = containers.revision_hop(
+        "repo", "abc123456789", "abc123456789", ["M portal/x.py"], current=True
+    )
     assert dirty.status is Status.WARN
-    assert containers.revision_hop("repo", "999123456789", "abc123456789", []).status is Status.FAIL
+    assert (
+        containers.revision_hop("repo", "999123456789", "abc123456789", [], current=False).status
+        is Status.FAIL
+    )
+
+
+def test_label_commit_that_contains_a_merged_branch_commit_is_current(tmp_path: Path) -> None:
+    repo = _merge_repo(tmp_path)
+    merge = _git_out(repo, "rev-parse", "HEAD")
+    newest = containers._git(
+        repo, ["rev-list", "-1", "HEAD", "--", "portal", "Dockerfile.pipeline"]
+    )
+    assert newest != merge, "rev-list -1 reports the merged-in commit, not the merge"
+
+    assert containers.label_contains(repo, newest, merge) is True
+    assert containers.label_contains(repo, newest, _git_out(repo, "rev-parse", "HEAD^1")) is False
+    assert containers.label_contains(repo, merge, newest) is False
+    assert containers.label_contains(repo, newest, "unknown") is False
+    assert containers.label_contains(repo, "", merge) is False
+
+    hop = containers.revision_hop(
+        "repo", merge, newest, [], current=containers.label_contains(repo, newest, merge)
+    )
+    assert hop.status is Status.PASS
 
 
 def test_label_commit_reads_the_pickaxe_result(monkeypatch: pytest.MonkeyPatch) -> None:
