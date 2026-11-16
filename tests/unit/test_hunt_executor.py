@@ -7,6 +7,7 @@ import threading
 import time
 from typing import Any
 
+import httpx
 import pytest
 
 from portal.modules.security.core.hunt import jobs as hunt_jobs
@@ -213,6 +214,82 @@ def test_every_kind_reports_requests_seconds_and_censored_reads() -> None:
     assert kinds["volume"]["seconds"] >= 0
     assert kinds["source"]["requests"] == 1
     assert kinds["source"]["censored"] == 1
+
+
+def test_read_many_uses_shared_concurrency_and_keeps_input_order(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("HUNT_SPLUNK_CONCURRENCY", "3")
+
+    class _Concurrent:
+        def __init__(self) -> None:
+            self.lock = threading.Lock()
+            self.active = 0
+            self.peak = 0
+
+        def iter_post_bounded(self, query: str, *_args: Any, **_kwargs: Any) -> Any:
+            with self.lock:
+                self.active += 1
+                self.peak = max(self.peak, self.active)
+            time.sleep(0.02)
+            with self.lock:
+                self.active -= 1
+            yield {"query": query}
+
+    source = _Concurrent()
+    executor = HuntExecutor(source, _budget())
+    requests = [(str(i), 0.0, 1.0, "sample", 1) for i in range(12)]
+
+    reads = executor.read_many(requests)
+
+    assert source.peak == 3
+    assert [read.rows[0]["query"] for read in reads] == [str(i) for i in range(12)]
+
+
+def test_retryable_splunk_status_retries_spend_shared_request_budget() -> None:
+    class _RetryOnce:
+        def __init__(self) -> None:
+            self.attempts = 0
+
+        def iter_post_bounded(self, *_args: Any, **_kwargs: Any) -> Any:
+            self.attempts += 1
+            if self.attempts < 3:
+                request = httpx.Request("POST", "https://splunk.invalid")
+                response = httpx.Response(503, request=request)
+                raise httpx.HTTPStatusError("busy", request=request, response=response)
+            yield {"value": "ok"}
+
+    source = _RetryOnce()
+    budget = _budget()
+
+    read = HuntExecutor(source, budget).read("search index=i", 0.0, 1.0, kind="audit")
+
+    assert read.rows == [{"value": "ok"}]
+    assert source.attempts == 3
+    assert budget.queries == 3
+    assert budget.snapshot()["request_kinds"]["audit"]["requests"] == 3
+
+
+def test_retryable_quota_response_retries_before_returning_coverage() -> None:
+    class _QuotaOnce:
+        def __init__(self) -> None:
+            self.attempts = 0
+
+        def iter_post_bounded(self, *_args: Any, **_kwargs: Any) -> Any:
+            self.attempts += 1
+            if self.attempts == 1:
+                raise WindowFetchError("search quota exceeded", censored=True)
+            yield {"value": "ok"}
+
+    source = _QuotaOnce()
+    budget = _budget()
+
+    read = HuntExecutor(source, budget).read("search index=i", 0.0, 1.0, kind="audit")
+
+    assert read.rows == [{"value": "ok"}]
+    assert read.reason is None
+    assert source.attempts == 2
+    assert budget.queries == 2
 
 
 def test_a_deadline_ends_the_job_partial(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:

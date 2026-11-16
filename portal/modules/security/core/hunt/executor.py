@@ -5,10 +5,12 @@ shared budget or job deadline ends the work)."""
 from __future__ import annotations
 
 import inspect
+import os
 import re
 import threading
 import time
 from collections.abc import Callable, Iterable, Iterator, Mapping
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -32,6 +34,19 @@ QUERY_BOUND = "query_bound"  # cut by the query's own time bound
 ROW_CAP = "row_cap"  # cut by the query's own row cap
 CENSORED = "censored"  # the transport reported incomplete coverage
 CANCEL_WAIT_SECONDS = 0.2  # how long a read gets to answer after its own time bound
+RETRY_ATTEMPTS = 3  # total attempts for bounded Splunk back-pressure
+RETRY_DELAY_SECONDS = 0.1  # initial delay before a bounded retry
+
+
+def _configured_concurrency() -> int:
+    value = os.environ.get("HUNT_SPLUNK_CONCURRENCY", "8")
+    try:
+        concurrency = int(value)
+    except ValueError as exc:
+        raise ValueError("HUNT_SPLUNK_CONCURRENCY must be a positive integer") from exc
+    if concurrency < 1:
+        raise ValueError("HUNT_SPLUNK_CONCURRENCY must be a positive integer")
+    return concurrency
 
 
 class HuntBudgetExceededError(SearchBudgetExceededError):
@@ -89,6 +104,7 @@ class Read:
     rows: list[dict[str, Any]]
     censored: bool = False
     reason: str | None = None
+    error: BaseException | None = None
 
 
 @dataclass
@@ -117,6 +133,13 @@ class HuntBudget:
     judge_seconds: float = 0.0
     host_hours: list[dict[str, Any]] = field(default_factory=list)
     judge_block: dict[str, Any] = field(default_factory=dict)
+    concurrency: int = field(default_factory=_configured_concurrency)
+    splunk_slots: threading.BoundedSemaphore = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        if self.concurrency < 1:
+            raise ValueError("HUNT_SPLUNK_CONCURRENCY must be a positive integer")
+        self.splunk_slots = threading.BoundedSemaphore(self.concurrency)
 
     @property
     def deadline(self) -> float:
@@ -198,6 +221,7 @@ class HuntBudget:
             "remaining_s": round(self.remaining(), 1),
             "exhausted_reason": self.exhausted,
             "limits": dict(self.limits),
+            "splunk_concurrency": self.concurrency,
             "last_progress_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "coverage_complete": False,
             "request_kinds": kinds,
@@ -242,6 +266,25 @@ class _Outcome:
         self.cut = False
         self.cancel = JobCancel()
         self.done = threading.Event()
+        self.slot: threading.BoundedSemaphore | None = None
+
+
+def _retryable(exc: BaseException) -> bool:
+    pending: BaseException | None = exc
+    seen: set[int] = set()
+    messages: list[str] = []
+    while pending is not None and id(pending) not in seen:
+        seen.add(id(pending))
+        messages.append(str(pending).lower())
+        response = getattr(pending, "response", None)
+        if getattr(response, "status_code", None) in {429, 503}:
+            return True
+        pending = pending.__cause__ or pending.__context__
+    text = " ".join(messages)
+    return any(
+        marker in text
+        for marker in ("quota", "concurrent search limit", "search quota", "search limit exceeded")
+    )
 
 
 def _cancel(outcome: _Outcome) -> None:
@@ -286,23 +329,101 @@ class HuntExecutor:
     ) -> Read:
         """Issue one bounded read. `row_cap` bounds a discovery sample; evidence and cell
         reads are bounded by the shared budget they spend."""
-        timeout, cap, spend = self._reserve(query, row_cap)
-        began = time.monotonic()
         reason: str | None = None
         rows: list[dict[str, Any]] = []
-        try:
-            rows, reason = self._collect(query, start, end, timeout, cap)
-        finally:
-            self.budget.add_kind(
-                kind,
-                time.monotonic() - began,
-                query=query,
-                query_start=start,
-                query_end=end,
-                censored=reason is not None,
+        error: BaseException | None = None
+        query_deadline: float | None = None
+        spend = "discovery"
+        for attempt in range(RETRY_ATTEMPTS):
+            if query_deadline is not None and time.monotonic() >= query_deadline:
+                reason = QUERY_BOUND
+                break
+            rows, reason, retry_error, error, spend, query_deadline = self._read_attempt(
+                query, start, end, kind, row_cap, query_deadline
             )
+            if retry_error is None:
+                if isinstance(error, (SearchBudgetExceededError, HuntSearchFailedError)):
+                    raise error
+                break
+            if rows or attempt + 1 >= RETRY_ATTEMPTS:
+                error = retry_error
+                reason = self._reason(retry_error)
+                break
+            delay = min(
+                RETRY_DELAY_SECONDS * (attempt + 1),
+                max(0.0, (query_deadline or time.monotonic()) - time.monotonic()),
+            )
+            if delay <= 0:
+                reason = QUERY_BOUND
+                break
+            time.sleep(delay)
         self.budget.record_rows(spend, len(rows))
-        return Read(rows, reason is not None, reason)
+        return Read(rows, reason is not None, reason, error)
+
+    def _read_attempt(
+        self,
+        query: str,
+        start: float,
+        end: float,
+        kind: str,
+        row_cap: int | None,
+        query_deadline: float | None,
+    ) -> tuple[
+        list[dict[str, Any]], str | None, BaseException | None, BaseException | None, str, float
+    ]:
+        began = time.monotonic()
+        reserved = False
+        slot_acquired = False
+        rows: list[dict[str, Any]] = []
+        reason: str | None = None
+        retry_error: BaseException | None = None
+        error: BaseException | None = None
+        spend = "discovery"
+        try:
+            timeout, cap, spend = self._reserve(query, row_cap)
+            reserved = True
+            query_deadline = query_deadline or began + timeout
+            remaining = min(query_deadline - time.monotonic(), self.budget.remaining())
+            if remaining <= 0:
+                reason = QUERY_BOUND
+            elif not self.budget.splunk_slots.acquire(timeout=remaining):
+                if self.budget.remaining() <= 0:
+                    self.budget.exhausted = self.budget.exhausted or "job_deadline_exceeded"
+                    raise HuntDeadlineExceededError(self.budget.exhausted)
+                reason = QUERY_BOUND
+            else:
+                slot_acquired = True
+                rows, reason, retry_error, error = self._collect(
+                    query, start, end, remaining, cap, self.budget.splunk_slots
+                )
+                slot_acquired = False
+        finally:
+            if slot_acquired:
+                self.budget.splunk_slots.release()
+            if reserved:
+                self.budget.add_kind(
+                    kind,
+                    time.monotonic() - began,
+                    query=query,
+                    query_start=start,
+                    query_end=end,
+                    censored=reason is not None,
+                )
+        return rows, reason, retry_error, error, spend, query_deadline or began
+
+    def read_many(
+        self, requests: Iterable[tuple[str, float, float, str, int | None]]
+    ) -> list[Read]:
+        """Run independent reads concurrently and return outcomes in request order."""
+        ordered = list(requests)
+        if not ordered:
+            return []
+        with ThreadPoolExecutor(max_workers=min(len(ordered), self.budget.concurrency)) as pool:
+            return list(pool.map(self._read_request, ordered))
+
+    def _read_request(self, request: tuple[str, float, float, str, int | None]) -> Read:
+        query, start, end, kind, row_cap = request
+        return self.read(query, start, end, kind=kind, row_cap=row_cap)
 
     def iter_post(self, query: str, start: float, end: float) -> Iterator[Mapping[str, Any]]:
         """Compatibility read for the engine and investigator: censored coverage raises."""
@@ -314,7 +435,7 @@ class HuntExecutor:
             row_cap=per_sample_cap(query),
         )
         if read.reason == CENSORED:
-            cause = self._last_error
+            cause = read.error or self._last_error
             raise HuntCoverageError(
                 str(cause),
                 sid=getattr(cause, "sid", None),
@@ -376,8 +497,10 @@ class HuntExecutor:
         end: float,
         timeout: float,
         cap: int | None,
-    ) -> tuple[list[dict[str, Any]], str | None]:
+        slot: threading.BoundedSemaphore,
+    ) -> tuple[list[dict[str, Any]], str | None, BaseException | None, BaseException | None]:
         outcome = _Outcome()
+        outcome.slot = slot
         worker = threading.Thread(
             target=self._work,
             args=(query, start, end, timeout, cap, outcome),
@@ -388,13 +511,24 @@ class HuntExecutor:
             _cancel(outcome)
             if self.budget.remaining() <= 0:
                 self.budget.exhausted = self.budget.exhausted or "job_deadline_exceeded"
-                raise HuntDeadlineExceededError(self.budget.exhausted)
-            return list(outcome.rows), QUERY_BOUND
+                return (
+                    list(outcome.rows),
+                    QUERY_BOUND,
+                    None,
+                    HuntDeadlineExceededError(self.budget.exhausted),
+                )
+            return list(outcome.rows), QUERY_BOUND, None, None
         if outcome.error is not None:
-            return list(outcome.rows), self._reason(outcome.error)
+            if _retryable(outcome.error):
+                return list(outcome.rows), None, outcome.error, None
+            try:
+                reason = self._reason(outcome.error)
+            except BaseException as exc:  # noqa: BLE001 -- raised in the reading thread
+                return list(outcome.rows), None, None, exc
+            return list(outcome.rows), reason, None, outcome.error
         if outcome.cut:
-            return list(outcome.rows), ROW_CAP
-        return list(outcome.rows), None
+            return list(outcome.rows), ROW_CAP, None, None
+        return list(outcome.rows), None, None, None
 
     def _work(
         self,
@@ -412,6 +546,8 @@ class HuntExecutor:
             outcome.error = exc
         finally:
             outcome.cancel.release()
+            if outcome.slot is not None:
+                outcome.slot.release()
             outcome.done.set()
 
     def _produce(

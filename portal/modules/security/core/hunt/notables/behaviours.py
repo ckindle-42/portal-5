@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -14,7 +15,14 @@ from ..engine import _literal_term_segments
 from ..executor import HuntExecutor
 from .cards import SourceCard
 from .parse import parse_row
-from .sample import BEHAVIOUR_SOURCES, SourceFacts, read_windows, route_filter, window_bounds
+from .sample import (
+    BEHAVIOUR_SOURCES,
+    RowSet,
+    SourceFacts,
+    read_windows,
+    route_filter,
+    window_bounds,
+)
 
 BEHAVIOUR_WINDOWS = 12  # effort budget: time slices read per activity source
 BEHAVIOUR_EVENTS_PER_WINDOW = 2500  # effort budget: events read from one slice
@@ -462,17 +470,19 @@ def _key_source(
     per_window: int,
     executor: HuntExecutor,
     started: float,
+    read: RowSet | None = None,
 ) -> tuple[list[dict[str, Any]], int, dict[str, dict[str, Any]]]:
     """Read one source once and key each of its structures' events into the store."""
     windows = window_bounds(facts.first, facts.last, BEHAVIOUR_WINDOWS)
-    read = read_windows(
-        executor,
-        facts,
-        windows,
-        per_window=per_window,
-        kind="behavior_events",
-        max_sources=BEHAVIOUR_SOURCES,
-    )
+    if read is None:
+        read = read_windows(
+            executor,
+            facts,
+            windows,
+            per_window=per_window,
+            kind="behavior_events",
+            max_sources=BEHAVIOUR_SOURCES,
+        )
     receipts: list[dict[str, Any]] = []
     overrides: dict[str, dict[str, Any]] = {}
     total = 0
@@ -519,6 +529,7 @@ def collect_behaviours(
     total = 0
     try:
         create_events(con)
+        scheduled: list[tuple[str, list[SourceCard], list[SourceCard], SourceFacts, float]] = []
         for source_id, group in grouped.items():
             usable = [card for card in group if card.usable]
             if not usable:
@@ -545,8 +556,27 @@ def collect_behaviours(
                 )
                 continue
             started = time.monotonic()
+            scheduled.append((source_id, group, usable, facts, started))
+        concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
+        with ThreadPoolExecutor(max_workers=min(len(scheduled) or 1, concurrency)) as pool:
+            futures = [
+                pool.submit(
+                    read_windows,
+                    executor,
+                    facts,
+                    window_bounds(facts.first, facts.last, BEHAVIOUR_WINDOWS),
+                    per_window=per_window,
+                    kind="behavior_events",
+                    max_sources=BEHAVIOUR_SOURCES,
+                )
+                for _source_id, _group, _usable, facts, _started in scheduled
+            ]
+            reads = [future.result() for future in futures]
+        for (_source_id, _group, usable, facts, started), read in zip(
+            scheduled, reads, strict=True
+        ):
             found, count, found_overrides = _key_source(
-                con, usable, facts, per_window, executor, started
+                con, usable, facts, per_window, executor, started, read
             )
             receipts.extend(found)
             overrides.update(found_overrides)

@@ -19,7 +19,6 @@ MAX_HOST_NAMES = 24  # effort budget: host names listed on one source's facts
 # The results endpoint returns at most 50,000 rows per request; caps stay below it.
 METADATA_ROWS = 40_000  # effort budget: sourcetype/source/host aggregate rows read
 CADENCE_ROWS = 40_000  # effort budget: per-period sourcetype counts read for cadence
-READ_CONCURRENCY = 6  # effort budget: concurrent reads inside the shared executor
 EMPTY_SAMPLE_WINDOWS = (
     48  # effort budget: fixed windows per source when its own time range is unknown
 )
@@ -237,7 +236,8 @@ def read_windows(
     query = f"search index={_quoted(facts.index)} {route} | head {per_window}"
     readable = [bounds for bounds in windows if bounds[1] > bounds[0]]
     found = RowSet(windows=len(readable), route=route_name)
-    with ThreadPoolExecutor(max_workers=READ_CONCURRENCY) as pool:
+    concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
+    with ThreadPoolExecutor(max_workers=min(len(readable) or 1, concurrency)) as pool:
         futures = [
             pool.submit(_read_range, executor, query, start, end, kind=kind, row_cap=per_window)
             for start, end in readable

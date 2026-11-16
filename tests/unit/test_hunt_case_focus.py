@@ -6,6 +6,8 @@ The Search protocol is mocked with a miniature Splunk over a fixed event list --
 from __future__ import annotations
 
 import re
+import threading
+import time
 from collections import Counter
 from typing import Any
 
@@ -13,6 +15,7 @@ import pytest
 
 from portal.modules.security.core.hunt import jobs
 from portal.modules.security.core.hunt.engine import HOUR, Burst, Lead
+from portal.modules.security.core.hunt.executor import DEFAULT_BUDGETS, HuntBudget
 from portal.modules.security.core.hunt.investigate import (
     SEED_SAMPLE,
     Case,
@@ -281,6 +284,34 @@ def test_term_cells_use_whole_minor_phrases_and_skip_unclean_handles() -> None:
     assert scans == 1
     assert '"alpha=medium=verylongsegment" "verylongsegment"' in query
     assert "*" not in query
+
+
+def test_independent_investigation_reads_are_concurrent_and_ordered() -> None:
+    class ConcurrentSearch:
+        def __init__(self) -> None:
+            self.lock = threading.Lock()
+            self.active = 0
+            self.peak = 0
+
+        def iter_post(self, query: str, _start: float, _end: float) -> list[dict[str, str]]:
+            with self.lock:
+                self.active += 1
+                self.peak = max(self.peak, self.active)
+            time.sleep(0.02)
+            with self.lock:
+                self.active -= 1
+            return [{"query": query}]
+
+    source = ConcurrentSearch()
+    budget = HuntBudget(dict(DEFAULT_BUDGETS), concurrency=3)
+    investigator = Investigator.__new__(Investigator)
+    investigator.search = jobs.BudgetedSearch(source, budget)
+    requests = [(f"query-{index}", 0.0, 1.0) for index in range(12)]
+
+    rows = investigator._rows_many(requests)
+
+    assert source.peak == 3
+    assert [group[0]["query"] for group in rows] == [query for query, _s, _e in requests]
 
 
 def test_investigation_does_not_filter_by_zoom_level_population() -> None:

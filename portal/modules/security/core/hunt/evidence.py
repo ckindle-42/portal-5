@@ -23,7 +23,6 @@ EVENTS_PER_OBSERVATION = 2  # effort budget: matching events retained for one ob
 # Rows one cell read may return. 160 judged cells stay inside the 5,000-event budget.
 ROW_BUDGET = MAX_OBSERVATIONS_PER_CELL * EVENTS_PER_OBSERVATION
 MAX_EVENT_CHARACTERS = 300  # effort budget: raw characters retained per event
-READ_CONCURRENCY = 6  # effort budget: evidence reads inside the shared executor
 EVIDENCE_KIND = "evidence"
 
 
@@ -489,7 +488,8 @@ def read_cells(
 ) -> list[EvidenceRead]:
     """Read cells concurrently under the executor's existing shared budget and deadline."""
     ordered = list(cells)
-    with ThreadPoolExecutor(max_workers=READ_CONCURRENCY) as pool:
+    concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
+    with ThreadPoolExecutor(max_workers=min(len(ordered) or 1, concurrency)) as pool:
         futures = [
             pool.submit(
                 read_cell,

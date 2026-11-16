@@ -368,8 +368,10 @@ def audit_items(
     counts: dict[tuple[str, str, str], dict[str, int]] = {}
     missing: list[KnowledgeItem] = []
     rows_total = 0
-    for item in items:
-        read = executor.read(item.query, start, end, kind="knowledge_audit", row_cap=AUDIT_ROWS)
+    reads = executor.read_many(
+        (item.query, start, end, "knowledge_audit", AUDIT_ROWS) for item in items
+    )
+    for item, read in zip(items, reads, strict=True):
         located = len(read.rows)
         slot = counts.setdefault(
             (item.family, item.label_kind, item.label),
@@ -455,14 +457,17 @@ def audit_labels(
         values, carriage = _label_values(executor, index, field, start, end)
         checked = values[:LABEL_VALUES]
         located = 0
-        for value, _count in checked:
-            read = executor.read(
+        reads = executor.read_many(
+            (
                 f"search index={_quote(index)} {field}={_quote(value)} | head 1",
                 start,
                 end,
-                kind="knowledge_audit",
-                row_cap=1,
+                "knowledge_audit",
+                1,
             )
+            for value, _count in checked
+        )
+        for (value, _count), read in zip(checked, reads, strict=True):
             if read.rows:
                 located += 1
             else:

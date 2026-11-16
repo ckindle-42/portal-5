@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -9,7 +11,7 @@ import pytest
 from portal.modules.security.core.hunt.engine import _literal_term_segments
 from portal.modules.security.core.hunt.executor import DEFAULT_BUDGETS, HuntBudget, HuntExecutor
 from portal.modules.security.core.hunt.notables.cards import SourceCard
-from portal.modules.security.core.hunt.notables.knowledge import load_for_run
+from portal.modules.security.core.hunt.notables.knowledge import KnowledgeItem, load_for_run
 from portal.modules.security.core.hunt.notables.manifest import (
     FamilySpec,
     _build_indexed,
@@ -246,6 +248,47 @@ def test_labelled_family_builds_technique_items_from_the_carrying_field(tmp_path
     assert detail["normalized"] == 4
     audit = audit_items(executor, items, 0.0, 4000.0)
     assert audit["items"] == 1
+
+
+def test_knowledge_audit_reads_items_concurrently_and_keeps_report_order() -> None:
+    class _AuditSearch:
+        def __init__(self) -> None:
+            self.lock = threading.Lock()
+            self.active = 0
+            self.peak = 0
+
+        def iter_post_bounded(self, query: str, *_args: Any, **_kwargs: Any) -> Any:
+            with self.lock:
+                self.active += 1
+                self.peak = max(self.peak, self.active)
+            time.sleep(0.02)
+            with self.lock:
+                self.active -= 1
+            yield {"query": query}
+
+    search = _AuditSearch()
+    executor = HuntExecutor(search, HuntBudget(dict(DEFAULT_BUDGETS)))
+    items = [
+        KnowledgeItem(
+            statement=f"statement {index}",
+            label=f"label {index:02}",
+            label_kind="known_bad",
+            label_basis="technique",
+            family="family",
+            split="build",
+            index="idx",
+            source_kind="activity",
+            query=f"search index=idx id={index}",
+        )
+        for index in range(24)
+    ]
+
+    report = audit_items(executor, items, 0.0, 1.0)
+
+    assert report["items"] == len(items)
+    assert report["rows"] == len(items)
+    assert search.peak == 8
+    assert [row["label"] for row in report["counts"]] == [f"label {i:02}" for i in range(24)]
 
 
 def test_window_family_builds_non_attack_day_known_good(tmp_path: Path) -> None:

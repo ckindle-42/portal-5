@@ -332,7 +332,9 @@ def _coverage_problem(sid: str, content: Mapping[str, Any]) -> tuple[str, bool] 
     finalized = _splunk_flag(content.get("isFinalized")) or "finaliz" in _message_text(content)
     incomplete = (progress is not None and progress < 0.999) or _cursor_behind(content)
     if _splunk_flag(content.get("isFailed")) or state == "FAILED":
-        return (f"Splunk search job {sid} failed", False)
+        detail = _message_text(content)
+        suffix = f": {detail}" if detail else ""
+        return (f"Splunk search job {sid} failed{suffix}", False)
     if finalized or incomplete or state == "FINALIZING":
         why = "finalized early" if finalized or state == "FINALIZING" else "incomplete coverage"
         return (f"Splunk search job {sid} {why}", True)

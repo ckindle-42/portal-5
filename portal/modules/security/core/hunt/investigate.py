@@ -333,6 +333,33 @@ class Investigator:
             for r in self.search.iter_post(q, start, end)
         ]
 
+    def _rows_many(self, requests: list[tuple[str, float, float]]) -> list[list[dict[str, Any]]]:
+        """Read independent reproduction checks concurrently without changing their order."""
+        if not requests:
+            return []
+        budget = getattr(getattr(self.search, "executor", None), "budget", None)
+        concurrency = int(getattr(budget, "concurrency", 1))
+        with ThreadPoolExecutor(max_workers=min(len(requests), concurrency)) as pool:
+            return list(pool.map(lambda request: self._rows(*request), requests))
+
+    def _rows_many_captured(
+        self, requests: list[tuple[str, float, float]]
+    ) -> list[tuple[list[dict[str, Any]] | None, Exception | None]]:
+        """Keep independent query failures paired with their stable position."""
+
+        def capture(
+            request: tuple[str, float, float],
+        ) -> tuple[list[dict[str, Any]] | None, Exception | None]:
+            try:
+                return self._rows(*request), None
+            except Exception as exc:  # noqa: BLE001 -- the caller classifies each result
+                return None, exc
+
+        budget = getattr(getattr(self.search, "executor", None), "budget", None)
+        concurrency = int(getattr(budget, "concurrency", 1))
+        with ThreadPoolExecutor(max_workers=min(len(requests) or 1, concurrency)) as pool:
+            return list(pool.map(capture, requests))
+
     @staticmethod
     def _cell_key(cell: RetrievalCell) -> tuple[str, str, int, int]:
         return cell.host, cell.source, cell.start, cell.end
@@ -353,43 +380,59 @@ class Investigator:
         index_q = _search_literal(self.index)
         cells: dict[tuple[str, str, int, int], RetrievalCell] = {}
         scans = 0
+        pending: list[tuple[str, tuple[str, ...]]] = []
         for handle in sorted(handles):
             terms = _literal_term_segments(handle)
             if not terms:
                 continue
-            # One handle's cells are fixed for the run's index and window: scan it once.
-            scan = self._handle_cells.get(handle)
-            if scan is None:
-                scans += 1
-                q = (
-                    f"| tstats count where index={index_q} "
-                    f"{' '.join(_search_literal(term) for term in terms)} "
-                    "by host source _time span=3600s"
-                )
-                scan = {}
-                for row in self._rows(q, self.start, self.end):
-                    cell = self._cell(row)
-                    if cell is None:
-                        continue
-                    key = self._cell_key(cell)
-                    prior = scan.get(key)
-                    count = max(cell.indexed_count or 0, (prior.indexed_count or 0) if prior else 0)
-                    scan[key] = RetrievalCell(cell.host, cell.source, cell.start, cell.end, count)
-                self._handle_cells[handle] = scan
-            self._merge_cells(cells, scan)
+            if self._handle_cells.get(handle) is None:
+                pending.append((handle, terms))
+        requests = [
+            (
+                f"| tstats count where index={index_q} "
+                f"{' '.join(_search_literal(term) for term in terms)} "
+                "by host source _time span=3600s",
+                self.start,
+                self.end,
+            )
+            for _handle, terms in pending
+        ]
+        for (handle, _terms), rows in zip(pending, self._rows_many(requests), strict=True):
+            scans += 1
+            scan: dict[tuple[str, str, int, int], RetrievalCell] = {}
+            for row in rows:
+                cell = self._cell(row)
+                if cell is None:
+                    continue
+                key = self._cell_key(cell)
+                prior = scan.get(key)
+                count = max(cell.indexed_count or 0, (prior.indexed_count or 0) if prior else 0)
+                scan[key] = RetrievalCell(cell.host, cell.source, cell.start, cell.end, count)
+            self._handle_cells[handle] = scan
+        for handle in sorted(handles):
+            cached = self._handle_cells.get(handle)
+            if cached is None:
+                continue
+            self._merge_cells(cells, cached)
         return cells, scans
 
     def _source_neighbors(
         self, sources: set[str]
     ) -> dict[tuple[str, str, int, int], RetrievalCell]:
         index_q = _search_literal(self.index)
-        cells = {}
-        for source in sorted(sources):
-            q = (
+        ordered = sorted(sources)
+        requests = [
+            (
                 f"| tstats count where index={index_q} "
-                f"source={_search_literal(source)} by host source _time span=3600s"
+                f"source={_search_literal(source)} by host source _time span=3600s",
+                self.start,
+                self.end,
             )
-            for row in self._rows(q, self.start, self.end):
+            for source in ordered
+        ]
+        cells = {}
+        for rows in self._rows_many(requests):
+            for row in rows:
                 cell = self._cell(row)
                 if cell is not None:
                     cells[self._cell_key(cell)] = RetrievalCell(
@@ -402,6 +445,7 @@ class Investigator:
     ) -> dict[tuple[str, str, int, int], RetrievalCell]:
         index_q = _search_literal(self.index)
         cells = {}
+        requests: list[tuple[str, float, float]] = []
         for host in sorted({cell.host for cell in observed}):
             for origin in sorted(
                 (cell for cell in observed if cell.host == host), key=lambda cell: cell.start
@@ -413,12 +457,14 @@ class Investigator:
                     f"host={_search_literal(host)} _time>={lo} _time<{hi} "
                     "by host source _time span=3600s"
                 )
-                for row in self._rows(q, lo, hi):
-                    cell = self._cell(row)
-                    if cell is not None:
-                        cells[self._cell_key(cell)] = RetrievalCell(
-                            cell.host, cell.source, cell.start, cell.end, None
-                        )
+                requests.append((q, lo, hi))
+        for rows in self._rows_many(requests):
+            for row in rows:
+                cell = self._cell(row)
+                if cell is not None:
+                    cells[self._cell_key(cell)] = RetrievalCell(
+                        cell.host, cell.source, cell.start, cell.end, None
+                    )
         return cells
 
     def _expand_observed(
@@ -547,6 +593,7 @@ class Investigator:
             return plan.events
         index_q = _search_literal(self.index)
         found: dict[tuple[str, str, float, str], dict[str, Any]] = {}
+        requests: list[tuple[str, float, float]] = []
         for offset in range(0, len(plan.cells), CELL_QUERY_SIZE):
             group = plan.cells[offset : offset + CELL_QUERY_SIZE]
             scopes = " OR ".join(
@@ -560,32 +607,27 @@ class Investigator:
             )
             lo = min(cell.start for cell in group)
             hi = max(cell.end for cell in group)
-            try:
-                rows = self._rows(q, lo, hi)
-            except SearchBudgetExceededError:
-                raise  # shared effort ends the case; a censored lookup censors only itself
-            except Exception as exc:  # noqa: BLE001 -- unknown local verification
-                plan.reason = f"raw_verification_failed:{type(exc).__name__}"
-                plan.censored = True
-                self.degraded.append(f"evidence {plan.token}: {type(exc).__name__}")
-                break
-            if len(rows) > MAX_EVIDENCE_EVENTS:
-                plan.censored = True
-                plan.reason = "event_budget_exhausted"
-                rows = rows[:MAX_EVIDENCE_EVENTS]
-            for row in rows:
-                if not _raw_contains_token(str(row.get("_raw", "")), plan.token):
-                    continue
-                key = (
-                    str(row.get("host", "")),
-                    str(row.get("source", "")),
-                    float(row.get("_time", 0.0)),
-                    str(row.get("_raw", "")),
-                )
-                found.setdefault(key, dict(row))
-            if len(found) > MAX_EVIDENCE_EVENTS:
-                plan.censored = True
-                plan.reason = "event_budget_exhausted"
+            requests.append((q, lo, hi))
+        budget = getattr(getattr(self.search, "executor", None), "budget", None)
+        concurrency = int(getattr(budget, "concurrency", 1))
+        for offset in range(0, len(requests), concurrency):
+            results = self._rows_many_captured(requests[offset : offset + concurrency])
+            failed = False
+            reached_cap = False
+            for rows, error in results:
+                if error is not None:
+                    if isinstance(error, SearchBudgetExceededError):
+                        raise error
+                    plan.reason = f"raw_verification_failed:{type(error).__name__}"
+                    plan.censored = True
+                    self.degraded.append(f"evidence {plan.token}: {type(error).__name__}")
+                    failed = True
+                    break
+                assert rows is not None
+                reached_cap = self._remember_verified_rows(plan, rows, found)
+                if reached_cap:
+                    break
+            if failed or reached_cap:
                 break
         plan.events = list(found.values())[:MAX_EVIDENCE_EVENTS]
         plan.verified_count = len(plan.events)
@@ -597,6 +639,32 @@ class Investigator:
                 else "verified_local_sample_global_unknown"
             )
         return plan.events
+
+    @staticmethod
+    def _remember_verified_rows(
+        plan: RetrievalPlan,
+        rows: list[dict[str, Any]],
+        found: dict[tuple[str, str, float, str], dict[str, Any]],
+    ) -> bool:
+        if len(rows) > MAX_EVIDENCE_EVENTS:
+            plan.censored = True
+            plan.reason = "event_budget_exhausted"
+            rows = rows[:MAX_EVIDENCE_EVENTS]
+        for row in rows:
+            if not _raw_contains_token(str(row.get("_raw", "")), plan.token):
+                continue
+            key = (
+                str(row.get("host", "")),
+                str(row.get("source", "")),
+                float(row.get("_time", 0.0)),
+                str(row.get("_raw", "")),
+            )
+            found.setdefault(key, dict(row))
+        if len(found) <= MAX_EVIDENCE_EVENTS:
+            return False
+        plan.censored = True
+        plan.reason = "event_budget_exhausted"
+        return True
 
     def _footprint_rows(self, token: str, exact: bool) -> list[dict[str, Any]]:
         plan = self._plan(token)

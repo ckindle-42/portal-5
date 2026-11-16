@@ -29,7 +29,6 @@ SERIES_SPAN_SECONDS = 4 * 3600  # effort budget: deviation bucket width
 MAX_ENTITIES = 8  # effort budget: entities attached to one notable
 EVIDENCE_CHARS = 400  # effort budget: raw characters kept on one notable evidence line
 EXACT_COUNT_BUDGET = 300  # effort budget: whole-index counts for kept peer-rare notables
-EXACT_COUNT_CONCURRENCY = 4  # effort budget: concurrent tstats reads for exact counts
 EXACT_TERMS = 3  # effort budget: identity terms in one exact count
 
 GENERATORS = ("alerts", "peer_rare", "deviation")
@@ -204,6 +203,9 @@ def _alert_rows(
     for card in cards:
         if card.understood and card.kind == "alert":
             sources.setdefault(card.source_id, []).append(card)
+    scheduled: list[
+        tuple[str, list[SourceCard], SourceFacts, float, list[tuple[float, float]]]
+    ] = []
     for source_id, group in sources.items():
         facts = facts_by_source.get(source_id)
         if facts is None:
@@ -211,14 +213,23 @@ def _alert_rows(
             continue
         started = time.monotonic()
         windows = window_bounds(facts.first, facts.last, ALERT_WINDOWS)
-        read = read_windows(
-            executor,
-            facts,
-            windows,
-            per_window=ALERT_EVENTS_PER_WINDOW,
-            kind="alert_events",
-            max_sources=BEHAVIOUR_SOURCES,
-        )
+        scheduled.append((source_id, group, facts, started, windows))
+    concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
+    with ThreadPoolExecutor(max_workers=min(len(scheduled) or 1, concurrency)) as pool:
+        futures = [
+            pool.submit(
+                read_windows,
+                executor,
+                facts,
+                windows,
+                per_window=ALERT_EVENTS_PER_WINDOW,
+                kind="alert_events",
+                max_sources=BEHAVIOUR_SOURCES,
+            )
+            for _source_id, _group, facts, _started, windows in scheduled
+        ]
+        reads = [future.result() for future in futures]
+    for (_source_id, group, facts, started, _windows), read in zip(scheduled, reads, strict=True):
         for card in group:
             missing = 0
             seen = 0
@@ -460,7 +471,8 @@ def exact_counts(
     began = time.monotonic()
     chosen = list(notables[: max(0, budget)])
     updated = list(notables)
-    with ThreadPoolExecutor(max_workers=EXACT_COUNT_CONCURRENCY) as pool:
+    concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
+    with ThreadPoolExecutor(max_workers=min(len(chosen) or 1, concurrency)) as pool:
         futures = [
             pool.submit(_exact_count, executor, index, start, end, notable) for notable in chosen
         ]

@@ -36,7 +36,6 @@ from .receipt import peak_memory_mb, progress_update, read_json, utc_now, write_
 from .sample import SAMPLE_LINES, SourceFacts, index_facts, read_windows, sample_windows
 from .similar import SIMILAR_GENERATOR, generate_similar
 
-CARD_SOURCE_CONCURRENCY = 2  # effort budget: with READ_CONCURRENCY, below the lab's 19 searches
 HTTP_ERROR_THRESHOLD = 0.20
 
 STAGES = ("cards", "behaviours", "notables", "judge")
@@ -268,7 +267,7 @@ def cards_stage(
     executor = executor_for(search)
     facts, notes = index_facts(executor, index, start, end)
     cache = CardCache(out / "cache" / "cards")
-    with ThreadPoolExecutor(max_workers=CARD_SOURCE_CONCURRENCY) as pool:
+    with ThreadPoolExecutor(max_workers=min(len(facts) or 1, executor.budget.concurrency)) as pool:
         sampled = list(pool.map(lambda item: _sample_source(executor, item), facts))
     reads = {f"{item.index}:{item.sourcetype}": read for item, read in sampled}
     prepared: list[Prepared] = []
