@@ -228,12 +228,20 @@ def seat_hop(seat: Seat, turn: StreamedTurn, hints: dict[str, str] | None = None
         expected = hints[resolved]
     observed = _observed(turn) + (f" via={resolved}" if rerouted else "")
     if _no_answer(stats):
+        # A turn whose whole budget went on reasoning is not a dead seat: the trace's own
+        # max_tokens ended it, so it is reported, never blamed, as a failure of the model.
+        status = Status.WARN if stats.reasoning_deltas else Status.FAIL
+        detail = (
+            f"the {MAX_TOKENS}-token turn ended inside reasoning; raise MAX_TOKENS to grade it"
+            if stats.reasoning_deltas
+            else short(stats.text, 70) or f"the turn ended inside max_tokens={MAX_TOKENS}"
+        )
         return Hop(
             name,
-            Status.FAIL,
+            status,
             f"{observed} {_no_answer_kind(stats)}",
             "answer content",
-            short(stats.text, 70) or f"the turn ended inside max_tokens={MAX_TOKENS}",
+            detail,
         )
     if not stats.completion_tokens:
         missing = " usage=missing" if stats.completion_tokens is None else ""

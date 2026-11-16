@@ -542,9 +542,9 @@ def test_seat_hop_tells_a_reasoning_only_turn_from_an_empty_one() -> None:
         text=notice, content_chunks=1, reasoning_deltas=24, completion_tokens=24
     )
     hop = workspaces.seat_hop(_seat(), workspaces.StreamedTurn(200, ["w", "b", "m"], reasoning))
-    assert hop.status is Status.FAIL
+    assert hop.status is Status.WARN  # the turn's own 24-token budget, not a dead seat
     assert "reasoning-only (24 reasoning deltas" in hop.observed
-    assert "reasoning=24" in hop.observed
+    assert "reasoning=24" in hop.observed and "raise MAX_TOKENS" in hop.detail
 
     empty = workspaces.TurnStats(
         ttft_s=15.0,
@@ -554,7 +554,7 @@ def test_seat_hop_tells_a_reasoning_only_turn_from_an_empty_one() -> None:
         usage_source="pipeline",
     )
     hop = workspaces.seat_hop(_seat(), workspaces.StreamedTurn(200, ["w", "b", "m"], empty))
-    assert hop.status is Status.FAIL
+    assert hop.status is Status.FAIL  # no reasoning and no answer: the stream carried nothing
     assert "no answer content" in hop.observed
     assert "usage=pipeline" in hop.observed and "reasoning-only" not in hop.observed
 
