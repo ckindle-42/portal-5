@@ -7,6 +7,7 @@ import httpx
 import pytest
 
 from portal.modules.security.core.hunt.judge import (
+    JUDGE_ANSWER_TOKENS,
     QUESTION,
     OpenAICompatibleClient,
     build_prompt,
@@ -61,7 +62,7 @@ def test_judge_uses_fixed_question_and_scores_first_token_yes_no_mass():
     call = client.calls[0]
     assert call["model"] == "security-workspace"
     assert call["temperature"] == 0
-    assert call["max_tokens"] == 1
+    assert call["max_tokens"] == JUDGE_ANSWER_TOKENS
     assert call["logprobs"] is True
     assert call["top_logprobs"] > 1
     assert call["reasoning_effort"] == "none"
@@ -128,3 +129,82 @@ def test_default_client_uses_supplied_endpoint_and_credentials():
     assert str(seen[0].url) == endpoint
     assert seen[0].headers["authorization"] == "Bearer configured-key"
     assert json.loads(seen[0].content)["logprobs"] is True
+
+
+def _wrapped_response(word: str, p_yes: float) -> dict:
+    """Gemma's **yes** / **no**: the wrapper token leads, the answer is token 1."""
+    wrapper_alts = [
+        {"token": "**", "logprob": math.log(0.98)},
+        {"token": "yes", "logprob": math.log(0.01)},
+        {"token": "no", "logprob": math.log(0.01)},
+    ]
+    answer_alts = [
+        {"token": "yes", "logprob": math.log(p_yes)},
+        {"token": "no", "logprob": math.log(1.0 - p_yes)},
+    ]
+    return {
+        "model": "gemma-seat",
+        "usage": {"prompt_tokens": 300},
+        "choices": [
+            {
+                "message": {"content": f"**{word}**"},
+                "logprobs": {
+                    "content": [
+                        {"token": "**", "logprob": math.log(0.98), "top_logprobs": wrapper_alts},
+                        {"token": word, "logprob": math.log(0.9), "top_logprobs": answer_alts},
+                        {"token": "**", "logprob": math.log(0.98), "top_logprobs": wrapper_alts},
+                    ]
+                },
+            }
+        ],
+    }
+
+
+def test_wrapped_yes_scores_the_answer_token_not_the_wrapper():
+    client = _Client(_wrapped_response("yes", 0.9))
+    result = judge_cell(client, model="seat", evidence=[{"line": "svc | x=1"}])
+    assert result.p_yes == pytest.approx(0.9)
+    assert result.decision_index == 1
+    assert result.answer == "**yes**"
+    assert result.reason is None
+
+
+def test_wrapped_no_scores_low_even_when_the_wrapper_position_leans_yes():
+    client = _Client(_wrapped_response("no", 0.1))
+    result = judge_cell(client, model="seat", evidence=[{"line": "svc | x=1"}])
+    assert result.p_yes == pytest.approx(0.1)
+    assert result.decision_index == 1
+    assert result.answer == "**no**"
+
+
+def test_wrapper_only_answer_is_unjudged_not_scored_from_wrapper_alternatives():
+    response = _wrapped_response("yes", 0.9)
+    response["choices"][0]["logprobs"]["content"] = [
+        response["choices"][0]["logprobs"]["content"][0]
+    ]
+    response["choices"][0]["message"]["content"] = "**"
+    result = judge_cell(_Client(response), model="seat", evidence=[{"line": "svc | x=1"}])
+    assert result.p_yes is None
+    assert result.reason == "missing_yes_no_alternatives"
+    assert result.answer == "**"
+
+
+def test_markdown_and_punctuation_variants_count_as_yes_no_alternatives():
+    response = _wrapped_response("yes", 0.9)
+    response["choices"][0]["logprobs"]["content"][1]["top_logprobs"] = [
+        {"token": "Yes.", "logprob": math.log(0.6)},
+        {"token": " NO", "logprob": math.log(0.2)},
+        {"token": "yes!", "logprob": math.log(0.2)},
+    ]
+    result = judge_cell(_Client(response), model="seat", evidence=[{"line": "svc | x=1"}])
+    assert result.p_yes == pytest.approx(0.8)
+
+
+def test_bare_answer_still_scores_position_zero():
+    response = _wrapped_response("yes", 0.9)
+    entry = response["choices"][0]["logprobs"]["content"][1]
+    response["choices"][0]["logprobs"]["content"] = [entry]
+    response["choices"][0]["message"]["content"] = "yes"
+    result = judge_cell(_Client(response), model="seat", evidence=[{"line": "svc | x=1"}])
+    assert result.p_yes == pytest.approx(0.9)
+    assert result.decision_index == 0

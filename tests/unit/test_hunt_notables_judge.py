@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 
 import httpx
@@ -106,3 +107,111 @@ def test_a_failed_judgement_is_not_cached_and_is_retried(tmp_path):
     assert receipt["requests"] == 1
     assert receipt["cached"] == 0
     assert len(healthy.calls) == 1
+
+
+def _wrapped_response() -> dict[str, object]:
+    return {
+        "model": "gemma-seat",
+        "usage": {"prompt_tokens": 300},
+        "choices": [
+            {
+                "message": {"content": "**yes**"},
+                "logprobs": {
+                    "content": [
+                        {
+                            "token": "**",
+                            "top_logprobs": [
+                                {"token": "**", "logprob": math.log(0.98)},
+                                {"token": "yes", "logprob": math.log(0.01)},
+                                {"token": "no", "logprob": math.log(0.01)},
+                            ],
+                        },
+                        {
+                            "token": "yes",
+                            "top_logprobs": [
+                                {"token": "yes", "logprob": math.log(0.8)},
+                                {"token": "no", "logprob": math.log(0.2)},
+                            ],
+                        },
+                    ]
+                },
+            }
+        ],
+    }
+
+
+def test_budget_comes_from_the_measured_call_rate_and_the_deadline(tmp_path, monkeypatch):
+    from portal.modules.security.core.hunt.notables import judge_notables as module
+
+    clock = [0.0]
+
+    class _TimedClient:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def complete(self, **request: object) -> dict[str, object]:
+            self.calls += 1
+            clock[0] += 1.0
+            return _wrapped_response()
+
+    monkeypatch.setattr(module.time, "monotonic", lambda: clock[0])
+    client = _TimedClient()
+    notables = [_notable(f"k{index}") for index in range(12)]
+    judged, receipt = judge_all(
+        notables,
+        client=client,
+        model="seat",
+        cache_path=tmp_path / "j.json",
+        deadline_seconds=10.0,
+        probe_calls=2,
+    )
+    basis = receipt["budget_basis"]
+    assert basis["source"] == "measured_rate"
+    assert basis["probe_calls"] == 2
+    assert basis["seconds_per_call"] == pytest.approx(1.0)
+    assert basis["derived_budget"] == 10
+    assert receipt["request_budget"] == 10
+    assert receipt["requests"] == 10
+    assert receipt["unasked"] == 2
+    assert sum(1 for item in judged if item["p_yes"] is not None) == 10
+
+
+def test_explicit_request_budget_is_still_honored(tmp_path):
+    client = _Client(_wrapped_response())
+    _judged, receipt = judge_all(
+        [_notable(f"k{index}") for index in range(5)],
+        client=client,
+        model="seat",
+        cache_path=tmp_path / "j.json",
+        request_budget=1,
+    )
+    assert receipt["request_budget"] == 1
+    assert receipt["budget_basis"]["source"] == "explicit"
+    assert receipt["requests"] == 1
+
+
+def test_cache_entries_from_the_old_parse_are_rejudged(tmp_path):
+    cache_path = tmp_path / "j.json"
+    cache_path.write_text(
+        json.dumps({"k1": {"p_yes": 0.99, "served_model": "old", "seconds": 1.0}})
+    )
+    client = _Client(_wrapped_response())
+    judged, receipt = judge_all([_notable()], client=client, model="seat", cache_path=cache_path)
+    assert receipt["requests"] == 1
+    assert receipt["cached"] == 0
+    assert judged[0]["p_yes"] == pytest.approx(0.8, abs=0.01)
+
+
+def test_cache_and_judge_block_record_the_raw_answer_and_position(tmp_path):
+    cache_path = tmp_path / "j.json"
+    client = _Client(_wrapped_response())
+    judged, _receipt = judge_all([_notable()], client=client, model="seat", cache_path=cache_path)
+    assert judged[0]["judge"]["answer"] == "**yes**"
+    assert judged[0]["judge"]["decision_index"] == 1
+    stored = json.loads(cache_path.read_text())["k1"]
+    assert stored["v"] == 2
+    assert stored["answer"] == "**yes**"
+    assert stored["decision_index"] == 1
+    again, receipt = judge_all([_notable()], client=client, model="seat", cache_path=cache_path)
+    assert receipt["cached"] == 1
+    assert again[0]["judge"]["answer"] == "**yes**"

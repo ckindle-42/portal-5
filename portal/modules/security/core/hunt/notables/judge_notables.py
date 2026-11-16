@@ -10,10 +10,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ..judge import BackpressureClient, JudgeClient, JudgeResult, judge_cell
+from ..judge import MODEL_WORK_SECONDS, BackpressureClient, JudgeClient, JudgeResult, judge_cell
 
 JUDGE_CONCURRENCY = 2  # effort budget: the seat serves one request at a time
-JUDGE_REQUEST_BUDGET = 80  # effort budget: judge's share of ~200 model requests per hunt
+JUDGE_PROBE_CALLS = 8  # effort budget: calibration sample that measures the seat's call rate
+JUDGE_CACHE_VERSION = 2  # bumped when the parse path changes; older entries are rejudged
 JUDGE_MAX_EVIDENCE = 3  # effort budget: example events shown for one notable
 JUDGE_MAX_KNOWN_MATCHES = 3  # effort budget: nearest labelled items shown to the judge
 JUDGE_EVIDENCE_CHARS = 300  # effort budget: raw characters shown per example
@@ -40,6 +41,8 @@ class Judged:
     prompt_tokens: int | None
     reason: str | None
     cached: bool
+    answer: str = ""
+    decision_index: int | None = None
 
 
 def _lines(notable: Mapping[str, Any]) -> list[str]:
@@ -68,8 +71,8 @@ def _known_lines(notable: Mapping[str, Any]) -> list[str]:
     return lines
 
 
-def notable_prompt(notable: Mapping[str, Any]) -> str:
-    """A compact statement plus a few example events, inside the seat's context."""
+def notable_body(notable: Mapping[str, Any]) -> str:
+    """The compact statement plus a few example events, without the question."""
     entities = "; ".join(
         f"{item.get('role')}={item.get('value')}"
         for item in notable.get("entities", [])
@@ -83,7 +86,7 @@ def notable_prompt(notable: Mapping[str, Any]) -> str:
             reliability_line = f"generator reliability (measured AUC): {float(reliability):.3f}"
         except (TypeError, ValueError):
             reliability_line = ""
-    body = "\n".join(
+    return "\n".join(
         part
         for part in (
             str(notable.get("what") or "")[:JUDGE_STATEMENT_CHARS],
@@ -98,7 +101,11 @@ def notable_prompt(notable: Mapping[str, Any]) -> str:
         )
         if part
     )
-    return (QUESTION + "\n" + body)[:JUDGE_PROMPT_CHARS]
+
+
+def notable_prompt(notable: Mapping[str, Any]) -> str:
+    """A compact statement plus a few example events, inside the seat's context."""
+    return (QUESTION + "\n" + notable_body(notable))[:JUDGE_PROMPT_CHARS]
 
 
 class JudgeCache:
@@ -137,13 +144,15 @@ def _result(notable: Mapping[str, Any], result: JudgeResult, cached: bool) -> Ju
         result.prompt_tokens,
         result.reason,
         cached,
+        result.answer,
+        result.decision_index,
     )
 
 
 def _cached(notable: Mapping[str, Any], cache: JudgeCache) -> Judged | None:
     key = str(notable.get("content_key") or "")
     stored = cache.get(key)
-    if stored is None or stored.get("p_yes") is None:
+    if stored is None or stored.get("p_yes") is None or stored.get("v") != JUDGE_CACHE_VERSION:
         return None
     return Judged(
         key,
@@ -153,6 +162,8 @@ def _cached(notable: Mapping[str, Any], cache: JudgeCache) -> Judged | None:
         None,
         None,
         True,
+        str(stored.get("answer") or ""),
+        stored.get("decision_index"),
     )
 
 
@@ -166,11 +177,14 @@ def _judge_one(
         cache.put(
             key,
             {
+                "v": JUDGE_CACHE_VERSION,
                 "p_yes": result.p_yes,
                 "served_model": result.served_model,
                 "seconds": result.seconds,
                 "prompt_tokens": result.prompt_tokens,
                 "reason": result.reason,
+                "answer": result.answer,
+                "decision_index": result.decision_index,
             },
         )
     return _result(notable, result, False)
@@ -183,15 +197,65 @@ def _float_or_none(value: Any) -> float | None:
         return None
 
 
+def _judge_batch(
+    indices: Sequence[int],
+    notables: Sequence[dict[str, Any]],
+    asker: JudgeClient,
+    model: str,
+    cache: JudgeCache,
+    results: list[Judged | None],
+) -> None:
+    if not indices:
+        return
+    with ThreadPoolExecutor(max_workers=JUDGE_CONCURRENCY) as pool:
+        futures = {
+            pool.submit(_judge_one, notables[index], asker, model, cache): index
+            for index in indices
+        }
+        for future in as_completed(futures):
+            results[futures[future]] = future.result()
+
+
+def _measured_budget(
+    pending: Sequence[int],
+    notables: Sequence[dict[str, Any]],
+    asker: JudgeClient,
+    model: str,
+    cache: JudgeCache,
+    results: list[Judged | None],
+    deadline_seconds: float,
+    probe_calls: int,
+) -> tuple[int, dict[str, Any]]:
+    """Size the budget from the probe's measured wall rate and the deadline."""
+    probe = list(pending[: max(1, probe_calls)])
+    began = time.monotonic()
+    _judge_batch(probe, notables, asker, model, cache, results)
+    probe_seconds = time.monotonic() - began
+    rate = probe_seconds / len(probe)
+    remaining = max(0.0, deadline_seconds - probe_seconds)
+    extra = int(remaining // rate) if rate > 0 else 0
+    budget = min(len(pending), len(probe) + extra)
+    return budget, {
+        "source": "measured_rate",
+        "probe_calls": len(probe),
+        "probe_seconds": round(probe_seconds, 3),
+        "seconds_per_call": round(rate, 4),
+        "deadline_seconds": deadline_seconds,
+        "derived_budget": budget,
+    }
+
+
 def judge_all(
     notables: Sequence[dict[str, Any]],
     *,
     client: JudgeClient,
     model: str,
     cache_path: Path,
-    request_budget: int = JUDGE_REQUEST_BUDGET,
+    request_budget: int | None = None,
+    deadline_seconds: float = MODEL_WORK_SECONDS,
+    probe_calls: int = JUDGE_PROBE_CALLS,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Cache first, then judge in notable order inside the model-request budget."""
+    """Cache first, then judge in notable order inside a rate-measured budget."""
     began = time.monotonic()
     cache = JudgeCache(cache_path)
     results: list[Judged | None] = [None] * len(notables)
@@ -202,15 +266,31 @@ def judge_all(
             results[index] = found
         else:
             pending.append(index)
-    budget = max(0, request_budget)
-    ask, unasked = pending[:budget], pending[budget:]
-    asker = client if isinstance(client, BackpressureClient) else BackpressureClient(client)
-    with ThreadPoolExecutor(max_workers=JUDGE_CONCURRENCY) as pool:
-        futures = {
-            pool.submit(_judge_one, notables[index], asker, model, cache): index for index in ask
+    asker = (
+        client
+        if isinstance(client, BackpressureClient)
+        else BackpressureClient(client, budget_seconds=deadline_seconds)
+    )
+    if request_budget is not None:
+        budget = max(0, request_budget)
+        basis: dict[str, Any] = {"source": "explicit", "derived_budget": budget}
+    elif pending:
+        budget, basis = _measured_budget(
+            pending, notables, asker, model, cache, results, deadline_seconds, probe_calls
+        )
+    else:
+        budget = 0
+        basis = {
+            "source": "measured_rate",
+            "probe_calls": 0,
+            "probe_seconds": 0.0,
+            "seconds_per_call": None,
+            "deadline_seconds": deadline_seconds,
+            "derived_budget": 0,
         }
-        for future in as_completed(futures):
-            results[futures[future]] = future.result()
+    ask = [index for index in pending[:budget] if results[index] is None]
+    unasked = pending[budget:]
+    _judge_batch(ask, notables, asker, model, cache, results)
     for index in unasked:
         key = str(notables[index].get("content_key") or "")
         results[index] = Judged(key, None, "", 0.0, None, "model_budget_exhausted", False)
@@ -230,6 +310,8 @@ def judge_all(
             "prompt_tokens": result.prompt_tokens,
             "reason": result.reason,
             "cached": result.cached,
+            "answer": result.answer,
+            "decision_index": result.decision_index,
         }
         out.append(item)
         if not result.cached and result.reason != "model_budget_exhausted":
@@ -252,6 +334,7 @@ def judge_all(
         "model_seconds": round(seconds, 3),
         "served_models": sorted(served),
         "request_budget": budget,
+        "budget_basis": basis,
         "unasked": len(unasked),
         "cache": str(cache_path),
         "backpressure": asker.stats() if isinstance(asker, BackpressureClient) else {},

@@ -51,6 +51,14 @@ def _parser() -> argparse.ArgumentParser:
         "--knowledge-families",
         help="optional comma-separated families to use from the store",
     )
+    parser.add_argument(
+        "--judge-deadline",
+        type=float,
+        default=None,
+        help="wall seconds the judge stage may spend asking the Pipeline "
+        "(default: the 720s hunt job budget); the request budget is derived "
+        "from the measured per-call rate and this deadline",
+    )
     return parser
 
 
@@ -114,12 +122,15 @@ def _print_behaviours(behaviours: list[Behaviour], receipt: dict[str, Any]) -> N
 
 
 def _print_judge(receipt: dict[str, Any]) -> None:
+    basis = _mapping(receipt.get("budget_basis"))
+    rate = basis.get("seconds_per_call")
+    rate_note = f" rate={rate}s/call(probe={basis.get('probe_calls')})" if rate is not None else ""
     print(
         f"judge: notables={receipt.get('notables', 0)} judged={receipt.get('judged', 0)} "
         f"unjudged={receipt.get('unjudged', 0)} "
         f"reasons={receipt.get('unjudged_reasons', {})} "
         f"requests={receipt.get('requests', 0)} cached={receipt.get('cached', 0)} "
-        f"budget={receipt.get('request_budget')} unasked={receipt.get('unasked', 0)} "
+        f"budget={receipt.get('request_budget')}{rate_note} unasked={receipt.get('unasked', 0)} "
         f"throttles={_mapping(receipt.get('backpressure')).get('throttles', 0)} "
         f"retries={_mapping(receipt.get('backpressure')).get('retries', 0)} "
         f"model_seconds={receipt.get('model_seconds', 0)} "
@@ -266,7 +277,10 @@ def main(argv: list[str] | None = None, *, search: Search | None = None) -> int:
     if "judge" in stages:
         assert target is not None
         client, model = target
-        _judged, receipt = judge_stage(out=out, client=client, model=model)
+        deadline = (
+            {"deadline_seconds": args.judge_deadline} if args.judge_deadline is not None else {}
+        )
+        _judged, receipt = judge_stage(out=out, client=client, model=model, **deadline)
         _print_judge(receipt)
     return 0
 
