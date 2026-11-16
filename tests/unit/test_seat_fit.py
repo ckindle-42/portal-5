@@ -1,8 +1,10 @@
 """Seat-fit report: every production seat measured against the standard-stack budget.
 
-The report lists seats, it never changes them: a seat whose projected bytes exceed
-the budget left when every evictable resident is reclaimed is flagged ``never_fit``
-so the operator can re-seat or declare it ``stack_down_only``.
+The report lists seats, it never changes them: ``over_budget`` is the live snapshot
+(projected bytes above the budget left when every evictable resident is reclaimed),
+and ``never_fit`` is asserted only against a fixed ``LOAD_GUARD_CEILING_GB`` — the
+balanced ceiling follows host free memory, so only a fixed budget makes "never" a
+claim about the model rather than the moment.
 """
 
 from __future__ import annotations
@@ -21,7 +23,7 @@ def _seat(seat_id: str, model: str, omlx_model: str | None = None, **extra: Any)
     return {"seat": seat_id, "model": model, "omlx_model": omlx_model, **extra}
 
 
-async def test_seat_that_can_never_fit_is_flagged() -> None:
+async def test_seat_over_the_live_budget_is_flagged_but_not_never_fit() -> None:
     e = Engines(
         ollama={"router": GIB},  # pinned: stays beside every seat
         tags={"huge": 40 * GIB, "small": 2 * GIB},
@@ -34,11 +36,30 @@ async def test_seat_that_can_never_fit_is_flagged() -> None:
     assert report["available_gib"] == pytest.approx(18)
     huge = next(r for r in report["seats"] if r["seat"] == "ws-huge")
     assert huge["ollama_projected_gib"] == pytest.approx(50)  # weights x factor
-    assert huge["never_fit"] and huge["fits"] is False
-    small = next(r for r in report["seats"] if r["seat"] == "ws-small")
-    assert small["fits"] and not small["never_fit"]
-    assert report["never_fit"] == ["ws-huge"]
+    assert huge["over_budget"] and huge["fits"] is False
+    # the live ceiling follows host free memory, so "never" is not asserted from it
+    assert not huge["never_fit"]
+    assert report["never_fit"] == [] and report["over_budget"] == ["ws-huge"]
+    assert "P5-OMLX-CEILING-001" in report["never_fit_basis"]
     assert report["ollama_residents"]["router"]["hold"] == "pinned"
+
+
+async def test_seat_that_can_never_fit_is_flagged_against_a_fixed_budget(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from portal.platform.inference import load_guard
+
+    monkeypatch.setattr(load_guard, "_CEILING", 20 * GIB)
+    e = Engines(tags={"huge": 40 * GIB, "small": 2 * GIB}, ceiling=90 * GIB)
+    report = annotate(
+        await guard(e).seat_fit(OLLAMA_URL, [_seat("ws-huge", "huge"), _seat("ws-small", "small")])
+    )
+    # A fixed ceiling makes the verdict a property of the model, not of the moment:
+    # 50 GiB projected against 20 - 2 GiB.
+    assert report["never_fit_budget_gib"] == pytest.approx(18)
+    assert report["never_fit"] == ["ws-huge"]
+    assert report["never_fit_basis"] == "fixed LOAD_GUARD_CEILING_GB"
+    assert report["undeclared_never_fit"] == ["ws-huge"]
 
 
 async def test_protected_idle_counts_toward_the_fit_budget() -> None:
@@ -76,15 +97,16 @@ async def test_unserved_seat_is_reported_not_flagged_never_fit() -> None:
     assert report["unserved"] == ["ws"]
 
 
-async def test_undeclared_never_fit_is_cross_checked() -> None:
+async def test_undeclared_over_budget_is_cross_checked() -> None:
     e = Engines(tags={"huge": 40 * GIB}, ceiling=20 * GIB)
     seats = [
         _seat("ws-declared", "huge", stack_down_only=True),
         _seat("ws-undeclared", "huge", stack_down_only=False),
     ]
     report = annotate(await guard(e).seat_fit(OLLAMA_URL, seats))
-    assert report["never_fit"] == ["ws-declared", "ws-undeclared"]
-    assert report["undeclared_never_fit"] == ["ws-undeclared"]
+    assert report["over_budget"] == ["ws-declared", "ws-undeclared"]
+    assert report["undeclared_over_budget"] == ["ws-undeclared"]
+    assert report["never_fit"] == [] and report["undeclared_never_fit"] == []
 
 
 def test_production_seats_enumerates_bases_and_variants_not_bench() -> None:

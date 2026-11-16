@@ -432,6 +432,17 @@ def _budget_bytes(status: dict[str, Any]) -> float:
     return _CEILING if _CEILING > 0 else float(status.get("final_ceiling") or 0)
 
 
+def _never_fit_budget() -> float | None:
+    """The budget a ``never_fit`` claim needs — only a fixed ceiling gives a stable one."""
+    return _CEILING - _MARGIN if _CEILING > 0 else None
+
+
+def _never_fit_basis(never_budget: float | None) -> str:
+    if never_budget is not None:
+        return "fixed LOAD_GUARD_CEILING_GB"
+    return "not asserted: oMLX final_ceiling follows host free memory (P5-OMLX-CEILING-001)"
+
+
 def _releasable_ollama_bytes(held: list[tuple[str, int, str]], freed: set[str]) -> float:
     """Bytes of busy or active-elsewhere residents that have not already been freed."""
     return float(
@@ -2109,9 +2120,14 @@ class LoadGuard:
         }
 
     async def seat_fit(self, ollama_base: str, seats: list[dict[str, Any]]) -> dict[str, Any]:
-        """Every seat's projected footprint against the budget left when all evictable
-        memory is reclaimed — the fit beside only the standard residents. Pure
-        measurement, no side effects; flags seats that can never fit."""
+        """Every seat's projected footprint beside the standard residents.
+
+        ``over_budget`` is the live snapshot (the budget left when every evictable
+        resident is reclaimed). ``never_fit`` is only asserted against a fixed
+        ``LOAD_GUARD_CEILING_GB``: the balanced tier's ceiling follows host free
+        memory, so against a live ceiling the same seat would change answer with
+        the moment (P5-OMLX-CEILING-001) — that is a budget, not a verdict.
+        Pure measurement, no side effects; flags seats, never changes them."""
         async with self._client() as client:
             resident = await self._resident(client, ollama_base)
             st = await self._omlx_status(client)
@@ -2137,8 +2153,11 @@ class LoadGuard:
                 + freeable_omlx
                 - _MARGIN
             )
+            never_budget = _never_fit_budget()
             rows = [
-                await self._seat_row(client, ollama_base, st, resident, seat, available)
+                await self._seat_row(
+                    client, ollama_base, st, resident, seat, available, never_budget
+                )
                 for seat in seats
             ]
         return {
@@ -2152,6 +2171,8 @@ class LoadGuard:
             "freeable_omlx_gib": freeable_omlx / _GIB,
             "margin_gib": _MARGIN / _GIB,
             "available_gib": None if available is None else available / _GIB,
+            "never_fit_basis": _never_fit_basis(never_budget),
+            "never_fit_budget_gib": None if never_budget is None else never_budget / _GIB,
             "ollama_residents": {
                 name: {
                     "gib": self._ollama_size(name, size) / _GIB,
@@ -2166,6 +2187,7 @@ class LoadGuard:
             },
             "seats": rows,
             "never_fit": [r["seat"] for r in rows if r["never_fit"]],
+            "over_budget": [r["seat"] for r in rows if r["over_budget"]],
         }
 
     async def _seat_row(
@@ -2176,8 +2198,9 @@ class LoadGuard:
         resident: dict[str, int],
         seat: dict[str, Any],
         available: float | None,
+        never_budget: float | None,
     ) -> dict[str, Any]:
-        """One seat's projected bytes per engine, and whether it can ever fit."""
+        """One seat's projected bytes per engine, what fits now, and what never fits."""
         model = str(seat.get("model") or "")
         omlx_model = str(seat.get("omlx_model") or "")
         ollama_gib: float | None = None
@@ -2197,6 +2220,7 @@ class LoadGuard:
         )
         fits_omlx = omlx_gib is not None and available is not None and omlx_gib * _GIB <= available
         fits = resident_now or fits_ollama or fits_omlx
+        best = min(gib for gib in (ollama_gib, omlx_gib) if gib is not None) if served else None
         return {
             "seat": str(seat.get("seat", "")),
             "model": model,
@@ -2207,7 +2231,13 @@ class LoadGuard:
             "omlx_projected_gib": omlx_gib,
             "served": served,
             "fits": bool(fits) if served else None,
-            "never_fit": bool(served and available is not None and not fits),
+            "over_budget": bool(served and available is not None and not fits),
+            "never_fit": bool(
+                served
+                and never_budget is not None
+                and best is not None
+                and best * _GIB > never_budget
+            ),
         }
 
     async def reclaim_idle_memory(self, ollama_base: str, need: float) -> list[dict[str, str]]:

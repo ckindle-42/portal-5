@@ -79,7 +79,13 @@ def parse_seat_fit(payload: object) -> dict[str, list[str]]:
     data = payload if isinstance(payload, dict) else {}
     return {
         key: [str(seat) for seat in data.get(key) or []]
-        for key in ("never_fit", "undeclared_never_fit", "unserved")
+        for key in (
+            "never_fit",
+            "undeclared_never_fit",
+            "over_budget",
+            "undeclared_over_budget",
+            "unserved",
+        )
     }
 
 
@@ -165,6 +171,31 @@ def ollama_hop(ctx: TraceContext) -> Hop:
     )
 
 
+def seat_fit_verdict(payload: object) -> Hop:
+    """Never-fit (stable, fixed budget only) is a FAIL; over-budget (live snapshot) a WARN."""
+    verdicts = parse_seat_fit(payload)
+    undeclared = verdicts["undeclared_never_fit"]
+    over = verdicts["undeclared_over_budget"]
+    observed = (
+        f"never_fit={len(verdicts['never_fit'])} over_budget={len(verdicts['over_budget'])}"
+        f" unserved={len(verdicts['unserved'])}"
+    )
+    basis = seat_fit_basis(payload)
+    if basis:
+        observed += f" ({basis})"
+    if undeclared:
+        return Hop(
+            "seat fit", Status.FAIL, observed, "every never_fit declared", ",".join(undeclared)
+        )
+    if over:
+        return Hop(
+            "seat fit", Status.WARN, observed, "every seat fits the live budget", ",".join(over)
+        )
+    status = Status.WARN if verdicts["never_fit"] or verdicts["unserved"] else Status.PASS
+    detail = ",".join(verdicts["never_fit"] or verdicts["unserved"])
+    return Hop("seat fit", status, observed, "every seat fits", detail)
+
+
 def seat_fit_hop(ctx: TraceContext) -> Hop:
     try:
         response = httpx.post(
@@ -176,22 +207,7 @@ def seat_fit_hop(ctx: TraceContext) -> Hop:
         payload = response.json()
     except (httpx.HTTPError, ValueError) as exc:
         return Hop("seat fit", Status.FAIL, short(f"{type(exc).__name__}: {exc}", 70), "200")
-    verdicts = parse_seat_fit(payload)
-    undeclared = verdicts["undeclared_never_fit"]
-    observed = (
-        f"never_fit={len(verdicts['never_fit'])} undeclared={len(undeclared)}"
-        f" unserved={len(verdicts['unserved'])}"
-    )
-    basis = seat_fit_basis(payload)
-    if basis:
-        observed += f" ({basis})"
-    if undeclared:
-        return Hop(
-            "seat fit", Status.FAIL, observed, "every never_fit declared", ",".join(undeclared)
-        )
-    status = Status.WARN if verdicts["never_fit"] or verdicts["unserved"] else Status.PASS
-    detail = ",".join(verdicts["never_fit"] or verdicts["unserved"])
-    return Hop("seat fit", status, observed, "every seat fits", detail)
+    return seat_fit_verdict(payload)
 
 
 def p40_gpu_hop() -> Hop:

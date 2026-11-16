@@ -147,6 +147,8 @@ case "${1:-up}" in
     echo "[portal-5] Starting stack..."
     cd "$COMPOSE_DIR"
     _compose_up_enabled "$_PROFILES"
+    echo "[portal-5] Checking image freshness..."
+    _check_image_freshness
 
 
     # Re-run openwebui-init in the background to pick up any new personas/workspaces

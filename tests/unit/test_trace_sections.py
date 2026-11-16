@@ -154,8 +154,30 @@ def test_installed_hop_fails_a_missing_program_and_warns_on_stale_args(tmp_path:
 
 def test_installed_hop_warns_on_unsubstituted_placeholders() -> None:
     cfg = {"ProgramArguments": ["__OMLX_VENV__/bin/python", "-m", "omlx.cli"]}
-    hop = host.program_hop("com.portal5.omlx", cfg)
+    hop = host.program_hop("com.portal5.omlx", cfg, ("/opt/omlx-live/venv/bin/python", "-m"))
     assert hop.status is Status.WARN and "__OMLX_VENV__" in hop.observed
+    assert "loaded=/opt/omlx-live/venv/bin/python" in hop.detail
+
+
+def test_parse_arguments_reads_the_loaded_job_block() -> None:
+    printed = (
+        "\tgui/501/com.portal5.omlx = {\n"
+        "\targuments = {\n"
+        "\t\t/opt/omlx-live/venv/bin/python\n"
+        "\t\t-m\n"
+        "\t\tomlx.cli\n"
+        "\t\tserve\n"
+        "\t}\n"
+        "\tstate = running\n"
+    )
+    state = host.parse_job_state(printed, loaded=True)
+    assert state.arguments == (
+        "/opt/omlx-live/venv/bin/python",
+        "-m",
+        "omlx.cli",
+        "serve",
+    )
+    assert host.parse_arguments("no block here") == ()
 
 
 def test_installed_hop_skips_argument_drift_for_templated_plists() -> None:
@@ -222,16 +244,24 @@ def test_same_image_matches_short_and_full_ids() -> None:
     assert not containers.same_image("", "")
 
 
-def test_newest_image_is_the_first_row_for_that_repository() -> None:
-    rows = containers.parse_images(
-        "aaa\tportal-5-portal-pipeline\tlatest\n"
-        "bbb\tportal-5-portal-pipeline\told\n"
-        "ccc\tportal5-open-webui\tv0.13.0-hardened\n"
+def test_image_freshness_compares_the_container_with_its_own_reference() -> None:
+    fresh = containers.image_freshness_hop(_container(), "sha256:ec00421ec0495")
+    assert fresh.status is Status.PASS
+    assert fresh.observed == "running=ec00421ec049 portal-5-portal-pipeline=ec00421ec049"
+    stale = containers.image_freshness_hop(_container(), "sha256:aaaaaaaaaaaa")
+    assert stale.status is Status.FAIL
+    assert "not recreated" in stale.detail
+
+
+def test_open_webui_rollback_tag_does_not_make_the_container_stale() -> None:
+    # portal5-open-webui:rollback is written in the same second as the image it copies;
+    # the repository's "newest" image is not what the container's reference resolves to.
+    row = _container(
+        name="portal5-open-webui",
+        image_ref="portal5-open-webui:v0.13.0-hardened",
+        image_id="sha256:fa60cb07e276",
     )
-    assert containers.newest_image(rows, "portal-5-portal-pipeline") is not None
-    assert containers.newest_image(rows, "portal-5-portal-pipeline").image_id == "aaa"  # type: ignore[union-attr]
-    assert containers.newest_image(rows, "absent") is None
-    assert containers.parse_images("<none>\t<none>\t<none>")[0].repo == "<none>"
+    assert containers.image_freshness_hop(row, "sha256:fa60cb07e276").status is Status.PASS
 
 
 def test_copied_paths_ignores_multistage_sources(tmp_path: Path) -> None:
@@ -274,11 +304,12 @@ def test_parse_container_reads_the_compose_labels() -> None:
 
 
 def test_image_freshness_fails_when_a_newer_build_exists() -> None:
-    newest = containers.ImageRow("sha256:aaaaaaaaaaaa", "portal-5-portal-pipeline", "latest")
-    stale = containers.image_freshness_hop(_container(), newest)
+    stale = containers.image_freshness_hop(_container(), "sha256:aaaaaaaaaaaa")
     assert stale.status is Status.FAIL
     assert "not recreated" in stale.detail
-    fresh = containers.image_freshness_hop(_container(image_id="sha256:aaaaaaaaaaaa"), newest)
+    fresh = containers.image_freshness_hop(
+        _container(image_id="sha256:aaaaaaaaaaaa"), "sha256:aaaaaaaaaaaa"
+    )
     assert fresh.status is Status.PASS
 
 
@@ -417,6 +448,71 @@ def test_seat_hop_passes_a_healthy_turn_and_warns_on_substitution() -> None:
     assert other.status is Status.WARN
 
 
+def test_disabled_seat_skips_a_disabled_module_variant(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from portal.platform.wiki.adapters import modules as adapters
+
+    monkeypatch.setattr(
+        adapters, "is_workspace_disabled", lambda seat_id: seat_id.endswith("::redteam")
+    )
+    hop = workspaces.disabled_seat("auto-security::redteam", set())
+    assert hop is not None and hop.status is Status.PASS
+    assert hop.observed == "skipped: module disabled"
+    assert workspaces.disabled_seat("auto-security", set()) is None
+    # A seat the stack still advertises is exercised whatever config says: the gate the
+    # trace mirrors is the running pipeline's, and PORTAL_ENABLE_EVAL can widen it.
+    assert workspaces.disabled_seat("auto-security::redteam", {"auto-security::redteam"}) is None
+
+
+def test_run_skips_disabled_seats_without_streaming(monkeypatch: pytest.MonkeyPatch) -> None:
+    portal = {
+        "workspaces": {
+            "auto-audio": {
+                "module": "media",
+                "model_hint": "m",
+                "variants": {"image": {"model_hint": "m"}},
+            }
+        }
+    }
+    monkeypatch.setattr(workspaces, "served_seat_ids", lambda ctx: {"auto-audio"})
+    monkeypatch.setattr(
+        workspaces,
+        "disabled_seat",
+        lambda seat_id, served: (
+            workspaces.Hop(seat_id, Status.PASS, "skipped: module disabled")
+            if seat_id not in served
+            else None
+        ),
+    )
+    streamed: list[str] = []
+    monkeypatch.setattr(
+        workspaces,
+        "stream_turn",
+        lambda _url, _key, seat_id, _timeout: (
+            streamed.append(seat_id)
+            or workspaces.StreamedTurn(
+                200,
+                ["w", "b", "m"],
+                workspaces.TurnStats(ttft_s=0.1, completion_tokens=1, text="OK"),
+            )
+        ),
+    )
+    ctx = workspaces.TraceContext(
+        repo_root=Path("."),
+        pipeline_url="http://x",
+        api_key="k",
+        omlx_url="",
+        ollama_url="",
+        budget_s=10.0,
+        timeout_s=1.0,
+    )
+    hops = workspaces.run(ctx, portal)
+    assert [hop.name for hop in hops] == ["auto-audio", "auto-audio::image"]
+    assert hops[1].observed == "skipped: module disabled"
+    assert streamed == ["auto-audio"]
+
+
 # ── pins ─────────────────────────────────────────────────────────────────────
 
 
@@ -513,13 +609,54 @@ def test_parse_ollama_ps_sizes_residents() -> None:
     assert engines.parse_ollama_ps({}) == []
 
 
-def test_parse_seat_fit_keeps_the_three_verdict_lists() -> None:
+def test_parse_seat_fit_keeps_the_verdict_lists() -> None:
     verdicts = engines.parse_seat_fit(
-        {"never_fit": ["a"], "undeclared_never_fit": ["a", "b"], "unserved": []}
+        {
+            "never_fit": ["a"],
+            "undeclared_never_fit": ["a", "b"],
+            "over_budget": ["a", "c"],
+            "undeclared_over_budget": ["a", "c"],
+            "unserved": [],
+        }
     )
     assert verdicts["undeclared_never_fit"] == ["a", "b"]
-    assert set(verdicts) == {"never_fit", "undeclared_never_fit", "unserved"}
+    assert verdicts["undeclared_over_budget"] == ["a", "c"]
+    assert set(verdicts) == {
+        "never_fit",
+        "undeclared_never_fit",
+        "over_budget",
+        "undeclared_over_budget",
+        "unserved",
+    }
     assert engines.parse_seat_fit(None)["never_fit"] == []
+
+
+def test_seat_fit_verdict_fails_never_fit_and_warns_over_budget() -> None:
+    fatal = engines.seat_fit_verdict(
+        {
+            "never_fit": ["a"],
+            "undeclared_never_fit": ["a"],
+            "over_budget": ["a", "b"],
+            "undeclared_over_budget": ["a", "b"],
+            "available_gib": 27.5,
+            "budget_source": "oMLX final_ceiling (live)",
+        }
+    )
+    assert fatal.status is Status.FAIL and "never_fit=1" in fatal.observed
+    live = engines.seat_fit_verdict(
+        {
+            "never_fit": [],
+            "undeclared_never_fit": [],
+            "over_budget": ["a", "b"],
+            "undeclared_over_budget": ["a", "b"],
+            "available_gib": 27.5,
+            "budget_source": "oMLX final_ceiling (live)",
+        }
+    )
+    assert live.status is Status.WARN
+    assert "over_budget=2" in live.observed and "available=27.5GiB" in live.observed
+    clean = engines.seat_fit_verdict({"never_fit": [], "over_budget": [], "unserved": []})
+    assert clean.status is Status.PASS
 
 
 def test_seat_fit_basis_names_the_budget_the_verdicts_used() -> None:
