@@ -14,6 +14,8 @@ from .model import Hop, Status, short
 
 PROMPT = "Reply with the single word OK."
 MAX_TOKENS = 24
+#: Reasoning channels an engine streams beside answer content.
+_REASONING_FIELDS = ("reasoning", "reasoning_content", "thinking")
 
 
 @dataclass(frozen=True)
@@ -35,6 +37,9 @@ class TurnStats:
     text: str = ""
     content_chunks: int = 0
     events: int = 0
+    reasoning_deltas: int = 0
+    tool_deltas: int = 0
+    usage_source: str = ""
 
 
 @dataclass
@@ -99,6 +104,10 @@ def summarize_turn(events: list[tuple[float, dict[str, Any]]]) -> TurnStats:
             usage = frame
         for choice in chunk.get("choices") or []:
             delta = (choice or {}).get("delta") or {}
+            if any(delta.get(name) for name in _REASONING_FIELDS):
+                stats.reasoning_deltas += 1
+            if delta.get("tool_calls"):
+                stats.tool_deltas += 1
             text = delta.get("content")
             if not text:
                 continue
@@ -111,6 +120,7 @@ def summarize_turn(events: list[tuple[float, dict[str, Any]]]) -> TurnStats:
     stats.ttft_s = first
     stats.completion_tokens = _int(usage.get("completion_tokens"))
     stats.prompt_tokens = _int(usage.get("prompt_tokens"))
+    stats.usage_source = str(usage.get("source") or "")
     if first is not None and last is not None and stats.completion_tokens and last > first:
         stats.decode_tps = stats.completion_tokens / (last - first)
     return stats
@@ -172,11 +182,32 @@ def _observed(turn: StreamedTurn) -> str:
         f"decode={stats.decode_tps:.1f}t/s" if stats.decode_tps is not None else "decode=?"
     )
     parts.append(f"tokens={stats.completion_tokens}")
+    if stats.reasoning_deltas:
+        parts.append(f"reasoning={stats.reasoning_deltas}")
+    if stats.usage_source:
+        parts.append(f"usage={stats.usage_source}")
     return " ".join(parts)
 
 
+def _no_answer(stats: TurnStats) -> bool:
+    """The turn reached the client without model answer content of its own."""
+    from portal.platform.inference.router.thinking import NO_ANSWER_MESSAGE
+
+    if stats.tool_deltas:
+        return False
+    text = stats.text.strip()
+    return not text or text == NO_ANSWER_MESSAGE
+
+
+def _no_answer_kind(stats: TurnStats) -> str:
+    """Which silence this was: a turn spent on reasoning, or an engine that sent nothing."""
+    if stats.reasoning_deltas:
+        return f"reasoning-only ({stats.reasoning_deltas} reasoning deltas, no answer content)"
+    return "no answer content (engine sent no content and no reasoning)"
+
+
 def seat_hop(seat: Seat, turn: StreamedTurn, hints: dict[str, str] | None = None) -> Hop:
-    """One seat's verdict: refused, empty, usage-less or served with numbers attached."""
+    """One seat's verdict: refused, empty, reasoning-only, usage-less or served with numbers."""
     name = seat.seat_id
     if turn.error:
         return Hop(name, Status.FAIL, short(turn.error, 70), "streamed turn")
@@ -185,8 +216,8 @@ def seat_hop(seat: Seat, turn: StreamedTurn, hints: dict[str, str] | None = None
     if turn.status_code != 200:
         return Hop(name, Status.FAIL, f"http {turn.status_code}", "200", short(turn.body, 70))
     stats = turn.stats
-    if stats.ttft_s is None:
-        return Hop(name, Status.FAIL, "empty stream", "content + usage")
+    if stats.ttft_s is None and not stats.reasoning_deltas:
+        return Hop(name, Status.FAIL, "empty stream", "content or reasoning + usage")
     # The router resolves lane seats before serving: `auto` routes by intent and
     # text-only `auto-vision` reroutes to auto-reasoning. The route header's first
     # field names the resolved workspace, whose own hint is then the expectation.
@@ -196,8 +227,25 @@ def seat_hop(seat: Seat, turn: StreamedTurn, hints: dict[str, str] | None = None
     if rerouted and hints and resolved in hints:
         expected = hints[resolved]
     observed = _observed(turn) + (f" via={resolved}" if rerouted else "")
+    if _no_answer(stats):
+        # A turn whose whole budget went on reasoning is not a dead seat: the trace's own
+        # max_tokens ended it, so it is reported, never blamed, as a failure of the model.
+        status = Status.WARN if stats.reasoning_deltas else Status.FAIL
+        detail = (
+            f"the {MAX_TOKENS}-token turn ended inside reasoning; raise MAX_TOKENS to grade it"
+            if stats.reasoning_deltas
+            else short(stats.text, 70) or f"the turn ended inside max_tokens={MAX_TOKENS}"
+        )
+        return Hop(
+            name,
+            status,
+            f"{observed} {_no_answer_kind(stats)}",
+            "answer content",
+            detail,
+        )
     if not stats.completion_tokens:
-        return Hop(name, Status.FAIL, observed + " usage=missing", "usage tokens")
+        missing = " usage=missing" if stats.completion_tokens is None else ""
+        return Hop(name, Status.FAIL, observed + missing, "usage tokens", short(stats.text, 70))
     served = _route_model(turn.route)
     substituted = bool(served) and served not in _served_hint(expected)
     return Hop(

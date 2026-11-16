@@ -456,7 +456,7 @@ async def _backend_error_ending(
             [detail],
             path="streaming",
         )
-        return _no_answer_frames(request_id, workspace_id, text)
+        return _closed(_no_answer_frames(request_id, workspace_id, text), body)
     no_answer.record_api(workspace_id, [detail], path="streaming")
     return _error_terminal_frames(request_id, workspace_id, detail)
 
@@ -468,6 +468,65 @@ def _no_answer_frames(request_id: str, workspace_id: str, text: str) -> list[byt
         _completion_finish_chunk("stop"),
         b"data: [DONE]\n\n",
     ]
+
+
+def _frame_usage(frame: bytes) -> dict[str, Any] | None:
+    """The usage object a forwarded SSE frame carries, else ``None``."""
+    if not frame.startswith(b"data:"):
+        return None
+    try:
+        payload = json.loads(frame[5:].strip() or b"null")
+    except ValueError:
+        return None
+    usage = payload.get("usage") if isinstance(payload, dict) else None
+    return usage if isinstance(usage, dict) and usage else None
+
+
+def _closing_usage(body: dict[str, Any] | None, *, engine_reported: bool) -> list[bytes]:
+    """The frame a served turn closes with: an engine that reported nothing is
+    reported as the Pipeline's own zero account, never as a silently missing usage."""
+    if engine_reported or body is None or not stream_usage_requested(body):
+        return []
+    return [
+        terminal_usage_chunk(
+            {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "source": "pipeline"}
+        )
+    ]
+
+
+def _closed(frames: list[bytes], body: dict[str, Any] | None) -> list[bytes]:
+    """``frames`` with the closing usage frame before a trailing ``[DONE]``."""
+    reported = any(_frame_usage(frame) is not None for frame in frames)
+    closing = _closing_usage(body, engine_reported=reported)
+    if not closing:
+        return frames
+    tail = [frames[-1]] if frames and frames[-1].strip() == b"data: [DONE]" else []
+    return frames[: len(frames) - len(tail)] + closing + tail
+
+
+async def _with_closing_usage(
+    stream: AsyncIterator[bytes], body: dict[str, Any]
+) -> AsyncIterator[bytes]:
+    """Forward a turn's frames and close it with the usage frame the client asked for.
+
+    An engine-sent usage frame passes through untouched; a turn the engine left without
+    one still ends with one, so a client can tell "no tokens" from "no report".
+    """
+    seen = False
+    pending_done = False
+    async for frame in stream:
+        if pending_done:
+            yield b"data: [DONE]\n\n"
+            pending_done = False
+        if frame.strip() == b"data: [DONE]":
+            pending_done = True
+            continue
+        seen = seen or _frame_usage(frame) is not None
+        yield frame
+    for closing in _closing_usage(body, engine_reported=seen):
+        yield closing
+    if pending_done:
+        yield b"data: [DONE]\n\n"
 
 
 async def _capacity_fallback_frames(
@@ -504,17 +563,17 @@ async def _exhausted_frames(
     request_id = f"chatcmpl-{workspace_id}"
     if not no_answer.chat_ui():
         no_answer.record_api(workspace_id, [message], path="streaming")
-        return _error_terminal_frames(request_id, workspace_id, message)
+        return _closed(_error_terminal_frames(request_id, workspace_id, message), body)
     frames = await _capacity_fallback_frames(workspace_id, body, [message], persona)
     if frames is not None:
-        return frames
+        return _closed(frames, body)
     text = await no_answer.chat_reply(
         workspace_id,
         no_answer.workspace_model(workspace_id, body),
         [message],
         path="streaming",
     )
-    return _no_answer_frames(request_id, workspace_id, text)
+    return _closed(_no_answer_frames(request_id, workspace_id, text), body)
 
 
 def _in_band_error_frames(
@@ -974,6 +1033,25 @@ async def _stream_with_tool_loop_impl(
 
 
 async def _tool_loop_frames(
+    backend_url: str,
+    body: dict[str, Any],
+    workspace_id: str,
+    model: str,
+    persona: str,
+    effective_tools: set[str],
+    start_time: float | None = None,
+) -> AsyncGenerator[bytes, None]:
+    """The tool loop's frames, closed with the usage frame the client asked for."""
+    async for frame in _with_closing_usage(
+        _tool_loop_frames_impl(
+            backend_url, body, workspace_id, model, persona, effective_tools, start_time
+        ),
+        body,
+    ):
+        yield frame
+
+
+async def _tool_loop_frames_impl(
     backend_url: str,
     body: dict[str, Any],
     workspace_id: str,
@@ -1787,6 +1865,24 @@ async def _stream_with_preamble(
 
 
 async def _stream_from_backend_guarded(
+    url: str,
+    body: dict[str, Any],
+    workspace_id: str = "unknown",
+    model: str = "unknown",
+    start_time: float | None = None,
+    _capacity_retried: bool = False,
+) -> AsyncIterator[bytes]:
+    """The backend stream, closed with the usage frame the client asked for."""
+    async for frame in _with_closing_usage(
+        _stream_from_backend_guarded_impl(
+            url, body, workspace_id, model, start_time, _capacity_retried
+        ),
+        body,
+    ):
+        yield frame
+
+
+async def _stream_from_backend_guarded_impl(
     url: str,
     body: dict[str, Any],
     workspace_id: str = "unknown",
