@@ -13,17 +13,20 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import hashlib
 import json
 import logging
 import typing
+from pathlib import Path
 from types import SimpleNamespace
 
 import httpx
 import pytest
+import yaml
 
 from portal.platform.inference.router import context_budget as cb
 from portal.platform.inference.router import non_streaming as ns
-from portal.platform.inference.router import streaming
+from portal.platform.inference.router import streaming, truncation
 from portal.platform.inference.router.metrics import _REGISTRY
 
 #: The live failure's payload: a 112 KB tool result in one conversation turn.
@@ -36,6 +39,14 @@ TOOLS = [
         "function": {"name": "review_result", "parameters": {"type": "object"}},
     }
 ]
+
+
+@pytest.fixture(autouse=True)
+def _isolate_truncation_state() -> typing.Iterator[None]:
+    """The truncation estimate and notice are ContextVars shared by the whole test context."""
+    truncation.set_estimate({"messages": []})
+    yield
+    truncation.set_estimate({"messages": []})
 
 
 def _metric(workspace: str, engine: str, outcome: str) -> float:
@@ -302,6 +313,91 @@ def test_untagged_prompt_is_not_judged(monkeypatch: pytest.MonkeyPatch) -> None:
     assert body == snapshot
 
 
+# ── the visible notice: one source of truth, the guard's fit ───────────
+
+
+def test_a_fitted_prompt_is_not_reported_as_an_engine_truncation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Live 2026-11-16: the guard fitted the prompt, then the stale pre-fit estimate
+    produced `⚠️ Input truncated: about 22,559 tokens…` over an answer that had been
+    fitted to 5,996. After a fit the notice names the guard's own cut, nothing else."""
+    workspace = "ws-notice-fit"
+    monkeypatch.setattr(cb, "workspace_context_limit", lambda _ws: 8192)
+    body = _live_body()
+    truncation.set_estimate(body)  # request start: the pre-fit size
+    chars = len(json.dumps(body["messages"])) + len(json.dumps(body["tools"]))
+    assert chars // 4 > 8192 * 1.25  # the old check fired on exactly this
+
+    cb.fit_prompt(body, workspace_id=workspace, model="granite4.1:8b-ctx8k", engine="ollama")
+
+    assert not truncation.check("granite4.1:8b-ctx8k", workspace, 4656)  # what Ollama reported
+    notice = truncation.take_notice()
+    assert "Input truncated" not in notice and "22,559" not in notice
+    assert "shortened" in notice and "8,192" in notice and "tool message 3" in notice
+    assert truncation.take_notice() == ""
+
+
+def test_a_prompt_that_needs_no_cut_leaves_no_notice(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cb, "workspace_context_limit", lambda _ws: 8192)
+    body = {"model": "granite4.1:8b-ctx8k", "messages": [{"role": "user", "content": "hi"}]}
+    truncation.set_estimate(body)
+    report = cb.fit_prompt(
+        body, workspace_id="ws-notice-clean", model="granite4.1:8b-ctx8k", engine="ollama"
+    )
+    assert not report.fitted
+    assert truncation.take_notice() == ""
+
+
+# ── the persona survives the fit, and the sent body says so ────────────
+
+
+def _persona_prompt() -> str:
+    data = yaml.safe_load(Path("config/personas/securityreviewer.yaml").read_text())
+    return str(data["system_prompt"])
+
+
+def test_the_security_reviewer_persona_survives_the_fit_byte_identical(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The live probe's turn: the real persona YAML, ~95 KB of user history, the question."""
+    monkeypatch.setattr(cb, "workspace_context_limit", lambda _ws: 8192)
+    persona = _persona_prompt()
+    question = "In one sentence: what is your role?"
+    body = {
+        "model": "granite4.1:8b-ctx8k",
+        "max_tokens": 2048,
+        "messages": [
+            {"role": "system", "content": persona},
+            {"role": "user", "content": "HISTORY-USER " + "telemetry row\n" * 4_300},
+            {"role": "assistant", "content": "HISTORY-ANSWER " + "notable row\n" * 3_000},
+            {"role": "user", "content": question},
+        ],
+    }
+    assert sum(len(str(m["content"])) for m in body["messages"]) > 95_000
+
+    with caplog.at_level(logging.DEBUG, logger=cb.__name__):
+        report = cb.fit_prompt(
+            body, workspace_id="ws-persona", model="granite4.1:8b-ctx8k", engine="ollama"
+        )
+
+    assert report.fitted and report.estimated_after <= report.budget
+    assert body["messages"][0]["content"] == persona  # byte-identical, still first
+    assert body["messages"][-1]["content"] == question
+    assert len(body["messages"]) == 4  # nothing dropped
+    assert "truncated" in body["messages"][1]["content"]
+    assert "truncated" in body["messages"][2]["content"]
+    digest = hashlib.sha256(persona.encode()).hexdigest()[:12]
+    warning = _one_warning(caplog, "Context fit:")
+    assert f"system={len(persona)} chars sha256={digest}" in warning  # the INFO receipt
+    sent = next(
+        r.getMessage() for r in caplog.records if r.getMessage().startswith("Context body:")
+    )
+    assert f"system={len(persona)} chars sha256={digest}" in sent
+    assert "You coordinate Portal's grounded security review" in sent
+    assert "system:" in sent and "limit=8192" in sent
+
+
 # ── streaming: no-tools path ───────────────────────────────────────────
 
 
@@ -513,6 +609,9 @@ async def test_non_streaming_fits_before_the_post(
     assert "truncated" in _messages(sent, "tool")[0]["content"]
     assert _one_warning(caplog, "Context fit:")
     assert _metric(workspace, "ollama", "shrunk") == 1
+    answer = json.loads(result.body)["choices"][0]["message"]["content"]
+    assert answer.startswith("ℹ️ Older content was shortened to fit")
+    assert "Input truncated" not in answer
 
 
 @pytest.mark.anyio

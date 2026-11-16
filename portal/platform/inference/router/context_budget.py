@@ -15,6 +15,7 @@ of being sent for the engine to truncate.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from dataclasses import dataclass
@@ -26,7 +27,7 @@ from portal.platform.inference.model_addressing import (
 )
 from portal.platform.inference.model_cards import card_entry
 from portal.platform.inference.router.metrics import _context_fit_total
-from portal.platform.inference.router.truncation import window_of
+from portal.platform.inference.router.truncation import note_fit, window_of
 
 logger = logging.getLogger(__name__)
 
@@ -116,10 +117,14 @@ def fit_prompt(body: dict[str, Any], *, workspace_id: str, model: str, engine: s
     limit = context_window(workspace_id, model, engine)
     estimated = estimate_tokens(body, engine)
     if limit is None:
-        return FitReport(workspace_id, model, engine, None, 0, estimated, estimated)
+        report = FitReport(workspace_id, model, engine, None, 0, estimated, estimated)
+        _log_body(body, report)
+        return report
     budget = _prompt_budget(body, limit)
     if estimated <= budget:
-        return FitReport(workspace_id, model, engine, limit, budget, estimated, estimated)
+        report = FitReport(workspace_id, model, engine, limit, budget, estimated, estimated)
+        _log_body(body, report)
+        return report
 
     before = estimated
     ratio = _CHARS_PER_TOKEN.get(engine, _DEFAULT_CHARS_PER_TOKEN)
@@ -128,6 +133,7 @@ def fit_prompt(body: dict[str, Any], *, workspace_id: str, model: str, engine: s
         for message in (body.get("messages") or [])
     ]
     shrunk: list[str] = []
+    cuts: list[tuple[str, int, int, int]] = []
     for index in _candidates(rebuilt):
         if estimated <= budget:
             break
@@ -141,6 +147,7 @@ def fit_prompt(body: dict[str, Any], *, workspace_id: str, model: str, engine: s
         if cut is None:
             continue
         shrunk.append(f"{message.get('role')}[{index}] {len(content):,}→{len(cut):,} chars")
+        cuts.append((str(message.get("role")), index, len(content), len(cut)))
         message["content"] = cut
         body["messages"] = rebuilt
         estimated = estimate_tokens(body, engine)
@@ -163,7 +170,7 @@ def fit_prompt(body: dict[str, Any], *, workspace_id: str, model: str, engine: s
         _context_fit_total.labels(workspace=workspace_id, engine=engine, outcome="shrunk").inc()
         logger.warning(
             "Context fit: workspace=%s model=%s engine=%s estimated=%d→%d tokens "
-            "limit=%d prompt_budget=%d shrunk=%s",
+            "limit=%d prompt_budget=%d shrunk=%s %s",
             workspace_id,
             model,
             engine,
@@ -172,8 +179,42 @@ def fit_prompt(body: dict[str, Any], *, workspace_id: str, model: str, engine: s
             limit,
             budget,
             "; ".join(shrunk),
+            _system_fingerprint(body),
         )
-    return FitReport(workspace_id, model, engine, limit, budget, before, estimated, tuple(shrunk))
+        note_fit(model=model, limit=limit, estimate=estimated, cuts=tuple(cuts))
+    report = FitReport(workspace_id, model, engine, limit, budget, before, estimated, tuple(shrunk))
+    _log_body(body, report)
+    return report
+
+
+def _system_text(message: Any) -> str:
+    """The system message's text as the engine receives it."""
+    content = message.get("content") if isinstance(message, dict) else None
+    if isinstance(content, str):
+        return content
+    return json.dumps(content, ensure_ascii=False, default=str) if content else ""
+
+
+def _system_fingerprint(body: dict[str, Any]) -> str:
+    """The system prompt that will reach the engine: size, hash, opening words."""
+    messages = [m for m in (body.get("messages") or []) if isinstance(m, dict)]
+    system = _system_text(next((m for m in messages if m.get("role") == "system"), None))
+    digest = hashlib.sha256(system.encode()).hexdigest()[:12]
+    return f"system={len(system)} chars sha256={digest} first={system[:80]!r}"
+
+
+def _log_body(body: dict[str, Any], report: FitReport) -> None:
+    """DEBUG: the body the caller is about to POST, message sizes included."""
+    messages = [m for m in (body.get("messages") or []) if isinstance(m, dict)]
+    logger.debug(
+        "Context body: workspace=%s model=%s limit=%s estimate=%d roles=[%s] %s",
+        report.workspace,
+        report.model,
+        report.limit,
+        report.estimated_after,
+        ", ".join(f"{m.get('role')}:{len(str(m.get('content') or ''))}" for m in messages),
+        _system_fingerprint(body),
+    )
 
 
 def _card_context(model: str, workspace_id: str) -> int | None:

@@ -11,13 +11,16 @@ an estimated input far above the window while the reported count sits at or
 under it. The window is the tag's ``-ctxNk`` suffix (the platform's convention,
 enforced by ``tests.wfe.settings_audit``); a tag without the suffix is not judged.
 The estimate is ``chars / 4`` over messages and tools, which under-counts tokens,
-so a flag needs a wide margin and never fires on an untruncated prompt.
+so a flag needs a wide margin and never fires on an untruncated prompt. A prompt the
+context guard shortened is not an engine truncation: ``note_fit`` replaces the pre-fit
+estimate and the pending notice with the guard's own result.
 """
 
 from __future__ import annotations
 
 import json
 import re
+from collections.abc import Sequence
 from contextvars import ContextVar
 from typing import Any
 
@@ -76,3 +79,18 @@ def take_notice() -> str:
     if text:
         _notice.set("")
     return text
+
+
+def note_fit(
+    *, model: str, limit: int, estimate: int, cuts: Sequence[tuple[str, int, int, int]]
+) -> None:
+    """Replace the pre-fit estimate and pending notice with the guard's own cut."""
+    _estimate.set(estimate)
+    parts = ", ".join(
+        f"{role} message {index} {before:,}→{after:,} characters"
+        for role, index, before, after in cuts
+    )
+    _notice.set(
+        f"ℹ️ Older content was shortened to fit {model}'s {limit:,}-token context "
+        f"({parts}); the system prompt and your latest message were kept."
+    )
