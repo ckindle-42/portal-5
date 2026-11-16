@@ -16,6 +16,7 @@ from portal.modules.security.core.hunt.notables.rerank import (
     _recall,
     _rule_name,
     _select_weight,
+    product_order,
     score,
 )
 from portal.modules.security.core.hunt.notables.scoreboard import Notable, ScoreboardError
@@ -235,6 +236,34 @@ def test_live_council_second_pass_calls_the_pipeline_on_the_top_k(tmp_path):
     records = [json.loads(line) for line in (tmp_path / rerank.CALLS_FILE).read_text().splitlines()]
     assert len(records) == 5
     assert {record["content_key"]: record["decision"] for record in records}["k0"] == "REJECT"
+
+
+def test_product_order_fuses_p_yes_then_applies_measured_council(tmp_path):
+    rows = [
+        {
+            "what": f"statement-{i}",
+            "generator": "similar_to_known",
+            "content_key": f"k{i}",
+            "p_yes": score,
+        }
+        for i, score in enumerate((0.1, 0.9))
+    ]
+
+    order, receipt = product_order(
+        rows,
+        run=tmp_path,
+        council_client=_StubCouncil({1: "REJECT"}, 2),
+        deadline=720.0,
+        concurrency=1,
+        probe=1,
+    )
+
+    assert order == [0, 1]
+    assert receipt["weight"] == 1.0
+    assert receipt["weight_basis"] == "p_yes_signal_without_product_label_keys"
+    assert receipt["council"]["top_k"] == 2
+    assert receipt["council"]["budget_basis"]["seconds_per_call"] > 0
+    assert (tmp_path / rerank.CALLS_FILE).is_file()
 
 
 def _stamp(moment: float) -> str:

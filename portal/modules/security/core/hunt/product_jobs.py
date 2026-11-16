@@ -17,8 +17,11 @@ from .jobs import BudgetedSearch, compact
 from .judge import BackpressureClient, JudgeClient, ThrottleBudgetExceededError
 from .notables.embedding import PipelineEmbeddingClient, embedding_from_env, embedding_requirement
 from .notables.pipeline import model_from_env, model_requirement, preflight
-from .notables.receipt import progress_update, read_json
+from .notables.receipt import progress_update, read_json, write_json
 from .notables.relate import RELATE_FILE, relate_stage
+from .notables.rerank import CALLS_FILE as RERANK_CALLS_FILE
+from .notables.rerank import REPORT_FILE as RERANK_FILE
+from .notables.rerank import product_order
 from .notables.run import (
     DEFAULT_GENERATORS,
     NOTABLES_FILE,
@@ -40,6 +43,7 @@ STAGE_ESTIMATES = {
     "behaviours": 80.0,
     "notables": 350.0,
     "judge": 590.0,
+    "rerank": 120.0,
     "relate": 120.0,
 }
 STAGE_ORDER = tuple(STAGE_ESTIMATES)
@@ -105,6 +109,9 @@ def _stage_receipts(out: Path) -> dict[str, Any]:
     relation = read_json(out / RELATE_FILE).get("receipt")
     if isinstance(relation, dict):
         stages["relate"] = relation
+    rerank = read_json(out / RERANK_FILE).get("receipt")
+    if isinstance(rerank, dict):
+        stages["rerank"] = rerank
     return stages
 
 
@@ -116,6 +123,9 @@ def _cost(stages: Mapping[str, Any], snapshot: Mapping[str, Any]) -> dict[str, A
     preflight = _mapping(stages.get("preflight"))
     cards = _mapping(stages.get("cards"))
     judge = _mapping(stages.get("judge"))
+    rerank = _mapping(stages.get("rerank"))
+    council = _mapping(rerank.get("council"))
+    council_basis = _mapping(council.get("budget_basis"))
     notables = _mapping(stages.get("notables"))
     similar = _mapping(notables.get(SIMILAR_GENERATOR))
     embedding = _mapping(similar.get("embedding"))
@@ -129,11 +139,13 @@ def _cost(stages: Mapping[str, Any], snapshot: Mapping[str, Any]) -> dict[str, A
             int(preflight.get("requests") or 0)
             + int(cards.get("model_requests") or 0)
             + int(judge.get("requests") or 0)
+            + int(council_basis.get("derived_budget") or 0)
         ),
         "model_seconds": round(
             float(preflight.get("seconds") or 0)
             + float(cards.get("model_seconds") or 0)
-            + float(judge.get("model_seconds") or 0),
+            + float(judge.get("model_seconds") or 0)
+            + float(council.get("model_seconds") or 0),
             3,
         ),
         "embedding_requests": int(embedding.get("requests") or 0),
@@ -157,8 +169,8 @@ def _stage_plan(stage: str, remaining_seconds: float) -> dict[str, Any]:
         reserved = {name: reserved[name] for name in later}
     reserve_total = sum(reserved.values())
     available = max(0.0, remaining_seconds - reserve_total)
-    budget = min(STAGE_ESTIMATES[stage], available) if stage == "judge" else available
-    return {
+    budget = min(STAGE_ESTIMATES[stage], available) if stage in {"judge", "rerank"} else available
+    plan = {
         "stage": stage,
         "remaining_s": round(max(0.0, remaining_seconds), 1),
         "estimate_s": STAGE_ESTIMATES[stage],
@@ -171,6 +183,14 @@ def _stage_plan(stage: str, remaining_seconds: float) -> dict[str, Any]:
         if stage == "judge" and budget < STAGE_ESTIMATES[stage]
         else None,
     }
+    if stage == "rerank":
+        plan["council_budget"] = {
+            "source": "awaiting_probe",
+            "deadline_seconds": round(budget, 1),
+            "seconds_per_call": None,
+            "derived_budget": 0,
+        }
+    return plan
 
 
 def _save_progress(
@@ -266,6 +286,7 @@ def _stage_actions(
             "judge",
             lambda: _judge_stage_action(out, client, model, effort),
         ),
+        ("rerank", lambda: _rerank_stage_action(out, client, effort)),
         ("relate", lambda: relate_stage(out=out, search=search, judged_only=True)),
     )
 
@@ -284,6 +305,15 @@ def _judge_stage_action(
     )
 
 
+def _rerank_stage_action(out: Path, client: JudgeClient, effort: HuntBudget) -> dict[str, Any]:
+    rows = _read_rows(out / NOTABLES_FILE)
+    available = effort.remaining()
+    bounded = _stage_client(client, effort) if available > 0 else client
+    order, receipt = product_order(rows, run=out, council_client=bounded, deadline=available)
+    write_json(out / RERANK_FILE, {"order": order, "receipt": receipt})
+    return receipt
+
+
 def _execute_stages(
     actions: Sequence[tuple[str, Callable[[], Any]]],
     job_id: str,
@@ -300,6 +330,10 @@ def _execute_stages(
             selection = receipt.get("selection")
             if isinstance(selection, Mapping):
                 state["judge_selection"] = dict(selection)
+        if stage == "rerank" and isinstance(result, Mapping):
+            council = _mapping(result.get("council"))
+            basis = _mapping(council.get("budget_basis"))
+            plan["council_budget"] = dict(basis) or plan.get("council_budget", {})
         plan["elapsed_s"] = round(max(0.0, plan["budget_s"] - (effort.remaining() or 0.0)), 1)
         plan["complete"] = True
         effort.clear_stage_deadline()
@@ -521,10 +555,20 @@ def leads_view(
     job, out = _resolve(job_id, index)
     if job is None:
         return out
-    rows = _read_rows(Path(str(job["run_dir"])) / NOTABLES_FILE)
+    run_dir = Path(str(job["run_dir"]))
+    rows = _ranked_rows(run_dir)
+    council_calls = {
+        str(item.get("content_key") or ""): item
+        for item in _read_rows(run_dir / RERANK_CALLS_FILE)
+        if item.get("content_key")
+    }
     total = len(rows)
     selected = rows[: max(0, min(n, LEADS_LIMIT))]
-    leads = [_lead(row, rank) for rank, row in enumerate(selected, 1)]
+    leads = []
+    for rank, row in enumerate(selected, 1):
+        lead = _lead(row, rank)
+        lead["council"] = _brief_council(council_calls.get(str(row.get("content_key") or "")))
+        leads.append(lead)
     out.update(
         job_id=job["job_id"],
         index=job["index"],
@@ -534,6 +578,29 @@ def leads_view(
         truncated=total > len(leads),
     )
     return _compact_leads(out)
+
+
+def _ranked_rows(run_dir: Path) -> list[dict[str, Any]]:
+    rows = _read_rows(run_dir / NOTABLES_FILE)
+    report = read_json(run_dir / RERANK_FILE)
+    order = report.get("order")
+    if not isinstance(order, list):
+        return rows
+    receipt = _mapping(report.get("receipt"))
+    keys = receipt.get("content_keys")
+    keys = keys if isinstance(keys, list) else []
+    indices = [
+        index
+        for index in order
+        if isinstance(index, int) and not isinstance(index, bool) and 0 <= index < len(rows)
+    ]
+    indices = list(dict.fromkeys(indices))
+    indices.extend(index for index in range(len(rows)) if index not in indices)
+    ranked = [dict(rows[index]) for index in indices]
+    for index, row in zip(indices, ranked, strict=True):
+        if not row.get("content_key") and index < len(keys):
+            row["content_key"] = keys[index]
+    return ranked
 
 
 def _read_rows(path: Path) -> list[dict[str, Any]]:
@@ -603,6 +670,13 @@ def _brief_judge(value: Any) -> dict[str, Any] | None:
     if not isinstance(value, Mapping):
         return None
     keys = ("served_model", "reason", "cached", "seconds", "answer", "decision_index")
+    return {key: value[key] for key in keys if key in value}
+
+
+def _brief_council(value: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    keys = ("decision", "p_yes", "votes", "seconds", "reason")
     return {key: value[key] for key in keys if key in value}
 
 

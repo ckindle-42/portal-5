@@ -174,6 +174,7 @@ def test_r2_job_persists_stage_progress_cost_and_analyst_views(
     seen: list[str] = []
     configured: dict[str, Any] = {}
     judge_options: dict[str, Any] = {}
+    rerank_options: dict[str, Any] = {}
     embedder = SimpleNamespace(close=lambda: None, set_job_deadline=lambda _deadline: None)
     store = tmp_path / "knowledge.duckdb"
     for name, run in (
@@ -184,6 +185,28 @@ def test_r2_job_persists_stage_progress_cost_and_analyst_views(
         ("relate", _relate_stage),
     ):
         monkeypatch.setattr(product_jobs, f"{name}_stage", _tracked(name, run, seen))
+
+    def _product_order(rows: Any, **kwargs: Any) -> tuple[list[int], dict[str, Any]]:
+        rerank_options.update(kwargs)
+        seen.append("rerank")
+        return [0], {
+            "content_keys": ["product:n1"],
+            "weight": 1.0,
+            "weight_basis": "p_yes_signal_without_product_label_keys",
+            "council": {
+                "source": "live",
+                "model_seconds": 0.5,
+                "budget_basis": {
+                    "source": "measured_rate",
+                    "probe_calls": 1,
+                    "seconds_per_call": 22.8922,
+                    "deadline_seconds": kwargs["deadline"],
+                    "derived_budget": 1,
+                },
+            },
+        }
+
+    monkeypatch.setattr(product_jobs, "product_order", _product_order)
     job_id = "hunt-r2-test-run"
     product_jobs._write(
         job_id,
@@ -206,15 +229,20 @@ def test_r2_job_persists_stage_progress_cost_and_analyst_views(
     job = product_jobs.load(job_id)
     assert job is not None
     assert job["status"] == "COMPLETE"
-    assert seen == ["cards", "behaviours", "notables", "judge", "relate"]
+    assert seen == ["cards", "behaviours", "notables", "judge", "rerank", "relate"]
     assert SIMILAR_GENERATOR in configured["enabled"]
     assert configured["knowledge_store"] == store
     assert configured["knowledge_families"] == ("santos", "russell")
-    assert judge_options["deadline_seconds"] == pytest.approx(590.0, abs=0.01)
-    assert job["cost"]["model_requests"] == 4
+    assert judge_options["deadline_seconds"] == pytest.approx(480.0, abs=0.01)
+    assert rerank_options["deadline"] == pytest.approx(120.0, abs=0.01)
+    assert job["cost"]["model_requests"] == 5
+    assert job["cost"]["model_seconds"] >= 0.5
     assert job["cost"]["embedding_requests"] == 3
     assert job["progress"]["stages"]["notables"]
     assert job["progress"]["stages"]["relate"]["coverage_complete"] is True
+    assert job["progress"]["stages"]["rerank"]["council"]["budget_basis"][
+        "seconds_per_call"
+    ] == pytest.approx(22.8922)
     assert job["judge_selection"] == {
         "policy": "stage1_rank",
         "candidates": 1,
@@ -226,8 +254,10 @@ def test_r2_job_persists_stage_progress_cost_and_analyst_views(
         "behaviours",
         "notables",
         "judge",
+        "rerank",
         "relate",
     ]
+    assert job["stage_plan"][4]["council_budget"]["derived_budget"] == 1
     lead = product_jobs.leads_view(job_id=job_id)["leads"][0]
     assert lead["similar_known_item"] == {
         "family": "santos",
@@ -245,17 +275,21 @@ def test_r2_job_persists_stage_progress_cost_and_analyst_views(
 def test_stage_plan_preserves_relation_time_and_cuts_judging_first() -> None:
     plan = product_jobs._stage_plan("judge", 180.0)
 
-    assert plan["budget_s"] == 60.0
-    assert plan["reserved_for_later"] == {"relate": 120.0}
+    assert plan["budget_s"] == 0.0
+    assert plan["reserved_for_later"] == {"rerank": 120.0, "relate": 120.0}
+    council = product_jobs._stage_plan("rerank", 180.0)
+    assert council["budget_s"] == 60.0
+    assert council["reserved_for_later"] == {"relate": 120.0}
     full = product_jobs._stage_plan("cards", 1247.0)
-    assert full["budget_s"] == 107.0
-    assert full["reserved_for_later"]["judge"] == 590.0
+    assert full["budget_s"] == 30.0
+    assert full["reserved_for_later"]["judge"] == 547.0
     short = product_jobs._stage_plan("cards", 707.0)
     assert short["budget_s"] == 30.0
     assert short["reserved_for_later"] == {
         "behaviours": 80.0,
         "notables": 350.0,
-        "judge": 127.0,
+        "judge": 7.0,
+        "rerank": 120.0,
         "relate": 120.0,
     }
 
@@ -391,3 +425,39 @@ def test_leads_view_caps_default_payload_and_keeps_similarity_text_trace(
     assert result["leads"][0]["similarity_text"]["candidate"].startswith("candidate behaviour")
     assert result["leads"][0]["similarity_text"]["reference"].startswith("reference behaviour")
     assert result["leads"][0]["similar_known_item"]["family"] == "santos"
+
+
+def test_leads_view_uses_product_rerank_and_council_receipt(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    monkeypatch.setattr(product_jobs, "_ROOT", tmp_path)
+    out = tmp_path / "hunt-r2-reranked"
+    out.mkdir()
+    rows = [
+        {"notable_id": f"n{i}", "content_key": f"k{i}", "p_yes": score, "what": f"n{i}"}
+        for i, score in enumerate((0.1, 0.9, 0.5))
+    ]
+    (out / product_jobs.NOTABLES_FILE).write_text("".join(json.dumps(row) + "\n" for row in rows))
+    (out / "rerank.json").write_text(json.dumps({"order": [1, 2, 0]}))
+    (out / "rerank_council_calls.jsonl").write_text(
+        json.dumps({"content_key": "k1", "decision": "SUPPORT"})
+        + "\n"
+        + json.dumps({"content_key": "k2", "decision": "REJECT"})
+        + "\n"
+    )
+    product_jobs._write(
+        "hunt-r2-reranked",
+        {
+            "job_id": "hunt-r2-reranked",
+            "index": "hb_kyoushi_s1",
+            "started": 1.0,
+            "run_dir": str(out),
+        },
+    )
+
+    result = product_jobs.leads_view(job_id="hunt-r2-reranked")
+
+    assert [lead["notable_id"] for lead in result["leads"]] == ["n1", "n2", "n0"]
+    assert result["leads"][0]["council"]["decision"] == "SUPPORT"
+    assert result["leads"][1]["council"]["decision"] == "REJECT"
+    assert result["leads"][2]["council"] is None

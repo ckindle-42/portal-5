@@ -402,6 +402,69 @@ def _family_report(
     }
 
 
+def product_order(
+    rows: Sequence[dict[str, Any]],
+    *,
+    run: Path,
+    council_client: JudgeClient,
+    deadline: float,
+    council_workspace: str = COUNCIL_WORKSPACE,
+    concurrency: int = 2,
+    probe: int = COUNCIL_PROBE_CALLS,
+) -> tuple[list[int], dict[str, Any]]:
+    normalized = [dict(row) for row in rows]
+    notables = []
+    for rank, row in enumerate(normalized):
+        key = str(row.get("content_key") or f"product:{row.get('notable_id') or rank}")
+        row["content_key"] = key
+        try:
+            p_yes = float(row["p_yes"]) if row.get("p_yes") is not None else None
+        except (TypeError, ValueError):
+            p_yes = None
+        notables.append(Notable(rank, str(row.get("generator") or ""), _claim(row), p_yes, key))
+    order = _fusion_order(notables, 1.0)
+    if order and deadline > 0:
+        family = Family("product", run, normalized, notables, {}, 0)
+        final, council = _council_second_pass(
+            family,
+            order,
+            offline=False,
+            council_client=council_client,
+            council_workspace=council_workspace,
+            deadline=deadline,
+            concurrency=concurrency,
+            probe=probe,
+        )
+        calls_file = council.get("calls_file")
+        if isinstance(calls_file, str):
+            records = [
+                json.loads(line)
+                for line in Path(calls_file).read_text().splitlines()
+                if line.strip()
+            ]
+            council["model_seconds"] = round(
+                sum(float(record.get("seconds") or 0) for record in records), 3
+            )
+    else:
+        final = order
+        council = {
+            "source": "skipped",
+            "top_k": 0,
+            "budget_basis": {
+                "source": "no_budget" if not deadline else "no_notables",
+                "deadline_seconds": deadline,
+                "seconds_per_call": None,
+                "derived_budget": 0,
+            },
+        }
+    return final, {
+        "content_keys": [notable.content_key for notable in notables],
+        "weight": 1.0,
+        "weight_basis": "p_yes_signal_without_product_label_keys",
+        "council": council,
+    }
+
+
 def score(
     runs: Mapping[str, Path],
     keys: Mapping[str, Path],
