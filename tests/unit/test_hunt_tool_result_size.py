@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
 from typing import Any
@@ -77,7 +78,9 @@ def test_default_hunt_tool_results_fit_smallest_served_seat(
         "next",
     }
     assert "progress" not in outputs["hunt_status"]
-    assert "progress" in review_mcp.hunt_status(job_id=job["job_id"], detail=True)
+    tools = asyncio.run(review_mcp.mcp.list_tools())
+    status_tool = next(tool for tool in tools if tool.name == "hunt_status")
+    assert "detail" not in status_tool.input_schema["properties"]
     assert set(outputs["hunt_sources stored"]) >= {"counts", "not_understood"}
     assert set(outputs["hunt_leads"]["leads"][0]) == {
         "rank",

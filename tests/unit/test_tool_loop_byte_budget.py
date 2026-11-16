@@ -1,8 +1,4 @@
-"""Accumulated role:tool bytes inside one request force a toolless final turn.
-
-The budget is half the workspace context window at 2 bytes/token. A single result is never
-truncated: crossing the budget only withholds tools on the next hop.
-"""
+"""Tool results stay within the context-derived byte budget across loop hops."""
 
 from __future__ import annotations
 
@@ -19,7 +15,6 @@ from portal.platform.inference.router import non_streaming as ns
 from portal.platform.inference.router import streaming
 from portal.platform.inference.router.tool_repeat import (
     FINAL_ANSWER_REQUEST,
-    ToolRepeatGuard,
     apply_tool_byte_budget,
     tool_result_byte_budget,
 )
@@ -37,26 +32,33 @@ def test_budget_is_half_the_window_at_two_bytes_per_token() -> None:
     assert tool_result_byte_budget(98304) > len(_DOCUMENT.encode("utf-8"))
 
 
-def test_budget_trips_once_when_accumulated_bytes_pass_it(caplog: pytest.LogCaptureFixture) -> None:
-    guard = ToolRepeatGuard()
+def test_budget_truncates_new_tool_results_to_remaining_bytes(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     caplog.set_level(logging.INFO)
-    exact = apply_tool_byte_budget(guard, 0, [{"role": "tool", "content": "x" * 100}], 100, "ws")
-    assert exact == 100 and guard.force_synthesis is False
-    ignored = apply_tool_byte_budget(
-        guard, 0, [{"role": "assistant", "content": "x" * 500}], 10, "ws"
-    )
-    assert ignored == 0 and guard.force_synthesis is False
-    multibyte = apply_tool_byte_budget(guard, 0, [{"role": "tool", "content": "é"}], 10, "ws")
-    assert multibyte == 2  # UTF-8 bytes, not characters
-    guard.force_synthesis = False
-    first = apply_tool_byte_budget(guard, 0, [{"role": "tool", "content": _WALK}], 1000, "ws")
-    assert first == 600 and guard.force_synthesis is False
-    second = apply_tool_byte_budget(
-        guard, first, [{"role": "tool", "content": "B" * 600}], 1000, "ws"
-    )
-    assert second == 1200 and guard.force_synthesis is True
-    apply_tool_byte_budget(guard, second, [{"role": "tool", "content": "more"}], 1000, "ws")
-    hits = [r for r in caplog.records if "byte budget exceeded" in r.message]
+    exact_message = {"role": "tool", "content": "x" * 100}
+    exact = apply_tool_byte_budget(0, [exact_message], 100, "ws")
+    assert exact == 100 and exact_message["content"] == "x" * 100
+    ignored = apply_tool_byte_budget(0, [{"role": "assistant", "content": "x" * 500}], 10, "ws")
+    assert ignored == 0
+    multibyte_message = {"role": "tool", "content": "é" * 100}
+    multibyte = apply_tool_byte_budget(0, [multibyte_message], 80, "ws")
+    assert multibyte == 80
+    assert len(multibyte_message["content"].encode("utf-8")) == 80
+    assert "truncated" in multibyte_message["content"]
+    small_message = {"role": "tool", "content": "prefix" * 20}
+    small = apply_tool_byte_budget(0, [small_message], 40, "ws")
+    assert small == 40
+    assert small_message["content"].startswith("prefix")
+    assert small_message["content"].endswith("[cut:budget]")
+    caplog.clear()
+    first = apply_tool_byte_budget(0, [{"role": "tool", "content": _WALK}], 1000, "ws")
+    assert first == 600
+    second_message = {"role": "tool", "content": "B" * 600}
+    second = apply_tool_byte_budget(first, [second_message], 1000, "ws")
+    assert second == 1000
+    assert len(second_message["content"].encode("utf-8")) == 400
+    hits = [r for r in caplog.records if "result truncated" in r.message]
     assert len(hits) == 1
     assert "accumulated=1200" in hits[0].message and "budget=1000" in hits[0].message
 
@@ -98,6 +100,9 @@ def _run_stream(
     frames: list[_Resp],
     contents: list[str],
     context_limit: int,
+    *,
+    body_messages: list[dict] | None = None,
+    max_hops: int | None = None,
 ) -> list[dict]:
     bodies: list[dict] = []
     pending_frames = list(frames)
@@ -121,17 +126,21 @@ def _run_stream(
     monkeypatch.setattr(streaming, "_dispatch_tool_call", fake_dispatch)
     monkeypatch.setattr(streaming, "workspace_context_limit", lambda _ws: context_limit)
 
+    body = {
+        "messages": body_messages or [{"role": "user", "content": "hi"}],
+        "model": "m",
+        "tools": [
+            {"type": "function", "function": {"name": "execute_python", "parameters": {}}},
+            {"type": "function", "function": {"name": "read_pdf", "parameters": {}}},
+        ],
+    }
+    if max_hops is not None:
+        body["portal_bite_max_hops"] = max_hops
+
     async def run() -> None:
         async for _chunk in streaming._tool_loop_frames(
             "http://omlx.test/v1/chat/completions",
-            {
-                "messages": [{"role": "user", "content": "hi"}],
-                "model": "m",
-                "tools": [
-                    {"type": "function", "function": {"name": "execute_python", "parameters": {}}},
-                    {"type": "function", "function": {"name": "read_pdf", "parameters": {}}},
-                ],
-            },
+            body,
             "ws-budget",
             "m",
             "",
@@ -147,7 +156,7 @@ def _tool_contents(body: dict) -> list[str]:
     return [m["content"] for m in body["messages"] if m.get("role") == "tool"]
 
 
-def test_streaming_budget_forces_synthesis_and_keeps_results_whole(
+def test_streaming_budget_truncates_results_and_keeps_tools_available(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     caplog.set_level(logging.INFO)
@@ -163,10 +172,13 @@ def test_streaming_budget_forces_synthesis_and_keeps_results_whole(
     )
     assert bodies[1]["tools"]
     assert _tool_contents(bodies[1]) == [_WALK]
-    assert bodies[2]["tools"] is None and bodies[2]["tool_choice"] is None
-    assert bodies[2]["messages"][-1] == FINAL_ANSWER_REQUEST
-    assert _tool_contents(bodies[2]) == [_WALK, "B" * 600]
-    hits = [r for r in caplog.records if "byte budget exceeded" in r.message]
+    assert bodies[2]["tools"] and bodies[2]["tool_choice"] is None
+    result_contents = _tool_contents(bodies[2])
+    assert result_contents[0] == _WALK
+    assert len(result_contents[1].encode("utf-8")) == 400
+    assert "truncated" in result_contents[1].lower()
+    assert "budget" in result_contents[1].lower()
+    hits = [r for r in caplog.records if "result truncated" in r.message]
     assert len(hits) == 1 and "accumulated=1200" in hits[0].message
 
 
@@ -268,6 +280,9 @@ async def _run_non_stream(
     responses: list[httpx.Response],
     contents: list[str],
     context_limit: int,
+    *,
+    body_messages: list[dict] | None = None,
+    max_hops: int = 20,
 ) -> list[dict]:
     ws = _arm_non_stream(monkeypatch, context_limit)
     pending = list(contents)
@@ -291,13 +306,107 @@ async def _run_non_stream(
         resolve_model=lambda h: h,
     )
     await ns._try_non_streaming(
-        backend, {"messages": [{"role": "user", "content": "hi"}]}, ws, 0.0, max_hops=20
+        backend,
+        {"messages": body_messages or [{"role": "user", "content": "hi"}]},
+        ws,
+        0.0,
+        max_hops=max_hops,
     )
     return client.bodies
 
 
+def test_streaming_oversized_result_is_truncated_and_tools_remain_available(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bodies = _run_stream(
+        monkeypatch,
+        [_tool_frame({"code": "large"}), _tool_frame({"code": "next"}), _answer_frame("done")],
+        ["A" * 1200, "small result"],
+        1000,
+    )
+
+    assert len(bodies) == 3
+    assert bodies[1]["tools"]
+    first_result = _tool_contents(bodies[1])[0]
+    assert len(first_result.encode("utf-8")) <= 1000
+    assert "truncated" in first_result.lower() and "budget" in first_result.lower()
+    assert bodies[2]["tools"]
+    assert bodies[2]["messages"][-2]["tool_calls"][0]["function"]["name"] == "execute_python"
+
+
+def test_streaming_budget_cap_finalizer_keeps_the_system_prompt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    system = {"role": "system", "content": "Security reviewer system instructions."}
+    bodies = _run_stream(
+        monkeypatch,
+        [
+            _tool_frame({"code": "large"}),
+            _tool_frame({"code": "at-cap"}),
+            _answer_frame("done"),
+        ],
+        ["A" * 1200],
+        1000,
+        body_messages=[system, {"role": "user", "content": "investigate"}],
+        max_hops=2,
+    )
+
+    assert len(bodies) == 3
+    finalizer = bodies[1]
+    assert finalizer["tools"]
+    assert finalizer["messages"][0] == system
+    finalizer = bodies[2]
+    assert finalizer["tools"] is None and finalizer["tool_choice"] is None
+    assert finalizer["messages"][0] == system
+    assert finalizer["messages"][-1] == FINAL_ANSWER_REQUEST
+
+
 @pytest.mark.anyio
-async def test_nonstreaming_budget_forces_synthesis_and_keeps_results_whole(
+async def test_nonstreaming_oversized_result_is_truncated_and_tools_remain_available(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bodies = await _run_non_stream(
+        monkeypatch,
+        [
+            _ns_tool_reply({"code": "large"}),
+            _ns_tool_reply({"code": "next"}),
+            _ns_text_reply("done"),
+        ],
+        ["A" * 1200, "small result"],
+        1000,
+    )
+
+    assert len(bodies) == 3
+    assert bodies[1]["tools"]
+    first_result = _tool_contents(bodies[1])[0]
+    assert len(first_result.encode("utf-8")) <= 1000
+    assert "truncated" in first_result.lower() and "budget" in first_result.lower()
+    assert bodies[2]["tools"]
+    assert bodies[2]["messages"][-2]["tool_calls"][0]["function"]["name"] == "execute_python"
+
+
+@pytest.mark.anyio
+async def test_nonstreaming_hop_limit_finalizer_keeps_the_system_prompt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    system = {"role": "system", "content": "Security reviewer system instructions."}
+    bodies = await _run_non_stream(
+        monkeypatch,
+        [_ns_tool_reply({"code": "print(1)"}), _ns_text_reply("done")],
+        ["ok"],
+        1000,
+        body_messages=[system, {"role": "user", "content": "investigate"}],
+        max_hops=1,
+    )
+
+    assert len(bodies) == 2
+    finalizer = bodies[1]
+    assert finalizer["tools"] is None and finalizer["tool_choice"] is None
+    assert finalizer["messages"][0] == system
+
+
+@pytest.mark.anyio
+async def test_nonstreaming_budget_truncates_results_and_keeps_tools_available(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     caplog.set_level(logging.INFO)
@@ -313,10 +422,13 @@ async def test_nonstreaming_budget_forces_synthesis_and_keeps_results_whole(
     )
     assert bodies[1]["tools"]
     assert _tool_contents(bodies[1]) == [_WALK]
-    assert bodies[2]["tools"] is None and bodies[2]["tool_choice"] is None
-    assert bodies[2]["messages"][-1] == FINAL_ANSWER_REQUEST
-    assert _tool_contents(bodies[2]) == [_WALK, "B" * 600]
-    hits = [r for r in caplog.records if "byte budget exceeded" in r.message]
+    assert bodies[2]["tools"] and bodies[2]["tool_choice"] == "auto"
+    result_contents = _tool_contents(bodies[2])
+    assert result_contents[0] == _WALK
+    assert len(result_contents[1].encode("utf-8")) == 400
+    assert "truncated" in result_contents[1].lower()
+    assert "budget" in result_contents[1].lower()
+    hits = [r for r in caplog.records if "result truncated" in r.message]
     assert len(hits) == 1 and "accumulated=1200" in hits[0].message
 
 

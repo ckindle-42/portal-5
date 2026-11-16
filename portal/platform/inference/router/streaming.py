@@ -97,13 +97,13 @@ from portal.platform.inference.router.thinking import (
     _thinking_enabled,
 )
 from portal.platform.inference.router.tool_repeat import (
-    FINAL_ANSWER_REQUEST,
     UNGROUNDED_NOTICE,
     ToolRepeatGuard,
     apply_tool_byte_budget,
     followup_tool_choice,
     hold_ungrounded_answer,
     no_tool_call_retry,
+    prepare_toolless_finalizer,
     tool_result_byte_budget,
 )
 from portal.platform.inference.router.tools import (
@@ -851,6 +851,15 @@ async def _dispatch_hop_tool_calls(
     return assistant_msg, dispatch_results
 
 
+def _prepare_budget_finalizer(
+    body: dict[str, Any], guard: ToolRepeatGuard, result_bytes: int, budget: int
+) -> bool:
+    if not body.get("tools") or budget <= 0 or result_bytes < budget:
+        return False
+    prepare_toolless_finalizer(body, guard)
+    return True
+
+
 async def _return_client_owned_calls(
     all_tool_calls: list[dict[str, Any]],
     effective_tools: set[str],
@@ -1047,6 +1056,7 @@ async def _tool_loop_frames(
     _repeat_guard = ToolRepeatGuard()
     _tool_byte_budget = tool_result_byte_budget(workspace_context_limit(workspace_id))
     _tool_result_bytes = 0
+    finalizer_pending = False
     _download_lines = DownloadLineFilter(prior_office_filenames(body.get("messages")))
     _successful_creation = False
     if not offers_file_creation(current_body.get("tools")):
@@ -1055,8 +1065,9 @@ async def _tool_loop_frames(
     _require_tool = bool(WORKSPACES.get(workspace_id, {}).get("require_tool_before_answer"))
     _required_choice = body.get("tool_choice") == "required"
 
-    while hop < hop_limit:
+    while hop < hop_limit or finalizer_pending:
         hop += 1
+        finalizer_pending = False
 
         # Accumulators for this iteration
         tool_calls_buf: list[dict[str, Any]] = []
@@ -1548,6 +1559,11 @@ async def _tool_loop_frames(
 
             # Hop limit guard
             if hop >= hop_limit and not (bite_hops_supplied and client_owned):
+                if not client_owned and _prepare_budget_finalizer(
+                    current_body, _repeat_guard, _tool_result_bytes, _tool_byte_budget
+                ):
+                    finalizer_pending = True
+                    continue
                 limit_content = (
                     f"\n\n[Tool-use limit ({hop_limit} hops) reached. Returning partial result.]"
                 )
@@ -1625,17 +1641,14 @@ async def _tool_loop_frames(
                 current_body.get("tool_choice"), all_tool_calls
             )
             _tool_result_bytes = apply_tool_byte_budget(
-                _repeat_guard,
                 _tool_result_bytes,
                 dispatch_results,
                 _tool_byte_budget,
                 workspace_id,
             )
             if _repeat_guard.force_synthesis:
-                # Repeat ceiling or tool-byte budget: final turn with the tools withheld.
-                current_body["tools"] = None
-                current_body["tool_choice"] = None
-                current_body["messages"] = [*current_body["messages"], FINAL_ANSWER_REQUEST]
+                prepare_toolless_finalizer(current_body, _repeat_guard)
+                finalizer_pending = True
             if _exec_audit:
                 _exec_audit_calls.extend(
                     [
