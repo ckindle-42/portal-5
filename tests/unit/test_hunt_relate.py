@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from portal.modules.security.core.hunt.notables.relate import (
+    MAX_EVENTS_PER_QUERY,
     RELATE_FILE,
     _case_groups,
     _cases,
@@ -18,6 +19,7 @@ from portal.modules.security.core.hunt.notables.relate import (
     _load_metrics,
     _query,
     _route,
+    _seed_records,
     _share_weight,
     relate_stage,
 )
@@ -545,6 +547,53 @@ def test_cases_keep_only_evidence_linked_to_an_episode_seed() -> None:
     assert cases[0]["related_notables"] == ["attack-event"]
 
 
+def test_seed_records_rank_by_identity_not_file_order() -> None:
+    identity = {"idx:access": {"fmt": "template", "actor_field": "v1", "objects": ["v2"]}}
+    shares = {
+        ("idx:access", "172.16.100.151"): 0.51,  # the attacker dominates its source
+        ("idx:access", "172.16.0.9"): 0.01,  # a benign client is rare
+    }
+    spans = {("idx:access", "172.16.100.151"): (START, START + 9000)}
+    rows: list[dict[str, Any]] = [
+        {
+            "notable_id": "benign-first",
+            "generator": "peer_rare",
+            "source_id": "idx:access",
+            "first_seen": START + 100,
+            "last_seen": START + 200,
+            "entities": [{"role": "actor", "value": "172.16.0.9"}],
+            "evidence": [{"earliest": START + 100, "latest": START + 200}],
+        }
+    ]
+    rows += [
+        {
+            "notable_id": f"no-entity-{index}",
+            "generator": "peer_rare",
+            "source_id": "idx:access",
+            "first_seen": START,
+            "last_seen": START + 1,
+            "entities": [{"role": "action", "value": "* * *"}],
+        }
+        for index in range(50)
+    ]
+    rows.append(
+        {
+            "notable_id": "attack-late",
+            "generator": "similar_to_known",
+            "source_id": "idx:access",
+            "first_seen": START + 100,
+            "last_seen": START + 200,
+            "entities": [{"role": "actor", "value": "172.16.100.151"}],
+            "evidence": [{"earliest": START + 100, "latest": START + 200}],
+        }
+    )
+    seeds = _seed_records(rows, START, START + 9000, identity, shares, spans)
+    seed_ids = [str(seed["id"]) for seed in seeds]
+    # the attack notable sits beyond the old top-40 yet still becomes a seed, ranked first
+    assert "attack-late" in seed_ids
+    assert seed_ids.index("attack-late") < seed_ids.index("benign-first")
+
+
 # --- stage ---
 
 
@@ -571,6 +620,46 @@ def test_relate_pivots_identity_not_program_names(tmp_path: Path) -> None:
     assert result["notables"][0]["evidence"][0]["event"]["event_id"] == "1:42"
     assert receipt["coverage_complete"] is False
     assert sum(item["unreferenced_events"] for item in receipt["coverage"]) == 1
+
+
+def test_relate_capped_query_is_still_complete_coverage(tmp_path: Path) -> None:
+    out = _run_dir(tmp_path)
+
+    class _CappedSearch:
+        def iter_post(self, query: str, start: float, end: float) -> list[dict[str, Any]]:
+            if "172.16.100.151" in query:
+                return [
+                    {
+                        "_time": START + 250,
+                        "_raw": (
+                            f'172.16.100.151 - - [23/Mar/2021:21:12:56 +0000] "GET /{index} '
+                            'HTTP/1.1" 200'
+                        ),
+                        "host": "web-1",
+                        "source": "/var/log/access.log",
+                        "sourcetype": "access",
+                        "_cd": f"1:{index}",
+                    }
+                    for index in range(MAX_EVENTS_PER_QUERY)
+                ]
+            if 'uid="33"' in query:
+                return [
+                    {
+                        "_time": START + 4005,
+                        "_raw": "type=USER_AUTH msg=audit(...): uid=33 acct=msperl exe=/bin/su",
+                        "host": "web-1",
+                        "source": "/var/log/audit.log",
+                        "sourcetype": "audit",
+                        "_cd": "1:43",
+                    }
+                ]
+            return []
+
+    receipt = relate_stage(out=out, search=_CappedSearch())
+
+    # the 20-row result is the deliberate per-query effort budget, not a coverage gap
+    assert receipt["coverage_complete"] is True
+    assert receipt["capped_queries"] == 1
 
 
 def test_relate_rejects_nontraining_indexes_before_reading(tmp_path: Path) -> None:

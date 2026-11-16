@@ -31,7 +31,7 @@ from .receipt import read_json, write_json
 from .run import NOTABLES_FILE, SOURCES_FILE, STORE_FILE, read_notables
 
 RELATE_FILE = "relate.json"
-MAX_SEEDS = 40  # effort budget: highest-ranked Stage 1 notables to expand
+MAX_SEEDS = 40  # effort budget: seed notables expanded into episodes
 MAX_ENTITIES_PER_SEED = 5  # effort budget: identity pivots read from one notable
 MAX_EVENTS_PER_QUERY = 20  # effort budget: neighbouring rows retained per identity query
 EVIDENCE_CHARS = 400  # effort budget: event preview kept beside its reproducible reference
@@ -39,6 +39,8 @@ TRAINING_INDEXES = frozenset({"hb_kyoushi_s1", "hb_ait_santos", "hb_ait_russellm
 _PROGRAM_FIELD = "program"  # a template source keys its actor on the program, not an identity
 _IPV4 = re.compile(r"(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])")
 _CLF_TIME = re.compile(r"\[\d{1,2}/\w{3}/\d{4}:")  # an access-log timestamp is not an identity
+# attack-signal generators rank ahead of the statistical ones when seeds are chosen
+_SEED_GENERATOR_PRIORITY = {"similar_to_known": 0, "alerts": 1}
 
 
 def _is_timestamp(value: str) -> bool:
@@ -332,6 +334,15 @@ def _seed_anchor(
     return fallback
 
 
+def _seed_priority(row: Mapping[str, Any]) -> int:
+    return _SEED_GENERATOR_PRIORITY.get(str(row.get("generator") or ""), 2)
+
+
+def _seed_distinctiveness(entities: Sequence[Mapping[str, Any]]) -> float:
+    """The strongest identity a notable carries: its max within-source share."""
+    return max((float(entity.get("weight", 0.0) or 0.0) for entity in entities), default=0.0)
+
+
 def _seed_records(
     rows: Sequence[dict[str, Any]],
     start: float,
@@ -340,8 +351,14 @@ def _seed_records(
     shares: Mapping[tuple[str, str], float],
     spans: Mapping[tuple[str, str], tuple[float, float]],
 ) -> list[dict[str, Any]]:
-    seeds: list[dict[str, Any]] = []
-    for rank, row in enumerate(rows[:MAX_SEEDS]):
+    """The most attack-likely notables become seeds, ranked by identity distinctiveness.
+
+    Seed selection ranks every notable on the evidence relate itself pivots on — the
+    within-source share of the identity entities it carries — with the attack-signal
+    generators first, not on the notable's position in the merged (interleaved) file.
+    """
+    candidates: list[dict[str, Any]] = []
+    for position, row in enumerate(rows):
         source_id = str(row.get("source_id") or "")
         entities = _entities(row, identity, shares)
         if not entities:
@@ -349,6 +366,29 @@ def _seed_records(
         low, high = _episode_window(row, source_id, start, end, spans, entities)
         if high <= low:
             continue
+        candidates.append(
+            {
+                "row": row,
+                "source_id": source_id,
+                "entities": entities,
+                "low": low,
+                "high": high,
+                "position": position,
+            }
+        )
+    candidates.sort(
+        key=lambda candidate: (
+            _seed_priority(candidate["row"]),
+            -_seed_distinctiveness(candidate["entities"]),
+            candidate["position"],
+        )
+    )
+    seeds: list[dict[str, Any]] = []
+    for rank, candidate in enumerate(candidates[:MAX_SEEDS]):
+        row = candidate["row"]
+        source_id = candidate["source_id"]
+        entities = candidate["entities"]
+        low, high = candidate["low"], candidate["high"]
         seeds.append(
             {
                 "id": _seed_id(row, rank),
@@ -685,9 +725,7 @@ def relate_stage(*, out: Path, search: Search, judged_only: bool = False) -> dic
         "cases": len(cases),
         "seconds": round(time.monotonic() - began, 3),
         "coverage_complete": bool(coverage)
-        and not any(
-            row["reason"] or row["capped"] or row["unreferenced_events"] for row in coverage
-        ),
+        and not any(row["reason"] or row["unreferenced_events"] for row in coverage),
         "capped_queries": sum(1 for row in coverage if row["capped"]),
         "coverage": coverage,
         "executor": snapshot,
