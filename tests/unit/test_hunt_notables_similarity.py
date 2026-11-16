@@ -136,7 +136,7 @@ def test_similarity_uses_family_filtered_store_and_returns_labelled_matches(tmp_
     assert receipt["loaded_families"] == ["ait_a", "ait_b"]
     assert receipt["reliability"]["method"] == "leave_one_family_out"
     assert notables[0].generator == "similar_to_known"
-    assert notables[0].measure_name == "known_bad"
+    assert notables[0].measure_name == "known_bad_minus_good"
     assert notables[0].generator_reliability == 1.0
     assert notables[0].nearest_known[0]["family"] != "kyoushi"
     assert notables[0].nearest_known[0]["label_kind"] in {"known_bad", "known_good"}
@@ -176,7 +176,62 @@ def test_similarity_error_names_source_and_actual_card_kind() -> None:
         _ranked_notables(None, [_behaviour()], [measurement], {}, {"score": "known_bad"})  # type: ignore[arg-type]
 
 
+class _ClassEmbedder(_Embedder):
+    """A vector per statement class, so one label pool can carry the other class's vector."""
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        return [[0.6, 0.8] if "read" in text else [1.0, 0.0] for text in texts]
+
+
 def test_known_good_is_used_only_when_its_measured_auc_improves(tmp_path: Path) -> None:
+    items = []
+    for family, rows in (
+        ("a", (("a-bad-execute", "known_bad"), ("a-good-read", "known_good"))),
+        (
+            "b",
+            (
+                ("b-bad-execute", "known_bad"),
+                ("b-bad-read", "known_bad"),
+                ("b-good-read", "known_good"),
+            ),
+        ),
+        ("kyoushi", (("target-bad-execute", "known_bad"),)),
+    ):
+        for number, (what, kind) in enumerate(rows):
+            items.append(
+                KnowledgeItem(
+                    statement=f"actor {what}",
+                    label=f"{kind}-{number}",
+                    label_kind=kind,
+                    label_basis=("attack_step" if kind == "known_bad" else "unlabelled"),
+                    family=family,
+                    split="build",
+                    index=family,
+                    source_kind="activity",
+                    query=f'search index="{family}" TERM("{what}") | head 5',
+                )
+            )
+    embedder = _ClassEmbedder()
+    store = tmp_path / "contrast.duckdb"
+    build_store(items, embedder, store)
+
+    _notables, receipt = generate_similar(
+        [_behaviour()],
+        [_card()],
+        store_path=store,
+        run_index="kyoushi",
+        expected_family="kyoushi",
+        allowed_families=("a", "b", "kyoushi"),
+        embedder=embedder,  # type: ignore[arg-type]
+    )
+
+    reliability = receipt["reliability"]
+    assert reliability["known_bad_auc"] == 0.375
+    assert reliability["known_bad_minus_good_auc"] == 0.625
+    assert reliability["score"] == "known_bad_minus_good"
+
+
+def test_reliability_is_measured_inside_each_held_out_fold_and_averaged(tmp_path: Path) -> None:
     items = []
     for family, actor in (("a", "alpha"), ("b", "beta"), ("kyoushi", "target")):
         for number in (1, 2):
@@ -207,7 +262,7 @@ def test_known_good_is_used_only_when_its_measured_auc_improves(tmp_path: Path) 
                 ]
             )
     embedder = _ContrastEmbedder()
-    store = tmp_path / "contrast.duckdb"
+    store = tmp_path / "folds.duckdb"
     build_store(items, embedder, store)
 
     _notables, receipt = generate_similar(
@@ -221,9 +276,34 @@ def test_known_good_is_used_only_when_its_measured_auc_improves(tmp_path: Path) 
     )
 
     reliability = receipt["reliability"]
-    assert reliability["known_bad_auc"] == 0.5
-    assert reliability["known_bad_minus_good_auc"] == 0.75
-    assert reliability["score"] == "known_bad_minus_good"
+    folds = reliability["folds"]
+    assert set(folds) == {"a->b", "b->a"}
+    assert reliability["known_bad_minus_good_auc"] == pytest.approx(
+        sum(fold["known_bad_minus_good_auc"] for fold in folds.values()) / len(folds)
+    )
+    assert reliability["validation_items"] == sum(fold["queries"] for fold in folds.values())
+
+
+def test_similarity_skips_a_behaviour_with_no_content_token(tmp_path: Path) -> None:
+    store = tmp_path / "knowledge.duckdb"
+    embedder = _Embedder()
+    build_store(_knowledge_items(), embedder, store)
+    masked = replace(_behaviour(), actor="*", action="*", object="* * *")
+
+    notables, receipt = generate_similar(
+        [masked],
+        [_card()],
+        store_path=store,
+        run_index="kyoushi",
+        expected_family="kyoushi",
+        allowed_families=("ait_a", "ait_b", "kyoushi"),
+        embedder=embedder,  # type: ignore[arg-type]
+    )
+
+    assert notables == []
+    assert receipt["existed"] == 1
+    assert receipt["scored"] == 0
+    assert receipt["uninformative"] == 1
 
 
 def test_template_embedding_text_is_shared_without_static_template_text(monkeypatch: Any) -> None:

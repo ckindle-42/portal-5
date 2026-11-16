@@ -89,6 +89,11 @@ recall in every run (cross-generator duplicates exist only in s3a/kyoushi — 10
 entries — and fusing them did not change any covered rank), so rrf remains available but
 is degenerate with interleave while generators raise disjoint findings.
 
+**Superseded for the weight dimension:** the default merge is now `weighted`, an
+interleave whose per-generator share is the measured leave-one-family-out step coverage.
+`interleave` remains available and is the unweighted control; the selection and its table
+are in `GENERATOR_WEIGHTS_REPORT.md`.
+
 Concrete effect on the reported win: kyoushi's reverse_shell notable moves from
 **rank 475 → rank 19**; the merged top-50 of mf1/kyoushi is peer_rare 15, deviation 14,
 misfit 14, alerts 7.

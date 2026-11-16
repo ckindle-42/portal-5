@@ -2,14 +2,44 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from .generators import Notable, _interleave
 
-MERGE_METHODS = ("blocks", "interleave", "rrf")
-DEFAULT_MERGE = "interleave"  # leave-one-family-out winner; docs/hunt/MERGE_REPORT.md
+MERGE_METHODS = ("blocks", "interleave", "rrf", "weighted")
+DEFAULT_MERGE = "weighted"  # leave-one-family-out winner; docs/hunt/GENERATOR_WEIGHTS_REPORT.md
+DEFAULT_WEIGHTS = {
+    "deviation": 26,
+    "misfit": 6,
+    "similar_to_known": 31,
+    "alerts": 0,
+    "peer_rare": 0,
+}  # measured LOFO step coverage at top 50 x100; docs/hunt/GENERATOR_WEIGHTS_REPORT.md
+UNMEASURED_WEIGHT = 1  # a generator the weights were never measured for keeps a unit share
 RRF_K = 60  # reciprocal-rank fusion constant (Cormack et al. 2009); never per-corpus
+
+
+def _weighted(groups: Sequence[Sequence[Notable]], weights: Sequence[int]) -> list[Notable]:
+    """Deficit round-robin: each group's share of the merged head follows its measured weight."""
+    taken = [0] * len(groups)
+    position = [0] * len(groups)
+    kept: list[Notable] = []
+    while True:
+        choice = -1
+        for index, group in enumerate(groups):
+            if position[index] >= len(group) or weights[index] <= 0:
+                continue
+            if choice < 0 or taken[index] * weights[choice] < taken[choice] * weights[index]:
+                choice = index
+        if choice < 0:
+            break
+        kept.append(groups[choice][position[choice]])
+        position[choice] += 1
+        taken[choice] += 1
+    for index, group in enumerate(groups):
+        kept.extend(group[position[index] :])
+    return kept
 
 
 def group_by_generator(notables: Sequence[Notable], priority: Sequence[str]) -> list[list[Notable]]:
@@ -56,15 +86,24 @@ def _rrf(groups: Sequence[Sequence[Notable]]) -> tuple[list[Notable], int]:
 
 
 def merge_notables(
-    notables: Sequence[Notable], priority: Sequence[str], method: str
+    notables: Sequence[Notable],
+    priority: Sequence[str],
+    method: str,
+    weights: Mapping[str, int] | None = None,
 ) -> tuple[list[Notable], dict[str, Any]]:
     """Merge every generator's ranked list into one final ranking, declaring how."""
     groups = group_by_generator(notables, priority)
     fused = 0
+    chosen: dict[str, int] = {}
     if method == "blocks":
         merged = [notable for group in groups for notable in group]
     elif method == "interleave":
         merged = _interleave(groups, sum(len(group) for group in groups))
+    elif method == "weighted":
+        chosen = dict(DEFAULT_WEIGHTS if weights is None else weights)
+        merged = _weighted(
+            groups, [chosen.get(group[0].generator, UNMEASURED_WEIGHT) for group in groups]
+        )
     elif method == "rrf":
         merged, fused = _rrf(groups)
     else:
@@ -76,4 +115,6 @@ def merge_notables(
         "merged": len(merged),
         "fused": fused,
     }
+    if chosen:
+        receipt["weights"] = dict(sorted(chosen.items()))
     return merged, receipt

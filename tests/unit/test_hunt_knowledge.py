@@ -9,6 +9,7 @@ from portal.modules.security.core.hunt.notables.knowledge import (
     KnowledgeItem,
     build_store,
     load_for_run,
+    statement_has_content,
 )
 
 
@@ -142,6 +143,64 @@ def test_run_loader_excludes_every_index_in_a_shared_family(tmp_path: Path) -> N
 
     assert loaded.excluded_families == ("ait",)
     assert indexes == {"kyoushi"}
+
+
+def _labelled(statement: str, label: str, kind: str, family: str, index: str) -> KnowledgeItem:
+    return KnowledgeItem(
+        statement=statement,
+        label=label,
+        label_kind=kind,
+        label_basis=("attack_step" if kind == "known_bad" else "unlabelled"),
+        family=family,
+        split="build",
+        index=index,
+        source_kind="activity",
+        query=f'search index="{index}" TERM("{label}") | head 5',
+    )
+
+
+def test_statement_has_content_rejects_a_statement_that_is_only_roles_and_masks() -> None:
+    assert statement_has_content("to * * * * * *") is False
+    assert statement_has_content("actor *") is False
+    assert statement_has_content("program sudo") is True
+    assert statement_has_content("actor 0 did USER_START") is True
+
+
+def test_run_loader_drops_a_statement_the_store_labels_both_ways(tmp_path: Path) -> None:
+    items = _items()
+    items.append(_labelled("actor=zero action=login", "routine", "known_good", "ait", "santos"))
+    items.append(_labelled("actor=zero action=login", "step", "known_bad", "kyoushi", "kyoushi"))
+    store = tmp_path / "contradicted.duckdb"
+    build_store(items, _Embedder(), store)
+
+    with load_for_run(store, run_index="kyoushi", allowed_families=("ait", "kyoushi")) as loaded:
+        statements = {
+            row[0]
+            for row in loaded.connection.execute(
+                "SELECT DISTINCT statement FROM loaded_knowledge"
+            ).fetchall()
+        }
+
+    assert loaded.contradicted == 1
+    assert "actor=zero action=login" not in statements
+
+
+def test_run_loader_drops_a_statement_with_no_content_token(tmp_path: Path) -> None:
+    items = _items()
+    items.append(_labelled("to * * * * * *", "routine", "known_good", "ait", "santos"))
+    store = tmp_path / "masked.duckdb"
+    build_store(items, _Embedder(), store)
+
+    with load_for_run(store, run_index="kyoushi", allowed_families=("ait", "kyoushi")) as loaded:
+        statements = {
+            row[0]
+            for row in loaded.connection.execute(
+                "SELECT DISTINCT statement FROM loaded_knowledge"
+            ).fetchall()
+        }
+
+    assert loaded.uninformative == 1
+    assert "to * * * * * *" not in statements
 
 
 def test_run_loader_rejects_a_family_claim_that_disagrees_with_the_stored_index(

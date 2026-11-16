@@ -11,6 +11,7 @@ from portal.modules.security.core.hunt.notables.cards import SourceCard
 from portal.modules.security.core.hunt.notables.generators import Notable, _make
 from portal.modules.security.core.hunt.notables.merge import (
     DEFAULT_MERGE,
+    DEFAULT_WEIGHTS,
     RRF_K,
     duplicate_key,
     group_by_generator,
@@ -144,6 +145,48 @@ def test_rrf_does_not_collapse_notables_without_evidence() -> None:
 
     assert [item.what for item in merged] == ["finding 0", "finding 1"]
     assert receipt["fused"] == 0
+
+
+def test_weighted_merge_shares_slots_by_the_measured_weight() -> None:
+    notables = [_notable("deviation", f"d{index}") for index in range(3)] + [
+        _notable("similar_to_known", f"s{index}") for index in range(3)
+    ]
+
+    merged, receipt = merge_notables(
+        notables, PRIORITY, "weighted", weights={"similar_to_known": 3, "deviation": 1}
+    )
+
+    assert [item.generator for item in merged[:4]] == [
+        "similar_to_known",
+        "deviation",
+        "similar_to_known",
+        "similar_to_known",
+    ]
+    assert receipt["weights"] == {"deviation": 1, "similar_to_known": 3}
+    assert receipt["merged"] == 6
+
+
+def test_weighted_merge_puts_a_zero_weight_generator_after_the_measured_ones() -> None:
+    notables = [_notable("peer_rare", "p1"), _notable("deviation", "d1")]
+
+    merged, _receipt = merge_notables(
+        notables,
+        PRIORITY,
+        "weighted",
+        weights={"peer_rare": 0, "deviation": 1},
+    )
+
+    assert [item.generator for item in merged] == ["deviation", "peer_rare"]
+
+
+def test_the_default_merge_is_weighted_and_declares_its_weights() -> None:
+    assert DEFAULT_MERGE == "weighted"
+    notables = [_notable("peer_rare", "p1"), _notable("deviation", "d1")]
+
+    merged, receipt = merge_notables(notables, PRIORITY, DEFAULT_MERGE)
+
+    assert receipt["weights"] == DEFAULT_WEIGHTS
+    assert [item.generator for item in merged] == ["deviation", "peer_rare"]
 
 
 def test_a_generator_outside_the_priority_sorts_last_deterministically() -> None:

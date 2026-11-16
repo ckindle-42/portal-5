@@ -20,6 +20,7 @@ import duckdb
 from .embedding import EmbeddingError, embed_batches, embedding_from_env, embedding_requirement
 
 SCHEMA_VERSION = "2"
+ROLE_WORDS = frozenset({"actor", "program", "did", "to"})  # words that only name a role
 LABEL_KINDS = frozenset({"known_bad", "known_good"})
 GOOD_BASES = frozenset({"unlabelled", "non_attack_day"})
 BAD_BASES = frozenset({"attack_step", "technique"})
@@ -129,6 +130,8 @@ class LoadedKnowledge:
     items: int
     embedding_model: str
     dimensions: int
+    contradicted: int = 0
+    uninformative: int = 0
 
     @property
     def excluded_family(self) -> str:
@@ -137,6 +140,13 @@ class LoadedKnowledge:
             if len(self.excluded_families) == 1
             else ",".join(self.excluded_families)
         )
+
+
+def statement_has_content(statement: str) -> bool:
+    """True when a statement names something beyond role words and masked tokens."""
+    return any(
+        token.strip("*") for token in statement.split() if token.casefold() not in ROLE_WORDS
+    )
 
 
 def _item_id(item: KnowledgeItem) -> str:
@@ -304,6 +314,80 @@ def _write_vectors(
     return dimensions
 
 
+def _label_quality_tables(connection: duckdb.DuckDBPyConnection) -> None:
+    """Declare the statements a store cannot use as a reference, and the ones worth embedding."""
+    contradicted = [
+        str(row[0])
+        for row in connection.execute(
+            "SELECT statement FROM knowledge_items GROUP BY 1 HAVING count(DISTINCT label_kind) > 1"
+        ).fetchall()
+    ]
+    informative = [
+        str(row[0])
+        for row in connection.execute("SELECT DISTINCT statement FROM knowledge_items").fetchall()
+        if statement_has_content(str(row[0]))
+    ]
+    connection.execute(
+        "CREATE TEMP TABLE contradicted_statements AS SELECT unnest(?::VARCHAR[]) AS statement",
+        [contradicted],
+    )
+    connection.execute(
+        "CREATE TEMP TABLE informative_statements AS SELECT unnest(?::VARCHAR[]) AS statement",
+        [informative],
+    )
+
+
+def _load_conditions(excluded_families: Sequence[str], run_index: str) -> list[str]:
+    """The store rows one run may read: its own family and unusable labels removed."""
+    return [
+        "split = 'build'",
+        "family NOT IN (" + ",".join("?" for _ in excluded_families) + ")",
+        "index_name <> ?",
+        "statement NOT IN (SELECT statement FROM contradicted_statements)",
+        "statement IN (SELECT statement FROM informative_statements)",
+    ]
+
+
+def _label_quality_counts(
+    connection: duckdb.DuckDBPyConnection,
+    excluded_families: Sequence[str],
+    run_index: str,
+) -> tuple[int, int]:
+    """How many otherwise-loadable items each label rule removes, counted once each."""
+    _label_quality_tables(connection)
+    conditions = _load_conditions(excluded_families, run_index)
+    base_where = " AND ".join(conditions[:3])
+    parameters = [*excluded_families, run_index]
+    contradicted = _excluded_count(
+        connection,
+        base_where,
+        parameters,
+        "statement IN (SELECT statement FROM contradicted_statements)",
+    )
+    uninformative = _excluded_count(
+        connection,
+        base_where,
+        parameters,
+        "statement NOT IN (SELECT statement FROM contradicted_statements) "
+        "AND statement NOT IN (SELECT statement FROM informative_statements)",
+    )
+    return contradicted, uninformative
+
+
+def _excluded_count(
+    connection: duckdb.DuckDBPyConnection,
+    base_where: str,
+    parameters: Sequence[Any],
+    condition: str,
+) -> int:
+    """How many otherwise-loadable items one declared exclusion removes."""
+    row = connection.execute(
+        f"SELECT count(*) FROM knowledge_items WHERE {base_where} AND {condition}",
+        list(parameters),
+    ).fetchone()
+    return int(row[0]) if row is not None else 0
+
+
 @contextmanager
 def load_for_run(
     store_path: Path,
@@ -335,17 +419,16 @@ def load_for_run(
                 f"run index {run_index!r} belongs to {excluded_families}, not {expected_family!r}"
             )
         families = None if allowed_families is None else tuple(sorted(set(allowed_families)))
-        conditions = [
-            "split = 'build'",
-            "family NOT IN (" + ",".join("?" for _ in excluded_families) + ")",
-            "index_name <> ?",
-        ]
+        conditions = _load_conditions(excluded_families, run_index)
         parameters: list[Any] = [*excluded_families, run_index]
         if families is not None:
             if not families:
                 raise ValueError("at least one allowed knowledge family is required")
             conditions.append("family IN (" + ",".join("?" for _ in families) + ")")
             parameters.extend(families)
+        contradicted_items, uninformative_items = _label_quality_counts(
+            connection, excluded_families, run_index
+        )
         connection.execute(
             "CREATE TEMP TABLE loaded_knowledge AS SELECT * FROM knowledge_items WHERE "
             + " AND ".join(conditions),
@@ -380,6 +463,8 @@ def load_for_run(
             count,
             str(metadata["embedding_model"]),
             int(metadata["dimensions"]),
+            contradicted=contradicted_items,
+            uninformative=uninformative_items,
         )
     finally:
         connection.close()
