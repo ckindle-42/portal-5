@@ -1,0 +1,13 @@
+#!/bin/bash
+# Root-owned dispatcher for Portal 5 actions that need root. Installed 2026-11-16.
+# Only the actions listed here run; no arguments pass through to a shell.
+set -euo pipefail
+REPO=/Users/chris/projects/portal-5
+case "${1:-}" in
+  install-powermetrics|uninstall-powermetrics)
+    cd "$REPO" && exec ./launch.sh "$1" ;;
+  launchctl-system)  # restart/inspect a portal5 system daemon by label
+    [[ "${2:-}" =~ ^com\.portal5\.[a-z0-9.-]+$ ]] || { echo "label must be com.portal5.*"; exit 2; }
+    exec /bin/launchctl kickstart -k "system/$2" ;;
+  *) echo "usage: portal5-root {install-powermetrics|uninstall-powermetrics|launchctl-system <com.portal5.label>}"; exit 2 ;;
+esac

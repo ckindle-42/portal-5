@@ -4,8 +4,8 @@
 Runs `powermetrics` continuously, parses the output, exposes current power
 consumption (in watts) plus 1-min/10-min averages on a Unix domain socket.
 
-Install:
-    ./launch.sh install-powermetrics
+Install (root; the dispatcher is NOPASSWD in sudoers):
+    sudo -n /usr/local/sbin/portal5-root install-powermetrics
 """
 
 from __future__ import annotations

@@ -25,7 +25,7 @@ _launch_install_ollama() {
             echo "  ✅ com.portal5.ollama running (v${OLLAMA_API_VER})"
         else
             echo "  ⚠️  com.portal5.ollama is configured but not responding — restart it:"
-            echo "     sudo launchctl kickstart -k system/com.portal5.ollama"
+            echo "     $(_portal5_root launchctl-system com.portal5.ollama 'sudo launchctl kickstart -k system/com.portal5.ollama')"
         fi
         echo ""
         echo "Next steps:"
@@ -594,7 +594,7 @@ _launch_install_powermetrics() {
     rm -f "$PREVIOUS_PLIST"
 
     # A pre-a55e73caf install ran the repo copy from /usr/local/bin. It must not
-    # linger: `ps` would keep reporting the daemon "running" from the old path.
+    # linger: a stale process would also answer the readiness probe below.
     LEGACY_AGENT="$HOME/Library/LaunchAgents/com.portal5.powermetrics.plist"
     if [ -f "$LEGACY_AGENT" ]; then
         launchctl bootout "gui/$(id -u)/com.portal5.powermetrics" 2>/dev/null || true
@@ -606,22 +606,23 @@ _launch_install_powermetrics() {
         echo "  Removed legacy script: /usr/local/bin/portal5-powermetrics"
     fi
 
-    sleep 3
-    if ! ps -eo command | grep -q "[/]usr/local/libexec/portal5-powermetrics"; then
-        echo "  ❌ Daemon installed but not running from $SCRIPT_DST — check: sudo launchctl print system/com.portal5.powermetrics"
-        exit 1
-    fi
-    if [ -S "/tmp/portal5-powermetrics.sock" ]; then
-        echo "[portal-5] ✅ Powermetrics daemon installed and running"
+    # Readiness, not a ps pattern: launchd starts the job a few seconds after
+    # bootstrap, and /usr/bin/python3 re-execs into the Xcode interpreter before
+    # the script path appears; the daemon then sleeps 12s before binding the socket.
+    if _unix_socket_answering "/tmp/portal5-powermetrics.sock" 45; then
+        echo "[portal-5] ✅ Powermetrics daemon installed and answering"
     else
-        echo "[portal-5] ⏳ Powermetrics daemon installed, starting (may need 15s for first powermetrics sample)..."
+        echo "  ❌ Powermetrics daemon is loaded but its socket is not answering — check:"
+        echo "     sudo launchctl print system/${PM_LABEL}"
+        echo "     tail -20 /var/log/portal5-powermetrics.err"
+        exit 1
     fi
     echo "  Script: $SCRIPT_DST"
     echo "  Python: /usr/bin/python3"
     echo "  Plist:  $PLIST_DST"
     echo "  Socket: /tmp/portal5-powermetrics.sock"
-    echo "  Status: sudo launchctl list com.portal5.powermetrics"
-    echo "  Uninstall: ./launch.sh uninstall-powermetrics"
+    echo "  Status: sudo launchctl print system/${PM_LABEL}"
+    echo "  Uninstall: $(_portal5_root uninstall-powermetrics 'sudo ./launch.sh uninstall-powermetrics')"
 }
 
 _launch_uninstall_powermetrics() {

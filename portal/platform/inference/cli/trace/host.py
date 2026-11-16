@@ -16,6 +16,14 @@ _ENGINE_HINTS = ("omlx", "ollama")
 _DEFAULT_INSTALL_DIR = Path.home() / "Library" / "LaunchAgents"
 _SYSTEM_INSTALL_DIR = Path("/Library/LaunchDaemons")
 _STANDARD_PRIORITY = 20
+# Root actions go through this dispatcher when it is installed: it is NOPASSWD in
+# sudoers, so a hint stays runnable without a password prompt.
+_ROOT_DISPATCHER = Path(os.environ.get("PORTAL5_ROOT_DISPATCHER", "/usr/local/sbin/portal5-root"))
+# label -> (dispatcher action, fallback command)
+_REPAIRS: dict[str, tuple[str, str]] = {
+    "com.portal5.powermetrics": ("install-powermetrics", "sudo ./launch.sh install-powermetrics"),
+    "com.portal5.omlx": ("", "./launch.sh install-omlx"),
+}
 
 _RUNNING = re.compile(r"^\s*state = running\b", re.M)
 _PID = re.compile(r"^\s*pid = (\d+)", re.M)
@@ -103,6 +111,14 @@ def unsubstituted(cfg: dict[str, Any]) -> list[str]:
     return sorted(
         {token for arg in program_args(cfg) for token in re.findall(r"__[A-Z0-9_]+__", arg)}
     )
+
+
+def repair_hint(label: str) -> str:
+    """The command that reinstalls this job, through the passwordless dispatcher if present."""
+    action, fallback = _REPAIRS.get(label, ("", "re-run the installer"))
+    if action and _ROOT_DISPATCHER.is_file():
+        return f"sudo -n {_ROOT_DISPATCHER} {action}"
+    return fallback
 
 
 def parse_priority(output: str) -> int | None:
@@ -210,7 +226,7 @@ def installed_hop(
                 Status.WARN,
                 " ".join(program_args(installed)) or "none",
                 " ".join(program_args(repo_cfg)) or "none",
-                "installed plist differs from the repo copy; re-run the installer",
+                f"installed plist differs from the repo copy; {repair_hint(label)}",
             )
         )
     return hops
@@ -226,7 +242,7 @@ def program_hop(label: str, installed: dict[str, Any], loaded: tuple[str, ...] =
             Status.WARN,
             f"unsubstituted={','.join(tokens)}",
             "rendered with the documented substitutions",
-            f"{runs}; render the installed plist",
+            f"{runs}; {repair_hint(label)}",
         )
     missing = missing_program_paths(installed)
     paths = program_paths(installed)

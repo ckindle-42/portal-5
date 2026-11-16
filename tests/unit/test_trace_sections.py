@@ -139,7 +139,10 @@ def test_installed_hop_compares_process_type_and_env_keys() -> None:
     assert hops[1].detail == "missing=HOME"
 
 
-def test_installed_hop_fails_a_missing_program_and_warns_on_stale_args(tmp_path: Path) -> None:
+def test_installed_hop_fails_a_missing_program_and_warns_on_stale_args(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(host, "_ROOT_DISPATCHER", tmp_path / "absent")
     # A path that cannot exist: the live install path is present once the daemon is
     # installed, which made this test depend on host state.
     absent = str(tmp_path / "portal5-powermetrics")
@@ -153,7 +156,36 @@ def test_installed_hop_fails_a_missing_program_and_warns_on_stale_args(tmp_path:
     stale = {"ProgramArguments": ["/usr/bin/true", "/usr/local/bin/portal5-powermetrics"]}
     hops = host.installed_hop("com.portal5.powermetrics", cfg, stale)
     args = next(hop for hop in hops if hop.name.startswith("args "))
-    assert args.status is Status.WARN and "installer" in args.detail
+    assert args.status is Status.WARN
+    assert "sudo ./launch.sh install-powermetrics" in args.detail
+
+
+def test_stale_powermetrics_hint_uses_the_passwordless_dispatcher(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dispatcher = tmp_path / "portal5-root"
+    dispatcher.write_text("#!/bin/bash\nexit 0\n", encoding="utf-8")
+    dispatcher.chmod(0o755)
+    monkeypatch.setattr(host, "_ROOT_DISPATCHER", dispatcher)
+    cfg = {"ProgramArguments": ["/usr/bin/true", "/usr/local/libexec/portal5-powermetrics"]}
+    stale = {"ProgramArguments": ["/usr/bin/true", "/usr/local/bin/portal5-powermetrics"]}
+
+    hops = host.installed_hop("com.portal5.powermetrics", cfg, stale)
+
+    args = next(hop for hop in hops if hop.name.startswith("args "))
+    assert f"sudo -n {dispatcher} install-powermetrics" in args.detail
+
+
+def test_unsubstituted_omlx_hint_names_its_installer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(host, "_ROOT_DISPATCHER", tmp_path / "absent")
+    cfg = {"ProgramArguments": ["__OMLX_VENV__/bin/python", "-m", "omlx.cli"]}
+
+    hop = host.program_hop("com.portal5.omlx", cfg)
+
+    assert hop.status is Status.WARN
+    assert "./launch.sh install-omlx" in hop.detail
 
 
 def test_installed_hop_warns_on_unsubstituted_placeholders() -> None:

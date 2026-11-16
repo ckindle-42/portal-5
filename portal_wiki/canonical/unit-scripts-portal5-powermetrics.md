@@ -23,7 +23,7 @@ The energy accounting needs a continuous power signal, and a Unix socket is the 
 
 ## Interfaces
 
-The script is an operator or agent tool run from the repo root; it prints its findings and exits with the appropriate status.
+The script runs as the root LaunchDaemon `com.portal5.powermetrics` and publishes JSON per line on `/tmp/portal5-powermetrics.sock`; the pipeline's energy accounting reads it there. Install it through the passwordless root dispatcher — `sudo -n /usr/local/sbin/portal5-root install-powermetrics`, source `deploy/root/portal5-root` — and read `/var/log/portal5-powermetrics.err` when the socket stops answering.
 
 ## Gotchas
 

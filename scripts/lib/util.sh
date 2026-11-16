@@ -151,7 +151,7 @@ _check_hardware() {
             fi
         else
             echo "  ⚠️  Ollama not responding on :11434 — restart it:"
-            echo "     sudo launchctl kickstart -k system/com.portal5.ollama"
+            echo "     $(_portal5_root launchctl-system com.portal5.ollama 'sudo launchctl kickstart -k system/com.portal5.ollama')"
             WARN=1
         fi
         # Image/video generation is host-native MLX now (mflux :8933, video-mlx
@@ -515,6 +515,19 @@ _launchd_plist_matches() {
     return "$rc"
 }
 
+# ── root actions: hand them to the installed dispatcher, never to a prompt ───
+# /usr/local/sbin/portal5-root is root-owned and NOPASSWD in sudoers, so `up` and
+# the installer hints stay runnable by an agent. Without it, name the sudo form.
+_PORTAL5_ROOT_DISPATCHER="${PORTAL5_ROOT_DISPATCHER:-/usr/local/sbin/portal5-root}"
+
+_portal5_root() {  # action, fallback command
+    if [ -x "$_PORTAL5_ROOT_DISPATCHER" ]; then
+        printf 'sudo -n %s %s' "$_PORTAL5_ROOT_DISPATCHER" "$1"
+    else
+        printf '%s' "$2"
+    fi
+}
+
 # ── launchd reload: bootout → wait gone → bootstrap (retry) → verify ────────
 # `bootout` returns before launchd has torn the job down; bootstrapping inside
 # that window fails with "5: Input/output error" (2026-11-16: install-omlx took
@@ -592,6 +605,24 @@ _launchd_serving() {  # domain, label, health_url, health_budget_s
             return 1
         fi
         [ "$waited" -eq 0 ] && echo "[portal-5]   … waiting for ${3} (up to ${4:-60}s)"
+        sleep 2
+        waited=$((waited + 2))
+    done
+}
+
+# A daemon that publishes one JSON line per connection on a Unix socket is ready
+# when a read returns a line, not when the socket file exists (#live 2026-11-16).
+_unix_socket_answering() {  # socket_path, budget_s
+    local sock="$1" budget="${2:-45}" waited=0 out nc_bin
+    nc_bin="$(command -v nc 2>/dev/null || true)"
+    nc_bin="${nc_bin:-/usr/bin/nc}"
+    while :; do
+        out="$(printf '' | "$nc_bin" -U -w 2 "$sock" 2>/dev/null || true)"
+        [ -n "$out" ] && return 0
+        if [ "$waited" -ge "$budget" ]; then
+            return 1
+        fi
+        [ "$waited" -eq 0 ] && echo "[portal-5]   … waiting for ${sock} (up to ${budget}s)"
         sleep 2
         waited=$((waited + 2))
     done
@@ -804,7 +835,7 @@ PY
             echo "[portal-5]   ✅ powermetrics: running (energy accounting live)"
         else
             echo "[portal-5]   ⚠️  powermetrics: $_pm_problem — energy accounting degraded"
-            echo "[portal-5]      repair: ./launch.sh install-powermetrics"
+            echo "[portal-5]      repair: $(_portal5_root install-powermetrics 'sudo ./launch.sh install-powermetrics')"
         fi
     fi
 
@@ -1424,7 +1455,7 @@ for key, label, url in rows:
             _OV=$(curl -s http://localhost:11434/api/version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
             printf "    ✅  %-28s %s\n" "Ollama" ":11434  (v${_OV:-?})"
         else
-            printf "    ❌  %-28s %s\n" "Ollama" "not running — sudo launchctl kickstart -k system/com.portal5.ollama"
+            printf "    ❌  %-28s %s\n" "Ollama" "not running — $(_portal5_root launchctl-system com.portal5.ollama 'sudo launchctl kickstart -k system/com.portal5.ollama')"
         fi
 
         # oMLX inference server — serves the six omlx-* backend groups
@@ -1506,7 +1537,7 @@ for key, label, url in rows:
         elif launchctl list com.portal5.powermetrics 2>/dev/null | grep -q '"PID"'; then
             printf "    ⏳  %-28s %s\n" "Powermetrics" "starting (launchd)"
         else
-            printf "    ❌  %-28s %s\n" "Powermetrics" "not running — ./launch.sh install-powermetrics"
+            printf "    ❌  %-28s %s\n" "Powermetrics" "not running — $(_portal5_root install-powermetrics 'sudo ./launch.sh install-powermetrics')"
         fi
 
         # Host ML footprint watchdog (always-on services-only ceilings)
