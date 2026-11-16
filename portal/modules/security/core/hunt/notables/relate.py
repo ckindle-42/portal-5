@@ -21,6 +21,7 @@ import time
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+from statistics import median
 from typing import Any
 
 import duckdb
@@ -639,15 +640,31 @@ def _anchor_label(seed_ids: Sequence[str], by_seed: Mapping[str, Mapping[str, An
     return ",".join(sorted(set(values))) or str(by_seed[seed_ids[0]]["source_id"])
 
 
-def _case_order(case: Mapping[str, Any]) -> tuple[float, float, float, str]:
-    """Order by the best Stage 1 seed, then measured relation support."""
-    ranks = [
-        rank
-        for link in case["links"]
-        if isinstance(link, Mapping) and (rank := _number(link.get("seed_rank"))) is not None
+def _seed_generator(seed: Mapping[str, Any]) -> str:
+    row = seed.get("row")
+    return str(row.get("generator") or "") if isinstance(row, Mapping) else ""
+
+
+def _seed_source_share(seed: Mapping[str, Any]) -> float:
+    weights = [
+        weight
+        for entity in seed.get("entities") or ()
+        if isinstance(entity, Mapping)
+        and (weight := _number(entity.get("weight"))) is not None
+        and weight > 0
     ]
+    return max(weights, default=1.0)
+
+
+def _case_order(
+    case: Mapping[str, Any], generator_agreement: float, seed_agreement: float, source_share: float
+) -> tuple[float, float, float, float, float, float, str]:
+    """Prefer independent support, distinctive identities, and compact episodes."""
     return (
-        min(ranks, default=float("inf")),
+        -generator_agreement,
+        -seed_agreement,
+        source_share,
+        float(case["end"]) - float(case["start"]),
         -float(case["score"]),
         float(case["start"]),
         str(case["case_id"]),
@@ -659,7 +676,9 @@ def _cases(
 ) -> list[dict[str, Any]]:
     groups = _case_groups(seeds)
     by_seed = {str(seed["id"]): seed for seed in seeds}
-    cases: list[dict[str, Any]] = []
+    ordered_cases: list[
+        tuple[tuple[float, float, float, float, float, float, str], dict[str, Any]]
+    ] = []
     for seed_ids in groups:
         seed_set = set(seed_ids)
         events = [
@@ -673,22 +692,45 @@ def _cases(
         score = round(sum(float(row["relation_score"]) for row in events), 8)
         all_ids = sorted([*seed_ids_out, *(str(row["notable_id"]) for row in events)])
         case_id = hashlib.sha1("|".join([*seed_ids_out, *all_ids]).encode()).hexdigest()[:16]
-        cases.append(
-            {
-                "case_id": case_id,
-                "anchor_entity": _anchor_label(seed_ids_out, by_seed),
-                "score": score,
-                "seed_notables": seed_ids_out,
-                "related_notables": [str(row["notable_id"]) for row in events],
-                "start": min(float(event["time"]) for event in evidence),
-                "end": max(float(event["time"]) for event in evidence),
-                "links": links,
-                "evidence": sorted(
-                    evidence, key=lambda event: (event["time"], event["host"], event["source"])
-                ),
+        case = {
+            "case_id": case_id,
+            "anchor_entity": _anchor_label(seed_ids_out, by_seed),
+            "score": score,
+            "seed_notables": seed_ids_out,
+            "related_notables": [str(row["notable_id"]) for row in events],
+            "start": min(float(event["time"]) for event in evidence),
+            "end": max(float(event["time"]) for event in evidence),
+            "links": links,
+            "evidence": sorted(
+                evidence, key=lambda event: (event["time"], event["host"], event["source"])
+            ),
+        }
+        event_seed_counts: list[int] = []
+        event_generator_counts: list[int] = []
+        supported_seed_ids: set[str] = set()
+        for event in events:
+            supported = {
+                str(link["seed_id"])
+                for link in event["relations"]
+                if str(link.get("seed_id")) in seed_set
             }
+            supported_seed_ids.update(supported)
+            event_seed_counts.append(len(supported))
+            event_generators = {_seed_generator(by_seed[seed_id]) for seed_id in supported}
+            event_generator_counts.append(len(event_generators - {""}))
+        source_shares = [_seed_source_share(by_seed[seed_id]) for seed_id in supported_seed_ids]
+        ordered_cases.append(
+            (
+                _case_order(
+                    case,
+                    float(median(event_generator_counts)),
+                    float(median(event_seed_counts)),
+                    max(source_shares, default=1.0),
+                ),
+                case,
+            )
         )
-    return sorted(cases, key=_case_order)
+    return [case for _, case in sorted(ordered_cases, key=lambda item: item[0])]
 
 
 def relate_stage(*, out: Path, search: Search, judged_only: bool = False) -> dict[str, Any]:
