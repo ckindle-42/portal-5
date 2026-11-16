@@ -36,7 +36,8 @@ class _Search:
                 "source": "/var/log/auth.log",
                 "sourcetype": "auth",
                 "_cd": "1:42",
-            }
+            },
+            {"_raw": "missing event identity fields"},
         ]
 
 
@@ -97,6 +98,8 @@ def test_relate_reads_top_entities_concurrently_and_writes_case_evidence(tmp_pat
     assert result["cases"][0]["evidence"][0]["source"] == "/var/log/auth.log"
     assert result["cases"][0]["links"][0]["shared_entities"] == ["alice", "shell"]
     assert len(result["cases"][0]["seed_notables"]) == 2
+    assert receipt["coverage_complete"] is False
+    assert sum(item["unreferenced_events"] for item in receipt["coverage"]) == 3
 
 
 def test_relate_rejects_nontraining_indexes_before_reading(tmp_path: Path) -> None:

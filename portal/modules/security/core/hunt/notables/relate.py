@@ -174,18 +174,11 @@ def _gather(
         seed = detail["seed"]
         entity = detail["entity"]
         query = str(detail["query"])
-        coverage.append(
-            {
-                "seed_id": seed["id"],
-                "query": query,
-                "rows": len(outcome.rows),
-                "reason": outcome.reason,
-                "capped": len(outcome.rows) >= MAX_EVENTS_PER_QUERY,
-            }
-        )
+        unreferenced = 0
         for row in outcome.rows:
             identity = _event_identity(row)
             if identity is None:
+                unreferenced += 1
                 continue
             item = candidates.setdefault(
                 identity, {"row": dict(row), "supports": {}, "time": identity[2]}
@@ -204,6 +197,16 @@ def _gather(
             delta = abs(identity[2] - float(seed["center"]))
             support["delta"] = delta if support["delta"] is None else min(support["delta"], delta)
             support["query"] = query
+        coverage.append(
+            {
+                "seed_id": seed["id"],
+                "query": query,
+                "rows": len(outcome.rows),
+                "reason": outcome.reason,
+                "capped": len(outcome.rows) >= MAX_EVENTS_PER_QUERY,
+                "unreferenced_events": unreferenced,
+            }
+        )
     return candidates, coverage
 
 
@@ -364,7 +367,9 @@ def relate_stage(*, out: Path, search: Search) -> dict[str, Any]:
         "cases": len(cases),
         "seconds": round(time.monotonic() - began, 3),
         "coverage_complete": bool(coverage)
-        and not any(row["reason"] or row["capped"] for row in coverage),
+        and not any(
+            row["reason"] or row["capped"] or row["unreferenced_events"] for row in coverage
+        ),
         "coverage": coverage,
         "executor": snapshot,
     }
