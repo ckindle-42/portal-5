@@ -25,7 +25,7 @@ from ..executor import (
     HuntSearchFailedError,
 )
 from .behaviours import MAX_TERMS, IdentityPlan, _query_terms, _quote, behaviour_key
-from .cards import SourceCard
+from .cards import SourceCard, card_consumers
 from .embedding import EmbeddingError, embedding_from_env, embedding_requirement
 from .generators import behaviour_words
 from .knowledge import PROOF_INDEXES, KnowledgeError, KnowledgeItem, build_store
@@ -128,7 +128,7 @@ def _plans(cards_dir: Path) -> dict[str, list[tuple[SourceCard, IdentityPlan]]]:
     grouped: dict[str, list[tuple[SourceCard, IdentityPlan]]] = {}
     for card in load_cards(cards_dir):
         summary = overrides.get(card.card_id)
-        if not isinstance(summary, Mapping) or not card.usable:
+        if not isinstance(summary, Mapping) or "manifest" not in card_consumers(card):
             continue
         actor = summary.get("actor") or {}
         action = summary.get("action") or {}

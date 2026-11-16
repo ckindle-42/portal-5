@@ -215,12 +215,26 @@ def test_a_low_variety_field_that_selects_the_field_set_splits_the_source():
 
 
 def test_build_cards_gives_each_structure_its_own_card(tmp_path):
-    answer = json.dumps({"kind": "activity", "actor": ["src"], "action": []})
+    class _MixedClient:
+        def complete(self, **request: object) -> dict[str, object]:
+            messages = request.get("messages", [])
+            prompt = "\n".join(
+                str(message.get("content") or "")
+                for message in messages
+                if isinstance(message, dict)
+            )
+            answer = (
+                {"kind": "alert", "actor": ["src"], "action": ["sig"]}
+                if "- sig present=" in prompt
+                else {"kind": "activity", "actor": ["src"], "action": ["bytes"]}
+            )
+            return {"choices": [{"message": {"content": json.dumps(answer)}}]}
+
     cards = build_cards(
         _facts(),
         _mixed_rows(),
         windows=1,
-        client=_Client(answer),
+        client=_MixedClient(),  # type: ignore[arg-type]
         model="seat",
         cache=CardCache(tmp_path),
     )
@@ -230,6 +244,7 @@ def test_build_cards_gives_each_structure_its_own_card(tmp_path):
     assert len({card.card_id for card in cards}) == 2
     assert all(card.understood for card in cards)
     assert [len(card.fields) for card in cards] == [3, 4]
+    assert {card.part_value: card.kind for card in cards} == {"alert": "alert", "flow": "activity"}
 
 
 _SYSLOG = [

@@ -33,6 +33,13 @@ from .sample import SourceFacts
 
 KINDS = ("activity", "alert", "measurement", "other")
 ROLES = ("actor", "action", "object", "from", "to", "outcome")
+CARD_KIND_CONSUMERS = {
+    "activity": frozenset({"behaviours", "peer_rare", "similar_to_known", "manifest"}),
+    "alert": frozenset({"alerts"}),
+    "measurement": frozenset(),
+    "other": frozenset(),
+}
+ROLE_CONSUMERS = frozenset({"behaviours", "peer_rare", "similar_to_known", "manifest"})
 MAX_ANSWER_TOKENS = 300  # effort budget: one compact JSON answer per source
 MAX_ANSWER_CHARS = 4000  # effort budget: characters read from one model answer
 MAX_BASIS_CHARS = 240  # effort budget: the model's own reason kept on the card
@@ -135,7 +142,7 @@ class SourceCard:
     @property
     def usable(self) -> bool:
         """An activity source with an actor or action role can carry behaviours."""
-        return self.understood and self.kind == "activity" and bool(self.roles)
+        return "behaviours" in card_consumers(self)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -174,6 +181,14 @@ class SourceCard:
             "cache_key": self.cache_key,
             "template": self.template_model.to_dict() if self.template_model else None,
         }
+
+
+def card_consumers(card: SourceCard) -> frozenset[str]:
+    """The downstream consumers permitted by one understood card kind and its roles."""
+    if not card.understood:
+        return frozenset()
+    consumers = CARD_KIND_CONSUMERS.get(card.kind, frozenset())
+    return consumers if card.roles else consumers - ROLE_CONSUMERS
 
 
 class CardCache:

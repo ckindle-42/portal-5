@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from .behaviours import Behaviour
-from .cards import SourceCard
+from .cards import SourceCard, card_consumers
 from .embedding import PipelineEmbeddingClient, embed_batches
 from .generators import Notable, _behaviour_words, _make
 from .knowledge import LoadedKnowledge, _unit_vector, load_for_run
@@ -204,10 +204,21 @@ def _ranked_notables(
     reliability: Mapping[str, Any],
 ) -> list[Notable]:
     """Make the strongest measured known-bad similarities into normal notable records."""
-    source_kinds = {card.source_id: card.kind for card in cards}
-    missing = sorted({item.source_id for item in behaviours} - source_kinds.keys())
-    if missing or any(source_kinds[item.source_id] != "activity" for item in behaviours):
-        raise SimilarityError(f"behaviour source has no activity card: {missing[:3]}")
+    kinds_by_source: dict[str, set[str]] = defaultdict(set)
+    eligible_sources: set[str] = set()
+    for card in cards:
+        kinds_by_source[card.source_id].add(card.kind)
+        if "similar_to_known" in card_consumers(card):
+            eligible_sources.add(card.source_id)
+    invalid = sorted({item.source_id for item in behaviours} - eligible_sources)
+    if invalid:
+        invalid_details = [
+            f"{source} (kinds: {', '.join(sorted(kinds_by_source[source])) or 'none'})"
+            for source in invalid[:3]
+        ]
+        raise SimilarityError(
+            "behaviour sources need an activity card with roles: " + "; ".join(invalid_details)
+        )
     score_mode = str(reliability["score"])
     ranked: list[tuple[float, int, Behaviour]] = []
     for index, behaviour in enumerate(behaviours):

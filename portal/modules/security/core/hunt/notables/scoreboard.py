@@ -12,15 +12,16 @@ import json
 import re
 import sys
 import time
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .cards import CARD_KIND_CONSUMERS, card_consumers
 from .knowledge import PROOF_INDEXES
 from .receipt import read_json
-from .run import GENERATORS, NOTABLES_FILE, SOURCES_FILE
+from .run import GENERATORS, NOTABLES_FILE, SOURCES_FILE, card_from_dict
 
 QUIET_MAX_LINES = 250  # statement §6: quiet steps are 1 to about 250 labelled lines
 CUTS: tuple[int | None, ...] = (50, 100, None)
@@ -220,6 +221,23 @@ def _run_index(directory: Path) -> tuple[str, set[str]]:
         for name in (card.get("facts") or {}).get("sources") or ()
     }
     return str(payload.get("index") or ""), sources
+
+
+def _card_contract(directory: Path) -> dict[str, Any]:
+    payload = read_json(directory / SOURCES_FILE)
+    cards = [card_from_dict(raw) for raw in payload.get("cards") or () if isinstance(raw, Mapping)]
+    by_kind = Counter(card.kind for card in cards)
+    consumer_names = sorted(
+        {consumer for routes in CARD_KIND_CONSUMERS.values() for consumer in routes}
+    )
+    return {
+        "cards": len(cards),
+        "by_kind": dict(sorted(by_kind.items())),
+        "consumers": {
+            consumer: sorted(card.card_id for card in cards if consumer in card_consumers(card))
+            for consumer in consumer_names
+        },
+    }
 
 
 def _check_family(index: str, keys: Sequence[KeyLine], run_sources: set[str]) -> None:
@@ -529,6 +547,7 @@ def _family(
     return {
         "family": family,
         "index": index,
+        "card_contract": _card_contract(directory),
         "rule": RULE,
         "keys": {
             "file": str(keys_path),

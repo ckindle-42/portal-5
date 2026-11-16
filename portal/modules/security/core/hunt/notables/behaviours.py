@@ -13,7 +13,7 @@ import duckdb
 
 from ..engine import _literal_term_segments
 from ..executor import HuntExecutor
-from .cards import SourceCard
+from .cards import SourceCard, card_consumers
 from .parse import parse_row
 from .sample import (
     BEHAVIOUR_SOURCES,
@@ -518,7 +518,11 @@ def collect_behaviours(
     """Read each activity source once, key each structure's events, and count on DuckDB."""
     began = time.monotonic()
     grouped = _source_groups(cards)
-    usable_sources = sum(1 for group in grouped.values() if any(card.usable for card in group))
+    usable_sources = sum(
+        1
+        for group in grouped.values()
+        if any("behaviours" in card_consumers(card) for card in group)
+    )
     skipped: list[dict[str, Any]] = []
     receipts: list[dict[str, Any]] = []
     overrides: dict[str, dict[str, Any]] = {}
@@ -531,7 +535,7 @@ def collect_behaviours(
         create_events(con)
         scheduled: list[tuple[str, list[SourceCard], list[SourceCard], SourceFacts, float]] = []
         for source_id, group in grouped.items():
-            usable = [card for card in group if card.usable]
+            usable = [card for card in group if "behaviours" in card_consumers(card)]
             if not usable:
                 skipped.extend(
                     {

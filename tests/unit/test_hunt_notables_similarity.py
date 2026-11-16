@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 import httpx
+import pytest
 
 from portal.modules.security.core.hunt.notables.__main__ import _parser
 from portal.modules.security.core.hunt.notables.behaviours import Behaviour
@@ -14,7 +16,11 @@ from portal.modules.security.core.hunt.notables.judge_notables import notable_pr
 from portal.modules.security.core.hunt.notables.knowledge import KnowledgeItem, build_store
 from portal.modules.security.core.hunt.notables.pipeline import BackendPinnedClient
 from portal.modules.security.core.hunt.notables.run import _judge_order
-from portal.modules.security.core.hunt.notables.similar import generate_similar
+from portal.modules.security.core.hunt.notables.similar import (
+    SimilarityError,
+    _ranked_notables,
+    generate_similar,
+)
 
 
 class _Embedder:
@@ -96,7 +102,7 @@ def _card() -> SourceCard:
         index="run",
         sourcetype="activity",
         kind="activity",
-        roles={},
+        roles={"actor": ("user",), "action": ("action",)},
         understood=True,
         reason=None,
         fmt="json",
@@ -137,6 +143,33 @@ def test_similarity_uses_family_filtered_store_and_returns_labelled_matches(tmp_
     prompt = notable_prompt(notables[0].as_dict())
     assert "generator reliability (measured AUC): 1.000" in prompt
     assert "nearest known items:" in prompt
+
+
+def test_similarity_accepts_activity_part_when_source_has_measurement_part(tmp_path: Path) -> None:
+    store = tmp_path / "knowledge.duckdb"
+    embedder = _Embedder()
+    build_store(_knowledge_items(), embedder, store)
+    measurement = replace(_card(), kind="measurement", roles={})
+
+    notables, receipt = generate_similar(
+        [_behaviour()],
+        [_card(), measurement],
+        store_path=store,
+        run_index="kyoushi",
+        expected_family="kyoushi",
+        allowed_families=("ait_a", "ait_b", "kyoushi"),
+        embedder=embedder,  # type: ignore[arg-type]
+    )
+
+    assert receipt["scored"] == 1
+    assert notables[0].generator == "similar_to_known"
+
+
+def test_similarity_error_names_source_and_actual_card_kind() -> None:
+    measurement = replace(_card(), kind="measurement", roles={})
+
+    with pytest.raises(SimilarityError, match=r"run:activity.*measurement"):
+        _ranked_notables(None, [_behaviour()], [measurement], {}, {"score": "known_bad"})  # type: ignore[arg-type]
 
 
 def test_known_good_is_used_only_when_its_measured_auc_improves(tmp_path: Path) -> None:

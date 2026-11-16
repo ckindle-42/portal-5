@@ -476,6 +476,7 @@ def test_json_output_carries_the_rule_and_every_section(
     assert set(family) == {
         "family",
         "index",
+        "card_contract",
         "rule",
         "keys",
         "notables",
@@ -489,6 +490,57 @@ def test_json_output_carries_the_rule_and_every_section(
     assert family["steps"][0]["step"] == "dirb"
     assert family["judge"]["auc"] is None  # one class only: no separation to report
     assert family["rule"].startswith("a notable covers a labelled line")
+
+
+def test_scoreboard_reports_consumers_for_mixed_source_cards(tmp_path: Path) -> None:
+    source = "/suricata/eve.json"
+    run = _run(
+        tmp_path,
+        notables=[_notable("alerts", source, ["ET scan"], content_key="alert")],
+        keys=_keys(source, "sensor", {1: ["scan"]}),
+        files={("sensor", source): [_line("10.0.0.5", "/scan")]},
+    )
+    cards = [
+        {
+            "index": "idx",
+            "sourcetype": "eve.json",
+            "kind": "activity",
+            "understood": True,
+            "roles": {"actor": ["src"], "action": ["proto"]},
+            "part": {"field": "event_type", "value": "flow"},
+        },
+        {
+            "index": "idx",
+            "sourcetype": "eve.json",
+            "kind": "alert",
+            "understood": True,
+            "roles": {"actor": ["src"], "action": ["sig"]},
+            "part": {"field": "event_type", "value": "alert"},
+        },
+        {
+            "index": "idx",
+            "sourcetype": "eve.json",
+            "kind": "measurement",
+            "understood": True,
+            "roles": {},
+            "part": {"field": "event_type", "value": "stats"},
+        },
+    ]
+    (run / "sources.json").write_text(
+        json.dumps({"index": "idx", "cards": cards}), encoding="utf-8"
+    )
+
+    family = score(
+        run,
+        [str(run / "keys.jsonl")],
+        logs=tmp_path / "corpus" / "fam" / "gather",
+    )["families"][0]
+
+    assert family["card_contract"]["by_kind"] == {"activity": 1, "alert": 1, "measurement": 1}
+    assert family["card_contract"]["consumers"]["alerts"] == ["idx:eve.json#event_type=alert"]
+    assert family["card_contract"]["consumers"]["similar_to_known"] == [
+        "idx:eve.json#event_type=flow"
+    ]
 
 
 def test_event_time_reads_the_shapes_the_ingest_writes() -> None:

@@ -14,7 +14,7 @@ from typing import Any
 from ..engine import _literal_term_segments
 from ..executor import HuntExecutor
 from .behaviours import Behaviour
-from .cards import SourceCard
+from .cards import SourceCard, card_consumers
 from .parse import parse_row
 from .sample import BEHAVIOUR_SOURCES, SourceFacts, read_windows, route_filter, window_bounds
 
@@ -201,7 +201,7 @@ def _alert_rows(
     notes: list[str] = []
     sources: dict[str, list[SourceCard]] = {}
     for card in cards:
-        if card.understood and card.kind == "alert":
+        if "alerts" in card_consumers(card):
             sources.setdefault(card.source_id, []).append(card)
     scheduled: list[
         tuple[str, list[SourceCard], SourceFacts, float, list[tuple[float, float]]]

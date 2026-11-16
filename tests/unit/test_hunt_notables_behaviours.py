@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import duckdb
 
 from portal.modules.security.core.hunt.executor import Read
@@ -294,6 +296,45 @@ class _RowsExecutor:
     ) -> Read:
         del query, start, end, kind, row_cap
         return Read([dict(row) for row in self.rows], False, None)
+
+
+def test_behaviours_use_only_activity_part_of_a_mixed_source(tmp_path):
+    activity = replace(
+        _card({"actor": ("src",), "action": ("proto",), "object": ("dst",)}),
+        part_field="event_type",
+        part_value="flow",
+    )
+    alert = replace(
+        activity,
+        kind="alert",
+        roles={"actor": ("src",), "action": ("sig",)},
+        part_value="alert",
+    )
+    measurement = replace(activity, kind="measurement", roles={}, part_value="stats")
+    rows = [
+        {
+            "_raw": '{"event_type":"flow","src":"a","proto":"TCP","dst":"b"}',
+            "_time": 1.0,
+            "host": "h1",
+        },
+        {
+            "_raw": '{"event_type":"flow","src":"a","proto":"TCP","dst":"b"}',
+            "_time": 3601.0,
+            "host": "h1",
+        },
+        {"_raw": '{"event_type":"alert","src":"a","sig":"scan"}', "_time": 2.0, "host": "h1"},
+        {"_raw": '{"event_type":"stats","cpu":"0.4"}', "_time": 3.0, "host": "h1"},
+    ]
+
+    behaviours, receipt = collect_behaviours(
+        _RowsExecutor(rows),  # type: ignore[arg-type]
+        [activity, alert, measurement],
+        {"ix:st": SourceFacts("ix", "st", 4, 0.0, 7200.0, ("h1",), 1, ("s1",), 1)},
+        tmp_path / "mixed.duckdb",
+    )
+
+    assert [(item.action, item.object) for item in behaviours] == [("TCP", "b")]
+    assert [item["card_id"] for item in receipt["receipts"]] == [activity.card_id]
 
 
 def test_each_source_reports_behaviours_and_singletons(tmp_path):

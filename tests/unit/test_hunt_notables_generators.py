@@ -116,6 +116,61 @@ def test_alerts_raise_one_notable_per_distinct_alert_and_entity():
     assert [item.notable_id for item in again] == [item.notable_id for item in notables]
 
 
+def test_alerts_route_the_alert_part_of_a_mixed_source():
+    activity = SourceCard(
+        index="ix",
+        sourcetype="eve.json",
+        kind="activity",
+        roles={"actor": ("src",), "action": ("proto",)},
+        understood=True,
+        reason=None,
+        fmt="json",
+        coverage=1.0,
+        fields=(),
+        sample={},
+        facts={},
+        model={},
+        cache_key="activity",
+        part_field="event_type",
+        part_value="flow",
+    )
+    alert = SourceCard(
+        index="ix",
+        sourcetype="eve.json",
+        kind="alert",
+        roles={"actor": ("src",), "action": ("sig",)},
+        understood=True,
+        reason=None,
+        fmt="json",
+        coverage=1.0,
+        fields=(),
+        sample={},
+        facts={},
+        model={},
+        cache_key="alert",
+        part_field="event_type",
+        part_value="alert",
+    )
+    facts = SourceFacts("ix", "eve.json", 2, 0.0, 60.0, ("h1",), 1, ("s1",), 1)
+    rows = [
+        {
+            "_raw": json.dumps({"event_type": "flow", "src": "a", "proto": "TCP"}),
+            "_time": 10.0,
+            "host": "h1",
+        },
+        {
+            "_raw": json.dumps({"event_type": "alert", "src": "a", "sig": "ET scan"}),
+            "_time": 20.0,
+            "host": "h1",
+        },
+    ]
+
+    notables, receipt = alerts(_Executor(rows), [activity, alert], {"ix:eve.json": facts})
+
+    assert [item.what for item in notables] == ["alert ET scan on a"]
+    assert receipt["sources"][0]["card_id"] == alert.card_id
+
+
 def test_peer_rare_orders_by_share_of_possible_hosts_and_actors():
     behaviours = [
         _behaviour("ix:st", "common", hosts=4, actors=4, events=10, first=1.0),
