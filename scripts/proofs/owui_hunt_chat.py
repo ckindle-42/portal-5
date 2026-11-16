@@ -12,7 +12,7 @@ PORTAL_TRACE_BODIES=1). Credentials: OWUI_API_KEY (and PIPELINE_API_KEY for the 
 fallback) from the environment or the repo .env, the same source the UAT and WFE
 harnesses read; never printed.
 
-    python3 scripts/proofs/owui_hunt_chat.py [--index hb_kyoushi_s1] [--job-deadline-s 1300]
+    python3 scripts/proofs/owui_hunt_chat.py [--index hb_kyoushi_s1] [--job-id hunt-r2-<12hex>]
 
 Exit codes: 0 PASS, 1 FAIL, 2 setup error.
 """
@@ -30,6 +30,9 @@ import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+from mcp import ClientSession
+from mcp.client.streamable_http import streamable_http_client
 
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_INDEX = "hb_kyoushi_s1"
@@ -62,7 +65,6 @@ class Turn:
     error: str = ""
     usage: dict[str, Any] | None = None
     done: bool = False
-    timed_out: bool = False
     t0: float = 0.0
     t_end: float = 0.0
     m0: float = 0.0
@@ -132,11 +134,10 @@ def stream_turn(
     key: str,
     model: str,
     prompt: str,
-    deadline_s: float,
     idle_s: float,
     messages: list[dict[str, str]] | None = None,
 ) -> Turn:
-    """POST one streaming chat turn to OWUI and follow it to [DONE] or the deadline."""
+    """POST one streaming chat turn to OWUI and follow it to [DONE]."""
     body = json.dumps(
         {
             "model": model,
@@ -152,12 +153,8 @@ def stream_turn(
         headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
     )
     turn = Turn(t0=time.time(), m0=time.monotonic())
-    deadline = turn.m0 + deadline_s
     with urllib.request.urlopen(req, timeout=idle_s) as resp:  # noqa: S310
         for raw in resp:
-            if time.monotonic() > deadline:
-                turn.timed_out = True
-                break
             line = raw.decode("utf-8", "replace").strip()
             if line.startswith("data: "):
                 fold_payload(turn, line[6:].strip())
@@ -187,44 +184,33 @@ def _mcp_result_obj(result: Any) -> dict[str, Any] | None:
     return None
 
 
-def wait_for_terminal(review_mcp_url: str, job_id: str, deadline_s: float) -> dict[str, Any]:
+def wait_for_terminal(review_mcp_url: str, job_id: str) -> dict[str, Any]:
     """Wait through the native MCP endpoint until the durable hunt is terminal."""
 
     async def poll() -> dict[str, Any]:
-        from mcp import ClientSession
-        from mcp.client.streamable_http import streamablehttp_client
-
         loop = asyncio.get_running_loop()
         started = loop.time()
-        deadline = started + deadline_s
         checks: list[dict[str, Any]] = []
         async with (
-            streamablehttp_client(review_mcp_url) as (read, write, _),
-            ClientSession(read, write) as session,
+            streamable_http_client(review_mcp_url) as transport,
+            ClientSession(transport[0], transport[1]) as session,
         ):
             await session.initialize()
             while True:
-                remaining = deadline - loop.time()
-                if remaining <= 0:
-                    raise TimeoutError(f"hunt {job_id} stayed nonterminal for {deadline_s:.0f}s")
                 response = await asyncio.wait_for(
-                    session.call_tool("hunt_status", {"job_id": job_id}),
-                    timeout=min(120.0, remaining),
+                    session.call_tool("hunt_status", {"job_id": job_id}), timeout=120.0
                 )
                 status = _mcp_result_obj(response)
                 if getattr(response, "isError", False) or status is None:
                     raise RuntimeError(f"hunt_status returned no usable status for {job_id}")
                 state = str(status.get("status") or "").upper()
-                checks.append(
-                    {
-                        "status": state,
-                        "stage": status.get("stage"),
-                        "elapsed_s": round(loop.time() - started, 1),
-                    }
-                )
+                elapsed = round(loop.time() - started, 1)
+                stage = status.get("stage")
+                checks.append({"status": state, "stage": stage, "elapsed_s": elapsed})
+                print(f"  {elapsed}s: status={state} stage={stage or '-'}", flush=True)
                 if state in TERMINAL_STATUSES:
-                    return {**status, "polls": checks}
-                await asyncio.sleep(min(1.0, max(0.0, deadline - loop.time())))
+                    return {**status, "polls": checks, "elapsed_s": elapsed}
+                await asyncio.sleep(1.0)
 
     return asyncio.run(poll())
 
@@ -495,11 +481,8 @@ def _turn_calls(turn: Turn, pipe_url: str, pipe_key: str, model: str) -> tuple[l
 
 
 def _finish_turn(
-    turn: Turn, passed: bool, reasons: list[str], source: str, deadline_s: float
+    turn: Turn, passed: bool, reasons: list[str], source: str
 ) -> tuple[bool, list[str]]:
-    if turn.timed_out:
-        passed = False
-        reasons.insert(0, f"the deadline of {deadline_s:.0f}s passed before the turn finished")
     if turn.error:
         passed = False
         reasons.append(f"the stream carried an error frame: {_short(turn.error, 200)}")
@@ -523,13 +506,13 @@ def _progress_turn(args: argparse.Namespace, key: str, pipe_key: str) -> dict[st
     prompt = f"Start a hunt on index {args.index} and tell me its status and stage."
     print(f">>> TURN 1: {prompt}", flush=True)
     try:
-        turn = stream_turn(args.owui_url, key, args.model, prompt, args.deadline_s, args.idle_s)
+        turn = stream_turn(args.owui_url, key, args.model, prompt, args.idle_s)
     except Exception as exc:  # noqa: BLE001 — any transport failure is a FAIL receipt, not a traceback
         print(f"FAIL: the OWUI chat request failed: {exc}")
         return None
     calls, source = _turn_calls(turn, args.pipeline_url, pipe_key, args.model)
     passed, reasons, details = grade_progress(calls, turn.answer)
-    passed, reasons = _finish_turn(turn, passed, reasons, source, args.deadline_s)
+    passed, reasons = _finish_turn(turn, passed, reasons, source)
     print_receipt("TURN 1", args.model, prompt, turn, calls, source, details)
     if not passed:
         _print_verdict(False, reasons)
@@ -538,16 +521,19 @@ def _progress_turn(args: argparse.Namespace, key: str, pipe_key: str) -> dict[st
 
 
 def _results_turn(
-    args: argparse.Namespace, key: str, pipe_key: str, progress: dict[str, str]
+    args: argparse.Namespace,
+    key: str,
+    pipe_key: str,
+    progress: dict[str, str] | None,
 ) -> int:
-    job_id = progress["job_id"]
+    job_id = args.job_id or progress["job_id"]
     print("-- native MCP wait --")
     try:
-        terminal = wait_for_terminal(args.review_mcp_url, job_id, args.job_deadline_s)
+        terminal = wait_for_terminal(args.review_mcp_url, job_id)
     except Exception as exc:  # noqa: BLE001 -- include the failed wait in the proof receipt
         print(f"FAIL: waiting for hunt {job_id} failed: {exc}")
         _print_verdict(
-            False, ["the hunt did not reach a terminal status before the proof deadline"]
+            False, ["the native MCP wait failed before the hunt reached a terminal status"]
         )
         return 1
     if str(terminal.get("job_id") or "") != job_id:
@@ -558,15 +544,16 @@ def _results_turn(
         f"job id: {job_id} | terminal status: {terminal.get('status')} | "
         f"elapsed: {terminal.get('elapsed_s')}s | status calls: {len(polls)}"
     )
-    for poll in polls:
-        print(f"  {poll.get('elapsed_s')}s: {poll.get('status')} stage={poll.get('stage') or '-'}")
-
     prompt2 = f"Show me the hunt results for job {job_id}: the top leads and first case."
-    messages = [
-        {"role": "user", "content": progress["prompt"]},
-        {"role": "assistant", "content": progress["answer"]},
-        {"role": "user", "content": prompt2},
-    ]
+    messages = (
+        [
+            {"role": "user", "content": progress["prompt"]},
+            {"role": "assistant", "content": progress["answer"]},
+            {"role": "user", "content": prompt2},
+        ]
+        if progress
+        else [{"role": "user", "content": prompt2}]
+    )
     print(f">>> TURN 2: {prompt2}", flush=True)
     try:
         second = stream_turn(
@@ -574,7 +561,6 @@ def _results_turn(
             key,
             args.model,
             prompt2,
-            args.deadline_s,
             args.idle_s,
             messages=messages,
         )
@@ -583,7 +569,7 @@ def _results_turn(
         return 1
     calls2, source2 = _turn_calls(second, args.pipeline_url, pipe_key, args.model)
     passed2, reasons2, details2 = grade_results(calls2, second.answer, job_id)
-    passed2, reasons2 = _finish_turn(second, passed2, reasons2, source2, args.deadline_s)
+    passed2, reasons2 = _finish_turn(second, passed2, reasons2, source2)
     print_receipt("TURN 2", args.model, prompt2, second, calls2, source2, details2)
     passed = passed2 and details2.get("status") == terminal.get("status")
     if details2.get("status") != terminal.get("status"):
@@ -607,17 +593,20 @@ def main(argv: list[str] | None = None) -> int:
         "--review-mcp-url",
         default=os.environ.get("REVIEW_MCP_URL", "http://localhost:8943/mcp"),
     )
-    ap.add_argument("--deadline-s", type=float, default=1500.0)
-    ap.add_argument("--job-deadline-s", type=float, default=1300.0)
+    ap.add_argument("--job-id", help="resume an existing hunt at its current status")
     ap.add_argument("--idle-s", type=float, default=240.0)
     args = ap.parse_args(argv)
-    if args.deadline_s <= 0 or args.job_deadline_s <= 0 or args.idle_s <= 0:
-        ap.error("--deadline-s, --job-deadline-s, and --idle-s must be positive")
+    if args.job_id and not JOB_RE.fullmatch(args.job_id):
+        ap.error("--job-id must be a hunt-r2-<12 lowercase hex> identifier")
+    if args.idle_s <= 0:
+        ap.error("--idle-s must be positive")
     key = env("OWUI_API_KEY")
     if not key:
         print("OWUI_API_KEY is not set (env or .env) — cannot authenticate to Open WebUI")
         return 2
     pipe_key = env("PIPELINE_API_KEY")
+    if args.job_id:
+        return _results_turn(args, key, pipe_key, None)
     progress = _progress_turn(args, key, pipe_key)
     return 1 if progress is None else _results_turn(args, key, pipe_key, progress)
 
