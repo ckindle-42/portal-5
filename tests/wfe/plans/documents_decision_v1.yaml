@@ -11,7 +11,9 @@ workloads:
     # Seat since 327b4e06 (operator G1: gemma4-26b BETTER than granite4.1:8b, tied
     # Qwen3.8 at 108/108 and ~5.5x faster).
     arms:
-      incumbent: gemma4:26b-a4b-it-q4_K_M-ctx32k
+      # 2026-11-13: the plain ctx32k incumbent tag was removed from the fleet; the
+      # seat is the QAT ctx32k tag (2026-11-06 documents-seat move).
+      incumbent: gemma4:26b-a4b-it-qat-ctx32k
       challengers:
         - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
         - granite4.1:30b-ctx96k

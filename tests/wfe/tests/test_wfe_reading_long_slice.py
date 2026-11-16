@@ -225,10 +225,10 @@ def test_the_plan_arms_are_served_by_the_workspaces_group_at_the_seats_window():
     assert plan["tool_mode"] == ref["tool_mode"] and plan["home"] == "reading_long_production"
     assert portal["model_hint"] in [arms["incumbent"], *arms["challengers"]]
     assert arms["incumbent"] == ref["arms"]["incumbent"]
-    assert plan["discovery"] == [] and len(arms["challengers"]) == 1
+    # 2026-11-13: the planned Qwen3.8-27B 128k challenger tag was removed from the
+    # fleet, so the long screen is incumbent-only until a replacement is decided.
+    assert plan["discovery"] == [] and arms["challengers"] == []
     for tag in [arms["incumbent"], *arms["challengers"]]:
-        if tag == "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx128k" and tag not in served:
-            pytest.skip(f"{tag}: not registered in config/backends.yaml yet (plan TODO)")
         assert tag in served, tag
         window = int(re.search(r"ctx(\d+)k", tag).group(1)) * 1024
         assert window >= portal["context_limit"], (tag, window)

@@ -9,8 +9,10 @@ import os
 import signal
 import sqlite3
 import sys
+import time
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import Mock
 from urllib.parse import parse_qs, urlsplit
@@ -24,6 +26,7 @@ from portal.modules.coding.tools import code_sandbox_mcp as sandbox_mcp
 from portal.modules.orchestration import service as service_module
 from portal.modules.orchestration import shadow as shadow_module
 from portal.modules.orchestration import tools as orchestration_tools
+from portal.modules.orchestration import worker as worker_module
 from portal.modules.orchestration.contracts import parse_plan
 from portal.modules.orchestration.ledger import ArmLedger, ResumeMismatchError
 from portal.modules.orchestration.planner import instantiate_plan_template, validate_execution_plan
@@ -416,9 +419,21 @@ def _patch_shadow_clock(monkeypatch: pytest.MonkeyPatch) -> list[float]:
         slept.append(seconds)
         state["now"] += seconds
 
-    monkeypatch.setattr(shadow_module.time, "monotonic", monotonic)
-    monkeypatch.setattr(shadow_module.time, "sleep", sleep)
+    monkeypatch.setattr(shadow_module, "time", SimpleNamespace(monotonic=monotonic, sleep=sleep))
+    monkeypatch.setattr(
+        worker_module,
+        "time",
+        SimpleNamespace(monotonic=monotonic, time=time.time),
+    )
     return slept
+
+
+def test_shadow_clock_patch_does_not_change_process_time(monkeypatch: pytest.MonkeyPatch) -> None:
+    monotonic = time.monotonic
+    sleep = time.sleep
+    _patch_shadow_clock(monkeypatch)
+    assert time.monotonic is monotonic
+    assert time.sleep is sleep
 
 
 def _shadow_job(tmp_path: Path, *, wait_seconds: float = 30) -> dict[str, Any]:

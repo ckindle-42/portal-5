@@ -32,6 +32,7 @@ Usage:
   uv run python scripts/engine_autoupdate.py            # the daily job
   uv run python scripts/engine_autoupdate.py --now      # update now if behind
   uv run python scripts/engine_autoupdate.py --dry-run  # say what it would do
+  uv run python scripts/engine_autoupdate.py --help     # usage, then exit (no engine contact)
   --allow-prerelease   also install rc/beta releases (oMLX's tap ships
                        0.7.0rc1 as "stable"; the default skips it)
 State: ~/.portal5/engine_update.json. Log: stdout (launchd log file).
@@ -604,9 +605,54 @@ def update_engine(engine: str, state: dict, dry_run: bool, allow_prerelease: boo
     return _record_rollback(engine, old, new, state, entry, rc, rc_old, tcc)
 
 
+_USAGE = """\
+usage: engine_autoupdate.py [--now] [--dry-run] [--allow-prerelease] [ollama|omlx ...]
+
+Daily launchd job (no arguments): re-prove the engine contract when a version
+changed, and update weekly. Rejected arguments exit before any engine contact.
+
+  --now                update now if behind
+  --dry-run            say what an update would do, without installing
+  --allow-prerelease   also install rc/beta releases
+  --help               print this usage and exit
+  ollama, omlx         limit the run to those engines (default: both)
+"""
+_KNOWN_FLAGS = frozenset({"--now", "--dry-run", "--allow-prerelease"})
+_ENGINE_NAMES = ("ollama", "omlx")
+
+
+def _parse_args(argv: list[str]) -> tuple[bool, bool, bool, list[str]]:
+    """Return (now, dry_run, allow_prerelease, engines). SystemExit on help or bad args."""
+    if "--help" in argv or "-h" in argv:
+        print(_USAGE, end="")
+        raise SystemExit(0)
+    flags = [a for a in argv if a.startswith("-")]
+    engines = [a for a in argv if not a.startswith("-")]
+    unknown_flags = [a for a in flags if a not in _KNOWN_FLAGS]
+    unknown_engines = [a for a in engines if a not in _ENGINE_NAMES]
+    if unknown_flags or unknown_engines:
+        parts: list[str] = []
+        if unknown_flags:
+            parts.append("unknown flag: " + ", ".join(unknown_flags))
+        if unknown_engines:
+            parts.append("unknown engine: " + ", ".join(unknown_engines))
+        print("engine_autoupdate: " + "; ".join(parts), file=sys.stderr)
+        print(_USAGE, file=sys.stderr, end="")
+        raise SystemExit(2)
+    return (
+        "--now" in flags,
+        "--dry-run" in flags,
+        "--allow-prerelease" in flags,
+        engines or list(_ENGINE_NAMES),
+    )
+
+
 def main(argv: list[str]) -> int:
-    now, dry_run = "--now" in argv, "--dry-run" in argv
-    engines = [a for a in argv if not a.startswith("-")] or ["ollama", "omlx"]
+    try:
+        now, dry_run, allow_prerelease, engines = _parse_args(argv)
+    except SystemExit as exc:
+        code = exc.code
+        return code if isinstance(code, int) else 0
     state = _state()
     who = busy()
     if who:
@@ -628,7 +674,7 @@ def main(argv: list[str]) -> int:
         if due or engine in security:
             if engine in security and not due:
                 log(f"{engine}: security-flagged update — not waiting for the weekly window")
-            retry_soon |= update_engine(engine, state, dry_run, "--allow-prerelease" in argv)
+            retry_soon |= update_engine(engine, state, dry_run, allow_prerelease)
     if due and not dry_run and not retry_soon:
         state["last_update_run"] = dt.datetime.now(dt.UTC).isoformat()
     _save(state)

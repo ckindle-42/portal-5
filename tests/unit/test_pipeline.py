@@ -595,6 +595,34 @@ class TestBackendPin:
         )
         assert resp.status_code == 400
 
+    def test_pin_that_does_not_serve_the_hint_is_a_400(self, client, monkeypatch):
+        import portal.platform.inference.router.handlers as handlers_mod
+
+        self._install_fake_registry(monkeypatch)
+        backend = handlers_mod.registry.get_backend_candidates.return_value[0]
+        backend.resolve_model.return_value = None
+        resp = self._post(client, portal_backend="test-backend")
+        assert resp.status_code == 400
+        detail = resp.json()["detail"]
+        hint = WORKSPACES["auto-daily"]["model_hint"]
+        assert "test-backend" in detail and hint in detail
+
+    def test_unpinned_request_is_unchanged_when_the_hint_does_not_resolve(
+        self, client, monkeypatch
+    ):
+        import portal.platform.inference.router.handlers as handlers_mod
+
+        self._install_fake_registry(monkeypatch)
+        backend = handlers_mod.registry.get_backend_candidates.return_value[0]
+        backend.resolve_model.return_value = None
+
+        async def fake_non_streaming(*_args, **_kwargs):
+            return self._ok_response()
+
+        monkeypatch.setattr(handlers_mod, "_try_non_streaming", fake_non_streaming)
+        resp = self._post(client)
+        assert resp.status_code == 200
+
     def test_no_pin_leaves_the_ladder_untouched(self, client, monkeypatch):
         import portal.platform.inference.router.handlers as handlers_mod
 
@@ -609,6 +637,62 @@ class TestBackendPin:
         resp = self._post(client)
         assert resp.status_code == 200
         assert seen and seen[0][0].id == "test-backend"
+
+    def test_a_registered_pin_this_worker_has_not_probed_is_rechecked(self, client, monkeypatch):
+        """Four uvicorn workers each own a registry: worker B may not have run its
+        cycle since the engine came up. The pin re-probes its one backend rather
+        than 400 a ready engine."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        import portal.platform.inference.router.handlers as handlers_mod
+
+        stale = MagicMock()
+        stale.id = "other-backend"
+        backend = MagicMock()
+        backend.id = "slow-backend"
+        backend.group = "eval"
+        backend.models = ["test-model"]
+        backend.resolve_model.return_value = "test-model"
+        registry = MagicMock(spec=BackendRegistry)
+        registry.list_backends.return_value = [backend, stale]
+        registry.get_backend_candidates.side_effect = [[stale], [backend]]
+        registry.refresh_backend_health = AsyncMock(return_value=True)
+        registry.workspace_routes = {}
+        monkeypatch.setattr(handlers_mod, "registry", registry)
+        seen: dict = {}
+
+        async def fake_non_streaming(chosen, body, *_args, **_kwargs):
+            seen["backend"], seen["body"] = chosen.id, body
+            return self._ok_response()
+
+        monkeypatch.setattr(handlers_mod, "_try_non_streaming", fake_non_streaming)
+        resp = self._post(client, portal_backend="slow-backend")
+
+        assert resp.status_code == 200
+        assert seen["backend"] == "slow-backend"
+        registry.refresh_backend_health.assert_awaited_once_with("slow-backend")
+        assert "portal_backend" not in seen["body"]
+
+    def test_a_recheck_that_still_fails_keeps_the_400(self, client, monkeypatch):
+        from unittest.mock import AsyncMock, MagicMock
+
+        import portal.platform.inference.router.handlers as handlers_mod
+
+        stale = MagicMock()
+        stale.id = "other-backend"
+        backend = MagicMock()
+        backend.id = "slow-backend"
+        registry = MagicMock(spec=BackendRegistry)
+        registry.list_backends.return_value = [backend]
+        registry.get_backend_candidates.return_value = [stale]
+        registry.refresh_backend_health = AsyncMock(return_value=False)
+        registry.workspace_routes = {}
+        monkeypatch.setattr(handlers_mod, "registry", registry)
+
+        resp = self._post(client, portal_backend="slow-backend")
+
+        assert resp.status_code == 400
+        assert "slow-backend" in resp.json()["detail"]
 
 
 class TestMetricsEndpoint:

@@ -16,13 +16,14 @@ REPO = Path(__file__).resolve().parents[3]
 # 20261106 moved the auto-daily seat to the Nemotron ctx32k tag, so the gemma
 # QAT-vs-Q4_K_M quant screen no longer screens the lane's seat. No replacement
 # auto-daily next screen is queued yet.
+# general_fast_k2_screen_20261019 retired 2026-11-13: its K2-Horizon ctx96k
+# challenger tag was removed from the fleet, so the screen can never run. No
+# replacement auto-daily::fast next screen is queued yet.
 PLANS = {
     "auto-coding": REPO / "tests/wfe/plans/auto_coding_next_screen_20261019.yaml",
-    "auto-daily::fast": REPO / "tests/wfe/plans/general_fast_k2_screen_20261019.yaml",
 }
 EXPECTED = {
     "auto-coding": ("sandbox", "coding_production", 2),
-    "auto-daily::fast": ("production", "general_production", 1),
 }
 
 

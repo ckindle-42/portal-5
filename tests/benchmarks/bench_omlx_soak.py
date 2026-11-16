@@ -56,11 +56,7 @@ MAX_TOKENS = 800
 # given live telemetry only covers ~7h of mostly-test traffic.
 MODEL_WEIGHTS: dict[str, tuple[str, int]] = {
     "coder": ("Qwen3-Coder-30B-A3B-Instruct-4bit", 34),
-    # oQ4 (unsloth "optimized quant") conversion HTTP 409'd on this oMLX
-    # version: "Received 2 parameters not in model: lm_head.biases,
-    # lm_head.scales" — a real format incompatibility, not a fluke (live
-    # verified). mxfp8 from a different uploader loads and answers cleanly.
-    "granite-8b": ("granite-4.1-8b-mxfp8", 11),
+    # granite-8b (granite-4.1-8b-mxfp8) removed 2026-11-13 with the fleet removal.
     "vulnllm": ("VulnLLM-R-7B-4bit", 10),
     "deepseek-r1": ("DeepSeek-R1-0528-Qwen3-8B-4bit", 9),
     "qwen-vl": ("Qwen3-VL-32B-Instruct-4bit", 8),

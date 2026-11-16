@@ -17,7 +17,7 @@ workloads:
     discovery: []
     arms:
       incumbent: qwen3-coder:30b-a3b-q4_K_M-ctx32k
+      # 2026-11-13: the gemma-4-26b plain ctx32k challenger tag was removed from the fleet.
       challengers:
         - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
         - glm-4.7-flash:Q4_K_M-ctx64k
-        - gemma4:26b-a4b-it-q4_K_M-ctx32k

@@ -179,10 +179,6 @@ def _think_value(body: dict[str, Any]) -> bool | str | None:
     return None
 
 
-def _wants_logprobs_passthrough(body: dict[str, Any]) -> bool:
-    return not body.get("stream") and body.get("logprobs") is True
-
-
 def _tools_for_choice(tools: list[dict[str, Any]], choice: Any) -> list[dict[str, Any]]:
     """Apply ``tool_choice`` the one way /api/chat allows — by what is offered.
 
@@ -235,6 +231,12 @@ def to_native_request(body: dict[str, Any], can_think: bool, renderer: str = "")
     messages = native["messages"]
     if prefill and think is False and messages and messages[-1].get("role") == "tool":
         native["messages"] = [*messages, {"role": "assistant", "content": prefill}]
+    # Non-streaming only: a stream must stay byte-for-byte the pre-logprobs path.
+    if body.get("logprobs") is True and not native["stream"]:
+        native["logprobs"] = True
+        top = body.get("top_logprobs")
+        if isinstance(top, int):
+            native["top_logprobs"] = top
     return native
 
 
@@ -291,6 +293,34 @@ def _envelope(
     }
 
 
+def _content_logprobs(entries: list[Any], content: str) -> list[Any]:
+    """Last token window equal to the answer, so a leading channel marker drops."""
+    items = [entry for entry in entries if isinstance(entry, dict)]
+    if not content:
+        return items
+    best: tuple[int, int] | None = None
+    for start in range(len(items)):
+        acc = ""
+        for end in range(start, len(items)):
+            acc += str(items[end].get("token") or "")
+            if acc == content:
+                best = (start, end + 1)
+            elif len(acc) > len(content) or not content.startswith(acc):
+                break
+    if best is None:
+        return items
+    return items[best[0] : best[1]]
+
+
+def _openai_logprobs(native: dict[str, Any]) -> dict[str, Any] | None:
+    """Native logprobs array -> OpenAI choices[].logprobs.content."""
+    raw = native.get("logprobs")
+    if not isinstance(raw, list):
+        return None
+    content = str((native.get("message") or {}).get("content") or "")
+    return {"content": _content_logprobs(raw, content)}
+
+
 def to_openai_completion(native: dict[str, Any]) -> dict[str, Any]:
     """A non-streamed /api/chat response as a /v1 chat.completion."""
     msg = native.get("message") or {}
@@ -313,6 +343,9 @@ def to_openai_completion(native: dict[str, Any]) -> dict[str, Any]:
         int(time.time()),
         f"chatcmpl-{time.monotonic_ns() % 1000}",
     )
+    logprobs = _openai_logprobs(native)
+    if logprobs is not None:
+        body["choices"][0]["logprobs"] = logprobs
     body["usage"] = _usage(native)
     body["portal_timings"] = normalize_engine_timings(native)
     # portal_timings has no cold-load field. Keep Ollama's native nanoseconds
@@ -422,6 +455,10 @@ async def native_stream_to_sse(
 _ERROR_TYPES = {400: "invalid_request_error", 404: "not_found_error"}
 
 
+# Same limit oMLX raises as InvalidRequestError when the model cannot supply logprobs.
+_OMLX_LOGPROBS_LIMIT = "oMLX engine limit: logprobs is not supported for this model."
+
+
 def _error_body(status: int, raw: bytes) -> bytes:
     """/api/chat errors are {"error": "..."}; /v1's are {"error": {...}}."""
     try:
@@ -435,6 +472,45 @@ def _error_body(status: int, raw: bytes) -> bytes:
         "code": None,
     }
     return json.dumps({"error": err}).encode()
+
+
+def _has_openai_logprobs(raw: bytes) -> bool:
+    try:
+        data = json.loads(raw)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return False
+    choices = data.get("choices") if isinstance(data, dict) else None
+    if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+        return False
+    logprobs = choices[0].get("logprobs")
+    return isinstance(logprobs, dict) and isinstance(logprobs.get("content"), list)
+
+
+def _completion_response(
+    request: httpx.Request, body: dict[str, Any], data: dict[str, Any], raw: bytes
+) -> httpx.Response:
+    if data.get("error"):
+        logger.error("ollama_native: answered with an error: %s", data["error"])
+        return httpx.Response(
+            500,
+            headers={"content-type": "application/json"},
+            content=_error_body(500, raw),
+            request=request,
+        )
+    if body.get("logprobs") is True and not isinstance(data.get("logprobs"), list):
+        missing = json.dumps({"error": "Ollama /api/chat did not return logprobs"}).encode()
+        return httpx.Response(
+            400,
+            headers={"content-type": "application/json"},
+            content=_error_body(400, missing),
+            request=request,
+        )
+    return httpx.Response(
+        200,
+        headers={"content-type": "application/json"},
+        content=json.dumps(to_openai_completion(data)).encode(),
+        request=request,
+    )
 
 
 # ── transport ───────────────────────────────────────────────────────────────
@@ -537,37 +613,17 @@ class OllamaNativeTransport(httpx.AsyncBaseTransport):
             return can, renderer
         return self._shown[key]
 
-    async def _ollama_logprobs(
-        self, request: httpx.Request, base: str, model: str
-    ) -> httpx.Response:
-        """Pass logprob requests through Ollama's /v1 surface, which supplies the field."""
-        release: Callable[[], None] | None = None
-        end: Callable[[], None] | None = None
-        if self._guard is not None:
-            try:
-                release, end = await self._guard.admit_and_begin_ollama(base, model)
-            except LoadRefusedError as exc:
-                return _refused(request, exc)
-        try:
-            response = await self._inner.handle_async_request(request)
-            await response.aread()
-            return response
-        finally:
-            _run_all((release, end))
-
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
         url = str(request.url)
         if request.method != "POST" or not request.url.path.endswith(_CHAT_PATH):
             return await self._inner.handle_async_request(request)
         base = url.split(_CHAT_PATH)[0].rstrip("/")
         if not self._is_ollama(base):
-            if self._guard is not None and self._is_omlx(base):
+            if self._is_omlx(base):
                 return await self._omlx_request(request, self._guard)
             return await self._inner.handle_async_request(request)
 
         body = json.loads(await request.aread() or b"{}")
-        if _wants_logprobs_passthrough(body):
-            return await self._ollama_logprobs(request, base, str(body.get("model", "")))
         can_think, renderer = await self._show(base, str(body.get("model", "")), request.extensions)
         native = to_native_request(body, can_think, renderer)
         native_req = httpx.Request(
@@ -606,48 +662,61 @@ class OllamaNativeTransport(httpx.AsyncBaseTransport):
             raw = await resp.aread()
             await resp.aclose()
             data = json.loads(raw)
-            if data.get("error"):
-                # The engine answered HTTP 200 with a parser abort instead of a reply.
-                logger.error("ollama_native: %s answered with an error: %s", model, data["error"])
-                return httpx.Response(
-                    500,
-                    headers={"content-type": "application/json"},
-                    content=_error_body(500, raw),
-                    request=request,
-                )
         finally:
             _run_all((release, end))
-        return httpx.Response(
-            200,
-            headers={"content-type": "application/json"},
-            content=json.dumps(to_openai_completion(data)).encode(),
-            request=request,
-        )
+        return _completion_response(request, body, data, raw)
 
-    async def _omlx_request(self, request: httpx.Request, guard: LoadGuard) -> httpx.Response:
-        """Pass an oMLX chat request through unchanged, counted as in flight and,
-        when its model is not loaded, serialised with every other cold load."""
+    async def _omlx_request(
+        self, request: httpx.Request, guard: LoadGuard | None
+    ) -> httpx.Response:
+        """Pass an oMLX chat through. A guard counts it in flight; logprobs must come back."""
+        wants_logprobs = False
+        model = ""
         try:
-            model = str(json.loads(await request.aread() or b"{}").get("model", ""))
+            parsed = json.loads(await request.aread() or b"{}")
+            if isinstance(parsed, dict):
+                model = str(parsed.get("model", ""))
+                wants_logprobs = parsed.get("logprobs") is True and not parsed.get("stream")
         except Exception:
             model = ""
-        try:
-            release = await guard.admit_omlx(model)
-        except LoadRefusedError as e:
-            return _refused(request, e)
-        end = guard.begin(OMLX, model)
-        # Hot-seat bookkeeping (P5-OMLX-PREFIX-CACHE-001): every oMLX chat request passes this transport.
-        placement.note_omlx_activity(str(request.url).split("/v1/chat/completions")[0], model)
+        release: Callable[[], None] | None = None
+        end: Callable[[], None] | None = None
+        if guard is not None:
+            try:
+                release = await guard.admit_omlx(model)
+            except LoadRefusedError as e:
+                return _refused(request, e)
+            end = guard.begin(OMLX, model)
+            # Hot-seat bookkeeping (P5-OMLX-PREFIX-CACHE-001): every guarded oMLX chat passes here.
+            placement.note_omlx_activity(str(request.url).split("/v1/chat/completions")[0], model)
         try:
             resp = await self._inner.handle_async_request(request)
+            if not wants_logprobs:
+                return httpx.Response(
+                    resp.status_code,
+                    headers=resp.headers,
+                    stream=_NotifyingStream(resp.stream, release, end),
+                    extensions=resp.extensions,
+                    request=request,
+                )
+            raw = await resp.aread()
+            await resp.aclose()
         except BaseException:
             _run_all((release, end))
             raise
+        _run_all((release, end))
+        if resp.status_code == 200 and not _has_openai_logprobs(raw):
+            # A 200 without the field would be a silent miss. Name the engine limit.
+            return httpx.Response(
+                400,
+                headers={"content-type": "application/json"},
+                content=_error_body(400, json.dumps({"error": _OMLX_LOGPROBS_LIMIT}).encode()),
+                request=request,
+            )
         return httpx.Response(
             resp.status_code,
-            headers=resp.headers,
-            stream=_NotifyingStream(resp.stream, release, end),
-            extensions=resp.extensions,
+            headers={"content-type": "application/json"},
+            content=raw,
             request=request,
         )
 

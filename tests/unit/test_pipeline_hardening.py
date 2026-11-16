@@ -31,6 +31,7 @@ from portal.platform.inference.router.context_inject import (
     _salient_user_text,
 )
 from portal.platform.inference.router.preinject import (
+    _apply_no_tools_request,
     _inject_system_prompt_append,
     append_text_to_content,
 )
@@ -189,6 +190,37 @@ async def test_spaced_json_content_is_not_reported_empty(stream_client) -> None:
     _serve(stream_client, _Resp(200, [spaced, usage, "data: [DONE]"]))
     chunks = await _drain(st._stream_from_backend_guarded("http://x/v1/chat/completions", {}))
     assert "empty response" not in _content(chunks)
+
+
+@pytest.mark.anyio
+async def test_requested_usage_survives_terminal_engine_finish_frame(stream_client) -> None:
+    usage = _data(
+        {
+            "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 12, "completion_tokens": 7, "total_tokens": 19},
+            "mtplx_stats": {"completion_tokens": 7},
+        }
+    )
+    _serve(
+        stream_client,
+        _Resp(200, [_delta(content="answer"), usage, "data: [DONE]"]),
+    )
+
+    chunks = await _drain(
+        st._stream_from_backend_guarded(
+            "http://host.docker.internal:8085/v1/chat/completions",
+            {"stream": True, "stream_options": {"include_usage": True}},
+            "auto-coding",
+            "Qwen3.8-27B-4bit",
+        )
+    )
+
+    payloads = _payloads(chunks)
+    usage_chunks = [payload for payload in payloads if payload.get("usage")]
+    assert usage_chunks[-1]["usage"]["completion_tokens"] == 7
+    assert usage_chunks[-1]["choices"] == []
+    assert payloads[-2]["choices"][0]["finish_reason"] == "stop"
+    assert chunks[-1] == DONE
 
 
 @pytest.mark.anyio
@@ -1028,6 +1060,18 @@ async def test_malformed_request_raises_instead_of_cascading(monkeypatch, ns_env
     assert exc.value.status_code == 400 and "bad param" in exc.value.detail
 
 
+def test_backend_request_error_retains_raw_upstream_body() -> None:
+    body = b'{"error":{"message":"bad parameter"}}'
+    response = httpx.Response(
+        422, content=body, request=httpx.Request("POST", "http://engine/v1/chat/completions")
+    )
+
+    with pytest.raises(ns.BackendRequestError) as exc:
+        ns._raise_for_backend_status(response)
+
+    assert exc.value.raw_body == body
+
+
 @pytest.mark.anyio
 async def test_omlx_capacity_400_cascades_instead_of_surfacing(monkeypatch, ns_env) -> None:
     """oMLX's prefill_memory_guard returns 400 too, but it's an engine-capacity
@@ -1823,6 +1867,70 @@ async def test_visible_toolless_synthesis_is_not_retried(monkeypatch, ns_tools) 
     assert client.bodies[1]["tools"] is None
     assert FINAL_ANSWER_REQUEST not in client.bodies[1]["messages"]
     assert _retried_counter(ns_tools) == before
+
+
+def _empty_retried_counter(workspace: str) -> float:
+    return float(ns._empty_answer_retried.labels(workspace=workspace)._value.get())
+
+
+@pytest.mark.anyio
+async def test_an_empty_answer_with_tools_retries_once_without_tools(monkeypatch, ns_tools) -> None:
+    """The security seat's live failure: tools attached, JSON answer swallowed to ''."""
+    client = _SeenClient([_text_reply(""), _text_reply('{"verdict": "notable"}')])
+    monkeypatch.setattr(ns, "_http_client", client)
+    before = _empty_retried_counter(ns_tools)
+
+    result = await ns._try_non_streaming(_backend("b"), {"messages": []}, ns_tools, 0.0)
+
+    body = json.loads(result.body)
+    assert body["choices"][0]["message"]["content"] == '{"verdict": "notable"}'
+    assert len(client.bodies) == 2
+    assert client.bodies[1]["tools"] is None
+    assert client.bodies[1]["tool_choice"] is None
+    assert _empty_retried_counter(ns_tools) == before + 1
+
+
+@pytest.mark.anyio
+async def test_an_empty_answer_without_tools_is_not_retried(monkeypatch, ns_env) -> None:
+    client = _SeenClient([_text_reply("")])
+    monkeypatch.setattr(ns, "_http_client", client)
+    before = _empty_retried_counter(ns_env)
+
+    result = await ns._try_non_streaming(_backend("b"), {"messages": []}, ns_env, 0.0)
+
+    assert json.loads(result.body)["choices"][0]["message"]["content"] == NO_ANSWER_MESSAGE
+    assert len(client.bodies) == 1
+    assert _empty_retried_counter(ns_env) == before
+
+
+@pytest.mark.anyio
+async def test_tool_choice_none_sends_no_workspace_tools_non_streaming(
+    monkeypatch, ns_tools
+) -> None:
+    client = _SeenClient([_text_reply('{"ok": true}')])
+    monkeypatch.setattr(ns, "_http_client", client)
+
+    result = await ns._try_non_streaming(
+        _backend("b"), {"messages": [], "tool_choice": "none"}, ns_tools, 0.0
+    )
+
+    assert json.loads(result.body)["choices"][0]["message"]["content"] == '{"ok": true}'
+    assert "tools" not in client.bodies[0]
+    assert client.bodies[0]["tool_choice"] == "none"
+
+
+@pytest.mark.anyio
+async def test_tools_array_empty_sends_no_workspace_tools_non_streaming(
+    monkeypatch, ns_tools
+) -> None:
+    body = _apply_no_tools_request({"messages": [], "tools": []})
+    client = _SeenClient([_text_reply("answered")])
+    monkeypatch.setattr(ns, "_http_client", client)
+
+    await ns._try_non_streaming(_backend("b"), body, ns_tools, 0.0)
+
+    assert "tools" not in client.bodies[0]
+    assert "portal_no_tools" not in client.bodies[0]
 
 
 @pytest.mark.anyio

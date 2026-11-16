@@ -13,6 +13,7 @@ often keyed by workspace name, not model tag.
     python3 scripts/model_cleanup_audit.py
 
 Never calls `ollama rm`. Report-only; a human decides what to delete.
+Exits 1 when a REMOVED_CLOSED identity is still named by live seating config.
 Writes two files: ${PORTAL_DATA_ROOT}/reports/model_cleanup_audit.md (full categorization,
 gitignored, regenerated fresh each run) and config/PENDING_MODEL_VERDICTS.md
 (the EVALUATED_PENDING backlog — models genuinely benched but never given a
@@ -26,6 +27,7 @@ import glob
 import json
 import os
 import re
+import sys
 import urllib.request
 from pathlib import Path
 
@@ -492,7 +494,98 @@ def _canon(tag: str) -> str:
     return t[len("library/") :] if t.startswith("library/") else t
 
 
-def render_disposition_report(disp: dict[str, str], on_disk: list[dict]) -> str:
+def _load_yaml(path: Path) -> dict:
+    if not path.is_file():
+        return {}
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return data if isinstance(data, dict) else {}
+
+
+def _record(refs: dict[str, list[str]], ident: object, source: str) -> None:
+    if not isinstance(ident, str) or not ident:
+        return
+    bucket = refs.setdefault(ident, [])
+    if source not in bucket:
+        bucket.append(source)
+
+
+def _backend_model_ids(repo_root: Path, refs: dict[str, list[str]]) -> None:
+    cfg = _load_yaml(repo_root / "config" / "backends.yaml")
+    for backend in cfg.get("backends") or []:
+        if not isinstance(backend, dict):
+            continue
+        bid = backend.get("id", "?")
+        for model in backend.get("models") or []:
+            if isinstance(model, dict):
+                _record(refs, model.get("id"), f"config/backends.yaml [{bid}].models.id")
+
+
+def _workspace_hints(cfg: dict, source_file: str, refs: dict[str, list[str]]) -> None:
+    for ws_id, ws in (cfg.get("workspaces") or {}).items():
+        if not isinstance(ws, dict):
+            continue
+        _record(refs, ws.get("model_hint"), f"{source_file} [{ws_id}].model_hint")
+        for variant_id, variant in (ws.get("variants") or {}).items():
+            if isinstance(variant, dict):
+                _record(
+                    refs,
+                    variant.get("model_hint"),
+                    f"{source_file} [{ws_id}::{variant_id}].model_hint",
+                )
+
+
+def _persona_pins(repo_root: Path, refs: dict[str, list[str]]) -> None:
+    persona_dir = repo_root / "config" / "personas"
+    if not persona_dir.is_dir():
+        return
+    for path in sorted(persona_dir.rglob("*.yaml")):
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            _record(refs, data.get("model_pin"), f"{path.relative_to(repo_root)} model_pin")
+
+
+def _council_models(repo_root: Path, refs: dict[str, list[str]]) -> None:
+    path = repo_root / "config" / "compliance" / "council.yaml"
+    for seat in _load_yaml(path).get("seats") or []:
+        if isinstance(seat, dict):
+            _record(
+                refs,
+                seat.get("model"),
+                f"config/compliance/council.yaml [{seat.get('id', '?')}].model",
+            )
+
+
+def live_config_model_ids(repo_root: Path) -> dict[str, list[str]]:
+    """Exact model ids from seating config, ignoring comments and prose."""
+    refs: dict[str, list[str]] = {}
+    _backend_model_ids(repo_root, refs)
+    _workspace_hints(_load_yaml(repo_root / "config" / "portal.yaml"), "config/portal.yaml", refs)
+    _workspace_hints(
+        _load_yaml(repo_root / "config" / "bench_workspaces.yaml"),
+        "config/bench_workspaces.yaml",
+        refs,
+    )
+    _persona_pins(repo_root, refs)
+    _council_models(repo_root, refs)
+    return refs
+
+
+def removed_closed_live_refs(
+    disp: dict[str, str], live_ids: dict[str, list[str]]
+) -> list[tuple[str, list[str]]]:
+    """REMOVED_CLOSED identities that live seating config still names."""
+    return [
+        (ident, live_ids[ident])
+        for ident in sorted(live_ids)
+        if disp.get(ident) == "REMOVED_CLOSED"
+    ]
+
+
+def render_disposition_report(
+    disp: dict[str, str],
+    on_disk: list[dict],
+    live_refs: list[tuple[str, list[str]]] | None = None,
+) -> str:
     disk_tags = {_canon(m.get("name", "")) for m in on_disk}
     counts: dict[str, int] = {}
     for state in disp.values():
@@ -524,6 +617,17 @@ def render_disposition_report(disp: dict[str, str], on_disk: list[dict]) -> str:
         "",
     ]
     lines += [f"- `{t}`" for t in integrated_absent] or ["(none)"]
+    refs = live_refs or []
+    lines += [
+        "",
+        f"## Config drift — REMOVED_CLOSED referenced by live config ({len(refs)})",
+        "",
+    ]
+    if refs:
+        for ident, sources in refs:
+            lines.append(f"- `{ident}` — {', '.join(sources)}")
+    else:
+        lines.append("(none)")
     return "\n".join(lines) + "\n"
 
 
@@ -534,7 +638,8 @@ def main() -> int:
 
     disp = _load_register()
     if disp is not None:
-        report = render_disposition_report(disp, on_disk)
+        live_refs = removed_closed_live_refs(disp, live_config_model_ids(REPO_ROOT))
+        report = render_disposition_report(disp, on_disk, live_refs)
         out_path = DATA_ROOT / "reports" / "model_cleanup_audit.md"
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(report)
@@ -544,6 +649,12 @@ def main() -> int:
             "Ledger retired: config/PENDING_MODEL_VERDICTS.md is a historical pointer; "
             "dispositions come from the fleet closeout register."
         )
+        if live_refs:
+            print(
+                f"FAIL — {len(live_refs)} REMOVED_CLOSED identity(s) still named by live config.",
+                file=sys.stderr,
+            )
+            return 1
         return 0
 
     prod_bases = production_bases()

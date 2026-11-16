@@ -25,8 +25,9 @@ updated_at: 1792680000
 Benchmark workspaces pin a specific model for direct, side-by-side performance
 comparison. They are not intended for daily use: the user must deliberately select
 one from the model dropdown. Every entry is a `bench-*` workspace in
-`config/portal.yaml` whose `model_hint:` names an exact catalog model from
-`config/backends.yaml`, so a bench run measures that one model and nothing else.
+`config/portal.yaml` or `config/bench_workspaces.yaml` whose `model_hint:` names
+an exact catalog model from `config/backends.yaml`, so a bench run measures
+that one model and nothing else.
 
 List the current set with:
 

@@ -110,8 +110,8 @@ class TestPublishedPort:
             if "config --services" in cmd:
                 return {"ok": True, "output": "web\n"}
             if "port web 8081" in cmd:
-                return {"ok": True, "output": "0.0.0.0:8086\n"}
-            if "curl" in cmd and ":8086/" in cmd:
+                return {"ok": True, "output": "0.0.0.0:8087\n"}
+            if "curl" in cmd and ":8087/" in cmd:
                 return {"ok": True, "output": "200"}
             raise AssertionError(cmd)
 
@@ -121,7 +121,7 @@ class TestPublishedPort:
                     "/opt/vulhub/nexus/docker-compose.yml",
                     preferred_container_port=8081,
                 )
-                == 8086
+                == 8087
             )
 
     def test_scenario_owned_binary_port_does_not_require_http(self) -> None:
@@ -153,8 +153,8 @@ class TestPublishedPort:
             if "port zookeeper 8080" in cmd:
                 return {"ok": True, "output": "0.0.0.0:0\n"}
             if "port provider 8080" in cmd:
-                return {"ok": True, "output": "0.0.0.0:8086\n"}
-            if "curl" in cmd and ":8086/" in cmd:
+                return {"ok": True, "output": "0.0.0.0:8087\n"}
+            if "curl" in cmd and ":8087/" in cmd:
                 return {"ok": True, "output": "500"}
             raise AssertionError(cmd)
 
@@ -164,7 +164,7 @@ class TestPublishedPort:
                     "/opt/vulhub/dubbo/docker-compose.yml",
                     preferred_container_port=8080,
                 )
-                == 8086
+                == 8087
             )
 
     def test_retries_across_a_wait_window_before_falling_back(self) -> None:

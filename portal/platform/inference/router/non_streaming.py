@@ -36,6 +36,7 @@ from portal.platform.inference.router.eval_gate import (
 )
 from portal.platform.inference.router.metrics import (
     _answer_without_tool_retried,
+    _empty_answer_retried,
     _hint_fallback_total,
     _tool_calls_recovered,
     _tool_repeat_suppressed,
@@ -58,6 +59,7 @@ from portal.platform.inference.router.tool_repeat import (
     UNGROUNDED_NOTICE,
     ToolRepeatGuard,
     apply_tool_byte_budget,
+    followup_tool_choice,
     no_tool_call_retry,
     tool_result_byte_budget,
 )
@@ -102,10 +104,11 @@ class BackendRequestError(Exception):
     into an opaque 502 after sending the request to unrelated models.
     """
 
-    def __init__(self, status_code: int, detail: str) -> None:
+    def __init__(self, status_code: int, detail: str, raw_body: bytes = b"") -> None:
         super().__init__(f"HTTP {status_code}: {detail}")
         self.status_code = status_code
         self.detail = detail
+        self.raw_body = raw_body
 
 
 #: Statuses meaning the request itself is malformed. 404 (model not on this
@@ -196,7 +199,7 @@ def _raise_for_backend_status(resp: httpx.Response) -> None:
         if resp.status_code == 400 and _is_capacity_error(detail):
             resp.raise_for_status()  # a capacity rejection, not a bad request — cascade
             return
-        raise BackendRequestError(resp.status_code, detail)
+        raise BackendRequestError(resp.status_code, detail, resp.content)
     resp.raise_for_status()
 
 
@@ -268,11 +271,10 @@ def resolve_hop_target(
     """
     if registry is None:
         return primary_url, hop_body
-    seen: set[str] = set()
-    for b in [*registry.get_backend_candidates(workspace_id), *registry.list_healthy_backends()]:
-        if b.id in seen:
-            continue
-        seen.add(b.id)
+    ordered = list(registry.get_backend_candidates(workspace_id))
+    seen = {b.id for b in ordered}
+    extra = [b for b in registry.list_healthy_backends() if b.id not in seen]
+    for b in [*ordered, *extra]:
         native = b.resolve_model(hop_model)
         if native is None:
             continue
@@ -728,6 +730,75 @@ def _strip_emitted_tool_markup(data: dict[str, Any]) -> None:
             message["content"] = drop_unparsed_markup(content)
 
 
+def _needs_toolless_first_answer(
+    req_body: dict[str, Any], data: dict[str, Any], workspace_id: str
+) -> bool:
+    """A tool-carrying first turn whose answer the engine swallowed: no text, no call."""
+    if not req_body.get("tools") or req_body.get("tool_choice") not in (None, "auto"):
+        return False
+    if WORKSPACES.get(workspace_id, {}).get("require_tool_before_answer"):
+        return False
+    if _collect_tool_calls(data):
+        return False
+    return not any(
+        _visible_answer(choice.get("message") or {}) for choice in data.get("choices") or []
+    )
+
+
+async def _retry_empty_toolless_first_answer(
+    client: Any,
+    url: str,
+    timeout: httpx.Timeout,
+    req_body: dict[str, Any],
+    data: dict[str, Any],
+    workspace_id: str,
+    target_model: str,
+    model_started: float,
+) -> tuple[dict[str, Any], float, dict[str, Any]]:
+    """One toolless retry when tools swallowed the answer; returns the body actually sent."""
+    if not _needs_toolless_first_answer(req_body, data, workspace_id):
+        return data, model_started, req_body
+    _record_intermediate_model(data, target_model, workspace_id, model_started)
+    _empty_answer_retried.labels(workspace=workspace_id).inc()
+    trace_note(empty_answer_retried=True)
+    logger.warning(
+        "Non-stream: workspace=%s model=%s answered nothing with tools attached; "
+        "asking once with tools off",
+        workspace_id,
+        target_model,
+    )
+    retry_body = {**req_body, "tools": None, "tool_choice": None}
+    started = time.monotonic()
+    retry_resp = await client.post(url, json=retry_body, timeout=timeout)
+    _raise_for_backend_status(retry_resp)
+    data = _completion_body(retry_resp, workspace_id)
+    _recover_or_withhold_markup(data, None, str(req_body.get("model", "")), workspace_id)
+    _strip_emitted_tool_markup(data)
+    return data, started, retry_body
+
+
+async def _first_answer(
+    client: Any,
+    url: str,
+    timeout: httpx.Timeout,
+    req_body: dict[str, Any],
+    workspace_id: str,
+    target_model: str,
+    model_started: float,
+) -> tuple[dict[str, Any], float, dict[str, Any]]:
+    """POST the turn, recover call markup, then retry once without tools if it came back empty."""
+    resp = await client.post(url, json=req_body, timeout=timeout)
+    _raise_for_backend_status(resp)
+    data = _completion_body(resp, workspace_id)
+    # P5-OMLX-QWEN3CODER-TOOLTEXT-001: a call the engine's parser missed arrives as content.
+    _recover_or_withhold_markup(
+        data, req_body.get("tools"), req_body.get("model", ""), workspace_id
+    )
+    return await _retry_empty_toolless_first_answer(
+        client, url, timeout, req_body, data, workspace_id, target_model, model_started
+    )
+
+
 async def _retry_empty_toolless_synthesis(
     client: Any,
     url: str,
@@ -1020,8 +1091,8 @@ async def _try_non_streaming(
     # stream's non-streaming fallback) behaves the same in either mode.
     _ns_tools = apply_eval_scope(req_body, _ns_tools)
     _ns_tools, _bite_allowlist = apply_bite_tool_scope(req_body, _ns_tools)
-    if req_body.pop("portal_client_tools_only", False):
-        _ns_tools = []
+    if req_body.pop("portal_client_tools_only", False) or req_body.get("tool_choice") == "none":
+        _ns_tools = []  # client-only tools, or an explicit no-tool turn
     _supports_tools = _model_supports_tools(target_model)
     if req_body.pop("portal_no_tools", False) or not _supports_tools:
         req_body.pop("tools", None)
@@ -1116,13 +1187,14 @@ async def _try_non_streaming(
             logger.info("NON-STREAM tools: %s", _tool_names)
             trace_capture(backend_request=req_body)
             _model_started = time.monotonic()
-            resp = await _http_client.post(backend.chat_url, json=req_body, timeout=_timeout_obj)
-            _raise_for_backend_status(resp)
-            data = _completion_body(resp, workspace_id)
-            # P5-OMLX-QWEN3CODER-TOOLTEXT-001: a call the engine's parser
-            # missed arrives as content; recover it before the tool loop.
-            _recover_or_withhold_markup(
-                data, req_body.get("tools"), req_body.get("model", ""), workspace_id
+            data, _model_started, _last_request_body = await _first_answer(
+                _http_client,
+                backend.chat_url,
+                _timeout_obj,
+                req_body,
+                workspace_id,
+                target_model,
+                _model_started,
             )
             _resp_tc: list[dict[str, Any]] = []
             for _c in data.get("choices") or []:
@@ -1261,11 +1333,12 @@ async def _try_non_streaming(
                 _ns_last = _ns_hops >= max_hops or _ns_guard.force_synthesis
                 if _ns_guard.force_synthesis:
                     _ns_messages = [*_ns_messages, FINAL_ANSWER_REQUEST]
+                _ns_synth_choice = followup_tool_choice(req_body.get("tool_choice"), _ns_tool_calls)
                 _synth_body = {
                     **req_body,
                     "messages": _ns_messages,
                     "tools": None if _ns_last else req_body.get("tools"),
-                    "tool_choice": None if _ns_last else req_body.get("tool_choice"),
+                    "tool_choice": None if _ns_last else _ns_synth_choice,
                 }
                 _last_request_body = _synth_body
                 _model_started = time.monotonic()
@@ -1360,11 +1433,9 @@ async def _try_non_streaming(
         except Exception as exc:
             # The cause used to be swallowed: a cascade to the next candidate
             # left only "Backend X failed" in the log.
-            detail = (
-                backend_error_detail(exc.response.content)
-                if isinstance(exc, httpx.HTTPStatusError)
-                else str(exc)
-            )
+            status = exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None
+            raw_body = exc.response.content if isinstance(exc, httpx.HTTPStatusError) else b""
+            detail = backend_error_detail(raw_body) if status is not None else str(exc)
             _prefill_refusal = _omlx_prefill_refusal_detail(backend, exc)
             if tried is not None:
                 tried[(backend.chat_url, target_model)] = f"{target_model}: {detail[:300]}"

@@ -26,7 +26,11 @@ reports it here. The guard keeps four things true:
    refused with HTTP 507 only when the caller's wait runs out. The wait is the
    request's ``X-Portal-Load-Wait`` header (seconds; batch callers send a large
    value) or ``LOAD_GUARD_WAIT_S``. The 507 says "would exceed", which the router
-   already cascades as a capacity rejection.
+   already cascades as a capacity rejection. Protection orders eviction, it does
+   not veto it: a protected idle resident (failover cool-down) is freed last,
+   after unprotected idle memory, but still yields before a request is refused
+   when its bytes can cover the gap. Busy, active-elsewhere and pinned models
+   are never evicted.
 4. **Fit can be asked in advance.** ``plan()`` (route ``POST /admin/load-plan``)
    says whether a set of models fits together right now, so batch work can run
    in fit-sized waves instead of discovering the answer as refusals.
@@ -104,6 +108,14 @@ _PROCESS_LOCK_DIR = Path("/tmp/portal-5-load-guard")
 #: unloads p50 0.78 s, p95 1.93 s, max 2.29 s (n=114, oMLX 0.7.2, 2026-10-22), doubled.
 _FREE_SETTLE_EXPECTED_S = 4.6
 _CTX_TAG = re.compile(r"(?:^|[-_])ctx(\d+)([km]?)", re.IGNORECASE)
+#: Set inside one ``admit`` task when that admission armed a parallel-seat yield.
+_ADMIT_YIELD_PIN: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "admit_yield_pin", default=False
+)
+#: The status read ``_headroom`` just took, so a yield decision does not read it again.
+_ADMIT_OMLX_STATUS: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar(
+    "admit_omlx_status", default=None
+)
 
 
 def _show_values(show: dict[str, Any]) -> dict[str, Any]:
@@ -431,6 +443,25 @@ def _releasable_ollama_bytes(held: list[tuple[str, int, str]], freed: set[str]) 
     )
 
 
+class _YieldCarry:
+    """One Ollama admission's yield state, kept out of ``_admit_ollama``."""
+
+    __slots__ = (
+        "free_attempted",
+        "last_used",
+        "pending_omlx_used",
+        "protected_free_attempted",
+        "yield_models",
+    )
+
+    def __init__(self) -> None:
+        self.free_attempted = False
+        self.yield_models: set[str] = set()
+        self.pending_omlx_used = 0.0
+        self.last_used: float | None = None
+        self.protected_free_attempted = False
+
+
 class _Free:
     """A guard-issued free: its bytes must show as released before a load fits."""
 
@@ -597,7 +628,11 @@ class LoadGuard:
             return True
 
     def protect(self, engine: str, model: str, seconds: float | None = None) -> None:
-        """Exclude ``model`` from eviction for ``seconds`` (default FAILOVER_PROTECT_S)."""
+        """Order ``model`` last in eviction for ``seconds`` (default FAILOVER_PROTECT_S).
+
+        A protected idle model still yields before a load is refused; protection
+        never causes a refusal on its own. Busy models are never evicted.
+        """
         span = FAILOVER_PROTECT_S if seconds is None else seconds
         self._protected[(engine, model)] = time.monotonic() + span
 
@@ -665,6 +700,7 @@ class LoadGuard:
     async def _headroom(self, client: httpx.AsyncClient) -> tuple[float, float] | None:
         """Current oMLX headroom, without waiting for transition state."""
         st = await self._omlx_status(client)
+        _ADMIT_OMLX_STATUS.set(st if isinstance(st, dict) else None)
         if st is None:
             return None
         used = float(st.get("current_model_memory") or 0)
@@ -709,12 +745,16 @@ class LoadGuard:
                 resident = {}
             return self._remember_host_free(headroom + self._ollama_idle(resident))
 
-    def _ollama_hold_reason(self, name: str) -> str | None:
-        """Why this Ollama resident cannot be freed, or None when it is idle."""
+    def _ollama_hold_reason(self, name: str, include_protected: bool = False) -> str | None:
+        """Why this Ollama resident cannot be freed, or None when it is idle.
+
+        ``include_protected`` treats a protected idle resident as evictable: it
+        is freed last, but it yields before a refusal.
+        """
         key = model_key(name)
         if key == model_key(self._pinned()):
             return "pinned"
-        if key in self.protected(OLLAMA):
+        if not include_protected and key in self.protected(OLLAMA):
             return "protected"
         if self.busy(OLLAMA, name):
             return "busy"
@@ -723,14 +763,18 @@ class LoadGuard:
         return None
 
     def _ollama_idle(
-        self, resident: dict[str, int], exclude: frozenset[str] | set[str] = frozenset()
+        self,
+        resident: dict[str, int],
+        exclude: frozenset[str] | set[str] = frozenset(),
+        include_protected: bool = False,
     ) -> float:
         excluded = {model_key(name) for name in exclude}
         return float(
             sum(
                 self._ollama_size(name, size)
                 for name, size in resident.items()
-                if model_key(name) not in excluded and self._ollama_hold_reason(name) is None
+                if model_key(name) not in excluded
+                and self._ollama_hold_reason(name, include_protected) is None
             )
         )
 
@@ -757,7 +801,9 @@ class LoadGuard:
     async def _omlx_idle_models(
         self, client: httpx.AsyncClient, exclude: frozenset[str] | set[str] = frozenset()
     ) -> tuple[str, list[dict[str, Any]]]:
-        """(oMLX url, its idle unpinned loaded models, least recently used first).
+        """(oMLX url, its idle unpinned loaded models, LRU first, protected last).
+        Protected residents still yield before a refusal; the free walk stops at
+        the shortage, so they are only unloaded when unprotected idle cannot cover.
         Empty when a client outside the pipeline is using oMLX: its requests are
         invisible here, so no oMLX model can be known idle."""
         url = (self._omlx_url() or "").rstrip("/")
@@ -787,6 +833,7 @@ class LoadGuard:
             return url, []
         models = response.json()
         models = models.get("models", models) if isinstance(models, dict) else models
+        protected = self.protected(OMLX)
         idle = [
             m
             for m in models
@@ -794,11 +841,12 @@ class LoadGuard:
             and not m.get("pinned")
             and not m.get("is_loading")
             and m["id"] not in exclude
-            and m["id"] not in self.protected(OMLX)
             and not self.busy(OMLX, m["id"])
             and not self._active_elsewhere(OMLX, m["id"])
         ]
-        return url, sorted(idle, key=lambda m: float(m.get("last_access") or 0))
+        return url, sorted(
+            idle, key=lambda m: (m["id"] in protected, float(m.get("last_access") or 0))
+        )
 
     @staticmethod
     def _has_loading(value: Any) -> bool:
@@ -928,10 +976,18 @@ class LoadGuard:
             return 0.0, {}, None, 0.0, []
 
     async def _free_ollama(
-        self, client: httpx.AsyncClient, base: str, resident: dict[str, int]
+        self,
+        client: httpx.AsyncClient,
+        base: str,
+        resident: dict[str, int],
+        include_protected: bool = False,
     ) -> dict[str, _Free]:
         """Request accepted unloads and retain their pre-unload headroom records."""
-        idle = [n for n, size in resident.items() if size and self._ollama_idle({n: size}) > 0]
+        idle = [
+            n
+            for n, size in resident.items()
+            if size and self._ollama_idle({n: size}, include_protected=include_protected) > 0
+        ]
         requested: dict[str, _Free] = {}
         for name in idle:
             operation_lock = self._reserve_activity(OLLAMA, name)
@@ -1128,6 +1184,91 @@ class LoadGuard:
         )
         did_free = bool(omlx_freed or omlx_queued or ollama_requested)
         return did_free, omlx_queued, ollama_requested, after, synchronous, unloads
+
+    async def _arm_parallel_yield(self, client: httpx.AsyncClient, shortage: float) -> set[str]:
+        """Hold new work on busy parallel seats whose bytes cover ``shortage``."""
+        from portal.platform.inference.router.parallel_seat import YIELD, seat_for_loaded_model
+
+        status = _ADMIT_OMLX_STATUS.get()
+        if status is None:
+            status = await self._omlx_status(client)
+        held: set[str] = set()
+        if not status or shortage <= 0:
+            return held
+        for entry in status.get("models") or []:
+            if not isinstance(entry, dict) or not entry.get("loaded"):
+                continue
+            model_id = str(entry.get("id") or "")
+            seat = seat_for_loaded_model(model_id)
+            size = float(entry.get("estimated_size") or 0)
+            if seat is None or size < shortage:
+                continue
+            if not self.busy(OMLX, model_id) and not self._active_elsewhere(OMLX, model_id):
+                continue
+            YIELD.hold(seat)
+            held.add(model_id)
+            logger.info(
+                "load_guard: chat load yields parallel seat %s (%s, %.1f GiB)",
+                seat,
+                model_id,
+                size / _GIB,
+            )
+        return held
+
+    def _parallel_yield_drained(self, models: set[str]) -> bool:
+        return bool(models) and not any(
+            self.busy(OMLX, model) or self._active_elsewhere(OMLX, model) for model in models
+        )
+
+    async def _free_or_yield_parallel(
+        self,
+        client: httpx.AsyncClient,
+        base: str,
+        resident: dict[str, int],
+        idle: float,
+        used: float,
+        need: float,
+        available: float,
+        carry: _YieldCarry,
+        pending_omlx: dict[str, _Free],
+        pending_ollama: dict[str, _Free],
+    ) -> bool:
+        """Unload idle memory, or hold a busy parallel seat until it can be unloaded.
+
+        A chat load that does not fit beside a busy parallel seat (measured
+        2026-11-12: 29.8 GiB needed, 18.6 available beside the hunt) must not be
+        refused while that seat keeps accepting work. New parallel requests wait;
+        once the seat is idle the existing unload path frees it.
+        """
+        if need > available and not carry.yield_models:
+            carry.yield_models = await self._arm_parallel_yield(client, need - available)
+            if carry.yield_models and not _ADMIT_YIELD_PIN.get():
+                from portal.platform.inference.router.parallel_seat import YIELD
+
+                YIELD.pin()
+                _ADMIT_YIELD_PIN.set(True)
+        if (
+            need > available
+            and carry.free_attempted
+            and self._parallel_yield_drained(carry.yield_models)
+        ):
+            carry.free_attempted = False
+        if need <= available or carry.free_attempted:
+            return False
+        carry.free_attempted = True
+        did, baseline, post = await self._free_for_load(
+            client,
+            base,
+            resident,
+            idle,
+            used,
+            need - available,
+            pending_omlx,
+            pending_ollama,
+        )
+        carry.pending_omlx_used = baseline
+        carry.last_used = post
+        return did
 
     async def _free_for_load(
         self,
@@ -1345,24 +1486,57 @@ class LoadGuard:
         deadline = time.monotonic() + load_wait_s()
         _admit_waited.set(False)
         held: list[_Release] = []
-        try:
-            release = await self._admit_ollama(base, model, deadline, held)
-        except asyncio.CancelledError:
-            # The caller gave up (client disconnect, W3): never leak the
-            # host-wide cold-load lock, or every later cold load deadlocks.
-            for r in held:
-                r()
-            raise
-        except LoadRefusedError as e:
-            _record_refusal(OLLAMA, e)
-            raise
+        release, defer_yield = await self._admit_ollama_yielding(base, model, deadline, held)
         if release is None:
             return None
         _record_admission(OLLAMA, _admit_waited.get())
-        asyncio.get_running_loop().create_task(
-            self._release_when_resident(OLLAMA, base, model, release)
+        done = (
+            self._release_resident_and_yield(OLLAMA, base, model, release)
+            if defer_yield
+            else self._release_when_resident(OLLAMA, base, model, release)
         )
+        asyncio.get_running_loop().create_task(done)
         return release
+
+    async def _admit_ollama_yielding(
+        self, base: str, model: str, deadline: float, held: list[_Release]
+    ) -> tuple[_Release | None, bool]:
+        """Admit, and say whether a parallel-seat pin waits until the model is resident."""
+        from portal.platform.inference.router.parallel_seat import YIELD
+
+        token = _ADMIT_YIELD_PIN.set(False)
+        release: _Release | None = None
+        defer = False
+        try:
+            try:
+                release = await self._admit_ollama(base, model, deadline, held)
+            except asyncio.CancelledError:
+                # The caller gave up (client disconnect, W3): never leak the
+                # host-wide cold-load lock, or every later cold load deadlocks.
+                for r in held:
+                    r()
+                raise
+            except LoadRefusedError as e:
+                _record_refusal(OLLAMA, e)
+                raise
+            defer = _ADMIT_YIELD_PIN.get() and release is not None
+            return release, defer
+        finally:
+            pinned = _ADMIT_YIELD_PIN.get()
+            _ADMIT_YIELD_PIN.reset(token)
+            if pinned and not defer:
+                YIELD.release()
+
+    async def _release_resident_and_yield(
+        self, engine: str, base: str, model: str, release: _Release
+    ) -> None:
+        """Release the cold-load lock once resident, then the parallel-seat pin."""
+        from portal.platform.inference.router.parallel_seat import YIELD
+
+        try:
+            await self._release_when_resident(engine, base, model, release)
+        finally:
+            YIELD.release()
 
     async def admit_and_begin_ollama(
         self, base: str, model: str
@@ -1407,6 +1581,40 @@ class LoadGuard:
                 release()
             raise
 
+    async def _yield_protected_idle(
+        self,
+        client: httpx.AsyncClient,
+        base: str,
+        resident: dict[str, int],
+        need: float,
+        available: float,
+        pending: dict[str, _Free],
+        carry: _YieldCarry | None = None,
+    ) -> list[str]:
+        """Last resort before refusal: idle protected residents yield, but only when
+        their bytes can cover the gap — protection is spent only when it buys the
+        admission, and never on a model that is busy or active elsewhere. Returns
+        the names attempted (empty when the gate does not pass)."""
+        if carry is not None and carry.protected_free_attempted:
+            return []
+        names = [
+            n
+            for n, s in resident.items()
+            if s > 0
+            and self._ollama_hold_reason(n) == "protected"
+            and self._ollama_hold_reason(n, include_protected=True) is None
+        ]
+        held = sum(self._ollama_size(n, resident[n]) for n in names)
+        if not names or available + held < need:
+            return []
+        if carry is not None:
+            carry.protected_free_attempted = True
+        requested = await self._free_ollama(
+            client, base, {n: resident[n] for n in names}, include_protected=True
+        )
+        pending.update(requested)
+        return names
+
     async def _admit_ollama(
         self, base: str, model: str, deadline: float, held: list[_Release]
     ) -> _Release | None:
@@ -1418,12 +1626,10 @@ class LoadGuard:
                 return None  # cannot see Ollama's state: fail open
             release = await self._acquire(OLLAMA, deadline, model)
             held.append(release)
-            free_attempted = False
             activity_seen = False
             pending_omlx: dict[str, _Free] = {}
-            pending_omlx_used = 0.0
             pending_ollama: dict[str, _Free] = {}
-            last_used: float | None = None
+            carry = _YieldCarry()
             recheck = False
             try:
                 while True:
@@ -1436,26 +1642,29 @@ class LoadGuard:
                     if capacity is None or not need:
                         break  # unmeasurable: fail open
                     headroom, used = capacity
-                    last_used, recheck = self._track_counter(used, last_used, recheck)
+                    carry.last_used, recheck = self._track_counter(used, carry.last_used, recheck)
                     idle = self._ollama_idle(resident)
                     available = self._ollama_available(headroom, resident, idle) - _MARGIN
                     _record_headroom(available)
-                    if need > available and not free_attempted:
-                        free_attempted = True
-                        freed_or_queued, pending_omlx_used, last_used = await self._free_for_load(
-                            client,
-                            base,
-                            resident,
-                            idle,
-                            used,
-                            need - available,
-                            pending_omlx,
-                            pending_ollama,
-                        )
-                        if freed_or_queued:
-                            continue
-                    pending_omlx, settled, pending_omlx_used = await self._pending_omlx_unloads(
-                        client, pending_omlx, pending_omlx_used
+                    if await self._free_or_yield_parallel(
+                        client,
+                        base,
+                        resident,
+                        idle,
+                        used,
+                        need,
+                        available,
+                        carry,
+                        pending_omlx,
+                        pending_ollama,
+                    ):
+                        continue
+                    (
+                        pending_omlx,
+                        settled,
+                        carry.pending_omlx_used,
+                    ) = await self._pending_omlx_unloads(
+                        client, pending_omlx, carry.pending_omlx_used
                     )
                     if settled:
                         recheck = False  # our own unload moved the counter
@@ -1469,6 +1678,10 @@ class LoadGuard:
                         client, model, deadline, release, held
                     )
                     if loading_seen:
+                        continue
+                    if not (pending_omlx or pending_ollama) and await self._yield_protected_idle(
+                        client, base, resident, need, available, pending_ollama, carry
+                    ):
                         continue
                     release, activity_seen = await self._wait_if_ollama_capacity_may_change(
                         client,
@@ -1517,7 +1730,7 @@ class LoadGuard:
             nbytes = self._ollama_size(name, size)
             if nbytes <= 0:
                 continue
-            reason = self._ollama_hold_reason(name)
+            reason = self._ollama_hold_reason(name, include_protected=True)
             if reason is None and name in failed:
                 reason = "unload failed"
             elif reason is None and name in pending:
@@ -1609,11 +1822,15 @@ class LoadGuard:
         _record_wait(OMLX, "free_settle", time.monotonic() - started)
         return True, used
 
-    def _unfreed_idle_ollama(self, resident: dict[str, int], freed: set[str]) -> list[str]:
+    def _unfreed_idle_ollama(
+        self, resident: dict[str, int], freed: set[str], include_protected: bool = False
+    ) -> list[str]:
         return [
             name
             for name, size in resident.items()
-            if name not in freed and size > 0 and self._ollama_hold_reason(name) is None
+            if name not in freed
+            and size > 0
+            and self._ollama_hold_reason(name, include_protected) is None
         ]
 
     async def _advance_omlx_ollama_capacity(
@@ -1641,6 +1858,14 @@ class LoadGuard:
             pending.update(requested)
             failed.update(name for name in idle if name not in requested)
             freed.update(idle)
+            return
+        unfreed = {n: s for n, s in resident.items() if n not in freed}
+        attempted = await self._yield_protected_idle(
+            client, base, unfreed, need, available, pending
+        )
+        if attempted:
+            failed.update(name for name in attempted if name not in pending)
+            freed.update(attempted)
             return
         held = self._ollama_unfreeable(resident)
         releasable = _releasable_ollama_bytes(held, freed)
@@ -1673,8 +1898,9 @@ class LoadGuard:
     ) -> tuple[bool, list[tuple[str, int, str]], float]:
         """Free this engine's own idle residents before an oMLX cold load is refused.
 
-        LRU first, never the target itself; pinned, protected, busy, active-elsewhere
-        and loading residents are never freed, nor anything under foreign traffic.
+        LRU first, never the target itself; protected residents go last but still
+        yield before refusal; pinned, busy, active-elsewhere and loading residents
+        are never freed, nor anything under foreign traffic.
         Returns (re-measure, residents still holding bytes with why, pending baseline).
         """
         waiting, pending_used = await self._omlx_unloads_pending(
@@ -1714,8 +1940,6 @@ class LoadGuard:
                 holding.append((name, size, "unload unsettled"))
             elif name in attempted:
                 holding.append((name, size, "unload failed"))
-            elif name in self.protected(OMLX):
-                holding.append((name, size, "protected"))
             elif self.busy(OMLX, name):
                 holding.append((name, size, "busy"))
             elif self._active_elsewhere(OMLX, name):
@@ -1857,7 +2081,7 @@ class LoadGuard:
                         "projected_gib": footprint / _GIB,
                     }
                 )
-            idle_ollama = self._ollama_idle(resident, exclude=names)
+            idle_ollama = self._ollama_idle(resident, exclude=names, include_protected=True)
             try:
                 _, idle = await self._omlx_idle_models(client, exclude=names)
             except Exception:
@@ -1882,6 +2106,108 @@ class LoadGuard:
             "idle_ollama_gib": idle_ollama / _GIB,
             "freeable_omlx_gib": freeable_omlx / _GIB,
             "models": per_model,
+        }
+
+    async def seat_fit(self, ollama_base: str, seats: list[dict[str, Any]]) -> dict[str, Any]:
+        """Every seat's projected footprint against the budget left when all evictable
+        memory is reclaimed — the fit beside only the standard residents. Pure
+        measurement, no side effects; flags seats that can never fit."""
+        async with self._client() as client:
+            resident = await self._resident(client, ollama_base)
+            st = await self._omlx_status(client)
+            headroom = (
+                None
+                if st is None
+                else _budget_bytes(st) - float(st.get("current_model_memory") or 0)
+            )
+            idle_ollama = self._ollama_idle(resident, include_protected=True)
+            try:
+                _, idle_models = await self._omlx_idle_models(client)
+            except Exception:
+                idle_models = []
+            freeable_omlx = float(
+                sum(
+                    float(m.get("estimated_size") or m.get("actual_size") or 0) for m in idle_models
+                )
+            )
+            available = (
+                None
+                if headroom is None
+                else self._ollama_available(headroom, resident, idle_ollama)
+                + freeable_omlx
+                - _MARGIN
+            )
+            rows = [
+                await self._seat_row(client, ollama_base, st, resident, seat, available)
+                for seat in seats
+            ]
+        return {
+            "guard_enabled": self.enabled(),
+            "budget_source": (
+                "fixed LOAD_GUARD_CEILING_GB" if _CEILING > 0 else "oMLX final_ceiling (live)"
+            ),
+            "ceiling_gib": None if st is None else _budget_bytes(st) / _GIB,
+            "headroom_gib": None if headroom is None else headroom / _GIB,
+            "idle_ollama_gib": idle_ollama / _GIB,
+            "freeable_omlx_gib": freeable_omlx / _GIB,
+            "margin_gib": _MARGIN / _GIB,
+            "available_gib": None if available is None else available / _GIB,
+            "ollama_residents": {
+                name: {
+                    "gib": self._ollama_size(name, size) / _GIB,
+                    "hold": self._ollama_hold_reason(name) or "idle (evictable)",
+                }
+                for name, size in resident.items()
+            },
+            "omlx_residents": {
+                str(m.get("id")): float(m.get("estimated_size") or 0) / _GIB
+                for m in (st or {}).get("models") or []
+                if m.get("loaded")
+            },
+            "seats": rows,
+            "never_fit": [r["seat"] for r in rows if r["never_fit"]],
+        }
+
+    async def _seat_row(
+        self,
+        client: httpx.AsyncClient,
+        base: str,
+        status: dict[str, Any] | None,
+        resident: dict[str, int],
+        seat: dict[str, Any],
+        available: float | None,
+    ) -> dict[str, Any]:
+        """One seat's projected bytes per engine, and whether it can ever fit."""
+        model = str(seat.get("model") or "")
+        omlx_model = str(seat.get("omlx_model") or "")
+        ollama_gib: float | None = None
+        if model:
+            footprint = await self._need(client, base, model)
+            key = (base, model_key(model))
+            if self._sizes.get(key) or self._observed.get((OLLAMA, model_key(model))):
+                ollama_gib = footprint / _GIB
+        entry = _omlx_entry(status, omlx_model) if omlx_model else None
+        omlx_gib = float(entry.get("estimated_size") or 0) / _GIB if entry else None
+        resident_now = bool(
+            (model and lookup_model(resident, model) is not None) or (entry and entry.get("loaded"))
+        )
+        served = ollama_gib is not None or omlx_gib is not None
+        fits_ollama = (
+            ollama_gib is not None and available is not None and ollama_gib * _GIB <= available
+        )
+        fits_omlx = omlx_gib is not None and available is not None and omlx_gib * _GIB <= available
+        fits = resident_now or fits_ollama or fits_omlx
+        return {
+            "seat": str(seat.get("seat", "")),
+            "model": model,
+            "omlx_model": omlx_model if omlx_model else None,
+            "stack_down_only": bool(seat.get("stack_down_only")),
+            "resident": resident_now,
+            "ollama_projected_gib": ollama_gib,
+            "omlx_projected_gib": omlx_gib,
+            "served": served,
+            "fits": bool(fits) if served else None,
+            "never_fit": bool(served and available is not None and not fits),
         }
 
     async def reclaim_idle_memory(self, ollama_base: str, need: float) -> list[dict[str, str]]:

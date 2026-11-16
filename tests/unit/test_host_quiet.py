@@ -13,7 +13,6 @@ def test_process_scan_finds_dispatch_pytest_wfe_and_bench() -> None:
         "101 1 python /srv/x/.claude/orchestrate/bin/dispatch.py run lane",
         "102 1 /venv/bin/python -m pytest -n 4 tests/unit",
         "103 1 python -m tests.wfe.campaign --plan private.yaml",
-        "104 1 python scripts/bench_engine_h2h.py --repeat 10",
         "105 106 python scripts/uat_engines.py",
         "106 107 python scripts/uat_engines.py",
         "107 1 python /srv/x/.claude/orchestrate/bin/dispatch.py run this lane",
@@ -26,7 +25,6 @@ def test_process_scan_finds_dispatch_pytest_wfe_and_bench() -> None:
         (101, "dispatch lane job"),
         (102, "pytest/xdist"),
         (103, "WFE/bench run"),
-        (104, "WFE/bench run"),
     ]
     assert ancestors == {107, 1}
     assert all("private.yaml" not in item["process"] for item in found)

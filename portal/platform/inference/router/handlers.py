@@ -33,6 +33,7 @@ from portal.platform.inference.router.anthropic_compat import (
     openai_stream_to_anthropic_sse,
 )
 from portal.platform.inference.router.auth import _verify_admin_key, _verify_key
+from portal.platform.inference.router.capacity_fallback import try_capacity_fallback
 from portal.platform.inference.router.concurrency import (
     RequestSlot,
 )
@@ -67,8 +68,10 @@ from portal.platform.inference.router.non_streaming import (
     _try_non_streaming,
     is_omlx_capacity_refusal,
 )
+from portal.platform.inference.router.parallel_seat import release_omlx_fallback
 from portal.platform.inference.router.preinject import (
     _apply_client_tools_only,
+    _apply_no_tools_request,
     _apply_role_slash,
     _inject_attached_files,
     _inject_requested_prompts,
@@ -96,7 +99,9 @@ from portal.platform.inference.router.streaming import (
     _select_stream_fn,
     _select_streaming_backend,
     _stream_with_fallback,
-    _with_room_for_omlx,
+)
+from portal.platform.inference.router.streaming import (
+    _with_room_for_omlx as _room,
 )
 from portal.platform.inference.router.trace import (
     capture as trace_capture,
@@ -197,6 +202,7 @@ async def health() -> dict[str, Any]:
     """
     if registry is None:
         raise HTTPException(status_code=503, detail="Backend registry not initialised")
+    backends = registry.list_backends()
     healthy = registry.list_healthy_backends()
     return {
         "status": "ok" if healthy else "degraded",
@@ -204,7 +210,7 @@ async def health() -> dict[str, Any]:
         "build_sha": os.environ.get("PORTAL_BUILD_SHA", "unknown"),
         "build_dirty": int(os.environ.get("PORTAL_BUILD_DIRTY", "-1") or -1),
         "backends_healthy": len(healthy),
-        "backends_total": len(registry.list_backends()),
+        "backends_total": len(backends),
         "backends_checked": registry.health_checked,
         "workspaces": len(WORKSPACES),
     }
@@ -273,6 +279,28 @@ async def admin_load_plan(
     if load_guard.GUARD is None or not ollama:
         raise HTTPException(status_code=503, detail="load guard not initialised")
     return await load_guard.GUARD.plan(ollama.rstrip("/"), models)
+
+
+async def admin_seat_fit(authorization: str | None = Header(None)) -> dict[str, Any]:
+    """POST /admin/seat-fit — every production seat's projected bytes against the budget
+    left when only the standard residents remain; flags seats that can never fit.
+
+    Pure measurement (``load_guard.LoadGuard.seat_fit``); seats are listed, never
+    changed. Regular API key.
+    """
+    _verify_key(authorization)
+    from portal.platform.inference import load_guard
+    from portal.platform.inference.router.seat_fit import annotate, production_seats
+
+    ollama = (
+        next((b.url for b in registry.list_backends() if b.type == "ollama"), None)
+        if registry
+        else None
+    )
+    if load_guard.GUARD is None or not ollama or registry is None:
+        raise HTTPException(status_code=503, detail="load guard not initialised")
+    report = await load_guard.GUARD.seat_fit(ollama.rstrip("/"), production_seats(registry))
+    return annotate(report)
 
 
 async def admin_reclaim_idle_memory(
@@ -432,10 +460,10 @@ async def metrics() -> PlainTextResponse:
     total = len(registry.list_backends())
 
     lines = [
-        "# HELP portal_backends_healthy Number of healthy backends",
+        "# HELP portal_backends_healthy Number of healthy production backends",
         "# TYPE portal_backends_healthy gauge",
         f"portal_backends_healthy {healthy}",
-        "# HELP portal_backends_total Total registered backends",
+        "# HELP portal_backends_total Total registered production backends",
         "# TYPE portal_backends_total gauge",
         f"portal_backends_total {total}",
         "# HELP portal_uptime_seconds Process uptime in seconds",
@@ -610,6 +638,21 @@ async def list_backends_endpoint(authorization: str | None = Header(None)) -> di
     }
 
 
+def _order_candidates(candidates: list[Any], workspace_id: str, registry: Any) -> list[Any]:
+    """Hot-seat order, then put a declared parallel seat back on its batching engine."""
+    from portal.platform.inference.router.parallel_seat import prefer_batching_engine
+
+    return prefer_batching_engine(
+        placement.protect_hot_seat(
+            candidates,
+            workspace_id,
+            WORKSPACES.get(workspace_id, {}).get("model_hint", ""),
+            getattr(registry, "hot_seat_protect_s", 0.0),
+        ),
+        workspace_id,
+    )
+
+
 def _reject_disabled_workspace(workspace_id: str) -> None:
     """Same 404 a disabled workspace gets today, for a workspace or ``engine::variant``."""
     from portal.platform.wiki.adapters.modules import is_workspace_disabled
@@ -754,15 +797,23 @@ async def _resolve_request_route(
 
     # Eval arm pin (portal_backend) before hot-seat protection: a pinned arm
     # measures exactly one backend, so the ladder must not widen the list again.
-    candidates = apply_backend_pin(body, candidates)
-
-    # Hot-seat prefix-cache protection (P5-OMLX-PREFIX-CACHE-001): advisory reorder, off by default.
-    candidates = placement.protect_hot_seat(
-        candidates,
-        workspace_id,
-        WORKSPACES.get(workspace_id, {}).get("model_hint", ""),
-        getattr(registry, "hot_seat_protect_s", 0.0),
+    model_hint = str(WORKSPACES.get(workspace_id, {}).get("model_hint") or "")
+    requested_pin = body.get("portal_backend")
+    registered = isinstance(requested_pin, str) and any(
+        backend.id == requested_pin for backend in registry.list_backends()
     )
+    if (
+        registered
+        and all(candidate.id != requested_pin for candidate in candidates)
+        # Another worker may already have probed this engine healthy; this
+        # worker's candidate list is only as fresh as its last cycle.
+        and await registry.refresh_backend_health(str(requested_pin))
+    ):
+        candidates = registry.get_backend_candidates(workspace_id)
+    candidates = apply_backend_pin(body, candidates, model_hint)
+
+    # Hot-seat prefix-cache protection, then a parallel seat returns to its batching engine.
+    candidates = _order_candidates(candidates, workspace_id, registry)
 
     trace_span(
         "route.resolved",
@@ -782,6 +833,7 @@ async def _prepare_request_context(
 ) -> dict[str, Any]:
     is_bite = "portal_bite_tools" in body
     if not is_bite:
+        body = _apply_no_tools_request(body)
         body = _apply_client_tools_only(workspace_id, body)
         body = _inject_requested_prompts(original_model_id, body)
         body = _inject_temporal_context(workspace_id, body)
@@ -862,6 +914,7 @@ async def _give_up(
     body: dict[str, Any],
     exc: BackendRequestError | None,
     reasons: list[str],
+    persona: str = "",
 ) -> JSONResponse:
     """End a request no candidate could serve: a chat UI gets a completion, a program the status."""
     if not no_answer.chat_ui():
@@ -875,6 +928,11 @@ async def _give_up(
                 + (f" — {'; '.join(reasons)}" if reasons else " — check server logs")
             ),
         )
+    fallback = await try_capacity_fallback(
+        workspace_id, body, reasons, persona=persona, dispatch=_try_non_streaming
+    )
+    if fallback is not None:
+        return fallback
     text = await no_answer.chat_reply(
         workspace_id, no_answer.workspace_model(workspace_id, body), reasons, path="non_streaming"
     )
@@ -946,6 +1004,7 @@ async def _dispatch_non_streaming(
             trace_span("backend.attempt", backend=backend.id, outcome=f"http_{exc.status_code}")
             raise HTTPException(status_code=exc.status_code, detail=exc.detail) from None
         if result is not None:
+            await release_omlx_fallback(backend, workspace_id)
             route_header = result.headers.get("x-portal-route", ";;")
             resolved_model = (
                 route_header.split(";")[2] if len(route_header.split(";")) > 2 else "unknown"
@@ -985,9 +1044,9 @@ async def _dispatch_non_streaming(
     # All backends failed
     if capacity_exc is not None:
         _record_error(workspace_id, f"backend_http_{capacity_exc.status_code}")
-        return await _give_up(workspace_id, body, capacity_exc, [capacity_exc.detail])
+        return await _give_up(workspace_id, body, capacity_exc, [capacity_exc.detail], persona)
     _record_error(workspace_id, "all_backends_failed")
-    return await _give_up(workspace_id, body, None, [r for r in tried.values() if r])
+    return await _give_up(workspace_id, body, None, [r for r in tried.values() if r], persona)
 
 
 async def chat_completions(
@@ -1110,7 +1169,7 @@ async def chat_completions(
                 _has_tools,
             )
             _streaming_response = StreamingResponse(
-                _with_portal_timings(_with_room_for_omlx(backend, backend_body, _stream_fn)),
+                _with_portal_timings(_room(backend, backend_body, _stream_fn, workspace_id)),
                 media_type="text/event-stream",
                 headers={"x-portal-route": f"{workspace_id};{backend.id};{target_model}"},
             )

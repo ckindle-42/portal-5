@@ -179,6 +179,10 @@ class Backend:
     # without this check a half-migrated oMLX group reports healthy and silently
     # black-holes every request for an aliased-but-unserved model.
     live_models: set[str] | None = None
+    # False when ``/v1/models`` is a cache dump (mlx_lm.server), not the served
+    # set. Health still uses HTTP 200. The live-set filter stays off so a
+    # configured id is not rejected for being absent from that dump.
+    listing_is_served_set: bool = True
 
     @property
     def chat_url(self) -> str:
@@ -291,7 +295,6 @@ class BackendRegistry:
         self._last_healthy_count: int = -1
         self._last_memory_pct: float = 0.0
         self._memory_gate_source: str | None = None  # logged when it changes
-
         self._load_config()
 
     def _load_config(self) -> None:
@@ -326,52 +329,8 @@ class BackendRegistry:
         # Expand environment variables
         cfg = _expand_env(cfg)
 
-        # Load backends
         for be in cfg.get("backends", []):
-            # Accept `models: [str]` OR `models: [dict]`; dict entries populate
-            # ollama_metadata, strings leave it empty.
-            ollama_meta: list[dict[str, Any]] = []
-            raw_models = be.get("models", [])
-            flat_models = []
-            for m in raw_models:
-                if isinstance(m, dict):
-                    flat_models.append(m["id"])
-                    # keep_reason: exempts a deliberate second variant from the
-                    # fleet fallback rule (validate_system HY). Normalised so
-                    # consumers always see a string, never None.
-                    ollama_meta.append({**m, "keep_reason": str(m.get("keep_reason") or "")})
-                elif isinstance(m, str):
-                    flat_models.append(m)
-                else:
-                    logger.warning(
-                        "Backend %s: unexpected model entry type %s, skipping",
-                        be.get("id"),
-                        type(m).__name__,
-                    )
-            backend = Backend(
-                id=be["id"],
-                type=be.get("type", "ollama"),
-                url=be["url"],
-                group=be.get("group", "general"),
-                models=flat_models,
-                ollama_metadata=ollama_meta,
-                health_path=be.get("health_path"),
-                priority=int(be.get("priority", 0) or 0),
-                aliases={str(k): str(v) for k, v in (be.get("aliases") or {}).items()},
-            )
-            self._backends[backend.id] = backend
-            logger.info(
-                "Registered backend: %s (%s) in group '%s' (%d models, %d with metadata, "
-                "priority=%d, %d aliases)",
-                backend.id,
-                backend.type,
-                backend.group,
-                len(flat_models),
-                len(ollama_meta),
-                backend.priority,
-                len(backend.aliases),
-            )
-
+            self._register_backend(be)
         # Load workspace routing
         self._workspace_routes = cfg.get("workspace_routing", {})
         # Pre-compute workspace → group list for O(1) lookups
@@ -409,9 +368,66 @@ class BackendRegistry:
             self._hot_seat_protect_s,
         )
 
+    def _register_backend(self, be: dict[str, Any]) -> None:
+        """Add one YAML backend. Dict model entries keep tool metadata."""
+        ollama_meta: list[dict[str, Any]] = []
+        flat_models: list[str] = []
+        for m in be.get("models", []):
+            if isinstance(m, dict):
+                flat_models.append(m["id"])
+                ollama_meta.append({**m, "keep_reason": str(m.get("keep_reason") or "")})
+            elif isinstance(m, str):
+                flat_models.append(m)
+            else:
+                logger.warning(
+                    "Backend %s: unexpected model entry type %s, skipping",
+                    be.get("id"),
+                    type(m).__name__,
+                )
+        backend = Backend(
+            id=be["id"],
+            type=be.get("type", "ollama"),
+            url=be["url"],
+            group=be.get("group", "general"),
+            models=flat_models,
+            ollama_metadata=ollama_meta,
+            health_path=be.get("health_path"),
+            priority=int(be.get("priority", 0) or 0),
+            aliases={str(k): str(v) for k, v in (be.get("aliases") or {}).items()},
+            listing_is_served_set=be.get("listing_is_served_set", True) is not False,
+        )
+        self._backends[backend.id] = backend
+        logger.info(
+            "Registered backend: %s (%s) in group '%s' (%d models, %d with metadata, "
+            "priority=%d, %d aliases)",
+            backend.id,
+            backend.type,
+            backend.group,
+            len(flat_models),
+            len(ollama_meta),
+            backend.priority,
+            len(backend.aliases),
+        )
+
     def list_backends(self) -> list[Backend]:
         """Return all registered backends."""
         return list(self._backends.values())
+
+    async def refresh_backend_health(self, backend_id: str) -> bool:
+        """Probe one backend now and publish the result.
+
+        Each uvicorn worker owns a registry, so a backend one worker has already
+        seen recover can still be missing from another worker's candidate list
+        for a whole health interval. A pinned request re-probes its backend
+        instead of waiting for that worker's next cycle.
+        """
+        backend = self._backends.get(backend_id)
+        if backend is None:
+            return False
+        sem = self._get_health_semaphore()
+        client = await self._get_health_client(self._health_timeout)
+        await self._check_one(backend, sem, client)
+        return backend.healthy
 
     @property
     def health_checked(self) -> bool:
@@ -436,6 +452,19 @@ class BackendRegistry:
 
         Called from ``health_check_all`` after every cycle; the invalidation is
         what lets a health change take effect within the 5s TTL window.
+        """
+        self._cached_healthy = [b for b in self._backends.values() if b.healthy]
+        self._invalidate_candidate_cache()
+
+    def _publish_health_change(self) -> None:
+        """Publish one backend's health transition before the cycle ends.
+
+        ``/v1/backends`` reads ``Backend.healthy`` live, so a caller that waits
+        on it can proceed while ``_cached_healthy`` still holds the previous
+        cycle's list (a 25-backend cycle with a 2-slot semaphore takes long
+        enough to matter). Requests then see the stale candidate list and 400 a
+        backend the wait just reported healthy. Transitions are rare, so this
+        rebuilds the two caches on change only.
         """
         self._cached_healthy = [b for b in self._backends.values() if b.healthy]
         self._invalidate_candidate_cache()
@@ -707,10 +736,11 @@ class BackendRegistry:
 
             if ok:
                 backend.consecutive_failures = 0
-                if backend.type == "omlx" and resp is not None:
+                if backend.type == "omlx" and resp is not None and backend.listing_is_served_set:
                     self._update_omlx_live_models(backend, resp)
                 if not backend.healthy:
                     backend.healthy = True
+                    self._publish_health_change()
                     logger.info("Health check recovered: %s", backend.id)
             else:
                 backend.consecutive_failures += 1
@@ -722,6 +752,7 @@ class BackendRegistry:
                             backend.consecutive_failures,
                         )
                         backend.healthy = False
+                        self._publish_health_change()
                 else:
                     logger.debug(
                         "Health check failed for %s: %d/%d consecutive failures",

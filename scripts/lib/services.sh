@@ -305,6 +305,25 @@ _launch_pull_video_mlx_models() {
     done
 }
 
+_launch_pull_asr_models() {
+    # The ASR services run with HF_HUB_OFFLINE=1, so this is the only way their
+    # weights can appear. Idempotent: cached models are verified, not re-fetched.
+    PORTAL_ROOT="${PORTAL_ROOT:-$(pwd)}"
+    ASR_PY="$PORTAL_ROOT/.venv/bin/python3"
+    if [ ! -x "$ASR_PY" ]; then
+        echo "  ❌ Portal venv interpreter missing: $ASR_PY (run: uv sync --all-extras)" >&2
+        exit 1
+    fi
+    if [ -f "$ENV_FILE" ]; then
+        set -a
+        source "$ENV_FILE"
+        set +a
+    fi
+    echo "=== Fetching MLX ASR models (:8924 Parakeet + Sortformer, :8918 Qwen3-ASR) ==="
+    env -u HF_HUB_OFFLINE -u TRANSFORMERS_OFFLINE \
+        "$ASR_PY" "$PORTAL_ROOT/scripts/fetch_mlx_asr_models.py" "$@"
+}
+
 _launch_install_music_ace() {
     echo "=== Installing ACE-Step-1.5 engine + proxy MCP (Apple Silicon / MLX) ==="
     ARCH=$(uname -m)

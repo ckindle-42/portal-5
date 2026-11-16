@@ -72,24 +72,26 @@ DIRECT_MODELS = {
     "omlx": {
         "auto-coding": "Qwen3-Coder-30B-A3B-Instruct-4bit",
         "auto-daily": "gemma-4-26b-a4b-it-QAT-4bit",
-        "auto-documents": "granite-4.1-8b-mxfp8",
+        # 2026-11-13: granite-4.1-8b-mxfp8 was removed from the fleet; documents
+        # and compliance resolve through their model_hint aliases now.
+        "auto-documents": "gemma-4-26b-a4b-it-QAT-4bit",
         "auto-security": "VulnLLM-R-7B-4bit",
         "auto-research": "Tongyi-DeepResearch-30B-A3B-abliterated-4bit",
         "auto-reasoning": "DeepSeek-R1-0528-Qwen3-8B-4bit",
         "auto-spl": "Qwen3-Coder-30B-A3B-Instruct-4bit",
-        "auto-compliance": "granite-4.1-8b-mxfp8",
+        "auto-compliance": "Qwen3.8-27B-oQ4e-mtp",
         "auto-research::data": "granite-4.1-30b-4bit",
         "auto-general-uncensored::creative": "Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit",
     },
     "ollama": {
         "auto-coding": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
         "auto-daily": "gemma4:26b-a4b-it-qat-ctx8k",
-        "auto-documents": "granite4.1:8b-q8_0-ctx16k",  # Q8_0 to match oMLX mxfp8 (~8-bit) — parity fix
+        "auto-documents": "gemma4:26b-a4b-it-qat-ctx32k",
         "auto-security": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
         "auto-research": "huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k",
         "auto-reasoning": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
         "auto-spl": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
-        "auto-compliance": "granite4.1:8b-q8_0-ctx16k",  # Q8_0 to match oMLX mxfp8 (~8-bit) — parity fix
+        "auto-compliance": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
         "auto-research::data": "granite4.1:30b-ctx64k",
         "auto-general-uncensored::creative": "fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k",
     },

@@ -32,8 +32,10 @@ check "AIOHTTP_CLIENT_TIMEOUT_TOOL_SERVER_DATA >= 1800" \
   'docker compose -f deploy/portal-5/docker-compose.yml exec -T open-webui sh -c "[ \${AIOHTTP_CLIENT_TIMEOUT_TOOL_SERVER_DATA:-0} -ge 1800 ]"'
 check "WEBUI_SECRET_KEY is set and not the placeholder" \
   'docker compose -f deploy/portal-5/docker-compose.yml exec -T open-webui sh -c "[ -n \"\${WEBUI_SECRET_KEY:-}\" ] && [ \"\${WEBUI_SECRET_KEY:-}\" != \"CHANGEME-AUTOGEN\" ]"'
-check "AUDIO_STT_ENGINE is empty (auto-STT disabled per TASK-WORKSPACE-001)" \
-  'docker compose -f deploy/portal-5/docker-compose.yml exec -T open-webui sh -c "[ -z \"\${AUDIO_STT_ENGINE:-}\" ]"'
+check "AUDIO_STT_ENGINE is openai (Portal STT wired per TASK-OWUI-STT-PORTAL)" \
+  'docker compose -f deploy/portal-5/docker-compose.yml exec -T open-webui sh -c "[ \"\${AUDIO_STT_ENGINE:-}\" = openai ]"'
+check "AUDIO_STT_OPENAI_API_BASE_URL points at mlx-transcribe :8924/v1" \
+  'docker compose -f deploy/portal-5/docker-compose.yml exec -T open-webui sh -c "echo \"\${AUDIO_STT_OPENAI_API_BASE_URL:-}\" | grep -q ":8924/v1""'
 
 echo
 echo "2. MCP tool registration via API"

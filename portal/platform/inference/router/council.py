@@ -649,7 +649,7 @@ def _render_review_material(messages: list[dict[str, Any]]) -> str:
 
 def _backend_for_model(registry: Any, workspace_id: str, model: str) -> Any | None:
     """Find a healthy backend that explicitly declares ``model``."""
-    ordered = registry.get_backend_candidates(workspace_id)
+    ordered = list(registry.get_backend_candidates(workspace_id))
     seen = {backend.id for backend in ordered}
     ordered.extend(
         backend for backend in registry.list_healthy_backends() if backend.id not in seen

@@ -83,6 +83,7 @@ from portal.platform.inference.router.non_streaming import (
     is_omlx_prefill_refusal,
     resolve_hop_target,
 )
+from portal.platform.inference.router.parallel_seat import release_omlx_fallback
 from portal.platform.inference.router.state import _record_error
 from portal.platform.inference.router.text_tool_calls import (
     TextToolCallHoldback,
@@ -100,6 +101,7 @@ from portal.platform.inference.router.tool_repeat import (
     UNGROUNDED_NOTICE,
     ToolRepeatGuard,
     apply_tool_byte_budget,
+    followup_tool_choice,
     hold_ungrounded_answer,
     no_tool_call_retry,
     tool_result_byte_budget,
@@ -334,6 +336,17 @@ def _completion_finish_chunk(reason: str) -> bytes:
     return f"data: {json.dumps({'choices': [{'delta': {}, 'finish_reason': reason}]})}\n\n".encode()
 
 
+def _requested_usage_chunk(body: dict[str, Any], frame: dict[str, Any]) -> bytes | None:
+    """Return a usage-only SSE chunk when the request asked to include engine usage."""
+    options = body.get("stream_options")
+    usage = frame.get("usage")
+    if not isinstance(options, dict) or not options.get("include_usage"):
+        return None
+    if not isinstance(usage, dict):
+        return None
+    return f"data: {json.dumps({'choices': [], 'usage': usage})}\n\n".encode()
+
+
 #: Opens the content notice that carries a Pipeline-originated error to the client.
 _PIPELINE_ERROR_NOTICE = "\n\n[Pipeline stream error — the reply ended early: "
 
@@ -395,7 +408,12 @@ def _stream_error_frames(request_id: str, workspace_id: str, message: str) -> li
 
 
 async def _backend_error_ending(
-    status: int, raw: bytes, request_id: str, workspace_id: str
+    status: int,
+    raw: bytes,
+    request_id: str,
+    workspace_id: str,
+    body: dict[str, Any] | None = None,
+    persona: str = "",
 ) -> list[bytes]:
     """A non-200 backend reply as the client sees it, by audience.
 
@@ -410,6 +428,10 @@ async def _backend_error_ending(
     if _is_noncascadable_stream_error(status, envelope):
         return _error_terminal_frames(request_id, workspace_id, detail)
     if no_answer.chat_ui():
+        if body is not None:
+            frames = await _capacity_fallback_frames(workspace_id, body, [detail], persona)
+            if frames is not None:
+                return frames
         text = await no_answer.chat_reply(
             workspace_id,
             no_answer.workspace_model(workspace_id),
@@ -430,12 +452,39 @@ def _no_answer_frames(request_id: str, workspace_id: str, text: str) -> list[byt
     ]
 
 
-async def _exhausted_frames(workspace_id: str, body: dict[str, Any], message: str) -> list[bytes]:
+async def _capacity_fallback_frames(
+    workspace_id: str, body: dict[str, Any], reasons: list[str], persona: str = ""
+) -> list[bytes] | None:
+    """A lighter declared seat's answer as SSE, or None when none fits or serves."""
+    from portal.platform.inference.router.capacity_fallback import try_capacity_fallback
+
+    fallback = await try_capacity_fallback(
+        workspace_id,
+        body,
+        reasons,
+        persona=persona,
+        max_hops=MAX_TOOL_HOPS,
+        dispatch=_try_non_streaming,
+    )
+    if fallback is None:
+        return None
+    data = json.loads(_as_bytes(fallback.body))
+    return list(
+        _json_completion_to_sse(data, workspace_id, thinking_enabled=_thinking_enabled(body))
+    )
+
+
+async def _exhausted_frames(
+    workspace_id: str, body: dict[str, Any], message: str, persona: str = ""
+) -> list[bytes]:
     """How a stream with no candidate left ends, by audience."""
     request_id = f"chatcmpl-{workspace_id}"
     if not no_answer.chat_ui():
         no_answer.record_api(workspace_id, [message], path="streaming")
         return _error_terminal_frames(request_id, workspace_id, message)
+    frames = await _capacity_fallback_frames(workspace_id, body, [message], persona)
+    if frames is not None:
+        return frames
     text = await no_answer.chat_reply(
         workspace_id,
         no_answer.workspace_model(workspace_id, body),
@@ -1543,6 +1592,9 @@ async def _tool_loop_frames(
             current_body["messages"] = (
                 current_body.get("messages", []) + [assistant_msg] + dispatch_results
             )
+            current_body["tool_choice"] = followup_tool_choice(
+                current_body.get("tool_choice"), all_tool_calls
+            )
             _tool_result_bytes = apply_tool_byte_budget(
                 _repeat_guard,
                 _tool_result_bytes,
@@ -1727,6 +1779,7 @@ async def _stream_from_backend_guarded(
     _tool_calls_emitted = False
     _reasoning_seen = False
     _completion_tokens_seen = 0
+    _usage_chunk: bytes | None = None
     _finish_reason: str | None = None
     _think_filter = ThinkTagFilter()
     _thinking_allowed = _thinking_enabled(body)
@@ -1772,7 +1825,7 @@ async def _stream_from_backend_guarded(
                     f"backend_http_{resp.status_code}",
                 )
                 for _f in await _backend_error_ending(
-                    resp.status_code, err, f"chatcmpl-{workspace_id}", workspace_id
+                    resp.status_code, err, f"chatcmpl-{workspace_id}", workspace_id, body
                 ):
                     yield _f
                 return
@@ -1855,6 +1908,8 @@ async def _stream_from_backend_guarded(
                         finish = choice.get("finish_reason")
                         if finish:
                             _finish_reason = str(finish)
+                            if not delta and _usage_chunk is None:
+                                _usage_chunk = _requested_usage_chunk(body, frame)
                         clean_choice = dict(choice)
                         clean_choice["finish_reason"] = None
                         clean_frame = dict(frame, choices=[clean_choice])
@@ -1928,6 +1983,8 @@ async def _stream_from_backend_guarded(
             yield _completion_finish_chunk(
                 _finish_reason or ("tool_calls" if _tool_calls_emitted else "stop")
             )
+            if _usage_chunk is not None:
+                yield _usage_chunk
             yield b"data: [DONE]\n\n"
     except httpx.TimeoutException as _timeout:
         logger.warning(
@@ -2493,8 +2550,8 @@ async def _build_streaming_request(
     # loop still runs, so a call written as text is recovered and passed back
     # to the client; the workspace's MCP tools are neither offered nor dispatched.
     _client_tools_only = bool(backend_body.pop("portal_client_tools_only", False))
-    if _client_tools_only:
-        effective_tools = []
+    if _client_tools_only or backend_body.get("tool_choice") == "none":
+        effective_tools = []  # client-only tools, or a turn that asks for no tools
     effective_tools = apply_eval_scope(backend_body, effective_tools)
     effective_tools, _bite_allowlist = apply_bite_tool_scope(backend_body, effective_tools)
     # Per-model supports_tools lookup for both backend types — see
@@ -2675,15 +2732,22 @@ def _select_stream_fn(
 
 
 async def _with_room_for_omlx(
-    backend: Any, body: dict[str, Any], frames: AsyncIterator[bytes]
+    backend: Any,
+    body: dict[str, Any],
+    frames: AsyncIterator[bytes],
+    workspace_id: str = "",
 ) -> AsyncIterator[bytes]:
     """Free idle Ollama for a large oMLX prompt before the first frame.
 
     The non-streaming path does this before every attempt; a single-candidate stream used
-    to skip it entirely, so its large prompt met the guard instead of avoiding it."""
+    to skip it entirely, so its large prompt met the guard instead of avoiding it.
+    A parallel seat served here drops its idle Ollama twin once the stream ends."""
     await make_room_for_omlx(backend, body)
-    async for chunk in frames:
-        yield chunk
+    try:
+        async for chunk in frames:
+            yield chunk
+    finally:
+        await release_omlx_fallback(backend, workspace_id)
 
 
 async def _stream_with_fallback(
@@ -2818,6 +2882,7 @@ async def _stream_with_fallback(
         from portal.platform.inference.router.correlation import get_correlation_id
 
         schedule_writeback(workspace_id, body.get("messages", []), get_correlation_id())
+        await release_omlx_fallback(backend, workspace_id)
 
     if stream_failed and (
         _output_sent or _is_noncascadable_stream_error(_error_status, _error_buffer)
@@ -2890,7 +2955,7 @@ async def _stream_with_fallback(
                 or _error_buffer
             )
         _message = _stream_error_detail(_error_buffer) if _error_buffer else "All backends failed"
-        for _f in await _exhausted_frames(workspace_id, body, _message):
+        for _f in await _exhausted_frames(workspace_id, body, _message, persona):
             yield _f
         _record_error(workspace_id, "all_backends_failed")
         trace_note(outcome="error")

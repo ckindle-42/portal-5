@@ -235,8 +235,9 @@ def check_eval_workspace_config_hygiene() -> tuple[str, str, list[dict]]:
     Does NOT enforce a uniform ctx across a lane — a baked -ctxNk tag is only
     accepted if the workspace also carries `ctx_validated: true`, proving a
     working-ctx preflight was actually run for *this* model rather than
-    copied from whatever workspace it was cloned from. Same pattern for
-    `tool_choice: required`, gated on `tool_choice_verified: true`.
+    copied from whatever workspace it was cloned from. That requirement does
+    not change with backend type. Same pattern for `tool_choice: required`,
+    gated on `tool_choice_verified: true`.
     """
     import re
 
@@ -262,7 +263,6 @@ def check_eval_workspace_config_hygiene() -> tuple[str, str, list[dict]]:
         checked += 1
         model_hint = ws.get("model_hint", "") or ""
         has_baked_ctx = bool(ctx_suffix_re.search(model_hint))
-
         if "context_limit" in ws and not has_baked_ctx:
             dropped_context_limit.append(ws_id)
 

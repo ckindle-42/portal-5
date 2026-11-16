@@ -4,16 +4,14 @@
 # it and whose ctxNk window is at least that workspace's context_limit.
 notes:
 - 'auto-coding::fast-repair: hf.co/JetBrains/Mellum2.1-12B-A2.5B-Thinking-GGUF:Q4_K_M-ctx32k left out: no decision-plan incumbent'
-- 'auto-documents: gemma4:26b-a4b-it-q4_K_M-ctx32k left out: it is the incumbent'
 - 'tools-specialist::fast: hf.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF:UD-Q4_K_XL-ctx8k left out: no decision-plan incumbent'
-- 'tools-specialist::fast: lfm3:1.7b-qad-q4_0-ctx8k left out: no decision-plan incumbent'
 workloads:
   auto-coding:
     tool_mode: sandbox
     home: coding_production
     discovery: []
     arms:
-      incumbent: qwen3-coder:30b-a3b-q4_K_M-ctx256k
+      incumbent: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k
       challengers:
       - hf.co/unsloth/flint-GGUF:UD-Q4_K_XL-ctx256k
   auto-compliance:
@@ -37,7 +35,7 @@ workloads:
     home: documents_production
     discovery: []
     arms:
-      incumbent: gemma4:26b-a4b-it-q4_K_M-ctx32k
+      incumbent: gemma4:26b-a4b-it-qat-ctx32k
       challengers:
       - granite4.1:30b-ctx96k
       - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k

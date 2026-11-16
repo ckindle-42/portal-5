@@ -166,8 +166,10 @@ class TestRegistry:
 class TestRegister:
     def test_every_item_is_classified_into_exactly_one_class(self):
         report = bf.backfill(_registry({}))
-        assert report["item_count"] == 203
-        assert sum(report["classes"].values()) == 203
+        # 216 = 203 closeout items + 13 ids from the 2026-11-13 fleet removal.
+        # gemma4:26b-a4b-it-qat-ctx16k stays on disk and has no register entry.
+        assert report["item_count"] == 216
+        assert sum(report["classes"].values()) == 216
         assert set(report["classes"]) <= set(bf.CLASSES)
 
     def test_the_five_measurement_based_removals_are_found(self):

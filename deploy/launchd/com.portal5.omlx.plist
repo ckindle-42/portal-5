@@ -29,8 +29,9 @@
     <true/>
     <key>KeepAlive</key>
     <true/>
+    <!-- Standard, never Background: Background drops oMLX to sched priority 4 and cut MoE decode ~56% (Gemma-4-26B 32 vs 74 tok/s, 2026-11-15). -->
     <key>ProcessType</key>
-    <string>Background</string>
+    <string>Standard</string>
     <key>ThrottleInterval</key>
     <integer>10</integer>
     <key>StandardOutPath</key>

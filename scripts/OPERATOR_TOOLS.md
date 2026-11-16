@@ -13,6 +13,7 @@ report them as unwired.
 ./launch.sh install-video-mlx      # install the MLX-native video MCP (LTX-2.3, :8935); start-video-mlx runs it
 python3 scripts/register_trainer_voice.py --audio <clip> --name <name> --text "<transcript>" --test
                                     # clean a recording + register it as a voice-clone trainer profile (host :8918)
+python3 scripts/fetch_mlx_asr_models.py [--check]  # fetch/verify MLX ASR weights (:8924 Parakeet + Sortformer, :8918 Qwen3-ASR); idempotent, ./launch.sh pull-asr-models is the same step
 ```
 
 ## Blind threat hunt — hunt bed and Milestone P1 (docs/HUNT_P1_RESULTS_20261109.md)
@@ -144,12 +145,10 @@ Run by hand for the compliance program phases named in each; one line from each 
 
 | Script | Purpose |
 |---|---|
-| `scripts/compliance/bench_sweep_engines.py` | SPLASH_SWEEP_ACCELERATION_V1 P3 - four-arm sweep throughput measurement. |
 | `scripts/compliance/calibrate_cip007.py` | CLOSEOUT_V1 P5 - CIP-007-6 calibration against the pre-sweep baseline. |
 | `scripts/compliance/capture_technical_basis.py` | Every register requirement carries what it says AND how it is meant to be met. |
 | `scripts/compliance/cite_and_scope_measure.py` | CITE_AND_SCOPE_V1 §P3 — assemble ``p3/measured.json`` from the receipts. |
 | `scripts/compliance/correction_loop_demo.py` | MODULE_COMPLETE_V1 §P3 — the correction loop, demonstrated end to end. |
-| `scripts/compliance/decide_sweep_engine.py` | SPLASH_SWEEP_ACCELERATION_V1 P5 - the promotion decision, made by the data. |
 | `scripts/compliance/derive_document_scope.py` | CITE_AND_SCOPE_V1 §P2 — read every operator document ONCE and store what it |
 | `scripts/compliance/lane_alteration_diff.py` | The lane-alteration diff (TASK_COMPLIANCE_PIPELINE_ALIGNMENT_V1 §P1). |
 | `scripts/compliance/measure_payload_turn.py` | DATA_TRUTH DD4 — one real turn through the deployed pipeline with the DD3 |
@@ -159,10 +158,9 @@ Run by hand for the compliance program phases named in each; one line from each 
 | `scripts/compliance/retype_relations.py` | MODULE_COMPLETE_V1 §P1 — act on adjudicated wrong relations; supersede, never delete. |
 | `scripts/compliance/self_agreement_pipeline.py` | Self-agreement on the serving engine (TASK_COMPLIANCE_PIPELINE_ALIGNMENT_V1 §P4). |
 | `scripts/compliance/session_proof.py` | MODULE_COMPLETE_V1 §P2 — hold a conversation: multi-turn sessions on one thread. |
-| `scripts/compliance/single_vs_split.py` | TASK_COMPLIANCE_PROVE_THE_MODULE_V1 §P4b - single model or split: the |
 | `scripts/compliance/sweep_acceptance_ab.py` | Sweep acceptance A/B: map-read a standard's requirements with ``write=False`` |
 | `scripts/compliance/verify_conjunction_adoption.py` | CLOSEOUT_V1 P1.3 - the no-regression guard on the conjunction adoption. |
 | `scripts/compliance/verify_technical_basis_coverage.py` | MODULE_COMPLETE_V1 §P0.5 — technical-basis coverage verified per requirement. |
 | `scripts/compliance/window_census.py` | The window census (TASK_COMPLIANCE_PIPELINE_ALIGNMENT_V1 §P2). |
 | `scripts/compliance/write_closeout_report.py` | CLOSEOUT_V1 P9.1 - the closing report generator. |
-| `scripts/compliance/write_splash_report.py` | SPLASH_SWEEP_ACCELERATION_V1 P7.1 - the splash report generator. |
+| `scripts/compliance/write_splash_report.py` | Historical receipt renderer for saved Splash sweep runs. |

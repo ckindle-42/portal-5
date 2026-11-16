@@ -24,7 +24,6 @@ from . import (  # noqa: F401  (imports populate the check registry)
     rag_runtime,
     review_program,
     security_bench,
-    splash_sweep_engine,
     telemetry,
     test_hygiene,
     wiki,

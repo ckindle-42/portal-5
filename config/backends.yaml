@@ -45,11 +45,6 @@ backends:
   # per the probe verdicts, not the registry's word.
   - id: hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k
     supports_tools: true
-  - id: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx48k
-    supports_tools: true
-  - id: gemma4:26b-a4b-it-q4_K_M-ctx32k
-    supports_tools: true
-    keep_reason: "plain 4bit retained for the 128k compliance seats and vision fallbacks while their QAT A/Bs (jobs 109-111) complete; bench and the 64k overflow seat moved to QAT 2026-11-06, plain 64k tag kept pending that review"
   # PIPELINE_ALIGNMENT_V1 §P2: the reading seat's overflow variant — same
   # gemma-4-26b-a4b-it weights, PARAMETER num_ctx 65536 baked (trained ceiling
   # 262,144). compliance-reading-overflow moved to the QAT ctx64k tag on
@@ -66,12 +61,6 @@ backends:
     supports_tools: true
   - id: hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k
     supports_tools: false
-  - id: ling30-tiny-test:latest
-    supports_tools: true
-  # WINDOW_AND_SEAT_V1 §P8.1: the production seat tag (bound by measurement;
-  # see config/portal.yaml compliance-reading for the decision record).
-  - id: hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k
-    supports_tools: true
   # P5-FANOUT-001 W3: the reading seat's big-window variant (granite4.1:30b
   # weights, PARAMETER num_ctx 98304 baked, trained ceiling 131,072). Serves
   # bench-granite41-30b-ctx98k; the reading loop's ~82k worst case must
@@ -80,11 +69,6 @@ backends:
   # direct /api/chat probe on the derived tag (clean tool_calls, typed
   # arguments — same weights/template as the incumbent seat).
   - id: granite4.1:30b-ctx96k
-    supports_tools: true
-  # Nemotron 3.5 Lightning added 2026-08-14 for auto-nemotron workspace
-  # (architectural diversity vs the Gemma-4 daily driver). supports_tools
-  # verified via direct tool-call probe (clean tool_calls, typed arguments).
-  - id: hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx8k
     supports_tools: true
   # Same 3 MoE-vs-dense IDE-lane candidates as the `coding` group (added
   # 2026-08-26), also needed here for auto-uncensored-throwaway (general
@@ -116,16 +100,13 @@ backends:
     supports_tools: true
   - id: granite4.1:8b-ctx8k
     supports_tools: true
-  # 2026-10-18 landscape candidates. Qwen3.8 at 128k for long reading (compliance-reading);
-  # K2 Horizon MoVA 36B-A4B (IFM, 2026-09-03, MoE ~4B active) for general-fast; direct
-  # probe 3/3 tool calls, reasoning separated, ~37 tok/s decode on this host.
-  - id: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx128k
-    supports_tools: true
-  - id: hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx96k
-    supports_tools: true
   - id: gemma4:26b-a4b-it-q4_K_M
     supports_tools: true
   - id: gemma4:26b-a4b-it-qat-ctx8k
+    supports_tools: true
+  # hunt-reasoning fallback. Bakes temperature 0 over the shared ctx8k parent
+  # (settings_audit sampling_baked_hot). Same weights, 0 extra bytes.
+  - id: gemma4:26b-a4b-it-qat-ctx8k-hunt
     supports_tools: true
   - id: gemma4:26b-a4b-it-qat-ctx16k
     supports_tools: true
@@ -167,10 +148,8 @@ backends:
   # CLAUDE.md discipline: never infer tool support from a model card).
   - id: qwen3-coder:30b-a3b-q4_K_M
     supports_tools: true
-  - id: gpt-oss:20b
-    supports_tools: true
-  - id: granite4.1:30b
-    supports_tools: true
+  # Base granite4.1:30b is REMOVED_CLOSED. Seats hint granite4.1:30b-ctx16k;
+  # resolve_model matches that id, so the base is not registered (same as granite4.1:8b).
   - id: granite4.1:30b-ctx16k
     supports_tools: true
   # supports_tools was `false` here and `true` for the same tag under
@@ -194,10 +173,6 @@ backends:
   # tools-specialist::fast bakes its declared context_limit via this tag (2026-09-25).
   - id: gemma4:e4b-it-qat-ctx8k
     supports_tools: true
-  # s8 intake (2026-10-29): screen challenger, baked num_ctx; tool call probed clean
-  # via /api/chat on Ollama 0.40.13. Replace in place: the loser is deleted after the screen.
-  - id: lfm3:1.7b-qad-q4_0-ctx8k
-    supports_tools: true
   - id: hf.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF:UD-Q4_K_XL-ctx8k
     supports_tools: true
   - id: hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf
@@ -219,7 +194,8 @@ backends:
     supports_tools: true
   - id: glm-4.7-flash:Q4_K_M-ctx64k
     supports_tools: true
-  - id: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
+  # The math seat needs only 24K and keeps over 6 GiB below the stated budget.
+  - id: glm-4.7-flash:Q4_K_M-ctx24k
     supports_tools: false
   - id: hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M
     supports_tools: false
@@ -305,8 +281,6 @@ backends:
   # group (same class as the TASK_SAMPLING_PROFILE_AUDIT_V1 entries above).
   - id: portal5/spark-x2.6:q4_K_M-ctx64k
     supports_tools: true
-  - id: portal5/spark-x2.6:q4_K_M-ctx16k
-    supports_tools: true
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
 - group: coding
@@ -368,11 +342,7 @@ backends:
   # (priority 10) still serves the seat.
   - id: portal5/laguna-xs21:q4_K_M-ctx128k
     supports_tools: true
-  - id: gpt-oss:20b
-    supports_tools: true
   - id: qwen3-coder:30b-a3b-q4_K_M
-    supports_tools: true
-  - id: qwen3-coder:30b-a3b-q4_K_M-ctx256k
     supports_tools: true
   # s8 intake (2026-10-29): screen challenger, baked num_ctx; tool call probed clean
   # via /api/chat on Ollama 0.40.13. Replace in place: the loser is deleted after the screen.
@@ -402,10 +372,10 @@ backends:
   # template as -ctx64k, so the 2026-09-17 tool probe carries over.
   - id: glm-4.7-flash:Q4_K_M-ctx64k-agentic
     supports_tools: true
-  - id: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
-    supports_tools: false
-  - id: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k
-    supports_tools: false
+  # 24K re-fit (2026-11-15 live miss): 32K projected 37.75 GiB vs 37.6 GiB live
+  # headroom; 24K projects 33.85 GiB, +3.75 GiB margin (same window as math).
+  - id: glm-4.7-flash:Q4_K_M-ctx24k-agentic
+    supports_tools: true
   - id: hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M
     supports_tools: false
   - id: hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M-ctx32k
@@ -482,16 +452,10 @@ backends:
   models:
   - id: deepseek-r1:32b-q4_k_m
     supports_tools: false
-  - id: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
-    supports_tools: false
-  - id: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k
-    supports_tools: false
   - id: hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M
     supports_tools: false
   - id: hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M-ctx32k
     supports_tools: false
-  - id: gpt-oss:20b
-    supports_tools: true
   - id: granite4.1:8b-ctx16k
     supports_tools: true
   - id: granite4.1:8b-ctx8k
@@ -506,8 +470,7 @@ backends:
     # 71f0970), measured when /v1 served every Ollama seat at 1.0/1.0 with no
     # top_k/min_p/repeat_penalty; confirm in the next lab UAT (taskfile B8).
     supports_tools: true
-  - id: granite4.1:30b
-    supports_tools: true
+  # Base granite4.1:30b is REMOVED_CLOSED. Seats hint the ctx tags below.
   - id: granite4.1:30b-ctx16k
     supports_tools: true
   - id: granite4.1:30b-ctx64k
@@ -678,7 +641,6 @@ backends:
     keep_reason: "DFlash2 speculative-decoding seat (qwen38coder-dflash) — oMLX-only by measurement, no GGUF fallback exists for this combo"
   priority: 10
   aliases:
-    qwen3-coder:30b-a3b-q4_K_M-ctx256k: Qwen3-Coder-30B-A3B-Instruct-4bit
     qwen3-coder:30b-a3b-q4_K_M-ctx16k: Qwen3-Coder-30B-A3B-Instruct-4bit
     qwen3-coder:30b-a3b-q4_K_M-ctx32k: Qwen3-Coder-30B-A3B-Instruct-4bit
     portal5/laguna-xs21:q4_K_M-ctx128k: Laguna-XS-2.1-4bit
@@ -745,12 +707,9 @@ backends:
   # direct tool-call probe.
   - id: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
     supports_tools: true
-  # granite-4.1-8b-mxfp8 / granite-4.1-30b-4bit: listed here (not just in the
-  # aliases: block below) so this backend's own models: list matches what it
-  # actually serves — both were tool-call probed live 2026-09-25, see the W4
-  # comment a few lines down for the full record.
-  - id: granite-4.1-8b-mxfp8
-    supports_tools: true
+  # granite-4.1-30b-4bit: listed here (not just in the aliases: block below) so
+  # this backend's own models: list matches what it actually serves — it was
+  # tool-call probed live 2026-09-25, see the W4 comment a few lines down.
   - id: granite-4.1-30b-4bit
     supports_tools: true
   # general-fast / general-deep (TASK_GENERAL_FAST_DEEP_WORKSPACES_V2); tool
@@ -783,11 +742,11 @@ backends:
   priority: 10
   aliases:
     gemma4:26b-a4b-it-qat-ctx8k: gemma-4-26b-a4b-it-QAT-4bit
+    gemma4:26b-a4b-it-qat-ctx8k-hunt: gemma-4-26b-a4b-it-QAT-4bit
     gemma4:26b-a4b-it-qat-ctx16k: gemma-4-26b-a4b-it-QAT-4bit
     gemma4:26b-a4b-it-qat-ctx32k: gemma-4-26b-a4b-it-QAT-4bit
     gemma4:26b-a4b-it-qat-ctx64k: gemma-4-26b-a4b-it-QAT-4bit
     gemma4:26b-a4b-it-qat-ctx128k: gemma-4-26b-a4b-it-QAT-4bit
-    hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx8k: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
     # granite4.1:8b-ctx8k is deliberately NOT aliased (removed 2026-11-09, operator-approved):
     # the same nightmedia conversion garbles tool-call arguments on this tag too -- a hunt job id
     # 'hunt-c6b38fef36aa' came back as 'hunt- c6b38fef36aa' inside a text-form <tool_call> with
@@ -804,7 +763,6 @@ backends:
     granite4.1:30b-ctx16k: granite-4.1-30b-4bit
     mistral-small3.2:24b: mlx-community--Mistral-Small-3.2-24B-Instruct-2506-4bit
     qwen3.6:27b-q4_K_M-ctx16k: unsloth--Qwen3.6-27B-UD-MLX-4bit
-    gemma4:26b-a4b-it-q4_K_M-ctx32k: mlx-community--gemma-4-26b-a4b-it-4bit
     # PIPELINE_ALIGNMENT_V1 §P2: the overflow tag shares the 32k tag's MLX
     # conversion (max_model_len 262,144 — the conversion holds the 65k window
     # with room; the 90,041-token needle passed under the balanced guard).
@@ -843,8 +801,6 @@ backends:
   - id: Tongyi-DeepResearch-30B-A3B-abliterated-4bit
     supports_tools: true
   - id: granite-4.1-30b-4bit
-    supports_tools: true
-  - id: granite-4.1-8b-mxfp8
     supports_tools: true
   - id: Qwen3.8-27B-oQ4e-mtp
     supports_tools: true
@@ -914,8 +870,6 @@ backends:
     supports_tools: true
   - id: Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit
     supports_tools: true
-  - id: granite-4.1-8b-mxfp8
-    supports_tools: true
   # P5-FANOUT-001: redteam-deep/purpleteam-exec conversion — behavioral A/B vs
   # the GGUF seat + typed tool calls verified (see comment below).
   - id: Jiunsong--supergemma4-26b-uncensored-mlx-4bit-v2
@@ -957,6 +911,23 @@ defaults:
   # 0 = off (today's first-candidate order). Never applies to a pinned ?model=.
   # 900 s = 15 min: enabled by the operator 2026-10-22.
   hot_seat_protect_s: 900
+# The platform's single embedder, served by the host EG2 service (config/portal.yaml
+# host_jobs com.portal5.eg2-embedding). POST /v1/embeddings on the Pipeline forwards
+# here — raw OpenAI passthrough, no task prefixes applied (callers such as Open WebUI
+# apply their own). `model` + `aliases` are the only names the route accepts; a caller
+# naming anything else gets a 400 listing them. Limits are per request: `max_batch`
+# items, `max_input_chars` characters each; `max_concurrent` is the route's own
+# semaphore (separate from chat's, so an embeddings batch neither starves chat nor is
+# starved by it — a 429 carries Retry-After). `url` uses the container-reachable form;
+# host processes override with EG2_EMBEDDING_URL.
+platform_embedder:
+  model: google/embeddinggemma-2
+  url: ${EG2_EMBEDDING_URL:-http://host.docker.internal:8946}
+  aliases: []
+  max_batch: 64
+  max_input_chars: 8192
+  max_concurrent: 4
+  timeout_s: 120
 embedding_candidates:
 - id: google/embeddinggemma-2
   notes: 'EmbeddingGemma 2 (740M total; 270M text backbone + selectable 170M vision / 300M audio encoders; Apache 2.0;
@@ -1006,6 +977,8 @@ workspace_routing:
   - vision
   - general
   security-reviewer:
+  - general
+  hunt-reasoning:
   - general
   auto-compliance:
   - reasoning

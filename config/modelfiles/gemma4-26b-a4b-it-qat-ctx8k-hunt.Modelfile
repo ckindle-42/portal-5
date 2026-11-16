@@ -1,0 +1,9 @@
+# gemma4:26b-a4b-it-qat-ctx8k-hunt — hunt-reasoning fallback tag.
+# Bakes temperature 0 over the shared ctx8k parent so settings_audit
+# sampling_baked_hot stays clear when a request omits the workspace override.
+# Same weights and num_ctx as the parent — 0 extra bytes.
+# Create with:
+#   ollama create gemma4:26b-a4b-it-qat-ctx8k-hunt \
+#     -f config/modelfiles/gemma4-26b-a4b-it-qat-ctx8k-hunt.Modelfile
+FROM gemma4:26b-a4b-it-qat-ctx8k
+PARAMETER temperature 0

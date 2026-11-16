@@ -243,8 +243,12 @@ class RequestSlot:
         Raises:
             HTTPException 429: timeout.
         """
+        from portal.platform.inference.load_guard import load_wait_s
         from portal.platform.inference.router.metrics import _workspace_semaphore_busy_total
+        from portal.platform.inference.router.parallel_seat import YIELD
 
+        if YIELD.holding(workspace_id):
+            await YIELD.wait(workspace_id, load_wait_s())
         sem = await _acquire_workspace_sem(workspace_id)
         try:
             await asyncio.wait_for(sem.acquire(), timeout=_SEMAPHORE_TIMEOUT)

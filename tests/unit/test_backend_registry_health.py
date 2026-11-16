@@ -341,3 +341,87 @@ defaults: {}
         reg = BackendRegistry(config_path=str(cfg))
         assert reg._tool_support == {}
         assert reg.model_supports_tools("anything") is False
+
+
+class TestHealthTransitionPublishes:
+    """A published flag and the candidate list must agree inside a health cycle.
+
+    ``/v1/backends`` reads ``Backend.healthy`` live, while requests read
+    ``_cached_healthy``. A caller that waits for a "healthy" flag read then sent
+    a pinned request could 400 with "not a healthy candidate" because the cache
+    was still the previous cycle's list.
+    """
+
+    def test_a_healthy_flag_and_the_published_list_never_disagree(self, tmp_path):
+        import asyncio
+
+        cfg = tmp_path / "backends.yaml"
+        cfg.write_text("""
+backends:
+  - id: b1
+    type: ollama
+    url: http://x
+    group: general
+    models: [m]
+workspace_routing: {}
+defaults: {}
+""")
+        reg = BackendRegistry(config_path=str(cfg))
+        backend = reg._backends["b1"]
+        backend.healthy = True
+        reg._cached_healthy = [backend]
+
+        class Client:
+            async def get(self, _url):
+                return type("Response", (), {"status_code": 503})()
+
+        asyncio.run(reg._check_one(backend, asyncio.Semaphore(1), Client()))
+        asyncio.run(reg._check_one(backend, asyncio.Semaphore(1), Client()))
+
+        assert backend.healthy is False
+        assert reg.list_healthy_backends() == []
+
+    def test_publishing_on_transition_leaves_the_cadence_and_threshold_alone(self, tmp_path):
+        """Production probing is unchanged: one GET per check, two failures to flip,
+        immediate recovery. Publishing only moves *when* the list is rebuilt."""
+        import asyncio
+
+        cfg = tmp_path / "backends.yaml"
+        cfg.write_text("""
+backends:
+  - id: b1
+    type: ollama
+    url: http://x
+    group: general
+    models: [m]
+workspace_routing: {}
+defaults: {}
+""")
+        reg = BackendRegistry(config_path=str(cfg))
+        backend = reg._backends["b1"]
+        calls: list[str] = []
+
+        class Client:
+            status_code = 200
+
+            async def get(self, url):
+                calls.append(url)
+                return type("Response", (), {"status_code": self.status_code})()
+
+        client = Client()
+        sem = asyncio.Semaphore(1)
+
+        client.status_code = 503
+        asyncio.run(reg._check_one(backend, sem, client))
+        assert backend.healthy is True and backend.consecutive_failures == 1
+
+        asyncio.run(reg._check_one(backend, sem, client))
+        assert backend.healthy is False and backend.consecutive_failures == 2
+        assert reg.list_healthy_backends() == []
+
+        client.status_code = 200
+        asyncio.run(reg._check_one(backend, sem, client))
+        assert backend.healthy is True and backend.consecutive_failures == 0
+        assert [row.id for row in reg.list_healthy_backends()] == ["b1"]
+
+        assert calls == ["http://x/api/tags"] * 3

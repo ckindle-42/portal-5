@@ -1277,7 +1277,7 @@ workspaces:
         guardrail: default
       heavy:
         name: ⚡ Portal Agentic Coder (Heavy)
-        description: 'Agentic coding workspace for long-horizon multi-file tasks, SWE-agent-style workflows, and complex refactors. Qwen3.8-27B oQ4e MTP (dense 27B, 4-bit MLX with real MTP heads, ~1.45x decode, 262K native ctx, oMLX). 2026-10-22 coder-seat A/B screen: PASS think-off (arm A); think-on failed (arm B). Fallbacks remain AgentWorld 35B (the lite variant) and gpt-oss:20b in the coding pool.'
+        description: 'Agentic coding workspace for long-horizon multi-file tasks, SWE-agent-style workflows, and complex refactors. Qwen3.8-27B oQ4e MTP (dense 27B, 4-bit MLX with real MTP heads, ~1.45x decode, 262K native ctx, oMLX). 2026-10-22 coder-seat A/B screen: PASS think-off (arm A); think-on failed (arm B). Fallbacks remain AgentWorld 35B (the lite variant).'
         # 2026-10-22: think-off arm winner (kit-qwen38-27b-a). Card instruct sampling, think pinned off.
         # Source: unsloth Qwen3.8-27B-GGUF card (2026-09-24; re-confirmed 2026-10-16, presence 1.5 "to curb endless loops") — 0.7/0.8/20/min_p 0/presence 1.5/repeat 1.0.
         model_hint: Qwen3.8-27B-oQ4e-mtp
@@ -1498,16 +1498,16 @@ workspaces:
         think: null
       glm-coder:
         module: "coding"
-        model_hint: "glm-4.7-flash:Q4_K_M-ctx64k-agentic"
-        context_limit: 65536
-        # reasoning_budget_fit target 32768 (card max output 131072, audit ceiling
-        # 32768, half of the 64K window); 16384 truncated hard problems mid-thought.
-        predict_limit: 32768
+        model_hint: "glm-4.7-flash:Q4_K_M-ctx24k-agentic"
+        context_limit: 24576
+        # 24576 - 16384 = 8192: keeps the 8K prompt room the 32K fit reserved;
+        # a 24K output cap no longer fits the window (2026-11-15 live re-fit).
+        predict_limit: 16384
         # sampling: glm-4.7-flash card agentic_coding arm (coding seat) — 0.7 is
         # above the coding lane's 0.5 and card-sanctioned (sampling_card_over_lane).
         # The -agentic derived tag bakes that same arm so the seat stays lane-safe
         # on request paths that omit the workspace override (sampling_baked_hot):
-        # config/modelfiles/glm-4.7-flash.Q4_K_M-ctx64k-agentic.Modelfile
+        # config/modelfiles/glm-4.7-flash.Q4_K_M-ctx24k-agentic.Modelfile
         temperature: 0.7
         top_p: 1.0
         top_k: 20
@@ -2196,7 +2196,7 @@ workspaces:
     variants:
       fast:
         name: 🔧 Portal Tool Composer (Fast)
-        description: 'Faster tool-composition option — gemma4:e4b-it-qat (Google DeepMind, ~6.1GB effective 4B QAT, thinking, 128K ctx). WFE wfe_full_20260911 (2026-09-12): 9/9=1.00 home:coding and 9/9=1.00 discovery:research vs the granite4.1:8b-ctx8k incumbent''s 6/9=0.67 / 9/9=1.00 (NOT SEPARATED, small n). [BENCH-GATED PROVISIONAL model_hint — not a default; promotion requires a passing GC/CC bench run + operator promotion task.]'
+        description: 'Faster tool-composition option — gemma4:e4b-it-qat-ctx8k (Google DeepMind, ~6.1GB effective 4B QAT, thinking, context baked to 8192). WFE wfe_full_20260911 (2026-09-12): 9/9=1.00 home:coding and 9/9=1.00 discovery:research vs the granite4.1:8b-ctx8k incumbent''s 6/9=0.67 / 9/9=1.00 (NOT SEPARATED, small n). INTEGRATED: this variant''s model_hint is a wired role with that WFE evidence (closeout rule: route/hint/pin/persona/council/code). The bench-gated provisional marker does not apply.'
         # 2026-09-25: sampling set to the gemma4 card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: gemma4:e4b-it-qat-ctx8k
         top_k: 64
@@ -2274,7 +2274,7 @@ workspaces:
           Mathematical problem solving, proofs, calculus, algebra, statistics. GLM-4.7-Flash
           (ZhipuAI, 31B MoE ~3B active, MIT) — seated 2026-10-18 on WFE wfe_math_20261018d
           (BETTER than phi4-mini-reasoning, 104/108 vs 93/108; docs/WFE_DECISION_AUTO_MATH_20261018.md).
-        model_hint: glm-4.7-flash:Q4_K_M-ctx64k
+        model_hint: glm-4.7-flash:Q4_K_M-ctx24k
         context_limit: 24576
         predict_limit: 12288
         temperature: 1.0
@@ -2604,6 +2604,34 @@ workspaces:
     enable_web_search: false
     owui_system_prompt: |-
       You are an analyst using Portal's grounded security reviewer. Start reviews only over already-indexed telemetry. Treat every concern as a candidate, inspect its cited event text with review_explain, and let the human analyst decide. The T3 default is no_reader: the review engine does not make a model verdict. Never claim that the reviewer executed an attack, chain, target tool, or emulation operation.
+  hunt-reasoning:
+    # The hunt's own model reasoning (source understanding, notable judgement).
+    # Called by the hunt, never by a person: no OWUI preset (expose_to_owui
+    # false) and never an auto-routing destination. No tools — the hunt sends
+    # its evidence as text, and a tool-carrying request is what made the
+    # security engine's parser swallow a JSON-object answer live (2026-11-12).
+    router: false
+    module: security
+    name: Portal Hunt Reasoner (internal)
+    description: Hunt model reasoning for source understanding and notable judgement. Called by the hunt, not chat.
+    # oMLX serves the QAT checkpoint and batches concurrent requests. The Ollama
+    # fallback is a derived tag of the ctx8k GGUF that bakes temperature 0, so a
+    # caller always gets an answer and the tag itself is lane-cold. 8k window:
+    # the hunt's prompts are short.
+    model_hint: gemma4:26b-a4b-it-qat-ctx8k-hunt
+    context_limit: 8192
+    temperature: 0.0
+    # The card's 1.0/64 sampling is chat guidance; the hunt parses JSON answers,
+    # so a fixed decode is the point.
+    sampling_override:
+      reason: the hunt parses JSON answers from this seat; 0.0 is the requested deterministic decode and the card's 1.0 is chat guidance
+      evidence: pending
+    # oMLX's own limit is 8, so one batching backend admits 8. The global cap
+    # (MAX_CONCURRENT_REQUESTS) and the safe value are documented in .env.example.
+    max_concurrent: 8
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
   auto-compliance:
     module: compliance
     system_prompt_append: |-
@@ -2743,8 +2771,7 @@ workspaces:
           Focused NERC CIP reading loop with only the corpus, reading, currency, and review tools. Requirement reading lives here, in conversation; auto-compliance keeps catalog lookups, CVE triage and document production. Other frameworks remain catalog-only.
         # WINDOW_AND_SEAT_V1 §P8.1 bound the seat; TASK_COMPLIANCE_DELIVER_AND_
         # SETTLE_ENGINE_V1 §A2/A3 RE-BOUND it on the proving instrument. The
-        # §A2 read-test (reports/compliance/prove_then_scale/p1/A2_SPLASH_MODEL_
-        # JUDGMENT.md) ran the six §P1 cases one-call/no-tools on three candidates:
+        # §A2 read-test ran the six §P1 cases one-call/no-tools on three candidates:
         # gemma4, Qwen3.8-27B and Qwen3.6-35B-A3B each read 4/6 with the IDENTICAL
         # two failures (choice: the policy's "and"-joined restatement of Part 2.3
         # goes unflagged; no_operator_side: the policy's verbatim restatement of

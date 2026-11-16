@@ -34,7 +34,6 @@ __all__ = [
     "DIALECTS",
     "Dialect",
     "OllamaNative",
-    "OpenAICompat",
     "PipelineCompat",
     "resolve_dialect",
 ]
@@ -247,38 +246,27 @@ class OllamaNative:
         return "request_num_ctx"
 
 
-class OpenAICompat:
-    """An OpenAI-compatible ``/v1/chat/completions`` server — splash 1.0.1.
+class _OpenAICompatBase:
+    """Base OpenAI-compatible ``/v1/chat/completions`` request and response handling.
 
-    The differences that matter, all verified against splash 1.0.1's surface:
+    PipelineCompat overrides the parts owned by the Portal pipeline.
 
     * no ``options`` sub-dict — ``max_tokens`` and ``temperature`` are
       top-level;
-    * no ``keep_alive`` — the server holds one model and is operator-run;
-    * **no ``num_ctx``** — the window is a serve-line pin
-      (``--max-context 32768``), so the request cannot raise or lower it and
-      ``context_source`` reports ``serve_line_pin`` so no receipt claims a
-      window it did not set;
+    * no ``keep_alive`` or ``num_ctx`` fields are sent;
     * no native ``think`` — reasoning is ``reasoning_effort`` at the top level,
       and ``think: False`` maps to ``"none"``;
     * ``repeat_penalty``/``repetition_penalty`` are not accepted and are never
       sent — a tuning knob the server silently ignores is a debugging trap.
     """
 
-    name = "openai-compat"
-
-    def __init__(self, base: str = "", api_key_env: str = "SPLASH_API_KEY") -> None:
-        self.base = (base or os.environ.get("SPLASH_BASE", "http://127.0.0.1:8086")).rstrip("/")
+    def __init__(self, base: str) -> None:
+        self.base = base.rstrip("/")
         self.endpoint = f"{self.base}/v1/chat/completions"
-        self.api_key_env = api_key_env
         self._ceiling: dict[str, int] = {}
 
     def headers(self) -> dict[str, str]:
-        head = {"Content-Type": "application/json"}
-        key = os.environ.get(self.api_key_env)
-        if key:
-            head["Authorization"] = f"Bearer {key}"
-        return head
+        return {"Content-Type": "application/json"}
 
     @staticmethod
     def _effort(think: bool | str) -> str:
@@ -301,9 +289,7 @@ class OpenAICompat:
         temperature: float | None,
         keep_alive: str,
     ) -> dict[str, Any]:
-        # num_ctx and keep_alive are accepted and DROPPED on purpose: the window
-        # is the serve-line pin and the server holds one model. Silently passing
-        # them would let a caller believe it set something it did not.
+        # num_ctx and keep_alive are not part of this request shape.
         payload: dict[str, Any] = {
             "model": model,
             "messages": messages,
@@ -332,13 +318,8 @@ class OpenAICompat:
     def metrics(self, body: dict[str, Any]) -> dict[str, Any]:
         usage = body.get("usage") or {}
         timings = body.get("timings") or {}
-        # splash 1.0.1 does not populate usage.prompt_tokens (measured: every
-        # cell of arms B/C reported prompt_eval_count: 0 against a live
-        # prompt_eval_count of 23,119 tokens on the Ollama side of the same
-        # material — 40/40 rows). A `0` here was recorded as though it were a
-        # measurement; it was the absence of one. Every plausible key splash's
-        # OpenAI-compatible surface might use is tried, and an unaccounted
-        # cell reports None — never a number nothing backs.
+        # OpenAI-compatible providers expose usage under several common keys;
+        # absent counts remain None instead of being reported as measured.
         prompt_tokens = (
             usage.get("prompt_tokens")
             or usage.get("prompt_eval_count")
@@ -373,11 +354,9 @@ class OpenAICompat:
         }
 
     def seat_ceiling(self, model: str) -> int:
-        """The serve-line window if the server reports it, else 0.
+        """The server's advertised window if available, else 0.
 
-        0 disables the pre-flight check rather than inventing a ceiling — the
-        same rule the native dialect follows. The serve-line pin is the real
-        constraint and the benchmark records it separately.
+        0 disables the pre-flight check rather than inventing a ceiling.
         """
         if model in self._ceiling:
             return self._ceiling[model]
@@ -398,14 +377,11 @@ class OpenAICompat:
         return ceiling
 
     def applied_context_length(self, model: str) -> int:
-        # The applied window is the serve-line pin; there is no /api/ps analogue.
-        # Reporting the advertised ceiling would be reporting a request as an
-        # applied value, which is the exact confusion this module already fixed
-        # once for Ollama. 0 means "unknown here — read the serve line".
+        # The applied window is not available from this API shape.
         return 0
 
     def seat_window(self, model: str) -> int:
-        """The serve-line pin — on this surface the pin IS the baked window."""
+        """Return the server's advertised context window."""
         return self.seat_ceiling(model)
 
     def classify_400(self, exc: urllib.error.HTTPError) -> str:
@@ -430,7 +406,7 @@ class OpenAICompat:
         return "serve_line_pin"
 
 
-class PipelineCompat(OpenAICompat):
+class PipelineCompat(_OpenAICompatBase):
     """The Portal pipeline (:9099) — the production path. P5-FANOUT-001 W1.
 
     Everything actual usage reaches the models through IS the pipeline
@@ -438,8 +414,7 @@ class PipelineCompat(OpenAICompat):
     to ``WFE_ENGINE=pipeline``). This dialect is the compliance transport
     speaking to it, so the sweep/reader/assessment calls stop bypassing the
     one component that owns routing, fallback, sampling enforcement and
-    tool-call recovery. The direct dialects above stay for raw probes, and a
-    receipt built through them says so.
+    tool-call recovery. The native Ollama dialect remains an explicit rollback.
 
     What it sends (the WFE ``_build_pipeline`` contract, proven live):
 
@@ -685,7 +660,6 @@ class PipelineCompat(OpenAICompat):
 
 DIALECTS: dict[str, Any] = {
     "ollama-native": OllamaNative,
-    "openai-compat": OpenAICompat,
     "pipeline": PipelineCompat,
 }
 
@@ -722,11 +696,11 @@ def resolve_dialect(dialect: Any = None) -> Any:
     The default flipped from ``ollama-native`` to ``pipeline`` in
     P5-FANOUT-001: every production model call goes through the pipeline (the
     component that owns routing, fallback, sampling enforcement and
-    tool-call recovery), so the sweep does too — the direct dialects remain
-    for raw probes and A/B isolations, selected explicitly or via
-    ``COMPLIANCE_TRANSPORT=ollama-native`` (the rollback). A name this module
-    does not know is an error, never a silent fallback — falling back would
-    serve an Ollama call under a pipeline label.
+    tool-call recovery), so the sweep does too. The native Ollama dialect is
+    available as an explicit rollback through
+    ``COMPLIANCE_TRANSPORT=ollama-native``. A name this module does not know is
+    an error, never a silent fallback — falling back would serve an Ollama
+    call under a pipeline label.
     """
     if dialect is not None and not isinstance(dialect, str):
         return dialect

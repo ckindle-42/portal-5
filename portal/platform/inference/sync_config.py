@@ -37,6 +37,11 @@ REPO: Path = Path(__file__).resolve().parents[3]
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 
+def _routing_default() -> list[str]:
+    """New workspace ids use the general backend group unless configured otherwise."""
+    return ["general"]
+
+
 def _ws_filename(ws_id: str) -> str:
     """workspace_auto_coding_bigfix.json for ws_id='auto-coding::bigfix'."""
     return "workspace_" + ws_id.replace("::", "_").replace("-", "_") + ".json"
@@ -102,21 +107,19 @@ def emit_workspace_routing(config: Any) -> bool:
     # Parse existing routing to preserve backend groups
     raw = yaml.safe_load(original) or {}
     existing_routing: dict[str, Any] = raw.get("workspace_routing", {})
-
     new_routing: dict[str, list[str]] = {}
     missing: list[str] = []
     for ws_id in config.workspaces:
         if ws_id in existing_routing:
             new_routing[ws_id] = existing_routing[ws_id]
         else:
-            # New workspace — default to general group
-            new_routing[ws_id] = ["general"]
+            new_routing[ws_id] = _routing_default()
             missing.append(ws_id)
 
     if missing:
-        print(f"  workspace_routing: added {len(missing)} new entries → ['general']:")
+        print(f"  workspace_routing: added {len(missing)} new entries:")
         for ws_id in missing:
-            print(f"    {ws_id}")
+            print(f"    {ws_id} → {new_routing[ws_id]}")
 
     # Emit new routing YAML
     routing_yaml_lines: list[str] = []

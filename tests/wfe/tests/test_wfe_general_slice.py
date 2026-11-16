@@ -246,7 +246,8 @@ def test_the_plan_arms_are_served_fit_the_window_and_the_suite_tools_are_allowed
         workspace = effective_workspace(portal, ws)
         assert workspace["model_hint"] in [arms["incumbent"], *arms["challengers"]], ws
         assert wl["tool_mode"] == "production", ws
-        assert 2 <= len(arms["challengers"]) <= 3, ws
+        # floor lowered 2026-11-13: the throwaway lane's ctx48k challenger was removed from the fleet
+        assert 1 <= len(arms["challengers"]) <= 3, ws
         for tag in [arms["incumbent"], *arms["challengers"]]:
             assert tag in served, (ws, tag)
             window = int(re.search(r"ctx(\d+)k", tag).group(1)) * 1024

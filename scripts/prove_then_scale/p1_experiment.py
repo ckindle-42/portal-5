@@ -77,13 +77,10 @@ SEATS = {
     "gemma4": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
     "nemotron": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "ling": "hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k",
-    # TASK_COMPLIANCE_DELIVER_AND_SETTLE_ENGINE_V1 §A2 — the two bases the
-    # splash packages ship (incoai/Qwen3.8-27B-Splash, incoai/Qwen3.6-35B-A3B-Splash),
-    # read-tested on Ollama first so B6's splash re-run can ask whether the
-    # ENGINE changes what a model says. Same tunes as the packages (unsloth
-    # Q4 GGUF), never an abliterated variant. think=False — Qwen3.8's chat
-    # template opens <think> by default and degenerates on hard compliance
-    # questions without it (config/portal.yaml auto-compliance).
+    # The Qwen seats provide model variety for this compliance read comparison.
+    # They use the same unsloth Q4 GGUF tunes, never an abliterated variant.
+    # think=False: Qwen3.8's chat template opens <think> by default and
+    # degenerates on hard compliance questions (config/portal.yaml auto-compliance).
     "qwen38": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
     "qwen36": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k",
 }

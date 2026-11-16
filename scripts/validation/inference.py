@@ -78,6 +78,7 @@ def check_pipeline_assembles() -> tuple[str, str, list[dict]]:
         ("/v1/models", "GET"),
         ("/v1/backends", "GET"),
         ("/v1/chat/completions", "POST"),
+        ("/v1/embeddings", "POST"),
         ("/v1/messages", "POST"),
         ("/v1/trace", "GET"),
         ("/v1/trace/{correlation_id}", "GET"),

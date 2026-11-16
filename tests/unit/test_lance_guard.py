@@ -26,11 +26,14 @@ def _patch(monkeypatch, *, mounts: set[str], dirs: set[str]) -> None:
     import pathlib
 
     real_is_dir = pathlib.Path.is_dir
-    monkeypatch.setattr(
-        pathlib.Path,
-        "is_dir",
-        lambda self: str(self) in dirs or real_is_dir(self),
-    )
+
+    def _is_dir(self) -> bool:
+        text = str(self)
+        if text.startswith("/Volumes/") or text == "/Volumes":
+            return text in dirs
+        return real_is_dir(self)
+
+    monkeypatch.setattr(pathlib.Path, "is_dir", _is_dir)
 
 
 def test_stray_tree_on_unmounted_volume_raises(monkeypatch):
@@ -74,3 +77,11 @@ def test_local_path_existing_dir_passes(tmp_path):
 def test_local_path_missing_parent_raises(tmp_path):
     with pytest.raises(LanceStoreUnavailableError, match="does not exist"):
         require_lance_dir(str(tmp_path / "nope" / "portal5_lance"))
+
+
+def test_opening_a_volume_or_ollama_store_path_fails():
+    """The unit suite refuses host model-store IO. A missing guard is a failure."""
+    with pytest.raises(AssertionError, match="host store path"):
+        os.stat("/Volumes/data01")
+    with pytest.raises(AssertionError, match="host store path"):
+        open(os.path.expanduser("~/.ollama/models/manifests"), encoding="utf-8")

@@ -39,6 +39,9 @@ VALID_WORKSPACES = frozenset(
         "auto-spl",
         "auto-security",
         "security-reviewer",
+        # Hunt reasoning seat: called by the hunt, never by a channel user, but
+        # the set must match the pipeline's workspace set exactly.
+        "hunt-reasoning",
         "auto-general-uncensored::creative",
         "auto-general-uncensored::throwaway",
         "auto-general-uncensored::throwaway-gemma4-heretic",

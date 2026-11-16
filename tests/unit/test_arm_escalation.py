@@ -1102,6 +1102,18 @@ def _load_dispatch() -> Any:
 @pytest.mark.skipif(not DISPATCH.is_file(), reason="dispatcher is not installed on this machine")
 def test_tier_escalate_picks_the_first_seat_with_headroom(monkeypatch: pytest.MonkeyPatch) -> None:
     module = _load_dispatch()
+    # Injected roster: the machine's ESCALATION order changes with the operator's seats,
+    # so the property under test — first roster seat with headroom wins — is asserted
+    # hermetically against this roster, not the live one.
+    tiers = {
+        "seat-codex": {"plan": "codex", "variant": "high"},
+        "seat-retired": {"plan": "glm-lite", "variant": "high", "retired": True},
+        "seat-open": {"plan": "glm-lite", "variant": "high"},
+        "seat-warm": {"plan": "glm-lite", "variant": "medium"},
+        "seat-cool": {"plan": "glm-lite", "variant": "low"},
+    }
+    monkeypatch.setattr(module, "TIERS", tiers)
+    monkeypatch.setattr(module, "ESCALATION", ["seat-codex", "seat-retired", "seat-open"])
     monkeypatch.setattr(module, "_context_misfit", lambda *_a, **_k: None)
     monkeypatch.setattr(module, "_recent_quota", lambda *_a, **_k: None)
     monkeypatch.setattr(module, "_plan_busy", lambda *_a, **_k: None)
@@ -1109,14 +1121,12 @@ def test_tier_escalate_picks_the_first_seat_with_headroom(monkeypatch: pytest.Mo
     monkeypatch.setattr(
         module, "_plan_headroom", lambda _reg, plan: 0.0 if plan == "codex" else 1.0
     )
-    chosen, why = module._resolve_escalate({}, "code", 0)
-    # the ladder is operator-tuned; the contract is "first seat whose plan has headroom"
-    expected = next(t for t in module.ESCALATION if module.TIERS[t].get("plan") != "codex")
-    assert chosen == expected
-    assert any("sol" in line and "skipped" in line for line in why)
-    assert module._escalated_effort(module.TIERS["grok-max"]) == "high"
-    assert module._escalated_effort(module.TIERS["sol"]) == "high"
-    assert module._escalated_effort(module.TIERS["astra"]) == "medium"
+    chosen, why, _ranked = module._resolve_escalate({}, "code", 0)
+    assert chosen == "seat-open"
+    assert any("seat-codex" in line and "skipped" in line for line in why)
+    assert module._escalated_effort(module.TIERS["seat-open"]) == "high"
+    assert module._escalated_effort(module.TIERS["seat-warm"]) == "high"
+    assert module._escalated_effort(module.TIERS["seat-cool"]) == "medium"
     assert module._escalate_skip({}, "or-inkling", "security", 0)
 
 
@@ -1125,7 +1135,11 @@ def test_tier_escalate_sets_effort_under_max(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     module = _load_dispatch()
-    monkeypatch.setattr(module, "_resolve_escalate", lambda *_a, **_k: ("grok-max", ["picked"]))
+    monkeypatch.setattr(
+        module, "_resolve_escalate", lambda *_a, **_k: ("grok-max", ["picked"], ["grok-max"])
+    )
+    # Routing claims the winner's plan lock; stub it so the test never writes a real lock.
+    monkeypatch.setattr(module, "_claim_ranked_plan", lambda c, *_a, **_k: (c[0], None, []))
     monkeypatch.setattr(module, "_brief_tokens", lambda *_a, **_k: 0)
     args = argparse.Namespace(
         tier="escalate",
@@ -1135,6 +1149,9 @@ def test_tier_escalate_sets_effort_under_max(
         brief=None,
         effort=None,
         peak_ok=False,
+        share_plan=False,
+        force=False,
+        lock_wait=0,
     )
     module._apply_tier_route(args, {}, Path("."))
     assert args.tier == "grok-max"

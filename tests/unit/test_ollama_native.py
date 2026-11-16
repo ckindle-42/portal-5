@@ -390,41 +390,158 @@ async def test_renderer_read_from_show_modelfile_drives_the_prefill():
     assert r.json()["choices"][0]["message"]["content"] == "ok"
 
 
+def test_non_stream_logprobs_ride_the_native_request_with_the_same_options():
+    """logprobs uses /api/chat, so sampling and num_predict apply and load options do not."""
+    body = {
+        "model": "m",
+        "messages": [{"role": "user", "content": "classify"}],
+        "stream": False,
+        "temperature": 0,
+        "max_tokens": 1,
+        "logprobs": True,
+        "top_logprobs": 5,
+        "keep_alive": -1,
+        "reasoning_effort": "none",
+        "options": {"num_ctx": 32768, "top_k": 20},
+    }
+    native = to_native_request(body, can_think=True)
+    assert native["logprobs"] is True
+    assert native["top_logprobs"] == 5
+    assert native["think"] is False
+    assert native["options"]["temperature"] == 0
+    assert native["options"]["num_predict"] == 1
+    assert native["options"]["top_k"] == 20
+    assert "num_ctx" not in native["options"]
+    assert "keep_alive" not in native
+    assert "logprobs" not in to_native_request({**body, "stream": True}, can_think=True)
+    assert "logprobs" not in to_native_request({**body, "logprobs": False}, can_think=True)
+
+
+def test_no_think_logprobs_start_at_the_answer_token():
+    """Native logprobs include a leading channel marker; the answer is message.content."""
+    out = to_openai_completion(
+        {
+            "model": "m",
+            "message": {"role": "assistant", "content": "yes"},
+            "done_reason": "stop",
+            "logprobs": [
+                {
+                    "token": "<|channel>",
+                    "logprob": -0.1,
+                    "top_logprobs": [{"token": "<|channel>", "logprob": -0.1}],
+                },
+                {
+                    "token": "yes",
+                    "logprob": -0.2,
+                    "top_logprobs": [
+                        {"token": "yes", "logprob": -0.2},
+                        {"token": "no", "logprob": -1.4},
+                    ],
+                },
+            ],
+        }
+    )
+    content = out["choices"][0]["logprobs"]["content"]
+    assert content[0]["token"] == "yes"
+    assert content[0]["top_logprobs"][1]["token"] == "no"
+    assert content[0]["top_logprobs"][1]["logprob"] == -1.4
+
+
 @pytest.mark.asyncio
-async def test_ollama_non_stream_logprobs_use_openai_endpoint_unchanged():
+async def test_ollama_non_stream_logprobs_use_native_chat():
     request_body = {
         "model": "m",
         "messages": [{"role": "user", "content": "classify"}],
         "stream": False,
+        "temperature": 0,
+        "max_tokens": 1,
         "logprobs": True,
         "top_logprobs": 5,
-    }
-    response_body = {
-        "model": "m",
-        "choices": [
-            {
-                "index": 0,
-                "message": {"role": "assistant", "content": "yes"},
-                "logprobs": {"content": [{"token": "yes", "logprob": -0.2}]},
-                "finish_reason": "stop",
-            }
-        ],
+        "keep_alive": -1,
+        "reasoning_effort": "none",
     }
 
     def handler(req):
-        assert req.url.path == "/v1/chat/completions"
-        assert json.loads(req.content) == request_body
-        return httpx.Response(200, json=response_body)
+        if req.url.path == "/api/show":
+            return httpx.Response(200, json={"capabilities": ["completion", "thinking"]})
+        assert req.url.path == "/api/chat"
+        sent = json.loads(req.content)
+        assert sent["logprobs"] is True
+        assert sent["top_logprobs"] == 5
+        assert sent["think"] is False
+        assert sent["options"]["temperature"] == 0
+        assert sent["options"]["num_predict"] == 1
+        assert "keep_alive" not in sent
+        return httpx.Response(
+            200,
+            json={
+                "model": "m",
+                "message": {"role": "assistant", "content": "yes"},
+                "done": True,
+                "done_reason": "stop",
+                "prompt_eval_count": 3,
+                "eval_count": 1,
+                "logprobs": [
+                    {
+                        "token": "yes",
+                        "logprob": -0.2,
+                        "top_logprobs": [
+                            {"token": "yes", "logprob": -0.2},
+                            {"token": "no", "logprob": -1.4},
+                        ],
+                    }
+                ],
+            },
+        )
 
     client, seen = _mock(handler)
     response = await client.post(f"{BASE}/v1/chat/completions", json=request_body)
-
-    assert [request.url.path for request in seen] == ["/v1/chat/completions"]
-    assert response.json() == response_body
+    assert [request.url.path for request in seen] == ["/api/show", "/api/chat"]
+    choice = response.json()["choices"][0]
+    assert choice["message"]["content"] == "yes"
+    assert choice["logprobs"]["content"][0]["top_logprobs"][1] == {
+        "token": "no",
+        "logprob": -1.4,
+    }
 
 
 @pytest.mark.asyncio
-async def test_omlx_non_stream_logprobs_pass_through_unchanged():
+async def test_ollama_stream_ignores_logprobs():
+    def handler(req):
+        if req.url.path == "/api/show":
+            return httpx.Response(200, json={"capabilities": ["completion"]})
+        sent = json.loads(req.content)
+        assert "logprobs" not in sent and "top_logprobs" not in sent
+        return httpx.Response(
+            200,
+            content=json.dumps(
+                {
+                    "model": "m",
+                    "message": {"role": "assistant", "content": "yes"},
+                    "done": True,
+                    "done_reason": "stop",
+                }
+            ).encode(),
+        )
+
+    client, seen = _mock(handler)
+    response = await client.post(
+        f"{BASE}/v1/chat/completions",
+        json={
+            "model": "m",
+            "messages": [{"role": "user", "content": "classify"}],
+            "stream": True,
+            "logprobs": True,
+            "top_logprobs": 5,
+        },
+    )
+    assert [request.url.path for request in seen] == ["/api/show", "/api/chat"]
+    assert response.status_code == 200
+    assert "data: [DONE]" in response.text
+
+
+@pytest.mark.asyncio
+async def test_omlx_non_stream_logprobs_pass_through_when_present():
     base = "http://omlx:8085"
     request_body = {
         "model": "m",
@@ -439,7 +556,18 @@ async def test_omlx_non_stream_logprobs_pass_through_unchanged():
             {
                 "index": 0,
                 "message": {"role": "assistant", "content": "yes"},
-                "logprobs": {"content": [{"token": "yes", "logprob": -0.2}]},
+                "logprobs": {
+                    "content": [
+                        {
+                            "token": "yes",
+                            "logprob": -0.2,
+                            "top_logprobs": [
+                                {"token": "yes", "logprob": -0.2},
+                                {"token": "no", "logprob": -1.4},
+                            ],
+                        }
+                    ]
+                },
                 "finish_reason": "stop",
             }
         ],
@@ -462,3 +590,43 @@ async def test_omlx_non_stream_logprobs_pass_through_unchanged():
 
     assert [request.url.path for request in seen] == ["/v1/chat/completions"]
     assert response.json() == response_body
+
+
+@pytest.mark.asyncio
+async def test_omlx_logprobs_without_the_field_is_a_typed_engine_limit():
+    base = "http://omlx:8085"
+
+    def handler(req):
+        assert req.url.path == "/v1/chat/completions"
+        return httpx.Response(
+            200,
+            json={
+                "model": "m",
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {"role": "assistant", "content": "yes"},
+                        "finish_reason": "stop",
+                    }
+                ],
+            },
+        )
+
+    transport = OllamaNativeTransport(
+        httpx.MockTransport(handler),
+        is_ollama=lambda candidate: False,
+        is_omlx=lambda candidate: candidate == base,
+    )
+    async with httpx.AsyncClient(transport=transport) as client:
+        response = await client.post(
+            f"{base}/v1/chat/completions",
+            json={
+                "model": "m",
+                "messages": [{"role": "user", "content": "classify"}],
+                "logprobs": True,
+            },
+        )
+    assert response.status_code == 400
+    err = response.json()["error"]
+    assert err["type"] == "invalid_request_error"
+    assert err["message"] == "oMLX engine limit: logprobs is not supported for this model."

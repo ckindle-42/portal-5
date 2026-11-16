@@ -88,6 +88,10 @@ def _tool_schema(name: str) -> dict[str, Any]:
     return {"type": "function", "function": {"name": name, "parameters": {}}}
 
 
+async def _noop_refresh() -> None:
+    return None
+
+
 class _StreamResponse:
     status_code = 200
 

@@ -6,6 +6,7 @@ before any test module imports. Also patches lifespan background tasks
 that fail during fixture teardown.
 """
 
+import builtins
 import os
 import tempfile
 from pathlib import Path
@@ -213,6 +214,50 @@ def _window_probes_never_reach_a_live_engine(monkeypatch):
         return None
 
     monkeypatch.setattr(served_window, "_http_json", _unreachable)
+
+
+def _host_store_path(path: object) -> str | None:
+    """A /Volumes or ~/.ollama path, or None. String check only — no stat."""
+    try:
+        text = os.fspath(path)  # type: ignore[arg-type]
+    except TypeError:
+        return None
+    if isinstance(text, bytes):
+        text = os.fsdecode(text)
+    if text.startswith("/Volumes/") or text == "/Volumes":
+        return text
+    ollama = os.path.abspath(os.path.expanduser("~/.ollama"))
+    absolute = os.path.abspath(os.path.expanduser(text))
+    if absolute == ollama or absolute.startswith(ollama + os.sep):
+        return absolute
+    return None
+
+
+def _refuse_host_store_io(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fail the test if it opens /Volumes or the Ollama store."""
+
+    def guard(path: object) -> None:
+        hit = _host_store_path(path)
+        if hit:
+            raise AssertionError(f"unit test opened a host store path: {hit}")
+
+    def wrap(real):
+        def wrapped(path, *args, **kwargs):
+            guard(path)
+            return real(path, *args, **kwargs)
+
+        return wrapped
+
+    monkeypatch.setattr(os, "stat", wrap(os.stat))
+    monkeypatch.setattr(os, "lstat", wrap(os.lstat))
+    monkeypatch.setattr(os, "open", wrap(os.open))
+    monkeypatch.setattr(builtins, "open", wrap(builtins.open))
+
+
+@pytest.fixture(autouse=True)
+def _unit_tests_do_not_read_host_stores(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Unit tests do not read this host's model store."""
+    _refuse_host_store_io(monkeypatch)
 
 
 @pytest.fixture(autouse=True)

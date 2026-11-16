@@ -353,7 +353,9 @@ The bare `devstral-small-2` id and the `devstral-small-2:latest` tag are distinc
 
 ---
 
-### `gpt-oss:20b`
+### `gpt-oss:20b` — RETIRED (2026-11-13, operator)
+
+**Removed 2026-11-13:** unused by any workspace/persona/router; weights deleted from disk (operator removal round 2026-11-13). The rest of this section is retained history.
 
 `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` binds it as the `bench-gptoss` workspace `model_hint` and the `auto-agentic` description lists it as fallback 2, describing an OpenAI open-weight MoE (~12GB, o3-mini level) purpose-built for agent/tool use with configurable thinking depth. The catalog records an audit-tools confirmation on 2026-06-18 after an earlier text-only mislabel, and the model was promoted to the auto-agentic fallback and coding pool.
 
@@ -487,18 +489,31 @@ The dual `general`/`coding` registration with `supports_tools: true` in both gro
 
 ### `glm-4.7-flash:Q4_K_M-ctx64k`
 
-`glm-4.7-flash:Q4_K_M-ctx64k` is the 64K-context derived tag (baked `PARAMETER num_ctx 65536`, weights shared with the base tag — 0 extra bytes) created 2026-09-07 when the fleet closeout flipped the `glm-coder` persona pin off REAP-23B per its recorded promotion policy. The persona's system prompt promises a 128K window; the base `glm-4.7-flash:Q4_K_M` tag ships no baked `num_ctx`, so the pin would have silently collapsed to the Ollama default — caught by settings review, not by the short-prompt exam that motivated the flip. Registered in `general` (`supports_tools: false`) and `coding` (`true`) to match the base tag.
+`glm-4.7-flash:Q4_K_M-ctx64k` is the 64K-context derived tag (baked `PARAMETER num_ctx 65536`, weights shared with the base tag — 0 extra bytes) created 2026-09-07. It remains registered as an alternate. The current math and coding seats use the smaller `-ctx24k` and `-ctx24k-agentic` tags because the supplied 64K q8 KV estimate exceeds the seat budget.
 
+### `glm-4.7-flash:Q4_K_M-ctx24k`
 
-Since 2026-10-18 it is also the `auto-math` seat (`model_hint`, `context_limit: 24576`, Z.ai card sampling temperature 1.0 / top_p 0.95), chosen on WFE `wfe_math_20261018d`: BETTER than phi4-mini-reasoning (sign test p=0.039, 104/108 PASS), kept over the slightly more accurate Qwen3.8-27B for lineage diversity — GLM held no production seat.
+`glm-4.7-flash:Q4_K_M-ctx24k` derives from the base GLM tag and bakes `PARAMETER num_ctx 24576` (no extra weights). `auto-reasoning::math` uses this tag with `context_limit: 24576` and `predict_limit: 12288`; its WFE selection remains `wfe_math_20261018d` (104/108 PASS versus 93/108 for phi4-mini-reasoning). With the task sizing inputs, the estimated footprint is 33.84 GiB, leaving 6.16–8.16 GiB below the stated 40–42 GiB budget. `config/backends.yaml` registers it in `general` with `supports_tools: false`.
 
 ### `glm-4.7-flash:Q4_K_M-ctx64k-agentic`
 
-`glm-4.7-flash:Q4_K_M-ctx64k-agentic` is the coding-seat derived tag (weights shared with `-ctx64k` — 0 extra bytes) that bakes the GLM-4.7-Flash card's `agentic_coding` arm (`PARAMETER temperature 0.7`, `PARAMETER top_p 1.0`) on top of the inherited 64K window; Modelfile at `config/modelfiles/glm-4.7-flash.Q4_K_M-ctx64k-agentic.Modelfile`. Created 2026-10-21 for `auto-coding::glm-coder`: the seat serves the card's 0.7 arm (above the coding lane's 0.5, card-sanctioned), but the shared `-ctx64k` tag bakes the card's default temperature 1.0, so any request path that omitted the workspace override would exceed the lane — the settings audit's `sampling_baked_hot`. `auto-math` keeps `-ctx64k` (it serves the 1.0 default arm deliberately). Registered in `coding` (`supports_tools: true`); the 2026-09-17 tool probe on `-ctx64k` carries over (same weights and template).
+`glm-4.7-flash:Q4_K_M-ctx64k-agentic` is the former coding-seat derived tag. It bakes the GLM-4.7-Flash card's `agentic_coding` arm (`temperature 0.7`, `top_p 1.0`) on the inherited 64K window; its Modelfile remains at `config/modelfiles/glm-4.7-flash.Q4_K_M-ctx64k-agentic.Modelfile`. The `glm-coder` seat moved off the 64K window on 2026-11-15 — first to `-ctx32k-agentic`, then to `-ctx24k-agentic` after the 32K projection missed the live host headroom — because the supplied 64K q8 KV estimate put it beyond the seat budget. The 64K tag remains registered as an alternate.
+
+### `glm-4.7-flash:Q4_K_M-ctx32k-agentic` — RETIRED (2026-11-15, live seat-fit miss)
+
+`glm-4.7-flash:Q4_K_M-ctx32k-agentic` derived from the base GLM tag, baked `PARAMETER num_ctx 32768`, and preserved the agentic sampling arm (`temperature 0.7`, `top_p 1.0`). Created 2026-11-15 for `auto-coding::glm-coder` and retired the same day: the live load guard refused the seat — projected 37.7 GiB against 37.6 GiB host headroom (oMLX headroom 39.6 + idle Ollama 0.0 − margin 2), measured with oMLX empty and Ollama idle. The seat re-fits to `-ctx24k-agentic`; the Modelfile is removed. The tag shares the base weights (0 extra bytes), so no store reclaim is owed.
 
 ## Why
 
-The audit treats a hot baked tag as a real defense-in-depth gap even when the workspace pins a compliant value; baking the sanctioned arm into a dedicated tag removes the gap without changing what either seat serves.
+The supplied 40–42 GiB empty-host budget overstated the live headroom: the guard's 2 GiB margin and the oMLX ceiling left 37.6 GiB, and the 32K projection (37.75 GiB) had no margin against it.
+
+### `glm-4.7-flash:Q4_K_M-ctx24k-agentic`
+
+`glm-4.7-flash:Q4_K_M-ctx24k-agentic` derives from the base GLM tag, bakes `PARAMETER num_ctx 24576`, and preserves the agentic sampling arm (`temperature 0.7`, `top_p 1.0`). `auto-coding::glm-coder` uses it with `context_limit: 24576` and `predict_limit: 16384`, leaving 8K for the prompt — the same prompt room the 32K fit reserved. seat_fit sizing (17.71 GiB weights × 1.25 + 11.70 GiB q8_0 KV at 24,576) projects 33.85 GiB, +3.75 GiB against the 37.6 GiB live headroom that refused the 32K tag. `config/backends.yaml` registers it in `coding` with `supports_tools: true`. The orchestrator must create this tag and verify the live seat fit and Pipeline response.
+
+## Why
+
+The agentic tag keeps the card-sanctioned sampling arm baked into the served identity. The 24K window matches the math seat's proven fit; the output cap drops 24K → 16K so prompt + output fit the window while preserving the designed 8K prompt room.
 
 ### `hf.co/bartowski/nex-agi_Nex-N2.5-mini-GGUF:Q4_K_M` — RETIRED (2026-10-22, operator)
 
@@ -588,7 +603,7 @@ The tool-capable status is asserted by the `coding` and `security` group registr
 
 ### `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL` — DROPPED (not installed; pruned 2026-10-28)
 
-`hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL` is a ~14.2GB Unsloth quant of the GLM-4.7-Flash base using REAP expert pruning plus Unsloth Dynamic imatrix, giving the fleet non-Meta/Qwen lineage diversity. `config/backends.yaml` registers it under the `general` group with `supports_tools: false` and under the `coding` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-glm-reap` workspace `model_hint`, staged head-to-head against the standard `glm-4.7-flash:Q4_K_M` quant with a promotion policy of beating that baseline on quality and a TPS floor. No production workspace or persona consumes it: the `glm-coder` coding role is served by `auto-coding`'s `glm-coder` variant on `glm-4.7-flash:Q4_K_M-ctx64k-agentic`.
+`hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL` is a ~14.2GB Unsloth quant of the GLM-4.7-Flash base using REAP expert pruning plus Unsloth Dynamic imatrix, giving the fleet non-Meta/Qwen lineage diversity. `config/backends.yaml` registers it under the `general` group with `supports_tools: false` and under the `coding` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-glm-reap` workspace `model_hint`, staged head-to-head against the standard `glm-4.7-flash:Q4_K_M` quant with a promotion policy of beating that baseline on quality and a TPS floor. No production workspace or persona consumes it: the `glm-coder` coding role is served by `auto-coding`'s `glm-coder` variant on `glm-4.7-flash:Q4_K_M-ctx24k-agentic` (since 2026-11-15).
 
 ## Why
 
@@ -596,7 +611,9 @@ The `coding`-group `supports_tools: true` versus `general`-group `false` split i
 
 ---
 
-### `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf`
+### `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf` — RETIRED (2026-11-13, operator)
+
+**Removed 2026-11-13:** unused by any workspace/persona/router; weights deleted from disk (operator removal round 2026-11-13). The rest of this section is retained history.
 
 `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf` is GLM-Z1-Rumination-32B Q4_K_M (~20GB, THUDM/ZhipuAI, April 2026), ZhipuAI's reasoning answer to QwQ/DeepSeek-R1 with multi-step chain-of-thought. `config/backends.yaml` registers it in three groups — `general`, `coding`, and `reasoning` — with `supports_tools: false` in every one; the coding entry inherits the same false flag, so it is a no-tools reasoning model fleet-wide. `config/portal.yaml` selects it as the `model_hint` for `bench-glm-z1-rumination`, which describes it as a candidate for the auto-reasoning pool alongside `deepseek-r1:32b-q4_k_m` under PROMOTE_POLICY quality ≥ 0.83 and TPS ≥ 15. The doc body's older promotion note is not reflected in config — the bench lane still frames it as a candidate, not the auto-reasoning primary.
 
@@ -921,7 +938,9 @@ The `reasoning` group placement and the `supports_tools: false` flag are asserte
 
 ---
 
-### `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf`
+### `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf` — RETIRED (2026-11-13, operator)
+
+**Removed 2026-11-13:** unused by any workspace/persona/router; weights deleted from disk (operator removal round 2026-11-13). The rest of this section is retained history.
 
 `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf` is GLM-Z1-Rumination-32B Q4_K_M (~20GB, THUDM/ZhipuAI, April 2026), ZhipuAI's reasoning answer to QwQ/DeepSeek-R1 with multi-step chain-of-thought. `config/backends.yaml` registers it in three groups — `general`, `coding`, and `reasoning` — with `supports_tools: false` in every one; the coding entry inherits the same false flag, so it is a no-tools reasoning model fleet-wide. `config/portal.yaml` selects it as the `model_hint` for `bench-glm-z1-rumination`, which describes it as a candidate for the auto-reasoning pool alongside `deepseek-r1:32b-q4_k_m` under PROMOTE_POLICY quality ≥ 0.83 and TPS ≥ 15. The doc body's older promotion note is not reflected in config — the bench lane still frames it as a candidate, not the auto-reasoning primary.
 
@@ -931,7 +950,9 @@ The prior body claimed a 2026-06-21 promotion with quality 1.00 and 12.1 TPS; `c
 
 ---
 
-### `gpt-oss:20b`
+### `gpt-oss:20b` — RETIRED (2026-11-13, operator)
+
+**Removed 2026-11-13:** unused by any workspace/persona/router; weights deleted from disk (operator removal round 2026-11-13). The rest of this section is retained history.
 
 `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` binds it as the `bench-gptoss` workspace `model_hint` and the `auto-agentic` description lists it as fallback 2, describing an OpenAI open-weight MoE (~12GB, o3-mini level) purpose-built for agent/tool use with configurable thinking depth. The catalog records an audit-tools confirmation on 2026-06-18 after an earlier text-only mislabel, and the model was promoted to the auto-agentic fallback and coding pool.
 
@@ -967,7 +988,7 @@ The `false` flags came from a 2026-06-27 UAT loop with tools in context, measure
 
 ---
 
-### `granite4.1:30b`
+### `granite4.1:30b` — RETIRED (REMOVED_CLOSED; base id unregistered from ollama-general and ollama-reasoning 2026-11-13)
 
 `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — sibling -ctx16k tag: 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` describes it in the `bench-granite41-30b` workspace entry as a dense 30B no-think model (~17GB Q4_K_M, Apache 2.0, ISO-certified, cryptographic signatures) with BFCL V3 73.7 (#1 on the IBM chart), IFEval 89.7, GSM8K 94.2, and EvalPlus 82.7, trained with GRC data curation for compliance and audit workflows; that workspace's `model_hint` is the derived `granite4.1:30b-ctx16k` tag.
 
@@ -1019,7 +1040,7 @@ Grounding anchors the tag to the two backends.yaml registrations that carry it �
 
 ### `phi4-mini-reasoning` — DROPPED (not installed; pruned 2026-10-28)
 
-`phi4-mini-reasoning` is Microsoft Phi-4-Mini-Reasoning (2025, MIT, 3.8B, ~2.5GB Q4, 200K ctx), RL-trained for math, formal proofs, and symbolic computation, beating 7B models on AIME, MATH-500, and GPQA at its size. `config/backends.yaml` registers it in `group: reasoning` with `supports_tools: false`, consistent with a math specialist that does not route tools. It seated auto-math through the derived `phi4-mini-reasoning:latest-ctx24k` tag until 2026-10-18, when WFE `wfe_math_20261018d` found all three challengers BETTER and the seat moved to `glm-4.7-flash:Q4_K_M-ctx64k` (docs/WFE_DECISION_AUTO_MATH_20261018.md). The catalog warns against pulling the `:math` variant — the 2026-06-21 bench scored it 0.50 quality versus the base's 1.00 at equal TPS.
+`phi4-mini-reasoning` is Microsoft Phi-4-Mini-Reasoning (2025, MIT, 3.8B, ~2.5GB Q4, 200K ctx), RL-trained for math, formal proofs, and symbolic computation, beating 7B models on AIME, MATH-500, and GPQA at its size. `config/backends.yaml` registers it in `group: reasoning` with `supports_tools: false`, consistent with a math specialist that does not route tools. It seated auto-math through the derived `phi4-mini-reasoning:latest-ctx24k` tag until 2026-10-18, when WFE `wfe_math_20261018d` found all three challengers BETTER and the seat moved to `glm-4.7-flash:Q4_K_M-ctx24k` (docs/WFE_DECISION_AUTO_MATH_20261018.md; the 24K bake preserves its declared window). The catalog warns against pulling the `:math` variant — the 2026-06-21 bench scored it 0.50 quality versus the base's 1.00 at equal TPS.
 
 ## Why
 
@@ -1317,6 +1338,16 @@ The `vision` group entry in `config/backends.yaml` carries the `supports_tools: 
 
 ---
 
+### `gemma4:26b-a4b-it-qat-ctx8k-hunt`
+
+`gemma4:26b-a4b-it-qat-ctx8k-hunt` is the hunt-reasoning fallback tag (weights shared with `gemma4:26b-a4b-it-qat-ctx8k` — 0 extra bytes) that bakes `PARAMETER temperature 0` over the parent's 8192-token window. Modelfile: `config/modelfiles/gemma4-26b-a4b-it-qat-ctx8k-hunt.Modelfile`. Created 2026-11-12 because settings audit `sampling_baked_hot` warned on the parent, which bakes temperature 1, while the seat serves 0. Registered in `general` (`supports_tools: true`) and aliased on `omlx-general` to `gemma-4-26b-a4b-it-QAT-4bit`, so the seat still batches on oMLX and falls back to this tag. `hunt-reasoning` is the only `model_hint`. The parent tag stays in place for every other seat.
+
+## Why
+
+The audit treats a hot baked tag as a gap even when the workspace pins a compliant temperature. A derived tag with the same weights removes that gap without moving the seat off its oMLX checkpoint.
+
+---
+
 ### `gemma4:31b-it-qat-ctx8k`
 
 `gemma4:31b-it-qat-ctx8k` is a derived variant of `gemma4:31b-it-qat` that pins the 8192-token window into the Modelfile. `config/backends.yaml` registers it under the `vision` group with `supports_tools: true`, the same placement as its 31B Dense QAT parent. The cap is applied with `portal models apply-params` because the chat-completions endpoint refuses per-request `options.num_ctx` overrides; a separate tag is the only way to bound context per workspace. Unlike the base model, this derived id has no workspace `model_hint` of its own in `config/portal.yaml`.
@@ -1377,7 +1408,9 @@ The window is a seat property on the pipeline path — this tag is the mechanism
 
 ---
 
-### `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx128k`
+### `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx128k` — RETIRED (2026-11-13, operator)
+
+**Removed 2026-11-13:** unused by any workspace/persona/router; weights deleted from disk (operator removal round 2026-11-13). The rest of this section is retained history.
 
 `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx128k` — The 128K-context derived tag of unsloth's Qwen3.8-27B Q4_K_M (baked `num_ctx 131072`, weights shared with the base tag), registered in `group: general` with `supports_tools: true` as the long-reading challenger to the compliance-reading seat. Independent AA-LCR puts Qwen3.8-27B at 82.0 against 65.7 for the seated gemma4-26b (docs/WFE_LANDSCAPE_FLEET_20261018.md); the existing 96K tags would truncate the seat's 124.7k-token worst case.
 
@@ -1393,7 +1426,9 @@ Named by the 2026-10-18 landscape review as a current, fitting candidate for its
 
 Named by the 2026-10-18 landscape review as a current, fitting candidate for its lane; registered so WFE can screen it against the seat.
 
-### `hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx96k`
+### `hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx96k` — RETIRED (2026-11-13, operator)
+
+**Removed 2026-11-13:** unused by any workspace/persona/router; weights deleted from disk (operator removal round 2026-11-13). The rest of this section is retained history.
 
 `hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx96k` — The 96K-context derived tag of the same K2 Horizon MoVA 36B-A4B weights, registered in `group: general` as the general-fast challenger (Artificial Analysis index 25 against 18 for the seated Qwen3.6-35B-A3B).
 
@@ -1445,7 +1480,9 @@ Re-grounding anchors this unit to the two config files that actually determine i
 
 ---
 
-### `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k`
+### `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k` — RETIRED (2026-11-13, operator)
+
+**Removed 2026-11-13:** unused by any workspace/persona/router; weights deleted from disk (operator removal round 2026-11-13). The rest of this section is retained history.
 
 `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k` is the 64K-context derived tag of GLM-Z1-Rumination-32B. `config/backends.yaml` registers it in the `coding` and `reasoning` groups — notably absent from `general`, where the base id does appear — with `supports_tools: false` in both. Because this unit is `in_portal: false`, `config/portal.yaml` carries no `model_hint` for it: no production or bench workspace selects the capped tag directly. `PARAMETER num_ctx 65536` is baked in via `portal models apply-params` because Ollama ignores request-time `options.num_ctx`; the derived tag is what would make a 64K window reachable, mirroring the base model's context-cap pattern. It exists to satisfy backends.yaml/MODEL_CATALOG parity (test_model_catalog_parity.py).
 
@@ -1547,7 +1584,7 @@ The grounding here is routing: `config/portal.yaml` proves the `-ctx64k` tag, no
 
 ### `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k` — DROPPED (not installed; pruned 2026-10-28)
 
-`hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k` is the 64K-context derived tag that `config/portal.yaml` does not route as a workspace `model_hint`, and that no persona or variant selects: the `glm-coder` coding role is served by `auto-coding`'s `glm-coder` variant, whose `model_hint` is `glm-4.7-flash:Q4_K_M-ctx64k-agentic`. `config/backends.yaml` registers it under the `coding` group with `supports_tools: true`, the same group-level flag as its base tag. The `PARAMETER num_ctx 65536` is baked into the derived tag because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, making a context cap a per-tag property. See the base tag's entry for the full REAP detail.
+`hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k` is the 64K-context derived tag that `config/portal.yaml` does not route as a workspace `model_hint`, and that no persona or variant selects: the `glm-coder` coding role is served by `auto-coding`'s `glm-coder` variant, whose `model_hint` is `glm-4.7-flash:Q4_K_M-ctx24k-agentic`. `config/backends.yaml` registers it under the `coding` group with `supports_tools: true`, the same group-level flag as its base tag. The `PARAMETER num_ctx 65536` is baked into the derived tag because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, making a context cap a per-tag property. See the base tag's entry for the full REAP detail.
 
 ## Why
 
@@ -1716,7 +1753,7 @@ An 8K context was far too small for real opencode/agentic use (tool-call round-t
 
 ### `phi4-mini-reasoning:latest-ctx24k`
 
-`phi4-mini-reasoning:latest-ctx24k` is the derived tag of `phi4-mini-reasoning:latest` with `PARAMETER num_ctx 24576` baked in via the `apply-params` command, required because Ollama's `/v1/chat/completions` drops request-time `options.num_ctx`. `config/backends.yaml` registers it in `group: reasoning` with `supports_tools: false`, matching its parent. It was the `auto-math` workspace `model_hint` (with `context_limit: 24576`) until 2026-10-18; auto-math now serves `glm-4.7-flash:Q4_K_M-ctx64k`. See the parent unit for the RL math-specialist background and the `:math` bench warning.
+`phi4-mini-reasoning:latest-ctx24k` is the derived tag of `phi4-mini-reasoning:latest` with `PARAMETER num_ctx 24576` baked in via the `apply-params` command, required because Ollama's `/v1/chat/completions` drops request-time `options.num_ctx`. `config/backends.yaml` registers it in `group: reasoning` with `supports_tools: false`, matching its parent. It was the `auto-math` workspace `model_hint` (with `context_limit: 24576`) until 2026-10-18; auto-math now serves `glm-4.7-flash:Q4_K_M-ctx24k`. See the parent unit for the RL math-specialist background and the `:math` bench warning.
 
 ## Why
 
@@ -1754,7 +1791,9 @@ The `-ctx64k` cap was undersized for real opencode agentic requests (observed up
 
 ---
 
-### `qwen3-coder:30b-a3b-q4_K_M-ctx256k`
+### `qwen3-coder:30b-a3b-q4_K_M-ctx256k` — RETIRED (2026-11-13, operator)
+
+**Removed 2026-11-13:** unused by any workspace/persona/router; weights deleted from disk (operator removal round 2026-11-13). The rest of this section is retained history.
 
 `qwen3-coder:30b-a3b-q4_K_M-ctx256k` is the derived tag of `qwen3-coder:30b-a3b-q4_K_M` with `PARAMETER num_ctx 262144` (the model's full native context) baked in, required because Ollama's `/v1/chat/completions` drops request-time `options.num_ctx`. `config/backends.yaml` registers it in `group: coding` with `supports_tools: true`; the `omlx-coding` `aliases` block maps it to the oMLX `Qwen3-Coder-30B-A3B-Instruct-4bit` model. `config/portal.yaml` pins it as the `auto-coding` default-variant `model_hint` with `context_limit: 262144`. Base model detail lives in the parent unit.
 
@@ -1938,7 +1977,9 @@ Grounding anchors the model to its oMLX registration, the alias reaching it from
 
 ---
 
-### `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx8k`
+### `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx8k` — RETIRED (2026-11-13, operator)
+
+**Removed 2026-11-13:** unused by any workspace/persona/router; weights deleted from disk (operator removal round 2026-11-13). The rest of this section is retained history.
 
 `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx8k` is the Q4_K_M GGUF quant of NVIDIA's Nemotron 3.5 Lightning 30B-A3B MoE model, served by Ollama, with `PARAMETER num_ctx 8192` baked into the tag via `./launch.sh apply-model-params` (required because Ollama's `/v1/chat/completions` — what the pipeline uses — ignores request-time `options.num_ctx`; see the parallel `qwen3-coder:...-ctx16k` pattern). Added 2026-08-14 as the fallback tier for the new `auto-nemotron` workspace (`config/portal.yaml`), pinned as its `model_hint`. `config/backends.yaml` registers it in `ollama-general` (group `general`) with `supports_tools: true`, live-audited via a direct `/api/chat` tool-call probe (clean `tool_calls`, correctly typed arguments). The `omlx-general` entry's `aliases` block maps this hint onto `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp` (see that unit), so oMLX serves the workspace by default at `priority: 10` with this GGUF as the automatic fallback when oMLX is unhealthy. Measured standalone on Ollama: 52.9-53.1 tok/s steady-state, versus 70.0-70.3 tok/s on the oMLX+MTP path — kept as the production fallback deliberately, matching the dual-backend pattern used across every other oMLX-shadowed group in this fleet, rather than going oMLX-only given oMLX is running a dev prerelease (0.6.0.dev1) for this rollout.
 
@@ -1968,7 +2009,9 @@ Grounds the model to the `omlx-reasoning` multi-model registration and the `auto
 
 ---
 
-### `granite-4.1-8b-mxfp8`
+### `granite-4.1-8b-mxfp8` — RETIRED (2026-11-13, operator)
+
+**Removed 2026-11-13:** unused by any workspace/persona/router; weights deleted from disk (operator removal round 2026-11-13). The rest of this section is retained history.
 
 `granite-4.1-8b-mxfp8` is the ~8-bit mxfp8 MLX conversion (nightmedia) of granite-4.1-8b served by the oMLX evaluation backend, substituted here (same substitution `TASK_DAILY_WORK_FLEET_SOAK_V1` documents) because the 4-bit `unsloth-granite-4.1-8b-mlx-oQ4` conversion 409s and won't load. `config/backends.yaml` registers it in the `omlx-reasoning` entry (group `reasoning`, `priority: 10`), mapped from the `auto-compliance` workspace's `granite4.1:8b-ctx16k` model_hint. Added alongside `DeepSeek-R1-0528-Qwen3-8B-4bit` for the same reason as `Tongyi-DeepResearch-30B-A3B-abliterated-4bit` (see that unit) — `auto-compliance` pins its own model_hint distinct from `auto-reasoning`'s. Live-audited via a direct `/v1/chat/completions` tool-call probe (clean structured `tool_calls`, `finish_reason: tool_calls`, no template/tokenizer defects).
 
@@ -2282,7 +2325,9 @@ The slate's mid-weight hybrid: 9B active puts its decode between the incumbent d
 
 ---
 
-### `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx48k`
+### `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx48k` — RETIRED (2026-11-13, operator)
+
+**Removed 2026-11-13:** unused by any workspace/persona/router; weights deleted from disk (operator removal round 2026-11-13). The rest of this section is retained history.
 
 `UD-Q4_K_XL-ctx48k` is the 48K-context derived tag of the GDN+MoE Qwen3.6-35B-A3B (unsloth dynamic quant), created 2026-09-17 during WINDOW_AND_SEAT_V1 from the existing `-ctx32k` layers (no re-download). Registered in the `general` group, `supports_tools: true` (probe: tools rendered, think honored, sha `55d4931433fe`, zero violations). §P3 sweep at 48k: 44.3 tok/s decode, 590 tok/s prefill, 11.3 s cold load, no swap, cache holds.
 
@@ -2292,7 +2337,9 @@ The slate's mid-weight hybrid: 9B active puts its decode between the incumbent d
 
 ---
 
-### `gemma4:26b-a4b-it-q4_K_M-ctx32k`
+### `gemma4:26b-a4b-it-q4_K_M-ctx32k` — RETIRED (2026-11-13, operator)
+
+**Removed 2026-11-13:** unused by any workspace/persona/router; weights deleted from disk (operator removal round 2026-11-13). The rest of this section is retained history.
 
 `gemma4:26b-a4b-it-q4_K_M-ctx32k` is the 32K-context derived tag of Gemma 4 26B-A4B (sliding+global attention, unified KV, cross-layer KV sharing), baked 2026-09-17 during WINDOW_AND_SEAT_V1 — the model had been in the fleet unbaked. Registered in the `general` group, `supports_tools: true` (probe: tools rendered, think honored, sha `b507b9c2f6ca`, zero violations). §P3 sweep: 55.8 tok/s decode, 494 tok/s prefill, 9.1 s cold load, no swap, cache holds.
 
@@ -2323,7 +2370,9 @@ The reading seat now receives a dual-document payload — the standard's normati
 
 ---
 
-### `ling30-tiny-test:latest`
+### `ling30-tiny-test:latest` — RETIRED (2026-11-13, operator)
+
+**Removed 2026-11-13:** unused by any workspace/persona/router; weights deleted from disk (operator removal round 2026-11-13). The rest of this section is retained history.
 
 `ling30-tiny-test` is a local import (`ollama create` from the official `inclusionAI/Ling-3.0-tiny-GGUF` Q4_K_M, 4.8 GB) made 2026-09-17 during WINDOW_AND_SEAT_V1 to settle the Ling arch question by experiment: **Ollama 0.34.0 knows `bailingmoe3`** — the expected `honest-BLOCKED: arch not supported` did not happen; the model loads, reports capabilities `tools, thinking`, and runs (KDA 3:1 + MLA, 1.3B active of 7.9B, 131k native context). `settings_audit.probe_tag`: tools rendered, think honored (template sha `eb6226c94ae3`); the system-probe flag was investigated to the template level and attributed to small-active instruction-following (answers "Green." to grass over a system command to say BLUE), and the template defaults `thinking_option` ON when the flag is absent — safe on the workspace's pinned `think:false`, recorded for any client that omits it. §P3 sweep: **104.5 tok/s decode (fastest of the slate), 1040 tok/s prefill**, 3.7 s cold load, no swap, cache holds (turn-2 prefill 0.13 s). NOT registered in `backends.yaml` — the `-test` tag and the /tmp GGUF are measurement artifacts; a production candidate needs a proper name, a decided quant, and a catalog entry.
 
@@ -2333,7 +2382,9 @@ The reading seat now receives a dual-document payload — the standard's normati
 
 ---
 
-### `hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k`
+### `hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k` — RETIRED (2026-11-13, operator)
+
+**Removed 2026-11-13:** unused by any workspace/persona/router; weights deleted from disk (operator removal round 2026-11-13). The rest of this section is retained history.
 
 `hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k` is the PRODUCTION reading seat tag, created 2026-09-17 during WINDOW_AND_SEAT_V1 (`ollama create` from the official inclusionAI Q4_K_M GGUF, MIT, with `PARAMETER num_ctx 32768` baked — Ollama /v1 ignores request-time `options.num_ctx`). Ling-3.0-tiny is inclusionAI's 7.9B hybrid (KDA 3:1 + MLA — one attention-bearing layer in four, latent-compressed), 1.3B active parameters/token, 131k native context, capabilities `tools, thinking`. `config/backends.yaml` registers it in the `general` group with `supports_tools: true` (probe: tools rendered, think honored, template sha `eb6226c94ae3`). WINDOW_AND_SEAT_V1 §P3 sweep: **104.5 tok/s decode (fastest of the slate), 1040 tok/s prefill** at the 20.5k high-water, 3.7 s cold load, no swap, cross-turn cache holds (turn-2 prefill 0.13 s vs 2.64 s). §P4.2 live loop: `parent` answered in 57.1 s across 6 hops and 14 tool calls, zero errors — inside the product's one-minute bar where the incumbent dense seat took 397.8 s. Probe caveats, investigated to the template level: the system-probe flag is small-active instruction-following (it answers "Green." over a system command to say BLUE — the template renders system fine), and the Bailing V3 template defaults `thinking_option` ON when the flag is absent — the workspace pins `think:false`, so the product is safe; any client omitting the flag gets thinking by default and a starved token budget.
 
@@ -2434,7 +2485,9 @@ The registration exists so the orchestration arm's reading/checker bites can add
 
 ---
 
-### `portal5/spark-x2.6:q4_K_M-ctx16k`
+### `portal5/spark-x2.6:q4_K_M-ctx16k` — RETIRED (2026-11-13, operator)
+
+**Removed 2026-11-13:** unused by any workspace/persona/router; weights deleted from disk (operator removal round 2026-11-13). The rest of this section is retained history.
 
 `portal5/spark-x2.6:q4_K_M-ctx16k` is the same Spark-X2.6-4B Q4_K_M weights with `PARAMETER num_ctx 16384` baked in — the fit tag the spark kit's run order creates and measures before the 64k stretch (≈3.93 GiB weights + KV at 16k vs ≈5.60 GiB at 64k). `config/backends.yaml` registers it in the `general` group with `supports_tools: true` (same weights and template as the ctx64k tag; same probe). No workspace pins it today: `bench-spark-x26` uses the ctx64k target tag, and this entry is the registered fallback the screen substitutes if the 64k window ever fails its RSS gate.
 
@@ -2468,7 +2521,9 @@ Flint (RecursiveSI, Unsloth UD-Q4_K_XL), `num_ctx 262144`. Challenger for `auto-
 
 Mellum 2.1 12B-A2.5B Thinking (JetBrains Q4_K_M), `num_ctx 32768`, vendor sampling (temperature 0.6, top_p 0.95, top_k 20) kept from the GGUF. Challenger for `auto-coding::fast-repair` against `kat-coder-v2.5-dev:Q4_K_M-ctx32k`. Registered in `coding`, `supports_tools: true`.
 
-### `lfm3:1.7b-qad-q4_0-ctx8k`
+### `lfm3:1.7b-qad-q4_0-ctx8k` — RETIRED (2026-11-13, operator)
+
+**Removed 2026-11-13:** unused by any workspace/persona/router; weights deleted from disk (operator removal round 2026-11-13). The rest of this section is retained history.
 
 LFM3-1.7B QAD-Q4_0 from the Ollama library (Ollama's own `lfm3` renderer/parser), `num_ctx 8192`. The `hf.co/LiquidAI/LFM3-1.7B-GGUF` tag cannot load: it runs through llama-server, which has no `lfm3` architecture. The library QAD-Q4_0 tag needs Ollama 0.40.13. Challenger for `tools-specialist::fast` against `gemma4:e4b-it-qat-ctx8k`. Registered in `general`, `supports_tools: true`.
 

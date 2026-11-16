@@ -312,6 +312,11 @@ def _fast(monkeypatch, tmp_path):
     monkeypatch.delenv("LOAD_GUARD", raising=False)
     lg.set_load_wait(None)
     monkeypatch.setattr(lg, "_WAIT_S", 0.0)  # refuse at once unless a test opts into waiting
+    from portal.platform.inference.router.parallel_seat import YIELD
+
+    YIELD._pins = 0
+    YIELD._held.clear()
+    YIELD._clear.set()
 
 
 def guard(e: Engines, ollama_url: str | None = OLLAMA_URL) -> lg.LoadGuard:
@@ -736,27 +741,136 @@ async def test_omlx_cold_load_refuses_a_busy_ollama_resident_past_the_deadline(c
     assert wait_count(OMLX, "in_flight") > before
 
 
-async def test_pinned_or_protected_ollama_blocks_omlx_without_waiting(monkeypatch, caplog):
-    for reason, name in (("pinned", "router"), ("protected", "fallback")):
-        engines, guard_obj = _omlx_short_of_ollama(name)
-        if reason == "protected":
-            monkeypatch.setattr(lg, "GUARD", guard_obj)
-            lg.protect_failover(OLLAMA, name)
-        lg.set_load_wait("30")
-        caplog.clear()
-        started = lg.time.monotonic()
-        with (
-            caplog.at_level(logging.WARNING, logger=lg.logger.name),
-            pytest.raises(lg.LoadRefusedError) as err,
-        ):
-            await guard_obj.admit_omlx("mlx")
-        text = str(err.value)
-        assert lg.time.monotonic() - started < 0.5
-        assert name in text and reason in text
-        assert "need 14.0 GiB" in text and "waited 0.0s" in text
-        assert any(r.levelno == logging.WARNING and text in r.getMessage() for r in caplog.records)
-        assert engines.unload_calls == {}
-        assert not guard_obj._lock.locked()
+async def test_pinned_ollama_blocks_omlx_without_waiting(monkeypatch, caplog):
+    engines, guard_obj = _omlx_short_of_ollama("router")
+    lg.set_load_wait("30")
+    caplog.clear()
+    started = lg.time.monotonic()
+    with (
+        caplog.at_level(logging.WARNING, logger=lg.logger.name),
+        pytest.raises(lg.LoadRefusedError) as err,
+    ):
+        await guard_obj.admit_omlx("mlx")
+    text = str(err.value)
+    assert lg.time.monotonic() - started < 0.5
+    assert "router" in text and "pinned" in text
+    assert "need 14.0 GiB" in text and "waited 0.0s" in text
+    assert any(r.levelno == logging.WARNING and text in r.getMessage() for r in caplog.records)
+    assert engines.unload_calls == {}
+    assert not guard_obj._lock.locked()
+
+
+async def test_protected_idle_ollama_yields_before_an_omlx_refusal(monkeypatch):
+    """Protection orders eviction (last), it does not veto it: the idle protected
+    resident is freed and the load admitted instead of refused."""
+    engines, guard_obj = _omlx_short_of_ollama("fallback")
+    monkeypatch.setattr(lg, "GUARD", guard_obj)
+    lg.protect_failover(OLLAMA, "fallback")
+    lg.set_load_wait("30")
+    release = await guard_obj.admit_omlx("mlx")
+    assert release is not None
+    assert engines.unload_calls.get("fallback") == 1
+    assert "fallback" not in engines.ollama
+    release()
+
+
+async def test_protected_busy_ollama_is_never_evicted(monkeypatch):
+    """In-flight work is never evicted, protection or not."""
+    engines, guard_obj = _omlx_short_of_ollama("fallback")
+    monkeypatch.setattr(lg, "GUARD", guard_obj)
+    lg.protect_failover(OLLAMA, "fallback")
+    end = guard_obj.begin(OLLAMA, "fallback")
+    lg.set_load_wait("0.2")
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await guard_obj.admit_omlx("mlx")
+    end()
+    assert "fallback" in str(err.value) and "busy" in str(err.value)
+    assert engines.unload_calls == {}
+    assert engines.ollama["fallback"] == 2 * GIB
+
+
+async def test_protected_idle_omlx_yields_when_it_is_the_only_idle():
+    e = Engines(
+        tags={"m": 20 * GIB},  # 25 needed
+        omlx={"protected": {"size": 20 * GIB, "loaded": True}},
+        ceiling=30 * GIB,
+    )
+    g = guard(e)
+    g.protect(OMLX, "protected", seconds=60)
+    lg.set_load_wait("5")
+    release = await g.admit(OLLAMA_URL, "m")
+    assert release is not None
+    assert e.unloaded == ["protected"]
+    release()
+
+
+async def test_protected_omlx_is_freed_last_when_the_shortage_needs_it():
+    e = Engines(
+        tags={"m": 20 * GIB},  # 25 needed; 8 available, 17 to free
+        omlx={
+            "plain": {"size": 5 * GIB, "loaded": True, "last": 2},
+            "protected": {"size": 15 * GIB, "loaded": True, "last": 1},
+        },
+        ceiling=30 * GIB,
+    )
+    g = guard(e)
+    g.protect(OMLX, "protected", seconds=60)
+    lg.set_load_wait("5")
+    release = await g.admit(OLLAMA_URL, "m")
+    assert release is not None
+    # LRU alone would free the protected seat first; protection orders it last.
+    assert e.unloaded == ["plain", "protected"]
+    release()
+
+
+async def test_protected_idle_ollama_yields_before_an_ollama_refusal(monkeypatch):
+    e = Engines(
+        ollama={"fallback": 10 * GIB},
+        tags={"m": 20 * GIB},  # 25 needed; 18 available, protected bytes cover the gap
+        ceiling=20 * GIB,
+    )
+    e.hidden["fallback"] = 10 * GIB
+    g = guard(e)
+    monkeypatch.setattr(lg, "GUARD", g)
+    lg.protect_failover(OLLAMA, "fallback")
+    lg.set_load_wait("5")
+    release = await g.admit(OLLAMA_URL, "m")
+    assert release is not None
+    assert e.unload_calls == {"fallback": 1}
+    assert "fallback" not in e.ollama
+    release()
+
+
+async def test_protected_idle_is_not_spent_when_it_cannot_cover_the_gap():
+    e = Engines(
+        ollama={"fallback": 2 * GIB},
+        tags={"m": 30 * GIB},  # 37.5 needed; 18 + 2 cannot cover it
+        ceiling=20 * GIB,
+    )
+    g = guard(e)
+    g.protect(OLLAMA, "fallback", seconds=60)
+    lg.set_load_wait("0.2")
+    with pytest.raises(lg.LoadRefusedError):
+        await g.admit(OLLAMA_URL, "m")
+    assert e.unload_calls == {}
+    assert e.ollama["fallback"] == 2 * GIB
+
+
+async def test_protected_busy_omlx_is_never_evicted():
+    e = Engines(
+        tags={"m": 20 * GIB},
+        omlx={"protected": {"size": 20 * GIB, "loaded": True}},
+        ceiling=30 * GIB,
+    )
+    g = guard(e)
+    g.protect(OMLX, "protected", seconds=60)
+    end = g.begin(OMLX, "protected")
+    lg.set_load_wait("0.2")
+    with pytest.raises(lg.LoadRefusedError):
+        await g.admit(OLLAMA_URL, "m")
+    end()
+    assert e.unloaded == []
+    assert e.omlx["protected"]["loaded"]
 
 
 async def test_omlx_cold_load_waits_for_ollama_active_elsewhere():
@@ -1088,6 +1202,102 @@ def test_ollama_global_kv_cache_type_is_used_when_show_has_no_override(monkeypat
     assert lg._estimate_ollama_need(GIB, show, "granite") == pytest.approx(
         GIB * lg._FACTOR + expected_kv
     )
+
+
+async def test_the_measured_chat_need_does_not_fit_beside_the_hunt() -> None:
+    """2026-11-12: final_ceiling 38.6 GiB already includes the hunt's footprint.
+
+    Headroom 20.6 GiB is additional room, and 29.8 GiB does not fit in the
+    18.6 GiB left after the 2 GiB margin. 58% host-free is a different quantity.
+    """
+    resident = (38.6 - 20.6) * GIB
+    e = Engines(
+        omlx={"gemma-4-26b-a4b-it-QAT-4bit": {"size": resident, "loaded": True}},
+        ceiling=38.6 * GIB,
+        omlx_memory=resident,
+    )
+    g = guard(e)
+    async with g._client() as client:
+        capacity = await g._headroom(client)
+    assert capacity is not None
+    headroom, used = capacity
+    available = g._ollama_available(headroom, {}, 0.0) - lg._MARGIN
+    assert used / GIB == pytest.approx(18.0)
+    assert headroom / GIB == pytest.approx(20.6)
+    assert available / GIB == pytest.approx(18.6)
+    assert available < 29.8 * GIB
+
+
+def _seat_map(monkeypatch: pytest.MonkeyPatch, seat: str, workspace: str | None) -> None:
+    monkeypatch.setattr(
+        "portal.platform.inference.router.parallel_seat.seat_for_loaded_model",
+        lambda model_id: workspace if model_id == seat else None,
+    )
+
+
+async def test_a_busy_parallel_seat_yields_then_unloads_for_the_chat(monkeypatch) -> None:
+    """Chat that cannot fit waits out the busy seat, then the idle unload admits it."""
+    from portal.platform.inference.router.parallel_seat import YIELD
+
+    seat = "gemma-4-26b-a4b-it-QAT-4bit"
+    _seat_map(monkeypatch, seat, "hunt-reasoning")
+    e = Engines(
+        tags={"chat": 24 * GIB},  # 30 GiB projected; 22 GiB available beside 16 GiB
+        omlx={seat: {"size": 16 * GIB, "loaded": True}},
+        ceiling=40 * GIB,
+    )
+    g = guard(e)
+    end = g.begin(OMLX, seat)
+    lg.set_load_wait("30")
+    task = asyncio.create_task(g.admit(OLLAMA_URL, "chat"))
+    await settle()
+    assert not task.done()
+    assert YIELD.holding("hunt-reasoning")
+    assert e.unloaded == []
+    end()
+    release = await asyncio.wait_for(task, 2)
+    assert e.unloaded == [seat]
+    assert release is not None
+    assert YIELD.holding("hunt-reasoning")  # held until the chat load is resident
+    e.ollama["chat"] = int(30 * GIB)
+    await settle()
+    assert not YIELD.holding("hunt-reasoning")
+    release()
+
+
+async def test_an_idle_parallel_seat_unloads_without_holding_the_yield(monkeypatch) -> None:
+    from portal.platform.inference.router.parallel_seat import YIELD
+
+    seat = "gemma-4-26b-a4b-it-QAT-4bit"
+    _seat_map(monkeypatch, seat, "hunt-reasoning")
+    e = Engines(
+        tags={"chat": 24 * GIB},
+        omlx={seat: {"size": 16 * GIB, "loaded": True}},
+        ceiling=40 * GIB,
+    )
+    release = await guard(e).admit(OLLAMA_URL, "chat")
+    assert e.unloaded == [seat]
+    assert release is not None
+    assert not YIELD.holding("hunt-reasoning")
+    release()
+
+
+async def test_a_busy_non_parallel_model_is_not_evicted_for_chat(monkeypatch) -> None:
+    from portal.platform.inference.router.parallel_seat import YIELD
+
+    _seat_map(monkeypatch, "other", None)
+    e = Engines(
+        tags={"chat": 24 * GIB},
+        omlx={"other": {"size": 16 * GIB, "loaded": True}},
+        ceiling=40 * GIB,
+    )
+    g = guard(e)
+    end = g.begin(OMLX, "other")
+    with pytest.raises(lg.LoadRefusedError):
+        await g.admit(OLLAMA_URL, "chat")
+    assert e.unloaded == []
+    assert not YIELD.holding("hunt-reasoning")
+    end()
 
 
 async def test_a_freed_ollama_resident_lifts_the_ceiling_before_the_quiet_refusal():

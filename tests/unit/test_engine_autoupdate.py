@@ -361,3 +361,49 @@ def test_omlx_latest_skips_dev_and_rc_builds(monkeypatch):
     ]
     monkeypatch.setattr(eu, "_get", lambda url: releases)
     assert eu.omlx_latest() == "0.7.3"
+
+
+def _forbid_engine_contact(monkeypatch) -> None:
+    def boom(*_a, **_k):
+        raise AssertionError("engine contact")
+
+    monkeypatch.setattr(eu, "_run", boom)
+    monkeypatch.setattr(eu, "busy", boom)
+    monkeypatch.setattr(eu, "_state", boom)
+    monkeypatch.setattr(eu, "check_ollama", boom)
+    monkeypatch.setattr(eu, "check_omlx", boom)
+    monkeypatch.setattr(eu, "update_engine", boom)
+
+
+def test_help_prints_usage_and_does_not_touch_engines(capsys, monkeypatch):
+    _forbid_engine_contact(monkeypatch)
+    assert eu.main(["--help"]) == 0
+    out = capsys.readouterr().out
+    assert "--now" in out
+    assert "--dry-run" in out
+    assert "--allow-prerelease" in out
+    assert "ollama" in out and "omlx" in out
+
+
+def test_unknown_flag_exits_nonzero_without_touching_engines(capsys, monkeypatch):
+    _forbid_engine_contact(monkeypatch)
+    assert eu.main(["--helpme"]) == 2
+    err = capsys.readouterr().err
+    assert "unknown flag" in err
+    assert "--helpme" in err
+
+
+def test_unknown_engine_exits_nonzero_without_touching_engines(capsys, monkeypatch):
+    _forbid_engine_contact(monkeypatch)
+    assert eu.main(["mlx"]) == 2
+    err = capsys.readouterr().err
+    assert "unknown engine" in err
+    assert "mlx" in err
+
+
+def test_known_flags_and_engine_names_still_parse():
+    now, dry_run, allow, engines = eu._parse_args(
+        ["--now", "--dry-run", "--allow-prerelease", "omlx"]
+    )
+    assert (now, dry_run, allow, engines) == (True, True, True, ["omlx"])
+    assert eu._parse_args([])[3] == ["ollama", "omlx"]

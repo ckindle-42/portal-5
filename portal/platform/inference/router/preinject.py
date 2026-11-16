@@ -547,6 +547,15 @@ def _inject_requested_prompts(model_id: str, body: dict[str, Any]) -> dict[str, 
     return _inject_persona_system_prompt(model_id, body)
 
 
+def _apply_no_tools_request(body: dict[str, Any]) -> dict[str, Any]:
+    """An explicit empty ``tools`` array means no tools at all, workspace defaults included."""
+    if body.get("portal_no_tools") or body.get("portal_bite_tools"):
+        return body
+    if "tools" in body and not body.get("tools"):
+        return {**body, "portal_no_tools": True}
+    return body
+
+
 def _apply_client_tools_only(workspace_id: str, body: dict[str, Any]) -> dict[str, Any]:
     """Apply a workspace's client-tools-only marker when the request brings tools."""
     if body.get("portal_client_tools_only") or (

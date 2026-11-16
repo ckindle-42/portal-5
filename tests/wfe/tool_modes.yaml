@@ -30,6 +30,11 @@ workspaces:
     tool_mode: production
     allow: [kb_search, kb_list, read_pdf, read_word_document, read_excel, create_word_document, create_excel, create_powerpoint, execute_python, remember, recall]
   auto-daily: *general_tools
+  auto-daily::nemotron:
+    # Seat tools minus web (the eval drops live feeds, as auto-daily::deep does).
+    # No execute_python or document-create: the variant does not declare them.
+    tool_mode: production
+    allow: [kb_search, kb_list, read_pdf, read_word_document, remember, recall]
   auto-general-uncensored: &uncensored_tools
     # The uncensored general lanes carry no KB or document-create tools; they are measured
     # on the computed and memory kinds only (general_core_production).
