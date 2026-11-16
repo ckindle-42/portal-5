@@ -14,10 +14,37 @@ from portal.platform.mcp_host.tool_support import tool_result_byte_budget
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "hunt_tool_result_size.json"
 # Redacted receipt excerpts plus a test-only job envelope from the named Kyoushi bundle.
 HUNT_TOOLS = {"hunt_sources", "hunt_start", "hunt_status", "hunt_leads", "hunt_case"}
+BOUNDED_TOOL_PARAMETERS = {
+    "hunt_sources": {"job_id", "index", "n"},
+    "hunt_start": {
+        "index",
+        "start",
+        "end",
+        "query_seconds",
+        "job_seconds",
+        "request_budget",
+        "cell_budget",
+        "event_budget",
+        "judge",
+    },
+    "hunt_status": {"job_id", "index"},
+    "hunt_leads": {"job_id", "index", "n"},
+    "hunt_case": {"job_id", "index", "case", "n"},
+}
 
 
 def _encoded_size(value: dict[str, Any]) -> int:
     return len(json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+
+
+def test_chat_hunt_tool_schemas_expose_only_budgeted_parameters() -> None:
+    from portal.modules.security.tools import review_mcp
+
+    tools = asyncio.run(review_mcp.mcp.list_tools())
+    properties = {
+        tool.name: set(tool.input_schema["properties"]) for tool in tools if tool.name in HUNT_TOOLS
+    }
+    assert properties == BOUNDED_TOOL_PARAMETERS
 
 
 def test_default_hunt_tool_results_fit_smallest_served_seat(
@@ -78,9 +105,6 @@ def test_default_hunt_tool_results_fit_smallest_served_seat(
         "next",
     }
     assert "progress" not in outputs["hunt_status"]
-    tools = asyncio.run(review_mcp.mcp.list_tools())
-    status_tool = next(tool for tool in tools if tool.name == "hunt_status")
-    assert "detail" not in status_tool.input_schema["properties"]
     assert set(outputs["hunt_sources stored"]) >= {"counts", "not_understood"}
     assert set(outputs["hunt_leads"]["leads"][0]) == {
         "rank",
