@@ -639,3 +639,54 @@ async def test_non_streaming_refuses_in_band_and_never_posts(
     assert client.bodies == []
     reason = next(iter(tried.values()))
     assert "conversation exceeds this workspace's context" in reason
+
+
+# ── the trace's own turn, on the seats that failed the full trace ──────
+
+#: `portal trace`'s one-word turn: model = seat id, max_tokens = 24, usage requested.
+TRACE_SEATS = [
+    ("auto-daily", "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k"),
+    ("auto-general-uncensored::throwaway-ornith15", "portal5/ornith15-35b:q4_K_M-ctx256k"),
+]
+
+
+def _trace_body(model: str) -> dict[str, typing.Any]:
+    return {
+        "model": model,
+        "messages": [{"role": "user", "content": "Reply with the single word OK."}],
+        "stream": True,
+        "max_tokens": 24,
+        "stream_options": {"include_usage": True},
+    }
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(("workspace", "model"), TRACE_SEATS)
+async def test_the_trace_turn_reaches_the_engine_byte_identical(
+    workspace: str,
+    model: str,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Live 2026-11-16 (dbb943418): two trace seats failed with tokens=0 and no `Context
+    fit` line. A 24-token turn fits every seat window, so the guard must hand the engine
+    exactly the body the pre-guard revision did — num_ctx, num_predict, think, order."""
+    from portal.platform.inference.router.validation import _inject_ollama_options
+
+    client = _StreamClient([_Resp(["data: [DONE]"])])
+    monkeypatch.setattr(streaming, "_http_client", client)
+    monkeypatch.setattr(streaming, "_backend_type_for_url", lambda _url: "ollama")
+    injected = _inject_ollama_options(_trace_body(model), workspace)
+    snapshot = copy.deepcopy(injected)
+
+    with caplog.at_level(logging.WARNING, logger=cb.__name__):
+        report = cb.fit_prompt(injected, workspace_id=workspace, model=model, engine="ollama")
+        async for _chunk in streaming._tool_loop_frames(
+            "http://ollama:11434/v1/chat/completions", injected, workspace, model, "", set()
+        ):
+            pass
+
+    assert report.limit is not None and report.estimated_after < report.budget
+    assert not report.fitted and injected == snapshot
+    assert client.bodies == [snapshot]  # what the engine was actually sent
+    assert not [r for r in caplog.records if "Context fit:" in r.getMessage()]

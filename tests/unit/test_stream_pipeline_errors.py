@@ -772,3 +772,116 @@ def test_in_band_frames_share_the_terminal_framing() -> None:
 
 async def _async(value: typing.Any) -> typing.Any:
     return value
+
+
+# ── the closing usage frame: an engine that reports nothing still ends a turn ──
+
+ASK_USAGE = {"include_usage": True}
+
+
+def _chunk(delta: dict[str, typing.Any], finish: str | None = None) -> str:
+    payload = {"choices": [{"index": 0, "delta": delta, "finish_reason": finish}]}
+    return f"data: {json.dumps(payload)}"
+
+
+def _usage_frame(completion: int) -> str:
+    usage = {"prompt_tokens": 30, "completion_tokens": completion, "total_tokens": 30 + completion}
+    return f"data: {json.dumps({'choices': [], 'usage': usage})}"
+
+
+def _usages(chunks: list[bytes]) -> list[dict[str, typing.Any]]:
+    return [p["usage"] for p in _payloads(chunks) if isinstance(p.get("usage"), dict)]
+
+
+@pytest.mark.anyio
+async def test_guarded_turn_the_engine_left_without_usage_ends_with_one(
+    stream_client: MagicMock,
+) -> None:
+    _serve(stream_client, _Resp([_chunk({"content": "OK"}, "stop"), "data: [DONE]"]))
+    body = {"messages": [{"role": "user", "content": "hi"}], "stream_options": ASK_USAGE}
+
+    chunks = await _drain(
+        st._stream_from_backend_guarded("http://ollama/v1/chat/completions", body, "ws", "m")
+    )
+
+    assert _usages(chunks) == [
+        {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "source": "pipeline"}
+    ]
+    assert chunks[-1] == DONE and b"OK" in b"".join(chunks)
+
+
+@pytest.mark.anyio
+async def test_guarded_turn_keeps_the_engines_own_usage_unrepeated(
+    stream_client: MagicMock,
+) -> None:
+    _serve(
+        stream_client, _Resp([_chunk({"content": "OK"}, "stop"), _usage_frame(2), "data: [DONE]"])
+    )
+    body = {"messages": [{"role": "user", "content": "hi"}], "stream_options": ASK_USAGE}
+
+    chunks = await _drain(
+        st._stream_from_backend_guarded("http://ollama/v1/chat/completions", body, "ws", "m")
+    )
+
+    assert [u["completion_tokens"] for u in _usages(chunks)] == [2]
+    assert chunks[-1] == DONE
+
+
+@pytest.mark.anyio
+async def test_tool_loop_turn_that_says_nothing_still_ends_with_usage(
+    stream_client: MagicMock,
+) -> None:
+    """Live 2026-11-16, `auto` on nemotron: 0 content, 0 reasoning, no usage chunk."""
+    _serve(stream_client, _Resp(["data: [DONE]"]))
+    body = {
+        "messages": [{"role": "user", "content": "Reply with the single word OK."}],
+        "stream_options": ASK_USAGE,
+    }
+
+    chunks = await _drain(
+        st._stream_with_tool_loop_impl(
+            "http://ollama/v1/chat/completions", body, "ws", "m", "p", set()
+        )
+    )
+
+    content = "".join(
+        (choice.get("delta") or {}).get("content") or ""
+        for payload in _payloads(chunks)
+        for choice in payload["choices"]
+    )
+    assert st.NO_ANSWER_MESSAGE in content
+    assert _usages(chunks) == [
+        {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "source": "pipeline"}
+    ]
+    assert chunks[-1] == DONE and chunks.count(DONE) == 1
+
+
+@pytest.mark.anyio
+async def test_tool_loop_reasoning_only_turn_reports_the_engines_usage(
+    stream_client: MagicMock,
+) -> None:
+    """The same turn on a model that reasons: the engine's own count reaches the client."""
+    _serve(
+        stream_client,
+        _Resp(
+            [
+                _chunk({"reasoning": "let me think"}),
+                _chunk({}, "length"),
+                _usage_frame(24),
+                "data: [DONE]",
+            ]
+        ),
+    )
+    body = {
+        "messages": [{"role": "user", "content": "Reply with the single word OK."}],
+        "stream_options": ASK_USAGE,
+    }
+
+    chunks = await _drain(
+        st._stream_with_tool_loop_impl(
+            "http://ollama/v1/chat/completions", body, "ws", "m", "p", set()
+        )
+    )
+
+    assert [u["completion_tokens"] for u in _usages(chunks)] == [24]
+    assert chunks[-1] == DONE and chunks.count(DONE) == 1

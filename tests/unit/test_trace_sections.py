@@ -519,6 +519,51 @@ def _seat() -> workspaces.Seat:
     return workspaces.Seat("auto-general", "huihui_ai/qwen3.5-abliterated:9b-ctx8k")
 
 
+def test_summarize_turn_counts_reasoning_apart_from_answer_content() -> None:
+    """A reasoning-only turn is not an empty one: the deltas say which happened."""
+    notice = "⚠️ The model did not produce an answer. Please retry."
+    events = [
+        (0.40, {"choices": [{"delta": {"reasoning": "the user wants "}}]}),
+        (0.90, {"choices": [{"delta": {"reasoning": "one word"}}]}),
+        (7.10, {"choices": [{"delta": {"content": notice}, "finish_reason": "length"}]}),
+        (7.20, {"choices": [], "usage": {"completion_tokens": 24, "source": "pipeline"}}),
+    ]
+    stats = workspaces.summarize_turn(events)
+    assert (stats.reasoning_deltas, stats.content_chunks) == (2, 1)
+    assert stats.text == notice
+    assert stats.usage_source == "pipeline"
+
+
+def test_seat_hop_tells_a_reasoning_only_turn_from_an_empty_one() -> None:
+    """Live 2026-11-16: both seats read "tokens=0 usage missing"; the engine log said
+    `reasoning_only=True` on one and nothing on the other, and the trace could not tell."""
+    notice = "⚠️ The model did not produce an answer. Please retry."
+    reasoning = workspaces.TurnStats(
+        text=notice, content_chunks=1, reasoning_deltas=24, completion_tokens=24
+    )
+    hop = workspaces.seat_hop(_seat(), workspaces.StreamedTurn(200, ["w", "b", "m"], reasoning))
+    assert hop.status is Status.FAIL
+    assert "reasoning-only (24 reasoning deltas" in hop.observed
+    assert "reasoning=24" in hop.observed
+
+    empty = workspaces.TurnStats(
+        ttft_s=15.0,
+        text=notice,
+        content_chunks=1,
+        completion_tokens=0,
+        usage_source="pipeline",
+    )
+    hop = workspaces.seat_hop(_seat(), workspaces.StreamedTurn(200, ["w", "b", "m"], empty))
+    assert hop.status is Status.FAIL
+    assert "no answer content" in hop.observed
+    assert "usage=pipeline" in hop.observed and "reasoning-only" not in hop.observed
+
+    answered = workspaces.TurnStats(ttft_s=0.4, text="OK", content_chunks=2, completion_tokens=2)
+    served = ["w", "b", "huihui_ai/qwen3.5-abliterated:9b-ctx8k"]
+    hop = workspaces.seat_hop(_seat(), workspaces.StreamedTurn(200, served, answered))
+    assert hop.status is Status.PASS
+
+
 def test_seat_hop_fails_a_refusal_and_an_empty_stream() -> None:
     refused = workspaces.seat_hop(_seat(), workspaces.StreamedTurn(507, body="does not fit"))
     assert refused.status is Status.FAIL and refused.observed == "refused 507"
