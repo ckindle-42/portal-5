@@ -617,3 +617,47 @@ async def _dispatch_tool_result(tool_call):
         "name": "lookup",
         "content": "ok",
     }
+
+
+@pytest.mark.anyio
+async def test_portal_timings_appends_terminal_usage_when_requested_and_missing():
+    async def source():
+        yield b'data: {"choices":[{"delta":{"content":"OK"}}]}\n\n'
+        yield b"data: [DONE]\n\n"
+
+    frames = [frame async for frame in _with_portal_timings(source(), usage_wanted=True)]
+    usage_frames = [json.loads(f[6:]) for f in frames if b'"usage"' in f]
+    assert usage_frames, "a requested usage chunk must close the stream"
+    assert usage_frames[0]["usage"] == {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+    }
+    assert frames[-1] == b"data: [DONE]\n\n"
+    usage_at = next(i for i, f in enumerate(frames) if b'"usage"' in f)
+    assert usage_at < len(frames) - 1
+
+
+@pytest.mark.anyio
+async def test_portal_timings_keeps_engine_usage_and_skips_the_zero_fill():
+    async def source():
+        yield (
+            b'data: {"choices":[],"usage":{"prompt_tokens":3,'
+            b'"completion_tokens":2,"total_tokens":5}}\n\n'
+        )
+        yield b"data: [DONE]\n\n"
+
+    frames = [frame async for frame in _with_portal_timings(source(), usage_wanted=True)]
+    usage_frames = [json.loads(f[6:]) for f in frames if b'"usage"' in f]
+    assert len(usage_frames) == 1
+    assert usage_frames[0]["usage"]["completion_tokens"] == 2
+
+
+@pytest.mark.anyio
+async def test_portal_timings_without_a_usage_request_adds_no_usage_frame():
+    async def source():
+        yield b'data: {"choices":[{"delta":{"content":"OK"}}]}\n\n'
+        yield b"data: [DONE]\n\n"
+
+    frames = [frame async for frame in _with_portal_timings(source())]
+    assert not any(b'"usage"' in f for f in frames)

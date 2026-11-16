@@ -336,11 +336,26 @@ def _completion_finish_chunk(reason: str) -> bytes:
     return f"data: {json.dumps({'choices': [{'delta': {}, 'finish_reason': reason}]})}\n\n".encode()
 
 
+def stream_usage_requested(body: dict[str, Any]) -> bool:
+    """Whether the client asked (``stream_options.include_usage``) for a closing usage chunk."""
+    options = body.get("stream_options")
+    return isinstance(options, dict) and bool(options.get("include_usage"))
+
+
+def terminal_usage_chunk(usage: dict[str, Any] | None) -> bytes:
+    """The closing usage-only SSE frame; missing usage is reported as zeros."""
+    payload = (
+        usage
+        if isinstance(usage, dict) and usage
+        else {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+    )
+    return f"data: {json.dumps({'choices': [], 'usage': payload})}\n\n".encode()
+
+
 def _requested_usage_chunk(body: dict[str, Any], frame: dict[str, Any]) -> bytes | None:
     """Return a usage-only SSE chunk when the request asked to include engine usage."""
-    options = body.get("stream_options")
     usage = frame.get("usage")
-    if not isinstance(options, dict) or not options.get("include_usage"):
+    if not stream_usage_requested(body):
         return None
     if not isinstance(usage, dict):
         return None
@@ -470,7 +485,12 @@ async def _capacity_fallback_frames(
         return None
     data = json.loads(_as_bytes(fallback.body))
     return list(
-        _json_completion_to_sse(data, workspace_id, thinking_enabled=_thinking_enabled(body))
+        _json_completion_to_sse(
+            data,
+            workspace_id,
+            thinking_enabled=_thinking_enabled(body),
+            include_usage=stream_usage_requested(body),
+        )
     )
 
 
@@ -513,7 +533,11 @@ def _in_band_error_frames(
 
 
 def _json_completion_to_sse(
-    data: dict[str, Any], workspace_id: str, *, thinking_enabled: bool = True
+    data: dict[str, Any],
+    workspace_id: str,
+    *,
+    thinking_enabled: bool = True,
+    include_usage: bool = False,
 ) -> Iterator[bytes]:
     """Convert a completion to SSE without treating reasoning as answer text."""
     choice = data.get("choices", [{}])[0]
@@ -547,6 +571,9 @@ def _json_completion_to_sse(
             else "stop"
         )
     yield _completion_finish_chunk(str(finish_reason or "stop"))
+    if include_usage:
+        usage = data.get("usage")
+        yield terminal_usage_chunk(usage if isinstance(usage, dict) else None)
     yield b"data: [DONE]\n\n"
 
 
@@ -2938,7 +2965,10 @@ async def _stream_with_fallback(
                     _record_fallback_route(result, fb)
                     data = json.loads(_as_bytes(result.body))
                     for frame in _json_completion_to_sse(
-                        data, workspace_id, thinking_enabled=_thinking_enabled(body)
+                        data,
+                        workspace_id,
+                        thinking_enabled=_thinking_enabled(body),
+                        include_usage=stream_usage_requested(body),
                     ):
                         yield frame
                     finalize_trace()
