@@ -265,6 +265,92 @@ def test_format_health_target() -> None:
     assert format_health_target(ref) == "com.portal5.data-mcp 8939 host"
 
 
+def _data_ref():
+    from portal.platform.inference.cli.module_services import ServiceRef
+
+    return ServiceRef("host", "data", "com.portal5.data-mcp", 8939, "data-mcp", "data")
+
+
+def test_kickstart_unchanged_is_kept(monkeypatch: pytest.MonkeyPatch) -> None:
+    from portal.platform.inference.cli import module_services as ms
+
+    calls: list[list[str]] = []
+    monkeypatch.setattr(ms, "_healthy", lambda port: True)
+    monkeypatch.setattr(ms, "_stale_reason", lambda ref, repo=None: None)
+    monkeypatch.setattr(ms, "_run", lambda argv, cwd=None: calls.append(argv))
+    assert ms._kickstart(_data_ref()) == "com.portal5.data-mcp: kept (unchanged)"
+    assert calls == []
+
+
+def test_kickstart_changed_is_restarted(monkeypatch: pytest.MonkeyPatch) -> None:
+    from portal.platform.inference.cli import module_services as ms
+
+    calls: list[list[str]] = []
+    monkeypatch.setattr(ms, "_healthy", lambda port: True)
+    monkeypatch.setattr(ms, "_stale_reason", lambda ref, repo=None: "code changed")
+    monkeypatch.setattr(ms, "_plist", lambda ref: Path("/tmp/no.plist"))
+    monkeypatch.setattr(
+        ms, "start_argv", lambda ref, uid=None, plist=None: [["launchctl", "kickstart"]]
+    )
+    monkeypatch.setattr(ms, "_run", lambda argv, cwd=None: calls.append(argv))
+    assert ms._kickstart(_data_ref()) == "com.portal5.data-mcp: restarted (code changed)"
+    assert calls == [["launchctl", "kickstart"]]
+
+
+def test_kickstart_unhealthy_is_restarted(monkeypatch: pytest.MonkeyPatch) -> None:
+    from portal.platform.inference.cli import module_services as ms
+
+    calls: list[list[str]] = []
+    monkeypatch.setattr(ms, "_healthy", lambda port: False)
+    monkeypatch.setattr(ms, "_plist", lambda ref: Path("/tmp/no.plist"))
+    monkeypatch.setattr(
+        ms, "start_argv", lambda ref, uid=None, plist=None: [["launchctl", "kickstart"]]
+    )
+    monkeypatch.setattr(ms, "_run", lambda argv, cwd=None: calls.append(argv))
+    assert ms._kickstart(_data_ref()) == "com.portal5.data-mcp: restarted (unhealthy)"
+    assert calls == [["launchctl", "kickstart"]]
+
+
+def test_stale_reason_code_changed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from portal.platform.inference.cli import module_services as ms
+
+    monkeypatch.setattr(ms, "_host_process_start_epoch", lambda port: 1000)
+    monkeypatch.setattr(ms, "_source_dirs", lambda ref: (Path("/src"),))
+    monkeypatch.setattr(ms, "_newest_mtime", lambda path: 2000)
+    assert ms._stale_reason(_data_ref(), repo=tmp_path) == "code changed"
+
+
+def test_stale_reason_config_changed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from portal.platform.inference.cli import module_services as ms
+
+    monkeypatch.setattr(ms, "_host_process_start_epoch", lambda port: 1000)
+    monkeypatch.setattr(ms, "_source_dirs", lambda ref: ())
+    monkeypatch.setattr(ms, "_newest_mtime", lambda path: 2000)
+    assert ms._stale_reason(_data_ref(), repo=tmp_path) == "config changed"
+
+
+def test_stale_reason_unchanged_returns_none(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from portal.platform.inference.cli import module_services as ms
+
+    monkeypatch.setattr(ms, "_host_process_start_epoch", lambda port: 1000)
+    monkeypatch.setattr(ms, "_source_dirs", lambda ref: (Path("/src"),))
+    monkeypatch.setattr(ms, "_newest_mtime", lambda path: 500)
+    assert ms._stale_reason(_data_ref(), repo=tmp_path) is None
+
+
+def test_stale_reason_unknown_start_leaves_alone(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from portal.platform.inference.cli import module_services as ms
+
+    monkeypatch.setattr(ms, "_host_process_start_epoch", lambda port: None)
+    monkeypatch.setattr(ms, "_source_dirs", lambda ref: (Path("/src"),))
+    monkeypatch.setattr(ms, "_newest_mtime", lambda path: 2000)
+    assert ms._stale_reason(_data_ref(), repo=tmp_path) is None
+
+
 def test_rebuild_restarts_native_mcps_after_containers() -> None:
     launch = (ROOT / "launch.sh").read_text(encoding="utf-8")
     rebuild = launch.split("  rebuild)", 1)[1].split("  rebuild-mcp)", 1)[0]
