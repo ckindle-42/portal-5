@@ -353,6 +353,32 @@ _compose_up_enabled() {
     _portal_module_services --apply --kind compose --stop-only
 }
 
+# Every running container must run the image its own reference resolves to. A rebuild
+# retags the image and leaves the old container running (2026-11-15); `compose up`
+# recreates on a changed image, so a mismatch here is one it could not fix. Run from
+# $COMPOSE_DIR so `compose ps` sees this project.
+_check_image_freshness() {
+    local stale=0 name ref running current running_id current_id
+    while IFS= read -r name; do
+        [ -n "$name" ] || continue
+        ref=$(docker inspect "$name" --format '{{.Config.Image}}' 2>/dev/null) || continue
+        running=$(docker inspect "$name" --format '{{.Image}}' 2>/dev/null) || continue
+        current=$(docker image inspect "$ref" --format '{{.Id}}' 2>/dev/null) || current=""
+        [ -n "$ref" ] && [ -n "$current" ] || continue
+        running_id="${running#sha256:}"
+        current_id="${current#sha256:}"
+        if [ "$running_id" != "$current_id" ]; then
+            echo "[portal-5]   ⚠️  ${name}: runs ${running_id:0:12}, but ${ref} resolves to ${current_id:0:12}"
+            stale=1
+        fi
+    done < <(docker compose ps --format '{{.Name}}' 2>/dev/null || true)
+    if [ "$stale" -eq 0 ]; then
+        echo "[portal-5]   ✅ every container runs its reference's current image"
+    else
+        echo "[portal-5]      repair: ./launch.sh up (recreates containers whose image changed)"
+    fi
+}
+
 # ── Auto-start native services if installed but not running ─────────────────
 _ensure_native_services() {
     local ARCH

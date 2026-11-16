@@ -201,13 +201,56 @@ def seat_hop(seat: Seat, turn: StreamedTurn) -> Hop:
     )
 
 
+def served_seat_ids(ctx: TraceContext) -> set[str]:
+    """Workspace ids the running pipeline advertises; empty when the catalog cannot be read."""
+    try:
+        response = httpx.get(
+            f"{ctx.pipeline_url}/v1/models",
+            headers={"Authorization": f"Bearer {ctx.api_key}"} if ctx.api_key else {},
+            timeout=15.0,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except (httpx.HTTPError, ValueError):
+        return set()
+    if not isinstance(payload, dict):
+        return set()
+    return {
+        str(entry["id"])
+        for entry in payload.get("data") or []
+        if isinstance(entry, dict) and entry.get("id")
+    }
+
+
+def disabled_seat(seat_id: str, served: set[str]) -> Hop | None:
+    """A seat the stack does not advertise *and* config disables is skipped, not failed."""
+    if seat_id in served:
+        return None
+    from portal.platform.wiki.adapters.modules import is_workspace_disabled
+
+    if not is_workspace_disabled(seat_id):
+        return None
+    return Hop(
+        seat_id,
+        Status.PASS,
+        "skipped: module disabled",
+        "",
+        "config/portal.yaml has this seat's module disabled (404 by design)",
+    )
+
+
 def run(ctx: TraceContext, portal: dict[str, Any]) -> list[Hop]:
     """Seats are exercised one at a time so cold loads never contend for host memory."""
     if not ctx.api_key:
         return [Hop("pipeline", Status.FAIL, "PIPELINE_API_KEY unset", "auth key")]
     deadline = time.monotonic() + ctx.budget_s
+    served = served_seat_ids(ctx)
     hops: list[Hop] = []
     for seat in production_seats(portal):
+        skipped = disabled_seat(seat.seat_id, served)
+        if skipped is not None:
+            hops.append(skipped)
+            continue
         remaining = deadline - time.monotonic()
         if remaining <= 1:
             hops.append(Hop(seat.seat_id, Status.WARN, "not run (budget)", "streamed turn"))

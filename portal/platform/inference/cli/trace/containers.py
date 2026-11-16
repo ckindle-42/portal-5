@@ -25,15 +25,6 @@ _COPY = re.compile(r"^COPY\s+(.+)$")
 _REVISION_LABEL = "org.opencontainers.image.revision"
 
 
-@dataclass(frozen=True)
-class ImageRow:
-    """One ``docker images`` row."""
-
-    image_id: str
-    repo: str
-    tag: str
-
-
 @dataclass
 class ContainerRow:
     """One running compose container, as ``docker inspect`` reports it."""
@@ -74,23 +65,17 @@ def same_image(left: str, right: str) -> bool:
     return bool(a) and bool(b) and (a.startswith(b) or b.startswith(a))
 
 
-def parse_images(text: str) -> list[ImageRow]:
-    """``docker images --format '{{.ID}}\\t{{.Repository}}\\t{{.Tag}}'``, newest first."""
-    rows: list[ImageRow] = []
-    for line in text.splitlines():
-        parts = line.split("\t")
-        if len(parts) < 3:
-            continue
-        rows.append(ImageRow(parts[0].strip(), parts[1].strip(), parts[2].strip()))
-    return rows
+def resolve_image(ref: str) -> tuple[str, float]:
+    """The image ID and build time a container's reference resolves to right now.
 
-
-def newest_image(rows: list[ImageRow], repo: str) -> ImageRow | None:
-    """Docker lists newest first, so the first row for this repository is the newest build."""
-    for row in rows:
-        if row.repo == repo:
-            return row
-    return None
+    A reference is the container's own ``Config.Image`` — ``repo:tag`` when compose
+    names one, ``repo`` (``:latest``) when it builds. The repository's *newest* image
+    is not the answer: a rollback tag is written in the same second as the image it
+    copies, and ``docker images`` then orders them arbitrarily.
+    """
+    result = run_cmd(["docker", "image", "inspect", ref, "--format", "{{.Id}} {{.Created}}"])
+    parts = result.stdout.split()
+    return (parts[0], parse_iso(parts[1])) if len(parts) == 2 else ("", 0.0)
 
 
 def _stamp(epoch: float) -> str:
@@ -153,15 +138,16 @@ def parse_hash_lines(text: str) -> dict[str, str]:
     return out
 
 
-def image_freshness_hop(container: ContainerRow, newest: ImageRow) -> Hop:
-    match = same_image(container.image_id, newest.image_id)
+def image_freshness_hop(container: ContainerRow, current_id: str) -> Hop:
+    """The container runs the image its own reference resolves to now."""
+    match = same_image(container.image_id, current_id)
     return Hop(
         f"image {container.name}",
         Status.PASS if match else Status.FAIL,
         f"running={normalize_image_id(container.image_id)[:12]}"
-        f" newest={normalize_image_id(newest.image_id)[:12]}",
-        "same image",
-        "" if match else "rebuild ran but the container was not recreated",
+        f" {container.image_ref}={normalize_image_id(current_id)[:12]}",
+        "container runs its reference's current image",
+        "" if match else "the reference was rebuilt; the container was not recreated",
     )
 
 
@@ -294,11 +280,6 @@ def _compose_dockerfile(repo_root: Path, service: str) -> str:
     return found.group(1) if found else ""
 
 
-def _image_created(image_id: str) -> float:
-    result = run_cmd(["docker", "image", "inspect", image_id, "--format", "{{.Created}}"])
-    return parse_iso(result.stdout)
-
-
 def label_commit(repo_root: Path, dockerfile: str) -> tuple[str, float]:
     """The commit that introduced the revision label into ``dockerfile``, and its timestamp."""
     parts = _git(
@@ -309,18 +290,21 @@ def label_commit(repo_root: Path, dockerfile: str) -> tuple[str, float]:
 
 def _container_hops(
     container: ContainerRow,
-    images: list[ImageRow],
     repo_root: Path,
     dockerfiles: dict[str, list[str]],
 ) -> list[Hop]:
     """Image identity, start time, revision label and config state for one container."""
-    newest = newest_image(images, container.repo)
-    if newest is None:
+    current, built = resolve_image(container.image_ref)
+    if not current:
         return [
-            Hop(f"image {container.name}", Status.FAIL, f"repo={container.repo}", "built image")
+            Hop(
+                f"image {container.name}",
+                Status.FAIL,
+                f"{container.image_ref} resolves to nothing",
+                "image present",
+            )
         ]
-    built = _image_created(newest.image_id)
-    hops = [image_freshness_hop(container, newest), start_after_build_hop(container, built)]
+    hops = [image_freshness_hop(container, current), start_after_build_hop(container, built)]
     dockerfile = _compose_dockerfile(repo_root, container.service)
     copied = dockerfiles.get(dockerfile, [])
     if copied:
@@ -330,7 +314,7 @@ def _container_hops(
             for line in _git(repo_root, ["status", "--porcelain", "--", *copied]).splitlines()
             if line.strip()
         ]
-        label = _image_label(newest.image_id, _REVISION_LABEL)
+        label = _image_label(current, _REVISION_LABEL)
         hops.append(
             revision_hop(
                 container.repo, label, head, dirty, built, label_commit(repo_root, dockerfile)
@@ -345,9 +329,6 @@ def run(ctx: Any) -> list[Hop]:
     listing = run_cmd(["docker", "ps", "--format", "{{.Names}}"], timeout=20)
     if not listing.ok:
         return [Hop("docker", Status.FAIL, short(listing.error), "docker reachable")]
-    images = parse_images(
-        run_cmd(["docker", "images", "--format", "{{.ID}}\t{{.Repository}}\t{{.Tag}}"]).stdout
-    )
     dockerfiles = _dockerfiles(repo_root)
     hops: list[Hop] = []
     for name in [line.strip() for line in listing.stdout.splitlines() if line.strip()]:
@@ -355,7 +336,7 @@ def run(ctx: Any) -> list[Hop]:
         if container is None or not container.image_ref:
             hops.append(Hop(f"image {name}", Status.FAIL, "inspect failed", "readable container"))
             continue
-        hops.extend(_container_hops(container, images, repo_root, dockerfiles))
+        hops.extend(_container_hops(container, repo_root, dockerfiles))
         hops.append(config_hop(container, repo_root, baked_hashes(name, CONFIG_PROBES)))
     if not hops:
         hops.append(Hop("containers", Status.FAIL, "no portal containers", "stack running"))
