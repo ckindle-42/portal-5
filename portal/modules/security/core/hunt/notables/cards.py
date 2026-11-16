@@ -34,6 +34,7 @@ from .sample import SourceFacts
 KINDS = ("activity", "alert", "measurement", "other")
 ROLES = ("actor", "action", "object", "from", "to", "outcome")
 ALERT_EVENT_TYPE = "alert"  # the event_type value that marks a Suricata/Zeek detection event
+FAST_ALERT = re.compile(r"^\d{2}/\d{2}/\d{4}-\d{2}:\d{2}:\d{2}\.\d+\s+\[\*\*\] \[\d+:\d+:\d+\] ")
 CARD_KIND_CONSUMERS = {
     "activity": frozenset({"behaviours", "peer_rare", "similar_to_known", "manifest"}),
     "alert": frozenset({"alerts"}),
@@ -192,9 +193,10 @@ def card_consumers(card: SourceCard) -> frozenset[str]:
     return consumers if card.roles else consumers - ROLE_CONSUMERS
 
 
-def is_alert_event(row: Mapping[str, Any]) -> bool:
-    """True when one raw event is a detection: its JSON carries event_type=alert."""
-    raw = str(row.get("_raw") or "")
+def is_alert_line(raw: str) -> bool:
+    """True when one raw line is a detection: a JSON alert event or a Suricata fast-log line."""
+    if FAST_ALERT.match(raw):
+        return True
     if not raw.lstrip().startswith("{"):
         return False
     try:
@@ -202,6 +204,11 @@ def is_alert_event(row: Mapping[str, Any]) -> bool:
     except ValueError:
         return False
     return isinstance(parsed, Mapping) and str(parsed.get("event_type") or "") == ALERT_EVENT_TYPE
+
+
+def is_alert_event(row: Mapping[str, Any]) -> bool:
+    """True when one raw event is a detection."""
+    return is_alert_line(str(row.get("_raw") or ""))
 
 
 class CardCache:
@@ -580,6 +587,7 @@ class Prepared:
     part_field: str = ""
     part_value: str = ""
     template: TemplateModel | None = None
+    alert: bool = False
 
 
 def prepare_cards(
@@ -588,7 +596,10 @@ def prepare_cards(
     """Parse one source's sample into one prepared structure per part."""
     parsed, template = parse_sample(_raws(rows))
     if template is not None:
-        return [Prepared(facts, _Inputs(rows, parsed, windows, model), template=template)]
+        alert = bool(rows) and all(is_alert_line(_raw) for _raw in _raws(rows))
+        return [
+            Prepared(facts, _Inputs(rows, parsed, windows, model), template=template, alert=alert)
+        ]
     partition = choose_partition(parsed)
     if partition is None:
         return [Prepared(facts, _Inputs(rows, parsed, windows, model))]
@@ -709,7 +720,7 @@ def _template_card(item: Prepared, kind_facts: Mapping[str, Any]) -> SourceCard:
     return SourceCard(
         index=facts.index,
         sourcetype=facts.sourcetype,
-        kind="activity",
+        kind="alert" if item.alert else "activity",
         roles={"actor": ("program",), "action": ("template",), "object": slot_fields},
         understood=True,
         reason=None,
@@ -725,7 +736,7 @@ def _template_card(item: Prepared, kind_facts: Mapping[str, Any]) -> SourceCard:
             "roles from the data"
         ),
         kind_said="structure",
-        kind_note="roles_from_data",
+        kind_note="fast_log_alert_lines" if item.alert else "roles_from_data",
         kind_facts=kind_facts,
         template_model=model,
     )
