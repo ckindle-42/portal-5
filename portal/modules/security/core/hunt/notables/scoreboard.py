@@ -594,31 +594,22 @@ def _ranked_notables(rows: Sequence[Mapping[str, Any]]) -> list[Notable]:
 def _with_related(
     rows: Sequence[dict[str, Any]], related: Sequence[dict[str, Any]]
 ) -> list[dict[str, Any]]:
-    after: dict[int, list[dict[str, Any]]] = defaultdict(list)
-    for row in related:
+    def anchor_rank(item: Mapping[str, Any]) -> int:
         try:
-            raw_anchor = row.get("anchor_rank")
-            if raw_anchor is None:
-                raise ValueError
-            anchor = int(raw_anchor)
+            raw = item.get("anchor_rank")
+            return int(raw) if raw is not None else len(rows)
         except (TypeError, ValueError):
-            anchor = len(rows)
-        after[anchor].append(row)
-    ordered: list[dict[str, Any]] = []
-    for rank, row in enumerate(rows):
-        ordered.append(row)
-        ordered.extend(
-            sorted(
-                after.pop(rank, []),
-                key=lambda item: (
-                    -float(item.get("relation_score") or 0.0),
-                    str(item.get("notable_id") or ""),
-                ),
-            )
-        )
-    for anchor in sorted(after):
-        ordered.extend(after[anchor])
-    return ordered
+            return len(rows)
+
+    appended = sorted(
+        related,
+        key=lambda item: (
+            anchor_rank(item),
+            -float(item.get("relation_score") or 0.0),
+            str(item.get("notable_id") or ""),
+        ),
+    )
+    return [*rows, *appended]
 
 
 def _keyed_event_hashes(

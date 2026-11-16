@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import ipaddress
 import json
+import re
 import sys
 import time
 from collections import defaultdict
@@ -24,6 +26,7 @@ MAX_EVENTS_PER_QUERY = 20  # effort budget: neighbouring rows retained per entit
 TIME_MARGIN_SECONDS = 3600  # effort budget: adjacency window on either side of a seed
 EVIDENCE_CHARS = 400  # effort budget: event preview kept beside its reproducible reference
 TRAINING_INDEXES = frozenset({"hb_kyoushi_s1", "hb_ait_santos", "hb_ait_russellmitchell"})
+_IPV4 = re.compile(r"(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])")
 
 
 def _number(value: Any) -> float | None:
@@ -64,10 +67,27 @@ def _entities(row: Mapping[str, Any]) -> list[dict[str, Any]]:
         role = str(item.get("role") or "").strip()
         value = str(item.get("value") or "").strip()
         if value:
-            terms = _literal_term_segments(value)
-            found.setdefault(
-                (role.casefold(), value.casefold()), {"role": role, "value": value, "terms": terms}
-            )
+            if role.casefold() in {"actor", "action"}:
+                for match in _IPV4.finditer(value):
+                    try:
+                        address = str(ipaddress.IPv4Address(match.group()))
+                    except ValueError:
+                        continue
+                    found.setdefault(
+                        ("actor_address", address),
+                        {
+                            "role": "actor_address",
+                            "value": address,
+                            "terms": (address,),
+                            "case_anchor": True,
+                        },
+                    )
+            if "*" not in value and "?" not in value:
+                terms = _literal_term_segments(value)
+                found.setdefault(
+                    (role.casefold(), value.casefold()),
+                    {"role": role, "value": value, "terms": terms, "case_anchor": False},
+                )
     return list(found.values())[:MAX_ENTITIES_PER_SEED]
 
 
@@ -89,6 +109,15 @@ def _event_identity(row: Mapping[str, Any]) -> tuple[str, str, float, str] | Non
         return None
     digest = hashlib.sha256(raw.encode()).hexdigest()
     return host, source, moment, digest
+
+
+def _entity_supported(entity: Mapping[str, Any], row: Mapping[str, Any]) -> bool:
+    value = str(entity["value"])
+    raw = str(row.get("_raw") or "")
+    return (
+        bool(re.search(rf"(?<!\w){re.escape(value)}(?!\w)", raw, re.IGNORECASE))
+        or value.casefold() == str(row.get("host") or "").casefold()
+    )
 
 
 def _event_query(index: str, row: Mapping[str, Any], raw: str, moment: float) -> str:
@@ -179,6 +208,8 @@ def _gather(
             identity = _event_identity(row)
             if identity is None:
                 unreferenced += 1
+                continue
+            if not _entity_supported(entity, row):
                 continue
             item = candidates.setdefault(
                 identity, {"row": dict(row), "supports": {}, "time": identity[2]}
@@ -284,23 +315,29 @@ def _union(parent: dict[str, str], left: str, right: str) -> None:
         parent[max(a, b)] = min(a, b)
 
 
-def _case_groups(seeds: Sequence[Mapping[str, Any]]) -> dict[str, list[str]]:
-    parent = {str(seed["id"]): str(seed["id"]) for seed in seeds}
-    for offset, left in enumerate(seeds):
-        left_values = {item["value"].casefold() for item in left["entities"]}
-        for right in seeds[offset + 1 :]:
-            right_values = {item["value"].casefold() for item in right["entities"]}
-            gap = max(
-                0.0,
-                max(float(left["start"]), float(right["start"]))
-                - min(float(left["end"]), float(right["end"])),
-            )
-            if left_values & right_values and gap <= TIME_MARGIN_SECONDS:
-                _union(parent, str(left["id"]), str(right["id"]))
-    groups: dict[str, list[str]] = defaultdict(list)
-    for node in parent:
-        groups[_root(parent, node)].append(node)
-    return groups
+def _case_groups(seeds: Sequence[Mapping[str, Any]]) -> list[tuple[str, list[str]]]:
+    by_entity: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    for seed in seeds:
+        for entity in seed["entities"]:
+            if entity.get("case_anchor"):
+                by_entity[str(entity["value"]).casefold()].append(seed)
+    groups: list[tuple[str, list[str]]] = []
+    for entity, matches in by_entity.items():
+        parent = {str(seed["id"]): str(seed["id"]) for seed in matches}
+        for offset, left in enumerate(matches):
+            for right in matches[offset + 1 :]:
+                gap = max(
+                    0.0,
+                    max(float(left["start"]), float(right["start"]))
+                    - min(float(left["end"]), float(right["end"])),
+                )
+                if gap <= TIME_MARGIN_SECONDS:
+                    _union(parent, str(left["id"]), str(right["id"]))
+        components: dict[str, list[str]] = defaultdict(list)
+        for node in parent:
+            components[_root(parent, node)].append(node)
+        groups.extend((entity, sorted(nodes)) for nodes in components.values() if len(nodes) > 1)
+    return sorted(groups)
 
 
 def _cases(
@@ -309,22 +346,35 @@ def _cases(
     groups = _case_groups(seeds)
     by_seed = {str(seed["id"]): seed for seed in seeds}
     cases: list[dict[str, Any]] = []
-    for seed_ids in groups.values():
+    for anchor_entity, seed_ids in groups:
         seed_set = set(seed_ids)
         events = [
-            row for row in related if any(link["seed_id"] in seed_set for link in row["relations"])
+            row
+            for row in related
+            if any(
+                link["seed_id"] in seed_set
+                and anchor_entity in {str(value).casefold() for value in link["shared_entities"]}
+                for link in row["relations"]
+            )
         ]
         if not events:
             continue
-        links = [link for row in events for link in row["relations"] if link["seed_id"] in seed_set]
+        links = [
+            link
+            for row in events
+            for link in row["relations"]
+            if link["seed_id"] in seed_set
+            and anchor_entity in {str(value).casefold() for value in link["shared_entities"]}
+        ]
         evidence = [row["evidence"][0]["event"] for row in events]
         seed_ids_out = sorted(str(by_seed[seed_id]["id"]) for seed_id in seed_ids)
         score = round(sum(float(row["relation_score"]) for row in events), 8)
         all_ids = sorted([*seed_ids_out, *(str(row["notable_id"]) for row in events)])
-        case_id = hashlib.sha1("|".join(all_ids).encode()).hexdigest()[:16]
+        case_id = hashlib.sha1("|".join([anchor_entity, *all_ids]).encode()).hexdigest()[:16]
         cases.append(
             {
                 "case_id": case_id,
+                "anchor_entity": anchor_entity,
                 "score": score,
                 "seed_notables": seed_ids_out,
                 "related_notables": [str(row["notable_id"]) for row in events],

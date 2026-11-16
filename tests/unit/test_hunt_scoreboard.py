@@ -289,6 +289,17 @@ def test_relate_reports_step_recall_and_case_purity_against_keys(tmp_path: Path)
     assert "case 1: case-1" in board.render(family)
 
 
+def test_relate_rows_never_displace_stage1_ranks() -> None:
+    first = {"notable_id": "stage1-0"}
+    second = {"notable_id": "stage1-1"}
+    relation = {"notable_id": "relate-0", "anchor_rank": 0, "relation_score": 1.0}
+
+    ordered = board._with_related([first, second], [relation])
+
+    assert ordered[:2] == [first, second]
+    assert ordered[2:] == [relation]
+
+
 def test_a_notable_naming_another_source_never_covers_a_labelled_line(tmp_path: Path) -> None:
     source = "/apache2/access.log.4"
     keys = _keys(source, "web", {1: ["dirb"]})
