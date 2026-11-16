@@ -38,9 +38,12 @@ case "${1:-up}" in
       chmod -R 0775 "${WS}" 2>/dev/null || true
     fi
 
-    # Tear down any previously running stack so ports are clean before we start
-    echo "[portal-5] Stopping any existing Portal 5 services..."
-    _do_down
+    # Tear down any previously running Docker stack so ports are clean before we
+    # start. Host-native jobs are NOT stopped here: they are reconciled
+    # idempotently by _ensure_native_services → `module services --apply --kind
+    # host`, which restarts only unhealthy services (2026-11-16 up-health gate).
+    echo "[portal-5] Stopping any existing Portal 5 Docker services..."
+    _do_down stack-only
 
     # Pull latest Docker images before bringing the stack up
     echo "[portal-5] Pulling latest Docker images..."
@@ -161,6 +164,11 @@ case "${1:-up}" in
     if [ -n "$_PRUNED" ] && ! echo "$_PRUNED" | grep -qE "0 ?B$"; then
         echo "[portal-5] 🧹 $_PRUNED"
     fi
+
+    # Gate: before `up` reports done, wait for every enabled host job and
+    # container in config/portal.yaml (mcp_fleet + host_jobs) to answer /health.
+    # Exits non-zero with a per-service table if any never come up.
+    _wait_up_health
 
     echo "[portal-5] Stack started."
     if [ "${ENABLE_REMOTE_ACCESS:-false}" = "true" ]; then

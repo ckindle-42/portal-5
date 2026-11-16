@@ -123,6 +123,21 @@ def format_native_mcp_target(ref: ServiceRef) -> str:
     return f"{ref.ident} {ref.port}"
 
 
+def health_targets(cfg: PortalConfig, repo: Path | None = None) -> list[ServiceRef]:
+    """Enabled services the `up` gate must see answer /health: a port, and no skip
+    reason (not-installed host services are expected down, not failing)."""
+    return [
+        ref
+        for ref in select_services(cfg, want_enabled=True)
+        if ref.port is not None and skip_reason(ref, repo) is None
+    ]
+
+
+def format_health_target(ref: ServiceRef) -> str:
+    """`ident port kind` for the `up` health-gate loop."""
+    return f"{ref.ident} {ref.port} {ref.kind}"
+
+
 def up_plan(
     cfg: PortalConfig, enabled: list[str] | None = None
 ) -> tuple[list[ServiceRef], list[ServiceRef]]:
@@ -291,6 +306,11 @@ def _print_native_mcp_targets(cfg: PortalConfig, module: str | None) -> None:
         typer.echo(format_native_mcp_target(ref))
 
 
+def _print_health_targets(cfg: PortalConfig) -> None:
+    for ref in health_targets(cfg):
+        typer.echo(format_health_target(ref))
+
+
 def _apply_selected(
     cfg: PortalConfig, *, kind: str | None, module: str | None, stop_only: bool
 ) -> None:
@@ -312,11 +332,15 @@ def run_services_cli(
     stop_only: bool,
     status: bool,
     native_mcp: bool = False,
+    health_roster: bool = False,
 ) -> None:
     kind = _checked_kind(kind)
     cfg = load_portal_config(_force_reload=True)
     if native_mcp:
         _print_native_mcp_targets(cfg, module)
+        return
+    if health_roster:
+        _print_health_targets(cfg)
         return
     if status:
         for line in status_rows(cfg):
