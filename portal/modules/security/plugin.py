@@ -16,6 +16,15 @@ def register_cli(app: Any) -> None:
     register(app)
 
 
+def trace_sections() -> dict[str, Callable[[], list[dict[str, str]]]]:
+    """The lab path ``portal trace`` checks: Splunk auth, hunt query, labelled event."""
+    if not module_code_present("portal.modules.security.core"):
+        return {}
+    from portal.modules.security.cli.trace_lab import run
+
+    return {"lab": run}
+
+
 def wiki_seeders() -> list[Callable[[bool], list[Any]]]:
     if not module_code_present("portal.modules.security.core"):
         return []

@@ -1,4 +1,8 @@
 # DinD execution boundary with episode-scoped packet capture support.
 FROM docker:27-dind
 
+# Build stamp read by `portal trace` (launch.sh passes git HEAD as a build arg).
+ARG PORTAL_BUILD_SHA=unknown
+LABEL org.opencontainers.image.revision=${PORTAL_BUILD_SHA}
+
 RUN apk add --no-cache tcpdump

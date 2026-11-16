@@ -3,6 +3,10 @@
 # the other MCP services build from (TASK_CAD_ARM_REDEVELOP_V1 P1).
 FROM python:3.11-slim
 
+# Build stamp read by `portal trace` (launch.sh passes git HEAD as a build arg).
+ARG PORTAL_BUILD_SHA=unknown
+LABEL org.opencontainers.image.revision=${PORTAL_BUILD_SHA}
+
 # Standing rule: native means arm64. Never build or run this under emulation.
 RUN test "$(uname -m)" = aarch64 || (echo "CAD image must be built natively for linux/arm64" && exit 1)
 

@@ -517,7 +517,19 @@ _launch_install_powermetrics() {
         exit 1
     }
 
+    # A pre-a55e73caf install registered a user agent; the root daemon replaced it.
+    LEGACY_AGENT="$HOME/Library/LaunchAgents/com.portal5.powermetrics.plist"
+    if [ -f "$LEGACY_AGENT" ]; then
+        launchctl bootout "gui/$(id -u)/com.portal5.powermetrics" 2>/dev/null || true
+        rm -f "$LEGACY_AGENT"
+        echo "  Removed legacy user agent: $LEGACY_AGENT"
+    fi
+
     sleep 3
+    if ! ps -eo command | grep -q "[p]ortal5-powermetrics"; then
+        echo "  ❌ Daemon installed but not running — check: sudo launchctl print system/com.portal5.powermetrics"
+        exit 1
+    fi
     if [ -S "/tmp/portal5-powermetrics.sock" ]; then
         echo "[portal-5] ✅ Powermetrics daemon installed and running"
     else

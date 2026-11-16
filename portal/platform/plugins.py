@@ -80,6 +80,24 @@ def owui_tools() -> dict[str, Callable[..., dict[str, Any]]]:
     return merged
 
 
+def trace_sections() -> dict[str, Callable[[], list[dict[str, str]]]]:
+    """Merge each module's ``portal trace`` section by name.
+
+    A section returns hop dicts (``name``, ``status``, ``observed``, ``expected``,
+    ``detail``) so a live check of module-owned paths needs no module import here.
+    """
+    merged: dict[str, Callable[[], list[dict[str, str]]]] = {}
+    for plugin in plugins():
+        hook = getattr(plugin, "trace_sections", None)
+        if hook is None:
+            continue
+        for name, fn in hook().items():
+            if name in merged:
+                raise ValueError(f"trace section {name!r} is contributed by two module plugins")
+            merged[name] = fn
+    return merged
+
+
 def document_reader() -> Any | None:
     """Return the first module-provided document reader."""
     for plugin in plugins():

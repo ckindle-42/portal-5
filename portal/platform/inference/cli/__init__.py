@@ -34,10 +34,12 @@ from . import agent as _agent  # noqa: E402, F401
 from . import config, models, module, renderers, workspace  # noqa: E402, F401
 from . import smoke as _smoke  # noqa: E402
 from . import sync as _sync  # noqa: E402
+from . import trace as _trace  # noqa: E402
 from . import update as _update  # noqa: E402
 
 _sync.register(app)
 _smoke.register(app)
+_trace.register(app)
 _update.register(app)
 
 # Module CLI registration: each module plugin adds its own subcommands.

@@ -545,6 +545,28 @@ PY
         fi
     fi
 
+    # ── powermetrics energy collector (root LaunchDaemon) ──────────────────
+    # The pipeline's energy accounting reads /tmp/portal5-powermetrics.sock from a
+    # root LaunchDaemon. `up` cannot reinstall it without sudo, so it reports a
+    # broken or stale install instead of letting the stack start blind.
+    local _pm_label="com.portal5.powermetrics"
+    local _pm_src="$PORTAL_ROOT/deploy/launchd/${_pm_label}.plist"
+    local _pm_dst="/Library/LaunchDaemons/${_pm_label}.plist"
+    if [ "$ARCH" = "arm64" ] && [ -f "$_pm_dst" ] && [ -f "$_pm_src" ]; then
+        local _pm_problem=""
+        if ! diff -q "$_pm_src" "$_pm_dst" >/dev/null 2>&1; then
+            _pm_problem="installed plist differs from the repo copy"
+        elif ! ps -eo command | grep -q "[p]ortal5-powermetrics"; then
+            _pm_problem="daemon is not running"
+        fi
+        if [ -z "$_pm_problem" ]; then
+            echo "[portal-5]   ✅ powermetrics: running (energy accounting live)"
+        else
+            echo "[portal-5]   ⚠️  powermetrics: $_pm_problem — energy accounting degraded"
+            echo "[portal-5]      repair: ./launch.sh install-powermetrics"
+        fi
+    fi
+
     # ── Host ML footprint watchdog (always-on, services-only) ──────────────
     # Per-service phys_footprint ceilings from scripts/memory_safety_watch.py
     # (measured -> restart, provisional -> log-only). No swap trip, no
