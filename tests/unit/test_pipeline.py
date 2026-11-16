@@ -1,6 +1,7 @@
 """Portal 5 v7.0.0 Pipeline unit tests — no live backends required."""
 
 import re
+import time
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -2258,6 +2259,7 @@ class TestPreferredResident:
         registry.list_backends = MagicMock(return_value=candidates)
         guard = MagicMock()
         guard.plan = AsyncMock(return_value=plan)
+        guard.has_activity = MagicMock(return_value=False)
         guard.admit = AsyncMock(return_value=None)
         guard.admit_omlx = AsyncMock(return_value=None)
         guard.begin = MagicMock(return_value=lambda: None)
@@ -2266,6 +2268,128 @@ class TestPreferredResident:
         monkeypatch.setattr(lifespan_mod, "_http_client", client)
         monkeypatch.setattr(lifespan_mod._load_guard_mod, "GUARD", guard)
         return lifespan_mod, registry, guard, client, hint
+
+    @pytest.mark.asyncio
+    async def test_queued_backend_stream_sends_progress_comments(self, monkeypatch):
+        import asyncio
+
+        import portal.platform.inference.router.streaming as streaming_mod
+
+        async def _pending_load():
+            await asyncio.sleep(0.04)
+            yield b"data: model-ready\n\n"
+
+        monkeypatch.setattr(streaming_mod, "_STREAM_HEARTBEAT_S", 0.005)
+        chunks = [chunk async for chunk in streaming_mod._with_stream_heartbeats(_pending_load())]
+        assert chunks[-1] == b"data: model-ready\n\n"
+        assert b": waiting for model capacity\n\n" in chunks
+
+    @pytest.mark.asyncio
+    async def test_eviction_quiet_period_uses_the_measured_load_time(self, monkeypatch):
+        from unittest.mock import AsyncMock
+
+        import portal.platform.inference.router.lifespan as lifespan_mod
+
+        class FakeClock:
+            now = 10.0
+
+            def monotonic(self):
+                return self.now
+
+        class FakeGuard:
+            resident = False
+            admission_waiting = False
+
+            def has_activity(self):
+                return self.admission_waiting
+
+            async def plan(self, _base, _models):
+                return {
+                    "busy": self.admission_waiting,
+                    "need_gib": 20.0,
+                    "headroom_gib": 40.0,
+                    "models": [{"resident": self.resident}],
+                }
+
+            async def admit(self, _base, _model):
+                assert not self.admission_waiting
+                return None
+
+            def begin(self, *_args):
+                return lambda: None
+
+        clock = FakeClock()
+        guard = FakeGuard()
+        backend = _candidate("ollama-general", "ollama", "daily")
+        client = MagicMock()
+
+        async def _load(_url, **_kwargs):
+            clock.now += 20.0
+            guard.resident = True
+            return MagicMock(status_code=200)
+
+        client.post = AsyncMock(side_effect=_load)
+        monkeypatch.setattr(lifespan_mod, "_http_client", client)
+        state = lifespan_mod._PreferredResidentState()
+        first = await lifespan_mod._warm_preferred_resident(
+            backend, "ollama", "daily", {}, guard, "http://fake:11434", state, clock.monotonic
+        )
+        assert first == "loaded"
+        assert state.load_duration_s == 20.0
+
+        # A seat evicts the resident and spends five seconds waiting for capacity.
+        guard.resident = False
+        guard.admission_waiting = True
+        clock.now += 5.0
+        waiting = await lifespan_mod._warm_preferred_resident(
+            backend, "ollama", "daily", {}, guard, "http://fake:11434", state, clock.monotonic
+        )
+        assert waiting == "waiting for in-flight work"
+
+        # The next user seat starts as soon as that admission ends. The keeper must
+        # honor one measured load duration after eviction instead of reloading first.
+        guard.admission_waiting = False
+        immediate = await lifespan_mod._warm_preferred_resident(
+            backend, "ollama", "daily", {}, guard, "http://fake:11434", state, clock.monotonic
+        )
+        assert immediate.startswith("waiting: resident evicted")
+        assert client.post.await_count == 1
+        assert not guard.resident
+
+        clock.now += 20.0
+        resumed = await lifespan_mod._warm_preferred_resident(
+            backend, "ollama", "daily", {}, guard, "http://fake:11434", state, clock.monotonic
+        )
+        assert resumed == "loaded"
+        assert client.post.await_count == 2
+
+    def test_four_pipeline_workers_elect_one_preferred_resident_keeper(self, tmp_path):
+        import multiprocessing as mp
+
+        lock_path = tmp_path / "keeper.lock"
+        context = mp.get_context("spawn")
+        barrier = context.Barrier(4)
+        results = context.Queue()
+        workers = [
+            context.Process(
+                target=_keeper_lock_worker,
+                args=(str(lock_path), barrier, results),
+            )
+            for _ in range(4)
+        ]
+        for worker in workers:
+            worker.start()
+        try:
+            winners = [results.get(timeout=5) for _ in workers]
+            for worker in workers:
+                worker.join(timeout=5)
+            assert all(worker.exitcode == 0 for worker in workers)
+            assert sum(winners) == 1
+        finally:
+            for worker in workers:
+                if worker.is_alive():
+                    worker.terminate()
+                    worker.join(timeout=2)
 
     @pytest.mark.asyncio
     async def test_the_daily_driver_loads_with_keep_alive_when_the_host_has_room(self, monkeypatch):
@@ -2513,3 +2637,14 @@ def _candidate(
         side_effect=lambda hint, r=resolved: r if r is not None else None
     )
     return backend
+
+
+def _keeper_lock_worker(lock_path, barrier, results):
+    import portal.platform.inference.router.lifespan as lifespan_mod
+
+    barrier.wait(timeout=5)
+    lease = lifespan_mod._try_acquire_preferred_resident_lock(Path(lock_path))
+    results.put(lease is not None)
+    if lease is not None:
+        time.sleep(0.2)
+        lifespan_mod._release_preferred_resident_lock(lease)

@@ -8,11 +8,14 @@ notifications, runs model warmups, and tears them down cleanly on exit.
 from __future__ import annotations
 
 import asyncio
+import fcntl
 import logging
 import os
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -265,6 +268,49 @@ _PREFERRED_RESIDENT_PROTECT_S = 3600.0
 _PREFERRED_RESIDENT_INTERVAL_S = 60.0
 
 
+@dataclass
+class _PreferredResidentState:
+    """Track measured load time and the last observed resident state."""
+
+    resident: bool = False
+    load_duration_s: float = 0.0
+    quiet_until: float = 0.0
+
+    def observe(self, resident: bool, now: float) -> None:
+        if self.resident and not resident:
+            self.quiet_until = now + self.load_duration_s
+        self.resident = resident
+
+    def loaded(self, duration_s: float) -> None:
+        self.resident = True
+        self.load_duration_s = max(0.0, duration_s)
+
+
+def _try_acquire_preferred_resident_lock(path: Path | None = None) -> Any | None:
+    """Elect one pipeline worker to run the preferred-resident keeper."""
+    lock_path = path or (_load_guard_mod._PROCESS_LOCK_DIR / "preferred-resident.lock")
+    handle = None
+    try:
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        handle = lock_path.open("a+")
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return handle
+    except BlockingIOError:
+        if handle is not None:
+            handle.close()
+        return None
+    except OSError as e:
+        if handle is not None:
+            handle.close()
+        logger.warning("preferred resident keeper election failed: %s", e)
+        return None
+
+
+def _release_preferred_resident_lock(handle: Any) -> None:
+    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+    handle.close()
+
+
 def _preferred_resident_targets(
     registry: BackendRegistry,
 ) -> list[tuple[Any, str, str, dict[str, Any]]]:
@@ -310,6 +356,8 @@ async def _warm_preferred_resident(
     options: dict[str, Any],
     guard: LoadGuard,
     ollama_base: str,
+    state: _PreferredResidentState | None = None,
+    clock: Any = time.monotonic,
 ) -> str:
     """Make one preferred resident resident, if the host has room to spare right now.
 
@@ -320,16 +368,25 @@ async def _warm_preferred_resident(
     plan = await guard.plan(ollama_base, [(engine, model)])
     rows = plan.get("models") or []
     headroom = plan.get("headroom_gib")
-    if rows and rows[0].get("resident"):
+    now = clock()
+    resident = bool(rows and rows[0].get("resident"))
+    if state is not None:
+        state.observe(resident, now)
+    if resident:
         return "resident"
-    if plan.get("busy"):
+    if plan.get("busy") or guard.has_activity():
         return "waiting for in-flight work"
+    if state is not None and now < state.quiet_until:
+        return "waiting: resident evicted; respecting measured load quiet period"
     if headroom is None:
         return "waiting for a readable oMLX ceiling"
     need = float(plan.get("need_gib") or 0)
     if need > float(headroom):
         return f"waiting: needs {need:.1f} GiB, headroom {float(headroom):.1f} GiB"
-    _load_guard_mod.set_load_wait("5")  # never queue behind another seat's cold load
+    if guard.has_activity():
+        return "waiting for in-flight work"
+    _load_guard_mod.set_load_wait("0")  # the keeper never queues behind a seat's cold load
+    started = clock()
     if engine == _load_guard_mod.OLLAMA:
         release = await guard.admit(backend.url, model)
         end = guard.begin(_load_guard_mod.OLLAMA, model)
@@ -362,6 +419,8 @@ async def _warm_preferred_resident(
         )
     if resp.status_code != 200:
         return f"HTTP {resp.status_code} from {backend.url}"
+    if state is not None:
+        state.loaded(clock() - started)
     return "loaded"
 
 
@@ -380,39 +439,47 @@ async def _keep_preferred_residents(registry: BackendRegistry) -> None:
     ollama_base = next((b.url for b in registry.list_backends() if b.type == "ollama"), "")
     if not ollama_base:  # nothing to measure against; the keeper waits for a backend
         return
+    lease = _try_acquire_preferred_resident_lock()
+    if lease is None:
+        return
     # One line per transition, not one per tick: a persistent failure logs once.
     last: dict[str, str] = {}
-    while True:
-        for backend, engine, model, options in _preferred_resident_targets(registry):
-            try:
-                guard.protect(engine, model, _PREFERRED_RESIDENT_PROTECT_S)
-                status = await _warm_preferred_resident(
-                    backend, engine, model, options, guard, ollama_base
-                )
-            except Exception as e:  # a warm-up never crashes the pipeline
-                status = f"error: {e}"
-            if last.get(model) == status or (
-                status in ("resident", "loaded") and last.get(model) in ("resident", "loaded")
-            ):
-                continue  # one line per transition: loaded-then-resident is one state
-            last[model] = status
-            if status in ("resident", "loaded"):
-                logger.info(
-                    "Preferred resident %s on %s (%s): %s — kept warm, yields to a seat",
-                    model,
-                    backend.id,
-                    backend.url,
-                    status,
-                )
-            else:
-                logger.warning(
-                    "Preferred resident %s on %s (%s): %s — retrying when the host is idle",
-                    model,
-                    backend.id,
-                    backend.url,
-                    status,
-                )
-        await asyncio.sleep(_PREFERRED_RESIDENT_INTERVAL_S)
+    states: dict[str, _PreferredResidentState] = {}
+    try:
+        while True:
+            for backend, engine, model, options in _preferred_resident_targets(registry):
+                try:
+                    guard.protect(engine, model, _PREFERRED_RESIDENT_PROTECT_S)
+                    state = states.setdefault(model, _PreferredResidentState())
+                    status = await _warm_preferred_resident(
+                        backend, engine, model, options, guard, ollama_base, state
+                    )
+                except Exception as e:  # a warm-up never crashes the pipeline
+                    status = f"error: {e}"
+                if last.get(model) == status or (
+                    status in ("resident", "loaded") and last.get(model) in ("resident", "loaded")
+                ):
+                    continue  # one line per transition: loaded-then-resident is one state
+                last[model] = status
+                if status in ("resident", "loaded"):
+                    logger.info(
+                        "Preferred resident %s on %s (%s): %s — kept warm, yields to a seat",
+                        model,
+                        backend.id,
+                        backend.url,
+                        status,
+                    )
+                else:
+                    logger.warning(
+                        "Preferred resident %s on %s (%s): %s — retrying when the host is idle",
+                        model,
+                        backend.id,
+                        backend.url,
+                        status,
+                    )
+            await asyncio.sleep(_PREFERRED_RESIDENT_INTERVAL_S)
+    finally:
+        _release_preferred_resident_lock(lease)
 
 
 async def _run_startup_warmups(registry: BackendRegistry) -> None:
