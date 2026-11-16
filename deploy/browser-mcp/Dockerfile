@@ -24,6 +24,11 @@ RUN git clone https://github.com/h4ckf0r0day/obscura.git /src \
 
 # ── Stage 2: runtime — slim python + the Obscura binaries + the wrapper ───────
 FROM python:3.11-slim
+
+# Build stamp read by `portal trace` (launch.sh passes git HEAD as a build arg).
+ARG PORTAL_BUILD_SHA=unknown
+LABEL org.opencontainers.image.revision=${PORTAL_BUILD_SHA}
+
 WORKDIR /app
 
 # Runtime libs Obscura's render/stealth build links against (BoringSSL is static;
