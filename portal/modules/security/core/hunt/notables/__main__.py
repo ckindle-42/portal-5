@@ -22,6 +22,7 @@ from .run import (
     judge_stage,
     notables_stage,
 )
+from .similar import SIMILAR_GENERATOR
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -38,8 +39,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--end", type=float, default=None, help="latest epoch seconds")
     parser.add_argument(
         "--generators",
-        default=",".join(DEFAULT_GENERATORS),
-        help="comma-separated generators (similar_to_known requires --knowledge-store)",
+        default=None,
+        help="comma-separated generators (default adds similar_to_known when --knowledge-store is set)",
     )
     parser.add_argument(
         "--family", help="expected family for --index (inferred from the store when omitted)"
@@ -64,6 +65,36 @@ def _parser() -> argparse.ArgumentParser:
 
 def _mapping(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
+
+
+def _enabled_generators(requested: str | None, knowledge_store: Path | None) -> list[str]:
+    if requested is not None:
+        return [name.strip() for name in requested.split(",") if name.strip()]
+    enabled = list(DEFAULT_GENERATORS)
+    if knowledge_store is not None:
+        enabled.append(SIMILAR_GENERATOR)
+    return enabled
+
+
+def _generator_error(
+    enabled: list[str],
+    knowledge_store: Path | None,
+    family: str | None,
+    knowledge_families: str | None,
+) -> str | None:
+    unknown = sorted(set(enabled) - set(GENERATORS))
+    if unknown:
+        return f"unknown generators: {', '.join(unknown)}"
+    knowledge_flags = knowledge_store is not None or family or knowledge_families
+    if knowledge_flags and SIMILAR_GENERATOR not in enabled:
+        return (
+            f"--family/--knowledge-store/--knowledge-families were passed but "
+            f"{SIMILAR_GENERATOR} is not in --generators; add it to --generators "
+            f"or drop the knowledge flags"
+        )
+    if SIMILAR_GENERATOR in enabled and knowledge_store is None:
+        return f"{SIMILAR_GENERATOR} requires --knowledge-store"
+    return None
 
 
 def _preflight_or_abort(target: tuple[Any, str]) -> bool:
@@ -105,8 +136,16 @@ def _print_behaviours(behaviours: list[Behaviour], receipt: dict[str, Any]) -> N
             f"behaviours={item.get('behaviours', counts.get(_label(item), 0))} "
             f"singletons={item.get('singletons', 0)} "
             f"singleton_share={item.get('singleton_share')} "
+            f"unparsed_share={item.get('unparsed_share')} "
             f"seconds={item.get('seconds')}"
         )
+    for item in receipt.get("misfits", []):
+        if item.get("misfit_lines"):
+            print(
+                f"  misfit {_label(item)} lines={item.get('misfit_lines', 0)} "
+                f"of={item.get('lines_read', 0)} "
+                f"shapes={item.get('shapes_kept', 0)}/{item.get('shapes', 0)}"
+            )
     for item in receipt.get("skipped", []):
         print(
             f"  skipped {_label(item)}: {item.get('reason') or 'unknown'} "
@@ -116,6 +155,8 @@ def _print_behaviours(behaviours: list[Behaviour], receipt: dict[str, Any]) -> N
         f"behaviours: events_read={receipt.get('events_read', 0)} "
         f"existed={receipt.get('behaviours_existed', 0)} "
         f"kept={receipt.get('behaviours_kept', 0)} "
+        f"misfit_lines={receipt.get('misfit_lines', 0)} "
+        f"misfit_shapes={receipt.get('misfit_shapes', 0)} "
         f"wall={receipt.get('seconds')}s peak={receipt.get('peak_memory_mb')}MB "
         f"-> {receipt.get('store')}"
     )
@@ -162,8 +203,11 @@ def _print_notables(receipt: dict[str, Any]) -> None:
                 f"  {name}: existed={detail.get('existed')} kept={detail.get('kept')} "
                 f"seconds={seconds.get(name)}{counted}{measured}"
             )
+    merge = _mapping(receipt.get("merge"))
     print(
-        f"notables: total={receipt.get('total', 0)} wall={seconds.get('total')}s "
+        f"notables: enabled={receipt.get('enabled')} merge={merge.get('method')} "
+        f"fused={merge.get('fused', 0)} total={receipt.get('total', 0)} "
+        f"wall={seconds.get('total')}s "
         f"peak={receipt.get('peak_memory_mb')}MB -> {receipt.get('file')}"
     )
 
@@ -238,16 +282,15 @@ def main(argv: list[str] | None = None, *, search: Search | None = None) -> int:
         behaviours, receipt = behaviours_stage(out=out, search=search)
         _print_behaviours(behaviours, receipt)
     if "notables" in stages:
-        enabled = [name.strip() for name in args.generators.split(",") if name.strip()]
-        unknown = sorted(set(enabled) - set(GENERATORS))
-        if unknown:
-            print(f"unknown generators: {', '.join(unknown)}", file=sys.stderr)
+        enabled = _enabled_generators(args.generators, args.knowledge_store)
+        error = _generator_error(
+            enabled, args.knowledge_store, args.family, args.knowledge_families
+        )
+        if error:
+            print(error, file=sys.stderr)
             return 2
         embedder = None
-        if "similar_to_known" in enabled:
-            if args.knowledge_store is None:
-                print("similar_to_known requires --knowledge-store", file=sys.stderr)
-                return 2
+        if SIMILAR_GENERATOR in enabled:
             embedder = embedding_from_env()
             if embedder is None:
                 print(embedding_requirement(), file=sys.stderr)

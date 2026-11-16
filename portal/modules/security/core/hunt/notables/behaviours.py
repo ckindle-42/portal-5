@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -35,6 +36,11 @@ IDENTITY_VALUE_BUDGET = 2000  # effort budget: an identity field keys values up 
 MAX_BEHAVIOURS = 200_000  # effort budget: rows kept in the behaviour table
 EXAMPLE_CHARS = 400  # effort budget: raw characters kept on one behaviour
 MAX_TERMS = 3  # effort budget: literal role values used to reproduce one behaviour
+MISFIT_EXAMPLES = 3  # effort budget: sampled lines kept for one misfit shape
+MISFIT_SHAPE_CAP = 4_000  # effort budget: distinct misfit shapes tracked per source
+MISFIT_SHAPES_PER_SOURCE = 500  # effort budget: rarest misfit shapes stored per source
+SHAPE_TOKENS = 40  # effort budget: tokens one misfit shape describes
+SHAPE_CHARS = 200  # effort budget: characters kept on one misfit shape
 
 
 @dataclass(frozen=True)
@@ -72,6 +78,19 @@ class Behaviour:
     example_raw: str
     example_earliest: float
     example_latest: float
+
+
+@dataclass(frozen=True)
+class MisfitShape:
+    """One distinct out-of-structure line shape seen in one source's read slice."""
+
+    source_id: str
+    shape: str
+    events: int
+    hosts: int
+    first_seen: float
+    last_seen: float
+    examples: tuple[Mapping[str, Any], ...]
 
 
 @dataclass(frozen=True)
@@ -114,6 +133,26 @@ _COLUMNS = (
     "raw VARCHAR, query VARCHAR, earliest DOUBLE, latest DOUBLE"
 )
 _INSERT = "INSERT INTO events VALUES (" + ",".join("?" for _ in range(16)) + ")"
+_MISFIT_COLUMNS = (
+    "source_id VARCHAR, shape VARCHAR, events INTEGER, hosts INTEGER, "
+    "first_seen DOUBLE, last_seen DOUBLE, examples VARCHAR"
+)
+_MISFIT_INSERT = "INSERT INTO misfits VALUES (" + ",".join("?" for _ in range(7)) + ")"
+_MISFIT_STATS_COLUMNS = (
+    "source_id VARCHAR, lines_read INTEGER, misfit_lines INTEGER, "
+    "shapes INTEGER, shapes_kept INTEGER, shapes_dropped INTEGER"
+)
+_MISFIT_STATS_INSERT = "INSERT INTO misfit_stats VALUES (" + ",".join("?" for _ in range(6)) + ")"
+
+
+def line_shape(raw: str) -> str:
+    """A line's token-class shape: letters and digits generalised, punctuation kept."""
+    tokens = []
+    for token in raw.split()[:SHAPE_TOKENS]:
+        tokens.append(
+            "".join("a" if char.isalpha() else "9" if char.isdigit() else char for char in token)
+        )
+    return " ".join(tokens)[:SHAPE_CHARS]
 
 
 def _value(fields: Mapping[str, str], name: str, mode: str) -> str:
@@ -313,12 +352,19 @@ def _window_for(ts: float, windows: Sequence[tuple[float, float]]) -> tuple[floa
 
 def _extract(
     card: SourceCard, rows: Sequence[Mapping[str, Any]], windows: Sequence[tuple[float, float]]
-) -> list[ExampleEvent]:
+) -> tuple[list[ExampleEvent], set[int], int]:
+    """Parsed in-part events, the row indexes this card claims, and rows its structure missed."""
     found: list[ExampleEvent] = []
-    for row in rows:
+    matched: set[int] = set()
+    unparsed = 0
+    for index, row in enumerate(rows):
         parsed = parse_row(str(row.get("_raw") or ""), card.fmt, card.columns, card.template_model)
-        if not parsed.fields or not card.in_part(parsed.fields):
+        if not parsed.fields:
+            unparsed += 1
             continue
+        if not card.in_part(parsed.fields):
+            continue
+        matched.add(index)
         try:
             ts = float(row.get("_time") or 0.0)
         except (TypeError, ValueError):
@@ -335,7 +381,86 @@ def _extract(
                 latest,
             )
         )
-    return found
+    return found, matched, unparsed
+
+
+def _row_time(row: Mapping[str, Any]) -> float:
+    try:
+        return float(row.get("_time") or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def collect_misfits(
+    source_id: str,
+    rows: Sequence[Mapping[str, Any]],
+    windows: Sequence[tuple[float, float]],
+    claimed: set[int],
+) -> tuple[list[MisfitShape], dict[str, int]]:
+    """Group the rows no card of the source claimed by shape, rarest shapes kept."""
+    shapes: dict[str, dict[str, Any]] = {}
+    lines = 0
+    dropped = 0
+    for index, row in enumerate(rows):
+        if index in claimed:
+            continue
+        raw = str(row.get("_raw") or "")
+        if not raw.strip():
+            continue
+        lines += 1
+        shape = line_shape(raw)
+        ts = _row_time(row)
+        slot = shapes.get(shape)
+        if slot is None:
+            if len(shapes) >= MISFIT_SHAPE_CAP:
+                dropped += 1
+                continue
+            slot = shapes[shape] = {
+                "events": 0,
+                "hosts": set(),
+                "first": ts,
+                "last": ts,
+                "examples": [],
+            }
+        slot["events"] += 1
+        host = str(row.get("host") or "")
+        if host:
+            slot["hosts"].add(host)
+        slot["first"] = min(float(slot["first"]), ts)
+        slot["last"] = max(float(slot["last"]), ts)
+        if len(slot["examples"]) < MISFIT_EXAMPLES:
+            earliest, latest = _window_for(ts, windows)
+            slot["examples"].append(
+                {
+                    "time": ts,
+                    "host": host,
+                    "raw": raw[:EXAMPLE_CHARS],
+                    "earliest": earliest,
+                    "latest": latest,
+                }
+            )
+    ordered = sorted(shapes.items(), key=lambda item: (item[1]["events"], item[0]))
+    kept = ordered[:MISFIT_SHAPES_PER_SOURCE]
+    found = [
+        MisfitShape(
+            source_id,
+            shape,
+            int(slot["events"]),
+            len(slot["hosts"]),
+            float(slot["first"]),
+            float(slot["last"]),
+            tuple(slot["examples"]),
+        )
+        for shape, slot in kept
+    ]
+    stats = {
+        "lines_read": len(rows),
+        "misfit_lines": lines,
+        "shapes": len(shapes),
+        "shapes_kept": len(kept),
+        "shapes_dropped": dropped + max(0, len(shapes) - len(kept)),
+    }
+    return found, stats
 
 
 def role_fields(card: SourceCard) -> list[str]:
@@ -397,6 +522,46 @@ def create_events(con: duckdb.DuckDBPyConnection) -> None:
     con.execute(f"CREATE TABLE events ({_COLUMNS})")
 
 
+def create_misfits(con: duckdb.DuckDBPyConnection) -> None:
+    con.execute(f"CREATE TABLE misfits ({_MISFIT_COLUMNS})")
+    con.execute(f"CREATE TABLE misfit_stats ({_MISFIT_STATS_COLUMNS})")
+
+
+def _insert_misfits(
+    con: duckdb.DuckDBPyConnection,
+    source_id: str,
+    shapes: Sequence[MisfitShape],
+    stats: Mapping[str, int],
+) -> None:
+    if shapes:
+        con.executemany(
+            _MISFIT_INSERT,
+            [
+                (
+                    item.source_id,
+                    item.shape,
+                    item.events,
+                    item.hosts,
+                    item.first_seen,
+                    item.last_seen,
+                    json.dumps([dict(example) for example in item.examples], sort_keys=True),
+                )
+                for item in shapes
+            ],
+        )
+    con.execute(
+        _MISFIT_STATS_INSERT,
+        (
+            source_id,
+            int(stats.get("lines_read") or 0),
+            int(stats.get("misfit_lines") or 0),
+            int(stats.get("shapes") or 0),
+            int(stats.get("shapes_kept") or 0),
+            int(stats.get("shapes_dropped") or 0),
+        ),
+    )
+
+
 def aggregate_events(con: duckdb.DuckDBPyConnection) -> tuple[list[Behaviour], int]:
     """Group keyed events into behaviours and source statistics; return the kept table."""
     con.execute(
@@ -442,6 +607,7 @@ def _source_receipt(
     keyed: int,
     seconds: float,
     per_window: int,
+    unparsed: int = 0,
 ) -> dict[str, Any]:
     return {
         "card_id": card.card_id,
@@ -453,6 +619,8 @@ def _source_receipt(
         "events_parsed": events,
         "events_keyed": keyed,
         "events_keyless": max(0, events - keyed),
+        "events_out_of_structure": unparsed,
+        "unparsed_share": round(unparsed / len(read.rows), 6) if read.rows else None,
         "windows": read.windows,
         "per_window": per_window,
         "selection": "newest events of each equal time slice",
@@ -465,14 +633,14 @@ def _source_receipt(
 
 def _key_source(
     con: duckdb.DuckDBPyConnection,
-    usable: Sequence[SourceCard],
+    group: Sequence[SourceCard],
     facts: SourceFacts,
     per_window: int,
     executor: HuntExecutor,
     started: float,
     read: RowSet | None = None,
-) -> tuple[list[dict[str, Any]], int, dict[str, dict[str, Any]]]:
-    """Read one source once and key each of its structures' events into the store."""
+) -> tuple[list[dict[str, Any]], int, dict[str, dict[str, Any]], list[MisfitShape], dict[str, int]]:
+    """Read one source once, key each structure's events, and keep its out-of-structure lines."""
     windows = window_bounds(facts.first, facts.last, BEHAVIOUR_WINDOWS)
     if read is None:
         read = read_windows(
@@ -486,8 +654,13 @@ def _key_source(
     receipts: list[dict[str, Any]] = []
     overrides: dict[str, dict[str, Any]] = {}
     total = 0
-    for card in usable:
-        events = _extract(card, read.rows, windows)
+    claimed: set[int] = set()
+    source_id = f"{facts.index}:{facts.sourcetype}"
+    for card in group:
+        events, matched, unparsed = _extract(card, read.rows, windows)
+        claimed |= matched
+        if "behaviours" not in card_consumers(card):
+            continue
         plan = identity_plan(card, events)
         rows = keyed_rows(card, facts, events, plan)
         if rows:
@@ -503,10 +676,92 @@ def _key_source(
             len(rows),
             time.monotonic() - started,
             per_window,
+            unparsed,
         )
         receipt["identity"] = summary
         receipts.append(receipt)
-    return receipts, total, overrides
+    misfits, misfit_stats = collect_misfits(source_id, read.rows, windows, claimed)
+    return receipts, total, overrides, misfits, misfit_stats
+
+
+def _schedule_sources(
+    grouped: Mapping[str, list[SourceCard]],
+    facts_by_source: Mapping[str, SourceFacts],
+    skipped: list[dict[str, Any]],
+) -> list[tuple[str, list[SourceCard], SourceFacts, float]]:
+    """The sources the stage will read, with every unreadable card's reason declared."""
+    scheduled: list[tuple[str, list[SourceCard], SourceFacts, float]] = []
+    for source_id, group in grouped.items():
+        usable = [card for card in group if "behaviours" in card_consumers(card)]
+        if not usable:
+            skipped.extend(
+                {
+                    "card_id": card.card_id,
+                    "source_id": card.source_id,
+                    "reason": _skip_reason(card),
+                    "behaviours": 0,
+                }
+                for card in group
+            )
+            continue
+        facts = facts_by_source.get(source_id)
+        if facts is None:
+            skipped.extend(
+                {
+                    "card_id": card.card_id,
+                    "source_id": card.source_id,
+                    "reason": "no_index_facts",
+                    "behaviours": 0,
+                }
+                for card in usable
+            )
+            continue
+        scheduled.append((source_id, group, facts, time.monotonic()))
+    return scheduled
+
+
+def _behaviour_receipt(
+    behaviours: Sequence[Behaviour],
+    receipts: list[dict[str, Any]],
+    skipped: list[dict[str, Any]],
+    overrides: dict[str, dict[str, Any]],
+    total: int,
+    per_window: int,
+    existed: int,
+    misfit_receipts: list[dict[str, Any]],
+    store_path: Path,
+    began: float,
+) -> dict[str, Any]:
+    """Build the behaviour-stage receipt from its stored results."""
+    counts: dict[str, int] = {}
+    singletons: dict[str, int] = {}
+    for behaviour in behaviours:
+        counts[behaviour.source_id] = counts.get(behaviour.source_id, 0) + 1
+        if behaviour.events == 1:
+            singletons[behaviour.source_id] = singletons.get(behaviour.source_id, 0) + 1
+    for item in receipts:
+        source = str(item.get("source_id"))
+        distinct = counts.get(source, 0)
+        once = singletons.get(source, 0)
+        item["behaviours"] = distinct
+        item["singletons"] = once
+        item["singleton_share"] = round(once / distinct, 3) if distinct else None
+    return {
+        "receipts": receipts,
+        "skipped": skipped,
+        "identity_overrides": overrides,
+        "singletons": sum(singletons.values()),
+        "events_read": total,
+        "per_window": per_window,
+        "behaviours_existed": existed,
+        "behaviours_kept": len(behaviours),
+        "misfits": misfit_receipts,
+        "misfit_lines": sum(int(item.get("misfit_lines") or 0) for item in misfit_receipts),
+        "misfit_shapes": sum(int(item.get("shapes_kept") or 0) for item in misfit_receipts),
+        "misfit_sources": sum(1 for item in misfit_receipts if int(item.get("misfit_lines") or 0)),
+        "store": str(store_path),
+        "seconds": round(time.monotonic() - began, 3),
+    }
 
 
 def collect_behaviours(
@@ -531,36 +786,11 @@ def collect_behaviours(
     store_path.unlink(missing_ok=True)
     con = duckdb.connect(str(store_path))
     total = 0
+    misfit_receipts: list[dict[str, Any]] = []
     try:
         create_events(con)
-        scheduled: list[tuple[str, list[SourceCard], list[SourceCard], SourceFacts, float]] = []
-        for source_id, group in grouped.items():
-            usable = [card for card in group if "behaviours" in card_consumers(card)]
-            if not usable:
-                skipped.extend(
-                    {
-                        "card_id": card.card_id,
-                        "source_id": card.source_id,
-                        "reason": _skip_reason(card),
-                        "behaviours": 0,
-                    }
-                    for card in group
-                )
-                continue
-            facts = facts_by_source.get(source_id)
-            if facts is None:
-                skipped.extend(
-                    {
-                        "card_id": card.card_id,
-                        "source_id": card.source_id,
-                        "reason": "no_index_facts",
-                        "behaviours": 0,
-                    }
-                    for card in usable
-                )
-                continue
-            started = time.monotonic()
-            scheduled.append((source_id, group, usable, facts, started))
+        create_misfits(con)
+        scheduled = _schedule_sources(grouped, facts_by_source, skipped)
         concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
         with ThreadPoolExecutor(max_workers=min(len(scheduled) or 1, concurrency)) as pool:
             futures = [
@@ -573,46 +803,34 @@ def collect_behaviours(
                     kind="behavior_events",
                     max_sources=BEHAVIOUR_SOURCES,
                 )
-                for _source_id, _group, _usable, facts, _started in scheduled
+                for _source_id, _group, facts, _started in scheduled
             ]
             reads = [future.result() for future in futures]
-        for (_source_id, _group, usable, facts, started), read in zip(
-            scheduled, reads, strict=True
-        ):
-            found, count, found_overrides = _key_source(
-                con, usable, facts, per_window, executor, started, read
+        for (source_id, group, facts, started), read in zip(scheduled, reads, strict=True):
+            found, count, found_overrides, misfits, misfit_stats = _key_source(
+                con, group, facts, per_window, executor, started, read
             )
             receipts.extend(found)
             overrides.update(found_overrides)
             total += count
+            _insert_misfits(con, source_id, misfits, misfit_stats)
+            misfit_receipts.append({"source_id": source_id, **misfit_stats})
         behaviours, existed = aggregate_events(con)
     finally:
         con.close()
-    counts: dict[str, int] = {}
-    singletons: dict[str, int] = {}
-    for behaviour in behaviours:
-        counts[behaviour.source_id] = counts.get(behaviour.source_id, 0) + 1
-        if behaviour.events == 1:
-            singletons[behaviour.source_id] = singletons.get(behaviour.source_id, 0) + 1
-    for item in receipts:
-        source = str(item.get("source_id"))
-        distinct = counts.get(source, 0)
-        once = singletons.get(source, 0)
-        item["behaviours"] = distinct
-        item["singletons"] = once
-        item["singleton_share"] = round(once / distinct, 3) if distinct else None
-    return behaviours, {
-        "receipts": receipts,
-        "skipped": skipped,
-        "identity_overrides": overrides,
-        "singletons": sum(singletons.values()),
-        "events_read": total,
-        "per_window": per_window,
-        "behaviours_existed": existed,
-        "behaviours_kept": len(behaviours),
-        "store": str(store_path),
-        "seconds": round(time.monotonic() - began, 3),
-    }
+    receipt = _behaviour_receipt(
+        behaviours,
+        receipts,
+        skipped,
+        overrides,
+        total,
+        per_window,
+        existed,
+        misfit_receipts,
+        store_path,
+        began,
+    )
+    return behaviours, receipt
 
 
 def load_behaviours(path: Path) -> list[Behaviour]:
@@ -641,3 +859,45 @@ def load_source_stats(path: Path) -> dict[str, dict[str, Any]]:
         }
         for source_id, hosts, actors in rows
     }
+
+
+def load_misfits(path: Path) -> tuple[list[MisfitShape], dict[str, dict[str, Any]], list[str]]:
+    """Stored out-of-structure shapes and per-source counts; a store without them declares it."""
+    con = duckdb.connect(str(path), read_only=True)
+    try:
+        tables = {str(row[0]) for row in con.execute("SHOW TABLES").fetchall()}
+        if "misfits" not in tables or "misfit_stats" not in tables:
+            return [], {}, ["no_misfit_table"]
+        rows = con.execute(
+            "SELECT source_id, shape, events, hosts, first_seen, last_seen, examples FROM misfits"
+        ).fetchall()
+        stat_rows = con.execute("SELECT * FROM misfit_stats").fetchall()
+    finally:
+        con.close()
+    misfits = [
+        MisfitShape(
+            str(row[0]),
+            str(row[1]),
+            int(row[2]),
+            int(row[3]),
+            float(row[4]),
+            float(row[5]),
+            tuple(
+                example
+                for example in json.loads(str(row[6] or "[]"))
+                if isinstance(example, Mapping)
+            ),
+        )
+        for row in rows
+    ]
+    stats = {
+        str(row[0]): {
+            "lines_read": int(row[1]),
+            "misfit_lines": int(row[2]),
+            "shapes": int(row[3]),
+            "shapes_kept": int(row[4]),
+            "shapes_dropped": int(row[5]),
+        }
+        for row in stat_rows
+    }
+    return misfits, stats, []

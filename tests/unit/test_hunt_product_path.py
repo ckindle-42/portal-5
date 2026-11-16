@@ -275,7 +275,7 @@ def test_r2_job_persists_stage_progress_cost_and_analyst_views(
         "notables",
         "relate",
     ]
-    assert job["stage_plan"][0]["budget_s"] == pytest.approx(710.0, abs=1.0)
+    assert job["stage_plan"][0]["budget_s"] == pytest.approx(690.0, abs=1.0)
     assert not (tmp_path / job_id / product_jobs.RERANK_FILE).exists()
     lead = product_jobs.leads_view(job_id=job_id)["leads"][0]
     assert lead["similar_known_item"] == {
@@ -511,12 +511,53 @@ def test_judge_stage_annotates_only_the_top_ten_without_reordering(
     }
 
 
+@pytest.mark.parametrize(
+    ("knowledge_store", "expected"),
+    [
+        (None, ("alerts", "peer_rare", "deviation", "misfit")),
+        (
+            Path("knowledge.duckdb"),
+            ("alerts", "peer_rare", "deviation", "misfit", "similar_to_known"),
+        ),
+    ],
+)
+def test_product_generator_defaults_include_misfit_and_configured_knowledge(
+    monkeypatch: Any,
+    tmp_path: Path,
+    knowledge_store: Path | None,
+    expected: tuple[str, ...],
+) -> None:
+    captured: dict[str, Any] = {}
+    monkeypatch.setattr(
+        product_jobs,
+        "notables_stage",
+        lambda **kwargs: captured.update(kwargs) or ([], {}),
+    )
+    actions = product_jobs._stage_actions(
+        index="main",
+        start=1.0,
+        end=2.0,
+        out=tmp_path,
+        search=object(),
+        client=object(),
+        model="hunt-reasoning",
+        knowledge_store=knowledge_store,
+        knowledge_families=None,
+        embedder=None,
+        effort=HuntBudget(dict(DEFAULT_BUDGETS)),
+    )
+
+    actions[2][1]()
+
+    assert captured["enabled"] == expected
+
+
 def test_stage_plan_preserves_relation_time_and_spends_released_ranking_time() -> None:
     plan = product_jobs._stage_plan("cards", 180.0)
 
     assert plan["budget_s"] == 0.0
     assert plan["reserved_for_later"] == {
-        "behaviours": 80.0,
+        "behaviours": 100.0,
         "notables": 350.0,
         "relate": 120.0,
     }
@@ -525,16 +566,16 @@ def test_stage_plan_preserves_relation_time_and_spends_released_ranking_time() -
     assert judge["budget_s"] == 60.0
     assert judge["reserved_for_later"] == {"relate": 120.0}
     full = product_jobs._stage_plan("cards", 1247.0)
-    assert full["budget_s"] == 697.0
+    assert full["budget_s"] == 677.0
     assert full["reserved_for_later"] == {
-        "behaviours": 80.0,
+        "behaviours": 100.0,
         "notables": 350.0,
         "relate": 120.0,
     }
     short = product_jobs._stage_plan("cards", 707.0)
-    assert short["budget_s"] == 157.0
+    assert short["budget_s"] == 137.0
     assert short["reserved_for_later"] == {
-        "behaviours": 80.0,
+        "behaviours": 100.0,
         "notables": 350.0,
         "relate": 120.0,
     }

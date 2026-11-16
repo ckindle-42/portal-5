@@ -39,7 +39,7 @@ _lock = threading.Lock()
 R2_DEFAULT_BUDGETS = {**DEFAULT_BUDGETS, "job_seconds": 1260.0}
 STAGE_ESTIMATES = {
     "cards": 60.0,
-    "behaviours": 80.0,
+    "behaviours": 100.0,
     "notables": 350.0,
     "judge": 60.0,
     "relate": 120.0,

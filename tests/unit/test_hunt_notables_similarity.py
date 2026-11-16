@@ -9,7 +9,7 @@ import httpx
 import pytest
 
 from portal.modules.security.core.hunt.notables import manifest
-from portal.modules.security.core.hunt.notables.__main__ import _parser
+from portal.modules.security.core.hunt.notables.__main__ import _enabled_generators, _parser
 from portal.modules.security.core.hunt.notables.behaviours import Behaviour, IdentityPlan
 from portal.modules.security.core.hunt.notables.cards import SourceCard
 from portal.modules.security.core.hunt.notables.embedding import PipelineEmbeddingClient
@@ -17,7 +17,6 @@ from portal.modules.security.core.hunt.notables.generators import _behaviour_wor
 from portal.modules.security.core.hunt.notables.judge_notables import notable_prompt
 from portal.modules.security.core.hunt.notables.knowledge import KnowledgeItem, build_store
 from portal.modules.security.core.hunt.notables.pipeline import BackendPinnedClient
-from portal.modules.security.core.hunt.notables.run import _judge_order
 from portal.modules.security.core.hunt.notables.similar import (
     SimilarityError,
     _ranked_notables,
@@ -227,18 +226,6 @@ def test_known_good_is_used_only_when_its_measured_auc_improves(tmp_path: Path) 
     assert reliability["score"] == "known_bad_minus_good"
 
 
-def test_judge_budget_receives_top_similarity_rank_before_generator_order() -> None:
-    rows: list[dict[str, Any]] = [
-        {"generator": "peer_rare", "measure": {"value": 0.0}},
-        {"generator": "similar_to_known", "measure": {"value": 0.2}},
-        {"generator": "similar_to_known", "measure": {"value": 0.8}},
-    ]
-
-    ordered = _judge_order(rows)
-
-    assert [row["measure"]["value"] for row in ordered] == [0.8, 0.2, 0.0]
-
-
 def test_template_embedding_text_is_shared_without_static_template_text(monkeypatch: Any) -> None:
     behaviour = replace(
         _behaviour(),
@@ -288,7 +275,20 @@ def test_template_embedding_text_is_shared_without_static_template_text(monkeypa
 def test_cli_keeps_the_original_generators_as_default() -> None:
     args = _parser().parse_args(["--index", "run", "--out", "/tmp/hunt"])
 
-    assert args.generators == "alerts,peer_rare,deviation"
+    assert args.generators is None
+    assert _enabled_generators(args.generators, None) == [
+        "alerts",
+        "peer_rare",
+        "deviation",
+        "misfit",
+    ]
+    assert _enabled_generators(args.generators, Path("knowledge.duckdb")) == [
+        "alerts",
+        "peer_rare",
+        "deviation",
+        "misfit",
+        "similar_to_known",
+    ]
 
 
 def test_pipeline_embeddings_batch_authenticate_and_retry_back_pressure() -> None:

@@ -17,6 +17,7 @@ from .behaviours import (
     Behaviour,
     collect_behaviours,
     load_behaviours,
+    load_misfits,
     load_source_stats,
 )
 from .cards import (
@@ -32,6 +33,8 @@ from .cards import (
 from .generators import GENERATORS as BASE_GENERATORS
 from .generators import generate
 from .judge_notables import judge_all
+from .merge import DEFAULT_MERGE, merge_notables
+from .misfit import MISFIT_GENERATOR, generate_misfit
 from .parse import MIN_PARTITION_LINES, FieldStat, TemplateModel
 from .receipt import peak_memory_mb, progress_update, read_json, utc_now, write_json
 from .sample import (
@@ -48,8 +51,9 @@ HTTP_ERROR_THRESHOLD = 0.20
 JUDGE_STAGE_DEADLINE_SECONDS = 720.0  # effort budget: the hunt job wall time (executor job_seconds)
 
 STAGES = ("cards", "behaviours", "notables", "judge")
-GENERATORS = (*BASE_GENERATORS, SIMILAR_GENERATOR)
-DEFAULT_GENERATORS = BASE_GENERATORS
+GENERATORS = (*BASE_GENERATORS, MISFIT_GENERATOR, SIMILAR_GENERATOR)
+DEFAULT_GENERATORS = (*BASE_GENERATORS, MISFIT_GENERATOR)
+MERGE_PRIORITY = (SIMILAR_GENERATOR, *BASE_GENERATORS, MISFIT_GENERATOR)
 SOURCES_FILE = "sources.json"
 STORE_FILE = "behaviours.duckdb"
 NOTABLES_FILE = "notables.jsonl"
@@ -379,7 +383,9 @@ def notables_stage(
     if not store.exists():
         raise FileNotFoundError(f"{store} holds no behaviour table; run the behaviours stage")
     behaviours = load_behaviours(store)
-    standard_enabled = [name for name in enabled if name != SIMILAR_GENERATOR]
+    standard_enabled = [
+        name for name in enabled if name not in (SIMILAR_GENERATOR, MISFIT_GENERATOR)
+    ]
     notables, receipt = generate(
         executor_for(search),
         index,
@@ -391,6 +397,15 @@ def notables_stage(
         load_source_stats(store),
         standard_enabled,
     )
+    if MISFIT_GENERATOR in enabled:
+        started = time.monotonic()
+        misfits, misfit_stats, misfit_notes = load_misfits(store)
+        found, detail = generate_misfit(
+            cards, facts_by_source(cards), misfits, misfit_stats, misfit_notes
+        )
+        notables.extend(found)
+        receipt[MISFIT_GENERATOR] = detail
+        receipt["seconds"][MISFIT_GENERATOR] = round(time.monotonic() - started, 3)
     if SIMILAR_GENERATOR in enabled:
         if knowledge_store is None or embedder is None:
             raise ValueError(
@@ -408,9 +423,12 @@ def notables_stage(
         notables = [*similar, *notables]
         receipt[SIMILAR_GENERATOR] = detail
         receipt["seconds"][SIMILAR_GENERATOR] = detail["seconds"]
-        receipt["total"] = len(notables)
-        receipt["seconds"]["total"] = round(time.monotonic() - began, 3)
-    rows = [notable.as_dict() for notable in notables]
+    merged, merge_receipt = merge_notables(notables, MERGE_PRIORITY, DEFAULT_MERGE)
+    receipt["merge"] = merge_receipt
+    receipt["enabled"] = list(enabled)
+    receipt["total"] = len(merged)
+    receipt["seconds"]["total"] = round(time.monotonic() - began, 3)
+    rows = [notable.as_dict() for notable in merged]
     path = out / NOTABLES_FILE
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in rows))
@@ -445,7 +463,7 @@ def judge_stage(
     """Judge all rows, or annotate a bounded Stage 1 prefix, and save the result."""
     path = out / NOTABLES_FILE
     rows = read_notables(path)
-    candidates = _judge_order(rows) if max_notables is None else rows[: max(0, max_notables)]
+    candidates = rows if max_notables is None else rows[: max(0, max_notables)]
     judged, receipt = judge_all(
         candidates,
         client=client,
@@ -458,12 +476,7 @@ def judge_stage(
     http_errors = int(receipt["unjudged_reasons"].get("http_error", 0))
     _check_http_error_rate("judge_stage", http_errors, int(receipt["requests"]), model)
     if max_notables is None:
-        receipt["ranking"] = {
-            "priority_generator": SIMILAR_GENERATOR,
-            "prioritized": sum(
-                1 for item in candidates if item.get("generator") == SIMILAR_GENERATOR
-            ),
-        }
+        receipt["ranking"] = {"order": "merged_file_order"}
         policy = "stage1_rank"
         saved = judged
         candidate_count = len(candidates)
@@ -496,7 +509,7 @@ def judge_stage(
 
 
 def _judge_order(rows: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Spend the bounded judge budget on the highest similarity-ranked notables first."""
+    """Spend the Stage 2 judge budget on similar-to-known notables first."""
     indexed = list(enumerate(rows))
 
     def rank(item: tuple[int, dict[str, Any]]) -> tuple[int, float, int]:
@@ -505,13 +518,10 @@ def _judge_order(rows: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
             return (1, 0.0, index)
         measure = row.get("measure")
         value = measure.get("value") if isinstance(measure, Mapping) else 0.0
-        if value is None:
+        try:
+            score = 0.0 if value is None else float(value)
+        except (TypeError, ValueError):
             score = 0.0
-        else:
-            try:
-                score = float(value)
-            except (TypeError, ValueError):
-                score = 0.0
         return (0, -score, index)
 
     return [row for _index, row in sorted(indexed, key=rank)]

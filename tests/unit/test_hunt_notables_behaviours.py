@@ -212,8 +212,10 @@ def test_a_part_card_keys_only_its_own_events():
         {"_raw": '{"kind": "stats", "user": "bob", "image": "cmd.exe"}', "_time": 2.0},
         {"_raw": '{"kind": "run", "user": "amy", "image": "cmd.exe"}', "_time": 3.0},
     ]
-    events = _extract(card, rows, [(0.0, 10.0)])
+    events, matched, unparsed = _extract(card, rows, [(0.0, 10.0)])
     assert [event.fields["user"] for event in events] == ["bob", "amy"]
+    assert matched == {0, 2}
+    assert unparsed == 0
 
 
 def test_a_template_behaviour_is_program_template_and_identity_slots():
