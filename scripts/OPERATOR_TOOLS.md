@@ -24,6 +24,9 @@ python3 scripts/hunt_bed/ingest_native.py --root <dir> --index hb_<env> --defaul
 python3 scripts/hunt_bed/keys_kyoushi.py --labels <labels/> --ingest <out>     # AIT/Kyoushi per-line key
 python3 scripts/hunt_bed/keys_cloudobs.py --ingest <out>                       # cloud_obs y/n-run key
 python3 scripts/hunt_bed/keys_bots.py --source <cited.json> --out <key.jsonl>  # BOTS cited key, live-audited
+python3 scripts/hunt_bed/observe.py --index <idx> --out <dir> [--baseline current|seasonal|peer|stream|left] [--from-grids <dir>]
+python3 scripts/hunt_bed/graph_hunt.py --index <idx> --out <dir> [--from-grids <dir>]
+                                    # observations -> bounded cells -> retention history -> graph -> leads.json
 python3 scripts/hunt_run.py --index <idx> --out <leads.json>                   # blind hunt, leads only
 python3 scripts/hunt_investigate.py --leads <leads.json> --out <cases.json>    # dig leads into cases
 python3 scripts/hunt_bed/owui_proof.py --index <idx> --out <dir>               # hunt through Open WebUI like an analyst

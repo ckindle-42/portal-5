@@ -702,6 +702,27 @@ def test_load_lab_env_exports_the_splunk_endpoint(
     assert os.environ["LAB_SPLUNK_INDEX"] == "portal5_lab"
 
 
+def test_hunt_query_hop_runs_the_engine_with_the_lab_search(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    search = object()
+    calls: list[tuple[object, str, float, float]] = []
+
+    def run_hunt(source: object, index: str, start: float, end: float) -> list[object]:
+        calls.append((source, index, start, end))
+        return [object(), object()]
+
+    monkeypatch.setattr(trace_lab, "hunt_search", lambda: search)
+    monkeypatch.setattr(trace_lab, "hunt", run_hunt)
+    monkeypatch.setattr(trace_lab.time, "time", lambda: 1234.0)
+
+    hop = trace_lab.hunt_query_hop("portal5_lab")
+
+    assert calls == [(search, "portal5_lab", 0.0, 1234.0)]
+    assert hop["status"] == "PASS"
+    assert hop["observed"] == "index=portal5_lab leads=2"
+
+
 class _LabBackend:
     def __init__(self, hits: dict[tuple[str, str], int]) -> None:
         self.hits = hits

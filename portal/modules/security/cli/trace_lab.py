@@ -13,7 +13,7 @@ from typing import Any
 
 import httpx
 
-from portal.modules.security.core.hunt.engine import ladder
+from portal.modules.security.core.hunt.engine import hunt
 from portal.modules.security.core.review.window import SplunkWindowSource
 from portal.modules.security.core.siem.spl_backend import SplunkBackend
 from portal.modules.security.core.siem.spl_detections import spl_for
@@ -74,14 +74,12 @@ def hunt_search() -> Any:
 
 
 def hunt_query_hop(index: str) -> dict[str, str]:
-    """Run the hunt's own zoom-ladder query; it proves the index answers the hunt's path."""
+    """Run the hunt engine and report whether its query path completed."""
     try:
-        levels = ladder(hunt_search(), index, 0.0, time.time())
+        leads = hunt(hunt_search(), index, 0.0, time.time())
     except Exception as exc:  # noqa: BLE001 - an unreachable hop is the finding
-        return _hop("hunt query", "FAIL", f"{type(exc).__name__}: {exc}", "levels")
-    if not levels:
-        return _hop("hunt query", "FAIL", "no zoom levels", "index readable")
-    return _hop("hunt query", "PASS", f"index={index} levels={levels}", "index readable")
+        return _hop("hunt query", "FAIL", f"{type(exc).__name__}: {exc}", "query completes")
+    return _hop("hunt query", "PASS", f"index={index} leads={len(leads)}", "query completes")
 
 
 def labelled_event_hop(backend: Any) -> dict[str, str]:

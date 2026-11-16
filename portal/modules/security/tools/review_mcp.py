@@ -18,6 +18,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from portal.modules.security.core.hunt import jobs as hunt_jobs
+from portal.modules.security.core.hunt import product_jobs as r2_hunt_jobs
 from portal.modules.security.core.review.contracts import Verdict, to_plain
 from portal.modules.security.core.review.service import (
     ReviewRequest,
@@ -174,8 +175,13 @@ def _hunt_search() -> Any:
 
 
 @mcp.tool()
-def hunt_sources() -> dict[str, Any]:
-    """List the indexed environments (Splunk indexes) with event counts and time span."""
+def hunt_sources(
+    job_id: str | None = None, index: str | None = None, n: int = 50
+) -> dict[str, Any]:
+    """List a run's source cards, or available indexes when no run selector is supplied."""
+
+    if job_id or index:
+        return _guard("hunt_sources", lambda: r2_hunt_jobs.sources_view(job_id, index, n))
 
     def run() -> dict[str, Any]:
         rows = _hunt_search().iter_post(
@@ -190,21 +196,48 @@ def hunt_sources() -> dict[str, Any]:
 
 @mcp.tool()
 def hunt_start(
-    index: str, start: float | None = None, end: float | None = None, investigate: int = 10
+    index: str,
+    start: float | None = None,
+    end: float | None = None,
+    query_seconds: float = 30.0,
+    job_seconds: float = 1260.0,
+    request_budget: int = 2000,
+    cell_budget: int = 10000,
+    event_budget: int = 5000,
+    judge: bool = False,
 ) -> dict[str, Any]:
-    """Blind hunt over one environment (index): rank host-hours where generic signals come
-    together, then dig the top leads into cases. Runs in the background; poll hunt_status."""
+    """Start an R2 Stage 1 hunt, optionally annotating its top leads with the judge."""
 
     def run() -> dict[str, Any]:
-        job_id = hunt_jobs.start(
-            _hunt_search(), index, start or 0.0, end or time.time(), investigate
+        start_t = 0.0 if start is None else start
+        end_t = time.time() if end is None else end
+        job_id = r2_hunt_jobs.start(
+            _hunt_search(),
+            index,
+            start_t,
+            end_t,
+            {
+                "query_seconds": query_seconds,
+                "job_seconds": job_seconds,
+                "requests": request_budget,
+                "cells": cell_budget,
+                "events": event_budget,
+            },
+            judge_enabled=judge,
         )
         nxt = (
-            f"call hunt_status(index={index!r}) until COMPLETE, then "
-            f"hunt_leads(index={index!r}) and hunt_case(index={index!r}, case=1)"
+            f"call hunt_status(job_id={job_id!r}) until COMPLETE, PARTIAL, or FAILED, then "
+            f"hunt_sources(job_id={job_id!r}), hunt_leads(job_id={job_id!r}), and "
+            f"hunt_case(job_id={job_id!r}, case=1)"
         )
         return hunt_jobs.compact(
-            {"job_id": job_id, "index": index, "status": "RUNNING", "next": nxt}
+            {
+                "job_id": job_id,
+                "index": index,
+                "judge_enabled": judge,
+                "status": "QUEUED",
+                "next": nxt,
+            }
         )
 
     return _guard("hunt_start", run)
@@ -212,25 +245,22 @@ def hunt_start(
 
 @mcp.tool()
 def hunt_status(job_id: str | None = None, index: str | None = None) -> dict[str, Any]:
-    """Progress of a hunt: stage, elapsed seconds, cases found. Prefer index= over job_id:
-    it resolves to the newest hunt started on that environment."""
-    return _guard("hunt_status", lambda: hunt_jobs.status(job_id, index))
+    """Read R2 stage progress and effort cost; COMPLETE, PARTIAL, and FAILED are terminal."""
+    return _guard("hunt_status", lambda: r2_hunt_jobs.status(job_id, index))
 
 
 @mcp.tool()
-def hunt_leads(job_id: str | None = None, index: str | None = None, n: int = 10) -> dict[str, Any]:
-    """The ranked leads (host-hours) of a hunt, with the strongest signal behind each.
-    Prefer index= over job_id; n is capped at 25."""
-    return _guard("hunt_leads", lambda: hunt_jobs.leads_view(job_id, index, n))
+def hunt_leads(job_id: str | None = None, index: str | None = None, n: int = 3) -> dict[str, Any]:
+    """Return up to ten Stage 1 ordered R2 notables with optional judge annotations."""
+    return _guard("hunt_leads", lambda: r2_hunt_jobs.leads_view(job_id, index, n))
 
 
 @mcp.tool()
 def hunt_case(
     job_id: str | None = None, index: str | None = None, case: int = 1, n: int = 15
 ) -> dict[str, Any]:
-    """One assembled case: the values it pivoted on and its evidence picture in time order.
-    Prefer index= over job_id."""
-    return _guard("hunt_case", lambda: hunt_jobs.case_view(job_id, index, case, n))
+    """Return one relate case with its shared entities, evidence, and event references."""
+    return _guard("hunt_case", lambda: r2_hunt_jobs.case_view(job_id, index, case, n))
 
 
 def _route(
