@@ -17,6 +17,7 @@ from .behaviours import (
     Behaviour,
     collect_behaviours,
     load_behaviours,
+    load_misfits,
     load_source_stats,
 )
 from .cards import (
@@ -32,6 +33,7 @@ from .cards import (
 from .generators import GENERATORS as BASE_GENERATORS
 from .generators import generate
 from .judge_notables import judge_all
+from .misfit import MISFIT_GENERATOR, generate_misfit
 from .parse import MIN_PARTITION_LINES, FieldStat, TemplateModel
 from .receipt import peak_memory_mb, progress_update, read_json, utc_now, write_json
 from .sample import (
@@ -47,8 +49,8 @@ from .similar import SIMILAR_GENERATOR, generate_similar
 HTTP_ERROR_THRESHOLD = 0.20
 
 STAGES = ("cards", "behaviours", "notables", "judge")
-GENERATORS = (*BASE_GENERATORS, SIMILAR_GENERATOR)
-DEFAULT_GENERATORS = BASE_GENERATORS
+GENERATORS = (*BASE_GENERATORS, MISFIT_GENERATOR, SIMILAR_GENERATOR)
+DEFAULT_GENERATORS = (*BASE_GENERATORS, MISFIT_GENERATOR)
 SOURCES_FILE = "sources.json"
 STORE_FILE = "behaviours.duckdb"
 NOTABLES_FILE = "notables.jsonl"
@@ -378,7 +380,9 @@ def notables_stage(
     if not store.exists():
         raise FileNotFoundError(f"{store} holds no behaviour table; run the behaviours stage")
     behaviours = load_behaviours(store)
-    standard_enabled = [name for name in enabled if name != SIMILAR_GENERATOR]
+    standard_enabled = [
+        name for name in enabled if name not in (SIMILAR_GENERATOR, MISFIT_GENERATOR)
+    ]
     notables, receipt = generate(
         executor_for(search),
         index,
@@ -390,6 +394,16 @@ def notables_stage(
         load_source_stats(store),
         standard_enabled,
     )
+    if MISFIT_GENERATOR in enabled:
+        started = time.monotonic()
+        misfits, misfit_stats, misfit_notes = load_misfits(store)
+        found, detail = generate_misfit(
+            cards, facts_by_source(cards), misfits, misfit_stats, misfit_notes
+        )
+        notables.extend(found)
+        receipt[MISFIT_GENERATOR] = detail
+        receipt["seconds"][MISFIT_GENERATOR] = round(time.monotonic() - started, 3)
+        receipt["total"] = len(notables)
     if SIMILAR_GENERATOR in enabled:
         if not family or knowledge_store is None or embedder is None:
             raise ValueError(

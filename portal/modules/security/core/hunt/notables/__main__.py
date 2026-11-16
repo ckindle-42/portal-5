@@ -97,8 +97,16 @@ def _print_behaviours(behaviours: list[Behaviour], receipt: dict[str, Any]) -> N
             f"behaviours={item.get('behaviours', counts.get(_label(item), 0))} "
             f"singletons={item.get('singletons', 0)} "
             f"singleton_share={item.get('singleton_share')} "
+            f"unparsed_share={item.get('unparsed_share')} "
             f"seconds={item.get('seconds')}"
         )
+    for item in receipt.get("misfits", []):
+        if item.get("misfit_lines"):
+            print(
+                f"  misfit {_label(item)} lines={item.get('misfit_lines', 0)} "
+                f"of={item.get('lines_read', 0)} "
+                f"shapes={item.get('shapes_kept', 0)}/{item.get('shapes', 0)}"
+            )
     for item in receipt.get("skipped", []):
         print(
             f"  skipped {_label(item)}: {item.get('reason') or 'unknown'} "
@@ -108,6 +116,8 @@ def _print_behaviours(behaviours: list[Behaviour], receipt: dict[str, Any]) -> N
         f"behaviours: events_read={receipt.get('events_read', 0)} "
         f"existed={receipt.get('behaviours_existed', 0)} "
         f"kept={receipt.get('behaviours_kept', 0)} "
+        f"misfit_lines={receipt.get('misfit_lines', 0)} "
+        f"misfit_shapes={receipt.get('misfit_shapes', 0)} "
         f"wall={receipt.get('seconds')}s peak={receipt.get('peak_memory_mb')}MB "
         f"-> {receipt.get('store')}"
     )

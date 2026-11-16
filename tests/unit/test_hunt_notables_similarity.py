@@ -237,7 +237,7 @@ def test_judge_budget_receives_top_similarity_rank_before_generator_order() -> N
 def test_cli_keeps_the_original_generators_as_default() -> None:
     args = _parser().parse_args(["--index", "run", "--out", "/tmp/hunt"])
 
-    assert args.generators == "alerts,peer_rare,deviation"
+    assert args.generators == "alerts,peer_rare,deviation,misfit"
 
 
 def test_pipeline_embeddings_batch_authenticate_and_retry_back_pressure() -> None:
