@@ -439,38 +439,60 @@ def judge_stage(
     model: str,
     deadline_seconds: float = JUDGE_STAGE_DEADLINE_SECONDS,
     request_budget: int | None = None,
+    max_notables: int | None = None,
+    explain: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Judge every distinct notable once through the Pipeline and write p_yes back."""
+    """Judge all rows, or annotate a bounded Stage 1 prefix, and save the result."""
     path = out / NOTABLES_FILE
     rows = read_notables(path)
-    ordered = _judge_order(rows)
+    candidates = _judge_order(rows) if max_notables is None else rows[: max(0, max_notables)]
     judged, receipt = judge_all(
-        ordered,
+        candidates,
         client=client,
         model=model,
         cache_path=out / "cache" / "judge.json",
         request_budget=request_budget,
         deadline_seconds=deadline_seconds,
+        explain=explain,
     )
     http_errors = int(receipt["unjudged_reasons"].get("http_error", 0))
     _check_http_error_rate("judge_stage", http_errors, int(receipt["requests"]), model)
-    receipt["ranking"] = {
-        "priority_generator": SIMILAR_GENERATOR,
-        "prioritized": sum(1 for item in ordered if item.get("generator") == SIMILAR_GENERATOR),
-    }
+    if max_notables is None:
+        receipt["ranking"] = {
+            "priority_generator": SIMILAR_GENERATOR,
+            "prioritized": sum(
+                1 for item in candidates if item.get("generator") == SIMILAR_GENERATOR
+            ),
+        }
+        policy = "stage1_rank"
+        saved = judged
+        candidate_count = len(candidates)
+        annotation_cut = 0
+    else:
+        receipt["ranking"] = {"source": "stage1_order", "reordered": False}
+        policy = "stage1_order_annotation_limit"
+        saved = [*judged, *rows[len(candidates) :]]
+        candidate_count = len(rows)
+        annotation_cut = max(0, len(rows) - len(candidates))
+    cut = int(receipt.get("unasked") or 0) + annotation_cut
+    cut_reasons = []
+    if annotation_cut:
+        cut_reasons.append("annotation_limit")
+    if receipt.get("unasked"):
+        cut_reasons.append("judge_stage_budget_exhausted")
     receipt["selection"] = {
-        "policy": "stage1_rank",
-        "candidates": len(ordered),
+        "policy": policy,
+        "candidates": candidate_count,
         "judged": int(receipt["judged"]),
-        "cached": int(receipt["cached"]),
-        "cut": int(receipt["unasked"]),
-        "cut_reason": "judge_stage_budget_exhausted" if receipt["unasked"] else None,
+        "cached": int(receipt.get("cached") or 0),
+        "cut": cut,
+        "cut_reason": "; ".join(cut_reasons) or None,
     }
-    path.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in judged))
+    path.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in saved))
     receipt["file"] = str(path)
     receipt["peak_memory_mb"] = peak_memory_mb()
     progress_update(out, "judge", receipt)
-    return judged, receipt
+    return saved, receipt
 
 
 def _judge_order(rows: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:

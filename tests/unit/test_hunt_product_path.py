@@ -14,6 +14,7 @@ from portal.modules.security.core.hunt.executor import (
     HuntBudget,
     HuntBudgetExceededError,
 )
+from portal.modules.security.core.hunt.notables import run as notables_run
 from portal.modules.security.core.hunt.notables.receipt import progress_update
 from portal.modules.security.core.hunt.notables.similar import SIMILAR_GENERATOR
 from portal.modules.security.tools import review_mcp
@@ -63,7 +64,6 @@ def _notables_stage(captured: dict[str, Any]):
             "source_id": "ix:auth",
             "measure": {"name": "similarity", "value": 0.9},
             "nearest_known": {"family": "santos", "label": "T1059"},
-            "p_yes": 0.91,
             "evidence": [{"query": "search index=ix", "line": "user=bob"}],
         }
         (out / "notables.jsonl").write_text(json.dumps(row) + "\n")
@@ -135,7 +135,7 @@ def test_hunt_start_routes_to_the_r2_job_runner(monkeypatch: Any) -> None:
         lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("legacy hunt used")),
     )
 
-    result = review_mcp.hunt_start(index="hb_kyoushi_s1", start=100.0, end=200.0)
+    result = review_mcp.hunt_start(index="hb_kyoushi_s1", start=100.0, end=200.0, judge=True)
 
     assert started["args"][:4] == (search, "hb_kyoushi_s1", 100.0, 200.0)
     assert started["args"][4] == {
@@ -145,6 +145,8 @@ def test_hunt_start_routes_to_the_r2_job_runner(monkeypatch: Any) -> None:
         "cells": 10000,
         "events": 5000,
     }
+    assert started["kwargs"] == {"judge_enabled": True}
+    assert result["judge_enabled"] is True
     assert result["job_id"] == "hunt-r2-test"
 
 
@@ -167,13 +169,21 @@ def test_start_persists_queued_job_and_dispatches_background_worker(
         launched.set()
 
     monkeypatch.setattr(product_jobs, "_run", run)
-    job_id = product_jobs.start(object(), "hb_kyoushi_s1", 100.0, 200.0)  # type: ignore[arg-type]
+    job_id = product_jobs.start(
+        object(),
+        "hb_kyoushi_s1",
+        100.0,
+        200.0,
+        judge_enabled=True,  # type: ignore[arg-type]
+    )
 
     assert launched.wait(2.0)
     assert product_jobs.load(job_id)["status"] == "QUEUED"
+    assert product_jobs.load(job_id)["judge_enabled"] is True
     assert captured[7] == store
     assert captured[8] == ("santos", "russell")
     assert captured[9] is embedder
+    assert captured[10] is True
     assert captured[5]["job_seconds"] == 1260.0
 
 
@@ -186,6 +196,7 @@ def test_r2_job_persists_stage_progress_cost_and_analyst_views(
     configured: dict[str, Any] = {}
     judge_options: dict[str, Any] = {}
     rerank_options: dict[str, Any] = {}
+    relate_options: dict[str, Any] = {}
     embedder = SimpleNamespace(close=lambda: None, set_job_deadline=lambda _deadline: None)
     store = tmp_path / "knowledge.duckdb"
     for name, run in (
@@ -193,9 +204,14 @@ def test_r2_job_persists_stage_progress_cost_and_analyst_views(
         ("behaviours", _behaviours_stage),
         ("notables", _notables_stage(configured)),
         ("judge", _capture_judge(judge_options)),
-        ("relate", _relate_stage),
     ):
         monkeypatch.setattr(product_jobs, f"{name}_stage", _tracked(name, run, seen))
+
+    def relate(**kwargs: Any) -> dict[str, Any]:
+        relate_options.update(kwargs)
+        return _tracked("relate", _relate_stage, seen)(**kwargs)
+
+    monkeypatch.setattr(product_jobs, "relate_stage", relate)
 
     def _product_order(rows: Any, **kwargs: Any) -> tuple[list[int], dict[str, Any]]:
         rerank_options.update(kwargs)
@@ -217,7 +233,7 @@ def test_r2_job_persists_stage_progress_cost_and_analyst_views(
             },
         }
 
-    monkeypatch.setattr(product_jobs, "product_order", _product_order)
+    monkeypatch.setattr(product_jobs, "product_order", _product_order, raising=False)
     job_id = "hunt-r2-test-run"
     product_jobs._write(
         job_id,
@@ -230,7 +246,7 @@ def test_r2_job_persists_stage_progress_cost_and_analyst_views(
         "ix",
         100.0,
         200.0,
-        dict(DEFAULT_BUDGETS),
+        dict(product_jobs.R2_DEFAULT_BUDGETS),
         (object(), "hunt-reasoning"),  # type: ignore[arg-type]
         store,
         ("santos", "russell"),
@@ -240,47 +256,106 @@ def test_r2_job_persists_stage_progress_cost_and_analyst_views(
     job = product_jobs.load(job_id)
     assert job is not None
     assert job["status"] == "COMPLETE"
-    assert seen == ["cards", "behaviours", "notables", "judge", "rerank", "relate"]
+    assert job["judge_enabled"] is False
+    assert seen == ["cards", "behaviours", "notables", "relate"]
     assert SIMILAR_GENERATOR in configured["enabled"]
     assert configured["knowledge_store"] == store
     assert configured["knowledge_families"] == ("santos", "russell")
-    assert judge_options["deadline_seconds"] == pytest.approx(480.0, abs=0.01)
-    assert rerank_options["deadline"] == pytest.approx(120.0, abs=0.01)
-    assert job["cost"]["model_requests"] == 5
-    assert job["cost"]["model_seconds"] >= 0.5
+    assert not judge_options
+    assert not rerank_options
+    assert relate_options.get("judged_only", False) is False
+    assert job["cost"]["model_requests"] == 3
+    assert job["cost"]["model_seconds"] == 1.0
     assert job["cost"]["embedding_requests"] == 3
     assert job["progress"]["stages"]["notables"]
     assert job["progress"]["stages"]["relate"]["coverage_complete"] is True
-    assert job["progress"]["stages"]["rerank"]["council"]["budget_basis"][
-        "seconds_per_call"
-    ] == pytest.approx(22.8922)
-    assert job["judge_selection"] == {
-        "policy": "stage1_rank",
-        "candidates": 1,
-        "judged": 1,
-        "cut": 0,
-    }
     assert [entry["stage"] for entry in job["stage_plan"]] == [
         "cards",
         "behaviours",
         "notables",
-        "judge",
-        "rerank",
         "relate",
     ]
-    assert job["stage_plan"][4]["council_budget"]["derived_budget"] == 1
+    assert job["stage_plan"][0]["budget_s"] == pytest.approx(710.0, abs=1.0)
+    assert not (tmp_path / job_id / product_jobs.RERANK_FILE).exists()
     lead = product_jobs.leads_view(job_id=job_id)["leads"][0]
     assert lead["similar_known_item"] == {
         "family": "santos",
         "label": "T1059",
     }
-    assert lead["judge_score"] == 0.91
+    assert lead["judge_score"] is None
+    assert lead["judge"] is None
     assert lead["evidence"][0]["query"] == "search index=ix"
     assert product_jobs.sources_view(job_id=job_id)["cards"][0]["understood"] is True
     assert product_jobs.case_view(job_id=job_id)["evidence"][0]["event_id"] == "1:2"
     status = product_jobs.status(job_id=job_id)
     assert status["stage_plan"] == job["stage_plan"]
-    assert status["judge_selection"]["cut"] == 0
+    assert "judge_selection" not in status
+
+
+def test_opt_in_judge_is_bounded_and_relation_still_uses_stage1_notables(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    monkeypatch.setattr(product_jobs, "_ROOT", tmp_path)
+    monkeypatch.setattr(product_jobs, "preflight", lambda _client, _model: None)
+    judge_call: dict[str, Any] = {}
+    relate_call: dict[str, Any] = {}
+    monkeypatch.setattr(product_jobs, "cards_stage", _cards_stage)
+    monkeypatch.setattr(product_jobs, "behaviours_stage", _behaviours_stage)
+    monkeypatch.setattr(product_jobs, "notables_stage", _notables_stage({}))
+
+    def annotate(**kwargs: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        judge_call.update(kwargs)
+        receipt = {
+            "requests": 1,
+            "selection": {"policy": "stage1_order_annotation_limit", "judged": 1},
+        }
+        progress_update(kwargs["out"], "judge", receipt)
+        return [], receipt
+
+    def relate(**kwargs: Any) -> dict[str, Any]:
+        relate_call.update(kwargs)
+        return _relate_stage(**kwargs)
+
+    def no_rerank(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError("product ranking must not call rerank or council")
+
+    monkeypatch.setattr(product_jobs, "judge_stage", annotate)
+    monkeypatch.setattr(product_jobs, "relate_stage", relate)
+    monkeypatch.setattr(product_jobs, "product_order", no_rerank, raising=False)
+    job_id = "hunt-r2-judge-opt-in"
+    product_jobs._write(
+        job_id, {"job_id": job_id, "index": "ix", "started": 1000.0, "status": "QUEUED"}
+    )
+
+    product_jobs._run(
+        job_id,
+        object(),  # type: ignore[arg-type]
+        "ix",
+        100.0,
+        200.0,
+        dict(product_jobs.R2_DEFAULT_BUDGETS),
+        (object(), "hunt-reasoning"),  # type: ignore[arg-type]
+        None,
+        None,
+        None,
+        judge_enabled=True,
+    )
+
+    job = product_jobs.load(job_id)
+    assert job is not None
+    assert job["status"] == "COMPLETE"
+    assert job["judge_enabled"] is True
+    assert [item["stage"] for item in job["stage_plan"]] == [
+        "cards",
+        "behaviours",
+        "notables",
+        "judge",
+        "relate",
+    ]
+    assert judge_call["max_notables"] == 10
+    assert judge_call["explain"] is True
+    assert relate_call.get("judged_only", False) is False
+    assert not (tmp_path / job_id / product_jobs.RERANK_FILE).exists()
 
 
 def test_cards_budget_uses_measured_allowance_and_records_fake_clock_elapsed(
@@ -305,7 +380,7 @@ def test_cards_budget_uses_measured_allowance_and_records_fake_clock_elapsed(
     )
 
     plan = state["stage_plan"][0]
-    assert seen["budget_seconds"] == 60.0
+    assert seen["budget_seconds"] == 1260.0
     assert plan["estimate_s"] == 60.0
     assert plan["elapsed_s"] == 58.0
     assert plan["complete"] is True
@@ -380,29 +455,87 @@ def test_cards_deadline_with_zero_leads_finishes_partial(tmp_path: Path, monkeyp
     assert leads["total_leads"] == 0
     assert state["status"] == "PARTIAL"
     assert state["partial_reason"] == "cards: cards_stage_deadline_exceeded"
-    assert state["stage_plan"][0]["elapsed_s"] == 61.0
+    assert state["stage_plan"][0]["elapsed_s"] == state["stage_plan"][0]["budget_s"] + 1.0
     assert state["stage_plan"][0]["complete"] is False
     assert state["stage_plan"][0]["exhausted_reason"] == "cards_stage_deadline_exceeded"
 
 
-def test_stage_plan_preserves_relation_time_and_cuts_judging_first() -> None:
-    plan = product_jobs._stage_plan("judge", 180.0)
+def test_judge_stage_annotates_only_the_top_ten_without_reordering(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    rows = [
+        {"notable_id": f"n{index}", "content_key": f"k{index}", "what": f"item {index}"}
+        for index in range(12)
+    ]
+    path = tmp_path / product_jobs.NOTABLES_FILE
+    path.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    captured: dict[str, Any] = {}
+
+    def judge_all(notables: list[dict[str, Any]], **kwargs: Any):
+        captured["notables"] = notables
+        captured.update(kwargs)
+        annotated = [
+            {**row, "p_yes": 0.7, "judge": {"answer": "yes: short reason"}} for row in notables
+        ]
+        return annotated, {
+            "judged": len(annotated),
+            "unasked": 0,
+            "requests": len(annotated),
+            "unjudged_reasons": {},
+        }
+
+    monkeypatch.setattr(notables_run, "judge_all", judge_all)
+    _judged, receipt = notables_run.judge_stage(
+        out=tmp_path,
+        client=object(),  # type: ignore[arg-type]
+        model="hunt-reasoning",
+        deadline_seconds=60.0,
+        max_notables=10,
+        explain=True,
+    )
+
+    saved = notables_run.read_notables(path)
+    assert [row["notable_id"] for row in captured["notables"]] == [f"n{i}" for i in range(10)]
+    assert captured["explain"] is True
+    assert [row["notable_id"] for row in saved] == [f"n{i}" for i in range(12)]
+    assert all(row["p_yes"] == 0.7 for row in saved[:10])
+    assert all("p_yes" not in row for row in saved[10:])
+    assert product_jobs._lead(saved[0], 1)["judge_reason"] == "short reason"
+    assert receipt["selection"] == {
+        "policy": "stage1_order_annotation_limit",
+        "candidates": 12,
+        "judged": 10,
+        "cached": 0,
+        "cut": 2,
+        "cut_reason": "annotation_limit",
+    }
+
+
+def test_stage_plan_preserves_relation_time_and_spends_released_ranking_time() -> None:
+    plan = product_jobs._stage_plan("cards", 180.0)
 
     assert plan["budget_s"] == 0.0
-    assert plan["reserved_for_later"] == {"rerank": 120.0, "relate": 120.0}
-    council = product_jobs._stage_plan("rerank", 180.0)
-    assert council["budget_s"] == 60.0
-    assert council["reserved_for_later"] == {"relate": 120.0}
+    assert plan["reserved_for_later"] == {
+        "behaviours": 80.0,
+        "notables": 350.0,
+        "relate": 120.0,
+    }
+    judge_order = ("cards", "behaviours", "notables", "judge", "relate")
+    judge = product_jobs._stage_plan("judge", 180.0, stage_order=judge_order)
+    assert judge["budget_s"] == 60.0
+    assert judge["reserved_for_later"] == {"relate": 120.0}
     full = product_jobs._stage_plan("cards", 1247.0)
-    assert full["budget_s"] == 60.0
-    assert full["reserved_for_later"]["judge"] == 517.0
+    assert full["budget_s"] == 697.0
+    assert full["reserved_for_later"] == {
+        "behaviours": 80.0,
+        "notables": 350.0,
+        "relate": 120.0,
+    }
     short = product_jobs._stage_plan("cards", 707.0)
-    assert short["budget_s"] == 37.0
+    assert short["budget_s"] == 157.0
     assert short["reserved_for_later"] == {
         "behaviours": 80.0,
         "notables": 350.0,
-        "judge": 0.0,
-        "rerank": 120.0,
         "relate": 120.0,
     }
 
@@ -531,7 +664,7 @@ def test_leads_view_caps_default_payload_and_keeps_similarity_text_trace(
 
     result = product_jobs.leads_view(job_id="hunt-r2-lead-size")
 
-    assert 1 <= result["returned_leads"] <= 3
+    assert 1 <= result["returned_leads"] <= 10
     assert result["total_leads"] == 10
     assert result["truncated"] is True
     assert len(json.dumps(result)) < 6000

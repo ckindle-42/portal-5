@@ -15,6 +15,7 @@ DEFAULT_KEY_ENV = "PIPELINE_API_KEY"  # env var name whose value is the Pipeline
 JUDGE_SEED = 0
 JUDGE_TOP_LOGPROBS = 20  # effort budget: alternatives returned for the answer token
 JUDGE_ANSWER_TOKENS = 8  # effort budget: room for a one-word answer, defensively markdown-wrapped
+JUDGE_REASON_TOKENS = 40
 JUDGE_TIMEOUT_SECONDS = 60  # effort budget: maximum wait for one local judgement
 MODEL_CONCURRENCY = 2  # effort budget: the engine behind the seat serves one request at a time
 MODEL_WORK_SECONDS = 300.0  # effort budget: wall time one stage may spend asking the Pipeline
@@ -256,6 +257,7 @@ def judge_cell(
     model: str,
     evidence: Sequence[Mapping[str, Any]] = (),
     prompt: str | None = None,
+    max_tokens: int = JUDGE_ANSWER_TOKENS,
 ) -> JudgeResult:
     """Judge one cell; missing probabilities or transport failures remain unjudged."""
     began = time.monotonic()
@@ -266,7 +268,7 @@ def judge_cell(
             messages=[{"role": "user", "content": prompt_text}],
             temperature=0,
             seed=JUDGE_SEED,
-            max_tokens=JUDGE_ANSWER_TOKENS,
+            max_tokens=max_tokens,
             logprobs=True,
             top_logprobs=JUDGE_TOP_LOGPROBS,
             reasoning_effort="none",

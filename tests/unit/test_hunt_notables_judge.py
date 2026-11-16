@@ -71,6 +71,29 @@ def test_notable_prompt_is_compact_and_carries_the_statement_and_examples():
     assert len(prompt) <= JUDGE_PROMPT_CHARS
 
 
+def test_opt_in_annotation_prompt_asks_for_a_short_reason_and_room_for_it(tmp_path):
+    cache_path = tmp_path / "judge.json"
+    judge_all(
+        [_notable()],
+        client=_Client(_response()),
+        model="seat",
+        cache_path=cache_path,
+    )
+    client = _Client(_response())
+    judge_all(
+        [_notable()],
+        client=client,
+        model="seat",
+        cache_path=cache_path,
+        explain=True,
+    )
+
+    request = client.calls[0]
+    assert len(client.calls) == 1
+    assert "short reason" in request["messages"][0]["content"]
+    assert request["max_tokens"] == 40
+
+
 def test_judge_scores_first_token_mass_once_and_caches_by_content_key(tmp_path):
     cache_path = tmp_path / "judge.json"
     client = _Client(_response())

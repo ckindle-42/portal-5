@@ -204,8 +204,9 @@ def hunt_start(
     request_budget: int = 2000,
     cell_budget: int = 10000,
     event_budget: int = 5000,
+    judge: bool = False,
 ) -> dict[str, Any]:
-    """Start a durable R2 cards-to-cases hunt with shared query and wall-time budgets."""
+    """Start an R2 Stage 1 hunt, optionally annotating its top leads with the judge."""
 
     def run() -> dict[str, Any]:
         start_t = 0.0 if start is None else start
@@ -222,6 +223,7 @@ def hunt_start(
                 "cells": cell_budget,
                 "events": event_budget,
             },
+            judge_enabled=judge,
         )
         nxt = (
             f"call hunt_status(job_id={job_id!r}) until COMPLETE, PARTIAL, or FAILED, then "
@@ -229,7 +231,13 @@ def hunt_start(
             f"hunt_case(job_id={job_id!r}, case=1)"
         )
         return hunt_jobs.compact(
-            {"job_id": job_id, "index": index, "status": "QUEUED", "next": nxt}
+            {
+                "job_id": job_id,
+                "index": index,
+                "judge_enabled": judge,
+                "status": "QUEUED",
+                "next": nxt,
+            }
         )
 
     return _guard("hunt_start", run)
@@ -243,7 +251,7 @@ def hunt_status(job_id: str | None = None, index: str | None = None) -> dict[str
 
 @mcp.tool()
 def hunt_leads(job_id: str | None = None, index: str | None = None, n: int = 3) -> dict[str, Any]:
-    """Return ranked R2 notables with their generator, judge score, and checkable references."""
+    """Return up to ten Stage 1 ordered R2 notables with optional judge annotations."""
     return _guard("hunt_leads", lambda: r2_hunt_jobs.leads_view(job_id, index, n))
 
 

@@ -17,11 +17,10 @@ from .jobs import BudgetedSearch, compact
 from .judge import BackpressureClient, JudgeClient, ThrottleBudgetExceededError
 from .notables.embedding import PipelineEmbeddingClient, embedding_from_env, embedding_requirement
 from .notables.pipeline import model_from_env, model_requirement, preflight
-from .notables.receipt import progress_update, read_json, write_json
+from .notables.receipt import progress_update, read_json
 from .notables.relate import RELATE_FILE, relate_stage
 from .notables.rerank import CALLS_FILE as RERANK_CALLS_FILE
 from .notables.rerank import REPORT_FILE as RERANK_FILE
-from .notables.rerank import product_order
 from .notables.run import (
     DEFAULT_GENERATORS,
     NOTABLES_FILE,
@@ -42,12 +41,11 @@ STAGE_ESTIMATES = {
     "cards": 60.0,
     "behaviours": 80.0,
     "notables": 350.0,
-    "judge": 590.0,
-    "rerank": 120.0,
+    "judge": 60.0,
     "relate": 120.0,
 }
-STAGE_ORDER = tuple(STAGE_ESTIMATES)
-LEADS_LIMIT = 3
+STAGE_ORDER = ("cards", "behaviours", "notables", "relate")
+LEADS_LIMIT = 10
 LEADS_RESPONSE_CHARS = 6000
 
 
@@ -153,23 +151,20 @@ def _cost(stages: Mapping[str, Any], snapshot: Mapping[str, Any]) -> dict[str, A
     }
 
 
-def _stage_plan(stage: str, remaining_seconds: float) -> dict[str, Any]:
-    if stage not in STAGE_ESTIMATES:
+def _stage_plan(
+    stage: str,
+    remaining_seconds: float,
+    *,
+    stage_order: Sequence[str] = STAGE_ORDER,
+) -> dict[str, Any]:
+    if stage not in stage_order:
         raise ValueError(f"unknown R2 hunt stage: {stage}")
-    position = STAGE_ORDER.index(stage)
-    later = list(STAGE_ORDER[position + 1 :])
-    reserved = {name: STAGE_ESTIMATES[name] for name in later if name != "judge"}
-    if "judge" in later:
-        fixed = sum(reserved.values())
-        flexible = max(
-            0.0,
-            remaining_seconds - STAGE_ESTIMATES[stage] - fixed,
-        )
-        reserved["judge"] = min(STAGE_ESTIMATES["judge"], flexible)
-        reserved = {name: reserved[name] for name in later}
+    position = stage_order.index(stage)
+    later = list(stage_order[position + 1 :])
+    reserved = {name: STAGE_ESTIMATES[name] for name in later}
     reserve_total = sum(reserved.values())
     available = max(0.0, remaining_seconds - reserve_total)
-    budget = min(STAGE_ESTIMATES[stage], available) if stage in {"judge", "rerank"} else available
+    budget = min(STAGE_ESTIMATES[stage], available) if stage == "judge" else available
     plan = {
         "stage": stage,
         "remaining_s": round(max(0.0, remaining_seconds), 1),
@@ -179,17 +174,10 @@ def _stage_plan(stage: str, remaining_seconds: float) -> dict[str, Any]:
         "reserved_s": round(reserve_total, 1),
         "shortfall_s": round(max(0.0, STAGE_ESTIMATES[stage] - budget), 1),
         "buffer_s": round(max(0.0, budget - STAGE_ESTIMATES[stage]), 1),
-        "cut_policy": "stage1_rank"
+        "cut_policy": "stage1_order_annotation_limit"
         if stage == "judge" and budget < STAGE_ESTIMATES[stage]
         else None,
     }
-    if stage == "rerank":
-        plan["council_budget"] = {
-            "source": "awaiting_probe",
-            "deadline_seconds": round(budget, 1),
-            "seconds_per_call": None,
-            "derived_budget": 0,
-        }
     return plan
 
 
@@ -214,11 +202,12 @@ def _enter_stage(
     state_lock: threading.RLock,
     out: Path,
     effort: HuntBudget,
+    stage_order: Sequence[str],
 ) -> dict[str, Any]:
     if effort.job_remaining() <= 0:
         effort.exhausted = "job_deadline_exceeded"
         raise HuntBudgetExceededError(effort.exhausted)
-    plan = _stage_plan(name, effort.job_remaining())
+    plan = _stage_plan(name, effort.job_remaining(), stage_order=stage_order)
     effort.set_stage_deadline(name, plan["budget_s"])
     effort.phase = name
     effort.update(phase=name)
@@ -252,9 +241,10 @@ def _stage_actions(
     knowledge_families: Sequence[str] | None,
     embedder: PipelineEmbeddingClient | None,
     effort: HuntBudget,
+    judge_enabled: bool = False,
 ) -> tuple[tuple[str, Callable[[], Any]], ...]:
     generators = (*DEFAULT_GENERATORS, SIMILAR_GENERATOR) if knowledge_store else DEFAULT_GENERATORS
-    return (
+    actions: list[tuple[str, Callable[[], Any]]] = [
         (
             "cards",
             lambda: cards_stage(
@@ -282,13 +272,11 @@ def _stage_actions(
                 embedder=embedder,
             ),
         ),
-        (
-            "judge",
-            lambda: _judge_stage_action(out, client, model, effort),
-        ),
-        ("rerank", lambda: _rerank_stage_action(out, client, effort)),
-        ("relate", lambda: relate_stage(out=out, search=search, judged_only=True)),
-    )
+    ]
+    if judge_enabled:
+        actions.append(("judge", lambda: _judge_stage_action(out, client, model, effort)))
+    actions.append(("relate", lambda: relate_stage(out=out, search=search)))
+    return tuple(actions)
 
 
 def _judge_stage_action(
@@ -302,16 +290,9 @@ def _judge_stage_action(
         model=model,
         deadline_seconds=available,
         request_budget=0 if available <= 0 else None,
+        max_notables=LEADS_LIMIT,
+        explain=True,
     )
-
-
-def _rerank_stage_action(out: Path, client: JudgeClient, effort: HuntBudget) -> dict[str, Any]:
-    rows = _read_rows(out / NOTABLES_FILE)
-    available = effort.remaining()
-    bounded = _stage_client(client, effort) if available > 0 else client
-    order, receipt = product_order(rows, run=out, council_client=bounded, deadline=available)
-    write_json(out / RERANK_FILE, {"order": order, "receipt": receipt})
-    return receipt
 
 
 def _execute_stages(
@@ -322,8 +303,9 @@ def _execute_stages(
     out: Path,
     effort: HuntBudget,
 ) -> None:
+    stage_order = tuple(stage for stage, _run_stage in actions)
     for stage, run_stage in actions:
-        plan = _enter_stage(stage, job_id, state, state_lock, out, effort)
+        plan = _enter_stage(stage, job_id, state, state_lock, out, effort, stage_order)
         stage_started = time.monotonic()
         result = run_stage()
         if stage == "judge" and isinstance(result, tuple) and len(result) == 2:
@@ -331,10 +313,6 @@ def _execute_stages(
             selection = receipt.get("selection")
             if isinstance(selection, Mapping):
                 state["judge_selection"] = dict(selection)
-        if stage == "rerank" and isinstance(result, Mapping):
-            council = _mapping(result.get("council"))
-            basis = _mapping(council.get("budget_basis"))
-            plan["council_budget"] = dict(basis) or plan.get("council_budget", {})
         plan["elapsed_s"] = round(max(0.0, time.monotonic() - stage_started), 1)
         reason = effort.expired_reason() or effort.exhausted
         plan["complete"] = reason is None
@@ -380,11 +358,12 @@ def _run(
     knowledge_store: Path | None,
     knowledge_families: Sequence[str] | None,
     embedder: PipelineEmbeddingClient | None,
+    judge_enabled: bool = False,
 ) -> None:
     out = _ROOT / job_id
     out.mkdir(parents=True, exist_ok=True)
     state = load(job_id) or {}
-    state.update(status="RUNNING", stage="cards", run_dir=str(out))
+    state.update(status="RUNNING", stage="cards", run_dir=str(out), judge_enabled=judge_enabled)
     state_lock = threading.RLock()
     with state_lock:
         _write(job_id, state)
@@ -419,6 +398,7 @@ def _run(
                 knowledge_families,
                 embedder,
                 effort,
+                judge_enabled,
             ),
             job_id,
             state,
@@ -491,6 +471,8 @@ def start(
     start_t: float,
     end_t: float,
     budgets: Mapping[str, float] | None = None,
+    *,
+    judge_enabled: bool = False,
 ) -> str:
     if not index.strip() or end_t <= start_t:
         raise ValueError("hunt index and a non-empty time window are required")
@@ -514,6 +496,7 @@ def start(
         "start": start_t,
         "end": end_t,
         "coverage_complete": False,
+        "judge_enabled": judge_enabled,
         "knowledge_store": str(store) if store is not None else None,
         "progress": {"current": {"phase": "queued"}, "stages": {}},
         "cost": {"elapsed_s": 0, "remaining_s": limits["job_seconds"]},
@@ -522,7 +505,19 @@ def start(
     with _lock:
         threading.Thread(
             target=_run,
-            args=(job_id, search, index, start_t, end_t, limits, target, store, families, embedder),
+            args=(
+                job_id,
+                search,
+                index,
+                start_t,
+                end_t,
+                limits,
+                target,
+                store,
+                families,
+                embedder,
+                judge_enabled,
+            ),
             daemon=True,
         ).start()
     return job_id
@@ -563,6 +558,7 @@ def status(job_id: str | None = None, index: str | None = None) -> dict[str, Any
             "coverage_complete",
             "coverage_reason",
             "partial_reason",
+            "judge_enabled",
             "progress",
             "cost",
             "knowledge_store",
@@ -650,6 +646,7 @@ def _lead(row: Mapping[str, Any], rank: int) -> dict[str, Any]:
     match = nearest[0] if nearest else {}
     candidate_text = str(row.get("what") or "")
     reference_text = str(match.get("statement") or "")
+    judge_answer = _mapping(row.get("judge")).get("answer")
     similarity_text = {
         "candidate": candidate_text[:400],
         "reference": reference_text[:400],
@@ -672,6 +669,7 @@ def _lead(row: Mapping[str, Any], rank: int) -> dict[str, Any]:
         "similarity_text_truncated": len(candidate_text) > 400 or len(reference_text) > 400,
         "judge_score": row.get("p_yes"),
         "judge": _brief_judge(row.get("judge")),
+        "judge_reason": _judge_reason(judge_answer),
         "generator_reliability": row.get("generator_reliability"),
         "first_seen": row.get("first_seen"),
         "last_seen": row.get("last_seen"),
@@ -692,11 +690,25 @@ def _short(value: Any, limit: int) -> Any:
     return value[:limit]
 
 
+def _judge_reason(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    first, _, rest = value.strip().partition(" ")
+    answer = (
+        rest.lstrip(" \t,.:;!?—–-") if first.strip("*.,:;!?").casefold() in {"yes", "no"} else value
+    )
+    return _short(answer.strip(), 160) or None
+
+
 def _brief_judge(value: Any) -> dict[str, Any] | None:
     if not isinstance(value, Mapping):
         return None
     keys = ("served_model", "reason", "cached", "seconds", "answer", "decision_index")
-    return {key: value[key] for key in keys if key in value}
+    return {
+        key: _short(value[key], 160) if key == "answer" else value[key]
+        for key in keys
+        if key in value
+    }
 
 
 def _brief_council(value: Mapping[str, Any] | None) -> dict[str, Any] | None:
