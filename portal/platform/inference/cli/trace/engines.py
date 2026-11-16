@@ -83,6 +83,19 @@ def parse_seat_fit(payload: object) -> dict[str, list[str]]:
     }
 
 
+def seat_fit_basis(payload: object) -> str:
+    """The memory budget the never_fit verdicts were measured against."""
+    data = payload if isinstance(payload, dict) else {}
+    available = data.get("available_gib")
+    source = str(data.get("budget_source") or "")
+    parts = []
+    if isinstance(available, int | float):
+        parts.append(f"available={float(available):.1f}GiB")
+    if source:
+        parts.append(source)
+    return " ".join(parts)
+
+
 def parse_nvidia_smi(text: str) -> dict[str, str]:
     """First GPU row of ``--query-gpu=pstate,clocks.current.graphics,power.limit,power.draw``."""
     for line in text.splitlines():
@@ -169,6 +182,9 @@ def seat_fit_hop(ctx: TraceContext) -> Hop:
         f"never_fit={len(verdicts['never_fit'])} undeclared={len(undeclared)}"
         f" unserved={len(verdicts['unserved'])}"
     )
+    basis = seat_fit_basis(payload)
+    if basis:
+        observed += f" ({basis})"
     if undeclared:
         return Hop(
             "seat fit", Status.FAIL, observed, "every never_fit declared", ",".join(undeclared)

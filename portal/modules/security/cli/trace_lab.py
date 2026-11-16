@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import time
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -17,8 +18,11 @@ from portal.modules.security.core.review.window import SplunkWindowSource
 from portal.modules.security.core.siem.spl_backend import SplunkBackend
 from portal.modules.security.core.siem.spl_detections import spl_for
 
-#: Techniques the lab's own live chains emit; the first the library covers is queried.
+#: Techniques the lab's own live chains emit; each is queried until one returns rows.
 LAB_TECHNIQUES = ("T1018", "T1087", "T1059.001", "T1083")
+#: Fresh ingest first; the lab's corpus is historical, so the wide window follows.
+LAB_WINDOWS = ("-7d", "-400d")
+ENV_FILE = Path(__file__).resolve().parents[4] / ".env"
 
 
 def parse_server_info(text: str) -> dict[str, str]:
@@ -82,27 +86,40 @@ def hunt_query_hop(index: str) -> dict[str, str]:
 
 def labelled_event_hop(backend: Any) -> dict[str, str]:
     """One event found by the detection library's own SPL for a technique the lab emits."""
-    for technique in LAB_TECHNIQUES:
-        if not spl_for(technique):
-            continue
-        result = backend.query(technique, {"earliest": "-7d", "latest": "now"})
-        rows = result.get("rows") or []
-        if rows:
+    empty: list[str] = []
+    for window in LAB_WINDOWS:
+        for technique in LAB_TECHNIQUES:
+            if not spl_for(technique):
+                continue
+            result = backend.query(technique, {"earliest": window, "latest": "now"})
+            rows = result.get("rows") or []
+            if not rows:
+                empty.append(f"{technique}{window}=0")
+                continue
             hosts = sorted({str(row.get("host") or "?") for row in rows})[:3]
-            observed = f"{technique} rows={len(rows)} hosts={','.join(hosts)}"
+            observed = f"{technique} rows={len(rows)} hosts={','.join(hosts)} window={window}"
             return _hop("labelled event", "PASS", observed, "live rows")
-        return _hop(
-            "labelled event",
-            "FAIL",
-            f"{technique} rows=0",
-            "live rows",
-            result.get("error") or "no labelled event in -7d",
-        )
-    return _hop("labelled event", "FAIL", "no detection SPL", "spl_detections entry")
+    return _hop(
+        "labelled event",
+        "FAIL",
+        " ".join(empty) or "no detection SPL",
+        "live rows",
+        "no labelled event in " + ", ".join(LAB_WINDOWS),
+    )
+
+
+def load_lab_env(path: Path = ENV_FILE) -> None:
+    """SplunkBackend reads ``LAB_SPLUNK_*`` from os.environ; its default is a container host."""
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        return
+    load_dotenv(path)
 
 
 def run() -> list[dict[str, str]]:
     """Splunk auth, the hunt's own query, and one labelled event read back."""
+    load_lab_env()
     backend = SplunkBackend()
     return [
         auth_hop(backend),

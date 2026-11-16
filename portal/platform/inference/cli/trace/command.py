@@ -10,7 +10,7 @@ from typing import Annotated, Any
 import typer
 
 from . import containers, engines, host, lab, pins, workspaces
-from .context import TraceContext, env_value, run_cmd
+from .context import TraceContext, env_value, host_url, run_cmd
 from .model import Hop, Section, Status, TraceReport, render_json, render_text
 
 Runner = Callable[[TraceContext, dict[str, Any]], list[Hop]]
@@ -57,10 +57,12 @@ def _repo_root() -> Path:
 def _context(repo_root: Path, budget: float, timeout: float) -> TraceContext:
     return TraceContext(
         repo_root=repo_root,
-        pipeline_url=env_value("PIPELINE_URL", "http://127.0.0.1:9099").rstrip("/"),
+        pipeline_url=host_url(
+            "PIPELINE_URL", "http://127.0.0.1:9099", "PORTAL_REVIEW_PIPELINE_URL"
+        ),
         api_key=env_value("PIPELINE_API_KEY"),
-        omlx_url=env_value("OMLX_URL", "http://127.0.0.1:8085").rstrip("/"),
-        ollama_url=env_value("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/"),
+        omlx_url=host_url("OMLX_URL", "http://127.0.0.1:8085", "PORTAL_REVIEW_OMLX_URL"),
+        ollama_url=host_url("OLLAMA_URL", "http://127.0.0.1:11434", "PORTAL_REVIEW_OLLAMA_URL"),
         budget_s=budget,
         timeout_s=timeout,
     )

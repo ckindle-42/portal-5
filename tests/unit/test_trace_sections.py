@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import plistlib
 from pathlib import Path
 
@@ -9,9 +10,36 @@ import pytest
 import typer
 
 from portal.modules.security.cli import trace_lab
-from portal.platform.inference.cli.trace import containers, engines, host, lab, pins, workspaces
+from portal.platform.inference.cli.trace import (
+    containers,
+    context,
+    engines,
+    host,
+    lab,
+    pins,
+    workspaces,
+)
 from portal.platform.inference.cli.trace.command import selected
 from portal.platform.inference.cli.trace.model import Hop, Status
+
+# ── context ──────────────────────────────────────────────────────────────────
+
+
+def test_host_url_rewrites_container_hostnames_for_the_host(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PIPELINE_URL", "http://portal-pipeline:9099")
+    monkeypatch.setenv("OLLAMA_URL", "http://host.docker.internal:11434")
+    monkeypatch.setenv("OMLX_URL", "http://127.0.0.1:8085")
+    assert context.host_url("PIPELINE_URL", "http://127.0.0.1:9099") == "http://127.0.0.1:9099"
+    assert context.host_url("OLLAMA_URL", "") == "http://127.0.0.1:11434"
+    assert context.host_url("OMLX_URL", "") == "http://127.0.0.1:8085"
+    monkeypatch.setenv("PORTAL_REVIEW_PIPELINE_URL", "http://10.0.1.5:9099")
+    assert (
+        context.host_url("PIPELINE_URL", "http://127.0.0.1:9099", "PORTAL_REVIEW_PIPELINE_URL")
+        == "http://10.0.1.5:9099"
+    )
+
 
 # ── host ─────────────────────────────────────────────────────────────────────
 
@@ -28,14 +56,51 @@ def test_plist_helpers_default_and_read_declared_values() -> None:
     )
     assert host.process_type(cfg) == "Standard"
     assert host.env_keys(cfg) == ["PATH"]
-    assert host.expects_running(cfg) is True
+    assert host.schedule(cfg) == "oneshot"
     assert host.process_type({}) == "Standard"
     assert host.env_keys({}) == []
 
 
-def test_launchctl_pid_reads_the_running_pid_only() -> None:
-    assert host.launchctl_pid('{\n\t"PID" = 94943;\n\t"Label" = "x";\n};') == 94943
-    assert host.launchctl_pid('{\n\t"Label" = "x";\n};') is None
+def test_schedule_separates_resident_from_periodic_jobs() -> None:
+    assert host.schedule({"KeepAlive": True}) == "resident"
+    assert host.schedule({"KeepAlive": {"SuccessfulExit": False}}) == "resident"
+    assert host.schedule({"RunAtLoad": True, "StartInterval": 120}) == "periodic"
+    assert host.schedule({"StartCalendarInterval": {"Hour": 4}}) == "periodic"
+    assert host.schedule({"RunAtLoad": True}) == "oneshot"
+
+
+def test_install_dir_sends_root_daemons_to_the_system_domain() -> None:
+    assert host.install_dir({"UserName": "root"}) == Path("/Library/LaunchDaemons")
+    assert host.install_dir({}) == host._DEFAULT_INSTALL_DIR
+    assert host.is_daemon({"UserName": "root"}) and not host.is_daemon({})
+
+
+def test_parse_job_state_reads_runs_pid_and_last_exit() -> None:
+    printed = (
+        "\tgui/501/com.portal5.omlx = {\n"
+        "\tstate = running\n"
+        "\tpid = 94943\n"
+        "\truns = 13028\n"
+        "\tlast exit code = 0\n"
+        "\trun interval = 120 seconds\n"
+    )
+    state = host.parse_job_state(printed, loaded=True)
+    assert (state.running, state.pid, state.runs, state.last_exit, state.interval_s) == (
+        True,
+        94943,
+        13028,
+        0,
+        120,
+    )
+    assert host.parse_job_state("", loaded=False).loaded is False
+
+
+def test_program_paths_and_missing_paths(tmp_path: Path) -> None:
+    cfg = {"ProgramArguments": ["/bin/bash", str(tmp_path / "job.sh")]}
+    assert host.program_paths(cfg) == ["/bin/bash", str(tmp_path / "job.sh")]
+    assert host.missing_program_paths(cfg) == [str(tmp_path / "job.sh")]
+    assert host.program_paths({"Program": "/bin/true"}) == ["/bin/true"]
+    assert host.program_paths({}) == []
 
 
 def test_parse_priority_takes_the_first_number() -> None:
@@ -56,21 +121,75 @@ def test_priority_hop_allows_a_scheduled_helper_above_background() -> None:
     assert host.priority_hop("com.portal5.log-rotate", 4).status is Status.FAIL
 
 
-def test_installed_hop_reports_a_missing_plist(tmp_path: Path) -> None:
-    hops = host.installed_hop("com.portal5.omlx", {}, tmp_path)
+def test_installed_hop_reports_a_missing_plist() -> None:
+    hops = host.installed_hop("com.portal5.omlx", {}, None)
     assert hops[0].status is Status.FAIL
-    assert hops[0].observed == "installed=missing"
+    assert hops[0].observed.startswith("installed=missing")
 
 
-def test_installed_hop_compares_process_type_and_env_keys(tmp_path: Path) -> None:
+def test_installed_hop_compares_process_type_and_env_keys() -> None:
     cfg = {"ProcessType": "Standard", "EnvironmentVariables": {"PATH": "/bin", "HOME": "/h"}}
-    (tmp_path / "com.portal5.omlx.plist").write_bytes(
+    installed = host.parse_plist(
         _plist(ProcessType="Background", EnvironmentVariables={"PATH": "/bin"})
     )
-    hops = host.installed_hop("com.portal5.omlx", cfg, tmp_path)
+    hops = host.installed_hop("com.portal5.omlx", cfg, installed)
     assert hops[0].status is Status.FAIL  # ProcessType differs
     assert hops[1].status is Status.FAIL  # HOME missing
     assert hops[1].detail == "missing=HOME"
+
+
+def test_installed_hop_fails_a_missing_program_and_warns_on_stale_args(tmp_path: Path) -> None:
+    cfg = {"ProgramArguments": ["/usr/bin/true", "/usr/local/libexec/portal5-powermetrics"]}
+    installed = {"ProgramArguments": ["/usr/bin/true", "/usr/local/libexec/portal5-powermetrics"]}
+    hops = host.installed_hop("com.portal5.powermetrics", cfg, installed)
+    program = next(hop for hop in hops if hop.name.startswith("program "))
+    assert program.status is Status.FAIL
+    assert "/usr/local/libexec/portal5-powermetrics" in program.observed
+
+    stale = {"ProgramArguments": ["/usr/bin/true", "/usr/local/bin/portal5-powermetrics"]}
+    hops = host.installed_hop("com.portal5.powermetrics", cfg, stale)
+    args = next(hop for hop in hops if hop.name.startswith("args "))
+    assert args.status is Status.WARN and "installer" in args.detail
+
+
+def test_installed_hop_warns_on_unsubstituted_placeholders() -> None:
+    cfg = {"ProgramArguments": ["__OMLX_VENV__/bin/python", "-m", "omlx.cli"]}
+    hop = host.program_hop("com.portal5.omlx", cfg)
+    assert hop.status is Status.WARN and "__OMLX_VENV__" in hop.observed
+
+
+def test_installed_hop_skips_argument_drift_for_templated_plists() -> None:
+    cfg = {"ProgramArguments": ["/bin/bash", "__PORTAL_ROOT__/scripts/x.sh"]}
+    installed = {"ProgramArguments": ["/bin/bash", "/opt/portal/scripts/x.sh"]}
+    names = [hop.name for hop in host.installed_hop("com.portal5.x", cfg, installed)]
+    assert not any(name.startswith("args ") for name in names)
+
+
+def test_process_hop_requires_a_resident_job_to_have_a_pid() -> None:
+    cfg = {"KeepAlive": True}
+    hop = host.process_hop("com.portal5.omlx", cfg, host.JobState(loaded=True, runs=3, last_exit=0))
+    assert hop.status is Status.FAIL and hop.observed == "pid=none (KeepAlive)"
+    missing = host.process_hop("com.portal5.omlx", cfg, host.JobState(loaded=False))
+    assert missing.status is Status.FAIL and missing.observed == "not loaded"
+
+
+def test_process_hop_passes_a_periodic_job_on_its_last_run() -> None:
+    cfg = {"RunAtLoad": True, "StartInterval": 120}
+    healthy = host.process_hop(
+        "com.portal5.omlx-watchdog",
+        cfg,
+        host.JobState(loaded=True, runs=13028, last_exit=0, interval_s=120),
+    )
+    assert healthy.status is Status.PASS
+    assert healthy.observed == "runs=13028 last exit=0 every 120s"
+    failed = host.process_hop(
+        "com.portal5.omlx-watchdog", cfg, host.JobState(loaded=True, runs=2, last_exit=1)
+    )
+    assert failed.status is Status.FAIL and "last exit=1" in failed.observed
+    never = host.process_hop(
+        "com.portal5.omlx-watchdog", cfg, host.JobState(loaded=True, runs=0, last_exit=None)
+    )
+    assert never.status is Status.WARN
 
 
 # ── containers ───────────────────────────────────────────────────────────────
@@ -169,12 +288,28 @@ def test_start_hop_fails_when_the_container_predates_its_image() -> None:
     assert containers.start_after_build_hop(_container(started=0.0), 1.0).status is Status.WARN
 
 
-def test_revision_hop_fails_without_the_label_and_warns_when_dirty() -> None:
+def test_revision_hop_warns_before_the_label_existed_and_fails_after() -> None:
+    predated = containers.revision_hop(
+        "repo", "", "abc123456789", [], 1000.0, ("c52e81568aa", 2000.0)
+    )
+    assert predated.status is Status.WARN and "predates" in predated.detail
+    late = containers.revision_hop("repo", "", "abc123456789", [], 3000.0, ("c52e81568aa", 2000.0))
+    assert late.status is Status.FAIL and "rebuild" in late.detail
     assert containers.revision_hop("repo", "", "abc123456789", []).status is Status.FAIL
     assert containers.revision_hop("repo", "abc123456789", "abc123456789", []).status is Status.PASS
     dirty = containers.revision_hop("repo", "abc123456789", "abc123456789", ["M portal/x.py"])
     assert dirty.status is Status.WARN
     assert containers.revision_hop("repo", "999123456789", "abc123456789", []).status is Status.FAIL
+
+
+def test_label_commit_reads_the_pickaxe_result(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(containers, "_git", lambda root, args: "c52e81568abc 1794790000")
+    assert containers.label_commit(Path("/repo"), "Dockerfile.pipeline") == (
+        "c52e81568abc",
+        1794790000.0,
+    )
+    monkeypatch.setattr(containers, "_git", lambda root, args: "")
+    assert containers.label_commit(Path("/repo"), "Dockerfile.mcp") == ("", 0.0)
 
 
 def test_config_hop_lists_baked_files_that_differ_from_the_repo(tmp_path: Path) -> None:
@@ -387,6 +522,14 @@ def test_parse_seat_fit_keeps_the_three_verdict_lists() -> None:
     assert engines.parse_seat_fit(None)["never_fit"] == []
 
 
+def test_seat_fit_basis_names_the_budget_the_verdicts_used() -> None:
+    basis = engines.seat_fit_basis(
+        {"available_gib": 17.234, "budget_source": "oMLX final_ceiling (live)"}
+    )
+    assert basis == "available=17.2GiB oMLX final_ceiling (live)"
+    assert engines.seat_fit_basis({}) == ""
+
+
 def test_parse_nvidia_smi_and_nice_rows() -> None:
     assert engines.parse_nvidia_smi("P0, 1303, 250.00, 54.57\n") == {
         "pstate": "P0",
@@ -408,6 +551,51 @@ def test_parse_server_info_reads_version_and_name() -> None:
     assert trace_lab.parse_server_info(text) == {"version": "9.2.1", "serverName": "lab-splunk"}
     assert trace_lab.parse_server_info("not json") == {}
     assert trace_lab.parse_server_info("{}") == {}
+
+
+def test_load_lab_env_exports_the_splunk_endpoint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("LAB_SPLUNK_URL", raising=False)
+    monkeypatch.delenv("LAB_SPLUNK_INDEX", raising=False)
+    env = tmp_path / ".env"
+    env.write_text("LAB_SPLUNK_URL=https://10.0.1.30:8089\nLAB_SPLUNK_INDEX=portal5_lab\n")
+    trace_lab.load_lab_env(env)
+    assert os.environ["LAB_SPLUNK_URL"] == "https://10.0.1.30:8089"
+    assert os.environ["LAB_SPLUNK_INDEX"] == "portal5_lab"
+
+
+class _LabBackend:
+    def __init__(self, hits: dict[tuple[str, str], int]) -> None:
+        self.hits = hits
+        self.calls: list[tuple[str, str]] = []
+
+    def query(self, technique: str, window: dict[str, str]) -> dict[str, object]:
+        self.calls.append((technique, window["earliest"]))
+        rows = [{"host": "lab-host"}] * self.hits.get((technique, window["earliest"]), 0)
+        return {"rows": rows}
+
+
+def test_labelled_event_hop_falls_back_to_the_corpus_window(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        trace_lab,
+        "spl_for",
+        lambda technique: "index=portal5_lab" if technique == "T1059.001" else None,
+    )
+    backend = _LabBackend({("T1059.001", "-400d"): 25})
+    hop = trace_lab.labelled_event_hop(backend)
+    assert hop["status"] == "PASS"
+    assert "rows=25" in hop["observed"] and "window=-400d" in hop["observed"]
+    assert backend.calls == [("T1059.001", "-7d"), ("T1059.001", "-400d")]
+
+
+def test_labelled_event_hop_fails_with_every_empty_window(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(trace_lab, "spl_for", lambda technique: "index=portal5_lab")
+    hop = trace_lab.labelled_event_hop(_LabBackend({}))
+    assert hop["status"] == "FAIL"
+    assert "T1059.001-7d=0" in hop["observed"] and "T1059.001-400d=0" in hop["observed"]
 
 
 def _lab_hop(**extra: object) -> dict[str, str]:

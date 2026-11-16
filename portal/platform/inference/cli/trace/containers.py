@@ -177,23 +177,40 @@ def start_after_build_hop(container: ContainerRow, built: float) -> Hop:
     )
 
 
-def revision_hop(repo: str, label: str, head: str, dirty: list[str]) -> Hop:
-    if not label:
+def revision_hop(
+    repo: str,
+    label: str,
+    head: str,
+    dirty: list[str],
+    built: float = 0.0,
+    introduced: tuple[str, float] = ("", 0.0),
+) -> Hop:
+    """A label that exists must match HEAD; an absent one is a WARN only if the label postdates the build."""
+    if label:
+        status = Status.PASS if head and label.startswith(head[:12]) else Status.FAIL
+        detail = f"uncommitted in copied paths: {', '.join(dirty[:4])}" if dirty else ""
         return Hop(
             f"revision {repo}",
-            Status.FAIL,
-            "label=absent",
-            "org.opencontainers.image.revision",
-            "image predates the build label; rebuild it",
+            Status.WARN if status is Status.PASS and dirty else status,
+            f"label={label[:12]}",
+            f"head={head[:12] or 'unknown'}",
+            detail,
         )
-    status = Status.PASS if head and label.startswith(head[:12]) else Status.FAIL
-    detail = f"uncommitted in copied paths: {', '.join(dirty[:4])}" if dirty else ""
+    sha, since = introduced
+    if since and built and built < since:
+        return Hop(
+            f"revision {repo}",
+            Status.WARN,
+            "label=absent",
+            "revision label (added later)",
+            f"built={_stamp(built)} predates {sha[:7]}; a rebuild stamps it",
+        )
     return Hop(
         f"revision {repo}",
-        Status.WARN if status is Status.PASS and dirty else status,
-        f"label={label[:12]}",
-        f"head={head[:12] or 'unknown'}",
-        detail,
+        Status.FAIL,
+        "label=absent",
+        "org.opencontainers.image.revision",
+        f"built={_stamp(built) or 'unknown'} without a label; rebuild it",
     )
 
 
@@ -277,36 +294,49 @@ def _compose_dockerfile(repo_root: Path, service: str) -> str:
     return found.group(1) if found else ""
 
 
-def _image_hops(container: ContainerRow, images: list[ImageRow]) -> list[Hop]:
-    newest = newest_image(images, container.repo)
-    if newest is None:
-        return [
-            Hop(f"image {container.name}", Status.FAIL, f"repo={container.repo}", "built image")
-        ]
-    built = parse_iso(
-        run_cmd(["docker", "image", "inspect", newest.image_id, "--format", "{{.Created}}"]).stdout
-    )
-    return [image_freshness_hop(container, newest), start_after_build_hop(container, built)]
+def _image_created(image_id: str) -> float:
+    result = run_cmd(["docker", "image", "inspect", image_id, "--format", "{{.Created}}"])
+    return parse_iso(result.stdout)
 
 
-def _revision_hops(
+def label_commit(repo_root: Path, dockerfile: str) -> tuple[str, float]:
+    """The commit that introduced the revision label into ``dockerfile``, and its timestamp."""
+    parts = _git(
+        repo_root, ["log", "-1", "--format=%H %ct", "-S", _REVISION_LABEL, "--", dockerfile]
+    ).split()
+    return (parts[0], float(parts[1])) if len(parts) == 2 else ("", 0.0)
+
+
+def _container_hops(
     container: ContainerRow,
     images: list[ImageRow],
     repo_root: Path,
     dockerfiles: dict[str, list[str]],
 ) -> list[Hop]:
+    """Image identity, start time, revision label and config state for one container."""
     newest = newest_image(images, container.repo)
-    copied = dockerfiles.get(_compose_dockerfile(repo_root, container.service), [])
-    if newest is None or not copied:
-        return []
-    head = _git(repo_root, ["rev-list", "-1", "HEAD", "--", *copied])
-    dirty = [
-        line
-        for line in _git(repo_root, ["status", "--porcelain", "--", *copied]).splitlines()
-        if line.strip()
-    ]
-    label = _image_label(newest.image_id, _REVISION_LABEL)
-    return [revision_hop(container.repo, label, head, dirty)]
+    if newest is None:
+        return [
+            Hop(f"image {container.name}", Status.FAIL, f"repo={container.repo}", "built image")
+        ]
+    built = _image_created(newest.image_id)
+    hops = [image_freshness_hop(container, newest), start_after_build_hop(container, built)]
+    dockerfile = _compose_dockerfile(repo_root, container.service)
+    copied = dockerfiles.get(dockerfile, [])
+    if copied:
+        head = _git(repo_root, ["rev-list", "-1", "HEAD", "--", *copied])
+        dirty = [
+            line
+            for line in _git(repo_root, ["status", "--porcelain", "--", *copied]).splitlines()
+            if line.strip()
+        ]
+        label = _image_label(newest.image_id, _REVISION_LABEL)
+        hops.append(
+            revision_hop(
+                container.repo, label, head, dirty, built, label_commit(repo_root, dockerfile)
+            )
+        )
+    return hops
 
 
 def run(ctx: Any) -> list[Hop]:
@@ -325,8 +355,7 @@ def run(ctx: Any) -> list[Hop]:
         if container is None or not container.image_ref:
             hops.append(Hop(f"image {name}", Status.FAIL, "inspect failed", "readable container"))
             continue
-        hops.extend(_image_hops(container, images))
-        hops.extend(_revision_hops(container, images, repo_root, dockerfiles))
+        hops.extend(_container_hops(container, images, repo_root, dockerfiles))
         hops.append(config_hop(container, repo_root, baked_hashes(name, CONFIG_PROBES)))
     if not hops:
         hops.append(Hop("containers", Status.FAIL, "no portal containers", "stack running"))

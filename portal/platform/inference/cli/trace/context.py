@@ -6,6 +6,10 @@ import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlsplit
+
+#: Names that only resolve inside the compose network.
+CONTAINER_HOSTS = frozenset({"host.docker.internal", "portal-pipeline", "portal_pipeline"})
 
 
 @dataclass(frozen=True)
@@ -47,6 +51,17 @@ def env_value(name: str, default: str = "") -> str:
         if line.startswith(f"{name}="):
             return line.partition("=")[2].strip().strip("\"'") or default
     return default
+
+
+def host_url(name: str, default: str, override: str = "") -> str:
+    """A host-side endpoint: .env carries container hostnames, which become loopback here."""
+    value = (env_value(override) if override else "") or env_value(name, default)
+    if Path("/.dockerenv").exists():
+        return value.rstrip("/")
+    host = urlsplit(value).hostname or ""
+    if host not in CONTAINER_HOSTS:
+        return value.rstrip("/")
+    return value.replace(host, "127.0.0.1", 1).rstrip("/")
 
 
 def run_cmd(cmd: list[str], timeout: float = 20.0) -> CommandResult:
