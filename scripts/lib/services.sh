@@ -473,6 +473,54 @@ _launch_stop_speech() {
     fi
 }
 
+_launch_install_omlx() {
+    # Re-render and reload the fixed-path oMLX LaunchAgent. The repo plist is a
+    # template: a copied copy runs nothing at the next login.
+    if [ "$(uname)" != "Darwin" ] || [ "$(uname -m)" != "arm64" ]; then
+        echo "  ℹ️  The oMLX LaunchAgent is macOS / Apple Silicon only."
+        exit 0
+    fi
+    local label="com.portal5.omlx"
+    local src="$PORTAL_ROOT/deploy/launchd/${label}.plist"
+    local dst="$HOME/Library/LaunchAgents/${label}.plist"
+    local domain="gui/$(id -u)"
+    local venv
+    venv="$(_omlx_venv_path)"
+    if [ ! -f "$src" ]; then
+        echo "  ❌ Missing: $src"
+        exit 1
+    fi
+    if [ ! -x "$venv/bin/python" ]; then
+        echo "  ❌ oMLX venv interpreter missing: $venv/bin/python"
+        echo "     install it with: uv run python scripts/omlx_venv_install.py"
+        exit 1
+    fi
+
+    mkdir -p "$HOME/Library/LaunchAgents"
+    if ! _render_launchd_plist "$src" "$dst"; then
+        echo "  ❌ Could not render $src — a placeholder has no substitution"
+        exit 1
+    fi
+    if ! plutil -lint "$dst" >/dev/null; then
+        echo "  ❌ Rendered plist failed plutil -lint: $dst"
+        exit 1
+    fi
+    launchctl bootout "${domain}/${label}" 2>/dev/null || true
+    if ! launchctl bootstrap "$domain" "$dst"; then
+        echo "  ❌ Failed to bootstrap ${label} from ${dst}"
+        exit 1
+    fi
+    if launchctl print "${domain}/${label}" 2>/dev/null | grep -q "state = running"; then
+        echo "[portal-5] ✅ oMLX LaunchAgent rendered and loaded: ${dst}"
+    else
+        echo "[portal-5] ⚠️  oMLX LaunchAgent loaded but not running — check:"
+        echo "   launchctl print ${domain}/${label}"
+        echo "   tail -50 /opt/homebrew/var/log/omlx.log"
+    fi
+    echo "  Venv:   ${venv}"
+    echo "  Health: curl -fsS http://127.0.0.1:8085/health"
+}
+
 _launch_install_powermetrics() {
     # Install powermetrics reader daemon (requires sudo — powermetrics needs root)
     if [ "$(uname)" != "Darwin" ]; then
@@ -497,8 +545,17 @@ _launch_install_powermetrics() {
         echo "  ❌ System Python missing: /usr/bin/python3"
         exit 1
     fi
+    PLIST_RENDERED="$(mktemp "${TMPDIR:-/tmp}/portal5-plist.XXXXXX")"
+    if ! _render_launchd_plist "$PLIST_SRC" "$PLIST_RENDERED" \
+        || ! plutil -lint "$PLIST_RENDERED" >/dev/null; then
+        rm -f "$PLIST_RENDERED"
+        echo "  ❌ Could not render a valid plist from $PLIST_SRC"
+        exit 1
+    fi
 
     echo "[portal-5] Installing powermetrics daemon (requires sudo)..."
+    # Stop the running job first: its program and plist both change below.
+    sudo launchctl bootout system/com.portal5.powermetrics 2>/dev/null || true
     sudo install -d -o root -g wheel -m 0755 /usr/local/libexec || {
         echo "  ❌ Failed to secure /usr/local/libexec"
         exit 1
@@ -507,27 +564,37 @@ _launch_install_powermetrics() {
         echo "  ❌ Failed to install daemon script"
         exit 1
     }
-    sudo install -o root -g wheel -m 0644 "$PLIST_SRC" "$PLIST_DST" || {
+    sudo install -o root -g wheel -m 0644 "$PLIST_RENDERED" "$PLIST_DST" || {
         echo "  ❌ Failed to install plist"
         exit 1
     }
-    sudo launchctl unload "$PLIST_DST" 2>/dev/null || true
-    sudo launchctl load -w "$PLIST_DST" || {
+    if ! cmp -s "$PLIST_RENDERED" "$PLIST_DST"; then
+        rm -f "$PLIST_RENDERED"
+        echo "  ❌ Installed plist does not match the rendered repo copy"
+        exit 1
+    fi
+    rm -f "$PLIST_RENDERED"
+    sudo launchctl bootstrap system "$PLIST_DST" || {
         echo "  ❌ Failed to load powermetrics daemon"
         exit 1
     }
 
-    # A pre-a55e73caf install registered a user agent; the root daemon replaced it.
+    # A pre-a55e73caf install ran the repo copy from /usr/local/bin. It must not
+    # linger: `ps` would keep reporting the daemon "running" from the old path.
     LEGACY_AGENT="$HOME/Library/LaunchAgents/com.portal5.powermetrics.plist"
     if [ -f "$LEGACY_AGENT" ]; then
         launchctl bootout "gui/$(id -u)/com.portal5.powermetrics" 2>/dev/null || true
         rm -f "$LEGACY_AGENT"
         echo "  Removed legacy user agent: $LEGACY_AGENT"
     fi
+    if [ -f "/usr/local/bin/portal5-powermetrics" ]; then
+        sudo rm -f "/usr/local/bin/portal5-powermetrics"
+        echo "  Removed legacy script: /usr/local/bin/portal5-powermetrics"
+    fi
 
     sleep 3
-    if ! ps -eo command | grep -q "[p]ortal5-powermetrics"; then
-        echo "  ❌ Daemon installed but not running — check: sudo launchctl print system/com.portal5.powermetrics"
+    if ! ps -eo command | grep -q "[/]usr/local/libexec/portal5-powermetrics"; then
+        echo "  ❌ Daemon installed but not running from $SCRIPT_DST — check: sudo launchctl print system/com.portal5.powermetrics"
         exit 1
     fi
     if [ -S "/tmp/portal5-powermetrics.sock" ]; then

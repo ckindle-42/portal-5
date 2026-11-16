@@ -331,24 +331,21 @@ Native and container Ollama are two separate config surfaces, and the compose fi
 
 Since 2026-10-22 this host runs oMLX as LaunchAgent `com.portal5.omlx` from the fixed venv `~/omlx-live/venv`, so access to the external `data01` volume survives wheel upgrades. The interpreter is a python.org ARM64 framework build signed with Developer ID. macOS associates external-volume access with the executable path and signing identity; Homebrew's ad-hoc Python changes identity when Homebrew installs a new Python build, while package upgrades in the fixed venv retain the signed framework interpreter. `scripts/omlx_venv_install.py` selects Python 3.11, 3.12, or 3.13, verifies `platform.machine() == "arm64"` and `codesign -dv` output, downloads the matching macOS 15 universal2 wheel from the GitHub release, and stages the venv before swapping it into place. It does not install Python. Set `OMLX_VENV_PATH` in the repo `.env` when choosing a non-default location, and render the plist with that same path. If no eligible interpreter is present, install a universal2 framework build from [python.org](https://www.python.org/downloads/macos/) and rerun the installer.
 
-The LaunchAgent template is `deploy/launchd/com.portal5.omlx.plist`. It runs `python -m omlx.cli serve`, uses the existing `/opt/homebrew/var/log/omlx.log` stdout and stderr paths, and preserves the Homebrew PATH. Render and lint the plist when installing the agent:
+The LaunchAgent template is `deploy/launchd/com.portal5.omlx.plist`. It runs `python -m omlx.cli serve`, uses the existing `/opt/homebrew/var/log/omlx.log` stdout and stderr paths, and preserves the Homebrew PATH. Install or re-render the agent with:
 
 ```bash
-VENV="$HOME/omlx-live/venv"
-PLIST="$HOME/Library/LaunchAgents/com.portal5.omlx.plist"
-mkdir -p "$HOME/Library/LaunchAgents"
-sed -e "s#__OMLX_VENV__#$VENV#g" -e "s#__HOME__#$HOME#g" \
-  deploy/launchd/com.portal5.omlx.plist > "$PLIST"
-plutil -lint "$PLIST"
+./launch.sh install-omlx
 ```
+
+That renders the template (`__OMLX_VENV__`, `__HOME__`), lints it, and bootstraps the label. Copying the template into `~/Library/LaunchAgents/` instead leaves the placeholders in place: launchd keeps the program it loaded until the next bootstrap, then cannot start the agent at login. `./launch.sh up` compares the installed copy with the rendered template and names this installer when they differ.
 
 Numbered host cutover checklist:
 
 1. Run `uv run python scripts/omlx_venv_install.py` and confirm the installer reports the fixed `~/omlx-live/venv` path.
-2. Render and lint the plist using the commands above.
+2. Install the agent with `./launch.sh install-omlx`.
 3. Stop the Homebrew formula with `brew services stop jundot/omlx/omlx`.
 4. Boot out any remaining Homebrew LaunchAgent with `launchctl bootout "gui/$(id -u)/sh.brew.omlx"` (ignore the error only if the label is already unloaded).
-5. Bootstrap the new LaunchAgent with `launchctl bootstrap "gui/$(id -u)" "$PLIST"`.
+5. Re-run `./launch.sh install-omlx` after step 4 if the Homebrew agent had taken the label.
 6. Verify `launchctl print "gui/$(id -u)/com.portal5.omlx"`, `curl -fsS http://127.0.0.1:8085/health`, and the expected model count. Keep the Homebrew formula installed until all three checks pass.
 
 Rollback: boot out `com.portal5.omlx`, restart the Homebrew formula with `brew services start jundot/omlx/omlx`, and verify `/health` plus the expected model count. Keep `~/.omlx/settings.json` and `model_settings.json` in place; the engine updater makes timestamped copies before a package switch and restores them after rollback. Do not uninstall the formula until the venv service has passed its live check.

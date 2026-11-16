@@ -466,6 +466,77 @@ _check_image_freshness() {
     fi
 }
 
+# ── launchd plists: render the repo template, compare the installed copy ─────
+# The venv the oMLX LaunchAgent runs: environment, then repo .env, then the fixed
+# default — the same order scripts/omlx-watchdog.sh uses.
+_omlx_venv_path() {
+    local venv="${OMLX_VENV_PATH:-}"
+    if [ -z "$venv" ] && [ -f "${PORTAL_ROOT:-.}/.env" ]; then
+        venv="$(grep -m1 '^OMLX_VENV_PATH=' "${PORTAL_ROOT:-.}/.env" 2>/dev/null \
+            | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//')"
+    fi
+    printf '%s' "${venv:-$HOME/omlx-live/venv}"
+}
+
+# Render a deploy/launchd template to $2; a token it cannot substitute is an error,
+# never a plist with a placeholder left in it.
+_render_launchd_plist() {
+    local src="$1" dst="$2" tmp
+    tmp="$(mktemp "${TMPDIR:-/tmp}/portal5-plist.XXXXXX")" || return 1
+    if ! sed -e "s#__PORTAL_ROOT__#${PORTAL_ROOT}#g" \
+            -e "s#__HOME__#${HOME}#g" \
+            -e "s#__LOG_DIR__#${HOME}/.portal5/logs#g" \
+            -e "s#__OMLX_VENV__#$(_omlx_venv_path)#g" \
+            "$src" > "$tmp"; then
+        rm -f "$tmp"
+        return 1
+    fi
+    if grep -q "__[A-Z0-9_]*__" "$tmp"; then
+        rm -f "$tmp"
+        return 1
+    fi
+    mv -f "$tmp" "$dst"
+}
+
+# 0 installed plist is byte-identical to the rendered repo copy, 1 differs or is
+# missing, 2 the repo copy cannot be rendered for comparison.
+_launchd_plist_matches() {
+    local label="$1" dst="$2" src tmp rc
+    src="$PORTAL_ROOT/deploy/launchd/${label}.plist"
+    [ -f "$src" ] || return 2
+    [ -f "$dst" ] || return 1
+    tmp="$(mktemp "${TMPDIR:-/tmp}/portal5-plist.XXXXXX")" || return 2
+    if ! _render_launchd_plist "$src" "$tmp"; then
+        rm -f "$tmp"
+        return 2
+    fi
+    if cmp -s "$tmp" "$dst"; then rc=0; else rc=1; fi
+    rm -f "$tmp"
+    return "$rc"
+}
+
+# A LaunchAgent copied from the template runs nothing; `up` names the installer
+# rather than leaving the next login to discover it.
+_warn_omlx_plist_drift() {
+    [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ] || return 0
+    local label="com.portal5.omlx"
+    local dst="$HOME/Library/LaunchAgents/${label}.plist"
+    # No fixed venv means this host never took the venv cutover; nothing to check.
+    [ -x "$(_omlx_venv_path)/bin/python" ] || return 0
+    local rc=1
+    if [ -f "$dst" ]; then
+        if _launchd_plist_matches "$label" "$dst"; then rc=0; else rc=$?; fi
+    fi
+    case "$rc" in
+        0) return 0 ;;
+        1) [ -f "$dst" ] \
+            && echo "[portal-5]   ⚠️  oMLX LaunchAgent: installed plist differs from the rendered repo copy" \
+            || echo "[portal-5]   ⚠️  oMLX LaunchAgent: installed plist missing ($dst)" ;;
+        2) return 0 ;;
+    esac
+    echo "[portal-5]      repair: ./launch.sh install-omlx"
+}
+
 # ── Auto-start native services if installed but not running ─────────────────
 _ensure_native_services() {
     local ARCH
@@ -523,7 +594,8 @@ _ensure_native_services() {
 
     # ── oMLX inference server (host-native, :8085) ──────────────────────────
     # oMLX may be managed by the fixed-path Portal LaunchAgent or Homebrew.
-    local _omlx_venv="${OMLX_VENV_PATH:-$HOME/omlx-live/venv}"
+    local _omlx_venv
+    _omlx_venv="$(_omlx_venv_path)"
     local _omlx_venv_active=false
     local _omlx_service_domain="gui/$(id -u)"
     if [ -x "$_omlx_venv/bin/python" ] \
@@ -596,6 +668,8 @@ PY
         fi
     fi
 
+    _warn_omlx_plist_drift
+
     # ── powermetrics energy collector (root LaunchDaemon) ──────────────────
     # The pipeline's energy accounting reads /tmp/portal5-powermetrics.sock from a
     # root LaunchDaemon. `up` cannot reinstall it without sudo, so it reports a
@@ -605,7 +679,7 @@ PY
     local _pm_dst="/Library/LaunchDaemons/${_pm_label}.plist"
     if [ "$ARCH" = "arm64" ] && [ -f "$_pm_dst" ] && [ -f "$_pm_src" ]; then
         local _pm_problem=""
-        if ! diff -q "$_pm_src" "$_pm_dst" >/dev/null 2>&1; then
+        if ! _launchd_plist_matches "$_pm_label" "$_pm_dst"; then
             _pm_problem="installed plist differs from the repo copy"
         elif ! ps -eo command | grep -q "[p]ortal5-powermetrics"; then
             _pm_problem="daemon is not running"

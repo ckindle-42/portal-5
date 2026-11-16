@@ -35,7 +35,12 @@ def test_powermetrics_launchdaemon_uses_root_owned_install_targets():
     services = (_ROOT / "scripts/lib/services.sh").read_text(encoding="utf-8")
     assert 'SCRIPT_DST="/usr/local/libexec/portal5-powermetrics"' in services
     assert 'sudo install -o root -g wheel -m 0755 "$SCRIPT_SRC" "$SCRIPT_DST"' in services
-    assert 'sudo install -o root -g wheel -m 0644 "$PLIST_SRC" "$PLIST_DST"' in services
+    # The plist is rendered, installed, and proven byte-identical to that render:
+    # the live copy had drifted to the pre-a55e73caf /usr/local/bin layout.
+    assert '_render_launchd_plist "$PLIST_SRC" "$PLIST_RENDERED"' in services
+    assert 'sudo install -o root -g wheel -m 0644 "$PLIST_RENDERED" "$PLIST_DST"' in services
+    assert 'cmp -s "$PLIST_RENDERED" "$PLIST_DST"' in services
+    assert 'grep -q "[/]usr/local/libexec/portal5-powermetrics"' in services
 
 
 def _sample(cpu_mw: float) -> list[bytes]:
