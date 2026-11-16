@@ -175,7 +175,7 @@ def _observed(turn: StreamedTurn) -> str:
     return " ".join(parts)
 
 
-def seat_hop(seat: Seat, turn: StreamedTurn) -> Hop:
+def seat_hop(seat: Seat, turn: StreamedTurn, hints: dict[str, str] | None = None) -> Hop:
     """One seat's verdict: refused, empty, usage-less or served with numbers attached."""
     name = seat.seat_id
     if turn.error:
@@ -187,17 +187,25 @@ def seat_hop(seat: Seat, turn: StreamedTurn) -> Hop:
     stats = turn.stats
     if stats.ttft_s is None:
         return Hop(name, Status.FAIL, "empty stream", "content + usage")
-    observed = _observed(turn)
+    # The router resolves lane seats before serving: `auto` routes by intent and
+    # text-only `auto-vision` reroutes to auto-reasoning. The route header's first
+    # field names the resolved workspace, whose own hint is then the expectation.
+    resolved = turn.route[0].strip() if turn.route else ""
+    rerouted = bool(resolved) and resolved != name
+    expected = seat.hint
+    if rerouted and hints and resolved in hints:
+        expected = hints[resolved]
+    observed = _observed(turn) + (f" via={resolved}" if rerouted else "")
     if not stats.completion_tokens:
         return Hop(name, Status.FAIL, observed + " usage=missing", "usage tokens")
     served = _route_model(turn.route)
-    substituted = bool(served) and served not in _served_hint(seat.hint)
+    substituted = bool(served) and served not in _served_hint(expected)
     return Hop(
         name,
         Status.WARN if substituted else Status.PASS,
         observed,
-        seat.hint,
-        "served model is not the seat's hint or an alias of it" if substituted else "",
+        expected,
+        "served model is not the resolved lane's seat or an alias of it" if substituted else "",
     )
 
 
@@ -207,7 +215,9 @@ def run(ctx: TraceContext, portal: dict[str, Any]) -> list[Hop]:
         return [Hop("pipeline", Status.FAIL, "PIPELINE_API_KEY unset", "auth key")]
     deadline = time.monotonic() + ctx.budget_s
     hops: list[Hop] = []
-    for seat in production_seats(portal):
+    seats = production_seats(portal)
+    hints = {seat.seat_id: seat.hint for seat in seats}
+    for seat in seats:
         remaining = deadline - time.monotonic()
         if remaining <= 1:
             hops.append(Hop(seat.seat_id, Status.WARN, "not run (budget)", "streamed turn"))
@@ -215,7 +225,7 @@ def run(ctx: TraceContext, portal: dict[str, Any]) -> list[Hop]:
         turn = stream_turn(
             ctx.pipeline_url, ctx.api_key, seat.seat_id, min(remaining, ctx.timeout_s)
         )
-        hops.append(seat_hop(seat, turn))
+        hops.append(seat_hop(seat, turn, hints))
     if not hops:
         hops.append(Hop("workspaces", Status.FAIL, "no production seats", "config/portal.yaml"))
     return hops
