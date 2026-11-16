@@ -367,13 +367,11 @@ async def test_a_case_only_tag_difference_sizes_from_the_served_entry():
                 },
             }
         },
-        ceiling=8 * GIB,
-    )  # 7.5 projected > 6 available
+        ceiling=7 * GIB,
+    )  # 6.0 projected > 5 available
     g = guard(e)
     async with httpx.AsyncClient(transport=e.transport()) as client:
-        assert await g._need(client, OLLAMA_URL, configured) == pytest.approx(
-            6 * GIB * lg._FACTOR + 4 * 1024
-        )
+        assert await g._need(client, OLLAMA_URL, configured) == pytest.approx(6 * GIB + 4 * 1024)
     with pytest.raises(lg.LoadRefusedError):
         await g.admit(OLLAMA_URL, configured)
 
@@ -467,12 +465,12 @@ async def test_96k_ollama_cold_load_unloads_idle_omlx_before_chat():
             }
         },
         omlx={omlx_model: {"size": 18 * GIB, "loaded": True}},
-        ceiling=46 * GIB,
+        ceiling=40 * GIB,
     )
     g = guard(e)
     async with httpx.AsyncClient(transport=e.transport()) as client:
         need = await g._need(client, OLLAMA_URL, model)
-    assert need == pytest.approx(18 * GIB * lg._FACTOR + 9 * GIB * (1.625 / 4))
+    assert need == pytest.approx(18 * GIB + 9 * GIB * (1.625 / 4))
     async with httpx.AsyncClient(transport=transport(e, g)) as client:
         response = await client.post(
             f"{OLLAMA_URL}/v1/chat/completions",
@@ -1116,6 +1114,61 @@ async def test_missing_ollama_architecture_uses_weight_factor_fallback():
     assert estimate == pytest.approx(8 * GIB * lg._FACTOR)
 
 
+def test_a_sized_kv_cache_is_not_padded_by_the_weight_factor():
+    """2026-11-16: 20.55 GiB of weights at 256k projected 36.3 GiB (×1.25 + 10.6 GiB KV)
+    and was refused at 35.2 GiB headroom; the factor is for geometry the guard cannot size."""
+    show = {
+        "parameters": "num_ctx 262144\ncache-type-k q8_0\ncache-type-v q8_0",
+        "model_info": {
+            "general.architecture": "qwen35moe",
+            "qwen35moe.block_count": 40,
+            "qwen35moe.attention.head_count_kv": 4,
+            "qwen35moe.attention.key_length": 128,
+            "qwen35moe.attention.value_length": 128,
+        },
+    }
+    kv = lg._ollama_kv_bytes(lg._show_values(show), 262144)
+    assert kv is not None and kv / GIB == pytest.approx(10.62, abs=0.01)
+    need = lg._estimate_ollama_need(int(20.55 * GIB), show, "seat")
+    assert need == pytest.approx(20.55 * GIB + kv)
+    assert need < 20.55 * GIB * lg._FACTOR + kv
+
+
+async def test_a_256k_ollama_seat_admits_in_the_headroom_that_refused_it():
+    """auto-general-uncensored::throwaway, 2026-11-16 03:15Z: 36.3 GiB projected against
+    35.2 GiB available (oMLX headroom 37.2, no idle Ollama, margin 2) — a 1.1 GiB refusal
+    of a seat that is 31.2 GiB of weights plus its sized cache."""
+    model = "portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k"
+    show = {
+        "parameters": "num_ctx 262144",
+        "model_info": {
+            "general.architecture": "qwen35moe",
+            "qwen35moe.block_count": 40,
+            "qwen35moe.attention.head_count_kv": 4,
+            "qwen35moe.attention.key_length": 128,
+            "qwen35moe.attention.value_length": 128,
+        },
+    }
+    e = Engines(
+        tags={model: int(20.55 * GIB)},
+        shows={model: show},
+        ceiling=39.2 * GIB,
+        omlx_memory=2 * GIB,
+    )
+    g = guard(e)
+    async with httpx.AsyncClient(transport=e.transport()) as client:
+        need = await g._need(client, OLLAMA_URL, model)
+        capacity = await g._headroom(client)
+    assert capacity is not None
+    headroom, _ = capacity
+    available = g._ollama_available(headroom, {}, 0.0) - lg._MARGIN
+    assert available / GIB == pytest.approx(35.2)
+    assert need / GIB == pytest.approx(31.175, abs=0.01)
+    release = await g.admit(OLLAMA_URL, model)
+    assert release is not None
+    release()
+
+
 async def test_observed_resident_size_can_raise_missing_geometry_fallback():
     model = "large-ctx96k"
     e = Engines(tags={model: 8 * GIB})
@@ -1165,7 +1218,7 @@ async def test_hybrid_zero_kv_layers_do_not_trigger_context_fallback(monkeypatch
     e = Engines(tags={model: 15 * GIB}, shows={model: show})
     async with httpx.AsyncClient(transport=e.transport()) as client:
         estimate = await guard(e)._need(client, OLLAMA_URL, model)
-    assert estimate == pytest.approx(15 * GIB * lg._FACTOR + 8 * 2 * 98304 * 256 * 1.0625)
+    assert estimate == pytest.approx(15 * GIB + 8 * 2 * 98304 * 256 * 1.0625)
 
 
 async def test_qwen3_coder_plain_head_count_sizes_256k_q8_cache(monkeypatch):
@@ -1184,7 +1237,7 @@ async def test_qwen3_coder_plain_head_count_sizes_256k_q8_cache(monkeypatch):
     e = Engines(tags={model: 16 * GIB}, shows={model: show})
     async with httpx.AsyncClient(transport=e.transport()) as client:
         estimate = await guard(e)._need(client, OLLAMA_URL, model)
-    assert 30 <= estimate / GIB <= 35
+    assert estimate / GIB == pytest.approx(28.75, abs=0.05)
 
 
 def test_ollama_global_kv_cache_type_is_used_when_show_has_no_override(monkeypatch):
@@ -1199,9 +1252,7 @@ def test_ollama_global_kv_cache_type_is_used_when_show_has_no_override(monkeypat
         },
     }
     expected_kv = 32768 * (64 * 1.0625 + 64 * 1.0625)
-    assert lg._estimate_ollama_need(GIB, show, "granite") == pytest.approx(
-        GIB * lg._FACTOR + expected_kv
-    )
+    assert lg._estimate_ollama_need(GIB, show, "granite") == pytest.approx(GIB + expected_kv)
 
 
 async def test_the_measured_chat_need_does_not_fit_beside_the_hunt() -> None:

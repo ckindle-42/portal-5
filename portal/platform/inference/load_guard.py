@@ -86,8 +86,8 @@ from portal.platform.inference.router.metrics import (
 logger = logging.getLogger(__name__)
 
 _GIB = 1024**3
-#: Weights on disk understate the loaded footprint (KV cache, compute buffers):
-#: the crash's model was ~18 GB on disk and Ollama predicted 22.7 GiB at 32K ctx.
+#: Weights on disk understate the loaded footprint when the geometry cannot size the
+#: KV cache: the crash's model was ~18 GB on disk and Ollama predicted 22.7 GiB at 32K ctx.
 _FACTOR = float(os.environ.get("LOAD_GUARD_FACTOR", "1.25"))
 _MARGIN = float(os.environ.get("LOAD_GUARD_MARGIN_GB", "2")) * _GIB
 #: A fixed model-memory budget (GiB). 0 budgets against oMLX's live ceiling, which
@@ -296,10 +296,11 @@ def _ollama_kv_bytes(values: dict[str, Any], context: int | None) -> float | Non
 
 
 def _estimate_ollama_need(weights: int, show: dict[str, Any], model: str) -> float:
+    """Weights plus the KV the baked ``num_ctx`` allocates; the factor stands in for
+    that KV only when the geometry cannot size it."""
     values = _show_values(show)
-    base = weights * _FACTOR
     kv = _ollama_kv_bytes(values, _context_tokens(model, values))
-    return base + kv if kv is not None else base
+    return weights * _FACTOR if kv is None else weights + kv
 
 
 OLLAMA = "ollama"
