@@ -145,9 +145,34 @@ def test_entity_pivots_use_exact_values_and_extract_actor_address() -> None:
 
     assert entities == [
         {
-            "role": "actor_address",
+            "role": "address",
             "value": "172.16.100.151",
             "terms": ("172.16.100.151",),
+            "case_anchor": True,
+        }
+    ]
+
+
+def test_entity_pivots_extract_address_from_the_object_role() -> None:
+    entities = _entities(
+        {
+            "entities": [
+                {"role": "actor", "value": "dnsmasq"},
+                {"role": "action", "value": "* * * *"},
+                {
+                    "role": "object",
+                    "value": "forwarded payroll.xlsx.kiirjekuimkpcrcioastvkeodpnimx.biz to 10.229.2.216",
+                },
+            ]
+        }
+    )
+
+    addresses = [item for item in entities if item["role"] == "address"]
+    assert addresses == [
+        {
+            "role": "address",
+            "value": "10.229.2.216",
+            "terms": ("10.229.2.216",),
             "case_anchor": True,
         }
     ]
@@ -170,13 +195,13 @@ def test_case_groups_require_a_shared_address_not_a_wildcard_or_service_actor() 
             "id": "attack-a",
             "start": START,
             "end": START + 600,
-            "entities": [{"role": "actor_address", "value": "172.16.100.151", "case_anchor": True}],
+            "entities": [{"role": "address", "value": "172.16.100.151", "case_anchor": True}],
         },
         {
             "id": "attack-b",
             "start": START + 300,
             "end": START + 900,
-            "entities": [{"role": "actor_address", "value": "172.16.100.151", "case_anchor": True}],
+            "entities": [{"role": "address", "value": "172.16.100.151", "case_anchor": True}],
         },
         {
             "id": "noise",
@@ -198,13 +223,13 @@ def test_cases_keep_only_evidence_linked_to_the_shared_address() -> None:
             "id": "attack-a",
             "start": START,
             "end": START + 600,
-            "entities": [{"role": "actor_address", "value": "172.16.100.151", "case_anchor": True}],
+            "entities": [{"role": "address", "value": "172.16.100.151", "case_anchor": True}],
         },
         {
             "id": "attack-b",
             "start": START + 300,
             "end": START + 900,
-            "entities": [{"role": "actor_address", "value": "172.16.100.151", "case_anchor": True}],
+            "entities": [{"role": "address", "value": "172.16.100.151", "case_anchor": True}],
         },
     ]
     event = {"time": START + 400, "host": "web-1", "source": "/auth.log"}

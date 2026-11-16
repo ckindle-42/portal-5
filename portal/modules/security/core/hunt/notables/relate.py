@@ -67,21 +67,20 @@ def _entities(row: Mapping[str, Any]) -> list[dict[str, Any]]:
         role = str(item.get("role") or "").strip()
         value = str(item.get("value") or "").strip()
         if value:
-            if role.casefold() in {"actor", "action"}:
-                for match in _IPV4.finditer(value):
-                    try:
-                        address = str(ipaddress.IPv4Address(match.group()))
-                    except ValueError:
-                        continue
-                    found.setdefault(
-                        ("actor_address", address),
-                        {
-                            "role": "actor_address",
-                            "value": address,
-                            "terms": (address,),
-                            "case_anchor": True,
-                        },
-                    )
+            for match in _IPV4.finditer(value):
+                try:
+                    address = str(ipaddress.IPv4Address(match.group()))
+                except ValueError:
+                    continue
+                found.setdefault(
+                    ("address", address),
+                    {
+                        "role": "address",
+                        "value": address,
+                        "terms": (address,),
+                        "case_anchor": True,
+                    },
+                )
             if "*" not in value and "?" not in value:
                 terms = _literal_term_segments(value)
                 found.setdefault(
@@ -420,6 +419,7 @@ def relate_stage(*, out: Path, search: Search) -> dict[str, Any]:
         and not any(
             row["reason"] or row["capped"] or row["unreferenced_events"] for row in coverage
         ),
+        "capped_queries": sum(1 for row in coverage if row["capped"]),
         "coverage": coverage,
         "executor": snapshot,
     }
