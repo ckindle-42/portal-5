@@ -6,11 +6,10 @@ import json
 
 from scripts.proofs import owui_hunt_chat as proof
 
-JOB = "hunt-0123456789ab"
-PROMPT = "Start a hunt on index hb_kyoushi_s1 and show me the top leads and the first case."
+JOB = "hunt-r2-c3af6e161598"
 
 
-def _calls() -> list[dict]:
+def _progress_calls() -> list[dict]:
     return [
         {
             "tool": "hunt_start",
@@ -21,21 +20,49 @@ def _calls() -> list[dict]:
         {
             "tool": "hunt_status",
             "arguments": {"job_id": JOB},
-            "output": json.dumps({"status": "COMPLETE"}),
+            "output": json.dumps(
+                {
+                    "job_id": JOB,
+                    "status": "RUNNING",
+                    "stage": "cards",
+                    "progress": {"current": {"phase": "cards"}, "stages": {}},
+                }
+            ),
+            "source": "exec_audit",
+        },
+    ]
+
+
+def _result_calls() -> list[dict]:
+    return [
+        {
+            "tool": "hunt_status",
+            "arguments": {"job_id": JOB},
+            "output": json.dumps({"job_id": JOB, "status": "COMPLETE"}),
+            "source": "exec_audit",
+        },
+        {
+            "tool": "hunt_sources",
+            "arguments": {"job_id": JOB},
+            "output": json.dumps({"job_id": JOB, "status": "COMPLETE", "cards": []}),
             "source": "exec_audit",
         },
         {
             "tool": "hunt_leads",
             "arguments": {"job_id": JOB, "n": 3},
             "output": json.dumps(
-                {"job_id": JOB, "leads": [{"rank": 1, "notable_id": "not-77"}, {"rank": 2}]}
+                {
+                    "job_id": JOB,
+                    "leads": [{"rank": 1, "notable_id": "not-77"}],
+                    "total_leads": 1,
+                }
             ),
             "source": "exec_audit",
         },
         {
             "tool": "hunt_case",
             "arguments": {"job_id": JOB, "case": 1},
-            "output": json.dumps({"job_id": JOB, "case": 1}),
+            "output": json.dumps({"job_id": JOB, "case": 1, "anchor_entity": "service x"}),
             "source": "exec_audit",
         },
     ]
@@ -78,56 +105,78 @@ def test_fold_payload_records_error_frames() -> None:
     assert turn.error == "Backend returned HTTP 500"
 
 
-def test_grade_passes_on_the_full_product_path() -> None:
+def test_grade_progress_accepts_a_running_r2_hunt() -> None:
+    answer = f"Hunt {JOB} is still running in the cards stage. Ask me for results later."
+    passed, reasons, details = proof.grade_progress(_progress_calls(), answer)
+    assert passed, reasons
+    assert details["job_id"] == JOB
+    assert details["status"] == "RUNNING"
+
+
+def test_grade_progress_rejects_result_reads_while_running() -> None:
+    calls = _progress_calls() + [_result_calls()[2]]
+    passed, reasons, _ = proof.grade_progress(calls, f"Hunt {JOB} is running in cards.")
+    assert not passed
+    assert any("called a result view before the hunt finished" in r for r in reasons)
+
+
+def test_grade_results_passes_on_the_later_turn_with_the_real_r2_job_id() -> None:
     answer = f"Job {JOB} completed. Top lead not-77 pivots on service x; case 1 shares it."
-    passed, reasons, details = proof.grade(_calls(), answer)
+    passed, reasons, details = proof.grade_results(_result_calls(), answer, JOB)
     assert passed, reasons
     assert details["job_id"] == JOB
     assert "not-77" in details["citation"]
 
 
-def test_grade_fails_when_hunt_case_is_missing() -> None:
-    calls = [c for c in _calls() if c["tool"] != "hunt_case"]
-    passed, reasons, _ = proof.grade(calls, f"{JOB} top lead not-77")
+def test_grade_results_fails_when_hunt_case_is_missing() -> None:
+    calls = [c for c in _result_calls() if c["tool"] != "hunt_case"]
+    passed, reasons, _ = proof.grade_results(calls, f"{JOB} top lead not-77", JOB)
     assert not passed
     assert any("hunt_case was never called" in r for r in reasons)
 
 
-def test_grade_fails_when_leads_carry_a_different_job_id() -> None:
-    calls = _calls()
-    calls[2]["arguments"] = {"job_id": "hunt-ffffffffffff"}
-    passed, reasons, _ = proof.grade(calls, f"{JOB} top lead not-77")
+def test_grade_results_fails_when_leads_carry_a_different_job_id() -> None:
+    calls = _result_calls()
+    calls[2]["arguments"] = {"job_id": "hunt-r2-ffffffffffff"}
+    passed, reasons, _ = proof.grade_results(calls, f"{JOB} top lead not-77", JOB)
     assert not passed
     assert any("hunt_leads used job id" in r for r in reasons)
 
 
-def test_grade_fails_when_the_answer_cites_no_lead() -> None:
-    passed, reasons, _ = proof.grade(_calls(), "The hunt finished successfully.")
-    assert not passed
-    assert any("does not cite leads" in r for r in reasons)
-
-
-def test_grade_accepts_weak_citation_only_when_outputs_are_unobservable() -> None:
-    calls = [{**c, "output": None} for c in _calls()]
-    passed, _, details = proof.grade(
-        calls, f"Job {JOB} produced 3 leads; the top one is a service."
+def test_grade_results_fails_when_a_tool_returns_a_different_job_id() -> None:
+    calls = _result_calls()
+    calls[2]["output"] = json.dumps(
+        {"job_id": "hunt-r2-ffffffffffff", "leads": [{"notable_id": "not-77"}]}
     )
-    assert passed
-    assert "not observable" in details["citation"]
-    passed, reasons, _ = proof.grade(calls, "The hunt produced 3 leads.")
+    passed, reasons, _ = proof.grade_results(calls, f"{JOB} top lead not-77", JOB)
     assert not passed
-    assert any("cites no notable id and no job id" in r for r in reasons)
+    assert any("hunt_leads output did not identify" in r for r in reasons)
 
 
-def test_grade_reports_unobservable_arguments_from_bare_trace_spans() -> None:
+def test_grade_results_fails_when_the_answer_cites_no_lead() -> None:
+    passed, reasons, _ = proof.grade_results(
+        _result_calls(), "The hunt finished successfully.", JOB
+    )
+    assert not passed
+    assert any("does not cite a returned lead" in r for r in reasons)
+
+
+def test_grade_results_fails_when_outputs_are_unobservable() -> None:
+    calls = [{**c, "output": None} for c in _result_calls()]
+    passed, reasons, _ = proof.grade_results(
+        calls, f"Job {JOB} produced 3 leads; the top one is a service.", JOB
+    )
+    assert not passed
+    assert any("lead outputs were not observable" in r for r in reasons)
+
+
+def test_grade_results_reports_unobservable_arguments_from_trace_spans() -> None:
     calls = [
-        {"tool": "hunt_start", "arguments": None, "output": None, "source": "trace"},
-        {"tool": "hunt_leads", "arguments": None, "output": None, "source": "trace"},
-        {"tool": "hunt_case", "arguments": None, "output": None, "source": "trace"},
+        {**call, "arguments": None, "output": None, "source": "trace"} for call in _result_calls()
     ]
-    passed, reasons, _ = proof.grade(calls, f"{JOB} lead not-77 case 1")
+    passed, reasons, _ = proof.grade_results(calls, f"{JOB} lead not-77 case 1", JOB)
     assert not passed
-    assert sum("not observable" in r for r in reasons) == 2
+    assert sum("not observable" in r for r in reasons) >= 3
 
 
 def test_calls_from_trace_pairs_spans_with_captured_arguments() -> None:
@@ -164,44 +213,65 @@ def test_env_falls_back_to_the_repo_dotenv(monkeypatch, tmp_path) -> None:
     assert proof.env("OWUI_API_KEY") == "sk-env"
 
 
-def _stub_turn(monkeypatch, turn: proof.Turn) -> list[str]:
-    seen: list[str] = []
+def _stub_turns(monkeypatch, turns: list[proof.Turn]) -> list[tuple[str, list[dict] | None]]:
+    seen: list[tuple[str, list[dict] | None]] = []
 
-    def fake_stream(url: str, key: str, model: str, prompt: str, *_a, **_k) -> proof.Turn:
-        seen.append(prompt)
+    def fake_stream(
+        url: str,
+        key: str,
+        model: str,
+        prompt: str,
+        *_a,
+        messages: list[dict] | None = None,
+        **_k,
+    ) -> proof.Turn:
+        seen.append((prompt, messages))
         assert "sk-live" not in prompt
-        return turn
+        return turns.pop(0)
 
     monkeypatch.setattr(proof, "stream_turn", fake_stream)
     monkeypatch.setattr(proof, "env", lambda name: "sk-live" if name.endswith("API_KEY") else "")
     return seen
 
 
-def test_main_prints_a_pass_receipt_without_leaking_the_key(monkeypatch, capsys) -> None:
-    turn = proof.Turn(t0=0.0, t_end=420.0, m0=0.0, finish="stop", done=True)
-    turn.content = [f"Job {JOB} done. Top lead not-77; case 1 pivots on it."]
-    turn.calls = _calls()
-    seen = _stub_turn(monkeypatch, turn)
+def test_main_proves_progress_then_a_later_results_turn(monkeypatch, capsys) -> None:
+    first = proof.Turn(t0=0.0, t_end=45.0, m0=0.0, finish="stop", done=True)
+    first.content = [f"Hunt {JOB} is still running in the cards stage. Ask me for results later."]
+    first.calls = _progress_calls()
+    second = proof.Turn(t0=500.0, t_end=540.0, m0=500.0, finish="stop", done=True)
+    second.content = [f"Job {JOB} completed. Top lead not-77; case 1 pivots on service x."]
+    second.calls = _result_calls()
+    seen = _stub_turns(monkeypatch, [first, second])
+    monkeypatch.setattr(
+        proof, "wait_for_terminal", lambda *_a, **_k: {"job_id": JOB, "status": "COMPLETE"}
+    )
     code = proof.main(["--index", "hb_kyoushi_s1"])
     out = capsys.readouterr().out
     assert code == 0
-    assert seen == [PROMPT]
-    assert "PASS" in out and "hunt_start" in out and "hunt_case" in out
+    assert seen[0][0] == "Start a hunt on index hb_kyoushi_s1 and tell me its status and stage."
+    assert "show me the hunt results" in seen[1][0].lower()
+    assert seen[1][1] == [
+        {"role": "user", "content": seen[0][0]},
+        {"role": "assistant", "content": first.answer},
+        {"role": "user", "content": seen[1][0]},
+    ]
+    assert "PASS" in out and "TURN 1" in out and "TURN 2" in out and "hunt_case" in out
     assert "sk-live" not in out
-    assert "total: 420.0s" in out
+    assert "total: 45.0s" in out and "total: 40.0s" in out
 
 
-def test_main_fails_on_deadline_and_on_unobservable_calls(monkeypatch, capsys) -> None:
+def test_main_fails_on_first_turn_deadline(monkeypatch, capsys) -> None:
     turn = proof.Turn(t0=0.0, t_end=1500.0, m0=0.0, timed_out=True)
     turn.content = ["partial"]
-    _stub_turn(monkeypatch, turn)
+    turn.calls = _progress_calls()
+    _stub_turns(monkeypatch, [turn])
     monkeypatch.setattr(proof, "find_turn_trace", lambda *_a, **_k: None)
     code = proof.main(["--deadline-s", "1"])
     out = capsys.readouterr().out
     assert code == 1
     assert "FAIL" in out
     assert "deadline" in out
-    assert "unobservable" in out
+    assert "TURN 1" in out
 
 
 def test_main_fails_when_the_request_errors_out(monkeypatch, capsys) -> None:

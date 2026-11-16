@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Live proof: one Open WebUI chat turn runs a hunt through the review MCP tools.
+"""Live proof: Open WebUI reports hunt progress, then delivers terminal results later.
 
 Product path: OWUI :8080 -> Pipeline :9099 -> security-reviewer workspace model ->
-hunt_* tool calls on the review MCP (:8943). Sends one prompt, follows the streamed
-turn until the model answers or a deadline passes, and prints a receipt: every tool
-call (name, args, short result), the final answer, the timings, and PASS/FAIL.
+hunt_* tool calls on the review MCP (:8943). Sends a progress turn, waits for the
+durable job through native MCP, then sends a second turn to retrieve terminal results.
+It prints both turns and PASS/FAIL.
 
 Tool-call evidence: the pipeline's trailing ``exec_audit`` SSE event when the request
 reaches it; otherwise the pipeline's ``/v1/trace`` record for the turn (args need
@@ -12,7 +12,7 @@ PORTAL_TRACE_BODIES=1). Credentials: OWUI_API_KEY (and PIPELINE_API_KEY for the 
 fallback) from the environment or the repo .env, the same source the UAT and WFE
 harnesses read; never printed.
 
-    python3 scripts/proofs/owui_hunt_chat.py [--index hb_kyoushi_s1] [--deadline-s 1500]
+    python3 scripts/proofs/owui_hunt_chat.py [--index hb_kyoushi_s1] [--job-deadline-s 1300]
 
 Exit codes: 0 PASS, 1 FAIL, 2 setup error.
 """
@@ -20,6 +20,7 @@ Exit codes: 0 PASS, 1 FAIL, 2 setup error.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import os
 import re
@@ -33,8 +34,9 @@ from typing import Any
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_INDEX = "hb_kyoushi_s1"
 DEFAULT_MODEL = "security-reviewer"
-JOB_RE = re.compile(r"(?<![\w-])hunt-[0-9a-f]{12}(?![\w-])")
+JOB_RE = re.compile(r"(?<![\w-])hunt-r2-[0-9a-f]{12}(?![\w-])")
 RESULT_CHARS = 300
+TERMINAL_STATUSES = {"COMPLETE", "PARTIAL", "FAILED"}
 
 
 def env(name: str) -> str:
@@ -126,7 +128,13 @@ def fold_payload(turn: Turn, payload: str) -> None:
 
 
 def stream_turn(
-    owui_url: str, key: str, model: str, prompt: str, deadline_s: float, idle_s: float
+    owui_url: str,
+    key: str,
+    model: str,
+    prompt: str,
+    deadline_s: float,
+    idle_s: float,
+    messages: list[dict[str, str]] | None = None,
 ) -> Turn:
     """POST one streaming chat turn to OWUI and follow it to [DONE] or the deadline."""
     body = json.dumps(
@@ -134,7 +142,7 @@ def stream_turn(
             "model": model,
             "stream": True,
             "exec_audit": True,
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": messages or [{"role": "user", "content": prompt}],
         }
     ).encode()
     req = urllib.request.Request(
@@ -161,6 +169,64 @@ def http_json(url: str, key: str = "", timeout: int = 30) -> Any:
     req = urllib.request.Request(url, headers={"Authorization": f"Bearer {key}"} if key else {})
     with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
         return json.load(resp)
+
+
+def _mcp_result_obj(result: Any) -> dict[str, Any] | None:
+    structured = getattr(result, "structuredContent", None)
+    if isinstance(structured, dict):
+        return structured
+    for block in getattr(result, "content", []):
+        raw = getattr(block, "text", "")
+        if raw:
+            try:
+                value = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(value, dict):
+                return value
+    return None
+
+
+def wait_for_terminal(review_mcp_url: str, job_id: str, deadline_s: float) -> dict[str, Any]:
+    """Wait through the native MCP endpoint until the durable hunt is terminal."""
+
+    async def poll() -> dict[str, Any]:
+        from mcp import ClientSession
+        from mcp.client.streamable_http import streamablehttp_client
+
+        loop = asyncio.get_running_loop()
+        started = loop.time()
+        deadline = started + deadline_s
+        checks: list[dict[str, Any]] = []
+        async with (
+            streamablehttp_client(review_mcp_url) as (read, write, _),
+            ClientSession(read, write) as session,
+        ):
+            await session.initialize()
+            while True:
+                remaining = deadline - loop.time()
+                if remaining <= 0:
+                    raise TimeoutError(f"hunt {job_id} stayed nonterminal for {deadline_s:.0f}s")
+                response = await asyncio.wait_for(
+                    session.call_tool("hunt_status", {"job_id": job_id}),
+                    timeout=min(120.0, remaining),
+                )
+                status = _mcp_result_obj(response)
+                if getattr(response, "isError", False) or status is None:
+                    raise RuntimeError(f"hunt_status returned no usable status for {job_id}")
+                state = str(status.get("status") or "").upper()
+                checks.append(
+                    {
+                        "status": state,
+                        "stage": status.get("stage"),
+                        "elapsed_s": round(loop.time() - started, 1),
+                    }
+                )
+                if state in TERMINAL_STATUSES:
+                    return {**status, "polls": checks}
+                await asyncio.sleep(min(1.0, max(0.0, deadline - loop.time())))
+
+    return asyncio.run(poll())
 
 
 def find_turn_trace(pipe_url: str, pipe_key: str, workspace: str, since: float) -> dict | None:
@@ -247,14 +313,16 @@ def _start_job_id(calls: list[dict], answer: str) -> str:
     return match.group(0) if match else ""
 
 
-def answer_cites_leads(calls: list[dict], answer: str, job_id: str) -> tuple[bool, str]:
+def answer_cites_leads(calls: list[dict], answer: str) -> tuple[bool, str]:
     """Whether the final answer cites the leads the hunt returned."""
     if not answer.strip():
         return False, "the answer is empty"
     notable_ids: list[str] = []
+    observed = False
     for call in calls:
         if call.get("tool") == "hunt_leads":
             out = _output_obj(call)
+            observed = observed or out is not None
             for lead in (out or {}).get("leads") or []:
                 if isinstance(lead, dict) and lead.get("notable_id"):
                     notable_ids.append(str(lead["notable_id"]))
@@ -263,50 +331,115 @@ def answer_cites_leads(calls: list[dict], answer: str, job_id: str) -> tuple[boo
         return True, f"cites notable id(s): {', '.join(cited[:3])}"
     if notable_ids:
         return False, f"none of the {len(notable_ids)} notable ids appear in the answer"
-    if job_id and job_id in answer and re.search(r"lead", answer, re.I):
-        return True, "cites the job id and names leads (lead outputs were not observable)"
-    if re.search(r"lead", answer, re.I):
-        return False, "mentions leads but cites no notable id and no job id"
-    return False, "no lead citation found in the answer"
+    if not observed:
+        return False, "lead outputs were not observable"
+    return False, "hunt_leads returned no notable ids"
 
 
-def _grade_followup(
-    calls: list[dict], names: list[str], tool: str, start_i: int, job_id: str
-) -> list[str]:
-    """Grade one post-start tool: called after hunt_start, carrying the real job id."""
-    if tool not in names:
+def _check_job_arguments(calls: list[dict], tool: str, job_id: str) -> list[str]:
+    selected = [call for call in calls if call.get("tool") == tool]
+    if not selected:
         return [f"{tool} was never called"]
-    i = names.index(tool)
     reasons = []
-    if start_i >= 0 and i < start_i:
-        reasons.append(f"{tool} was called before hunt_start")
-    call = calls[i]
-    if call.get("arguments") is None:
-        return reasons + [
-            f"{tool} arguments were not observable (no exec_audit; trace bodies need PORTAL_TRACE_BODIES=1)"
-        ]
-    arg_job = str(_args(call).get("job_id") or "")
-    if not JOB_RE.fullmatch(arg_job):
-        reasons.append(f"{tool} did not carry a real job id (job_id={arg_job!r})")
-    elif job_id and arg_job != job_id:
-        reasons.append(f"{tool} used job id {arg_job}, not the started job {job_id}")
+    for call in selected:
+        if call.get("arguments") is None:
+            reasons.append(f"{tool} arguments were not observable in the turn evidence")
+            continue
+        arg_job = str(_args(call).get("job_id") or "")
+        if not JOB_RE.fullmatch(arg_job):
+            reasons.append(f"{tool} did not carry a real R2 job id (job_id={arg_job!r})")
+        elif arg_job != job_id:
+            reasons.append(f"{tool} used job id {arg_job}, not the started job {job_id}")
     return reasons
 
 
-def grade(calls: list[dict], answer: str) -> tuple[bool, list[str], dict[str, Any]]:
-    """PASS: hunt_start, then hunt_leads and hunt_case with the real job id, answer cites leads."""
+def _check_output_job_ids(calls: list[dict], tools: tuple[str, ...], job_id: str) -> list[str]:
+    reasons = []
+    for call in calls:
+        tool = str(call.get("tool") or "")
+        if tool not in tools:
+            continue
+        output = _output_obj(call)
+        if output is not None and str(output.get("job_id") or "") != job_id:
+            reasons.append(f"{tool} output did not identify the requested job {job_id}")
+    return reasons
+
+
+def grade_progress(calls: list[dict], answer: str) -> tuple[bool, list[str], dict[str, Any]]:
+    """Grade the first turn's progress response before any result views are read."""
     names = [str(c.get("tool") or "") for c in calls]
     reasons: list[str] = []
-    start_i = names.index("hunt_start") if "hunt_start" in names else -1
-    if start_i < 0:
+    if "hunt_start" not in names:
         reasons.append("hunt_start was never called")
     job_id = _start_job_id(calls, answer)
-    for tool in ("hunt_leads", "hunt_case"):
-        reasons.extend(_grade_followup(calls, names, tool, start_i, job_id))
-    cites, how = answer_cites_leads(calls, answer, job_id)
+    if not JOB_RE.fullmatch(job_id):
+        reasons.append(f"hunt_start did not return a real R2 job id (job_id={job_id!r})")
+    reasons.extend(_check_job_arguments(calls, "hunt_status", job_id))
+    reasons.extend(_check_output_job_ids(calls, ("hunt_status",), job_id))
+    status_calls = [call for call in calls if call.get("tool") == "hunt_status"]
+    status = _output_obj(status_calls[-1]) if status_calls else None
+    state = str((status or {}).get("status") or "").upper()
+    if status is None:
+        reasons.append("hunt_status output was not observable")
+    elif state != "RUNNING":
+        reasons.append(f"first turn did not report a running hunt (status={state or 'unknown'})")
+    if any(name in {"hunt_sources", "hunt_leads", "hunt_case"} for name in names):
+        reasons.append("first turn called a result view before the hunt finished")
+    stage = str((status or {}).get("stage") or "")
+    if job_id and job_id not in answer:
+        reasons.append("the progress answer omitted the started job id")
+    if state == "RUNNING" and stage and stage.casefold() not in answer.casefold():
+        reasons.append(f"the progress answer omitted the current stage {stage!r}")
+    details = {"job_id": job_id, "status": state, "stage": stage, "tools_called": names}
+    return (not reasons), reasons, details
+
+
+def grade_results(
+    calls: list[dict], answer: str, job_id: str
+) -> tuple[bool, list[str], dict[str, Any]]:
+    """Grade the later turn's terminal status and job-bound result views."""
+    names = [str(call.get("tool") or "") for call in calls]
+    reasons: list[str] = []
+    if not JOB_RE.fullmatch(job_id):
+        reasons.append(f"the carried job id is not a real R2 id (job_id={job_id!r})")
+    if "hunt_start" in names:
+        reasons.append("the results turn unexpectedly started a second hunt")
+    for tool in ("hunt_status", "hunt_sources", "hunt_leads", "hunt_case"):
+        reasons.extend(_check_job_arguments(calls, tool, job_id))
+    reasons.extend(
+        _check_output_job_ids(
+            calls, ("hunt_status", "hunt_sources", "hunt_leads", "hunt_case"), job_id
+        )
+    )
+    status_calls = [call for call in calls if call.get("tool") == "hunt_status"]
+    status = _output_obj(status_calls[-1]) if status_calls else None
+    state = str((status or {}).get("status") or "").upper()
+    if status is None:
+        reasons.append("terminal hunt_status output was not observable")
+    elif state not in TERMINAL_STATUSES:
+        reasons.append(
+            f"results turn did not observe a terminal status (status={state or 'unknown'})"
+        )
+    for tool in ("hunt_sources", "hunt_leads", "hunt_case"):
+        outputs = [_output_obj(call) for call in calls if call.get("tool") == tool]
+        if outputs:
+            output = outputs[-1]
+            if output is None:
+                reasons.append(f"{tool} output was not observable")
+            elif "error" in output:
+                reasons.append(f"{tool} returned an error: {_short(output['error'], 200)}")
+    leads_calls = [call for call in calls if call.get("tool") == "hunt_leads"]
+    leads = _output_obj(leads_calls[-1]) if leads_calls else None
+    if leads is not None and not leads.get("leads"):
+        reasons.append("hunt_leads returned no leads")
+    cases = [call for call in calls if call.get("tool") == "hunt_case"]
+    case = _output_obj(cases[-1]) if cases else None
+    if case is not None and ("error" in case or case.get("case") != 1):
+        reasons.append("hunt_case did not return the first case")
+    cites, how = answer_cites_leads(calls, answer)
     if not cites:
-        reasons.append(f"the answer does not cite leads: {how}")
-    details = {"job_id": job_id, "citation": how, "tools_called": names}
+        reasons.append(f"the answer does not cite a returned lead: {how}")
+    details = {"job_id": job_id, "status": state, "citation": how, "tools_called": names}
     return (not reasons), reasons, details
 
 
@@ -318,9 +451,15 @@ def _short(value: Any, limit: int = RESULT_CHARS) -> str:
 
 
 def print_receipt(
-    model: str, prompt: str, turn: Turn, calls: list[dict], source: str, details: dict
+    label: str,
+    model: str,
+    prompt: str,
+    turn: Turn,
+    calls: list[dict],
+    source: str,
+    details: dict,
 ) -> None:
-    print("== OWUI hunt chat proof ==")
+    print(f"== OWUI hunt chat proof: {label} ==")
     print(f"workspace/model: {model}")
     print(f"prompt: {prompt}")
     print(f"tool-call evidence: {source}")
@@ -340,7 +479,117 @@ def print_receipt(
     )
     if turn.usage:
         print(f"usage: {_short(turn.usage, 200)}")
-    print(f"job id: {details.get('job_id') or '-'} | lead citation: {details.get('citation')}")
+    print(
+        f"job id: {details.get('job_id') or '-'} | status: {details.get('status') or '-'} | "
+        f"lead citation: {details.get('citation') or '-'}"
+    )
+
+
+def _turn_calls(turn: Turn, pipe_url: str, pipe_key: str, model: str) -> tuple[list[dict], str]:
+    if turn.calls:
+        return turn.calls, "exec_audit event in the OWUI stream"
+    record = find_turn_trace(pipe_url, pipe_key, model, turn.t0) if pipe_key else None
+    if record is not None:
+        return calls_from_trace(record), "pipeline /v1/trace (fallback)"
+    return [], "none — tool calls unobservable"
+
+
+def _finish_turn(
+    turn: Turn, passed: bool, reasons: list[str], source: str, deadline_s: float
+) -> tuple[bool, list[str]]:
+    if turn.timed_out:
+        passed = False
+        reasons.insert(0, f"the deadline of {deadline_s:.0f}s passed before the turn finished")
+    if turn.error:
+        passed = False
+        reasons.append(f"the stream carried an error frame: {_short(turn.error, 200)}")
+    if source.startswith("none"):
+        passed = False
+        reasons.append(
+            "no exec_audit event reached the OWUI stream and no pipeline trace was readable "
+            "(set PIPELINE_API_KEY; args additionally need PORTAL_TRACE_BODIES=1)"
+        )
+    return passed, reasons
+
+
+def _print_verdict(passed: bool, reasons: list[str]) -> None:
+    print("-- verdict --")
+    print("PASS" if passed else "FAIL")
+    for reason in reasons:
+        print(f"  - {reason}")
+
+
+def _progress_turn(args: argparse.Namespace, key: str, pipe_key: str) -> dict[str, str] | None:
+    prompt = f"Start a hunt on index {args.index} and tell me its status and stage."
+    print(f">>> TURN 1: {prompt}", flush=True)
+    try:
+        turn = stream_turn(args.owui_url, key, args.model, prompt, args.deadline_s, args.idle_s)
+    except Exception as exc:  # noqa: BLE001 — any transport failure is a FAIL receipt, not a traceback
+        print(f"FAIL: the OWUI chat request failed: {exc}")
+        return None
+    calls, source = _turn_calls(turn, args.pipeline_url, pipe_key, args.model)
+    passed, reasons, details = grade_progress(calls, turn.answer)
+    passed, reasons = _finish_turn(turn, passed, reasons, source, args.deadline_s)
+    print_receipt("TURN 1", args.model, prompt, turn, calls, source, details)
+    if not passed:
+        _print_verdict(False, reasons)
+        return None
+    return {"job_id": details["job_id"], "prompt": prompt, "answer": turn.answer}
+
+
+def _results_turn(
+    args: argparse.Namespace, key: str, pipe_key: str, progress: dict[str, str]
+) -> int:
+    job_id = progress["job_id"]
+    print("-- native MCP wait --")
+    try:
+        terminal = wait_for_terminal(args.review_mcp_url, job_id, args.job_deadline_s)
+    except Exception as exc:  # noqa: BLE001 -- include the failed wait in the proof receipt
+        print(f"FAIL: waiting for hunt {job_id} failed: {exc}")
+        _print_verdict(
+            False, ["the hunt did not reach a terminal status before the proof deadline"]
+        )
+        return 1
+    if str(terminal.get("job_id") or "") != job_id:
+        _print_verdict(False, ["the native MCP wait returned a different job id"])
+        return 1
+    polls = terminal.get("polls") or []
+    print(
+        f"job id: {job_id} | terminal status: {terminal.get('status')} | "
+        f"elapsed: {terminal.get('elapsed_s')}s | status calls: {len(polls)}"
+    )
+    for poll in polls:
+        print(f"  {poll.get('elapsed_s')}s: {poll.get('status')} stage={poll.get('stage') or '-'}")
+
+    prompt2 = f"Show me the hunt results for job {job_id}: the top leads and first case."
+    messages = [
+        {"role": "user", "content": progress["prompt"]},
+        {"role": "assistant", "content": progress["answer"]},
+        {"role": "user", "content": prompt2},
+    ]
+    print(f">>> TURN 2: {prompt2}", flush=True)
+    try:
+        second = stream_turn(
+            args.owui_url,
+            key,
+            args.model,
+            prompt2,
+            args.deadline_s,
+            args.idle_s,
+            messages=messages,
+        )
+    except Exception as exc:  # noqa: BLE001 -- this is the user's later results turn
+        print(f"FAIL: the OWUI results request failed: {exc}")
+        return 1
+    calls2, source2 = _turn_calls(second, args.pipeline_url, pipe_key, args.model)
+    passed2, reasons2, details2 = grade_results(calls2, second.answer, job_id)
+    passed2, reasons2 = _finish_turn(second, passed2, reasons2, source2, args.deadline_s)
+    print_receipt("TURN 2", args.model, prompt2, second, calls2, source2, details2)
+    passed = passed2 and details2.get("status") == terminal.get("status")
+    if details2.get("status") != terminal.get("status"):
+        reasons2.append("OWUI's terminal status differs from the native MCP wait receipt")
+    _print_verdict(passed, reasons2)
+    return 0 if passed else 1
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -354,51 +603,23 @@ def main(argv: list[str] | None = None) -> int:
         "--pipeline-url",
         default=os.environ.get("PIPELINE_URL", "http://localhost:9099").rstrip("/"),
     )
+    ap.add_argument(
+        "--review-mcp-url",
+        default=os.environ.get("REVIEW_MCP_URL", "http://localhost:8943/mcp"),
+    )
     ap.add_argument("--deadline-s", type=float, default=1500.0)
+    ap.add_argument("--job-deadline-s", type=float, default=1300.0)
     ap.add_argument("--idle-s", type=float, default=240.0)
     args = ap.parse_args(argv)
-    if args.deadline_s <= 0 or args.idle_s <= 0:
-        ap.error("--deadline-s and --idle-s must be positive")
+    if args.deadline_s <= 0 or args.job_deadline_s <= 0 or args.idle_s <= 0:
+        ap.error("--deadline-s, --job-deadline-s, and --idle-s must be positive")
     key = env("OWUI_API_KEY")
     if not key:
         print("OWUI_API_KEY is not set (env or .env) — cannot authenticate to Open WebUI")
         return 2
-    prompt = f"Start a hunt on index {args.index} and show me the top leads and the first case."
-    print(f">>> {prompt}", flush=True)
-    try:
-        turn = stream_turn(args.owui_url, key, args.model, prompt, args.deadline_s, args.idle_s)
-    except Exception as exc:  # noqa: BLE001 — any transport failure is a FAIL receipt, not a traceback
-        print(f"FAIL: the OWUI chat request failed: {exc}")
-        return 1
-    calls, source = turn.calls, "exec_audit event in the OWUI stream"
-    if not calls:
-        pipe_key = env("PIPELINE_API_KEY")
-        record = (
-            find_turn_trace(args.pipeline_url, pipe_key, args.model, turn.t0) if pipe_key else None
-        )
-        if record is not None:
-            calls, source = calls_from_trace(record), "pipeline /v1/trace (fallback)"
-        else:
-            source = "none — tool calls unobservable"
-    passed, reasons, details = grade(calls, turn.answer)
-    if turn.timed_out:
-        passed = False
-        reasons.insert(0, f"the deadline of {args.deadline_s:.0f}s passed before the turn finished")
-    if turn.error:
-        passed = False
-        reasons.append(f"the stream carried an error frame: {_short(turn.error, 200)}")
-    if source.startswith("none"):
-        passed = False
-        reasons.append(
-            "no exec_audit event reached the OWUI stream and no pipeline trace was readable "
-            "(set PIPELINE_API_KEY; args additionally need PORTAL_TRACE_BODIES=1)"
-        )
-    print_receipt(args.model, prompt, turn, calls, source, details)
-    print("-- verdict --")
-    print("PASS" if passed else "FAIL")
-    for reason in reasons:
-        print(f"  - {reason}")
-    return 0 if passed else 1
+    pipe_key = env("PIPELINE_API_KEY")
+    progress = _progress_turn(args, key, pipe_key)
+    return 1 if progress is None else _results_turn(args, key, pipe_key, progress)
 
 
 if __name__ == "__main__":
