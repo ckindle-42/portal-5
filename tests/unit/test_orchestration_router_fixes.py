@@ -709,6 +709,67 @@ async def test_bite_tools_stay_scoped_across_client_tool_turns(
 
 
 @pytest.mark.anyio
+async def test_workspace_tool_loop_keeps_prompt_and_tools_across_hops(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = "arm-test"
+    monkeypatch.setitem(streaming.WORKSPACES, workspace, {"max_tool_hops": 4})
+    prompt = "security reviewer instructions"
+    body = {
+        "messages": [{"role": "system", "content": prompt}, {"role": "user", "content": "hunt"}],
+        "tools": [_tool_schema(name) for name in ("hunt_status", "hunt_leads", "hunt_case")],
+    }
+    requests: list[dict[str, Any]] = []
+    dispatched: list[str] = []
+
+    await _run_tool_loop(
+        monkeypatch,
+        body,
+        ["hunt_status", "hunt_leads", "hunt_case"],
+        [
+            _tool_response("hunt_status", "c1"),
+            _tool_response("hunt_leads", "c2"),
+            _tool_response("hunt_case", "c3"),
+            _answer_response("complete"),
+        ],
+        dispatched,
+        recorded_requests=requests,
+    )
+
+    assert dispatched == ["hunt_status", "hunt_leads", "hunt_case"]
+    assert len(requests) == 4
+    for request in requests:
+        assert request["messages"][0] == {"role": "system", "content": prompt}
+        assert {tool["function"]["name"] for tool in request["tools"]} == {
+            "hunt_status",
+            "hunt_leads",
+            "hunt_case",
+        }
+
+
+@pytest.mark.anyio
+async def test_workspace_tool_loop_obeys_configured_hop_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setitem(streaming.WORKSPACES, "arm-test", {"max_tool_hops": 2})
+    dispatched: list[str] = []
+    chunks = await _run_tool_loop(
+        monkeypatch,
+        {"messages": [], "tools": [_tool_schema("hunt_status"), _tool_schema("hunt_leads")]},
+        ["hunt_status", "hunt_leads"],
+        [_tool_response("hunt_status"), _tool_response("hunt_leads")],
+        dispatched,
+    )
+
+    assert dispatched == ["hunt_status"]
+    assert "Tool-use limit (2 hops)" in "".join(
+        (choice.get("delta") or {}).get("content") or ""
+        for payload in _payloads(chunks)
+        for choice in payload.get("choices", [])
+    )
+
+
+@pytest.mark.anyio
 async def test_bite_finish_is_returned_on_last_hop_but_workspace_tool_is_not_dispatched(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

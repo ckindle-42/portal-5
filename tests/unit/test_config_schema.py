@@ -134,6 +134,62 @@ def test_thinking_budget_workspace_and_variant_schema(tmp_path: Path) -> None:
     )
 
 
+def test_max_tool_hops_workspace_and_variant_schema(tmp_path: Path) -> None:
+    raw = _load_minimal(
+        tmp_path,
+        {
+            "workspaces": {
+                "auto": {
+                    "name": "Auto",
+                    "description": "Auto router",
+                    "module": "general",
+                    "max_tool_hops": 8,
+                    "variants": {"deep": {"max_tool_hops": 12}},
+                }
+            }
+        },
+    )
+    cfg = PortalConfig.model_validate(raw)
+    workspace = cfg.workspaces["auto"]
+    assert workspace.max_tool_hops == 8
+    assert workspace.variants["deep"]["max_tool_hops"] == 12
+    assert get_workspace_dict(cfg)["auto"]["max_tool_hops"] == 8
+    assert (
+        merge_workspace_variant(get_workspace_dict(cfg)["auto"], workspace.variants["deep"])[
+            "max_tool_hops"
+        ]
+        == 12
+    )
+
+
+@pytest.mark.parametrize("max_tool_hops", [0, -1, True, "8"])
+def test_max_tool_hops_must_be_a_positive_integer(max_tool_hops: object) -> None:
+    with pytest.raises(ValueError):
+        WorkspaceSpec.model_validate(
+            {
+                "name": "Tool loop",
+                "description": "Tool loop workspace",
+                "module": "general",
+                "max_tool_hops": max_tool_hops,
+            }
+        )
+    with pytest.raises(ValueError):
+        WorkspaceSpec.model_validate(
+            {
+                "name": "Tool loop",
+                "description": "Tool loop workspace",
+                "module": "general",
+                "variants": {"invalid": {"max_tool_hops": max_tool_hops}},
+            }
+        )
+
+
+def test_security_reviewer_configures_multi_step_tool_loop() -> None:
+    config = load_portal_config(_force_reload=True)
+    assert config.workspaces["security-reviewer"].max_tool_hops == 8
+    assert get_workspace_dict(config)["security-reviewer"]["max_tool_hops"] == 8
+
+
 @pytest.mark.parametrize("budget", [0, -1, True, "4096"])
 def test_thinking_budget_must_be_a_positive_integer(budget: object) -> None:
     with pytest.raises(ValueError):
