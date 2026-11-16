@@ -11,6 +11,7 @@ from mcp.client.streamable_http import streamable_http_client
 from scripts.proofs import owui_hunt_chat as proof
 
 JOB = "hunt-r2-c3af6e161598"
+CASE_ID = "c34871dd325af64e"
 
 
 def _progress_calls() -> list[dict]:
@@ -66,10 +67,17 @@ def _result_calls() -> list[dict]:
         {
             "tool": "hunt_case",
             "arguments": {"job_id": JOB, "case": 1},
-            "output": json.dumps({"job_id": JOB, "case": 1, "anchor_entity": "service x"}),
+            "output": json.dumps(
+                {"job_id": JOB, "case": 1, "case_id": CASE_ID, "anchor_entity": "service x"}
+            ),
             "source": "exec_audit",
         },
     ]
+
+
+def _results_calls_without_sources() -> list[dict]:
+    """Turn 2 as the live receipt shows it: leads and case, no sources."""
+    return [call for call in _result_calls() if call["tool"] != "hunt_sources"]
 
 
 def test_fold_payload_collects_answer_audit_and_terminal_state() -> None:
@@ -125,11 +133,50 @@ def test_grade_progress_rejects_result_reads_while_running() -> None:
 
 
 def test_grade_results_passes_on_the_later_turn_with_the_real_r2_job_id() -> None:
-    answer = f"Job {JOB} completed. Top lead not-77 pivots on service x; case 1 shares it."
+    answer = f"Job {JOB} completed. Top lead not-77 pivots on service x; case {CASE_ID} shares it."
     passed, reasons, details = proof.grade_results(_result_calls(), answer, JOB)
     assert passed, reasons
     assert details["job_id"] == JOB
     assert "not-77" in details["citation"]
+    assert CASE_ID in details["case_citation"]
+
+
+def test_grade_results_passes_without_hunt_sources_when_the_prompt_never_asked() -> None:
+    answer = f"Top lead not-77; case {CASE_ID} shares the same anchor."
+    passed, reasons, _ = proof.grade_results(_results_calls_without_sources(), answer, JOB)
+    assert passed, reasons
+
+
+def test_grade_results_requires_hunt_sources_only_with_the_flag() -> None:
+    answer = f"Top lead not-77; case {CASE_ID} shares the same anchor."
+    passed, reasons, _ = proof.grade_results(
+        _results_calls_without_sources(), answer, JOB, require_sources=True
+    )
+    assert not passed
+    assert any("hunt_sources was never called" in reason for reason in reasons)
+
+
+def test_grade_results_passes_without_hunt_status_when_the_answer_is_complete() -> None:
+    calls = [call for call in _results_calls_without_sources() if call["tool"] != "hunt_status"]
+    answer = f"Top lead not-77; case {CASE_ID} shares the same anchor."
+    passed, reasons, _ = proof.grade_results(calls, answer, JOB)
+    assert passed, reasons
+
+
+def test_grade_results_fails_when_a_called_hunt_status_is_not_terminal() -> None:
+    calls = _results_calls_without_sources()
+    calls[0]["output"] = json.dumps({"job_id": JOB, "status": "RUNNING"})
+    answer = f"Top lead not-77; case {CASE_ID} shares the same anchor."
+    passed, reasons, _ = proof.grade_results(calls, answer, JOB)
+    assert not passed
+    assert any("did not observe a terminal status" in reason for reason in reasons)
+
+
+def test_grade_results_fails_when_the_answer_omits_the_case_id() -> None:
+    answer = f"Job {JOB} completed; the top lead is not-77 and case 1 shares it."
+    passed, reasons, _ = proof.grade_results(_results_calls_without_sources(), answer, JOB)
+    assert not passed
+    assert any("does not cite the returned case" in reason for reason in reasons)
 
 
 def test_grade_results_fails_when_hunt_case_is_missing() -> None:
@@ -242,9 +289,11 @@ def test_main_proves_progress_then_a_later_results_turn(monkeypatch, capsys) -> 
     first = proof.Turn(t0=0.0, t_end=45.0, m0=0.0, finish="stop", done=True)
     first.content = [f"Hunt {JOB} is still running in the cards stage. Ask me for results later."]
     first.calls = _progress_calls()
+    first.usage = {"prompt_tokens": 1200}
     second = proof.Turn(t0=500.0, t_end=540.0, m0=500.0, finish="stop", done=True)
-    second.content = [f"Job {JOB} completed. Top lead not-77; case 1 pivots on service x."]
+    second.content = [f"Job {JOB} completed. Top lead not-77; case {CASE_ID} pivots on service x."]
     second.calls = _result_calls()
+    second.usage = {"prompt_tokens": 2240}
     seen = _stub_turns(monkeypatch, [first, second])
     monkeypatch.setattr(
         proof, "wait_for_terminal", lambda *_a, **_k: {"job_id": JOB, "status": "COMPLETE"}
@@ -262,6 +311,8 @@ def test_main_proves_progress_then_a_later_results_turn(monkeypatch, capsys) -> 
     assert "PASS" in out and "TURN 1" in out and "TURN 2" in out and "hunt_case" in out
     assert "sk-live" not in out
     assert "total: 45.0s" in out and "total: 40.0s" in out
+    assert "prompt tokens: 1200 | peak prompt tokens: 1200" in out
+    assert "prompt tokens: 2240 | peak prompt tokens: 2240" in out
 
 
 def test_stream_turn_has_no_total_wall_clock_deadline(monkeypatch) -> None:
@@ -350,7 +401,7 @@ def test_wait_for_terminal_reports_progress_until_terminal(monkeypatch, capsys) 
 
 def test_main_resumes_an_existing_job_without_starting_turn_one(monkeypatch, capsys) -> None:
     second = proof.Turn(t0=500.0, t_end=540.0, m0=500.0, finish="stop", done=True)
-    second.content = [f"Job {JOB} completed. Top lead not-77; case 1 pivots on service x."]
+    second.content = [f"Job {JOB} completed. Top lead not-77; case {CASE_ID} pivots on service x."]
     second.calls = _result_calls()
     seen = _stub_turns(monkeypatch, [second])
     wait_calls = []
@@ -369,3 +420,17 @@ def test_main_resumes_an_existing_job_without_starting_turn_one(monkeypatch, cap
     assert seen[0][1] == [{"role": "user", "content": seen[0][0]}]
     assert wait_calls == [("http://localhost:8943/mcp", JOB)]
     assert "TURN 1" not in out and "TURN 2" in out and "PASS" in out
+
+
+def test_main_require_sources_flag_fails_a_turn_that_skips_sources(monkeypatch, capsys) -> None:
+    second = proof.Turn(t0=500.0, t_end=540.0, m0=500.0, finish="stop", done=True)
+    second.content = [f"Top lead not-77; case {CASE_ID} shares the same anchor."]
+    second.calls = _results_calls_without_sources()
+    _stub_turns(monkeypatch, [second])
+    monkeypatch.setattr(
+        proof, "wait_for_terminal", lambda *_a, **_k: {"job_id": JOB, "status": "COMPLETE"}
+    )
+    assert proof.main(["--job-id", JOB, "--require-sources"]) == 1
+    out = capsys.readouterr().out
+    assert "FAIL" in out
+    assert "hunt_sources was never called" in out
