@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import json
+from contextlib import asynccontextmanager
+from types import SimpleNamespace
+
+from mcp.client.streamable_http import streamable_http_client
 
 from scripts.proofs import owui_hunt_chat as proof
 
@@ -260,18 +264,30 @@ def test_main_proves_progress_then_a_later_results_turn(monkeypatch, capsys) -> 
     assert "total: 45.0s" in out and "total: 40.0s" in out
 
 
-def test_main_fails_on_first_turn_deadline(monkeypatch, capsys) -> None:
-    turn = proof.Turn(t0=0.0, t_end=1500.0, m0=0.0, timed_out=True)
-    turn.content = ["partial"]
-    turn.calls = _progress_calls()
-    _stub_turns(monkeypatch, [turn])
-    monkeypatch.setattr(proof, "find_turn_trace", lambda *_a, **_k: None)
-    code = proof.main(["--deadline-s", "1"])
-    out = capsys.readouterr().out
-    assert code == 1
-    assert "FAIL" in out
-    assert "deadline" in out
-    assert "TURN 1" in out
+def test_stream_turn_has_no_total_wall_clock_deadline(monkeypatch) -> None:
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def __iter__(self):
+            return iter(
+                [
+                    b'data: {"choices":[{"delta":{"content":"hello"}}]}\n',
+                    b"data: [DONE]\n",
+                ]
+            )
+
+    monotonic_values = iter([0.0, 2000.0])
+    monkeypatch.setattr(proof.urllib.request, "urlopen", lambda *_a, **_k: Response())
+    monkeypatch.setattr(proof.time, "monotonic", lambda: next(monotonic_values))
+
+    turn = proof.stream_turn("http://owui", "key", "model", "prompt", idle_s=2)
+
+    assert turn.answer == "hello"
+    assert turn.done
 
 
 def test_main_fails_when_the_request_errors_out(monkeypatch, capsys) -> None:
@@ -284,3 +300,72 @@ def test_main_fails_when_the_request_errors_out(monkeypatch, capsys) -> None:
     out = capsys.readouterr().out
     assert "FAIL: the OWUI chat request failed" in out
     assert "sk-live" not in out
+
+
+def test_proof_uses_the_real_sdk_v2_streamable_http_client() -> None:
+    assert proof.streamable_http_client is streamable_http_client
+
+
+def test_wait_for_terminal_reports_progress_until_terminal(monkeypatch, capsys) -> None:
+    statuses = [
+        {"job_id": JOB, "status": "RUNNING", "stage": "cards"},
+        {"job_id": JOB, "status": "COMPLETE", "stage": "done"},
+    ]
+
+    class Session:
+        def __init__(self, _read, _write):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return False
+
+        async def initialize(self):
+            return None
+
+        async def call_tool(self, *_args):
+            return SimpleNamespace(structuredContent=statuses.pop(0), content=[], isError=False)
+
+    @asynccontextmanager
+    async def transport(url):
+        assert url == "http://review/mcp"
+        yield (object(), object())
+
+    async def no_sleep(_seconds):
+        return None
+
+    monkeypatch.setattr(proof, "streamable_http_client", transport, raising=False)
+    monkeypatch.setattr(proof, "ClientSession", Session, raising=False)
+    monkeypatch.setattr(proof.asyncio, "sleep", no_sleep)
+
+    result = proof.wait_for_terminal("http://review/mcp", JOB)
+    output = capsys.readouterr().out
+    assert result["status"] == "COMPLETE"
+    assert [check["status"] for check in result["polls"]] == ["RUNNING", "COMPLETE"]
+    assert "status=RUNNING stage=cards" in output
+    assert "status=COMPLETE stage=done" in output
+
+
+def test_main_resumes_an_existing_job_without_starting_turn_one(monkeypatch, capsys) -> None:
+    second = proof.Turn(t0=500.0, t_end=540.0, m0=500.0, finish="stop", done=True)
+    second.content = [f"Job {JOB} completed. Top lead not-77; case 1 pivots on service x."]
+    second.calls = _result_calls()
+    seen = _stub_turns(monkeypatch, [second])
+    wait_calls = []
+
+    def fake_wait(url, job_id):
+        wait_calls.append((url, job_id))
+        return {"job_id": JOB, "status": "COMPLETE", "elapsed_s": 1.0, "polls": []}
+
+    monkeypatch.setattr(proof, "wait_for_terminal", fake_wait)
+    code = proof.main(["--job-id", JOB])
+    out = capsys.readouterr().out
+
+    assert code == 0
+    assert len(seen) == 1
+    assert seen[0][0] == f"Show me the hunt results for job {JOB}: the top leads and first case."
+    assert seen[0][1] == [{"role": "user", "content": seen[0][0]}]
+    assert wait_calls == [("http://localhost:8943/mcp", JOB)]
+    assert "TURN 1" not in out and "TURN 2" in out and "PASS" in out

@@ -30,7 +30,7 @@ python3 scripts/hunt_bed/graph_hunt.py --index <idx> --out <dir> [--from-grids <
 python3 scripts/hunt_run.py --index <idx> --out <leads.json>                   # blind hunt, leads only
 python3 scripts/hunt_investigate.py --leads <leads.json> --out <cases.json>    # dig leads into cases
 python3 scripts/hunt_bed/owui_proof.py --index <idx> --out <dir>               # hunt through Open WebUI like an analyst
-uv run python3 scripts/proofs/owui_hunt_chat.py [--index <idx>] [--job-deadline-s 1300]   # OWUI progress turn, native-MCP wait, later results turn; PASS/FAIL receipt
+uv run python3 scripts/proofs/owui_hunt_chat.py [--index <idx>] [--job-id hunt-r2-<12hex>]   # OWUI progress turn, native-MCP wait, later results turn; --job-id resumes at the wait
 python3 scripts/hunt_bed/score_leads.py --leads <job.json> --keys ... --manifest ...   # lead recall / false leads
 python3 scripts/hunt_bed/score_cases.py --cases <job.json> --keys ...          # stage coverage per case
 python3 scripts/hunt_bed/score_bots.py --index botsv1 --key ... --leads ... --cases ... # BOTS scenario recall
