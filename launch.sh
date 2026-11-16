@@ -523,6 +523,10 @@ PYEOF
     _launch_install_ollama
     ;;
 
+  install-omlx)
+    _launch_install_omlx
+    ;;
+
   install-music-minimax)
     _launch_install_music_minimax
     ;;
@@ -649,10 +653,11 @@ PYEOF
 
 
     *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|sync-config|update|pull-models|refresh-models|import-gguf|test|promptfoo|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-music-minimax|install-mflux|start-mflux|stop-mflux|pull-mflux-models|install-video-mlx|start-video-mlx|stop-video-mlx|pull-video-mlx-models|pull-asr-models|install-music-ace|stop-music-ace|start-speech|stop-speech|start-transcribe|stop-transcribe|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|apply-mtp-drafts|build-lab-attack|build-binresearch]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|sync-config|update|pull-models|refresh-models|import-gguf|test|promptfoo|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-omlx|install-music-minimax|install-mflux|start-mflux|stop-mflux|pull-mflux-models|install-video-mlx|start-video-mlx|stop-video-mlx|pull-video-mlx-models|pull-asr-models|install-music-ace|stop-music-ace|start-speech|stop-speech|start-transcribe|stop-transcribe|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|apply-mtp-drafts|build-lab-attack|build-binresearch]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
+    echo "  install-omlx          Re-render + reload the oMLX LaunchAgent (fixed venv, :8085)"
     echo "  install-music-minimax Install MiniMax-Music3-MLX MCP (Apple Silicon / MLX)"
     echo "  install-mflux         Install MFLUX MCP — MLX-native image generation (Apple Silicon), port 8933"
     echo "  start-mflux           Start (or install) the MFLUX MCP launchd service"
