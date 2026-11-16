@@ -26,6 +26,7 @@ The shared ``httpx.AsyncClient`` is injected by ``lifespan`` as
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import contextvars
 import json
@@ -370,6 +371,8 @@ _PIPELINE_ERROR_NOTICE = "\n\n[Pipeline stream error — the reply ended early: 
 
 #: Opens the content notice that carries an in-band backend error (ollama#18563) to the client.
 _IN_BAND_ERROR_NOTICE = "\n\n[Backend stream error — the reply ended early: "
+
+_STREAM_HEARTBEAT_S = 10.0
 
 
 def _error_text(value: Any) -> str:
@@ -1873,13 +1876,44 @@ async def _stream_from_backend_guarded(
     _capacity_retried: bool = False,
 ) -> AsyncIterator[bytes]:
     """The backend stream, closed with the usage frame the client asked for."""
-    async for frame in _with_closing_usage(
+    frames = _with_closing_usage(
         _stream_from_backend_guarded_impl(
             url, body, workspace_id, model, start_time, _capacity_retried
         ),
         body,
-    ):
+    )
+    async for frame in _with_stream_heartbeats(frames):
         yield frame
+
+
+async def _with_stream_heartbeats(frames: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
+    """Keep a queued stream open with SSE comments while its next frame is pending."""
+    iterator = frames.__aiter__()
+    task: asyncio.Task[bytes] | None = None
+
+    async def next_frame() -> bytes:
+        return await iterator.__anext__()
+
+    try:
+        while True:
+            task = asyncio.create_task(next_frame())
+            while not task.done():
+                done, _ = await asyncio.wait({task}, timeout=_STREAM_HEARTBEAT_S)
+                if not done:
+                    yield b": waiting for model capacity\n\n"
+            try:
+                frame = task.result()
+            except StopAsyncIteration:
+                return
+            yield frame
+    finally:
+        if task is not None and not task.done():
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+        close = getattr(iterator, "aclose", None)
+        if close is not None:
+            await close()
 
 
 async def _stream_from_backend_guarded_impl(

@@ -558,6 +558,51 @@ class LoadGuard:
         """Count one in-flight request; return its idempotent end()."""
         return self._begin_with_activity_lock(engine, model, self._activity_lock(engine, model))
 
+    def has_activity(self) -> bool:
+        """Whether any worker is admitting, loading, or serving an inference request."""
+        if self._busy or self._lock.locked():
+            return True
+        paths = [_PROCESS_LOCK_DIR / "admissions.lock", _PROCESS_LOCK_DIR / "cold-load.lock"]
+        try:
+            paths.extend(_PROCESS_LOCK_DIR.glob("active-*.lock"))
+        except OSError:
+            return True
+        for path in paths:
+            handle = self._try_reserve_process_lock(path)
+            if handle is None:
+                return True
+            self._release_activity_lock(handle)
+        return False
+
+    @staticmethod
+    def _shared_process_lock(name: str) -> Any | None:
+        handle = None
+        try:
+            _PROCESS_LOCK_DIR.mkdir(parents=True, exist_ok=True)
+            handle = (_PROCESS_LOCK_DIR / name).open("a+")
+            fcntl.flock(handle.fileno(), fcntl.LOCK_SH)
+            return handle
+        except OSError as e:
+            if handle is not None:
+                handle.close()
+            logger.warning("load_guard: could not track %s: %s", name, e)
+            return None
+
+    @staticmethod
+    def _try_reserve_process_lock(path: Path) -> Any | None:
+        handle = None
+        try:
+            _PROCESS_LOCK_DIR.mkdir(parents=True, exist_ok=True)
+            handle = path.open("a+")
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return handle
+        except OSError as e:
+            if handle is not None:
+                handle.close()
+            if not isinstance(e, BlockingIOError):
+                logger.warning("load_guard: could not inspect %s: %s", path.name, e)
+            return None
+
     def _begin_with_activity_lock(
         self, engine: str, model: str, activity_lock: Any | None
     ) -> Callable[[], None]:
@@ -1101,46 +1146,44 @@ class LoadGuard:
         deadline: float,
         release: _Release,
         held: list[_Release],
-    ) -> tuple[_Release, bool]:
+    ) -> tuple[_Release, bool, float]:
         release()
         saw_loading = False
         try:
             while True:
                 remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    if saw_loading:
-                        raise LoadRefusedError(
-                            f"Cannot load {model}: engine model transition still active "
-                            f"after waiting {_waited_s(deadline):.1f}s",
-                            "transition-active",
-                        )
+                if remaining <= 0 and not saw_loading:
                     break
                 try:
-                    loading = await asyncio.wait_for(self._omlx_loading(client), timeout=remaining)
+                    loading = await asyncio.wait_for(
+                        self._omlx_loading(client),
+                        timeout=(
+                            min(max(_POLL_S, 0.01), remaining)
+                            if remaining > 0
+                            else max(_POLL_S, 0.01)
+                        ),
+                    )
                 except TimeoutError:
                     if saw_loading:
-                        raise LoadRefusedError(
-                            f"Cannot load {model}: engine model transition still active "
-                            f"after waiting {_waited_s(deadline):.1f}s",
-                            "transition-active",
-                        ) from None
+                        deadline = max(deadline, time.monotonic() + load_wait_s())
+                        continue
                     break
                 if not loading:
                     break
-                saw_loading = True
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    raise LoadRefusedError(
-                        f"Cannot load {model}: engine model transition still active "
-                        f"after waiting {_waited_s(deadline):.1f}s",
-                        "transition-active",
+                if not saw_loading:
+                    logger.info(
+                        "load_guard: %s engine transition active; waiting while it progresses",
+                        model,
                     )
+                saw_loading = True
+                deadline = max(deadline, time.monotonic() + load_wait_s())
+                remaining = deadline - time.monotonic()
                 started = time.monotonic()
                 await self._wait_change(min(_POLL_S, remaining))
                 _record_wait(OLLAMA, "engine_transition", time.monotonic() - started)
             release = await self._acquire(OLLAMA, deadline, model)
             held.append(release)
-            return release, saw_loading
+            return release, saw_loading, deadline
         except BaseException:
             release()
             raise
@@ -1160,25 +1203,26 @@ class LoadGuard:
         activity_seen: bool,
         pending_change: bool,
         pending_free_names: list[str],
-    ) -> tuple[_Release, bool]:
+    ) -> tuple[_Release, bool, float]:
         remaining = deadline - time.monotonic()
         release()
         foreign_active = False
+        probe_timed_out = False
         if remaining > 0:
             try:
                 foreign_active = await asyncio.wait_for(
-                    self._omlx_foreign_active(client), timeout=remaining
+                    self._omlx_foreign_active(client),
+                    timeout=min(max(_POLL_S, 0.01), remaining),
                 )
             except TimeoutError:
-                if pending_free_names:
-                    raise self._free_settle_refusal(
-                        model, pending_free_names, need, available, _waited_s(deadline)
-                    ) from None
-                raise self._ollama_refusal(
-                    model, need, available, headroom, idle, quiet=False, waited=_waited_s(deadline)
-                ) from None
+                probe_timed_out = True
         changing = bool(self._busy) or foreign_active
-        activity_seen = activity_seen or changing
+        activity_seen, deadline = self._record_activity_progress(changing, activity_seen, deadline)
+        resumed = await self._resume_after_activity_drains(
+            changing, activity_seen, probe_timed_out, deadline, model, held
+        )
+        if resumed is not None:
+            return resumed
         quiet = not (activity_seen or pending_change)
         remaining = deadline - time.monotonic()
         if quiet and remaining > 0:
@@ -1207,7 +1251,32 @@ class LoadGuard:
         _record_wait(OLLAMA, _wait_stage(pending_change), time.monotonic() - started)
         release = await self._acquire(OLLAMA, deadline, model)
         held.append(release)
-        return release, activity_seen
+        return release, activity_seen, deadline
+
+    @staticmethod
+    def _record_activity_progress(
+        changing: bool, activity_seen: bool, deadline: float
+    ) -> tuple[bool, float]:
+        """Keep a progressing activity's admission budget alive until it drains."""
+        if changing:
+            return True, max(deadline, time.monotonic() + load_wait_s())
+        return activity_seen, deadline
+
+    async def _resume_after_activity_drains(
+        self,
+        changing: bool,
+        activity_seen: bool,
+        probe_timed_out: bool,
+        deadline: float,
+        model: str,
+        held: list[_Release],
+    ) -> tuple[_Release, bool, float] | None:
+        """Reacquire and remeasure as soon as the activity holding capacity ends."""
+        if changing or not activity_seen or probe_timed_out:
+            return None
+        release = await self._acquire(OLLAMA, deadline, model)
+        held.append(release)
+        return release, False, deadline
 
     async def _free_idle_memory(
         self,
@@ -1539,7 +1608,12 @@ class LoadGuard:
         deadline = time.monotonic() + load_wait_s()
         _admit_waited.set(False)
         held: list[_Release] = []
-        release, defer_yield = await self._admit_ollama_yielding(base, model, deadline, held)
+        activity = self._shared_process_lock("admissions.lock")
+        try:
+            release, defer_yield = await self._admit_ollama_yielding(base, model, deadline, held)
+        finally:
+            if activity is not None:
+                self._release_activity_lock(activity)
         if release is None:
             return None
         _record_admission(OLLAMA, _admit_waited.get())
@@ -1597,9 +1671,11 @@ class LoadGuard:
         """Admit then lease the model through request completion across workers."""
         if not self.enabled() or not model:
             return None, self.begin(OLLAMA, model)
-        release = await self.admit(base, model)
+        admission = self._shared_process_lock("admissions.lock")
+        release: Callable[[], None] | None = None
         activity_lock = None
         try:
+            release = await self.admit(base, model)
             while True:
                 activity_lock = await self._acquire_activity(
                     OLLAMA, model, time.monotonic() + load_wait_s()
@@ -1633,6 +1709,29 @@ class LoadGuard:
             if release is not None:
                 release()
             raise
+        finally:
+            if admission is not None:
+                self._release_activity_lock(admission)
+
+    async def admit_and_begin_omlx(
+        self, model: str
+    ) -> tuple[Callable[[], None] | None, Callable[[], None]]:
+        """Keep admission visible until the oMLX request lease is installed."""
+        if not self.enabled() or not model:
+            return None, self.begin(OMLX, model)
+        admission = self._shared_process_lock("admissions.lock")
+        release: Callable[[], None] | None = None
+        try:
+            release = await self.admit_omlx(model)
+            end = self.begin(OMLX, model)
+            return release, end
+        except BaseException:
+            if release is not None:
+                release()
+            raise
+        finally:
+            if admission is not None:
+                self._release_activity_lock(admission)
 
     async def _yield_protected_idle(
         self,
@@ -1679,95 +1778,109 @@ class LoadGuard:
                 return None  # cannot see Ollama's state: fail open
             release = await self._acquire(OLLAMA, deadline, model)
             held.append(release)
-            activity_seen = False
-            pending_omlx: dict[str, _Free] = {}
-            pending_ollama: dict[str, _Free] = {}
-            carry = _YieldCarry()
-            recheck = False
             try:
-                while True:
-                    resident = await self._resident(client, base)
-                    if lookup_model(resident, model) is not None:
-                        release()
-                        return None
-                    need = await self._need(client, base, model)
-                    capacity = await self._headroom(client)
-                    if capacity is None or not need:
-                        break  # unmeasurable: fail open
-                    headroom, used = capacity
-                    carry.last_used, recheck = self._track_counter(used, carry.last_used, recheck)
-                    idle = self._ollama_idle(resident)
-                    available = self._ollama_available(headroom, resident, idle) - _MARGIN
-                    _record_headroom(available)
-                    if await self._free_or_yield_parallel(
-                        client,
-                        base,
-                        resident,
-                        idle,
-                        used,
-                        need,
-                        available,
-                        carry,
-                        pending_omlx,
-                        pending_ollama,
-                    ):
-                        continue
-                    (
-                        pending_omlx,
-                        settled,
-                        carry.pending_omlx_used,
-                    ) = await self._pending_omlx_unloads(
-                        client, pending_omlx, carry.pending_omlx_used
-                    )
-                    if settled:
-                        recheck = False  # our own unload moved the counter
-                        continue  # re-measure headroom before deciding
-                    pending_ollama = self._settle_ollama_frees(
-                        model, need, available, resident, headroom, pending_ollama, deadline
-                    )
-                    if need <= available:
-                        break
-                    release, loading_seen = await self._wait_if_omlx_loading(
-                        client, model, deadline, release, held
-                    )
-                    if loading_seen:
-                        continue
-                    if not (pending_omlx or pending_ollama) and await self._yield_protected_idle(
-                        client, base, resident, need, available, pending_ollama, carry
-                    ):
-                        continue
-                    release, activity_seen = await self._wait_if_ollama_capacity_may_change(
-                        client,
-                        model,
-                        deadline,
-                        release,
-                        held,
-                        need,
-                        available,
-                        headroom,
-                        idle,
-                        used,
-                        activity_seen,
-                        bool(pending_omlx or pending_ollama or recheck),
-                        list(pending_omlx) + list(pending_ollama),
-                    )
-                    recheck = False
+                return await self._admit_ollama_locked(client, base, model, deadline, held, release)
             except LoadRefusedError:
                 release()
                 raise
             except Exception as e:
                 logger.warning("load_guard: measurement failed for %s, admitting: %s", model, e)
+                return release
+
+    async def _admit_ollama_locked(
+        self,
+        client: httpx.AsyncClient,
+        base: str,
+        model: str,
+        deadline: float,
+        held: list[_Release],
+        release: _Release,
+    ) -> _Release | None:
+        """Measure capacity and advance one Ollama cold-load admission."""
+        activity_seen = False
+        pending_omlx: dict[str, _Free] = {}
+        pending_ollama: dict[str, _Free] = {}
+        carry = _YieldCarry()
+        recheck = False
+        while True:
+            resident = await self._resident(client, base)
+            if lookup_model(resident, model) is not None:
+                release()
+                return None
+            need = await self._need(client, base, model)
+            capacity = await self._headroom(client)
+            if capacity is None or not need:
+                break  # unmeasurable: fail open
+            headroom, used = capacity
+            carry.last_used, recheck = self._track_counter(used, carry.last_used, recheck)
+            idle = self._ollama_idle(resident)
+            available = self._ollama_available(headroom, resident, idle) - _MARGIN
+            _record_headroom(available)
+            if await self._free_or_yield_parallel(
+                client,
+                base,
+                resident,
+                idle,
+                used,
+                need,
+                available,
+                carry,
+                pending_omlx,
+                pending_ollama,
+            ):
+                continue
+            pending_omlx, settled, carry.pending_omlx_used = await self._pending_omlx_unloads(
+                client, pending_omlx, carry.pending_omlx_used
+            )
+            if settled:
+                recheck = False
+                continue
+            pending_ollama = self._settle_ollama_frees(
+                model, need, available, resident, headroom, pending_ollama, deadline
+            )
+            if need <= available:
+                break
+            release, loading_seen, deadline = await self._wait_if_omlx_loading(
+                client, model, deadline, release, held
+            )
+            if loading_seen:
+                continue
+            if not (pending_omlx or pending_ollama) and await self._yield_protected_idle(
+                client, base, resident, need, available, pending_ollama, carry
+            ):
+                continue
+            release, activity_seen, deadline = await self._wait_if_ollama_capacity_may_change(
+                client,
+                model,
+                deadline,
+                release,
+                held,
+                need,
+                available,
+                headroom,
+                idle,
+                used,
+                activity_seen,
+                bool(pending_omlx or pending_ollama or recheck),
+                list(pending_omlx) + list(pending_ollama),
+            )
+            recheck = False
         return release
 
-    async def _wait_for_ollama_release(self, deadline: float) -> bool:
-        """One poll for an Ollama resident to go idle. False when the deadline is already spent."""
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
+    async def _wait_for_ollama_release(self, deadline: float, models: list[str]) -> bool:
+        """Wait while named Ollama residents are serving work that can free memory."""
+        if not models:
             return False
-        _admit_waited.set(True)
-        started = time.monotonic()
-        await self._wait_change(min(remaining, max(_POLL_S, 0.01)))
-        _record_wait(OMLX, "in_flight", time.monotonic() - started)
+        logger.info("load_guard: waiting for active Ollama model(s) to release: %s", models)
+        while any(
+            self.busy(OLLAMA, model) or self._active_elsewhere(OLLAMA, model) for model in models
+        ):
+            deadline = max(deadline, time.monotonic() + load_wait_s())
+            remaining = deadline - time.monotonic()
+            _admit_waited.set(True)
+            started = time.monotonic()
+            await self._wait_change(min(remaining, max(_POLL_S, 0.01)))
+            _record_wait(OMLX, "in_flight", time.monotonic() - started)
         return True
 
     def _omlx_ollama_blockers(
@@ -1922,10 +2035,13 @@ class LoadGuard:
             return
         held = self._ollama_unfreeable(resident)
         releasable = _releasable_ollama_bytes(held, freed)
+        waiting_models = [
+            name for name, _, reason in held if reason in ("busy", "active elsewhere")
+        ]
         if (
             releasable
             and available + releasable >= need
-            and await self._wait_for_ollama_release(deadline)
+            and await self._wait_for_ollama_release(deadline, waiting_models)
         ):
             return
         self._refuse_blocked_omlx(
@@ -2071,6 +2187,7 @@ class LoadGuard:
         deadline = time.monotonic() + load_wait_s()
         _admit_waited.set(False)
         release: _Release | None = None
+        activity = self._shared_process_lock("admissions.lock")
         try:
             async with self._client() as client:
                 entry = _omlx_entry(await self._omlx_status(client), model)
@@ -2091,6 +2208,9 @@ class LoadGuard:
                 release()
             _record_refusal(OMLX, e)
             raise
+        finally:
+            if activity is not None:
+                self._release_activity_lock(activity)
         _record_admission(OMLX, _admit_waited.get())
         asyncio.get_running_loop().create_task(
             self._release_when_resident(OMLX, "", model, release)

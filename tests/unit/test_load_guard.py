@@ -332,6 +332,20 @@ def guard(e: Engines, ollama_url: str | None = OLLAMA_URL) -> lg.LoadGuard:
     )
 
 
+def test_has_activity_covers_cross_worker_admission_and_request_leases():
+    g = lg.LoadGuard(omlx_url=lambda: None)
+    admission = g._shared_process_lock("admissions.lock")
+    assert admission is not None
+    assert g.has_activity()
+    g._release_activity_lock(admission)
+
+    active = g._activity_lock(OLLAMA, "seat")
+    assert active is not None
+    assert g.has_activity()
+    g._release_activity_lock(active)
+    assert not g.has_activity()
+
+
 async def settle() -> None:
     for _ in range(50):
         await asyncio.sleep(0)
@@ -789,24 +803,25 @@ async def test_omlx_cold_load_waits_out_a_busy_ollama_resident_then_frees_it():
     release()
 
 
-async def test_omlx_cold_load_refuses_a_busy_ollama_resident_past_the_deadline(caplog):
+async def test_omlx_cold_load_waits_for_busy_ollama_past_initial_budget():
     engines, guard_obj = _omlx_short_of_ollama("seat")
     end = guard_obj.begin(OLLAMA, "seat")
     lg.set_load_wait("0.2")
+    started = lg.time.monotonic()
+
+    async def _release_after_progress(_timeout):
+        await asyncio.sleep(0.05)
+        if lg.time.monotonic() - started >= 0.25:
+            end()
+
+    guard_obj._wait_change = _release_after_progress  # type: ignore[method-assign]
     before = wait_count(OMLX, "in_flight")
-    with (
-        caplog.at_level(logging.WARNING, logger=lg.logger.name),
-        pytest.raises(lg.LoadRefusedError) as err,
-    ):
-        await guard_obj.admit_omlx("mlx")
-    end()
-    text = str(err.value)
-    available = f"available {lg._omlx_available(15 * GIB) / GIB:.1f} GiB"
-    assert "seat" in text and "busy" in text
-    assert "need 14.0 GiB" in text and available in text
-    assert re.search(r"waited [1-9]\d*\.\d|waited 0\.[1-9]", text)
-    assert any(r.levelno == logging.WARNING and text in r.getMessage() for r in caplog.records)
-    assert engines.unload_calls == {}
+    release = await guard_obj.admit_omlx("mlx")
+    elapsed = lg.time.monotonic() - started
+    assert release is not None
+    assert elapsed > 0.2
+    assert engines.unload_calls.get("seat") == 1
+    release()
     assert not guard_obj._lock.locked()
     assert wait_count(OMLX, "in_flight") > before
 
@@ -926,7 +941,7 @@ async def test_protected_idle_is_not_spent_when_it_cannot_cover_the_gap():
     assert e.ollama["fallback"] == 2 * GIB
 
 
-async def test_protected_busy_omlx_is_never_evicted():
+async def test_protected_busy_omlx_is_not_evicted_during_free():
     e = Engines(
         tags={"m": 20 * GIB},
         omlx={"protected": {"size": 20 * GIB, "loaded": True}},
@@ -935,9 +950,8 @@ async def test_protected_busy_omlx_is_never_evicted():
     g = guard(e)
     g.protect(OMLX, "protected", seconds=60)
     end = g.begin(OMLX, "protected")
-    lg.set_load_wait("0.2")
-    with pytest.raises(lg.LoadRefusedError):
-        await g.admit(OLLAMA_URL, "m")
+    async with g._client() as client:
+        await g._free_omlx(client, 10 * GIB, e.omlx_used())
     end()
     assert e.unloaded == []
     assert e.omlx["protected"]["loaded"]
@@ -1581,40 +1595,40 @@ async def test_loading_signal_waits_then_remeasures_headroom(signal):
     release()
 
 
-async def test_engine_transition_wait_respects_admission_deadline(monkeypatch):
+async def test_loading_transition_outlives_initial_wait_and_completes_admission(monkeypatch):
     e = Engines(
         tags={"m": 30 * GIB},
         omlx={"loading": {"size": GIB, "loaded": False}},
         ceiling=8 * GIB,
-        loading_polls=[True] * 100,
-        status_loading_polls=[True] * 100,
+        settled_ceiling=40 * GIB,
+        loading_polls=[True] * 4 + [False],
+        status_loading_polls=[True] * 4 + [False],
     )
-    lg.set_load_wait("0.06")
+    lg.set_load_wait("0.03")
     monkeypatch.setattr(lg, "_POLL_S", 0.01)
     started = lg.time.monotonic()
-    with pytest.raises(lg.LoadRefusedError):
-        await guard(e).admit(OLLAMA_URL, "m")
+    release = await guard(e).admit(OLLAMA_URL, "m")
     elapsed = lg.time.monotonic() - started
-    assert 0.05 <= elapsed < 0.5
+    assert release is not None
+    assert elapsed > 0.03
+    assert e.ceiling == 40 * GIB
+    release()
 
 
-async def test_transition_refusal_reports_the_real_elapsed_wait(monkeypatch):
-    """FIX6 finding 4b: a 0.35 s stuck transition is not "after waiting 0s"."""
+async def test_completed_transition_refuses_for_capacity_not_for_timeout(monkeypatch):
     e = Engines(
         tags={"m": 30 * GIB},
         omlx={"swap": {"size": GIB, "loaded": False}},
         ceiling=8 * GIB,
-        loading_polls=[True] * 1000,
-        status_loading_polls=[True] * 1000,
+        loading_polls=[True, False],
+        status_loading_polls=[True, False],
     )
-    lg.set_load_wait("0.35")
+    lg.set_load_wait("0.06")
     monkeypatch.setattr(lg, "_POLL_S", 0.01)
-    started = lg.time.monotonic()
     with pytest.raises(lg.LoadRefusedError) as err:
         await guard(e).admit(OLLAMA_URL, "m")
-    elapsed = lg.time.monotonic() - started
-    assert "engine model transition still active" in str(err.value)
-    assert printed_wait_s(str(err.value)) == pytest.approx(elapsed, abs=0.1)
+    assert "engine model transition still active" not in str(err.value)
+    assert "nothing in flight to wait for" in str(err.value)
 
 
 async def test_transition_poll_releases_lock_and_headroom_is_nonblocking(monkeypatch):
@@ -2512,13 +2526,42 @@ async def test_nothing_in_flight_and_nothing_to_free_refuses_without_waiting(mon
     assert "nothing in flight" in str(err.value)
 
 
-async def test_foreign_omlx_work_keeps_the_load_waiting_instead_of_refusing_at_once(monkeypatch):
-    # An IDE talking to oMLX directly is invisible to _busy; its finish may free room.
-    monkeypatch.setattr(lg, "_WAIT_S", 0.3)
+async def test_foreign_omlx_work_can_release_capacity_after_initial_budget(monkeypatch):
+    # An IDE talking to oMLX directly is invisible to _busy; wait past the
+    # initial budget while its request is active, then remeasure when it drains.
     e = Engines(tags={"next": 55 * GIB}, ceiling=40 * GIB, omlx_active=1)
-    with pytest.raises(lg.LoadRefusedError) as err:
-        await guard(e).admit(OLLAMA_URL, "next")
-    assert "after waiting" in str(err.value)
+    g = guard(e)
+
+    class FakeClock:
+        now = 0.0
+
+        def monotonic(self):
+            return self.now
+
+    clock = FakeClock()
+    monkeypatch.setattr(lg, "time", SimpleNamespace(monotonic=clock.monotonic))
+    monkeypatch.setattr(lg, "_POLL_S", 0.01)
+    lg.set_load_wait("0.03")
+    polls = 0
+
+    async def foreign_active(_client):
+        nonlocal polls
+        polls += 1
+        if polls <= 4:
+            return True
+        e.ceiling = 80 * GIB
+        return False
+
+    async def wait_change(timeout):
+        clock.now += timeout
+
+    monkeypatch.setattr(g, "_omlx_foreign_active", foreign_active)
+    monkeypatch.setattr(g, "_wait_change", wait_change)
+    release = await g.admit(OLLAMA_URL, "next")
+    assert release is not None
+    assert clock.now > 0.03
+    assert polls >= 5
+    release()
 
 
 async def test_slow_foreign_activity_probe_refuses_instead_of_failing_open(monkeypatch):
@@ -2637,27 +2680,23 @@ async def test_a_refusal_after_waiting_counts_projected_exceeds():
     assert metric_value(_REFUSALS, engine=OLLAMA, reason="projected-exceeds") == (before or 0) + 1
 
 
-async def test_a_transition_refusal_counts_reason_transition_active():
+async def test_a_completed_transition_does_not_count_as_transition_refusal(monkeypatch):
     e = Engines(
         tags={"m": 30 * GIB},
         omlx={"loading": {"size": GIB, "loaded": False}},
         ceiling=8 * GIB,
-        loading_polls=[True] * 100,
-        status_loading_polls=[True] * 100,
+        loading_polls=[True, False],
+        status_loading_polls=[True, False],
     )
-    monkeypatch = pytest.MonkeyPatch()
-    monkeypatch.setattr(lg, "_POLL_S", 0.01)  # burn the deadline inside the poll budget
+    monkeypatch.setattr(lg, "_POLL_S", 0.01)
     lg.set_load_wait("0.06")
     before = metric_value(_REFUSALS, engine=OLLAMA, reason="transition-active")
-    waits = wait_count(OLLAMA, "engine_transition")
-    try:
-        with pytest.raises(lg.LoadRefusedError) as err:
-            await guard(e).admit(OLLAMA_URL, "m")
-        assert "transition still active" in str(err.value)
-    finally:
-        monkeypatch.undo()
-    assert metric_value(_REFUSALS, engine=OLLAMA, reason="transition-active") == (before or 0) + 1
-    assert wait_count(OLLAMA, "engine_transition") > waits
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await guard(e).admit(OLLAMA_URL, "m")
+    assert "transition still active" not in str(err.value)
+    assert (metric_value(_REFUSALS, engine=OLLAMA, reason="transition-active") or 0) == (
+        before or 0
+    )
 
 
 async def test_a_cold_load_lock_timeout_counts_reason_deadline():
