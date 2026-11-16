@@ -3,8 +3,12 @@
 Enumerates the production workspace seats (base hints and declared variants, not
 bench lanes), resolves each hint's oMLX native id through the registry, and asks
 the load guard to measure each footprint against the budget that remains when
-every evictable resident is reclaimed. Seats that can never fit are listed, not
-changed; ``stack_down_only`` is the operator's existing declaration of that fact.
+every evictable resident is reclaimed. ``over_budget`` is that live snapshot;
+``never_fit`` needs a fixed ``LOAD_GUARD_CEILING_GB``, because the balanced
+tier's ceiling follows host free memory (P5-OMLX-CEILING-001) — without one the
+same seat answers differently through the day and "never" is not a claim the
+data supports. Seats are listed, not changed; ``stack_down_only`` is the
+operator's existing declaration of a seat that only loads with the stack down.
 """
 
 from __future__ import annotations
@@ -57,6 +61,9 @@ def annotate(report: dict[str, Any]) -> dict[str, Any]:
     rows = report.get("seats") or []
     report["undeclared_never_fit"] = [
         r["seat"] for r in rows if r["never_fit"] and not r["stack_down_only"]
+    ]
+    report["undeclared_over_budget"] = [
+        r["seat"] for r in rows if r["over_budget"] and not r["stack_down_only"]
     ]
     report["unserved"] = [r["seat"] for r in rows if not r["served"]]
     return report

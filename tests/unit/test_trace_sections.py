@@ -154,8 +154,30 @@ def test_installed_hop_fails_a_missing_program_and_warns_on_stale_args(tmp_path:
 
 def test_installed_hop_warns_on_unsubstituted_placeholders() -> None:
     cfg = {"ProgramArguments": ["__OMLX_VENV__/bin/python", "-m", "omlx.cli"]}
-    hop = host.program_hop("com.portal5.omlx", cfg)
+    hop = host.program_hop("com.portal5.omlx", cfg, ("/opt/omlx-live/venv/bin/python", "-m"))
     assert hop.status is Status.WARN and "__OMLX_VENV__" in hop.observed
+    assert "loaded=/opt/omlx-live/venv/bin/python" in hop.detail
+
+
+def test_parse_arguments_reads_the_loaded_job_block() -> None:
+    printed = (
+        "\tgui/501/com.portal5.omlx = {\n"
+        "\targuments = {\n"
+        "\t\t/opt/omlx-live/venv/bin/python\n"
+        "\t\t-m\n"
+        "\t\tomlx.cli\n"
+        "\t\tserve\n"
+        "\t}\n"
+        "\tstate = running\n"
+    )
+    state = host.parse_job_state(printed, loaded=True)
+    assert state.arguments == (
+        "/opt/omlx-live/venv/bin/python",
+        "-m",
+        "omlx.cli",
+        "serve",
+    )
+    assert host.parse_arguments("no block here") == ()
 
 
 def test_installed_hop_skips_argument_drift_for_templated_plists() -> None:
@@ -513,13 +535,54 @@ def test_parse_ollama_ps_sizes_residents() -> None:
     assert engines.parse_ollama_ps({}) == []
 
 
-def test_parse_seat_fit_keeps_the_three_verdict_lists() -> None:
+def test_parse_seat_fit_keeps_the_verdict_lists() -> None:
     verdicts = engines.parse_seat_fit(
-        {"never_fit": ["a"], "undeclared_never_fit": ["a", "b"], "unserved": []}
+        {
+            "never_fit": ["a"],
+            "undeclared_never_fit": ["a", "b"],
+            "over_budget": ["a", "c"],
+            "undeclared_over_budget": ["a", "c"],
+            "unserved": [],
+        }
     )
     assert verdicts["undeclared_never_fit"] == ["a", "b"]
-    assert set(verdicts) == {"never_fit", "undeclared_never_fit", "unserved"}
+    assert verdicts["undeclared_over_budget"] == ["a", "c"]
+    assert set(verdicts) == {
+        "never_fit",
+        "undeclared_never_fit",
+        "over_budget",
+        "undeclared_over_budget",
+        "unserved",
+    }
     assert engines.parse_seat_fit(None)["never_fit"] == []
+
+
+def test_seat_fit_verdict_fails_never_fit_and_warns_over_budget() -> None:
+    fatal = engines.seat_fit_verdict(
+        {
+            "never_fit": ["a"],
+            "undeclared_never_fit": ["a"],
+            "over_budget": ["a", "b"],
+            "undeclared_over_budget": ["a", "b"],
+            "available_gib": 27.5,
+            "budget_source": "oMLX final_ceiling (live)",
+        }
+    )
+    assert fatal.status is Status.FAIL and "never_fit=1" in fatal.observed
+    live = engines.seat_fit_verdict(
+        {
+            "never_fit": [],
+            "undeclared_never_fit": [],
+            "over_budget": ["a", "b"],
+            "undeclared_over_budget": ["a", "b"],
+            "available_gib": 27.5,
+            "budget_source": "oMLX final_ceiling (live)",
+        }
+    )
+    assert live.status is Status.WARN
+    assert "over_budget=2" in live.observed and "available=27.5GiB" in live.observed
+    clean = engines.seat_fit_verdict({"never_fit": [], "over_budget": [], "unserved": []})
+    assert clean.status is Status.PASS
 
 
 def test_seat_fit_basis_names_the_budget_the_verdicts_used() -> None:

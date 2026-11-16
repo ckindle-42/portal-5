@@ -22,6 +22,7 @@ _PID = re.compile(r"^\s*pid = (\d+)", re.M)
 _RUNS = re.compile(r"^\s*runs = (\d+)", re.M)
 _LAST_EXIT = re.compile(r"^\s*last exit code = (-?\d+)", re.M)
 _INTERVAL = re.compile(r"^\s*run interval = (\d+) seconds", re.M)
+_ARGUMENTS = re.compile(r"^\s*arguments = \{\n(.*?)^\s*\}$", re.M | re.S)
 
 
 @dataclass(frozen=True)
@@ -34,6 +35,7 @@ class JobState:
     runs: int | None = None
     last_exit: int | None = None
     interval_s: int | None = None
+    arguments: tuple[str, ...] = ()
 
 
 def parse_plist(data: bytes) -> dict[str, Any]:
@@ -112,6 +114,14 @@ def parse_priority(output: str) -> int | None:
     return None
 
 
+def parse_arguments(text: str) -> tuple[str, ...]:
+    """The resolved ``arguments = { … }`` block launchd holds for the loaded job."""
+    match = _ARGUMENTS.search(text)
+    if not match:
+        return ()
+    return tuple(line.strip() for line in match.group(1).splitlines() if line.strip())
+
+
 def parse_job_state(text: str, loaded: bool) -> JobState:
     """Read ``launchctl print <domain>/<label>`` into the facts a verdict needs."""
 
@@ -126,6 +136,7 @@ def parse_job_state(text: str, loaded: bool) -> JobState:
         runs=number(_RUNS),
         last_exit=number(_LAST_EXIT),
         interval_s=number(_INTERVAL),
+        arguments=parse_arguments(text),
     )
 
 
@@ -157,7 +168,10 @@ def load_installed(label: str, directory: Path) -> dict[str, Any] | None:
 
 
 def installed_hop(
-    label: str, repo_cfg: dict[str, Any], installed: dict[str, Any] | None
+    label: str,
+    repo_cfg: dict[str, Any],
+    installed: dict[str, Any] | None,
+    loaded: tuple[str, ...] = (),
 ) -> list[Hop]:
     """The installed plist exists, matches ProcessType, carries the env keys, and can execute."""
     directory = install_dir(repo_cfg)
@@ -188,7 +202,7 @@ def installed_hop(
             f"missing={','.join(missing)}" if missing else "",
         )
     )
-    hops.append(program_hop(label, installed))
+    hops.append(program_hop(label, installed, loaded))
     if not templated(repo_cfg) and program_args(repo_cfg) != program_args(installed):
         hops.append(
             Hop(
@@ -202,16 +216,17 @@ def installed_hop(
     return hops
 
 
-def program_hop(label: str, installed: dict[str, Any]) -> Hop:
-    """Every absolute path the installed job runs must exist, or the job cannot start."""
+def program_hop(label: str, installed: dict[str, Any], loaded: tuple[str, ...] = ()) -> Hop:
+    """Every absolute program path exists and no installer placeholder survives."""
     tokens = unsubstituted(installed)
     if tokens:
+        runs = f"loaded={short(' '.join(loaded), 60)}" if loaded else "loaded=none"
         return Hop(
             f"program {label}",
             Status.WARN,
             f"unsubstituted={','.join(tokens)}",
-            "installer substitutes every placeholder",
-            "re-run this job's installer",
+            "rendered with the documented substitutions",
+            f"{runs}; render the installed plist",
         )
     missing = missing_program_paths(installed)
     paths = program_paths(installed)
@@ -270,8 +285,9 @@ def run(repo_root: Path) -> list[Hop]:
             continue
         label = str(cfg.get("Label") or path.stem)
         installed = load_installed(label, install_dir(cfg))
-        hops.extend(installed_hop(label, cfg, installed))
-        hops.append(process_hop(label, cfg, query_job(label, is_daemon(cfg))))
+        state = query_job(label, is_daemon(cfg))
+        hops.extend(installed_hop(label, cfg, installed, state.arguments))
+        hops.append(process_hop(label, cfg, state))
     if not hops:
         hops.append(Hop("deploy/launchd", Status.FAIL, "no plists found", "repo plists present"))
     return hops
