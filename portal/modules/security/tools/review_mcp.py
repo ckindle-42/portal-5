@@ -226,9 +226,10 @@ def hunt_start(
             judge_enabled=judge,
         )
         nxt = (
-            f"call hunt_status(job_id={job_id!r}) until COMPLETE, PARTIAL, or FAILED, then "
-            f"hunt_sources(job_id={job_id!r}), hunt_leads(job_id={job_id!r}), and "
-            f"hunt_case(job_id={job_id!r}, case=1)"
+            f"call hunt_status(job_id={job_id!r}); if still RUNNING, report the stage and ask "
+            f"the user to request results later. Once COMPLETE, PARTIAL, or FAILED, call "
+            f"hunt_sources, hunt_leads, "
+            f"and hunt_case(job_id={job_id!r}, case=1)"
         )
         return hunt_jobs.compact(
             {
@@ -245,8 +246,11 @@ def hunt_start(
 
 @mcp.tool()
 def hunt_status(job_id: str | None = None, index: str | None = None) -> dict[str, Any]:
-    """Read R2 stage progress and effort cost; COMPLETE, PARTIAL, and FAILED are terminal."""
-    return _guard("hunt_status", lambda: r2_hunt_jobs.status(job_id, index))
+    """Wait up to 45 seconds for an R2 hunt and return current stage progress."""
+    return _guard(
+        "hunt_status",
+        lambda: r2_hunt_jobs.status(job_id, index, wait_seconds=r2_hunt_jobs.STATUS_WAIT_MAX_S),
+    )
 
 
 @mcp.tool()

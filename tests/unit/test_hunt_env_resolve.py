@@ -235,6 +235,25 @@ def test_hunt_start_tells_the_model_the_next_step(monkeypatch: pytest.MonkeyPatc
     assert "hunt_status(job_id='hunt-r2-abc123def456')" in out["next"]
     assert "hunt_case(job_id='hunt-r2-abc123def456', case=1)" in out["next"]
     assert "PARTIAL" in out["next"]
+    assert "if still RUNNING, report the stage" in out["next"]
+
+
+def test_hunt_status_uses_the_bounded_long_poll(monkeypatch: pytest.MonkeyPatch) -> None:
+    review_mcp = pytest.importorskip("portal.modules.security.tools.review_mcp")
+    seen: dict[str, Any] = {}
+
+    def status(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        seen["args"] = args
+        seen["kwargs"] = kwargs
+        return {"status": "RUNNING"}
+
+    monkeypatch.setattr(review_mcp.r2_hunt_jobs, "status", status)
+
+    out = review_mcp.hunt_status(job_id="hunt-r2-abc123def456")
+
+    assert out["status"] == "RUNNING"
+    assert seen["args"] == ("hunt-r2-abc123def456", None)
+    assert seen["kwargs"] == {"wait_seconds": review_mcp.r2_hunt_jobs.STATUS_WAIT_MAX_S}
 
 
 def test_budget_exhaustion_is_persisted_as_partial_with_progress(

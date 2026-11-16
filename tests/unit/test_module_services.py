@@ -605,3 +605,16 @@ _wait_up_health
     assert "mcp-documents" in result.stdout
     assert "not answering" in result.stdout
     assert "SERVICE" in result.stdout  # the per-service table header
+
+
+def test_a_broken_optional_import_reads_as_not_installed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """find_spec imports parent packages: a half-installed MLX stack must not crash a skip check."""
+    from portal.platform.inference.cli import module_services as ms
+
+    def boom(name: str) -> object:
+        raise ImportError("cannot import name 'AutoProcessor' from 'transformers'")
+
+    monkeypatch.setattr(ms.importlib.util, "find_spec", boom)
+
+    assert ms._vl_ready() is False
+    assert ms._installed("mlx_audio") is False
