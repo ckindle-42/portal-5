@@ -159,13 +159,13 @@ def _matches(
         marks = ",".join("?" for _ in ids)
         rows = connection.execute(
             "WITH ranked AS (SELECT r.behaviour_id,k.item_id,k.label,k.label_kind,k.label_basis,k.family,"
-            "k.index_name,k.source_kind,k.provenance_query,"
+            "k.index_name,k.source_kind,k.statement,k.provenance_query,"
             "array_inner_product(r.embedding,k.embedding) AS similarity,"
             "row_number() OVER (PARTITION BY r.behaviour_id,k.label_kind "
             "ORDER BY array_inner_product(r.embedding,k.embedding) DESC,k.item_id) AS rank "
             "FROM run_behaviours r CROSS JOIN loaded_knowledge k "
             f"WHERE r.behaviour_id IN ({marks})) "
-            "SELECT behaviour_id,label,label_kind,label_basis,family,index_name,source_kind,"
+            "SELECT behaviour_id,label,label_kind,label_basis,family,index_name,source_kind,statement,"
             "provenance_query,similarity FROM ranked WHERE rank <= ? "
             "ORDER BY behaviour_id,label_kind,rank",
             [*ids, NEAREST_PER_LABEL],
@@ -178,6 +178,7 @@ def _matches(
             family,
             index_name,
             source_kind,
+            statement,
             query,
             similarity,
         ) in rows:
@@ -189,6 +190,7 @@ def _matches(
                     "family": str(family),
                     "index": str(index_name),
                     "source_kind": str(source_kind),
+                    "statement": str(statement),
                     "query": str(query),
                     "similarity": float(similarity),
                 }

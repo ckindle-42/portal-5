@@ -27,7 +27,7 @@ from ..executor import (
 from .behaviours import MAX_TERMS, IdentityPlan, _query_terms, _quote, behaviour_key
 from .cards import SourceCard, card_consumers
 from .embedding import EmbeddingError, embedding_from_env, embedding_requirement
-from .generators import behaviour_words
+from .generators import normalized_behaviour_words
 from .knowledge import PROOF_INDEXES, KnowledgeError, KnowledgeItem, build_store
 from .parse import parse_row
 from .run import SOURCES_FILE, default_search, load_cards
@@ -159,7 +159,16 @@ def _normalize(card: SourceCard, plan: IdentityPlan, raw: str) -> tuple[str, lis
     actor, action, object_value = key[1], key[3], key[5]
     if not actor and not object_value:
         return None
-    return behaviour_words(actor, action, object_value), _query_terms(plan, parsed.fields)
+    return (
+        normalized_behaviour_words(
+            actor,
+            action,
+            object_value,
+            actor_field=plan.actor_field,
+            action_field=plan.action_field,
+        ),
+        _query_terms(plan, parsed.fields),
+    )
 
 
 def _provenance_query(index: str, host: str, source: str, terms: Sequence[str]) -> str:

@@ -130,6 +130,21 @@ def test_relate_rejects_nontraining_indexes_before_reading(tmp_path: Path) -> No
     assert search.queries == []
 
 
+def test_product_relate_uses_judged_notables_only(tmp_path: Path) -> None:
+    out = _run_dir(tmp_path)
+    rows = (out / "notables.jsonl").read_text(encoding="utf-8").splitlines()
+    unjudged = json.loads(rows[1])
+    unjudged["p_yes"] = None
+    (out / "notables.jsonl").write_text(
+        rows[0] + "\n" + json.dumps(unjudged) + "\n", encoding="utf-8"
+    )
+
+    receipt = relate_stage(out=out, search=_Search(), judged_only=True)
+
+    assert receipt["seeds"] == 1
+    assert receipt["unjudged_skipped"] == 1
+
+
 def test_entity_pivots_use_exact_values_and_extract_actor_address() -> None:
     entities = _entities(
         {

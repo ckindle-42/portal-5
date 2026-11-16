@@ -34,6 +34,17 @@ _ROOT = Path(
     os.environ.get("PORTAL5_HUNT_DIR", str(Path.home() / "AI_Output" / "review" / "hunts"))
 )
 _lock = threading.Lock()
+R2_DEFAULT_BUDGETS = {**DEFAULT_BUDGETS, "job_seconds": 1260.0}
+STAGE_ESTIMATES = {
+    "cards": 30.0,
+    "behaviours": 80.0,
+    "notables": 350.0,
+    "judge": 590.0,
+    "relate": 120.0,
+}
+STAGE_ORDER = tuple(STAGE_ESTIMATES)
+LEADS_LIMIT = 3
+LEADS_RESPONSE_CHARS = 6000
 
 
 class HuntJobClient:
@@ -46,7 +57,7 @@ class HuntJobClient:
     def complete(self, **request: Any) -> Mapping[str, Any]:
         remaining = self.effort.remaining()
         if remaining <= 0:
-            self.effort.exhausted = "job_deadline_exceeded"
+            self.effort.exhausted = self.effort.expired_reason() or "job_deadline_exceeded"
             raise HuntBudgetExceededError(self.effort.exhausted)
         request["_timeout_seconds"] = remaining
         return self.client.complete(**request)
@@ -75,7 +86,7 @@ def load(job_id: str) -> dict[str, Any] | None:
 
 
 def _limits(values: Mapping[str, float] | None) -> dict[str, float]:
-    limits = dict(DEFAULT_BUDGETS)
+    limits = dict(R2_DEFAULT_BUDGETS)
     if values:
         unknown = set(values) - set(limits)
         if unknown:
@@ -130,6 +141,38 @@ def _cost(stages: Mapping[str, Any], snapshot: Mapping[str, Any]) -> dict[str, A
     }
 
 
+def _stage_plan(stage: str, remaining_seconds: float) -> dict[str, Any]:
+    if stage not in STAGE_ESTIMATES:
+        raise ValueError(f"unknown R2 hunt stage: {stage}")
+    position = STAGE_ORDER.index(stage)
+    later = list(STAGE_ORDER[position + 1 :])
+    reserved = {name: STAGE_ESTIMATES[name] for name in later if name != "judge"}
+    if "judge" in later:
+        fixed = sum(reserved.values())
+        flexible = max(
+            0.0,
+            remaining_seconds - STAGE_ESTIMATES[stage] - fixed,
+        )
+        reserved["judge"] = min(STAGE_ESTIMATES["judge"], flexible)
+        reserved = {name: reserved[name] for name in later}
+    reserve_total = sum(reserved.values())
+    available = max(0.0, remaining_seconds - reserve_total)
+    budget = min(STAGE_ESTIMATES[stage], available) if stage == "judge" else available
+    return {
+        "stage": stage,
+        "remaining_s": round(max(0.0, remaining_seconds), 1),
+        "estimate_s": STAGE_ESTIMATES[stage],
+        "budget_s": round(budget, 1),
+        "reserved_for_later": reserved,
+        "reserved_s": round(reserve_total, 1),
+        "shortfall_s": round(max(0.0, STAGE_ESTIMATES[stage] - budget), 1),
+        "buffer_s": round(max(0.0, budget - STAGE_ESTIMATES[stage]), 1),
+        "cut_policy": "stage1_rank"
+        if stage == "judge" and budget < STAGE_ESTIMATES[stage]
+        else None,
+    }
+
+
 def _save_progress(
     job_id: str,
     state: dict[str, Any],
@@ -151,24 +194,28 @@ def _enter_stage(
     state_lock: threading.RLock,
     out: Path,
     effort: HuntBudget,
-) -> None:
-    if effort.remaining() <= 0:
+) -> dict[str, Any]:
+    if effort.job_remaining() <= 0:
         effort.exhausted = "job_deadline_exceeded"
         raise HuntBudgetExceededError(effort.exhausted)
+    plan = _stage_plan(name, effort.job_remaining())
+    effort.set_stage_deadline(name, plan["budget_s"])
     effort.phase = name
     effort.update(phase=name)
     with state_lock:
+        state.setdefault("stage_plan", []).append(plan)
         state.update(
             stage=name, progress={"current": effort.snapshot(), "stages": _stage_receipts(out)}
         )
         state["cost"] = _cost(state["progress"]["stages"], state["progress"]["current"])
         _write(job_id, state)
+    return plan
 
 
 def _stage_client(client: JudgeClient, effort: HuntBudget) -> BackpressureClient:
     remaining = effort.remaining()
     if remaining <= 0:
-        effort.exhausted = "job_deadline_exceeded"
+        effort.exhausted = effort.expired_reason() or "job_deadline_exceeded"
         raise HuntBudgetExceededError(effort.exhausted)
     return BackpressureClient(HuntJobClient(client, effort), budget_seconds=remaining)
 
@@ -215,8 +262,25 @@ def _stage_actions(
                 embedder=embedder,
             ),
         ),
-        ("judge", lambda: judge_stage(out=out, client=_stage_client(client, effort), model=model)),
-        ("relate", lambda: relate_stage(out=out, search=search)),
+        (
+            "judge",
+            lambda: _judge_stage_action(out, client, model, effort),
+        ),
+        ("relate", lambda: relate_stage(out=out, search=search, judged_only=True)),
+    )
+
+
+def _judge_stage_action(
+    out: Path, client: JudgeClient, model: str, effort: HuntBudget
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    available = effort.remaining()
+    bounded = _stage_client(client, effort) if available > 0 else client
+    return judge_stage(
+        out=out,
+        client=bounded,
+        model=model,
+        deadline_seconds=available,
+        request_budget=0 if available <= 0 else None,
     )
 
 
@@ -229,8 +293,16 @@ def _execute_stages(
     effort: HuntBudget,
 ) -> None:
     for stage, run_stage in actions:
-        _enter_stage(stage, job_id, state, state_lock, out, effort)
-        run_stage()
+        plan = _enter_stage(stage, job_id, state, state_lock, out, effort)
+        result = run_stage()
+        if stage == "judge" and isinstance(result, tuple) and len(result) == 2:
+            receipt = _mapping(result[1])
+            selection = receipt.get("selection")
+            if isinstance(selection, Mapping):
+                state["judge_selection"] = dict(selection)
+        plan["elapsed_s"] = round(max(0.0, plan["budget_s"] - (effort.remaining() or 0.0)), 1)
+        plan["complete"] = True
+        effort.clear_stage_deadline()
         _save_progress(job_id, state, state_lock, out, effort.snapshot())
 
 
@@ -278,7 +350,7 @@ def _run(
         _write(job_id, state)
     effort = HuntBudget(limits)
     if embedder is not None:
-        embedder.set_job_deadline(lambda: effort.deadline)
+        embedder.set_job_deadline(lambda: effort.request_deadline)
     effort.on_progress = lambda snapshot: _save_progress(job_id, state, state_lock, out, snapshot)
     bounded_search = BudgetedSearch(search, effort)
     client, model = target
@@ -329,7 +401,7 @@ def _run(
         budget_error = isinstance(exc, (HuntBudgetExceededError, ThrottleBudgetExceededError))
         deadline_expired = effort.remaining() <= 0
         if deadline_expired and not effort.exhausted:
-            effort.exhausted = "job_deadline_exceeded"
+            effort.exhausted = effort.expired_reason() or "job_deadline_exceeded"
         status = "PARTIAL" if effort.exhausted or budget_error or deadline_expired else "FAILED"
         if status == "PARTIAL" and not effort.exhausted:
             effort.exhausted = str(exc)
@@ -434,6 +506,8 @@ def status(job_id: str | None = None, index: str | None = None) -> dict[str, Any
             "progress",
             "cost",
             "knowledge_store",
+            "stage_plan",
+            "judge_selection",
         )
         if key in job
     }
@@ -441,17 +515,25 @@ def status(job_id: str | None = None, index: str | None = None) -> dict[str, Any
     return compact(result)
 
 
-def leads_view(job_id: str | None = None, index: str | None = None, n: int = 10) -> dict[str, Any]:
+def leads_view(
+    job_id: str | None = None, index: str | None = None, n: int = LEADS_LIMIT
+) -> dict[str, Any]:
     job, out = _resolve(job_id, index)
     if job is None:
         return out
     rows = _read_rows(Path(str(job["run_dir"])) / NOTABLES_FILE)
+    total = len(rows)
+    selected = rows[: max(0, min(n, LEADS_LIMIT))]
+    leads = [_lead(row, rank) for rank, row in enumerate(selected, 1)]
     out.update(
         job_id=job["job_id"],
         index=job["index"],
-        leads=[_lead(row, rank) for rank, row in enumerate(rows[: max(0, min(n, 25))], 1)],
+        leads=leads,
+        total_leads=total,
+        returned_leads=len(leads),
+        truncated=total > len(leads),
     )
-    return compact(out)
+    return _compact_leads(out)
 
 
 def _read_rows(path: Path) -> list[dict[str, Any]]:
@@ -468,20 +550,68 @@ def _read_rows(path: Path) -> list[dict[str, Any]]:
 
 def _lead(row: Mapping[str, Any], rank: int) -> dict[str, Any]:
     evidence = [item for item in row.get("evidence", []) if isinstance(item, Mapping)]
+    nearest = row.get("nearest_known")
+    if isinstance(nearest, Mapping):
+        nearest = [nearest]
+    nearest = [item for item in nearest or [] if isinstance(item, Mapping)]
+    match = nearest[0] if nearest else {}
+    candidate_text = str(row.get("what") or "")
+    reference_text = str(match.get("statement") or "")
+    similarity_text = {
+        "candidate": candidate_text[:400],
+        "reference": reference_text[:400],
+    }
     return {
         "rank": rank,
         "notable_id": row.get("notable_id"),
         "generator": row.get("generator"),
-        "source_id": row.get("source_id"),
+        "source_id": _short(row.get("source_id"), 200),
+        "why": _short(row.get("why"), 240),
         "measure": row.get("measure"),
-        "similar_known_item": row.get("nearest_known"),
+        "similar_known_item": {
+            key: _short(match.get(key), 400 if key == "query" else 160)
+            for key in ("family", "label", "label_kind", "label_basis", "similarity", "query")
+            if key in match
+        }
+        if match
+        else None,
+        "similarity_text": similarity_text,
+        "similarity_text_truncated": len(candidate_text) > 400 or len(reference_text) > 400,
         "judge_score": row.get("p_yes"),
-        "judge": row.get("judge"),
+        "judge": _brief_judge(row.get("judge")),
         "generator_reliability": row.get("generator_reliability"),
         "first_seen": row.get("first_seen"),
         "last_seen": row.get("last_seen"),
-        "evidence": [dict(item) for item in evidence[:5]],
+        "evidence": [
+            {
+                key: _short(item.get(key), 300 if key == "line" else 400)
+                for key in ("line", "query", "earliest", "latest")
+                if key in item
+            }
+            for item in evidence[:1]
+        ],
     }
+
+
+def _short(value: Any, limit: int) -> Any:
+    if not isinstance(value, str):
+        return value
+    return value[:limit]
+
+
+def _brief_judge(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, Mapping):
+        return None
+    keys = ("served_model", "reason", "cached", "seconds", "answer", "decision_index")
+    return {key: value[key] for key in keys if key in value}
+
+
+def _compact_leads(out: dict[str, Any]) -> dict[str, Any]:
+    while len(json.dumps(out)) >= LEADS_RESPONSE_CHARS and out["leads"]:
+        out["leads"].pop()
+        out["returned_leads"] = len(out["leads"])
+        out["truncated"] = True
+    return compact(out)
 
 
 def case_view(

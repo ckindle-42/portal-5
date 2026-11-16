@@ -19,7 +19,7 @@ import duckdb
 
 from .embedding import EmbeddingError, embed_batches, embedding_from_env, embedding_requirement
 
-SCHEMA_VERSION = "1"
+SCHEMA_VERSION = "2"
 LABEL_KINDS = frozenset({"known_bad", "known_good"})
 GOOD_BASES = frozenset({"unlabelled", "non_attack_day"})
 BAD_BASES = frozenset({"attack_step", "technique"})

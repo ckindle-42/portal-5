@@ -389,7 +389,7 @@ def _cases(
     return sorted(cases, key=lambda case: (-case["score"], case["start"], case["case_id"]))
 
 
-def relate_stage(*, out: Path, search: Search) -> dict[str, Any]:
+def relate_stage(*, out: Path, search: Search, judged_only: bool = False) -> dict[str, Any]:
     """Read bounded entity neighbours, score links from seed rank, and save cases."""
     sources = read_json(out / SOURCES_FILE)
     index = str(sources.get("index") or "")
@@ -400,7 +400,9 @@ def relate_stage(*, out: Path, search: Search) -> dict[str, Any]:
     start, end = _number(sources.get("start")), _number(sources.get("end"))
     if start is None or end is None or end <= start:
         raise ValueError(f"{out / SOURCES_FILE} needs a valid start/end range")
-    seeds = _seed_records(read_notables(out / NOTABLES_FILE), start, end)
+    notables = read_notables(out / NOTABLES_FILE)
+    selected = [row for row in notables if not judged_only or row.get("p_yes") is not None]
+    seeds = _seed_records(selected, start, end)
     requests, details = _requests(index, seeds)
     executor = executor_for(search)
     executor.budget.phase = "investigating"
@@ -412,6 +414,8 @@ def relate_stage(*, out: Path, search: Search) -> dict[str, Any]:
     receipt = {
         "index": index,
         "seeds": len(seeds),
+        "notables_considered": len(selected),
+        "unjudged_skipped": len(notables) - len(selected),
         "requests": len(requests),
         "related_events": len(related),
         "cases": len(cases),

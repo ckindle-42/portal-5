@@ -63,7 +63,21 @@ def _notables_stage(captured: dict[str, Any]):
 
 
 def _judge_stage(**kwargs: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    return [], progress_update(kwargs["out"], "judge", {"requests": 1, "model_seconds": 2.0})
+    receipt = {
+        "requests": 1,
+        "model_seconds": 2.0,
+        "selection": {"policy": "stage1_rank", "candidates": 1, "judged": 1, "cut": 0},
+    }
+    progress_update(kwargs["out"], "judge", receipt)
+    return [{"p_yes": 0.91}], receipt
+
+
+def _capture_judge(captured: dict[str, Any]):
+    def run(**kwargs: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        captured.update(kwargs)
+        return _judge_stage(**kwargs)
+
+    return run
 
 
 def _relate_stage(**kwargs: Any) -> dict[str, Any]:
@@ -115,7 +129,7 @@ def test_hunt_start_routes_to_the_r2_job_runner(monkeypatch: Any) -> None:
     assert started["args"][:4] == (search, "hb_kyoushi_s1", 100.0, 200.0)
     assert started["args"][4] == {
         "query_seconds": 30.0,
-        "job_seconds": 720.0,
+        "job_seconds": 1260.0,
         "requests": 2000,
         "cells": 10000,
         "events": 5000,
@@ -149,6 +163,7 @@ def test_start_persists_queued_job_and_dispatches_background_worker(
     assert captured[7] == store
     assert captured[8] == ("santos", "russell")
     assert captured[9] is embedder
+    assert captured[5]["job_seconds"] == 1260.0
 
 
 def test_r2_job_persists_stage_progress_cost_and_analyst_views(
@@ -158,13 +173,14 @@ def test_r2_job_persists_stage_progress_cost_and_analyst_views(
     monkeypatch.setattr(product_jobs, "preflight", lambda _client, _model: None)
     seen: list[str] = []
     configured: dict[str, Any] = {}
+    judge_options: dict[str, Any] = {}
     embedder = SimpleNamespace(close=lambda: None, set_job_deadline=lambda _deadline: None)
     store = tmp_path / "knowledge.duckdb"
     for name, run in (
         ("cards", _cards_stage),
         ("behaviours", _behaviours_stage),
         ("notables", _notables_stage(configured)),
-        ("judge", _judge_stage),
+        ("judge", _capture_judge(judge_options)),
         ("relate", _relate_stage),
     ):
         monkeypatch.setattr(product_jobs, f"{name}_stage", _tracked(name, run, seen))
@@ -194,10 +210,24 @@ def test_r2_job_persists_stage_progress_cost_and_analyst_views(
     assert SIMILAR_GENERATOR in configured["enabled"]
     assert configured["knowledge_store"] == store
     assert configured["knowledge_families"] == ("santos", "russell")
+    assert judge_options["deadline_seconds"] == pytest.approx(590.0, abs=0.01)
     assert job["cost"]["model_requests"] == 4
     assert job["cost"]["embedding_requests"] == 3
     assert job["progress"]["stages"]["notables"]
     assert job["progress"]["stages"]["relate"]["coverage_complete"] is True
+    assert job["judge_selection"] == {
+        "policy": "stage1_rank",
+        "candidates": 1,
+        "judged": 1,
+        "cut": 0,
+    }
+    assert [entry["stage"] for entry in job["stage_plan"]] == [
+        "cards",
+        "behaviours",
+        "notables",
+        "judge",
+        "relate",
+    ]
     lead = product_jobs.leads_view(job_id=job_id)["leads"][0]
     assert lead["similar_known_item"] == {
         "family": "santos",
@@ -207,6 +237,27 @@ def test_r2_job_persists_stage_progress_cost_and_analyst_views(
     assert lead["evidence"][0]["query"] == "search index=ix"
     assert product_jobs.sources_view(job_id=job_id)["cards"][0]["understood"] is True
     assert product_jobs.case_view(job_id=job_id)["evidence"][0]["event_id"] == "1:2"
+    status = product_jobs.status(job_id=job_id)
+    assert status["stage_plan"] == job["stage_plan"]
+    assert status["judge_selection"]["cut"] == 0
+
+
+def test_stage_plan_preserves_relation_time_and_cuts_judging_first() -> None:
+    plan = product_jobs._stage_plan("judge", 180.0)
+
+    assert plan["budget_s"] == 60.0
+    assert plan["reserved_for_later"] == {"relate": 120.0}
+    full = product_jobs._stage_plan("cards", 1247.0)
+    assert full["budget_s"] == 107.0
+    assert full["reserved_for_later"]["judge"] == 590.0
+    short = product_jobs._stage_plan("cards", 707.0)
+    assert short["budget_s"] == 30.0
+    assert short["reserved_for_later"] == {
+        "behaviours": 80.0,
+        "notables": 350.0,
+        "judge": 127.0,
+        "relate": 120.0,
+    }
 
 
 def test_pipeline_requests_use_the_remaining_hunt_deadline(monkeypatch: Any) -> None:
@@ -222,6 +273,22 @@ def test_pipeline_requests_use_the_remaining_hunt_deadline(monkeypatch: Any) -> 
     monkeypatch.setattr(effort, "remaining", lambda: 0.0)
     with pytest.raises(HuntBudgetExceededError):
         product_jobs.HuntJobClient(client, effort).complete(model="hunt-reasoning")
+
+
+def test_stage_deadline_bounds_a_request_without_replacing_the_job_deadline() -> None:
+    effort = HuntBudget(dict(DEFAULT_BUDGETS))
+    effort.set_stage_deadline("judge", 60.0)
+    seen: dict[str, Any] = {}
+    client = SimpleNamespace(complete=lambda **request: seen.update(request) or {"ok": True})
+
+    product_jobs.HuntJobClient(client, effort).complete(model="hunt-reasoning")
+    snapshot = effort.snapshot()
+
+    assert seen["_timeout_seconds"] <= 60.0
+    assert snapshot["remaining_s"] > 600.0
+    assert 0.0 < snapshot["stage_remaining_s"] <= 60.0
+    effort.set_stage_deadline("judge", 0.0)
+    assert effort.expired_reason() == "judge_stage_deadline_exceeded"
 
 
 def test_hunt_timeout_is_not_sent_as_a_pipeline_completion_field() -> None:
@@ -268,3 +335,59 @@ def test_embedding_requests_stop_at_the_shared_hunt_deadline() -> None:
 
     assert calls == []
     client.close()
+
+
+def test_leads_view_caps_default_payload_and_keeps_similarity_text_trace(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    monkeypatch.setattr(product_jobs, "_ROOT", tmp_path)
+    out = tmp_path / "hunt-r2-lead-size"
+    out.mkdir()
+    rows = []
+    for number in range(10):
+        rows.append(
+            {
+                "notable_id": f"n{number}",
+                "generator": "similar_to_known",
+                "source_id": "x" * 2000,
+                "what": "candidate behaviour " + "c" * 2000,
+                "measure": {"name": "similarity", "value": 0.99},
+                "nearest_known": [
+                    {
+                        "family": "santos",
+                        "label": "known behaviour " + "r" * 2000,
+                        "label_kind": "known_bad",
+                        "similarity": 0.997,
+                        "statement": "reference behaviour " + "s" * 2000,
+                        "query": "search index=known " + "q" * 2000,
+                    }
+                ],
+                "p_yes": 0.9,
+                "evidence": [
+                    {
+                        "line": "e" * 2000,
+                        "query": "search index=run " + "z" * 2000,
+                    }
+                ],
+            }
+        )
+    (out / product_jobs.NOTABLES_FILE).write_text("".join(json.dumps(row) + "\n" for row in rows))
+    product_jobs._write(
+        "hunt-r2-lead-size",
+        {
+            "job_id": "hunt-r2-lead-size",
+            "index": "ix",
+            "started": 1.0,
+            "run_dir": str(out),
+        },
+    )
+
+    result = product_jobs.leads_view(job_id="hunt-r2-lead-size")
+
+    assert 1 <= result["returned_leads"] <= 3
+    assert result["total_leads"] == 10
+    assert result["truncated"] is True
+    assert len(json.dumps(result)) < 6000
+    assert result["leads"][0]["similarity_text"]["candidate"].startswith("candidate behaviour")
+    assert result["leads"][0]["similarity_text"]["reference"].startswith("reference behaviour")
+    assert result["leads"][0]["similar_known_item"]["family"] == "santos"

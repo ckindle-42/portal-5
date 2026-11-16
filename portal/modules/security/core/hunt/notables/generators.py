@@ -505,10 +505,23 @@ def exact_counts(
 
 
 def behaviour_words(actor: str, action: str, object_value: str) -> str:
+    return normalized_behaviour_words(actor, action, object_value)
+
+
+def normalized_behaviour_words(
+    actor: str,
+    action: str,
+    object_value: str,
+    *,
+    actor_field: str = "",
+    action_field: str = "",
+) -> str:
+    """Format the shared run and manifest embedding statement for one behaviour."""
     parts = []
     if actor:
-        parts.append(f"actor {actor}")
-    if action:
+        role = "program" if actor_field.casefold() == "program" else "actor"
+        parts.append(f"{role} {actor}")
+    if action and action_field.casefold() != "template":
         parts.append(f"did {action}")
     if object_value:
         parts.append(f"to {object_value}")
@@ -516,7 +529,13 @@ def behaviour_words(actor: str, action: str, object_value: str) -> str:
 
 
 def _behaviour_words(behaviour: Behaviour) -> str:
-    return behaviour_words(behaviour.actor, behaviour.action, behaviour.object)
+    return normalized_behaviour_words(
+        behaviour.actor,
+        behaviour.action,
+        behaviour.object,
+        actor_field=behaviour.actor_field,
+        action_field=behaviour.action_field,
+    )
 
 
 def _robust_z(counts: Sequence[int]) -> tuple[float, int]:

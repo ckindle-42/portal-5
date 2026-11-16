@@ -65,8 +65,10 @@ class BudgetedSearch:
             # persist current evidence first: a spent wall clock must not lose the case
             self.on_case_checkpoint(phase, self.budget.snapshot(), cases)
         if self.budget.remaining() <= 0:
-            self.budget.exhausted = "job_deadline_exceeded"
-            raise HuntDeadlineExceededError(self.budget.exhausted)
+            self.budget.exhausted = self.budget.expired_reason() or "job_deadline_exceeded"
+            if self.budget.exhausted == "job_deadline_exceeded":
+                raise HuntDeadlineExceededError(self.budget.exhausted)
+            raise HuntBudgetExceededError(self.budget.exhausted)
         pivot_delta = int(values.pop("pivot_delta", 0))
         if pivot_delta:
             with self.budget.lock:

@@ -438,6 +438,7 @@ def judge_stage(
     client: JudgeClient,
     model: str,
     deadline_seconds: float = JUDGE_STAGE_DEADLINE_SECONDS,
+    request_budget: int | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Judge every distinct notable once through the Pipeline and write p_yes back."""
     path = out / NOTABLES_FILE
@@ -448,6 +449,7 @@ def judge_stage(
         client=client,
         model=model,
         cache_path=out / "cache" / "judge.json",
+        request_budget=request_budget,
         deadline_seconds=deadline_seconds,
     )
     http_errors = int(receipt["unjudged_reasons"].get("http_error", 0))
@@ -455,6 +457,14 @@ def judge_stage(
     receipt["ranking"] = {
         "priority_generator": SIMILAR_GENERATOR,
         "prioritized": sum(1 for item in ordered if item.get("generator") == SIMILAR_GENERATOR),
+    }
+    receipt["selection"] = {
+        "policy": "stage1_rank",
+        "candidates": len(ordered),
+        "judged": int(receipt["judged"]),
+        "cached": int(receipt["cached"]),
+        "cut": int(receipt["unasked"]),
+        "cut_reason": "judge_stage_budget_exhausted" if receipt["unasked"] else None,
     }
     path.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in judged))
     receipt["file"] = str(path)

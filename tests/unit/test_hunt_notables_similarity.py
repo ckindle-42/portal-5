@@ -8,10 +8,12 @@ from typing import Any
 import httpx
 import pytest
 
+from portal.modules.security.core.hunt.notables import manifest
 from portal.modules.security.core.hunt.notables.__main__ import _parser
-from portal.modules.security.core.hunt.notables.behaviours import Behaviour
+from portal.modules.security.core.hunt.notables.behaviours import Behaviour, IdentityPlan
 from portal.modules.security.core.hunt.notables.cards import SourceCard
 from portal.modules.security.core.hunt.notables.embedding import PipelineEmbeddingClient
+from portal.modules.security.core.hunt.notables.generators import _behaviour_words
 from portal.modules.security.core.hunt.notables.judge_notables import notable_prompt
 from portal.modules.security.core.hunt.notables.knowledge import KnowledgeItem, build_store
 from portal.modules.security.core.hunt.notables.pipeline import BackendPinnedClient
@@ -139,6 +141,9 @@ def test_similarity_uses_family_filtered_store_and_returns_labelled_matches(tmp_
     assert notables[0].generator_reliability == 1.0
     assert notables[0].nearest_known[0]["family"] != "kyoushi"
     assert notables[0].nearest_known[0]["label_kind"] in {"known_bad", "known_good"}
+    assert notables[0].nearest_known[0]["statement"] in {
+        item.statement for item in _knowledge_items()
+    }
     assert notables[0].as_dict()["evidence"][0]["query"].startswith('search index="run"')
     prompt = notable_prompt(notables[0].as_dict())
     assert "generator reliability (measured AUC): 1.000" in prompt
@@ -232,6 +237,52 @@ def test_judge_budget_receives_top_similarity_rank_before_generator_order() -> N
     ordered = _judge_order(rows)
 
     assert [row["measure"]["value"] for row in ordered] == [0.8, 0.2, 0.0]
+
+
+def test_template_embedding_text_is_shared_without_static_template_text(monkeypatch: Any) -> None:
+    behaviour = replace(
+        _behaviour(),
+        actor_field="program",
+        actor="redis-server",
+        action_field="template",
+        action="ASCII startup banner with generic punctuation",
+        object_field="slots",
+        object="daemon ready",
+    )
+    plan = IdentityPlan(
+        actor_field="program",
+        actor_mode="literal",
+        action_field="template",
+        action_mode="literal",
+        objects=(("slot", "literal"),),
+        overrides=(),
+        stats={},
+    )
+    card = replace(_card(), fmt="template", template_model=object())
+    monkeypatch.setattr(
+        manifest,
+        "parse_row",
+        lambda *_args: type("Parsed", (), {"fields": {"program": "redis-server"}})(),
+    )
+    monkeypatch.setattr(
+        manifest,
+        "behaviour_key",
+        lambda *_args: (
+            "program",
+            "redis-server",
+            "template",
+            "ASCII startup banner with generic punctuation",
+            "slots",
+            "daemon ready",
+        ),
+    )
+
+    candidate = _behaviour_words(behaviour)
+    reference, _terms = manifest._normalize(card, plan, "raw banner")
+
+    assert candidate == "program redis-server to daemon ready"
+    assert reference == candidate
+    assert "ASCII startup banner" not in candidate
 
 
 def test_cli_keeps_the_original_generators_as_default() -> None:

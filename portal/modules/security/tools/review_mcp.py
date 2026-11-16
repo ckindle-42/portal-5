@@ -200,7 +200,7 @@ def hunt_start(
     start: float | None = None,
     end: float | None = None,
     query_seconds: float = 30.0,
-    job_seconds: float = 720.0,
+    job_seconds: float = 1260.0,
     request_budget: int = 2000,
     cell_budget: int = 10000,
     event_budget: int = 5000,
@@ -242,7 +242,7 @@ def hunt_status(job_id: str | None = None, index: str | None = None) -> dict[str
 
 
 @mcp.tool()
-def hunt_leads(job_id: str | None = None, index: str | None = None, n: int = 10) -> dict[str, Any]:
+def hunt_leads(job_id: str | None = None, index: str | None = None, n: int = 3) -> dict[str, Any]:
     """Return ranked R2 notables with their generator, judge score, and checkable references."""
     return _guard("hunt_leads", lambda: r2_hunt_jobs.leads_view(job_id, index, n))
 

@@ -117,6 +117,8 @@ class HuntBudget:
     events: int = 0
     discovery_rows: int = 0
     phase: str = "ranking"
+    active_stage: str | None = None
+    stage_deadline: float | None = None
     seed_rank: int | None = None
     lead_count: int = 0
     pivot_count: int = 0
@@ -145,8 +147,37 @@ class HuntBudget:
     def deadline(self) -> float:
         return self.started + self.limits["job_seconds"]
 
-    def remaining(self) -> float:
+    @property
+    def request_deadline(self) -> float:
+        return min(self.deadline, self.stage_deadline or self.deadline)
+
+    def job_remaining(self) -> float:
         return max(0.0, self.deadline - time.monotonic())
+
+    def stage_remaining(self) -> float | None:
+        if self.stage_deadline is None:
+            return None
+        return max(0.0, self.stage_deadline - time.monotonic())
+
+    def remaining(self) -> float:
+        remaining = self.job_remaining()
+        stage_remaining = self.stage_remaining()
+        return min(remaining, stage_remaining) if stage_remaining is not None else remaining
+
+    def expired_reason(self) -> str | None:
+        if self.job_remaining() <= 0:
+            return "job_deadline_exceeded"
+        if self.active_stage and self.stage_remaining() == 0:
+            return f"{self.active_stage}_stage_deadline_exceeded"
+        return None
+
+    def set_stage_deadline(self, stage: str, seconds: float) -> None:
+        self.active_stage = stage
+        self.stage_deadline = min(self.deadline, time.monotonic() + max(0.0, seconds))
+
+    def clear_stage_deadline(self) -> None:
+        self.active_stage = None
+        self.stage_deadline = None
 
     def record_rows(self, kind: str, count: int) -> None:
         with self.lock:
@@ -201,6 +232,7 @@ class HuntBudget:
                 for kind, slot in sorted(self.kind_stats.items())
             }
             reasons = sorted(self.ranking_notes)
+        stage_remaining = self.stage_remaining()
         return {
             "phase": self.phase,
             "seed_rank": self.seed_rank,
@@ -218,7 +250,9 @@ class HuntBudget:
                 min(self.seed_budget, self.lead_count) - (self.seed_rank or 0),
             ),
             "elapsed_s": round(time.monotonic() - self.started, 1),
-            "remaining_s": round(self.remaining(), 1),
+            "remaining_s": round(self.job_remaining(), 1),
+            "stage_remaining_s": round(stage_remaining, 1) if stage_remaining is not None else None,
+            "active_stage": self.active_stage,
             "exhausted_reason": self.exhausted,
             "limits": dict(self.limits),
             "splunk_concurrency": self.concurrency,
@@ -385,11 +419,23 @@ class HuntExecutor:
             query_deadline = query_deadline or began + timeout
             remaining = min(query_deadline - time.monotonic(), self.budget.remaining())
             if remaining <= 0:
+                expired = self.budget.expired_reason()
+                if expired:
+                    self.budget.exhausted = expired
+                    if expired == "job_deadline_exceeded":
+                        raise HuntDeadlineExceededError(expired)
+                    raise HuntBudgetExceededError(expired)
                 reason = QUERY_BOUND
             elif not self.budget.splunk_slots.acquire(timeout=remaining):
                 if self.budget.remaining() <= 0:
-                    self.budget.exhausted = self.budget.exhausted or "job_deadline_exceeded"
-                    raise HuntDeadlineExceededError(self.budget.exhausted)
+                    self.budget.exhausted = (
+                        self.budget.exhausted
+                        or self.budget.expired_reason()
+                        or "job_deadline_exceeded"
+                    )
+                    if self.budget.exhausted == "job_deadline_exceeded":
+                        raise HuntDeadlineExceededError(self.budget.exhausted)
+                    raise HuntBudgetExceededError(self.budget.exhausted)
                 reason = QUERY_BOUND
             else:
                 slot_acquired = True
@@ -469,8 +515,10 @@ class HuntExecutor:
                     raise HuntDeadlineExceededError(budget.exhausted)
                 raise HuntBudgetExceededError(budget.exhausted)
             if budget.remaining() <= 0:
-                budget.exhausted = "job_deadline_exceeded"
-                raise HuntDeadlineExceededError(budget.exhausted)
+                budget.exhausted = budget.expired_reason() or "job_deadline_exceeded"
+                if budget.exhausted == "job_deadline_exceeded":
+                    raise HuntDeadlineExceededError(budget.exhausted)
+                raise HuntBudgetExceededError(budget.exhausted)
             if budget.queries >= budget.limits["requests"]:
                 budget.exhausted = "request_budget_exhausted"
                 raise HuntBudgetExceededError(budget.exhausted)
@@ -510,12 +558,19 @@ class HuntExecutor:
         if not outcome.done.wait(timeout + CANCEL_WAIT_SECONDS):
             _cancel(outcome)
             if self.budget.remaining() <= 0:
-                self.budget.exhausted = self.budget.exhausted or "job_deadline_exceeded"
+                self.budget.exhausted = (
+                    self.budget.exhausted or self.budget.expired_reason() or "job_deadline_exceeded"
+                )
+                error = (
+                    HuntDeadlineExceededError(self.budget.exhausted)
+                    if self.budget.exhausted == "job_deadline_exceeded"
+                    else HuntBudgetExceededError(self.budget.exhausted)
+                )
                 return (
                     list(outcome.rows),
                     QUERY_BOUND,
                     None,
-                    HuntDeadlineExceededError(self.budget.exhausted),
+                    error,
                 )
             return list(outcome.rows), QUERY_BOUND, None, None
         if outcome.error is not None:
