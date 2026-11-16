@@ -247,6 +247,19 @@ def _mean_seconds(values: Sequence[float]) -> float | None:
     return round(sum(values) / len(values), 3) if values else None
 
 
+def _finding(shape: Mapping[str, int]) -> str:
+    """What the answer tokens measured: bias, a wrapper, or no answer index at all."""
+    if shape["wrapped_answers"] == 0 and shape["bare_answers"] > 0:
+        return (
+            "yes-always is model bias, not a parse fault: every answer was a bare yes/no, so the "
+            "0.5 gate is meaningless and the logprob p_yes rank is the signal. The wrapper parse "
+            "is defensive only."
+        )
+    if shape["wrapped_answers"] > 0:
+        return "answers include markdown-wrapped yes/no; the parse scores the answer token."
+    return "no answer-token index in this run's calls; the wrapper question is not measured here."
+
+
 def _single_report(
     results: Sequence[JudgeResult], candidates: Sequence[dict[str, Any]]
 ) -> dict[str, Any]:
@@ -426,12 +439,15 @@ def evaluate_family(
     records += _call_records("council", council_results, candidates, common)
     calls_path = directory / CALLS_FILE
     calls_path.write_text("".join(json.dumps(record, sort_keys=True) + "\n" for record in records))
+    single_report = _single_report(single_results[:common], candidates)
+    finding = _finding(single_report)
     report = {
         "family": family,
         "index": index,
         "generated": utc_now(),
         "rule": RULE,
         "labelling": LABELLING,
+        "finding": finding,
         "honesty": honesty,
         "keys": {
             "file": str(keys_path),
@@ -452,7 +468,7 @@ def evaluate_family(
         "single_judge": {
             "model": judge_model,
             "budget_basis": single_basis,
-            **_single_report(single_results[:common], candidates),
+            **single_report,
         },
         "council": {
             "workspace": council_workspace,
