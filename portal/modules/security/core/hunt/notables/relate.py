@@ -71,12 +71,30 @@ def _identity_fields(out: Path) -> dict[str, dict[str, Any]]:
         ]
         entry = info.setdefault(
             source_id,
-            {"fmt": str(card.get("structure") or "text"), "actor_field": "", "objects": []},
+            {
+                "fmt": str(card.get("structure") or "text"),
+                "actor_field": "",
+                "objects": [],
+                "sources": [],
+            },
         )
         if actor_field:
             entry["actor_field"] = actor_field
         entry["objects"] = sorted(set(entry["objects"]) | set(objects))
+        facts = card.get("facts")
+        if isinstance(facts, Mapping):
+            entry["sources"] = sorted(
+                set(entry["sources"]) | {str(name) for name in facts.get("sources") or ()}
+            )
     return info
+
+
+def _route(info: Mapping[str, Any]) -> str:
+    """A source filter selecting this seed's own source, mirroring the behaviour-stage route."""
+    sources = info.get("sources") or ()
+    if sources:
+        return "(" + " OR ".join(f"source={_search_literal(name)}" for name in sources) + ")"
+    return ""
 
 
 def _identity_role(info: Mapping[str, Any]) -> str:
@@ -273,8 +291,8 @@ def _episode_window(
     return max(start, low), min(end, max(high, low))
 
 
-def _query(index: str, entity: Mapping[str, Any]) -> str:
-    """A reproducible pivot query: a field equality for structured identities, else a TERM."""
+def _query(index: str, entity: Mapping[str, Any], route: str = "", anchor: float = 0.0) -> str:
+    """A reproducible pivot query scoped to the seed's source, sorted toward the seed's time."""
     value = str(entity["value"])
     if entity.get("field"):
         body = f"{entity['field']}={_search_literal(value)}"
@@ -282,7 +300,36 @@ def _query(index: str, entity: Mapping[str, Any]) -> str:
         terms = " ".join(f"TERM({_search_literal(term)})" for term in entity["terms"])
         options = ([f"({terms})"] if terms else []) + [f"(host={_search_literal(value)})"]
         body = "(" + " OR ".join(options) + ")"
-    return f"search index={_search_literal(index)} {body} | head {MAX_EVENTS_PER_QUERY}"
+    parts = [f"index={_search_literal(index)}", route, body]
+    return (
+        "search "
+        + " ".join(part for part in parts if part)
+        + f" | eval _relate_delta=abs(_time - {anchor:.3f})"
+        + f" | sort limit={MAX_EVENTS_PER_QUERY} _relate_delta"
+    )
+
+
+def _seed_anchor(
+    row: Mapping[str, Any],
+    fallback: float,
+    spans: Mapping[tuple[str, str], tuple[float, float]],
+    source_id: str,
+    entities: Sequence[Mapping[str, Any]],
+) -> float:
+    """The seed's own time to sort toward: its first_seen, else its earliest evidence."""
+    first = _number(row.get("first_seen"))
+    if first is not None and first > 0:
+        return first
+    for item in row.get("evidence") or ():
+        if isinstance(item, Mapping):
+            earliest = _number(item.get("earliest"))
+            if earliest is not None and earliest > 0:
+                return earliest
+    for entity in entities:
+        span = spans.get((source_id, str(entity["value"]).casefold()))
+        if span is not None:
+            return span[0]
+    return fallback
 
 
 def _seed_records(
@@ -309,6 +356,8 @@ def _seed_records(
                 "original_rank": rank,
                 "row": row,
                 "source_id": source_id,
+                "route": _route(identity.get(source_id) or {}),
+                "anchor": _seed_anchor(row, low, spans, source_id, entities),
                 "entities": entities,
                 "start": low,
                 "end": high,
@@ -325,7 +374,7 @@ def _requests(
     details: list[dict[str, Any]] = []
     for seed in seeds:
         for entity in seed["entities"]:
-            query = _query(index, entity)
+            query = _query(index, entity, seed["route"], seed["anchor"])
             requests.append((query, seed["start"], seed["end"], "relate", MAX_EVENTS_PER_QUERY))
             details.append({"seed": seed, "entity": entity, "query": query})
     return requests, details

@@ -17,6 +17,7 @@ from portal.modules.security.core.hunt.notables.relate import (
     _identity_role,
     _load_metrics,
     _query,
+    _route,
     _share_weight,
     relate_stage,
 )
@@ -122,6 +123,9 @@ def _run_dir(tmp_path: Path, *, store: bool = True) -> Path:
                             "actor": {"field": "v1", "mode": "literal"},
                             "objects": [{"field": "v2", "mode": "shape"}],
                         },
+                        "facts": {
+                            "sources": ["/apache2/intranet.company.cyberrange.at-access.log.4"]
+                        },
                     },
                     {
                         "index": "hb_kyoushi_s1",
@@ -132,6 +136,7 @@ def _run_dir(tmp_path: Path, *, store: bool = True) -> Path:
                             "actor": {"field": "uid", "mode": "literal"},
                             "objects": [],
                         },
+                        "facts": {"sources": ["/audit/audit.log"]},
                     },
                 ],
             }
@@ -245,6 +250,7 @@ def test_identity_fields_reads_role_overrides_from_cards(tmp_path: Path) -> None
     assert info["idx:access"]["actor_field"] == "v1"
     assert info["idx:audit"]["actor_field"] == "uid"
     assert info["idx:audit"]["fmt"] == "kv"
+    assert info["idx:access"]["sources"] == ["/apache2/intranet.company.cyberrange.at-access.log.4"]
 
 
 # --- pivot entity selection ---
@@ -384,14 +390,41 @@ def test_episode_window_grows_to_identity_activity_span(tmp_path: Path) -> None:
 
 
 def test_query_uses_field_equality_for_structured_identity() -> None:
-    query = _query("hb_kyoushi_s1", {"value": "33", "field": "uid", "terms": ()})
+    query = _query(
+        "hb_kyoushi_s1",
+        {"value": "33", "field": "uid", "terms": ()},
+        '(source="/audit/audit.log")',
+        anchor=1_616_534_612.0,
+    )
     assert 'uid="33"' in query
+    assert 'source="/audit/audit.log"' in query
     assert "TERM" not in query
+    assert "_relate_delta=abs(_time" in query
 
 
 def test_query_uses_term_for_address() -> None:
     query = _query("hb_kyoushi_s1", {"value": "172.16.100.151", "terms": ("172.16.100.151",)})
     assert 'TERM("172.16.100.151")' in query
+    assert "_relate_delta=abs(_time" in query
+
+
+def test_query_scopes_to_seed_source_and_sorts_toward_time() -> None:
+    route = _route({"sources": ["/apache2/intranet.company.cyberrange.at-access.log.4"]})
+    query = _query(
+        "hb_kyoushi_s1",
+        {"value": "172.16.100.151", "terms": ("172.16.100.151",)},
+        route,
+        anchor=1_616_533_976.0,
+    )
+    assert 'source="/apache2/intranet.company.cyberrange.at-access.log.4"' in query
+    # sorted by time distance to the seed's own anchor, capped by the episode's needs
+    assert "_relate_delta=abs(_time - 1616533976.000)" in query
+    assert "sort limit=20 _relate_delta" in query
+
+
+def test_route_falls_back_to_empty_without_sources() -> None:
+    assert _route({"sources": []}) == ""
+    assert _route({}) == ""
 
 
 # --- case grouping ---
@@ -524,6 +557,13 @@ def test_relate_pivots_identity_not_program_names(tmp_path: Path) -> None:
     result = json.loads((out / RELATE_FILE).read_text(encoding="utf-8"))
     assert any('TERM("172.16.100.151")' in query for query in search.queries)
     assert any('uid="33"' in query for query in search.queries)
+    # every pivot is scoped to its seed's source and sorted toward the seed's time
+    assert any(
+        'source="/apache2/intranet.company.cyberrange.at-access.log.4"' in query
+        for query in search.queries
+    )
+    assert any('source="/audit/audit.log"' in query for query in search.queries)
+    assert all("_relate_delta=abs(_time" in query for query in search.queries)
     # no program-name or action-token pivots (USER_AUTH, systemd-logind)
     assert not any("USER_AUTH" in query for query in search.queries)
     assert result["notables"][0]["measure"]["name"] == "relation_support"
