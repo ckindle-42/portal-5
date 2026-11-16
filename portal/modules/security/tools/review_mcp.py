@@ -7,12 +7,16 @@ a verdict. This server has no attack, emulation, or target-execution tools.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import time
 from collections.abc import Awaitable, Callable
+from functools import lru_cache
+from pathlib import Path
 from typing import Any, cast
 
+import yaml
 from mcp.server import MCPServer
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -27,6 +31,7 @@ from portal.modules.security.core.review.service import (
 )
 from portal.modules.security.core.review.window import SourceSpec
 from portal.platform.mcp_host.eval_scope import bind_native_context
+from portal.platform.mcp_host.tool_support import tool_result_byte_budget
 
 logger = logging.getLogger(__name__)
 _port = int(os.environ.get("REVIEW_MCP_PORT") or os.environ.get("MCP_PORT", "8943"))
@@ -38,6 +43,7 @@ mcp = MCPServer(
     ),
 )
 _runtime: ReviewRuntime | None = None
+_HUNT_TOOLS = frozenset({"hunt_sources", "hunt_start", "hunt_status", "hunt_leads", "hunt_case"})
 
 
 def _get_runtime() -> ReviewRuntime:
@@ -53,6 +59,40 @@ def _guard(tool: str, fn: Callable[[], dict[str, Any]]) -> dict[str, Any]:
     except Exception as exc:  # noqa: BLE001 -- surface failures in the tool response
         logger.exception("review tool %s failed", tool)
         return {"error": f"{type(exc).__name__}: {exc}"}
+
+
+@lru_cache(maxsize=1)
+def _hunt_result_byte_limit() -> int:
+    path = Path(__file__).resolve().parents[4] / "config" / "portal.yaml"
+    config = yaml.safe_load(path.read_text()) or {}
+    contexts = [
+        int(workspace["context_limit"])
+        for workspace in (config.get("workspaces") or {}).values()
+        if _HUNT_TOOLS.intersection(workspace.get("tools", [])) and workspace.get("context_limit")
+    ]
+    if not contexts:
+        raise RuntimeError("no configured workspace carries the hunt tools")
+    return tool_result_byte_budget(min(contexts)) // 8
+
+
+def _hunt_guard(
+    tool: str, fn: Callable[[], dict[str, Any]], *, detail: bool = False
+) -> dict[str, Any]:
+    result = _guard(tool, fn)
+    if detail:
+        return result
+    try:
+        limit = _hunt_result_byte_limit()
+    except Exception as exc:  # noqa: BLE001 -- return a compact tool error
+        return {"error": f"hunt output limit unavailable: {type(exc).__name__}"}
+    size = len(json.dumps(result, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+    if size <= limit:
+        return result
+    return {
+        "error": "hunt response exceeds the configured tool-loop result limit",
+        "result_bytes": size,
+        "max_bytes": limit,
+    }
 
 
 def _plain_dict(value: Any) -> dict[str, Any]:
@@ -175,13 +215,11 @@ def _hunt_search() -> Any:
 
 
 @mcp.tool()
-def hunt_sources(
-    job_id: str | None = None, index: str | None = None, n: int = 50
-) -> dict[str, Any]:
+def hunt_sources(job_id: str | None = None, index: str | None = None, n: int = 3) -> dict[str, Any]:
     """List a run's source cards, or available indexes when no run selector is supplied."""
 
     if job_id or index:
-        return _guard("hunt_sources", lambda: r2_hunt_jobs.sources_view(job_id, index, n))
+        return _hunt_guard("hunt_sources", lambda: r2_hunt_jobs.sources_view(job_id, index, n))
 
     def run() -> dict[str, Any]:
         rows = _hunt_search().iter_post(
@@ -189,9 +227,17 @@ def hunt_sources(
             0,
             time.time(),
         )
-        return hunt_jobs.compact({"environments": [dict(r) for r in rows]})
+        selected = [
+            {"index": str(row.get("index") or "")[:80], "events": row.get("count")}
+            for row in rows[: max(0, min(n, 3))]
+        ]
+        return {
+            "total_indexes": len(rows),
+            "indexes": selected,
+            "indexes_omitted": len(rows) - len(selected),
+        }
 
-    return _guard("hunt_sources", run)
+    return _hunt_guard("hunt_sources", run)
 
 
 @mcp.tool()
@@ -241,30 +287,40 @@ def hunt_start(
             }
         )
 
-    return _guard("hunt_start", run)
+    return _hunt_guard("hunt_start", run)
 
 
 @mcp.tool()
-def hunt_status(job_id: str | None = None, index: str | None = None) -> dict[str, Any]:
-    """Wait up to 45 seconds for an R2 hunt and return current stage progress."""
-    return _guard(
+def hunt_status(
+    job_id: str | None = None, index: str | None = None, detail: bool = False
+) -> dict[str, Any]:
+    """Wait for an R2 hunt and return a compact summary; detail includes full progress."""
+    kwargs: dict[str, Any] = {"wait_seconds": r2_hunt_jobs.STATUS_WAIT_MAX_S}
+    if detail:
+        kwargs["detail"] = True
+    return _hunt_guard(
         "hunt_status",
-        lambda: r2_hunt_jobs.status(job_id, index, wait_seconds=r2_hunt_jobs.STATUS_WAIT_MAX_S),
+        lambda: r2_hunt_jobs.status(job_id, index, **kwargs),
+        detail=detail,
     )
 
 
 @mcp.tool()
-def hunt_leads(job_id: str | None = None, index: str | None = None, n: int = 3) -> dict[str, Any]:
-    """Return up to ten Stage 1 ordered R2 notables with optional judge annotations."""
-    return _guard("hunt_leads", lambda: r2_hunt_jobs.leads_view(job_id, index, n))
+def hunt_leads(
+    job_id: str | None = None,
+    index: str | None = None,
+    n: int = r2_hunt_jobs.LEADS_VIEW_DEFAULT,
+) -> dict[str, Any]:
+    """Return compact ranked R2 leads with one explanation and evidence query each."""
+    return _hunt_guard("hunt_leads", lambda: r2_hunt_jobs.leads_view(job_id, index, n))
 
 
 @mcp.tool()
 def hunt_case(
-    job_id: str | None = None, index: str | None = None, case: int = 1, n: int = 15
+    job_id: str | None = None, index: str | None = None, case: int = 1, n: int = 2
 ) -> dict[str, Any]:
-    """Return one relate case with its shared entities, evidence, and event references."""
-    return _guard("hunt_case", lambda: r2_hunt_jobs.case_view(job_id, index, case, n))
+    """Return a case anchor, seed count, and a few evidence lines."""
+    return _hunt_guard("hunt_case", lambda: r2_hunt_jobs.case_view(job_id, index, case, n))
 
 
 def _route(

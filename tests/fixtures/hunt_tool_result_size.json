@@ -1,0 +1,708 @@
+{
+  "job": {
+    "job_id": "hunt-r2-fixture",
+    "index": "hb_kyoushi_s1",
+    "status": "PARTIAL",
+    "stage": "partial",
+    "started": 1794825491.0,
+    "finished": 1794826091.0,
+    "coverage_complete": false,
+    "partial_reason": null,
+    "run_dir": "run",
+    "progress": {
+      "current": {
+        "phase": "notables",
+        "query_count": 17
+      },
+      "stages": {
+        "cards": {
+          "index": "hb_kyoushi_s1",
+          "start": 0.0,
+          "end": 1794824799.962094,
+          "sources": 36,
+          "cards": 43,
+          "understood": 38,
+          "unparsed": 5,
+          "model_http_errors": 0,
+          "structures": 13,
+          "model_requests": 13,
+          "answers_reused": 30,
+          "cache_hits": 0,
+          "request_budget": 120,
+          "unasked": 0,
+          "model_seconds": 54.377,
+          "cached": 1,
+          "seconds": 51.796,
+          "peak_memory_mb": 101.4,
+          "sources_receipt": [
+            {
+              "kind": "activity",
+              "understood": true,
+              "structure": "kv",
+              "sample_lines": 32,
+              "parse_coverage": 1.0,
+              "model_requests": 1,
+              "cached": false
+            },
+            {
+              "kind": "activity",
+              "understood": true,
+              "structure": "kv",
+              "sample_lines": 10,
+              "parse_coverage": 1.0,
+              "model_requests": 1,
+              "cached": false
+            },
+            {
+              "kind": "activity",
+              "understood": true,
+              "structure": "kv",
+              "sample_lines": 78,
+              "parse_coverage": 1.0,
+              "model_requests": 1,
+              "cached": false
+            },
+            {
+              "kind": "activity",
+              "understood": true,
+              "structure": "template",
+              "sample_lines": 120,
+              "parse_coverage": 0.942,
+              "model_requests": 0,
+              "cached": false
+            },
+            {
+              "kind": "activity",
+              "understood": true,
+              "structure": "template",
+              "sample_lines": 80,
+              "parse_coverage": 1.0,
+              "model_requests": 0,
+              "cached": false
+            },
+            {
+              "kind": "other",
+              "understood": false,
+              "structure": "text",
+              "sample_lines": 0,
+              "parse_coverage": 0.0,
+              "model_requests": 0,
+              "cached": false
+            },
+            {
+              "kind": "activity",
+              "understood": true,
+              "structure": "template",
+              "sample_lines": 120,
+              "parse_coverage": 1.0,
+              "model_requests": 0,
+              "cached": false
+            },
+            {
+              "kind": "activity",
+              "understood": true,
+              "structure": "template",
+              "sample_lines": 80,
+              "parse_coverage": 0.95,
+              "model_requests": 0,
+              "cached": false
+            },
+            {
+              "kind": "alert",
+              "understood": true,
+              "structure": "json",
+              "sample_lines": 8,
+              "parse_coverage": 1.0,
+              "model_requests": 1,
+              "cached": false
+            },
+            {
+              "kind": "activity",
+              "understood": true,
+              "structure": "json",
+              "sample_lines": 8,
+              "parse_coverage": 1.0,
+              "model_requests": 1,
+              "cached": false
+            },
+            {
+              "kind": "activity",
+              "understood": true,
+              "structure": "json",
+              "sample_lines": 43,
+              "parse_coverage": 1.0,
+              "model_requests": 1,
+              "cached": false
+            },
+            {
+              "kind": "activity",
+              "understood": true,
+              "structure": "json",
+              "sample_lines": 9,
+              "parse_coverage": 1.0,
+              "model_requests": 1,
+              "cached": false
+            }
+          ]
+        },
+        "behaviours": {
+          "singletons": 13704,
+          "events_read": 147920,
+          "per_window": 1111,
+          "behaviours_existed": 21404,
+          "behaviours_kept": 21404,
+          "misfit_lines": 29748,
+          "misfit_shapes": 3442,
+          "misfit_sources": 25,
+          "store": "behaviours.duckdb",
+          "seconds": 72.53,
+          "seconds_total": 72.561,
+          "peak_memory_mb": 908.4,
+          "receipts": [
+            {
+              "events_read": 13332,
+              "events_parsed": 4232,
+              "events_keyed": 4232,
+              "events_keyless": 0,
+              "behaviours": 15,
+              "singletons": 4
+            },
+            {
+              "events_read": 13332,
+              "events_parsed": 1124,
+              "events_keyed": 1124,
+              "events_keyless": 0,
+              "behaviours": 15,
+              "singletons": 4
+            },
+            {
+              "events_read": 13332,
+              "events_parsed": 7946,
+              "events_keyed": 7946,
+              "events_keyless": 0,
+              "behaviours": 15,
+              "singletons": 4
+            },
+            {
+              "events_read": 8265,
+              "events_parsed": 7420,
+              "events_keyed": 7420,
+              "events_keyless": 0,
+              "behaviours": 58,
+              "singletons": 36
+            },
+            {
+              "events_read": 9929,
+              "events_parsed": 9369,
+              "events_keyed": 9369,
+              "events_keyless": 0,
+              "behaviours": 2512,
+              "singletons": 859
+            },
+            {
+              "events_read": 13332,
+              "events_parsed": 13332,
+              "events_keyed": 13332,
+              "events_keyless": 0,
+              "behaviours": 1660,
+              "singletons": 503
+            },
+            {
+              "events_read": 4444,
+              "events_parsed": 4434,
+              "events_keyed": 4434,
+              "events_keyless": 0,
+              "behaviours": 1,
+              "singletons": 0
+            },
+            {
+              "events_read": 13332,
+              "events_parsed": 1034,
+              "events_keyed": 1034,
+              "events_keyless": 0,
+              "behaviours": 502,
+              "singletons": 252
+            }
+          ],
+          "skipped": [
+            {
+              "card_id": "skipped-1",
+              "reason": "source skipped"
+            },
+            {
+              "card_id": "skipped-2",
+              "reason": "source skipped"
+            },
+            {
+              "card_id": "skipped-3",
+              "reason": "source skipped"
+            },
+            {
+              "card_id": "skipped-4",
+              "reason": "source skipped"
+            },
+            {
+              "card_id": "skipped-5",
+              "reason": "source skipped"
+            },
+            {
+              "card_id": "skipped-6",
+              "reason": "source skipped"
+            }
+          ],
+          "misfits": [
+            {
+              "lines_read": 13332,
+              "misfit_lines": 30,
+              "shapes_kept": 25,
+              "shapes_dropped": 0
+            },
+            {
+              "lines_read": 8265,
+              "misfit_lines": 845,
+              "shapes_kept": 141,
+              "shapes_dropped": 0
+            },
+            {
+              "lines_read": 9929,
+              "misfit_lines": 560,
+              "shapes_kept": 151,
+              "shapes_dropped": 0
+            },
+            {
+              "lines_read": 13332,
+              "misfit_lines": 0,
+              "shapes_kept": 0,
+              "shapes_dropped": 0
+            },
+            {
+              "lines_read": 4444,
+              "misfit_lines": 10,
+              "shapes_kept": 4,
+              "shapes_dropped": 0
+            }
+          ]
+        },
+        "notables": {
+          "total": 830,
+          "file": "notables.jsonl",
+          "peak_memory_mb": 2796.1,
+          "similar_to_known": {
+            "existed": 21404,
+            "scored": 21404,
+            "kept": 300,
+            "store": "/Volumes/data01/portal5_hunt/snap_full_b21884a/results/hunt/full/knowledge.duckdb",
+            "run_index": "hb_kyoushi_s1",
+            "excluded_family": "kyoushi",
+            "excluded_families": [
+              "kyoushi"
+            ],
+            "loaded_families": [
+              "russell",
+              "santos"
+            ],
+            "knowledge_items": 1708,
+            "embedding_model": "google/embeddinggemma-2",
+            "unique_statements": 20643,
+            "reliability": {
+              "auc": 0.8363896122685185,
+              "score": "known_bad_minus_good",
+              "known_bad_auc": 0.6708080150462963,
+              "known_bad_minus_good_auc": 0.8363896122685185,
+              "method": "leave_one_family_out",
+              "validation_items": 364
+            },
+            "embedding": {
+              "requests": 323,
+              "items": 20643,
+              "batches": 323,
+              "throttles": 0,
+              "retries": 0,
+              "wait_seconds": 0.0,
+              "seconds": 815.385
+            },
+            "seconds": 220.377
+          }
+        }
+      }
+    },
+    "stage_plan": [
+      {
+        "stage": "cards",
+        "complete": true
+      },
+      {
+        "stage": "behaviours",
+        "complete": true
+      },
+      {
+        "stage": "notables",
+        "complete": true
+      },
+      {
+        "stage": "relate",
+        "complete": false
+      }
+    ]
+  },
+  "sources": {
+    "index": "hb_kyoushi_s1",
+    "totals": {
+      "sources": 36,
+      "cards": 43,
+      "understood": 38,
+      "unparsed": 5,
+      "model_http_error_cards": 0,
+      "kinds": {
+        "activity": 36,
+        "other": 5,
+        "alert": 1,
+        "measurement": 1
+      },
+      "model_requests": 13
+    },
+    "cards": [
+      {
+        "card_id": "card-1",
+        "source_id": "source-1",
+        "kind": "activity",
+        "understood": true,
+        "reason": null
+      },
+      {
+        "card_id": "card-2",
+        "source_id": "source-2",
+        "kind": "activity",
+        "understood": true,
+        "reason": null
+      },
+      {
+        "card_id": "card-3",
+        "source_id": "source-3",
+        "kind": "activity",
+        "understood": true,
+        "reason": null
+      },
+      {
+        "card_id": "card-6",
+        "source_id": "source-6",
+        "kind": "other",
+        "understood": false,
+        "reason": "no_sample"
+      },
+      {
+        "card_id": "card-25",
+        "source_id": "source-7",
+        "kind": "other",
+        "understood": false,
+        "reason": "unparsed_sample:coverage=0.00"
+      },
+      {
+        "card_id": "card-30",
+        "source_id": "source-3",
+        "kind": "other",
+        "understood": false,
+        "reason": "unparsed_sample:coverage=0.00"
+      },
+      {
+        "card_id": "card-32",
+        "source_id": "source-5",
+        "kind": "other",
+        "understood": false,
+        "reason": "no_sample"
+      },
+      {
+        "card_id": "card-33",
+        "source_id": "source-6",
+        "kind": "other",
+        "understood": false,
+        "reason": "unparsed_sample:coverage=0.00"
+      }
+    ]
+  },
+  "notables": [
+    {
+      "notable_id": "notable-1",
+      "content_key": "content-1",
+      "generator": "similar_to_known",
+      "source_id": "source-1",
+      "why": "nearest known-bad attacker_http from santos at cosine 1.000; measured AUC 0.836",
+      "what": "[redacted candidate text]",
+      "measure": {
+        "name": "known_bad_minus_good",
+        "value": 0.21665388345718384
+      },
+      "nearest_known": [
+        {
+          "family": "santos",
+          "label": "attacker_http",
+          "label_kind": "known_bad",
+          "label_basis": "attack_step",
+          "similarity": 1.000000238418579,
+          "query": "[redacted reference query]"
+        }
+      ],
+      "judge": null,
+      "evidence": [
+        {
+          "line": "[redacted event line]",
+          "query": "[redacted evidence query]",
+          "earliest": 1616453743.0,
+          "latest": 1616453743.0
+        }
+      ]
+    },
+    {
+      "notable_id": "notable-2",
+      "content_key": "content-2",
+      "generator": "alerts",
+      "source_id": "source-2",
+      "why": "24 occurrences on 2 hosts in the covered slice",
+      "what": "[redacted candidate text]",
+      "measure": {
+        "name": "occurrences",
+        "value": 24.0
+      },
+      "nearest_known": [
+        {
+          "family": null,
+          "label": null,
+          "label_kind": null,
+          "label_basis": null,
+          "similarity": null,
+          "query": "[redacted reference query]"
+        }
+      ],
+      "judge": null,
+      "evidence": [
+        {
+          "line": "[redacted event line]",
+          "query": "[redacted evidence query]",
+          "earliest": 1616504400.0,
+          "latest": 1616508000.0
+        }
+      ]
+    },
+    {
+      "notable_id": "notable-3",
+      "content_key": "content-3",
+      "generator": "peer_rare",
+      "source_id": "source-3",
+      "why": "on 1/4 hosts and 1/584 actors",
+      "what": "[redacted candidate text]",
+      "measure": {
+        "name": "host_share_x_actor_share",
+        "value": 0.0004280822
+      },
+      "nearest_known": [
+        {
+          "family": null,
+          "label": null,
+          "label_kind": null,
+          "label_basis": null,
+          "similarity": null,
+          "query": "[redacted reference query]"
+        }
+      ],
+      "judge": null,
+      "evidence": [
+        {
+          "line": "[redacted event line]",
+          "query": "[redacted evidence query]",
+          "earliest": 1616519280.0,
+          "latest": 1616866606.0
+        }
+      ]
+    },
+    {
+      "notable_id": "notable-4",
+      "content_key": "content-4",
+      "generator": "deviation",
+      "source_id": "source-4",
+      "why": "log count 12.095 robust deviations above its own hourly median",
+      "what": "[redacted candidate text]",
+      "measure": {
+        "name": "robust_z",
+        "value": 12.095
+      },
+      "nearest_known": [
+        {
+          "family": null,
+          "label": null,
+          "label_kind": null,
+          "label_basis": null,
+          "similarity": null,
+          "query": "[redacted reference query]"
+        }
+      ],
+      "judge": null,
+      "evidence": [
+        {
+          "line": "[redacted event line]",
+          "query": "[redacted evidence query]",
+          "earliest": 1616529600.0,
+          "latest": 1616544000.0
+        }
+      ]
+    }
+  ],
+  "case": {
+    "case_id": "case-1",
+    "anchor_entity": "[anchor]",
+    "score": 6.7096894,
+    "seed_notables": [
+      "seed-1",
+      "seed-2",
+      "seed-3",
+      "seed-4",
+      "seed-5",
+      "seed-6",
+      "seed-7",
+      "seed-8"
+    ],
+    "related_notables": [
+      "related-1",
+      "related-2",
+      "related-3",
+      "related-4",
+      "related-5",
+      "related-6",
+      "related-7",
+      "related-8",
+      "related-9",
+      "related-10",
+      "related-11",
+      "related-12",
+      "related-13",
+      "related-14",
+      "related-15",
+      "related-16",
+      "related-17",
+      "related-18",
+      "related-19",
+      "related-20",
+      "related-21",
+      "related-22",
+      "related-23",
+      "related-24",
+      "related-25",
+      "related-26",
+      "related-27",
+      "related-28",
+      "related-29",
+      "related-30",
+      "related-31",
+      "related-32",
+      "related-33",
+      "related-34",
+      "related-35",
+      "related-36",
+      "related-37",
+      "related-38",
+      "related-39",
+      "related-40",
+      "related-41",
+      "related-42",
+      "related-43",
+      "related-44",
+      "related-45",
+      "related-46",
+      "related-47",
+      "related-48",
+      "related-49",
+      "related-50",
+      "related-51",
+      "related-52",
+      "related-53",
+      "related-54",
+      "related-55",
+      "related-56",
+      "related-57",
+      "related-58",
+      "related-59",
+      "related-60",
+      "related-61",
+      "related-62",
+      "related-63",
+      "related-64",
+      "related-65",
+      "related-66",
+      "related-67",
+      "related-68",
+      "related-69",
+      "related-70",
+      "related-71",
+      "related-72",
+      "related-73",
+      "related-74",
+      "related-75",
+      "related-76",
+      "related-77",
+      "related-78",
+      "related-79",
+      "related-80",
+      "related-81",
+      "related-82",
+      "related-83",
+      "related-84",
+      "related-85",
+      "related-86",
+      "related-87",
+      "related-88",
+      "related-89",
+      "related-90",
+      "related-91",
+      "related-92",
+      "related-93",
+      "related-94",
+      "related-95",
+      "related-96",
+      "related-97",
+      "related-98",
+      "related-99",
+      "related-100"
+    ],
+    "evidence": [
+      {
+        "event_id": "event-1",
+        "host": "host-1",
+        "source": "source-1",
+        "time": 1616519225.0,
+        "line": "[redacted event] xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "query": "[redacted query]"
+      },
+      {
+        "event_id": "event-2",
+        "host": "host-2",
+        "source": "source-2",
+        "time": 1616519225.0,
+        "line": "[redacted event] xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "query": "[redacted query]"
+      },
+      {
+        "event_id": "event-3",
+        "host": "host-3",
+        "source": "source-3",
+        "time": 1616519225.0,
+        "line": "[redacted event] xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "query": "[redacted query]"
+      },
+      {
+        "event_id": "event-4",
+        "host": "host-4",
+        "source": "source-4",
+        "time": 1616519225.0,
+        "line": "[redacted event] xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "query": "[redacted query]"
+      },
+      {
+        "event_id": "event-5",
+        "host": "host-1",
+        "source": "source-5",
+        "time": 1616519225.0,
+        "line": "[redacted event] xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "query": "[redacted query]"
+      }
+    ]
+  }
+}

@@ -19,7 +19,6 @@ from .notables.embedding import PipelineEmbeddingClient, embedding_from_env, emb
 from .notables.pipeline import model_from_env, model_requirement, preflight
 from .notables.receipt import progress_update, read_json
 from .notables.relate import RELATE_FILE, relate_stage
-from .notables.rerank import CALLS_FILE as RERANK_CALLS_FILE
 from .notables.rerank import REPORT_FILE as RERANK_FILE
 from .notables.run import (
     DEFAULT_GENERATORS,
@@ -46,7 +45,8 @@ STAGE_ESTIMATES = {
 }
 STAGE_ORDER = ("cards", "behaviours", "notables", "relate")
 LEADS_LIMIT = 10
-LEADS_RESPONSE_CHARS = 6000
+LEADS_VIEW_LIMIT = 3
+LEADS_VIEW_DEFAULT = 2
 STATUS_WAIT_MAX_S = 45.0
 STATUS_POLL_S = 1.0
 TERMINAL_STATUSES = {"COMPLETE", "PARTIAL", "FAILED"}
@@ -544,7 +544,43 @@ def _resolve(job_id: str | None, index: str | None) -> tuple[dict[str, Any] | No
     return job, {}
 
 
-def _status_result(job: Mapping[str, Any]) -> dict[str, Any]:
+def _status_result(job: Mapping[str, Any], detail: bool = False) -> dict[str, Any]:
+    if not detail:
+        progress = _mapping(job.get("progress"))
+        current = _mapping(progress.get("current"))
+        stage_plan = job.get("stage_plan")
+        stage_plan = stage_plan if isinstance(stage_plan, list) else []
+        done = sum(bool(_mapping(item).get("complete")) for item in stage_plan)
+        total = len(stage_plan) or len(STAGE_ORDER)
+        phase = str(current.get("phase") or job.get("stage") or "unknown")
+        activity = [phase]
+        for key, label in (
+            ("query_count", "queries"),
+            ("cell_count", "cells"),
+            ("event_count", "events"),
+        ):
+            if current.get(key) is not None:
+                activity.append(f"{label}={current[key]}")
+        started = float(job.get("started") or time.time())
+        elapsed = float(job.get("finished") or time.time()) - started
+        status = str(job.get("status") or "UNKNOWN")
+        return compact(
+            {
+                "job_id": job.get("job_id"),
+                "index": job.get("index"),
+                "status": status,
+                "stage": job.get("stage"),
+                "stages_done": f"{done}/{total}",
+                "elapsed_s": round(max(0.0, elapsed), 1),
+                "last_progress": _short(" ".join(activity), 180),
+                "partial_reason": _short(job.get("partial_reason"), 180),
+                "next": (
+                    "Check this job again after it advances."
+                    if status.upper() not in TERMINAL_STATUSES
+                    else "Read sources, leads, and case 1."
+                ),
+            }
+        )
     result = {
         key: job[key]
         for key in (
@@ -572,17 +608,7 @@ def _status_result(job: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _running_view(job: Mapping[str, Any]) -> dict[str, Any]:
-    job_id = str(job["job_id"])
-    return compact(
-        {
-            "job_id": job_id,
-            "index": job.get("index"),
-            "status": "RUNNING",
-            "stage": job.get("stage"),
-            "progress": job.get("progress", {}),
-            "next": f"call hunt_status(job_id={job_id!r}) for updated progress",
-        }
-    )
+    return _status_result(job)
 
 
 def _is_terminal(job: Mapping[str, Any]) -> bool:
@@ -590,7 +616,10 @@ def _is_terminal(job: Mapping[str, Any]) -> bool:
 
 
 def status(
-    job_id: str | None = None, index: str | None = None, wait_seconds: float = 0.0
+    job_id: str | None = None,
+    index: str | None = None,
+    wait_seconds: float = 0.0,
+    detail: bool = False,
 ) -> dict[str, Any]:
     wait_s = min(max(float(wait_seconds), 0.0), STATUS_WAIT_MAX_S)
     deadline = time.monotonic() + wait_s
@@ -600,12 +629,14 @@ def status(
             return out
         remaining = deadline - time.monotonic()
         if _is_terminal(job) or remaining <= 0:
-            return _status_result(job)
+            return _status_result(job, detail=detail)
         time.sleep(min(STATUS_POLL_S, remaining))
 
 
 def leads_view(
-    job_id: str | None = None, index: str | None = None, n: int = LEADS_LIMIT
+    job_id: str | None = None,
+    index: str | None = None,
+    n: int = LEADS_VIEW_DEFAULT,
 ) -> dict[str, Any]:
     job, out = _resolve(job_id, index)
     if job is None:
@@ -614,27 +645,21 @@ def leads_view(
         return _running_view(job)
     run_dir = Path(str(job["run_dir"]))
     rows = _ranked_rows(run_dir)
-    council_calls = {
-        str(item.get("content_key") or ""): item
-        for item in _read_rows(run_dir / RERANK_CALLS_FILE)
-        if item.get("content_key")
-    }
     total = len(rows)
-    selected = rows[: max(0, min(n, LEADS_LIMIT))]
+    selected = rows[: max(0, min(n, LEADS_VIEW_LIMIT))]
     leads = []
     for rank, row in enumerate(selected, 1):
-        lead = _lead(row, rank)
-        lead["council"] = _brief_council(council_calls.get(str(row.get("content_key") or "")))
-        leads.append(lead)
+        leads.append(_lead(row, rank))
     out.update(
         job_id=job["job_id"],
         index=job["index"],
         leads=leads,
         total_leads=total,
         returned_leads=len(leads),
+        omitted_leads=total - len(leads),
         truncated=total > len(leads),
     )
-    return _compact_leads(out)
+    return compact(out)
 
 
 def _ranked_rows(run_dir: Path) -> list[dict[str, Any]]:
@@ -674,48 +699,12 @@ def _read_rows(path: Path) -> list[dict[str, Any]]:
 
 def _lead(row: Mapping[str, Any], rank: int) -> dict[str, Any]:
     evidence = [item for item in row.get("evidence", []) if isinstance(item, Mapping)]
-    nearest = row.get("nearest_known")
-    if isinstance(nearest, Mapping):
-        nearest = [nearest]
-    nearest = [item for item in nearest or [] if isinstance(item, Mapping)]
-    match = nearest[0] if nearest else {}
-    candidate_text = str(row.get("what") or "")
-    reference_text = str(match.get("statement") or "")
-    judge_answer = _mapping(row.get("judge")).get("answer")
-    similarity_text = {
-        "candidate": candidate_text[:400],
-        "reference": reference_text[:400],
-    }
     return {
         "rank": rank,
-        "notable_id": row.get("notable_id"),
-        "generator": row.get("generator"),
-        "source_id": _short(row.get("source_id"), 200),
-        "why": _short(row.get("why"), 240),
-        "measure": row.get("measure"),
-        "similar_known_item": {
-            key: _short(match.get(key), 400 if key == "query" else 160)
-            for key in ("family", "label", "label_kind", "label_basis", "similarity", "query")
-            if key in match
-        }
-        if match
-        else None,
-        "similarity_text": similarity_text,
-        "similarity_text_truncated": len(candidate_text) > 400 or len(reference_text) > 400,
-        "judge_score": row.get("p_yes"),
-        "judge": _brief_judge(row.get("judge")),
-        "judge_reason": _judge_reason(judge_answer),
-        "generator_reliability": row.get("generator_reliability"),
-        "first_seen": row.get("first_seen"),
-        "last_seen": row.get("last_seen"),
-        "evidence": [
-            {
-                key: _short(item.get(key), 300 if key == "line" else 400)
-                for key in ("line", "query", "earliest", "latest")
-                if key in item
-            }
-            for item in evidence[:1]
-        ],
+        "generator": _one_line(row.get("generator"), 32),
+        "source": _one_line(row.get("source_id"), 60),
+        "why": _one_line(row.get("why"), 80),
+        "evidence_query": _one_line(evidence[0].get("query"), 100) if evidence else None,
     }
 
 
@@ -725,44 +714,17 @@ def _short(value: Any, limit: int) -> Any:
     return value[:limit]
 
 
-def _judge_reason(value: Any) -> str | None:
+def _one_line(value: Any, limit: int) -> str | None:
     if not isinstance(value, str):
         return None
-    first, _, rest = value.strip().partition(" ")
-    answer = (
-        rest.lstrip(" \t,.:;!?—–-") if first.strip("*.,:;!?").casefold() in {"yes", "no"} else value
-    )
-    return _short(answer.strip(), 160) or None
-
-
-def _brief_judge(value: Any) -> dict[str, Any] | None:
-    if not isinstance(value, Mapping):
-        return None
-    keys = ("served_model", "reason", "cached", "seconds", "answer", "decision_index")
-    return {
-        key: _short(value[key], 160) if key == "answer" else value[key]
-        for key in keys
-        if key in value
-    }
-
-
-def _brief_council(value: Mapping[str, Any] | None) -> dict[str, Any] | None:
-    if value is None:
-        return None
-    keys = ("decision", "p_yes", "votes", "seconds", "reason")
-    return {key: value[key] for key in keys if key in value}
-
-
-def _compact_leads(out: dict[str, Any]) -> dict[str, Any]:
-    while len(json.dumps(out)) >= LEADS_RESPONSE_CHARS and out["leads"]:
-        out["leads"].pop()
-        out["returned_leads"] = len(out["leads"])
-        out["truncated"] = True
-    return compact(out)
+    return " ".join(value.split())[:limit] or None
 
 
 def case_view(
-    job_id: str | None = None, index: str | None = None, case_no: int = 1, n: int = 15
+    job_id: str | None = None,
+    index: str | None = None,
+    case_no: int = 1,
+    n: int = 2,
 ) -> dict[str, Any]:
     job, out = _resolve(job_id, index)
     if job is None:
@@ -773,18 +735,33 @@ def case_view(
     cases = cases if isinstance(cases, list) else []
     if not 1 <= case_no <= len(cases):
         return {"job_id": job["job_id"], "error": f"case {case_no} not in 1..{len(cases)}"}
-    case = dict(cases[case_no - 1])
+    case = _mapping(cases[case_no - 1])
     evidence = case.get("evidence")
     evidence = evidence if isinstance(evidence, list) else []
-    case["evidence_total"] = len(evidence)
-    case["evidence"] = evidence[: max(0, min(n, 25))]
-    case["links"] = list(case.get("links") or [])[:25]
-    return compact({"job_id": job["job_id"], "case": case_no, **case})
+    selected = evidence[: max(0, min(n, LEADS_VIEW_LIMIT))]
+    return compact(
+        {
+            "job_id": job["job_id"],
+            "case": case_no,
+            "case_id": _one_line(case.get("case_id"), 48),
+            "anchor": _one_line(case.get("anchor_entity"), 96),
+            "score": case.get("score"),
+            "seed_count": len(case.get("seed_notables") or []),
+            "related_count": len(case.get("related_notables") or []),
+            "evidence": [
+                {
+                    "source": _one_line(_mapping(item).get("source"), 48),
+                    "line": _one_line(_mapping(item).get("line"), 150),
+                }
+                for item in selected
+            ],
+            "evidence_count": len(evidence),
+            "evidence_omitted": len(evidence) - len(selected),
+        }
+    )
 
 
-def sources_view(
-    job_id: str | None = None, index: str | None = None, n: int = 50
-) -> dict[str, Any]:
+def sources_view(job_id: str | None = None, index: str | None = None, n: int = 3) -> dict[str, Any]:
     job, out = _resolve(job_id, index)
     if job is None:
         return out
@@ -793,15 +770,32 @@ def sources_view(
     payload = read_json(Path(str(job["run_dir"])) / SOURCES_FILE)
     cards = payload.get("cards")
     cards = cards if isinstance(cards, list) else []
+    unknown = [
+        card for card in cards if isinstance(card, Mapping) and not bool(card.get("understood"))
+    ]
     selected = [
         {
-            "card_id": card.get("card_id"),
-            "source_id": card.get("source_id"),
-            "kind": card.get("kind"),
-            "understood": bool(card.get("understood")),
-            "reason": card.get("reason"),
+            "source": _one_line(card.get("source_id"), 64),
+            "kind": _one_line(card.get("kind"), 24),
+            "reason": _one_line(card.get("reason"), 96),
         }
-        for card in cards[: max(0, min(n, 100))]
-        if isinstance(card, Mapping)
+        for card in unknown[: max(0, min(n, LEADS_VIEW_LIMIT))]
     ]
-    return compact({"job_id": job["job_id"], "index": job["index"], "cards": selected})
+    totals = _mapping(payload.get("totals"))
+    understood = sum(
+        1 for card in cards if isinstance(card, Mapping) and bool(card.get("understood"))
+    )
+    return compact(
+        {
+            "job_id": job["job_id"],
+            "index": job["index"],
+            "counts": {
+                "sources": totals.get("sources", 0),
+                "cards": totals.get("cards", len(cards)),
+                "understood": totals.get("understood", understood),
+                "not_understood": len(unknown),
+            },
+            "not_understood": selected,
+            "not_understood_omitted": len(unknown) - len(selected),
+        }
+    )

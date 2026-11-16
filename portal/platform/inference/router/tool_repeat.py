@@ -16,12 +16,17 @@ import logging
 from typing import Any
 
 from portal.platform.inference.router.trace import note
+from portal.platform.mcp_host.tool_support import (
+    tool_result_byte_budget as _tool_result_byte_budget,
+)
 
 logger = logging.getLogger(__name__)
 
-# Half the window at ~2 bytes/token (path listings). Prose is ~4, so a document costs fewer tokens.
-_TOOL_RESULT_BYTE_BUDGET_FRACTION = 0.5
-_TOOL_RESULT_BYTES_PER_TOKEN = 2
+
+def tool_result_byte_budget(context_limit_tokens: int) -> int:
+    """Keep the router's public budget helper backed by the shared derivation."""
+    return _tool_result_byte_budget(context_limit_tokens)
+
 
 REPEAT_NOTE = (
     "You already called this with the same arguments; the result is above. "
@@ -230,15 +235,6 @@ def no_tool_call_retry(guard: ToolRepeatGuard, require_tool: bool) -> dict[str, 
     guard.required_retried = True
     note(required_tool_retried=True)
     return REQUIRED_TOOL_REQUEST
-
-
-def tool_result_byte_budget(context_limit_tokens: int) -> int:
-    """Byte budget for role:tool content accumulated inside one request. 0 disables it."""
-    if context_limit_tokens <= 0:
-        return 0
-    return int(
-        context_limit_tokens * _TOOL_RESULT_BYTE_BUDGET_FRACTION * _TOOL_RESULT_BYTES_PER_TOKEN
-    )
 
 
 def _content_bytes(content: Any) -> int:
