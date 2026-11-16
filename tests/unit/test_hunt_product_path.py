@@ -393,6 +393,7 @@ def test_r2_job_persists_stage_progress_cost_and_analyst_views(
     lead = product_jobs.leads_view(job_id=job_id)["leads"][0]
     assert lead == {
         "rank": 1,
+        "notable_id": "n1",
         "generator": SIMILAR_GENERATOR,
         "source": "ix:auth",
         "why": None,
@@ -830,6 +831,7 @@ def test_leads_view_caps_default_payload_and_returns_compact_rows(
     assert len(json.dumps(result).encode()) <= 1024
     assert set(result["leads"][0]) == {
         "rank",
+        "notable_id",
         "generator",
         "source",
         "why",

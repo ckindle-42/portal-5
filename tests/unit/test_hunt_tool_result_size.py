@@ -81,6 +81,7 @@ def test_default_hunt_tool_results_fit_smallest_served_seat(
     assert set(outputs["hunt_sources stored"]) >= {"counts", "not_understood"}
     assert set(outputs["hunt_leads"]["leads"][0]) == {
         "rank",
+        "notable_id",
         "generator",
         "source",
         "why",

@@ -701,6 +701,7 @@ def _lead(row: Mapping[str, Any], rank: int) -> dict[str, Any]:
     evidence = [item for item in row.get("evidence", []) if isinstance(item, Mapping)]
     return {
         "rank": rank,
+        "notable_id": _one_line(row.get("notable_id"), 48),
         "generator": _one_line(row.get("generator"), 32),
         "source": _one_line(row.get("source_id"), 60),
         "why": _one_line(row.get("why"), 80),
