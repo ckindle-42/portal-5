@@ -12,6 +12,8 @@ from portal.modules.security.core.hunt.notables.relate import (
     _cases,
     _entities,
     _entity_supported,
+    _load_rarity,
+    _rarity_weight,
     relate_stage,
 )
 
@@ -160,10 +162,37 @@ def test_entity_pivots_use_exact_values_and_extract_actor_address() -> None:
 
     assert entities == [
         {
-            "role": "actor_address",
+            "role": "address",
             "value": "172.16.100.151",
             "terms": ("172.16.100.151",),
             "case_anchor": True,
+            "weight": 1.0,
+        }
+    ]
+
+
+def test_entity_pivots_extract_address_from_the_object_role() -> None:
+    entities = _entities(
+        {
+            "entities": [
+                {"role": "actor", "value": "dnsmasq"},
+                {"role": "action", "value": "* * * *"},
+                {
+                    "role": "object",
+                    "value": "forwarded payroll.xlsx.kiirjekuimkpcrcioastvkeodpnimx.biz to 10.229.2.216",
+                },
+            ]
+        }
+    )
+
+    addresses = [item for item in entities if item["role"] == "address"]
+    assert addresses == [
+        {
+            "role": "address",
+            "value": "10.229.2.216",
+            "terms": ("10.229.2.216",),
+            "case_anchor": True,
+            "weight": 1.0,
         }
     ]
 
@@ -179,19 +208,74 @@ def test_invalid_ipv4_text_is_not_an_entity_pivot() -> None:
     assert _entities({"entities": [{"role": "action", "value": "999.999.999.999 *"}]}) == []
 
 
+def test_rarity_weight_drops_as_host_and_source_spread_grows() -> None:
+    assert _rarity_weight(0, 0) == 1.0  # unknown is never down-weighted
+    assert _rarity_weight(1, 1) == 1.0  # a value on one host and source is rare
+    assert _rarity_weight(8, 1) < _rarity_weight(1, 1)
+    assert _rarity_weight(1, 4) < _rarity_weight(1, 1)
+    assert _rarity_weight(8, 4) < _rarity_weight(8, 1)
+
+
+def test_entities_attach_a_rarity_weight_per_value() -> None:
+    rarity = {"systemd-logind": (8, 1), "172.16.100.151": (1, 1)}
+    entities = _entities(
+        {
+            "entities": [
+                {"role": "actor", "value": "systemd-logind"},
+                {"role": "action", "value": "172.16.100.151 - - * * * HTTP/1.1 200 * - curl"},
+            ]
+        },
+        rarity,
+    )
+    by_value = {entity["value"]: entity for entity in entities}
+    assert by_value["systemd-logind"]["weight"] == _rarity_weight(8, 1)
+    assert by_value["172.16.100.151"]["weight"] == 1.0  # exact IP on one host
+
+
+def test_load_rarity_reads_host_and_source_spread_from_the_store(tmp_path: Path) -> None:
+    import duckdb
+
+    store = tmp_path / "behaviours.duckdb"
+    con = duckdb.connect(str(store))
+    con.execute(
+        "CREATE TABLE events (source_id VARCHAR, host VARCHAR, ts DOUBLE, actor VARCHAR, "
+        "action VARCHAR, object VARCHAR)"
+    )
+    rows = [
+        ("s:auth", "host-a", 1.0, "systemd-logind", "New session", "u1"),
+        ("s:auth", "host-b", 1.0, "systemd-logind", "New session", "u2"),
+        ("s:auth", "host-c", 1.0, "sshd", "Accepted", "u3"),
+        ("s:dns", "host-a", 1.0, "dnsmasq", "query[A] x from 192.42.0.42", "reply"),
+        ("s:dns", "host-b", 1.0, "dnsmasq", "query[A] y from 192.42.0.42", "reply"),
+    ]
+    con.executemany("INSERT INTO events VALUES (?, ?, ?, ?, ?, ?)", rows)
+    con.close()
+
+    rarity = _load_rarity(store)
+
+    assert rarity["systemd-logind"] == (2, 1)
+    assert rarity["sshd"] == (1, 1)
+    assert rarity["dnsmasq"] == (2, 1)
+    assert rarity["192.42.0.42"] == (2, 1)  # IP extracted from an embedded value
+
+
+def test_load_rarity_returns_empty_without_a_store(tmp_path: Path) -> None:
+    assert _load_rarity(tmp_path / "missing.duckdb") == {}
+
+
 def test_case_groups_require_a_shared_address_not_a_wildcard_or_service_actor() -> None:
     seeds = [
         {
             "id": "attack-a",
             "start": START,
             "end": START + 600,
-            "entities": [{"role": "actor_address", "value": "172.16.100.151", "case_anchor": True}],
+            "entities": [{"role": "address", "value": "172.16.100.151", "case_anchor": True}],
         },
         {
             "id": "attack-b",
             "start": START + 300,
             "end": START + 900,
-            "entities": [{"role": "actor_address", "value": "172.16.100.151", "case_anchor": True}],
+            "entities": [{"role": "address", "value": "172.16.100.151", "case_anchor": True}],
         },
         {
             "id": "noise",
@@ -213,13 +297,13 @@ def test_cases_keep_only_evidence_linked_to_the_shared_address() -> None:
             "id": "attack-a",
             "start": START,
             "end": START + 600,
-            "entities": [{"role": "actor_address", "value": "172.16.100.151", "case_anchor": True}],
+            "entities": [{"role": "address", "value": "172.16.100.151", "case_anchor": True}],
         },
         {
             "id": "attack-b",
             "start": START + 300,
             "end": START + 900,
-            "entities": [{"role": "actor_address", "value": "172.16.100.151", "case_anchor": True}],
+            "entities": [{"role": "address", "value": "172.16.100.151", "case_anchor": True}],
         },
     ]
     event = {"time": START + 400, "host": "web-1", "source": "/auth.log"}

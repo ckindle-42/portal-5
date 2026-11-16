@@ -14,10 +14,12 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+import duckdb
+
 from ..engine import Search, _literal_term_segments, _search_literal
 from ..executor import executor_for
 from .receipt import read_json, write_json
-from .run import NOTABLES_FILE, SOURCES_FILE, read_notables
+from .run import NOTABLES_FILE, SOURCES_FILE, STORE_FILE, read_notables
 
 RELATE_FILE = "relate.json"
 MAX_SEEDS = 40  # effort budget: highest-ranked Stage 1 notables to expand
@@ -27,6 +29,59 @@ TIME_MARGIN_SECONDS = 3600  # effort budget: adjacency window on either side of 
 EVIDENCE_CHARS = 400  # effort budget: event preview kept beside its reproducible reference
 TRAINING_INDEXES = frozenset({"hb_kyoushi_s1", "hb_ait_santos", "hb_ait_russellmitchell"})
 _IPV4 = re.compile(r"(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])")
+
+
+def _rarity_weight(hosts: int, sources: int) -> float:
+    """1.0 for an entity seen on one host and source; shrinks as its spread grows."""
+    if hosts <= 0 or sources <= 0:
+        return 1.0
+    return 1.0 / (hosts * sources)
+
+
+def _load_rarity(store: Path) -> dict[str, tuple[int, int]]:
+    """Entity value -> (distinct hosts, distinct sources) across the behaviour events table.
+
+    Rarity is learned from the run's own behaviour store, not from a list: an entity that
+    appears in many hosts' or sources' events is a shared pivot (a gateway, DNS, a common
+    user) and is down-weighted; one that appears on a single host is attack-specific.
+    """
+    if not store.is_file():
+        return {}
+    con = duckdb.connect(str(store), read_only=True)
+    try:
+        rows = con.execute(
+            "SELECT value, count(DISTINCT NULLIF(host, '')) AS hosts, "
+            "count(DISTINCT source_id) AS sources "
+            "FROM ("
+            "SELECT actor AS value, host, source_id FROM events WHERE NULLIF(actor, '') IS NOT NULL "
+            "UNION ALL "
+            "SELECT action AS value, host, source_id FROM events WHERE NULLIF(action, '') IS NOT NULL "
+            "UNION ALL "
+            "SELECT object AS value, host, source_id FROM events WHERE NULLIF(object, '') IS NOT NULL"
+            ") GROUP BY value"
+        ).fetchall()
+    finally:
+        con.close()
+    rarity = {str(value).casefold(): (int(hosts), int(sources)) for value, hosts, sources in rows}
+    addresses = sorted({match for value in rarity for match in _IPV4.findall(value)})
+    if not addresses:
+        return rarity
+    con = duckdb.connect(str(store), read_only=True)
+    try:
+        for address in addresses:
+            row = con.execute(
+                "SELECT count(DISTINCT NULLIF(host, '')), count(DISTINCT source_id) "
+                "FROM events WHERE instr(actor, ?) > 0 OR instr(action, ?) > 0 "
+                "OR instr(object, ?) > 0",
+                [address, address, address],
+            ).fetchone()
+            if row is None:
+                continue
+            hosts, sources = row
+            rarity[address.casefold()] = (int(hosts), int(sources))
+    finally:
+        con.close()
+    return rarity
 
 
 def _number(value: Any) -> float | None:
@@ -59,34 +114,43 @@ def _seed_window(row: Mapping[str, Any], start: float, end: float) -> tuple[floa
     return max(start, low - TIME_MARGIN_SECONDS), min(end, max(high, low) + TIME_MARGIN_SECONDS)
 
 
-def _entities(row: Mapping[str, Any]) -> list[dict[str, Any]]:
+def _entities(
+    row: Mapping[str, Any], rarity: Mapping[str, tuple[int, int]] | None = None
+) -> list[dict[str, Any]]:
     found: dict[tuple[str, str], dict[str, Any]] = {}
+    spread = rarity or {}
     for item in row.get("entities") or ():
         if not isinstance(item, Mapping):
             continue
         role = str(item.get("role") or "").strip()
         value = str(item.get("value") or "").strip()
         if value:
-            if role.casefold() in {"actor", "action"}:
-                for match in _IPV4.finditer(value):
-                    try:
-                        address = str(ipaddress.IPv4Address(match.group()))
-                    except ValueError:
-                        continue
-                    found.setdefault(
-                        ("actor_address", address),
-                        {
-                            "role": "actor_address",
-                            "value": address,
-                            "terms": (address,),
-                            "case_anchor": True,
-                        },
-                    )
+            for match in _IPV4.finditer(value):
+                try:
+                    address = str(ipaddress.IPv4Address(match.group()))
+                except ValueError:
+                    continue
+                found.setdefault(
+                    ("address", address),
+                    {
+                        "role": "address",
+                        "value": address,
+                        "terms": (address,),
+                        "case_anchor": True,
+                        "weight": _rarity_weight(*spread.get(address.casefold(), (0, 0))),
+                    },
+                )
             if "*" not in value and "?" not in value:
                 terms = _literal_term_segments(value)
                 found.setdefault(
                     (role.casefold(), value.casefold()),
-                    {"role": role, "value": value, "terms": terms, "case_anchor": False},
+                    {
+                        "role": role,
+                        "value": value,
+                        "terms": terms,
+                        "case_anchor": False,
+                        "weight": _rarity_weight(*spread.get(value.casefold(), (0, 0))),
+                    },
                 )
     return list(found.values())[:MAX_ENTITIES_PER_SEED]
 
@@ -153,11 +217,16 @@ def _event_ref(index: str, row: Mapping[str, Any], query: str) -> dict[str, Any]
     }
 
 
-def _seed_records(rows: Sequence[dict[str, Any]], start: float, end: float) -> list[dict[str, Any]]:
+def _seed_records(
+    rows: Sequence[dict[str, Any]],
+    start: float,
+    end: float,
+    rarity: Mapping[str, tuple[int, int]] | None = None,
+) -> list[dict[str, Any]]:
     ordered = list(enumerate(rows[:MAX_SEEDS]))
     seeds: list[dict[str, Any]] = []
     for rank, (_original_rank, row) in enumerate(ordered):
-        entities = _entities(row)
+        entities = _entities(row, rarity)
         if not entities:
             continue
         low, high = _seed_window(row, start, end)
@@ -221,10 +290,12 @@ def _gather(
                     "seed_rank": seed["rank"],
                     "original_rank": seed["original_rank"],
                     "entities": {},
+                    "weight": 1.0,
                     "delta": None,
                 },
             )
             support["entities"][str(entity["value"]).casefold()] = str(entity["value"])
+            support["weight"] = min(support["weight"], float(entity.get("weight", 1.0)))
             delta = abs(identity[2] - float(seed["center"]))
             support["delta"] = delta if support["delta"] is None else min(support["delta"], delta)
             support["query"] = query
@@ -256,7 +327,8 @@ def _related_rows(
             continue
         shared = sorted({value for support in supports for value in support["entities"].values()})
         score = sum(
-            (1.0 / (int(support["seed_rank"]) + 1))
+            float(support.get("weight", 1.0))
+            * (1.0 / (int(support["seed_rank"]) + 1))
             / (1.0 + float(support["delta"] or 0.0) / TIME_MARGIN_SECONDS)
             for support in supports
         )
@@ -402,7 +474,8 @@ def relate_stage(*, out: Path, search: Search, judged_only: bool = False) -> dic
         raise ValueError(f"{out / SOURCES_FILE} needs a valid start/end range")
     notables = read_notables(out / NOTABLES_FILE)
     selected = [row for row in notables if not judged_only or row.get("p_yes") is not None]
-    seeds = _seed_records(selected, start, end)
+    rarity = _load_rarity(out / STORE_FILE)
+    seeds = _seed_records(selected, start, end, rarity)
     requests, details = _requests(index, seeds)
     executor = executor_for(search)
     executor.budget.phase = "investigating"
@@ -424,6 +497,7 @@ def relate_stage(*, out: Path, search: Search, judged_only: bool = False) -> dic
         and not any(
             row["reason"] or row["capped"] or row["unreferenced_events"] for row in coverage
         ),
+        "capped_queries": sum(1 for row in coverage if row["capped"]),
         "coverage": coverage,
         "executor": snapshot,
     }
