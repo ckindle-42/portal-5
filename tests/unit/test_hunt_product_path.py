@@ -150,6 +150,117 @@ def test_hunt_start_routes_to_the_r2_job_runner(monkeypatch: Any) -> None:
     assert result["job_id"] == "hunt-r2-test"
 
 
+def test_status_long_polls_until_terminal_and_returns_latest_progress(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    monkeypatch.setattr(product_jobs, "_ROOT", tmp_path)
+    job_id = "hunt-r2-status-wait"
+    state = {
+        "job_id": job_id,
+        "index": "ix",
+        "status": "RUNNING",
+        "stage": "cards",
+        "started": 1.0,
+        "progress": {"current": {"phase": "cards"}, "stages": {}},
+        "run_dir": str(tmp_path / job_id),
+    }
+    product_jobs._write(job_id, state)
+    elapsed = [0.0]
+    sleeps: list[float] = []
+
+    def sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+        elapsed[0] += seconds
+        if len(sleeps) == 2:
+            state.update(status="COMPLETE", stage="done", finished=3.0)
+            product_jobs._write(job_id, state)
+
+    monkeypatch.setattr(
+        product_jobs,
+        "time",
+        SimpleNamespace(monotonic=lambda: elapsed[0], sleep=sleep, time=lambda: 3.0),
+    )
+
+    result = product_jobs.status(job_id=job_id, wait_seconds=45)
+
+    assert result["status"] == "COMPLETE"
+    assert result["stage"] == "done"
+    assert len(sleeps) == 2
+
+
+def test_status_long_poll_is_bounded(tmp_path: Path, monkeypatch: Any) -> None:
+    monkeypatch.setattr(product_jobs, "_ROOT", tmp_path)
+    job_id = "hunt-r2-status-bound"
+    product_jobs._write(
+        job_id,
+        {
+            "job_id": job_id,
+            "index": "ix",
+            "status": "RUNNING",
+            "stage": "cards",
+            "started": 1.0,
+            "progress": {"current": {"phase": "cards"}, "stages": {}},
+            "run_dir": str(tmp_path / job_id),
+        },
+    )
+    elapsed = [0.0]
+    monkeypatch.setattr(
+        product_jobs,
+        "time",
+        SimpleNamespace(
+            monotonic=lambda: elapsed[0],
+            sleep=lambda seconds: elapsed.__setitem__(0, elapsed[0] + seconds),
+            time=lambda: 3.0,
+        ),
+    )
+
+    result = product_jobs.status(job_id=job_id, wait_seconds=1000)
+
+    assert elapsed[0] == product_jobs.STATUS_WAIT_MAX_S
+    assert result["status"] == "RUNNING"
+    assert result["stage"] == "cards"
+
+
+def test_nonterminal_hunt_views_return_progress_instead_of_empty_results(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    monkeypatch.setattr(product_jobs, "_ROOT", tmp_path)
+    job_id = "hunt-r2-running-views"
+    run_dir = tmp_path / job_id
+    run_dir.mkdir()
+    (run_dir / "sources.json").write_text(json.dumps({"cards": [{"source_id": "ix:a"}]}))
+    (run_dir / "notables.jsonl").write_text(json.dumps({"notable_id": "n1"}) + "\n")
+    (run_dir / "relate.json").write_text(json.dumps({"cases": [{"case_id": "c1"}]}))
+    progress = {"current": {"phase": "cards", "done": 2}, "stages": {"cards": {"seen": 2}}}
+    product_jobs._write(
+        job_id,
+        {
+            "job_id": job_id,
+            "index": "ix",
+            "status": "RUNNING",
+            "stage": "cards",
+            "started": 1.0,
+            "progress": progress,
+            "run_dir": str(run_dir),
+        },
+    )
+
+    results = [
+        product_jobs.sources_view(job_id=job_id),
+        product_jobs.leads_view(job_id=job_id),
+        product_jobs.case_view(job_id=job_id, case_no=1),
+    ]
+
+    for result in results:
+        assert result["status"] == "RUNNING"
+        assert result["stage"] == "cards"
+        assert result["progress"] == progress
+        assert f"hunt_status(job_id='{job_id}')" in result["next"]
+    assert "cards" not in results[0]
+    assert "leads" not in results[1]
+    assert "case" not in results[2]
+
+
 def test_start_persists_queued_job_and_dispatches_background_worker(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
@@ -698,6 +809,7 @@ def test_leads_view_caps_default_payload_and_keeps_similarity_text_trace(
         {
             "job_id": "hunt-r2-lead-size",
             "index": "ix",
+            "status": "COMPLETE",
             "started": 1.0,
             "run_dir": str(out),
         },
@@ -737,6 +849,7 @@ def test_leads_view_uses_product_rerank_and_council_receipt(
         {
             "job_id": "hunt-r2-reranked",
             "index": "hb_kyoushi_s1",
+            "status": "COMPLETE",
             "started": 1.0,
             "run_dir": str(out),
         },
