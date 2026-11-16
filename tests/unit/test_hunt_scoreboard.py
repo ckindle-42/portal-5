@@ -327,6 +327,54 @@ def test_every_term_must_appear_for_a_notable_to_cover(tmp_path: Path) -> None:
     assert family["steps"][0]["first_rank"] is None
 
 
+def test_claim_reads_plain_quoted_terms_and_skips_field_values() -> None:
+    row = {
+        "source_id": "idx:auth.log",
+        "generator": "similar_to_known",
+        "evidence": [
+            {
+                "query": (
+                    'search index="idx" (source="/auth.log") "systemd-logind" "root" | head 5'
+                ),
+            }
+        ],
+    }
+    claim = board._claim(row)
+    assert claim.terms == ("systemd-logind", "root")
+    assert claim.sources == frozenset({"/auth.log"})
+
+
+def test_a_plain_quoted_notable_covers_a_labelled_line(tmp_path: Path) -> None:
+    source = "/auth.log"
+    keys = _keys(source, "web", {1: ["change_user"]})
+    notable = {
+        "notable_id": "plain",
+        "generator": "similar_to_known",
+        "source_id": f"idx:{source.rsplit('/', 1)[-1]}",
+        "content_key": "plain",
+        "entities": [{"role": "actor", "value": "systemd-logind"}],
+        "evidence": [
+            {
+                "line": "example",
+                "query": f'search index="idx" (source="{source}") "systemd-logind" "root" | head 5',
+                "earliest": FIRST,
+                "latest": FIRST + 3600.0,
+            }
+        ],
+    }
+    family = _family(
+        tmp_path,
+        notables=[notable],
+        keys=keys,
+        files={
+            ("web", source): [
+                "Mar 23 21:12:56 host systemd-logind[1]: New session of user root",
+            ]
+        },
+    )
+    assert family["steps"][0]["first_rank"] == 0
+
+
 def test_judge_separation_uses_covered_notables_as_labelled_bad(tmp_path: Path) -> None:
     source = "/apache2/access.log.4"
     keys = _keys(source, "web", {1: ["dirb"]})
