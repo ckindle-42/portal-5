@@ -24,6 +24,7 @@ python3 scripts/hunt_bed/ingest_native.py --root <dir> --index hb_<env> --defaul
 python3 scripts/hunt_bed/keys_kyoushi.py --labels <labels/> --ingest <out>     # AIT/Kyoushi per-line key
 python3 scripts/hunt_bed/keys_cloudobs.py --ingest <out>                       # cloud_obs y/n-run key
 python3 scripts/hunt_bed/keys_bots.py --source <cited.json> --out <key.jsonl>  # BOTS cited key, live-audited
+python3 scripts/hunt_bed/keys_botsv2.py --source <cited.json> [--prior-audit <bots_key.jsonl>] --out-dir <dir> # R2 botsv2 entity key + locator-audit SPL
 python3 scripts/hunt_bed/observe.py --index <idx> --out <dir> [--baseline current|seasonal|peer|stream|left] [--from-grids <dir>]
 python3 scripts/hunt_bed/graph_hunt.py --index <idx> --out <dir> [--from-grids <dir>]
                                     # observations -> bounded cells -> retention history -> graph -> leads.json
