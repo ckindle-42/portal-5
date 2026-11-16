@@ -47,6 +47,9 @@ STAGE_ESTIMATES = {
 STAGE_ORDER = ("cards", "behaviours", "notables", "relate")
 LEADS_LIMIT = 10
 LEADS_RESPONSE_CHARS = 6000
+STATUS_WAIT_MAX_S = 45.0
+STATUS_POLL_S = 1.0
+TERMINAL_STATUSES = {"COMPLETE", "PARTIAL", "FAILED"}
 
 
 class HuntJobClient:
@@ -541,10 +544,7 @@ def _resolve(job_id: str | None, index: str | None) -> tuple[dict[str, Any] | No
     return job, {}
 
 
-def status(job_id: str | None = None, index: str | None = None) -> dict[str, Any]:
-    job, out = _resolve(job_id, index)
-    if job is None:
-        return out
+def _status_result(job: Mapping[str, Any]) -> dict[str, Any]:
     result = {
         key: job[key]
         for key in (
@@ -571,12 +571,47 @@ def status(job_id: str | None = None, index: str | None = None) -> dict[str, Any
     return compact(result)
 
 
+def _running_view(job: Mapping[str, Any]) -> dict[str, Any]:
+    job_id = str(job["job_id"])
+    return compact(
+        {
+            "job_id": job_id,
+            "index": job.get("index"),
+            "status": "RUNNING",
+            "stage": job.get("stage"),
+            "progress": job.get("progress", {}),
+            "next": f"call hunt_status(job_id={job_id!r}) for updated progress",
+        }
+    )
+
+
+def _is_terminal(job: Mapping[str, Any]) -> bool:
+    return str(job.get("status", "")).upper() in TERMINAL_STATUSES
+
+
+def status(
+    job_id: str | None = None, index: str | None = None, wait_seconds: float = 0.0
+) -> dict[str, Any]:
+    wait_s = min(max(float(wait_seconds), 0.0), STATUS_WAIT_MAX_S)
+    deadline = time.monotonic() + wait_s
+    while True:
+        job, out = _resolve(job_id, index)
+        if job is None:
+            return out
+        remaining = deadline - time.monotonic()
+        if _is_terminal(job) or remaining <= 0:
+            return _status_result(job)
+        time.sleep(min(STATUS_POLL_S, remaining))
+
+
 def leads_view(
     job_id: str | None = None, index: str | None = None, n: int = LEADS_LIMIT
 ) -> dict[str, Any]:
     job, out = _resolve(job_id, index)
     if job is None:
         return out
+    if not _is_terminal(job):
+        return _running_view(job)
     run_dir = Path(str(job["run_dir"]))
     rows = _ranked_rows(run_dir)
     council_calls = {
@@ -732,6 +767,8 @@ def case_view(
     job, out = _resolve(job_id, index)
     if job is None:
         return out
+    if not _is_terminal(job):
+        return _running_view(job)
     cases = read_json(Path(str(job["run_dir"])) / RELATE_FILE).get("cases")
     cases = cases if isinstance(cases, list) else []
     if not 1 <= case_no <= len(cases):
@@ -751,6 +788,8 @@ def sources_view(
     job, out = _resolve(job_id, index)
     if job is None:
         return out
+    if not _is_terminal(job):
+        return _running_view(job)
     payload = read_json(Path(str(job["run_dir"])) / SOURCES_FILE)
     cards = payload.get("cards")
     cards = cards if isinstance(cards, list) else []

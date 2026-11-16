@@ -140,12 +140,13 @@ def test_installed_hop_compares_process_type_and_env_keys() -> None:
 
 
 def test_installed_hop_fails_a_missing_program_and_warns_on_stale_args(tmp_path: Path) -> None:
-    cfg = {"ProgramArguments": ["/usr/bin/true", "/usr/local/libexec/portal5-powermetrics"]}
-    installed = {"ProgramArguments": ["/usr/bin/true", "/usr/local/libexec/portal5-powermetrics"]}
+    missing_program = str(tmp_path / "missing-portal5-powermetrics")
+    cfg = {"ProgramArguments": ["/usr/bin/true", missing_program]}
+    installed = {"ProgramArguments": ["/usr/bin/true", missing_program]}
     hops = host.installed_hop("com.portal5.powermetrics", cfg, installed)
     program = next(hop for hop in hops if hop.name.startswith("program "))
     assert program.status is Status.FAIL
-    assert "/usr/local/libexec/portal5-powermetrics" in program.observed
+    assert missing_program in program.observed
 
     stale = {"ProgramArguments": ["/usr/bin/true", "/usr/local/bin/portal5-powermetrics"]}
     hops = host.installed_hop("com.portal5.powermetrics", cfg, stale)

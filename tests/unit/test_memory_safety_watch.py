@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import plistlib
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -448,7 +449,12 @@ def test_services_only_restarts_a_measured_breach_after_three_samples(tmp_path, 
         if len(sleeps) == 3:
             raise SystemExit("three samples taken")
 
-    monkeypatch.setattr(memory_safety_watch.time, "sleep", fake_sleep)
+    clock = memory_safety_watch.time
+    monkeypatch.setattr(
+        memory_safety_watch,
+        "time",
+        SimpleNamespace(monotonic=clock.monotonic, sleep=fake_sleep),
+    )
 
     with pytest.raises(SystemExit):
         memory_safety_watch.watch_services(log=log, services=EMBED, service_ceilings=MEASURED_1GIB)
