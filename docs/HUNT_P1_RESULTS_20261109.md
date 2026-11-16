@@ -1,3 +1,54 @@
+# P2F stopped checkpoint — unmerged, not a working product (2026-11-11 03:11Z)
+
+The operator stopped implementation at the user's request and committed the work on
+`lane/hunt-p2f-indexed`. Main remains `62563585f`; no merge or push. This section belongs
+to the unmerged lane. Earlier complete P2 results below remain the baseline.
+
+The candidate adds indexed retrieval planning, bounded server search jobs, coverage/progress,
+packed token-series queries, discovered-host partitions, bounded seed samples with actual
+timestamps, and partial-case persistence. Final repair review and verification are unfinished.
+
+Live candidate attempt 1 (`results/hunt/p2f_live`) failed on ISO results timestamps; the lane
+subsequently normalized them. Attempt 2 (`results/hunt/p2f_live_v2`) returned PARTIAL in all
+six environments: Kyoushi/RussellMitchell/Santos/Wheeler exhausted 2,000 searches before saving
+leads; AWS saved 52 leads but no cases after a source read exceeded 5,000 rows; BOTS minute
+discovery finalized early. These are failures, not improvements in false-lead counts.
+
+Subsequent direct live adapter probes established only their stated layer:
+
+- BOTS partitioned minute discovery: 1,764 learned hosts, 60,718 rows, 18.15s. Independent
+  global metadata cardinality was also 60,718 (3.62s).
+- The formerly failing AWS seed query returned its one matching event in 1.095s with actual
+  event time and an exact template match, rather than fetching the entire source.
+- Eight packed series matched all 356 cells of separate parallel queries, but took 2.765s
+  versus 0.923s. Request reduction alone did not establish a speed improvement.
+- Thirty-two token series matched exactly with parent concurrency budgets 2 and 8; timings
+  were 6.458s and 3.461s. Observed peak concurrency with two parents was four active jobs;
+  peak concurrency with eight parents still needs verification.
+- A full Kyoushi ranking diagnostic using the two-parent candidate FAILED at 720.05s after
+  884 parent searches, without returning a completed ranking. The final eight-parent repair
+  has not completed an analyst-route run. Native tstats append pipeline feasibility preserved
+  counts but did not demonstrate a throughput improvement (2.8s).
+
+Receipts: `results/hunt/p2f_preflight/`, especially `repair_ranking.json`,
+`repair_bots_partition.json`, `repair_bots_equivalence.json`, `repair_aws_seed.json`,
+`repair_packed_parallel.json`, `pack_parent_comparison.json`, and `STOP_CHECKPOINT.json`.
+`results/hunt/p2f_live_v3/operator_live.py` is prepared but NOT started.
+
+Checkpoint gate: `git diff --check` PASS; focused discovery tests 11 PASS / 2 FAIL (2.66s).
+Failures: concurrency assertion still assumes parent budget times batch size <=20;
+in-progress case persistence still exposes `partial=False`. Full final release CI, final
+review, and final six-environment end-to-end campaign are NOT complete. Earlier 5,301 unit
+passes apply to an older candidate, not this checkpoint. No product-success claim or Phase 3.
+
+At stop: external coding worker stopped, no active Splunk searches, last diagnostic SID 404,
+production launchd review MCP healthy from main. Unrelated compose change preserved.
+Resume via `coding_task/RESUME_HUNT_20261109.md` and the latest review feedback. Correct the
+remaining failures, review all source, run release gates and live analyst-route verification
+before considering a merge. This checkpoint does not authorize an automatic restart.
+
+---
+
 <!-- HUNT_P2_RERUN_20261110 -->
 # Phase 2 rerun — completed live, bars NOT met (2026-11-10)
 

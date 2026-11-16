@@ -57,6 +57,9 @@ class _StubInv:
     def investigate(self, lead: Lead) -> Case:
         return Case(seed=f"{lead.host}@{lead.hour}", seed_hour=lead.hour)
 
+    def investigate_all(self, leads: list[Lead], *, dig: int) -> list[Case]:
+        return [self.investigate(lead) for lead in leads[:dig]]
+
 
 def _run_job(
     monkeypatch: pytest.MonkeyPatch,
@@ -195,38 +198,119 @@ def test_large_fixture_views_stay_under_6000_chars(hunts: Path) -> None:
     assert jobs.case_view(job_id="hunt-fat", case_no=1, n=25)["truncated"] is True
 
 
-def test_hunt_tools_resolve_by_index(hunts: Path) -> None:
+def test_hunt_tools_resolve_by_index(hunts: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     review_mcp = pytest.importorskip("portal.modules.security.tools.review_mcp")
-    _store(
-        "hunt-tool",
-        "memory",
-        1.0,
-        cases=[
-            {
-                "merged_from": ["h@0"],
-                "events": 1,
-                "hosts": {"h": 1},
-                "span_hours": 1,
-                "pivots": [],
-                "picture": [],
-            }
-        ],
+    r2_jobs = review_mcp.r2_hunt_jobs
+    monkeypatch.setattr(r2_jobs, "_ROOT", hunts)
+    run_dir = hunts / "hunt-r2-tool"
+    run_dir.mkdir()
+    (run_dir / "sources.json").write_text(json.dumps({"cards": []}))
+    (run_dir / "notables.jsonl").write_text("")
+    (run_dir / "relate.json").write_text(json.dumps({"cases": [{"evidence": []}]}))
+    r2_jobs._write(
+        "hunt-r2-tool",
+        {
+            "job_id": "hunt-r2-tool",
+            "index": "memory",
+            "status": "COMPLETE",
+            "stage": "done",
+            "started": 1.0,
+            "finished": 2.0,
+            "run_dir": str(run_dir),
+        },
     )
-    assert review_mcp.hunt_status(index="memory")["job_id"] == "hunt-tool"
-    assert review_mcp.hunt_leads(index="memory")["job_id"] == "hunt-tool"
-    assert review_mcp.hunt_case(index="memory")["job_id"] == "hunt-tool"
+    assert review_mcp.hunt_status(index="memory")["job_id"] == "hunt-r2-tool"
+    assert review_mcp.hunt_leads(index="memory")["job_id"] == "hunt-r2-tool"
+    assert review_mcp.hunt_case(index="memory")["job_id"] == "hunt-r2-tool"
 
 
 def test_hunt_start_tells_the_model_the_next_step(monkeypatch: pytest.MonkeyPatch) -> None:
     review_mcp = pytest.importorskip("portal.modules.security.tools.review_mcp")
     monkeypatch.setattr(review_mcp, "_hunt_search", lambda: None)
-    monkeypatch.setattr(review_mcp.hunt_jobs, "start", lambda *_a, **_k: "hunt-abc123def456")
+    monkeypatch.setattr(review_mcp.r2_hunt_jobs, "start", lambda *_a, **_k: "hunt-r2-abc123def456")
     out = review_mcp.hunt_start(index="memory")
-    assert out["job_id"] == "hunt-abc123def456"
+    assert out["job_id"] == "hunt-r2-abc123def456"
     assert out["index"] == "memory"
-    assert out["status"] == "RUNNING"
-    assert "hunt_status(index='memory')" in out["next"]
-    assert "hunt_case(index='memory', case=1)" in out["next"]
+    assert out["status"] == "QUEUED"
+    assert "hunt_status(job_id='hunt-r2-abc123def456')" in out["next"]
+    assert "hunt_case(job_id='hunt-r2-abc123def456', case=1)" in out["next"]
+    assert "PARTIAL" in out["next"]
+
+
+def test_budget_exhaustion_is_persisted_as_partial_with_progress(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(jobs, "_ROOT", tmp_path)
+
+    def exhaust(*_args: Any, **_kwargs: Any) -> list[Lead]:
+        raise jobs.HuntBudgetExceededError("request_budget_exhausted")
+
+    monkeypatch.setattr(jobs, "hunt", exhaust)
+    jobs._run("hunt-partial", None, "memory", 0.0, 1.0, 1)
+
+    stored = jobs.load("hunt-partial")
+    assert stored is not None
+    assert stored["status"] == "PARTIAL"
+    assert stored["coverage_complete"] is False
+    assert stored["coverage_reason"] == "request_budget_exhausted"
+    out = jobs.status(job_id="hunt-partial")
+    assert out["status"] == "PARTIAL"
+    assert out["coverage_complete"] is False
+    assert out["exhausted_reason"] == "request_budget_exhausted"
+
+
+def test_partial_coverage_round_trips_through_status_and_case_view(hunts: Path) -> None:
+    _store(
+        "hunt-partial-view",
+        "memory",
+        1.0,
+        status="PARTIAL",
+        coverage_complete=False,
+        coverage_reason="indexed and verified scope is incomplete",
+        progress={"phase": "partial", "query_count": 5, "coverage_complete": False},
+        cases=[
+            {
+                "merged_from": ["h@0"],
+                "events": 1,
+                "core_events": 1,
+                "core_hosts": 1,
+                "hosts": {"h": 1},
+                "span_hours": 1,
+                "pivots": [
+                    {
+                        "token": "value",
+                        "count": 2,
+                        "hosts": 1,
+                        "weight": 0.0,
+                        "indexed_count": None,
+                        "verified_count": 2,
+                        "count_semantics": "verified_local_sample_global_unknown",
+                    }
+                ],
+                "core": [],
+                "picture": [],
+                "coverage": [
+                    {
+                        "token": "value",
+                        "count_semantics": "verified_local_sample_global_unknown",
+                        "reason": "term_miss_seeded_from_observation",
+                        "censored": False,
+                        "coverage_complete": False,
+                    }
+                ],
+            }
+        ],
+    )
+
+    status = jobs.status(job_id="hunt-partial-view")
+    case = jobs.case_view(job_id="hunt-partial-view")
+
+    assert status["status"] == "PARTIAL"
+    assert status["coverage_complete"] is False
+    assert status["query_count"] == 5
+    assert case["coverage"]["complete"] is False
+    assert case["coverage"]["unknown"] == 1
+    assert "global count unknown" in case["pivots"][0]
 
 
 def test_hunt_sources_response_is_compacted(monkeypatch: pytest.MonkeyPatch) -> None:
