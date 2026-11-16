@@ -116,11 +116,12 @@ RUN groupadd -r portal && useradd -r -m -g portal portal \
 
 # No HEALTHCHECK here — defined per-service in docker-compose.yml
 
-# Deployed-revision stamp read by /health (launch.sh passes git HEAD).
+# Deployed-revision stamp read by /health and by `portal trace` (launch.sh passes git HEAD).
 ARG PORTAL_BUILD_SHA=unknown
 ENV PORTAL_BUILD_SHA=${PORTAL_BUILD_SHA}
 ARG PORTAL_BUILD_DIRTY=-1
 ENV PORTAL_BUILD_DIRTY=${PORTAL_BUILD_DIRTY}
+LABEL org.opencontainers.image.revision=${PORTAL_BUILD_SHA}
 
 ENTRYPOINT ["/usr/local/bin/mcp-entrypoint.sh"]
 CMD ["python", "-m", "portal.modules.documents.tools.document_mcp"]
