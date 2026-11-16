@@ -1494,31 +1494,18 @@ class TestCodeHygiene:
             f"Unexpected privileged services: {privileged_services}. Only 'dind' is permitted."
         )
 
-    def test_claude_md_persona_count_accurate(self):
-        """Verify CLAUDE.md persona count matches actual files."""
+    def test_claude_md_has_no_hardcoded_persona_count(self):
+        """Verify CLAUDE.md leaves the persona count derived (Rule 12)."""
         import re
-
-        personas_dir = Path("config/personas")
-        if not personas_dir.exists():
-            personas_dir = Path(__file__).parent.parent.parent / "config" / "personas"
-        actual_count = len(list(personas_dir.glob("*.yaml")))
 
         claude_md = Path("CLAUDE.md")
         if not claude_md.exists():
             claude_md = Path(__file__).parent.parent.parent / "CLAUDE.md"
         content = claude_md.read_text()
 
-        # Match the specific "currently N files" persona-catalog count
-        # assertion, not any incidental "N personas" text elsewhere in the
-        # doc (e.g. an illustrative example in the anti-hardcoding rule) —
-        # a generic "\d+\s+personas" regex previously matched such
-        # incidental text by coincidence rather than the live count claim.
-        match = re.search(r"currently (\d+) files", content)
-        assert match, "Could not find persona count in CLAUDE.md"
-        doc_count = int(match.group(1))
-
-        assert doc_count == actual_count, (
-            f"CLAUDE.md says {doc_count} personas but found {actual_count} yaml files"
+        assert "config/personas/" in content
+        assert not re.search(r"currently \d+ files", content), (
+            "CLAUDE.md hardcodes the persona count; Rule 12 requires it be derived"
         )
 
 

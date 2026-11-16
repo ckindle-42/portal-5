@@ -4,7 +4,7 @@
 
 ## What Portal 5 Is
 
-An Open WebUI enhancement layer, not a replacement web stack. It extends Open WebUI through its Pipeline server (:9099) and MCP Tool Servers: a local AI platform for text, code, security, images, music, documents, voice — all on your hardware, one interface. Image generation is MLX-native (MFLUX, host layer); video generation is MLX-native (ltx-2-mlx) behind the `video` module, off by default and shipped enabled.
+An Open WebUI enhancement layer, not a replacement web stack. It extends Open WebUI through its Pipeline server (:9099) and MCP Tool Servers: a local AI platform for text, code, security, images, music, documents, voice — all on your hardware, one interface. Image generation is MLX-native (MFLUX, host layer); video generation is MLX-native (ltx-2-mlx) behind the `video` module, off by default — both the module and the `video_mlx` fleet entry are disabled in `config/portal.yaml`, and the engine is a separate host install.
 
 **Architecture:** Open WebUI → Portal Pipeline (:9099) → oMLX (:8085) or Ollama (:11434) → local models. MCP servers (:8912–8935) provide tools (documents, code sandbox, TTS, research, memory, RAG, browser, proxmox, pipeline introspection, MLX image/video generation).
 **Inference:** Two host-native engines behind one Pipeline — **oMLX** (MLX checkpoints, :8085) and **Ollama** (GGUF, :11434), each serving its own backend groups in `config/backends.yaml`; an oMLX-served workspace falls back to its Ollama GGUF tag so a user always gets an answer. Versions are kept current by `scripts/engine_autoupdate.py` behind the engine contract check. The old MLX proxy is retired (`75c24a9`); other MLX services are speech (:8918), transcription (:8924) and the Qwen3-VL reranker (:8942); EmbeddingGemma 2 (:8946, sentence-transformers) is the platform's single embedder (memory, Open WebUI RAG, RAG/compliance retrieval, Bully). The legacy :8917 embedder is retired. Host-native, not Docker.
@@ -19,7 +19,7 @@ An Open WebUI enhancement layer, not a replacement web stack. It extends Open We
 
 ## Working Style
 
-**Think before coding.** State assumptions; surface tradeoffs; if uncertain, ask. Check `KNOWN_LIMITATIONS.md` and lead discovery from the wiki fact-units before cold-grepping.
+**Think before coding.** State assumptions; surface tradeoffs; decide what the data or the brief can settle, and ask only when neither can. Check `KNOWN_LIMITATIONS.md` and lead discovery from the wiki fact-units before cold-grepping.
 **Simplicity first.** Minimum code that solves the problem. Nothing speculative, no unrequested flexibility.
 **Surgical changes.** Touch only what you must. Every changed line traces to the task. Remove imports/variables your change made unused; mention pre-existing dead code, don't delete it.
 **Goal-driven.** Define success criteria, loop until verified. Verification ladder: per-commit gate `uv run pytest tests/unit/ -q && uv run ruff check . && uv run ruff format --check .`, final gate `bash scripts/ci_local.sh`, live streaming gate `./scripts/smoke_stream.sh`, doc reconciliation (Rule 12).
@@ -57,9 +57,9 @@ Standalone MCP SDK v2 servers; zero imports from `portal.platform.inference` or 
 ### 4 — The Pipeline Is Stateless
 `router_pipe.py` holds no conversation state (Open WebUI owns that). It persists operational metrics to `metrics_state.json` for telemetry only — never for routing.
 ### 5 — Personas Live in config/personas/
-One YAML per persona (`name`, `slug`, `module`, `workspace_model`, `category`, and `system_prompt` or `prompt_template`). `openwebui_init.py` seeds them. Catalog currently at `config/personas/` — currently 110 files (extractor-derived count — never hardcode it in prose; the bench persona lives in `config/personas/bench/` and is not part of the production roster).
+One YAML per persona (`name`, `slug`, `module`, `workspace_model`, `category`, and `system_prompt` or `prompt_template`). `openwebui_init.py` seeds them. The catalog lives at `config/personas/` — its size is derived from the files, never hardcoded in prose; the bench persona lives in `config/personas/bench/` and is not part of the production roster.
 ### 6 — Workspace and MCP Sources of Truth
-Production workspaces and the MCP fleet live in `config/portal.yaml`; `module: eval` bench lanes live in `config/bench_workspaces.yaml` and merge into the workspace catalog only when eval is enabled or a bench/WFE harness asks. After any change run `./launch.sh sync-config` (idempotent). Never hand-edit the derived files: `config/backends.yaml` `workspace_routing`, `.mcp.json`, `imports/openwebui/workspaces/*.json`, and `config/modules.generated.yaml`. Auto-routing: Layer 1 LLM intent classifier (default `gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M`), Layer 2 weighted keyword fallback.
+Production workspaces and the MCP fleet live in `config/portal.yaml`; `module: eval` bench lanes live in `config/bench_workspaces.yaml` and merge into the workspace catalog only when eval is enabled or a bench/WFE harness asks. After any change run `./launch.sh sync-config` (idempotent). `config/portal.yaml` is baked into the Pipeline image (only `config/backends.yaml` and `portal_wiki/canonical/` are mounted), so a change needs `./launch.sh rebuild && ./launch.sh up` and a check inside the container (`docker exec portal5-pipeline grep -n <key> /app/config/portal.yaml`). Never hand-edit the derived files: `config/backends.yaml` `workspace_routing`, `.mcp.json`, `imports/openwebui/workspaces/*.json`, and `config/modules.generated.yaml`. Auto-routing: Layer 1 LLM intent classifier (default `gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M`), Layer 2 weighted keyword fallback.
 ### 7 — All Ports Are Reserved
 8080 OWUI · 9099 Pipeline · 8912 music · 8913 documents · 8914 sandbox · 8915 whisper · 8916 TTS · 8918 MLX speech (host) · 8919 security · 8920 memory · 8921 RAG · 8922 research · 8923 browser · 8924 MLX transcribe · 8926 CAD · 8927 proxmox · 8928 pipeline MCP · 8929 MITRE · 8930 binresearch · 8931 wiki · 8932 detections · 8933 MFLUX image · 8934 vulnintel · 8935 video-mlx · 8936 ICS/OT · 8937 compliance · 8938 detection · 8939 data · 8941 netforensics · 8942 VL reranker (host) · 8943 security review (host) · 8946 EmbeddingGemma 2 platform embedder (host) · 8948 compliance eval store (host, WFE) · 8088 SearXNG · 11434 Ollama · 8085 oMLX (host) · 9090 Prometheus · 3000 Grafana. Enforced in `.env.example`. (Authoritative roster: `config/portal.yaml` `mcp_fleet` and `host_jobs`.)
 ### 8 — Inference Engines Are External: oMLX and Ollama
@@ -67,7 +67,7 @@ The Pipeline talks to engines over HTTP only. Never add `transformers` or `torch
 ### 9 — The Dockerfile Split Is Intentional
 `Dockerfile.pipeline` minimal (fastapi/uvicorn/httpx/pyyaml); `Dockerfile.mcp` heavier. Don't merge. Full image index (every Dockerfile, what each builds): `unit-fact-dockerfile-index`.
 ### 10 — Git Discipline
-Commit to `main` during stabilization; `uv run pytest tests/ -q --tb=no` before every push; conventional commits; never force-push; never commit `.env`.
+Work happens on lane branches in worktrees; merges go through a separate merge worktree detached at `origin/main` (`git push origin HEAD:main`, with a long timeout for the pre-push hook), then `git pull --ff-only` in the live checkout. Never commit in the live checkout. `bash scripts/ci_local.sh` before every push; conventional commits; never force-push; never commit `.env`.
 ### 11 — Shared Workspace Is The Only Path For User Files
 User files live at `${AI_OUTPUT_DIR}` (default `~/AI_Output/`), mounted at `/workspace`. Reads: `resolve_upload_path(file_id)`; writes: `get_generated_dir(category)` (categories: transcripts, documents, images, videos, music, speech). New Docker MCPs touching user files must mount `${AI_OUTPUT_DIR}:/workspace`.
 ### 12 — Docs Travel With The Work
@@ -84,14 +84,14 @@ Anything executed natively on the Mac host (binaries, wheels, `.so`) or in Docke
 
 - `tests/unit/` must pass with no network, no real Ollama/OWUI/Docker; `tmp_path` for I/O; mock `httpx.AsyncClient`.
 - `pytest portal` (module-tree suite) leaves real write-through artifacts in `portal/modules/security/core/field_journal/` and `results/checkpoints/` — after running it, `git checkout -- portal/modules/security/core/field_journal/_index.json` and `git clean` new dated entries before staging.
-- Pre-commit hooks: ruff lint+format, generated-artifact freshness, no duplicate dep pins, pytest unit suite. The `validate-system` hook runs the full lettered check suite (current count: `python3 scripts/validate_system.py`; registry under `scripts/validation/`) at **push** time. Install: `pip install pre-commit && pre-commit install && pre-commit install --hook-type pre-push`.
-- **Before any testing/benchmark:** verify Docker images aren't stale vs HEAD (`docker images` vs `git log`); rebuild with `./launch.sh rebuild` if any portal image predates a relevant commit. Stale images invalidate results.
+- Pre-commit hooks: gitleaks, ruff lint+format, `config/portal.yaml` validate, the raw-run-output guard, the pytest unit suite. The `validate-system` hook (lettered checks; registry under `scripts/validation/`) runs at **push** time via `scripts/validate_system.py --skip-pytest`. Install: `pip install pre-commit && pre-commit install && pre-commit install --hook-type pre-push`.
+- **Before any testing/benchmark:** verify Docker images aren't stale vs HEAD (`docker images` vs `git log`); rebuild with `./launch.sh rebuild` if any portal image predates a relevant commit. Merge `portal/` changes before rebuilding — any `portal/` commit after a rebuild leaves the image stale for WFE rows.
 - **Checkpoint backup — non-negotiable:** multi-hour bench/sweep checkpoints (e.g. `/tmp/agentic_blue_sweep.json`) must be `cp`-backed-up before ever being cleared or overwritten.
 - **Streaming changes MUST run `./scripts/smoke_stream.sh` against the live stack** before commit — unit mocks can't catch dependency-contract mismatches.
 
 ## Zero-Setup Requirements
 
-Every feature works from `./launch.sh up`. Dependencies installable via pip/apt in the Dockerfile or a Docker service; degrade gracefully, never crash.
+Every feature works from `./launch.sh up` (a bare `./launch.sh` with no args runs `up`). Dependencies installable via pip/apt in the Dockerfile or a Docker service; degrade gracefully, never crash.
 
 ## Do Not
 
@@ -109,7 +109,7 @@ See `KNOWN_LIMITATIONS.md` before adding tasks or filing issues — some items a
 
 ## Reference Docs
 
-`config/backends.yaml` · `config/personas/` · `docs/HOWTO.md` (speech, transcription) · `docs/MCP_DEV_TOOLING.md` · `docs/CLUSTER_SCALE.md` · `docs/ADMIN_GUIDE.md` · `docs/ALERTS.md` · `docs/TASK_WORKSPACE_FITNESS_EVAL_V1.md (governing: real-use workspace fitness evaluation; removals HELD until it completes) · docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md` (authoritative final disposition register — every model identity is INTEGRATED, RETAINED_FOR_PURPOSE, or REMOVED_CLOSED; no pending category exists; `scripts/model_cleanup_audit.py` reports dispositions + cleanup exceptions from `docs/MODEL_FLEET_CLOSEOUT_20260906.tasks.json`).
+`config/backends.yaml` · `config/personas/` · `docs/HOWTO.md` (speech, transcription) · `docs/MCP_DEV_TOOLING.md` · `docs/CLUSTER_SCALE.md` · `docs/ADMIN_GUIDE.md` · `docs/ALERTS.md` · `docs/TASK_WORKSPACE_FITNESS_EVAL_V1.md (governing: real-use workspace fitness evaluation; removals HELD until its Phases 0–4 complete and register v4 is issued) · docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md` (authoritative final disposition register — every model identity is INTEGRATED, RETAINED_FOR_PURPOSE, or REMOVED_CLOSED; no pending category exists; `scripts/model_cleanup_audit.py` reports dispositions + cleanup exceptions from `docs/MODEL_FLEET_CLOSEOUT_20260906.tasks.json`).
 
 ## Portal Wiki — Canonical Knowledge Layer
 
