@@ -19,7 +19,11 @@ from fastapi.responses import JSONResponse
 
 from portal.platform.inference.config import PersonaSpec
 from portal.platform.inference.model_addressing import workspace_context_limit
-from portal.platform.inference.router.backend_introspect import _approx_prompt_tokens
+from portal.platform.inference.router.backend_introspect import (
+    _approx_prompt_tokens,
+    _backend_type_for_url,
+)
+from portal.platform.inference.router.context_budget import fit_prompt as fit_context
 from portal.platform.inference.router.correlation import get_correlation_id
 from portal.platform.inference.router.download_links import (
     offers_file_creation,
@@ -345,6 +349,12 @@ async def _run_non_streaming_chain(
         hop_usage: dict[str, Any] | None = None
         hop_served = False
         try:
+            fit_context(
+                hop_body,
+                workspace_id=workspace_id,
+                model=str(hop_body.get("model") or hop_model),
+                engine=_backend_type_for_url(hop_url),
+            )
             async with _http_client.stream("POST", hop_url, json=hop_body) as resp:
                 resp.raise_for_status()
                 hop_served = True
@@ -770,12 +780,26 @@ async def _retry_empty_toolless_first_answer(
     )
     retry_body = {**req_body, "tools": None, "tool_choice": None}
     started = time.monotonic()
-    retry_resp = await client.post(url, json=retry_body, timeout=timeout)
+    retry_resp = await _post_fitted(client, url, retry_body, timeout, workspace_id)
     _raise_for_backend_status(retry_resp)
     data = _completion_body(retry_resp, workspace_id)
     _recover_or_withhold_markup(data, None, str(req_body.get("model", "")), workspace_id)
     _strip_emitted_tool_markup(data)
     return data, started, retry_body
+
+
+async def _post_fitted(
+    client: Any, url: str, body: dict[str, Any], timeout: httpx.Timeout, workspace_id: str
+) -> httpx.Response:
+    """POST with the prompt fitted to the seat's window; an unfit prompt raises instead."""
+    fit_context(
+        body,
+        workspace_id=workspace_id,
+        model=str(body.get("model") or ""),
+        engine=_backend_type_for_url(url),
+    )
+    response: httpx.Response = await client.post(url, json=body, timeout=timeout)
+    return response
 
 
 async def _first_answer(
@@ -788,7 +812,7 @@ async def _first_answer(
     model_started: float,
 ) -> tuple[dict[str, Any], float, dict[str, Any]]:
     """POST the turn, recover call markup, then retry once without tools if it came back empty."""
-    resp = await client.post(url, json=req_body, timeout=timeout)
+    resp = await _post_fitted(client, url, req_body, timeout, workspace_id)
     _raise_for_backend_status(resp)
     data = _completion_body(resp, workspace_id)
     # P5-OMLX-QWEN3CODER-TOOLTEXT-001: a call the engine's parser missed arrives as content.
@@ -828,7 +852,7 @@ async def _retry_empty_toolless_synthesis(
     )
     retry_body = {**req_body, "messages": retry_messages, "tools": None, "tool_choice": None}
     started = time.monotonic()
-    retry_resp = await client.post(url, json=retry_body, timeout=timeout)
+    retry_resp = await _post_fitted(client, url, retry_body, timeout, workspace_id)
     _raise_for_backend_status(retry_resp)
     data = _completion_body(retry_resp, workspace_id)
     _recover_or_withhold_markup(data, None, str(req_body.get("model", "")), workspace_id)
@@ -878,7 +902,7 @@ async def _final_toolless_answer(
     final_messages.append(FINAL_ANSWER_REQUEST)
     final_body = {**req_body, "messages": final_messages, "tools": None, "tool_choice": None}
     started = time.monotonic()
-    final_resp = await client.post(url, json=final_body, timeout=timeout)
+    final_resp = await _post_fitted(client, url, final_body, timeout, workspace_id)
     _raise_for_backend_status(final_resp)
     data = _completion_body(final_resp, workspace_id)
     _recover_or_withhold_markup(data, None, req_body.get("model", ""), workspace_id)
@@ -1263,10 +1287,12 @@ async def _try_non_streaming(
                     _record_intermediate_model(data, target_model, workspace_id, _model_started)
                     _model_started = time.monotonic()
                     _last_request_body = {**req_body, "messages": _ns_messages}
-                    _ns_retry = await _http_client.post(
+                    _ns_retry = await _post_fitted(
+                        _http_client,
                         backend.chat_url,
-                        json=_last_request_body,
-                        timeout=_timeout_obj,
+                        _last_request_body,
+                        _timeout_obj,
+                        workspace_id,
                     )
                     _raise_for_backend_status(_ns_retry)
                     data = _completion_body(_ns_retry, workspace_id)
@@ -1341,8 +1367,8 @@ async def _try_non_streaming(
                     prepare_toolless_finalizer(_synth_body, _ns_guard)
                 _last_request_body = _synth_body
                 _model_started = time.monotonic()
-                _synth_resp = await _http_client.post(
-                    backend.chat_url, json=_synth_body, timeout=_timeout_obj
+                _synth_resp = await _post_fitted(
+                    _http_client, backend.chat_url, _synth_body, _timeout_obj, workspace_id
                 )
                 _raise_for_backend_status(_synth_resp)
                 data = _completion_body(_synth_resp, workspace_id)

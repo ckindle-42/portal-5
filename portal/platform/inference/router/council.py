@@ -32,6 +32,7 @@ from typing import Any, cast
 import httpx
 
 from portal.platform.inference.model_cards import card_sampling
+from portal.platform.inference.router.context_budget import fit_prompt as fit_context
 
 logger = logging.getLogger(__name__)
 _STREAM_HEARTBEAT_S = 15.0
@@ -713,6 +714,7 @@ async def _post_model(
         payload["repetition_penalty"] = sampling["repeat_penalty"]
     _apply_think(payload, think, backend.type)
     try:
+        fit_context(payload, workspace_id=workspace_id, model=model, engine=backend.type)
         response = await _http_client.post(backend.chat_url, json=payload)
         response.raise_for_status()
         data = response.json()

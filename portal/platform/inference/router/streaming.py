@@ -48,6 +48,8 @@ from portal.platform.inference.router.backend_introspect import (
     free_ollama_for_omlx,
     make_room_for_omlx,
 )
+from portal.platform.inference.router.context_budget import ContextOverflowError
+from portal.platform.inference.router.context_budget import fit_prompt as fit_context
 from portal.platform.inference.router.correlation import (
     get_correlation_id as _corr_id,
 )
@@ -531,6 +533,12 @@ def _in_band_error_frames(
     if _CASCADE_ERRORS.get():
         return _stream_error_frames(request_id, workspace_id, message)
     return _error_terminal_frames(request_id, workspace_id, message, notice=_IN_BAND_ERROR_NOTICE)
+
+
+def _context_overflow_frames(workspace_id: str, exc: ContextOverflowError) -> list[bytes]:
+    """A prompt that cannot fit this seat ends in band (or cascades), never truncated."""
+    _record_error(workspace_id, "context_overflow")
+    return _stream_error_frames(f"chatcmpl-{workspace_id}", workspace_id, str(exc))
 
 
 def _json_completion_to_sse(
@@ -1039,6 +1047,7 @@ async def _tool_loop_frames(
         rewriting.
     """
     request_id = _corr_id() or f"chatcmpl-p5-{int(time.time())}"
+    _engine = _backend_type_for_url(backend_url)
     hop = 0
     current_body = dict(body)
     bite_hops_supplied = "portal_bite_max_hops" in current_body
@@ -1137,6 +1146,14 @@ async def _tool_loop_frames(
                     ],
                 }
                 yield f"data: {json.dumps(status_chunk)}\n\n".encode()
+
+        # The hop's tool results grow the prompt; fit it before every engine call.
+        try:
+            fit_context(current_body, workspace_id=workspace_id, model=model, engine=_engine)
+        except ContextOverflowError as _exc:
+            for _f in _context_overflow_frames(workspace_id, _exc):
+                yield _f
+            return
 
         _freed_for_hop = False
         _connect_retried = False
@@ -1808,6 +1825,12 @@ async def _stream_from_backend_guarded(
     Yields:
         SSE bytes for OWUI consumption.
     """
+    try:
+        fit_context(body, workspace_id=workspace_id, model=model, engine=_backend_type_for_url(url))
+    except ContextOverflowError as _exc:
+        for _f in _context_overflow_frames(workspace_id, _exc):
+            yield _f
+        return
     from portal.platform.inference.router.power import _record_model_request, _record_usage
 
     if _http_client is None:

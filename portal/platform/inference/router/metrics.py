@@ -169,6 +169,14 @@ _capacity_fallback_total = Counter(
     registry=_REGISTRY,
 )
 
+_context_fit_total = Counter(
+    "portal5_context_fit_total",
+    "Prompts that did not fit the seat's context window, by workspace, engine and outcome "
+    "(shrunk | overflow)",
+    ["workspace", "engine", "outcome"],
+    registry=_REGISTRY,
+)
+
 # ── Embeddings (POST /v1/embeddings) ──────────────────────────────────────
 # Counts and latency only: input text is never a label or a log line.
 _embeddings_requests_total = Counter(
