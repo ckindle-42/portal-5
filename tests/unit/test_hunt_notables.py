@@ -13,6 +13,7 @@ from portal.modules.security.core.hunt.notables.cards import (
     build_cards,
     build_prompt,
     cadence_facts,
+    is_alert_event,
     prepare_cards,
     reconcile_kind,
     value_facts,
@@ -29,7 +30,7 @@ from portal.modules.security.core.hunt.notables.parse import (
     partition_groups,
     words,
 )
-from portal.modules.security.core.hunt.notables.run import card_from_dict
+from portal.modules.security.core.hunt.notables.run import _sample_source, card_from_dict
 from portal.modules.security.core.hunt.notables.sample import SourceFacts
 
 
@@ -245,6 +246,53 @@ def test_build_cards_gives_each_structure_its_own_card(tmp_path):
     assert all(card.understood for card in cards)
     assert [len(card.fields) for card in cards] == [3, 4]
     assert {card.part_value: card.kind for card in cards} == {"alert": "alert", "flow": "activity"}
+
+
+def test_is_alert_event_reads_the_event_type_property() -> None:
+    assert is_alert_event({"_raw": json.dumps({"event_type": "alert", "src_ip": "a"})}) is True
+    assert is_alert_event({"_raw": json.dumps({"event_type": "flow", "src_ip": "a"})}) is False
+    assert is_alert_event({"_raw": "Mar 24 10:00:00 sshd: not json"}) is False
+
+
+def test_sample_source_adds_probe_alerts_missed_by_the_general_sample() -> None:
+    from portal.modules.security.core.hunt.executor import Read
+
+    class _ProbeExecutor:
+        def __init__(self, sample: list[dict[str, object]], probe: list[dict[str, object]]):
+            self.sample = sample
+            self.probe = probe
+            self.kinds: list[str] = []
+
+        def read(
+            self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+        ) -> Read:
+            del query, start, end, row_cap
+            self.kinds.append(kind)
+            rows = self.probe if kind == "alert_probe" else self.sample
+            return Read([dict(row) for row in rows], False, None)
+
+    flow = {
+        "_raw": json.dumps({"event_type": "flow", "src_ip": "a", "dest_ip": "b"}),
+        "_time": 1000.0,
+        "host": "h1",
+    }
+    alert = {
+        "_raw": json.dumps(
+            {"event_type": "alert", "alert": {"signature": "ET scan"}, "src_ip": "a"}
+        ),
+        "_time": 1001.0,
+        "host": "h1",
+    }
+
+    executor = _ProbeExecutor([flow], [alert])
+    _facts_value, read = _sample_source(executor, _facts())  # type: ignore[arg-type]
+    assert "alert_probe" in executor.kinds
+    assert any(is_alert_event(row) for row in read.rows)
+    assert any(row["_raw"] == flow["_raw"] for row in read.rows)
+
+    sampled_alerts = _ProbeExecutor([alert] * 6, [])
+    _facts_value, read = _sample_source(sampled_alerts, _facts())  # type: ignore[arg-type]
+    assert "alert_probe" not in sampled_alerts.kinds
 
 
 _SYSLOG = [

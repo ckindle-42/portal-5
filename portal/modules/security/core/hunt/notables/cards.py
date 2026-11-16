@@ -33,6 +33,7 @@ from .sample import SourceFacts
 
 KINDS = ("activity", "alert", "measurement", "other")
 ROLES = ("actor", "action", "object", "from", "to", "outcome")
+ALERT_EVENT_TYPE = "alert"  # the event_type value that marks a Suricata/Zeek detection event
 CARD_KIND_CONSUMERS = {
     "activity": frozenset({"behaviours", "peer_rare", "similar_to_known", "manifest"}),
     "alert": frozenset({"alerts"}),
@@ -189,6 +190,18 @@ def card_consumers(card: SourceCard) -> frozenset[str]:
         return frozenset()
     consumers = CARD_KIND_CONSUMERS.get(card.kind, frozenset())
     return consumers if card.roles else consumers - ROLE_CONSUMERS
+
+
+def is_alert_event(row: Mapping[str, Any]) -> bool:
+    """True when one raw event is a detection: its JSON carries event_type=alert."""
+    raw = str(row.get("_raw") or "")
+    if not raw.lstrip().startswith("{"):
+        return False
+    try:
+        parsed = json.loads(raw)
+    except ValueError:
+        return False
+    return isinstance(parsed, Mapping) and str(parsed.get("event_type") or "") == ALERT_EVENT_TYPE
 
 
 class CardCache:
