@@ -39,6 +39,7 @@ RULE = (
 )
 
 _TERM = re.compile(r'TERM\("((?:[^"\\]|\\.)*)"\)')
+_PLAIN_TERM = re.compile(r'(?<![=\w])"((?:[^"\\]|\\.)*)"')
 _SOURCE = re.compile(r'source="([^"]+)"')
 _ROTATION = re.compile(r"(\.\d+)+$")
 _MONTHS = {name: number for number, name in enumerate(calendar.month_abbr) if name}
@@ -128,7 +129,11 @@ def _claim(row: Mapping[str, Any]) -> Claim:
     items = [item for item in row.get("evidence") or () if isinstance(item, Mapping)]
     queries = [str(item.get("query") or "") for item in items]
     terms = tuple(
-        dict.fromkeys(_unquote(found) for query in queries for found in _TERM.findall(query))
+        dict.fromkeys(
+            _unquote(found)
+            for query in queries
+            for found in (*_TERM.findall(query), *_PLAIN_TERM.findall(query))
+        )
     )
     sources = frozenset(found for query in queries for found in _SOURCE.findall(query))
     folded = tuple(term.casefold() for term in terms)

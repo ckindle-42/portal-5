@@ -14,6 +14,7 @@ from ..executor import HuntBudgetExceededError, HuntExecutor
 SAMPLE_WINDOWS = 3  # effort budget: raw reads spread across each source's own time range
 SAMPLE_LINES = 40  # effort budget: events read per window for a source card
 SAMPLE_SOURCES = 2  # effort budget: indexed sources sampled for one source card
+ALERT_PROBE_LINES = 400  # effort budget: events read per window to detect an alert-bearing part
 BEHAVIOUR_SOURCES = 8  # effort budget: indexed sources one behaviour read covers
 MAX_HOST_NAMES = 24  # effort budget: host names listed on one source's facts
 # The results endpoint returns at most 50,000 rows per request; caps stay below it.

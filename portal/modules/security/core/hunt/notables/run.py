@@ -26,14 +26,22 @@ from .cards import (
     SourceCard,
     answer_cards,
     assemble_cards,
+    is_alert_event,
     prepare_cards,
 )
 from .generators import GENERATORS as BASE_GENERATORS
 from .generators import generate
 from .judge_notables import judge_all
-from .parse import FieldStat, TemplateModel
+from .parse import MIN_PARTITION_LINES, FieldStat, TemplateModel
 from .receipt import peak_memory_mb, progress_update, read_json, utc_now, write_json
-from .sample import SAMPLE_LINES, SourceFacts, index_facts, read_windows, sample_windows
+from .sample import (
+    ALERT_PROBE_LINES,
+    SAMPLE_LINES,
+    SourceFacts,
+    index_facts,
+    read_windows,
+    sample_windows,
+)
 from .similar import SIMILAR_GENERATOR, generate_similar
 
 HTTP_ERROR_THRESHOLD = 0.20
@@ -206,6 +214,18 @@ def _sample_source(executor: Any, facts: SourceFacts) -> tuple[SourceFacts, Any]
     read = read_windows(
         executor, facts, sample_windows(facts), per_window=SAMPLE_LINES, kind="source_sample"
     )
+    if sum(1 for row in read.rows if is_alert_event(row)) < MIN_PARTITION_LINES:
+        probe = read_windows(
+            executor,
+            facts,
+            sample_windows(facts),
+            per_window=ALERT_PROBE_LINES,
+            kind="alert_probe",
+        )
+        alerts = [row for row in probe.rows if is_alert_event(row)]
+        if alerts:
+            seen = {str(row.get("_raw") or "") for row in read.rows}
+            read.rows.extend(row for row in alerts if str(row.get("_raw") or "") not in seen)
     return facts, read
 
 
