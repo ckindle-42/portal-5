@@ -19,6 +19,17 @@ from portal.modules.security.core.hunt.notables.similar import SIMILAR_GENERATOR
 from portal.modules.security.tools import review_mcp
 
 
+class _FakeClock:
+    def __init__(self) -> None:
+        self.now = 1000.0
+
+    def monotonic(self) -> float:
+        return self.now
+
+    def advance(self, seconds: float) -> None:
+        self.now += seconds
+
+
 def _cards_stage(**kwargs: Any) -> dict[str, Any]:
     out = kwargs["out"]
     (out / "sources.json").write_text(
@@ -272,6 +283,108 @@ def test_r2_job_persists_stage_progress_cost_and_analyst_views(
     assert status["judge_selection"]["cut"] == 0
 
 
+def test_cards_budget_uses_measured_allowance_and_records_fake_clock_elapsed(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    clock = _FakeClock()
+    monkeypatch.setattr(product_jobs.time, "monotonic", clock.monotonic)
+    monkeypatch.setattr(product_jobs, "_ROOT", tmp_path)
+    effort = HuntBudget(dict(product_jobs.R2_DEFAULT_BUDGETS))
+    effort.started = clock.now
+    job_id = "hunt-r2-card-budget"
+    product_jobs._write(job_id, {"job_id": job_id, "status": "RUNNING"})
+    seen: dict[str, float] = {}
+
+    def cards() -> None:
+        seen["budget_seconds"] = effort.remaining()
+        clock.advance(58.0)
+
+    state = {"stage_plan": []}
+    product_jobs._execute_stages(
+        (("cards", cards),), job_id, state, threading.RLock(), tmp_path, effort
+    )
+
+    plan = state["stage_plan"][0]
+    assert seen["budget_seconds"] == 60.0
+    assert plan["estimate_s"] == 60.0
+    assert plan["elapsed_s"] == 58.0
+    assert plan["complete"] is True
+
+
+def test_cards_deadline_with_zero_leads_finishes_partial(tmp_path: Path, monkeypatch: Any) -> None:
+    clock = _FakeClock()
+    monkeypatch.setattr(product_jobs.time, "monotonic", clock.monotonic)
+    monkeypatch.setattr(product_jobs, "_ROOT", tmp_path)
+    monkeypatch.setattr(product_jobs, "preflight", lambda _client, _model: None)
+    real_budget = product_jobs.HuntBudget
+
+    def fake_budget(limits: dict[str, float]) -> HuntBudget:
+        effort = real_budget(limits)
+        effort.started = clock.now
+        return effort
+
+    monkeypatch.setattr(product_jobs, "HuntBudget", fake_budget)
+
+    def cards(**kwargs: Any) -> dict[str, Any]:
+        budget = kwargs["client"].budget_seconds
+        clock.advance(budget + 1.0)
+        return progress_update(
+            kwargs["out"],
+            "cards",
+            {"cards": 43, "understood": 25, "backpressure": {"budget_seconds": budget}},
+        )
+
+    def notables(**kwargs: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        (kwargs["out"] / product_jobs.NOTABLES_FILE).write_text("")
+        receipt = {"total": 0}
+        progress_update(kwargs["out"], "notables", receipt)
+        return [], receipt
+
+    def empty_judge(**kwargs: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        receipt = {"requests": 0, "selection": {"candidates": 0, "judged": 0, "cut": 0}}
+        progress_update(kwargs["out"], "judge", receipt)
+        return [], receipt
+
+    def empty_relate(**kwargs: Any) -> dict[str, Any]:
+        receipt = {"seeds": 0, "coverage_complete": False}
+        (kwargs["out"] / product_jobs.RELATE_FILE).write_text(
+            json.dumps({"receipt": receipt, "notables": [], "cases": []})
+        )
+        return receipt
+
+    monkeypatch.setattr(product_jobs, "cards_stage", cards)
+    monkeypatch.setattr(product_jobs, "behaviours_stage", _behaviours_stage)
+    monkeypatch.setattr(product_jobs, "notables_stage", notables)
+    monkeypatch.setattr(product_jobs, "judge_stage", empty_judge)
+    monkeypatch.setattr(product_jobs, "relate_stage", empty_relate)
+    job_id = "hunt-r2-cards-cut"
+    product_jobs._write(
+        job_id, {"job_id": job_id, "index": "ix", "started": 1000.0, "status": "QUEUED"}
+    )
+
+    product_jobs._run(
+        job_id,
+        object(),  # type: ignore[arg-type]
+        "ix",
+        100.0,
+        200.0,
+        dict(product_jobs.R2_DEFAULT_BUDGETS),
+        (object(), "hunt-reasoning"),  # type: ignore[arg-type]
+        None,
+        None,
+        None,
+    )
+
+    state = product_jobs.status(job_id=job_id)
+    leads = product_jobs.leads_view(job_id=job_id)
+    assert leads["total_leads"] == 0
+    assert state["status"] == "PARTIAL"
+    assert state["partial_reason"] == "cards: cards_stage_deadline_exceeded"
+    assert state["stage_plan"][0]["elapsed_s"] == 61.0
+    assert state["stage_plan"][0]["complete"] is False
+    assert state["stage_plan"][0]["exhausted_reason"] == "cards_stage_deadline_exceeded"
+
+
 def test_stage_plan_preserves_relation_time_and_cuts_judging_first() -> None:
     plan = product_jobs._stage_plan("judge", 180.0)
 
@@ -281,14 +394,14 @@ def test_stage_plan_preserves_relation_time_and_cuts_judging_first() -> None:
     assert council["budget_s"] == 60.0
     assert council["reserved_for_later"] == {"relate": 120.0}
     full = product_jobs._stage_plan("cards", 1247.0)
-    assert full["budget_s"] == 30.0
-    assert full["reserved_for_later"]["judge"] == 547.0
+    assert full["budget_s"] == 60.0
+    assert full["reserved_for_later"]["judge"] == 517.0
     short = product_jobs._stage_plan("cards", 707.0)
-    assert short["budget_s"] == 30.0
+    assert short["budget_s"] == 37.0
     assert short["reserved_for_later"] == {
         "behaviours": 80.0,
         "notables": 350.0,
-        "judge": 7.0,
+        "judge": 0.0,
         "rerank": 120.0,
         "relate": 120.0,
     }

@@ -39,7 +39,7 @@ _ROOT = Path(
 _lock = threading.Lock()
 R2_DEFAULT_BUDGETS = {**DEFAULT_BUDGETS, "job_seconds": 1260.0}
 STAGE_ESTIMATES = {
-    "cards": 30.0,
+    "cards": 60.0,
     "behaviours": 80.0,
     "notables": 350.0,
     "judge": 590.0,
@@ -324,6 +324,7 @@ def _execute_stages(
 ) -> None:
     for stage, run_stage in actions:
         plan = _enter_stage(stage, job_id, state, state_lock, out, effort)
+        stage_started = time.monotonic()
         result = run_stage()
         if stage == "judge" and isinstance(result, tuple) and len(result) == 2:
             receipt = _mapping(result[1])
@@ -334,8 +335,13 @@ def _execute_stages(
             council = _mapping(result.get("council"))
             basis = _mapping(council.get("budget_basis"))
             plan["council_budget"] = dict(basis) or plan.get("council_budget", {})
-        plan["elapsed_s"] = round(max(0.0, plan["budget_s"] - (effort.remaining() or 0.0)), 1)
-        plan["complete"] = True
+        plan["elapsed_s"] = round(max(0.0, time.monotonic() - stage_started), 1)
+        reason = effort.expired_reason() or effort.exhausted
+        plan["complete"] = reason is None
+        if reason is not None:
+            plan["exhausted_reason"] = reason
+            if reason == f"{stage}_stage_deadline_exceeded":
+                effort.exhausted = None
         effort.clear_stage_deadline()
         _save_progress(job_id, state, state_lock, out, effort.snapshot())
 
@@ -423,14 +429,33 @@ def _run(
         relation = read_json(out / RELATE_FILE).get("receipt")
         relation = relation if isinstance(relation, dict) else {}
         covered = bool(relation.get("coverage_complete"))
-        complete = covered or not relation.get("seeds")
-        state.update(
-            status="COMPLETE" if complete else "PARTIAL",
-            stage="done" if complete else "relate_partial",
-            coverage_complete=covered,
-        )
-        if not complete:
-            state["coverage_reason"] = "relate stage did not cover every notable seed"
+        incomplete = [
+            plan
+            for plan in state.get("stage_plan", [])
+            if isinstance(plan, Mapping) and plan.get("complete") is False
+        ]
+        if incomplete:
+            reasons = [
+                f"{plan.get('stage')}: {plan.get('exhausted_reason') or 'stage_incomplete'}"
+                for plan in incomplete
+            ]
+            if not covered and relation.get("seeds"):
+                reasons.append("relate stage did not cover every notable seed")
+            state.update(
+                status="PARTIAL",
+                stage="partial",
+                coverage_complete=False,
+                partial_reason="; ".join(reasons),
+            )
+        elif covered or not relation.get("seeds"):
+            state.update(status="COMPLETE", stage="done", coverage_complete=covered)
+        else:
+            state.update(
+                status="PARTIAL",
+                stage="relate_partial",
+                coverage_complete=covered,
+                partial_reason="relate stage did not cover every notable seed",
+            )
     except Exception as exc:
         budget_error = isinstance(exc, (HuntBudgetExceededError, ThrottleBudgetExceededError))
         deadline_expired = effort.remaining() <= 0
@@ -537,6 +562,7 @@ def status(job_id: str | None = None, index: str | None = None) -> dict[str, Any
             "error",
             "coverage_complete",
             "coverage_reason",
+            "partial_reason",
             "progress",
             "cost",
             "knowledge_store",
