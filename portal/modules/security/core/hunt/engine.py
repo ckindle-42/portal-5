@@ -1,23 +1,9 @@
-"""Hunt engine v1 -- surface host-hours where several weak, generic signals come together.
+"""Hunt engine: host-hours are the seeds, episodes are the leads.
 
-Nothing here names a technique, an event code, a field, a sourcetype or a format. Every signal
-is a statistic of the environment against its own prior history, computed in Splunk where
-possible (the search tier does the volume; this process does the reasoning):
-
-1. Template novelty. Splunk's indexed ``punct`` (the event's punctuation skeleton) is a
-   format-agnostic template. A template never seen before on a host/source is novel; its weight
-   grows with how long a prior history said it was absent (no history -> no surprise).
-2. Concentration. Novelty seen on every host at once is an environment event (boot, sensor
-   start), not an intrusion; a bucket's novelty is divided by the most hosts any zoom level
-   saw novel around it.
-3. Value burst. Tokens from the host-hour's events are scored by how far this hour's count
-   sits above that value's own prior hours and above the values holding the same slot in the
-   same shape of event on that host (robust z on log counts, then peer-relative).
-4. Linkage. A bursting value is pivoted across the whole environment: how many other hosts and
-   sources it touches in the same span -- the "this and that came together" step.
-
-A lead is one host-hour with its evidence: the novel templates, the bursting values and the
-places they link to. Labels are never read here; scoring is a separate scorer-plane script.
+One pass scores volume, source, shape, stream, and learned values with the current
+baseline. Host-hours in the final order, bounded by the candidates effort budget,
+supply the positive-scored observations that become episodes. Observations outside
+that budget stay listed. Nothing here names a technique, a field, or a format.
 """
 
 from __future__ import annotations
@@ -27,26 +13,72 @@ import math
 import re
 import statistics
 import time
-from collections import Counter, defaultdict
+from collections import defaultdict
 from collections.abc import Iterable, Mapping
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
+from datetime import datetime
 from typing import Any, Protocol
 
+from portal.modules.security.core.hunt.judge import JudgeClient
+
 HOUR = 3600
-_TOKEN = re.compile(r"[A-Za-z0-9_.:/@%\-]{4,}")
-# A value has at least one letter or digit; a run of punctuation ("........") is formatting.
-# Found live on BOTS v1: such a pivot became a full-index plain search (>20 min).
-_HAS_VALUE = re.compile(r"[A-Za-z0-9]")
 _TIME_OF_DAY = re.compile(r"\d{1,2}:\d{2}:\d{2}")
-_TERM_UNSAFE = re.compile(r"[\"\\=\[\]()|,;]")
-PEERS = 12  # effort budget: distinct peer values compared for one burst
-PEER_SAMPLE = 200  # effort budget: events read to locate a value's slot and its peers
-PEER_SHAPES = 4  # effort budget: event shapes read per burst when looking for peers
+# Splunk default segmenters.conf breakers: https://help.splunk.com/en/splunk-enterprise/administer/admin-manual/9.2/configuration-file-reference/9.2.5-configuration-file-reference/segmenters.conf
+_MAJOR_BREAKERS = (
+    "%2526",
+    "%2520",
+    "%21",
+    "%26",
+    "%3B",
+    "%7C",
+    "%20",
+    "%2B",
+    "%3D",
+    "%5D",
+    "%5B",
+    "%3A",
+    "%0A",
+    "%2C",
+    "%28",
+    "%29",
+    "--",
+    "[",
+    "]",
+    "<",
+    ">",
+    "(",
+    ")",
+    "{",
+    "}",
+    "|",
+    "!",
+    ";",
+    ",",
+    "'",
+    '"',
+    "*",
+    "&",
+    "?",
+    "+",
+)
+_MINOR_BREAKERS = frozenset("/:=@.-$#%\\_")
+_MAJOR_BREAKER_RE = re.compile(r"\s+|" + "|".join(re.escape(item) for item in _MAJOR_BREAKERS))
 
 
 class Search(Protocol):
     def iter_post(self, search: str, start: float, end: float) -> Iterable[Mapping[str, Any]]: ...
+
+
+class SearchBudgetExceededError(RuntimeError):
+    """A shared hunt effort budget ran out inside one search call."""
+
+
+class SearchCoverageCensoredError(RuntimeError):
+    """A search stopped early; its rows are not an exact count."""
+
+
+class SearchQueryBoundError(SearchCoverageCensoredError):
+    """One search exceeded its own query time bound."""
 
 
 @dataclass
@@ -71,7 +103,11 @@ class Lead:
     novel_templates: list[tuple[str, str, int]]
     bursts: list[Burst] = field(default_factory=list)
     score: float = 0.0
-    span: int = HOUR  # the zoom level this lead was seen at; `hour` is the bucket start
+    span: int = HOUR  # episode window; `hour` is the first hour of the episode
+    observations: list[dict[str, Any]] = field(default_factory=list)
+    risk: float = 0.0  # accumulated risk of this lead's best host-hour
+    acc_rank: int = 0  # that host-hour's place in the accumulated order
+    p_yes: float | None = None  # judge mass for that host-hour; null when unjudged
 
     def as_dict(self) -> dict[str, Any]:
         out = asdict(self)
@@ -79,32 +115,8 @@ class Lead:
         return out
 
 
-# Zoom ladder: the clock resolutions an analyst flips between. A level is used only when the
-# data spans enough of it to have history; it is a set of views, not a tuned threshold.
-LADDER = (60, 600, HOUR, 86400)
-
-
 def _hour(value: Any, span: int = HOUR) -> int:
     return int(float(value)) // span * span
-
-
-def ladder(search: Search, index: str, start: float, end: float) -> list[int]:
-    rows = list(
-        search.iter_post(
-            f"| tstats min(_time) as lo max(_time) as hi where index={index}", start, end
-        )
-    )
-    if not rows or rows[0].get("lo") is None:
-        return [HOUR]
-    data_span = float(rows[0]["hi"]) - float(rows[0]["lo"])
-    return [s for s in LADDER if data_span >= 2 * s] or [LADDER[0]]
-
-
-def template_rows(
-    search: Search, index: str, start: float, end: float, span: int = HOUR
-) -> list[dict[str, Any]]:
-    q = f"| tstats count where index={index} by host source punct _time span={span}s"
-    return [dict(r) for r in search.iter_post(q, start, end)]
 
 
 def host_hour_novelty(
@@ -123,7 +135,11 @@ def host_hour_novelty(
         seen: set[str] = set()
         first = min(hours)
         for hour in sorted(hours):
-            novel = [(p, c) for p, c in hours[hour] if p not in seen]
+            # punct order is the total order for a tied template list (items[:20] is a prefix)
+            novel = sorted(
+                ((p, c) for p, c in hours[hour] if p not in seen),
+                key=lambda item: (item[0], item[1]),
+            )
             seen.update(p for p, _ in hours[hour])
             prior_hours = (hour - first) / HOUR
             if not novel or prior_hours <= 0:
@@ -136,22 +152,13 @@ def host_hour_novelty(
 
 
 def _is_time_token(token: str) -> bool:
-    return bool(_TIME_OF_DAY.search(token))
-
-
-def _pivotable(token: str) -> bool:
-    return (
-        bool(_HAS_VALUE.search(token))
-        and not _is_time_token(token)
-        and not _TERM_UNSAFE.search(token)
-    )
-
-
-def _token_series(
-    search: Search, index: str, token: str, start: float, end: float, span: int = HOUR
-) -> dict[int, int]:
-    q = f'| tstats count where index={index} TERM("{token}") by _time span={span}s'
-    return {_hour(r["_time"], span): int(r["count"]) for r in search.iter_post(q, start, end)}
+    if _TIME_OF_DAY.search(token):
+        return True
+    try:
+        datetime.fromisoformat(token.replace("Z", "+00:00"))
+        return True
+    except ValueError:
+        return False
 
 
 def _burst(token: str, hour: int, series: dict[int, int]) -> Burst | None:
@@ -169,116 +176,201 @@ def _burst(token: str, hour: int, series: dict[int, int]) -> Burst | None:
     return Burst(token, now, round(math.expm1(med), 1), active, round(z, 2))
 
 
-def value_bursts(
-    search: Search, index: str, lead: Lead, start: float, end: float, *, sample: int, top: int
-) -> list[Burst]:
-    q = (
-        f'search index={index} host="{lead.host}" | eval r=random() % 1000 '
-        f"| sort r | head {sample} | table _raw"
-    )
-    events = list(search.iter_post(q, lead.hour, lead.hour + lead.span))
-    tokens = Counter(
-        t for e in events for t in set(_TOKEN.findall(str(e.get("_raw", "")))) if _pivotable(t)
-    )
-    chosen = [t for t, _ in tokens.most_common(top)]
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        series = list(
-            pool.map(lambda t: _token_series(search, index, t, start, end, lead.span), chosen)
-        )
-    bursts = [b for t, s in zip(chosen, series, strict=True) if (b := _burst(t, lead.hour, s))]
-    return sorted(bursts, key=lambda b: -b.z)
-
-
 def _search_literal(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-def _slots(rows: Iterable[Mapping[str, Any]], token: str) -> dict[str, int]:
-    """Each event shape's slot for the token: its position among that shape's tokens."""
-    out: dict[str, int] = {}
-    for row in rows:
-        punct = str(row.get("punct", ""))
-        if punct not in out:
-            found = _TOKEN.findall(str(row.get("_raw", "")))
-            if token in found:
-                out[punct] = found.index(token)
-    return out
+def _literal_term_segments(value: str) -> tuple[str, ...]:
+    """Return at most two longest whole Splunk terms from one value."""
+    candidates = []
+    start = 0
+    unsafe_left = False
+    for breaker in _MAJOR_BREAKER_RE.finditer(value + " "):
+        segment = value[start : breaker.start()]
+        if segment and all(char.isalnum() or char in _MINOR_BREAKERS for char in segment):
+            pieces = []
+            piece_start = None
+            for offset, char in enumerate(segment):
+                if char.isalnum():
+                    if piece_start is None:
+                        piece_start = offset
+                elif piece_start is not None:
+                    pieces.append((piece_start, offset))
+                    piece_start = None
+            if piece_start is not None:
+                pieces.append((piece_start, len(segment)))
+            # Splunk's wildcard breakers do not make their directly touching fragments searchable.
+            if unsafe_left and pieces and pieces[0][0] == 0:
+                pieces = pieces[1:]
+            if breaker.group() in ("*", "?") and pieces and pieces[-1][1] == len(segment):
+                pieces = pieces[:-1]
+            if pieces:
+                candidates.append(segment[pieces[0][0] : pieces[-1][1]])
+                candidates.extend(segment[left:right] for left, right in pieces)
+        start = breaker.end()
+        unsafe_left = breaker.group() in ("*", "?")
+    return tuple(
+        sorted(dict.fromkeys(term for term in candidates if len(term) >= 4), key=len, reverse=True)[
+            :2
+        ]
+    )
 
 
-def peer_tokens(
+def _copy_kinds(stats: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    return {
+        kind: {
+            "requests": int(slot["requests"]),
+            "seconds": round(float(slot["seconds"]), 3),
+            "censored": int(slot.get("censored", 0)),
+        }
+        for kind, slot in stats.items()
+    }
+
+
+def _record(search: Search, run: Any, investigated: set[tuple[str, str, str, int]]) -> None:
+    """Keep observation timings and the uninvestigated list on the shared budget."""
+    budget = getattr(search, "budget", None)
+    if budget is None:
+        return
+    notes = getattr(budget, "ranking_notes", None)
+    if isinstance(notes, set):
+        for name, slot in run.coverage.items():
+            for reason in slot.get("reasons", []):
+                notes.add(f"{name}:{reason}")
+    kinds = _copy_kinds(run.request_kinds)
+    listed = []
+    for obs in run.observations:
+        row = {
+            "kind": obs.kind,
+            "host": obs.host,
+            "entity": obs.entity,
+            "hour": obs.hour,
+            "score": obs.score,
+            "signal": obs.evidence.get("signal"),
+            "now": obs.evidence.get("now"),
+            "literal": obs.evidence.get("literal"),
+            "investigated": (obs.kind, obs.host, obs.entity, obs.hour) in investigated,
+        }
+        listed.append(row)
+    budget.observation_request_kinds = kinds
+    budget.listed_observations = listed
+    stats = getattr(budget, "kind_stats", None)
+    if isinstance(stats, dict):
+        stats.clear()
+
+
+def _budget_stopped(run: Any) -> bool:
+    return any("budget" in slot.get("reasons", []) for slot in run.coverage.values())
+
+
+# effort budget: positive-scored observations of one host-hour passed to episode grouping
+SEEDS_PER_HOST_HOUR = 12
+
+
+def _judge_stopped(search: Search) -> bool:
+    budget = getattr(search, "budget", None)
+    remaining = getattr(budget, "remaining", None)
+    if not callable(remaining):
+        return False
+    return bool(remaining() <= 0)
+
+
+def _publish_order(search: Search, rows: list[dict[str, Any]], block: dict[str, Any]) -> None:
+    budget = getattr(search, "budget", None)
+    if budget is None:
+        return
+    from portal.modules.security.core.hunt.order import host_hour_record
+
+    budget.host_hours = [host_hour_record(row) for row in rows]
+    budget.judge_block = dict(block)
+    budget.judge_requests = int(block.get("requests", 0))
+    budget.judge_seconds = float(block.get("seconds", 0.0))
+
+
+def _host_hour_rows(
     search: Search,
     index: str,
-    lead: Lead,
-    burst: Burst,
     start: float,
-    *,
-    sample: int = PEER_SAMPLE,
-) -> list[str]:
-    """Values in the burst token's slot of the same event shape on the lead's host, from history."""
-    q = (
-        f'search index={index} host="{lead.host}" TERM("{burst.token}") '
-        f"| head {sample} | table _raw punct"
+    end: float,
+    ordered: list[Any],
+    judge: JudgeClient | None,
+    judge_model: str | None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Final host-hour order. Unconfigured and stopped judges say so and do not score."""
+    from portal.modules.security.core.hunt.evidence import (
+        JUDGE_CELLS,
+        MAX_EVENT_CHARACTERS,
     )
-    shapes = _slots(search.iter_post(q, lead.hour, lead.hour + lead.span), burst.token)
-    peers: list[str] = []
-    for punct, slot in list(shapes.items())[:PEER_SHAPES]:
-        prior = (
-            f'search index={index} host="{lead.host}" punct={_search_literal(punct)} '
-            f"| head {sample} | table _raw"
-        )
-        for row in search.iter_post(prior, start, lead.hour):
-            tokens = _TOKEN.findall(str(row.get("_raw", "")))
-            candidate = tokens[slot] if slot < len(tokens) else ""
-            if (
-                candidate
-                and candidate != burst.token
-                and _pivotable(candidate)
-                and candidate not in peers
-            ):
-                peers.append(candidate)
-            if len(peers) >= PEERS:
-                return peers
-    return peers
+    from portal.modules.security.core.hunt.order import accumulated_rows, rank_from_observations
+
+    if judge is None or not judge_model:
+        return accumulated_rows(ordered, "judge_not_configured"), {"configured": False}
+    if _judge_stopped(search):
+        return accumulated_rows(ordered, "job_deadline_exceeded"), {
+            "configured": True,
+            "requests": 0,
+            "seconds": 0.0,
+            "order": "fused",
+        }
+    executor = getattr(search, "executor", None)
+    if executor is None:
+        return accumulated_rows(ordered, "no_budgeted_executor"), {
+            "configured": True,
+            "reason": "no_budgeted_executor",
+        }
+    ranked = rank_from_observations(
+        ordered,
+        executor,
+        index,
+        start,
+        end,
+        judge,
+        judge_model,
+        budget_order="accumulated",
+        judge_cells=JUDGE_CELLS,
+        order_mode="fused",
+        evidence_mode="rarest",
+        event_chars=MAX_EVENT_CHARACTERS,
+        stop=lambda: _judge_stopped(search),
+    )
+    cost = ranked["judge_cost"]
+    return ranked["leads"], {
+        "configured": True,
+        "requests": cost["requests"],
+        "seconds": cost["seconds"],
+        "served": sorted(ranked["served_models"]),
+        "order": "fused",
+    }
 
 
-def peer_bursts(search: Search, index: str, lead: Lead, start: float, end: float) -> None:
-    """Rank each kept burst against the same-slot values instead of only its own history."""
-    found = [peer_tokens(search, index, lead, burst, start) for burst in lead.bursts]
-    flat = [token for peers in found for token in peers]
-
-    def series(token: str) -> dict[int, int]:
-        return _token_series(search, index, token, start, end, lead.span)
-
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        values = list(pool.map(series, flat))
-    offset = 0
-    for burst, peers in zip(lead.bursts, found, strict=True):
-        rows = values[offset : offset + len(peers)]
-        offset += len(peers)
-        if len(peers) < 2:
-            burst.peer_z = burst.z
-            continue
-        zs = [
-            pb.z if (pb := _burst(t, lead.hour, s)) else 0.0
-            for t, s in zip(peers, rows, strict=True)
-        ]
-        burst.peers = len(peers)
-        burst.peer_median_z = round(statistics.median(zs), 2)
-        # Peers bursting together discount the burst; quiet peers leave it as it is.
-        burst.peer_z = round(burst.z - max(0.0, burst.peer_median_z), 2)
+def _episode_hours(episode: Any) -> list[tuple[str, int]]:
+    found: list[tuple[str, int]] = []
+    seen: set[tuple[str, int]] = set()
+    for obs in episode.observations:
+        key = (obs.host, obs.hour)
+        if key not in seen:
+            seen.add(key)
+            found.append(key)
+    return found
 
 
-def link(
-    search: Search, index: str, burst: Burst, hour: int, span: int = HOUR
-) -> list[tuple[str, str, int]]:
-    q = f'| tstats count where index={index} TERM("{burst.token}") by host source'
-    rows = search.iter_post(q, hour - span, hour + 2 * span)
-    return sorted(((r["host"], r["source"], int(r["count"])) for r in rows), key=lambda x: -x[2])
+def _order_leads(episodes: list[Any], leads: list[Lead], rows: list[dict[str, Any]]) -> list[Lead]:
+    """Best host-hour position first. Equal positions keep the episode order."""
+    from portal.modules.security.core.hunt.order import best_host_hour, order_group_indexes
 
-
-def _enclosing_hosts(bucket: int, coarse: list[tuple[int, Counter[int]]]) -> int:
-    """Hosts novel in this bucket's enclosing slot at each coarser zoom level; widest wins."""
-    return max((m.get(bucket // s * s, 0) for s, m in coarse), default=0)
+    groups = [_episode_hours(episode) for episode in episodes]
+    info = {(str(row["host"]), int(row["hour"])): row for row in rows}
+    ordered: list[Lead] = []
+    for index in order_group_indexes(groups, rows):
+        lead = leads[index]
+        key = best_host_hour(groups[index], rows)
+        row = None if key is None else info.get(key)
+        if row is not None:
+            lead.risk = float(row["risk"])
+            lead.acc_rank = int(row["acc_rank"])
+            lead.p_yes = None if row["p_yes"] is None else float(row["p_yes"])
+        ordered.append(lead)
+    return ordered
 
 
 def hunt(
@@ -288,100 +380,34 @@ def hunt(
     end: float,
     *,
     candidates: int = 15,
-    sample: int = 2000,
-    tokens: int = 60,
-    bursts_kept: int = 5,
+    judge: JudgeClient | None = None,
+    judge_model: str | None = None,
 ) -> list[Lead]:
-    """Rank host-buckets, at every zoom level, by template novelty x concentration, then
-    value burst x linkage. `candidates` is the digging budget per zoom level."""
-    leads: list[Lead] = []
-    pool: list[Lead] = []
-    levels = [
-        (span, host_hour_novelty(template_rows(search, index, start, end, span), span))
-        for span in ladder(search, index, start, end)
-    ]
-    maps = {span: Counter(bucket for bucket, _ in nov) for span, nov in levels}
-    for i, (span, novelty) in enumerate(levels):
-        coarse = [(s, maps[s]) for s, _ in levels[i + 1 :]]
-        level: list[Lead] = []
-        for (bucket, host), (score, items) in novelty.items():
-            spread = max(maps[span][bucket], _enclosing_hosts(bucket, coarse))
-            level.append(
-                Lead(bucket, host, round(score / spread, 2), spread, items[:20], span=span)
-            )
-        level.sort(key=lambda lead: -lead.novelty)
-        leads += level
-        pool += level[:candidates]
-    for lead in pool:
-        lead.bursts = value_bursts(search, index, lead, start, end, sample=sample, top=tokens)[
-            :bursts_kept
-        ]
-        for b in lead.bursts:
-            b.links = link(search, index, b, lead.hour, lead.span)
-        peer_bursts(search, index, lead, start, end)
-    rank_coherence(pool)
-    for lead in leads:
-        if lead not in pool:
-            lead.score = 0.0
-    return fold_shared_values(fold_overlaps(sorted(leads, key=lambda lead: -lead.score)))
+    """Seeds are host-hours. `candidates` bounds how many host-hours are investigated."""
+    from portal.modules.security.core.hunt.episodes import accumulate, to_lead
+    from portal.modules.security.core.hunt.observations import observe
+    from portal.modules.security.core.hunt.order import positive_seeds
 
-
-def fold_overlaps(ranked: list[Lead]) -> list[Lead]:
-    """One incident seen at several zoom levels is one lead: a lead whose host matches and whose
-    time bucket overlaps an already-ranked lead is folded into it (kept, but ranked after)."""
-    kept: list[Lead] = []
-    folded: list[Lead] = []
-    spans: dict[str, list[tuple[int, int]]] = {}
-    for lead in ranked:
-        lo, hi = lead.hour, lead.hour + lead.span
-        if lead.score > 0 and any(a < hi and lo < b for a, b in spans.get(lead.host, [])):
-            folded.append(lead)
-            continue
-        kept.append(lead)
-        if lead.score > 0:
-            spans.setdefault(lead.host, []).append((lo, hi))
-    return kept + folded
-
-
-def _top_token(lead: Lead) -> str | None:
-    return max(lead.bursts, key=lambda b: b.z).token if lead.bursts else None
-
-
-def fold_shared_values(ranked: list[Lead]) -> list[Lead]:
-    """One actor on several hosts is one lead: a lead whose top burst value already heads a kept
-    lead on another host in an overlapping bucket is folded into it (kept, but ranked after)."""
-    kept: list[Lead] = []
-    folded: list[Lead] = []
-    seen: list[tuple[str, int, int, str]] = []
-    for lead in ranked:
-        token = _top_token(lead)
-        lo, hi = lead.hour, lead.hour + lead.span
-        shared = token is not None and any(
-            token == t and host != lead.host and a < hi and lo < b for t, a, b, host in seen
-        )
-        if lead.score > 0 and shared:
-            folded.append(lead)
-            continue
-        kept.append(lead)
-        if lead.score > 0 and token is not None:
-            seen.append((token, lo, hi, lead.host))
-    return kept + folded
-
-
-def _percentiles(values: list[float]) -> list[float]:
-    order = sorted(values)
-    return [(order.index(v) + 1) / len(order) for v in values]
-
-
-def rank_coherence(pool: list[Lead]) -> None:
-    """Score = product of each signal's percentile among candidates: a lead must be unusual on
-    every independent signal at once, not extreme on one ("this AND that came together")."""
-    if not pool:
-        return
-    nov = _percentiles([lead.novelty for lead in pool])
-    bur = _percentiles([max((b.peer_z for b in lead.bursts), default=0.0) for lead in pool])
-    for lead, a, b in zip(pool, nov, bur, strict=True):
-        lead.score = round(a * b, 4)
+    run = observe(search, index, start, end, baseline="current")
+    ordered = list(run.observations)
+    rows, block = _host_hour_rows(search, index, start, end, ordered, judge, judge_model)
+    seeds = positive_seeds(ordered, rows, candidates, SEEDS_PER_HOST_HOUR)
+    place = {
+        (obs.kind, obs.host, obs.entity, obs.hour, str(obs.evidence.get("signal", ""))): index
+        for index, obs in enumerate(ordered)
+    }
+    episodes = accumulate(seeds, ordered, place)
+    leads = _order_leads(episodes, [to_lead(episode, place) for episode in episodes], rows)
+    investigated = {
+        (row["kind"], row["host"], row["entity"], row["hour"])
+        for lead in leads
+        for row in lead.observations
+    }
+    _record(search, run, investigated)
+    _publish_order(search, rows, block)
+    if _budget_stopped(run):
+        raise SearchBudgetExceededError("observation_budget_exhausted")
+    return leads
 
 
 def epoch(day_hour: str) -> int:

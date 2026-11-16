@@ -785,3 +785,127 @@ async def test_chat_handler_rejects_an_unknown_council_override(
         await handlers.chat_completions(request, authorization="Bearer test")
     assert caught.value.status_code == 400
     assert "unknown keys: mode" in str(caught.value.detail)
+
+
+# ── council usage aggregation ─────────────────────────────────────────
+
+
+class _UsageResponse:
+    def __init__(self, content: str, usage: dict) -> None:
+        self._content = content
+        self._usage = usage
+
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> dict:
+        return {
+            "choices": [{"message": {"role": "assistant", "content": self._content}}],
+            "usage": self._usage,
+        }
+
+
+class _UsageClient:
+    """Distinct per-role usage so the aggregate is observable."""
+
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+
+    async def post(self, _url: str, *, json: dict) -> _UsageResponse:
+        self.calls.append(json)
+        if json["model"] == "synth":
+            return _UsageResponse(
+                "## Recommendation\nSUPPORT\n\n## Next actions\nShip it.",
+                {"prompt_tokens": 100, "completion_tokens": 10, "total_tokens": 110},
+            )
+        return _UsageResponse(
+            json_module(
+                {
+                    "recommendation": "SUPPORT",
+                    "confidence": 0.9,
+                    "findings": [],
+                    "missing_evidence": [],
+                    "strongest_objection": "none",
+                    "conditions_to_change": [],
+                }
+            ),
+            {"prompt_tokens": 50, "completion_tokens": 5, "total_tokens": 55},
+        )
+
+
+def _usage_council() -> dict:
+    return {
+        "members": [
+            {"id": "evidence", "label": "Evidence", "model": "evidence-model", "system": "a"},
+            {"id": "challenger", "label": "Challenger", "model": "challenger-model", "system": "b"},
+            {"id": "operator", "label": "Operator", "model": "operator-model", "system": "c"},
+        ],
+        "synthesizer_model": "synth",
+        "minimum_participation": 0.66,
+        "quorum": 0.66,
+    }
+
+
+@pytest.mark.asyncio
+async def test_completion_aggregates_engine_usage(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _UsageClient()
+    monkeypatch.setattr(council_mod, "_http_client", client)
+    completion = await run_council_review(
+        {"messages": [{"role": "user", "content": "Review this proposal."}]},
+        _usage_council(),
+        registry=_Registry(),
+        workspace_id="auto-council",
+    )
+    assert completion.data["usage"] == {
+        "prompt_tokens": 250,
+        "completion_tokens": 25,
+        "total_tokens": 275,
+    }
+
+
+@pytest.mark.asyncio
+async def test_stream_emits_usage_chunk_when_requested(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _UsageClient()
+    monkeypatch.setattr(council_mod, "_http_client", client)
+    slot = _Slot()
+    body = {
+        "messages": [{"role": "user", "content": "Review this proposal."}],
+        "stream_options": {"include_usage": True},
+    }
+    chunks = [
+        chunk
+        async for chunk in stream_council_review(
+            body,
+            _usage_council(),
+            slot,
+            registry=_Registry(),
+            workspace_id="auto-council",
+        )
+    ]
+    usage = [
+        json.loads(chunk.decode().split("data: ", 1)[1])
+        for chunk in chunks
+        if chunk.startswith(b"data: ") and b'"usage"' in chunk
+    ]
+    assert usage and usage[-1]["usage"]["completion_tokens"] == 25
+    assert chunks[-1] == b"data: [DONE]\n\n"
+    assert slot.releases == 1
+
+
+@pytest.mark.asyncio
+async def test_stream_without_usage_request_has_no_usage_chunk(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _UsageClient()
+    monkeypatch.setattr(council_mod, "_http_client", client)
+    chunks = [
+        chunk
+        async for chunk in stream_council_review(
+            {"messages": [{"role": "user", "content": "Review this proposal."}]},
+            _usage_council(),
+            _Slot(),
+            registry=_Registry(),
+            workspace_id="auto-council",
+        )
+    ]
+    assert not any(b'"usage"' in chunk for chunk in chunks)

@@ -116,6 +116,11 @@ def module_services_cmd(
         "--native-mcp",
         help="List enabled native MCP services as 'launchd-label port'",
     ),
+    health_roster: bool = typer.Option(
+        False,
+        "--health-roster",
+        help="List enabled services to gate on /health as 'ident port kind'",
+    ),
 ) -> None:
     """Print or apply the module→service map (one ident per line)."""
     from portal.platform.inference.cli.module_services import run_services_cli
@@ -129,6 +134,7 @@ def module_services_cmd(
         stop_only=stop_only,
         status=status,
         native_mcp=native_mcp,
+        health_roster=health_roster,
     )
 
 

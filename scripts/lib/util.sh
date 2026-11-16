@@ -328,6 +328,93 @@ _restart_native_mcps() {
     [ "$failed" -eq 0 ]
 }
 
+# ── The load guard's oMLX prefill reserve ────────────────────────────────────
+# An oMLX cold load is admitted only inside the engine's own prefill-safe share of
+# its ceiling (past it oMLX aborts mid-prefill, which no fallback can recover). Read
+# that share from the engine's settings, so the guard uses the engine's number
+# rather than a copy of it. Exported before `docker compose up`; empty = raw headroom.
+export_omlx_prefill_zone() {
+    local settings="${OMLX_SERVER_SETTINGS:-$HOME/.omlx/settings.json}"
+    [ -f "$settings" ] || return 0
+    [ -n "${OMLX_PREFILL_SAFE_ZONE_RATIO:-}" ] && return 0  # an explicit .env wins
+    local value
+    value="$(python3 - "$settings" <<'PY'
+import json, sys
+try:
+    memory = json.load(open(sys.argv[1])).get("memory") or {}
+    zone = float(memory.get("prefill_safe_zone_ratio") or 0)
+except Exception:
+    sys.exit(0)
+print(zone if 0 < zone <= 1 else "")
+PY
+)"
+    [ -n "$value" ] || return 0
+    export OMLX_PREFILL_SAFE_ZONE_RATIO="$value"
+    echo "[portal-5] Load guard: oMLX prefill-safe zone ${value} of its ceiling (from ${settings})"
+}
+
+# ── `up` health gate: wait for every enabled service to answer /health ──────
+# Roster is derived from config/portal.yaml (mcp_fleet + host_jobs) via
+# `_portal_module_services --health-roster`; never hardcoded here. Waits up to
+# PORTAL_UP_HEALTH_TRIES seconds, then prints a per-service table and exits
+# non-zero naming the ones that never answered.
+_wait_up_health() {
+    local roster tries ident port kind
+    tries="${PORTAL_UP_HEALTH_TRIES:-90}"
+    roster="$(_portal_module_services --health-roster)" || {
+        echo "[portal-5]   health roster unavailable"
+        return 1
+    }
+    if [ -z "$roster" ]; then
+        echo "[portal-5]   no enabled services to gate"
+        return 0
+    fi
+
+    local -a _ids=() _ports=() _kinds=()
+    while IFS=' ' read -r ident port kind; do
+        [ -n "${ident:-}" ] || continue
+        [ -n "${port:-}" ] || continue
+        _ids+=("$ident")
+        _ports+=("$port")
+        _kinds+=("${kind:-}")
+    done <<< "$roster"
+
+    local _n=${#_ids[@]}
+    [ "$_n" -gt 0 ] || return 0
+
+    echo "[portal-5] Waiting for $_n enabled services to answer /health (timeout ${tries}s)..."
+    local _remaining _i
+    while [ "$tries" -gt 0 ]; do
+        _remaining=0
+        for ((_i = 0; _i < _n; _i++)); do
+            [ -n "${_ids[$_i]:-}" ] || continue
+            if curl -fsS --max-time 2 "http://127.0.0.1:${_ports[$_i]}/health" >/dev/null 2>&1; then
+                echo "[portal-5]   ✅ ${_ids[$_i]}: healthy :${_ports[$_i]}"
+                _ids[$_i]=""
+                continue
+            fi
+            _remaining=$((_remaining + 1))
+        done
+        [ "$_remaining" -eq 0 ] && { echo "[portal-5]   all services healthy."; return 0; }
+        tries=$((tries - 1))
+        [ "$tries" -gt 0 ] && sleep 1
+    done
+
+    echo ""
+    echo "[portal-5] ❌ Not all services answered /health within the timeout:"
+    echo ""
+    printf "  %-34s %-6s %-8s %s\n" "SERVICE" "KIND" "PORT" "STATE"
+    printf "  %-34s %-6s %-8s %s\n" "-------" "----" "----" "-----"
+    for ((_i = 0; _i < _n; _i++)); do
+        [ -n "${_ids[$_i]:-}" ] || continue
+        printf "  %-34s %-6s %-8s %s\n" "${_ids[$_i]}" "${_kinds[$_i]:-}" ":${_ports[$_i]}" "not answering"
+    done
+    echo ""
+    echo "[portal-5]   host logs:  ls ~/.portal5/logs/"
+    echo "[portal-5]   containers: docker compose -f deploy/portal-5/docker-compose.yml logs <service>"
+    return 1
+}
+
 # Start every compose service except those belonging to a disabled module.
 # $1 is the profile flag string (`--profile telegram`), possibly empty.
 _compose_up_enabled() {
@@ -651,6 +738,12 @@ PY
 
 # ── Teardown helper (shared by 'down' and the pre-start phase of 'up') ────────
 _do_down() {
+    # $1 == "stack-only" → stop Docker only; leave host-native jobs running.
+    # `up` uses this: host jobs are reconciled idempotently afterward by
+    # `_portal_module_services --apply --kind host`, which restarts only
+    # unhealthy services — a full bootout here would SIGTERM every host MCP
+    # and reopen the ECONNREFUSED window (2026-11-16 up-health gate).
+    local _mode="${1:-full}"
     # ── Stop Docker stack ─────────────────────────────────────────────────
     # --profile telegram/slack must be passed even when those tokens aren't
     # configured: `down` only tears down services in the active profile set,
@@ -661,6 +754,9 @@ _do_down() {
     cd "$COMPOSE_DIR"
     docker compose --profile telegram --profile slack down
     echo "[portal-5] Docker stack stopped."
+    if [ "$_mode" = "stack-only" ]; then
+        return 0
+    fi
 
     # ── Stop native macOS services (MLX image/video, Music MCP, Speech) ──────
     # These run outside Docker and must be stopped explicitly.

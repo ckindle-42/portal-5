@@ -9,7 +9,9 @@ from pathlib import Path
 import pytest
 
 from portal.platform.inference.cli.module_services import (
+    format_health_target,
     format_native_mcp_target,
+    health_targets,
     iter_services,
     native_mcp_targets,
     run_services_cli,
@@ -206,6 +208,149 @@ def test_native_mcp_cli_prints_label_and_port(capsys: pytest.CaptureFixture[str]
     assert "com.portal5.video-mlx" not in "\n".join(out)
 
 
+def test_health_targets_are_enabled_services_with_ports() -> None:
+    cfg = load_portal_config()
+    targets = health_targets(cfg)
+    idents = {ref.ident for ref in targets}
+    for ident in _STOPPED:
+        assert ident not in idents
+    assert "mcp-documents" in idents
+    assert "com.portal5.pipeline-mcp" in idents
+    assert "com.portal5.review-mcp" in idents
+    assert "com.portal5.music-ace-mcp" not in idents  # no port + disabled module
+    assert all(ref.port is not None for ref in targets)
+    assert all(ref.kind in {"host", "compose"} for ref in targets)
+
+
+def test_health_targets_drops_services_with_skip_reason(monkeypatch: pytest.MonkeyPatch) -> None:
+    from portal.platform.inference.cli import module_services as ms
+
+    cfg = load_portal_config()
+    original = ms.skip_reason
+
+    def fake_skip(ref, repo=None):
+        if ref.ident == "com.portal5.mlx-speech":
+            return "mlx-speech runtime not installed"
+        return original(ref, repo)
+
+    monkeypatch.setattr(ms, "skip_reason", fake_skip)
+    idents = {ref.ident for ref in ms.health_targets(cfg)}
+    assert "com.portal5.mlx-speech" not in idents
+    assert "com.portal5.pipeline-mcp" in idents
+
+
+def test_health_roster_cli_prints_ident_port_kind(capsys: pytest.CaptureFixture[str]) -> None:
+    run_services_cli(
+        enabled=False,
+        disabled=False,
+        kind=None,
+        module=None,
+        apply=False,
+        stop_only=False,
+        status=False,
+        native_mcp=False,
+        health_roster=True,
+    )
+    out = capsys.readouterr().out.splitlines()
+    assert "com.portal5.data-mcp 8939 host" in out
+    assert "mcp-documents 8913 compose" in out
+    assert "com.portal5.video-mlx" not in "\n".join(out)
+    assert "com.portal5.mflux" not in "\n".join(out)
+
+
+def test_format_health_target() -> None:
+    ref = next(
+        ref for ref in iter_services(load_portal_config()) if ref.ident == "com.portal5.data-mcp"
+    )
+    assert format_health_target(ref) == "com.portal5.data-mcp 8939 host"
+
+
+def _data_ref():
+    from portal.platform.inference.cli.module_services import ServiceRef
+
+    return ServiceRef("host", "data", "com.portal5.data-mcp", 8939, "data-mcp", "data")
+
+
+def test_kickstart_unchanged_is_kept(monkeypatch: pytest.MonkeyPatch) -> None:
+    from portal.platform.inference.cli import module_services as ms
+
+    calls: list[list[str]] = []
+    monkeypatch.setattr(ms, "_healthy", lambda port: True)
+    monkeypatch.setattr(ms, "_stale_reason", lambda ref, repo=None: None)
+    monkeypatch.setattr(ms, "_run", lambda argv, cwd=None: calls.append(argv))
+    assert ms._kickstart(_data_ref()) == "com.portal5.data-mcp: kept (unchanged)"
+    assert calls == []
+
+
+def test_kickstart_changed_is_restarted(monkeypatch: pytest.MonkeyPatch) -> None:
+    from portal.platform.inference.cli import module_services as ms
+
+    calls: list[list[str]] = []
+    monkeypatch.setattr(ms, "_healthy", lambda port: True)
+    monkeypatch.setattr(ms, "_stale_reason", lambda ref, repo=None: "code changed")
+    monkeypatch.setattr(ms, "_plist", lambda ref: Path("/tmp/no.plist"))
+    monkeypatch.setattr(
+        ms, "start_argv", lambda ref, uid=None, plist=None: [["launchctl", "kickstart"]]
+    )
+    monkeypatch.setattr(ms, "_run", lambda argv, cwd=None: calls.append(argv))
+    assert ms._kickstart(_data_ref()) == "com.portal5.data-mcp: restarted (code changed)"
+    assert calls == [["launchctl", "kickstart"]]
+
+
+def test_kickstart_unhealthy_is_restarted(monkeypatch: pytest.MonkeyPatch) -> None:
+    from portal.platform.inference.cli import module_services as ms
+
+    calls: list[list[str]] = []
+    monkeypatch.setattr(ms, "_healthy", lambda port: False)
+    monkeypatch.setattr(ms, "_plist", lambda ref: Path("/tmp/no.plist"))
+    monkeypatch.setattr(
+        ms, "start_argv", lambda ref, uid=None, plist=None: [["launchctl", "kickstart"]]
+    )
+    monkeypatch.setattr(ms, "_run", lambda argv, cwd=None: calls.append(argv))
+    assert ms._kickstart(_data_ref()) == "com.portal5.data-mcp: restarted (unhealthy)"
+    assert calls == [["launchctl", "kickstart"]]
+
+
+def test_stale_reason_code_changed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from portal.platform.inference.cli import module_services as ms
+
+    monkeypatch.setattr(ms, "_host_process_start_epoch", lambda port: 1000)
+    monkeypatch.setattr(ms, "_source_dirs", lambda ref: (Path("/src"),))
+    monkeypatch.setattr(ms, "_newest_mtime", lambda path: 2000)
+    assert ms._stale_reason(_data_ref(), repo=tmp_path) == "code changed"
+
+
+def test_stale_reason_config_changed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from portal.platform.inference.cli import module_services as ms
+
+    monkeypatch.setattr(ms, "_host_process_start_epoch", lambda port: 1000)
+    monkeypatch.setattr(ms, "_source_dirs", lambda ref: ())
+    monkeypatch.setattr(ms, "_newest_mtime", lambda path: 2000)
+    assert ms._stale_reason(_data_ref(), repo=tmp_path) == "config changed"
+
+
+def test_stale_reason_unchanged_returns_none(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from portal.platform.inference.cli import module_services as ms
+
+    monkeypatch.setattr(ms, "_host_process_start_epoch", lambda port: 1000)
+    monkeypatch.setattr(ms, "_source_dirs", lambda ref: (Path("/src"),))
+    monkeypatch.setattr(ms, "_newest_mtime", lambda path: 500)
+    assert ms._stale_reason(_data_ref(), repo=tmp_path) is None
+
+
+def test_stale_reason_unknown_start_leaves_alone(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from portal.platform.inference.cli import module_services as ms
+
+    monkeypatch.setattr(ms, "_host_process_start_epoch", lambda port: None)
+    monkeypatch.setattr(ms, "_source_dirs", lambda ref: (Path("/src"),))
+    monkeypatch.setattr(ms, "_newest_mtime", lambda path: 2000)
+    assert ms._stale_reason(_data_ref(), repo=tmp_path) is None
+
+
 def test_rebuild_restarts_native_mcps_after_containers() -> None:
     launch = (ROOT / "launch.sh").read_text(encoding="utf-8")
     rebuild = launch.split("  rebuild)", 1)[1].split("  rebuild-mcp)", 1)[0]
@@ -334,3 +479,129 @@ def test_rebuild_service_lists_are_derived_from_compose_not_hand_kept() -> None:
         assert "mcp-documents mcp-tts" not in body, block
     helper = (ROOT / "scripts" / "lib" / "services.sh").read_text(encoding="utf-8")
     assert '{"open-webui", "dind"}' in helper  # gated updater / live sandboxes, never rebuilt here
+
+
+def test_up_uses_stack_only_do_down_and_gates_health_before_done() -> None:
+    launch = (ROOT / "launch.sh").read_text(encoding="utf-8")
+    up = launch.split("  up)", 1)[1].split("  test)", 1)[0]
+    assert "_do_down stack-only" in up
+    assert "_wait_up_health" in up
+    # teardown runs before the gate; the gate runs before `up` reports done
+    assert "_do_down stack-only" in up.split("_wait_up_health")[0]
+    assert "_wait_up_health" in up.split('echo "[portal-5] Stack started."')[0]
+    # `down` keeps the full teardown (no stack-only escape hatch)
+    down = launch.split("  down)", 1)[1].split("  backup)", 1)[0]
+    assert "_do_down" in down
+    assert "_do_down stack-only" not in down
+
+
+def test_do_down_stack_only_skips_host_bootout(tmp_path: Path) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    log = tmp_path / "calls"
+    work = tmp_path / "work"
+    work.mkdir()
+    _stub_bin(
+        bin_dir / "docker",
+        '#!/bin/bash\nprintf "docker %s\\n" "$*" >> "$CALL_LOG"\nexit 0\n',
+    )
+    _stub_bin(
+        bin_dir / "launchctl", '#!/bin/bash\nprintf "launchctl %s\\n" "$*" >> "$CALL_LOG"\nexit 0\n'
+    )
+    script = f"""
+set -euo pipefail
+export PATH="{bin_dir}:$PATH"
+export CALL_LOG="{log}"
+export COMPOSE_DIR="{work}"
+source "{ROOT}/scripts/lib/util.sh"
+_do_down stack-only
+"""
+    result = subprocess.run(["/bin/bash", "-uc", script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    calls = log.read_text(encoding="utf-8")
+    assert "docker compose --profile telegram --profile slack down" in calls
+    assert "bootout" not in calls
+    assert "launchctl" not in calls
+
+
+def test_do_down_full_bootouts_host_jobs(tmp_path: Path) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    log = tmp_path / "calls"
+    work = tmp_path / "work"
+    work.mkdir()
+    _stub_bin(
+        bin_dir / "docker",
+        '#!/bin/bash\nprintf "docker %s\\n" "$*" >> "$CALL_LOG"\nexit 0\n',
+    )
+    _stub_bin(
+        bin_dir / "launchctl", '#!/bin/bash\nprintf "launchctl %s\\n" "$*" >> "$CALL_LOG"\nexit 0\n'
+    )
+    script = f"""
+set -euo pipefail
+export PATH="{bin_dir}:$PATH"
+export CALL_LOG="{log}"
+export COMPOSE_DIR="{work}"
+export HOME="{tmp_path}"
+source "{ROOT}/scripts/lib/util.sh"
+_do_down
+"""
+    result = subprocess.run(["/bin/bash", "-uc", script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    calls = log.read_text(encoding="utf-8")
+    assert "bootout" in calls
+
+
+def test_wait_up_health_waits_until_all_healthy(tmp_path: Path) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    log = tmp_path / "calls"
+    _stub_bin(bin_dir / "curl", '#!/bin/bash\nprintf "%s\\n" "$*" >> "$CALL_LOG"\nexit 0\n')
+    _stub_bin(bin_dir / "sleep", "#!/bin/bash\nexit 0\n")
+    script = f"""
+set -euo pipefail
+export PATH="{bin_dir}:$PATH"
+export CALL_LOG="{log}"
+export PORTAL_UP_HEALTH_TRIES=3
+source "{ROOT}/scripts/lib/util.sh"
+_portal_module_services() {{
+  if [ "$1" = "--health-roster" ]; then
+    printf '%s\\n' "com.portal5.data-mcp 8939 host" "mcp-documents 8913 compose"
+  fi
+}}
+_wait_up_health
+"""
+    result = subprocess.run(["/bin/bash", "-uc", script], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert "[portal-5]   ✅ com.portal5.data-mcp: healthy :8939" in result.stdout
+    assert "[portal-5]   ✅ mcp-documents: healthy :8913" in result.stdout
+    assert "[portal-5]   all services healthy." in result.stdout
+    calls = log.read_text(encoding="utf-8")
+    assert "http://127.0.0.1:8939/health" in calls
+    assert "http://127.0.0.1:8913/health" in calls
+
+
+def test_wait_up_health_names_failing_services_and_exits_nonzero(tmp_path: Path) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    _stub_bin(bin_dir / "curl", "#!/bin/bash\nexit 1\n")
+    _stub_bin(bin_dir / "sleep", "#!/bin/bash\nexit 0\n")
+    script = f"""
+set -euo pipefail
+export PATH="{bin_dir}:$PATH"
+export PORTAL_UP_HEALTH_TRIES=2
+source "{ROOT}/scripts/lib/util.sh"
+_portal_module_services() {{
+  if [ "$1" = "--health-roster" ]; then
+    printf '%s\\n' "com.portal5.data-mcp 8939 host" "mcp-documents 8913 compose"
+  fi
+}}
+_wait_up_health
+"""
+    result = subprocess.run(["/bin/bash", "-uc", script], capture_output=True, text=True)
+    assert result.returncode == 1, result.stderr
+    assert "[portal-5] ❌ Not all services answered /health within the timeout:" in result.stdout
+    assert "com.portal5.data-mcp" in result.stdout
+    assert "mcp-documents" in result.stdout
+    assert "not answering" in result.stdout
+    assert "SERVICE" in result.stdout  # the per-service table header

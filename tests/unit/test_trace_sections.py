@@ -764,6 +764,27 @@ def test_load_lab_env_exports_the_splunk_endpoint(
     assert os.environ["LAB_SPLUNK_INDEX"] == "portal5_lab"
 
 
+def test_hunt_query_hop_runs_the_engine_with_the_lab_search(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    search = object()
+    calls: list[tuple[object, str, float, float]] = []
+
+    def run_hunt(source: object, index: str, start: float, end: float) -> list[object]:
+        calls.append((source, index, start, end))
+        return [object(), object()]
+
+    monkeypatch.setattr(trace_lab, "hunt_search", lambda: search)
+    monkeypatch.setattr(trace_lab, "hunt", run_hunt)
+    monkeypatch.setattr(trace_lab.time, "time", lambda: 1234.0)
+
+    hop = trace_lab.hunt_query_hop("portal5_lab")
+
+    assert calls == [(search, "portal5_lab", 0.0, 1234.0)]
+    assert hop["status"] == "PASS"
+    assert hop["observed"] == "index=portal5_lab leads=2"
+
+
 class _LabBackend:
     def __init__(self, hits: dict[tuple[str, str], int]) -> None:
         self.hits = hits
@@ -845,3 +866,37 @@ def test_section_selection_accepts_keys_numbers_and_prefixes() -> None:
 
 def test_hops_render_without_a_trailing_space() -> None:
     assert not Hop("x", Status.PASS).observed
+
+
+def test_seat_hop_accepts_the_resolved_router_lane() -> None:
+    seat = workspaces.Seat("auto", "huihui_ai/qwen3.5-abliterated:9b-ctx8k")
+    hints = {"auto": seat.hint, "auto-daily": "hf.co/bartowski/NVIDIA-Nemotron-30B:Q4_K_M-ctx32k"}
+    stats = workspaces.TurnStats(ttft_s=0.4, completion_tokens=24, text="OK")
+    served = ["auto-daily", "ollama-general", "hf.co/bartowski/NVIDIA-Nemotron-30B:Q4_K_M-ctx32k"]
+    hop = workspaces.seat_hop(seat, workspaces.StreamedTurn(200, served, stats), hints)
+    assert hop.status is Status.PASS
+    assert hop.expected == "hf.co/bartowski/NVIDIA-Nemotron-30B:Q4_K_M-ctx32k"
+    assert "via=auto-daily" in hop.observed
+
+
+def test_seat_hop_still_warns_when_the_resolved_lane_leaves_its_seat() -> None:
+    seat = workspaces.Seat("auto-vision", "qwen3-vl:32b-ctx8k")
+    hints = {"auto-vision": seat.hint, "auto-reasoning": "k2-horizon:36b-ctx64k"}
+    stats = workspaces.TurnStats(ttft_s=0.4, completion_tokens=24, text="OK")
+    off = workspaces.seat_hop(
+        seat, workspaces.StreamedTurn(200, ["auto-reasoning", "b", "some-other"], stats), hints
+    )
+    assert off.status is Status.WARN
+    assert off.expected == "k2-horizon:36b-ctx64k"
+
+
+def test_seat_hop_keeps_the_seat_hint_for_an_unknown_resolved_lane() -> None:
+    seat = workspaces.Seat("auto", "huihui_ai/qwen3.5-abliterated:9b-ctx8k")
+    stats = workspaces.TurnStats(ttft_s=0.4, completion_tokens=24, text="OK")
+    hop = workspaces.seat_hop(
+        seat,
+        workspaces.StreamedTurn(200, ["bench-x", "b", "some-other"], stats),
+        {"auto": seat.hint},
+    )
+    assert hop.status is Status.WARN
+    assert hop.expected == seat.hint

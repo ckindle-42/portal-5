@@ -911,6 +911,13 @@ defaults:
   # 0 = off (today's first-candidate order). Never applies to a pinned ?model=.
   # 900 s = 15 min: enabled by the operator 2026-10-22.
   hot_seat_protect_s: 900
+  # Preferred residents: workspace ids whose model is warmed at startup (or at the
+  # first idle moment) and kept with keep_alive, because the most-used path enters
+  # through them — `auto` routes ordinary chat to auto-daily, and a cold 23.7 GiB
+  # load there measured a 40 s first token (2026-11-16). A preferred resident is
+  # protected from eviction but never pinned: it yields to another seat's admission.
+  preferred_residents:
+  - auto-daily
 # The platform's single embedder, served by the host EG2 service (config/portal.yaml
 # host_jobs com.portal5.eg2-embedding). POST /v1/embeddings on the Pipeline forwards
 # here — raw OpenAI passthrough, no task prefixes applied (callers such as Open WebUI

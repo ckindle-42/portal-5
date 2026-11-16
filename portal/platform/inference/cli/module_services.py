@@ -10,6 +10,8 @@ import subprocess
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from datetime import datetime
+from functools import cache
 from pathlib import Path
 
 import typer
@@ -123,6 +125,21 @@ def format_native_mcp_target(ref: ServiceRef) -> str:
     return f"{ref.ident} {ref.port}"
 
 
+def health_targets(cfg: PortalConfig, repo: Path | None = None) -> list[ServiceRef]:
+    """Enabled services the `up` gate must see answer /health: a port, and no skip
+    reason (not-installed host services are expected down, not failing)."""
+    return [
+        ref
+        for ref in select_services(cfg, want_enabled=True)
+        if ref.port is not None and skip_reason(ref, repo) is None
+    ]
+
+
+def format_health_target(ref: ServiceRef) -> str:
+    """`ident port kind` for the `up` health-gate loop."""
+    return f"{ref.ident} {ref.port} {ref.kind}"
+
+
 def up_plan(
     cfg: PortalConfig, enabled: list[str] | None = None
 ) -> tuple[list[ServiceRef], list[ServiceRef]]:
@@ -218,16 +235,124 @@ def _ensure_plist(ref: ServiceRef) -> str:
     if proc.returncode != 0:
         tail = (proc.stderr or proc.stdout or "launchd registration failed").strip().splitlines()
         return f"{ref.ident}: {tail[-1]}"
-    return f"{ref.ident}: launchd supervision enabled"
+    return f"{ref.ident}: started (launchd supervision enabled)"
 
 
 def _kickstart(ref: ServiceRef) -> str:
     if _healthy(ref.port):
-        return f"{ref.ident}: running"
+        reason = _stale_reason(ref)
+        if reason is None:
+            return f"{ref.ident}: kept (unchanged)"
+        _restart(ref)
+        return f"{ref.ident}: restarted ({reason})"
+    _restart(ref)
+    return f"{ref.ident}: restarted (unhealthy)"
+
+
+def _restart(ref: ServiceRef) -> None:
     plist = _plist(ref)
     for argv in start_argv(ref, plist=plist if plist.is_file() else None):
         _run(argv)
-    return f"{ref.ident}: kickstarted"
+
+
+@cache
+def _newest_mtime(path: Path) -> int | None:
+    """Newest file mtime (epoch seconds) under `path`, or None if it is absent."""
+    if not path.exists():
+        return None
+    if path.is_file():
+        return int(path.stat().st_mtime)
+    newest = 0
+    for root, _dirs, files in os.walk(path):
+        for name in files:
+            try:
+                newest = max(newest, int((Path(root) / name).stat().st_mtime))
+            except OSError:
+                continue
+    return newest or None
+
+
+def _host_process_start_epoch(port: int) -> int | None:
+    """Epoch the process bound to `port` started, or None if it cannot be found."""
+    try:
+        lsof = subprocess.run(
+            ["lsof", "-ti", f":{port}"], capture_output=True, text=True, timeout=3, check=False
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    pids = [p for p in lsof.stdout.split() if p.strip().isdigit()]
+    if not pids:
+        return None
+    try:
+        ps = subprocess.run(
+            ["ps", "-ww", "-p", pids[0], "-o", "lstart="],
+            capture_output=True,
+            text=True,
+            timeout=3,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    try:
+        return int(datetime.strptime(ps.stdout.strip(), "%a %b %d %H:%M:%S %Y").timestamp())
+    except ValueError:
+        return None
+
+
+def _source_dirs(ref: ServiceRef) -> tuple[Path, ...]:
+    """Directories whose change requires restarting this host job.
+
+    ``scripts/`` (the launcher + shared shell libs) and ``portal/platform/mcp_host``
+    (shared workspace/build-info helpers) are imported by every host service. The
+    service's own code lives under its module dir (or ``portal_wiki``).
+    """
+    root = repo_root()
+    dirs = [root / "scripts", root / "portal" / "platform" / "mcp_host"]
+    service = ref.native_service or ""
+    if service == "wiki-mcp":
+        dirs.append(root / "portal_wiki")
+    elif ref.module == "platform":
+        dirs.append(root / "portal" / "platform")
+    else:
+        dirs.append(root / "portal" / "modules" / ref.module)
+    return tuple(dirs)
+
+
+def _stale_reason(ref: ServiceRef, repo: Path | None = None) -> str | None:
+    """Why a healthy host job must restart, or None if it serves current code.
+
+    Compares the process start time against the newest mtime of what it runs from:
+    its source dirs (code) and its plist + config/portal.yaml + .env (config). A
+    checkout pulled or edited after the process started means it holds old code —
+    the exact defect ``up`` previously let through (2026-11-16 up-health gate).
+    """
+    if ref.port is None:
+        return None
+    root = repo if repo is not None else repo_root()
+    start = _host_process_start_epoch(ref.port)
+    if start is None:
+        return None  # can't prove staleness — leave alone rather than churn
+    source = max(
+        (m for m in (_newest_mtime(d) for d in _source_dirs(ref)) if m is not None),
+        default=None,
+    )
+    config = max(
+        (
+            m
+            for m in (
+                _newest_mtime(_plist(ref)),
+                _newest_mtime(root / "config" / "portal.yaml"),
+                _newest_mtime(root / ".env"),
+            )
+            if m is not None
+        ),
+        default=None,
+    )
+    if source is not None and source > start:
+        return "code changed"
+    if config is not None and config > start:
+        return "config changed"
+    return None
 
 
 def apply_one(ref: ServiceRef, *, start: bool) -> str:
@@ -291,6 +416,11 @@ def _print_native_mcp_targets(cfg: PortalConfig, module: str | None) -> None:
         typer.echo(format_native_mcp_target(ref))
 
 
+def _print_health_targets(cfg: PortalConfig) -> None:
+    for ref in health_targets(cfg):
+        typer.echo(format_health_target(ref))
+
+
 def _apply_selected(
     cfg: PortalConfig, *, kind: str | None, module: str | None, stop_only: bool
 ) -> None:
@@ -312,11 +442,15 @@ def run_services_cli(
     stop_only: bool,
     status: bool,
     native_mcp: bool = False,
+    health_roster: bool = False,
 ) -> None:
     kind = _checked_kind(kind)
     cfg = load_portal_config(_force_reload=True)
     if native_mcp:
         _print_native_mcp_targets(cfg, module)
+        return
+    if health_roster:
+        _print_health_targets(cfg)
         return
     if status:
         for line in status_rows(cfg):

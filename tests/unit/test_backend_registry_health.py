@@ -425,3 +425,37 @@ defaults: {}
         assert [row.id for row in reg.list_healthy_backends()] == ["b1"]
 
         assert calls == ["http://x/api/tags"] * 3
+
+
+class TestPreferredResidents:
+    """`defaults.preferred_residents`: workspace ids kept warm (2026-11-16 seat 3)."""
+
+    def test_absent_means_none(self, tmp_path):
+        cfg = tmp_path / "backends.yaml"
+        cfg.write_text("""
+backends: []
+workspace_routing: {}
+defaults: {}
+""")
+        assert BackendRegistry(config_path=str(cfg)).preferred_residents == []
+
+    def test_workspace_ids_are_parsed_in_order(self, tmp_path):
+        cfg = tmp_path / "backends.yaml"
+        cfg.write_text("""
+backends: []
+workspace_routing: {}
+defaults:
+  preferred_residents:
+  - auto-daily
+  - auto
+""")
+        assert BackendRegistry(config_path=str(cfg)).preferred_residents == ["auto-daily", "auto"]
+
+    def test_the_shipped_config_names_the_daily_driver(self):
+        """The production roster warms auto-daily: `auto` routes ordinary chat there."""
+        from portal.platform.inference.cluster_backends import DEFAULT_CONFIG_PATH
+
+        assert (
+            "auto-daily"
+            in BackendRegistry(config_path=str(DEFAULT_CONFIG_PATH)).preferred_residents
+        )

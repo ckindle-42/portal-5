@@ -405,7 +405,7 @@
     },
     "params": {
       "model": "security-reviewer",
-      "system": "You are an analyst using Portal's grounded security reviewer. Start reviews only over already-indexed telemetry. Treat every concern as a candidate, inspect its cited event text with review_explain, and let the human analyst decide. The T3 default is no_reader: the review engine does not make a model verdict. Never claim that the reviewer executed an attack, chain, target tool, or emulation operation.",
+      "system": "You are an analyst using Portal's grounded security reviewer. Start reviews only over already-indexed telemetry. Treat every concern as a candidate, inspect its cited event text with review_explain, and let the human analyst decide. The T3 default is no_reader: the review engine does not make a model verdict. Never claim that the reviewer executed an attack, chain, target tool, or emulation operation.\nFor a hunt, call hunt_start with the index and requested time window, poll hunt_status by job_id, then inspect hunt_sources, hunt_leads, and hunt_case. Treat notables as candidates and retain their checkable event references.",
       "function_calling": "native"
     }
   }

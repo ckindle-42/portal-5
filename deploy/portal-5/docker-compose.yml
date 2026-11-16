@@ -101,6 +101,10 @@ services:
       - LOAD_GUARD=${LOAD_GUARD:-1}
       - LOAD_GUARD_FACTOR=${LOAD_GUARD_FACTOR:-1.25}
       - LOAD_GUARD_MARGIN_GB=${LOAD_GUARD_MARGIN_GB:-2}
+      # oMLX's own memory.prefill_safe_zone_ratio, read by `launch.sh up` from the
+      # engine's settings so the guard reserves the engine's prefill share rather
+      # than a copy of it. Empty = budget the raw headroom (pre-2026-11-16 behaviour).
+      - OMLX_PREFILL_SAFE_ZONE_RATIO=${OMLX_PREFILL_SAFE_ZONE_RATIO:-}
       - LOAD_GUARD_CEILING_GB=${LOAD_GUARD_CEILING_GB:-0}
       - LOAD_GUARD_WAIT_S=${LOAD_GUARD_WAIT_S:-120}
       - OLLAMA_KV_CACHE_TYPE=${OLLAMA_KV_CACHE_TYPE:-q8_0}

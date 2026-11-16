@@ -2236,3 +2236,280 @@ class TestRouterWarmupContext:
             "with keep_alive=-1 and no cap reserves its full context window "
             "(possibly 131072+ tokens x OLLAMA_NUM_PARALLEL slots) forever"
         )
+
+
+class TestPreferredResident:
+    """Seat 3, 2026-11-16: `auto` routes ordinary chat to auto-daily, and a cold
+    23.7 GiB daily driver is a 40 s first token. `defaults.preferred_residents`
+    keeps it warm — loaded at up or the first idle moment, protected from eviction
+    but never pinned (protected idle memory still yields to a seat's admission).
+    """
+
+    def _harness(self, monkeypatch, plan, candidates=None):
+        from unittest.mock import AsyncMock
+
+        import portal.platform.inference.router.lifespan as lifespan_mod
+
+        hint = WORKSPACES["auto-daily"]["model_hint"]
+        if candidates is None:
+            candidates = [_candidate("ollama-general", "ollama", hint)]
+        registry = MagicMock(preferred_residents=["auto-daily"])
+        registry.get_backend_candidates = MagicMock(return_value=candidates)
+        registry.list_backends = MagicMock(return_value=candidates)
+        guard = MagicMock()
+        guard.plan = AsyncMock(return_value=plan)
+        guard.admit = AsyncMock(return_value=None)
+        guard.admit_omlx = AsyncMock(return_value=None)
+        guard.begin = MagicMock(return_value=lambda: None)
+        client = MagicMock()
+        client.post = AsyncMock(return_value=MagicMock(status_code=200))
+        monkeypatch.setattr(lifespan_mod, "_http_client", client)
+        monkeypatch.setattr(lifespan_mod._load_guard_mod, "GUARD", guard)
+        return lifespan_mod, registry, guard, client, hint
+
+    @pytest.mark.asyncio
+    async def test_the_daily_driver_loads_with_keep_alive_when_the_host_has_room(self, monkeypatch):
+        plan = {
+            "busy": False,
+            "need_gib": 23.7,
+            "headroom_gib": 37.2,
+            "models": [{"resident": False}],
+        }
+        lifespan_mod, registry, guard, client, hint = self._harness(monkeypatch, plan)
+        status = await lifespan_mod._warm_preferred_resident(
+            registry.list_backends()[0],
+            "ollama",
+            hint,
+            {"num_predict": 1},
+            guard,
+            "http://fake:11434",
+        )
+        assert status == "loaded"
+        payload = client.post.await_args.kwargs["json"]
+        assert payload["model"] == hint
+        assert payload["keep_alive"] == -1
+        assert "num_ctx" not in payload["options"], (
+            "the -ctx derived tag bakes its own num_ctx; passing another would pin "
+            "a runner with a context the seat never asked for"
+        )
+        guard.admit.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_a_busy_host_is_never_made_to_wait_for_the_warm_up(self, monkeypatch):
+        plan = {
+            "busy": True,
+            "need_gib": 23.7,
+            "headroom_gib": 37.2,
+            "models": [{"resident": False}],
+        }
+        lifespan_mod, registry, guard, client, hint = self._harness(monkeypatch, plan)
+        status = await lifespan_mod._warm_preferred_resident(
+            registry.list_backends()[0],
+            "ollama",
+            hint,
+            {"num_predict": 1},
+            guard,
+            "http://fake:11434",
+        )
+        assert status == "waiting for in-flight work"
+        client.post.assert_not_awaited()
+        guard.admit.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_a_model_that_does_not_fit_the_headroom_is_left_for_later(self, monkeypatch):
+        plan = {
+            "busy": False,
+            "need_gib": 23.7,
+            "headroom_gib": 4.0,
+            "models": [{"resident": False}],
+        }
+        lifespan_mod, registry, guard, client, hint = self._harness(monkeypatch, plan)
+        status = await lifespan_mod._warm_preferred_resident(
+            registry.list_backends()[0],
+            "ollama",
+            hint,
+            {"num_predict": 1},
+            guard,
+            "http://fake:11434",
+        )
+        assert status.startswith("waiting: needs 23.7 GiB")
+        client.post.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_an_unbaked_hint_caps_num_ctx(self, monkeypatch):
+        plan = {
+            "busy": False,
+            "need_gib": 8.0,
+            "headroom_gib": 37.2,
+            "models": [{"resident": False}],
+        }
+        lifespan_mod, registry, guard, client, _ = self._harness(monkeypatch, plan)
+        await lifespan_mod._warm_preferred_resident(
+            registry.list_backends()[0],
+            "ollama",
+            "some-model:q6_k",
+            {"num_predict": 1, "num_ctx": 16384},
+            guard,
+            "http://fake:11434",
+        )
+        payload = client.post.await_args.kwargs["json"]
+        assert payload["options"]["num_ctx"] == 16384
+
+    @pytest.mark.asyncio
+    async def test_an_omlx_preferred_resident_still_goes_through_admission(self, monkeypatch):
+        plan = {
+            "busy": False,
+            "need_gib": 16.6,
+            "headroom_gib": 41.0,
+            "models": [{"resident": False}],
+        }
+        omlx = _candidate("omlx-general", "omlx", "Qwen3.8-27B-oQ4e-mtp")
+        lifespan_mod, registry, guard, client, _ = self._harness(monkeypatch, plan, [omlx])
+        status = await lifespan_mod._warm_preferred_resident(
+            registry.list_backends()[0],
+            "omlx",
+            "Qwen3.8-27B-oQ4e-mtp",
+            {"num_predict": 1},
+            guard,
+            "http://fake:11434",
+        )
+        assert status == "loaded"
+        guard.admit_omlx.assert_awaited_once_with("Qwen3.8-27B-oQ4e-mtp")
+        assert client.post.await_args.args[0].endswith("/v1/chat/completions")
+
+    def test_the_target_is_the_backend_that_serves_the_hint_not_the_group_head(self):
+        """2026-11-16 live: the keeper posted an Ollama tag to oMLX's group head and got
+        404 58 times. `auto-daily` routes through group `general`, whose priority head is
+        `omlx-general`, which does not serve that tag at all."""
+        import portal.platform.inference.router.lifespan as lifespan_mod
+
+        hint = WORKSPACES["auto-daily"]["model_hint"]
+        head = _candidate("omlx-general", "omlx", None, url="http://fake:8085")
+        serving = _candidate("ollama-general", "ollama", hint)
+        registry = MagicMock(preferred_residents=["auto-daily"])
+        registry.get_backend_candidates = MagicMock(return_value=[head, serving])
+        ((backend, engine, model, options),) = lifespan_mod._preferred_resident_targets(registry)
+        assert backend.id == "ollama-general" and engine == "ollama"
+        assert model == hint
+        assert "-ctx" in model and "num_ctx" not in options
+
+    def test_the_shipped_config_resolves_the_daily_driver_to_ollama(self):
+        """The real registry: the hint is served only by ollama-general."""
+        import portal.platform.inference.router.lifespan as lifespan_mod
+        from portal.platform.inference.cluster_backends import DEFAULT_CONFIG_PATH, BackendRegistry
+
+        registry = BackendRegistry(config_path=str(DEFAULT_CONFIG_PATH))
+        ((backend, engine, model, _),) = lifespan_mod._preferred_resident_targets(registry)
+        assert (backend.id, engine) == ("ollama-general", "ollama")
+        assert model == WORKSPACES["auto-daily"]["model_hint"]
+
+    def test_a_workspace_whose_hint_no_backend_serves_is_skipped(self, caplog):
+        import logging
+
+        import portal.platform.inference.router.lifespan as lifespan_mod
+
+        registry = MagicMock(preferred_residents=["auto-daily"])
+        registry.get_backend_candidates = MagicMock(
+            return_value=[_candidate("omlx-general", "omlx", None)]
+        )
+        with caplog.at_level(logging.WARNING, logger=lifespan_mod.logger.name):
+            assert lifespan_mod._preferred_resident_targets(registry) == []
+        assert "no healthy backend serves" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_the_keeper_protects_the_seat_and_stops_at_shutdown(self, monkeypatch):
+        import asyncio
+
+        plan = {
+            "busy": False,
+            "need_gib": 23.7,
+            "headroom_gib": 37.2,
+            "models": [{"resident": True}],
+        }
+        lifespan_mod, registry, guard, client, hint = self._harness(monkeypatch, plan)
+
+        async def _stop(_seconds):
+            raise asyncio.CancelledError
+
+        monkeypatch.setattr(lifespan_mod.asyncio, "sleep", _stop)
+        with pytest.raises(asyncio.CancelledError):
+            await lifespan_mod._keep_preferred_residents(registry)
+        guard.protect.assert_called_once_with(
+            "ollama", hint, lifespan_mod._PREFERRED_RESIDENT_PROTECT_S
+        )
+        assert lifespan_mod._PREFERRED_RESIDENT_PROTECT_S > 0
+        client.post.assert_not_awaited()  # resident already: protect, do not reload
+
+    @pytest.mark.asyncio
+    async def test_the_keeper_says_when_it_is_resident_and_logs_a_failure_once(
+        self, monkeypatch, caplog
+    ):
+        import asyncio
+        import logging
+
+        plan = {
+            "busy": False,
+            "need_gib": 23.7,
+            "headroom_gib": 37.2,
+            "models": [{"resident": False}],
+        }
+        lifespan_mod, registry, guard, client, hint = self._harness(monkeypatch, plan)
+        client.post = __import__("unittest.mock", fromlist=["AsyncMock"]).AsyncMock(
+            return_value=MagicMock(status_code=404)
+        )
+        ticks = {"n": 0}
+
+        async def _tick(_seconds):
+            ticks["n"] += 1
+            if ticks["n"] >= 2:
+                raise asyncio.CancelledError
+
+        monkeypatch.setattr(lifespan_mod.asyncio, "sleep", _tick)
+        with (
+            caplog.at_level(logging.WARNING, logger=lifespan_mod.logger.name),
+            pytest.raises(asyncio.CancelledError),
+        ):
+            await lifespan_mod._keep_preferred_residents(registry)
+        failures = [
+            r.getMessage() for r in caplog.records if "Preferred resident" in r.getMessage()
+        ]
+        assert len(failures) == 1, failures  # two ticks, one line
+        assert "HTTP 404 from http://fake:11434" in failures[0]
+        assert "ollama-general" in failures[0]
+
+    @pytest.mark.asyncio
+    async def test_the_keeper_announces_residency(self, monkeypatch, caplog):
+        import asyncio
+        import logging
+
+        plan = {
+            "busy": False,
+            "need_gib": 23.7,
+            "headroom_gib": 37.2,
+            "models": [{"resident": True}],
+        }
+        lifespan_mod, registry, guard, client, hint = self._harness(monkeypatch, plan)
+
+        async def _stop(_seconds):
+            raise asyncio.CancelledError
+
+        monkeypatch.setattr(lifespan_mod.asyncio, "sleep", _stop)
+        with (
+            caplog.at_level(logging.INFO, logger=lifespan_mod.logger.name),
+            pytest.raises(asyncio.CancelledError),
+        ):
+            await lifespan_mod._keep_preferred_residents(registry)
+        assert "Preferred resident " + hint in caplog.text
+        assert " on ollama-general (http://fake:11434): resident —" in caplog.text
+
+
+def _candidate(
+    backend_id: str, backend_type: str, resolved: str | None = None, url: str | None = None
+):
+    """A backend double whose `resolve_model` serves `resolved` (None = cannot serve)."""
+    backend = MagicMock(id=backend_id, type=backend_type)
+    backend.url = url or ("http://fake:8085" if backend_type == "omlx" else "http://fake:11434")
+    backend.resolve_model = MagicMock(
+        side_effect=lambda hint, r=resolved: r if r is not None else None
+    )
+    return backend

@@ -22,6 +22,33 @@ import urllib.request
 from pathlib import Path
 
 HUNTS = Path.home() / "AI_Output" / "review" / "hunts"
+TERMINAL = {"COMPLETE", "PARTIAL", "FAILED"}
+
+
+def _write_receipt(path: Path, record: dict) -> None:
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(record, indent=1))
+    temporary.replace(path)
+
+
+def _job_snapshot(status: dict) -> dict:
+    progress = status.get("progress")
+    if not isinstance(progress, dict):
+        progress = {}
+    return {
+        "status": status.get("status"),
+        "stage": status.get("stage"),
+        "phase": progress.get("phase"),
+        "seed_rank": progress.get("seed_rank"),
+        "lead_count": progress.get("lead_count"),
+        "pivot_count": progress.get("pivot_count"),
+        "query_count": progress.get("query_count"),
+        "cell_count": progress.get("cell_count"),
+        "event_count": progress.get("event_count"),
+        "coverage_complete": status.get("coverage_complete"),
+        "coverage_reason": status.get("coverage_reason"),
+        "error": status.get("error"),
+    }
 
 
 def ask(prompt: str, key: str, model: str) -> str:
@@ -49,53 +76,110 @@ def ask(prompt: str, key: str, model: str) -> str:
     return "".join(out)
 
 
+def _turn(prompt: str, key: str, model: str, record: dict) -> str:
+    answer = ask(prompt, key, model)
+    record["transcripts"].append({"prompt": prompt, "answer": answer, "at": time.time()})
+    print(f">>> {prompt}\n{answer}\n", flush=True)
+    return answer
+
+
+def _wait_for_job(
+    hunt_dir: Path, job: str, record: dict, receipt: Path, timeout_s: float, poll_s: float
+) -> dict:
+    deadline = time.monotonic() + timeout_s
+    last_snapshot = None
+    status = {"status": "PENDING"}
+    while time.monotonic() < deadline:
+        try:
+            status = json.loads((hunt_dir / f"{job}.json").read_text())
+            if not isinstance(status, dict):
+                raise json.JSONDecodeError("status is not an object", "", 0)
+        except FileNotFoundError:
+            status = {"status": "PENDING"}
+        except json.JSONDecodeError as exc:
+            status = {"status": "STATUS_UNREADABLE", "error": str(exc)}
+        snapshot = _job_snapshot(status)
+        if snapshot != last_snapshot:
+            record["status_samples"] = (record["status_samples"] + [snapshot])[-20:]
+            last_snapshot = snapshot
+        record["job_progress"] = status.get("progress")
+        record["coverage_complete"] = status.get("coverage_complete")
+        record["coverage_reason"] = status.get("coverage_reason")
+        _write_receipt(receipt, record)
+        if status.get("status") in TERMINAL:
+            return status
+        time.sleep(min(poll_s, max(0.0, deadline - time.monotonic())))
+    status["supervision_timeout"] = True
+    status["error"] = "job did not reach a terminal status before the supervision deadline"
+    return status
+
+
+def _exit_code(status: str, coverage_complete: bool | None) -> int:
+    if status == "COMPLETE" and coverage_complete is True:
+        return 0
+    if status == "FAILED":
+        return 1
+    if status in {"PARTIAL", "COMPLETE"}:
+        return 2
+    return 3
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--index", required=True)
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--model", default="security-reviewer")
+    ap.add_argument("--job-timeout-s", type=float, default=900)
+    ap.add_argument("--poll-s", type=float, default=5)
     args = ap.parse_args()
+    if args.job_timeout_s <= 0 or args.poll_s <= 0:
+        ap.error("--job-timeout-s and --poll-s must be positive")
     key = os.environ["OWUI_API_KEY"]
+    hunt_dir = Path(os.environ.get("PORTAL5_HUNT_DIR", str(HUNTS)))
     args.out.mkdir(parents=True, exist_ok=True)
-    rec: dict = {"index": args.index, "started": time.time(), "transcripts": []}
-
-    def turn(prompt: str) -> str:
-        answer = ask(prompt, key, args.model)
-        rec["transcripts"].append({"prompt": prompt, "answer": answer, "at": time.time()})
-        print(f">>> {prompt}\n{answer}\n", flush=True)
-        return answer
-
-    job = None
-    for attempt in range(3):
-        a = turn(f"Start a hunt over the {args.index} environment and give me the job id.")
-        if m := re.search(r"hunt-[0-9a-f]{12}", a):
-            job = m.group(0)
-            break
-    if job is None:
-        rec["error"] = "model never returned a job id"
-        (args.out / f"{args.index}.json").write_text(json.dumps(rec, indent=1))
-        return 1
-    rec["job_id"] = job
-    while True:
-        try:
-            st = json.loads((HUNTS / f"{job}.json").read_text())
-        except (FileNotFoundError, json.JSONDecodeError):
-            st = {"status": "PENDING"}
-        if st.get("status") in ("COMPLETE", "FAILED"):
-            break
-        time.sleep(30)
-    rec["job_status"] = st.get("status")
-    rec["job_error"] = st.get("error")
-    if st.get("status") == "COMPLETE":
-        turn(f"Show me the top 10 leads for the latest hunt on {args.index}.")
-        turn(
-            f"Show me case 1 for the latest hunt on {args.index}: "
-            "what it pivoted on and its evidence picture."
+    record: dict = {"index": args.index, "started": time.time(), "transcripts": []}
+    receipt = args.out / f"{args.index}.json"
+    answer = _turn(
+        f"Start a hunt over the {args.index} environment and give me the job id.",
+        key,
+        args.model,
+        record,
+    )
+    found = list(dict.fromkeys(re.findall(r"(?<![\w-])hunt-[0-9a-f]{12}(?![\w-])", answer)))
+    if len(found) != 1:
+        record.update(
+            error="start outcome unknown: response did not contain exactly one valid hunt id",
+            job_status="START_ID_UNKNOWN",
+            finished=time.time(),
         )
-    rec["finished"] = time.time()
-    (args.out / f"{args.index}.json").write_text(json.dumps(rec, indent=1))
-    print(f"{args.index}: job {job} {rec['job_status']} in {rec['finished'] - rec['started']:.0f}s")
-    return 0
+        _write_receipt(receipt, record)
+        return 4
+    job = found[0]
+    record.update(job_id=job, status_samples=[])
+    status = _wait_for_job(hunt_dir, job, record, receipt, args.job_timeout_s, args.poll_s)
+    record["job_status"] = (
+        "SUPERVISION_TIMEOUT" if status.pop("supervision_timeout", False) else status.get("status")
+    )
+    record["job_error"] = status.get("error")
+    if status.get("status") in {"COMPLETE", "PARTIAL"}:
+        _turn(
+            f"Show me the top 10 leads for hunt {job} using its exact job id.",
+            key,
+            args.model,
+            record,
+        )
+        _turn(
+            f"Show me case 1 for hunt {job} using its exact job id: "
+            "what it pivoted on and its evidence picture.",
+            key,
+            args.model,
+            record,
+        )
+    record["finished"] = time.time()
+    _write_receipt(receipt, record)
+    elapsed = record["finished"] - record["started"]
+    print(f"{args.index}: job {job} {record['job_status']} in {elapsed:.0f}s")
+    return _exit_code(record["job_status"], record.get("coverage_complete"))
 
 
 if __name__ == "__main__":

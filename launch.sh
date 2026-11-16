@@ -38,9 +38,12 @@ case "${1:-up}" in
       chmod -R 0775 "${WS}" 2>/dev/null || true
     fi
 
-    # Tear down any previously running stack so ports are clean before we start
-    echo "[portal-5] Stopping any existing Portal 5 services..."
-    _do_down
+    # Tear down any previously running Docker stack so ports are clean before we
+    # start. Host-native jobs are NOT stopped here: they are reconciled
+    # idempotently by _ensure_native_services → `module services --apply --kind
+    # host`, which restarts only unhealthy services (2026-11-16 up-health gate).
+    echo "[portal-5] Stopping any existing Portal 5 Docker services..."
+    _do_down stack-only
 
     # Pull latest Docker images before bringing the stack up
     echo "[portal-5] Pulling latest Docker images..."
@@ -53,6 +56,12 @@ case "${1:-up}" in
     # Daily operation runs oMLX's balanced memory guard
     "$PORTAL_ROOT/.venv/bin/python" "$PORTAL_ROOT/scripts/omlx_memory_tier.py" balanced \
       || echo "[portal-5] ⚠️  could not set the oMLX balanced memory tier."
+
+    # The load guard admits an oMLX cold load only inside the engine's own
+    # prefill-safe share of its ceiling (past it oMLX aborts mid-prefill, which no
+    # fallback can recover). Read that share from the engine's settings here, so the
+    # guard uses the engine's number instead of a copy of it.
+    export_omlx_prefill_zone
 
     # Auto-start native services first so _check_hardware sees them as running
     _ensure_native_services
@@ -163,6 +172,11 @@ case "${1:-up}" in
     if [ -n "$_PRUNED" ] && ! echo "$_PRUNED" | grep -qE "0 ?B$"; then
         echo "[portal-5] 🧹 $_PRUNED"
     fi
+
+    # Gate: before `up` reports done, wait for every enabled host job and
+    # container in config/portal.yaml (mcp_fleet + host_jobs) to answer /health.
+    # Exits non-zero with a per-service table if any never come up.
+    _wait_up_health
 
     echo "[portal-5] Stack started."
     if [ "${ENABLE_REMOTE_ACCESS:-false}" = "true" ]; then

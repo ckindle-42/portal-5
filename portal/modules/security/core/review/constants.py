@@ -97,6 +97,14 @@ REGISTRY: dict[str, tuple[str, str]] = {
         "budget",
         "maximum duration for one Splunk HTTP request before it fails visibly",
     ),
+    "window.CANCEL_GRACE_SECONDS": (
+        "budget",
+        "time allowed for one cancel/cleanup request after a bounded search stops early",
+    ),
+    "window._RESULT_PAGE": (
+        "budget",
+        "result rows fetched per page of a bounded read; paging transport, not a completeness cap",
+    ),
     "embedding.DEFAULT_BATCH_SIZE": (
         "bound",
         "texts per embedding request; transport bound only, not an answer cutoff",

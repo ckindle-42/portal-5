@@ -571,6 +571,8 @@ def _stage_timing(
         "prefill_s": None,
         "decode_s": None,
         "tokens": None,
+        "prompt_tokens": None,
+        "completion_tokens": None,
         "portal_timings": {},
     }
     if skipped or not data:
@@ -586,16 +588,27 @@ def _stage_timing(
     tokens = None
     if answer_tokens is not None or reasoning_tokens is not None:
         tokens = int(answer_tokens or 0) + int(reasoning_tokens or 0)
+    raw_usage = data.get("usage")
+    usage = cast(dict[str, Any], raw_usage if isinstance(raw_usage, dict) else {})
     empty.update(
         {
             "cold_load_s": _cold_load_s(data),
             "prefill_s": timings.get("prefill_s"),
             "decode_s": decode_s,
             "tokens": tokens,
+            "prompt_tokens": _usage_int(usage.get("prompt_tokens")),
+            "completion_tokens": _usage_int(usage.get("completion_tokens")),
             "portal_timings": timings,
         }
     )
     return empty
+
+
+def _usage_int(value: Any) -> int | None:
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
 
 
 def _span_stage(stage: dict[str, Any]) -> None:
@@ -1401,6 +1414,8 @@ async def run_council_review(
         "speed": _recorded_speed(speed, council),
         "stages": stages,
     }
+    prompt_tokens = sum(int(s.get("prompt_tokens") or 0) for s in stages)
+    completion_tokens = sum(int(s.get("completion_tokens") or 0) for s in stages)
     from portal.platform.inference.router.trace import note as trace_note  # noqa: PLC0415
 
     trace_note(portal_council_timings=timings)
@@ -1417,6 +1432,11 @@ async def run_council_review(
                 "finish_reason": "stop",
             }
         ],
+        "usage": {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": prompt_tokens + completion_tokens,
+        },
         "portal_council": {
             "aggregate": asdict(aggregate),
             "reviewers": [asdict(opinion) for opinion in opinions],
@@ -1530,6 +1550,14 @@ async def stream_council_review(
             completion = completion_task.result()
         content = completion.data["choices"][0]["message"]["content"]
         yield _content_chunk(base, content)
+        from portal.platform.inference.router.streaming import (  # noqa: PLC0415
+            stream_usage_requested,
+            terminal_usage_chunk,
+        )
+
+        if stream_usage_requested(body):
+            usage = completion.data.get("usage")
+            yield terminal_usage_chunk(usage if isinstance(usage, dict) else None)
         stop_payload: dict[str, Any] = {
             **base,
             "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
