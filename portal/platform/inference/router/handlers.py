@@ -15,7 +15,7 @@ import logging
 import math
 import os
 import time
-from collections.abc import AsyncIterable, AsyncIterator
+from collections.abc import AsyncIterable, AsyncIterator, Iterator
 from datetime import UTC, datetime
 from typing import Any
 
@@ -99,6 +99,8 @@ from portal.platform.inference.router.streaming import (
     _select_stream_fn,
     _select_streaming_backend,
     _stream_with_fallback,
+    stream_usage_requested,
+    terminal_usage_chunk,
 )
 from portal.platform.inference.router.streaming import (
     _with_room_for_omlx as _room,
@@ -146,30 +148,17 @@ _mp_registry_dir_cache: str | None = None
 
 async def _with_portal_timings(
     source: AsyncIterable[str | bytes | memoryview],
+    *,
+    usage_wanted: bool = False,
 ) -> AsyncIterator[bytes]:
-    """Add one metadata-only timing frame immediately before the SSE terminator."""
+    """Add the closing usage guarantee (when requested) and one metadata-only
+    timing frame immediately before the SSE terminator."""
     done = False
-    async for chunk in source:
-        raw = chunk.encode() if isinstance(chunk, str) else bytes(chunk)
-        marker = b"data: [DONE]"
-        if marker in raw:
-            before, separator, after = raw.partition(marker)
-            if before:
-                yield before
-            timings = current_portal_timings()
-            trace_note(portal_timings=timings)
-            payload = {
-                "id": get_correlation_id(),
-                "object": "chat.completion.chunk",
-                "choices": [],
-                "portal_timings": timings,
-            }
-            yield ("data: " + json.dumps(payload, separators=(",", ":")) + "\n\n").encode()
-            yield separator + after
-            done = True
-        else:
-            yield raw
-    if not done:
+    usage_seen = False
+
+    def _closing_frames() -> Iterator[bytes]:
+        if usage_wanted and not usage_seen:
+            yield terminal_usage_chunk(None)
         timings = current_portal_timings()
         trace_note(portal_timings=timings)
         payload = {
@@ -179,12 +168,33 @@ async def _with_portal_timings(
             "portal_timings": timings,
         }
         yield ("data: " + json.dumps(payload, separators=(",", ":")) + "\n\n").encode()
+
+    async for chunk in source:
+        raw = chunk.encode() if isinstance(chunk, str) else bytes(chunk)
+        if b'"usage"' in raw:
+            usage_seen = True
+        marker = b"data: [DONE]"
+        if marker in raw:
+            before, separator, after = raw.partition(marker)
+            if before:
+                yield before
+            for frame in _closing_frames():
+                yield frame
+            yield separator + after
+            done = True
+        else:
+            yield raw
+    if not done:
+        for frame in _closing_frames():
+            yield frame
     finalize_trace()
 
 
-def _timed_stream_response(response: Any) -> Any:
+def _timed_stream_response(response: Any, *, usage_wanted: bool = False) -> Any:
     if isinstance(response, StreamingResponse):
-        response.body_iterator = _with_portal_timings(response.body_iterator)
+        response.body_iterator = _with_portal_timings(
+            response.body_iterator, usage_wanted=usage_wanted
+        )
     return response
 
 
@@ -1125,7 +1135,7 @@ async def chat_completions(
             workspace_id, body, stream, persona, slot, start_time
         )
         if council_resp is not None:
-            return _timed_stream_response(council_resp)
+            return _timed_stream_response(council_resp, usage_wanted=stream_usage_requested(body))
 
         backend, target_model, _model_hint, _chain, _secondary_model, _tertiary_model = (
             _select_streaming_backend(workspace_id, candidates)
@@ -1169,7 +1179,10 @@ async def chat_completions(
                 _has_tools,
             )
             _streaming_response = StreamingResponse(
-                _with_portal_timings(_room(backend, backend_body, _stream_fn, workspace_id)),
+                _with_portal_timings(
+                    _room(backend, backend_body, _stream_fn, workspace_id),
+                    usage_wanted=stream_usage_requested(body),
+                ),
                 media_type="text/event-stream",
                 headers={"x-portal-route": f"{workspace_id};{backend.id};{target_model}"},
             )
@@ -1200,7 +1213,8 @@ async def chat_completions(
                     remaining,
                     slot,
                     backend_body,
-                )
+                ),
+                usage_wanted=stream_usage_requested(body),
             ),
             media_type="text/event-stream",
             headers={"x-portal-route": f"{workspace_id};{backend.id};{target_model}"},
