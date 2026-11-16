@@ -309,7 +309,11 @@ def _fast(monkeypatch, tmp_path):
     monkeypatch.setattr(lg.asyncio, "sleep", lambda s, _r=real_sleep: _r(0))
     monkeypatch.setattr(lg, "_POLL_S", 0.0)
     monkeypatch.setattr(lg, "_PROCESS_LOCK_DIR", tmp_path / "guard-locks")
+    # oMLX's own prefill-safe share of its ceiling, pinned so oMLX admission
+    # arithmetic does not depend on the host's ~/.omlx/settings.json.
+    monkeypatch.setattr(lg, "_OMLX_PREFILL_ZONE", 0.8)
     monkeypatch.delenv("LOAD_GUARD", raising=False)
+    monkeypatch.delenv("OMLX_PREFILL_SAFE_ZONE_RATIO", raising=False)
     lg.set_load_wait(None)
     monkeypatch.setattr(lg, "_WAIT_S", 0.0)  # refuse at once unless a test opts into waiting
     from portal.platform.inference.router.parallel_seat import YIELD
@@ -367,13 +371,11 @@ async def test_a_case_only_tag_difference_sizes_from_the_served_entry():
                 },
             }
         },
-        ceiling=8 * GIB,
-    )  # 7.5 projected > 6 available
+        ceiling=7 * GIB,
+    )  # 6.0 projected > 5 available
     g = guard(e)
     async with httpx.AsyncClient(transport=e.transport()) as client:
-        assert await g._need(client, OLLAMA_URL, configured) == pytest.approx(
-            6 * GIB * lg._FACTOR + 4 * 1024
-        )
+        assert await g._need(client, OLLAMA_URL, configured) == pytest.approx(6 * GIB + 4 * 1024)
     with pytest.raises(lg.LoadRefusedError):
         await g.admit(OLLAMA_URL, configured)
 
@@ -467,12 +469,12 @@ async def test_96k_ollama_cold_load_unloads_idle_omlx_before_chat():
             }
         },
         omlx={omlx_model: {"size": 18 * GIB, "loaded": True}},
-        ceiling=46 * GIB,
+        ceiling=40 * GIB,
     )
     g = guard(e)
     async with httpx.AsyncClient(transport=e.transport()) as client:
         need = await g._need(client, OLLAMA_URL, model)
-    assert need == pytest.approx(18 * GIB * lg._FACTOR + 9 * GIB * (1.625 / 4))
+    assert need == pytest.approx(18 * GIB + 9 * GIB * (1.625 / 4))
     async with httpx.AsyncClient(transport=transport(e, g)) as client:
         response = await client.post(
             f"{OLLAMA_URL}/v1/chat/completions",
@@ -485,12 +487,14 @@ async def test_96k_ollama_cold_load_unloads_idle_omlx_before_chat():
 
 async def test_omlx_cold_load_unloads_idle_ollama_before_chat():
     model = "omlx-next"
+    # ceiling 12 GiB leaves the 14 GiB load outside oMLX's 80% prefill zone until
+    # the idle resident's 8 GiB is released back to the ceiling (12 → 20 GiB).
     e = Engines(
-        ollama={"idle": GIB},
+        ollama={"idle": 8 * GIB},
         omlx={model: {"size": 14 * GIB, "loaded": False}},
-        ceiling=15 * GIB,
+        ceiling=12 * GIB,
     )
-    e.hidden["idle"] = GIB
+    e.hidden["idle"] = 8 * GIB
     g = guard(e)
     async with httpx.AsyncClient(transport=transport(e, g)) as client:
         response = await client.post(
@@ -499,6 +503,68 @@ async def test_omlx_cold_load_unloads_idle_ollama_before_chat():
     assert response.status_code == 200
     assert e.unload_calls == {"idle": 1}
     assert e.events.index(("ollama_unload", "idle")) < e.events.index(("omlx_chat", model))
+
+
+def test_the_omlx_prefill_zone_is_read_from_the_engine_settings(tmp_path, monkeypatch):
+    """The reserve is the engine's number: no constant in the guard, three sources."""
+    settings = tmp_path / "settings.json"
+    settings.write_text(json.dumps({"memory": {"prefill_safe_zone_ratio": 0.72}}))
+    monkeypatch.delenv("OMLX_PREFILL_SAFE_ZONE_RATIO", raising=False)
+    assert lg._omlx_prefill_zone(settings) == pytest.approx(0.72)
+    monkeypatch.setenv("OMLX_PREFILL_SAFE_ZONE_RATIO", "0.9")
+    assert lg._omlx_prefill_zone(settings) == pytest.approx(0.9)
+    settings.write_text(json.dumps({"memory": {}}))
+    monkeypatch.delenv("OMLX_PREFILL_SAFE_ZONE_RATIO")
+    assert lg._omlx_prefill_zone(settings) is None
+    settings.write_text(json.dumps({"memory": {"prefill_safe_zone_ratio": 1.5}}))
+    assert lg._omlx_prefill_zone(settings) is None
+    assert lg._omlx_prefill_zone(tmp_path / "missing.json") is None
+    monkeypatch.setenv("OMLX_PREFILL_SAFE_ZONE_RATIO", "nonsense")
+    assert lg._omlx_prefill_zone(settings) is None
+
+
+def test_the_omlx_budget_is_the_engines_prefill_share_less_the_margin(monkeypatch):
+    assert lg._omlx_available(20 * GIB) == pytest.approx(0.8 * 20 * GIB - lg._MARGIN)
+    monkeypatch.setattr(lg, "_OMLX_PREFILL_ZONE", None)
+    assert lg._omlx_available(20 * GIB) == pytest.approx(20 * GIB - lg._MARGIN)
+
+
+def _heavy_seat(monkeypatch, zone: float | None) -> Engines:
+    """2026-11-16 03:19Z: a 16.6 GiB oMLX seat against a 19.79 GiB ceiling that a
+    26.2 GiB Ollama resident had collapsed; oMLX aborted at 19.8 GiB of usage."""
+    monkeypatch.setattr(lg, "_OMLX_PREFILL_ZONE", zone)
+    e = Engines(
+        ollama={"kat-coder-v2.5-dev:Q4_K_M-ctx32k": int(26.2 * GIB)},
+        omlx={"Qwen3.8-27B-oQ4e-mtp": {"size": int(16.6 * GIB), "loaded": False}},
+        ceiling=19.79 * GIB,
+    )
+    e.hidden["kat-coder-v2.5-dev:Q4_K_M-ctx32k"] = int(26.2 * GIB)
+    return e
+
+
+async def test_omlx_admission_frees_ollama_inside_the_prefill_zone(monkeypatch):
+    """The reserve is what makes the guard reclaim the other engine's bytes: past the
+    engine's prefill share oMLX aborts mid-prefill and no cascade can recover it."""
+    e = _heavy_seat(monkeypatch, 0.8)
+    g = guard(e)
+    lg.set_load_wait("5")
+    release = await g.admit_omlx("Qwen3.8-27B-oQ4e-mtp")
+    assert release is not None
+    assert e.unload_calls == {"kat-coder-v2.5-dev:Q4_K_M-ctx32k": 1}
+    assert e.events and e.events[0] == ("ollama_unload", "kat-coder-v2.5-dev:Q4_K_M-ctx32k")
+    release()
+
+
+async def test_omlx_admission_admits_on_raw_headroom_without_a_prefill_zone(monkeypatch):
+    """Same numbers with no readable ratio: 16.6 GiB fits 17.8 GiB and nothing is
+    freed — the shape of the load that aborted."""
+    e = _heavy_seat(monkeypatch, None)
+    g = guard(e)
+    lg.set_load_wait("5")
+    release = await g.admit_omlx("Qwen3.8-27B-oQ4e-mtp")
+    assert release is not None
+    assert e.unload_calls == {}
+    release()
 
 
 async def test_omlx_load_refuses_without_room_after_idle_ollama_is_gone():
@@ -528,7 +594,9 @@ async def test_omlx_cold_load_frees_its_own_idle_resident_lru_first():
     lg.set_load_wait("5")
     release = await g.admit_omlx("mlx")
     assert release is not None
-    assert e.unloaded == ["old-seat"]  # LRU first; one seat covers the shortage
+    # Inside the 80% prefill zone one seat is short: 24 GiB ceiling leaves 17.2 GiB
+    # for 14 GiB only after both 8 GiB residents go, LRU first.
+    assert e.unloaded == ["old-seat", "new-seat"]
     assert "mlx" not in e.unload_calls  # the target is never self-evicted
     assert not e.omlx["old-seat"]["loaded"]
     release()
@@ -617,7 +685,8 @@ async def test_omlx_cold_load_waits_out_a_delayed_release_then_admits(status_cod
             "idle": {"size": 8 * GIB, "loaded": True},
             "mlx": {"size": 14 * GIB, "loaded": False},
         },
-        ceiling=18 * GIB,
+        # 24 GiB: 80% of 16 GiB headroom is short of 14 GiB, of 24 GiB it is not.
+        ceiling=24 * GIB,
         unload_status_codes={"idle": status_code},
         omlx_release_polls={"idle": 5},
     )
@@ -685,13 +754,14 @@ async def test_free_omlx_never_unloads_the_excluded_target():
 
 
 def _omlx_short_of_ollama(resident: str) -> tuple[Engines, lg.LoadGuard]:
-    """14 GiB oMLX load against 13 GiB headroom; freeing ``resident`` closes the gap."""
+    """14 GiB oMLX load against 10 GiB of safe-zone budget (ceiling 15 GiB);
+    releasing ``resident``'s 8 GiB lifts the ceiling to 23 GiB and admits it."""
     engines = Engines(
-        ollama={resident: 2 * GIB},
+        ollama={resident: 8 * GIB},
         omlx={"mlx": {"size": 14 * GIB, "loaded": False}},
         ceiling=15 * GIB,
     )
-    engines.hidden[resident] = 2 * GIB
+    engines.hidden[resident] = 8 * GIB
     return engines, guard(engines)
 
 
@@ -731,7 +801,7 @@ async def test_omlx_cold_load_refuses_a_busy_ollama_resident_past_the_deadline(c
         await guard_obj.admit_omlx("mlx")
     end()
     text = str(err.value)
-    available = f"available {(15 * GIB - lg._MARGIN) / GIB:.1f} GiB"
+    available = f"available {lg._omlx_available(15 * GIB) / GIB:.1f} GiB"
     assert "seat" in text and "busy" in text
     assert "need 14.0 GiB" in text and available in text
     assert re.search(r"waited [1-9]\d*\.\d|waited 0\.[1-9]", text)
@@ -786,7 +856,7 @@ async def test_protected_busy_ollama_is_never_evicted(monkeypatch):
     end()
     assert "fallback" in str(err.value) and "busy" in str(err.value)
     assert engines.unload_calls == {}
-    assert engines.ollama["fallback"] == 2 * GIB
+    assert engines.ollama["fallback"] == 8 * GIB
 
 
 async def test_protected_idle_omlx_yields_when_it_is_the_only_idle():
@@ -899,12 +969,14 @@ async def test_omlx_cold_load_waits_for_ollama_active_elsewhere():
 
 async def test_omlx_cold_load_frees_idle_then_waits_for_the_busy_resident():
     engines = Engines(
-        ollama={"small": GIB, "seat": 4 * GIB},
+        ollama={"small": GIB, "seat": 7 * GIB},
         omlx={"mlx": {"size": 16 * GIB, "loaded": False}},
+        # 15 GiB ceiling leaves 10 GiB of safe-zone budget for a 16 GiB load; the
+        # idle 1 GiB goes first, then the busy 7 GiB once it is released (23 GiB).
         ceiling=15 * GIB,
     )
     engines.hidden["small"] = GIB
-    engines.hidden["seat"] = 4 * GIB
+    engines.hidden["seat"] = 7 * GIB
     guard_obj = guard(engines)
     end = guard_obj.begin(OLLAMA, "seat")
     lg.set_load_wait("5")
@@ -1072,7 +1144,9 @@ async def test_every_omlx_capacity_refusal_while_ollama_holds_bytes_names_a_bloc
 
     for holder, label in (("router", "pinned"), ("fallback", "protected")):
         engines = engines_with()
-        engines.ollama = {holder: 2 * GIB}
+        # A protected resident only reaches the refusal path when its bytes could have
+        # covered the gap: 8 GiB does under the 80% prefill zone, 2 GiB does not.
+        engines.ollama = {holder: (8 * GIB if label == "protected" else 2 * GIB)}
         guard_obj = guard(engines)
         if label == "protected":
             guard_obj.protect(OLLAMA, holder)
@@ -1114,6 +1188,61 @@ async def test_missing_ollama_architecture_uses_weight_factor_fallback():
     async with httpx.AsyncClient(transport=e.transport()) as client:
         estimate = await guard(e)._need(client, OLLAMA_URL, model)
     assert estimate == pytest.approx(8 * GIB * lg._FACTOR)
+
+
+def test_a_sized_kv_cache_is_not_padded_by_the_weight_factor():
+    """2026-11-16: 20.55 GiB of weights at 256k projected 36.3 GiB (×1.25 + 10.6 GiB KV)
+    and was refused at 35.2 GiB headroom; the factor is for geometry the guard cannot size."""
+    show = {
+        "parameters": "num_ctx 262144\ncache-type-k q8_0\ncache-type-v q8_0",
+        "model_info": {
+            "general.architecture": "qwen35moe",
+            "qwen35moe.block_count": 40,
+            "qwen35moe.attention.head_count_kv": 4,
+            "qwen35moe.attention.key_length": 128,
+            "qwen35moe.attention.value_length": 128,
+        },
+    }
+    kv = lg._ollama_kv_bytes(lg._show_values(show), 262144)
+    assert kv is not None and kv / GIB == pytest.approx(10.62, abs=0.01)
+    need = lg._estimate_ollama_need(int(20.55 * GIB), show, "seat")
+    assert need == pytest.approx(20.55 * GIB + kv)
+    assert need < 20.55 * GIB * lg._FACTOR + kv
+
+
+async def test_a_256k_ollama_seat_admits_in_the_headroom_that_refused_it():
+    """auto-general-uncensored::throwaway, 2026-11-16 03:15Z: 36.3 GiB projected against
+    35.2 GiB available (oMLX headroom 37.2, no idle Ollama, margin 2) — a 1.1 GiB refusal
+    of a seat that is 31.2 GiB of weights plus its sized cache."""
+    model = "portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k"
+    show = {
+        "parameters": "num_ctx 262144",
+        "model_info": {
+            "general.architecture": "qwen35moe",
+            "qwen35moe.block_count": 40,
+            "qwen35moe.attention.head_count_kv": 4,
+            "qwen35moe.attention.key_length": 128,
+            "qwen35moe.attention.value_length": 128,
+        },
+    }
+    e = Engines(
+        tags={model: int(20.55 * GIB)},
+        shows={model: show},
+        ceiling=39.2 * GIB,
+        omlx_memory=2 * GIB,
+    )
+    g = guard(e)
+    async with httpx.AsyncClient(transport=e.transport()) as client:
+        need = await g._need(client, OLLAMA_URL, model)
+        capacity = await g._headroom(client)
+    assert capacity is not None
+    headroom, _ = capacity
+    available = g._ollama_available(headroom, {}, 0.0) - lg._MARGIN
+    assert available / GIB == pytest.approx(35.2)
+    assert need / GIB == pytest.approx(31.175, abs=0.01)
+    release = await g.admit(OLLAMA_URL, model)
+    assert release is not None
+    release()
 
 
 async def test_observed_resident_size_can_raise_missing_geometry_fallback():
@@ -1165,7 +1294,7 @@ async def test_hybrid_zero_kv_layers_do_not_trigger_context_fallback(monkeypatch
     e = Engines(tags={model: 15 * GIB}, shows={model: show})
     async with httpx.AsyncClient(transport=e.transport()) as client:
         estimate = await guard(e)._need(client, OLLAMA_URL, model)
-    assert estimate == pytest.approx(15 * GIB * lg._FACTOR + 8 * 2 * 98304 * 256 * 1.0625)
+    assert estimate == pytest.approx(15 * GIB + 8 * 2 * 98304 * 256 * 1.0625)
 
 
 async def test_qwen3_coder_plain_head_count_sizes_256k_q8_cache(monkeypatch):
@@ -1184,7 +1313,7 @@ async def test_qwen3_coder_plain_head_count_sizes_256k_q8_cache(monkeypatch):
     e = Engines(tags={model: 16 * GIB}, shows={model: show})
     async with httpx.AsyncClient(transport=e.transport()) as client:
         estimate = await guard(e)._need(client, OLLAMA_URL, model)
-    assert 30 <= estimate / GIB <= 35
+    assert estimate / GIB == pytest.approx(28.75, abs=0.05)
 
 
 def test_ollama_global_kv_cache_type_is_used_when_show_has_no_override(monkeypatch):
@@ -1199,9 +1328,7 @@ def test_ollama_global_kv_cache_type_is_used_when_show_has_no_override(monkeypat
         },
     }
     expected_kv = 32768 * (64 * 1.0625 + 64 * 1.0625)
-    assert lg._estimate_ollama_need(GIB, show, "granite") == pytest.approx(
-        GIB * lg._FACTOR + expected_kv
-    )
+    assert lg._estimate_ollama_need(GIB, show, "granite") == pytest.approx(GIB + expected_kv)
 
 
 async def test_the_measured_chat_need_does_not_fit_beside_the_hunt() -> None:

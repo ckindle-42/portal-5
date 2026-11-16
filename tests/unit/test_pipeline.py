@@ -2236,3 +2236,176 @@ class TestRouterWarmupContext:
             "with keep_alive=-1 and no cap reserves its full context window "
             "(possibly 131072+ tokens x OLLAMA_NUM_PARALLEL slots) forever"
         )
+
+
+class TestPreferredResident:
+    """Seat 3, 2026-11-16: `auto` routes ordinary chat to auto-daily, and a cold
+    23.7 GiB daily driver is a 40 s first token. `defaults.preferred_residents`
+    keeps it warm — loaded at up or the first idle moment, protected from eviction
+    but never pinned (protected idle memory still yields to a seat's admission).
+    """
+
+    def _harness(self, monkeypatch, plan, backend_type="ollama"):
+        from unittest.mock import AsyncMock
+
+        import portal.platform.inference.router.lifespan as lifespan_mod
+
+        hint = WORKSPACES["auto-daily"]["model_hint"]
+        backend = MagicMock(type=backend_type, url="http://fake:11434")
+        registry = MagicMock(preferred_residents=["auto-daily"])
+        registry.get_backend_for_workspace = MagicMock(return_value=backend)
+        registry.list_backends = MagicMock(return_value=[backend])
+        guard = MagicMock()
+        guard.plan = AsyncMock(return_value=plan)
+        guard.admit = AsyncMock(return_value=None)
+        guard.admit_omlx = AsyncMock(return_value=None)
+        guard.begin = MagicMock(return_value=lambda: None)
+        client = MagicMock()
+        client.post = AsyncMock(return_value=MagicMock(status_code=200))
+        monkeypatch.setattr(lifespan_mod, "_http_client", client)
+        monkeypatch.setattr(lifespan_mod._load_guard_mod, "GUARD", guard)
+        return lifespan_mod, registry, guard, client, hint
+
+    @pytest.mark.asyncio
+    async def test_the_daily_driver_loads_with_keep_alive_when_the_host_has_room(self, monkeypatch):
+        plan = {
+            "busy": False,
+            "need_gib": 23.7,
+            "headroom_gib": 37.2,
+            "models": [{"resident": False}],
+        }
+        lifespan_mod, registry, guard, client, hint = self._harness(monkeypatch, plan)
+        loaded = await lifespan_mod._warm_preferred_resident(
+            registry.list_backends()[0],
+            "ollama",
+            hint,
+            {"num_predict": 1},
+            guard,
+            "http://fake:11434",
+        )
+        assert loaded is True
+        payload = client.post.await_args.kwargs["json"]
+        assert payload["model"] == hint
+        assert payload["keep_alive"] == -1
+        assert "num_ctx" not in payload["options"], (
+            "the -ctx derived tag bakes its own num_ctx; passing another would pin "
+            "a runner with a context the seat never asked for"
+        )
+        guard.admit.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_a_busy_host_is_never_made_to_wait_for_the_warm_up(self, monkeypatch):
+        plan = {
+            "busy": True,
+            "need_gib": 23.7,
+            "headroom_gib": 37.2,
+            "models": [{"resident": False}],
+        }
+        lifespan_mod, registry, guard, client, hint = self._harness(monkeypatch, plan)
+        loaded = await lifespan_mod._warm_preferred_resident(
+            registry.list_backends()[0],
+            "ollama",
+            hint,
+            {"num_predict": 1},
+            guard,
+            "http://fake:11434",
+        )
+        assert loaded is False
+        client.post.assert_not_awaited()
+        guard.admit.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_a_model_that_does_not_fit_the_headroom_is_left_for_later(self, monkeypatch):
+        plan = {
+            "busy": False,
+            "need_gib": 23.7,
+            "headroom_gib": 4.0,
+            "models": [{"resident": False}],
+        }
+        lifespan_mod, registry, guard, client, hint = self._harness(monkeypatch, plan)
+        loaded = await lifespan_mod._warm_preferred_resident(
+            registry.list_backends()[0],
+            "ollama",
+            hint,
+            {"num_predict": 1},
+            guard,
+            "http://fake:11434",
+        )
+        assert loaded is False
+        client.post.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_an_unbaked_hint_caps_num_ctx(self, monkeypatch):
+        plan = {
+            "busy": False,
+            "need_gib": 8.0,
+            "headroom_gib": 37.2,
+            "models": [{"resident": False}],
+        }
+        lifespan_mod, registry, guard, client, hint = self._harness(monkeypatch, plan)
+        await lifespan_mod._warm_preferred_resident(
+            registry.list_backends()[0],
+            "ollama",
+            "some-model:q6_k",
+            {"num_predict": 1, "num_ctx": 16384},
+            guard,
+            "http://fake:11434",
+        )
+        payload = client.post.await_args.kwargs["json"]
+        assert payload["options"]["num_ctx"] == 16384
+
+    @pytest.mark.asyncio
+    async def test_an_omlx_preferred_resident_still_goes_through_admission(self, monkeypatch):
+        plan = {
+            "busy": False,
+            "need_gib": 16.6,
+            "headroom_gib": 41.0,
+            "models": [{"resident": False}],
+        }
+        lifespan_mod, registry, guard, client, _ = self._harness(monkeypatch, plan, "omlx")
+        loaded = await lifespan_mod._warm_preferred_resident(
+            registry.list_backends()[0],
+            "omlx",
+            "Qwen3.8-27B-oQ4e-mtp",
+            {"num_predict": 1},
+            guard,
+            "http://fake:11434",
+        )
+        assert loaded is True
+        guard.admit_omlx.assert_awaited_once_with("Qwen3.8-27B-oQ4e-mtp")
+        assert client.post.await_args.args[0].endswith("/v1/chat/completions")
+
+    def test_the_target_options_follow_the_derived_tag_convention(self):
+        import portal.platform.inference.router.lifespan as lifespan_mod
+
+        registry = MagicMock(preferred_residents=["auto-daily"])
+        registry.get_backend_for_workspace = MagicMock(
+            return_value=MagicMock(type="ollama", url="http://fake:11434")
+        )
+        ((_, engine, model, options),) = lifespan_mod._preferred_resident_targets(registry)
+        assert engine == "ollama" and model == WORKSPACES["auto-daily"]["model_hint"]
+        assert "-ctx" in model and "num_ctx" not in options
+
+    @pytest.mark.asyncio
+    async def test_the_keeper_protects_the_seat_and_stops_at_shutdown(self, monkeypatch):
+        import asyncio
+
+        plan = {
+            "busy": False,
+            "need_gib": 23.7,
+            "headroom_gib": 37.2,
+            "models": [{"resident": True}],
+        }
+        lifespan_mod, registry, guard, client, hint = self._harness(monkeypatch, plan)
+
+        async def _stop(_seconds):
+            raise asyncio.CancelledError
+
+        monkeypatch.setattr(lifespan_mod.asyncio, "sleep", _stop)
+        with pytest.raises(asyncio.CancelledError):
+            await lifespan_mod._keep_preferred_residents(registry)
+        guard.protect.assert_called_once_with(
+            "ollama", hint, lifespan_mod._PREFERRED_RESIDENT_PROTECT_S
+        )
+        assert lifespan_mod._PREFERRED_RESIDENT_PROTECT_S > 0
+        client.post.assert_not_awaited()  # resident already: protect, do not reload

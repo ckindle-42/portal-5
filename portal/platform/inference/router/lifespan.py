@@ -60,6 +60,7 @@ registry: BackendRegistry | None = None
 _health_task: asyncio.Task[Any] | None = None
 _state_save_task: asyncio.Task[Any] | None = None
 _tool_registry_task: asyncio.Task[Any] | None = None
+_preferred_resident_task: asyncio.Task[Any] | None = None
 _notification_dispatcher = None  # type annotation deferred to TYPE_CHECKING
 _notification_scheduler = None
 
@@ -257,6 +258,132 @@ async def _warmup_llm_router() -> None:
         )
 
 
+#: Seconds a preferred resident is protected from eviction (refreshed every tick). It
+#: is never pinned: protected idle memory yields to another seat's admission.
+_PREFERRED_RESIDENT_PROTECT_S = 3600.0
+#: The keeper's re-check interval: the load lands at startup or at the first idle moment.
+_PREFERRED_RESIDENT_INTERVAL_S = 60.0
+
+
+def _preferred_resident_targets(
+    registry: BackendRegistry,
+) -> list[tuple[Any, str, str, dict[str, Any]]]:
+    """(backend, engine, model, generate options) per ``defaults.preferred_residents``.
+
+    A hint whose tag bakes ``num_ctx`` (the ``-ctx`` derived-tag convention) gets none:
+    otherwise the warm load would pin a runner with a context the seat never asked for.
+    """
+    targets: list[tuple[Any, str, str, dict[str, Any]]] = []
+    for ws_id in registry.preferred_residents:
+        ws = WORKSPACES.get(ws_id) or {}
+        model = str(ws.get("model_hint") or "")
+        backend = registry.get_backend_for_workspace(ws_id)
+        if not model or backend is None or backend.type not in ("ollama", "omlx"):
+            logger.warning(
+                "preferred resident %s has no servable model hint or backend — skipped", ws_id
+            )
+            continue
+        options: dict[str, Any] = {"num_predict": 1}
+        if "-ctx" not in model:
+            options["num_ctx"] = int(ws.get("context_limit") or 8192)
+        targets.append((backend, backend.type, model, options))
+    return targets
+
+
+async def _warm_preferred_resident(
+    backend: Any,
+    engine: str,
+    model: str,
+    options: dict[str, Any],
+    guard: LoadGuard,
+    ollama_base: str,
+) -> bool:
+    """Make one preferred resident resident, if the host has room to spare right now.
+
+    Returns True when this call loaded it. Only loads when nothing is in flight and
+    the model fits the headroom the host already has, so a seat's admission never
+    waits behind the warm-up.
+    """
+    plan = await guard.plan(ollama_base, [(engine, model)])
+    rows = plan.get("models") or []
+    headroom = plan.get("headroom_gib")
+    if (rows and rows[0].get("resident")) or plan.get("busy") or headroom is None:
+        return False
+    if float(plan.get("need_gib") or 0) > float(headroom):
+        return False
+    _load_guard_mod.set_load_wait("5")  # never queue behind another seat's cold load
+    if engine == _load_guard_mod.OLLAMA:
+        release = await guard.admit(backend.url, model)
+        end = guard.begin(_load_guard_mod.OLLAMA, model)
+        try:
+            # keep_alive: -1 keeps the daily driver loaded until the guard frees it.
+            resp = await _http_client.post(  # type: ignore[union-attr]
+                f"{backend.url.rstrip('/')}/api/generate",
+                json={
+                    "model": model,
+                    "prompt": "ok",
+                    "stream": False,
+                    "keep_alive": -1,
+                    "options": options,
+                },
+            )
+        finally:
+            end()
+            if release is not None:
+                release()
+    else:
+        await guard.admit_omlx(model)  # oMLX owns residency; no keep_alive to send
+        resp = await _http_client.post(  # type: ignore[union-attr]
+            f"{backend.url.rstrip('/')}/v1/chat/completions",
+            json={
+                "model": model,
+                "messages": [{"role": "user", "content": "ok"}],
+                "max_tokens": 1,
+                "stream": False,
+            },
+        )
+    if resp.status_code != 200:
+        logger.warning(
+            "preferred resident %s returned HTTP %d — will retry when the host is idle",
+            model,
+            resp.status_code,
+        )
+        return False
+    return True
+
+
+async def _keep_preferred_residents(registry: BackendRegistry) -> None:
+    """Warm ``defaults.preferred_residents`` at startup, then re-assert their protection.
+
+    A cold 23.7 GiB daily driver is a 40 s first token for the most-used path
+    (2026-11-16); this keeps it resident with ``keep_alive``. A load that does not fit
+    is retried on the interval, so it lands at the first idle moment instead of
+    competing with a seat's admission. Protection never pins: the guard evicts it
+    before it would refuse another seat. Never raises; cancelled at shutdown.
+    """
+    guard = _load_guard_mod.GUARD
+    if guard is None:
+        return
+    ollama_base = next((b.url for b in registry.list_backends() if b.type == "ollama"), "")
+    if not ollama_base:  # nothing to measure against; the keeper waits for a backend
+        return
+    while True:
+        for backend, engine, model, options in _preferred_resident_targets(registry):
+            try:
+                guard.protect(engine, model, _PREFERRED_RESIDENT_PROTECT_S)
+                if await _warm_preferred_resident(
+                    backend, engine, model, options, guard, ollama_base
+                ):
+                    logger.info(
+                        "Preferred resident loaded: %s (%s) — kept warm, yields to a seat",
+                        model,
+                        engine,
+                    )
+            except Exception as e:  # a warm-up never crashes the pipeline
+                logger.debug("preferred resident %s: %s", model, e)
+        await asyncio.sleep(_PREFERRED_RESIDENT_INTERVAL_S)
+
+
 async def _run_startup_warmups(registry: BackendRegistry) -> None:
     """Fire startup warmups in parallel; never raises.
 
@@ -327,6 +454,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     global registry, _health_task, _http_client, _ollama_native_client
     global _notification_dispatcher, _notification_scheduler, _state_save_task
     global _tool_registry_task
+    global _preferred_resident_task
     _concurrency_mod._request_semaphore = asyncio.Semaphore(_concurrency_mod._MAX_CONCURRENT)
     # Pre-create Prometheus multiproc dir at startup so workers don't race.
     if mp_dir := os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
@@ -428,6 +556,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Pre-warm inference + LLM router models in parallel as background tasks —
     # startup is not blocked.
     asyncio.create_task(_run_startup_warmups(registry))
+    # Keep `defaults.preferred_residents` warm (loaded at up, or at the first idle
+    # moment) — a cold daily driver is a 40 s first token on the most-used path.
+    if _guard is not None and registry.preferred_residents:
+        _preferred_resident_task = asyncio.create_task(_keep_preferred_residents(registry))
     # Power metrics polling — graceful if daemon not running
     asyncio.create_task(_power_polling_loop())
     healthy = registry.list_healthy_backends()
@@ -462,6 +594,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         _tool_registry_task.cancel()
         with suppress(asyncio.CancelledError):
             await _tool_registry_task
+
+    if _preferred_resident_task is not None:
+        _preferred_resident_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await _preferred_resident_task
 
     if _in_test_mode:
         if _ollama_native_client:
