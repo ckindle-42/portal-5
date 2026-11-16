@@ -53,7 +53,7 @@ The LaunchAgent template is `deploy/launchd/com.portal5.omlx.plist`. It runs `py
 ./launch.sh install-omlx
 ```
 
-That renders the template (`__OMLX_VENV__`, `__HOME__`), lints it, and bootstraps the label. Copying the template into `~/Library/LaunchAgents/` instead leaves the placeholders in place: launchd keeps the program it loaded until the next bootstrap, then cannot start the agent at login. `./launch.sh up` compares the installed copy with the rendered template and names this installer when they differ.
+That renders the template (`__OMLX_VENV__`, `__HOME__`), lints it, and reloads the agent: it waits for launchd to finish the previous job's teardown before bootstrapping, retries the bootstrap, and reports success only once `:8085/health` answers — a failed reload puts the previous plist back. Copying the template into `~/Library/LaunchAgents/` instead leaves the placeholders in place: launchd keeps the program it loaded until the next bootstrap, then cannot start the agent at login. `./launch.sh up` compares the installed copy with the rendered template and names this installer when they differ.
 
 Numbered host cutover checklist:
 

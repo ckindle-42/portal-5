@@ -515,6 +515,122 @@ _launchd_plist_matches() {
     return "$rc"
 }
 
+# ── launchd reload: bootout → wait gone → bootstrap (retry) → verify ────────
+# `bootout` returns before launchd has torn the job down; bootstrapping inside
+# that window fails with "5: Input/output error" (2026-11-16: install-omlx took
+# oMLX down). Every installer reloads through here, and a failed install puts the
+# previous plist back rather than leaving the job down.
+_launchd_ctl() {  # domain, launchctl args…
+    local domain="$1"
+    shift
+    if [ "$domain" = "system" ] && [ "$(id -u)" -ne 0 ]; then
+        sudo launchctl "$@"
+    else
+        launchctl "$@"
+    fi
+}
+
+_launchd_job_loaded() {  # domain, label
+    _launchd_ctl "$1" print "$1/$2" &>/dev/null
+}
+
+_launchd_wait_gone() {  # domain, label, budget_s
+    local waited=0
+    while _launchd_job_loaded "$1" "$2"; do
+        if [ "$waited" -ge "${3:-30}" ]; then
+            return 1
+        fi
+        sleep 1
+        waited=$((waited + 1))
+    done
+    return 0
+}
+
+# The bootout/bootstrapping window: launchctl reports exit 5 / "Input/output error".
+_launchd_is_race() {  # exit_code, message
+    case "$2" in
+        *"error 5"*|*"failed: 5"*|*"Input/output error"*) return 0 ;;
+    esac
+    [ "$1" -eq 5 ]
+}
+
+# Bootstrap, retrying only the teardown race ("5: Input/output error"), with backoff.
+_launchd_bootstrap() {  # domain, plist
+    local out code attempt=1 delay=1
+    while :; do
+        out="$(_launchd_ctl "$1" bootstrap "$1" "$2" 2>&1)" && return 0
+        code=$?
+        if ! _launchd_is_race "$code" "$out"; then
+            printf '%s\n' "${out:-launchctl bootstrap failed (exit $code)}" >&2
+            return 1
+        fi
+        if [ "$attempt" -ge 5 ]; then
+            printf '%s\n' "${out:-launchctl bootstrap failed (exit $code)}" >&2
+            return 1
+        fi
+        sleep "$delay"
+        attempt=$((attempt + 1))
+        delay=$((delay * 2))
+    done
+}
+
+
+_launchd_serving() {  # domain, label, health_url, health_budget_s
+    local waited=0
+    while ! _launchd_ctl "$1" print "$1/$2" 2>/dev/null | grep -q "state = running"; do
+        if [ "$waited" -ge 10 ]; then
+            return 1
+        fi
+        sleep 1
+        waited=$((waited + 1))
+    done
+    [ -n "$3" ] || return 0
+    waited=0
+    while :; do
+        curl -fsS -m 3 "$3" &>/dev/null 2>&1 && return 0
+        if [ "$waited" -ge "${4:-60}" ]; then
+            return 1
+        fi
+        [ "$waited" -eq 0 ] && echo "[portal-5]   … waiting for ${3} (up to ${4:-60}s)"
+        sleep 2
+        waited=$((waited + 2))
+    done
+}
+
+# A previous plist that cannot run (placeholders, or lint-invalid) is not restored.
+_launchd_restore() {  # label, plist, domain, previous_plist
+    local label="$1" plist="$2" domain="$3" previous="${4:-}"
+    if [ -n "$previous" ] && [ -f "$previous" ] \
+        && ! grep -q "__[A-Z0-9_]*__" "$previous" \
+        && plutil -lint "$previous" >/dev/null 2>&1; then
+        cp -f "$previous" "$plist"
+        _launchd_ctl "$domain" bootout "$domain/$label" 2>/dev/null || true
+        _launchd_wait_gone "$domain" "$label" 30 || true
+        if _launchd_bootstrap "$domain" "$plist" && _launchd_serving "$domain" "$label" "" 0; then
+            echo "[portal-5]   ↩️  ${label}: restored the previous plist and re-bootstrapped it"
+            return 0
+        fi
+        echo "[portal-5]   ⚠️  ${label}: the previous plist did not load either"
+    fi
+    return 1
+}
+
+_launchd_reload_job() {  # label, plist, domain, [health_url], [previous_plist], [health_budget_s]
+    local label="$1" plist="$2" domain="$3" health="${4:-}" previous="${5:-}"
+    _launchd_ctl "$domain" bootout "$domain/$label" 2>/dev/null || true
+    if ! _launchd_wait_gone "$domain" "$label" 30; then
+        echo "[portal-5]   ❌ ${label}: still loaded 30s after bootout — not bootstrapping over it"
+    elif _launchd_bootstrap "$domain" "$plist" \
+        && _launchd_serving "$domain" "$label" "$health" "${6:-60}"; then
+        return 0
+    else
+        echo "[portal-5]   ❌ ${label}: bootstrap or start failed"
+    fi
+    _launchd_restore "$label" "$plist" "$domain" "$previous" \
+        || echo "[portal-5]   ⚠️  ${label}: service is down; repair: launchctl bootstrap ${domain} ${plist}"
+    return 1
+}
+
 # A LaunchAgent copied from the template runs nothing; `up` names the installer
 # rather than leaving the next login to discover it.
 _warn_omlx_plist_drift() {
