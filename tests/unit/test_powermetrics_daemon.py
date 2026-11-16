@@ -2,6 +2,7 @@
 
 import importlib.util
 import plistlib
+import subprocess
 from pathlib import Path
 
 _PATH = Path(__file__).resolve().parents[2] / "scripts" / "portal5-powermetrics.py"
@@ -40,7 +41,12 @@ def test_powermetrics_launchdaemon_uses_root_owned_install_targets():
     assert '_render_launchd_plist "$PLIST_SRC" "$PLIST_RENDERED"' in services
     assert 'sudo install -o root -g wheel -m 0644 "$PLIST_RENDERED" "$PLIST_DST"' in services
     assert 'cmp -s "$PLIST_RENDERED" "$PLIST_DST"' in services
-    assert 'grep -q "[/]usr/local/libexec/portal5-powermetrics"' in services
+    # The install check is readiness, not a ps pattern: launchd starts the job a
+    # few seconds after bootstrap, and /usr/bin/python3 re-execs into the Xcode
+    # interpreter before the script path appears in the command line.
+    assert 'grep -q "[/]usr/local/libexec/portal5-powermetrics"' not in services
+    assert '_launchd_reload_job "$PM_LABEL" "$PLIST_DST" system' in services
+    assert '_unix_socket_answering "/tmp/portal5-powermetrics.sock"' in services
 
 
 def _sample(cpu_mw: float) -> list[bytes]:
@@ -73,3 +79,95 @@ def test_buffer_is_bounded_without_boundary(monkeypatch):
     docs = list(pm.iter_plist_documents(lines))
     assert len(docs) == 1
     assert len(docs[0].splitlines()) <= 10 + len(_sample(500.0))
+
+
+def _stub(path: Path, body: str) -> None:
+    path.write_text(body, encoding="utf-8")
+    path.chmod(0o755)
+
+
+def _env(tmp_path: Path) -> dict[str, str]:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir(exist_ok=True)
+    return {
+        "PATH": f"{bin_dir}:/usr/bin:/bin:/usr/sbin:/sbin",
+        "HOME": str(tmp_path / "home"),
+        "PORTAL_ROOT": str(_ROOT),
+        "TMPDIR": str(tmp_path),
+        "NC_COUNT": str(tmp_path / "nc-calls"),
+        "SLEEP_LOG": str(tmp_path / "sleeps"),
+    }
+
+
+def _bash(script: str, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(["/bin/bash", "-uc", script], capture_output=True, text=True, env=env)
+
+
+def test_socket_probe_reports_ready_only_when_the_daemon_answers(tmp_path: Path) -> None:
+    env = _env(tmp_path)
+    _stub(
+        tmp_path / "bin" / "nc",
+        '#!/bin/bash\nn=$(cat "$NC_COUNT" 2>/dev/null || echo 0)\n'
+        'echo $((n + 1)) > "$NC_COUNT"\n'
+        '[ "$n" -ge 2 ] && { echo \'{"current_w": 1.0}\'; exit 0; }\nexit 1\n',
+    )
+    _stub(tmp_path / "bin" / "sleep", "#!/bin/bash\nexit 0\n")
+
+    result = _bash(
+        f'source "{_ROOT}/scripts/lib/util.sh"\n'
+        "_unix_socket_answering /tmp/portal5-powermetrics.sock 10",
+        env,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert int((tmp_path / "nc-calls").read_text()) == 3
+
+
+def test_socket_probe_gives_up_after_the_budget(tmp_path: Path) -> None:
+    env = _env(tmp_path)
+    _stub(tmp_path / "bin" / "nc", "#!/bin/bash\nexit 1\n")
+    _stub(tmp_path / "bin" / "sleep", '#!/bin/bash\nprintf "%s\\n" "$*" >> "$SLEEP_LOG"\nexit 0\n')
+
+    result = _bash(
+        f'source "{_ROOT}/scripts/lib/util.sh"\n'
+        "_unix_socket_answering /tmp/portal5-powermetrics.sock 4",
+        env,
+    )
+
+    assert result.returncode != 0
+    assert "waiting for /tmp/portal5-powermetrics.sock" in result.stdout
+    assert (tmp_path / "sleeps").read_text().split() == ["2", "2"]
+
+
+def test_root_hint_prefers_the_passwordless_dispatcher(tmp_path: Path) -> None:
+    env = _env(tmp_path)
+    dispatcher = tmp_path / "portal5-root"
+    _stub(dispatcher, "#!/bin/bash\nexit 0\n")
+    env["PORTAL5_ROOT_DISPATCHER"] = str(dispatcher)
+
+    result = _bash(
+        f'source "{_ROOT}/scripts/lib/util.sh"\n'
+        '_portal5_root install-powermetrics "sudo ./launch.sh install-powermetrics"',
+        env,
+    )
+
+    assert result.stdout == f"sudo -n {dispatcher} install-powermetrics"
+
+
+def test_root_hint_falls_back_without_the_dispatcher(tmp_path: Path) -> None:
+    env = _env(tmp_path)
+    env["PORTAL5_ROOT_DISPATCHER"] = str(tmp_path / "absent")
+
+    result = _bash(
+        f'source "{_ROOT}/scripts/lib/util.sh"\n'
+        '_portal5_root install-powermetrics "sudo ./launch.sh install-powermetrics"',
+        env,
+    )
+
+    assert result.stdout == "sudo ./launch.sh install-powermetrics"
+
+
+def test_up_and_status_hints_use_the_root_dispatcher() -> None:
+    util = (_ROOT / "scripts" / "lib" / "util.sh").read_text(encoding="utf-8")
+    assert util.count("_portal5_root install-powermetrics") == 2
+    assert "_portal5_root launchctl-system com.portal5.ollama" in util

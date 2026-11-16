@@ -25,7 +25,7 @@ _launch_install_ollama() {
             echo "  ✅ com.portal5.ollama running (v${OLLAMA_API_VER})"
         else
             echo "  ⚠️  com.portal5.ollama is configured but not responding — restart it:"
-            echo "     sudo launchctl kickstart -k system/com.portal5.ollama"
+            echo "     $(_portal5_root launchctl-system com.portal5.ollama 'sudo launchctl kickstart -k system/com.portal5.ollama')"
         fi
         echo ""
         echo "Next steps:"
@@ -497,26 +497,31 @@ _launch_install_omlx() {
     fi
 
     mkdir -p "$HOME/Library/LaunchAgents"
+    local previous=""
+    if [ -f "$dst" ]; then
+        previous="$(mktemp "${TMPDIR:-/tmp}/portal5-plist-previous.XXXXXX")"
+        cp -f "$dst" "$previous"
+    fi
     if ! _render_launchd_plist "$src" "$dst"; then
+        rm -f "$previous"
         echo "  ❌ Could not render $src — a placeholder has no substitution"
         exit 1
     fi
     if ! plutil -lint "$dst" >/dev/null; then
+        rm -f "$previous"
         echo "  ❌ Rendered plist failed plutil -lint: $dst"
         exit 1
     fi
-    launchctl bootout "${domain}/${label}" 2>/dev/null || true
-    if ! launchctl bootstrap "$domain" "$dst"; then
-        echo "  ❌ Failed to bootstrap ${label} from ${dst}"
+    # /health answers 503 until oMLX's pinned-model preload finishes; wait long
+    # enough that a slow preload is not mistaken for a failed install.
+    if ! _launchd_reload_job "$label" "$dst" "$domain" \
+        "http://127.0.0.1:8085/health" "$previous" 180; then
+        rm -f "$previous"
+        echo "  ❌ oMLX LaunchAgent install failed — log: /opt/homebrew/var/log/omlx.log"
         exit 1
     fi
-    if launchctl print "${domain}/${label}" 2>/dev/null | grep -q "state = running"; then
-        echo "[portal-5] ✅ oMLX LaunchAgent rendered and loaded: ${dst}"
-    else
-        echo "[portal-5] ⚠️  oMLX LaunchAgent loaded but not running — check:"
-        echo "   launchctl print ${domain}/${label}"
-        echo "   tail -50 /opt/homebrew/var/log/omlx.log"
-    fi
+    rm -f "$previous"
+    echo "[portal-5] ✅ oMLX LaunchAgent rendered, loaded and answering: ${dst}"
     echo "  Venv:   ${venv}"
     echo "  Health: curl -fsS http://127.0.0.1:8085/health"
 }
@@ -536,6 +541,7 @@ _launch_install_powermetrics() {
     PLIST_SRC="${PORTAL_ROOT}/deploy/launchd/com.portal5.powermetrics.plist"
     SCRIPT_DST="/usr/local/libexec/portal5-powermetrics"
     PLIST_DST="/Library/LaunchDaemons/com.portal5.powermetrics.plist"
+    PM_LABEL="com.portal5.powermetrics"
 
     if [ ! -f "$SCRIPT_SRC" ]; then
         echo "  ❌ Missing: $SCRIPT_SRC"
@@ -554,33 +560,41 @@ _launch_install_powermetrics() {
     fi
 
     echo "[portal-5] Installing powermetrics daemon (requires sudo)..."
-    # Stop the running job first: its program and plist both change below.
-    sudo launchctl bootout system/com.portal5.powermetrics 2>/dev/null || true
+    PREVIOUS_PLIST=""
+    if [ -f "$PLIST_DST" ]; then
+        PREVIOUS_PLIST="$(mktemp "${TMPDIR:-/tmp}/portal5-plist-previous.XXXXXX")"
+        cp -f "$PLIST_DST" "$PREVIOUS_PLIST"
+    fi
     sudo install -d -o root -g wheel -m 0755 /usr/local/libexec || {
+        rm -f "$PLIST_RENDERED" "$PREVIOUS_PLIST"
         echo "  ❌ Failed to secure /usr/local/libexec"
         exit 1
     }
     sudo install -o root -g wheel -m 0755 "$SCRIPT_SRC" "$SCRIPT_DST" || {
+        rm -f "$PLIST_RENDERED" "$PREVIOUS_PLIST"
         echo "  ❌ Failed to install daemon script"
         exit 1
     }
     sudo install -o root -g wheel -m 0644 "$PLIST_RENDERED" "$PLIST_DST" || {
+        rm -f "$PLIST_RENDERED" "$PREVIOUS_PLIST"
         echo "  ❌ Failed to install plist"
         exit 1
     }
     if ! cmp -s "$PLIST_RENDERED" "$PLIST_DST"; then
-        rm -f "$PLIST_RENDERED"
+        rm -f "$PLIST_RENDERED" "$PREVIOUS_PLIST"
         echo "  ❌ Installed plist does not match the rendered repo copy"
         exit 1
     fi
     rm -f "$PLIST_RENDERED"
-    sudo launchctl bootstrap system "$PLIST_DST" || {
-        echo "  ❌ Failed to load powermetrics daemon"
+    if ! _launchd_reload_job "$PM_LABEL" "$PLIST_DST" system "" "$PREVIOUS_PLIST"; then
+        rm -f "$PREVIOUS_PLIST"
+        echo "  ❌ Powermetrics install failed — check: sudo launchctl print system/${PM_LABEL}"
         exit 1
-    }
+    fi
+    rm -f "$PREVIOUS_PLIST"
 
     # A pre-a55e73caf install ran the repo copy from /usr/local/bin. It must not
-    # linger: `ps` would keep reporting the daemon "running" from the old path.
+    # linger: a stale process would also answer the readiness probe below.
     LEGACY_AGENT="$HOME/Library/LaunchAgents/com.portal5.powermetrics.plist"
     if [ -f "$LEGACY_AGENT" ]; then
         launchctl bootout "gui/$(id -u)/com.portal5.powermetrics" 2>/dev/null || true
@@ -592,22 +606,23 @@ _launch_install_powermetrics() {
         echo "  Removed legacy script: /usr/local/bin/portal5-powermetrics"
     fi
 
-    sleep 3
-    if ! ps -eo command | grep -q "[/]usr/local/libexec/portal5-powermetrics"; then
-        echo "  ❌ Daemon installed but not running from $SCRIPT_DST — check: sudo launchctl print system/com.portal5.powermetrics"
-        exit 1
-    fi
-    if [ -S "/tmp/portal5-powermetrics.sock" ]; then
-        echo "[portal-5] ✅ Powermetrics daemon installed and running"
+    # Readiness, not a ps pattern: launchd starts the job a few seconds after
+    # bootstrap, and /usr/bin/python3 re-execs into the Xcode interpreter before
+    # the script path appears; the daemon then sleeps 12s before binding the socket.
+    if _unix_socket_answering "/tmp/portal5-powermetrics.sock" 45; then
+        echo "[portal-5] ✅ Powermetrics daemon installed and answering"
     else
-        echo "[portal-5] ⏳ Powermetrics daemon installed, starting (may need 15s for first powermetrics sample)..."
+        echo "  ❌ Powermetrics daemon is loaded but its socket is not answering — check:"
+        echo "     sudo launchctl print system/${PM_LABEL}"
+        echo "     tail -20 /var/log/portal5-powermetrics.err"
+        exit 1
     fi
     echo "  Script: $SCRIPT_DST"
     echo "  Python: /usr/bin/python3"
     echo "  Plist:  $PLIST_DST"
     echo "  Socket: /tmp/portal5-powermetrics.sock"
-    echo "  Status: sudo launchctl list com.portal5.powermetrics"
-    echo "  Uninstall: ./launch.sh uninstall-powermetrics"
+    echo "  Status: sudo launchctl print system/${PM_LABEL}"
+    echo "  Uninstall: $(_portal5_root uninstall-powermetrics 'sudo ./launch.sh uninstall-powermetrics')"
 }
 
 _launch_uninstall_powermetrics() {
@@ -754,6 +769,11 @@ _launch_install_arm_queue() {
     command -v uv &>/dev/null || { echo "  ❌ uv not found (https://docs.astral.sh/uv/)"; exit 1; }
     tasks_dir="$(_launch_arm_queue_tasks_dir)"
     mkdir -p "$tasks_dir" "$HOME/Library/LaunchAgents"
+    local previous=""
+    if [ -f "$dst" ]; then
+        previous="$(mktemp "${TMPDIR:-/tmp}/portal5-plist-previous.XXXXXX")"
+        cp -f "$dst" "$previous"
+    fi
     # launchd's PATH is minimal: put the uv found here first, or the agent (and every
     # `uv run` job step) exits 127 (10-30 first start).
     sed -e "s#__PORTAL_ROOT__#${PORTAL_ROOT}#g" \
@@ -761,19 +781,19 @@ _launch_install_arm_queue() {
         -e "s#__UV_DIR__#$(dirname "$(command -v uv)")#g" \
         "$src" > "$dst"
     if ! plutil -lint "$dst" >/dev/null; then
+        rm -f "$previous"
         echo "  ❌ rendered plist failed lint: $dst"
         exit 1
     fi
-    launchctl bootout "${domain}/${label}" 2>/dev/null || true
-    if launchctl bootstrap "$domain" "$dst" && sleep 5 \
-        && launchctl print "${domain}/${label}" 2>/dev/null | grep -q "state = running"; then
-        echo "[portal-5] ✅ arm queue runner installed (${label}), polling every 60s"
-        echo "[portal-5]    runner log: ${tasks_dir}/arm-queue.launchd.log"
-        echo "[portal-5]    stop for maintenance: ./launch.sh uninstall-arm-queue"
-    else
-        echo "[portal-5] ⚠️  arm queue runner is not running after install — see ${tasks_dir}/arm-queue.launchd.log"
+    if ! _launchd_reload_job "$label" "$dst" "$domain" "" "$previous"; then
+        rm -f "$previous"
+        echo "[portal-5] ⚠️  arm queue runner install failed — see ${tasks_dir}/arm-queue.launchd.log"
         return 1
     fi
+    rm -f "$previous"
+    echo "[portal-5] ✅ arm queue runner installed (${label}), polling every 60s"
+    echo "[portal-5]    runner log: ${tasks_dir}/arm-queue.launchd.log"
+    echo "[portal-5]    stop for maintenance: ./launch.sh uninstall-arm-queue"
 }
 
 _launch_uninstall_arm_queue() {

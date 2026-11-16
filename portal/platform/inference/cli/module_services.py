@@ -185,9 +185,17 @@ def _healthy(port: int | None) -> bool:
         return False
 
 
+def _installed(name: str) -> bool:
+    """Whether an optional module resolves; a broken install raises from find_spec."""
+    try:
+        return importlib.util.find_spec(name) is not None
+    except Exception:  # noqa: BLE001 - a raising optional import is not usable
+        return False
+
+
 def _vl_ready() -> bool:
     names = ("mlx_embeddings.models.qwen3_vl", "torchvision", "fastapi", "uvicorn")
-    return all(importlib.util.find_spec(name) for name in names)
+    return all(_installed(name) for name in names)
 
 
 def skip_reason(ref: ServiceRef, repo: Path | None = None) -> str | None:
@@ -195,7 +203,7 @@ def skip_reason(ref: ServiceRef, repo: Path | None = None) -> str | None:
     root = repo if repo is not None else repo_root()
     service = ref.native_service or ""
     if service == "mlx-speech":
-        ready = platform.machine() == "arm64" and importlib.util.find_spec("mlx_audio")
+        ready = platform.machine() == "arm64" and _installed("mlx_audio")
         if not ready or not (root / "scripts" / "mlx-speech.py").is_file():
             return "mlx-speech runtime not installed"
     elif service == "mlx-transcribe":

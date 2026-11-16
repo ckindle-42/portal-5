@@ -1,0 +1,3 @@
+# Portal 5 root dispatcher — passwordless for the operator account only.
+# Install as /etc/sudoers.d/portal5-claude-root (0440 root:wheel); see README.md.
+chris ALL=(root) NOPASSWD: /usr/local/sbin/portal5-root

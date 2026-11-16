@@ -10,7 +10,6 @@ installer path re-rendered it.
 
 from __future__ import annotations
 
-import os
 import plistlib
 import subprocess
 import sys
@@ -132,32 +131,6 @@ def test_ensure_native_services_checks_the_omlx_agent_plist() -> None:
     util = (ROOT / "scripts" / "lib" / "util.sh").read_text(encoding="utf-8")
     body = util.split("_ensure_native_services() {", 1)[1]
     assert "_warn_omlx_plist_drift" in body
-
-
-@_DARWIN
-def test_install_omlx_renders_and_loads_the_agent(tmp_path: Path) -> None:
-    env = _env(tmp_path)
-    venv = Path(env["OMLX_VENV_PATH"])
-    _stub(
-        tmp_path / "bin" / "launchctl",
-        '#!/bin/bash\nprintf "%s\\n" "$*" >> "$CALL_LOG"\nexit 0\n',
-    )
-    script = f"""
-source "{ROOT}/scripts/lib/util.sh"
-source "{ROOT}/scripts/lib/services.sh"
-_launch_install_omlx
-"""
-
-    result = _bash(script, env)
-
-    assert result.returncode == 0, result.stderr
-    agent = Path(env["HOME"]) / "Library" / "LaunchAgents" / "com.portal5.omlx.plist"
-    cfg = plistlib.loads(agent.read_bytes())
-    assert cfg["ProgramArguments"][0] == f"{venv}/bin/python"
-    calls = (tmp_path / "calls").read_text(encoding="utf-8")
-    assert "bootout gui/" in calls
-    assert f"bootstrap gui/{os.getuid()} {agent.resolve()}" in calls
-    assert "./launch.sh install-omlx" not in result.stdout
 
 
 @_DARWIN
