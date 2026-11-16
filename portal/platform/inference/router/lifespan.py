@@ -270,17 +270,30 @@ def _preferred_resident_targets(
 ) -> list[tuple[Any, str, str, dict[str, Any]]]:
     """(backend, engine, model, generate options) per ``defaults.preferred_residents``.
 
+    The backend is the first candidate that actually serves the seat's hint, not the
+    group's priority head: ``auto-daily`` routes through group ``general`` whose head is
+    ``omlx-general``, and an Ollama tag posted to oMLX is a 404 (2026-11-16). ``model``
+    is the resolved native id, as a request would send it.
+
     A hint whose tag bakes ``num_ctx`` (the ``-ctx`` derived-tag convention) gets none:
     otherwise the warm load would pin a runner with a context the seat never asked for.
     """
     targets: list[tuple[Any, str, str, dict[str, Any]]] = []
     for ws_id in registry.preferred_residents:
         ws = WORKSPACES.get(ws_id) or {}
-        model = str(ws.get("model_hint") or "")
-        backend = registry.get_backend_for_workspace(ws_id)
-        if not model or backend is None or backend.type not in ("ollama", "omlx"):
+        hint = str(ws.get("model_hint") or "")
+        backend: Any = None
+        model = ""
+        for candidate in registry.get_backend_candidates(ws_id):
+            resolved = (
+                candidate.resolve_model(hint) if candidate.type in ("ollama", "omlx") else None
+            )
+            if resolved:  # the first backend that really serves the hint, not the group head
+                backend, model = candidate, resolved
+                break
+        if backend is None:
             logger.warning(
-                "preferred resident %s has no servable model hint or backend — skipped", ws_id
+                "preferred resident %s: no healthy backend serves %r — skipped", ws_id, hint
             )
             continue
         options: dict[str, Any] = {"num_predict": 1}
@@ -297,20 +310,25 @@ async def _warm_preferred_resident(
     options: dict[str, Any],
     guard: LoadGuard,
     ollama_base: str,
-) -> bool:
+) -> str:
     """Make one preferred resident resident, if the host has room to spare right now.
 
-    Returns True when this call loaded it. Only loads when nothing is in flight and
-    the model fits the headroom the host already has, so a seat's admission never
-    waits behind the warm-up.
+    Returns ``resident``/``loaded``, or the reason it was left for the next tick. Only
+    loads when nothing is in flight and the model fits the headroom the host already
+    has, so a seat's admission never waits behind the warm-up.
     """
     plan = await guard.plan(ollama_base, [(engine, model)])
     rows = plan.get("models") or []
     headroom = plan.get("headroom_gib")
-    if (rows and rows[0].get("resident")) or plan.get("busy") or headroom is None:
-        return False
-    if float(plan.get("need_gib") or 0) > float(headroom):
-        return False
+    if rows and rows[0].get("resident"):
+        return "resident"
+    if plan.get("busy"):
+        return "waiting for in-flight work"
+    if headroom is None:
+        return "waiting for a readable oMLX ceiling"
+    need = float(plan.get("need_gib") or 0)
+    if need > float(headroom):
+        return f"waiting: needs {need:.1f} GiB, headroom {float(headroom):.1f} GiB"
     _load_guard_mod.set_load_wait("5")  # never queue behind another seat's cold load
     if engine == _load_guard_mod.OLLAMA:
         release = await guard.admit(backend.url, model)
@@ -343,13 +361,8 @@ async def _warm_preferred_resident(
             },
         )
     if resp.status_code != 200:
-        logger.warning(
-            "preferred resident %s returned HTTP %d — will retry when the host is idle",
-            model,
-            resp.status_code,
-        )
-        return False
-    return True
+        return f"HTTP {resp.status_code} from {backend.url}"
+    return "loaded"
 
 
 async def _keep_preferred_residents(registry: BackendRegistry) -> None:
@@ -367,20 +380,38 @@ async def _keep_preferred_residents(registry: BackendRegistry) -> None:
     ollama_base = next((b.url for b in registry.list_backends() if b.type == "ollama"), "")
     if not ollama_base:  # nothing to measure against; the keeper waits for a backend
         return
+    # One line per transition, not one per tick: a persistent failure logs once.
+    last: dict[str, str] = {}
     while True:
         for backend, engine, model, options in _preferred_resident_targets(registry):
             try:
                 guard.protect(engine, model, _PREFERRED_RESIDENT_PROTECT_S)
-                if await _warm_preferred_resident(
+                status = await _warm_preferred_resident(
                     backend, engine, model, options, guard, ollama_base
-                ):
-                    logger.info(
-                        "Preferred resident loaded: %s (%s) — kept warm, yields to a seat",
-                        model,
-                        engine,
-                    )
+                )
             except Exception as e:  # a warm-up never crashes the pipeline
-                logger.debug("preferred resident %s: %s", model, e)
+                status = f"error: {e}"
+            if last.get(model) == status or (
+                status in ("resident", "loaded") and last.get(model) in ("resident", "loaded")
+            ):
+                continue  # one line per transition: loaded-then-resident is one state
+            last[model] = status
+            if status in ("resident", "loaded"):
+                logger.info(
+                    "Preferred resident %s on %s (%s): %s — kept warm, yields to a seat",
+                    model,
+                    backend.id,
+                    backend.url,
+                    status,
+                )
+            else:
+                logger.warning(
+                    "Preferred resident %s on %s (%s): %s — retrying when the host is idle",
+                    model,
+                    backend.id,
+                    backend.url,
+                    status,
+                )
         await asyncio.sleep(_PREFERRED_RESIDENT_INTERVAL_S)
 
 
