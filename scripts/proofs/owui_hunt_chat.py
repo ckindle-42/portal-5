@@ -13,6 +13,11 @@ fallback) from the environment or the repo .env, the same source the UAT and WFE
 harnesses read; never printed.
 
     python3 scripts/proofs/owui_hunt_chat.py [--index hb_kyoushi_s1] [--job-id hunt-r2-<12hex>]
+        [--require-sources]
+
+Turn 2 passes on what its prompt asks for: the leads and first case for the job, with an
+answer citing a returned lead id and the case id. ``hunt_sources`` is required only with
+``--require-sources``. The receipt records each turn's prompt tokens and the run's peak.
 
 Exit codes: 0 PASS, 1 FAIL, 2 setup error.
 """
@@ -40,6 +45,9 @@ DEFAULT_MODEL = "security-reviewer"
 JOB_RE = re.compile(r"(?<![\w-])hunt-r2-[0-9a-f]{12}(?![\w-])")
 RESULT_CHARS = 300
 TERMINAL_STATUSES = {"COMPLETE", "PARTIAL", "FAILED"}
+RESULT_TOOLS = ("hunt_status", "hunt_sources", "hunt_leads", "hunt_case")
+# What the results prompt asks for; hunt_sources is opt-in via --require-sources.
+REQUIRED_RESULT_TOOLS = ("hunt_leads", "hunt_case")
 
 
 def env(name: str) -> str:
@@ -73,6 +81,21 @@ class Turn:
     @property
     def answer(self) -> str:
         return "".join(self.content)
+
+    @property
+    def prompt_tokens(self) -> int:
+        value = (self.usage or {}).get("prompt_tokens")
+        return value if isinstance(value, int) else 0
+
+
+@dataclass
+class PromptPeak:
+    """Highest prompt-token count across the proof's turns."""
+
+    tokens: int = 0
+
+    def observe(self, turn: Turn) -> None:
+        self.tokens = max(self.tokens, turn.prompt_tokens)
 
 
 def _audit_calls(raw: Any) -> list[dict[str, Any]]:
@@ -322,6 +345,23 @@ def answer_cites_leads(calls: list[dict], answer: str) -> tuple[bool, str]:
     return False, "hunt_leads returned no notable ids"
 
 
+def answer_cites_case(calls: list[dict], answer: str) -> tuple[bool, str]:
+    """Whether the final answer cites the first case's returned id."""
+    case_ids = [
+        str(output["case_id"])
+        for call in calls
+        if call.get("tool") == "hunt_case"
+        for output in [_output_obj(call)]
+        if output is not None and output.get("case_id")
+    ]
+    cited = [case_id for case_id in case_ids if case_id in answer]
+    if cited:
+        return True, f"cites case id(s): {', '.join(cited[:3])}"
+    if case_ids:
+        return False, f"none of the case ids ({', '.join(case_ids[:3])}) appear in the answer"
+    return False, "hunt_case returned no case id to cite"
+
+
 def _check_job_arguments(calls: list[dict], tool: str, job_id: str) -> list[str]:
     selected = [call for call in calls if call.get("tool") == tool]
     if not selected:
@@ -348,6 +388,45 @@ def _check_output_job_ids(calls: list[dict], tools: tuple[str, ...], job_id: str
         output = _output_obj(call)
         if output is not None and str(output.get("job_id") or "") != job_id:
             reasons.append(f"{tool} output did not identify the requested job {job_id}")
+    return reasons
+
+
+def _required_result_tools(require_sources: bool) -> tuple[str, ...]:
+    if require_sources:
+        return (*REQUIRED_RESULT_TOOLS, "hunt_sources")
+    return REQUIRED_RESULT_TOOLS
+
+
+def _check_result_arguments(calls: list[dict], job_id: str, required: tuple[str, ...]) -> list[str]:
+    called = {str(call.get("tool") or "") for call in calls}
+    reasons: list[str] = []
+    for tool in RESULT_TOOLS:
+        if tool in required or tool in called:
+            reasons.extend(_check_job_arguments(calls, tool, job_id))
+    return reasons
+
+
+def _check_terminal_status(calls: list[dict], status: dict | None, state: str) -> list[str]:
+    if not any(call.get("tool") == "hunt_status" for call in calls):
+        return []
+    if status is None:
+        return ["terminal hunt_status output was not observable"]
+    if state not in TERMINAL_STATUSES:
+        return [f"results turn did not observe a terminal status (status={state or 'unknown'})"]
+    return []
+
+
+def _check_view_outputs(calls: list[dict], tools: tuple[str, ...]) -> list[str]:
+    reasons: list[str] = []
+    for tool in tools:
+        outputs = [_output_obj(call) for call in calls if call.get("tool") == tool]
+        if not outputs:
+            continue
+        output = outputs[-1]
+        if output is None:
+            reasons.append(f"{tool} output was not observable")
+        elif "error" in output:
+            reasons.append(f"{tool} returned an error: {_short(output['error'], 200)}")
     return reasons
 
 
@@ -381,39 +460,23 @@ def grade_progress(calls: list[dict], answer: str) -> tuple[bool, list[str], dic
 
 
 def grade_results(
-    calls: list[dict], answer: str, job_id: str
+    calls: list[dict], answer: str, job_id: str, require_sources: bool = False
 ) -> tuple[bool, list[str], dict[str, Any]]:
-    """Grade the later turn's terminal status and job-bound result views."""
+    """Grade the later turn on the result views its prompt asked for."""
     names = [str(call.get("tool") or "") for call in calls]
     reasons: list[str] = []
     if not JOB_RE.fullmatch(job_id):
         reasons.append(f"the carried job id is not a real R2 id (job_id={job_id!r})")
     if "hunt_start" in names:
         reasons.append("the results turn unexpectedly started a second hunt")
-    for tool in ("hunt_status", "hunt_sources", "hunt_leads", "hunt_case"):
-        reasons.extend(_check_job_arguments(calls, tool, job_id))
-    reasons.extend(
-        _check_output_job_ids(
-            calls, ("hunt_status", "hunt_sources", "hunt_leads", "hunt_case"), job_id
-        )
-    )
+    required = _required_result_tools(require_sources)
+    reasons.extend(_check_result_arguments(calls, job_id, required))
+    reasons.extend(_check_output_job_ids(calls, RESULT_TOOLS, job_id))
     status_calls = [call for call in calls if call.get("tool") == "hunt_status"]
     status = _output_obj(status_calls[-1]) if status_calls else None
     state = str((status or {}).get("status") or "").upper()
-    if status is None:
-        reasons.append("terminal hunt_status output was not observable")
-    elif state not in TERMINAL_STATUSES:
-        reasons.append(
-            f"results turn did not observe a terminal status (status={state or 'unknown'})"
-        )
-    for tool in ("hunt_sources", "hunt_leads", "hunt_case"):
-        outputs = [_output_obj(call) for call in calls if call.get("tool") == tool]
-        if outputs:
-            output = outputs[-1]
-            if output is None:
-                reasons.append(f"{tool} output was not observable")
-            elif "error" in output:
-                reasons.append(f"{tool} returned an error: {_short(output['error'], 200)}")
+    reasons.extend(_check_terminal_status(calls, status, state))
+    reasons.extend(_check_view_outputs(calls, ("hunt_sources", "hunt_leads", "hunt_case")))
     leads_calls = [call for call in calls if call.get("tool") == "hunt_leads"]
     leads = _output_obj(leads_calls[-1]) if leads_calls else None
     if leads is not None and not leads.get("leads"):
@@ -425,7 +488,16 @@ def grade_results(
     cites, how = answer_cites_leads(calls, answer)
     if not cites:
         reasons.append(f"the answer does not cite a returned lead: {how}")
-    details = {"job_id": job_id, "status": state, "citation": how, "tools_called": names}
+    cites_case, case_how = answer_cites_case(calls, answer)
+    if not cites_case:
+        reasons.append(f"the answer does not cite the returned case: {case_how}")
+    details = {
+        "job_id": job_id,
+        "status": state,
+        "citation": how,
+        "case_citation": case_how,
+        "tools_called": names,
+    }
     return (not reasons), reasons, details
 
 
@@ -444,6 +516,7 @@ def print_receipt(
     calls: list[dict],
     source: str,
     details: dict,
+    peak: PromptPeak,
 ) -> None:
     print(f"== OWUI hunt chat proof: {label} ==")
     print(f"workspace/model: {model}")
@@ -465,9 +538,11 @@ def print_receipt(
     )
     if turn.usage:
         print(f"usage: {_short(turn.usage, 200)}")
+    print(f"prompt tokens: {turn.prompt_tokens} | peak prompt tokens: {peak.tokens}")
     print(
         f"job id: {details.get('job_id') or '-'} | status: {details.get('status') or '-'} | "
-        f"lead citation: {details.get('citation') or '-'}"
+        f"lead citation: {details.get('citation') or '-'} | "
+        f"case citation: {details.get('case_citation') or '-'}"
     )
 
 
@@ -502,7 +577,9 @@ def _print_verdict(passed: bool, reasons: list[str]) -> None:
         print(f"  - {reason}")
 
 
-def _progress_turn(args: argparse.Namespace, key: str, pipe_key: str) -> dict[str, str] | None:
+def _progress_turn(
+    args: argparse.Namespace, key: str, pipe_key: str, peak: PromptPeak
+) -> dict[str, str] | None:
     prompt = f"Start a hunt on index {args.index} and tell me its status and stage."
     print(f">>> TURN 1: {prompt}", flush=True)
     try:
@@ -511,9 +588,10 @@ def _progress_turn(args: argparse.Namespace, key: str, pipe_key: str) -> dict[st
         print(f"FAIL: the OWUI chat request failed: {exc}")
         return None
     calls, source = _turn_calls(turn, args.pipeline_url, pipe_key, args.model)
+    peak.observe(turn)
     passed, reasons, details = grade_progress(calls, turn.answer)
     passed, reasons = _finish_turn(turn, passed, reasons, source)
-    print_receipt("TURN 1", args.model, prompt, turn, calls, source, details)
+    print_receipt("TURN 1", args.model, prompt, turn, calls, source, details, peak)
     if not passed:
         _print_verdict(False, reasons)
         return None
@@ -525,6 +603,7 @@ def _results_turn(
     key: str,
     pipe_key: str,
     progress: dict[str, str] | None,
+    peak: PromptPeak,
 ) -> int:
     job_id = args.job_id or progress["job_id"]
     print("-- native MCP wait --")
@@ -568,12 +647,14 @@ def _results_turn(
         print(f"FAIL: the OWUI results request failed: {exc}")
         return 1
     calls2, source2 = _turn_calls(second, args.pipeline_url, pipe_key, args.model)
-    passed2, reasons2, details2 = grade_results(calls2, second.answer, job_id)
+    peak.observe(second)
+    passed2, reasons2, details2 = grade_results(calls2, second.answer, job_id, args.require_sources)
     passed2, reasons2 = _finish_turn(second, passed2, reasons2, source2)
-    print_receipt("TURN 2", args.model, prompt2, second, calls2, source2, details2)
-    passed = passed2 and details2.get("status") == terminal.get("status")
-    if details2.get("status") != terminal.get("status"):
+    print_receipt("TURN 2", args.model, prompt2, second, calls2, source2, details2, peak)
+    same_status = not details2.get("status") or details2.get("status") == terminal.get("status")
+    if not same_status:
         reasons2.append("OWUI's terminal status differs from the native MCP wait receipt")
+    passed = passed2 and same_status
     _print_verdict(passed, reasons2)
     return 0 if passed else 1
 
@@ -594,6 +675,11 @@ def main(argv: list[str] | None = None) -> int:
         default=os.environ.get("REVIEW_MCP_URL", "http://localhost:8943/mcp"),
     )
     ap.add_argument("--job-id", help="resume an existing hunt at its current status")
+    ap.add_argument(
+        "--require-sources",
+        action="store_true",
+        help="also require the results turn to read hunt_sources",
+    )
     ap.add_argument("--idle-s", type=float, default=240.0)
     args = ap.parse_args(argv)
     if args.job_id and not JOB_RE.fullmatch(args.job_id):
@@ -605,10 +691,11 @@ def main(argv: list[str] | None = None) -> int:
         print("OWUI_API_KEY is not set (env or .env) — cannot authenticate to Open WebUI")
         return 2
     pipe_key = env("PIPELINE_API_KEY")
+    peak = PromptPeak()
     if args.job_id:
-        return _results_turn(args, key, pipe_key, None)
-    progress = _progress_turn(args, key, pipe_key)
-    return 1 if progress is None else _results_turn(args, key, pipe_key, progress)
+        return _results_turn(args, key, pipe_key, None, peak)
+    progress = _progress_turn(args, key, pipe_key, peak)
+    return 1 if progress is None else _results_turn(args, key, pipe_key, progress, peak)
 
 
 if __name__ == "__main__":
