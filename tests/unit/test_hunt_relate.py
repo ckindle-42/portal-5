@@ -10,6 +10,7 @@ from portal.modules.security.core.hunt.notables.relate import (
     MAX_EVENTS_PER_QUERY,
     RELATE_FILE,
     _case_groups,
+    _case_order,
     _cases,
     _entities,
     _entity_supported,
@@ -693,7 +694,123 @@ def test_product_relate_uses_judged_notables_only(tmp_path: Path) -> None:
     assert receipt["unjudged_skipped"] == 1
 
 
-def test_cases_order_by_best_seed_then_relation_distinctiveness() -> None:
+def test_cases_order_by_independent_seed_agreement_before_seed_rank_and_size() -> None:
+    seeds = []
+    related = []
+    for seed_id, rank, address, share, generator in (
+        ("benign-a", 0, "10.0.0.1", 0.9, "similar_to_known"),
+        ("benign-b", 1, "10.0.0.1", 0.9, "similar_to_known"),
+        ("attack-a", 10, "10.0.0.2", 0.1, "similar_to_known"),
+        ("attack-b", 11, "10.0.0.2", 0.1, "similar_to_known"),
+    ):
+        seeds.append(
+            {
+                "id": seed_id,
+                "source_id": "idx:access",
+                "start": START,
+                "end": START + 5000,
+                "entities": [
+                    {
+                        "value": address,
+                        "case_anchor": True,
+                        "kind": "address",
+                        "weight": share,
+                    }
+                ],
+                "rank": rank,
+                "original_rank": rank,
+                "row": {"generator": generator},
+            }
+        )
+    for index in range(4):
+        related.append(
+            {
+                "notable_id": f"benign-event-{index}",
+                "relation_score": 10.0,
+                "relations": [
+                    {"seed_id": "benign-a" if index % 2 == 0 else "benign-b", "seed_rank": index}
+                ],
+                "evidence": [
+                    {
+                        "event": {
+                            "time": START + 1000 * (index + 1),
+                            "host": "web-1",
+                            "source": "/access.log",
+                        }
+                    }
+                ],
+            }
+        )
+    for index, moment in enumerate((START + 100, START + 110)):
+        related.append(
+            {
+                "notable_id": f"attack-event-{index}",
+                "relation_score": 0.1,
+                "relations": [
+                    {"seed_id": "attack-a", "seed_rank": 10},
+                    {"seed_id": "attack-b", "seed_rank": 11},
+                ],
+                "evidence": [{"event": {"time": moment, "host": "web-1", "source": "/access.log"}}],
+            }
+        )
+
+    cases = _cases(seeds, related)
+
+    assert [case["anchor_entity"] for case in cases[:2]] == ["10.0.0.2", "10.0.0.1"]
+
+
+def test_cases_order_by_independent_generators_when_seed_support_ties() -> None:
+    seeds = []
+    related = []
+    for prefix, address, generators in (
+        ("independent", "10.0.0.1", ("alerts", "similar_to_known")),
+        ("same-generator", "10.0.0.2", ("similar_to_known", "similar_to_known")),
+    ):
+        for suffix, generator in zip(("a", "b"), generators, strict=True):
+            seeds.append(
+                {
+                    "id": f"{prefix}-{suffix}",
+                    "source_id": "idx:access",
+                    "start": START,
+                    "end": START + 5000,
+                    "entities": [
+                        {"value": address, "case_anchor": True, "kind": "address", "weight": 0.1}
+                    ],
+                    "rank": 5 + int(suffix == "b"),
+                    "original_rank": 5 + int(suffix == "b"),
+                    "row": {"generator": generator},
+                }
+            )
+        related.append(
+            {
+                "notable_id": f"event-{prefix}",
+                "relation_score": 10.0 if prefix == "same-generator" else 0.1,
+                "relations": [
+                    {"seed_id": f"{prefix}-a", "seed_rank": 5},
+                    {"seed_id": f"{prefix}-b", "seed_rank": 6},
+                ],
+                "evidence": [
+                    {"event": {"time": START + 100, "host": "web-1", "source": "/access.log"}}
+                ],
+            }
+        )
+
+    cases = _cases(seeds, related)
+
+    assert [case["anchor_entity"] for case in cases] == ["10.0.0.1", "10.0.0.2"]
+
+
+def test_case_order_prefers_distinctive_identities_then_shorter_span() -> None:
+    distinctive = {"case_id": "distinctive", "start": START, "end": START + 100, "score": 0.1}
+    common = {"case_id": "common", "start": START, "end": START + 10, "score": 10.0}
+    assert _case_order(distinctive, 1, 1, 0.1) < _case_order(common, 1, 1, 0.9)
+
+    short = {"case_id": "short", "start": START, "end": START + 10, "score": 0.1}
+    long = {"case_id": "long", "start": START, "end": START + 100, "score": 10.0}
+    assert _case_order(short, 1, 1, 0.5) < _case_order(long, 1, 1, 0.5)
+
+
+def test_cases_use_relation_score_after_ordering_features_tie() -> None:
     seeds = []
     related = []
     for prefix, rank, score, address in (
@@ -741,9 +858,9 @@ def test_cases_order_by_best_seed_then_relation_distinctiveness() -> None:
     cases = _cases(seeds, related)
 
     assert [case["anchor_entity"] for case in cases] == [
+        "10.0.0.1",
         "10.0.0.3",
         "10.0.0.2",
-        "10.0.0.1",
     ]
 
 
