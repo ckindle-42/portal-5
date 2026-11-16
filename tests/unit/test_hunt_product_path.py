@@ -221,7 +221,7 @@ def test_status_long_poll_is_bounded(tmp_path: Path, monkeypatch: Any) -> None:
     assert result["stage"] == "cards"
 
 
-def test_nonterminal_hunt_views_return_progress_instead_of_empty_results(
+def test_nonterminal_hunt_views_return_compact_progress_instead_of_empty_results(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
     monkeypatch.setattr(product_jobs, "_ROOT", tmp_path)
@@ -254,8 +254,10 @@ def test_nonterminal_hunt_views_return_progress_instead_of_empty_results(
     for result in results:
         assert result["status"] == "RUNNING"
         assert result["stage"] == "cards"
-        assert result["progress"] == progress
-        assert f"hunt_status(job_id='{job_id}')" in result["next"]
+        assert result["stages_done"] == "0/4"
+        assert result["last_progress"] == "cards"
+        assert "progress" not in result
+        assert result["next"] == "Check this job again after it advances."
     assert "cards" not in results[0]
     assert "leads" not in results[1]
     assert "case" not in results[2]
@@ -389,16 +391,21 @@ def test_r2_job_persists_stage_progress_cost_and_analyst_views(
     assert job["stage_plan"][0]["budget_s"] == pytest.approx(690.0, abs=1.0)
     assert not (tmp_path / job_id / product_jobs.RERANK_FILE).exists()
     lead = product_jobs.leads_view(job_id=job_id)["leads"][0]
-    assert lead["similar_known_item"] == {
-        "family": "santos",
-        "label": "T1059",
+    assert lead == {
+        "rank": 1,
+        "notable_id": "n1",
+        "generator": SIMILAR_GENERATOR,
+        "source": "ix:auth",
+        "why": None,
+        "evidence_query": "search index=ix",
     }
-    assert lead["judge_score"] is None
-    assert lead["judge"] is None
-    assert lead["evidence"][0]["query"] == "search index=ix"
-    assert product_jobs.sources_view(job_id=job_id)["cards"][0]["understood"] is True
-    assert product_jobs.case_view(job_id=job_id)["evidence"][0]["event_id"] == "1:2"
-    status = product_jobs.status(job_id=job_id)
+    sources = product_jobs.sources_view(job_id=job_id)
+    assert sources["counts"]["understood"] == 1
+    assert sources["not_understood"] == []
+    case = product_jobs.case_view(job_id=job_id)
+    assert case["evidence_count"] == 1
+    assert case["evidence_omitted"] == 0
+    status = product_jobs.status(job_id=job_id, detail=True)
     assert status["stage_plan"] == job["stage_plan"]
     assert "judge_selection" not in status
 
@@ -561,7 +568,7 @@ def test_cards_deadline_with_zero_leads_finishes_partial(tmp_path: Path, monkeyp
         None,
     )
 
-    state = product_jobs.status(job_id=job_id)
+    state = product_jobs.status(job_id=job_id, detail=True)
     leads = product_jobs.leads_view(job_id=job_id)
     assert leads["total_leads"] == 0
     assert state["status"] == "PARTIAL"
@@ -611,7 +618,7 @@ def test_judge_stage_annotates_only_the_top_ten_without_reordering(
     assert [row["notable_id"] for row in saved] == [f"n{i}" for i in range(12)]
     assert all(row["p_yes"] == 0.7 for row in saved[:10])
     assert all("p_yes" not in row for row in saved[10:])
-    assert product_jobs._lead(saved[0], 1)["judge_reason"] == "short reason"
+    assert saved[0]["judge"]["answer"] == "yes: short reason"
     assert receipt["selection"] == {
         "policy": "stage1_order_annotation_limit",
         "candidates": 12,
@@ -769,7 +776,7 @@ def test_embedding_requests_stop_at_the_shared_hunt_deadline() -> None:
     client.close()
 
 
-def test_leads_view_caps_default_payload_and_keeps_similarity_text_trace(
+def test_leads_view_caps_default_payload_and_returns_compact_rows(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
     monkeypatch.setattr(product_jobs, "_ROOT", tmp_path)
@@ -817,33 +824,42 @@ def test_leads_view_caps_default_payload_and_keeps_similarity_text_trace(
 
     result = product_jobs.leads_view(job_id="hunt-r2-lead-size")
 
-    assert 1 <= result["returned_leads"] <= 10
+    assert result["returned_leads"] == product_jobs.LEADS_VIEW_DEFAULT
     assert result["total_leads"] == 10
+    assert result["omitted_leads"] == 8
     assert result["truncated"] is True
-    assert len(json.dumps(result)) < 6000
-    assert result["leads"][0]["similarity_text"]["candidate"].startswith("candidate behaviour")
-    assert result["leads"][0]["similarity_text"]["reference"].startswith("reference behaviour")
-    assert result["leads"][0]["similar_known_item"]["family"] == "santos"
+    assert len(json.dumps(result).encode()) <= 1024
+    assert set(result["leads"][0]) == {
+        "rank",
+        "notable_id",
+        "generator",
+        "source",
+        "why",
+        "evidence_query",
+    }
+    assert result["leads"][0]["source"] == "x" * 60
+    assert result["leads"][0]["evidence_query"] == ("search index=run " + "z" * 2000)[:100]
 
 
-def test_leads_view_uses_product_rerank_and_council_receipt(
+def test_leads_view_uses_product_rerank_order_in_compact_rows(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
     monkeypatch.setattr(product_jobs, "_ROOT", tmp_path)
     out = tmp_path / "hunt-r2-reranked"
     out.mkdir()
     rows = [
-        {"notable_id": f"n{i}", "content_key": f"k{i}", "p_yes": score, "what": f"n{i}"}
+        {
+            "notable_id": f"n{i}",
+            "content_key": f"k{i}",
+            "p_yes": score,
+            "generator": "alerts",
+            "source_id": f"source-{i}",
+            "why": f"reason-{i}",
+        }
         for i, score in enumerate((0.1, 0.9, 0.5))
     ]
     (out / product_jobs.NOTABLES_FILE).write_text("".join(json.dumps(row) + "\n" for row in rows))
     (out / "rerank.json").write_text(json.dumps({"order": [1, 2, 0]}))
-    (out / "rerank_council_calls.jsonl").write_text(
-        json.dumps({"content_key": "k1", "decision": "SUPPORT"})
-        + "\n"
-        + json.dumps({"content_key": "k2", "decision": "REJECT"})
-        + "\n"
-    )
     product_jobs._write(
         "hunt-r2-reranked",
         {
@@ -857,7 +873,5 @@ def test_leads_view_uses_product_rerank_and_council_receipt(
 
     result = product_jobs.leads_view(job_id="hunt-r2-reranked")
 
-    assert [lead["notable_id"] for lead in result["leads"]] == ["n1", "n2", "n0"]
-    assert result["leads"][0]["council"]["decision"] == "SUPPORT"
-    assert result["leads"][1]["council"]["decision"] == "REJECT"
-    assert result["leads"][2]["council"] is None
+    assert [lead["source"] for lead in result["leads"]] == ["source-1", "source-2"]
+    assert [lead["why"] for lead in result["leads"]] == ["reason-1", "reason-2"]

@@ -6,6 +6,19 @@ from typing import TYPE_CHECKING, Any
 
 from portal.platform.mcp_host.eval_scope import TOOL_TIMEOUT_META_KEY
 
+_TOOL_RESULT_BYTE_BUDGET_FRACTION = 0.5
+_TOOL_RESULT_BYTES_PER_TOKEN = 2
+
+
+def tool_result_byte_budget(context_limit_tokens: int) -> int:
+    """Use half the token window at two bytes per token; nonpositive windows disable it."""
+    if context_limit_tokens <= 0:
+        return 0
+    return int(
+        context_limit_tokens * _TOOL_RESULT_BYTE_BUDGET_FRACTION * _TOOL_RESULT_BYTES_PER_TOKEN
+    )
+
+
 if TYPE_CHECKING:
     from mcp.types import Tool
 
