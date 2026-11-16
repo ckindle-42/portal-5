@@ -126,6 +126,7 @@ from portal.platform.inference.router.truncation import set_estimate as set_prom
 from portal.platform.inference.router.workspaces import (
     _PERSONA_MAP,
     WORKSPACES,
+    _configured_tool_hops,
 )
 
 logger = logging.getLogger(__name__)
@@ -989,6 +990,7 @@ async def _dispatch_non_streaming(
         stream,
     )
     _ns_chain = WORKSPACES.get(workspace_id, {}).get("chain") or []
+    configured_hops = _configured_tool_hops(workspace_id)
     tried: dict[tuple[str, str], str] = {}
     capacity_exc: BackendRequestError | None = None
     for i, backend in enumerate(candidates):
@@ -1002,6 +1004,7 @@ async def _dispatch_non_streaming(
                 enforce_hint=(not is_last),
                 persona=persona,
                 tried=tried,
+                **({"max_hops": configured_hops} if configured_hops is not None else {}),
             )
         except BackendRequestError as exc:
             if not is_last and is_omlx_capacity_refusal(exc.status_code, exc.detail):

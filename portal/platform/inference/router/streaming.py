@@ -140,6 +140,7 @@ from portal.platform.inference.router.workspaces import (
     WORKSPACES,
     _resolve_persona_tool_choice,
     _resolve_persona_tools,
+    _tool_hop_limit,
 )
 
 if TYPE_CHECKING:
@@ -478,7 +479,7 @@ async def _capacity_fallback_frames(
         body,
         reasons,
         persona=persona,
-        max_hops=MAX_TOOL_HOPS,
+        max_hops=_tool_hop_limit(workspace_id, MAX_TOOL_HOPS),
         dispatch=_try_non_streaming,
     )
     if fallback is None:
@@ -983,7 +984,7 @@ async def _tool_loop_frames(
        "tool_calls"``:
        - Collect tool_calls from the OpenAI-format buffer.
        - Bail with "Tool-use limit reached" content if
-         ``hop >= MAX_TOOL_HOPS``.
+         ``hop`` reaches the workspace's configured maximum.
        - Dispatch the hop's tool calls
          one at a time, in emitted order (dependent calls must see each other land).
        - Append assistant turn + tool results to
@@ -1032,10 +1033,11 @@ async def _tool_loop_frames(
     hop = 0
     current_body = dict(body)
     bite_hops_supplied = "portal_bite_max_hops" in current_body
-    requested_hops = current_body.pop("portal_bite_max_hops", MAX_TOOL_HOPS)
+    max_hops = _tool_hop_limit(workspace_id, MAX_TOOL_HOPS)
+    requested_hops = current_body.pop("portal_bite_max_hops", max_hops)
     if bite_hops_supplied:
         _validate_bite_max_hops({"portal_bite_max_hops": requested_hops})
-    hop_limit = min(requested_hops, MAX_TOOL_HOPS)
+    hop_limit = min(requested_hops, max_hops)
     _exec_audit: bool = bool(body.get("exec_audit"))
     _exec_audit_calls: list[
         dict[str, Any]
@@ -2949,7 +2951,7 @@ async def _stream_with_fallback(
                         enforce_hint=not fb_last,
                         persona=persona,
                         tried=tried,
-                        max_hops=MAX_TOOL_HOPS,
+                        max_hops=_tool_hop_limit(workspace_id, MAX_TOOL_HOPS),
                     )
                 except BackendRequestError as exc:
                     _error_status = exc.status_code

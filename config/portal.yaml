@@ -2582,6 +2582,7 @@ workspaces:
     description: Read-only, evidence-grounded reviews of indexed security telemetry. The analyst owns every verdict.
     model_hint: granite4.1:8b-ctx8k
     context_limit: 8192
+    max_tool_hops: 8
     temperature: 0.0
     tools:
     - review_start

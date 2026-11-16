@@ -193,6 +193,7 @@ class WorkspaceSpec(BaseModel):
     predict_limit: int | None = None
     thinking_budget: int | None = Field(default=None, ge=1, strict=True)
     context_limit: int | None = None
+    max_tool_hops: int | None = Field(default=None, ge=1, strict=True)
 
     # --- Concurrency ---
     max_concurrent: int | None = None
@@ -258,6 +259,13 @@ class WorkspaceSpec(BaseModel):
                 isinstance(budget, bool) or not isinstance(budget, int) or budget < 1
             ):
                 raise ValueError(f"variant {name!r}: thinking_budget must be a positive integer")
+            max_tool_hops = cfg.get("max_tool_hops") if isinstance(cfg, dict) else None
+            if max_tool_hops is not None and (
+                isinstance(max_tool_hops, bool)
+                or not isinstance(max_tool_hops, int)
+                or max_tool_hops < 1
+            ):
+                raise ValueError(f"variant {name!r}: max_tool_hops must be a positive integer")
         return self
 
 

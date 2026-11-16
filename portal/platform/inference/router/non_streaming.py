@@ -947,12 +947,8 @@ async def _try_non_streaming(
     3. **Inject tool schemas** when the persona has effective tools
        AND ``_model_supports_tools(target_model)``.
     4. **POST**, parse JSON.
-    5. **Non-streaming tool loop** (single hop): if the model
-       returned ``tool_calls``, dispatch them via
-       ``_dispatch_tool_call``, append assistant turn + tool
-       results, call the model once more for synthesis with
-       ``tools: None``, ``tool_choice: None``.
-        **Single hop, not unbounded** — see "asymmetry" below.
+    5. **Non-streaming tool loop**: dispatch tool calls and synthesize
+       up to ``max_hops``; the default is one hop.
      6. **Reasoning normalisation**: keep reasoning in its separate field,
        filter inline protocol wrappers, and classify a reasoning-only result
        as an incomplete answer.
@@ -960,12 +956,11 @@ async def _try_non_streaming(
        callers and operators can see which workspace × backend ×
        model served.
 
-    Asymmetry with the streaming tool loop: the streaming variant
-    in ``_stream_with_tool_loop_impl`` loops up to ``MAX_TOOL_HOPS``
-    times; by default this does exactly one synthesis turn (``max_hops=1``;
-    a stream's failover passes ``MAX_TOOL_HOPS``; undispatched end-of-turn
-    calls are stripped and answered by one final toolless turn). Reason: the
-    non-streaming path today serves callers that own their answer capture
+    The streaming variant uses the workspace ``max_tool_hops`` cap, falling
+    back to ``MAX_TOOL_HOPS`` when unset. Non-streaming callers default to one
+    hop, but a workspace cap also applies to chat requests; undispatched
+    end-of-turn calls are stripped and answered by one final toolless turn.
+    This path serves callers that own their answer capture
     rather than an interactive stream — API clients, the channels/Telegram
     bot, the Anthropic-compat endpoint, and OWUI task calls. When the final
     toolless turn has no visible answer, the router retries once via

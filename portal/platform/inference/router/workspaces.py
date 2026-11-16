@@ -124,8 +124,20 @@ WORKSPACES: dict[str, dict[str, Any]] = _WorkspaceCatalog(get_workspace_dict(loa
 # ── Tool-call helpers ───────────────────────────────────────────────────────
 
 # Max iterations of the streaming tool-call loop before the pipeline gives up.
-# Env-overridable. Consumed in router_pipe._stream_with_tool_loop_impl.
+# Environment fallback for workspaces without a max_tool_hops setting.
 MAX_TOOL_HOPS = int(os.environ.get("MAX_TOOL_HOPS", "20"))
+
+
+def _configured_tool_hops(workspace_id: str) -> int | None:
+    value = WORKSPACES.get(workspace_id, {}).get("max_tool_hops")
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _tool_hop_limit(workspace_id: str, default: int | None = None) -> int:
+    configured = _configured_tool_hops(workspace_id)
+    if configured is not None:
+        return configured
+    return MAX_TOOL_HOPS if default is None else default
 
 
 def _workspace_tools(workspace_id: str) -> list[str]:
