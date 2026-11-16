@@ -1,4 +1,4 @@
-"""One-token judgement of one host-hour, asked through the Portal Pipeline."""
+"""One-word judgement of one notable or host-hour, asked through the Portal Pipeline."""
 
 from __future__ import annotations
 
@@ -13,7 +13,8 @@ import httpx
 
 DEFAULT_KEY_ENV = "PIPELINE_API_KEY"  # env var name whose value is the Pipeline credential
 JUDGE_SEED = 0
-JUDGE_TOP_LOGPROBS = 20  # effort budget: alternatives returned for the first token
+JUDGE_TOP_LOGPROBS = 20  # effort budget: alternatives returned for the answer token
+JUDGE_ANSWER_TOKENS = 8  # effort budget: room for a markdown-wrapped one-word answer (**yes**)
 JUDGE_TIMEOUT_SECONDS = 60  # effort budget: maximum wait for one local judgement
 MODEL_CONCURRENCY = 2  # effort budget: the engine behind the seat serves one request at a time
 MODEL_WORK_SECONDS = 300.0  # effort budget: wall time one stage may spend asking the Pipeline
@@ -133,6 +134,8 @@ class JudgeResult:
     seconds: float
     served_model: str
     reason: str | None
+    answer: str = ""
+    decision_index: int | None = None
 
 
 class OpenAICompatibleClient:
@@ -171,6 +174,12 @@ def build_prompt(evidence: Sequence[Mapping[str, Any]]) -> str:
     return QUESTION + "\n" + "\n".join(str(item["line"]) for item in evidence)
 
 
+def _clean_token(token: str) -> str:
+    """The yes/no inside a token, behind markdown wrap, whitespace or punctuation."""
+    cleaned = token.strip().strip("*").strip().casefold()
+    return cleaned.rstrip(".!?;:,")
+
+
 def _token_mass(alternatives: Any) -> tuple[float, float] | None:
     found: dict[str, list[float]] = {"yes": [], "no": []}
     if not isinstance(alternatives, list):
@@ -178,7 +187,7 @@ def _token_mass(alternatives: Any) -> tuple[float, float] | None:
     for alternative in alternatives:
         if not isinstance(alternative, Mapping):
             continue
-        token = str(alternative.get("token", "")).strip().casefold()
+        token = _clean_token(str(alternative.get("token", "")))
         if token not in found:
             continue
         try:
@@ -194,6 +203,35 @@ def _token_mass(alternatives: Any) -> tuple[float, float] | None:
         sum(math.exp(value - maximum) for value in found["yes"]),
         sum(math.exp(value - maximum) for value in found["no"]),
     )
+
+
+def _decision_entry(content: Sequence[Any]) -> tuple[int, Mapping[str, Any]] | None:
+    """The first generated token that is the answer itself, not a wrapper like **."""
+    for index, entry in enumerate(content):
+        if isinstance(entry, Mapping) and _clean_token(str(entry.get("token", ""))) in (
+            "yes",
+            "no",
+        ):
+            return index, entry
+    # Token-less logprobs entries (no sampled-token text at all): score the first
+    # entry carrying yes/no mass, the pre-wrap contract. Never reached when the
+    # engine names its tokens, so a ** wrapper is never scored as the answer.
+    if any(isinstance(entry, Mapping) and str(entry.get("token") or "") for entry in content):
+        return None
+    for index, entry in enumerate(content):
+        if isinstance(entry, Mapping) and _token_mass(entry.get("top_logprobs")) is not None:
+            return index, entry
+    return None
+
+
+def _answer_text(response: Mapping[str, Any]) -> str:
+    choices = response.get("choices")
+    if not isinstance(choices, list) or not choices or not isinstance(choices[0], Mapping):
+        return ""
+    message = choices[0].get("message")
+    if not isinstance(message, Mapping):
+        return ""
+    return str(message.get("content") or "")
 
 
 def _prompt_tokens(response: Mapping[str, Any]) -> int | None:
@@ -223,7 +261,7 @@ def judge_cell(
             messages=[{"role": "user", "content": prompt_text}],
             temperature=0,
             seed=JUDGE_SEED,
-            max_tokens=1,
+            max_tokens=JUDGE_ANSWER_TOKENS,
             logprobs=True,
             top_logprobs=JUDGE_TOP_LOGPROBS,
             reasoning_effort="none",
@@ -241,22 +279,30 @@ def judge_cell(
     if not isinstance(response, Mapping):
         return JudgeResult(None, None, seconds, "", "invalid_response")
     served = str(response.get("model", ""))
+    answer = _answer_text(response)
+    tokens = _prompt_tokens(response)
     choices = response.get("choices")
     if not isinstance(choices, list) or not choices or not isinstance(choices[0], Mapping):
-        return JudgeResult(None, _prompt_tokens(response), seconds, served, "missing_logprobs")
+        return JudgeResult(None, tokens, seconds, served, "missing_logprobs", answer)
     logprobs = choices[0].get("logprobs")
     content = logprobs.get("content") if isinstance(logprobs, Mapping) else None
-    if not isinstance(content, list) or not content or not isinstance(content[0], Mapping):
-        return JudgeResult(None, _prompt_tokens(response), seconds, served, "missing_logprobs")
-    masses = _token_mass(content[0].get("top_logprobs"))
+    if not isinstance(content, list) or not content:
+        return JudgeResult(None, tokens, seconds, served, "missing_logprobs", answer)
+    found = _decision_entry(content)
+    if found is None:
+        return JudgeResult(None, tokens, seconds, served, "missing_yes_no_alternatives", answer)
+    index, entry = found
+    masses = _token_mass(entry.get("top_logprobs"))
     if masses is None or masses[0] + masses[1] <= 0:
         return JudgeResult(
-            None, _prompt_tokens(response), seconds, served, "missing_yes_no_alternatives"
+            None, tokens, seconds, served, "missing_yes_no_alternatives", answer, index
         )
     return JudgeResult(
         masses[0] / (masses[0] + masses[1]),
-        _prompt_tokens(response),
+        tokens,
         seconds,
         served,
         None,
+        answer,
+        index,
     )

@@ -45,6 +45,7 @@ from .sample import (
 from .similar import SIMILAR_GENERATOR, generate_similar
 
 HTTP_ERROR_THRESHOLD = 0.20
+JUDGE_STAGE_DEADLINE_SECONDS = 720.0  # effort budget: the hunt job wall time (executor job_seconds)
 
 STAGES = ("cards", "behaviours", "notables", "judge")
 GENERATORS = (*BASE_GENERATORS, SIMILAR_GENERATOR)
@@ -432,14 +433,22 @@ def read_notables(path: Path) -> list[dict[str, Any]]:
 
 
 def judge_stage(
-    *, out: Path, client: JudgeClient, model: str
+    *,
+    out: Path,
+    client: JudgeClient,
+    model: str,
+    deadline_seconds: float = JUDGE_STAGE_DEADLINE_SECONDS,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Judge every distinct notable once through the Pipeline and write p_yes back."""
     path = out / NOTABLES_FILE
     rows = read_notables(path)
     ordered = _judge_order(rows)
     judged, receipt = judge_all(
-        ordered, client=client, model=model, cache_path=out / "cache" / "judge.json"
+        ordered,
+        client=client,
+        model=model,
+        cache_path=out / "cache" / "judge.json",
+        deadline_seconds=deadline_seconds,
     )
     http_errors = int(receipt["unjudged_reasons"].get("http_error", 0))
     _check_http_error_rate("judge_stage", http_errors, int(receipt["requests"]), model)
