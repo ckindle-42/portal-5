@@ -23,6 +23,7 @@ import httpx
 from fastapi import Header, HTTPException, Request
 from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 from prometheus_client import generate_latest
+from prometheus_client import values as _prom_values
 
 from portal.platform.inference.cluster_backends import BackendRegistry
 from portal.platform.inference.config import ollama_url
@@ -489,7 +490,9 @@ async def metrics() -> PlainTextResponse:
     # MultiProcessCollector reads from disk files on each call.
     global _mp_registry_cache, _mp_registry_dir_cache
     mp_dir = os.environ.get("PROMETHEUS_MULTIPROC_DIR")
-    if mp_dir:
+    # Env set after import leaves in-process collectors writing no files: trust the real mode.
+    in_process = not getattr(_prom_values.ValueClass, "_multiprocess", False)
+    if mp_dir and not in_process:
         # prometheus_client writes per-pid files but doesn't create the parent
         # dir — without this the first scrape after worker fork 500s.
         os.makedirs(mp_dir, exist_ok=True)

@@ -1071,6 +1071,30 @@ class TestRecordUsageMetrics:
         assert "portal_output_tokens_total" in content
         assert "portal_requests_by_model_total" in content
 
+    def test_metrics_ignore_a_multiproc_dir_when_prometheus_is_in_process(
+        self, client, monkeypatch, tmp_path
+    ):
+        """Setting PROMETHEUS_MULTIPROC_DIR after import must not blank the scrape."""
+        from prometheus_client import values
+
+        from portal.platform.inference import router_pipe
+        from portal.platform.inference.router import handlers as handlers_mod
+
+        # prometheus_client picks its value class at import; later env cannot move values to files.
+        monkeypatch.setattr(values, "ValueClass", values.MutexValue)
+        monkeypatch.setenv("PROMETHEUS_MULTIPROC_DIR", str(tmp_path))
+        monkeypatch.setattr(handlers_mod, "_mp_registry_cache", None)
+        monkeypatch.setattr(handlers_mod, "_mp_registry_dir_cache", None)
+
+        router_pipe._record_usage(
+            model="inproc-test-model",
+            workspace="auto",
+            data={"eval_count": 10, "eval_duration": 200_000_000, "prompt_eval_count": 5},
+        )
+        resp = client.get("/metrics", headers=HEADERS)
+        assert resp.status_code == 200
+        assert "portal_tokens_per_second" in resp.text
+
 
 class TestSPLWorkspace:
     """Verify auto-spl workspace wiring across all four required files."""
