@@ -144,6 +144,7 @@ _launchd_is_race 37 "" || echo "not-race"
     assert "race" in result.stdout and "not-race" in result.stdout
 
 
+@_DARWIN
 def test_waits_for_the_bootout_to_finish_before_bootstrapping(tmp_path: Path) -> None:
     env = _env(tmp_path, loaded=True, TEARDOWN_PRINTS="3")
     plist = tmp_path / "new.plist"
@@ -164,6 +165,7 @@ _launchd_reload_job {LABEL} "{plist}" "gui/$(id -u)"
     assert sum(1 for call in calls if call.startswith("print")) >= 4
 
 
+@_DARWIN
 def test_retries_bootstrap_error_5_with_backoff(tmp_path: Path) -> None:
     env = _env(tmp_path)
     (tmp_path / "state" / "fails").write_text("2", encoding="utf-8")
@@ -224,6 +226,7 @@ _launchd_reload_job {LABEL} "{plist}" "gui/$(id -u)" "" "" 10
     assert "Operation already in progress" in result.stderr
 
 
+@_DARWIN
 def test_health_failure_restores_the_previous_plist(tmp_path: Path) -> None:
     env = _env(tmp_path, loaded=True, HEALTH_OK="0")
     installed = tmp_path / "installed.plist"
@@ -246,6 +249,7 @@ _launchd_reload_job {LABEL} "{installed}" "gui/$(id -u)" \
     assert len(_bootstraps(tmp_path)) == 2
 
 
+@_DARWIN
 def test_failed_install_puts_the_previous_plist_back_on_disk(tmp_path: Path) -> None:
     env = _env(tmp_path)
     (tmp_path / "state" / "fails").write_text("99", encoding="utf-8")
