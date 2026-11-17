@@ -61,7 +61,7 @@ jobs:
         run: python scripts/complexity_report.py --gate
 
       - name: Run test suite
-        run: pytest tests portal -n auto -x --tb=short -v
+        run: pytest tests portal -n auto --tb=short -v
 
       - name: Upload coverage on failure
         if: failure()
