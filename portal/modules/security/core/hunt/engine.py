@@ -9,7 +9,6 @@ that budget stay listed. Nothing here names a technique, a field, or a format.
 from __future__ import annotations
 
 import calendar
-import math
 import re
 import statistics
 import time
@@ -17,6 +16,8 @@ from collections import defaultdict
 from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
+from decimal import Decimal
+from functools import lru_cache
 from typing import Any, Protocol
 
 from portal.modules.security.core.hunt.judge import JudgeClient
@@ -119,6 +120,19 @@ def _hour(value: Any, span: int = HOUR) -> int:
     return int(float(value)) // span * span
 
 
+@lru_cache(maxsize=4096)
+def _log1p(value: float) -> float:
+    """log(1 + value) rounded in software: glibc and Apple libm differ by one ULP."""
+    if value == 0.0:
+        return 0.0
+    return float((Decimal(1) + Decimal(value)).ln())
+
+
+def _expm1(value: float) -> float:
+    """exp(value) - 1 rounded once in software, so a receipt is byte-identical everywhere."""
+    return float(Decimal(value).exp() - 1)
+
+
 def host_hour_novelty(
     rows: list[dict[str, Any]], span: int = HOUR
 ) -> dict[tuple[int, str], tuple[float, list[tuple[str, str, int]]]]:
@@ -144,7 +158,7 @@ def host_hour_novelty(
             prior_hours = (hour - first) / HOUR
             if not novel or prior_hours <= 0:
                 continue
-            weight = math.log1p(prior_hours) * len(novel)
+            weight = _log1p(prior_hours) * len(novel)
             score, items = out.get((hour, host), (0.0, []))
             items = items + [(source, p, c) for p, c in novel]
             out[(hour, host)] = (score + weight, items)
@@ -169,11 +183,11 @@ def _burst(token: str, hour: int, series: dict[int, int]) -> Burst | None:
     now = series.get(hour, 0)
     # Compare against the hours this value is normally active, not against idle hours: a user
     # who works days is not "bursting" every morning against a median of nights.
-    logs = [math.log1p(v) for v in prior if v]
+    logs = [_log1p(v) for v in prior if v]
     med = statistics.median(logs)
     mad = statistics.median(abs(x - med) for x in logs)
-    z = (math.log1p(now) - med) / (mad + 0.5)
-    return Burst(token, now, round(math.expm1(med), 1), active, round(z, 2))
+    z = (_log1p(now) - med) / (mad + 0.5)
+    return Burst(token, now, round(_expm1(med), 1), active, round(z, 2))
 
 
 def _search_literal(value: str) -> str:

@@ -531,6 +531,10 @@ def test_do_down_full_bootouts_host_jobs(tmp_path: Path) -> None:
     work = tmp_path / "work"
     work.mkdir()
     _stub_bin(
+        bin_dir / "uname",
+        '#!/bin/bash\nif [ "${1:-}" = "-s" ]; then echo Darwin; else /usr/bin/uname "$@"; fi\n',
+    )
+    _stub_bin(
         bin_dir / "docker",
         '#!/bin/bash\nprintf "docker %s\\n" "$*" >> "$CALL_LOG"\nexit 0\n',
     )
