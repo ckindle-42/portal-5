@@ -105,6 +105,7 @@ _launchd_plist_matches com.portal5.omlx "{tmp_path}/absent.plist"; echo "absent=
     assert "absent=1" in result.stdout
 
 
+@_DARWIN
 def test_up_names_the_installer_when_the_omlx_agent_was_not_rendered(tmp_path: Path) -> None:
     env = _env(tmp_path)
     agent = Path(env["HOME"]) / "Library" / "LaunchAgents" / "com.portal5.omlx.plist"
