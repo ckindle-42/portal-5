@@ -144,6 +144,8 @@ bully = [
     # vector store, no server/port (MASTER: "never created by this build:
     # ... a second vector store"; this is a client library, not a service).
     "lancedb>=0.37.1",
+    # Hunt R2 (security/core/hunt) stores notables, behaviours and knowledge in DuckDB.
+    "duckdb>=1.1",
 ]
 apple-silicon = [
     # MLX dual-server: mlx-lm for text-only models, mlx-vlm for VLM models.
@@ -199,6 +201,7 @@ apple-silicon = [
 dev = [
     "mcp>=2.0.0,<3.0.0",  # cap receipt: see the `mcp` extra above
     "promptfoo>=0.1.4",    # PyPI wrapper around the promptfoo Node CLI (dev-only LLM quality evals)
+    "duckdb>=1.1",  # hunt R2 suites import it at module level (CI installs .[dev] only)
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.1.0",

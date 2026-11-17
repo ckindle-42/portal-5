@@ -4742,6 +4742,7 @@ apple-silicon = [
     { name = "torchvision" },
 ]
 bully = [
+    { name = "duckdb" },
     { name = "lancedb" },
 ]
 cad = [
@@ -4762,6 +4763,7 @@ corpora = [
     { name = "python-evtx" },
 ]
 dev = [
+    { name = "duckdb" },
     { name = "jinja2" },
     { name = "lancedb" },
     { name = "markdown" },
@@ -4825,6 +4827,8 @@ requires-dist = [
     { name = "build123d", marker = "python_full_version >= '3.11' and extra == 'cad'", specifier = "==0.11.1" },
     { name = "build123d-mcp", extras = ["http"], marker = "python_full_version >= '3.11' and extra == 'cad'", specifier = "==0.3.90" },
     { name = "docling", marker = "extra == 'rag'", specifier = ">=2.99.0" },
+    { name = "duckdb", marker = "extra == 'bully'", specifier = ">=1.1" },
+    { name = "duckdb", marker = "extra == 'dev'", specifier = ">=1.1" },
     { name = "duckdb", marker = "extra == 'mcp'", specifier = ">=1.1" },
     { name = "en-core-web-sm", marker = "extra == 'apple-silicon'", url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" },
     { name = "fastapi", specifier = ">=0.109.0" },
