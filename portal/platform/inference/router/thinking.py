@@ -48,7 +48,9 @@ class ThinkTagFilter:
     double quotes is preserved as literal markup. Code fences and inline code
     pass through byte-for-byte. The parser retains only a tag prefix, a bounded
     quoted example, and Markdown delimiter state; an unterminated think block
-    is discarded at the terminal boundary.
+    is discarded at the terminal boundary. Discarded inner text is kept for
+    :meth:`take_reasoning`, so inline thinking reaches the reasoning channel
+    instead of vanishing.
     """
 
     def __init__(self) -> None:
@@ -60,6 +62,7 @@ class ThinkTagFilter:
         self._literal_size = 0
         self._literal_allowed = False
         self._closed_literal: tuple[str, str] | None = None
+        self._reasoning_parts: list[str] = []
         self._marker_char = ""
         self._marker_count = 0
         self._inline_ticks = 0
@@ -68,6 +71,12 @@ class ThinkTagFilter:
         self._line_prefix_whitespace = True
         self._last_emitted = ""
         self.removed = False
+
+    def take_reasoning(self) -> str:
+        """Return the inline thinking discarded since the last call."""
+        text = "".join(self._reasoning_parts)
+        self._reasoning_parts.clear()
+        return text
 
     def feed(self, text: str, *, final: bool = False) -> str:
         """Return the visible portion of *text*, retaining delimiter state."""
@@ -92,6 +101,7 @@ class ThinkTagFilter:
             if self._in_think:
                 # An unterminated protocol block cannot be treated as answer
                 # text. In particular, never flush its buffered inner text.
+                self._reasoning_parts.append("".join(self._literal_parts))
                 self.removed = True
                 self._reset_think()
             if self._closed_literal is not None:
@@ -193,7 +203,10 @@ class ThinkTagFilter:
                 self._literal_size += len(flushed)
                 if self._literal_size > _MAX_LITERAL_TAG_EXAMPLE:
                     self._literal_allowed = False
+                    self._reasoning_parts.append("".join(self._literal_parts))
                     self._literal_parts.clear()
+            else:
+                self._reasoning_parts.append(flushed)
         if self._close_pending.lower() != close_lower:
             return
 
@@ -202,6 +215,7 @@ class ThinkTagFilter:
             literal = _OPEN + "".join(self._literal_parts) + _CLOSE
             self._closed_literal = (self._literal_quote, literal)
         else:
+            self._reasoning_parts.append("".join(self._literal_parts))
             self.removed = True
         self._reset_think()
 
@@ -214,9 +228,16 @@ class ThinkTagFilter:
         self._literal_allowed = False
 
 
+def split_think(text: str) -> tuple[str, str]:
+    """Return ``(visible, reasoning)``: inline protocol thoughts become reasoning."""
+    content_filter = ThinkTagFilter()
+    visible = content_filter.feed(text, final=True)
+    return visible, content_filter.take_reasoning()
+
+
 def strip_think(text: str) -> str:
     """Remove protocol think wrappers while preserving every other character."""
-    return ThinkTagFilter().feed(text, final=True)
+    return split_think(text)[0]
 
 
 def extract_think_inner(text: str) -> str:
@@ -226,15 +247,21 @@ def extract_think_inner(text: str) -> str:
 
 
 def normalize_think_message(
-    msg: dict[str, Any], *, workspace_id: str = "", backend_id: str = ""
+    msg: dict[str, Any],
+    *,
+    workspace_id: str = "",
+    backend_id: str = "",
+    thinking_allowed: bool = True,
 ) -> bool:
     """Remove inline protocol thoughts and report whether the turn has no answer.
 
     Separate ``reasoning``, ``reasoning_content`` and ``thinking`` fields are
-    intentionally left separate. The return value is true when an inline
-    protocol block or a separate reasoning field exists but no visible answer
-    remains. Callers classify that turn as an incomplete response; they must
-    never use reasoning as substitute verdict text.
+    intentionally left separate. Inline protocol thoughts are discarded from
+    content and, when thinking is allowed, carried as ``reasoning_content`` so
+    the turn is graded reasoning-only rather than "no answer". The return value
+    is true when an inline protocol block or a separate reasoning field exists
+    but no visible answer remains. Callers classify that turn as an incomplete
+    response; they must never use reasoning as substitute verdict text.
     """
     del workspace_id, backend_id  # identifiers belong in trace metadata, not logs
     content = msg.get("content") or ""
@@ -242,6 +269,9 @@ def normalize_think_message(
     if isinstance(content, str):
         visible = content_filter.feed(content, final=True)
         msg["content"] = visible
+        inline_reasoning = content_filter.take_reasoning()
+        if thinking_allowed and inline_reasoning and not msg.get("reasoning_content"):
+            msg["reasoning_content"] = inline_reasoning
     else:
         visible = ""
     has_reasoning = any(msg.get(name) for name in ("reasoning", "reasoning_content", "thinking"))

@@ -31,7 +31,13 @@ and, when thinking is enabled, carry its reasoning in the canonical
 `reasoning_content` field beside `tool_calls`. `OllamaNativeTransport` maps
 that field to native `/api/chat` `thinking`; oMLX receives it unchanged.
 Reasoning stays separate from user-visible content, and disabled thinking
-does not add it to tool history.
+does not add it to tool history. Inline protocol thinking (an engine that
+writes `<think>…</think>` into `content`, including a block the token budget
+never closes) crosses the same boundary: the block is reasoning, the text after
+a closing tag is the answer, and a turn that ends inside an unclosed block is
+reasoning-only rather than an empty answer. The same separation is applied by
+`router/thinking.py` for the non-streaming normaliser, the JSON-to-SSE fallback,
+the empty-hop rescue, and the trace's own seat grading.
 
 ## Why
 

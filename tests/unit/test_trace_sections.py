@@ -534,6 +534,33 @@ def test_summarize_turn_counts_reasoning_apart_from_answer_content() -> None:
     assert stats.usage_source == "pipeline"
 
 
+def test_summarize_turn_treats_inline_think_as_reasoning_not_answer() -> None:
+    """A leaked inline ``<think>`` is reasoning: the seat grades WARN, never PASS as an answer."""
+    unclosed = workspaces.summarize_turn(
+        [
+            (0.40, {"choices": [{"delta": {"content": "<think>The user asks"}}]}),
+            (0.90, {"choices": [{"delta": {"content": ": extract names"}}]}),
+            (1.00, {"choices": [], "usage": {"completion_tokens": 24}}),
+        ]
+    )
+    assert unclosed.text == "" and unclosed.reasoning_deltas == 2
+    hop = workspaces.seat_hop(_seat(), workspaces.StreamedTurn(200, ["w", "b", "m"], unclosed))
+    assert hop.status is Status.WARN  # reasoning-only, not "no answer content"
+    assert "reasoning-only" in hop.observed
+
+    closed = workspaces.summarize_turn(
+        [
+            (0.40, {"choices": [{"delta": {"content": "<think>plan</think>OK"}}]}),
+            (0.50, {"choices": [], "usage": {"completion_tokens": 2}}),
+        ]
+    )
+    assert (closed.text, closed.reasoning_deltas) == ("OK", 1)
+    served = ["w", "b", "huihui_ai/qwen3.5-abliterated:9b-ctx8k"]
+    assert workspaces.seat_hop(_seat(), workspaces.StreamedTurn(200, served, closed)).status is (
+        Status.PASS
+    )
+
+
 def test_seat_hop_tells_a_reasoning_only_turn_from_an_empty_one() -> None:
     """Live 2026-11-16: both seats read "tokens=0 usage missing"; the engine log said
     `reasoning_only=True` on one and nothing on the other, and the trace could not tell."""

@@ -56,6 +56,7 @@ from portal.platform.inference.router.thinking import (
     NO_ANSWER_MESSAGE,
     _reasoning_text,
     _thinking_enabled,
+    split_think,
     strip_think,
 )
 from portal.platform.inference.router.tool_repeat import (
@@ -408,6 +409,7 @@ def _apply_non_stream_response(
     keep_names: frozenset[str] = frozenset(),
     model_elapsed_s: float | None = None,
     tool_result_carry: str | None = None,
+    thinking_allowed: bool = True,
 ) -> JSONResponse:
     """Normalise + record + wrap a completed non-streaming response dict.
 
@@ -430,7 +432,10 @@ def _apply_non_stream_response(
         for choice in data.get("choices") or []:
             msg = choice.get("message") or {}
             reasoning_only = normalize_think_message(
-                msg, workspace_id=workspace_id, backend_id=backend.id
+                msg,
+                workspace_id=workspace_id,
+                backend_id=backend.id,
+                thinking_allowed=thinking_allowed,
             )
             empty_answer = not str(msg.get("content") or "").strip()
             if (reasoning_only or empty_answer) and not msg.get("tool_calls"):
@@ -665,14 +670,18 @@ def _assistant_turn(
     for choice in data.get("choices") or []:
         message = choice.get("message") or {}
         text = message.get("content")
+        inline = ""
         if isinstance(text, str):
-            visible = strip_think(text)
+            visible, inline = split_think(text)
             if not creation_succeeded:
                 visible = strip_unbacked_download_lines(visible, keep_names)
             if visible:
                 content.append(visible)
-        if thinking_allowed and (r := _reasoning_text(message)):
-            reasoning.append(r)
+        if thinking_allowed:
+            if r := _reasoning_text(message):
+                reasoning.append(r)
+            if inline:
+                reasoning.append(inline)
     turn: dict[str, Any] = {
         "role": "assistant",
         "content": "".join(content) or None,
@@ -1452,6 +1461,7 @@ async def _try_non_streaming(
                 keep_names=_ns_keep_names,
                 model_elapsed_s=max(0.0, time.monotonic() - _model_started),
                 tool_result_carry=_ns_carry,
+                thinking_allowed=_ns_thinking_allowed,
             )
         except (httpx.TimeoutException, BackendRequestError):
             raise  # timeout: outer handler checks /api/ps; 4xx: caller surfaces it

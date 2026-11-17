@@ -230,3 +230,227 @@ def test_non_streaming_reasoning_only_is_an_explicit_incomplete_answer(monkeypat
     assert message["content"] == NO_ANSWER_MESSAGE
     assert message["thinking"] == "PRIVATE"
     assert body["choices"][0]["finish_reason"] == "length"
+
+
+# ── Inline ``<think>`` text is reasoning, never "no answer" ────────────────────
+
+
+@pytest.mark.parametrize(
+    ("source", "visible", "reasoning"),
+    [
+        (
+            "<think>extract the names first</think>Alice met Bob in Paris.",
+            "Alice met Bob in Paris.",
+            "extract the names first",
+        ),
+        ("<think>extract the names first", "", "extract the names first"),
+        ("<thi" + "nk>extract the names first", "", "extract the names first"),
+        ("Alice met Bob in Paris.", "Alice met Bob in Paris.", ""),
+    ],
+    ids=["opened-then-closed", "opened-never-closed", "tag-split", "plain-content"],
+)
+def test_inline_think_is_reasoning_at_every_chunk_split(source, visible, reasoning):
+    for split in range(len(source) + 1):
+        filt = ThinkTagFilter()
+        shown = filt.feed(source[:split])
+        thoughts = filt.take_reasoning()
+        shown += filt.feed(source[split:], final=True)
+        thoughts += filt.take_reasoning()
+        assert shown == visible, f"split={split}"
+        assert thoughts == reasoning, f"split={split}"
+
+
+def test_quoted_literal_think_markup_stays_content_and_is_not_reasoning():
+    filt = ThinkTagFilter()
+    assert filt.feed('prefix "<think>literal</think>"', final=True) == (
+        'prefix "<think>literal</think>"'
+    )
+    assert filt.take_reasoning() == ""
+
+
+def test_non_streaming_inline_think_becomes_reasoning_content():
+    msg = {"content": "<think>private plan</think>"}
+    assert normalize_think_message(msg)
+    assert msg["content"] == ""
+    assert msg["reasoning_content"] == "private plan"
+
+
+def test_non_streaming_inline_think_is_hidden_when_thinking_is_off():
+    msg = {"content": "<think>private plan</think>"}
+    assert normalize_think_message(msg, thinking_allowed=False)
+    assert msg["content"] == ""
+    assert "reasoning_content" not in msg
+
+
+def test_non_streaming_inline_think_does_not_swallow_the_answer():
+    msg = {"content": "<think>private plan</think>Alice met Bob in Paris."}
+    assert not normalize_think_message(msg)
+    assert msg["content"] == "Alice met Bob in Paris."
+    assert msg["reasoning_content"] == "private plan"
+
+
+def test_json_to_sse_fallback_carries_inline_think_as_reasoning():
+    payloads = [
+        json.loads(frame.decode().split("data: ", 1)[1])
+        for frame in streaming._json_completion_to_sse(
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "<think>private plan",
+                        },
+                        "finish_reason": "length",
+                    }
+                ]
+            },
+            "ws",
+        )
+        if b"[DONE]" not in frame
+    ]
+    assert _content(payloads) == NO_ANSWER_MESSAGE
+    assert _reasoning(payloads, "reasoning_content") == "private plan"
+    assert payloads[-1]["choices"][0]["finish_reason"] == "length"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("thinking_enabled", [True, False])
+async def test_streamed_inline_think_never_closed_is_reasoning_only(monkeypatch, thinking_enabled):
+    client = MagicMock()
+    client.stream = lambda *_a, **_k: _Context(
+        _Response(
+            [
+                _frame({"content": "<think>The user asks: extract the names. No"}),
+                _frame({}, "length"),
+                "data: [DONE]",
+            ]
+        )
+    )
+    monkeypatch.setattr(streaming, "_http_client", client)
+    body = {"chat_template_kwargs": {"enable_thinking": thinking_enabled}}
+    chunks = [
+        chunk
+        async for chunk in streaming._stream_from_backend_guarded(
+            "http://engine/v1/chat/completions", body, workspace_id="ws", model="m"
+        )
+    ]
+    payloads = _decode_payloads(chunks)
+    serialized = b"".join(chunks).decode()
+    assert _content(payloads) == NO_ANSWER_MESSAGE
+    assert "<think>" not in serialized
+    assert payloads[-1]["choices"][0]["finish_reason"] == "length"
+    if thinking_enabled:
+        assert _reasoning(payloads, "reasoning_content") == ("The user asks: extract the names. No")
+    else:
+        assert _reasoning(payloads, "reasoning_content") == ""
+        assert "The user asks" not in serialized
+
+
+@pytest.mark.anyio
+async def test_streamed_inline_think_split_across_chunks_releases_the_answer(monkeypatch):
+    client = MagicMock()
+    client.stream = lambda *_a, **_k: _Context(
+        _Response(
+            [
+                _frame({"content": "<thi"}),
+                _frame({"content": "nk>private plan</thi"}),
+                _frame({"content": "nk>Alice met Bob in Paris."}),
+                _frame({}, "stop"),
+                "data: [DONE]",
+            ]
+        )
+    )
+    monkeypatch.setattr(streaming, "_http_client", client)
+    chunks = [
+        chunk
+        async for chunk in streaming._stream_from_backend_guarded(
+            "http://engine/v1/chat/completions", {}, workspace_id="ws", model="m"
+        )
+    ]
+    payloads = _decode_payloads(chunks)
+    assert _content(payloads) == "Alice met Bob in Paris."
+    assert _reasoning(payloads, "reasoning_content") == "private plan"
+    assert "<think>" not in b"".join(chunks).decode()
+    assert payloads[-1]["choices"][0]["finish_reason"] == "stop"
+
+
+@pytest.mark.anyio
+async def test_inline_think_turn_grades_reasoning_only_in_the_trace(monkeypatch):
+    """The stream this pipeline now sends for LFM2.5's unclosed block grades WARN, not FAIL."""
+    from portal.platform.inference.cli.trace import workspaces
+
+    client = MagicMock()
+    client.stream = lambda *_a, **_k: _Context(
+        _Response(
+            [
+                _frame(
+                    {
+                        "content": (
+                            "<think>The user asks: extract the names from: Alice met "
+                            "Bob in Paris. So respond with names. No"
+                        )
+                    }
+                ),
+                _frame({}, "length"),
+                "data: "
+                + json.dumps(
+                    {
+                        "choices": [],
+                        "usage": {"completion_tokens": 24, "source": "pipeline"},
+                    }
+                ),
+                "data: [DONE]",
+            ]
+        )
+    )
+    monkeypatch.setattr(streaming, "_http_client", client)
+    chunks = [
+        chunk
+        async for chunk in streaming._stream_from_backend_guarded(
+            "http://engine/v1/chat/completions",
+            {"stream_options": {"include_usage": True}},
+            workspace_id="auto-documents::extract-uncensored",
+            model="m",
+        )
+    ]
+    events = [
+        (index * 0.1, frame)
+        for index, chunk in enumerate(chunks)
+        for line in chunk.decode().splitlines()
+        if (frame := workspaces.parse_sse(line)) is not None
+    ]
+    stats = workspaces.summarize_turn(events)
+    assert stats.text == NO_ANSWER_MESSAGE
+    assert stats.reasoning_deltas >= 1
+    seat = workspaces.Seat("auto-documents::extract-uncensored", "m")
+    route = ["auto-documents::extract-uncensored", "ollama-general", "m"]
+    hop = workspaces.seat_hop(seat, workspaces.StreamedTurn(200, route, stats))
+    assert hop.status is workspaces.Status.WARN
+    assert "reasoning-only" in hop.observed
+
+
+@pytest.mark.anyio
+async def test_tool_loop_inline_think_never_closed_is_reasoning_only(monkeypatch):
+    client = MagicMock()
+    client.stream = lambda *_a, **_k: _Context(
+        _Response(
+            [
+                _frame({"content": "<think>checking the workspace"}),
+                _frame({}, "length"),
+                "data: [DONE]",
+            ]
+        )
+    )
+    monkeypatch.setattr(streaming, "_http_client", client)
+    body = {"messages": [{"role": "user", "content": "Extract the names."}]}
+    chunks = [
+        chunk
+        async for chunk in streaming._stream_with_tool_loop_impl(
+            "http://engine/v1/chat/completions", body, "ws", "m", "", set()
+        )
+    ]
+    payloads = _decode_payloads(chunks)
+    assert _content(payloads) == NO_ANSWER_MESSAGE
+    assert _reasoning(payloads, "reasoning_content") == "checking the workspace"
+    assert chunks[-1] == DONE
+    assert payloads[-1]["choices"][0]["finish_reason"] == "length"
