@@ -93,7 +93,7 @@ def test_proper_tool_calls_and_plain_answers_come_back_as_they_are(monkeypatch):
     assert _rescue(monkeypatch, _Client(_Resp(200, _msg("<think>x</think>The answer.")))) == (
         "The answer.",
         [],
-        "",
+        "x",
     )
 
 

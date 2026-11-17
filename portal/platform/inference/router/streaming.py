@@ -32,7 +32,6 @@ import contextvars
 import json
 import logging
 import os
-import re
 import time
 from collections.abc import AsyncGenerator, AsyncIterator, Iterator
 from typing import TYPE_CHECKING, Any
@@ -98,6 +97,7 @@ from portal.platform.inference.router.thinking import (
     ThinkTagFilter,
     _reasoning_text,
     _thinking_enabled,
+    split_think,
 )
 from portal.platform.inference.router.tool_repeat import (
     UNGROUNDED_NOTICE,
@@ -203,6 +203,32 @@ def _content_chunk(request_id: str, workspace_id: str, text: str) -> bytes:
         "choices": [{"index": 0, "delta": {"content": text}, "finish_reason": None}],
     }
     return f"data: {json.dumps(payload)}\n\n".encode()
+
+
+def _reasoning_chunk(request_id: str, workspace_id: str, text: str) -> bytes:
+    """One OpenAI chunk carrying ``text`` on the reasoning channel."""
+    payload = {
+        "id": request_id,
+        "object": "chat.completion.chunk",
+        "created": int(time.time()),
+        "model": workspace_id,
+        "choices": [{"index": 0, "delta": {"reasoning_content": text}, "finish_reason": None}],
+    }
+    return f"data: {json.dumps(payload)}\n\n".encode()
+
+
+def _tail_reasoning_frames(
+    think_filter: ThinkTagFilter,
+    request_id: str,
+    workspace_id: str,
+    thinking_enabled: bool,
+    held: list[bytes] | None = None,
+) -> list[bytes]:
+    """Reasoning still withheld at the terminal boundary, as SSE frames."""
+    text = think_filter.take_reasoning()
+    if not (thinking_enabled and text):
+        return []
+    return _route(held, _reasoning_chunk(request_id, workspace_id, text))
 
 
 def _backend_error_chunk(status: int, raw: bytes) -> bytes:
@@ -619,6 +645,7 @@ def _json_completion_to_sse(
     content = message.get("content") or ""
     content_filter = ThinkTagFilter()
     visible = content_filter.feed(content, final=True) if isinstance(content, str) else ""
+    inline_reasoning = content_filter.take_reasoning()
     delta: dict[str, Any] = {}
     if visible:
         delta["content"] = visible
@@ -626,6 +653,8 @@ def _json_completion_to_sse(
         for name in ("reasoning", "reasoning_content", "thinking"):
             if message.get(name):
                 delta[name] = message[name]
+        if inline_reasoning and not delta.get("reasoning_content"):
+            delta["reasoning_content"] = inline_reasoning
     if delta:
         yield f"data: {json.dumps({'choices': [{'delta': delta}]})}\n\n".encode()
     tool_calls = message.get("tool_calls")
@@ -734,17 +763,24 @@ def _apply_reasoning_rewrite(
     obj: dict[str, Any],
     thinking_enabled: bool,
     think_filter: ThinkTagFilter,
-) -> tuple[bytes | None, bool, bool, str | None]:
+) -> tuple[bytes | None, bool, bool, str | None, str]:
     """Separate reasoning channels and incrementally filter inline wrappers.
 
     Returns:
-        (rewritten_chunk_or_None, content_emitted, skip_default_yield, visible_content)
+        (
+            rewritten_chunk_or_None,
+            content_emitted,
+            skip_default_yield,
+            visible_content,
+            inline_reasoning,
+        )
 
         - rewritten_chunk_or_None: SSE bytes to yield instead of the original line,
           or None if no rewrite is needed.
         - content_emitted: True if content should count as emitted to the client.
         - skip_default_yield: True if the caller should ``continue`` instead of yielding
           the original line.
+        - inline_reasoning: ``<think>`` text separated from content on this delta.
     """
     new_delta = dict(delta)
     changed = False
@@ -756,6 +792,16 @@ def _apply_reasoning_rewrite(
 
     content = delta.get("content")
     visible = think_filter.feed(content) if isinstance(content, str) else content
+    inline_reasoning = think_filter.take_reasoning()
+    if thinking_enabled and inline_reasoning:
+        # Inline ``<think>`` text is reasoning, exactly like an engine-sent
+        # ``reasoning_content`` field: never answer content, never dropped.
+        new_delta["reasoning_content"] = (
+            new_delta["reasoning_content"] + inline_reasoning
+            if isinstance(new_delta.get("reasoning_content"), str)
+            else inline_reasoning
+        )
+        changed = True
     if isinstance(content, str) and visible != content:
         changed = True
         if visible:
@@ -765,10 +811,16 @@ def _apply_reasoning_rewrite(
 
     emitted = bool(visible.strip()) if isinstance(visible, str) else False
     if not changed:
-        return None, emitted, False, visible
+        return None, emitted, False, visible, inline_reasoning
     new_obj = dict(obj)
     new_obj["choices"] = [dict(choice, delta=new_delta)]
-    return f"data: {json.dumps(new_obj)}\n\n".encode(), emitted, True, visible
+    return (
+        f"data: {json.dumps(new_obj)}\n\n".encode(),
+        emitted,
+        True,
+        visible,
+        inline_reasoning,
+    )
 
 
 async def _rescue_empty_hop(
@@ -794,8 +846,10 @@ async def _rescue_empty_hop(
         return "", [], ""
     msg = ((data.get("choices") or [{}])[0] or {}).get("message") or {}
     calls = list(msg.get("tool_calls") or [])
-    text = re.sub(r"<think>.*?</think>", "", str(msg.get("content") or ""), flags=re.S).strip()
-    reasoning = _reasoning_text(msg) if _thinking_enabled(body) else ""
+    text, inline_reasoning = split_think(str(msg.get("content") or ""))
+    text = text.strip()
+    thinking_allowed = _thinking_enabled(body)
+    reasoning = _reasoning_text(msg) + inline_reasoning if thinking_allowed else ""
     if not calls and text and body.get("tools"):
         _, calls = salvage_text_tool_calls(text, body.get("tools"))
         text = "" if calls else text
@@ -1361,16 +1415,13 @@ async def _tool_loop_frames_impl(
                                 obj = dict(obj, choices=[choice])
                                 line = f"data: {json.dumps(obj)}"
 
-                        _rewrite_chunk, _emitted, _skip, _visible = _apply_reasoning_rewrite(
-                            line,
-                            delta,
-                            choice,
-                            obj,
-                            _thinking_allowed,
-                            _think_filter,
+                        _rewrite, _emitted, _skip, _visible, _inline = _apply_reasoning_rewrite(
+                            line, delta, choice, obj, _thinking_allowed, _think_filter
                         )
                         if isinstance(_visible, str):
                             _content_buf += _visible
+                        if _thinking_allowed and _inline:
+                            _reasoning_buf += _inline
                         _timing_measurement.observe(
                             timing_frame,
                             visible_content=_visible,
@@ -1380,8 +1431,8 @@ async def _tool_loop_frames_impl(
                                 and _visible != delta.get("content")
                             ),
                         )
-                        if _rewrite_chunk is not None:
-                            for _f in _route(_held_frames, _rewrite_chunk):
+                        if _rewrite is not None:
+                            for _f in _route(_held_frames, _rewrite):
                                 yield _f
                             _content_emitted = _content_emitted or _emitted
                         if _skip:
@@ -1497,6 +1548,10 @@ async def _tool_loop_frames_impl(
                     _content_emitted = _content_emitted or bool(_visible_held.strip())
 
         _tail = _think_filter.feed("", final=True)
+        for _f in _tail_reasoning_frames(
+            _think_filter, request_id, workspace_id, _thinking_allowed, _held_frames
+        ):
+            yield _f
         if _tail:
             _tail_chunk = {
                 "id": request_id,
@@ -2108,14 +2163,10 @@ async def _stream_from_backend_guarded_impl(
                         clean_choice = dict(choice)
                         clean_choice["finish_reason"] = None
                         clean_frame = dict(frame, choices=[clean_choice])
-                        rewritten, emitted, _skip, visible = _apply_reasoning_rewrite(
-                            line,
-                            delta,
-                            clean_choice,
-                            clean_frame,
-                            _thinking_allowed,
-                            _think_filter,
+                        rewritten, emitted, _skip, visible, _inline = _apply_reasoning_rewrite(
+                            line, delta, clean_choice, clean_frame, _thinking_allowed, _think_filter
                         )
+                        _reasoning_seen = _reasoning_seen or bool(_inline)
                         _timing_measurement.observe(
                             frame,
                             visible_content=visible,
@@ -2151,6 +2202,10 @@ async def _stream_from_backend_guarded_impl(
                 )
             )
             tail = _think_filter.feed("", final=True)
+            for frame in _tail_reasoning_frames(
+                _think_filter, f"chatcmpl-{workspace_id}", workspace_id, _thinking_allowed
+            ):
+                yield frame
             if tail:
                 yield _content_chunk(f"chatcmpl-{workspace_id}", workspace_id, tail)
                 _answer_emitted = _answer_emitted or bool(tail.strip())

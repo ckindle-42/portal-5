@@ -9,6 +9,8 @@ from typing import Any
 
 import httpx
 
+from portal.platform.inference.router.thinking import ThinkTagFilter
+
 from .context import TraceContext
 from .model import Hop, Status, short
 
@@ -98,6 +100,7 @@ def summarize_turn(events: list[tuple[float, dict[str, Any]]]) -> TurnStats:
     first: float | None = None
     last: float | None = None
     usage: dict[str, Any] = {}
+    think = ThinkTagFilter()
     for at, chunk in events:
         frame = chunk.get("usage")
         if isinstance(frame, dict) and frame:
@@ -111,10 +114,16 @@ def summarize_turn(events: list[tuple[float, dict[str, Any]]]) -> TurnStats:
             text = delta.get("content")
             if not text:
                 continue
+            content = think.feed(str(text))
+            if think.take_reasoning():
+                # Inline ``<think>`` text is reasoning even when it reaches content.
+                stats.reasoning_deltas += 1
+            if not content:
+                continue
             if first is None:
                 first = at
             last = at
-            pieces.append(str(text))
+            pieces.append(content)
     stats.text = "".join(pieces)
     stats.content_chunks = len(pieces)
     stats.ttft_s = first
