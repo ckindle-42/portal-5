@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import math
 import re
 import statistics
 from collections import defaultdict
@@ -12,7 +11,7 @@ from typing import Any
 
 import pytest
 
-from portal.modules.security.core.hunt.engine import HOUR
+from portal.modules.security.core.hunt.engine import HOUR, _expm1, _log1p
 from portal.modules.security.core.hunt.executor import HuntBudget, HuntExecutor
 from portal.modules.security.core.hunt.jobs import DEFAULT_BUDGETS
 from portal.modules.security.core.hunt.observations import (
@@ -256,17 +255,17 @@ def _emit_groups(
 def _ref_novelty(origin: int, hour: int) -> float:
     if hour <= origin:
         return 0.0
-    return math.log1p((hour - origin) / HOUR)
+    return _log1p((hour - origin) / HOUR)
 
 
 def _ref_burst(series: dict[int, int], hour: int) -> tuple[float, float, int]:
     prior = [series[stamp] for stamp in sorted(series) if stamp < hour and series[stamp]]
-    logs = [math.log1p(count) for count in prior]
+    logs = [_log1p(count) for count in prior]
     med = statistics.median(logs)
     mad = statistics.median(abs(point - med) for point in logs)
     now = series[hour]
-    z = round((math.log1p(now) - med) / (mad + 0.5), 2)
-    return z, round(math.expm1(med), 1), len(prior)
+    z = round((_log1p(now) - med) / (mad + 0.5), 2)
+    return z, round(_expm1(med), 1), len(prior)
 
 
 def _score_ref(
