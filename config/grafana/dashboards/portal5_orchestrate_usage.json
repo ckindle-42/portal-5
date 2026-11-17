@@ -7,7 +7,7 @@
     "cost"
   ],
   "schemaVersion": 38,
-  "version": 3,
+  "version": 4,
   "editable": true,
   "refresh": "5m",
   "time": {
@@ -15,8 +15,1569 @@
     "to": "now"
   },
   "timezone": "browser",
-  "description": "Plan quota, token usage and cost for the Claude Code orchestration layer. Quota comes from the vendors themselves (Z.ai Coding Plan pools, DeepSeek and Moonshot balances) and is polled hourly; spend comes from the dispatcher's registry. MiMo publishes no balance endpoint and Codex/Grok are flat-rate subscriptions with no quota API, so they appear in spend but not in quota.",
+  "description": "Plan quota, seat roster, token usage and cost for the Claude Code orchestration layer. Seats are grouped by model family so the same model bought from two providers reads as one stack, and retired seats keep their history in a collapsed row rather than cluttering the current roster. Quota is the vendor's own reading: Z.ai Coding Plan pools and an Alibaba TP credit pool, Claude Pro, ChatGPT/Codex, OpenCode Go, Gemini Pro through `agy -p /usage`, DeepSeek and Moonshot balances, and OrcaRouter's wallet plus its free-package ladder. MiMo publishes no balance endpoint, so its figure is derived; Codex/Grok headline plans are flat-rate and appear in spend as well as in their own utilisation.",
   "panels": [
+    {
+      "type": "row",
+      "id": 108,
+      "title": "Seats \u2014 who can be picked, and how they have done",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "collapsed": false
+    },
+    {
+      "id": 109,
+      "type": "table",
+      "title": "Current seats \u2014 one row per routable seat, grouped by family",
+      "description": "Every seat `auto` or an explicit `--tier` can still pick, sorted so one model family reads as one stack across providers. `Status` is how the seat is reached: auto (the router may choose it) or explicit (only on request). Runs, accepted and judged are lifetime totals from the dispatcher registry, so `Accept %` compares like with like; it is blank until a seat has a verdict, which is the honest reading: no evidence. `Last used` and the token/cash columns answer what is in use now, and none of these depend on Prometheus history, so they survive a Prometheus restart.",
+      "gridPos": {
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "INFO",
+          "expr": "orchestrate_seat_info{status=~\"auto|explicit\"}",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "RUNS",
+          "expr": "sum by (seat) (orchestrate_seat_runs{window=\"lifetime\"}) * on(seat) group_left(family,provider,plan,harness,role,status) orchestrate_seat_info{status=~\"auto|explicit\"}",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "ACC",
+          "expr": "sum by (seat) (orchestrate_seat_accepted) * on(seat) group_left(family,provider,plan,harness,role,status) orchestrate_seat_info{status=~\"auto|explicit\"}",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "JUD",
+          "expr": "sum by (seat) (orchestrate_seat_judged) * on(seat) group_left(family,provider,plan,harness,role,status) orchestrate_seat_info{status=~\"auto|explicit\"}",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "RATE",
+          "expr": "((100 * sum by (seat) (orchestrate_seat_accepted) / clamp_min(sum by (seat) (orchestrate_seat_judged), 1)) and on(seat) (sum by (seat) (orchestrate_seat_judged) > 0)) * on(seat) group_left(family,provider,plan,harness,role,status) orchestrate_seat_info{status=~\"auto|explicit\"}",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "LAST",
+          "expr": "sum by (seat) (orchestrate_seat_last_used_timestamp * 1000 > 0) * on(seat) group_left(family,provider,plan,harness,role,status) orchestrate_seat_info{status=~\"auto|explicit\"}",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "TOK",
+          "expr": "sum by (seat) (orchestrate_seat_tokens{window=\"7d\"}) * on(seat) group_left(family,provider,plan,harness,role,status) orchestrate_seat_info{status=~\"auto|explicit\"}",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "COST",
+          "expr": "sum by (seat) (orchestrate_seat_cost_usd{window=\"7d\"}) * on(seat) group_left(family,provider,plan,harness,role,status) orchestrate_seat_info{status=~\"auto|explicit\"}",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "instance": true,
+              "job": true,
+              "Value #INFO": true,
+              "role": true,
+              "harness": true
+            },
+            "indexByName": {
+              "family": 0,
+              "seat": 1,
+              "provider": 2,
+              "plan": 3,
+              "status": 4,
+              "Value #RUNS": 5,
+              "Value #ACC": 6,
+              "Value #JUD": 7,
+              "Value #RATE": 8,
+              "Value #LAST": 9,
+              "Value #TOK": 10,
+              "Value #COST": 11
+            },
+            "renameByName": {
+              "family": "Family",
+              "seat": "Seat",
+              "provider": "Provider",
+              "plan": "Plan",
+              "status": "Status",
+              "Value #RUNS": "Runs",
+              "Value #ACC": "Accepted",
+              "Value #JUD": "Judged",
+              "Value #RATE": "Accept %",
+              "Value #LAST": "Last used",
+              "Value #TOK": "Tokens 7d",
+              "Value #COST": "Cash 7d"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "Family"
+              },
+              {
+                "field": "Seat"
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "right"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Family"
+            },
+            "properties": [
+              {
+                "id": "custom.align",
+                "value": "left"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Seat"
+            },
+            "properties": [
+              {
+                "id": "custom.align",
+                "value": "left"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Provider"
+            },
+            "properties": [
+              {
+                "id": "custom.align",
+                "value": "left"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Plan"
+            },
+            "properties": [
+              {
+                "id": "custom.align",
+                "value": "left"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
+            "properties": [
+              {
+                "id": "custom.align",
+                "value": "left"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "auto": {
+                        "color": "#199e70",
+                        "index": 1
+                      },
+                      "explicit": {
+                        "color": "#c98500",
+                        "index": 0
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Runs"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Accepted"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Judged"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Accept %"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "#c98500",
+                      "value": 60
+                    },
+                    {
+                      "color": "#199e70",
+                      "value": 85
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Last used"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeAsLocal"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Tokens 7d"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Cash 7d"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyUSD"
+              },
+              {
+                "id": "decimals",
+                "value": 4
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Family"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 210
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Seat"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 186
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Provider"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 138
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Plan"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 108
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Runs"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 60
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Accepted"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 75
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Judged"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 65
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Accept %"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 78
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Last used"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 200
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Tokens 7d"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Cash 7d"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      }
+    },
+    {
+      "id": 110,
+      "type": "table",
+      "title": "Family \u00d7 kind \u2014 what auto routes on",
+      "description": "Accepted and judged dispatches pooled by model family and task kind. Routing ranks a family per kind, so this is the evidence behind a choice; a cell with one or two judged runs is noise, not a finding. Families are the model, not the provider \u2014 the same family bought twice pools here.",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 12
+      },
+      "targets": [
+        {
+          "refId": "ACC",
+          "expr": "sum by (family, kind) (orchestrate_family_kind_accepted)",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "JUD",
+          "expr": "sum by (family, kind) (orchestrate_family_kind_judged)",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "RATE",
+          "expr": "100 * sum by (family, kind) (orchestrate_family_kind_accepted) / clamp_min(sum by (family, kind) (orchestrate_family_kind_judged), 1)",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "instance": true,
+              "job": true
+            },
+            "indexByName": {
+              "family": 0,
+              "kind": 1,
+              "Value #ACC": 2,
+              "Value #JUD": 3,
+              "Value #RATE": 4
+            },
+            "renameByName": {
+              "family": "Family",
+              "kind": "Kind",
+              "Value #ACC": "Accepted",
+              "Value #JUD": "Judged",
+              "Value #RATE": "Accept %"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "Family"
+              },
+              {
+                "field": "Kind"
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "right"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Family"
+            },
+            "properties": [
+              {
+                "id": "custom.align",
+                "value": "left"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Kind"
+            },
+            "properties": [
+              {
+                "id": "custom.align",
+                "value": "left"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Accepted"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Judged"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Accept %"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "#c98500",
+                      "value": 60
+                    },
+                    {
+                      "color": "#199e70",
+                      "value": 85
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Family"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 350
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Kind"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Accepted"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Judged"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 85
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Accept %"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      }
+    },
+    {
+      "id": 111,
+      "type": "table",
+      "title": "Provider reliability \u2014 failures by seat and reason",
+      "description": "Every failed dispatch recorded for a seat, split by why it failed: the harness crashed, the run stalled, the provider rate-limited, or it refused on quota \u2014 the four reason columns sum to the seat's failed dispatches. Counts are lifetime (the registry keeps them), so `Failure %` is against lifetime runs. A rate limit or quota refusal is the provider telling the truth late \u2014 the seat was picked when its plan had no headroom; a stall or harness error is the model or the wrapper.",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "targets": [
+        {
+          "refId": "RUNS",
+          "expr": "sum by (seat) (orchestrate_seat_runs{window=\"lifetime\"})",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "FAIL",
+          "expr": "sum by (seat) (orchestrate_provider_failures)",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "PCT",
+          "expr": "100 * sum by (seat) (orchestrate_provider_failures) / clamp_min(sum by (seat) (orchestrate_seat_runs{window=\"lifetime\"}), 1)",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "HE",
+          "expr": "sum by (seat) (orchestrate_provider_failures{reason=\"harness_error\"})",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "ST",
+          "expr": "sum by (seat) (orchestrate_provider_failures{reason=\"stall\"})",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "RL",
+          "expr": "sum by (seat) (orchestrate_provider_failures{reason=\"rate_limit\"})",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "QR",
+          "expr": "sum by (seat) (orchestrate_provider_failures{reason=\"quota_refusal\"})",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "instance": true,
+              "job": true
+            },
+            "indexByName": {
+              "seat": 0,
+              "Value #RUNS": 1,
+              "Value #FAIL": 2,
+              "Value #PCT": 3,
+              "Value #HE": 4,
+              "Value #ST": 5,
+              "Value #RL": 6,
+              "Value #QR": 7
+            },
+            "renameByName": {
+              "seat": "Seat",
+              "Value #RUNS": "Runs (life)",
+              "Value #FAIL": "Failures",
+              "Value #PCT": "Failure %",
+              "Value #HE": "Harness",
+              "Value #ST": "Stall",
+              "Value #RL": "Rate limit",
+              "Value #QR": "Quota refusal"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "Failure %",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "right"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Seat"
+            },
+            "properties": [
+              {
+                "id": "custom.align",
+                "value": "left"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Runs (life)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Failures"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Harness"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Stall"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Rate limit"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Quota refusal"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Failure %"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#199e70",
+                      "value": null
+                    },
+                    {
+                      "color": "#c98500",
+                      "value": 5
+                    },
+                    {
+                      "color": "red",
+                      "value": 15
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Seat"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 170
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Runs (life)"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 78
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Failures"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 72
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Failure %"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 78
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Harness"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 68
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Stall"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 50
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Rate limit"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 84
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Quota refusal"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 108
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      }
+    },
+    {
+      "type": "row",
+      "id": 112,
+      "title": "Retired \u2014 history only, not routable",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 28
+      },
+      "collapsed": true,
+      "panels": [
+        {
+          "id": 113,
+          "type": "table",
+          "title": "Retired seats \u2014 history only, never routable",
+          "description": "Seats and models that are no longer in the roster (removed, or retired at a known date) but still have recorded dispatches. They are kept so a verdict and its cost stay attributable after the seat is gone; nothing here can be picked by auto or by an explicit --tier. `Last used` is the last dispatch the registry recorded, not the model's deprecation date.",
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 29
+          },
+          "targets": [
+            {
+              "refId": "INFO",
+              "expr": "orchestrate_seat_info{status=\"retired\"}",
+              "instant": true,
+              "format": "table"
+            },
+            {
+              "refId": "RUNS",
+              "expr": "sum by (seat) (orchestrate_seat_runs{window=\"lifetime\"}) * on(seat) group_left(family,provider,plan,harness,role,status) orchestrate_seat_info{status=\"retired\"}",
+              "instant": true,
+              "format": "table"
+            },
+            {
+              "refId": "ACC",
+              "expr": "sum by (seat) (orchestrate_seat_accepted) * on(seat) group_left(family,provider,plan,harness,role,status) orchestrate_seat_info{status=\"retired\"}",
+              "instant": true,
+              "format": "table"
+            },
+            {
+              "refId": "JUD",
+              "expr": "sum by (seat) (orchestrate_seat_judged) * on(seat) group_left(family,provider,plan,harness,role,status) orchestrate_seat_info{status=\"retired\"}",
+              "instant": true,
+              "format": "table"
+            },
+            {
+              "refId": "LAST",
+              "expr": "sum by (seat) (orchestrate_seat_last_used_timestamp * 1000 > 0) * on(seat) group_left(family,provider,plan,harness,role,status) orchestrate_seat_info{status=\"retired\"}",
+              "instant": true,
+              "format": "table"
+            },
+            {
+              "refId": "TOK",
+              "expr": "sum by (seat) (orchestrate_seat_tokens{window=\"lifetime\"}) * on(seat) group_left(family,provider,plan,harness,role,status) orchestrate_seat_info{status=\"retired\"}",
+              "instant": true,
+              "format": "table"
+            },
+            {
+              "refId": "COST",
+              "expr": "sum by (seat) (orchestrate_seat_cost_usd{window=\"lifetime\"}) * on(seat) group_left(family,provider,plan,harness,role,status) orchestrate_seat_info{status=\"retired\"}",
+              "instant": true,
+              "format": "table"
+            }
+          ],
+          "transformations": [
+            {
+              "id": "merge",
+              "options": {}
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true,
+                  "__name__": true,
+                  "instance": true,
+                  "job": true,
+                  "Value #INFO": true,
+                  "role": true,
+                  "harness": true,
+                  "status": true
+                },
+                "indexByName": {
+                  "seat": 0,
+                  "family": 1,
+                  "provider": 2,
+                  "plan": 3,
+                  "Value #RUNS": 4,
+                  "Value #ACC": 5,
+                  "Value #JUD": 6,
+                  "Value #LAST": 7,
+                  "Value #TOK": 8,
+                  "Value #COST": 9
+                },
+                "renameByName": {
+                  "seat": "Seat",
+                  "family": "Family",
+                  "provider": "Provider",
+                  "plan": "Plan",
+                  "Value #RUNS": "Runs (life)",
+                  "Value #ACC": "Accepted",
+                  "Value #JUD": "Judged",
+                  "Value #LAST": "Last used",
+                  "Value #TOK": "Tokens (life)",
+                  "Value #COST": "Cash (life)"
+                }
+              }
+            },
+            {
+              "id": "sortBy",
+              "options": {
+                "sort": [
+                  {
+                    "field": "Tokens (life)",
+                    "desc": true
+                  }
+                ]
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "align": "right"
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Seat"
+                },
+                "properties": [
+                  {
+                    "id": "custom.align",
+                    "value": "left"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Family"
+                },
+                "properties": [
+                  {
+                    "id": "custom.align",
+                    "value": "left"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Provider"
+                },
+                "properties": [
+                  {
+                    "id": "custom.align",
+                    "value": "left"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Plan"
+                },
+                "properties": [
+                  {
+                    "id": "custom.align",
+                    "value": "left"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Runs (life)"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "short"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 0
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Accepted"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "short"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 0
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Judged"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "short"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 0
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Last used"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "dateTimeAsLocal"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Tokens (life)"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "short"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 0
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Cash (life)"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "currencyUSD"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 4
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Seat"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 165
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Family"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 175
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Provider"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 108
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Plan"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 108
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Runs (life)"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 82
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Accepted"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 75
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Judged"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 68
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Last used"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 200
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Tokens (life)"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 92
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Cash (life)"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 92
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          }
+        }
+      ]
+    },
     {
       "type": "row",
       "id": 100,
@@ -25,7 +1586,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 0
+        "y": 29
       },
       "collapsed": false
     },
@@ -38,7 +1599,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 1
+        "y": 30
       },
       "targets": [
         {
@@ -193,12 +1754,620 @@
                 "value": "dtdurations"
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Plan"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 150
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Window"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Resets at"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 185
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Resets in"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
           }
         ]
       },
       "options": {
         "showHeader": true,
         "cellHeight": "md"
+      }
+    },
+    {
+      "id": 114,
+      "type": "table",
+      "title": "Gemini Pro (Antigravity) \u2014 pools and pace",
+      "description": "The buckets `agy -p /usage` reports. `5h` and `week` are read from the same Hydrogen / 3.8 Flash bucket, so they move together and neither is a cap on its own; `1w` is Gemini 4 Argon's separate weekly bucket. Antigravity publishes a remaining fraction, not a credit count, so these are percent. **Pace** is left % minus the % of the window already elapsed: positive is ahead of an even burn, negative is a bucket that empties before it resets \u2014 the same arithmetic `dispatch budget` prints.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 40
+      },
+      "targets": [
+        {
+          "refId": "LEFT",
+          "expr": "100 * orchestrate_quota_remaining{plan=\"gemini-pro\"} / orchestrate_quota_limit{plan=\"gemini-pro\"}",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "USED",
+          "expr": "orchestrate_quota_pct_used{plan=\"gemini-pro\"}",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "PACE",
+          "expr": "100 * orchestrate_quota_remaining{plan=\"gemini-pro\"} / orchestrate_quota_limit{plan=\"gemini-pro\"} - 100 * (orchestrate_quota_reset_timestamp{plan=\"gemini-pro\"} - time()) / 3600 / ((orchestrate_quota_limit{plan=\"gemini-pro\",window=\"5h\"} * 0 + 5) or (orchestrate_quota_limit{plan=\"gemini-pro\",window=~\"week|1w|7d\"} * 0 + 168) or (orchestrate_quota_limit{plan=\"gemini-pro\",window=\"month\"} * 0 + 720))",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "AT",
+          "expr": "orchestrate_quota_reset_timestamp{plan=\"gemini-pro\"} * 1000 > 0",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "IN",
+          "expr": "(orchestrate_quota_reset_timestamp{plan=\"gemini-pro\"} - time()) > 0",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "instance": true,
+              "job": true,
+              "plan": true
+            },
+            "indexByName": {
+              "window": 0,
+              "Value #LEFT": 1,
+              "Value #USED": 2,
+              "Value #PACE": 3,
+              "Value #AT": 4,
+              "Value #IN": 5
+            },
+            "renameByName": {
+              "window": "Window",
+              "Value #LEFT": "Left %",
+              "Value #USED": "Used %",
+              "Value #PACE": "Pace pp",
+              "Value #AT": "Resets at",
+              "Value #IN": "Resets in"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "Resets in"
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "right"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Window"
+            },
+            "properties": [
+              {
+                "id": "custom.align",
+                "value": "left"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Left %"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "#c98500",
+                      "value": 15
+                    },
+                    {
+                      "color": "#199e70",
+                      "value": 40
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "gradient",
+                  "valueDisplayMode": "color"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Used %"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Pace pp"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "#c98500",
+                      "value": -20
+                    },
+                    {
+                      "color": "#199e70",
+                      "value": 10
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Resets at"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeAsLocal"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Resets in"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dtdurations"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Window"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 62
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Left %"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 125
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Used %"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 64
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Pace pp"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 64
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Resets at"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 185
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Resets in"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      }
+    },
+    {
+      "id": 115,
+      "type": "table",
+      "title": "OrcaRouter free \u2014 shared bucket, Hy4 bucket, active rung",
+      "description": "The free package publishes **caps, never a balance**, so there is no gauge to draw and no remaining figure to trust: what you see is the limit itself. `shared` is the bucket every free model draws on; a model with its own bucket gets its own row (Hy4's allows more requests than the shared one). The rung \u2014 the cap tier \u2014 is set by the account's lifetime paid spend, which no endpoint exposes, so `Lifetime paid` is the operator-recorded reading the rung is computed from (`ORCA_LIFETIME_SPEND_USD`); raise it when the console shows a higher figure.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 40
+      },
+      "targets": [
+        {
+          "refId": "RUNG",
+          "expr": "sum by (bucket) (orchestrate_free_package_rung_usd{plan=\"orca-free\"})",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "RPM",
+          "expr": "sum by (bucket) (orchestrate_free_package_rpm{plan=\"orca-free\"})",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "RPD",
+          "expr": "sum by (bucket) (orchestrate_free_package_rpd{plan=\"orca-free\"})",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "SPEND",
+          "expr": "sum by (bucket) (label_replace(orchestrate_free_package_lifetime_spend_usd{plan=\"orca-free\"}, \"bucket\", \"account\", \"plan\", \"orca-free\"))",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "instance": true,
+              "job": true,
+              "plan": true
+            },
+            "indexByName": {
+              "bucket": 0,
+              "Value #RUNG": 1,
+              "Value #RPM": 2,
+              "Value #RPD": 3,
+              "Value #SPEND": 4
+            },
+            "renameByName": {
+              "bucket": "Bucket",
+              "Value #RUNG": "Rung $",
+              "Value #RPM": "RPM",
+              "Value #RPD": "RPD",
+              "Value #SPEND": "Lifetime paid $"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "Bucket"
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "right"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Bucket"
+            },
+            "properties": [
+              {
+                "id": "custom.align",
+                "value": "left"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Rung $"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyUSD"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RPM"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RPD"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Lifetime paid $"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyUSD"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Bucket"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 210
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Rung $"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 78
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RPM"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 70
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RPD"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 70
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Lifetime paid $"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 105
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
       }
     },
     {
@@ -210,7 +2379,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 11
+        "y": 49
       },
       "targets": [
         {
@@ -271,7 +2440,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 11
+        "y": 49
       },
       "targets": [
         {
@@ -323,6 +2492,225 @@
       }
     },
     {
+      "id": 116,
+      "type": "timeseries",
+      "title": "OrcaRouter wallet \u2014 balance against anchor and floor",
+      "description": "The wallet's dollar balance over time, with the operator-recorded anchor it started from and the **$2.00 floor** below which a paid run is refused. A line that only falls means every paid OrcaRouter dispatch is being charged to cash; the distance from the anchor is spend, the distance to the floor is how many paid runs are left.",
+      "gridPos": {
+        "h": 7,
+        "w": 16,
+        "x": 0,
+        "y": 56
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "orchestrate_balance_usd{plan=\"orca\"}",
+          "legendFormat": "balance"
+        },
+        {
+          "refId": "B",
+          "expr": "orchestrate_balance_anchor_usd{plan=\"orca\"}",
+          "legendFormat": "anchor"
+        },
+        {
+          "refId": "C",
+          "expr": "orchestrate_balance_floor_usd{plan=\"orca\"}",
+          "legendFormat": "floor"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisLabel": "USD"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "balance"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "anchor"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#c98500"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "floor"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 117,
+      "type": "stat",
+      "title": "OrcaRouter wallet \u2014 now",
+      "description": "Balance, the anchor it is measured from, what has been spent since, and the floor that stops paid dispatches. `Spent since anchor` comes from OrcaRouter's own workspace spend quota, so it also counts spend from other clients on the same key \u2014 it can exceed what the registry booked.",
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 56
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "orchestrate_balance_usd{plan=\"orca\"}",
+          "legendFormat": "balance",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "expr": "orchestrate_balance_anchor_usd{plan=\"orca\"}",
+          "legendFormat": "anchor",
+          "instant": true
+        },
+        {
+          "refId": "C",
+          "expr": "orchestrate_spent_since_anchor_usd{plan=\"orca\"}",
+          "legendFormat": "spent since anchor",
+          "instant": true
+        },
+        {
+          "refId": "D",
+          "expr": "orchestrate_balance_floor_usd{plan=\"orca\"}",
+          "legendFormat": "floor",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "spent since anchor"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "floor"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#6e6e6e"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
       "id": 4,
       "type": "timeseries",
       "title": "Quota burn-down and reset",
@@ -331,7 +2719,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 18
+        "y": 63
       },
       "targets": [
         {
@@ -409,7 +2797,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 26
+        "y": 71
       },
       "collapsed": false
     },
@@ -422,7 +2810,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 27
+        "y": 72
       },
       "targets": [
         {
@@ -549,7 +2937,7 @@
         "h": 5,
         "w": 6,
         "x": 0,
-        "y": 35
+        "y": 80
       },
       "targets": [
         {
@@ -591,7 +2979,7 @@
         "h": 5,
         "w": 6,
         "x": 6,
-        "y": 35
+        "y": 80
       },
       "targets": [
         {
@@ -633,7 +3021,7 @@
         "h": 5,
         "w": 6,
         "x": 12,
-        "y": 35
+        "y": 80
       },
       "targets": [
         {
@@ -675,7 +3063,7 @@
         "h": 5,
         "w": 6,
         "x": 18,
-        "y": 35
+        "y": 80
       },
       "targets": [
         {
@@ -735,7 +3123,7 @@
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 40
+        "y": 85
       },
       "targets": [
         {
@@ -890,28 +3278,13 @@
       }
     },
     {
-      "id": 12,
-      "type": "text",
-      "title": "What this dashboard can and cannot see",
-      "gridPos": {
-        "h": 5,
-        "w": 24,
-        "x": 0,
-        "y": 66
-      },
-      "options": {
-        "mode": "markdown",
-        "content": "**Quota is the vendor's own number** for Z.ai (both Coding Plan pools), **Claude Pro** and **ChatGPT Plus / Codex** (5-hour and 7-day utilisation, the same endpoints their own CLIs read), **OpenCode Go** (5-hour, weekly and monthly percent of the subscription, from `inference/go/v1/usage` with opencode's console login; its lanes use only the free models), and DeepSeek and Moonshot (dollar balances). Polled every 15 minutes by a background refresher and served from cache; a reading older than 3 hours is ignored for routing.\n\n**MiMo's balance is derived, not published.** Xiaomi offers no balance endpoint, so the figure is an operator-recorded console reading less everything opencode has booked against the provider since. Re-anchor after a top-up.\n\n**SuperGrok's figure costs a request.** xAI publishes no quota endpoint; the plan's headroom arrives as `x-ratelimit-{limit,remaining}-{tokens,requests}` on a chat response \u2014 the same numbers the CLI's `/usage` screen shows. The exporter reads it with a one-token completion, so it refreshes hourly rather than every 15 minutes.\n\n**Cash is real; notional is modelled.** Prepaid tiers cost nothing at the margin, so *Avoided by prepaid* prices their tokens at the cheapest metered equivalent's list price. An estimate, not an invoice.\n\n**Token counts are normalised per harness** \u2014 codex reports input inclusive of its cached prefix while opencode and grok report cache separately. Raw fields differ by roughly an order of magnitude and must not be compared directly."
-      }
-    },
-    {
       "id": 13,
       "type": "bargauge",
       "gridPos": {
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 54
+        "y": 94
       },
       "title": "Metered spend to date \u2014 including MiMo",
       "description": "Cumulative cash per metered plan. MiMo is purely pay-as-you-go and is charged like DeepSeek and Kimi; it is here rather than in the balances panel only because Xiaomi publishes no balance endpoint to read.",
@@ -950,13 +3323,77 @@
       }
     },
     {
+      "id": 16,
+      "type": "timeseries",
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 94
+      },
+      "title": "Windows that are biting",
+      "description": "Each window the provider itself reports as active, with its severity. A line at 100% means that plan's included usage is gone \u2014 for Claude Pro and Codex that is the orchestrator's own budget, not a worker's.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "orchestrate_limit_percent",
+          "legendFormat": "{{plan}} \u00b7 {{kind}} ({{severity}})"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "axisLabel": "% of window used",
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
       "id": 15,
       "type": "stat",
       "gridPos": {
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 60
+        "y": 100
       },
       "title": "Extra usage \u2014 money spent past the plan",
       "description": "Once a window hits 100%, work bills against a monthly extra-usage cap rather than stopping. This is real money. The orchestrator's rule is to STOP and offer the choice at that point \u2014 never to continue silently, and never to refuse a decision that is the operator's.",
@@ -1015,67 +3452,18 @@
       }
     },
     {
-      "id": 16,
-      "type": "timeseries",
+      "id": 12,
+      "type": "text",
+      "title": "What this dashboard can and cannot see",
       "gridPos": {
-        "h": 6,
-        "w": 12,
-        "x": 12,
-        "y": 54
-      },
-      "title": "Windows that are biting",
-      "description": "Each window the provider itself reports as active, with its severity. A line at 100% means that plan's included usage is gone \u2014 for Claude Pro and Codex that is the orchestrator's own budget, not a worker's.",
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "orchestrate_limit_percent",
-          "legendFormat": "{{plan}} \u00b7 {{kind}} ({{severity}})"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "min": 0,
-          "max": 100,
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "axisLabel": "% of window used",
-            "thresholdsStyle": {
-              "mode": "line"
-            }
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "transparent",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 100
-              }
-            ]
-          }
-        },
-        "overrides": []
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 106
       },
       "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
+        "mode": "markdown",
+        "content": "**Quota is the vendor's own number.** Z.ai publishes both Coding Plan pools (5-hour and weekly credits); Alibaba TP publishes a monthly credit pool; Anthropic publishes Claude Pro's 5-hour and 7-day utilisation, the same source Claude Code's own `/usage` reads; OpenAI publishes ChatGPT Plus / Codex's 5-hour and 7-day utilisation; OpenCode Go publishes 5-hour, weekly and monthly percent of the subscription from `inference/go/v1/usage`; and DeepSeek and Moonshot publish dollar balances. Polled hourly by a background refresher and served from cache; a reading older than 3 hours is ignored for routing.\n\n**Gemini Pro (Antigravity) is read through `agy -p /usage`.** It reports its buckets as remaining *fractions*, so those pools are percent: `5h` and `week` are the same Hydrogen / 3.8 Flash bucket seen at two grains, and `1w` is Gemini 4 Argon's own weekly bucket. The pace column is left % minus the % of the window already elapsed \u2014 positive is ahead of an even burn, negative is a bucket that runs dry before it resets.\n\n**OrcaRouter has two meters.** The wallet is a dollar balance from the workspace spend quota, with an operator-recorded anchor: *spent since anchor* is that anchor less the current balance, and a paid dispatch is refused below the **$2.00 floor**. The free package publishes caps, never a balance \u2014 one shared bucket plus a bucket for each free model that has its own (Hy4 does) \u2014 and the rung those caps sit on is set by the account's lifetime paid spend, which no endpoint exposes; it is an operator-recorded reading (`ORCA_LIFETIME_SPEND_USD`). There is deliberately no remaining gauge for the free lane: the vendor does not publish one, so drawing one would be a guess.\n\n**MiMo's balance is derived, not published.** Xiaomi offers no balance endpoint, so the figure is an operator-recorded console reading less everything opencode has booked against the provider since. Re-anchor after a top-up.\n\n**SuperGrok's figure costs a request.** xAI publishes no quota endpoint; the plan's headroom arrives as `x-ratelimit-{limit,remaining}-{tokens,requests}` on a chat response \u2014 the same numbers the CLI's `/usage` screen shows. The exporter reads it with a one-token completion, so it refreshes hourly rather than every 15 minutes.\n\n**Cash is real; notional is modelled.** Prepaid tiers cost nothing at the margin, so *Avoided by prepaid* prices their tokens at the cheapest metered equivalent's list price. An estimate, not an invoice.\n\n**Token counts are normalised per harness** \u2014 codex reports input inclusive of its cached prefix while opencode and grok report cache separately. Raw fields differ by roughly an order of magnitude and must not be compared directly.\n\n**Seats come from the dispatch registry, not Prometheus history.** A seat's runs, verdicts, last-used time and lifetime spend survive a Prometheus restart; only the rate-shaped panels above need a full scrape window to be meaningful."
       }
     },
     {
@@ -1086,7 +3474,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 71
+        "y": 113
       },
       "collapsed": false
     },
@@ -1099,7 +3487,7 @@
         "h": 5,
         "w": 6,
         "x": 0,
-        "y": 72
+        "y": 114
       },
       "targets": [
         {
@@ -1132,7 +3520,7 @@
         "h": 5,
         "w": 6,
         "x": 6,
-        "y": 72
+        "y": 114
       },
       "targets": [
         {
@@ -1166,7 +3554,7 @@
         "h": 5,
         "w": 6,
         "x": 12,
-        "y": 72
+        "y": 114
       },
       "targets": [
         {
@@ -1199,7 +3587,7 @@
         "h": 5,
         "w": 6,
         "x": 18,
-        "y": 72
+        "y": 114
       },
       "targets": [
         {
@@ -1231,7 +3619,7 @@
         "h": 7,
         "w": 24,
         "x": 0,
-        "y": 77
+        "y": 119
       },
       "targets": [
         {
