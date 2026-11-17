@@ -271,3 +271,18 @@ def _registry_discovery_never_reaches_a_live_mcp(request, monkeypatch):
         return []
 
     monkeypatch.setattr(tool_registry, "list_tools", _offline_no_tools)
+
+
+@pytest.fixture(autouse=True)
+def _isolated_load_guard_lock_dir(tmp_path, monkeypatch):
+    """Each test gets its own load-guard lock dir.
+
+    The production dir is a fixed /tmp path shared by every xdist worker, so the
+    single preferred-resident keeper election (and the admission/cold-load locks)
+    raced across parallel tests: a test whose keeper lost the flock never ran.
+    """
+    try:
+        from portal.platform.inference import load_guard
+    except ImportError:
+        return
+    monkeypatch.setattr(load_guard, "_PROCESS_LOCK_DIR", tmp_path / "load-guard-locks")
