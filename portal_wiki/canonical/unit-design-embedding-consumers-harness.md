@@ -3,48 +3,8 @@ id: unit-design-embedding-consumers-harness
 kind: mixed
 title: "EmbeddingGemma 2 per-consumer measurement harness"
 sources:
-- type: code
-  path: tests/benchmarks/embedding_consumers/__init__.py
-- type: code
-  path: tests/benchmarks/embedding_consumers/__main__.py
-- type: code
-  path: tests/benchmarks/embedding_consumers/cli.py
-- type: code
-  path: tests/benchmarks/embedding_consumers/framework.py
-- type: code
-  path: tests/benchmarks/embedding_consumers/gen_media.py
-- type: code
-  path: tests/benchmarks/embedding_consumers/probes/__init__.py
-- type: code
-  path: tests/benchmarks/embedding_consumers/probes/_common.py
-- type: code
-  path: tests/benchmarks/embedding_consumers/probes/attack_mapping.py
-- type: code
-  path: tests/benchmarks/embedding_consumers/probes/bully.py
-- type: code
-  path: tests/benchmarks/embedding_consumers/probes/compliance.py
-- type: code
-  path: tests/benchmarks/embedding_consumers/probes/harmful_intent.py
-- type: code
-  path: tests/benchmarks/embedding_consumers/probes/hygiene.py
-- type: code
-  path: tests/benchmarks/embedding_consumers/probes/media.py
-- type: code
-  path: tests/benchmarks/embedding_consumers/probes/memory.py
-- type: code
-  path: tests/benchmarks/embedding_consumers/probes/rag.py
-- type: code
-  path: tests/benchmarks/embedding_consumers/probes/refusal_classifier.py
-- type: code
-  path: tests/benchmarks/embedding_consumers/probes/router.py
-- type: code
-  path: tests/benchmarks/embedding_consumers/probes/seccode.py
-- type: code
-  path: tests/benchmarks/embedding_consumers/probes/security_text.py
-- type: code
-  path: tests/benchmarks/embedding_consumers/probes/tool_preselect.py
-- type: code
-  path: tests/benchmarks/embedding_consumers/probes/wiki_search.py
+- type: doc
+  path: reports/embedding_consumers/EG2_CUTOVER.md
 - type: data
   path: tests/data/embedding_consumers/csf2_to_80053r5_official.json
 claims: []

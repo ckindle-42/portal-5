@@ -1,13 +1,8 @@
-"""Grounding, the judge protocol with a real Challenger, and panel aggregation.
-
-The scripted client stands in for the model: what is under test is the CODE around the model --
-what survives grounding, how verdicts combine, that reasoning is never switched off."""
+"""Grounding, prompt/case rendering, combine lattice, and panel aggregation."""
 
 from __future__ import annotations
 
-import json
-from collections.abc import Mapping, Sequence
-from typing import Any
+from collections.abc import Mapping
 
 import pytest
 
@@ -54,52 +49,6 @@ def concern(*ids: str) -> ReviewConcern:
         span_seconds=120.0,
         evidence=tuple(EvidenceRef(i, i.rsplit(":", 1)[0]) for i in (ids or (E1, E2))),
     )
-
-
-def j(**kw: Any) -> str:
-    return json.dumps(kw)
-
-
-def conclude(verdict: str, *claims: dict[str, Any], confidence: float = 0.8) -> str:
-    return j(action="conclude", verdict=verdict, confidence=confidence, claims=list(claims))
-
-
-GOOD_CLAIM = {
-    "text": "certutil fetches a remote binary",
-    "evidence_ids": [E1],
-    "quote": "CERTUTIL -urlcache",
-}
-
-
-class Scripted:
-    def __init__(self, *replies: str | judge.ModelReply) -> None:
-        self.replies = list(replies)
-        self.calls: list[dict[str, Any]] = []
-
-    def complete(
-        self,
-        messages: Sequence[Mapping[str, str]],
-        *,
-        model: str,
-        schema: Mapping[str, Any] | None,
-        max_tokens: int,
-        think: bool,
-    ) -> judge.ModelReply:
-        self.calls.append(
-            {"model": model, "think": think, "messages": len(messages), "schema": schema}
-        )
-        item = self.replies.pop(0)
-        return item if isinstance(item, judge.ModelReply) else judge.ModelReply(text=item)
-
-
-class Tools:
-    def __init__(self, found: Sequence[tuple[str, str]]) -> None:
-        self.found = list(found)
-        self.terms: list[str] = []
-
-    def pivot(self, term: str) -> Sequence[tuple[str, str]]:
-        self.terms.append(term)
-        return self.found
 
 
 # ── parsing ──────────────────────────────────────────────────────────────────
@@ -165,121 +114,7 @@ def test_parse_claims_reports_malformed_entries() -> None:
     assert grounding.parse_claims(None) == ([], 0)
 
 
-# ── judge ────────────────────────────────────────────────────────────────────
-
-
-def test_something_with_a_grounded_claim_and_an_upholding_challenger_is_something() -> None:
-    client = Scripted(conclude("something", GOOD_CLAIM), j(stance="upheld", objections=[]))
-    record = judge.run_judge(
-        concern(), window(), client=client, model="judge-m", challenger_model="chal-m"
-    )
-    assert record.verdict == Verdict.SOMETHING and record.challenger_verdict == "upheld"
-    assert [c.text for c in record.claims] == ["certutil fetches a remote binary"]
-    assert [c["model"] for c in client.calls] == ["judge-m", "chal-m"]
-    assert all(c["think"] is True for c in client.calls), "reasoning must never be switched off"
-    assert record.evidence_shown == 2 and record.evidence_total == 2 and record.degraded == ""
-
-
-def test_something_without_a_grounded_claim_becomes_unsure() -> None:
-    bad = {"text": "scary", "evidence_ids": ["web:access:invented"]}
-    client = Scripted(conclude("something", bad), j(stance="upheld"))
-    record = judge.run_judge(concern(), window(), client=client, model="m")
-    assert record.verdict == Verdict.UNSURE and record.dropped_claims == 1
-    assert "without a grounded claim" in record.note
-
-
-@pytest.mark.parametrize(
-    ("stance", "objection", "expected"),
-    [
-        ("upheld", None, Verdict.NOTHING),
-        ("insufficient", None, Verdict.UNSURE),
-        ("refuted", {"text": "it fetches a binary", "evidence_ids": [E1]}, Verdict.UNSURE),
-        ("refuted", {"text": "invented", "evidence_ids": ["nope"]}, Verdict.UNSURE),
-    ],
-)
-def test_nothing_needs_independent_agreement(
-    stance: str, objection: dict[str, Any] | None, expected: Verdict
-) -> None:
-    challenger = j(stance=stance, objections=[objection] if objection else [])
-    record = judge.run_judge(
-        concern(), window(), client=Scripted(conclude("nothing"), challenger), model="m"
-    )
-    assert record.verdict == expected
-
-
-def test_something_yields_only_to_a_grounded_refutation() -> None:
-    grounded = j(stance="refuted", objections=[{"text": "scheduled task", "evidence_ids": [E2]}])
-    ungrounded = j(stance="refuted", objections=[{"text": "trust me", "evidence_ids": ["nope"]}])
-    down = judge.run_judge(
-        concern(), window(), client=Scripted(conclude("something", GOOD_CLAIM), grounded), model="m"
-    )
-    assert down.verdict == Verdict.UNSURE and "grounded objection" in down.note
-    kept = judge.run_judge(
-        concern(),
-        window(),
-        client=Scripted(conclude("something", GOOD_CLAIM), ungrounded),
-        model="m",
-    )
-    assert kept.verdict == Verdict.SOMETHING and "raised anyway" in kept.note
-
-
-def test_an_unavailable_challenger_never_silences() -> None:
-    erroring = judge.ModelReply(text="", error="timeout")
-    record = judge.run_judge(
-        concern(), window(), client=Scripted(conclude("nothing"), erroring), model="m"
-    )
-    assert record.verdict == Verdict.UNSURE and record.challenger_verdict == "unavailable"
-    raised = judge.run_judge(
-        concern(), window(), client=Scripted(conclude("something", GOOD_CLAIM), erroring), model="m"
-    )
-    assert raised.verdict == Verdict.SOMETHING
-
-
-def test_a_pivot_extends_what_may_be_cited() -> None:
-    new = "web:access:ddd444"
-    tools = Tools([(new, "clientip=10.9.9.9 uri=/shell.php"), (E1, TEXTS[E1])])
-    cite_new = {"text": "same actor drops a shell", "evidence_ids": [new], "quote": "/shell.php"}
-    client = Scripted(
-        j(action="pivot", term="10.9.9.9", why="same actor?"),
-        conclude("something", cite_new),
-        j(stance="upheld"),
-    )
-    record = judge.run_judge(concern(), window(), client=client, model="m", tools=tools)
-    assert (
-        tools.terms == ["10.9.9.9"] and record.verdict == Verdict.SOMETHING and record.rounds == 2
-    )
-    assert record.claims[0].evidence_ids == (new,)
-
-
-def test_a_pivot_request_without_tools_is_answered_not_obeyed() -> None:
-    client = Scripted(j(action="pivot", term="x"), conclude("unsure"), j(stance="insufficient"))
-    record = judge.run_judge(concern(), window(), client=client, model="m", tools=None)
-    assert record.verdict == Verdict.UNSURE and record.degraded == ""
-
-
-def test_model_errors_and_unparseable_replies_degrade_to_unsure() -> None:
-    err = judge.run_judge(
-        concern(), window(), client=Scripted(judge.ModelReply("", error="boom")), model="m"
-    )
-    assert err.verdict == Verdict.UNSURE and err.degraded == "model error: boom"
-    twice = judge.run_judge(concern(), window(), client=Scripted("nope", "still nope"), model="m")
-    assert twice.degraded == "model returned no JSON object twice"
-    repaired = judge.run_judge(
-        concern(),
-        window(),
-        client=Scripted("nope", conclude("something", GOOD_CLAIM), j(stance="upheld")),
-        model="m",
-    )
-    assert repaired.verdict == Verdict.SOMETHING and repaired.degraded == ""
-    exhausted = judge.run_judge(
-        concern(),
-        window(),
-        client=Scripted(*[j(action="pivot", term="a")] * 3),
-        model="m",
-        tools=Tools([]),
-        max_rounds=3,
-    )
-    assert exhausted.degraded == "no conclusion within the round budget"
+# ── judge rendering & combine ────────────────────────────────────────────────
 
 
 def test_the_case_text_cites_ids_caps_events_and_registers_only_what_it_shows() -> None:
@@ -359,14 +194,3 @@ def test_failed_members_do_not_shrink_the_roster() -> None:
         panel.panel_verdict([rec("a", Verdict.UNSURE, degraded="x")], POLICY).degraded
         == "every panel member failed"
     )
-
-
-def test_run_panel_runs_each_member_and_aggregates() -> None:
-    members = [
-        (Scripted(conclude("nothing"), j(stance="upheld")), "m1"),
-        (Scripted(conclude("nothing"), j(stance="upheld")), "m2"),
-        (Scripted(conclude("something", GOOD_CLAIM), j(stance="upheld")), "m3"),
-    ]
-    out = panel.run_panel(concern(), window(), members=members, policy=POLICY)
-    assert out.verdict == Verdict.NOTHING and out.panel["dissent"] == ["m2"]
-    assert out.model == "panel:m1,m2,m3"

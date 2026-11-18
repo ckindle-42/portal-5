@@ -9,9 +9,6 @@ sources:
 - type: code
   path: scripts/_archive/engine_h2h_20260924/deep_lane/run_deep.py
   commit: 8015e9381c8a
-- type: code
-  path: tests/benchmarks/prismml_mlx_server.py
-  commit: 8015e9381c8a
 claims: []
 confidence: high
 tags:
@@ -27,8 +24,6 @@ updated_at: 1792204748.5158741
 
 - `scripts/_archive/analyze_bench_v5.py`
 - `scripts/_archive/engine_h2h_20260924/deep_lane/run_deep.py`
-- `tests/benchmarks/prismml_mlx_server.py`
-- `tests/unit/test_prismml_mlx_server.py`
 - `scripts/_archive/mlx-retired-3a0c58e/mlx-proxy.py`
 - `scripts/_archive/mlx-retired-3a0c58e/mlx-watchdog.py`
 - `scripts/_archive/mlx-retired-3a0c58e/smoke_test_mlx.py`

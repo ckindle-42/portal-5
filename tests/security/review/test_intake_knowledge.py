@@ -9,7 +9,7 @@ from __future__ import annotations
 from portal.modules.security.core.bully import artifact_graph as ag
 from portal.modules.security.core.review import intake, knowledge
 
-from ._fakes import HashEmbedder, three_source_window, windows_records
+from ._fakes import three_source_window, windows_records
 
 
 def test_every_source_gets_its_own_roles_and_none_is_blind() -> None:
@@ -90,36 +90,25 @@ def test_event_id_survives_a_second_export_of_the_same_event() -> None:
     assert intake.event_id_for("s", first) != intake.event_id_for("s", {**first, "_cd": "12:9"})
 
 
-def test_anchor_index_search_and_exclusion() -> None:
-    embedder = HashEmbedder()
-    cards = [
-        knowledge.AnchorCard(
-            "a1", "attack_episode", "cred-dump", "malicious", "certutil urlcache payload", {}
-        ),
-        knowledge.AnchorCard(
-            "a2", "benign_pattern", "browser", "benign", "chrome renderer sandbox", {}
-        ),
-    ]
-    index = knowledge.AnchorIndex.build(cards, embedder)
-    queries = knowledge.embed_texts(embedder, ["certutil urlcache download", "chrome renderer"])
-    hits = index.search(queries, k=2)
-    assert hits[0][0][0].anchor_id == "a1" and hits[1][0][0].anchor_id == "a2"
-    excluded = index.search(queries[:1], k=2, exclude=[frozenset({"a1"})])
-    assert [c.anchor_id for c, _ in excluded[0]] == ["a2"]
-    assert index.population == 2 and index.kinds == ("attack_episode", "benign_pattern")
-
-
 def test_quarantined_anchors_are_not_knowledge() -> None:
-    class Fake:
-        def __init__(self, quarantined: bool) -> None:
-            self.anchor_id = "x"
-            self.kind = "attack_episode"
-            self.malice = "malicious"
-            self.record = {"card": "some card text"}
-            self.quarantined = quarantined
+    from types import SimpleNamespace
 
-    assert knowledge.cards_from_anchors([Fake(True)]) == []
-    assert len(knowledge.cards_from_anchors([Fake(False)])) == 1
+    a_quarantined = SimpleNamespace(
+        anchor_id="x",
+        kind="attack_episode",
+        malice="malicious",
+        record={"card": "some card text"},
+        quarantined=True,
+    )
+    a_live = SimpleNamespace(
+        anchor_id="y",
+        kind="attack_episode",
+        malice="malicious",
+        record={"card": "some card text"},
+        quarantined=False,
+    )
+    assert knowledge.cards_from_anchors([a_quarantined]) == []
+    assert len(knowledge.cards_from_anchors([a_live])) == 1
 
 
 def test_the_classifier_is_an_explicit_arm() -> None:

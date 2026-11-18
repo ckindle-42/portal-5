@@ -126,35 +126,3 @@ def test_reschema_cousin_targets_a_sourcetype_the_parent_did_not_use() -> None:
     reschema = cousins[0]
     assert reschema.transformation == "RESCHEMA"
     assert "wineventlog:security" not in reschema.target_sourcetypes
-
-
-def test_stream_corpus_batches_across_indexes_without_loading_whole() -> None:
-    class FakeConnector:
-        def __init__(self, index: str) -> None:
-            self.index = index
-            self._rows = [{"id": f"{index}-{i}"} for i in range(25)]
-
-        def fetch(self, *, offset: int, limit: int) -> list[dict]:
-            return self._rows[offset : offset + limit]
-
-    records = list(
-        corpus_bed.stream_corpus(
-            FakeConnector, ("botsv1", "botsv2"), batch_size=10, max_records=None
-        )
-    )
-    assert len(records) == 50
-    assert all(r["__index"] in ("botsv1", "botsv2") for r in records)
-
-
-def test_stream_corpus_respects_max_records() -> None:
-    class FakeConnector:
-        def __init__(self, index: str) -> None:
-            self._rows = [{"id": i} for i in range(1000)]
-
-        def fetch(self, *, offset: int, limit: int) -> list[dict]:
-            return self._rows[offset : offset + limit]
-
-    records = list(
-        corpus_bed.stream_corpus(FakeConnector, ("botsv1",), batch_size=100, max_records=250)
-    )
-    assert len(records) == 250

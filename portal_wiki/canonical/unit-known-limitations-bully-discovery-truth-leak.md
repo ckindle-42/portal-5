@@ -8,8 +8,6 @@ sources:
 - type: code
   path: portal/modules/security/core/bully/cousin_engine.py
 - type: code
-  path: tests/security/bully/_discovery_fixtures.py
-- type: code
   path: portal/modules/security/core/bully/behavior_values.py
 - type: code
   path: scripts/build_specimen_corpus_v3.py

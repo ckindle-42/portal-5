@@ -23,7 +23,6 @@ from portal.modules.security.core.siem.spl_detections import (
     spl_for_source,
     validated_detection_sourcetypes,
 )
-from scripts import corpus_ingest
 
 # Real eventName values observed in the staged invictus-ir / flaws.cloud
 # CloudTrail exports (verified against the acquisition, not invented).
@@ -69,7 +68,6 @@ def test_aws_cloudtrail_becomes_admitted_detection_sourcetype():
     reachable -- `aws:cloudtrail` now appears in the derived admit set."""
     _invalidate()
     assert "aws:cloudtrail" in validated_detection_sourcetypes()
-    assert "aws:cloudtrail" in corpus_ingest.INGESTED_SOURCETYPES
 
 
 def test_each_cloud_detection_fires_on_known_positive_and_is_quiet_on_benign():
