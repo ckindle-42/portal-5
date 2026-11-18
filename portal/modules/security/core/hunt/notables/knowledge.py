@@ -132,6 +132,7 @@ class LoadedKnowledge:
     dimensions: int
     contradicted: int = 0
     uninformative: int = 0
+    index_unseen: bool = False
 
     @property
     def excluded_family(self) -> str:
@@ -339,13 +340,17 @@ def _label_quality_tables(connection: duckdb.DuckDBPyConnection) -> None:
 
 def _load_conditions(excluded_families: Sequence[str], run_index: str) -> list[str]:
     """The store rows one run may read: its own family and unusable labels removed."""
-    return [
-        "split = 'build'",
-        "family NOT IN (" + ",".join("?" for _ in excluded_families) + ")",
-        "index_name <> ?",
-        "statement NOT IN (SELECT statement FROM contradicted_statements)",
-        "statement IN (SELECT statement FROM informative_statements)",
-    ]
+    conditions = ["split = 'build'"]
+    if excluded_families:
+        conditions.append("family NOT IN (" + ",".join("?" for _ in excluded_families) + ")")
+    conditions.extend(
+        [
+            "index_name <> ?",
+            "statement NOT IN (SELECT statement FROM contradicted_statements)",
+            "statement IN (SELECT statement FROM informative_statements)",
+        ]
+    )
+    return conditions
 
 
 def _label_quality_counts(
@@ -356,7 +361,7 @@ def _label_quality_counts(
     """How many otherwise-loadable items each label rule removes, counted once each."""
     _label_quality_tables(connection)
     conditions = _load_conditions(excluded_families, run_index)
-    base_where = " AND ".join(conditions[:3])
+    base_where = " AND ".join(conditions[:-2])  # all but the two label-quality clauses
     parameters = [*excluded_families, run_index]
     contradicted = _excluded_count(
         connection,
@@ -388,6 +393,32 @@ def _excluded_count(
     return int(row[0]) if row is not None else 0
 
 
+def _run_exclusions(
+    connection: duckdb.DuckDBPyConnection, run_index: str, expected_family: str | None
+) -> tuple[tuple[str, ...], bool]:
+    """Families the run must not learn from, and whether the store has never seen its index."""
+    family_rows = connection.execute(
+        "SELECT DISTINCT family FROM knowledge_items "
+        "WHERE index_name = ? AND split = 'build' ORDER BY family",
+        [run_index],
+    ).fetchall()
+    excluded = tuple(str(row[0]) for row in family_rows)
+    if excluded:
+        if expected_family and expected_family not in excluded:
+            raise KnowledgeError(
+                f"run index {run_index!r} belongs to {excluded}, not {expected_family!r}"
+            )
+        return excluded, False
+    if expected_family:
+        stored = {
+            str(row[0])
+            for row in connection.execute("SELECT DISTINCT family FROM knowledge_items").fetchall()
+        }
+        if expected_family in stored:
+            return (expected_family,), True
+    return (), True
+
+
 @contextmanager
 def load_for_run(
     store_path: Path,
@@ -396,7 +427,7 @@ def load_for_run(
     expected_family: str | None = None,
     allowed_families: Sequence[str] | None = None,
 ) -> Iterator[LoadedKnowledge]:
-    """Materialize and assert the per-run family-filtered store before similarity can read it."""
+    """Materialize and assert the per-run filtered store; an index unseen by it excludes no family."""
     if not run_index:
         raise ValueError("the run index is required")
     if not store_path.is_file():
@@ -406,18 +437,7 @@ def load_for_run(
         metadata = dict(connection.execute("SELECT key, value FROM knowledge_meta").fetchall())
         if metadata.get("schema_version") != SCHEMA_VERSION:
             raise KnowledgeError("unsupported knowledge store schema")
-        family_rows = connection.execute(
-            "SELECT DISTINCT family FROM knowledge_items "
-            "WHERE index_name = ? AND split = 'build' ORDER BY family",
-            [run_index],
-        ).fetchall()
-        excluded_families = tuple(str(row[0]) for row in family_rows)
-        if not excluded_families:
-            raise KnowledgeError(f"run index {run_index!r} has no family in the knowledge store")
-        if expected_family and expected_family not in excluded_families:
-            raise KnowledgeError(
-                f"run index {run_index!r} belongs to {excluded_families}, not {expected_family!r}"
-            )
+        excluded_families, index_unseen = _run_exclusions(connection, run_index, expected_family)
         families = None if allowed_families is None else tuple(sorted(set(allowed_families)))
         conditions = _load_conditions(excluded_families, run_index)
         parameters: list[Any] = [*excluded_families, run_index]
@@ -435,11 +455,15 @@ def load_for_run(
             parameters,
         )
         count_row = connection.execute("SELECT count(*) FROM loaded_knowledge").fetchone()
+        leak_where = "index_name = ?"
+        leak_parameters: list[Any] = [run_index]
+        if excluded_families:
+            leak_where = (
+                "family IN (" + ",".join("?" for _ in excluded_families) + ") OR " + leak_where
+            )
+            leak_parameters = [*excluded_families, run_index]
         leaked_row = connection.execute(
-            "SELECT count(*) FROM loaded_knowledge WHERE family IN ("
-            + ",".join("?" for _ in excluded_families)
-            + ") OR index_name = ?",
-            [*excluded_families, run_index],
+            "SELECT count(*) FROM loaded_knowledge WHERE " + leak_where, leak_parameters
         ).fetchone()
         if count_row is None or leaked_row is None:
             raise KnowledgeError("knowledge store count query returned no row")
@@ -465,6 +489,7 @@ def load_for_run(
             int(metadata["dimensions"]),
             contradicted=contradicted_items,
             uninformative=uninformative_items,
+            index_unseen=index_unseen,
         )
     finally:
         connection.close()

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
 
+from portal.modules.security.core.hunt.notables import knowledge
 from portal.modules.security.core.hunt.notables.knowledge import (
     KnowledgeError,
     KnowledgeItem,
@@ -265,3 +267,108 @@ def test_attack_only_indexes_cannot_supply_known_good(tmp_path: Path) -> None:
 
     with pytest.raises(KnowledgeError, match="cannot provide known-good"):
         build_store([attack_only_item], _Embedder(), tmp_path / "knowledge.duckdb")
+
+
+def test_unseen_index_loads_every_family(tmp_path: Path) -> None:
+    store = tmp_path / "knowledge.duckdb"
+    build_store(_items(), _Embedder(), store)
+
+    with load_for_run(store, run_index="botsv2") as loaded:
+        rows = loaded.connection.execute(
+            "SELECT family, index_name FROM loaded_knowledge"
+        ).fetchall()
+
+    assert loaded.index_unseen is True
+    assert loaded.excluded_families == ()
+    assert loaded.families == ("ait", "kyoushi")
+    assert loaded.items == 5
+    assert all(index != "botsv2" for _family, index in rows)
+
+
+def test_unseen_index_honours_allowed_families(tmp_path: Path) -> None:
+    store = tmp_path / "knowledge.duckdb"
+    build_store(_items(), _Embedder(), store)
+
+    with load_for_run(store, run_index="botsv2", allowed_families=("ait",)) as loaded:
+        families = loaded.families
+
+    assert loaded.index_unseen is True
+    assert families == ("ait",)
+    assert loaded.items == 4
+
+
+def test_unseen_index_with_a_stored_family_claim_stays_leave_one_family_out(tmp_path: Path) -> None:
+    store = tmp_path / "knowledge.duckdb"
+    build_store(_items(), _Embedder(), store)
+
+    with load_for_run(store, run_index="botsv2", expected_family="ait") as loaded:
+        rows = loaded.connection.execute(
+            "SELECT family, index_name FROM loaded_knowledge"
+        ).fetchall()
+
+    assert loaded.index_unseen is True
+    assert loaded.excluded_families == ("ait",)
+    assert loaded.families == ("kyoushi",)
+    assert all(family != "ait" for family, _index in rows)
+
+
+def test_unseen_index_with_an_unknown_family_claim_loads_every_family(tmp_path: Path) -> None:
+    store = tmp_path / "knowledge.duckdb"
+    build_store(_items(), _Embedder(), store)
+
+    with load_for_run(store, run_index="botsv2", expected_family="bots") as loaded:
+        families = loaded.families
+
+    assert loaded.index_unseen is True
+    assert loaded.excluded_families == ()
+    assert families == ("ait", "kyoushi")
+
+
+def test_seen_index_is_not_marked_unseen(tmp_path: Path) -> None:
+    store = tmp_path / "knowledge.duckdb"
+    build_store(_items(), _Embedder(), store)
+
+    with load_for_run(store, run_index="kyoushi") as loaded:
+        pass
+
+    assert loaded.index_unseen is False
+    assert loaded.excluded_families == ("kyoushi",)
+
+
+def _unfiltered_conditions(excluded_families: Sequence[str], run_index: str) -> list[str]:
+    """Consume the same bind parameters as the real builder but exclude nothing."""
+    return [
+        "split = 'build'",
+        *["CAST(? AS VARCHAR) <> ''" for _ in excluded_families],
+        "CAST(? AS VARCHAR) <> ''",
+        "statement NOT IN (SELECT statement FROM contradicted_statements)",
+        "statement IN (SELECT statement FROM informative_statements)",
+    ]
+
+
+def test_leak_guard_fires_when_family_exclusions_are_bypassed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = tmp_path / "knowledge.duckdb"
+    build_store(_items(), _Embedder(), store)
+    monkeypatch.setattr(knowledge, "_load_conditions", _unfiltered_conditions)
+
+    with (
+        pytest.raises(KnowledgeError, match="leave-one-family-out violation"),
+        load_for_run(store, run_index="kyoushi"),
+    ):
+        pass
+
+
+def test_leak_guard_fires_for_an_unseen_index_with_a_family_claim(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = tmp_path / "knowledge.duckdb"
+    build_store(_items(), _Embedder(), store)
+    monkeypatch.setattr(knowledge, "_load_conditions", _unfiltered_conditions)
+
+    with (
+        pytest.raises(KnowledgeError, match="leave-one-family-out violation"),
+        load_for_run(store, run_index="botsv2", expected_family="ait"),
+    ):
+        pass
