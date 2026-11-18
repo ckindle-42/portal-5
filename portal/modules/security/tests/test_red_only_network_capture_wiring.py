@@ -33,12 +33,6 @@ from __future__ import annotations
 import inspect
 
 
-def _main_source() -> str:
-    from portal.modules.security.core import cli
-
-    return inspect.getsource(cli.main)
-
-
 def _red_loop_source() -> str:
     from portal.modules.security.core.commands import blue_modes
 

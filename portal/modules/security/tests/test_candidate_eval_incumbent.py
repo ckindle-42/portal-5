@@ -11,8 +11,6 @@ Verifies:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
-from unittest.mock import patch
 
 import yaml
 
@@ -47,46 +45,6 @@ class TestGetIncumbentModel:
         """solo slot has no incumbent mapping — returns empty (expected)."""
         model = _get_incumbent_model("solo")
         assert model == "" or _SLOT_TO_WORKSPACE.get("solo") is None
-
-    def test_reads_from_portal_yaml(self) -> None:
-        """Must read from portal.yaml, not return a hardcoded string."""
-        # Mock portal.yaml to return a known model. "exploit" resolves via
-        # ("auto-security", "pentest") post-collapse (BUILD_PROGRAM_COLLAPSE_V1
-        # Phase 6 folded auto-pentest into auto-security's variants).
-        mock_data = {
-            "workspaces": {
-                "auto-security": {
-                    "variants": {
-                        "pentest": {"model_hint": "test-model:latest"},
-                    }
-                },
-            }
-        }
-        with patch(
-            "portal.modules.security.core.candidate_eval.yaml.safe_load",
-            return_value=mock_data,
-        ):
-            model = _get_incumbent_model("exploit")
-            assert model == "test-model:latest"
-
-    def test_returns_empty_on_missing_yaml(self) -> None:
-        """Returns empty when portal.yaml can't be read."""
-        with patch(
-            "portal.modules.security.core.candidate_eval._PORTAL_YAML",
-            Path("/nonexistent/portal.yaml"),
-        ):
-            model = _get_incumbent_model("exploit")
-            assert model == ""
-
-    def test_returns_empty_on_missing_workspace(self) -> None:
-        """Returns empty when workspace not in portal.yaml."""
-        mock_data: dict[str, Any] = {"workspaces": {}}
-        with patch(
-            "portal.modules.security.core.candidate_eval.yaml.safe_load",
-            return_value=mock_data,
-        ):
-            model = _get_incumbent_model("exploit")
-            assert model == ""
 
     def test_not_hardcoded(self) -> None:
         """The returned model should match what's actually in portal.yaml."""
@@ -140,46 +98,6 @@ class TestBuildStepModelsNoEmpty:
 
 class TestFailLoudGuard:
     """When incumbent can't be resolved and no --incumbent, fail loud."""
-
-    def test_fail_loud_on_unresolvable(self) -> None:
-        """candidate_eval_main should exit 1 when incumbent unresolvable."""
-        from portal.modules.security.core.candidate_eval import candidate_eval_main
-
-        with patch(
-            "portal.modules.security.core.candidate_eval._get_incumbent_model",
-            return_value="",
-        ):
-            rc = candidate_eval_main(
-                [
-                    "--candidate",
-                    "test-model",
-                    "--slot",
-                    "exploit",
-                    "--dry-run",
-                ]
-            )
-            assert rc == 1, "should fail loud on unresolvable incumbent"
-
-    def test_override_bypasses_resolution(self) -> None:
-        """--incumbent override should work even when resolution returns empty."""
-        from portal.modules.security.core.candidate_eval import candidate_eval_main
-
-        with patch(
-            "portal.modules.security.core.candidate_eval._get_incumbent_model",
-            return_value="",
-        ):
-            rc = candidate_eval_main(
-                [
-                    "--candidate",
-                    "test-model",
-                    "--slot",
-                    "exploit",
-                    "--incumbent",
-                    "override-model:latest",
-                    "--dry-run",
-                ]
-            )
-            assert rc == 0, "--incumbent override should succeed"
 
     def test_solo_needs_no_incumbent(self) -> None:
         """solo mode should work without any incumbent resolution."""

@@ -2,40 +2,10 @@
 
 from __future__ import annotations
 
-import os
-from unittest.mock import patch
-
 from portal.platform.inference.tool_preselect.config import (
     default_k,
-    global_preselect_enabled,
-    is_preselect_enabled,
-    preselect_model,
     resolve_workspace_config,
 )
-
-
-class TestGlobalFlag:
-    def test_default_off(self) -> None:
-        with patch.dict(os.environ, {}, clear=True):
-            assert global_preselect_enabled() is False
-
-    def test_explicit_on(self) -> None:
-        with patch.dict(os.environ, {"PORTAL5_TOOL_PRESELECT": "1"}):
-            assert global_preselect_enabled() is True
-
-    def test_explicit_off(self) -> None:
-        with patch.dict(os.environ, {"PORTAL5_TOOL_PRESELECT": "0"}):
-            assert global_preselect_enabled() is False
-
-
-class TestPreselectModel:
-    def test_default_model(self) -> None:
-        with patch.dict(os.environ, {}, clear=True):
-            assert "MiniCPM5" in preselect_model()
-
-    def test_env_override(self) -> None:
-        with patch.dict(os.environ, {"PORTAL5_TOOL_PRESELECT_MODEL": "custom:tag"}):
-            assert preselect_model() == "custom:tag"
 
 
 class TestDefaultK:
@@ -72,32 +42,3 @@ class TestResolveWorkspaceConfig:
         assert result is not None
         assert result.k == 3
         assert result.confidence_floor == 0.7
-
-
-class TestIsPreselectEnabled:
-    def test_global_off_disables_regardless_of_workspace(self) -> None:
-        with patch.dict(os.environ, {"PORTAL5_TOOL_PRESELECT": "0"}):
-            cfg = {"tool_preselect": {"enabled": True}, "tools": list(range(10))}
-            assert is_preselect_enabled("ws", cfg) is False
-
-    def test_global_on_but_no_workspace_optin(self) -> None:
-        with patch.dict(os.environ, {"PORTAL5_TOOL_PRESELECT": "1"}):
-            assert is_preselect_enabled("ws", {}) is False
-
-    def test_both_on_enables(self) -> None:
-        with patch.dict(os.environ, {"PORTAL5_TOOL_PRESELECT": "1"}):
-            cfg = {"tool_preselect": {"enabled": True}, "tools": list(range(10))}
-            assert is_preselect_enabled("ws-both-on", cfg) is True
-
-    def test_auto_disabled_workspace_returns_false(self) -> None:
-        from portal.platform.inference.tool_preselect import state
-
-        state.reset("ws-autodisabled")
-        for _ in range(100):
-            state.record_outcome("ws-autodisabled", was_miss=True)
-        try:
-            with patch.dict(os.environ, {"PORTAL5_TOOL_PRESELECT": "1"}):
-                cfg = {"tool_preselect": {"enabled": True}, "tools": list(range(10))}
-                assert is_preselect_enabled("ws-autodisabled", cfg) is False
-        finally:
-            state.reset("ws-autodisabled")

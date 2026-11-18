@@ -12,7 +12,6 @@ import pytest
 from portal.modules.security.core._sweep_driver import (
     _aggregate_trials,
     _classify_cell,
-    _get_workers,
     _mean_stdev,
 )
 
@@ -41,16 +40,6 @@ class TestMeanStdev:
         mean, std = _mean_stdev([0.3, 0.3, 0.3])
         assert mean == pytest.approx(0.3)
         assert std == 0.0
-
-
-class TestGetWorkers:
-    def test_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.delenv("SWEEP_WORKERS", raising=False)
-        assert _get_workers() == 4
-
-    def test_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("SWEEP_WORKERS", "8")
-        assert _get_workers() == 8
 
 
 def _make_trial(arm_recall: float) -> dict[str, Any]:

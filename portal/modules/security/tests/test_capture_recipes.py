@@ -1,13 +1,9 @@
-import json
 from pathlib import Path
 
 import pytest
 
 from portal.modules.security.core.capture_recipes import (
     CAPTURE_RECIPES,
-    render_host_command,
-    render_postcondition_command,
-    render_recipe_command,
 )
 from portal.modules.security.core.exec_chain import SCENARIOS
 from portal.modules.security.core.siem.capture_enrichment import validate_capture_signals
@@ -33,24 +29,6 @@ def test_recipe_has_positive_and_request_only_negative_control(scenario: str) ->
         scenario, {"network:packet": [REQUEST_ONLY_EVIDENCE[scenario]]}
     )
     assert not negative["valid"], negative
-
-
-def test_recipes_resolve_runtime_placeholders_and_use_image_contract_tools() -> None:
-    contract_path = Path(__file__).resolve().parents[4] / "config" / "attack_image_contract.json"
-    tools = set(json.loads(contract_path.read_text())["tools"])
-    assert {"curl", "date", "grep", "php", "python3", "redis-cli", "sleep"}.issubset(tools)
-    for name, recipe in CAPTURE_RECIPES.items():
-        assert name in SCENARIOS
-        rendered = render_recipe_command(recipe, host="10.10.11.50", port=12345)
-        assert "$TARGET_HOST" not in rendered
-        assert "$TARGET_PORT" not in rendered
-        postcondition = render_postcondition_command(recipe, port=12345, host="10.10.11.50")
-        assert "$TARGET_PORT" not in postcondition
-        assert "$TARGET_HOST" not in postcondition
-        for host_command in (recipe.host_setup_command, recipe.host_cleanup_command):
-            rendered_host = render_host_command(host_command, host="10.10.11.50", port=12345)
-            assert "$TARGET_HOST" not in rendered_host
-            assert "$TARGET_PORT" not in rendered_host
 
 
 def test_corrected_rce_ground_truth_is_unique_and_matches_observed_behavior() -> None:

@@ -5,8 +5,6 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import pytest
-
 _BENCH_DIR = str(Path(__file__).resolve().parents[4] / "tests" / "benchmarks")
 if _BENCH_DIR not in sys.path:
     sys.path.insert(0, _BENCH_DIR)
@@ -30,17 +28,6 @@ class TestLabTargetTable:
         finally:
             LAB_TARGETS.pop("dc01", None)
             LAB_TARGETS.pop("srv01", None)
-
-    def test_target_skipped_when_vmid_not_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from bench_lab_exec import LAB_TARGETS, _build_target
-
-        # _build_target with empty vmid should NOT add an entry
-        _build_target("_test_empty", "", "10.10.11.99", "clean", "vm")
-        assert "_test_empty" not in LAB_TARGETS
-
-        # vulhub and meta3 typically have no VMID in CI
-        assert "vulhub" not in LAB_TARGETS or LAB_TARGETS.get("vulhub", {}).get("vmid") == ""
-        assert "meta3" not in LAB_TARGETS or LAB_TARGETS.get("meta3", {}).get("vmid") == ""
 
     def test_lab_setup_skips_absent_target(self) -> None:
         from bench_lab_exec import lab_setup

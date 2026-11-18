@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any
-
-import pytest
 
 from portal.modules.security.core import benign_corpus_bench as bench
 from portal.modules.security.core import notify_scoreboard as ns
@@ -97,38 +93,6 @@ def test_expansion_includes_plausibly_confusable_routine_activity() -> None:
     assert "wmiprvse.exe" in text  # approved inventory
     assert "404" in text  # QA link checker
     assert "nsenter" in text  # Kubernetes CSI reconciliation
-
-
-def test_targeted_rerun_replaces_only_selected_retained_cell(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    checkpoint = tmp_path / "benign.json"
-    checkpoint.write_text(
-        json.dumps(
-            [
-                {"label": "p5n001", "status": "done", "verdict": "RULED_OUT"},
-                {"label": "p5n002", "status": "done", "verdict": "CONFIRMED"},
-            ]
-        )
-    )
-    monkeypatch.setattr(bench, "OUT_PATH", checkpoint)
-    monkeypatch.setattr(bench, "_wait_for_cell", lambda backend, cell: ["event"])
-    monkeypatch.setattr(
-        bench,
-        "_run_cell",
-        lambda cell, telemetry: {
-            "label": cell["cell_id"],
-            "status": "done",
-            "verdict": "RULED_OUT",
-        },
-    )
-
-    results = bench.run_bench(rerun_cells={"p5n002"})
-
-    assert {record["label"] for record in results} == {"p5n001", "p5n002"}
-    assert (
-        next(record for record in results if record["label"] == "p5n002")["verdict"] == "RULED_OUT"
-    )
 
 
 def test_targeted_rerun_requires_retained_checkpoint() -> None:

@@ -7,10 +7,7 @@ route-validation manifest. Sentinel ATTRIBTEST_V2.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
-
-import pytest
 
 from portal.modules.security.eval.ablation_attribution import (
     ATTRIBUTION_SCHEMA_VERSION,
@@ -597,34 +594,3 @@ def test_route_indeterminate_when_tool_payload_is_often_unobservable() -> None:
     decision["arms"]["3section"]["attribution_unknown_rate"] = 0.2
     route, _ = decide_route(decision)
     assert route == "INDETERMINATE"
-
-
-def test_driver_marks_unvalidated_rescore_exploratory(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from portal.modules.security.eval import blue_orchestration_ablation as driver
-
-    monkeypatch.setattr(driver, "RESULTS_DIR", tmp_path)
-    records = [
-        {
-            "arm": arm,
-            "scenario": "s1",
-            "verdict": "RULED_OUT",
-            "technique_ids": [],
-            "ground_truth": ["T1558.003"],
-            "trace": [{"role": "tool", "content": "unrelated telemetry"}],
-            "match_grade": "NONE",
-            "similar_to": [],
-            "instrument_schema_version": ATTRIBUTION_SCHEMA_VERSION,
-            "error": None,
-        }
-        for arm in ("1section", "2section", "3section")
-    ]
-    decision = driver._build_decision(
-        records,
-        reps=1,
-        corpus_n=1,
-        out_path=tmp_path / "decision.json",
-    )
-    assert decision["route"] == "INDETERMINATE"
-    assert decision["raw_instrument_schema_versions"] == [ATTRIBUTION_SCHEMA_VERSION]

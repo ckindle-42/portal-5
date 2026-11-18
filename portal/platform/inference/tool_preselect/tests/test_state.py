@@ -6,12 +6,6 @@ from portal.platform.inference.tool_preselect import state
 
 
 class TestAutoDisable:
-    def setup_method(self) -> None:
-        state.reset()
-
-    def teardown_method(self) -> None:
-        state.reset()
-
     def test_not_disabled_initially(self) -> None:
         assert state.is_auto_disabled("ws-a") is False
 

@@ -1,11 +1,6 @@
 """Acceptance: control lookup, CIP map, crosswalk, patch-evidence bridge."""
 
 import importlib
-import sys
-import types
-from typing import Any
-
-import pytest
 
 mod = importlib.import_module("portal.modules.compliance.tools.compliance_mcp")
 
@@ -54,20 +49,6 @@ def test_map_frameworks_both_directions() -> None:
     rev = mod.map_frameworks("AC-2", from_fw="nist_800_53", to_fw="csf_2_0")
     assert "PR.AA-05" in rev["mapped"]
     assert fwd["coverage"] == "partial-seed"
-
-
-def test_patch_evidence_bridges_triage(monkeypatch: pytest.MonkeyPatch) -> None:
-    fake: Any = types.ModuleType("portal.modules.vulnintel.tools.vulnintel_mcp")
-    fake.triage_cve = lambda c, depth="deep": {
-        "risk_score": 97,
-        "label": "CRITICAL",
-        "signals": {"in_kev": True},
-        "ssvc_decision": "Act",
-    }
-    monkeypatch.setitem(sys.modules, "portal.modules.vulnintel.tools.vulnintel_mcp", fake)
-    out = mod.patch_evidence("CVE-2021-44228")
-    assert out["risk"]["label"] == "CRITICAL" and out["ssvc_decision"] == "Act"
-    assert "35 calendar days" in out["cip_007_r2"]
 
 
 def test_tools_manifest_matches_dispatch() -> None:

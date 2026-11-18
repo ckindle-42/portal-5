@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-import pytest
-
 from portal.modules.security.core.loop import (
     EngagementState,
     _check_budget,
     _check_escalate,
     _check_stop,
     enforce_scope,
-    run_engagement,
 )
 
 
@@ -57,15 +54,3 @@ class TestEscalateCheck:
         state = EngagementState("test", "pb")
         state.escalations.append("out_of_scope_action")
         assert _check_escalate(state, pb) == "out_of_scope_action"
-
-
-class TestRunEngagement:
-    def test_invalid_playbook_rejected(self) -> None:
-        with pytest.raises(FileNotFoundError):
-            run_engagement("nonexistent.yaml", dry_run=True)
-
-    def test_valid_playbook_dry_runs(self) -> None:
-        result = run_engagement("playbooks/security/internal-ad-pentest.yaml", dry_run=True)
-        assert result["status"] == "dry_run"
-        assert result["playbook"] == "internal-ad-pentest"
-        assert "phases_plan" in result

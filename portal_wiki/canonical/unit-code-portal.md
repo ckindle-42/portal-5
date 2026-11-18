@@ -1,7 +1,7 @@
 ---
 id: unit-code-portal
 kind: what
-title: portal subsystem (589 files)
+title: portal subsystem (574 files)
 sources:
 - type: code
   path: portal/conftest.py
@@ -29,7 +29,7 @@ updated_at: 1792204748.513469
 
 # portal subsystem
 
-**Files:** 589
+**Files:** 574
 
 - `portal/conftest.py`
 - `portal/modules/binary_research/harness/__main__.py`
@@ -43,12 +43,8 @@ updated_at: 1792204748.513469
 - `portal/modules/binary_research/harness/verifiers.py`
 - `portal/modules/binary_research/harness/workspace.py`
 - `portal/modules/binary_research/tests/test_loop.py`
-- `portal/modules/binary_research/tests/test_policy.py`
-- `portal/modules/binary_research/tests/test_re_client.py`
 - `portal/modules/binary_research/tests/test_scaffold.py`
-- `portal/modules/binary_research/tests/test_tools.py`
 - `portal/modules/binary_research/tests/test_verifiers.py`
-- `portal/modules/binary_research/tests/test_workspace.py`
 - `portal/modules/binary_research/tools/binresearch_mcp.py`
 - `portal/modules/cad/tools/b123d_bridge.py`
-- ... and 569 more
+- ... and 558 more

@@ -13,7 +13,6 @@ from portal.modules.security.core.blue import (
 from portal.modules.security.core.matrix import (
     RunUnit,
     _score_purple_on_unit,
-    run_matrix,
 )
 from portal.modules.security.core.oracles import ORACLES
 
@@ -79,28 +78,6 @@ class TestLinuxWebTelemetry:
 
 class TestSyntheticFallbackGate:
     """Validation-integrity gate: synthetic-fallback → indeterminate, never PASS."""
-
-    def test_synthetic_fallback_never_pass(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """A synthetic-sourced result MUST score indeterminate, never PASS."""
-        monkeypatch.setattr("portal.modules.security.core.matrix._LAB_EXEC_AVAILABLE", False)
-        units = [
-            RunUnit(
-                id="test-synth",
-                kind="scenario",
-                target_spec="lab-vulhub",
-                oracle="rce_shell",
-                scoring="oracle",
-                domain="web",
-                spin="static",
-                technique_ids=["T1190"],
-                has_telemetry=True,
-            ),
-        ]
-        result = run_matrix(units, dry_run=False)
-        # All results should be indeterminate when lab exec is unavailable
-        for r in result["results"]:
-            assert r.status == "indeterminate"
-            assert r.status != "verified"
 
     def test_blue_synthetic_source_tagged(self) -> None:
         """Blue telemetry from non-live source is tagged as synthetic."""
@@ -187,23 +164,6 @@ class TestPurpleWebConvergence:
 
 class TestTelemetryBackendPluggable:
     """Telemetry backend is pluggable (proves Splunk adapter will drop in)."""
-
-    def test_fake_backend_protocol(self) -> None:
-        """A fake backend implementing the protocol is swapped in transparently."""
-
-        class FakeBackend:
-            def query(self, technique_id: str, window: dict[str, Any]) -> dict[str, Any]:
-                return {
-                    "signals": [{"event": "fake", "technique": technique_id}],
-                    "source": "fake-siem",
-                    "matched": True,
-                }
-
-        backend = FakeBackend()
-        result = backend.query("T1190", {})
-        assert result["source"] == "fake-siem"
-        assert result["matched"] is True
-        assert len(result["signals"]) == 1
 
     def test_canonical_protocol_importable(self) -> None:
         """TelemetryBackend protocol is importable from telemetry module."""

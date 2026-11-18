@@ -395,7 +395,6 @@ max-complexity = 15
 "portal/modules/security/core/siem/network_capture.py" = ["C90", "PLR0912", "PLR0915"]
 "portal/modules/security/eval/ablation_attribution.py" = ["C90", "PLR0912", "PLR0915"]
 "portal/modules/security/eval/blue_orchestration_ablation.py" = ["C90", "PLR0912", "PLR0915"]
-"portal/modules/security/tests/test_security_mcp.py" = ["C90", "PLR0912", "PLR0915"]
 "portal/platform/inference/cli/smoke.py" = ["C90", "PLR0912", "PLR0915"]
 "portal/platform/inference/cli/update.py" = ["C90", "PLR0912", "PLR0915"]
 "portal/platform/inference/config_validate.py" = ["C90", "PLR0912", "PLR0915"]

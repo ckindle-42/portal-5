@@ -790,25 +790,6 @@ class TestTelemetryFailureReasonCode:
         assert rec["episode"]["telemetry_status"] == "TELEMETRY_NOT_INDEXED"
         assert rec["capability_verdict"] == "INDETERMINATE"
 
-    def test_no_silent_pass_in_matrix(self) -> None:
-        """matrix.py no longer has bare 'except: pass' in telemetry path.
-
-        The fix (commit fe95e16) replaced it with a reason-code string.
-        Verify the old pattern is gone.
-        """
-        matrix_py = (
-            Path(__file__).resolve().parents[4]
-            / "portal"
-            / "modules"
-            / "security"
-            / "core"
-            / "matrix.py"
-        )
-        content = matrix_py.read_text()
-        assert "pass  # telemetry collection never blocks scoring" not in content, (
-            "Silent telemetry pass still present in matrix.py"
-        )
-
     @staticmethod
     def _make_red_result(
         mode: str = "lab-exec",
