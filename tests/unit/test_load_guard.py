@@ -561,6 +561,44 @@ async def test_ollama_load_makes_room_from_omlx_and_keeps_its_copy_last(caplog):
     release()
 
 
+async def test_ollama_load_tries_idle_ollama_before_its_omlx_copy():
+    e = Engines(
+        tags={"target": int(20.48 * GIB)},
+        ollama={"old-idle": 3 * GIB},
+        omlx={"omlx-target": {"size": GIB, "loaded": True}},
+        ceiling=int(22.2 * GIB),
+    )
+    e.hidden["old-idle"] = 7 * GIB
+    g = guard(e, counterpart=lambda engine, _model: "omlx-target" if engine == OLLAMA else None)
+
+    release = await g.admit(OLLAMA_URL, "target")
+
+    assert release is not None
+    assert e.unload_calls == {"old-idle": 1}
+    assert e.omlx["omlx-target"]["loaded"]
+    release()
+
+
+async def test_ollama_load_waits_for_pending_ollama_release_before_its_omlx_copy():
+    e = Engines(
+        tags={"target": int(20.48 * GIB)},
+        ollama={"old-idle": GIB // 8},
+        omlx={"omlx-target": {"size": GIB, "loaded": True}},
+        ceiling=int(22.2 * GIB),
+        defer_ceiling_rise={"old-idle"},
+    )
+    e.hidden["old-idle"] = 7 * GIB
+    lg.set_load_wait("30")
+    g = guard(e, counterpart=lambda engine, _model: "omlx-target" if engine == OLLAMA else None)
+
+    release = await g.admit(OLLAMA_URL, "target")
+
+    assert release is not None
+    assert e.unload_calls == {"old-idle": 1}
+    assert e.omlx["omlx-target"]["loaded"]
+    release()
+
+
 async def test_ollama_load_refuses_when_every_omlx_resident_is_in_flight():
     e = Engines(
         tags={"target": int(20.48 * GIB)},
