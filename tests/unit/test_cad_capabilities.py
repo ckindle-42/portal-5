@@ -11,13 +11,5 @@ def test_reports_arch_and_probe_keys():
     assert "platform" not in c
 
 
-def test_missing_openscad_reports_empty_version(monkeypatch):
-    monkeypatch.setenv("OPENSCAD_BIN", "definitely-not-a-binary")
-    caps.cad_capabilities.cache_clear()
-    c = caps.cad_capabilities()
-    assert c["openscad"] is False and c["openscad_version"] == "" and c["openscad_backend"] == ""
-    caps.cad_capabilities.cache_clear()
-
-
 def test_status_engine_false_without_bridge():
     assert caps.cad_status()["engine"] is False

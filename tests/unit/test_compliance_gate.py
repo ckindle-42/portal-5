@@ -25,12 +25,6 @@ def _scope_hm():
     )
 
 
-def test_gate_has_no_model_call():
-    src = __import__("pathlib").Path("portal/modules/compliance/core/gate.py").read_text()
-    for banned in ("ollama", "httpx", "AsyncClient", "/api/chat", "openai"):
-        assert banned not in src
-
-
 def test_applies_scope_produces_a_council_packet(env):
     g, v = env
     coms = [

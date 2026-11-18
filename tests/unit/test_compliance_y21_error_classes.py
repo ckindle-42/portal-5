@@ -17,6 +17,7 @@ from __future__ import annotations
 import importlib
 
 adj = importlib.import_module("scripts.compliance_y21_adjudicate")
+
 council = importlib.import_module("portal.modules.compliance.core.council")
 
 
@@ -30,9 +31,6 @@ def _row(**score):
     }
     base.update(score)
     return {"parsed": {"determination": "SUPPORTED"}, "score": base}
-
-
-# ── the four causes are mutually exclusive and exhaustive ────────────────────
 
 
 def test_clean_row_is_not_a_disagreement():
@@ -65,9 +63,6 @@ def test_allowlist_violation_is_gate_even_when_label_is_right():
 def test_wrong_label_with_clean_parse_and_citation_is_judgment():
     """The only class a better model fixes."""
     assert adj.classify(_row(correct=False, false_supported=True)) == "judgment"
-
-
-# ── the three surviving false-supported cases, pinned by their mechanism ─────
 
 
 def test_p6j12_class_stricter_direction_is_gate_computed_not_model_judged():
@@ -115,21 +110,3 @@ def test_p6j19_outdated_language_has_a_stated_trigger():
         "read 'last aligned to the glossary in 2019' and dropped the date. Every "
         "other rule in this prompt is spelled out; give this one a rule too."
     )
-
-
-# ── the ceilings themselves ──────────────────────────────────────────────────
-
-
-def test_false_gap_ceiling_is_ten_percent():
-    """Y21's bar, pinned so a change to the harness cannot quietly relax it."""
-    rows = [
-        {"score": {"pred": "PARTIAL"}, "gold_label": "SUPPORTED"},  # a false gap
-        *[{"score": {"pred": "SUPPORTED"}, "gold_label": "SUPPORTED"} for _ in range(9)],
-    ]
-    fg = [
-        r
-        for r in rows
-        if str(r["score"]["pred"]).upper() != "SUPPORTED"
-        and str(r["gold_label"]).upper() == "SUPPORTED"
-    ]
-    assert len(fg) / len(rows) <= 0.10

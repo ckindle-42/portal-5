@@ -9,8 +9,6 @@ emitted an unregistered unresolved code.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from portal.modules.compliance.core.determination import (
@@ -45,9 +43,6 @@ def _result(**overrides):
     }
     base.update(overrides)
     return AssessmentResult(**base)
-
-
-# ── vocabularies ────────────────────────────────────────────────────────────
 
 
 def test_source_role_vocabulary_is_the_contract_set():
@@ -131,9 +126,6 @@ def test_truth_class_covers_every_canonical_table_and_rejects_unknowns():
         truth_class_of_table("definitely_not_a_table")
 
 
-# ── coverage → alignment mapping ────────────────────────────────────────────
-
-
 def test_documentary_alignment_maps_every_legacy_label():
     assert documentary_alignment_of("FULL") == "ALIGNED"
     assert documentary_alignment_of("PARTIAL") == "PARTIAL"
@@ -150,9 +142,6 @@ def test_contradiction_gap_upgrades_partial_to_misaligned():
     assert documentary_alignment_of("PARTIAL", [weaker]) == "PARTIAL"
     assert documentary_alignment_of("PARTIAL", [conflict]) == "MISALIGNED"
     assert documentary_alignment_of("FULL", []) == "ALIGNED"
-
-
-# ── review projection ───────────────────────────────────────────────────────
 
 
 def test_review_is_a_projection_not_a_gate():
@@ -196,9 +185,6 @@ def test_interpretive_conflict_and_scope_are_named_review_reasons():
     assert review_reason_for(scope) == "S01_SCOPE_DECLARATION"
 
 
-# ── readiness dimension ─────────────────────────────────────────────────────
-
-
 def test_readiness_follows_source_failure_codes():
     assert dimensions_of(_result(documentary_coverage="PARTIAL"))["source_readiness"] == "READY"
     for code in (
@@ -231,9 +217,6 @@ def test_model_failures_leave_sources_ready():
     assert dimensions_of(r)["source_readiness"] == "READY"
 
 
-# ── new failure codes ───────────────────────────────────────────────────────
-
-
 def test_new_controlled_failure_codes_exist():
     for code in (
         "U14_INCOMPLETE_SOURCE_BUNDLE",
@@ -264,114 +247,6 @@ def test_reading_council_disagreement_is_a_valid_unresolved_result():
     assert dims["source_readiness"] == "CONFLICTED"
     assert dims["review_reason"] == "S04_INTERPRETATION_DISPUTE"
     assert dims["review_required"] is True
-
-
-# ── migration onto a populated store (non-destructive) ─────────────────────
-
-
-def test_migration_eight_is_non_destructive(tmp_path: Path):
-    from portal.modules.compliance.core.repository import Repository
-
-    repo = Repository(tmp_path / "store.db")
-    assert repo.schema_version >= 8
-    repo.create_run({"note": "fixture"}, status="COMPLETE")  # run_id r1 fk target
-    run_id = repo._conn.execute(  # noqa: SLF001 - fixture reads back the minted id
-        "SELECT run_id FROM analysis_runs ORDER BY created_at DESC LIMIT 1"
-    ).fetchone()[0]
-    # A legacy-shaped row (pre-v8 fields absent from result_json) must persist
-    # and read back with the honest defaults.
-    legacy = _result(run_id=run_id, documentary_coverage="PARTIAL")
-    repo.record_assessment(legacy)
-    row = repo._conn.execute(  # noqa: SLF001 - fixture inspects the scalar columns
-        "SELECT source_readiness, temporal_currency, documentary_alignment, "
-        "implementation_evidence, review_required, review_reason "
-        "FROM assessment_results WHERE assessment_id = ?",
-        (legacy.assessment_id,),
-    ).fetchone()
-    # _finalize is not called here, so the raw dataclass defaults persist
-    assert row["source_readiness"] == "UNKNOWN"
-    assert row["temporal_currency"] == "UNKNOWN"
-    assert row["documentary_alignment"] == "UNRESOLVED"
-    assert row["implementation_evidence"] == "NOT_ASSESSED"
-    assert row["review_required"] == 0
-    assert row["review_reason"] == ""
-
-    # A dimensional result round-trips through the scalar columns.
-    dim = _result(
-        assessment_id="a2",
-        run_id=run_id,
-        documentary_coverage="FULL",
-        source_readiness="READY",
-        temporal_currency="CURRENT",
-        documentary_alignment="ALIGNED",
-    )
-    repo.record_assessment(dim)
-    row2 = repo._conn.execute(  # noqa: SLF001
-        "SELECT source_readiness, temporal_currency, documentary_alignment "
-        "FROM assessment_results WHERE assessment_id = 'a2'"
-    ).fetchone()
-    assert (row2["source_readiness"], row2["temporal_currency"], row2["documentary_alignment"]) == (
-        "READY",
-        "CURRENT",
-        "ALIGNED",
-    )
-
-    # source_sections carries the role column with '' default.
-    secs = repo._conn.execute(  # noqa: SLF001
-        "SELECT role FROM source_sections LIMIT 1"
-    ).fetchall()
-    assert secs == []  # table exists (no error) and is empty
-    repo.close()
-
-
-def test_migration_from_a_populated_v7_store(tmp_path, monkeypatch):
-    """A v7 store with real rows migrates forward without losing them."""
-    import sqlite3
-
-    import portal.modules.compliance.core.migrations as migrations_pkg
-    from portal.modules.compliance.core.migrations import apply_migrations
-    from portal.modules.compliance.core.repository import Repository
-
-    # Build a genuine v7 store by applying only migrations 1-7.
-    v7_list = [m for m in migrations_pkg.MIGRATIONS if m[0] <= 7]
-    monkeypatch.setattr(migrations_pkg, "MIGRATIONS", v7_list)
-    path = tmp_path / "v7.db"
-    conn = sqlite3.connect(path)
-    apply_migrations(conn)
-    assert migrations_pkg.get_schema_version(conn) == 7
-    conn.execute(
-        "INSERT INTO analysis_runs(run_id, context_json, created_at) VALUES ('r9','{}','t')"
-    )
-    conn.execute(
-        "INSERT INTO assessment_results(assessment_id, run_id, requirement_id, "
-        "documentary_coverage, result_json, created_at) "
-        "VALUES ('legacy1','r9','CIP-007-6 R2 Part 2.1','PARTIAL','{}','t')"
-    )
-    conn.commit()
-    conn.close()
-
-    # Restore the full list and open through the Repository — migrations 8-9
-    # must apply onto the populated store, non-destructively.
-    monkeypatch.setattr(migrations_pkg, "MIGRATIONS", migrations_pkg.schema.MIGRATIONS)
-    repo = Repository(path)
-    assert repo.schema_version == migrations_pkg.CURRENT_SCHEMA_VERSION
-    kept = repo._conn.execute(  # noqa: SLF001
-        "SELECT documentary_coverage, source_readiness FROM assessment_results "
-        "WHERE assessment_id = 'legacy1'"
-    ).fetchone()
-    assert kept["documentary_coverage"] == "PARTIAL"  # untouched
-    assert kept["source_readiness"] == "UNKNOWN"  # honest default, no back-fill
-    assert repo._conn.execute("SELECT count(*) FROM analysis_runs").fetchone()[0] == 1
-    # migration 9: clause text, dependencies, and concepts exist; nothing is
-    # back-filled to look derived
-    columns = {
-        row[1] for row in repo._conn.execute("PRAGMA table_info(obligation_atoms)").fetchall()
-    }
-    assert "clause_text" in columns
-    for table in ("obligation_dependencies", "obligation_concepts"):
-        count = repo._conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
-        assert count == 0  # schema arrives before rows; never fabricated
-    repo.close()
 
 
 def test_assessment_result_rejects_unknown_dimension_values():

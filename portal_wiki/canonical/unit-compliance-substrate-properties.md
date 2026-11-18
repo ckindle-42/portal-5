@@ -8,8 +8,6 @@ sources:
 - type: code
   path: portal/modules/compliance/core/search_service.py
 - type: code
-  path: tests/unit/test_compliance_reading_boundaries.py
-- type: code
   path: portal/modules/compliance/core/evaluation.py
 claims:
 - probe: modules.enabled

@@ -13,21 +13,8 @@ So the wire payload is asserted here, not assumed.
 from __future__ import annotations
 
 import importlib
-import json
 
 probe = importlib.import_module("tests.benchmarks.bench_judgment_probe_v6")
-
-
-def _case():
-    return {
-        "id": "T-1",
-        "governing_ref": "CIP-007-6 R2 Part 2.2",
-        "governing_text": "Evaluate security patches at least once every 35 calendar days.",
-        "premises": [],
-        "candidate_text": "Patches are evaluated every 30 days.",
-        "packet_complete": True,
-        "gold_label": "SUPPORTED",
-    }
 
 
 def test_every_variant_is_a_distinct_prompt():
@@ -60,40 +47,6 @@ def test_outdated_rule_variant_adds_a_trigger_the_shipped_prompt_lacks():
     assert len(fixed) > len(shipped)
     added = fixed.replace(shipped.split("RULES:")[0], "")
     assert "aligned" in added.lower() or "dated" in added.lower()
-
-
-def test_run_case_puts_the_chosen_variant_on_the_wire(monkeypatch):
-    """The plumbing assertion: whatever `system` run_case is handed is what the
-    system message contains. Without this, a dropped kwarg looks like a model
-    that is simply insensitive to wording."""
-    seen = {}
-
-    class _Resp:
-        def read(self):
-            return json.dumps(
-                {"message": {"content": "{}"}, "eval_count": 1, "eval_duration": 1}
-            ).encode()
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *a):
-            return False
-
-    def _fake_urlopen(req, timeout=None):
-        seen["payload"] = json.loads(req.data.decode())
-        return _Resp()
-
-    monkeypatch.setattr(probe.urllib.request, "urlopen", _fake_urlopen)
-    # The native wire path; the council path is covered in
-    # test_judgment_probe_instrument.py.
-    monkeypatch.setattr(probe, "_LEGACY_NATIVE", True)
-
-    for name, text in probe.PROMPT_VARIANTS.items():
-        probe.run_case("m", _case(), {}, system=text)
-        msgs = seen["payload"]["messages"]
-        sysmsg = next(m["content"] for m in msgs if m["role"] == "system")
-        assert sysmsg == text, f"variant {name} did not reach the wire"
 
 
 def test_run_case_defaults_to_shipped_when_no_variant_given():

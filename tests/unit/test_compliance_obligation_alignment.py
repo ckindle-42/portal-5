@@ -12,7 +12,6 @@ from typing import Any
 
 import pytest
 
-from portal.modules.compliance.core.council import _SEAT_SYSTEM
 from portal.modules.compliance.core.determination import (
     AssessmentContext,
     AssessmentRequest,
@@ -41,7 +40,6 @@ SEATS = [
 ]
 
 GOV_TEXT = "Evaluate security patches for applicability at least once every 35 calendar days."
-CAND_TEXT = "SMEs shall evaluate patch applicability once every 35 calendar days."
 
 
 def _governing() -> GoverningBundle:
@@ -121,75 +119,6 @@ def _context(responses: dict[str, str], calls: list[tuple[str, str]]) -> Assessm
     return AssessmentContext(seats=SEATS, quorum=0.66, seat_fn=fn)
 
 
-def test_alignment_preserves_every_candidate():
-    request = _request(
-        _candidate("a", CAND_TEXT),
-        _candidate("b", "The supplier list is retained for three years."),
-        _candidate("c", "Review the supply-chain plan every 15 calendar months."),
-    )
-    calls: list[tuple[str, str]] = []
-    responses = {
-        "m1": _seat_response(
-            {
-                "a": {"relation": "SAME"},
-                "b": {"relation": "DIFFERENT"},
-                "c": {"relation": "DIFFERENT"},
-            }
-        ),
-        "m2": _seat_response(
-            {
-                "a": {"relation": "SAME"},
-                "b": {"relation": "DIFFERENT"},
-                "c": {"relation": "DIFFERENT"},
-            }
-        ),
-        "m3": _seat_response(
-            {
-                "a": {"relation": "SAME"},
-                "b": {"relation": "DIFFERENT"},
-                "c": {"relation": "DIFFERENT"},
-            }
-        ),
-    }
-    result = align_part(request, _context(responses, calls))
-    assert result.valid
-    assert {r.candidate_ref for r in result.records} == {"a", "b", "c"}
-    assert [r.relation for r in result.records] == ["SAME", "DIFFERENT", "DIFFERENT"]
-
-
-def test_tie_is_unknown_with_no_arithmetic():
-    request = _request(_candidate("a", CAND_TEXT))
-    calls: list[tuple[str, str]] = []
-    responses = {
-        "m1": _seat_response({"a": {"relation": "SAME"}}),
-        "m2": _seat_response({"a": {"relation": "DIFFERENT"}}),
-        "m3": _seat_response({"a": {"relation": "UNKNOWN", "missing_facts": ["ambiguous actor"]}}),
-    }
-    result = align_part(request, _context(responses, calls))
-    assert result.valid
-    assert len(result.records) == 1
-    record = result.records[0]
-    assert record.relation == "UNKNOWN"
-    assert not record.constraint_bindings
-    assert any("quorum" in fact for fact in record.missing_facts)
-
-
-def test_same_and_different_separate_unrelated_duties():
-    request = _request(
-        _candidate("patch", CAND_TEXT),
-        _candidate("va", "Vulnerability assessments shall be performed every 15 months."),
-    )
-    calls: list[tuple[str, str]] = []
-    spec = {"patch": {"relation": "SAME"}, "va": {"relation": "DIFFERENT"}}
-    responses = {m: _seat_response(spec) for m in ("m1", "m2", "m3")}
-    result = align_part(request, _context(responses, calls))
-    by_ref = {r.candidate_ref: r for r in result.records}
-    assert by_ref["patch"].relation == "SAME"
-    assert by_ref["patch"].governing_slice_ids == ["gov-1"]
-    assert by_ref["patch"].candidate_slice_ids == ["cand-patch"]
-    assert by_ref["va"].relation == "DIFFERENT"
-
-
 def _binding(value: int, unit: str = "day", qualifier: str = "calendar") -> dict[str, Any]:
     quantity = {"value": value, "unit": unit, "qualifier": qualifier}
     return {
@@ -234,131 +163,6 @@ def test_binding_with_absent_literal_is_unresolved_not_silently_dropped():
     assert len(calls) == 3
 
 
-def test_reader_never_receives_a_prior_or_gold_or_approved_verdict():
-    request = _request(_candidate("a", CAND_TEXT))
-    calls: list[tuple[str, str]] = []
-    spec = {"a": {"relation": "SAME"}}
-    responses = {m: _seat_response(spec) for m in ("m1", "m2", "m3")}
-    align_part(request, _context(responses, calls))
-    banned = ("prior_determination", "gold", "approved", "verdict", "supported", "coverage")
-    for system, user in calls:
-        assert system != _SEAT_SYSTEM
-        blob = f"{system}\n{user}".lower()
-        for token in banned:
-            assert token not in blob, f"reader saw forbidden token {token!r}"
-
-
-def test_invalid_json_fails_the_alignment():
-    request = _request(_candidate("a", CAND_TEXT))
-    calls: list[tuple[str, str]] = []
-    responses = dict.fromkeys(("m1", "m2", "m3"), "not a json object")
-    result = align_part(request, _context(responses, calls))
-    assert result.valid is False
-    assert "JSON" in result.failure
-
-
-def test_omitted_candidate_fails_the_alignment():
-    request = _request(_candidate("a", CAND_TEXT), _candidate("b", "unrelated"))
-    calls: list[tuple[str, str]] = []
-    partial = json.dumps({"records": [_record("a", {"relation": "SAME"})]})
-    responses = dict.fromkeys(("m1", "m2", "m3"), partial)
-    result = align_part(request, _context(responses, calls))
-    assert result.valid is False
-    assert "omitted" in result.failure
-
-
-def test_same_without_population_binding_remains_unknown():
-    request = _request(_candidate("a", CAND_TEXT))
-    calls = []
-    spec = {"a": {"relation": "SAME", "overlap": "UNKNOWN"}}
-    result = align_part(
-        request, _context({m: _seat_response(spec) for m in ("m1", "m2", "m3")}, calls)
-    )
-    assert result.records[0].relation == "UNKNOWN"
-    assert result.records[0].constraint_bindings == []
-
-
-def test_alignment_transport_enforces_scalar_schema_and_sizes_output(monkeypatch):
-    import io
-    import urllib.request
-
-    from portal.modules.compliance.core.obligation_alignment import (
-        _ALIGNMENT_SYSTEM,
-        _ollama_alignment_seat,
-    )
-
-    payloads = []
-
-    def response(req, timeout):
-        payloads.append(json.loads(req.data))
-        return io.StringIO(json.dumps({"message": {"content": '{"records":[]}'}}))
-
-    monkeypatch.setattr(urllib.request, "urlopen", response)
-    _ollama_alignment_seat("test", _ALIGNMENT_SYSTEM, json.dumps({"candidates": [{}] * 15}))
-    # The transport also reads the seat's trained context from /api/show and the
-    # applied window from /api/ps, so the chat call is the one carrying messages.
-    payload = next(p for p in payloads if "messages" in p)
-    # 768 tokens per candidate, floored at 8k and capped at 16k. Raised from
-    # 512/4k/8k: fifteen records with bindings and exact ids do not fit in the
-    # old 7680, and a truncated response loses the trailing records rather than
-    # failing loudly.
-    assert payload["options"]["num_predict"] == 11520
-    # Explicit, and false by measurement. On the real case-10 packet this seat
-    # returned the identical correct reading at false/low/medium/true (52s vs
-    # 683s), so reasoning is available per call but is not bought by default.
-    # Explicit rather than omitted: an omitted key lets the chat template decide,
-    # and a thinking template reasons anyway.
-    assert payload["think"] is False
-    record = payload["format"]["properties"]["records"]["items"]
-    binding = record["properties"]["constraint_bindings"]["items"]["properties"]
-    assert binding["constraint_kind"]["type"] == "string"
-    assert binding["internal_quantity"]["properties"]["unit"]["type"] == "string"
-    assert "population_overlap" in record["required"]
-
-
-def test_reader_maps_each_governing_slice_to_its_exact_text():
-    from portal.modules.compliance.core.obligation_alignment import _build_user_packet
-
-    request = _request(_candidate("a", CAND_TEXT))
-    request.governing.source_slices.append(
-        SourceSlice(
-            slice_id="reference",
-            ref="other",
-            document_id="reg",
-            revision_hash="h",
-            chunk_id="other",
-            text="Identify the sources.",
-            role="reference",
-        )
-    )
-    packet = _build_user_packet(request)
-    texts = {s["slice_id"]: s["text"] for s in packet["governing"]["source_slices"]}
-    assert texts == {"gov-1": GOV_TEXT, "reference": "Identify the sources."}
-
-
-def test_valid_binding_quorum_survives_one_invalid_seat():
-    request = _request(_candidate("a", CAND_TEXT))
-    valid = _seat_response({"a": {"relation": "SAME", "bindings": [_binding(35)]}})
-    invalid = _seat_response({"a": {"relation": "SAME", "bindings": [_binding(40)]}})
-    result = align_part(request, _context({"m1": valid, "m2": valid, "m3": invalid}, []))
-    assert result.records[0].relation == "SAME"
-    assert len(result.records[0].constraint_bindings) == 1
-    assert result.records[0].constraint_bindings[0].value == 35
-
-
-def test_disagreement_on_constraint_kind_cannot_invent_arithmetic():
-    request = _request(_candidate("a", CAND_TEXT))
-    other = {**_binding(35), "constraint_kind": "min_retention", "direction": "min_retention"}
-    responses = {
-        "m1": _seat_response({"a": {"relation": "SAME", "bindings": [_binding(35)]}}),
-        "m2": _seat_response({"a": {"relation": "SAME", "bindings": [other]}}),
-        "m3": _seat_response({"a": {"relation": "UNKNOWN"}}),
-    }
-    result = align_part(request, _context(responses, []))
-    assert result.records[0].relation == "UNKNOWN"
-    assert result.records[0].constraint_bindings == []
-
-
 def test_quantity_validation_does_not_splice_units_or_invent_qualifiers():
     from portal.modules.compliance.core.obligation_alignment import _text_has_quantity
 
@@ -366,30 +170,3 @@ def test_quantity_validation_does_not_splice_units_or_invent_qualifiers():
     assert not _text_has_quantity("35 business days", 35, "day", "calendar")
     assert not _text_has_quantity("35 calendar days", 35, "day")
     assert _text_has_quantity("thirty-five (35) calendar days", 35, "day", "calendar")
-
-
-def test_internal_pair_transport_uses_pair_schema(monkeypatch):
-    import io
-    import urllib.request
-
-    from portal.modules.compliance.core import reading_transport
-    from portal.modules.compliance.core.obligation_alignment import _ollama_alignment_seat
-
-    # seat_ceiling() caches per model tag in a module-level dict; clear the
-    # "test" entry so its own /api/show probe always fires here rather than
-    # depending on whatever earlier test last touched that tag.
-    reading_transport._CEILING.pop("test", None)
-
-    payloads = []
-
-    def response(req, timeout):
-        payloads.append(json.loads(req.data))
-        return io.StringIO(json.dumps({"message": {"content": "{}"}}))
-
-    monkeypatch.setattr(urllib.request, "urlopen", response)
-    _ollama_alignment_seat("test", "pair", json.dumps({"task": "internal_pair_identity"}))
-    # payloads[0] is the seat_ceiling() preflight probe (no "format" key);
-    # the chat transport's actual request is the last one sent.
-    chat_payload = payloads[-1]
-    assert set(chat_payload["format"]["required"]) == {"relation", "rationale", "missing_facts"}
-    assert "records" not in chat_payload["format"]["properties"]

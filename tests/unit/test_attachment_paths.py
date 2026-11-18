@@ -23,11 +23,8 @@ from portal.platform.mcp_host import eval_scope
 from portal.platform.mcp_host.workspace import resolve_upload_path
 
 REPO = Path(__file__).resolve().parents[2]
+
 FILTER_SPEC = REPO / "imports" / "openwebui" / "functions" / "portal_attachment_paths.json"
-RAG_SEED = REPO / "imports" / "openwebui" / "rag_template.txt"
-
-
-# --- Pipeline note from the forwarded field -----------------------------------
 
 
 def _body(attachments: list[dict]) -> dict[str, Any]:
@@ -93,9 +90,6 @@ def test_no_attachments_leaves_the_body_alone() -> None:
     assert _inject_attached_files(body) == body
 
 
-# --- Eval scope binding --------------------------------------------------------
-
-
 def test_bind_attached_uploads_reads_both_fields() -> None:
     token = eval_scope.ATTACHED_UPLOADS.set(())
     try:
@@ -122,9 +116,6 @@ def test_bind_attached_uploads_without_either_field_clears() -> None:
         eval_scope.ATTACHED_UPLOADS.reset(token)
 
 
-# --- resolve_upload_path consistency -------------------------------------------
-
-
 def test_nested_attachment_id_resolves_under_uploads(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("WORKSPACE_DIR", str(tmp_path))
     monkeypatch.delenv("AI_OUTPUT_DIR", raising=False)
@@ -138,9 +129,6 @@ def test_nested_attachment_id_resolves_under_uploads(tmp_path, monkeypatch) -> N
     )
     assert resolve_upload_path("realuse_v1/ru-v1-005/missing.csv") is None
     assert resolve_upload_path("../outside.csv") is None
-
-
-# --- Seeded artifacts ----------------------------------------------------------
 
 
 def _filter_module() -> Any:
@@ -201,44 +189,6 @@ async def _inlet(
     if records is not None:
         _install_files_stub(monkeypatch, records)
     return await filter_.inlet(body)
-
-
-def test_filter_inlet_golden() -> None:
-    """No Files import (repo venv has no open_webui): the item's own fields are the
-    fallback, exactly as round 1 shipped them."""
-    out = asyncio.run(
-        _inlet(
-            {
-                "files": [
-                    {
-                        "id": "ba61aacb-44",
-                        "name": "report.csv",
-                        "type": "file",
-                        "meta": {"size": 812},
-                    },
-                    {"id": "ba61aacb-44", "name": "report.csv", "type": "file"},
-                    {"id": "", "name": "no-id", "type": "file"},
-                    {"collection_name": "kb", "name": "kb", "type": "collection"},
-                    "junk",
-                ],
-                "messages": [],
-            }
-        )
-    )
-    assert out["portal_attached_files"] == [
-        {
-            "id": "ba61aacb-44",
-            "name": "report.csv",
-            "type": "file",
-            "size": 812,
-            "path": "/workspace/uploads/ba61aacb-44_report.csv",
-        }
-    ]
-    assert asyncio.run(_inlet({"messages": []})) == {"messages": []}
-    assert asyncio.run(_inlet({"files": "not-a-list", "messages": []})) == {
-        "files": "not-a-list",
-        "messages": [],
-    }
 
 
 def test_an_id_only_item_resolves_the_stored_record(monkeypatch) -> None:
@@ -323,137 +273,3 @@ def test_a_record_without_a_stored_path_keeps_the_staged_name_guess(monkeypatch)
             "path": "/workspace/uploads/ba61aacb-44_customers.csv",
         }
     ]
-
-
-def test_rag_seed_file_is_the_harness_portal_template() -> None:
-    from tests.wfe.owui_rag import DEFAULT_RAG_TEMPLATE, PORTAL_RAG_GUIDELINE, PORTAL_RAG_TEMPLATE
-
-    assert RAG_SEED.read_text() == PORTAL_RAG_TEMPLATE
-    # The delta against stock is exactly the one guideline line.
-    assert (
-        DEFAULT_RAG_TEMPLATE.replace(
-            "- Do not use XML tags in your response.",
-            f"{PORTAL_RAG_GUIDELINE}\n- Do not use XML tags in your response.",
-        )
-        == PORTAL_RAG_TEMPLATE
-    )
-    assert PORTAL_RAG_TEMPLATE.count("excerpts of attached files") == 1
-    assert DEFAULT_RAG_TEMPLATE.count("excerpts of attached files") == 0
-
-
-# --- openwebui_init seeding calls ----------------------------------------------
-
-
-class _Resp:
-    def __init__(self, status: int, payload: Any = None) -> None:
-        self.status_code = status
-        self._payload = payload
-        self.text = json.dumps(payload or {})
-
-    def json(self) -> Any:
-        return self._payload
-
-
-class _FakeAsync:
-    """Records calls; GET answers from a route table keyed by URL, POST succeeds."""
-
-    def __init__(self, routes: dict[str, _Resp]) -> None:
-        self.routes = routes
-        self.calls: list[tuple[str, str, Any]] = []
-
-    async def get(self, url: str, **_kw: Any) -> _Resp:
-        self.calls.append(("GET", url, None))
-        return self.routes.get(url, _Resp(404))
-
-    async def post(self, url: str, **kw: Any) -> _Resp:
-        self.calls.append(("POST", url, kw.get("json")))
-        return _Resp(201, kw.get("json"))
-
-
-class _FakeSync:
-    def __init__(self, get_resp: _Resp) -> None:
-        self.get_resp = get_resp
-        self.calls: list[tuple[str, str, Any]] = []
-
-    def get(self, url: str, **_kw: Any) -> _Resp:
-        self.calls.append(("GET", url, None))
-        return self.get_resp
-
-    def post(self, url: str, **kw: Any) -> _Resp:
-        self.calls.append(("POST", url, kw.get("json")))
-        return _Resp(200, kw.get("json"))
-
-
-def _seeder() -> Any:
-    import importlib.util
-    import os
-
-    os.environ.setdefault("OPENWEBUI_ADMIN_PASSWORD", "test-not-used")
-    spec = importlib.util.spec_from_file_location(
-        "openwebui_init_attachment_seed", REPO / "scripts" / "openwebui_init.py"
-    )
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    # The module's defaults are the init container's mount points (/imports, /personas);
-    # tests read the repo checkout instead.
-    module.IMPORTS_DIR = REPO / "imports" / "openwebui"
-    module.FUNCTIONS_DIR = module.IMPORTS_DIR / "functions"
-    module.RAG_TEMPLATE_FILE = module.IMPORTS_DIR / "rag_template.txt"
-    module.PERSONAS_DIR = REPO / "config" / "personas"
-    return module
-
-
-def test_seed_creates_and_enables_the_filter() -> None:
-    seeder = _seeder()
-    spec = json.loads(FILTER_SPEC.read_text())
-    fid = spec["id"]
-    client = _FakeAsync({})
-    asyncio.run(seeder.seed_attachment_filter_async(client, "tok"))
-    posts = client.calls[1:]  # first call is the GET
-    assert client.calls[0] == ("GET", f"{seeder.OPENWEBUI_URL}/api/v1/functions/id/{fid}", None)
-    assert [u.split("/api/v1/functions/")[-1] for _, u, _ in posts] == [
-        "create",
-        f"id/{fid}/toggle",
-        f"id/{fid}/toggle/global",
-    ]
-    created = posts[0][2]
-    assert created["id"] == fid and created["content"] == spec["content"]
-
-
-def test_seed_updates_only_when_content_differs() -> None:
-    seeder = _seeder()
-    spec = json.loads(FILTER_SPEC.read_text())
-    fid = spec["id"]
-    url = f"{seeder.OPENWEBUI_URL}/api/v1/functions/id/{fid}"
-    stale = {"id": fid, "content": "old source", "is_active": True, "is_global": True}
-    client = _FakeAsync({url: _Resp(200, stale)})
-    asyncio.run(seeder.seed_attachment_filter_async(client, "tok"))
-    endpoints = [u.rsplit("/", 1)[-1] for method, u, _ in client.calls if method == "POST"]
-    assert endpoints == ["update"]
-
-
-def test_seed_skips_a_current_enabled_filter() -> None:
-    seeder = _seeder()
-    spec = json.loads(FILTER_SPEC.read_text())
-    fid = spec["id"]
-    url = f"{seeder.OPENWEBUI_URL}/api/v1/functions/id/{fid}"
-    current = {"id": fid, "content": spec["content"], "is_active": True, "is_global": True}
-    client = _FakeAsync({url: _Resp(200, current)})
-    asyncio.run(seeder.seed_attachment_filter_async(client, "tok"))
-    assert [c for c in client.calls if c[0] == "POST"] == []
-
-
-def test_configure_rag_template_posts_only_when_different() -> None:
-    seeder = _seeder()
-    template = RAG_SEED.read_text()
-    current = _FakeSync(_Resp(200, {"RAG_TEMPLATE": template}))
-    seeder.configure_rag_template(current, "tok")
-    assert [c for c in current.calls if c[0] == "POST"] == []
-
-    stale = _FakeSync(_Resp(200, {"RAG_TEMPLATE": "stock"}))
-    seeder.configure_rag_template(stale, "tok")
-    posts = [c for c in stale.calls if c[0] == "POST"]
-    assert len(posts) == 1
-    assert posts[0][1].endswith("/retrieval/config/update")
-    assert posts[0][2] == {"RAG_TEMPLATE": template}

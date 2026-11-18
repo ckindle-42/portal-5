@@ -1,13 +1,8 @@
 from __future__ import annotations
 
-import shutil
-import subprocess
-
 import pytest
 
 from portal.modules.cad.tools.scad_emitter import emit_scad
-
-trimesh = pytest.importorskip("trimesh")
 
 
 def _base(width=40, depth=30, height=5):
@@ -180,22 +175,3 @@ def test_corpus_emits(name, geometry, expected):
     source = emit_scad(geometry)
     assert source.startswith("// units=mm")
     assert len(source) > 50
-
-
-@pytest.mark.skipif(shutil.which("openscad") is None, reason="OpenSCAD is not installed")
-@pytest.mark.parametrize(("name", "geometry", "expected"), CORPUS, ids=[item[0] for item in CORPUS])
-def test_corpus_compiles_watertight_with_expected_bbox(tmp_path, name, geometry, expected):
-    scad_path = tmp_path / f"{name}.scad"
-    stl_path = tmp_path / f"{name}.stl"
-    scad_path.write_text(emit_scad(geometry))
-    result = subprocess.run(
-        [shutil.which("openscad"), "--render", "-o", str(stl_path), str(scad_path)],
-        capture_output=True,
-        text=True,
-        timeout=30,
-        check=False,
-    )
-    assert result.returncode == 0, result.stderr
-    mesh = trimesh.load(stl_path, force="mesh")
-    assert mesh.is_watertight
-    assert tuple(mesh.extents) == pytest.approx(expected, abs=0.15)

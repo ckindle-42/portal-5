@@ -9,8 +9,6 @@ sources:
   path: tests/benchmarks/bench_lab_exec.py
 - type: code
   path: tests/benchmarks/bench/config.py
-- type: code
-  path: tests/unit/test_import_environment.py
 claims: []
 confidence: high
 tags:

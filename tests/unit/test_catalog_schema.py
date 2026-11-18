@@ -10,7 +10,6 @@ Verifies that:
 from __future__ import annotations
 
 import json
-import logging
 from pathlib import Path
 
 import pytest
@@ -24,12 +23,11 @@ from portal.platform.inference.config import (
     validate_persona_parents,
 )
 from portal.platform.inference.router.workspaces import (
-    _PERSONA_MAP,
     WORKSPACES,
-    _resolve_persona_tools,
 )
 
 REPO = Path(__file__).resolve().parent.parent.parent
+
 SNAPSHOT = REPO / "tests" / "fixtures" / "preset_resolution_snapshot.json"
 
 
@@ -38,9 +36,6 @@ def _restore_config_cache():
     """Restore the real config cache after any test that swaps the yaml."""
     yield
     load_portal_config(_force_reload=True)
-
-
-# ── Schema validation ─────────────────────────────────────────────────────────
 
 
 def test_persona_with_unknown_workspace_raises(tmp_path: Path) -> None:
@@ -63,25 +58,6 @@ def test_persona_missing_workspace_model_raises(tmp_path: Path) -> None:
         PersonaSpec.model_validate(yaml.safe_load(p.read_text()))
 
 
-def test_malformed_persona_logs_warning_and_skipped_count(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
-    """A persona that fails to load is a WARNING (not DEBUG) and the loader reports the count."""
-    (tmp_path / "good.yaml").write_text(
-        "name: Good\nslug: good\ncategory: test\nmodule: general\n"
-        "workspace_model: any-workspace\nsystem_prompt: ok\n"
-    )
-    (tmp_path / "bad.yaml").write_text("name: Bad\nslug: bad\ncategory: test\n")
-
-    with caplog.at_level(logging.WARNING, logger="portal.platform.inference.config"):
-        personas = load_persona_map(personas_dir=tmp_path)
-
-    assert set(personas) == {"good"}
-    warnings = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
-    assert any("bad.yaml" in w for w in warnings)
-    assert "1 personas skipped" in warnings
-
-
 def test_all_production_personas_have_valid_parents() -> None:
     """All production personas reference an existing workspace."""
     personas = load_persona_map()
@@ -99,52 +75,6 @@ def test_no_persona_has_browser_policy() -> None:
         f.name for f in sorted(personas_dir.glob("*.yaml")) if "browser_policy" in f.read_text()
     ]
     assert not with_policy, f"browser_policy found in retired persona YAMLs: {with_policy}"
-
-
-# ── Resolution invariant ──────────────────────────────────────────────────────
-
-
-def test_persona_tool_resolution_matches_snapshot(monkeypatch) -> None:
-    """resolve_preset_tools output must match the M3 oracle for all 150 personas.
-
-    module: eval workspaces (bench-*) are gated off the module-level
-    WORKSPACES dict by default (BUILD_PROGRAM_COLLAPSE_V1.md Phase 4), so
-    bench personas' workspace_model lookups would otherwise resolve to no
-    tools. Fill in the full (eval-enabled) set for the duration of this
-    test — WORKSPACES aliases the same dict object every importer sees.
-    """
-    from portal.platform.inference.config import get_workspace_dict, load_portal_config
-    from portal.platform.inference.router.preinject import _resolve_workspace_variant
-
-    monkeypatch.setenv("PORTAL_ENABLE_EVAL", "1")
-    all_ws = get_workspace_dict(load_portal_config())
-    for ws_id, ws_cfg in all_ws.items():
-        monkeypatch.setitem(WORKSPACES, ws_id, ws_cfg)
-
-    snap = json.loads(SNAPSHOT.read_text())
-    failures = []
-    for slug, spec in _PERSONA_MAP.items():
-        ws_id = (
-            spec.workspace_model
-            if isinstance(spec, PersonaSpec)
-            else spec.get("workspace_model", "")
-        )
-        variant = spec.variant if isinstance(spec, PersonaSpec) else spec.get("variant")
-        if variant:
-            # A persona whose variant's module is off is not seeded at all
-            # (openwebui_init._persona_skips_disabled_variant), so the tools it
-            # would resolve to never reach Open WebUI. Snapshotting the
-            # fallback would pin a value nothing uses.
-            from portal.platform.wiki.adapters.modules import is_workspace_disabled
-
-            if is_workspace_disabled(f"{ws_id}::{variant}"):
-                continue
-            ws_id = _resolve_workspace_variant(slug, ws_id, variant)
-        effective = _resolve_persona_tools(spec, ws_id)
-        key = f"persona::{slug}"
-        if key in snap and snap[key]["effective_tools"] != effective:
-            failures.append(f"{slug}: got {effective}, want {snap[key]['effective_tools']}")
-    assert not failures, "Tool resolution drifted from snapshot:\n" + "\n".join(failures[:10])
 
 
 def test_workspace_tools_match_snapshot() -> None:

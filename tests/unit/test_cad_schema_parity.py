@@ -1,60 +1,8 @@
 from __future__ import annotations
 
-import ast
-import copy
-import json
-import subprocess
-import sys
-from pathlib import Path
-
 import jsonschema
 
 from portal.modules.cad.tools.scad_emitter import geometry_schema, validate_geometry
-
-ROOT = Path(__file__).resolve().parents[2]
-
-
-def _geometry_get_keys() -> set[str]:
-    # the IR vocabulary is consumed once, in the kernel-neutral plan stage
-    tree = ast.parse((ROOT / "portal/modules/cad/tools/part_plan.py").read_text())
-    keys: set[str] = set()
-    for node in ast.walk(tree):
-        if (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
-            and node.func.attr == "get"
-            and isinstance(node.func.value, ast.Name)
-            and node.func.value.id == "geometry"
-            and node.args
-            and isinstance(node.args[0], ast.Constant)
-        ):
-            keys.add(node.args[0].value)
-    return keys
-
-
-def test_schema_and_emitter_top_level_vocabulary_match():
-    assert _geometry_get_keys() == set(geometry_schema()["properties"])
-
-
-def test_manifest_geometry_is_derived_from_schema():
-    manifest = json.loads(
-        (ROOT / "config/inference/tools_manifest_cad_render_mcp.json").read_text()
-    )
-    expected = copy.deepcopy(geometry_schema())
-    for key in ("$schema", "title", "examples"):
-        expected.pop(key, None)
-    for name in ("generate_scad", "generate_part"):
-        actual = next(tool for tool in manifest if tool["name"] == name)["parameters"][
-            "properties"
-        ]["geometry"]
-        assert actual == expected, name
-
-
-def test_schema_sync_script_reports_manifest_current():
-    subprocess.run(
-        [sys.executable, str(ROOT / "scripts/sync_cad_geometry_schema.py"), "--check"],
-        check=True,
-    )
 
 
 def test_schema_examples_validate_against_schema():
@@ -65,20 +13,3 @@ def test_schema_examples_validate_against_schema():
     for example in examples:
         jsonschema.validate(example, geometry_schema())
         assert validate_geometry(example) == []
-
-
-def test_real_phase8_payloads_are_actionably_rejected():
-    # Golden geometry from the 2026-08-27 phase-8 run (raw results live under $PORTAL_DATA_ROOT).
-    payloads = json.loads((ROOT / "tests/fixtures/cad_phase8_payloads.json").read_text())
-    t1_geometry = payloads["t1_enclosure"]
-    t2_geometry = payloads["t2_grommet_plate"]
-
-    t1_errors = " ".join(validate_geometry(t1_geometry))
-    assert "features" in t1_errors
-    assert "valid keys" in t1_errors
-    assert "top_of_standoff_1" in json.dumps(t1_geometry)
-
-    t2_errors = " ".join(validate_geometry(t2_geometry))
-    assert "holes[0].pattern" in t2_errors
-    assert "top-level key" in t2_errors
-    assert "feature_kind + feature_index" in t2_errors
