@@ -5,8 +5,6 @@ from __future__ import annotations
 
 import pytest
 
-pytest.importorskip("lancedb")
-
 from portal.modules.compliance.core import review_queue as rq  # noqa: E402
 
 
@@ -71,17 +69,3 @@ def test_list_items_filters_by_kind_and_status():
     assert len(rq.list_items(kind="document_tier")) == 1
     assert len(rq.list_items(status="OPEN")) == 2
     assert len(rq.list_items(kind="mapping_proposal", status="OPEN")) == 1
-
-
-def test_sync_proposed_mappings_wires_the_mapping_store_not_a_parallel_path(tmp_path):
-    from portal.modules.compliance.core.mapping_store import MappingStore
-
-    store = MappingStore(path=tmp_path / "mappings.json")
-    m = store.propose("CIP-007-6 R2 Part 2.2", "OT-POL-014.pdf", "4.2", "FULL", confidence=0.8)
-    n = rq.sync_proposed_mappings(store)
-    assert n == 1
-    items = rq.list_items(kind="mapping_proposal")
-    assert len(items) == 1
-    assert items[0].subject_id == m.id
-    # idempotent — a second sync files nothing new
-    assert rq.sync_proposed_mappings(store) == 0

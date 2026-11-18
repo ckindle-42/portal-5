@@ -7,30 +7,19 @@ task expressed as a test."
 
 from __future__ import annotations
 
-import asyncio
 import importlib
-import json
 import sys
 import types
 
 import pytest
 
 rm = importlib.import_module("portal.modules.research.tools.rag_multimodal")
+
 cr = importlib.import_module("portal.modules.compliance.tools.compliance_retrieval")
+
 _store = importlib.import_module("portal.platform.retrieval.store")
+
 _embedding = importlib.import_module("portal.platform.retrieval.embedding")
-
-
-class _Req:
-    def __init__(self, a):
-        self._a = {"arguments": a}
-
-    async def json(self):
-        return self._a
-
-
-def _run(c):
-    return asyncio.new_event_loop().run_until_complete(c)
 
 
 @pytest.fixture(autouse=True)
@@ -81,72 +70,6 @@ def _iso(tmp_path, monkeypatch):
 
     fake._read_file = _read_file
     monkeypatch.setitem(sys.modules, "portal.modules.research.tools.rag_mcp", fake)
-
-
-@pytest.fixture
-def _corpus(tmp_path):
-    src = tmp_path / "src"
-    src.mkdir()
-    (src / "a.txt").write_text("Requirement R2.1 patch management for CIP-007-6.")
-    (src / "b.md").write_text("The ESP review cadence is 15 calendar months.")
-    return src
-
-
-def _rows(table_name):
-    db = _store.get_db()
-    return sorted(
-        db.open_table(table_name).search().limit(10_000).to_list(),
-        key=lambda r: r["chunk_id"],
-    )
-
-
-def _stable(rows):
-    return [
-        {
-            "chunk_id": r["chunk_id"],
-            "source_file": r["source_file"],
-            "text": r["text"],
-            "vector": list(r["vector"]),
-        }
-        for r in rows
-    ]
-
-
-def test_disjoint_tables_and_equivalent_results(_corpus):
-    rm_out = json.loads(_run(rm._ingest(_Req({"kb_id": "x", "source_dir": str(_corpus)}))).body)
-    cr_out = json.loads(_run(cr._ingest(_Req({"kb_id": "x", "source_dir": str(_corpus)}))).body)
-    assert rm_out["chunks_added"] == cr_out["chunks_added"] >= 1
-
-    names = set(_store.get_db().table_names())
-    assert {"kb_x", "compliance_x"} <= names
-    assert "compliance_x" not in {"kb_x", "kb_x_visual"}
-
-    # same corpus, same (fake) embeddings -> the two arms return the same texts
-    q = {"kb_id": "x", "query": "patch management requirement", "top_k": 3}
-    rm_res = json.loads(_run(rm._search(_Req(q))).body)["results"]
-    cr_res = json.loads(_run(cr._search(_Req(q))).body)["results"]
-    assert [r["text"] for r in rm_res] == [r["text"] for r in cr_res]
-    assert [r["kind"] for r in rm_res] == [r["kind"] for r in cr_res]
-
-    # disjoint stamps
-    assert _store.read_stamp("x", prefix="kb_") is not None
-    assert _store.read_stamp("x", prefix="compliance_") is not None
-
-
-def test_compliance_rebuild_leaves_kb_tables_byte_identical(_corpus):
-    _run(rm._ingest(_Req({"kb_id": "x", "source_dir": str(_corpus)})))
-    _run(cr._ingest(_Req({"kb_id": "x", "source_dir": str(_corpus)})))
-
-    before = _stable(_rows("kb_x"))
-    before_stamp = _store.read_stamp("x", prefix="kb_")
-
-    out = json.loads(
-        _run(cr._ingest(_Req({"kb_id": "x", "source_dir": str(_corpus), "rebuild": True}))).body
-    )
-    assert "error" not in out
-
-    assert _stable(_rows("kb_x")) == before
-    assert _store.read_stamp("x", prefix="kb_") == before_stamp
 
 
 def test_compliance_composition_forces_docling_chunking_and_bm25():

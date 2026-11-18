@@ -148,8 +148,6 @@ sources:
 - type: code
   path: tests/unit/test_compliance_repository.py
 - type: code
-  path: tests/unit/test_compliance_migrate_legacy.py
-- type: code
   path: tests/unit/test_compliance_applicability.py
 - type: code
   path: tests/unit/test_compliance_auth.py
@@ -158,11 +156,7 @@ sources:
 - type: code
   path: tests/unit/test_compliance_sources.py
 - type: code
-  path: tests/unit/test_compliance_prospective.py
-- type: code
   path: tests/unit/test_compliance_scenarios.py
-- type: code
-  path: tests/unit/test_compliance_draft_revisions.py
 - type: code
   path: tests/unit/test_compliance_intentionality.py
 - type: code

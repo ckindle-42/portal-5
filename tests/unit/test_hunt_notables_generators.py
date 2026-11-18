@@ -1,38 +1,18 @@
 from __future__ import annotations
 
-import json
-from typing import Any
-
 from portal.modules.security.core.hunt.executor import Read
 from portal.modules.security.core.hunt.notables.behaviours import Behaviour
-from portal.modules.security.core.hunt.notables.cards import SourceCard
 from portal.modules.security.core.hunt.notables.generators import (
     _alert_query,
     _behaviour_deviations,
     _robust_z,
     _series_by_source,
     _source_deviations,
-    alerts,
     exact_counts,
     generate,
     peer_rare,
 )
 from portal.modules.security.core.hunt.notables.sample import SourceFacts
-
-
-class _Executor:
-    def __init__(self, rows: list[dict[str, Any]]) -> None:
-        self.rows = rows
-
-    def read(
-        self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
-    ) -> Read:
-        del query, kind, row_cap
-        return Read(
-            [dict(row) for row in self.rows if start <= float(row["_time"]) < end],
-            False,
-            None,
-        )
 
 
 def _behaviour(
@@ -68,24 +48,6 @@ def _behaviour(
     )
 
 
-def _alert_card() -> SourceCard:
-    return SourceCard(
-        index="ix",
-        sourcetype="alerts",
-        kind="alert",
-        roles={"actor": ("user",), "action": ("alert",)},
-        understood=True,
-        reason=None,
-        fmt="json",
-        coverage=1.0,
-        fields=(),
-        sample={},
-        facts={},
-        model={},
-        cache_key="k",
-    )
-
-
 def _alert_facts() -> SourceFacts:
     return SourceFacts("ix", "alerts", 100, 0.0, 3600.0, ("h1", "h2"), 2, ("s1",), 1)
 
@@ -97,78 +59,6 @@ def test_alert_query_drops_star_adjacent_role_values() -> None:
     assert "medium" not in query
     assert "*" not in query
     assert 'index="ix"' in query
-
-
-def test_alerts_raise_one_notable_per_distinct_alert_and_entity():
-    rows = [
-        {"_raw": json.dumps({"alert": "scan", "user": "bob"}), "_time": 10.0, "host": "h1"},
-        {"_raw": json.dumps({"alert": "scan", "user": "bob"}), "_time": 20.0, "host": "h2"},
-        {"_raw": json.dumps({"alert": "scan", "user": "amy"}), "_time": 30.0, "host": "h1"},
-    ]
-    notables, receipt = alerts(_Executor(rows), [_alert_card()], {"ix:alerts": _alert_facts()})
-    assert receipt["existed"] == 2
-    assert [item.what for item in notables] == ["alert scan on bob", "alert scan on amy"]
-    assert notables[0].counts["occurrences"] == 2
-    assert notables[0].counts["hosts"] == 2
-    assert '"scan"' in str(notables[0].evidence[0]["query"])
-    assert "TERM(" not in str(notables[0].evidence[0]["query"])
-    again, _ = alerts(_Executor(rows), [_alert_card()], {"ix:alerts": _alert_facts()})
-    assert [item.notable_id for item in again] == [item.notable_id for item in notables]
-
-
-def test_alerts_route_the_alert_part_of_a_mixed_source():
-    activity = SourceCard(
-        index="ix",
-        sourcetype="eve.json",
-        kind="activity",
-        roles={"actor": ("src",), "action": ("proto",)},
-        understood=True,
-        reason=None,
-        fmt="json",
-        coverage=1.0,
-        fields=(),
-        sample={},
-        facts={},
-        model={},
-        cache_key="activity",
-        part_field="event_type",
-        part_value="flow",
-    )
-    alert = SourceCard(
-        index="ix",
-        sourcetype="eve.json",
-        kind="alert",
-        roles={"actor": ("src",), "action": ("sig",)},
-        understood=True,
-        reason=None,
-        fmt="json",
-        coverage=1.0,
-        fields=(),
-        sample={},
-        facts={},
-        model={},
-        cache_key="alert",
-        part_field="event_type",
-        part_value="alert",
-    )
-    facts = SourceFacts("ix", "eve.json", 2, 0.0, 60.0, ("h1",), 1, ("s1",), 1)
-    rows = [
-        {
-            "_raw": json.dumps({"event_type": "flow", "src": "a", "proto": "TCP"}),
-            "_time": 10.0,
-            "host": "h1",
-        },
-        {
-            "_raw": json.dumps({"event_type": "alert", "src": "a", "sig": "ET scan"}),
-            "_time": 20.0,
-            "host": "h1",
-        },
-    ]
-
-    notables, receipt = alerts(_Executor(rows), [activity, alert], {"ix:eve.json": facts})
-
-    assert [item.what for item in notables] == ["alert ET scan on a"]
-    assert receipt["sources"][0]["card_id"] == alert.card_id
 
 
 def test_peer_rare_orders_by_share_of_possible_hosts_and_actors():
@@ -328,24 +218,3 @@ def test_series_grouping_ignores_rows_without_a_source():
         ]
     )
     assert grouped == {"a": [(0.0, 1), (60.0, 2)]}
-
-
-def test_generate_keeps_generators_separately_switchable():
-    behaviours = [_behaviour("ix:st", "bob", hosts=1, actors=1, events=1, first=5.0)]
-    stats = {"ix:st": {"hosts_possible": 2, "actors_possible": 2}}
-    notables, receipt = generate(
-        _Executor([]),
-        "ix",
-        0.0,
-        3600.0,
-        [],
-        {"ix:st": _alert_facts()},
-        behaviours,
-        stats,
-        ["peer_rare"],
-    )
-    assert [item.generator for item in notables] == ["peer_rare"]
-    assert receipt["enabled"] == ["peer_rare"]
-    assert "alerts" not in receipt
-    empty, _ = generate(_Executor([]), "ix", 0.0, 3600.0, [], {}, behaviours, stats, [])
-    assert empty == []

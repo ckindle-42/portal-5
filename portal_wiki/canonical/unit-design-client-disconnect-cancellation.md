@@ -30,8 +30,6 @@ sources:
 - type: code
   path: portal/modules/compliance/core/transport_dialects.py
 - type: code
-  path: tests/unit/test_cancellation_w3.py
-- type: code
   path: reports/host_memory_safety/W3.md
 claims: []
 confidence: high

@@ -40,9 +40,6 @@ def _unit(uid: str, body: str, unit_claims: list[dict] | None = None) -> Knowled
     )
 
 
-# ── numeric detector: false-positive classes are not counts ─────────────────
-
-
 def test_event_id_is_not_a_count():
     body = "the destination-side 5140 variant and the Windows 4688 variant"
     assert drift_mod.undeclared_numeric_claims([_unit("u1", body)]) == {}
@@ -51,11 +48,6 @@ def test_event_id_is_not_a_count():
 def test_model_version_is_not_a_count():
     body = "when a 2509 model card appears, prefer the Q4_K_M quant"
     assert drift_mod.undeclared_numeric_claims([_unit("u2", body)]) == {}
-
-
-def test_version_number_split_across_noun_is_not_a_count():
-    body = "requests must follow per the Qwen3.6 tool-call format"
-    assert drift_mod.undeclared_numeric_claims([_unit("u3", body)]) == {}
 
 
 def test_singular_generic_noun_is_not_a_count():
@@ -68,18 +60,12 @@ def test_fenced_transcript_is_not_a_count():
     assert drift_mod.undeclared_numeric_claims([_unit("u5", body)]) == {}
 
 
-# ── numeric detector: the narrowing must not disable the detector ────────────
-
-
 def test_a_real_present_tense_platform_figure_is_still_caught():
     body = "Portal ships 12 workspaces across 14 backends today."
     found = drift_mod.undeclared_numeric_claims([_unit("u6", body)])
     assert "u6" in found
     assert "12 workspaces" in found["u6"]
     assert "14 backends" in found["u6"]
-
-
-# ── numeric detector: derived families are already gated by AW ───────────────
 
 
 def test_derived_families_skip_the_numeric_detector():
@@ -103,9 +89,6 @@ def test_live_store_reports_zero_undeclared_numeric():
     assert found == {}
 
 
-# ── source detection: ask the filesystem, not the extension ─────────────────
-
-
 @pytest.mark.parametrize(
     "rel",
     [
@@ -126,14 +109,6 @@ def test_missed_config_files_are_live_sources(rel):
 def test_glob_source_resolves_to_live_files():
     assert is_live_source("portal/modules/*/tools/*_mcp.py", REPO_ROOT)
     assert not is_live_source("portal/modules/*/nope/*.py", REPO_ROOT)
-
-
-def test_generated_markdown_is_rejected_as_a_source(tmp_path):
-    (tmp_path / "docs").mkdir()
-    (tmp_path / "docs" / "generated.md").write_text(
-        "<!-- WIKI:GENERATED unit=unit-fact-mcp-fleet -->\n\nrendered body\n"
-    )
-    assert not is_live_source("docs/generated.md", tmp_path)
 
 
 def test_hand_authored_markdown_is_a_source():

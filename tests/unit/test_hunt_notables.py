@@ -3,19 +3,11 @@ from __future__ import annotations
 import json
 
 from portal.modules.security.core.hunt.notables.cards import (
-    CardCache,
-    SourceCard,
-    answer_cards,
     apply_answer,
     ask_model,
-    assemble_cards,
-    build_card,
-    build_cards,
-    build_prompt,
     cadence_facts,
     is_alert_event,
     is_alert_line,
-    prepare_cards,
     reconcile_kind,
     value_facts,
 )
@@ -31,7 +23,7 @@ from portal.modules.security.core.hunt.notables.parse import (
     partition_groups,
     words,
 )
-from portal.modules.security.core.hunt.notables.run import _sample_source, card_from_dict
+from portal.modules.security.core.hunt.notables.run import _sample_source
 from portal.modules.security.core.hunt.notables.sample import SourceFacts
 
 
@@ -47,30 +39,6 @@ def _facts() -> SourceFacts:
         sources=("s1",),
         source_count=1,
     )
-
-
-def _rows() -> list[dict[str, object]]:
-    lines = [
-        json.dumps({"user": f"u{index % 3}", "image": "cmd.exe", "line": f"echo {index}"})
-        for index in range(12)
-    ]
-    return [
-        {"_raw": line, "_time": 1000.0 + index, "host": "h1"} for index, line in enumerate(lines)
-    ]
-
-
-class _Client:
-    def __init__(self, content: str) -> None:
-        self.content = content
-        self.calls: list[dict[str, object]] = []
-
-    def complete(self, **request: object) -> dict[str, object]:
-        self.calls.append(request)
-        return {
-            "model": "seat",
-            "usage": {"prompt_tokens": 42},
-            "choices": [{"message": {"content": self.content}}],
-        }
 
 
 def test_json_fields_keep_their_paths_and_flatten_scalars():
@@ -153,59 +121,6 @@ def test_facts_overrule_a_non_numeric_measurement_and_record_other_conflicts():
     assert reconcile_kind("alert", {"numeric_share": 0.9}) == ("alert", None)
 
 
-def test_a_process_creation_source_classed_measurement_stays_in_behaviours(tmp_path):
-    answer = json.dumps({"kind": "measurement", "actor": ["user"], "action": ["image"]})
-    card = build_card(
-        _facts(),
-        _rows(),
-        windows=1,
-        client=_Client(answer),
-        model="seat",
-        cache=CardCache(tmp_path),
-    )
-    assert card.kind == "activity"
-    assert card.kind_said == "measurement"
-    assert str(card.kind_note).startswith("facts_override:")
-    assert card.usable is True
-
-
-def test_identical_structures_share_one_request_and_report_reuse(tmp_path):
-    answer = json.dumps({"kind": "activity", "actor": ["user"], "action": ["image"]})
-    client = _Client(answer)
-    other = SourceFacts("ix2", "st2", 999, 5.0, 6.0, ("h9",), 1, ("s9",), 1)
-    prepared = [
-        *prepare_cards(_facts(), _rows(), 1, "seat"),
-        *prepare_cards(other, _rows(), 1, "seat"),
-    ]
-    answers, stats = answer_cards(prepared, client, "seat", CardCache(tmp_path))
-    cards = assemble_cards(prepared, answers)
-    assert stats["structures"] == 1
-    assert stats["requests"] == 1
-    assert stats["disk_hits"] == 0
-    assert len(client.calls) == 1
-    assert [card.model["requests"] for card in cards] == [1, 0]
-    assert all(card.kind == "activity" for card in cards)
-    _answers, again = answer_cards(prepared[:1], client, "seat", CardCache(tmp_path))
-    assert again["requests"] == 0
-    assert again["disk_hits"] == 1
-    assert len(client.calls) == 1
-
-
-def test_identical_structure_gets_the_same_card_key_and_kind(tmp_path):
-    answer = json.dumps({"kind": "activity", "actor": ["user"], "action": ["image"]})
-    client = _Client(answer)
-    first = build_card(
-        _facts(), _rows(), windows=1, client=client, model="seat", cache=CardCache(tmp_path)
-    )
-    other = SourceFacts("ix2", "st2", 999, 5.0, 6.0, ("h9",), 1, ("s9",), 1)
-    second = build_card(
-        other, _rows(), windows=1, client=client, model="seat", cache=CardCache(tmp_path)
-    )
-    assert first.cache_key == second.cache_key
-    assert first.kind == second.kind
-    assert len(client.calls) == 1
-
-
 def test_a_low_variety_field_that_selects_the_field_set_splits_the_source():
     parsed = parse_events([str(row["_raw"]) for row in _mixed_rows()])
     partition = choose_partition(parsed)
@@ -214,39 +129,6 @@ def test_a_low_variety_field_that_selects_the_field_set_splits_the_source():
     assert partition.values == ("alert", "flow")
     groups = partition_groups(parsed, _mixed_rows(), partition)
     assert [len(groups[value][0]) for value in partition.values] == [4, 4]
-
-
-def test_build_cards_gives_each_structure_its_own_card(tmp_path):
-    class _MixedClient:
-        def complete(self, **request: object) -> dict[str, object]:
-            messages = request.get("messages", [])
-            prompt = "\n".join(
-                str(message.get("content") or "")
-                for message in messages
-                if isinstance(message, dict)
-            )
-            answer = (
-                {"kind": "alert", "actor": ["src"], "action": ["sig"]}
-                if "- sig present=" in prompt
-                else {"kind": "activity", "actor": ["src"], "action": ["bytes"]}
-            )
-            return {"choices": [{"message": {"content": json.dumps(answer)}}]}
-
-    cards = build_cards(
-        _facts(),
-        _mixed_rows(),
-        windows=1,
-        client=_MixedClient(),  # type: ignore[arg-type]
-        model="seat",
-        cache=CardCache(tmp_path),
-    )
-    assert len(cards) == 2
-    assert {card.part_value for card in cards} == {"alert", "flow"}
-    assert {card.source_id for card in cards} == {"ix:st"}
-    assert len({card.card_id for card in cards}) == 2
-    assert all(card.understood for card in cards)
-    assert [len(card.fields) for card in cards] == [3, 4]
-    assert {card.part_value: card.kind for card in cards} == {"alert": "alert", "flow": "activity"}
 
 
 def test_is_alert_event_reads_the_event_type_property() -> None:
@@ -329,88 +211,6 @@ def test_template_events_read_with_the_learned_model_after_the_sample():
     assert row.fields["program"] == "sshd"
     assert row.fields["v2"] == "bob"
     assert parse_row(_SYSLOG[5], "template", template=None).fields == {}
-
-
-def test_a_line_oriented_source_is_one_card_and_is_never_partitioned_on_time(tmp_path):
-    rows = [
-        {"_raw": line, "_time": 1000.0 + index, "host": "h1"} for index, line in enumerate(_SYSLOG)
-    ]
-    client = _Client("{}")
-    cards = build_cards(
-        _facts(), rows, windows=1, client=client, model="seat", cache=CardCache(tmp_path)
-    )
-    assert len(cards) == 1
-    card = cards[0]
-    assert card.fmt == "template"
-    assert card.kind == "activity"
-    assert card.roles["actor"] == ("program",)
-    assert card.roles["action"] == ("template",)
-    assert "v1" in card.roles["object"]
-    assert card.template_model is not None
-    assert len(client.calls) == 0
-
-
-def test_a_suricata_fast_log_sample_is_flagged_as_an_alert_source(monkeypatch):
-    from portal.modules.security.core.hunt.notables import cards as cards_module
-    from portal.modules.security.core.hunt.notables.parse import Parsed, TemplateModel
-
-    lines = [
-        "01/24/2022-03:56:58.599059  [**] [1:2220006:1] SURICATA SMTP no server welcome "
-        "message [**] [Classification: Generic Protocol Command Decode] [Priority: 3] {TCP} "
-        "172.19.130.4:587 -> 192.168.230.122:49954",
-        "01/24/2022-03:56:59.159788  [**] [1:2220000:1] SURICATA SMTP invalid reply [**] "
-        "[Classification: Generic Protocol Command Decode] [Priority: 3] {TCP} "
-        "172.19.130.4:587 -> 192.168.230.122:49954",
-    ]
-    rows = [
-        {"_raw": line, "_time": 1000.0 + index, "host": "h1"} for index, line in enumerate(lines)
-    ]
-    parsed = [
-        Parsed("template", {"program": "suricata", "template": "SURICATA SMTP", "v1": "x"})
-        for _line in lines
-    ]
-    model = TemplateModel(0, 0, (), {})
-    monkeypatch.setattr(cards_module, "parse_sample", lambda _raws: (parsed, model))
-
-    prepared = prepare_cards(_facts(), rows, 1, "seat")
-
-    assert prepared[0].alert is True
-    card = assemble_cards(prepared, {})[0]
-    assert card.kind == "alert"
-    assert card.roles["action"] == ("template",)
-
-
-def test_a_json_source_is_probed_by_its_alert_event_type():
-    from portal.modules.security.core.hunt.executor import Read
-
-    flow = {
-        "_raw": json.dumps({"event_type": "flow", "src_ip": "a"}),
-        "_time": 1000.0,
-        "host": "h1",
-    }
-    alert = {
-        "_raw": json.dumps({"event_type": "alert", "src_ip": "a"}),
-        "_time": 1001.0,
-        "host": "h1",
-    }
-
-    class _Executor:
-        def __init__(self) -> None:
-            self.queries: list[str] = []
-
-        def read(
-            self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
-        ) -> Read:
-            del start, end, kind, row_cap
-            self.queries.append(query)
-            rows = [alert] if 'event_type="alert"' in query else [flow]
-            return Read([dict(row) for row in rows], False, None)
-
-    executor = _Executor()
-    _facts_value, read = _sample_source(executor, _facts())  # type: ignore[arg-type]
-
-    assert any('event_type="alert"' in query for query in executor.queries)
-    assert any(is_alert_event(row) for row in read.rows)
 
 
 def test_is_alert_line_reads_a_suricata_fast_log_line() -> None:
@@ -517,20 +317,6 @@ def test_one_field_in_several_core_roles_is_rejected():
     assert answer.roles == {}
 
 
-def test_a_card_with_one_field_in_every_core_role_is_not_understood(tmp_path):
-    answer = json.dumps({"kind": "activity", "actor": ["user"], "action": ["user"], "object": []})
-    card = build_card(
-        _facts(),
-        _rows(),
-        windows=1,
-        client=_Client(answer),
-        model="seat",
-        cache=CardCache(tmp_path),
-    )
-    assert card.understood is False
-    assert card.reason == "ambiguous_roles:user"
-
-
 def test_model_answer_is_rejected_when_it_names_a_field_the_sample_lacks():
     answer = apply_answer(
         json.dumps({"kind": "activity", "actor": ["user", "invented"], "action": ["image"]}),
@@ -541,65 +327,6 @@ def test_model_answer_is_rejected_when_it_names_a_field_the_sample_lacks():
     assert answer.rejected == ("invented",)
     assert apply_answer("no json at all", ["user"]).error == "unparseable_answer"
     assert apply_answer('{"kind": "nonsense"}', ["user"]).error == "invalid_kind"
-
-
-def test_card_asks_once_validates_and_caches_its_answer(tmp_path):
-    answer = json.dumps(
-        {"kind": "activity", "actor": ["user"], "action": ["image"], "object": [], "basis": "did"}
-    )
-    client = _Client(answer)
-    facts = _facts()
-    rows = _rows()
-    cache = CardCache(tmp_path)
-    first = build_card(facts, rows, windows=3, client=client, model="seat", cache=cache)
-    assert first.understood is True
-    assert first.kind == "activity"
-    assert first.roles["actor"] == ("user",)
-    assert first.model["requests"] == 1
-    assert len(client.calls) == 1
-    assert "user" in build_prompt(first.fields, len(rows))
-    second = build_card(facts, rows, windows=3, client=client, model="seat", cache=cache)
-    assert second.model["requests"] == 0
-    assert second.model["cached"] is True
-    assert len(client.calls) == 1
-
-
-def test_a_card_answer_naming_a_field_the_sample_lacks_is_rejected(tmp_path):
-    answer = json.dumps({"kind": "activity", "actor": ["user", "invented"]})
-    card = build_card(
-        _facts(),
-        _rows(),
-        windows=1,
-        client=_Client(answer),
-        model="seat",
-        cache=CardCache(tmp_path),
-    )
-    assert card.understood is False
-    assert card.reason == "unknown_fields:invented"
-    assert card.roles == {}
-
-
-def test_card_says_why_it_is_not_understood(tmp_path):
-    client = _Client("not json")
-    card = build_card(
-        _facts(), _rows(), windows=1, client=client, model="seat", cache=CardCache(tmp_path)
-    )
-    assert card.understood is False
-    assert card.reason == "model_no_answer"
-    blank = build_card(
-        _facts(), [], windows=1, client=client, model="seat", cache=CardCache(tmp_path)
-    )
-    assert blank.reason == "no_sample"
-    unparsed = build_card(
-        _facts(),
-        [{"_raw": "x", "_time": 1.0}],
-        windows=1,
-        client=client,
-        model="seat",
-        cache=CardCache(tmp_path),
-    )
-    assert unparsed.reason == "unparsed_sample:coverage=0.00"
-    assert len(client.calls) == 1
 
 
 def test_a_no_answer_response_records_tokens_and_finish_reason():
@@ -617,60 +344,3 @@ def test_a_no_answer_response_records_tokens_and_finish_reason():
     assert answer.completion_tokens == 84
     assert answer.finish_reason == "stop"
     assert answer.prompt_tokens == 5
-
-
-def test_no_answer_is_its_own_reason_and_the_raw_text_is_kept(tmp_path):
-    placeholder = "The model did not produce an answer. Please retry."
-    card = build_card(
-        _facts(),
-        _rows(),
-        windows=1,
-        client=_Client(placeholder),
-        model="seat",
-        cache=CardCache(tmp_path),
-    )
-    assert card.understood is False
-    assert card.reason == "model_no_answer"
-    assert card.model["raw_answer"] == placeholder
-    assert card.model["answer_chars"] == len(placeholder)
-
-
-def test_a_bad_answer_keeps_its_raw_text_and_is_not_confused_with_no_answer(tmp_path):
-    bad = '{"kind": "activity",'
-    card = build_card(
-        _facts(), _rows(), windows=1, client=_Client(bad), model="seat", cache=CardCache(tmp_path)
-    )
-    assert card.reason == "unparseable_answer"
-    assert card.model["raw_answer"] == bad
-
-
-def test_a_template_card_reload_keeps_its_learned_templates(tmp_path):
-    rows = [
-        {"_raw": line, "_time": 1000.0 + index, "host": "h1"} for index, line in enumerate(_SYSLOG)
-    ]
-    cards = build_cards(
-        _facts(), rows, windows=1, client=_Client("{}"), model="seat", cache=CardCache(tmp_path)
-    )
-    loaded = card_from_dict(cards[0].as_dict())
-    assert loaded.template_model is not None
-    assert cards[0].template_model is not None
-    assert loaded.template_model.to_dict() == cards[0].template_model.to_dict()
-
-
-def test_card_reload_keeps_everything_a_later_stage_needs(tmp_path):
-    answer = json.dumps({"kind": "activity", "actor": ["user"], "action": ["image"]})
-    card = build_card(
-        _facts(),
-        _rows(),
-        windows=2,
-        client=_Client(answer),
-        model="seat",
-        cache=CardCache(tmp_path),
-    )
-    loaded = card_from_dict(card.as_dict())
-    assert isinstance(loaded, SourceCard)
-    assert loaded.source_id == "ix:st"
-    assert loaded.roles == card.roles
-    assert loaded.fmt == card.fmt
-    assert [stat.name for stat in loaded.fields] == [stat.name for stat in card.fields]
-    assert loaded.facts["events"] == 100

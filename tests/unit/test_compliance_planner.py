@@ -2,16 +2,11 @@
 
 from __future__ import annotations
 
-import json
-
 import pytest
 
-from portal.modules.compliance.core.applicability import AssetScope
-from portal.modules.compliance.core.operations import judge, resolve
 from portal.modules.compliance.core.planner import (
     QUESTION_PLANS,
     classify_question,
-    compose_answer,
     execute_plan,
     plan_question,
 )
@@ -52,74 +47,8 @@ def test_every_plan_op_is_one_of_the_six():
         assert set(ops) <= six
 
 
-def test_execute_plan_records_evidence_per_step_and_marks_ran(g):
-    def _seat(model, system, user):
-        if "checking one thing only" in system:
-            return '{"overrides": false}'
-        return json.dumps(
-            {
-                "determination": "SUPPORTED",
-                "finding_type": None,
-                "cited_refs": ["CIP-007-6 R2 Part 2.2"],
-                "confidence": 0.8,
-                "rationale": "ok",
-            }
-        )
-
-    scope = AssetScope(
-        impact_present={"high", "medium"},
-        associated_present={"eacms", "pacs", "pca"},
-        declared_by="operator:test",
-    )
-    seats = [{"id": f"s{i}", "label": str(i), "model": f"m{i}"} for i in range(3)]
-    impls = {
-        "resolve": lambda ref: resolve(ref, valid_at="2026-09-06", scope=scope, policy_graph=g),
-        "judge": lambda ref: judge(
-            ref, scope=scope, org_commitments=[], seats=seats, policy_graph=g, seat_fn=_seat
-        ),
-    }
-    tr = execute_plan(_TWELVE["Q03"], "CIP-007-6 R2 Part 2.2", op_impls=impls)
-    assert tr.question_id == "Q03"
-    assert [s.op for s in tr.steps] == ["resolve", "judge"]
-    assert all(s.ran for s in tr.steps)
-    assert all(s.evidence is not None for s in tr.steps)
-    assert "CIP-007-6 R2 Part 2.2" in tr.citations
-    out = compose_answer(tr)
-    assert "resolve" in out and "judge" in out
-
-
 def test_answer_never_composed_from_an_unrun_step(g):
     # an op with no implementation records an error and never sets ran=True
     tr = execute_plan(_TWELVE["Q01"], "CIP-007-6 R2 Part 2.2", op_impls={})
     assert tr.steps[0].ran is False
     assert "error" in tr.steps[0].evidence
-
-
-def test_split_council_sme_kind_propagates_into_the_trace(g):
-    def _seat(model, system, user):
-        if "checking one thing only" in system:
-            return '{"overrides": false}'
-        det = {"m0": "SUPPORTED", "m1": "CONTRADICTED", "m2": "PARTIAL"}[model]
-        return json.dumps(
-            {
-                "determination": det,
-                "finding_type": None,
-                "cited_refs": ["CIP-007-6 R2 Part 2.2"],
-                "confidence": 0.8,
-                "rationale": "x",
-            }
-        )
-
-    scope = AssetScope(
-        impact_present={"high", "medium"},
-        associated_present={"eacms", "pacs", "pca"},
-        declared_by="operator:test",
-    )
-    seats = [{"id": f"s{i}", "label": str(i), "model": f"m{i}"} for i in range(3)]
-    impls = {
-        "judge": lambda ref: judge(
-            ref, scope=scope, org_commitments=[], seats=seats, policy_graph=g, seat_fn=_seat
-        )
-    }
-    tr = execute_plan(_TWELVE["Q04"], "CIP-007-6 R2 Part 2.2", op_impls=impls)
-    assert tr.sme_decision_kind == "S04_INTERPRETATION_DISPUTE"

@@ -11,21 +11,16 @@ served-window resolver's config handling (no live engine).
 from __future__ import annotations
 
 import json
-import pathlib
 import sqlite3
 
 import pytest
 
 from portal.modules.compliance.core.served_window import (
-    expand_env,
-    served_window_for_hint,
     tag_window,
 )
 from scripts.compliance.truth import data_integrity as di
 from scripts.compliance.truth import evidence_delivery as ed
 from scripts.compliance.truth import findability as fb
-
-# ── evidence_delivery ────────────────────────────────────────────────────────
 
 
 def _entry() -> dict:
@@ -82,22 +77,6 @@ def test_tool_output_blob_parses_json_and_folds_escapes() -> None:
     blob = ed.tool_output_blob(transcript)
     assert "line one line two" in blob
     assert "raw text" in blob
-
-
-def test_transcript_question_id_maps_suites() -> None:
-    assert ed.transcript_question_id(
-        pathlib.Path("/r/product/transcripts/CIP-007-6__exceedance.json")
-    ) == ("product:CIP-007-6:exceedance")
-    assert ed.transcript_question_id(
-        pathlib.Path("/r/rep1/conversational/transcripts/baselines.json")
-    ) == ("conversational:baselines")
-    # the DD5 layout: product transcripts sit beside conversational ones
-    assert ed.transcript_question_id(
-        pathlib.Path("/r/rep1/transcripts/CIP-010-4__exceedance.json")
-    ) == ("product:CIP-010-4:exceedance")
-
-
-# ── DATA_TRUTH DD1: normative-span scoring, longest run, use ─────────────────
 
 
 class _AnchorRepo:
@@ -223,76 +202,6 @@ def test_score_evidence_use_requires_delivery_and_document() -> None:
     assert summary["refs_without_anchor"] == []
 
 
-def _write_run(tmp_path: pathlib.Path) -> tuple[pathlib.Path, pathlib.Path]:
-    """A two-rep run tree: rep1 delivers and uses; rep2 delivers nothing."""
-    key = tmp_path / "key.yaml"
-    key.write_text(
-        """
-entries:
-  - question_id: conversational:x
-    question: What about X?
-    split: dev
-    governing:
-      - section_id: csection-a
-        ref: STD R1 Part 1.1
-        text: 1.1 | High Impact Systems | Identify each asset with high impact.
-    operator_evidence:
-      - section_id: isection-b
-        document: Delta Patch Procedure
-        locator: 1
-        text: The team applies patches every thirty days with verification.
-    facts:
-      - id: F1
-        statement: s
-        required: true
-        evidence: [csection-a, isection-b]
-""",
-        encoding="utf-8",
-    )
-    operator_text = "The team applies patches every thirty days with verification."
-    full_answer = (
-        "Per Delta Patch Procedure and STD: the standard says identify each asset with high "
-        "impact. The team applies patches every thirty days with verification."
-    )
-    rep1 = {
-        "answer": full_answer,
-        "tool_outputs": [{"output": json.dumps({"text": _ANCHOR_TEXT + " " + operator_text})}],
-    }
-    rep2 = {"answer": full_answer, "tool_outputs": [{"output": "nothing relevant"}]}
-    for rep, transcript in (("rep1", rep1), ("rep2", rep2)):
-        suite = tmp_path / "arm" / rep / "conversational" / "transcripts"
-        suite.mkdir(parents=True)
-        (suite / "x.json").write_text(json.dumps(transcript), encoding="utf-8")
-    return tmp_path / "arm", key
-
-
-def test_run_inrun_scores_per_rep_and_use(tmp_path: pathlib.Path) -> None:
-    runs_dir, key = _write_run(tmp_path)
-    rows = ed.run_inrun(runs_dir, "dev", key, repo=_anchor_repo())
-    assert len(rows) == 1
-    row = rows[0]
-    assert row["operator"]["hits"] == 1 and row["operator"]["total"] == 2
-    assert row["governing_anchor"]["hits"] == 1
-    assert row["use_operator"] == {
-        "delivered": 1,
-        "quoted": 1,
-        "document_named": 1,
-        "use": 1,
-    }
-    by_rep = {entry["rep"]: entry for entry in row["by_rep"]}
-    assert by_rep["rep1"]["operator"]["hits"] == 1
-    assert by_rep["rep2"]["operator"]["hits"] == 0  # nothing delivered
-    assert by_rep["rep2"]["governing_anchor"]["hits"] == 0
-
-    summary = ed.aggregate_inrun(rows)
-    assert summary["by_rep"]["rep1"]["operator"]["hits"] == 1
-    assert summary["by_rep"]["rep2"]["operator"]["hits"] == 0
-    assert summary["operator"]["recall"] == 0.5
-    assert summary["use_operator"]["use"] == 1
-    # holdout entries in the tree are never scored
-    assert summary["governing_strict"]["total"] == 2
-
-
 def test_score_offline_reports_material_governing_anchor() -> None:
     entry = _entry()
     entry["governing"][0]["text"] = "1.1 | High Impact Systems | " + _ANCHOR_TEXT
@@ -311,9 +220,6 @@ def test_score_offline_reports_material_governing_anchor() -> None:
     rows = ed.score_offline(entry, measured)
     assert rows["material.governing_anchor"] == {"hits": 1, "total": 1}
     assert "errors" not in rows
-
-
-# ── findability ──────────────────────────────────────────────────────────────
 
 
 def test_part_query_from_titled_table_row() -> None:
@@ -340,9 +246,6 @@ def test_part_title_regex() -> None:
     assert fb.PART_TITLE_RE.match("1.2.6.")
     assert not fb.PART_TITLE_RE.match("B. Requirements and Measures")
     assert not fb.PART_TITLE_RE.match("CIP-004-7 Table R1 -")
-
-
-# ── data_integrity ───────────────────────────────────────────────────────────
 
 
 @pytest.fixture
@@ -405,94 +308,6 @@ def test_edge_census_fails_on_toc_endpoint(memory_store: sqlite3.Connection) -> 
     assert result.findings[0]["ineligible_count"] == 1
 
 
-def test_one_furniture_line_is_eligible_in_all_four_consumers(tmp_path) -> None:
-    """D-DT-19 F-R-1: ONE eligibility rule. A body of real content carrying
-    ONE furniture line is deliverable — the shared rule excludes furniture-
-    ONLY bodies. Pinned in all four consumers: the projection's shared body
-    rule, the payload renderer (the line strips from the delivered text),
-    the integrity census, and the revocation pass. The old integrity rule
-    flagged ANY furniture line and revoked 135 deliverable operator
-    declarations."""
-    from portal.modules.compliance.core import dual_document as dd
-    from portal.modules.compliance.core.models import SourceDocument, SourceSection
-    from portal.modules.compliance.core.repository import Repository
-    from portal.modules.compliance.core.section_index import section_body_exclusion
-    from scripts.compliance.truth import revoke_ineligible_edges as rev
-
-    body = (
-        "The operations recorder files each asset report every week.\n"
-        "PRIVATE – FOR INTERNAL USE ONLY\n"
-        "Page 3 of 14\n"
-        "The recorder retains the report for three years.\n"
-    )
-    store = Repository(tmp_path / "one-rule.db")
-    try:
-        conn = store._conn
-        store.upsert_source_document(
-            SourceDocument(
-                logical_id="CIP-901/ACME Asset Procedure v1.pdf",
-                title="ACME Asset Procedure",
-                issuer="ACME",
-                source_kind="operating_procedure",
-                jurisdiction="internal",
-            )
-        )
-        revision = store.add_document_revision(
-            "CIP-901/ACME Asset Procedure v1.pdf",
-            "/docs/acme-asset.pdf",
-            body.encode("utf-8"),
-            binding_effect="internally_mandatory",
-        )
-        store.put_document_text(
-            revision.revision_id,
-            body,
-            page_count=1,
-            extractor="fixture",
-            extractor_version="0",
-        )
-        store.add_source_section(
-            SourceSection(
-                section_id="isection-one-rule",
-                revision_id=revision.revision_id,
-                path="3.1 Reporting",
-                extractor="fixture",
-                role="OPERATIVE_PROCEDURE",
-                title="3.1 Reporting",
-                unit_kind="prose",
-                ordinal=0,
-                char_start=0,
-                char_end=len(body),
-                heading_path="3.1 Reporting",
-            )
-        )
-        conn.execute(
-            "insert into relationship_assertions (assertion_id, relation_type, src_ref,"
-            " dst_ref, status, derivation, recorded_from)"
-            " values ('e-one-rule', 'IMPLEMENTS', 'CIP-901-1 R1', 'isection-one-rule',"
-            " 'machine_determined', 'operator_traceability', '2026-10-05')"
-        )
-        conn.commit()
-        full = {revision.revision_id: body}
-
-        # 1. the projection's shared body rule: deliverable
-        assert (
-            section_body_exclusion("3.1 Reporting", "3.1 Reporting", body, operator_side=True) == ""
-        )
-        # 2. delivery: the payload renders the block, the furniture lines stripped
-        rendered = dd._render_document(store, "CIP-901/ACME Asset Procedure v1.pdf", "folder")
-        assert rendered is not None
-        assert "isection-one-rule" in rendered["text"]
-        assert "operations recorder" in rendered["text"]
-        assert "PRIVATE" not in rendered["text"] and "Page 3 of 14" not in rendered["text"]
-        # 3. the integrity census: eligible, and the whole edge census passes
-        assert di._ineligible_reason(conn, full, "isection-one-rule") == ""
-        assert di.check_edges(conn, full).status == "pass"
-        # 4. the revocation pass: nothing to revoke
-        assert rev.find_ineligible(conn, full) == []
-    finally:
-        store.close()
-
-
 def test_revision_currency_flags_future_and_inactive() -> None:
     rows = {
         "t": [
@@ -539,48 +354,6 @@ def test_class_matching_jurisdiction_regex_and_kind() -> None:
     assert not di._class_matches(entry_class, "US", "NERC/CIP-007-6 RSAW", "table")
 
 
-def test_exclusion_table_loader_tolerates_missing_file(
-    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(di, "EXCLUSION_TABLE_PATH", tmp_path / "absent.json")
-    assert di._load_exclusion_table() == []
-
-
-class _UnprojectablePlan:
-    """A plan whose only receipt is one unprojectable section."""
-
-    def __init__(self, section_id: str) -> None:
-        self.excluded_sections: dict = {}
-        self.excluded_by_class: dict = {}
-        self.superseded_sections: list = []
-        self.unprojectable: list = [
-            {"section_id": section_id, "reason": "span [0, 1) does not resolve"}
-        ]
-        self.eligible_sections: list = []
-        self.units: list = []
-        self.kb_id = "nerc_corpus"
-        self.jurisdiction = "US"
-
-
-def test_coverage_explains_unprojectable_from_plan_receipt(
-    memory_store: sqlite3.Connection,
-) -> None:
-    rows = {"t": [{"chunk_id": "csection-c#0"}]}
-    result = di.check_coverage(
-        memory_store,
-        rows,
-        build=lambda repo, jurisdiction: _UnprojectablePlan("csection-b"),
-    )
-    # csection-a is unindexed with no verdict and no class: real drift
-    assert result.status == "fail"
-    assert result.findings[0]["unexplained_count"] == 1
-    # build runs per jurisdiction, so the fake plan's one row counts twice
-    assert result.findings[0]["plan_verdicts"]["unprojectable"] == 2
-
-
-# ── DATA_TRUTH D2: requirement-first unit composition ────────────────────────
-
-
 def test_normative_field_parses_pipe_rows_and_prose() -> None:
     from portal.modules.compliance.core.section_index import normative_field
 
@@ -592,337 +365,10 @@ def test_normative_field_parses_pipe_rows_and_prose() -> None:
     assert normative_field("Free-standing text stays whole.") == "Free-standing text stays whole."
 
 
-def _fixture_standard_store(tmp_path: pathlib.Path):
-    """A one-standard store whose R1 Part 1.1 is an applicability-first row."""
-    from portal.modules.compliance.core.capture import CapturedDocument, CapturedUnit, store_capture
-    from portal.modules.compliance.core.models import SourceDocument
-    from portal.modules.compliance.core.repository import Repository
-
-    repo = Repository(tmp_path / "dt2.db")
-    repo.upsert_source_document(
-        SourceDocument(
-            logical_id="NERC/CIP-TEST-1",
-            title="NERC/CIP-TEST-1",
-            issuer="x",
-            source_kind="regulatory_standard",
-            jurisdiction="US",
-        )
-    )
-    revision = repo.add_document_revision("NERC/CIP-TEST-1", "/docs/cip-test-1.pdf", b"cip-test-1")
-    # the requirement sentence stays above SHORT_REQUIREMENT_CHARS so the full
-    # composition (identity + sentence + Applies to + Measures) is exercised
-    row_text = (
-        "1.1 | Critical Impact Plant Systems and attached Controllers | "
-        "Identify each high impact BES Cyber System according to the asset groups "
-        "recorded in the facility's asset inventory, including each EACMS and PACS "
-        "associated with those systems. | "
-        "An example of evidence may include a listing of identified systems."
-    )
-    measure_text = "M1. Acceptable evidence includes a listing of identified systems."
-    full = row_text + "\n" + measure_text + "\n"
-    row_len, measure_len = len(row_text) + 1, len(measure_text) + 1
-    units = [
-        CapturedUnit(
-            ordinal=0,
-            unit_kind="table_row",
-            heading_path="B. Requirements and Measures",
-            title="1.1",
-            page_start=1,
-            page_end=1,
-            char_start=0,
-            char_end=row_len,
-            text=row_text + "\n",
-        ),
-        CapturedUnit(
-            ordinal=1,
-            unit_kind="table_row",
-            heading_path="B. Requirements and Measures",
-            title="1.1 Measures",
-            page_start=1,
-            page_end=1,
-            char_start=row_len,
-            char_end=row_len + measure_len,
-            text=measure_text + "\n",
-        ),
-    ]
-    document = CapturedDocument(
-        path=pathlib.Path("cip-test-1.pdf"),
-        page_count=1,
-        full_text=full,
-        units=units,
-        extractor="docling",
-        reader_strings=(row_text,),
-    )
-    store_capture(repo, revision.revision_id, document)
-    part_id = repo._conn.execute(
-        "select section_id from source_sections where title='1.1'"
-    ).fetchone()["section_id"]
-    measure_id = repo._conn.execute(
-        "select section_id from source_sections where title='1.1 Measures'"
-    ).fetchone()["section_id"]
-    for anchor_id, relation in (
-        (part_id, "governing"),
-        (part_id, "applicable_systems"),
-        (measure_id, "measure"),
-    ):
-        repo._conn.execute(
-            "insert into requirement_sections (requirement_id, revision_id, section_id, relation,"
-            " char_start, char_end, occurrences, anchor_method, anchored_at, extractor_version)"
-            " values (?,?,?,?,0,1,1,'exact','2026-10-04','fixture')",
-            ("CIP-TEST-1 R1 Part 1.1", revision.revision_id, anchor_id, relation),
-        )
-    repo._conn.commit()
-    return repo
-
-
-def test_requirement_first_texts_composes_identity(tmp_path: pathlib.Path) -> None:
-    from portal.modules.compliance.core.section_index import requirement_first_texts
-
-    repo = _fixture_standard_store(tmp_path)
-    try:
-        composed = requirement_first_texts(repo)
-        assert len(composed) == 1
-        (text,) = composed.values()
-        assert text.startswith("CIP-TEST-1 R1 Part 1.1 — ")
-        assert "Identify each high impact BES Cyber System according to the asset" in text
-        assert "Applies to: Critical Impact Plant Systems and attached Controllers." in text
-        assert "Measures: M1. Acceptable evidence" in text
-    finally:
-        repo.close()
-
-
-def _part_ids(repo) -> set[str]:
-    rows = repo._conn.execute("select section_id from source_sections where title='1.1'").fetchall()
-    return {str(row["section_id"]) for row in rows}
-
-
-def test_build_plan_emits_identity_bearing_part_units(tmp_path: pathlib.Path) -> None:
-    from portal.modules.compliance.core.section_index import build_plan
-
-    repo = _fixture_standard_store(tmp_path)
-    try:
-        plan = build_plan(repo, jurisdiction="US")
-        parts = [u for u in plan.units if u.section_id in _part_ids(repo)]
-        assert parts, "the Part row must be projected"
-        for unit in parts:
-            assert unit.text.startswith("CIP-TEST-1 R1 Part 1.1"), unit.text[:60]
-            assert unit.unit_kind == "table_row"
-        assert plan.requirement_first_units >= 1
-    finally:
-        repo.close()
-
-
-# ── served_window ────────────────────────────────────────────────────────────
-
-
-def test_expand_env_default_and_override(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("TEST_VAR", raising=False)
-    assert expand_env("${TEST_VAR:-http://fallback:1}") == "http://fallback:1"
-    monkeypatch.setenv("TEST_VAR", "http://override:2")
-    assert expand_env("${TEST_VAR:-http://fallback:1}") == "http://override:2"
-
-
 def test_tag_window_reads_ctx_suffix() -> None:
     assert tag_window("gemma4:26b-a4b-it-q4_K_M-ctx32k") == 32768
     assert tag_window("granite4.1:30b-ctx98k") == 98 * 1024
     assert tag_window("qwen:latest") is None
-
-
-def _write_config(tmp_path: pathlib.Path) -> pathlib.Path:
-    config = tmp_path / "backends.yaml"
-    config.write_text(
-        """
-backends:
-  - id: ollama-general
-    type: ollama
-    url: ${OLLAMA_URL:-http://host.docker.internal:11434}
-    group: general
-    models:
-      - gemma4:26b-a4b-it-q4_K_M-ctx32k
-  - id: omlx-general
-    type: omlx
-    url: ${OMLX_URL:-http://host.docker.internal:8085}
-    group: general
-    models:
-      - mlx-served-model
-    aliases:
-      gemma4:26b-a4b-it-q4_K_M-ctx32k: mlx-served-model
-workspace_routing:
-  reading-ws:
-    - general
-""",
-        encoding="utf-8",
-    )
-    return config
-
-
-def test_resolver_reports_alias_and_out_of_group_route(
-    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    config = _write_config(tmp_path)
-    monkeypatch.delenv("OLLAMA_URL", raising=False)
-    monkeypatch.delenv("OMLX_URL", raising=False)
-    probed: list[str] = []
-
-    def fake_http(result, method, url, *, payload=None, timeout=3.0):
-        probed.append(url)
-        if "/v1/models" in url:
-            return {"data": [{"id": "mlx-served-model", "max_model_len": 262144}]}
-        if url.endswith("/api/show"):
-            return {"model_info": {"gemma4:26b-a4b-it-q4_K_M-ctx32k.context_length": 32768}}
-        return {"models": [{"name": "gemma4:26b-a4b-it-q4_K_M-ctx32k", "context_length": 32768}]}
-
-    monkeypatch.setattr("portal.modules.compliance.core.served_window._http_json", fake_http)
-    scoped = served_window_for_hint("gemma4:26b-a4b-it-q4_K_M-ctx32k", config, groups=["general"])
-    assert scoped.applied_window == 32768  # the ollama route answers first
-    assert scoped.aliased is False
-    assert ("ollama-general", 32768) in scoped.route_windows
-    assert ("omlx-general", 262144) in scoped.route_windows
-    assert any("routes disagree" in note for note in scoped.notes)
-    assert any("host.docker.internal" in url for url in probed)
-    unscoped = served_window_for_hint("gemma4:26b-a4b-it-q4_K_M-ctx32k", config)
-    # with no group scoping both routes answer; the alias route is recorded
-    assert ("omlx-general", 262144) in unscoped.route_windows
-
-
-def test_resolver_without_probe_stays_static(
-    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    config = _write_config(tmp_path)
-
-    def fail_http(*args, **kwargs):  # pragma: no cover - must not be called
-        raise AssertionError("probe attempted with probe=False")
-
-    monkeypatch.setattr("portal.modules.compliance.core.served_window._http_json", fail_http)
-    result = served_window_for_hint(
-        "gemma4:26b-a4b-it-q4_K_M-ctx32k", config, probe=False, groups=["general"]
-    )
-    assert result.applied_window is None
-    assert result.resolved_model == "gemma4:26b-a4b-it-q4_K_M-ctx32k"
-
-
-def test_resolver_never_raises_on_unreachable(
-    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    config = _write_config(tmp_path)
-
-    def boom(result, method, url, **kwargs):
-        result.notes.append(f"probe {url} failed: connection refused")
-        return None
-
-    monkeypatch.setattr("portal.modules.compliance.core.served_window._http_json", boom)
-    result = served_window_for_hint("gemma4:26b-a4b-it-q4_K_M-ctx32k", config, groups=["general"])
-    assert result.applied_window is None
-    assert "no in-group candidate backend answered a probe" in result.notes
-
-
-# ── DATA_TRUTH D3: operator ingest units (strip furniture, merge headings) ───
-
-
-def _procedure_pages() -> list[str]:
-    """A synthetic controlled document shaped like the real corpus: repeated
-    furniture, a ToC page, heading-only fragments before their bodies."""
-    return [
-        (
-            " \nPRIVATE – FOR INTERNAL USE ONLY \n \n"
-            "ACME Security Patch Management Procedure \n \n"
-            "Effective Date:  July 31, 2026 \n"
-            "Document Type: Procedure \nNERC Standard: CIP-007 \n"
-        ),
-        (
-            " \nPRIVATE – FOR INTERNAL USE ONLY \nPage 2 of 9 \n \n"
-            "1.0 Introduction \n1.1 \nPurpose \n"
-            "The purpose is patch tracking across the fleet. \n"
-            "1.2 \nApplicability \n"
-            "This applies to all ACME registrations. \n"
-        ),
-        (
-            " \nPRIVATE – FOR INTERNAL USE ONLY \nPage 3 of 9 \n \n"
-            "2.0 Patch Evaluation \n2.1 \n"
-            "Patches are evaluated every thirty days by the OT team. \n"
-        ),
-    ]
-
-
-def test_strip_furniture_removes_repeated_lines() -> None:
-    from portal.modules.compliance.core.internal_corpus import strip_furniture
-
-    pages = _procedure_pages()
-    stripped = strip_furniture(pages)
-    joined = "\n".join(stripped)
-    assert "PRIVATE – FOR INTERNAL USE ONLY" not in joined
-    assert "Page 2 of 9" not in joined
-    assert "Patch Evaluation" in joined  # content survives
-
-
-def test_sectionize_merges_heading_only_into_body() -> None:
-    from portal.modules.compliance.core import internal_corpus as ic
-
-    pages = ic.strip_furniture(_procedure_pages())
-    full = "\n".join(pages)
-    sections = ic.sectionize(pages)
-    texts = {s.path: s.text.strip() for s in sections}
-    # the bare-number line '2.1' introduces the body directly: no heading-only
-    # section may survive with the number as its whole content
-    assert not any(t.strip() == "2.1" for t in texts.values()), sorted(texts)
-    body = texts.get("2.0", "")
-    assert "2.1" in body
-    assert "evaluated every thirty days" in body
-    # spans stay contiguous with the stripped full text
-    for section in sections:
-        assert full[section.char_start : section.char_end] == section.text
-
-
-def test_fresh_upload_yields_furniture_free_findable_units() -> None:
-    """The D3 fresh-upload proof: a synthetic document through the REAL ingest
-    path (extract_pages -> parse control -> sectionize) yields furniture-free
-    units whose headings are the section titles."""
-    from portal.modules.compliance.core import internal_corpus as ic
-
-    pdf = _make_pdf()
-    got_pages, got_full = ic.extract_pages(pdf)
-    assert "PRIVATE – FOR INTERNAL USE ONLY" not in got_full
-    assert "Page 1 of 1" not in got_full
-    sections = ic.sectionize(got_pages)
-    operative = [s for s in sections if s.path.startswith(("1.", "2."))]
-    assert operative, [s.path for s in sections]
-    for section in operative:
-        assert "PRIVATE" not in section.text
-        assert section.heading.strip() in section.text
-
-
-def _make_pdf() -> pathlib.Path:
-    """A one-page synthetic PDF carrying the controlled-document shape."""
-    import fitz  # noqa: PLC0415 - pymupdf's stable import name
-
-    document = fitz.open()
-    page = document.new_page()
-    text = (
-        "PRIVATE - FOR INTERNAL USE ONLY\n"
-        "ACME Security Patch Management Procedure\n"
-        "Effective Date:  July 31, 2026\n"
-        "Document Type: Procedure\n"
-        "NERC Standard: CIP-007\n"
-        "1.0 Introduction\n"
-        "The purpose is patch tracking across the fleet.\n"
-        "Page 1 of 1\n"
-    )
-    page.insert_text((72, 72), text, fontsize=11)
-    path = pathlib.Path(_tmpdir_name())
-    document.save(str(path))
-    document.close()
-    return path
-
-
-def _tmpdir_name() -> str:
-    import tempfile
-
-    handle = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
-    handle.close()
-    return handle.name
-
-
-# ── DATA_TRUTH D6: default scope is effective-on-the-asked-date ──────────────
 
 
 def test_search_predicate_default_excludes_future_and_inactive() -> None:

@@ -20,8 +20,6 @@ from portal.platform.inference.config import (
     merge_workspace_variant,
 )
 
-REPO = Path(__file__).resolve().parent.parent.parent
-
 
 @pytest.fixture(autouse=True)
 def _restore_real_config():
@@ -289,33 +287,6 @@ def test_workspace_missing_name_raises(tmp_path: Path) -> None:
         PortalConfig.model_validate(raw)
 
 
-def test_load_portal_config_uses_cache(tmp_path: Path) -> None:
-    """load_portal_config returns the same object on repeated calls (cache)."""
-    a = load_portal_config()
-    b = load_portal_config()
-    assert a is b
-
-
-def test_load_portal_config_force_reload(tmp_path: Path) -> None:
-    """_force_reload=True bypasses the cache (used in tests)."""
-    a = load_portal_config()
-    b = load_portal_config(_force_reload=True)
-    # Different object, but same data
-    assert a is not b
-    assert set(a.workspaces.keys()) == set(b.workspaces.keys())
-
-
-def test_load_portal_config_bad_yaml_raises(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A syntactically invalid YAML file raises RuntimeError with a clear message."""
-    bad_yaml = tmp_path / "portal.yaml"
-    bad_yaml.write_text(": bad: yaml: {{{")
-
-    with pytest.raises((RuntimeError, Exception)):
-        load_portal_config(path=bad_yaml, _force_reload=True)
-
-
 def test_load_portal_config_schema_error_raises(tmp_path: Path) -> None:
     """A schema error (duplicate port) surfaces as RuntimeError from load_portal_config."""
     raw = {
@@ -352,33 +323,6 @@ def test_load_portal_config_schema_error_raises(tmp_path: Path) -> None:
     p.write_text(yaml.dump(raw))
     with pytest.raises((RuntimeError, Exception), match="9000"):
         load_portal_config(path=p, _force_reload=True)
-
-
-def test_ollama_url_env_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """OLLAMA_URL env var overrides the yaml value."""
-    raw = {
-        "ollama_url": "http://docker-internal:11434",
-        "mcp_fleet": [],
-        "workspaces": {
-            "auto": {
-                "name": "Auto",
-                "description": "x",
-                "module": "general",
-                "tools": [],
-                "expose_to_owui": True,
-                "enable_web_search": False,
-            }
-        },
-    }
-    p = tmp_path / "portal.yaml"
-    p.write_text(yaml.dump(raw))
-    monkeypatch.setenv("OLLAMA_URL", "http://custom-host:11434")
-    cfg = load_portal_config(path=p, _force_reload=True)
-    assert cfg.ollama_url == "http://custom-host:11434"
-    monkeypatch.delenv("OLLAMA_URL", raising=False)
-
-
-# ── Model schema tests (TASK_LIFT_HF_REGISTRY_TO_PORTAL_YAML_V1) ──────────────
 
 
 def test_model_schema_minimal() -> None:

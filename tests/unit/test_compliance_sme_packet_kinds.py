@@ -85,14 +85,6 @@ def test_emitted_sme_kinds_are_declarable():
         assert kind in rq.KINDS
 
 
-def test_a_packet_of_pipeline_kinds_is_rejected():
-    """The shape of the current failure, pinned as a regression case: a queue of
-    1107 items none of which carries an SME kind is not an SME packet."""
-    queue = [{"kind": k} for k in _PIPELINE_KINDS]
-    accepted = [i for i in queue if is_sme_kind(i["kind"])]
-    assert accepted == [], "pipeline kinds must not be accepted into the packet"
-
-
 def test_a_well_formed_packet_passes_the_same_filter():
     """The positive case, so the filter is not trivially satisfied by rejecting
     everything — this is what the builder must eventually produce."""

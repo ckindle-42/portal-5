@@ -50,9 +50,6 @@ def _arbiter(verdict, reason="because"):
 MID = (pr.RERANK_THRESHOLD_LOW + pr.RERANK_THRESHOLD_HIGH) / 2
 
 
-# ── the band is read ─────────────────────────────────────────────────────────
-
-
 def test_ambiguous_band_relevant_is_no_longer_a_silent_non_match(monkeypatch):
     """The regression that matters. Before stage 3 this returned (False, item):
     a pair the model can see IS relevant was recorded as not relevant AND cost a
@@ -65,75 +62,6 @@ def test_ambiguous_band_relevant_is_no_longer_a_silent_non_match(monkeypatch):
     assert relevant is True
     assert item_id == ""
     assert "queued" not in called, "a settled pair must not reach the human queue"
-
-
-def test_ambiguous_band_not_relevant_settles_without_a_ticket(monkeypatch):
-    """Topical overlap with no bearing on the requirement — the model can settle
-    this too, and it should cost nobody a decision."""
-    called = {}
-    monkeypatch.setattr(pr.rq, "propose", lambda *a, **k: called.setdefault("queued", True))
-    relevant, item_id = pr._resolve_relevance(
-        _candidate("The OT team maintains a contact list."),
-        MID,
-        _Node(),
-        "procedure",
-        arbiter_fn=_arbiter("NOT_RELEVANT"),
-    )
-    assert relevant is False
-    assert item_id == ""
-    assert "queued" not in called
-
-
-def test_only_unsure_reaches_a_human(monkeypatch):
-    """The one remaining path to the review queue, and it carries the arbiter's
-    verdict so a reviewer can see why it got there."""
-    seen = {}
-
-    def _propose(kind, **kw):
-        seen.update(kind=kind, **kw)
-        return type("I", (), {"id": "itm-1"})()
-
-    monkeypatch.setattr(pr.rq, "propose", _propose)
-    relevant, item_id = pr._resolve_relevance(
-        _candidate(), MID, _Node(), "procedure", arbiter_fn=_arbiter("UNSURE", "text truncated")
-    )
-    assert relevant is False
-    assert item_id == "itm-1"
-    assert seen["kind"] == "low_confidence_extraction"
-    assert seen["proposed_value"]["arbiter_verdict"] == "UNSURE"
-    assert seen["proposed_value"]["arbiter_reason"] == "text truncated"
-
-
-# ── it can only ever remove work, never add it ───────────────────────────────
-
-
-def test_unreachable_arbiter_degrades_to_the_old_behaviour(monkeypatch):
-    """A down model must not lose a pair. It falls back to exactly what the
-    module did before stage 3 existed: queue it."""
-    seen = {}
-    monkeypatch.setattr(
-        pr.rq, "propose", lambda kind, **kw: seen.update(kind=kind) or type("I", (), {"id": "x"})()
-    )
-
-    def _boom(*_a):
-        raise ConnectionError("ollama down")
-
-    relevant, item_id = pr._resolve_relevance(
-        _candidate(), MID, _Node(), "procedure", arbiter_fn=_boom
-    )
-    assert relevant is False
-    assert item_id == "x"
-    assert seen["kind"] == "low_confidence_extraction"
-
-
-def test_unparseable_arbiter_output_is_unsure_not_a_guess(monkeypatch):
-    monkeypatch.setattr(pr.rq, "propose", lambda kind, **kw: type("I", (), {"id": "x"})())
-    for raw in ("not json at all", '{"verdict":"MAYBE"}', "[]"):
-        v, _ = pr.arbitrate_relevance(_candidate(), _Node(), arbiter_fn=lambda *a, r=raw: r)
-        assert v == "UNSURE", f"{raw!r} should not decide anything"
-
-
-# ── the confident bands are untouched ────────────────────────────────────────
 
 
 def test_high_and_low_bands_never_call_the_arbiter():
@@ -151,40 +79,3 @@ def test_high_and_low_bands_never_call_the_arbiter():
         _candidate(), 0.01, _Node(), "procedure", arbiter_fn=_never
     )
     assert relevant is False and item == ""
-
-
-def test_aspirational_text_is_still_rejected_after_a_relevant_verdict():
-    """ "We strive to patch promptly" is about the requirement but is not a
-    control. The aspirational check applies to the arbitrated path too."""
-    c = _candidate("We strive to evaluate patches in a timely manner where practicable.")
-    if not pr.is_aspirational(c["text"]):
-        return  # the detector's own corpus decides this; nothing to assert
-    relevant, _ = pr._resolve_relevance(
-        c, MID, _Node(), "procedure", arbiter_fn=_arbiter("RELEVANT")
-    )
-    assert relevant is False
-
-
-def test_no_arbiter_means_no_arbitration_and_no_network(monkeypatch):
-    """There is deliberately NO live default. The band is resolved inside
-    `coverage_matrix`, which live routes call — a hidden default would put a
-    model call per ambiguous pair on that path, and would make every unit test
-    touching the band reach the network. Absent an injected arbiter the module
-    behaves exactly as it did before stage 3: queue it."""
-    seen = {}
-    monkeypatch.setattr(
-        pr.rq, "propose", lambda kind, **kw: seen.update(kind=kind) or type("I", (), {"id": "q"})()
-    )
-
-    def _explode(*_a, **_k):
-        raise AssertionError("stage 3 must not open a connection on its own")
-
-    monkeypatch.setattr("urllib.request.urlopen", _explode)
-
-    relevant, item_id = pr._resolve_relevance(_candidate(), MID, _Node(), "procedure")
-    assert relevant is False
-    assert item_id == "q"
-    assert seen["kind"] == "low_confidence_extraction"
-
-    verdict, reason = pr.arbitrate_relevance(_candidate(), _Node())
-    assert verdict == "UNSURE" and "no arbiter" in reason

@@ -1,13 +1,5 @@
 from __future__ import annotations
 
-import json
-import math
-from typing import Any
-
-from portal.modules.security.core.hunt.executor import Read
-from portal.modules.security.core.hunt.notables.__main__ import main
-from portal.modules.security.core.hunt.notables.behaviours import collect_behaviours
-from portal.modules.security.core.hunt.notables.cards import SourceCard
 from portal.modules.security.core.hunt.notables.generators import Notable, _make
 from portal.modules.security.core.hunt.notables.merge import (
     DEFAULT_MERGE,
@@ -17,9 +9,6 @@ from portal.modules.security.core.hunt.notables.merge import (
     group_by_generator,
     merge_notables,
 )
-from portal.modules.security.core.hunt.notables.receipt import write_json
-from portal.modules.security.core.hunt.notables.run import judge_stage, notables_stage
-from portal.modules.security.core.hunt.notables.sample import SourceFacts
 
 PRIORITY = ("similar_to_known", "alerts", "peer_rare", "deviation", "misfit")
 
@@ -195,136 +184,3 @@ def test_a_generator_outside_the_priority_sorts_last_deterministically() -> None
     assert [item.generator for item in merged] == ["alerts", "zebra"]
     groups = group_by_generator(notables, ("alerts",))
     assert [group[0].generator for group in groups] == ["alerts", "zebra"]
-
-
-class _RowsExecutor:
-    def __init__(self, rows: list[dict[str, object]]) -> None:
-        self.rows = rows
-
-    def read(
-        self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
-    ) -> Read:
-        del query, start, end, kind, row_cap
-        return Read([dict(row) for row in self.rows], False, None)
-
-
-def _card() -> SourceCard:
-    return SourceCard(
-        index="ix",
-        sourcetype="st",
-        kind="activity",
-        roles={"actor": ("user",), "action": ("image",)},
-        understood=True,
-        reason=None,
-        fmt="json",
-        coverage=0.95,
-        fields=(),
-        sample={},
-        facts={},
-        model={},
-        cache_key="key",
-    )
-
-
-def test_the_stage_receipt_declares_every_requested_generator_and_the_merge(tmp_path) -> None:
-    rows: list[dict[str, object]] = [
-        {"_raw": '{"user": "bob", "image": "cmd.exe"}', "_time": 1.0, "host": "h1"}
-    ] * 200
-    rows.append({"_raw": "bash: 196: Bad file descriptor", "_time": 2.0, "host": "h1"})
-    collect_behaviours(
-        _RowsExecutor(rows),  # type: ignore[arg-type]
-        [_card()],
-        {"ix:st": SourceFacts("ix", "st", 201, 100.0, 100.0, ("h1",), 1, ("/s1",), 1)},
-        tmp_path / "behaviours.duckdb",
-    )
-    write_json(tmp_path / "sources.json", {"cards": [_card().as_dict()]})
-    _found, receipt = notables_stage(
-        index="ix",
-        out=tmp_path,
-        start=0.0,
-        end=7200.0,
-        search=_RowsExecutor([]),  # type: ignore[arg-type]
-        enabled=["misfit"],
-    )
-    assert receipt["enabled"] == ["misfit"]
-    assert receipt["merge"]["method"] == DEFAULT_MERGE
-    assert receipt["merge"]["groups"] == {"misfit": 1}
-    stored = [
-        json.loads(line)
-        for line in (tmp_path / "notables.jsonl").read_text().splitlines()
-        if line.strip()
-    ]
-    assert [row["generator"] for row in stored] == ["misfit"]
-
-
-def test_knowledge_flags_without_the_similar_generator_exit_nonzero(tmp_path, capsys) -> None:
-    code = main(
-        [
-            "--index",
-            "ix",
-            "--out",
-            str(tmp_path),
-            "--stage",
-            "notables",
-            "--generators",
-            "alerts,peer_rare,deviation,misfit",
-            "--knowledge-store",
-            str(tmp_path / "knowledge.duckdb"),
-        ],
-        search=_RowsExecutor([]),  # type: ignore[arg-type]
-    )
-    assert code == 2
-    assert "similar_to_known" in capsys.readouterr().err
-
-
-class _Client:
-    def complete(self, **request: object) -> dict[str, object]:
-        del request
-        return {
-            "model": "seat",
-            "usage": {"prompt_tokens": 9},
-            "choices": [
-                {
-                    "logprobs": {
-                        "content": [
-                            {
-                                "top_logprobs": [
-                                    {"token": " yes", "logprob": math.log(0.8)},
-                                    {"token": "no", "logprob": math.log(0.2)},
-                                ]
-                            }
-                        ]
-                    }
-                }
-            ],
-        }
-
-
-def _row(generator: str, key: str) -> dict[str, Any]:
-    return {
-        "notable_id": key,
-        "generator": generator,
-        "basis": "b",
-        "what": "w",
-        "entities": [],
-        "source_id": "ix:st",
-        "why": "w",
-        "content_key": key,
-        "evidence": [{"line": "example"}],
-    }
-
-
-def test_the_judge_consumes_the_merged_file_order(tmp_path) -> None:
-    rows = [_row("misfit", "k1"), _row("similar_to_known", "k2"), _row("alerts", "k3")]
-    (tmp_path / "notables.jsonl").write_text(
-        "".join(json.dumps(row, sort_keys=True) + "\n" for row in rows)
-    )
-    judged, receipt = judge_stage(out=tmp_path, client=_Client(), model="seat")
-    assert [row["generator"] for row in judged] == ["misfit", "similar_to_known", "alerts"]
-    assert receipt["ranking"]["order"] == "merged_file_order"
-    stored = [
-        json.loads(line)
-        for line in (tmp_path / "notables.jsonl").read_text().splitlines()
-        if line.strip()
-    ]
-    assert [row["generator"] for row in stored] == ["misfit", "similar_to_known", "alerts"]

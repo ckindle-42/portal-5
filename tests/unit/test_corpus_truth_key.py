@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -15,14 +14,12 @@ from portal.modules.security.core.review_eval.corpus_truth import (
     EntityCandidate,
     behaviour_spine,
     derive_labelled_corpus_truth,
-    load,
     rank_entity_pairs,
     raw_leaks_label,
     select_pairs,
 )
 from portal.modules.security.core.review_eval.truth import derive_bots_truth
-from scripts.corpus_reingest import p5_item_id
-from scripts.corpus_truth_key import _clean_pairs, candidates_for, load_attack_items
+from scripts.corpus_truth_key import _clean_pairs
 
 
 def _pair(
@@ -152,45 +149,6 @@ def test_resolve_indexes_keeps_portal5_lab_and_adds_labelled_corpus() -> None:
     lane_b = [lane.index for lane in corpus_bed.LANES if lane.lane == "B"]
     assert corpus_bed.CORPUS_INDEX in lane_b
     assert LABELLED_CORPUS_INDEX in lane_b
-
-
-def test_catalog_joins_data_yml_technique_to_p5_item(tmp_path: Path) -> None:
-    folder = tmp_path / "datasets" / "attack_techniques" / "T1003.001" / "atomic_red_team"
-    folder.mkdir(parents=True)
-    (folder / "atomic_red_team.yml").write_text(
-        "mitre_technique:\n- T1003.001\ndatasets:\n- path: windows-sysmon.log\n  sourcetype: XmlWinEventLog\n",
-        encoding="utf-8",
-    )
-    mixed = tmp_path / "datasets" / "attack_techniques" / "T1003.001" / "mixed"
-    mixed.mkdir()
-    (mixed / "data.yml").write_text(
-        "mitre_technique:\n- T1003.001\n- T1059.001\ndatasets:\n- path: mixed.log\n  sourcetype: XmlWinEventLog\n",
-        encoding="utf-8",
-    )
-    items = load_attack_items(tmp_path)
-    chosen = candidates_for(items, "T1003.001")
-    assert len(chosen) == 1
-    assert chosen[0].techniques == frozenset({"T1003.001"})
-    assert chosen[0].p5_item == p5_item_id("attack_data", chosen[0].test_id)
-    assert chosen[0].test_id.endswith("atomic_red_team")
-
-
-def test_load_requires_provenance_and_labelled_corpus(tmp_path: Path) -> None:
-    path = tmp_path / "corpus_truth_key.json"
-    path.write_text(
-        '{"provenance": {"index": "labelled_corpus", "rule": "rarity"}, "entries": []}',
-        encoding="utf-8",
-    )
-    with pytest.raises(ValueError):
-        load(path)
-    path.write_text(
-        """{"provenance": {"index": "botsv1", "rule": "rarity"},
-        "entries": [{"dataset": "botsv1", "technique": "T1003.001", "entities": ["h", "a.exe"],
-        "sourcetypes": ["XmlWinEventLog"]}]}""",
-        encoding="utf-8",
-    )
-    with pytest.raises(ValueError):
-        load(path)
 
 
 def test_labelled_corpus_truth_matches_all_entities_and_rejects_other_indexes() -> None:

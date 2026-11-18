@@ -48,11 +48,7 @@ sources:
 - type: code
   path: tests/unit/test_compliance_regulatory_corpus.py
 - type: code
-  path: tests/unit/test_compliance_section_index.py
-- type: code
   path: tests/unit/test_compliance_reading_assembly.py
-- type: code
-  path: tests/unit/test_compliance_requirement_scope.py
 claims:
 - probe: compliance.capture.unit_kinds
   contains: table_row

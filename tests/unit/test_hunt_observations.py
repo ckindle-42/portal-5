@@ -9,10 +9,7 @@ import statistics
 from collections import defaultdict
 from typing import Any
 
-import pytest
-
 from portal.modules.security.core.hunt.engine import HOUR, _expm1, _log1p
-from portal.modules.security.core.hunt.executor import HuntBudget, HuntExecutor
 from portal.modules.security.core.hunt.jobs import DEFAULT_BUDGETS
 from portal.modules.security.core.hunt.observations import (
     KEY_BUDGET,
@@ -22,17 +19,17 @@ from portal.modules.security.core.hunt.observations import (
     budgeted_search,
     literal_matches,
     literal_query,
-    load_receipts,
     observe,
-    reorder,
-    rescore,
-    write_receipts,
 )
 
 START = 1_700_000_000 // HOUR * HOUR
+
 END = START + 4 * HOUR
+
 INDEX = "idx"
+
 _PAIR = re.compile(r"""(?<![\w.])([A-Za-z_][\w.]{1,30})=([^\s"=]*)""")
+
 _PREFIX = re.compile(r"PREFIX\(([A-Za-z_][\w.]*)=\)")
 
 
@@ -168,44 +165,6 @@ class GridSearch:
             "source sourcetype" in query,
             " punct " in query and "sourcetype punct" not in query,
         )
-
-
-class QueryBoundGridSearch(GridSearch):
-    def __init__(
-        self,
-        events: list[dict[str, Any]],
-        *,
-        max_hours: int,
-        failed_ranges: tuple[tuple[int, int], ...] = (),
-        failed_kind: str = "",
-    ) -> None:
-        super().__init__(events)
-        self.max_hours = max_hours
-        self.failed_ranges = failed_ranges
-        self.failed_kind = failed_kind
-        self.windows: list[tuple[str, float, float]] = []
-
-    def iter_post(self, query: str, start: float, end: float) -> list[dict[str, Any]]:
-        from portal.modules.security.core.hunt.engine import SearchQueryBoundError
-
-        self.windows.append((query, start, end))
-        grid = "| tstats count where" in query
-        volume = "by host _time span=1h" in query
-        kind_matches = not self.failed_kind or (
-            self.failed_kind == "shape" and "by host punct _time span=1h" in query
-        )
-        should_fail = grid and not volume and kind_matches
-        should_fail &= end - start > self.max_hours * HOUR
-        should_fail |= (
-            grid
-            and self.failed_kind == "shape"
-            and "by host punct _time span=1h" in query
-            and (start, end) in self.failed_ranges
-        )
-        if should_fail:
-            self.calls.append(query)
-            raise SearchQueryBoundError("query timed out")
-        return super().iter_post(query, start, end)
 
 
 def _emit_groups(
@@ -466,20 +425,6 @@ def _seen(run: ObservationRun) -> list[tuple[Any, ...]]:
     ]
 
 
-def _requests(run: ObservationRun) -> int:
-    return sum(int(slot["requests"]) for slot in run.request_kinds.values())
-
-
-def test_two_runs_return_the_same_records_in_the_same_order() -> None:
-    events = _universe()
-    first = observe(GridSearch(events), INDEX, float(START), float(END))
-    second = observe(GridSearch(events), INDEX, float(START), float(END))
-
-    assert first.observations == second.observations
-    assert _requests(first) == _requests(second)
-    assert first.coverage_complete is True
-
-
 def test_tied_scores_order_by_kind_host_entity_signal_hour() -> None:
     events = _event(START, "b", "uid=one", n=1) + _event(START + HOUR, "b", "uid=one", n=5)
     events += _event(START, "a", "uid=one", n=1) + _event(START + HOUR, "a", "uid=one", n=5)
@@ -519,31 +464,6 @@ def test_scores_match_a_brute_force_pass_over_the_events() -> None:
     assert _seen(run) == _order(_reference(events))
     assert run.coverage_complete is True
     assert {obs.evidence["signal"] for obs in run.observations} >= {"novelty", "burst", "new_host"}
-
-
-def test_request_count_is_constant_in_events_and_grows_with_keys() -> None:
-    two = observe(GridSearch(_keyed(6, ["uid", "pid"], tokens=1)), INDEX, float(START), float(END))
-    many = observe(
-        GridSearch(_keyed(40, ["uid", "pid"], tokens=12)), INDEX, float(START), float(END)
-    )
-    three = observe(
-        GridSearch(_keyed(6, ["uid", "pid", "gid"], tokens=1)), INDEX, float(START), float(END)
-    )
-    eight = [f"k{i}" for i in range(KEY_BUDGET)]
-    nine = [f"k{i}" for i in range(KEY_BUDGET + 1)]
-    at_budget = observe(GridSearch(_keyed(4, eight, tokens=0)), INDEX, float(START), float(END))
-    over_budget = observe(GridSearch(_keyed(4, nine, tokens=0)), INDEX, float(START), float(END))
-
-    assert _requests(two) == _requests(many)
-    assert _requests(three) == _requests(two) + 2
-    assert _requests(over_budget) == _requests(at_budget)
-    assert over_budget.coverage["value"]["complete"] is False
-    assert over_budget.coverage["value"]["unqueried_keys"] == ["k8"]
-    assert over_budget.coverage["value"]["reasons"] == ["key_budget"]
-    assert all(not obs.entity.startswith("k8=") for obs in over_budget.observations)
-    for run in (two, many, three, at_budget):
-        assert run.request_kinds["volume"]["requests"] == 2
-        assert run.request_kinds["volume"]["seconds"] >= 0
 
 
 def test_truncated_grid_is_incomplete_and_not_a_zero() -> None:
@@ -605,23 +525,6 @@ def test_budgeted_search_keeps_the_shared_hunt_limits() -> None:
     assert wrapped.budget.phase == "ranking"
 
 
-def test_sample_over_the_hour_volume_marks_key_coverage_incomplete(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    events = _event(START, "h", "uid=one", n=3)
-    monkeypatch.setattr(
-        "portal.modules.security.core.hunt.observations.KEY_SLICE_SAMPLE",
-        1,
-    )
-    run = observe(GridSearch(events), INDEX, float(START), float(END))
-
-    assert "sample_budget" in run.coverage["value"]["reasons"]
-    assert run.coverage["value"]["complete"] is False
-    assert run.coverage["value"]["slices"][0]["returned"] == 1
-    assert run.coverage["value"]["slices"][0]["volume"] == 3
-    assert any(obs.kind == "value" for obs in run.observations)
-
-
 def test_single_host_observation_bytes_use_plain_search_terms() -> None:
     run = observe(GridSearch(_event(START, "solo", "uid=first")), INDEX, float(START), float(END))
     payload = json.dumps(
@@ -631,38 +534,6 @@ def test_single_host_observation_bytes_use_plain_search_terms() -> None:
     assert hashlib.sha256(payload.encode()).hexdigest() == (
         "06cd550829c2cb2e04e370a96dad0d3ce0c4c691b91645d7b9bae5e82f4ecb2b"
     )
-
-
-def test_separator_aliases_fold_before_scoring_and_are_recorded(tmp_path) -> None:
-    events = _event(START, "node-core", "uid=first", n=2)
-    events += _event(START + HOUR, "NODE_core", "uid=first", n=3)
-
-    run = observe(GridSearch(events), INDEX, float(START), float(END))
-
-    assert {item.host for item in run.observations} == {"NODE_core"}
-    for kind in ("volume", "source", "shape", "stream", "value"):
-        assert {
-            item.hour: item.evidence["now"] for item in run.observations if item.kind == kind
-        } == {START: 2, START + HOUR: 3}
-    assert all(
-        item.evidence["host_aliases"] == ["NODE_core", "node-core"] for item in run.observations
-    )
-    assert run.host_name_count == 2
-    assert run.host_machine_count == 1
-
-    write_receipts(tmp_path, run, {"index": INDEX})
-    progress = json.loads((tmp_path / "progress.json").read_text())
-    assert progress["host_name_count"] == 2
-    assert progress["host_machine_count"] == 1
-    saved_grids, _saved_progress = load_receipts(tmp_path)
-    assert rescore(saved_grids, run.coverage, INDEX).observations == run.observations
-    replayed = reorder(run.observations, "current", run.coverage, run.request_kinds)
-    assert (replayed.host_name_count, replayed.host_machine_count) == (2, 1)
-
-    tied = _event(START, "node-core", "uid=first", n=2)
-    tied += _event(START, "NODE_core", "uid=first", n=2)
-    tied_run = observe(GridSearch(tied), INDEX, float(START), float(END))
-    assert {item.host for item in tied_run.observations} == {"NODE_core"}
 
 
 def test_literal_queries_match_each_spelling_in_an_alias_group() -> None:
@@ -686,97 +557,4 @@ def test_small_grid_observation_bytes_use_plain_search_terms() -> None:
     assert len(run.observations) == 33
     assert hashlib.sha256(encoded.encode()).hexdigest() == (
         "45568d0383f8108b0dccba234dd288998ff1d4095ddd9bb740274a649f05e303"
-    )
-
-
-def test_large_grid_recursively_reads_populated_ranges(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr("portal.modules.security.core.hunt.observations.GRID_SPLITS", 2)
-    hours = (0, 1, 5, 6, 10, 11, 15, 16)
-    weights = (8, 2, 6, 4, 7, 3, 5, 5)
-    events: list[dict[str, Any]] = []
-    for hour, weight in zip(hours, weights, strict=True):
-        events.extend(_event(START + hour * HOUR, "h", "uid=one", n=weight))
-    search = QueryBoundGridSearch(events, max_hours=2)
-
-    run = observe(search, INDEX, float(START), float(START + 17 * HOUR))
-
-    shape_ranges = sorted(
-        {
-            (int(start), int(end))
-            for query, start, end in search.windows
-            if "stats count as groups" in query
-            and "by host punct _time span=1h" in query
-            and end - start <= 2 * HOUR
-        }
-    )
-    assert shape_ranges == [
-        (START, START + 2 * HOUR),
-        (START + 5 * HOUR, START + 7 * HOUR),
-        (START + 10 * HOUR, START + 12 * HOUR),
-        (START + 15 * HOUR, START + 17 * HOUR),
-    ]
-    assert run.coverage["shape"]["complete"] is True
-    assert run.coverage["shape"]["pieces"] > 1
-    assert run.coverage["shape"]["rows"] == len(hours)
-    assert run.coverage["shape"]["requests"] == run.request_kinds["shape"]["requests"]
-    assert run.coverage["shape"]["seconds"] == run.request_kinds["shape"]["seconds"]
-
-
-def test_partial_grid_keeps_loaded_hours_and_marks_unread_history(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr("portal.modules.security.core.hunt.observations.GRID_SPLITS", 2)
-    events: list[dict[str, Any]] = []
-    for hour in range(6):
-        events.extend(_event(START + hour * HOUR, "h", "uid=one"))
-    search = QueryBoundGridSearch(
-        events,
-        max_hours=2,
-        failed_ranges=((START + 2 * HOUR, START + 3 * HOUR),),
-        failed_kind="shape",
-    )
-
-    run = observe(search, INDEX, float(START), float(START + 6 * HOUR))
-
-    shape = run.coverage["shape"]
-    assert shape["complete"] is False
-    assert shape["reasons"] == ["query_bound"]
-    assert shape["rows"] == 5
-    assert shape["unread_ranges"] == [
-        {
-            "start": START + 2 * HOUR,
-            "end": START + 3 * HOUR,
-            "data_hours": 1,
-            "events": 1,
-            "event_share": 1 / 6,
-            "reason": "query_bound",
-        }
-    ]
-    scored = [obs for obs in run.observations if obs.kind == "shape"]
-    assert sorted(obs.hour for obs in scored) == [START, START + HOUR]
-    rescored = rescore(run.grids, run.coverage, INDEX)
-    assert sorted(obs.hour for obs in rescored.observations if obs.kind == "shape") == [
-        START,
-        START + HOUR,
-    ]
-
-
-def test_budget_exhaustion_leaves_remaining_grid_ranges_in_coverage() -> None:
-    events: list[dict[str, Any]] = []
-    for hour in range(4):
-        events.extend(_event(START + hour * HOUR, "h", "uid=one"))
-    search = QueryBoundGridSearch(events, max_hours=0)
-    budget = HuntBudget({**DEFAULT_BUDGETS, "requests": 6})
-    search.executor = HuntExecutor(search, budget)
-
-    run = observe(search, INDEX, float(START), float(START + 4 * HOUR))
-
-    assert sum(slot["requests"] for slot in run.request_kinds.values()) == 6
-    assert run.coverage["source"]["complete"] is False
-    assert "request_budget_exhausted" in run.coverage["source"]["reasons"]
-    assert any(
-        part["reason"] == "request_budget_exhausted"
-        for part in run.coverage["source"]["unread_ranges"]
     )

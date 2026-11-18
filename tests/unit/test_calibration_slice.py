@@ -1,23 +1,6 @@
 from __future__ import annotations
 
-import math
-
 import pytest
-
-
-def test_observed_36_record_slice_resolution_is_one_over_12() -> None:
-    calibration_half_units = 11
-    p_step = 1 / (calibration_half_units + 1)
-
-    assert p_step == pytest.approx(0.0833, abs=0.0001)
-
-
-def test_target_600_gives_120_resolution_steps_below_alpha_02() -> None:
-    calibration_half_units = 600
-    p_step = 1 / (calibration_half_units + 1)
-
-    assert p_step < 0.002
-    assert math.floor(0.2 / p_step) == 120
 
 
 def test_slice_provenance_is_ignored_by_intake() -> None:

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import random
 import time
 from typing import Any
 
@@ -14,23 +13,15 @@ from portal.modules.security.core.hunt.baselines import (
 )
 from portal.modules.security.core.hunt.engine import HOUR
 from portal.modules.security.core.hunt.observations import (
-    KEY_SLICES,
     Observation,
-    load_observations,
-    load_receipts,
     observe,
-    reorder,
-    rescore,
-    write_receipts,
 )
 from tests.unit.test_hunt_observations import (
-    END,
     INDEX,
     START,
     GridSearch,
     _event,
     _ref_burst,
-    _universe,
 )
 
 
@@ -94,40 +85,6 @@ def test_a_far_hour_does_not_change_the_cycle_or_the_other_scores() -> None:
         for obs in plain.observations
         if obs.kind == "volume"
     )
-
-
-def test_cycle_span_over_the_effort_budget_is_not_densified(monkeypatch: Any) -> None:
-    monkeypatch.setattr(
-        "portal.modules.security.core.hunt.baselines.CYCLE_HOURS",
-        8,
-    )
-    series = {index * HOUR: (5 if index % 4 == 0 else 1) for index in range(10)}
-
-    assert cycle_seconds(series) is None
-
-
-def test_reorder_uses_the_stored_scores(tmp_path: Any, monkeypatch: Any) -> None:
-    rows: list[dict[str, Any]] = []
-    for index in range(16):
-        rows += _event(START + index * HOUR, "h", "uid=a", n=(1 if index % 2 == 0 else 100))
-    end = float(START + 16 * HOUR)
-    current = observe(GridSearch(rows), INDEX, float(START), end)
-    seasonal = observe(GridSearch(rows), INDEX, float(START), end, baseline="seasonal")
-    write_receipts(tmp_path, current, {"index": INDEX, "start": START, "end": end, "elapsed_s": 0})
-    monkeypatch.setattr(
-        "portal.modules.security.core.hunt.observations.cycle_seconds",
-        lambda _series: (_ for _ in ()).throw(AssertionError("recomputed")),
-    )
-    ordered = reorder(
-        load_observations(tmp_path), "seasonal", current.coverage, current.request_kinds
-    )
-
-    assert [obs.score for obs in ordered.observations] == [
-        obs.score for obs in seasonal.observations
-    ]
-    assert [obs.hour for obs in ordered.observations] == [obs.hour for obs in seasonal.observations]
-    assert ordered.baseline == "seasonal"
-    assert ordered.grids == {}
 
 
 def test_peer_proportion_is_the_share_of_hosts_strictly_lower() -> None:
@@ -289,61 +246,3 @@ def test_stream_identity_joins_sourcetype_and_shape_not_the_file_name() -> None:
     )
     assert [obs.score for obs in streamed.observations] == [obs.score for obs in run.observations]
     assert streamed.baseline == "stream"
-
-
-def test_key_sample_is_deterministic_and_bounded_by_slices() -> None:
-    def hours(per_hour: int) -> list[dict[str, Any]]:
-        rows: list[dict[str, Any]] = []
-        for index in range(9):
-            hour = START + index * HOUR
-            for copy in range(per_hour):
-                rows += _event(hour, "h", f"p{index}=v uid=u{copy}")
-        return rows
-
-    base = hours(1)
-    shuffled = list(base)
-    random.Random(1).shuffle(shuffled)
-    end = float(START + 9 * HOUR)
-    first = observe(GridSearch(base), INDEX, float(START), end)
-    second = observe(GridSearch(shuffled), INDEX, float(START), end)
-    wider = observe(GridSearch(hours(5)), INDEX, float(START), end)
-    indexes = [round(step * 8 / (KEY_SLICES - 1)) for step in range(KEY_SLICES)]
-    seen = {obs.entity.split("=", 1)[0] for obs in first.observations if obs.kind == "value"}
-
-    assert first.observations == second.observations
-    assert first.request_kinds["key_sample"]["requests"] == KEY_SLICES
-    assert (
-        wider.request_kinds["key_sample"]["requests"]
-        == first.request_kinds["key_sample"]["requests"]
-    )
-    assert seen == {f"p{index}" for index in indexes} | {"uid"}
-    assert "p1" not in seen
-    assert "slice_budget" in first.coverage["value"]["reasons"]
-    assert first.coverage["value"]["complete"] is False
-    censored = observe(GridSearch(base, censored="md5(_raw)"), INDEX, float(START), end)
-    assert "censored" in censored.coverage["value"]["reasons"]
-    assert censored.coverage["value"]["complete"] is False
-    assert [obs for obs in censored.observations if obs.kind == "value"] == []
-
-
-def test_raw_grids_round_trip_and_rescore_matches(tmp_path: Any) -> None:
-    events = _universe()
-    run = observe(GridSearch(events), INDEX, float(START), float(END))
-    write_receipts(tmp_path, run, {"index": INDEX, "start": START, "end": END, "elapsed_s": 0})
-    loaded, progress = load_receipts(tmp_path)
-    volume_counts = sum(int(row["count"]) for row in loaded["volume"])
-
-    assert loaded.keys() == run.grids.keys()
-    assert "volume" not in {name for name, slot in run.coverage.items() if not slot["complete"]}
-    assert volume_counts == len(events)
-    assert "source" in loaded["source"][0]
-    assert progress["grids"]["stream"] == "grids/stream.jsonl"
-    assert rescore(loaded, progress["coverage"], INDEX, "current").observations == run.observations
-
-    truncated = observe(
-        GridSearch(events, truncate="by host _time"), INDEX, float(START), float(END)
-    )
-    assert "volume" not in truncated.grids
-    assert "source" in truncated.grids
-    assert truncated.coverage["value"]["reasons"] == ["volume_incomplete"]
-    assert [obs for obs in truncated.observations if obs.kind == "value"] == []

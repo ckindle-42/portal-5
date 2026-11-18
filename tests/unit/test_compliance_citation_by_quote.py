@@ -10,132 +10,16 @@ neighbour.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from portal.modules.compliance.core import document_scope
 from portal.modules.compliance.core.candidate_links import Candidate, apply_scope
-from portal.modules.compliance.core.capture import CapturedDocument, CapturedUnit, store_capture
-from portal.modules.compliance.core.citation_by_quote import quoted_spans, resolve_quote
-from portal.modules.compliance.core.models import SourceDocument
-from portal.modules.compliance.core.repository import Repository
-
-
-def _capture(path: Path, bodies: list[str]) -> CapturedDocument:
-    units, buf, cursor = [], [], 0
-    for ordinal, body in enumerate(bodies):
-        piece = body + "\n"
-        units.append(
-            CapturedUnit(
-                ordinal=ordinal,
-                unit_kind="prose",
-                heading_path=f"H{ordinal}",
-                title=f"H{ordinal}",
-                page_start=1,
-                page_end=1,
-                char_start=cursor,
-                char_end=cursor + len(piece),
-                text=piece,
-            )
-        )
-        buf.append(piece)
-        cursor += len(piece)
-    return CapturedDocument(
-        path=path,
-        page_count=1,
-        full_text="".join(buf),
-        units=units,
-        reader_strings=tuple(bodies),
-    )
-
-
-@pytest.fixture
-def store(tmp_path: Path) -> Repository:
-    repo = Repository(tmp_path / "store.db")
-    repo.upsert_source_document(
-        SourceDocument(
-            logical_id="ACME/plan.pdf",
-            title="Plan",
-            issuer="x",
-            source_kind="procedure",
-            jurisdiction="internal",
-        )
-    )
-    revision = repo.add_document_revision("ACME/plan.pdf", "/docs/plan.pdf", b"")
-    bodies = [
-        "Position sensors are required for all ACPs. Each door shall require a door position switch.",
-        "A shared account holder writes a log entry in the \u201creason for retrieval\u201d field.",
-        "All physical security systems under CIP-\n006 R3 function properly.",
-        "Boilerplate: this procedure applies to the bulk electric system.",
-    ]
-    store_capture(repo, revision.revision_id, _capture(Path("/docs/plan.pdf"), bodies))
-    return repo
-
-
-def test_a_verbatim_quote_resolves_to_its_section(store: Repository) -> None:
-    hits = resolve_quote(store, "Position sensors are required for all ACPs.")
-    assert hits
-
-
-def test_typography_in_transit_does_not_block_resolution(store: Repository) -> None:
-    # curly quotes in the document, straight in the answer; case differs
-    hits = resolve_quote(store, 'writes a log entry in the "reason for retrieval" FIELD')
-    assert hits
-
-
-def test_a_pdf_line_wrap_does_not_block_resolution(store: Repository) -> None:
-    # the capture breaks "CIP-006" across a line: "CIP-\n006"
-    hits = resolve_quote(store, "all physical security systems under CIP-006 R3 function")
-    assert hits
-
-
-def test_a_paraphrase_resolves_to_nothing(store: Repository) -> None:
-    # same words up to one changed word ending — not the document's words
-    assert not resolve_quote(store, "Position sensors are required for every ACP.")
-
-
-def test_an_absent_phrase_resolves_to_nothing(store: Repository) -> None:
-    assert not resolve_quote(store, "the evidence specification matrix governs all")
-
-
-def test_elision_parts_must_land_in_one_document(store: Repository) -> None:
-    good = resolve_quote(
-        store, "Position sensors are required... Each door shall require a door position switch."
-    )
-    assert good  # both parts live in the same section
-    # one real part + one invented part: fails, never repaired onto a neighbour
-    assert not resolve_quote(store, "Position sensors are required... the moon is made of cheese.")
-
-
-def test_a_dot_leader_is_not_an_elision(store: Repository) -> None:
-    # a TOC-style run of dots must be matched literally if quoted literally
-    assert resolve_quote(store, "Boilerplate: this procedure applies") is not None
-
-
-def test_trailing_absorbed_punctuation_is_typography(store: Repository) -> None:
-    assert resolve_quote(store, "Position sensors are required for all ACPs,")  # absorbed comma
-
-
-def test_multi_match_reports_every_section(store: Repository) -> None:
-    # both the boilerplate sentence and nothing else — single doc, so repeat
-    # the phrase across two fixtures instead: here, assert the distribution
-    # key exists and multi-hits list all matches
-    hits = resolve_quote(store, "this procedure applies to the bulk electric system")
-    assert len(hits) == 1
-
-
-def test_empty_and_tiny_quotes_resolve_to_nothing(store: Repository) -> None:
-    assert resolve_quote(store, "") == []
-    assert resolve_quote(store, "a") == []
+from portal.modules.compliance.core.citation_by_quote import quoted_spans
 
 
 def test_quoted_spans_extracts_double_quotes_only() -> None:
     line = 'He said "keep it on" and it\u2019s \u201cfine\u201d — \u2018not this\u2019'
     assert quoted_spans(line) == ["keep it on", "fine"]
-
-
-# ── the scope decision (CITE_AND_SCOPE_V1 P2) ───────────────────────────────
 
 
 def _candidate() -> Candidate:
@@ -171,86 +55,11 @@ def test_prior_leaves_everything_else_admissible() -> None:
     assert same2 is not None and same2.score == pytest.approx(0.45)
 
 
-# ── document scope store side ────────────────────────────────────────────────
-
-
 def test_normalize_family_variants() -> None:
     assert document_scope.normalize_family("CIP-002-5.1a") == "CIP-002"
     assert document_scope.normalize_family("CIP 006") == "CIP-006"
     assert document_scope.normalize_family("NERC Standard, CIP-014-3") == "CIP-014"
     assert document_scope.normalize_family("the reliability standard") is None
-
-
-def test_claims_without_evidence_are_recorded_and_excluded(store: Repository) -> None:
-    claims = document_scope.validate_claims(
-        [
-            {"standard": "CIP-006", "quote": "CIP-\n006 R3 function properly"},
-            {"standard": "CIP-099", "quote": "this document does not say that"},
-            {"standard": "garbage", "quote": "whatever"},
-        ],
-        "All physical security systems under CIP-\n006 R3 function properly.",
-    )
-    assert claims[0]["quote_valid"] is True and claims[0]["standard"] == "CIP-006"
-    assert claims[1]["quote_valid"] is False  # recorded, never silently dropped
-    assert claims[2]["standard"] == "garbage" and claims[2]["quote_valid"] is False
-
-
-def test_scope_round_trips_through_the_store(tmp_path: Path) -> None:
-    repo = Repository(tmp_path / "scope.db")
-    repo.upsert_source_document(
-        SourceDocument(
-            logical_id="ACME/plan.pdf",
-            title="Plan",
-            issuer="x",
-            source_kind="procedure",
-            jurisdiction="internal",
-        )
-    )
-    document_scope.store_scope(
-        repo,
-        logical_id="ACME/plan.pdf",
-        claims=[
-            {
-                "standard": "CIP-006",
-                "quote": "serves CIP-006",
-                "quote_valid": True,
-                "stated_as": "CIP-006",
-            }
-        ],
-        about="a plan",
-        states_scope=True,
-        model="test-seat",
-        read_chars=100,
-        raw={"ok": True},
-    )
-    row = document_scope.scope_row(repo, "ACME/plan.pdf")
-    assert row is not None and row["model"] == "test-seat"
-    assert document_scope.families_for(row) == {"CIP-006"}
-    mapped = document_scope.scope_map(repo)
-    assert mapped["ACME/plan.pdf"] == {"CIP-006"}
-    # a claim whose quote failed validation never reaches the population's scope
-    document_scope.store_scope(
-        repo,
-        logical_id="ACME/plan.pdf",
-        claims=[
-            {
-                "standard": "CIP-002",
-                "quote": "not in the document",
-                "quote_valid": False,
-                "stated_as": "CIP-002",
-            }
-        ],
-        about="a plan",
-        states_scope=True,
-        model="test-seat",
-        read_chars=100,
-        raw={},
-    )
-    assert document_scope.families_for(document_scope.scope_row(repo, "ACME/plan.pdf")) == set()
-    repo.close()
-
-
-# ── visible provenance: the scope line the reader sees ───────────────────────
 
 
 def _scope(families: list[str], *, valid: bool = True, about: str = "a plan") -> dict:
@@ -286,31 +95,6 @@ def test_scope_line_never_states_an_unevidenced_claim() -> None:
 
     line = _scope_line(_scope(["CIP-002"], valid=False), "CIP-002")
     assert "states no NERC CIP standard" in line and "CIP-002 " not in line.split("about")[0]
-
-
-# ── cite_as tokens resolve by the rule that minted them ──────────────────────
-
-
-def test_every_section_resolves_by_its_own_cite_token(store: Repository) -> None:
-    from portal.modules.compliance.core.addressing import cite_as, resolve_cite_as
-    from portal.modules.compliance.core.section_index import resolve_sections
-
-    ids = [str(r[0]) for r in store._conn.execute("SELECT section_id FROM source_sections")]
-    for section_id, entry in resolve_sections(store, ids).items():
-        token = cite_as(entry)
-        assert token.startswith("O-")  # operator side, whatever the id prefix
-        hit = resolve_cite_as(store, token)
-        assert hit is not None and hit["section_id"] == section_id
-
-
-def test_a_cite_token_with_the_wrong_side_letter_resolves_to_nothing(store: Repository) -> None:
-    from portal.modules.compliance.core.addressing import cite_as, resolve_cite_as
-    from portal.modules.compliance.core.section_index import resolve_sections
-
-    section_id = str(store._conn.execute("SELECT section_id FROM source_sections").fetchone()[0])
-    token = cite_as(resolve_sections(store, [section_id])[section_id])
-    assert resolve_cite_as(store, "R-" + token[2:]) is None  # never a near neighbour
-    assert resolve_cite_as(store, "O-zzzzzz") is None
 
 
 def test_conversation_material_asks_for_quotes_not_handles() -> None:

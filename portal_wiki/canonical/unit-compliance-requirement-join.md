@@ -14,8 +14,6 @@ sources:
 - type: code
   path: tests/unit/test_compliance_requirement_anchor.py
 - type: code
-  path: tests/unit/test_compliance_requirement_scoping.py
-- type: code
   path: scripts/compliance/capture_technical_basis.py
 - type: code
   path: tests/unit/test_compliance_technical_basis.py

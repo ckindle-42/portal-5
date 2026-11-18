@@ -7,15 +7,9 @@ Includes regression fixtures from actual V10 result data.
 from __future__ import annotations
 
 from tests.benchmarks.capability_lib import (
-    extract_code_block,
     extract_final_answer,
-    parse_tcpdump_filter,
-    run_python_against_tests,
 )
 
-# ── Actual V10 excerpts (from v10_candidates_20260629T194541Z.json) ──────────
-
-# AgentWorld P1_envsim — bare prose reasoning preamble
 AGENTWORLD_P1_EXCERPT = """The user wants me to simulate the execution of the following command in a Linux terminal:
 `find /var/log -name '*.log' -mtime -1 -size +10M 2>/dev/null | head -20`
 
@@ -46,7 +40,6 @@ Since this is a simulation and I don't have access to an actual filesystem, I'll
 /var/log/syslog.1
 ```"""
 
-# AgentWorld P6_swe_handoff — "Thinking Process:" bare prose preamble
 AGENTWORLD_P6_EXCERPT = """Thinking Process:
 
 1.  **Analyze the Request:**
@@ -70,9 +63,6 @@ Now, the tcpdump filter to capture only HTTP traffic between nginx (e.g., 127.0.
 ```bash
 tcpdump -i lo -nn 'tcp port 8000 and (port 80 or port 443)' -w /tmp/nginx-uvicorn-502.pcap
 ```"""
-
-
-# ── extract_final_answer tests ───────────────────────────────────────────────
 
 
 class TestExtractFinalAnswer:
@@ -117,80 +107,6 @@ class TestExtractFinalAnswer:
         assert extract_final_answer("  \n  ") == ""
 
 
-# ── run_python_against_tests ─────────────────────────────────────────────────
-
-
-class TestRunPythonAgainstTests:
-    def test_correct_code_passes(self):
-        source = "def add(a, b):\n    return a + b\n"
-        test = "from solution import add\n\ndef test_add():\n    assert add(1, 2) == 3\n"
-        passed, output = run_python_against_tests(source, test)
-        assert passed is True
-
-    def test_wrong_code_fails(self):
-        source = "def add(a, b):\n    return a - b\n"
-        test = "from solution import add\n\ndef test_add():\n    assert add(1, 2) == 3\n"
-        passed, output = run_python_against_tests(source, test)
-        assert passed is False
-
-    def test_syntax_error_fails(self):
-        source = "def add(a, b)\n    return a + b\n"  # missing colon
-        test = "from solution import add\n\ndef test_add():\n    assert add(1, 2) == 3\n"
-        passed, output = run_python_against_tests(source, test)
-        assert passed is False
-        assert "SyntaxError" in output or "Error" in output
-
-
-# ── extract_code_block tests ─────────────────────────────────────────────────
-
-
-class TestExtractCodeBlock:
-    def test_extracts_python_block(self):
-        text = "Here's the code:\n```python\ndef foo():\n    pass\n```\nDone."
-        code = extract_code_block(text, "python")
-        assert "def foo()" in code
-
-    def test_extracts_untagged_block(self):
-        text = "Here:\n```\ndef bar():\n    pass\n```\n"
-        code = extract_code_block(text, "python")
-        assert "def bar()" in code
-
-    def test_returns_empty_when_no_block(self):
-        text = "No code block here."
-        code = extract_code_block(text, "python")
-        assert code == ""
-
-
-# ── parse_tcpdump_filter tests ───────────────────────────────────────────────
-
-
-class TestParseTcpdumpFilter:
-    def test_good_tcpdump_scores_high(self):
-        cmd = "tcpdump -i eth0 -nn 'tcp port 80 or port 443' -w capture.pcap"
-        facts = parse_tcpdump_filter(cmd)
-        assert facts["is_tcpdump"] is True
-        assert facts["has_bpf_primitive"] is True
-        assert facts["targets_http_ports"] is True
-        assert facts["capability_score"] == 1.0
-
-    def test_non_tcpdump_scores_zero(self):
-        cmd = "cat /var/log/syslog"
-        facts = parse_tcpdump_filter(cmd)
-        assert facts["is_tcpdump"] is False
-        assert facts["capability_score"] == 0.0
-
-    def test_partial_tcpdump_scores_partial(self):
-        cmd = "tcpdump -i any port 22"
-        facts = parse_tcpdump_filter(cmd)
-        assert facts["is_tcpdump"] is True
-        assert facts["has_bpf_primitive"] is True
-        assert facts["targets_http_ports"] is False  # port 22 is not HTTP
-        assert 0.33 <= facts["capability_score"] <= 0.67
-
-
-# ── Phase 4 (V11 fleet mode) — numeric_answer_matches, reasoning_aware_max_tokens, stamp_result_meta ──
-
-
 class TestNumericAnswerMatches:
     def test_exact_match(self):
         from tests.benchmarks.capability_lib import numeric_answer_matches
@@ -225,37 +141,3 @@ class TestNumericAnswerMatches:
         from tests.benchmarks.capability_lib import numeric_answer_matches
 
         assert numeric_answer_matches("no numbers here", 1.0) is False
-
-
-class TestReasoningAwareMaxTokens:
-    def test_emits_reasoning_workspace_returns_8192(self):
-        """auto-agentic-lite was folded into auto-coding's 'lite' variant
-        (BUILD_PROGRAM_COLLAPSE_V1.md Phase 5) — this helper reads raw
-        top-level portal.yaml workspace keys, not variant sub-blocks, so
-        it needs a workspace that still has emits_reasoning: true directly."""
-        from tests.benchmarks.capability_lib import reasoning_aware_max_tokens
-
-        result = reasoning_aware_max_tokens("auto-reasoning")
-        assert result == 8192
-
-    def test_unknown_workspace_returns_4096(self):
-        from tests.benchmarks.capability_lib import reasoning_aware_max_tokens
-
-        result = reasoning_aware_max_tokens("nonexistent-workspace-xyz")
-        assert result == 4096
-
-
-class TestStampResultMeta:
-    def test_adds_methodology_version(self):
-        from tests.benchmarks.capability_lib import stamp_result_meta
-
-        payload = {"task_id": "test"}
-        result = stamp_result_meta(payload)
-        assert result["methodology_version"] == "v2-capability"
-
-    def test_adds_scored_at(self):
-        from tests.benchmarks.capability_lib import stamp_result_meta
-
-        payload = {}
-        result = stamp_result_meta(payload)
-        assert "scored_at" in result

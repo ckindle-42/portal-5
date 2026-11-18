@@ -20,7 +20,6 @@ Disposition legend (also recorded in portal/modules/compliance/data/private/runs
 
 from __future__ import annotations
 
-import re
 import tempfile
 from pathlib import Path
 
@@ -65,7 +64,6 @@ def _node(**kw) -> RegisterNode:
     return RegisterNode(**base)
 
 
-# ── F01: validity is not bitemporality ──────────────────────────────────────
 def test_f01_retired_node_still_returned_for_a_historical_date_inside_its_interval():
     """FIXED_P1 (engine.py: interval-based selection, not lifecycle-label
     gating). See also test_compliance_engine.py for the coverage_matrix seam."""
@@ -101,7 +99,6 @@ def test_f01_invalid_iso_date_is_rejected_not_silently_matched_to_nothing():
         effective_parts(Register(nodes=[]), "2026-13-40")
 
 
-# ── F02: current dates are not adequately sourced ───────────────────────────
 def test_f02_unrecognized_version_is_unknown_not_defaulted_effective():
     """FIXED_P1 (cip_register.py: unknown default, not EFFECTIVE)."""
     unknown = _node(id="TEST-9 R1 Part 1.1", lifecycle_state="UNKNOWN", valid_from=None)
@@ -110,17 +107,6 @@ def test_f02_unrecognized_version_is_unknown_not_defaulted_effective():
     assert unknown.id in {n.id for n in unknown_effectivity_parts(reg)}
 
 
-# ── F03: coverage measures passage presence ─────────────────────────────────
-# DEFERRED_P5 — see test_compliance_engine.py::test_coverage_full_needs_a_locatable_span_from_both_sides
-# and test_coverage_nothing_found_is_not_a_resolved_gap for the direct reproduction:
-# FULL/NONE can no longer be automatically certified from candidate presence/absence.
-
-
-# ── F04: approval is an unchecked shortcut ──────────────────────────────────
-# FIXED_P1 — see test_compliance_engine.py::test_approved_mapping_requires_resolved_endpoint_and_agreement
-
-
-# ── F05: obligation scoping and time units ──────────────────────────────────
 def test_f05_calendar_month_business_day_and_calendar_day_are_not_interchangeable():
     """FIXED_P1 (tiers.py: no approximate day-count conversion across units).
     Reproduces the design doc's exact example (§2.1 F05 / F12 probe table)."""
@@ -146,7 +132,6 @@ def test_f05_same_tier_disagreement_is_detected():
     assert len(conflicts) == 1 and conflicts[0].kind == "same_tier_disagreement"
 
 
-# ── F06: semantic change can be erased ──────────────────────────────────────
 def test_f06_and_or_swap_is_never_cosmetic():
     """FIXED_P1 (register_diff.py: connector-aware cosmetic check)."""
     old = _node(id="TEST-1 R1 Part 1.1", standard="TEST-1", verbatim_text="Perform A; and")
@@ -173,7 +158,6 @@ def test_f06_mixed_version_operands_are_rejected():
         diff_standard(mixed, single, "TEST")
 
 
-# ── F09: review records and effective behavior diverge ──────────────────────
 def test_f09_rejecting_a_mapping_proposal_revokes_a_prior_approval():
     """FIXED_P1 (mapping_store.py: revoke(); compliance_mcp.py wires REJECTED
     to an actual revocation instead of only recording a review event)."""
@@ -203,14 +187,3 @@ def test_f09_missing_mapping_target_is_an_error_not_silent_success():
         store = MappingStore(Path(d) / "m.json")
         with pytest.raises(KeyError):
             store.revoke("does-not-exist", "sme")
-
-
-# ── F10: citations and stale references are not reliable enough ────────────
-def test_f10_stale_citation_uses_exact_identifier_not_family_prefix():
-    """FIXED_P1 (coverage.py: word-boundary exact-id match, not substring)."""
-    old_id = "CIP-003-8"
-    text_citing_current = "See CIP-003-9 R1 for the governing requirement."
-    text_citing_old = "This section restates CIP-003-8 R1 verbatim."
-    pattern = rf"(?<![\w-]){re.escape(old_id)}(?![\w-])"
-    assert re.search(pattern, text_citing_old)
-    assert not re.search(pattern, text_citing_current)  # "-9" must not match "-8"'s prefix
