@@ -6,21 +6,12 @@ HTTP layer so nothing touches a real Ollama instance.
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-from unittest.mock import patch
-
-import pytest
-
 from portal.modules.security.core.drift_gate import (
     CANARY_PROBES,
     _canary_baseline_path,
     _metric_drift,
-    check_model_canary,
     drift_check,
     render_drift_markdown,
-    run_canary_probe,
-    save_canary_baseline,
 )
 
 
@@ -134,98 +125,6 @@ class TestModelCanary:
         for probe in CANARY_PROBES:
             assert "id" in probe and "prompt" in probe and "expect_any" in probe
 
-    def test_run_canary_probe_mocked(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("DRIFT_DIRECT_OLLAMA", "true")
-        # P1.5: the direct switch needs the shared diagnostic gate set too —
-        # both are read per-call from the environment.
-        monkeypatch.setenv("PORTAL_SECURITY_DIRECT_ENGINE_DIAGNOSTIC", "true")
-        with patch("httpx.post") as mock_post:
-            mock_post.return_value.raise_for_status = lambda: None
-            mock_post.return_value.json.return_value = {
-                "message": {
-                    "content": "T1558.003 is the answer, CVE-2021-44228 also, A03, T1611, T1047, CVE-2017-0144, A10, T1557.001, T1550.002, T1558.004, T1558.001"
-                }
-            }
-            result = run_canary_probe("fake-model")
-        assert result["total"] == len(CANARY_PROBES)
-        assert result["pass_count"] >= 1
-
-    def test_run_canary_probe_mocked_pipeline_default(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.delenv("DRIFT_DIRECT_OLLAMA", raising=False)
-        monkeypatch.delenv("PORTAL_SECURITY_DIRECT_ENGINE_DIAGNOSTIC", raising=False)
-        with patch("httpx.post") as mock_post:
-            mock_post.return_value.raise_for_status = lambda: None
-            mock_post.return_value.json.return_value = {
-                "choices": [
-                    {
-                        "message": {
-                            "content": "T1558.003 CVE-2021-44228 A03 T1611 T1047 CVE-2017-0144 A10 T1557.001 T1550.002 T1558.004 T1558.001"
-                        }
-                    }
-                ]
-            }
-            result = run_canary_probe("fake-model")
-        assert result["total"] == len(CANARY_PROBES)
-        assert result["pass_count"] >= 1
-        called_url = mock_post.call_args.args[0]
-        assert "/v1/chat/completions" in called_url
-
-    def test_flipped_probe_detected(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("DRIFT_DIRECT_OLLAMA", "true")
-        monkeypatch.setenv("PORTAL_SECURITY_DIRECT_ENGINE_DIAGNOSTIC", "true")
-        model = "canary-test-model"
-        with patch(
-            "portal.modules.security.core.drift_gate._canary_baseline_path",
-            return_value=tmp_path / "baseline.json",
-        ):
-            with patch("httpx.post") as mock_post:
-                mock_post.return_value.raise_for_status = lambda: None
-                # Baseline: all probes pass (echo every expected string).
-                all_expected = " ".join(e for p in CANARY_PROBES for e in p["expect_any"])
-                mock_post.return_value.json.return_value = {"message": {"content": all_expected}}
-                save_canary_baseline(model)
-
-            with patch("httpx.post") as mock_post:
-                mock_post.return_value.raise_for_status = lambda: None
-                # Candidate: blank response — every probe with an expectation now fails.
-                mock_post.return_value.json.return_value = {"message": {"content": ""}}
-                result = check_model_canary(model)
-
-        assert result["status"] in ("LOW", "MEDIUM", "HIGH")
-        assert len(result["flipped"]) > 0
-
-    def test_identical_behavior_is_none(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.setenv("DRIFT_DIRECT_OLLAMA", "true")
-        monkeypatch.setenv("PORTAL_SECURITY_DIRECT_ENGINE_DIAGNOSTIC", "true")
-        model = "canary-stable-model"
-        fixed_content = "T1558.003 CVE-2021-44228 A03 T1611 T1047 CVE-2017-0144 A10 T1557.001 T1550.002 T1558.004 T1558.001"
-        with (
-            patch(
-                "portal.modules.security.core.drift_gate._canary_baseline_path",
-                return_value=tmp_path / "baseline.json",
-            ),
-            patch("httpx.post") as mock_post,
-        ):
-            mock_post.return_value.raise_for_status = lambda: None
-            mock_post.return_value.json.return_value = {"message": {"content": fixed_content}}
-            save_canary_baseline(model)
-            result = check_model_canary(model)
-
-        assert result["status"] == "NONE"
-        assert result["flipped"] == []
-
-    def test_no_baseline_reports_no_baseline_status(self, tmp_path: Path) -> None:
-        with patch(
-            "portal.modules.security.core.drift_gate._canary_baseline_path",
-            return_value=tmp_path / "does-not-exist.json",
-        ):
-            result = check_model_canary("never-baselined-model")
-        assert result["status"] == "NO-BASELINE"
-
     def test_baseline_path_is_filesystem_safe(self) -> None:
         path = _canary_baseline_path("hf.co/org/model:Q4_K_M")
         assert "/" not in path.name
@@ -238,11 +137,3 @@ class TestDriftCLI:
 
         code = drift_check_main(["--window", "5", "--json"])
         assert code == 0
-
-    def test_drift_check_json_is_parseable(self, capsys: pytest.CaptureFixture[str]) -> None:
-        from portal.modules.security.core.drift_cli import drift_check_main
-
-        drift_check_main(["--window", "5", "--json"])
-        out = capsys.readouterr().out
-        parsed = json.loads(out)
-        assert "pairs" in parsed

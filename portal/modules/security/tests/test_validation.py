@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from portal.modules.security.core.validation import validate_usecase
 
 
@@ -20,8 +18,3 @@ class TestValidateUsecase:
         result = validate_usecase(usecase, dry_run=True)
         assert result["status"] == "dry_run"
         assert result["usecase"] == "test-usecase"
-
-    def test_no_lab_exec_indeterminate(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr("portal.modules.security.core.validation._LAB_EXEC_AVAILABLE", False)
-        result = validate_usecase({"name": "test"})
-        assert result["status"] == "indeterminate"

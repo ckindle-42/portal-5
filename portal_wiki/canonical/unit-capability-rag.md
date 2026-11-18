@@ -11,8 +11,6 @@ sources:
 - type: code
   path: portal/modules/research/tools/rag_multimodal.py
 - type: code
-  path: portal/modules/research/tools/test_rag_multimodal.py
-- type: code
   path: scripts/vl-retrieval-server.py
 - type: code
   path: config/inference/tools_manifest_rag_mcp.json

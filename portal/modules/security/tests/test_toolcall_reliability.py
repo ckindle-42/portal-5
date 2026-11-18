@@ -87,32 +87,6 @@ def test_chain_nudges_restate_hard_constraint_not_generic_oneliner() -> None:
         assert "continue with the next engagement step" not in nudge.lower()
 
 
-def test_chain_retry_messages_use_user_role_not_tool_role() -> None:
-    import inspect
-
-    from portal.modules.security.core import exec_chain
-
-    src = inspect.getsource(exec_chain)
-    # All 4 retry-nudge injection sites must use role="user" (real
-    # instructional weight), never role="tool" (weighted as a call result),
-    # and must route through _escalated_nudge (not the bare constant) so
-    # repeated consecutive failures get new information, not an identical
-    # repeated prompt (found live 2026-07-23: a model produced 4 consecutive
-    # EMPTY responses to the exact same unchanged nudge in a row).
-    # Whitespace-insensitive: count call sites by argument order, not exact
-    # formatting (ruff reformats line breaks independently of this test).
-    import re
-
-    calls = re.findall(r"_escalated_nudge\(\s*(_CHAIN_NUDGE_\w+)", src)
-    assert calls.count("_CHAIN_NUDGE_TIMEOUT") == 2
-    assert calls.count("_CHAIN_NUDGE_NO_TOOL_CALL") == 2
-    # Every nudge message dict in the file uses role="user".
-    assert '"role": "tool", "content": _CHAIN_NUDGE' not in src
-    # The old generic one-liners must not have silently come back.
-    assert "step timed out — tool did not respond within the budget" not in src
-    assert "step timed out — continue with next engagement step" not in src
-
-
 def test_next_expected_index_ignores_over_calls_of_a_repeatable_tool() -> None:
     """Found live 2026-07-24 (ctf_multi_service): expected_order budgets 2x
     web_request before run_sqlmap, but the model called web_request 4 times

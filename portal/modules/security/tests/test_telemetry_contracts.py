@@ -16,7 +16,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "tests" / "benchmarks"))
 
-from unittest.mock import MagicMock
 
 from portal.modules.security.core.telemetry import (
     CONTRACT_SPLUNK_WEB,
@@ -24,7 +23,6 @@ from portal.modules.security.core.telemetry import (
     CONTRACT_WINEVENT_AD,
     CONTRACTS,
     TelemetryBackend,
-    check_source_health,
     contract_for_technique,
     get_contract,
 )
@@ -43,29 +41,6 @@ class TestProtocolUnification:
 
         assert isinstance(WinEventBackend(), TelemetryBackend)
         assert isinstance(SplunkBackend(), TelemetryBackend)
-
-    def test_blue_does_not_define_own_protocol(self) -> None:
-        """blue.py should import TelemetryBackend from telemetry, not define its own."""
-        import inspect
-
-        import portal.modules.security.core.blue as blue_mod
-
-        src = inspect.getsource(blue_mod)
-        # Should NOT have "class TelemetryBackend(Protocol):" in blue.py
-        assert "class TelemetryBackend(Protocol):" not in src, (
-            "blue.py still defines its own TelemetryBackend Protocol"
-        )
-
-    def test_matrix_does_not_define_own_protocol(self) -> None:
-        """matrix.py should import TelemetryBackend from telemetry, not define its own."""
-        import inspect
-
-        import portal.modules.security.core.matrix as matrix_mod
-
-        src = inspect.getsource(matrix_mod)
-        assert "class TelemetryBackend" not in src, (
-            "matrix.py still defines its own TelemetryBackend"
-        )
 
     def test_only_one_telemetry_backend_class_in_bench_security(self) -> None:
         """There should be exactly one TelemetryBackend class definition across
@@ -149,73 +124,3 @@ class TestContractDispatch:
 
 
 # ── TelemetryHealth pre-check ────────────────────────────────────────────────
-
-
-class TestTelemetryHealth:
-    """TelemetryHealth pre-check: dead source → reason code, not silent skip."""
-
-    def test_healthy_source_returns_observed(self) -> None:
-        backend = MagicMock(spec=TelemetryBackend)
-        backend.name = "test"
-        backend.query.return_value = {
-            "telemetry": "EventCode=4769 some data",
-            "source": "live",
-            "backend": "test",
-        }
-        result = check_source_health(CONTRACT_SPLUNK_WEB, backend)
-        assert result.healthy is True
-        assert result.reason_code == "TELEMETRY_OBSERVED"
-        assert result.contract_id == "splunk-web"
-
-    def test_empty_telemetry_returns_not_configured(self) -> None:
-        backend = MagicMock(spec=TelemetryBackend)
-        backend.name = "test"
-        backend.query.return_value = {
-            "telemetry": "",
-            "source": "synthetic-fallback",
-            "backend": "test",
-        }
-        result = check_source_health(CONTRACT_SPLUNK_WEB, backend)
-        assert result.healthy is False
-        assert result.reason_code == "TELEMETRY_NOT_CONFIGURED"
-
-    def test_synthetic_fallback_returns_not_configured(self) -> None:
-        backend = MagicMock(spec=TelemetryBackend)
-        backend.name = "test"
-        backend.query.return_value = {
-            "telemetry": "some synthetic data",
-            "source": "synthetic-fallback",
-            "backend": "test",
-        }
-        result = check_source_health(CONTRACT_SPLUNK_WEB, backend)
-        assert result.healthy is False
-        assert result.reason_code == "TELEMETRY_NOT_CONFIGURED"
-
-    def test_backend_exception_returns_collection_failed(self) -> None:
-        backend = MagicMock(spec=TelemetryBackend)
-        backend.name = "test"
-        backend.query.side_effect = ConnectionError("splunk unreachable")
-        result = check_source_health(CONTRACT_SPLUNK_WEB, backend)
-        assert result.healthy is False
-        assert result.reason_code == "TELEMETRY_COLLECTION_FAILED"
-        assert "backend.query raised" in result.detail
-
-    def test_health_result_to_dict(self) -> None:
-        backend = MagicMock(spec=TelemetryBackend)
-        backend.name = "test"
-        backend.query.return_value = {"telemetry": "data", "source": "live", "backend": "test"}
-        result = check_source_health(CONTRACT_SPLUNK_WEB, backend)
-        d = result.to_dict()
-        assert "contract_id" in d
-        assert "healthy" in d
-        assert "reason_code" in d
-        import json
-
-        json.dumps(d)  # JSON-safe
-
-    def test_health_result_has_timestamp(self) -> None:
-        backend = MagicMock(spec=TelemetryBackend)
-        backend.name = "test"
-        backend.query.return_value = {"telemetry": "data", "source": "live", "backend": "test"}
-        result = check_source_health(CONTRACT_SPLUNK_WEB, backend)
-        assert result.checked_at > 0

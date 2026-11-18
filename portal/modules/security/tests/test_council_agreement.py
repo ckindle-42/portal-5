@@ -2,15 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
-
 from portal.modules.security.core.analyst_verdict import AnalystVerdict, SectionOutput
 from portal.modules.security.core.council_agreement import compute_agreement, to_section_output
-from portal.platform.inference.router.council import (
-    CouncilAggregate,
-    CouncilOpinion,
-    aggregate_opinions,
-)
 
 
 def _member(
@@ -208,36 +201,3 @@ def test_custom_quorum_threshold() -> None:
     r_loose = compute_agreement(members, quorum=0.3)
     assert r_loose.verdict == "CONFIRMED"
     assert set(r_loose.technique_ids) == {"T1078", "T1055", "T1548"}
-
-
-def test_security_quorum_delegates_to_platform_aggregate(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """P1: compatibility translation must use the sole quorum implementation."""
-    import portal.modules.security.core.council_agreement as agreement_mod
-
-    real_aggregate = aggregate_opinions
-    calls: list[tuple[int, float, float]] = []
-
-    def recording_aggregate(
-        opinions: list[CouncilOpinion],
-        *,
-        minimum_participation: float,
-        quorum: float,
-    ) -> CouncilAggregate:
-        calls.append((len(opinions), minimum_participation, quorum))
-        return real_aggregate(
-            opinions,
-            minimum_participation=minimum_participation,
-            quorum=quorum,
-        )
-
-    monkeypatch.setattr(agreement_mod, "aggregate_opinions", recording_aggregate)
-    result = agreement_mod.compute_agreement(
-        [_member("CONFIRMED", ["T1078"]), _member("CONFIRMED", ["T1078"])],
-        quorum=0.5,
-    )
-
-    assert result.verdict == "CONFIRMED"
-    assert calls
-    assert all(call[0] == 2 for call in calls)

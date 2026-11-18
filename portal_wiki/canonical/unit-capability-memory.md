@@ -11,8 +11,6 @@ sources:
 - type: code
   path: portal/platform/memory/graph_memory.py
 - type: code
-  path: portal/platform/memory/test_graph_memory.py
-- type: code
   path: portal/platform/memory/reembed.py
 - type: code
   path: portal/platform/lance_guard.py

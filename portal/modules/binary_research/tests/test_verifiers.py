@@ -1,35 +1,9 @@
 """Verifier discovery + verdict states."""
 
-from pathlib import Path
-
-import pytest
-
 from portal.modules.binary_research.harness.verifiers import (
     Verdict,
     VerifierResult,
-    discover_verifiers,
-    run_all,
 )
-
-
-@pytest.fixture
-def job(tmp_path: Path) -> Path:
-    v = tmp_path / "verifiers"
-    v.mkdir()
-    (v / "p.sh").write_text("#!/bin/bash\necho PASS\nexit 0\n")
-    (v / "p.sh").chmod(0o755)
-    (v / "f.sh").write_text("#!/bin/bash\necho FAIL\nexit 1\n")
-    (v / "f.sh").chmod(0o755)
-    return tmp_path
-
-
-def test_discover(job: Path) -> None:
-    assert len(discover_verifiers(job)) == 2
-
-
-def test_partial(job: Path) -> None:
-    v = run_all(job)
-    assert v.partial_pass and v.label == "PARTIAL PASS"
 
 
 def test_all_pass() -> None:

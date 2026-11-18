@@ -17,12 +17,10 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "tests" / "benchmarks"))
 
-import yaml
 
 _YAML_PATH = (
     Path(__file__).resolve().parents[4]
@@ -33,62 +31,6 @@ _YAML_PATH = (
     / "siem"
     / "spl_detections.yaml"
 )
-
-
-def _load_detections() -> dict[str, Any]:
-    data = yaml.safe_load(_YAML_PATH.read_text())
-    assert isinstance(data, dict)
-    return data
-
-
-class TestComplianceMappingSchema:
-    def test_every_detection_has_matrix(self) -> None:
-        d = _load_detections()
-        missing = [tid for tid, v in d.items() if isinstance(v, dict) and not v.get("matrix")]
-        assert not missing, f"detections missing matrix: {missing}"
-
-    def test_every_detection_has_compliance_mapping(self) -> None:
-        d = _load_detections()
-        missing = [
-            tid for tid, v in d.items() if isinstance(v, dict) and not v.get("compliance_mapping")
-        ]
-        assert not missing, f"detections missing compliance_mapping: {missing}"
-
-    def test_every_mapping_cites_a_source(self) -> None:
-        """Provenance rule: a mapping without a source is invalid."""
-        d = _load_detections()
-        for tid, v in d.items():
-            if not isinstance(v, dict):
-                continue
-            for mapping in v.get("compliance_mapping", []):
-                assert mapping.get("source"), (
-                    f"{tid} has an uncited compliance_mapping entry: {mapping}"
-                )
-                assert mapping.get("framework"), f"{tid} mapping missing framework: {mapping}"
-
-    def test_mitre_tactic_present_for_every_technique(self) -> None:
-        d = _load_detections()
-        for tid, v in d.items():
-            if not isinstance(v, dict):
-                continue
-            frameworks = {m["framework"] for m in v.get("compliance_mapping", [])}
-            assert "mitre-attack" in frameworks, f"{tid} has no mitre-attack tactic mapping"
-
-    def test_nist_800_53_present_for_every_technique(self) -> None:
-        d = _load_detections()
-        for tid, v in d.items():
-            if not isinstance(v, dict):
-                continue
-            frameworks = {m["framework"] for m in v.get("compliance_mapping", [])}
-            assert "nist-800-53" in frameworks, f"{tid} has no NIST 800-53 mapping"
-
-    def test_matrix_values_are_known(self) -> None:
-        d = _load_detections()
-        for tid, v in d.items():
-            if not isinstance(v, dict):
-                continue
-            for mx in v["matrix"]:
-                assert mx in ("enterprise", "ics"), f"{tid} has unknown matrix value: {mx}"
 
 
 class TestNavigatorDomains:

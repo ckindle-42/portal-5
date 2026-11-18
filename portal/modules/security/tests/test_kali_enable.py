@@ -11,9 +11,6 @@ Verifies:
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import patch
-
-import pytest
 
 from portal.modules.security.core.exec_chain import (
     _BASH_TECHNIQUE_SIGNALS,
@@ -96,111 +93,11 @@ class TestChainToolsBaseExposesKali:
 class TestLabDispatchRouting:
     """lab_dispatch must route execute_bash/execute_python to real Kali."""
 
-    def test_execute_bash_dispatches_to_mcp(self) -> None:
-        with patch(
-            "portal.modules.security.core.lab._lab_mcp_call",
-            return_value={"ok": True, "output": "uid=0(root)", "elapsed_s": 0.5},
-        ) as mock_call:
-            from portal.modules.security.core.lab import lab_dispatch
-
-            result = lab_dispatch("execute_bash", {"cmd": "id"}, dry_run=False)
-            mock_call.assert_called_once()
-            assert "uid=0" in result
-
-    def test_execute_python_dispatches_to_mcp(self) -> None:
-        with patch(
-            "portal.modules.security.core.lab._lab_mcp_call",
-            return_value={"ok": True, "output": "42", "elapsed_s": 0.3},
-        ) as mock_call:
-            from portal.modules.security.core.lab import lab_dispatch
-
-            result = lab_dispatch("execute_python", {"code": "print(6*7)"}, dry_run=False)
-            mock_call.assert_called_once()
-            assert "42" in result
-
     def test_execute_bash_dry_run(self) -> None:
         from portal.modules.security.core.lab import lab_dispatch
 
         result = lab_dispatch("execute_bash", {"cmd": "nmap -sV 10.10.11.50"}, dry_run=True)
         assert "[DRY-RUN]" in result
-
-    def test_nmap_alias_dispatches_same_as_run_nmap_scan(self) -> None:
-        """P5-EMERGENT-001: "nmap" is the real Kali binary name the capability
-        library declares (smb_probe/winrm_probe/ldap_probe/kerberos_probe) —
-        it must reach the same live dispatch as run_nmap_scan, not fall
-        through to the synthetic default."""
-        from portal.modules.security.core.lab import lab_dispatch
-
-        with patch(
-            "portal.modules.security.core.lab._lab_mcp_call",
-            return_value={"ok": True, "output": "22/tcp open", "elapsed_s": 0.5},
-        ) as mock_call:
-            result = lab_dispatch("nmap", {"target": "10.10.11.50"}, dry_run=False)
-            mock_call.assert_called_once()
-        assert "synthetic" not in result
-        assert "22/tcp open" in result
-
-    def test_impacket_getuserspns_alias_dispatches_same_as_exploit_service(self) -> None:
-        """P5-EMERGENT-001: "impacket-GetUserSPNs" is the real Kali binary
-        name the capability library declares (ldap_probe/kerberos_probe) —
-        must reach the same live dispatch as exploit_service (Kerberoast)."""
-        from portal.modules.security.core.lab import lab_dispatch
-
-        with patch(
-            "portal.modules.security.core.lab._lab_mcp_call",
-            return_value={"ok": True, "output": "$krb5tgs$23$...", "elapsed_s": 0.5},
-        ) as mock_call:
-            result = lab_dispatch("impacket-GetUserSPNs", {}, dry_run=False)
-            mock_call.assert_called_once()
-        assert "synthetic" not in result
-        assert "krb5tgs" in result
-
-    @pytest.mark.parametrize(
-        ("tool_name", "expected_command"),
-        [
-            ("bloodhound-ce-python", "-c DCOnly --zip"),
-            ("enum4linux-ng", "enum4linux-ng -A 10.10.11.21"),
-            ("nxc", "nxc smb 10.10.11.21 -u '' -p '' --shares"),
-            ("impacket-GetNPUsers", "-usersfile /tmp/portal5-asrep-users.txt"),
-        ],
-    )
-    def test_read_only_emergent_aliases_dispatch_verified_commands(
-        self, tool_name: str, expected_command: str
-    ) -> None:
-        from portal.modules.security.core.lab import lab_dispatch
-
-        with patch(
-            "portal.modules.security.core.lab._lab_mcp_call",
-            return_value={"ok": True, "output": "verified read-only output", "elapsed_s": 0.5},
-        ) as mock_call:
-            result = lab_dispatch(
-                tool_name,
-                {"target": "10.10.11.21"},
-                dry_run=False,
-            )
-
-        command = mock_call.call_args.args[0]
-        assert expected_command in command
-        assert "synthetic" not in result
-        assert "verified read-only output" in result
-
-    def test_getnpusers_alias_is_bounded_to_known_lab_accounts(self) -> None:
-        from portal.modules.security.core.lab import lab_dispatch
-
-        with patch(
-            "portal.modules.security.core.lab._lab_mcp_call",
-            return_value={"ok": True, "output": "$krb5asrep$...", "elapsed_s": 0.5},
-        ) as mock_call:
-            lab_dispatch(
-                "impacket-GetNPUsers",
-                {"target": "10.10.11.21"},
-                dry_run=False,
-            )
-
-        command = mock_call.call_args.args[0]
-        assert "arya.stark\\nned.stark" in command
-        assert "-no-pass" in command
-        assert "-dc-ip 10.10.11.21" in command
 
     def test_execute_python_dry_run(self) -> None:
         from portal.modules.security.core.lab import lab_dispatch

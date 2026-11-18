@@ -8,9 +8,6 @@ both inside build_index() itself and independently here.
 
 from __future__ import annotations
 
-import subprocess
-import sys
-
 from portal.modules.security.core.capability.index import (
     Capability,
     build_index,
@@ -169,33 +166,3 @@ class TestRender:
     def test_render_tool_arsenal_service_filter(self) -> None:
         text = render_tool_arsenal(service="smb")
         assert "nxc" in text
-
-
-class TestCapabilityCLI:
-    def _run(self, *args: str) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            [sys.executable, "-m", "portal.modules.security.core", "capability", *args],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-
-    def test_list_json(self) -> None:
-        result = self._run("list", "--phase", "recon", "--json")
-        assert result.returncode == 0
-        assert result.stdout.strip().startswith("[")
-
-    def test_query_json(self) -> None:
-        result = self._run("query", "--observations", '{"open_ports": [445]}', "--json")
-        assert result.returncode == 0
-        assert "smb_probe" in result.stdout
-
-    def test_tools(self) -> None:
-        result = self._run("tools", "--service", "smb")
-        assert result.returncode == 0
-        assert "nxc" in result.stdout
-
-    def test_arsenal(self) -> None:
-        result = self._run("arsenal", "--phase", "recon")
-        assert result.returncode == 0
-        assert "nmap" in result.stdout

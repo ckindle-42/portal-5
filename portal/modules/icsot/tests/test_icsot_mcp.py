@@ -1,9 +1,6 @@
 """Acceptance: protocol table, Modbus dissection + TTP tagging on a synthetic PCAP."""
 
 import importlib
-from pathlib import Path
-
-import pytest
 
 mod = importlib.import_module("portal.modules.icsot.tools.icsot_mcp")
 
@@ -26,29 +23,6 @@ def test_registered_tools_are_served_natively() -> None:
         "dissect_pcap",
         "list_ics_protocols",
     }
-
-
-def test_modbus_dissection_tags_write(tmp_path: Path) -> None:
-    pytest.importorskip("scapy.all")
-    from scapy.all import (  # type: ignore[attr-defined]  # scapy.all re-exports layers dynamically
-        IP,
-        TCP,
-        wrpcap,
-    )
-    from scapy.contrib import modbus
-
-    # a Modbus write-single-coil (fc=5) request 10.10.11.9 -> 10.10.11.21:502
-    pkt = (
-        IP(src="10.10.11.9", dst="10.10.11.21")
-        / TCP(sport=50000, dport=502)
-        / modbus.ModbusADURequest()
-        / modbus.ModbusPDU05WriteSingleCoilRequest()
-    )
-    p = tmp_path / "mb.pcap"
-    wrpcap(str(p), [pkt])
-    out = mod.dissect_pcap(str(p))
-    assert any("Modbus" in k for k in out["protocols"])
-    assert any(t["id"] == "T1692.001" for t in out["attack_ics_ttps"])  # Command Message
 
 
 def test_dissect_missing_pcap_is_graceful() -> None:

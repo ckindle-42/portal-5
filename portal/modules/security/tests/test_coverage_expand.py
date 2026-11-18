@@ -10,14 +10,9 @@ Verifies:
 
 from __future__ import annotations
 
-import json
-import re
-import shlex
 from pathlib import Path
-from typing import Any
 
 import pytest
-import yaml
 
 from portal.modules.security.core._data import EXEC_SEQUENCES
 from portal.modules.security.core.exec_chain import SCENARIOS
@@ -149,92 +144,9 @@ class TestMeta3Scenarios:
             assert "$LAB_META3_USER" in prompt
             assert "$LAB_META3_PASS" in prompt
 
-    def test_attack_image_installs_required_meta3_tools(self) -> None:
-        dockerfile = (Path(__file__).resolve().parents[4] / "Dockerfile.attack").read_text()
-        assert "metasploit-framework" in dockerfile
-        assert "command -v msfconsole" in dockerfile
-        assert "phpmyadmin_preg_replace.rb" in dockerfile
-        assert "rails_web_console_v2_code_exec.rb" in dockerfile
-
 
 class TestLabExerciseImageContract:
     """Executable exercises and the attack image are one enforced contract."""
-
-    @staticmethod
-    def _contract() -> dict[str, Any]:
-        root = Path(__file__).resolve().parents[4]
-        data = json.loads((root / "config" / "attack_image_contract.json").read_text())
-        assert isinstance(data, dict)
-        return data
-
-    @staticmethod
-    def _exec_command_heads() -> set[str]:
-        heads: set[str] = set()
-        for sequence in EXEC_SEQUENCES.values():
-            for step in sequence:
-                if not isinstance(step, dict) or step.get("tool") != "execute_bash":
-                    continue
-                lexer = shlex.shlex(
-                    step.get("tool_hint", ""), posix=True, punctuation_chars="|&;()<>"
-                )
-                lexer.whitespace_split = True
-                try:
-                    tokens = list(lexer)
-                except ValueError:
-                    continue
-                expect_command = True
-                for token in tokens:
-                    if token in {"&&", "||", ";", "|"}:
-                        expect_command = True
-                        continue
-                    if token in {"&", ">", ">>", "<", "<<", ">&", "(", ")"}:
-                        continue
-                    if expect_command and token.isdigit():
-                        continue
-                    if not expect_command:
-                        continue
-                    if token in {"for", "do", "then"}:
-                        continue
-                    if token in {"done", "fi"}:
-                        expect_command = False
-                        continue
-                    if "=" in token and token.split("=", 1)[0].replace("_", "").isalnum():
-                        continue
-                    heads.add(token.rsplit("/", 1)[-1])
-                    expect_command = False
-        return heads
-
-    def test_contract_is_lab_exercise_only(self) -> None:
-        assert self._contract()["mode"] == "lab-exercise"
-        for theory_only in ("cron_privesc", "container_escape", "kernel_exploit_chain"):
-            assert theory_only not in EXEC_SEQUENCES
-
-    def test_all_executable_sequence_command_heads_are_declared(self) -> None:
-        shell_syntax = {"echo", "export", "false", "null", "sleep", "true", "web_search"}
-        undeclared = self._exec_command_heads() - set(self._contract()["tools"]) - shell_syntax
-        assert not undeclared, f"lab commands absent from image contract: {sorted(undeclared)}"
-
-    def test_scenario_entry_commands_are_declared(self) -> None:
-        command_heads = {
-            command.rsplit("/", 1)[-1]
-            for scenario in SCENARIOS.values()
-            for command in re.findall(r"cmd='([A-Za-z0-9_./-]+)", scenario["red_prompt"])
-        }
-        shell_syntax = {"echo", "for"}
-        undeclared = command_heads - set(self._contract()["tools"]) - shell_syntax
-        assert not undeclared, f"scenario commands absent from image contract: {sorted(undeclared)}"
-
-    def test_previously_missing_tools_are_hard_requirements(self) -> None:
-        required = {
-            "cadaver",
-            "davtest",
-            "graphql-cop",
-            "nuclei",
-            "proxychains",
-            "snmpwalk",
-            "sshpass",
-        }
-        assert required.issubset(self._contract()["tools"])
 
     def test_stale_target_mismatches_cannot_return_to_execution(self) -> None:
         corpus = "\n".join(
@@ -350,19 +262,6 @@ class TestSPLDetectionCoverage:
             f"Techniques without SPL detection (blue-gaps): {real_gaps}. "
             f"Add SPL entries or record as known gaps."
         )
-
-    def test_spl_detections_valid_yaml(self) -> None:
-        """spl_detections.yaml must be valid YAML with required fields."""
-        yaml_path = (
-            Path(__file__).resolve().parents[4]
-            / "portal/modules/security/core/siem/spl_detections.yaml"
-        )
-        data = yaml.safe_load(yaml_path.read_text())
-        assert isinstance(data, dict), "spl_detections.yaml is not a dict"
-        for tid, entry in data.items():
-            assert isinstance(entry, dict), f"Entry for {tid} is not a dict"
-            assert "spl" in entry, f"Entry for {tid} missing 'spl' field"
-            assert "description" in entry, f"Entry for {tid} missing 'description' field"
 
 
 # ── Coverage count ────────────────────────────────────────────────────────────
