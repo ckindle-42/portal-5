@@ -534,6 +534,11 @@ def _honesty(progress: Mapping[str, Any], family: str) -> dict[str, Any]:
     if not isinstance(detail, Mapping):
         return {"knowledge": "none loaded (similar_to_known did not run in this receipt)"}
     excluded = detail.get("excluded_family")
+    loaded = [str(f) for f in detail.get("loaded_families") or ()]
+    if detail.get("index_unseen") and not excluded and family not in loaded:
+        # A dataset the store has never seen has nothing of its own to leave out; the loader's
+        # leak guard already refused rows carrying the run's index (2026-11-18, botsv2).
+        excluded = family
     if excluded is None or str(excluded) != family:
         raise ScoreboardError(
             f"the notables receipt excludes {excluded!r}, not {family!r}: the run under test "

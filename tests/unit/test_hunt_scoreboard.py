@@ -729,3 +729,33 @@ def test_a_run_root_scores_every_family_with_its_own_keys(
     assert all(
         family["honesty"]["excluded_family"] == family["family"] for family in payload["families"]
     )
+
+
+def test_honesty_accepts_an_index_unseen_by_the_store() -> None:
+    # botsv2, 2026-11-18: the store holds no botsv2 rows, so nothing is excluded and the loader's
+    # leak guard is the protection; the scoreboard must score it rather than refuse.
+    progress = {
+        "stages": {
+            "notables": {
+                "similar_to_known": {
+                    "excluded_family": "",
+                    "index_unseen": True,
+                    "loaded_families": ["kyoushi", "russell", "santos"],
+                }
+            }
+        }
+    }
+    assert board._honesty(progress, "botsv2")["knowledge"] == "loaded"
+    leaked = {
+        "stages": {
+            "notables": {
+                "similar_to_known": {
+                    "excluded_family": "",
+                    "index_unseen": True,
+                    "loaded_families": ["botsv2", "santos"],
+                }
+            }
+        }
+    }
+    with pytest.raises(board.ScoreboardError):
+        board._honesty(leaked, "botsv2")
