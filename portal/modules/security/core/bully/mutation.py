@@ -7,8 +7,7 @@ overlay), never code changes to Red: the compiled overlay's `red_prompt` /
 `exec_chain._prepare_scenario` / `BenchConfig.set_scenario` /
 `_run_chain_test` (all three untouched by this build). Pure module -- no SQL,
 no network, no import of the lab-execution entry points themselves (MASTER
-SS3: "Only orchestrator.py sequences a hunt iteration"; enforced by
-`tests/security/bully/test_boundaries.py`).
+SS3: "Only orchestrator.py sequences a hunt iteration").
 
 `validate_and_compile` is fail-closed: unknown operator, invariant conflict,
 scope violation (`perception.assert_in_lab`), missing control, or an

@@ -21,8 +21,6 @@ sources:
   path: scripts/native-mcp-service.sh
 - type: code
   path: scripts/validation/review_program.py
-- type: code
-  path: tests/security/review/test_runtime.py
 claims:
 - probe: mcp.fleet.ports
   contains: 8943

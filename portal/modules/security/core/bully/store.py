@@ -5,8 +5,7 @@ SQLite WAL, ordered migrations (`migrations/NNN_*.sql`, tracked in
 `events.py`; this module is the only place that writes a row), and the
 transactional index outbox (retry/backoff policy lives in `outbox.py`).
 
-No other bully module touches SQL (MASTER SS3 boundary rule -- enforced by
-an import-scan test in ``tests/security/bully/test_boundaries.py``).
+No other bully module touches SQL (MASTER SS3 boundary rule).
 """
 
 from __future__ import annotations
