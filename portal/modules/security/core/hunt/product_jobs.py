@@ -633,33 +633,111 @@ def status(
         time.sleep(min(STATUS_POLL_S, remaining))
 
 
+def result_bytes(value: Any) -> int:
+    """Size of a tool result under the reviewer's canonical compact JSON encoding."""
+    return len(json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+
+
+def _paginate(
+    page: dict[str, Any],
+    *,
+    offset: int,
+    total: int,
+    returned: int,
+    total_key: str | None,
+    omitted_key: str,
+    returned_key: str | None = None,
+) -> None:
+    if total_key is not None:
+        page[total_key] = total
+    if returned_key is not None:
+        page[returned_key] = returned
+    omitted = max(0, total - offset - returned)
+    page[omitted_key] = omitted
+    if omitted:
+        page["truncated"] = True
+    if offset + returned < total:
+        page["next_offset"] = offset + returned
+
+
+def _page_view(
+    envelope: dict[str, Any],
+    items_key: str,
+    window: Sequence[Mapping[str, Any]],
+    build: Callable[[Mapping[str, Any], int], dict[str, Any]],
+    *,
+    total: int,
+    offset: int,
+    total_key: str | None,
+    omitted_key: str,
+    returned_key: str | None = None,
+    byte_limit: int | None = None,
+) -> dict[str, Any]:
+    """One page of items in rank order within byte_limit, or the single overflowing item."""
+    if offset < 0:
+        return {"error": "offset must be 0 or greater"}
+    chosen: list[dict[str, Any]] = []
+    overflow: dict[str, Any] | None = None
+    for position, row in enumerate(window):
+        item = build(row, offset + position)
+        trial = {**envelope, items_key: [*chosen, item]}
+        _paginate(
+            trial,
+            offset=offset,
+            total=total,
+            returned=len(chosen) + 1,
+            total_key=total_key,
+            omitted_key=omitted_key,
+            returned_key=returned_key,
+        )
+        if byte_limit is not None and result_bytes(trial) > byte_limit:
+            if not chosen:
+                overflow = trial
+            break
+        chosen.append(item)
+    if overflow is not None:
+        return overflow
+    page = {**envelope, items_key: chosen}
+    _paginate(
+        page,
+        offset=offset,
+        total=total,
+        returned=len(chosen),
+        total_key=total_key,
+        omitted_key=omitted_key,
+        returned_key=returned_key,
+    )
+    return page
+
+
 def leads_view(
     job_id: str | None = None,
     index: str | None = None,
     n: int = LEADS_VIEW_DEFAULT,
+    offset: int = 0,
+    byte_limit: int | None = None,
 ) -> dict[str, Any]:
     job, out = _resolve(job_id, index)
     if job is None:
         return out
     if not _is_terminal(job):
         return _running_view(job)
-    run_dir = Path(str(job["run_dir"]))
-    rows = _ranked_rows(run_dir)
-    total = len(rows)
-    selected = rows[: max(0, min(n, LEADS_VIEW_LIMIT))]
-    leads = []
-    for rank, row in enumerate(selected, 1):
-        leads.append(_lead(row, rank))
-    out.update(
-        job_id=job["job_id"],
-        index=job["index"],
-        leads=leads,
-        total_leads=total,
-        returned_leads=len(leads),
-        omitted_leads=total - len(leads),
-        truncated=total > len(leads),
+    rows = _ranked_rows(Path(str(job["run_dir"])))
+    want = max(0, min(n, LEADS_VIEW_LIMIT))
+    return compact(
+        _page_view(
+            {"job_id": job["job_id"], "index": job["index"]},
+            "leads",
+            rows[offset : offset + want],
+            lambda row, position: _lead(row, position + 1),
+            total=len(rows),
+            offset=offset,
+            total_key="total_leads",
+            omitted_key="omitted_leads",
+            returned_key="returned_leads",
+            byte_limit=byte_limit,
+        )
     )
-    return compact(out)
 
 
 def _ranked_rows(run_dir: Path) -> list[dict[str, Any]]:
@@ -697,9 +775,15 @@ def _read_rows(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
+def _mark_cut(item: dict[str, Any], key: str, raw: Any) -> None:
+    value = item.get(key)
+    if isinstance(raw, str) and value is not None and value != raw:
+        item[f"{key}_truncated"] = True
+
+
 def _lead(row: Mapping[str, Any], rank: int) -> dict[str, Any]:
     evidence = [item for item in row.get("evidence", []) if isinstance(item, Mapping)]
-    return {
+    lead = {
         "rank": rank,
         "notable_id": _one_line(row.get("notable_id"), 48),
         "generator": _one_line(row.get("generator"), 32),
@@ -707,6 +791,42 @@ def _lead(row: Mapping[str, Any], rank: int) -> dict[str, Any]:
         "why": _one_line(row.get("why"), 80),
         "evidence_query": _one_line(evidence[0].get("query"), 100) if evidence else None,
     }
+    _mark_cut(lead, "notable_id", row.get("notable_id"))
+    _mark_cut(lead, "generator", row.get("generator"))
+    _mark_cut(lead, "source", row.get("source_id"))
+    _mark_cut(lead, "why", row.get("why"))
+    if evidence:
+        _mark_cut(lead, "evidence_query", evidence[0].get("query"))
+    return lead
+
+
+def lead_detail(job_id: str | None, index: str | None, notable_id: str) -> dict[str, Any]:
+    job, out = _resolve(job_id, index)
+    if job is None:
+        return out
+    if not _is_terminal(job):
+        return _running_view(job)
+    rows = _ranked_rows(Path(str(job["run_dir"])))
+    rank = 0
+    row: dict[str, Any] | None = None
+    for position, item in enumerate(rows, 1):
+        if item.get("notable_id") == notable_id:
+            rank, row = position, item
+            break
+    if row is None:
+        return {"job_id": job["job_id"], "error": f"no lead {notable_id!r}"}
+    evidence = [entry for entry in row.get("evidence", []) if isinstance(entry, Mapping)]
+    return compact(
+        {
+            "job_id": job["job_id"],
+            "rank": rank,
+            "notable_id": row.get("notable_id"),
+            "generator": row.get("generator"),
+            "source": row.get("source_id"),
+            "why": row.get("why"),
+            "evidence_query": evidence[0].get("query") if evidence else None,
+        }
+    )
 
 
 def _short(value: Any, limit: int) -> Any:
@@ -721,48 +841,105 @@ def _one_line(value: Any, limit: int) -> str | None:
     return " ".join(value.split())[:limit] or None
 
 
+def _case(job: Mapping[str, Any], case_no: int) -> tuple[Mapping[str, Any], dict[str, Any] | None]:
+    cases = read_json(Path(str(job["run_dir"])) / RELATE_FILE).get("cases")
+    cases = cases if isinstance(cases, list) else []
+    if not 1 <= case_no <= len(cases):
+        return {}, {"job_id": job["job_id"], "error": f"case {case_no} not in 1..{len(cases)}"}
+    return _mapping(cases[case_no - 1]), None
+
+
 def case_view(
     job_id: str | None = None,
     index: str | None = None,
     case_no: int = 1,
     n: int = 2,
+    offset: int = 0,
+    byte_limit: int | None = None,
 ) -> dict[str, Any]:
     job, out = _resolve(job_id, index)
     if job is None:
         return out
     if not _is_terminal(job):
         return _running_view(job)
-    cases = read_json(Path(str(job["run_dir"])) / RELATE_FILE).get("cases")
-    cases = cases if isinstance(cases, list) else []
-    if not 1 <= case_no <= len(cases):
-        return {"job_id": job["job_id"], "error": f"case {case_no} not in 1..{len(cases)}"}
-    case = _mapping(cases[case_no - 1])
+    case, failure = _case(job, case_no)
+    if failure is not None:
+        return failure
     evidence = case.get("evidence")
     evidence = evidence if isinstance(evidence, list) else []
-    selected = evidence[: max(0, min(n, LEADS_VIEW_LIMIT))]
+    want = max(0, min(n, LEADS_VIEW_LIMIT))
+    return compact(
+        _page_view(
+            {
+                "job_id": job["job_id"],
+                "case": case_no,
+                "case_id": _one_line(case.get("case_id"), 48),
+                "anchor": _one_line(case.get("anchor_entity"), 96),
+                "score": case.get("score"),
+                "seed_count": len(case.get("seed_notables") or []),
+                "related_count": len(case.get("related_notables") or []),
+            },
+            "evidence",
+            evidence[offset : offset + want],
+            _case_evidence,
+            total=len(evidence),
+            offset=offset,
+            total_key="evidence_count",
+            omitted_key="evidence_omitted",
+            byte_limit=byte_limit,
+        )
+    )
+
+
+def _case_evidence(row: Mapping[str, Any], _position: int) -> dict[str, Any]:
+    item = _mapping(row)
+    shown = {
+        "source": _one_line(item.get("source"), 48),
+        "line": _one_line(item.get("line"), 150),
+    }
+    _mark_cut(shown, "source", item.get("source"))
+    _mark_cut(shown, "line", item.get("line"))
+    return shown
+
+
+def evidence_detail(
+    job_id: str | None, index: str | None, case_no: int, evidence_index: int
+) -> dict[str, Any]:
+    job, out = _resolve(job_id, index)
+    if job is None:
+        return out
+    if not _is_terminal(job):
+        return _running_view(job)
+    case, failure = _case(job, case_no)
+    if failure is not None:
+        return failure
+    evidence = case.get("evidence")
+    evidence = evidence if isinstance(evidence, list) else []
+    if not 0 <= evidence_index < len(evidence):
+        return {
+            "job_id": job["job_id"],
+            "case": case_no,
+            "error": f"evidence {evidence_index} not in 0..{len(evidence) - 1}",
+        }
+    row = _mapping(evidence[evidence_index])
     return compact(
         {
             "job_id": job["job_id"],
             "case": case_no,
-            "case_id": _one_line(case.get("case_id"), 48),
-            "anchor": _one_line(case.get("anchor_entity"), 96),
-            "score": case.get("score"),
-            "seed_count": len(case.get("seed_notables") or []),
-            "related_count": len(case.get("related_notables") or []),
-            "evidence": [
-                {
-                    "source": _one_line(_mapping(item).get("source"), 48),
-                    "line": _one_line(_mapping(item).get("line"), 150),
-                }
-                for item in selected
-            ],
-            "evidence_count": len(evidence),
-            "evidence_omitted": len(evidence) - len(selected),
+            "evidence_index": evidence_index,
+            "source": row.get("source"),
+            "line": row.get("line"),
         }
     )
 
 
-def sources_view(job_id: str | None = None, index: str | None = None, n: int = 3) -> dict[str, Any]:
+def sources_view(
+    job_id: str | None = None,
+    index: str | None = None,
+    n: int = 3,
+    offset: int = 0,
+    byte_limit: int | None = None,
+) -> dict[str, Any]:
     job, out = _resolve(job_id, index)
     if job is None:
         return out
@@ -774,29 +951,114 @@ def sources_view(job_id: str | None = None, index: str | None = None, n: int = 3
     unknown = [
         card for card in cards if isinstance(card, Mapping) and not bool(card.get("understood"))
     ]
-    selected = [
-        {
-            "source": _one_line(card.get("source_id"), 64),
-            "kind": _one_line(card.get("kind"), 24),
-            "reason": _one_line(card.get("reason"), 96),
-        }
-        for card in unknown[: max(0, min(n, LEADS_VIEW_LIMIT))]
-    ]
     totals = _mapping(payload.get("totals"))
     understood = sum(
         1 for card in cards if isinstance(card, Mapping) and bool(card.get("understood"))
     )
+    want = max(0, min(n, LEADS_VIEW_LIMIT))
+    return compact(
+        _page_view(
+            {
+                "job_id": job["job_id"],
+                "index": job["index"],
+                "counts": {
+                    "sources": totals.get("sources", 0),
+                    "cards": totals.get("cards", len(cards)),
+                    "understood": totals.get("understood", understood),
+                    "not_understood": len(unknown),
+                },
+            },
+            "not_understood",
+            unknown[offset : offset + want],
+            _source_card,
+            total=len(unknown),
+            offset=offset,
+            total_key=None,
+            omitted_key="not_understood_omitted",
+            byte_limit=byte_limit,
+        )
+    )
+
+
+def _source_card(row: Mapping[str, Any], _position: int) -> dict[str, Any]:
+    item = {
+        "source": _one_line(row.get("source_id"), 64),
+        "kind": _one_line(row.get("kind"), 24),
+        "reason": _one_line(row.get("reason"), 96),
+    }
+    _mark_cut(item, "source", row.get("source_id"))
+    _mark_cut(item, "kind", row.get("kind"))
+    _mark_cut(item, "reason", row.get("reason"))
+    return item
+
+
+def card_detail(job_id: str | None, index: str | None, source: str) -> dict[str, Any]:
+    job, out = _resolve(job_id, index)
+    if job is None:
+        return out
+    if not _is_terminal(job):
+        return _running_view(job)
+    cards = read_json(Path(str(job["run_dir"])) / SOURCES_FILE).get("cards")
+    cards = cards if isinstance(cards, list) else []
+    matches = _matching_cards(cards, source)
+    if not matches:
+        return {"job_id": job["job_id"], "error": f"no source card {source!r}"}
     return compact(
         {
             "job_id": job["job_id"],
-            "index": job["index"],
-            "counts": {
-                "sources": totals.get("sources", 0),
-                "cards": totals.get("cards", len(cards)),
-                "understood": totals.get("understood", understood),
-                "not_understood": len(unknown),
-            },
-            "not_understood": selected,
-            "not_understood_omitted": len(unknown) - len(selected),
+            "cards": [
+                {
+                    "source": row.get("source_id"),
+                    "kind": row.get("kind"),
+                    "reason": row.get("reason"),
+                    "understood": bool(row.get("understood")),
+                }
+                for row in matches
+            ],
         }
     )
+
+
+def _matching_cards(cards: Sequence[Any], source: str) -> list[Mapping[str, Any]]:
+    named = [
+        card for card in cards if isinstance(card, Mapping) and card.get("source_id") == source
+    ]
+    if named:
+        return named
+    return [
+        card
+        for card in cards
+        if isinstance(card, Mapping)
+        and isinstance(card.get("source_id"), str)
+        and card["source_id"].startswith(source)
+    ]
+
+
+def indexes_view(
+    rows: Sequence[Mapping[str, Any]],
+    n: int = 3,
+    offset: int = 0,
+    byte_limit: int | None = None,
+) -> dict[str, Any]:
+    want = max(0, min(n, LEADS_VIEW_LIMIT))
+    return compact(
+        _page_view(
+            {},
+            "indexes",
+            rows[offset : offset + want],
+            _index_item,
+            total=len(rows),
+            offset=offset,
+            total_key="total_indexes",
+            omitted_key="indexes_omitted",
+            byte_limit=byte_limit,
+        )
+    )
+
+
+def _index_item(row: Mapping[str, Any], _position: int) -> dict[str, Any]:
+    name = str(row.get("index") or "")
+    item = {"index": name[:80], "events": row.get("count")}
+    if len(name) > 80:
+        item["index_truncated"] = True
+    return item

@@ -211,11 +211,26 @@ def _hunt_search() -> Any:
 
 
 @mcp.tool()
-def hunt_sources(job_id: str | None = None, index: str | None = None, n: int = 3) -> dict[str, Any]:
-    """List a run's source cards, or available indexes when no run selector is supplied."""
+def hunt_sources(
+    job_id: str | None = None,
+    index: str | None = None,
+    n: int = 3,
+    offset: int = 0,
+    source: str | None = None,
+) -> dict[str, Any]:
+    """List a run's not-understood source cards, or available indexes with no run selector.
 
+    Pages fit the tool-result byte budget: pass next_offset back as offset to continue a
+    list. source=<source_id> returns that card's full untruncated fields.
+    """
+
+    if source is not None:
+        return _hunt_guard("hunt_sources", lambda: r2_hunt_jobs.card_detail(job_id, index, source))
     if job_id or index:
-        return _hunt_guard("hunt_sources", lambda: r2_hunt_jobs.sources_view(job_id, index, n))
+        return _hunt_guard(
+            "hunt_sources",
+            lambda: r2_hunt_jobs.sources_view(job_id, index, n, offset, _hunt_result_byte_limit()),
+        )
 
     def run() -> dict[str, Any]:
         rows = _hunt_search().iter_post(
@@ -223,15 +238,7 @@ def hunt_sources(job_id: str | None = None, index: str | None = None, n: int = 3
             0,
             time.time(),
         )
-        selected = [
-            {"index": str(row.get("index") or "")[:80], "events": row.get("count")}
-            for row in rows[: max(0, min(n, 3))]
-        ]
-        return {
-            "total_indexes": len(rows),
-            "indexes": selected,
-            "indexes_omitted": len(rows) - len(selected),
-        }
+        return r2_hunt_jobs.indexes_view(rows, n, offset, _hunt_result_byte_limit())
 
     return _hunt_guard("hunt_sources", run)
 
@@ -298,17 +305,50 @@ def hunt_leads(
     job_id: str | None = None,
     index: str | None = None,
     n: int = r2_hunt_jobs.LEADS_VIEW_DEFAULT,
+    offset: int = 0,
+    notable_id: str | None = None,
 ) -> dict[str, Any]:
-    """Return compact ranked R2 leads with one explanation and evidence query each."""
-    return _hunt_guard("hunt_leads", lambda: r2_hunt_jobs.leads_view(job_id, index, n))
+    """Return compact ranked R2 leads with one explanation and evidence query each.
+
+    Pages fit the tool-result byte budget: pass next_offset back as offset for the next
+    leads in rank order. notable_id=<id from a lead> returns that lead's full untruncated
+    why and evidence query.
+    """
+
+    if notable_id is not None:
+        return _hunt_guard(
+            "hunt_leads", lambda: r2_hunt_jobs.lead_detail(job_id, index, notable_id)
+        )
+    return _hunt_guard(
+        "hunt_leads",
+        lambda: r2_hunt_jobs.leads_view(job_id, index, n, offset, _hunt_result_byte_limit()),
+    )
 
 
 @mcp.tool()
 def hunt_case(
-    job_id: str | None = None, index: str | None = None, case: int = 1, n: int = 2
+    job_id: str | None = None,
+    index: str | None = None,
+    case: int = 1,
+    n: int = 2,
+    offset: int = 0,
+    evidence: int | None = None,
 ) -> dict[str, Any]:
-    """Return a case anchor, seed count, and a few evidence lines."""
-    return _hunt_guard("hunt_case", lambda: r2_hunt_jobs.case_view(job_id, index, case, n))
+    """Return a case anchor, seed count, and a few evidence lines.
+
+    Pages fit the tool-result byte budget: pass next_offset back as offset for the next
+    evidence lines in order. evidence=<0-based line position> returns that line's full
+    untruncated text.
+    """
+
+    if evidence is not None:
+        return _hunt_guard(
+            "hunt_case", lambda: r2_hunt_jobs.evidence_detail(job_id, index, case, evidence)
+        )
+    return _hunt_guard(
+        "hunt_case",
+        lambda: r2_hunt_jobs.case_view(job_id, index, case, n, offset, _hunt_result_byte_limit()),
+    )
 
 
 def _route(

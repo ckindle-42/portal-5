@@ -828,6 +828,7 @@ def test_leads_view_caps_default_payload_and_returns_compact_rows(
     assert result["total_leads"] == 10
     assert result["omitted_leads"] == 8
     assert result["truncated"] is True
+    assert result["next_offset"] == result["returned_leads"]
     assert len(json.dumps(result).encode()) <= 1024
     assert set(result["leads"][0]) == {
         "rank",
@@ -836,6 +837,8 @@ def test_leads_view_caps_default_payload_and_returns_compact_rows(
         "source",
         "why",
         "evidence_query",
+        "source_truncated",
+        "evidence_query_truncated",
     }
     assert result["leads"][0]["source"] == "x" * 60
     assert result["leads"][0]["evidence_query"] == ("search index=run " + "z" * 2000)[:100]

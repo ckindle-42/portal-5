@@ -15,7 +15,7 @@ FIXTURE = Path(__file__).parents[1] / "fixtures" / "hunt_tool_result_size.json"
 # Redacted receipt excerpts plus a test-only job envelope from the named Kyoushi bundle.
 HUNT_TOOLS = {"hunt_sources", "hunt_start", "hunt_status", "hunt_leads", "hunt_case"}
 BOUNDED_TOOL_PARAMETERS = {
-    "hunt_sources": {"job_id", "index", "n"},
+    "hunt_sources": {"job_id", "index", "n", "offset", "source"},
     "hunt_start": {
         "index",
         "start",
@@ -28,8 +28,8 @@ BOUNDED_TOOL_PARAMETERS = {
         "judge",
     },
     "hunt_status": {"job_id", "index"},
-    "hunt_leads": {"job_id", "index", "n"},
-    "hunt_case": {"job_id", "index", "case", "n"},
+    "hunt_leads": {"job_id", "index", "n", "offset", "notable_id"},
+    "hunt_case": {"job_id", "index", "case", "n", "offset", "evidence"},
 }
 
 
