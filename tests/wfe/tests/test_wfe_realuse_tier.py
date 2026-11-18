@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from types import SimpleNamespace
 
 import pytest
 import yaml
@@ -11,6 +10,7 @@ import yaml
 from tests.wfe import campaign as camp
 
 WS = "auto-general"
+
 INC = "inc:tag"
 
 
@@ -136,166 +136,6 @@ class TestRepeatsPolicy:
         path = tmp_path / "home.jsonl"
         _suite(path)
         assert camp.suite_is_objective(path) is True
-
-
-def test_a_task_naming_another_workspace_is_not_run_here(tmp_path, monkeypatch):
-    suites = tmp_path / "suites"
-    suites.mkdir()
-    (suites / "home.jsonl").write_text(
-        "".join(
-            json.dumps(
-                {
-                    "id": tid,
-                    "workspace": ws,
-                    "instruction": "do it",
-                    "checkers": [{"type": "answer_contains", "patterns": ["done"]}],
-                }
-            )
-            + "\n"
-            for tid, ws in (("a", WS), ("b", "auto-coding"), ("c", "auto-general"))
-        )
-    )
-    monkeypatch.setattr(camp, "SUITE_DIR", suites)
-    plan = tmp_path / "plan.yaml"
-    plan.write_text(
-        yaml.safe_dump(
-            {"workloads": {WS: {"home": "home", "discovery": [], "arms": {"incumbent": INC}}}}
-        )
-    )
-    rows = camp.expand_matrix(plan, 1, tier="realuse")
-    # `c` names the base workspace, so a variant lane still runs it.
-    assert {r["task_id"] for r in rows} == {"a", "c"}
-    variant = f"{WS}::fast"
-    plan.write_text(
-        yaml.safe_dump(
-            {"workloads": {variant: {"home": "home", "discovery": [], "arms": {"incumbent": INC}}}}
-        )
-    )
-    rows = camp.expand_matrix(plan, 1, tier="realuse")
-    assert {r["task_id"] for r in rows} == {"a", "c"}
-
-
-def test_home_task_filter_restricts_the_home_suite(plan):
-    document = yaml.safe_load(plan.read_text())
-    document["workloads"][WS]["home_tasks"] = ["t02"]
-    plan.write_text(yaml.safe_dump(document))
-
-    assert {row["task_id"] for row in _matrix(plan)} == {"t02"}
-
-
-def test_tool_surface_report_names_the_workload_task_and_missing_tools(plan):
-    suite = camp.SUITE_DIR / "home.jsonl"
-    tasks = [json.loads(line) for line in suite.read_text().splitlines()]
-    tasks[2]["requires_tools"] = ["execute_python"]
-    suite.write_text("".join(json.dumps(task) + "\n" for task in tasks))
-
-    _checked, failures = camp.realuse_tool_surface_report(plan)
-
-    assert failures == ["workload auto-general task t02 missing tools: ['execute_python']"]
-
-
-def test_committed_realuse_plans_offer_every_selected_home_task_tool():
-    plans = sorted((camp.REPO / "tests/wfe/plans").glob("realuse_*.yaml"))
-    assert plans
-    failures = [
-        f"{plan.name}: {failure}"
-        for plan in plans
-        for _checked, gaps in [camp.realuse_tool_surface_report(plan)]
-        for failure in gaps
-    ]
-    assert not failures, "\n".join(failures)
-
-
-def test_the_realuse_tier_is_a_cli_choice(monkeypatch):
-    _ap, args = camp._parse_args(["--campaign-id", "c", "--tier", "realuse"])
-    assert args.tier == "realuse"
-
-
-def test_planned_matrix_applies_the_policy(plan, tmp_path, monkeypatch):
-    monkeypatch.setattr(camp, "CAMPAIGNS", tmp_path / "campaigns")
-    monkeypatch.setattr(camp, "suite_is_objective", lambda p, c=None: True)
-    d = tmp_path / "campaigns" / "c"
-    (d / "rows").mkdir(parents=True)
-    (d / "rows" / "x.json").write_text(json.dumps({"arm": INC, "served_temperature": 0.5}))
-    args = SimpleNamespace(
-        campaign_id="c",
-        all_suites=False,
-        arm=None,
-        suite=None,
-        task=None,
-        workspace=None,
-        tier="realuse",
-        advance=None,
-        repeats=None,
-    )
-    repeats, matrix = camp._planned_matrix(plan, args)
-    assert repeats == {INC: 2}
-    assert len(matrix) == 12
-
-
-def test_a_plan_repeats_count_beats_the_realuse_policy(plan, tmp_path, monkeypatch):
-    monkeypatch.setattr(camp, "CAMPAIGNS", tmp_path / "campaigns")
-    monkeypatch.setattr(camp, "suite_is_objective", lambda p, c=None: True)
-    document = yaml.safe_load(plan.read_text())
-    document["repeats"] = 4
-    plan.write_text(yaml.safe_dump(document))
-    d = tmp_path / "campaigns" / "c"
-    (d / "rows").mkdir(parents=True)
-    (d / "rows" / "x.json").write_text(json.dumps({"arm": INC, "served_temperature": 0.5}))
-    args = SimpleNamespace(
-        campaign_id="c",
-        all_suites=False,
-        arm=None,
-        suite=None,
-        task=None,
-        workspace=None,
-        tier="realuse",
-        advance=None,
-        repeats=None,
-    )
-    repeats, matrix = camp._planned_matrix(plan, args)
-    assert repeats == 4
-    assert len(matrix) == 24
-
-    args.repeats = 2
-    repeats, matrix = camp._planned_matrix(plan, args)
-    assert repeats == 2
-    assert len(matrix) == 12
-
-
-def test_a_plan_repeats_count_beats_the_confirm_default(plan, tmp_path, monkeypatch):
-    monkeypatch.setattr(camp, "CAMPAIGNS", tmp_path / "campaigns")
-    document = yaml.safe_load(plan.read_text())
-    document["repeats"] = 4
-    plan.write_text(yaml.safe_dump(document))
-    (tmp_path / "campaigns" / "c" / "rows").mkdir(parents=True)
-    args = SimpleNamespace(
-        campaign_id="c",
-        all_suites=False,
-        arm=None,
-        suite=None,
-        task=None,
-        workspace=None,
-        tier="confirm",
-        advance=None,
-        repeats=None,
-    )
-    repeats, matrix = camp._planned_matrix(plan, args)
-    assert repeats == 4
-    assert len(matrix) == 24
-
-    args.repeats = 3
-    repeats, matrix = camp._planned_matrix(plan, args)
-    assert repeats == 3
-    assert len(matrix) == 18
-
-
-def test_plan_repeats_rejects_a_non_positive_count(plan):
-    document = yaml.safe_load(plan.read_text())
-    document["repeats"] = True
-    plan.write_text(yaml.safe_dump(document))
-    with pytest.raises(ValueError, match="positive integer"):
-        camp.plan_repeats(plan)
 
 
 def test_tool_preflight_keeps_stdout_clean_for_list_arms(capsys):

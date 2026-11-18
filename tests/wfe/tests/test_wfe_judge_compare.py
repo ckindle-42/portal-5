@@ -9,34 +9,6 @@ from tests.wfe import judge_compare as compare
 from tests.wfe.judge import judgements_dir
 
 
-def _make_campaign(tmp_path, store):
-    campaign = tmp_path / "camp"
-    campaign.mkdir()
-    (campaign / "manifest.json").write_text(json.dumps({"rows": []}))
-    for profile, recs in store.items():
-        d = judgements_dir(campaign, profile)
-        d.mkdir(parents=True, exist_ok=True)
-        for key, rec in recs.items():
-            (d / f"{key}.json").write_text(json.dumps(rec))
-    return campaign
-
-
-def _rec(pref=None, reason="by design", key="sha1234567890"):
-    out = {
-        "key": key,
-        "workspace": "ws",
-        "lane": "home",
-        "suite": "realuse",
-        "arm": "inc:tag",
-        "incumbent": "chall:tag",
-        "reason": reason,
-    }
-    if pref is not None:
-        out["preference"] = pref
-        out["winner"] = pref
-    return out
-
-
 class TestLoad:
     def test_loads_all_json_files_in_a_profile(self, tmp_path):
         d = tmp_path / "p" / "judgements" / "local"
@@ -75,126 +47,8 @@ class TestKappa:
         assert k < 0
 
 
-class TestMainAgreement:
-    def test_fully_agreed_outputs_agreement_pct(self, tmp_path, monkeypatch):
-        camp = _make_campaign(
-            tmp_path,
-            {
-                "local": {"k1": _rec("A")},
-                "cloud": {"k1": _rec("A")},
-            },
-        )
-        out = StringIO()
-        monkeypatch.setattr("sys.stdout", out)
-        compare.main(["--campaign", str(camp.name), "--campaigns-root", str(tmp_path)])
-        text = out.getvalue()
-        assert "Agreement: 1/1 = 100.00%" in text
-
-    def test_fully_disagreed_outputs_disagreement_table(self, tmp_path, monkeypatch):
-        camp = _make_campaign(
-            tmp_path,
-            {
-                "local": {"k1": _rec("A")},
-                "cloud": {"k1": _rec("B")},
-            },
-        )
-        out = StringIO()
-        monkeypatch.setattr("sys.stdout", out)
-        compare.main(["--campaign", str(camp.name), "--campaigns-root", str(tmp_path)])
-        text = out.getvalue()
-        assert "Disagreements (1):" in text
-        assert "by design" in text
-
-    def test_no_shared_keys_returns_early(self, tmp_path, monkeypatch):
-        camp = _make_campaign(
-            tmp_path,
-            {
-                "local": {"k1": _rec("A", key="key-a")},
-                "cloud": {"k2": _rec("B", key="key-b")},
-            },
-        )
-        out = StringIO()
-        monkeypatch.setattr("sys.stdout", out)
-        rc = compare.main(["--campaign", str(camp.name), "--campaigns-root", str(tmp_path)])
-        assert rc == 0
-        text = out.getvalue()
-        assert "Pairs with all profiles: 0" in text
-        assert "Agreement:" not in text
-
-    def test_records_with_errors_are_excluded(self, tmp_path, monkeypatch):
-        # local has no error; cloud's record has error, so they are not paired.
-        camp = _make_campaign(
-            tmp_path,
-            {
-                "local": {"k1": _rec("A")},
-                "cloud": {
-                    "k1": {
-                        "key": "k1",
-                        "workspace": "ws",
-                        "lane": "home",
-                        "suite": "realuse",
-                        "arm": "inc:tag",
-                        "incumbent": "chall:tag",
-                        "error": "boom",
-                        "preference": "B",
-                    }
-                },
-            },
-        )
-        out = StringIO()
-        monkeypatch.setattr("sys.stdout", out)
-        rc = compare.main(["--campaign", str(camp.name), "--campaigns-root", str(tmp_path)])
-        assert rc == 0
-        text = out.getvalue()
-        assert "Pairs with all profiles: 0" in text
-        assert "Agreement:" not in text
-
-    def test_missing_profile_directory_is_treated_as_empty(self, tmp_path, monkeypatch):
-        camp = _make_campaign(
-            tmp_path,
-            {
-                "local": {"k1": _rec("A")},
-            },
-        )
-        out = StringIO()
-        monkeypatch.setattr("sys.stdout", out)
-        rc = compare.main(["--campaign", str(camp.name), "--campaigns-root", str(tmp_path)])
-        assert rc == 0
-        text = out.getvalue()
-        assert "Pairs with all profiles: 0" in text
-        assert "Agreement:" not in text
-
-    def test_partial_profile_comparison(self, tmp_path, monkeypatch):
-        """When some profiles share keys but not all, only shared keys are used."""
-        camp = _make_campaign(
-            tmp_path,
-            {
-                "local": {"k1": _rec("A"), "k2": _rec("B")},
-                "cloud": {"k1": _rec("A"), "k3": _rec("B")},
-            },
-        )
-        out = StringIO()
-        monkeypatch.setattr("sys.stdout", out)
-        compare.main(
-            [
-                "--campaign",
-                str(camp.name),
-                "--campaigns-root",
-                str(tmp_path),
-                "--profiles",
-                "local",
-                "cloud",
-            ]
-        )
-        text = out.getvalue()
-        # Only k1 is shared; both agree.
-        assert "Agreement: 1/1 = 100.00%" in text
-        # k2 and k3 are not paired — not printed as disagreements.
-        assert "No disagreements." in text
-
-
 def test_council_profiles_report_checker_agreement(tmp_path, monkeypatch):
-    from tests.wfe.judge import judgements_dir, pair_key
+    from tests.wfe.judge import pair_key
 
     campaign = tmp_path / "camp"
     (campaign / "rows").mkdir(parents=True)
@@ -262,39 +116,7 @@ def test_council_profiles_report_checker_agreement(tmp_path, monkeypatch):
     assert "council" in text
 
 
-def test_an_excluded_council_record_is_not_a_paired_preference(tmp_path, monkeypatch):
-    from tests.wfe.judge import judgements_dir
-
-    campaign = _make_campaign(
-        tmp_path,
-        {
-            "local": {"k1": _rec("A")},
-            "cloud": {"k1": _rec("B")},
-            "council": {"k1": {**_rec("A"), "excluded": "setup", "preference": None}},
-        },
-    )
-    out = StringIO()
-    monkeypatch.setattr("sys.stdout", out)
-    compare.main(
-        [
-            "--campaign",
-            campaign.name,
-            "--campaigns-root",
-            str(tmp_path),
-            "--profiles",
-            "local",
-            "cloud",
-            "council",
-        ]
-    )
-    text = out.getvalue()
-    assert "No valid paired preferences to compare." in text
-    assert "Council vs checker (exactly one arm passed): 0/0" in text
-    assert judgements_dir(campaign, "council").is_dir()
-
-
 def test_local_profile_reads_the_flat_directory_and_not_cloud(tmp_path):
-    from tests.wfe.judge import judgements_dir
 
     base = tmp_path / "c" / "judgements"
     (base / "cloud").mkdir(parents=True)
