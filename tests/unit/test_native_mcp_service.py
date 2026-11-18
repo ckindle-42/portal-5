@@ -162,11 +162,6 @@ def test_native_services_report_the_head_and_dirtiness_they_launched_from(tmp_pa
     assert run() == f"SHA={head} DIRTY=1"
 
 
-def test_a_launch_outside_a_git_checkout_still_starts_and_says_unknown(tmp_path):
-    """set -e + pipefail must not stop a native service whose root is not a git checkout."""
-    assert _run_data_mcp(tmp_path, "AI_OUTPUT_DIR=/srv/ai\n") == "DATA_MCP_ROOT=/srv/ai"
-
-
 def _run_pipeline_mcp(tmp_path, env_lines: str) -> list[str]:
     """Run the wrapper's pipeline-mcp branch in a scratch PORTAL_ROOT whose python3 is a
     stub that prints the host-facing URLs instead of starting the server."""

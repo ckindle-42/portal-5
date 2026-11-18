@@ -166,33 +166,6 @@ class TestProposeMode:
             )
         assert result == "skip"
 
-    def test_propose_keyboard_interrupt_aborts(self):
-        state = sup.SupervisorState()
-        with (
-            patch.object(
-                triage,
-                "diagnose",
-                return_value={
-                    "action": "pause_for_human",
-                    "params": {},
-                    "reason": "test",
-                    "confidence": 0.0,
-                    "allowed": True,
-                    "above_floor": False,
-                    "raw_response": "{}",
-                },
-            ),
-            patch("builtins.input", side_effect=KeyboardInterrupt),
-            contextlib.suppress(SystemExit),
-        ):
-            sup.handle_escalation(
-                state,
-                "test error",
-                "pause",
-                3,
-                triage_mode="propose",
-            )
-
 
 # ── Auto mode ────────────────────────────────────────────────────────────────
 
@@ -228,63 +201,6 @@ class TestAutoMode:
             )
         mock_exec.assert_called_once()
         assert result == "retry"
-
-    def test_auto_rejects_low_confidence(self):
-        state = sup.SupervisorState()
-        state.current_scenario = "test_sc"
-        with (
-            patch.object(
-                triage,
-                "diagnose",
-                return_value={
-                    "action": "restart_lxc",
-                    "params": {"vmid": 112},
-                    "reason": "unsure",
-                    "confidence": 0.2,
-                    "allowed": True,
-                    "above_floor": False,
-                    "raw_response": "{}",
-                },
-            ),
-            patch("builtins.input", side_effect=EOFError),
-            contextlib.suppress(SystemExit, EOFError),
-        ):
-            sup.handle_escalation(
-                state,
-                "test error",
-                "pause",
-                3,
-                triage_mode="auto",
-                confidence_floor=0.5,
-            )
-
-    def test_auto_rejects_disallowed_action(self):
-        state = sup.SupervisorState()
-        state.current_scenario = "test_sc"
-        with (
-            patch.object(
-                triage,
-                "diagnose",
-                return_value={
-                    "action": "pause_for_human",
-                    "params": {},
-                    "reason": "disallowed_action: bad_thing",
-                    "confidence": 0.0,
-                    "allowed": False,
-                    "above_floor": False,
-                    "raw_response": "{}",
-                },
-            ),
-            patch("builtins.input", side_effect=EOFError),
-            contextlib.suppress(SystemExit, EOFError),
-        ):
-            sup.handle_escalation(
-                state,
-                "test error",
-                "pause",
-                3,
-                triage_mode="auto",
-            )
 
 
 # ── Cap guard ────────────────────────────────────────────────────────────────

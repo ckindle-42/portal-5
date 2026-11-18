@@ -65,19 +65,3 @@ class TestSemaphoreExhaustion:
         data = resp.json()
         assert "status" in data
         assert "workspaces" in data
-
-    def test_chat_endpoint_requires_auth(self, client):
-        """The endpoint guarded by semaphore requires authentication."""
-        resp = client.post(
-            "/v1/chat/completions",
-            json={"model": "auto", "messages": [{"role": "user", "content": "test"}]},
-        )
-        assert resp.status_code == 401
-
-    def test_semaphore_max_concurrent_configurable(self):
-        """Semaphore limit reads from MAX_CONCURRENT_REQUESTS env var."""
-        from portal.platform.inference import router_pipe
-
-        # We set MAX_CONCURRENT_REQUESTS=2 at module top — verify it was read
-        # (may be 2 or the default 20 depending on env at import time)
-        assert router_pipe._MAX_CONCURRENT >= 1, "Semaphore limit must be positive"

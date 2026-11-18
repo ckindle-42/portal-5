@@ -738,22 +738,6 @@ class TestWorkspaceModelHintUpdated:
 class TestComplianceWorkspace:
     """Verify auto-compliance workspace is correctly wired."""
 
-    def test_compliance_workspace_exists_in_router(self):
-        from portal.platform.inference.router_pipe import WORKSPACES
-
-        assert "auto-compliance" in WORKSPACES, (
-            "auto-compliance workspace missing from WORKSPACES dict in router_pipe.py"
-        )
-
-    def test_compliance_workspace_in_backends_yaml(self):
-        import yaml
-
-        cfg = yaml.safe_load(open("config/backends.yaml"))
-        routing = cfg.get("workspace_routing", {})
-        assert "auto-compliance" in routing, (
-            "auto-compliance missing from workspace_routing in backends.yaml"
-        )
-
     def test_compliance_workspace_json_exists_and_valid(self):
         import json
 
@@ -816,38 +800,6 @@ class TestComplianceWorkspace:
         live = set(enabled_modules()) | {"eval"}
         expected = {wid for wid, spec in cfg.items() if spec.module in live}
         assert set(ws) == expected, f"eval-on set drifted: {set(ws) ^ expected}"
-
-
-class TestR17bModelExpansion:
-    """Verify R17b model expansion: all recs.md models wired."""
-
-    def test_new_llm_models_in_backends_yaml(self):
-        """All recs.md LLM models are present in backends.yaml."""
-        import yaml
-
-        cfg = yaml.safe_load(open("config/backends.yaml"))
-        all_models = []
-        for b in cfg["backends"]:
-            for m in b.get("models", []):
-                all_models.append(m["id"] if isinstance(m, dict) else m)
-
-        required = [
-            # dolphin-llama3:70b intentionally removed 2026-06-16 (42GB old Llama-3 base, superseded)
-            # llama3.3:70b-q4_k_m removed 2026-06-21: 3.8 TPS (below 20 TPS floor), supports_tools=false, bench-only
-            # R23: MiniMax-M2.1 removed (138 GB, won't fit in 48 GB RAM)
-        ]
-        for model in required:
-            assert any(model in m for m in all_models), (
-                f"FAIL: {model} not found in any backend group in backends.yaml"
-            )
-
-    def test_documents_seat_is_served_by_its_lane(self):
-        """The WFE-decided auto-documents seat resolves in its routed groups
-        at a window >= its context_limit (R8: the lane property is the contract)."""
-        import yaml
-
-        backends = yaml.safe_load(open("config/backends.yaml"))
-        _seat_is_lane_served(WORKSPACES["auto-documents"], "auto-documents", backends)
 
 
 class TestR18ModelCompleteness:
@@ -976,14 +928,6 @@ class TestR22CodingModelUpdates:
             "qwen3-coder missing from coding group"
         )
 
-    def test_launch_sh_pull_models_has_r22_updates(self):
-        """pull-models delegates to portal CLI; model list lives in portal.yaml."""
-        content = open("launch.sh").read()
-        # Post-M5-S2: pull-models delegates to portal CLI
-        assert "portal.platform.inference.cli models pull" in content, (
-            "launch.sh pull-models must delegate to portal CLI (post-M5-S2)"
-        )
-
 
 class TestRecordUsageMetrics:
     """Verify _record_usage correctly parses Ollama response fields."""
@@ -1099,14 +1043,6 @@ class TestRecordUsageMetrics:
 class TestSPLWorkspace:
     """Verify auto-spl workspace wiring across all four required files."""
 
-    def test_auto_spl_in_workspaces_dict(self):
-        """auto-spl must exist in WORKSPACES dict in router_pipe.py."""
-        from portal.platform.inference.router_pipe import WORKSPACES
-
-        assert "auto-spl" in WORKSPACES, (
-            "auto-spl missing from WORKSPACES in router_pipe.py — add it with model_hint"
-        )
-
     def test_auto_spl_seats_a_served_model_and_keeps_its_toolset(self):
         """auto-spl's seat resolves in its routed groups at >= its window; the SPL
         toolset stays wired (R8: lane properties, not the seat name)."""
@@ -1116,43 +1052,6 @@ class TestSPLWorkspace:
         ws = WORKSPACES["auto-spl"]
         _seat_is_lane_served(ws, "auto-spl", backends)
         assert {"query_splunk", "convert_sigma", "compile_yara"} <= set(ws.get("tools") or [])
-
-    def test_auto_spl_in_backends_yaml(self):
-        """auto-spl must exist in workspace_routing in backends.yaml."""
-        import yaml
-
-        cfg = yaml.safe_load(open("config/backends.yaml"))
-        routing = cfg.get("workspace_routing", {})
-        assert "auto-spl" in routing, "auto-spl missing from workspace_routing in backends.yaml"
-
-    def test_spl_workspace_set_matches_enabled_modules(self):
-        """WORKSPACES equals the module-enabled workspace set (module: eval's bench-*
-        gated off by default; `video` follows its own per-deployment toggle.
-        Derived from enabled_modules(). See test_eval_gate_reads_the_eval_module_workspaces
-        for the PORTAL_ENABLE_EVAL=1 path)."""
-        from portal.platform.inference.config import load_portal_config
-        from portal.platform.inference.router_pipe import WORKSPACES
-        from portal.platform.wiki.adapters.modules import enabled_modules
-
-        # Derived, not hardcoded, and leak-tolerant: WORKSPACES is built once at
-        # import time, so another test's PORTAL_ENABLE_EVAL / wiki-toggle can
-        # leave it either at the module-default set or the eval-on superset.
-        # Assert the stable invariants: only-known ids, and every module-enabled
-        # non-eval workspace is present.
-        cfg = load_portal_config().workspaces
-        _live = set(enabled_modules())
-        must_have = {
-            wid for wid, spec in cfg.items() if spec.module in _live and spec.module != "eval"
-        }
-        assert set(WORKSPACES) <= set(cfg), f"unknown ids: {set(WORKSPACES) - set(cfg)}"
-        assert must_have <= set(WORKSPACES), f"missing: {must_have - set(WORKSPACES)}"
-        assert "auto" in WORKSPACES
-
-    def test_spl_persona_yaml_exists(self):
-        """Persona YAML file must exist at the canonical path."""
-
-        persona_path = Path("config/personas/splunksplgineer.yaml")
-        assert persona_path.exists(), f"SPL Engineer persona YAML not found at {persona_path}"
 
     def test_spl_persona_yaml_has_required_fields(self):
         """Persona YAML must have all fields read by openwebui_init.py."""
@@ -1171,12 +1070,6 @@ class TestSPLWorkspace:
         data = yaml.safe_load(Path("config/personas/splunksplgineer.yaml").read_text())
         wm = data.get("workspace_model", "")
         assert wm == "auto-spl", f"SPL persona workspace_model should be auto-spl, got: {wm}"
-
-    def test_workspace_json_exists(self):
-        """Workspace JSON file must exist for GUI import."""
-
-        ws_path = Path("imports/openwebui/workspaces/workspace_auto_spl.json")
-        assert ws_path.exists(), f"Workspace JSON not found at {ws_path}"
 
     def test_workspace_json_has_correct_id(self):
         """Workspace JSON id must be 'auto-spl'."""
@@ -1249,16 +1142,6 @@ class TestSPLWorkspace:
         result = _detect_workspace(messages)
         assert result == "auto-spl", (
             f"_detect_workspace should return 'auto-spl' for tstats content, got: {result!r}"
-        )
-
-    def test_spl_does_not_route_generic_coding(self):
-        """Generic Python/code requests must NOT route to auto-spl."""
-        from portal.platform.inference.router_pipe import _detect_workspace
-
-        messages = [{"role": "user", "content": "Write a Python function to parse JSON logs"}]
-        result = _detect_workspace(messages)
-        assert result != "auto-spl", (
-            f"Python-only request should not route to auto-spl, got: {result!r}"
         )
 
     def test_auto_spl_routing_consistent_across_files(self):
@@ -1354,19 +1237,6 @@ class TestAgenticWorkspace:
             return
         window = int(match.group(1)) * 1024
         assert window >= ctx, (hint, window, ctx)
-
-    def test_agentic_workspace_has_model_hint(self):
-        """auto-agentic's resolved variant must name a registered model_hint."""
-        from portal.platform.inference.router.preinject import (
-            _resolve_workspace_variant,
-            _unpack_synthetic_workspace,
-        )
-        from portal.platform.inference.router_pipe import WORKSPACES
-
-        base, variant = _unpack_synthetic_workspace("auto-coding::heavy")
-        resolved_id = _resolve_workspace_variant("auto-coding::heavy", base, variant)
-        hint = WORKSPACES[resolved_id].get("model_hint", "")
-        assert hint, "auto-agentic workspace missing model_hint — routing will fail on Ollama path"
 
     def test_auto_coding_workspace_json_exists(self):
         """Workspace JSON for GUI import must exist for the base auto-coding

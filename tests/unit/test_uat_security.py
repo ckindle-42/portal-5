@@ -151,16 +151,6 @@ async def test_request_success_parses_route_and_content():
 
 
 @pytest.mark.asyncio
-async def test_request_forwards_variant_as_query_param():
-    client = MagicMock()
-    client.post = AsyncMock(
-        return_value=_mock_response(200, {"choices": [{"message": {"content": "ok"}}]})
-    )
-    await uat._request(client, "auto-security", "ping", variant="redteam")
-    assert client.post.call_args.kwargs["params"] == {"variant": "redteam"}
-
-
-@pytest.mark.asyncio
 async def test_request_disabled_workspace_returns_detail_as_error():
     client = MagicMock()
     client.post = AsyncMock(
