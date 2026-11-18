@@ -13,6 +13,7 @@ import json
 import re
 import sys
 import time
+import unicodedata
 from collections import Counter, defaultdict
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -41,6 +42,16 @@ RULE = (
     "A step is covered when one of its labelled lines is."
 )
 
+ENTITY_RULE = (
+    "an artefact is located when its key value appears whole-word (NFC-normalized and "
+    "casefolded on both sides) in a notable's what/basis/why, its entity values, or its "
+    "evidence queries and lines; a step is covered "
+    "when one of its artefacts is located and a scenario is found when one of its steps is. "
+    "Asset matches (victim hosts/users) are reported but never cover a step or find a scenario "
+    "on their own. An entry with admitted=false (failed the live locator audit) is excluded; "
+    "admitted=null is scored but flagged pending until the intake audit locates its events."
+)
+
 _TERM = re.compile(r'TERM\("((?:[^"\\]|\\.)*)"\)')
 _PLAIN_TERM = re.compile(r'(?<![=\w])"((?:[^"\\]|\\.)*)"')
 _SOURCE = re.compile(r'source="([^"]+)"')
@@ -63,6 +74,22 @@ class KeyLine:
     source: str
     number: int
     labels: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class EntityKey:
+    """One cited entity-level key row: an artefact or asset of a scenario step."""
+
+    dataset: str
+    scenario: str
+    step: str
+    value: str
+    entity: str
+    role: str
+    citations: tuple[str, ...]
+    locator: str
+    audit_count: int | None
+    admitted: bool | None
 
 
 @dataclass(frozen=True)
@@ -204,6 +231,75 @@ def _read_keys(path: Path) -> list[KeyLine]:
     if not rows:
         raise ScoreboardError(f"keys {path} hold no labelled line")
     return rows
+
+
+def _keys_are_entity(path: Path) -> bool:
+    """True when the first key row is entity-level (scenario/value) rather than per-line."""
+    if not path.is_file():
+        raise ScoreboardError(f"keys not found: {path}")
+    for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if not raw.strip():
+            continue
+        stored = json.loads(raw)
+        if "line" in stored:
+            return False
+        if "value" in stored and "scenario" in stored:
+            return True
+        raise ScoreboardError(f"keys {path}: first row is neither per-line nor entity-level")
+    return False  # an empty file stays in line mode, where _read_keys fails loudly
+
+
+def _read_entity_keys(path: Path) -> list[EntityKey]:
+    rows: list[EntityKey] = []
+    for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if not raw.strip():
+            continue
+        stored = json.loads(raw)
+        for name in ("dataset", "scenario", "step", "value", "role"):
+            if name not in stored:
+                raise ScoreboardError(f"entity key row lacks {name!r}: {raw[:120]}")
+        audit = stored.get("audit")
+        count = audit.get("count") if isinstance(audit, Mapping) else None
+        admitted = stored.get("admitted")
+        rows.append(
+            EntityKey(
+                str(stored["dataset"]),
+                str(stored["scenario"]),
+                str(stored["step"]),
+                str(stored["value"]),
+                str(stored.get("entity") or ""),
+                str(stored["role"]),
+                tuple(str(citation) for citation in stored.get("citations") or ()),
+                str(stored.get("locator") or ""),
+                int(count) if count is not None else None,
+                None if admitted is None else bool(admitted),
+            )
+        )
+    if not rows:
+        raise ScoreboardError(f"keys {path} hold no entries")
+    return rows
+
+
+def _fold(text: str) -> str:
+    """NFC-normalized then casefolded text: the form entity values are matched in."""
+    return unicodedata.normalize("NFC", text).casefold()
+
+
+def _entity_pattern(value: str) -> re.Pattern[str]:
+    return re.compile(r"(?<!\w)" + re.escape(_fold(value)) + r"(?!\w)")
+
+
+def _haystack(row: Mapping[str, Any]) -> str:
+    """Everything a notable says, folded: the text entity keys are matched against."""
+    parts = [str(row.get(name) or "") for name in ("what", "basis", "why")]
+    for entity in row.get("entities") or ():
+        if isinstance(entity, Mapping):
+            parts.append(str(entity.get("value") or ""))
+    for item in row.get("evidence") or ():
+        if isinstance(item, Mapping):
+            parts.append(str(item.get("query") or ""))
+            parts.append(str(item.get("line") or ""))
+    return _fold("\n".join(parts))
 
 
 def _read_notables(directory: Path) -> list[dict[str, Any]]:
@@ -704,6 +800,227 @@ def _relation_report(
     }
 
 
+def _check_entity_family(index: str, keys: Sequence[EntityKey]) -> None:
+    if index in PROOF_INDEXES:
+        raise ScoreboardError(f"{index!r} is a proof index; it is never scored here")
+    datasets = {key.dataset for key in keys}
+    for dataset in sorted(datasets):
+        if dataset in PROOF_INDEXES:
+            raise ScoreboardError(f"keys cite proof index {dataset!r}; it is never scored here")
+    if len(datasets) != 1 or (index and datasets != {index}):
+        raise ScoreboardError(
+            f"keys are for {', '.join(sorted(datasets))} but this run read {index or '?'}; "
+            "they belong to another family"
+        )
+
+
+def _entity_split(keys: Sequence[EntityKey]) -> tuple[list[EntityKey], list[EntityKey], int]:
+    artefacts = [key for key in keys if key.role == "artefact" and key.admitted is not False]
+    assets = [key for key in keys if key.role == "asset"]
+    rejected = sum(1 for key in keys if key.role == "artefact" and key.admitted is False)
+    return artefacts, assets, rejected
+
+
+def _entity_groups(artefacts: Sequence[EntityKey]) -> tuple[dict[str, Step], dict[str, Step]]:
+    steps: dict[str, Step] = {}
+    scenarios: dict[str, Step] = {}
+    for key in artefacts:
+        step = steps.setdefault(f"{key.scenario}/{key.step}", Step(f"{key.scenario}/{key.step}"))
+        step.lines += key.audit_count or 0
+        scenario = scenarios.setdefault(key.scenario, Step(key.scenario))
+        scenario.lines += key.audit_count or 0
+    return steps, scenarios
+
+
+def _entity_order(groups: Mapping[str, Step]) -> list[Step]:
+    return sorted(groups.values(), key=lambda step: (not step.quiet, step.lines, step.label))
+
+
+def _entity_pass(
+    artefacts: Sequence[EntityKey],
+    rows: Sequence[dict[str, Any]],
+    hays: Sequence[str],
+) -> tuple[list[Notable], list[int | None], list[dict[str, int]], dict[str, Step], dict[str, Step]]:
+    """One ranked pass: first notable locating each artefact, marking steps and scenarios."""
+    notables = _ranked_notables(rows)
+    steps, scenarios = _entity_groups(artefacts)
+    patterns = [_entity_pattern(key.value) for key in artefacts]
+    firsts: list[int | None] = [None] * len(artefacts)
+    by_generator: list[dict[str, int]] = [{} for _ in artefacts]
+    for notable, hay in zip(notables, hays, strict=True):
+        for position, pattern in enumerate(patterns):
+            if not pattern.search(hay):
+                continue
+            key = artefacts[position]
+            if firsts[position] is None:
+                firsts[position] = notable.rank
+            by_generator[position].setdefault(notable.generator, notable.rank)
+            notable.covered = True
+            _mark(steps, [f"{key.scenario}/{key.step}"], notable)
+            _mark(scenarios, [key.scenario], notable)
+    return notables, firsts, by_generator, steps, scenarios
+
+
+def _artefact_rows(
+    artefacts: Sequence[EntityKey],
+    firsts: Sequence[int | None],
+    generators: Sequence[dict[str, int]],
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "scenario": key.scenario,
+            "step": key.step,
+            "value": key.value,
+            "entity": key.entity,
+            "events": key.audit_count,
+            "admitted": key.admitted,
+            "first_rank": firsts[position],
+            "covered": {str(limit): _cut(firsts[position], limit) for limit in CUTS},
+            "by_generator": dict(sorted(generators[position].items(), key=lambda item: item[1])),
+        }
+        for position, key in enumerate(artefacts)
+    ]
+
+
+def _asset_rows(
+    assets: Sequence[EntityKey], rows: Sequence[dict[str, Any]], hays: Sequence[str]
+) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for key in assets:
+        pattern = _entity_pattern(key.value)
+        first: int | None = None
+        by_generator: dict[str, int] = {}
+        for position, hay in enumerate(hays):
+            if not pattern.search(hay):
+                continue
+            if first is None:
+                first = position
+            by_generator.setdefault(str(rows[position].get("generator") or ""), position)
+        out.append(
+            {
+                "scenario": key.scenario,
+                "step": key.step,
+                "value": key.value,
+                "entity": key.entity,
+                "events": key.audit_count,
+                "first_rank": first,
+                "by_generator": dict(sorted(by_generator.items(), key=lambda item: item[1])),
+            }
+        )
+    return out
+
+
+def _case_rows(
+    cases: Sequence[Mapping[str, Any]], artefacts: Sequence[EntityKey]
+) -> list[dict[str, Any]]:
+    patterns = [(key, _entity_pattern(key.value)) for key in artefacts]
+    out: list[dict[str, Any]] = []
+    for rank, case in enumerate(cases):
+        events = [item for item in case.get("evidence") or () if isinstance(item, Mapping)]
+        parts = [
+            str(event.get(name) or "") for event in events for name in ("line", "query", "host")
+        ]
+        text = _fold("\n".join(parts))
+        found = sorted(
+            {(key.scenario, key.value) for key, pattern in patterns if pattern.search(text)}
+        )
+        out.append(
+            {
+                "rank": rank,
+                "case_id": str(case.get("case_id") or ""),
+                "events": len(events),
+                "artefacts": [
+                    {"scenario": found_scenario, "value": value} for found_scenario, value in found
+                ],
+                "scenarios": sorted({found_scenario for found_scenario, _ in found}),
+            }
+        )
+    return out
+
+
+def _entity_relation(
+    directory: Path,
+    rows: Sequence[dict[str, Any]],
+    artefacts: Sequence[EntityKey],
+    before_steps: Mapping[str, Step],
+    before_scenarios: Mapping[str, Step],
+) -> dict[str, Any] | None:
+    path = directory / RELATE_FILE
+    if not path.is_file():
+        return None
+    payload = read_json(path)
+    related = [item for item in payload.get("notables") or () if isinstance(item, dict)]
+    cases = [item for item in payload.get("cases") or () if isinstance(item, Mapping)]
+    after_rows = _with_related(rows, related)
+    after_hays = [_haystack(row) for row in after_rows]
+    _, _, _, after_steps, after_scenarios = _entity_pass(artefacts, after_rows, after_hays)
+    case_rows = _case_rows(cases, artefacts)
+    true_ranks = [row["rank"] for row in case_rows if row["scenarios"]]
+    first_true = min(true_ranks) if true_ranks else None
+    false_above = sum(1 for row in case_rows if first_true is not None and row["rank"] < first_true)
+    return {
+        "related_notables": len(related),
+        "cases": len(cases),
+        "before": _recall(_entity_order(before_steps)),
+        "after": _recall(_entity_order(after_steps)),
+        "scenario_before": _recall(_entity_order(before_scenarios)),
+        "scenario_after": _recall(_entity_order(after_scenarios)),
+        "case_rows": case_rows,
+        "first_true_case_rank": first_true,
+        "false_cases_above_first_true": false_above,
+        "receipt": payload.get("receipt") or {},
+    }
+
+
+def _entity_family(family: str, directory: Path, keys_path: Path) -> dict[str, Any]:
+    rows = _read_notables(directory)
+    progress = read_json(directory / PROGRESS_FILE)
+    if not progress:
+        raise ScoreboardError(f"{directory / PROGRESS_FILE} is missing; this run is not scored")
+    keys = _read_entity_keys(keys_path)
+    index, _run_sources = _run_index(directory)
+    _check_entity_family(index, keys)
+    artefacts, assets, rejected = _entity_split(keys)
+    hays = [_haystack(row) for row in rows]
+    notables, firsts, by_generator, steps, scenarios = _entity_pass(artefacts, rows, hays)
+    ordered, ordered_scenarios = _entity_order(steps), _entity_order(scenarios)
+    report = {
+        "family": family,
+        "index": index,
+        "mode": "entity",
+        "card_contract": _card_contract(directory),
+        "rule": ENTITY_RULE,
+        "keys": {
+            "file": str(keys_path),
+            "scenarios": len({key.scenario for key in keys}),
+            "steps": len({(key.scenario, key.step) for key in keys}),
+            "artefacts": len(artefacts),
+            "assets": len(assets),
+            "pending_audit": sum(1 for key in artefacts if key.admitted is None),
+            "not_admitted": rejected,
+        },
+        "notables": {
+            "total": len(notables),
+            "by_generator": _tally(notables),
+            "covering": sum(1 for notable in notables if notable.covered),
+            "cost": {str(limit): _read_count(limit, len(notables)) for limit in CUTS},
+        },
+        "artefacts": _artefact_rows(artefacts, firsts, by_generator),
+        "assets": _asset_rows(assets, rows, hays),
+        "steps": [_step_row(step) for step in ordered],
+        "scenarios": [_step_row(step) for step in ordered_scenarios],
+        "recall": _recall(ordered),
+        "scenario_recall": _recall(ordered_scenarios),
+        "judge": _judge_block(notables, read_json(directory / JUDGE_CACHE)),
+        "cost": _cost(progress),
+        "honesty": _honesty(progress, family),
+    }
+    relation = _entity_relation(directory, rows, artefacts, steps, scenarios)
+    if relation is not None:
+        report["relate"] = relation
+    return report
+
+
 def _targets(out: Path) -> list[tuple[str, Path]]:
     if (out / NOTABLES_FILE).is_file():
         return [(out.name, out)]
@@ -866,7 +1183,135 @@ def _honesty_lines(report: Mapping[str, Any]) -> list[str]:
     ]
 
 
+def _entity_summary_lines(report: Mapping[str, Any]) -> list[str]:
+    keys = report["keys"]
+    notables = report["notables"]
+    lines = [
+        f"family {report['family']}  index {report['index'] or '?'}  mode entity",
+        f"keys {keys['file']}  scenarios {keys['scenarios']}  steps {keys['steps']}  "
+        f"artefacts {keys['artefacts']}  assets {keys['assets']}",
+        f"notables {notables['total']} {notables['by_generator']}  covering any artefact "
+        f"{notables['covering']}",
+        f"quiet = a step whose artefacts total <= {QUIET_MAX_LINES} keyed events (audit counts; "
+        "an artefact pending audit counts 0)",
+        "top N = the first N lines of notables.jsonl, the run's own order",
+        "rule: " + report["rule"],
+    ]
+    if keys["pending_audit"]:
+        lines.append(
+            f"WARNING {keys['pending_audit']} artefacts are pending the live locator audit "
+            "(admitted=null); the family does not count until it passes"
+        )
+    if keys["not_admitted"]:
+        lines.append(
+            f"{keys['not_admitted']} artefacts excluded: a live audit found no events "
+            "(admitted=false)"
+        )
+    return lines
+
+
+def _entity_artefact_table(artefacts: Sequence[Mapping[str, Any]]) -> list[str]:
+    if not artefacts:
+        return ["  none"]
+    lines = [
+        f"  {'scenario/step':<40}{'artefact':<46}{'kind':<10}{'events':>9}  "
+        f"{'top50':>5} {'top100':>6} {'all':>4} {'rank':>6}  covered by"
+    ]
+    for row in artefacts:
+        covered = row["covered"]
+        events = row["events"] if row["events"] is not None else "pending"
+        rank = row["first_rank"] if row["first_rank"] is not None else "-"
+        lines.append(
+            f"  {row['scenario'] + '/' + row['step']:<40}{str(row['value'])[:44]:<46}"
+            f"{row['entity']:<10}{str(events):>9}  "
+            f"{_flag(bool(covered['50'])):>5} {_flag(bool(covered['100'])):>6} "
+            f"{_flag(bool(covered['None'])):>4} {str(rank):>6}  {_generator_line(row)}"
+        )
+    return lines
+
+
+def _entity_asset_table(assets: Sequence[Mapping[str, Any]]) -> list[str]:
+    if not assets:
+        return ["  none"]
+    lines = [f"  {'scenario/step':<40}{'asset':<46}{'kind':<10}{'events':>9} {'rank':>6}"]
+    for row in assets:
+        events = row["events"] if row["events"] is not None else "pending"
+        rank = row["first_rank"] if row["first_rank"] is not None else "-"
+        lines.append(
+            f"  {row['scenario'] + '/' + row['step']:<40}{str(row['value'])[:44]:<46}"
+            f"{row['entity']:<10}{str(events):>9} {str(rank):>6}"
+        )
+    return lines
+
+
+def _entity_recall_lines(report: Mapping[str, Any]) -> list[str]:
+    recall = report["recall"]
+    scenarios = report["scenario_recall"]
+    overall, scenario_overall = recall["overall"], scenarios["overall"]
+    lines = [
+        f"steps      top50 {overall['50']}/{recall['steps']}   "
+        f"top100 {overall['100']}/{recall['steps']}   all {overall['None']}/{recall['steps']}   "
+        f"notables that cost {report['notables']['cost']}",
+        f"scenarios  top50 {scenario_overall['50']}/{scenarios['steps']}   "
+        f"top100 {scenario_overall['100']}/{scenarios['steps']}   "
+        f"all {scenario_overall['None']}/{scenarios['steps']}",
+        f"  {'generator':<18}{'top50':>8}{'top100':>8}{'all':>8}",
+    ]
+    for name, counts in recall["by_generator"].items():
+        lines.append(f"  {name:<18}{counts['50']:>8}{counts['100']:>8}{counts['None']:>8}")
+    return lines
+
+
+def _entity_relate_lines(report: Mapping[str, Any]) -> list[str]:
+    relation = report.get("relate")
+    if not isinstance(relation, Mapping):
+        return []
+    before, after = relation["before"], relation["after"]
+    lines = [
+        f"relate steps before top50 {before['overall']['50']}/{before['steps']} "
+        f"all {before['overall']['None']}/{before['steps']}",
+        f"relate steps after  top50 {after['overall']['50']}/{after['steps']} "
+        f"all {after['overall']['None']}/{after['steps']}",
+        f"relate cases {relation['cases']}  related notables {relation['related_notables']}  "
+        f"first true case {relation['first_true_case_rank']}  "
+        f"false cases above it {relation['false_cases_above_first_true']}",
+    ]
+    lines.extend(
+        f"  case {row['rank'] + 1}: {row['case_id']}  events {row['events']}  "
+        f"scenarios {', '.join(row['scenarios']) or '-'}"
+        for row in relation["case_rows"]
+    )
+    return lines
+
+
+def _render_entity(report: Mapping[str, Any]) -> str:
+    lines = [
+        *_entity_summary_lines(report),
+        "",
+        "ARTEFACTS (a step/scenario counts only through these)",
+        *_entity_artefact_table(report["artefacts"]),
+        "",
+        "ASSETS (reported, never count on their own)",
+        *_entity_asset_table(report["assets"]),
+        "",
+        f"QUIET steps (<= {QUIET_MAX_LINES} keyed events)",
+    ]
+    lines += _step_table(report["steps"], True) or ["  none"]
+    lines += ["", f"LOUD steps (> {QUIET_MAX_LINES} keyed events)"]
+    lines += _step_table(report["steps"], False) or ["  none"]
+    lines += ["", *_entity_recall_lines(report)]
+    relation_lines = _entity_relate_lines(report)
+    if relation_lines:
+        lines += ["", *relation_lines]
+    lines += _judge_lines(report)
+    lines += _cost_lines(report)
+    lines += _honesty_lines(report)
+    return "\n".join(lines)
+
+
 def render(report: Mapping[str, Any]) -> str:
+    if report.get("mode") == "entity":
+        return _render_entity(report)
     lines = [*_summary_lines(report), "", f"QUIET steps (<= {QUIET_MAX_LINES} lines)"]
     lines += _step_table(report["steps"], True) or ["  none"]
     lines += ["", f"LOUD steps (> {QUIET_MAX_LINES} lines)"]
@@ -892,7 +1337,10 @@ def score(
     keys = _key_paths(key_args, [family for family, _directory in targets])
     return {
         "families": [
-            _family(family, directory, keys[family], logs, year) for family, directory in targets
+            _entity_family(family, directory, keys[family])
+            if _keys_are_entity(keys[family])
+            else _family(family, directory, keys[family], logs, year)
+            for family, directory in targets
         ]
     }
 
