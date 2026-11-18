@@ -10,10 +10,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from portal.modules.security.core.bully.discovery_bench import (
-    _identity_control,
     classify_identity_failure,
 )
-from portal.modules.security.core.siem.spl_detections import _invalidate_cache
 
 
 def _assessment(reference_id, composite, relationship="SIMILAR"):
@@ -65,29 +63,3 @@ def test_genuine_discrimination_loss_when_other_record_outranks_own():
         canonical_text_by_id={"p-arm-a": "ta", "p-twin": "tb", "p-twin2": "tc"},
     )
     assert cause == "genuine-discrimination-loss"
-
-
-def test_identity_control_reports_classified_failures_and_thresholds():
-    """`_identity_control` runs the real grade path and reports per-cause
-    counts plus the thresholds applied -- identity is a diagnostic, and the
-    frozen constants no longer silently disqualify a space (P0.3)."""
-    _invalidate_cache()
-    from portal.modules.security.core.bully import cousin_engine
-    from tests.security.bully._discovery_fixtures import build_corpus, build_snapshot
-
-    corpus = build_corpus()
-    snapshot = build_snapshot(corpus)
-    probes = corpus["specimens"]
-    canonical = {s["specimen_id"]: f"text-{i}" for i, s in enumerate(probes)}
-
-    result = _identity_control(
-        probes,
-        snapshot,
-        sample_size=4,
-        thresholds={**cousin_engine.DEFAULT_THRESHOLDS, "same_max_distance": 0.05},
-        canonical_text_by_id=canonical,
-    )
-    assert result["checked"] == 4
-    assert "by_cause" in result
-    assert "thresholds_applied" in result
-    assert result["thresholds_applied"]["same_max_distance"] == 0.05

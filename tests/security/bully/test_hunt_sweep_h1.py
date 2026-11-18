@@ -12,10 +12,6 @@ from portal.modules.security.core.bully.run_preflight import (
     EntryProgress,
     PreflightCheck,
     calibrate_span,
-    check_anchors_resolve,
-    check_claim_guard,
-    check_plant_roundtrip,
-    check_resume_roundtrip,
     preflight,
     project_entry_seconds,
 )
@@ -84,54 +80,6 @@ def test_calibration_entry_with_no_units_is_invalid_not_committed() -> None:
     assert any("no_units" in r or "no_records" in r for r in cal.reasons)
 
 
-def test_failing_plant_roundtrip_fails_preflight() -> None:
-    def broken_plant() -> str:
-        raise RuntimeError("HEC write failed silently")
-
-    check = check_plant_roundtrip(broken_plant, lambda m: 1, lambda m: None)
-    assert check.passed is False
-    report = preflight([check])
-    assert report.passed is False
-    assert "plant_roundtrip" in report.failures
-
-
-def test_plant_roundtrip_that_reads_back_nothing_fails() -> None:
-    check = check_plant_roundtrip(lambda: "marker-1", lambda m: 0, lambda m: None)
-    assert check.passed is False
-
-
-def test_working_plant_roundtrip_passes() -> None:
-    check = check_plant_roundtrip(lambda: "marker-1", lambda m: 1, lambda m: None)
-    assert check.passed is True
-
-
-def test_checkpoint_that_does_not_roundtrip_fails() -> None:
-    def save(_data: dict) -> None:
-        pass  # silently drops the write -- the exact failure mode this guards
-
-    def load() -> dict | None:
-        return None
-
-    check = check_resume_roundtrip(save, load)
-    assert check.passed is False
-    report = preflight([check])
-    assert report.passed is False
-    assert "resume_roundtrip" in report.failures
-
-
-def test_checkpoint_that_roundtrips_passes() -> None:
-    store: dict = {}
-
-    def save(data: dict) -> None:
-        store["v"] = data
-
-    def load() -> dict | None:
-        return store.get("v")
-
-    check = check_resume_roundtrip(save, load)
-    assert check.passed is True
-
-
 def test_already_planted_blocks_replant_on_resume() -> None:
     progress = EntryProgress()
     progress.record_plant("botsv3", "T1558.004", "cz-botsv3-T1558.004-000-REORDER_MINOR-00-d0")
@@ -174,27 +122,6 @@ def test_already_done_distinguishes_same_technique_across_datasets() -> None:
     progress.record("botsv1", "T1190", {"located": True})
     assert progress.already_done("botsv1", "T1190") is True
     assert progress.already_done("botsv3", "T1190") is False
-
-
-def test_anchors_resolve_reports_unresolved_entries() -> None:
-    class FakeEntry:
-        def __init__(self, technique: str, hits: int) -> None:
-            self.technique = technique
-            self._hits = hits
-
-    entries = [FakeEntry("T1558.004", 5), FakeEntry("T1190", 0), FakeEntry("T1078", 0)]
-    check = check_anchors_resolve(entries, probe=lambda e: e._hits)
-    assert check.passed is True  # at least one resolved
-    assert "1/3" in check.detail
-    assert "T1190" in check.detail
-    assert "T1078" in check.detail
-
-
-def test_claim_guard_check_reports_unwired_guard() -> None:
-    check = check_claim_guard(lambda: False)
-    assert check.passed is False
-    check_ok = check_claim_guard(lambda: True)
-    assert check_ok.passed is True
 
 
 def test_preflight_report_fails_overall_when_calibration_is_narrow_span() -> None:

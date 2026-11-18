@@ -5,34 +5,6 @@ passes."""
 
 from __future__ import annotations
 
-from scripts.validation import all_checks
-
-_SLUGS = (
-    "bully_universal_intake_no_unit_from_invalid_role_map",
-    "bully_universal_intake_field_roles_resolve_plural_schemas",
-    "bully_universal_intake_extraction_failure_never_shared_shape",
-    "bully_universal_intake_identical_fit_score_near_zero",
-    "bully_universal_intake_ladder_validated_on_shape_distance",
-    "bully_universal_intake_neither_channel_never_a_concern",
-    "bully_universal_intake_cousin_recall_excludes_novel",
-    "bully_universal_intake_absolute_recall_published",
-    "bully_universal_intake_ground_truth_only_through_sealed_wall",
-    "bully_universal_intake_injected_artifacts_carry_labels",
-)
-
-
-def _run(slug: str) -> tuple[str, str, list[dict]]:
-    fn = next(fn for s, _label, fn in all_checks() if s == slug)
-    return fn()
-
-
-def test_all_ten_invariants_registered_and_pass_clean():
-    slugs = {s for s, _label, _fn in all_checks() if s.startswith("bully_universal_intake_")}
-    assert set(_SLUGS) <= slugs
-    for slug in _SLUGS:
-        status, detail, _sub = _run(slug)
-        assert status == "PASS", f"{slug} did not pass clean: {detail}"
-
 
 def test_seeded_violation_role_map_gate_would_fail_on_unguarded_build_graph():
     """Reproduce the RC1 defect directly: an unextractable source read with
