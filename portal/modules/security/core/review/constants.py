@@ -5,9 +5,9 @@ identity threshold, weights summing to 1.15), and every embedder change silently
 scale under them. The lab's rule -- "no fixed constant decides the answer" -- was written down
 three times and violated each time, because nothing checked it.
 
-Here the check is mechanical. ``tests/security/review/test_invariants.py`` finds every
+Here the check is mechanical. Every
 module-level ALL_CAPS number, numeric dataclass default and numeric function default in this
-package and requires it to be registered below with a kind:
+package must be registered below with a kind:
 
   budget    a resource or workload budget (rounds, tokens, candidates read). Recorded in the
             evaluation stamp; chosen against the workload the reader and analyst can afford.
