@@ -11,8 +11,6 @@ sources:
   path: deploy/launchd/com.portal5.log-rotate.plist
 - type: code
   path: .env.example
-- type: code
-  path: tests/unit/test_rotate_logs.py
 claims: []
 confidence: high
 tags:

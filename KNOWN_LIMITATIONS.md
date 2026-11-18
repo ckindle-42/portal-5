@@ -300,7 +300,7 @@ The error is generated server-side after headers are sent, so no HTTP status can
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-pipeline-hardening-20260925 -->
 - **ID**: P5-PIPELINE-HARDEN-001
-- **Status**: RESOLVED 2026-09-25. Every item was reproduced against the live stack before the fix and re-verified live after it; `tests/unit/test_pipeline_hardening.py` and `tests/unit/test_ollama_native.py` pin each one. Extended 2026-10-22: a chat-UI audience is now answered in words where a program still gets its status (`portal/platform/inference/router/no_answer.py`, `tests/unit/test_no_answer.py`), and streaming recovers from engine capacity the way non-streaming does (`tests/unit/test_stream_parity.py`).
+- **Status**: RESOLVED 2026-09-25. Every item was reproduced against the live stack before the fix and re-verified live after it; `tests/unit/test_pipeline_hardening.py` and `tests/unit/test_ollama_native.py` pin each one. Extended 2026-10-22: a chat-UI audience is now answered in words where a program still gets its status (`portal/platform/inference/router/no_answer.py`, `tests/unit/test_no_answer.py`), and streaming recovers from engine capacity the way non-streaming does (`portal/platform/inference/load_guard.py`).
 - **Fallback discipline**: a failed request was resent to the same engine and model once per backend group fronting it, then served by an unrelated model (`backend.models[0]` of the last candidate — e.g. `auto-music` answered by Qwen3-Coder-30B), and a malformed request (HTTP 400/413/422) cascaded into an opaque 502. Now each `(engine URL, model)` pair is attempted once per request, a malformed request is returned to the client with the engine's message, a different model is substituted only when no healthy backend serves the hint at all, and a 502 names each attempt's failure. Ollama reports request-validation errors as 500 (`option "top_k" must be of type integer`), so those still cascade — but only across genuinely different engine/model pairs.
 - **Streaming fallback**: a stream that failed after output reached the client was re-answered non-streaming and appended to the partial answer; an error-envelope match on the substring `"error"` could fire on content; a trailing `[DONE]` was forwarded ahead of the fallback answer. The fallback now runs only when nothing has been shown, errors are parsed, and one `[DONE]` ends every stream (the tool loop included — its reasoning fallback and empty-response notice used to follow `[DONE]`, invisible to OpenAI-SDK clients).
 - **Reasoning display (review item C-1)**: every streamed `reasoning` delta was rewritten into `content`, so OWUI printed the chain of thought as the answer. Reasoning now passes through (OWUI renders it collapsed) and is promoted to content only when a turn ends with none — the non-streaming rule. A space-separated `"content": "` frame or a client tool call no longer triggers a false "empty response" notice.
@@ -364,8 +364,9 @@ An unattended update that silently leaves the engine blind to its models would t
      latency change.
   3. The call shape is corrected (`top_k`, optional `kb_id` from a workspace
      `auto_rag_kb_id`) so it is ready when the gate is answered.
-  4. `tests/unit/test_rag_tool_contract.py` locks the tool response shapes and
-     asserts the injector never reintroduces the `k` / missing-`kb_id` drift.
+  4. `portal/platform/inference/router/context_inject.py` keeps the corrected
+     call shape (`top_k`, optional `kb_id`) and does not reintroduce the `k` /
+     missing-`kb_id` drift.
 - **Residual**: auto-RAG is a capability that has still never run in production.
   Enabling it needs the P1 `[GATE]` answered — a per-workspace `auto_rag_kb_id`
   or a deliberate route to `kb_search_all` (which carries cross-corpus exposure

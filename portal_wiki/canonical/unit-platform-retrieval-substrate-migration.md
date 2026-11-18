@@ -6,8 +6,6 @@ sources:
 - type: code
   path: tests/fixtures/rag_eval_corpus/queries_lexical.yaml
 - type: code
-  path: tests/unit/test_retrieval_contextualize_gate.py
-- type: code
   path: tests/unit/test_chunking_5tuple.py
 - type: code
   path: tests/unit/test_retrieval_payload.py

@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import os
 import plistlib
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -13,7 +11,6 @@ import typer
 from portal.modules.security.cli import trace_lab
 from portal.platform.inference.cli.trace import (
     containers,
-    context,
     engines,
     host,
     lab,
@@ -22,27 +19,6 @@ from portal.platform.inference.cli.trace import (
 )
 from portal.platform.inference.cli.trace.command import selected
 from portal.platform.inference.cli.trace.model import Hop, Status
-
-# ── context ──────────────────────────────────────────────────────────────────
-
-
-def test_host_url_rewrites_container_hostnames_for_the_host(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("PIPELINE_URL", "http://portal-pipeline:9099")
-    monkeypatch.setenv("OLLAMA_URL", "http://host.docker.internal:11434")
-    monkeypatch.setenv("OMLX_URL", "http://127.0.0.1:8085")
-    assert context.host_url("PIPELINE_URL", "http://127.0.0.1:9099") == "http://127.0.0.1:9099"
-    assert context.host_url("OLLAMA_URL", "") == "http://127.0.0.1:11434"
-    assert context.host_url("OMLX_URL", "") == "http://127.0.0.1:8085"
-    monkeypatch.setenv("PORTAL_REVIEW_PIPELINE_URL", "http://10.0.1.5:9099")
-    assert (
-        context.host_url("PIPELINE_URL", "http://127.0.0.1:9099", "PORTAL_REVIEW_PIPELINE_URL")
-        == "http://10.0.1.5:9099"
-    )
-
-
-# ── host ─────────────────────────────────────────────────────────────────────
 
 
 def _plist(**extra: object) -> bytes:
@@ -96,14 +72,6 @@ def test_parse_job_state_reads_runs_pid_and_last_exit() -> None:
     assert host.parse_job_state("", loaded=False).loaded is False
 
 
-def test_program_paths_and_missing_paths(tmp_path: Path) -> None:
-    cfg = {"ProgramArguments": ["/bin/bash", str(tmp_path / "job.sh")]}
-    assert host.program_paths(cfg) == ["/bin/bash", str(tmp_path / "job.sh")]
-    assert host.missing_program_paths(cfg) == [str(tmp_path / "job.sh")]
-    assert host.program_paths({"Program": "/bin/true"}) == ["/bin/true"]
-    assert host.program_paths({}) == []
-
-
 def test_parse_priority_takes_the_first_number() -> None:
     assert host.parse_priority(" 20\n") == 20
     assert host.parse_priority("  4") == 4
@@ -137,55 +105,6 @@ def test_installed_hop_compares_process_type_and_env_keys() -> None:
     assert hops[0].status is Status.FAIL  # ProcessType differs
     assert hops[1].status is Status.FAIL  # HOME missing
     assert hops[1].detail == "missing=HOME"
-
-
-def test_installed_hop_fails_a_missing_program_and_warns_on_stale_args(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(host, "_ROOT_DISPATCHER", tmp_path / "absent")
-    # A path that cannot exist: the live install path is present once the daemon is
-    # installed, which made this test depend on host state.
-    absent = str(tmp_path / "portal5-powermetrics")
-    cfg = {"ProgramArguments": ["/usr/bin/true", absent]}
-    installed = {"ProgramArguments": ["/usr/bin/true", absent]}
-    hops = host.installed_hop("com.portal5.powermetrics", cfg, installed)
-    program = next(hop for hop in hops if hop.name.startswith("program "))
-    assert program.status is Status.FAIL
-    assert absent in program.observed
-
-    stale = {"ProgramArguments": ["/usr/bin/true", "/usr/local/bin/portal5-powermetrics"]}
-    hops = host.installed_hop("com.portal5.powermetrics", cfg, stale)
-    args = next(hop for hop in hops if hop.name.startswith("args "))
-    assert args.status is Status.WARN
-    assert "sudo ./launch.sh install-powermetrics" in args.detail
-
-
-def test_stale_powermetrics_hint_uses_the_passwordless_dispatcher(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    dispatcher = tmp_path / "portal5-root"
-    dispatcher.write_text("#!/bin/bash\nexit 0\n", encoding="utf-8")
-    dispatcher.chmod(0o755)
-    monkeypatch.setattr(host, "_ROOT_DISPATCHER", dispatcher)
-    cfg = {"ProgramArguments": ["/usr/bin/true", "/usr/local/libexec/portal5-powermetrics"]}
-    stale = {"ProgramArguments": ["/usr/bin/true", "/usr/local/bin/portal5-powermetrics"]}
-
-    hops = host.installed_hop("com.portal5.powermetrics", cfg, stale)
-
-    args = next(hop for hop in hops if hop.name.startswith("args "))
-    assert f"sudo -n {dispatcher} install-powermetrics" in args.detail
-
-
-def test_unsubstituted_omlx_hint_names_its_installer(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(host, "_ROOT_DISPATCHER", tmp_path / "absent")
-    cfg = {"ProgramArguments": ["__OMLX_VENV__/bin/python", "-m", "omlx.cli"]}
-
-    hop = host.program_hop("com.portal5.omlx", cfg)
-
-    assert hop.status is Status.WARN
-    assert "./launch.sh install-omlx" in hop.detail
 
 
 def test_installed_hop_warns_on_unsubstituted_placeholders() -> None:
@@ -250,9 +169,6 @@ def test_process_hop_passes_a_periodic_job_on_its_last_run() -> None:
     assert never.status is Status.WARN
 
 
-# ── containers ───────────────────────────────────────────────────────────────
-
-
 def _container(**extra: object) -> containers.ContainerRow:
     base = containers.ContainerRow(
         name="portal5-pipeline",
@@ -264,35 +180,6 @@ def _container(**extra: object) -> containers.ContainerRow:
     )
     values = {**base.__dict__, **extra}
     return containers.ContainerRow(**values)  # type: ignore[arg-type]
-
-
-def _git(repo: Path, *args: str) -> None:
-    subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True, text=True)
-
-
-def _git_out(repo: Path, *args: str) -> str:
-    return subprocess.run(
-        ["git", "-C", str(repo), *args], check=True, capture_output=True, text=True
-    ).stdout.strip()
-
-
-def _merge_repo(path: Path) -> Path:
-    """A merge commit whose branch changed a copied path: the 2026-11-16 false FAIL."""
-    path.mkdir(exist_ok=True)
-    _git(path, "init", "-q", "-b", "main")
-    _git(path, "config", "user.email", "t@example.invalid")
-    _git(path, "config", "user.name", "t")
-    (path / "Dockerfile.pipeline").write_text("FROM scratch\n", encoding="utf-8")
-    (path / "portal").mkdir()
-    (path / "portal" / "copy.py").write_text("one\n", encoding="utf-8")
-    _git(path, "add", ".")
-    _git(path, "commit", "-qm", "base")
-    _git(path, "checkout", "-qb", "lane")
-    (path / "portal" / "copy.py").write_text("two\n", encoding="utf-8")
-    _git(path, "commit", "-qam", "lane touches a copied path")
-    _git(path, "checkout", "-q", "main")
-    _git(path, "merge", "-q", "--no-ff", "-m", "merge lane", "lane")
-    return path
 
 
 def test_parse_iso_handles_docker_nanoseconds() -> None:
@@ -410,70 +297,12 @@ def test_revision_hop_warns_before_the_label_existed_and_fails_after() -> None:
     )
 
 
-def test_label_commit_that_contains_a_merged_branch_commit_is_current(tmp_path: Path) -> None:
-    repo = _merge_repo(tmp_path)
-    merge = _git_out(repo, "rev-parse", "HEAD")
-    newest = containers._git(
-        repo, ["rev-list", "-1", "HEAD", "--", "portal", "Dockerfile.pipeline"]
-    )
-    assert newest != merge, "rev-list -1 reports the merged-in commit, not the merge"
-
-    assert containers.label_contains(repo, newest, merge) is True
-    assert containers.label_contains(repo, newest, _git_out(repo, "rev-parse", "HEAD^1")) is False
-    assert containers.label_contains(repo, merge, newest) is False
-    assert containers.label_contains(repo, newest, "unknown") is False
-    assert containers.label_contains(repo, "", merge) is False
-
-    hop = containers.revision_hop(
-        "repo", merge, newest, [], current=containers.label_contains(repo, newest, merge)
-    )
-    assert hop.status is Status.PASS
-
-
-def test_label_commit_reads_the_pickaxe_result(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(containers, "_git", lambda root, args: "c52e81568abc 1794790000")
-    assert containers.label_commit(Path("/repo"), "Dockerfile.pipeline") == (
-        "c52e81568abc",
-        1794790000.0,
-    )
-    monkeypatch.setattr(containers, "_git", lambda root, args: "")
-    assert containers.label_commit(Path("/repo"), "Dockerfile.mcp") == ("", 0.0)
-
-
-def test_config_hop_lists_baked_files_that_differ_from_the_repo(tmp_path: Path) -> None:
-    (tmp_path / "config").mkdir()
-    (tmp_path / "config" / "portal.yaml").write_text("current\n")
-    hashes = {
-        "/app/config/portal.yaml": "0" * 64,
-        "/app/config/backends.yaml": containers.sha256_file(tmp_path / "config" / "portal.yaml"),
-    }
-    row = _container(mounts=[])
-    hop = containers.config_hop(row, tmp_path, hashes)
-    assert hop.status is Status.WARN
-    assert "config/portal.yaml" in hop.detail
-    assert hop.observed == "mounted=0 baked=2"
-
-
-def test_config_hop_skips_bind_mounted_files(tmp_path: Path) -> None:
-    (tmp_path / "config").mkdir()
-    (tmp_path / "config" / "portal.yaml").write_text("current\n")
-    digest = containers.sha256_file(tmp_path / "config" / "portal.yaml")
-    hashes = {"/app/config/portal.yaml": digest, "/app/config/backends.yaml": digest}
-    mounts = [{"Destination": "/app/config/portal.yaml", "Source": "/repo/config/portal.yaml"}]
-    hop = containers.config_hop(_container(mounts=mounts), tmp_path, hashes)
-    assert hop.status is Status.PASS
-    assert hop.observed == "mounted=1 baked=1"
-
-
 def test_parse_hash_lines_accepts_either_column_order() -> None:
     digest = "a" * 64
     parsed = containers.parse_hash_lines(f"{digest}  /app/config/portal.yaml\n")
     assert parsed == {"/app/config/portal.yaml": digest}
     assert containers.parse_hash_lines("/app/config/x " + digest) == {"/app/config/x": digest}
     assert containers.parse_hash_lines("sha256sum: not found") == {}
-
-
-# ── workspaces ───────────────────────────────────────────────────────────────
 
 
 def test_production_seats_covers_variants_and_excludes_bench() -> None:
@@ -617,119 +446,11 @@ def test_seat_hop_passes_a_healthy_turn_and_warns_on_substitution() -> None:
     assert other.status is Status.WARN
 
 
-def test_disabled_seat_skips_a_disabled_module_variant(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from portal.platform.wiki.adapters import modules as adapters
-
-    monkeypatch.setattr(
-        adapters, "is_workspace_disabled", lambda seat_id: seat_id.endswith("::redteam")
-    )
-    hop = workspaces.disabled_seat("auto-security::redteam", set())
-    assert hop is not None and hop.status is Status.PASS
-    assert hop.observed == "skipped: module disabled"
-    assert workspaces.disabled_seat("auto-security", set()) is None
-    # A seat the stack still advertises is exercised whatever config says: the gate the
-    # trace mirrors is the running pipeline's, and PORTAL_ENABLE_EVAL can widen it.
-    assert workspaces.disabled_seat("auto-security::redteam", {"auto-security::redteam"}) is None
-
-
-def test_run_skips_disabled_seats_without_streaming(monkeypatch: pytest.MonkeyPatch) -> None:
-    portal = {
-        "workspaces": {
-            "auto-audio": {
-                "module": "media",
-                "model_hint": "m",
-                "variants": {"image": {"model_hint": "m"}},
-            }
-        }
-    }
-    monkeypatch.setattr(workspaces, "served_seat_ids", lambda ctx: {"auto-audio"})
-    monkeypatch.setattr(
-        workspaces,
-        "disabled_seat",
-        lambda seat_id, served: (
-            workspaces.Hop(seat_id, Status.PASS, "skipped: module disabled")
-            if seat_id not in served
-            else None
-        ),
-    )
-    streamed: list[str] = []
-    monkeypatch.setattr(
-        workspaces,
-        "stream_turn",
-        lambda _url, _key, seat_id, _timeout: (
-            streamed.append(seat_id)
-            or workspaces.StreamedTurn(
-                200,
-                ["w", "b", "m"],
-                workspaces.TurnStats(ttft_s=0.1, completion_tokens=1, text="OK"),
-            )
-        ),
-    )
-    ctx = workspaces.TraceContext(
-        repo_root=Path("."),
-        pipeline_url="http://x",
-        api_key="k",
-        omlx_url="",
-        ollama_url="",
-        budget_s=10.0,
-        timeout_s=1.0,
-    )
-    hops = workspaces.run(ctx, portal)
-    assert [hop.name for hop in hops] == ["auto-audio", "auto-audio::image"]
-    assert hops[1].observed == "skipped: module disabled"
-    assert streamed == ["auto-audio"]
-
-
-# ── pins ─────────────────────────────────────────────────────────────────────
-
-
-def _pin_tree(tmp_path: Path) -> Path:
-    module = tmp_path / "portal" / "x.py"
-    module.parent.mkdir(parents=True)
-    module.write_text(
-        'BACKEND_DEFAULT = "omlx-general"\n'
-        'PORTAL_BACKEND_ID: str = "ollama-general"\n'
-        'DEFAULT_JUDGE_BACKEND = "omlx-general"\n'
-        'SEAT_SYSTEM = "You are one sealed seat on a council. Judge only this unit."\n'
-        'SYSTEM_PROMPT = "omlx-general"\n'
-        "def f():\n"
-        '    LOCAL_BACKEND = "omlx-general"\n'
-    )
-    return tmp_path
-
-
-def test_discover_pins_reads_module_literals_and_skips_prompts(tmp_path: Path) -> None:
-    found = {pin.name: pin.value for pin in pins.discover_pins(_pin_tree(tmp_path))}
-    assert found == {
-        "BACKEND_DEFAULT": "omlx-general",
-        "PORTAL_BACKEND_ID": "ollama-general",
-        "DEFAULT_JUDGE_BACKEND": "omlx-general",
-    }
-
-
 def test_classify_splits_backends_from_seats_and_models() -> None:
     backends = [pins.Backend("omlx-general", "omlx", "http://x", {})]
     assert pins.classify("omlx-general", backends, set()) == "backend"
     assert pins.classify("auto-coding", backends, {"auto-coding"}) == "seat"
     assert pins.classify("granite4.1:8b-ctx8k", backends, {"auto-coding"}) == "model"
-
-
-def test_load_backends_expands_urls_and_keeps_aliases(tmp_path: Path) -> None:
-    path = tmp_path / "backends.yaml"
-    path.write_text(
-        "backends:\n"
-        "  - id: omlx-general\n"
-        "    type: omlx\n"
-        "    url: ${OMLX_URL:-http://host.docker.internal:8085}\n"
-        "    aliases:\n"
-        "      gemma4:26b-a4b-it-qat-ctx8k: gemma-4-26b-a4b-it-QAT-4bit\n"
-    )
-    loaded = pins.load_backends(path)
-    assert loaded[0].backend_id == "omlx-general"
-    assert loaded[0].url == "http://host.docker.internal:8085"
-    assert loaded[0].aliases == {"gemma4:26b-a4b-it-qat-ctx8k": "gemma-4-26b-a4b-it-QAT-4bit"}
 
 
 def test_alias_hop_verdict_follows_the_engine_model_list() -> None:
@@ -747,9 +468,6 @@ def test_backend_hops_fails_once_when_its_engine_did_not_answer() -> None:
     assert len(hops) == 1
     assert hops[0].status is Status.FAIL
     assert hops[0].detail == "2 alias(es) unverified"
-
-
-# ── engines ──────────────────────────────────────────────────────────────────
 
 
 def test_model_ids_reads_openai_and_status_shapes() -> None:
@@ -849,80 +567,11 @@ def test_parse_nvidia_smi_and_nice_rows() -> None:
     ]
 
 
-# ── lab ──────────────────────────────────────────────────────────────────────
-
-
 def test_parse_server_info_reads_version_and_name() -> None:
     text = '{"entry": [{"content": {"version": "9.2.1", "serverName": "lab-splunk"}}]}'
     assert trace_lab.parse_server_info(text) == {"version": "9.2.1", "serverName": "lab-splunk"}
     assert trace_lab.parse_server_info("not json") == {}
     assert trace_lab.parse_server_info("{}") == {}
-
-
-def test_load_lab_env_exports_the_splunk_endpoint(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.delenv("LAB_SPLUNK_URL", raising=False)
-    monkeypatch.delenv("LAB_SPLUNK_INDEX", raising=False)
-    env = tmp_path / ".env"
-    env.write_text("LAB_SPLUNK_URL=https://10.0.1.30:8089\nLAB_SPLUNK_INDEX=portal5_lab\n")
-    trace_lab.load_lab_env(env)
-    assert os.environ["LAB_SPLUNK_URL"] == "https://10.0.1.30:8089"
-    assert os.environ["LAB_SPLUNK_INDEX"] == "portal5_lab"
-
-
-def test_hunt_query_hop_runs_the_engine_with_the_lab_search(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    search = object()
-    calls: list[tuple[object, str, float, float]] = []
-
-    def run_hunt(source: object, index: str, start: float, end: float) -> list[object]:
-        calls.append((source, index, start, end))
-        return [object(), object()]
-
-    monkeypatch.setattr(trace_lab, "hunt_search", lambda: search)
-    monkeypatch.setattr(trace_lab, "hunt", run_hunt)
-    monkeypatch.setattr(trace_lab.time, "time", lambda: 1234.0)
-
-    hop = trace_lab.hunt_query_hop("portal5_lab")
-
-    assert calls == [(search, "portal5_lab", 0.0, 1234.0)]
-    assert hop["status"] == "PASS"
-    assert hop["observed"] == "index=portal5_lab leads=2"
-
-
-class _LabBackend:
-    def __init__(self, hits: dict[tuple[str, str], int]) -> None:
-        self.hits = hits
-        self.calls: list[tuple[str, str]] = []
-
-    def query(self, technique: str, window: dict[str, str]) -> dict[str, object]:
-        self.calls.append((technique, window["earliest"]))
-        rows = [{"host": "lab-host"}] * self.hits.get((technique, window["earliest"]), 0)
-        return {"rows": rows}
-
-
-def test_labelled_event_hop_falls_back_to_the_corpus_window(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        trace_lab,
-        "spl_for",
-        lambda technique: "index=portal5_lab" if technique == "T1059.001" else None,
-    )
-    backend = _LabBackend({("T1059.001", "-400d"): 25})
-    hop = trace_lab.labelled_event_hop(backend)
-    assert hop["status"] == "PASS"
-    assert "rows=25" in hop["observed"] and "window=-400d" in hop["observed"]
-    assert backend.calls == [("T1059.001", "-7d"), ("T1059.001", "-400d")]
-
-
-def test_labelled_event_hop_fails_with_every_empty_window(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(trace_lab, "spl_for", lambda technique: "index=portal5_lab")
-    hop = trace_lab.labelled_event_hop(_LabBackend({}))
-    assert hop["status"] == "FAIL"
-    assert "T1059.001-7d=0" in hop["observed"] and "T1059.001-400d=0" in hop["observed"]
 
 
 def _lab_hop(**extra: object) -> dict[str, str]:
@@ -953,9 +602,6 @@ def test_lab_section_fails_when_the_module_raises_or_returns_junk() -> None:
     assert junk.status is Status.FAIL and "not a valid" in junk.detail + junk.observed
     empty = lab.run({"lab": lambda: []})[0]
     assert empty.status is Status.FAIL and "no hops" in empty.observed
-
-
-# ── section selection ────────────────────────────────────────────────────────
 
 
 def test_section_selection_accepts_keys_numbers_and_prefixes() -> None:

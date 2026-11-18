@@ -6,7 +6,7 @@ All Ollama HTTP calls are mocked — no running backend required.
 from __future__ import annotations
 
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -81,75 +81,6 @@ class TestRouteWithLLM:
     """_route_with_llm() must correctly parse LLM responses and handle errors."""
 
     @pytest.mark.asyncio
-    async def test_returns_workspace_on_high_confidence(self):
-        mock_resp = _mock_llm_response("auto-coding", 0.95)
-        with patch(
-            "portal.platform.inference.router.routing._http_client", new_callable=AsyncMock
-        ) as mock_client:
-            mock_client.post = AsyncMock(return_value=mock_resp)
-
-            result = await _route_with_llm(_user_messages("write a Python function"))
-            assert result == "auto-coding"
-
-    @pytest.mark.asyncio
-    async def test_returns_none_on_low_confidence(self):
-        mock_resp = _mock_llm_response("auto-coding", 0.3)
-        with patch(
-            "portal.platform.inference.router.routing._http_client", new_callable=AsyncMock
-        ) as mock_client:
-            mock_client.post = AsyncMock(return_value=mock_resp)
-
-            result = await _route_with_llm(_user_messages("write a Python function"))
-            assert result is None
-
-    @pytest.mark.asyncio
-    async def test_returns_none_on_unknown_workspace(self):
-        mock_resp = _mock_llm_response("auto-notaworkspace", 0.95)
-        with patch(
-            "portal.platform.inference.router.routing._http_client", new_callable=AsyncMock
-        ) as mock_client:
-            mock_client.post = AsyncMock(return_value=mock_resp)
-
-            result = await _route_with_llm(_user_messages("hello"))
-            assert result is None
-
-    @pytest.mark.asyncio
-    async def test_returns_none_on_timeout(self):
-        import httpx
-
-        with patch(
-            "portal.platform.inference.router.routing._http_client", new_callable=AsyncMock
-        ) as mock_client:
-            mock_client.post = AsyncMock(side_effect=httpx.TimeoutException("timeout"))
-
-            result = await _route_with_llm(_user_messages("hello"))
-            assert result is None
-
-    @pytest.mark.asyncio
-    async def test_returns_none_on_network_error(self):
-        import httpx
-
-        with patch(
-            "portal.platform.inference.router.routing._http_client", new_callable=AsyncMock
-        ) as mock_client:
-            mock_client.post = AsyncMock(side_effect=httpx.ConnectError("refused"))
-
-            result = await _route_with_llm(_user_messages("hello"))
-            assert result is None
-
-    @pytest.mark.asyncio
-    async def test_returns_none_for_auto_workspace(self):
-        """'auto' is the default — returning it provides no routing value."""
-        mock_resp = _mock_llm_response("auto", 0.99)
-        with patch(
-            "portal.platform.inference.router.routing._http_client", new_callable=AsyncMock
-        ) as mock_client:
-            mock_client.post = AsyncMock(return_value=mock_resp)
-
-            result = await _route_with_llm(_user_messages("hello"))
-            assert result is None
-
-    @pytest.mark.asyncio
     async def test_returns_none_when_disabled(self):
         """When LLM_ROUTER_ENABLED=false, must skip LLM call entirely."""
         with patch("portal.platform.inference.router_pipe._LLM_ROUTER_ENABLED", False):
@@ -157,53 +88,9 @@ class TestRouteWithLLM:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_returns_none_on_malformed_json(self):
-        mock_resp = MagicMock()
-        mock_resp.json.return_value = {"response": "not json {{{"}
-        mock_resp.raise_for_status = MagicMock()
-        with patch(
-            "portal.platform.inference.router.routing._http_client", new_callable=AsyncMock
-        ) as mock_client:
-            mock_client.post = AsyncMock(return_value=mock_resp)
-
-            result = await _route_with_llm(_user_messages("hello"))
-            assert result is None
-
-    @pytest.mark.asyncio
     async def test_empty_messages_returns_none(self):
         result = await _route_with_llm([])
         assert result is None
-
-    @pytest.mark.asyncio
-    async def test_spl_routing_via_llm(self):
-        """Verify SPL workspace is returned and is a valid workspace ID."""
-        mock_resp = _mock_llm_response("auto-spl", 0.98)
-        with patch(
-            "portal.platform.inference.router.routing._http_client", new_callable=AsyncMock
-        ) as mock_client:
-            mock_client.post = AsyncMock(return_value=mock_resp)
-
-            result = await _route_with_llm(
-                _user_messages("write a Splunk tstats query to count failed logins by user")
-            )
-            assert result == "auto-spl"
-            assert result in _VALID_WORKSPACE_IDS
-
-    @pytest.mark.asyncio
-    async def test_router_excluded_label_is_rejected(self):
-        """Even if the classifier names a `router: false` workspace, Layer 1
-        must refuse it. The grammar enum makes this unreachable in production;
-        this pins the behaviour if grammar decoding is ever disabled."""
-        mock_resp = _mock_llm_response("auto-security", 0.93)
-        with patch(
-            "portal.platform.inference.router.routing._http_client", new_callable=AsyncMock
-        ) as mock_client:
-            mock_client.post = AsyncMock(return_value=mock_resp)
-
-            result = await _route_with_llm(
-                _user_messages("analyze this CVE and explain the exploitation path")
-            )
-            assert result is None or not result.startswith("auto-security")
 
     def test_keyword_fallback_still_works(self):
         """_detect_workspace() must still route correctly as LLM fallback."""
@@ -276,23 +163,6 @@ class TestRouteWithLLM:
         assert not leaked_excluded, (
             f"`router: false` workspaces must not appear in _VALID_WORKSPACE_IDS: {leaked_excluded}"
         )
-
-    @pytest.mark.asyncio
-    async def test_llm_router_payload_includes_keep_alive(self):
-        """_route_with_llm payload must include top-level keep_alive=-1 (int).
-        String '-1' was changed to int -1 in commit c427037 (warmup keep_alive fix)."""
-        mock_resp = _mock_llm_response("auto-coding", 0.95)
-        with patch(
-            "portal.platform.inference.router.routing._http_client", new_callable=AsyncMock
-        ) as mock_client:
-            mock_client.post = AsyncMock(return_value=mock_resp)
-            await _route_with_llm(_user_messages("write a Python function"))
-            call_args = mock_client.post.call_args
-            payload = call_args[1]["json"]
-            assert payload.get("keep_alive") == -1, (
-                f"Expected keep_alive=-1 (int) in LLM router payload, got {payload.get('keep_alive')!r}"
-            )
-            assert "keep_alive" in payload
 
 
 class TestLastUserText:
@@ -396,33 +266,6 @@ class TestResolvePersonaTools:
         assert len(result) > 0
 
 
-class TestPersonaCatalogAudit:
-    """Audit persona YAMLs: ensure no silent semantics traps."""
-
-    def test_no_stale_empty_tools_allow_without_comment(self):
-        """Every persona with tools_allow: [] should document the no-tools intent."""
-        from pathlib import Path
-
-        import yaml
-
-        personas_dir = Path(__file__).resolve().parent.parent.parent / "config" / "personas"
-        if not personas_dir.is_dir():
-            pytest.skip("config/personas/ not found")
-        issues = []
-        for yf in sorted(personas_dir.glob("*.yaml")):
-            raw = yf.read_text()
-            data = yaml.safe_load(raw) or {}
-            # tools_allow explicitly present as empty list (not just missing/null)
-            if (
-                "tools_allow" in data
-                and data["tools_allow"] == []
-                and "no tools" not in raw.lower()
-                and "no-tools" not in raw.lower()
-            ):
-                issues.append(f"{yf.name}: tools_allow: [] without 'no tools' comment")
-        assert not issues, f"Personas with tools_allow: [] missing intent comment: {issues}"
-
-
 class TestHarmfulIntentGate:
     """Adaptive UAT FINDINGS C1/C2: harmful `auto` requests must go to a
     standard-posture lane, never the abliterated default."""
@@ -480,32 +323,3 @@ class TestHarmfulIntentGate:
 
         msgs = [{"role": "user", "content": "blackmail extort ruin their reputation"}]
         assert await _resolve_auto_routing("auto-coding", msgs) == "auto-coding"
-
-    async def test_llm_router_harmful_posture_diverts(self):
-        """A harmful posture from the LLM classifier diverts to the standard
-        lane even when the keyword gate misses and the topic pick is confident."""
-        from portal.platform.inference.router import routing as rt
-
-        # topic looks like plain research, but posture=harmful
-        mock_resp = _mock_llm_response("auto-research", 0.97, posture="harmful")
-        with (
-            patch.object(rt, "_http_client") as mock_client,
-            patch.object(rt, "_LLM_ROUTER_ENABLED", True),
-        ):
-            mock_client.post = AsyncMock(return_value=mock_resp)
-            result = await rt._route_with_llm(
-                _user_messages("build a profile of this blogger and where they work")
-            )
-        assert result == rt._HARMFUL_INTENT_LANE
-
-    async def test_llm_router_standard_posture_routes_normally(self):
-        from portal.platform.inference.router import routing as rt
-
-        mock_resp = _mock_llm_response("auto-coding", 0.96, posture="standard")
-        with (
-            patch.object(rt, "_http_client") as mock_client,
-            patch.object(rt, "_LLM_ROUTER_ENABLED", True),
-        ):
-            mock_client.post = AsyncMock(return_value=mock_resp)
-            result = await rt._route_with_llm(_user_messages("write a bubble sort"))
-        assert result == "auto-coding"

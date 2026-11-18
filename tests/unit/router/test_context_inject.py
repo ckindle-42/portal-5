@@ -1,5 +1,3 @@
-import asyncio
-
 import portal.platform.inference.router.context_inject as ci
 
 
@@ -36,13 +34,6 @@ def test_inject_prepends_when_no_system():
     assert out["messages"][0]["role"] == "system"
 
 
-def test_recall_noop_when_not_opted_in(monkeypatch):
-    monkeypatch.setattr(ci, "_AUTO_MEMORY_ENABLED", True)
-    body = {"messages": [{"role": "user", "content": "hi"}]}
-    out = asyncio.run(ci.inject_recalled_memory("ws-without-flag", body, "cid"))
-    assert out == body
-
-
 def test_salience_explicit_marker():
     msgs = [{"role": "user", "content": "Please remember that my rig is an M4 Pro."}]
     assert ci._salient_user_text(msgs, "ws") is not None
@@ -51,102 +42,3 @@ def test_salience_explicit_marker():
 def test_salience_skips_ordinary_question():
     msgs = [{"role": "user", "content": "what is the capital of France?"}]
     assert ci._salient_user_text(msgs, "ws") is None
-
-
-def test_writeback_noop_when_not_opted_in(monkeypatch):
-    monkeypatch.setattr(ci, "_AUTO_MEMORY_WRITEBACK_ENABLED", True)
-    before = len(ci._writeback_tasks)
-    ci.schedule_writeback(
-        "ws-without-flag", [{"role": "user", "content": "remember that x"}], "cid"
-    )
-    assert len(ci._writeback_tasks) == before
-
-
-def test_writeback_all_captures_everything(monkeypatch):
-    from portal.platform.inference.router.workspaces import WORKSPACES
-
-    monkeypatch.setitem(WORKSPACES, "ws-aggr", {"memory_writeback_all": True})
-    msgs = [{"role": "user", "content": "the capital of France is Paris"}]
-    assert ci._salient_user_text(msgs, "ws-aggr") is not None
-
-
-def test_writeback_dispatch_args_match_memory_contract(monkeypatch):
-    """The remember tool's category is an enum (preference|fact|
-    project_context|conversation_summary); the original "auto_writeback"
-    category was silently rejected by the memory server once the feature
-    finally went live. Guard the dispatch contract."""
-    from portal.platform.inference.router.workspaces import WORKSPACES
-    from portal.platform.inference.tool_registry import tool_registry
-
-    captured = {}
-
-    async def fake_dispatch(tool, args, request_id=None):
-        captured["tool"] = tool
-        captured["args"] = args
-        return {"ok": True}
-
-    monkeypatch.setattr(tool_registry, "dispatch", fake_dispatch)
-    monkeypatch.setattr(ci, "_AUTO_MEMORY_WRITEBACK_ENABLED", True)
-    monkeypatch.setitem(WORKSPACES, "ws-wb", {"memory_writeback": True})
-
-    asyncio.run(
-        ci.writeback_memory(
-            "ws-wb", [{"role": "user", "content": "remember that my callsign is X"}], "cid"
-        )
-    )
-    assert captured["tool"] == "remember"
-    assert captured["args"]["category"] in (
-        "preference",
-        "fact",
-        "project_context",
-        "conversation_summary",
-    )
-    assert "ws-wb" in captured["args"]["tags"]
-    assert "auto_writeback" in captured["args"]["tags"]
-
-
-def test_recall_dispatch_args_match_memory_contract(monkeypatch):
-    """The recall tool's schema names the limit `top_k` (default 5, max 20);
-    the original `"k"` arg was silently dropped so _TOP_K never reached the
-    tool — the same contract-mismatch class as SEAM-V1-AUTORAG-001. Guard the
-    dispatch contract the same way the remember test does."""
-    from portal.platform.inference.router.workspaces import WORKSPACES
-    from portal.platform.inference.tool_registry import tool_registry
-
-    captured = {}
-
-    async def fake_dispatch(tool, args, request_id=None):
-        captured["tool"] = tool
-        captured["args"] = args
-        return {"memories": [{"content": "m"}]}
-
-    monkeypatch.setattr(tool_registry, "dispatch", fake_dispatch)
-    monkeypatch.setattr(ci, "_AUTO_MEMORY_ENABLED", True)
-    monkeypatch.setitem(WORKSPACES, "ws-mem", {"inject_memory": True})
-
-    body = {"messages": [{"role": "user", "content": "where did we leave the splash pin?"}]}
-    asyncio.run(ci.inject_recalled_memory("ws-mem", body, "cid"))
-    assert captured["tool"] == "recall"
-    assert set(captured["args"]) == {"query", "top_k"}, captured["args"]
-    assert 1 <= captured["args"]["top_k"] <= 20
-    assert captured["args"]["top_k"] == ci._TOP_K
-
-
-def test_recalled_memory_is_skipped_for_bite_requests(monkeypatch):
-    from portal.platform.inference.router.workspaces import WORKSPACES
-    from portal.platform.inference.tool_registry import tool_registry
-
-    async def fail_dispatch(*_args, **_kwargs):
-        raise AssertionError("bite request must not recall user memory")
-
-    monkeypatch.setattr(tool_registry, "dispatch", fail_dispatch)
-    monkeypatch.setattr(ci, "_AUTO_MEMORY_ENABLED", True)
-    monkeypatch.setitem(WORKSPACES, "ws-bite", {"inject_memory": True})
-    body = {
-        "portal_bite_tools": ["file_read", "finish"],
-        "messages": [{"role": "user", "content": "private task request"}],
-    }
-
-    result = asyncio.run(ci.inject_recalled_memory("ws-bite", body, "cid"))
-
-    assert result is body

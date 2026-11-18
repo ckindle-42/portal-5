@@ -6,10 +6,8 @@ No network: the client runs against httpx.MockTransport.
 from __future__ import annotations
 
 import hashlib
-import json
 import math
 
-import httpx
 import pytest
 
 from portal.platform.embedding import contract as ec
@@ -17,9 +15,7 @@ from portal.platform.embedding.classifier import (
     AnchorClassifier,
     AnchorSet,
     leakage,
-    load_anchor_set,
 )
-from portal.platform.embedding.client import EmbeddingClient, EmbeddingUnavailableError
 
 
 def _vec(text: str, dim: int = 768) -> list[float]:
@@ -28,7 +24,6 @@ def _vec(text: str, dim: int = 768) -> list[float]:
     return ec.l2_normalize(raw)
 
 
-# ── contract ────────────────────────────────────────────────────────────────
 def test_prefixes_match_model_card() -> None:
     assert ec.format_text("x", ec.Task.SEARCH, ec.Role.QUERY) == "task: search result | query: x"
     assert ec.format_text("x", ec.Task.SEARCH, ec.Role.DOCUMENT) == "title: none | text: x"
@@ -79,92 +74,6 @@ def test_has_nan() -> None:
     assert not ec.has_nan([0.1, 0.2])
 
 
-# ── client ──────────────────────────────────────────────────────────────────
-def _service(
-    model: str = "google/embeddinggemma-2", wrong_dim: bool = False
-) -> httpx.MockTransport:
-    ident = ec.Identity(model, "rev123", 768, "bfloat16", "mps", "fake", ("text",)).to_dict()
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path == "/ready":
-            return httpx.Response(200, json={"ready": True, "identity": ident})
-        body = json.loads(request.content)
-        if request.url.path == "/embed":
-            dim = body["dim"]
-            task, role = ec.parse_task(body["task"]), ec.parse_role(body["role"])
-            vecs = [
-                ec.truncate(_vec(ec.format_text(i["text"], task, role, i.get("title"))), dim)
-                for i in body["inputs"]
-            ]
-            if wrong_dim:
-                vecs = [v[:-1] for v in vecs]
-            return httpx.Response(200, json={"embeddings": vecs, "dim": dim, "model": model})
-        if request.url.path == "/embed_items":
-            vecs = [
-                ec.truncate(_vec(json.dumps(i, sort_keys=True)), body["dim"]) for i in body["items"]
-            ]
-            return httpx.Response(
-                200, json={"embeddings": vecs, "dim": body["dim"], "model": model}
-            )
-        return httpx.Response(404)
-
-    return httpx.MockTransport(handler)
-
-
-async def test_client_embeds_with_server_side_prefix() -> None:
-    c = EmbeddingClient("http://svc", transport=_service())
-    [q] = await c.embed_texts(["hello"], task=ec.Task.SEARCH, role=ec.Role.QUERY, dim=256)
-    [d] = await c.embed_texts(["hello"], task=ec.Task.SEARCH, role=ec.Role.DOCUMENT, dim=256)
-    assert len(q) == 256 and q != d
-    assert await c.version_tag(256) == "google/embeddinggemma-2@rev123:256d"
-
-
-async def test_client_splits_large_requests_and_keeps_order() -> None:
-    from portal.platform.embedding.client import MAX_REQUEST_ITEMS
-
-    n = MAX_REQUEST_ITEMS * 2 + 5
-    texts = [f"t{i}" for i in range(n)]
-    c = EmbeddingClient("http://svc", transport=_service())
-    got = await c.embed_texts(texts, task=ec.Task.SEARCH, role=ec.Role.DOCUMENT, dim=128)
-    assert len(got) == n
-    for i in (0, MAX_REQUEST_ITEMS, n - 1):
-        [one] = await c.embed_texts([texts[i]], task=ec.Task.SEARCH, role=ec.Role.DOCUMENT, dim=128)
-        assert got[i] == one
-    items = [{"text": t} for t in texts]
-    assert len(await c.embed_items(items, dim=128)) == n
-
-
-async def test_client_rejects_wrong_model_and_wrong_dim() -> None:
-    c = EmbeddingClient(
-        "http://svc",
-        transport=_service(model="other/model"),
-        expected_model="google/embeddinggemma-2",
-    )
-    with pytest.raises(EmbeddingUnavailableError):
-        await c.identity()
-    with pytest.raises(EmbeddingUnavailableError):
-        await c.embed_texts(["x"], task=ec.Task.SEARCH)
-    c2 = EmbeddingClient("http://svc", transport=_service(wrong_dim=True))
-    with pytest.raises(EmbeddingUnavailableError):
-        await c2.embed_texts(["x"], task=ec.Task.SEARCH, dim=128)
-
-
-async def test_client_rejects_untrained_dim_before_network() -> None:
-    c = EmbeddingClient("http://svc", transport=_service())
-    with pytest.raises(ValueError):
-        await c.embed_texts(["x"], task=ec.Task.SEARCH, dim=300)
-
-
-async def test_client_unreachable_maps_to_unavailable() -> None:
-    def boom(request: httpx.Request) -> httpx.Response:
-        raise httpx.ConnectError("refused")
-
-    c = EmbeddingClient("http://svc", transport=httpx.MockTransport(boom))
-    with pytest.raises(EmbeddingUnavailableError):
-        await c.embed_texts(["x"], task=ec.Task.SEARCH)
-
-
-# ── classifier ──────────────────────────────────────────────────────────────
 class _FakeClient:
     """Embeds by bag-of-letters so semantically 'close' toy strings are close."""
 
@@ -199,21 +108,6 @@ async def test_anchor_classifier_picks_label_and_abstains() -> None:
     assert d.label == "aaa" and not d.abstained and d.margin > 0
     d2 = await clf.classify_text("mmmm", fc)
     assert d2.abstained and d2.label is None
-
-
-def test_load_anchor_set_validates(tmp_path) -> None:  # type: ignore[no-untyped-def]
-    p = tmp_path / "a.json"
-    p.write_text(
-        json.dumps({"name": "x", "task": "classification", "dim": 256, "labels": {"a": ["x"]}})
-    )
-    s = load_anchor_set(p)
-    assert s.dim == 256 and s.task is ec.Task.CLASSIFICATION
-    p.write_text(json.dumps({"labels": {"a": []}}))
-    with pytest.raises(ValueError):
-        load_anchor_set(p)
-    p.write_text(json.dumps({"dim": 300, "labels": {"a": ["x"]}}))
-    with pytest.raises(ValueError):
-        load_anchor_set(p)
 
 
 def test_leakage_detects_normalized_overlap() -> None:

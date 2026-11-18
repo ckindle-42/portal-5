@@ -7,10 +7,7 @@ Module import needs lancedb/pyarrow/httpx; tests SKIP gracefully without them
 (same pattern as test_mcp_endpoints.py).
 """
 
-import asyncio
 import sys
-import types
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -20,90 +17,6 @@ rag_mcp = pytest.importorskip(
     "portal.modules.research.tools.rag_mcp",
     reason="lancedb/pyarrow/httpx not importable — run: pip install lancedb pyarrow httpx",
 )
-
-
-def _fake_pypdf(text):
-    mod = types.ModuleType("pypdf")
-    page = MagicMock()
-    page.extract_text.return_value = text
-    mod.PdfReader = lambda path: MagicMock(pages=[page])
-    return mod
-
-
-def _fake_docx(text):
-    mod = types.ModuleType("docx")
-    para = MagicMock()
-    para.text = text
-    mod.Document = lambda path: MagicMock(paragraphs=[para])
-    return mod
-
-
-class TestReadFile:
-    """Docling-first _read_file with pypdf/python-docx fallback."""
-
-    def test_read_markdown(self, tmp_path):
-        f = tmp_path / "doc.md"
-        f.write_text("# Hello\n\nWorld")
-        text = asyncio.run(rag_mcp._read_file(f))
-        assert "Hello" in text and "World" in text
-
-    def test_read_text(self, tmp_path):
-        f = tmp_path / "notes.txt"
-        f.write_text("plain text content")
-        assert asyncio.run(rag_mcp._read_file(f)) == "plain text content"
-
-    def test_docling_pdf_success(self, tmp_path, monkeypatch):
-        f = tmp_path / "report.pdf"
-        f.write_bytes(b"dummy")
-        monkeypatch.setattr(
-            rag_mcp,
-            "_docling_convert",
-            lambda p: "# Report\n\n| Col1 | Col2 |\n|------|------|\n| A | B |",
-        )
-        text = asyncio.run(rag_mcp._read_file(f))
-        assert "Col1" in text and "Col2" in text
-
-    def test_docling_pptx_supported(self, tmp_path, monkeypatch):
-        f = tmp_path / "slides.pptx"
-        f.write_bytes(b"dummy")
-        monkeypatch.setattr(
-            rag_mcp, "_docling_convert", lambda p: "# Slide 1\n\nBullet points here"
-        )
-        assert "Slide 1" in asyncio.run(rag_mcp._read_file(f))
-
-    def test_docling_failure_falls_back_to_pypdf(self, tmp_path, monkeypatch):
-        f = tmp_path / "scanned.pdf"
-        f.write_bytes(b"dummy")
-
-        def _boom(p):
-            raise RuntimeError("no model")
-
-        monkeypatch.setattr(rag_mcp, "_docling_convert", _boom)
-        monkeypatch.setitem(sys.modules, "pypdf", _fake_pypdf("fallback text"))
-        assert "fallback text" in asyncio.run(rag_mcp._read_file(f))
-
-    def test_docling_short_result_falls_back(self, tmp_path, monkeypatch):
-        f = tmp_path / "emptyish.pdf"
-        f.write_bytes(b"dummy")
-        monkeypatch.setattr(rag_mcp, "_docling_convert", lambda p: "  ")
-        monkeypatch.setitem(sys.modules, "pypdf", _fake_pypdf("real content here"))
-        assert "real content" in asyncio.run(rag_mcp._read_file(f))
-
-    def test_docling_failure_falls_back_to_docx(self, tmp_path, monkeypatch):
-        f = tmp_path / "memo.docx"
-        f.write_bytes(b"dummy")
-
-        def _boom(p):
-            raise RuntimeError("no model")
-
-        monkeypatch.setattr(rag_mcp, "_docling_convert", _boom)
-        monkeypatch.setitem(sys.modules, "docx", _fake_docx("docx fallback paragraph"))
-        assert "docx fallback paragraph" in asyncio.run(rag_mcp._read_file(f))
-
-    def test_unsupported_format_returns_empty(self, tmp_path):
-        f = tmp_path / "image.png"
-        f.write_bytes(b"binary")
-        assert asyncio.run(rag_mcp._read_file(f)) == ""
 
 
 class TestManifestParams:

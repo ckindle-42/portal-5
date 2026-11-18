@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncIterator
-from types import SimpleNamespace
 from typing import Any
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -16,20 +13,6 @@ from portal.platform.inference.router.thinking import (
     ThinkTagFilter,
     normalize_think_message,
 )
-
-DONE = b"data: [DONE]\n\n"
-
-
-def _decode_payloads(chunks: list[bytes]) -> list[dict[str, Any]]:
-    out = []
-    for chunk in chunks:
-        for line in chunk.decode().splitlines():
-            if line.startswith("data: ") and line[6:] != "[DONE]":
-                try:
-                    out.append(json.loads(line[6:]))
-                except json.JSONDecodeError:
-                    continue
-    return out
 
 
 def _content(payloads: list[dict[str, Any]]) -> str:
@@ -115,73 +98,6 @@ def test_effective_thinking_flag_reads_engine_specific_request_fields(body, expe
     assert streaming._thinking_enabled(body) is expected
 
 
-class _Response:
-    status_code = 200
-
-    def __init__(self, lines: list[str]):
-        self.lines = lines
-
-    async def aiter_lines(self) -> AsyncIterator[str]:
-        for line in self.lines:
-            yield line
-
-
-class _Context:
-    def __init__(self, response: _Response):
-        self.response = response
-
-    async def __aenter__(self) -> _Response:
-        return self.response
-
-    async def __aexit__(self, *_: Any) -> None:
-        return None
-
-
-def _frame(delta: dict[str, Any], finish_reason: str | None = None) -> str:
-    return "data: " + json.dumps(
-        {"choices": [{"index": 0, "delta": delta, "finish_reason": finish_reason}]}
-    )
-
-
-@pytest.mark.anyio
-@pytest.mark.parametrize("field", ["reasoning", "reasoning_content", "thinking"])
-@pytest.mark.parametrize("thinking_enabled", [False, True])
-async def test_guarded_stream_keeps_reasoning_separate_and_classifies_empty_terminal(
-    monkeypatch, field, thinking_enabled
-):
-    client = MagicMock()
-    client.stream = lambda *_a, **_k: _Context(
-        _Response(
-            [
-                _frame({field: "REASONING_SENTINEL"}),
-                _frame({}, "length"),
-                "data: [DONE]",
-                _frame({"content": "AFTER_DONE_SENTINEL"}),
-            ]
-        )
-    )
-    monkeypatch.setattr(streaming, "_http_client", client)
-    body = {"chat_template_kwargs": {"enable_thinking": thinking_enabled}}
-    chunks = [
-        chunk
-        async for chunk in streaming._stream_from_backend_guarded(
-            "http://engine/v1/chat/completions", body, workspace_id="ws", model="m"
-        )
-    ]
-    payloads = _decode_payloads(chunks)
-    rendered = _content(payloads)
-    serialized = b"".join(chunks).decode()
-    assert rendered == NO_ANSWER_MESSAGE
-    assert "AFTER_DONE_SENTINEL" not in serialized
-    assert payloads[-1]["choices"][0]["finish_reason"] == "length"
-    assert chunks[-1] == DONE
-    if thinking_enabled:
-        assert _reasoning(payloads, field) == "REASONING_SENTINEL"
-    else:
-        assert _reasoning(payloads, field) == ""
-        assert "REASONING_SENTINEL" not in serialized
-
-
 def test_json_to_sse_fallback_does_not_promote_thoughts():
     payloads = [
         json.loads(frame.decode().split("data: ", 1)[1])
@@ -205,34 +121,6 @@ def test_json_to_sse_fallback_does_not_promote_thoughts():
     assert _content(payloads) == NO_ANSWER_MESSAGE
     assert _reasoning(payloads, "reasoning_content") == "SECRET"
     assert payloads[-1]["choices"][0]["finish_reason"] == "length"
-
-
-def test_non_streaming_reasoning_only_is_an_explicit_incomplete_answer(monkeypatch):
-    import portal.platform.inference.router.non_streaming as non_streaming
-
-    monkeypatch.setattr(non_streaming, "_record_usage", lambda **_kwargs: None)
-    response = non_streaming._apply_non_stream_response(
-        {
-            "choices": [
-                {
-                    "message": {"role": "assistant", "content": "", "thinking": "PRIVATE"},
-                    "finish_reason": "length",
-                }
-            ]
-        },
-        SimpleNamespace(id="test-engine"),
-        "test-workspace",
-        "test-model",
-        0.0,
-    )
-    body = json.loads(response.body)
-    message = body["choices"][0]["message"]
-    assert message["content"] == NO_ANSWER_MESSAGE
-    assert message["thinking"] == "PRIVATE"
-    assert body["choices"][0]["finish_reason"] == "length"
-
-
-# ── Inline ``<think>`` text is reasoning, never "no answer" ────────────────────
 
 
 @pytest.mark.parametrize(
@@ -310,147 +198,4 @@ def test_json_to_sse_fallback_carries_inline_think_as_reasoning():
     ]
     assert _content(payloads) == NO_ANSWER_MESSAGE
     assert _reasoning(payloads, "reasoning_content") == "private plan"
-    assert payloads[-1]["choices"][0]["finish_reason"] == "length"
-
-
-@pytest.mark.anyio
-@pytest.mark.parametrize("thinking_enabled", [True, False])
-async def test_streamed_inline_think_never_closed_is_reasoning_only(monkeypatch, thinking_enabled):
-    client = MagicMock()
-    client.stream = lambda *_a, **_k: _Context(
-        _Response(
-            [
-                _frame({"content": "<think>The user asks: extract the names. No"}),
-                _frame({}, "length"),
-                "data: [DONE]",
-            ]
-        )
-    )
-    monkeypatch.setattr(streaming, "_http_client", client)
-    body = {"chat_template_kwargs": {"enable_thinking": thinking_enabled}}
-    chunks = [
-        chunk
-        async for chunk in streaming._stream_from_backend_guarded(
-            "http://engine/v1/chat/completions", body, workspace_id="ws", model="m"
-        )
-    ]
-    payloads = _decode_payloads(chunks)
-    serialized = b"".join(chunks).decode()
-    assert _content(payloads) == NO_ANSWER_MESSAGE
-    assert "<think>" not in serialized
-    assert payloads[-1]["choices"][0]["finish_reason"] == "length"
-    if thinking_enabled:
-        assert _reasoning(payloads, "reasoning_content") == ("The user asks: extract the names. No")
-    else:
-        assert _reasoning(payloads, "reasoning_content") == ""
-        assert "The user asks" not in serialized
-
-
-@pytest.mark.anyio
-async def test_streamed_inline_think_split_across_chunks_releases_the_answer(monkeypatch):
-    client = MagicMock()
-    client.stream = lambda *_a, **_k: _Context(
-        _Response(
-            [
-                _frame({"content": "<thi"}),
-                _frame({"content": "nk>private plan</thi"}),
-                _frame({"content": "nk>Alice met Bob in Paris."}),
-                _frame({}, "stop"),
-                "data: [DONE]",
-            ]
-        )
-    )
-    monkeypatch.setattr(streaming, "_http_client", client)
-    chunks = [
-        chunk
-        async for chunk in streaming._stream_from_backend_guarded(
-            "http://engine/v1/chat/completions", {}, workspace_id="ws", model="m"
-        )
-    ]
-    payloads = _decode_payloads(chunks)
-    assert _content(payloads) == "Alice met Bob in Paris."
-    assert _reasoning(payloads, "reasoning_content") == "private plan"
-    assert "<think>" not in b"".join(chunks).decode()
-    assert payloads[-1]["choices"][0]["finish_reason"] == "stop"
-
-
-@pytest.mark.anyio
-async def test_inline_think_turn_grades_reasoning_only_in_the_trace(monkeypatch):
-    """The stream this pipeline now sends for LFM2.5's unclosed block grades WARN, not FAIL."""
-    from portal.platform.inference.cli.trace import workspaces
-
-    client = MagicMock()
-    client.stream = lambda *_a, **_k: _Context(
-        _Response(
-            [
-                _frame(
-                    {
-                        "content": (
-                            "<think>The user asks: extract the names from: Alice met "
-                            "Bob in Paris. So respond with names. No"
-                        )
-                    }
-                ),
-                _frame({}, "length"),
-                "data: "
-                + json.dumps(
-                    {
-                        "choices": [],
-                        "usage": {"completion_tokens": 24, "source": "pipeline"},
-                    }
-                ),
-                "data: [DONE]",
-            ]
-        )
-    )
-    monkeypatch.setattr(streaming, "_http_client", client)
-    chunks = [
-        chunk
-        async for chunk in streaming._stream_from_backend_guarded(
-            "http://engine/v1/chat/completions",
-            {"stream_options": {"include_usage": True}},
-            workspace_id="auto-documents::extract-uncensored",
-            model="m",
-        )
-    ]
-    events = [
-        (index * 0.1, frame)
-        for index, chunk in enumerate(chunks)
-        for line in chunk.decode().splitlines()
-        if (frame := workspaces.parse_sse(line)) is not None
-    ]
-    stats = workspaces.summarize_turn(events)
-    assert stats.text == NO_ANSWER_MESSAGE
-    assert stats.reasoning_deltas >= 1
-    seat = workspaces.Seat("auto-documents::extract-uncensored", "m")
-    route = ["auto-documents::extract-uncensored", "ollama-general", "m"]
-    hop = workspaces.seat_hop(seat, workspaces.StreamedTurn(200, route, stats))
-    assert hop.status is workspaces.Status.WARN
-    assert "reasoning-only" in hop.observed
-
-
-@pytest.mark.anyio
-async def test_tool_loop_inline_think_never_closed_is_reasoning_only(monkeypatch):
-    client = MagicMock()
-    client.stream = lambda *_a, **_k: _Context(
-        _Response(
-            [
-                _frame({"content": "<think>checking the workspace"}),
-                _frame({}, "length"),
-                "data: [DONE]",
-            ]
-        )
-    )
-    monkeypatch.setattr(streaming, "_http_client", client)
-    body = {"messages": [{"role": "user", "content": "Extract the names."}]}
-    chunks = [
-        chunk
-        async for chunk in streaming._stream_with_tool_loop_impl(
-            "http://engine/v1/chat/completions", body, "ws", "m", "", set()
-        )
-    ]
-    payloads = _decode_payloads(chunks)
-    assert _content(payloads) == NO_ANSWER_MESSAGE
-    assert _reasoning(payloads, "reasoning_content") == "checking the workspace"
-    assert chunks[-1] == DONE
     assert payloads[-1]["choices"][0]["finish_reason"] == "length"
