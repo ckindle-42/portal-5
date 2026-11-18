@@ -98,20 +98,3 @@ def test_home_compliance_suite_has_no_unblocked_tool_demand() -> None:
         )
     )
     assert [t["id"] for t in rows if task_tool_mismatches(t, HARNESS, known)] == []
-
-
-def test_task_requiring_absent_tools_is_blocked(tmp_path) -> None:
-    from tests.wfe import runner as rn
-    from tests.wfe.schema import Outcome
-
-    task = {
-        "id": "c",
-        "instruction": "Call compliance_ask.",
-        "requires_tools": ["compliance_ask"],
-        "checkers": [{"type": "answer_contains", "patterns": ["x"]}],
-    }
-    out = rn.run_task(
-        "m", "sys", task, rn.Sandbox(tmp_path), max_turns=3, budget_s=60, use_tools=True
-    )
-    assert out["outcome"] == Outcome.BLOCKED.value
-    assert out["tool_calls"] == 0

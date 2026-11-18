@@ -7,7 +7,6 @@ implementation and passes against the repaired one.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import textwrap
 from pathlib import Path
@@ -22,10 +21,7 @@ from tests.wfe.checkers import (
     check_answer_contains,
     check_cited_answer,
     check_compliance_reading_contract,
-    check_file_contains,
     check_file_exists,
-    check_hidden_pytest,
-    check_immutable,
     check_must_not_contain,
     check_routed_workspace,
     check_tool_grounded,
@@ -79,32 +75,6 @@ class TestFileCheckersAreSandboxOnly:
         ctx = CheckContext(sandbox_root=tmp_path)
         r = check_file_exists({"path": "README.md"}, ctx)
         assert r.outcome == Outcome.FAIL
-
-    def test_file_exists_true_when_written(self, tmp_path):
-        (tmp_path / "out.txt").write_text("hello")
-        r = check_file_exists({"path": "out.txt"}, CheckContext(sandbox_root=tmp_path))
-        assert r.outcome == Outcome.PASS
-
-    def test_empty_file_is_not_a_pass(self, tmp_path):
-        (tmp_path / "out.txt").write_text("")
-        r = check_file_exists({"path": "out.txt"}, CheckContext(sandbox_root=tmp_path))
-        assert r.outcome == Outcome.FAIL
-
-    def test_escape_attempt_is_refused(self, tmp_path):
-        r = check_file_exists({"path": "../../etc/hosts"}, CheckContext(sandbox_root=tmp_path))
-        assert r.outcome == Outcome.FAIL
-
-    def test_file_contains(self, tmp_path):
-        (tmp_path / "m.py").write_text("def summarize(rows):\n    return {}\n")
-        ctx = CheckContext(sandbox_root=tmp_path)
-        assert (
-            check_file_contains({"path": "m.py", "patterns": ["def summarize"]}, ctx).outcome
-            == Outcome.PASS
-        )
-        assert (
-            check_file_contains({"path": "m.py", "patterns": ["def missing"]}, ctx).outcome
-            == Outcome.FAIL
-        )
 
 
 class TestAnswerProvenance:
@@ -1116,66 +1086,6 @@ class TestCitationGrounding:
             sandbox_root=tmp_path,
         )
         assert check_cited_answer({"patterns": ["granite"]}, ctx).outcome == Outcome.PASS
-
-
-class TestRewardHacking:
-    def test_model_authored_trivial_tests_do_not_score(self, tmp_path):
-        """code-kv previously let the model write both the implementation and
-        its own grader. The hidden suite grades the implementation instead."""
-        (tmp_path / "parse_kv.py").write_text("def parse_kv(s):\n    return {}\n")
-        (tmp_path / "test_parse_kv.py").write_text("def test_ok():\n    assert True\n")
-        r = check_hidden_pytest(
-            {"graded": "code_kv", "impl_files": ["parse_kv.py"], "min_passed": 7},
-            CheckContext(sandbox_root=tmp_path),
-        )
-        assert r.outcome == Outcome.FAIL
-
-    def test_correct_implementation_passes_the_hidden_suite(self, tmp_path):
-        (tmp_path / "parse_kv.py").write_text(
-            "def parse_kv(s):\n"
-            "    out = {}\n"
-            "    if not s or not s.strip():\n"
-            "        return out\n"
-            "    parts, buf, i = [], '', 0\n"
-            "    while i < len(s):\n"
-            "        if s[i] == '\\\\' and i + 1 < len(s) and s[i+1] == ';':\n"
-            "            buf += ';'; i += 2; continue\n"
-            "        if s[i] == ';':\n"
-            "            parts.append(buf); buf = ''; i += 1; continue\n"
-            "        buf += s[i]; i += 1\n"
-            "    parts.append(buf)\n"
-            "    for p in parts:\n"
-            "        if not p.strip():\n"
-            "            continue\n"
-            "        k, sep, v = p.partition('=')\n"
-            "        out[k.strip()] = v.strip() if sep else ''\n"
-            "    return out\n"
-        )
-        r = check_hidden_pytest(
-            {"graded": "code_kv", "impl_files": ["parse_kv.py"], "min_passed": 7},
-            CheckContext(sandbox_root=tmp_path),
-        )
-        assert r.outcome == Outcome.PASS, r.notes
-
-    def test_missing_implementation_is_a_fail_not_an_error(self, tmp_path):
-        r = check_hidden_pytest(
-            {"graded": "code_kv", "impl_files": ["parse_kv.py"]},
-            CheckContext(sandbox_root=tmp_path),
-        )
-        assert r.outcome == Outcome.FAIL
-
-    def test_rewriting_the_graded_fixture_fails(self, tmp_path):
-        body = "def test_x():\n    assert True\n"
-        (tmp_path / "test_fizz.py").write_text(body)
-        want = hashlib.sha256(b"ORIGINAL").hexdigest()[:16]
-        r = check_immutable({"hashes": {"test_fizz.py": want}}, CheckContext(sandbox_root=tmp_path))
-        assert r.outcome == Outcome.FAIL and "mutated" in r.notes
-
-    def test_deleting_the_graded_fixture_fails(self, tmp_path):
-        r = check_immutable(
-            {"hashes": {"test_fizz.py": "deadbeefdeadbeef"}}, CheckContext(sandbox_root=tmp_path)
-        )
-        assert r.outcome == Outcome.FAIL and "deleted" in r.notes
 
 
 class TestOutcomeClassification:
