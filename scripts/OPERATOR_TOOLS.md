@@ -166,3 +166,20 @@ Run by hand for the compliance program phases named in each; one line from each 
 | `scripts/compliance/window_census.py` | The window census (TASK_COMPLIANCE_PIPELINE_ALIGNMENT_V1 §P2). |
 | `scripts/compliance/write_closeout_report.py` | CLOSEOUT_V1 P9.1 - the closing report generator. |
 | `scripts/compliance/write_splash_report.py` | Historical receipt renderer for saved Splash sweep runs. |
+
+## Registered after the 2026-11-18 test trim (their only references were deleted tests)
+
+| Script | Purpose |
+|---|---|
+| `scripts/rotate_logs.py` | Log rotation; run by launchd `com.portal5.log-rotate`. |
+| `scripts/hunt_bed/judged_hunt.py` | Hunt judge runs over a labelled bed (TASK_HUNT_JUDGE2). |
+| `scripts/review_eval_truth.py` | Review-eval truth builder (BULLY_TRUTH_REDESIGN_V1). |
+| `scripts/cam_lds_extract.py` | AIT/CAM LDS corpus extraction for the hunt bed. |
+| `scripts/intent_eval.py` | Router intent-classifier evaluation harness. |
+| `scripts/speed_bench.py` | Seat decode/prefill speed bench. |
+| `scripts/sync_cad_geometry_schema.py` | CAD geometry schema sync for the CAD MCP. |
+| `scripts/compliance/truth/truth_corpus.py` | Compliance reading truth corpus builder. |
+| `scripts/compliance/truth/substrate_vs_key.py` | Compliance truth: substrate vs key comparison. |
+| `scripts/verify_attack_image.py` | Lab setup readiness gate: verifies the attack image against `config/attack_image_contract.json` (docs/LAB_SETUP.md). |
+| `scripts/compliance/truth/copy_probe.py` | Compliance truth: copy probe measurement (unit-compliance-reading-truth). |
+| `scripts/wfe_disposition_backfill.py` | WFE closeout disposition verify/backfill (docs/WFE_ROOT_CAUSES_20261013.md). |
