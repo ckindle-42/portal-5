@@ -30,6 +30,7 @@ MIN_PARTITION_LINES = 4  # a part needs this many sampled events to be described
 _OPENERS = "([{"
 _CLOSERS = ")]}"
 _KV = re.compile(r"(?<![\w.\-])([A-Za-z_][\w./\-]{0,60})=(\"[^\"]*\"|'[^']*'|[^\s,;]+)")
+_COLON_LABEL = re.compile(r"^\s*([A-Za-z][A-Za-z0-9 _./\-]{0,60}?):\s+(\S.*?)\s*$")
 _WORD = re.compile(r"[A-Za-z][A-Za-z0-9_.\- ]{0,40}")
 _DELIMITERS = ("\t", ",", "|", ";")
 
@@ -372,6 +373,13 @@ def parse_kv(line: str) -> dict[str, str]:
         if value[:1] in {'"', "'"} and value[-1:] == value[:1]:
             value = value[1:-1]
         fields.setdefault(_clip(key, MAX_KEY_CHARS), _clip(value, MAX_VALUE_CHARS))
+    # rendered event bodies (e.g. Windows Security) carry "Label: value" detail lines KV misses
+    for detail in line.splitlines():
+        label = _COLON_LABEL.match(detail)
+        if label:
+            fields.setdefault(
+                _clip(label.group(1), MAX_KEY_CHARS), _clip(label.group(2), MAX_VALUE_CHARS)
+            )
     return fields if len(fields) >= 2 else {}
 
 

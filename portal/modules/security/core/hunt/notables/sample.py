@@ -228,21 +228,29 @@ def read_windows(
     per_window: int,
     kind: str,
     max_sources: int = SAMPLE_SOURCES,
+    sub_windows: int = 1,
 ) -> RowSet:
     """Read the newest `per_window` events of each equal time slice, concurrently.
 
     The slice is the declared, deterministic sample: the source's own range cut into
     equal windows, newest events first inside each. Nothing is extrapolated beyond it.
+    `sub_windows` > 1 splits each slice and reads the newest share of every part, so a
+    high-volume source is sampled at several points in the slice instead of only its tail.
     """
     route, route_name = route_filter(facts, max_sources)
-    query = f"search index={_quoted(facts.index)} {route} | head {per_window}"
     readable = [bounds for bounds in windows if bounds[1] > bounds[0]]
+    parts = max(1, sub_windows)
+    slice_bounds: list[tuple[float, float]] = []
+    for start, end in readable:
+        slice_bounds.extend(window_bounds(start, end, parts))
+    per_part = max(1, per_window // parts)
+    query = f"search index={_quoted(facts.index)} {route} | head {per_part}"
     found = RowSet(windows=len(readable), route=route_name)
     concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
-    with ThreadPoolExecutor(max_workers=min(len(readable) or 1, concurrency)) as pool:
+    with ThreadPoolExecutor(max_workers=min(len(slice_bounds) or 1, concurrency)) as pool:
         futures = [
-            pool.submit(_read_range, executor, query, start, end, kind=kind, row_cap=per_window)
-            for start, end in readable
+            pool.submit(_read_range, executor, query, start, end, kind=kind, row_cap=per_part)
+            for start, end in slice_bounds
         ]
         for future in futures:
             rows, reason = future.result()
