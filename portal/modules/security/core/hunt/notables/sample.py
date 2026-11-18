@@ -15,6 +15,7 @@ SAMPLE_WINDOWS = 3  # effort budget: raw reads spread across each source's own t
 SAMPLE_LINES = 40  # effort budget: events read per window for a source card
 SAMPLE_SOURCES = 2  # effort budget: indexed sources sampled for one source card
 ALERT_PROBE_LINES = 400  # effort budget: events read per window to detect an alert-bearing part
+ALERT_TERM = 'event_type="alert"'  # the search term that selects a JSON detection event
 BEHAVIOUR_SOURCES = 8  # effort budget: indexed sources one behaviour read covers
 MAX_HOST_NAMES = 24  # effort budget: host names listed on one source's facts
 # The results endpoint returns at most 50,000 rows per request; caps stay below it.
@@ -266,11 +267,25 @@ def sample_windows(facts: SourceFacts) -> list[tuple[float, float]]:
     return window_bounds(now - EMPTY_SAMPLE_WINDOWS * 3600.0, now, SAMPLE_WINDOWS)
 
 
+def read_alert_rows(
+    executor: HuntExecutor, facts: SourceFacts, *, per_window: int = ALERT_PROBE_LINES
+) -> RowSet:
+    """Read a source's detection events directly by the marker that makes them detections."""
+    route, route_name = route_filter(facts, SAMPLE_SOURCES)
+    query = f"search index={_quoted(facts.index)} {route} {ALERT_TERM} | head {per_window}"
+    rows, reason = _read_range(
+        executor, query, facts.first, facts.last, kind="alert_probe", row_cap=per_window
+    )
+    return RowSet([dict(row) for row in rows], 1, route_name, [reason] if reason else [])
+
+
 __all__ = [
+    "ALERT_TERM",
     "RowSet",
     "SourceFacts",
     "cadence_facts",
     "index_facts",
+    "read_alert_rows",
     "read_windows",
     "route_filter",
     "sample_windows",

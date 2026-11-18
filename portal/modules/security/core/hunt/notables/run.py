@@ -42,6 +42,7 @@ from .sample import (
     SAMPLE_LINES,
     SourceFacts,
     index_facts,
+    read_alert_rows,
     read_windows,
     sample_windows,
 )
@@ -218,14 +219,18 @@ def _sample_source(executor: Any, facts: SourceFacts) -> tuple[SourceFacts, Any]
     read = read_windows(
         executor, facts, sample_windows(facts), per_window=SAMPLE_LINES, kind="source_sample"
     )
-    if sum(1 for row in read.rows if is_alert_event(row)) < MIN_PARTITION_LINES:
-        probe = read_windows(
-            executor,
-            facts,
-            sample_windows(facts),
-            per_window=ALERT_PROBE_LINES,
-            kind="alert_probe",
-        )
+    sampled_alerts = sum(1 for row in read.rows if is_alert_event(row))
+    json_sample = any(str(row.get("_raw") or "").lstrip().startswith("{") for row in read.rows)
+    if sampled_alerts < MIN_PARTITION_LINES:
+        probe = read_alert_rows(executor, facts) if json_sample else None
+        if probe is None or not any(is_alert_event(row) for row in probe.rows):
+            probe = read_windows(
+                executor,
+                facts,
+                sample_windows(facts),
+                per_window=ALERT_PROBE_LINES,
+                kind="alert_probe",
+            )
         alerts = [row for row in probe.rows if is_alert_event(row)]
         if alerts:
             seen = {str(row.get("_raw") or "") for row in read.rows}

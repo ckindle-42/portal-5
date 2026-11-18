@@ -14,6 +14,7 @@ from portal.modules.security.core.hunt.notables.cards import (
     build_prompt,
     cadence_facts,
     is_alert_event,
+    is_alert_line,
     prepare_cards,
     reconcile_kind,
     value_facts,
@@ -347,6 +348,80 @@ def test_a_line_oriented_source_is_one_card_and_is_never_partitioned_on_time(tmp
     assert "v1" in card.roles["object"]
     assert card.template_model is not None
     assert len(client.calls) == 0
+
+
+def test_a_suricata_fast_log_sample_is_flagged_as_an_alert_source(monkeypatch):
+    from portal.modules.security.core.hunt.notables import cards as cards_module
+    from portal.modules.security.core.hunt.notables.parse import Parsed, TemplateModel
+
+    lines = [
+        "01/24/2022-03:56:58.599059  [**] [1:2220006:1] SURICATA SMTP no server welcome "
+        "message [**] [Classification: Generic Protocol Command Decode] [Priority: 3] {TCP} "
+        "172.19.130.4:587 -> 192.168.230.122:49954",
+        "01/24/2022-03:56:59.159788  [**] [1:2220000:1] SURICATA SMTP invalid reply [**] "
+        "[Classification: Generic Protocol Command Decode] [Priority: 3] {TCP} "
+        "172.19.130.4:587 -> 192.168.230.122:49954",
+    ]
+    rows = [
+        {"_raw": line, "_time": 1000.0 + index, "host": "h1"} for index, line in enumerate(lines)
+    ]
+    parsed = [
+        Parsed("template", {"program": "suricata", "template": "SURICATA SMTP", "v1": "x"})
+        for _line in lines
+    ]
+    model = TemplateModel(0, 0, (), {})
+    monkeypatch.setattr(cards_module, "parse_sample", lambda _raws: (parsed, model))
+
+    prepared = prepare_cards(_facts(), rows, 1, "seat")
+
+    assert prepared[0].alert is True
+    card = assemble_cards(prepared, {})[0]
+    assert card.kind == "alert"
+    assert card.roles["action"] == ("template",)
+
+
+def test_a_json_source_is_probed_by_its_alert_event_type():
+    from portal.modules.security.core.hunt.executor import Read
+
+    flow = {
+        "_raw": json.dumps({"event_type": "flow", "src_ip": "a"}),
+        "_time": 1000.0,
+        "host": "h1",
+    }
+    alert = {
+        "_raw": json.dumps({"event_type": "alert", "src_ip": "a"}),
+        "_time": 1001.0,
+        "host": "h1",
+    }
+
+    class _Executor:
+        def __init__(self) -> None:
+            self.queries: list[str] = []
+
+        def read(
+            self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+        ) -> Read:
+            del start, end, kind, row_cap
+            self.queries.append(query)
+            rows = [alert] if 'event_type="alert"' in query else [flow]
+            return Read([dict(row) for row in rows], False, None)
+
+    executor = _Executor()
+    _facts_value, read = _sample_source(executor, _facts())  # type: ignore[arg-type]
+
+    assert any('event_type="alert"' in query for query in executor.queries)
+    assert any(is_alert_event(row) for row in read.rows)
+
+
+def test_is_alert_line_reads_a_suricata_fast_log_line() -> None:
+    assert is_alert_line(
+        "01/24/2022-03:56:58.599059  [**] [1:2220006:1] SURICATA SMTP no server welcome "
+        "message [**] [Classification: Generic Protocol Command Decode] [Priority: 3] {TCP} "
+        "172.19.130.4:587 -> 192.168.230.122:49954"
+    )
+    assert is_alert_line(json.dumps({"event_type": "alert", "src_ip": "a"}))
+    assert is_alert_line("Mar 24 10:00:00 sshd: not json") is False
+    assert is_alert_line(json.dumps({"event_type": "flow"})) is False
 
 
 def test_a_time_ordered_discriminator_never_splits_a_source():

@@ -12,14 +12,14 @@ from .behaviours import Behaviour
 from .cards import SourceCard, card_consumers
 from .embedding import PipelineEmbeddingClient, embed_batches
 from .generators import Notable, _behaviour_words, _make
-from .knowledge import LoadedKnowledge, _unit_vector, load_for_run
+from .knowledge import LoadedKnowledge, _unit_vector, load_for_run, statement_has_content
 
 SIMILAR_GENERATOR = "similar_to_known"
 SIMILAR_NOTABLE_BUDGET = 300  # effort budget: ranked candidates raised to an analyst
 NEAREST_PER_LABEL = 3  # effort budget: nearest items shown from each label class
 MATCH_BATCH_SIZE = 64  # effort budget: behavior vectors compared in one DuckDB query
 CALIBRATION_QUERY_PER_GROUP = 128  # effort budget: calibration queries per family and class
-CALIBRATION_CANDIDATE_PER_GROUP = 512  # effort budget: calibration candidates per family and class
+CHANCE_AUC = 0.5  # the score-mode tie-break line; a measurement at chance must not switch it
 
 
 class SimilarityError(RuntimeError):
@@ -47,9 +47,25 @@ def _auc(samples: Sequence[tuple[str, float]]) -> float:
     return (positive_ranks - positives * (positives + 1) / 2) / (positives * negatives)
 
 
-def _calibration_rows(pool: LoadedKnowledge) -> list[tuple[str, float, float]]:
-    """Score a deterministic label-balanced sample against separate family rows."""
+def _calibration_rows(pool: LoadedKnowledge) -> list[tuple[str, str, str, float, float]]:
+    """Score a deterministic label-balanced sample against equal-size class pools per family."""
     connection = pool.connection
+    counts = {
+        (str(family), str(kind)): int(items)
+        for family, kind, items in connection.execute(
+            "SELECT family, label_kind, count(*) FROM loaded_knowledge GROUP BY 1,2"
+        ).fetchall()
+    }
+    caps = {
+        family: min(counts.get((family, "known_bad"), 0), counts.get((family, "known_good"), 0))
+        for family in pool.families
+    }
+    cap_terms = [(family, cap) for family, cap in caps.items() if cap > 0]
+    if not cap_terms:
+        return []
+    candidate_cap = " OR ".join(
+        f"(family = ? AND row_no <= {int(cap)})" for _family, cap in cap_terms
+    )
     connection.execute(
         "CREATE TEMP TABLE calibration_queries AS SELECT * FROM ("
         "SELECT *, row_number() OVER (PARTITION BY family, label_kind ORDER BY item_id) AS row_no "
@@ -59,39 +75,58 @@ def _calibration_rows(pool: LoadedKnowledge) -> list[tuple[str, float, float]]:
     connection.execute(
         "CREATE TEMP TABLE calibration_candidates AS SELECT * FROM ("
         "SELECT *, row_number() OVER (PARTITION BY family, label_kind ORDER BY item_id) AS row_no "
-        "FROM loaded_knowledge) WHERE row_no <= ?",
-        [CALIBRATION_CANDIDATE_PER_GROUP],
+        "FROM loaded_knowledge) WHERE " + candidate_cap,
+        [family for family, _cap in cap_terms],
     )
     relation = "q.family <> c.family" if len(pool.families) > 1 else "q.item_id <> c.item_id"
     rows = connection.execute(
-        "SELECT q.label_kind, "
+        "SELECT q.family, c.family, q.label_kind, "
         "max(array_inner_product(q.embedding,c.embedding)) FILTER "
         "(WHERE c.label_kind='known_bad') AS bad_score, "
         "max(array_inner_product(q.embedding,c.embedding)) FILTER "
         "(WHERE c.label_kind='known_good') AS good_score "
         "FROM calibration_queries q CROSS JOIN calibration_candidates c "
-        f"WHERE {relation} GROUP BY q.item_id,q.label_kind ORDER BY q.item_id"
+        f"WHERE {relation} GROUP BY q.item_id,q.family,c.family,q.label_kind ORDER BY q.item_id"
     ).fetchall()
     return [
-        (str(label), float(bad), float(good))
-        for label, bad, good in rows
+        (str(query_family), str(candidate_family), str(label), float(bad), float(good))
+        for query_family, candidate_family, label, bad, good in rows
         if bad is not None and good is not None
     ]
 
 
 def _reliability(pool: LoadedKnowledge) -> dict[str, Any]:
-    """Measure bad-only and bad-minus-good AUC on held-out families or items."""
+    """Measure bad-only and bad-minus-good AUC inside each held-out fold, then average them."""
     rows = _calibration_rows(pool)
-    bad_auc = _auc([(label, bad) for label, bad, _good in rows])
-    contrast_auc = _auc([(label, bad - good) for label, bad, good in rows])
-    choice = "known_bad_minus_good" if contrast_auc > bad_auc else "known_bad"
+    folds: dict[str, list[tuple[str, float, float]]] = defaultdict(list)
+    for query_family, candidate_family, label, bad, good in rows:
+        folds[f"{query_family}->{candidate_family}"].append((label, bad, good))
+    measured = {
+        name: {
+            "known_bad_auc": _auc([(label, bad) for label, bad, _good in items]),
+            "known_bad_minus_good_auc": _auc([(label, bad - good) for label, bad, good in items]),
+            "queries": len(items),
+        }
+        for name, items in sorted(folds.items())
+        if len({label for label, _bad, _good in items}) > 1
+    }
+    if not measured:
+        raise SimilarityError("similarity reliability needs known-bad and known-good examples")
+    bad_auc = sum(item["known_bad_auc"] for item in measured.values()) / len(measured)
+    contrast_auc = sum(item["known_bad_minus_good_auc"] for item in measured.values()) / len(
+        measured
+    )
+    # Keep the contrast score unless it ranks worse than chance while bad-only does not: on a
+    # store where both are at chance the choice would otherwise flip from run to run.
+    choice = "known_bad" if contrast_auc <= CHANCE_AUC < bad_auc else "known_bad_minus_good"
     return {
-        "auc": max(bad_auc, contrast_auc),
+        "auc": bad_auc if choice == "known_bad" else contrast_auc,
         "score": choice,
         "known_bad_auc": bad_auc,
         "known_bad_minus_good_auc": contrast_auc,
         "method": "leave_one_family_out" if len(pool.families) > 1 else "leave_one_item_out",
-        "validation_items": len(rows),
+        "validation_items": sum(item["queries"] for item in measured.values()),
+        "folds": measured,
     }
 
 
@@ -314,16 +349,18 @@ def generate_similar(
                 f"store model {pool.embedding_model!r} differs from Pipeline model {embedder.model!r}"
             )
         reliability = _reliability(pool)
-        statements = list(dict.fromkeys(_behaviour_words(item) for item in behaviours))
-        if behaviours:
-            _insert_behaviours(pool, behaviours, embedder)
-            scores = _scores(pool, len(behaviours))
-            notables = _ranked_notables(pool, behaviours, cards, scores, reliability)
+        scored = [item for item in behaviours if statement_has_content(_behaviour_words(item))]
+        statements = list(dict.fromkeys(_behaviour_words(item) for item in scored))
+        if scored:
+            _insert_behaviours(pool, scored, embedder)
+            scores = _scores(pool, len(scored))
+            notables = _ranked_notables(pool, scored, cards, scores, reliability)
         else:
             notables = []
         receipt = {
             "existed": len(behaviours),
-            "scored": len(behaviours),
+            "scored": len(scored),
+            "uninformative": len(behaviours) - len(scored),
             "kept": len(notables),
             "store": str(store_path),
             "run_index": pool.run_index,
@@ -331,6 +368,8 @@ def generate_similar(
             "excluded_families": list(pool.excluded_families),
             "loaded_families": list(pool.families),
             "knowledge_items": pool.items,
+            "excluded_contradicted": pool.contradicted,
+            "excluded_uninformative": pool.uninformative,
             "embedding_model": pool.embedding_model,
             "unique_statements": len(statements),
             "reliability": reliability,
