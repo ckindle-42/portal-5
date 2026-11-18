@@ -518,6 +518,29 @@ def _is_backend_type(registry: BackendRegistry, base_url: str, kind: str) -> boo
     return any(b.type == kind and b.url.rstrip("/") == needle for b in registry.list_backends())
 
 
+def _cross_engine_copies(registry: BackendRegistry, engine: str, model: str) -> set[str]:
+    backends = registry.list_backends()
+    if engine == "ollama":
+        copies = set()
+        for backend in backends:
+            if backend.type == "omlx" and (copy := backend.resolve_model(model)):
+                copies.add(copy)
+        return copies or {model}
+    copies = set()
+    for backend in backends:
+        if backend.type != "omlx" or model not in (
+            set(backend.models) | set(backend.aliases.values())
+        ):
+            continue
+        for hint, copy in backend.aliases.items():
+            if copy == model and any(
+                candidate.type == "ollama" and candidate.resolve_model(hint)
+                for candidate in backends
+            ):
+                copies.add(hint)
+    return copies or {model}
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """FastAPI lifecycle — create singletons on startup, tear down on shutdown.
@@ -565,6 +588,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         ollama_url=lambda: next(
             (b.url for b in registry.list_backends() if b.type == "ollama"), None
         ),
+        counterpart=lambda engine, model: _cross_engine_copies(registry, engine, model),
     )
     _load_guard_mod.GUARD = _guard
     # Ollama backends are served from native /api/chat behind the unchanged

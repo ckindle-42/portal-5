@@ -5,13 +5,16 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from types import SimpleNamespace
 from typing import Any
 
 import httpx
 import pytest
 
 from portal.platform.inference import load_guard as lg
+from portal.platform.inference.cluster_backends import Backend
 from portal.platform.inference.load_guard import OLLAMA
+from portal.platform.inference.router.lifespan import _cross_engine_copies
 
 GIB = 1024**3
 
@@ -321,12 +324,17 @@ def _fast(monkeypatch, tmp_path):
     YIELD._clear.set()
 
 
-def guard(e: Engines, ollama_url: str | None = OLLAMA_URL) -> lg.LoadGuard:
+def guard(
+    e: Engines,
+    ollama_url: str | None = OLLAMA_URL,
+    counterpart: Any = None,
+) -> lg.LoadGuard:
     return lg.LoadGuard(
         omlx_url=lambda: OMLX_URL,
         pinned=lambda: "router",
         client=lambda: httpx.AsyncClient(transport=e.transport()),
         ollama_url=lambda: ollama_url,
+        counterpart=counterpart,
     )
 
 
@@ -529,6 +537,128 @@ async def test_a_freed_ollama_resident_lifts_the_ceiling_before_the_quiet_refusa
     assert "devstral" not in e.ollama
     assert e.ceiling == pytest.approx(34.8 * GIB, abs=1)
     release()
+
+
+async def test_ollama_load_makes_room_from_omlx_and_keeps_its_copy_last(caplog):
+    e = Engines(
+        tags={"target": int(20.48 * GIB)},
+        omlx={
+            "omlx-target": {"size": 22 * GIB, "loaded": True, "last": 1},
+            "old-idle": {"size": 3 * GIB, "loaded": True, "last": 2},
+        },
+        ceiling=int(50.2 * GIB),
+    )
+    g = guard(e, counterpart=lambda engine, _model: "omlx-target" if engine == OLLAMA else None)
+
+    with caplog.at_level(logging.INFO, logger=lg.logger.name):
+        release = await g.admit(OLLAMA_URL, "target")
+
+    assert release is not None
+    assert e.unloaded == ["old-idle"]
+    assert e.omlx["omlx-target"]["loaded"]
+    assert "evicted old-idle on omlx" in caplog.text
+    assert "3.0 GiB" in caplog.text and "idle" in caplog.text
+    release()
+
+
+async def test_ollama_load_refuses_when_every_omlx_resident_is_in_flight():
+    e = Engines(
+        tags={"target": int(20.48 * GIB)},
+        omlx={"busy": {"size": 25 * GIB, "loaded": True}},
+        ceiling=int(48.2 * GIB),
+    )
+    g = guard(e)
+    end = g.begin(lg.OMLX, "busy")
+
+    with pytest.raises(lg.LoadRefusedError):
+        await g.admit(OLLAMA_URL, "target")
+
+    assert e.unloaded == []
+    end()
+
+
+async def test_ollama_load_spares_a_protected_omlx_resident_when_idle_memory_fits():
+    e = Engines(
+        tags={"target": int(20.48 * GIB)},
+        omlx={
+            "keeper": {"size": 22 * GIB, "loaded": True, "last": 1},
+            "old-idle": {"size": 3 * GIB, "loaded": True, "last": 2},
+        },
+        ceiling=int(50.2 * GIB),
+    )
+    g = guard(e)
+    g.protect(lg.OMLX, "keeper", 300)
+
+    release = await g.admit(OLLAMA_URL, "target")
+
+    assert release is not None
+    assert e.unloaded == ["old-idle"]
+    assert e.omlx["keeper"]["loaded"]
+    release()
+
+
+async def test_ollama_load_does_not_evict_a_model_in_its_failover_window():
+    e = Engines(
+        tags={"target": int(20.48 * GIB)},
+        omlx={"failover-source": {"size": 25 * GIB, "loaded": True}},
+        ceiling=int(48.2 * GIB),
+    )
+    g = guard(e)
+    g.protect(lg.OMLX, "failover-source", failover=True)
+
+    with pytest.raises(lg.LoadRefusedError):
+        await g.admit(OLLAMA_URL, "target")
+
+    assert e.unloaded == []
+    assert e.omlx["failover-source"]["loaded"]
+
+
+async def test_omlx_load_makes_room_from_ollama_and_keeps_its_copy_last():
+    e = Engines(
+        ollama={"target": 22 * GIB, "old-idle": 3 * GIB},
+        omlx={"omlx-target": {"size": 14 * GIB, "loaded": False}},
+        ceiling=18 * GIB,
+    )
+    e.hidden["old-idle"] = 4 * GIB
+    g = guard(e, counterpart=lambda engine, _model: "target" if engine == lg.OMLX else None)
+
+    release = await g.admit_omlx("omlx-target")
+
+    assert release is not None
+    assert e.unload_calls == {"old-idle": 1}
+    assert e.ollama == {"target": 22 * GIB}
+    release()
+
+
+def test_cross_engine_copy_resolves_configured_aliases_both_ways():
+    registry = SimpleNamespace(
+        list_backends=lambda: [
+            Backend(
+                id="omlx-general",
+                type="omlx",
+                url="http://omlx:8085",
+                group="general",
+                models=["omlx-target"],
+                aliases={
+                    "ollama-target": "omlx-target",
+                    "ollama-target-shortctx": "omlx-target",
+                },
+            ),
+            Backend(
+                id="ollama-general",
+                type="ollama",
+                url="http://ollama:11434",
+                group="general",
+                models=["ollama-target", "ollama-target-shortctx"],
+            ),
+        ]
+    )
+
+    assert _cross_engine_copies(registry, OLLAMA, "ollama-target") == {"omlx-target"}
+    assert _cross_engine_copies(registry, lg.OMLX, "omlx-target") == {
+        "ollama-target",
+        "ollama-target-shortctx",
+    }
 
 
 async def test_wait_header_is_clamped_and_parsed():
