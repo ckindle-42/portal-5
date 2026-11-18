@@ -1117,9 +1117,9 @@ def test_tier_escalate_picks_the_first_seat_with_headroom(monkeypatch: pytest.Mo
     monkeypatch.setattr(module, "_context_misfit", lambda *_a, **_k: None)
     monkeypatch.setattr(module, "_recent_quota", lambda *_a, **_k: None)
     monkeypatch.setattr(module, "_plan_busy", lambda *_a, **_k: None)
-    monkeypatch.setattr(module, "_reset_fraction", lambda _plan: 1.0)
+    monkeypatch.setattr(module, "_reset_fraction", lambda _plan, *_rest: 1.0)
     monkeypatch.setattr(
-        module, "_plan_headroom", lambda _reg, plan: 0.0 if plan == "codex" else 1.0
+        module, "_plan_headroom", lambda _reg, plan, *_rest: 0.0 if plan == "codex" else 1.0
     )
     chosen, why, _ranked = module._resolve_escalate({}, "code", 0)
     assert chosen == "seat-open"
