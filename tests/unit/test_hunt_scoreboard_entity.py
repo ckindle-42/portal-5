@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -240,6 +241,22 @@ def test_relate_cases_report_scenario_rank_and_false_cases_above(tmp_path: Path)
     assert relation["first_true_case_rank"] == 1
     assert relation["false_cases_above_first_true"] == 1
     assert relation["case_rows"][1]["scenarios"] == ["fruitfly"]
+
+
+def test_artefact_located_through_the_index_normalization_form(tmp_path: Path) -> None:
+    value = "나는_데이비드를_사랑한다.hwp"  # NFC key value, 17 code points
+    nfd = unicodedata.normalize("NFD", value)  # the index's spelling, 32 code points
+    assert unicodedata.normalize("NFC", nfd) == value
+    keys = [_key("taedonggang_phish", "ftp_download", value, entity="file")]
+    indexed = _notable("peer_rare", f"ftp download {nfd}", terms=(nfd,), content_key="nfd")
+    composed = _notable("peer_rare", f"ftp download {value}", terms=(value,), content_key="nfc")
+    family = _family(tmp_path, notables=[indexed, composed], keys=keys)
+    artefact = family["artefacts"][0]
+    assert artefact["first_rank"] == 0  # the NFD evidence line locates the NFC key value
+    assert artefact["covered"] == {"50": True, "100": True, "None": True}
+    assert family["notables"]["covering"] == 2
+    steps = {step["step"]: step for step in family["steps"]}
+    assert steps["taedonggang_phish/ftp_download"]["first_rank"] == 0
 
 
 def test_render_and_main_print_the_entity_report(tmp_path: Path, capsys: Any) -> None:

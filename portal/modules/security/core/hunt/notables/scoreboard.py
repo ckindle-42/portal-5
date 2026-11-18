@@ -13,6 +13,7 @@ import json
 import re
 import sys
 import time
+import unicodedata
 from collections import Counter, defaultdict
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -42,8 +43,9 @@ RULE = (
 )
 
 ENTITY_RULE = (
-    "an artefact is located when its key value appears whole-word (casefolded) in a notable's "
-    "what/basis/why, its entity values, or its evidence queries and lines; a step is covered "
+    "an artefact is located when its key value appears whole-word (NFC-normalized and "
+    "casefolded on both sides) in a notable's what/basis/why, its entity values, or its "
+    "evidence queries and lines; a step is covered "
     "when one of its artefacts is located and a scenario is found when one of its steps is. "
     "Asset matches (victim hosts/users) are reported but never cover a step or find a scenario "
     "on their own. An entry with admitted=false (failed the live locator audit) is excluded; "
@@ -278,12 +280,17 @@ def _read_entity_keys(path: Path) -> list[EntityKey]:
     return rows
 
 
+def _fold(text: str) -> str:
+    """NFC-normalized then casefolded text: the form entity values are matched in."""
+    return unicodedata.normalize("NFC", text).casefold()
+
+
 def _entity_pattern(value: str) -> re.Pattern[str]:
-    return re.compile(r"(?<!\w)" + re.escape(value.casefold()) + r"(?!\w)")
+    return re.compile(r"(?<!\w)" + re.escape(_fold(value)) + r"(?!\w)")
 
 
 def _haystack(row: Mapping[str, Any]) -> str:
-    """Everything a notable says, casefolded: the text entity keys are matched against."""
+    """Everything a notable says, folded: the text entity keys are matched against."""
     parts = [str(row.get(name) or "") for name in ("what", "basis", "why")]
     for entity in row.get("entities") or ():
         if isinstance(entity, Mapping):
@@ -292,7 +299,7 @@ def _haystack(row: Mapping[str, Any]) -> str:
         if isinstance(item, Mapping):
             parts.append(str(item.get("query") or ""))
             parts.append(str(item.get("line") or ""))
-    return "\n".join(parts).casefold()
+    return _fold("\n".join(parts))
 
 
 def _read_notables(directory: Path) -> list[dict[str, Any]]:
@@ -913,7 +920,7 @@ def _case_rows(
         parts = [
             str(event.get(name) or "") for event in events for name in ("line", "query", "host")
         ]
-        text = "\n".join(parts).casefold()
+        text = _fold("\n".join(parts))
         found = sorted(
             {(key.scenario, key.value) for key, pattern in patterns if pattern.search(text)}
         )

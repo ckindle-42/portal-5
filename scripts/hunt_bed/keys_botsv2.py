@@ -9,7 +9,9 @@ forward as provenance. Writes keys.jsonl and keys_audit_queries.spl under --out-
 A value audited live in R1 keeps admitted=true with its counts and audit date; every other
 value stays admitted=null (pending) until the orchestrator runs keys_audit_queries.spl
 against the lab — the intake rule (R2 statement §4) says the family does not count until
-each locator finds real events.
+each locator finds real events. A value whose NFC and NFD spellings differ is located in
+both forms (same eval trailer), because the index stores one spelling and Splunk matches
+bytes.
 """
 
 from __future__ import annotations
@@ -18,12 +20,30 @@ import argparse
 import datetime
 import json
 import sys
+import unicodedata
 from pathlib import Path
 from typing import Any
 
 
 def _spl_quote(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _forms(value: str) -> tuple[str, ...]:
+    """The value's NFC and NFD spellings when they differ, else the value alone."""
+    nfc, nfd = unicodedata.normalize("NFC", value), unicodedata.normalize("NFD", value)
+    return (value,) if nfc == nfd else (nfc, nfd)
+
+
+def _form_locators(row: dict[str, Any], form: str) -> tuple[str, str]:
+    """The row's locators retargeted at one normalization form of its value."""
+    value = str(row["value"])
+    if form == value:
+        return str(row["locator"]), str(row.get("locator_fallback") or "")
+    return (
+        str(row["locator"]).replace(value, form),
+        str(row.get("locator_fallback") or "").replace(value, form),
+    )
 
 
 def _default_locators(dataset: str, value: str) -> tuple[str, str]:
@@ -92,11 +112,13 @@ def _write_spl(path: Path, rows: list[dict[str, Any]]) -> int:
             for row in rows:
                 if row["role"] != role:
                     continue
-                handle.write(_audit_line(str(row["locator"]), row, "primary") + "\n")
-                lines += 1
-                if row.get("locator_fallback"):
-                    handle.write(_audit_line(str(row["locator_fallback"]), row, "fallback") + "\n")
+                for form in _forms(str(row["value"])):
+                    primary, fallback = _form_locators(row, form)
+                    handle.write(_audit_line(primary, row, "primary") + "\n")
                     lines += 1
+                    if fallback:
+                        handle.write(_audit_line(fallback, row, "fallback") + "\n")
+                        lines += 1
     return lines
 
 
