@@ -7,7 +7,7 @@
     "cost"
   ],
   "schemaVersion": 38,
-  "version": 4,
+  "version": 5,
   "editable": true,
   "refresh": "5m",
   "time": {
@@ -15,7 +15,7 @@
     "to": "now"
   },
   "timezone": "browser",
-  "description": "Plan quota, seat roster, token usage and cost for the Claude Code orchestration layer. Seats are grouped by model family so the same model bought from two providers reads as one stack, and retired seats keep their history in a collapsed row rather than cluttering the current roster. Quota is the vendor's own reading: Z.ai Coding Plan pools and an Alibaba TP credit pool, Claude Pro, ChatGPT/Codex, OpenCode Go, Gemini Pro through `agy -p /usage`, DeepSeek and Moonshot balances, and OrcaRouter's wallet plus its free-package ladder. MiMo publishes no balance endpoint, so its figure is derived; Codex/Grok headline plans are flat-rate and appear in spend as well as in their own utilisation.",
+  "description": "Plan quota, seat roster, token usage and cost for the Claude Code orchestration layer. Seats are grouped by model family so the same model bought from two providers reads as one stack, and retired seats keep their history in a collapsed row rather than cluttering the current roster. Quota is the vendor's own reading: Z.ai Coding Plan pools and an Alibaba TP credit pool, Claude Pro, ChatGPT/Codex, OpenCode Go, Gemini Pro through `agy -p /usage`, DeepSeek and Moonshot balances, and OrcaRouter's wallet plus its free-package ladder. MiMo publishes no balance endpoint, so its figure is derived; Codex/Grok headline plans are flat-rate and appear in spend as well as in their own utilisation. Rate-limit panels read the request and rate-limit ledgers the dispatcher keeps (orchestrate_request_* series).",
   "panels": [
     {
       "type": "row",
@@ -3631,6 +3631,213 @@
       "fieldConfig": {
         "defaults": {
           "unit": "none"
+        }
+      }
+    },
+    {
+      "title": "Rate limits \u2014 requests per pool against published caps",
+      "type": "row",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 126
+      },
+      "id": 118
+    },
+    {
+      "title": "Requests today vs published daily cap, per plan pool",
+      "type": "table",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 127
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "orchestrate_request_usage{window=\"1d\"}",
+          "legendFormat": "{{plan}} {{pool}} used today",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "expr": "orchestrate_request_cap{window=\"1d\"}",
+          "legendFormat": "{{plan}} {{pool}} rpd cap",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "C",
+          "expr": "orchestrate_request_usage{window=\"1m\"}",
+          "legendFormat": "{{plan}} {{pool}} last minute",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        }
+      },
+      "id": 119
+    },
+    {
+      "title": "rpm high-water vs per-minute cap",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 127
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "orchestrate_request_rpm_high_water",
+          "legendFormat": "{{plan}} {{pool}} high-water"
+        },
+        {
+          "refId": "B",
+          "expr": "orchestrate_request_cap{window=\"1m\"}",
+          "legendFormat": "{{plan}} {{pool}} rpm cap"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear"
+          }
+        }
+      },
+      "id": 120
+    },
+    {
+      "title": "Provider rate-limit events by plan / pool / reason (24h)",
+      "type": "table",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 136
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "orchestrate_rate_limit_events",
+          "legendFormat": "{{plan}} {{pool}} {{reason}}",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "expr": "orchestrate_rate_limit_last_timestamp * 1000",
+          "legendFormat": "{{plan}} {{pool}} last event",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        }
+      },
+      "id": 121
+    },
+    {
+      "title": "Pools fenced by a retry time now",
+      "type": "stat",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 136
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(orchestrate_rate_limit_retry_timestamp > time())",
+          "legendFormat": "fenced pools"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ]
+          }
+        }
+      },
+      "id": 122
+    },
+    {
+      "title": "Retry time of the last rate-limit event",
+      "type": "stat",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 136
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "orchestrate_rate_limit_retry_timestamp * 1000",
+          "legendFormat": "{{plan}} {{pool}} retry at"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dateTimeAsIso"
+        }
+      },
+      "id": 123
+    },
+    {
+      "id": 124,
+      "type": "table",
+      "title": "Last rate-limit event and retry time per pool",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 144
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "orchestrate_rate_limit_last_timestamp * 1000",
+          "legendFormat": "{{plan}} {{pool}} last event",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "expr": "orchestrate_rate_limit_retry_timestamp * 1000",
+          "legendFormat": "{{plan}} {{pool}} retry at",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dateTimeAsIso"
         }
       }
     }
