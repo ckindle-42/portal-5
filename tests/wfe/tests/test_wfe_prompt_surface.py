@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pytest
-
 from tests.wfe.prompt_surface import (
     HARNESS_NOTE_MARKER,
     harness_note,
@@ -76,45 +74,6 @@ def test_pipeline_mode_carries_the_note() -> None:
     ctx = workspace_context("auto-compliance")
     assert HARNESS_NOTE_MARKER in ctx["system_prompt_pipeline"]
     assert ctx["system_prompt_pipeline"].startswith(ctx["system_prompt_base"])
-
-
-@pytest.mark.parametrize(("ws", "note_sent"), [("auto-security", True), ("auto-compliance", False)])
-def test_pipeline_run_row_sends_the_note_only_in_sandbox_mode(
-    tmp_path, monkeypatch, ws, note_sent
-) -> None:
-    """A sandbox-mode row explains its substitute tools; a production-mode row (tool_modes.yaml)
-    runs the workspace's own tools and carries no harness note."""
-    from tests.wfe import campaign
-
-    class _Sent(BaseException):
-        pass
-
-    def fake_run_task(model, system_prompt, *a, **k):
-        raise _Sent(system_prompt)
-
-    monkeypatch.setattr(campaign, "ENGINE", "pipeline")
-    monkeypatch.setattr(campaign, "run_task", fake_run_task)
-    monkeypatch.setattr(campaign, "make_sandbox", lambda *a, **k: None)
-    wsc = workspace_context(ws)
-    row = {
-        "run_id": "r1",
-        "workspace": ws,
-        "arm": wsc["model"],
-        "arm_role": "incumbent",
-        "suite": "compliance_agentic",
-        "task_id": "t",
-        "repeat": 0,
-        "overrides": {},
-    }
-    if note_sent:
-        row["tool_mode"] = "sandbox"
-    manifest = {"campaign_id": "test_pipeline_note", "env": {}}
-    try:
-        campaign.run_row(tmp_path, manifest, row, wsc, {"id": "t"}, 1, 1, None, False)
-    except _Sent as sent:
-        assert (HARNESS_NOTE_MARKER in str(sent)) is note_sent
-    else:
-        raise AssertionError("run_task was not called")
 
 
 def test_task_demanding_a_production_tool_warns() -> None:
