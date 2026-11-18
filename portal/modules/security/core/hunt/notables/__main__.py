@@ -67,6 +67,17 @@ def _mapping(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def _exclusion_note(detail: dict[str, Any]) -> str:
+    excluded = detail.get("excluded_families")
+    if not isinstance(excluded, list):
+        return ""
+    if not excluded:
+        return "  excluded families: none — index unseen by the store"
+    names = ", ".join(str(item) for item in excluded)
+    unseen = " (index unseen by the store)" if detail.get("index_unseen") else ""
+    return f"  excluded: {names}{unseen}"
+
+
 def _enabled_generators(requested: str | None, knowledge_store: Path | None) -> list[str]:
     if requested is not None:
         return [name.strip() for name in requested.split(",") if name.strip()]
@@ -201,7 +212,7 @@ def _print_notables(receipt: dict[str, Any]) -> None:
             )
             print(
                 f"  {name}: existed={detail.get('existed')} kept={detail.get('kept')} "
-                f"seconds={seconds.get(name)}{counted}{measured}"
+                f"seconds={seconds.get(name)}{counted}{measured}{_exclusion_note(detail)}"
             )
     merge = _mapping(receipt.get("merge"))
     print(

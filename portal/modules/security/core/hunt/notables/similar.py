@@ -366,6 +366,7 @@ def generate_similar(
             "run_index": pool.run_index,
             "excluded_family": pool.excluded_family,
             "excluded_families": list(pool.excluded_families),
+            "index_unseen": pool.index_unseen,
             "loaded_families": list(pool.families),
             "knowledge_items": pool.items,
             "excluded_contradicted": pool.contradicted,

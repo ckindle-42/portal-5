@@ -252,3 +252,50 @@ def test_lofo_guard_holds_on_the_real_run_path(
             ],
             search=_RecordingSearch(),
         )
+
+
+def test_main_hunts_an_unseen_index_against_every_store_family(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    out = _run_out(tmp_path)
+    store = tmp_path / "knowledge.duckdb"
+    items = [item for item in _store_items(False) if item.index != "runidx"]
+    build_store(items, _Embedder(), store)
+    monkeypatch.setattr(
+        "portal.modules.security.core.hunt.notables.__main__.embedding_from_env", _Embedder
+    )
+    monkeypatch.delenv("PORTAL_HUNT_JUDGE_URL", raising=False)
+    monkeypatch.delenv("PORTAL_HUNT_JUDGE_MODEL", raising=False)
+
+    code = main(
+        [
+            "--index",
+            "runidx",
+            "--out",
+            str(out),
+            "--stage",
+            "notables",
+            "--generators",
+            "similar_to_known",
+            "--knowledge-store",
+            str(store),
+        ],
+        search=_RecordingSearch(),
+    )
+
+    assert code == 0
+    progress = json.loads((out / "progress.json").read_text())
+    detail = progress["stages"]["notables"]["similar_to_known"]
+    assert detail["index_unseen"] is True
+    assert detail["excluded_families"] == []
+    assert detail["loaded_families"] == ["fam_a", "fam_b"]
+    rows = [
+        json.loads(line)
+        for line in (out / "notables.jsonl").read_text().splitlines()
+        if line.strip()
+    ]
+    similar = [row for row in rows if row["generator"] == "similar_to_known"]
+    assert similar
+    for row in similar:
+        assert all(item["index"] != "runidx" for item in row["nearest_known"])
+    assert "excluded families: none — index unseen by the store" in capsys.readouterr().out
