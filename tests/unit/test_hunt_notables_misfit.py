@@ -54,8 +54,8 @@ def _card(
 
 
 def _facts() -> SourceFacts:
-    # first == last gives one window, so the fake executor's rows are read exactly once
-    return SourceFacts("ix", "st", 5, 100.0, 100.0, ("h1",), 1, ("/s1",), 1)
+    # a real range containing the row times, so each sub-window reads its own rows once
+    return SourceFacts("ix", "st", 5, 0.0, 100.0, ("h1",), 1, ("/s1",), 1)
 
 
 class _RowsExecutor:
@@ -65,8 +65,9 @@ class _RowsExecutor:
     def read(
         self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
     ) -> Read:
-        del query, start, end, kind, row_cap
-        return Read([dict(row) for row in self.rows], False, None)
+        del query, kind, row_cap
+        rows = [dict(row) for row in self.rows if start <= float(row["_time"]) < end]
+        return Read(rows, False, None)
 
 
 def test_line_shape_normalises_values_and_keeps_punctuation() -> None:
@@ -235,7 +236,7 @@ def test_misfit_is_a_default_generator_and_runs_in_the_notables_stage(tmp_path) 
     _behaviours, _receipt = collect_behaviours(
         _RowsExecutor(rows),  # type: ignore[arg-type]
         [card],
-        {"ix:st": SourceFacts("ix", "st", 201, 100.0, 100.0, ("h1",), 1, ("/s1",), 1)},
+        {"ix:st": SourceFacts("ix", "st", 201, 0.0, 100.0, ("h1",), 1, ("/s1",), 1)},
         tmp_path / "behaviours.duckdb",
     )
     write_json(tmp_path / "sources.json", {"cards": [card.as_dict()]})

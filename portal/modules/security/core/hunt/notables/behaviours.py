@@ -26,6 +26,7 @@ from .sample import (
 )
 
 BEHAVIOUR_WINDOWS = 12  # effort budget: time slices read per activity source
+BEHAVIOUR_SUB_WINDOWS = 2  # each slice read at its midpoint and tail, not only its tail
 BEHAVIOUR_EVENTS_PER_WINDOW = 2500  # effort budget: events read from one slice
 BEHAVIOUR_TOTAL_EVENTS = 400_000  # effort budget: parsed events across the whole stage
 IDENTITY_RECURRENCE = 2.0  # an identity is seen at least twice on average
@@ -650,6 +651,7 @@ def _key_source(
             per_window=per_window,
             kind="behavior_events",
             max_sources=BEHAVIOUR_SOURCES,
+            sub_windows=BEHAVIOUR_SUB_WINDOWS,
         )
     receipts: list[dict[str, Any]] = []
     overrides: dict[str, dict[str, Any]] = {}
@@ -802,6 +804,7 @@ def collect_behaviours(
                     per_window=per_window,
                     kind="behavior_events",
                     max_sources=BEHAVIOUR_SOURCES,
+                    sub_windows=BEHAVIOUR_SUB_WINDOWS,
                 )
                 for _source_id, _group, facts, _started in scheduled
             ]

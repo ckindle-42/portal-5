@@ -472,6 +472,60 @@ def test_key_value_needs_two_pairs_and_delimited_uses_its_header():
     assert parsed[1].fields == {"time": "1", "user": "bob", "action": "login"}
 
 
+# Real botsv2 wineventlog:security shape: a KV header then a colon-labelled detail body.
+_SECURITY_4720 = (
+    "08/23/2017 09:18:55 PM\nLogName=Security\n"
+    "SourceName=Microsoft Windows security auditing.\nEventCode=4720\nEventType=0\n"
+    "Type=Information\nComputerName=mercury.frothly.local\nTaskCategory=User Account Management\n"
+    "OpCode=Info\nRecordNumber=1700527\nKeywords=Audit Success\nMessage=A user account was created.\n"
+    "\nSubject:\n\tSecurity ID:\t\tFROTHLY\\service3\n\tAccount Name:\t\tservice3\n"
+    "\tAccount Domain:\t\tFROTHLY\n\tLogon ID:\t\t0x927DF4B\n"
+    "\nNew Account:\n\tSecurity ID:\t\tFROTHLY\\svcvnc\n\tAccount Name:\t\tsvcvnc\n"
+    "\nAttributes:\n\tSAM Account Name:\tsvcvnc\n\tDisplay Name:\t\t<value not set>\n"
+)
+_SECURITY_4688 = (
+    "08/23/2017 09:16:40 PM\nLogName=Security\nEventCode=4688\n"
+    "ComputerName=mercury.frothly.local\nTaskCategory=Process Creation\n"
+    "Message=A new process has been created.\n\nSubject:\n\tAccount Name:\t\tservice3\n"
+    "\nProcess Information:\n\tNew Process ID:\t\t0x16e4\n"
+    "\tNew Process Name:\tC:\\Windows\\System32\\ftp.exe\n"
+    '\tProcess Command Line:\t"C:\\Windows\\System32\\ftp.exe" -s:C:\\Users\\public\\ftpscript.txt\n'
+)
+
+
+def test_kv_reads_the_colon_labelled_body_of_a_rendered_security_event():
+    fields = parse_kv(_SECURITY_4720)
+    assert fields["EventCode"] == "4720"
+    assert fields["SAM Account Name"] == "svcvnc"
+    assert fields["ComputerName"] == "mercury.frothly.local"
+    process = parse_kv(_SECURITY_4688)
+    assert process["New Process Name"] == "C:\\Windows\\System32\\ftp.exe"
+    assert process["Account Name"] == "service3"
+    # a detail value may itself contain '=' (a command line); the label still keys it
+    assert "ftpscript.txt" in process["Process Command Line"]
+
+
+def test_kv_colon_body_does_not_change_auditd_or_dovecot_lines():
+    from portal.modules.security.core.hunt.notables.parse import _KV
+
+    audit = (
+        "type=USER_ACCT msg=audit(1616458141.526:150): pid=1899 uid=0 auid=4294967295 "
+        'ses=4294967295 msg=\'op=PAM:accounting acct="root" exe="/usr/sbin/cron" res=success\''
+    )
+    mail = (
+        "Mar 23 08:06:26 mail dovecot: imap-login: Login: user=<konstantin.braun>, "
+        "method=PLAIN, rip=172.16.100.30, lip=172.16.100.30, mpid=4044, TLS, session=<x>"
+    )
+    journal = (
+        "2021-03-22T20:21:49+00:00 ubuntu kernel: Command line: "
+        "BOOT_IMAGE=/boot/vmlinuz root=LABEL=cloudimg-rootfs ro console=tty1"
+    )
+    for line in (audit, mail, journal):
+        kv_keys = {m.group(1) for m in _KV.finditer(line)}
+        # the colon-label rule adds no field these single-line KV logs do not already carry
+        assert set(parse_kv(line)) == kv_keys
+
+
 def test_free_text_stays_text_and_field_stats_count_repeats():
     parsed = parse_events(["x"] * 4)
     assert {item.fmt for item in parsed} == {"text"}
