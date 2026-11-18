@@ -58,7 +58,7 @@ IDE. It runs from its own arm64-native image (`Dockerfile.cad`, compose
 
 `part_plan.plan_part()` validates the geometry IR and does all coordinate math
 once (a kernel-neutral `PartPlan`); two backends render it. `scad_emitter`
-emits OpenSCAD (output pinned byte-for-byte by `tests/data/cad_scad_golden/`);
+emits OpenSCAD (checked by `tests/unit/test_scad_emitter.py`);
 `b123d_emitter` emits a build123d algebra-mode script, checked against the SCAD
 meshes for volume/genus/bbox parity. Gaps are explicit `kernel_gap` errors
 (Tier-B extrudes; a base with both fillets and chamfers) that point the model at

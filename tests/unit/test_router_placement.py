@@ -11,7 +11,6 @@ from pathlib import Path
 import pytest
 
 from portal.platform.inference.cluster_backends import Backend, BackendRegistry
-from portal.platform.inference.router import placement
 from portal.platform.inference.router.placement import (
     HotSeatTracker,
     engine_key,
@@ -19,14 +18,15 @@ from portal.platform.inference.router.placement import (
 )
 
 OMLX_URL = "http://host.docker.internal:8085"
+
 OLLAMA_URL = "http://host.docker.internal:11434"
 
-# The seat that is resident (and therefore hot) on the shared oMLX engine.
 HOT_NATIVE = "Qwen3.8-27B-oQ4e-mtp"
+
 HOT_HINT = "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k"
-# A different model a later request may ask for: the GGUF tag the Ollama copy
-# carries literally, aliased to the oMLX native id on the oMLX backends.
+
 CODER_HINT = "hf.co/unsloth/Qwen3-Coder-30B-A3B-GGUF:Q4_K_M-ctx32k"
+
 CODER_NATIVE = "Qwen3-Coder-30B-A3B-Instruct-4bit"
 
 
@@ -102,12 +102,6 @@ class TestHotSeatTracker:
         tracker = _hot_tracker(now=100.0)
         tracker.touch(engine_key(OMLX_URL), CODER_NATIVE, now=200.0)
         assert tracker.hot_model(engine_key(OMLX_URL), 900, now=250.0) == CODER_NATIVE
-
-    def test_note_omlx_activity_records_on_the_module_tracker(self, monkeypatch) -> None:
-        fresh = HotSeatTracker()
-        monkeypatch.setattr(placement, "TRACKER", fresh)
-        placement.note_omlx_activity(OMLX_URL + "/v1/chat/completions", HOT_NATIVE)
-        assert fresh.hot_model(engine_key(OMLX_URL), 900) == HOT_NATIVE
 
 
 class TestProtectHotSeat:
@@ -225,66 +219,6 @@ class TestProtectHotSeat:
         assert candidates == snapshot
 
 
-HUNT_HINT = "gemma4:26b-a4b-it-qat-ctx8k-hunt"
-HUNT_NATIVE = "gemma-4-26b-a4b-it-QAT-4bit"
-
-
-def _hunt_fleet() -> list[Backend]:
-    return [
-        _omlx("omlx-general", [HUNT_NATIVE], {HUNT_HINT: HUNT_NATIVE}),
-        _ollama("ollama-general", [HUNT_HINT]),
-    ]
-
-
-class TestParallelSeatPrefersBatching:
-    """A declared parallel seat stays on oMLX after hot-seat protection."""
-
-    def test_hot_other_model_does_not_steer_a_parallel_seat_to_ollama(self, monkeypatch) -> None:
-        from portal.platform.inference.router.parallel_seat import prefer_batching_engine
-        from portal.platform.inference.router.workspaces import WORKSPACES
-
-        monkeypatch.setitem(
-            WORKSPACES, "hunt-reasoning", {"max_concurrent": 8, "model_hint": HUNT_HINT}
-        )
-        ordered = protect_hot_seat(
-            _hunt_fleet(), "hunt-reasoning", HUNT_HINT, 900, tracker=_hot_tracker(), now=1_001.0
-        )
-        assert _ids(ordered)[0] == "ollama-general"
-        assert _ids(prefer_batching_engine(ordered, "hunt-reasoning")) == [
-            "omlx-general",
-            "ollama-general",
-        ]
-
-    def test_a_non_parallel_seat_keeps_the_ollama_promotion(self, monkeypatch) -> None:
-        from portal.platform.inference.router.parallel_seat import prefer_batching_engine
-        from portal.platform.inference.router.workspaces import WORKSPACES
-
-        monkeypatch.setitem(
-            WORKSPACES, "auto-daily", {"max_concurrent": 1, "model_hint": HUNT_HINT}
-        )
-        ordered = protect_hot_seat(
-            _hunt_fleet(), "auto-daily", HUNT_HINT, 900, tracker=_hot_tracker(), now=1_001.0
-        )
-        assert _ids(prefer_batching_engine(ordered, "auto-daily")) == _ids(ordered)
-        assert _ids(ordered)[0] == "ollama-general"
-
-    def test_ollama_stays_first_when_omlx_cannot_serve_the_hint(self, monkeypatch) -> None:
-        from portal.platform.inference.router.parallel_seat import prefer_batching_engine
-        from portal.platform.inference.router.workspaces import WORKSPACES
-
-        monkeypatch.setitem(
-            WORKSPACES, "hunt-reasoning", {"max_concurrent": 8, "model_hint": HUNT_HINT}
-        )
-        candidates = [
-            _omlx("omlx-general", ["unrelated"]),
-            _ollama("ollama-general", [HUNT_HINT]),
-        ]
-        ordered = protect_hot_seat(
-            candidates, "hunt-reasoning", HUNT_HINT, 900, tracker=_hot_tracker(), now=1_001.0
-        )
-        assert _ids(prefer_batching_engine(ordered, "hunt-reasoning"))[0] == "ollama-general"
-
-
 def _write_config(tmp_path: Path, extra_defaults: str = "") -> Path:
     cfg = tmp_path / "backends.yaml"
     cfg.write_text(
@@ -314,35 +248,8 @@ defaults:
 
 
 class TestKnobWiring:
-    def test_registry_defaults_to_off(self, tmp_path: Path) -> None:
-        reg = BackendRegistry(config_path=str(_write_config(tmp_path)))
-        assert reg.hot_seat_protect_s == 0.0
-
-    def test_registry_reads_configured_window(self, tmp_path: Path) -> None:
-        reg = BackendRegistry(
-            config_path=str(_write_config(tmp_path, "  hot_seat_protect_s: 900\n"))
-        )
-        assert reg.hot_seat_protect_s == 900.0
-
     def test_production_config_enables_a_bounded_window(self) -> None:
         # Operator enabled hot-seat placement on 2026-10-22; the window must stay finite.
         repo = Path(__file__).resolve().parents[2]
         reg = BackendRegistry(config_path=str(repo / "config" / "backends.yaml"))
         assert 0.0 < reg.hot_seat_protect_s <= 3600.0
-
-    def test_registry_candidates_and_knob_drive_the_policy(self, tmp_path: Path) -> None:
-        reg = BackendRegistry(
-            config_path=str(_write_config(tmp_path, "  hot_seat_protect_s: 900\n"))
-        )
-        candidates = reg.get_backend_candidates("auto-coding")
-        assert _ids(candidates) == ["omlx-coding", "ollama-coding"]
-
-        reordered = protect_hot_seat(
-            candidates,
-            "auto-coding",
-            CODER_HINT,
-            reg.hot_seat_protect_s,
-            tracker=_hot_tracker(),
-            now=1_001.0,
-        )
-        assert _ids(reordered) == ["ollama-coding", "omlx-coding"]

@@ -36,10 +36,6 @@ sources:
 - type: code
   path: .env.example
 - type: code
-  path: tests/unit/test_ollama_passthrough.py
-- type: code
-  path: tests/unit/test_ollama_direct_allowlist.py
-- type: code
   path: scripts/memory_safety_watch.py
 - type: code
   path: deploy/launchd/com.portal5.host-ml-watch.plist

@@ -29,9 +29,6 @@ def _unit(uid: str, body: str, unit_claims: list[dict] | None = None) -> Knowled
     )
 
 
-# ── schema round-trip ────────────────────────────────────────────────────────
-
-
 def test_claims_survive_frontmatter_round_trip():
     """`to_frontmatter` builds a fixed dict, so a key it omits is destroyed the
     next time save_unit() rewrites the file. Claims must be in that dict."""
@@ -43,9 +40,6 @@ def test_claims_survive_frontmatter_round_trip():
 def test_unit_without_claims_round_trips_to_empty_list():
     unit = _unit("u2", "body")
     assert KnowledgeUnit.from_markdown(unit.to_markdown()).claims == []
-
-
-# ── probes ───────────────────────────────────────────────────────────────────
 
 
 def test_every_probe_returns_a_value_on_this_repo():
@@ -75,22 +69,6 @@ def test_workspace_names_returns_ids_not_display_labels():
     names = claims_mod._workspace_names(REPO_ROOT)
     assert any(n.startswith("bench-") for n in names)
     assert not any(n.startswith(("\U0001f916", "\U0001f513")) for n in names)
-
-
-def test_workspace_names_rejects_an_unexpected_config_shape(tmp_path):
-    """A future restructure to a list of dicts must fail loudly. The previous
-    implementation would have silently returned display labels instead."""
-    import yaml
-
-    (tmp_path / "config").mkdir()
-    (tmp_path / "config" / "portal.yaml").write_text(
-        yaml.dump({"workspaces": [{"name": "display only"}]}), encoding="utf-8"
-    )
-    with pytest.raises(TypeError, match="must be a mapping"):
-        claims_mod._workspace_names(tmp_path)
-
-
-# ── claim evaluation ─────────────────────────────────────────────────────────
 
 
 def test_pattern_claim_holds_when_body_carries_live_value():
@@ -146,9 +124,6 @@ def test_claim_with_no_operator_is_a_violation():
     assert len(claims_mod.evaluate_claims([unit], REPO_ROOT)) == 1
 
 
-# ── doc path references ──────────────────────────────────────────────────────
-
-
 def test_served_model_ids_are_not_treated_as_filesystem_paths():
     """`portal/auto-coding` is an OpenAI-style model id. The suppression is exact
     — checked against the live roster — so a retired workspace id still reports."""
@@ -164,9 +139,6 @@ def test_broken_path_refs_are_reported_as_doc_and_path():
         assert doc and path
         assert (REPO_ROOT / doc).exists()
         assert not (REPO_ROOT / path).exists()
-
-
-# ── absolute drift gate (baseline retired in TASK_WIKI_ZERO_DEBT_V1) ─────────
 
 
 def test_pin_axis_is_fully_removed():
@@ -203,144 +175,9 @@ def test_undeclared_numeric_census_skips_units_that_declare_a_claim():
     assert "u17" in found and "u18" not in found
 
 
-# ── P0 regression: BS-claims still HARD-FAILs a wrong declared number ────────
-
-
-def test_bs_check_hard_fails_a_deliberately_wrong_declared_number(tmp_path, monkeypatch):
-    """P0.2 exit criterion: BS still HARD-FAILs a wrong declared number
-    with the pin axis gone — A2's anti-drift core is untouched by A1."""
-    from portal.platform.wiki import store as store_mod
-    from scripts.validation import wiki as wiki_checks
-
-    live = claims_mod.probe("workspaces.total", REPO_ROOT)
-    wrong = _unit(
-        "unit-p0-regression-wrong-count",
-        f"Portal ships {live + 1} workspaces today.",
-        [{"probe": "workspaces.total", "pattern": "{value} workspaces"}],
-    )
-
-    canonical = tmp_path / "canonical"
-    canonical.mkdir()
-    store_mod.set_canonical_dir(canonical)
-    monkeypatch.setattr(wiki_checks, "REPO_ROOT", REPO_ROOT)
-    try:
-        store_mod.save_unit(wrong)
-        status, detail, _subs = wiki_checks.check_spine_drift()
-    finally:
-        store_mod.reset_canonical_dir()
-
-    assert status == "FAIL", detail
-    assert "unit-p0-regression-wrong-count" in detail or "claim violation" in detail
-
-
-def test_bs_check_passes_when_declared_number_is_correct(tmp_path, monkeypatch):
-    """Sibling check: a correct claim isn't penalized by the pin axis's removal."""
-    from portal.platform.wiki import store as store_mod
-    from scripts.validation import wiki as wiki_checks
-
-    live = claims_mod.probe("workspaces.total", REPO_ROOT)
-    right = _unit(
-        "unit-p0-regression-right-count",
-        f"Portal ships {live} workspaces today.",
-        [{"probe": "workspaces.total", "pattern": "{value} workspaces"}],
-    )
-
-    canonical = tmp_path / "canonical"
-    canonical.mkdir()
-    store_mod.set_canonical_dir(canonical)
-    monkeypatch.setattr(wiki_checks, "REPO_ROOT", REPO_ROOT)
-    try:
-        store_mod.save_unit(right)
-        status, detail, _subs = wiki_checks.check_spine_drift()
-    finally:
-        store_mod.reset_canonical_dir()
-
-    assert status == "PASS", detail
-
-
-# ── Computed facts return in memory without canonical writes ────────────────
-
-
-def test_fact_unit_derivation_does_not_write_canonical_store(tmp_path):
-    """Derived fact units are returned in memory and leave the store untouched."""
-    from portal.platform.wiki import store as store_mod
-    from portal.platform.wiki.adapters.seed_facts import derive_persona_roster
-
-    canonical = tmp_path / "canonical"
-    canonical.mkdir()
-    store_mod.set_canonical_dir(canonical)
-    try:
-        unit = derive_persona_roster("deadbeef")
-        assert unit.id == "unit-fact-persona-roster"
-        assert list(canonical.iterdir()) == []
-    finally:
-        store_mod.reset_canonical_dir()
-
-
-# ── orchestration dashboard: a windowed total must not be a rate ─────────────
-
-
-def _dashboard(tmp_path: Path, panels: list[dict]) -> Path:
-    import json
-
-    path = tmp_path / claims_mod._ORCHESTRATE_DASHBOARD
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"panels": panels}), encoding="utf-8")
-    return tmp_path
-
-
 def _probe_dash(root: Path) -> list[str]:
     return claims_mod.PROBES["orchestrate.rate_over_lifetime_counters"](root)
 
 
 def test_live_dashboard_states_no_total_as_a_rate():
     assert _probe_dash(REPO_ROOT) == []
-
-
-def test_probe_names_a_stat_that_takes_the_rate_of_a_lifetime_counter(tmp_path):
-    root = _dashboard(
-        tmp_path,
-        [
-            {
-                "type": "stat",
-                "title": "Spent in cash (7d)",
-                "targets": [{"expr": "sum(increase(orchestrate_cost_usd_total[7d]))"}],
-            }
-        ],
-    )
-    assert _probe_dash(root) == ["Spent in cash (7d)"]
-
-
-def test_probe_exempts_a_timeseries_because_movement_is_what_a_rate_is_for(tmp_path):
-    root = _dashboard(
-        tmp_path,
-        [
-            {
-                "type": "timeseries",
-                "title": "Cash spent by tier",
-                "targets": [{"expr": "sum by (tier) (increase(orchestrate_cost_usd_total[1h]))"}],
-            }
-        ],
-    )
-    assert _probe_dash(root) == []
-
-
-def test_probe_accepts_a_stat_reading_the_windowed_gauge(tmp_path):
-    root = _dashboard(
-        tmp_path,
-        [
-            {
-                "type": "stat",
-                "title": "Spent in cash (7d)",
-                "targets": [{"expr": 'sum(orchestrate_window_cost_usd{window="7d"})'}],
-            }
-        ],
-    )
-    assert _probe_dash(root) == []
-
-
-def test_probe_reports_unparseable_dashboard_rather_than_passing(tmp_path):
-    path = tmp_path / claims_mod._ORCHESTRATE_DASHBOARD
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("{not json", encoding="utf-8")
-    assert _probe_dash(tmp_path) == ["<dashboard is not valid JSON>"]

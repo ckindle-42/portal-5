@@ -59,8 +59,8 @@ tests/benchmarks/cad_gauntlet_v2_oracles.py: 8/8 oracle parts PASS (machine=aarc
 - **Fallback:** `generate_scad` / `render_openscad` (OpenSCAD, Manifold), `render_mesh`,
   `convert_cad`.
 - **IR:** `tools/part_plan.py` (`plan_part`) does all coordinate math once; `scad_emitter`
-  and `b123d_emitter` are the two backends. SCAD output is pinned byte-for-byte by
-  `tests/data/cad_scad_golden/`; the BREP backend is checked against the SCAD meshes
+  and `b123d_emitter` are the two backends. SCAD output is checked by
+  `tests/unit/test_scad_emitter.py`; the BREP backend is checked against the SCAD meshes
   (volume, genus, bbox) in `tests/unit/test_b123d_emitter.py`.
 
 **Runtime wiring.** `capabilities.py` never hardcodes a platform -> capability mapping; it

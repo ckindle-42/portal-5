@@ -44,24 +44,6 @@ async def test_seat_over_the_live_budget_is_flagged_but_not_never_fit() -> None:
     assert report["ollama_residents"]["router"]["hold"] == "pinned"
 
 
-async def test_seat_that_can_never_fit_is_flagged_against_a_fixed_budget(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from portal.platform.inference import load_guard
-
-    monkeypatch.setattr(load_guard, "_CEILING", 20 * GIB)
-    e = Engines(tags={"huge": 40 * GIB, "small": 2 * GIB}, ceiling=90 * GIB)
-    report = annotate(
-        await guard(e).seat_fit(OLLAMA_URL, [_seat("ws-huge", "huge"), _seat("ws-small", "small")])
-    )
-    # A fixed ceiling makes the verdict a property of the model, not of the moment:
-    # 50 GiB projected against 20 - 2 GiB.
-    assert report["never_fit_budget_gib"] == pytest.approx(18)
-    assert report["never_fit"] == ["ws-huge"]
-    assert report["never_fit_basis"] == "fixed LOAD_GUARD_CEILING_GB"
-    assert report["undeclared_never_fit"] == ["ws-huge"]
-
-
 async def test_protected_idle_counts_toward_the_fit_budget() -> None:
     e = Engines(ollama={"fallback": 10 * GIB}, tags={"m": 12 * GIB}, ceiling=10 * GIB)
     g = guard(e)

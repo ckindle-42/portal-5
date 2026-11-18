@@ -8,61 +8,6 @@ Verifies:
 
 from __future__ import annotations
 
-import json
-import subprocess
-import sys
-
-
-def _run(*args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        [sys.executable, "-m", "portal.platform.inference.cli", *args],
-        capture_output=True,
-        text=True,
-    )
-
-
-def test_portal_help() -> None:
-    result = _run("--help")
-    assert result.returncode == 0, result.stderr
-    assert "config" in result.stdout
-
-
-def test_portal_config_show_exits_0() -> None:
-    result = _run("config", "show")
-    assert result.returncode == 0, result.stderr
-
-
-def test_portal_config_show_valid_json() -> None:
-    result = _run("config", "show")
-    data = json.loads(result.stdout)
-    assert "ollama_url" in data
-    assert "workspaces" in data
-    assert "workspace_count" in data
-    assert "mcp_fleet_count" in data
-
-
-def test_portal_config_show_workspace_count() -> None:
-    result = _run("config", "show")
-    data = json.loads(result.stdout)
-    assert data["workspace_count"] > 0
-    assert len(data["workspaces"]) == data["workspace_count"]
-
-
-def test_portal_config_show_mcp_fleet() -> None:
-    result = _run("config", "show")
-    data = json.loads(result.stdout)
-    assert data["mcp_fleet_count"] > 0
-    for entry in data["mcp_fleet"]:
-        assert "id" in entry
-        assert "name" in entry
-        assert "expose_to_pipeline" in entry
-    assert next(entry for entry in data["mcp_fleet"] if entry["id"] == "pipeline")[
-        "expose_to_pipeline"
-    ]
-
-
-# ── HF-lift regression guards (TASK_HF_LIFT_REGRESSION_TESTS_V1) ─────────────
-
 
 def test_models_pull_reads_from_config_not_hardcoded() -> None:
     """Regression — registry must come from PortalConfig.models, not

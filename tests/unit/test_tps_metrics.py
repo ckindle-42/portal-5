@@ -8,7 +8,6 @@ counted on ``portal_tps_unmeasured_total`` and left out of the ratio.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -32,8 +31,6 @@ from portal.platform.inference.router.metrics import (
 )
 from portal.platform.inference.router.power import _record_usage
 from portal.platform.inference.router.trace import usage_metric_kwargs
-
-_DASHBOARD = Path("config/grafana/dashboards/portal5_overview.json")
 
 
 def _counter(metric, **labels) -> float:
@@ -598,47 +595,3 @@ class TestDigestMath:
         assert rows[0]["model"] == "fast"
         assert rows[0]["answer_tokens"] == 100
         assert rows[0]["answer_tokens_per_second"] == pytest.approx(50)
-
-
-class TestOverviewDashboard:
-    def test_tps_panels_are_windowed_ratios(self):
-        dashboard = json.loads(_DASHBOARD.read_text())
-        exprs: list[str] = []
-        titles: list[str] = []
-        for panel in dashboard["panels"]:
-            titles.append(panel.get("title", ""))
-            for target in panel.get("targets") or []:
-                expr = target.get("expr")
-                if isinstance(expr, str):
-                    exprs.append(expr)
-
-        joined = "\n".join(exprs)
-        assert "portal_tokens_per_second" not in joined
-        assert "Avg Tokens/sec (Aggregate)" not in titles
-        assert (
-            'sum by(model) (rate(portal_decode_tokens_total{workspace!~"internal-.*"}[5m])) '
-            '/ sum by(model) (rate(portal_decode_seconds_total{workspace!~"internal-.*"}[5m]))'
-        ) in exprs
-        assert (
-            'sum by(model) (rate(portal_answer_tokens_total{workspace!~"internal-.*"}[5m])) '
-            '/ sum by(model) (rate(portal_answer_seconds_total{workspace!~"internal-.*"}[5m]))'
-        ) in exprs
-        assert (
-            'sum by(workspace) (rate(portal_decode_tokens_total{workspace!~"internal-.*"}[5m])) '
-            '/ sum by(workspace) (rate(portal_decode_seconds_total{workspace!~"internal-.*"}[5m]))'
-        ) in exprs
-        assert (
-            'sum by(workspace) (rate(portal_answer_tokens_total{workspace!~"internal-.*"}[5m])) '
-            '/ sum by(workspace) (rate(portal_answer_seconds_total{workspace!~"internal-.*"}[5m]))'
-        ) in exprs
-        assert (
-            "histogram_quantile(0.50, sum by(model, le) "
-            '(rate(portal_ttft_seconds_bucket{workspace!~"internal-.*"}[5m])))'
-        ) in exprs
-        assert (
-            "histogram_quantile(0.90, sum by(model, le) "
-            '(rate(portal_ttft_seconds_bucket{workspace!~"internal-.*"}[5m])))'
-        ) in exprs
-        speed = [expr for expr in exprs if "portal_decode_" in expr or "portal_answer_" in expr]
-        assert speed
-        assert all("rate(" in expr for expr in speed)

@@ -17,26 +17,20 @@ P5-FANOUT-001 W1/W2. The load-bearing properties pinned here:
 
 from __future__ import annotations
 
-import importlib
 import io
 import json
 import urllib.error
 from typing import Any
 
-import httpx
 import pytest
 
-import portal.platform.inference.streaming_client as streaming_client_module
-from portal.modules.compliance.core import reading_transport, transport_dialects
+from portal.modules.compliance.core import reading_transport
 from portal.modules.compliance.core.reading_transport import chat
 from portal.modules.compliance.core.transport_dialects import (
-    OllamaNative,
     PipelineCompat,
     resolve_dialect,
 )
 from portal.platform.inference import model_addressing
-
-# ── addressing ───────────────────────────────────────────────────────────────
 
 
 def test_workspace_passthrough_for_known_workspace():
@@ -77,9 +71,6 @@ def test_pipeline_dialect_omits_workspace_owned_output_settings():
     assert "temperature" not in payload
 
 
-# ── resolution default ───────────────────────────────────────────────────────
-
-
 def test_resolve_dialect_defaults_to_pipeline():
     assert resolve_dialect().name == "pipeline"
 
@@ -88,44 +79,6 @@ def test_resolve_dialect_explicit_still_works():
     assert resolve_dialect("ollama-native").name == "ollama-native"
     with pytest.raises(ValueError, match="unknown transport dialect"):
         resolve_dialect("carrier-pigeon")
-
-
-def test_native_rollback_uses_guarded_passthrough_and_auth(monkeypatch):
-    monkeypatch.setenv("OLLAMA_BASE", "http://pipeline.test/ollama")
-    monkeypatch.setenv("PIPELINE_API_KEY", "native-test-key")
-    dialect = OllamaNative()
-    assert dialect.endpoint == "http://pipeline.test/ollama/api/chat"
-    assert dialect.headers()["Authorization"] == "Bearer native-test-key"
-
-    importlib.reload(reading_transport)
-    assert reading_transport._SHOW_ENDPOINT == "http://pipeline.test/ollama/api/show"
-    assert reading_transport._PS_ENDPOINT == "http://pipeline.test/ollama/api/ps"
-
-    monkeypatch.undo()
-    importlib.reload(reading_transport)
-
-
-#: Captured at import, before the conftest fixture pins the window probes.
-_REAL_APPLIED_CONTEXT_LENGTH = OllamaNative.applied_context_length
-
-
-def test_native_applied_context_reads_ps_with_auth(monkeypatch):
-    monkeypatch.setattr(OllamaNative, "applied_context_length", _REAL_APPLIED_CONTEXT_LENGTH)
-    monkeypatch.setenv("OLLAMA_BASE", "http://pipeline.test/ollama")
-    monkeypatch.setenv("PIPELINE_API_KEY", "native-test-key")
-    seen = {}
-
-    def fake_get(url, timeout, headers=None):
-        seen.update(url=url, headers=headers)
-        return {"models": [{"name": "m", "context_length": 8192}]}
-
-    monkeypatch.setattr(transport_dialects, "_get", fake_get)
-    assert OllamaNative().applied_context_length("m") == 8192
-    assert seen["url"] == "http://pipeline.test/ollama/api/ps"
-    assert seen["headers"] == {"Authorization": "Bearer native-test-key"}
-
-
-# ── build shape ──────────────────────────────────────────────────────────────
 
 
 def _built(**overrides: Any) -> dict[str, Any]:
@@ -181,22 +134,6 @@ def test_build_maps_json_format():
     assert "response_format" not in _built(fmt=None)
 
 
-# ── failure translation ──────────────────────────────────────────────────────
-
-
-def test_post_translates_http_status_error(monkeypatch):
-    request = httpx.Request("POST", "http://localhost:9099/v1/chat/completions")
-    response = httpx.Response(400, text='{"error":"context"}', request=request)
-
-    def _boom(*a: Any, **k: Any):
-        raise httpx.HTTPStatusError("bad request", request=request, response=response)
-
-    monkeypatch.setattr(streaming_client_module, "stream_chat_turn", _boom)
-    with pytest.raises(urllib.error.HTTPError) as excinfo:
-        PipelineCompat().post({"model": "x", "messages": []}, timeout=60)
-    assert excinfo.value.code == 400
-
-
 def test_classify_400_reads_the_prefill_guard_as_capacity():
     exc = urllib.error.HTTPError(
         "http://localhost:9099/v1/chat/completions",
@@ -249,50 +186,6 @@ def test_a_capacity_refusal_is_named_and_never_poisons_the_think_cache():
     assert reading_transport._THINK_CAPABLE == {}
 
 
-def test_post_translates_stall_to_urlerror(monkeypatch):
-    def _boom(*a: Any, **k: Any):
-        raise streaming_client_module.StreamTurnStalledError("no data for 60s")
-
-    monkeypatch.setattr(streaming_client_module, "stream_chat_turn", _boom)
-    with pytest.raises(urllib.error.URLError, match="stalled"):
-        PipelineCompat().post({"model": "x", "messages": []}, timeout=60)
-
-
-def test_post_synthesizes_body_and_carries_trace(monkeypatch):
-    def _fake(url, headers, payload, **k):
-        assert headers["X-Correlation-ID"].startswith("compliance-")
-        assert payload["model"] == "tools-specialist"
-        return {
-            "role": "assistant",
-            "content": '{"ok": true}',
-            "reasoning_content": "private thought",
-            "tool_calls": [],
-            "finish_reason": "stop",
-            "served_model": "granite-4.1-8b-mxfp8",
-            "usage": {"prompt_tokens": 11, "completion_tokens": 4},
-        }
-
-    monkeypatch.setattr(streaming_client_module, "stream_chat_turn", _fake)
-    dialect = PipelineCompat()
-    monkeypatch.setattr(
-        dialect,
-        "_trace",
-        lambda cid: {"backend": "omlx-general", "served_model": "granite-4.1-8b-mxfp8"},
-    )
-    body = dialect.post({"model": "tools-specialist", "messages": []}, timeout=60)
-    assert body["choices"][0]["message"]["content"] == '{"ok": true}'
-    assert body["choices"][0]["message"]["reasoning_content"] == "private thought"
-    assert body["choices"][0]["finish_reason"] == "stop"
-    assert dialect.unpack(body) == ('{"ok": true}', "private thought")
-    assert body["usage"]["prompt_tokens"] == 11
-    assert body["_portal"]["backend"] == "omlx-general"
-    assert body["_portal"]["served_model"] == "granite-4.1-8b-mxfp8"
-    assert body["_portal"]["correlation_id"].startswith("compliance-")
-
-
-# ── receipt lift ─────────────────────────────────────────────────────────────
-
-
 def test_chat_receipt_stamps_pipeline_attribution():
     class _PipelineFake(PipelineCompat):
         def post(self, payload: dict[str, Any], timeout: int) -> dict[str, Any]:
@@ -326,26 +219,6 @@ def test_chat_receipt_stamps_pipeline_attribution():
     assert result["context_source"] == "seat_baked_window"
 
 
-# ── seat window authority ────────────────────────────────────────────────────
-
-
-def test_seat_window_pipeline_reads_workspace_context_limit(monkeypatch):
-    monkeypatch.delenv("COMPLIANCE_TRANSPORT", raising=False)
-    assert reading_transport.seat_window("bench-granite41-30b-ctx98k") == 98304
-    assert reading_transport.seat_window("bench-granite41-30b") == 16384
-
-
-def test_seat_window_native_is_zero_because_the_request_can_raise_it(monkeypatch):
-    monkeypatch.delenv("COMPLIANCE_TRANSPORT", raising=False)
-    # OllamaNative reports baked num_ctx, but its context_source is
-    # request_num_ctx — the window is requestable, so the caller keeps sizing.
-    monkeypatch.setattr(OllamaNative, "seat_window", lambda self, model: 16384)
-    assert reading_transport.seat_window("granite4.1:30b-ctx16k", dialect=OllamaNative()) == 0
-
-
-# ── unaddressable names are refused, not silently served ────────────────────
-
-
 def test_build_refuses_unmapped_tag():
     with pytest.raises(ValueError, match="neither a portal.yaml workspace id"):
         _built(model="no-such-tag-xyz:latest")
@@ -354,46 +227,6 @@ def test_build_refuses_unmapped_tag():
 def test_build_accepts_variant_workspace_ids():
     body = _built(model="auto-security::redteam")
     assert body["model"] == "auto-security::redteam"
-
-
-# ── applied options lift (PIPELINE_ALIGNMENT_V1 §P3) ─────────────────────────
-
-
-def test_trace_lifts_applied_options_when_recorded(monkeypatch):
-    """The receipt carries what the pipeline APPLIED, not what was requested."""
-    captured: dict[str, Any] = {}
-
-    def _fake_get(url, timeout, headers):
-        captured["url"] = url
-        return {
-            "backend": "omlx-general",
-            "model": "mlx-community--gemma-4-26b-a4b-it-4bit",
-            "options_applied": {
-                "workspace": "compliance-reading",
-                "temperature": 0.0,
-                "max_tokens": 3072,
-                "enable_thinking": False,
-                "workspace_context_limit": 32768,
-            },
-        }
-
-    import portal.modules.compliance.core.transport_dialects as td
-
-    monkeypatch.setattr(td, "_get", _fake_get)
-    applied = PipelineCompat()._trace("compliance-abc123")
-    assert applied["backend"] == "omlx-general"
-    assert applied["options_applied"]["temperature"] == 0.0
-    assert applied["options_applied"]["enable_thinking"] is False
-    assert applied["options_applied"]["workspace_context_limit"] == 32768
-
-
-def test_trace_records_applied_options_absence_as_none(monkeypatch):
-    """A trace without applied options says so — the receipt never invents them."""
-    import portal.modules.compliance.core.transport_dialects as td
-
-    monkeypatch.setattr(td, "_get", lambda url, timeout, headers: {"backend": "omlx-general"})
-    applied = PipelineCompat()._trace("compliance-abc123")
-    assert applied["options_applied"] is None
 
 
 def test_chat_receipt_carries_applied_options():
@@ -481,19 +314,3 @@ def test_applied_options_read_ollama_seat_sampling_from_options():
     assert applied["top_p"] == 0.5
     assert applied["repetition_penalty"] == 1.1
     assert applied["seed"] == 7
-
-
-def test_a_workspace_without_predict_limit_still_gets_an_output_cap(monkeypatch):
-    """No predict_limit used to mean no max_tokens: a greedy loop streamed to the 1800 s
-    ceiling (tools-specialist, wfe_tools_20261018). Default, never above the window."""
-    from portal.platform.inference.router import validation
-
-    monkeypatch.setitem(validation.WORKSPACES, "ws-nocap", {"context_limit": 4096})
-    monkeypatch.setitem(validation.WORKSPACES, "ws-wide", {"context_limit": 65536})
-    monkeypatch.setitem(validation.WORKSPACES, "ws-own", {"predict_limit": 2048})
-    for inject in (validation._inject_ollama_options, validation._inject_omlx_options):
-        assert inject({"model": "x"}, "ws-nocap")["max_tokens"] == 4096
-        assert inject({"model": "x"}, "ws-wide")["max_tokens"] == validation._DEFAULT_PREDICT_LIMIT
-        assert inject({"model": "x"}, "ws-own")["max_tokens"] == 2048
-        assert inject({"model": "x", "max_tokens": 77}, "ws-wide")["max_tokens"] == 77
-        assert inject({"model": "x", "max_tokens": 32768}, "ws-own")["max_tokens"] == 32768

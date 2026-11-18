@@ -11,8 +11,6 @@ sources:
 - type: code
   path: portal_wiki/__main__.py
 - type: code
-  path: tests/unit/test_wiki_archive.py
-- type: code
   path: tests/unit/test_detector_precision.py
 claims: []
 confidence: high

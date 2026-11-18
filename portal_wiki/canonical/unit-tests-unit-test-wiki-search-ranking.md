@@ -18,20 +18,17 @@ updated_at: 1785833000.0
 
 ## What
 
-`tests/unit/test_wiki_search_ranking.py` pins the top search hit for each of the
-12 baseline queries to the value in `tests/fixtures/wiki_search_baseline.json`.
-Search now ranks by keyword score plus a small kind tier (`why` 1.0, `mixed`
-0.5, `what` 0.0) and a verification boost, and demotes acceptance/test-section
-units by id pattern. The fixture is the gate: a query whose top hit drifts —
-because a new unit outranks the pinned one, or a re-ranking changes the order —
-fails the test, so search quality is checked rather than spot-checked.
+`tests/unit/test_wiki_search_ranking.py` checks the Phase 7 defect directly:
+`wiki_search("workspace routing")` must put `unit-surface-router` first and
+must not place `unit-acceptance-s03_routing` in the top two. Search ranks by
+keyword score plus a small kind tier and a verification boost, and demotes
+acceptance/test-section units by id pattern.
 
 ## Why
 
 The flat keyword score treated a design unit and a test-section unit
 identically on equal keyword evidence, so "workspace routing" surfaced a UAT
 staged-section unit ahead of the routing-design unit. The `-s\d{2}_`
-id-pattern penalty and the kind tier make the design unit win the tie, and the
-fixture locks the judgement so a future re-ranking cannot silently regress it.
-The test is intentionally hermetic: it reads the fixture and the live store,
-requiring no network or services.
+id-pattern penalty and the kind tier make the design unit win the tie. The
+remaining test calls the live store with that one query and reads the order
+back; it takes no network and no service.

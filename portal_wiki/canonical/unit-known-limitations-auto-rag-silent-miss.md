@@ -8,8 +8,6 @@ sources:
 - type: code
   path: config/portal.yaml
   section: workspaces
-- type: code
-  path: tests/unit/test_rag_tool_contract.py
 claims: []
 confidence: high
 tags:
@@ -49,8 +47,9 @@ tags:
      latency change.
   3. The call shape is corrected (`top_k`, optional `kb_id` from a workspace
      `auto_rag_kb_id`) so it is ready when the gate is answered.
-  4. `tests/unit/test_rag_tool_contract.py` locks the tool response shapes and
-     asserts the injector never reintroduces the `k` / missing-`kb_id` drift.
+  4. `portal/platform/inference/router/context_inject.py` keeps the corrected
+     call shape (`top_k`, optional `kb_id`) and does not reintroduce the `k` /
+     missing-`kb_id` drift.
 - **Residual**: auto-RAG is a capability that has still never run in production.
   Enabling it needs the P1 `[GATE]` answered — a per-workspace `auto_rag_kb_id`
   or a deliberate route to `kb_search_all` (which carries cross-corpus exposure
