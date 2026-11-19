@@ -1,18 +1,17 @@
 ---
 id: unit-LAB_SETUP-update-an-existing-setup-git-pull-vulhub-refresh-c
+historical: true
 kind: why
 title: "LAB_SETUP \u2014 Update an existing setup (git pull vulhub, refresh composes):"
 sources:
 - type: design
   path: docs/LAB_SETUP.md
   section: 'Update an existing setup (git pull vulhub, refresh composes):'
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - LAB_SETUP
-created_at: 1783195000.868226
-updated_at: 1783195000.868226
+
 ---
 
 ./launch.sh setup --update

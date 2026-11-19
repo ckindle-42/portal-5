@@ -1,20 +1,19 @@
 ---
 id: unit-ci-pyproject-no-dup
+historical: true
 kind: mixed
 title: "CI guard \u2014 no duplicate dependency pins"
 sources:
 - type: code
   path: scripts/ci/check_pyproject_no_dup.py
   commit: '38123c31'
-last_generated_commit: '38123c31'
 claims: []
 confidence: high
 tags:
 - authored-v1
 - ci
 - pyproject
-created_at: 1785795649.117898
-updated_at: 1785795649.117898
+
 ---
 
 The pyproject guard fails if any dependency list in `pyproject.toml` — the

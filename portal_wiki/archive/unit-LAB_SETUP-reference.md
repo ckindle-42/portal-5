@@ -1,18 +1,17 @@
 ---
 id: unit-LAB_SETUP-reference
+historical: true
 kind: why
 title: "LAB_SETUP \u2014 Reference"
 sources:
 - type: design
   path: docs/LAB_SETUP.md
   section: Reference
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - LAB_SETUP
-created_at: 1783195000.869847
-updated_at: 1783195000.869847
+
 ---
 
 

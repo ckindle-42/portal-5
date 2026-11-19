@@ -1,18 +1,17 @@
 ---
 id: unit-CLUSTER_SCALE-portal-5-cluster-scale-out-guide
+historical: true
 kind: why
 title: "CLUSTER_SCALE \u2014 Portal 5 \u2014 Cluster Scale-Out Guide"
 sources:
 - type: design
   path: docs/CLUSTER_SCALE.md
   section: "Portal 5 \u2014 Cluster Scale-Out Guide"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - CLUSTER_SCALE
-created_at: 1783195000.8282182
-updated_at: 1783195000.8282182
+
 ---
 
 

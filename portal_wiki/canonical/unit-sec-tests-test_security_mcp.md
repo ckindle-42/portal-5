@@ -5,15 +5,16 @@ title: "Security tests \u2014 test_security_mcp"
 sources:
 - type: code
   path: portal/modules/security/tools/security_mcp.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/tools/security_mcp.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - module
 - security
 - tests
-created_at: 1785800599.9864042
-updated_at: 1785800599.9864042
 ---
 
 The security MCP server. The in-tree suite that mocked torch and transformers to call it was removed in the phase-1c test trim.

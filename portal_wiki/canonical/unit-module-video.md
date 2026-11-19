@@ -18,8 +18,7 @@ confidence: high
 tags:
 - video
 - module
-created_at: 1787967818.3609989
-updated_at: 1787967818.3609989
+
 ---
 
 # Video Module — MLX-native video generation (off by default)

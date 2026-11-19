@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-validation
+historical: true
 kind: mixed
 title: "Validation \u2014 twin-control use-case gate"
 sources:
 - type: code
   path: portal/modules/security/core/validation.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800269.394176
-updated_at: 1785800269.394176
+
 ---
 
 A use-case passes only if the finding lands on the vulnerable target AND vanishes on the hardened twin (zero false positives); red, blue, and purple scored independently.

@@ -1,20 +1,19 @@
 ---
 id: unit-bench-adhoc-probe
+historical: true
 kind: mixed
 title: "Bench ad-hoc probe \u2014 TPS for unregistered candidates"
 sources:
 - type: code
   path: tests/benchmarks/bench/adhoc_probe.py
   commit: 381f217b
-last_generated_commit: 381f217b
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - bench
-created_at: 1785798413.108706
-updated_at: 1785798413.108706
+
 ---
 
 `adhoc_probe.py` is the lightweight TPS/quality probe for models *not*

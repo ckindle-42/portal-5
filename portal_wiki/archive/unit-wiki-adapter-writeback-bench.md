@@ -1,20 +1,19 @@
 ---
 id: unit-wiki-adapter-writeback-bench
+historical: true
 kind: mixed
 title: "Wiki bench write-back \u2014 model-verdict units"
 sources:
 - type: code
   path: portal/platform/wiki/adapters/writeback_bench.py
   commit: 94445e95
-last_generated_commit: 94445e95
 claims: []
 confidence: high
 tags:
 - authored-v1
 - wiki
 - adapter
-created_at: 1785797599.883532
-updated_at: 1785797599.883532
+
 ---
 
 The bench write-back adapter writes candidate-eval and multi-seat bench

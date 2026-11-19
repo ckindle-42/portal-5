@@ -1,20 +1,19 @@
 ---
 id: unit-tests-unit-test_media_admission
+historical: true
 kind: mixed
 title: "Unit tests \u2014 test_media_admission"
 sources:
 - type: code
   path: tests/unit/test_media_admission.py
   commit: d5234798
-last_generated_commit: d5234798
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - unit
-created_at: 1785800468.892278
-updated_at: 1785800468.892278
+
 ---
 
 Unit tests for test_media_admission.

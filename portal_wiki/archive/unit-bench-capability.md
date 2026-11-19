@@ -1,20 +1,19 @@
 ---
 id: unit-bench-capability
+historical: true
 kind: mixed
 title: "Bench capability \u2014 execution-scored reasoning-aware probes"
 sources:
 - type: code
   path: tests/benchmarks/bench_capability.py
   commit: 071aaf52
-last_generated_commit: 071aaf52
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - bench
-created_at: 1785798594.049841
-updated_at: 1785798594.049841
+
 ---
 
 `bench_capability.py` is the capability bench with reasoning-aware scoring:

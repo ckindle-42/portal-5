@@ -8,14 +8,16 @@ sources:
   path: portal/modules/security/core/siem/spl_detections.yaml#T1543.003
 - type: mitre
   path: ATT&CK:T1543.003
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1543.003
+  equals: true
 confidence: high
 tags:
 - T1543.003
 - technique
 - signature
-created_at: 1790651067.895703
-updated_at: 1790651067.895703
 ---
 
 # T1543.003 — Windows service creation — suspicious System 7045 service install [KEY: EventCode=7045 with a suspicious service image path]

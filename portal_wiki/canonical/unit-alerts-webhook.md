@@ -9,13 +9,14 @@ sources:
   path: portal/platform/inference/notifications/events.py
 - type: code
   path: .env.example
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/notifications/channels/webhook.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.54787
-updated_at: 1784946220.54787
 ---
 
 The webhook channel POSTs a JSON body to any URL given by `WEBHOOK_URL`, which is required and must be a real value rather than the literal string false. Alerts and summaries use the same transport and differ only in the fields they post. `WEBHOOK_HEADERS` supports bearer-token receivers, content type is always application/json with a Portal user agent, and the HTTP timeout is fixed at ten seconds.

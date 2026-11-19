@@ -11,13 +11,14 @@ sources:
   path: scripts/mlx-speech.py
 - type: code
   path: scripts/eg2-embedding-server.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: deploy/portal-5/docker-compose.yml
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.6922922
-updated_at: 1784946220.6922922
 ---
 
 The deployment is a Docker compose stack plus host-native runtimes, orchestrated

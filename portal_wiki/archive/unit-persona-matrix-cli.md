@@ -1,20 +1,19 @@
 ---
 id: unit-persona-matrix-cli
+historical: true
 kind: mixed
 title: "Persona matrix CLI \u2014 sweep entry point"
 sources:
 - type: code
   path: portal/modules/eval/persona_matrix/cli.py
   commit: db243698
-last_generated_commit: db243698
 claims: []
 confidence: high
 tags:
 - authored-v1
 - eval
 - persona-matrix
-created_at: 1785797009.962742
-updated_at: 1785797009.962742
+
 ---
 
 `cli.py` is the persona-matrix entry point: it parses the sweep arguments

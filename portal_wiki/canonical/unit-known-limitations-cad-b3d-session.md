@@ -7,13 +7,16 @@ sources:
   path: portal/modules/cad/tools/b123d_bridge.py
 - type: code
   path: deploy/portal-5/docker-compose.yml
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/cad/tools/b123d_bridge.py
+  symbol: cad_execute
+  equals: true
 confidence: high
 tags:
 - known-limitations
 - cad
-created_at: 1791300000
-updated_at: 1791300000
+
 ---
 
 - **ID**: P5-CAD-B3D-SESSION-001

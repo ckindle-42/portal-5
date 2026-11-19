@@ -18,8 +18,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.6907141
-updated_at: 1784946220.6907141
+
 ---
 
 Portal 5 ships first-class support for AI coding assistants. Two repo-root config

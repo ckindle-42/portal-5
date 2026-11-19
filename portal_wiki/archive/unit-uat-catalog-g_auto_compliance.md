@@ -1,20 +1,19 @@
 ---
 id: unit-uat-catalog-g_auto_compliance
+historical: true
 kind: mixed
 title: "UAT catalog group \u2014 auto-compliance"
 sources:
 - type: code
   path: tests/uat_catalog/g_auto_compliance.py
   commit: fe7f1e7c
-last_generated_commit: fe7f1e7c
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - uat-catalog
-created_at: 1785800128.804699
-updated_at: 1785800128.804699
+
 ---
 
 This catalog group covers the auto-compliance workspace(s), exporting a `TESTS`

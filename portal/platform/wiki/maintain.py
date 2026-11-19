@@ -4,8 +4,7 @@ Phase W3 of BUILD_PROGRAM_SEC_RBP_WIKI_FIXES_V1.
 
 Re-runs the code pass → updates WHAT units + re-cites.  WHY units persist
 unless deliberately revised.  Snapshot-diff (hash the canonical dir) so a
-no-change run produces no churn.  (P0 A1 removed the `last_generated_commit`
-pin this module used to also bump.)
+no-change run produces no churn.
 """
 
 from __future__ import annotations

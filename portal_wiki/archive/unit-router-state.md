@@ -1,12 +1,12 @@
 ---
 id: unit-router-state
+historical: true
 kind: mixed
 title: "Router state \u2014 metrics persistence + event recorders"
 sources:
 - type: code
   path: portal/platform/inference/router/state.py
   commit: d7c1d4f4
-last_generated_commit: d7c1d4f4
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - platform
 - inference
 - router
-created_at: 1785798111.6230679
-updated_at: 1785798111.6230679
+
 ---
 
 `state.py` handles metrics-state persistence: it loads and saves the JSON

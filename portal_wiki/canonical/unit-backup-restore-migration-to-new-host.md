@@ -9,12 +9,13 @@ sources:
   path: launch.sh
 - type: code
   path: deploy/portal-5/docker-compose.yml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/lib/backup.sh
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.5346
-updated_at: 1784946220.5346
 ---
 
 Migration uses the same two commands as recovery: on the source host run `./launch.sh backup` to produce a timestamped snapshot, transfer that directory to the new machine, then on the target run `./launch.sh restore <path>`. The target must have `.env` present; `./launch.sh up` copies `.env.example` to `.env` when the file is missing, but restoring the saved `.env` preserves secrets and routing. The restored volumes and config become live once `./launch.sh up` recreates the compose project's containers.

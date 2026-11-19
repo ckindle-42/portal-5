@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-voxtral-multilingual-no-speaker-labels
+historical: true
 kind: why
 title: "HOWTO \u2014 Voxtral \u2014 multilingual, no speaker labels"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: "Voxtral \u2014 multilingual, no speaker labels"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.850112
-updated_at: 1783195000.850112
+
 ---
 
 curl -X POST http://localhost:8924/v1/audio/transcribe-with-speakers \

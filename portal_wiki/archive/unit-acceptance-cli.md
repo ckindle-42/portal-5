@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-cli
+historical: true
 kind: mixed
 title: "Acceptance CLI \u2014 section entry point"
 sources:
 - type: code
   path: tests/acceptance/cli.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799700.235086
-updated_at: 1785799700.235086
+
 ---
 
 `cli.py` is the acceptance CLI entry: it parses the section selection and

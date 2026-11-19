@@ -1,20 +1,19 @@
 ---
 id: unit-bench-router-conditions
+historical: true
 kind: mixed
 title: "Bench router conditions \u2014 VRAM-pressure router eviction"
 sources:
 - type: code
   path: tests/benchmarks/bench_router_conditions.py
   commit: 071aaf52
-last_generated_commit: 071aaf52
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - bench
-created_at: 1785798607.901281
-updated_at: 1785798607.901281
+
 ---
 
 `bench_router_conditions.py` answers a specific operational question: does

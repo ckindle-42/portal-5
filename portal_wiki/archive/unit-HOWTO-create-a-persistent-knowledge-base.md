@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-create-a-persistent-knowledge-base
+historical: true
 kind: why
 title: "HOWTO \u2014 Create a persistent knowledge base"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: Create a persistent knowledge base
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.852353
-updated_at: 1783195000.852353
+
 ---
 
 

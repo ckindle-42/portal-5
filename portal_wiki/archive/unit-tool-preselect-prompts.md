@@ -1,20 +1,19 @@
 ---
 id: unit-tool-preselect-prompts
+historical: true
 kind: mixed
 title: "Tool preselector prompts \u2014 plain-text ranker template"
 sources:
 - type: code
   path: portal/platform/inference/tool_preselect/prompts.py
   commit: b9ca6f31
-last_generated_commit: b9ca6f31
 claims: []
 confidence: high
 tags:
 - authored-v1
 - platform
 - tool-preselect
-created_at: 1785796782.756188
-updated_at: 1785796782.756188
+
 ---
 
 `prompts.py` holds the single prompt template for the tool preselector. It is

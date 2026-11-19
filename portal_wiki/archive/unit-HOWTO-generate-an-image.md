@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-generate-an-image
+historical: true
 kind: why
 title: "HOWTO \u2014 Generate an image"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: Generate an image
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.844404
-updated_at: 1783195000.844404
+
 ---
 
 

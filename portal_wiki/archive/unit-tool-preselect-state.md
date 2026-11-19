@@ -1,20 +1,19 @@
 ---
 id: unit-tool-preselect-state
+historical: true
 kind: mixed
 title: "Tool preselector state \u2014 miss-driven auto-disable"
 sources:
 - type: code
   path: portal/platform/inference/tool_preselect/state.py
   commit: b9ca6f31
-last_generated_commit: b9ca6f31
 claims: []
 confidence: high
 tags:
 - authored-v1
 - platform
 - tool-preselect
-created_at: 1785796794.296412
-updated_at: 1785796794.296412
+
 ---
 
 `state.py` tracks the preselector's per-workspace auto-disable state: when a

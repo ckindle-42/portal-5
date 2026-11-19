@@ -1,5 +1,6 @@
 ---
 id: unit-PERSONA_PROMPT_AUDIT_V1-6-linuxterminal-uat-p-d12-scored-2-4-fail
+historical: true
 kind: why
 title: "PERSONA_PROMPT_AUDIT_V1 \u2014 6. `linuxterminal` \u2014 UAT P-D12 (scored\
   \ 2/4 FAIL)"
@@ -7,13 +8,11 @@ sources:
 - type: design
   path: docs/PERSONA_PROMPT_AUDIT_V1.md
   section: "6. `linuxterminal` \u2014 UAT P-D12 (scored 2/4 FAIL)"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - PERSONA_PROMPT_AUDIT_V1
-created_at: 1785348275.8188632
-updated_at: 1785348275.8188632
+
 ---
 
 

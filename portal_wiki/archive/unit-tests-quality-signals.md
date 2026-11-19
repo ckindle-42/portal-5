@@ -1,19 +1,18 @@
 ---
 id: unit-tests-quality-signals
+historical: true
 kind: mixed
 title: "Tests quality-signals \u2014 per-category response quality score"
 sources:
 - type: code
   path: tests/quality_signals.py
   commit: 347dfc8a
-last_generated_commit: 347dfc8a
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
-created_at: 1785798818.650997
-updated_at: 1785798818.650997
+
 ---
 
 `quality_signals.py` computes a quality score in [0.0, 1.0] for a response

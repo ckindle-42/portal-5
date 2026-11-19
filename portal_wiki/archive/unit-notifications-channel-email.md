@@ -1,20 +1,19 @@
 ---
 id: unit-notifications-channel-email
+historical: true
 kind: mixed
 title: "Notification email channel \u2014 SMTP sender"
 sources:
 - type: code
   path: portal/platform/inference/notifications/channels/email.py
   commit: 7383d070
-last_generated_commit: 7383d070
 claims: []
 confidence: high
 tags:
 - authored-v1
 - notifications
 - platform
-created_at: 1785796497.1787462
-updated_at: 1785796497.1787462
+
 ---
 
 `EmailChannel` sends notifications by SMTP: it builds a subject and an HTML

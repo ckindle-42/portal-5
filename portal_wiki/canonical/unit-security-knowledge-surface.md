@@ -8,15 +8,16 @@ sources:
 - type: code
   path: portal/modules/security/wiki_seed.py
   commit: 4c3d1e89
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/knowledge/__init__.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - module
 - security
 - knowledge
-created_at: 1785795023.449225
-updated_at: 1785795023.449225
 ---
 
 The knowledge subpackage is the stable re-export boundary over the security

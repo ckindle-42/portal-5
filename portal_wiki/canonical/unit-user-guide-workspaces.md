@@ -9,13 +9,16 @@ sources:
   path: portal/platform/inference/sync_config.py
 - type: code
   path: portal/platform/inference/router/workspaces.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: config/portal.yaml
+  symbol: model_hint
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.513955
-updated_at: 1788032812
+
 ---
 
 Workspaces are the routing layer. Each workspace defined in `config/portal.yaml`

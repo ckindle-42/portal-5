@@ -1,12 +1,12 @@
 ---
 id: unit-SECURITY_BENCH_EXEC-gate-d-ablation-silent-model-substitution
+historical: true
 kind: why
 title: "GATE-D ablation — silent model substitution, sampling tuning, section/role replay"
 sources:
 - type: design
   path: docs/SECURITY_BENCH_EXEC.md
   section: GATE-D full-corpus ablation + failure attribution (TASK-SEC-GATED-ABLATION-TO-COUNCIL-V1)
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
@@ -16,8 +16,7 @@ tags:
 - resolve_pipeline_model
 - sampling-tuning
 - capture-replay
-created_at: 1784601014.0
-updated_at: 1784601014.0
+
 ---
 
 **Document type**: Incident write-up + reusable-infrastructure summary

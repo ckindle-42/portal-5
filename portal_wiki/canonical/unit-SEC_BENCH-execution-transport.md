@@ -9,7 +9,10 @@ sources:
   path: scripts/lab_discover.py
 - type: code
   path: portal/modules/security/core/matrix.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/lab_host.py
+  equals: true
 confidence: high
 tags:
 - bench
@@ -17,8 +20,6 @@ tags:
 - security
 - transport
 - verified-v1
-created_at: 1784941806.3787038
-updated_at: 1784941806.3787038
 ---
 
 One transport for everything that touches LXC 112: `scripts/lab_host.py::_host_exec(cmd)` -- `ssh -i ~/.ssh/portal-lab_id_ed25519 root@10.0.0.203 "pct exec 112 -- <cmd>"`.

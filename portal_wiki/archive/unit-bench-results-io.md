@@ -1,20 +1,19 @@
 ---
 id: unit-bench-results-io
+historical: true
 kind: mixed
 title: "Bench results IO \u2014 crash-safe incremental persistence"
 sources:
 - type: code
   path: tests/benchmarks/bench/results_io.py
   commit: 381f217b
-last_generated_commit: 381f217b
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - bench
-created_at: 1785798456.148909
-updated_at: 1785798456.148909
+
 ---
 
 `results_io.py` is the crash-safe incremental JSON persistence for bench

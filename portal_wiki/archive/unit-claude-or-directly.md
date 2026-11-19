@@ -1,19 +1,18 @@
 ---
 id: unit-claude-or-directly
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 or directly:"
 sources:
 - type: design
   path: CLAUDE.md
   section: 'or directly:'
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.194344
-updated_at: 1785348301.194344
+
 ---
 
 python3 -m portal.platform.inference.sync_config

@@ -1,18 +1,17 @@
 ---
 id: unit-MCP_DEV_TOOLING-mcp-dev-tooling-claude-code-opencode-integration
+historical: true
 kind: why
 title: "MCP_DEV_TOOLING \u2014 MCP Dev Tooling \u2014 Claude Code & opencode Integration"
 sources:
 - type: design
   path: docs/MCP_DEV_TOOLING.md
   section: "MCP Dev Tooling \u2014 Claude Code & opencode Integration"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - MCP_DEV_TOOLING
-created_at: 1783195000.87017
-updated_at: 1783195000.87017
+
 ---
 
 

@@ -1,7 +1,8 @@
 ---
 id: unit-compliance-module-complete-instruments
 kind: what
-title: "MODULE_COMPLETE_V1 campaign instruments — re-type, sessions, correction loop"
+title: "MODULE_COMPLETE_V1 campaign instruments \u2014 re-type, sessions, correction\
+  \ loop"
 sources:
 - type: code
   path: scripts/compliance/retype_relations.py
@@ -9,14 +10,15 @@ sources:
   path: scripts/compliance/session_proof.py
 - type: code
   path: scripts/compliance/correction_loop_demo.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/compliance/retype_relations.py
+  equals: true
 confidence: high
 tags:
 - compliance
 - campaign
 - module-complete
-created_at: 1789239000.0
-updated_at: 1789239000.0
 ---
 
 # MODULE_COMPLETE_V1 campaign instruments

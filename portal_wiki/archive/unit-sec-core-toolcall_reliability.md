@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-toolcall_reliability
+historical: true
 kind: mixed
 title: "Tool-call reliability \u2014 well-formed tool-call axis"
 sources:
 - type: code
   path: portal/modules/security/core/toolcall_reliability.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800269.394172
-updated_at: 1785800269.394172
+
 ---
 
 The instrument that measures whether a model can emit a well-formed tool call, filling the blind spot where the chain-test has no axis for it.

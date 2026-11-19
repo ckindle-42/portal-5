@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-s12_web_search
+historical: true
 kind: mixed
 title: "S12 \u2014 Web search"
 sources:
 - type: code
   path: tests/acceptance/s12_web_search.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799779.0116868
-updated_at: 1785799779.0116868
+
 ---
 
 This is the acceptance section s12_web_search. S12 — Web search

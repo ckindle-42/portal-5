@@ -1,18 +1,17 @@
 ---
 id: unit-MCP_DEV_TOOLING-workspace-selection
+historical: true
 kind: why
 title: "MCP_DEV_TOOLING \u2014 Workspace selection"
 sources:
 - type: design
   path: docs/MCP_DEV_TOOLING.md
   section: Workspace selection
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - MCP_DEV_TOOLING
-created_at: 1783195000.872401
-updated_at: 1783195000.872401
+
 ---
 
 

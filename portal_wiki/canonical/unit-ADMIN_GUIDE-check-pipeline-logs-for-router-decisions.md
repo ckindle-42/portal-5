@@ -9,14 +9,17 @@ sources:
   path: portal/platform/inference/router/routing.py
 - type: code
   path: portal/platform/inference/router/handlers.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/platform/inference/router/routing.py
+  symbol: _route_with_llm
+  equals: true
 confidence: high
 tags:
 - ADMIN_GUIDE
 - docs
 - verified-v1
-created_at: 1783195000.8175411
-updated_at: 1783195000.8175411
+
 ---
 
 Router decisions are logged by the pipeline. The LLM layer logs each confident classification from `_route_with_llm` in routing.py as `LLM router: '<text>' → workspace='<id>' confidence=<n>`, and every timeout, low-confidence result, or error logs "falling back to keywords". The dispatch layer logs `Routing workspace=<id>` in handlers.py when a request is sent to a backend. `./launch.sh logs` tails the portal-pipeline container by default (the `logs` case runs `docker compose logs -f portal-pipeline`). A practical filter is:

@@ -31,6 +31,7 @@ from typing import Any
 from portal.platform.wiki.schema import KnowledgeUnit
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
+_PENDING_TRIAGE_RE = re.compile(r"^\s*-\s+`([^`]+)`\s+\|\s+pending\s+\|", re.MULTILINE)
 
 # Top-level directories whose names, followed by a slash, denote a repo path in
 # prose. Anything else (bare words, URLs, absolute paths, model ids like
@@ -219,6 +220,22 @@ def undeclared_numeric_claims(
         if hits:
             out[unit.id] = sorted(set(hits))
     return out
+
+
+def claim_coverage_gaps(units: Sequence[KnowledgeUnit], repo_root: Path | None = None) -> list[str]:
+    """Canonical units need executable claims, a historical mark, or triage status."""
+    root = repo_root or _REPO_ROOT
+    triage = root / "docs" / "wiki" / "CLAIMS_TRIAGE.md"
+    pending = (
+        set(_PENDING_TRIAGE_RE.findall(triage.read_text(encoding="utf-8")))
+        if triage.exists()
+        else set()
+    )
+    return sorted(
+        unit.id
+        for unit in units
+        if not unit.claims and not unit.historical and unit.id not in pending
+    )
 
 
 def census(repo_root: Path | None = None) -> dict[str, Any]:

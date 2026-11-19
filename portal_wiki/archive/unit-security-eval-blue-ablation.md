@@ -1,12 +1,12 @@
 ---
 id: unit-security-eval-blue-ablation
+historical: true
 kind: mixed
 title: "Blue orchestration ablation \u2014 GATE-D 1-vs-2-vs-3-section driver"
 sources:
 - type: code
   path: portal/modules/security/eval/blue_orchestration_ablation.py
   commit: 851ea193
-last_generated_commit: 851ea193
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - module
 - security
 - eval
-created_at: 1785795987.504139
-updated_at: 1785795987.504139
+
 ---
 
 `blue_orchestration_ablation.py` is the GATE-D full-corpus ablation driver:

@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-adjust-thresholds
+historical: true
 kind: why
 title: "HOWTO \u2014 Adjust thresholds"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: Adjust thresholds
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.857196
-updated_at: 1783195000.857196
+
 ---
 
 

@@ -1,21 +1,22 @@
 ---
 id: unit-general-fast-deep-workspaces
 kind: mixed
-title: "General Fast / Deep workspaces — matched-context pair on oMLX"
+title: "General Fast / Deep workspaces \u2014 matched-context pair on oMLX"
 sources:
 - type: code
   path: config/portal.yaml
 - type: code
   path: config/backends.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/backends.yaml
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - general
 - workspaces
 - omlx
-created_at: 1791244800.0
-updated_at: 1791244800.0
 ---
 
 `general-fast` (Qwen3.6-35B-A3B MoE) and `general-deep` (Qwen3.8-27B dense, MTP)

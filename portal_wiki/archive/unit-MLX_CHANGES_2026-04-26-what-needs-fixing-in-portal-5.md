@@ -1,18 +1,17 @@
 ---
 id: unit-MLX_CHANGES_2026-04-26-what-needs-fixing-in-portal-5
+historical: true
 kind: why
 title: "MLX_CHANGES_2026-04-26 \u2014 What Needs Fixing in Portal 5"
 sources:
 - type: design
   path: docs/MLX_CHANGES_2026-04-26.md
   section: What Needs Fixing in Portal 5
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - MLX_CHANGES_2026-04-26
-created_at: 1783195000.877404
-updated_at: 1783195000.877404
+
 ---
 
 

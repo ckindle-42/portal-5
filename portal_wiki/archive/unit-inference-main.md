@@ -1,20 +1,19 @@
 ---
 id: unit-inference-main
+historical: true
 kind: mixed
 title: "Pipeline entry \u2014 uvicorn launcher with Prometheus setup"
 sources:
 - type: code
   path: portal/platform/inference/__main__.py
   commit: 250150f6
-last_generated_commit: 250150f6
 claims: []
 confidence: high
 tags:
 - authored-v1
 - platform
 - inference
-created_at: 1785797742.774378
-updated_at: 1785797742.774378
+
 ---
 
 The pipeline entry point is the uvicorn launcher for the router app. It

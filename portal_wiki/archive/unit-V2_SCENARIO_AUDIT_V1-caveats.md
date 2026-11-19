@@ -1,18 +1,17 @@
 ---
 id: unit-V2_SCENARIO_AUDIT_V1-caveats
+historical: true
 kind: why
 title: "V2_SCENARIO_AUDIT_V1 \u2014 Caveats"
 sources:
 - type: design
   path: docs/V2_SCENARIO_AUDIT_V1.md
   section: Caveats
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - V2_SCENARIO_AUDIT_V1
-created_at: 1783195000.9275572
-updated_at: 1783195000.9275572
+
 ---
 
 

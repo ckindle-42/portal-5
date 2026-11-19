@@ -1,18 +1,17 @@
 ---
 id: unit-MCP_DEV_TOOLING-checking-what-s-in-vram-before-a-long-task
+historical: true
 kind: why
 title: "MCP_DEV_TOOLING \u2014 Checking what's in VRAM before a long task"
 sources:
 - type: design
   path: docs/MCP_DEV_TOOLING.md
   section: Checking what's in VRAM before a long task
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - MCP_DEV_TOOLING
-created_at: 1783195000.8747149
-updated_at: 1783195000.8747149
+
 ---
 
 

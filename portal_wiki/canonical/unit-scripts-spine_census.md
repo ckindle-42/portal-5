@@ -5,13 +5,14 @@ title: "Script \u2014 spine_census"
 sources:
 - type: code
   path: scripts/spine_census.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/spine_census.py
+  equals: true
 confidence: high
 tags:
 - scripts
 - verified-v1
-created_at: 1785880000.0
-updated_at: 1785880000.0
 ---
 
 Spine census separates the wiki's knowledge store into granularity populations instead of reporting total size. A mirror unit cites exactly one code path, which means its scope was probably set by the coverage gate's filesystem walk rather than by a decision; a surface unit cites several paths or pairs code with config, which reflects a subsystem or contract boundary. The tool also counts orphaned units whose cited paths no longer resolve and units carrying bound claims — the only population the drift census can mechanically verify.

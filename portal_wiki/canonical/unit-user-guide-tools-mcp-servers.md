@@ -17,13 +17,16 @@ sources:
   path: portal/modules/media/tools/tts_mcp.py
 - type: code
   path: portal/modules/media/tools/whisper_mcp.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/documents/tools/document_mcp.py
+  symbol: create_word_document
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.514928
-updated_at: 1788032812
+
 ---
 
 Tool servers are registered with Open WebUI from `imports/openwebui/mcp-servers.json`,

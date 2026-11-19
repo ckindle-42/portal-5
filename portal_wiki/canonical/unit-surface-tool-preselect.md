@@ -7,15 +7,16 @@ sources:
   path: portal/platform/inference/tool_preselect/*.py
 - type: code
   path: portal/platform/inference/tool_preselect/tests/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/tool_preselect/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - platform
 - inference
 - tool-preselect
-created_at: 1785885400.0
-updated_at: 1785885400.0
 ---
 
 The tool preselector narrows the tool set before the primary call: a small

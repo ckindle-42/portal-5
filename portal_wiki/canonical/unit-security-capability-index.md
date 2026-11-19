@@ -6,15 +6,16 @@ sources:
 - type: code
   path: portal/modules/security/core/capability/__init__.py
   commit: 4c3d1e89
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/capability/__init__.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - module
 - security
 - capability
-created_at: 1785795017.817317
-updated_at: 1785795017.817317
 ---
 
 The capability subpackage makes the security library legible to the decide

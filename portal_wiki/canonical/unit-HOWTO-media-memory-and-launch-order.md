@@ -7,15 +7,17 @@ sources:
   path: portal/modules/media/tools/_admission.py
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/media/tools/_admission.py
+  equals: true
 confidence: high
 tags:
 - HOWTO
 - media
 - memory
 - verified-v1
-created_at: 1784057635.351039
-updated_at: 1784057635.351039
+
 ---
 
 # Media memory and launch order

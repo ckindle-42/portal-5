@@ -5,16 +5,17 @@ title: "Integration test \u2014 wiki self-improving cycle proof"
 sources:
 - type: code
   path: tests/integration/test_wiki_self_improving_cycle.py
-  commit: '38123c31'
-claims: []
+  commit: 38123c31
+claims:
+- probe: repo.path.exists
+  path: tests/integration/test_wiki_self_improving_cycle.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - integration
 - wiki
-created_at: 1785795634.517728
-updated_at: 1785795634.517728
 ---
 
 This integration test is the feature-complete proof of the wiki's

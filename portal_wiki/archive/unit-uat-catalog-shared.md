@@ -1,20 +1,19 @@
 ---
 id: unit-uat-catalog-shared
+historical: true
 kind: mixed
 title: "UAT catalog shared \u2014 assertion + refusal vocabulary"
 sources:
 - type: code
   path: tests/uat_catalog/_shared.py
   commit: fe7f1e7c
-last_generated_commit: fe7f1e7c
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - uat-catalog
-created_at: 1785799956.0302951
-updated_at: 1785799956.0302951
+
 ---
 
 `_shared.py` holds the shared definitions the catalog groups import: the

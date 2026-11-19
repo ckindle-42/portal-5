@@ -1,19 +1,18 @@
 ---
 id: unit-claude-do-not
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 Do Not"
 sources:
 - type: design
   path: CLAUDE.md
   section: Do Not
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.1943848
-updated_at: 1785348301.1943848
+
 ---
 
 

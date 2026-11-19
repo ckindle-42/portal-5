@@ -1,5 +1,6 @@
 ---
 id: unit-readme-wait-for-ollama-to-finish-loading-then-try-again
+historical: true
 kind: what
 title: "README \u2014 Wait for Ollama to finish loading, then try again"
 sources:
@@ -12,8 +13,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.688859
-updated_at: 1784946220.688859
+
 ---
 
 "Wait for Ollama to finish loading, then try again" is the guidance for a cold

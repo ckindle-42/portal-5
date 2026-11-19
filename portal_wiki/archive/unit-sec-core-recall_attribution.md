@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-recall_attribution
+historical: true
 kind: mixed
 title: "Recall attribution \u2014 discriminator-presence question"
 sources:
 - type: code
   path: portal/modules/security/core/recall_attribution.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800295.902844
-updated_at: 1785800295.902844
+
 ---
 
 Answers a narrower question than the corpus replay scorer: when a labeled cell did not confirm its expected technique, was that technique's machine-checkable discriminator present in the telemetry returned to the model?

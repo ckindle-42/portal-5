@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-rescore_run
+historical: true
 kind: mixed
 title: "Rescore \u2014 false-positive-corrected scoring"
 sources:
 - type: code
   path: portal/modules/security/core/rescore_run.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800269.394169
-updated_at: 1785800269.394169
+
 ---
 
 Loads a bench results JSON, removes confirmed false positives from result hits, recomputes step coverage per prompt, prints a comparison, and saves a corrected JSON.

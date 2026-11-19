@@ -11,15 +11,19 @@ sources:
   path: portal/modules/security/core/hunt/notables/behaviours.py
 - type: doc
   path: docs/hunt/BOTSV2_DIAGNOSIS.md
-claims: []
+claims:
+- probe: repo.path.exists
+  path: docs/hunt/BOTSV2_DIAGNOSIS.md
+  equals: true
+- probe: repo.path.exists
+  path: portal/modules/security/core/hunt/notables/sample.py
+  equals: true
 confidence: high
 tags:
 - known-limitations
 - hunt
 - security
 - botsv2
-created_at: 1795046400
-updated_at: 1795046400
 ---
 
 #### BOTSV2 hunt notables locate one of fifteen labelled steps (2026-11-19)

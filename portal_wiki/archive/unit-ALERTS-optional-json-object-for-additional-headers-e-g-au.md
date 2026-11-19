@@ -1,18 +1,17 @@
 ---
 id: unit-ALERTS-optional-json-object-for-additional-headers-e-g-au
+historical: true
 kind: why
 title: "ALERTS \u2014 Optional: JSON object for additional headers (e.g. auth tokens)"
 sources:
 - type: design
   path: docs/ALERTS.md
   section: 'Optional: JSON object for additional headers (e.g. auth tokens)'
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - ALERTS
-created_at: 1783195000.820639
-updated_at: 1783195000.820639
+
 ---
 
 echo 'WEBHOOK_HEADERS={"Authorization": "Bearer YOUR_TOKEN"}' >> .env

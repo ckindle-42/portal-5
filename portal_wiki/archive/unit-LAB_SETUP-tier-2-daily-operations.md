@@ -1,18 +1,17 @@
 ---
 id: unit-LAB_SETUP-tier-2-daily-operations
+historical: true
 kind: why
 title: "LAB_SETUP \u2014 Tier 2 \u2014 Daily Operations"
 sources:
 - type: design
   path: docs/LAB_SETUP.md
   section: "Tier 2 \u2014 Daily Operations"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - LAB_SETUP
-created_at: 1783195000.868466
-updated_at: 1783195000.868466
+
 ---
 
 

@@ -1,19 +1,18 @@
 ---
 id: unit-scripts-corpus_ingest
+historical: true
 kind: mixed
 title: "Script \u2014 corpus_ingest"
 sources:
 - type: code
   path: scripts/corpus_ingest.py
   commit: 94ecf393
-last_generated_commit: 94ecf393
 claims: []
 confidence: high
 tags:
 - authored-v1
 - scripts
-created_at: 1785799472.692678
-updated_at: 1785799472.692678
+
 ---
 
 Ingests the labeled detection corpora into the lab Splunk index, mapping events onto the detection sourcetypes so corpus data coexists cleanly with live bench traffic.

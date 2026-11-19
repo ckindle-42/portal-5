@@ -1,18 +1,17 @@
 ---
 id: unit-SECURITY_BENCH_EXEC-quick-reachability-test-from-within-dind
+historical: true
 kind: why
 title: "SECURITY_BENCH_EXEC \u2014 Quick reachability test from within DinD"
 sources:
 - type: design
   path: docs/SECURITY_BENCH_EXEC.md
   section: Quick reachability test from within DinD
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - SECURITY_BENCH_EXEC
-created_at: 1783195000.8974552
-updated_at: 1783195000.8974552
+
 ---
 
 docker exec portal5-dind docker run --rm --net bridge portal5-attack:latest \

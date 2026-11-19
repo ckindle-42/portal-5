@@ -1,20 +1,19 @@
 ---
 id: unit-persona-matrix-init
+historical: true
 kind: mixed
 title: "Persona matrix \u2014 per-(persona, model) coverage harness"
 sources:
 - type: code
   path: portal/modules/eval/persona_matrix/__init__.py
   commit: db243698
-last_generated_commit: db243698
 claims: []
 confidence: high
 tags:
 - authored-v1
 - eval
 - persona-matrix
-created_at: 1785796977.8651688
-updated_at: 1785796977.8651688
+
 ---
 
 The persona_matrix package is the per-(persona, model) coverage matrix

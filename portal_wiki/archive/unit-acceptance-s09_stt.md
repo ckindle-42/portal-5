@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-s09_stt
+historical: true
 kind: mixed
 title: "S9 \u2014 Speech-to-text"
 sources:
 - type: code
   path: tests/acceptance/s09_stt.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799767.810996
-updated_at: 1785799767.810996
+
 ---
 
 This is the acceptance section s09_stt. S9 — Speech-to-text

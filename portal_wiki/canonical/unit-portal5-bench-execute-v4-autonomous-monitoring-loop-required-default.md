@@ -8,12 +8,13 @@ sources:
   path: tests/benchmarks/bench/cli.py
 - type: code
   path: tests/benchmarks/bench/runners.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/benchmarks/bench/cli.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.7012339
-updated_at: 1784946220.7012339
 ---
 
 Full bench runs take hours: the default `--runs 5` multiplies every direct

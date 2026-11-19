@@ -8,14 +8,14 @@ sources:
   section: mcp_fleet
 - type: code
   path: portal/modules/media/tools/mflux_mcp.py
-claims: []
+claims:
+- probe: mcp.fleet.ids
+  contains: mflux
 confidence: high
 tags:
 - capability
 - mcp
 - image
-created_at: 1788030600.446044
-updated_at: 1788030600.446044
 ---
 
 # MFLUX MCP — MLX-native image generation

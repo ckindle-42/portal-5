@@ -1,12 +1,12 @@
 ---
 id: unit-sec-tests-test_self_index
+historical: true
 kind: mixed
 title: "Security tests \u2014 test_self_index"
 sources:
 - type: code
   path: portal/modules/security/tests/test_self_index.py
   commit: 862c7b11
-last_generated_commit: 862c7b11
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - module
 - security
 - tests
-created_at: 1785800599.9864058
-updated_at: 1785800599.9864058
+
 ---
 
 Unit tests for the security module's test_self_index surface.

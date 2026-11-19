@@ -1,7 +1,7 @@
 ---
 id: unit-wfe-loop-attribution-protocol
 kind: mixed
-title: "WFE / bench loop attribution protocol (Rule 5)"
+title: WFE / bench loop attribution protocol (Rule 5)
 sources:
 - type: doc
   path: docs/SALUKI_27B_SPIKE_CLOSEOUT.md
@@ -9,15 +9,16 @@ sources:
   path: scripts/saluki_rule5_reverify.py
 - type: code
   path: tests/wfe/prompt_surface.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/saluki_rule5_reverify.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - evaluation
 - attribution
-created_at: 1791000000
-updated_at: 1791000000
 ---
 
 ## Why

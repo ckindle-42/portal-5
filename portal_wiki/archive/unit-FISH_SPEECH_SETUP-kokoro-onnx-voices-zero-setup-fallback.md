@@ -1,18 +1,17 @@
 ---
 id: unit-FISH_SPEECH_SETUP-kokoro-onnx-voices-zero-setup-fallback
+historical: true
 kind: why
 title: "FISH_SPEECH_SETUP \u2014 kokoro-onnx Voices (zero-setup fallback)"
 sources:
 - type: design
   path: docs/FISH_SPEECH_SETUP.md
   section: kokoro-onnx Voices (zero-setup fallback)
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - FISH_SPEECH_SETUP
-created_at: 1783195000.836693
-updated_at: 1783195000.836693
+
 ---
 
 | Voice ID | Description |

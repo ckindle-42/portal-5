@@ -9,13 +9,14 @@ sources:
   path: portal/platform/inference/notifications/events.py
 - type: code
   path: .env.example
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/notifications/channels/slack.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.5462432
-updated_at: 1784946220.5462432
 ---
 
 Slack delivery rides on an Incoming Webhook URL. `SLACK_ALERT_WEBHOOK_URL` is required; `SLACK_ALERT_CHANNEL` defaults to `#portal-alerts` and is included in the message payload so a webhook pinned to one channel can still be overridden. Both alerts and summaries POST a single text block formatted by the event's Slack renderer, which prefixes each event type with an emoji marker.

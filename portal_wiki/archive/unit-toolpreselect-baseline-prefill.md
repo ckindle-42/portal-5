@@ -1,20 +1,19 @@
 ---
 id: unit-toolpreselect-baseline-prefill
+historical: true
 kind: mixed
 title: "Tool-preselect baseline \u2014 prefill cost of full vs trimmed schemas"
 sources:
 - type: code
   path: tests/toolpreselect/baseline_prefill_bench.py
   commit: c3244c5f
-last_generated_commit: c3244c5f
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - toolpreselect
-created_at: 1785795872.831234
-updated_at: 1785795872.831234
+
 ---
 
 `baseline_prefill_bench.py` measures the *prefill* cost of sending full tool

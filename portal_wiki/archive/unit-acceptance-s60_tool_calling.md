@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-s60_tool_calling
+historical: true
 kind: mixed
 title: "S60 \u2014 Tool calling"
 sources:
 - type: code
   path: tests/acceptance/s60_tool_calling.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799831.368244
-updated_at: 1785799831.368244
+
 ---
 
 This is the acceptance section s60_tool_calling. S60 — Tool calling

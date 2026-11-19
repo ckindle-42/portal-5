@@ -6,14 +6,15 @@ sources:
 - type: code
   path: tests/scripts/regen_section_table.py
   commit: 53110d10
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/scripts/regen_section_table.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - scripts
-created_at: 1785796179.317337
-updated_at: 1785796179.317337
 ---
 
 The section-table regenerator maintains the Section Reference table in the

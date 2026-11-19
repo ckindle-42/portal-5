@@ -1,12 +1,12 @@
 ---
 id: unit-MCP_DEV_TOOLING-tools
+historical: true
 kind: why
 title: "MCP_DEV_TOOLING \u2014 Tools"
 sources:
 - type: design
   path: docs/MCP_DEV_TOOLING.md
   section: Tools
-last_generated_commit: ''
 claims:
 - probe: workspaces.total
   pattern: '{value} workspaces'
@@ -14,8 +14,7 @@ confidence: high
 tags:
 - docs
 - MCP_DEV_TOOLING
-created_at: 1783195000.871441
-updated_at: 1783195000.871441
+
 ---
 
 | Tool | What it does |

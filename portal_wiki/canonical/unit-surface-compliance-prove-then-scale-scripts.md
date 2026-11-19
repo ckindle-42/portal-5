@@ -1,10 +1,16 @@
 ---
 id: unit-surface-compliance-prove-then-scale-scripts
 kind: mixed
-title: "PROVE_THEN_SCALE_V1 campaign scripts — the sweep, the controls, the repair"
+title: "PROVE_THEN_SCALE_V1 campaign scripts \u2014 the sweep, the controls, the repair"
 sources:
 - type: code
   path: scripts/prove_then_scale/*.py
+claims:
+- probe: repo.path.exists
+  path: scripts/prove_then_scale/*.py
+  equals: true
+confidence: high
+tags: []
 ---
 
 The PROVE_THEN_SCALE_V1 campaign's one-off scripts (report:

@@ -13,13 +13,14 @@ sources:
   path: portal/modules/security/core/lab.py
 - type: code
   path: portal/modules/security/core/candidate_eval.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/execute_preflight.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.7105012
-updated_at: 1784946220.7105012
 ---
 
 - Run `scripts/execute_preflight.py` first and use its live `security_variants`

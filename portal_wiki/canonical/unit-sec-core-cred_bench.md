@@ -6,14 +6,15 @@ sources:
 - type: code
   path: portal/modules/security/core/cred_bench.py
   commit: 699b6207
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/cred_bench.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800269.394142
-updated_at: 1785800269.394142
 ---
 
 The credential-stuffing bench, folded into the pentest and redteam workspaces as scenarios (spray, stuff, MFA-bypass).

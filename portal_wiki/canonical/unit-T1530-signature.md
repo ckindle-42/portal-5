@@ -8,14 +8,16 @@ sources:
   path: portal/modules/security/core/siem/spl_detections.yaml#T1530
 - type: mitre
   path: ATT&CK:T1530
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1530
+  equals: true
 confidence: high
 tags:
 - T1530
 - technique
 - signature
-created_at: 1790651067.897465
-updated_at: 1790651067.897465
 ---
 
 # T1530 — Data from Cloud Storage — read or copy of data held in cloud object storage [KEY: CloudTrail S3/SecretsManager read or export API]

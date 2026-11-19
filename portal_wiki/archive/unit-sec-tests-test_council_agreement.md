@@ -1,12 +1,12 @@
 ---
 id: unit-sec-tests-test_council_agreement
+historical: true
 kind: mixed
 title: "Security tests \u2014 test_council_agreement"
 sources:
 - type: code
   path: portal/modules/security/tests/test_council_agreement.py
   commit: 862c7b11
-last_generated_commit: 862c7b11
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - module
 - security
 - tests
-created_at: 1785800599.986327
-updated_at: 1785800599.986327
+
 ---
 
 Unit tests for the security module's test_council_agreement surface.

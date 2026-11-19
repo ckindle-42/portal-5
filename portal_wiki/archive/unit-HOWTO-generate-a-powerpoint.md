@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-generate-a-powerpoint
+historical: true
 kind: why
 title: "HOWTO \u2014 Generate a PowerPoint"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: Generate a PowerPoint
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.843524
-updated_at: 1783195000.843524
+
 ---
 
 

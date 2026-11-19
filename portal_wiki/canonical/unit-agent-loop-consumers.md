@@ -13,13 +13,14 @@ sources:
   path: portal/modules/security/core/objective_executor.py
 - type: code
   path: portal/modules/security/core/objective_entry.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/decision_engine.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.5072598
-updated_at: 1784946220.5072598
 ---
 
 Security is the only live consumer: `security.core.goal` / `decision_engine`

@@ -1,5 +1,6 @@
 ---
 id: unit-readme-start-stop
+historical: true
 kind: what
 title: "README \u2014 Start / stop"
 sources:
@@ -7,12 +8,10 @@ sources:
   path: README.md
   commit: 05e42ec2
   section: Start / stop
-last_generated_commit: 05e42ec2
 confidence: high
 tags:
 - docs
-created_at: 1784946220.680776
-updated_at: 1784946220.680776
+
 ---
 
 ./launch.sh up              # Start everything

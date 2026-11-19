@@ -7,13 +7,14 @@ sources:
   path: portal/platform/wiki/render.py
 - type: code
   path: portal_wiki/canonical/unit-known-limitations-known-limitations.md
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/wiki/render.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.507908
-updated_at: 1784946220.507908
 ---
 
 # Known Issues

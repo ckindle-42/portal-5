@@ -7,12 +7,13 @@ sources:
   path: scripts/corpus_ingest.py
 - type: code
   path: portal/modules/security/core/siem/hec_ship.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/corpus_ingest.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.584086
-updated_at: 1784946220.584086
 ---
 
 Verifying a Lane B ship is a three-query ritual, all scoped by the

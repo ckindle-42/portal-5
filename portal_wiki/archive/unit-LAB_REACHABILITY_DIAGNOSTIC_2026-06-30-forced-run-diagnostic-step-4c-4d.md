@@ -1,5 +1,6 @@
 ---
 id: unit-LAB_REACHABILITY_DIAGNOSTIC_2026-06-30-forced-run-diagnostic-step-4c-4d
+historical: true
 kind: why
 title: "LAB_REACHABILITY_DIAGNOSTIC_2026-06-30 \u2014 Forced run diagnostic (step\
   \ 4c/4d)"
@@ -7,13 +8,11 @@ sources:
 - type: design
   path: docs/LAB_REACHABILITY_DIAGNOSTIC_2026-06-30.md
   section: Forced run diagnostic (step 4c/4d)
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - LAB_REACHABILITY_DIAGNOSTIC_2026-06-30
-created_at: 1783195000.866967
-updated_at: 1783195000.866967
+
 ---
 
 

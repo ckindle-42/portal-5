@@ -1,5 +1,6 @@
 ---
 id: unit-PERSONA_PROMPT_AUDIT_V1-7-pythoninterpreter-uat-p-d13-scored-1-3-fail
+historical: true
 kind: why
 title: "PERSONA_PROMPT_AUDIT_V1 \u2014 7. `pythoninterpreter` \u2014 UAT P-D13 (scored\
   \ 1/3 FAIL)"
@@ -7,13 +8,11 @@ sources:
 - type: design
   path: docs/PERSONA_PROMPT_AUDIT_V1.md
   section: "7. `pythoninterpreter` \u2014 UAT P-D13 (scored 1/3 FAIL)"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - PERSONA_PROMPT_AUDIT_V1
-created_at: 1785348275.818866
-updated_at: 1785348275.818866
+
 ---
 
 

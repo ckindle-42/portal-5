@@ -1,18 +1,17 @@
 ---
 id: unit-V2_SCENARIO_AUDIT_V1-9-e2e-debugger-root-cause-vs-uat-p-b04
+historical: true
 kind: why
 title: "V2_SCENARIO_AUDIT_V1 \u2014 9. `e2e-debugger-root-cause` vs UAT P-B04"
 sources:
 - type: design
   path: docs/V2_SCENARIO_AUDIT_V1.md
   section: 9. `e2e-debugger-root-cause` vs UAT P-B04
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - V2_SCENARIO_AUDIT_V1
-created_at: 1783195000.924891
-updated_at: 1783195000.924891
+
 ---
 
 

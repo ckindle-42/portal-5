@@ -1,18 +1,17 @@
 ---
 id: unit-PERSONA_MATRIX_CI-regression-triage-workflow
+historical: true
 kind: why
 title: "PERSONA_MATRIX_CI \u2014 Regression triage workflow"
 sources:
 - type: design
   path: docs/PERSONA_MATRIX_CI.md
   section: Regression triage workflow
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - PERSONA_MATRIX_CI
-created_at: 1783195000.883054
-updated_at: 1783195000.883054
+
 ---
 
 

@@ -23,6 +23,7 @@ reported as visible debt (see `drift.py`), never silently accepted as covered.
 
 from __future__ import annotations
 
+import ast
 import json
 import re
 from collections.abc import Callable, Sequence
@@ -90,6 +91,10 @@ def _fleet(root: Path) -> list[dict[str, Any]]:
 
 def _probe_fleet_entries(root: Path) -> int:
     return len(_fleet(root))
+
+
+def _probe_mcp_fleet_ids(root: Path) -> list[str]:
+    return sorted(str(entry["id"]) for entry in _fleet(root) if entry.get("id"))
 
 
 def _probe_fleet_ports(root: Path) -> list[int]:
@@ -170,6 +175,52 @@ def _probe_backend_groups_count(root: Path) -> int:
 
 def _probe_backend_types(root: Path) -> list[str]:
     return sorted({str(e["type"]) for e in _backend_entries(root) if e.get("type")})
+
+
+def _probe_configured_models(root: Path) -> list[str]:
+    """Return model ids named by committed platform configuration."""
+    import yaml
+
+    found: set[str] = set()
+    model_lists = {"models", "model_ids", "available_models"}
+    generic_exclusions = {"auto", "fast", "deep", "default", "none", "random"}
+
+    def add_model(value: str) -> None:
+        normalized = value.strip()
+        lowered = normalized.lower()
+        if (
+            not normalized
+            or lowered in generic_exclusions
+            or lowered.startswith(("auto-", "bench-"))
+        ):
+            return
+        found.add(normalized)
+
+    def walk(value: Any, key: str = "", in_model_list: bool = False) -> None:
+        if isinstance(value, dict):
+            for child_key, child_value in value.items():
+                child_key = str(child_key)
+                child_list = in_model_list or child_key in model_lists
+                if isinstance(child_value, str) and (
+                    "model" in child_key.lower()
+                    or (in_model_list and child_key in {"id", "model_id"})
+                ):
+                    add_model(child_value)
+                else:
+                    walk(child_value, child_key, child_list)
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, str) and in_model_list:
+                    add_model(item)
+                else:
+                    walk(item, key, in_model_list)
+
+    for path in sorted((root / "config").rglob("*.yaml")):
+        try:
+            walk(yaml.safe_load(path.read_text(encoding="utf-8")) or {})
+        except (OSError, yaml.YAMLError):
+            continue
+    return sorted(found)
 
 
 def _modules_generated(root: Path) -> dict[str, bool]:
@@ -319,6 +370,7 @@ PROBES: dict[str, Callable[[Path], Any]] = {
     "modules.enabled.count": _probe_modules_enabled_count,
     "modules.total": _probe_modules_total,
     "mcp.fleet.entries": _probe_fleet_entries,
+    "mcp.fleet.ids": _probe_mcp_fleet_ids,
     "mcp.fleet.ports": _probe_fleet_ports,
     "mcpjson.servers": _probe_mcpjson_servers,
     "personas.count": _probe_personas,
@@ -330,6 +382,7 @@ PROBES: dict[str, Callable[[Path], Any]] = {
     "backends.groups.count": _probe_backend_groups_count,
     "backends.ids": _probe_backend_ids,
     "backends.types": _probe_backend_types,
+    "models.configured": _probe_configured_models,
     "launch.commands": _probe_launch_commands,
     "env.vars": _probe_env_vars,
     "config.files": _probe_config_files,
@@ -338,6 +391,34 @@ PROBES: dict[str, Callable[[Path], Any]] = {
     "retrieval.stages": _probe_retrieval_stages,
     "retrieval.compositions": _probe_retrieval_compositions,
 }
+
+_DYNAMIC_CLAIM_PROBES = {"repo.path.exists", "repo.symbol.exists"}
+
+
+def _dynamic_claim_probe(root: Path, name: str, claim: dict[str, Any]) -> bool:
+    """Evaluate source path and symbol assertions with their named arguments."""
+    raw_path = str(claim.get("path", "")).strip()
+    if not raw_path:
+        raise ValueError(f"{name} requires a path")
+    path = root / raw_path
+    if name == "repo.path.exists":
+        if any(ch in raw_path for ch in "*?["):
+            return any(root.glob(raw_path))
+        return path.exists()
+    symbol = str(claim.get("symbol", "")).strip()
+    if not symbol or not path.is_file():
+        return False
+    source = path.read_text(encoding="utf-8", errors="replace")
+    if path.suffix == ".py":
+        tree = ast.parse(source)
+        names = {
+            node.name
+            for node in ast.walk(tree)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        }
+        names.update(node.id for node in ast.walk(tree) if isinstance(node, ast.Name))
+        return symbol in names
+    return re.search(rf"(?<!\w){re.escape(symbol)}(?!\w)", source) is not None
 
 
 def all_probes() -> dict[str, Callable[[Path], Any]]:
@@ -420,7 +501,7 @@ def evaluate_claims(
 
         units = load_all()
 
-    probes, cache = all_probes(), dict[str, Any]()
+    probes, cache = all_probes(), dict[tuple[str, str | None], Any]()
     violations: list[ClaimViolation] = []
     for unit in units:
         for claim in getattr(unit, "claims", None) or []:
@@ -428,17 +509,26 @@ def evaluate_claims(
                 violations.append(ClaimViolation(unit.id, "<malformed>", "?", claim, None))
                 continue
             name = claim.get("probe", "")
-            if name not in probes:
+            if name not in probes and name not in _DYNAMIC_CLAIM_PROBES:
                 violations.append(
                     ClaimViolation(unit.id, name or "<missing>", "?", claim, "<unknown probe>")
                 )
                 continue
-            if name not in cache:
+            dynamic_key = (
+                f"{claim.get('path', '')}::{claim.get('symbol', '')}"
+                if name in _DYNAMIC_CLAIM_PROBES
+                else None
+            )
+            cache_key = (name, dynamic_key)
+            if cache_key not in cache:
                 try:
-                    cache[name] = probes[name](root)
+                    if name in _DYNAMIC_CLAIM_PROBES:
+                        cache[cache_key] = _dynamic_claim_probe(root, name, claim)
+                    else:
+                        cache[cache_key] = probes[name](root)
                 except Exception as exc:  # noqa: BLE001
-                    cache[name] = f"<error: {type(exc).__name__}: {exc}>"
-            live = cache[name]
+                    cache[cache_key] = f"<error: {type(exc).__name__}: {exc}>"
+            live = cache[cache_key]
 
             if "pattern" in claim:
                 template = str(claim["pattern"])

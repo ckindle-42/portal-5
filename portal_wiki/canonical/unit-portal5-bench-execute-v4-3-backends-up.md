@@ -9,12 +9,13 @@ sources:
   path: portal/platform/inference/router/app.py
 - type: code
   path: portal/platform/inference/config.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/benchmarks/bench/config.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.7008882
-updated_at: 1784946220.7008882
 ---
 
 ```bash

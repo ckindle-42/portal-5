@@ -1,7 +1,7 @@
 ---
 id: unit-capability-eg2-embedding
 kind: mixed
-title: "EmbeddingGemma 2 platform embedder (:8946)"
+title: EmbeddingGemma 2 platform embedder (:8946)
 sources:
 - type: code
   path: scripts/eg2-embedding-server.py
@@ -17,14 +17,15 @@ sources:
   path: scripts/eg2-venv-setup.sh
 - type: code
   path: scripts/native-mcp-service.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/embedding/__init__.py
+  equals: true
 confidence: high
 tags:
 - capability
 - embedding
 - host-native
-created_at: 1791388800
-updated_at: 1791388800
 ---
 
 # EmbeddingGemma 2 platform embedder (:8946)

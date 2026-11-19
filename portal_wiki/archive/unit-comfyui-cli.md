@@ -1,20 +1,19 @@
 ---
 id: unit-comfyui-cli
+historical: true
 kind: mixed
 title: "ComfyUI acceptance CLI \u2014 section entry point"
 sources:
 - type: code
   path: tests/comfyui/cli.py
   commit: ee3590ba
-last_generated_commit: ee3590ba
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - comfyui
-created_at: 1785799020.085456
-updated_at: 1785799020.085456
+
 ---
 
 `cli.py` is the ComfyUI acceptance CLI entry: it parses the section

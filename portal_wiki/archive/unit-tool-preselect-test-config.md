@@ -1,12 +1,12 @@
 ---
 id: unit-tool-preselect-test-config
+historical: true
 kind: mixed
 title: "Preselector config tests \u2014 opt-in resolution contract"
 sources:
 - type: code
   path: portal/platform/inference/tool_preselect/tests/test_config.py
   commit: b9ca6f31
-last_generated_commit: b9ca6f31
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - platform
 - tool-preselect
 - tests
-created_at: 1785796843.193457
-updated_at: 1785796843.193457
+
 ---
 
 This test file pins the preselector's two-level config resolution: the global

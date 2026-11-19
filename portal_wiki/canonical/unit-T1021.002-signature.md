@@ -13,14 +13,16 @@ sources:
   path: exec_chain.py#meta3_winrm_weakpass
 - type: scenario
   path: exec_chain.py#meta3_psexec
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1021.002
+  equals: true
 confidence: high
 tags:
 - T1021.002
 - technique
 - signature
-created_at: 1790651067.8876631
-updated_at: 1790651067.8876631
 ---
 
 # T1021.002 — SMB/Windows Admin Shares — remote file copy via SMB

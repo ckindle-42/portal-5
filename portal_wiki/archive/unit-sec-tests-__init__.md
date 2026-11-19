@@ -1,12 +1,12 @@
 ---
 id: unit-sec-tests-__init__
+historical: true
 kind: mixed
 title: "Security tests \u2014 __init__"
 sources:
 - type: code
   path: portal/modules/security/tests/__init__.py
   commit: 862c7b11
-last_generated_commit: 862c7b11
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - module
 - security
 - tests
-created_at: 1785800599.986249
-updated_at: 1785800599.986249
+
 ---
 
 Unit tests for the security module's __init__ surface.

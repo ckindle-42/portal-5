@@ -9,13 +9,14 @@ sources:
 - type: code
   path: scripts/_archive/engine_h2h_20260924/deep_lane/run_deep.py
   commit: 8015e9381c8a
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/_archive/analyze_bench_v5.py
+  equals: true
 confidence: high
 tags:
 - code
 - scripts
-created_at: 1792204748.5158741
-updated_at: 1792204748.5158741
 ---
 
 # scripts subsystem

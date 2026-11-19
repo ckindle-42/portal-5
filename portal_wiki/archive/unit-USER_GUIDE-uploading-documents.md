@@ -1,18 +1,17 @@
 ---
 id: unit-USER_GUIDE-uploading-documents
+historical: true
 kind: why
 title: "USER_GUIDE \u2014 Uploading Documents"
 sources:
 - type: design
   path: docs/USER_GUIDE.md
   section: Uploading Documents
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - USER_GUIDE
-created_at: 1783195000.9207969
-updated_at: 1783195000.9207969
+
 ---
 
 

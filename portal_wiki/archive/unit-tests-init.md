@@ -1,19 +1,18 @@
 ---
 id: unit-tests-init
+historical: true
 kind: mixed
 title: "Tests package root \u2014 versioned test tree namespace"
 sources:
 - type: code
   path: tests/__init__.py
   commit: 347dfc8a
-last_generated_commit: 347dfc8a
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
-created_at: 1785798770.9236748
-updated_at: 1785798770.9236748
+
 ---
 
 The tests package is the root of the test tree, carrying the version string

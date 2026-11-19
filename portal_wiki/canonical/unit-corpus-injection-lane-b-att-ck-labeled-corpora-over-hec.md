@@ -7,12 +7,13 @@ sources:
   path: scripts/corpus_ingest.py
 - type: code
   path: portal/modules/security/core/siem/hec_ship.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/corpus_ingest.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.58291
-updated_at: 1784946220.58291
 ---
 
 `scripts/corpus_ingest.py` is the Lane B loader. It reuses the existing

@@ -12,15 +12,16 @@ sources:
   path: portal_wiki/__main__.py
 - type: code
   path: tests/unit/test_detector_precision.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/wiki/archive.py
+  equals: true
 confidence: high
 tags:
 - wiki
 - archive
 - design
 - verified-v1
-created_at: 1785700000.0
-updated_at: 1785700000.0
 ---
 
 ## What

@@ -1,20 +1,19 @@
 ---
 id: unit-inference-cli-models
+historical: true
 kind: mixed
 title: "Inference CLI models \u2014 dual-origin model provisioning"
 sources:
 - type: code
   path: portal/platform/inference/cli/models.py
   commit: 250150f6
-last_generated_commit: 250150f6
 claims: []
 confidence: high
 tags:
 - authored-v1
 - platform
 - cli
-created_at: 1785797857.005394
-updated_at: 1785797857.005394
+
 ---
 
 `portal models` is the model registry surface: pulling native Ollama

@@ -1,7 +1,7 @@
 ---
 id: unit-capability-turn-trace
 kind: mixed
-title: "Turn trace — per-turn operational record"
+title: "Turn trace \u2014 per-turn operational record"
 sources:
 - type: code
   path: portal/platform/inference/router/trace.py
@@ -19,7 +19,10 @@ sources:
   path: portal/platform/inference/router/correlation.py
 - type: code
   path: deploy/portal-5/docker-compose.yml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: deploy/portal-5/docker-compose.yml
+  equals: true
 confidence: high
 tags:
 - capability

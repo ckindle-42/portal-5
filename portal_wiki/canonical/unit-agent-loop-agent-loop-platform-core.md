@@ -21,13 +21,14 @@ sources:
   path: portal/platform/agent/tests/test_agent_core.py
 - type: code
   path: scripts/validate_system.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/agent/__init__.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.4984078
-updated_at: 1784946220.4984078
 ---
 
 `portal/platform/agent/` is the discipline-agnostic agent loop: a bounded,

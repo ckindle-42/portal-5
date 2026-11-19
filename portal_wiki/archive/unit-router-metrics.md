@@ -1,12 +1,12 @@
 ---
 id: unit-router-metrics
+historical: true
 kind: mixed
 title: "Router metrics \u2014 single registry, import-once collectors"
 sources:
 - type: code
   path: portal/platform/inference/router/metrics.py
   commit: d7c1d4f4
-last_generated_commit: d7c1d4f4
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - platform
 - inference
 - router
-created_at: 1785798081.9114408
-updated_at: 1785798081.9114408
+
 ---
 
 `metrics.py` owns the single Prometheus `CollectorRegistry` and every Portal

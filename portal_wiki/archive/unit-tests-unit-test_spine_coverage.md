@@ -1,20 +1,19 @@
 ---
 id: unit-tests-unit-test_spine_coverage
+historical: true
 kind: mixed
 title: "Unit tests \u2014 test_spine_coverage"
 sources:
 - type: code
   path: tests/unit/test_spine_coverage.py
   commit: d5234798
-last_generated_commit: abe6f42ccd1cd1ce696800899e19dfc51821e0ef
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - unit
-created_at: 1785800468.8923311
-updated_at: 1785800468.8923311
+
 ---
 
 Unit tests for test_spine_coverage.

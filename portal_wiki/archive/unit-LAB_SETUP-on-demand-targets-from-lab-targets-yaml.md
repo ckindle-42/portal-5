@@ -1,18 +1,17 @@
 ---
 id: unit-LAB_SETUP-on-demand-targets-from-lab-targets-yaml
+historical: true
 kind: why
 title: "LAB_SETUP \u2014 On-Demand Targets (from lab_targets.yaml)"
 sources:
 - type: design
   path: docs/LAB_SETUP.md
   section: On-Demand Targets (from lab_targets.yaml)
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - LAB_SETUP
-created_at: 1783195000.868694
-updated_at: 1783195000.868694
+
 ---
 
 

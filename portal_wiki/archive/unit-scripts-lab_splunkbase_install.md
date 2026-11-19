@@ -1,19 +1,18 @@
 ---
 id: unit-scripts-lab_splunkbase_install
+historical: true
 kind: mixed
 title: "Script \u2014 lab_splunkbase_install"
 sources:
 - type: code
   path: scripts/lab_splunkbase_install.py
   commit: 94ecf393
-last_generated_commit: 94ecf393
 claims: []
 confidence: high
 tags:
 - authored-v1
 - scripts
-created_at: 1785799528.7184849
-updated_at: 1785799528.7184849
+
 ---
 
 Installs the Splunkbase add-ons that provide field aliases and CIM normalization for the BOTS datasets.

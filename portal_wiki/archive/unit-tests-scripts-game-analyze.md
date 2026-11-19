@@ -1,12 +1,12 @@
 ---
 id: unit-tests-scripts-game-analyze
+historical: true
 kind: mixed
 title: "Game-challenge analyzer \u2014 static + render dual-layer scoring"
 sources:
 - type: code
   path: tests/scripts/game_challenge_analyze.py
   commit: 53110d10
-last_generated_commit: 53110d10
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - tests
 - scripts
 - bench
-created_at: 1785796173.594443
-updated_at: 1785796173.594443
+
 ---
 
 The game-challenge analyzer scores the game tier in two layers: static

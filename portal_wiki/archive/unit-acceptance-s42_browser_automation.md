@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-s42_browser_automation
+historical: true
 kind: mixed
 title: "S42 \u2014 Browser automation"
 sources:
 - type: code
   path: tests/acceptance/s42_browser_automation.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799823.9086661
-updated_at: 1785799823.9086661
+
 ---
 
 This is the acceptance section s42_browser_automation. S42 — Browser automation

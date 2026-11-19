@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-lancedb-search-modes-indexing-rollback-rag-mcp-892
+historical: true
 kind: why
 title: "HOWTO \u2014 LanceDB Search Modes, Indexing & Rollback (RAG MCP :8921)"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: LanceDB Search Modes, Indexing & Rollback (RAG MCP :8921)
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.853765
-updated_at: 1783195000.853765
+
 ---
 
 

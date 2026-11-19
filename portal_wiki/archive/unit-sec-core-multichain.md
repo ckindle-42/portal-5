@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-multichain
+historical: true
 kind: mixed
 title: "Multichain \u2014 parallel interpreter consensus"
 sources:
 - type: code
   path: portal/modules/security/core/multichain.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800269.3941681
-updated_at: 1785800269.3941681
+
 ---
 
 The piece the Council of Agreement is not: the council votes N interpreters over ONE shared evidence pool, whereas multichain runs N independent investigation chains.

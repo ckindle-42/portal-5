@@ -1,5 +1,6 @@
 ---
 id: unit-PERSONA_PROMPT_AUDIT_V1-4-ethereumdeveloper-uat-p-d10-scored-2-5-fail
+historical: true
 kind: why
 title: "PERSONA_PROMPT_AUDIT_V1 \u2014 4. `ethereumdeveloper` \u2014 UAT P-D10 (scored\
   \ 2/5 FAIL)"
@@ -7,13 +8,11 @@ sources:
 - type: design
   path: docs/PERSONA_PROMPT_AUDIT_V1.md
   section: "4. `ethereumdeveloper` \u2014 UAT P-D10 (scored 2/5 FAIL)"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - PERSONA_PROMPT_AUDIT_V1
-created_at: 1785348275.818857
-updated_at: 1785348275.818857
+
 ---
 
 

@@ -6,14 +6,15 @@ sources:
 - type: code
   path: tests/unit/router/test_context_inject.py
   commit: 6f44673c
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/unit/router/test_context_inject.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - router
-created_at: 1785795513.9173272
-updated_at: 1785795513.9173272
 ---
 
 This test file guards `context_inject` — the router's memory/context

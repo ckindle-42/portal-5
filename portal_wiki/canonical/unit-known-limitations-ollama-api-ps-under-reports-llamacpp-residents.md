@@ -5,14 +5,17 @@ title: Ollama 0.40 /api/ps Under-Reports llamacpp-Runner Residents
 sources:
 - type: code
   path: portal/platform/inference/load_guard.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/platform/inference/load_guard.py
+  symbol: LoadGuard
+  equals: true
 confidence: high
 tags:
 - known-limitations
 - ollama
 - memory
-created_at: 1792540800
-updated_at: 1792627200
+
 ---
 
 #### Ollama 0.40 `/api/ps` under-reports llamacpp-runner residents — the load guard unloads to measure (2026-10-21)

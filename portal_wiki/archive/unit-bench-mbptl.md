@@ -1,20 +1,19 @@
 ---
 id: unit-bench-mbptl
+historical: true
 kind: mixed
 title: "Bench MBPTL \u2014 per-phase lab attack latency"
 sources:
 - type: code
   path: tests/benchmarks/bench_mbptl.py
   commit: 071aaf52
-last_generated_commit: 071aaf52
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - bench
-created_at: 1785798597.483368
-updated_at: 1785798597.483368
+
 ---
 
 `bench_mbptl.py` times each attack phase of the Most Basic Penetration

@@ -1,5 +1,6 @@
 ---
 id: unit-HOWTO-content-aware-routing-llm-based-intent-classificat
+historical: true
 kind: why
 title: "HOWTO \u2014 Content-aware routing: LLM-based intent classification (primary)\
   \ with keyword scoring fallback"
@@ -8,13 +9,11 @@ sources:
   path: docs/HOWTO.md
   section: 'Content-aware routing: LLM-based intent classification (primary) with
     keyword scoring fallback'
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.8425448
-updated_at: 1783195000.8425448
+
 ---
 
 curl -s http://localhost:9099/v1/chat/completions \

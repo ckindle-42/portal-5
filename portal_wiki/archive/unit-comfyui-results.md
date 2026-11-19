@@ -1,20 +1,19 @@
 ---
 id: unit-comfyui-results
+historical: true
 kind: mixed
 title: "ComfyUI acceptance results \u2014 run summary writer"
 sources:
 - type: code
   path: tests/comfyui/results.py
   commit: ee3590ba
-last_generated_commit: ee3590ba
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - comfyui
-created_at: 1785798963.4226549
-updated_at: 1785798963.4226549
+
 ---
 
 `results.py` writes the ComfyUI acceptance results: the elapsed time, the

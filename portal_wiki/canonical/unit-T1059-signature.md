@@ -13,14 +13,16 @@ sources:
   path: exec_chain.py#meta3_linux_privesc
 - type: scenario
   path: exec_chain.py#meta3_elasticsearch_rce
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1059
+  equals: true
 confidence: high
 tags:
 - T1059
 - technique
 - signature
-created_at: 1790651067.881852
-updated_at: 1790651067.881852
 ---
 
 # T1059 — Command execution — auditd execve of shells/interpreters

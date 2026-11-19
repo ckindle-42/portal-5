@@ -1,20 +1,19 @@
 ---
 id: unit-wiki-adapter-seed-code
+historical: true
 kind: mixed
 title: "Wiki code seeder \u2014 subsystem WHAT-unit projection"
 sources:
 - type: code
   path: portal/platform/wiki/adapters/seed_code.py
   commit: 94445e95
-last_generated_commit: 94445e95
 claims: []
 confidence: high
 tags:
 - authored-v1
 - wiki
 - adapter
-created_at: 1785797584.718294
-updated_at: 1785797584.718294
+
 ---
 
 The code seeder builds WHAT units from the repo's Python modules, grouping

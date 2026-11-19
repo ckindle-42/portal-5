@@ -1,19 +1,18 @@
 ---
 id: unit-scripts-routing_regression
+historical: true
 kind: mixed
 title: "Script \u2014 routing_regression"
 sources:
 - type: code
   path: scripts/routing_regression.py
   commit: 94ecf393
-last_generated_commit: 94ecf393
 claims: []
 confidence: high
 tags:
 - authored-v1
 - scripts
-created_at: 1785799554.3093581
-updated_at: 1785799554.3093581
+
 ---
 
 Runs a fixed corpus of prompts through the auto-routing resolution path and records the resolved base/variant tuple for each, catching routing regressions.

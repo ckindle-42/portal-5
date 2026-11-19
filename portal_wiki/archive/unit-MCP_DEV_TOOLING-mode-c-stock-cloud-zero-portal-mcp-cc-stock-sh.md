@@ -1,18 +1,17 @@
 ---
 id: unit-MCP_DEV_TOOLING-mode-c-stock-cloud-zero-portal-mcp-cc-stock-sh
+historical: true
 kind: why
 title: "MCP_DEV_TOOLING \u2014 Mode C \u2014 Stock cloud (zero Portal MCP, `cc-stock.sh`)"
 sources:
 - type: design
   path: docs/MCP_DEV_TOOLING.md
   section: "Mode C \u2014 Stock cloud (zero Portal MCP, `cc-stock.sh`)"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - MCP_DEV_TOOLING
-created_at: 1783195000.873475
-updated_at: 1783195000.873475
+
 ---
 
 

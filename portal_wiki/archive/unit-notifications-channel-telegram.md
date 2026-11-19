@@ -1,20 +1,19 @@
 ---
 id: unit-notifications-channel-telegram
+historical: true
 kind: mixed
 title: "Notification Telegram channel \u2014 Bot API sender"
 sources:
 - type: code
   path: portal/platform/inference/notifications/channels/telegram.py
   commit: 7383d070
-last_generated_commit: 7383d070
 claims: []
 confidence: high
 tags:
 - authored-v1
 - notifications
 - platform
-created_at: 1785796491.42516
-updated_at: 1785796491.42516
+
 ---
 
 `TelegramChannel` sends notifications to a Telegram chat via the Bot API: it

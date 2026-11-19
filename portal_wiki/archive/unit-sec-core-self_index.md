@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-self_index
+historical: true
 kind: mixed
 title: "Self-index \u2014 engagement evidence index"
 sources:
 - type: code
   path: portal/modules/security/core/self_index.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800295.902845
-updated_at: 1785800295.902845
+
 ---
 
 The self-index that inventories the engagement artifacts: results, checkpoints, and evidence, so the module can answer what it has produced.

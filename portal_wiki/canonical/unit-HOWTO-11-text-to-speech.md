@@ -9,14 +9,17 @@ sources:
   path: scripts/lib/services.sh
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: scripts/mlx-speech.py
+  symbol: list_voices
+  equals: true
 confidence: high
 tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.846459
-updated_at: 1787922000
+
 ---
 
 **What:** Convert text to spoken audio using MLX-native speech (Kokoro narration + Higgs Audio v2 voice cloning).

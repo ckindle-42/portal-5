@@ -10,13 +10,14 @@ sources:
   path: config/portal.yaml
 - type: code
   path: tests/benchmarks/bench/prompts.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/portal.yaml
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.666697
-updated_at: 1784946220.666697
 ---
 
 - **ID**: P5-BENCH-001

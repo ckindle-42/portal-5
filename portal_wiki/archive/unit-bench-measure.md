@@ -1,20 +1,19 @@
 ---
 id: unit-bench-measure
+historical: true
 kind: mixed
 title: "Bench measure \u2014 streaming TPS timing core"
 sources:
 - type: code
   path: tests/benchmarks/bench/measure.py
   commit: 381f217b
-last_generated_commit: 381f217b
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - bench
-created_at: 1785798434.657781
-updated_at: 1785798434.657781
+
 ---
 
 `measure.py` is the core TPS measurement: the shared httpx client, pipeline

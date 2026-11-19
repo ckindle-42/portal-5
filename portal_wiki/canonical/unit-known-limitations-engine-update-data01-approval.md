@@ -11,15 +11,17 @@ sources:
   path: scripts/omlx_venv_install.py
 - type: code
   path: deploy/launchd/com.portal5.omlx.plist
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/engine_autoupdate.py
+  equals: true
 confidence: high
 tags:
 - known-limitations
 - ollama
 - omlx
 - macos
-created_at: 1790333591
-updated_at: 1792680000
+
 ---
 
 - **ID**: P5-ENGINE-TCC-001

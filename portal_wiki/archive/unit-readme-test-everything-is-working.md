@@ -1,5 +1,6 @@
 ---
 id: unit-readme-test-everything-is-working
+historical: true
 kind: what
 title: "README \u2014 Test everything is working"
 sources:
@@ -12,8 +13,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.68112
-updated_at: 1784946220.68112
+
 ---
 
 ```bash

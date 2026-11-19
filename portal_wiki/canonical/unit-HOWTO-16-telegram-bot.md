@@ -7,14 +7,16 @@ sources:
   path: launch.sh
 - type: code
   path: portal_channels/telegram/bot.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: launch.sh
+  equals: true
 confidence: high
 tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1784944767.916281
-updated_at: 1784944767.916281
+
 ---
 
 1. Message **@BotFather** on Telegram -> `/newbot` -> copy the token

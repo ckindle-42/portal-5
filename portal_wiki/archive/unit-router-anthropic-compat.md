@@ -1,12 +1,12 @@
 ---
 id: unit-router-anthropic-compat
+historical: true
 kind: mixed
 title: "Router anthropic compat \u2014 Messages-API translation layer"
 sources:
 - type: code
   path: portal/platform/inference/router/anthropic_compat.py
   commit: d7c1d4f4
-last_generated_commit: d7c1d4f4
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - platform
 - inference
 - router
-created_at: 1785798040.539374
-updated_at: 1785798040.539374
+
 ---
 
 The Anthropic compatibility layer converts between the Anthropic

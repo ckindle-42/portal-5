@@ -6,14 +6,15 @@ sources:
 - type: code
   path: portal/platform/wiki/tests/test_render.py
   commit: 6f44673c
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/wiki/tests/test_render.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - wiki
 - tests
-created_at: 1785795461.8825479
-updated_at: 1785795461.8825479
 ---
 
 This test file pins down the render module's two hard-won contracts: that a

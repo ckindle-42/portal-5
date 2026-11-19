@@ -6,13 +6,14 @@ sources:
 - type: code
   path: portal/platform/wiki/writeback.py
   commit: e5c013b3dfd9e466a1964ca4832ddcc379b95488
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/wiki/writeback.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - wiki
-created_at: 1785797311.298802
-updated_at: 1785797311.298802
 ---
 
 The writeback module is the growth-loop's bridge into the wiki: proposed

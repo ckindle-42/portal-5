@@ -1,18 +1,17 @@
 ---
 id: unit-V2_SCENARIO_AUDIT_V1-4-e2e-playwright-login-test-vs-uat-p-b01
+historical: true
 kind: why
 title: "V2_SCENARIO_AUDIT_V1 \u2014 4. `e2e-playwright-login-test` vs UAT P-B01"
 sources:
 - type: design
   path: docs/V2_SCENARIO_AUDIT_V1.md
   section: 4. `e2e-playwright-login-test` vs UAT P-B01
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - V2_SCENARIO_AUDIT_V1
-created_at: 1783195000.9235158
-updated_at: 1783195000.9235158
+
 ---
 
 

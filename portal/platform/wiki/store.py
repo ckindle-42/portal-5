@@ -125,3 +125,14 @@ def load_archived() -> list[KnowledgeUnit]:
         except (ValueError, Exception):
             continue  # skip malformed files
     return units
+
+
+def load_archived_unit(unit_id: str) -> KnowledgeUnit | None:
+    """Load one historical unit without adding it to the canonical working set."""
+    path = _get_archive_dir() / f"{unit_id}.md"
+    if not path.exists():
+        return None
+    try:
+        return KnowledgeUnit.from_markdown(path.read_text(encoding="utf-8"))
+    except (ValueError, Exception):
+        return None

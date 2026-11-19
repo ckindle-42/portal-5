@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-council_review_bench
+historical: true
 kind: mixed
 title: "Council review bench \u2014 council mechanism measurement"
 sources:
 - type: code
   path: portal/modules/security/core/council_review_bench.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800295.902837
-updated_at: 1785800295.902837
+
 ---
 
 The bench that measures the council mechanism itself — whether the N-interpreter vote improves verdict quality over a single interpreter.

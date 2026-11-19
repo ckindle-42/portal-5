@@ -9,14 +9,17 @@ sources:
   path: portal/platform/inference/cli/models.py
 - type: code
   path: portal/platform/inference/cli/_common.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/platform/inference/cli/models.py
+  symbol: models_pull
+  equals: true
 confidence: high
 tags:
 - ADMIN_GUIDE
 - docs
 - verified-v1
-created_at: 1783195000.817791
-updated_at: 1783195000.817791
+
 ---
 
 The router model is an Ollama-native HuggingFace pull. The recommended path is `./launch.sh pull-models`, which runs `models_pull` in `portal/platform/inference/cli/models.py` and pulls the whole catalog via `_pull_native`; the CLI locates the `ollama` binary through `_detect_ollama_cmd` in cli/_common.py. A lone model can be pulled directly:

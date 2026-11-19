@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-s18_lab_exec
+historical: true
 kind: mixed
 title: "S18 \u2014 Lab execution"
 sources:
 - type: code
   path: tests/acceptance/s18_lab_exec.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799797.675172
-updated_at: 1785799797.675172
+
 ---
 
 This is the acceptance section s18_lab_exec. S18 — Lab execution

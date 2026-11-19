@@ -214,21 +214,48 @@ def check_spine_drift() -> tuple[str, str, list[dict]]:
     """
     from portal.platform.wiki.adapters.seed_facts import derive_facts
     from portal.platform.wiki.claims import claim_count, evaluate_claims
-    from portal.platform.wiki.drift import broken_path_refs
+    from portal.platform.wiki.drift import broken_path_refs, claim_coverage_gaps
     from portal.platform.wiki.store import load_all
 
-    units = load_all() + derive_facts()
+    canonical_units = load_all()
+    units = canonical_units + derive_facts()
     violations = evaluate_claims(units, REPO_ROOT)
+    coverage_gaps = claim_coverage_gaps(canonical_units, REPO_ROOT)
     refs = broken_path_refs(REPO_ROOT)
+    violations_by_unit: dict[str, list[str]] = {}
+    for violation in violations:
+        violations_by_unit.setdefault(violation.unit_id, []).append(str(violation))
+    claim_results = [
+        {
+            "unit_id": unit.id,
+            "status": "FAIL" if unit.id in violations_by_unit else "PASS",
+            "claims_checked": len(unit.claims),
+            "violations": violations_by_unit.get(unit.id, []),
+        }
+        for unit in canonical_units
+    ]
 
     subs: list[dict] = [
         {
             "name": "declared claims hold against live probes",
             "status": "PASS" if not violations else "FAIL",
             "detail": (
-                f"{claim_count(units)} claim(s) declared, all hold"
+                f"{claim_count(units)} claim(s) declared; results recorded for "
+                f"{len(canonical_units)} canonical unit(s)"
                 if not violations
                 else "; ".join(str(v) for v in violations[:8])
+            ),
+            "unit_results": claim_results,
+        },
+        {
+            "name": "canonical units have claims or are explicitly triaged",
+            "status": "PASS" if not coverage_gaps else "FAIL",
+            "detail": (
+                f"all {len(canonical_units)} canonical units have claims, a historical mark, "
+                "or an explicit pending triage row"
+                if not coverage_gaps
+                else f"{len(coverage_gaps)} canonical unit(s) lack claims or a historical mark: "
+                + ", ".join(coverage_gaps[:8])
             ),
         },
         {
@@ -242,11 +269,12 @@ def check_spine_drift() -> tuple[str, str, list[dict]]:
         },
     ]
 
-    hard = bool(violations) or bool(refs)
+    hard = bool(violations) or bool(coverage_gaps) or bool(refs)
     if hard:
         return (
             "FAIL",
-            f"{len(violations)} claim violation(s), {len(refs)} dead doc ref(s)",
+            f"{len(violations)} claim violation(s), {len(coverage_gaps)} untriaged canonical unit(s), "
+            f"{len(refs)} dead doc ref(s)",
             subs,
         )
     return (

@@ -10,14 +10,16 @@ sources:
   path: ATT&CK:T1078.004
 - type: scenario
   path: exec_chain.py#cloud_breach
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1078.004
+  equals: true
 confidence: high
 tags:
 - T1078.004
 - technique
 - signature
-created_at: 1790651067.896575
-updated_at: 1790651067.896575
 ---
 
 # T1078.004 — Valid Accounts: Cloud Accounts — interactive or non-interactive sign-in to an AWS account [KEY: CloudTrail ConsoleLogin record]

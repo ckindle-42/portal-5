@@ -9,14 +9,16 @@ sources:
   path: portal/modules/security/core/siem/spl_detections.yaml#T1098
 - type: mitre
   path: ATT&CK:T1098
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1098
+  equals: true
 confidence: high
 tags:
 - T1098
 - technique
 - signature
-created_at: 1790651067.897006
-updated_at: 1790651067.897006
 ---
 
 # T1098 — Account Manipulation — creation of credentials, users, roles, or policies in a cloud account [KEY: CloudTrail account-manipulation API (CreateAccessKey/CreateUser/CreateRole/…)]

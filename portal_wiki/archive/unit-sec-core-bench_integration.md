@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-bench_integration
+historical: true
 kind: mixed
 title: "Bench integration \u2014 no-op-safe module hooks"
 sources:
 - type: code
   path: portal/modules/security/core/bench_integration.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800269.3941388
-updated_at: 1785800269.3941388
+
 ---
 
 The integration shims that let the bench operate even when a module is absent, each step no-op'ing safely.

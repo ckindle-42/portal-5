@@ -5,14 +5,17 @@ title: "HOWTO \u2014 7. Document Generation"
 sources:
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: config/portal.yaml
+  symbol: create_word_document
+  equals: true
 confidence: high
 tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.842816
-updated_at: 1783195000.842816
+
 ---
 
 **What:** Generate Word (.docx), Excel (.xlsx), and PowerPoint (.pptx) files from chat.

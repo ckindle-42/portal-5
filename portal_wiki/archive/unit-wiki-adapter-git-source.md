@@ -1,20 +1,19 @@
 ---
 id: unit-wiki-adapter-git-source
+historical: true
 kind: mixed
 title: "Wiki git source adapter \u2014 repo walker for the spine"
 sources:
 - type: code
   path: portal/platform/wiki/adapters/git_source.py
   commit: 94445e95
-last_generated_commit: 94445e95
 claims: []
 confidence: high
 tags:
 - authored-v1
 - wiki
 - adapter
-created_at: 1785797561.222673
-updated_at: 1785797561.222673
+
 ---
 
 The Git source connector wires the stack-agnostic `SourceConnector` interface

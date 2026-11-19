@@ -1,18 +1,17 @@
 ---
 id: unit-PERSONA_MATRIX_CI-ci-vs-local-run-boundary
+historical: true
 kind: why
 title: "PERSONA_MATRIX_CI \u2014 CI vs. local-run boundary"
 sources:
 - type: design
   path: docs/PERSONA_MATRIX_CI.md
   section: CI vs. local-run boundary
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - PERSONA_MATRIX_CI
-created_at: 1783195000.88232
-updated_at: 1783195000.88232
+
 ---
 
 

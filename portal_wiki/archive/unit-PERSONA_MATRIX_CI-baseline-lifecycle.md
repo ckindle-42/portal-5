@@ -1,18 +1,17 @@
 ---
 id: unit-PERSONA_MATRIX_CI-baseline-lifecycle
+historical: true
 kind: why
 title: "PERSONA_MATRIX_CI \u2014 Baseline lifecycle"
 sources:
 - type: design
   path: docs/PERSONA_MATRIX_CI.md
   section: Baseline lifecycle
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - PERSONA_MATRIX_CI
-created_at: 1783195000.882082
-updated_at: 1783195000.882082
+
 ---
 
 

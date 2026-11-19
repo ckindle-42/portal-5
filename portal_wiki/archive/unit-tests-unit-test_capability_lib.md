@@ -1,20 +1,19 @@
 ---
 id: unit-tests-unit-test_capability_lib
+historical: true
 kind: mixed
 title: "Unit tests \u2014 test_capability_lib"
 sources:
 - type: code
   path: tests/unit/test_capability_lib.py
   commit: d5234798
-last_generated_commit: d5234798
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - unit
-created_at: 1785800468.8922272
-updated_at: 1785800468.8922272
+
 ---
 
 Unit tests for test_capability_lib.

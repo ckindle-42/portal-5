@@ -1,20 +1,19 @@
 ---
 id: unit-tests-lib-coding-fixtures
+historical: true
 kind: mixed
 title: "Tests lib coding fixtures \u2014 scenario loader/parameterizer"
 sources:
 - type: code
   path: tests/lib/coding_fixtures.py
   commit: bd66d80c
-last_generated_commit: bd66d80c
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - lib
-created_at: 1785798265.901275
-updated_at: 1785798265.901275
+
 ---
 
 `coding_fixtures.py` loads `tests/fixtures/coding_scenarios.yaml` and

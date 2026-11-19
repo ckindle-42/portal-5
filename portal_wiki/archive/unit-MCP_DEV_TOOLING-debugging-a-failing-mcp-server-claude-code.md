@@ -1,18 +1,17 @@
 ---
 id: unit-MCP_DEV_TOOLING-debugging-a-failing-mcp-server-claude-code
+historical: true
 kind: why
 title: "MCP_DEV_TOOLING \u2014 Debugging a failing MCP server (Claude Code)"
 sources:
 - type: design
   path: docs/MCP_DEV_TOOLING.md
   section: Debugging a failing MCP server (Claude Code)
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - MCP_DEV_TOOLING
-created_at: 1783195000.874463
-updated_at: 1783195000.874463
+
 ---
 
 

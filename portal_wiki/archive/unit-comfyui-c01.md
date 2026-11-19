@@ -1,20 +1,19 @@
 ---
 id: unit-comfyui-c01
+historical: true
 kind: mixed
 title: "Section C1 \u2014 ComfyUI direct API (system stats, object info, models)"
 sources:
 - type: code
   path: tests/comfyui/c01_direct_api.py
   commit: ee3590ba
-last_generated_commit: ee3590ba
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - comfyui
-created_at: 1785798970.477257
-updated_at: 1785798970.477257
+
 ---
 
 This is the ComfyUI acceptance section c01. Section C1 — ComfyUI direct API (system stats, object info, models)

@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-s16_security_mcp
+historical: true
 kind: mixed
 title: "S16 \u2014 Security MCP"
 sources:
 - type: code
   path: tests/acceptance/s16_security_mcp.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799790.1403499
-updated_at: 1785799790.1403499
+
 ---
 
 This is the acceptance section s16_security_mcp. S16 — Security MCP

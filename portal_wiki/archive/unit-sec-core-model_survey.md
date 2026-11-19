@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-model_survey
+historical: true
 kind: mixed
 title: "Model survey \u2014 model behaviour inventory"
 sources:
 - type: code
   path: portal/modules/security/core/model_survey.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800295.902839
-updated_at: 1785800295.902839
+
 ---
 
 The model-survey harness that probes candidate models' behaviours (refusal, tool-calling, capability) to inventory what each model can and cannot do.

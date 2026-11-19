@@ -1,5 +1,6 @@
 ---
 id: unit-code-portal
+historical: true
 kind: what
 title: portal subsystem (315 files)
 sources:
@@ -18,13 +19,11 @@ sources:
 - type: code
   path: portal/modules/compliance/config/__init__.py
   commit: 305368bb3e8d
-last_generated_commit: ''
 confidence: high
 tags:
 - code
 - portal
-created_at: 1785503864.831386
-updated_at: 1785503864.831386
+
 ---
 
 # portal subsystem

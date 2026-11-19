@@ -9,12 +9,13 @@ sources:
   path: tests/benchmarks/bench/runners.py
 - type: code
   path: tests/benchmarks/bench/measure.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/benchmarks/bench/cli.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.702423
-updated_at: 1784946220.702423
 ---
 
 `bench_tps.py` selects test tiers with `--mode` (choices in

@@ -1,5 +1,6 @@
 ---
 id: unit-readme-cleanup
+historical: true
 kind: what
 title: "README \u2014 Cleanup"
 sources:
@@ -7,12 +8,10 @@ sources:
   path: README.md
   commit: 05e42ec2
   section: Cleanup
-last_generated_commit: 05e42ec2
 confidence: high
 tags:
 - docs
-created_at: 1784946220.684323
-updated_at: 1784946220.684323
+
 ---
 
 ./launch.sh clean           # Remove containers (keeps model weights)

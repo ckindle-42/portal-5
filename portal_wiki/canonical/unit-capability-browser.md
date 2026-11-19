@@ -10,14 +10,15 @@ sources:
   path: portal/modules/research/tools/browser_mcp.py
 - type: code
   path: config/inference/tools_manifest_browser_mcp.json
-claims: []
+claims:
+- probe: mcp.fleet.ids
+  contains: browser
 confidence: high
 tags:
 - capability
 - mcp
 - research
-created_at: 1788030600.446044
-updated_at: 1788030600.446044
+
 ---
 
 # Browser MCP — Obscura web automation

@@ -7,12 +7,13 @@ sources:
   path: scripts/lib/backup.sh
 - type: code
   path: launch.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/lib/backup.sh
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.5247529
-updated_at: 1784946220.5247529
 ---
 
 The manual one-liner for a single volume is exactly the mechanism `_launch_backup` wraps: an alpine container mounts `portal-5_open-webui-data` at `/data`, binds a host directory at `/backup`, and packs the data directory into a gzip tarball. The script hardcodes the volume names and output naming, so the raw one-liner is only useful when an operator wants a one-off snapshot outside the standard flow, such as right before a risky upgrade.

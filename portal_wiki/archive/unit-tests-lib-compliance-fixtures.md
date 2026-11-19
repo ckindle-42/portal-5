@@ -1,20 +1,19 @@
 ---
 id: unit-tests-lib-compliance-fixtures
+historical: true
 kind: mixed
 title: "Tests lib compliance fixtures \u2014 YAML scenario parameterizer"
 sources:
 - type: code
   path: tests/lib/compliance_fixtures.py
   commit: bd66d80c
-last_generated_commit: bd66d80c
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - lib
-created_at: 1785798277.837648
-updated_at: 1785798277.837648
+
 ---
 
 `compliance_fixtures.py` loads and parameterizes

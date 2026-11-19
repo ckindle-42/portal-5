@@ -1,20 +1,19 @@
 ---
 id: unit-tests-lib-compliance-assertions
+historical: true
 kind: mixed
 title: "Tests lib compliance assertions \u2014 durable-methodology checks"
 sources:
 - type: code
   path: tests/lib/compliance_assertions.py
   commit: bd66d80c
-last_generated_commit: bd66d80c
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - lib
-created_at: 1785798271.8809888
-updated_at: 1785798271.8809888
+
 ---
 
 `compliance_assertions.py` holds the behavioral assertions for

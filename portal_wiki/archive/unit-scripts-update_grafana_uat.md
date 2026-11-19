@@ -1,19 +1,18 @@
 ---
 id: unit-scripts-update_grafana_uat
+historical: true
 kind: mixed
 title: "Script \u2014 update_grafana_uat"
 sources:
 - type: code
   path: scripts/update_grafana_uat.py
   commit: 94ecf393
-last_generated_commit: 94ecf393
 claims: []
 confidence: high
 tags:
 - authored-v1
 - scripts
-created_at: 1785799572.648927
-updated_at: 1785799572.648927
+
 ---
 
 Writes UAT results to Grafana with dry-run and input-selection modes.

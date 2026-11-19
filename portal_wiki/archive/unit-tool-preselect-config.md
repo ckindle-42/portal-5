@@ -1,20 +1,19 @@
 ---
 id: unit-tool-preselect-config
+historical: true
 kind: mixed
 title: "Tool preselector config \u2014 two-level opt-in resolution"
 sources:
 - type: code
   path: portal/platform/inference/tool_preselect/config.py
   commit: b9ca6f31
-last_generated_commit: b9ca6f31
 claims: []
 confidence: high
 tags:
 - authored-v1
 - platform
 - tool-preselect
-created_at: 1785796777.02047
-updated_at: 1785796777.02047
+
 ---
 
 `config.py` resolves the two levels of opt-in for the tool preselector: the

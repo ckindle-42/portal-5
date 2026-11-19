@@ -1,18 +1,17 @@
 ---
 id: unit-known-limitations-devstral-2509-upgrade-blocked-model-not-published
+historical: true
 kind: what
 title: "KNOWN_LIMITATIONS \u2014 Devstral 2509 Upgrade Blocked \u2014 Model Not Published"
 sources:
 - type: code
   path: config/personas/bench_devstral.yaml
-last_generated_commit: 800be8bfbbbd6238978cdfa9be7cfadf4bc68c8d
 claims: []
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.6619809
-updated_at: 1784946220.6619809
+
 ---
 
 - **ID**: P5-BENCH-DEVSTRAL-2509

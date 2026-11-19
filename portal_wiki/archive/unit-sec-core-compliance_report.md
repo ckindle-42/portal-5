@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-compliance_report
+historical: true
 kind: mixed
 title: "Compliance report \u2014 multi-framework mapping"
 sources:
 - type: code
   path: portal/modules/security/core/compliance_report.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800295.902832
-updated_at: 1785800295.902832
+
 ---
 
 The compliance-report generator that maps the security findings across the frameworks (NERC CIP, and the others), producing the compliance posture report.

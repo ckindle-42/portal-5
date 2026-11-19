@@ -1,20 +1,19 @@
 ---
 id: unit-browser-mcp-http-wrapper
+historical: true
 kind: mixed
 title: "Browser MCP \u2014 the guarded web-automation surface"
 sources:
 - type: code
   path: deploy/playwright-mcp/browser_mcp.py
   commit: 5a68250b
-last_generated_commit: 5a68250b
 claims: []
 confidence: high
 tags:
 - authored-v1
 - mcp
 - browser
-created_at: 1785794738.164835
-updated_at: 1785794738.164835
+
 ---
 
 The browser MCP is Portal 5's web-automation surface: it wraps Microsoft's

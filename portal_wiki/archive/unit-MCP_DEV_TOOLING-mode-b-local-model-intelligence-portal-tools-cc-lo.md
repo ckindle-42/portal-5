@@ -1,5 +1,6 @@
 ---
 id: unit-MCP_DEV_TOOLING-mode-b-local-model-intelligence-portal-tools-cc-lo
+historical: true
 kind: why
 title: "MCP_DEV_TOOLING \u2014 Mode B \u2014 Local model intelligence + Portal tools\
   \ (`cc-local.sh`)"
@@ -7,13 +8,11 @@ sources:
 - type: design
   path: docs/MCP_DEV_TOOLING.md
   section: "Mode B \u2014 Local model intelligence + Portal tools (`cc-local.sh`)"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - MCP_DEV_TOOLING
-created_at: 1783195000.873197
-updated_at: 1783195000.873197
+
 ---
 
 

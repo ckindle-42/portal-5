@@ -1,19 +1,18 @@
 ---
 id: unit-claude-reconcile-the-stale-docs-against-live-code
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 ...reconcile the stale docs against live code..."
 sources:
 - type: design
   path: CLAUDE.md
   section: '...reconcile the stale docs against live code...'
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.1943622
-updated_at: 1785348301.1943622
+
 ---
 
 python3 scripts/doc_ledger.py stamp <doc>         # or stamp-all after a full pass

@@ -10,13 +10,14 @@ sources:
   path: portal/platform/inference/router/handlers.py
 - type: code
   path: portal/platform/inference/router/anthropic_compat.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/cc-local.sh
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.577048
-updated_at: 1784946220.577048
 ---
 
 Mode B keeps the same Portal tool set as Mode A but moves the intelligence on-box.

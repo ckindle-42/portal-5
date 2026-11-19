@@ -7,14 +7,17 @@ sources:
   path: config/backends.yaml
 - type: code
   path: portal/platform/inference/cluster_backends.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: config/backends.yaml
+  symbol: workspace_routing
+  equals: true
 confidence: high
 tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.8597472
-updated_at: 1783195000.8597472
+
 ---
 
 **What:** Add more machines to increase throughput — no pipeline code changes needed.

@@ -10,14 +10,16 @@ sources:
   path: ATT&CK:T1552.005
 - type: scenario
   path: exec_chain.py#cloud_breach
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1552.005
+  equals: true
 confidence: high
 tags:
 - T1552.005
 - technique
 - signature
-created_at: 1790651067.884021
-updated_at: 1790651067.884021
 ---
 
 # T1552.005 — Cloud-metadata SSRF — 169.254.169.254 access signal [KEY: Cloud metadata endpoint literal from the SPL]

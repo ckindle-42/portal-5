@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-workflow-a-is-finally-working-what-changed
+historical: true
 kind: why
 title: "HOWTO \u2014 Workflow A is finally working \u2014 what changed"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: "Workflow A is finally working \u2014 what changed"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.850334
-updated_at: 1783195000.850334
+
 ---
 
 

@@ -1,20 +1,19 @@
 ---
 id: unit-inference-config
+historical: true
 kind: mixed
 title: "Inference config \u2014 Pydantic portal.yaml model layer"
 sources:
 - type: code
   path: portal/platform/inference/config.py
   commit: 250150f6
-last_generated_commit: 250150f6
 claims: []
 confidence: high
 tags:
 - authored-v1
 - platform
 - inference
-created_at: 1785797748.6843362
-updated_at: 1785797748.6843362
+
 ---
 
 The inference config module is the Pydantic model layer over

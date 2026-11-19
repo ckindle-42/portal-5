@@ -15,15 +15,18 @@ sources:
   path: portal/platform/inference/sync_config.py
 - type: code
   path: config/owui_tool_servers.yaml
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: config/portal.yaml
+  symbol: system_prompt
+  equals: true
 confidence: high
 tags:
 - HOWTO
 - checklist
 - docs
 - verified-v1
-created_at: 1785464185.5918112
-updated_at: 1785464185.5918112
+
 ---
 
 # Adding new capabilities

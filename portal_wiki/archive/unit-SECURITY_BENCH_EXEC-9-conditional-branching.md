@@ -1,18 +1,17 @@
 ---
 id: unit-SECURITY_BENCH_EXEC-9-conditional-branching
+historical: true
 kind: why
 title: "SECURITY_BENCH_EXEC \u2014 9. Conditional Branching"
 sources:
 - type: design
   path: docs/SECURITY_BENCH_EXEC.md
   section: 9. Conditional Branching
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - SECURITY_BENCH_EXEC
-created_at: 1783195000.903553
-updated_at: 1783195000.903553
+
 ---
 
 Steps can carry a `condition` field that is evaluated against lab observations. If the condition is not met, the step is skipped (not counted as missed). This supports branched chains where the path depends on what the model discovers.

@@ -6,14 +6,15 @@ sources:
 - type: code
   path: tests/unit/router/test_correlation.py
   commit: 6f44673c
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/unit/router/test_correlation.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - router
-created_at: 1785795519.573695
-updated_at: 1785795519.573695
 ---
 
 This test file pins the router's correlation-id logging contract: every

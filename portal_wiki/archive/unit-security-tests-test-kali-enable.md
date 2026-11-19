@@ -1,17 +1,16 @@
 ---
 id: unit-security-tests-test-kali-enable
+historical: true
 kind: what
 title: Kali enablement on the main-chain path
 sources:
 - type: code
   path: portal/modules/security/tests/test_kali_enable.py
-last_generated_commit: f0b6e5a43439303b615e818fed6698038c4af0c6
 claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.5
-updated_at: 1784946220.5
+
 ---
 
 `test_kali_enable.py` locks the main-chain Kali path so the security harness can drive real tooling instead of synthetic stand-ins. It asserts `CHAIN_TOOLS_BASE` exposes exactly `execute_bash` and `execute_python` on top of the original wrapper set, with schemas matching `INLINE_TOOLS` and no further tool proliferation. A second block proves `lab_dispatch` routes those two names to the live Kali box through `_lab_mcp_call`, that read-only aliases like `nmap` and `impacket-GetUserSPNs` reach the same verified dispatch rather than a synthetic fallback, and that `impacket-GetNPUsers` stays bounded to known lab accounts. `accumulate_observations` must extract compromise, port, CVE, and data markers from raw output while empty or erroring output earns no credit — the honesty guard that stops a bare tool call from counting as progress.

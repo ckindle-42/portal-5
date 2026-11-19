@@ -8,13 +8,14 @@ sources:
   path: portal/modules/security/core/_data.py
 - type: code
   path: portal/modules/security/core/__init__.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/_data.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.706641
-updated_at: 1784946220.706641
 ---
 
 Security chains are slow by construction: thinking models plus tool

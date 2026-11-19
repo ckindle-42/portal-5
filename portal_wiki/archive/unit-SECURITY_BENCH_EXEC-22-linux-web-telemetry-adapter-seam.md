@@ -1,18 +1,17 @@
 ---
 id: unit-SECURITY_BENCH_EXEC-22-linux-web-telemetry-adapter-seam
+historical: true
 kind: why
 title: "SECURITY_BENCH_EXEC \u2014 22. Linux/Web Telemetry (Adapter Seam)"
 sources:
 - type: design
   path: docs/SECURITY_BENCH_EXEC.md
   section: 22. Linux/Web Telemetry (Adapter Seam)
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - SECURITY_BENCH_EXEC
-created_at: 1783195000.908709
-updated_at: 1783195000.908709
+
 ---
 
 

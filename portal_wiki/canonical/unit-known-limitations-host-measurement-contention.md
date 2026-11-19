@@ -19,14 +19,17 @@ sources:
   path: scripts/orchestration_acceptance.py
 - type: code
   path: scripts/seat_preflight.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: scripts/host_quiet.py
+  symbol: begin_run
+  equals: true
 confidence: high
 tags:
 - known-limitations
 - testing
 - memory
-created_at: 1792627200
-updated_at: 1792668000
+
 ---
 
 #### Parallel pre-commit unit workers starved live UAT (2026-10-22)

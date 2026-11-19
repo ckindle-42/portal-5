@@ -1,19 +1,18 @@
 ---
 id: unit-claude-12-docs-travel-with-the-work
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 12 \u2014 Docs Travel With The Work"
 sources:
 - type: design
   path: CLAUDE.md
   section: "12 \u2014 Docs Travel With The Work"
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.194359
-updated_at: 1785348301.194359
+
 ---
 
 

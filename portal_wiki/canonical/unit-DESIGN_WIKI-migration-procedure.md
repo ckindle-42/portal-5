@@ -9,15 +9,16 @@ sources:
   path: portal/platform/wiki/render.py
 - type: code
   path: portal/platform/inference/sync_config.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/sync_config.py
+  equals: true
 confidence: high
 tags:
 - design
 - procedure
 - verified-v1
 - wiki
-created_at: 1784946277.748951
-updated_at: 1784946277.748951
 ---
 
 For each doc `D` returned by `discover_unmigrated_docs()`, processed highest priority first, the loop body is:

@@ -12,14 +12,16 @@ sources:
   path: exec_chain.py#web_reflected_xss
 - type: scenario
   path: exec_chain.py#web_open_redirect
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1189
+  equals: true
 confidence: high
 tags:
 - T1189
 - technique
 - signature
-created_at: 1790651067.893384
-updated_at: 1790651067.893384
 ---
 
 # T1189 — Drive-by compromise — reflected XSS and malicious redirect indicators [KEY: One of the XSS/redirect literals used by this SPL]

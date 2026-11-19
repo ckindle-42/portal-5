@@ -1,20 +1,19 @@
 ---
 id: unit-wiki-adapter-writeback-investigation
+historical: true
 kind: mixed
 title: "Wiki investigation write-back \u2014 validated-finding units"
 sources:
 - type: code
   path: portal/platform/wiki/adapters/writeback_investigation.py
   commit: 94445e95
-last_generated_commit: 94445e95
 claims: []
 confidence: high
 tags:
 - authored-v1
 - wiki
 - adapter
-created_at: 1785797611.736303
-updated_at: 1785797611.736303
+
 ---
 
 The investigation write-back adapter writes closed-case findings into the

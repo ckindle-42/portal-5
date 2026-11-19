@@ -1,21 +1,22 @@
 ---
 id: unit-surface-security-review-product
 kind: mixed
-title: "Security review product path and analyst knowledge"
+title: Security review product path and analyst knowledge
 sources:
 - type: code
   path: portal/modules/security/core/review/*.py
 - type: code
   path: portal/modules/security/tools/review_mcp.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/review/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - security
 - review
 - product
-created_at: 1791551882.0
-updated_at: 1791561222.0
 ---
 
 `portal/modules/security/core/review/` is the label-blind product path. The

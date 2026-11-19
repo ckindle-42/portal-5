@@ -1,18 +1,17 @@
 ---
 id: unit-USER_GUIDE-getting-access
+historical: true
 kind: why
 title: "USER_GUIDE \u2014 Getting Access"
 sources:
 - type: design
   path: docs/USER_GUIDE.md
   section: Getting Access
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - USER_GUIDE
-created_at: 1783195000.919562
-updated_at: 1783195000.919562
+
 ---
 
 

@@ -1,7 +1,7 @@
 ---
 id: unit-capability-memory
 kind: mixed
-title: "Memory MCP — temporal knowledge-graph persistence"
+title: "Memory MCP \u2014 temporal knowledge-graph persistence"
 sources:
 - type: code
   path: config/portal.yaml
@@ -16,7 +16,9 @@ sources:
   path: portal/platform/lance_guard.py
 - type: code
   path: config/inference/tools_manifest_memory_mcp.json
-claims: []
+claims:
+- probe: mcp.fleet.ids
+  contains: memory
 confidence: high
 tags:
 - capability

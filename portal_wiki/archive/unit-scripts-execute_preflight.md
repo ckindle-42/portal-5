@@ -1,19 +1,18 @@
 ---
 id: unit-scripts-execute_preflight
+historical: true
 kind: mixed
 title: "Script \u2014 execute_preflight"
 sources:
 - type: code
   path: scripts/execute_preflight.py
   commit: 94ecf393
-last_generated_commit: 94ecf393
 claims: []
 confidence: high
 tags:
 - authored-v1
 - scripts
-created_at: 1785799483.539776
-updated_at: 1785799483.539776
+
 ---
 
 Read-only. Prints current counts and vocabularies so an execute agent confirms reality instead of trusting doc-baked numbers, at the start of every bench/sec/acceptance session.

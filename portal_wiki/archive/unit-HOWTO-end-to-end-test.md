@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-end-to-end-test
+historical: true
 kind: why
 title: "HOWTO \u2014 End-to-end test"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: End-to-end test
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.862644
-updated_at: 1783195000.862644
+
 ---
 
 curl -s http://localhost:9099/v1/chat/completions \

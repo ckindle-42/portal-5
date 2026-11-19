@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-when-chat-drop-still-doesn-t-work-the-runner-scrip
+historical: true
 kind: why
 title: "HOWTO \u2014 When chat-drop still doesn't work \u2014 the runner script"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: "When chat-drop still doesn't work \u2014 the runner script"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.8505778
-updated_at: 1783195000.8505778
+
 ---
 
 

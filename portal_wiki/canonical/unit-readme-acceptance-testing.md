@@ -9,13 +9,14 @@ sources:
   path: tests/acceptance/cli.py
 - type: code
   path: tests/acceptance/runner.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/portal5_acceptance_v6.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.691529
-updated_at: 1784946220.691529
 ---
 
 The acceptance suite is a live-stack gate, deliberately separate from the mocked

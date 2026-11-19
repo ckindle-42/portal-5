@@ -1,20 +1,19 @@
 ---
 id: unit-bench-shootout-analyze
+historical: true
 kind: mixed
 title: "Bench shootout analyze \u2014 per-shape coding matrix"
 sources:
 - type: code
   path: tests/benchmarks/coding_shootout_analyze.py
   commit: 071aaf52
-last_generated_commit: 071aaf52
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - bench
-created_at: 1785798629.4913752
-updated_at: 1785798629.4913752
+
 ---
 
 `coding_shootout_analyze.py` reads the persona-matrix output JSON for the

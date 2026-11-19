@@ -17,14 +17,17 @@ sources:
   path: portal/platform/inference/ollama_native.py
 - type: code
   path: tests/wfe/settings_audit.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: config/portal.yaml
+  symbol: model_hint
+  equals: true
 confidence: high
 tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.839686
-updated_at: 1792668000
+
 ---
 
 **What:** Each workspace routes to a specialized model and activates the relevant tools.

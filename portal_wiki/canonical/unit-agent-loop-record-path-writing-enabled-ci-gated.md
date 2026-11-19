@@ -7,13 +7,14 @@ sources:
   path: portal/platform/agent/writeback.py
 - type: code
   path: portal/platform/wiki/writeback.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/agent/writeback.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.506429
-updated_at: 1784946220.506429
 ---
 
 `agent.writeback.record_outcome(...)` is the loop's write path: it distills an

@@ -1,20 +1,19 @@
 ---
 id: unit-archive-mlx-readiness
+historical: true
 kind: mixed
 title: "MLX readiness watcher \u2014 archived health-to-file poller"
 sources:
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-readiness.py
   commit: 90ac134b
-last_generated_commit: 90ac134b
 claims: []
 confidence: high
 tags:
 - authored-v1
 - archive
 - mlx
-created_at: 1785797141.7325509
-updated_at: 1785797141.7325509
+
 ---
 
 This is the MLX proxy readiness watcher, archived with the retired MLX

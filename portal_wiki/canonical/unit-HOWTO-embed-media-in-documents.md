@@ -5,7 +5,11 @@ title: "HOWTO \u2014 Generate and embed media in documents"
 sources:
 - type: code
   path: portal/modules/documents/tools/document_mcp.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/documents/tools/document_mcp.py
+  symbol: image_url
+  equals: true
 confidence: high
 tags:
 - HOWTO

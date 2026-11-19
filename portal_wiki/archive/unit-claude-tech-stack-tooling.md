@@ -1,19 +1,18 @@
 ---
 id: unit-claude-tech-stack-tooling
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 Tech Stack & Tooling"
 sources:
 - type: design
   path: CLAUDE.md
   section: Tech Stack & Tooling
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.194323
-updated_at: 1785348301.194323
+
 ---
 
 
