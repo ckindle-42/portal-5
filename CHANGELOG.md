@@ -4,6 +4,21 @@ All notable changes to Portal 5 will be documented in this file.
 
 ## [Unreleased]
 
+### Removed
+- **The Serena MCP is out of the fleet.** The IDE-only `serena` `mcp_fleet` entry
+  (`config/portal.yaml`) is removed by operator decision (2026-11-19): benched 2026-08-09 with
+  no promotion, nothing depends on it, and it auto-started in every Claude Code session via
+  `uvx --from git+https://github.com/oraios/serena` — an unpinned fetch of GitHub main on every
+  launch, the supply-chain exposure the weekly security sweep exists to prevent. Derived
+  artifacts regenerated the supported way (`sync-config`): `.mcp.json` and
+  `config/modules.generated.yaml` no longer list serena. README's IDE-server list and
+  `opencode.jsonc` no longer name it; the `P5-SERENA-GATE-D1` air-gap staging note is retired
+  from KNOWN_LIMITATIONS (full text kept in
+  `docs/archive/KNOWN_LIMITATIONS_RESOLVED_20261019.md`); the wiki capability unit
+  `unit-capability-serena` is archived with the roster change; the embedding fixture
+  `tests/data/embedding_consumers/wiki_queries.json` drops its serena row. Historical bench
+  results and git history are untouched.
+
 ### Changed
 - **Load-guard oMLX unload accounting now follows the memory counter.** Admission no longer sizes
   what an unload freed from the admin API's observed `actual_size`; it snapshots

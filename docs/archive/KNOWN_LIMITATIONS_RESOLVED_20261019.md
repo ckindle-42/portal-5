@@ -382,3 +382,37 @@ input, check whether the operator's own documents already answer it.** A gate
 that never gets re-examined is functionally a permanent block, and this one
 sat behind four tasks despite the parser to close it having existed the whole
 time.
+
+---
+
+### Serena MCP Air-Gap LSP Staging (Retired With The Fleet Entry)
+
+- **ID**: P5-SERENA-GATE-D1
+- **Status**: RETIRED 2026-11-19. The `serena` `mcp_fleet` entry this note was
+  about no longer exists — the operator removed it from `config/portal.yaml`
+  after reviewing its 2026-08-09 bench (no promotion, no dependents) and its
+  supply-chain exposure (`uvx --from git+https://github.com/oraios/serena` — an
+  unpinned fetch of GitHub main on every IDE session launch). With the entry
+  gone there is no fleet deployment to stage an air-gap LSP install for, so the
+  deferral has no remaining subject; if a language-server MCP is ever re-added
+  to the fleet, the staging question below must be re-recorded for that entry.
+- **Description (as the entry stood)**: the `serena` `mcp_fleet` entry
+  (`config/portal.yaml`) launched via
+  `uvx --from git+https://github.com/oraios/serena serena start-mcp-server`, which fetched the
+  Serena package from GitHub and its LSP backend (`pyright`, via a further `uvx pyright==1.1.403`
+  invocation) from PyPI on first activation. TASK-BATCH-BENCH-001's GATE-D1 flagged this as a
+  potential blocker on an air-gapped box, where these must be pre-staged rather than fetched live.
+  This box has live internet access throughout the whole batch-bench session (confirmed by ~60GB
+  of HuggingFace model pulls across Parts A-C) — `uvx` fetched and built `serena-agent` plus
+  `pyright-langserver` cleanly on first `activate_project` call (see
+  `results/serena_refactor_bench_20260809.md`, operator-local under the gitignored
+  `/results/`), so GATE-D1 did not block anything here.
+- **For an actual air-gapped deployment (kept for the record)**: pre-stage the `oraios/serena`
+  package (e.g. a vendored wheel or mirrored pip index) and a `pyright` binary matching the
+  pinned `1.1.403` version (or configure the server's `--language-backend` for an alternative
+  already-installed language server), then confirm the launch command succeeds with network
+  access disabled before relying on the fleet entry in production.
+
+## Why
+
+The entry recorded that GATE-D1 was checked and found not-applicable rather than silently skipped. Retiring it now keeps the register current-only without losing the check: the reason the note existed — a fleet entry that fetches its own code from GitHub on launch — is exactly why the entry was removed, and re-adding any GitHub-fetched MCP to `mcp_fleet` must bring this air-gap staging check back with it.

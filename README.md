@@ -84,7 +84,7 @@ the wiki's `unit-fact-module-states`).
 Always-on platform services ride alongside these: `memory` :8920 (temporal knowledge
 graph), `pipeline` :8928 (stack introspection), `wiki` :8931 (canonical knowledge),
 `mlx_transcribe` :8924, plus host-native embedding and reranking services. A second set
-of servers — filesystem, fetch, git, serena, docker, context7, browser, proxmox,
+of servers — filesystem, fetch, git, docker, context7, browser, proxmox,
 binresearch — serves coding agents over IDE integrations rather than the chat pipeline.
 
 ## Quick start

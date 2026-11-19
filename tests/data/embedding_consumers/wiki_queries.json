@@ -126,12 +126,6 @@
    ]
   },
   {
-   "query": "code navigation by language server inside the editor",
-   "expected_unit_ids": [
-    "unit-capability-serena"
-   ]
-  },
-  {
    "query": "record of what happened during each conversation turn",
    "expected_unit_ids": [
     "unit-capability-turn-trace"

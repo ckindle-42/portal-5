@@ -204,7 +204,7 @@
 | `unit-capability-execution` | mixed | 3 |
 | `unit-capability-fetch` | mixed | 2 |
 | `unit-capability-filesystem` | mixed | 2 |
-| `unit-capability-git` | mixed | 2 |
+| `unit-capability-git` | mixed | 3 |
 | `unit-capability-icsot` | mixed | 4 |
 | `unit-capability-memory` | mixed | 6 |
 | `unit-capability-mflux` | mixed | 2 |
@@ -218,9 +218,9 @@
 | `unit-capability-research` | mixed | 2 |
 | `unit-capability-review` | mixed | 8 |
 | `unit-capability-security` | mixed | 2 |
-| `unit-capability-serena` | mixed | 3 |
 | `unit-capability-tts` | mixed | 2 |
 | `unit-capability-turn-trace` | mixed | 8 |
+| `unit-capability-unifi` | mixed | 3 |
 | `unit-capability-video-mlx` | mixed | 2 |
 | `unit-capability-vulnintel` | mixed | 4 |
 | `unit-capability-whisper` | mixed | 2 |
@@ -639,7 +639,7 @@
 
 ## Source Distribution
 
-- **code**: 1767 references
+- **code**: 1768 references
 - **config**: 2 references
 - **data**: 1 references
 - **doc**: 5 references
