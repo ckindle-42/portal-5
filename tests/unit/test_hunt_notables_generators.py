@@ -316,3 +316,30 @@ def test_series_grouping_ignores_rows_without_a_source():
         ]
     )
     assert grouped == {"a": [(0.0, 1), (60.0, 2)]}
+
+
+def test_source_deviations_removes_common_mode_fleet_spike_and_filters_eligible():
+    # Four sources all surge at bucket 2 (fleet spike); target surges alone at bucket 3
+    grouped = {
+        f"fleet_{idx}": [(0.0, 10), (14400.0, 10), (28800.0, 200), (43200.0, 10)]
+        for idx in range(4)
+    }
+    grouped["target"] = [(0.0, 10), (14400.0, 10), (28800.0, 10), (43200.0, 150)]
+    grouped["ignored_metric"] = [(0.0, 10), (14400.0, 10), (28800.0, 10), (43200.0, 5000)]
+    bursts, firsts, _detail = _source_deviations(
+        grouped,
+        "ix",
+        0.0,
+        eligible_sources={"fleet_0", "fleet_1", "fleet_2", "fleet_3", "target"},
+    )
+    assert bursts[0].source_id == "ix:target"
+    assert all(row.source_id != "ix:ignored_metric" for row in bursts)
+    assert all(row.source_id != "ix:ignored_metric" for row in firsts)
+
+
+def test_behaviour_deviations_interleaves_across_sources():
+    behaviours = [_behaviour("ix:noisy", f"u{idx}", 1, 1, 1, 1000.0 - idx) for idx in range(5)] + [
+        _behaviour("ix:quiet", "bob", 1, 1, 1, 900.0)
+    ]
+    found, _detail = _behaviour_deviations(behaviours, 0.0)
+    assert [row.source_id for row in found[:2]] == ["ix:noisy", "ix:quiet"]

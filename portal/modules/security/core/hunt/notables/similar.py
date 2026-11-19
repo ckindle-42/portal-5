@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
@@ -20,6 +21,52 @@ NEAREST_PER_LABEL = 3  # effort budget: nearest items shown from each label clas
 MATCH_BATCH_SIZE = 64  # effort budget: behavior vectors compared in one DuckDB query
 CALIBRATION_QUERY_PER_GROUP = 128  # effort budget: calibration queries per family and class
 CHANCE_AUC = 0.5  # the score-mode tie-break line; a measurement at chance must not switch it
+_IPV4 = re.compile(r"^\d{1,3}(?:\.\d{1,3}){3}$")
+_HOST_LABELS = re.compile(r"^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+){2,}\.?$")
+
+
+def _norm_token(value: str) -> str:
+    text = (value or "").strip()
+    if not text:
+        return ""
+    if "?" in text:
+        text = text.split("?", 1)[0] + "?*"
+    if _IPV4.match(text):
+        return text
+    if _HOST_LABELS.match(text) and any(char.isalpha() for char in text):
+        parts = text.rstrip(".").split(".")
+        return "*." + ".".join(parts[-2:])
+    return re.sub(r"\d+", "#", text)[:48]
+
+
+def _diversify_ranked(
+    ranked: Sequence[tuple[float, int, Behaviour]],
+) -> list[tuple[float, int, Behaviour]]:
+    """Round-robin repeating numeric/host patterns so one template cannot monopolize the head."""
+    counts: dict[tuple[str, str, str, str], int] = defaultdict(int)
+    tagged: list[tuple[int, float, int, Behaviour]] = []
+    for score, index, behaviour in ranked:
+        pattern = (
+            behaviour.source_id,
+            _norm_token(behaviour.actor),
+            _norm_token(behaviour.action),
+            _norm_token(behaviour.object),
+        )
+        occ = counts[pattern]
+        counts[pattern] += 1
+        tagged.append((occ, score, index, behaviour))
+    tagged.sort(
+        key=lambda row: (
+            row[0],
+            -row[1],
+            row[3].source_id,
+            row[3].actor,
+            row[3].action,
+            row[3].object,
+            row[2],
+        )
+    )
+    return [(score, index, behaviour) for _occ, score, index, behaviour in tagged]
 
 
 class SimilarityError(RuntimeError):
@@ -275,7 +322,7 @@ def _ranked_notables(
             row[1],
         )
     )
-    top = ranked[:SIMILAR_NOTABLE_BUDGET]
+    top = _diversify_ranked(ranked)[:SIMILAR_NOTABLE_BUDGET]
     details = _matches(pool, [index for _score, index, _behaviour in top])
     notables = []
     for score, index, behaviour in top:

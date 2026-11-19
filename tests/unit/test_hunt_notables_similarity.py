@@ -60,3 +60,19 @@ def test_similarity_error_names_source_and_actual_card_kind() -> None:
 
     with pytest.raises(SimilarityError, match=r"run:activity.*measurement"):
         _ranked_notables(None, [_behaviour()], [measurement], {}, {"score": "known_bad"})  # type: ignore[arg-type]
+
+
+def test_similarity_diversifies_repeating_numeric_patterns() -> None:
+    from portal.modules.security.core.hunt.notables.similar import _diversify_ranked
+
+    noisy = [
+        (0.90 - idx * 0.001, idx, replace(_behaviour(), actor=str(90 + idx), action="", object=""))
+        for idx in range(5)
+    ]
+    distinct = (
+        0.85,
+        5,
+        replace(_behaviour(), source_id="run:web", actor="1.2.3.4", object="/login"),
+    )
+    ordered = _diversify_ranked([*noisy, distinct])
+    assert [row[2].source_id for row in ordered[:2]] == ["run:activity", "run:web"]

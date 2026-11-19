@@ -408,3 +408,41 @@ def test_burst_guided_behaviour_read_combines_uniform_and_peak_windows():
     )
     assert any(row["_raw"] == "burst-hit" for row in read.rows)
     assert read.windows == BEHAVIOUR_WINDOWS
+
+
+def test_window_activity_resolves_from_to_and_preserves_mid_window_burst_slice():
+    from portal.modules.security.core.hunt.notables.generators import _source_deviations
+    from portal.modules.security.core.hunt.notables.window_activity import window_activity
+
+    # 1. Actorless from/to card with URL-encoded payload past 400 chars
+    csp_card = _card(
+        {"from": ("source_file",), "object": ("blocked_uri",), "to": ("document_uri",)}
+    )
+    _, firsts, _ = _source_deviations({"st": [(0.0, 4)]}, "ix", 0.0)
+    pad = "p" * 450
+    csp_rows = [
+        {
+            "_time": 10.0,
+            "_raw": f'{{"pad":"{pad}","source_file":"http://s/edit?u%3Dmal_user%26p%3D1","blocked_uri":"inline","document_uri":"http://s/a"}}',
+        },
+        {
+            "_time": 20.0,
+            "_raw": f'{{"pad":"{pad}","source_file":"http://s/edit?u%3Dmal_user%26p%3D1","blocked_uri":"self","document_uri":"http://s/b"}}',
+        },
+    ]
+    res = window_activity(firsts[0], [csp_card], csp_rows, "search index=ix | head 10")
+    assert res.basis == "source_first_seen_activity"
+    assert "mal_user" in res.what
+    assert "u%3Dmal_user" in str(res.evidence[0]["line"])
+
+    # 2. Mid-window dense burst slice preserved alongside first and last
+    rows = [
+        {"_time": 10.0, "_raw": '{"user":"a","image":"get","path":"/first"}'},
+        {"_time": 5000.0, "_raw": '{"user":"a","image":"get","path":"/burst1"}'},
+        {"_time": 5001.0, "_raw": '{"user":"a","image":"get","path":"/burst2"}'},
+        {"_time": 5002.0, "_raw": '{"user":"a","image":"get","path":"/burst3"}'},
+        {"_time": 10000.0, "_raw": '{"user":"a","image":"get","path":"/last"}'},
+    ]
+    res2 = window_activity(firsts[0], [_card()], rows, "search index=ix | head 10")
+    ev_lines = " ".join(str(item["line"]) for item in res2.evidence)
+    assert "/first" in ev_lines and "/last" in ev_lines and "/burst1" in ev_lines
