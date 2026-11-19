@@ -11,6 +11,7 @@ import httpx
 
 from portal.platform.inference.router.thinking import ThinkTagFilter
 
+from . import engines
 from .context import TraceContext
 from .model import Hop, Status, short
 
@@ -135,7 +136,13 @@ def summarize_turn(events: list[tuple[float, dict[str, Any]]]) -> TurnStats:
     return stats
 
 
-def stream_turn(base_url: str, api_key: str, model: str, timeout_s: float) -> StreamedTurn:
+def stream_turn(
+    base_url: str,
+    api_key: str,
+    model: str,
+    timeout_s: float,
+    path: str = "/v1/chat/completions",
+) -> StreamedTurn:
     """One small streaming chat request; the router's own route header names what served it."""
     body = {
         "model": model,
@@ -149,9 +156,7 @@ def stream_turn(base_url: str, api_key: str, model: str, timeout_s: float) -> St
     try:
         with (
             httpx.Client(timeout=timeout) as client,
-            client.stream(
-                "POST", f"{base_url}/v1/chat/completions", headers=headers, json=body
-            ) as response,
+            client.stream("POST", f"{base_url}{path}", headers=headers, json=body) as response,
         ):
             route = str(response.headers.get("x-portal-route") or "").split(";")
             if response.status_code != 200:
@@ -313,6 +318,7 @@ def run(ctx: TraceContext, portal: dict[str, Any]) -> list[Hop]:
     hops: list[Hop] = []
     seats = production_seats(portal)
     hints = {seat.seat_id: seat.hint for seat in seats}
+    confirmed: set[str] = set()
     for seat in seats:
         skipped = disabled_seat(seat.seat_id, served)
         if skipped is not None:
@@ -326,6 +332,10 @@ def run(ctx: TraceContext, portal: dict[str, Any]) -> list[Hop]:
             ctx.pipeline_url, ctx.api_key, seat.seat_id, min(remaining, ctx.timeout_s)
         )
         hops.append(seat_hop(seat, turn, hints))
+        served_model = turn.route[2] if len(turn.route) > 2 else ""
+        if served_model and turn.stats.completion_tokens and turn.route[1] not in confirmed:
+            confirmed.add(turn.route[1])
+            hops.append(engines.residency_hop(ctx, turn.route[1], served_model))
     if not hops:
         hops.append(Hop("workspaces", Status.FAIL, "no production seats", "config/portal.yaml"))
     return hops

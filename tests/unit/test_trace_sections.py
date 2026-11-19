@@ -14,6 +14,7 @@ from portal.platform.inference.cli.trace import (
     engines,
     host,
     lab,
+    owui,
     pins,
     workspaces,
 )
@@ -608,7 +609,8 @@ def test_section_selection_accepts_keys_numbers_and_prefixes() -> None:
     def keys(values: list[str] | None) -> list[str]:
         return [key for key, _title, _run in selected(values)]
 
-    assert keys(None) == ["host", "containers", "workspaces", "pins", "engines", "lab"]
+    expected = ["host", "containers", "workspaces", "pins", "aliases", "engines", "owui", "lab"]
+    assert keys(None) == expected
     assert keys(["1"]) == ["host"]
     assert keys(["containers"]) == ["containers"]
     assert keys(["c"]) == ["containers"]
@@ -653,3 +655,23 @@ def test_seat_hop_keeps_the_seat_hint_for_an_unknown_resolved_lane() -> None:
     )
     assert hop.status is Status.WARN
     assert hop.expected == seat.hint
+
+
+def test_expected_catalog_names_exposed_variants_under_their_synthetic_id() -> None:
+    portal = {
+        "workspaces": {
+            "a": {
+                "name": "A",
+                "variants": {"v": {"name": "V", "expose_to_owui": True}, "hidden": {"name": "H"}},
+            }
+        }
+    }
+    assert pins.expected_catalog(portal) == {"a": "A", "a::v": "V"}
+
+
+def test_owui_receipt_hop_needs_a_closed_receipt_naming_the_tool() -> None:
+    answer = "488895\n\n<details><summary>Tool results</summary>\nexecute_python 488895\n</details>"
+    ok = workspaces.StreamedTurn(200, [], workspaces.TurnStats(text=answer))
+    assert owui.receipt_hop(ok).status is Status.PASS
+    bare = workspaces.StreamedTurn(200, [], workspaces.TurnStats(text="488895"))
+    assert owui.receipt_hop(bare).status is Status.FAIL

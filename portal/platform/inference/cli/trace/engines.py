@@ -145,6 +145,32 @@ def fetch_engine_models(ctx: TraceContext, timeout: float = 15.0) -> EngineModel
     return EngineModels(omlx=omlx, ollama=ollama)
 
 
+def residency_hop(ctx: TraceContext, backend_id: str, model: str) -> Hop:
+    """The engine the route header named must itself report the served model resident."""
+    from portal.platform.inference.model_names import model_key
+    from portal.platform.inference.omlx_auth import omlx_headers
+
+    from .pins import BACKENDS_YAML, load_backends
+
+    kinds = {b.backend_id: b.kind for b in load_backends(ctx.repo_root / BACKENDS_YAML)}
+    kind, name = kinds.get(backend_id, ""), f"resident {backend_id}"
+    try:
+        if kind == "ollama":
+            held = [n for n, _ in parse_ollama_ps(_get_json(f"{ctx.ollama_url}/api/ps", 10.0))]
+        elif kind == "omlx":
+            status = _get_json(f"{ctx.omlx_url}/v1/models/status", 10.0, omlx_headers())
+            held = parse_omlx_status(status)[1]
+        else:
+            raise ValueError(f"{backend_id} is not declared in config/backends.yaml")
+    except (httpx.HTTPError, ValueError) as exc:
+        error = short(f"{type(exc).__name__}: {exc}", 70)
+        return Hop(name, Status.WARN, f"{model} unconfirmed", "engine resident list", error)
+    trimmed = {model_key(entry).removesuffix(":latest") for entry in held}
+    present = model_key(model).removesuffix(":latest") in trimmed
+    state = "resident" if present else f"not resident, {kind} lists {','.join(held[:4]) or 'none'}"
+    return Hop(name, Status.PASS if present else Status.WARN, f"{model} {state}", kind)
+
+
 def omlx_hop(ctx: TraceContext) -> Hop:
     from portal.platform.inference.omlx_auth import omlx_headers
 
