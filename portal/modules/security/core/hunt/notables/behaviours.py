@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import math
+import statistics
 import time
 from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -29,7 +31,11 @@ from .sample import (
 )
 
 BEHAVIOUR_WINDOWS = 12  # effort budget: time slices read per activity source
-BEHAVIOUR_SUB_WINDOWS = 2  # each slice read at its midpoint and tail, not only its tail
+BEHAVIOUR_BURST_WINDOWS = 4  # peak four-hour slices reserved inside BEHAVIOUR_WINDOWS
+BEHAVIOUR_SUB_WINDOWS = 2  # each uniform slice read at its midpoint and tail
+BEHAVIOUR_BURST_SUB_WINDOWS = 4  # each peak four-hour slice sampled hourly
+BEHAVIOUR_BURST_SPAN_SECONDS = 4 * 3600  # four-hour burst bucket width matching deviation
+BEHAVIOUR_BURST_SERIES_ROWS = 40_000  # effort budget: per-period tstats rows for burst planning
 BEHAVIOUR_EVENTS_PER_WINDOW = 2500  # effort budget: events read from one slice
 BEHAVIOUR_TOTAL_EVENTS = 400_000  # effort budget: parsed events across the whole stage
 IDENTITY_RECURRENCE = 2.0  # an identity is seen at least twice on average
@@ -38,7 +44,7 @@ IDENTITY_MIN_BUCKETS = 12  # a short sample is cut into at least this many time 
 IDENTITY_BUCKET_SHARE = 0.5  # most occurrences of an identity recur in separate hours
 IDENTITY_VALUE_BUDGET = 2000  # effort budget: an identity field keys values up to this many
 MAX_BEHAVIOURS = 200_000  # effort budget: rows kept in the behaviour table
-EXAMPLE_CHARS = 400  # effort budget: raw characters kept on one behaviour
+EXAMPLE_CHARS = 2400  # effort budget: raw characters kept on one behaviour (fits JSON/XML bodies)
 MAX_TERMS = 3  # effort budget: literal role values used to reproduce one behaviour
 MISFIT_EXAMPLES = 3  # effort budget: sampled lines kept for one misfit shape
 MISFIT_SHAPE_CAP = 4_000  # effort budget: distinct misfit shapes tracked per source
@@ -227,6 +233,14 @@ def identity_stats(
     return stats
 
 
+def _is_burst_identity(stat: FieldIdentity) -> bool:
+    return (
+        stat.identity
+        or stat.distinct == 1
+        or (stat.recurrence >= IDENTITY_RECURRENCE and stat.distinct <= IDENTITY_VALUE_BUDGET)
+    )
+
+
 def _choose(
     names: Sequence[str], stats: Mapping[str, FieldIdentity], role: str
 ) -> tuple[str, str, dict[str, Any] | None]:
@@ -234,9 +248,11 @@ def _choose(
     present = [name for name in names if name in stats and stats[name].present]
     if not present:
         return "", "", None
-    qualifying = [name for name in present if stats[name].identity]
+    qualifying = [name for name in present if stats[name].identity] or [
+        name for name in present if _is_burst_identity(stats[name])
+    ]
     chosen = qualifying[0] if qualifying else present[0]
-    safe = stats[chosen].identity or stats[chosen].distinct == 1
+    safe = _is_burst_identity(stats[chosen])
     mode = "literal" if safe else "shape"
     if chosen == present[0] and mode == "literal":
         return chosen, mode, None
@@ -253,6 +269,24 @@ def _choose(
             "mode": mode,
         },
     )
+
+
+def _choose_with_fallback(
+    primary: Sequence[str],
+    fallback: Sequence[str],
+    stats: Mapping[str, FieldIdentity],
+    role: str,
+    *,
+    prefer_richer_fallback: bool = False,
+) -> tuple[str, str, dict[str, Any] | None]:
+    field_name, mode, override = _choose(primary, stats, role)
+    if not field_name and fallback:
+        return _choose(fallback, stats, role)
+    if prefer_richer_fallback and field_name and stats[field_name].distinct <= 2 and fallback:
+        fb_field, fb_mode, fb_override = _choose(fallback, stats, role)
+        if fb_field and stats[fb_field].distinct > stats[field_name].distinct:
+            return fb_field, fb_mode, fb_override
+    return field_name, mode, override
 
 
 def identity_plan(card: SourceCard, events: Sequence[ExampleEvent]) -> IdentityPlan:
@@ -283,12 +317,18 @@ def identity_plan(card: SourceCard, events: Sequence[ExampleEvent]) -> IdentityP
             if name in stats and stats[name].present and name != actor_field
         )
     else:
-        actor_field, actor_mode, actor_override = _choose(card.role_fields("actor"), stats, "actor")
+        actor_field, actor_mode, actor_override = _choose_with_fallback(
+            card.role_fields("actor"), card.role_fields("from"), stats, "actor"
+        )
         action_field, action_mode, action_override = _choose(
             card.role_fields("action"), stats, "action"
         )
-        object_field, object_mode, object_override = _choose(
-            card.role_fields("object"), stats, "object"
+        object_field, object_mode, object_override = _choose_with_fallback(
+            card.role_fields("object"),
+            card.role_fields("to"),
+            stats,
+            "object",
+            prefer_richer_fallback=True,
         )
         overrides.extend(
             item for item in (actor_override, action_override, object_override) if item
@@ -492,6 +532,8 @@ def role_fields(card: SourceCard) -> list[str]:
             *card.role_fields("actor"),
             *card.role_fields("action"),
             *card.role_fields("object"),
+            *card.role_fields("from"),
+            *card.role_fields("to"),
         }
     )
 
@@ -654,25 +696,160 @@ def _source_receipt(
     }
 
 
-def read_behaviour_source(executor: HuntExecutor, facts: SourceFacts, per_window: int) -> RowSet:
-    """Read a source in one request when its entire count fits the existing allocation."""
-    complete = 0 < facts.events <= per_window * BEHAVIOUR_WINDOWS and facts.source_count <= min(
+def _is_complete_source(facts: SourceFacts, per_window: int) -> bool:
+    return 0 < facts.events <= per_window * BEHAVIOUR_WINDOWS and facts.source_count <= min(
         len(facts.sources), BEHAVIOUR_SOURCES
     )
-    read = read_windows(
+
+
+def _select_source_bursts(
+    per_source_z: Mapping[str, Sequence[tuple[float, float]]],
+    bucket_shift: Mapping[float, float],
+    limit: int,
+) -> dict[str, list[tuple[float, float]]]:
+    """Top raw-z and common-mode-residual-z four-hour burst buckets per source."""
+    half = max(1, limit // 2)
+    selected: dict[str, list[tuple[float, float]]] = {}
+    for sourcetype, scored in per_source_z.items():
+        raw_top = sorted(scored, key=lambda item: (-item[0], item[1]))
+        res_top = sorted(scored, key=lambda item: (-(item[0] - bucket_shift[item[1]]), item[1]))
+        chosen: list[float] = []
+        for z_val, stamp in raw_top:
+            if z_val > 0 and stamp not in chosen:
+                chosen.append(stamp)
+                if len(chosen) >= half:
+                    break
+        for z_val, stamp in res_top:
+            if z_val - bucket_shift[stamp] > 0 and stamp not in chosen:
+                chosen.append(stamp)
+                if len(chosen) >= limit:
+                    break
+        if chosen:
+            selected[sourcetype] = [
+                (stamp, stamp + BEHAVIOUR_BURST_SPAN_SECONDS) for stamp in sorted(chosen)
+            ]
+    return selected
+
+
+def _burst_windows_by_source(
+    executor: HuntExecutor,
+    scheduled: Sequence[tuple[str, list[SourceCard], SourceFacts, float]],
+    per_window: int,
+) -> dict[str, list[tuple[float, float]]]:
+    """One four-hour tstats query to locate each sampled source's peak burst windows."""
+    sampled = [
+        facts for _sid, _grp, facts, _st in scheduled if not _is_complete_source(facts, per_window)
+    ]
+    if not sampled:
+        return {}
+    index = sampled[0].index
+    start = min(facts.first for facts in sampled)
+    end = max(facts.last for facts in sampled) + 0.000001
+    query = f"| tstats count where index={_quote(index)} by sourcetype _time span=4h"
+    try:
+        result = executor.read(
+            query, start, end, kind="behaviour_burst_plan", row_cap=BEHAVIOUR_BURST_SERIES_ROWS
+        )
+    except Exception:  # noqa: BLE001 -- burst planning is optional; fall back to uniform reads
+        return {}
+    by_source: dict[str, list[tuple[float, int]]] = {}
+    for row in result.rows:
+        name = str(row.get("sourcetype") or "")
+        if not name:
+            continue
+        try:
+            stamp = float(row.get("_time") or 0.0)
+            count = int(float(row.get("count") or 0))
+        except (TypeError, ValueError):
+            continue
+        by_source.setdefault(name, []).append((stamp, count))
+    per_source_z: dict[str, list[tuple[float, float]]] = {}
+    bucket_zs: dict[float, list[float]] = {}
+    for name, series in by_source.items():
+        if len(series) < 3:
+            continue
+        logs = [math.log1p(float(count)) for _stamp, count in series]
+        med = statistics.median(logs)
+        mad = statistics.median(abs(val - med) for val in logs)
+        scored = [
+            ((math.log1p(float(count)) - med) / (mad + 0.5), stamp) for stamp, count in series
+        ]
+        per_source_z[name] = scored
+        for z_val, stamp in scored:
+            bucket_zs.setdefault(stamp, []).append(z_val)
+    bucket_shift = {
+        stamp: max(0.0, statistics.median(vals)) if len(vals) >= 3 else 0.0
+        for stamp, vals in bucket_zs.items()
+    }
+    return _select_source_bursts(per_source_z, bucket_shift, BEHAVIOUR_BURST_WINDOWS)
+
+
+def _merge_row_sets(uniform: RowSet, burst: RowSet) -> RowSet:
+    seen: set[tuple[float, str, str]] = set()
+    rows: list[dict[str, Any]] = []
+    for row in (*uniform.rows, *burst.rows):
+        key = (_row_time(row), str(row.get("host") or ""), str(row.get("_raw") or ""))
+        if key not in seen:
+            seen.add(key)
+            rows.append(row)
+    rows.sort(
+        key=lambda row: (_row_time(row), str(row.get("host") or ""), str(row.get("_raw") or ""))
+    )
+    return RowSet(
+        rows=rows,
+        windows=uniform.windows + burst.windows,
+        route=uniform.route,
+        notes=[*uniform.notes, *burst.notes],
+        selection="uniform baseline plus peak four-hour burst windows",
+        query=uniform.query,
+    )
+
+
+def read_behaviour_source(
+    executor: HuntExecutor,
+    facts: SourceFacts,
+    per_window: int,
+    *,
+    burst_windows: Sequence[tuple[float, float]] = (),
+) -> RowSet:
+    """Read a source whole when it fits, else mix uniform baseline and peak burst windows."""
+    complete = _is_complete_source(facts, per_window)
+    if complete or not burst_windows:
+        read = read_windows(
+            executor,
+            facts,
+            source_windows(facts, 1 if complete else BEHAVIOUR_WINDOWS),
+            per_window=facts.events if complete else per_window,
+            kind="behavior_events",
+            max_sources=BEHAVIOUR_SOURCES,
+            sub_windows=1 if complete else BEHAVIOUR_SUB_WINDOWS,
+        )
+        if complete:
+            read.selection = "full source range within allocated row budget"
+            if len(read.rows) != facts.events:
+                read.notes.append(f"source_count_mismatch:{len(read.rows)}/{facts.events}")
+        return read
+    peaks = list(burst_windows[:BEHAVIOUR_BURST_WINDOWS])
+    uniform_count = max(1, BEHAVIOUR_WINDOWS - len(peaks))
+    uniform_read = read_windows(
         executor,
         facts,
-        source_windows(facts, 1 if complete else BEHAVIOUR_WINDOWS),
-        per_window=facts.events if complete else per_window,
+        source_windows(facts, uniform_count),
+        per_window=per_window,
         kind="behavior_events",
         max_sources=BEHAVIOUR_SOURCES,
-        sub_windows=1 if complete else BEHAVIOUR_SUB_WINDOWS,
+        sub_windows=BEHAVIOUR_SUB_WINDOWS,
     )
-    if complete:
-        read.selection = "full source range within allocated row budget"
-        if len(read.rows) != facts.events:
-            read.notes.append(f"source_count_mismatch:{len(read.rows)}/{facts.events}")
-    return read
+    burst_read = read_windows(
+        executor,
+        facts,
+        peaks,
+        per_window=per_window,
+        kind="behavior_events",
+        max_sources=BEHAVIOUR_SOURCES,
+        sub_windows=BEHAVIOUR_BURST_SUB_WINDOWS,
+    )
+    return _merge_row_sets(uniform_read, burst_read)
 
 
 def _key_source(
@@ -828,10 +1005,17 @@ def collect_behaviours(
         create_events(con)
         create_misfits(con)
         scheduled = _schedule_sources(grouped, facts_by_source, skipped)
+        burst_plan = _burst_windows_by_source(executor, scheduled, per_window)
         concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
         with ThreadPoolExecutor(max_workers=min(len(scheduled) or 1, concurrency)) as pool:
             futures = [
-                pool.submit(read_behaviour_source, executor, facts, per_window)
+                pool.submit(
+                    read_behaviour_source,
+                    executor,
+                    facts,
+                    per_window,
+                    burst_windows=burst_plan.get(facts.sourcetype, ()),
+                )
                 for _source_id, _group, facts, _started in scheduled
             ]
             reads = [future.result() for future in futures]

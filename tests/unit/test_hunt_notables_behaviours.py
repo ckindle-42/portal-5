@@ -306,3 +306,105 @@ def test_source_window_reports_distinct_objects_for_one_actor_and_action():
         ("object", "last.txt"),
     )
     assert window_activity(seed, [_card()], rows[:1], "query") is seed
+
+
+def test_bursty_recurring_identity_stays_literal_despite_single_hour_concentration():
+    card = _card({"actor": ("c_ip",), "action": ("method",), "object": ("uri",)})
+    events = [
+        ExampleEvent(
+            "ix:http",
+            "h1",
+            100.0 + index,
+            "raw",
+            {"c_ip": "45.77.65.211" if index < 8 else "10.0.0.1", "method": "GET", "uri": "/a"},
+            0.0,
+            3600.0,
+        )
+        for index in range(10)
+    ]
+    # Add one baseline event in a later hour so span spans multiple buckets
+    events.append(
+        ExampleEvent(
+            "ix:http",
+            "h1",
+            40_000.0,
+            "raw",
+            {"c_ip": "10.0.0.2", "method": "GET", "uri": "/a"},
+            36000.0,
+            43200.0,
+        )
+    )
+    plan = identity_plan(card, events)
+    assert plan.actor_field == "c_ip"
+    assert plan.actor_mode == "literal"
+
+
+def test_identity_plan_falls_back_to_from_and_to_when_actor_absent_or_object_near_constant():
+    card = _card(
+        {
+            "from": ("source_file",),
+            "object": ("blocked_uri",),
+            "to": ("document_uri",),
+        }
+    )
+    events = [
+        ExampleEvent(
+            "ix:csp",
+            "h1",
+            float(index * 4000),
+            "raw",
+            {
+                "source_file": f"http://site/p{index % 3}",
+                "blocked_uri": "inline" if index % 2 == 0 else "self",
+                "document_uri": f"http://site/doc{index % 4}",
+            },
+            0.0,
+            36000.0,
+        )
+        for index in range(12)
+    ]
+    plan = identity_plan(card, events)
+    assert plan.actor_field == "source_file"
+    assert plan.actor_mode == "literal"
+    assert plan.object_field == "document_uri"
+    assert plan.object_mode == "literal"
+
+
+def test_extract_preserves_structured_raw_beyond_400_chars():
+    card = _card({"actor": ("user",), "action": ("action",), "object": ("target",)})
+    padding = "x" * 700
+    raw = f'{{"pad":"{padding}","user":"alice","action":"create","target":"secret.docx"}}'
+    events, matched, unparsed = _extract(card, [{"_time": 10.0, "_raw": raw}], [(0.0, 100.0)])
+    assert len(events) == 1 and matched == {0} and unparsed == 0
+    assert "secret.docx" in events[0].raw
+
+
+def test_burst_guided_behaviour_read_combines_uniform_and_peak_windows():
+    from portal.modules.security.core.hunt.executor import Read
+    from portal.modules.security.core.hunt.notables.behaviours import (
+        BEHAVIOUR_WINDOWS,
+        read_behaviour_source,
+    )
+
+    class _Exec:
+        def __init__(self) -> None:
+            self.calls: list[tuple[float, float]] = []
+
+        def read(
+            self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+        ) -> Read:
+            del query, kind, row_cap
+            self.calls.append((start, end))
+            if start <= 100_500.0 < end:
+                return Read([{"_time": 100_500.0, "host": "h1", "_raw": "burst-hit"}], False, None)
+            return Read(
+                [{"_time": start + 1.0, "host": "h1", "_raw": f"base-{start}"}], False, None
+            )
+
+    facts = SourceFacts("ix", "st", 100_000, 0.0, 2_000_000.0, ("h1",), 1, ("s1",), 1)
+    executor = _Exec()
+    read = read_behaviour_source(
+        executor, facts, per_window=100, burst_windows=[(100_000.0, 114_400.0)]
+    )
+    assert any(row["_raw"] == "burst-hit" for row in read.rows)
+    assert read.windows == BEHAVIOUR_WINDOWS
