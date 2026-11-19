@@ -15,8 +15,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.6709208
-updated_at: 1784946220.6709208
+
 ---
 
 - **Description**: `supergemma4-26b-uncensored` (the `redteam-deep` and `purpleteam-exec` variant `model_hint` in `config/portal.yaml`, and registered in `config/backends.yaml`) and `huihui_ai/gemma-4-abliterated:E2b-qat` were searched across multiple HF uploaders for a text-only MLX conversion. Every MLX conversion found for these specific fine-tunes is a multimodal/vision-language checkpoint whose weights crash on plain text-only `mlx_lm` load with a parameter-count mismatch. The GGUF paths remain the only working forms.

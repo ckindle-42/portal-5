@@ -11,8 +11,7 @@ confidence: high
 tags:
 - authored-v1
 - tests
-created_at: 1785798792.54654
-updated_at: 1785798792.54654
+
 ---
 
 `tests/memory_guard.py` is a re-export shim: the monitoring primitives live

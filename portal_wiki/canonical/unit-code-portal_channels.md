@@ -20,8 +20,7 @@ confidence: high
 tags:
 - code
 - portal_channels
-created_at: 1792204748.5149791
-updated_at: 1792204748.5149791
+
 ---
 
 # portal_channels subsystem

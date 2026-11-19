@@ -17,8 +17,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.705761
-updated_at: 1784946220.705761
+
 ---
 
 `./launch.sh lab-up` starts the core lab stack (Incalmo C2 + Talon SOC

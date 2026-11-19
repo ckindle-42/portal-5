@@ -11,8 +11,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.510535
-updated_at: 1784946220.510535
+
 ---
 
 The TPS benchmark reuses a single `httpx.Client` across all runs. `_get_bench_client()` in `tests/benchmarks/bench/measure.py` lazily creates a module-level `_bench_client` on first use and returns it for every subsequent `bench_tps()` call, with the pool configured as `httpx.Limits(max_keepalive_connections=10, max_connections=20)`.

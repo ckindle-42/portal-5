@@ -12,8 +12,7 @@ tags:
 - authored-v1
 - wiki
 - tests
-created_at: 1785795461.8825479
-updated_at: 1785795461.8825479
+
 ---
 
 This test file pins down the render module's two hard-won contracts: that a

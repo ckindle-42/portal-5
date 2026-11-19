@@ -11,8 +11,7 @@ tags:
 - authored-v1
 - platform
 - wiki
-created_at: 1785885800.0
-updated_at: 1785885800.0
+
 ---
 
 The `portal/platform/wiki/adapters/*.py` wiring binds the stack-agnostic wiki

@@ -10,8 +10,7 @@ confidence: high
 tags:
 - compliance
 - technical-basis
-created_at: 1789238000.0
-updated_at: 1789238000.0
+
 ---
 
 # Technical basis coverage

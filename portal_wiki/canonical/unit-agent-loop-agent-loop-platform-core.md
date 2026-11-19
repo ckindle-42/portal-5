@@ -26,8 +26,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.4984078
-updated_at: 1784946220.4984078
+
 ---
 
 `portal/platform/agent/` is the discipline-agnostic agent loop: a bounded,

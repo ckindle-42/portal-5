@@ -11,8 +11,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.510845
-updated_at: 1784946220.510845
+
 ---
 
 TPS benchmarking is driven by `tests/benchmarks/bench_tps.py`, a shim that forwards to the `tests.benchmarks.bench` package. A typical pipeline invocation is:

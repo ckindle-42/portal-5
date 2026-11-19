@@ -13,8 +13,7 @@ tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.860634
-updated_at: 1783195000.860634
+
 ---
 
 **What:** The Portal Pipeline exposes an OpenAI-compatible HTTP API on port 9099. Any tool that accepts a custom OpenAI base URL can connect directly — no Open WebUI required.

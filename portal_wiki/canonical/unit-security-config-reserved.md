@@ -13,8 +13,7 @@ tags:
 - module
 - security
 - config
-created_at: 1785795012.121069
-updated_at: 1785795012.121069
+
 ---
 
 The security module's config surface is reserved but intentionally not

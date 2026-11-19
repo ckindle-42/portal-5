@@ -17,8 +17,7 @@ tags:
 - docs
 - verified-v1
 - resolved
-created_at: 1784946220.660835
-updated_at: 1787845000.0
+
 ---
 
 - **ID**: P5-CAD-ARM64-001

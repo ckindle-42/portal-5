@@ -12,8 +12,7 @@ confidence: high
 tags:
 - authored-v1
 - tests
-created_at: 1785883400.0
-updated_at: 1785883400.0
+
 ---
 
 The test tree's scaffolding and shared harness library is the substrate every driver

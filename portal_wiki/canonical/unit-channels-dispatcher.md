@@ -11,8 +11,7 @@ confidence: high
 tags:
 - authored-v1
 - channels
-created_at: 1785795345.853102
-updated_at: 1785795345.853102
+
 ---
 
 The channel dispatcher is the shared transport that both channel adapters

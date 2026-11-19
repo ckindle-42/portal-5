@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-check-in-prometheus
+historical: true
 kind: why
 title: "HOWTO \u2014 Check in Prometheus"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: Check in Prometheus
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.8637881
-updated_at: 1783195000.8637881
+
 ---
 
 

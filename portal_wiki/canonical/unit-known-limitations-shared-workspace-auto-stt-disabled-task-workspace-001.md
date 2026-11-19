@@ -16,8 +16,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.674498
-updated_at: 1784946220.674498
+
 ---
 
 - **Voice-input via microphone runs on Portal's ASR, not OWUI's local engine.** `OWUI_AUDIO_STT_ENGINE=openai` in `.env.example` (passed through by `deploy/portal-5/docker-compose.yml`) sends OWUI's mic and upload transcription to the MLX transcribe server on `host.docker.internal:8924/v1`, which replaces the in-container CPU faster-whisper "base". An empty value is not "off" — it selects that local engine. The ASR weights must be fetched once with `./launch.sh pull-asr-models` (the services run `HF_HUB_OFFLINE=1`); until then OWUI's STT call returns a `503` naming that command and everything else in OWUI keeps working. The global toggle is OWUI's only knob.

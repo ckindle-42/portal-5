@@ -13,8 +13,7 @@ tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.838752
-updated_at: 1783195000.838752
+
 ---
 
 Complete working examples for every feature. Each section shows: what it does, how to activate it, a working example, and how to verify.

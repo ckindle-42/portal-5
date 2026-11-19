@@ -18,8 +18,7 @@ tags:
 - ollama
 - resolved
 - sampling
-created_at: 1790333591
-updated_at: 1792540800
+
 ---
 
 - **ID**: P5-OLLAMA-V1-SAMPLING-001

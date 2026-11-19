@@ -22,8 +22,7 @@ tags:
 - reentry
 - security
 - verified-v1
-created_at: 1784945192.270462
-updated_at: 1784945192.270462
+
 ---
 
 ## File locations after refactor

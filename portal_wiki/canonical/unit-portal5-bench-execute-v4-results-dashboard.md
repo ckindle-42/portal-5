@@ -11,8 +11,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.7031198
-updated_at: 1784946220.7031198
+
 ---
 
 1. Confirm the run completed the planned test count (allow documented skips).

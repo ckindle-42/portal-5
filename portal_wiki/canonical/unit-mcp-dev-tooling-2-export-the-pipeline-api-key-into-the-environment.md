@@ -18,8 +18,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.574263
-updated_at: 1784946220.574263
+
 ---
 
 The pipeline requires a bearer token on its authenticated endpoints. The key lives as

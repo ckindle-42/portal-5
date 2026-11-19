@@ -13,8 +13,7 @@ tags:
 - ADMIN_GUIDE
 - docs
 - verified-v1
-created_at: 1783195000.817065
-updated_at: 1783195000.817065
+
 ---
 
 Native Ollama runs with no memory cap by default. `OLLAMA_MEMORY_LIMIT=0` in `.env.example` means "unlimited", and in the compose `docker-ollama` profile the value becomes the container's `deploy.resources.limits.memory`; a native install ignores it entirely, so the plist is the only lever there. Ollama handles memory pressure by offloading layers to CPU rather than crashing. If Metal OOM errors or kernel panics appear under heavy multi-model load, the escalation path is an `OLLAMA_MEMORY_LIMIT` entry in the launchd plist's `EnvironmentVariables` block (reloaded via `launchctl`), or trimming `OLLAMA_MAX_LOADED_MODELS` instead of adding a cap.

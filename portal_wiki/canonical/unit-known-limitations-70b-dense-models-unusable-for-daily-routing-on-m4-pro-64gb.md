@@ -15,8 +15,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.673774
-updated_at: 1784946220.673774
+
 ---
 
 - **ID**: P5-SPEED-001

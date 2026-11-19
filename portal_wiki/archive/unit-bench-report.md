@@ -1,20 +1,19 @@
 ---
 id: unit-bench-report
+historical: true
 kind: mixed
 title: "Bench report \u2014 availability summary + per-tier tables"
 sources:
 - type: code
   path: tests/benchmarks/bench/report.py
   commit: 381f217b
-last_generated_commit: 381f217b
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - bench
-created_at: 1785798450.132231
-updated_at: 1785798450.132231
+
 ---
 
 `report.py` is the console reporting for the bench: the availability

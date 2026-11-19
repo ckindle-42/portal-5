@@ -13,8 +13,7 @@ tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1784944767.916648
-updated_at: 1784944767.916648
+
 ---
 
 1. Go to https://api.slack.com/apps -> **Create New App** -> **From scratch**

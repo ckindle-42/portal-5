@@ -1,19 +1,18 @@
 ---
 id: unit-tests-conftest
+historical: true
 kind: mixed
 title: "Tests conftest \u2014 deterministic environment posture"
 sources:
 - type: code
   path: tests/conftest.py
   commit: 347dfc8a
-last_generated_commit: 347dfc8a
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
-created_at: 1785798780.502145
-updated_at: 1785798780.502145
+
 ---
 
 `tests/conftest.py` configures pytest for the top-level suite: it sets the

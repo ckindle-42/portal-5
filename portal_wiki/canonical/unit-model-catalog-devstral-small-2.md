@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.607528
-updated_at: 1784946220.607528
+
 ---
 
 `devstral-small-2` is registered in `config/backends.yaml` under the `coding` backend group with `supports_tools: true`. `config/portal.yaml` references it in the `bench-devstral-small-2` workspace description as Devstral V2 (Dec 2025, Apache 2.0, 24B, ~14GB Q4) with 256K ctx, vision added, and improved SWE-bench over `devstral:24b`; that workspace's `model_hint` is the `devstral-small-2:latest` tag. Tool support is asserted per Mistral's function-calling format, with `--audit-tools` verification recommended before promotion.

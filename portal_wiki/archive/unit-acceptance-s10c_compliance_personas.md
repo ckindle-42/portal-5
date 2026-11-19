@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-s10c_compliance_personas
+historical: true
 kind: mixed
 title: "S10c \u2014 Compliance personas"
 sources:
 - type: code
   path: tests/acceptance/s10c_compliance_personas.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799775.231172
-updated_at: 1785799775.231172
+
 ---
 
 This is the acceptance section s10c_compliance_personas. S10c — Compliance personas

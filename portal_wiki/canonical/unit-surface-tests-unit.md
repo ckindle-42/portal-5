@@ -12,8 +12,7 @@ tags:
 - authored-v1
 - tests
 - unit
-created_at: 1785882400.0
-updated_at: 1785882400.0
+
 ---
 
 The platform unit-test suite in `tests/unit/*.py` is the hermetic contract layer under the routing, config, fleet, and wiki subsystems, proving decision logic with mocked HTTP and subprocesses, no live backends, no Docker, and `tmp_path` file I/O, verifiable without Ollama, Open WebUI, or the fleet.

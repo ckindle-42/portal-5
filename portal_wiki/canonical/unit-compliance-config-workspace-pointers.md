@@ -13,8 +13,7 @@ tags:
 - module
 - compliance
 - config
-created_at: 1785794866.570522
-updated_at: 1785794866.570522
+
 ---
 
 The compliance module's config surface is a name-based pointer into

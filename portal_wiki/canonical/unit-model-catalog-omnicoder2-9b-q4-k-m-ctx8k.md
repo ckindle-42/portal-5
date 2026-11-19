@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.655354
-updated_at: 1784946220.655354
+
 ---
 
 `omnicoder2:9b-q4_k_m-ctx8k` is the derived tag of `omnicoder2:9b-q4_k_m` with `PARAMETER num_ctx 8192` baked in via the `apply-params` command, required because Ollama's `/v1/chat/completions` drops request-time `options.num_ctx`. `config/backends.yaml` registers it in `group: coding` with `supports_tools: true` (the general-group entry carries the untagged base only). `config/portal.yaml` sets it as the auto-coding `uncensored` variant `model_hint` with `context_limit: 8192`, so the one-shot uncensored codegen lane runs on the capped id. Base model detail lives in the parent unit.

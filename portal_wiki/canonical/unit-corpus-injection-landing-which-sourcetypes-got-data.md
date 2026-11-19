@@ -11,8 +11,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.5844648
-updated_at: 1784946220.5844648
+
 ---
 
 Because every injected event is tagged at ship time, one search tells you the

@@ -16,8 +16,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.695986
-updated_at: 1784946220.695986
+
 ---
 
 Routing integrity is verified in two layers. Before the suite, run

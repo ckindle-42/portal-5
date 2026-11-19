@@ -1,18 +1,17 @@
 ---
 id: unit-MCP_DEV_TOOLING-fixing-a-bug-claude-code
+historical: true
 kind: why
 title: "MCP_DEV_TOOLING \u2014 Fixing a bug (Claude Code)"
 sources:
 - type: design
   path: docs/MCP_DEV_TOOLING.md
   section: Fixing a bug (Claude Code)
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - MCP_DEV_TOOLING
-created_at: 1783195000.873975
-updated_at: 1783195000.873975
+
 ---
 
 

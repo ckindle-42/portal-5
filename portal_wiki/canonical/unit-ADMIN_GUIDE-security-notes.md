@@ -15,8 +15,7 @@ tags:
 - ADMIN_GUIDE
 - docs
 - verified-v1
-created_at: 1783195000.813386
-updated_at: 1783195000.813386
+
 ---
 
 Secrets live in `.env`, which `.gitignore` excludes and `bootstrap_secrets` in scripts/lib/util.sh populates by replacing every `CHANGEME` placeholder on first run. `PIPELINE_API_KEY` authenticates callers of the pipeline API; `WEBUI_SECRET_KEY` encrypts Open WebUI session and tool state — rotating it invalidates stored OAuth tokens and forces re-login, per the `.env.example` note. `GRAFANA_PASSWORD` and `SEARXNG_SECRET_KEY` are generated the same way. Rotation is edit `.env`, then restart the stack; `./launch.sh up` auto-repairs any secret that reverted to a placeholder. Never commit `.env`.

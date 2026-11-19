@@ -14,8 +14,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.678988
-updated_at: 1791376709
+
 ---
 
 `./launch.sh up` starts the core Docker stack (compose services plus profiles

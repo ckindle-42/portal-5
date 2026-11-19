@@ -17,8 +17,7 @@ tags:
 - module
 - security
 - cli
-created_at: 1785795006.4514072
-updated_at: 1785795006.4514072
+
 ---
 
 The platform discovers `portal.modules.security.plugin` and calls its

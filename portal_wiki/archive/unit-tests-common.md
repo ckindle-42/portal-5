@@ -1,19 +1,18 @@
 ---
 id: unit-tests-common
+historical: true
 kind: mixed
 title: "Tests common \u2014 shared refusal-phrase vocabulary"
 sources:
 - type: code
   path: tests/common.py
   commit: 347dfc8a
-last_generated_commit: 347dfc8a
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
-created_at: 1785798774.4436202
-updated_at: 1785798774.4436202
+
 ---
 
 `tests/common.py` holds the shared constants used by the acceptance driver,

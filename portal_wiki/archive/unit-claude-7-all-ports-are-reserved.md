@@ -1,19 +1,18 @@
 ---
 id: unit-claude-7-all-ports-are-reserved
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 7 \u2014 All Ports Are Reserved"
 sources:
 - type: design
   path: CLAUDE.md
   section: "7 \u2014 All Ports Are Reserved"
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.194347
-updated_at: 1785348301.194347
+
 ---
 
 

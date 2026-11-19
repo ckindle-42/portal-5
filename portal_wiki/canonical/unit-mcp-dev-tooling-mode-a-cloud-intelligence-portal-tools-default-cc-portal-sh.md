@@ -13,8 +13,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.576541
-updated_at: 1784946220.576541
+
 ---
 
 Mode A is the default Claude Code posture: Anthropic cloud supplies the reasoning,

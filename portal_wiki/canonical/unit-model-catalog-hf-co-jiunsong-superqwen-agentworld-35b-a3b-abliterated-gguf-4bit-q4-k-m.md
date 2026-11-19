@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.610776
-updated_at: 1784946220.610776
+
 ---
 
 `hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M` (~21.2GB Q4_K_M, Jiunsong, Apache 2.0, qwen35moe arch) is the abliterated fork of the Qwen AgentWorld 35B-A3B base Portal already runs — the uncensored variant of the held AgentWorld. `config/backends.yaml` registers it in the `general` and `coding` groups, both with `supports_tools: true`. `config/portal.yaml` selects it as the `model_hint` for `bench-superqwen-agentworld-ablit`, whose description notes the card is a stub (see BF16 parent) so capability claims are unverified until benched. It is V11 candidate intake (2026-06-30), bench-only, PROMOTE_POLICY=confirm.

@@ -16,8 +16,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1788033019.601702
-updated_at: 1788033019.601702
+
 ---
 
 To enable the Telegram channel, create a bot in Telegram and add its token to

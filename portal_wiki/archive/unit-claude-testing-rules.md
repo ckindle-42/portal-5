@@ -1,19 +1,18 @@
 ---
 id: unit-claude-testing-rules
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 Testing Rules"
 sources:
 - type: design
   path: CLAUDE.md
   section: Testing Rules
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.194369
-updated_at: 1785348301.194369
+
 ---
 
 

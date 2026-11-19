@@ -19,8 +19,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.704534
-updated_at: 1784946220.704534
+
 ---
 
 Supersedes the V2 execute prompt, archived at

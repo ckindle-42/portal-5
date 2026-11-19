@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-speak-text
+historical: true
 kind: why
 title: "HOWTO \u2014 Speak text"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: Speak text
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.846685
-updated_at: 1783195000.846685
+
 ---
 
 

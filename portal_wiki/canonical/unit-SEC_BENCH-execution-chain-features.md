@@ -20,8 +20,7 @@ tags:
 - features
 - security
 - verified-v1
-created_at: 1784945192.269671
-updated_at: 1784945192.269671
+
 ---
 
 22 features of the execution chain (drawn from `exec_chain.py`, `scoring.py`, `lab.py`, and `_data.py`):

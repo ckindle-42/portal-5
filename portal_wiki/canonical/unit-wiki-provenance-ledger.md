@@ -11,8 +11,7 @@ confidence: high
 tags:
 - authored-v1
 - wiki
-created_at: 1785797326.372905
-updated_at: 1785797326.372905
+
 ---
 
 The provenance ledger is an append-only JSONL audit trail

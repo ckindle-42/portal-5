@@ -1,5 +1,6 @@
 ---
 id: unit-PERSONA_PROMPT_AUDIT_V1-5-fullstacksoftwaredeveloper-uat-p-d05-scored-2-5-
+historical: true
 kind: why
 title: "PERSONA_PROMPT_AUDIT_V1 \u2014 5. `fullstacksoftwaredeveloper` \u2014 UAT\
   \ P-D05 (scored 2/5 FAIL)"
@@ -7,13 +8,11 @@ sources:
 - type: design
   path: docs/PERSONA_PROMPT_AUDIT_V1.md
   section: "5. `fullstacksoftwaredeveloper` \u2014 UAT P-D05 (scored 2/5 FAIL)"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - PERSONA_PROMPT_AUDIT_V1
-created_at: 1785348275.81886
-updated_at: 1785348275.81886
+
 ---
 
 

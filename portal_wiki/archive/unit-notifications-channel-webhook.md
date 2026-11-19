@@ -1,20 +1,19 @@
 ---
 id: unit-notifications-channel-webhook
+historical: true
 kind: mixed
 title: "Notification webhook channel \u2014 generic JSON POST"
 sources:
 - type: code
   path: portal/platform/inference/notifications/channels/webhook.py
   commit: 7383d070
-last_generated_commit: 7383d070
 claims: []
 confidence: high
 tags:
 - authored-v1
 - notifications
 - platform
-created_at: 1785796479.9727209
-updated_at: 1785796479.9727209
+
 ---
 
 `WebhookChannel` is the generic webhook notification channel: it POSTs the

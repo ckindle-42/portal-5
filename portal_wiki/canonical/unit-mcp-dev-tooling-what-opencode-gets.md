@@ -14,8 +14,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.573175
-updated_at: 1784946220.573175
+
 ---
 
 Opening the repo with opencode delivers three things. First, fully local inference:

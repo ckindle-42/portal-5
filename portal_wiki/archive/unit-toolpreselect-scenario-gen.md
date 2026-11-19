@@ -1,20 +1,19 @@
 ---
 id: unit-toolpreselect-scenario-gen
+historical: true
 kind: mixed
 title: "Tool-preselect scenario generator \u2014 exhaustive adversarial corpus"
 sources:
 - type: code
   path: tests/toolpreselect/scenario_gen.py
   commit: c3244c5f
-last_generated_commit: c3244c5f
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - toolpreselect
-created_at: 1785795861.42414
-updated_at: 1785795861.42414
+
 ---
 
 `scenario_gen.py` generates the exhaustive acceptance corpus for the tool

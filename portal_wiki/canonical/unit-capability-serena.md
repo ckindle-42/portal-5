@@ -16,8 +16,7 @@ tags:
 - capability
 - mcp
 - general
-created_at: 1788030600.446044
-updated_at: 1788030600.446044
+
 ---
 
 # Serena MCP — IDE-only LSP symbol navigation

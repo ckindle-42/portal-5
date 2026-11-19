@@ -11,8 +11,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.532727
-updated_at: 1784946220.532727
+
 ---
 
 Nothing in the repo runs a daily cleanup of backup directories. The `clean` case tears down the stack and removes only the Open WebUI data volume, explicitly preserving the Ollama model volume; it does not touch anything under `./backups`. Any age-based pruning of snapshots, such as deleting tarballs older than a week, must be scheduled by the operator as a separate job operating on the backup directory.

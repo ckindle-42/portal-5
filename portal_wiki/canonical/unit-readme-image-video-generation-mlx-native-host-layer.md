@@ -16,8 +16,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1788033019.601702
-updated_at: 1788033019.601702
+
 ---
 
 Image generation is the **MFLUX MCP** (`portal/modules/media/tools/mflux_mcp.py`,

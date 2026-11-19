@@ -14,8 +14,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.5159261
-updated_at: 1784946220.5159261
+
 ---
 
 Knowledge-base ingestion accepts `.md`, `.txt`, `.pdf`, `.docx`, `.pptx`,

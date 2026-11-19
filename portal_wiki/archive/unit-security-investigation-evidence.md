@@ -1,12 +1,12 @@
 ---
 id: unit-security-investigation-evidence
+historical: true
 kind: mixed
 title: "Investigation evidence \u2014 immutable append-only evidence unit"
 sources:
 - type: code
   path: portal/modules/security/core/investigation/evidence.py
   commit: 29cbcd27
-last_generated_commit: 29cbcd27
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - module
 - security
 - investigation
-created_at: 1785796315.133636
-updated_at: 1785796315.133636
+
 ---
 
 `EvidenceRecord` is the atomic evidence unit for investigations: every tool

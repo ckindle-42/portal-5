@@ -16,8 +16,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.581345
-updated_at: 1784946220.581345
+
 ---
 
 Blue and purple need adversary telemetry to hunt. Waiting for red bench runs to

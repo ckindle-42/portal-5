@@ -13,8 +13,7 @@ tags:
 - ADMIN_GUIDE
 - docs
 - verified-v1
-created_at: 1783195000.814406
-updated_at: 1783195000.814406
+
 ---
 
 `./launch.sh backup [output-dir]` writes a timestamped directory (default under `./backups/`) via `_launch_backup` in scripts/lib/backup.sh. It tars the `portal-5_open-webui-data` volume into `openwebui-data.tar.gz` (accounts, chats, settings), tars `portal-5_grafana-data` into `grafana-data.tar.gz`, and copies `.env`, `config/`, and `imports/` alongside. Ollama weights in `portal-5_ollama-models` are intentionally excluded — they are re-pullable. `./launch.sh restore <path>` confirms interactively, stops the stack with a compose down, then restores the Open WebUI data, Grafana data, and `.env` from the same directory.

@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-s31_video_gen
+historical: true
 kind: mixed
 title: "S31 \u2014 Video generation"
 sources:
 - type: code
   path: tests/acceptance/s31_video_gen.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799812.628774
-updated_at: 1785799812.628774
+
 ---
 
 This is the acceptance section s31_video_gen. S31 — Video generation

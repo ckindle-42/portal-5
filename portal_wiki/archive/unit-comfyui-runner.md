@@ -1,20 +1,19 @@
 ---
 id: unit-comfyui-runner
+historical: true
 kind: mixed
 title: "ComfyUI acceptance runner \u2014 section sequencing"
 sources:
 - type: code
   path: tests/comfyui/runner.py
   commit: ee3590ba
-last_generated_commit: ee3590ba
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - comfyui
-created_at: 1785798957.316152
-updated_at: 1785798957.316152
+
 ---
 
 `runner.py` orchestrates the ComfyUI acceptance sections: it defines the

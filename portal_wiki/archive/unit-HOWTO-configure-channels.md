@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-configure-channels
+historical: true
 kind: why
 title: "HOWTO \u2014 Configure channels"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: Configure channels
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.85679
-updated_at: 1783195000.85679
+
 ---
 
 

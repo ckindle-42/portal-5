@@ -1,18 +1,17 @@
 ---
 id: unit-UAT_CALIBRATION-step-2-review-and-tag
+historical: true
 kind: why
 title: "UAT_CALIBRATION \u2014 Step 2 \u2014 Review and tag"
 sources:
 - type: design
   path: docs/UAT_CALIBRATION.md
   section: "Step 2 \u2014 Review and tag"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - UAT_CALIBRATION
-created_at: 1783195000.918519
-updated_at: 1783195000.918519
+
 ---
 
 

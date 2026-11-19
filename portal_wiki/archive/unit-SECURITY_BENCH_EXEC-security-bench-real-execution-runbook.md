@@ -1,18 +1,17 @@
 ---
 id: unit-SECURITY_BENCH_EXEC-security-bench-real-execution-runbook
+historical: true
 kind: why
 title: "SECURITY_BENCH_EXEC \u2014 Security Bench Real-Execution Runbook"
 sources:
 - type: design
   path: docs/SECURITY_BENCH_EXEC.md
   section: Security Bench Real-Execution Runbook
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - SECURITY_BENCH_EXEC
-created_at: 1783195000.895403
-updated_at: 1783195000.895403
+
 ---
 
 

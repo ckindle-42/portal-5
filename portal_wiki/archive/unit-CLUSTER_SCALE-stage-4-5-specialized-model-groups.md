@@ -1,18 +1,17 @@
 ---
 id: unit-CLUSTER_SCALE-stage-4-5-specialized-model-groups
+historical: true
 kind: why
 title: "CLUSTER_SCALE \u2014 Stage 4-5: Specialized Model Groups"
 sources:
 - type: design
   path: docs/CLUSTER_SCALE.md
   section: 'Stage 4-5: Specialized Model Groups'
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - CLUSTER_SCALE
-created_at: 1783195000.828939
-updated_at: 1783195000.828939
+
 ---
 
 

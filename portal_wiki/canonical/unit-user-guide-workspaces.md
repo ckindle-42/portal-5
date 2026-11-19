@@ -14,8 +14,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.513955
-updated_at: 1788032812
+
 ---
 
 Workspaces are the routing layer. Each workspace defined in `config/portal.yaml`

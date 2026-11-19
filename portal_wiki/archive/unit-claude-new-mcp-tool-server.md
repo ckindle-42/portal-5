@@ -1,19 +1,18 @@
 ---
 id: unit-claude-new-mcp-tool-server
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 New MCP Tool Server"
 sources:
 - type: design
   path: CLAUDE.md
   section: New MCP Tool Server
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.194376
-updated_at: 1785348301.194376
+
 ---
 
 1. Create `portal/modules/<discipline>/tools/<name>_mcp.py` (or `portal/platform/<area>/` for a cross-cutting server — see Rule 6)

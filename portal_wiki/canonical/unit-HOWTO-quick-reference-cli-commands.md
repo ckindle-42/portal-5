@@ -11,8 +11,7 @@ tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1784944814.9461
-updated_at: 1784944814.9461
+
 ---
 
 All commands below are the actual `case` branches in `launch.sh` (or dispatch into `python3 -m portal.platform.inference.cli`).

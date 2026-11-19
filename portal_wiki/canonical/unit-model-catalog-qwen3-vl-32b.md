@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.6369338
-updated_at: 1784946220.6369338
+
 ---
 
 `qwen3-vl:32b` is the production vision model, registered in `config/backends.yaml` under `group: vision` (`ollama-vision`) with `supports_tools: true`. The same group carries its `qwen3-vl:32b-ctx8k` derived tag, also marked `supports_tools: true`. `config/portal.yaml` routes the `auto-vision` workspace (module `general`) through the derived tag — `model_hint: qwen3-vl:32b-ctx8k` with `context_limit: 8192` — for image understanding, visual analysis, and multimodal tasks, and attaches the vision tools to that lane. The family's tool-calling flag is what lets the vision lane act on observations rather than merely describe them. The GGUF family is the production primary for this lane; a separate oMLX-held MLX conversion is an evaluation-only candidate.

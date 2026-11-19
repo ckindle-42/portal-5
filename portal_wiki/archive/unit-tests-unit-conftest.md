@@ -1,20 +1,19 @@
 ---
 id: unit-tests-unit-conftest
+historical: true
 kind: mixed
 title: Unit-test conftest
 sources:
 - type: code
   path: tests/unit/conftest.py
   commit: d5234798
-last_generated_commit: d5234798
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - unit
-created_at: 1785800427.158655
-updated_at: 1785800427.158655
+
 ---
 
 Unit-test-specific pytest configuration that ensures the prometheus client can initialize on the platform Python version.

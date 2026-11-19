@@ -15,8 +15,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.673387
-updated_at: 1784946220.673387
+
 ---
 
 - **ID**: P5-MODEL-PHI4REASONING-001

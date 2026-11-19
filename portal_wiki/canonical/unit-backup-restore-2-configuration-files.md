@@ -11,8 +11,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.525789
-updated_at: 1784946220.525789
+
 ---
 
 Besides `config/`, the backup command copies the `imports/` directory, which holds the Open WebUI workspace presets and persona fixtures that `openwebui-init` seeds into the UI. These files are generated artifacts, so they are regenerable via `sync-config`, but shipping them in every snapshot makes a restore self-contained without requiring regeneration first. The copies land next to `config/` inside the same timestamped backup directory, so one directory represents a complete point-in-time configuration.

@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.5134752
-updated_at: 1784946220.5134752
+
 ---
 
 Using Portal 5 requires an account. Open WebUI runs with `WEBUI_AUTH=true`, so

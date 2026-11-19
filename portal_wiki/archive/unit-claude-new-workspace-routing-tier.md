@@ -1,19 +1,18 @@
 ---
 id: unit-claude-new-workspace-routing-tier
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 New Workspace Routing Tier"
 sources:
 - type: design
   path: CLAUDE.md
   section: New Workspace Routing Tier
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.19438
-updated_at: 1785348301.19438
+
 ---
 
 1. Add the workspace entry to `config/portal.yaml` under `workspaces:`

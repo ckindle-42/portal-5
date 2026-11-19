@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.514347
-updated_at: 1784946220.514347
+
 ---
 
 Personas are pre-configured specialists defined one-per-file under

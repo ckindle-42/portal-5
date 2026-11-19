@@ -10,8 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1786308700.0
-updated_at: 1786308700.0
+
 ---
 
 - **ID**: P5-FARA-CUA-001

@@ -16,8 +16,7 @@ tags:
 - capability
 - mcp
 - platform
-created_at: 1788030600.446044
-updated_at: 1788030600.446044
+
 ---
 
 # MLX Transcribe MCP — host-native diarized transcription

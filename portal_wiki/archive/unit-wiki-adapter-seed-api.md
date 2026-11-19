@@ -1,20 +1,19 @@
 ---
 id: unit-wiki-adapter-seed-api
+historical: true
 kind: mixed
 title: "Wiki seed_api adapter \u2014 AST projection for the substance check"
 sources:
 - type: code
   path: portal/platform/wiki/adapters/seed_api.py
   commit: 94445e95
-last_generated_commit: 94445e95
 claims: []
 confidence: high
 tags:
 - authored-v1
 - wiki
 - adapter
-created_at: 1785797578.856166
-updated_at: 1785797578.856166
+
 ---
 
 `derive_body` is the AST projection the quality gate's substance check

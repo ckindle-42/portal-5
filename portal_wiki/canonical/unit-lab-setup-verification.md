@@ -16,8 +16,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.521833
-updated_at: 1784946220.521833
+
 ---
 
 Verification uses the scripts themselves, not the doc. `python3 scripts/lab_ready.py`

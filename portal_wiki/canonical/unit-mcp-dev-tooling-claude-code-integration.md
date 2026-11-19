@@ -14,8 +14,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.5759969
-updated_at: 1784946220.5759969
+
 ---
 
 Claude Code has three operating modes with Portal 5, each a thin wrapper script

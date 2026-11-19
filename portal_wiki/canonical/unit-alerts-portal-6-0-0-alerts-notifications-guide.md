@@ -14,8 +14,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.5440252
-updated_at: 1784946220.5440252
+
 ---
 
 The notification layer offers five independently configurable channels — Slack, Telegram, Email, Pushover, and Webhook — all fed by a single dispatcher. Operational alerts fire on backend health transitions, and a daily usage summary runs once per day on a schedule. The whole subsystem stays off until `NOTIFICATIONS_ENABLED` is true, and channels only register when the master switch is on, so the default install sends nothing anywhere.

@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.64424
-updated_at: 1784946220.64424
+
 ---
 
 `gemma4:12b-it-qat-ctx8k` is the 8192-token capped variant of `gemma4:12b-it-qat`. `config/backends.yaml` places it in the `vision` group with `supports_tools: true`. `config/portal.yaml` names it as the `auto-audio` workspace `model_hint`, meaning the audio-analysis lane actually serves this capped tag rather than the base model. The bound is embedded via `portal models apply-params` because the completion endpoint discards request-time `options.num_ctx`, so the cap must be encoded in a dedicated id.

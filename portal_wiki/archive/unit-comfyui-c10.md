@@ -1,20 +1,19 @@
 ---
 id: unit-comfyui-c10
+historical: true
 kind: mixed
 title: "Section C10 \u2014 Output validation"
 sources:
 - type: code
   path: tests/comfyui/c10_output_validation.py
   commit: ee3590ba
-last_generated_commit: ee3590ba
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - comfyui
-created_at: 1785798995.371858
-updated_at: 1785798995.371858
+
 ---
 
 This is the ComfyUI acceptance section c10. Section C10 — Output validation

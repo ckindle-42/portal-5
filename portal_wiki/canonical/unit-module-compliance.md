@@ -21,8 +21,7 @@ tags:
 - compliance
 - module
 - verified-v1
-created_at: 1783821386.790902
-updated_at: 1783821386.790902
+
 ---
 
 # Compliance Module — multi-framework compliance mapping (config-only)

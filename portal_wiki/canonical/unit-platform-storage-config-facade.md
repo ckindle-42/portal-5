@@ -15,8 +15,7 @@ tags:
 - authored-v1
 - platform
 - config
-created_at: 1785795034.737101
-updated_at: 1785795034.737101
+
 ---
 
 The platform storage package is the stable re-export boundary over Portal's

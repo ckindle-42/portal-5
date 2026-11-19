@@ -1,5 +1,6 @@
 ---
 id: unit-code-tests
+historical: true
 kind: what
 title: tests subsystem (235 files)
 sources:
@@ -18,13 +19,11 @@ sources:
 - type: code
   path: tests/acceptance/runner.py
   commit: 305368bb3e8d
-last_generated_commit: ''
 confidence: high
 tags:
 - code
 - tests
-created_at: 1785503864.833569
-updated_at: 1785503864.833569
+
 ---
 
 # tests subsystem

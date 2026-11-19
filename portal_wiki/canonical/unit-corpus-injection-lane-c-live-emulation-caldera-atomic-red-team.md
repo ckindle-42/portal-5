@@ -12,8 +12,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.586282
-updated_at: 1784946220.586282
+
 ---
 
 `scripts/caldera_emulate.py` is the Lane C driver. It talks to Caldera's API

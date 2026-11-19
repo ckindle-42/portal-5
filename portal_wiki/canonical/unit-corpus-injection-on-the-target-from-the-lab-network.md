@@ -9,8 +9,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.586659
-updated_at: 1784946220.586659
+
 ---
 
 Deploying a sandcat agent onto a lab target is a two-command operation from

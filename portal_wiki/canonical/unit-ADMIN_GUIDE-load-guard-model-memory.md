@@ -19,8 +19,7 @@ tags:
 - ADMIN_GUIDE
 - docs
 - verified-v1
-created_at: 1792684036
-updated_at: 1792684036
+
 ---
 
 #### Load guard: model memory admission and tuning

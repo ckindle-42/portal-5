@@ -17,8 +17,7 @@ tags:
 - T1021.001
 - technique
 - signature
-created_at: 1790651067.88732
-updated_at: 1790651067.88732
+
 ---
 
 # T1021.001 — Remote Desktop Protocol — successful remote-interactive Windows logon [DISTINGUISH: T1021.001 uses remote-interactive LogonType 10; T1021.002 uses SMB share access EventCode 5140] [KEY: EventCode=4624 with LogonType=10]

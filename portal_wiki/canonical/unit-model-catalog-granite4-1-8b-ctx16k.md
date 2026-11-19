@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.646517
-updated_at: 1784946220.646517
+
 ---
 
 `granite4.1:8b-ctx16k` is a derived context-capped tag of `granite4.1:8b`. It appears in `config/backends.yaml` under the `general`, `security`, and `reasoning` groups, always with `supports_tools: true`. In `config/portal.yaml` it is the `model_hint` for `auto-documents`, `auto-image`, `auto-video`, and `auto-compliance` — the tool-calling MCP lanes for documents, image generation, video, and compliance analysis all route on this 16K-context variant. The cap is baked in via `portal models apply-params` because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`; a derived tag is the only way to bound context per workspace. See the base `granite4.1:8b` entry for full model detail; this unit exists to satisfy backends.yaml/MODEL_CATALOG parity.

@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-llm_redteam
+historical: true
 kind: mixed
 title: "LLM redteam \u2014 OWASP LLM Top 10 probes"
 sources:
 - type: code
   path: portal/modules/security/core/llm_redteam.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800269.394166
-updated_at: 1785800269.394166
+
 ---
 
 Probes Portal's own workspaces and MCP surface for OWASP LLM Top 10 vulnerabilities by sending real probes through the pipeline and checking refusal and compliance.

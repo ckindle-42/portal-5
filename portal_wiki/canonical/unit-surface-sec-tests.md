@@ -12,8 +12,7 @@ tags:
 - module
 - security
 - tests
-created_at: 1785882000.0
-updated_at: 1785882000.0
+
 ---
 
 The security test suite pins the contract of the bench-and-lab harness that

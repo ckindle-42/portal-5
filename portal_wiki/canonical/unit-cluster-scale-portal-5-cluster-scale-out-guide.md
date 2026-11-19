@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.511627
-updated_at: 1784946220.511627
+
 ---
 
 Portal 5 scale-out is a config-only operation. Every inference node is one

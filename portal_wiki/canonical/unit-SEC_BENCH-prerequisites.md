@@ -14,8 +14,7 @@ tags:
 - prerequisites
 - security
 - verified-v1
-created_at: 1784945192.2622862
-updated_at: 1784945192.2622862
+
 ---
 
 ## Lab VMs must be running

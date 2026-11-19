@@ -12,8 +12,7 @@ tags:
 - authored-v1
 - tests
 - fixture
-created_at: 1785795224.869256
-updated_at: 1785795224.869256
+
 ---
 
 This fixture module is the long-context comprehension probe's sample: the

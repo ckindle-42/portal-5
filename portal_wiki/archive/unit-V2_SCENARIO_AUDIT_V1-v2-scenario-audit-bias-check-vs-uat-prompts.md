@@ -1,18 +1,17 @@
 ---
 id: unit-V2_SCENARIO_AUDIT_V1-v2-scenario-audit-bias-check-vs-uat-prompts
+historical: true
 kind: why
 title: "V2_SCENARIO_AUDIT_V1 \u2014 V2 Scenario Audit \u2014 Bias Check vs UAT Prompts"
 sources:
 - type: design
   path: docs/V2_SCENARIO_AUDIT_V1.md
   section: "V2 Scenario Audit \u2014 Bias Check vs UAT Prompts"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - V2_SCENARIO_AUDIT_V1
-created_at: 1783195000.9221451
-updated_at: 1783195000.9221451
+
 ---
 
 

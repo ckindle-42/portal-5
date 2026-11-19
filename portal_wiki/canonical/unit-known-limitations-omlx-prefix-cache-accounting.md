@@ -15,8 +15,7 @@ tags:
 - known-limitations
 - omlx
 - cache
-created_at: 1792540800
-updated_at: 1792684036
+
 ---
 
 ## oMLX prefix cache — a store is not a hit, another model wipes it, and auto fills the disk (2026-10-21)

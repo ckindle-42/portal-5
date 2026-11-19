@@ -12,8 +12,7 @@ tags:
 - authored-v1
 - tests
 - router
-created_at: 1785795513.9173272
-updated_at: 1785795513.9173272
+
 ---
 
 This test file guards `context_inject` — the router's memory/context

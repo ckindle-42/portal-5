@@ -11,8 +11,7 @@ tags:
 - authored-v1
 - archive
 - bench
-created_at: 1790305358.8005278
-updated_at: 1790305358.8005278
+
 ---
 
 The September 2026 engine head-to-head (Ollama, oMLX, mlx-serve, Rapid-MLX,

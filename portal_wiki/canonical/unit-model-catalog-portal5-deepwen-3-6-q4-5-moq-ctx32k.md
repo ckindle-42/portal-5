@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1786396600.0
-updated_at: 1786396600.0
+
 ---
 
 `portal5/deepwen-3.6:q4.5-moq-ctx32k` is the ctx-baked derived tag for `portal5/deepwen-3.6:q4.5-moq`, created via `./launch.sh apply-model-params` (`PARAMETER num_ctx 32768` baked into a new Ollama layer, idempotent — no re-download) to work around `P5-OLLAMA-OPTIONS-001` (Ollama's `/v1/chat/completions` endpoint silently ignores request-time `options.num_ctx`; see `unit-known-limitations-ollama-v1-ignores-options-num-ctx-and-options-num-batch`). `config/portal.yaml`'s `bench-deepwen-cad` workspace `model_hint` points at this tag, not the bare `q4.5-moq` tag — the bare tag alone produced corrupted tool-call JSON through the pipeline. `config/backends.yaml` registers it in the `general` group with `supports_tools: true`, inherited from the base tag's direct-probe verification.

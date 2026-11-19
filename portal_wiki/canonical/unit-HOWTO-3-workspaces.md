@@ -23,8 +23,7 @@ tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.839686
-updated_at: 1792668000
+
 ---
 
 **What:** Each workspace routes to a specialized model and activates the relevant tools.

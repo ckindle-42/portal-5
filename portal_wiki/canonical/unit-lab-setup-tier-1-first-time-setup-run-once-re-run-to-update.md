@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.518086
-updated_at: 1784946220.518086
+
 ---
 
 The first-time setup is `python3 scripts/lab_setup.py`. It is idempotent and

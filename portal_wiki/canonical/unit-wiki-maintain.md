@@ -17,8 +17,7 @@ confidence: high
 tags:
 - authored-v1
 - wiki
-created_at: 1785797305.434397
-updated_at: 1785797305.434397
+
 ---
 
 The maintain module is the self-maintenance loop for the wiki: it re-runs

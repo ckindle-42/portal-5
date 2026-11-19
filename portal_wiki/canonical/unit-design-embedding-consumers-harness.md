@@ -13,8 +13,7 @@ tags:
 - design
 - embedding
 - benchmark
-created_at: 1791388900
-updated_at: 1791388900
+
 ---
 
 # EmbeddingGemma 2 per-consumer measurement harness

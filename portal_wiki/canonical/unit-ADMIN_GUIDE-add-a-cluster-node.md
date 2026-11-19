@@ -13,8 +13,7 @@ tags:
 - ADMIN_GUIDE
 - docs
 - verified-v1
-created_at: 1783195000.812903
-updated_at: 1783195000.812903
+
 ---
 
 Cluster scaling is a config-only operation. Adding a node means appending a backend entry to `config/backends.yaml`: a unique `id`, a `type` (`ollama` or `openai_compatible`), the node's `url`, the routing `group`, and the model list it serves. The pipeline discovers new backends through `BackendRegistry` at startup and the auto-routing layer load-balances across healthy backends. After editing, restart the pipeline container so the registry re-reads the file. `./launch.sh status` confirms the new backend through the pipeline health block (`backends_healthy` / `backends_total`).

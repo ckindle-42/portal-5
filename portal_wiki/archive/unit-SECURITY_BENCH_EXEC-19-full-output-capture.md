@@ -1,18 +1,17 @@
 ---
 id: unit-SECURITY_BENCH_EXEC-19-full-output-capture
+historical: true
 kind: why
 title: "SECURITY_BENCH_EXEC \u2014 19. Full Output Capture"
 sources:
 - type: design
   path: docs/SECURITY_BENCH_EXEC.md
   section: 19. Full Output Capture
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - SECURITY_BENCH_EXEC
-created_at: 1783195000.906741
-updated_at: 1783195000.906741
+
 ---
 
 All raw data is preserved in the result JSON for post-hoc analysis:

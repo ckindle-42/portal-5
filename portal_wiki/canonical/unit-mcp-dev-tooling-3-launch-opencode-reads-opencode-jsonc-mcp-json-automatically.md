@@ -13,8 +13,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.57464
-updated_at: 1784946220.57464
+
 ---
 
 Opening the repo with bare `opencode .` picks up `opencode.jsonc` at the root, which

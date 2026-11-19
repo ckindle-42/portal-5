@@ -11,8 +11,7 @@ confidence: high
 tags:
 - authored-v1
 - scripts
-created_at: 1785799543.3560672
-updated_at: 1785799543.3560672
+
 ---
 
 Runs inside the Open WebUI init container after OWUI is healthy: admin account creation (idempotent), persona seeding, and workspace preset installation.

@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-s02_services
+historical: true
 kind: mixed
 title: "S2 \u2014 Service health"
 sources:
 - type: code
   path: tests/acceptance/s02_services.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799745.5236712
-updated_at: 1785799745.5236712
+
 ---
 
 This is the acceptance section s02_services. S2 — Service health

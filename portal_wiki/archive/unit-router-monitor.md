@@ -1,12 +1,12 @@
 ---
 id: unit-router-monitor
+historical: true
 kind: mixed
 title: "Router monitor \u2014 memory pressure valve + load sequencing"
 sources:
 - type: code
   path: portal/platform/inference/router/monitor.py
   commit: d7c1d4f4
-last_generated_commit: d7c1d4f4
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - platform
 - inference
 - router
-created_at: 1785798087.896048
-updated_at: 1785798087.896048
+
 ---
 
 `monitor.py` is the memory and health monitor: it reads host memory, purges

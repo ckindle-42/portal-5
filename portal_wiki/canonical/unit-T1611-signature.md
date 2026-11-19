@@ -14,8 +14,7 @@ tags:
 - T1611
 - technique
 - signature
-created_at: 1790651067.8837252
-updated_at: 1790651067.8837252
+
 ---
 
 # T1611 — Container escape — host auditd + docker events [KEY: nsenter, mount, /proc/1, or privileged from the SPL]

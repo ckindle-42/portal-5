@@ -12,8 +12,7 @@ tags:
 - authored-v1
 - tests
 - uat
-created_at: 1785799286.397863
-updated_at: 1785799286.397863
+
 ---
 
 The Open WebUI REST helpers: login, chat creation, message send, response retrieval, and chat archival.

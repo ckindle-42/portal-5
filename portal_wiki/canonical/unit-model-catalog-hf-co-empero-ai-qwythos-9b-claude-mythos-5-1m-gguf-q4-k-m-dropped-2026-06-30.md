@@ -11,8 +11,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.6361191
-updated_at: 1784946220.6361191
+
 ---
 
 Qwythos-9B Claude-Mythos-5-1M Q4_K_M was evaluated as a V10 candidate under the

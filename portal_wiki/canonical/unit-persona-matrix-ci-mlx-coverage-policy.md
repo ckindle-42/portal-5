@@ -17,8 +17,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.568525
-updated_at: 1784946220.568525
+
 ---
 
 MLX chat inference was retired in commit `75c24a9` (`feat: retire MLX proxy — migrate to Ollama-only inference stack`); the persona-matrix driver now talks only to Ollama at the `OLLAMA_URL` constant (`http://localhost:11434`) via `_chat_direct`, and the CLI restricts `--backend` to `ollama`. The workflow's `backend` input offers only `ollama` as a choice, so CI sweeps are Ollama-only by construction. The `--mlx-warmup` flag and a `mlx_models:` key in `backends.yaml` no longer exist anywhere in the current tree — the only `MLX_MODELS` reference left is a comment in `backends.yaml` about the embedding pull list.

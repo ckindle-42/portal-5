@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-trace
+historical: true
 kind: mixed
 title: "Trace \u2014 canonical trace-row schema"
 sources:
 - type: code
   path: portal/modules/security/core/trace.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800269.3941529
-updated_at: 1785800269.3941529
+
 ---
 
 The canonical trace-row schema that all four trace-emitting paths conform to, additive on top of existing shapes.

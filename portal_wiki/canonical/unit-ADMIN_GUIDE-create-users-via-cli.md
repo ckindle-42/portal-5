@@ -15,8 +15,7 @@ tags:
 - ADMIN_GUIDE
 - docs
 - verified-v1
-created_at: 1783195000.812448
-updated_at: 1783195000.812448
+
 ---
 
 `./launch.sh add-user <email> [name] [role]` invokes `_launch_add_user` in scripts/lib/users.sh, which signs in as the admin via `get_admin_token` (scripts/lib/util.sh), POSTs to Open WebUI's `/api/v1/auths/add`, and prints the generated temporary password once. Roles are `user` (default), `admin`, and `pending`. `./launch.sh list-users` calls `_launch_list_users`, GETs `/api/v1/users/`, and prints `[role] name <email>` per account. Both commands fail loudly when the stack is down.

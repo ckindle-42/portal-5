@@ -19,8 +19,7 @@ tags:
 - general
 - module
 - verified-v1
-created_at: 1783815451.164374
-updated_at: 1783815451.164374
+
 ---
 
 # General Module — the always-on base

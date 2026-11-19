@@ -13,8 +13,7 @@ tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.848667
-updated_at: 1787931459.0
+
 ---
 
 **What:** Pick the **🎙️ Portal Audio Analyst** workspace (`auto-audio`), drop an audio file, ask "who said what", and get back a transcript with speaker labels (`SPEAKER_00`, `SPEAKER_01`, …). A single-speaker recording simply comes back as one speaker — you don't have to know in advance. Outputs JSON + Markdown + Word (`.docx`) to the shared workspace at `~/AI_Output/generated/transcripts/`, served as download URLs on port 8924.

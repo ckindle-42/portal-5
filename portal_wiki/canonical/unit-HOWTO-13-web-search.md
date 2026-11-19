@@ -13,8 +13,7 @@ tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.850833
-updated_at: 1783195000.850833
+
 ---
 
 **What:** Web search via a self-hosted SearXNG instance.

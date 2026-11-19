@@ -1,20 +1,19 @@
 ---
 id: unit-comfyui-c07
+historical: true
 kind: mixed
 title: "Section C7 \u2014 Image generation: parameter sweep"
 sources:
 - type: code
   path: tests/comfyui/c07_param_sweep.py
   commit: ee3590ba
-last_generated_commit: ee3590ba
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - comfyui
-created_at: 1785798984.686089
-updated_at: 1785798984.686089
+
 ---
 
 This is the ComfyUI acceptance section c07. Section C7 — Image generation: parameter sweep

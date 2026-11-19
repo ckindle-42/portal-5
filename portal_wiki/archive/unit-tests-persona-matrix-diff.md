@@ -1,19 +1,18 @@
 ---
 id: unit-tests-persona-matrix-diff
+historical: true
 kind: mixed
 title: "Tests persona-matrix diff \u2014 gated report comparison"
 sources:
 - type: code
   path: tests/persona_matrix_diff.py
   commit: 347dfc8a
-last_generated_commit: 347dfc8a
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
-created_at: 1785798798.5716171
-updated_at: 1785798798.5716171
+
 ---
 
 `persona_matrix_diff.py` diffs two persona-matrix reports — a baseline and a

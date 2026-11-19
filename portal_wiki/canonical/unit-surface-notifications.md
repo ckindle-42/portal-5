@@ -13,8 +13,7 @@ tags:
 - authored-v1
 - platform
 - notifications
-created_at: 1785886200.0
-updated_at: 1785886200.0
+
 ---
 
 The notifications subsystem is the operational-alert surface: backend-down and

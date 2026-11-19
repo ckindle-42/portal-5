@@ -10,8 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1785953825.388067
-updated_at: 1785957400.0
+
 ---
 
 `llama3.2:3b-instruct-q8_0-ctx8k` is a `-ctx8k`-tagged Ollama variant of `llama3.2:3b-instruct-q8_0` (registered `config/backends.yaml`, `general` group, `supports_tools: true`, live-audited via `_audit_tools_probe`), created via `ollama create` with a Modelfile-baked `PARAMETER num_ctx 8192`. It exists solely for `tests/benchmarks/bench_omlx_v3.py`'s shootout gate — Ollama's `/v1/chat/completions` endpoint silently ignores a runtime `options.num_ctx` override (verified live, Ollama 0.32.5), so a real context cap requires this baked-tag mechanism, matching every other `-ctxNk` model in the catalog. Not referenced by any `config/portal.yaml` workspace.

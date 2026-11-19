@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.640563
-updated_at: 1784946220.640563
+
 ---
 
 `hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M` is registered in `config/backends.yaml` twice, under the `general` group and under the `vision` group, and both entries set `supports_tools: false`. The vision entry's comment records that it is a thinking model, not an agentic one, and the first uncensored vision option in the fleet. `config/portal.yaml` binds it as the `bench-qwen35-9b-heretic-vision` workspace `model_hint`, whose description preserves the ~5.6GB Q4_K_M footprint, the trohrbaugh heretic-v2 abliteration (KLD 0.079, 6/100 refusals), and the 262K-to-1M context via YaRN. The Claude-4.6 distill label is treated as unverifiable-provenance marketing; both config files mark the intake as a V11 bench-only candidate with PROMOTE_POLICY=confirm.

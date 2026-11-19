@@ -13,8 +13,7 @@ tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1784944767.916281
-updated_at: 1784944767.916281
+
 ---
 
 1. Message **@BotFather** on Telegram -> `/newbot` -> copy the token

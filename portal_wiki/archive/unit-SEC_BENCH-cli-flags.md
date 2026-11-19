@@ -1,11 +1,11 @@
 ---
 id: unit-SEC_BENCH-cli-flags
+historical: true
 kind: what
 title: CLI flags for security bench
 sources:
 - type: code
   path: portal/modules/security/core/cli.py
-last_generated_commit: e7933ecd3f471c6f30d6a0f2b7a43465ee820bf4
 claims: []
 confidence: high
 tags:
@@ -13,8 +13,7 @@ tags:
 - cli
 - security
 - verified-v1
-created_at: 1784941806.3791192
-updated_at: 1784941806.3791192
+
 ---
 
 | Flag | Purpose |

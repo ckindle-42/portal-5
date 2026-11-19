@@ -10,8 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.577482
-updated_at: 1784946220.577482
+
 ---
 
 Mode C runs vanilla cloud Claude Code inside the repo with none of Portal's MCP

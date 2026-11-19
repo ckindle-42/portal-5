@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.657608
-updated_at: 1784946220.657608
+
 ---
 
 `qwen3-coder:30b-a3b-q4_K_M-ctx8k` is the derived tag of `qwen3-coder:30b-a3b-q4_K_M` with `PARAMETER num_ctx 8192` baked in via the `apply-params` command, needed because Ollama's `/v1/chat/completions` discards request-time `options.num_ctx`. `config/backends.yaml` registers it in `group: coding` with `supports_tools: true`. `config/portal.yaml` pins it as the `auto-cad` workspace `model_hint` with `context_limit: 8192`, so parametric 3D-model generation runs against the capped tag rather than the full-context base. Parent model detail lives in the base unit.

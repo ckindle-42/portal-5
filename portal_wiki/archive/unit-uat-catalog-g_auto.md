@@ -1,20 +1,19 @@
 ---
 id: unit-uat-catalog-g_auto
+historical: true
 kind: mixed
 title: "UAT catalog group \u2014 auto"
 sources:
 - type: code
   path: tests/uat_catalog/g_auto.py
   commit: fe7f1e7c
-last_generated_commit: fe7f1e7c
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - uat-catalog
-created_at: 1785799968.607732
-updated_at: 1785799968.607732
+
 ---
 
 This catalog group covers the auto workspace(s), exporting a `TESTS`

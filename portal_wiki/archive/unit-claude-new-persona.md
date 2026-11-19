@@ -1,19 +1,18 @@
 ---
 id: unit-claude-new-persona
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 New Persona"
 sources:
 - type: design
   path: CLAUDE.md
   section: New Persona
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.194378
-updated_at: 1785348301.194378
+
 ---
 
 1. Create `config/personas/<slug>.yaml` with: `name`, `slug`, `module`, `workspace_model`, `category`, and one of `system_prompt`/`prompt_template`

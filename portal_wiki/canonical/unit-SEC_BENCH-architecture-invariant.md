@@ -16,8 +16,7 @@ tags:
 - bench
 - security
 - verified-v1
-created_at: 1784941806.379471
-updated_at: 1784941806.379471
+
 ---
 
 The bench NEVER modifies Open WebUI or the pipeline. It communicates directly with:

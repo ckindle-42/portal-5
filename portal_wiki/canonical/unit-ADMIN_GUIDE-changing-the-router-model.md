@@ -15,8 +15,7 @@ tags:
 - ADMIN_GUIDE
 - docs
 - verified-v1
-created_at: 1783195000.815854
-updated_at: 1783195000.815854
+
 ---
 
 The router model is chosen through `.env`: `LLM_ROUTER_MODEL` (default `hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M`), `LLM_ROUTER_TIMEOUT_MS` (1000 for the primary, 500 for standby/fallback), plus `LLM_ROUTER_CONFIDENCE_THRESHOLD` and `LLM_ROUTER_ENABLED`. routing.py reads these into `_LLM_ROUTER_MODEL` and `_LLM_ROUTER_TIMEOUT_MS` at startup, and lifespan.py's `_warmup_llm_router` pre-loads the configured model with `keep_alive: -1`. Apply a change by editing `.env` and restarting only the pipeline container:

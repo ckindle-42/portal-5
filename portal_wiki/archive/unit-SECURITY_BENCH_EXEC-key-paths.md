@@ -1,18 +1,17 @@
 ---
 id: unit-SECURITY_BENCH_EXEC-key-paths
+historical: true
 kind: why
 title: "SECURITY_BENCH_EXEC \u2014 Key paths"
 sources:
 - type: design
   path: docs/SECURITY_BENCH_EXEC.md
   section: Key paths
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - SECURITY_BENCH_EXEC
-created_at: 1783195000.912896
-updated_at: 1783195000.912896
+
 ---
 
 - `_run_exec_chain()` in `__init__.py` — multi-model chain orchestrator

@@ -13,8 +13,7 @@ tags:
 - tests
 - integration
 - wiki
-created_at: 1785795634.517728
-updated_at: 1785795634.517728
+
 ---
 
 This integration test is the feature-complete proof of the wiki's

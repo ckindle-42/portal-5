@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.515291
-updated_at: 1784946220.515291
+
 ---
 
 Knowledge features are built on Open WebUI's RAG plus the pipeline's own

@@ -1,18 +1,17 @@
 ---
 id: unit-MLX_KV_FLAG_PROBE-mlx-kv-flag-capability-probe
+historical: true
 kind: why
 title: "MLX_KV_FLAG_PROBE \u2014 MLX KV-Flag Capability Probe"
 sources:
 - type: design
   path: docs/MLX_KV_FLAG_PROBE.md
   section: MLX KV-Flag Capability Probe
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - MLX_KV_FLAG_PROBE
-created_at: 1783195000.8777149
-updated_at: 1783195000.8777149
+
 ---
 
 

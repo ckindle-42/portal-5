@@ -1,19 +1,18 @@
 ---
 id: unit-scripts-bench_supervisor
+historical: true
 kind: mixed
 title: "Script \u2014 bench_supervisor"
 sources:
 - type: code
   path: scripts/bench_supervisor.py
   commit: 94ecf393
-last_generated_commit: 94ecf393
 claims: []
 confidence: high
 tags:
 - authored-v1
 - scripts
-created_at: 1785799454.6134698
-updated_at: 1785799454.6134698
+
 ---
 
 Launches the security bench as a subprocess, tails the log, detects known failure patterns across target/lab, model, and bench-logic classes, and takes predefined corrective actions by calling existing primitives — no LLM, no offensive capability, no frontier agent.

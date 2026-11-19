@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-s21_llm_router
+historical: true
 kind: mixed
 title: "S21 \u2014 LLM router"
 sources:
 - type: code
   path: tests/acceptance/s21_llm_router.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799801.407582
-updated_at: 1785799801.407582
+
 ---
 
 This is the acceptance section s21_llm_router. S21 — LLM router

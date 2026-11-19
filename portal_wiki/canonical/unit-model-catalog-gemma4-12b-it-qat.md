@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.6387851
-updated_at: 1784946220.6387851
+
 ---
 `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — sibling -ctx8k tag: 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` binds it as the `bench-gemma4-12b` workspace `model_hint` and names it in the `auto-audio` description as the first encoder-free audio model in the fleet (12B Unified QAT, ~7GB, 256K ctx, native function calling); the `auto-audio` workspace itself serves the derived `gemma4:12b-it-qat-ctx8k` tag. Released June 3, 2026; promoted to the `auto-audio` lane via its derived tag.
 

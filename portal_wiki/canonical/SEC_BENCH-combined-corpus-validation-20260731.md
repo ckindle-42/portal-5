@@ -28,8 +28,7 @@ tags:
 - security
 - validation
 - verified-v1
-created_at: 1785540000.0
-updated_at: 1785634440.0
+
 ---
 
 The live-probed combined-corpus gate passed at this stopping point. The planning

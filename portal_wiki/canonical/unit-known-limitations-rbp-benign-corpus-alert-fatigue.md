@@ -20,8 +20,7 @@ tags:
 - resolved
 - security
 - verified-v1
-created_at: 1785067200.0
-updated_at: 1785500996
+
 ---
 
 - **ID**: P5-SEC-BENIGN-CORPUS-001

@@ -48,8 +48,7 @@ tags:
 - security
 - structure
 - verified-v1
-created_at: 1784941806.37069
-updated_at: 1784941806.37069
+
 ---
 
 `bench_security` is a **package** (`portal/modules/security/core/`), decomposed from a single module. Chain execution, scoring, and lab-exec logic were further split into focused sub-modules; `chain.py` and `cli.py` are now thin re-export shims over the implementations that moved out.

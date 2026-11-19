@@ -1,18 +1,17 @@
 ---
 id: unit-SECURITY_BENCH_EXEC-chain-structure-3-models-2-rounds-6-turns
+historical: true
 kind: why
 title: "SECURITY_BENCH_EXEC \u2014 Chain structure (3 models \xD7 2 rounds = 6 turns)"
 sources:
 - type: design
   path: docs/SECURITY_BENCH_EXEC.md
   section: "Chain structure (3 models \xD7 2 rounds = 6 turns)"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - SECURITY_BENCH_EXEC
-created_at: 1783195000.909188
-updated_at: 1783195000.909188
+
 ---
 
 

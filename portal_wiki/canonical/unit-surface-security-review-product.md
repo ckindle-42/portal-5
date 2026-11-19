@@ -14,8 +14,7 @@ tags:
 - security
 - review
 - product
-created_at: 1791551882.0
-updated_at: 1791561222.0
+
 ---
 
 `portal/modules/security/core/review/` is the label-blind product path. The

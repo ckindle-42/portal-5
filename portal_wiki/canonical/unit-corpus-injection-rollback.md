@@ -11,8 +11,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.5859468
-updated_at: 1784946220.5859468
+
 ---
 
 Because every injected event is tagged `evidence_origin=corpus:<src>:<label>`

@@ -11,8 +11,7 @@ tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.842816
-updated_at: 1783195000.842816
+
 ---
 
 **What:** Generate Word (.docx), Excel (.xlsx), and PowerPoint (.pptx) files from chat.

@@ -10,8 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.608759
-updated_at: 1784946220.608759
+
 ---
 
 `phi4-reasoning:plus` is Phi-4-reasoning-plus at Q4 (~8GB, Microsoft, RL-trained with strong STEM/math capability). `config/backends.yaml` registers it in `group: coding` (`ollama-coding`) with `supports_tools: true`, so the coding lane can call a reasoning-capable model. Its derived sibling `phi4-reasoning:plus-ctx32k` sits in the same backend; a backends.yaml comment warns that the ctx32k variant is deliberately excluded from `group: reasoning` because it crashes Ollama's llama-server on load. No `config/portal.yaml` workspace pins either id as a `model_hint`.

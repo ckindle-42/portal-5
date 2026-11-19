@@ -12,8 +12,7 @@ tags:
 - authored-v1
 - wiki
 - adapter
-created_at: 1785797567.106965
-updated_at: 1785797567.106965
+
 ---
 
 The module toggle resolver answers the three resolver questions the module

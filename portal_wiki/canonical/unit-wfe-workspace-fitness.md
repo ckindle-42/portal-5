@@ -39,8 +39,7 @@ tags:
 - authored-v1
 - tests
 - evaluation
-created_at: 1788792773.476087
-updated_at: 1792680000
+
 ---
 
 The WFE harness evaluates a model IN its workspace context — persona system

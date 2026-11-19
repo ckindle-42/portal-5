@@ -16,8 +16,7 @@ tags:
 - capability
 - mcp
 - platform
-created_at: 1788030600.446044
-updated_at: 1791551932
+
 ---
 
 # Wiki MCP — canonical knowledge layer

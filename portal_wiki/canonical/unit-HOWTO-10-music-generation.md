@@ -13,8 +13,7 @@ tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.8455648
-updated_at: 1787872869
+
 ---
 
 **What:** Generate full songs — with lyrics/vocals or instrumental — from text descriptions, using MiniMax-Music3-MLX.

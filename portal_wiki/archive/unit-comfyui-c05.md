@@ -1,20 +1,19 @@
 ---
 id: unit-comfyui-c05
+historical: true
 kind: mixed
 title: "ComfyUI acceptance C5 \u2014 FLUX dev generation"
 sources:
 - type: code
   path: tests/comfyui/c05_flux_dev.py
   commit: ee3590ba
-last_generated_commit: ee3590ba
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - comfyui
-created_at: 1785799026.2191942
-updated_at: 1785799026.2191942
+
 ---
 
 This is the ComfyUI acceptance section C05. Image generation: FLUX dev.

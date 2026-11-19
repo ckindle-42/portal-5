@@ -14,8 +14,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.691529
-updated_at: 1784946220.691529
+
 ---
 
 The acceptance suite is a live-stack gate, deliberately separate from the mocked

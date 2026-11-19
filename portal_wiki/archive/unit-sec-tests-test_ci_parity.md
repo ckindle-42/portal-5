@@ -1,12 +1,12 @@
 ---
 id: unit-sec-tests-test_ci_parity
+historical: true
 kind: mixed
 title: "Security tests \u2014 test_ci_parity"
 sources:
 - type: code
   path: portal/modules/security/tests/test_ci_parity.py
   commit: 862c7b11
-last_generated_commit: 862c7b11
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - module
 - security
 - tests
-created_at: 1785800599.9863172
-updated_at: 1785800599.9863172
+
 ---
 
 Unit tests for the security module's test_ci_parity surface.

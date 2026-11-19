@@ -14,8 +14,7 @@ tags:
 - media
 - memory
 - verified-v1
-created_at: 1784057635.351039
-updated_at: 1784057635.351039
+
 ---
 
 # Media memory and launch order

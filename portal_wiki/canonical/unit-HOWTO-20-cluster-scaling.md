@@ -13,8 +13,7 @@ tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.8597472
-updated_at: 1783195000.8597472
+
 ---
 
 **What:** Add more machines to increase throughput — no pipeline code changes needed.

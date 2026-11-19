@@ -11,8 +11,7 @@ tags:
 - authored-v1
 - module
 - binary-research
-created_at: 1787786654.0
-updated_at: 1787786654.0
+
 ---
 
 The binary research harness is a CLI-first agent loop for static reverse

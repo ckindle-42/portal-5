@@ -1,19 +1,18 @@
 ---
 id: unit-claude-11-shared-workspace-is-the-only-path-for-user-file
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 11 \u2014 Shared Workspace Is The Only Path For User Files"
 sources:
 - type: design
   path: CLAUDE.md
   section: "11 \u2014 Shared Workspace Is The Only Path For User Files"
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.194357
-updated_at: 1785348301.194357
+
 ---
 
 

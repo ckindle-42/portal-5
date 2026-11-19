@@ -10,8 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1785716664.2314298
-updated_at: 1785716664.2314298
+
 ---
 
 `Qwen3-VL-32B-Instruct-4bit` is a 4-bit MLX conversion of Qwen3-VL-32B-Instruct registered in `config/backends.yaml` under `group: omlx` (`omlx-local`) with `supports_tools: false` — the group's live-probe notes record a passing vision probe, not structured tool calling. The `omlx` holding group carries no `workspace_routing` reference, so traffic reaches the model only through the tier-3 absolute fallback. Phase-0 Gate-6 recorded a 7.7s load and correct image understanding via OpenAI `image_url` parts. It is an evaluation candidate for the `auto-vision` lane, whose production primary is the GGUF `qwen3-vl:32b` family, and must clear a migration gate before any promotion.

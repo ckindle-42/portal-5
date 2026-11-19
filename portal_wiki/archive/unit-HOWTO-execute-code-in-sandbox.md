@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-execute-code-in-sandbox
+historical: true
 kind: why
 title: "HOWTO \u2014 Execute code in sandbox"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: Execute code in sandbox
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.8408709
-updated_at: 1783195000.8408709
+
 ---
 
 

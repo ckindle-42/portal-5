@@ -10,8 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.6003342
-updated_at: 1784946220.6003342
+
 ---
 
 `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0` is a ~25GB Unsloth GGUF of the Magistral-Small-2509 model with a `[THINK]` reasoning mode and Mistral lineage, pulled via the hf.co route because the `magistral:24b-small-2509-q8_0` tag is not in the Ollama registry. `config/backends.yaml` registers it under the `general` group with `supports_tools: false`. The template advertises an `[AVAILABLE_TOOLS]` format, but Ollama tool dispatch never fires — the model reasons about tools in prose instead of emitting tool_calls, which a direct API test confirmed. It has no `config/portal.yaml` workspace binding, so it exists purely as a general-pool entry.

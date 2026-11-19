@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.549702
-updated_at: 1784946220.549702
+
 ---
 
 The daily summary is a scheduled job rather than a threshold event. The scheduler registers `_send_daily_summary` on an APScheduler `CronTrigger` at the configured hour and timezone, and the job only exists when APScheduler is importable and `ALERT_SUMMARY_ENABLED` is truthy. The report is built from deltas against a persisted snapshot, so it describes the previous day's activity instead of cumulative totals since the container started.

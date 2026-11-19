@@ -21,8 +21,7 @@ tags:
 - module
 - security
 - verified-v1
-created_at: 1783886831.981568
-updated_at: 1783886831.981568
+
 ---
 
 # Security Module — RBP (Red/Blue/Purple) bench engine

@@ -10,8 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.6023412
-updated_at: 1784946220.6023412
+
 ---
 
 `portal5/gemma4-12b:q4_K_M-ctx8k` is the 8192-token capped tag of the Gemma 4 12B Q4 model (~7.6GB, Google). `config/backends.yaml` registers it in `group: general` with `supports_tools: true`. The cap exists because the 12B family's very large native context inflates KV-cache reservations and collapses TPS; the num_ctx 8192 limit is baked into this dedicated id via the `apply-params` command. It is not pinned by any `config/portal.yaml` workspace `model_hint`; it serves as a general-pool option. See the QAT sibling `gemma4:12b-it-qat` for the same-size family entry.

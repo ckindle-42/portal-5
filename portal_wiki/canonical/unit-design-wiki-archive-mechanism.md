@@ -19,8 +19,7 @@ tags:
 - archive
 - design
 - verified-v1
-created_at: 1785700000.0
-updated_at: 1785700000.0
+
 ---
 
 ## What

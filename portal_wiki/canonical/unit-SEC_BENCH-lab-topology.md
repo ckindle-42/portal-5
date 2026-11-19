@@ -15,8 +15,7 @@ tags:
 - security
 - topology
 - verified-v1
-created_at: 1784941806.377922
-updated_at: 1784941806.377922
+
 ---
 
 Proxmox 3 (10.0.0.203) hosts the lab:

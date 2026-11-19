@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-generate-code
+historical: true
 kind: why
 title: "HOWTO \u2014 Generate code"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: Generate code
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.8406558
-updated_at: 1783195000.8406558
+
 ---
 
 

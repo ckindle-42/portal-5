@@ -1,5 +1,6 @@
 ---
 id: unit-code-portal_channels
+historical: true
 kind: what
 title: portal_channels subsystem (4 files)
 sources:
@@ -15,13 +16,11 @@ sources:
 - type: code
   path: portal_channels/telegram/bot.py
   commit: 305368bb3e8d
-last_generated_commit: ''
 confidence: high
 tags:
 - code
 - portal_channels
-created_at: 1785503864.8322592
-updated_at: 1785503864.8322592
+
 ---
 
 # portal_channels subsystem

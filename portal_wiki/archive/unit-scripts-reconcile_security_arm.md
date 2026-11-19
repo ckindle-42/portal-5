@@ -1,19 +1,18 @@
 ---
 id: unit-scripts-reconcile_security_arm
+historical: true
 kind: mixed
 title: "Script \u2014 reconcile_security_arm"
 sources:
 - type: code
   path: scripts/reconcile_security_arm.py
   commit: 94ecf393
-last_generated_commit: 94ecf393
 claims: []
 confidence: high
 tags:
 - authored-v1
 - scripts
-created_at: 1785799550.662385
-updated_at: 1785799550.662385
+
 ---
 
 Closes the loop the RBP upgrade left open: discovers the live world, grounds every entry in fact, and applies updates so the declared world matches reality — deterministically.

@@ -14,8 +14,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.5466712
-updated_at: 1784946220.5466712
+
 ---
 
 Telegram accepts either dedicated alert credentials or the main bot variables: `TELEGRAM_ALERT_BOT_TOKEN` and `TELEGRAM_ALERT_CHANNEL_ID` take precedence, falling back to `TELEGRAM_BOT_TOKEN` and `TELEGRAM_USER_IDS`, where a comma-separated list uses its first entry. Messages POST to the bot's `sendMessage` method with Markdown parse mode, and a dedicated alert bot is recommended so operational noise never mixes with user-facing chat.

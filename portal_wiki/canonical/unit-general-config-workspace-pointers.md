@@ -13,8 +13,7 @@ tags:
 - module
 - general
 - config
-created_at: 1785794891.7058592
-updated_at: 1785794891.7058592
+
 ---
 
 The general module's config surface is a name-based pointer into

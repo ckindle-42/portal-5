@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.675589
-updated_at: 1784946220.675589
+
 ---
 
 The following models were evaluated and explicitly **refused** from the Portal 5 catalog. They exceed the M4 Pro 64 GB unified memory ceiling at the lowest quality-preserving quantization. Do not re-propose without a cluster scaling plan (ROADMAP Stage 3 vLLM node). The refuse list is preserved in `coding_task/TASK_MODEL_REFRESH_V7.md`, and the newer April-2026 exclusions are recorded in `coding_task/TASK_MODEL_REFRESH_V8.md`.

@@ -1,19 +1,18 @@
 ---
 id: unit-claude-checkpoint-backup-discipline-non-negotiable
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 Checkpoint Backup Discipline \u2014 Non-Negotiable"
 sources:
 - type: design
   path: CLAUDE.md
   section: "Checkpoint Backup Discipline \u2014 Non-Negotiable"
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.1943738
-updated_at: 1785348301.1943738
+
 ---
 
 

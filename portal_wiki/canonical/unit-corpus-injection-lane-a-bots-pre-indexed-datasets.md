@@ -9,8 +9,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.5822139
-updated_at: 1784946220.5822139
+
 ---
 
 BOTS ships as pre-indexed Splunk buckets, so it does **not** go through HEC.

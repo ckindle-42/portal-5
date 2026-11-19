@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-mlx-speech-voices-apple-silicon-primary
+historical: true
 kind: why
 title: "HOWTO \u2014 MLX Speech voices (Apple Silicon \u2014 primary)"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: "MLX Speech voices (Apple Silicon \u2014 primary)"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.847111
-updated_at: 1783195000.847111
+
 ---
 
 

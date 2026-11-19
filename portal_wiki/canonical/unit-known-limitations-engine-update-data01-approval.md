@@ -18,8 +18,7 @@ tags:
 - ollama
 - omlx
 - macos
-created_at: 1790333591
-updated_at: 1792680000
+
 ---
 
 - **ID**: P5-ENGINE-TCC-001

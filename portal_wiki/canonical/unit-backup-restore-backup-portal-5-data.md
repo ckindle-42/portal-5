@@ -11,8 +11,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.527649
-updated_at: 1784946220.527649
+
 ---
 
 The one-command entry point is `./launch.sh backup`, whose `_launch_backup` function orchestrates five artifacts in order: the `portal-5_open-webui-data` tarball, the `portal-5_grafana-data` tarball, a copy of `.env`, and the `config/` plus `imports/` trees. An optional positional argument overrides the output base directory, defaulting to `./backups`. Each volume tarball is produced through an alpine helper container that mounts the named volume directly, so the script does not depend on any single service being healthy.

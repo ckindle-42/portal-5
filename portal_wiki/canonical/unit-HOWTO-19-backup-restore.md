@@ -11,8 +11,7 @@ tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1784944767.916967
-updated_at: 1784944767.916967
+
 ---
 
 Backup and restore are implemented in `scripts/lib/backup.sh`.

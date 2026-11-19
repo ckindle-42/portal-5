@@ -16,8 +16,7 @@ tags:
 - capability
 - mcp
 - documents
-created_at: 1788030600.446044
-updated_at: 1788030600.446044
+
 ---
 
 # Documents MCP — office file create/read/convert

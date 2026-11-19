@@ -31,8 +31,7 @@ tags:
 - cad
 - module
 - verified-v1
-created_at: 1783821386.7899158
-updated_at: 1787845000.0
+
 ---
 
 # CAD Module — build123d BREP primary, OpenSCAD fallback

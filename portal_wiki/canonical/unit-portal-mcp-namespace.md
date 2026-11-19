@@ -11,8 +11,7 @@ confidence: high
 tags:
 - authored-v1
 - mcp
-created_at: 1785795040.43541
-updated_at: 1785795040.43541
+
 ---
 
 `portal_mcp` is the packaging namespace for Portal 5's vendored MCP service

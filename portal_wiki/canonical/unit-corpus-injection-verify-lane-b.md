@@ -11,8 +11,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.584086
-updated_at: 1784946220.584086
+
 ---
 
 Verifying a Lane B ship is a three-query ritual, all scoped by the

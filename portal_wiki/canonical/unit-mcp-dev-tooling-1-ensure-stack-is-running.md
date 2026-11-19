@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.573901
-updated_at: 1784946220.573901
+
 ---
 
 Every Portal MCP tool is a thin client that proxies to live services, so the stack

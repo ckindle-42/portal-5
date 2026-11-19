@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-playbooks
+historical: true
 kind: mixed
 title: "Playbooks \u2014 bounded engagement programs"
 sources:
 - type: code
   path: portal/modules/security/core/playbooks.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800269.394159
-updated_at: 1785800269.394159
+
 ---
 
 A playbook is a YAML file describing an engagement: phases with depends_on, conditions, and steps, plus mandatory scope, budget, and stop/escalate blocks so the autonomy loop has a bounded program.

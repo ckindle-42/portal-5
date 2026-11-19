@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.595176
-updated_at: 1784946220.595176
+
 ---
 
 `MODEL_CATALOG.md` is a rendered model catalog, not a runtime input. The authoritative

@@ -1,18 +1,17 @@
 ---
 id: unit-MLX_KV_FLAG_PROBE-interpretation-for-task-kv-proxy-v1
+historical: true
 kind: why
 title: "MLX_KV_FLAG_PROBE \u2014 Interpretation for TASK_KV_PROXY_V1"
 sources:
 - type: design
   path: docs/MLX_KV_FLAG_PROBE.md
   section: Interpretation for TASK_KV_PROXY_V1
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - MLX_KV_FLAG_PROBE
-created_at: 1783195000.878207
-updated_at: 1783195000.878207
+
 ---
 
 

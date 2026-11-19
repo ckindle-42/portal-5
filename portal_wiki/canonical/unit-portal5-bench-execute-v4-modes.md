@@ -13,8 +13,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.702423
-updated_at: 1784946220.702423
+
 ---
 
 `bench_tps.py` selects test tiers with `--mode` (choices in

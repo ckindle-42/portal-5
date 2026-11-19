@@ -1,12 +1,12 @@
 ---
 id: unit-sec-tests-test_emergent_recall
+historical: true
 kind: mixed
 title: "Security tests \u2014 test_emergent_recall"
 sources:
 - type: code
   path: portal/modules/security/tests/test_emergent_recall.py
   commit: 862c7b11
-last_generated_commit: 862c7b11
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - module
 - security
 - tests
-created_at: 1785800599.9863338
-updated_at: 1785800599.9863338
+
 ---
 
 Unit tests for the security module's test_emergent_recall surface.

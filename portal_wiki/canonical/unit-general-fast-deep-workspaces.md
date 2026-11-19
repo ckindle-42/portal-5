@@ -14,8 +14,7 @@ tags:
 - general
 - workspaces
 - omlx
-created_at: 1791244800.0
-updated_at: 1791244800.0
+
 ---
 
 `general-fast` (Qwen3.6-35B-A3B MoE) and `general-deep` (Qwen3.8-27B dense, MTP)

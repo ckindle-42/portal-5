@@ -12,8 +12,7 @@ tags:
 - authored-v1
 - platform
 - inference
-created_at: 1785797760.483242
-updated_at: 1785797760.483242
+
 ---
 
 `router_pipe.py` is the backwards-compatibility shim that keeps Open

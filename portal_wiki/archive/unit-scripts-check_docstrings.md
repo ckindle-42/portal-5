@@ -1,19 +1,18 @@
 ---
 id: unit-scripts-check_docstrings
+historical: true
 kind: mixed
 title: "Script \u2014 check_docstrings"
 sources:
 - type: code
   path: scripts/check_docstrings.py
   commit: 94ecf393
-last_generated_commit: 94ecf393
 claims: []
 confidence: high
 tags:
 - authored-v1
 - scripts
-created_at: 1785799465.4470332
-updated_at: 1785799465.4470332
+
 ---
 
 Walks every active Python file (excluding vendored trees and the duplicated deploy/playwright-mcp copy) and reports modules, classes, and functions missing docstrings.

@@ -23,8 +23,7 @@ confidence: high
 tags:
 - code
 - portal
-created_at: 1792204748.513469
-updated_at: 1792204748.513469
+
 ---
 
 # portal subsystem

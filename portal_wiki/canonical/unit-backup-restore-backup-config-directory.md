@@ -9,8 +9,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.526219
-updated_at: 1784946220.526219
+
 ---
 
 `_launch_backup` archives the configuration directory by copying it rather than tarring it: `cp -r config/` and `cp -r imports/` place the trees inside the backup path as plain directories. Because every backup run creates a fresh timestamped parent directory, the config copy can never collide with a previous run's snapshot. The `.env` file, when present, is copied alongside as a flat file so the whole backup is self-contained.

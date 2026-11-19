@@ -12,8 +12,7 @@ tags:
 - authored-v1
 - module
 - security
-created_at: 1785800269.394145
-updated_at: 1785800269.394145
+
 ---
 
 The decision engine, promoted to `portal.platform.agent.rank` and re-exported here for backward compatibility.

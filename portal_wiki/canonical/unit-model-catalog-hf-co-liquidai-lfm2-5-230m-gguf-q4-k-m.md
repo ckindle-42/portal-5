@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.6046212
-updated_at: 1784946220.6046212
+
 ---
 
 `hf.co/LiquidAI/LFM2.5-230M-GGUF:Q4_K_M` is Liquid AI's LFM2.5-230M Q4_K_M (~150MB Q4, Apache 2.0, hybrid LIV conv + GQA), the smallest practical LFM2.5, a pipeline-internal workspace classifier candidate probing the router quality floor at minimal latency. `config/backends.yaml` registers it in the `general` group with `supports_tools: false`. `config/portal.yaml` selects it as the `model_hint` for `bench-lfm-micro-230m`, whose description explicitly states it is NOT a primary chat model — bench target only, evaluated via bench_router.py Round 4 for routing accuracy and security-refusal behavior. The `supports_tools: false` flag matches its classification-only role.

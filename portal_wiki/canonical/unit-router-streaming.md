@@ -17,8 +17,7 @@ tags:
 - platform
 - inference
 - router
-created_at: 1785798117.610343
-updated_at: 1792381701.329016
+
 ---
 
 `streaming.py` is the streaming transport — pure bytes-in / SSE-bytes-out

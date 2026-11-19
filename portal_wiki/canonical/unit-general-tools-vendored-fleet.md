@@ -13,8 +13,7 @@ tags:
 - module
 - general
 - tools
-created_at: 1785794897.3152971
-updated_at: 1785794897.3152971
+
 ---
 
 The general module's base tool fleet is four externally vendored MCP

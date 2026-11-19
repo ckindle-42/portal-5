@@ -1,12 +1,12 @@
 ---
 id: unit-tool-preselect-test-parser
+historical: true
 kind: mixed
 title: "Preselector parser tests \u2014 noisy-output index contract"
 sources:
 - type: code
   path: portal/platform/inference/tool_preselect/tests/test_parser.py
   commit: b9ca6f31
-last_generated_commit: b9ca6f31
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - platform
 - tool-preselect
 - tests
-created_at: 1785796854.75889
-updated_at: 1785796854.75889
+
 ---
 
 This test file pins the ranker-output parser: extracting numbers from noisy

@@ -25,8 +25,7 @@ tags:
 - resolved
 - security
 - verified-v1
-created_at: 1784946220.6623669
-updated_at: 1785505564
+
 ---
 
 - **ID**: P5-SEC-META3-001

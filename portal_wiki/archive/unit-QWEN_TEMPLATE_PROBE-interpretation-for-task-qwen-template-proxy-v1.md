@@ -1,18 +1,17 @@
 ---
 id: unit-QWEN_TEMPLATE_PROBE-interpretation-for-task-qwen-template-proxy-v1
+historical: true
 kind: why
 title: "QWEN_TEMPLATE_PROBE \u2014 Interpretation for TASK_QWEN_TEMPLATE_PROXY_V1"
 sources:
 - type: design
   path: docs/QWEN_TEMPLATE_PROBE.md
   section: Interpretation for TASK_QWEN_TEMPLATE_PROXY_V1
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - QWEN_TEMPLATE_PROBE
-created_at: 1783195000.888937
-updated_at: 1783195000.888937
+
 ---
 
 

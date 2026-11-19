@@ -19,8 +19,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.686982
-updated_at: 1787936130.0
+
 ---
 
 MLX survives in four non-chat runtimes, each started by its own launcher:

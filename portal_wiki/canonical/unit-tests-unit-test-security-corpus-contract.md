@@ -9,8 +9,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.5
-updated_at: 1784946220.5
+
 ---
 
 `test_security_corpus_contract.py` is a single, focused contract test for the corpus definition shipped as `config/security_corpus.yaml`. It loads that YAML from the repo root and asserts the answer keys are visible only to the scorer, that the live portal source carries scenario proof while the public labeled source does not, that external scenario substitution stays disabled, and that no source may declare a theory data mode. It also pins the exact exclusion list for lab replay, requiring the cloud breach and confluence scenarios out while keeping the web-to-root scenario available for replay. The deliberately small surface makes drift obvious whenever the corpus config is edited.

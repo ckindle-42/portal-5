@@ -14,8 +14,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.706256
-updated_at: 1784946220.706256
+
 ---
 
 The execute agent's role is to run the security bench, not to build it.

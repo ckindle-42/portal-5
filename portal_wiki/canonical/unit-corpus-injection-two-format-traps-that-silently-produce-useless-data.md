@@ -13,8 +13,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.5836549
-updated_at: 1784946220.5836549
+
 ---
 
 Both traps were hit building Lane B, and neither fails loudly — they yield

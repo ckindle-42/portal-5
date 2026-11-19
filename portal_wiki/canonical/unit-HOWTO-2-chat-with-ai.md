@@ -15,8 +15,7 @@ tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.8392
-updated_at: 1783195000.8392
+
 ---
 
 **What:** Open WebUI connects to Portal Pipeline, which routes each request to the best-fit model.

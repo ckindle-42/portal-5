@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1790304303.634454
-updated_at: 1790304303.634454
+
 ---
 
 `Laguna-XS-2.1-4bit` is mlx-community's 4-bit MLX conversion of poolside/Laguna-XS-2.1 (33B total, 3B active, 262K context), served by oMLX. `config/backends.yaml` registers it in the no-traffic `omlx-local` holding entry (group `omlx`) and in the live `omlx-coding` entry (group `coding`, `priority: 10`), both with `supports_tools: true`. The `omlx-coding` `aliases` block maps `portal5/laguna-xs21:q4_K_M-ctx128k` (the auto-coding `laguna` variant's `model_hint`, derived from the Ollama library `laguna-xs-2.1`) onto this oMLX name, so oMLX serves the seat and Ollama is the fallback. It replaced Laguna-XS.2 on 2026-09-25.

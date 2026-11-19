@@ -12,8 +12,7 @@ tags:
 - authored-v1
 - tests
 - router
-created_at: 1785795519.573695
-updated_at: 1785795519.573695
+
 ---
 
 This test file pins the router's correlation-id logging contract: every

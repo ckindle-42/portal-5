@@ -20,8 +20,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.6741362
-updated_at: 1785460800
+
 ---
 
 - **ID**: P5-OLLAMA-OPTIONS-001

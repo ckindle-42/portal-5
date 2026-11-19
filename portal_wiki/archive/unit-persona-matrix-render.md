@@ -1,20 +1,19 @@
 ---
 id: unit-persona-matrix-render
+historical: true
 kind: mixed
 title: "Persona matrix render \u2014 PASS/WARN/FAIL grid"
 sources:
 - type: code
   path: portal/modules/eval/persona_matrix/render.py
   commit: db243698
-last_generated_commit: db243698
 claims: []
 confidence: high
 tags:
 - authored-v1
 - eval
 - persona-matrix
-created_at: 1785797006.6333282
-updated_at: 1785797006.6333282
+
 ---
 
 `render.py` turns the persona-matrix report into the console table: a

@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.649809
-updated_at: 1784946220.649809
+
 ---
 
 `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` is the derived 8K-context tag of the AppSec specialist and the only VulnLLM tag `config/portal.yaml` routes in production: it is the `model_hint` of the `auto-security` workspace, whose description binds it to authorized CVE/CWE analysis and hardening. `config/backends.yaml` registers it under the `security` group with `supports_tools: true`, while the base `Q4_K_M` id carries the bench and exec-chain roles. The lowercased `q4_K_M` quant segment is the pullable form `ollama create` mints for derived tags, so this spelling is authoritative over any uppercase variant.

@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1786390650.0
-updated_at: 1786390650.0
+
 ---
 
 `hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M` is the TASK-BATCH-BENCH-002 Part B.1 intake of Jackrong's DeepSeek-V4-Pro→Qwen3.5-9B reasoning distill (arch `qwen35`, ~5.8GB, embedded MTP draft heads, card claims 97.2% format-compliance) — a distillation-watch datapoint (Jackrong is on the watchlist per the `bench-qwopus-coder-mtp-v2` precedent) and a math/STEM reasoning candidate. Pulled clean with no arch errors (GATE-0b), standard `ollama pull hf.co/...` path, no workaround needed. `config/backends.yaml` registers it in the `general` group with `supports_tools: true`, confirmed by a direct `/api/chat` tool-call probe (clean, well-formed `tool_calls`). `config/portal.yaml` gives it the `bench-jackrong-dsv4-9b` workspace `model_hint`. Self-reported card benches (97.2% compliance) are UNVERIFIED until reproduced on this harness.

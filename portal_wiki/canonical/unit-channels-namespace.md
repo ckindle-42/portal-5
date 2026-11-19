@@ -11,8 +11,7 @@ confidence: high
 tags:
 - authored-v1
 - channels
-created_at: 1785795351.51374
-updated_at: 1785795351.51374
+
 ---
 
 The channels package is the namespace for Portal's two messenger adapters —

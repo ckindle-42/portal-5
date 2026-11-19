@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1786391976.0
-updated_at: 1786391976.0
+
 ---
 
 `hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF:Q4_K_M` is the TASK-BATCH-BENCH-002 Part B.2 intake of the 4B sibling of `bench-jackrong-dsv4-9b` (arch `qwen35`) — a cheap small-reasoner tier candidate. The bare `Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B` repo is safetensors-only (no GGUF at all); found the official `Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF` mirror instead, which uses standard Q4_K_M tag naming (unlike the 9B sibling's repo, no puller issues here) — pulled clean with `ollama pull hf.co/...`. `config/backends.yaml` registers it in the `general` group with `supports_tools: true`, confirmed by a direct `/api/chat` tool-call probe. `config/portal.yaml` gives it the `bench-jackrong-dsv4-4b` workspace `model_hint`.

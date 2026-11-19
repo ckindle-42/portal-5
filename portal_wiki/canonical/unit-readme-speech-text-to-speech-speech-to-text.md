@@ -14,8 +14,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.687758
-updated_at: 1787921600
+
 ---
 
 Portal 5 includes a native MLX speech server on Apple Silicon

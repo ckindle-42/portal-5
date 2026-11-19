@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.6134982
-updated_at: 1784946220.6134982
+
 ---
 
 `hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M` (~2.5GB, Microsoft fastcontext arxiv:2606.14066, mitkox GGUF) is the repository-exploration subagent model: it issues parallel READ/GLOB/GREP tool calls to locate relevant code and returns compact file+line citations, cutting main-agent exploration token burn on SWE-bench. `config/backends.yaml` registers it in the `general` group with `supports_tools: false` and in the `coding` group with `supports_tools: true` — the coding entry is what lets the explore_repository subagent use its three native tools. `config/portal.yaml` selects it as the `model_hint` for `bench-fastcontext`, whose description records the empty-content probe result and PROMOTE_POLICY=blocked pending a correct Modelfile. It is used by `pipeline_mcp.explore_repository()`, called by auto-coding before edits.

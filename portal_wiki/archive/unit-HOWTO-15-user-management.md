@@ -1,5 +1,6 @@
 ---
 id: unit-HOWTO-15-user-management
+historical: true
 kind: what
 title: HOWTO -- 15. User Management
 sources:
@@ -7,14 +8,12 @@ sources:
   path: docs/HOWTO.md
   commit: 455ec2f6
   section: 15. User Management
-last_generated_commit: e4e79f1d894d33cf7c3dfb9340dde71bd401a6cb
 claims: []
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1784944767.909774
-updated_at: 1784944767.909774
+
 ---
 
 ## Approve Pending Users

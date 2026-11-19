@@ -22,8 +22,7 @@ tags:
 - checklist
 - docs
 - verified-v1
-created_at: 1785464185.5918112
-updated_at: 1785464185.5918112
+
 ---
 
 # Adding new capabilities

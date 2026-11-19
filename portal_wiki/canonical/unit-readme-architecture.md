@@ -16,8 +16,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.6922922
-updated_at: 1784946220.6922922
+
 ---
 
 The deployment is a Docker compose stack plus host-native runtimes, orchestrated

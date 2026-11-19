@@ -1,20 +1,19 @@
 ---
 id: unit-uat-cli
+historical: true
 kind: mixed
 title: "UAT CLI \u2014 section-selection entry"
 sources:
 - type: code
   path: tests/uat/cli.py
   commit: d7dcc96a
-last_generated_commit: d7dcc96a
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - uat
-created_at: 1785799336.099338
-updated_at: 1785799336.099338
+
 ---
 
 The UAT CLI logic extracted from the driver monolith (phase D). The operator entry point remains `tests/portal5_uat_driver.py`.

@@ -13,8 +13,7 @@ tags:
 - module
 - security
 - commands
-created_at: 1785795357.189006
-updated_at: 1785795357.189006
+
 ---
 
 The commands subpackage is the extracted runner layer of the security

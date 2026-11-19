@@ -1,20 +1,19 @@
 ---
 id: unit-archive-mlx-watchdog
+historical: true
 kind: mixed
 title: "MLX watchdog \u2014 archived external supervisor"
 sources:
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-watchdog.py
   commit: 90ac134b
-last_generated_commit: 90ac134b
 claims: []
 confidence: high
 tags:
 - authored-v1
 - archive
 - mlx
-created_at: 1785797154.218142
-updated_at: 1785797154.218142
+
 ---
 
 This is the MLX watchdog v2 — an async, memory-aware monitor for the retired

@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-only-needed-once-takes-20-min-on-a-1-gbps-connecti
+historical: true
 kind: why
 title: "HOWTO \u2014 Only needed once; takes ~20 min on a 1 Gbps connection"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: Only needed once; takes ~20 min on a 1 Gbps connection
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.84987
-updated_at: 1783195000.84987
+
 ---
 
 ```

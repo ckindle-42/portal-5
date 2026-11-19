@@ -12,8 +12,7 @@ tags:
 - authored-v1
 - tests
 - scripts
-created_at: 1785796179.317337
-updated_at: 1785796179.317337
+
 ---
 
 The section-table regenerator maintains the Section Reference table in the

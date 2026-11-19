@@ -11,8 +11,7 @@ tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.857887
-updated_at: 1783195000.857887
+
 ---
 
 **What:** A single host directory that all Portal 5 services read from and write to. Files dropped in OWUI chat, MCP-generated outputs, and host-native script outputs all live here, eliminating cross-service file-bridging friction.

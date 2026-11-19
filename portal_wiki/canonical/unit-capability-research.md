@@ -14,8 +14,7 @@ tags:
 - capability
 - mcp
 - research
-created_at: 1788030600.446044
-updated_at: 1788030600.446044
+
 ---
 
 # Research MCP — web search and fetch

@@ -16,8 +16,7 @@ tags:
 - security
 - tiers
 - verified-v1
-created_at: 1784941806.377484
-updated_at: 1784941806.377484
+
 ---
 
 The bench supports three execution tiers:

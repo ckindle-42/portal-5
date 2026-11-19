@@ -13,8 +13,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.508598
-updated_at: 1784946220.508598
+
 ---
 
 `P7-PERF` is the comment marker for a batch of pipeline routing optimizations measured against `bench_tps.py` output. Grepping for `P7-PERF` surfaces the affected paths rather than any single module:

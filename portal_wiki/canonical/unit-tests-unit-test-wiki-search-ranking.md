@@ -12,8 +12,7 @@ tags:
 - test
 - verified-v1
 - wiki
-created_at: 1785833000.0
-updated_at: 1785833000.0
+
 ---
 
 ## What

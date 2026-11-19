@@ -1,5 +1,6 @@
 ---
 id: unit-code-portal_wiki
+historical: true
 kind: what
 title: portal_wiki subsystem (4 files)
 sources:
@@ -15,13 +16,11 @@ sources:
 - type: code
   path: portal_wiki/wiki_mcp.py
   commit: 305368bb3e8d
-last_generated_commit: ''
 confidence: high
 tags:
 - code
 - portal_wiki
-created_at: 1785503864.8326468
-updated_at: 1785503864.8326468
+
 ---
 
 # portal_wiki subsystem

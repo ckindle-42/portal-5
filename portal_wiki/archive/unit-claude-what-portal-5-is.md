@@ -1,19 +1,18 @@
 ---
 id: unit-claude-what-portal-5-is
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 What Portal 5 Is"
 sources:
 - type: design
   path: CLAUDE.md
   section: What Portal 5 Is
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.194298
-updated_at: 1785458075
+
 ---
 
 

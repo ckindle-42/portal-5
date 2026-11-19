@@ -1,12 +1,12 @@
 ---
 id: unit-router-correlation
+historical: true
 kind: mixed
 title: "Router correlation \u2014 per-request trace-id stamping"
 sources:
 - type: code
   path: portal/platform/inference/router/correlation.py
   commit: d7c1d4f4
-last_generated_commit: d7c1d4f4
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - platform
 - inference
 - router
-created_at: 1785798070.092612
-updated_at: 1785798070.092612
+
 ---
 
 `correlation.py` is the correlation-id plumbing: it generates, sets, and

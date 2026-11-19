@@ -1,20 +1,19 @@
 ---
 id: unit-wiki-adapter-writeback-module
+historical: true
 kind: mixed
 title: "Wiki module write-back \u2014 unit-as-state toggle"
 sources:
 - type: code
   path: portal/platform/wiki/adapters/writeback_module.py
   commit: 94445e95
-last_generated_commit: 94445e95
 claims: []
 confidence: high
 tags:
 - authored-v1
 - wiki
 - adapter
-created_at: 1785797615.073633
-updated_at: 1785797615.073633
+
 ---
 
 The module write-back adapter flips a `unit-module-<name>` unit's fenced

@@ -12,8 +12,7 @@ tags:
 - module
 - security
 - bully
-created_at: 1786751207.0
-updated_at: 1786751207.0
+
 ---
 
 `portal.modules.security.core.bully` contains the retained Bully review, intake, data-plane, corpus, discovery, and evaluation modules. The former autonomous hunt CLI and orchestrator were removed during consolidation; this page describes the code that remains and does not claim an end-to-end hunt product path.

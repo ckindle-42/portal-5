@@ -14,8 +14,7 @@ tags:
 - security
 - sources
 - verified-v1
-created_at: 1784941806.378324
-updated_at: 1784941806.378324
+
 ---
 
 Attack chains are grounded in four external sources:

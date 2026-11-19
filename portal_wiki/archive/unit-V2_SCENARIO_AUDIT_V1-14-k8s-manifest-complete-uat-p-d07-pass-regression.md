@@ -1,5 +1,6 @@
 ---
 id: unit-V2_SCENARIO_AUDIT_V1-14-k8s-manifest-complete-uat-p-d07-pass-regression
+historical: true
 kind: why
 title: "V2_SCENARIO_AUDIT_V1 \u2014 14. `k8s-manifest-complete` (UAT P-D07 \u2014\
   \ PASS regression guard)"
@@ -7,13 +8,11 @@ sources:
 - type: design
   path: docs/V2_SCENARIO_AUDIT_V1.md
   section: "14. `k8s-manifest-complete` (UAT P-D07 \u2014 PASS regression guard)"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - V2_SCENARIO_AUDIT_V1
-created_at: 1783195000.926222
-updated_at: 1783195000.926222
+
 ---
 
 

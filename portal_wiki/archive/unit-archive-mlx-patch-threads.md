@@ -1,20 +1,19 @@
 ---
 id: unit-archive-mlx-patch-threads
+historical: true
 kind: mixed
 title: "MLX thread patch \u2014 archived dependency-upgrade burden"
 sources:
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/patch-mlx-threads.py
   commit: 90ac134b
-last_generated_commit: 90ac134b
 claims: []
 confidence: high
 tags:
 - authored-v1
 - archive
 - mlx
-created_at: 1785797160.858874
-updated_at: 1785797160.858874
+
 ---
 
 This is the MLX thread-patch script, archived with the retired MLX stack:

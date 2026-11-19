@@ -10,8 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.600791
-updated_at: 1784946220.600791
+
 ---
 
 `hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf` is the mradermacher "heretic" uncensored Q4 of Gemma 4 26B A4B (~17GB). `config/backends.yaml` registers it in the `general` group only, with `supports_tools: false`. It is NOT present in `config/portal.yaml`: no workspace `model_hint` references it, consistent with the mapping's `in_portal: false`. The doc body's "auto-creative primary" label is historical — `auto-creative` has since been upgraded to the HauhauCS uncensored Qwen3.6-35B model, whose description records that upgrade away from gemma-4-heretic. The general-group registration keeps the heretic Q4 as a fallback-pool entry rather than a pinned creative lane.

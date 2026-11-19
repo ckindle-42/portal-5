@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.5058901
-updated_at: 1784946220.5058901
+
 ---
 
 `run_loop` enforces the Campaign-Supervisor discipline:

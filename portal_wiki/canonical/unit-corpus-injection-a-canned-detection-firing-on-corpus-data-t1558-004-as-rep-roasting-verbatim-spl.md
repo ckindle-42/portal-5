@@ -12,8 +12,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.585215
-updated_at: 1784946220.585215
+
 ---
 
 T1558.004 (AS-REP roasting) is one of the canned detections the injection lane

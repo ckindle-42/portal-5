@@ -1,19 +1,18 @@
 ---
 id: unit-scripts-v2_corpus_baseline
+historical: true
 kind: mixed
 title: "Script \u2014 v2_corpus_baseline"
 sources:
 - type: code
   path: scripts/v2_corpus_baseline.py
   commit: 94ecf393
-last_generated_commit: 94ecf393
 claims: []
 confidence: high
 tags:
 - authored-v1
 - scripts
-created_at: 1785799580.002317
-updated_at: 1785799580.002317
+
 ---
 
 Produces the V2 corpus baseline from a detached pre-V3 checkout, supplying only V2 section fields with no mentor, budgets, barrier tools, or V4 switches.

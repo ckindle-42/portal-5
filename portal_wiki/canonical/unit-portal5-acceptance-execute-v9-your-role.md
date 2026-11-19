@@ -13,8 +13,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.693929
-updated_at: 1784946220.693929
+
 ---
 
 The acceptance operator acts as the execution agent for the suite: launch the

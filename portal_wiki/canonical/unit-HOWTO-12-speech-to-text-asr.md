@@ -13,8 +13,7 @@ tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.84798
-updated_at: 1787931459.0
+
 ---
 
 **What:** Transcribe audio files to text — MLX-native ASR, with a Docker Whisper fallback for non-Apple-Silicon nodes.

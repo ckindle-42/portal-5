@@ -8,8 +8,7 @@ sources:
 claims: []
 confidence: high
 tags: [known-limitations, music, apple-silicon]
-created_at: 1787857994
-updated_at: 1787872869
+
 ---
 
 ### MiniMax-Music3-MLX Apple-Silicon-Only, No Continuation, Community License

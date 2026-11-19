@@ -36,8 +36,7 @@ tags:
 - inference
 - omlx
 - verified-v1
-created_at: 1785719000.0
-updated_at: 1793217575.0
+
 ---
 
 # oMLX dual-backend plumbing (Phase 1 / B1, landed 2026-08-02)

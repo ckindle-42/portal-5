@@ -1,19 +1,18 @@
 ---
 id: unit-claude-known-limitations
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 Known Limitations"
 sources:
 - type: design
   path: CLAUDE.md
   section: Known Limitations
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.194387
-updated_at: 1785348301.194387
+
 ---
 
 

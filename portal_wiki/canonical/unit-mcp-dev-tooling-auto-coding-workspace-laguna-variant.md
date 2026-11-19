@@ -20,8 +20,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.5778859
-updated_at: 1784946220.5778859
+
 ---
 
 The `laguna` variant of the `auto-coding` workspace is the default agentic coding lane

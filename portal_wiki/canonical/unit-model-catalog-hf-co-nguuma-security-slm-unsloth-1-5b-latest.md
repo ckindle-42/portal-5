@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.622539
-updated_at: 1784946220.622539
+
 ---
 
 `hf.co/Nguuma/security-slm-unsloth-1.5b:latest` is a ~1.1GB DeepSeek-R1-distill fine-tune on security corpora, registered in `config/backends.yaml` under both the `general` and `security` groups with `supports_tools: false` in each. The security-group entry's comment explains the flag: a direct Ollama audit found the Modelfile TEMPLATE is a bare DeepSeek-R1-style chat template with no `{{ .Tools }}` handling, so the model hallucinates freeform as-if tool usage in prose instead of emitting a real call. `config/portal.yaml` binds it only to the `bench-security-slm-1p5b` bench workspace with `tools` deliberately empty, scoring prose and chain-of-thought alone.

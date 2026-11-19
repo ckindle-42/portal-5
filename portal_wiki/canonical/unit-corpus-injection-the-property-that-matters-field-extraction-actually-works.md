@@ -12,8 +12,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.584824
-updated_at: 1784946220.584824
+
 ---
 
 The property that makes an injected corpus huntable is not that events landed,

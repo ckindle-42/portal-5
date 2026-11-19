@@ -1,6 +1,6 @@
 ---
 id: unit-config-file-roles
-kind: authored
+kind: mixed
 title: "Config files — which are hand-edited and which are derived"
 sources:
 - type: code
@@ -33,8 +33,7 @@ claims: []
 confidence: high
 tags:
 - operator
-created_at: 1788030600.446044
-updated_at: 1788030600.446044
+
 ---
 The file list itself is computed live (`unit-fact-config-index` via the wiki MCP). This unit
 records each file's role.

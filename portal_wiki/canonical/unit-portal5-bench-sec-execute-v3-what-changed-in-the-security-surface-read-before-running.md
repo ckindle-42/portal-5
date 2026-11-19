@@ -17,8 +17,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.704969
-updated_at: 1784946220.704969
+
 ---
 
 The collapse (commit b5f2a052) folded nine security workspaces into one

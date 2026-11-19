@@ -10,8 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.572661
-updated_at: 1784946220.572661
+
 ---
 
 `opencode.jsonc` at the repo root tells opencode to use Portal 5 as its AI backend

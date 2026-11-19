@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.521163
-updated_at: 1784946220.521163
+
 ---
 
 Teardown is lighter than the doc advertised: launch.sh implements only lab-down,

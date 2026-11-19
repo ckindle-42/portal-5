@@ -12,8 +12,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.7012339
-updated_at: 1784946220.7012339
+
 ---
 
 Full bench runs take hours: the default `--runs 5` multiplies every direct

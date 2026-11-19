@@ -9,8 +9,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.509892
-updated_at: 1784946220.509892
+
 ---
 
 The Layer-2 keyword scorer (`_detect_workspace` in `portal/platform/inference/router/routing.py`) ranks the last user message against per-workspace keyword dictionaries. At module import time the router pre-compiles every workspace's keyword dict to lowercase into the module-level `_KEYWORD_CACHE`, a `{workspace_id: {keyword: weight}}` map.

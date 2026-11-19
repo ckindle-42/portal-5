@@ -18,8 +18,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.591037
-updated_at: 1784946220.591037
+
 ---
 
 P5-FUT-006 is implemented as Layer 1 of auto-routing. `_route_with_llm()`

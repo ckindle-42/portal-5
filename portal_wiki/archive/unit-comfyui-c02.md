@@ -1,20 +1,19 @@
 ---
 id: unit-comfyui-c02
+historical: true
 kind: mixed
 title: "Section C2 \u2014 MCP bridge health (comfyui_mcp, video_mcp)"
 sources:
 - type: code
   path: tests/comfyui/c02_mcp_health.py
   commit: ee3590ba
-last_generated_commit: ee3590ba
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - comfyui
-created_at: 1785798974.063594
-updated_at: 1785798974.063594
+
 ---
 
 This is the ComfyUI acceptance section c02. Section C2 — MCP bridge health (comfyui_mcp, video_mcp)

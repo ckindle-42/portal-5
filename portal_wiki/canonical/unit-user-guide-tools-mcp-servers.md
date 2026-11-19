@@ -22,8 +22,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.514928
-updated_at: 1788032812
+
 ---
 
 Tool servers are registered with Open WebUI from `imports/openwebui/mcp-servers.json`,

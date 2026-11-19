@@ -1,20 +1,19 @@
 ---
 id: unit-notifications-init
+historical: true
 kind: mixed
 title: "Notifications subsystem \u2014 operational alert surface"
 sources:
 - type: code
   path: portal/platform/inference/notifications/__init__.py
   commit: 7383d070
-last_generated_commit: 7383d070
 claims: []
 confidence: high
 tags:
 - authored-v1
 - notifications
 - platform
-created_at: 1785796451.3297448
-updated_at: 1785796451.3297448
+
 ---
 
 The notifications subsystem is Portal's operational-alert surface: it sends

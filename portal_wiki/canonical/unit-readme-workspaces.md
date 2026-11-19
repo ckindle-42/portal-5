@@ -14,8 +14,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.679355
-updated_at: 1784946220.679355
+
 ---
 
 Select a workspace in the Open WebUI model dropdown to activate the right model

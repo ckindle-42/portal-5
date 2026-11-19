@@ -10,8 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.640996
-updated_at: 1784946220.640996
+
 ---
 
 `dolphin-llama3:8b` is registered in `config/backends.yaml` under the `general` group and the `creative` group, both with `supports_tools: false`. It is an uncensored, creative-tuned model dispatched only through the Path 2 (OWUI MCP) route; the pipeline never attaches tools to `auto-creative` requests, consistent with the tool-negative flags on both registrations.

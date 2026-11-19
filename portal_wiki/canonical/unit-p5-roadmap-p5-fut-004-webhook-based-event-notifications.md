@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.590606
-updated_at: 1784946220.590606
+
 ---
 
 P5-FUT-004 is implemented. `WebhookChannel`

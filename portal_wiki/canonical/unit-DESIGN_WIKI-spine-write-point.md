@@ -16,8 +16,7 @@ tags:
 - spine
 - verified-v1
 - wiki
-created_at: 1784941688.641715
-updated_at: 1784941688.641715
+
 ---
 
 The `portal_wiki/canonical/` spine stores authored knowledge. Live fact units are computed on demand through the wiki MCP and are not stored there. When a release needs managed documentation refreshed, `portal docs build` runs `render_all_generated_blocks` across the `TIER1_DOCS` set and renders the generated views.

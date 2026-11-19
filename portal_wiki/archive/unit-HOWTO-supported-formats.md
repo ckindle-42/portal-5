@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-supported-formats
+historical: true
 kind: why
 title: "HOWTO \u2014 Supported formats"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: Supported formats
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.852588
-updated_at: 1783195000.852588
+
 ---
 
 

@@ -15,8 +15,7 @@ tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.846459
-updated_at: 1787922000
+
 ---
 
 **What:** Convert text to spoken audio using MLX-native speech (Kokoro narration + Higgs Audio v2 voice cloning).

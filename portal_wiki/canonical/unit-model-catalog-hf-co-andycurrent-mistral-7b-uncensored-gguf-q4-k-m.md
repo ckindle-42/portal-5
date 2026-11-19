@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.597922
-updated_at: 1784946220.597922
+
 ---
 
 `hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M` (~4.4GB, Andycurrent GGUF of the luvGPT base, Mistral-7B lineage) is a V13-A candidate intake, LINEAGE-DIVERSITY play for the Nano/Micro tier. `config/backends.yaml` declares it in the `general` group only, with `supports_tools: false` — the comment records the Step 1A preflight `/api/chat` probe that returned "does not support tools" because the model template lacks a `.Tools` declaration. `config/portal.yaml` selects it as the `model_hint` for `bench-mistral7b-uncensored`, whose description sets `tools: []` accordingly and keeps it on the bench lane. Mistral is not otherwise represented in the fleet, the same diversity-rationale class as `lfm2.5:8b`.

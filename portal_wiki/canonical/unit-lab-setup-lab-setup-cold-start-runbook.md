@@ -14,8 +14,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.517716
-updated_at: 1784946220.517716
+
 ---
 
 Cold starts follow a two-tier model. Tier 1 is the expensive, rare, idempotent

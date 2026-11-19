@@ -17,8 +17,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.5688782
-updated_at: 1784946220.5688782
+
 ---
 
 The `--include-big-models` flag and the `big_model` field still exist in the persona-matrix driver, but the policy's original claim — that specific models are flagged `big_model: true` in `config/backends.yaml` — is stale. No `big_model: true` marker exists anywhere in `backends.yaml` today, and the loader hardcodes `big_model` to `False` for every model it resolves (`models_in_group` in `loaders.py` and the explicit-models path in `sweep.py`). The pre-retirement MLX-era entries the policy named — `Qwen3-Coder-Next-4bit`, `Llama-3.3-70B-Instruct-4bit`, `Qwen3-VL-32B-Instruct-8bit` — are gone; the current catalog uses Ollama ids such as `qwen3-coder:30b-a3b-q4_K_M`, and the Qwen3-VL-32B entries are the Ollama builds `qwen3-vl:32b` / `qwen3-vl:32b-ctx8k`, the latter pinned by the `auto-vision` workspace.

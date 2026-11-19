@@ -14,8 +14,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.575579
-updated_at: 1784946220.575579
+
 ---
 
 opencode runs in Portal mode by default inside the repo: bare `opencode .` reads

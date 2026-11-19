@@ -13,8 +13,7 @@ tags:
 - ADMIN_GUIDE
 - docs
 - verified-v1
-created_at: 1783195000.8172958
-updated_at: 1783195000.8172958
+
 ---
 
 Ollama reports resident models through its `/api/ps` endpoint. The shell check is:

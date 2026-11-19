@@ -11,8 +11,7 @@ tags:
 - authored-v1
 - archive
 - mlx
-created_at: 1785887000.0
-updated_at: 1785887000.0
+
 ---
 
 Portal 5 ran a dual-stack inference arrangement until commit `75c24a9`,

@@ -16,8 +16,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.579963
-updated_at: 1784946220.579963
+
 ---
 
 The pipeline exposes Prometheus text on /metrics from `portal/platform/inference/router/handlers.py`.

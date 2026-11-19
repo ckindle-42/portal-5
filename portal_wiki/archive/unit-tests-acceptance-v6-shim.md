@@ -1,19 +1,18 @@
 ---
 id: unit-tests-acceptance-v6-shim
+historical: true
 kind: mixed
 title: "Tests acceptance v6 \u2014 entry + section structure shim"
 sources:
 - type: code
   path: tests/portal5_acceptance_v6.py
   commit: 347dfc8a
-last_generated_commit: 347dfc8a
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
-created_at: 1785798808.12076
-updated_at: 1785798808.12076
+
 ---
 
 `portal5_acceptance_v6.py` is the stable entry point for the V6 acceptance

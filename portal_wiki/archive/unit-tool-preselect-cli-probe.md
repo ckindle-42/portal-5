@@ -1,20 +1,19 @@
 ---
 id: unit-tool-preselect-cli-probe
+historical: true
 kind: mixed
 title: "Tool preselector CLI probe \u2014 legible ranking inspection"
 sources:
 - type: code
   path: portal/platform/inference/tool_preselect/cli_probe.py
   commit: b9ca6f31
-last_generated_commit: b9ca6f31
 claims: []
 confidence: high
 tags:
 - authored-v1
 - platform
 - tool-preselect
-created_at: 1785796809.048102
-updated_at: 1785796809.048102
+
 ---
 
 `cli_probe.py` is the interactive probe harness for the tool preselector: it

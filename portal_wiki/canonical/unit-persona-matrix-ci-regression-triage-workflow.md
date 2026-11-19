@@ -17,8 +17,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.569202
-updated_at: 1784946220.569202
+
 ---
 
 When a CI sweep surfaces a regression, the diff names the exact cell: `persona_matrix_diff.py` indexes cells by `(persona, backend, model)` and prints regressions as `persona on backend/model` with the PASS-rate delta in percentage points. To reproduce the cell in isolation, run the driver locally with the substring filters the CLI supports — `--workspace`, `--persona`, `--model`, `--output` (an output path such as one under `/tmp`) — so the sweep executes only that one cell. The JSON report's per-scenario entries carry the assertion `name`, `passed`, `severity`, and `detail` (built by `run_cell` in `sweep.py`), so you can see which assertion flipped from PASS to FAIL.

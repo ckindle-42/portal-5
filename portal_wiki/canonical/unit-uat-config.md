@@ -12,8 +12,7 @@ tags:
 - authored-v1
 - tests
 - uat
-created_at: 1785799258.369716
-updated_at: 1785799258.369716
+
 ---
 
 The env constants, timeouts, memory thresholds, and result paths for the UAT driver, extracted verbatim from the monolith.

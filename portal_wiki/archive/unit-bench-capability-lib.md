@@ -1,20 +1,19 @@
 ---
 id: unit-bench-capability-lib
+historical: true
 kind: mixed
 title: "Bench capability lib \u2014 shared reasoning-aware scoring"
 sources:
 - type: code
   path: tests/benchmarks/capability_lib.py
   commit: 071aaf52
-last_generated_commit: 071aaf52
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - bench
-created_at: 1785798623.4842172
-updated_at: 1785798623.4842172
+
 ---
 
 `capability_lib.py` is the shared helper library for the capability bench:

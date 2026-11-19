@@ -11,8 +11,7 @@ tags:
 - known-limitations
 - ollama
 - memory
-created_at: 1792540800
-updated_at: 1792627200
+
 ---
 
 #### Ollama 0.40 `/api/ps` under-reports llamacpp-runner residents — the load guard unloads to measure (2026-10-21)

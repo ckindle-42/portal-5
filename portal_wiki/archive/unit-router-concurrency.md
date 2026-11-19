@@ -1,12 +1,12 @@
 ---
 id: unit-router-concurrency
+historical: true
 kind: mixed
 title: "Router concurrency \u2014 three-tier semaphores + RequestSlot"
 sources:
 - type: code
   path: portal/platform/inference/router/concurrency.py
   commit: d7c1d4f4
-last_generated_commit: d7c1d4f4
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - platform
 - inference
 - router
-created_at: 1785798058.258883
-updated_at: 1785798058.258883
+
 ---
 
 `concurrency.py` owns the request-concurrency machinery: the three

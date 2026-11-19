@@ -14,8 +14,7 @@ tags:
 - capability
 - mcp
 - general
-created_at: 1788030600.446044
-updated_at: 1788030600.446044
+
 ---
 
 # Git MCP — vendored IDE repository operations

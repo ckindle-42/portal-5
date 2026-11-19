@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.570229
-updated_at: 1784946220.570229
+
 ---
 
 Portal 5 ships two root-level configuration files that wire AI coding tools into the

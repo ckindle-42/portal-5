@@ -11,8 +11,7 @@ tags:
 - authored-v1
 - tests
 - uat
-created_at: 1785882600.0
-updated_at: 1785882600.0
+
 ---
 
 The UAT scenario catalog is a package of independent data modules. Each group module exports a `TESTS` list for one workspace family, and the package entrypoint concatenates those lists into `TEST_CATALOG`.

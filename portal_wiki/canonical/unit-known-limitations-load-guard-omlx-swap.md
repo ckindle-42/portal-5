@@ -15,8 +15,7 @@ tags:
 - known-limitations
 - omlx
 - memory
-created_at: 1792627200
-updated_at: 1792684036
+
 ---
 
 #### Load guard refused during an oMLX model swap (2026-10-22)

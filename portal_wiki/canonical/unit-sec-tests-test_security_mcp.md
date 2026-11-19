@@ -12,8 +12,7 @@ tags:
 - module
 - security
 - tests
-created_at: 1785800599.9864042
-updated_at: 1785800599.9864042
+
 ---
 
 The security MCP server. The in-tree suite that mocked torch and transformers to call it was removed in the phase-1c test trim.

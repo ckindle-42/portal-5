@@ -16,8 +16,7 @@ tags:
 - authored-v1
 - mcp
 - memory
-created_at: 1785795062.696089
-updated_at: 1785795062.696089
+
 ---
 
 The memory MCP gives the platform a cross-conversation persistent store,

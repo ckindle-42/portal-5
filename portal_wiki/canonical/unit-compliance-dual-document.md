@@ -11,8 +11,7 @@ tags:
 - compliance
 - delivery
 - payload
-created_at: 1760000000.0
-updated_at: 1760000000.0
+
 ---
 
 # Compliance dual-document payload

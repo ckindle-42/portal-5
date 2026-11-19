@@ -1,12 +1,12 @@
 ---
 id: unit-sec-tests-test_selfindex_fidelity
+historical: true
 kind: mixed
 title: "Security tests \u2014 test_selfindex_fidelity"
 sources:
 - type: code
   path: portal/modules/security/tests/test_selfindex_fidelity.py
   commit: 862c7b11
-last_generated_commit: 862c7b11
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - module
 - security
 - tests
-created_at: 1785800599.986408
-updated_at: 1785800599.986408
+
 ---
 
 Unit tests for the security module's test_selfindex_fidelity surface.

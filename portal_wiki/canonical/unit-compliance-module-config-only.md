@@ -12,8 +12,7 @@ tags:
 - authored-v1
 - module
 - compliance
-created_at: 1785794863.449652
-updated_at: 1785794863.449652
+
 ---
 
 The compliance module is a config-only discipline, the same shape as the

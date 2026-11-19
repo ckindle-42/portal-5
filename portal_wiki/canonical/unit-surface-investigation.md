@@ -12,8 +12,7 @@ tags:
 - module
 - security
 - investigation
-created_at: 1785884400.0
-updated_at: 1785884400.0
+
 ---
 
 The investigation subpackage is the investigation layer of the RBP engine: the immutable evidence store, the per-case case notebook, and the honesty bench. Every tool call during an engagement produces one `EvidenceRecord` in the append-only `EvidenceStore`, graded by `SourceAuthority` so reasoning can weight source trust separately from content.

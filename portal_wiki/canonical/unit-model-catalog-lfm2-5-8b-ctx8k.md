@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.65502
-updated_at: 1784946220.65502
+
 ---
 
 `lfm2.5:8b-ctx8k` is the derived tag of `lfm2.5:8b` with `PARAMETER num_ctx 8192` baked in via the `apply-params` command, needed because Ollama's `/v1/chat/completions` drops request-time `options.num_ctx`. `config/backends.yaml` lists it in `group: general` and `group: security` with `supports_tools: true`, mirroring its parent. `config/portal.yaml` makes it the `auto-music` workspace `model_hint` with `context_limit: 8192`, so music generation runs against the capped tag rather than the full-context base. Base model detail lives in the parent unit.

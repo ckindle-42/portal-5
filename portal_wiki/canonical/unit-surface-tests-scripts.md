@@ -10,8 +10,7 @@ confidence: high
 tags:
 - authored-v1
 - tests
-created_at: 1785883600.0
-updated_at: 1785883600.0
+
 ---
 
 The `tests/scripts/*.py` bench analyzers share one contract: parse a results

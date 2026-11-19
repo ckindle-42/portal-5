@@ -12,8 +12,7 @@ tags:
 - authored-v1
 - tests
 - bench
-created_at: 1785798600.97055
-updated_at: 1785798600.97055
+
 ---
 
 `bench_mlx_hf.py` pulls a HuggingFace mlx-community safetensors repository

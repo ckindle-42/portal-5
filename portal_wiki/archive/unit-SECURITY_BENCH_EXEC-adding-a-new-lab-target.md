@@ -1,18 +1,17 @@
 ---
 id: unit-SECURITY_BENCH_EXEC-adding-a-new-lab-target
+historical: true
 kind: why
 title: "SECURITY_BENCH_EXEC \u2014 Adding a new lab target"
 sources:
 - type: design
   path: docs/SECURITY_BENCH_EXEC.md
   section: Adding a new lab target
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - SECURITY_BENCH_EXEC
-created_at: 1783195000.9133341
-updated_at: 1783195000.9133341
+
 ---
 
 1. Add env vars to `.env` and `_data.py` fallback block

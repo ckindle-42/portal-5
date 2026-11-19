@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.634649
-updated_at: 1784946220.634649
+
 ---
 
 `portal5/qwen3.6-27b-mtp:q8_0-drafted` is the speculative-decoding tag built by `apply-mtp-drafts` (TASK_MODEL_FLEET_REFRESH_V2 Phase 5): a q8_0 base with the `mtp-q4_K_M` draft attached via a DRAFT directive. `config/backends.yaml` registers it in `group: general` with `supports_tools: false` and in `group: reasoning` with `supports_tools: true`. `config/portal.yaml` pins it as the `bench-qwen36-27b-mtp` workspace `model_hint` for the Phase-5 MTP A/B against the plain q8_0 bench. The tag is not pre-pulled; the draft-application step creates it before use.

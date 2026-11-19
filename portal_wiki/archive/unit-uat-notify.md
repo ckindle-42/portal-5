@@ -1,20 +1,19 @@
 ---
 id: unit-uat-notify
+historical: true
 kind: mixed
 title: "UAT notify \u2014 completion notifications"
 sources:
 - type: code
   path: tests/uat/notify.py
   commit: d7dcc96a
-last_generated_commit: d7dcc96a
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - uat
-created_at: 1785799329.934061
-updated_at: 1785799329.934061
+
 ---
 
 The UAT completion notifications (the `_git_sha` helper lives here because the notify functions are its only callers).

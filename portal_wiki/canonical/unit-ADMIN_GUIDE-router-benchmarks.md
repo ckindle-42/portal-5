@@ -15,8 +15,7 @@ tags:
 - ADMIN_GUIDE
 - docs
 - verified-v1
-created_at: 1783195000.818032
-updated_at: 1783195000.818032
+
 ---
 
 Router accuracy is re-measurable after any model or fleet change. `tests/benchmarks/bench_router.py` scores candidate models against the `GOLDEN_SET` of 73 test cases and writes a results JSON; `tests/benchmarks/bench_router_conditions.py` measures the companion-model cold-load conditions that affect warm latency. A typical invocation is:

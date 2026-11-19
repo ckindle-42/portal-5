@@ -12,8 +12,7 @@ tags:
 - authored-v1
 - tests
 - routing
-created_at: 1785795508.2065651
-updated_at: 1785795508.2065651
+
 ---
 
 `measure.py` runs the keyword-layer (deterministic) router against the

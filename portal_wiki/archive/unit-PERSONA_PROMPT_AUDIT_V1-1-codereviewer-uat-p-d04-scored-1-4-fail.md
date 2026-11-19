@@ -1,5 +1,6 @@
 ---
 id: unit-PERSONA_PROMPT_AUDIT_V1-1-codereviewer-uat-p-d04-scored-1-4-fail
+historical: true
 kind: why
 title: "PERSONA_PROMPT_AUDIT_V1 \u2014 1. `codereviewer` \u2014 UAT P-D04 (scored\
   \ 1/4 FAIL)"
@@ -7,13 +8,11 @@ sources:
 - type: design
   path: docs/PERSONA_PROMPT_AUDIT_V1.md
   section: "1. `codereviewer` \u2014 UAT P-D04 (scored 1/4 FAIL)"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - PERSONA_PROMPT_AUDIT_V1
-created_at: 1785348275.818845
-updated_at: 1785348275.818845
+
 ---
 
 

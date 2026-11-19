@@ -16,8 +16,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.5508978
-updated_at: 1784946220.5508978
+
 ---
 
 `ALERT_SUMMARY_TIMEZONE` names the tzinfo passed to the summary cron trigger. The example environment and the compose service both ship `America/Chicago`, so the shipped default hour of eight means eight in the morning Central time, while the in-process fallback is UTC when the variable is absent. Changing the value shifts the send moment without altering the hour number.

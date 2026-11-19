@@ -14,8 +14,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.62912
-updated_at: 1784946220.62912
+
 ---
 
 `hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M` is the mradermacher community quant (~2.5GB, Qwen3-4B base, Apache-2.0) of the athena129/CyberSecQwen-4B blue-defender candidate. `config/backends.yaml` registers it in the `security` group with `supports_tools: false`; the inline comment records that Ollama itself hard-errors "does not support tools" for this tag — no tool-calling template at all — and points to the `cybersecqwen-4b-toolfix` derivative (also in `security`, `supports_tools: true`) as the usable variant. `config/portal.yaml` selects the base tag as the `model_hint` for `bench-cybersecqwen-4b`, a GATE-D ablation Expert-role candidate. The tool-call blocker was traced to the shipped ChatML template (no `{% if tools %}` block), not the model; a hand-authored toolfix Modelfile verified clean tool_calls, but the model was not adopted because real-scenario detection quality stayed inconclusive.

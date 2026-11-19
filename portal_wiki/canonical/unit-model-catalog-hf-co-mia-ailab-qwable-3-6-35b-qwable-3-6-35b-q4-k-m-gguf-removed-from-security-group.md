@@ -13,8 +13,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.620333
-updated_at: 1784946220.620333
+
 ---
 
 This unit records the removal of Qwable-3.6-35B MoE from the security group and its substitution by `qwen3-coder:30b-a3b-q4_K_M`, the model_id this entry is anchored to. `config/backends.yaml` confirms the substitution target in the `coding` group with `supports_tools: true` and in the `general` group with `supports_tools: false`; Qwable itself (`hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf`) is present only in `coding` (true) and absent from `security` — mechanically proving the removal. `config/portal.yaml`'s `bench-qwable-35b` records the retirement (0.64 security-chain coverage below the 2/2 WIN threshold) and the fleet `ollama rm`. `qwen3-coder:30b-a3b-q4_K_M` is additionally the `model_hint` for `auto-coding`, `auto-security`, `auto-bigfix`, and `auto-cad`.

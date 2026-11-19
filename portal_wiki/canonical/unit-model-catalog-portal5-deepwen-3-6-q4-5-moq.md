@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1786390650.0
-updated_at: 1786396200.0
+
 ---
 
 `portal5/deepwen-3.6:q4.5-moq` is the TASK-BATCH-BENCH-002 Part D intake of Deepwen-3.6 (quimmedes/Deepwen-3.6, a Qwen3.6-35B-A3B fine-tune for procedural geometry / hard-surface / 3D-asset workflows, arch `qwen35moe`) — a CAD-lane candidate benched head-to-head against the `auto-cad` module's incumbent, Qwen3-Coder-30B-A3B. `ollama pull hf.co/quimmedes/Deepwen-3.6:Q4.5-MoQ` and `:BF16` both 400'd — Ollama's `hf.co` puller validates the tag against its own quant-scheme enum and rejects the uploader's custom "MoQ" (Mixture-of-Quantizations) naming; the no-tag pull hangs indefinitely (can't auto-pick among multiple MoQ variants in the repo). Not gated. Worked around via direct `huggingface_hub.hf_hub_download` of `Deepwen-3.6-Q4.5-MoQ.gguf` (21.2GB, matches the card) followed by `ollama create` from the local file — GGUF metadata parsed cleanly (arch `qwen35moe`, 34.7B params, template, tool-call format) with no hand-written Modelfile needed. `config/backends.yaml` registers it in the `general` group with `supports_tools: true`, confirmed by a direct `/api/chat` probe. `config/portal.yaml` gives `bench-deepwen-cad` a `model_hint` of the **derived** tag `portal5/deepwen-3.6:q4.5-moq-ctx32k` (see below), cloning `auto-cad`'s tool loop.

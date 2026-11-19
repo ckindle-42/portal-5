@@ -23,8 +23,7 @@ tags:
 - resolved
 - router
 - verified-v1
-created_at: 1785451451.3742568
-updated_at: 1792627200
+
 ---
 
 - **ID**: P5-ROUTER-EVICTION-001

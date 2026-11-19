@@ -1,20 +1,19 @@
 ---
 id: unit-uat-catalog-g_vision_personas
+historical: true
 kind: mixed
 title: "UAT catalog group \u2014 vision personas"
 sources:
 - type: code
   path: tests/uat_catalog/g_vision_personas.py
   commit: fe7f1e7c
-last_generated_commit: fe7f1e7c
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - uat-catalog
-created_at: 1785800095.860498
-updated_at: 1785800095.860498
+
 ---
 
 This catalog group covers the vision personas workspace(s), exporting a `TESTS`

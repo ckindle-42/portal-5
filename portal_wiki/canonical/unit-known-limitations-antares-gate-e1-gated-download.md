@@ -11,8 +11,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1786309400.0
-updated_at: 1786311400.0
+
 ---
 
 - **ID**: P5-ANTARES-GATE-E1

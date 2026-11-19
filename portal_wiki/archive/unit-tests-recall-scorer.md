@@ -1,19 +1,18 @@
 ---
 id: unit-tests-recall-scorer
+historical: true
 kind: mixed
 title: "Tests recall scorer \u2014 LCS line-alignment reproduction score"
 sources:
 - type: code
   path: tests/recall_scorer.py
   commit: 347dfc8a
-last_generated_commit: 347dfc8a
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
-created_at: 1785798822.155159
-updated_at: 1785798822.155159
+
 ---
 
 `recall_scorer.py` scores verbatim function-body reproduction by

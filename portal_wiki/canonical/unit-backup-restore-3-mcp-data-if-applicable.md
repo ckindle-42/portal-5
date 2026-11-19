@@ -11,8 +11,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.526913
-updated_at: 1784946220.526913
+
 ---
 
 MCP servers read uploads from `${AI_OUTPUT_DIR}/uploads` and write generated artifacts under `${AI_OUTPUT_DIR}/generated/<category>`, per the workspace layout defined in `.env.example` and mounted into containers at `/workspace`. That host directory is not a Docker volume and is absent from the artifact sequence in `_launch_backup`, so `./launch.sh backup` does not cover it. The only way to capture it is a manual archive of the workspace directory.

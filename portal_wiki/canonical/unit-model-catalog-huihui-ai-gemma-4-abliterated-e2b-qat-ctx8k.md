@@ -10,8 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.652983
-updated_at: 1784946220.652983
+
 ---
 
 `huihui_ai/gemma-4-abliterated:E2b-qat-ctx8k` is the 8K-context derived tag of the Gemma4-E2B QAT abliterated security model, registered in `config/backends.yaml` under the `security` group with `supports_tools: true`. The `PARAMETER num_ctx 8192` is baked into the tag because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, making a per-workspace context cap a distinct model id. It has no standalone `config/portal.yaml` workspace binding of its own; its base `E2b-qat` tag carries the `bench-e2b-pentest` and `bench-exec-reasoning` roles. Full model detail lives in the base tag's entry; this tag exists to satisfy registry parity and to provide a capped variant.

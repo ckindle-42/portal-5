@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.51699
-updated_at: 1784946220.51699
+
 ---
 
 Several day-to-day behaviors follow from repository configuration rather than

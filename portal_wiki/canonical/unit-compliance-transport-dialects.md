@@ -19,8 +19,7 @@ tags:
 - module
 - compliance
 - transport
-created_at: 1789944401.011186
-updated_at: 1789944401.011186
+
 ---
 
 The compliance reading call speaks one wire protocol at a time, and the choice

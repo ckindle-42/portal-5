@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.6283011
-updated_at: 1784946220.6283011
+
 ---
 
 `baronllm:q6_k` is the GATE-D Expert-role candidate (added 2026-07-21, user-requested) — the non-abliterated original BaronLLM (Llama-3.1-8B, 53K cybersec examples, 200+ domains), pulled from the gated `AlicanKiraz0` repo via the `huggingface_hub.hf_hub_download` workaround documented in `config/portal.yaml`'s model pull registry. It is a distinct checkpoint from `huihui_ai/baronllm-abliterated:latest` (different weights, not abliterated); that fork's tool-call reliability finding (`valid_rate 0.25`, dropped from `auto-security`) does not automatically carry over because the Hunter/Expert path runs with tools disabled and reasons over supplied telemetry, which is this model's job rather than MCP tool-calling. In `config/backends.yaml` it is registered under the `security` backend group with `supports_tools: false`, and `config/portal.yaml` gives it the `bench-baronllm-q6k` workspace `model_hint`. Sampling uses temperature 0.6, top_p 0.9, repeat_penalty 1.1, and the chat template reuses `huihui_ai/baronllm-abliterated`'s known-good Llama-3.1 template via `ollama show --modelfile`.

@@ -51,8 +51,7 @@ tags:
 - orchestration
 - module
 - verified-v1
-created_at: 1792546230.261703
-updated_at: 1792680000
+
 ---
 
 # Orchestration Module — offline verified task runner

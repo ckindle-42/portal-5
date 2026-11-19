@@ -14,8 +14,7 @@ tags:
 - capability
 - mcp
 - security
-created_at: 1788030600.446044
-updated_at: 1788030600.446044
+
 ---
 
 # Security MCP — vulnerability classification and lab perception

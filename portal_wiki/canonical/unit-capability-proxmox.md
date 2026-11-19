@@ -16,8 +16,7 @@ tags:
 - capability
 - mcp
 - security
-created_at: 1788030600.446044
-updated_at: 1788030600.446044
+
 ---
 
 # Proxmox MCP — lab virtualization control plane

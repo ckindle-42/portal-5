@@ -12,8 +12,7 @@ tags:
 - authored-v1
 - tests
 - uat
-created_at: 1785799264.505173
-updated_at: 1785799264.505173
+
 ---
 
 The mutable per-run state: the routing log, chat ids, and archival state that a UAT run accumulates.

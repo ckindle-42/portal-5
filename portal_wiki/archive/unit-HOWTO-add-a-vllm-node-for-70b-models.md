@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-add-a-vllm-node-for-70b-models
+historical: true
 kind: why
 title: "HOWTO \u2014 Add a vLLM node for 70B models"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: Add a vLLM node for 70B models
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.86018
-updated_at: 1783195000.86018
+
 ---
 
 

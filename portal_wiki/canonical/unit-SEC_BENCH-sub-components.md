@@ -39,8 +39,7 @@ tags:
 - security
 - sub-components
 - verified-v1
-created_at: 1784945480.178221
-updated_at: 1784945480.178221
+
 ---
 
 ## Capability Index

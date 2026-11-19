@@ -14,8 +14,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.674855
-updated_at: 1787934168.0
+
 ---
 
 - **Two-stage, word-level merge.** `transcribe_with_speakers` = Parakeet-TDT-v3 transcript + Sortformer diarization (`mlx-community/diar_sortformer_4spk-v1-fp32`), merged by assigning each Parakeet word to the Sortformer speaker whose turn it overlaps. Fast: ~4s for a 2.5-min conversation on a warm model (Parakeet ~4s, Sortformer ~0.5s), plus a one-time model load.

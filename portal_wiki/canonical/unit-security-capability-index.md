@@ -13,8 +13,7 @@ tags:
 - module
 - security
 - capability
-created_at: 1785795017.817317
-updated_at: 1785795017.817317
+
 ---
 
 The capability subpackage makes the security library legible to the decide

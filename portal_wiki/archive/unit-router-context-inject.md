@@ -1,12 +1,12 @@
 ---
 id: unit-router-context-inject
+historical: true
 kind: mixed
 title: "Router context inject \u2014 proactive memory/knowledge grounding"
 sources:
 - type: code
   path: portal/platform/inference/router/context_inject.py
   commit: d7c1d4f4
-last_generated_commit: d7c1d4f4
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - platform
 - inference
 - router
-created_at: 1785798064.1881511
-updated_at: 1785798064.1881511
+
 ---
 
 `context_inject.py` implements proactive context injection and salient

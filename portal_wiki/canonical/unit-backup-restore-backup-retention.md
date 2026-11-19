@@ -11,8 +11,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.532368
-updated_at: 1784946220.532368
+
 ---
 
 There is no retention policy implemented anywhere in the codebase: `_launch_backup` never deletes older backups, and no other script sweeps the `./backups` directory. Every run simply adds another `portal5_backup_<timestamp>` directory, so the set grows monotonically until the operator prunes it. The daily-for-a-week, weekly-for-a-month, monthly-for-a-year ladder suggested by the old guide is advisory documentation, not enforced behavior.

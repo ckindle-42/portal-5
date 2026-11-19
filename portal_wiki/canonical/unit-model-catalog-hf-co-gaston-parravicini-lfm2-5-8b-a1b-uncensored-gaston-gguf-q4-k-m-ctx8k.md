@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.64936
-updated_at: 1784946220.64936
+
 ---
 
 `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M-ctx8k` is the 8K-context derived tag of the abliterated LFM2.5-8B-A1B Uncensored model. `config/backends.yaml` registers it in the `creative` group only, with `supports_tools: false` — the same value as its base tag in both `general` and `creative`. `config/portal.yaml` uses this exact tag as the `model_hint` for `auto-extract-uncensored`, the entity/data-extraction and summarization workspace whose description notes the EX-01 5/5 bench pass and the explicit `tools=false` posture; it is explicit-select, not a default. `PARAMETER num_ctx 8192` is baked in via `portal models apply-params` because Ollama ignores request-time `options.num_ctx`. The base id, by contrast, routes to `bench-lfm25-8b-uncensored`.

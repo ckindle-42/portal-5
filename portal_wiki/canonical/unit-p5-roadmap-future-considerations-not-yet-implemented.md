@@ -18,8 +18,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.589484
-updated_at: 1784946220.589484
+
 ---
 
 This queue lists open roadmap items. Two of them are grounded in current code:

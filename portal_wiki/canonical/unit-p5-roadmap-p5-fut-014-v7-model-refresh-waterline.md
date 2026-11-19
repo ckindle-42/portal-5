@@ -18,8 +18,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.592656
-updated_at: 1784946220.592656
+
 ---
 
 TASK_MODEL_REFRESH_V7 (2026-05-27, recorded in `CHANGELOG.md`) added six bench

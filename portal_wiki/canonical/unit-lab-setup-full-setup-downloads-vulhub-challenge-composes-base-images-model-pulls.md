@@ -13,8 +13,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.518579
-updated_at: 1784946220.518579
+
 ---
 
 The full Tier-1 provisioner is invoked as `python3 scripts/lab_setup.py`. It

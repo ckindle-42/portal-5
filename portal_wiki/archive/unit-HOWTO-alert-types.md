@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-alert-types
+historical: true
 kind: why
 title: "HOWTO \u2014 Alert types"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: Alert types
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.856995
-updated_at: 1783195000.856995
+
 ---
 
 

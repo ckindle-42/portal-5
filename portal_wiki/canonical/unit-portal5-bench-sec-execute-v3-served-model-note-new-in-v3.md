@@ -14,8 +14,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.7091782
-updated_at: 1784946220.7091782
+
 ---
 
 Persona-level model pins (`model_pin`) are consumed by the pipeline, not the

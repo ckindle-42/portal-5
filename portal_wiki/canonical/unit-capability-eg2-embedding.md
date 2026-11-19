@@ -23,8 +23,7 @@ tags:
 - capability
 - embedding
 - host-native
-created_at: 1791388800
-updated_at: 1791388800
+
 ---
 
 # EmbeddingGemma 2 platform embedder (:8946)

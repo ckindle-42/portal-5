@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.651444
-updated_at: 1784946220.651444
+
 ---
 
 `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL-ctx64k` is the 64K-context derived tag of the AgentWorld world model, and it is the id `config/portal.yaml` actually serves: the `auto-agentic` lite variant carries it as its `model_hint` with a 65536 context limit for tool-calling, MCP, SWE, and env-simulation work where the full 80B model is unnecessary. `config/backends.yaml` registers it under both `general` and `coding` with `supports_tools: true`, matching the base tag. The `PARAMETER num_ctx 65536` is baked in because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`. Full model detail lives in the base tag's entry.

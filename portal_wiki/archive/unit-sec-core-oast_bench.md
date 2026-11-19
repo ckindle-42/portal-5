@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-oast_bench
+historical: true
 kind: mixed
 title: "OAST bench \u2014 browser/DOM security + collaborator"
 sources:
 - type: code
   path: portal/modules/security/core/oast_bench.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800269.394149
-updated_at: 1785800269.394149
+
 ---
 
 The out-of-band application security test bench, reusing the Playwright MCP for browser/DOM security and a self-hosted OAST collaborator.

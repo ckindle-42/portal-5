@@ -1,20 +1,19 @@
 ---
 id: unit-tool-preselect-metrics
+historical: true
 kind: mixed
 title: "Tool preselector metrics \u2014 outcome-label counters"
 sources:
 - type: code
   path: portal/platform/inference/tool_preselect/metrics.py
   commit: b9ca6f31
-last_generated_commit: b9ca6f31
 claims: []
 confidence: high
 tags:
 - authored-v1
 - platform
 - tool-preselect
-created_at: 1785796797.524894
-updated_at: 1785796797.524894
+
 ---
 
 `metrics.py` records the preselector's operational outcome labels to

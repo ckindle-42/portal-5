@@ -10,8 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.506887
-updated_at: 1784946220.506887
+
 ---
 
 The `portal agent` CLI (`portal/platform/inference/cli/agent.py`) is the

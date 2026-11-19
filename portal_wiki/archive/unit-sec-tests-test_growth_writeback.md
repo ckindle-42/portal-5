@@ -1,12 +1,12 @@
 ---
 id: unit-sec-tests-test_growth_writeback
+historical: true
 kind: mixed
 title: "Security tests \u2014 test_growth_writeback"
 sources:
 - type: code
   path: portal/modules/security/tests/test_growth_writeback.py
   commit: 862c7b11
-last_generated_commit: 862c7b11
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - module
 - security
 - tests
-created_at: 1785800599.986346
-updated_at: 1785800599.986346
+
 ---
 
 Unit tests for the security module's test_growth_writeback surface.

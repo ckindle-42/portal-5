@@ -1,12 +1,12 @@
 ---
 id: unit-security-siem-spl-backend
+historical: true
 kind: mixed
 title: "SIEM Splunk backend \u2014 oneshot export query adapter"
 sources:
 - type: code
   path: portal/modules/security/core/siem/spl_backend.py
   commit: d493d44c
-last_generated_commit: d493d44c
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - module
 - security
 - siem
-created_at: 1785796630.991267
-updated_at: 1785796630.991267
+
 ---
 
 `SplunkBackend` is the Splunk telemetry adapter implementing the

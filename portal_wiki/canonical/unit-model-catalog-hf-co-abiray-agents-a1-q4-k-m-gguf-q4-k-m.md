@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.610421
-updated_at: 1784946220.610421
+
 ---
 
 `hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M` is the Agents-A1 Q4_K_M (Apache 2.0, Qwen3.5-MoE 35B-A3B, 262K ctx, ~21GB, purpose-built long-horizon agentic). `config/backends.yaml` registers it in both the `general` and `coding` groups with `supports_tools: true` in each. `config/portal.yaml` selects it as the `model_hint` for `bench-agents-a1`, whose description records the self-reported τ2-Bench 79.8, IFEval 94.8, GAIA 96.0 figures and frames it as a direct competitor to AgentWorld and Ornith. It is V11 candidate intake (2026-06-30), bench-only with PROMOTE_POLICY=confirm, and was rehosted from InternScience to Abiray — the workspace label still says InternScience while the model id says Abiray.

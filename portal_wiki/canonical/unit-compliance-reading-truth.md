@@ -14,8 +14,7 @@ tags:
 - module
 - compliance
 - evaluation
-created_at: 1785672000.000000
-updated_at: 1785672000.000000
+
 ---
 
 The `scripts/compliance/truth/` package is evaluation infrastructure: it

@@ -1,20 +1,19 @@
 ---
 id: unit-ci-identical-sources
+historical: true
 kind: mixed
 title: "CI guard \u2014 deploy/ and portal_mcp/ must not diverge"
 sources:
 - type: code
   path: scripts/ci/check_no_identical_sources.py
   commit: '38123c31'
-last_generated_commit: '38123c31'
 claims: []
 confidence: high
 tags:
 - authored-v1
 - ci
 - deploy
-created_at: 1785795645.924342
-updated_at: 1785795645.924342
+
 ---
 
 The identical-sources guard fails if any `deploy/` Python file is

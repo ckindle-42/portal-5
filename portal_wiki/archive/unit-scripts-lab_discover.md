@@ -1,19 +1,18 @@
 ---
 id: unit-scripts-lab_discover
+historical: true
 kind: mixed
 title: "Script \u2014 lab_discover"
 sources:
 - type: code
   path: scripts/lab_discover.py
   commit: 94ecf393
-last_generated_commit: 94ecf393
 claims: []
 confidence: high
 tags:
 - authored-v1
 - scripts
-created_at: 1785799521.465935
-updated_at: 1785799521.465935
+
 ---
 
 Probes the Proxmox host via the proven transport and reports actual state, writing nothing and changing no bench code — every later lab phase builds on what this reports.

@@ -11,8 +11,7 @@ confidence: high
 tags:
 - authored-v1
 - wiki
-created_at: 1785797299.6082618
-updated_at: 1785797299.6082618
+
 ---
 
 The store module is the git-backed persistence layer for canonical units:

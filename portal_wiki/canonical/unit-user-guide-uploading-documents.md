@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.515612
-updated_at: 1784946220.515612
+
 ---
 
 Open the chat interface at the Open WebUI address (bound to `127.0.0.1:8080` by

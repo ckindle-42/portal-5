@@ -16,8 +16,7 @@ tags:
 - capability
 - mcp
 - coding
-created_at: 1788030600.446044
-updated_at: 1788030600.446044
+
 ---
 
 # Execution MCP — session-managed isolated code sandbox

@@ -1,18 +1,17 @@
 ---
 id: unit-SECURITY_BENCH_EXEC-single-prompt-against-metasploitable3
+historical: true
 kind: why
 title: "SECURITY_BENCH_EXEC \u2014 Single prompt against Metasploitable3"
 sources:
 - type: design
   path: docs/SECURITY_BENCH_EXEC.md
   section: Single prompt against Metasploitable3
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - SECURITY_BENCH_EXEC
-created_at: 1783195000.900877
-updated_at: 1783195000.900877
+
 ---
 
 

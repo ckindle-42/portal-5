@@ -11,8 +11,7 @@ tags:
 - authored-v1
 - tests
 - toolpreselect
-created_at: 1785881200.0
-updated_at: 1785881200.0
+
 ---
 
 The tool-preselect acceptance harness is one contract in three stages: a

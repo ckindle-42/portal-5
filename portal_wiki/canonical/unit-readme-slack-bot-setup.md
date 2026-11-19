@@ -16,8 +16,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1788033019.601702
-updated_at: 1788033019.601702
+
 ---
 
 To enable the Slack channel, create a Slack app with Socket Mode and add its

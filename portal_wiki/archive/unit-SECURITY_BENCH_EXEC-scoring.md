@@ -1,18 +1,17 @@
 ---
 id: unit-SECURITY_BENCH_EXEC-scoring
+historical: true
 kind: why
 title: "SECURITY_BENCH_EXEC \u2014 Scoring"
 sources:
 - type: design
   path: docs/SECURITY_BENCH_EXEC.md
   section: Scoring
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - SECURITY_BENCH_EXEC
-created_at: 1783195000.909436
-updated_at: 1783195000.909436
+
 ---
 
 

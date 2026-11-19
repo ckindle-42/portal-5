@@ -1,18 +1,17 @@
 ---
 id: unit-MCP_DEV_TOOLING-prerequisites
+historical: true
 kind: why
 title: "MCP_DEV_TOOLING \u2014 Prerequisites"
 sources:
 - type: design
   path: docs/MCP_DEV_TOOLING.md
   section: Prerequisites
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - MCP_DEV_TOOLING
-created_at: 1783195000.870688
-updated_at: 1783195000.870688
+
 ---
 
 

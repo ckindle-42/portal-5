@@ -1,18 +1,17 @@
 ---
 id: unit-USER_GUIDE-cross-session-memory
+historical: true
 kind: why
 title: "USER_GUIDE \u2014 Cross-Session Memory"
 sources:
 - type: design
   path: docs/USER_GUIDE.md
   section: Cross-Session Memory
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - USER_GUIDE
-created_at: 1783195000.921535
-updated_at: 1783195000.921535
+
 ---
 
 

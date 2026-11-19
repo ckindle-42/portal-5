@@ -14,8 +14,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.571575
-updated_at: 1784946220.571575
+
 ---
 
 The pipeline MCP is a host-native MCP SDK v2 server on port 8928 (overridable via

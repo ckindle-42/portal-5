@@ -11,8 +11,7 @@ confidence: high
 tags:
 - authored-v1
 - scripts
-created_at: 1785799536.018086
-updated_at: 1785799536.018086
+
 ---
 
 Host-native speech server for Apple Silicon using mlx-audio, replacing the Docker kokoro-onnx TTS and faster-whisper ASR with Qwen3-TTS and the MLX speech stack.

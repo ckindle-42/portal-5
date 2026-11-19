@@ -15,8 +15,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.577048
-updated_at: 1784946220.577048
+
 ---
 
 Mode B keeps the same Portal tool set as Mode A but moves the intelligence on-box.

@@ -12,8 +12,7 @@ tags:
 - authored-v1
 - channels
 - telegram
-created_at: 1785795189.416028
-updated_at: 1785795189.416028
+
 ---
 
 The Telegram channel adapter is the messenger front door to the pipeline:

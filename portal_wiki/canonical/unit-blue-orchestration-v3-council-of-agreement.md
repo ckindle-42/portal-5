@@ -20,8 +20,7 @@ tags:
 - roadmap
 - security
 - verified-v1
-created_at: 1784384260.0117
-updated_at: 1784384260.0117
+
 ---
 
 # Council of Agreement — multi-model cross-checking loop for blue orchestration

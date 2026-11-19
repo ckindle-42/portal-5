@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.633513
-updated_at: 1784946220.633513
+
 ---
 
 `qwen3.6:27b-q8_0` is the Q8 build of Qwen3.6-27B (~29GB, Alibaba, dense 27B, Apache 2.0), the high-precision quality-lane candidate. `config/backends.yaml` registers it in `group: reasoning` with `supports_tools: true`. `config/portal.yaml`'s `bench-qwen36-27b` workspace names it in its description as the quality candidate and Phase-5 MTP A/B base, though that bench's `model_hint` actually pins the Q4 tag `qwen3.6:27b-q4_K_M`; the Q8 description survives as the bench's stated subject. `bench-qwen36-27b` was re-pointed from the abliterated variant to this stock q8 build.

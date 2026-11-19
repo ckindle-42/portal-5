@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.518987
-updated_at: 1784946220.518987
+
 ---
 
 The metadata-only path is `python3 scripts/lab_setup.py --skip-heavy`. Under

@@ -1,20 +1,19 @@
 ---
 id: unit-inference-cli-init
+historical: true
 kind: mixed
 title: "Inference CLI \u2014 typed operator surface composition root"
 sources:
 - type: code
   path: portal/platform/inference/cli/__init__.py
   commit: 250150f6
-last_generated_commit: 250150f6
 claims: []
 confidence: high
 tags:
 - authored-v1
 - platform
 - cli
-created_at: 1785797821.4518359
-updated_at: 1785797821.4518359
+
 ---
 
 The CLI package is the typed operator surface for the portal: `portal

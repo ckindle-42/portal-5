@@ -1,20 +1,19 @@
 ---
 id: unit-tool-preselect-parser
+historical: true
 kind: mixed
 title: "Tool preselector parser \u2014 noisy ranker output to indices"
 sources:
 - type: code
   path: portal/platform/inference/tool_preselect/parser.py
   commit: b9ca6f31
-last_generated_commit: b9ca6f31
 claims: []
 confidence: high
 tags:
 - authored-v1
 - platform
 - tool-preselect
-created_at: 1785796788.475729
-updated_at: 1785796788.475729
+
 ---
 
 `parser.py` converts the preselector model's raw text output into ranked tool

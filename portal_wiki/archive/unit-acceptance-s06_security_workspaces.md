@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-s06_security_workspaces
+historical: true
 kind: mixed
 title: "S6 \u2014 Security workspace tests"
 sources:
 - type: code
   path: tests/acceptance/s06_security_workspaces.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799756.6338198
-updated_at: 1785799756.6338198
+
 ---
 
 This is the acceptance section s06_security_workspaces. S6 — Security workspace tests

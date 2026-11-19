@@ -13,8 +13,7 @@ tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.840412
-updated_at: 1783195000.840412
+
 ---
 
 **What:** Generate code with AI and execute it in an isolated Docker-in-Docker sandbox.

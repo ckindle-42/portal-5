@@ -1,20 +1,19 @@
 ---
 id: unit-mcp-host-core
+historical: true
 kind: mixed
 title: "mcp_host core \u2014 shared workspace path helpers"
 sources:
 - type: code
   path: portal/platform/mcp_host/__init__.py
   commit: 3d8cf6f5
-last_generated_commit: 3d8cf6f5
 claims: []
 confidence: high
 tags:
 - authored-v1
 - mcp
 - platform
-created_at: 1785795752.712359
-updated_at: 1785795752.712359
+
 ---
 
 The mcp_host package is the shared core for Portal 5's MCP servers: it holds

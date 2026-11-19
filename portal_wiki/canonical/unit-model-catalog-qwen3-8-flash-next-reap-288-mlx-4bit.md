@@ -10,8 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1788825600.0
-updated_at: 1792540800.0
+
 ---
 
 **REMOVED 2026-10-21:** the operator deleted the weights (the model only ever ran with the stack down). The `omlx-coding` registration in `config/backends.yaml`, the `auto-coding` `reap288` variant in `config/portal.yaml`, the `bench-qwen38-flash-next-reap288` workspace in `config/bench_workspaces.yaml`, the `codingreap288` persona and `scripts/coder-reap288.sh` (`./launch.sh coder-reap288`) are all gone. The text below is kept as the history of the 2026-09-02 bring-up (`TASK_OMLX_QWEN38FN_REAP288_BRINGUP_V1`); nothing in it describes a served model anymore.

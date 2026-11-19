@@ -10,8 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.597147
-updated_at: 1784946220.597147
+
 ---
 
 `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF` is an ultra-fast 3B abliterated fallback registered in `config/backends.yaml` under the `general` group with `supports_tools: false`. The stock Llama-3.2-3B template does not declare a `.Tools` block, and the abliterated GGUF inherits that limitation, so the false flag reflects a template-level constraint rather than a per-model audit. The model id has no presence in `config/portal.yaml`; it is reachable only through the general routing pool, making this a pure backend-registry entry with no dedicated workspace.

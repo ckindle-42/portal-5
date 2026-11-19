@@ -14,8 +14,7 @@ tags:
 - known-limitations
 - release
 - verified-v1
-created_at: 1785381155.353122
-updated_at: 1785500996
+
 ---
 
 - **ID**: P5-SPINE-COVERAGE-001

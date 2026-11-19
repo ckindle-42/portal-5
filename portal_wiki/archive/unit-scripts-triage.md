@@ -1,19 +1,18 @@
 ---
 id: unit-scripts-triage
+historical: true
 kind: mixed
 title: "Script \u2014 triage"
 sources:
 - type: code
   path: scripts/triage.py
   commit: 94ecf393
-last_generated_commit: 94ecf393
 claims: []
 confidence: high
 tags:
 - authored-v1
 - scripts
-created_at: 1785799557.941393
-updated_at: 1785799557.941393
+
 ---
 
 Packages the failure context (log tail, failing command, target/model state) and asks a small triage model one bounded question: the likely cause and which corrective action from a fixed menu the supervisor should take.

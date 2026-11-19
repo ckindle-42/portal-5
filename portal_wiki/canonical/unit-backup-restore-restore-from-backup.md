@@ -11,8 +11,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.529736
-updated_at: 1784946220.529736
+
 ---
 
 Restoring is `./launch.sh restore <backup-path>`, a deliberately interactive command: `_launch_restore` requires a directory argument, prints a warning that current data will be overwritten, and waits for an explicit `y` or `Y` confirmation before touching anything. It then stops the stack with the telegram and slack profiles, restores the Open WebUI and Grafana tarballs by clearing each volume and extracting, and copies `.env` back into place.

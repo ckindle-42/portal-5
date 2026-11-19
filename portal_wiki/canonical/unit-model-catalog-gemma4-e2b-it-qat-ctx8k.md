@@ -10,8 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.645519
-updated_at: 1784946220.645519
+
 ---
 
 `gemma4:e2b-it-qat-ctx8k` is the bounded-context sibling of `gemma4:e2b-it-qat`, carrying an 8192-token ceiling baked through `portal models apply-params`. `config/backends.yaml` places it in the `vision` group with `supports_tools: true`. The reason for a distinct tag is that the `/v1/chat/completions` API discards request-time context limits, so per-workspace bounds must be compiled into the model name itself. `config/portal.yaml` does not reference this id; only the backend registry holds it.

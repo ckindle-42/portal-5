@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-s30_image_video
+historical: true
 kind: mixed
 title: "S30 \u2014 Image and video"
 sources:
 - type: code
   path: tests/acceptance/s30_image_video.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799808.909462
-updated_at: 1785799808.909462
+
 ---
 
 This is the acceptance section s30_image_video. S30 — Image and video

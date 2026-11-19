@@ -13,8 +13,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.628695
-updated_at: 1784946220.628695
+
 ---
 
 `huihui_ai/baronllm-abliterated:latest` was evaluated for the EXPLOIT slot and dropped. `config/backends.yaml` registers it only under the `general` group with `supports_tools: false`, and `config/portal.yaml` binds it as the `bench-exec-exploit` and retired `bench-qwable-35b` `model_hint`s rather than any production workspace. The candidate-eval ran the fixed six-scenario gauntlet against the `huihui_ai/gemma-4-abliterated:E2b-qat-ctx8k` incumbent: the model executed its assigned exploit step with clean tool calls, but the AD-chain handoff stalled, producing a worse aggregate unique-coverage delta with no lab-success gain, and the reliability re-bench recorded valid_rate 0.25 with malformed tool-call attempts. Net result: real capability, no refusal wall, but a handoff-stability regression.

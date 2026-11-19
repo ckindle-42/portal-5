@@ -16,8 +16,7 @@ tags:
 - omlx
 - tools
 - resolved
-created_at: 1790352000
-updated_at: 1790362799
+
 ---
 
 - **ID**: P5-OMLX-QWEN3CODER-TOOLTEXT-001

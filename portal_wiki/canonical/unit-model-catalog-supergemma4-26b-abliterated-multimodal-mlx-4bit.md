@@ -10,8 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1785716664.2314298
-updated_at: 1785716664.2314298
+
 ---
 
 `supergemma4-26b-abliterated-multimodal-mlx-4bit` is a VLM-shaped 4-bit MLX conversion of the abliterated supergemma4-26b fine-tune, registered in `config/backends.yaml` under `group: omlx` (`omlx-local`) with `supports_tools: true`. The group's live-probe notes attribute the tool_call PASS to the VLM engine because the fine-tune crashes text-only `mlx_lm`; oMLX's VLM engine is the only serving path. Phase-0 Gate-6 confirmed coherent generation plus structured `tool_calls`. It is an evaluation candidate for the auto-security redteam and purpleteam variants, which remain on the GGUF `supergemma4-26b-uncensored:Q4_K_M` family for production.

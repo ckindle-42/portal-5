@@ -17,8 +17,7 @@ tags:
 - ADMIN_GUIDE
 - docs
 - verified-v1
-created_at: 1783195000.815617
-updated_at: 1783195000.815617
+
 ---
 
 The slot count is `OLLAMA_MAX_LOADED_MODELS`: `.env.example` ships 5 (router model plus four inference models for chained and parallel bench work), while the compose `docker-ollama` profile still defaults to 3. The number must cover the router plus every concurrently-resident inference model — a multi-hop security chain needs each hop's model hot, or Ollama evicts and cold-reloads between hops. `run.py` reads the live value and emits a preflight warning when `--parallel-workspaces` is used with a count too low for the chain, and routing.py's header records the router model's own slot requirement. After changing it, verify the running server picked up the new value rather than assuming.

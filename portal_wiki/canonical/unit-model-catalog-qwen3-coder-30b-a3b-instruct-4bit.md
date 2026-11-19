@@ -10,8 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1785716664.2314298
-updated_at: 1785716664.2314298
+
 ---
 
 `Qwen3-Coder-30B-A3B-Instruct-4bit` is the 4-bit MLX conversion of Qwen3-Coder-30B-A3B-Instruct (mlx-community) served by the oMLX evaluation backend. `config/backends.yaml` registers it in the `omlx` group's `omlx-local` backend and in `omlx-coding` (group `coding`), both with `supports_tools: true`; the `omlx-coding` `aliases` block maps the production GGUF hint `qwen3-coder:30b-a3b-q4_K_M-ctx16k` onto this oMLX name. Phase-0 probes measured decode 91.4 t/s versus 62.8 for the GGUF ctx16k tag, agentic-prefix warm TTFT 4.5x with verified cache hits, structured `tool_calls` PASS, and JSON-schema PASS. No `config/portal.yaml` workspace pins it directly.

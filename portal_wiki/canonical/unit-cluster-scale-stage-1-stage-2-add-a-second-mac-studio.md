@@ -14,8 +14,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.512039
-updated_at: 1784946220.512039
+
 ---
 
 Adding a second Ollama node has three steps. First, install Ollama on the new

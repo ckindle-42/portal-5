@@ -11,8 +11,7 @@ confidence: high
 tags:
 - authored-v1
 - wiki
-created_at: 1785797317.1678998
-updated_at: 1785797317.1678998
+
 ---
 
 The audit module enforces the mechanical integrity properties that make the

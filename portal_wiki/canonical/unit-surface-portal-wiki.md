@@ -10,8 +10,7 @@ confidence: high
 tags:
 - authored-v1
 - wiki
-created_at: 1785886000.0
-updated_at: 1785886000.0
+
 ---
 
 The `portal_wiki` package is the canonical knowledge layer's agent surface,

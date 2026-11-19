@@ -11,8 +11,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.5681589
-updated_at: 1784946220.5681589
+
 ---
 
 CI runs on a self-hosted runner because the sweep and its pre-flight step need host access to the Portal 5 stack. The workflow's `runs-on: self-hosted` line and its Pre-flight step curl `localhost:9099` (pipeline health) and `localhost:11434` (Ollama version) before the sweep starts; a public GitHub-hosted runner has neither of those loopback services. If the self-hosted runner is offline the job queues — the workflow declares no fallback label, so GitHub has no hosted pool to spill onto.

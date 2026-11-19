@@ -1,5 +1,6 @@
 ---
 id: unit-capability-reranker
+historical: true
 kind: mixed
 title: "Reranker MCP \u2014 two-stage RAG re-ranking"
 sources:
@@ -14,8 +15,7 @@ tags:
 - capability
 - mcp
 - research
-created_at: 1788030600.446044
-updated_at: 1788030600.446044
+
 ---
 
 # Reranker MCP — two-stage RAG re-ranking

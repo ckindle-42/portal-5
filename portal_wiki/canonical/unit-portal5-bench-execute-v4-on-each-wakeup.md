@@ -13,8 +13,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.702064
-updated_at: 1784946220.702064
+
 ---
 
 1. Is the process alive? (`ps`), how far along? (tail the log, count completed

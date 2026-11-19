@@ -24,8 +24,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.5228422
-updated_at: 1784946220.5228422
+
 ---
 
 The lab reference table maps each artifact to its role:

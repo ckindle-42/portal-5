@@ -13,8 +13,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.53425
-updated_at: 1784946220.53425
+
 ---
 
 The manual model-recovery command suggested by the old guide, `docker exec ollama ollama pull`, no longer applies because the Ollama service sits behind the optional `docker-ollama` profile and the default runtime is host-native. The supported manual path is the CLI the `pull-models` case invokes, `python3 -m portal.platform.inference.cli models pull`, or a direct `ollama pull <model>` against the host's native Ollama on the default port.

@@ -9,8 +9,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.525281
-updated_at: 1784946220.525281
+
 ---
 
 Compression is not an option the script exposes; `_launch_backup` always writes gzip tarballs via `tar czf` when packing the Open WebUI and Grafana volumes. An operator who wants the tighter `gzip -9` level must run the alpine container manually, trading wall-clock time for smaller snapshots on very large volumes. The restored content is identical either way, since tar decompression is independent of the compression level used at creation time.

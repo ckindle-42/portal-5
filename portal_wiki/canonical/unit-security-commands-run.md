@@ -14,8 +14,7 @@ tags:
 - security
 - commands
 - bench
-created_at: 1785795362.8310652
-updated_at: 1785795362.8310652
+
 ---
 
 `run_bench` is the dual-pass security bench executor extracted from the CLI: a

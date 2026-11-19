@@ -1,20 +1,19 @@
 ---
 id: unit-uat-catalog-g_auto_phi4
+historical: true
 kind: mixed
 title: "UAT catalog group \u2014 auto-reasoning phi4"
 sources:
 - type: code
   path: tests/uat_catalog/g_auto_phi4.py
   commit: fe7f1e7c
-last_generated_commit: fe7f1e7c
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - uat-catalog
-created_at: 1785800095.860476
-updated_at: 1785800095.860476
+
 ---
 
 This catalog group covers the auto-reasoning phi4 workspace(s), exporting a `TESTS`

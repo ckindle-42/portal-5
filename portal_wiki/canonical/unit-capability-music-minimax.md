@@ -16,8 +16,7 @@ tags:
 - capability
 - mcp
 - media
-created_at: 1788030600.446044
-updated_at: 1788030600.446044
+
 ---
 
 # Music MCP — MiniMax full-song generation

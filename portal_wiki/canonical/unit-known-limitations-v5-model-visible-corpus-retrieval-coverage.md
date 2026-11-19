@@ -18,8 +18,7 @@ tags:
 - resolved
 - security
 - verified-v1
-created_at: 1785000000.0
-updated_at: 1785460800
+
 ---
 
 - **ID**: P5-SEC-CORPUS-VISIBLE-001

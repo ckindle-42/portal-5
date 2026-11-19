@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.607148
-updated_at: 1784946220.607148
+
 ---
 
 `devstral:24b` is registered in `config/backends.yaml` under the `coding` backend group with `supports_tools: true` and appears in the `general` group's intake block with `supports_tools: false`. `config/portal.yaml` gives it the `bench-devstral` workspace `model_hint` and describes it as a 24B MoE (22B active, ~14GB) agentic software-engineering model: 46.8% SWE-bench Verified, the top open-source model at its May 2025 release, built for multi-step tool use, file editing, and repo navigation. This is the V1 entry; the prior `devstral-small-2` label was incorrect, and V2 carries its own id.

@@ -10,8 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1786344000.0
-updated_at: 1786344000.0
+
 ---
 
 `huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit` is the 4-bit MLX conversion of huihui-ai's own Qwen3.5-9B-abliterated served by the oMLX evaluation backend. Registered in `omlx-security` (group `security`) as part of RBP arm coverage: the `auto-security` workspace folds 8 role variants (uncensored/pentest/blueteam/redteam/redteam-deep/purpleteam/purpleteam-deep/purpleteam-exec), each pinning a different `model_hint`, and `redteam`/`purpleteam`/`purpleteam-deep` all pin `huihui_ai/qwen3.5-abliterated:9b` (at ctx8k and ctx64k). This conversion was already resident in the hf-cache (unregistered until now) — no new pull required. Live tool-call-audited via a direct `/v1/chat/completions` probe (clean structured `tool_calls`, `finish_reason: tool_calls`) before being added with `supports_tools: true`.

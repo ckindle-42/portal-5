@@ -13,8 +13,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.627518
-updated_at: 1784946220.627518
+
 ---
 
 The Hugging Face repo `AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF` exists in `config/portal.yaml`'s model pull registry as a gated entry whose `ollama_name` is `baronllm:q6_k`; the fleet entry itself is registered in `config/backends.yaml` under the `security` backend group with `supports_tools: false`. The DROPPED note records that `ollama pull hf.co/...` fails on this gated repo regardless of `HF_TOKEN` because of a realm-host mismatch, still true as of 2026-07-21. The workaround is a one-off manual step: download via `huggingface_hub.hf_hub_download` (which handles gated-repo auth) and `ollama create` with a local Modelfile. `portal models pull` cannot automate this path, so the registry entry documents it inline rather than scripting it.

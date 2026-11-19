@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-s05_health
+historical: true
 kind: mixed
 title: "S5 \u2014 Health endpoints"
 sources:
 - type: code
   path: tests/acceptance/s05_health.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799752.92168
-updated_at: 1785799752.92168
+
 ---
 
 This is the acceptance section s05_health. S5 — Health endpoints

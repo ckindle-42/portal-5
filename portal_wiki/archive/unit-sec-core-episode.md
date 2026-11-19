@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-episode
+historical: true
 kind: mixed
 title: "Episode \u2014 deterministic purple-run record"
 sources:
 - type: code
   path: portal/modules/security/core/episode.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800269.394163
-updated_at: 1785800269.394163
+
 ---
 
 One episode per purple run, deterministic — no model touches it.

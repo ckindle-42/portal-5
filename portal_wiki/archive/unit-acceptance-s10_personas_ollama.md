@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-s10_personas_ollama
+historical: true
 kind: mixed
 title: "S10 \u2014 Personas over Ollama"
 sources:
 - type: code
   path: tests/acceptance/s10_personas_ollama.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799771.5222862
-updated_at: 1785799771.5222862
+
 ---
 
 This is the acceptance section s10_personas_ollama. S10 — Personas over Ollama

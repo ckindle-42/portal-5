@@ -1,20 +1,19 @@
 ---
 id: unit-bench-cli
+historical: true
 kind: mixed
 title: "Bench CLI \u2014 freshness-checked TPS run orchestration"
 sources:
 - type: code
   path: tests/benchmarks/bench/cli.py
   commit: 381f217b
-last_generated_commit: 381f217b
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - bench
-created_at: 1785798419.12552
-updated_at: 1785798419.12552
+
 ---
 
 `cli.py` is the bench CLI entry point: argument parsing, the image-freshness

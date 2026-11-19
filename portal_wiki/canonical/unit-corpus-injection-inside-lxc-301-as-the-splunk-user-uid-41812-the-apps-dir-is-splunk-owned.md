@@ -12,8 +12,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.5825438
-updated_at: 1784946220.5825438
+
 ---
 
 The BOTS installer must run on the Splunk host, where `$SPLUNK_HOME` and

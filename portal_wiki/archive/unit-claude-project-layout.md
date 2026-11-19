@@ -1,19 +1,18 @@
 ---
 id: unit-claude-project-layout
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 Project Layout"
 sources:
 - type: design
   path: CLAUDE.md
   section: Project Layout
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.194319
-updated_at: 1785348301.194319
+
 ---
 
 

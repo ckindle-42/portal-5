@@ -17,8 +17,7 @@ tags:
 - operations
 - logs
 - verified-v1
-created_at: 1791376709
-updated_at: 1791376709
+
 ---
 
 `scripts/rotate_logs.py` copy-truncates configured host logs that exceed

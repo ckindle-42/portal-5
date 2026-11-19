@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-loop_cli
+historical: true
 kind: mixed
 title: "Loop CLI \u2014 engagement loop operator surface"
 sources:
 - type: code
   path: portal/modules/security/core/loop_cli.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800269.394148
-updated_at: 1785800269.394148
+
 ---
 
 The engagement-loop operator CLI, whose resume command is exactly what the escalation and stuck notifications carry.

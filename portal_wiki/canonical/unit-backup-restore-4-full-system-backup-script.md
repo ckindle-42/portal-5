@@ -11,8 +11,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.527282
-updated_at: 1784946220.527282
+
 ---
 
 The full-system backup is not a standalone script; it is `scripts/lib/backup.sh`, which `launch.sh` sources at startup and dispatches through the `backup` and `restore` case branches. `_launch_backup` builds a directory named `portal5_backup_<YYYYmmdd_HHMMSS>` under `./backups` by default, then produces the Open WebUI and Grafana tarballs, copies `.env`, `config/`, and `imports/`, and prints the matching restore command for that exact path. `_launch_restore` consumes that directory and reverses the volume and `.env` steps.

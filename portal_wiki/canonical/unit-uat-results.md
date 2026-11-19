@@ -12,8 +12,7 @@ tags:
 - authored-v1
 - tests
 - uat
-created_at: 1785799315.5687082
-updated_at: 1785799315.5687082
+
 ---
 
 The UAT result model and emission, reading the result file attribute-form.

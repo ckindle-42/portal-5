@@ -13,8 +13,7 @@ tags:
 - module
 - security
 - tools
-created_at: 1785795029.118413
-updated_at: 1785795029.118413
+
 ---
 
 The security module's MCP tool surface names its three standalone server

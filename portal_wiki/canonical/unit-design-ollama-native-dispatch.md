@@ -24,8 +24,7 @@ tags:
 - ollama
 - omlx
 - sampling
-created_at: 1790333591
-updated_at: 1790333591
+
 ---
 
 The pipeline speaks OpenAI end to end, but Ollama's OpenAI endpoint cannot carry the settings Portal configures (see P5-OLLAMA-V1-SAMPLING-001), so Ollama backends are answered from native `/api/chat` by `OllamaNativeTransport`, mounted on the shared httpx client in `router/lifespan.py`. It intercepts only POST `/v1/chat/completions` to a base URL the registry positively knows is an Ollama backend; oMLX, vLLM and every other URL pass through untouched. It translates the request (sampling from `options` and top-level, `max_tokens` -> `num_predict`, content parts split one message per part as `/v1` does, tool-call arguments to objects, `think` only for models whose `/api/show` capabilities include thinking) and returns the byte-for-byte `/v1` shape (`reasoning`, string tool arguments, `finish_reason: tool_calls`, trailing usage chunk). Model-lifecycle fields (`num_ctx`, `num_batch`, `keep_alive`) are deliberately not forwarded — `/v1` never delivered them and honouring them would change memory behaviour, not fix delivery.

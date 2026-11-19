@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.651846
-updated_at: 1784946220.651846
+
 ---
 
 `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` is the 8K-context derived tag of the Qwen3.6-abliterated 27B model, registered in `config/backends.yaml` under both the `general` and `creative` groups with `supports_tools: true`. `config/portal.yaml` routes the `auto-general-uncensored` workspace to this tag with an 8192 context limit, giving the uncensored generalist lane its promptable model. The `PARAMETER num_ctx 8192` is baked into the tag because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`. Full model detail lives in the base `:27b` entry; this tag exists to enforce the general-uncensored lane's context cap as a distinct model id.

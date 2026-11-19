@@ -12,8 +12,7 @@ tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799710.136381
-updated_at: 1785799710.136381
+
 ---
 
 `runner.py` orchestrates the acceptance sections: it defines the S-section

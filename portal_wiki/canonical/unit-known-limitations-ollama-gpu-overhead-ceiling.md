@@ -10,8 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1786393800.0
-updated_at: 1786393800.0
+
 ---
 
 - **ID**: P5-OLLAMA-GPU-OVERHEAD-001

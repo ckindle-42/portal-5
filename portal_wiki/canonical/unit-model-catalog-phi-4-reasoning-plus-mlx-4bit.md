@@ -10,8 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1785716664.2314298
-updated_at: 1785716664.2314298
+
 ---
 
 `Phi-4-reasoning-plus-MLX-4bit` is the 4-bit MLX conversion of Phi-4-reasoning-plus (lmstudio-community), probed as a candidate refuge for the GGUF crash. `config/backends.yaml` registers it in the `omlx` group's `omlx-local` backend with `supports_tools: false`; the group's header comment marks Phi-4-reasoning-plus a degenerate-output FAIL — registered but do-not-migrate until the template issue resolves. Phase-0 Gate-6 reproduced special-token leakage and incoherent output under the default chat template, so it is not production-viable as probed. The registration keeps the id known without letting any workspace route to it.

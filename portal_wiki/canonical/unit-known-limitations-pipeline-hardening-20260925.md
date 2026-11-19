@@ -28,8 +28,7 @@ tags:
 - pipeline
 - resolved
 - streaming
-created_at: 1790370000
-updated_at: 1792684036
+
 ---
 
 - **ID**: P5-PIPELINE-HARDEN-001

@@ -15,8 +15,7 @@ tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.839925
-updated_at: 1783195000.839925
+
 ---
 
 **What:** Pre-configured specialist prompts that shape the AI's behavior.

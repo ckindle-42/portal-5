@@ -12,8 +12,7 @@ tags:
 - authored-v1
 - tests
 - frontends
-created_at: 1785795631.3447711
-updated_at: 1785795631.3447711
+
 ---
 
 The frontends test package is a namespace marker for frontend-specific UAT

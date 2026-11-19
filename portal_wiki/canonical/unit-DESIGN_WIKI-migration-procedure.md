@@ -16,8 +16,7 @@ tags:
 - procedure
 - verified-v1
 - wiki
-created_at: 1784946277.748951
-updated_at: 1784946277.748951
+
 ---
 
 For each doc `D` returned by `discover_unmigrated_docs()`, processed highest priority first, the loop body is:

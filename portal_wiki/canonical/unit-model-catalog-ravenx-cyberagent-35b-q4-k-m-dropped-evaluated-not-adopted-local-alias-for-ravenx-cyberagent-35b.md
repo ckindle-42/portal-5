@@ -13,8 +13,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.625427
-updated_at: 1784946220.625427
+
 ---
 
 The `candidate_eval.py` harness evaluates a candidate model in a slot against the fleet incumbent and writes a `cand_<model>_<slot>_<ts>.json` verdict to `portal/modules/security/core/results/candidates/`, with `PROMOTE_POLICY=confirm` meaning it reports deltas and never swaps fleet config. The `ravenx-cyberagent-35b:Q4_K_M` candidate (a local alias for RavenX-CyberAgent-35B) was run through this exploit-slot gauntlet on 2026-07-03 and the recorded outcome was a neutral aggregate delta against the incumbent — flat coverage and lab-success with a slight order-accuracy edge, the only real edge being full chain depth on the `web_sqli_dump` scenario. The model was not adopted: nothing in `config/portal.yaml` or `config/backends.yaml` references the id today, so the record stands as a dropped candidate.

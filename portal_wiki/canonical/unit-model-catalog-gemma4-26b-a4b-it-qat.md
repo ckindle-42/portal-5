@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.639137
-updated_at: 1784946220.639137
+
 ---
 
 `gemma4:26b-a4b-it-qat` is registered in `config/backends.yaml` under the `general` group with `supports_tools: true` and under the `vision` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-26b-qat` workspace `model_hint`; the `auto-daily` description named it the primary QAT model (26B-A4B MoE, ~15GB, 256K ctx, vision+text, QAT near-BF16), upgraded from the q4_K_M variant, until the seat moved to the text-only Nemotron ctx32k tag (2026-11-06). It is bench-compared against the production q4_K_M primary; a separate promotion task swaps the primary if quality is confirmed better at similar TPS.

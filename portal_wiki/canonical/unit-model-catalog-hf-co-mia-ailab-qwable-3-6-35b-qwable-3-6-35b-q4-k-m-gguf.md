@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.614243
-updated_at: 1784946220.614243
+
 ---
 
 `hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf` is Qwable-3.6-35B MoE Q4_K_M (~21GB, Mia-AiLab, MIT). `config/backends.yaml` registers it in the `coding` group only, with `supports_tools: true`; it is not present in the security group. `config/portal.yaml` selects it as the `model_hint` for `bench-qwable-35b`, whose description records the full arc: promoted to auto-pentest primary 2026-06-20, then RETIRED 2026-06-21 (SECURITY_FLEET_REVIEW_2026-06) when the fleet bench scored 0.64 coverage — below the CANDIDATE_EVAL_V1 2/2 WIN threshold — and the model was removed from the fleet via `ollama rm`. The bench workspace's current `model_hint` is `huihui_ai/baronllm-abliterated:latest`. The doc's older "PROMOTED to auto-pentest primary" claim is contradicted by the current config.

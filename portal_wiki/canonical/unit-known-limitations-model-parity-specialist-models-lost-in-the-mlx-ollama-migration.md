@@ -13,8 +13,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.668331
-updated_at: 1784946220.668331
+
 ---
 
 Two production specialist models were MLX-only safetensor builds with no

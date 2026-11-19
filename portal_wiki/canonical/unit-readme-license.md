@@ -10,8 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.692626
-updated_at: 1784946220.692626
+
 ---
 
 Portal 5 is released under the MIT License — see [LICENSE](LICENSE) at the repo

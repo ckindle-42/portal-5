@@ -10,8 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.572334
-updated_at: 1784946220.572334
+
 ---
 
 `explore_repository` in `portal/platform/mcp_host/pipeline_mcp.py` runs the

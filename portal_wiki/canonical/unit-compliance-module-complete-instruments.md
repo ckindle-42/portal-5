@@ -15,8 +15,7 @@ tags:
 - compliance
 - campaign
 - module-complete
-created_at: 1789239000.0
-updated_at: 1789239000.0
+
 ---
 
 # MODULE_COMPLETE_V1 campaign instruments

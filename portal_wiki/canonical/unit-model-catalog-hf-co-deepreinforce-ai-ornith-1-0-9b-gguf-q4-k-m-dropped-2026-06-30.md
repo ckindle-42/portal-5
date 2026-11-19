@@ -11,8 +11,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.615906
-updated_at: 1784946220.615906
+
 ---
 
 Ornith-1.0-9B Q4_K_M was evaluated as a V10 coding candidate under the

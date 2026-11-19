@@ -12,8 +12,7 @@ tags:
 - security
 - review
 - evaluation
-created_at: 1791527057.0
-updated_at: 1791551211.0
+
 ---
 
 `portal/modules/security/core/review_eval/` contains scorer-plane truth,

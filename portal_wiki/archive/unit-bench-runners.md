@@ -1,20 +1,19 @@
 ---
 id: unit-bench-runners
+historical: true
 kind: mixed
 title: "Bench runners \u2014 direct/pipeline/persona measurement paths"
 sources:
 - type: code
   path: tests/benchmarks/bench/runners.py
   commit: 381f217b
-last_generated_commit: 381f217b
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - bench
-created_at: 1785798459.614971
-updated_at: 1785798459.614971
+
 ---
 
 `runners.py` is the bench runner surface: `bench_direct` measures models

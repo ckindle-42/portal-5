@@ -16,8 +16,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.710026
-updated_at: 1784946220.710026
+
 ---
 
 - `--workspaces auto-pentest` errors — `auto-pentest` is a retired alias (it is

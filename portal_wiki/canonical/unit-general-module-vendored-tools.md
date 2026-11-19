@@ -12,8 +12,7 @@ tags:
 - authored-v1
 - module
 - general
-created_at: 1785794886.0219789
-updated_at: 1785794886.0219789
+
 ---
 
 The general module is the always-on base discipline and the template proof

@@ -11,8 +11,7 @@ tags:
 - known-limitations
 - speech
 - apple-silicon
-created_at: 1787921700
-updated_at: 1787924000
+
 ---
 
 ### Voice Cloning Constraints

@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.6323571
-updated_at: 1784946220.6323571
+
 ---
 
 `huihui_ai/tongyi-deepresearch-abliterated` is an abliterated deepresearch model in the Qwen3.5-abliterated lineage, registered in `config/backends.yaml` under the `reasoning` group with `supports_tools: true`. `config/portal.yaml` routes the `auto-research` workspace through the `:latest-ctx64k` derived tag as its `model_hint`, so the base id anchors the reasoning pool while the derived tag carries the web-research traffic. The tool-capable verdict was confirmed by an audit-tools run that emitted a real tool_call. The base id itself has no separate workspace binding; it is the reasoning-group registration that matters.

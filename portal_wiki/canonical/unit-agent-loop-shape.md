@@ -16,8 +16,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.5049548
-updated_at: 1784946220.5049548
+
 ---
 
 The loop's shape is a single bounded engine over a module's contracts:

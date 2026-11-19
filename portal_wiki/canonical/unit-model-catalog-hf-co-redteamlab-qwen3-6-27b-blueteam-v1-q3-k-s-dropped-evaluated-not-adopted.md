@@ -13,8 +13,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.62447
-updated_at: 1784946220.62447
+
 ---
 
 The blue-defender candidate `hf.co/RedTeamLab/Qwen3.6-27B-blueteam-v1:Q3_K_S` was evaluated and dropped: it is absent from `config/backends.yaml`, and its incumbent `sylink/sylink:8b` is what the config actually carries. `sylink/sylink:8b` sits in the `security` group with `supports_tools: false`, is bound to the `bench-sylink-8b` and `bench-sylink` bench `model_hint`s, and was retired from offensive workspaces before promotion to the auto-blueteam primary. The dropped candidate passed preflight and tool-call audit but purple-benched at zero detections on every gauntlet scenario against the fixed red model, exactly matching the incumbent's zero-detection result with no improvement.

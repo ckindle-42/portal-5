@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.6146472
-updated_at: 1784946220.6146472
+
 ---
 
 `glm-4.7-flash:Q4_K_M` is registered in `config/backends.yaml` under the `coding` group with `supports_tools: true`, the `security` group with `supports_tools: true`, and the `general` group with `supports_tools: false`. `config/portal.yaml` binds it as the `bench-glm` workspace `model_hint` and the `auto-security` description names it the strongest candidate on generic tool reliability, describing a ZhipuAI / Z.AI MIT-licensed 31B MoE (4 experts/token, ~3B active, 128K context) of non-Meta/Qwen lineage. The catalog records the 2026-07-16 re-verification: direct probes and an audit-tools run confirmed clean tool calls, and the kerberoast chain scored valid_rate 1.00 with redundant_call_rate 0.00, which is why `supports_tools` was flipped to true in `config/backends.yaml`. The `:math` variant is not pulled.

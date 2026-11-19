@@ -13,8 +13,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.523835
-updated_at: 1784946220.523835
+
 ---
 
 The backup command's artifact set is fixed and covers four things: the `portal-5_open-webui-data` volume with users and chat history, the `portal-5_grafana-data` volume with dashboards and datasources, the `.env` secrets file, and the `config/` plus `imports/` trees. Excluded by design are the `portal-5_ollama-models` weights volume and the host workspace at `${AI_OUTPUT_DIR}`, the latter being recoverable only by manual archive. This is the complete inventory; nothing outside it is snapshotted.

@@ -10,8 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.6726248
-updated_at: 1784946220.6726248
+
 ---
 
 - **ID**: P5-REQ-SIZE-001

@@ -50,8 +50,7 @@ tags:
 - surface
 - compliance
 - closeout
-created_at: 1789945809.999774
-updated_at: 1789945809.999774
+
 ---
 
 The closeout's instruments, one per phase of CLOSEOUT_V1, each reporting and

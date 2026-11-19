@@ -1,19 +1,18 @@
 ---
 id: unit-claude-surgical-changes
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 Surgical Changes"
 sources:
 - type: design
   path: CLAUDE.md
   section: Surgical Changes
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.194313
-updated_at: 1785348301.194313
+
 ---
 
 

@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.571975
-updated_at: 1784946220.571975
+
 ---
 
 The pipeline MCP exposes introspection and repository tools, all implemented as

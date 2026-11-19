@@ -12,8 +12,7 @@ tags:
 - omlx
 - ollama
 - measurement
-created_at: 1792540800
-updated_at: 1792680000
+
 ---
 
 Measured 2026-10-21 on the M4 Pro with 64 GB unified memory. The figures below are that day's timings and disk sizes, not a live inventory.

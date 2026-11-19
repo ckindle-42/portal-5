@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-open-webui-models-come-through-the-pipeline-at-909
+historical: true
 kind: why
 title: "HOWTO \u2014 Open WebUI models come through the pipeline at :9099"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: Open WebUI models come through the pipeline at :9099
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.840158
-updated_at: 1783195000.840158
+
 ---
 
 curl -s http://localhost:9099/v1/models \

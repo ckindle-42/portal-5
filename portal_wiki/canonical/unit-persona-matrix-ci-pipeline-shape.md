@@ -13,8 +13,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.567413
-updated_at: 1784946220.567413
+
 ---
 
 The persona-matrix workflow has no scheduled cron trigger. `persona_matrix_nightly.yml` declares only workflow_dispatch (manual) and pull_request (path-scoped), and the file's own header comment explains why: no self-hosted runner is kept online for this repo, so a cron would queue forever and be auto-cancelled by GitHub. The PR path filter narrows runs to changes that plausibly alter matrix outcomes: `config/personas/**`, `config/backends.yaml`, `tests/lib/**`, `tests/fixtures/**`, and `tests/portal5_persona_matrix.py`.

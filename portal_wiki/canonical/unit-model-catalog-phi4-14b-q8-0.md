@@ -10,8 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.599901
-updated_at: 1784946220.599901
+
 ---
 
 `phi4:14b-q8_0` is Microsoft Phi-4 14B at Q8 (~14GB, MIT, synthetic training data, high precision). `config/backends.yaml` registers it in `group: general` with `supports_tools: false`. The false flag is a runtime fact: Ollama 0.30.x rejects tool injection with a 400 on this model because its template has no tool-calling support. It therefore serves as a general-purpose text assistant rather than a tool-capable backend entry, and no `config/portal.yaml` workspace pins it as a `model_hint`.

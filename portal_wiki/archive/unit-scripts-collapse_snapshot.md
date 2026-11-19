@@ -1,19 +1,18 @@
 ---
 id: unit-scripts-collapse_snapshot
+historical: true
 kind: mixed
 title: "Script \u2014 collapse_snapshot"
 sources:
 - type: code
   path: scripts/collapse_snapshot.py
   commit: 94ecf393
-last_generated_commit: 94ecf393
 claims: []
 confidence: high
 tags:
 - authored-v1
 - scripts
-created_at: 1785799469.084564
-updated_at: 1785799469.084564
+
 ---
 
 Captures the counts every phase of the collapse program changes, so each phase's before/after diff is measured. Read-only — never writes to the config or wiki trees.

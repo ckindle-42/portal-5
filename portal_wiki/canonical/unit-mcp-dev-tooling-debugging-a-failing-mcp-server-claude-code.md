@@ -14,8 +14,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.579058
-updated_at: 1784946220.579058
+
 ---
 
 When a Portal MCP tool errors, the containerised servers and the pipeline MCP expose

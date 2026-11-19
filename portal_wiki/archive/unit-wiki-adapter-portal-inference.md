@@ -1,20 +1,19 @@
 ---
 id: unit-wiki-adapter-portal-inference
+historical: true
 kind: mixed
 title: "Wiki inference adapter \u2014 Ollama binding for seeding"
 sources:
 - type: code
   path: portal/platform/wiki/adapters/portal_inference.py
   commit: 94445e95
-last_generated_commit: 94445e95
 claims: []
 confidence: high
 tags:
 - authored-v1
 - wiki
 - adapter
-created_at: 1785797572.9919202
-updated_at: 1785797572.9919202
+
 ---
 
 The portal inference adapter wires the stack-agnostic `InferenceBackend`

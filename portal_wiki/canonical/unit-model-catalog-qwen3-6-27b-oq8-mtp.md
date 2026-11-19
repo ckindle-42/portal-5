@@ -10,8 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1785716664.2314298
-updated_at: 1785716664.2314298
+
 ---
 
 `Qwen3.6-27B-oQ8-mtp` is the oQ-quantized Qwen3.6-27B with a merged Lightning MTP head (built during the 2026-05-28 re-eval), served by the oMLX evaluation backend. `config/backends.yaml` registers it in the `omlx` group's `omlx-local` backend with `supports_tools: false`. Phase-0 Gate-2b with the toggle verified against the server log measured MTP off 8.1-8.4 t/s versus on 18.0-20.5 t/s — a 2.22-2.47x speedup at 82-95% draft acceptance. It is the reference artifact for Phase-4 MTP enablement on coding and security primaries, and no `config/portal.yaml` workspace consumes it.

@@ -14,8 +14,7 @@ tags:
 - authored-v1
 - platform
 - inference
-created_at: 1785884800.0
-updated_at: 1785884800.0
+
 ---
 
 The inference platform layer is the shared spine of the Portal 5 pipeline: the typed

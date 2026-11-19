@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-upload-a-document
+historical: true
 kind: why
 title: "HOWTO \u2014 Upload a document"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: Upload a document
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.852148
-updated_at: 1783195000.852148
+
 ---
 
 

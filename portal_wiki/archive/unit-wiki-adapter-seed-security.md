@@ -1,20 +1,19 @@
 ---
 id: unit-wiki-adapter-seed-security
+historical: true
 kind: mixed
 title: "Wiki security seeder \u2014 technique-signature units"
 sources:
 - type: code
   path: portal/platform/wiki/adapters/seed_security.py
   commit: 94445e95
-last_generated_commit: 94445e95
 claims: []
 confidence: high
 tags:
 - authored-v1
 - wiki
 - adapter
-created_at: 1785797596.483605
-updated_at: 1785797596.483605
+
 ---
 
 The security seeder generates technique-signature units from the SPL

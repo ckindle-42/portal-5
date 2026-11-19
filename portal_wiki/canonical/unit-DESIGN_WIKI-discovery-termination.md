@@ -15,8 +15,7 @@ tags:
 - loop
 - verified-v1
 - wiki
-created_at: 1784941411.445575
-updated_at: 1784941411.445575
+
 ---
 
 The migration loop repeatedly calls `discover_unmigrated_docs()` and halts when the returned list is empty. The candidate set is computed at runtime as the `TIER1_DOCS` tuple unioned with any paths still present in a legacy ledger file (via `_ledger_doc_paths`); it is never chosen by hand on each run. Results are processed highest-priority first: `priority` is a git-churn count over the last 30 commits touching the file, plus a fixed boost for high-value seed docs, sorted descending.

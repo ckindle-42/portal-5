@@ -12,8 +12,7 @@ tags:
 - authored-v1
 - wiki
 - tests
-created_at: 1785795467.529739
-updated_at: 1785795467.529739
+
 ---
 
 This test file guards the migration module's anti-gaming rules — the V2

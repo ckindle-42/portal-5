@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.512875
-updated_at: 1784946220.512875
+
 ---
 
 Specialized nodes pin capacity to a routing group. Every backend entry carries

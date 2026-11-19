@@ -16,8 +16,7 @@ tags:
 - discovery
 - verified-v1
 - wiki
-created_at: 1784049570.60765
-updated_at: 1784049570.60765
+
 ---
 
 # Discovery with fact-units

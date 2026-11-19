@@ -26,8 +26,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.680423
-updated_at: 1791376709
+
 ---
 
 The operator surface is one dispatcher: `./launch.sh <command>`. The `case`

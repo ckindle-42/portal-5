@@ -14,8 +14,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.70703
-updated_at: 1784946220.70703
+
 ---
 
 The bench entry point is `python3 -m portal.modules.security.core`, which

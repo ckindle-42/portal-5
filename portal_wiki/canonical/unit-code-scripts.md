@@ -14,8 +14,7 @@ confidence: high
 tags:
 - code
 - scripts
-created_at: 1792204748.5158741
-updated_at: 1792204748.5158741
+
 ---
 
 # scripts subsystem

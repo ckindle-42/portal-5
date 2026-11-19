@@ -12,8 +12,7 @@ tags:
 - module
 - security
 - siem
-created_at: 1785884200.0
-updated_at: 1785884200.0
+
 ---
 
 The `siem` subpackage is the Splunk integration boundary for the bench: HEC ships telemetry in, queries run as oneshot exports, detections resolve from a declarative SPL library, and a `blue_triage` loop polls, enriches, and reports alerts.

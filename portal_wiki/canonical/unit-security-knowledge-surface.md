@@ -15,8 +15,7 @@ tags:
 - module
 - security
 - knowledge
-created_at: 1785795023.449225
-updated_at: 1785795023.449225
+
 ---
 
 The knowledge subpackage is the stable re-export boundary over the security

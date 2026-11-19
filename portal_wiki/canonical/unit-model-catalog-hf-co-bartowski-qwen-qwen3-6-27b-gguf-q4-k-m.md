@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.613865
-updated_at: 1784946220.613865
+
 ---
 
 `hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M` is the bartowski Q4_K_M of Qwen3.6-27B (~16GB). `config/backends.yaml` registers it in the `general` group with `supports_tools: false` and in the `coding` group with `supports_tools: true` — the tool-capable value applies only in the coding pool, per the Qwen3.6 tool-call format. `config/portal.yaml` selects it as the `model_hint` for `bench-qwen36-27b-optiq`, the TASK_QUANT_TRUEUP_V1 head-to-head lane: it was originally catalogued under an OptiQ label, but the bartowski repo was renamed to `Qwen_Qwen3.6-27B-GGUF` with no separate OptiQ GGUF published, so this quant stands in for the OptiQ comparison against `bench-qwen36-27b`.

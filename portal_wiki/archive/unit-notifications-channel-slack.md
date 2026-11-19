@@ -1,20 +1,19 @@
 ---
 id: unit-notifications-channel-slack
+historical: true
 kind: mixed
 title: "Notification Slack channel \u2014 incoming-webhook sender"
 sources:
 - type: code
   path: portal/platform/inference/notifications/channels/slack.py
   commit: 7383d070
-last_generated_commit: 7383d070
 claims: []
 confidence: high
 tags:
 - authored-v1
 - notifications
 - platform
-created_at: 1785796485.719061
-updated_at: 1785796485.719061
+
 ---
 
 `SlackChannel` sends notifications to a Slack webhook: it formats the alert

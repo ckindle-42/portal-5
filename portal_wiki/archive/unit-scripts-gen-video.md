@@ -1,19 +1,18 @@
 ---
 id: unit-scripts-gen-video
+historical: true
 kind: mixed
 title: "Script \u2014 gen-video"
 sources:
 - type: code
   path: scripts/gen-video.py
   commit: 94ecf393
-last_generated_commit: 94ecf393
 claims: []
 confidence: high
 tags:
 - authored-v1
 - scripts
-created_at: 1785799514.2111192
-updated_at: 1785799514.2111192
+
 ---
 
 Generates video through the ComfyUI pipeline from the command line.

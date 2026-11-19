@@ -10,8 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.5794618
-updated_at: 1784946220.5794618
+
 ---
 
 Before a long coding session, check whether the model you need is already resident in

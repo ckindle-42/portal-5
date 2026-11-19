@@ -1,20 +1,19 @@
 ---
 id: unit-uat-runner
+historical: true
 kind: mixed
 title: "UAT runner \u2014 section orchestration"
 sources:
 - type: code
   path: tests/uat/runner.py
   commit: d7dcc96a
-last_generated_commit: d7dcc96a
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - uat
-created_at: 1785799308.3771038
-updated_at: 1785799308.3771038
+
 ---
 
 The UAT run orchestrator that drives the sections, collects results, and reports the outcome.

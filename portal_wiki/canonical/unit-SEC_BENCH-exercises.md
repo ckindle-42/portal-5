@@ -12,8 +12,7 @@ tags:
 - prompts
 - security
 - verified-v1
-created_at: 1784945480.186122
-updated_at: 1784945480.186122
+
 ---
 
 ## Execution modes — 33 executable prompts plus theory-only exercises

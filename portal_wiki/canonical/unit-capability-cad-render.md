@@ -22,8 +22,7 @@ tags:
 - capability
 - mcp
 - cad
-created_at: 1788030600.446044
-updated_at: 1788030600.446044
+
 ---
 
 # CAD Render MCP — mesh rendering and CAD conversion

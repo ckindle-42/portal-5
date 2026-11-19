@@ -13,8 +13,7 @@ tags:
 - known-limitations
 - security
 - dependencies
-created_at: 1792588377
-updated_at: 1792588377
+
 ---
 
 ### Transitive DiskCache and Accelerate advisories — no untrusted input path (2026-10-21)

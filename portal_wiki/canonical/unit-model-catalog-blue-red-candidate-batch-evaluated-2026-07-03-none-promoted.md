@@ -13,8 +13,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.623596
-updated_at: 1784946220.623596
+
 ---
 
 The candidate-evaluation harness `portal/modules/security/core/candidate_eval.py` benches

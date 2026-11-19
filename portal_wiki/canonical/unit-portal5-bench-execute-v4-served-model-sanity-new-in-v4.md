@@ -15,8 +15,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.70277
-updated_at: 1784946220.70277
+
 ---
 
 Persona served-model correctness was a recent bug class, so V4 adds a sanity

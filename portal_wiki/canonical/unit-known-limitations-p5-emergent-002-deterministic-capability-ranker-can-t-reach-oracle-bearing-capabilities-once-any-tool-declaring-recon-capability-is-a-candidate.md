@@ -17,8 +17,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.676039
-updated_at: 1784946220.676039
+
 ---
 
 **Status:** RESOLVED 2026-07-29.

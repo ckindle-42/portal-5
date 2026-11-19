@@ -13,8 +13,7 @@ tags:
 - authored-v1
 - surface
 - omlx
-created_at: 1790412800.0
-updated_at: 1790412800.0
+
 ---
 
 - **What**: `scripts/omlx/deepseek_r1_tool_parser.py` is the canonical copy of

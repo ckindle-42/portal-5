@@ -11,8 +11,7 @@ confidence: high
 tags:
 - authored-v1
 - wiki
-created_at: 1785797323.054877
-updated_at: 1785797323.054877
+
 ---
 
 The interfaces module defines the stack-agnostic contracts the wiki engine

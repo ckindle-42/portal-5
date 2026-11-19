@@ -13,8 +13,7 @@ tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.856343
-updated_at: 1783195000.856343
+
 ---
 
 **What:** Get operational alerts and daily usage summaries via Slack, Telegram, Email, Pushover, or a generic webhook.

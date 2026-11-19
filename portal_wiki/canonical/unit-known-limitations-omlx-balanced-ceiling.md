@@ -13,8 +13,7 @@ tags:
 - known-limitations
 - omlx
 - memory
-created_at: 1792627200
-updated_at: 1792684036
+
 ---
 
 #### oMLX balanced memory-guard ceiling moves with free memory (2026-10-22)

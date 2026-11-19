@@ -13,8 +13,7 @@ tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.8519108
-updated_at: 1783195000.8519108
+
 ---
 
 **What:** Upload documents in Open WebUI and have conversations grounded in their content.

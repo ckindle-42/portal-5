@@ -10,8 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.665893
-updated_at: 1784946220.665893
+
 ---
 
 - **ID**: P5-MATH-001

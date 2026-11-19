@@ -11,8 +11,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.509588
-updated_at: 1784946220.509588
+
 ---
 
 The pipeline creates one translated `httpx.AsyncClient` at startup in `portal/platform/inference/router/lifespan.py`, configured with `httpx.Timeout(600.0, connect=5.0)` and `httpx.Limits(max_keepalive_connections=20, max_connections=100)`. That client is propagated to routing, streaming, and the council for `/v1` backend traffic. Native MCP passthrough uses a second plain client with the same limits and timeout: it deliberately has no `OllamaNativeTransport`, so it can forward Ollama-native bytes without changing `think`, `images`, `format`, or response fields.

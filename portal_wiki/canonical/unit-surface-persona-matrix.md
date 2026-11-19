@@ -11,8 +11,7 @@ tags:
 - authored-v1
 - eval
 - persona-matrix
-created_at: 1785884600.0
-updated_at: 1785884600.0
+
 ---
 
 The persona-matrix harness is the eval package's per-(persona, model) coverage sweep: which candidates are redundant, and whether every persona is covered by some model. It resolves a workspace's personas and model chain, runs applicable fixture scenarios per pair, and folds assertion outcomes into a PASS/WARN/FAIL cell grid.

@@ -16,8 +16,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.5934029
-updated_at: 1787936110.0
+
 ---
 
 P5-FUT-SPEECH-002 is planned work. The current production speech stack is

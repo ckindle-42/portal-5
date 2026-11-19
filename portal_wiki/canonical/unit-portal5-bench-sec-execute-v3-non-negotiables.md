@@ -18,8 +18,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.7105012
-updated_at: 1784946220.7105012
+
 ---
 
 - Run `scripts/execute_preflight.py` first and use its live `security_variants`

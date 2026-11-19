@@ -14,8 +14,7 @@ tags:
 - orchestration
 - security
 - verified-v1
-created_at: 1784945480.186831
-updated_at: 1784945480.186831
+
 ---
 
 `--blue-mode` selects which blue investigation path a run uses:

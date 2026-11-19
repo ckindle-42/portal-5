@@ -16,8 +16,7 @@ tags:
 - T1078.004
 - technique
 - signature
-created_at: 1790651067.896575
-updated_at: 1790651067.896575
+
 ---
 
 # T1078.004 — Valid Accounts: Cloud Accounts — interactive or non-interactive sign-in to an AWS account [KEY: CloudTrail ConsoleLogin record]

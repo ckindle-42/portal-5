@@ -24,8 +24,7 @@ tags:
 - spine
 - verified-v1
 - wiki
-created_at: 1785825842.272556
-updated_at: 1791527128.0
+
 ---
 
 The active spine checks are `BR` surface coverage and `BS` claim/path validation.

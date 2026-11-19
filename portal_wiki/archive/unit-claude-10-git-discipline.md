@@ -1,19 +1,18 @@
 ---
 id: unit-claude-10-git-discipline
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 10 \u2014 Git Discipline"
 sources:
 - type: design
   path: CLAUDE.md
   section: "10 \u2014 Git Discipline"
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.1943538
-updated_at: 1785348301.1943538
+
 ---
 
 

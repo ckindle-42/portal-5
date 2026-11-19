@@ -14,8 +14,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.519338
-updated_at: 1784946220.519338
+
 ---
 
 Updating an existing setup is `python3 scripts/lab_setup.py --update`, but the

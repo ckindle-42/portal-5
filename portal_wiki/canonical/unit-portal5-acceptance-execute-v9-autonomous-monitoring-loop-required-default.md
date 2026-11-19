@@ -16,8 +16,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.694719
-updated_at: 1784946220.694719
+
 ---
 
 The acceptance suite runs many Ollama-routed sections back to back against a

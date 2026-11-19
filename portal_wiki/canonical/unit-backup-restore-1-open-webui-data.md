@@ -13,8 +13,7 @@ claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.529026
-updated_at: 1784946220.529026
+
 ---
 
 Open WebUI stores users, chat history, settings, and workspace presets in the named `open-webui-data` volume, which the compose project under `deploy/portal-5` materializes as `portal-5_open-webui-data`. The `_launch_backup` function tars that volume into `openwebui-data.tar.gz` inside a fresh timestamped directory, and `_launch_restore` wipes the volume before extracting the tarball back in, so the current contents are overwritten by design. The two commands are the documented pair for moving this data around.

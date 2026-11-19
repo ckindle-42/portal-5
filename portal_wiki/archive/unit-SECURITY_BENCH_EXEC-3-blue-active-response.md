@@ -1,18 +1,17 @@
 ---
 id: unit-SECURITY_BENCH_EXEC-3-blue-active-response
+historical: true
 kind: why
 title: "SECURITY_BENCH_EXEC \u2014 3. Blue Active Response"
 sources:
 - type: design
   path: docs/SECURITY_BENCH_EXEC.md
   section: 3. Blue Active Response
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - SECURITY_BENCH_EXEC
-created_at: 1783195000.9020748
-updated_at: 1783195000.9020748
+
 ---
 
 When `--blue-active` is used, the blue defender model can call defensive tools that execute in the lab:

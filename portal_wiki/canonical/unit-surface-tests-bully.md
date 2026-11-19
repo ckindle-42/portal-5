@@ -13,8 +13,7 @@ tags:
 - security
 - bully
 - tests
-created_at: 1786751207.0
-updated_at: 1786751207.0
+
 ---
 
 `tests/security/bully/` contains integration and contract tests for retained Bully corpus, intake, discovery, and data-plane behavior. Tests for the removed hunt orchestrator and multi-agent investigation path have been deleted; module-focused tests remain alongside the security modules.

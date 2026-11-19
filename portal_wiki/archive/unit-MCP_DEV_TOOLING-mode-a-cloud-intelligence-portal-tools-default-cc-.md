@@ -1,5 +1,6 @@
 ---
 id: unit-MCP_DEV_TOOLING-mode-a-cloud-intelligence-portal-tools-default-cc-
+historical: true
 kind: why
 title: "MCP_DEV_TOOLING \u2014 Mode A \u2014 Cloud intelligence + Portal tools (default,\
   \ `cc-portal.sh`)"
@@ -7,13 +8,11 @@ sources:
 - type: design
   path: docs/MCP_DEV_TOOLING.md
   section: "Mode A \u2014 Cloud intelligence + Portal tools (default, `cc-portal.sh`)"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - MCP_DEV_TOOLING
-created_at: 1783195000.872891
-updated_at: 1783195000.872891
+
 ---
 
 

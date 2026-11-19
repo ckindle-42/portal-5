@@ -14,8 +14,7 @@ tags:
 - T1068
 - technique
 - signature
-created_at: 1790651067.888416
-updated_at: 1790651067.888416
+
 ---
 
 # T1068 — Exploitation for privilege escalation — kernel/userspace privesc

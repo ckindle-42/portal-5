@@ -13,8 +13,7 @@ tags:
 - authored-v1
 - module
 - security
-created_at: 1785882200.0
-updated_at: 1785882200.0
+
 ---
 
 The security core is the RBP bench engine: chain execution and lab

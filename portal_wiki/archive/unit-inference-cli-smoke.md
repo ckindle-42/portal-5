@@ -1,20 +1,19 @@
 ---
 id: unit-inference-cli-smoke
+historical: true
 kind: mixed
 title: "Inference CLI smoke \u2014 live-stack end-to-end test"
 sources:
 - type: code
   path: portal/platform/inference/cli/smoke.py
   commit: 250150f6
-last_generated_commit: 250150f6
 claims: []
 confidence: high
 tags:
 - authored-v1
 - platform
 - cli
-created_at: 1785797868.820791
-updated_at: 1785797868.820791
+
 ---
 
 `portal test` runs the end-to-end smoke tests against the live Portal stack:

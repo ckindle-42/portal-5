@@ -16,8 +16,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.580513
-updated_at: 1784946220.580513
+
 ---
 
 Each MCP server in `.mcp.json` has an explicit boundary. `filesystem` is launched

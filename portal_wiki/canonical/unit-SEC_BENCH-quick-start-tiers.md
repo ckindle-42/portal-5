@@ -14,8 +14,7 @@ tags:
 - quickstart
 - security
 - verified-v1
-created_at: 1784945192.269226
-updated_at: 1784945192.269226
+
 ---
 
 ## Tier 1 — Theory (prose quality, workspace prompts only)

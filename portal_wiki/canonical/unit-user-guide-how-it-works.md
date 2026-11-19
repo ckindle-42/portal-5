@@ -12,8 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.516234
-updated_at: 1784946220.516234
+
 ---
 
 When you attach a document, Open WebUI chunks it at `CHUNK_SIZE` (1500

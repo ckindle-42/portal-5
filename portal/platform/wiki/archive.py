@@ -1,9 +1,9 @@
 """Archive mechanism — retained on disk, out of the working set.
 
 Archiving is not deletion. Catalog changes in this project are additive-only,
-so an archived unit keeps its file (moved to `portal_wiki/archive/`) and its
-frontmatter unchanged; it simply leaves the live store that search, coverage,
-drift, quality, and render operate over.
+so an archived unit keeps its file (moved to `portal_wiki/archive/`) with a
+historical mark; it simply leaves the live store that search, coverage, drift,
+quality, and render operate over.
 
 The preconditions for archiving live *in this module*, not in the operator's
 discipline:
@@ -243,7 +243,11 @@ def archive_unit(
         return False, f"no file {src}"
     archive.mkdir(parents=True, exist_ok=True)
     dst = archive / f"{unit_id}.md"
-    src.rename(dst)
+    if dst.exists():
+        return False, f"archive target already exists: {dst}"
+    unit.historical = True
+    dst.write_text(unit.to_markdown(), encoding="utf-8")
+    src.unlink()
 
     commit = _current_commit(root)
     date = datetime.now(UTC).strftime("%Y-%m-%d")

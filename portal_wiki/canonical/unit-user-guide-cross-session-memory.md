@@ -16,8 +16,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.516544
-updated_at: 1784946220.516544
+
 ---
 
 Portal 5 keeps a persistent memory of facts you share across conversations.

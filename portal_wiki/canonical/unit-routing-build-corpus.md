@@ -12,8 +12,7 @@ tags:
 - authored-v1
 - tests
 - routing
-created_at: 1785795502.531222
-updated_at: 1785795502.531222
+
 ---
 
 `build_corpus.py` assembles the routing-integrity corpus that measures the
