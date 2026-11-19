@@ -309,6 +309,13 @@ meet (the brief will name it) produces two local receipts then one `dispatch.py`
 the orchestrator reads from the dispatcher ledger, with no `--allow-metered`. While the
 flag is false, that same task ends `blocked` and the dispatcher ledger gains no row.
 
+Since 2026-11-19 the handoff is bounded: a task gets at most
+`orchestration_arm.queue.personal_cloud.max_attempts` cloud dispatches (default 1); an
+interrupted/killed lane (dispatch status `interrupted`, exit 143/-15) is terminal for the
+task — the row, the receipt and a Telegram notice to the requester say why, and the runner
+never re-dispatches on its own. `/jarvis cancel pt-<id>` (Telegram, Confirm first) cancels
+the row and stops a lane already running for it.
+
 **J10 — arm templates from a personal request.** If the planner emits a known
 `enqueue-template` (discipline, template key, parameters) and the path checks in
 `owui_entry.py` pass, the runner enqueues that arm job and the personal receipt points at

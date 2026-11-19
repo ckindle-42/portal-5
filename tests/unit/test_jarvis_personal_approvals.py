@@ -267,6 +267,8 @@ def test_personal_cloud_retry_stops_if_flag_is_disabled(
     dispatcher = Dispatcher()
     enabled = True
     monkeypatch.setattr(personal_runner, "_personal_cloud_enabled", lambda: enabled, raising=False)
+    # Cap 2 keeps the retry path reachable; the shipped default cap is 1 (one cloud try).
+    monkeypatch.setattr(personal_runner, "_personal_cloud_cap", lambda: 2, raising=False)
 
     assert poll_personal_tasks(tmp_path, sink, caller).status == "retrying"  # type: ignore[union-attr]
     assert (

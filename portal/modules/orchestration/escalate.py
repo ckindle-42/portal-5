@@ -97,6 +97,7 @@ class LaneDispatcher(Protocol):
         brief: Path,
         repo: Path,
         new: bool = True,
+        cancel_check: Callable[[], bool] | None = None,
     ) -> LaneResult: ...
 
 
@@ -373,11 +374,14 @@ class ProcessDispatcher:
         brief: Path,
         repo: Path,
         new: bool = True,
+        cancel_check: Callable[[], bool] | None = None,
     ) -> LaneResult:
         if not self.binary.is_file():
             return _empty_lane(role, tier, 127, f"dispatch binary missing: {self.binary}")
         argv = _dispatch_argv(self.binary, repo, role, tier, kind, brief, self.timeout_s, new)
-        output, code = _run_bounded(argv, self.timeout_s, self.poll_s, self.sleeper)
+        output, code = _run_bounded(
+            argv, self.timeout_s, self.poll_s, self.sleeper, cancel_check=cancel_check
+        )
         text = output if "## RESULT" in output else _latest_log(role) or output
         worktree = _lane_worktree(repo, role)
         changes = inspect_changes(worktree, repo) if (worktree / ".git").exists() else _no_changes()
@@ -1727,7 +1731,11 @@ def _latest_log(role: str) -> str:
 
 
 def _run_bounded(
-    argv: list[str], timeout_s: float, poll_s: float, sleeper: Callable[[float], None]
+    argv: list[str],
+    timeout_s: float,
+    poll_s: float,
+    sleeper: Callable[[float], None],
+    cancel_check: Callable[[], bool] | None = None,
 ) -> tuple[str, int]:
     fd, name = tempfile.mkstemp(prefix="portal-esc-", suffix=".log")
     os.close(fd)
@@ -1735,7 +1743,7 @@ def _run_bounded(
     sink = path.open("w", encoding="utf-8")
     proc = subprocess.Popen(argv, stdout=sink, stderr=subprocess.STDOUT, start_new_session=True)
     try:
-        code = _wait_process(proc, timeout_s, poll_s, sleeper)
+        code = _wait_process(proc, timeout_s, poll_s, sleeper, cancel_check)
     finally:
         sink.close()
     try:
@@ -1751,9 +1759,13 @@ def _wait_process(
     timeout_s: float,
     poll_s: float,
     sleeper: Callable[[float], None],
+    cancel_check: Callable[[], bool] | None = None,
 ) -> int:
     deadline = time.monotonic() + timeout_s
     while proc.poll() is None:
+        if cancel_check is not None and cancel_check():
+            _stop_process(proc)
+            break
         if time.monotonic() >= deadline:
             _stop_process(proc)
             break

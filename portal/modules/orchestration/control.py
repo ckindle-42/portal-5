@@ -92,10 +92,17 @@ def queue_items(root: Path) -> list[dict[str, Any]]:
 
 
 def cancel_job(root: Path, task_id: str, reason: str, *, force: bool = False) -> str:
-    """Mark a queued task blocked/CANCELLED; refuse a live runner unless forced."""
+    """Mark a queued task blocked/CANCELLED; refuse a live runner unless forced.
+
+    A personal task id cancels the row; a cloud lane already running for it is stopped
+    by its dispatch watch and never re-dispatched."""
     from portal.modules.orchestration.jobs import release_window_claim
+    from portal.modules.orchestration.personal_runner import cancel_personal_task
+    from portal.modules.orchestration.personal_store import PersonalStore
     from portal.modules.orchestration.queue import QueueLedger
 
+    if PersonalStore(root).get(task_id) is not None:
+        return cancel_personal_task(root, task_id)
     with QueueLedger(root) as ledger:
         ledger.cancel_task(task_id, reason, force=force)
     released = release_window_claim(task_id)
@@ -254,6 +261,17 @@ def _requeue(ctx: ControlContext, args: str) -> str:
 
 def _cancel(ctx: ControlContext, args: str) -> str:
     return str(cancel_job(ctx.root, args, "cancelled from Telegram"))
+
+
+def personal_cancel_queued(task_id: str) -> bool:
+    """A confirmed Telegram cancel for this personal task that the runner has not executed
+    yet — the signal a running cloud lane's dispatch watch polls for."""
+    from portal_channels.telegram.arm_bridge import ArmTelegramStore, default_arm_telegram_path
+
+    path = default_arm_telegram_path()
+    if not path.is_file():
+        return False
+    return ArmTelegramStore(path).has_queued_control("cancel", task_id)
 
 
 def _canary(ctx: ControlContext, args: str) -> str:

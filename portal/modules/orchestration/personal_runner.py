@@ -6,6 +6,7 @@ import json
 import os
 import re
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -298,6 +299,29 @@ def _run_cloud_attempt(
     checkin.update(0, ["dispatch.py"])
     active_dispatcher = dispatcher or ProcessDispatcher()
     role = f"jarvis-personal-{task.id}-a{attempt}"
+    outcome = _dispatch_lane(
+        active_dispatcher,
+        role=role,
+        tier=tier,
+        kind=kind,
+        brief=brief,
+        cancel_check=lambda: _cloud_stop_requested(store, task.id),
+    )
+    cloud_path = task_dir / "attempts" / f"cloud-{attempt}" / "receipt.json"
+    _write_receipt(cloud_path, {"status": "cloud-attempt", **outcome})
+    extra = {"local_attempts": [str(path) for path in local_paths], "cloud": outcome}
+    return _cloud_result(root, store, task, notices, extra, outcome, attempt)
+
+
+def _dispatch_lane(
+    active_dispatcher: Any,
+    *,
+    role: str,
+    tier: str,
+    kind: str,
+    brief: Path,
+    cancel_check: Callable[[], bool],
+) -> dict[str, Any]:
     try:
         result = active_dispatcher.run(
             role=role,
@@ -306,8 +330,9 @@ def _run_cloud_attempt(
             brief=brief,
             repo=Path(__file__).resolve().parents[3],
             new=True,
+            cancel_check=cancel_check,
         )
-        outcome: dict[str, Any] = {
+        return {
             "role": role,
             "tier": tier,
             "kind": kind,
@@ -317,11 +342,20 @@ def _run_cloud_attempt(
             "result": str(getattr(result, "result_text", "")),
         }
     except Exception as exc:  # noqa: BLE001 — keep a dispatch fault in the personal receipt
-        outcome = {"role": role, "tier": tier, "kind": kind, "exit_code": 1, "error": str(exc)}
-    cloud_path = task_dir / "attempts" / f"cloud-{attempt}" / "receipt.json"
-    _write_receipt(cloud_path, {"status": "cloud-attempt", **outcome})
-    extra = {"local_attempts": [str(path) for path in local_paths], "cloud": outcome}
-    if outcome["exit_code"] == 0:
+        return {"role": role, "tier": tier, "kind": kind, "exit_code": 1, "error": str(exc)}
+
+
+def _cloud_result(
+    root: Path,
+    store: PersonalStore,
+    task: PersonalTask,
+    notices: Any,
+    extra: dict[str, Any],
+    outcome: dict[str, Any],
+    attempt: int,
+) -> PersonalRun:
+    """Success hands off; operator cancel and killed lanes are terminal; else the cap rules."""
+    if int(outcome.get("exit_code", 1)) == 0:
         _finish(
             root,
             store,
@@ -335,8 +369,45 @@ def _run_cloud_attempt(
             extra=extra,
         )
         return PersonalRun(task.id, "handed-to-cloud")
-    if attempt < 3:
-        receipt_path = task_dir / "receipt.json"
+    if _cloud_stop_requested(store, task.id):
+        error = f"cancelled by operator; cloud lane stopped (exit {outcome.get('exit_code')})"
+        _finish(
+            root,
+            store,
+            task,
+            "cancelled",
+            error,
+            FAST_WORKSPACE,
+            0,
+            [],
+            notices,
+            error=error,
+            extra=extra,
+        )
+        return PersonalRun(task.id, "cancelled")
+    cap = _personal_cloud_cap()
+    if _lane_interrupted(outcome):
+        error = (
+            f"cloud lane was interrupted (exit {outcome.get('exit_code')}, "
+            f"status {outcome.get('status') or 'unknown'}); "
+            "a killed lane is terminal — no automatic re-dispatch"
+        )
+        _finish(
+            root,
+            store,
+            task,
+            "blocked",
+            error,
+            FAST_WORKSPACE,
+            0,
+            [],
+            notices,
+            error=error,
+            extra=extra,
+        )
+        return PersonalRun(task.id, "blocked")
+    if attempt < cap:
+        receipt_path = root / task.id / "receipt.json"
         _write_receipt(
             receipt_path,
             {"status": "cloud_retry", **extra, "error": outcome.get("error", "dispatch failed")},
@@ -354,6 +425,7 @@ def _run_cloud_attempt(
         )
         return PersonalRun(task.id, "cloud-retry")
     error = str(outcome.get("error") or outcome.get("result") or "cloud dispatch failed")
+    error = f"cloud attempt cap {cap} reached after {attempt} failed attempt(s): {error}"
     _finish(
         root,
         store,
@@ -685,14 +757,76 @@ def _personal_available_tools() -> frozenset[str]:
     return frozenset(result)
 
 
-def _personal_cloud_enabled() -> bool:
+def _personal_cloud_queue() -> dict[str, Any]:
     import yaml
 
     path = Path(__file__).resolve().parents[3] / "config" / "orchestration_arm.yaml"
-    loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
+    try:
+        loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return {}
     queue = loaded.get("queue") if isinstance(loaded, dict) else None
     cloud = queue.get("personal_cloud") if isinstance(queue, dict) else None
-    return isinstance(cloud, dict) and cloud.get("enabled") is True
+    return cloud if isinstance(cloud, dict) else {}
+
+
+def _personal_cloud_enabled() -> bool:
+    return _personal_cloud_queue().get("enabled") is True
+
+
+def _personal_cloud_cap() -> int:
+    """Cloud dispatches allowed per personal task; operator cap in orchestration_arm.yaml."""
+    raw = _personal_cloud_queue().get("max_attempts")
+    if raw is None:
+        return 1
+    try:
+        return max(1, int(raw))
+    except (TypeError, ValueError):
+        return 1
+
+
+_KILL_EXIT_CODES = frozenset({143, -15})
+
+
+def _lane_interrupted(outcome: dict[str, Any]) -> bool:
+    """The dispatcher records `interrupted` for a killed lane; SIGTERM exits arrive as 143/-15."""
+    if str(outcome.get("status") or "") == "interrupted":
+        return True
+    try:
+        return int(outcome.get("exit_code", 0)) in _KILL_EXIT_CODES
+    except (TypeError, ValueError):
+        return False
+
+
+def _cloud_stop_requested(store: PersonalStore, task_id: str) -> bool:
+    """True when the operator cancelled the row, or a confirmed Telegram cancel waits."""
+    from portal.modules.orchestration.control import personal_cancel_queued
+
+    task = store.get(task_id)
+    if task is not None and task.status != "running":
+        return True
+    return personal_cancel_queued(task_id)
+
+
+_PERSONAL_LIVE_STATUSES = frozenset({"queued", "confirmed", "pending", "running", "cloud_retry"})
+_PERSONAL_TERMINAL_STATUSES = frozenset(
+    {"done", "blocked", "rejected", "held", "cancelled", "handed-to-arm", "handed-to-cloud"}
+)
+
+
+def cancel_personal_task(root: Path, task_id: str) -> str:
+    """Operator cancel: the row stops being runnable, and the dispatch watch of a running
+    cloud lane sees the flip and kills the lane (terminal, never re-dispatched)."""
+    store = PersonalStore(root)
+    task = store.get(task_id)
+    if task is None:
+        return f"no personal task: {task_id}"
+    if task.status in _PERSONAL_TERMINAL_STATUSES:
+        return f"{task_id} is already {task.status}"
+    updated = store.update(task_id, status="cancelled", expect=frozenset(_PERSONAL_LIVE_STATUSES))
+    if updated is None:
+        return f"refused: {task_id} changed state during cancel"
+    return f"cancelled {task_id}"
 
 
 class AcceptanceError(RuntimeError):

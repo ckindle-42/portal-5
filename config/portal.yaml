@@ -104,6 +104,8 @@ orchestration_arm:
         timeout_seconds: 1800
     personal_cloud:
       enabled: true
+      # Cloud dispatches per personal task; an interrupted/killed lane is always terminal.
+      max_attempts: 1
     # Telegram /jarvis control plane (default off): bot queues control_requests
     # rows, the host runner executes them. Off = /jarvis answers "not enabled".
     telegram_control:
