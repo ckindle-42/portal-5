@@ -23,9 +23,7 @@ sources:
   path: portal/platform/wiki/adapters/modules.py
 - type: code
   path: config/portal.yaml
-claims:
-- probe: modules.enabled
-  contains: cad
+claims: []
 confidence: high
 tags:
 - cad
@@ -182,3 +180,5 @@ The switch is `modules.cad.enabled` in `config/portal.yaml` (`portal module enab
 routes and whether `cad_render` launches. `portal module enable|disable`
 writes that line. This unit documents the switch; the adapter and the
 module's tool code are what the switch controls.
+
+For live enablement state, query `unit-fact-module-states` or run `portal module list`.

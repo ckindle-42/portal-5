@@ -7,9 +7,7 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims:
-- probe: models.configured
-  contains: lfm2.5:8b-ctx8k
+claims: []
 confidence: high
 tags:
 - docs

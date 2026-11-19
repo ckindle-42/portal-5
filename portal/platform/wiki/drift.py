@@ -165,31 +165,33 @@ def broken_path_refs(repo_root: Path | None = None) -> tuple[str, ...]:
 # body's counts are derived for each wiki query, and a
 # technique signature's Event IDs come from the MITRE mapping — neither is a
 # hand-typed figure that could quietly go stale.
-_DERIVED_FAMILY_RE = re.compile(r"^(?:unit-fact-|unit-T\d{4}(?:\.\d{3})?-signature$)")
+_DERIVED_FAMILY_RE = re.compile(
+    r"^(?:unit-fact-|unit-readme-capability-rollup$|unit-T\d{4}(?:\.\d{3})?-signature$)"
+)
 
 # Fenced blocks hold captured terminal output and config excerpts. A figure inside
 # one is a transcript of something that already happened, not a claim about now —
 # `0 backends` in a log excerpt was one of the original false alarms.
 _FENCE_RE = re.compile(r"```.*?```", re.DOTALL)
 
-# Plural noun required, and the number may not be preceded by a digit or a dot.
-#
-# The singular forms and the missing lookbehind produced twelve false alarms on a
-# store with zero real debt, every one of them a number that was never a count:
-#
-#   "the destination-side 5140 variant"      Windows Event ID
-#   "the Windows 4688 variant"               Windows Event ID
-#   "when a 2509 model card appears"         model version
-#   "per the Qwen3.6 tool-call format"       version number split across the noun
-#   "2658 unit ✅"                           a gates line, using "unit" generically
-#
-# A census that reports debt where there is none teaches the operator to ignore
-# the number, which is how the original 38-unit false alarm survived long enough
-# to matter. The detector is deliberately narrow: a missed figure is visible the
-# moment it goes wrong, a false alarm is invisible forever.
+# Plural noun required, and the number may not be preceded by a digit, dot, or "Portal ".
 _NUMERIC_CLAIM_RE = re.compile(
-    r"(?<![\d.])\b\d[\d,]*\s+(?:workspaces|personas|MCP servers|servers|checks|models|"
-    r"backends|variants|scenarios|techniques|tools|ports)\b",
+    r"(?<![\d.])(?<!Portal\s)\b\d[\d,]*\s+(?:workspaces|personas|MCP servers|servers|checks|"
+    r"models|backends|variants|scenarios|techniques|tools|ports|modules)\b",
+    re.IGNORECASE,
+)
+
+# Hardcoded module enable-state restatements in authored titles/prose.
+_MODULE_STATE_RE = re.compile(
+    r"modules\.[a-z_]+\.enabled(?::\s*(?:true|false)|`?\s+is\s+(?:true|false|on|off)\b)"
+    r"|\b(?:ships?|shipped)\s+(?:enabled|disabled|on|off)\b"
+    r"|\bmodule\s+(?:is\s+)?(?:default\s+(?:on|off)|off\s+by\s+default|on\s+by\s+default|"
+    r"enabled\s+by\s+default|disabled\s+by\s+default|off|on|enabled\s+in\s+the\s+repo)\b"
+    r"|\b(?:module|eval|music|video|image|orchestration|security_redteam|security-redteam)\b"
+    r"[^.\n]{0,45}\b(?:is\s+(?:now\s+)?(?:enabled|disabled|on|off)\b|"
+    r"(?:enabled|disabled|off)\s+by\s+default\b)"
+    r"|\((?:off\s+by\s+default|disabled\s+by\s+default|enabled\s+in\s+repo|"
+    r"module\s+off(?:\s+by\s+default)?)\)",
     re.IGNORECASE,
 )
 
@@ -197,15 +199,7 @@ _NUMERIC_CLAIM_RE = re.compile(
 def undeclared_numeric_claims(
     units: Sequence[KnowledgeUnit] | None = None,
 ) -> dict[str, list[str]]:
-    """Units whose body states a countable quantity but declare no claim.
-
-    Visible debt, never a hard gate: the pattern is a heuristic and a fuzzy
-    signal promoted to a failure is exactly the kind of measurement error this
-    project has paid to unlearn. Use it to pick the next units to instrument.
-
-    Derived families are skipped rather than flagged: a `unit-fact-*` body's
-    figures come from live sources (and signature Event IDs from the MITRE map).
-    """
+    """Units whose body states a countable quantity but declare no claim."""
     if units is None:
         from portal.platform.wiki.store import load_all
 
@@ -222,8 +216,50 @@ def undeclared_numeric_claims(
     return out
 
 
+_CONDITIONAL_PREFIX_RE = re.compile(r"\b(?:when|while|if)\s+(?:the\s+)?`?$", re.IGNORECASE)
+
+
+def _is_conditional_state(text: str, start: int) -> bool:
+    """True when a state phrase sits inside a conditional `when/while/if` clause."""
+    prefix = text[max(0, start - 24) : start]
+    return bool(_CONDITIONAL_PREFIX_RE.search(prefix))
+
+
+def volatile_prose_violations(
+    units: Sequence[KnowledgeUnit] | None = None,
+) -> dict[str, list[str]]:
+    """Authored units whose title or prose hardcodes volatile counts or module enable state."""
+    if units is None:
+        from portal.platform.wiki.store import load_all
+
+        units = load_all()
+    out: dict[str, list[str]] = {}
+    for unit in units:
+        if unit.historical or _DERIVED_FAMILY_RE.match(unit.id):
+            continue
+        body_no_fence = _FENCE_RE.sub(" ", unit.body)
+        counts = sorted({m.group(0).strip() for m in _NUMERIC_CLAIM_RE.finditer(body_no_fence)})
+        full = f"{unit.title}\n{body_no_fence}"
+        states = sorted(
+            {
+                m.group(0).strip()
+                for m in _MODULE_STATE_RE.finditer(full)
+                if not _is_conditional_state(full, m.start())
+            }
+        )
+        msgs = [
+            f"hardcoded count {c!r} — reference `unit-fact-*` instead" for c in counts
+        ] + [
+            f"hardcoded module enable state {s!r} — reference `unit-fact-module-states` instead"
+            for s in states
+        ]
+        if msgs:
+            out[unit.id] = msgs
+    return out
+
+
 def claim_coverage_gaps(units: Sequence[KnowledgeUnit], repo_root: Path | None = None) -> list[str]:
-    """Canonical units need executable claims, a historical mark, or triage status."""
+    """Units still marked pending in CLAIMS_TRIAGE.md (empty claims are valid for narrative/how-to units)."""
     root = repo_root or _REPO_ROOT
     triage = root / "docs" / "wiki" / "CLAIMS_TRIAGE.md"
     pending = (
@@ -231,24 +267,26 @@ def claim_coverage_gaps(units: Sequence[KnowledgeUnit], repo_root: Path | None =
         if triage.exists()
         else set()
     )
-    return sorted(
-        unit.id
-        for unit in units
-        if not unit.claims and not unit.historical and unit.id not in pending
-    )
+    return sorted(unit.id for unit in units if not unit.historical and unit.id in pending)
 
 
 def census(repo_root: Path | None = None) -> dict[str, Any]:
     """Full drift census. Read-only; writes nothing."""
-    from portal.platform.wiki.claims import claim_count, evaluate_claims, probe_all
+    from portal.platform.wiki.claims import (
+        authored_claim_violations,
+        claim_count,
+        evaluate_claims,
+        probe_all,
+    )
     from portal.platform.wiki.render import render_report
     from portal.platform.wiki.store import load_all
 
     root = repo_root or _REPO_ROOT
     units = load_all()
     refs = broken_path_refs(root)
-    violations = evaluate_claims(units, root)
+    violations = authored_claim_violations(units) + evaluate_claims(units, root)
     undeclared = undeclared_numeric_claims(units)
+    volatile_prose = volatile_prose_violations(units)
     blocks = render_report(root)
 
     return {
@@ -256,6 +294,8 @@ def census(repo_root: Path | None = None) -> dict[str, Any]:
         "probes": probe_all(root),
         "claims_declared": claim_count(units),
         "claim_violations": [str(v) for v in violations],
+        "volatile_prose_units": len(volatile_prose),
+        "volatile_prose_sample": dict(sorted(volatile_prose.items())[:10]),
         "undeclared_numeric_units": len(undeclared),
         "undeclared_numeric_sample": dict(sorted(undeclared.items())[:10]),
         "broken_path_refs": list(refs),

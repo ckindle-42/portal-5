@@ -11,15 +11,12 @@ sources:
   path: portal/platform/wiki/adapters/modules.py
 - type: code
   path: config/portal.yaml#mcp_fleet
-claims:
-- probe: modules.enabled
-  contains: general
+claims: []
 confidence: high
 tags:
 - general
 - module
 - verified-v1
-
 ---
 
 # General Module — the always-on base
@@ -59,7 +56,7 @@ expose_to_ide: true
 ## Why
 
 The general module is "always-on" in a way the other modules are not:
-`modules.general.enabled` is true, and even if it were flipped the adapter
+`modules.general.enabled` lives in `config/portal.yaml` (`unit-fact-module-states`), and even if it were flipped the adapter
 (`portal/platform/wiki/adapters/modules.py`) keeps the four base fleet ids
 launched unconditionally because repo-facing tooling must never disappear
 on a module toggle. The fenced block above is the DESIGN-MODULES-V1

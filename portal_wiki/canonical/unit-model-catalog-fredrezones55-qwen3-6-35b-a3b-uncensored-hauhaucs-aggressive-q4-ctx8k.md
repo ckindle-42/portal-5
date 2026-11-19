@@ -7,9 +7,7 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims:
-- probe: models.configured
-  contains: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k
+claims: []
 confidence: high
 tags:
 - docs

@@ -456,6 +456,60 @@ def probe_all(repo_root: Path | None = None) -> dict[str, Any]:
 # ── Claim evaluation ─────────────────────────────────────────────────────────
 
 
+# Authored-unit claim boundary: stable code/contract probes only.
+# Volatile config counts, enable states, rosters, model lists, and ports belong
+# solely in computed `unit-fact-*` units (see docs/wiki/WIKI_STRUCTURE.md).
+STABLE_PROBES: frozenset[str] = frozenset(
+    {
+        "repo.path.exists",
+        "repo.symbol.exists",
+        "deps.locked",
+        "retrieval.stages",
+        "retrieval.stage_set",
+        "retrieval.compositions",
+        "rag.retrieval.routes",
+        "vl.embedding.dim",
+        "compliance.register",
+        "compliance.completeness",
+        "compliance.store.tables",
+        "compliance.change_types",
+        "compliance.cite_and_scope",
+        "compliance.capture.unit_kinds",
+        "compliance.workspace_tools",
+        "orchestrate.rate_over_lifetime_counters",
+    }
+)
+
+VOLATILE_PROBE_ALTERNATIVES: dict[str, str] = {
+    **dict.fromkeys(
+        ("modules.enabled", "modules.disabled", "modules.enabled.count", "modules.total"),
+        "reference computed `unit-fact-module-states` (or `portal module list`)",
+    ),
+    **dict.fromkeys(
+        ("mcp.fleet.entries", "mcp.fleet.ids", "mcp.fleet.ports", "mcpjson.servers"),
+        "reference computed `unit-fact-mcp-fleet` (or use `repo.path.exists` / `repo.symbol.exists`)",
+    ),
+    **dict.fromkeys(
+        ("workspaces.total", "workspaces.bench", "workspaces.functional", "workspaces.exposed"),
+        "reference computed `unit-fact-workspace-roster` (or `unit-readme-capability-rollup`)",
+    ),
+    "personas.count": "reference computed `unit-fact-persona-roster`",
+    **dict.fromkeys(
+        ("models.configured", "backends.groups", "backends.groups.count", "backends.ids", "backends.types"),
+        "reference computed `unit-fact-model-catalog` or `unit-fact-model-bindings`",
+    ),
+    "compliance.served_window.tag_window": (
+        "reference computed `unit-fact-workspace-roster` / `unit-fact-model-bindings` "
+        "(or `repo.symbol.exists` on `served_window.py`)"
+    ),
+    **dict.fromkeys(
+        ("validate.checks", "wiki.canonical.units", "wiki.tier1.docs", "wiki.generated.blocks",
+         "launch.commands", "env.vars", "config.files", "dockerfiles"),
+        "reference the matching computed `unit-fact-*` unit instead of pinning volatile counts",
+    ),
+}
+
+
 @dataclass(frozen=True)
 class ClaimViolation:
     """One unit assertion that no longer matches live state."""
@@ -467,6 +521,11 @@ class ClaimViolation:
     live: Any
 
     def __str__(self) -> str:
+        if self.op == "authored-probe":
+            return (
+                f"{self.unit_id}: volatile probe {self.probe!r} is forbidden in authored units — "
+                f"{self.live}"
+            )
         if self.op == "pattern":
             return (
                 f"{self.unit_id}: body should contain {self.claimed!r} "
@@ -475,6 +534,46 @@ class ClaimViolation:
         return (
             f"{self.unit_id}: claims {self.probe} {self.op} {self.claimed!r}, live is {self.live!r}"
         )
+
+
+def volatile_probe_alternative(probe_name: str) -> str:
+    """Return a concrete alternative message for a non-stable probe."""
+    return VOLATILE_PROBE_ALTERNATIVES.get(
+        probe_name,
+        "use a stable probe in STABLE_PROBES or reference a computed `unit-fact-*` unit",
+    )
+
+
+def authored_claim_violations(units: Sequence[KnowledgeUnit]) -> list[ClaimViolation]:
+    """Flag volatile or non-allowlisted probes declared on authored canonical units."""
+    violations: list[ClaimViolation] = []
+    for unit in units:
+        for claim in getattr(unit, "claims", None) or []:
+            if not isinstance(claim, dict):
+                violations.append(ClaimViolation(unit.id, "<malformed>", "?", claim, None))
+                continue
+            name = str(claim.get("probe", "") or "").strip()
+            if not name:
+                violations.append(ClaimViolation(unit.id, "<missing>", "?", claim, "<missing probe>"))
+                continue
+            if name not in STABLE_PROBES:
+                violations.append(
+                    ClaimViolation(
+                        unit.id,
+                        name,
+                        "authored-probe",
+                        claim,
+                        volatile_probe_alternative(name),
+                    )
+                )
+    return violations
+
+
+def validate_authored_unit_claims(unit: KnowledgeUnit) -> None:
+    """Raise ValueError if an authored unit declares any volatile claim probe."""
+    violations = authored_claim_violations([unit])
+    if violations:
+        raise ValueError("; ".join(str(v) for v in violations))
 
 
 def evaluate_claims(

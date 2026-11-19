@@ -133,8 +133,8 @@ def cmd_drift(args: argparse.Namespace) -> int:
     """
     import json as _json
 
-    from portal.platform.wiki.claims import evaluate_claims
-    from portal.platform.wiki.drift import broken_path_refs, census
+    from portal.platform.wiki.claims import authored_claim_violations, evaluate_claims
+    from portal.platform.wiki.drift import broken_path_refs, census, volatile_prose_violations
     from portal.platform.wiki.store import load_all, set_canonical_dir
 
     repo_root = Path(__file__).resolve().parent.parent
@@ -151,6 +151,9 @@ def cmd_drift(args: argparse.Namespace) -> int:
         print(f"  claim violations      : {len(report['claim_violations'])}")
         for line in report["claim_violations"]:
             print(f"      ! {line}")
+        print(f"  volatile prose units  : {report['volatile_prose_units']}")
+        for uid, msgs in sorted(report["volatile_prose_sample"].items()):
+            print(f"      ! {uid}: {'; '.join(msgs)}")
         print(f"  broken doc path refs  : {len(report['broken_path_refs'])}")
         for line in report["broken_path_refs"]:
             print(f"      ! {line}")
@@ -158,7 +161,12 @@ def cmd_drift(args: argparse.Namespace) -> int:
 
     units = load_all()
     refs = broken_path_refs(repo_root)
-    dirty = evaluate_claims(units, repo_root) or refs
+    dirty = (
+        authored_claim_violations(units)
+        or evaluate_claims(units, repo_root)
+        or volatile_prose_violations(units)
+        or refs
+    )
     return 1 if dirty else 0
 
 

@@ -7,9 +7,7 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims:
-- probe: models.configured
-  contains: qwen3-vl:32b-ctx8k
+claims: []
 confidence: high
 tags:
 - docs

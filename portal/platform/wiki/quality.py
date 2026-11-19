@@ -247,38 +247,28 @@ def check_structure(unit: KnowledgeUnit) -> QualityIssue | None:
 
 
 _QUANTITY_RE = re.compile(
-    r"\b\d[\d,]*\s+(?:workspaces|personas|MCP servers|servers|backends|techniques|"
-    r"checks|units|tools|models|scenarios|ports)\b",
+    r"(?<![\d.])(?<!Portal\s)\b\d[\d,]*\s+(?:workspaces|personas|MCP servers|servers|backends|techniques|"
+    r"checks|units|tools|models|scenarios|ports|modules)\b",
     re.IGNORECASE,
 )
 
 
 def check_claim_binding(unit: KnowledgeUnit) -> QualityIssue | None:
-    """A stated live quantity must be bound to a probe, not typed once and forgotten.
+    """Authored units must not hardcode volatile platform counts in prose.
 
-    This is the "grounded in facts" requirement made mechanical. `BS` already
-    evaluates declared claims against live probes; what it cannot do is notice a
-    figure that was never declared. README said 60 benchmark workspaces against a
-    live 65 for exactly that reason. A unit that states a countable platform
-    figure and declares no claim for it is not grounded — it is a number that
-    will be wrong later with nothing to catch it.
-
-    Applies to every live unit. The legacy-corpus exemption was retired in
-    TASK_WIKI_ZERO_DEBT_V1 once the re-grounded store bound or reworded every
-    figure.
+    Volatile counts belong in computed `unit-fact-*` units, not in authored
+    prose (even alongside unrelated stable claims).
     """
     prose = _FENCE_RE.sub(" ", unit.body)
     hits = [m.group(0).strip() for m in _QUANTITY_RE.finditer(prose)]
     if not hits:
         return None
-    if not (unit.claims or []):
-        return QualityIssue(
-            unit.id,
-            "claim-binding",
-            f"states live quantity {hits[0]!r} with no `claims:` entry — bind it to a probe "
-            f"or reword to avoid a figure that cannot be checked",
-        )
-    return None
+    return QualityIssue(
+        unit.id,
+        "claim-binding",
+        f"states volatile quantity {hits[0]!r} in authored prose — remove the hardcoded count "
+        f"and reference a computed `unit-fact-*` unit instead",
+    )
 
 
 def _shingles(words: list[str], k: int = 5) -> set[str]:

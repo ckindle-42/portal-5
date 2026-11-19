@@ -10,15 +10,12 @@ sources:
   path: portal/modules/general/tools/__init__.py
 - type: code
   path: portal/modules/orchestration/mcp/git_mcp.py
-claims:
-- probe: mcp.fleet.ids
-  contains: git
+claims: []
 confidence: high
 tags:
 - capability
 - mcp
 - orchestration
-
 ---
 
 # Git MCP — IDE repository operations, plus a Pipeline surface that never touches the live checkout

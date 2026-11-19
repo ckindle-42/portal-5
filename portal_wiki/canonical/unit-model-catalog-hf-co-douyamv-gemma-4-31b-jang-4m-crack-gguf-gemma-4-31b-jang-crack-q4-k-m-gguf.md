@@ -7,9 +7,7 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims:
-- probe: models.configured
-  contains: hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf
+claims: []
 confidence: high
 tags:
 - docs

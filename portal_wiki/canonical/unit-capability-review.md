@@ -1,7 +1,7 @@
 ---
 id: unit-capability-review
 kind: mixed
-title: "Security Review MCP — durable, evidence-grounded analyst review"
+title: "Security Review MCP \u2014 durable, evidence-grounded analyst review"
 sources:
 - type: code
   path: config/portal.yaml
@@ -21,11 +21,7 @@ sources:
   path: scripts/native-mcp-service.sh
 - type: code
   path: scripts/validation/review_program.py
-claims:
-- probe: mcp.fleet.ports
-  contains: 8943
-- probe: workspaces.exposed
-  contains: security-reviewer
+claims: []
 confidence: high
 tags:
 - capability

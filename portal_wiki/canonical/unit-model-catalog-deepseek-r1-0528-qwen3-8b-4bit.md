@@ -5,9 +5,7 @@ title: "MODEL_CATALOG \u2014 `DeepSeek-R1-0528-Qwen3-8B-4bit`"
 sources:
 - type: code
   path: config/backends.yaml
-claims:
-- probe: models.configured
-  contains: DeepSeek-R1-0528-Qwen3-8B-4bit
+claims: []
 confidence: high
 tags:
 - docs

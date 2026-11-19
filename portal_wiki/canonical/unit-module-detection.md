@@ -1,7 +1,7 @@
 ---
 id: unit-module-detection
 kind: mixed
-title: "Detection-as-Code Module — Sigma convert/validate, YARA, live SIEM search"
+title: "Detection-as-Code Module \u2014 Sigma convert/validate, YARA, live SIEM search"
 sources:
 - type: code
   path: portal/modules/detection/tools/detection_mcp.py
@@ -11,9 +11,7 @@ sources:
   path: portal/platform/wiki/adapters/modules.py
 - type: code
   path: config/portal.yaml
-claims:
-- probe: modules.enabled
-  contains: detection
+claims: []
 confidence: high
 tags:
 - detection
@@ -63,3 +61,5 @@ module unifies with — does not duplicate — the `detections_mcp` SPL library
 The promotion is additive: the blue-eval harness keeps its own copy. Any
 write / response action (disable account, isolate host) is a separate operator
 `[GATE]`.
+
+For live enablement state, query `unit-fact-module-states` or run `portal module list`.

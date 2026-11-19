@@ -1,7 +1,7 @@
 ---
 id: unit-capability-netforensics
 kind: mixed
-title: "Network Forensics MCP — tshark PCAP analysis + gated lab recon"
+title: "Network Forensics MCP \u2014 tshark PCAP analysis + gated lab recon"
 sources:
 - type: code
   path: config/portal.yaml
@@ -12,9 +12,7 @@ sources:
   path: portal/modules/netforensics/tests/test_netforensics_mcp.py
 - type: code
   path: scripts/native-mcp-service.sh
-claims:
-- probe: modules.enabled
-  contains: netforensics
+claims: []
 confidence: high
 tags:
 - capability

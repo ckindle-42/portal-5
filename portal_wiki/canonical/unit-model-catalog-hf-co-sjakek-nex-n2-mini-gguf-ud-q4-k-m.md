@@ -7,9 +7,7 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims:
-- probe: models.configured
-  contains: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M
+claims: []
 confidence: high
 tags:
 - docs

@@ -10,15 +10,12 @@ sources:
   path: portal/modules/coding/tools/code_sandbox_mcp.py
 - type: code
   path: config/inference/tools_manifest_code_sandbox_mcp.json
-claims:
-- probe: mcp.fleet.ids
-  contains: execution
+claims: []
 confidence: high
 tags:
 - capability
 - mcp
 - coding
-
 ---
 
 # Execution MCP — session-managed isolated code sandbox

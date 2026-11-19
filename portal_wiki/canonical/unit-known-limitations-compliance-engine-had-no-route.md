@@ -1,7 +1,8 @@
 ---
 id: unit-known-limitations-compliance-engine-had-no-route
 kind: what
-title: "KNOWN_LIMITATIONS — an engine with no route is an engine that does not exist"
+title: "KNOWN_LIMITATIONS \u2014 an engine with no route is an engine that does not\
+  \ exist"
 sources:
 - type: code
   path: portal/modules/compliance/tools/compliance_mcp.py
@@ -11,16 +12,13 @@ sources:
   path: config/portal.yaml
 claims:
 - probe: compliance.workspace_tools
-  contains: "all_reachable:30"
-  # was 36 — WINDOW_AND_SEAT_V1 §P8.5 removed the six verdict-engine tools
-  # (gaps/scenario/analyze/impact/prospective/change_impact) from the
-  # auto-compliance workspace; the reachability fact still holds, the count
-  # moved with the deliberate removal.
+  contains: all_reachable
 confidence: high
 tags:
 - docs
 - verified-v1
 ---
+
 ### An engine with no route is an engine that does not exist (RESOLVED)
 
 - **ID**: T5-COMPLIANCE-LANDING-001
@@ -57,10 +55,10 @@ tags:
 - **Guard**: `compliance.workspace_tools` (`portal/platform/wiki/claims.py`)
   cross-checks all three — the workspace list, the discovery manifest, and
   `_DISPATCH` — for every `compliance_*`/`nerc_cip*` tool name, and reports
-  `unreachable:<name>` the moment any one of the three drops it. The current
-  inventory is 36 reachable compliance/register tools. Verified to actually fail:
+  `unreachable:<name>` the moment any one of the three drops it. All compliance/register tools in the workspace's `tools:` list are checked
+  (see `unit-fact-tool-authorizations`). Verified to actually fail:
   removing one dispatch entry flips the probe from
-  `all_reachable:12` to `unreachable:compliance_scope`.
+  `all_reachable` to `unreachable:compliance_scope`.
 
 ## Why
 

@@ -26,7 +26,6 @@ confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 Tool servers are registered with Open WebUI from `imports/openwebui/mcp-servers.json`,
@@ -41,7 +40,7 @@ port 8924 via the MLX transcribe server; both always write JSON + Markdown + Wor
 `image_start` / `image_status` (MLX MFLUX — flux2-klein 4-step default, flux3-klein,
 qwen-2.1, z-image; start/status is the async surface); Portal Music exposes
 `music_start` / `music_status` / `music_models` (ACE-Step 1.5 XL-Turbo primary,
-MiniMax-Music3 8-bit fallback; module off until enabled).
+MiniMax-Music3 8-bit fallback; gated by `music` — see `unit-fact-module-states`).
 
 ## Why
 

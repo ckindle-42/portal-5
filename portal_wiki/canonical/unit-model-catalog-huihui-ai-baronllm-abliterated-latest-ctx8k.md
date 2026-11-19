@@ -7,9 +7,7 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims:
-- probe: models.configured
-  contains: huihui_ai/baronllm-abliterated:latest-ctx8k
+claims: []
 confidence: high
 tags:
 - docs

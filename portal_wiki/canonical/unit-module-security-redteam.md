@@ -1,7 +1,7 @@
 ---
 id: unit-module-security-redteam
 kind: mixed
-title: "Security Redteam Module — offensive-generation variants (off by default)"
+title: "Security Redteam Module \u2014 offensive-generation variants"
 sources:
 - type: code
   path: config/portal.yaml
@@ -9,9 +9,7 @@ sources:
   path: portal/platform/wiki/adapters/modules.py
 - type: code
   path: portal/platform/inference/config.py
-claims:
-- probe: modules.disabled
-  contains: security_redteam
+claims: []
 confidence: high
 tags:
 - security
@@ -19,8 +17,7 @@ tags:
 - routing
 ---
 
-# Security Redteam Module — offensive-generation variants (off by default)
-
+# Security Redteam Module — offensive-generation variants
 `security_redteam` carries the offensive-generation variants of
 `auto-security` and nothing else: `redteam`, `redteam-deep` and
 `purpleteam-exec`. It is a variant-scoped module in the C7 sense — a variant
@@ -62,3 +59,5 @@ The switch is `modules.security_redteam.enabled` in `config/portal.yaml`
 disable it after. A persona pointing at a variant of a disabled module is not
 seeded (`openwebui_init._persona_skips_disabled_variant`), which is why
 `pentester` and `redteamoperator` drop out with the variants they drive.
+
+For live enablement state, query `unit-fact-module-states` or run `portal module list`.

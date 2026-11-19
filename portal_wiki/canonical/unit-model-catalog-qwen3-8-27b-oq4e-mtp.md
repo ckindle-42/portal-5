@@ -5,9 +5,7 @@ title: "MODEL_CATALOG \u2014 `Qwen3.8-27B-oQ4e-mtp`"
 sources:
 - type: code
   path: config/backends.yaml
-claims:
-- probe: models.configured
-  contains: Qwen3.8-27B-oQ4e-mtp
+claims: []
 confidence: high
 tags:
 - docs

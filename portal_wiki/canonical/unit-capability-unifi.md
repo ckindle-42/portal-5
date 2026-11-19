@@ -1,7 +1,7 @@
 ---
 id: unit-capability-unifi
 kind: mixed
-title: "UniFi Network MCP — home-gateway control behind a stdio bridge"
+title: "UniFi Network MCP \u2014 home-gateway control behind a stdio bridge"
 sources:
 - type: code
   path: config/portal.yaml
@@ -10,9 +10,7 @@ sources:
   path: portal/modules/orchestration/mcp/stdio_bridge_mcp.py
 - type: code
   path: scripts/native-mcp-service.sh
-claims:
-- probe: mcp.fleet.ids
-  contains: unifi
+claims: []
 confidence: high
 tags:
 - capability

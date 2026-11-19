@@ -5,9 +5,7 @@ title: "MODEL_CATALOG \u2014 `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64
 sources:
 - type: code
   path: config/backends.yaml
-claims:
-- probe: models.configured
-  contains: hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k
+claims: []
 confidence: high
 tags:
 - docs

@@ -7,9 +7,7 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims:
-- probe: models.configured
-  contains: hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k
+claims: []
 confidence: high
 tags:
 - docs

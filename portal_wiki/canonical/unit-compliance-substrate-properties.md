@@ -1,7 +1,7 @@
 ---
 id: unit-compliance-substrate-properties
 kind: mixed
-title: "Compliance substrate — enumeration and the mapping evaluation set"
+title: "Compliance substrate \u2014 enumeration and the mapping evaluation set"
 sources:
 - type: code
   path: portal/modules/compliance/core/enumeration.py
@@ -9,9 +9,7 @@ sources:
   path: portal/modules/compliance/core/search_service.py
 - type: code
   path: portal/modules/compliance/core/evaluation.py
-claims:
-- probe: modules.enabled
-  contains: compliance
+claims: []
 confidence: high
 tags:
 - authored-v1

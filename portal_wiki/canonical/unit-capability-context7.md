@@ -1,7 +1,7 @@
 ---
 id: unit-capability-context7
 kind: mixed
-title: "Context7 MCP — live version-accurate library documentation"
+title: "Context7 MCP \u2014 live version-accurate library documentation"
 sources:
 - type: code
   path: config/portal.yaml
@@ -10,9 +10,7 @@ sources:
   path: opencode.jsonc
 - type: code
   path: .mcp.json
-claims:
-- probe: mcp.fleet.ids
-  contains: context7
+claims: []
 confidence: high
 tags:
 - capability

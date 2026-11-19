@@ -1,7 +1,7 @@
 ---
 id: unit-capability-detection
 kind: mixed
-title: "Detection MCP — Sigma/YARA conversion + promoted live SIEM search"
+title: "Detection MCP \u2014 Sigma/YARA conversion + promoted live SIEM search"
 sources:
 - type: code
   path: config/portal.yaml
@@ -12,9 +12,7 @@ sources:
   path: portal/modules/detection/tests/test_detection_mcp.py
 - type: code
   path: scripts/native-mcp-service.sh
-claims:
-- probe: modules.enabled
-  contains: detection
+claims: []
 confidence: high
 tags:
 - capability

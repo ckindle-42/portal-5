@@ -1,7 +1,7 @@
 ---
 id: unit-capability-icsot
 kind: mixed
-title: "ICS/OT MCP — passive industrial-protocol dissection & ATT&CK-for-ICS"
+title: "ICS/OT MCP \u2014 passive industrial-protocol dissection & ATT&CK-for-ICS"
 sources:
 - type: code
   path: config/portal.yaml
@@ -12,9 +12,7 @@ sources:
   path: portal/modules/icsot/tests/test_icsot_mcp.py
 - type: code
   path: scripts/native-mcp-service.sh
-claims:
-- probe: modules.enabled
-  contains: icsot
+claims: []
 confidence: high
 tags:
 - capability

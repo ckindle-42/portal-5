@@ -13,15 +13,12 @@ sources:
   path: portal/platform/wiki/adapters/modules.py
 - type: code
   path: config/portal.yaml
-claims:
-- probe: modules.enabled
-  contains: coding
+claims: []
 confidence: high
 tags:
 - coding
 - module
 - verified-v1
-
 ---
 
 # Coding Module — agentic coding + sandbox execution
@@ -86,3 +83,5 @@ entry in `config/portal.yaml`, and variant selection itself is enforced
 by `_resolve_workspace_variant()` in `preinject.py` — so this unit's prose
 tracks both the config that declares the variants and the code that
 applies them.
+
+For live enablement state, query `unit-fact-module-states` or run `portal module list`.

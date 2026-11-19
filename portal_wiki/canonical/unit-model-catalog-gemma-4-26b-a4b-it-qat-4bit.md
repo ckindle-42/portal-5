@@ -5,9 +5,7 @@ title: "MODEL_CATALOG \u2014 `gemma-4-26b-a4b-it-QAT-4bit`"
 sources:
 - type: code
   path: config/backends.yaml
-claims:
-- probe: models.configured
-  contains: gemma-4-26b-a4b-it-QAT-4bit
+claims: []
 confidence: high
 tags:
 - docs

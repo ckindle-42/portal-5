@@ -7,9 +7,7 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims:
-- probe: models.configured
-  contains: huihui_ai/gemma-4-abliterated:E2b-qat
+claims: []
 confidence: high
 tags:
 - docs

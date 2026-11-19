@@ -11,15 +11,12 @@ sources:
   path: portal/platform/wiki/adapters/modules.py
 - type: code
   path: config/portal.yaml
-claims:
-- probe: modules.enabled
-  contains: documents
+claims: []
 confidence: high
 tags:
 - documents
 - module
 - verified-v1
-
 ---
 
 # Documents Module — Word/PowerPoint/Excel/PDF generation and reading
@@ -48,3 +45,5 @@ its toggle's blast radius is routing plus the `documents` fleet id.
 `modules.documents.enabled` in `config/portal.yaml` is that switch;
 `portal module enable|disable` writes it. This unit, the tool server, and
 `config/portal.yaml` are the files that determine the surface it controls.
+
+For live enablement state, query `unit-fact-module-states` or run `portal module list`.

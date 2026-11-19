@@ -5,9 +5,7 @@ title: "MODEL_CATALOG \u2014 `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`"
 sources:
 - type: code
   path: config/backends.yaml
-claims:
-- probe: models.configured
-  contains: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
+claims: []
 confidence: high
 tags:
 - docs

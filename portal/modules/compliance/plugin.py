@@ -147,11 +147,9 @@ def _probe_compliance_workspace_tools(root: Path) -> list[str]:
     unreachable = sorted(
         name for name in compliance_names if name not in manifest or name not in dispatch
     )
-    return (
-        [f"unreachable:{n}" for n in unreachable]
-        if unreachable
-        else [f"all_reachable:{len(compliance_names)}"]
-    )
+    if not compliance_names:
+        return ["no_compliance_tools"]
+    return [f"unreachable:{n}" for n in unreachable] if unreachable else ["all_reachable"]
 
 
 def _probe_compliance_capture_unit_kinds(root: Path) -> list[str]:

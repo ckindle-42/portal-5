@@ -5,9 +5,7 @@ title: "MODEL_CATALOG \u2014 `huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit`
 sources:
 - type: code
   path: config/backends.yaml
-claims:
-- probe: models.configured
-  contains: huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit
+claims: []
 confidence: high
 tags:
 - docs

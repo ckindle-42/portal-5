@@ -7,9 +7,7 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims:
-- probe: models.configured
-  contains: glm-4.7-flash:Q4_K_M
+claims: []
 confidence: high
 tags:
 - docs

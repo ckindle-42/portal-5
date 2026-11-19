@@ -8,9 +8,7 @@ sources:
   section: mcp_fleet
 - type: code
   path: portal/modules/media/tools/mflux_mcp.py
-claims:
-- probe: mcp.fleet.ids
-  contains: mflux
+claims: []
 confidence: high
 tags:
 - capability

@@ -1,7 +1,7 @@
 ---
 id: unit-capability-vulnintel
 kind: mixed
-title: "Vulnintel MCP — live vulnerability & threat intelligence"
+title: "Vulnintel MCP \u2014 live vulnerability & threat intelligence"
 sources:
 - type: code
   path: config/portal.yaml
@@ -12,9 +12,7 @@ sources:
   path: portal/modules/vulnintel/tests/test_vulnintel_mcp.py
 - type: code
   path: scripts/native-mcp-service.sh
-claims:
-- probe: modules.enabled
-  contains: vulnintel
+claims: []
 confidence: high
 tags:
 - capability

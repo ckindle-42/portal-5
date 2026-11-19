@@ -1,7 +1,7 @@
 ---
 id: unit-capability-data
 kind: mixed
-title: "Data MCP — sandboxed DuckDB conversational analytics"
+title: "Data MCP \u2014 sandboxed DuckDB conversational analytics"
 sources:
 - type: code
   path: config/portal.yaml
@@ -12,9 +12,7 @@ sources:
   path: portal/modules/data/tests/test_data_mcp.py
 - type: code
   path: scripts/native-mcp-service.sh
-claims:
-- probe: modules.enabled
-  contains: data
+claims: []
 confidence: high
 tags:
 - capability

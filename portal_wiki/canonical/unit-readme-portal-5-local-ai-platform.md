@@ -26,7 +26,7 @@ code, security analysis, images, music, documents and voice — all local. It
 connects to Open WebUI, Telegram and Slack, and routes each task automatically to
 the workspace that carries the right model and toolset. Image and video
 generation are MLX-native on Apple Silicon (MFLUX for images; `ltx-2-mlx` for
-video, behind the `video` module — off by default, shipped enabled).
+video, behind the `video` module — see `unit-fact-module-states`).
 
 Inference is fully local: prompts and responses never leave the machine. Model
 downloads from HuggingFace or Ollama registries transmit standard HTTP metadata,
@@ -39,6 +39,6 @@ The platform is scoped as an enhancement layer over Open WebUI rather than a
 replacement web stack, which keeps authentication, chat history and RAG inside a
 battle-tested frontend while the pipeline owns routing and model selection. Image
 and video generation moved to the host MLX layer (from a ComfyUI path that Metal's
-lack of FP8 made unrunnable here); video is an M7 module that is disabled by
-default but shipped enabled, so flipping it is a one-command toggle rather than
+lack of FP8 made unrunnable here); video is an M7 module toggled in `config/portal.yaml` (`unit-fact-module-states`),
+so flipping it is a one-command toggle rather than
 a rebuild.

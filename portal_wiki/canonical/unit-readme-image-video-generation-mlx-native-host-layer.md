@@ -37,8 +37,7 @@ Peaks: `flux2-klein` ~18 GB (measured), `flux3-klein` ~23 GB and `qwen-2.1`
 ~26 GB (sourced/reasoned bounds, see the memory-budget unit).
 
 Video generation is the **video-mlx MCP** (`video_mlx_mcp.py`, port 8935), a
-wrapper over `ltx-2-mlx` (pure-MLX LTX-2.3). It is behind the `video` M7 module
-— **off by default, shipped enabled** — installed with
+wrapper over `ltx-2-mlx` (pure-MLX LTX-2.3). It is behind the `video` M7 module (`unit-fact-module-states`), installed with
 `./launch.sh install-video-mlx` (and toggled with `portal module enable` /
 `disable video`). Clips are preview-grade and practically capped at
 ~4–6 seconds on this hardware.

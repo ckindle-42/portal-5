@@ -1,7 +1,7 @@
 ---
 id: unit-capability-rag
 kind: mixed
-title: "RAG MCP — multimodal LanceDB knowledge bases"
+title: "RAG MCP \u2014 multimodal LanceDB knowledge bases"
 sources:
 - type: code
   path: config/portal.yaml
@@ -19,11 +19,6 @@ sources:
 - type: code
   path: scripts/validation/rag_runtime.py
 claims:
-# O9 (SUBSTRATE_MIGRATION_V1 P4): the nominal `modules.enabled contains: research`
-# probe passed while this subsystem carried a wrong VL diagnosis for five months.
-# These bind the claim to the live substrate instead.
-- probe: modules.enabled
-  contains: research
 - probe: retrieval.stages
   contains: fusion
 - probe: retrieval.stages
@@ -34,20 +29,14 @@ claims:
   contains: contextualize
 - probe: retrieval.stage_set
   contains: fts
-# torchvision absent from the lock is the exact regression that carried a wrong
-# VL diagnosis for five months (C4). mlx-embeddings is the qwen3_vl carrier.
 - probe: deps.locked
   contains: torchvision
 - probe: deps.locked
   contains: mlx-embeddings
-# retrieval routes must stay owned by rag_multimodal, not the text-only handler.
 - probe: rag.retrieval.routes
   contains: kb_search
-# the embedding dim figure in the body is the only copy; drift renames the unit.
 - probe: vl.embedding.dim
-  pattern: "embedding dim **{value}**"
-# SEAM V1: rag_multimodal must stay a composition of portal.platform.retrieval,
-# not re-absorb the substrate. Fails the census if it stops composing.
+  pattern: embedding dim **{value}**
 - probe: retrieval.compositions
   contains: portal/modules/research/tools/rag_multimodal.py
 confidence: high

@@ -1,7 +1,7 @@
 ---
 id: unit-capability-compliance
 kind: mixed
-title: "Compliance MCP — authoritative control catalogs & CIP-007 R2 evidence"
+title: "Compliance MCP \u2014 authoritative control catalogs & CIP-007 R2 evidence"
 sources:
 - type: code
   path: config/portal.yaml
@@ -14,9 +14,7 @@ sources:
   path: portal/modules/compliance/tests/test_compliance_mcp.py
 - type: code
   path: scripts/native-mcp-service.sh
-claims:
-- probe: modules.enabled
-  contains: compliance
+claims: []
 confidence: high
 tags:
 - capability
@@ -86,4 +84,3 @@ code will use is outside the root.
   refuses it when unset; it never falls back to the operator's instance.
 - **Proof of routing.** Its `/health` reports `eval_tool_calls`, the number of tool calls it has
   served.
-

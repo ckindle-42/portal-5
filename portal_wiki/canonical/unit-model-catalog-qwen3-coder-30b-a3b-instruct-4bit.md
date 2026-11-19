@@ -5,9 +5,7 @@ title: "MODEL_CATALOG \u2014 `Qwen3-Coder-30B-A3B-Instruct-4bit`"
 sources:
 - type: code
   path: config/backends.yaml
-claims:
-- probe: models.configured
-  contains: Qwen3-Coder-30B-A3B-Instruct-4bit
+claims: []
 confidence: high
 tags:
 - docs

@@ -7,9 +7,7 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims:
-- probe: models.configured
-  contains: gemma4:e4b-it-qat
+claims: []
 confidence: high
 tags:
 - docs

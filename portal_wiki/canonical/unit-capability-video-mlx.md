@@ -33,8 +33,8 @@ returns a job id), `video_status` (server-side long-poll), and `video_models`
 
 ## How it's used
 
-The `video_mlx` fleet id belongs to the `video` module: disabled by default
-(`modules.video.enabled: false`), and routed to the `auto-audio::video`
+The `video_mlx` fleet id belongs to the `video` module (`unit-fact-module-states`,
+`config/portal.yaml`), routed to the `auto-audio::video`
 workspace (the `auto-video` alias retains live API callers through
 2026-12-31), whose tools are `video_start` / `video_status`.
 

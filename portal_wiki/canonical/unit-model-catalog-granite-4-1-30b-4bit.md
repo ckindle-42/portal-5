@@ -5,9 +5,7 @@ title: "MODEL_CATALOG \u2014 `granite-4.1-30b-4bit`"
 sources:
 - type: code
   path: config/backends.yaml
-claims:
-- probe: models.configured
-  contains: granite-4.1-30b-4bit
+claims: []
 confidence: high
 tags:
 - docs

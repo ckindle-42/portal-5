@@ -7,9 +7,7 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims:
-- probe: models.configured
-  contains: Laguna-XS-2.1-4bit
+claims: []
 confidence: high
 tags:
 - docs

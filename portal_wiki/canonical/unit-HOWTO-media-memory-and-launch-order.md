@@ -17,7 +17,6 @@ tags:
 - media
 - memory
 - verified-v1
-
 ---
 
 # Media memory and launch order
@@ -48,7 +47,7 @@ open when free memory can't be measured.
 |---|---|---|
 | Ollama small/medium model (<20GB) + MFLUX flux2-klein (~18GB) | Usually | Admission still checks current free memory plus headroom, and asks the Pipeline to evict idle residents first |
 | Ollama large model (30GB+) + MFLUX qwen-2.1 (~26GB) | Marginal or refused | Unload the Ollama model first (`ollama stop <model>`) |
-| Any Ollama model + video-mlx (LTX-2.5, 18–25GB by resolution; Wan2.2-5B ~23GB) | Marginal | Video is thermally heavy and off by default; run it with the box otherwise quiet |
+| Any Ollama model + video-mlx (LTX-2.5, 18–25GB by resolution; Wan2.2-5B ~23GB) | Marginal | Video is thermally heavy (`unit-fact-module-states`); run it with the box otherwise quiet |
 
 ## Launch order (until a Tier 2 cross-engine broker exists)
 

@@ -320,42 +320,126 @@ def derive_model_bindings(commit: str) -> KnowledgeUnit:
 
 
 def derive_mcp_fleet(commit: str) -> KnowledgeUnit:
-    """unit-fact-mcp-fleet — config/portal.yaml mcp_fleet."""
+    """unit-fact-mcp-fleet — config/portal.yaml mcp_fleet + live .mcp.json count."""
+    import json
+
     portal_cfg = _load_yaml(_REPO_ROOT / "config" / "portal.yaml")
     fleet = portal_cfg.get("mcp_fleet", [])
+    mcp_json_path = _REPO_ROOT / ".mcp.json"
+    ide_count = (
+        len((json.loads(mcp_json_path.read_text(encoding="utf-8"))).get("mcpServers") or {})
+        if mcp_json_path.is_file()
+        else 0
+    )
 
     body_lines = [
-        f"# MCP fleet ({len(fleet)} servers)",
+        f"# MCP fleet ({len(fleet)} servers, {ide_count} IDE-exposed in .mcp.json)",
         "",
-        "| ID | Name | Port |",
-        "|---|---|---|",
+        "| ID | Name | Port | Module |",
+        "|---|---|---|---|",
     ]
     for svc in sorted(fleet, key=lambda s: s.get("port", 0)):
         body_lines.append(
-            f"| `{svc.get('id', '')}` | {svc.get('name', '')} | {svc.get('port', '')} |"
+            f"| `{svc.get('id', '')}` | {svc.get('name', '')} | {svc.get('port', '')} | {svc.get('module', '')} |"
         )
 
     unit = _make_unit(
         "unit-fact-mcp-fleet",
-        f"{len(fleet)} MCP fleet servers",
-        [SourceRef(type="code", path="config/portal.yaml", commit=commit, section="mcp_fleet")],
+        f"{len(fleet)} MCP fleet servers ({ide_count} in .mcp.json)",
+        [
+            SourceRef(type="code", path="config/portal.yaml", commit=commit, section="mcp_fleet"),
+            SourceRef(type="code", path=".mcp.json", commit=commit),
+        ],
         "\n".join(body_lines),
         ["fact", "mcp"],
         why=(
             "The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the "
             "single source for every MCP tool server the pipeline can dispatch to. "
-            "Each entry carries the server id, display name, and reserved port, so "
-            "the wiki fleet roster is the same list the tool registry and the "
-            "Open WebUI tool-server wiring are built from."
+            "Each entry carries the server id, display name, module, and reserved port, "
+            "and `.mcp.json` records the subset currently launched and exposed to IDEs."
         ),
         claims=[
             {
                 "probe": "mcp.fleet.entries",
-                "pattern": "MCP fleet ({value} servers)",
-            }
+                "pattern": "MCP fleet ({value} servers",
+            },
+            {
+                "probe": "mcpjson.servers",
+                "pattern": "{value} IDE-exposed in .mcp.json)",
+            },
         ],
     )
     return unit
+
+
+def derive_module_states(commit: str) -> KnowledgeUnit:
+    """unit-fact-module-states — live module enable states from config/modules.generated.yaml + portal.yaml."""
+    from portal.platform.wiki.adapters.modules import ALL_MODULES, DEFAULT_ENABLED_MODULES
+
+    portal_cfg = _load_yaml(_REPO_ROOT / "config" / "portal.yaml")
+    gen_path = _REPO_ROOT / "config" / "modules.generated.yaml"
+    gen_data = _load_yaml(gen_path) if gen_path.is_file() else {}
+    gen_mods = gen_data.get("modules") or {}
+
+    ws_by_mod: dict[str, list[str]] = {m: [] for m in ALL_MODULES}
+    for wid, spec in (portal_cfg.get("workspaces") or {}).items():
+        if isinstance(spec, dict) and spec.get("module"):
+            ws_by_mod.setdefault(str(spec["module"]), []).append(str(wid))
+
+    mcp_by_mod: dict[str, list[str]] = {m: [] for m in ALL_MODULES}
+    for svc in portal_cfg.get("mcp_fleet") or []:
+        if isinstance(svc, dict) and svc.get("module") and svc.get("id"):
+            mcp_by_mod.setdefault(str(svc["module"]), []).append(str(svc["id"]))
+
+    enabled_count = 0
+    rows: list[str] = []
+    for mod in sorted(ALL_MODULES):
+        entry = gen_mods.get(mod)
+        is_on = (
+            bool(entry.get("enabled"))
+            if isinstance(entry, dict) and "enabled" in entry
+            else mod in DEFAULT_ENABLED_MODULES
+        )
+        if is_on:
+            enabled_count += 1
+        default_posture = "on" if mod in DEFAULT_ENABLED_MODULES else "off"
+        wss = ", ".join(f"`{w}`" for w in sorted(ws_by_mod.get(mod, ()))) or "—"
+        mcps = ", ".join(f"`{m}`" for m in sorted(mcp_by_mod.get(mod, ()))) or "—"
+        rows.append(
+            f"| `{mod}` | {'enabled' if is_on else 'disabled'} | {default_posture} | {wss} | {mcps} |"
+        )
+
+    body_lines = [
+        f"# Module states ({enabled_count} modules enabled of {len(ALL_MODULES)} modules total)",
+        "",
+        "Live module enablement from `config/portal.yaml` (`modules.<name>.enabled`) / "
+        "`config/modules.generated.yaml`. Toggle with `portal module enable|disable <name> --yes`.",
+        "",
+        "| Module | State | Default | Workspaces | MCP servers |",
+        "|---|---|---|---|---|",
+        *rows,
+    ]
+    return _make_unit(
+        "unit-fact-module-states",
+        f"{enabled_count}/{len(ALL_MODULES)} modules enabled",
+        [
+            SourceRef(type="code", path="config/portal.yaml", commit=commit, section="modules"),
+            SourceRef(type="code", path="config/modules.generated.yaml", commit=commit),
+            SourceRef(type="code", path="portal/platform/wiki/adapters/modules.py", commit=commit),
+        ],
+        "\n".join(body_lines),
+        ["fact", "modules"],
+        why=(
+            "Module enable state lives in `config/portal.yaml` and its rendered snapshot "
+            "`config/modules.generated.yaml`, never in authored `unit-module-*` prose. "
+            "Computing this table on demand lets operators toggle modules without editing "
+            "any canonical wiki unit."
+        ),
+        claims=[
+            {"probe": "modules.enabled.count", "pattern": "{value} modules enabled"},
+            {"probe": "modules.total", "pattern": "{value} modules total"},
+        ],
+    )
 
 
 def derive_model_catalog(commit: str) -> KnowledgeUnit:
@@ -854,6 +938,7 @@ _DERIVERS = (
     derive_security_variants,
     derive_model_bindings,
     derive_mcp_fleet,
+    derive_module_states,
     derive_model_catalog,
     derive_tool_authorizations,
     derive_tool_registry,
@@ -872,6 +957,7 @@ _DERIVERS_BY_ID: dict[str, Callable[[str], KnowledgeUnit]] = {
     "unit-fact-security-variants": derive_security_variants,
     "unit-fact-model-bindings": derive_model_bindings,
     "unit-fact-mcp-fleet": derive_mcp_fleet,
+    "unit-fact-module-states": derive_module_states,
     "unit-fact-model-catalog": derive_model_catalog,
     "unit-fact-tool-registry": derive_tool_registry,
     "unit-fact-tool-authorizations": derive_tool_authorizations,
