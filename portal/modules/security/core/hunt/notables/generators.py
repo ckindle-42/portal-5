@@ -13,7 +13,7 @@ from typing import Any
 
 from ..engine import _literal_term_segments
 from ..executor import HuntExecutor
-from .behaviours import Behaviour
+from .behaviours import Behaviour, BehaviourIdentity, behaviour_identity
 from .cards import SourceCard, card_consumers
 from .parse import parse_row
 from .sample import BEHAVIOUR_SOURCES, SourceFacts, read_windows, route_filter, window_bounds
@@ -23,6 +23,7 @@ ALERT_WINDOWS = 8  # effort budget: time slices read per alert stream
 ALERT_EVENTS_PER_WINDOW = 1000  # effort budget: alert events read from one slice
 DEVIATION_SOURCE_BUDGET = 100  # effort budget: source-level deviations kept per ordering
 DEVIATION_BEHAVIOUR_BUDGET = 100  # effort budget: behaviour-level deviations considered
+DEVIATION_BURST_ALLOWANCE = 2  # LOFO-selected: behaviour bursts admitted above the source baseline
 MIN_SERIES_PERIODS = 3  # a deviation needs at least this many observed buckets
 SERIES_ROWS = 40_000  # effort budget: per-period source-count rows (below the 50k result cap)
 SERIES_SPAN_SECONDS = 4 * 3600  # effort budget: deviation bucket width
@@ -701,6 +702,87 @@ def _behaviour_deviations(
     return found, {"existed": len(behaviours), "kept": len(found)}
 
 
+def _behaviour_bursts(
+    behaviours: Sequence[Behaviour], peaks: Mapping[BehaviourIdentity, int]
+) -> tuple[list[Notable], dict[str, Any]]:
+    """Rank four-hour behaviour peaks against the other behaviours in their source."""
+    by_source: dict[str, list[Behaviour]] = {}
+    for behaviour in behaviours:
+        by_source.setdefault(behaviour.source_id, []).append(behaviour)
+    ranked: list[tuple[float, int, Behaviour, int]] = []
+    for rows in by_source.values():
+        values = [peaks.get(behaviour_identity(behaviour), 0) for behaviour in rows]
+        logs = [math.log1p(value) for value in values]
+        median = statistics.median(logs)
+        mad = statistics.median(abs(value - median) for value in logs)
+        source_events = sum(behaviour.events for behaviour in rows)
+        for behaviour, peak in zip(rows, values, strict=True):
+            score = (math.log1p(peak) - median) / (mad + 0.5)
+            ranked.append((score, peak, behaviour, source_events))
+    ranked.sort(
+        key=lambda item: (
+            -item[0],
+            -item[1],
+            item[2].source_id,
+            item[2].actor,
+            item[2].action,
+            item[2].object,
+        )
+    )
+    found = [
+        _make(
+            generator="deviation",
+            basis="behaviour_burst",
+            what=_behaviour_words(behaviour) + f" burst to {peak} events in one four-hour bucket",
+            entities=(
+                ("actor", behaviour.actor),
+                ("action", behaviour.action),
+                ("object", behaviour.object),
+            ),
+            source_id=behaviour.source_id,
+            first_seen=behaviour.first_seen,
+            last_seen=behaviour.last_seen,
+            counts={
+                "events": behaviour.events,
+                "peak_bucket_events": peak,
+                "source_events": source_events,
+            },
+            measure_name="robust_z",
+            measure_value=score,
+            why=f"{peak} of {behaviour.events} sampled events occurred in one four-hour bucket",
+            evidence=(
+                {
+                    "line": behaviour.example_raw,
+                    "query": behaviour.example_query,
+                    "earliest": behaviour.example_earliest,
+                    "latest": behaviour.example_latest,
+                },
+            ),
+        )
+        for score, peak, behaviour, _source_events in ranked[:DEVIATION_BEHAVIOUR_BUDGET]
+    ]
+    return found, {"existed": len(ranked), "kept": len(found)}
+
+
+def _unified_bursts(
+    source_bursts: Sequence[Notable], behaviour_bursts: Sequence[Notable]
+) -> tuple[list[Notable], dict[str, Any]]:
+    """Let exceptional behaviour peaks compete inside the source-burst allocation."""
+    baseline = max((notable.measure_value for notable in source_bursts), default=0.0)
+    admitted = [notable for notable in behaviour_bursts if notable.measure_value > baseline][
+        :DEVIATION_BURST_ALLOWANCE
+    ]
+    unified = sorted(
+        [*source_bursts, *admitted],
+        key=lambda notable: (-notable.measure_value, notable.source_id, notable.what),
+    )[: len(source_bursts)]
+    return unified, {
+        "candidates": len(behaviour_bursts),
+        "admitted": len(admitted),
+        "source_baseline": baseline,
+    }
+
+
 def _interleave(groups: Sequence[Sequence[Notable]], limit: int) -> list[Notable]:
     kept: list[Notable] = []
     index = 0
@@ -722,6 +804,7 @@ def generate(
     behaviours: Sequence[Behaviour],
     source_stats: Mapping[str, Mapping[str, Any]],
     enabled: Sequence[str],
+    behaviour_peaks: Mapping[BehaviourIdentity, int] | None = None,
 ) -> tuple[list[Notable], dict[str, Any]]:
     """Run each enabled generator on its own and keep a bounded, ordered slice of each."""
     began = time.monotonic()
@@ -749,15 +832,21 @@ def generate(
             else min((series[0][0] for series in grouped.values() if series), default=start)
         )
         bursts, firsts, detail = _source_deviations(grouped, index, origin)
+        behaviour_bursts, burst_detail = _behaviour_bursts(behaviours, behaviour_peaks or {})
+        bursts, unified_detail = _unified_bursts(bursts, behaviour_bursts)
         behaviour_firsts, behaviour_detail = _behaviour_deviations(behaviours, origin)
         found = _interleave([bursts, firsts, behaviour_firsts], NOTABLE_BUDGET)
         notables.extend(found)
         receipt["deviation"] = {
             **detail,
             **behaviour_detail,
+            "behaviour_bursts": {**burst_detail, **unified_detail},
             "series": series_receipt,
             "kept": len(found),
-            "existed": detail["bursts"] + detail["first_seen"] + behaviour_detail["existed"],
+            "existed": detail["bursts"]
+            + detail["first_seen"]
+            + behaviour_detail["existed"]
+            + unified_detail["admitted"],
         }
         receipt["seconds"]["deviation"] = round(time.monotonic() - started, 3)
     receipt["total"] = len(notables)

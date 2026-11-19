@@ -1,12 +1,22 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+import duckdb
+
 from portal.modules.security.core.hunt.notables.behaviours import (
+    _INSERT,
     ExampleEvent,
     _extract,
+    aggregate_events,
+    behaviour_identity,
     behaviour_key,
+    create_events,
     identity_plan,
     identity_stats,
     keyed_rows,
+    load_behaviour_peaks,
+    load_behaviours,
     per_window_events,
     reproduction_query,
     window_bounds,
@@ -160,6 +170,29 @@ def test_keyed_row_reproduces_every_literal_part_of_the_key():
     assert "/tmp/0" not in query
     assert 'index="ix"' in query
     assert rows[0][14] == 0.0 and rows[0][15] == 3600.0
+
+
+def test_behaviour_peaks_use_the_full_stored_key_and_four_hour_buckets(tmp_path: Path):
+    card = _card()
+    fields = {"user": "45.77.65.211", "image": "TRAFFIC", "path": "ssl"}
+    events = [
+        ExampleEvent("ix:st", "h1", ts, "raw", fields, 0.0, 14400.0)
+        for ts in (100.0, 200.0, 14400.0)
+    ]
+    rows = keyed_rows(card, _facts(), events)
+    path = tmp_path / "behaviours.duckdb"
+    connection = duckdb.connect(str(path))
+    try:
+        create_events(connection)
+        connection.executemany(_INSERT, rows)
+        aggregate_events(connection)
+    finally:
+        connection.close()
+
+    behaviours = load_behaviours(path)
+    peaks = load_behaviour_peaks(path, 14400.0)
+
+    assert peaks == {behaviour_identity(behaviours[0]): 2}
 
 
 def test_a_part_card_keys_only_its_own_events():

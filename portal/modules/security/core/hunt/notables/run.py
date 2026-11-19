@@ -16,6 +16,7 @@ from ..judge import JudgeClient
 from .behaviours import (
     Behaviour,
     collect_behaviours,
+    load_behaviour_peaks,
     load_behaviours,
     load_misfits,
     load_source_stats,
@@ -31,7 +32,7 @@ from .cards import (
     prepare_cards,
 )
 from .generators import GENERATORS as BASE_GENERATORS
-from .generators import generate
+from .generators import SERIES_SPAN_SECONDS, generate
 from .judge_notables import judge_all
 from .merge import DEFAULT_MERGE, merge_notables
 from .misfit import MISFIT_GENERATOR, generate_misfit
@@ -401,6 +402,9 @@ def notables_stage(
         behaviours,
         load_source_stats(store),
         standard_enabled,
+        behaviour_peaks=load_behaviour_peaks(store, SERIES_SPAN_SECONDS)
+        if "deviation" in standard_enabled
+        else None,
     )
     if MISFIT_GENERATOR in enabled:
         started = time.monotonic()
