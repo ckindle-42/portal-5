@@ -33,7 +33,9 @@ from .sample import (
 BEHAVIOUR_WINDOWS = 12  # effort budget: time slices read per activity source
 BEHAVIOUR_BURST_WINDOWS = 4  # peak four-hour slices reserved inside BEHAVIOUR_WINDOWS
 BEHAVIOUR_SUB_WINDOWS = 2  # each uniform slice read at its midpoint and tail
-BEHAVIOUR_BURST_SUB_WINDOWS = 4  # each peak four-hour slice sampled hourly
+BEHAVIOUR_BURST_SUB_WINDOWS = (
+    2  # each peak four-hour slice read at midpoint and tail (same req cap)
+)
 BEHAVIOUR_BURST_SPAN_SECONDS = 4 * 3600  # four-hour burst bucket width matching deviation
 BEHAVIOUR_BURST_SERIES_ROWS = 40_000  # effort budget: per-period tstats rows for burst planning
 BEHAVIOUR_EVENTS_PER_WINDOW = 2500  # effort budget: events read from one slice

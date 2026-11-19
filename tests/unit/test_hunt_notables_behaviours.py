@@ -382,6 +382,7 @@ def test_extract_preserves_structured_raw_beyond_400_chars():
 def test_burst_guided_behaviour_read_combines_uniform_and_peak_windows():
     from portal.modules.security.core.hunt.executor import Read
     from portal.modules.security.core.hunt.notables.behaviours import (
+        BEHAVIOUR_SUB_WINDOWS,
         BEHAVIOUR_WINDOWS,
         read_behaviour_source,
     )
@@ -408,6 +409,7 @@ def test_burst_guided_behaviour_read_combines_uniform_and_peak_windows():
     )
     assert any(row["_raw"] == "burst-hit" for row in read.rows)
     assert read.windows == BEHAVIOUR_WINDOWS
+    assert len(executor.calls) <= BEHAVIOUR_WINDOWS * BEHAVIOUR_SUB_WINDOWS
 
 
 def test_window_activity_resolves_from_to_and_preserves_mid_window_burst_slice():
