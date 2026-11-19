@@ -163,3 +163,76 @@ def test_validator_rejects_mixed_steps_and_invented_paths(tmp_path: Path) -> Non
     }
     with pytest.raises(ValueError, match="outside"):
         validate_personal_plan(invented, tmp_path, frozenset())
+
+
+def test_read_only_plan_without_budget_defaults_and_runs_from_receipt_shape(tmp_path: Path) -> None:
+    """pt-335077e03d03 regression: real planner omitting optional budget/paths must validate and run."""
+    reply = telegram_do_reply(tmp_path, 5388311056, "what is the queue status in one paragraph")
+    task_id = reply.removeprefix("queued ")
+    plan_without_budget = json.dumps({"steps": [{"id": "step-0", "tools": ["queue_status"]}]})
+    caller = _Caller(
+        [
+            Completion(plan_without_budget, (), 0),
+            Completion(
+                "",
+                (
+                    {
+                        "id": "c1",
+                        "type": "function",
+                        "function": {"name": "queue_status", "arguments": "{}"},
+                    },
+                ),
+                0,
+            ),
+            Completion("Queue has 0 queued and 0 running jobs.", (), 0),
+        ]
+    )
+    notices = _Notices()
+    result = poll_personal_tasks(tmp_path, notices, caller)
+    assert result is not None and result.status == "done"
+    receipt = json.loads((tmp_path / task_id / "receipt.json").read_text(encoding="utf-8"))
+    assert receipt["error"] == ""
+    assert receipt["workspace"] == FAST_WORKSPACE
+    assert receipt["tool_calls"] == ["queue_status"]
+    assert receipt["plan"]["steps"][0]["budget"]["context_tokens"] > 0
+    assert receipt["plan"]["steps"][0]["paths"] == []
+    assert notices.messages == [(task_id, "personal", "Queue has 0 queued and 0 running jobs.")]
+
+
+def test_genuinely_invalid_plan_rejects_and_notifies_requester_with_reason(tmp_path: Path) -> None:
+    reply = telegram_do_reply(tmp_path, 5388311056, "what is the queue status in one paragraph")
+    task_id = reply.removeprefix("queued ")
+    caller = _Caller([Completion("not json at all", (), 0)])
+    notices = _Notices()
+    result = poll_personal_tasks(tmp_path, notices, caller)
+    assert result is not None and result.status == "rejected"
+    receipt = json.loads((tmp_path / task_id / "receipt.json").read_text(encoding="utf-8"))
+    assert receipt["plan"] is None
+    assert receipt["hops"] == 0
+    assert receipt["error"]
+    assert len(notices.messages) == 1
+    assert notices.messages[0][0] == task_id
+    assert receipt["error"] in notices.messages[0][2]
+
+
+def test_validator_rejects_bad_budget_types_and_bounds(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="budget"):
+        validate_personal_plan(
+            {"steps": [{"tools": ["queue_status"], "budget": "invalid"}]},
+            tmp_path,
+            frozenset(),
+        )
+    with pytest.raises(ValueError, match="exceeds"):
+        validate_personal_plan(
+            {"steps": [{"tools": ["queue_status"], "budget": {"context_tokens": 999_999}}]},
+            tmp_path,
+            frozenset(),
+        )
+
+
+def test_telegram_notice_sink_exposes_notify_for_personal_tasks(tmp_path: Path) -> None:
+    from portal.modules.orchestration.telegram import TelegramNoticeSink
+
+    sink = TelegramNoticeSink(path=tmp_path / "arm.sqlite3")
+    sink.notify("pt-123", "personal", "hello")
+    assert any(row.message == "hello" for row in sink.store.outbox())

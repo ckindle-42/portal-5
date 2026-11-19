@@ -202,7 +202,7 @@ def _request_confirm(
     if control is not None:
         control.add_control_request(0, "personal", task.id, status="pending")
     if notices is not None:
-        notices.notify(task.id, "personal", f"Confirm {task.id} before any tool call?")
+        _send_notice(notices, task.id, f"Confirm {task.id} before any tool call?")
 
 
 def _validated_plan(
@@ -309,5 +309,16 @@ def _finish(
         tool_log=json.dumps(called),
         expect=frozenset({"running", "queued", "confirmed", "pending"}),
     )
-    if notices is not None and content:
-        notices.notify(task.id, "personal", content)
+    notice_text = content or (f"{status} {task.id}: {error}" if error else "")
+    if notices is not None and notice_text:
+        _send_notice(notices, task.id, notice_text)
+
+
+def _send_notice(notices: Any, task_id: str, message: str) -> None:
+    notify = getattr(notices, "notify", None)
+    if callable(notify):
+        notify(task_id, "personal", message)
+        return
+    store = getattr(notices, "store", None)
+    if store is not None and callable(getattr(store, "notify", None)):
+        store.notify(task_id, "personal", message)

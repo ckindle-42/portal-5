@@ -323,3 +323,52 @@ class TestHarmfulIntentGate:
 
         msgs = [{"role": "user", "content": "blackmail extort ruin their reputation"}]
         assert await _resolve_auto_routing("auto-coding", msgs) == "auto-coding"
+
+
+class TestAutoDefaultLaneSafety:
+    """General/status questions on workspace=auto must not fall back to uncensored/security."""
+
+    @pytest.mark.asyncio
+    async def test_queue_status_prompt_routes_to_auto_daily_not_security_or_uncensored(self):
+        from pathlib import Path
+
+        from portal.platform.inference.cluster_backends import BackendRegistry
+        from portal.platform.inference.router.preinject import _resolve_auto_routing
+        from portal.platform.inference.router.workspaces import WORKSPACES
+
+        msgs = _user_messages("what is the queue status in one paragraph")
+        with patch("portal.platform.inference.router.preinject._route_with_llm", return_value=None):
+            resolved = await _resolve_auto_routing("auto", msgs)
+        assert resolved == "auto-daily"
+        hint = str(WORKSPACES[resolved].get("model_hint") or "")
+        assert "abliterated" not in hint.lower()
+        assert "uncensored" not in hint.lower()
+        cfg_path = Path(__file__).resolve().parents[2] / "config" / "backends.yaml"
+        reg = BackendRegistry(config_path=str(cfg_path))
+        chosen = next(
+            (b, b.resolve_model(hint))
+            for b in reg.get_backend_candidates(resolved)
+            if b.resolve_model(hint) is not None
+        )
+        assert "security" not in chosen[0].id
+        assert chosen[0].group == "general"
+        assert "abliterated" not in chosen[1].lower()
+
+    @pytest.mark.asyncio
+    async def test_llm_returning_auto_also_lands_on_auto_daily(self):
+        from portal.platform.inference.router import routing
+        from portal.platform.inference.router.preinject import _resolve_auto_routing
+
+        msgs = _user_messages("what is the queue status in one paragraph")
+        mock_client = MagicMock()
+
+        async def _post(*_args, **_kwargs):
+            return _mock_llm_response("auto", 0.95)
+
+        mock_client.post = _post
+        with (
+            patch.object(routing, "_LLM_ROUTER_ENABLED", True),
+            patch.object(routing, "_http_client", mock_client),
+        ):
+            resolved = await _resolve_auto_routing("auto", msgs)
+        assert resolved == "auto-daily"

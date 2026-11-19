@@ -186,11 +186,14 @@ async def set_workspace(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def _routed_to_jarvis(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> bool:
-    """Plain 'jarvis <verb>' goes to the control plane, never the chat model."""
-    if not _orchestration_enabled():
-        return False
+    """Any '/jarvis ...' or plain 'jarvis <verb>' goes to Jarvis, never the chat model."""
     from portal_channels.telegram import jarvis_control
 
+    if jarvis_control.is_jarvis_slash(text):
+        await jarvis_control.handle_jarvis(update, context)
+        return True
+    if not _orchestration_enabled():
+        return False
     if not jarvis_control.is_plain_jarvis(text):
         return False
     await jarvis_control.handle_jarvis(update, context)
@@ -212,6 +215,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         # user_data is always a dict in PTB; None guard is incorrect (assignment doesn't persist)
         # Use safe .get() throughout instead
         workspace = (context.user_data or {}).get("workspace", DEFAULT_WORKSPACE)
+        logger.info(
+            "Telegram chat message user=%s workspace=%s", update.effective_user.id, workspace
+        )
 
         # Bounded conversation history with time-based eviction (P11).
         # - Sliding window: last 20 messages
@@ -293,6 +299,12 @@ def build_app() -> Application:
     app.add_handler(CommandHandler("workspace", set_workspace))
     app.add_handler(CommandHandler("workspaces", list_workspaces))
     app.add_handler(CommandHandler("jarvis", jarvis_control.handle_jarvis))
+    app.add_handler(
+        MessageHandler(
+            filters.TEXT & filters.Regex(r"(?i)^\s*/jarvis(?:@\S+)?(?:[,:]|\s|$)"),
+            jarvis_control.handle_jarvis,
+        )
+    )
     if arm_enabled:
         app.add_handler(CallbackQueryHandler(handle_arm_gate_callback, pattern=r"^arm:"))
         app.add_handler(CallbackQueryHandler(jarvis_control.handle_callback, pattern=r"^jv:"))
