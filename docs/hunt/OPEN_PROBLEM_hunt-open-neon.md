@@ -41,15 +41,18 @@ All changes are general (zero dataset names, field names, keywords, or scoreboar
   - Generalize multi-digit IDs (`\d{5,}`), glog date tags (`[IWEF]\d{4}`), and `HH:MM:SS` clock times in `_mine`.
   - Emit `tag.attr = value` in `parse_xml` when an attributed element has empty text (preserving `tag[attr=val] = text` when text is present).
   - Raise `MAX_FIELDS` to 48 and prioritize varying non-numeric fields when a record exceeds 48 fields (narrow sources <=48 fields keep exact sample order).
-  - Score `choose_partition` by distinct per-group majority field-sets and mean pairwise Jaccard distance (`>= 0.25`) across all fields present in >=50% of events.
+  - Score `choose_partition` by distinct per-group majority field-sets and mean pairwise Jaccard distance (`MIN_PARTITION_DISTANCE = 0.18`, measured on build families only) across all fields present in >=50% of events.
+- [`portal/modules/security/core/hunt/notables/cards.py`](../../portal/modules/security/core/hunt/notables/cards.py):
+  - Apply the pre-existing `NUMERIC_SHARE_FOR_MEASUREMENT = 0.5` rule in `_template_card` so numeric metric templates (`vmstat`, `iostat`, `cpu`, `bandwidth`, `collectd`, `protocol`, `ps`) are classified as `measurement` rather than `activity` (0 build-family template cards flipped).
 - [`portal/modules/security/core/hunt/notables/behaviours.py`](../../portal/modules/security/core/hunt/notables/behaviours.py):
   - Raise `EXAMPLE_CHARS` from 400 to 2400.
-  - Add one four-hour `tstats` burst-planning read in `collect_behaviours` and split non-complete sources' 12-window budget into 8 uniform + up to 4 peak-burst windows (`sub_windows = 2` on both, preserving the 24-request/source ceiling; 1,629 total requests on `botsv2`).
+  - Add one four-hour `tstats` burst-planning read in `collect_behaviours` and split non-complete sources' 12-window budget into 8 uniform (`sub_windows = 1`) + up to 4 peak-burst windows (`sub_windows = 4`, hourly slices inside each 4-hour burst, preserving the exact 24-request/source ceiling).
+  - Merge uniform and burst row sets by excluding only uniform rows inside covered burst windows (`_merge_row_sets`) without deduplicating identical same-second lines within a window.
   - Keep recurring fields (`recurrence >= IDENTITY_RECURRENCE` and `distinct <= IDENTITY_VALUE_BUDGET`) literal even when concentrated in one burst hour; fall back `actor` → `from` and low-variety/missing `object` → `to`.
 - [`portal/modules/security/core/hunt/notables/generators.py`](../../portal/modules/security/core/hunt/notables/generators.py):
   - Raise `EVIDENCE_CHARS` to 2400.
   - Subtract common-mode positive fleet shift (`median_z(t)` when >=3 sources active in bucket `t`) in `_source_deviations`, and filter `source_burst` / `source_first_seen` to behaviour-eligible sources when cards are present.
-  - Interleave `behaviour_first_seen` across sources and allocate `DEVIATION_BURST_WEIGHT = 2` burst slots per source/behaviour onset slot inside `deviation` (preserving `DEFAULT_WEIGHTS` and `MISFIT_MAX_SHARE`).
+  - Interleave `behaviour_first_seen` across sources (`_interleave([bursts, firsts, behaviour_firsts], NOTABLE_BUDGET)`, keeping equal 1:1:1 lane weights after LOFO dropped `DEVIATION_BURST_WEIGHT = 2` and reverted concentration-weighted behaviour burst scoring; `DEFAULT_WEIGHTS` and `MISFIT_MAX_SHARE` untouched).
 - [`portal/modules/security/core/hunt/notables/window_activity.py`](../../portal/modules/security/core/hunt/notables/window_activity.py):
   - Read anomalous windows with `WINDOW_SUB_WINDOWS = 4`, support `from`/`to` fallbacks, retain the densest 5-minute burst-slice and most-frequent object alongside earliest/latest evidence (<=4 lines), and decode percent-encoded URLs in the human-readable `what` summary while keeping `evidence[].line` and `evidence[].query` strictly literal.
 - [`portal/modules/security/core/hunt/notables/similar.py`](../../portal/modules/security/core/hunt/notables/similar.py):
@@ -74,12 +77,63 @@ The four distinct carrying `botsv2` notables at top 50 (two generators):
 
 Note on transparency: on `santos`, `@50` rose `14 → 15` and `@all` rose `17 → 18`, while `@100` moved `16 → 15` in the frozen-embedding replay. On `botsv2`, `kIagerfield` in `csp-violation` is percent-encoded in raw JSON (`%3DkIagerfield%26`) and matched via the readable decoded summary in `what` (without modifying `scoreboard.py`).
 
+## Round 2: kyoushi regression fix, build-family LOFO audit, and replay-vs-live receipts
+
+### 1. Kyoushi regression (`12/12 → 11/12`) diagnosed and fixed
+
+- **Step dropped in Round 1 live (`snap_neon_02cc2e3`)**: `reverse_shell` (1-line quiet step in `hb_kyoushi_s1:error.log`, `Bad file descriptor`).
+- **Root cause (with DuckDB receipts)**:
+  - In `snap_astra_ba2a615/results/hunt/astra/kyoushi/behaviours.duckdb`, `misfit_stats` for `hb_kyoushi_s1:error.log` was `(rows=2296, misfits=10, share=0.44% <= 1.0%)`, so `misfit` admitted `error.log` (`sources_ranked=4`), covering `reverse_shell`.
+  - In `snap_neon_02cc2e3/results/hunt/neon/kyoushi/behaviours.duckdb` (commit `02cc2e3`), `_merge_row_sets` deduplicated rows across uniform+burst reads by `(_row_time, host, _raw)` using a `set()`. Because `hb_kyoushi_s1:error.log` contains thousands of identical same-second Samba error lines, `set()` collapsed 2,296 normal lines down to `4` rows, leaving `misfit_stats = (rows=16, misfits=12, share=75.0% > 1.0%)`. `misfit` therefore dropped `error.log` as `poorly_understood_source` (`sources_ranked=3`).
+- **Fix (commit `308692931`)**: `_merge_row_sets` in `behaviours.py` now drops only uniform rows whose timestamp falls inside a burst window already covered by `burst.rows`, preserving identical same-second lines within a window. Covered by unit test `test_burst_guided_merge_preserves_duplicate_timestamp_events_and_hourly_burst_slices`.
+- **Verification**:
+  - Read-only lab Splunk check on `hb_kyoushi_s1:error.log` (`coding_task/scratch/verify_kyoushi_error_log.py`): `rows_read=2312`, `matched=2300`, `misfits=12`, `misfit_share=0.00519 <= 0.01`, `parse_coverage=0.95 >= 0.90`, `has_reverse_shell_line=true`.
+  - Full build-family replay using fresh `kyoushi` behaviours (`coding_task/scratch/lofo_neon_burst.py`): **`kyoushi = 12/12/12`**, `santos = 18/18/20`, `russell = 15/17/17` (`sum = 45/47/49` vs main `41/43/45`).
+
+### 2. Leave-one-family-out (LOFO) audit on build families only (`kyoushi`, `santos`, `russell`)
+
+Every constant, threshold, and weight introduced on `lane/hunt-open-neon` vs `main 080f89314` was re-measured on `kyoushi`, `santos`, and `russell` only (`botsv2` never used for selection). Parameters not supported by build-family LOFO were removed/reverted:
+
+| parameter / mechanism | tested values | `kyoushi` @50/100/all | `santos` @50/100/all | `russell` @50/100/all | build sum | LOFO decision & action |
+|---|---|---|---|---|---|---|
+| `main (080f89314)` reference | baseline | 12/12/12 | 14/16/17 | 15/15/16 | 41/43/45 | baseline |
+| `DEVIATION_BURST_WEIGHT` (astra base) | `1` / `2` / `3` | 12/12/12 (all) | 15/15/18 (all) | 15/15/16 (all) | 42/42/46 (tie) | LOFO selects `1` → **removed** (`a41cc6627`) |
+| `DEVIATION_BURST_WEIGHT` (burst base) | `1` / `2` / `3` / `4` | 12/12/12 (all) | 18/18/20 (all) | 15/17/17 (all) | 45/47/49 (tie) | LOFO selects `1` → **removed** (`a41cc6627`) |
+| concentration-weighted `behaviour_burst` | `False` / `True` | 12/12/12 (both) | 15/15/18 (both) | 15/15/16 (both) | 42/42/46 (tie) | LOFO selects `False` → **reverted** (`c4bbe3fcb`) |
+| `common_mode_shift` (`median_z(t)`) | `False` / `True` | 12/12/12 (both) | 15/15/18 (both) | 15/15/16 (both) | 42/42/46 (tie) | zero-regression general mechanism (kept) |
+| `eligible_sources` filter | `False` / `True` | 12/12/12 (both) | 15/15/18 (both) | 15/15/16 (both) | 42/42/46 (tie) | zero-regression general mechanism (kept) |
+| `interleave_first_seen` | `False` / `True` | 12/12/12 (both) | 15/16/17 vs 15/15/18 | 15/15/16 (both) | 42/43/45 vs 42/42/46 | trades santos `@100` (-1) for `@all` (+1) on frozen replay; burst live santos is `18/18/20` |
+| `similar_diversify` (`_diversify_ranked`) | `False` / `True` | 12/12/12 (both) | 15/15/18 (both) | 15/15/16 (both) | 42/42/46 (tie) | zero-regression on frozen top-300; lifts fresh live santos to `18/18/20` |
+| `WINDOW_SUB_WINDOWS` | `1` / `2` / `4` | 12/12/12 (all) | 15/15/18 (all) | 15/15/16 (all) | 42/42/46 (tie) | effort budget (`4` = hourly coverage of 4h window, zero build regression) |
+| `BURST_SLICE_SECONDS` | `60` / `300` / `900` | 12/12/12 (all) | 15/15/18 (all) | 15/15/16 (all) | 42/42/46 (tie) | effort budget (`300s` = 5-min burst slice, zero build regression) |
+| `MIN_PARTITION_DISTANCE` (`parse.py`) | `0.0..0.50` (`lofo_partition.py`) | noise `<=0.15` (`auth.log`, `access.log`), clean `>=0.18` (`eve.json`, `syslog`) | noise `<=0.10` (`system.service.log`), clean `>=0.15` | noise `<=0.10` (`system.service.log`), clean `>=0.15` | — | **set to `0.18`** from build families only (`a41cc6627`) |
+| `MAX_FIELDS` (`parse.py`) | `24` vs `48` (`lofo_parse_eval.py`) | trunc `1→0`, kept `188→193` | trunc `1→0`, kept `222→227` | trunc `0→0`, kept `220→220` | — | removes build-family truncation (`48`) |
+| `_VAR_TOKEN` (`parse.py`) | off vs on (`lofo_parse_eval.py`) | `2702/2770` (identical) | `3477/3482` (identical) | `3660/3663` (identical) | — | zero regression on build families |
+| `_template_card` measurement gate | pre-existing `0.5` | `0` flipped | `0` flipped | `0` flipped | — | reuses `NUMERIC_SHARE_FOR_MEASUREMENT = 0.5` |
+
+Remaining constants are effort budgets rather than tuned thresholds: `EXAMPLE_CHARS = 2400`, `EVIDENCE_CHARS = 2400`, `BEHAVIOUR_BURST_WINDOWS = 4`, `BEHAVIOUR_UNIFORM_SUB_WINDOWS_WITH_BURSTS = 1`, `BEHAVIOUR_BURST_SUB_WINDOWS = 4` (`8*1 + 4*4 = 24`, preserving the exact per-source request ceiling), `BEHAVIOUR_BURST_SPAN_SECONDS = 14400` (matches `SERIES_SPAN_SECONDS`), `BEHAVIOUR_BURST_SERIES_ROWS = 40000` (matches `SERIES_ROWS`).
+
+### 3. Replay-vs-live gap explained (with receipts)
+
+| family | `snap_astra_ba2a615` live | Round 1 replay prediction | `snap_neon_02cc2e3` live | Root cause of replay-vs-live gap (receipts) |
+|---|---|---|---|---|
+| `botsv2` | `3/15 @50` (`2/4` scen) | `5/15 @50` (`3/4` scen) | `4/15 @50` (`2/4` scen) | **`--stage cards` was not re-run in `snap_neon_02cc2e3`**: `progress.json` records only `stages: ['behaviours', 'notables']`, and `sources.json` still carries the stale pre-neon `osquery_warning` template `['W0815', None, '264929280', ...]`. As a result, `osquery_warning` kept `misfit_stats = (1035, 137)` (`13.2% > 1%`) and was dropped, losing `GoT.S07E02.BOTS.BOTS.BOTS.mkv.crypt` (`fruitfly/macbook_file_encryption`, 3rd scenario). The other `parse.py`/`cards.py` fixes (`MAX_FIELDS=48`, XML empty-text attrs, 7 metric templates → `measurement`) were also never exercised. |
+| `kyoushi` | `12/12 @50` | `12/12 @50` | `11/12 @50` | Replay reused `snap_astra_ba2a615`'s `behaviours.duckdb` (`error.log` 2,296 rows, 10 misfits). Live ran `02cc2e3`'s `set()`-dedup `_merge_row_sets`, collapsing `error.log` to 16 rows / 12 misfits (`75%` share) and dropping `reverse_shell`. Fixed in `308692931`. |
+| `santos` | `14/16/17` | `15/15/18` | **`18/18/20`** | Replay used frozen `snap_astra_ba2a615` `similar_to_known` notables. Live embedded fresh burst-sampled behaviours with `_diversify_ranked`, promoting `dns_scan` (`@351→@17`), `service_scan` (`@63→@17`), `webshell_cmd` (`@88→@17`), and `traceroute` (`-→@17`) into top 50. |
+| `russell` | `15/15/16` | `15/15/16` | **`15/17/17`** | `@50` matched exactly (`15/22`); live gained `+2` at `@100` (`dns_scan` and `network_scan` via `misfit@85`) from fresh burst-sampled behaviours. |
+
 ## Live verification handoff
 
-Run all four families end-to-end (fresh `cards`, `behaviours`, `notables`, `judge`, and `scoreboard`) with the orchestrator credentials exported:
+Run all four families end-to-end with **fresh `--stage all` (including `--stage cards`)** so `parse.py` and `cards.py` fixes are exercised:
 
 ```bash
 bash coding_task/RUN_HUNT_OPEN_NEON.sh
 ```
 
-Predicted live `@50` range: `botsv2` **5–7/15 steps, 3–4/4 scenarios** (fresh `cards` stage additionally unlocks `stream:smtp`, `stream:dns`, `stream:http`, `osquery_results`, `xmlwineventlog:sysmon`, and `wineventlog:security`, plus fresh `similar_to_known` embeddings over diversified behaviours); `kyoushi` **12/12**, `santos` **14–16/21**, `russell` **15/22**. Check `score.log`, `stages.behaviours.events_read` / request counts (<2,000), `stages.notables.misfit.sources_ranked` (should include `osquery_warning`), and `stages.notables.source_windows` in each `progress.json`.
+Predicted live `@50` numbers on `HEAD` (`a41cc6627`, with `DEVIATION_BURST_WEIGHT=2` removed):
+- **With `--stage all` (fresh `cards`, `behaviours`, `notables`)**:
+  - `botsv2`: **4–6/15 steps, 3/4 scenarios** (`stream:ftp`@10, `apache_error`@30, `osquery_warning` `misfit` in top 50 via generalized template -> 3rd scenario `fruitfly`, plus `stream:smtp` at #1 in `source_burst` with `MAX_FIELDS=48` and `osquery_results`/`csp-violation` lifted by excluding 7 template `measurement` sources).
+  - `kyoushi`: **12/12** (`reverse_shell` restored via duplicate-preserving `_merge_row_sets`).
+  - `santos`: **18/21** (`18/18/20`).
+  - `russell`: **15/22** (`15/17/17`).
+- **If `--stage cards` is skipped (stale `sources.json`, `behaviours+notables` only)**: `botsv2` stays at **3/15 @50** (`2/4` scenarios) because `DEVIATION_BURST_WEIGHT=2` was removed per LOFO (moving `csp-violation` to rank 67 without fresh template-measurement exclusion) and `osquery_warning` retains its stale pre-neon template. Check `progress.json` contains `"cards"` in `stages`, `stages.notables.misfit.sources_ranked` includes `osquery_warning` (botsv2) and `error.log` (kyoushi), and `score.log` meets the pass bar.
