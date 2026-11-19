@@ -7,12 +7,13 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: models.configured
+  contains: huihui_ai/qwen3.5-abliterated:9b-ctx8k
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 `huihui_ai/qwen3.5-abliterated:9b-ctx8k` is the 8K-context derived tag of the Qwen3.5-abliterated red-team model, registered in `config/backends.yaml` under both the `general` and `security` groups with `supports_tools: true`. `config/portal.yaml` routes it through the `auto` router's `model_hint` and through the `auto-security` `redteam` and `purpleteam` variants, all at an 8192 context limit. The `PARAMETER num_ctx 8192` is baked into the tag because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`. Full model detail lives in the base `:9b` entry; this tag exists to enforce the security lanes' context cap as a distinct model id.

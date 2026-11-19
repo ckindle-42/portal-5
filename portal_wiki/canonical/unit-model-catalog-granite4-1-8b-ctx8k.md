@@ -7,12 +7,13 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: models.configured
+  contains: granite4.1:8b-ctx8k
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 `granite4.1:8b-ctx8k` is the 8K-context derived tag of `granite4.1:8b`. `config/backends.yaml` lists it in the `general`, `security`, and `reasoning` groups with `supports_tools: true` in each, so the tool-calling capability survives the tighter context bound. `config/portal.yaml` selects it as the `model_hint` for `tools-specialist` — the structured function/API-composition workspace that substitutes for ToolACE-2.5 — and as the blue `tool_model` for the `blueteam-council` and `blueteam-orchestrated` variants of `auto-security`; it is also the `model_hint` for `bench-granite41-8b`. Like every capped tag, `PARAMETER num_ctx 8192` is baked in because Ollama ignores request-time context options; the derived tag is what makes a per-workspace 8K cap reachable.

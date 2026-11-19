@@ -7,12 +7,13 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: models.configured
+  contains: gemma4:e4b-it-qat-ctx8k
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 `gemma4:e4b-it-qat-ctx8k` extends `gemma4:e4b-it-qat` with an 8192-token context bound. `config/backends.yaml` registers the derived id under the `vision` group with `supports_tools: true`, matching the parent's placement. The bound is materialized via `portal models apply-params` because per-request `options.num_ctx` is ignored by the completion API, forcing the cap into the tag itself. The parent model, not this id, is what the `bench-gemma4-e4b-qat` workspace selects as its `model_hint` in `config/portal.yaml`.

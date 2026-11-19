@@ -7,12 +7,13 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: models.configured
+  contains: deepseek-r1:32b-q4_k_m
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 `deepseek-r1:32b-q4_k_m` is registered in `config/backends.yaml` under the `reasoning` backend group with `supports_tools: false`. In `config/portal.yaml` the `auto-reasoning` workspace description names it as the reasoning-group fallback for heavy tasks, and the GLM-Z1-Rumination bench workspace lists it as a candidate for the auto-reasoning pool alongside `glm-4.7-flash:Q4_K_M`. The model pull registry records its source (DeepSeek-R1-Distill-Qwen-32B) with a retired flag. The model is reasoning-trained and chain-of-thought oriented, not tool-trained; `supports_tools: false` is intentional to prevent reasoning-budget exhaustion from mixing with tool-call rendering.

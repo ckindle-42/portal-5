@@ -5,12 +5,13 @@ title: "MODEL_CATALOG \u2014 `Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit`"
 sources:
 - type: code
   path: config/backends.yaml
-claims: []
+claims:
+- probe: models.configured
+  contains: Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 `Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit` is the 4-bit MLX conversion (dawncr0w's OptiQ build) of the Qwen3.6-35B-A3B HauhauCS-Aggressive-Uncensored fine-tune, served by the oMLX evaluation backend. `config/backends.yaml` registers it in the new `omlx-creative` entry (group `creative`, `priority: 10`, TASK_OMLX_FULL_PIPELINE_COVERAGE_V1) with `supports_tools: true`, live-audited via a direct `/v1/chat/completions` tool-call probe (clean structured `tool_calls`, `finish_reason: tool_calls`, no template/tokenizer defects found). The `aliases` block maps the production GGUF hint `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k` onto this oMLX name, so the `auto-creative` daily workspace can now be served by oMLX with automatic Ollama fallback — no `config/portal.yaml` or `workspace_routing` change was needed.

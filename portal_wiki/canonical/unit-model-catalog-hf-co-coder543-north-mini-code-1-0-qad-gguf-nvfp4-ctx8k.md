@@ -7,12 +7,13 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: models.configured
+  contains: hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4-ctx8k
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 `hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4-ctx8k` is the 8K-context derived tag of North-Mini-Code-1.0-QAD, promoted 2026-06-30 to the `northmini` variant of `auto-coding` as an additional lineage-diversity option. `config/backends.yaml` registers it in the `coding` group with `supports_tools: true`; the inline comment attributes tool support to the cohere_command4 parser on the cohere2moe architecture, which smoke-loaded cleanly on this Ollama build. `config/portal.yaml` selects this exact tag as the `model_hint` for the `northmini` variant of `auto-coding` — the coding workspace that keeps the Qwen3-Coder-30B primary untouched. `PARAMETER num_ctx 8192` is baked in via `portal models apply-params` because Ollama ignores request-time context options. The base `NVFP4` tag remains `bench-north-mini-code`'s `model_hint`.

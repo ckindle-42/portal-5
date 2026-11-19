@@ -5,12 +5,13 @@ title: "MODEL_CATALOG \u2014 `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64
 sources:
 - type: code
   path: config/backends.yaml
-claims: []
+claims:
+- probe: models.configured
+  contains: hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k` is the 64K-context derived tag of the Magistral-Small-2509 general-pool entry, registered in `config/backends.yaml` under the `general` group with `supports_tools: false`, inheriting the base tag's verdict. The `PARAMETER num_ctx 65536` is baked into the tag because Ollama's chat completions ignore request-time `options.num_ctx`, so the context cap must be a distinct model id. It has no `config/portal.yaml` workspace binding, so this entry exists solely to satisfy backend registry parity and to give a long-context variant of a reasoning-capable model a pullable id. Full model detail lives in the base tag's entry.

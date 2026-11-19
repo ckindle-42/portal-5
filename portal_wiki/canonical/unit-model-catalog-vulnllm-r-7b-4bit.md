@@ -5,12 +5,13 @@ title: "MODEL_CATALOG \u2014 `VulnLLM-R-7B-4bit`"
 sources:
 - type: code
   path: config/backends.yaml
-claims: []
+claims:
+- probe: models.configured
+  contains: VulnLLM-R-7B-4bit
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 `VulnLLM-R-7B-4bit` is the 4-bit MLX conversion (mlx-community) of VulnLLM-R-7B (Qwen2-tokenizer based) served by the oMLX evaluation backend. `config/backends.yaml` registers it in the new `omlx-security` entry (group `security`, `priority: 10`, TASK_OMLX_FULL_PIPELINE_COVERAGE_V1) with `supports_tools: true`, live-audited via a direct `/v1/chat/completions` tool-call probe (clean structured `tool_calls`, `finish_reason: tool_calls`, no template/tokenizer defects found — unlike the reasoning-group model, this conversion's `tokenizer_class`/chat template worked correctly as shipped). The `aliases` block maps the production GGUF hint `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` onto this oMLX name, so the `auto-security` daily workspace can now be served by oMLX with automatic Ollama fallback — no `config/portal.yaml` or `workspace_routing` change was needed.

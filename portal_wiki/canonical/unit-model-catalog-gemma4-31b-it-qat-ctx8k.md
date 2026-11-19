@@ -5,12 +5,13 @@ title: "MODEL_CATALOG \u2014 `gemma4:31b-it-qat-ctx8k`"
 sources:
 - type: code
   path: config/backends.yaml
-claims: []
+claims:
+- probe: models.configured
+  contains: gemma4:31b-it-qat-ctx8k
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 `gemma4:31b-it-qat-ctx8k` is a derived variant of `gemma4:31b-it-qat` that pins the 8192-token window into the Modelfile. `config/backends.yaml` registers it under the `vision` group with `supports_tools: true`, the same placement as its 31B Dense QAT parent. The cap is applied with `portal models apply-params` because the chat-completions endpoint refuses per-request `options.num_ctx` overrides; a separate tag is the only way to bound context per workspace. Unlike the base model, this derived id has no workspace `model_hint` of its own in `config/portal.yaml`.

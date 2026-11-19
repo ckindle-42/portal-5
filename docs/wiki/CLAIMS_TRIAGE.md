@@ -3,7 +3,7 @@
 Temporary gate ledger for the content review. Each pending id is replaced with a current, historical, or obsolete decision as its unit is reviewed.
 
 Initial pending units: 733.
-Completed decisions: 100; pending: 633.
+Completed decisions: 200; pending: 533.
 
 - `SEC_BENCH-combined-corpus-validation-20260731` | pending | awaiting content review
 - `unit-ADMIN_GUIDE-add-a-cluster-node` | current | code symbol `backends_healthy` exists in `scripts/lib/util.sh`
@@ -395,125 +395,125 @@ Completed decisions: 100; pending: 633.
 - `unit-mcp-dev-tooling-what-opencode-gets` | pending | awaiting content review
 - `unit-mcp-dev-tooling-workspace-selection` | pending | awaiting content review
 - `unit-memory-mcp-lancedb` | pending | awaiting content review
-- `unit-model-catalog-alicankiraz0-cybersecurity-baronllm-offensive-security-llm-q6-k-gguf-dropped-hf-id-only-see-baronllm-q6-k-below-for-the-fleet-entry` | pending | awaiting content review
-- `unit-model-catalog-baronllm-q6-k` | pending | awaiting content review
-- `unit-model-catalog-blue-red-candidate-batch-evaluated-2026-07-03-none-promoted` | pending | awaiting content review
-- `unit-model-catalog-cybersecqwen-4b-toolfix-latest` | pending | awaiting content review
-- `unit-model-catalog-deepseek-r1-0528-qwen3-8b-4bit` | pending | awaiting content review
-- `unit-model-catalog-deepseek-r1-32b-q4-k-m` | pending | awaiting content review
-- `unit-model-catalog-devstral-24b` | pending | awaiting content review
-- `unit-model-catalog-devstral-small-2-latest-ctx8k` | pending | awaiting content review
-- `unit-model-catalog-devstral-small-2-latest` | pending | awaiting content review
-- `unit-model-catalog-devstral-small-2` | pending | awaiting content review
-- `unit-model-catalog-dolphin-llama3-8b` | pending | awaiting content review
-- `unit-model-catalog-fredrezones55-qwen3-6-35b-a3b-uncensored-hauhaucs-aggressive-q4-ctx8k` | pending | awaiting content review
-- `unit-model-catalog-fredrezones55-qwen3-6-35b-a3b-uncensored-hauhaucs-aggressive-q4` | pending | awaiting content review
-- `unit-model-catalog-gemma-4-26b-a4b-it-qat-4bit` | pending | awaiting content review
-- `unit-model-catalog-gemma-4-e4b-it-4bit` | pending | awaiting content review
-- `unit-model-catalog-gemma4-12b-it-qat-ctx8k` | pending | awaiting content review
-- `unit-model-catalog-gemma4-12b-it-qat` | pending | awaiting content review
-- `unit-model-catalog-gemma4-26b-a4b-it-q4-k-m` | pending | awaiting content review
-- `unit-model-catalog-gemma4-26b-a4b-it-qat-ctx8k` | pending | awaiting content review
-- `unit-model-catalog-gemma4-26b-a4b-it-qat` | pending | awaiting content review
-- `unit-model-catalog-gemma4-31b-it-qat-ctx8k` | pending | awaiting content review
-- `unit-model-catalog-gemma4-31b-it-qat` | pending | awaiting content review
-- `unit-model-catalog-gemma4-e2b-it-qat-ctx8k` | pending | awaiting content review
-- `unit-model-catalog-gemma4-e2b-it-qat` | pending | awaiting content review
-- `unit-model-catalog-gemma4-e4b-it-q4-k-m` | pending | awaiting content review
-- `unit-model-catalog-gemma4-e4b-it-qat-ctx8k` | pending | awaiting content review
-- `unit-model-catalog-gemma4-e4b-it-qat` | pending | awaiting content review
-- `unit-model-catalog-glm-4-7-flash-q4-k-m` | pending | awaiting content review
-- `unit-model-catalog-gpt-oss-20b` | pending | awaiting content review
-- `unit-model-catalog-granite-4-1-30b-4bit` | pending | awaiting content review
-- `unit-model-catalog-granite-4-1-8b-mxfp8` | pending | awaiting content review
-- `unit-model-catalog-granite4-1-30b-ctx16k` | pending | awaiting content review
-- `unit-model-catalog-granite4-1-30b-ctx64k` | pending | awaiting content review
-- `unit-model-catalog-granite4-1-30b` | pending | awaiting content review
-- `unit-model-catalog-granite4-1-8b-ctx16k` | pending | awaiting content review
-- `unit-model-catalog-granite4-1-8b-ctx8k` | pending | awaiting content review
-- `unit-model-catalog-granite4-1-8b` | pending | awaiting content review
-- `unit-model-catalog-hermes3-8b` | pending | awaiting content review
-- `unit-model-catalog-hf-co-abiray-agents-a1-q4-k-m-gguf-q4-k-m` | pending | awaiting content review
-- `unit-model-catalog-hf-co-andycurrent-mistral-7b-uncensored-gguf-q4-k-m` | pending | awaiting content review
-- `unit-model-catalog-hf-co-bartowski-huihui-ai-qwen3-coder-next-abliterated-gguf-q4-k-m-ctx64k` | pending | awaiting content review
-- `unit-model-catalog-hf-co-bartowski-huihui-ai-qwen3-coder-next-abliterated-gguf-q4-k-m` | pending | awaiting content review
-- `unit-model-catalog-hf-co-bartowski-nvidia-nemotron-3-5-lightning-30b-a3b-gguf-q4-k-m-ctx8k` | pending | awaiting content review
-- `unit-model-catalog-hf-co-bartowski-qwen-qwen3-6-27b-gguf-q4-k-m` | pending | awaiting content review
-- `unit-model-catalog-hf-co-bartowski-thudm-glm-z1-rumination-32b-0414-gguf-thudm-glm-z1-rumination-32b-0414-q4-k-m-gguf-ctx64k` | pending | awaiting content review
-- `unit-model-catalog-hf-co-bartowski-thudm-glm-z1-rumination-32b-0414-gguf-thudm-glm-z1-rumination-32b-0414-q4-k-m-gguf` | pending | awaiting content review
-- `unit-model-catalog-hf-co-bugtraceai-bugtraceai-core-ultra-27b-q6-q6-k` | pending | awaiting content review
-- `unit-model-catalog-hf-co-coder543-north-mini-code-1-0-qad-gguf-nvfp4-ctx8k` | pending | awaiting content review
-- `unit-model-catalog-hf-co-coder543-north-mini-code-1-0-qad-gguf-nvfp4-promoted-2026-06-30` | pending | awaiting content review
-- `unit-model-catalog-hf-co-deepreinforce-ai-ornith-1-0-35b-gguf-q4-k-m-ctx64k` | pending | awaiting content review
-- `unit-model-catalog-hf-co-deepreinforce-ai-ornith-1-0-35b-gguf-q4-k-m-promoted-2026-06-30` | pending | awaiting content review
-- `unit-model-catalog-hf-co-deepreinforce-ai-ornith-1-0-9b-gguf-q4-k-m-dropped-2026-06-30` | pending | awaiting content review
-- `unit-model-catalog-hf-co-douyamv-gemma-4-31b-jang-4m-crack-gguf-gemma-4-31b-jang-crack-q4-k-m-gguf` | pending | awaiting content review
-- `unit-model-catalog-hf-co-empero-ai-qwythos-9b-claude-mythos-5-1m-gguf-q4-k-m-dropped-2026-06-30` | pending | awaiting content review
-- `unit-model-catalog-hf-co-fdtn-ai-foundation-sec-8b-reasoning-q8-0-gguf-q8-0` | pending | awaiting content review
-- `unit-model-catalog-hf-co-gaston-parravicini-lfm2-5-8b-a1b-uncensored-gaston-gguf-q4-k-m-ctx8k` | pending | awaiting content review
-- `unit-model-catalog-hf-co-gaston-parravicini-lfm2-5-8b-a1b-uncensored-gaston-gguf-q4-k-m` | pending | awaiting content review
-- `unit-model-catalog-hf-co-jackrong-qwopus3-6-27b-v2-mtp-gguf-qwopus3-6-27b-v2-mtp-q5-k-m-gguf` | pending | awaiting content review
-- `unit-model-catalog-hf-co-jiunsong-superqwen-agentworld-35b-a3b-abliterated-gguf-4bit-q4-k-m` | pending | awaiting content review
-- `unit-model-catalog-hf-co-liquidai-lfm2-5-1-2b-instruct-gguf-q4-k-m` | pending | awaiting content review
-- `unit-model-catalog-hf-co-liquidai-lfm2-5-230m-gguf-q4-k-m` | pending | awaiting content review
-- `unit-model-catalog-hf-co-liquidai-lfm2-5-350m-gguf-q4-k-m` | pending | awaiting content review
-- `unit-model-catalog-hf-co-mia-ailab-qwable-3-6-35b-qwable-3-6-35b-q4-k-m-gguf-removed-from-security-group` | pending | awaiting content review
-- `unit-model-catalog-hf-co-mia-ailab-qwable-3-6-35b-qwable-3-6-35b-q4-k-m-gguf` | pending | awaiting content review
-- `unit-model-catalog-hf-co-mitkox-fastcontext-1-0-4b-sft-q4-k-m-gguf-q4-k-m` | pending | awaiting content review
-- `unit-model-catalog-hf-co-mradermacher-cybersecqwen-4b-gguf-q4-k-m-dropped-tool-call-blocker-fixed-2026-07-04-detection-quality-inconclusive-not-adopted` | pending | awaiting content review
+- `unit-model-catalog-alicankiraz0-cybersecurity-baronllm-offensive-security-llm-q6-k-gguf-dropped-hf-id-only-see-baronllm-q6-k-below-for-the-fleet-entry` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-baronllm-q6-k` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-blue-red-candidate-batch-evaluated-2026-07-03-none-promoted` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-cybersecqwen-4b-toolfix-latest` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-deepseek-r1-0528-qwen3-8b-4bit` | current | models.configured contains `DeepSeek-R1-0528-Qwen3-8B-4bit` in committed config
+- `unit-model-catalog-deepseek-r1-32b-q4-k-m` | current | models.configured contains `deepseek-r1:32b-q4_k_m` in committed config
+- `unit-model-catalog-devstral-24b` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-devstral-small-2-latest-ctx8k` | current | models.configured contains `devstral-small-2:latest-ctx8k` in committed config
+- `unit-model-catalog-devstral-small-2-latest` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-devstral-small-2` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-dolphin-llama3-8b` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-fredrezones55-qwen3-6-35b-a3b-uncensored-hauhaucs-aggressive-q4-ctx8k` | current | models.configured contains `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k` in committed config
+- `unit-model-catalog-fredrezones55-qwen3-6-35b-a3b-uncensored-hauhaucs-aggressive-q4` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-gemma-4-26b-a4b-it-qat-4bit` | current | models.configured contains `gemma-4-26b-a4b-it-QAT-4bit` in committed config
+- `unit-model-catalog-gemma-4-e4b-it-4bit` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-gemma4-12b-it-qat-ctx8k` | current | models.configured contains `gemma4:12b-it-qat-ctx8k` in committed config
+- `unit-model-catalog-gemma4-12b-it-qat` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-gemma4-26b-a4b-it-q4-k-m` | current | models.configured contains `gemma4:26b-a4b-it-q4_K_M` in committed config
+- `unit-model-catalog-gemma4-26b-a4b-it-qat-ctx8k` | current | models.configured contains `gemma4:26b-a4b-it-qat-ctx8k` in committed config
+- `unit-model-catalog-gemma4-26b-a4b-it-qat` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-gemma4-31b-it-qat-ctx8k` | current | models.configured contains `gemma4:31b-it-qat-ctx8k` in committed config
+- `unit-model-catalog-gemma4-31b-it-qat` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-gemma4-e2b-it-qat-ctx8k` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-gemma4-e2b-it-qat` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-gemma4-e4b-it-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-gemma4-e4b-it-qat-ctx8k` | current | models.configured contains `gemma4:e4b-it-qat-ctx8k` in committed config
+- `unit-model-catalog-gemma4-e4b-it-qat` | current | models.configured contains `gemma4:e4b-it-qat` in committed config
+- `unit-model-catalog-glm-4-7-flash-q4-k-m` | current | models.configured contains `glm-4.7-flash:Q4_K_M` in committed config
+- `unit-model-catalog-gpt-oss-20b` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-granite-4-1-30b-4bit` | current | models.configured contains `granite-4.1-30b-4bit` in committed config
+- `unit-model-catalog-granite-4-1-8b-mxfp8` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-granite4-1-30b-ctx16k` | current | models.configured contains `granite4.1:30b-ctx16k` in committed config
+- `unit-model-catalog-granite4-1-30b-ctx64k` | current | models.configured contains `granite4.1:30b-ctx64k` in committed config
+- `unit-model-catalog-granite4-1-30b` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-granite4-1-8b-ctx16k` | current | models.configured contains `granite4.1:8b-ctx16k` in committed config
+- `unit-model-catalog-granite4-1-8b-ctx8k` | current | models.configured contains `granite4.1:8b-ctx8k` in committed config
+- `unit-model-catalog-granite4-1-8b` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hermes3-8b` | current | models.configured contains `hermes3:8b` in committed config
+- `unit-model-catalog-hf-co-abiray-agents-a1-q4-k-m-gguf-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-andycurrent-mistral-7b-uncensored-gguf-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-bartowski-huihui-ai-qwen3-coder-next-abliterated-gguf-q4-k-m-ctx64k` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-bartowski-huihui-ai-qwen3-coder-next-abliterated-gguf-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-bartowski-nvidia-nemotron-3-5-lightning-30b-a3b-gguf-q4-k-m-ctx8k` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-bartowski-qwen-qwen3-6-27b-gguf-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-bartowski-thudm-glm-z1-rumination-32b-0414-gguf-thudm-glm-z1-rumination-32b-0414-q4-k-m-gguf-ctx64k` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-bartowski-thudm-glm-z1-rumination-32b-0414-gguf-thudm-glm-z1-rumination-32b-0414-q4-k-m-gguf` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-bugtraceai-bugtraceai-core-ultra-27b-q6-q6-k` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-coder543-north-mini-code-1-0-qad-gguf-nvfp4-ctx8k` | current | models.configured contains `hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4-ctx8k` in committed config
+- `unit-model-catalog-hf-co-coder543-north-mini-code-1-0-qad-gguf-nvfp4-promoted-2026-06-30` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-deepreinforce-ai-ornith-1-0-35b-gguf-q4-k-m-ctx64k` | current | models.configured contains `hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M-ctx64k` in committed config
+- `unit-model-catalog-hf-co-deepreinforce-ai-ornith-1-0-35b-gguf-q4-k-m-promoted-2026-06-30` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-deepreinforce-ai-ornith-1-0-9b-gguf-q4-k-m-dropped-2026-06-30` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-douyamv-gemma-4-31b-jang-4m-crack-gguf-gemma-4-31b-jang-crack-q4-k-m-gguf` | current | models.configured contains `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf` in committed config
+- `unit-model-catalog-hf-co-empero-ai-qwythos-9b-claude-mythos-5-1m-gguf-q4-k-m-dropped-2026-06-30` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-fdtn-ai-foundation-sec-8b-reasoning-q8-0-gguf-q8-0` | current | models.configured contains `hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0` in committed config
+- `unit-model-catalog-hf-co-gaston-parravicini-lfm2-5-8b-a1b-uncensored-gaston-gguf-q4-k-m-ctx8k` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-gaston-parravicini-lfm2-5-8b-a1b-uncensored-gaston-gguf-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-jackrong-qwopus3-6-27b-v2-mtp-gguf-qwopus3-6-27b-v2-mtp-q5-k-m-gguf` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-jiunsong-superqwen-agentworld-35b-a3b-abliterated-gguf-4bit-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-liquidai-lfm2-5-1-2b-instruct-gguf-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-liquidai-lfm2-5-230m-gguf-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-liquidai-lfm2-5-350m-gguf-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-mia-ailab-qwable-3-6-35b-qwable-3-6-35b-q4-k-m-gguf-removed-from-security-group` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-mia-ailab-qwable-3-6-35b-qwable-3-6-35b-q4-k-m-gguf` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-mitkox-fastcontext-1-0-4b-sft-q4-k-m-gguf-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-mradermacher-cybersecqwen-4b-gguf-q4-k-m-dropped-tool-call-blocker-fixed-2026-07-04-detection-quality-inconclusive-not-adopted` | historical | model ID absent from current configuration; retained as catalog history
 - `unit-model-catalog-hf-co-mradermacher-gemma-4-26b-a4b-it-uncensored-heretic-gguf-gemma-4-26b-a4b-it-uncensored-heretic-q4-k-m-gguf` | pending | awaiting content review
-- `unit-model-catalog-hf-co-mradermacher-huihui-qwen3-6-35b-a3b-abliterated-gguf-q4-k-m` | pending | awaiting content review
+- `unit-model-catalog-hf-co-mradermacher-huihui-qwen3-6-35b-a3b-abliterated-gguf-q4-k-m` | current | models.configured contains `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M` in committed config
 - `unit-model-catalog-hf-co-mradermacher-qwen3-5-9b-claude-4-6-highiq-thinking-heretic-uncensored-gguf-q4-k-m` | pending | awaiting content review
-- `unit-model-catalog-hf-co-mradermacher-vulnllm-r-7b-gguf-q4-k-m-ctx8k` | pending | awaiting content review
+- `unit-model-catalog-hf-co-mradermacher-vulnllm-r-7b-gguf-q4-k-m-ctx8k` | current | models.configured contains `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` in committed config
 - `unit-model-catalog-hf-co-mradermacher-vulnllm-r-7b-gguf-q4-k-m` | pending | awaiting content review
 - `unit-model-catalog-hf-co-nguuma-security-slm-unsloth-1-5b-latest` | pending | awaiting content review
 - `unit-model-catalog-hf-co-quantfactory-llama-3-2-3b-instruct-abliterated-gguf` | pending | awaiting content review
 - `unit-model-catalog-hf-co-redteamlab-qwen3-6-27b-blueteam-v1-q3-k-s-dropped-evaluated-not-adopted` | pending | awaiting content review
 - `unit-model-catalog-hf-co-redteamlab-qwen3-6-27b-redteam-v5-qwen3-6-27b-redteam-v5-q4-k-m-gguf-dropped-evaluated-not-adopted` | pending | awaiting content review
-- `unit-model-catalog-hf-co-sjakek-nex-n2-mini-gguf-ud-q4-k-m` | pending | awaiting content review
-- `unit-model-catalog-hf-co-unsloth-deepseek-r1-0528-qwen3-8b-gguf-q4-k-xl-ctx64k` | pending | awaiting content review
+- `unit-model-catalog-hf-co-sjakek-nex-n2-mini-gguf-ud-q4-k-m` | current | models.configured contains `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M` in committed config
+- `unit-model-catalog-hf-co-unsloth-deepseek-r1-0528-qwen3-8b-gguf-q4-k-xl-ctx64k` | current | models.configured contains `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` in committed config
 - `unit-model-catalog-hf-co-unsloth-deepseek-r1-0528-qwen3-8b-gguf-q4-k-xl` | pending | awaiting content review
 - `unit-model-catalog-hf-co-unsloth-glm-4-7-flash-reap-23b-a3b-gguf-ud-q4-k-xl-ctx64k` | pending | awaiting content review
 - `unit-model-catalog-hf-co-unsloth-glm-4-7-flash-reap-23b-a3b-gguf-ud-q4-k-xl` | pending | awaiting content review
-- `unit-model-catalog-hf-co-unsloth-magistral-small-2509-gguf-q8-0-ctx64k` | pending | awaiting content review
+- `unit-model-catalog-hf-co-unsloth-magistral-small-2509-gguf-q8-0-ctx64k` | current | models.configured contains `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k` in committed config
 - `unit-model-catalog-hf-co-unsloth-magistral-small-2509-gguf-q8-0` | pending | awaiting content review
 - `unit-model-catalog-hf-co-unsloth-qwen-agentworld-35b-a3b-gguf-ud-q4-k-xl-ctx64k` | pending | awaiting content review
 - `unit-model-catalog-hf-co-unsloth-qwen-agentworld-35b-a3b-gguf-ud-q4-k-xl` | pending | awaiting content review
 - `unit-model-catalog-hf-co-unsloth-qwen3-6-35b-a3b-gguf-ud-q4-k-xl` | pending | awaiting content review
-- `unit-model-catalog-hf-co-unsloth-qwen3-8-27b-gguf-q4-k-m` | pending | awaiting content review
-- `unit-model-catalog-huihui-ai-baronllm-abliterated-latest-ctx8k` | pending | awaiting content review
+- `unit-model-catalog-hf-co-unsloth-qwen3-8-27b-gguf-q4-k-m` | current | models.configured contains `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M` in committed config
+- `unit-model-catalog-huihui-ai-baronllm-abliterated-latest-ctx8k` | current | models.configured contains `huihui_ai/baronllm-abliterated:latest-ctx8k` in committed config
 - `unit-model-catalog-huihui-ai-baronllm-abliterated-latest-dropped-evaluated-not-adopted-supersedes-the-gated-alicankiraz0-baronllm-above` | pending | awaiting content review
 - `unit-model-catalog-huihui-ai-baronllm-abliterated` | pending | awaiting content review
 - `unit-model-catalog-huihui-ai-gemma-4-abliterated-e2b-qat-ctx8k` | pending | awaiting content review
-- `unit-model-catalog-huihui-ai-gemma-4-abliterated-e2b-qat` | pending | awaiting content review
-- `unit-model-catalog-huihui-ai-huihui-qwen3-5-9b-abliterated-mlx-4bit` | pending | awaiting content review
-- `unit-model-catalog-huihui-ai-qwen3-5-abliterated-9b-ctx64k` | pending | awaiting content review
-- `unit-model-catalog-huihui-ai-qwen3-5-abliterated-9b-ctx8k` | pending | awaiting content review
-- `unit-model-catalog-huihui-ai-qwen3-5-abliterated-9b` | pending | awaiting content review
-- `unit-model-catalog-huihui-ai-qwen3-6-abliterated-27b-ctx8k` | pending | awaiting content review
-- `unit-model-catalog-huihui-ai-qwen3-6-abliterated-27b` | pending | awaiting content review
+- `unit-model-catalog-huihui-ai-gemma-4-abliterated-e2b-qat` | current | models.configured contains `huihui_ai/gemma-4-abliterated:E2b-qat` in committed config
+- `unit-model-catalog-huihui-ai-huihui-qwen3-5-9b-abliterated-mlx-4bit` | current | models.configured contains `huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit` in committed config
+- `unit-model-catalog-huihui-ai-qwen3-5-abliterated-9b-ctx64k` | current | models.configured contains `huihui_ai/qwen3.5-abliterated:9b-ctx64k` in committed config
+- `unit-model-catalog-huihui-ai-qwen3-5-abliterated-9b-ctx8k` | current | models.configured contains `huihui_ai/qwen3.5-abliterated:9b-ctx8k` in committed config
+- `unit-model-catalog-huihui-ai-qwen3-5-abliterated-9b` | current | models.configured contains `huihui_ai/qwen3.5-abliterated:9b` in committed config
+- `unit-model-catalog-huihui-ai-qwen3-6-abliterated-27b-ctx8k` | current | models.configured contains `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` in committed config
+- `unit-model-catalog-huihui-ai-qwen3-6-abliterated-27b` | current | models.configured contains `huihui_ai/Qwen3.6-abliterated:27b` in committed config
 - `unit-model-catalog-huihui-ai-qwen3-abliterated-14b-v2` | pending | awaiting content review
-- `unit-model-catalog-huihui-ai-tongyi-deepresearch-abliterated-latest-ctx64k` | pending | awaiting content review
+- `unit-model-catalog-huihui-ai-tongyi-deepresearch-abliterated-latest-ctx64k` | current | models.configured contains `huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k` in committed config
 - `unit-model-catalog-huihui-ai-tongyi-deepresearch-abliterated` | pending | awaiting content review
 - `unit-model-catalog-jackrong-deepseek-v4-pro-qwen3-5-4b-mtp` | pending | awaiting content review
 - `unit-model-catalog-jackrong-deepseek-v4-pro-qwen3-5-9b-mtp` | pending | awaiting content review
-- `unit-model-catalog-laguna-xs-2-1-4bit` | pending | awaiting content review
-- `unit-model-catalog-lfm2-5-8b-ctx8k` | pending | awaiting content review
+- `unit-model-catalog-laguna-xs-2-1-4bit` | current | models.configured contains `Laguna-XS-2.1-4bit` in committed config
+- `unit-model-catalog-lfm2-5-8b-ctx8k` | current | models.configured contains `lfm2.5:8b-ctx8k` in committed config
 - `unit-model-catalog-lfm2-5-8b` | pending | awaiting content review
 - `unit-model-catalog-llama-3-2-3b-instruct-8bit` | pending | awaiting content review
 - `unit-model-catalog-llama3-2-3b-instruct-q8-0-ctx8k` | pending | awaiting content review
 - `unit-model-catalog-llama3-2-3b` | pending | awaiting content review
 - `unit-model-catalog-meta-secalign-8b-q4-k-m-latest` | pending | awaiting content review
 - `unit-model-catalog-meta-secalign-8b-q4-k-m` | pending | awaiting content review
-- `unit-model-catalog-mistral-small3-2-24b` | pending | awaiting content review
+- `unit-model-catalog-mistral-small3-2-24b` | current | models.configured contains `mistral-small3.2:24b` in committed config
 - `unit-model-catalog-model-catalog-portal-5-model-reference` | pending | awaiting content review
 - `unit-model-catalog-muse-glimmer-30b-mlx` | pending | awaiting content review
-- `unit-model-catalog-nvidia-nemotron-3-5-lightning-30b-a3b-oq4e-mtp` | pending | awaiting content review
-- `unit-model-catalog-omnicoder2-9b-q4-k-m-ctx8k` | pending | awaiting content review
-- `unit-model-catalog-omnicoder2-9b-q4-k-m` | pending | awaiting content review
+- `unit-model-catalog-nvidia-nemotron-3-5-lightning-30b-a3b-oq4e-mtp` | current | models.configured contains `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp` in committed config
+- `unit-model-catalog-omnicoder2-9b-q4-k-m-ctx8k` | current | models.configured contains `omnicoder2:9b-q4_k_m-ctx8k` in committed config
+- `unit-model-catalog-omnicoder2-9b-q4-k-m` | current | models.configured contains `omnicoder2:9b-q4_k_m` in committed config
 - `unit-model-catalog-phi-4-reasoning-plus-mlx-4bit` | pending | awaiting content review
 - `unit-model-catalog-phi4-14b-q8-0` | pending | awaiting content review
-- `unit-model-catalog-phi4-mini-reasoning-latest-ctx24k` | pending | awaiting content review
+- `unit-model-catalog-phi4-mini-reasoning-latest-ctx24k` | current | models.configured contains `phi4-mini-reasoning:latest-ctx24k` in committed config
 - `unit-model-catalog-phi4-mini-reasoning` | pending | awaiting content review
 - `unit-model-catalog-phi4-mini` | pending | awaiting content review
 - `unit-model-catalog-phi4-reasoning-plus-ctx32k` | pending | awaiting content review
@@ -526,30 +526,30 @@ Completed decisions: 100; pending: 633.
 - `unit-model-catalog-portal5-xyz-aquila-mini-q4-k-m` | pending | awaiting content review
 - `unit-model-catalog-qwen3-6-27b-mtp-q4-k-m` | pending | awaiting content review
 - `unit-model-catalog-qwen3-6-27b-oq8-mtp` | pending | awaiting content review
-- `unit-model-catalog-qwen3-6-27b-q4-k-m-ctx16k` | pending | awaiting content review
-- `unit-model-catalog-qwen3-6-27b-q4-k-m` | pending | awaiting content review
+- `unit-model-catalog-qwen3-6-27b-q4-k-m-ctx16k` | current | models.configured contains `qwen3.6:27b-q4_K_M-ctx16k` in committed config
+- `unit-model-catalog-qwen3-6-27b-q4-k-m` | current | models.configured contains `qwen3.6:27b-q4_K_M` in committed config
 - `unit-model-catalog-qwen3-6-27b-q8-0` | pending | awaiting content review
-- `unit-model-catalog-qwen3-6-35b-a3b-hauhaucs-aggressive-4bit` | pending | awaiting content review
+- `unit-model-catalog-qwen3-6-35b-a3b-hauhaucs-aggressive-4bit` | current | models.configured contains `Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit` in committed config
 - `unit-model-catalog-qwen3-6-35b-a3b-q4-k-m` | pending | awaiting content review
-- `unit-model-catalog-qwen3-8-27b-oq4e-mtp` | pending | awaiting content review
+- `unit-model-catalog-qwen3-8-27b-oq4e-mtp` | current | models.configured contains `Qwen3.8-27B-oQ4e-mtp` in committed config
 - `unit-model-catalog-qwen3-8-flash-next-reap-288-mlx-4bit` | pending | awaiting content review
-- `unit-model-catalog-qwen3-coder-30b-a3b-instruct-4bit` | pending | awaiting content review
-- `unit-model-catalog-qwen3-coder-30b-a3b-q4-k-m-ctx16k` | pending | awaiting content review
+- `unit-model-catalog-qwen3-coder-30b-a3b-instruct-4bit` | current | models.configured contains `Qwen3-Coder-30B-A3B-Instruct-4bit` in committed config
+- `unit-model-catalog-qwen3-coder-30b-a3b-q4-k-m-ctx16k` | current | models.configured contains `qwen3-coder:30b-a3b-q4_K_M-ctx16k` in committed config
 - `unit-model-catalog-qwen3-coder-30b-a3b-q4-k-m-ctx8k` | pending | awaiting content review
-- `unit-model-catalog-qwen3-coder-30b-a3b-q4-k-m` | pending | awaiting content review
+- `unit-model-catalog-qwen3-coder-30b-a3b-q4-k-m` | current | models.configured contains `qwen3-coder:30b-a3b-q4_K_M` in committed config
 - `unit-model-catalog-qwen3-coder-next-latest-ctx64k` | pending | awaiting content review
 - `unit-model-catalog-qwen3-coder-next-latest` | pending | awaiting content review
-- `unit-model-catalog-qwen3-vl-32b-ctx8k` | pending | awaiting content review
+- `unit-model-catalog-qwen3-vl-32b-ctx8k` | current | models.configured contains `qwen3-vl:32b-ctx8k` in committed config
 - `unit-model-catalog-qwen3-vl-32b-instruct-4bit` | pending | awaiting content review
-- `unit-model-catalog-qwen3-vl-32b` | pending | awaiting content review
+- `unit-model-catalog-qwen3-vl-32b` | current | models.configured contains `qwen3-vl:32b` in committed config
 - `unit-model-catalog-ravenx-cyberagent-35b-q4-k-m-dropped-evaluated-not-adopted-local-alias-for-ravenx-cyberagent-35b` | pending | awaiting content review
 - `unit-model-catalog-supergemma4-26b-abliterated-multimodal-mlx-4bit` | pending | awaiting content review
-- `unit-model-catalog-supergemma4-26b-uncensored-q4-k-m-ctx64k` | pending | awaiting content review
+- `unit-model-catalog-supergemma4-26b-uncensored-q4-k-m-ctx64k` | current | models.configured contains `supergemma4-26b-uncensored:Q4_K_M-ctx64k` in committed config
 - `unit-model-catalog-supergemma4-26b-uncensored-q4-k-m` | pending | awaiting content review
 - `unit-model-catalog-sylink-sylink-8b-ctx8k` | pending | awaiting content review
 - `unit-model-catalog-sylink-sylink-8b` | pending | awaiting content review
-- `unit-model-catalog-tongyi-deepresearch-30b-a3b-abliterated-4bit` | pending | awaiting content review
-- `unit-model-catalog-vulnllm-r-7b-4bit` | pending | awaiting content review
+- `unit-model-catalog-tongyi-deepresearch-30b-a3b-abliterated-4bit` | current | models.configured contains `Tongyi-DeepResearch-30B-A3B-abliterated-4bit` in committed config
+- `unit-model-catalog-vulnllm-r-7b-4bit` | current | models.configured contains `VulnLLM-R-7B-4bit` in committed config
 - `unit-ollama-native-passthrough` | pending | awaiting content review
 - `unit-p5-roadmap-future-considerations-not-yet-implemented` | pending | awaiting content review
 - `unit-p5-roadmap-p5-fut-004-webhook-based-event-notifications` | pending | awaiting content review

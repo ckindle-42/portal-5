@@ -5,12 +5,13 @@ title: "MODEL_CATALOG \u2014 `DeepSeek-R1-0528-Qwen3-8B-4bit`"
 sources:
 - type: code
   path: config/backends.yaml
-claims: []
+claims:
+- probe: models.configured
+  contains: DeepSeek-R1-0528-Qwen3-8B-4bit
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 `DeepSeek-R1-0528-Qwen3-8B-4bit` is the 4-bit MLX conversion (mlx-community) of the DeepSeek-R1-0528 distill onto Qwen3-8B, served by the oMLX evaluation backend. `config/backends.yaml` registers it in the new `omlx-reasoning` entry (group `reasoning`, `priority: 10`, TASK_OMLX_FULL_PIPELINE_COVERAGE_V1) with `supports_tools: true`. The `aliases` block maps the production GGUF hint `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` onto this oMLX name — `reasoning`-group daily workspaces (`auto-reasoning`, `auto-compliance`, `auto-research`, `auto-data`) can now be served by oMLX with automatic Ollama fallback, no `workspace_routing` change.

@@ -7,12 +7,13 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: models.configured
+  contains: qwen3.6:27b-q4_K_M
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 `qwen3.6:27b-q4_K_M` is the dense Qwen3.6-27B Q4 build (~16GB, Alibaba, April 2026, Apache 2.0, 262K ctx, 77.2% SWE-bench Verified). `config/backends.yaml` registers it in `group: general` with `supports_tools: false` and in `group: coding` with `supports_tools: true`. `config/portal.yaml` uses it as the IR-playbook hop in the purpleteam-deep and purpleteam-exec chains, as a council member in the auto-security blue variant, and as the `model_hint` of `bench-qwen36-27b` and `bench-qwen36-27b-ud`. Earlier auto-spl/auto-data promotion prose no longer matches portal.yaml, whose hints there point at other models.

@@ -7,12 +7,13 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: models.configured
+  contains: granite4.1:30b-ctx64k
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 `granite4.1:30b-ctx64k` is the long-context variant of `granite4.1:30b` with a 65536-token window. `config/backends.yaml` lists it under the `reasoning` group with `supports_tools: true`; unlike the ctx16k sibling it does not appear in the `general` group. `config/portal.yaml` binds it as the `auto-data` workspace `model_hint`, the data-analysis lane that needs the larger context. The window is compiled into the tag with `portal models apply-params` because request-time context options are discarded by the API.

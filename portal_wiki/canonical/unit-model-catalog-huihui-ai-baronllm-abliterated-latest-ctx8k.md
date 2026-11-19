@@ -7,12 +7,13 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: models.configured
+  contains: huihui_ai/baronllm-abliterated:latest-ctx8k
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 `huihui_ai/baronllm-abliterated:latest-ctx8k` is the 8K-context derived tag of the BaronLLM abliterated fork, and it is the id `config/portal.yaml` routes through the `auto-security` uncensored variant's `model_hint`. `config/backends.yaml` registers it under both the `security` and `creative` groups with `supports_tools: true`. The `PARAMETER num_ctx 8192` is baked into the tag because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, so the per-workspace context cap is a distinct model id. Full model detail lives in the base `huihui_ai/baronllm-abliterated` entry; this tag exists to satisfy registry parity and the uncensored security lane's context limit.

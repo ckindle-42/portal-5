@@ -7,12 +7,13 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: models.configured
+  contains: gemma4:e4b-it-qat
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 `gemma4:e4b-it-qat` is registered in `config/backends.yaml` under the `general` group with `supports_tools: false` and under the `vision` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-e4b-qat` workspace `model_hint`, describing an effective 4B QAT (~5GB, 128K ctx, audio+image+video+text, thinking, QAT near-BF16 at 4-bit) positioned as a quality upgrade over the production `gemma4:e4b-it-q4_K_M`.
