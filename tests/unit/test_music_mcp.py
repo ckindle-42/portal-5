@@ -3,13 +3,19 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 from portal.modules.media.tools import _admission
-from portal.modules.media.tools.music_worker import _adopt_artifact, generate, write_wav
+from portal.modules.media.tools.music_worker import (
+    _adopt_artifact,
+    generate,
+    interpret_worker_output,
+    write_wav,
+)
 
 
 def test_adopt_artifact_removes_the_engine_duplicate(tmp_path: Path) -> None:
@@ -20,6 +26,41 @@ def test_adopt_artifact_removes_the_engine_duplicate(tmp_path: Path) -> None:
     assert dest.read_bytes() == b"RIFFdata"
     assert not produced.exists()
     assert [p.name for p in tmp_path.iterdir()] == ["music_164fe8ba6c14.wav"]
+
+
+_VAE_LOG = (
+    "2026-11-19 08:54:52.123 | INFO     | acestep.core.generation.handler."
+    "generate_music_payload:_build_generate_music_success_payload:38 - "
+    "[generate_music] VAE decode completed. Preparing audio tensors...\n"
+)
+
+
+def test_log_line_stderr_keeps_a_finished_wav(tmp_path: Path) -> None:
+    # Live p5-9da545bd4379: the wav was on disk and music_status's error was this log line.
+    dest = tmp_path / "music_cc401819a61d.wav"
+    dest.write_bytes(b"RIFF" + b"\x00" * 64)
+    result = interpret_worker_output(b"", _VAE_LOG.encode(), -9, str(dest))
+    assert result["success"] is True
+    assert result["artifact_path"] == str(dest)
+    assert "error" not in result
+
+
+def test_explicit_worker_failure_is_not_recovered(tmp_path: Path) -> None:
+    dest = tmp_path / "music_partial.wav"
+    dest.write_bytes(b"RIFF" + b"\x00" * 64)
+    body = b'{"success": false, "error": "ACE-Step returned no audio"}'
+    result = interpret_worker_output(body, b"", 1, str(dest))
+    assert result["success"] is False
+    assert result["error"] == "ACE-Step returned no audio"
+
+
+def test_stdout_json_wins_over_a_trailing_log(tmp_path: Path) -> None:
+    dest = tmp_path / "music_ok.wav"
+    payload = json.dumps({"success": True, "artifact_path": str(dest), "sample_rate": 48000})
+    out = (_VAE_LOG + payload).encode()
+    result = interpret_worker_output(out, _VAE_LOG.encode(), 0, str(dest))
+    assert result["success"] is True
+    assert result["artifact_path"] == str(dest)
 
 
 def test_adopt_artifact_same_path_is_a_noop(tmp_path: Path) -> None:

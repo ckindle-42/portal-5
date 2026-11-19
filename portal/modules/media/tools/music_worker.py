@@ -153,8 +153,67 @@ def _minimax(spec: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _json_object(raw: bytes) -> dict[str, Any] | None:
+    text = raw.decode("utf-8", "replace").strip()
+    if not text:
+        return None
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        parsed = None
+    else:
+        return parsed if isinstance(parsed, dict) else None
+    end = text.rfind("}")
+    start = end
+    for _ in range(8):
+        if end == -1:
+            return None
+        start = text.rfind("{", 0, start)
+        if start == -1:
+            return None
+        try:
+            parsed = json.loads(text[start : end + 1])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+    return None
+
+
+def _finished_wav(path: str) -> dict[str, Any] | None:
+    if not path:
+        return None
+    dest = Path(path)
+    try:
+        if not dest.is_file() or dest.stat().st_size <= 44:
+            return None
+        with dest.open("rb") as handle:
+            if handle.read(4) != b"RIFF":
+                return None
+    except OSError:
+        return None
+    return {"success": True, "artifact_path": str(dest)}
+
+
+def interpret_worker_output(
+    out: bytes, err: bytes, returncode: int | None, output_path: str
+) -> dict[str, Any]:
+    """Prefer a success JSON object; otherwise a finished wav beats a log-line crash."""
+    parsed = _json_object(out)
+    if isinstance(parsed, dict) and parsed.get("success") is True:
+        return parsed
+    if not isinstance(parsed, dict):
+        recovered = _finished_wav(output_path)
+        if recovered is not None:
+            return recovered
+    if isinstance(parsed, dict):
+        return parsed
+    tail = (err or out or b"").decode("utf-8", "replace")[-800:]
+    return {"success": False, "error": tail or f"worker exit {returncode}"}
+
+
 def generate(spec: dict[str, Any]) -> dict[str, Any]:
-    """Run one engine job and always clear the device cache before returning."""
+    """Run one engine job. Device release happens after the result is flushed."""
     if platform.machine() != "arm64":
         return {"success": False, "error": f"music engines require arm64, not {platform.machine()}"}
     task = str(spec.get("upstream_task") or "")
@@ -169,8 +228,6 @@ def generate(spec: dict[str, Any]) -> dict[str, Any]:
         return {"success": False, "error": f"unknown engine {engine!r}"}
     except Exception as exc:  # noqa: BLE001 — worker boundary: the parent only sees JSON
         return {"success": False, "error": f"{type(exc).__name__}: {exc}"[:800]}
-    finally:
-        _release_device()
 
 
 def main() -> int:
@@ -178,6 +235,10 @@ def main() -> int:
     spec = json.loads(sys.stdin.read() or "{}")
     result = generate(spec if isinstance(spec, dict) else {})
     sys.stdout.write(json.dumps(result))
+    sys.stdout.flush()
+    # Teardown runs after the flush so a Metal abort cannot erase the result.
+    with contextlib.suppress(Exception):
+        _release_device()
     return 0 if result.get("success") else 1
 
 
