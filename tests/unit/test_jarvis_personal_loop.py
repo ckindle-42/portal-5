@@ -10,7 +10,6 @@ import pytest
 
 from portal.modules.orchestration.personal_intake import telegram_do_reply
 from portal.modules.orchestration.personal_policy import (
-    CODE_WORKSPACE,
     FAST_WORKSPACE,
     HOP_CAP,
     PLANNER_WORKSPACE,
@@ -130,17 +129,15 @@ def test_tool_outside_the_allowlist_is_not_logged(tmp_path: Path) -> None:
     assert stored.status == "rejected"
 
 
-def test_code_tools_select_the_coding_workspace(tmp_path: Path) -> None:
+def test_code_tools_wait_for_confirm(tmp_path: Path) -> None:
     telegram_do_reply(tmp_path, 1, "run the snippet")
     caller = _Caller([Completion(_plan("execute_python"), (), 0), Completion("printed 1", (), 0)])
     result = poll_personal_tasks(tmp_path, _Notices(), caller)
-    assert result is not None and result.status == "done"
-    assert caller.bodies[1]["model"] == CODE_WORKSPACE
-    assert caller.bodies[1]["portal_bite_tools"] == ["execute_python"]
-    receipt = json.loads((tmp_path / result.task_id / "receipt.json").read_text(encoding="utf-8"))
-    assert receipt["workspace"] == CODE_WORKSPACE
-    assert receipt["plan"]["steps"][0]["tools"] == ["execute_python"]
-    assert receipt["tool_calls"] == []
+    assert result is not None and result.status == "pending"
+    assert len(caller.bodies) == 1
+    stored = PersonalStore(tmp_path).get(result.task_id)
+    assert stored is not None and stored.tool_log == "[]"
+    assert json.loads(stored.plan_json or "{}")["steps"][0]["tools"] == ["execute_python"]
 
 
 def test_validator_rejects_mixed_steps_and_invented_paths(tmp_path: Path) -> None:

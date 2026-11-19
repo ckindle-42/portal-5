@@ -170,6 +170,10 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             "This request is closed, expired, or you are not authorized.", show_alert=True
         )
         return
+    if request.verb == "personal":
+        from portal.modules.orchestration.personal_runner import apply_personal_decision
+
+        apply_personal_decision(_tasks_root(), request.args, action)
     label = decided.verb + (f" {decided.args}" if decided.args else "")
     await query.answer(f"{label}: {decided.status}.")
     if query.message:
@@ -182,10 +186,18 @@ def notice_keyboard(store: ArmTelegramStore, task_id: str) -> InlineKeyboardMark
     pending = store.pending_control_requests(task_id)
     if not pending:
         return None
-    rows = [
-        [InlineKeyboardButton(request.verb.capitalize(), callback_data=_callback_for(request))]
-        for request in pending
-    ]
+    rows = []
+    for request in pending:
+        if request.verb == "personal":
+            rows.extend(_confirm_keyboard(request.id).inline_keyboard)
+        else:
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        request.verb.capitalize(), callback_data=_callback_for(request)
+                    )
+                ]
+            )
     return InlineKeyboardMarkup(rows)
 
 

@@ -168,6 +168,9 @@ def _run_planned(
     if text_gate(task.text, hidden) == "deny":
         raise ValueError("denied before any call")
     plan = _validated_plan(task, caller, root, hidden)
+    if text_gate(task.text, hidden) == "confirm" or plan.needs_confirm:
+        _request_confirm(store, task, plan, notices)
+        return PersonalRun(task.id, "pending")
     messages: list[dict[str, Any]] = [
         {
             "role": "system",
