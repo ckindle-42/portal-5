@@ -217,13 +217,17 @@ _launch_pull_mflux_models() {
 }
 
 _launch_install_video_mlx() {
-    echo "=== Installing Video-MLX MCP natively (LTX-2.3 MLX video generation, Apple Silicon) ==="
+    echo "=== Installing Video-MLX MCP natively (LTX-2.5 MLX video generation, Apple Silicon) ==="
     ARCH=$(uname -m)
     VX_DIR="$HOME/.portal5/video-mlx"
     VX_SRC="$VX_DIR/ltx-2-mlx"
     VX_VENV="$VX_SRC/.venv"
     VX_LOG="$HOME/.portal5/logs/video-mlx.log"
     VX_PORT="${VIDEO_MLX_MCP_PORT:-8935}"
+    # Opt-in fallback engine (`install-video-mlx wan`): Blaizzy/mlx-video,
+    # Wan2.2-TI2V-5B converted to MLX Q8. Silent 720p photoreal output.
+    VX_WAN_MODEL="$VX_DIR/wan2.2-ti2v-5b-q8"
+    VX_WAN_EXTRAS=""
 
     if [ "$ARCH" != "arm64" ]; then
         echo "  ❌ Video-MLX requires Apple Silicon (arm64). Detected: $ARCH."
@@ -246,6 +250,21 @@ _launch_install_video_mlx() {
         "httpx>=0.26.0" "pyyaml>=6.0.1" 2>/dev/null || \
         ( cd "$VX_SRC" && uv pip install "mcp>=2.0.0,<3.0.0" "starlette>=1.3.0" "httpx>=0.26.0" "pyyaml>=6.0.1" )
 
+    if [ "${1:-}" = "wan" ]; then
+        echo "  Installing the mlx-video fallback (Wan2.2-TI2V-5B)..."
+        ( cd "$VX_SRC" && uv pip install "mlx-video @ git+https://github.com/Blaizzy/mlx-video.git@87db56a51758fefb748a359b90a5283bb8ba4837" ) || {
+            echo "  ❌ mlx-video install failed" >&2; exit 1;
+        }
+        if [ ! -d "$VX_WAN_MODEL" ]; then
+            echo "  Downloading Wan2.2-TI2V-5B MLX Q8 (~20GB)..."
+            ( cd "$VX_SRC" && "$VX_VENV/bin/huggingface-cli" download \
+                "Anes1032/Wan2.2-TI2V-5B-mlx-q8" --local-dir "$VX_WAN_MODEL" ) || {
+                echo "  ❌ Wan2.2 pack download failed" >&2; exit 1;
+            }
+        fi
+        VX_WAN_EXTRAS="export VIDEO_MLX_WAN_MODEL_DIR=\"$VX_WAN_MODEL\""
+    fi
+
     cat > "$VX_DIR/start.sh" << VX_START
 #!/bin/bash
 PORTAL_ROOT="${PORTAL_ROOT}"
@@ -256,6 +275,7 @@ export PYTHONPATH="\$PORTAL_ROOT"
 export PATH="/opt/homebrew/bin:/usr/local/bin:\$PATH"
 export VIDEO_MLX_BIN="$VX_VENV/bin/ltx-2-mlx"
 export VIDEO_MLX_MCP_PORT="${VX_PORT}"
+${VX_WAN_EXTRAS}
 [ -n "\${HF_HOME:-}" ] && export HF_HOME
 export AI_OUTPUT_DIR="\${AI_OUTPUT_DIR:-\$HOME/AI_Output}"
 export OPENWEBUI_URL="\${OPENWEBUI_URL:-http://localhost:8080}"

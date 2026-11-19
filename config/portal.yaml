@@ -3071,8 +3071,9 @@ workspaces:
         module: video
         name: 🎬 Portal Video Creator
         description: >-
-          Generate short clips (with audio) via MLX-native LTX-2.3 (video_mlx MCP,
-          :8935). The `video` M7 module is OFF by default — enable with
+          Generate short clips via MLX-native LTX-2.5 with synchronized audio
+          (video_mlx MCP, :8935) — async jobs: video_start → video_status long-poll.
+          The `video` module is OFF by default — enable with
           `./launch.sh install-video-mlx` then `portal module enable video`. When the
           `video` module is disabled, sync-config drops this workspace from the
           presets entirely regardless of expose_to_owui.
@@ -3086,15 +3087,23 @@ workspaces:
           reason: granite writes video prompts at 0.8 for variety; the card's 0.0 is for extraction
           evidence: pending
         tools:
-        - generate_video
-        - animate_image
         - video_start
         - video_status
+        - video_models
         expose_to_owui: true
 
         enable_web_search: false
         owui_system_prompt: |-
-          You help generate short video clips with MLX-native LTX-2.3. Use generate_video(prompt, ...) for text-to-video and animate_image(image_url, prompt, ...) for image-to-video. Clips are preview-grade and practically capped at ~4-6 seconds; jobs take several minutes. Describe what will be generated before executing, then return the download link from the tool result.
+          You generate short video clips with MLX-native LTX-2.5. Workflow: call
+          video_start(prompt=..., model='ltx-2.5-q4', width=704, height=480, quality='fast') — it
+          returns a job_id immediately; then call video_status(job_id) repeatedly — each call
+          waits up to 20s — until status is 'done' or 'error', then return the download link
+          from the result. Pass image_url to video_start to animate an uploaded image
+          (image-to-video). quality='hq' uses the slower two-stage pass for more detail (LTX
+          only). model='wan2.2-5b' is the silent photorealistic fallback — call video_models()
+          first to check it is installed. Clips are preview-grade and practically capped at
+          ~4-6 seconds; a render takes several minutes. Describe what will be generated
+          before executing, then return the download link from the tool result.
       music:
         module: music
         name: 🎵 Portal Music Producer
