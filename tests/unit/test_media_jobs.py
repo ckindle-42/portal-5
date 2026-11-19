@@ -9,8 +9,63 @@ from typing import Any
 
 import pytest
 
+from portal.modules.media.tools import _jobs
 from portal.modules.media.tools._jobs import MediaJobManager
 from portal.platform.inference.router.tool_repeat import is_read_only
+
+
+def test_status_wait_contract_covers_a_whole_job() -> None:
+    # A 30s song measured ~210s live: one bare status call must be able to wait it out.
+    assert _jobs.DEFAULT_STATUS_WAIT_S == _jobs.MAX_STATUS_WAIT_S
+    assert _jobs.MAX_STATUS_WAIT_S >= 120
+    assert _jobs.STATUS_TOOL_TIMEOUT_S > _jobs.MAX_STATUS_WAIT_S
+
+
+@pytest.mark.asyncio
+async def test_default_status_call_waits_out_a_slow_job() -> None:
+    mgr = MediaJobManager(default_wait_s=0.3, max_wait_s=0.3)
+
+    async def runner(progress: Any) -> dict[str, Any]:
+        progress(2, "Generating")
+        await asyncio.sleep(0.1)
+        return {"success": True, "url": "http://x/song.wav", "download_url": "http://x/song.wav"}
+
+    job_id = mgr.start(runner)
+    res = await mgr.status(job_id)  # no wait_s: the default alone must reach done
+    assert res["status"] == "done"
+    assert res["download_url"] == "http://x/song.wav"
+
+
+@pytest.mark.asyncio
+async def test_done_message_carries_the_download_link() -> None:
+    mgr = MediaJobManager(default_wait_s=1.0, max_wait_s=1.0)
+
+    async def runner(progress: Any) -> dict[str, Any]:
+        progress(2, "Generating (acestep, 8 steps)…")
+        return {"success": True, "url": "http://x/s.wav", "download_url": "http://x/s.wav"}
+
+    job_id = mgr.start(runner)
+    res = await mgr.status(job_id)
+    assert res["status"] == "done"
+    assert "http://x/s.wav" in res["message"]
+    assert "Generating" not in res["message"]
+
+
+@pytest.mark.asyncio
+async def test_running_snapshot_says_to_wait_not_answer() -> None:
+    mgr = MediaJobManager(default_wait_s=0.05, max_wait_s=0.05)
+    gate = asyncio.Event()
+
+    async def runner(_progress: Any) -> dict[str, Any]:
+        await gate.wait()
+        return {"success": True}
+
+    job_id = mgr.start(runner)
+    res = await mgr.status(job_id)
+    assert res["status"] == "running"
+    assert "again" in res["next_action"] and "done" in res["next_action"]
+    gate.set()
+    assert (await mgr.status(job_id))["status"] == "done"
 
 
 @pytest.mark.asyncio
@@ -186,3 +241,4 @@ async def test_media_mcps_start_and_long_poll_status(
     assert mus_start["success"] is True and mus_start["job_id"]
     mus_done = await music_mcp.music_status(mus_start["job_id"], wait_s=2.0)
     assert mus_done["status"] == "done" and mus_done["artifact_path"].endswith(".wav")
+    assert "http://x/song" in mus_done["message"]
