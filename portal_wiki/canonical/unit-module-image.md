@@ -28,7 +28,7 @@ tags:
 flux3-klein 16-step / qwen-2.1-turbo 8-step / z-image-turbo) and `edit_image`
 (the family's `*-edit` binary, instruction editing with `--image-paths`).
 `image_start` returns a job id immediately; `image_status(job_id)` long-polls
-up to 20s per call for progress and the published download URL. It replaced the
+server-side until the job finishes for progress and the published download URL. It replaced the
 removed ComfyUI image path — the tool names are deliberately identical so the
 image workspaces repoint with a backend swap, not a tool-rename cascade.
 

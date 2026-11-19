@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import platform
@@ -50,6 +51,15 @@ def _release_device() -> None:
     clear = getattr(mx, "clear_cache", None) or getattr(metal, "clear_cache", None)
     if callable(clear):
         clear()
+
+
+def _adopt_artifact(produced: Path, dest: Path) -> None:
+    """Take the engine's own save as the job artifact; no duplicate wav is left behind."""
+    if produced.resolve() == dest.resolve():
+        return
+    dest.write_bytes(produced.read_bytes())
+    with contextlib.suppress(OSError):
+        produced.unlink()
 
 
 def _acestep(spec: dict[str, Any]) -> dict[str, Any]:
@@ -105,8 +115,7 @@ def _acestep(spec: dict[str, Any]) -> dict[str, Any]:
         return {"success": False, "error": "ACE-Step returned no audio"}
     dest = Path(spec["output_path"])
     produced = Path(audios[0]["path"])
-    if produced.resolve() != dest.resolve():
-        dest.write_bytes(produced.read_bytes())
+    _adopt_artifact(produced, dest)
     return {
         "success": True,
         "artifact_path": str(dest),

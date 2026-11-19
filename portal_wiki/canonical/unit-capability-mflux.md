@@ -26,7 +26,7 @@ The MFLUX MCP (`portal/modules/media/tools/mflux_mcp.py`, port 8933) is a
 headless wrapper over the per-family `mflux-generate-*` CLIs (mflux >=0.24.0) —
 MLX-native for Apple Silicon. It is launched as a launchd service by
 `./launch.sh install-mflux` and exposes an async surface: `image_start` returns
-a job id immediately and `image_status(job_id)` long-polls (up to 20s per call)
+a job id immediately and `image_status(job_id)` long-polls server-side until the job finishes
 for stage progress and the published download URL; `generate_image` /
 `edit_image` remain as synchronous tools capped at `portal5/timeout_s: 900`
 because a chat request's `request_timeout` is 300s.
