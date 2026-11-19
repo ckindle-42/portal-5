@@ -56,6 +56,7 @@ def test_pipeline_mcp_native_tools_list_keeps_its_contract() -> None:
         "explore_repository": ["query"],
         "trigger_backend_warmup": [],
         "arm_queue_task": ["discipline", "task_id", "template_key"],
+        "jarvis_submit": ["text", "user_id"],
         "read_text_file": ["path"],
         "list_directory": ["path"],
         "search_files": ["pattern"],

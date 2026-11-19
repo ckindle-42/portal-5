@@ -42,6 +42,7 @@ HELP_TEXT = (
     "/jarvis merge <job> — merge a held escalation (confirm)\n"
     "/jarvis keep <job> — keep a held escalation unmerged\n"
     "/jarvis escalate <job> — send a blocked job to a cloud lane\n"
+    "/jarvis do <text> — queue a personal task\n"
     "/jarvis help — this text"
 )
 
@@ -101,6 +102,11 @@ async def handle_jarvis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     verb, args = parse(message.text or "")
     if verb == "help":
         await message.reply_text(HELP_TEXT)
+        return
+    if verb == "do":
+        from portal.modules.orchestration.personal_intake import telegram_do_reply
+
+        await message.reply_text(telegram_do_reply(_tasks_root(), user.id, args))
         return
     store = _store()
     if verb not in VERB_NAMES:
@@ -164,6 +170,10 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             "This request is closed, expired, or you are not authorized.", show_alert=True
         )
         return
+    if request.verb == "personal":
+        from portal.modules.orchestration.personal_runner import apply_personal_decision
+
+        apply_personal_decision(_tasks_root(), request.args, action)
     label = decided.verb + (f" {decided.args}" if decided.args else "")
     await query.answer(f"{label}: {decided.status}.")
     if query.message:
@@ -176,10 +186,18 @@ def notice_keyboard(store: ArmTelegramStore, task_id: str) -> InlineKeyboardMark
     pending = store.pending_control_requests(task_id)
     if not pending:
         return None
-    rows = [
-        [InlineKeyboardButton(request.verb.capitalize(), callback_data=_callback_for(request))]
-        for request in pending
-    ]
+    rows = []
+    for request in pending:
+        if request.verb == "personal":
+            rows.extend(_confirm_keyboard(request.id).inline_keyboard)
+        else:
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        request.verb.capitalize(), callback_data=_callback_for(request)
+                    )
+                ]
+            )
     return InlineKeyboardMarkup(rows)
 
 

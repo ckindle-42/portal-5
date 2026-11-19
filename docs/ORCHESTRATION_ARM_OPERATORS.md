@@ -28,7 +28,7 @@ uv run portal arm resume <task-id>
 uv run portal arm resume <task-id> --override
 ```
 
-`detection-engineering` is an unseated candidate. Its hard-check bite suite, planner suite, checker controls, and stored authoring template are ready for offline validation, but it has no model binding or calibration rates. The module is enabled, but unattended runs for this discipline stay unavailable until live Fast and Deep suite rates meet its fixed pass criteria.
+`detection-engineering` is seated (`seating_status: seated` in `config/portal.yaml` since 2026-10-28) with fast and deep bindings and calibration rates. Its hard-check bite suite, planner suite, checker controls, and stored authoring template are the discipline's offline contract, and unattended runs use those seated models.
 
 A resume without `--override` refuses a changed build SHA or model digest. Review the task artifacts before explicitly adopting a changed identity. `receipt.json` reports `PASS` only when every bite passes; exhausted bites are `BLOCKED`. The scheduler reads its residency mode and the load-guard model identities from `config/orchestration_arm.yaml`.
 

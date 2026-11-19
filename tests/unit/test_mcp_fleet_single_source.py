@@ -234,6 +234,7 @@ NATIVE_TOOL_NAMES = {
         "get_metrics_summary",
         "get_pipeline_status",
         "get_workspace_recommendation",
+        "jarvis_submit",
         "list_directory",
         "list_workspaces",
         "read_text_file",

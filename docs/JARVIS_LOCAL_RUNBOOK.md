@@ -4,8 +4,10 @@ Jarvis Local runs the queued WFE program alone, sends Telegram notices, asks Jar
 to repair a blocked job, has each repair reviewed by a different model family before it merges,
 and takes `/jarvis` commands from Telegram. Claude is not needed while it runs.
 
-Enabled (10-30, `config/portal.yaml` → `orchestration_arm.queue`): `escalation`, `escalation.oracle`,
-`telegram_control`. Turn any off there, then `./launch.sh sync-config` and reinstall the agent.
+`telegram_control` is on (`config/portal.yaml` → `orchestration_arm.queue.telegram_control.enabled`).
+`escalation.enabled` is false (since 2026-10-31). `escalation.oracle` remains in that file and does
+nothing while the parent flag is false. Change a flag in `config/portal.yaml`, then
+`./launch.sh sync-config` and reinstall the agent.
 
 ## Start
 
