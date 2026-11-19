@@ -183,3 +183,7 @@ data/compliance/backups/
 
 # Screen advance lists written by Jarvis Local jobs (generated, not instrument)
 tests/wfe/results/advance/
+
+# Security sweep machine state: digest-keyed Docker scan cache + delta findings
+# state (raw run output — check_no_raw_run_output keeps *.json out of main)
+docs/security/*.json
