@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from portal.modules.orchestration.personal_policy import READ_TOOLS
+LOCAL_TOOLS = frozenset({"queue_status", "read_receipt", "wiki_search", "wiki_get_unit"})
 
 
 def tool_schema(name: str) -> dict[str, Any]:
@@ -34,7 +34,7 @@ def tool_schema(name: str) -> dict[str, Any]:
 
 def run_read_tool(name: str, arguments: dict[str, Any], tasks_root: Path) -> str:
     """Execute one allowlisted read. Any other name is refused and not logged by the caller."""
-    if name not in READ_TOOLS or name == "recall":
+    if name not in LOCAL_TOOLS:
         raise PermissionError(f"refused local tool {name}")
     if name == "queue_status":
         return json.dumps(_queue_status(tasks_root), sort_keys=True)

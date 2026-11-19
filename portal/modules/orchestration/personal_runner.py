@@ -1,7 +1,7 @@
-"""One personal task per poll: the Pipeline tool loop, capped at 8 hops.
+"""One personal task per poll: plan, confirm when risky, then one tool loop.
 
-The planner and the confirm gate are added by later steps. This module posts to
-the Pipeline; it does not open a third tool framework.
+Risky steps wait for a Telegram confirm and still do not run shell, writes, or
+memory changes. Hard-denied fleets are rejected before any Pipeline call.
 """
 
 from __future__ import annotations
@@ -12,9 +12,20 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
-from portal.modules.orchestration.personal_policy import FAST_WORKSPACE, HOP_CAP, READ_TOOLS
+from portal.modules.orchestration.personal_policy import (
+    FAST_WORKSPACE,
+    HELD_TEXT,
+    HOP_CAP,
+    PersonalPlan,
+    hidden_fleet_ids,
+    parse_planner_json,
+    planner_body,
+    text_gate,
+    validate_personal_plan,
+    workspace_for,
+)
 from portal.modules.orchestration.personal_store import PersonalStore, PersonalTask
-from portal.modules.orchestration.personal_tools import run_read_tool, tool_schema
+from portal.modules.orchestration.personal_tools import LOCAL_TOOLS, run_read_tool, tool_schema
 from portal.modules.orchestration.worker import Engine, _call_arguments, _response_parts
 
 
@@ -62,14 +73,18 @@ def poll_personal_tasks(
     """Run the oldest queued personal task. A Pipeline fault is stored, not raised."""
     store = PersonalStore(root)
     task = store.oldest_runnable()
-    if task is None or task.status != "queued":
+    if task is None:
+        return None
+    if task.status == "confirmed":
+        return _hold_confirmed(root, store, task, notices)
+    if task.status != "queued":
         return None
     claimed = store.update(task.id, status="running", expect=frozenset({"queued"}))
     if claimed is None:
         return None
     try:
-        return _run_tool_loop(root, store, claimed, _caller(caller), notices)
-    except PermissionError as exc:
+        return _run_planned(root, store, claimed, _caller(caller), notices)
+    except (PermissionError, ValueError) as exc:
         _finish(
             root, store, claimed, "rejected", "", FAST_WORKSPACE, 0, [], notices, error=str(exc)
         )
@@ -89,27 +104,119 @@ def _caller(caller: PipelineCaller | None) -> PipelineCaller:
     return EngineCaller(url, api_key)
 
 
-def _run_tool_loop(
+def apply_personal_decision(root: Path, task_id: str, action: str) -> str | None:
+    """Confirm lets the runner proceed. Abort cancels. Other states stay put."""
+    store = PersonalStore(root)
+    task = store.get(task_id)
+    if task is None or task.status != "pending":
+        return None
+    status = "confirmed" if action == "confirm" else "cancelled"
+    if action not in {"confirm", "abort"}:
+        return None
+    updated = store.update(task_id, status=status, expect=frozenset({"pending"}))
+    return None if updated is None else updated.status
+
+
+def _hold_confirmed(
+    root: Path, store: PersonalStore, task: PersonalTask, notices: Any
+) -> PersonalRun | None:
+    claimed = store.update(task.id, status="running", expect=frozenset({"confirmed"}))
+    if claimed is None:
+        return None
+    plan, tools = _stored_plan(claimed.plan_json)
+    _finish(
+        root,
+        store,
+        claimed,
+        "held",
+        HELD_TEXT,
+        workspace_for(tools),
+        0,
+        [],
+        notices,
+        plan=plan,
+    )
+    return PersonalRun(claimed.id, "held")
+
+
+def _stored_plan(plan_json: str | None) -> tuple[dict[str, Any] | None, set[str]]:
+    if not plan_json:
+        return None, set()
+    try:
+        payload = json.loads(plan_json)
+    except ValueError:
+        return None, set()
+    if not isinstance(payload, dict):
+        return None, set()
+    tools: set[str] = set()
+    steps = payload.get("steps", payload.get("bites"))
+    if isinstance(steps, list):
+        for step in steps:
+            if isinstance(step, dict) and isinstance(step.get("tools"), list):
+                tools.update(str(name) for name in step["tools"])
+    return payload, tools
+
+
+def _run_planned(
     root: Path,
     store: PersonalStore,
     task: PersonalTask,
     caller: PipelineCaller,
     notices: Any,
 ) -> PersonalRun:
+    hidden = _hidden_fleets()
+    if text_gate(task.text, hidden) == "deny":
+        raise ValueError("denied before any call")
+    plan = _validated_plan(task, caller, root, hidden)
     messages: list[dict[str, Any]] = [
         {
             "role": "system",
             "content": (
-                "Answer the personal task with the provided tools only. "
-                "queue_status and read_receipt are local reads of the tasks directory. "
-                "Do not invent jobs."
+                "Execute only this validated plan. Use only the tools it names. "
+                "Do not invent jobs or paths."
             ),
         },
-        {"role": "user", "content": task.text},
+        {"role": "user", "content": json.dumps(plan.payload, sort_keys=True)},
     ]
-    content, hops, called = _hop_loop(caller, messages, root, FAST_WORKSPACE, sorted(READ_TOOLS))
-    _finish(root, store, task, "done", content, FAST_WORKSPACE, hops, called, notices)
+    content, hops, called = _hop_loop(caller, messages, root, plan.workspace, sorted(plan.tools))
+    _finish(
+        root, store, task, "done", content, plan.workspace, hops, called, notices, plan=plan.payload
+    )
     return PersonalRun(task.id, "done")
+
+
+def _request_confirm(
+    store: PersonalStore, task: PersonalTask, plan: PersonalPlan, notices: Any
+) -> None:
+    store.update(
+        task.id,
+        status="pending",
+        plan_json=json.dumps(plan.payload, sort_keys=True),
+        tool_log="[]",
+        expect=frozenset({"running"}),
+    )
+    control = getattr(notices, "store", None)
+    if control is not None:
+        control.add_control_request(0, "personal", task.id, status="pending")
+    if notices is not None:
+        notices.notify(task.id, "personal", f"Confirm {task.id} before any tool call?")
+
+
+def _validated_plan(
+    task: PersonalTask, caller: PipelineCaller, root: Path, hidden: frozenset[str]
+) -> PersonalPlan:
+    result = caller.complete(planner_body(task.text))
+    if result.tool_calls:
+        raise ValueError("planner returned a tool call")
+    return validate_personal_plan(parse_planner_json(result.content), root, hidden)
+
+
+def _hidden_fleets() -> frozenset[str]:
+    import yaml
+
+    path = Path(__file__).resolve().parents[3] / "config" / "portal.yaml"
+    loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return hidden_fleet_ids(loaded if isinstance(loaded, dict) else {})
 
 
 def _hop_loop(
@@ -139,7 +246,7 @@ def _hop_loop(
             if hops >= HOP_CAP:
                 break
             name = str((call.get("function") or {}).get("name") or "")
-            if name not in READ_TOOLS or name == "recall":
+            if name not in tool_names or name not in LOCAL_TOOLS:
                 raise PermissionError(f"tool outside the personal allowlist: {name}")
             output = run_read_tool(name, _call_arguments(call), root)
             called.append(name)
@@ -153,7 +260,7 @@ def _hop_loop(
 def _tool_body(
     workspace: str, messages: list[dict[str, Any]], tool_names: list[str], hops_left: int
 ) -> dict[str, Any]:
-    local = [name for name in tool_names if name != "recall"]
+    local = [name for name in tool_names if name in LOCAL_TOOLS]
     return {
         "model": workspace,
         "messages": messages,
@@ -194,6 +301,7 @@ def _finish(
     store.update(
         task.id,
         status=status,
+        plan_json=None if plan is None else json.dumps(plan, sort_keys=True),
         receipt_path=str(path),
         tool_log=json.dumps(called),
         expect=frozenset({"running", "queued", "confirmed", "pending"}),

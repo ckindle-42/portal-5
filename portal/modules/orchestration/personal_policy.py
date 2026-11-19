@@ -6,6 +6,7 @@ read/act split, a context budget, and paths that stay under the tasks directory.
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -61,6 +62,10 @@ def hidden_fleet_ids(config: dict[str, Any]) -> frozenset[str]:
     return frozenset(hidden)
 
 
+def workspace_for(tools: frozenset[str] | set[str]) -> str:
+    return CODE_WORKSPACE if set(tools) & CODE_TOOLS else FAST_WORKSPACE
+
+
 def text_gate(text: str, hidden: frozenset[str]) -> str:
     """``deny``, ``confirm``, or ``allow`` from the request text, before any tool call."""
     lowered = text.lower()
@@ -93,7 +98,7 @@ def validate_personal_plan(
             needs_confirm = True
     if tools & HARD_DENY_NAMES or tools & hidden:
         raise ValueError("plan names a denied tool")
-    workspace = CODE_WORKSPACE if tools & CODE_TOOLS else FAST_WORKSPACE
+    workspace = workspace_for(tools)
     if tools & CONFIRM_TOOLS:
         needs_confirm = True
     return PersonalPlan(
@@ -147,3 +152,42 @@ def _reject_paths(step: dict[str, Any], tasks_root: Path, index: int) -> None:
         resolved = candidate.resolve() if candidate.is_absolute() else (root / candidate).resolve()
         if resolved != root and not resolved.is_relative_to(root):
             raise ValueError(f"step {index} path is outside the tasks directory")
+
+
+PLANNER_PROMPT = (
+    "Return one JSON object and nothing else. The object has steps, a non-empty list. "
+    "Each step has id, tools, paths, and budget.context_tokens. "
+    "Use only allowlisted tools. Do not put a read tool and an action tool in the same step. "
+    "paths must stay under the tasks directory. Do not invent paths or tools. "
+    f"Allowlist: {json.dumps(sorted(KNOWN_TOOLS))}."
+)
+
+
+def planner_body(text: str) -> dict[str, Any]:
+    """auto-reasoning, tools off. The seat returns JSON and does not call tools."""
+    return {
+        "model": PLANNER_WORKSPACE,
+        "messages": [
+            {"role": "system", "content": PLANNER_PROMPT},
+            {"role": "user", "content": text},
+        ],
+        "temperature": 0.1,
+        "portal_no_tools": True,
+        "tool_choice": "none",
+        "chat_template_kwargs": {"enable_thinking": True},
+    }
+
+
+def parse_planner_json(content: str) -> dict[str, Any]:
+    """Take the JSON object out of a planner reply. Anything else is rejected."""
+    text = content.strip()
+    if text.startswith("```"):
+        text = text.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+    start = text.find("{")
+    end = text.rfind("}")
+    if start < 0 or end <= start:
+        raise ValueError("planner response must be a JSON object")
+    raw = json.loads(text[start : end + 1])
+    if not isinstance(raw, dict):
+        raise ValueError("planner response must be a JSON object")
+    return raw

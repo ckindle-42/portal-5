@@ -1,4 +1,4 @@
-"""J3: one Pipeline tool loop, hop cap 8, receipt and outbox. No network."""
+"""Personal tool loop and planner. No network."""
 
 from __future__ import annotations
 
@@ -6,8 +6,16 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from portal.modules.orchestration.personal_intake import telegram_do_reply
-from portal.modules.orchestration.personal_policy import FAST_WORKSPACE, HOP_CAP
+from portal.modules.orchestration.personal_policy import (
+    CODE_WORKSPACE,
+    FAST_WORKSPACE,
+    HOP_CAP,
+    PLANNER_WORKSPACE,
+    validate_personal_plan,
+)
 from portal.modules.orchestration.personal_runner import Completion, poll_personal_tasks
 from portal.modules.orchestration.personal_store import PersonalStore
 
@@ -26,8 +34,23 @@ class _Caller:
         self.bodies: list[dict[str, Any]] = []
 
     def complete(self, body: dict[str, Any]) -> Completion:
-        self.bodies.append(body)
+        self.bodies.append(json.loads(json.dumps(body)))
         return self.replies.pop(0)
+
+
+def _plan(*tools: str) -> str:
+    return json.dumps(
+        {
+            "steps": [
+                {
+                    "id": "step",
+                    "tools": list(tools),
+                    "paths": [],
+                    "budget": {"context_tokens": 2048},
+                }
+            ]
+        }
+    )
 
 
 def test_tool_loop_writes_receipt_and_outbox_within_eight_hops(tmp_path: Path) -> None:
@@ -35,6 +58,7 @@ def test_tool_loop_writes_receipt_and_outbox_within_eight_hops(tmp_path: Path) -
     task_id = reply.removeprefix("queued ")
     caller = _Caller(
         [
+            Completion(_plan("queue_status"), (), 0),
             Completion(
                 "",
                 (
@@ -60,15 +84,14 @@ def test_tool_loop_writes_receipt_and_outbox_within_eight_hops(tmp_path: Path) -
     assert receipt["tool_calls"] == ["queue_status"]
     assert "running 0" in receipt["final_text"]
     assert notices.messages == [(task_id, "personal", receipt["final_text"])]
-    assert caller.bodies[0]["model"] == FAST_WORKSPACE
-    assert caller.bodies[0]["portal_bite_max_hops"] <= HOP_CAP
-    assert set(caller.bodies[0]["portal_bite_tools"]) <= {
-        "recall",
-        "wiki_search",
-        "wiki_get_unit",
-        "queue_status",
-        "read_receipt",
-    }
+    assert caller.bodies[0]["model"] == PLANNER_WORKSPACE
+    assert caller.bodies[0]["portal_no_tools"] is True
+    assert caller.bodies[0]["tool_choice"] == "none"
+    assert caller.bodies[1]["model"] == FAST_WORKSPACE
+    assert caller.bodies[1]["portal_bite_max_hops"] <= HOP_CAP
+    assert caller.bodies[1]["portal_bite_tools"] == ["queue_status"]
+    assert "what is the queue" not in caller.bodies[1]["messages"][-1]["content"]
+    assert "queue_status" in caller.bodies[1]["messages"][-1]["content"]
 
 
 def test_ninth_local_hop_is_not_executed(tmp_path: Path) -> None:
@@ -81,7 +104,13 @@ def test_ninth_local_hop_is_not_executed(tmp_path: Path) -> None:
         }
         for i in range(3)
     )
-    caller = _Caller([Completion("", calls, 6), Completion("stopped", (), 0)])
+    caller = _Caller(
+        [
+            Completion(_plan("queue_status"), (), 0),
+            Completion("", calls, 6),
+            Completion("stopped", (), 0),
+        ]
+    )
     poll_personal_tasks(tmp_path, _Notices(), caller)
     receipt_path = next((tmp_path).glob("*/receipt.json"))
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
@@ -91,25 +120,49 @@ def test_ninth_local_hop_is_not_executed(tmp_path: Path) -> None:
 
 def test_tool_outside_the_allowlist_is_not_logged(tmp_path: Path) -> None:
     telegram_do_reply(tmp_path, 1, "push the branch")
-    caller = _Caller(
-        [
-            Completion(
-                "",
-                (
-                    {
-                        "id": "c1",
-                        "type": "function",
-                        "function": {"name": "git_push", "arguments": "{}"},
-                    },
-                ),
-                0,
-            )
-        ]
-    )
+    caller = _Caller([Completion(_plan("git_push"), (), 0), Completion("should not run", (), 0)])
     result = poll_personal_tasks(tmp_path, _Notices(), caller)
     assert result is not None and result.status == "rejected"
-    task = PersonalStore(tmp_path).oldest_runnable()
-    assert task is None
+    assert len(caller.bodies) == 1
+    assert caller.bodies[0]["model"] == PLANNER_WORKSPACE
     stored = PersonalStore(tmp_path).get(result.task_id)
     assert stored is not None and stored.tool_log == "[]"
-    assert json.loads(stored.tool_log) == []
+    assert stored.status == "rejected"
+
+
+def test_code_tools_select_the_coding_workspace(tmp_path: Path) -> None:
+    telegram_do_reply(tmp_path, 1, "run the snippet")
+    caller = _Caller([Completion(_plan("execute_python"), (), 0), Completion("printed 1", (), 0)])
+    result = poll_personal_tasks(tmp_path, _Notices(), caller)
+    assert result is not None and result.status == "done"
+    assert caller.bodies[1]["model"] == CODE_WORKSPACE
+    assert caller.bodies[1]["portal_bite_tools"] == ["execute_python"]
+    receipt = json.loads((tmp_path / result.task_id / "receipt.json").read_text(encoding="utf-8"))
+    assert receipt["workspace"] == CODE_WORKSPACE
+    assert receipt["plan"]["steps"][0]["tools"] == ["execute_python"]
+    assert receipt["tool_calls"] == []
+
+
+def test_validator_rejects_mixed_steps_and_invented_paths(tmp_path: Path) -> None:
+    mixed = {
+        "steps": [
+            {
+                "tools": ["queue_status", "execute_bash"],
+                "paths": [],
+                "budget": {"context_tokens": 128},
+            }
+        ]
+    }
+    with pytest.raises(ValueError, match="separate"):
+        validate_personal_plan(mixed, tmp_path, frozenset())
+    invented = {
+        "steps": [
+            {
+                "tools": ["read_receipt"],
+                "paths": ["/etc/passwd"],
+                "budget": {"context_tokens": 128},
+            }
+        ]
+    }
+    with pytest.raises(ValueError, match="outside"):
+        validate_personal_plan(invented, tmp_path, frozenset())
