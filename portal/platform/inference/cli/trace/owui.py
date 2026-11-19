@@ -96,18 +96,36 @@ def _new_chat(model: str, prompt: str, user_id: str, message_id: str) -> dict[st
 
 
 def _chat_turn(ctx: TraceContext, key: str) -> StreamedTurn:
-    """Run one native chat turn and read its completed assistant message."""
-    preset = json.loads(
-        (ctx.repo_root / "imports/openwebui/workspaces/workspace_auto_coding.json").read_text()
+    """Run one native chat turn on the coding workspace and read its assistant message."""
+    return chat_turn(
+        ctx,
+        key,
+        workspace=WORKSPACE,
+        prompt=PROMPT,
+        preset_path="imports/openwebui/workspaces/workspace_auto_coding.json",
     )
+
+
+def chat_turn(
+    ctx: TraceContext,
+    key: str,
+    *,
+    workspace: str,
+    prompt: str,
+    preset_path: str,
+    timeout_s: float | None = None,
+) -> StreamedTurn:
+    """Run one native chat turn on any workspace and read its completed assistant message."""
+    preset = json.loads((ctx.repo_root / preset_path).read_text())
     user_id, message_id = str(uuid.uuid4()), str(uuid.uuid4())
     session_id = f"portal-trace-{uuid.uuid4()}"
     headers = {"Authorization": f"Bearer {key}"}
-    with httpx.Client(timeout=ctx.timeout_s) as client:
+    limit = timeout_s if timeout_s is not None else ctx.timeout_s
+    with httpx.Client(timeout=limit) as client:
         created = client.post(
             f"{ctx.owui_url}/api/v1/chats/new",
             headers=headers,
-            json=_new_chat(WORKSPACE, PROMPT, user_id, message_id),
+            json=_new_chat(workspace, prompt, user_id, message_id),
         )
         created.raise_for_status()
         chat_id = str(created.json()["id"])
@@ -115,10 +133,10 @@ def _chat_turn(ctx: TraceContext, key: str) -> StreamedTurn:
             response = client.post(
                 f"{ctx.owui_url}/api/chat/completions",
                 headers=headers,
-                json=completion_body(preset, PROMPT, chat_id, message_id, session_id),
+                json=completion_body(preset, prompt, chat_id, message_id, session_id),
             )
             response.raise_for_status()
-            deadline = time.monotonic() + ctx.timeout_s
+            deadline = time.monotonic() + limit
             while (
                 client.get(f"{ctx.owui_url}/api/tasks/chat/{chat_id}", headers=headers)
                 .json()
