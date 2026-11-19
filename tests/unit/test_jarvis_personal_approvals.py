@@ -98,7 +98,7 @@ def test_confirmed_validated_execute_bash_plan_runs(tmp_path: Path) -> None:
     caller = _Caller(
         [
             Completion(_plan("execute_bash"), (), 0),
-            Completion("Found three files.", (), 1),
+            Completion("Found three files.", (), 1, ("execute_bash",)),
         ]
     )
     sink = _Sink(tmp_path / "telegram.sqlite3")
@@ -122,12 +122,71 @@ def test_named_external_fleets_require_confirmation_instead_of_denial() -> None:
         assert text_gate(f"use {name}", frozenset()) == "confirm"
 
 
+def test_read_only_git_plan_runs_without_confirm(tmp_path: Path) -> None:
+    """J-R2: git_status/git_log/git_diff are open; only mutations confirm."""
+    telegram_do_reply(tmp_path, 7, "summarize the worktree state in one paragraph")
+    caller = _Caller(
+        [
+            Completion(_plan("git_status"), (), 0),
+            Completion("The worktree is clean on the lane branch.", (), 1, ("git_status",)),
+        ]
+    )
+    sink = _Sink(tmp_path / "telegram.sqlite3")
+    result = poll_personal_tasks(tmp_path, sink, caller)
+    assert result is not None and result.status == "done"
+    assert len(caller.bodies) == 2
+    task = PersonalStore(tmp_path).get(result.task_id)
+    assert task is not None and task.status == "done"
+
+
+def test_git_commit_and_push_plans_wait_for_confirm(tmp_path: Path) -> None:
+    telegram_do_reply(tmp_path, 7, "land the prepared change in the other repo")
+    two = json.dumps(
+        {
+            "steps": [
+                {
+                    "id": "step",
+                    "tools": ["git_commit", "git_push"],
+                    "paths": [],
+                    "budget": {"context_tokens": 512},
+                }
+            ]
+        }
+    )
+    caller = _Caller([Completion(two, (), 0)])
+    sink = _Sink(tmp_path / "telegram.sqlite3")
+    result = poll_personal_tasks(tmp_path, sink, caller)
+    assert result is not None and result.status == "pending"
+    task = PersonalStore(tmp_path).get(result.task_id)
+    assert task is not None and task.tool_log == "[]"
+    planned = set(json.loads(task.plan_json or "{}")["steps"][0]["tools"])
+    assert planned == {"git_commit", "git_push"}
+
+
+def test_unifi_plan_waits_for_confirm_then_runs_the_read(tmp_path: Path) -> None:
+    telegram_do_reply(tmp_path, 7, "read the unifi device list")
+    caller = _Caller(
+        [
+            Completion(_plan("unifi_list_devices"), (), 0),
+            Completion("Six devices online.", (), 1, ("unifi_list_devices",)),
+        ]
+    )
+    sink = _Sink(tmp_path / "telegram.sqlite3")
+    pending = poll_personal_tasks(tmp_path, sink, caller)
+    assert pending is not None and pending.status == "pending"
+    assert apply_personal_decision(tmp_path, pending.task_id, "confirm") == "confirmed"
+    result = poll_personal_tasks(tmp_path, sink, caller)
+    assert result is not None and result.status == "done"
+    receipt = json.loads((tmp_path / pending.task_id / "receipt.json").read_text(encoding="utf-8"))
+    assert receipt["tool_calls"] == ["unifi_list_devices"]
+
+
 def test_memory_is_recalled_once_and_remember_runs_only_after_confirm(tmp_path: Path) -> None:
     telegram_do_reply(tmp_path, 7, "remember that I want Telegram replies under 400 characters")
     caller = _Caller(
         [
             Completion(_plan("remember"), (), 0),
-            Completion("Saved the preference.", (), 1),
+            Completion("Saved the preference.", (), 1, ("remember",)),
         ]
     )
     caller.recall_reply = Completion("Recalled no matching preference.", (), 1, ("recall",))

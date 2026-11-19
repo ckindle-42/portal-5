@@ -353,11 +353,20 @@ mcp_fleet:
     command:
       type: local
       command: ["uvx", "--with", "mcp<2.0.0", "mcp-fetch"]
+  # Git for the Pipeline tool loop. The host-native git MCP (:8950,
+  # portal/modules/orchestration/mcp/git_mcp.py) serves the Pipeline:
+  # git_status/git_log/git_diff open to Jarvis, git_commit/git_push confirm-
+  # gated (personal_policy), and the server refuses the live Portal checkout.
+  # The IDE command below stays the upstream stdio server for repo work.
   - id: git
-    module: general
+    module: orchestration
     name: git
+    port: 8950
     expose_to_pipeline: true
     expose_to_ide: true
+    host_native: true
+    launchd_label: com.portal5.git-mcp
+    native_service: git-mcp
     command:
       type: local
       command: ["uvx", "--with", "mcp<2.0.0", "mcp-server-git", "--repository", "${HOME}/projects/portal-5"]
@@ -499,6 +508,27 @@ mcp_fleet:
     expose_to_pipeline: true
     expose_to_ide: true
     compose_service: mcp-proxmox
+  # UniFi Network (UDM Pro SE). The operator's sirkirby unifi-network-mcp
+  # (pinned 0.40.0) stays an independent stdio process launched by
+  # ~/mcp/unifi-network/run.sh — credentials outside the repo — and the Portal
+  # stdio bridge (:8949, portal/modules/orchestration/mcp/stdio_bridge_mcp.py)
+  # relays it to the Pipeline. Every unifi_ tool is confirm-gated for Jarvis
+  # (personal_policy). default_enabled: false keeps fleet-health quiet on
+  # machines without ~/mcp/unifi-network; the launchd service still installs
+  # wherever the run.sh launcher exists (module_services skip_reason).
+  - id: unifi
+    module: orchestration
+    name: portal-unifi
+    port: 8949
+    expose_to_pipeline: true
+    expose_to_ide: false
+    default_enabled: false
+    host_native: true
+    launchd_label: com.portal5.unifi-mcp
+    native_service: unifi-mcp
+    command:
+      type: local
+      command: ["${HOME}/mcp/unifi-network/run.sh"]
   - id: pipeline
     module: platform
     name: portal-pipeline
@@ -1042,6 +1072,27 @@ workspaces:
         - proxmox_list_networks
         - proxmox_task_status
         - proxmox_list_tasks
+        # J-R2: git reads are open, git_commit/git_push confirm-gated; every
+        # unifi_ tool is confirm-gated (personal_policy).
+        - git_status
+        - git_log
+        - git_diff
+        - git_commit
+        - git_push
+        - unifi_tool_index
+        - unifi_load_tools
+        - unifi_execute
+        - unifi_list_devices
+        - unifi_get_device_details
+        - unifi_list_clients
+        - unifi_get_client_details
+        - unifi_list_wlans
+        - unifi_get_wlan_details
+        - unifi_list_networks
+        - unifi_get_network_health
+        - unifi_get_system_info
+        - unifi_get_dashboard
+        - unifi_list_alarms
         owui_system_prompt: |-
           You are Portal's fast general assistant. Use for everyday chat, writing, summarization, document, spreadsheet and web tasks. If your answer is not good enough the user can switch this chat to General · Deep.
           Spreadsheets: read_excel costs about 6 tokens per cell and returns at most 500 rows. Above about 2,500 cells (roughly 300 rows x 8 columns) do not read the whole sheet into the conversation: analyse and modify it with execute_python (pandas, openpyxl). The user's files are readable at /workspace (uploads in /workspace/uploads, names may carry a uuid_ prefix; list the folder to find them). For changes, write a script and save the result under /out (it is returned to the user as a download) rather than regenerating cells.
@@ -1192,6 +1243,27 @@ workspaces:
     - proxmox_list_networks
     - proxmox_task_status
     - proxmox_list_tasks
+    # J-R2: git reads are open, git_commit/git_push confirm-gated; every
+    # unifi_ tool is confirm-gated (personal_policy).
+    - git_status
+    - git_log
+    - git_diff
+    - git_commit
+    - git_push
+    - unifi_tool_index
+    - unifi_load_tools
+    - unifi_execute
+    - unifi_list_devices
+    - unifi_get_device_details
+    - unifi_list_clients
+    - unifi_get_client_details
+    - unifi_list_wlans
+    - unifi_get_wlan_details
+    - unifi_list_networks
+    - unifi_get_network_health
+    - unifi_get_system_info
+    - unifi_get_dashboard
+    - unifi_list_alarms
     expose_to_owui: true
     # C3 growth guard: declared user-facing engine — coding engine
     engine: true

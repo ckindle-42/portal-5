@@ -69,6 +69,7 @@ launched_mcp_ids:
 - security
 - serena
 - tts
+- unifi
 - video_mlx
 - vulnintel
 - whisper

@@ -43,6 +43,7 @@ NATIVE_MODULES = {
     "data": "portal.modules.data.tools.data_mcp",
     "netforensics": "portal.modules.netforensics.tools.netforensics_mcp",
     "review": "portal.modules.security.tools.review_mcp",
+    "git": "portal.modules.orchestration.mcp.git_mcp",
 }
 
 
@@ -160,7 +161,7 @@ def test_operator_confirmed_fleets_are_pipeline_exposed() -> None:
     """Operator-approved external fleets are available to the personal runner."""
     config = load_portal_config()
     fleet = {server.id: server for server in config.mcp_fleet}
-    for server_id in ("browser", "proxmox", "git"):
+    for server_id in ("browser", "proxmox", "git", "unifi"):
         assert server_id in fleet
         assert fleet[server_id].expose_to_pipeline
 
@@ -347,6 +348,13 @@ NATIVE_TOOL_NAMES = {
         "review_status",
         "review_verdict",
     ],
+    "git": [
+        "git_commit",
+        "git_diff",
+        "git_log",
+        "git_push",
+        "git_status",
+    ],
 }
 
 
@@ -357,7 +365,7 @@ def test_pipeline_exposed_native_tools_are_complete() -> None:
     try:
         config = load_portal_config()
         exposed = {server.id for server in config.mcp_fleet if server.expose_to_pipeline}
-        assert exposed == set(NATIVE_MODULES) | {"browser", "git", "proxmox"}
+        assert exposed == set(NATIVE_MODULES) | {"browser", "git", "proxmox", "unifi"}
         assert exposed & set(NATIVE_MODULES) == set(NATIVE_MODULES) == set(NATIVE_TOOL_NAMES)
 
         for server_id, module_path in NATIVE_MODULES.items():

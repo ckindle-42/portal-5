@@ -10,7 +10,7 @@ PY="$PORTAL_ROOT/.venv/bin/python3"
 case "$SERVICE" in
     mlx-transcribe|mlx-speech|vl-retrieval|eg2-embedding|pipeline-mcp|mitre-mcp|\
 detections-mcp|vulnintel-mcp|icsot-mcp|compliance-mcp|compliance-mcp-eval|\
-detection-mcp|data-mcp|netforensics-mcp|review-mcp|wiki-mcp) ;;
+detection-mcp|data-mcp|netforensics-mcp|review-mcp|wiki-mcp|git-mcp|unifi-mcp) ;;
     *)
         echo "Unknown native MCP service: ${SERVICE:-<empty>}" >&2
         exit 2
@@ -186,6 +186,20 @@ case "$SERVICE" in
         export OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
         export WIKI_MCP_PORT="${WIKI_MCP_PORT:-8931}"
         exec "$PY" -m portal_wiki.wiki_mcp
+        ;;
+    git-mcp)
+        # Pipeline git surface (:8950). Read-only status/log/diff; commit/push
+        # are confirm-gated by the Jarvis personal policy; the server refuses
+        # the live Portal checkout it is deployed from.
+        exec "$PY" -m portal.modules.orchestration.mcp.git_mcp
+        ;;
+    unifi-mcp)
+        # Stdio bridge (:8949) over the operator's sirkirby unifi-network-mcp
+        # (~/mcp/unifi-network/run.sh, credentials outside the repo). launchd
+        # starts with a bare PATH, so uvx must be findable.
+        export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
+        export STDIO_MCP_BRIDGE_ID=unifi
+        exec "$PY" -m portal.modules.orchestration.mcp.stdio_bridge_mcp
         ;;
     *)
         echo "Unknown native MCP service: ${SERVICE:-<empty>}" >&2
