@@ -626,6 +626,8 @@ def test_section_selection_accepts_keys_numbers_and_prefixes() -> None:
     assert keys(["1"]) == ["host"]
     assert keys(["containers"]) == ["containers"]
     assert keys(["c"]) == ["containers"]
+    assert keys(["media"]) == ["media"]
+    assert keys(["m"]) == ["media"]
     assert keys(["lab", "host"]) == ["host", "lab"]
     with pytest.raises(typer.BadParameter):
         selected(["nope"])
@@ -711,6 +713,72 @@ def test_owui_turn_request_uses_native_chat_tool_fields() -> None:
     assert owui.WORKSPACE == "auto-coding"
 
 
+class TestVideoHops:
+    """The video hop's verdicts — pure functions, no network."""
+
+    def test_video_enabled_follows_the_config_switch(self) -> None:
+        assert media.video_enabled({"modules": {"video": {"enabled": True}}}) is True
+        assert media.video_enabled({"modules": {"video": {"enabled": False}}}) is False
+        assert media.video_enabled({"modules": {}}) is False
+        assert media.video_enabled({}) is False
+
+    def test_turn_hop_passes_when_the_reply_carries_the_artifact_url(self) -> None:
+        hop = media.turn_hop(
+            "Done — video job finished: http://owui:8080/api/v1/files/abc/content/ltx_x.mp4", ""
+        )
+        assert hop.status is Status.PASS
+        assert "url=" in hop.observed
+
+    def test_turn_hop_fails_an_error_and_a_url_less_reply(self) -> None:
+        assert media.turn_hop("", "TimeoutError: chat timed out").status is Status.FAIL
+        assert media.turn_hop("I could not generate the video.", "").status is Status.FAIL
+
+    def test_readback_hop_passes_real_mp4_bytes(self) -> None:
+        class Resp:
+            status_code = 200
+            content = b"\x00\x00\x00\x20ftypisom" + b"payload" * 10
+
+        def fake_get(url: str, **_kw: object) -> Resp:
+            return Resp()
+
+        original = media.httpx.get
+        media.httpx.get = fake_get  # type: ignore[assignment]
+        try:
+            hop = media.readback_hop("http://owui/f.mp4", "key")
+        finally:
+            media.httpx.get = original  # type: ignore[assignment]
+        assert hop.status is Status.PASS
+        assert "mp4=True" in hop.observed
+
+    def test_readback_hop_fails_an_error_page(self) -> None:
+        class Resp:
+            status_code = 404
+            content = b"<html>not found</html>"
+
+        def fake_get(url: str, **_kw: object) -> Resp:
+            return Resp()
+
+        original = media.httpx.get
+        media.httpx.get = fake_get  # type: ignore[assignment]
+        try:
+            hop = media.readback_hop("http://owui/f.mp4", "key")
+        finally:
+            media.httpx.get = original  # type: ignore[assignment]
+        assert hop.status is Status.FAIL
+
+    def test_clip_hop_reports_the_written_artifact(self, tmp_path: Path) -> None:
+        clip = tmp_path / "ltx_abc.mp4"
+        clip.write_bytes(b"x" * 2_000_000)
+        hop = media.clip_hop(clip, since=0.0)
+        assert hop.status is Status.PASS
+        assert "ltx_abc.mp4" in hop.observed and "2.0MB" in hop.observed
+
+    def test_clip_hop_fails_when_the_renderer_wrote_nothing(self) -> None:
+        hop = media.clip_hop(None, since=0.0)
+        assert hop.status is Status.FAIL
+        assert "no new" in hop.observed
+
+
 def test_media_module_hop_warns_while_disabled() -> None:
     disabled = {"modules": {"image": {"enabled": False}}}
     hop = media.module_hop(disabled)
@@ -750,14 +818,27 @@ def test_media_artifact_hop_verdicts(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_media_run_warns_disabled_and_needs_no_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(media, "env_value", lambda name, default="": "")
     hops = media.run(_ctx(), {"modules": {"image": {"enabled": False}}})
-    assert [h.status for h in hops] == [Status.WARN]
+    assert [h.status for h in hops] == [Status.WARN, Status.WARN]
     assert "modules.image.enabled is false" in hops[0].observed
     monkeypatch.setattr(
         media, "env_value", lambda name, default="": "key" if name == "OWUI_API_KEY" else ""
     )
     hops = media.run(_ctx(), {"modules": {"image": {"enabled": True}}})
     assert hops[0].name == "image preset" and hops[0].status is Status.WARN
+
+
+def test_media_run_appends_a_video_warn_while_video_is_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(media, "env_value", lambda name, default="": "")
+    portal = {"modules": {"image": {"enabled": True}, "video": {"enabled": False}}}
+    hops = media.run(_ctx(), portal)
+    assert hops[-1].name == "video artifact turn"
+    assert hops[-1].status is Status.WARN
+    assert "video module disabled" in hops[-1].observed
+    assert "modules.video.enabled" in hops[-1].detail
 
 
 def _ctx() -> Any:

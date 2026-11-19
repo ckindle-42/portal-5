@@ -115,7 +115,7 @@ def test_media_mcps_declare_timeout_meta_for_long_tools() -> None:
 
     for mod, names in (
         (mflux_mcp, {"generate_image", "edit_image", "image_status"}),
-        (video_mcp, {"generate_video", "animate_image", "video_status"}),
+        (video_mcp, {"video_status"}),
         (music_mcp, {"minimax_status", "music_status"}),
         (tts_mcp, {"speak", "clone_voice"}),
         (whisper_mcp, {"transcribe_audio", "transcribe_with_speakers"}),

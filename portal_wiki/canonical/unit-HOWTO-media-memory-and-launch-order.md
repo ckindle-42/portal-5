@@ -36,8 +36,11 @@ through the Tier-1 pre-flight admission check
 (`portal/modules/media/tools/_admission.py`, `admit()`) before it starts. The
 check compares the model's measured peak plus a headroom margin against a
 live free-memory snapshot (`vm_stat` on macOS) and returns a structured,
-retryable refusal rather than letting the job OOM the box. It fails open when
-free memory can't be measured.
+retryable refusal rather than letting the job OOM the box. Video keys are
+size-aware (`video_mlx:ltx-2.5-q4-512` measured vs `-704` estimated). Before
+refusing, the check asks the Pipeline's load guard to evict idle LLM
+residents (`POST /admin/reclaim-idle`) and re-samples free memory. It fails
+open when free memory can't be measured.
 
 ## Safe co-residency matrix
 
@@ -45,7 +48,7 @@ free memory can't be measured.
 |---|---|---|
 | Ollama small/medium model (<20GB) + MFLUX flux2-klein (~18GB) | Usually | Admission still checks current free memory plus headroom, and asks the Pipeline to evict idle residents first |
 | Ollama large model (30GB+) + MFLUX qwen-2.1 (~26GB) | Marginal or refused | Unload the Ollama model first (`ollama stop <model>`) |
-| Any Ollama model + video-mlx (LTX-2.3, ~24–34GB) | Marginal | Video is thermally heavy and off by default; run it with the box otherwise quiet |
+| Any Ollama model + video-mlx (LTX-2.5, 18–25GB by resolution; Wan2.2-5B ~23GB) | Marginal | Video is thermally heavy and off by default; run it with the box otherwise quiet |
 
 ## Launch order (until a Tier 2 cross-engine broker exists)
 

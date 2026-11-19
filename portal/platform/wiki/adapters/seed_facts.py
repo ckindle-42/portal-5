@@ -603,7 +603,13 @@ MEDIA_MODEL_MEMORY_GB: dict[str, float] = {
     "mflux:qwen-2.1": 26.0,  # reasoned: 17.5GB bf16 text encoder + q8 transformer (see _admission.py)
     # MLX-native video generation (ltx-2-mlx CLI, host MLX layer) — LTX-2.5
     # distilled, --low-ram. Measured live in the 2026-10-28 LTX-2.3 vs 2.5 A/B.
+    # Size-aware buckets mirror _admission.py: -512 measured, -704 estimated
+    # from the pixel-area scaling; wan2.2-5b is the mlx-video fallback (sourced
+    # 18-23GB Q8 weights, peak unmeasured).
     "video_mlx:ltx-2.5-q4": 18.0,  # measured 15.8GiB peak footprint, --distilled --low-ram, 512x320 97fr (2026-10-28)
+    "video_mlx:ltx-2.5-q4-512": 18.0,  # same measurement, the 512x320 (or smaller) admission bucket
+    "video_mlx:ltx-2.5-q4-704": 25.0,  # estimated, 704x480 97fr (unmeasured — scaled from the measured 512x320 peak)
+    "video_mlx:wan2.2-5b": 23.0,
 }
 
 
