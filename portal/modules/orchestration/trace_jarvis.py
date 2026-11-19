@@ -1,11 +1,10 @@
 """``portal trace`` jarvis section: one live personal request, end to end.
 
-Submitted through the pipeline MCP's ``jarvis_submit`` (the tool Open WebUI
-calls), confirmed exactly as the operator confirms, executed by the live arm
-queue runner, and judged by its receipt. A confirm-required write task must
-stay ``pending`` until confirmed. Contributed through the plugin seam like the
-lab section; the platform CLI never imports module code. The section deletes
-the task rows it created; their receipt directories stay for inspection.
+Submitted through the pipeline MCP's ``jarvis_submit`` (the tool Open WebUI calls),
+confirmed exactly as the operator confirms, executed by the live arm queue runner, and
+judged by its receipt; a confirm-required write task must stay ``pending`` until
+confirmed. Contributed through the plugin seam like the lab section; the platform CLI
+never imports module code. Rows it creates are deleted; receipt dirs stay for inspection.
 """
 
 from __future__ import annotations
@@ -75,9 +74,8 @@ def _wait_s() -> float:
 
 def _submit_hop(user_id: str, text: str) -> tuple[dict[str, str], str]:
     """One submission through the same MCP client the personal runner uses."""
-    payload = mcps.mcp_call(
-        mcps.servers()["pipeline"], "jarvis_submit", {"text": text, "user_id": user_id}, 30.0
-    )
+    url = mcps.servers()["pipeline"]
+    payload = mcps.mcp_call(url, "jarvis_submit", {"text": text, "user_id": user_id}, 30.0)
     task_id = str(payload.get("id") or "")
     if payload.get("error") or not task_id.startswith("pt-"):
         return _hop("mcp submit", "FAIL", str(payload)[:96], "queued <pt-id>"), ""
@@ -231,13 +229,7 @@ def _negative_hops(
         return [submit]
     created.append(task_id)
     outcome = _wait_pending_hold(root, task_id, wait_s)
-    reason = (
-        ""
-        if outcome == "pending"
-        else f"reached {outcome} without a confirm"
-        if outcome in TERMINAL
-        else f"timed out after {wait_s:.0f}s"
-    )
+    reason = "" if outcome == "pending" else f"outcome={outcome} after {wait_s:.0f}s"
     pending = _hop(
         "write stays pending",
         "PASS" if outcome == "pending" else "FAIL",
@@ -260,27 +252,22 @@ def _negative_hops(
     ]
 
 
-def _delete_rows(root: Path, task_ids: list[str]) -> str:
-    if not task_ids:
-        return "nothing to delete"
-    db = sqlite3.connect(root / "personal_tasks.sqlite3", timeout=5)
-    try:
-        db.execute("PRAGMA busy_timeout = 5000")
-        db.execute(
-            f"DELETE FROM personal_tasks WHERE id IN ({','.join('?' for _ in task_ids)})", task_ids
-        )
-        db.commit()
-    finally:
-        db.close()
-    return f"deleted {len(task_ids)}"
-
-
 def _cleanup_hop(root: Path, created: list[str]) -> dict[str, str]:
     for task_id in created:
         task = PersonalStore(root).get(task_id)
         if task is not None and task.status in LIVE:
             cancel_personal_task(root, task_id)
-    deleted = _delete_rows(root, created)
+    deleted = "nothing to delete"
+    if created:
+        db = sqlite3.connect(root / "personal_tasks.sqlite3", timeout=5)
+        try:
+            db.execute("PRAGMA busy_timeout = 5000")
+            marks = ",".join("?" for _ in created)
+            db.execute(f"DELETE FROM personal_tasks WHERE id IN ({marks})", created)
+            db.commit()
+            deleted = f"deleted {len(created)}"
+        finally:
+            db.close()
     remaining = [t for t in created if PersonalStore(root).get(t) is not None]
     return _hop(
         "rows cleanup",
@@ -325,13 +312,8 @@ def run() -> list[dict[str, str]]:
     try:
         hops += _positive_hops(root, user_id, wait_s, created)
         hops += _negative_hops(root, user_id, wait_s, created)
-    except Exception as exc:  # noqa: BLE001 - a section fault is a hop, not a crash
-        hops.append(_hop("jarvis section", "FAIL", f"{type(exc).__name__}: {exc}", "completes"))
     finally:
-        try:
-            hops.append(_cleanup_hop(root, created))
-        except Exception as exc:  # noqa: BLE001 - a cleanup fault is reported, never fatal
-            hops.append(
-                _hop("rows cleanup", "FAIL", f"{type(exc).__name__}: {exc}", "rows deleted")
-            )
+        # Its own rows are deleted even when a phase faults; the fault itself is the
+        # section hop the trace command renders.
+        hops.append(_cleanup_hop(root, created))
     return hops

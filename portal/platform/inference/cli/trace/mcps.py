@@ -57,15 +57,6 @@ def mcp_call(
     return payload if isinstance(payload, dict) else {"result": payload}
 
 
-def tool_call(
-    registry: dict[str, str], server: str, name: str, arguments: dict[str, Any]
-) -> dict[str, Any]:
-    url = registry.get(server, "")
-    if not url:
-        return {"error": f"{server} is not pipeline-exposed"}
-    return mcp_call(url, name, arguments)
-
-
 def span_tools(record: Any) -> tuple[set[str], str]:
     """Tool names that completed ok in one trace record, plus what its spans say."""
     spans = [
@@ -149,9 +140,7 @@ def documents(ctx: TraceContext, _portal: dict[str, Any]) -> list[Hop]:
         f"[['marker', 'value'], ['{token}', 42]]. Then reply with only the download_url "
         "that tool returned.",
     )
-    link = next(
-        (w.strip("()[]<>") for w in streamed.stats.text.split() if "/api/v1/files/" in w), ""
-    )
+    link = media.artifact_url(streamed.stats.text)
     artifact = file_hop(ctx, link) if link else "no download link in the answer"
     done = "create_excel" in ok and artifact.startswith("200") and "xlsx=True" in artifact
     return [
@@ -176,12 +165,12 @@ def memory(ctx: TraceContext, _portal: dict[str, Any]) -> list[Hop]:
         "['portal-trace']. Then call recall with query 'portal trace marker' and tags "
         "['portal-trace']. Reply with only the number of memories it returned.",
     )
-    found = tool_call(registry, "memory", "recall", {"query": token, "tags": ["portal-trace"]})
+    found = mcp_call(registry["memory"], "recall", {"query": token, "tags": ["portal-trace"]})
     rows = found.get("memories") or found.get("results") or []
     hit = next((row for row in rows if token in str(row.get("text", ""))), None)
     forgotten = "not run"
     if hit is not None:
-        forgot = tool_call(registry, "memory", "forget", {"id": str(hit.get("id", ""))})
+        forgot = mcp_call(registry["memory"], "forget", {"id": str(hit.get("id", ""))})
         forgotten = "ok" if "error" not in forgot else short(forgot["error"], 40)
     done = "remember" in ok and hit is not None and forgotten == "ok"
     observed += f" recalled={len(rows)} forgotten={forgotten}"
@@ -192,7 +181,7 @@ def rag(ctx: TraceContext, _portal: dict[str, Any]) -> list[Hop]:
     """A retrieval answer names a source file the live KB's own search returns."""
     registry = servers()
     query = "security patch management"
-    listed = tool_call(registry, "rag", "kb_list", {})
+    listed = mcp_call(registry["rag"], "kb_list", {})
     kbs = [kb for kb in listed.get("knowledge_bases") or [] if kb.get("chunks")]
     if not kbs:
         reason = short(listed.get("error") or "no knowledge base holds chunks", 60)
@@ -204,7 +193,7 @@ def rag(ctx: TraceContext, _portal: dict[str, Any]) -> list[Hop]:
         f"Call kb_search exactly once with kb_id '{kb_id}' and query '{query}'. Reply with "
         "only the source_file of the first result.",
     )
-    store = tool_call(registry, "rag", "kb_search", {"kb_id": kb_id, "query": query, "top_k": 3})
+    store = mcp_call(registry["rag"], "kb_search", {"kb_id": kb_id, "query": query, "top_k": 3})
     sources = {str(row.get("source_file") or "") for row in store.get("results") or []}
     named = sorted(name for name in sources if name and name in streamed.stats.text)
     done = "kb_search" in ok and bool(named)
@@ -214,7 +203,7 @@ def rag(ctx: TraceContext, _portal: dict[str, Any]) -> list[Hop]:
 
 def wiki(ctx: TraceContext, _portal: dict[str, Any]) -> list[Hop]:
     """No workspace whitelists a wiki tool, so the hop calls the tool the Pipeline would."""
-    found = tool_call(servers(), "wiki", "wiki_search", {"query": "workspace routing", "top_k": 3})
+    found = mcp_call(servers()["wiki"], "wiki_search", {"query": "workspace routing", "top_k": 3})
     rows = found.get("results") or []
     unit = str(rows[0].get("unit_id") or "") if rows else ""
     path = Path(ctx.repo_root) / "portal_wiki" / "canonical" / f"{unit}.md"
@@ -244,17 +233,15 @@ def data(ctx: TraceContext, _portal: dict[str, Any]) -> list[Hop]:
         f"Call run_sql exactly once with session_id 'portal_trace' and sql "
         f"'CREATE OR REPLACE TABLE {TABLE} AS SELECT {MARKER} AS marker'. Reply with only 'done'.",
     )
-    read = tool_call(
-        registry,
-        "data",
+    read = mcp_call(
+        registry["data"],
         "run_sql",
         {"session_id": "portal_trace", "sql": f"SELECT marker FROM {TABLE}"},
     )
     rows = read.get("rows") or []
     value = str(rows[0][0]) if rows and rows[0] else ""
-    tool_call(
-        registry,
-        "data",
+    mcp_call(
+        registry["data"],
         "run_sql",
         {"session_id": "portal_trace", "sql": f"DROP TABLE IF EXISTS {TABLE}"},
     )
@@ -271,8 +258,8 @@ def compliance(ctx: TraceContext, _portal: dict[str, Any]) -> list[Hop]:
         f"Call compliance_requirement exactly once with requirement '{REQUIREMENT}'. Reply with "
         "only the id of the first part it returned.",
     )
-    store = tool_call(
-        servers(), "compliance", "compliance_requirement", {"requirement": REQUIREMENT}
+    store = mcp_call(
+        servers()["compliance"], "compliance_requirement", {"requirement": REQUIREMENT}
     )
     parts = store.get("parts") or []
     served = str(parts[0].get("id") or "") if parts else ""
