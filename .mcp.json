@@ -4,7 +4,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "@modelcontextprotocol/server-filesystem",
+        "@modelcontextprotocol/server-filesystem@2.4.0",
         "${HOME}/projects",
         "/tmp"
       ]
@@ -31,7 +31,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "mcp-docker-server"
+        "mcp-docker-server@1.0.1"
       ]
     },
     "portal-music": {
@@ -122,7 +122,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "@upstash/context7-mcp",
+        "@upstash/context7-mcp@4.7.3",
         "--transport",
         "stdio"
       ]

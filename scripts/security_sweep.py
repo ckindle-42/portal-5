@@ -18,7 +18,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -56,6 +56,11 @@ class SweepResult:
     images: dict[str, int]
     brew_outdated: list[dict[str, str]]
     errors: list[str]
+    triage: list[dict[str, str]] = field(default_factory=list)
+    npx_pins: list[dict[str, str]] = field(default_factory=list)
+    brew_security: list[dict[str, str]] = field(default_factory=list)
+    brew_routine: list[dict[str, str]] = field(default_factory=list)
+    delta: dict[str, object] = field(default_factory=dict)
 
 
 def _package_key(pkg: PackageRef) -> tuple[str, str, str]:
@@ -339,6 +344,68 @@ def _npm_packages(root: Path, home: Path) -> list[PackageRef]:
     return packages
 
 
+def _package_name(spec: str) -> str:
+    if spec.startswith("@"):
+        return spec.rpartition("@")[0] if spec.count("@") > 1 else spec
+    return spec.rpartition("@")[0] or spec
+
+
+def _npx_packages(config_path: Path) -> list[dict[str, str]]:
+    """npx-launched MCP commands from config/portal.yaml: floating unless pinned pkg@exact."""
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    rows: list[dict[str, str]] = []
+    for service in config.get("mcp_fleet", []):
+        if not isinstance(service, dict):
+            continue
+        command = service.get("command", {}).get("command", [])
+        if not command or str(command[0]) != "npx":
+            continue
+        spec = next((str(part) for part in command[1:] if not str(part).startswith("-")), "")
+        rows.append(
+            {
+                "service": str(service.get("id", "")),
+                "package": spec,
+                "name": _package_name(spec),
+                "pinned": _pinned_version(spec),
+            }
+        )
+    return rows
+
+
+def _pinned_version(spec: str) -> str:
+    if spec.startswith("@"):
+        _, _, rest = spec.partition("@")
+        return rest.rpartition("@")[2] if "@" in rest else ""
+    return spec.rpartition("@")[2] if "@" in spec else ""
+
+
+def _npm_latest(package: str) -> str:
+    url = f"https://registry.npmjs.org/{urllib.parse.quote(package, safe='@')}/latest"
+    try:
+        with urllib.request.urlopen(url, timeout=15) as response:
+            data = json.loads(response.read().decode())
+    except (OSError, ValueError, urllib.error.URLError):
+        return ""
+    return str(data.get("version", ""))
+
+
+def npx_pin_rows(config_path: Path) -> tuple[list[dict[str, str]], list[str]]:
+    rows = _npx_packages(config_path)
+    errors: list[str] = []
+    for row in rows:
+        row["latest"] = _npm_latest(row["name"])
+        if not row["latest"]:
+            errors.append(f"npm registry: no latest version for {row['name']}")
+            row["status"] = "unknown"
+        elif row["pinned"] == row["latest"]:
+            row["status"] = "pinned (latest)"
+        elif row["pinned"]:
+            row["status"] = "stale pin"
+        else:
+            row["status"] = "floating"
+    return rows, errors
+
+
 def collect_inventory(repo_root: Path, home: Path) -> Inventory:
     errors: list[str] = []
     packages = _lock_packages(repo_root / "uv.lock")
@@ -573,16 +640,199 @@ def _docker_findings(
     return findings, package_count
 
 
-def scan_docker_images() -> tuple[list[dict[str, str]], dict[str, int], list[str]]:
+IMAGE_CACHE_VERSION = 1
+OURS_IMAGE_PREFIXES = ("portal5-", "portal-5-")
+DOCKERFILE_HINTS = (
+    ("pipeline", "Dockerfile.pipeline"),
+    ("open-webui", "deploy/portal-5/Dockerfile.openwebui (OPENWEBUI_VERSION arg)"),
+    ("browser", "deploy/browser-mcp/Dockerfile"),
+    ("dind", "Dockerfile.dind"),
+    ("cad", "Dockerfile.cad"),
+    ("binresearch", "Dockerfile.binresearch"),
+    ("attack", "Dockerfile.attack"),
+    ("pwsh", "Dockerfile.pwsh"),
+    ("mcp", "Dockerfile.mcp"),
+)
+
+
+def _parse_image_inspect(stdout: str) -> dict[str, list[str]]:
+    """Map cache key (first repo digest, else image id) -> all tagged refs."""
+    keys: dict[str, list[str]] = {}
+    for line in stdout.splitlines():
+        parts = line.split("\t")
+        if len(parts) != 3:
+            continue
+        image_id, digest_json, tag_blob = parts
+        tags = [tag for tag in tag_blob.split() if "<none>" not in tag]
+        if not tags:
+            continue
+        try:
+            digests = json.loads(digest_json)
+        except json.JSONDecodeError:
+            digests = []
+        key = str(digests[0]) if isinstance(digests, list) and digests else image_id
+        refs = keys.setdefault(key, [])
+        refs.extend(tag for tag in tags if tag not in refs)
+    return keys
+
+
+def image_inventory(
+    docker: str, images: dict[str, list[str]]
+) -> tuple[dict[str, list[str]], list[str]]:
+    try:
+        result = subprocess.run(
+            [
+                docker,
+                "image",
+                "inspect",
+                "--format",
+                '{{.ID}}{{"\\t"}}{{json .RepoDigests}}{{"\\t"}}{{range .RepoTags}}{{.}} {{end}}',
+                *images,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=True,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return {}, [f"Docker image inspect: {type(exc).__name__}"]
+    return _parse_image_inspect(result.stdout), []
+
+
+def _scanner_version(scanner: str) -> str:
+    try:
+        result = subprocess.run(
+            [scanner, "--version"], capture_output=True, text=True, timeout=15, check=True
+        )
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+    return result.stdout.strip().splitlines()[0] if result.stdout.strip() else "unknown"
+
+
+def load_image_cache(path: Path, scanner_id: str) -> dict[str, dict[str, object]]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(data, dict) or data.get("version") != IMAGE_CACHE_VERSION:
+        return {}
+    if data.get("scanner") != scanner_id:
+        return {}
+    images = data.get("images")
+    return images if isinstance(images, dict) else {}
+
+
+def save_image_cache(path: Path, scanner_id: str, images: dict[str, dict[str, object]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"version": IMAGE_CACHE_VERSION, "scanner": scanner_id, "images": images}
+    path.write_text(json.dumps(payload, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def classify_image(refs: list[str]) -> str:
+    return (
+        "ours"
+        if any(ref.startswith(prefix) for ref in refs for prefix in OURS_IMAGE_PREFIXES)
+        else "upstream"
+    )
+
+
+def dockerfile_hint(refs: list[str]) -> str:
+    name = refs[0].casefold() if refs else ""
+    for token, hint in DOCKERFILE_HINTS:
+        if token in name:
+            return hint
+    return "deploy/portal-5/docker-compose.yml (build: section)"
+
+
+def latest_upstream_tags(ref: str, count: int = 3) -> str:
+    """Newest Docker Hub tags for an upstream image; '' when unavailable (local-only builds, ghcr, offline)."""
+    name = ref.rsplit(":", 1)[0]
+    if name.startswith("ghcr.io/") or name.count("/") > 1:
+        return ""
+    if "/" not in name:
+        name = f"library/{name}"
+    url = f"https://hub.docker.com/v2/repositories/{name}/tags/?page_size={count}&ordering=last_updated"
+    try:
+        with urllib.request.urlopen(url, timeout=15) as response:
+            data = json.loads(response.read().decode())
+    except (OSError, ValueError, urllib.error.URLError):
+        return ""
+    tags = [
+        str(result["name"])
+        for result in data.get("results", [])
+        if isinstance(result, dict) and result.get("name")
+    ]
+    return ", ".join(tags)
+
+
+def build_image_triage(
+    rows_by_key: dict[str, list[dict[str, str]]], keys: dict[str, list[str]]
+) -> list[dict[str, str]]:
+    """One triage row per image with HIGH/CRITICAL findings: ours (fix in our Dockerfile) vs upstream."""
+    triage: list[dict[str, str]] = []
+    for key, refs in sorted(keys.items(), key=lambda item: item[1][0]):
+        rows = rows_by_key.get(key, [])
+        high = [row for row in rows if row["severity"] == "HIGH"]
+        critical = [row for row in rows if row["severity"] == "CRITICAL"]
+        if not high and not critical:
+            continue
+        ids = dict.fromkeys(row["id"] for row in [*critical, *high])
+        ownership = classify_image(refs)
+        if ownership == "ours":
+            action = f"base bump / rebuild from {dockerfile_hint(refs)}"
+        else:
+            tags = latest_upstream_tags(refs[0])
+            suffix = f" (latest: {tags})" if tags else ""
+            action = f"upstream: pull newer tag{suffix}, then rescan"
+        triage.append(
+            {
+                "image": refs[0] + (f" (+{len(refs) - 1} tags)" if len(refs) > 1 else ""),
+                "ownership": ownership,
+                "critical": str(len(critical)),
+                "high": str(len(high)),
+                "advisories": "|".join(list(ids)[:6]),
+                "action": action,
+            }
+        )
+    return triage
+
+
+def scan_docker_images(
+    docker: str,
+    cache_path: Path,
+    image_timeout: int = 600,
+    refresh: bool = False,
+) -> tuple[list[dict[str, str]], dict[str, int], list[str], list[dict[str, str]]]:
     scanner = shutil.which("osv-scanner")
-    docker = shutil.which("docker") or "/usr/local/bin/docker"
     if not scanner:
-        return [], {"images": 0, "scanned": 0, "packages": 0}, ["osv-scanner is not installed"]
+        return (
+            [],
+            {"images": 0, "scanned": 0, "cached": 0, "packages": 0},
+            ["osv-scanner is not installed"],
+            [],
+        )
     images, errors = _docker_images(docker)
+    keys, inspect_errors = image_inventory(docker, list(images))
+    errors.extend(inspect_errors)
+    scanner_id = _scanner_version(scanner)
+    cache: dict[str, dict[str, object]] = (
+        {} if refresh else load_image_cache(cache_path, scanner_id)
+    )
     findings: list[dict[str, str]] = []
-    packages = 0
-    scanned = 0
-    for refs in images.values():
+    rows_by_key: dict[str, list[dict[str, str]]] = {}
+    packages = scanned = cached = 0
+    for key, refs in sorted(keys.items(), key=lambda item: item[1][0]):
+        entry = cache.get(key)
+        if isinstance(entry, dict):
+            rows = [
+                dict(row, source="docker image " + ", ".join(refs))
+                for row in entry.get("findings", [])
+            ]
+            findings.extend(rows)
+            rows_by_key[key] = rows
+            packages += int(entry.get("packages", 0))
+            cached += 1
+            continue
         print(f"Scanning Docker image {refs[0]}", flush=True)
         with tempfile.TemporaryDirectory(prefix="portal-osv-image-") as temp_dir:
             output = Path(temp_dir) / "result.json"
@@ -603,20 +853,34 @@ def scan_docker_images() -> tuple[list[dict[str, str]], dict[str, int], list[str
                     ],
                     capture_output=True,
                     text=True,
-                    timeout=900,
+                    timeout=image_timeout,
                 )
                 if not output.is_file():
                     errors.append(f"{refs[0]}: scanner exit {result.returncode}")
                     continue
                 data = json.loads(output.read_text(encoding="utf-8"))
+            except subprocess.TimeoutExpired:
+                errors.append(f"{refs[0]}: scan timed out after {image_timeout}s; re-run to resume")
+                continue
             except (OSError, subprocess.SubprocessError, json.JSONDecodeError) as exc:
                 errors.append(f"{refs[0]}: {type(exc).__name__}")
                 continue
             image_findings, count = _docker_findings(data, refs)
-            findings.extend(image_findings)
-            packages += count
-            scanned += 1
-    return findings, {"images": len(images), "scanned": scanned, "packages": packages}, errors
+        findings.extend(image_findings)
+        rows_by_key[key] = image_findings
+        packages += count
+        scanned += 1
+        cache[key] = {
+            "findings": [dict(row, source="") for row in image_findings],
+            "packages": count,
+            "scanned": dt.datetime.now().astimezone().date().isoformat(),
+        }
+        save_image_cache(
+            cache_path, scanner_id, cache
+        )  # incremental: an interrupted run keeps finished scans
+    stats = {"images": len(keys), "scanned": scanned, "cached": cached, "packages": packages}
+    triage = build_image_triage(rows_by_key, keys) if keys else []
+    return findings, stats, errors, triage
 
 
 def brew_outdated() -> tuple[list[dict[str, str]], list[str]]:
@@ -658,6 +922,81 @@ def brew_outdated() -> tuple[list[dict[str, str]], list[str]]:
     return rows, []
 
 
+BREW_OSV_ECOSYSTEMS = (
+    "PyPI",
+    "npm",
+    "Alpine:v3.20",
+    "Alpine:v3.21",
+    "Alpine:v3.22",
+    "Debian:12",
+    "Debian:13",
+    "Ubuntu:24.04",
+)
+
+
+def _brew_name_candidates(name: str) -> list[str]:
+    base = name.casefold()
+    return [base, re.sub(r"@[0-9.]+$", "", base)]
+
+
+def brew_security_split(
+    rows: list[dict[str, str]],
+) -> tuple[list[dict[str, str]], list[dict[str, str]], list[str]]:
+    """Split outdated formulae by whether OSV knows an advisory at the installed version.
+
+    Heuristic triage: distro ecosystems version packages differently from Homebrew,
+    so a hit means "investigate before upgrading", never "proven vulnerable".
+    """
+    queries: list[dict[str, object]] = []
+    owner: dict[tuple[str, str], str] = {}
+    for row in rows:
+        versions = [part.strip() for part in row["installed"].split(",") if part.strip()]
+        for name in _brew_name_candidates(row["name"]):
+            for ecosystem in BREW_OSV_ECOSYSTEMS:
+                for version in versions:
+                    if (name, ecosystem) in owner:
+                        continue
+                    owner[(name, ecosystem)] = row["name"]
+                    queries.append(
+                        {"package": {"name": name, "ecosystem": ecosystem}, "version": version}
+                    )
+    hits: set[str] = set()
+    ids_by_row: dict[str, list[str]] = {}
+    for start in range(0, len(queries), 500):
+        batch = queries[start : start + 500]
+        try:
+            response = _post_json(f"{OSV_API}/querybatch", {"queries": batch})
+        except (OSError, ValueError, urllib.error.URLError) as exc:
+            return [], [], [f"OSV querybatch (brew): {type(exc).__name__}"]
+        results = response.get("results", [])
+        if not isinstance(results, list) or len(results) != len(batch):
+            return [], [], ["OSV querybatch (brew): unexpected result count"]
+        for query, result in zip(batch, results, strict=True):
+            vulns = result.get("vulns", []) if isinstance(result, dict) else []
+            if not vulns:
+                continue
+            identity = query.get("package", {})
+            row_name = owner.get(
+                (str(identity.get("name", "")), str(identity.get("ecosystem", ""))), ""
+            )
+            if not row_name:
+                continue
+            hits.add(row_name)
+            ids_by_row.setdefault(row_name, []).extend(
+                str(vuln.get("id", "unknown")) for vuln in vulns if isinstance(vuln, dict)
+            )
+    security: list[dict[str, str]] = []
+    routine: list[dict[str, str]] = []
+    for row in rows:
+        target, label = (
+            (security, ", ".join(dict.fromkeys(ids_by_row.get(row["name"], []))))
+            if row["name"] in hits
+            else (routine, "")
+        )
+        target.append({**row, "advisories": label})
+    return security, routine, []
+
+
 def _bench_venvs(home: Path) -> list[str]:
     root = home / ".claude" / "orchestrate" / "bench"
     return [display_path(path, home) for path in _find_venvs(root, max_depth=6)]
@@ -665,6 +1004,172 @@ def _bench_venvs(home: Path) -> list[str]:
 
 def _markdown_cell(value: str) -> str:
     return value.replace("|", "\\|").replace("\n", " ")
+
+
+def _delta_rows_table(title: str, rows: list[object]) -> list[str]:
+    if not rows:
+        return [f"### {title}", "", "None.", ""]
+    lines = [
+        f"### {title}",
+        "",
+        "| Ecosystem | Package | Version | Advisory | Severity | Source |",
+        "|---|---|---|---|---|---|",
+    ]
+    for row in rows:
+        if isinstance(row, Mapping):
+            cells = (
+                _markdown_cell(str(row.get(key, "")))
+                for key in ("ecosystem", "package", "version", "id", "severity", "source")
+            )
+            lines.append("| " + " | ".join(cells) + " |")
+    lines.append("")
+    return lines
+
+
+def _render_delta(delta: Mapping[str, object]) -> list[str]:
+    previous_date = str(delta.get("previous_date", ""))
+    if delta.get("baseline"):
+        return [
+            "## Delta",
+            "",
+            "Baseline run: no previous sweep state, so every finding below counts as new.",
+            "",
+        ]
+    new = delta.get("new", [])
+    carried = delta.get("carried", [])
+    resolved = delta.get("resolved", [])
+    return [
+        f"## Delta vs previous sweep ({previous_date})",
+        "",
+        f"- New: {len(new)} / Carried: {len(carried)} / Resolved: {len(resolved)}",
+        "- Carried findings are the rows in the OSV findings table above.",
+        "",
+        *_delta_rows_table("New", new),
+        *_delta_rows_table("Resolved", resolved),
+    ]
+
+
+def _render_triage(triage: list[dict[str, str]]) -> list[str]:
+    lines = [
+        "## Docker image HIGH/CRITICAL triage",
+        "",
+        "| Image | Ownership | CRITICAL | HIGH | Advisories | Action |",
+        "|---|---|---|---|---|---|",
+    ]
+    if not triage:
+        lines.append("| — | — | — | — | — | No HIGH/CRITICAL image findings |")
+    for row in triage:
+        keys = ("image", "ownership", "critical", "high", "advisories", "action")
+        lines.append("| " + " | ".join(_markdown_cell(row.get(key, "")) for key in keys) + " |")
+    lines.append("")
+    return lines
+
+
+def _render_npx_pins(rows: list[dict[str, str]]) -> list[str]:
+    lines = [
+        "## npx MCP pins",
+        "",
+        "config/portal.yaml npx sources vs npm latest; a floating pin lets a poisoned npx cache re-execute.",
+        "",
+        "| Service | Package | Pinned | Latest | Status |",
+        "|---|---|---|---|---|",
+    ]
+    for row in rows:
+        keys = ("service", "package", "pinned", "latest", "status")
+        lines.append("| " + " | ".join(_markdown_cell(row.get(key, "")) for key in keys) + " |")
+    lines.append("")
+    return lines
+
+
+def _render_brew_split(security: list[dict[str, str]], routine: list[dict[str, str]]) -> list[str]:
+    lines = [
+        "## Homebrew outdated — security split",
+        "",
+        "Update signals with an OSV advisory hit at the installed version (heuristic triage,",
+        "not proof — distro ecosystems version packages differently from Homebrew).",
+        "",
+        f"### Security-relevant ({len(security)})",
+        "",
+    ]
+    lines.extend(
+        f"- `{row['name']}` {row['installed']} → {row['current']} — {row['advisories'] or 'advisory hits in tracked ecosystems'}"
+        for row in security
+    )
+    if not security:
+        lines.append("- None.")
+    lines.extend(["", f"### Routine ({len(routine)})", ""])
+    lines.extend(f"- `{row['name']}` {row['installed']} → {row['current']}" for row in routine)
+    lines.extend(
+        [
+            "",
+            "Exact upgrade commands for the operator:",
+            "",
+            "```bash",
+            "brew upgrade " + " ".join(row["name"] for row in security),
+            "brew upgrade " + " ".join(row["name"] for row in routine),
+            "```",
+            "",
+        ]
+    )
+    return lines
+
+
+def _finding_identity(row: Mapping[str, str]) -> tuple[str, str, str, str]:
+    return (
+        row.get("ecosystem", ""),
+        row.get("package", ""),
+        row.get("version", ""),
+        row.get("id", ""),
+    )
+
+
+def load_previous_findings(path: Path) -> dict[str, object] | None:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def save_findings_state(path: Path, date: str, rows: list[dict[str, str]]) -> None:
+    slim = [
+        {
+            "ecosystem": row["ecosystem"],
+            "package": row["package"],
+            "version": row["version"],
+            "id": row["id"],
+            "severity": row.get("severity", ""),
+            "source": row.get("source", ""),
+        }
+        for row in rows
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"date": date, "findings": slim}, indent=1, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def compute_delta(
+    rows: list[dict[str, str]], previous: Mapping[str, object] | None
+) -> dict[str, object]:
+    """Classify this run's findings against the stored last-run state: new / carried / resolved."""
+    if previous is None:
+        return {"baseline": True, "previous_date": "", "new": rows, "carried": [], "resolved": []}
+    prior_rows = [row for row in previous.get("findings", []) if isinstance(row, Mapping)]
+    prior = {_finding_identity(row) for row in prior_rows}
+    current: dict[tuple[str, str, str, str], dict[str, str]] = {
+        _finding_identity(row): row for row in rows
+    }
+    carried_keys = prior.intersection(current)
+    resolved = [dict(row) for row in prior_rows if _finding_identity(row) in prior - current.keys()]
+    return {
+        "baseline": False,
+        "previous_date": str(previous.get("date", "")),
+        "new": [current[key] for key in sorted(current.keys() - prior)],
+        "carried": [current[key] for key in sorted(carried_keys)],
+        "resolved": resolved,
+    }
 
 
 def write_report(
@@ -690,7 +1195,7 @@ def write_report(
         f"- Container findings: {len(image_findings)}",
         f"- MAL advisories: {malware}",
         f"- CRITICAL findings: {critical}",
-        f"- Docker images scanned: {result.images.get('scanned', 0)} / {result.images.get('images', 0)}",
+        f"- Docker images: {result.images.get('cached', 0)} cached + {result.images.get('scanned', 0)} scanned / {result.images.get('images', 0)}",
         f"- Container package entries: {result.images.get('packages', 0)}",
         "",
         "## Inventory",
@@ -719,25 +1224,12 @@ def write_report(
         )
     if not result.findings:
         lines.append("| — | — | — | — | — | — | No advisories found |")
+    lines.extend(["", *_render_delta(result.delta)])
+    lines.extend(_render_triage(result.triage))
+    lines.extend(_render_npx_pins(result.npx_pins))
+    lines.extend(_render_brew_split(result.brew_security, result.brew_routine))
     lines.extend(
         [
-            "",
-            "## Homebrew outdated",
-            "",
-            "Homebrew outdated versions are update signals, not OSV vulnerability claims.",
-            "",
-        ]
-    )
-    if result.brew_outdated:
-        lines.extend(
-            f"- `{row['name']}` {row['installed']} → {row['current']}"
-            for row in result.brew_outdated
-        )
-    else:
-        lines.append("- No outdated formulae or casks reported.")
-    lines.extend(
-        [
-            "",
             "## Excluded throwaway bench venvs",
             "",
             "Listed for cleanup only; not scanned or patched.",
@@ -799,26 +1291,56 @@ def _run(args: argparse.Namespace) -> int:
         raise SystemExit("--date must use YYYY-MM-DD")
     inventory = collect_inventory(repo, home)
     findings, query_errors = query_osv(inventory.packages)
+    image_findings: list[dict[str, str]] = []
+    image_stats = {"images": 0, "scanned": 0, "cached": 0, "packages": 0}
+    image_triage: list[dict[str, str]] = []
     if args.skip_images:
-        image_findings = []
-        image_stats = {"images": 0, "scanned": 0, "packages": 0}
         image_errors = ["Docker image scan intentionally skipped"]
     else:
-        image_findings, image_stats, image_errors = scan_docker_images()
+        docker = shutil.which("docker") or "/usr/local/bin/docker"
+        image_findings, image_stats, image_errors, image_triage = scan_docker_images(
+            docker,
+            Path(args.image_cache),
+            image_timeout=args.image_timeout,
+            refresh=args.refresh_images,
+        )
     brew_rows, brew_errors = brew_outdated()
+    brew_security, brew_routine, brew_split_errors = brew_security_split(brew_rows)
+    npx_pins, npx_errors = npx_pin_rows(repo / "config" / "portal.yaml")
+    state_path = (
+        Path(args.state_file)
+        if args.state_file
+        else Path(args.output_dir) / "last_sweep_findings.json"
+    )
+    previous = None if args.no_delta else load_previous_findings(state_path)
     result = SweepResult(
         findings + image_findings,
         image_stats,
         brew_rows,
-        inventory.errors + query_errors + image_errors + brew_errors,
+        inventory.errors
+        + query_errors
+        + image_errors
+        + brew_errors
+        + brew_split_errors
+        + npx_errors,
+        triage=image_triage,
+        npx_pins=npx_pins,
+        brew_security=brew_security,
+        brew_routine=brew_routine,
+        delta=compute_delta(findings + image_findings, previous),
     )
     report = Path(args.output_dir) / f"security_sweep_{date.replace('-', '')}.md"
     write_report(report, date, inventory, result, _bench_venvs(home))
+    if not args.no_delta:
+        save_findings_state(state_path, date, result.findings)
     print(f"Report: {report}")
+    stale_pins = sum(row["status"] in {"floating", "stale pin"} for row in npx_pins)
     print(
         f"Packages: {len(inventory.packages)}; findings: {len(result.findings)}; "
-        f"Docker images: {image_stats['scanned']}/{image_stats['images']}; "
-        f"Homebrew outdated: {len(brew_rows)}; scan errors: {len(result.errors)}"
+        f"Docker images: {image_stats['cached']} cached + {image_stats['scanned']} scanned "
+        f"/ {image_stats['images']}; "
+        f"Homebrew outdated: {len(brew_rows)} ({len(brew_security)} with advisory hits); "
+        f"npx pins unpinned/stale: {stale_pins}; scan errors: {len(result.errors)}"
     )
     if alert_required(result.findings):
         print("SECURITY ALERT: MAL advisory or CRITICAL severity found")
@@ -838,6 +1360,32 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--skip-images", action="store_true", help="Skip expensive Docker image scans"
+    )
+    parser.add_argument(
+        "--image-timeout",
+        type=int,
+        default=600,
+        help="Per-image osv-scanner timeout in seconds (default 600)",
+    )
+    parser.add_argument(
+        "--image-cache",
+        default=str(ROOT / "docs" / "security" / "docker_scan_cache.json"),
+        help="Digest-keyed scan cache: unchanged images reuse their previous findings",
+    )
+    parser.add_argument(
+        "--refresh-images",
+        action="store_true",
+        help="Ignore the Docker scan cache and rescan every image",
+    )
+    parser.add_argument(
+        "--state-file",
+        default=str(ROOT / "docs" / "security" / "last_sweep_findings.json"),
+        help="Findings state used to compute the new/carried/resolved delta",
+    )
+    parser.add_argument(
+        "--no-delta",
+        action="store_true",
+        help="Do not read or write the sweep state file",
     )
     return _run(parser.parse_args(argv))
 
