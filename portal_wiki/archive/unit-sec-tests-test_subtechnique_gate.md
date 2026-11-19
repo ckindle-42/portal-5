@@ -1,12 +1,12 @@
 ---
 id: unit-sec-tests-test_subtechnique_gate
+historical: true
 kind: mixed
 title: "Security tests \u2014 test_subtechnique_gate"
 sources:
 - type: code
   path: portal/modules/security/tests/test_subtechnique_gate.py
   commit: 862c7b11
-last_generated_commit: 862c7b11
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - module
 - security
 - tests
-created_at: 1785800626.563243
-updated_at: 1785800626.563243
+
 ---
 
 Unit tests for the security module's test_subtechnique_gate surface.

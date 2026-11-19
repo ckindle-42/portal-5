@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-ctf_bench
+historical: true
 kind: mixed
 title: "CTF bench \u2014 captured-flag ground truth"
 sources:
 - type: code
   path: portal/modules/security/core/ctf_bench.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800269.394144
-updated_at: 1785800269.394144
+
 ---
 
 The CTF bench targeting the MBPTL lab (vmid 300) or vulhub containers, where a captured flag is unambiguous ground truth.

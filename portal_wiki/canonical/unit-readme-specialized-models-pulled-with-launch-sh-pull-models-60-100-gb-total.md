@@ -10,13 +10,14 @@ sources:
   path: config/portal.yaml
 - type: code
   path: portal/platform/inference/cli/update.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/backends.yaml
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.686558
-updated_at: 1784946220.686558
 ---
 
 The specialized model catalog lives in `config/backends.yaml`, grouped by routing

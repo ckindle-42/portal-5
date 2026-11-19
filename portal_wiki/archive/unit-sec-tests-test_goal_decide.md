@@ -1,12 +1,12 @@
 ---
 id: unit-sec-tests-test_goal_decide
+historical: true
 kind: mixed
 title: "Security tests \u2014 test_goal_decide"
 sources:
 - type: code
   path: portal/modules/security/tests/test_goal_decide.py
   commit: 862c7b11
-last_generated_commit: 862c7b11
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - module
 - security
 - tests
-created_at: 1785800599.9863412
-updated_at: 1785800599.9863412
+
 ---
 
 Unit tests for the security module's test_goal_decide surface.

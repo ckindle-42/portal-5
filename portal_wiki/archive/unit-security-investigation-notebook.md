@@ -1,12 +1,12 @@
 ---
 id: unit-security-investigation-notebook
+historical: true
 kind: mixed
 title: "Investigation case notebook \u2014 shared per-case memory"
 sources:
 - type: code
   path: portal/modules/security/core/investigation/case_notebook.py
   commit: 29cbcd27
-last_generated_commit: 29cbcd27
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - module
 - security
 - investigation
-created_at: 1785796320.872406
-updated_at: 1785796320.872406
+
 ---
 
 `CaseNotebook` is the investigation memory for one case — one of the seven

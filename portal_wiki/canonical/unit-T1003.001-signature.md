@@ -11,14 +11,16 @@ sources:
   path: ATT&CK:T1003.001
 - type: scenario
   path: exec_chain.py#ad_full_compromise
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1003.001
+  equals: true
 confidence: high
 tags:
 - T1003.001
 - technique
 - signature
-created_at: 1790651067.891409
-updated_at: 1790651067.891409
 ---
 
 # T1003.001 — LSASS dump — credential dumping via lsass.exe memory access [DISTINGUISH: T1003.001 = local LSASS memory access; T1003.003 = NTDS.dit extraction; T1003.006 = remote AD replication] [KEY: TargetImage=*lsass* or NewProcessName=*lsass*]

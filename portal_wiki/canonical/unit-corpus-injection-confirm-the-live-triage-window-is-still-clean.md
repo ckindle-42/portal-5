@@ -7,12 +7,13 @@ sources:
   path: scripts/corpus_ingest.py
 - type: code
   path: portal/modules/security/core/siem/blue_triage.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/corpus_ingest.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.58561
-updated_at: 1784946220.58561
 ---
 
 The point of backdating is that injected corpus events never surface as live

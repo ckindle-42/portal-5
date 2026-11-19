@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-ability_port
+historical: true
 kind: mixed
 title: "Ability port \u2014 capability probe surface"
 sources:
 - type: code
   path: portal/modules/security/core/ability_port.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800295.9028249
-updated_at: 1785800295.9028249
+
 ---
 
 The ability-port probe that exercises a workspace's declared capability through the pipeline, checking whether the served behaviour matches the claimed ability.

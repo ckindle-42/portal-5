@@ -5,14 +5,15 @@ title: "MCP host \u2014 shared workspace paths and pipeline introspection server
 sources:
 - type: code
   path: portal/platform/mcp_host/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/mcp_host/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - platform
 - mcp-host
-created_at: 1785886400.0
-updated_at: 1785886400.0
 ---
 
 The `mcp_host` package is the shared core of the MCP fleet, holding two contracts every server depends on. The workspace helpers resolve the one user-file root, with `uploads/` and `generated/<category>/` beneath it, across the container and host worlds so a Docker MCP and a host-native service see the same tree. The pipeline MCP (`pipeline_mcp`, port 8928) is separate: a host-native server that gives Claude Code and opencode a live read on the stack.

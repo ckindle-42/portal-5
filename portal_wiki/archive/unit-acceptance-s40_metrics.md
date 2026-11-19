@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-s40_metrics
+historical: true
 kind: mixed
 title: "S40 \u2014 Metrics"
 sources:
 - type: code
   path: tests/acceptance/s40_metrics.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799816.395905
-updated_at: 1785799816.395905
+
 ---
 
 This is the acceptance section s40_metrics. S40 — Metrics

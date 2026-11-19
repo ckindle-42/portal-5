@@ -1,19 +1,18 @@
 ---
 id: unit-claude-reference-docs
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 Reference Docs"
 sources:
 - type: design
   path: CLAUDE.md
   section: Reference Docs
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.194389
-updated_at: 1785348301.194389
+
 ---
 
 

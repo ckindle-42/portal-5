@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-results
+historical: true
 kind: mixed
 title: "Acceptance results \u2014 run summary writer"
 sources:
 - type: code
   path: tests/acceptance/results.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799706.479161
-updated_at: 1785799706.479161
+
 ---
 
 `results.py` writes the acceptance results summary for a run.

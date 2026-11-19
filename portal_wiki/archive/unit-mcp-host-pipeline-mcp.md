@@ -1,12 +1,12 @@
 ---
 id: unit-mcp-host-pipeline-mcp
+historical: true
 kind: mixed
 title: "Pipeline MCP \u2014 coding-tool stack introspection (zero inference imports)"
 sources:
 - type: code
   path: portal/platform/mcp_host/pipeline_mcp.py
   commit: 3d8cf6f5
-last_generated_commit: 3d8cf6f5
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - mcp
 - platform
 - dev-tooling
-created_at: 1785795764.0585442
-updated_at: 1785795764.0585442
+
 ---
 
 The pipeline MCP gives Claude Code and opencode live introspection of the

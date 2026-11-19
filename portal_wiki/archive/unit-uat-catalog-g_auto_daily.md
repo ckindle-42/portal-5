@@ -1,20 +1,19 @@
 ---
 id: unit-uat-catalog-g_auto_daily
+historical: true
 kind: mixed
 title: "UAT catalog group \u2014 auto-daily"
 sources:
 - type: code
   path: tests/uat_catalog/g_auto_daily.py
   commit: fe7f1e7c
-last_generated_commit: fe7f1e7c
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - uat-catalog
-created_at: 1785800128.8047051
-updated_at: 1785800128.8047051
+
 ---
 
 This catalog group covers the auto-daily workspace(s), exporting a `TESTS`

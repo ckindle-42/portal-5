@@ -1,7 +1,7 @@
 ---
 id: unit-routing-security-operator-selected
 kind: mixed
-title: "Security Is Operator-Selected, Never Auto-Routed"
+title: Security Is Operator-Selected, Never Auto-Routed
 sources:
 - type: code
   path: portal/platform/inference/router/routing.py
@@ -9,6 +9,10 @@ sources:
   path: portal/platform/inference/router/preinject.py
 - type: code
   path: config/portal.yaml
+claims:
+- probe: repo.path.exists
+  path: config/portal.yaml
+  equals: true
 confidence: high
 tags:
 - security

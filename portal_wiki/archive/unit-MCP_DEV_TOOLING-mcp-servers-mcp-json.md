@@ -1,18 +1,17 @@
 ---
 id: unit-MCP_DEV_TOOLING-mcp-servers-mcp-json
+historical: true
 kind: why
 title: "MCP_DEV_TOOLING \u2014 MCP Servers (`.mcp.json`)"
 sources:
 - type: design
   path: docs/MCP_DEV_TOOLING.md
   section: MCP Servers (`.mcp.json`)
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - MCP_DEV_TOOLING
-created_at: 1783195000.870443
-updated_at: 1783195000.870443
+
 ---
 
 

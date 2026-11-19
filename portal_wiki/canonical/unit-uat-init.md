@@ -6,14 +6,15 @@ sources:
 - type: code
   path: tests/uat/__init__.py
   commit: d7dcc96a
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/uat/__init__.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - uat
-created_at: 1785799254.7956119
-updated_at: 1785799254.7956119
 ---
 
 The uat package is the modularised UAT driver, split from the monolithic

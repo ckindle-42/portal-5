@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-using-the-openai-python-sdk
+historical: true
 kind: why
 title: "HOWTO \u2014 Using the OpenAI Python SDK"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: Using the OpenAI Python SDK
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.862161
-updated_at: 1783195000.862161
+
 ---
 
 

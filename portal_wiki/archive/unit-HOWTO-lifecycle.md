@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-lifecycle
+historical: true
 kind: why
 title: "HOWTO \u2014 Lifecycle"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: Lifecycle
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.864702
-updated_at: 1783195000.864702
+
 ---
 
 ./launch.sh up              # Start everything

@@ -11,7 +11,11 @@ sources:
   path: portal/modules/security/core/bully/behavior_values.py
 - type: code
   path: scripts/build_specimen_corpus_v3.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/bully/discovery_bench.py
+  symbol: independent_truth_related
+  equals: true
 confidence: high
 tags:
 - docs

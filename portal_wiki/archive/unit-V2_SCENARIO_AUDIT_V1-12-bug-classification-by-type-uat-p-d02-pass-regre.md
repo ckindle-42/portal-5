@@ -1,5 +1,6 @@
 ---
 id: unit-V2_SCENARIO_AUDIT_V1-12-bug-classification-by-type-uat-p-d02-pass-regre
+historical: true
 kind: why
 title: "V2_SCENARIO_AUDIT_V1 \u2014 12. `bug-classification-by-type` (UAT P-D02 \u2014\
   \ PASS regression guard)"
@@ -7,13 +8,11 @@ sources:
 - type: design
   path: docs/V2_SCENARIO_AUDIT_V1.md
   section: "12. `bug-classification-by-type` (UAT P-D02 \u2014 PASS regression guard)"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - V2_SCENARIO_AUDIT_V1
-created_at: 1783195000.9256802
-updated_at: 1783195000.9256802
+
 ---
 
 

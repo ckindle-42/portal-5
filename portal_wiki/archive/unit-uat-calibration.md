@@ -1,20 +1,19 @@
 ---
 id: unit-uat-calibration
+historical: true
 kind: mixed
 title: "UAT calibration \u2014 scoring calibration"
 sources:
 - type: code
   path: tests/uat/calibration.py
   commit: d7dcc96a
-last_generated_commit: d7dcc96a
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - uat
-created_at: 1785799319.124385
-updated_at: 1785799319.124385
+
 ---
 
 The UAT scoring calibration extracted from the driver monolith.

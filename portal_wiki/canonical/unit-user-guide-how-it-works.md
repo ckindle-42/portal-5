@@ -7,13 +7,16 @@ sources:
   path: deploy/portal-5/docker-compose.yml
 - type: code
   path: scripts/eg2-embedding-server.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: deploy/portal-5/docker-compose.yml
+  symbol: CHUNK_SIZE
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.516234
-updated_at: 1784946220.516234
+
 ---
 
 When you attach a document, Open WebUI chunks it at `CHUNK_SIZE` (1500

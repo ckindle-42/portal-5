@@ -7,12 +7,13 @@ sources:
   path: tests/benchmarks/bench/config.py
 - type: code
   path: scripts/update_grafana_benchmarks.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/benchmarks/bench/config.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.699299
-updated_at: 1784946220.699299
 ---
 
 You are the **benchmark execution agent**, not the implementation agent. You

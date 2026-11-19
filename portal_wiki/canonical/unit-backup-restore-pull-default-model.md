@@ -9,12 +9,13 @@ sources:
   path: portal/platform/inference/cli/models.py
 - type: code
   path: portal/platform/inference/config.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: launch.sh
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.533891
-updated_at: 1784946220.533891
 ---
 
 Repopulating the model catalog on a fresh or rebuilt host is a single command: `./launch.sh pull-models`, which maps to `portal.platform.inference.cli models pull`. That command reads the registry loaded from `config/backends.yaml` and pulls every configured model, using native `ollama pull` for registry models and the Python API plus `ollama create` for HuggingFace-sourced weights. It skips models already present in Ollama, so re-running is cheap and idempotent.

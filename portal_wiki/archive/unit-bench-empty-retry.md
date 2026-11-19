@@ -1,20 +1,19 @@
 ---
 id: unit-bench-empty-retry
+historical: true
 kind: mixed
 title: "Bench empty-retry test \u2014 empty-only retry guard"
 sources:
 - type: code
   path: tests/benchmarks/test_empty_retry.py
   commit: 071aaf52
-last_generated_commit: 071aaf52
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - bench
-created_at: 1785798633.026751
-updated_at: 1785798633.026751
+
 ---
 
 `test_empty_retry.py` tests the bench's empty-output retry logic: an

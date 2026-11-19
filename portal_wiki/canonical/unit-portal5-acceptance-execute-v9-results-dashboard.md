@@ -7,12 +7,13 @@ sources:
   path: scripts/update_grafana_acceptance.py
 - type: code
   path: tests/lib/results.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/update_grafana_acceptance.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.696529
-updated_at: 1784946220.696529
 ---
 
 After a run completes, the results file is written to `docs/ACCEPTANCE_RESULTS.md`

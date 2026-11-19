@@ -9,14 +9,17 @@ sources:
   path: scripts/openwebui_init.py
 - type: code
   path: portal/platform/inference/router/preinject.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: config/personas/redteamoperator.yaml
+  symbol: workspace_model
+  equals: true
 confidence: high
 tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.839925
-updated_at: 1783195000.839925
+
 ---
 
 **What:** Pre-configured specialist prompts that shape the AI's behavior.

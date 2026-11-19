@@ -6,15 +6,16 @@ sources:
 - type: code
   path: portal/modules/security/core/commands/__init__.py
   commit: c36595e1
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/commands/__init__.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - module
 - security
 - commands
-created_at: 1785795357.189006
-updated_at: 1785795357.189006
 ---
 
 The commands subpackage is the extracted runner layer of the security

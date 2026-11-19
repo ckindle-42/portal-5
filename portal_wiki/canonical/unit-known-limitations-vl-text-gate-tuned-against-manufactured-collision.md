@@ -5,7 +5,11 @@ title: "KNOWN_LIMITATIONS — VL_TEXT_GATE τ was tuned against a collision the 
 sources:
 - type: code
   path: reports/retrieval/SUBSTRATE_MIGRATION_V1.md
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: reports/retrieval/SUBSTRATE_MIGRATION_V1.md
+  symbol: VL_TEXT_GATE
+  equals: true
 confidence: high
 tags:
 - docs

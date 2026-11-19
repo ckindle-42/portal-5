@@ -164,16 +164,35 @@ _launch_install_mflux() {
         echo "  There is no CPU/CUDA fallback for this engine."
         exit 1
     fi
-    command -v python3 &>/dev/null || { echo "  ❌ python3 not found (brew install python)"; exit 1; }
+    # mflux >=0.24 requires Python >=3.11; the host `python3` may still be 3.10.
+    MX_PY="${MFLUX_PYTHON:-}"
+    if [ -z "$MX_PY" ]; then
+        for cand in python3.13 python3.12 python3.11 python3; do
+            command -v "$cand" &>/dev/null || continue
+            if "$cand" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)' 2>/dev/null; then
+                MX_PY="$cand"; break
+            fi
+        done
+    fi
+    [ -n "$MX_PY" ] || {
+        echo "  ❌ No Python >=3.11 found (mflux 0.24 requires it)."
+        echo "     Install one, e.g.: brew install python@3.12  (or: uv venv --python 3.12)"
+        exit 1
+    }
+    echo "  Using Python: $MX_PY ($("$MX_PY" -c 'import sys; print(".".join(map(str, sys.version_info[:3])))'))"
 
     mkdir -p "$MX_DIR" "$HOME/.portal5/logs"
-    [ -d "$MX_VENV" ] || { echo "  Creating venv..."; python3 -m venv "$MX_VENV"; }
+    [ -d "$MX_VENV" ] || { echo "  Creating venv..."; "$MX_PY" -m venv "$MX_VENV"; }
 
-    echo "  Installing deps (mflux, mcp)..."
+    echo "  Installing deps (mflux==0.24.0, mcp)..."
     "$MX_VENV/bin/pip" install --quiet --upgrade pip
     "$MX_VENV/bin/pip" install --quiet \
-        "mflux" "fastapi>=0.109.0" "uvicorn[standard]>=0.27.0" "httpx>=0.26.0" \
+        "mflux==0.24.0" "fastapi>=0.109.0" "uvicorn[standard]>=0.27.0" "httpx>=0.26.0" \
         "pyyaml>=6.0.1" "starlette>=1.3.0" "mcp>=2.0.0,<3.0.0"
+    "$MX_VENV/bin/python" -c 'import mflux, PIL; assert tuple(map(int, PIL.__version__.split(".")[:2])) >= (13, 0), f"Pillow {PIL.__version__} < 13 (GHSA-5x8w-8jj5-q52h)"' \
+        || { echo "  ❌ mflux 0.24.0 / Pillow>=13.0.0 verification failed"; exit 1; }
+    "$MX_VENV/bin/python" -c 'import platform; assert platform.machine() == "arm64"' \
+        || { echo "  ❌ venv is not arm64-native"; exit 1; }
 
     cat > "$MX_DIR/start.sh" << MX_START
 #!/bin/bash
@@ -231,23 +250,32 @@ _launch_stop_mflux() {
 _launch_pull_mflux_models() {
     MX_VENV="$HOME/.portal5/mflux/.venv"
     [ -x "$MX_VENV/bin/mflux-generate" ] || { echo "  ❌ Run ./launch.sh install-mflux first." >&2; exit 1; }
-    echo "  Pre-pulling MFLUX model weights (schnell ~34GB, then klein/z-image/qwen-image)..."
-    for m in "${@:-schnell flux2-klein-4b z-image-turbo qwen-image}"; do
-        echo "  → $m"
-        "$MX_VENV/bin/mflux-generate" --model "$m" --prompt "warmup" --steps 1 \
+    # Each family tag must warm through its own entry-point binary — the base
+    # mflux-generate dies on non-FLUX.1 tags. Sizes are the upstream bf16 pulls;
+    # -q 8 loads the smaller pre-quantized mflux-community repos where they exist.
+    MX_PULLS="flux2-klein-4b:mflux-generate-flux2 flux3-image-klein:mflux-generate-flux3 qwen-image-2.1-turbo:mflux-generate-qwen-2.1 z-image-turbo:mflux-generate-z-image-turbo"
+    echo "  Pre-pulling MFLUX weights (~15GB klein-4B, ~20GB flux3, ~33GB qwen-2.1, ~21GB z-image)..."
+    for pair in ${MFLUX_PULL_MODELS:-$MX_PULLS}; do
+        m="${pair%%:*}"; b="${pair##*:}"
+        echo "  → $m ($b)"
+        "$MX_VENV/bin/$b" --model "$m" --prompt "warmup" --steps 1 \
             --quantize 8 --low-ram --width 512 --height 512 \
             --output "/tmp/mflux_warmup_${m}.png" 2>&1 | tail -3 || true
     done
 }
 
 _launch_install_video_mlx() {
-    echo "=== Installing Video-MLX MCP natively (LTX-2.3 MLX video generation, Apple Silicon) ==="
+    echo "=== Installing Video-MLX MCP natively (LTX-2.5 MLX video generation, Apple Silicon) ==="
     ARCH=$(uname -m)
     VX_DIR="$HOME/.portal5/video-mlx"
     VX_SRC="$VX_DIR/ltx-2-mlx"
     VX_VENV="$VX_SRC/.venv"
     VX_LOG="$HOME/.portal5/logs/video-mlx.log"
     VX_PORT="${VIDEO_MLX_MCP_PORT:-8935}"
+    # Opt-in fallback engine (`install-video-mlx wan`): Blaizzy/mlx-video,
+    # Wan2.2-TI2V-5B converted to MLX Q8. Silent 720p photoreal output.
+    VX_WAN_MODEL="$VX_DIR/wan2.2-ti2v-5b-q8"
+    VX_WAN_EXTRAS=""
 
     if [ "$ARCH" != "arm64" ]; then
         echo "  ❌ Video-MLX requires Apple Silicon (arm64). Detected: $ARCH."
@@ -270,6 +298,21 @@ _launch_install_video_mlx() {
         "httpx>=0.26.0" "pyyaml>=6.0.1" 2>/dev/null || \
         ( cd "$VX_SRC" && uv pip install "mcp>=2.0.0,<3.0.0" "starlette>=1.3.0" "httpx>=0.26.0" "pyyaml>=6.0.1" )
 
+    if [ "${1:-}" = "wan" ]; then
+        echo "  Installing the mlx-video fallback (Wan2.2-TI2V-5B)..."
+        ( cd "$VX_SRC" && uv pip install "mlx-video @ git+https://github.com/Blaizzy/mlx-video.git@87db56a51758fefb748a359b90a5283bb8ba4837" ) || {
+            echo "  ❌ mlx-video install failed" >&2; exit 1;
+        }
+        if [ ! -d "$VX_WAN_MODEL" ]; then
+            echo "  Downloading Wan2.2-TI2V-5B MLX Q8 (~20GB)..."
+            ( cd "$VX_SRC" && "$VX_VENV/bin/huggingface-cli" download \
+                "Anes1032/Wan2.2-TI2V-5B-mlx-q8" --local-dir "$VX_WAN_MODEL" ) || {
+                echo "  ❌ Wan2.2 pack download failed" >&2; exit 1;
+            }
+        fi
+        VX_WAN_EXTRAS="export VIDEO_MLX_WAN_MODEL_DIR=\"$VX_WAN_MODEL\""
+    fi
+
     cat > "$VX_DIR/start.sh" << VX_START
 #!/bin/bash
 PORTAL_ROOT="${PORTAL_ROOT}"
@@ -280,6 +323,7 @@ export PYTHONPATH="\$PORTAL_ROOT"
 export PATH="/opt/homebrew/bin:/usr/local/bin:\$PATH"
 export VIDEO_MLX_BIN="$VX_VENV/bin/ltx-2-mlx"
 export VIDEO_MLX_MCP_PORT="${VX_PORT}"
+${VX_WAN_EXTRAS}
 [ -n "\${HF_HOME:-}" ] && export HF_HOME
 export AI_OUTPUT_DIR="\${AI_OUTPUT_DIR:-\$HOME/AI_Output}"
 export OPENWEBUI_URL="\${OPENWEBUI_URL:-http://localhost:8080}"

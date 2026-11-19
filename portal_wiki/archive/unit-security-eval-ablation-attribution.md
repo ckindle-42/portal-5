@@ -1,12 +1,12 @@
 ---
 id: unit-security-eval-ablation-attribution
+historical: true
 kind: mixed
 title: "Ablation attribution \u2014 multi-state failure attribution instrument"
 sources:
 - type: code
   path: portal/modules/security/eval/ablation_attribution.py
   commit: 851ea193
-last_generated_commit: 851ea193
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - module
 - security
 - eval
-created_at: 1785795981.801562
-updated_at: 1785795981.801562
+
 ---
 
 `ablation_attribution.py` is the failure-attribution instrument for

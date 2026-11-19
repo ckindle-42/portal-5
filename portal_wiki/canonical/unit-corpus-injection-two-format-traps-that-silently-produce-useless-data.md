@@ -9,12 +9,13 @@ sources:
   path: portal/modules/security/core/siem/collect.py
 - type: code
   path: portal/modules/security/core/siem/capture_store.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/corpus_ingest.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.5836549
-updated_at: 1784946220.5836549
 ---
 
 Both traps were hit building Lane B, and neither fails loudly — they yield

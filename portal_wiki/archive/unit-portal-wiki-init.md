@@ -1,19 +1,18 @@
 ---
 id: unit-portal-wiki-init
+historical: true
 kind: mixed
 title: "portal_wiki package \u2014 knowledge-layer entry surface"
 sources:
 - type: code
   path: portal_wiki/__init__.py
   commit: 53110d10
-last_generated_commit: 53110d10
 claims: []
 confidence: high
 tags:
 - authored-v1
 - wiki
-created_at: 1785796105.492609
-updated_at: 1785796105.492609
+
 ---
 
 The `portal_wiki` package is the agent-facing entry to the canonical

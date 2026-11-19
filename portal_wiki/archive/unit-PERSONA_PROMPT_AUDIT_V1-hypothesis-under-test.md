@@ -1,18 +1,17 @@
 ---
 id: unit-PERSONA_PROMPT_AUDIT_V1-hypothesis-under-test
+historical: true
 kind: why
 title: "PERSONA_PROMPT_AUDIT_V1 \u2014 Hypothesis Under Test"
 sources:
 - type: design
   path: docs/PERSONA_PROMPT_AUDIT_V1.md
   section: Hypothesis Under Test
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - PERSONA_PROMPT_AUDIT_V1
-created_at: 1783195000.883944
-updated_at: 1783195000.883944
+
 ---
 
 

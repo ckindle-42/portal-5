@@ -2848,6 +2848,8 @@
   "effective_tools": [
    "edit_image",
    "generate_image",
+   "image_start",
+   "image_status",
    "transcribe_audio"
   ],
   "id": "auto-vision",

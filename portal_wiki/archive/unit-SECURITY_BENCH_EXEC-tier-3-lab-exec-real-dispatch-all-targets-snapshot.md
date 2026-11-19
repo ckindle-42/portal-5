@@ -1,5 +1,6 @@
 ---
 id: unit-SECURITY_BENCH_EXEC-tier-3-lab-exec-real-dispatch-all-targets-snapshot
+historical: true
 kind: why
 title: "SECURITY_BENCH_EXEC \u2014 Tier 3: Lab-Exec (real dispatch, all targets, snapshot\
   \ lifecycle)"
@@ -7,13 +8,11 @@ sources:
 - type: design
   path: docs/SECURITY_BENCH_EXEC.md
   section: 'Tier 3: Lab-Exec (real dispatch, all targets, snapshot lifecycle)'
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - SECURITY_BENCH_EXEC
-created_at: 1783195000.9003751
-updated_at: 1783195000.9003751
+
 ---
 
 python3 -m tests.benchmarks.bench_security \

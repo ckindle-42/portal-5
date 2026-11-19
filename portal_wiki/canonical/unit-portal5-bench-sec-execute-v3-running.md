@@ -9,13 +9,14 @@ sources:
   path: portal/modules/security/core/_data.py
 - type: code
   path: portal/modules/security/core/commands/run.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/cli.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.70703
-updated_at: 1784946220.70703
 ---
 
 The bench entry point is `python3 -m portal.modules.security.core`, which

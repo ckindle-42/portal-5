@@ -1,20 +1,19 @@
 ---
 id: unit-archive-mlx-laguna-model
+historical: true
 kind: mixed
 title: "Laguna MLX model \u2014 archived custom-architecture candidate"
 sources:
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-model-laguna.py
   commit: 90ac134b
-last_generated_commit: 90ac134b
 claims: []
 confidence: high
 tags:
 - authored-v1
 - archive
 - mlx
-created_at: 1785797132.539455
-updated_at: 1785797132.539455
+
 ---
 
 This file is the Laguna (Poolside AI) model implementation for mlx-lm,

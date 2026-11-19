@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-users-you-ai-output-generated-transcripts-transcri
+historical: true
 kind: why
 title: "HOWTO \u2014 /Users/you/AI_Output/generated/transcripts/transcript_a3f2b1c4d5e6.md"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: /Users/you/AI_Output/generated/transcripts/transcript_a3f2b1c4d5e6.md
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.849167
-updated_at: 1783195000.849167
+
 ---
 
 ```

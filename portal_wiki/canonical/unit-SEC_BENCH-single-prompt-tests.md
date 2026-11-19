@@ -5,15 +5,16 @@ title: Security bench single-prompt quick tests
 sources:
 - type: code
   path: portal/modules/security/core/cli.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/cli.py
+  equals: true
 confidence: high
 tags:
 - bench
 - security
 - testing
 - verified-v1
-created_at: 1784945480.185725
-updated_at: 1784945480.185725
 ---
 
 ## Single prompt, lab-exec

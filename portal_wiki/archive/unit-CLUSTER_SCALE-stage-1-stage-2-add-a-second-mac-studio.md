@@ -1,18 +1,17 @@
 ---
 id: unit-CLUSTER_SCALE-stage-1-stage-2-add-a-second-mac-studio
+historical: true
 kind: why
 title: "CLUSTER_SCALE \u2014 Stage 1 \u2192 Stage 2: Add a Second Mac Studio"
 sources:
 - type: design
   path: docs/CLUSTER_SCALE.md
   section: "Stage 1 \u2192 Stage 2: Add a Second Mac Studio"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - CLUSTER_SCALE
-created_at: 1783195000.828442
-updated_at: 1783195000.828442
+
 ---
 
 

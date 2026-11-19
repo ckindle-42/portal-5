@@ -1,5 +1,6 @@
 ---
 id: unit-V2_SCENARIO_AUDIT_V1-13-code-review-pr-scope-uat-p-d03-pass-regression-
+historical: true
 kind: why
 title: "V2_SCENARIO_AUDIT_V1 \u2014 13. `code-review-pr-scope` (UAT P-D03 \u2014 PASS\
   \ regression guard)"
@@ -7,13 +8,11 @@ sources:
 - type: design
   path: docs/V2_SCENARIO_AUDIT_V1.md
   section: "13. `code-review-pr-scope` (UAT P-D03 \u2014 PASS regression guard)"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - V2_SCENARIO_AUDIT_V1
-created_at: 1783195000.925953
-updated_at: 1783195000.925953
+
 ---
 
 

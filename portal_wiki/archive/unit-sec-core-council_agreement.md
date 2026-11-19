@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-council_agreement
+historical: true
 kind: mixed
 title: "Council agreement \u2014 N-interpreter vote over shared evidence"
 sources:
 - type: code
   path: portal/modules/security/core/council_agreement.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800295.902835
-updated_at: 1785800295.902835
+
 ---
 
 The council-of-agreement mechanism: N interpreters vote over ONE shared evidence pool, where one lead investigation hunts and everyone else concludes from the same context.

@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-analyst_verdict
+historical: true
 kind: mixed
 title: "Analyst verdict \u2014 blue-orchestration outcome taxonomy"
 sources:
 - type: code
   path: portal/modules/security/core/analyst_verdict.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800269.394136
-updated_at: 1785800269.394136
+
 ---
 
 The analyst-verdict taxonomy for the blue orchestration loop, extended in V2 to carry the similar/variant/novel result from the similarity computation so the emerging-threat case is representable.

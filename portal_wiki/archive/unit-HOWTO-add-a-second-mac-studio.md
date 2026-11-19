@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-add-a-second-mac-studio
+historical: true
 kind: why
 title: "HOWTO \u2014 Add a second Mac Studio"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: Add a second Mac Studio
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.8599622
-updated_at: 1783195000.8599622
+
 ---
 
 

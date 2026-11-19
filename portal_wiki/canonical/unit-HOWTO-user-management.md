@@ -9,7 +9,10 @@ sources:
   path: scripts/lib/users.sh
 - type: code
   path: launch.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: .env.example
+  equals: true
 confidence: high
 tags:
 - HOWTO

@@ -7,14 +7,17 @@ sources:
   path: portal/modules/coding/tools/code_sandbox_mcp.py
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/coding/tools/code_sandbox_mcp.py
+  symbol: execute_python
+  equals: true
 confidence: high
 tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.840412
-updated_at: 1783195000.840412
+
 ---
 
 **What:** Generate code with AI and execute it in an isolated Docker-in-Docker sandbox.

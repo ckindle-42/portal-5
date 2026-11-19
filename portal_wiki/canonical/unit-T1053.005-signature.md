@@ -12,14 +12,16 @@ sources:
   path: exec_chain.py#kerberoast_to_da
 - type: scenario
   path: exec_chain.py#asrep_to_lateral
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1053.005
+  equals: true
 confidence: high
 tags:
 - T1053.005
 - technique
 - signature
-created_at: 1790651067.886692
-updated_at: 1790651067.886692
 ---
 
 # T1053.005 — Scheduled task persistence — Windows Security Event 4698

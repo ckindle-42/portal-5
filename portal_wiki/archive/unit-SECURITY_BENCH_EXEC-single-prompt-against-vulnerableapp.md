@@ -1,18 +1,17 @@
 ---
 id: unit-SECURITY_BENCH_EXEC-single-prompt-against-vulnerableapp
+historical: true
 kind: why
 title: "SECURITY_BENCH_EXEC \u2014 Single prompt against VulnerableApp"
 sources:
 - type: design
   path: docs/SECURITY_BENCH_EXEC.md
   section: Single prompt against VulnerableApp
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - SECURITY_BENCH_EXEC
-created_at: 1783195000.901115
-updated_at: 1783195000.901115
+
 ---
 
 

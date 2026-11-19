@@ -9,14 +9,17 @@ sources:
   path: tests/wfe/settings_audit.py
 - type: code
   path: tests/uat/settings_gate.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/platform/inference/router/streaming.py
+  symbol: model_hint
+  equals: true
 confidence: high
 tags:
 - known-limitations
 - routing
 - resolved
-created_at: 1790333591
-updated_at: 1790333591
+
 ---
 
 - **ID**: P5-HINT-FALLBACK-001

@@ -1,20 +1,19 @@
 ---
 id: unit-archive-mlx-smoke-test
+historical: true
 kind: mixed
 title: "MLX smoke test \u2014 archived empty-content gate"
 sources:
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/smoke_test_mlx.py
   commit: 90ac134b
-last_generated_commit: 90ac134b
 claims: []
 confidence: high
 tags:
 - authored-v1
 - archive
 - mlx
-created_at: 1785797164.1964521
-updated_at: 1785797164.1964521
+
 ---
 
 This is the V5 Apple Metal smoke test, archived with the retired MLX stack:

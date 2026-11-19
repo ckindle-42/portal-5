@@ -1,18 +1,17 @@
 ---
 id: unit-BACKUP_RESTORE-3-mcp-data-if-applicable
+historical: true
 kind: why
 title: "BACKUP_RESTORE \u2014 3. MCP Data (if applicable)"
 sources:
 - type: design
   path: docs/BACKUP_RESTORE.md
   section: 3. MCP Data (if applicable)
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - BACKUP_RESTORE
-created_at: 1783195000.822835
-updated_at: 1783195000.822835
+
 ---
 
 

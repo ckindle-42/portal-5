@@ -7,12 +7,13 @@ sources:
   path: portal/modules/eval/persona_matrix/_common.py
 - type: code
   path: .github/workflows/persona_matrix_nightly.yml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: .github/workflows/persona_matrix_nightly.yml
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.567051
-updated_at: 1784946220.567051
 ---
 
 This unit is the operations surface of the persona-matrix CI: how a sweep is configured, triggered, and consumed by an operator. Configuration is registry-driven — `WORKSPACE_REGISTRY` in `_common.py` maps each sweepable workspace to its assertion module, fixture module, persona categories, and an optional `threshold_doc`. The `auto-compliance` entry binds to `tests.lib.compliance_assertions`, `tests.lib.compliance_fixtures`, the compliance category, and `docs/COMPLIANCE_FALLBACK_POLICY.md`; `auto-coding` binds to the coding assertion and fixture libraries and carries no `threshold_doc` (the coding fallback-policy doc it once named does not exist, so the dead reference was dropped). The workflow supports three operator flows: baseline creation (run locally, inspect, commit the workspace-scoped JSON), manual dispatch (pick a workspace and the `ollama` backend from the workflow inputs), and artifact retrieval (the `persona_matrix-*` upload with 30-day retention).

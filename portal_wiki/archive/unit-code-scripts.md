@@ -1,5 +1,6 @@
 ---
 id: unit-code-scripts
+historical: true
 kind: what
 title: scripts subsystem (49 files)
 sources:
@@ -18,13 +19,11 @@ sources:
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-switch-benchmark.py
   commit: 305368bb3e8d
-last_generated_commit: ''
 confidence: high
 tags:
 - code
 - scripts
-created_at: 1785503864.8330922
-updated_at: 1785503864.8330922
+
 ---
 
 # scripts subsystem

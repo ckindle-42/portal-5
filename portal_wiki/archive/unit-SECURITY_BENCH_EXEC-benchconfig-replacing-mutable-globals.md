@@ -1,18 +1,17 @@
 ---
 id: unit-SECURITY_BENCH_EXEC-benchconfig-replacing-mutable-globals
+historical: true
 kind: why
 title: "SECURITY_BENCH_EXEC \u2014 BenchConfig \u2014 Replacing Mutable Globals"
 sources:
 - type: design
   path: docs/SECURITY_BENCH_EXEC.md
   section: "BenchConfig \u2014 Replacing Mutable Globals"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - SECURITY_BENCH_EXEC
-created_at: 1783195000.8960168
-updated_at: 1783195000.8960168
+
 ---
 
 

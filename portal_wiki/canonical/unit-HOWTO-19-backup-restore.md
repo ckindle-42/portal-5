@@ -5,14 +5,16 @@ title: HOWTO -- 19. Backup & Restore
 sources:
 - type: code
   path: scripts/lib/backup.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/lib/backup.sh
+  equals: true
 confidence: high
 tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1784944767.916967
-updated_at: 1784944767.916967
+
 ---
 
 Backup and restore are implemented in `scripts/lib/backup.sh`.

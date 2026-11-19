@@ -1,18 +1,17 @@
 ---
 id: unit-COMPLIANCE_FALLBACK_POLICY-what-compliance-fallback-means
+historical: true
 kind: why
 title: "COMPLIANCE_FALLBACK_POLICY \u2014 What \"compliance fallback\" means"
 sources:
 - type: design
   path: docs/COMPLIANCE_FALLBACK_POLICY.md
   section: What "compliance fallback" means
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - COMPLIANCE_FALLBACK_POLICY
-created_at: 1783195000.832642
-updated_at: 1783195000.832642
+
 ---
 
 

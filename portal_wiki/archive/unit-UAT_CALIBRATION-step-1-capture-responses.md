@@ -1,18 +1,17 @@
 ---
 id: unit-UAT_CALIBRATION-step-1-capture-responses
+historical: true
 kind: why
 title: "UAT_CALIBRATION \u2014 Step 1 \u2014 Capture responses"
 sources:
 - type: design
   path: docs/UAT_CALIBRATION.md
   section: "Step 1 \u2014 Capture responses"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - UAT_CALIBRATION
-created_at: 1783195000.918269
-updated_at: 1783195000.918269
+
 ---
 
 

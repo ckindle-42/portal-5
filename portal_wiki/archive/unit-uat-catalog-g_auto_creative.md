@@ -1,20 +1,19 @@
 ---
 id: unit-uat-catalog-g_auto_creative
+historical: true
 kind: mixed
 title: "UAT catalog group \u2014 auto-creative"
 sources:
 - type: code
   path: tests/uat_catalog/g_auto_creative.py
   commit: fe7f1e7c
-last_generated_commit: fe7f1e7c
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - uat-catalog
-created_at: 1785800128.804703
-updated_at: 1785800128.804703
+
 ---
 
 This catalog group covers the auto-creative workspace(s), exporting a `TESTS`

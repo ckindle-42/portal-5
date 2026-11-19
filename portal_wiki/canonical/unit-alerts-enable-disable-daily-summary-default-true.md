@@ -9,13 +9,14 @@ sources:
   path: portal/platform/inference/notifications/dispatcher.py
 - type: code
   path: .env.example
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/notifications/scheduler.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.550015
-updated_at: 1784946220.550015
 ---
 
 `ALERT_SUMMARY_ENABLED` gates the scheduler independently of the alert path. When the variable is false, the scheduler logs that summaries are disabled via env and never registers the cron job; when it is unset entirely, the code defaults to true. The gate stacks on top of the master `NOTIFICATIONS_ENABLED` switch, so both must be truthy for a summary to actually be dispatched.

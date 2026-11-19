@@ -1,18 +1,17 @@
 ---
 id: unit-FISH_SPEECH_SETUP-portal-6-0-0-fish-speech-setup-guide
+historical: true
 kind: why
 title: "FISH_SPEECH_SETUP \u2014 Portal 6.0.0 \u2014 Fish Speech Setup Guide"
 sources:
 - type: design
   path: docs/FISH_SPEECH_SETUP.md
   section: "Portal 6.0.0 \u2014 Fish Speech Setup Guide"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - FISH_SPEECH_SETUP
-created_at: 1783195000.834454
-updated_at: 1783195000.834454
+
 ---
 
 

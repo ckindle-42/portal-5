@@ -1,19 +1,18 @@
 ---
 id: unit-scripts-triage_actions
+historical: true
 kind: mixed
 title: "Script \u2014 triage_actions"
 sources:
 - type: code
   path: scripts/triage_actions.py
   commit: 94ecf393
-last_generated_commit: 94ecf393
 claims: []
 confidence: high
 tags:
 - authored-v1
 - scripts
-created_at: 1785799561.630837
-updated_at: 1785799561.630837
+
 ---
 
 Defines the safe, reversible corrective actions the supervisor may take; any triage result outside ALLOWED_ACTIONS is rejected, logged, and paused for a human.

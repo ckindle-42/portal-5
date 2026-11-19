@@ -1,19 +1,18 @@
 ---
 id: SEC_BENCH-agentic-blue-winning-20260706
+historical: true
 kind: what
 title: 'CORRECTED — was misleading: "granite (raw)" was a selection artifact'
 sources:
 - type: bench-security
   path: bench-run:agentic-blue-sweep:2026-07-06
-last_generated_commit: ''
 confidence: high
 tags:
 - agentic-blue
 - maturation
 - corrected
 - superseded
-created_at: 1783347779.178504
-updated_at: 1783351200.0
+
 ---
 
 # CORRECTED — Superseded by SEC_BENCH-agentic-blue-deltas-20260706

@@ -20,21 +20,36 @@ class TestMediaModelMemoryDict:
             assert isinstance(gb, (int, float)), f"{key}: expected float, got {type(gb)}"
             assert gb > 0, f"{key}: memory estimate must be > 0 GB"
 
-    def test_video_model_has_large_estimate(self):
-        """LTX-2.5 measured 15.8GiB peak — the estimate must stay above it."""
-        assert _admission.MEDIA_MODEL_MEMORY_GB.get("video_mlx:ltx-2.5-q4", 0) >= 17.0
+    def test_video_models_use_bucketed_estimates(self):
+        """LTX memory scales with resolution: the measured 512x320 anchor stays
+        above its 15.8GiB footprint, the 704x480 bucket is the conservative
+        estimate, and the Wan2.2-5B fallback carries its own key."""
+        assert _admission.MEDIA_MODEL_MEMORY_GB["video_mlx:ltx-2.5-q4"] >= 17.0
+        assert _admission.MEDIA_MODEL_MEMORY_GB["video_mlx:ltx-2.5-q4-512"] >= 17.0
+        assert _admission.MEDIA_MODEL_MEMORY_GB["video_mlx:ltx-2.5-q4-704"] >= 24.0
+        assert _admission.MEDIA_MODEL_MEMORY_GB["video_mlx:wan2.2-5b"] >= 20.0
 
-    def test_music_models_use_research_estimates(self):
-        # Research estimates, not live samples. admit() adds MEMORY_HEADROOM_GB.
+    def test_music_models_estimate_and_measure(self):
+        # XL-Turbo is a research estimate; the 8-bit MiniMax fallback carries
+        # main's live MiniMax-Music3-MLX measurement. admit() adds headroom.
         assert _admission.MEDIA_MODEL_MEMORY_GB["music:acestep-xl-turbo"] == 16.0
-        assert _admission.MEDIA_MODEL_MEMORY_GB["music:minimax3-8bit"] == 18.0
+        assert _admission.MEDIA_MODEL_MEMORY_GB["music:minimax3-8bit"] == 22.0
 
     def test_headroom_constant_exists(self):
         assert _admission.MEMORY_HEADROOM_GB >= 0
 
     def test_mflux_image_models_use_measured_estimates(self):
         assert _admission.MEDIA_MODEL_MEMORY_GB["mflux:schnell"] == 15.0
-        assert _admission.MEDIA_MODEL_MEMORY_GB["mflux:klein"] == 18.0
+        assert _admission.MEDIA_MODEL_MEMORY_GB["mflux:flux2-klein"] == 18.0
+
+    def test_mflux_roster_keys_are_budgeted(self):
+        """Every mflux_mcp roster key has an admission budget (and vice versa for the roster)."""
+        import portal.modules.media.tools.mflux_mcp as mflux_mcp
+
+        for key in mflux_mcp.MFLUX_MODELS:
+            assert f"mflux:{key}" in _admission.MEDIA_MODEL_MEMORY_GB, key
+        assert _admission.MEDIA_MODEL_MEMORY_GB["mflux:flux3-klein"] >= 23.0
+        assert _admission.MEDIA_MODEL_MEMORY_GB["mflux:qwen-2.1"] >= 26.0
 
 
 class TestEstimateJobGb:

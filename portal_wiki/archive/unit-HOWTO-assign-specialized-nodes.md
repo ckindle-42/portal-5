@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-assign-specialized-nodes
+historical: true
 kind: why
 title: "HOWTO \u2014 Assign specialized nodes"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: Assign specialized nodes
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.860412
-updated_at: 1783195000.860412
+
 ---
 
 

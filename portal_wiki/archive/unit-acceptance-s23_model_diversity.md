@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-s23_model_diversity
+historical: true
 kind: mixed
 title: "S23 \u2014 Model diversity"
 sources:
 - type: code
   path: tests/acceptance/s23_model_diversity.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799805.13595
-updated_at: 1785799805.13595
+
 ---
 
 This is the acceptance section s23_model_diversity. S23 — Model diversity

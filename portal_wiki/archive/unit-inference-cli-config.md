@@ -1,20 +1,19 @@
 ---
 id: unit-inference-cli-config
+historical: true
 kind: mixed
 title: "Inference CLI config \u2014 validate/show introspection"
 sources:
 - type: code
   path: portal/platform/inference/cli/config.py
   commit: 250150f6
-last_generated_commit: 250150f6
 claims: []
 confidence: high
 tags:
 - authored-v1
 - platform
 - cli
-created_at: 1785797851.0727181
-updated_at: 1785797851.0727181
+
 ---
 
 `portal config` is the config introspection surface: `config_validate`

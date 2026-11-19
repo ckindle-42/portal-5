@@ -330,6 +330,11 @@ def answer_direct(verb: str, args: str, root: Path, store: ArmTelegramStore) -> 
 
 
 def execute_control(request: ControlRequest, ctx: ControlContext) -> str:
+    if request.verb == "personal":
+        from portal.modules.orchestration.personal_runner import apply_personal_decision
+
+        decided = apply_personal_decision(ctx.root, request.args, "confirm")
+        return "confirmed" if decided == "confirmed" else "refused: personal task is not pending"
     handler = _VERBS.get(request.verb)
     if handler is None:
         return f"refused: unknown verb {request.verb}"

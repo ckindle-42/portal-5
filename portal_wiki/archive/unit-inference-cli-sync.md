@@ -1,20 +1,19 @@
 ---
 id: unit-inference-cli-sync
+historical: true
 kind: mixed
 title: "Inference CLI sync \u2014 operator artifact regeneration"
 sources:
 - type: code
   path: portal/platform/inference/cli/sync.py
   commit: 250150f6
-last_generated_commit: 250150f6
 claims: []
 confidence: high
 tags:
 - authored-v1
 - platform
 - cli
-created_at: 1785797874.7389781
-updated_at: 1785797874.7389781
+
 ---
 
 `portal sync-config` regenerates the derived artifacts from

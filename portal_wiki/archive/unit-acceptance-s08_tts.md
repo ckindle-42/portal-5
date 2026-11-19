@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-s08_tts
+historical: true
 kind: mixed
 title: "S8 \u2014 Text-to-speech"
 sources:
 - type: code
   path: tests/acceptance/s08_tts.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799764.058754
-updated_at: 1785799764.058754
+
 ---
 
 This is the acceptance section s08_tts. S8 — Text-to-speech

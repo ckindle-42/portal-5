@@ -1,20 +1,19 @@
 ---
 id: unit-tests-unit-test_capability_probe
+historical: true
 kind: mixed
 title: "Unit tests \u2014 test_capability_probe"
 sources:
 - type: code
   path: tests/unit/test_capability_probe.py
   commit: d5234798
-last_generated_commit: d5234798
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - unit
-created_at: 1785800468.8922298
-updated_at: 1785800468.8922298
+
 ---
 
 Unit tests for test_capability_probe.

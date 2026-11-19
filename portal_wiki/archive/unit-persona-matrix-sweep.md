@@ -1,20 +1,19 @@
 ---
 id: unit-persona-matrix-sweep
+historical: true
 kind: mixed
 title: "Persona matrix sweep \u2014 cell grid with memory discipline"
 sources:
 - type: code
   path: portal/modules/eval/persona_matrix/sweep.py
   commit: db243698
-last_generated_commit: db243698
 claims: []
 confidence: high
 tags:
 - authored-v1
 - eval
 - persona-matrix
-created_at: 1785797000.90514
-updated_at: 1785797000.90514
+
 ---
 
 `sweep.py` is the sweep orchestration: `run_cell` runs every applicable

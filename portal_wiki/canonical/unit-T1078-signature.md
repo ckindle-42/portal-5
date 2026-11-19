@@ -13,14 +13,16 @@ sources:
   path: exec_chain.py#web_idor
 - type: scenario
   path: exec_chain.py#meta3_ftp_backdoor
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1078
+  equals: true
 confidence: high
 tags:
 - T1078
 - technique
 - signature
-created_at: 1790651067.890154
-updated_at: 1790651067.890154
 ---
 
 # T1078 — Valid accounts — default/weak credential usage

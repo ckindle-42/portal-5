@@ -1,18 +1,17 @@
 ---
 id: unit-USER_GUIDE-tools-mcp-servers
+historical: true
 kind: why
 title: "USER_GUIDE \u2014 Tools (MCP Servers)"
 sources:
 - type: design
   path: docs/USER_GUIDE.md
   section: Tools (MCP Servers)
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - USER_GUIDE
-created_at: 1783195000.920298
-updated_at: 1783195000.920298
+
 ---
 
 

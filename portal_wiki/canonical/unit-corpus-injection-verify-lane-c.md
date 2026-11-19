@@ -7,12 +7,13 @@ sources:
   path: scripts/caldera_emulate.py
 - type: code
   path: portal/modules/security/core/siem/spl_backend.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/caldera_emulate.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.587049
-updated_at: 1784946220.587049
 ---
 
 Verifying a Lane C run confirms both that the telemetry shipped and that it is

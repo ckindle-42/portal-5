@@ -5,14 +5,16 @@ title: "HOWTO \u2014 Shared Workspace"
 sources:
 - type: code
   path: portal/platform/mcp_host/workspace.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/mcp_host/workspace.py
+  equals: true
 confidence: high
 tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.857887
-updated_at: 1783195000.857887
+
 ---
 
 **What:** A single host directory that all Portal 5 services read from and write to. Files dropped in OWUI chat, MCP-generated outputs, and host-native script outputs all live here, eliminating cross-service file-bridging friction.

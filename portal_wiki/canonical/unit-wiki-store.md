@@ -6,13 +6,14 @@ sources:
 - type: code
   path: portal/platform/wiki/store.py
   commit: e5c013b3dfd9e466a1964ca4832ddcc379b95488
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/wiki/store.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - wiki
-created_at: 1785797299.6082618
-updated_at: 1785797299.6082618
 ---
 
 The store module is the git-backed persistence layer for canonical units:

@@ -1,20 +1,19 @@
 ---
 id: unit-notifications-scheduler
+historical: true
 kind: mixed
 title: "Notification scheduler \u2014 daily summary cron driver"
 sources:
 - type: code
   path: portal/platform/inference/notifications/scheduler.py
   commit: 7383d070
-last_generated_commit: 7383d070
 claims: []
 confidence: high
 tags:
 - authored-v1
 - notifications
 - platform
-created_at: 1785796468.494455
-updated_at: 1785796468.494455
+
 ---
 
 The notification scheduler drives daily usage summaries on a cron schedule

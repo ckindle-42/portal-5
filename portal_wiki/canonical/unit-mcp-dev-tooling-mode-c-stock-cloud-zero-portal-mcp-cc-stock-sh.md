@@ -5,13 +5,14 @@ title: "MCP_DEV_TOOLING \u2014 Mode C \u2014 Stock cloud (zero Portal MCP, `cc-s
 sources:
 - type: code
   path: scripts/cc-stock.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/cc-stock.sh
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.577482
-updated_at: 1784946220.577482
 ---
 
 Mode C runs vanilla cloud Claude Code inside the repo with none of Portal's MCP

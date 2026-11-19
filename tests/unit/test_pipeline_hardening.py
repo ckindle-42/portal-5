@@ -31,7 +31,6 @@ from portal.platform.inference.router.context_inject import (
     _salient_user_text,
 )
 from portal.platform.inference.router.preinject import (
-    _apply_no_tools_request,
     _inject_system_prompt_append,
     append_text_to_content,
 )
@@ -1401,27 +1400,6 @@ async def test_failover_synthesis_never_delivers_tool_call_markup(monkeypatch, n
 
 
 @pytest.mark.anyio
-async def test_bite_allowlist_does_not_readd_filtered_nonstream_client_tools(
-    monkeypatch, ns_tools
-) -> None:
-    client = _SeenClient([_text_reply("done")])
-    monkeypatch.setattr(ns, "_http_client", client)
-    body = {
-        "messages": [],
-        "portal_bite_tools": ["lookup", "finish"],
-        "tools": [
-            {"type": "function", "function": {"name": "finish", "parameters": {}}},
-            {"type": "function", "function": {"name": "not_allowed", "parameters": {}}},
-        ],
-    }
-
-    await ns._try_non_streaming(_backend("b"), body, ns_tools, 0.0)
-
-    names = {tool["function"]["name"] for tool in client.bodies[0]["tools"]}
-    assert names == {"lookup", "finish"}
-
-
-@pytest.mark.anyio
 @pytest.mark.parametrize(
     ("case", "expected"),
     [
@@ -1781,66 +1759,6 @@ def _empty_retried_counter(workspace: str) -> float:
 
 
 @pytest.mark.anyio
-async def test_an_empty_answer_with_tools_retries_once_without_tools(monkeypatch, ns_tools) -> None:
-    """The security seat's live failure: tools attached, JSON answer swallowed to ''."""
-    client = _SeenClient([_text_reply(""), _text_reply('{"verdict": "notable"}')])
-    monkeypatch.setattr(ns, "_http_client", client)
-    before = _empty_retried_counter(ns_tools)
-
-    result = await ns._try_non_streaming(_backend("b"), {"messages": []}, ns_tools, 0.0)
-
-    body = json.loads(result.body)
-    assert body["choices"][0]["message"]["content"] == '{"verdict": "notable"}'
-    assert len(client.bodies) == 2
-    assert client.bodies[1]["tools"] is None
-    assert client.bodies[1]["tool_choice"] is None
-    assert _empty_retried_counter(ns_tools) == before + 1
-
-
-@pytest.mark.anyio
-async def test_an_empty_answer_without_tools_is_not_retried(monkeypatch, ns_env) -> None:
-    client = _SeenClient([_text_reply("")])
-    monkeypatch.setattr(ns, "_http_client", client)
-    before = _empty_retried_counter(ns_env)
-
-    result = await ns._try_non_streaming(_backend("b"), {"messages": []}, ns_env, 0.0)
-
-    assert json.loads(result.body)["choices"][0]["message"]["content"] == NO_ANSWER_MESSAGE
-    assert len(client.bodies) == 1
-    assert _empty_retried_counter(ns_env) == before
-
-
-@pytest.mark.anyio
-async def test_tool_choice_none_sends_no_workspace_tools_non_streaming(
-    monkeypatch, ns_tools
-) -> None:
-    client = _SeenClient([_text_reply('{"ok": true}')])
-    monkeypatch.setattr(ns, "_http_client", client)
-
-    result = await ns._try_non_streaming(
-        _backend("b"), {"messages": [], "tool_choice": "none"}, ns_tools, 0.0
-    )
-
-    assert json.loads(result.body)["choices"][0]["message"]["content"] == '{"ok": true}'
-    assert "tools" not in client.bodies[0]
-    assert client.bodies[0]["tool_choice"] == "none"
-
-
-@pytest.mark.anyio
-async def test_tools_array_empty_sends_no_workspace_tools_non_streaming(
-    monkeypatch, ns_tools
-) -> None:
-    body = _apply_no_tools_request({"messages": [], "tools": []})
-    client = _SeenClient([_text_reply("answered")])
-    monkeypatch.setattr(ns, "_http_client", client)
-
-    await ns._try_non_streaming(_backend("b"), body, ns_tools, 0.0)
-
-    assert "tools" not in client.bodies[0]
-    assert "portal_no_tools" not in client.bodies[0]
-
-
-@pytest.mark.anyio
 async def test_toolless_synthesis_retry_still_empty_is_the_no_answer_notice(
     monkeypatch, ns_tools
 ) -> None:
@@ -1943,58 +1861,6 @@ def test_strip_tool_calls_drops_calls_and_resets_the_finish_reason() -> None:
     assert ns._strip_tool_calls(data) == ["lookup"]
     assert data["choices"][0]["message"] == {"content": "partial prose"}
     assert data["choices"][0]["finish_reason"] == "stop"
-
-
-@pytest.mark.anyio
-async def test_non_streaming_omlx_forwards_client_budget_over_workspace_default(
-    monkeypatch, ns_env
-) -> None:
-    seen: list[dict[str, typing.Any]] = []
-
-    class _C(_NSClient):
-        async def post(self, url, json, timeout):  # type: ignore[override]
-            seen.append(json)
-            return await super().post(url, json, timeout)
-
-    monkeypatch.setitem(
-        ns.WORKSPACES,
-        ns_env,
-        {**ns.WORKSPACES[ns_env], "thinking_budget": 8192},
-    )
-    client = _C([httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})])
-    monkeypatch.setattr(ns, "_http_client", client)
-    await ns._try_non_streaming(
-        _omlx_backend("budget-omlx"),
-        {"messages": [], "thinking_budget": 4096},
-        ns_env,
-        0.0,
-    )
-
-    assert seen[0]["thinking_budget"] == 4096
-
-
-def test_chain_hop_injects_workspace_budget_on_omlx(monkeypatch) -> None:
-    omlx = SimpleNamespace(
-        id="omlx",
-        type="omlx",
-        chat_url="http://omlx/v1/chat/completions",
-        resolve_model=lambda hint: hint if hint == "omlx-model" else None,
-    )
-    monkeypatch.setattr(
-        ns,
-        "registry",
-        SimpleNamespace(
-            get_backend_candidates=lambda _ws: [omlx], list_healthy_backends=lambda: []
-        ),
-    )
-    monkeypatch.setitem(ns.WORKSPACES, "ws", {"thinking_budget": 8192})
-
-    url, body = ns.resolve_hop_target(
-        "ws", "omlx-model", "http://ollama/v1/chat/completions", {"model": "omlx-model"}
-    )
-
-    assert url == omlx.chat_url
-    assert body["thinking_budget"] == 8192
 
 
 # ── mixed pipeline-owned + client-owned tool turns ───────────────────

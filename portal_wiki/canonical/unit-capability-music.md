@@ -10,14 +10,18 @@ sources:
   path: portal/modules/media/tools/music_mcp.py
 - type: code
   path: portal/modules/media/tools/music_worker.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/media/tools/music_mcp.py
+  symbol: music_start
+  equals: true
+- probe: mcp.fleet.ids
+  contains: music
 confidence: high
 tags:
 - capability
 - mcp
 - media
-created_at: 1788030600.446044
-updated_at: 1788030600.446044
 ---
 
 # Music MCP — ACE-Step full-song generation
@@ -50,5 +54,6 @@ the subprocess is the idle release.
 
 `auto-audio::music` can ask for a song and get a file path back from one
 status call. Memory admission (`music:acestep-xl-turbo` 16 GB estimate,
-`music:minimax3-8bit` 18 GB estimate, plus headroom) runs before the child
-loads weights. Those gigabyte figures are research estimates, not live samples.
+`music:minimax3-8bit` 22 GB — main's live MiniMax-Music3 family measurement,
+carried over until the 8-bit card is sampled; XL-Turbo remains a research
+estimate) runs before the child loads weights.

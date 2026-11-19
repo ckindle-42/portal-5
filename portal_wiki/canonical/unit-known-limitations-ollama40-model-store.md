@@ -9,14 +9,17 @@ sources:
   path: scripts/check_updates.py
 - type: code
   path: scripts/model_autoupdate.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: scripts/model_upstream.py
+  symbol: num_ctx
+  equals: true
 confidence: high
 tags:
 - known-limitations
 - ollama
 - storage
-created_at: 1793220490
-updated_at: 1793220490
+
 ---
 
 #### Ollama 0.40 model store — v2 manifests, hidden llamacpp builds, and the safe blob-deletion reference set (2026-10-28)

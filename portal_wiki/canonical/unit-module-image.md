@@ -10,7 +10,7 @@ sources:
 - type: code
   path: config/portal.yaml
 claims:
-- probe: modules.disabled
+- probe: modules.enabled
   contains: image
 confidence: high
 tags:
@@ -22,13 +22,15 @@ tags:
 
 ## Tools
 
-`mflux_mcp` (:8933) — a headless host-MLX wrapper over the `mflux-generate`
-CLI (MLX-native FLUX port for Apple Silicon). Exposes `generate_image`
-(text-to-image: schnell / z-image / klein / qwen-image / dev) and
-`edit_image` (qwen-image-edit instruction editing, or plain img2img).
-It replaced the removed ComfyUI image path — the tool names are deliberately
-identical so the image workspaces repoint with a backend swap, not a
-tool-rename cascade.
+`mflux_mcp` (:8933) — a headless host-MLX wrapper over the per-family
+`mflux-generate-*` CLIs (mflux >=0.24.0, MLX-native for Apple Silicon). Exposes
+`generate_image` / `image_start` (text-to-image: flux2-klein 4-step default /
+flux3-klein 16-step / qwen-2.1-turbo 8-step / z-image-turbo) and `edit_image`
+(the family's `*-edit` binary, instruction editing with `--image-paths`).
+`image_start` returns a job id immediately; `image_status(job_id)` long-polls
+up to 20s per call for progress and the published download URL. It replaced the
+removed ComfyUI image path — the tool names are deliberately identical so the
+image workspaces repoint with a backend swap, not a tool-rename cascade.
 
 ## Workspaces
 
@@ -41,9 +43,9 @@ The switch is `modules.image.enabled` in `config/portal.yaml` (`portal module en
 ## Why
 
 Image generation is carved out of the `media` toggle into its own module so
-a tight-footprint box can disable image generation (a ~25GB MLX working set)
+a tight-footprint box can disable image generation (a ~18–26GB MLX working set)
 while keeping speech and transcription. The module gates the `mflux` fleet
 id and the `auto-image` workspace, both derived from their `module: image`
 tag in `config/portal.yaml`. The shipped switch is
-`modules.image.enabled: false`. A missing key falls back to
+`modules.image.enabled: true` (mflux 0.24, flux2-klein default; live trace 2026-11-19). A missing key falls back to
 `DEFAULT_ENABLED_MODULES` (on).

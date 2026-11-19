@@ -7,12 +7,13 @@ sources:
   path: scripts/lib/backup.sh
 - type: code
   path: launch.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/lib/backup.sh
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.524183
-updated_at: 1784946220.524183
 ---
 
 The `portal-5_open-webui-data` volume holds the Open WebUI database plus uploaded files the personas read, which is why the backup script treats it as the primary artifact. The backup step runs an alpine helper container that mounts the volume at `/data` and packs the directory with `tar czf`; the restore step runs the same helper but clears `/data` first, then extracts with the archive rooted at the filesystem root. Because the tarball stores absolute paths, the mount point places the content back at the correct location.

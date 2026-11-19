@@ -12,12 +12,13 @@ sources:
   path: tests/persona_matrix_diff.py
 - type: code
   path: config/backends.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/eval/persona_matrix/sweep.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.5660539
-updated_at: 1784946220.5660539
 ---
 
 The `--require` flag makes a sweep fail fast when a named model is absent from the resolved chain. In `run_sweep`, after backend, model and big-model filters, every required substring must appear in some chain model id; otherwise the driver prints the missing list and exits 3 before any cell runs. The documented granite-required sweep:

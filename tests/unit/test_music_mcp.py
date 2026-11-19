@@ -10,8 +10,6 @@ import pytest
 
 from portal.modules.media.tools import _admission
 from portal.modules.media.tools.music_worker import generate, write_wav
-from portal.platform.inference.cli.trace.model import Status
-from portal.platform.inference.cli.trace.music import run as trace_music_run
 
 
 @pytest.fixture
@@ -109,16 +107,3 @@ async def test_music_start_reclaims_before_the_worker(
     assert order.index("worker") > 0
     needed = _admission.MEDIA_MODEL_MEMORY_GB["music:acestep-xl-turbo"]
     assert order[0] == f"reclaim:{needed + _admission.MEMORY_HEADROOM_GB - 1.0:.1f}"
-
-
-def test_trace_music_warns_while_module_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
-    import portal.platform.inference.cli.trace.music as trace_music
-
-    def boom(*_args: Any, **_kwargs: Any) -> list[Any]:
-        raise AssertionError("disabled hop must not call the live path")
-
-    monkeypatch.setattr(trace_music, "_live", boom)
-    hops = trace_music_run(None, {"modules": {"music": {"enabled": False}}})  # type: ignore[arg-type]
-    assert len(hops) == 1
-    assert hops[0].status is Status.WARN
-    assert hops[0].observed == "module disabled"

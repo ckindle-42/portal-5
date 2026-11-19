@@ -1,12 +1,12 @@
 ---
 id: unit-security-siem-hec-ship
+historical: true
 kind: mixed
 title: "SIEM HEC shipper \u2014 telemetry ingestion to Splunk"
 sources:
 - type: code
   path: portal/modules/security/core/siem/hec_ship.py
   commit: d493d44c
-last_generated_commit: d493d44c
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - module
 - security
 - siem
-created_at: 1785796625.259786
-updated_at: 1785796625.259786
+
 ---
 
 `hec_ship.py` ships lab telemetry to Splunk's HTTP Event Collector: each

@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-on-new-host
+historical: true
 kind: why
 title: "HOWTO \u2014 On new host:"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: 'On new host:'
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.859532
-updated_at: 1783195000.859532
+
 ---
 
 git clone https://github.com/ckindle-42/portal-5

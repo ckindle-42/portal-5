@@ -1,20 +1,19 @@
 ---
 id: unit-uat-monitor
+historical: true
 kind: mixed
 title: "UAT monitor \u2014 run progress monitor"
 sources:
 - type: code
   path: tests/uat/monitor.py
   commit: d7dcc96a
-last_generated_commit: d7dcc96a
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - uat
-created_at: 1785799326.3474188
-updated_at: 1785799326.3474188
+
 ---
 
 The UAT run progress monitor that reports on a running UAT run.

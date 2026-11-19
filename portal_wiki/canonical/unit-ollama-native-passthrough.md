@@ -1,7 +1,7 @@
 ---
 id: unit-ollama-native-passthrough
 kind: mixed
-title: "Native Ollama passthrough — authenticated, load-guarded inference"
+title: "Native Ollama passthrough \u2014 authenticated, load-guarded inference"
 sources:
 - type: code
   path: portal/platform/inference/router/ollama_passthrough.py
@@ -41,7 +41,10 @@ sources:
   path: deploy/launchd/com.portal5.host-ml-watch.plist
 - type: code
   path: tests/unit/test_memory_safety_watch.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: .env.example
+  equals: true
 confidence: high
 tags:
 - capability

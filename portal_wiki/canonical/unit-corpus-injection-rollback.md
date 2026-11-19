@@ -7,12 +7,13 @@ sources:
   path: scripts/corpus_ingest.py
 - type: code
   path: portal/modules/security/core/siem/hec_ship.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/corpus_ingest.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.5859468
-updated_at: 1784946220.5859468
 ---
 
 Because every injected event is tagged `evidence_origin=corpus:<src>:<label>`

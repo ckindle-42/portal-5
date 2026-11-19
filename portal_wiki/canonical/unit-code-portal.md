@@ -18,13 +18,14 @@ sources:
 - type: code
   path: portal/modules/binary_research/harness/loop.py
   commit: 8015e9381c8a
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/conftest.py
+  equals: true
 confidence: high
 tags:
 - code
 - portal
-created_at: 1792204748.513469
-updated_at: 1792204748.513469
 ---
 
 # portal subsystem

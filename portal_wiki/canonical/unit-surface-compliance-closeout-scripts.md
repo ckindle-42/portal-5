@@ -1,7 +1,7 @@
 ---
 id: unit-surface-compliance-closeout-scripts
 kind: mixed
-title: "Compliance closeout scripts — the CLOSEOUT_V1 evidence instruments"
+title: "Compliance closeout scripts \u2014 the CLOSEOUT_V1 evidence instruments"
 sources:
 - type: code
   path: scripts/compliance/verify_conjunction_adoption.py
@@ -43,15 +43,16 @@ sources:
   path: scripts/compliance/sweep_acceptance_ab.py
 - type: code
   path: scripts/compliance/reading_loop_triage.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/compliance/verify_conjunction_adoption.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - surface
 - compliance
 - closeout
-created_at: 1789945809.999774
-updated_at: 1789945809.999774
 ---
 
 The closeout's instruments, one per phase of CLOSEOUT_V1, each reporting and

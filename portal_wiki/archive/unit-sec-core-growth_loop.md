@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-growth_loop
+historical: true
 kind: mixed
 title: "Growth loop \u2014 propose/prove/confirm capability growth"
 sources:
 - type: code
   path: portal/modules/security/core/growth_loop.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800295.902838
-updated_at: 1785800295.902838
+
 ---
 
 The growth loop that proposes new detections and scenarios to close capability gaps, proves them, and confirms the proven ones into the library.

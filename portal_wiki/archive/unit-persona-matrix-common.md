@@ -1,20 +1,19 @@
 ---
 id: unit-persona-matrix-common
+historical: true
 kind: mixed
 title: "Persona matrix common \u2014 shared constants + registry loader"
 sources:
 - type: code
   path: portal/modules/eval/persona_matrix/_common.py
   commit: db243698
-last_generated_commit: f0b6e5a43439303b615e818fed6698038c4af0c6
 claims: []
 confidence: high
 tags:
 - authored-v1
 - eval
 - persona-matrix
-created_at: 1785796983.60345
-updated_at: 1785796983.60345
+
 ---
 
 `_common.py` holds the shared constants and helpers for the persona-matrix

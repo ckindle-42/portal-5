@@ -1,18 +1,17 @@
 ---
 id: unit-SECURITY_BENCH_EXEC-cli-flags-new-as-of-2026-06-24
+historical: true
 kind: why
 title: "SECURITY_BENCH_EXEC \u2014 CLI Flags (New as of 2026-06-24)"
 sources:
 - type: design
   path: docs/SECURITY_BENCH_EXEC.md
   section: CLI Flags (New as of 2026-06-24)
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - SECURITY_BENCH_EXEC
-created_at: 1783195000.8988779
-updated_at: 1783195000.8988779
+
 ---
 
 

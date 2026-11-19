@@ -1,18 +1,17 @@
 ---
 id: unit-MLX_KV_FLAG_PROBE-mlx-vlm-server-help
+historical: true
 kind: why
 title: "MLX_KV_FLAG_PROBE \u2014 mlx_vlm.server --help"
 sources:
 - type: design
   path: docs/MLX_KV_FLAG_PROBE.md
   section: mlx_vlm.server --help
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - MLX_KV_FLAG_PROBE
-created_at: 1785348275.818568
-updated_at: 1785348275.818568
+
 ---
 
 ```

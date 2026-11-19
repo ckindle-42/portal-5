@@ -580,28 +580,38 @@ def derive_tool_authorizations(commit: str) -> KnowledgeUnit:
 # ── Media backend memory budget (Slice 7, TASK_VRAM_ADMISSION_V1) ───────────────
 # Session-observed peak unified-memory figures per media backend/model, consumed by
 # the Tier-1 admission check in portal/modules/media/tools/_admission.py to refuse a
-# job before it OOMs the host. Music figures are research estimates (not live
-# samples). Image/video figures are measured MLX peaks from
-# TASK_IMAGE_VIDEO_OVERHAUL_V1 (quantize 8 + --low-ram / block streaming).
+# job before it OOMs the host. Music XL-Turbo is a research estimate; the music
+# fallback and image/video figures are measured MLX peaks (quantize 8 + --low-ram /
+# block streaming) from TASK_IMAGE_VIDEO_OVERHAUL_V1.
 MEDIA_MODEL_MEMORY_GB: dict[str, float] = {
     # Measured live: MiniMax-Music3-MLX 60s/30-step, vm_stat sampled peak working set.
     # Raw peak only — admit() adds MEMORY_HEADROOM_GB on top (every other entry here
     # is likewise a raw size, not a headroom-inclusive figure). Was 27.0 with 4GB of
     # headroom double-counted, which false-refused real 22GB jobs on this 64GB host.
-    # Research estimates for the unified music MCP. Not live samples on this host.
+    # Unified music MCP: XL-Turbo is a research estimate (not a live sample);
+    # the 8-bit MiniMax-Music3 fallback carries main's live MiniMax-Music3-MLX
+    # measurement (same family, vm_stat sampled peak working set).
     "music:acestep-xl-turbo": 16.0,  # plan: 12–18 GB quantized XL-turbo peak
-    "music:minimax3-8bit": 18.0,  # plan: mlx-audio 8-bit MiniMax-Music3 peak
-    # MLX-native image generation (MFLUX / mflux-generate CLI, host MLX layer) —
-    # measured live in TASK_IMAGE_VIDEO_OVERHAUL_V1 I1, quantize 8 + --low-ram.
+    "music:minimax3-8bit": 22.0,  # measured live (main): sampled delta 22.02GiB, rounded down to the GiB
+    # MLX-native image generation (MFLUX / mflux-generate-* CLI, host MLX layer) —
+    # keys mirror portal/modules/media/tools/_admission.py exactly; keep in sync.
     "mflux:schnell": 15.0,
     "mflux:dev": 16.0,
-    "mflux:klein": 18.0,
+    "mflux:flux2-klein": 18.0,  # measured 17.95 peak MLX, flux2-klein-4b q8 + --low-ram
+    "mflux:flux3-klein": 23.0,  # upstream q8 peak 22.8GB @1024²; not measured here
     "mflux:z-image": 30.0,  # measured 26.83GB peak MLX, z-image-turbo q8 + --low-ram, 8 steps 768px
-    "mflux:qwen-image": 40.0,  # measured 36.82GB peak MLX, q8 + --low-ram, 8 steps 768px
-    "mflux:qwen-image-edit": 42.0,  # same text encoder + edit transformer
+    "mflux:qwen-image": 40.0,  # measured 36.82GB peak MLX, q8 + --low-ram (retired tag)
+    "mflux:qwen-image-edit": 42.0,  # same text encoder + edit transformer (retired tag)
+    "mflux:qwen-2.1": 26.0,  # reasoned: 17.5GB bf16 text encoder + q8 transformer (see _admission.py)
     # MLX-native video generation (ltx-2-mlx CLI, host MLX layer) — LTX-2.5
     # distilled, --low-ram. Measured live in the 2026-10-28 LTX-2.3 vs 2.5 A/B.
+    # Size-aware buckets mirror _admission.py: -512 measured, -704 estimated
+    # from the pixel-area scaling; wan2.2-5b is the mlx-video fallback (sourced
+    # 18-23GB Q8 weights, peak unmeasured).
     "video_mlx:ltx-2.5-q4": 18.0,  # measured 15.8GiB peak footprint, --distilled --low-ram, 512x320 97fr (2026-10-28)
+    "video_mlx:ltx-2.5-q4-512": 18.0,  # same measurement, the 512x320 (or smaller) admission bucket
+    "video_mlx:ltx-2.5-q4-704": 25.0,  # estimated, 704x480 97fr (unmeasured — scaled from the measured 512x320 peak)
+    "video_mlx:wan2.2-5b": 23.0,
 }
 
 
@@ -615,8 +625,9 @@ def derive_media_memory_budget(commit: str) -> KnowledgeUnit:
         "to refuse a job before it OOMs instead of after.",
         "",
         "Image is `mflux:*` (MLX-native FLUX, host layer), video is `video_mlx:*` "
-        "(ltx-2-mlx, host layer), music is `music:*`. All are measured MLX peaks with "
-        "`--low-ram` / block streaming.",
+        "(ltx-2-mlx, host layer), music is `music:*`. Peaks are measured MLX "
+        "figures where marked, or sourced/reasoned bounds (see comments) until a "
+        "local measurement replaces them.",
         "",
         "| Backend:model | Estimated GB |",
         "|---|---|",

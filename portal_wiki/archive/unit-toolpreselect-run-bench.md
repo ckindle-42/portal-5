@@ -1,20 +1,19 @@
 ---
 id: unit-toolpreselect-run-bench
+historical: true
 kind: mixed
 title: "Tool-preselect acceptance runner \u2014 repped scenario bench"
 sources:
 - type: code
   path: tests/toolpreselect/run_bench.py
   commit: c3244c5f
-last_generated_commit: c3244c5f
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - toolpreselect
-created_at: 1785795867.1413429
-updated_at: 1785795867.1413429
+
 ---
 
 `run_bench.py` is the exhaustive acceptance runner for the tool preselector:

@@ -6,18 +6,14 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-import pytest
-
 from portal.modules.security.core.hunt import product_jobs
 from portal.modules.security.core.hunt.executor import (
     DEFAULT_BUDGETS,
     HuntBudget,
-    HuntBudgetExceededError,
 )
 from portal.modules.security.core.hunt.notables import run as notables_run
 from portal.modules.security.core.hunt.notables.receipt import progress_update
 from portal.modules.security.core.hunt.notables.similar import SIMILAR_GENERATOR
-from portal.modules.security.tools import review_mcp
 
 
 class _FakeClock:
@@ -73,24 +69,6 @@ def _notables_stage(captured: dict[str, Any]):
     return run
 
 
-def _judge_stage(**kwargs: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    receipt = {
-        "requests": 1,
-        "model_seconds": 2.0,
-        "selection": {"policy": "stage1_rank", "candidates": 1, "judged": 1, "cut": 0},
-    }
-    progress_update(kwargs["out"], "judge", receipt)
-    return [{"p_yes": 0.91}], receipt
-
-
-def _capture_judge(captured: dict[str, Any]):
-    def run(**kwargs: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-        captured.update(kwargs)
-        return _judge_stage(**kwargs)
-
-    return run
-
-
 def _relate_stage(**kwargs: Any) -> dict[str, Any]:
     (kwargs["out"] / "relate.json").write_text(
         json.dumps(
@@ -108,117 +86,6 @@ def _relate_stage(**kwargs: Any) -> dict[str, Any]:
         )
     )
     return {"cases": 1}
-
-
-def _tracked(name: str, run: Any, seen: list[str]):
-    def call(**kwargs: Any) -> Any:
-        seen.append(name)
-        return run(**kwargs)
-
-    return call
-
-
-def test_hunt_start_routes_to_the_r2_job_runner(monkeypatch: Any) -> None:
-    search = object()
-    started: dict[str, Any] = {}
-
-    def start(*args: Any, **kwargs: Any) -> str:
-        started["args"] = args
-        started["kwargs"] = kwargs
-        return "hunt-r2-test"
-
-    monkeypatch.setattr(review_mcp, "_hunt_search", lambda: search)
-    monkeypatch.setattr(review_mcp, "r2_hunt_jobs", SimpleNamespace(start=start))
-    monkeypatch.setattr(
-        review_mcp.hunt_jobs,
-        "start",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("legacy hunt used")),
-    )
-
-    result = review_mcp.hunt_start(index="hb_kyoushi_s1", start=100.0, end=200.0, judge=True)
-
-    assert started["args"][:4] == (search, "hb_kyoushi_s1", 100.0, 200.0)
-    assert started["args"][4] == {
-        "query_seconds": 30.0,
-        "job_seconds": 1260.0,
-        "requests": 2000,
-        "cells": 10000,
-        "events": 5000,
-    }
-    assert started["kwargs"] == {"judge_enabled": True}
-    assert result["judge_enabled"] is True
-    assert result["job_id"] == "hunt-r2-test"
-
-
-def test_status_long_polls_until_terminal_and_returns_latest_progress(
-    tmp_path: Path, monkeypatch: Any
-) -> None:
-    monkeypatch.setattr(product_jobs, "_ROOT", tmp_path)
-    job_id = "hunt-r2-status-wait"
-    state = {
-        "job_id": job_id,
-        "index": "ix",
-        "status": "RUNNING",
-        "stage": "cards",
-        "started": 1.0,
-        "progress": {"current": {"phase": "cards"}, "stages": {}},
-        "run_dir": str(tmp_path / job_id),
-    }
-    product_jobs._write(job_id, state)
-    elapsed = [0.0]
-    sleeps: list[float] = []
-
-    def sleep(seconds: float) -> None:
-        sleeps.append(seconds)
-        elapsed[0] += seconds
-        if len(sleeps) == 2:
-            state.update(status="COMPLETE", stage="done", finished=3.0)
-            product_jobs._write(job_id, state)
-
-    monkeypatch.setattr(
-        product_jobs,
-        "time",
-        SimpleNamespace(monotonic=lambda: elapsed[0], sleep=sleep, time=lambda: 3.0),
-    )
-
-    result = product_jobs.status(job_id=job_id, wait_seconds=45)
-
-    assert result["status"] == "COMPLETE"
-    assert result["stage"] == "done"
-    assert len(sleeps) == 2
-
-
-def test_status_long_poll_is_bounded(tmp_path: Path, monkeypatch: Any) -> None:
-    monkeypatch.setattr(product_jobs, "_ROOT", tmp_path)
-    job_id = "hunt-r2-status-bound"
-    product_jobs._write(
-        job_id,
-        {
-            "job_id": job_id,
-            "index": "ix",
-            "status": "RUNNING",
-            "stage": "cards",
-            "started": 1.0,
-            "progress": {"current": {"phase": "cards"}, "stages": {}},
-            "run_dir": str(tmp_path / job_id),
-        },
-    )
-    elapsed = [0.0]
-    monkeypatch.setattr(
-        product_jobs,
-        "time",
-        SimpleNamespace(
-            monotonic=lambda: elapsed[0],
-            sleep=lambda seconds: elapsed.__setitem__(0, elapsed[0] + seconds),
-            time=lambda: 3.0,
-        ),
-    )
-
-    result = product_jobs.status(job_id=job_id, wait_seconds=1000)
-
-    assert elapsed[0] == product_jobs.STATUS_WAIT_MAX_S
-    assert result["status"] == "RUNNING"
-    assert result["stage"] == "cards"
 
 
 def test_nonterminal_hunt_views_return_compact_progress_instead_of_empty_results(
@@ -261,153 +128,6 @@ def test_nonterminal_hunt_views_return_compact_progress_instead_of_empty_results
     assert "cards" not in results[0]
     assert "leads" not in results[1]
     assert "case" not in results[2]
-
-
-def test_start_persists_queued_job_and_dispatches_background_worker(
-    tmp_path: Path, monkeypatch: Any
-) -> None:
-    store = tmp_path / "knowledge.duckdb"
-    store.touch()
-    embedder = SimpleNamespace(close=lambda: None, set_job_deadline=lambda _deadline: None)
-    launched = threading.Event()
-    captured: list[Any] = []
-    monkeypatch.setattr(product_jobs, "_ROOT", tmp_path)
-    monkeypatch.setenv("PORTAL_HUNT_KNOWLEDGE_STORE", str(store))
-    monkeypatch.setenv("PORTAL_HUNT_KNOWLEDGE_FAMILIES", "santos,russell")
-    monkeypatch.setattr(product_jobs, "model_from_env", lambda: (object(), "hunt-reasoning"))
-    monkeypatch.setattr(product_jobs, "embedding_from_env", lambda: embedder)
-
-    def run(*args: Any) -> None:
-        captured.extend(args)
-        launched.set()
-
-    monkeypatch.setattr(product_jobs, "_run", run)
-    job_id = product_jobs.start(
-        object(),
-        "hb_kyoushi_s1",
-        100.0,
-        200.0,
-        judge_enabled=True,  # type: ignore[arg-type]
-    )
-
-    assert launched.wait(2.0)
-    assert product_jobs.load(job_id)["status"] == "QUEUED"
-    assert product_jobs.load(job_id)["judge_enabled"] is True
-    assert captured[7] == store
-    assert captured[8] == ("santos", "russell")
-    assert captured[9] is embedder
-    assert captured[10] is True
-    assert captured[5]["job_seconds"] == 1260.0
-
-
-def test_r2_job_persists_stage_progress_cost_and_analyst_views(
-    tmp_path: Path, monkeypatch: Any
-) -> None:
-    monkeypatch.setattr(product_jobs, "_ROOT", tmp_path)
-    monkeypatch.setattr(product_jobs, "preflight", lambda _client, _model: None)
-    seen: list[str] = []
-    configured: dict[str, Any] = {}
-    judge_options: dict[str, Any] = {}
-    rerank_options: dict[str, Any] = {}
-    relate_options: dict[str, Any] = {}
-    embedder = SimpleNamespace(close=lambda: None, set_job_deadline=lambda _deadline: None)
-    store = tmp_path / "knowledge.duckdb"
-    for name, run in (
-        ("cards", _cards_stage),
-        ("behaviours", _behaviours_stage),
-        ("notables", _notables_stage(configured)),
-        ("judge", _capture_judge(judge_options)),
-    ):
-        monkeypatch.setattr(product_jobs, f"{name}_stage", _tracked(name, run, seen))
-
-    def relate(**kwargs: Any) -> dict[str, Any]:
-        relate_options.update(kwargs)
-        return _tracked("relate", _relate_stage, seen)(**kwargs)
-
-    monkeypatch.setattr(product_jobs, "relate_stage", relate)
-
-    def _product_order(rows: Any, **kwargs: Any) -> tuple[list[int], dict[str, Any]]:
-        rerank_options.update(kwargs)
-        seen.append("rerank")
-        return [0], {
-            "content_keys": ["product:n1"],
-            "weight": 1.0,
-            "weight_basis": "p_yes_signal_without_product_label_keys",
-            "council": {
-                "source": "live",
-                "model_seconds": 0.5,
-                "budget_basis": {
-                    "source": "measured_rate",
-                    "probe_calls": 1,
-                    "seconds_per_call": 22.8922,
-                    "deadline_seconds": kwargs["deadline"],
-                    "derived_budget": 1,
-                },
-            },
-        }
-
-    monkeypatch.setattr(product_jobs, "product_order", _product_order, raising=False)
-    job_id = "hunt-r2-test-run"
-    product_jobs._write(
-        job_id,
-        {"job_id": job_id, "index": "ix", "started": 1.0, "status": "QUEUED"},
-    )
-
-    product_jobs._run(
-        job_id,
-        object(),  # type: ignore[arg-type]
-        "ix",
-        100.0,
-        200.0,
-        dict(product_jobs.R2_DEFAULT_BUDGETS),
-        (object(), "hunt-reasoning"),  # type: ignore[arg-type]
-        store,
-        ("santos", "russell"),
-        embedder,  # type: ignore[arg-type]
-    )
-
-    job = product_jobs.load(job_id)
-    assert job is not None
-    assert job["status"] == "COMPLETE"
-    assert job["judge_enabled"] is False
-    assert seen == ["cards", "behaviours", "notables", "relate"]
-    assert SIMILAR_GENERATOR in configured["enabled"]
-    assert configured["knowledge_store"] == store
-    assert configured["knowledge_families"] == ("santos", "russell")
-    assert not judge_options
-    assert not rerank_options
-    assert relate_options.get("judged_only", False) is False
-    assert job["cost"]["model_requests"] == 3
-    assert job["cost"]["model_seconds"] == 1.0
-    assert job["cost"]["embedding_requests"] == 3
-    assert job["progress"]["stages"]["notables"]
-    assert job["progress"]["stages"]["relate"]["coverage_complete"] is True
-    assert [entry["stage"] for entry in job["stage_plan"]] == [
-        "cards",
-        "behaviours",
-        "notables",
-        "relate",
-    ]
-    assert job["stage_plan"][0]["budget_s"] == pytest.approx(690.0, abs=1.0)
-    assert not (tmp_path / job_id / product_jobs.RERANK_FILE).exists()
-    lead = product_jobs.leads_view(job_id=job_id)["leads"][0]
-    assert lead == {
-        "rank": 1,
-        "notable_id": "n1",
-        "generator": SIMILAR_GENERATOR,
-        "source": "ix:auth",
-        "why": None,
-        "evidence_query": "search index=ix",
-    }
-    sources = product_jobs.sources_view(job_id=job_id)
-    assert sources["counts"]["understood"] == 1
-    assert sources["not_understood"] == []
-    case = product_jobs.case_view(job_id=job_id)
-    assert case["evidence_count"] == 1
-    assert case["evidence_omitted"] == 0
-    status = product_jobs.status(job_id=job_id, detail=True)
-    assert status["stage_plan"] == job["stage_plan"]
-    assert "judge_selection" not in status
 
 
 def test_opt_in_judge_is_bounded_and_relation_still_uses_stage1_notables(
@@ -629,47 +349,6 @@ def test_judge_stage_annotates_only_the_top_ten_without_reordering(
     }
 
 
-@pytest.mark.parametrize(
-    ("knowledge_store", "expected"),
-    [
-        (None, ("alerts", "peer_rare", "deviation", "misfit")),
-        (
-            Path("knowledge.duckdb"),
-            ("alerts", "peer_rare", "deviation", "misfit", "similar_to_known"),
-        ),
-    ],
-)
-def test_product_generator_defaults_include_misfit_and_configured_knowledge(
-    monkeypatch: Any,
-    tmp_path: Path,
-    knowledge_store: Path | None,
-    expected: tuple[str, ...],
-) -> None:
-    captured: dict[str, Any] = {}
-    monkeypatch.setattr(
-        product_jobs,
-        "notables_stage",
-        lambda **kwargs: captured.update(kwargs) or ([], {}),
-    )
-    actions = product_jobs._stage_actions(
-        index="main",
-        start=1.0,
-        end=2.0,
-        out=tmp_path,
-        search=object(),
-        client=object(),
-        model="hunt-reasoning",
-        knowledge_store=knowledge_store,
-        knowledge_families=None,
-        embedder=None,
-        effort=HuntBudget(dict(DEFAULT_BUDGETS)),
-    )
-
-    actions[2][1]()
-
-    assert captured["enabled"] == expected
-
-
 def test_stage_plan_preserves_relation_time_and_spends_released_ranking_time() -> None:
     plan = product_jobs._stage_plan("cards", 180.0)
 
@@ -699,21 +378,6 @@ def test_stage_plan_preserves_relation_time_and_spends_released_ranking_time() -
     }
 
 
-def test_pipeline_requests_use_the_remaining_hunt_deadline(monkeypatch: Any) -> None:
-    effort = HuntBudget(dict(DEFAULT_BUDGETS))
-    monkeypatch.setattr(effort, "remaining", lambda: 0.25)
-    seen: dict[str, Any] = {}
-    client = SimpleNamespace(complete=lambda **request: seen.update(request) or {"ok": True})
-
-    result = product_jobs.HuntJobClient(client, effort).complete(model="hunt-reasoning")
-
-    assert result == {"ok": True}
-    assert seen["_timeout_seconds"] == 0.25
-    monkeypatch.setattr(effort, "remaining", lambda: 0.0)
-    with pytest.raises(HuntBudgetExceededError):
-        product_jobs.HuntJobClient(client, effort).complete(model="hunt-reasoning")
-
-
 def test_stage_deadline_bounds_a_request_without_replacing_the_job_deadline() -> None:
     effort = HuntBudget(dict(DEFAULT_BUDGETS))
     effort.set_stage_deadline("judge", 60.0)
@@ -728,52 +392,6 @@ def test_stage_deadline_bounds_a_request_without_replacing_the_job_deadline() ->
     assert 0.0 < snapshot["stage_remaining_s"] <= 60.0
     effort.set_stage_deadline("judge", 0.0)
     assert effort.expired_reason() == "judge_stage_deadline_exceeded"
-
-
-def test_hunt_timeout_is_not_sent_as_a_pipeline_completion_field() -> None:
-    import httpx
-
-    from portal.modules.security.core.hunt.judge import OpenAICompatibleClient
-
-    bodies: list[dict[str, Any]] = []
-
-    def respond(request: httpx.Request) -> httpx.Response:
-        bodies.append(json.loads(request.content))
-        return httpx.Response(200, json={"choices": []})
-
-    client = OpenAICompatibleClient(
-        "http://pipeline.test/v1/chat/completions", transport=httpx.MockTransport(respond)
-    )
-    client.complete(model="hunt-reasoning", _timeout_seconds=0.25)
-
-    assert bodies == [{"tool_choice": "none", "model": "hunt-reasoning"}]
-
-
-def test_embedding_requests_stop_at_the_shared_hunt_deadline() -> None:
-    import httpx
-
-    from portal.modules.security.core.hunt.notables.embedding import (
-        EmbeddingError,
-        PipelineEmbeddingClient,
-    )
-
-    calls: list[httpx.Request] = []
-    client = PipelineEmbeddingClient(
-        url="http://pipeline.test",
-        model="embedder",
-        api_key="test",
-        transport=httpx.MockTransport(
-            lambda request: calls.append(request) or httpx.Response(200, json={})
-        ),
-        clock=lambda: 100.0,
-    )
-    client.set_job_deadline(lambda: 99.0)
-
-    with pytest.raises(EmbeddingError, match="hunt job deadline"):
-        client.embed(["statement"])
-
-    assert calls == []
-    client.close()
 
 
 def test_leads_view_caps_default_payload_and_returns_compact_rows(

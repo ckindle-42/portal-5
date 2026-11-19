@@ -345,6 +345,12 @@ def queue_run(
                 time.sleep(poll_seconds)
                 continue
             result = runner.run_next(override=override)
+            if result.status not in {"WAITING", "BUSY"}:
+                from portal.modules.orchestration.personal_runner import poll_personal_tasks
+
+                personal = poll_personal_tasks(root, sink)
+                if personal is not None:
+                    typer.echo(f"personal {personal.status}: {personal.task_id}")
             if result.status == "EMPTY":
                 if drain:
                     break

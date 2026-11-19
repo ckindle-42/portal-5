@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-refusal
+historical: true
 kind: mixed
 title: "Refusal \u2014 chain split module"
 sources:
 - type: code
   path: portal/modules/security/core/refusal.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800269.394156
-updated_at: 1785800269.394156
+
 ---
 
 The refusal-detection logic split from chain.py, with the public surface unchanged and chain re-exporting it.

@@ -1,9 +1,9 @@
 """Archive mechanism — retained on disk, out of the working set.
 
 Archiving is not deletion. Catalog changes in this project are additive-only,
-so an archived unit keeps its file (moved to `portal_wiki/archive/`) and its
-frontmatter unchanged; it simply leaves the live store that search, coverage,
-drift, quality, and render operate over.
+so an archived unit keeps its file (moved to `portal_wiki/archive/`) with a
+historical mark; it simply leaves the live store that search, coverage, drift,
+quality, and render operate over.
 
 The preconditions for archiving live *in this module*, not in the operator's
 discipline:
@@ -204,7 +204,11 @@ def _expand_glob(root: Path, pattern: str) -> set[str]:
 
 
 def archive_unit(
-    unit_id: str, reason: str, repo_root: Path | None = None, superseded_by: str | None = None
+    unit_id: str,
+    reason: str,
+    repo_root: Path | None = None,
+    superseded_by: str | None = None,
+    historical: bool = False,
 ) -> tuple[bool, str]:
     """Move a live unit to the archive store and append its index line.
 
@@ -219,6 +223,8 @@ def archive_unit(
     unit = load_unit(unit_id)
     if unit is None:
         return False, f"no live unit {unit_id}"
+    historical = historical or unit.historical
+    unit.historical = historical
 
     refusals = check_archivable(unit, root)
     code_refusals = [r for r in refusals if "cites live source" in r]
@@ -230,7 +236,7 @@ def archive_unit(
         err = verify_superseded(unit, superseded_by, root)
         if err:
             return False, err
-    elif code_refusals:
+    elif code_refusals and not historical:
         return False, "; ".join(refusals)
 
     if other_refusals:
@@ -243,7 +249,11 @@ def archive_unit(
         return False, f"no file {src}"
     archive.mkdir(parents=True, exist_ok=True)
     dst = archive / f"{unit_id}.md"
-    src.rename(dst)
+    if dst.exists():
+        return False, f"archive target already exists: {dst}"
+    unit.historical = True
+    dst.write_text(unit.to_markdown(), encoding="utf-8")
+    src.unlink()
 
     commit = _current_commit(root)
     date = datetime.now(UTC).strftime("%Y-%m-%d")

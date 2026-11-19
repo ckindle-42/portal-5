@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-objective_oracles
+historical: true
 kind: mixed
 title: "Objective oracles \u2014 path-independent end-state verifiers"
 sources:
 - type: code
   path: portal/modules/security/core/objective_oracles.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800269.394151
-updated_at: 1785800269.394151
+
 ---
 
 Path-independent verifiers of objective end-states for emergent runs, one oracle per terminal-state class, registered experimental until bench-gated.

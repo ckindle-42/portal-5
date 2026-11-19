@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-roll-back
+historical: true
 kind: why
 title: "HOWTO \u2014 roll back"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: roll back
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.854251
-updated_at: 1783195000.854251
+
 ---
 
 curl -s localhost:8921/tools/kb_restore -X POST \

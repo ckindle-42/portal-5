@@ -8,14 +8,16 @@ sources:
   path: portal/modules/security/core/siem/spl_detections.yaml#T1068
 - type: mitre
   path: ATT&CK:T1068
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1068
+  equals: true
 confidence: high
 tags:
 - T1068
 - technique
 - signature
-created_at: 1790651067.888416
-updated_at: 1790651067.888416
 ---
 
 # T1068 — Exploitation for privilege escalation — kernel/userspace privesc

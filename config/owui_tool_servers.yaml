@@ -6,7 +6,7 @@ servers:
   portal_tts: [speak, clone_voice, register_voice, list_voices]
   portal_music: [music_start, music_status, music_models]
   portal_mflux: [generate_image, edit_image, image_start, image_status]
-  portal_video_mlx: [generate_video, animate_image, video_start, video_status]
+  portal_video_mlx: [video_models, video_start, video_status]
   portal_security: [classify_vulnerability, lab_perception]
   portal_review: [review_start, review_status, review_result, review_cancel, review_verdict, review_queue, review_explain, review_doctor, hunt_sources, hunt_start, hunt_status, hunt_leads, hunt_case]
   portal_memory: [remember, recall, forget, list_memories, clear_memories]

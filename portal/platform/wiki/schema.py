@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import hashlib
 import re
-import time
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -60,8 +59,7 @@ class KnowledgeUnit:
     # so a key absent from to_frontmatter() is silently destroyed on re-seed.
     claims: list[dict[str, Any]] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
-    created_at: float = 0.0
-    updated_at: float = 0.0
+    historical: bool = False
 
     def __post_init__(self) -> None:
         if not self.sources:
@@ -73,14 +71,10 @@ class KnowledgeUnit:
             raise ValueError(f"Invalid kind '{self.kind}'; must be what|why|mixed")
         if self.confidence not in ("high", "medium", "low"):
             raise ValueError(f"Invalid confidence '{self.confidence}'; must be high|medium|low")
-        if not self.created_at:
-            self.created_at = time.time()
-        if not self.updated_at:
-            self.updated_at = self.created_at
 
     def to_frontmatter(self) -> dict[str, Any]:
         """Serialize to YAML-compatible frontmatter dict."""
-        return {
+        frontmatter: dict[str, Any] = {
             "id": self.id,
             "kind": self.kind,
             "title": self.title,
@@ -88,9 +82,10 @@ class KnowledgeUnit:
             "claims": self.claims,
             "confidence": self.confidence,
             "tags": self.tags,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at,
         }
+        if self.historical:
+            frontmatter["historical"] = True
+        return frontmatter
 
     def to_markdown(self) -> str:
         """Serialize to markdown with YAML frontmatter."""
@@ -132,8 +127,7 @@ class KnowledgeUnit:
             claims=fm.get("claims", []) or [],
             confidence=fm.get("confidence", "high"),
             tags=fm.get("tags", []),
-            created_at=fm.get("created_at", 0),
-            updated_at=fm.get("updated_at", 0),
+            historical=bool(fm.get("historical", False)),
         )
 
     def content_hash(self) -> str:

@@ -1,7 +1,8 @@
 ---
 id: unit-compliance-prove-then-scale
 kind: mixed
-title: "PROVE_THEN_SCALE_V1 — the population as text, the mapping sweep, the review surfaces"
+title: "PROVE_THEN_SCALE_V1 \u2014 the population as text, the mapping sweep, the\
+  \ review surfaces"
 sources:
 - type: code
   path: portal/modules/compliance/core/reading_material.py
@@ -9,6 +10,12 @@ sources:
   path: portal/modules/compliance/core/sweep.py
 - type: code
   path: portal/modules/compliance/core/contradictions.py
+claims:
+- probe: repo.path.exists
+  path: portal/modules/compliance/core/reading_material.py
+  equals: true
+confidence: high
+tags: []
 ---
 
 The PROVE_THEN_SCALE_V1 campaign's product code (report:

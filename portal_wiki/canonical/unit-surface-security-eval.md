@@ -1,19 +1,21 @@
 ---
 id: unit-surface-security-eval
 kind: mixed
-title: "Security eval subpackage \u2014 bench-facing re-export boundary and ablation instrumentation"
+title: "Security eval subpackage \u2014 bench-facing re-export boundary and ablation\
+  \ instrumentation"
 sources:
 - type: code
   path: portal/modules/security/eval/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/eval/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - module
 - security
 - eval
-created_at: 1785881000.0
-updated_at: 1785881000.0
 ---
 
 The eval subpackage is the public re-export boundary the security bench

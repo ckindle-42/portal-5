@@ -7,14 +7,17 @@ sources:
   path: portal/modules/media/tools/music_mcp.py
 - type: code
   path: scripts/lib/services.sh
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/media/tools/music_mcp.py
+  symbol: music_start
+  equals: true
 confidence: high
 tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.8455648
-updated_at: 1787872869
+
 ---
 
 **What:** Generate full songs — lyrics/vocals or instrumental — from text. The primary engine is ACE-Step 1.5 XL-Turbo. MiniMax-Music3 8-bit is the selectable fallback.

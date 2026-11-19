@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-write-your-tool-s-output
+historical: true
 kind: why
 title: "HOWTO \u2014 Write your tool's output"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: Write your tool's output
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.8583539
-updated_at: 1783195000.8583539
+
 ---
 
 out = get_generated_dir("transcripts") / f"transcript_{uid}.json"

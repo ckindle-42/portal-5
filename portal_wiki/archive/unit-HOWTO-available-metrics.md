@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-available-metrics
+historical: true
 kind: why
 title: "HOWTO \u2014 Available metrics"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: Available metrics
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.863565
-updated_at: 1783195000.863565
+
 ---
 
 

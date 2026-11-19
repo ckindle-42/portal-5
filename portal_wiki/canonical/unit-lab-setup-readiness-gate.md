@@ -11,13 +11,14 @@ sources:
   path: config/attack_image_contract.json
 - type: code
   path: Dockerfile.attack
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/lab_ready.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.521493
-updated_at: 1784946220.521493
 ---
 
 The readiness gate is `python3 scripts/lab_ready.py`. It prints a board of

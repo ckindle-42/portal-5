@@ -1,20 +1,19 @@
 ---
 id: unit-tests-unit-__init__
+historical: true
 kind: mixed
 title: Unit tests package root
 sources:
 - type: code
   path: tests/unit/__init__.py
   commit: d5234798
-last_generated_commit: d5234798
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - unit
-created_at: 1785800427.158647
-updated_at: 1785800427.158647
+
 ---
 
 The unit test tree root, carrying the version string and marking the hermetic suite.

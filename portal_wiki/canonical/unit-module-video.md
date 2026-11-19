@@ -18,8 +18,7 @@ confidence: high
 tags:
 - video
 - module
-created_at: 1787967818.3609989
-updated_at: 1787967818.3609989
+
 ---
 
 # Video Module — MLX-native video generation (off by default)
@@ -27,15 +26,17 @@ updated_at: 1787967818.3609989
 ## Tools
 
 `video_mlx_mcp` (:8935) — a headless host-MLX wrapper over the `ltx-2-mlx`
-CLI (pure-MLX LTX-2.3 port for Apple Silicon). Exposes `generate_video`
-(text-to-video, with synchronized audio) and `animate_image`
-(image-to-video). It replaced the removed ComfyUI `video_mcp` path — the
-tool names are deliberately identical so the video workspace repoints with
-a backend swap, not a tool-rename cascade.
+CLI (pure-MLX LTX-2.5 for Apple Silicon) with an opt-in `mlx-video`
+Wan2.2-TI2V-5B fallback. Exposes the async job contract: `video_start`
+(text-to-video, or image-to-video via `image_url`; returns a job id),
+`video_status` (server-side long-poll up to ~20s per call), and
+`video_models` (the roster). It replaced the removed ComfyUI `video_mcp`
+path.
 
 ## Workspaces
 
-- `auto-video` — video creation
+- `auto-audio::video` — video creation (the `auto-video` alias keeps working
+  through its 2026-12-31 deprecation window)
 
 ## Module State
 
@@ -43,12 +44,12 @@ The switch is `modules.video.enabled` in `config/portal.yaml` (`portal module en
 
 ## Why
 
-Video is the heaviest media surface — LTX-2.3 int4 runs a ~20-24GB MLX
+Video is the heaviest media surface — LTX-2.5 int4 runs an 18-26GB MLX
 working set, is thermally punishing on a 64GB box, and produces
 preview-grade clips practically capped at ~4-6s — so it ships disabled
 (`modules.video.enabled: false`). While it is off, sync-config drops the
-`video_mlx` fleet id from `launched_mcp_ids` and the `auto-video` workspace
-from the presets; `portal module enable video` restores both.
+`video_mlx` fleet id from `launched_mcp_ids` and the `auto-audio::video`
+workspace from the presets; `portal module enable video` restores both.
 Membership comes from the `module: video` tag on the `video_mlx` fleet
-entry and the `auto-video` workspace in `config/portal.yaml`. A missing
+entry and the `auto-audio::video` workspace in `config/portal.yaml`. A missing
 key falls back to `DEFAULT_DISABLED_MODULES` (off).

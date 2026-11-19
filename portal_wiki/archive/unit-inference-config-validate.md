@@ -1,20 +1,19 @@
 ---
 id: unit-inference-config-validate
+historical: true
 kind: mixed
 title: "Inference config validate \u2014 fast sync-config pre-gate"
 sources:
 - type: code
   path: portal/platform/inference/config_validate.py
   commit: 250150f6
-last_generated_commit: 250150f6
 claims: []
 confidence: high
 tags:
 - authored-v1
 - platform
 - inference
-created_at: 1785797754.624181
-updated_at: 1785797754.624181
+
 ---
 
 `config_validate.py` is a fast, self-contained validator for

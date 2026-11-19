@@ -10,7 +10,7 @@ import logging
 import re as _re
 from typing import Any
 
-from portal.platform.wiki.store import load_all, load_unit
+from portal.platform.wiki.store import load_all, load_archived, load_archived_unit, load_unit
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +72,7 @@ def wiki_search(query: str, top_k: int = 10) -> dict[str, Any]:
     from portal.platform.wiki.adapters.seed_facts import derive_facts
 
     units_by_id = {unit.id: unit for unit in load_all()}
+    units_by_id.update({unit.id: unit for unit in load_archived()})
     units_by_id.update({unit.id: unit for unit in derive_facts()})
     units = list(units_by_id.values())
     query_words = query.lower().split()
@@ -96,11 +97,13 @@ def wiki_search(query: str, top_k: int = 10) -> dict[str, Any]:
                     "unit_id": unit.id,
                     "title": unit.title,
                     "kind": unit.kind,
+                    "historical": unit.historical,
                     "score": round(score, 3),
                     "rank": round(
                         score
                         + _kind_weight(unit.kind)
                         + _tag_weight(unit.tags)
+                        - (2.0 if unit.historical else 0.0)
                         + _section_penalty(unit.id),
                         3,
                     ),
@@ -128,7 +131,7 @@ def wiki_get_unit(unit_id: str) -> dict[str, Any]:
     """
     from portal.platform.wiki.adapters.seed_facts import computed_fact_unit
 
-    unit = computed_fact_unit(unit_id) or load_unit(unit_id)
+    unit = computed_fact_unit(unit_id) or load_unit(unit_id) or load_archived_unit(unit_id)
     if not unit:
         return {"error": f"Unit '{unit_id}' not found"}
 
@@ -140,6 +143,7 @@ def wiki_get_unit(unit_id: str) -> dict[str, Any]:
         "sources": [s.to_dict() for s in unit.sources],
         "confidence": unit.confidence,
         "tags": unit.tags,
+        "historical": unit.historical,
     }
 
 

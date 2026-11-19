@@ -1,18 +1,17 @@
 ---
 id: unit-BACKUP_RESTORE-complete-system-recovery
+historical: true
 kind: why
 title: "BACKUP_RESTORE \u2014 Complete System Recovery"
 sources:
 - type: design
   path: docs/BACKUP_RESTORE.md
   section: Complete System Recovery
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - BACKUP_RESTORE
-created_at: 1783195000.825173
-updated_at: 1783195000.825173
+
 ---
 
 

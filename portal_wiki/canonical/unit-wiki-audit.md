@@ -6,13 +6,14 @@ sources:
 - type: code
   path: portal/platform/wiki/audit.py
   commit: e100adbe
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/wiki/audit.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - wiki
-created_at: 1785797317.1678998
-updated_at: 1785797317.1678998
 ---
 
 The audit module enforces the mechanical integrity properties that make the

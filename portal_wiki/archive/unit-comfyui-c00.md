@@ -1,20 +1,19 @@
 ---
 id: unit-comfyui-c00
+historical: true
 kind: mixed
 title: "Section C0 \u2014 Prerequisites (memory, deps, ComfyUI process)"
 sources:
 - type: code
   path: tests/comfyui/c00_prereqs.py
   commit: ee3590ba
-last_generated_commit: ee3590ba
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - comfyui
-created_at: 1785798966.950432
-updated_at: 1785798966.950432
+
 ---
 
 This is the ComfyUI acceptance section c00. Section C0 — Prerequisites (memory, deps, ComfyUI process)

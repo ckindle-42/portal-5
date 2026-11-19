@@ -1,19 +1,18 @@
 ---
 id: unit-tests-expected-models
+historical: true
 kind: mixed
 title: "Tests expected-models \u2014 config-derived routing ground truth"
 sources:
 - type: code
   path: tests/expected_models.py
   commit: 347dfc8a
-last_generated_commit: 347dfc8a
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
-created_at: 1785798786.555152
-updated_at: 1785798786.555152
+
 ---
 
 `expected_models.py` derives "what model should have served this request" from

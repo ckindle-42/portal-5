@@ -1,12 +1,12 @@
 ---
 id: SEC_BENCH-agentic-blue-deltas-20260707
+historical: true
 kind: what
 title: 'Agentic Blue Arm Deltas (with CI): harness contribution (2026-07-07 21:58
   UTC)'
 sources:
 - type: bench-security
   path: bench-run:agentic-blue-sweep:2026-07-07
-last_generated_commit: ''
 confidence: high
 tags:
 - agentic-blue
@@ -21,8 +21,7 @@ tags:
 - devstral-small-2-latest-ctx8k
 - gemma4-31b-it-qat-ctx8k
 - qwen3-coder-30b-a3b-q4_K_M-ctx8k
-created_at: 1783461538.401804
-updated_at: 1783461538.401804
+
 ---
 
 # Agentic Blue Eval — Arm-vs-Arm Delta Report (with Confidence Intervals)

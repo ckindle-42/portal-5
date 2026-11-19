@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-s15_shared_workspace
+historical: true
 kind: mixed
 title: "S15 \u2014 Shared workspace"
 sources:
 - type: code
   path: tests/acceptance/s15_shared_workspace.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799786.3982668
-updated_at: 1785799786.3982668
+
 ---
 
 This is the acceptance section s15_shared_workspace. S15 — Shared workspace

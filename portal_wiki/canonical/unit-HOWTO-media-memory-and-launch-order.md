@@ -7,21 +7,23 @@ sources:
   path: portal/modules/media/tools/_admission.py
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/media/tools/_admission.py
+  equals: true
 confidence: high
 tags:
 - HOWTO
 - media
 - memory
 - verified-v1
-created_at: 1784057635.351039
-updated_at: 1784057635.351039
+
 ---
 
 # Media memory and launch order
 
-The MLX media generators (MFLUX image :8933, video-mlx :8935, MiniMax music
-:8912) and Ollama share the same 64GB unified-memory pool on Apple Silicon,
+The MLX media generators (MFLUX image :8933, video-mlx :8935, music
+:8912 — ACE-Step 1.5 XL-Turbo primary, MiniMax-Music3 8-bit fallback) and Ollama share the same 64GB unified-memory pool on Apple Silicon,
 with **no cross-engine backpressure**: Ollama's `OLLAMA_MAX_LOADED_MODELS` /
 `OLLAMA_MEMORY_LIMIT` do not govern the MLX generators, and the retired
 MLX-proxy admission gate (`75c24a9`) never covered media backends either. See
@@ -34,16 +36,19 @@ through the Tier-1 pre-flight admission check
 (`portal/modules/media/tools/_admission.py`, `admit()`) before it starts. The
 check compares the model's measured peak plus a headroom margin against a
 live free-memory snapshot (`vm_stat` on macOS) and returns a structured,
-retryable refusal rather than letting the job OOM the box. It fails open when
-free memory can't be measured.
+retryable refusal rather than letting the job OOM the box. Video keys are
+size-aware (`video_mlx:ltx-2.5-q4-512` measured vs `-704` estimated). Before
+refusing, the check asks the Pipeline's load guard to evict idle LLM
+residents (`POST /admin/reclaim-idle`) and re-samples free memory. It fails
+open when free memory can't be measured.
 
 ## Safe co-residency matrix
 
 | Active combination | Safe? | Why |
 |---|---|---|
-| Ollama small/medium model (<20GB) + MFLUX schnell/klein (~15–18GB) | Usually | Admission still checks current free memory plus headroom |
-| Ollama large model (30GB+) + MFLUX qwen-image (~22GB) | Marginal or refused | Unload the Ollama model first (`ollama stop <model>`) |
-| Any Ollama model + video-mlx (LTX-2.3, ~24–34GB) | Marginal | Video is thermally heavy and off by default; run it with the box otherwise quiet |
+| Ollama small/medium model (<20GB) + MFLUX flux2-klein (~18GB) | Usually | Admission still checks current free memory plus headroom, and asks the Pipeline to evict idle residents first |
+| Ollama large model (30GB+) + MFLUX qwen-2.1 (~26GB) | Marginal or refused | Unload the Ollama model first (`ollama stop <model>`) |
+| Any Ollama model + video-mlx (LTX-2.5, 18–25GB by resolution; Wan2.2-5B ~23GB) | Marginal | Video is thermally heavy and off by default; run it with the box otherwise quiet |
 
 ## Launch order (until a Tier 2 cross-engine broker exists)
 

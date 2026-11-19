@@ -9,14 +9,17 @@ sources:
   path: portal/platform/inference/router/metrics.py
 - type: code
   path: portal/platform/inference/router/power.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/platform/inference/router/handlers.py
+  symbol: json
+  equals: true
 confidence: high
 tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.8631291
-updated_at: 1792281600
+
 ---
 
 **What:** Prometheus metrics collection and Grafana dashboards for the pipeline.

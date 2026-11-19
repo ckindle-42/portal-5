@@ -7,13 +7,14 @@ sources:
   path: .mcp.json
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: .mcp.json
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.570611
-updated_at: 1784946220.570611
 ---
 
 `.mcp.json` is the MCP server roster consumed by Claude Code. Four entries are

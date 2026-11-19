@@ -1,19 +1,18 @@
 ---
 id: unit-claude-1-config-backends-yaml-is-sacred
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 1 \u2014 config/backends.yaml Is Sacred"
 sources:
 - type: design
   path: CLAUDE.md
   section: "1 \u2014 config/backends.yaml Is Sacred"
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.194326
-updated_at: 1785348301.194326
+
 ---
 
 

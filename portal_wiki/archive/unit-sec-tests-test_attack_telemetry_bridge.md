@@ -1,12 +1,12 @@
 ---
 id: unit-sec-tests-test_attack_telemetry_bridge
+historical: true
 kind: mixed
 title: "Security tests \u2014 test_attack_telemetry_bridge"
 sources:
 - type: code
   path: portal/modules/security/tests/test_attack_telemetry_bridge.py
   commit: 862c7b11
-last_generated_commit: 862c7b11
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - module
 - security
 - tests
-created_at: 1785800599.986273
-updated_at: 1785800599.986273
+
 ---
 
 Unit tests for the security module's test_attack_telemetry_bridge surface.

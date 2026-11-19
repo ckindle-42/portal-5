@@ -1,20 +1,19 @@
 ---
 id: unit-bench-router
+historical: true
 kind: mixed
 title: "Bench router \u2014 router-candidate classification accuracy"
 sources:
 - type: code
   path: tests/benchmarks/bench_router.py
   commit: 071aaf52
-last_generated_commit: 071aaf52
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - bench
-created_at: 1785798604.420969
-updated_at: 1785798604.420969
+
 ---
 
 `bench_router.py` benchmarks the LLM router candidate models directly,

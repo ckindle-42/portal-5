@@ -1,12 +1,12 @@
 ---
 id: unit-router-council
+historical: true
 kind: mixed
 title: "Router council \u2014 multi-model quorum cross-check"
 sources:
 - type: code
   path: portal/platform/inference/router/council.py
   commit: d7c1d4f4
-last_generated_commit: d7c1d4f4
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - platform
 - inference
 - router
-created_at: 1785798076.012774
-updated_at: 1785798076.012774
+
 ---
 
 `council.py` is the council-of-agreement engine: it renders review material,

@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-returns-status-ok-service-mlx-speech
+historical: true
 kind: why
 title: "HOWTO \u2014 Returns: {\"status\": \"ok\", \"service\": \"mlx-speech\"}"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: 'Returns: {"status": "ok", "service": "mlx-speech"}'
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.848414
-updated_at: 1783195000.848414
+
 ---
 
 ```

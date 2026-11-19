@@ -1,18 +1,17 @@
 ---
 id: unit-QWEN_TEMPLATE_PROBE-mlx-lm-server-help
+historical: true
 kind: why
 title: "QWEN_TEMPLATE_PROBE \u2014 mlx_lm.server --help"
 sources:
 - type: design
   path: docs/QWEN_TEMPLATE_PROBE.md
   section: mlx_lm.server --help
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - QWEN_TEMPLATE_PROBE
-created_at: 1785348275.818953
-updated_at: 1785348275.818953
+
 ---
 
 ```

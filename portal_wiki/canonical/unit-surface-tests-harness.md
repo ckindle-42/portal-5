@@ -7,13 +7,14 @@ sources:
   path: tests/*.py
 - type: code
   path: tests/lib/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
-created_at: 1785883400.0
-updated_at: 1785883400.0
 ---
 
 The test tree's scaffolding and shared harness library is the substrate every driver

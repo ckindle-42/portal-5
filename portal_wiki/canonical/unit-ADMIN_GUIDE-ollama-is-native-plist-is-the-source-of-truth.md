@@ -19,14 +19,17 @@ sources:
   path: deploy/launchd/com.portal5.omlx.plist
 - type: code
   path: scripts/omlx-watchdog.sh
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: scripts/lib/services.sh
+  symbol: OLLAMA_MIN_VERSION
+  equals: true
 confidence: high
 tags:
 - ADMIN_GUIDE
 - docs
 - verified-v1
-created_at: 1783195000.816087
-updated_at: 1792680000
+
 ---
 
 On Apple Silicon the default Ollama is native under launchd, not a container — but **not** via Homebrew. `homebrew.mxcl.ollama` was disabled and fully uninstalled 2026-08-10: Homebrew's formula lags upstream releases and shipped below this project's minimum version (`OLLAMA_MIN_VERSION` in `scripts/lib/util.sh`), and a stale Homebrew reinstall had silently taken over `:11434` at one point, running an outdated build undetected. The supported native install is a pinned binary release run as `com.portal5.ollama`, a **system** LaunchDaemon (deliberately system-domain rather than a per-user LaunchAgent, so it's up before any user is logged in). `_launch_install_ollama` in scripts/lib/services.sh reports its status (it does not install — that's a deliberate one-time manual step, see the function's own guidance); `_ensure_native_services` in scripts/lib/util.sh restarts it via `sudo -n launchctl kickstart -k system/com.portal5.ollama` whenever `up` finds it installed but not responding — passwordless sudoers rules under `/etc/sudoers.d/` (`portal5-ollama`, `portal5-claude`) cover `launchctl` and `plutil` invocations on this box (kickstart, unload/load, and in-place plist edits all run without a password prompt; plain file operations like `cp` do not — the exact per-file grant boundary is root-readable only, not verified from an unprivileged shell). Root steps beyond those two primitives go through `/usr/local/sbin/portal5-root` (actions `install-powermetrics`, `uninstall-powermetrics`, `launchctl-system <com.portal5.label>`), also passwordless; its source is `deploy/root/portal5-root`. The compose `ollama` service is gated behind the `docker-ollama` profile, so compose env vars (e.g. `OLLAMA_MAX_LOADED_MODELS`) do not reach the native server. The authoritative config for native is the launchd plist:

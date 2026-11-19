@@ -1,19 +1,18 @@
 ---
 id: unit-claude-2-never-modify-open-webui-source
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 2 \u2014 Never Modify Open WebUI Source"
 sources:
 - type: design
   path: CLAUDE.md
   section: "2 \u2014 Never Modify Open WebUI Source"
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.194329
-updated_at: 1785348301.194329
+
 ---
 
 

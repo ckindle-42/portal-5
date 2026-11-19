@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-s07_music
+historical: true
 kind: mixed
 title: "S7 \u2014 Music generation"
 sources:
 - type: code
   path: tests/acceptance/s07_music.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799760.350872
-updated_at: 1785799760.350872
+
 ---
 
 This is the acceptance section s07_music. S7 — Music generation

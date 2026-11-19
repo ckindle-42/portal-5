@@ -1,12 +1,12 @@
 ---
 id: unit-security-eval-surface
+historical: true
 kind: mixed
 title: "Security eval surface \u2014 re-export boundary for bench harnesses"
 sources:
 - type: code
   path: portal/modules/security/eval/__init__.py
   commit: 851ea193
-last_generated_commit: 851ea193
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - module
 - security
 - eval
-created_at: 1785795976.101092
-updated_at: 1785795976.101092
+
 ---
 
 The eval subpackage is the public re-export boundary for the security

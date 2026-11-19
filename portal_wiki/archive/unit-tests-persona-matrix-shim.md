@@ -1,19 +1,18 @@
 ---
 id: unit-tests-persona-matrix-shim
+historical: true
 kind: mixed
 title: "Tests persona-matrix \u2014 relocated-package compat shim"
 sources:
 - type: code
   path: tests/portal5_persona_matrix.py
   commit: 347dfc8a
-last_generated_commit: 347dfc8a
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
-created_at: 1785798811.610508
-updated_at: 1785798811.610508
+
 ---
 
 `portal5_persona_matrix.py` is the stable entry for the persona-matrix

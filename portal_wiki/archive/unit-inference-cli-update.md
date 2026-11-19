@@ -1,20 +1,19 @@
 ---
 id: unit-inference-cli-update
+historical: true
 kind: mixed
 title: "Inference CLI update \u2014 full upgrade flow"
 sources:
 - type: code
   path: portal/platform/inference/cli/update.py
   commit: 250150f6
-last_generated_commit: 250150f6
 claims: []
 confidence: high
 tags:
 - authored-v1
 - platform
 - cli
-created_at: 1785797880.694311
-updated_at: 1785797880.694311
+
 ---
 
 `portal update` is the full Portal 5 upgrade flow: git pull, rebuild the

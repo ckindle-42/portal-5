@@ -1,18 +1,17 @@
 ---
 id: unit-COMFYUI_SETUP-flux-images-are-pure-static-tv-noise
+historical: true
 kind: why
 title: "COMFYUI_SETUP \u2014 FLUX images are pure static / TV noise"
 sources:
 - type: design
   path: docs/COMFYUI_SETUP.md
   section: FLUX images are pure static / TV noise
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - COMFYUI_SETUP
-created_at: 1783195000.832096
-updated_at: 1783195000.832096
+
 ---
 
 

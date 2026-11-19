@@ -1,18 +1,17 @@
 ---
 id: unit-COMFYUI_SETUP-quick-install-apple-silicon
+historical: true
 kind: why
 title: "COMFYUI_SETUP \u2014 Quick Install (Apple Silicon)"
 sources:
 - type: design
   path: docs/COMFYUI_SETUP.md
   section: Quick Install (Apple Silicon)
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - COMFYUI_SETUP
-created_at: 1783195000.829488
-updated_at: 1783195000.829488
+
 ---
 
 

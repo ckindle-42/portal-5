@@ -1,18 +1,17 @@
 ---
 id: unit-BACKUP_RESTORE-backup-retention
+historical: true
 kind: why
 title: "BACKUP_RESTORE \u2014 Backup Retention"
 sources:
 - type: design
   path: docs/BACKUP_RESTORE.md
   section: Backup Retention
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - BACKUP_RESTORE
-created_at: 1783195000.824703
-updated_at: 1783195000.824703
+
 ---
 
 

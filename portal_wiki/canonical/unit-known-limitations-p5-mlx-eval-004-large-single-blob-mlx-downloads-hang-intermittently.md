@@ -10,13 +10,14 @@ sources:
   path: scripts/lib/services.sh
 - type: code
   path: tests/benchmarks/bench_mlx_hf.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: launch.sh
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.67051
-updated_at: 1784946220.67051
 ---
 
 - **Description**: During the MLX evaluation, several separate large downloads (each in the 18-26GB range) silently stalled mid-transfer for 30+ minutes with no error — the blob stopped growing with stale TCP close-wait sockets. It happened on both the official registry (`ollama pull`, via `./launch.sh pull-models`) and HuggingFace (`hf download`, the mechanism `scripts/lib/services.sh` uses for MLX model pulls), so it is a network/CDN reliability issue for large single-file transfers on this connection, not a tool-specific bug. No stalls appeared on smaller pulls.

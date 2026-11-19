@@ -1,20 +1,19 @@
 ---
 id: unit-inference-init
+historical: true
 kind: mixed
 title: "Inference package \u2014 OpenAI-compatible router tier"
 sources:
 - type: code
   path: portal/platform/inference/__init__.py
   commit: 250150f6
-last_generated_commit: 250150f6
 claims: []
 confidence: high
 tags:
 - authored-v1
 - platform
 - inference
-created_at: 1785797736.850399
-updated_at: 1785797736.850399
+
 ---
 
 The inference package is the Portal 5 pipeline — the OpenAI-compatible

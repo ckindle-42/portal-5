@@ -1,20 +1,19 @@
 ---
 id: unit-ci-generated-fresh
+historical: true
 kind: mixed
 title: "CI guard \u2014 sync-config idempotence enforces Rule 6"
 sources:
 - type: code
   path: scripts/ci/check_generated_fresh.py
   commit: '38123c31'
-last_generated_commit: '38123c31'
 claims: []
 confidence: high
 tags:
 - authored-v1
 - ci
 - config
-created_at: 1785795640.236754
-updated_at: 1785795640.236754
+
 ---
 
 The generated-fresh guard runs `sync-config` and fails if the three

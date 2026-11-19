@@ -11,13 +11,14 @@ sources:
   path: portal/platform/inference/router/workspaces.py
 - type: code
   path: portal/platform/inference/config.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/portal.yaml
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.679698
-updated_at: 1784946220.679698
 ---
 
 The functional workspaces are the everyday entries in the Open WebUI model
@@ -41,7 +42,7 @@ with the pinned model, is:
 | `auto-math` | `phi4-mini-reasoning` |
 | `auto-audio` | `gemma4:12b-it-qat` (transcribe tools) |
 | `auto-music` | `lfm2.5:8b` (music_start / music_status / music_models, speak, clone_voice, register_voice, transcribe) |
-| `auto-video` | `granite4.1:8b-ctx16k` (generate_video / animate_image, MLX LTX-2.3; shipped enabled) |
+| `auto-video` | `granite4.1:8b-ctx16k` (video_start / video_status, MLX LTX-2.5; module off by default) |
 | `auto-image` | `granite4.1:8b` (generate_image / edit_image, MFLUX) |
 | `auto-cad` | `qwen3-coder:30b-a3b-q4_K_M` (render_mesh, render_openscad, convert_cad) |
 | `auto-spl` | `Huihui-Qwen3.6-27B-abliterated-MLX-4bit` (classify_vulnerability, kb_search) |

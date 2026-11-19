@@ -1,5 +1,6 @@
 ---
 id: unit-MLX_CHANGES_2026-04-26-2-speculative-decoding-broken-arrayscache-not-trim
+historical: true
 kind: why
 title: "MLX_CHANGES_2026-04-26 \u2014 2. Speculative Decoding Broken \u2014 `ArraysCache`\
   \ Not Trimmable"
@@ -7,13 +8,11 @@ sources:
 - type: design
   path: docs/MLX_CHANGES_2026-04-26.md
   section: "2. Speculative Decoding Broken \u2014 `ArraysCache` Not Trimmable"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - MLX_CHANGES_2026-04-26
-created_at: 1783195000.8763719
-updated_at: 1783195000.8763719
+
 ---
 
 - **Severity**: Medium — spec-decoding disabled, loses ~10-20% TPS on supported models

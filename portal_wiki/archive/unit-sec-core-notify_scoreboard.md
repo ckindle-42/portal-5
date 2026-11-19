@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-notify_scoreboard
+historical: true
 kind: mixed
 title: "Notify scoreboard \u2014 hunt-and-notify semantics"
 sources:
 - type: code
   path: portal/modules/security/core/notify_scoreboard.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800295.902841
-updated_at: 1785800295.902841
+
 ---
 
 The hunt-and-notify scoreboard: the semantics that govern when a hunt is scored as notifying correctly, and the scoreboard that tracks it.

@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-melody-conditioning
+historical: true
 kind: why
 title: "HOWTO \u2014 Melody conditioning"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: Melody conditioning
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.8460212
-updated_at: 1783195000.8460212
+
 ---
 
 

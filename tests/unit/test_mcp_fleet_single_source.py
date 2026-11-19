@@ -173,7 +173,7 @@ NATIVE_TOOL_NAMES = {
         "music_status",
     ],
     "mflux": ["edit_image", "generate_image", "image_start", "image_status"],
-    "video_mlx": ["animate_image", "generate_video", "video_start", "video_status"],
+    "video_mlx": ["video_models", "video_start", "video_status"],
     "documents": [
         "convert_document",
         "create_excel",
@@ -241,6 +241,7 @@ NATIVE_TOOL_NAMES = {
         "get_metrics_summary",
         "get_pipeline_status",
         "get_workspace_recommendation",
+        "jarvis_submit",
         "list_directory",
         "list_workspaces",
         "read_text_file",

@@ -1,19 +1,18 @@
 ---
 id: unit-claude-4-the-pipeline-is-stateless-with-metrics-persisten
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 4 \u2014 The Pipeline Is Stateless (with metrics persistence)"
 sources:
 - type: design
   path: CLAUDE.md
   section: "4 \u2014 The Pipeline Is Stateless (with metrics persistence)"
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.194335
-updated_at: 1785348301.194335
+
 ---
 
 

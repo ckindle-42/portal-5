@@ -1,19 +1,18 @@
 ---
 id: unit-scripts-lab_bots_install
+historical: true
 kind: mixed
 title: "Script \u2014 lab_bots_install"
 sources:
 - type: code
   path: scripts/lab_bots_install.py
   commit: 94ecf393
-last_generated_commit: 94ecf393
 claims: []
 confidence: high
 tags:
 - authored-v1
 - scripts
-created_at: 1785799517.8129559
-updated_at: 1785799517.8129559
+
 ---
 
 Installs the pre-indexed BOTS Splunk buckets into the lab, untarring each tarball into the Splunk apps directory where it serves its own index queried directly — no HEC ingestion.

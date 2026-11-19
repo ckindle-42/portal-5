@@ -1,18 +1,17 @@
 ---
 id: unit-FISH_SPEECH_SETUP-voice-cloning
+historical: true
 kind: why
 title: "FISH_SPEECH_SETUP \u2014 Voice Cloning"
 sources:
 - type: design
   path: docs/FISH_SPEECH_SETUP.md
   section: Voice Cloning
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - FISH_SPEECH_SETUP
-created_at: 1783195000.8369112
-updated_at: 1783195000.8369112
+
 ---
 
 

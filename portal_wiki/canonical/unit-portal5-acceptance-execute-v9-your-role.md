@@ -9,12 +9,13 @@ sources:
   path: tests/acceptance/runner.py
 - type: code
   path: tests/lib/results.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/acceptance/cli.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.693929
-updated_at: 1784946220.693929
 ---
 
 The acceptance operator acts as the execution agent for the suite: launch the

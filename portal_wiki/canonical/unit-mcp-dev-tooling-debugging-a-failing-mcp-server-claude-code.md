@@ -9,13 +9,14 @@ sources:
   path: deploy/portal-5/docker-compose.yml
 - type: code
   path: portal/modules/coding/tools/code_sandbox_mcp.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: .mcp.json
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.579058
-updated_at: 1784946220.579058
 ---
 
 When a Portal MCP tool errors, the containerised servers and the pipeline MCP expose

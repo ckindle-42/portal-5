@@ -1,18 +1,17 @@
 ---
 id: unit-MCP_DEV_TOOLING-auto-coding-agentic-workspace
+historical: true
 kind: why
 title: "MCP_DEV_TOOLING \u2014 `auto-coding-agentic` Workspace"
 sources:
 - type: design
   path: docs/MCP_DEV_TOOLING.md
   section: '`auto-coding-agentic` Workspace'
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - MCP_DEV_TOOLING
-created_at: 1783195000.873736
-updated_at: 1783195000.873736
+
 ---
 
 

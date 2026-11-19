@@ -84,7 +84,7 @@ For the full live roster (production + eval workspaces, module, model hint) use 
 
 The `auto-daily` seat is now the Nemotron 3.5 Lightning 30B-A3B text-only lane (no vision tower); image turns on that seat reroute to the `auto-vision` workspace at the router.
 
-`auto-video` is exposed with `generate_video` / `animate_image` (shipped enabled — see the Video Generation unit). Eval workspaces (the `bench-*` set) additionally require `PORTAL_ENABLE_EVAL=1` at pipeline startup.
+`auto-video` is the alias of `auto-audio::video`, exposed with `video_start` / `video_status` (the `video` module is off by default — see the Video Generation unit). Eval workspaces (the `bench-*` set) additionally require `PORTAL_ENABLE_EVAL=1` at pipeline startup.
 
 **Example — coding:** select `Portal Code Expert` and ask a coding question; `auto-coding` answers with Qwen3.8-27B and its sandbox tools (`execute_bash`, `execute_python`, `sandbox_status`) run code on request.
 
@@ -198,15 +198,15 @@ Document output is a two-part contract: the MCP server owns the byte-level forma
 ## 8. Image Generation
 
 <!-- WIKI:GENERATED unit=unit-HOWTO-8-image-generation -->
-**What:** Generate and edit images with MLX-native FLUX — `schnell` (fast default), `klein` (FLUX.2), `qwen-image` (best for legible text in the image).
+**What:** Generate and edit images with MLX-native MFLUX — `flux2-klein` (fast 4-step default, Apache 2.0), `flux3-klein` (16-step quality / multi-reference), `qwen-2.1` (2.1-turbo, best for legible text and instruction edits), `z-image` (permissive photoreal fallback).
 
-**Activate:** `./launch.sh install-mflux` installs the MFLUX MCP as a host-native launchd service on port 8933 (Apple Silicon only — a Docker container cannot reach the Metal GPU). `./launch.sh pull-mflux-models` pre-pulls the weights. The `auto-image` workspace (`Portal Image Creator`) grants `generate_image` / `edit_image`; `auto-vision` also grants `generate_image`.
+**Activate:** `./launch.sh install-mflux` installs the MFLUX MCP as a host-native launchd service on port 8933 (Apple Silicon only — a Docker container cannot reach the Metal GPU; pinned `mflux==0.24.0` on Python >=3.11). `./launch.sh pull-mflux-models` pre-pulls the weights through each family binary. The `auto-audio::image` workspace (`Portal Image Creator`) grants `generate_image` / `edit_image` / `image_start` / `image_status`; `auto-vision` grants the same image tools.
 
-**How:** `portal/modules/media/tools/mflux_mcp.py` shells out to the `mflux-generate` / `mflux-generate-flux2` CLI. `generate_image(prompt, model, width, height, steps, seed)` is synchronous — a few seconds (`schnell`) to a couple of minutes (`klein` / `qwen-image`). `edit_image(image_url, prompt, model, strength)` does instruction editing (`qwen-image-edit`) or img2img; `image_url` is a public http(s) URL or an already-uploaded file name (SSRF-gated by `assert_public_http_url`). Every job passes a `mflux:<model>` key through the Tier-1 admission check. Outputs land in `generated/images/` and publish through Open WebUI's files API. Measured MLX peaks: `schnell` ~14.5 GB, `klein` ~18 GB (`--quantize 8 --low-ram`).
+**How:** `portal/modules/media/tools/mflux_mcp.py` shells out to the `mflux-generate-*` family CLIs (`mflux-generate-flux2`, `-flux3`, `-qwen-2.1`, `-z-image-turbo`, and their `*-edit` variants). Call `image_start(prompt, model, …)` for anything multi-minute — it returns a job id immediately, and `image_status(job_id)` long-polls up to 20s per call for stage progress and the finished `{PORTAL_PUBLIC_URL}/api/v1/files/<id>/content/<name>` download URL, so the 20-hop tool loop covers minutes of generation. `generate_image(prompt, model, width, height, steps, seed)` stays synchronous (900s budget) for quick jobs. `edit_image(image_url, prompt, model)` does instruction editing through the family's `*-edit` binary with repeatable `--image-paths`; `image_url` is a public http(s) URL or an already-uploaded file name (SSRF-gated by `assert_public_http_url`). Every job passes a `mflux:<model>` key through the Tier-1 admission check, which asks the Pipeline's `/admin/reclaim-idle` to evict idle LLM residents before refusing. Outputs land in `generated/images/` and publish through Open WebUI's files API. Peaks: `flux2-klein` ~18 GB (measured), `flux3-klein` ~23 GB and `qwen-2.1` ~26 GB (sourced/reasoned bounds).
 
 ### Why
 
-Image generation runs on the host MLX layer alongside speech/transcription/embeddings — one accelerator path, no Docker-to-Metal bridge, clean per-module removability. It replaced a ComfyUI-based path that could not run on this hardware (Metal has no FP8). The synchronous tool surface is enough because MFLUX jobs finish inside a chat request; the admission check refuses an oversized job before it OOMs the 64 GB box.
+Image generation runs on the host MLX layer alongside speech/transcription/embeddings — one accelerator path, no Docker-to-Metal bridge, clean per-module removability. It replaced a ComfyUI-based path that could not run on this hardware (Metal has no FP8). The async start/long-poll surface keeps multi-minute jobs alive across the tool loop (the 60s dispatch kill and 20-hop cap no longer bite), and the admission check refuses an oversized job before it OOMs the 64 GB box.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -214,15 +214,15 @@ Image generation runs on the host MLX layer alongside speech/transcription/embed
 ## 9. Video Generation
 
 <!-- WIKI:GENERATED unit=unit-HOWTO-9-video-generation -->
-**What:** Generate short clips (with synchronized audio) from a text prompt or animate a still image, via MLX-native LTX-2.3.
+**What:** Generate short clips (with synchronized audio) from a text prompt or animate a still image, via MLX-native LTX-2.5 — or the opt-in Wan2.2-TI2V-5B fallback.
 
-**Off by default, shipped enabled:** the `video` module ships enabled in the default config — `auto-video` is exposed to Open WebUI, the `video_mlx` fleet entry (port 8935) is registered, and `sync-config` keeps both in the presets. What stays off by default is the engine: LTX-2.5 is a host-native MLX install (Apple Silicon only, no Docker-to-Metal bridge) that a fresh box lacks until `./launch.sh install-video-mlx` (clones `dgrauet/ltx-2-mlx`, `uv sync`) and `./launch.sh start-video-mlx` are run. It runs a large MLX working set, is thermally punishing on a 64 GB box, and produces preview-grade clips practically capped at ~4–6 s.
+**Off by default:** the `video` module is disabled in the default config (`modules.video.enabled: false`) — `sync-config` drops the `auto-audio::video` workspace from the presets and the `video_mlx` fleet entry (port 8935) from `launched_mcp_ids` until `portal module enable video` flips it. What stays off even after that is the engine: LTX-2.5 is a host-native MLX install (Apple Silicon only, no Docker-to-Metal bridge) that a fresh box lacks until `./launch.sh install-video-mlx` (clones `dgrauet/ltx-2-mlx`, `uv sync`) and `./launch.sh start-video-mlx` are run. It runs an 18–26GB MLX working set, is thermally punishing on a 64 GB box, and produces preview-grade clips practically capped at ~4–6 s.
 
-**How:** `portal/modules/media/tools/video_mlx_mcp.py` shells out to `ltx-2-mlx generate --distilled --low-ram`. `generate_video(prompt, model, frames, width, height, seed)` (frames snap to the LTX `8k+1` constraint) and `animate_image(image_url, prompt, ...)` (i2v). Model pack: `ltx-2.5-q4` (int4; replaced LTX-2.3 after the 2026-10-28 A/B). Jobs run several minutes; a `video_mlx:<model>` admission key gates each one. Output is an mp4 published through Open WebUI's files API.
+**How:** `video_start(prompt, model, width, height, frames, seed, fps, image_url, quality)` returns a job id immediately; `video_status(job_id)` long-polls up to ~20s per call, so the Pipeline's 20-hop tool loop covers a multi-minute render; `video_models()` lists the roster. Frames snap to the LTX `8k+1` grid. `quality='fast'` runs `--distilled`, `quality='hq'` runs the two-stage pass (TeaCache is upstream-2.3-only and is not exposed). Default pack `ltx-2.5-q4` (int4; replaced LTX-2.3 after the 2026-10-28 A/B); `wan2.2-5b` (mlx-video, silent MP4) is the opt-in Apache-2.0 fallback installed by `./launch.sh install-video-mlx wan`. Jobs run several minutes; a size-aware `video_mlx:ltx-2.5-q4-512|-704` admission key gates each one, and the Tier-1 check asks the Pipeline to evict idle LLM residents before refusing. The renderer is a subprocess per job, so Metal memory returns to macOS when it exits. Output is an mp4 under `${AI_OUTPUT_DIR}/generated/videos/` published through Open WebUI's files API.
 
 ### Why
 
-Video is the heaviest media surface, so the engine install stays footprint-first — off until an operator opts in — even though the module itself ships enabled so the workspace, fleet entry, and routing are present by default. Keeping it a real module rather than deleted code means enabling is a one-command toggle, not a rebuild.
+Video is the heaviest media surface, so the engine install stays footprint-first — off until an operator opts in — even though the module's workspace, fleet entry, and routing are declared in config. Keeping it a real module rather than deleted code means enabling is a one-command toggle, not a rebuild.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -625,12 +625,10 @@ All commands below are the actual `case` branches in `launch.sh` (or dispatch in
 ./launch.sh seed            # Re-seed Open WebUI (workspaces + personas) — skips existing presets
 ./launch.sh reseed          # Force-refresh all presets (FORCE_RESEED=true)
 
-### Update (single command: git pull + rebuild + re-seed; models only on request)
-./launch.sh update                  # cli update — no model downloads
-./launch.sh update --refresh-models # Also refresh Ollama models (downloads only what upstream changed)
-./launch.sh update --models-only    # Only replace models whose upstream changed
-# Weekly replace (Mon 02:47, launchd com.portal5.model-update): scripts/model_autoupdate.py
-# Pin what is installed, no download: python3 scripts/model_pin_backfill.py [--write]
+### Update (single command: git pull + rebuild + model refresh + re-seed)
+./launch.sh update                  # cli update — full pass
+./launch.sh update --skip-models    # Skip the Ollama model refresh (faster)
+./launch.sh update --models-only    # Only refresh models
 
 ### Cleanup
 ./launch.sh clean           # Stop + wipe Open WebUI data (keeps Ollama model weights)
@@ -774,8 +772,8 @@ sources, then inspect the governing files when implementation detail matters.
 <!-- WIKI:GENERATED unit=unit-HOWTO-media-memory-and-launch-order -->
 ### Media memory and launch order
 
-The MLX media generators (MFLUX image :8933, video-mlx :8935, MiniMax music
-:8912) and Ollama share the same 64GB unified-memory pool on Apple Silicon,
+The MLX media generators (MFLUX image :8933, video-mlx :8935, music
+:8912 — ACE-Step 1.5 XL-Turbo primary, MiniMax-Music3 8-bit fallback) and Ollama share the same 64GB unified-memory pool on Apple Silicon,
 with **no cross-engine backpressure**: Ollama's `OLLAMA_MAX_LOADED_MODELS` /
 `OLLAMA_MEMORY_LIMIT` do not govern the MLX generators, and the retired
 MLX-proxy admission gate (`75c24a9`) never covered media backends either. See
@@ -788,16 +786,19 @@ through the Tier-1 pre-flight admission check
 (`portal/modules/media/tools/_admission.py`, `admit()`) before it starts. The
 check compares the model's measured peak plus a headroom margin against a
 live free-memory snapshot (`vm_stat` on macOS) and returns a structured,
-retryable refusal rather than letting the job OOM the box. It fails open when
-free memory can't be measured.
+retryable refusal rather than letting the job OOM the box. Video keys are
+size-aware (`video_mlx:ltx-2.5-q4-512` measured vs `-704` estimated). Before
+refusing, the check asks the Pipeline's load guard to evict idle LLM
+residents (`POST /admin/reclaim-idle`) and re-samples free memory. It fails
+open when free memory can't be measured.
 
 #### Safe co-residency matrix
 
 | Active combination | Safe? | Why |
 |---|---|---|
-| Ollama small/medium model (<20GB) + MFLUX schnell/klein (~15–18GB) | Usually | Admission still checks current free memory plus headroom |
-| Ollama large model (30GB+) + MFLUX qwen-image (~22GB) | Marginal or refused | Unload the Ollama model first (`ollama stop <model>`) |
-| Any Ollama model + video-mlx (LTX-2.3, ~24–34GB) | Marginal | Video is thermally heavy and off by default; run it with the box otherwise quiet |
+| Ollama small/medium model (<20GB) + MFLUX flux2-klein (~18GB) | Usually | Admission still checks current free memory plus headroom, and asks the Pipeline to evict idle residents first |
+| Ollama large model (30GB+) + MFLUX qwen-2.1 (~26GB) | Marginal or refused | Unload the Ollama model first (`ollama stop <model>`) |
+| Any Ollama model + video-mlx (LTX-2.5, 18–25GB by resolution; Wan2.2-5B ~23GB) | Marginal | Video is thermally heavy and off by default; run it with the box otherwise quiet |
 
 #### Launch order (until a Tier 2 cross-engine broker exists)
 

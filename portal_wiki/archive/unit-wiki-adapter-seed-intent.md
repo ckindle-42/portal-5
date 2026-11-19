@@ -1,20 +1,19 @@
 ---
 id: unit-wiki-adapter-seed-intent
+historical: true
 kind: mixed
 title: "Wiki intent seeder \u2014 WHY-unit ingestion from design docs"
 sources:
 - type: code
   path: portal/platform/wiki/adapters/seed_intent.py
   commit: 94445e95
-last_generated_commit: 94445e95
 claims: []
 confidence: high
 tags:
 - authored-v1
 - wiki
 - adapter
-created_at: 1785797590.63635
-updated_at: 1785797590.63635
+
 ---
 
 The intent seeder ingests WHY knowledge — architecture rationale, security

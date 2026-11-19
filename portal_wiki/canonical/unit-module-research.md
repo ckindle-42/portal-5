@@ -21,8 +21,7 @@ tags:
 - module
 - research
 - verified-v1
-created_at: 1783821386.790582
-updated_at: 1783821386.790582
+
 ---
 
 # Research Module — web search, RAG, browser automation

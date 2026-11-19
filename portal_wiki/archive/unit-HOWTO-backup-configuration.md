@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-backup-configuration
+historical: true
 kind: why
 title: "HOWTO \u2014 Backup configuration"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: Backup configuration
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.8588412
-updated_at: 1783195000.8588412
+
 ---
 
 

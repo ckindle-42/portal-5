@@ -1,5 +1,6 @@
 ---
 id: unit-claude-6-config-portal-yaml-is-the-single-source-of-truth
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 6 \u2014 config/portal.yaml Is the Single Source of Truth\
   \ for Workspaces and MCP Fleet"
@@ -8,14 +9,12 @@ sources:
   path: CLAUDE.md
   section: "6 \u2014 config/portal.yaml Is the Single Source of Truth for Workspaces\
     \ and MCP Fleet"
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.194342
-updated_at: 1785348301.194342
+
 ---
 
 

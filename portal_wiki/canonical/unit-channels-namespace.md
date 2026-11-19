@@ -6,13 +6,14 @@ sources:
 - type: code
   path: portal_channels/__init__.py
   commit: c36595e1
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal_channels/__init__.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - channels
-created_at: 1785795351.51374
-updated_at: 1785795351.51374
 ---
 
 The channels package is the namespace for Portal's two messenger adapters —

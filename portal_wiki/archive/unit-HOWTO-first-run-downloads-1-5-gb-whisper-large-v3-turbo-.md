@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-first-run-downloads-1-5-gb-whisper-large-v3-turbo-
+historical: true
 kind: why
 title: "HOWTO \u2014 First run downloads ~1.5 GB whisper-large-v3-turbo + ~30 MB pyannote"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: First run downloads ~1.5 GB whisper-large-v3-turbo + ~30 MB pyannote
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.848922
-updated_at: 1783195000.848922
+
 ---
 
 ```

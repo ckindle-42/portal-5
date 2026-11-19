@@ -1,20 +1,19 @@
 ---
 id: unit-tool-preselect-preselector
+historical: true
 kind: mixed
 title: "Tool preselector \u2014 ranking pass with total fallback"
 sources:
 - type: code
   path: portal/platform/inference/tool_preselect/preselector.py
   commit: b9ca6f31
-last_generated_commit: b9ca6f31
 claims: []
 confidence: high
 tags:
 - authored-v1
 - platform
 - tool-preselect
-created_at: 1785796803.282781
-updated_at: 1785796803.282781
+
 ---
 
 `preselector.py` is the ranking pass itself: given the effective tool set and

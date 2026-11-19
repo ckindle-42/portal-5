@@ -1,20 +1,19 @@
 ---
 id: unit-persona-matrix-loaders
+historical: true
 kind: mixed
 title: "Persona matrix loaders \u2014 config/catalog/persona readers"
 sources:
 - type: code
   path: portal/modules/eval/persona_matrix/loaders.py
   commit: db243698
-last_generated_commit: db243698
 claims: []
 confidence: high
 tags:
 - authored-v1
 - eval
 - persona-matrix
-created_at: 1785796989.3566458
-updated_at: 1785796989.3566458
+
 ---
 
 `loaders.py` reads the persona-matrix inputs: the backends catalog, the model

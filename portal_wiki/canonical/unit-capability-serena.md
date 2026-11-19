@@ -10,14 +10,15 @@ sources:
   path: portal/modules/general/tools/__init__.py
 - type: code
   path: scripts/lib/util.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/portal.yaml
+  equals: true
 confidence: high
 tags:
 - capability
 - mcp
 - general
-created_at: 1788030600.446044
-updated_at: 1788030600.446044
 ---
 
 # Serena MCP — IDE-only LSP symbol navigation

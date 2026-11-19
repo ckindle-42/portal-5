@@ -1,19 +1,18 @@
 ---
 id: unit-claude-8-single-inference-tier-ollama
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 8 \u2014 Single Inference Tier: Ollama"
 sources:
 - type: design
   path: CLAUDE.md
   section: "8 \u2014 Single Inference Tier: Ollama"
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.194349
-updated_at: 1785458075
+
 ---
 
 

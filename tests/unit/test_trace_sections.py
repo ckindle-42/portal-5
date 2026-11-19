@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import plistlib
 from pathlib import Path
+from typing import Any
 
 import pytest
 import typer
@@ -14,6 +15,7 @@ from portal.platform.inference.cli.trace import (
     engines,
     host,
     lab,
+    media,
     owui,
     pins,
     workspaces,
@@ -617,13 +619,15 @@ def test_section_selection_accepts_keys_numbers_and_prefixes() -> None:
         "aliases",
         "engines",
         "owui",
+        "media",
         "lab",
-        "music",
     ]
     assert keys(None) == expected
     assert keys(["1"]) == ["host"]
     assert keys(["containers"]) == ["containers"]
     assert keys(["c"]) == ["containers"]
+    assert keys(["media"]) == ["media"]
+    assert keys(["m"]) == ["media"]
     assert keys(["lab", "host"]) == ["host", "lab"]
     with pytest.raises(typer.BadParameter):
         selected(["nope"])
@@ -707,3 +711,201 @@ def test_owui_turn_request_uses_native_chat_tool_fields() -> None:
     }
     assert body["params"]["function_calling"] == "native"
     assert owui.WORKSPACE == "auto-coding"
+
+
+class TestVideoHops:
+    """The video hop's verdicts — pure functions, no network."""
+
+    def test_video_enabled_follows_the_config_switch(self) -> None:
+        assert media.video_enabled({"modules": {"video": {"enabled": True}}}) is True
+        assert media.video_enabled({"modules": {"video": {"enabled": False}}}) is False
+        assert media.video_enabled({"modules": {}}) is False
+        assert media.video_enabled({}) is False
+
+    def test_turn_hop_passes_when_the_reply_carries_the_artifact_url(self) -> None:
+        hop = media.turn_hop(
+            "Done — video job finished: http://owui:8080/api/v1/files/abc/content/ltx_x.mp4", ""
+        )
+        assert hop.status is Status.PASS
+        assert "url=" in hop.observed
+
+    def test_turn_hop_fails_an_error_and_a_url_less_reply(self) -> None:
+        assert media.turn_hop("", "TimeoutError: chat timed out").status is Status.FAIL
+        assert media.turn_hop("I could not generate the video.", "").status is Status.FAIL
+
+    def test_readback_hop_passes_real_mp4_bytes(self) -> None:
+        class Resp:
+            status_code = 200
+            content = b"\x00\x00\x00\x20ftypisom" + b"payload" * 10
+
+        def fake_get(url: str, **_kw: object) -> Resp:
+            return Resp()
+
+        original = media.httpx.get
+        media.httpx.get = fake_get  # type: ignore[assignment]
+        try:
+            hop = media.readback_hop("http://owui/f.mp4", "key")
+        finally:
+            media.httpx.get = original  # type: ignore[assignment]
+        assert hop.status is Status.PASS
+        assert "mp4=True" in hop.observed
+
+    def test_readback_hop_fails_an_error_page(self) -> None:
+        class Resp:
+            status_code = 404
+            content = b"<html>not found</html>"
+
+        def fake_get(url: str, **_kw: object) -> Resp:
+            return Resp()
+
+        original = media.httpx.get
+        media.httpx.get = fake_get  # type: ignore[assignment]
+        try:
+            hop = media.readback_hop("http://owui/f.mp4", "key")
+        finally:
+            media.httpx.get = original  # type: ignore[assignment]
+        assert hop.status is Status.FAIL
+
+    def test_clip_hop_reports_the_written_artifact(self, tmp_path: Path) -> None:
+        clip = tmp_path / "ltx_abc.mp4"
+        clip.write_bytes(b"x" * 2_000_000)
+        hop = media.clip_hop(clip, since=0.0)
+        assert hop.status is Status.PASS
+        assert "ltx_abc.mp4" in hop.observed and "2.0MB" in hop.observed
+
+    def test_clip_hop_fails_when_the_renderer_wrote_nothing(self) -> None:
+        hop = media.clip_hop(None, since=0.0)
+        assert hop.status is Status.FAIL
+        assert "no new" in hop.observed
+
+
+def test_media_module_hop_warns_while_disabled() -> None:
+    disabled = {"modules": {"image": {"enabled": False}}}
+    hop = media.module_hop(disabled)
+    assert hop is not None
+    assert hop.status is Status.WARN
+    assert "modules.image.enabled is false" in hop.observed
+    assert media.module_hop({"modules": {"image": {"enabled": True}}}) is None
+    assert media.module_hop({}) is None  # missing key falls back to enabled
+
+
+def test_media_artifact_url_extracts_the_published_files_url() -> None:
+    url = (
+        "http://owui:8080/api/v1/files/2f3a1b9c-0000-0000-0000-000000000000/content/mflux_ab12.png"
+    )
+    assert media.artifact_url(f"Here it is: {url}") == url
+    assert media.artifact_url("no link here") == ""
+    bare = media.artifact_url("done http://owui/a.png.")
+    assert bare == "http://owui/a.png"
+
+
+def test_media_artifact_hop_verdicts(monkeypatch: pytest.MonkeyPatch) -> None:
+    turn = workspaces.StreamedTurn(
+        200,
+        [],
+        workspaces.TurnStats(
+            text="see http://owui/api/v1/files/abcd1234-0000-0000-0000-000000000000/content/mflux_x.png"
+        ),
+    )
+    monkeypatch.setattr(media, "read_back", lambda _u, _k: (True, "http 200, 9 bytes"))
+    assert media.artifact_hop(turn, "key").status is Status.PASS
+    monkeypatch.setattr(media, "read_back", lambda _u, _k: (False, "http 404, 0 bytes"))
+    assert media.artifact_hop(turn, "key").status is Status.FAIL
+    empty = workspaces.StreamedTurn(200, [], workspaces.TurnStats(text="no url"))
+    assert media.artifact_hop(empty, "key").status is Status.FAIL
+    failed = workspaces.StreamedTurn(0, error="boom")
+    assert media.artifact_hop(failed, "key").status is Status.FAIL
+
+
+def test_media_run_warns_disabled_and_needs_no_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(media, "env_value", lambda name, default="": "")
+    hops = media.run(_ctx(), {"modules": {"image": {"enabled": False}}})
+    assert [h.status for h in hops] == [Status.WARN, Status.WARN, Status.WARN]
+    assert "modules.image.enabled is false" in hops[0].observed
+    assert "music module disabled" in hops[2].observed
+    monkeypatch.setattr(
+        media, "env_value", lambda name, default="": "key" if name == "OWUI_API_KEY" else ""
+    )
+    hops = media.run(_ctx(), {"modules": {"image": {"enabled": True}}})
+    assert hops[0].name == "image preset" and hops[0].status is Status.WARN
+
+
+def test_media_run_appends_video_and_music_warns_while_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(media, "env_value", lambda name, default="": "")
+    portal = {"modules": {"image": {"enabled": True}, "video": {"enabled": False}}}
+    hops = media.run(_ctx(), portal)
+    assert hops[-2].name == "video artifact turn"
+    assert hops[-2].status is Status.WARN
+    assert "video module disabled" in hops[-2].observed
+    assert "modules.video.enabled" in hops[-2].detail
+    assert hops[-1].name == "music artifact turn"
+    assert hops[-1].status is Status.WARN
+    assert "music module disabled" in hops[-1].observed
+    assert "modules.music.enabled" in hops[-1].detail
+
+
+class TestMusicHops:
+    """The music hop's verdicts — pure functions, no network."""
+
+    def test_music_enabled_follows_the_config_switch(self) -> None:
+        assert media.music_enabled({"modules": {"music": {"enabled": True}}}) is True
+        assert media.music_enabled({"modules": {"music": {"enabled": False}}}) is False
+        assert media.music_enabled({"modules": {}}) is False
+        assert media.music_enabled({}) is False
+
+    def test_music_artifact_hop_passes_a_reply_that_reads_back(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        turn = workspaces.StreamedTurn(
+            200,
+            [],
+            workspaces.TurnStats(
+                text="done http://owui:8080/api/v1/files/2f3a1b9c-0000-0000-0000-000000000000"
+                "/content/music_ab12.wav"
+            ),
+        )
+        monkeypatch.setattr(media, "read_back", lambda _u, _k: (True, "http 200, 882340 bytes"))
+        hop = media.music_artifact_hop(turn, "key")
+        assert hop.status is Status.PASS
+        assert "200 + bytes" in hop.expected
+
+    def test_music_artifact_hop_fails_an_error_and_a_url_less_reply(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(media, "read_back", lambda _u, _k: (False, "http 404, 0 bytes"))
+        failed = workspaces.StreamedTurn(0, error="ConnectError: refused")
+        assert media.music_artifact_hop(failed, "key").status is Status.FAIL
+        empty = workspaces.StreamedTurn(200, [], workspaces.TurnStats(text="no link"))
+        assert media.music_artifact_hop(empty, "key").status is Status.FAIL
+        url = "done http://owui/api/v1/files/abcd1234-0000-0000-0000-000000000000/content/x.wav"
+        turn = workspaces.StreamedTurn(200, [], workspaces.TurnStats(text=url))
+        assert media.music_artifact_hop(turn, "key").status is Status.FAIL
+
+    def test_music_hops_need_the_api_key_and_preset_while_enabled(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(media, "env_value", lambda name, default="": "")
+        portal = {"modules": {"music": {"enabled": True}}}
+        assert media.music_hops(_ctx(), portal)[0].observed == "not run: no OWUI_API_KEY"
+        monkeypatch.setattr(
+            media, "env_value", lambda name, default="": "key" if name == "OWUI_API_KEY" else ""
+        )
+        hop = media.music_hops(_ctx(), portal)[0]
+        assert hop.status is Status.WARN and "preset missing" in hop.observed
+
+
+def _ctx() -> Any:
+    from portal.platform.inference.cli.trace.context import TraceContext
+
+    return TraceContext(
+        repo_root=Path(__file__).resolve().parents[1],
+        pipeline_url="http://127.0.0.1:9099",
+        api_key="k",
+        omlx_url="http://127.0.0.1:8085",
+        ollama_url="http://127.0.0.1:11434",
+        owui_url="http://127.0.0.1:8080",
+        budget_s=60.0,
+        timeout_s=30.0,
+    )

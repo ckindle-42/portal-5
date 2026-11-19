@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-s50_negative
+historical: true
 kind: mixed
 title: "S50 \u2014 Negative tests"
 sources:
 - type: code
   path: tests/acceptance/s50_negative.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799827.616645
-updated_at: 1785799827.616645
+
 ---
 
 This is the acceptance section s50_negative. S50 — Negative tests

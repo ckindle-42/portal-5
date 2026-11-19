@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-cli
+historical: true
 kind: mixed
 title: "Security CLI \u2014 bench and engagement dispatcher"
 sources:
 - type: code
   path: portal/modules/security/core/cli.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800295.9028301
-updated_at: 1785800295.9028301
+
 ---
 
 The security module's argparse CLI: the bench runner, self-index, stage2-propose, candidate-eval, compliance-report, and the engagement commands. The largest file in the core.

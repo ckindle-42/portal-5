@@ -31,8 +31,6 @@ tags:
 - cad
 - module
 - verified-v1
-created_at: 1783821386.7899158
-updated_at: 1787845000.0
 ---
 
 # CAD Module — build123d BREP primary, OpenSCAD fallback
@@ -171,7 +169,7 @@ probes what is really present (`openscad_bin|version|backend`, `build123d`,
 `ocp`, `build123d_mcp`, `arch`; `cad_status()` adds the live `engine` flag) and
 is served at `/capabilities`; `convert_cad`'s STEP path gates on
 `step_read`. The x86/CUDA tier (`Dockerfile.mcp.x86`) is an unbuilt stub. See
-`unit-known-limitations-cadquery-and-build123d-unusable-on-linux-arm64` for the
+the archived CadQuery/build123d ARM64 compatibility finding for the
 retired claim this overturns.
 
 ## Module State

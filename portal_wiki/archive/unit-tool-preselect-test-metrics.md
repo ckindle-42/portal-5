@@ -1,12 +1,12 @@
 ---
 id: unit-tool-preselect-test-metrics
+historical: true
 kind: mixed
 title: "Preselector metrics tests \u2014 outcome counter contract"
 sources:
 - type: code
   path: portal/platform/inference/tool_preselect/tests/test_metrics.py
   commit: b9ca6f31
-last_generated_commit: b9ca6f31
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - platform
 - tool-preselect
 - tests
-created_at: 1785796848.9780679
-updated_at: 1785796848.9780679
+
 ---
 
 This test file pins the preselector's Prometheus metrics: the call, miss, and

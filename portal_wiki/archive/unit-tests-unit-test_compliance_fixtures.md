@@ -1,20 +1,19 @@
 ---
 id: unit-tests-unit-test_compliance_fixtures
+historical: true
 kind: mixed
 title: "Unit tests \u2014 test_compliance_fixtures"
 sources:
 - type: code
   path: tests/unit/test_compliance_fixtures.py
   commit: d5234798
-last_generated_commit: d5234798
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - unit
-created_at: 1785800468.892245
-updated_at: 1785800468.892245
+
 ---
 
 Unit tests for test_compliance_fixtures.

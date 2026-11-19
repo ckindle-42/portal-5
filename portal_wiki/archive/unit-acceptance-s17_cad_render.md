@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-s17_cad_render
+historical: true
 kind: mixed
 title: "S17 \u2014 CAD render"
 sources:
 - type: code
   path: tests/acceptance/s17_cad_render.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799793.945601
-updated_at: 1785799793.945601
+
 ---
 
 This is the acceptance section s17_cad_render. S17 — CAD render

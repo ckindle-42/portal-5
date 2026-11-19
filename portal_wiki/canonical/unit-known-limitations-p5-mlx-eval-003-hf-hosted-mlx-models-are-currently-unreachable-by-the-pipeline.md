@@ -8,13 +8,14 @@ sources:
   path: tests/benchmarks/bench_mlx_hf.py
 - type: code
   path: portal/platform/inference/cluster_backends.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/benchmarks/bench_mlx_hf.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.670076
-updated_at: 1784946220.670076
 ---
 
 - **Description**: Ollama's `hf.co/` puller only accepts GGUF repos; pulling any `mlx-community` safetensors repo fails with the "Repository is not GGUF or is not compatible with llama.cpp" error, as `tests/benchmarks/bench_mlx_hf.py` documents. Only Ollama's curated `-mlx` library tags can be served through its MLX engine. None of the HF-hosted MLX conversions is usable in production because `BackendRegistry` in `portal/platform/inference/cluster_backends.py` talks only to Ollama's OpenAI-compatible endpoint (`chat_url` appends `/v1/chat/completions`), so a raw `mlx_lm`-served model is unreachable without new serving infrastructure.

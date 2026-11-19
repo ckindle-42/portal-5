@@ -8,14 +8,15 @@ sources:
   section: mcp_fleet
 - type: code
   path: portal/modules/media/tools/video_mlx_mcp.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/portal.yaml
+  equals: true
 confidence: high
 tags:
 - capability
 - mcp
 - video
-created_at: 1788030600.446044
-updated_at: 1788030600.446044
 ---
 
 # Video-MLX MCP — MLX-native video generation
@@ -23,26 +24,29 @@ updated_at: 1788030600.446044
 ## What
 
 The Video-MLX MCP (`portal/modules/media/tools/video_mlx_mcp.py`, port 8935)
-is a headless host-MLX wrapper over the `ltx-2-mlx` CLI — a pure-MLX LTX-2.3
-port for Apple Silicon. It exposes `generate_video` (text-to-video with
-synchronized audio) and `animate_image` (image-to-video), installed by
-`./launch.sh install-video-mlx` and launched by `start-video-mlx`.
+is a headless host-MLX wrapper over the `ltx-2-mlx` CLI — a pure-MLX LTX-2.5
+port for Apple Silicon — with an opt-in `mlx-video` Wan2.2-TI2V-5B fallback.
+It exposes the async job contract: `video_start` (text- or image-to-video,
+returns a job id), `video_status` (server-side long-poll), and `video_models`
+(the roster), installed by `./launch.sh install-video-mlx` and launched by
+`start-video-mlx`.
 
 ## How it's used
 
-The `video_mlx` fleet id belongs to the `video` module: disabled by default,
-shipped enabled, and routed to the `auto-video` workspace, whose tools are
-`generate_video` / `animate_image`. The model swap is deliberate — the tool
-names are identical to the removed ComfyUI `video_mcp` path so the workspace
-repoints with a backend swap, not a rename cascade.
+The `video_mlx` fleet id belongs to the `video` module: disabled by default
+(`modules.video.enabled: false`), and routed to the `auto-audio::video`
+workspace (the `auto-video` alias retains live API callers through
+2026-12-31), whose tools are `video_start` / `video_status`.
 
 ## Why it exists
 
-LTX-2.3 is the heaviest media surface in the platform — an int4 working set of
-roughly 20-24 GB that is thermally punishing on a 64 GB box and produces
-preview-grade clips practically capped at ~4-6 seconds. Footprint-first design
-is why the default is off while the shipped build is on: a tight-footprint box
-can disable the module without touching any other media path.
+LTX-2.5 is the heaviest media surface in the platform — an int4 working set
+of roughly 18-26 GB that is thermally punishing on a 64 GB box and produces
+preview-grade clips practically capped at ~4-6 seconds. Footprint-first
+design is why the default is off while the engine is declared in config: a
+tight-footprint box can leave the module disabled without touching any other
+media path, and the renderer runs as a subprocess per job so Metal memory
+returns to macOS between jobs.
 
 ## Value
 

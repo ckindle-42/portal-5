@@ -97,6 +97,9 @@ class TelegramNoticeSink:
     def digest(self, text: str) -> None:
         self.store.notify("queue-digest", "digest", text)
 
+    def notify(self, task_id: str, kind: str, message: str) -> None:
+        self.store.notify(task_id, kind, message)
+
     def escalation(self, job_id: str, event: str, detail: dict[str, Any]) -> None:
         lines = [f"Escalation {event}.", f"Job: {_one_line(job_id)}"]
         for key in (

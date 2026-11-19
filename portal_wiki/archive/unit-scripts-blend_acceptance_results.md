@@ -1,19 +1,18 @@
 ---
 id: unit-scripts-blend_acceptance_results
+historical: true
 kind: mixed
 title: "Script \u2014 blend_acceptance_results"
 sources:
 - type: code
   path: scripts/blend_acceptance_results.py
   commit: 94ecf393
-last_generated_commit: 94ecf393
 claims: []
 confidence: high
 tags:
 - authored-v1
 - scripts
-created_at: 1785799458.24798
-updated_at: 1785799458.24798
+
 ---
 
 Blends multiple acceptance runs into one coherent result set, merging the baseline run with targeted reruns by section, so a partial rerun can repair a full run's failed sections.

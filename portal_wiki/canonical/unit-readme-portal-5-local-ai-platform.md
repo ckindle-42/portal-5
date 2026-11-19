@@ -11,13 +11,14 @@ sources:
   path: .env.example
 - type: code
   path: KNOWN_LIMITATIONS.md
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/portal.yaml
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.67769
-updated_at: 1784946220.67769
 ---
 
 Portal 5 is a complete, private AI platform that runs on your hardware: text,

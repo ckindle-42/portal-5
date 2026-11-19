@@ -1,20 +1,19 @@
 ---
 id: unit-comfyui-c11
+historical: true
 kind: mixed
 title: "Section C11 \u2014 All LoRAs x FLUX schnell coverage"
 sources:
 - type: code
   path: tests/comfyui/c11_lora_coverage.py
   commit: ee3590ba
-last_generated_commit: ee3590ba
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - comfyui
-created_at: 1785798998.9102561
-updated_at: 1785798998.9102561
+
 ---
 
 This is the ComfyUI acceptance section c11. Section C11 — All LoRAs x FLUX schnell coverage

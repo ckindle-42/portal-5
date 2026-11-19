@@ -10,13 +10,14 @@ sources:
   path: portal/platform/inference/notifications/events.py
 - type: code
   path: .env.example
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/notifications/dispatcher.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.548993
-updated_at: 1784946220.548993
 ---
 
 `ALERT_BACKEND_DOWN_THRESHOLD` defaults to three consecutive failures. On every health-cycle callback the dispatcher bumps a per-backend failure counter for each unhealthy check and fires `backend_down` only when the counter equals the threshold; a healthy check resets the counter, and if the threshold had previously been reached it also emits `backend_recovered`. Resetting on recovery is what makes each alert fire once per transition rather than on every check.

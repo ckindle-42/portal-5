@@ -1,20 +1,19 @@
 ---
 id: unit-tests-unit-test_wiki_core
+historical: true
 kind: mixed
 title: "Unit tests \u2014 test_wiki_core"
 sources:
 - type: code
   path: tests/unit/test_wiki_core.py
   commit: d5234798
-last_generated_commit: d5234798
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - unit
-created_at: 1785800468.892361
-updated_at: 1785800468.892361
+
 ---
 
 Unit tests for test_wiki_core.

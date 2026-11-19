@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-offensive-security-simulation-auto-redteam-auto-re
+historical: true
 kind: why
 title: "HOWTO \u2014 Offensive Security \u2014 Simulation (auto-redteam / auto-redteam-deep)"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: "Offensive Security \u2014 Simulation (auto-redteam / auto-redteam-deep)"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.8415658
-updated_at: 1783195000.8415658
+
 ---
 
 

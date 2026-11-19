@@ -1,20 +1,19 @@
 ---
 id: unit-bench-prompts
+historical: true
 kind: mixed
 title: "Bench prompts \u2014 category-targeted token-stable prompts"
 sources:
 - type: code
   path: tests/benchmarks/bench/prompts.py
   commit: 381f217b
-last_generated_commit: 381f217b
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - bench
-created_at: 1785798444.1023612
-updated_at: 1785798444.1023612
+
 ---
 
 `prompts.py` is the bench's prompt library and category map: category-mapped

@@ -6,15 +6,16 @@ sources:
 - type: code
   path: portal/modules/general/tools/__init__.py
   commit: 9c8e6dae
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/general/tools/__init__.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - module
 - general
 - tools
-created_at: 1785794897.3152971
-updated_at: 1785794897.3152971
 ---
 
 The general module's base tool fleet is four externally vendored MCP

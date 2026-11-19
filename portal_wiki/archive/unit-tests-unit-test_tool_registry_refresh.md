@@ -1,20 +1,19 @@
 ---
 id: unit-tests-unit-test_tool_registry_refresh
+historical: true
 kind: mixed
 title: "Unit tests \u2014 test_tool_registry_refresh"
 sources:
 - type: code
   path: tests/unit/test_tool_registry_refresh.py
   commit: d5234798
-last_generated_commit: d5234798
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - unit
-created_at: 1785800468.892342
-updated_at: 1785800468.892342
+
 ---
 
 Unit tests for test_tool_registry_refresh.

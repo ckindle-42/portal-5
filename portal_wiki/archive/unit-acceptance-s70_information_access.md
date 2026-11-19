@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-s70_information_access
+historical: true
 kind: mixed
 title: "S70 \u2014 Information access"
 sources:
 - type: code
   path: tests/acceptance/s70_information_access.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799835.091163
-updated_at: 1785799835.091163
+
 ---
 
 This is the acceptance section s70_information_access. S70 — Information access

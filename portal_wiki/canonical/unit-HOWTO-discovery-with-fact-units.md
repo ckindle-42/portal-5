@@ -9,15 +9,18 @@ sources:
   path: portal/platform/wiki/adapters/seed_facts.py
 - type: code
   path: portal/platform/inference/sync_config.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal_wiki/mcp.py
+  symbol: wiki_search
+  equals: true
 confidence: high
 tags:
 - HOWTO
 - discovery
 - verified-v1
 - wiki
-created_at: 1784049570.60765
-updated_at: 1784049570.60765
+
 ---
 
 # Discovery with fact-units

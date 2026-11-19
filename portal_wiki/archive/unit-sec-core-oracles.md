@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-oracles
+historical: true
 kind: mixed
 title: "Oracles \u2014 scenario objective evaluation"
 sources:
 - type: code
   path: portal/modules/security/core/oracles.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800295.902842
-updated_at: 1785800295.902842
+
 ---
 
 The oracle functions that judge whether a scenario's objective was met from the model's response, the scoring backbone of the red/blue/purple benches.

@@ -1,20 +1,19 @@
 ---
 id: unit-uat-catalog-init
+historical: true
 kind: mixed
 title: "UAT catalog \u2014 assembled test-catalog package"
 sources:
 - type: code
   path: tests/uat_catalog/__init__.py
   commit: fe7f1e7c
-last_generated_commit: fe7f1e7c
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - uat-catalog
-created_at: 1785799949.716344
-updated_at: 1785799949.716344
+
 ---
 
 The uat_catalog package is the assembled UAT test catalog: each `g_<group>.py`

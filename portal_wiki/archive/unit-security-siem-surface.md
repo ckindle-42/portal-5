@@ -1,12 +1,12 @@
 ---
 id: unit-security-siem-surface
+historical: true
 kind: mixed
 title: "Security siem surface \u2014 Splunk integration boundary"
 sources:
 - type: code
   path: portal/modules/security/core/siem/__init__.py
   commit: d493d44c
-last_generated_commit: d493d44c
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - module
 - security
 - siem
-created_at: 1785796619.506561
-updated_at: 1785796619.506561
+
 ---
 
 The siem subpackage is the Splunk SIEM integration for the security bench:

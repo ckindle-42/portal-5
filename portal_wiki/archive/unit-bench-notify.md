@@ -1,20 +1,19 @@
 ---
 id: unit-bench-notify
+historical: true
 kind: mixed
 title: "Bench notify \u2014 fire-and-forget completion pings"
 sources:
 - type: code
   path: tests/benchmarks/bench/notify.py
   commit: 381f217b
-last_generated_commit: 381f217b
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - bench
-created_at: 1785798440.6652448
-updated_at: 1785798440.6652448
+
 ---
 
 `notify.py` is the fire-and-forget bench notification helper: it sends

@@ -1,20 +1,19 @@
 ---
 id: unit-archive-mlx-patch-templates
+historical: true
 kind: mixed
 title: "MLX template patcher \u2014 archived tokenizer packaging fix"
 sources:
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/patch-mlx-templates.py
   commit: 90ac134b
-last_generated_commit: 90ac134b
 claims: []
 confidence: high
 tags:
 - authored-v1
 - archive
 - mlx
-created_at: 1785797157.54627
-updated_at: 1785797157.54627
+
 ---
 
 This is the MLX chat-template patcher, archived with the retired MLX stack:

@@ -28,22 +28,40 @@ import httpx
 logger = logging.getLogger(__name__)
 
 MEDIA_MODEL_MEMORY_GB: dict[str, float] = {
-    # Research estimates, not live samples. admit() adds MEMORY_HEADROOM_GB.
+    # Research estimate, not a live sample. admit() adds MEMORY_HEADROOM_GB.
     "music:acestep-xl-turbo": 16.0,  # plan: 12–18 GB quantized XL-turbo peak
-    "music:minimax3-8bit": 18.0,  # plan: mlx-audio 8-bit MiniMax-Music3 peak
-    # MLX-native image generation (MFLUX / mflux-generate CLI, host MLX layer).
-    # Raw measured peak working set, quantize 8 + --low-ram; admit() adds
-    # MEMORY_HEADROOM_GB on top. Measured live in TASK_IMAGE_VIDEO_OVERHAUL_V1 I1.
+    # Measured live (main): MiniMax-Music3-MLX 60s/30-step, vm_stat sampled peak
+    # working set — same MiniMax-Music3 family as the 8-bit mlx-audio fallback.
+    # Was 27.0 with 4GB of headroom double-counted, which false-refused real 22GB
+    # jobs on this 64GB host; superseded this lane's 18.0 research estimate.
+    "music:minimax3-8bit": 22.0,  # coarse sampled delta 22.02GiB, rounded down to the GiB
+    # MLX-native image generation (MFLUX / mflux-generate-* CLI, host MLX layer).
+    # Raw peak working set, quantize 8 + --low-ram; admit() adds MEMORY_HEADROOM_GB
+    # on top. Keys are mflux_mcp.py roster keys; the retired FLUX.1/20B tags stay
+    # listed because they remain passable by tag (base binary fallback).
     "mflux:schnell": 15.0,  # measured 14.49 peak MLX, q8 + --low-ram, 1024px
     "mflux:dev": 16.0,  # same FLUX.1 base as schnell, more steps
-    "mflux:klein": 18.0,  # measured 17.95 peak MLX, flux2-klein-4b q8 + --low-ram
+    "mflux:flux2-klein": 18.0,  # measured 17.95 peak MLX, flux2-klein-4b q8 + --low-ram
+    "mflux:flux3-klein": 23.0,  # upstream q8 peak 22.8GB @1024² (M4 Pro, pre-strip-decode); not measured here
     "mflux:z-image": 30.0,  # measured 26.83GB peak MLX, z-image-turbo q8 + --low-ram, 8 steps 768px
-    "mflux:qwen-image": 40.0,  # measured 36.82GB peak MLX, q8 + --low-ram, 8 steps 768px
-    "mflux:qwen-image-edit": 42.0,  # same text encoder + edit transformer
+    "mflux:qwen-image": 40.0,  # measured 36.82GB peak MLX, q8 + --low-ram, 8 steps 768px (retired tag)
+    "mflux:qwen-image-edit": 42.0,  # same text encoder + edit transformer (retired tag)
+    # Reasoned, not measured: 2.1's 17.5GB bf16 text encoder is never quantized on
+    # the T2I command (edit q8 quantizes it too, ~13GB peak) — upstream README
+    # gives no q8 T2I peak. 17.5 + ~7 q8 transformer + working set, rounded up.
+    "mflux:qwen-2.1": 26.0,
     # MLX-native video generation (ltx-2-mlx CLI, host MLX layer). LTX-2.5
     # distilled, --low-ram block streaming. Measured live on the minimal
     # system in the 2026-10-28 LTX-2.3 vs 2.5 A/B (2.5 won; 2.3 removed).
+    # The pack's memory scales with resolution, so the admission key is
+    # size-aware: `-512` is the measured anchor, `-704` the estimated 704x480
+    # job (2x the pixel area), the unsuffixed key stays for direct callers.
     "video_mlx:ltx-2.5-q4": 18.0,  # measured 15.8GiB peak footprint, --distilled --low-ram, 512x320 97fr (2026-10-28)
+    "video_mlx:ltx-2.5-q4-512": 18.0,  # same measurement, the 512x320 (or smaller) admission bucket
+    "video_mlx:ltx-2.5-q4-704": 25.0,  # estimated, 704x480 97fr (unmeasured — scaled from the measured 512x320 peak)
+    # Fallback engine (Blaizzy/mlx-video, Wan2.2-TI2V-5B Q8): sourced 18-23GB
+    # weights, estimated ~23GB peak + activations on this host (unmeasured).
+    "video_mlx:wan2.2-5b": 23.0,
 }
 
 MEMORY_HEADROOM_GB: float = float(os.environ.get("MEDIA_MEMORY_HEADROOM_GB", "4.0"))

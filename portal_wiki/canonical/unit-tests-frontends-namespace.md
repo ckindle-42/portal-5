@@ -5,15 +5,16 @@ title: "Tests frontends \u2014 OWUI-only UAT helper namespace"
 sources:
 - type: code
   path: tests/frontends/__init__.py
-  commit: '38123c31'
-claims: []
+  commit: 38123c31
+claims:
+- probe: repo.path.exists
+  path: tests/frontends/__init__.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - frontends
-created_at: 1785795631.3447711
-updated_at: 1785795631.3447711
 ---
 
 The frontends test package is a namespace marker for frontend-specific UAT

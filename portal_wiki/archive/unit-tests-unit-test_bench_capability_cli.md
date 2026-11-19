@@ -1,20 +1,19 @@
 ---
 id: unit-tests-unit-test_bench_capability_cli
+historical: true
 kind: mixed
 title: "Unit tests \u2014 test_bench_capability_cli"
 sources:
 - type: code
   path: tests/unit/test_bench_capability_cli.py
   commit: d5234798
-last_generated_commit: d5234798
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - unit
-created_at: 1785800468.892218
-updated_at: 1785800468.892218
+
 ---
 
 Unit tests for test_bench_capability_cli.

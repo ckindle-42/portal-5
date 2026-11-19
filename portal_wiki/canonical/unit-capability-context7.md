@@ -10,7 +10,9 @@ sources:
   path: opencode.jsonc
 - type: code
   path: .mcp.json
-claims: []
+claims:
+- probe: mcp.fleet.ids
+  contains: context7
 confidence: high
 tags:
 - capability

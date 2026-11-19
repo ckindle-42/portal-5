@@ -1,18 +1,17 @@
 ---
 id: unit-LAB_REACHABILITY_DIAGNOSTIC_2026-06-30-conclusion
+historical: true
 kind: why
 title: "LAB_REACHABILITY_DIAGNOSTIC_2026-06-30 \u2014 Conclusion"
 sources:
 - type: design
   path: docs/LAB_REACHABILITY_DIAGNOSTIC_2026-06-30.md
   section: Conclusion
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - LAB_REACHABILITY_DIAGNOSTIC_2026-06-30
-created_at: 1783195000.867479
-updated_at: 1783195000.867479
+
 ---
 
 

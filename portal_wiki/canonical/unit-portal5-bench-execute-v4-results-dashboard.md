@@ -7,12 +7,13 @@ sources:
   path: scripts/update_grafana_benchmarks.py
 - type: code
   path: tests/benchmarks/bench/config.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/update_grafana_benchmarks.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.7031198
-updated_at: 1784946220.7031198
 ---
 
 1. Confirm the run completed the planned test count (allow documented skips).

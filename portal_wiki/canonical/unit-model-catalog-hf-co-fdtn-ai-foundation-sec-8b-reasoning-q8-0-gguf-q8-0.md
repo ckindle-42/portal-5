@@ -7,13 +7,13 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: models.configured
+  contains: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.63576
-updated_at: 1784946220.63576
 ---
 
 `hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0` is Cisco's Foundation-Sec-8B-Reasoning Q8_0 (~8.5GB, 128K ctx, Llama-3.1-8B cybersec continued-pretrain + reasoning, Apache 2.0, native `<think>`). `config/backends.yaml` registers it in the `reasoning` group only, with `supports_tools: false` — matching the documented 400 error on all tool probes from the 2026-06-21 Run A; it is not present in the security group. `config/portal.yaml` uses it as the `model_hint` for `bench-foundation-sec-8b-reasoning` (the GATE-D ablation's locked V2-trio Expert model) and as the `expert_model` for the `blueteam-council` and `blueteam-orchestrated` variants of `auto-security`, where the no-tools reasoning model renders analytical verdicts.

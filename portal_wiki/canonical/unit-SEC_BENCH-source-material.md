@@ -7,15 +7,16 @@ sources:
   path: portal/modules/security/core/exec_chain.py
 - type: code
   path: portal/modules/security/core/_data.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/exec_chain.py
+  equals: true
 confidence: high
 tags:
 - bench
 - security
 - sources
 - verified-v1
-created_at: 1784941806.378324
-updated_at: 1784941806.378324
 ---
 
 Attack chains are grounded in four external sources:

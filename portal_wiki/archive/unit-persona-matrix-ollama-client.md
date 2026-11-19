@@ -1,20 +1,19 @@
 ---
 id: unit-persona-matrix-ollama-client
+historical: true
 kind: mixed
 title: "Persona matrix Ollama client \u2014 pipeline-bypassing probe"
 sources:
 - type: code
   path: portal/modules/eval/persona_matrix/ollama_client.py
   commit: db243698
-last_generated_commit: db243698
 claims: []
 confidence: high
 tags:
 - authored-v1
 - eval
 - persona-matrix
-created_at: 1785796995.099793
-updated_at: 1785796995.099793
+
 ---
 
 `ollama_client.py` is the raw Ollama HTTP client for the persona matrix: it

@@ -1,20 +1,19 @@
 ---
 id: unit-inference-cli-main
+historical: true
 kind: mixed
 title: "Inference CLI main \u2014 python -m entry delegate"
 sources:
 - type: code
   path: portal/platform/inference/cli/__main__.py
   commit: 250150f6
-last_generated_commit: 250150f6
 claims: []
 confidence: high
 tags:
 - authored-v1
 - platform
 - cli
-created_at: 1785797827.404568
-updated_at: 1785797827.404568
+
 ---
 
 This is the `python -m portal.platform.inference.cli` entry point: it

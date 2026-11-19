@@ -1,18 +1,17 @@
 ---
 id: unit-V2_SCENARIO_AUDIT_V1-7-qa-test-enumeration-vs-uat-p-d18
+historical: true
 kind: why
 title: "V2_SCENARIO_AUDIT_V1 \u2014 7. `qa-test-enumeration` vs UAT P-D18"
 sources:
 - type: design
   path: docs/V2_SCENARIO_AUDIT_V1.md
   section: 7. `qa-test-enumeration` vs UAT P-D18
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - V2_SCENARIO_AUDIT_V1
-created_at: 1785348275.819625
-updated_at: 1785348275.819625
+
 ---
 
 

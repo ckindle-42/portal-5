@@ -9,14 +9,16 @@ sources:
   path: portal/platform/inference/cli/models.py
 - type: code
   path: portal/platform/inference/cli/update.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: launch.sh
+  equals: true
 confidence: high
 tags:
 - ADMIN_GUIDE
 - docs
 - verified-v1
-created_at: 1784950000.0
-updated_at: 1784950000.0
+
 ---
 
 # Pull additional models

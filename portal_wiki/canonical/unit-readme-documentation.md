@@ -5,13 +5,14 @@ title: "README \u2014 Documentation"
 sources:
 - type: code
   path: portal/platform/wiki/render.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/wiki/render.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.691113
-updated_at: 1784946220.691113
 ---
 
 The operator-facing manual is a set of reference docs at the repo root and under

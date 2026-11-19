@@ -1,19 +1,18 @@
 ---
 id: unit-scripts-gen-image
+historical: true
 kind: mixed
 title: "Script \u2014 gen-image"
 sources:
 - type: code
   path: scripts/gen-image.py
   commit: 94ecf393
-last_generated_commit: 94ecf393
 claims: []
 confidence: high
 tags:
 - authored-v1
 - scripts
-created_at: 1785799510.578014
-updated_at: 1785799510.578014
+
 ---
 
 Generates images through the ComfyUI pipeline from the command line, handling the API workflow submission and result retrieval.

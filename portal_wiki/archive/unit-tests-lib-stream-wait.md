@@ -1,20 +1,19 @@
 ---
 id: unit-tests-lib-stream-wait
+historical: true
 kind: mixed
 title: "Tests lib stream-wait \u2014 event-driven streaming wait"
 sources:
 - type: code
   path: tests/lib/stream_wait.py
   commit: bd66d80c
-last_generated_commit: bd66d80c
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - lib
-created_at: 1785798254.002919
-updated_at: 1785798254.002919
+
 ---
 
 `stream_wait.py` is the event-driven streaming wait shared across the bench,

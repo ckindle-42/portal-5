@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-response_loop
+historical: true
 kind: mixed
 title: "Response loop \u2014 stay-current-by-construction"
 sources:
 - type: code
   path: portal/modules/security/core/response_loop.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800269.39417
-updated_at: 1785800269.39417
+
 ---
 
 Phase 7 of the RBP build: closes the fourth loop (response) and makes the system stay current by construction.

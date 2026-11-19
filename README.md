@@ -137,7 +137,10 @@ Everyday operations: `./launch.sh status`, `./launch.sh logs`, `./launch.sh down
 
 The operator CLI inspects and drives all of it: `portal config show` for the current
 runtime inventory, `portal module enable <name>`, `portal workspace status`,
-`portal models pull`, `portal docs build` when a release needs generated docs refreshed.
+`portal models pull`, `portal trace` for a read-only hop-by-hop check of the running
+system (host services, containers, workspaces end to end, pins and deprecated aliases,
+engines, the Open WebUI tool path, lab paths), `portal docs build` when a release needs
+generated docs refreshed.
 
 ## Privacy and security
 

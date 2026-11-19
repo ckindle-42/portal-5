@@ -544,12 +544,12 @@ PYEOF
     ;;
 
   pull-mflux-models)
-    shift
-    _launch_pull_mflux_models "$@"
+    _launch_pull_mflux_models
     ;;
 
   install-video-mlx)
-    _launch_install_video_mlx
+    shift
+    _launch_install_video_mlx "$@"
     ;;
 
   start-video-mlx)
@@ -654,11 +654,11 @@ PYEOF
     echo "  install-mflux         Install MFLUX MCP — MLX-native image generation (Apple Silicon), port 8933"
     echo "  start-mflux           Start (or install) the MFLUX MCP launchd service"
     echo "  stop-mflux            Stop the MFLUX MCP launchd service"
-    echo "  pull-mflux-models     Pre-pull MFLUX weights (schnell + klein + z-image + qwen-image)"
-    echo "  install-video-mlx     Install Video-MLX MCP — LTX-2.3 MLX video generation (Apple Silicon), port 8935"
+    echo "  pull-mflux-models     Pre-pull MFLUX weights (flux2-klein-4b + flux3-image-klein + qwen-image-2.1-turbo + z-image-turbo)"
+    echo "  install-video-mlx     Install Video-MLX MCP — LTX-2.5 MLX video generation (Apple Silicon), port 8935"
     echo "  start-video-mlx       Start (or install) the Video-MLX MCP launchd service"
     echo "  stop-video-mlx        Stop the Video-MLX MCP launchd service"
-    echo "  pull-video-mlx-models Pre-pull LTX-2.3 model packs (q4 + q8)"
+    echo "  pull-video-mlx-models Pre-pull LTX-2.5 model packs (q4 default; pass repo ids for others)"
     echo "  pull-asr-models       Fetch MLX ASR weights (:8924 Parakeet + Sortformer, :8918 Qwen3-ASR)"
     echo "  start-speech          Start MLX Speech server (Kokoro + Chatterbox clone + Qwen3-ASR)"
     echo "  stop-speech           Stop MLX Speech server"

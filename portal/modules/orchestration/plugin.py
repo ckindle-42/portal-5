@@ -20,4 +20,7 @@ def owui_tools() -> dict[str, Any]:
         return {}
     from portal.modules.orchestration import owui_entry
 
-    return {"arm_queue_task": owui_entry.arm_queue_task}
+    return {
+        "arm_queue_task": owui_entry.arm_queue_task,
+        "jarvis_submit": owui_entry.jarvis_submit,
+    }

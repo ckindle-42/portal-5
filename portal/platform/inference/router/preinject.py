@@ -27,6 +27,7 @@ from portal.platform.inference.router.workspaces import _PERSONA_MAP, WORKSPACES
 
 logger = logging.getLogger(__name__)
 _DEPRECATED_ALIAS_LOGGED: set[str] = set()
+_AUTO_DEFAULT_LANE: str = os.environ.get("AUTO_DEFAULT_LANE", "auto-daily")
 
 
 def append_text_to_content(content: Any, text: str) -> Any:
@@ -280,6 +281,17 @@ async def _resolve_auto_routing(workspace_id: str, messages: list[dict[str, Any]
         )
         _router_layer_total.labels(layer="keywords", workspace=detected).inc()
         return detected
+    default_lane = _AUTO_DEFAULT_LANE
+    if default_lane in WORKSPACES:
+        from portal.platform.wiki.adapters.modules import is_workspace_disabled
+
+        if not is_workspace_disabled(default_lane):
+            logger.info(
+                "Auto-routing (default): no specialist matched — routing to '%s'",
+                default_lane,
+            )
+            _router_layer_total.labels(layer="fallback_auto", workspace=default_lane).inc()
+            return default_lane
     _router_layer_total.labels(layer="fallback_auto", workspace=workspace_id).inc()
     return workspace_id
 

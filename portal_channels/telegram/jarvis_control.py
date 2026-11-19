@@ -8,6 +8,7 @@ user is required (chat keeps its empty-allowlist-permits-all behaviour).
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +30,8 @@ from portal_channels.telegram.arm_bridge import (
     default_arm_telegram_path,
 )
 
+logger = logging.getLogger(__name__)
+
 HELP_TEXT = (
     "Jarvis control verbs:\n"
     "/jarvis status — queue ledger at a glance\n"
@@ -42,6 +45,7 @@ HELP_TEXT = (
     "/jarvis merge <job> — merge a held escalation (confirm)\n"
     "/jarvis keep <job> — keep a held escalation unmerged\n"
     "/jarvis escalate <job> — send a blocked job to a cloud lane\n"
+    "/jarvis do <text> — queue a personal task\n"
     "/jarvis help — this text"
 )
 
@@ -61,6 +65,14 @@ def is_plain_jarvis(text: str) -> bool:
     chat model, which invented a dashboard)."""
     words = text.split()
     return bool(words) and words[0].lower().rstrip(",:") == "jarvis"
+
+
+def is_jarvis_slash(text: str) -> bool:
+    """True when text starts with /jarvis (including leading spaces or @botname)."""
+    words = text.split()
+    if not words or not words[0].startswith("/"):
+        return False
+    return words[0][1:].split("@", 1)[0].lower().rstrip(",:") == "jarvis"
 
 
 def control_enabled() -> bool:
@@ -99,8 +111,14 @@ async def handle_jarvis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await message.reply_text("Unauthorized.")
         return
     verb, args = parse(message.text or "")
+    logger.info("Jarvis command user=%s verb=%s", user.id, verb)
     if verb == "help":
         await message.reply_text(HELP_TEXT)
+        return
+    if verb == "do":
+        from portal.modules.orchestration.personal_intake import telegram_do_reply
+
+        await message.reply_text(telegram_do_reply(_tasks_root(), user.id, args))
         return
     store = _store()
     if verb not in VERB_NAMES:
@@ -164,6 +182,10 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             "This request is closed, expired, or you are not authorized.", show_alert=True
         )
         return
+    if request.verb == "personal":
+        from portal.modules.orchestration.personal_runner import apply_personal_decision
+
+        apply_personal_decision(_tasks_root(), request.args, action)
     label = decided.verb + (f" {decided.args}" if decided.args else "")
     await query.answer(f"{label}: {decided.status}.")
     if query.message:
@@ -176,10 +198,18 @@ def notice_keyboard(store: ArmTelegramStore, task_id: str) -> InlineKeyboardMark
     pending = store.pending_control_requests(task_id)
     if not pending:
         return None
-    rows = [
-        [InlineKeyboardButton(request.verb.capitalize(), callback_data=_callback_for(request))]
-        for request in pending
-    ]
+    rows = []
+    for request in pending:
+        if request.verb == "personal":
+            rows.extend(_confirm_keyboard(request.id).inline_keyboard)
+        else:
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        request.verb.capitalize(), callback_data=_callback_for(request)
+                    )
+                ]
+            )
     return InlineKeyboardMarkup(rows)
 
 

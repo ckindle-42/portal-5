@@ -15,12 +15,13 @@ sources:
   path: tests/acceptance/s06_security_workspaces.py
 - type: code
   path: tests/acceptance/s10_personas_ollama.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/portal5_acceptance_v6.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.695101
-updated_at: 1784946220.695101
 ---
 
 The runner entry point is `tests/portal5_acceptance_v6.py`, which is a thin

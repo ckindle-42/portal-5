@@ -1,20 +1,19 @@
 ---
 id: unit-tests-lib-init
+historical: true
 kind: mixed
 title: "Tests lib \u2014 shared acceptance/matrix test library"
 sources:
 - type: code
   path: tests/lib/__init__.py
   commit: bd66d80c
-last_generated_commit: bd66d80c
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - lib
-created_at: 1785798244.6095161
-updated_at: 1785798244.6095161
+
 ---
 
 The tests/lib package is the shared test library for the acceptance and

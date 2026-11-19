@@ -1,5 +1,6 @@
 ---
 id: unit-MLX_CHANGES_2026-04-26-1-mlx-lm-0-31-2-mlx-0-31-2-worker-thread-gpu-strea
+historical: true
 kind: why
 title: "MLX_CHANGES_2026-04-26 \u2014 1. mlx-lm 0.31.2 + mlx 0.31.2: Worker Thread\
   \ GPU Stream Crash (FIXED)"
@@ -7,13 +8,11 @@ sources:
 - type: design
   path: docs/MLX_CHANGES_2026-04-26.md
   section: '1. mlx-lm 0.31.2 + mlx 0.31.2: Worker Thread GPU Stream Crash (FIXED)'
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - MLX_CHANGES_2026-04-26
-created_at: 1783195000.8758101
-updated_at: 1783195000.8758101
+
 ---
 
 - **Severity**: Critical — all completions hang/crash, UAT produces 0 results

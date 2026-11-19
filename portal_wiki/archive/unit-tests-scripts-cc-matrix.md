@@ -1,12 +1,12 @@
 ---
 id: unit-tests-scripts-cc-matrix
+historical: true
 kind: mixed
 title: "CC-01 challenge matrix \u2014 comparative shootout aggregator"
 sources:
 - type: code
   path: tests/scripts/cc_challenge_matrix.py
   commit: 53110d10
-last_generated_commit: 53110d10
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - tests
 - scripts
 - bench
-created_at: 1785796167.7856152
-updated_at: 1785796167.7856152
+
 ---
 
 The CC-01 challenge shootout matrix reads the challenge section rows of the

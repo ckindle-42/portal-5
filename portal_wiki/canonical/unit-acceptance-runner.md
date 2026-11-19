@@ -6,14 +6,15 @@ sources:
 - type: code
   path: tests/acceptance/runner.py
   commit: e75dddd2
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/acceptance/runner.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799710.136381
-updated_at: 1785799710.136381
 ---
 
 `runner.py` orchestrates the acceptance sections: it defines the S-section

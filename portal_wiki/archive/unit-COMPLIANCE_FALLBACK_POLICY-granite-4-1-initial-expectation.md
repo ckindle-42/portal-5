@@ -1,18 +1,17 @@
 ---
 id: unit-COMPLIANCE_FALLBACK_POLICY-granite-4-1-initial-expectation
+historical: true
 kind: why
 title: "COMPLIANCE_FALLBACK_POLICY \u2014 Granite 4.1 \u2014 initial expectation"
 sources:
 - type: design
   path: docs/COMPLIANCE_FALLBACK_POLICY.md
   section: "Granite 4.1 \u2014 initial expectation"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - COMPLIANCE_FALLBACK_POLICY
-created_at: 1783195000.833357
-updated_at: 1783195000.833357
+
 ---
 
 

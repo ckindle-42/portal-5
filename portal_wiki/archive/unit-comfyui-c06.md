@@ -1,20 +1,19 @@
 ---
 id: unit-comfyui-c06
+historical: true
 kind: mixed
 title: "ComfyUI acceptance C6 \u2014 SDXL variants"
 sources:
 - type: code
   path: tests/comfyui/c06_sdxl.py
   commit: ee3590ba
-last_generated_commit: ee3590ba
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - comfyui
-created_at: 1785799029.749126
-updated_at: 1785799029.749126
+
 ---
 
 This is the ComfyUI acceptance section C06. Image generation: SDXL

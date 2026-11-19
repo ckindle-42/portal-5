@@ -1,18 +1,17 @@
 ---
 id: unit-PERSONA_MATRIX_CI-big-model-coverage
+historical: true
 kind: why
 title: "PERSONA_MATRIX_CI \u2014 Big-model coverage"
 sources:
 - type: design
   path: docs/PERSONA_MATRIX_CI.md
   section: Big-model coverage
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - PERSONA_MATRIX_CI
-created_at: 1783195000.882814
-updated_at: 1783195000.882814
+
 ---
 
 

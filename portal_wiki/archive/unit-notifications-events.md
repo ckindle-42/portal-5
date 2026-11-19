@@ -1,20 +1,19 @@
 ---
 id: unit-notifications-events
+historical: true
 kind: mixed
 title: "Notification events \u2014 typed alert/summary vocabulary"
 sources:
 - type: code
   path: portal/platform/inference/notifications/events.py
   commit: 7383d070
-last_generated_commit: 7383d070
 claims: []
 confidence: high
 tags:
 - authored-v1
 - notifications
 - platform
-created_at: 1785796457.06321
-updated_at: 1785796457.06321
+
 ---
 
 `events.py` defines the notification event types — `EventType` enum plus the

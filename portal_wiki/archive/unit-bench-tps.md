@@ -1,20 +1,19 @@
 ---
 id: unit-bench-tps
+historical: true
 kind: mixed
 title: "Bench TPS entry \u2014 operator-facing re-export shim"
 sources:
 - type: code
   path: tests/benchmarks/bench_tps.py
   commit: 071aaf52
-last_generated_commit: 071aaf52
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - bench
-created_at: 1785798617.443697
-updated_at: 1785798617.443697
+
 ---
 
 `bench_tps.py` is the stable operator-facing entry point for the TPS bench:

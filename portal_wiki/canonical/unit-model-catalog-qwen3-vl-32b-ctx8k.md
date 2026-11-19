@@ -7,13 +7,13 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: models.configured
+  contains: qwen3-vl:32b-ctx8k
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.658004
-updated_at: 1784946220.658004
 ---
 
 `qwen3-vl:32b-ctx8k` is the context-capped derivation of `qwen3-vl:32b` that bakes `PARAMETER num_ctx 8192` into the tag so the vision lane does not reserve a full native context window per request. `config/backends.yaml` lists it under `group: vision` (`ollama-vision`) with `supports_tools: true`, and `config/portal.yaml` wires it as the `model_hint` of the `auto-vision` workspace whose `context_limit` is `8192`. The tag exists because Ollama's `/v1/chat/completions` drops request-time `options.num_ctx`, so a per-workspace cap has to be a distinct model tag rather than a request option. The production vision workspace therefore always runs the capped tag, never the uncapped base.

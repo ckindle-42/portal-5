@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-field_journal
+historical: true
 kind: mixed
 title: "Field journal \u2014 observed-fact engagement memory"
 sources:
 - type: code
   path: portal/modules/security/core/field_journal.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800269.394165
-updated_at: 1785800269.394165
+
 ---
 
 After each engagement, records the observed execution chain, pitfalls, and reusable patterns — only observed facts — so the loop recalls relevant prior engagements before acting.

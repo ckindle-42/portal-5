@@ -1,21 +1,22 @@
 ---
 id: unit-surface-tests-security-review
 kind: mixed
-title: "Security review program tests"
+title: Security review program tests
 sources:
 - type: code
   path: tests/security/review/*.py
 - type: code
   path: tests/security/review_eval/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/security/review/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - security
 - review
 - tests
-created_at: 1791527057.0
-updated_at: 1791552192.0
 ---
 
 `tests/security/review/` and `tests/security/review_eval/` hold focused tests

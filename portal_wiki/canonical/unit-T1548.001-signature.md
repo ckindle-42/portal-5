@@ -9,14 +9,16 @@ sources:
   path: ATT&CK:T1548.001
 - type: scenario
   path: exec_chain.py#web_to_root
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1548.001
+  equals: true
 confidence: high
 tags:
 - T1548.001
 - technique
 - signature
-created_at: 1790651067.888148
-updated_at: 1790651067.888148
 ---
 
 # T1548.001 — SUID abuse — setuid binary execution for privilege escalation

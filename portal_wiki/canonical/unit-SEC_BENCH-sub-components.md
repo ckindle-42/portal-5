@@ -32,15 +32,16 @@ sources:
   path: portal/modules/security/core/objective_executor.py
 - type: code
   path: portal/modules/security/core/objective_entry.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/capability/__init__.py
+  equals: true
 confidence: high
 tags:
 - bench
 - security
 - sub-components
 - verified-v1
-created_at: 1784945480.178221
-updated_at: 1784945480.178221
 ---
 
 ## Capability Index

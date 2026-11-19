@@ -11,13 +11,14 @@ sources:
   path: portal/platform/inference/router/workspaces.py
 - type: code
   path: .mcp.json
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/mcp_host/pipeline_mcp.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.578301
-updated_at: 1784946220.578301
 ---
 
 Fixing a routing bug with Claude Code in Portal mode follows the tool chain that

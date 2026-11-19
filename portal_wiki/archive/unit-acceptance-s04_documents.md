@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-s04_documents
+historical: true
 kind: mixed
 title: "S4 \u2014 Document generation"
 sources:
 - type: code
   path: tests/acceptance/s04_documents.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799749.24546
-updated_at: 1785799749.24546
+
 ---
 
 This is the acceptance section s04_documents. S4 — Document generation

@@ -5,12 +5,13 @@ title: "BACKUP_RESTORE \u2014 Security Notes"
 sources:
 - type: code
   path: scripts/lib/backup.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/lib/backup.sh
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.535368
-updated_at: 1784946220.535368
 ---
 
 Every backup produced by `_launch_backup` contains `.env`, including the pipeline API key, web UI secret, admin password, and any other secrets it holds. The script applies no encryption to the snapshot directory, so its confidentiality depends entirely on the filesystem permissions and physical security of the backup location. That elevates the backup directory to the same sensitivity class as the live `.env` file, with offsite or encrypted copies being the operator's responsibility.

@@ -1,12 +1,12 @@
 ---
 id: unit-router-auth
+historical: true
 kind: mixed
 title: "Router auth \u2014 constant-time bearer-token verification"
 sources:
 - type: code
   path: portal/platform/inference/router/auth.py
   commit: d7c1d4f4
-last_generated_commit: d7c1d4f4
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - platform
 - inference
 - router
-created_at: 1785798052.362176
-updated_at: 1785798052.362176
+
 ---
 
 `auth.py` is the pipeline's bearer-token verification for the `/v1/*` and

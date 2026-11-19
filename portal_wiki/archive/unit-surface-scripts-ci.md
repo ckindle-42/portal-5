@@ -1,19 +1,18 @@
 ---
 id: unit-surface-scripts-ci
+historical: true
 kind: mixed
 title: "CI guard suite \u2014 generated-fresh, no-identical-sources, no-duplicate-pins"
 sources:
 - type: code
   path: scripts/ci/*.py
-last_generated_commit: 758673b57116f28ebd8c5fac90972dc7c414a797
 claims: []
 confidence: high
 tags:
 - authored-v1
 - scripts
 - ci
-created_at: 1785881400.0
-updated_at: 1785881400.0
+
 ---
 
 The CI guard suite is three independent pre-commit invariants. The

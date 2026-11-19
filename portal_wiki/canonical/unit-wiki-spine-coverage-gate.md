@@ -9,7 +9,10 @@ sources:
   path: config/spine_surfaces.yaml
 - type: code
   path: portal/platform/wiki/adapters/seed_code.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/spine_surfaces.yaml
+  equals: true
 confidence: high
 tags:
 - BR
@@ -17,8 +20,6 @@ tags:
 - validate-system
 - verified-v1
 - wiki
-created_at: 1785380311.8876002
-updated_at: 1785380311.8876002
 ---
 
 ## What

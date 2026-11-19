@@ -41,15 +41,16 @@ sources:
   path: portal/modules/security/core/loop_cli.py
 - type: code
   path: portal/modules/security/core/__init__.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/_data.py
+  equals: true
 confidence: high
 tags:
 - bench
 - security
 - structure
 - verified-v1
-created_at: 1784941806.37069
-updated_at: 1784941806.37069
 ---
 
 `bench_security` is a **package** (`portal/modules/security/core/`), decomposed from a single module. Chain execution, scoring, and lab-exec logic were further split into focused sub-modules; `chain.py` and `cli.py` are now thin re-export shims over the implementations that moved out.

@@ -1,20 +1,19 @@
 ---
 id: unit-tests-lib-coding-assertions
+historical: true
 kind: mixed
 title: "Tests lib coding assertions \u2014 structural artifact checks"
 sources:
 - type: code
   path: tests/lib/coding_assertions.py
   commit: bd66d80c
-last_generated_commit: bd66d80c
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - lib
-created_at: 1785798259.9462762
-updated_at: 1785798259.9462762
+
 ---
 
 `coding_assertions.py` holds the behavioral assertions for coding-persona

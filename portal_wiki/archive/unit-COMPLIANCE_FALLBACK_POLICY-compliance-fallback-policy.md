@@ -1,18 +1,17 @@
 ---
 id: unit-COMPLIANCE_FALLBACK_POLICY-compliance-fallback-policy
+historical: true
 kind: why
 title: "COMPLIANCE_FALLBACK_POLICY \u2014 Compliance Fallback Policy"
 sources:
 - type: design
   path: docs/COMPLIANCE_FALLBACK_POLICY.md
   section: Compliance Fallback Policy
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - COMPLIANCE_FALLBACK_POLICY
-created_at: 1783195000.832397
-updated_at: 1783195000.832397
+
 ---
 
 

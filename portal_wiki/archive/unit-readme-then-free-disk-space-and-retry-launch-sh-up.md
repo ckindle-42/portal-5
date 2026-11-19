@@ -1,5 +1,6 @@
 ---
 id: unit-readme-then-free-disk-space-and-retry-launch-sh-up
+historical: true
 kind: what
 title: "README \u2014 Then free disk space and retry ./launch.sh up"
 sources:
@@ -12,8 +13,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.688473
-updated_at: 1784946220.688473
+
 ---
 
 The disk check in `_check_hardware` (`scripts/lib/util.sh`) is the first-run

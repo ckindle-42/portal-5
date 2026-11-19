@@ -17,15 +17,16 @@ sources:
   path: tests/unit/test_spine_drift.py
 - type: code
   path: tests/unit/test_detector_precision.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/compliance/plugin.py
+  equals: true
 confidence: high
 tags:
 - drift
 - spine
 - verified-v1
 - wiki
-created_at: 1785825842.272556
-updated_at: 1791527128.0
 ---
 
 The active spine checks are `BR` surface coverage and `BS` claim/path validation.
