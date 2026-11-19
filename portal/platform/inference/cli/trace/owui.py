@@ -60,5 +60,12 @@ def run(ctx: TraceContext, portal: dict[str, object]) -> list[Hop]:
     if not key:
         return [Hop("owui turn", Status.WARN, "not run: no OWUI_API_KEY", "an OWUI turn", "set it")]
     started = time.time()
-    turn = stream_turn(ctx.owui_url, key, WORKSPACE, ctx.timeout_s, "/api/chat/completions")
+    turn = stream_turn(
+        ctx.owui_url,
+        key,
+        WORKSPACE,
+        ctx.timeout_s,
+        "/api/chat/completions",
+        max_tokens=None,
+    )
     return [receipt_hop(turn), trace_hop(ctx, started)]

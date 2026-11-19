@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import plistlib
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import typer
@@ -663,10 +664,11 @@ def test_expected_catalog_names_exposed_variants_under_their_synthetic_id() -> N
             "a": {
                 "name": "A",
                 "variants": {"v": {"name": "V", "expose_to_owui": True}, "hidden": {"name": "H"}},
-            }
+            },
+            "task-router": {"name": "Task model", "module": "eval"},
         }
     }
-    assert pins.expected_catalog(portal) == {"a": "A", "a::v": "V"}
+    assert pins.expected_catalog(portal) == {"a": "A", "a::v": "V", "task-router": "Task model"}
 
 
 def test_owui_receipt_hop_needs_a_closed_receipt_naming_the_tool() -> None:
@@ -675,3 +677,16 @@ def test_owui_receipt_hop_needs_a_closed_receipt_naming_the_tool() -> None:
     assert owui.receipt_hop(ok).status is Status.PASS
     bare = workspaces.StreamedTurn(200, [], workspaces.TurnStats(text="488895"))
     assert owui.receipt_hop(bare).status is Status.FAIL
+
+
+def test_owui_tool_turn_has_room_to_emit_a_tool_call(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(owui, "env_value", lambda _: "key")
+    monkeypatch.setattr(
+        owui,
+        "stream_turn",
+        lambda *args, **kwargs: captured.update(kwargs) or workspaces.StreamedTurn(200),
+    )
+    monkeypatch.setattr(owui, "trace_hop", lambda *_: Hop("trace", Status.PASS, "ok", "ok"))
+    owui.run(SimpleNamespace(api_key="key", owui_url="http://owui", timeout_s=5), {})
+    assert captured["max_tokens"] is None

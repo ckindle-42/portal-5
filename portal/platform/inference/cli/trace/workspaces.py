@@ -142,15 +142,17 @@ def stream_turn(
     model: str,
     timeout_s: float,
     path: str = "/v1/chat/completions",
+    max_tokens: int | None = MAX_TOKENS,
 ) -> StreamedTurn:
     """One small streaming chat request; the router's own route header names what served it."""
     body = {
         "model": model,
         "messages": [{"role": "user", "content": PROMPT}],
         "stream": True,
-        "max_tokens": MAX_TOKENS,
         "stream_options": {"include_usage": True},
     }
+    if max_tokens is not None:
+        body["max_tokens"] = max_tokens
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
     timeout = httpx.Timeout(timeout_s, connect=min(10.0, timeout_s))
     try:

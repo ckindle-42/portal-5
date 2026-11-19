@@ -19,6 +19,7 @@ PIN_NAME = re.compile(r"(BACKEND|SEAT|PIN|JUDGE)")
 #: A pin's value is an id or tag, never a prompt body.
 IDENTIFIER = re.compile(r"^[\w./:@%+\-]{1,120}$")
 BACKENDS_YAML = Path("config") / "backends.yaml"
+TASK_MODEL_ID = "task-router"
 
 
 @dataclass(frozen=True)
@@ -162,7 +163,7 @@ def backend_hops(backend: Backend, models: EngineModels) -> list[Hop]:
 
 
 def expected_catalog(portal: dict[str, Any]) -> dict[str, str]:
-    """id -> declared name for every enabled workspace and every OWUI-exposed variant."""
+    """id -> declared name for configured seats, OWUI variants, and the task model."""
     from portal.platform.wiki.adapters.modules import is_workspace_disabled
 
     out: dict[str, str] = {}
@@ -174,7 +175,11 @@ def expected_catalog(portal: dict[str, Any]) -> dict[str, str]:
             if (vcfg or {}).get("expose_to_owui") is True
         }
     disabled = is_workspace_disabled
-    return {k: v for k, v in out.items() if not k.startswith("bench") and not disabled(k)}
+    return {
+        k: v
+        for k, v in out.items()
+        if not k.startswith("bench") and (not disabled(k) or k == TASK_MODEL_ID)
+    }
 
 
 def catalog_hop(ctx: TraceContext, portal: dict[str, Any]) -> Hop:
