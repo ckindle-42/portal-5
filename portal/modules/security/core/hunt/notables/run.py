@@ -6,6 +6,7 @@ import json
 import time
 from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -46,6 +47,7 @@ from .sample import (
     read_alert_rows,
     read_windows,
     sample_windows,
+    shared_source_names,
 )
 from .similar import SIMILAR_GENERATOR, generate_similar
 from .window_activity import resolve_source_windows
@@ -215,7 +217,15 @@ def load_cards(out: Path) -> list[SourceCard]:
 
 
 def facts_by_source(cards: Sequence[SourceCard]) -> dict[str, SourceFacts]:
-    return {card.source_id: _fact_dict(card) for card in cards}
+    facts = {card.source_id: _fact_dict(card) for card in cards}
+    shared = shared_source_names({key: source.sources for key, source in facts.items()})
+    for key, source in facts.items():
+        inferred = tuple(s for s in source.sources if s.casefold() in shared)
+        if inferred:
+            facts[key] = replace(
+                source, shared_sources=tuple(dict.fromkeys((*source.shared_sources, *inferred)))
+            )
+    return facts
 
 
 def _sample_source(executor: Any, facts: SourceFacts) -> tuple[SourceFacts, Any]:

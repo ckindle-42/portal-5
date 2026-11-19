@@ -61,7 +61,7 @@ def window_activity(
     return _make(
         generator=seed.generator,
         basis=f"{seed.basis}_activity",
-        what=f"{actor_field}={actor} performed {action_field}={action} across {counts[key]} "
+        what=f"{len(observations)} sampled events with {actor_field}={actor} and {action_field}={action} involved {counts[key]} "
         f"distinct {name} values in the sampled window (first {first[1]}, last {last[1]})",
         entities=(("actor", actor), ("action", action), ("object", first[1]), ("object", last[1])),
         source_id=seed.source_id,

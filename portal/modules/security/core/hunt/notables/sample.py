@@ -172,6 +172,14 @@ def _group_meta(
     return grouped
 
 
+def shared_source_names(by_type: Mapping[str, Iterable[str]]) -> set[str]:
+    owners: dict[str, set[str]] = {}
+    for owner, names in by_type.items():
+        for name in names:
+            owners.setdefault(name.casefold(), set()).add(owner)
+    return {name for name, types in owners.items() if len(types) > 1}
+
+
 def index_facts(
     executor: HuntExecutor, index: str, start: float, end: float
 ) -> tuple[list[SourceFacts], list[str]]:
@@ -199,10 +207,7 @@ def index_facts(
             notes.append(f"{label}_metadata:{cause}")
     by_source = _group_meta(sources, "sourcetype", "source")
     by_host = _group_meta(hosts, "sourcetype", "host")
-    owners: dict[str, set[str]] = {}
-    for owner, names in by_source.items():
-        for name, _ in names:
-            owners.setdefault(name.casefold(), set()).add(owner)
+    shared = shared_source_names({k: [s for s, _ in v] for k, v in by_source.items()})
     facts: list[SourceFacts] = []
     for row in sorted(volume, key=lambda item: str(item.get("sourcetype") or "")):
         name = str(row.get("sourcetype") or "")
@@ -225,9 +230,7 @@ def index_facts(
                 active_periods=active,
                 periods=span,
                 count_cv=cv,
-                shared_sources=tuple(
-                    src for src, _ in ranked_sources if len(owners[src.casefold()]) > 1
-                ),
+                shared_sources=tuple(src for src, _ in ranked_sources if src.casefold() in shared),
             )
         )
     return facts, notes
@@ -235,14 +238,19 @@ def index_facts(
 
 def route_filter(facts: SourceFacts, max_sources: int = SAMPLE_SOURCES) -> tuple[str, str]:
     """Filter that selects this source's events: indexed sources where known, else the name."""
-    selected = facts.sources[:max_sources]
+    return source_route(facts.sourcetype, facts.sources[:max_sources], facts.shared_sources)
+
+
+def source_route(
+    sourcetype: str, selected: Sequence[str], shared_sources: Sequence[str]
+) -> tuple[str, str]:
     if selected:
         predicates = " OR ".join(f"source={_quoted(name)}" for name in selected)
         route = f"({predicates})"
-        if set(selected).intersection(facts.shared_sources):
-            route = f"sourcetype={_quoted(facts.sourcetype)} {route}"
+        if set(selected).intersection(shared_sources):
+            route = f"sourcetype={_quoted(sourcetype)} {route}"
         return route, "source"
-    return f"sourcetype={_quoted(facts.sourcetype)}", "sourcetype"
+    return f"sourcetype={_quoted(sourcetype)}", "sourcetype"
 
 
 def read_windows(
