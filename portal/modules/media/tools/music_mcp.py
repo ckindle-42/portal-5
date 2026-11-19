@@ -27,6 +27,7 @@ from portal.modules.media.tools._jobs import (
     MediaJobManager,
     start_reply,
 )
+from portal.modules.media.tools.music_worker import interpret_worker_output
 from portal.platform.mcp_host import resolve_upload_path
 from portal.platform.mcp_host.eval_scope import bind_native_context
 from portal.platform.mcp_host.owui_files import publish_file
@@ -148,15 +149,7 @@ async def run_worker(spec: dict[str, Any]) -> dict[str, Any]:
         return {"success": False, "error": f"music worker timed out after {int(_JOB_TIMEOUT_S)}s"}
     finally:
         _weights_resident = False
-    if proc.returncode != 0 and not out:
-        tail = (err or b"").decode("utf-8", "replace")[-800:]
-        return {"success": False, "error": tail or f"worker exit {proc.returncode}"}
-    try:
-        parsed = json.loads(out.decode("utf-8", "replace"))
-    except json.JSONDecodeError:
-        tail = (err or out or b"").decode("utf-8", "replace")[-800:]
-        return {"success": False, "error": tail or "worker returned non-JSON"}
-    return parsed if isinstance(parsed, dict) else {"success": False, "error": "bad worker JSON"}
+    return interpret_worker_output(out, err, proc.returncode, str(spec.get("output_path") or ""))
 
 
 async def _finish(spec: dict[str, Any], progress: Callable[[int, str], None]) -> dict[str, Any]:

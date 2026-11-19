@@ -49,6 +49,24 @@ async def test_done_message_carries_the_download_link() -> None:
     assert res["status"] == "done"
     assert "http://x/s.wav" in res["message"]
     assert "Generating" not in res["message"]
+    assert "error" not in res
+
+
+@pytest.mark.asyncio
+async def test_done_snapshot_drops_a_log_line_stuffed_into_error() -> None:
+    mgr = MediaJobManager(default_wait_s=1.0, max_wait_s=1.0)
+
+    async def runner(_progress: Any) -> dict[str, Any]:
+        return {
+            "success": True,
+            "download_url": "http://x/s.wav",
+            "error": "VAE decode completed. Preparing audio tensors...",
+        }
+
+    res = await mgr.status(mgr.start(runner))
+    assert res["status"] == "done"
+    assert res["download_url"] == "http://x/s.wav"
+    assert "error" not in res
 
 
 @pytest.mark.asyncio

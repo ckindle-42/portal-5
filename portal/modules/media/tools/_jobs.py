@@ -149,9 +149,11 @@ class MediaJobManager:
                 result = await runner(progress)
             if result.get("success"):
                 fields = {**result, "status": "done", "finished_at": time.time()}
+                fields.pop("error", None)
                 url = fields.get("download_url") or fields.get("url")
                 fields["message"] = f"Done. Return this download link: {url}" if url else "Done."
                 self._record(job_id, **fields)
+                self._jobs[job_id].pop("error", None)
             else:
                 self._record(
                     job_id,
