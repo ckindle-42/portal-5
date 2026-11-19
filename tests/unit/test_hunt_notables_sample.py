@@ -4,6 +4,7 @@ from portal.modules.security.core.hunt.executor import Read
 from portal.modules.security.core.hunt.notables.sample import (
     SourceFacts,
     read_windows,
+    route_filter,
     window_bounds,
 )
 
@@ -72,3 +73,20 @@ def test_sub_windows_keep_the_total_event_budget():
     )
     assert len(read.rows) <= 392 * 12
     assert len(executor.calls) == 24
+
+
+def test_shared_indexed_sources_remain_scoped_to_card_sourcetype():
+    facts = SourceFacts(
+        "ix",
+        "mysql:database",
+        10,
+        0,
+        100,
+        (),
+        0,
+        ("gacrux", "jabbah"),
+        2,
+        shared_sources=("gacrux",),
+    )
+    route, _ = route_filter(facts)
+    assert route == 'sourcetype="mysql:database" (source="gacrux" OR source="jabbah")'

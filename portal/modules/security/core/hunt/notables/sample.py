@@ -42,6 +42,7 @@ class SourceFacts:
     active_periods: int = 0
     periods: int = 0
     count_cv: float = 0.0
+    shared_sources: tuple[str, ...] = ()
 
 
 @dataclass
@@ -184,6 +185,10 @@ def index_facts(
             notes.append(f"{label}_metadata:{cause}")
     by_source = _group_meta(sources, "sourcetype", "source")
     by_host = _group_meta(hosts, "sourcetype", "host")
+    owners: dict[str, set[str]] = {}
+    for owner, names in by_source.items():
+        for name, _ in names:
+            owners.setdefault(name.casefold(), set()).add(owner)
     facts: list[SourceFacts] = []
     for row in sorted(volume, key=lambda item: str(item.get("sourcetype") or "")):
         name = str(row.get("sourcetype") or "")
@@ -206,6 +211,9 @@ def index_facts(
                 active_periods=active,
                 periods=span,
                 count_cv=cv,
+                shared_sources=tuple(
+                    src for src, _ in ranked_sources if len(owners[src.casefold()]) > 1
+                ),
             )
         )
     return facts, notes
@@ -216,7 +224,10 @@ def route_filter(facts: SourceFacts, max_sources: int = SAMPLE_SOURCES) -> tuple
     selected = facts.sources[:max_sources]
     if selected:
         predicates = " OR ".join(f"source={_quoted(name)}" for name in selected)
-        return f"({predicates})", "source"
+        route = f"({predicates})"
+        if set(selected).intersection(facts.shared_sources):
+            route = f"sourcetype={_quoted(facts.sourcetype)} {route}"
+        return route, "source"
     return f"sourcetype={_quoted(facts.sourcetype)}", "sourcetype"
 
 
