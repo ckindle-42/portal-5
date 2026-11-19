@@ -86,10 +86,15 @@ def test_telegram_do_stores_utc_not_before_and_skips_until_due(tmp_path: Path) -
     assert PersonalStore(tmp_path).oldest_runnable(now=due + timedelta(seconds=1)).id == task.id
 
 
-def test_runner_leaves_reminder_queued_until_the_due_poll(tmp_path: Path) -> None:
+def test_runner_leaves_reminder_queued_until_the_due_poll(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     import json
 
+    from portal.modules.orchestration import personal_runner
     from portal.modules.orchestration.personal_runner import Completion, poll_personal_tasks
+
+    monkeypatch.setattr(personal_runner, "_memory_recall", lambda query: "")
 
     class Caller:
         def __init__(self) -> None:
@@ -104,8 +109,6 @@ def test_runner_leaves_reminder_queued_until_the_due_poll(tmp_path: Path) -> Non
             ]
 
         def complete(self, body: dict[str, object]) -> Completion:
-            if body.get("portal_bite_tools") == ["recall"]:
-                return Completion("No matching memory.", (), 1, ("recall",))
             return self.replies.pop(0)
 
     class Notices:

@@ -22,18 +22,20 @@ class _Caller:
     def __init__(self, replies: list[Completion]) -> None:
         self.replies = list(replies)
         self.bodies: list[dict[str, object]] = []
-        self.recall_bodies: list[dict[str, object]] = []
-        self.recall_reply = Completion("No matching operator memory.", (), 1, ("recall",))
 
     def complete(self, body: dict[str, object]) -> Completion:
-        saved = json.loads(json.dumps(body))
-        if body.get("portal_bite_tools") == ["recall"]:
-            self.recall_bodies.append(saved)
-            return self.recall_reply
-        self.bodies.append(saved)
+        self.bodies.append(json.loads(json.dumps(body)))
         if not self.replies:
             raise AssertionError("tool seat was called")
         return self.replies.pop(0)
+
+
+@pytest.fixture(autouse=True)
+def _offline_recall(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The memory MCP is never reached from a unit test."""
+    from portal.modules.orchestration import personal_runner
+
+    monkeypatch.setattr(personal_runner, "_memory_recall", lambda query: "")
 
 
 class _Sink:
@@ -122,7 +124,18 @@ def test_named_external_fleets_require_confirmation_instead_of_denial() -> None:
         assert text_gate(f"use {name}", frozenset()) == "confirm"
 
 
-def test_memory_is_recalled_once_and_remember_runs_only_after_confirm(tmp_path: Path) -> None:
+def test_memory_is_recalled_once_and_remember_runs_only_after_confirm(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from portal.modules.orchestration import personal_runner
+
+    queries: list[str] = []
+
+    def recall(query: str) -> str:
+        queries.append(query)
+        return "- Recalled no matching preference."
+
+    monkeypatch.setattr(personal_runner, "_memory_recall", recall)
     telegram_do_reply(tmp_path, 7, "remember that I want Telegram replies under 400 characters")
     caller = _Caller(
         [
@@ -130,16 +143,14 @@ def test_memory_is_recalled_once_and_remember_runs_only_after_confirm(tmp_path: 
             Completion("Saved the preference.", (), 1),
         ]
     )
-    caller.recall_reply = Completion("Recalled no matching preference.", (), 1, ("recall",))
     sink = _Sink(tmp_path / "telegram.sqlite3")
 
     pending = poll_personal_tasks(tmp_path, sink, caller)
 
     assert pending is not None and pending.status == "pending"
-    assert len(caller.recall_bodies) == 1
-    assert caller.recall_bodies[0]["portal_bite_tools"] == ["recall"]
-    assert caller.recall_bodies[0]["tool_choice"] == "required"
-    assert "operator id 7" in caller.recall_bodies[0]["messages"][-1]["content"]
+    assert len(queries) == 1
+    assert "operator id 7" in queries[0]
+    assert "Telegram replies under 400 characters" in queries[0]
     assert "Recalled no matching preference." in caller.bodies[0]["messages"][-1]["content"]
     assert all("remember" not in body.get("portal_bite_tools", []) for body in caller.bodies)
 
@@ -147,6 +158,7 @@ def test_memory_is_recalled_once_and_remember_runs_only_after_confirm(tmp_path: 
     finished = poll_personal_tasks(tmp_path, sink, caller)
 
     assert finished is not None and finished.status == "done"
+    assert len(queries) == 1  # the confirmed path reuses the stored plan, it does not recall again
     assert caller.bodies[-1]["portal_bite_tools"] == ["remember"]
 
 

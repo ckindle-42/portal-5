@@ -18,6 +18,7 @@ from portal.modules.orchestration.personal_policy import (
 )
 from portal.modules.orchestration.personal_runner import (
     Completion,
+    _memory_recall,
     apply_personal_decision,
     poll_personal_tasks,
 )
@@ -36,16 +37,38 @@ class _Caller:
     def __init__(self, replies: list[Completion]) -> None:
         self.replies = list(replies)
         self.bodies: list[dict[str, Any]] = []
-        self.recall_bodies: list[dict[str, Any]] = []
-        self.recall_reply = Completion("No matching operator memory.", (), 1, ("recall",))
 
     def complete(self, body: dict[str, Any]) -> Completion:
-        saved = json.loads(json.dumps(body))
-        if body.get("portal_bite_tools") == ["recall"]:
-            self.recall_bodies.append(saved)
-            return self.recall_reply
-        self.bodies.append(saved)
+        self.bodies.append(json.loads(json.dumps(body)))
         return self.replies.pop(0)
+
+
+def _no_memory(query: str) -> str:
+    return ""
+
+
+@pytest.fixture(autouse=True)
+def _offline_recall(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The memory MCP is never reached from a unit test."""
+    from portal.modules.orchestration import personal_runner
+
+    monkeypatch.setattr(personal_runner, "_memory_recall", _no_memory)
+
+
+class _RecordingDispatcher:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    def run(self, **kwargs: Any) -> Any:
+        self.calls.append(kwargs)
+        raise AssertionError("personal cloud dispatch must not run")
+
+
+def _receipt(tmp_path: Path, task_id: str) -> dict[str, Any]:
+    payload: dict[str, Any] = json.loads(
+        (tmp_path / task_id / "receipt.json").read_text(encoding="utf-8")
+    )
+    return payload
 
 
 def _plan(*tools: str) -> str:
@@ -228,7 +251,7 @@ def test_genuinely_invalid_plan_blocks_after_two_attempts_without_cloud(
     assert receipt["plan"] is None
     assert receipt["status"] == "blocked"
     assert len(receipt["local_attempts"]) == 2
-    assert receipt["hops"] == 1
+    assert receipt["hops"] == 0  # recall is a direct MCP call, not a model hop
     assert receipt["error"]
     assert notices.messages[-1][0] == task_id
     assert receipt["error"] in notices.messages[-1][2]
@@ -349,3 +372,154 @@ def test_confirmed_template_request_hands_to_arm_and_rejects_external_path(
     assert rejected is not None and rejected.status == "rejected"
     with QueueLedger(queue_root) as ledger:
         assert ledger.items() == []
+
+
+def test_recall_fault_is_logged_and_the_task_still_runs(tmp_path: Path) -> None:
+    """pt-3a85541ac6af: local-failed at hops 0 because recall never dispatched."""
+    reply = telegram_do_reply(
+        tmp_path, 1, "List the three largest files in /workspace/generated and report their sizes."
+    )
+    task_id = reply.removeprefix("queued ")
+    caller = _Caller([Completion(_plan("queue_status"), (), 0), Completion("Three files.", (), 0)])
+
+    def broken_recall(query: str) -> str:
+        raise RuntimeError("task memory recall did not dispatch exactly one recall tool")
+
+    result = poll_personal_tasks(tmp_path, _Notices(), caller, recall=broken_recall)
+
+    assert result is not None and result.status == "done"
+    receipt = _receipt(tmp_path, task_id)
+    assert receipt["status"] == "done"
+    assert receipt["plan"] is not None
+    assert "task memory recall did not dispatch exactly one recall tool" in receipt["recall_error"]
+    assert caller.bodies[0]["model"] == PLANNER_WORKSPACE
+    assert "Recalled memory" not in caller.bodies[0]["messages"][-1]["content"]
+
+
+def test_recall_fault_alone_never_retries_or_escalates_to_cloud(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from portal.modules.orchestration import personal_runner
+
+    monkeypatch.setattr(personal_runner, "_personal_cloud_enabled", lambda: True)
+    reply = telegram_do_reply(tmp_path, 1, "what is the queue status in one paragraph")
+    task_id = reply.removeprefix("queued ")
+    dispatcher = _RecordingDispatcher()
+    caller = _Caller(
+        [Completion(_plan("queue_status"), (), 0), Completion("Queue is empty.", (), 0)]
+    )
+
+    def unreachable(query: str) -> str:
+        raise RuntimeError("memory MCP unreachable")
+
+    first = poll_personal_tasks(
+        tmp_path, _Notices(), caller, dispatcher=dispatcher, recall=unreachable
+    )
+
+    assert first is not None and first.status == "done"
+    assert dispatcher.calls == []
+    assert not (tmp_path / task_id / "attempts").exists()
+    assert "memory MCP unreachable" in _receipt(tmp_path, task_id)["recall_error"]
+
+
+def test_recalled_memory_reaches_the_planner(tmp_path: Path) -> None:
+    telegram_do_reply(tmp_path, 1, "what is the queue status in one paragraph")
+    caller = _Caller(
+        [Completion(_plan("queue_status"), (), 0), Completion("Queue is empty.", (), 0)]
+    )
+
+    poll_personal_tasks(
+        tmp_path, _Notices(), caller, recall=lambda query: "operator prefers terse answers"
+    )
+
+    assert "operator prefers terse answers" in caller.bodies[0]["messages"][-1]["content"]
+
+
+def test_memory_text_keeps_memory_lines_and_flags_a_contract_error() -> None:
+    from portal.modules.orchestration.personal_runner import _memory_text
+
+    assert _memory_text({"memories": [{"text": "likes terse answers"}]}) == "- likes terse answers"
+    assert _memory_text({"num_results": 0, "memories": []}) == ""
+    with pytest.raises(ValueError, match="recall"):
+        _memory_text({"error": "embedding failed"})
+
+
+def test_the_default_recall_calls_the_memory_mcp_tool_directly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import httpx
+
+    from portal.platform.inference import mcp_http
+
+    seen: dict[str, Any] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content)
+        seen["url"] = str(request.url)
+        seen["method"] = payload["method"]
+        seen["params"] = payload["params"]
+        return httpx.Response(
+            200,
+            json={
+                "jsonrpc": "2.0",
+                "id": payload["id"],
+                "result": {"structuredContent": {"memories": [{"text": "prefers terse replies"}]}},
+            },
+        )
+
+    mcp_http._SERVER_STATES.clear()
+    mcp_http._SERVER_LOCKS.clear()
+    monkeypatch.setenv("MCP_MEMORY_URL", "http://memory.test:8920/")
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(
+        httpx,
+        "AsyncClient",
+        lambda **kwargs: real_client(transport=httpx.MockTransport(handler), **kwargs),
+    )
+
+    assert _memory_recall("operator id 7: preferences") == "- prefers terse replies"
+    assert seen["url"] == "http://memory.test:8920/mcp"
+    assert seen["method"] == "tools/call"
+    assert seen["params"]["name"] == "recall"
+    assert seen["params"]["arguments"] == {"query": "operator id 7: preferences", "top_k": 5}
+
+
+def test_a_broken_recall_still_escalates_a_task_that_fails_on_its_own(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from types import SimpleNamespace
+
+    from portal.modules.orchestration import personal_runner
+
+    class Dispatcher:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, Any]] = []
+
+        def run(self, **kwargs: Any) -> SimpleNamespace:
+            self.calls.append(kwargs)
+            return SimpleNamespace(
+                exit_code=0, status="complete", model="mock", result_text="Cloud lane ran."
+            )
+
+    monkeypatch.setattr(personal_runner, "_personal_cloud_enabled", lambda: True)
+    reply = telegram_do_reply(tmp_path, 1, "help with an invalid local plan")
+    task_id = reply.removeprefix("queued ")
+    caller = _Caller([Completion("not JSON", (), 0), Completion("still not JSON", (), 0)])
+    dispatcher = Dispatcher()
+
+    def unreachable(query: str) -> str:
+        raise RuntimeError("memory MCP unreachable")
+
+    first = poll_personal_tasks(tmp_path, _Notices(), caller, recall=unreachable)
+    second = poll_personal_tasks(
+        tmp_path, _Notices(), caller, dispatcher=dispatcher, recall=unreachable
+    )
+
+    assert first is not None and first.status == "retrying"
+    assert second is not None and second.status == "handed-to-cloud"
+    assert len(dispatcher.calls) == 1
+    local = json.loads(
+        (tmp_path / task_id / "attempts" / "local-1" / "receipt.json").read_text(encoding="utf-8")
+    )
+    assert "memory MCP unreachable" in local["recall_error"]
+    assert "planner" in local["error"] or "JSON" in local["error"]
