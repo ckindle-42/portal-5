@@ -16,8 +16,16 @@ independent services, zero cross-imports from platform internals).
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import os
+import time
+from pathlib import Path
 from typing import Any
+
+import httpx
+
+logger = logging.getLogger(__name__)
 
 MEDIA_MODEL_MEMORY_GB: dict[str, float] = {
     # Measured live: MiniMax-Music3-MLX 60s/30-step, vm_stat sampled peak working set.
@@ -44,6 +52,53 @@ MEDIA_MODEL_MEMORY_GB: dict[str, float] = {
 
 MEMORY_HEADROOM_GB: float = float(os.environ.get("MEDIA_MEMORY_HEADROOM_GB", "4.0"))
 MEMORY_UNKNOWN_DEFAULT_GB: float = float(os.environ.get("MEDIA_MEMORY_UNKNOWN_DEFAULT_GB", "16.0"))
+RECLAIM_TIMEOUT_S: float = float(os.environ.get("MEDIA_RECLAIM_TIMEOUT_S", "30.0"))
+RECLAIM_SETTLE_TIMEOUT_S: float = float(os.environ.get("MEDIA_RECLAIM_SETTLE_TIMEOUT_S", "5.0"))
+RECLAIM_POLL_INTERVAL_S: float = float(os.environ.get("MEDIA_RECLAIM_POLL_INTERVAL_S", "0.25"))
+
+
+def _pipeline_url() -> str:
+    """Resolve Pipeline base URL for host-native or containerized media services."""
+    explicit = os.environ.get("MEDIA_PIPELINE_URL") or os.environ.get("PORTAL_PIPELINE_URL")
+    if explicit:
+        return explicit.strip().rstrip("/")
+    env_url = os.environ.get("PIPELINE_URL", "").strip().rstrip("/")
+    if env_url and (
+        not env_url.startswith("http://portal-pipeline") or Path("/.dockerenv").exists()
+    ):
+        return env_url
+    return "http://127.0.0.1:9099"
+
+
+def _pipeline_api_key() -> str:
+    return (os.environ.get("PIPELINE_API_KEY") or os.environ.get("PORTAL_API_KEY") or "").strip()
+
+
+async def request_pipeline_reclaim(need_gib: float) -> list[dict[str, Any]] | None:
+    """Ask Pipeline's load guard to evict idle LLM residents covering ``need_gib``."""
+    if need_gib <= 0:
+        return []
+    api_key = _pipeline_api_key()
+    if not api_key:
+        logger.debug("Skipping pipeline reclaim: PIPELINE_API_KEY not set")
+        return None
+    url = f"{_pipeline_url()}/admin/reclaim-idle"
+    headers = {"Authorization": f"Bearer {api_key}"}
+    payload = {"need_gib": round(float(need_gib), 3)}
+    try:
+        async with httpx.AsyncClient(timeout=RECLAIM_TIMEOUT_S) as client:
+            resp = await client.post(url, headers=headers, json=payload)
+        if resp.status_code != 200:
+            logger.warning(
+                "Pipeline reclaim %s returned HTTP %s: %s", url, resp.status_code, resp.text[:200]
+            )
+            return None
+        data = resp.json()
+        unloads = data.get("unloads", []) if isinstance(data, dict) else []
+        return unloads if isinstance(unloads, list) else []
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.warning("Pipeline reclaim %s failed: %s", url, exc)
+        return None
 
 
 def _free_gb_from_proc_meminfo() -> float | None:
@@ -128,6 +183,21 @@ async def admit(model_key: str) -> dict[str, Any] | None:
     needed_gb = estimated_gb + MEMORY_HEADROOM_GB
     if needed_gb <= free_gb:
         return None
+
+    unloads = await request_pipeline_reclaim(needed_gb - free_gb)
+    if unloads is not None:
+        free_gb = await free_unified_gb()
+        if free_gb is None or needed_gb <= free_gb:
+            return None
+        if unloads and RECLAIM_SETTLE_TIMEOUT_S > 0:
+            deadline = time.monotonic() + RECLAIM_SETTLE_TIMEOUT_S
+            while time.monotonic() < deadline:
+                await asyncio.sleep(
+                    min(RECLAIM_POLL_INTERVAL_S, max(0.0, deadline - time.monotonic()))
+                )
+                free_gb = await free_unified_gb()
+                if free_gb is None or needed_gb <= free_gb:
+                    return None
 
     known_note = "" if is_known else " (unknown model — using a conservative default estimate)"
     return {

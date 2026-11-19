@@ -16,13 +16,16 @@ raising so a tool failure can't break the SSE stream.
 Knobs (env-overridable): ``TOOL_REGISTRY_REFRESH_S`` (3600s refresh interval),
 ``TOOL_REGISTRY_RETRY_S`` (30s while an MCP is undiscovered),
 ``TOOL_DISPATCH_TIMEOUT_S`` (60s per-call POST timeout, overridable per-tool via
-``ToolDefinition.custom_timeout_s``), and per-server ``MCP_<NAME>_URL``.
+``ToolDefinition.custom_timeout_s``), ``TOOL_DISPATCH_MAX_TIMEOUT_S`` (upper
+bound on per-tool ``portal5/timeout_s`` overrides, defaulting to
+``portal.yaml`` ``tool_dispatch_max_timeout_s``), and per-server ``MCP_<NAME>_URL``.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import os
 import time
 from dataclasses import dataclass
@@ -54,6 +57,9 @@ TOOL_REGISTRY_REFRESH_S = float(os.environ.get("TOOL_REGISTRY_REFRESH_S", "3600"
 TOOL_REGISTRY_RETRY_S = float(os.environ.get("TOOL_REGISTRY_RETRY_S", "30"))
 TOOL_DISCOVERY_TIMEOUT_S = 5.0
 TOOL_DISPATCH_TIMEOUT_S = float(os.environ.get("TOOL_DISPATCH_TIMEOUT_S", "60"))
+TOOL_DISPATCH_MAX_TIMEOUT_S = float(
+    os.environ.get("TOOL_DISPATCH_MAX_TIMEOUT_S", str(_PORTAL_CONFIG.tool_dispatch_max_timeout_s))
+)
 
 
 async def _fetch_tools(client: httpx.AsyncClient, base_url: str) -> list[dict[str, Any]] | None:
@@ -240,8 +246,18 @@ def _tool_timeout(tdef: dict[str, Any]) -> float | None:
     if timeout_s is None and isinstance(meta, dict):
         timeout_s = meta.get(TOOL_TIMEOUT_META_KEY)
     if isinstance(timeout_s, (int, float)) and not isinstance(timeout_s, bool):
-        return float(timeout_s)
+        value = float(timeout_s)
+        if math.isfinite(value) and value > 0:
+            return min(value, TOOL_DISPATCH_MAX_TIMEOUT_S)
     return None
+
+
+def _effective_timeout_s(tool: ToolDefinition) -> float:
+    """Return per-tool timeout bounded by TOOL_DISPATCH_MAX_TIMEOUT_S, else default 60s."""
+    custom = tool.custom_timeout_s
+    if custom is not None and math.isfinite(custom) and custom > 0:
+        return min(float(custom), TOOL_DISPATCH_MAX_TIMEOUT_S)
+    return TOOL_DISPATCH_TIMEOUT_S
 
 
 @dataclass
@@ -596,7 +612,7 @@ class ToolRegistry:
                 f"{tool.consecutive_failures} consecutive failures)"
             }
 
-        timeout_s = tool.custom_timeout_s or TOOL_DISPATCH_TIMEOUT_S
+        timeout_s = _effective_timeout_s(tool)
         scope_error = _native_scope_error(tool.server_id)
         if scope_error is not None:
             return scope_error

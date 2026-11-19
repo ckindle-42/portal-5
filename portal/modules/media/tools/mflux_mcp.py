@@ -24,6 +24,12 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from portal.modules.media.tools._admission import admit
+from portal.modules.media.tools._jobs import (
+    DEFAULT_STATUS_WAIT_S,
+    STATUS_TOOL_TIMEOUT_S,
+    MediaJobManager,
+    start_reply,
+)
 from portal.platform.mcp_host import assert_public_http_url, resolve_upload_path
 from portal.platform.mcp_host.eval_scope import bind_native_context
 from portal.platform.mcp_host.owui_files import publish_file
@@ -68,6 +74,7 @@ MFLUX_DEFAULT_MODEL = os.environ.get("MFLUX_DEFAULT_MODEL", "schnell")
 MFLUX_TIMEOUT = int(os.environ.get("MFLUX_TIMEOUT", "900"))
 MFLUX_QUANTIZE = os.environ.get("MFLUX_QUANTIZE", "8")
 MFLUX_LOW_RAM = os.environ.get("MFLUX_LOW_RAM", "1") not in ("", "0", "false", "no")
+_JOBS = MediaJobManager()
 
 # Roster key -> the `--model` value its family binary (MFLUX_MODEL_BIN) accepts.
 # `<binary> --help` is the authority on the exact built-in tags; the env overrides
@@ -185,15 +192,18 @@ async def _generate(
             "error": (err or b"").decode("utf-8", "replace")[-800:] or "mflux produced no output",
         }
     pub = await publish_file(out)
+    url = pub.get("url") or pub.get("error", "publish failed")
     return {
         "success": True,
-        "url": pub.get("url") or pub.get("error", "publish failed"),
+        "artifact_path": str(out),
+        "url": url,
+        "download_url": url,
         "model": model,
         "seed": seed,
     }
 
 
-@mcp.tool()
+@mcp.tool(meta={"portal5/timeout_s": MFLUX_TIMEOUT})
 async def generate_image(
     prompt: str,
     model: str = MFLUX_DEFAULT_MODEL,
@@ -208,17 +218,19 @@ async def generate_image(
     refusal = await admit(_media_model_key(model))
     if refusal:
         return refusal
-    return await _generate(
-        prompt,
-        model,
-        int(steps or MFLUX_DEFAULT_STEPS.get(model, 4)),
-        int(seed),
-        int(width),
-        int(height),
+    return await _JOBS.run_serialized(
+        lambda: _generate(
+            prompt,
+            model,
+            int(steps or MFLUX_DEFAULT_STEPS.get(model, 4)),
+            int(seed),
+            int(width),
+            int(height),
+        )
     )
 
 
-@mcp.tool()
+@mcp.tool(meta={"portal5/timeout_s": MFLUX_TIMEOUT})
 async def edit_image(
     image_url: str,
     prompt: str,
@@ -242,16 +254,72 @@ async def edit_image(
         src = await _fetch_source_image(image_url)
     except (ValueError, OSError) as e:
         return {"success": False, "error": str(e)}
-    return await _generate(
-        prompt,
-        model,
-        int(steps or MFLUX_DEFAULT_STEPS.get(model, 20)),
-        int(seed),
-        int(width),
-        int(height),
-        image_path=src,
-        strength=float(strength),
+    return await _JOBS.run_serialized(
+        lambda: _generate(
+            prompt,
+            model,
+            int(steps or MFLUX_DEFAULT_STEPS.get(model, 20)),
+            int(seed),
+            int(width),
+            int(height),
+            image_path=src,
+            strength=float(strength),
+        )
     )
+
+
+@mcp.tool()
+async def image_start(
+    prompt: str,
+    model: str = MFLUX_DEFAULT_MODEL,
+    width: int = 1024,
+    height: int = 1024,
+    steps: int | None = None,
+    seed: int = 1,
+    image_url: str | None = None,
+    strength: float = 0.6,
+) -> dict[str, Any]:
+    """Start an async MFLUX image generation or edit job; poll image_status(job_id)."""
+    if not prompt:
+        return {"success": False, "error": "prompt is required"}
+    model_key = _media_model_key(model)
+    if not _JOBS.is_busy:
+        refusal = await admit(model_key)
+        if refusal:
+            return refusal
+    src: Path | None = None
+    if image_url:
+        try:
+            src = await _fetch_source_image(image_url)
+        except (ValueError, OSError) as e:
+            return {"success": False, "error": str(e)}
+    resolved_steps = int(steps or MFLUX_DEFAULT_STEPS.get(model, 20 if src else 4))
+
+    async def _run(progress: Any) -> dict[str, Any]:
+        progress(1, "Checking memory before model load…")
+        late_refusal = await admit(model_key)
+        if late_refusal:
+            return late_refusal
+        progress(2, f"Generating image ({model}, {resolved_steps} steps)…")
+        return await _generate(
+            prompt,
+            model,
+            resolved_steps,
+            int(seed),
+            int(width),
+            int(height),
+            image_path=src,
+            strength=float(strength) if src is not None else None,
+        )
+
+    job_id = _JOBS.start(_run, extra_fields={"model": model, "seed": int(seed)})
+    return start_reply(job_id, "image_status", f"model={model}", model=model, seed=int(seed))
+
+
+@mcp.tool(meta={"portal5/timeout_s": STATUS_TOOL_TIMEOUT_S})
+async def image_status(job_id: str, wait_s: float = DEFAULT_STATUS_WAIT_S) -> dict[str, Any]:
+    """Long-poll an MFLUX image job up to wait_s seconds for progress or completion."""
+    return await _JOBS.status(job_id, wait_s=wait_s)
 
 
 def main() -> None:

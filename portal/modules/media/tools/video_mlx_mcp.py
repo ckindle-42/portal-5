@@ -25,6 +25,12 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from portal.modules.media.tools._admission import admit
+from portal.modules.media.tools._jobs import (
+    DEFAULT_STATUS_WAIT_S,
+    STATUS_TOOL_TIMEOUT_S,
+    MediaJobManager,
+    start_reply,
+)
 from portal.platform.mcp_host import assert_public_http_url, resolve_upload_path
 from portal.platform.mcp_host.eval_scope import bind_native_context
 from portal.platform.mcp_host.owui_files import publish_file
@@ -48,6 +54,7 @@ VIDEO_MLX_DEFAULT_MODEL = os.environ.get("VIDEO_MLX_DEFAULT_MODEL", "ltx-2.5-q4"
 VIDEO_MLX_TIMEOUT = int(os.environ.get("VIDEO_MLX_TIMEOUT", "1800"))
 VIDEO_MLX_LOW_RAM = os.environ.get("VIDEO_MLX_LOW_RAM", "1") not in ("", "0", "false", "no")
 VIDEO_MLX_MODE = os.environ.get("VIDEO_MLX_MODE", "--distilled")  # fastest; --two-stage for quality
+_JOBS = MediaJobManager()
 
 # Roster key -> ltx-2-mlx --model pack. `ltx-2-mlx generate --help` is the
 # authority; env overrides let an operator repoint without a code change.
@@ -148,16 +155,19 @@ async def _generate(
             or "ltx-2-mlx produced no output",
         }
     pub = await publish_file(out)
+    url = pub.get("url") or pub.get("error", "publish failed")
     return {
         "success": True,
-        "url": pub.get("url") or pub.get("error", "publish failed"),
+        "artifact_path": str(out),
+        "url": url,
+        "download_url": url,
         "model": model,
         "seed": seed,
         "frames": _round_frames(frames),
     }
 
 
-@mcp.tool()
+@mcp.tool(meta={"portal5/timeout_s": VIDEO_MLX_TIMEOUT})
 async def generate_video(
     prompt: str,
     model: str = VIDEO_MLX_DEFAULT_MODEL,
@@ -173,10 +183,12 @@ async def generate_video(
     refusal = await admit(_media_model_key(model))
     if refusal:
         return refusal
-    return await _generate(prompt, model, int(frames), int(width), int(height), int(seed), int(fps))
+    return await _JOBS.run_serialized(
+        lambda: _generate(prompt, model, int(frames), int(width), int(height), int(seed), int(fps))
+    )
 
 
-@mcp.tool()
+@mcp.tool(meta={"portal5/timeout_s": VIDEO_MLX_TIMEOUT})
 async def animate_image(
     image_url: str,
     prompt: str,
@@ -200,9 +212,70 @@ async def animate_image(
         src = await _fetch_source_image(image_url)
     except (ValueError, OSError) as e:
         return {"success": False, "error": str(e)}
-    return await _generate(
-        prompt, model, int(frames), int(width), int(height), int(seed), int(fps), image_path=src
+    return await _JOBS.run_serialized(
+        lambda: _generate(
+            prompt, model, int(frames), int(width), int(height), int(seed), int(fps), image_path=src
+        )
     )
+
+
+@mcp.tool()
+async def video_start(
+    prompt: str,
+    model: str = VIDEO_MLX_DEFAULT_MODEL,
+    frames: int = 97,
+    width: int = 704,
+    height: int = 480,
+    seed: int = 42,
+    fps: int = 24,
+    image_url: str | None = None,
+) -> dict[str, Any]:
+    """Start an async LTX video job (text-to-video or image-to-video); poll video_status(job_id)."""
+    if not prompt:
+        return {"success": False, "error": "prompt is required"}
+    model_key = _media_model_key(model)
+    if not _JOBS.is_busy:
+        refusal = await admit(model_key)
+        if refusal:
+            return refusal
+    src: Path | None = None
+    if image_url:
+        try:
+            src = await _fetch_source_image(image_url)
+        except (ValueError, OSError) as e:
+            return {"success": False, "error": str(e)}
+
+    async def _run(progress: Any) -> dict[str, Any]:
+        progress(1, "Checking memory before model load…")
+        late_refusal = await admit(model_key)
+        if late_refusal:
+            return late_refusal
+        progress(2, f"Rendering video ({model}, {_round_frames(frames)} frames)…")
+        return await _generate(
+            prompt,
+            model,
+            int(frames),
+            int(width),
+            int(height),
+            int(seed),
+            int(fps),
+            image_path=src,
+        )
+
+    job_id = _JOBS.start(_run, extra_fields={"model": model, "seed": int(seed)})
+    return start_reply(
+        job_id,
+        "video_status",
+        f"model={model}, frames={_round_frames(frames)}",
+        model=model,
+        seed=int(seed),
+    )
+
+
+@mcp.tool(meta={"portal5/timeout_s": STATUS_TOOL_TIMEOUT_S})
+async def video_status(job_id: str, wait_s: float = DEFAULT_STATUS_WAIT_S) -> dict[str, Any]:
+    """Long-poll a video generation job up to wait_s seconds for progress or completion."""
+    return await _JOBS.status(job_id, wait_s=wait_s)
 
 
 def main() -> None:

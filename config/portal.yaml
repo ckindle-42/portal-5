@@ -11,6 +11,7 @@
 
 ollama_url: "http://host.docker.internal:11434"
 request_timeout: 300
+tool_dispatch_max_timeout_s: 1800
 
 # Module on/off. `portal module enable|disable --yes` writes one line here.
 # unit-module-* documents the switch; it does not hold it.
@@ -3052,6 +3053,8 @@ workspaces:
         tools:
         - generate_image
         - edit_image
+        - image_start
+        - image_status
         expose_to_owui: true
         enable_web_search: false
         owui_system_prompt: |-
@@ -3085,6 +3088,8 @@ workspaces:
         tools:
         - generate_video
         - animate_image
+        - video_start
+        - video_status
         expose_to_owui: true
 
         enable_web_search: false
@@ -3118,6 +3123,8 @@ workspaces:
         - minimax_generate
         - minimax_status
         - minimax_models
+        - music_start
+        - music_status
         - speak
         - transcribe_audio
         - clone_voice
