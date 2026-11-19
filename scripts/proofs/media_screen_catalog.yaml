@@ -1,0 +1,292 @@
+# Media variant screen rows — source of truth docs/media/MEDIA_VARIANT_SCREEN_202611.md.
+# Commands, pins and prompts are copied from that document; expected peaks are Vendor or
+# live-this-host numbers as tagged there. Consumed by scripts/proofs/media_variant_screen.py
+# and scripts/proofs/media_variant_screen_install.py.
+source: docs/media/MEDIA_VARIANT_SCREEN_202611.md
+pins:
+  mflux: 014252f22408
+  ltx-2-mlx: 747b30ef10e9
+  fastvideo: c938a8aa2b85
+paths:
+  weights_root: /Volumes/data01/media-screen
+  hf_cache: /Volumes/data01/hf-cache
+  ace_root: ~/.portal5/music/ACE-Step-1.5
+media:
+  image:
+    canvas: 1024x1024, seed 42, the candidate's distilled default steps
+    criteria: >-
+      Seated vision model scores the three PNGs blind to which checkpoint made them (text
+      accuracy, anatomy/geometry, texture); the operator looks at the same files. A candidate
+      passes quality only if it is not worse than the incumbent re-run on the same three prompts.
+    prompts:
+      - "A corner bakery at dawn, wet cobblestones, warm window light. A wooden sign above the door reads PORTAL 5 in cream capital letters. Photograph."
+      - "Macro studio photograph of a mechanical wristwatch, polished steel, visible gears, soft box light, black background."
+      - "A red fox asleep in fresh snow, golden hour, individual fur strands, pine trees out of focus."
+    rows:
+      - id: klein4b-q8
+        role: incumbent
+        ext: png
+        expected_peak_gb: 9.0
+        expected_note: live this host 2026-11-19 (resolution of that 9 GB was not recorded; this screen re-measures it)
+        argv:
+          - mflux-generate-flux2
+          - --model
+          - flux2-klein-4b
+          - -q
+          - "8"
+          - --low-ram
+          - --steps
+          - "4"
+          - --seed
+          - "42"
+          - --width
+          - "1024"
+          - --height
+          - "1024"
+          - --prompt
+          - "{prompt}"
+          - --output
+          - "{output}"
+      - id: iris-q8
+        role: candidate
+        rank: 1
+        ext: png
+        expected_peak_gb: 8.8
+        expected_note: Vendor — peak while the text encoder is still loaded; 5.3 GB once generating (mflux Iris README, M4 Pro 64 GB, not this host)
+        argv:
+          - mflux-generate-iris
+          - --model
+          - iris-3b
+          - -q
+          - "8"
+          - --seed
+          - "42"
+          - --width
+          - "1024"
+          - --height
+          - "1024"
+          - --prompt
+          - "{prompt}"
+          - --output
+          - "{output}"
+      - id: klein4b-q4-smallte
+        role: candidate
+        rank: 2
+        ext: png
+        expected_note: Vendor — weights 3.6 GB (q8 drops 8.6→5.8 GB); at 1024² --low-ram the porter says the peak does not fall (denoise + VAE set it)
+        argv:
+          - mflux-generate-flux2
+          - --model
+          - flux2-klein-4b
+          - -q
+          - "4"
+          - --small-text-encoder
+          - --low-ram
+          - --steps
+          - "4"
+          - --seed
+          - "42"
+          - --width
+          - "1024"
+          - --height
+          - "1024"
+          - --prompt
+          - "{prompt}"
+          - --output
+          - "{output}"
+      - id: zimage-q4
+        role: candidate
+        rank: 3
+        ext: png
+        expected_peak_gb: 5.5
+        expected_note: Vendor/bench — 5.5 GiB at 1024² on an M6 Mac mini 32 GB (teamday 2026-11-13); a different machine and canvas history
+        argv:
+          - mflux-generate-z-image-turbo
+          - -q
+          - "4"
+          - --steps
+          - "9"
+          - --seed
+          - "42"
+          - --width
+          - "1024"
+          - --height
+          - "1024"
+          - --prompt
+          - "{prompt}"
+          - --output
+          - "{output}"
+      - id: qwen21-turbo-q4
+        role: candidate
+        ext: png
+        optional: true
+        abort_rss_gb: 12
+        expected_note: Vendor — bf16 text encoder can hold the peak near 46 GB unless a quantizing path is used; the screen skips remaining prompts if prompt 1 RSS exceeds 12 GB
+        argv:
+          - mflux-generate-qwen-2.1
+          - --model
+          - qwen-image-2.1-turbo
+          - -q
+          - "4"
+          - --low-ram
+          - --steps
+          - "8"
+          - --seed
+          - "42"
+          - --width
+          - "1024"
+          - --height
+          - "1024"
+          - --prompt
+          - "{prompt}"
+          - --output
+          - "{output}"
+  video:
+    canvas: 512x320, 97 frames, 24 fps, seed 42 (97 = 4x24+1, so Wan-family runners accept it)
+    criteria: >-
+      ffprobe must show a video stream (and an audio stream for any LTX row); the operator
+      watches all three clips. Silent models cannot win a row whose prompt asks for sound;
+      they can win only the "silent draft" note. Pass for staying on LTX: no silent candidate
+      is both smaller and acceptable to the operator.
+    prompts:
+      - "Ocean waves hit dark basalt rocks at sunset. Water crashes and pulls back. The soundtrack is waves and wind, no music."
+      - "A heavy wooden door creaks slowly open toward the camera. Hinges squeak. Dust in a shaft of light."
+      - "A person in a red coat walks left to right across a snowy path. Footsteps crunch. Camera stays fixed."
+    rows:
+      - id: ltx25-q4
+        role: incumbent
+        ext: mp4
+        expected_peak_gb: 9.0
+        expected_note: live this host 2026-11-19 — worker ~9 GB RSS, system free >=52%, clip has audio; uvx re-resolves the pin per run (accept LTX/Gemma terms once if the pull 401s)
+        argv:
+          - uvx
+          - --from
+          - git+https://github.com/dgrauet/ltx-2-mlx@747b30ef10e9
+          - ltx-2-mlx
+          - generate
+          - --distilled
+          - --low-ram
+          - --model
+          - dgrauet/ltx-2.5-mlx-q4
+          - --prompt
+          - "{prompt}"
+          - --width
+          - "512"
+          - --height
+          - "320"
+          - --frames
+          - "97"
+          - --frame-rate
+          - "24"
+          - --seed
+          - "42"
+          - --output
+          - "{output}"
+      - id: fastmetal13
+        role: candidate
+        rank: 1
+        ext: mp4
+        silent: true
+        expected_peak_gb: 3.87
+        expected_note: Vendor — 3.87 GiB at 480x832x81 on an M4 Max 36 GB (fast mode 3.20 GiB); the screen canvas 512x320x97 is NOT the lab's canvas. Silent.
+        cwd: "{weights_root}/FastVideo"
+        argv:
+          - .venv/bin/python
+          - examples/inference/basic/mlx_wan_prompt_to_video.py
+          - --model-root
+          - "{weights_root}/FastMetal-1.3B-QAD"
+          - --mlx-checkpoint
+          - "{weights_root}/FastMetal-1.3B-QAD"
+          - --height
+          - "320"
+          - --width
+          - "512"
+          - --num-frames
+          - "97"
+          - --seed
+          - "42"
+          - --prompt
+          - "{prompt}"
+          - --output-path
+          - "{output}"
+      - id: fastmetal5b
+        role: candidate
+        rank: 2
+        ext: mp4
+        silent: true
+        expected_peak_gb: 9.34
+        expected_note: Vendor — 9.34 GiB at 704x1280x81 (fast 7.97 GiB); at the matched 512x320 canvas the peak is the unknown this screen answers. Silent. If this script rejects --seed or --output-path, run it with --help and keep 320/512/97; never fall back to 720p for the scored row.
+        cwd: "{weights_root}/FastVideo"
+        argv:
+          - .venv/bin/python
+          - examples/inference/basic/mlx_wan22_generate.py
+          - --mlx-checkpoint
+          - "{weights_root}/FastMetal-5B-QAD"
+          - --text-encoder-root
+          - "{weights_root}/FastMetal-5B-QAD"
+          - --vae-root
+          - "{weights_root}/FastMetal-5B-QAD/vae"
+          - --height
+          - "320"
+          - --width
+          - "512"
+          - --num-frames
+          - "97"
+          - --seed
+          - "42"
+          - --prompt
+          - "{prompt}"
+          - --output-path
+          - "{output}"
+  music:
+    canvas: 30.0 s, 48 kHz stereo wav, seed 42, 8 steps for every ACE-Step turbo
+    criteria: >-
+      The operator listens. Prompt 2 must have an intelligible vocal; prompt 3 must stay a
+      solo nylon guitar — extra drums or a singer is a miss. No seated model listens to
+      audio; do not ask the generator to grade itself. Pass: free % stays well above the
+      incumbent's 22% on the same resident background and the operator accepts prompts 1-3.
+    gen:
+      duration: 30.0
+      steps: 8
+      seed: 42
+      shift: 3.0
+    prompts:
+      - caption: sparse acoustic guitar and soft brushed snare, 72 bpm, A minor, no vocals
+        lyrics: ""
+        instrumental: true
+      - caption: upbeat indie pop, female vocal, 120 bpm, G major
+        lyrics: |
+          [verse]
+          Streetlight on the wet stone
+          I am walking home alone
+
+          [chorus]
+          Hold the line, hold the light
+          We are louder than the night
+        instrumental: false
+      - caption: solo nylon-string guitar, slow, no drums, no bass, no vocals
+        lyrics: ""
+        instrumental: true
+    rows:
+      - id: ace-xl17
+        role: incumbent
+        kind: music
+        dit: acestep-v15-xl-turbo
+        lm: acestep-5Hz-lm-1.7B
+        load_lm: true
+        expected_note: live signal 2026-11-19 was system free 22% (a system figure, not a process RSS); this re-run records RSS and free % together
+      - id: ace-turbo2b-lm06
+        role: candidate
+        rank: 1
+        kind: music
+        dit: acestep-v15-turbo
+        lm: acestep-5Hz-lm-0.6B
+        load_lm: true
+        expected_note: Vendor weights — 2B turbo DiT ~4.7 GB + 0.6B LM ~1.2 GB, against XL ~9 GB + 1.7B ~3.4 GB; no 64 GB-host RSS published (needs checkpoints/acestep-5Hz-lm-0.6B — install helper)
+      - id: ace-turbo2b-nolm
+        role: candidate
+        rank: 2
+        kind: music
+        dit: acestep-v15-turbo
+        load_lm: false
+        expected_note: Vendor — LM off is the <=6 GB tier and loses planning; lyrics and structure get worse, prompt 2 (vocal) is the check
