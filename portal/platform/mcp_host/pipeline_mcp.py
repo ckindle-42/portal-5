@@ -497,6 +497,29 @@ async def trigger_backend_warmup(workspace: str = "codingagentic") -> dict[str, 
     return await _impl_trigger_backend_warmup(workspace)
 
 
+async def _impl_jarvis_submit(text: str, user_id: str) -> dict[str, Any]:
+    from portal.platform.plugins import owui_tools
+
+    handler = owui_tools().get("jarvis_submit")
+    if handler is None:
+        return {"error": "no module provides jarvis_submit on this build"}
+    return await asyncio.to_thread(handler, text, user_id)
+
+
+@mcp.tool()
+async def jarvis_submit(text: str, user_id: str) -> dict[str, Any]:
+    """Queue a personal Jarvis task and return ``queued <id>``.
+
+    The user id must be the Telegram allowlist account. An empty text is refused
+    and writes no row. This does not start the runner.
+
+    Args:
+        text: The request, the same words as ``/jarvis do``.
+        user_id: Telegram user id from TELEGRAM_USER_IDS.
+    """
+    return await _impl_jarvis_submit(text, user_id)
+
+
 async def _impl_arm_queue_task(
     task_id: str,
     discipline: str,

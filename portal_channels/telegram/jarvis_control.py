@@ -42,6 +42,7 @@ HELP_TEXT = (
     "/jarvis merge <job> — merge a held escalation (confirm)\n"
     "/jarvis keep <job> — keep a held escalation unmerged\n"
     "/jarvis escalate <job> — send a blocked job to a cloud lane\n"
+    "/jarvis do <text> — queue a personal task\n"
     "/jarvis help — this text"
 )
 
@@ -101,6 +102,11 @@ async def handle_jarvis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     verb, args = parse(message.text or "")
     if verb == "help":
         await message.reply_text(HELP_TEXT)
+        return
+    if verb == "do":
+        from portal.modules.orchestration.personal_intake import telegram_do_reply
+
+        await message.reply_text(telegram_do_reply(_tasks_root(), user.id, args))
         return
     store = _store()
     if verb not in VERB_NAMES:

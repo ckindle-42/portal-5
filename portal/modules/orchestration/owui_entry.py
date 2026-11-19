@@ -38,6 +38,37 @@ def resolve_source_dir(source_dir: Path | None) -> Path:
     return resolved
 
 
+def jarvis_submit(text: str, user_id: str) -> dict[str, str]:
+    """Queue one personal task for the allowlisted Telegram identity. Reply is ``queued <id>``."""
+    from portal.platform.wiki.adapters.modules import enabled_modules
+
+    if "orchestration" not in enabled_modules():
+        return {"error": "the orchestration module is disabled"}
+    try:
+        return _submit_personal(text, user_id)
+    except ValueError as exc:
+        return {"error": str(exc)}
+    except Exception as exc:  # noqa: BLE001 — the tool reports, it never raises
+        return {"error": f"jarvis_submit failed: {type(exc).__name__}: {exc}"}
+
+
+def _submit_personal(text: str, user_id: str) -> dict[str, str]:
+    from portal.modules.orchestration.personal_intake import enqueue_personal, user_may_submit
+
+    checked = _required_text(text, "text")
+    parsed = _telegram_user_id(user_id)
+    if not user_may_submit(parsed):
+        raise ValueError("unauthorized")
+    task_id = enqueue_personal(tasks_root(), "owui", str(parsed), checked)
+    return {"reply": f"queued {task_id}", "id": task_id}
+
+
+def _telegram_user_id(user_id: object) -> int:
+    if isinstance(user_id, bool) or not isinstance(user_id, str) or not user_id.strip().isdigit():
+        raise ValueError("user_id must be the allowlisted Telegram user id")
+    return int(user_id.strip())
+
+
 def arm_queue_task(
     task_id: str,
     discipline: str,
