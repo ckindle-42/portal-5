@@ -104,6 +104,21 @@ python3 scripts/bully_inject_capture.py             # E.5 generate/inject/captur
 python3 scripts/bully_universal_intake_run.py       # M.6 universal-intake verification run → BULLY_UNIVERSAL_INTAKE_RUN_M6_V1
 ```
 
+## Media variant screen (docs/media/MEDIA_VARIANT_SCREEN_202611.md)
+
+```bash
+uv run python scripts/proofs/media_variant_screen.py --medium image [--only iris-q8] [--dry-run] [--timeout-sec N]
+                                    # measured screen of the 2026-11 media candidates: per prompt, runs the row's generate
+                                    # command and samples 1 Hz (process-tree RSS sum + largest single RSS, memory_pressure
+                                    # system-free %, vm.swapusage), then writes a dated table + judge sheet + rows.jsonl
+                                    # under ${AI_OUTPUT_DIR:-$HOME/AI_Output}/generated/screens/. Rows live in
+                                    # scripts/proofs/media_screen_catalog.yaml. Judging is human/independent-model.
+uv run python scripts/proofs/media_variant_screen_install.py --medium video --yes
+                                    # arm64 + data01 install helper for candidate venvs/weights (mflux uv-tool pin,
+                                    # FastVideo checkout + .[mlx] venv, FastMetal + acestep-0.6B weights into
+                                    # /Volumes/data01); prints HF download sizes first; without --yes it is plan-only
+```
+
 ## Memory
 
 ```bash
