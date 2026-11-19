@@ -7,11 +7,13 @@ sources:
   path: scripts/lib/backup.sh
 - type: code
   path: launch.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/lib/backup.sh
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 Besides `config/`, the backup command copies the `imports/` directory, which holds the Open WebUI workspace presets and persona fixtures that `openwebui-init` seeds into the UI. These files are generated artifacts, so they are regenerable via `sync-config`, but shipping them in every snapshot makes a restore self-contained without requiring regeneration first. The copies land next to `config/` inside the same timestamped backup directory, so one directory represents a complete point-in-time configuration.

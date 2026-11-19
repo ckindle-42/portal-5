@@ -11,12 +11,14 @@ sources:
   path: scripts/lib/services.sh
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/media/tools/mflux_mcp.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 Image generation is the **MFLUX MCP** (`portal/modules/media/tools/mflux_mcp.py`,

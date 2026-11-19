@@ -5,11 +5,13 @@ title: "BACKUP_RESTORE \u2014 Backup config directory"
 sources:
 - type: code
   path: scripts/lib/backup.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/lib/backup.sh
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 `_launch_backup` archives the configuration directory by copying it rather than tarring it: `cp -r config/` and `cp -r imports/` place the trees inside the backup path as plain directories. Because every backup run creates a fresh timestamped parent directory, the config copy can never collide with a previous run's snapshot. The `.env` file, when present, is copied alongside as a flat file so the whole backup is self-contained.

@@ -7,11 +7,13 @@ sources:
   path: scripts/lib/backup.sh
 - type: code
   path: launch.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/lib/backup.sh
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 Three artifact classes are intentionally outside the backup surface. The `portal-5_ollama-models` volume is excluded because weights are re-downloadable through `./launch.sh pull-models`. Docker images are excluded because they are rebuilt from the Dockerfiles via `./launch.sh rebuild`. The local Python environment is excluded because `uv pip install -e ".[dev]"` reproduces it from `pyproject.toml` and the lockfile. All three would multiply snapshot size for zero recovery value.

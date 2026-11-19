@@ -5,11 +5,13 @@ title: "BACKUP_RESTORE \u2014 With compression (faster for large volumes)"
 sources:
 - type: code
   path: scripts/lib/backup.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/lib/backup.sh
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 Compression is not an option the script exposes; `_launch_backup` always writes gzip tarballs via `tar czf` when packing the Open WebUI and Grafana volumes. An operator who wants the tighter `gzip -9` level must run the alpine container manually, trading wall-clock time for smaller snapshots on very large volumes. The restored content is identical either way, since tar decompression is independent of the compression level used at creation time.

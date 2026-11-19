@@ -9,12 +9,14 @@ sources:
   path: portal/platform/inference/router/lifespan.py
 - type: code
   path: portal/platform/inference/notifications/channels/__init__.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/notifications/dispatcher.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 The notification layer offers five independently configurable channels — Slack, Telegram, Email, Pushover, and Webhook — all fed by a single dispatcher. Operational alerts fire on backend health transitions, and a daily usage summary runs once per day on a schedule. The whole subsystem stays off until `NOTIFICATIONS_ENABLED` is true, and channels only register when the master switch is on, so the default install sends nothing anywhere.

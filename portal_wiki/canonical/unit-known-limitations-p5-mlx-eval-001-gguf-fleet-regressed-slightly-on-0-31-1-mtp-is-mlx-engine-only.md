@@ -8,12 +8,14 @@ sources:
   path: config/backends.yaml
 - type: code
   path: tests/benchmarks/bench_mlx_hf.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/backends.yaml
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 - **Description**: Ollama 0.31.1's claimed MTP speedup applies only when Ollama selects its own MLX engine subprocess (triggered by official `-mlx`-tagged models), so the GGUF fleet routed through `llama-server` regardless of version. Separately, the GGUF fleet measured slower after the 0.31.1 upgrade, and the 5-11% regression is recorded in `coding_task/TASK_SEC_DRIFT_GATE_V1.md` as the motivating example for the delta gate it adds — a version-induced performance shift that absolute gates would not flag. The MTP claim and its MLX-engine-only scope are documented in `coding_task/TASK_EVAL_GEMMA4_MLX_TAGS_V1.md`.

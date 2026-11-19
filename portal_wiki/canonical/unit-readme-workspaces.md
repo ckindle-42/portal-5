@@ -9,12 +9,14 @@ sources:
   path: portal/platform/inference/router/workspaces.py
 - type: code
   path: config/backends.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/portal.yaml
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 Select a workspace in the Open WebUI model dropdown to activate the right model

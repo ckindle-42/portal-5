@@ -12,7 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-
+historical: true
 ---
 
 The following models were evaluated for the V8 catalog and deferred on hardware grounds. None of them is registered in `config/backends.yaml` or appears as a workspace in `config/portal.yaml`, so they are not routable today:

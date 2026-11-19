@@ -1,7 +1,7 @@
 ---
 id: unit-readme-common-commands
 kind: what
-title: "README — Common Commands"
+title: "README \u2014 Common Commands"
 sources:
 - type: code
   path: launch.sh
@@ -21,12 +21,14 @@ sources:
   path: scripts/openwebui_init.py
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: launch.sh
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 The operator surface is one dispatcher: `./launch.sh <command>`. The `case`

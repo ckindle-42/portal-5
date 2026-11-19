@@ -9,11 +9,13 @@ sources:
   path: scripts/lib/backup.sh
 - type: code
   path: pyproject.toml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: launch.sh
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 This unit family documents the backup and restore surface of the platform: the `backup` and `restore` commands in `launch.sh` backed by `scripts/lib/backup.sh`. The guide header that named the version predates the current release, which is version 8.0.0 per `pyproject.toml`, but the operational surface it describes is the same two commands still wired today. The script covers the Open WebUI and Grafana volumes, `.env`, `config/`, and `imports/`.

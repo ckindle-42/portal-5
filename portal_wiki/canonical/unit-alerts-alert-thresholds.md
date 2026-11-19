@@ -9,12 +9,14 @@ sources:
   path: .env.example
 - type: code
   path: portal/platform/inference/cluster_backends.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/notifications/dispatcher.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 Two behaviors govern when operational alerts fire. `ALERT_BACKEND_DOWN_THRESHOLD`, default three, counts consecutive unhealthy health cycles before a per-backend down event fires; the health loop runs roughly every thirty seconds. The all-backends-down alert is not tunable: the threshold checker always runs with `alert_all_down` true, and the `ALERT_NO_HEALTHY_BACKENDS` variable shipped in `.env.example` and forwarded by compose is never read by any code, so it has no effect.

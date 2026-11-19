@@ -9,12 +9,14 @@ sources:
   path: .pre-commit-config.yaml
 - type: code
   path: scripts/pytest_unit_with_tree_marker.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: .github/workflows/unit-tests.yml
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 The test suite runs on every PR and push to `main` via GitHub Actions. The

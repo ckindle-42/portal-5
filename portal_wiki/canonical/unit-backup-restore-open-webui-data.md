@@ -9,11 +9,13 @@ sources:
   path: scripts/lib/backup.sh
 - type: code
   path: launch.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: deploy/portal-5/docker-compose.yml
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 The Open WebUI service in `deploy/portal-5/docker-compose.yml` mounts the named volume `open-webui-data` at `/app/backend/data`, and the project prefix turns that into `portal-5_open-webui-data` at the Docker level. The backup and restore functions reference the prefixed name directly so the alpine helper container can mount it. The volume survives `docker compose down` and is only destroyed by an explicit `clean` or `clean-all`, which is why the backup flow has to snapshot it separately.

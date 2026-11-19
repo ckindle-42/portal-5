@@ -1005,3 +1005,11 @@
 - `unit-known-limitations-vl-retrieval-runtime` | 2026-11-19 | 25f1b6e94c0a3bff796600e1296a61672f255d9a | Resolved, deferred, retired, or dated evaluation record retained for historical reference.
 - `unit-surface-archive-engine-h2h` | 2026-11-19 | 25f1b6e94c0a3bff796600e1296a61672f255d9a | Surface documents code retained under scripts/_archive; moved out of the current system surface.
 - `unit-surface-archive-mlx` | 2026-11-19 | 25f1b6e94c0a3bff796600e1296a61672f255d9a | Surface documents code retained under scripts/_archive; moved out of the current system surface.
+- `unit-known-limitations-70b-dense-models-unusable-for-daily-routing-on-m4-pro-64gb` | 2026-11-19 | 6c29caa94ebfcb709a4852e3d13dfa35ccb69730 | Resolved, retired, or model-specific evaluation finding retained as historical evidence.
+- `unit-known-limitations-antares-gate-e1-gated-download` | 2026-11-19 | 6c29caa94ebfcb709a4852e3d13dfa35ccb69730 | Resolved, retired, or model-specific evaluation finding retained as historical evidence.
+- `unit-known-limitations-devstral-24b-runtime-vram-footprint-25-7-gb` | 2026-11-19 | 6c29caa94ebfcb709a4852e3d13dfa35ccb69730 | Resolved, retired, or model-specific evaluation finding retained as historical evidence.
+- `unit-known-limitations-fara-cua-tag-closure` | 2026-11-19 | 6c29caa94ebfcb709a4852e3d13dfa35ccb69730 | Resolved, retired, or model-specific evaluation finding retained as historical evidence.
+- `unit-known-limitations-mlx-inference-proxy-retired-commit-3a0c58e` | 2026-11-19 | 6c29caa94ebfcb709a4852e3d13dfa35ccb69730 | Resolved, retired, or model-specific evaluation finding retained as historical evidence.
+- `unit-known-limitations-phi4-reasoning-plus-crashes-ollama-s-llama-server-on-this-host-confirmed-not-a-corrupted-download` | 2026-11-19 | 6c29caa94ebfcb709a4852e3d13dfa35ccb69730 | Resolved, retired, or model-specific evaluation finding retained as historical evidence.
+- `unit-known-limitations-v8-catalog-deferred-insufficient-hardware` | 2026-11-19 | 6c29caa94ebfcb709a4852e3d13dfa35ccb69730 | Resolved, retired, or model-specific evaluation finding retained as historical evidence.
+- `unit-model-catalog-portal5-deepwen-3-6-q4-5-moq` | 2026-11-19 | 6c29caa94ebfcb709a4852e3d13dfa35ccb69730 | Dated or unconfigured-model finding retained as historical evidence.

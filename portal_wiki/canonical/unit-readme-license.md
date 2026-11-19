@@ -5,12 +5,14 @@ title: "README \u2014 License"
 sources:
 - type: code
   path: pyproject.toml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: pyproject.toml
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 Portal 5 is released under the MIT License — see [LICENSE](LICENSE) at the repo

@@ -14,12 +14,14 @@ sources:
   path: .env.example
 - type: code
   path: scripts/lib/services.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/mlx-speech.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 MLX survives in four non-chat runtimes, each started by its own launcher:

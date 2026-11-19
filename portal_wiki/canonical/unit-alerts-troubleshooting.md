@@ -13,12 +13,14 @@ sources:
   path: portal/platform/inference/notifications/scheduler.py
 - type: code
   path: portal/platform/inference/router/state.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/router/handlers.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 Debugging follows the enablement chain. If nothing arrives, confirm `NOTIFICATIONS_ENABLED` is true, that the pipeline was restarted after the environment changed, then POST `/notifications/test` for per-channel config status. For webhooks verify `WEBHOOK_URL` accepts a JSON POST and that `WEBHOOK_HEADERS`, when set, parses; malformed JSON is logged and ignored. Email requires the port to match the provider, 587 for STARTTLS and 465 for SSL. The daily summary no longer resets on restart: metrics persist to `/app/data/metrics_state.json` every sixty seconds and the delta snapshot lives beside it, with guards that skip an empty first-day report.

@@ -12,12 +12,14 @@ sources:
   path: .env.example
 - type: code
   path: deploy/portal-5/docker-compose.yml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/notifications/dispatcher.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 The all-backends-down alert fires the first time a health cycle finds every registered backend unhealthy, and only once: the `_alerted_all_down` latch holds until any backend recovers, then clears. Notably, `ALERT_NO_HEALTHY_BACKENDS` — the variable documented in `.env.example` and forwarded by the compose service — is never read anywhere; the checker's `alert_all_down` parameter defaults to true and the lifespan health callback always invokes it that way. Behavior is therefore fixed, not configurable.

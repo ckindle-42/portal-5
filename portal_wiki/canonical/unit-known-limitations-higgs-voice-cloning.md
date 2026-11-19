@@ -1,17 +1,19 @@
 ---
 id: unit-known-limitations-higgs-voice-cloning
 kind: mixed
-title: "Known Limitation — Voice Cloning (Higgs Audio v2)"
+title: "Known Limitation \u2014 Voice Cloning (Higgs Audio v2)"
 sources:
 - type: code
   path: scripts/mlx-speech.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/mlx-speech.py
+  equals: true
 confidence: high
 tags:
 - known-limitations
 - speech
 - apple-silicon
-
 ---
 
 ### Voice Cloning Constraints

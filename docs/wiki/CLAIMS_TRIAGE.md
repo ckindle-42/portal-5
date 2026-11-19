@@ -3,7 +3,7 @@
 Temporary gate ledger for the content review. Each pending id is replaced with a current, historical, or obsolete decision as its unit is reviewed.
 
 Initial pending units: 733.
-Completed decisions: 400; pending: 333.
+Completed decisions: 499; pending: 234.
 
 - `SEC_BENCH-combined-corpus-validation-20260731` | pending | awaiting content review
 - `unit-ADMIN_GUIDE-add-a-cluster-node` | current | code symbol `backends_healthy` exists in `scripts/lib/util.sh`
@@ -132,60 +132,60 @@ Completed decisions: 400; pending: 333.
 - `unit-agent-loop-operator-surface` | pending | awaiting content review
 - `unit-agent-loop-record-path-writing-enabled-ci-gated` | pending | awaiting content review
 - `unit-agent-loop-shape` | pending | awaiting content review
-- `unit-alerts-1-enable-notifications` | pending | awaiting content review
-- `unit-alerts-3-restart-the-pipeline` | pending | awaiting content review
-- `unit-alerts-alert-thresholds` | pending | awaiting content review
-- `unit-alerts-channel-priority` | pending | awaiting content review
-- `unit-alerts-daily-summary` | pending | awaiting content review
-- `unit-alerts-daily-usage-summary` | pending | awaiting content review
-- `unit-alerts-email` | pending | awaiting content review
-- `unit-alerts-enable-disable-daily-summary-default-true` | pending | awaiting content review
-- `unit-alerts-fire-all-backends-down-immediately-when-all-backends-fail-default-true` | pending | awaiting content review
-- `unit-alerts-fire-backend-down-after-this-many-consecutive-failures-per-backend-default-3` | pending | awaiting content review
-- `unit-alerts-hour-to-send-summary-0-23-default-8` | pending | awaiting content review
-- `unit-alerts-operational-alerts` | pending | awaiting content review
-- `unit-alerts-optional-json-object-for-additional-headers-e-g-auth-tokens` | pending | awaiting content review
-- `unit-alerts-portal-6-0-0-alerts-notifications-guide` | pending | awaiting content review
-- `unit-alerts-pushover` | pending | awaiting content review
-- `unit-alerts-quick-start` | pending | awaiting content review
-- `unit-alerts-slack` | pending | awaiting content review
-- `unit-alerts-telegram` | pending | awaiting content review
-- `unit-alerts-timezone-for-the-schedule-default-utc` | pending | awaiting content review
-- `unit-alerts-troubleshooting` | pending | awaiting content review
-- `unit-alerts-webhook` | pending | awaiting content review
+- `unit-alerts-1-enable-notifications` | current | repo.path.exists confirms `.env.example` exists in the checkout
+- `unit-alerts-3-restart-the-pipeline` | current | repo.path.exists confirms `deploy/portal-5/docker-compose.yml` exists in the checkout
+- `unit-alerts-alert-thresholds` | current | repo.path.exists confirms `portal/platform/inference/notifications/dispatcher.py` exists in the checkout
+- `unit-alerts-channel-priority` | current | repo.path.exists confirms `portal/platform/inference/notifications/dispatcher.py` exists in the checkout
+- `unit-alerts-daily-summary` | current | repo.path.exists confirms `portal/platform/inference/notifications/scheduler.py` exists in the checkout
+- `unit-alerts-daily-usage-summary` | current | repo.path.exists confirms `portal/platform/inference/notifications/scheduler.py` exists in the checkout
+- `unit-alerts-email` | current | repo.path.exists confirms `portal/platform/inference/notifications/channels/email.py` exists in the checkout
+- `unit-alerts-enable-disable-daily-summary-default-true` | current | repo.path.exists confirms `portal/platform/inference/notifications/scheduler.py` exists in the checkout
+- `unit-alerts-fire-all-backends-down-immediately-when-all-backends-fail-default-true` | current | repo.path.exists confirms `portal/platform/inference/notifications/dispatcher.py` exists in the checkout
+- `unit-alerts-fire-backend-down-after-this-many-consecutive-failures-per-backend-default-3` | current | repo.path.exists confirms `portal/platform/inference/notifications/dispatcher.py` exists in the checkout
+- `unit-alerts-hour-to-send-summary-0-23-default-8` | current | repo.path.exists confirms `portal/platform/inference/notifications/scheduler.py` exists in the checkout
+- `unit-alerts-operational-alerts` | current | repo.path.exists confirms `portal/platform/inference/notifications/dispatcher.py` exists in the checkout
+- `unit-alerts-optional-json-object-for-additional-headers-e-g-auth-tokens` | current | repo.path.exists confirms `portal/platform/inference/notifications/channels/webhook.py` exists in the checkout
+- `unit-alerts-portal-6-0-0-alerts-notifications-guide` | current | repo.path.exists confirms `portal/platform/inference/notifications/dispatcher.py` exists in the checkout
+- `unit-alerts-pushover` | current | repo.path.exists confirms `portal/platform/inference/notifications/channels/pushover.py` exists in the checkout
+- `unit-alerts-quick-start` | current | repo.path.exists confirms `portal/platform/inference/router/handlers.py` exists in the checkout
+- `unit-alerts-slack` | current | repo.path.exists confirms `portal/platform/inference/notifications/channels/slack.py` exists in the checkout
+- `unit-alerts-telegram` | current | repo.path.exists confirms `portal/platform/inference/notifications/channels/telegram.py` exists in the checkout
+- `unit-alerts-timezone-for-the-schedule-default-utc` | current | repo.path.exists confirms `portal/platform/inference/notifications/scheduler.py` exists in the checkout
+- `unit-alerts-troubleshooting` | current | repo.path.exists confirms `portal/platform/inference/router/handlers.py` exists in the checkout
+- `unit-alerts-webhook` | current | repo.path.exists confirms `portal/platform/inference/notifications/channels/webhook.py` exists in the checkout
 - `unit-archive-v5-ladder-analysis` | pending | awaiting content review
-- `unit-backup-restore-1-open-webui-data-critical` | pending | awaiting content review
-- `unit-backup-restore-1-open-webui-data` | pending | awaiting content review
-- `unit-backup-restore-2-configuration-files` | pending | awaiting content review
-- `unit-backup-restore-2-configuration` | pending | awaiting content review
-- `unit-backup-restore-3-mcp-data-if-applicable` | pending | awaiting content review
-- `unit-backup-restore-4-full-system-backup-script` | pending | awaiting content review
-- `unit-backup-restore-add-to-crontab-crontab-e` | pending | awaiting content review
-- `unit-backup-restore-after-config-changes-re-seed` | pending | awaiting content review
-- `unit-backup-restore-backup-config-directory` | pending | awaiting content review
-- `unit-backup-restore-backup-portal-5-data` | pending | awaiting content review
-- `unit-backup-restore-backup-retention` | pending | awaiting content review
-- `unit-backup-restore-cleanup-old-backups-run-daily` | pending | awaiting content review
-- `unit-backup-restore-complete-system-recovery` | pending | awaiting content review
-- `unit-backup-restore-config-excluding-env-for-security-back-that-up-manually` | pending | awaiting content review
-- `unit-backup-restore-daily-backup-with-cron` | pending | awaiting content review
-- `unit-backup-restore-extract-config-careful-may-overwrite-current-settings` | pending | awaiting content review
-- `unit-backup-restore-manual-backup` | pending | awaiting content review
-- `unit-backup-restore-mcp-data-if-exists` | pending | awaiting content review
-- `unit-backup-restore-migration-to-new-host` | pending | awaiting content review
-- `unit-backup-restore-model-weights-recovery` | pending | awaiting content review
-- `unit-backup-restore-open-webui-data` | pending | awaiting content review
-- `unit-backup-restore-or-just-config-excluding-env-for-security` | pending | awaiting content review
-- `unit-backup-restore-or-manually` | pending | awaiting content review
-- `unit-backup-restore-portal-6-0-0-backup-restore-guide` | pending | awaiting content review
-- `unit-backup-restore-pull-default-model` | pending | awaiting content review
-- `unit-backup-restore-restart-services` | pending | awaiting content review
-- `unit-backup-restore-restore-from-backup` | pending | awaiting content review
-- `unit-backup-restore-security-notes` | pending | awaiting content review
-- `unit-backup-restore-stop-services-first` | pending | awaiting content review
-- `unit-backup-restore-what-not-to-back-up` | pending | awaiting content review
-- `unit-backup-restore-what-to-back-up` | pending | awaiting content review
-- `unit-backup-restore-with-compression-faster-for-large-volumes` | pending | awaiting content review
+- `unit-backup-restore-1-open-webui-data-critical` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-1-open-webui-data` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-2-configuration-files` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-2-configuration` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-3-mcp-data-if-applicable` | current | repo.path.exists confirms `.env.example` exists in the checkout
+- `unit-backup-restore-4-full-system-backup-script` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-add-to-crontab-crontab-e` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-backup-restore-after-config-changes-re-seed` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-backup-restore-backup-config-directory` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-backup-portal-5-data` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-backup-retention` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-cleanup-old-backups-run-daily` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-backup-restore-complete-system-recovery` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-config-excluding-env-for-security-back-that-up-manually` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-daily-backup-with-cron` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-extract-config-careful-may-overwrite-current-settings` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-manual-backup` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-mcp-data-if-exists` | current | repo.path.exists confirms `.env.example` exists in the checkout
+- `unit-backup-restore-migration-to-new-host` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-model-weights-recovery` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-backup-restore-open-webui-data` | current | repo.path.exists confirms `deploy/portal-5/docker-compose.yml` exists in the checkout
+- `unit-backup-restore-or-just-config-excluding-env-for-security` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-or-manually` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-backup-restore-portal-6-0-0-backup-restore-guide` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-backup-restore-pull-default-model` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-backup-restore-restart-services` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-backup-restore-restore-from-backup` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-security-notes` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-stop-services-first` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-what-not-to-back-up` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-what-to-back-up` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-with-compression-faster-for-large-volumes` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
 - `unit-bench-candidates-v10` | pending | awaiting content review
 - `unit-bench-mlx-hf` | pending | awaiting content review
 - `unit-bench-security` | pending | awaiting content review
@@ -283,11 +283,11 @@ Completed decisions: 400; pending: 333.
 - `unit-general-tools-vendored-fleet` | pending | awaiting content review
 - `unit-host-log-rotation` | pending | awaiting content review
 - `unit-inference-router-pipe` | pending | awaiting content review
-- `unit-known-issues-known-issues` | pending | awaiting content review
-- `unit-known-limitations-70b-dense-models-unusable-for-daily-routing-on-m4-pro-64gb` | pending | awaiting content review
+- `unit-known-issues-known-issues` | current | repo.path.exists confirms `portal/platform/wiki/render.py` exists in the checkout
+- `unit-known-limitations-70b-dense-models-unusable-for-daily-routing-on-m4-pro-64gb` | historical | dated, retired, or unconfigured-model finding retained for history
 - `unit-known-limitations-acestep15-mlx-backend` | current | code symbol `ace_generate` exists in `portal/modules/media/tools/music_ace_mcp.py`
-- `unit-known-limitations-antares-gate-e1-gated-download` | pending | awaiting content review
-- `unit-known-limitations-asteroids-bench-score-variance-is-the-benchmark-s-purpose` | pending | awaiting content review
+- `unit-known-limitations-antares-gate-e1-gated-download` | historical | dated, retired, or unconfigured-model finding retained for history
+- `unit-known-limitations-asteroids-bench-score-variance-is-the-benchmark-s-purpose` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
 - `unit-known-limitations-auto-math-workspace-reasoning-block-support` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-auto-rag-silent-miss` | current | code symbol `inject_retrieved_context` exists in `portal/platform/inference/router/context_inject.py`
 - `unit-known-limitations-baronllm-text-only-tool-output-auto-security-mcp-tools-non-functional` | historical | closed, deferred, retired, or dated limitation record retained for history
@@ -295,49 +295,49 @@ Completed decisions: 400; pending: 333.
 - `unit-known-limitations-cad-b3d-session` | current | code symbol `cad_execute` exists in `portal/modules/cad/tools/b123d_bridge.py`
 - `unit-known-limitations-cad-brep-kernel-gaps` | current | source path `portal/modules/cad/tools/b123d_emitter.py` exists
 - `unit-known-limitations-cadquery-and-build123d-unusable-on-linux-arm64` | historical | closed, deferred, retired, or dated limitation record retained for history
-- `unit-known-limitations-code-sandbox-requires-privileged-container` | pending | awaiting content review
+- `unit-known-limitations-code-sandbox-requires-privileged-container` | current | repo.path.exists confirms `deploy/portal-5/docker-compose.yml` exists in the checkout
 - `unit-known-limitations-compliance-implicit-change-recall` | current | source path `portal/modules/compliance/core/register_diff.py` exists
-- `unit-known-limitations-compliance-mcp-protocol-calls-not-cancelled` | pending | awaiting content review
+- `unit-known-limitations-compliance-mcp-protocol-calls-not-cancelled` | current | repo.path.exists confirms `portal/modules/compliance/tools/compliance_mcp.py` exists in the checkout
 - `unit-known-limitations-compliance-review-queue-not-a-gate` | current | code symbol `prior_item_id` exists in `portal/modules/compliance/core/review_queue.py`
 - `unit-known-limitations-compliance-scope-was-gated-on-data-the-corpus-already-answers` | historical | closed, deferred, retired, or dated limitation record retained for history
-- `unit-known-limitations-devstral-24b-runtime-vram-footprint-25-7-gb` | pending | awaiting content review
-- `unit-known-limitations-diarized-transcription-task-transcribe-001` | pending | awaiting content review
+- `unit-known-limitations-devstral-24b-runtime-vram-footprint-25-7-gb` | historical | dated, retired, or unconfigured-model finding retained for history
+- `unit-known-limitations-diarized-transcription-task-transcribe-001` | current | repo.path.exists confirms `scripts/mlx-transcribe.py` exists in the checkout
 - `unit-known-limitations-emergent-objective-loop-curated-capability-tool-names-vs-live-dispatch-whitelist` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-engine-update-data01-approval` | current | source path `scripts/engine_autoupdate.py` exists
-- `unit-known-limitations-fara-cua-tag-closure` | pending | awaiting content review
+- `unit-known-limitations-fara-cua-tag-closure` | historical | dated, retired, or unconfigured-model finding retained for history
 - `unit-known-limitations-granite-8b-mxfp8-tool-garbling` | current | code symbol `tool_calls` exists in `config/backends.yaml`
-- `unit-known-limitations-higgs-voice-cloning` | pending | awaiting content review
+- `unit-known-limitations-higgs-voice-cloning` | current | repo.path.exists confirms `scripts/mlx-speech.py` exists in the checkout
 - `unit-known-limitations-host-measurement-contention` | current | code symbol `begin_run` exists in `scripts/host_quiet.py`
 - `unit-known-limitations-host-native-mcp-lifecycle-launcher-child-exit` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-importing-the-security-bench-module-sets-a-linux-only-prometheus-multiproc-dir-host-side` | historical | closed, deferred, retired, or dated limitation record retained for history
-- `unit-known-limitations-known-limitations` | pending | awaiting content review
+- `unit-known-limitations-known-limitations` | current | repo.path.exists confirms `portal/platform/wiki/render.py` exists in the checkout
 - `unit-known-limitations-ling-3-0-flash-turboquant-memory-gates` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-load-guard-omlx-swap` | current | code symbol `_FREE_SETTLE_EXPECTED_S` exists in `portal/platform/inference/load_guard.py`
 - `unit-known-limitations-meta3-metasploitable3-windows-scenario-coverage-spl-precision-gaps` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-minimax-music3-mlx` | current | source path `portal/modules/media/tools/music_minimax_mcp.py` exists
-- `unit-known-limitations-mlx-inference-proxy-retired-commit-3a0c58e` | pending | awaiting content review
+- `unit-known-limitations-mlx-inference-proxy-retired-commit-3a0c58e` | historical | dated, retired, or unconfigured-model finding retained for history
 - `unit-known-limitations-model-parity-specialist-models-lost-in-the-mlx-ollama-migration` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-models-out-of-m4-pro-64-gb-budget` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-narrated-tool-call-instead-of-real-dispatch` | historical | closed, deferred, retired, or dated limitation record retained for history
-- `unit-known-limitations-no-built-in-multi-user-rate-limiting` | pending | awaiting content review
+- `unit-known-limitations-no-built-in-multi-user-rate-limiting` | current | repo.path.exists confirms `portal/platform/inference/router/concurrency.py` exists in the checkout
 - `unit-known-limitations-ollama-api-ps-under-reports-llamacpp-residents` | current | code symbol `LoadGuard` exists in `portal/platform/inference/load_guard.py`
 - `unit-known-limitations-ollama-gpu-overhead-ceiling` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-ollama-native-mlx-engine-evaluation-findings-2026-07-01` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-ollama-tool-call-parser-aborts-a-started-stream` | current | code symbol `finish_reason` exists in `portal/platform/inference/router/streaming.py`
-- `unit-known-limitations-ollama-v1-ignores-options-num-ctx-and-options-num-batch` | pending | awaiting content review
+- `unit-known-limitations-ollama-v1-ignores-options-num-ctx-and-options-num-batch` | current | repo.path.exists confirms `portal/platform/inference/router/validation.py` exists in the checkout
 - `unit-known-limitations-ollama-v1-sampling-drop` | current | code symbol `OllamaNativeTransport` exists in `portal/platform/inference/ollama_native.py`
 - `unit-known-limitations-ollama40-model-store` | current | code symbol `num_ctx` exists in `scripts/model_upstream.py`
 - `unit-known-limitations-omlx-balanced-ceiling` | current | code symbol `memory` exists in `portal/platform/inference/load_guard.py`
 - `unit-known-limitations-omlx-prefix-cache-accounting` | current | code symbol `_omlx_request` exists in `portal/platform/inference/ollama_native.py`
 - `unit-known-limitations-omlx-qwen3coder-tool-text` | current | code symbol `qwen3_coder` exists in `config/portal.yaml`
-- `unit-known-limitations-owui-audio-drop-ux-task-owui-audio-drop-001` | pending | awaiting content review
+- `unit-known-limitations-owui-audio-drop-ux-task-owui-audio-drop-001` | current | repo.path.exists confirms `.env.example` exists in the checkout
 - `unit-known-limitations-p5-emergent-002-deterministic-capability-ranker-can-t-reach-oracle-bearing-capabilities-once-any-tool-declaring-recon-capability-is-a-candidate` | historical | closed, deferred, retired, or dated limitation record retained for history
-- `unit-known-limitations-p5-mlx-eval-001-gguf-fleet-regressed-slightly-on-0-31-1-mtp-is-mlx-engine-only` | pending | awaiting content review
-- `unit-known-limitations-p5-mlx-eval-002-ollama-s-official-gemma4-mlx-tags-are-not-drop-in-swaps` | pending | awaiting content review
-- `unit-known-limitations-p5-mlx-eval-003-hf-hosted-mlx-models-are-currently-unreachable-by-the-pipeline` | pending | awaiting content review
-- `unit-known-limitations-p5-mlx-eval-004-large-single-blob-mlx-downloads-hang-intermittently` | pending | awaiting content review
-- `unit-known-limitations-p5-mlx-eval-005-two-security-tier-fine-tunes-have-no-working-mlx-conversion` | pending | awaiting content review
-- `unit-known-limitations-phi4-reasoning-plus-crashes-ollama-s-llama-server-on-this-host-confirmed-not-a-corrupted-download` | pending | awaiting content review
+- `unit-known-limitations-p5-mlx-eval-001-gguf-fleet-regressed-slightly-on-0-31-1-mtp-is-mlx-engine-only` | current | repo.path.exists confirms `config/backends.yaml` exists in the checkout
+- `unit-known-limitations-p5-mlx-eval-002-ollama-s-official-gemma4-mlx-tags-are-not-drop-in-swaps` | current | repo.path.exists confirms `config/backends.yaml` exists in the checkout
+- `unit-known-limitations-p5-mlx-eval-003-hf-hosted-mlx-models-are-currently-unreachable-by-the-pipeline` | current | repo.path.exists confirms `tests/benchmarks/bench_mlx_hf.py` exists in the checkout
+- `unit-known-limitations-p5-mlx-eval-004-large-single-blob-mlx-downloads-hang-intermittently` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-known-limitations-p5-mlx-eval-005-two-security-tier-fine-tunes-have-no-working-mlx-conversion` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-known-limitations-phi4-reasoning-plus-crashes-ollama-s-llama-server-on-this-host-confirmed-not-a-corrupted-download` | historical | dated, retired, or unconfigured-model finding retained for history
 - `unit-known-limitations-pipeline-hardening-20260925` | current | code symbol `resolve_hop_target` exists in `portal/platform/inference/router/streaming.py`
 - `unit-known-limitations-post-v1-messages-anthropic-compat-endpoint-returns-http-200-with-a-null-body` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-pytest-portal-leaves-real-write-through-test-artifacts` | historical | closed, deferred, retired, or dated limitation record retained for history
@@ -345,14 +345,14 @@ Completed decisions: 400; pending: 333.
 - `unit-known-limitations-request-size-cap-relies-on-content-length-only` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-router-model-eviction-single-request` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-serena-gate-d1-airgap-staging` | historical | closed, deferred, retired, or dated limitation record retained for history
-- `unit-known-limitations-shared-workspace-auto-stt-disabled-task-workspace-001` | pending | awaiting content review
+- `unit-known-limitations-shared-workspace-auto-stt-disabled-task-workspace-001` | current | repo.path.exists confirms `.env.example` exists in the checkout
 - `unit-known-limitations-speculative-decoding-mtp-retired-with-the-mlx-proxy-commit-3a0c58e` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-spine-code-coverage-ratchet` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-tool-preselection-candidate-1b-models-cannot-rank-tools` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-transitive-dependency-cves` | current | code symbol `convert_sigma` exists in `portal/modules/detection/tools/detection_mcp.py`
 - `unit-known-limitations-unregistered-hint-fallback` | current | code symbol `model_hint` exists in `portal/platform/inference/router/streaming.py`
 - `unit-known-limitations-v5-model-visible-corpus-retrieval-coverage` | historical | closed, deferred, retired, or dated limitation record retained for history
-- `unit-known-limitations-v8-catalog-deferred-insufficient-hardware` | pending | awaiting content review
+- `unit-known-limitations-v8-catalog-deferred-insufficient-hardware` | historical | dated, retired, or unconfigured-model finding retained for history
 - `unit-known-limitations-vl-retrieval-runtime` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-vl-text-gate-tuned-against-manufactured-collision` | current | code symbol `VL_TEXT_GATE` exists in `reports/retrieval/SUBSTRATE_MIGRATION_V1.md`
 - `unit-lab-setup-all-these-should-succeed-after-setup` | pending | awaiting content review
@@ -519,7 +519,7 @@ Completed decisions: 400; pending: 333.
 - `unit-model-catalog-phi4-reasoning-plus-ctx32k` | historical | model ID absent from current configuration; retained as catalog history
 - `unit-model-catalog-phi4-reasoning-plus` | historical | model ID absent from current configuration; retained as catalog history
 - `unit-model-catalog-portal5-deepwen-3-6-q4-5-moq-ctx32k` | historical | model ID absent from current configuration; retained as catalog history
-- `unit-model-catalog-portal5-deepwen-3-6-q4-5-moq` | pending | awaiting content review
+- `unit-model-catalog-portal5-deepwen-3-6-q4-5-moq` | historical | dated, retired, or unconfigured-model finding retained for history
 - `unit-model-catalog-portal5-gemma4-12b-q4-k-m-ctx8k` | historical | model ID absent from current configuration; retained as catalog history
 - `unit-model-catalog-portal5-qwen3-6-27b-mtp-q8-0-drafted` | historical | model ID absent from current configuration; retained as catalog history
 - `unit-model-catalog-portal5-qwen36-27b-fable-fusion-heretic-q4-k-m-dropped` | historical | model ID absent from current configuration; retained as catalog history
@@ -620,28 +620,28 @@ Completed decisions: 400; pending: 333.
 - `unit-portal5-bench-sec-execute-v3-single-variant-on-the-prompt-set` | current | repo.path.exists confirms `portal/modules/security/core/cli.py` exists in the checkout
 - `unit-portal5-bench-sec-execute-v3-what-changed-in-the-security-surface-read-before-running` | current | repo.path.exists confirms `scripts/execute_preflight.py` exists in the checkout
 - `unit-portal5-bench-sec-execute-v3-your-role` | current | repo.path.exists confirms `portal/modules/security/core/cli.py` exists in the checkout
-- `unit-readme-acceptance-testing` | pending | awaiting content review
-- `unit-readme-architecture` | pending | awaiting content review
-- `unit-readme-common-commands` | pending | awaiting content review
-- `unit-readme-core-models-pulled-automatically-on-first-run-4-gb` | pending | awaiting content review
-- `unit-readme-documentation` | pending | awaiting content review
-- `unit-readme-functional-workspaces` | pending | awaiting content review
-- `unit-readme-image-video-generation-mlx-native-host-layer` | pending | awaiting content review
-- `unit-readme-license` | pending | awaiting content review
-- `unit-readme-mlx-models-apple-silicon-retained-for-audio-embedding-reranker-only-chat-inference-is-ollama-only` | pending | awaiting content review
-- `unit-readme-network-exposure` | pending | awaiting content review
-- `unit-readme-portal-5-local-ai-platform` | pending | awaiting content review
-- `unit-readme-prerequisites` | pending | awaiting content review
-- `unit-readme-quick-start` | pending | awaiting content review
-- `unit-readme-required-environment-variables` | pending | awaiting content review
-- `unit-readme-slack-bot-setup` | pending | awaiting content review
-- `unit-readme-specialized-models-pulled-with-launch-sh-pull-models-60-100-gb-total` | pending | awaiting content review
-- `unit-readme-speech-text-to-speech-speech-to-text` | pending | awaiting content review
-- `unit-readme-telegram-bot-setup` | pending | awaiting content review
-- `unit-readme-troubleshooting` | pending | awaiting content review
-- `unit-readme-unit-test-ci` | pending | awaiting content review
-- `unit-readme-what-starts-automatically` | pending | awaiting content review
-- `unit-readme-workspaces` | pending | awaiting content review
+- `unit-readme-acceptance-testing` | current | repo.path.exists confirms `tests/portal5_acceptance_v6.py` exists in the checkout
+- `unit-readme-architecture` | current | repo.path.exists confirms `deploy/portal-5/docker-compose.yml` exists in the checkout
+- `unit-readme-common-commands` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-readme-core-models-pulled-automatically-on-first-run-4-gb` | current | repo.path.exists confirms `deploy/portal-5/docker-compose.yml` exists in the checkout
+- `unit-readme-documentation` | current | repo.path.exists confirms `portal/platform/wiki/render.py` exists in the checkout
+- `unit-readme-functional-workspaces` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-readme-image-video-generation-mlx-native-host-layer` | current | repo.path.exists confirms `portal/modules/media/tools/mflux_mcp.py` exists in the checkout
+- `unit-readme-license` | current | repo.path.exists confirms `pyproject.toml` exists in the checkout
+- `unit-readme-mlx-models-apple-silicon-retained-for-audio-embedding-reranker-only-chat-inference-is-ollama-only` | current | repo.path.exists confirms `scripts/mlx-speech.py` exists in the checkout
+- `unit-readme-network-exposure` | current | repo.path.exists confirms `deploy/portal-5/docker-compose.yml` exists in the checkout
+- `unit-readme-portal-5-local-ai-platform` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-readme-prerequisites` | current | repo.path.exists confirms `scripts/lib/util.sh` exists in the checkout
+- `unit-readme-quick-start` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-readme-required-environment-variables` | current | repo.path.exists confirms `.env.example` exists in the checkout
+- `unit-readme-slack-bot-setup` | current | repo.path.exists confirms `deploy/portal-5/docker-compose.yml` exists in the checkout
+- `unit-readme-specialized-models-pulled-with-launch-sh-pull-models-60-100-gb-total` | current | repo.path.exists confirms `config/backends.yaml` exists in the checkout
+- `unit-readme-speech-text-to-speech-speech-to-text` | current | repo.path.exists confirms `scripts/mlx-speech.py` exists in the checkout
+- `unit-readme-telegram-bot-setup` | current | repo.path.exists confirms `deploy/portal-5/docker-compose.yml` exists in the checkout
+- `unit-readme-troubleshooting` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-readme-unit-test-ci` | current | repo.path.exists confirms `.github/workflows/unit-tests.yml` exists in the checkout
+- `unit-readme-what-starts-automatically` | current | repo.path.exists confirms `deploy/portal-5/docker-compose.yml` exists in the checkout
+- `unit-readme-workspaces` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
 - `unit-router-streaming` | pending | awaiting content review
 - `unit-router-test-context-inject` | pending | awaiting content review
 - `unit-router-test-correlation` | pending | awaiting content review

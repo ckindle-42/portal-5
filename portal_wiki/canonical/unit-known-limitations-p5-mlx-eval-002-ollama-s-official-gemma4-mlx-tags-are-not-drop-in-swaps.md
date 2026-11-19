@@ -8,12 +8,14 @@ sources:
   path: config/backends.yaml
 - type: code
   path: tests/benchmarks/bench_mlx_hf.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/backends.yaml
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 - **Description**: Ollama's official `gemma4:{e2b,e4b,12b}-mlx` library tags are not drop-in replacements for the production `gemma4:{e2b,e4b,12b}-it-qat` GGUF models. The evaluation in `coding_task/TASK_EVAL_GEMMA4_MLX_TAGS_V1.md` documents the swap-blocking differences: parameter counts differ per tier, the quantization schemes differ (QAT versus nvfp4), and the 12b tag reports a different architecture name (gemma4_unified vs `gemma4`). At the time of the original evaluation the `-mlx` tags lacked the vision/audio capability that the QAT variants' multimodal projection provides.

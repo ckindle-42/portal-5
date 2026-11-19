@@ -9,12 +9,14 @@ sources:
   path: .env.example
 - type: code
   path: portal/platform/inference/notifications/dispatcher.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/router/handlers.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 Enabling alerts is a three-step process: set `NOTIFICATIONS_ENABLED` to true in `.env`, add at least one channel's variables, and restart the pipeline so the values are read at startup. To verify without waiting for an incident, POST to the `/notifications/test` endpoint, which dispatches a sample alert and a live summary and reports each channel's configured state in the response.

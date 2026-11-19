@@ -1,7 +1,7 @@
 ---
 id: unit-readme-troubleshooting
 kind: what
-title: "README — Troubleshooting"
+title: "README \u2014 Troubleshooting"
 sources:
 - type: code
   path: launch.sh
@@ -9,12 +9,14 @@ sources:
   path: scripts/lib/util.sh
 - type: code
   path: scripts/lib/services.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: launch.sh
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 **Services not starting:**

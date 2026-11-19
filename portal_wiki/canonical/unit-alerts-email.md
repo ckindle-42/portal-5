@@ -9,12 +9,14 @@ sources:
   path: portal/platform/inference/router/lifespan.py
 - type: code
   path: .env.example
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/notifications/channels/email.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 The email channel requires `SMTP_HOST` and `EMAIL_ALERT_TO`; it also reports unconfigured when the aiosmtplib dependency is not importable. `SMTP_PORT` defaults to 587 and `SMTP_FROM` to portal@portal.local. Port 465 selects implicit TLS with a default security context; any other port enables STARTTLS. Username and password are optional and are only sent when provided.

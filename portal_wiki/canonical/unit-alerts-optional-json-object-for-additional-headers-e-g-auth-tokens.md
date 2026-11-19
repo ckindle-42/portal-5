@@ -7,12 +7,14 @@ sources:
   path: portal/platform/inference/notifications/channels/webhook.py
 - type: code
   path: portal/platform/inference/notifications/events.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/notifications/channels/webhook.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 `WEBHOOK_HEADERS` lets a webhook receiver demand authentication. The channel parses the variable as JSON, merges the result into a base header set that already carries `Content-Type: application/json`, and logs a warning and skips the merge when the value is not valid JSON — the request still proceeds without the extra headers. The alert payload posted by `send_alert` includes event, message, backend id, workspace, timestamp, and metadata; the summary payload additionally includes request totals, per-workspace counts, backend health, uptime, and extended metrics.

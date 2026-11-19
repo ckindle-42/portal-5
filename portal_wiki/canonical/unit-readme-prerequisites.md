@@ -7,12 +7,14 @@ sources:
   path: scripts/lib/util.sh
 - type: code
   path: scripts/lib/services.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/lib/util.sh
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 The requirements `./launch.sh up` actually enforces are in `_check_hardware` in

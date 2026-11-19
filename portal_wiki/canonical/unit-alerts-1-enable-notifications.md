@@ -9,12 +9,14 @@ sources:
   path: portal/platform/inference/notifications/dispatcher.py
 - type: code
   path: portal/platform/inference/router/lifespan.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: .env.example
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 Notifications are disabled by default. The dispatcher reads `NOTIFICATIONS_ENABLED` at construction and refuses to register any channel while it is false, and the pipeline lifespan never even imports the notifications package unless the variable is truthy. Setting it to true in `.env` and restarting the pipeline container activates the subsystem; every channel is then independently optional, and a channel without its own variables stays silent.

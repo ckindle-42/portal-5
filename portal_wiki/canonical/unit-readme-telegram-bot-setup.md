@@ -11,12 +11,14 @@ sources:
   path: portal_channels/telegram/bot.py
 - type: code
   path: .env.example
-claims: []
+claims:
+- probe: repo.path.exists
+  path: deploy/portal-5/docker-compose.yml
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 To enable the Telegram channel, create a bot in Telegram and add its token to

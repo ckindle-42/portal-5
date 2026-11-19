@@ -9,11 +9,13 @@ sources:
   path: portal/platform/inference/cli/models.py
 - type: code
   path: portal/platform/inference/config.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: launch.sh
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 Model weights live in the `portal-5_ollama-models` volume and are deliberately excluded from `./launch.sh backup`, which handles only the Open WebUI and Grafana volumes. The `clean-all` case removes the weights volume explicitly, while the `clean` case preserves it. Recovery is re-pulling: `./launch.sh pull-models` dispatches to `portal.platform.inference.cli models pull`, which walks the registry loaded from `config/backends.yaml` and issues native `ollama pull` commands for each configured model.

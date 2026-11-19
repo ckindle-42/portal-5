@@ -11,12 +11,14 @@ sources:
   path: portal/platform/inference/notifications/dispatcher.py
 - type: code
   path: .env.example
-claims: []
+claims:
+- probe: repo.path.exists
+  path: deploy/portal-5/docker-compose.yml
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 The notification subsystem reads its entire configuration from environment variables during process startup, so editing `.env` has no effect until the pipeline container is recreated. The compose file at deploy/portal-5/docker-compose.yml defines the service as `portal-pipeline` and forwards every alert variable, so `docker compose restart portal-pipeline`, run from the compose directory, is the documented refresh path; `./launch.sh up` also recreates containers whose configuration changed.

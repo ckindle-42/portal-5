@@ -7,11 +7,13 @@ sources:
   path: scripts/lib/backup.sh
 - type: code
   path: launch.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/lib/backup.sh
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 A daily cadence is assembled by combining the operator's crontab with the `backup` command; there is no built-in daily job. The backup command is a one-shot, non-daemonizing run: it creates the timestamped directory, produces the artifacts, prints the restore hint, and exits. Running it from cron therefore works, but the cron environment must have access to the Docker socket and the `.env` file that `_launch_backup` sources at the top before it can mount the volumes.

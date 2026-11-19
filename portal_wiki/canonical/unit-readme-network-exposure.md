@@ -11,12 +11,14 @@ sources:
   path: scripts/lib/util.sh
 - type: code
   path: .env.example
-claims: []
+claims:
+- probe: repo.path.exists
+  path: deploy/portal-5/docker-compose.yml
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 By default the Portal Pipeline binds to all interfaces. `deploy/portal-5/docker-compose.yml`

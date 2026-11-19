@@ -7,11 +7,13 @@ sources:
   path: launch.sh
 - type: code
   path: scripts/lib/backup.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: launch.sh
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 No scheduler is shipped with the project; nothing in `launch.sh` or the scripts tree registers a recurring backup job. An operator who wants unattended snapshots must add the invocation to their own crontab. Because `_launch_backup` accepts an output directory as its second argument, a cron line can pin backups to a dedicated location rather than relying on the default `./backups`, and each run lands in its own timestamped subdirectory.

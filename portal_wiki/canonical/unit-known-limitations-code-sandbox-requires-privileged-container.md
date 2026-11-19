@@ -7,12 +7,14 @@ sources:
   path: deploy/portal-5/docker-compose.yml
 - type: code
   path: portal/modules/coding/tools/code_sandbox_mcp.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: deploy/portal-5/docker-compose.yml
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 - **ID**: P5-ROAD-SEC-001

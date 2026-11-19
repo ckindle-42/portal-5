@@ -9,12 +9,14 @@ sources:
   path: scripts/lib/services.sh
 - type: code
   path: launch.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/mlx-speech.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 Portal 5 includes a native MLX speech server on Apple Silicon

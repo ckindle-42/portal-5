@@ -7,11 +7,13 @@ sources:
   path: scripts/lib/backup.sh
 - type: code
   path: launch.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/lib/backup.sh
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 There is no retention policy implemented anywhere in the codebase: `_launch_backup` never deletes older backups, and no other script sweeps the `./backups` directory. Every run simply adds another `portal5_backup_<timestamp>` directory, so the set grows monotonically until the operator prunes it. The daily-for-a-week, weekly-for-a-month, monthly-for-a-year ladder suggested by the old guide is advisory documentation, not enforced behavior.

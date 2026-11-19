@@ -15,12 +15,14 @@ sources:
   path: portal/modules/security/core/agentic_blue_eval.py
 - type: code
   path: portal/modules/security/core/_sweep_driver.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/router/validation.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 - **ID**: P5-OLLAMA-OPTIONS-001
@@ -28,7 +30,7 @@ tags:
 - **Consequence**: `context_limit` per workspace (e.g. `auto-coding: 16384`) is not enforced through `/v1` — it must be baked into the model's Modelfile or set via `OLLAMA_CONTEXT_LENGTH`. `num_batch` injection is likewise inert.
 - **Mitigation proof**: Raw `granite4.1:30b` loaded at 131,072 tokens while `granite4.1:8b` loaded at the same default, so the security evaluation workspaces now use baked `granite4.1:30b-ctx16k` and `granite4.1:8b-ctx8k` tags (registered in `config/backends.yaml`; used by `portal/modules/security/core/blue_orchestrate.py`, `agentic_blue_eval.py`, and `_sweep_driver.py`). Ollama then reports contexts 16,384 and 8,192 respectively. This mitigates the operated workspaces but does not resolve the general `/v1` limitation.
 - **Roadmap note**: evaluate `/api/chat` as the chat URL — it honors the Ollama-native parameter set but requires changing all payload/response shapes.
-- **Recurrence (2026-08-10)**: TASK-BATCH-BENCH-002's `bench-deepwen-cad` workspace was created with a bare `context_limit: 8192` (not a pre-baked tag), reproducing this exact limitation — the resulting corrupted tool-call JSON was initially misdiagnosed as a broken GGUF quant conversion before being root-caused back to this entry. Fixed via `./launch.sh apply-model-params` (note: requires `PORTAL_ENABLE_EVAL=1` to see eval-module workspaces). See `unit-model-catalog-portal5-deepwen-3-6-q4-5-moq` for the full misdiagnosis-and-correction narrative.
+- **Recurrence (2026-08-10)**: TASK-BATCH-BENCH-002's `bench-deepwen-cad` workspace was created with a bare `context_limit: 8192` (not a pre-baked tag), reproducing this exact limitation — the resulting corrupted tool-call JSON was initially misdiagnosed as a broken GGUF quant conversion before being root-caused back to this entry. Fixed via `./launch.sh apply-model-params` (note: requires `PORTAL_ENABLE_EVAL=1` to see eval-module workspaces). See the archived Deepwen-3.6 model-catalog run record for the full misdiagnosis-and-correction narrative.
 
 ## Why
 
