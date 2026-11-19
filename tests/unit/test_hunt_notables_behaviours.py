@@ -278,3 +278,31 @@ def test_per_window_events_never_exceeds_the_slice_budget():
     assert per_window_events(1) > 0
     assert per_window_events(1) <= 2500
     assert per_window_events(10_000) >= 1
+
+
+def test_source_window_reports_distinct_objects_for_one_actor_and_action():
+    from portal.modules.security.core.hunt.notables.generators import _source_deviations
+    from portal.modules.security.core.hunt.notables.window_activity import window_activity
+
+    _, firsts, _ = _source_deviations({"st": [(0, 4)]}, "ix", 0)
+    seed = firsts[0]
+    rows = [
+        {"_time": t, "_raw": raw}
+        for t, raw in [
+            (3, '{"user":"a","image":"retrieve","path":"last.txt"}'),
+            (1, '{"user":"a","image":"retrieve","path":"first.txt"}'),
+            (2, '{"user":"b","image":"retrieve","path":"other.txt"}'),
+            (14400, '{"user":"a","image":"retrieve","path":"outside.txt"}'),
+        ]
+    ]
+    result = window_activity(seed, [_card()], rows, "search index=ix | head 10")
+    assert result.basis == "source_first_seen_activity"
+    assert result.counts["distinct_objects"] == result.counts["group_rows"] == 2
+    assert [x["time"] for x in result.evidence[:2]] == [1, 3]
+    assert result.entities == (
+        ("actor", "a"),
+        ("action", "retrieve"),
+        ("object", "first.txt"),
+        ("object", "last.txt"),
+    )
+    assert window_activity(seed, [_card()], rows[:1], "query") is seed

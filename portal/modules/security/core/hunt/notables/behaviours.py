@@ -22,7 +22,10 @@ from .sample import (
     SourceFacts,
     read_windows,
     route_filter,
-    window_bounds,
+    source_windows,
+)
+from .sample import (
+    window_bounds as window_bounds,
 )
 
 BEHAVIOUR_WINDOWS = 12  # effort budget: time slices read per activity source
@@ -643,12 +646,33 @@ def _source_receipt(
         "unparsed_share": round(unparsed / len(read.rows), 6) if read.rows else None,
         "windows": read.windows,
         "per_window": per_window,
-        "selection": "newest events of each equal time slice",
+        "selection": read.selection,
         "route": read.route,
         "share_of_source": round(len(read.rows) / facts.events, 6) if facts.events else None,
         "seconds": round(seconds, 3),
         "notes": read.notes,
     }
+
+
+def read_behaviour_source(executor: HuntExecutor, facts: SourceFacts, per_window: int) -> RowSet:
+    """Read a source in one request when its entire count fits the existing allocation."""
+    complete = 0 < facts.events <= per_window * BEHAVIOUR_WINDOWS and facts.source_count <= min(
+        len(facts.sources), BEHAVIOUR_SOURCES
+    )
+    read = read_windows(
+        executor,
+        facts,
+        source_windows(facts, 1 if complete else BEHAVIOUR_WINDOWS),
+        per_window=facts.events if complete else per_window,
+        kind="behavior_events",
+        max_sources=BEHAVIOUR_SOURCES,
+        sub_windows=1 if complete else BEHAVIOUR_SUB_WINDOWS,
+    )
+    if complete:
+        read.selection = "full source range within allocated row budget"
+        if len(read.rows) != facts.events:
+            read.notes.append(f"source_count_mismatch:{len(read.rows)}/{facts.events}")
+    return read
 
 
 def _key_source(
@@ -661,17 +685,9 @@ def _key_source(
     read: RowSet | None = None,
 ) -> tuple[list[dict[str, Any]], int, dict[str, dict[str, Any]], list[MisfitShape], dict[str, int]]:
     """Read one source once, key each structure's events, and keep its out-of-structure lines."""
-    windows = window_bounds(facts.first, facts.last, BEHAVIOUR_WINDOWS)
+    windows = source_windows(facts, BEHAVIOUR_WINDOWS)
     if read is None:
-        read = read_windows(
-            executor,
-            facts,
-            windows,
-            per_window=per_window,
-            kind="behavior_events",
-            max_sources=BEHAVIOUR_SOURCES,
-            sub_windows=BEHAVIOUR_SUB_WINDOWS,
-        )
+        read = read_behaviour_source(executor, facts, per_window)
     receipts: list[dict[str, Any]] = []
     overrides: dict[str, dict[str, Any]] = {}
     total = 0
@@ -815,16 +831,7 @@ def collect_behaviours(
         concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
         with ThreadPoolExecutor(max_workers=min(len(scheduled) or 1, concurrency)) as pool:
             futures = [
-                pool.submit(
-                    read_windows,
-                    executor,
-                    facts,
-                    window_bounds(facts.first, facts.last, BEHAVIOUR_WINDOWS),
-                    per_window=per_window,
-                    kind="behavior_events",
-                    max_sources=BEHAVIOUR_SOURCES,
-                    sub_windows=BEHAVIOUR_SUB_WINDOWS,
-                )
+                pool.submit(read_behaviour_source, executor, facts, per_window)
                 for _source_id, _group, facts, _started in scheduled
             ]
             reads = [future.result() for future in futures]

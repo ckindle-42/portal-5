@@ -30,6 +30,7 @@ from ..engine import Search, _literal_term_segments, _search_literal
 from ..executor import executor_for
 from .receipt import read_json, write_json
 from .run import NOTABLES_FILE, SOURCES_FILE, STORE_FILE, read_notables
+from .sample import shared_source_names, source_route
 
 RELATE_FILE = "relate.json"
 MAX_SEEDS = 40  # effort budget: seed notables expanded into episodes
@@ -79,6 +80,8 @@ def _identity_fields(out: Path) -> dict[str, dict[str, Any]]:
                 "actor_field": "",
                 "objects": [],
                 "sources": [],
+                "sourcetype": str(card.get("sourcetype") or ""),
+                "shared_sources": [],
             },
         )
         if actor_field:
@@ -89,6 +92,12 @@ def _identity_fields(out: Path) -> dict[str, dict[str, Any]]:
             entry["sources"] = sorted(
                 set(entry["sources"]) | {str(name) for name in facts.get("sources") or ()}
             )
+            entry["shared_sources"] = sorted(
+                set(entry["shared_sources"]) | set(facts.get("shared_sources") or ())
+            )
+    shared = shared_source_names({key: entry["sources"] for key, entry in info.items()})
+    for entry in info.values():
+        entry["shared_sources"].extend(s for s in entry["sources"] if s.casefold() in shared)
     return info
 
 
@@ -96,7 +105,10 @@ def _route(info: Mapping[str, Any]) -> str:
     """A source filter selecting this seed's own source, mirroring the behaviour-stage route."""
     sources = info.get("sources") or ()
     if sources:
-        return "(" + " OR ".join(f"source={_search_literal(name)}" for name in sources) + ")"
+        route, _ = source_route(
+            str(info.get("sourcetype") or ""), sources, info.get("shared_sources") or ()
+        )
+        return route
     return ""
 
 

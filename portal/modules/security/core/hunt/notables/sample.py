@@ -42,6 +42,7 @@ class SourceFacts:
     active_periods: int = 0
     periods: int = 0
     count_cv: float = 0.0
+    shared_sources: tuple[str, ...] = ()
 
 
 @dataclass
@@ -52,6 +53,8 @@ class RowSet:
     windows: int = 0
     route: str = ""
     notes: list[str] = field(default_factory=list)
+    selection: str = "newest events of each equal time slice"
+    query: str = ""
 
     def as_dict(self) -> dict[str, Any]:
         return {"rows": len(self.rows), "windows": self.windows, "route": self.route}
@@ -81,6 +84,18 @@ def window_bounds(first: float, last: float, count: int) -> list[tuple[float, fl
         return [(first, first + 3600.0)]
     width = (last - first) / count
     return [(first + index * width, first + (index + 1) * width) for index in range(count)]
+
+
+def source_windows(facts: SourceFacts, count: int) -> list[tuple[float, float]]:
+    """Include max(_time) in the last half-open search at the transport's microsecond precision."""
+    if facts.last < facts.first or count <= 0:
+        return []
+    end = facts.last + 0.000001
+    if facts.last == facts.first:
+        return [(facts.first, end)]
+    bounds = window_bounds(facts.first, facts.last, count)
+    bounds[-1] = (bounds[-1][0], end)
+    return bounds
 
 
 def _read_range(
@@ -157,6 +172,14 @@ def _group_meta(
     return grouped
 
 
+def shared_source_names(by_type: Mapping[str, Iterable[str]]) -> set[str]:
+    owners: dict[str, set[str]] = {}
+    for owner, names in by_type.items():
+        for name in names:
+            owners.setdefault(name.casefold(), set()).add(owner)
+    return {name for name, types in owners.items() if len(types) > 1}
+
+
 def index_facts(
     executor: HuntExecutor, index: str, start: float, end: float
 ) -> tuple[list[SourceFacts], list[str]]:
@@ -184,6 +207,7 @@ def index_facts(
             notes.append(f"{label}_metadata:{cause}")
     by_source = _group_meta(sources, "sourcetype", "source")
     by_host = _group_meta(hosts, "sourcetype", "host")
+    shared = shared_source_names({k: [s for s, _ in v] for k, v in by_source.items()})
     facts: list[SourceFacts] = []
     for row in sorted(volume, key=lambda item: str(item.get("sourcetype") or "")):
         name = str(row.get("sourcetype") or "")
@@ -206,6 +230,7 @@ def index_facts(
                 active_periods=active,
                 periods=span,
                 count_cv=cv,
+                shared_sources=tuple(src for src, _ in ranked_sources if src.casefold() in shared),
             )
         )
     return facts, notes
@@ -213,11 +238,19 @@ def index_facts(
 
 def route_filter(facts: SourceFacts, max_sources: int = SAMPLE_SOURCES) -> tuple[str, str]:
     """Filter that selects this source's events: indexed sources where known, else the name."""
-    selected = facts.sources[:max_sources]
+    return source_route(facts.sourcetype, facts.sources[:max_sources], facts.shared_sources)
+
+
+def source_route(
+    sourcetype: str, selected: Sequence[str], shared_sources: Sequence[str]
+) -> tuple[str, str]:
     if selected:
         predicates = " OR ".join(f"source={_quoted(name)}" for name in selected)
-        return f"({predicates})", "source"
-    return f"sourcetype={_quoted(facts.sourcetype)}", "sourcetype"
+        route = f"({predicates})"
+        if set(selected).intersection(shared_sources):
+            route = f"sourcetype={_quoted(sourcetype)} {route}"
+        return route, "source"
+    return f"sourcetype={_quoted(sourcetype)}", "sourcetype"
 
 
 def read_windows(
@@ -245,7 +278,7 @@ def read_windows(
         slice_bounds.extend(window_bounds(start, end, parts))
     per_part = max(1, per_window // parts)
     query = f"search index={_quoted(facts.index)} {route} | head {per_part}"
-    found = RowSet(windows=len(readable), route=route_name)
+    found = RowSet(windows=len(readable), route=route_name, query=query)
     concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
     with ThreadPoolExecutor(max_workers=min(len(slice_bounds) or 1, concurrency)) as pool:
         futures = [
@@ -269,8 +302,8 @@ def read_windows(
 
 def sample_windows(facts: SourceFacts) -> list[tuple[float, float]]:
     """The windows a source card samples: its own range, or a fixed recent span."""
-    if facts.last > facts.first:
-        return window_bounds(facts.first, facts.last, SAMPLE_WINDOWS)
+    if facts.last >= facts.first and (facts.last or facts.events):
+        return source_windows(facts, SAMPLE_WINDOWS)
     now = time.time()
     return window_bounds(now - EMPTY_SAMPLE_WINDOWS * 3600.0, now, SAMPLE_WINDOWS)
 
@@ -282,7 +315,7 @@ def read_alert_rows(
     route, route_name = route_filter(facts, SAMPLE_SOURCES)
     query = f"search index={_quoted(facts.index)} {route} {ALERT_TERM} | head {per_window}"
     rows, reason = _read_range(
-        executor, query, facts.first, facts.last, kind="alert_probe", row_cap=per_window
+        executor, query, facts.first, facts.last + 0.000001, kind="alert_probe", row_cap=per_window
     )
     return RowSet([dict(row) for row in rows], 1, route_name, [reason] if reason else [])
 

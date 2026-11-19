@@ -31,7 +31,7 @@ from .generators import normalized_behaviour_words
 from .knowledge import PROOF_INDEXES, KnowledgeError, KnowledgeItem, build_store
 from .parse import parse_row
 from .run import SOURCES_FILE, default_search, load_cards
-from .sample import BEHAVIOUR_SOURCES, index_facts, read_windows, window_bounds
+from .sample import BEHAVIOUR_SOURCES, index_facts, read_windows, source_windows
 
 BAD_ITEMS_PER_FAMILY = 800  # effort budget: distinct known-bad items kept per family
 GOOD_ITEMS_PER_FAMILY = 400  # effort budget: distinct known-good items kept per family
@@ -329,7 +329,7 @@ def _build_indexed(
         if not entries:
             detail["no_card"] += 1
             continue
-        windows = window_bounds(fact.first, fact.last, INDEX_WINDOWS)
+        windows = source_windows(fact, INDEX_WINDOWS)
         read = read_windows(
             executor,
             fact,
