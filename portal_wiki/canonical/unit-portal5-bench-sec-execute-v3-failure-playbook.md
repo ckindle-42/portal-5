@@ -11,12 +11,14 @@ sources:
   path: portal/modules/security/core/_data.py
 - type: code
   path: portal/platform/inference/router/preinject.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/execute_preflight.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 - `--workspaces auto-pentest` errors — `auto-pentest` is a retired alias (it is

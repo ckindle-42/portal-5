@@ -5,14 +5,16 @@ title: "Portal operator CLI \u2014 typed command surface"
 sources:
 - type: code
   path: portal/platform/inference/cli/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/cli/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - platform
 - inference
 - cli
-
 ---
 
 The `portal` CLI is the typed operator surface for Portal 5, composed in one place: `_apps.py` holds a shared typer app per command group, the `__init__` mounts them with the maintenance commands onto the root `app`, and `__main__` is a three-line delegate so `python -m portal.platform.inference.cli` runs the same root. A `register` hook lets modules add commands without platform internals depending on them.

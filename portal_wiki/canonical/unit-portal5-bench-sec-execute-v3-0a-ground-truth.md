@@ -7,12 +7,14 @@ sources:
   path: scripts/execute_preflight.py
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/execute_preflight.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 Run `python3 scripts/execute_preflight.py` before every session.

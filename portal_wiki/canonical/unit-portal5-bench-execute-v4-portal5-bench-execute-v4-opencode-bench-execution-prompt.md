@@ -12,11 +12,13 @@ sources:
   path: tests/benchmarks/bench/cli.py
 - type: code
   path: scripts/update_grafana_benchmarks.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/execute_preflight.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 > **Supersedes** `PORTAL5_BENCH_EXECUTE_V3.md` (archived under

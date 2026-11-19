@@ -7,11 +7,13 @@ sources:
   path: tests/benchmarks/bench/config.py
 - type: code
   path: tests/benchmarks/bench/cli.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/benchmarks/bench/config.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 1. Start the run detached, logging to a timestamped file under

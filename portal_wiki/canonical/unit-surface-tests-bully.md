@@ -1,11 +1,14 @@
 ---
 id: unit-surface-tests-bully
 kind: mixed
-title: "Retained Defensive Bully integration tests"
+title: Retained Defensive Bully integration tests
 sources:
 - type: code
   path: tests/security/bully/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/security/bully/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
@@ -13,7 +16,6 @@ tags:
 - security
 - bully
 - tests
-
 ---
 
 `tests/security/bully/` contains integration and contract tests for retained Bully corpus, intake, discovery, and data-plane behavior. Tests for the removed hunt orchestrator and multi-agent investigation path have been deleted; module-focused tests remain alongside the security modules.

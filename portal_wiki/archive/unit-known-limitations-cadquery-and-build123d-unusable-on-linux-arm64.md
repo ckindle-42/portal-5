@@ -1,7 +1,7 @@
 ---
 id: unit-known-limitations-cadquery-and-build123d-unusable-on-linux-arm64
 kind: what
-title: "KNOWN_LIMITATIONS — CadQuery and build123d on linux/arm64 (RESOLVED)"
+title: "KNOWN_LIMITATIONS \u2014 CadQuery and build123d on linux/arm64 (RESOLVED)"
 sources:
 - type: code
   path: Dockerfile.cad
@@ -17,7 +17,7 @@ tags:
 - docs
 - verified-v1
 - resolved
-
+historical: true
 ---
 
 - **ID**: P5-CAD-ARM64-001

@@ -10,12 +10,14 @@ sources:
   path: portal/modules/security/core/_data.py
 - type: code
   path: portal/modules/security/core/lab.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/cli.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 ```bash

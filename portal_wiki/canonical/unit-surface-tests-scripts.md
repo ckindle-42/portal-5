@@ -5,12 +5,14 @@ title: "Bench matrix analyzers \u2014 no-verdict comparative scoring"
 sources:
 - type: code
   path: tests/scripts/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/scripts/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
-
 ---
 
 The `tests/scripts/*.py` bench analyzers share one contract: parse a results

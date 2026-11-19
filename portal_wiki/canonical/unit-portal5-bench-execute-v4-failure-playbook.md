@@ -9,11 +9,13 @@ sources:
   path: scripts/routing_regression.py
 - type: code
   path: scripts/execute_preflight.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/benchmarks/bench/runners.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 - **A model won't load / OOMs** — a very large quantized model plus a long

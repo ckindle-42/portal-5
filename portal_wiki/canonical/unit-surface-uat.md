@@ -7,13 +7,15 @@ sources:
   path: tests/uat/*.py
 - type: code
   path: tests/uat/adaptive/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/uat/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - uat
-
 ---
 
 The UAT driver library is the modularised live-stack acceptance runner: it drives requests into Open WebUI through the portal pipeline, grades each response, and reports the outcome.

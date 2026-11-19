@@ -7,13 +7,15 @@ sources:
   path: portal/modules/security/core/*.py
 - type: code
   path: portal/modules/security/core/commands/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-
 ---
 
 The security core is the RBP bench engine: chain execution and lab

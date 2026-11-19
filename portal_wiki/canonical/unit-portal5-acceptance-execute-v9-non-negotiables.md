@@ -13,11 +13,13 @@ sources:
   path: scripts/routing_regression.py
 - type: code
   path: tests/acceptance/s10_personas_ollama.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/execute_preflight.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 Run the preflight first: `scripts/execute_preflight.py` prints the live

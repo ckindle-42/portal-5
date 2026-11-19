@@ -1,7 +1,7 @@
 ---
 id: unit-known-limitations-vl-retrieval-runtime
 kind: what
-title: Qwen3-VL Retrieval Runtime — Landed, With a Verbatim-Error Lesson
+title: "Qwen3-VL Retrieval Runtime \u2014 Landed, With a Verbatim-Error Lesson"
 sources:
 - type: code
   path: scripts/vl-retrieval-server.py
@@ -16,6 +16,7 @@ tags:
 - known-limitations
 - runtime
 - verified-v1
+historical: true
 ---
 
 - **ID**: P5-VL-RUNTIME-001

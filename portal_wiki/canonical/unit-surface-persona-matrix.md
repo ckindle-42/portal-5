@@ -5,13 +5,15 @@ title: "Persona-matrix harness \u2014 per-persona x per-model coverage sweep"
 sources:
 - type: code
   path: portal/modules/eval/persona_matrix/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/eval/persona_matrix/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - eval
 - persona-matrix
-
 ---
 
 The persona-matrix harness is the eval package's per-(persona, model) coverage sweep: which candidates are redundant, and whether every persona is covered by some model. It resolves a workspace's personas and model chain, runs applicable fixture scenarios per pair, and folds assertion outcomes into a PASS/WARN/FAIL cell grid.

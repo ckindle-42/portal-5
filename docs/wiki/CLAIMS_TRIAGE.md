@@ -3,7 +3,7 @@
 Temporary gate ledger for the content review. Each pending id is replaced with a current, historical, or obsolete decision as its unit is reviewed.
 
 Initial pending units: 733.
-Completed decisions: 300; pending: 433.
+Completed decisions: 400; pending: 333.
 
 - `SEC_BENCH-combined-corpus-validation-20260731` | pending | awaiting content review
 - `unit-ADMIN_GUIDE-add-a-cluster-node` | current | code symbol `backends_healthy` exists in `scripts/lib/util.sh`
@@ -247,7 +247,7 @@ Completed decisions: 300; pending: 433.
 - `unit-compliance-module-config-only` | pending | awaiting content review
 - `unit-compliance-operator-traceability` | pending | awaiting content review
 - `unit-compliance-prove-then-scale` | pending | awaiting content review
-- `unit-surface-compliance-reading-truth` | pending | awaiting content review
+- `unit-surface-compliance-reading-truth` | current | repo.path.exists confirms `scripts/compliance/truth/*.py` exists in the checkout
 - `unit-compliance-technical-basis-coverage` | pending | awaiting content review
 - `unit-compliance-transport-dialects` | pending | awaiting content review
 - `unit-config-file-roles` | pending | awaiting content review
@@ -288,41 +288,41 @@ Completed decisions: 300; pending: 433.
 - `unit-known-limitations-acestep15-mlx-backend` | current | code symbol `ace_generate` exists in `portal/modules/media/tools/music_ace_mcp.py`
 - `unit-known-limitations-antares-gate-e1-gated-download` | pending | awaiting content review
 - `unit-known-limitations-asteroids-bench-score-variance-is-the-benchmark-s-purpose` | pending | awaiting content review
-- `unit-known-limitations-auto-math-workspace-reasoning-block-support` | pending | awaiting content review
+- `unit-known-limitations-auto-math-workspace-reasoning-block-support` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-auto-rag-silent-miss` | current | code symbol `inject_retrieved_context` exists in `portal/platform/inference/router/context_inject.py`
-- `unit-known-limitations-baronllm-text-only-tool-output-auto-security-mcp-tools-non-functional` | pending | awaiting content review
+- `unit-known-limitations-baronllm-text-only-tool-output-auto-security-mcp-tools-non-functional` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-bully-discovery-truth-leak` | current | code symbol `independent_truth_related` exists in `portal/modules/security/core/bully/discovery_bench.py`
 - `unit-known-limitations-cad-b3d-session` | current | code symbol `cad_execute` exists in `portal/modules/cad/tools/b123d_bridge.py`
 - `unit-known-limitations-cad-brep-kernel-gaps` | current | source path `portal/modules/cad/tools/b123d_emitter.py` exists
-- `unit-known-limitations-cadquery-and-build123d-unusable-on-linux-arm64` | pending | awaiting content review
+- `unit-known-limitations-cadquery-and-build123d-unusable-on-linux-arm64` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-code-sandbox-requires-privileged-container` | pending | awaiting content review
 - `unit-known-limitations-compliance-implicit-change-recall` | current | source path `portal/modules/compliance/core/register_diff.py` exists
 - `unit-known-limitations-compliance-mcp-protocol-calls-not-cancelled` | pending | awaiting content review
 - `unit-known-limitations-compliance-review-queue-not-a-gate` | current | code symbol `prior_item_id` exists in `portal/modules/compliance/core/review_queue.py`
-- `unit-known-limitations-compliance-scope-was-gated-on-data-the-corpus-already-answers` | pending | awaiting content review
+- `unit-known-limitations-compliance-scope-was-gated-on-data-the-corpus-already-answers` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-devstral-24b-runtime-vram-footprint-25-7-gb` | pending | awaiting content review
 - `unit-known-limitations-diarized-transcription-task-transcribe-001` | pending | awaiting content review
-- `unit-known-limitations-emergent-objective-loop-curated-capability-tool-names-vs-live-dispatch-whitelist` | pending | awaiting content review
+- `unit-known-limitations-emergent-objective-loop-curated-capability-tool-names-vs-live-dispatch-whitelist` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-engine-update-data01-approval` | current | source path `scripts/engine_autoupdate.py` exists
 - `unit-known-limitations-fara-cua-tag-closure` | pending | awaiting content review
 - `unit-known-limitations-granite-8b-mxfp8-tool-garbling` | current | code symbol `tool_calls` exists in `config/backends.yaml`
 - `unit-known-limitations-higgs-voice-cloning` | pending | awaiting content review
 - `unit-known-limitations-host-measurement-contention` | current | code symbol `begin_run` exists in `scripts/host_quiet.py`
-- `unit-known-limitations-host-native-mcp-lifecycle-launcher-child-exit` | pending | awaiting content review
-- `unit-known-limitations-importing-the-security-bench-module-sets-a-linux-only-prometheus-multiproc-dir-host-side` | pending | awaiting content review
+- `unit-known-limitations-host-native-mcp-lifecycle-launcher-child-exit` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-importing-the-security-bench-module-sets-a-linux-only-prometheus-multiproc-dir-host-side` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-known-limitations` | pending | awaiting content review
-- `unit-known-limitations-ling-3-0-flash-turboquant-memory-gates` | pending | awaiting content review
+- `unit-known-limitations-ling-3-0-flash-turboquant-memory-gates` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-load-guard-omlx-swap` | current | code symbol `_FREE_SETTLE_EXPECTED_S` exists in `portal/platform/inference/load_guard.py`
-- `unit-known-limitations-meta3-metasploitable3-windows-scenario-coverage-spl-precision-gaps` | pending | awaiting content review
+- `unit-known-limitations-meta3-metasploitable3-windows-scenario-coverage-spl-precision-gaps` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-minimax-music3-mlx` | current | source path `portal/modules/media/tools/music_minimax_mcp.py` exists
 - `unit-known-limitations-mlx-inference-proxy-retired-commit-3a0c58e` | pending | awaiting content review
-- `unit-known-limitations-model-parity-specialist-models-lost-in-the-mlx-ollama-migration` | pending | awaiting content review
-- `unit-known-limitations-models-out-of-m4-pro-64-gb-budget` | pending | awaiting content review
-- `unit-known-limitations-narrated-tool-call-instead-of-real-dispatch` | pending | awaiting content review
+- `unit-known-limitations-model-parity-specialist-models-lost-in-the-mlx-ollama-migration` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-models-out-of-m4-pro-64-gb-budget` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-narrated-tool-call-instead-of-real-dispatch` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-no-built-in-multi-user-rate-limiting` | pending | awaiting content review
 - `unit-known-limitations-ollama-api-ps-under-reports-llamacpp-residents` | current | code symbol `LoadGuard` exists in `portal/platform/inference/load_guard.py`
-- `unit-known-limitations-ollama-gpu-overhead-ceiling` | pending | awaiting content review
-- `unit-known-limitations-ollama-native-mlx-engine-evaluation-findings-2026-07-01` | pending | awaiting content review
+- `unit-known-limitations-ollama-gpu-overhead-ceiling` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-ollama-native-mlx-engine-evaluation-findings-2026-07-01` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-ollama-tool-call-parser-aborts-a-started-stream` | current | code symbol `finish_reason` exists in `portal/platform/inference/router/streaming.py`
 - `unit-known-limitations-ollama-v1-ignores-options-num-ctx-and-options-num-batch` | pending | awaiting content review
 - `unit-known-limitations-ollama-v1-sampling-drop` | current | code symbol `OllamaNativeTransport` exists in `portal/platform/inference/ollama_native.py`
@@ -331,7 +331,7 @@ Completed decisions: 300; pending: 433.
 - `unit-known-limitations-omlx-prefix-cache-accounting` | current | code symbol `_omlx_request` exists in `portal/platform/inference/ollama_native.py`
 - `unit-known-limitations-omlx-qwen3coder-tool-text` | current | code symbol `qwen3_coder` exists in `config/portal.yaml`
 - `unit-known-limitations-owui-audio-drop-ux-task-owui-audio-drop-001` | pending | awaiting content review
-- `unit-known-limitations-p5-emergent-002-deterministic-capability-ranker-can-t-reach-oracle-bearing-capabilities-once-any-tool-declaring-recon-capability-is-a-candidate` | pending | awaiting content review
+- `unit-known-limitations-p5-emergent-002-deterministic-capability-ranker-can-t-reach-oracle-bearing-capabilities-once-any-tool-declaring-recon-capability-is-a-candidate` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-p5-mlx-eval-001-gguf-fleet-regressed-slightly-on-0-31-1-mtp-is-mlx-engine-only` | pending | awaiting content review
 - `unit-known-limitations-p5-mlx-eval-002-ollama-s-official-gemma4-mlx-tags-are-not-drop-in-swaps` | pending | awaiting content review
 - `unit-known-limitations-p5-mlx-eval-003-hf-hosted-mlx-models-are-currently-unreachable-by-the-pipeline` | pending | awaiting content review
@@ -339,21 +339,21 @@ Completed decisions: 300; pending: 433.
 - `unit-known-limitations-p5-mlx-eval-005-two-security-tier-fine-tunes-have-no-working-mlx-conversion` | pending | awaiting content review
 - `unit-known-limitations-phi4-reasoning-plus-crashes-ollama-s-llama-server-on-this-host-confirmed-not-a-corrupted-download` | pending | awaiting content review
 - `unit-known-limitations-pipeline-hardening-20260925` | current | code symbol `resolve_hop_target` exists in `portal/platform/inference/router/streaming.py`
-- `unit-known-limitations-post-v1-messages-anthropic-compat-endpoint-returns-http-200-with-a-null-body` | pending | awaiting content review
-- `unit-known-limitations-pytest-portal-leaves-real-write-through-test-artifacts` | pending | awaiting content review
-- `unit-known-limitations-rbp-benign-corpus-alert-fatigue` | pending | awaiting content review
-- `unit-known-limitations-request-size-cap-relies-on-content-length-only` | pending | awaiting content review
-- `unit-known-limitations-router-model-eviction-single-request` | pending | awaiting content review
-- `unit-known-limitations-serena-gate-d1-airgap-staging` | pending | awaiting content review
+- `unit-known-limitations-post-v1-messages-anthropic-compat-endpoint-returns-http-200-with-a-null-body` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-pytest-portal-leaves-real-write-through-test-artifacts` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-rbp-benign-corpus-alert-fatigue` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-request-size-cap-relies-on-content-length-only` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-router-model-eviction-single-request` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-serena-gate-d1-airgap-staging` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-shared-workspace-auto-stt-disabled-task-workspace-001` | pending | awaiting content review
-- `unit-known-limitations-speculative-decoding-mtp-retired-with-the-mlx-proxy-commit-3a0c58e` | pending | awaiting content review
-- `unit-known-limitations-spine-code-coverage-ratchet` | pending | awaiting content review
-- `unit-known-limitations-tool-preselection-candidate-1b-models-cannot-rank-tools` | pending | awaiting content review
+- `unit-known-limitations-speculative-decoding-mtp-retired-with-the-mlx-proxy-commit-3a0c58e` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-spine-code-coverage-ratchet` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-tool-preselection-candidate-1b-models-cannot-rank-tools` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-transitive-dependency-cves` | current | code symbol `convert_sigma` exists in `portal/modules/detection/tools/detection_mcp.py`
 - `unit-known-limitations-unregistered-hint-fallback` | current | code symbol `model_hint` exists in `portal/platform/inference/router/streaming.py`
-- `unit-known-limitations-v5-model-visible-corpus-retrieval-coverage` | pending | awaiting content review
+- `unit-known-limitations-v5-model-visible-corpus-retrieval-coverage` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-v8-catalog-deferred-insufficient-hardware` | pending | awaiting content review
-- `unit-known-limitations-vl-retrieval-runtime` | pending | awaiting content review
+- `unit-known-limitations-vl-retrieval-runtime` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-vl-text-gate-tuned-against-manufactured-collision` | current | code symbol `VL_TEXT_GATE` exists in `reports/retrieval/SUBSTRATE_MIGRATION_V1.md`
 - `unit-lab-setup-all-these-should-succeed-after-setup` | pending | awaiting content review
 - `unit-lab-setup-full-setup-downloads-vulhub-challenge-composes-base-images-model-pulls` | pending | awaiting content review
@@ -581,45 +581,45 @@ Completed decisions: 300; pending: 433.
 - `unit-platform-storage-config-facade` | pending | awaiting content review
 - `unit-portal-conftest` | pending | awaiting content review
 - `unit-portal-mcp-namespace` | pending | awaiting content review
-- `unit-portal5-acceptance-execute-v9-autonomous-monitoring-loop-required-default` | pending | awaiting content review
-- `unit-portal5-acceptance-execute-v9-coverage-current` | pending | awaiting content review
-- `unit-portal5-acceptance-execute-v9-failure-playbook` | pending | awaiting content review
-- `unit-portal5-acceptance-execute-v9-new-in-v9-routing-served-model-verification` | pending | awaiting content review
-- `unit-portal5-acceptance-execute-v9-non-negotiables` | pending | awaiting content review
-- `unit-portal5-acceptance-execute-v9-phase-0-preflight-required` | pending | awaiting content review
-- `unit-portal5-acceptance-execute-v9-portal5-acceptance-execute-v9-claude-code-prompt` | pending | awaiting content review
-- `unit-portal5-acceptance-execute-v9-results-dashboard` | pending | awaiting content review
-- `unit-portal5-acceptance-execute-v9-running` | pending | awaiting content review
-- `unit-portal5-acceptance-execute-v9-your-role` | pending | awaiting content review
-- `unit-portal5-bench-execute-v4-1-ground-truth-counts-no-retired-alias-leak` | pending | awaiting content review
-- `unit-portal5-bench-execute-v4-2-bench-plan-the-real-test-count-for-this-run` | pending | awaiting content review
-- `unit-portal5-bench-execute-v4-3-backends-up` | pending | awaiting content review
-- `unit-portal5-bench-execute-v4-autonomous-monitoring-loop-required-default` | pending | awaiting content review
-- `unit-portal5-bench-execute-v4-failure-playbook` | pending | awaiting content review
-- `unit-portal5-bench-execute-v4-modes` | pending | awaiting content review
-- `unit-portal5-bench-execute-v4-non-negotiables` | pending | awaiting content review
-- `unit-portal5-bench-execute-v4-on-each-wakeup` | pending | awaiting content review
-- `unit-portal5-bench-execute-v4-on-launch` | pending | awaiting content review
-- `unit-portal5-bench-execute-v4-phase-0-preflight-required-before-any-run` | pending | awaiting content review
-- `unit-portal5-bench-execute-v4-portal5-bench-execute-v4-opencode-bench-execution-prompt` | pending | awaiting content review
-- `unit-portal5-bench-execute-v4-results-dashboard` | pending | awaiting content review
-- `unit-portal5-bench-execute-v4-served-model-sanity-new-in-v4` | pending | awaiting content review
-- `unit-portal5-bench-execute-v4-your-role` | pending | awaiting content review
-- `unit-portal5-bench-sec-execute-v3-0a-ground-truth` | pending | awaiting content review
-- `unit-portal5-bench-sec-execute-v3-0b-lab-readiness-gate-do-not-bench-a-cold-or-unreachable-lab` | pending | awaiting content review
-- `unit-portal5-bench-sec-execute-v3-autonomous-monitoring-loop-required-default` | pending | awaiting content review
-- `unit-portal5-bench-sec-execute-v3-candidate-qualification-report` | pending | awaiting content review
-- `unit-portal5-bench-sec-execute-v3-dry-run-the-full-expanded-plan-first-each-step-no-ops-if-its-module-is-absent` | pending | awaiting content review
-- `unit-portal5-bench-sec-execute-v3-failure-playbook` | pending | awaiting content review
-- `unit-portal5-bench-sec-execute-v3-full-expanded-with-live-lab-execution-needs-green-lab-ready` | pending | awaiting content review
-- `unit-portal5-bench-sec-execute-v3-non-negotiables` | pending | awaiting content review
-- `unit-portal5-bench-sec-execute-v3-portal5-bench-sec-execute-v3-security-bench-execution-prompt` | pending | awaiting content review
-- `unit-portal5-bench-sec-execute-v3-running` | pending | awaiting content review
-- `unit-portal5-bench-sec-execute-v3-served-model-note-new-in-v3` | pending | awaiting content review
-- `unit-portal5-bench-sec-execute-v3-several-variants` | pending | awaiting content review
-- `unit-portal5-bench-sec-execute-v3-single-variant-on-the-prompt-set` | pending | awaiting content review
-- `unit-portal5-bench-sec-execute-v3-what-changed-in-the-security-surface-read-before-running` | pending | awaiting content review
-- `unit-portal5-bench-sec-execute-v3-your-role` | pending | awaiting content review
+- `unit-portal5-acceptance-execute-v9-autonomous-monitoring-loop-required-default` | current | repo.path.exists confirms `tests/acceptance/cli.py` exists in the checkout
+- `unit-portal5-acceptance-execute-v9-coverage-current` | current | repo.path.exists confirms `tests/acceptance/s03_routing.py` exists in the checkout
+- `unit-portal5-acceptance-execute-v9-failure-playbook` | current | repo.path.exists confirms `tests/acceptance/runner.py` exists in the checkout
+- `unit-portal5-acceptance-execute-v9-new-in-v9-routing-served-model-verification` | current | repo.path.exists confirms `scripts/routing_regression.py` exists in the checkout
+- `unit-portal5-acceptance-execute-v9-non-negotiables` | current | repo.path.exists confirms `scripts/execute_preflight.py` exists in the checkout
+- `unit-portal5-acceptance-execute-v9-phase-0-preflight-required` | current | repo.path.exists confirms `scripts/execute_preflight.py` exists in the checkout
+- `unit-portal5-acceptance-execute-v9-portal5-acceptance-execute-v9-claude-code-prompt` | current | repo.path.exists confirms `tests/portal5_acceptance_v6.py` exists in the checkout
+- `unit-portal5-acceptance-execute-v9-results-dashboard` | current | repo.path.exists confirms `scripts/update_grafana_acceptance.py` exists in the checkout
+- `unit-portal5-acceptance-execute-v9-running` | current | repo.path.exists confirms `tests/portal5_acceptance_v6.py` exists in the checkout
+- `unit-portal5-acceptance-execute-v9-your-role` | current | repo.path.exists confirms `tests/acceptance/cli.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-1-ground-truth-counts-no-retired-alias-leak` | current | repo.path.exists confirms `scripts/execute_preflight.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-2-bench-plan-the-real-test-count-for-this-run` | current | repo.path.exists confirms `tests/benchmarks/bench_tps.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-3-backends-up` | current | repo.path.exists confirms `tests/benchmarks/bench/config.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-autonomous-monitoring-loop-required-default` | current | repo.path.exists confirms `tests/benchmarks/bench/cli.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-failure-playbook` | current | repo.path.exists confirms `tests/benchmarks/bench/runners.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-modes` | current | repo.path.exists confirms `tests/benchmarks/bench/cli.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-non-negotiables` | current | repo.path.exists confirms `scripts/execute_preflight.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-on-each-wakeup` | current | repo.path.exists confirms `tests/benchmarks/bench/cli.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-on-launch` | current | repo.path.exists confirms `tests/benchmarks/bench/config.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-phase-0-preflight-required-before-any-run` | current | repo.path.exists confirms `scripts/execute_preflight.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-portal5-bench-execute-v4-opencode-bench-execution-prompt` | current | repo.path.exists confirms `scripts/execute_preflight.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-results-dashboard` | current | repo.path.exists confirms `scripts/update_grafana_benchmarks.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-served-model-sanity-new-in-v4` | current | repo.path.exists confirms `tests/benchmarks/bench/measure.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-your-role` | current | repo.path.exists confirms `tests/benchmarks/bench/config.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-0a-ground-truth` | current | repo.path.exists confirms `scripts/execute_preflight.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-0b-lab-readiness-gate-do-not-bench-a-cold-or-unreachable-lab` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-autonomous-monitoring-loop-required-default` | current | repo.path.exists confirms `portal/modules/security/core/_data.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-candidate-qualification-report` | current | repo.path.exists confirms `portal/modules/security/core/commands/run.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-dry-run-the-full-expanded-plan-first-each-step-no-ops-if-its-module-is-absent` | current | repo.path.exists confirms `portal/modules/security/core/cli.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-failure-playbook` | current | repo.path.exists confirms `scripts/execute_preflight.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-full-expanded-with-live-lab-execution-needs-green-lab-ready` | current | repo.path.exists confirms `portal/modules/security/core/cli.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-non-negotiables` | current | repo.path.exists confirms `scripts/execute_preflight.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-portal5-bench-sec-execute-v3-security-bench-execution-prompt` | current | repo.path.exists confirms `tests/benchmarks/bench_security.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-running` | current | repo.path.exists confirms `portal/modules/security/core/cli.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-served-model-note-new-in-v3` | current | repo.path.exists confirms `scripts/execute_preflight.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-several-variants` | current | repo.path.exists confirms `portal/modules/security/core/cli.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-single-variant-on-the-prompt-set` | current | repo.path.exists confirms `portal/modules/security/core/cli.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-what-changed-in-the-security-surface-read-before-running` | current | repo.path.exists confirms `scripts/execute_preflight.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-your-role` | current | repo.path.exists confirms `portal/modules/security/core/cli.py` exists in the checkout
 - `unit-readme-acceptance-testing` | pending | awaiting content review
 - `unit-readme-architecture` | pending | awaiting content review
 - `unit-readme-common-commands` | pending | awaiting content review
@@ -666,40 +666,40 @@ Completed decisions: 300; pending: 433.
 - `unit-security-config-reserved` | pending | awaiting content review
 - `unit-security-knowledge-surface` | pending | awaiting content review
 - `unit-security-tools-mcp-surface` | pending | awaiting content review
-- `unit-surface-acceptance` | pending | awaiting content review
-- `unit-surface-archive-engine-h2h` | pending | awaiting content review
-- `unit-surface-archive-mlx` | pending | awaiting content review
-- `unit-surface-benchmarks` | pending | awaiting content review
-- `unit-surface-binary-research` | pending | awaiting content review
-- `unit-surface-compliance-closeout-scripts` | pending | awaiting content review
-- `unit-surface-compliance-prove-then-scale-scripts` | pending | awaiting content review
-- `unit-surface-inference-cli` | pending | awaiting content review
-- `unit-surface-inference` | pending | awaiting content review
-- `unit-surface-investigation` | pending | awaiting content review
-- `unit-surface-mcp-host` | pending | awaiting content review
-- `unit-surface-notifications` | pending | awaiting content review
-- `unit-surface-omlx-tool-parsers` | pending | awaiting content review
-- `unit-surface-persona-matrix` | pending | awaiting content review
-- `unit-surface-portal-wiki` | pending | awaiting content review
-- `unit-surface-router` | pending | awaiting content review
-- `unit-surface-scripts` | pending | awaiting content review
-- `unit-surface-sec-bully` | pending | awaiting content review
-- `unit-surface-sec-core` | pending | awaiting content review
-- `unit-surface-sec-tests` | pending | awaiting content review
-- `unit-surface-security-eval` | pending | awaiting content review
-- `unit-surface-security-review-eval` | pending | awaiting content review
-- `unit-surface-security-review-product` | pending | awaiting content review
-- `unit-surface-siem` | pending | awaiting content review
-- `unit-surface-tests-bully` | pending | awaiting content review
-- `unit-surface-tests-harness` | pending | awaiting content review
-- `unit-surface-tests-scripts` | pending | awaiting content review
-- `unit-surface-tests-security-review` | pending | awaiting content review
-- `unit-surface-tests-unit` | pending | awaiting content review
-- `unit-surface-tool-preselect` | pending | awaiting content review
-- `unit-surface-toolpreselect-tests` | pending | awaiting content review
-- `unit-surface-uat-catalog` | pending | awaiting content review
-- `unit-surface-uat` | pending | awaiting content review
-- `unit-surface-wiki-adapters` | pending | awaiting content review
+- `unit-surface-acceptance` | current | repo.path.exists confirms `tests/acceptance/*.py` exists in the checkout
+- `unit-surface-archive-engine-h2h` | historical | documents a retired code surface retained only under scripts/_archive
+- `unit-surface-archive-mlx` | historical | documents a retired code surface retained only under scripts/_archive
+- `unit-surface-benchmarks` | current | repo.path.exists confirms `tests/benchmarks/*.py` exists in the checkout
+- `unit-surface-binary-research` | current | repo.path.exists confirms `portal/modules/binary_research/**/*.py` exists in the checkout
+- `unit-surface-compliance-closeout-scripts` | current | repo.path.exists confirms `scripts/compliance/verify_conjunction_adoption.py` exists in the checkout
+- `unit-surface-compliance-prove-then-scale-scripts` | current | repo.path.exists confirms `scripts/prove_then_scale/*.py` exists in the checkout
+- `unit-surface-inference-cli` | current | repo.path.exists confirms `portal/platform/inference/cli/*.py` exists in the checkout
+- `unit-surface-inference` | current | repo.path.exists confirms `portal/platform/inference/*.py` exists in the checkout
+- `unit-surface-investigation` | current | repo.path.exists confirms `portal/modules/security/core/investigation/*.py` exists in the checkout
+- `unit-surface-mcp-host` | current | repo.path.exists confirms `portal/platform/mcp_host/*.py` exists in the checkout
+- `unit-surface-notifications` | current | repo.path.exists confirms `portal/platform/inference/notifications/*.py` exists in the checkout
+- `unit-surface-omlx-tool-parsers` | current | repo.path.exists confirms `scripts/omlx/deepseek_r1_tool_parser.py` exists in the checkout
+- `unit-surface-persona-matrix` | current | repo.path.exists confirms `portal/modules/eval/persona_matrix/*.py` exists in the checkout
+- `unit-surface-portal-wiki` | current | repo.path.exists confirms `portal_wiki/*.py` exists in the checkout
+- `unit-surface-router` | current | repo.path.exists confirms `portal/platform/inference/router/*.py` exists in the checkout
+- `unit-surface-scripts` | current | repo.path.exists confirms `scripts/*.py` exists in the checkout
+- `unit-surface-sec-bully` | current | repo.path.exists confirms `portal/modules/security/core/bully/*.py` exists in the checkout
+- `unit-surface-sec-core` | current | repo.path.exists confirms `portal/modules/security/core/*.py` exists in the checkout
+- `unit-surface-sec-tests` | current | repo.path.exists confirms `portal/modules/security/tests/*.py` exists in the checkout
+- `unit-surface-security-eval` | current | repo.path.exists confirms `portal/modules/security/eval/*.py` exists in the checkout
+- `unit-surface-security-review-eval` | current | repo.path.exists confirms `portal/modules/security/core/review_eval/*.py` exists in the checkout
+- `unit-surface-security-review-product` | current | repo.path.exists confirms `portal/modules/security/core/review/*.py` exists in the checkout
+- `unit-surface-siem` | current | repo.path.exists confirms `portal/modules/security/core/siem/*.py` exists in the checkout
+- `unit-surface-tests-bully` | current | repo.path.exists confirms `tests/security/bully/*.py` exists in the checkout
+- `unit-surface-tests-harness` | current | repo.path.exists confirms `tests/*.py` exists in the checkout
+- `unit-surface-tests-scripts` | current | repo.path.exists confirms `tests/scripts/*.py` exists in the checkout
+- `unit-surface-tests-security-review` | current | repo.path.exists confirms `tests/security/review/*.py` exists in the checkout
+- `unit-surface-tests-unit` | current | repo.path.exists confirms `tests/unit/*.py` exists in the checkout
+- `unit-surface-tool-preselect` | current | repo.path.exists confirms `portal/platform/inference/tool_preselect/*.py` exists in the checkout
+- `unit-surface-toolpreselect-tests` | current | repo.path.exists confirms `tests/toolpreselect/*.py` exists in the checkout
+- `unit-surface-uat-catalog` | current | repo.path.exists confirms `tests/uat_catalog/*.py` exists in the checkout
+- `unit-surface-uat` | current | repo.path.exists confirms `tests/uat/*.py` exists in the checkout
+- `unit-surface-wiki-adapters` | current | repo.path.exists confirms `portal/platform/wiki/adapters/*.py` exists in the checkout
 - `unit-tests-frontend-test-reasoning-display` | pending | awaiting content review
 - `unit-tests-frontends-namespace` | pending | awaiting content review
 - `unit-tests-integration-wiki-cycle` | pending | awaiting content review

@@ -8,14 +8,16 @@ sources:
   path: portal/platform/inference/router/*.py
 - type: code
   path: tests/wfe/settings_audit.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/router/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - platform
 - inference
 - router
-
 ---
 
 The router subpackage is the pipeline's request-handling engine, split from the monolithic `router_pipe` shim into focused modules. The contract: `app` binds the routes and middleware uvicorn serves, `auth` gates chat and admin traffic with distinct bearer keys, and `concurrency` bounds Ollama load through three semaphore tiers inside a single-owner `RequestSlot`. Routing policy lives in `routing` with the `workspaces` catalog, `context_inject` grounds requests proactively (its dispatch args are contract-tested against the tool schemas after the recall `k`/`top_k` mismatch shipped — SEAM-V1-AUTORAG-001 class), `preinject` applies persona and vision transforms pre-dispatch, and `state` persists telemetry without storing conversation. A `metrics` registry feeds power, monitor, and correlation observability, scraped by the Grafana stack; Anthropic compatibility, thinking normalisation, and council quorum complete the engine.

@@ -9,12 +9,14 @@ sources:
   path: portal/modules/security/core/candidate_eval.py
 - type: code
   path: scripts/execute_preflight.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/cli.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 The execute agent's role is to run the security bench, not to build it.

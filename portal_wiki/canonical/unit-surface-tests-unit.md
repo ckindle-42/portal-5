@@ -6,13 +6,15 @@ title: "Platform unit-test suite \u2014 hermetic contract pins for routing, conf
 sources:
 - type: code
   path: tests/unit/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/unit/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - unit
-
 ---
 
 The platform unit-test suite in `tests/unit/*.py` is the hermetic contract layer under the routing, config, fleet, and wiki subsystems, proving decision logic with mocked HTTP and subprocesses, no live backends, no Docker, and `tmp_path` file I/O, verifiable without Ollama, Open WebUI, or the fleet.

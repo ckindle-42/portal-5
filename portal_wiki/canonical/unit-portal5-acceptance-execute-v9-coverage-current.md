@@ -13,11 +13,13 @@ sources:
   path: tests/acceptance/s17_cad_render.py
 - type: code
   path: scripts/execute_preflight.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/acceptance/s03_routing.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 Section S3 (a wrapper that runs S3a) covers production-workspace routing. Its

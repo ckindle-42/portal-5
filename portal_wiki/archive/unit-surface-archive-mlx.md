@@ -5,13 +5,15 @@ title: "Retired MLX inference tier \u2014 archival record of the dual-stack aban
 sources:
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/_archive/mlx-retired-3a0c58e/*.py
 confidence: high
 tags:
 - authored-v1
 - archive
 - mlx
-
+historical: true
 ---
 
 Portal 5 ran a dual-stack inference arrangement until commit `75c24a9`,

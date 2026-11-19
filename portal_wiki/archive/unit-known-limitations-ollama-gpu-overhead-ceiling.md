@@ -1,7 +1,7 @@
 ---
 id: unit-known-limitations-ollama-gpu-overhead-ceiling
 kind: what
-title: "KNOWN_LIMITATIONS — Ollama GPU overhead reservation (resolved)"
+title: "KNOWN_LIMITATIONS \u2014 Ollama GPU overhead reservation (resolved)"
 sources:
 - type: code
   path: scripts/lib/util.sh
@@ -10,7 +10,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-
+historical: true
 ---
 
 - **ID**: P5-OLLAMA-GPU-OVERHEAD-001

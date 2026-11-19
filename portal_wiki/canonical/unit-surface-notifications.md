@@ -7,13 +7,15 @@ sources:
   path: portal/platform/inference/notifications/*.py
 - type: code
   path: portal/platform/inference/notifications/channels/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/notifications/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - platform
 - notifications
-
 ---
 
 The notifications subsystem is the operational-alert surface: backend-down and

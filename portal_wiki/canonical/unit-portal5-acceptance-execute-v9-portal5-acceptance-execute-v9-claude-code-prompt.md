@@ -16,11 +16,13 @@ sources:
   path: tests/acceptance/runner.py
 - type: code
   path: tests/expected_models.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/portal5_acceptance_v6.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 The current acceptance entry point is `tests/portal5_acceptance_v6.py`, a thin

@@ -1,7 +1,7 @@
 ---
 id: unit-known-limitations-compliance-scope-was-gated-on-data-the-corpus-already-answers
 kind: what
-title: "KNOWN_LIMITATIONS — do not gate on a question the data answers"
+title: "KNOWN_LIMITATIONS \u2014 do not gate on a question the data answers"
 sources:
 - type: code
   path: portal/modules/compliance/core/applicability.py
@@ -12,7 +12,9 @@ confidence: high
 tags:
 - docs
 - verified-v1
+historical: true
 ---
+
 ### Do not gate on a question the data answers (RESOLVED)
 
 - **ID**: T5-COMPLIANCE-LANDING-002

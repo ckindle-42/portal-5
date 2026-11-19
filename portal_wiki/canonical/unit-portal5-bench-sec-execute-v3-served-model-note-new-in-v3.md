@@ -9,12 +9,14 @@ sources:
   path: portal/platform/inference/router/handlers.py
 - type: code
   path: config/personas/glm_coder.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/execute_preflight.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 Persona-level model pins (`model_pin`) are consumed by the pipeline, not the

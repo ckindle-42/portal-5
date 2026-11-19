@@ -11,11 +11,13 @@ sources:
   path: tests/acceptance/s06_security_workspaces.py
 - type: code
   path: scripts/routing_regression.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/acceptance/runner.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 The runner catches any exception a section module raises and records it as a

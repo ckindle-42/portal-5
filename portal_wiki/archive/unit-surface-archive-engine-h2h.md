@@ -5,13 +5,15 @@ title: "Engine head-to-head and Bonsai probe tooling \u2014 archival record"
 sources:
 - type: code
   path: scripts/_archive/engine_h2h_20260924/**/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/_archive/engine_h2h_20260924/**/*.py
 confidence: high
 tags:
 - authored-v1
 - archive
 - bench
-
+historical: true
 ---
 
 The September 2026 engine head-to-head (Ollama, oMLX, mlx-serve, Rapid-MLX,

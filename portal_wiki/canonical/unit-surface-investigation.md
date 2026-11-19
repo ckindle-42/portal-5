@@ -5,14 +5,16 @@ title: "Security investigation subpackage \u2014 immutable evidence and notebook
 sources:
 - type: code
   path: portal/modules/security/core/investigation/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/investigation/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - module
 - security
 - investigation
-
 ---
 
 The investigation subpackage is the investigation layer of the RBP engine: the immutable evidence store, the per-case case notebook, and the honesty bench. Every tool call during an engagement produces one `EvidenceRecord` in the append-only `EvidenceStore`, graded by `SourceAuthority` so reasoning can weight source trust separately from content.

@@ -5,13 +5,15 @@ title: "UAT scenario catalog \u2014 data modules, assembly order, shared vocabul
 sources:
 - type: code
   path: tests/uat_catalog/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/uat_catalog/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - uat
-
 ---
 
 The UAT scenario catalog is a package of independent data modules. Each group module exports a `TESTS` list for one workspace family, and the package entrypoint concatenates those lists into `TEST_CATALOG`.

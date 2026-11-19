@@ -9,11 +9,13 @@ sources:
   path: tests/benchmarks/bench/runners.py
 - type: code
   path: tests/benchmarks/bench/results_io.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/benchmarks/bench/cli.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 1. Is the process alive? (`ps`), how far along? (tail the log, count completed

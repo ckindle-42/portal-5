@@ -12,12 +12,14 @@ sources:
   path: portal/modules/security/core/_data.py
 - type: code
   path: portal/modules/security/core/__init__.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/execute_preflight.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 The collapse (commit b5f2a052) folded nine security workspaces into one

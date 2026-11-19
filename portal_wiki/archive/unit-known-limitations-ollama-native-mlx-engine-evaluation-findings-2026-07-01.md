@@ -15,7 +15,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-
+historical: true
 ---
 
 Ollama 0.31.1 added a built-in MLX engine (distinct from the retired standalone `mlx_lm` proxy) that claims a large MTP-driven speedup for Gemma 4. A same-day evaluation of that engine, plus a broader catalog sweep for MLX equivalents of the fleet, is documented in `coding_task/TASK_EVAL_GEMMA4_MLX_TAGS_V1.md`. The sweep tooling is `tests/benchmarks/bench_mlx_hf.py`, which pulls any HF `mlx-community` repo and benches it directly via `mlx_lm` — a throwaway measurement tool, not a serving mechanism, and its module docstring explicitly forbids wiring it into launch hooks or the pipeline. **No production config was changed**: `config/backends.yaml` was reverted, the pulled MLX models were deleted, and disk usage was restored to its pre-evaluation baseline.

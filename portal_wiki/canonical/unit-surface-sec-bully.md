@@ -1,18 +1,20 @@
 ---
 id: unit-surface-sec-bully
 kind: mixed
-title: "Defensive Bully review and data-plane modules"
+title: Defensive Bully review and data-plane modules
 sources:
 - type: code
   path: portal/modules/security/core/bully/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/bully/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - module
 - security
 - bully
-
 ---
 
 `portal.modules.security.core.bully` contains the retained Bully review, intake, data-plane, corpus, discovery, and evaluation modules. The former autonomous hunt CLI and orchestrator were removed during consolidation; this page describes the code that remains and does not claim an end-to-end hunt product path.

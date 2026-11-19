@@ -9,12 +9,14 @@ sources:
   path: portal/modules/security/core/_data.py
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/cli.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 ```bash

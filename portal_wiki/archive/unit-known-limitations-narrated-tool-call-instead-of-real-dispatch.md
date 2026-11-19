@@ -18,7 +18,7 @@ tags:
 - resolved
 - tool-calling
 - verified-v1
-
+historical: true
 ---
 
 - **ID**: P5-TOOL-NARRATION-001

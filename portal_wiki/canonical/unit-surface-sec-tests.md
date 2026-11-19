@@ -5,14 +5,16 @@ title: "Security test suite \u2014 hermetic bench, orchestration, and scoring co
 sources:
 - type: code
   path: portal/modules/security/tests/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/tests/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - module
 - security
 - tests
-
 ---
 
 The security test suite pins the contract of the bench-and-lab harness that

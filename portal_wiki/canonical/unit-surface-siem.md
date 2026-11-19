@@ -5,14 +5,16 @@ title: "Security SIEM subpackage \u2014 Splunk integration boundary"
 sources:
 - type: code
   path: portal/modules/security/core/siem/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/siem/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - module
 - security
 - siem
-
 ---
 
 The `siem` subpackage is the Splunk integration boundary for the bench: HEC ships telemetry in, queries run as oneshot exports, detections resolve from a declarative SPL library, and a `blue_triage` loop polls, enriches, and reports alerts.

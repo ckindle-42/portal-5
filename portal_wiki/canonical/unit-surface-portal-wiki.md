@@ -5,12 +5,14 @@ title: "portal_wiki package \u2014 agent retrieval and CLI maintenance surface"
 sources:
 - type: code
   path: portal_wiki/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal_wiki/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - wiki
-
 ---
 
 The `portal_wiki` package is the canonical knowledge layer's agent surface,

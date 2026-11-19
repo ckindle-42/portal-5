@@ -12,11 +12,13 @@ sources:
   path: tests/expected_models.py
 - type: code
   path: scripts/execute_preflight.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/routing_regression.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 Routing integrity is verified in two layers. Before the suite, run

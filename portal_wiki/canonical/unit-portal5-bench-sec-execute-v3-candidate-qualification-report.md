@@ -11,12 +11,14 @@ sources:
   path: portal/modules/security/core/candidate_eval.py
 - type: code
   path: portal/modules/security/core/exec_chain.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/commands/run.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 The qualification report summarizes the scored rows `run_bench` returns. Per

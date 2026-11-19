@@ -12,12 +12,14 @@ sources:
   path: scripts/lab_ready.py
 - type: code
   path: config/attack_image_contract.json
-claims: []
+claims:
+- probe: repo.path.exists
+  path: launch.sh
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 `./launch.sh lab-up` starts the core lab stack (Incalmo C2 + Talon SOC

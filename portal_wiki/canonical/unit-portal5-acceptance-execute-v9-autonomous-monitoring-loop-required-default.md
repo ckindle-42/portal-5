@@ -12,11 +12,13 @@ sources:
   path: tests/acceptance/runner.py
 - type: code
   path: portal/platform/inference/router/app.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/acceptance/cli.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 The acceptance suite runs many Ollama-routed sections back to back against a

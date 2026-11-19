@@ -9,12 +9,14 @@ sources:
   path: scripts/lib/*.py
 - type: code
   path: scripts/validation/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - scripts
-
 ---
 
 The `scripts/` tree is the operator tool farm: standalone executables run from

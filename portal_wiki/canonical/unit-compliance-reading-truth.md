@@ -1,20 +1,23 @@
 ---
 id: unit-surface-compliance-reading-truth
 kind: what
-title: "Compliance reading-truth instruments — evaluation infrastructure and the local-data boundary"
+title: "Compliance reading-truth instruments \u2014 evaluation infrastructure and\
+  \ the local-data boundary"
 sources:
 - type: code
   path: scripts/compliance/truth/*.py
 - type: code
   path: portal/modules/compliance/core/operator_profile.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/compliance/truth/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - module
 - compliance
 - evaluation
-
 ---
 
 The `scripts/compliance/truth/` package is evaluation infrastructure: it

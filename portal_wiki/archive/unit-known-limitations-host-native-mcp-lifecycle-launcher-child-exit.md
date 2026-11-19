@@ -21,7 +21,7 @@ tags:
 - mcp
 - resolved
 - verified-v1
-
+historical: true
 ---
 
 - **ID**: P5-NATIVE-MCP-LIFECYCLE-001

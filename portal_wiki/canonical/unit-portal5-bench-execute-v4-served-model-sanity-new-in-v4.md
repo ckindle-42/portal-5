@@ -11,11 +11,13 @@ sources:
   path: scripts/persona_intent_audit.py
 - type: code
   path: scripts/routing_regression.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/benchmarks/bench/measure.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 Persona served-model correctness was a recent bug class, so V4 adds a sanity

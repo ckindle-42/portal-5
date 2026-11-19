@@ -6,11 +6,13 @@ title: "PORTAL5_BENCH_EXECUTE_V4 \u2014 Phase 0 \u2014 Preflight (required befor
 sources:
 - type: code
   path: scripts/execute_preflight.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/execute_preflight.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 ```bash

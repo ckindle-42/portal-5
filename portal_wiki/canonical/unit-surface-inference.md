@@ -8,13 +8,15 @@ sources:
   path: portal/platform/inference/*.py
 - type: code
   path: config/owui_tool_servers.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - platform
 - inference
-
 ---
 
 The inference platform layer is the shared spine of the Portal 5 pipeline: the typed

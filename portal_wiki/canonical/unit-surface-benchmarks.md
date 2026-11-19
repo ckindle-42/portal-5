@@ -9,13 +9,15 @@ sources:
   path: tests/benchmarks/bench/*.py
 - type: code
   path: tests/benchmarks/bench_repair/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/benchmarks/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - benchmarks
-
 ---
 
 Under `tests/benchmarks/`, the bench harnesses measure the fleet along five axes: raw TPS, capability execution, repair-loop correctness, security-phase latency, and router classification. The TPS harness is the `bench/` package, decomposed from the former monolithic `bench_tps.py`: a freshness-checked CLI orchestrates a config-driven fleet plan through lifecycle warmup, streaming measurement, tiered reporting, and incremental persistence, with an adhoc probe for unregistered candidates. The repair-loop harness is the `bench_repair/` package: it measures one-shot vs +1-repair pass rates over the shared `bench_capability` c2 corpus, across a curated cross-tier model set, and stamps every run with a `gsha` exam fingerprint (corpus + prompt templates + Ollama version) for cross-run comparability. The capability, security, and router scripts sit beside them.
