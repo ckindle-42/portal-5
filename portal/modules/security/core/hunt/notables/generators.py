@@ -24,7 +24,6 @@ ALERT_EVENTS_PER_WINDOW = 1000  # effort budget: alert events read from one slic
 DEVIATION_SOURCE_BUDGET = 100  # effort budget: source-level deviations kept per ordering
 DEVIATION_BEHAVIOUR_BUDGET = 100  # effort budget: behaviour-level deviations considered
 DEVIATION_BURST_ALLOWANCE = 2  # LOFO-selected: behaviour bursts admitted above the source baseline
-DEVIATION_BURST_WEIGHT = 2  # burst slots per source/behaviour onset slot inside deviation
 MIN_SERIES_PERIODS = 3  # a deviation needs at least this many observed buckets
 SERIES_ROWS = 40_000  # effort budget: per-period source-count rows (below the 50k result cap)
 SERIES_SPAN_SECONDS = 4 * 3600  # effort budget: deviation bucket width
@@ -882,12 +881,7 @@ def generate(
         behaviour_bursts, burst_detail = _behaviour_bursts(behaviours, behaviour_peaks or {})
         bursts, unified_detail = _unified_bursts(bursts, behaviour_bursts)
         behaviour_firsts, behaviour_detail = _behaviour_deviations(behaviours, origin)
-        burst_lanes = [
-            bursts[slot::DEVIATION_BURST_WEIGHT] for slot in range(DEVIATION_BURST_WEIGHT)
-        ]
-        found = _interleave(
-            [burst_lanes[0], firsts, *burst_lanes[1:], behaviour_firsts], NOTABLE_BUDGET
-        )
+        found = _interleave([bursts, firsts, behaviour_firsts], NOTABLE_BUDGET)
         notables.extend(found)
         receipt["deviation"] = {
             **detail,

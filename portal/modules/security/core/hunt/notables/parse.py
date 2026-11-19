@@ -27,7 +27,9 @@ MAX_TEMPLATE_SLOTS = 6  # effort budget: variable positions carried from one tem
 TIME_ORDER_SHARE = 0.9  # a value that moves with event order is time or a sequence
 MAX_PARTITIONS = 8  # effort budget: distinct structures one source is split into
 MIN_PARTITION_LINES = 4  # a part needs this many sampled events to be described
-MIN_PARTITION_DISTANCE = 0.25  # groups must differ by at least this mean Jaccard field distance
+MIN_PARTITION_DISTANCE = (
+    0.18  # LOFO on build families: genuine multi-schema sources >=0.20, 1-field noise <=0.17
+)
 _OPENERS = "([{"
 _CLOSERS = ")]}"
 _KV = re.compile(r"(?<![\w.\-])([A-Za-z_][\w./\-]{0,60})=(\"[^\"]*\"|'[^']*'|[^\s,;]+)")
