@@ -22,3 +22,9 @@ The run needs fresh cards and behaviours. Re-ranking the stored rows preserves t
 ## An observed single timestamp was treated as an unknown time range
 
 All ten single-timestamp source cards across the four runs recorded `no_sample` (five botsv2, two kyoushi, two santos, one russell). The card sampler searched the 48 hours preceding the run date. The five botsv2 sources each contained one event in 2017. Two of them already generated top-50 source-first-seen entries, despite the hunt never reading their events. Time bounds now include the observed maximum timestamp, using the search transport's microsecond precision, and single-timestamp sources get one window at the observed time.
+
+## Source-level sampling can miss events even when the whole source fits
+
+The stored stream:ftp receipt read 237 of 1,490 indexed events. Its allocation was 383 × 12 = 4,596. A read-only discovery query returned all 1,490 rows in one request. Both admitted Korean attachment-name events are present after Unicode NFC normalization. Applying the production parser and stored cards offline keyed 1,460 rows into ten behaviours. **Zero** of those ten retained the attachment on their actor/action/object, example raw line or reproducing query. The object role generalizes all 505 distinct method parameters to a wildcard on the 725-row transfer card. Sampling and representation are independently lossy.
+
+The behaviour reader now requests the entire observed range once when the complete indexed source route fits its existing row and source budgets. It records the selection and any count shortfall. Large or truncated source routes keep stratified reads. One full-range FTP read removes 23 searches and recovers 1,253 additional source rows. That is an observed input recovery and a projected request saving, not a new ranked step.

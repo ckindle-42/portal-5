@@ -97,3 +97,14 @@ def test_card_can_read_a_historical_source_with_one_timestamp():
     stamp = 1503726179.0
     facts = SourceFacts("ix", "st", 1, stamp, stamp, (), 0, (), 0)
     assert any(start <= stamp < end for start, end in sample_windows(facts))
+
+
+def test_small_source_read_includes_events_clustered_in_one_slice():
+    from portal.modules.security.core.hunt.notables.behaviours import read_behaviour_source
+
+    facts = SourceFacts("ix", "stream:ftp", 1490, 0, 1500, (), 0, ("ftp",), 1)
+    rows = [{"_time": 0.0}] + [{"_time": 1500.0}] * 1489
+    executor = _NewestExecutor(rows)
+    read = read_behaviour_source(executor, facts, per_window=383)
+    assert len(read.rows) == facts.events
+    assert read.windows == len(executor.calls) == 1

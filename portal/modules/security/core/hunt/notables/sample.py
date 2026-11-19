@@ -53,6 +53,7 @@ class RowSet:
     windows: int = 0
     route: str = ""
     notes: list[str] = field(default_factory=list)
+    selection: str = "newest events of each equal time slice"
 
     def as_dict(self) -> dict[str, Any]:
         return {"rows": len(self.rows), "windows": self.windows, "route": self.route}
