@@ -20,6 +20,9 @@ seen the difference:
   seed                                            -> same seed, same output at 1.5
   max_tokens                                      -> completion_tokens <= cap
   think false / true                              -> reasoning absent / present
+  gemma4_tools                                    -> a Gemma-4 tools turn comes back as a
+     structured tool_calls entry; raw <|tool_call> markup in content is the leak that
+     reached an OWUI user on 2026-11-19 (p2-wave34)
 Ollama additionally proves the adapter answers exactly as /v1 would (content,
 tool calls, finish_reason, prompt_tokens — equal prompt tokens mean the
 messages rendered identically) for text, tools, a tool-result turn, a
@@ -60,6 +63,7 @@ sys.path.insert(0, str(REPO))
 from portal.platform.inference.ollama_native import OllamaNativeTransport  # noqa: E402
 from portal.platform.inference.omlx_auth import omlx_headers  # noqa: E402
 from portal.platform.inference.router import validation  # noqa: E402
+from portal.platform.inference.router.text_tool_calls import GEMMA_TOOL_CALL_OPEN  # noqa: E402
 
 # Host-side URLs. Deliberately NOT OLLAMA_URL/OMLX_URL: .env sets those to the
 # container-facing host.docker.internal, which a host process cannot resolve.
@@ -169,6 +173,51 @@ async def _delivery(
 
 def _probe_workspace(cfg: dict[str, Any]) -> None:
     validation.WORKSPACES[_WS] = cfg
+
+
+async def _gemma4_tool_format(send: Send, model: str) -> Result:
+    """Gemma-4's native call format must parse engine-side: a tools turn comes
+    back as a structured ``tool_calls`` entry, never as raw ``<|tool_call>``
+    markup in content (p2-wave34, 2026-11-19). The probe re-runs on every engine
+    version change, so an upgrade that breaks the ``gemma4`` parser gates it."""
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get the current weather for a city.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"city": {"type": "string"}},
+                    "required": ["city"],
+                },
+            },
+        }
+    ]
+    body = {
+        "model": model,
+        "messages": [
+            {"role": "user", "content": "What is the weather in Paris right now? Use the tool."}
+        ],
+        "tools": tools,
+        "temperature": 0,
+        "seed": 1,
+        "max_tokens": 300,
+    }
+    r = await send(body)
+    msg = (r.get("choices") or [{}])[0].get("message") or {}
+    calls = msg.get("tool_calls") or []
+    content = str(msg.get("content") or "")
+    leaked = GEMMA_TOOL_CALL_OPEN in content
+    first = (calls[0].get("function") or {}) if calls else {}
+    if not calls:
+        ok, detail = False, f"no tool_calls; content head {content[:120]!r}"
+    elif leaked:
+        ok, detail = False, f"{len(calls)} call(s) but raw <|tool_call> markup also in content"
+    else:
+        ok = first.get("name") == "get_weather"
+        detail = f"parsed {first.get('name')!r} args={first.get('arguments')!r}"
+    return Result("gemma4 native tool call parsed", ok, detail)
 
 
 # ── Ollama ──────────────────────────────────────────────────────────────────
@@ -324,6 +373,7 @@ async def check_ollama(models: dict[str, str]) -> list[Result]:
         # 0.40.0) — now a required delivery so a regression fails the contract.
         results = await _delivery(send, build)
         results += await _parity(raw, nat, models)
+        results.append(await _gemma4_tool_format(send, models["gemma4_tools"]))
         # Informational: if Ollama's /v1 ever starts honouring top_k natively the
         # adapter's reason to exist has shrunk — worth knowing, not a failure.
         hot = {
@@ -406,7 +456,9 @@ async def check_omlx(models: dict[str, str]) -> list[Result]:
             _probe_workspace(cfg)
             return validation._inject_omlx_options({"model": models["thinking_tools"]}, _WS)
 
-        return await _delivery(send, build)
+        results = await _delivery(send, build)
+        results.append(await _gemma4_tool_format(send, models["gemma4_tools"]))
+        return results
 
 
 # ── runner ──────────────────────────────────────────────────────────────────
