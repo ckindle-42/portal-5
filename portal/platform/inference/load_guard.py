@@ -1595,12 +1595,13 @@ class LoadGuard:
         model: str, names: list[str], need: float, available: float, waited: float
     ) -> LoadRefusedError:
         freed = ", ".join(sorted(names))
-        return LoadRefusedError(
+        message = (
             f"Cannot load {model}: free of {freed} did not settle within "
             f"the {waited:.1f}s load wait (projected {need / _GIB:.1f} GiB, host "
-            f"headroom {available / _GIB:.1f} GiB)",
-            "free-settle",
+            f"headroom {available / _GIB:.1f} GiB)"
         )
+        logger.warning("load_guard: %s", message)
+        return LoadRefusedError(message, "free-settle")
 
     @staticmethod
     def _pending_baseline(used: float, after: float | None, synchronous: float) -> float:
@@ -1664,7 +1665,8 @@ class LoadGuard:
         process_wait_started = None
         try:
             _PROCESS_LOCK_DIR.mkdir(parents=True, exist_ok=True)
-            process_lock = (_PROCESS_LOCK_DIR / "cold-load.lock").open("a+")
+            lock_path = _PROCESS_LOCK_DIR / "cold-load.lock"
+            process_lock = lock_path.open("a+")
             while True:
                 try:
                     fcntl.flock(process_lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -1675,6 +1677,13 @@ class LoadGuard:
                         process_wait_started = time.monotonic()
                     remaining = deadline - time.monotonic()
                     if remaining <= 0:
+                        logger.warning(
+                            "load_guard: process cold-load lock %s remained held for %.1fs; "
+                            "refusing %s",
+                            lock_path,
+                            time.monotonic() - process_wait_started,
+                            what,
+                        )
                         raise LoadRefusedError(
                             f"cold load of {what} would exceed its wait for another model load "
                             f"({_waited_s(deadline):.1f}s)",
@@ -1767,14 +1776,14 @@ class LoadGuard:
         try:
             try:
                 release = await self._admit_ollama(base, model, deadline, held)
-            except asyncio.CancelledError:
-                # The caller gave up (client disconnect, W3): never leak the
-                # host-wide cold-load lock, or every later cold load deadlocks.
+            except LoadRefusedError as e:
                 for r in held:
                     r()
-                raise
-            except LoadRefusedError as e:
                 _record_refusal(OLLAMA, e)
+                raise
+            except BaseException:
+                for r in held:
+                    r()
                 raise
             defer = _ADMIT_YIELD_PIN.get() and release is not None
             return release, defer
@@ -1930,7 +1939,7 @@ class LoadGuard:
                 raise
             except Exception as e:
                 logger.warning("load_guard: measurement failed for %s, admitting: %s", model, e)
-                return release
+                return next((r for r in reversed(held) if not r.released), release)
 
     async def _admit_ollama_locked(
         self,
@@ -2360,33 +2369,34 @@ class LoadGuard:
         release: _Release | None = None
         activity = self._shared_process_lock("admissions.lock")
         try:
-            async with self._client() as client:
-                entry = _omlx_entry(await self._omlx_status(client), model)
-                if entry is None or entry.get("loaded"):
-                    return None
-                release = await self._acquire(OMLX, deadline, model)
-                entry = _omlx_entry(await self._omlx_status(client), model)
-                if entry is None or entry.get("loaded"):
+            try:
+                async with self._client() as client:
+                    entry = _omlx_entry(await self._omlx_status(client), model)
+                    if entry is None or entry.get("loaded"):
+                        return None
+                    release = await self._acquire(OMLX, deadline, model)
+                    entry = _omlx_entry(await self._omlx_status(client), model)
+                    if entry is None or entry.get("loaded"):
+                        release()
+                        return None
+                    await self._check_omlx_ollama_capacity(client, model, deadline)
+                _record_admission(OMLX, _admit_waited.get())
+                asyncio.get_running_loop().create_task(
+                    self._release_when_resident(OMLX, "", model, release)
+                )
+                return release
+            except LoadRefusedError as e:
+                if release is not None:
                     release()
-                    return None
-                await self._check_omlx_ollama_capacity(client, model, deadline)
-        except asyncio.CancelledError:
-            if release is not None:
-                release()  # never leak the cold-load lock to a cancelled caller
-            raise
-        except LoadRefusedError as e:
-            if release is not None:
-                release()
-            _record_refusal(OMLX, e)
-            raise
+                _record_refusal(OMLX, e)
+                raise
+            except BaseException:
+                if release is not None:
+                    release()
+                raise
         finally:
             if activity is not None:
                 self._release_activity_lock(activity)
-        _record_admission(OMLX, _admit_waited.get())
-        asyncio.get_running_loop().create_task(
-            self._release_when_resident(OMLX, "", model, release)
-        )
-        return release
 
     async def plan(self, ollama_base: str, models: list[tuple[str, str]]) -> dict[str, Any]:
         """Whether `models` ((engine, model) pairs) fit together right now.
