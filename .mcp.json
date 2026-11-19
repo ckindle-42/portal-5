@@ -45,6 +45,10 @@
         "mcp-docker-server"
       ]
     },
+    "portal-music": {
+      "type": "http",
+      "url": "http://localhost:8912/mcp"
+    },
     "portal-documents": {
       "type": "http",
       "url": "http://localhost:8913/mcp"

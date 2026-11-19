@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 import os
 import re
 import threading
@@ -11,6 +13,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Protocol
+
+import httpx
 
 from portal.modules.orchestration.personal_policy import (
     FAST_WORKSPACE,
@@ -29,6 +33,9 @@ from portal.modules.orchestration.personal_policy import (
 from portal.modules.orchestration.personal_store import PersonalStore, PersonalTask
 from portal.modules.orchestration.personal_tools import LOCAL_TOOLS, run_read_tool, tool_schema
 from portal.modules.orchestration.worker import Engine, _call_arguments, _response_parts
+from portal.platform.inference.mcp_http import call_tool, map_tool_result
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -51,6 +58,9 @@ class PersonalRun:
 
 
 PERSONAL_CHECKIN_SECONDS = 900
+RECALL_TIMEOUT_S = 10.0
+RECALL_TOP_K = 5
+RecallFn = Callable[[str], str]
 _HOLD_TEXT = re.compile(
     r"\b(?:restart\s+(?:the\s+)?pipeline|launch\.sh\s+(?:up|restart|rebuild))\b", re.I
 )
@@ -64,6 +74,7 @@ class _CheckIn:
         self.hops = 0
         self.last_tool = "planning"
         self.called: list[str] = []
+        self.recall_error = ""
         self.finished = False
         self.timer = threading.Timer(PERSONAL_CHECKIN_SECONDS, self._send)
 
@@ -127,6 +138,7 @@ def poll_personal_tasks(
     *,
     dispatcher: Any = None,
     now: datetime | None = None,
+    recall: RecallFn | None = None,
 ) -> PersonalRun | None:
     """Run the oldest due personal task. A Pipeline fault is stored, not raised."""
     store = PersonalStore(root)
@@ -155,7 +167,9 @@ def poll_personal_tasks(
         active_caller = _caller(caller)
         if prior_status == "confirmed":
             return _run_confirmed(root, store, claimed, active_caller, notices, checkin)
-        return _run_planned(root, store, claimed, active_caller, notices, checkin)
+        return _run_planned(
+            root, store, claimed, active_caller, notices, checkin, recall or _memory_recall
+        )
     except Exception as exc:  # noqa: BLE001 — one personal task must not kill queue-run
         if not _retryable_failure(exc):
             _finish(
@@ -217,6 +231,8 @@ def _record_local_failure(
         "plan": plan,
         "error": str(exc),
     }
+    if checkin.recall_error:
+        record["recall_error"] = checkin.recall_error
     _write_receipt(attempt_path, record)
     local_paths.append(attempt_path)
     if task.plan_json is not None:
@@ -537,11 +553,12 @@ def _run_planned(
     caller: PipelineCaller,
     notices: Any,
     checkin: _CheckIn,
+    recall: RecallFn,
 ) -> PersonalRun:
     hidden = _hidden_fleets()
     if text_gate(task.text, hidden) == "deny":
         raise PermissionError("denied before any call")
-    memory = _recall_memory(caller, task, checkin)
+    memory = _recall_memory(task, checkin, recall)
     plan = _validated_plan(task, caller, root, hidden, memory)
     plan.payload["_memory_context"] = memory
     if text_gate(task.text, hidden) == "confirm" or plan.needs_confirm:
@@ -583,7 +600,17 @@ def _execute_plan(
     if reason is not None:
         raise AcceptanceError(reason)
     _finish(
-        root, store, task, "done", content, plan.workspace, hops, called, notices, plan=plan.payload
+        root,
+        store,
+        task,
+        "done",
+        content,
+        plan.workspace,
+        hops,
+        called,
+        notices,
+        plan=plan.payload,
+        extra=_recall_extra(checkin),
     )
     return PersonalRun(task.id, "done")
 
@@ -625,28 +652,71 @@ def _validated_plan(
     return validate_personal_plan(raw, root, hidden, available)
 
 
-def _recall_memory(caller: PipelineCaller, task: PersonalTask, checkin: _CheckIn) -> str:
-    result = caller.complete(_recall_body(task))
-    if result.pipeline_hops != 1 or result.tool_names != ("recall",):
-        raise RuntimeError("task memory recall did not dispatch exactly one recall tool")
-    checkin.update(result.pipeline_hops, result.tool_names)
-    return result.content
+def _recall_memory(task: PersonalTask, checkin: _CheckIn, recall: RecallFn) -> str:
+    """Recall once. A fault is logged on the receipt; the task always proceeds."""
+    try:
+        memory = recall(_recall_query(task))
+    except Exception as exc:  # noqa: BLE001 — a recall preamble must never fail a task
+        checkin.recall_error = f"memory recall failed: {exc}"
+        logger.warning("personal task %s: %s", task.id, checkin.recall_error)
+        return ""
+    checkin.update(0, ["recall"])
+    return memory
 
 
-def _recall_body(task: PersonalTask) -> dict[str, Any]:
-    query = f"operator id {task.user_id}: preferences relevant to {task.text}"
-    return {
-        "model": FAST_WORKSPACE,
-        "messages": [
-            {"role": "system", "content": "Call recall exactly once for this operator and task."},
-            {"role": "user", "content": query},
-        ],
-        "portal_bite_tools": ["recall"],
-        "portal_bite_max_hops": 1,
-        "tool_choice": "required",
-        "exec_audit": True,
-        "temperature": 0.1,
-    }
+def _recall_extra(checkin: _CheckIn) -> dict[str, str]:
+    return {"recall_error": checkin.recall_error} if checkin.recall_error else {}
+
+
+def _recall_query(task: PersonalTask) -> str:
+    return f"operator id {task.user_id}: preferences relevant to {task.text}"
+
+
+def _memory_recall(query: str) -> str:
+    """Ask the memory MCP directly — no seat, no tool-choice negotiation."""
+
+    async def fetch() -> Any:
+        async with httpx.AsyncClient(trust_env=False, timeout=RECALL_TIMEOUT_S) as client:
+            result = await call_tool(
+                client,
+                _memory_url(),
+                "recall",
+                {"query": query, "top_k": RECALL_TOP_K},
+                RECALL_TIMEOUT_S,
+            )
+        return map_tool_result(result)
+
+    return _memory_text(asyncio.run(fetch()))
+
+
+def _memory_url() -> str:
+    override = os.environ.get("MCP_MEMORY_URL", "").rstrip("/")
+    if override:
+        return override
+    fleet = _portal_config().get("mcp_fleet")
+    for item in fleet if isinstance(fleet, list) else []:
+        if isinstance(item, dict) and item.get("id") == "memory":
+            port = item.get("port")
+            if isinstance(port, int):
+                return f"http://127.0.0.1:{port}"
+    raise RuntimeError("the memory MCP is not in the portal fleet")
+
+
+def _memory_text(payload: Any) -> str:
+    """Render recall memories as lines; an error payload is a fault, not an empty recall."""
+    if not isinstance(payload, dict):
+        raise ValueError(f"recall returned {type(payload).__name__}, not an object")
+    if payload.get("error"):
+        raise ValueError(f"recall failed: {payload['error']}")
+    memories = payload.get("memories")
+    if not isinstance(memories, list):
+        raise ValueError("recall returned no memories list")
+    texts = [
+        str(item["text"]).strip()
+        for item in memories
+        if isinstance(item, dict) and str(item.get("text") or "").strip()
+    ]
+    return "\n".join(f"- {text}" for text in texts[:RECALL_TOP_K])
 
 
 def _template_request(payload: dict[str, Any]) -> bool:

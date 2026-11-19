@@ -39,7 +39,7 @@ modules:
   media:
     enabled: true
   music:
-    enabled: false
+    enabled: true
   netforensics:
     enabled: true
   orchestration:

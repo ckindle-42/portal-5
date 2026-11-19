@@ -10,7 +10,7 @@ sources:
 - type: code
   path: config/portal.yaml
 claims:
-- probe: modules.disabled
+- probe: modules.enabled
   contains: music
 confidence: high
 tags:
@@ -42,8 +42,8 @@ The switch is `modules.music.enabled` in `config/portal.yaml` (`portal module en
 ## Why
 
 Song generation used to share the media toggle with TTS and transcription,
-so music could not be turned off alone. It is its own module and ships
-disabled. Membership comes from the `module: music` tag on fleet id `music`
+so music could not be turned off alone. It is its own module; it shipped
+disabled and is enabled since 2026-11-19 (live media trace PASS). Membership comes from the `module: music` tag on fleet id `music`
 and `auto-audio::music` in `config/portal.yaml`. A missing `modules.music`
 key falls back to `DEFAULT_DISABLED_MODULES` (off). `default_enabled: false`
 on the fleet entry marks the server expected-down while the module is off.

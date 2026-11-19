@@ -25,7 +25,7 @@ modules:
   media:
     enabled: true
   music:
-    enabled: false
+    enabled: true
   netforensics:
     enabled: true
   orchestration:
@@ -60,6 +60,7 @@ launched_mcp_ids:
 - mflux
 - mitre
 - mlx_transcribe
+- music
 - netforensics
 - pipeline
 - proxmox
