@@ -647,16 +647,48 @@ def _validated_plan(
     memory: str,
 ) -> PersonalPlan:
     available = _personal_available_tools()
-    result = caller.complete(planner_body(task.text, KNOWN_TOOLS | available, memory))
-    if result.tool_calls:
-        raise ValueError("planner returned a tool call")
-    try:
-        raw = parse_planner_json(result.content)
-    except ValueError as exc:
-        raise ValueError(f"{exc}; planner tail: {result.content[-500:]}") from exc
+    body = planner_body(task.text, KNOWN_TOOLS | available, memory)
+    raw = _planner_json(caller, body, caller.complete(body))
     if raw.get("action") == "enqueue-template":
         return _validate_template_request(raw)
     return validate_personal_plan(raw, root, hidden, available)
+
+
+def _planner_json(
+    caller: PipelineCaller, body: dict[str, Any], first: Completion
+) -> dict[str, Any]:
+    """The planner's JSON object, with one corrective retry inside the attempt."""
+    try:
+        return _planner_parse(first)
+    except ValueError:
+        retry = caller.complete(_corrective_body(body, first.content))
+        try:
+            return _planner_parse(retry)
+        except ValueError as exc:
+            raise ValueError(f"{exc}; planner tail: {retry.content[-500:]}") from exc
+
+
+def _planner_parse(result: Completion) -> dict[str, Any]:
+    if result.tool_calls:
+        raise ValueError("planner returned a tool call")
+    return parse_planner_json(result.content)
+
+
+def _corrective_body(body: dict[str, Any], bad: str) -> dict[str, Any]:
+    """The planner conversation plus the rejected answer and a JSON-only ask."""
+    corrective = (
+        "That was not the JSON plan object. Reply again with the one JSON object only: "
+        'either {"steps": [...]} or {"action": "enqueue-template", ...}. '
+        "No prose, no tool calls."
+    )
+    return {
+        **body,
+        "messages": [
+            *body["messages"],
+            {"role": "assistant", "content": bad[:2000]},
+            {"role": "user", "content": corrective},
+        ],
+    }
 
 
 def _recall_memory(task: PersonalTask, checkin: _CheckIn, recall: RecallFn) -> str:

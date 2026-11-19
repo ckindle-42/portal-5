@@ -257,6 +257,9 @@ def planner_body(
             },
         ],
         "temperature": 0.1,
+        # JSON-mode decode where the engine honours it (Ollama /api/chat format,
+        # oMLX response_format) — the IFM seat wrote tool markup without it.
+        "response_format": {"type": "json_object"},
         "portal_no_tools": True,
         "tool_choice": "none",
         "chat_template_kwargs": {"enable_thinking": True},

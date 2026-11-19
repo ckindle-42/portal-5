@@ -186,6 +186,10 @@ def plan_goal(
         ],
         "max_tokens": 8192,
         "temperature": 0.1,
+        # The planner turn gets no tools and a JSON-only decode; the seat's
+        # workspace tools must not be attached to a call that must return JSON.
+        "response_format": {"type": "json_object"},
+        "portal_no_tools": True,
         "stream": True,
         "stream_options": {"include_usage": True},
         "chat_template_kwargs": {"enable_thinking": True},
