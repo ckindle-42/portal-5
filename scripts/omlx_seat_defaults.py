@@ -40,6 +40,7 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
 from portal.platform.inference.router.validation import _resolve_sampling_values  # noqa: E402
+from scripts.omlx_venv_install import omlx_restart_command  # noqa: E402
 
 SETTINGS = Path.home() / ".omlx" / "model_settings.json"
 STATE = Path.home() / ".portal5" / "omlx_seat_defaults.json"
@@ -146,9 +147,7 @@ def main(argv: list[str]) -> int:
         return 0
     print("oMLX per-model seat defaults " + ("WOULD change (dry run)" if dry else "updated"))
     if not dry and "--no-restart" not in argv:
-        subprocess.run(
-            ["brew", "services", "restart", "jundot/omlx/omlx"], capture_output=True, timeout=120
-        )
+        subprocess.run(omlx_restart_command(), capture_output=True, timeout=120)
         print("oMLX restarted to load them")
     return 0
 
