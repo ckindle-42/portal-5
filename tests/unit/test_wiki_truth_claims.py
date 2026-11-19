@@ -132,16 +132,37 @@ def test_volatile_prose_violations_catch_counts_and_module_state() -> None:
 def test_module_toggle_and_mcp_addition_leave_bs_pass_with_no_doc_edits(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    import os
     import shutil
     import subprocess
 
     repo_root = Path(__file__).resolve().parents[2]
+    skip = {
+        ".git",
+        ".venv",
+        ".ci-local-venv",
+        "node_modules",
+        "__pycache__",
+        ".pytest_cache",
+        ".mypy_cache",
+        ".ruff_cache",
+    }
     for entry in repo_root.iterdir():
-        if entry.name in {"config", ".mcp.json", ".venv", ".git"}:
+        if entry.name in skip:
             continue
-        (tmp_path / entry.name).symlink_to(entry)
-    shutil.copytree(repo_root / "config", tmp_path / "config")
-    shutil.copy2(repo_root / ".mcp.json", tmp_path / ".mcp.json")
+        dst = tmp_path / entry.name
+        if entry.name in {"config", ".mcp.json", ".gitignore"}:
+            shutil.copytree(entry, dst) if entry.is_dir() else shutil.copy2(entry, dst)
+        elif entry.is_dir():
+            shutil.copytree(
+                entry,
+                dst,
+                ignore=shutil.ignore_patterns(*skip),
+                copy_function=os.symlink,
+                symlinks=True,
+            )
+        else:
+            dst.symlink_to(entry)
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
 
     # 1. Flip module states (disable music, enable eval) in config + generated manifest.
@@ -163,7 +184,10 @@ def test_module_toggle_and_mcp_addition_leave_bs_pass_with_no_doc_edits(
 
     mcp_data = json.loads((tmp_path / ".mcp.json").read_text(encoding="utf-8"))
     mcp_data["mcpServers"].pop("portal-music", None)
-    mcp_data["mcpServers"]["portal-extra-demo"] = {"type": "http", "url": "http://localhost:8999/mcp"}
+    mcp_data["mcpServers"]["portal-extra-demo"] = {
+        "type": "http",
+        "url": "http://localhost:8999/mcp",
+    }
     (tmp_path / ".mcp.json").write_text(json.dumps(mcp_data, indent=2), encoding="utf-8")
 
     monkeypatch.setattr(seed_facts, "_REPO_ROOT", tmp_path)

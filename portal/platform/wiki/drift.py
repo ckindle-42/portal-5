@@ -247,9 +247,7 @@ def volatile_prose_violations(
                 if not _is_conditional_state(full, m.start())
             }
         )
-        msgs = [
-            f"hardcoded count {c!r} — reference `unit-fact-*` instead" for c in counts
-        ] + [
+        msgs = [f"hardcoded count {c!r} — reference `unit-fact-*` instead" for c in counts] + [
             f"hardcoded module enable state {s!r} — reference `unit-fact-module-states` instead"
             for s in states
         ]

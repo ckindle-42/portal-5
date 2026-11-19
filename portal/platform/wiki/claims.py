@@ -495,7 +495,13 @@ VOLATILE_PROBE_ALTERNATIVES: dict[str, str] = {
     ),
     "personas.count": "reference computed `unit-fact-persona-roster`",
     **dict.fromkeys(
-        ("models.configured", "backends.groups", "backends.groups.count", "backends.ids", "backends.types"),
+        (
+            "models.configured",
+            "backends.groups",
+            "backends.groups.count",
+            "backends.ids",
+            "backends.types",
+        ),
         "reference computed `unit-fact-model-catalog` or `unit-fact-model-bindings`",
     ),
     "compliance.served_window.tag_window": (
@@ -503,8 +509,16 @@ VOLATILE_PROBE_ALTERNATIVES: dict[str, str] = {
         "(or `repo.symbol.exists` on `served_window.py`)"
     ),
     **dict.fromkeys(
-        ("validate.checks", "wiki.canonical.units", "wiki.tier1.docs", "wiki.generated.blocks",
-         "launch.commands", "env.vars", "config.files", "dockerfiles"),
+        (
+            "validate.checks",
+            "wiki.canonical.units",
+            "wiki.tier1.docs",
+            "wiki.generated.blocks",
+            "launch.commands",
+            "env.vars",
+            "config.files",
+            "dockerfiles",
+        ),
         "reference the matching computed `unit-fact-*` unit instead of pinning volatile counts",
     ),
 }
@@ -554,7 +568,9 @@ def authored_claim_violations(units: Sequence[KnowledgeUnit]) -> list[ClaimViola
                 continue
             name = str(claim.get("probe", "") or "").strip()
             if not name:
-                violations.append(ClaimViolation(unit.id, "<missing>", "?", claim, "<missing probe>"))
+                violations.append(
+                    ClaimViolation(unit.id, "<missing>", "?", claim, "<missing probe>")
+                )
                 continue
             if name not in STABLE_PROBES:
                 violations.append(
