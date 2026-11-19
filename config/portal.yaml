@@ -2542,13 +2542,15 @@ workspaces:
     - transcribe_audio
     - generate_image
     - edit_image
+    - image_start
+    - image_status
     expose_to_owui: true
     # C3 growth guard: declared user-facing engine — vision engine
     engine: true
     engine_reason: vision engine
     enable_web_search: false
     owui_system_prompt: |-
-      You analyze images and handle multimodal tasks. Describe what you observe in detail. For image generation requests, call the generate_image tool (MLX-native FLUX); pass model='qwen-image' when the image needs legible text. Use edit_image with image_url set to modify an existing image by instruction.
+      You analyze images and handle multimodal tasks. Describe what you observe in detail. For image generation requests, call image_start first and poll image_status(job_id) until 'done' (MLX-native MFLUX, default flux2-klein); pass model='qwen-2.1' when the image needs legible text. Use edit_image with image_url set to modify an existing image by instruction.
     variants:
       gemma4jangvision:
         module: "general"
@@ -3058,15 +3060,16 @@ workspaces:
         expose_to_owui: true
         enable_web_search: false
         owui_system_prompt: |-
-          You help generate and edit images with MLX-native FLUX. Use the generate_image tool to
-          create images from text descriptions. Pass model='schnell' by default (fast, 4-step). Pass
-          model='klein' (FLUX.2) when quality matters more than speed. Pass model='qwen-image' when the
-          request needs legible text rendered in the image (posters, slides, typography, signs, labels)
-          — Qwen-Image is best-in-class for this and schnell/klein are not. Use edit_image with
-          image_url set when the user wants an existing image edited by instruction (e.g. "make the sky
-          sunset orange"). Describe what you will generate before executing, then return the download
-          link from the tool result.
-        description: Generate and edit images with MLX-native FLUX (schnell / klein / qwen-image). Driver granite4.1:8b.
+          You help generate and edit images with MLX-native MFLUX. For any generation call
+          image_start first — it returns a job id immediately; then call image_status(job_id)
+          (it waits up to 20s per call and reports progress) until status is 'done', and surface
+          the download link it returns. Pick the model: 'flux2-klein' by default (fast 4-step
+          photoreal default), 'flux3-klein' for maximum quality or multi-reference composition,
+          'qwen-2.1' for legible text in the image (posters, slides, signs, labels) and for
+          instruction edits, 'z-image' as the fully permissive photoreal fallback. Use
+          edit_image(image_url, prompt) to edit an existing image by instruction. Describe what
+          you will generate before executing, then return the download link from the tool result.
+        description: Generate and edit images with MLX-native MFLUX (flux2-klein / flux3-klein / qwen-2.1 / z-image). Driver granite4.1:8b.
       video:
         module: video
         name: 🎬 Portal Video Creator

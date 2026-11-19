@@ -34,8 +34,9 @@ files; Portal Code runs `execute_bash`/`execute_python` in an isolated sandbox;
 Portal TTS exposes `speak`; Portal Whisper offers `transcribe_audio` and
 `transcribe_with_speakers` (speaker diarization, Apple Silicon primary at
 port 8924 via the MLX transcribe server; both always write JSON + Markdown + Word
-`.docx` sidecars and return their download URLs); Portal MFLUX exposes `generate_image` / `edit_image`
-(synchronous, MLX FLUX — including the `qwen-image` model); Portal Music exposes
+`.docx` sidecars and return their download URLs); Portal MFLUX exposes `generate_image` / `edit_image` /
+`image_start` / `image_status` (MLX MFLUX — flux2-klein 4-step default, flux3-klein,
+qwen-2.1, z-image; start/status is the async surface); Portal Music exposes
 the MiniMax job-based music toolset.
 
 ## Why
