@@ -33,7 +33,8 @@ uv run portal arm queue-cancel <job>  # drop a queued job (releases its quiet-ho
 
 `/jarvis status` · `digest` · `held` (escalations waiting on you) · `canary <job>` · `diff <job>` ·
 `pause` / `resume` (stop / restart picking new jobs; the running job continues) · `requeue <job>` ·
-`escalate <job>` · `keep <job>` · `cancel <job>` and `merge <job>` (both ask Confirm first) · `help`.
+`escalate <job>` · `keep <job>` · `cancel <job>` and `merge <job>` (both ask Confirm first; a
+`pt-` id cancels the personal task and stops a cloud lane already running for it) · `help`.
 Notices carry buttons for the same actions. A Telegram merge runs the auto-merge checks (allowlist,
 weakened-test check, gates + canary in a throwaway worktree, oracle) and never merges `portal/`,
 `scripts/`, Dockerfiles, or `config/` outside `config/arm_jobs/`. Every request is logged

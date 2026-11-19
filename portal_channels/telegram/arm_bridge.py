@@ -192,6 +192,19 @@ class ArmTelegramStore:
             latest[request.verb] = request
         return list(latest.values())
 
+    def has_queued_control(self, verb: str, args: str) -> bool:
+        """True when a confirmed control row with this verb and target still waits for the
+        runner — the signal a running lane's dispatch watch polls for. Stale rows expire
+        under the same TTL the runner's claim path uses."""
+        self.expire_stale_controls()
+        with self._db() as db:
+            row = db.execute(
+                "SELECT 1 FROM control_requests "
+                "WHERE verb = ? AND args = ? AND status = 'queued' LIMIT 1",
+                (verb, args),
+            ).fetchone()
+        return row is not None
+
     def decide_control(
         self, request_id: str, action: str, user_id: int, allowed_users: set[int]
     ) -> ControlRequest | None:

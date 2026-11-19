@@ -39,7 +39,7 @@ HELP_TEXT = (
     "/jarvis pause — runner stops picking new jobs\n"
     "/jarvis resume — runner picks jobs again\n"
     "/jarvis requeue <job> — requeue a blocked or done job\n"
-    "/jarvis cancel <job> — cancel a queued job (confirm)\n"
+    "/jarvis cancel <job> — cancel a queued job; a pt- id stops its cloud lane too (confirm)\n"
     "/jarvis canary <job> — last canary SETUP/MODEL counts\n"
     "/jarvis held — list held escalations\n"
     "/jarvis merge <job> — merge a held escalation (confirm)\n"
