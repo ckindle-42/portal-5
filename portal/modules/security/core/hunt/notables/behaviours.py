@@ -22,7 +22,10 @@ from .sample import (
     SourceFacts,
     read_windows,
     route_filter,
-    window_bounds,
+    source_windows,
+)
+from .sample import (
+    window_bounds as window_bounds,
 )
 
 BEHAVIOUR_WINDOWS = 12  # effort budget: time slices read per activity source
@@ -661,7 +664,7 @@ def _key_source(
     read: RowSet | None = None,
 ) -> tuple[list[dict[str, Any]], int, dict[str, dict[str, Any]], list[MisfitShape], dict[str, int]]:
     """Read one source once, key each structure's events, and keep its out-of-structure lines."""
-    windows = window_bounds(facts.first, facts.last, BEHAVIOUR_WINDOWS)
+    windows = source_windows(facts, BEHAVIOUR_WINDOWS)
     if read is None:
         read = read_windows(
             executor,
@@ -819,7 +822,7 @@ def collect_behaviours(
                     read_windows,
                     executor,
                     facts,
-                    window_bounds(facts.first, facts.last, BEHAVIOUR_WINDOWS),
+                    source_windows(facts, BEHAVIOUR_WINDOWS),
                     per_window=per_window,
                     kind="behavior_events",
                     max_sources=BEHAVIOUR_SOURCES,

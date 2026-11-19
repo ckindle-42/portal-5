@@ -16,7 +16,7 @@ from ..executor import HuntExecutor
 from .behaviours import Behaviour, BehaviourIdentity, behaviour_identity
 from .cards import SourceCard, card_consumers
 from .parse import parse_row
-from .sample import BEHAVIOUR_SOURCES, SourceFacts, read_windows, route_filter, window_bounds
+from .sample import BEHAVIOUR_SOURCES, SourceFacts, read_windows, route_filter, source_windows
 
 NOTABLE_BUDGET = 300  # effort budget: notables kept per generator
 ALERT_WINDOWS = 8  # effort budget: time slices read per alert stream
@@ -213,7 +213,7 @@ def _alert_rows(
             receipts.extend({"card_id": card.card_id, "reason": "no_index_facts"} for card in group)
             continue
         started = time.monotonic()
-        windows = window_bounds(facts.first, facts.last, ALERT_WINDOWS)
+        windows = source_windows(facts, ALERT_WINDOWS)
         scheduled.append((source_id, group, facts, started, windows))
     concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
     with ThreadPoolExecutor(max_workers=min(len(scheduled) or 1, concurrency)) as pool:

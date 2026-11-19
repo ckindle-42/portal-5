@@ -5,6 +5,7 @@ from portal.modules.security.core.hunt.notables.sample import (
     SourceFacts,
     read_windows,
     route_filter,
+    sample_windows,
     window_bounds,
 )
 
@@ -90,3 +91,9 @@ def test_shared_indexed_sources_remain_scoped_to_card_sourcetype():
     )
     route, _ = route_filter(facts)
     assert route == 'sourcetype="mysql:database" (source="gacrux" OR source="jabbah")'
+
+
+def test_card_can_read_a_historical_source_with_one_timestamp():
+    stamp = 1503726179.0
+    facts = SourceFacts("ix", "st", 1, stamp, stamp, (), 0, (), 0)
+    assert any(start <= stamp < end for start, end in sample_windows(facts))

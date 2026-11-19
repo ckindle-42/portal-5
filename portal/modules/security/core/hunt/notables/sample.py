@@ -84,6 +84,18 @@ def window_bounds(first: float, last: float, count: int) -> list[tuple[float, fl
     return [(first + index * width, first + (index + 1) * width) for index in range(count)]
 
 
+def source_windows(facts: SourceFacts, count: int) -> list[tuple[float, float]]:
+    """Include max(_time) in the last half-open search at the transport's microsecond precision."""
+    if facts.last < facts.first or count <= 0:
+        return []
+    end = facts.last + 0.000001
+    if facts.last == facts.first:
+        return [(facts.first, end)]
+    bounds = window_bounds(facts.first, facts.last, count)
+    bounds[-1] = (bounds[-1][0], end)
+    return bounds
+
+
 def _read_range(
     executor: HuntExecutor,
     query: str,
@@ -280,8 +292,8 @@ def read_windows(
 
 def sample_windows(facts: SourceFacts) -> list[tuple[float, float]]:
     """The windows a source card samples: its own range, or a fixed recent span."""
-    if facts.last > facts.first:
-        return window_bounds(facts.first, facts.last, SAMPLE_WINDOWS)
+    if facts.last >= facts.first and (facts.last or facts.events):
+        return source_windows(facts, SAMPLE_WINDOWS)
     now = time.time()
     return window_bounds(now - EMPTY_SAMPLE_WINDOWS * 3600.0, now, SAMPLE_WINDOWS)
 
@@ -293,7 +305,7 @@ def read_alert_rows(
     route, route_name = route_filter(facts, SAMPLE_SOURCES)
     query = f"search index={_quoted(facts.index)} {route} {ALERT_TERM} | head {per_window}"
     rows, reason = _read_range(
-        executor, query, facts.first, facts.last, kind="alert_probe", row_cap=per_window
+        executor, query, facts.first, facts.last + 0.000001, kind="alert_probe", row_cap=per_window
     )
     return RowSet([dict(row) for row in rows], 1, route_name, [reason] if reason else [])
 
