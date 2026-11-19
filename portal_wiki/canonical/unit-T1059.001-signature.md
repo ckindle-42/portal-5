@@ -8,13 +8,16 @@ sources:
   path: portal/modules/security/core/siem/spl_detections.yaml#T1059.001
 - type: mitre
   path: ATT&CK:T1059.001
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1059.001
+  equals: true
 confidence: high
 tags:
 - T1059.001
 - technique
 - signature
-
 ---
 
 # T1059.001 — PowerShell execution — Sysmon process creation or script-block telemetry [KEY: PowerShell image in Sysmon or suspicious script-block content]

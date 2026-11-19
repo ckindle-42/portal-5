@@ -8,13 +8,16 @@ sources:
   path: portal/modules/security/core/siem/spl_detections.yaml#T1621
 - type: mitre
   path: ATT&CK:T1621
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1621
+  equals: true
 confidence: high
 tags:
 - T1621
 - technique
 - signature
-
 ---
 
 # T1621 — Multi-factor authentication request abuse — repeated failed Okta MFA events [KEY: Okta MFA authentication failures repeated for one actor/source]

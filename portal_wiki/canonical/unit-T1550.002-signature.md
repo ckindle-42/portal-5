@@ -7,13 +7,16 @@ sources:
   path: portal/modules/security/core/siem/spl_detections.yaml#T1550.002
 - type: mitre
   path: ATT&CK:T1550.002
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1550.002
+  equals: true
 confidence: high
 tags:
 - T1550.002
 - technique
 - signature
-
 ---
 
 # T1550.002 — Pass-the-hash — NTLM hash authentication

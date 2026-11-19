@@ -9,13 +9,16 @@ sources:
   path: ATT&CK:T1210
 - type: scenario
   path: exec_chain.py#meta3_smb_exploit
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1210
+  equals: true
 confidence: high
 tags:
 - T1210
 - technique
 - signature
-
 ---
 
 # T1210 — SMB/service exploitation — lateral movement via SMB

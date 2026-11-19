@@ -13,13 +13,16 @@ sources:
   path: exec_chain.py#web_nuclei_scan
 - type: scenario
   path: exec_chain.py#meta3_full_chain
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1595
+  equals: true
 confidence: high
 tags:
 - T1595
 - technique
 - signature
-
 ---
 
 # T1595 — Active scanning — vulnerability scanning and directory brute-force

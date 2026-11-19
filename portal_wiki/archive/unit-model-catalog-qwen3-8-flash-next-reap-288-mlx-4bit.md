@@ -1,0 +1,33 @@
+---
+id: unit-model-catalog-qwen3-8-flash-next-reap-288-mlx-4bit
+kind: what
+title: "MODEL_CATALOG \u2014 `Qwen3.8-Flash-Next-REAP-288-MLX-4bit`"
+sources:
+- type: code
+  path: config/backends.yaml
+claims: []
+confidence: high
+tags:
+- docs
+- verified-v1
+historical: true
+---
+
+**REMOVED 2026-10-21:** the operator deleted the weights (the model only ever ran with the stack down). The `omlx-coding` registration in `config/backends.yaml`, the `auto-coding` `reap288` variant in `config/portal.yaml`, the `bench-qwen38-flash-next-reap288` workspace in `config/bench_workspaces.yaml`, the `codingreap288` persona and `scripts/coder-reap288.sh` (`./launch.sh coder-reap288`) are all gone. The text below is kept as the history of the 2026-09-02 bring-up (`TASK_OMLX_QWEN38FN_REAP288_BRINGUP_V1`); nothing in it describes a served model anymore.
+
+`Qwen3.8-Flash-Next-REAP-288-MLX-4bit` (`sh0wie/Qwen3.8-Flash-Next-REAP-288-MLX-4bit` on Hugging Face) is a REAP expert-pruned MLX affine 4-bit conversion of `Qwen/Qwen3.8-Flash-Next`. REAP (Router-weighted Expert Activation Pruning, arXiv:2510.13999, Lasby et al., ICLR 2026) drops the MoE from 512 to 288 experts; the base is a 180B-class MoE with ~6B active params/token and top-10 routing. The backbone is quantized at group size 64 and the PLE (per-layer-embedding) n-gram table at group size 32. It was added 2026-09-02 (`TASK_OMLX_QWEN38FN_REAP288_BRINGUP_V1`) as a **bench-only** candidate wired to the `bench-qwen38-flash-next-reap288` workspace in `config/portal.yaml` (`module: eval`, `PROMOTE_POLICY=confirm`). `config/backends.yaml` registers it in the `omlx-coding` entry (group `coding`, `priority: 10`) — the same shadow-shift oMLX serving path `auto-coding` uses, but `auto-coding`'s own `model_hint`/priority/aliases are unchanged. There is no GGUF/Ollama fallback for this checkpoint, so the hint is oMLX-only, the same pattern as the `Qwen3.8-27B-4bit` DFlash2 entry.
+
+The checkpoint requires oMLX >= 0.6.4 **and** `qwen4_ple_ssd_offload: true` in `~/.omlx/model_settings.json` (host config, not in this repo). With that setting oMLX logs `Qwen4-Exp PLE mode: mmap`, keeps the ~32GB PLE n-gram table on SSD, and the loaded footprint is 39.13GB actual resident — matching the model card's "39 GB streamed" and the source plan's ~39GB estimate. oMLX's admission-time estimate is padded higher (40.57GB with the setting, 71.87GB without; `qwen4_exp_residency_estimate.resident_bytes` reports a conservative 77GB), and without the setting oMLX auto-forces the offload only when the memory ceiling is already >= 45GB and otherwise refuses the load with HTTP 507 (`Model (71.87GB) does not fit`). On disk ~70GB (`du -sh`; config `checkpoint_bytes` 73.5GB; card 68GB).
+
+Probed on this host 2026-09-02: the 40.57GB admission estimate does not pass co-resident with the full Portal Docker stack + Ollama (~25GB reclaimable), so the probe ran with the stack down (`./launch.sh down` + Ollama evicted, ~41-53GB reclaimable). First load ~22s; **warm sustained decode ~23-29 tok/s** (256-300 token gens) on this M4 Pro via the streamed-PLE path — in line with the card's ~28 tok/s, which is stock mlx-vlm with the table *resident*; the card explicitly does not separately benchmark oMLX's streamed path. Early 6-11 tok/s readings were a cold-load artifact (tiny gens right after the 22s load), not a settings problem. Levers checked and ruled out: `model_type_override: "llm"` fails ("Model type qwen4_exp not supported" — VLM engine is the only path); no `mtp.*`/draft tensors so no speculative decode; `/Volumes/data01` (PLE-table source) is an external Thunderbolt PCIe SSD at ~3 GB/s sequential, adequate NVMe. It is a thinking model (reasoning in the `reasoning_content` field). `supports_tools: true` — verified via a direct `/v1/chat/completions` tool-call probe: clean `tool_calls` block, `get_weather` with `{"location": "Little Rock, AR"}` correctly typed, `finish_reason: tool_calls`. Card HumanEval 91.5% (vs 93.9% base Q4) not reproduced here.
+
+## Why
+
+Grounding anchors the model to its bench-only oMLX registration and the REAP provenance (512->288 expert pruning of a 180B-class MoE). **Operator verdict 2026-09-02: this must never become an `auto-*` default — too heavy (39GB loaded plus a 40.57GB admission gate that needs a quiet host); bench / restricted manual use only, and only if proven against the Laguna-XS.2 primary.** This is firmer than the bring-up task's original `[GATE]`, which merely deferred the promotion decision. The hard `qwen4_ple_ssd_offload` requirement and the gap between the 39GB loaded footprint and the 40.57GB admission gate (which needs a quiet host) are what a future session needs before attempting a bench; the decode speed and tool-call result are recorded from the quiet-host probe.
+
+It is also wired into the opencode / Pi harness picker (2026-09-02) as the `codingreap288` persona binding `auto-coding`'s `reap288` variant (agentic, IDE tool set, `ide_expose: true`, never in OWUI). Two ways to reach it:
+
+- **oMLX-direct (reliable):** `./launch.sh coder-reap288` (`scripts/coder-reap288.sh`) stops the stack, evicts Ollama, warm-loads the model, and opens opencode pointed straight at `:8085` with a scratch config -- the Portal pipeline is not involved and opencode uses its own built-in tools. Stack stays down; `./launch.sh up` after.
+- **Portal-integrated (fragile):** the `portal/codingreap288` persona routes through the Docker pipeline `:9099`, which needs the stack up -- but with the full stack up only ~10GB is reclaimable (measured), well under the 40.57GB admission gate, and a force-cycle test showed the model evicted as the stack came back. Needs `./launch.sh rebuild` for the pipeline to see the variant, plus spare RAM. Not recommended. The variant is marked `stack_down_only` in `config/portal.yaml` (2026-10-21), so `scripts/uat_engines.py` reports it under "stack-down only, not tested" instead of sending a request that would fail.
+
+**Prefill ceiling (measured 2026-09-02, 64GB M4 Pro):** with the model ~39GB resident, ~17GB is left under the 56GB Metal cap (`iogpu.wired_limit_mb` 57344). Short/medium prompts run fine at ~24-29 tok/s; a full opencode agentic turn that pulls ~18-20K tokens of repo context into the prompt drives the prefill peak to ~52-53GB and trips oMLX's prefill memory guard. `coder-reap288.sh --raise-metal-cap` bumps the cap to 60GB for the session; still tight. Heavy repo-wide agentic work belongs on the `laguna` default; REAP-288 here is best for focused, bounded-context coding.

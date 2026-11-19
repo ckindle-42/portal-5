@@ -1,0 +1,22 @@
+---
+id: unit-model-catalog-hf-co-mradermacher-vulnllm-r-7b-gguf-q4-k-m
+kind: what
+title: "MODEL_CATALOG \u2014 `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M`"
+sources:
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+claims: []
+confidence: high
+tags:
+- docs
+- verified-v1
+historical: true
+---
+
+`config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — sibling -ctx8k seat on oMLX: 4/4 at the seat's sampling); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` binds the base id to the `bench-vulnllm-r-7b` and `bench-vulnllm-r7b` bench workspaces and the `bench-exec-recon` exec-chain role, while the `auto-security` workspace routes the `q4_K_M-ctx8k` variant and its description records the 2026-07-16 reselection note: the older fast-chain claim predates the reliability-scoring fix, the live re-bench found valid_rate 0.89 with redundant_call_rate 0.50, and `glm-4.7-flash:Q4_K_M` is staged as the reselection primary pending an analytical-workload test.
+
+## Why
+
+The group-split `supports_tools` value is the key config fact: `config/backends.yaml` grants tool support only under `security`, and `config/portal.yaml` keeps the model as the auto-security incumbent while documenting the reliability-gate correction. The reselection knowledge about `glm-4.7-flash:Q4_K_M` is preserved because the same files name it as the staged primary, so both models are grounded in the cited config.

@@ -13,13 +13,16 @@ sources:
   path: exec_chain.py#vuln_adminer_ssrf_recon
 - type: scenario
   path: exec_chain.py#mission_meta3_recon_exploit
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1046
+  equals: true
 confidence: high
 tags:
 - T1046
 - technique
 - signature
-
 ---
 
 # T1046 — Network service discovery — port scanning and SNMP enumeration

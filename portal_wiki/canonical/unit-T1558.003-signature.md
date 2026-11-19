@@ -16,13 +16,16 @@ sources:
   path: exec_chain.py#ad_full_compromise
 - type: scenario
   path: exec_chain.py#mission_ad_enumerate_exploit
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1558.003
+  equals: true
 confidence: high
 tags:
 - T1558.003
 - technique
 - signature
-
 ---
 
 # T1558.003 — Kerberoasting — Windows Security Event 4769 with RC4 encryption [DISTINGUISH: T1558.003 uses EventCode=4769 (TGS-REQ) with RC4; T1558.004 uses EventCode=4768 (AS-REQ) with no preauth] [KEY: TicketEncryptionType=0x17 in 4769 events]

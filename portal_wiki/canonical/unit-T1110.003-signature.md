@@ -16,13 +16,16 @@ sources:
   path: exec_chain.py#meta3_winrm_weakpass
 - type: scenario
   path: exec_chain.py#meta3_ssh_brute
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1110.003
+  equals: true
 confidence: high
 tags:
 - T1110.003
 - technique
 - signature
-
 ---
 
 # T1110.003 — Password spray — multiple 4625/4771 events from single source [DISTINGUISH: T1110.003 = one password across many accounts; T1110.001 = many passwords against one account] [KEY: Many accounts, few attempts per account, single source IP]

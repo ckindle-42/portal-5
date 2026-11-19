@@ -12,13 +12,16 @@ sources:
   path: portal/modules/security/core/siem/spl_detections.yaml#T1557
 - type: mitre
   path: ATT&CK:T1557
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1557
+  equals: true
 confidence: high
 tags:
 - T1557
 - technique
 - signature
-
 ---
 
 # T1557 — Adversary-in-the-middle — correlated NTLM network logon and privileged-share access across multiple Windows targets [DISTINGUISH: T1557 requires multi-target correlation with privileged-share access; T1557.001 requires name-resolution poison/Responder evidence; T1550.002 is NTLM authentication without the relay correlation] [KEY: NTLM LogonType 3 plus ADMIN$/C$ access from the same source/account across more than one target]

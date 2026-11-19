@@ -9,13 +9,16 @@ sources:
   path: ATT&CK:T1047
 - type: scenario
   path: exec_chain.py#ad_full_compromise
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1047
+  equals: true
 confidence: high
 tags:
 - T1047
 - technique
 - signature
-
 ---
 
 # T1047 — WMI execution — remote command execution via WMI/cimv2

@@ -10,13 +10,14 @@ sources:
   path: portal/modules/security/tools/mitre_mcp.py
 - type: code
   path: portal/modules/security/core/siem/mitre_ics_techniques.json
-claims: []
+claims:
+- probe: mcp.fleet.ids
+  contains: mitre
 confidence: high
 tags:
 - capability
 - mcp
 - security
-
 ---
 
 # MITRE MCP — deterministic ATT&CK lookup

@@ -8,13 +8,16 @@ sources:
   path: portal/modules/security/core/siem/spl_detections.yaml#T1526
 - type: mitre
   path: ATT&CK:T1526
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1526
+  equals: true
 confidence: high
 tags:
 - T1526
 - technique
 - signature
-
 ---
 
 # T1526 — Cloud Service Discovery — enumeration of cloud resources via Describe/List APIs [KEY: CloudTrail Describe/List enumeration API]

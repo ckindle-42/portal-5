@@ -12,13 +12,16 @@ sources:
   path: exec_chain.py#mbptl_ctf_full_chain
 - type: scenario
   path: exec_chain.py#ctf_multi_service
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1203
+  equals: true
 confidence: high
 tags:
 - T1203
 - technique
 - signature
-
 ---
 
 # T1203 — Exploitation for client execution — binary overflow and service exploitation

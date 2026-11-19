@@ -10,13 +10,16 @@ sources:
   path: portal/modules/security/core/siem/spl_detections.yaml#T1003.003
 - type: mitre
   path: ATT&CK:T1003.003
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1003.003
+  equals: true
 confidence: high
 tags:
 - T1003.003
 - technique
 - signature
-
 ---
 
 # T1003.003 — NTDS dump — ntdsutil/ntds.dit extraction for domain credential theft [DISTINGUISH: T1003.003 = NTDS.dit extraction; T1003.001 = local LSASS memory access; T1003.006 = remote AD replication] [KEY: NewProcessName=*ntdsutil* or Message=*ntds.dit*]

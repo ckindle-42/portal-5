@@ -12,13 +12,16 @@ sources:
   path: ATT&CK:T1558.004
 - type: scenario
   path: exec_chain.py#asrep_to_lateral
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1558.004
+  equals: true
 confidence: high
 tags:
 - T1558.004
 - technique
 - signature
-
 ---
 
 # T1558.004 — AS-REP Roasting — Windows Security Event 4768 without pre-auth [DISTINGUISH: T1558.004 uses EventCode=4768 (AS-REQ) with PreAuthType=0; T1558.003 uses EventCode=4769 (TGS-REQ) with RC4] [KEY: PreAuthType=0 in 4768 events]

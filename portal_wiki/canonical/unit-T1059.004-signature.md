@@ -14,13 +14,16 @@ sources:
   path: exec_chain.py#web_to_root
 - type: scenario
   path: exec_chain.py#ctf_multi_service
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1059.004
+  equals: true
 confidence: high
 tags:
 - T1059.004
 - technique
 - signature
-
 ---
 
 # T1059.004 — Unix shell — command execution via sh/bash/python on Linux targets

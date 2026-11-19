@@ -13,13 +13,16 @@ sources:
   path: exec_chain.py#web_ssrf
 - type: scenario
   path: exec_chain.py#vuln_joomla_rce
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1552
+  equals: true
 confidence: high
 tags:
 - T1552
 - technique
 - signature
-
 ---
 
 # T1552 — Unsecured credentials — SSRF-to-metadata, .env/.git exposure, hardcoded creds [KEY: One of the metadata/credential exposure literals used by this SPL]

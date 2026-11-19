@@ -7,14 +7,17 @@ sources:
   path: portal/modules/security/core/siem/spl_detections.yaml#T1003.006
 - type: mitre
   path: ATT&CK:T1003.006
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1003.006
+  equals: true
 confidence: high
 tags:
 - T1003.006
 - DCSync
 - credential-access
 - enriched
-
 ---
 
 # T1003.006 — DCSync Detection Signature

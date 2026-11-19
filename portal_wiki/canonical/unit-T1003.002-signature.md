@@ -13,13 +13,16 @@ sources:
   path: ATT&CK:T1003.002
 - type: scenario
   path: exec_chain.py#relay_to_shell
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1003.002
+  equals: true
 confidence: high
 tags:
 - T1003.002
 - technique
 - signature
-
 ---
 
 # T1003.002 — SAM dump — remote Security Account Manager hash extraction via RemoteRegistry [DISTINGUISH: T1003.002 = local SAM hive on a non-DC host via RemoteRegistry; T1003.001 = local LSASS memory access; T1003.003 = NTDS.dit extraction on the DC; T1003.006 = remote AD replication] [KEY: ServiceName="Remote Registry" State=running, or IPC$ winreg pipe access]

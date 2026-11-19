@@ -10,13 +10,16 @@ sources:
   path: portal/modules/security/core/siem/spl_detections.yaml#T1110.001
 - type: mitre
   path: ATT&CK:T1110.001
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1110.001
+  equals: true
 confidence: high
 tags:
 - T1110.001
 - technique
 - signature
-
 ---
 
 # T1110.001 — Password guessing — repeated authentication failures against one account [DISTINGUISH: T1110.001 = many passwords against one account; T1110.003 = one password across many accounts] [KEY: Many attempts against one account]

@@ -14,13 +14,16 @@ sources:
   path: exec_chain.py#vuln_grafana_lfi
 - type: scenario
   path: exec_chain.py#vuln_nginx_lfi
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1083
+  equals: true
 confidence: high
 tags:
 - T1083
 - technique
 - signature
-
 ---
 
 # T1083 — File and directory discovery — path traversal and LFI [KEY: One of the path traversal literals used by this SPL]
