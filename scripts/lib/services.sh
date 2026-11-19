@@ -83,9 +83,15 @@ _launch_install_music() {
     git -C "$ACE_DIR" fetch --depth 1 origin "$ACE_SHA"
     git -C "$ACE_DIR" checkout --detach "$ACE_SHA"
     ( cd "$ACE_DIR" && uv python install 3.12 && uv sync --python 3.12 --frozen )
-    ( cd "$ACE_DIR" && uv pip install --python "$PY" \
+    # ACE-Step pins gradio and transformers upstream; this checkout is its current HEAD.
+    ( cd "$ACE_DIR" && uv pip install --python "$PY" --upgrade \
         "mlx-audio==0.6.6" "mcp>=2.0.0,<3.0.0" "fastapi>=0.109.0" \
-        "uvicorn[standard]>=0.27.0" "httpx>=0.26.0" "pyyaml>=6.0.1" "starlette>=1.3.0" )
+        "uvicorn[standard]>=0.27.0" "httpx>=0.26.0" "pyyaml>=6.0.1" \
+        "aiohttp>=3.14.4" "anyio>=4.14.2" "brotli>=1.2.1" "certifi>=2026.10.18" \
+        "diffusers>=0.38.0" "filelock>=4.2.1" "fsspec>=2026.6.0" "idna>=3.15" \
+        "lightning>=2.6.6" "multidict>=6.9.1" "orjson>=3.11.6" \
+        "pytorch-lightning>=2.6.6" "python-dotenv>=1.2.2" "python-multipart>=0.0.31" \
+        "requests>=2.33.0" "setuptools>=84.1.0" "torch>=2.13.0" "werkzeug>=3.1.9" )
 
     _music_snap() {
         local repo="$1" dest="$2" min_gb="$3" size_gb
@@ -184,11 +190,11 @@ _launch_install_mflux() {
     mkdir -p "$MX_DIR" "$HOME/.portal5/logs"
     [ -d "$MX_VENV" ] || { echo "  Creating venv..."; "$MX_PY" -m venv "$MX_VENV"; }
 
-    echo "  Installing deps (mflux==0.24.0, mcp)..."
-    "$MX_VENV/bin/pip" install --quiet --upgrade pip
-    "$MX_VENV/bin/pip" install --quiet \
-        "mflux==0.24.0" "fastapi>=0.109.0" "uvicorn[standard]>=0.27.0" "httpx>=0.26.0" \
-        "pyyaml>=6.0.1" "starlette>=1.3.0" "mcp>=2.0.0,<3.0.0"
+    echo "  Installing current deps (mflux, mcp)..."
+    uv pip install --python "$MX_VENV/bin/python" --upgrade \
+        "mflux>=0.24.0" "fastapi>=0.109.0" "uvicorn[standard]>=0.27.0" "httpx>=0.26.0" \
+        "pyyaml>=6.0.1" "starlette>=1.3.1" "mcp>=2.0.0,<3.0.0" \
+        "filelock>=4.2.1" "opentelemetry-api>=1.45.2" "pillow>=13.0.0" "setuptools>=84.1.0"
     "$MX_VENV/bin/python" -c 'import mflux, PIL; assert tuple(map(int, PIL.__version__.split(".")[:2])) >= (13, 0), f"Pillow {PIL.__version__} < 13 (GHSA-5x8w-8jj5-q52h)"' \
         || { echo "  ❌ mflux 0.24.0 / Pillow>=13.0.0 verification failed"; exit 1; }
     "$MX_VENV/bin/python" -c 'import platform; assert platform.machine() == "arm64"' \
@@ -306,10 +312,13 @@ _launch_install_video_mlx() {
     echo "  Engine checkout: $VX_SRC -> $(cd "$VX_SRC" && pwd) @ $(git -C "$VX_SRC" rev-parse --short HEAD)"
     echo "  Resolving deps (uv sync)..."
     ( cd "$VX_SRC" && uv sync --all-extras )
-    # The MCP server needs mcp + starlette in the same venv as ltx-2-mlx.
-    "$VX_VENV/bin/python" -m pip install --quiet "mcp>=2.0.0,<3.0.0" "starlette>=1.3.0" \
-        "httpx>=0.26.0" "pyyaml>=6.0.1" 2>/dev/null || \
-        ( cd "$VX_SRC" && uv pip install "mcp>=2.0.0,<3.0.0" "starlette>=1.3.0" "httpx>=0.26.0" "pyyaml>=6.0.1" )
+    # Keep the engine lock, then upgrade its vulnerable transitive packages.
+    uv pip install --python "$VX_VENV/bin/python" --upgrade \
+        "mcp>=2.0.0,<3.0.0" "starlette>=1.3.1" "httpx>=0.26.0" "pyyaml>=6.0.1" \
+        "anyio>=4.14.2" "certifi>=2026.10.18" "filelock>=4.2.1" "fsspec>=2026.6.0" \
+        "pillow>=13.0.0" "pygments>=2.20.0" "pytest>=9.0.3" "transformers>=5.10.0" || {
+        echo "  ❌ security dependency upgrade failed" >&2; exit 1;
+    }
     # `uv sync` strips anything outside the engine's own lock, and a failed late
     # install must not register a launchd job that cannot import.
     [ -x "$VX_VENV/bin/ltx-2-mlx" ] || {
