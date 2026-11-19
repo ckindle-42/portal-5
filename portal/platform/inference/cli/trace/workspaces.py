@@ -16,18 +16,20 @@ from .context import TraceContext
 from .model import Hop, Status, short
 
 PROMPT = "Reply with the single word OK."
-#: Thinking seats spent the whole 24-token budget on reasoning (2026-11-19); 256 leaves headroom.
-MAX_TOKENS = 256
 #: Reasoning channels an engine streams beside answer content.
 _REASONING_FIELDS = ("reasoning", "reasoning_content", "thinking")
 
 
 @dataclass(frozen=True)
 class Seat:
-    """One routable production seat: a workspace or one of its declared variants."""
+    """One routable production seat: a workspace or one of its declared variants.
+
+    ``budget`` is the seat's declared output budget — the same cap the router
+    applies to any request for it (``_output_cap`` on its merged config)."""
 
     seat_id: str
     hint: str
+    budget: int
 
 
 @dataclass
@@ -57,19 +59,34 @@ class StreamedTurn:
     error: str = ""
 
 
+def _seat_budget(ws: dict[str, Any], variant: dict[str, Any]) -> int:
+    """The seat's declared output budget: the same cap the router applies to a request."""
+    from portal.platform.inference.config import merge_workspace_variant
+    from portal.platform.inference.router.validation import _output_cap
+
+    return _output_cap(merge_workspace_variant(ws, variant))
+
+
 def production_seats(portal: dict[str, Any]) -> list[Seat]:
     """Every non-bench workspace and declared variant, base before its variants."""
     seats: list[Seat] = []
     for workspace_id, cfg in (portal.get("workspaces") or {}).items():
         if str(workspace_id).startswith("bench"):
             continue
-        hint = str((cfg or {}).get("model_hint") or "")
+        base = cfg or {}
+        hint = str(base.get("model_hint") or "")
         if hint:
-            seats.append(Seat(str(workspace_id), hint))
-        for variant_id, variant in ((cfg or {}).get("variants") or {}).items():
+            seats.append(Seat(str(workspace_id), hint, _seat_budget(base, {})))
+        for variant_id, variant in (base.get("variants") or {}).items():
             variant_hint = str((variant or {}).get("model_hint") or hint)
             if variant_hint:
-                seats.append(Seat(f"{workspace_id}::{variant_id}", variant_hint))
+                seats.append(
+                    Seat(
+                        f"{workspace_id}::{variant_id}",
+                        variant_hint,
+                        _seat_budget(base, variant or {}),
+                    )
+                )
     return seats
 
 
@@ -143,11 +160,14 @@ def stream_turn(
     model: str,
     timeout_s: float,
     path: str = "/v1/chat/completions",
-    max_tokens: int | None = MAX_TOKENS,
+    max_tokens: int | None = None,
     prompt: str = PROMPT,
     cid: str = "",
 ) -> StreamedTurn:
-    """One small streaming chat request; the router's own route header names what served it."""
+    """One small streaming chat request; the router's own route header names what served it.
+
+    No ``max_tokens`` is sent: the router applies each seat's own declared output
+    budget from config, so a verbose-but-healthy seat is graded, not starved."""
     body = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
@@ -227,7 +247,12 @@ def _no_answer_kind(stats: TurnStats) -> str:
     return "no answer content (engine sent no content and no reasoning)"
 
 
-def seat_hop(seat: Seat, turn: StreamedTurn, hints: dict[str, str] | None = None) -> Hop:
+def seat_hop(
+    seat: Seat,
+    turn: StreamedTurn,
+    hints: dict[str, str] | None = None,
+    budgets: dict[str, int] | None = None,
+) -> Hop:
     """One seat's verdict: refused, empty, reasoning-only, usage-less or served with numbers."""
     name = seat.seat_id
     if turn.error:
@@ -245,21 +270,22 @@ def seat_hop(seat: Seat, turn: StreamedTurn, hints: dict[str, str] | None = None
     resolved = turn.route[0].strip() if turn.route else ""
     rerouted = bool(resolved) and resolved != name
     expected = seat.hint
-    if rerouted and hints and resolved in hints:
-        expected = hints[resolved]
+    if rerouted and hints:
+        expected = hints.get(resolved, expected)
     observed = _observed(turn) + (f" via={resolved}" if rerouted else "")
     if _no_answer(stats):
-        # A turn whose whole budget went on reasoning is not a dead seat: the trace's own
-        # max_tokens ended it, so it is reported, never blamed, as a failure of the model.
-        status = Status.WARN if stats.reasoning_deltas else Status.FAIL
+        # The turn ran under the serving seat's own declared output budget (no client
+        # cap): a turn that still ends inside reasoning is a seat that never answers.
+        budget = (budgets or {}).get(resolved, seat.budget)
         detail = (
-            f"the {MAX_TOKENS}-token turn ended inside reasoning; raise MAX_TOKENS to grade it"
+            f"no answer within its declared {budget}-token output budget; "
+            "check the seat's think flag/template"
             if stats.reasoning_deltas
-            else short(stats.text, 70) or f"the turn ended inside max_tokens={MAX_TOKENS}"
+            else short(stats.text, 70) or "turn ended without answer content"
         )
         return Hop(
             name,
-            status,
+            Status.FAIL,
             f"{observed} {_no_answer_kind(stats)}",
             "answer content",
             detail,
@@ -325,6 +351,7 @@ def run(ctx: TraceContext, portal: dict[str, Any]) -> list[Hop]:
     hops: list[Hop] = []
     seats = production_seats(portal)
     hints = {seat.seat_id: seat.hint for seat in seats}
+    budgets = {seat.seat_id: seat.budget for seat in seats}
     confirmed: set[str] = set()
     for seat in seats:
         skipped = disabled_seat(seat.seat_id, served)
@@ -345,7 +372,7 @@ def run(ctx: TraceContext, portal: dict[str, Any]) -> list[Hop]:
             )
             continue
         turn = stream_turn(ctx.pipeline_url, ctx.api_key, seat.seat_id, ctx.timeout_s)
-        hops.append(seat_hop(seat, turn, hints))
+        hops.append(seat_hop(seat, turn, hints, budgets))
         served_model = turn.route[2] if len(turn.route) > 2 else ""
         if served_model and turn.stats.completion_tokens and turn.route[1] not in confirmed:
             confirmed.add(turn.route[1])

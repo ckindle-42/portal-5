@@ -12,6 +12,7 @@ import typer
 from . import containers, engines, host, lab, mcps, media, owui, pins, platform, workspaces
 from .context import TraceContext, env_value, host_url, run_cmd
 from .model import Hop, Section, Status, TraceReport, render_json, render_text
+from .seed_rag import register as register_seed_rag
 
 Runner = Callable[[TraceContext, dict[str, Any]], list[Hop]]
 
@@ -157,3 +158,4 @@ def cmd_trace(
 
 def register(app: typer.Typer) -> None:
     app.command("trace")(cmd_trace)
+    register_seed_rag(app)

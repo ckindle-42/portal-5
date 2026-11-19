@@ -30,6 +30,9 @@ MAX_TOKENS: int | None = None
 TABLE = "portal_trace_probe"
 MARKER = "40895"
 REQUIREMENT = "CIP-007-6 R1 Part 1.2"
+#: The KB ``trace-seed-rag`` builds from real repo docs; the rag hop prefers it.
+SEED_KB = "portal-trace-docs"
+RAG_QUERY = "security patch management"
 
 
 def servers() -> dict[str, str]:
@@ -180,20 +183,28 @@ def memory(ctx: TraceContext, _portal: dict[str, Any]) -> list[Hop]:
 def rag(ctx: TraceContext, _portal: dict[str, Any]) -> list[Hop]:
     """A retrieval answer names a source file the live KB's own search returns."""
     registry = servers()
-    query = "security patch management"
     listed = mcp_call(registry["rag"], "kb_list", {})
     kbs = [kb for kb in listed.get("knowledge_bases") or [] if kb.get("chunks")]
     if not kbs:
         reason = short(listed.get("error") or "no knowledge base holds chunks", 60)
-        return [Hop("rag retrieval", Status.WARN, f"not run: {reason}", "a loaded knowledge base")]
-    kb_id = str(kbs[0]["kb_id"])
+        return [
+            Hop(
+                "rag retrieval",
+                Status.WARN,
+                f"not run: {reason}",
+                "a loaded knowledge base",
+                "seed one: portal trace-seed-rag",
+            )
+        ]
+    # Any loaded KB proves retrieval; the seed's own KB keeps the hop deterministic.
+    kb_id = str(next((kb["kb_id"] for kb in kbs if kb.get("kb_id") == SEED_KB), kbs[0]["kb_id"]))
     streamed, ok, observed = turn(
         ctx,
         "auto-research",
-        f"Call kb_search exactly once with kb_id '{kb_id}' and query '{query}'. Reply with "
+        f"Call kb_search exactly once with kb_id '{kb_id}' and query '{RAG_QUERY}'. Reply with "
         "only the source_file of the first result.",
     )
-    store = mcp_call(registry["rag"], "kb_search", {"kb_id": kb_id, "query": query, "top_k": 3})
+    store = mcp_call(registry["rag"], "kb_search", {"kb_id": kb_id, "query": RAG_QUERY, "top_k": 3})
     sources = {str(row.get("source_file") or "") for row in store.get("results") or []}
     named = sorted(name for name in sources if name and name in streamed.stats.text)
     done = "kb_search" in ok and bool(named)

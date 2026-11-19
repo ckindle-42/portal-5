@@ -313,15 +313,22 @@ def test_production_seats_covers_variants_and_excludes_bench() -> None:
             "auto": {},
             "auto-coding": {
                 "model_hint": "granite:8b",
-                "variants": {"lite": {"model_hint": "granite:2b"}, "inherit": {}},
+                "context_limit": 8192,
+                "predict_limit": 4096,
+                "variants": {
+                    "lite": {"model_hint": "granite:2b", "predict_limit": 2048},
+                    "inherit": {},
+                },
             },
+            "auto-freeform": {"model_hint": "granite:4b"},
             "bench-lane": {"model_hint": "bench-granite41-8b"},
         }
     }
     assert workspaces.production_seats(portal) == [
-        workspaces.Seat("auto-coding", "granite:8b"),
-        workspaces.Seat("auto-coding::lite", "granite:2b"),
-        workspaces.Seat("auto-coding::inherit", "granite:8b"),
+        workspaces.Seat("auto-coding", "granite:8b", 4096),
+        workspaces.Seat("auto-coding::lite", "granite:2b", 2048),
+        workspaces.Seat("auto-coding::inherit", "granite:8b", 4096),
+        workspaces.Seat("auto-freeform", "granite:4b", 8192),
     ]
 
 
@@ -347,7 +354,7 @@ def test_summarize_turn_derives_ttft_rate_and_usage() -> None:
 
 
 def _seat() -> workspaces.Seat:
-    return workspaces.Seat("auto-general", "huihui_ai/qwen3.5-abliterated:9b-ctx8k")
+    return workspaces.Seat("auto-general", "huihui_ai/qwen3.5-abliterated:9b-ctx8k", 4096)
 
 
 def test_summarize_turn_counts_reasoning_apart_from_answer_content() -> None:
@@ -376,7 +383,7 @@ def test_summarize_turn_treats_inline_think_as_reasoning_not_answer() -> None:
     )
     assert unclosed.text == "" and unclosed.reasoning_deltas == 2
     hop = workspaces.seat_hop(_seat(), workspaces.StreamedTurn(200, ["w", "b", "m"], unclosed))
-    assert hop.status is Status.WARN  # reasoning-only, not "no answer content"
+    assert hop.status is Status.FAIL  # never answered within its declared budget
     assert "reasoning-only" in hop.observed
 
     closed = workspaces.summarize_turn(
@@ -399,9 +406,13 @@ def test_seat_hop_tells_a_reasoning_only_turn_from_an_empty_one() -> None:
         text=notice, content_chunks=1, reasoning_deltas=24, completion_tokens=24
     )
     hop = workspaces.seat_hop(_seat(), workspaces.StreamedTurn(200, ["w", "b", "m"], reasoning))
-    assert hop.status is Status.WARN  # the turn's own 24-token budget, not a dead seat
+    # The turn ran under the seat's own declared output budget and still never
+    # answered: a seat that reasons but does not answer is a product defect.
+    assert hop.status is Status.FAIL
     assert "reasoning-only (24 reasoning deltas" in hop.observed
-    assert "reasoning=24" in hop.observed and "raise MAX_TOKENS" in hop.detail
+    assert "reasoning=24" in hop.observed
+    assert "declared 4096-token output budget" in hop.detail
+    assert "think flag" in hop.detail
 
     empty = workspaces.TurnStats(
         ttft_s=15.0,
@@ -644,7 +655,7 @@ def test_hops_render_without_a_trailing_space() -> None:
 
 
 def test_seat_hop_accepts_the_resolved_router_lane() -> None:
-    seat = workspaces.Seat("auto", "huihui_ai/qwen3.5-abliterated:9b-ctx8k")
+    seat = workspaces.Seat("auto", "huihui_ai/qwen3.5-abliterated:9b-ctx8k", 8192)
     hints = {"auto": seat.hint, "auto-daily": "hf.co/bartowski/NVIDIA-Nemotron-30B:Q4_K_M-ctx32k"}
     stats = workspaces.TurnStats(ttft_s=0.4, completion_tokens=24, text="OK")
     served = ["auto-daily", "ollama-general", "hf.co/bartowski/NVIDIA-Nemotron-30B:Q4_K_M-ctx32k"]
@@ -655,7 +666,7 @@ def test_seat_hop_accepts_the_resolved_router_lane() -> None:
 
 
 def test_seat_hop_still_warns_when_the_resolved_lane_leaves_its_seat() -> None:
-    seat = workspaces.Seat("auto-vision", "qwen3-vl:32b-ctx8k")
+    seat = workspaces.Seat("auto-vision", "qwen3-vl:32b-ctx8k", 8192)
     hints = {"auto-vision": seat.hint, "auto-reasoning": "k2-horizon:36b-ctx64k"}
     stats = workspaces.TurnStats(ttft_s=0.4, completion_tokens=24, text="OK")
     off = workspaces.seat_hop(
@@ -666,7 +677,7 @@ def test_seat_hop_still_warns_when_the_resolved_lane_leaves_its_seat() -> None:
 
 
 def test_seat_hop_keeps_the_seat_hint_for_an_unknown_resolved_lane() -> None:
-    seat = workspaces.Seat("auto", "huihui_ai/qwen3.5-abliterated:9b-ctx8k")
+    seat = workspaces.Seat("auto", "huihui_ai/qwen3.5-abliterated:9b-ctx8k", 8192)
     stats = workspaces.TurnStats(ttft_s=0.4, completion_tokens=24, text="OK")
     hop = workspaces.seat_hop(
         seat,
@@ -953,3 +964,90 @@ def test_platform_hops_report_one_full_line_per_drifted_preset(monkeypatch) -> N
         "meta.toolIds: live ['server:mcp:portal_cad'] != file ['server:mcp:portal_code']"
     )
     assert platform.drift_presets("owui preset drift: none") == {}
+
+
+def test_rag_hop_prefers_the_seeded_kb(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Any loaded KB proves retrieval; the seed's own KB keeps the hop deterministic."""
+    monkeypatch.setattr(mcps, "servers", lambda: {"rag": "http://rag"})
+    calls: list[tuple[str, dict[str, Any]]] = []
+
+    def fake_call(_url: str, name: str, args: dict[str, Any], timeout: float = 60.0):
+        calls.append((name, args))
+        if name == "kb_list":
+            return {
+                "knowledge_bases": [
+                    {"kb_id": "aaa", "chunks": 5},
+                    {"kb_id": mcps.SEED_KB, "chunks": 9},
+                ]
+            }
+        return {"results": [{"source_file": "ALERTS.md"}]}
+
+    monkeypatch.setattr(mcps, "mcp_call", fake_call)
+    streamed = workspaces.StreamedTurn(
+        200, [], workspaces.TurnStats(text="ALERTS.md", tool_deltas=1, completion_tokens=9)
+    )
+    monkeypatch.setattr(mcps, "turn", lambda *a, **k: (streamed, {"kb_search"}, "tools=kb_search"))
+    hops = mcps.rag(_ctx(), {})
+    assert calls[1] == (
+        "kb_search",
+        {"kb_id": mcps.SEED_KB, "query": mcps.RAG_QUERY, "top_k": 3},
+    )
+    assert hops[0].status is Status.PASS
+
+
+def test_rag_hop_warns_with_the_seed_hint_when_no_kb_holds_chunks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(mcps, "servers", lambda: {"rag": "http://rag"})
+    monkeypatch.setattr(mcps, "mcp_call", lambda *a, **k: {"knowledge_bases": []})
+    hops = mcps.rag(_ctx(), {})
+    assert hops[0].status is Status.WARN
+    assert "portal trace-seed-rag" in hops[0].detail
+
+
+def test_seed_rag_ingests_the_repo_corpus_rebuilt_and_verifies_a_source(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from portal.platform.inference.cli.trace import seed_rag
+    from portal.platform.inference.cli.trace.context import CommandResult
+
+    cmds: list[list[str]] = []
+    monkeypatch.setattr(seed_rag, "run_cmd", lambda cmd: cmds.append(cmd) or CommandResult(True))
+    monkeypatch.setattr(seed_rag.mcps, "servers", lambda: {"rag": "http://rag"})
+    calls: list[tuple[str, dict[str, Any]]] = []
+
+    def fake_call(_url: str, name: str, args: dict[str, Any], timeout: float = 60.0):
+        calls.append((name, args))
+        if name == "kb_ingest":
+            return {"kb_id": mcps.SEED_KB, "files_ingested": 4, "chunks_added": 38}
+        return {"results": [{"source_file": "ALERTS.md"}, {"source_file": "ALERTS.md"}]}
+
+    monkeypatch.setattr(seed_rag.mcps, "mcp_call", fake_call)
+    seed_rag.cmd_seed_rag()
+    assert cmds[0][:3] == ["docker", "exec", seed_rag.CONTAINER]
+    copied = [cmd[2] for cmd in cmds if cmd[:2] == ["docker", "cp"]]
+    assert copied == [str(seed_rag.doc(name)) for name in seed_rag.CORPUS]
+    ingest = calls[0]
+    assert ingest[0] == "kb_ingest"
+    assert ingest[1] == {
+        "kb_id": mcps.SEED_KB,
+        "source_dir": seed_rag.KB_DIR,
+        "rebuild": True,
+    }
+    assert calls[1][0] == "kb_search" and calls[1][1]["query"] == mcps.RAG_QUERY
+
+
+def test_seed_rag_fails_loudly_when_the_ingest_errors(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from portal.platform.inference.cli.trace import seed_rag
+    from portal.platform.inference.cli.trace.context import CommandResult
+
+    monkeypatch.setattr(seed_rag, "run_cmd", lambda cmd: CommandResult(True))
+    monkeypatch.setattr(seed_rag.mcps, "servers", lambda: {"rag": "http://rag"})
+    monkeypatch.setattr(
+        seed_rag.mcps, "mcp_call", lambda *a, **k: {"error": "VL retrieval server unreachable"}
+    )
+    with pytest.raises(typer.Exit):
+        seed_rag.cmd_seed_rag()
+    assert "VL retrieval server unreachable" in capsys.readouterr().out
