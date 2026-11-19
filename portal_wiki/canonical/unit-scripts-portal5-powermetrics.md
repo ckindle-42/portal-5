@@ -6,12 +6,14 @@ sources:
 - type: code
   path: scripts/portal5-powermetrics.py
   commit: 94ecf393
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/portal5-powermetrics.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - scripts
-
 ---
 
 Runs powermetrics continuously, parses the output, and exposes current power plus 1-min/10-min averages on a Unix domain socket.

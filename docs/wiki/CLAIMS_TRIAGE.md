@@ -3,9 +3,9 @@
 Temporary gate ledger for the content review. Each pending id is replaced with a current, historical, or obsolete decision as its unit is reviewed.
 
 Initial pending units: 733.
-Completed decisions: 602; pending: 131.
+Completed decisions: 733; pending: 0.
 
-- `SEC_BENCH-combined-corpus-validation-20260731` | pending | awaiting content review
+- `SEC_BENCH-combined-corpus-validation-20260731` | historical | dated, resolved, or superseded record retained for history
 - `unit-ADMIN_GUIDE-add-a-cluster-node` | current | code symbol `backends_healthy` exists in `scripts/lib/util.sh`
 - `unit-ADMIN_GUIDE-alternative-lan-reverse-proxy-caddy-nginx` | current | code symbol `PORTAL_PUBLIC_URL` exists in `deploy/portal-5/docker-compose.yml`
 - `unit-ADMIN_GUIDE-approve-pending-users` | current | source path `.env.example` exists
@@ -33,11 +33,11 @@ Completed decisions: 602; pending: 131.
 - `unit-ADMIN_GUIDE-security-notes` | current | code symbol `CHANGEME` exists in `.env.example`
 - `unit-ADMIN_GUIDE-three-tier-router-models` | current | code symbol `LLM_ROUTER_MODEL` exists in `.env.example`
 - `unit-ADMIN_GUIDE-user-roles` | current | source path `.env.example` exists
-- `unit-DESIGN_WIKI-discovery-termination` | pending | awaiting content review
-- `unit-DESIGN_WIKI-fence-contract` | pending | awaiting content review
-- `unit-DESIGN_WIKI-migration-procedure` | pending | awaiting content review
-- `unit-DESIGN_WIKI-section-granularity` | pending | awaiting content review
-- `unit-DESIGN_WIKI-spine-write-point` | pending | awaiting content review
+- `unit-DESIGN_WIKI-discovery-termination` | current | repo.path.exists confirms `portal/platform/wiki/migration.py` exists in the checkout
+- `unit-DESIGN_WIKI-fence-contract` | current | repo.path.exists confirms `portal/platform/wiki/migration.py` exists in the checkout
+- `unit-DESIGN_WIKI-migration-procedure` | current | repo.path.exists confirms `portal/platform/inference/sync_config.py` exists in the checkout
+- `unit-DESIGN_WIKI-section-granularity` | current | repo.path.exists confirms `portal/platform/wiki/adapters/seed_facts.py` exists in the checkout
+- `unit-DESIGN_WIKI-spine-write-point` | current | repo.path.exists confirms `portal/platform/inference/sync_config.py` exists in the checkout
 - `unit-HOWTO-1-quick-start` | current | source path `launch.sh` exists
 - `unit-HOWTO-10-music-generation` | current | code symbol `minimax_generate` exists in `portal/modules/media/tools/music_minimax_mcp.py`
 - `unit-HOWTO-11-text-to-speech` | current | code symbol `list_voices` exists in `scripts/mlx-speech.py`
@@ -124,14 +124,14 @@ Completed decisions: 602; pending: 131.
 - `unit-T1610-signature` | current | SPL detection data contains technique key `T1610`
 - `unit-T1611-signature` | current | SPL detection data contains technique key `T1611`
 - `unit-T1621-signature` | current | SPL detection data contains technique key `T1621`
-- `unit-acceptance-runner` | pending | awaiting content review
-- `unit-agent-loop-agent-loop-platform-core` | pending | awaiting content review
-- `unit-agent-loop-consumers` | pending | awaiting content review
-- `unit-agent-loop-contracts-the-key-modules-implement` | pending | awaiting content review
-- `unit-agent-loop-discipline-borrowed-from-the-campaign-supervisor` | pending | awaiting content review
-- `unit-agent-loop-operator-surface` | pending | awaiting content review
-- `unit-agent-loop-record-path-writing-enabled-ci-gated` | pending | awaiting content review
-- `unit-agent-loop-shape` | pending | awaiting content review
+- `unit-acceptance-runner` | current | repo.path.exists confirms `tests/acceptance/runner.py` exists in the checkout
+- `unit-agent-loop-agent-loop-platform-core` | current | repo.path.exists confirms `portal/platform/agent/__init__.py` exists in the checkout
+- `unit-agent-loop-consumers` | current | repo.path.exists confirms `portal/modules/security/core/decision_engine.py` exists in the checkout
+- `unit-agent-loop-contracts-the-key-modules-implement` | current | repo.path.exists confirms `portal/platform/agent/decide.py` exists in the checkout
+- `unit-agent-loop-discipline-borrowed-from-the-campaign-supervisor` | current | repo.path.exists confirms `portal/platform/agent/decide.py` exists in the checkout
+- `unit-agent-loop-operator-surface` | current | repo.path.exists confirms `portal/platform/inference/cli/agent.py` exists in the checkout
+- `unit-agent-loop-record-path-writing-enabled-ci-gated` | current | repo.path.exists confirms `portal/platform/agent/writeback.py` exists in the checkout
+- `unit-agent-loop-shape` | current | repo.path.exists confirms `portal/platform/agent/decide.py` exists in the checkout
 - `unit-alerts-1-enable-notifications` | current | repo.path.exists confirms `.env.example` exists in the checkout
 - `unit-alerts-3-restart-the-pipeline` | current | repo.path.exists confirms `deploy/portal-5/docker-compose.yml` exists in the checkout
 - `unit-alerts-alert-thresholds` | current | repo.path.exists confirms `portal/platform/inference/notifications/dispatcher.py` exists in the checkout
@@ -153,7 +153,7 @@ Completed decisions: 602; pending: 131.
 - `unit-alerts-timezone-for-the-schedule-default-utc` | current | repo.path.exists confirms `portal/platform/inference/notifications/scheduler.py` exists in the checkout
 - `unit-alerts-troubleshooting` | current | repo.path.exists confirms `portal/platform/inference/router/handlers.py` exists in the checkout
 - `unit-alerts-webhook` | current | repo.path.exists confirms `portal/platform/inference/notifications/channels/webhook.py` exists in the checkout
-- `unit-archive-v5-ladder-analysis` | pending | awaiting content review
+- `unit-archive-v5-ladder-analysis` | historical | dated, resolved, or superseded record retained for history
 - `unit-backup-restore-1-open-webui-data-critical` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
 - `unit-backup-restore-1-open-webui-data` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
 - `unit-backup-restore-2-configuration-files` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
@@ -186,19 +186,19 @@ Completed decisions: 602; pending: 131.
 - `unit-backup-restore-what-not-to-back-up` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
 - `unit-backup-restore-what-to-back-up` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
 - `unit-backup-restore-with-compression-faster-for-large-volumes` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
-- `unit-bench-candidates-v10` | pending | awaiting content review
-- `unit-bench-mlx-hf` | pending | awaiting content review
-- `unit-bench-security` | pending | awaiting content review
-- `unit-blue-orchestration-v2-capture-gap` | pending | awaiting content review
-- `unit-blue-orchestration-v3-council-of-agreement` | pending | awaiting content review
+- `unit-bench-candidates-v10` | current | repo.path.exists confirms `tests/benchmarks/bench_candidates_v10.py` exists in the checkout
+- `unit-bench-mlx-hf` | current | repo.path.exists confirms `tests/benchmarks/bench_mlx_hf.py` exists in the checkout
+- `unit-bench-security` | current | repo.path.exists confirms `tests/benchmarks/bench_security.py` exists in the checkout
+- `unit-blue-orchestration-v2-capture-gap` | historical | dated, resolved, or superseded record retained for history
+- `unit-blue-orchestration-v3-council-of-agreement` | historical | dated, resolved, or superseded record retained for history
 - `unit-capability-binresearch` | current | MCP fleet probe includes `binresearch`
 - `unit-capability-browser` | current | MCP fleet probe includes `browser`
-- `unit-capability-cad-render` | pending | awaiting content review
+- `unit-capability-cad-render` | current | repo.path.exists confirms `config/inference/tools_manifest_cad_render_mcp.json` exists in the checkout
 - `unit-capability-context7` | current | MCP fleet probe includes `context7`
 - `unit-capability-detections` | current | MCP fleet probe includes `detections`
 - `unit-capability-docker` | current | MCP fleet probe includes `docker`
 - `unit-capability-documents` | current | MCP fleet probe includes `documents`
-- `unit-capability-eg2-embedding` | pending | awaiting content review
+- `unit-capability-eg2-embedding` | current | repo.path.exists confirms `portal/platform/embedding/__init__.py` exists in the checkout
 - `unit-capability-execution` | current | MCP fleet probe includes `execution`
 - `unit-capability-fetch` | current | MCP fleet probe includes `fetch`
 - `unit-capability-filesystem` | current | MCP fleet probe includes `filesystem`
@@ -206,31 +206,31 @@ Completed decisions: 602; pending: 131.
 - `unit-capability-memory` | current | mcp.fleet.ids contains `memory` in config/portal.yaml
 - `unit-capability-mflux` | current | mcp.fleet.ids contains `mflux` in config/portal.yaml
 - `unit-capability-mitre` | current | mcp.fleet.ids contains `mitre` in config/portal.yaml
-- `unit-capability-mlx-transcribe` | pending | awaiting content review
+- `unit-capability-mlx-transcribe` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
 - `unit-capability-music-minimax` | current | mcp.fleet.ids contains `music-minimax` in config/portal.yaml
 - `unit-capability-pipeline` | current | mcp.fleet.ids contains `pipeline` in config/portal.yaml
 - `unit-capability-proxmox` | current | mcp.fleet.ids contains `proxmox` in config/portal.yaml
-- `unit-capability-research` | pending | awaiting content review
-- `unit-capability-security` | pending | awaiting content review
-- `unit-capability-serena` | pending | awaiting content review
-- `unit-capability-tts` | pending | awaiting content review
-- `unit-capability-turn-trace` | pending | awaiting content review
-- `unit-capability-video-mlx` | pending | awaiting content review
-- `unit-capability-whisper` | pending | awaiting content review
-- `unit-capability-wiki` | pending | awaiting content review
-- `unit-channels-dispatcher` | pending | awaiting content review
-- `unit-channels-namespace` | pending | awaiting content review
-- `unit-channels-slack-adapter` | pending | awaiting content review
-- `unit-channels-telegram-adapter` | pending | awaiting content review
-- `unit-cluster-scale-portal-5-cluster-scale-out-guide` | pending | awaiting content review
-- `unit-cluster-scale-stage-1-stage-2-add-a-second-mac-studio` | pending | awaiting content review
-- `unit-cluster-scale-stage-3-vllm-for-70b-models` | pending | awaiting content review
-- `unit-cluster-scale-stage-4-5-specialized-model-groups` | pending | awaiting content review
-- `unit-code-portal` | pending | awaiting content review
-- `unit-code-portal_channels` | pending | awaiting content review
-- `unit-code-portal_wiki` | pending | awaiting content review
-- `unit-code-scripts` | pending | awaiting content review
-- `unit-code-tests` | pending | awaiting content review
+- `unit-capability-research` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-capability-security` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-capability-serena` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-capability-tts` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-capability-turn-trace` | current | repo.path.exists confirms `deploy/portal-5/docker-compose.yml` exists in the checkout
+- `unit-capability-video-mlx` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-capability-whisper` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-capability-wiki` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-channels-dispatcher` | current | repo.path.exists confirms `portal_channels/dispatcher.py` exists in the checkout
+- `unit-channels-namespace` | current | repo.path.exists confirms `portal_channels/__init__.py` exists in the checkout
+- `unit-channels-slack-adapter` | current | repo.path.exists confirms `portal_channels/slack/bot.py` exists in the checkout
+- `unit-channels-telegram-adapter` | current | repo.path.exists confirms `portal_channels/telegram/bot.py` exists in the checkout
+- `unit-cluster-scale-portal-5-cluster-scale-out-guide` | current | repo.path.exists confirms `config/backends.yaml` exists in the checkout
+- `unit-cluster-scale-stage-1-stage-2-add-a-second-mac-studio` | current | repo.path.exists confirms `config/backends.yaml` exists in the checkout
+- `unit-cluster-scale-stage-3-vllm-for-70b-models` | current | repo.path.exists confirms `config/backends.yaml` exists in the checkout
+- `unit-cluster-scale-stage-4-5-specialized-model-groups` | current | repo.path.exists confirms `config/backends.yaml` exists in the checkout
+- `unit-code-portal` | current | repo.path.exists confirms `portal/conftest.py` exists in the checkout
+- `unit-code-portal_channels` | current | repo.path.exists confirms `portal_channels/__init__.py` exists in the checkout
+- `unit-code-portal_wiki` | current | repo.path.exists confirms `portal_wiki/__init__.py` exists in the checkout
+- `unit-code-scripts` | current | repo.path.exists confirms `scripts/_archive/analyze_bench_v5.py` exists in the checkout
+- `unit-code-tests` | current | repo.path.exists confirms `tests/__init__.py` exists in the checkout
 - `unit-compliance-config-workspace-pointers` | current | repo.path.exists confirms `portal/modules/compliance/config/__init__.py` exists in the checkout
 - `unit-compliance-conversation-window` | current | repo.path.exists confirms `portal/modules/compliance/core/conversation_window.py` exists in the checkout
 - `unit-compliance-dual-document` | current | repo.path.exists confirms `portal/modules/compliance/core/dual_document.py` exists in the checkout
@@ -250,7 +250,7 @@ Completed decisions: 602; pending: 131.
 - `unit-surface-compliance-reading-truth` | current | repo.path.exists confirms `scripts/compliance/truth/*.py` exists in the checkout
 - `unit-compliance-technical-basis-coverage` | current | repo.path.exists confirms `scripts/compliance/verify_technical_basis_coverage.py` exists in the checkout
 - `unit-compliance-transport-dialects` | current | repo.path.exists confirms `portal/modules/compliance/core/transport_dialects.py` exists in the checkout
-- `unit-config-file-roles` | pending | awaiting content review
+- `unit-config-file-roles` | current | repo.path.exists confirms `config/backends.yaml` exists in the checkout
 - `unit-corpus-injection-a-canned-detection-firing-on-corpus-data-t1558-004-as-rep-roasting-verbatim-spl` | current | repo.path.exists confirms `scripts/corpus_ingest.py` exists in the checkout
 - `unit-corpus-injection-always-dry-run-first-it-prints-exact-per-sourcetype-volume-without-injecting` | current | repo.path.exists confirms `scripts/corpus_ingest.py` exists in the checkout
 - `unit-corpus-injection-confirm-the-live-triage-window-is-still-clean` | current | repo.path.exists confirms `scripts/corpus_ingest.py` exists in the checkout
@@ -269,20 +269,20 @@ Completed decisions: 602; pending: 131.
 - `unit-corpus-injection-verify-lane-b` | current | repo.path.exists confirms `scripts/corpus_ingest.py` exists in the checkout
 - `unit-corpus-injection-verify-lane-c` | current | repo.path.exists confirms `scripts/caldera_emulate.py` exists in the checkout
 - `unit-corpus-injection-why-corpus-data-coexists-safely-with-bench-runs` | current | repo.path.exists confirms `scripts/corpus_ingest.py` exists in the checkout
-- `unit-design-client-disconnect-cancellation` | pending | awaiting content review
-- `unit-design-embedding-consumers-harness` | pending | awaiting content review
-- `unit-design-ollama-native-dispatch` | pending | awaiting content review
-- `unit-design-omlx-dual-backend-plumbing` | pending | awaiting content review
-- `unit-design-spine-drift-census` | pending | awaiting content review
-- `unit-design-wiki-archive-mechanism` | pending | awaiting content review
-- `unit-engine-prefix-cache-20261021` | pending | awaiting content review
-- `unit-fixture-capability-context-sample` | pending | awaiting content review
-- `unit-general-config-workspace-pointers` | pending | awaiting content review
-- `unit-general-fast-deep-workspaces` | pending | awaiting content review
-- `unit-general-module-vendored-tools` | pending | awaiting content review
-- `unit-general-tools-vendored-fleet` | pending | awaiting content review
-- `unit-host-log-rotation` | pending | awaiting content review
-- `unit-inference-router-pipe` | pending | awaiting content review
+- `unit-design-client-disconnect-cancellation` | current | repo.path.exists confirms `portal/modules/compliance/core/cancellation.py` exists in the checkout
+- `unit-design-embedding-consumers-harness` | current | repo.path.exists confirms `tests/data/embedding_consumers/csf2_to_80053r5_official.json` exists in the checkout
+- `unit-design-ollama-native-dispatch` | current | repo.path.exists confirms `config/engine_contract.yaml` exists in the checkout
+- `unit-design-omlx-dual-backend-plumbing` | current | repo.path.exists confirms `config/backends.yaml` exists in the checkout
+- `unit-design-spine-drift-census` | current | repo.path.exists confirms `portal/modules/compliance/plugin.py` exists in the checkout
+- `unit-design-wiki-archive-mechanism` | current | repo.path.exists confirms `portal/platform/wiki/archive.py` exists in the checkout
+- `unit-engine-prefix-cache-20261021` | historical | dated, resolved, or superseded record retained for history
+- `unit-fixture-capability-context-sample` | current | repo.path.exists confirms `tests/fixtures/capability_context/sample_module.py` exists in the checkout
+- `unit-general-config-workspace-pointers` | current | repo.path.exists confirms `portal/modules/general/config/__init__.py` exists in the checkout
+- `unit-general-fast-deep-workspaces` | current | repo.path.exists confirms `config/backends.yaml` exists in the checkout
+- `unit-general-module-vendored-tools` | current | repo.path.exists confirms `portal/modules/general/__init__.py` exists in the checkout
+- `unit-general-tools-vendored-fleet` | current | repo.path.exists confirms `portal/modules/general/tools/__init__.py` exists in the checkout
+- `unit-host-log-rotation` | current | repo.path.exists confirms `.env.example` exists in the checkout
+- `unit-inference-router-pipe` | current | repo.path.exists confirms `portal/platform/inference/router_pipe.py` exists in the checkout
 - `unit-known-issues-known-issues` | current | repo.path.exists confirms `portal/platform/wiki/render.py` exists in the checkout
 - `unit-known-limitations-70b-dense-models-unusable-for-daily-routing-on-m4-pro-64gb` | historical | dated, retired, or unconfigured-model finding retained for history
 - `unit-known-limitations-acestep15-mlx-backend` | current | code symbol `ace_generate` exists in `portal/modules/media/tools/music_ace_mcp.py`
@@ -394,7 +394,7 @@ Completed decisions: 602; pending: 131.
 - `unit-mcp-dev-tooling-tools` | current | repo.path.exists confirms `portal/platform/mcp_host/pipeline_mcp.py` exists in the checkout
 - `unit-mcp-dev-tooling-what-opencode-gets` | current | repo.path.exists confirms `opencode.jsonc` exists in the checkout
 - `unit-mcp-dev-tooling-workspace-selection` | current | repo.path.exists confirms `opencode.jsonc` exists in the checkout
-- `unit-memory-mcp-lancedb` | pending | awaiting content review
+- `unit-memory-mcp-lancedb` | current | repo.path.exists confirms `portal/platform/memory/graph_memory.py` exists in the checkout
 - `unit-model-catalog-alicankiraz0-cybersecurity-baronllm-offensive-security-llm-q6-k-gguf-dropped-hf-id-only-see-baronllm-q6-k-below-for-the-fleet-entry` | historical | model ID absent from current configuration; retained as catalog history
 - `unit-model-catalog-baronllm-q6-k` | historical | model ID absent from current configuration; retained as catalog history
 - `unit-model-catalog-blue-red-candidate-batch-evaluated-2026-07-03-none-promoted` | historical | model ID absent from current configuration; retained as catalog history
@@ -550,7 +550,7 @@ Completed decisions: 602; pending: 131.
 - `unit-model-catalog-sylink-sylink-8b` | historical | model ID absent from current configuration; retained as catalog history
 - `unit-model-catalog-tongyi-deepresearch-30b-a3b-abliterated-4bit` | current | models.configured contains `Tongyi-DeepResearch-30B-A3B-abliterated-4bit` in committed config
 - `unit-model-catalog-vulnllm-r-7b-4bit` | current | models.configured contains `VulnLLM-R-7B-4bit` in committed config
-- `unit-ollama-native-passthrough` | pending | awaiting content review
+- `unit-ollama-native-passthrough` | current | repo.path.exists confirms `.env.example` exists in the checkout
 - `unit-p5-roadmap-future-considerations-not-yet-implemented` | current | repo.path.exists confirms `portal/platform/inference/config.py` exists in the checkout
 - `unit-p5-roadmap-p5-fut-004-webhook-based-event-notifications` | historical | completed, superseded, or retired roadmap decision retained for history
 - `unit-p5-roadmap-p5-fut-006-llm-based-intent-routing` | historical | completed, superseded, or retired roadmap decision retained for history
@@ -563,24 +563,24 @@ Completed decisions: 602; pending: 131.
 - `unit-p5-roadmap-score-history` | historical | completed, superseded, or retired roadmap decision retained for history
 - `unit-p5-roadmap-speculative-decoding-mtp-retired-commit-3a0c58e` | historical | completed, superseded, or retired roadmap decision retained for history
 - `unit-p5-roadmap-workspace-clean-utility-low-priority` | current | repo.path.exists confirms `launch.sh` exists in the checkout
-- `unit-performance-backend-candidate-cache` | pending | awaiting content review
-- `unit-performance-benchmark-client-reuse` | pending | awaiting content review
-- `unit-performance-benchmarking` | pending | awaiting content review
-- `unit-performance-keyword-cache` | pending | awaiting content review
-- `unit-performance-llm-router-warmup-at-startup` | pending | awaiting content review
-- `unit-performance-p7-perf-pipeline-optimizations` | pending | awaiting content review
-- `unit-performance-shared-http-client` | pending | awaiting content review
-- `unit-persona-matrix-ci-baseline-lifecycle` | pending | awaiting content review
-- `unit-persona-matrix-ci-big-model-coverage` | pending | awaiting content review
-- `unit-persona-matrix-ci-ci-vs-local-run-boundary` | pending | awaiting content review
-- `unit-persona-matrix-ci-mlx-coverage-policy` | pending | awaiting content review
-- `unit-persona-matrix-ci-out-of-scope-for-ci` | pending | awaiting content review
-- `unit-persona-matrix-ci-persona-matrix-ci-operations` | pending | awaiting content review
-- `unit-persona-matrix-ci-pipeline-shape` | pending | awaiting content review
-- `unit-persona-matrix-ci-regression-triage-workflow` | pending | awaiting content review
-- `unit-platform-storage-config-facade` | pending | awaiting content review
-- `unit-portal-conftest` | pending | awaiting content review
-- `unit-portal-mcp-namespace` | pending | awaiting content review
+- `unit-performance-backend-candidate-cache` | current | repo.path.exists confirms `portal/platform/inference/cluster_backends.py` exists in the checkout
+- `unit-performance-benchmark-client-reuse` | current | repo.path.exists confirms `tests/benchmarks/bench/measure.py` exists in the checkout
+- `unit-performance-benchmarking` | current | repo.path.exists confirms `tests/benchmarks/bench/cli.py` exists in the checkout
+- `unit-performance-keyword-cache` | current | repo.path.exists confirms `portal/platform/inference/router/routing.py` exists in the checkout
+- `unit-performance-llm-router-warmup-at-startup` | current | repo.path.exists confirms `portal/platform/inference/router/lifespan.py` exists in the checkout
+- `unit-performance-p7-perf-pipeline-optimizations` | current | repo.path.exists confirms `portal/platform/inference/cluster_backends.py` exists in the checkout
+- `unit-performance-shared-http-client` | current | repo.path.exists confirms `portal/platform/inference/router/lifespan.py` exists in the checkout
+- `unit-persona-matrix-ci-baseline-lifecycle` | current | repo.path.exists confirms `.github/workflows/persona_matrix_nightly.yml` exists in the checkout
+- `unit-persona-matrix-ci-big-model-coverage` | current | repo.path.exists confirms `.github/workflows/persona_matrix_nightly.yml` exists in the checkout
+- `unit-persona-matrix-ci-ci-vs-local-run-boundary` | current | repo.path.exists confirms `.github/workflows/persona_matrix_nightly.yml` exists in the checkout
+- `unit-persona-matrix-ci-mlx-coverage-policy` | current | repo.path.exists confirms `.github/workflows/persona_matrix_nightly.yml` exists in the checkout
+- `unit-persona-matrix-ci-out-of-scope-for-ci` | current | repo.path.exists confirms `portal/modules/eval/persona_matrix/_common.py` exists in the checkout
+- `unit-persona-matrix-ci-persona-matrix-ci-operations` | current | repo.path.exists confirms `.github/workflows/persona_matrix_nightly.yml` exists in the checkout
+- `unit-persona-matrix-ci-pipeline-shape` | current | repo.path.exists confirms `.github/workflows/persona_matrix_nightly.yml` exists in the checkout
+- `unit-persona-matrix-ci-regression-triage-workflow` | current | repo.path.exists confirms `.github/workflows/persona_matrix_nightly.yml` exists in the checkout
+- `unit-platform-storage-config-facade` | current | repo.path.exists confirms `portal/platform/data_loader.py` exists in the checkout
+- `unit-portal-conftest` | current | repo.path.exists confirms `portal/conftest.py` exists in the checkout
+- `unit-portal-mcp-namespace` | current | repo.path.exists confirms `portal_mcp/__init__.py` exists in the checkout
 - `unit-portal5-acceptance-execute-v9-autonomous-monitoring-loop-required-default` | current | repo.path.exists confirms `tests/acceptance/cli.py` exists in the checkout
 - `unit-portal5-acceptance-execute-v9-coverage-current` | current | repo.path.exists confirms `tests/acceptance/s03_routing.py` exists in the checkout
 - `unit-portal5-acceptance-execute-v9-failure-playbook` | current | repo.path.exists confirms `tests/acceptance/runner.py` exists in the checkout
@@ -642,30 +642,30 @@ Completed decisions: 602; pending: 131.
 - `unit-readme-unit-test-ci` | current | repo.path.exists confirms `.github/workflows/unit-tests.yml` exists in the checkout
 - `unit-readme-what-starts-automatically` | current | repo.path.exists confirms `deploy/portal-5/docker-compose.yml` exists in the checkout
 - `unit-readme-workspaces` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
-- `unit-router-streaming` | pending | awaiting content review
-- `unit-router-test-context-inject` | pending | awaiting content review
-- `unit-router-test-correlation` | pending | awaiting content review
-- `unit-routing-build-corpus` | pending | awaiting content review
-- `unit-routing-measure` | pending | awaiting content review
-- `unit-routing-security-operator-selected` | pending | awaiting content review
-- `unit-scripts-alias_census` | pending | awaiting content review
-- `unit-scripts-mlx-speech` | pending | awaiting content review
-- `unit-scripts-mlx-transcribe` | pending | awaiting content review
-- `unit-scripts-openwebui_init` | pending | awaiting content review
-- `unit-scripts-portal5-powermetrics` | pending | awaiting content review
-- `unit-scripts-spine_census` | pending | awaiting content review
-- `unit-sec-core-cloud_bench` | pending | awaiting content review
-- `unit-sec-core-cred_bench` | pending | awaiting content review
-- `unit-sec-core-decision_engine` | pending | awaiting content review
-- `unit-sec-tests-test_security_mcp` | pending | awaiting content review
-- `unit-security-capability-index` | pending | awaiting content review
-- `unit-security-cli-pass-through` | pending | awaiting content review
-- `unit-security-combined-corpus-validation` | pending | awaiting content review
-- `unit-security-commands-namespace` | pending | awaiting content review
-- `unit-security-commands-run` | pending | awaiting content review
-- `unit-security-config-reserved` | pending | awaiting content review
-- `unit-security-knowledge-surface` | pending | awaiting content review
-- `unit-security-tools-mcp-surface` | pending | awaiting content review
+- `unit-router-streaming` | current | repo.path.exists confirms `portal/platform/inference/ollama_native.py` exists in the checkout
+- `unit-router-test-context-inject` | current | repo.path.exists confirms `tests/unit/router/test_context_inject.py` exists in the checkout
+- `unit-router-test-correlation` | current | repo.path.exists confirms `tests/unit/router/test_correlation.py` exists in the checkout
+- `unit-routing-build-corpus` | current | repo.path.exists confirms `tests/routing/build_corpus.py` exists in the checkout
+- `unit-routing-measure` | current | repo.path.exists confirms `tests/routing/measure.py` exists in the checkout
+- `unit-routing-security-operator-selected` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-scripts-alias_census` | historical | dated, resolved, or superseded record retained for history
+- `unit-scripts-mlx-speech` | current | repo.path.exists confirms `scripts/mlx-speech.py` exists in the checkout
+- `unit-scripts-mlx-transcribe` | current | repo.path.exists confirms `scripts/mlx-transcribe.py` exists in the checkout
+- `unit-scripts-openwebui_init` | current | repo.path.exists confirms `scripts/openwebui_init.py` exists in the checkout
+- `unit-scripts-portal5-powermetrics` | current | repo.path.exists confirms `scripts/portal5-powermetrics.py` exists in the checkout
+- `unit-scripts-spine_census` | current | repo.path.exists confirms `scripts/spine_census.py` exists in the checkout
+- `unit-sec-core-cloud_bench` | current | repo.path.exists confirms `portal/modules/security/core/cloud_bench.py` exists in the checkout
+- `unit-sec-core-cred_bench` | current | repo.path.exists confirms `portal/modules/security/core/cred_bench.py` exists in the checkout
+- `unit-sec-core-decision_engine` | current | repo.path.exists confirms `portal/modules/security/core/decision_engine.py` exists in the checkout
+- `unit-sec-tests-test_security_mcp` | current | repo.path.exists confirms `portal/modules/security/tools/security_mcp.py` exists in the checkout
+- `unit-security-capability-index` | current | repo.path.exists confirms `portal/modules/security/core/capability/__init__.py` exists in the checkout
+- `unit-security-cli-pass-through` | current | repo.path.exists confirms `portal/modules/security/cli/__init__.py` exists in the checkout
+- `unit-security-combined-corpus-validation` | current | repo.path.exists confirms `config/security_corpus.yaml` exists in the checkout
+- `unit-security-commands-namespace` | current | repo.path.exists confirms `portal/modules/security/core/commands/__init__.py` exists in the checkout
+- `unit-security-commands-run` | current | repo.path.exists confirms `portal/modules/security/core/commands/run.py` exists in the checkout
+- `unit-security-config-reserved` | current | repo.path.exists confirms `portal/modules/security/config/__init__.py` exists in the checkout
+- `unit-security-knowledge-surface` | current | repo.path.exists confirms `portal/modules/security/knowledge/__init__.py` exists in the checkout
+- `unit-security-tools-mcp-surface` | current | repo.path.exists confirms `portal/modules/security/tools/__init__.py` exists in the checkout
 - `unit-surface-acceptance` | current | repo.path.exists confirms `tests/acceptance/*.py` exists in the checkout
 - `unit-surface-archive-engine-h2h` | historical | documents a retired code surface retained only under scripts/_archive
 - `unit-surface-archive-mlx` | historical | documents a retired code surface retained only under scripts/_archive
@@ -700,20 +700,20 @@ Completed decisions: 602; pending: 131.
 - `unit-surface-uat-catalog` | current | repo.path.exists confirms `tests/uat_catalog/*.py` exists in the checkout
 - `unit-surface-uat` | current | repo.path.exists confirms `tests/uat/*.py` exists in the checkout
 - `unit-surface-wiki-adapters` | current | repo.path.exists confirms `portal/platform/wiki/adapters/*.py` exists in the checkout
-- `unit-tests-frontend-test-reasoning-display` | pending | awaiting content review
-- `unit-tests-frontends-namespace` | pending | awaiting content review
-- `unit-tests-integration-wiki-cycle` | pending | awaiting content review
-- `unit-tests-memory-guard` | pending | awaiting content review
-- `unit-tests-scripts-regen-section-table` | pending | awaiting content review
-- `unit-tests-unit-test-security-corpus-contract` | pending | awaiting content review
-- `unit-tests-unit-test-wiki-search-ranking` | pending | awaiting content review
-- `unit-uat-config` | pending | awaiting content review
-- `unit-uat-health` | pending | awaiting content review
-- `unit-uat-init` | pending | awaiting content review
-- `unit-uat-lifecycle` | pending | awaiting content review
-- `unit-uat-owui_api` | pending | awaiting content review
-- `unit-uat-results` | pending | awaiting content review
-- `unit-uat-state` | pending | awaiting content review
+- `unit-tests-frontend-test-reasoning-display` | current | repo.path.exists confirms `tests/frontend/test_reasoning_display.py` exists in the checkout
+- `unit-tests-frontends-namespace` | current | repo.path.exists confirms `tests/frontends/__init__.py` exists in the checkout
+- `unit-tests-integration-wiki-cycle` | current | repo.path.exists confirms `tests/integration/test_wiki_self_improving_cycle.py` exists in the checkout
+- `unit-tests-memory-guard` | current | repo.path.exists confirms `tests/memory_guard.py` exists in the checkout
+- `unit-tests-scripts-regen-section-table` | current | repo.path.exists confirms `tests/scripts/regen_section_table.py` exists in the checkout
+- `unit-tests-unit-test-security-corpus-contract` | current | repo.path.exists confirms `tests/unit/test_security_corpus_contract.py` exists in the checkout
+- `unit-tests-unit-test-wiki-search-ranking` | current | repo.path.exists confirms `tests/unit/test_wiki_search_ranking.py` exists in the checkout
+- `unit-uat-config` | current | repo.path.exists confirms `tests/uat/config.py` exists in the checkout
+- `unit-uat-health` | current | repo.path.exists confirms `tests/uat/health.py` exists in the checkout
+- `unit-uat-init` | current | repo.path.exists confirms `tests/uat/__init__.py` exists in the checkout
+- `unit-uat-lifecycle` | current | repo.path.exists confirms `tests/uat/lifecycle.py` exists in the checkout
+- `unit-uat-owui_api` | current | repo.path.exists confirms `tests/uat/owui_api.py` exists in the checkout
+- `unit-uat-results` | current | repo.path.exists confirms `tests/uat/results.py` exists in the checkout
+- `unit-uat-state` | current | repo.path.exists confirms `tests/uat/state.py` exists in the checkout
 - `unit-user-guide-cross-session-memory` | current | code symbol `ENABLE_MEMORY_FEATURE` exists in `deploy/portal-5/docker-compose.yml`
 - `unit-user-guide-getting-access` | current | code symbol `ENABLE_SIGNUP` exists in `deploy/portal-5/docker-compose.yml`
 - `unit-user-guide-how-it-works` | current | code symbol `CHUNK_SIZE` exists in `deploy/portal-5/docker-compose.yml`
@@ -724,17 +724,17 @@ Completed decisions: 602; pending: 131.
 - `unit-user-guide-tools-mcp-servers` | current | code symbol `create_word_document` exists in `portal/modules/documents/tools/document_mcp.py`
 - `unit-user-guide-uploading-documents` | current | code symbol `CHUNK_SIZE` exists in `deploy/portal-5/docker-compose.yml`
 - `unit-user-guide-workspaces` | current | code symbol `model_hint` exists in `config/portal.yaml`
-- `unit-wfe-loop-attribution-protocol` | pending | awaiting content review
-- `unit-wfe-workspace-fitness` | pending | awaiting content review
-- `unit-wiki-adapter-modules` | pending | awaiting content review
-- `unit-wiki-audit` | pending | awaiting content review
-- `unit-wiki-interfaces` | pending | awaiting content review
-- `unit-wiki-maintain` | pending | awaiting content review
-- `unit-wiki-provenance-ledger` | pending | awaiting content review
-- `unit-wiki-quality` | pending | awaiting content review
-- `unit-wiki-schema` | pending | awaiting content review
-- `unit-wiki-spine-coverage-gate` | pending | awaiting content review
-- `unit-wiki-store` | pending | awaiting content review
-- `unit-wiki-tests-migration` | pending | awaiting content review
-- `unit-wiki-tests-render` | pending | awaiting content review
-- `unit-wiki-writeback` | pending | awaiting content review
+- `unit-wfe-loop-attribution-protocol` | current | repo.path.exists confirms `scripts/saluki_rule5_reverify.py` exists in the checkout
+- `unit-wfe-workspace-fitness` | current | repo.path.exists confirms `config/model_card_expectations.yaml` exists in the checkout
+- `unit-wiki-adapter-modules` | current | repo.path.exists confirms `portal/platform/wiki/adapters/modules.py` exists in the checkout
+- `unit-wiki-audit` | current | repo.path.exists confirms `portal/platform/wiki/audit.py` exists in the checkout
+- `unit-wiki-interfaces` | current | repo.path.exists confirms `portal/platform/wiki/interfaces.py` exists in the checkout
+- `unit-wiki-maintain` | current | repo.path.exists confirms `portal/modules/security/plugin.py` exists in the checkout
+- `unit-wiki-provenance-ledger` | current | repo.path.exists confirms `portal/platform/wiki/provenance_ledger.py` exists in the checkout
+- `unit-wiki-quality` | current | repo.path.exists confirms `portal/platform/wiki/quality.py` exists in the checkout
+- `unit-wiki-schema` | current | repo.path.exists confirms `portal/platform/wiki/schema.py` exists in the checkout
+- `unit-wiki-spine-coverage-gate` | current | repo.path.exists confirms `config/spine_surfaces.yaml` exists in the checkout
+- `unit-wiki-store` | current | repo.path.exists confirms `portal/platform/wiki/store.py` exists in the checkout
+- `unit-wiki-tests-migration` | current | repo.path.exists confirms `portal/platform/wiki/tests/test_migration.py` exists in the checkout
+- `unit-wiki-tests-render` | current | repo.path.exists confirms `portal/platform/wiki/tests/test_render.py` exists in the checkout
+- `unit-wiki-writeback` | current | repo.path.exists confirms `portal/platform/wiki/writeback.py` exists in the checkout

@@ -9,13 +9,15 @@ sources:
 - type: code
   path: portal/platform/data_loader.py
   commit: 4c3d1e89
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/data_loader.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - platform
 - config
-
 ---
 
 The platform storage package is the stable re-export boundary over Portal's

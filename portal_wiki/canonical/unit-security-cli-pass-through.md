@@ -10,14 +10,16 @@ sources:
 - type: code
   path: portal/platform/plugins.py
   commit: 4c3d1e89
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/cli/__init__.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - module
 - security
 - cli
-
 ---
 
 The platform discovers `portal.modules.security.plugin` and calls its

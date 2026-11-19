@@ -29,14 +29,16 @@ sources:
   path: tests/unit/test_omlx_backend.py
 - type: code
   path: tests/unit/test_seed_facts.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/backends.yaml
+  equals: true
 confidence: high
 tags:
 - design
 - inference
 - omlx
 - verified-v1
-
 ---
 
 # oMLX dual-backend plumbing (Phase 1 / B1, landed 2026-08-02)

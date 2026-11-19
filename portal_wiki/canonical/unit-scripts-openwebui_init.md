@@ -6,12 +6,14 @@ sources:
 - type: code
   path: scripts/openwebui_init.py
   commit: 94ecf393
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/openwebui_init.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - scripts
-
 ---
 
 Runs inside the Open WebUI init container after OWUI is healthy: admin account creation (idempotent), persona seeding, and workspace preset installation.

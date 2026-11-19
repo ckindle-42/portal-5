@@ -6,12 +6,14 @@ sources:
 - type: code
   path: portal/platform/wiki/interfaces.py
   commit: e5c013b3dfd9e466a1964ca4832ddcc379b95488
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/wiki/interfaces.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - wiki
-
 ---
 
 The interfaces module defines the stack-agnostic contracts the wiki engine

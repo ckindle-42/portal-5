@@ -6,13 +6,15 @@ sources:
 - type: code
   path: tests/uat/config.py
   commit: d7dcc96a
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/uat/config.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - uat
-
 ---
 
 The env constants, timeouts, memory thresholds, and result paths for the UAT driver, extracted verbatim from the monolith.

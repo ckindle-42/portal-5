@@ -6,12 +6,14 @@ sources:
 - type: code
   path: portal/platform/wiki/provenance_ledger.py
   commit: e5c013b3dfd9e466a1964ca4832ddcc379b95488
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/wiki/provenance_ledger.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - wiki
-
 ---
 
 The provenance ledger is an append-only JSONL audit trail

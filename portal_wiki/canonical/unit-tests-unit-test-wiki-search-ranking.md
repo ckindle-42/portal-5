@@ -5,21 +5,23 @@ title: Wiki search top-hit regression gate
 sources:
 - type: code
   path: tests/unit/test_wiki_search_ranking.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/unit/test_wiki_search_ranking.py
+  equals: true
 confidence: high
 tags:
 - search
 - test
 - verified-v1
 - wiki
-
 ---
 
 ## What
 
 `tests/unit/test_wiki_search_ranking.py` checks the Phase 7 defect directly:
 `wiki_search("workspace routing")` must put `unit-surface-router` first and
-must not place `unit-acceptance-s03_routing` in the top two. Search ranks by
+must not place the archived S03 routing acceptance record in the top two. Search ranks by
 keyword score plus a small kind tier and a verification boost, and demotes
 acceptance/test-section units by id pattern.
 

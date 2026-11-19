@@ -5,11 +5,13 @@ title: "PERFORMANCE \u2014 Keyword Cache"
 sources:
 - type: code
   path: portal/platform/inference/router/routing.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/router/routing.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 The Layer-2 keyword scorer (`_detect_workspace` in `portal/platform/inference/router/routing.py`) ranks the last user message against per-workspace keyword dictionaries. At module import time the router pre-compiles every workspace's keyword dict to lowercase into the module-level `_KEYWORD_CACHE`, a `{workspace_id: {keyword: weight}}` map.

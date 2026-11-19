@@ -5,12 +5,14 @@ title: "AGENT_LOOP \u2014 Operator surface"
 sources:
 - type: code
   path: portal/platform/inference/cli/agent.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/cli/agent.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 The `portal agent` CLI (`portal/platform/inference/cli/agent.py`) is the

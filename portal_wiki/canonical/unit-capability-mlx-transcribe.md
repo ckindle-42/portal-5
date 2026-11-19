@@ -10,13 +10,15 @@ sources:
   path: scripts/mlx-transcribe.py
 - type: code
   path: scripts/native-mcp-service.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/portal.yaml
+  equals: true
 confidence: high
 tags:
 - capability
 - mcp
 - platform
-
 ---
 
 # MLX Transcribe MCP — host-native diarized transcription

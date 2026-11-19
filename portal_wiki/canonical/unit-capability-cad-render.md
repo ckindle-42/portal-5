@@ -16,13 +16,15 @@ sources:
   path: portal/modules/cad/tools/b123d_emitter.py
 - type: code
   path: portal/modules/cad/tools/part_plan.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/inference/tools_manifest_cad_render_mcp.json
+  equals: true
 confidence: high
 tags:
 - capability
 - mcp
 - cad
-
 ---
 
 # CAD Render MCP — mesh rendering and CAD conversion

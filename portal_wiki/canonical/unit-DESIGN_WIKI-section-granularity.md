@@ -5,14 +5,16 @@ title: Section-level default granularity, fact-atom only for reuse or volatility
 sources:
 - type: code
   path: portal/platform/wiki/adapters/seed_facts.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/wiki/adapters/seed_facts.py
+  equals: true
 confidence: high
 tags:
 - design
 - granularity
 - verified-v1
 - wiki
-
 ---
 
 A unit maps by default to a doc section -- the chunk a human or agent thinks of as the thing they edit. Finer fact-unit decomposition is reserved for values that earn it: a value reused across more than one doc, or a value independently volatile on its own schedule, such as counts, ports, model IDs, or thresholds. Rationale is the tiebreaker between the two; the aim is the unit best for an agent to manage and easiest for a human to read. Pure fact-atomization of everything is forbidden, because it turns a doc into a flood of unreadable micro-units and is worse for both audiences.

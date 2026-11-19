@@ -6,13 +6,15 @@ sources:
 - type: code
   path: portal_channels/slack/bot.py
   commit: 2fa4b6c3
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal_channels/slack/bot.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - channels
 - slack
-
 ---
 
 The Slack channel adapter lets a workspace persona be reached from Slack —

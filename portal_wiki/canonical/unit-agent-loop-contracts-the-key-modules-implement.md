@@ -7,12 +7,14 @@ sources:
   path: portal/platform/agent/interfaces.py
 - type: code
   path: portal/platform/agent/decide.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/agent/decide.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 The `interfaces.py` protocols are the contracts every module implements to

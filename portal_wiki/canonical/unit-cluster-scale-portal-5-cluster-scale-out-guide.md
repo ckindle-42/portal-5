@@ -7,12 +7,14 @@ sources:
   path: config/backends.yaml
 - type: code
   path: portal/platform/inference/cluster_backends.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/backends.yaml
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 Portal 5 scale-out is a config-only operation. Every inference node is one

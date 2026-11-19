@@ -6,13 +6,15 @@ sources:
 - type: code
   path: tests/uat/results.py
   commit: d7dcc96a
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/uat/results.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - uat
-
 ---
 
 The UAT result model and emission, reading the result file attribute-form.

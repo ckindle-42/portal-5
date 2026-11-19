@@ -6,13 +6,15 @@ sources:
 - type: code
   path: portal/conftest.py
   commit: 9c8e6dae
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/conftest.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - conftest
-
 ---
 
 The portal test-tree conftest gives module tests under `portal/` the same

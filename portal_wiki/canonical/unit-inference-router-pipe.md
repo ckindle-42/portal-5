@@ -6,13 +6,15 @@ sources:
 - type: code
   path: portal/platform/inference/router_pipe.py
   commit: 250150f6
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/router_pipe.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - platform
 - inference
-
 ---
 
 `router_pipe.py` is the backwards-compatibility shim that keeps Open

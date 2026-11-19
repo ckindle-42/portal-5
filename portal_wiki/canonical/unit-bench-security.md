@@ -6,13 +6,15 @@ sources:
 - type: code
   path: tests/benchmarks/bench_security.py
   commit: 071aaf52
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/benchmarks/bench_security.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - bench
-
 ---
 
 `bench_security.py` is a thin re-export shim: all the security bench

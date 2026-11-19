@@ -6,13 +6,15 @@ sources:
 - type: code
   path: portal/platform/wiki/tests/test_migration.py
   commit: 6f44673c
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/wiki/tests/test_migration.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - wiki
 - tests
-
 ---
 
 This test file guards the migration module's anti-gaming rules — the V2

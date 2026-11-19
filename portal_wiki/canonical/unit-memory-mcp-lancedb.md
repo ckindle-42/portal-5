@@ -10,13 +10,15 @@ sources:
   path: portal/platform/memory/graph_memory.py
 - type: code
   path: portal/platform/memory/reembed.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/memory/graph_memory.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - mcp
 - memory
-
 ---
 
 The memory MCP gives the platform a cross-conversation persistent store,

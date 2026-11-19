@@ -6,13 +6,15 @@ sources:
 - type: code
   path: portal/modules/security/core/decision_engine.py
   commit: 699b6207
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/decision_engine.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-
 ---
 
 The decision engine, promoted to `portal.platform.agent.rank` and re-exported here for backward compatibility.

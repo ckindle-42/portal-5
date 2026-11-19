@@ -12,12 +12,14 @@ sources:
 - type: code
   path: portal/modules/security/wiki_seed.py
   commit: e5c013b3dfd9e466a1964ca4832ddcc379b95488
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/plugin.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - wiki
-
 ---
 
 The maintain module is the self-maintenance loop for the wiki: it re-runs

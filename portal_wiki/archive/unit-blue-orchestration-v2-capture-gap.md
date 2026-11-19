@@ -28,7 +28,7 @@ tags:
 - security
 - telemetry-capture
 - verified-v1
-
+historical: true
 ---
 
 ## Resolution state

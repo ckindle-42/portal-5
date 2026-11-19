@@ -10,13 +10,15 @@ sources:
   path: portal_wiki/wiki_mcp.py
 - type: code
   path: scripts/native-mcp-service.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/portal.yaml
+  equals: true
 confidence: high
 tags:
 - capability
 - mcp
 - platform
-
 ---
 
 # Wiki MCP — canonical knowledge layer

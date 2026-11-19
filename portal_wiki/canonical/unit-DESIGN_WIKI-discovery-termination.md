@@ -7,7 +7,10 @@ sources:
   path: portal/platform/wiki/migration.py
 - type: code
   path: portal/platform/wiki/render.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/wiki/migration.py
+  equals: true
 confidence: high
 tags:
 - design
@@ -15,7 +18,6 @@ tags:
 - loop
 - verified-v1
 - wiki
-
 ---
 
 The migration loop repeatedly calls `discover_unmigrated_docs()` and halts when the returned list is empty. The candidate set is computed at runtime as the `TIER1_DOCS` tuple unioned with any paths still present in a legacy ledger file (via `_ledger_doc_paths`); it is never chosen by hand on each run. Results are processed highest-priority first: `priority` is a git-churn count over the last 30 commits touching the file, plus a fixed boost for high-value seed docs, sorted descending.

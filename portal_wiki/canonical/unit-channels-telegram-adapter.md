@@ -6,13 +6,15 @@ sources:
 - type: code
   path: portal_channels/telegram/bot.py
   commit: 2fa4b6c3
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal_channels/telegram/bot.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - channels
 - telegram
-
 ---
 
 The Telegram channel adapter is the messenger front door to the pipeline:

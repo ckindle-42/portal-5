@@ -6,13 +6,15 @@ sources:
 - type: code
   path: tests/fixtures/capability_context/sample_module.py
   commit: 2fa4b6c3
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/fixtures/capability_context/sample_module.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - fixture
-
 ---
 
 This fixture module is the long-context comprehension probe's sample: the

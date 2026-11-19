@@ -6,13 +6,15 @@ sources:
 - type: code
   path: tests/routing/measure.py
   commit: 6f44673c
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/routing/measure.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - routing
-
 ---
 
 `measure.py` runs the keyword-layer (deterministic) router against the

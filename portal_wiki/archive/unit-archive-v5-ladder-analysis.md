@@ -12,7 +12,7 @@ tags:
 - authored-v1
 - archive
 - bench
-
+historical: true
 ---
 
 This V5 ladder-bench analyser is archived, not live: it was the operator's

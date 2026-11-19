@@ -1,7 +1,7 @@
 ---
 id: unit-wfe-workspace-fitness
 kind: mixed
-title: "Workspace Fitness Evaluation (WFE) — real-use fleet validation harness"
+title: "Workspace Fitness Evaluation (WFE) \u2014 real-use fleet validation harness"
 sources:
 - type: code
   path: tests/wfe/settings_audit.py
@@ -33,13 +33,15 @@ sources:
   path: config/portal.yaml
 - type: code
   path: config/model_card_expectations.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/model_card_expectations.yaml
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - evaluation
-
 ---
 
 The WFE harness evaluates a model IN its workspace context — persona system

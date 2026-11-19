@@ -6,14 +6,16 @@ sources:
 - type: code
   path: portal/modules/general/config/__init__.py
   commit: 9c8e6dae
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/general/config/__init__.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - module
 - general
 - config
-
 ---
 
 The general module's config surface is a name-based pointer into

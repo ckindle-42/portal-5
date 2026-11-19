@@ -7,12 +7,14 @@ sources:
   path: portal/platform/agent/loop.py
 - type: code
   path: portal/platform/agent/decide.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/agent/decide.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 `run_loop` enforces the Campaign-Supervisor discipline:

@@ -7,11 +7,13 @@ sources:
   path: tests/benchmarks/bench_tps.py
 - type: code
   path: tests/benchmarks/bench/cli.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/benchmarks/bench/cli.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 TPS benchmarking is driven by `tests/benchmarks/bench_tps.py`, a shim that forwards to the `tests.benchmarks.bench` package. A typical pipeline invocation is:

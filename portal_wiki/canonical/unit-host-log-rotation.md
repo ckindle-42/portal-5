@@ -11,13 +11,15 @@ sources:
   path: deploy/launchd/com.portal5.log-rotate.plist
 - type: code
   path: .env.example
-claims: []
+claims:
+- probe: repo.path.exists
+  path: .env.example
+  equals: true
 confidence: high
 tags:
 - operations
 - logs
 - verified-v1
-
 ---
 
 `scripts/rotate_logs.py` copy-truncates configured host logs that exceed

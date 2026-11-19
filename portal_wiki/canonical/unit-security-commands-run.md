@@ -6,7 +6,10 @@ sources:
 - type: code
   path: portal/modules/security/core/commands/run.py
   commit: c36595e1
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/commands/run.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
@@ -14,7 +17,6 @@ tags:
 - security
 - commands
 - bench
-
 ---
 
 `run_bench` is the dual-pass security bench executor extracted from the CLI: a

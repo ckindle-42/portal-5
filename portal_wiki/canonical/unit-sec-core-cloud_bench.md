@@ -6,13 +6,15 @@ sources:
 - type: code
   path: portal/modules/security/core/cloud_bench.py
   commit: 699b6207
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/cloud_bench.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-
 ---
 
 The cloud bench placeholder documenting that Portal has no cloud lane, even though cloud is where most real environments live.

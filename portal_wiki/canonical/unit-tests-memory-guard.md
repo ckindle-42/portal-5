@@ -6,12 +6,14 @@ sources:
 - type: code
   path: tests/memory_guard.py
   commit: 347dfc8a
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/memory_guard.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
-
 ---
 
 `tests/memory_guard.py` is a re-export shim: the monitoring primitives live

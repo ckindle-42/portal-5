@@ -6,13 +6,15 @@ sources:
 - type: code
   path: tests/benchmarks/bench_candidates_v10.py
   commit: 071aaf52
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/benchmarks/bench_candidates_v10.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - bench
-
 ---
 
 The V10 candidate bench runs targeted capability probes against the V10

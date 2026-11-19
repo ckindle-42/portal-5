@@ -7,17 +7,19 @@ sources:
   path: portal/platform/wiki/migration.py
 - type: code
   path: portal/platform/wiki/render.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/wiki/migration.py
+  equals: true
 confidence: high
 tags:
 - design
 - fences
 - verified-v1
 - wiki
-
 ---
 
- A migrated doc contains exactly two managed content types. First, `WIKI:GENERATED` blocks, delimited by an opening `&lt;!-- WIKI:GENERATED unit=&lt;id&gt; --&gt;` marker and a closing `&lt;!-- /WIKI:GENERATED --&gt;` marker, whose content is filled from the spine unit body by `render_all_generated_blocks`. The marker is placed once by hand; the renderer only replaces content between markers and never invents a location, so the inside of a generated fence is never hand-edited. Second, `WIKI:HUMAN-OWNED` fences, whose current opening form carries a `reason="..."` attribute; the older bare V1 form without a reason is detected and treated as unreasoned, which fails `doc_is_migrated`. Human-owned fences hold irreducible judgment -- rationale, caveats, opinions. A fact (a count, a path, a name, a behavior of the code) belongs in a unit; a judgment may live in a fence.
+A migrated doc contains exactly two managed content types. First, `WIKI:GENERATED` blocks, delimited by an opening `&lt;!-- WIKI:GENERATED unit=&lt;id&gt; --&gt;` marker and a closing `&lt;!-- /WIKI:GENERATED --&gt;` marker, whose content is filled from the spine unit body by `render_all_generated_blocks`. The marker is placed once by hand; the renderer only replaces content between markers and never invents a location, so the inside of a generated fence is never hand-edited. Second, `WIKI:HUMAN-OWNED` fences, whose current opening form carries a `reason="..."` attribute; the older bare V1 form without a reason is detected and treated as unreasoned, which fails `doc_is_migrated`. Human-owned fences hold irreducible judgment -- rationale, caveats, opinions. A fact (a count, a path, a name, a behavior of the code) belongs in a unit; a judgment may live in a fence.
 
 `doc_is_migrated` demands more than clean fences: at least one generated block, a human-fence share at or below the `_HUMAN_FENCE_MAX` bound, every fence reasoned, and zero `substantive_remainder`. Inert markdown structure -- headings, horizontal rules, blank lines, table separator rows, standalone tags, non-WIKI HTML comments -- may sit outside fences without triggering discovery.
 

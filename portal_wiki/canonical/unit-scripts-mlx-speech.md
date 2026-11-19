@@ -6,12 +6,14 @@ sources:
 - type: code
   path: scripts/mlx-speech.py
   commit: 94ecf393
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/mlx-speech.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - scripts
-
 ---
 
 Host-native speech server for Apple Silicon using mlx-audio, replacing the Docker kokoro-onnx TTS and faster-whisper ASR with Qwen3-TTS and the MLX speech stack.

@@ -9,14 +9,16 @@ sources:
   path: scripts/validate_system.py
 - type: code
   path: portal/platform/inference/sync_config.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/sync_config.py
+  equals: true
 confidence: high
 tags:
 - design
 - spine
 - verified-v1
 - wiki
-
 ---
 
 The `portal_wiki/canonical/` spine stores authored knowledge. Live fact units are computed on demand through the wiki MCP and are not stored there. When a release needs managed documentation refreshed, `portal docs build` runs `render_all_generated_blocks` across the `TIER1_DOCS` set and renders the generated views.

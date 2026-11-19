@@ -9,11 +9,13 @@ sources:
   path: portal/modules/eval/persona_matrix/cli.py
 - type: code
   path: portal/modules/eval/persona_matrix/sweep.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: .github/workflows/persona_matrix_nightly.yml
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 The persona matrix treats a committed result file as the reference the CI gate diffs against. The workflow's `Determine sweep parameters` step expects that reference at `tests/benchmarks/results/persona_matrix_baseline_<workspace>.json` and, when present, hands it to the sweep via `--baseline-compare`. A first baseline is therefore an operator action: run the driver locally without `--baseline-compare`, inspect the rendered matrix, and commit the JSON under the workspace-scoped name. The workflow never writes this file — its own sweep output goes to a timestamped `persona_matrix_<workspace>_ci_<ts>.json` artifact — so the baseline can only change through an operator-authored commit.

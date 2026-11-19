@@ -9,12 +9,14 @@ sources:
   path: portal/platform/inference/cluster_backends.py
 - type: code
   path: deploy/portal-5/docker-compose.yml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/backends.yaml
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 Adding a second Ollama node has three steps. First, install Ollama on the new

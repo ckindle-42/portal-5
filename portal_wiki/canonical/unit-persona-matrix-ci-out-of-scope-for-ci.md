@@ -13,11 +13,13 @@ sources:
   path: portal/modules/eval/persona_matrix/_common.py
 - type: code
   path: portal/modules/eval/persona_matrix/cli.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/eval/persona_matrix/_common.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 Three workloads are deliberately outside the persona-matrix CI gate. First, throughput comparisons: `bench_tps` (in `tests/benchmarks/`) owns TPS and latency, while the matrix driver records a `tps` field per scenario only as context — its pass/fail decision and the baseline diff use assertion outcomes exclusively, since `persona_matrix_diff.py` computes PASS-rate as PASS over PASS+WARN+FAIL and never reads throughput. Second, pipeline routing: `portal5_acceptance_v6.py` owns routing validation through section `S3a` (Ollama workspace routing, delegating to `tests/acceptance/runner.py`), whereas the matrix pins a model directly in the chat request via `_chat_direct` to measure raw model behavior. The former `S3b` MLX routing section was retired with the MLX proxy in `75c24a9`.

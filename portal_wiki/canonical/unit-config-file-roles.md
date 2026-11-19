@@ -1,7 +1,7 @@
 ---
 id: unit-config-file-roles
 kind: mixed
-title: "Config files — which are hand-edited and which are derived"
+title: "Config files \u2014 which are hand-edited and which are derived"
 sources:
 - type: code
   path: config/portal.yaml
@@ -29,12 +29,15 @@ sources:
   path: config/ollama_direct_allowlist.yaml
 - type: code
   path: config/owui_tool_servers.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/backends.yaml
+  equals: true
 confidence: high
 tags:
 - operator
-
 ---
+
 The file list itself is computed live (`unit-fact-config-index` via the wiki MCP). This unit
 records each file's role.
 

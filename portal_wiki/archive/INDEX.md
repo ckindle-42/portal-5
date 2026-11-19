@@ -1022,3 +1022,9 @@
 - `unit-p5-roadmap-p5-roadmap-md-portal-5-v7-future-enhancements` | 2026-11-19 | 501379b8b5a7f87b9d936d201f5db7b585f8d84a | Completed, superseded, or retired roadmap decision retained as historical evidence.
 - `unit-p5-roadmap-score-history` | 2026-11-19 | 501379b8b5a7f87b9d936d201f5db7b585f8d84a | Completed, superseded, or retired roadmap decision retained as historical evidence.
 - `unit-p5-roadmap-speculative-decoding-mtp-retired-commit-3a0c58e` | 2026-11-19 | 501379b8b5a7f87b9d936d201f5db7b585f8d84a | Completed, superseded, or retired roadmap decision retained as historical evidence.
+- `SEC_BENCH-combined-corpus-validation-20260731` | 2026-11-19 | 8714685f45bdefb96812b6da1f13df4afcd007cb | Dated report, resolved finding, or superseded tool record retained as historical evidence.
+- `unit-archive-v5-ladder-analysis` | 2026-11-19 | 8714685f45bdefb96812b6da1f13df4afcd007cb | Dated report, resolved finding, or superseded tool record retained as historical evidence.
+- `unit-blue-orchestration-v2-capture-gap` | 2026-11-19 | 8714685f45bdefb96812b6da1f13df4afcd007cb | Dated report, resolved finding, or superseded tool record retained as historical evidence.
+- `unit-blue-orchestration-v3-council-of-agreement` | 2026-11-19 | 8714685f45bdefb96812b6da1f13df4afcd007cb | Dated report, resolved finding, or superseded tool record retained as historical evidence.
+- `unit-engine-prefix-cache-20261021` | 2026-11-19 | 8714685f45bdefb96812b6da1f13df4afcd007cb | Dated report, resolved finding, or superseded tool record retained as historical evidence.
+- `unit-scripts-alias_census` | 2026-11-19 | 8714685f45bdefb96812b6da1f13df4afcd007cb | Dated report, resolved finding, or superseded tool record retained as historical evidence.

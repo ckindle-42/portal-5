@@ -1,17 +1,19 @@
 ---
 id: unit-uat-lifecycle
 kind: mixed
-title: "UAT lifecycle — model unload / pipeline pre-warm"
+title: "UAT lifecycle \u2014 model unload / pipeline pre-warm"
 sources:
 - type: code
   path: tests/uat/lifecycle.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/uat/lifecycle.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - uat
-
 ---
 
 Model unload, pipeline pre-warm, and media-MCP health for the UAT driver.

@@ -1,7 +1,7 @@
 ---
 id: unit-design-client-disconnect-cancellation
 kind: mixed
-title: "Client disconnect cancels inference work end to end"
+title: Client disconnect cancels inference work end to end
 sources:
 - type: code
   path: portal/platform/inference/router/disconnect.py
@@ -31,7 +31,10 @@ sources:
   path: portal/modules/compliance/core/transport_dialects.py
 - type: code
   path: reports/host_memory_safety/W3.md
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/compliance/core/cancellation.py
+  equals: true
 confidence: high
 tags:
 - design

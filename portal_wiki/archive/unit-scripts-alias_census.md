@@ -11,7 +11,7 @@ confidence: high
 tags:
 - authored-v1
 - scripts
-
+historical: true
 ---
 
 Walks git-tracked files, excludes frozen historical artifacts and archived docs, and counts references to each of the 23 pre-collapse alias ids. It is the measurement behind the alias-removal closeout — the number that proves the shims can be removed.

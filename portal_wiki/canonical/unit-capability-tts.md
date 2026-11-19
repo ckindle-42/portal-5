@@ -8,13 +8,15 @@ sources:
   section: mcp_fleet
 - type: code
   path: portal/modules/media/tools/tts_mcp.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/portal.yaml
+  equals: true
 confidence: high
 tags:
 - capability
 - mcp
 - media
-
 ---
 
 # TTS MCP — speech synthesis and voice cloning

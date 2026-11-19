@@ -6,12 +6,14 @@ sources:
 - type: code
   path: portal_channels/dispatcher.py
   commit: c36595e1
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal_channels/dispatcher.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - channels
-
 ---
 
 The channel dispatcher is the shared transport that both channel adapters

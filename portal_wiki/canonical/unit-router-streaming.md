@@ -10,14 +10,16 @@ sources:
   path: portal/platform/inference/router/non_streaming.py
 - type: code
   path: portal/platform/inference/ollama_native.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/ollama_native.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - platform
 - inference
 - router
-
 ---
 
 `streaming.py` is the streaming transport — pure bytes-in / SSE-bytes-out

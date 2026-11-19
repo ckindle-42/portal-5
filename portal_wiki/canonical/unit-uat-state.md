@@ -6,13 +6,15 @@ sources:
 - type: code
   path: tests/uat/state.py
   commit: d7dcc96a
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/uat/state.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - uat
-
 ---
 
 The mutable per-run state: the routing log, chat ids, and archival state that a UAT run accumulates.

@@ -9,11 +9,13 @@ sources:
   path: portal/platform/inference/router/routing.py
 - type: code
   path: tests/benchmarks/bench/measure.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/cluster_backends.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 `P7-PERF` is the comment marker for a batch of pipeline routing optimizations measured against `bench_tps.py` output. Grepping for `P7-PERF` surfaces the affected paths rather than any single module:

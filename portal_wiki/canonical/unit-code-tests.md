@@ -18,12 +18,14 @@ sources:
 - type: code
   path: tests/acceptance/cli.py
   commit: 8015e9381c8a
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/__init__.py
+  equals: true
 confidence: high
 tags:
 - code
 - tests
-
 ---
 
 # tests subsystem
