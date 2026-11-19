@@ -263,16 +263,35 @@ _launch_install_video_mlx() {
 
     mkdir -p "$VX_DIR" "$HOME/.portal5/logs"
     if [ -d "$VX_SRC/.git" ]; then
-        echo "  Updating ltx-2-mlx..."; git -C "$VX_SRC" pull --quiet || true
+        # Never `pull`: the checkout is often detached (a symlinked pre-overhaul
+        # install), where pull fails and the old `|| true` hid it, leaving a stale
+        # engine while reporting success.
+        echo "  Updating ltx-2-mlx..."
+        git -C "$VX_SRC" fetch --quiet --depth 1 origin || {
+            echo "  ❌ git fetch failed in $VX_SRC (network or remote) — refusing to run a partial install" >&2
+            exit 1
+        }
+        git -C "$VX_SRC" checkout --quiet --detach FETCH_HEAD || {
+            echo "  ❌ cannot move $VX_SRC to origin's tip — local changes?" >&2
+            echo "     Inspect: git -C \"$VX_SRC\" status" >&2
+            exit 1
+        }
     else
         echo "  Cloning dgrauet/ltx-2-mlx..."; git clone --depth 1 https://github.com/dgrauet/ltx-2-mlx.git "$VX_SRC"
     fi
+    echo "  Engine checkout: $VX_SRC -> $(cd "$VX_SRC" && pwd) @ $(git -C "$VX_SRC" rev-parse --short HEAD)"
     echo "  Resolving deps (uv sync)..."
     ( cd "$VX_SRC" && uv sync --all-extras )
     # The MCP server needs mcp + starlette in the same venv as ltx-2-mlx.
     "$VX_VENV/bin/python" -m pip install --quiet "mcp>=2.0.0,<3.0.0" "starlette>=1.3.0" \
         "httpx>=0.26.0" "pyyaml>=6.0.1" 2>/dev/null || \
         ( cd "$VX_SRC" && uv pip install "mcp>=2.0.0,<3.0.0" "starlette>=1.3.0" "httpx>=0.26.0" "pyyaml>=6.0.1" )
+    # `uv sync` strips anything outside the engine's own lock, and a failed late
+    # install must not register a launchd job that cannot import.
+    [ -x "$VX_VENV/bin/ltx-2-mlx" ] || {
+        echo "  ❌ $VX_VENV/bin/ltx-2-mlx missing after uv sync" >&2; exit 1; }
+    "$VX_VENV/bin/python" -c "import mcp, starlette" 2>/dev/null || {
+        echo "  ❌ the engine venv cannot import mcp/starlette (MCP server deps)" >&2; exit 1; }
 
     if [ "${1:-}" = "wan" ]; then
         echo "  Installing the mlx-video fallback (Wan2.2-TI2V-5B)..."
@@ -303,6 +322,11 @@ ${VX_WAN_EXTRAS}
 [ -n "\${HF_HOME:-}" ] && export HF_HOME
 export AI_OUTPUT_DIR="\${AI_OUTPUT_DIR:-\$HOME/AI_Output}"
 export OPENWEBUI_URL="\${OPENWEBUI_URL:-http://localhost:8080}"
+# One readable line naming the install launchd actually runs, then refuse to
+# crash-loop on a missing engine or a venv without the MCP deps.
+[ -x "\$VIDEO_MLX_BIN" ] || { echo "ERROR: \$VIDEO_MLX_BIN missing — re-run ./launch.sh install-video-mlx" >&2; exit 1; }
+"$VX_VENV/bin/python" -c 'import mcp, starlette' 2>/dev/null || { echo "ERROR: MCP deps missing from $VX_VENV — re-run ./launch.sh install-video-mlx" >&2; exit 1; }
+echo "video-mlx: engine=\$VIDEO_MLX_BIN portal=\$PORTAL_ROOT hf_cache=\${HF_HUB_CACHE:-~/.cache/huggingface/hub}"
 mkdir -p "\$AI_OUTPUT_DIR"
 exec "$VX_VENV/bin/python" -m portal.modules.media.tools.video_mlx_mcp
 VX_START
@@ -320,7 +344,12 @@ VX_START
     <key>StandardErrorPath</key><string>$VX_LOG</string>
 </dict></plist>
 PLIST
-    launchctl load "$PLIST" 2>/dev/null || true
+    # `launchctl load` on an already-loaded label is a no-op, so a rewritten
+    # start.sh kept the old process (and old install) running. Re-bootstrap.
+    launchctl bootout "gui/$(id -u)/com.portal5.video-mlx" 2>/dev/null || true
+    launchctl bootstrap "gui/$(id -u)" "$PLIST" 2>/dev/null \
+        || launchctl load "$PLIST" 2>/dev/null || true
+    launchctl kickstart -k "gui/$(id -u)/com.portal5.video-mlx" 2>/dev/null || true
     echo "  ✅ Registered launchd service: com.portal5.video-mlx (port $VX_PORT)"
 }
 
@@ -342,6 +371,13 @@ _launch_stop_video_mlx() {
 _launch_pull_video_mlx_models() {
     VX_VENV="$HOME/.portal5/video-mlx/ltx-2-mlx/.venv"
     [ -x "$VX_VENV/bin/ltx-2-mlx" ] || { echo "  ❌ Run ./launch.sh install-video-mlx first." >&2; exit 1; }
+    # Same `.env` the launchd service sources — otherwise the pack lands in
+    # huggingface_hub's default cache and the service can't see it.
+    if [ -f "$ENV_FILE" ]; then
+        set -a
+        source "$ENV_FILE"
+        set +a
+    fi
     echo "  Pre-pulling the LTX-2.5 q4 model pack (~51GB)..."
     for m in "${@:-dgrauet/ltx-2.5-mlx-q4}"; do
         echo "  → $m"
