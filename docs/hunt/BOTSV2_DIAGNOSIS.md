@@ -1,4 +1,10 @@
-# BOTSV2 diagnosis — why R2 locates 1 of 15 steps, and the general fix
+# BOTSV2 diagnosis — why the 2026-11-18 run located 1 of 15 steps, and the fixes that followed
+
+Status (2026-11-19): this diagnoses the 2026-11-18 pre-fix run only. Since it was written,
+two solver lanes merged with live four-family receipts — behaviour-burst deviation
+(`b947b840a`) and the source-path crossover fix (`080f89314`) — and the merged state of main
+measures 3 of 15 steps at top-50 and 2 of 4 scenarios. The outcome and per-lane state are
+recorded at the bottom of this file and in `docs/hunt/OPEN_PROBLEM_INDEX.md`.
 
 Run diagnosed: `main 5628c8402` + scoreboard fix, receipts
 `receipts_botsv2_full_20261118.log` (cards+behaviours), `..._20261118c.log`
@@ -173,7 +179,7 @@ receipt. It is a carrier for `912345678`, `hbernhard@berkbeer.com`, `mberk@…`,
   which can move `deviation`/`similar` rankings — this is **not** verifiable offline
   and needs the live regression run below.
 
-## Predicted effect (hypotheses — orchestrator verifies live)
+## Predicted effect (hypotheses as of 2026-11-18 — superseded by the receipts below)
 
 - F1 makes `wineventlog:security` understood with roles → it enters behaviours.
   Whether its rare artefact events are then read depends on F2/budget; expect the
@@ -183,3 +189,32 @@ receipt. It is a carrier for `912345678`, `hbernhard@berkbeer.com`, `mberk@…`,
 - Net botsv2 top-50 step count is **not predicted to jump to family levels**: causes 3
   and 4 (operator-owned) still bind `web_scan`/`c2_ssl`/`macbook`. The honest
   expectation is a modest improvement plus a now-understood Security source.
+
+## Outcome (2026-11-19 live receipts)
+
+The step jump came from two solver lanes merged after this diagnosis, not from F1/F2 alone:
+
+- **hunt-open-kimi** — merged `b947b840a` (2026-11-19); problem and replay:
+  `OPEN_PROBLEM_hunt-open-kimi.md`. Temporal bursts inside a behaviour became
+  first-class `deviation` evidence; the two-slot allowance was chosen by LOFO on the
+  build families and the measured generator weights are unchanged. Live four-family
+  run: botsv2 0→2 of 15 steps at top-50, 2 of 4 scenarios; kyoushi 12 of 12,
+  santos 14, russell 15 at 50.
+- **hunt-open-astra** — merged `080f89314` (2026-11-19); problem and replay:
+  `OPEN_PROBLEM_hunt-open-astra.md`. Carded reads select by sourcetype ownership, so
+  the shared-source crossover this diagnosis hit at `pan:threat`/`pan:traffic`
+  (cause 3's traffic/threat mix-up) is closed at the sampler; single-timestamp
+  sources read their observed time and small sources read whole within their
+  allocation. Live four-family run: botsv2 2→3 of 15 steps at top-50, 2 of 4
+  scenarios; kyoushi 12 of 12, santos 14 of 21, russell 15 of 22 at 50.
+- **hunt-open-neon** — branch `lane/hunt-open-neon`, round 2, **not merged**;
+  its `OPEN_PROBLEM_hunt-open-neon.md` rides the lane. Burst-guided sampling,
+  wide-schema cards, common-mode surge subtraction and 2,400-char evidence; a
+  frozen-embedding replay over the 2026-11-19 astra snapshot measured botsv2 5 of 15
+  at top-50 and 3 of 4 scenarios with no build-family regression. No live run yet.
+
+The headline above is therefore a dated measurement, not the current state: 1 of 15
+was the 2026-11-18 pre-fix run; main as of 2026-11-19 measures 3 of 15 at top-50 and
+2 of 4 scenarios. Causes 1 (sampling floor), 3's rarity signal and measured weights,
+and 4 (`MISFIT_MAX_SHARE`) remain operator-owned decisions; per-lane state:
+`docs/hunt/OPEN_PROBLEM_INDEX.md`.
