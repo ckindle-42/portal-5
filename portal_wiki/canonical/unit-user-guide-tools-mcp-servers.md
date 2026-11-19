@@ -12,7 +12,7 @@ sources:
 - type: code
   path: portal/modules/media/tools/mflux_mcp.py
 - type: code
-  path: portal/modules/media/tools/music_minimax_mcp.py
+  path: portal/modules/media/tools/music_mcp.py
 - type: code
   path: portal/modules/media/tools/tts_mcp.py
 - type: code
@@ -40,7 +40,8 @@ port 8924 via the MLX transcribe server; both always write JSON + Markdown + Wor
 `.docx` sidecars and return their download URLs); Portal MFLUX exposes `generate_image` / `edit_image` /
 `image_start` / `image_status` (MLX MFLUX — flux2-klein 4-step default, flux3-klein,
 qwen-2.1, z-image; start/status is the async surface); Portal Music exposes
-the MiniMax job-based music toolset.
+`music_start` / `music_status` / `music_models` (ACE-Step 1.5 XL-Turbo primary,
+MiniMax-Music3 8-bit fallback; module off until enabled).
 
 ## Why
 

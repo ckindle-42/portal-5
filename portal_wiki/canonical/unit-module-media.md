@@ -4,8 +4,6 @@ kind: mixed
 title: "Media Module — speech and transcription"
 sources:
 - type: code
-  path: portal/modules/media/tools/music_ace_mcp.py
-- type: code
   path: portal/modules/media/tools/tts_mcp.py
 - type: code
   path: portal/modules/media/tools/whisper_mcp.py
@@ -31,9 +29,8 @@ tags:
 ## Tools
 
 Active tools: `tts_mcp` (:8916, text-to-speech) and `whisper_mcp` (:8915,
-STT). Song generation is `unit-module-music` (`music_minimax_mcp`, :8912).
-`music_ace_mcp` is retained as unwired code (ACE-Step disabled 2026-08-27
-after the operator's engine-select gate). Image generation and video
+STT). Song generation is `unit-module-music` (`music_mcp`, :8912, module off).
+Image generation and video
 generation are their own modules — `unit-module-image` (`mflux`, :8933) and
 `unit-module-video` (`video_mlx`, :8935).
 

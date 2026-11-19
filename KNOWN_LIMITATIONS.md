@@ -229,7 +229,7 @@ The unit suite is offline and mocked, so it looks safe to run beside a live eval
 - **Status**: RESOLVED 2026-09-25 — Ollama backends are served from native `/api/chat` by `OllamaNativeTransport`; residual limits below remain.
 - **Description**: The pipeline sent each workspace's sampling inside `options`, which Ollama's `/v1/chat/completions` ignores entirely; `/v1` also has no field for `top_k`, `min_p` or `repeat_penalty`, and forces `temperature`/`top_p` to 1.0 when a request omits them (`FromChatRequest` in Ollama's `openai.go`). Every Ollama-served workspace therefore ran at temperature 1.0 / top_p 1.0 with the tag's baked top_k/min_p/repeat_penalty, never at its `config/portal.yaml` sampling; a `think: true` was dropped as well. Upstream declined to add the fields (ollama#11325, closed not-planned). Measured 2026-09-25 on 0.34.2 with extreme values (top_k=1 / min_p=1 collapse three seeds to one output only when honoured).
 - **Fix**: an httpx transport on the pipeline's shared client answers `/v1/chat/completions` for registered Ollama backends from `/api/chat` and returns the exact `/v1` response shape (parity-verified on text, tools, tool-result turns, non-thinking models and image parts — content, tool calls and prompt tokens identical). `scripts/engine_contract_check.py` re-proves delivery of every key through production's own request builders on each engine version change.
-- **Residual limits**: (1) `presence_penalty` was a no-op in Ollama's sampler through 0.34.x; it is applied since 0.35.0 and `scripts/engine_contract_check.py` now requires its delivery (2026-10-07, Ollama 0.40.0). The production Ollama seats whose card asks for presence 1.5 still carry the 2026-09-25 substitute `repeat_penalty: 1.05` (`docs/TASK_SEAT_SAMPLING_AB_V1.md`); the settings auditor now reports that as a card deviation (WARN), and moving a seat back to the card's presence value is a per-seat A/B, not a default; (2) Ollama has no `tool_choice` field: `"none"` and a named function are expressed through the offered tools list (since 2026-09-25), but `tool_choice=required` forcing has never applied on Ollama seats — the single-tool schema is what narrows the call; (3) `keep_alive` is deliberately NOT forwarded: `/v1` never delivered it, so every model has always been released on Ollama's server default, and turning on the pipeline's `-1` default would pin models oMLX cannot reclaim — an operator decision, not a bug fix. Measured 2026-10-21 on this M4 Pro: reuse of a growing prefix does hold when the runner stays resident (Ollama 0.40.5 on a Qwen3.6 hybrid, via llama.cpp context checkpoints; oMLX 0.7.2; the same traffic through the Pipeline; Ollama 0.40.8 MLX on Flint). An Ollama sidecar started with `OLLAMA_KEEP_ALIVE=0` restarts that runner on every request and the cache is gone. The measurement record is [[unit-engine-prefix-cache-20261021]].
+- **Residual limits**: (1) `presence_penalty` was a no-op in Ollama's sampler through 0.34.x; it is applied since 0.35.0 and `scripts/engine_contract_check.py` now requires its delivery (2026-10-07, Ollama 0.40.0). The production Ollama seats whose card asks for presence 1.5 still carry the 2026-09-25 substitute `repeat_penalty: 1.05` (`docs/TASK_SEAT_SAMPLING_AB_V1.md`); the settings auditor now reports that as a card deviation (WARN), and moving a seat back to the card's presence value is a per-seat A/B, not a default; (2) Ollama has no `tool_choice` field: `"none"` and a named function are expressed through the offered tools list (since 2026-09-25), but `tool_choice=required` forcing has never applied on Ollama seats — the single-tool schema is what narrows the call; (3) `keep_alive` is deliberately NOT forwarded: `/v1` never delivered it, so every model has always been released on Ollama's server default, and turning on the pipeline's `-1` default would pin models oMLX cannot reclaim — an operator decision, not a bug fix. Measured 2026-10-21 on this M4 Pro: reuse of a growing prefix does hold when the runner stays resident (Ollama 0.40.5 on a Qwen3.6 hybrid, via llama.cpp context checkpoints; oMLX 0.7.2; the same traffic through the Pipeline; Ollama 0.40.8 MLX on Flint). An Ollama sidecar started with `OLLAMA_KEEP_ALIVE=0` restarts that runner on every request and the cache is gone. The measurement record is the archived 2026-10-21 prefix-cache measurement record.
 
 #### Why
 
@@ -242,7 +242,7 @@ The failure returned HTTP 200 on every request, so nothing in the stack could se
 #### oMLX prefix cache — a store is not a hit, another model wipes it, and auto fills the disk (2026-10-21)
 
 - **ID**: P5-OMLX-PREFIX-CACHE-001
-- **Status**: OPEN. Host measurement 2026-10-21, oMLX 0.7.2, M4 Pro, 64 GB. The pipeline does not rewrite the figure: `_omlx_request` sends the chat body on unchanged, so clients see the engine's usage object. Numbers and the paths where reuse did hold are in [[unit-engine-prefix-cache-20261021]].
+- **Status**: OPEN. Host measurement 2026-10-21, oMLX 0.7.2, M4 Pro, 64 GB. The pipeline does not rewrite the figure: `_omlx_request` sends the chat body on unchanged, so clients see the engine's usage object. Numbers and the paths where reuse did hold are in the archived 2026-10-21 engine prefix-cache measurement record.
 - **Not a hit counter**: after a call, oMLX puts the length of the blocks it just saved into usage `cached_tokens`. opencode's cache.read is that saved length from the previous call. Reading either one as "tokens resumed" is wrong. First-token latency on a warm-looking seat still moved by more than an order of magnitude.
 - **Residency**: only one oMLX model stays loaded. Bringing another in unloads the current one and deep-resets every cache, including a prefix saved moments earlier. There is no error on the request that lost it.
 - **Disk**: the SSD directory defaults to ~/.omlx/cache. Leaving the max size on auto means half of free space, which on this volume grew to 189 GB. The 0.7.2 process then refused 166 GB of those blocks as incompatible with 0.7.0. The directory is capped at 64 GB. Budget roughly 38 MB typical and 231 MB at the 90th percentile for each 4096-token block, about 3–8 GB for a 64K-token agent session, and a 15–25 GB working set — the cap then covers something like 8–12 sessions.
@@ -1181,79 +1181,32 @@ Recorded rather than silently worked around (no `xfail`, no skip added) so the f
 ---
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-minimax-music3-mlx -->
-##### MiniMax-Music3-MLX Apple-Silicon-Only, No Continuation, Community License
+##### MiniMax-Music3 8-bit fallback — Apple Silicon, community license, text-to-music only
 
 - **ID**: P5-MUSIC-MINIMAX-001
-- **Description**: `music_minimax_mcp.py` uses PocketAiHub/MiniMax-Music3-MLX, a native MLX port with no CPU/CUDA/Linux fallback. Batch size is one. It has no clip-editing or continuation capability.
-- **Impact**: This engine is unavailable off Apple Silicon. Output falls under the MiniMax-Music3 Community License, including its commercial attribution and revenue conditions.
-- **Mitigation**: `_launch_install_music_minimax` refuses non-arm64 installs. There is currently no editing/continuation workaround in the active fleet — ACE-Step-1.5 provided this (task_type="repaint"/"cover") but was disabled 2026-08-27 after the dual-engine comparison (see `unit-known-limitations-acestep15-mlx-backend`); its module code remains in the repo if re-enabling to regain that capability is ever worthwhile.
+- **Description**: The MiniMax path is `engine=minimax` inside `music_worker.py`, loading `mlx-community/MiniMax-Music3-8bit` through `mlx_audio.music` (`mlx-audio==0.6.6`). It is not the retired PocketAiHub in-process pipeline. This engine accepts `text2music` only. Output falls under the MiniMax-Music3 Community License. Admission uses `music:minimax3-8bit` = 22 GB plus headroom — the live vm_stat peak measured for the retired PocketAiHub port of the same MiniMax-Music3 model, carried over from main; the 8-bit card itself is not yet sampled.
+- **Impact**: Unavailable off Apple Silicon. Repaint, cover, and extend are ACE-Step tasks. The 8-bit card's audio quality on this host is unmeasured.
+- **Mitigation**: `./launch.sh install-music` refuses non-arm64. Use the default `acestep` engine for edits.
 
 #### Why
 
-The architecture and license constraints need to remain visible at operation time because both can turn an otherwise successful local install into an unusable or non-compliant deployment. Keeping them in the generated register makes hardware eligibility and output obligations reviewable before an operator commits to this backend.
+The license and the hardware limit still decide whether a fallback take is usable. The carried-over measurement of the same model family is used until a local sample of the 8-bit card replaces it.
 <!-- /WIKI:GENERATED -->
 
 ---
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-acestep15-mlx-backend -->
-##### ACE-Step-1.5 Disabled After Dual-Engine Comparison — Memory Ceiling, Non-Deterministic Vocal Captioning, Quality
+##### ACE-Step 1.5 XL-Turbo — Apple Silicon only, not yet proven on this host
 
 - **ID**: P5-MUSIC-ACESTEP-001
-- **Status**: **Disabled 2026-08-27** after `TASK_MUSIC_DUAL_BACKEND`'s `[GATE:
-  SELECT ENGINE]` — the operator compared both engines on real 60s/30-step
-  generations and kept MiniMax-Music3-MLX. `music_ace_mcp.py`, its install
-  function, and its tools manifest are untouched in the repo (module built to
-  share zero code with MiniMax's, per the dual-backend task's modularity
-  contract); only fleet registration and `auto-music` wiring were removed. The
-  downloaded checkpoints (~14GB) and both launchd services were removed from
-  this host. See `config/portal.yaml`'s `mcp_fleet` comment for the exact
-  removal record.
-- **Description**: `music_ace_mcp.py` proxies to a separate ACE-Step-1.5 API
-  server. Three real findings from the live comparison:
-  1. **Memory ceiling is structural, not transient.** Once ACE-Step's model is
-     loaded, its own resident footprint (~23GB) plus its admission
-     requirement (~44GB free) exceeds this machine's 64GB total — it cannot
-     pass its own admission check for a second job without being unloaded
-     first, even with the entire rest of the stack (Docker, MLX generation,
-     services) shut down. The first job in a session succeeds only if enough
-     is freed beforehand; a follow-up job (e.g. a repaint) on the same
-     resident model cannot.
-  2. **The LM "thinking"/captioning stage is non-deterministic per call and
-     can contradict the prompt.** Two identical-prompt/lyrics runs, one
-     requesting "energetic female vocal," produced captions of "a powerful
-     female lead vocal" and "a powerful, clean male vocal performance"
-     respectively. ACE-Step's own API supports `seed`/`use_random_seed` for
-     reproducibility; `ace_generate` does not yet expose them (unlike
-     MiniMax's tool, which does).
-  3. **Output quality did not hold up against MiniMax** in the operator's own
-     listening comparison, independent of the audio-format issue below.
-  Separately (unrelated to the disable decision): upstream issue #995
-  documents an MLX DiT bug specific to the XL/4B model size; this deployment
-  defaulted to the non-turbo 2B `acestep-v15-sft`, out of scope for that bug.
-  The engine and proxy ran as two separate launchd processes.
-- **Impact**: None currently — the module is disabled and not reachable from
-  any workspace. If re-enabled: XL/4B overrides may fail on MLX until #995 is
-  fixed; a second job on an already-loaded model will likely be refused by
-  the admission gate on any host with less than ~67GB RAM; vocal
-  gender/character will vary between identical-prompt runs unless a seed
-  parameter is added to `ace_generate` first.
-- **Mitigation to re-enable**: `./launch.sh install-music-ace` (re-clones and
-  re-downloads the ~14GB checkpoint set), re-add the `music-ace` fleet entry
-  and `ace_*` tools to `auto-music` in `config/portal.yaml` (both were left as
-  inline comments/history at removal, not deleted outright), remove
-  `portal_music_ace` from `config/owui_tool_servers.yaml`'s `dead_servers`.
-  Consider adding seed support first, matching MiniMax's tool,
-  to make future A/B comparisons reproducible.
-- **Note**: ACE-Step-1.5 is MIT-licensed.
+- **Status**: The 2026-08-27 dual-daemon deployment (2B `acestep-v15-sft`, `music_ace_mcp.py` plus `acestep-api`, ports 8933/8934) is retired. Those files and launchd labels are gone. The replacement is one MCP (`music_mcp.py`, port 8912) that spawns ACE-Step 1.5 XL-Turbo (`use_mlx_dit`, LM backend `mlx`) per job. `modules.music.enabled` stays false.
+- **Description**: Install is `./launch.sh install-music`, which pins `ace-step/ACE-Step-1.5` at `ca1e85fe9430179831e6bc6be790c332190a3866` and refuses non-arm64. Admission uses `music:acestep-xl-turbo` = 16 GB plus headroom. That figure is a research estimate, not a live sample. XL-Turbo download size cited for the installer is about 18.8 GB for `ACE-Step/acestep-v15-xl-turbo`; the LM and core-bundle sizes are not pinned. `mlx-audio==0.6.6` is installed into the same venv for the MiniMax fallback and has not been proven to coexist with the locked torch/mlx pins. No extra int8 quantization is applied.
+- **Impact**: Until the orchestrator installs, enables, and generates a wav, this engine produces nothing. A host that is not arm64 cannot run it.
+- **Mitigation**: Keep the module disabled until `portal trace --section media --timeout 900` reads back a published wav URL (200 + bytes) and idle RSS drops after the child exits.
 
 #### Why
 
-The two-process failure mode, the memory-ceiling math, and the non-deterministic
-captioning are specific to this integration and this hardware, not general
-ACE-Step documentation — recording them here gives a future operator (or a
-future re-enable attempt) the actual reason this was shelved instead of a bare
-"disabled" with no rationale, and a concrete list of what to fix before
-re-evaluating.
+The old two-process memory ceiling was specific to the 2B sft deployment and is not a measurement of this subprocess path. Recording both the retirement and the unproven replacement keeps an operator from treating the research table as a live result.
 <!-- /WIKI:GENERATED -->
 
 ---

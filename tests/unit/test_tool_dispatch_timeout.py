@@ -108,7 +108,7 @@ async def test_refresh_reads_portal5_timeout_meta_and_bounds_it(
 
 def test_media_mcps_declare_timeout_meta_for_long_tools() -> None:
     import portal.modules.media.tools.mflux_mcp as mflux_mcp
-    import portal.modules.media.tools.music_minimax_mcp as music_mcp
+    import portal.modules.media.tools.music_mcp as music_mcp
     import portal.modules.media.tools.tts_mcp as tts_mcp
     import portal.modules.media.tools.video_mlx_mcp as video_mcp
     import portal.modules.media.tools.whisper_mcp as whisper_mcp
@@ -116,7 +116,7 @@ def test_media_mcps_declare_timeout_meta_for_long_tools() -> None:
     for mod, names in (
         (mflux_mcp, {"generate_image", "edit_image", "image_status"}),
         (video_mcp, {"video_status"}),
-        (music_mcp, {"minimax_status", "music_status"}),
+        (music_mcp, {"music_status"}),
         (tts_mcp, {"speak", "clone_voice"}),
         (whisper_mcp, {"transcribe_audio", "transcribe_with_speakers"}),
     ):

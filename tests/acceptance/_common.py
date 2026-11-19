@@ -80,7 +80,7 @@ AUTH = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"
 MCP = {
     "mflux": int(os.environ.get("MFLUX_MCP_PORT", "8933")),
     "video_mlx": int(os.environ.get("VIDEO_MLX_MCP_PORT", "8935")),
-    "music_minimax": int(os.environ.get("MUSIC_MINIMAX_PORT", "8912")),
+    "music": int(os.environ.get("MUSIC_MCP_PORT", "8912")),
     "documents": int(os.environ.get("DOCUMENTS_HOST_PORT", "8913")),
     "sandbox": int(os.environ.get("SANDBOX_HOST_PORT", "8914")),
     "whisper": int(os.environ.get("WHISPER_HOST_PORT", "8915")),

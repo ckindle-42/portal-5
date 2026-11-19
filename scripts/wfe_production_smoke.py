@@ -124,10 +124,8 @@ CASES: list[Case] = [
         "execute_bash", "Run this in bash and show me the output: echo hello-smoke", "hello-smoke"
     ),
     Case("sandbox_status", "Is the code sandbox available right now?"),
-    Case("minimax_status", "What is the status of the music generator?"),
-    Case(
-        "minimax_generate", "", skip="heavy GPU generation: covered by the music UAT, not a smoke"
-    ),
+    Case("music_status", "What is the status of the music generator?"),
+    Case("music_start", "", skip="heavy GPU generation: covered by the music UAT, not a smoke"),
     Case("transcribe_audio", "Transcribe smoke_audio.wav", "portal"),
 ]
 

@@ -820,8 +820,9 @@ def test_media_artifact_hop_verdicts(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_media_run_warns_disabled_and_needs_no_network(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(media, "env_value", lambda name, default="": "")
     hops = media.run(_ctx(), {"modules": {"image": {"enabled": False}}})
-    assert [h.status for h in hops] == [Status.WARN, Status.WARN]
+    assert [h.status for h in hops] == [Status.WARN, Status.WARN, Status.WARN]
     assert "modules.image.enabled is false" in hops[0].observed
+    assert "music module disabled" in hops[2].observed
     monkeypatch.setattr(
         media, "env_value", lambda name, default="": "key" if name == "OWUI_API_KEY" else ""
     )
@@ -829,16 +830,70 @@ def test_media_run_warns_disabled_and_needs_no_network(monkeypatch: pytest.Monke
     assert hops[0].name == "image preset" and hops[0].status is Status.WARN
 
 
-def test_media_run_appends_a_video_warn_while_video_is_disabled(
+def test_media_run_appends_video_and_music_warns_while_disabled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(media, "env_value", lambda name, default="": "")
     portal = {"modules": {"image": {"enabled": True}, "video": {"enabled": False}}}
     hops = media.run(_ctx(), portal)
-    assert hops[-1].name == "video artifact turn"
+    assert hops[-2].name == "video artifact turn"
+    assert hops[-2].status is Status.WARN
+    assert "video module disabled" in hops[-2].observed
+    assert "modules.video.enabled" in hops[-2].detail
+    assert hops[-1].name == "music artifact turn"
     assert hops[-1].status is Status.WARN
-    assert "video module disabled" in hops[-1].observed
-    assert "modules.video.enabled" in hops[-1].detail
+    assert "music module disabled" in hops[-1].observed
+    assert "modules.music.enabled" in hops[-1].detail
+
+
+class TestMusicHops:
+    """The music hop's verdicts — pure functions, no network."""
+
+    def test_music_enabled_follows_the_config_switch(self) -> None:
+        assert media.music_enabled({"modules": {"music": {"enabled": True}}}) is True
+        assert media.music_enabled({"modules": {"music": {"enabled": False}}}) is False
+        assert media.music_enabled({"modules": {}}) is False
+        assert media.music_enabled({}) is False
+
+    def test_music_artifact_hop_passes_a_reply_that_reads_back(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        turn = workspaces.StreamedTurn(
+            200,
+            [],
+            workspaces.TurnStats(
+                text="done http://owui:8080/api/v1/files/2f3a1b9c-0000-0000-0000-000000000000"
+                "/content/music_ab12.wav"
+            ),
+        )
+        monkeypatch.setattr(media, "read_back", lambda _u, _k: (True, "http 200, 882340 bytes"))
+        hop = media.music_artifact_hop(turn, "key")
+        assert hop.status is Status.PASS
+        assert "200 + bytes" in hop.expected
+
+    def test_music_artifact_hop_fails_an_error_and_a_url_less_reply(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(media, "read_back", lambda _u, _k: (False, "http 404, 0 bytes"))
+        failed = workspaces.StreamedTurn(0, error="ConnectError: refused")
+        assert media.music_artifact_hop(failed, "key").status is Status.FAIL
+        empty = workspaces.StreamedTurn(200, [], workspaces.TurnStats(text="no link"))
+        assert media.music_artifact_hop(empty, "key").status is Status.FAIL
+        url = "done http://owui/api/v1/files/abcd1234-0000-0000-0000-000000000000/content/x.wav"
+        turn = workspaces.StreamedTurn(200, [], workspaces.TurnStats(text=url))
+        assert media.music_artifact_hop(turn, "key").status is Status.FAIL
+
+    def test_music_hops_need_the_api_key_and_preset_while_enabled(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(media, "env_value", lambda name, default="": "")
+        portal = {"modules": {"music": {"enabled": True}}}
+        assert media.music_hops(_ctx(), portal)[0].observed == "not run: no OWUI_API_KEY"
+        monkeypatch.setattr(
+            media, "env_value", lambda name, default="": "key" if name == "OWUI_API_KEY" else ""
+        )
+        hop = media.music_hops(_ctx(), portal)[0]
+        assert hop.status is Status.WARN and "preset missing" in hop.observed
 
 
 def _ctx() -> Any:

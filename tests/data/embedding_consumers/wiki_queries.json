@@ -83,7 +83,7 @@
   {
    "query": "generate a whole song with vocals from a prompt",
    "expected_unit_ids": [
-    "unit-capability-music-minimax",
+    "unit-capability-music",
     "unit-module-media"
    ]
   },

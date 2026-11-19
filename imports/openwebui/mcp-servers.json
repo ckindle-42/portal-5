@@ -1,6 +1,6 @@
 {
  "version": "1.2",
- "description": "Portal MCP Tool Server configurations. portal_music_ace (8933) is omitted (music-ace disabled). portal_video_mlx (8935) is included but only reachable when the `video` M7 module is enabled (`./launch.sh install-video-mlx` + `portal module enable video`); otherwise it shows as a broken connection in OWUI.",
+ "description": "Portal MCP Tool Server configurations. portal_music (:8912) is the ACE-Step XL-Turbo MCP and is only reachable after ./launch.sh install-music and portal module enable music. portal_video_mlx (8935) is included but only reachable when the `video` module is enabled (`./launch.sh install-video-mlx` + `portal module enable video`); otherwise it shows as a broken connection in OWUI.",
  "tool_servers": [
   {
    "name": "Portal MFLUX (image)",
@@ -15,8 +15,8 @@
    "api_key": ""
   },
   {
-   "name": "Portal Music (MiniMax)",
-   "id": "portal_music_minimax",
+   "name": "Portal Music",
+   "id": "portal_music",
    "url": "http://host.docker.internal:8912/mcp",
    "api_key": ""
   },

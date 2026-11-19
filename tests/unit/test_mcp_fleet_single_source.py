@@ -19,7 +19,7 @@ from portal.platform.inference.tool_registry import MCP_SERVERS
 
 REPO = Path(__file__).resolve().parent.parent.parent
 NATIVE_MODULES = {
-    "music-minimax": "portal.modules.media.tools.music_minimax_mcp",
+    "music": "portal.modules.media.tools.music_mcp",
     "mflux": "portal.modules.media.tools.mflux_mcp",
     "video_mlx": "portal.modules.media.tools.video_mlx_mcp",
     "documents": "portal.modules.documents.tools.document_mcp",
@@ -120,15 +120,18 @@ def test_fleet_pipeline_exposed_matches_mcp_servers() -> None:
 def test_env_override_normalizes_hyphenated_id(monkeypatch: pytest.MonkeyPatch) -> None:
     """A hyphenated fleet id is overridable via an underscored env key.
 
-    ``music-minimax`` runs host-native (no compose service), so the pipeline
-    container must be able to repoint it at host.docker.internal. Env var names
-    can't carry hyphens, so the key is ``MCP_MUSIC_MINIMAX_URL``.
+    The live music id is ``music`` (``MCP_MUSIC_URL``). Hyphen folding is still
+    ``id.upper().replace('-', '_')``; a copied server proves the hyphen path.
     """
     config = load_portal_config()
-    assert any(s.id == "music-minimax" for s in config.mcp_fleet)
-    monkeypatch.setenv("MCP_MUSIC_MINIMAX_URL", "http://host.docker.internal:8912")
+    music = next(s for s in config.mcp_fleet if s.id == "music")
+    monkeypatch.setenv("MCP_MUSIC_URL", "http://host.docker.internal:8912")
     derived = get_pipeline_mcp_servers(config)
-    assert derived["music-minimax"] == "http://host.docker.internal:8912"
+    assert derived["music"] == "http://host.docker.internal:8912"
+    hyphenated = music.model_copy(update={"id": "foo-bar", "port": 1})
+    folded = config.model_copy(update={"mcp_fleet": [*config.mcp_fleet, hyphenated]})
+    monkeypatch.setenv("MCP_FOO_BAR_URL", "http://example.test:1")
+    assert get_pipeline_mcp_servers(folded)["foo-bar"] == "http://example.test:1"
 
 
 def test_ide_servers_in_fleet() -> None:
@@ -164,10 +167,8 @@ def test_browser_is_ide_only() -> None:
 
 
 NATIVE_TOOL_NAMES = {
-    "music-minimax": [
-        "minimax_generate",
-        "minimax_models",
-        "minimax_status",
+    "music": [
+        "music_models",
         "music_start",
         "music_status",
     ],

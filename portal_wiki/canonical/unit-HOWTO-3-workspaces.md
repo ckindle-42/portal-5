@@ -45,7 +45,7 @@ For the full live roster (production + eval workspaces, module, model hint) use 
 | `auto-coding` | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k` | execute_python, execute_nodejs, execute_bash |
 | `auto-security` | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` | web_search, classify_vulnerability, execute_bash |
 | `auto-documents` | `gemma4:26b-a4b-it-qat-ctx32k` | create_word_document, create_excel, create_powerpoint |
-| `auto-music` | `lfm2.5:8b-ctx8k` | minimax_generate, minimax_status, speak, clone_voice, register_voice |
+| `auto-music` | `lfm2.5:8b-ctx8k` | music_start, music_status, music_models, speak, clone_voice, register_voice |
 | `auto-vision` | `qwen3-vl:32b-ctx8k` | transcribe_audio, generate_image |
 
 The `auto-daily` seat is now the Nemotron 3.5 Lightning 30B-A3B text-only lane (no vision tower); image turns on that seat reroute to the `auto-vision` workspace at the router.

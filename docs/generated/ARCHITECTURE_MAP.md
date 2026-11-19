@@ -2,13 +2,12 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 773 canonical units.*
+*Deterministic projection of 626 canonical units.*
 
 ## Knowledge Layer
 
 | Unit ID | Kind | Sources |
 |---------|------|---------|
-| `SEC_BENCH-combined-corpus-validation-20260731` | what | 7 |
 | `unit-ADMIN_GUIDE-add-a-cluster-node` | why | 2 |
 | `unit-ADMIN_GUIDE-alternative-lan-reverse-proxy-caddy-nginx` | why | 4 |
 | `unit-ADMIN_GUIDE-approve-pending-users` | why | 2 |
@@ -156,7 +155,6 @@
 | `unit-alerts-timezone-for-the-schedule-default-utc` | what | 4 |
 | `unit-alerts-troubleshooting` | what | 5 |
 | `unit-alerts-webhook` | what | 3 |
-| `unit-archive-v5-ladder-analysis` | mixed | 1 |
 | `unit-backup-restore-1-open-webui-data` | what | 3 |
 | `unit-backup-restore-1-open-webui-data-critical` | what | 2 |
 | `unit-backup-restore-2-configuration` | what | 2 |
@@ -192,8 +190,6 @@
 | `unit-bench-candidates-v10` | mixed | 1 |
 | `unit-bench-mlx-hf` | mixed | 1 |
 | `unit-bench-security` | mixed | 1 |
-| `unit-blue-orchestration-v2-capture-gap` | why | 8 |
-| `unit-blue-orchestration-v3-council-of-agreement` | why | 3 |
 | `unit-capability-binresearch` | mixed | 3 |
 | `unit-capability-browser` | mixed | 3 |
 | `unit-capability-cad-render` | mixed | 6 |
@@ -214,7 +210,7 @@
 | `unit-capability-mflux` | mixed | 2 |
 | `unit-capability-mitre` | mixed | 3 |
 | `unit-capability-mlx-transcribe` | mixed | 3 |
-| `unit-capability-music-minimax` | mixed | 3 |
+| `unit-capability-music` | mixed | 3 |
 | `unit-capability-netforensics` | mixed | 4 |
 | `unit-capability-pipeline` | mixed | 3 |
 | `unit-capability-proxmox` | mixed | 3 |
@@ -267,6 +263,7 @@
 | `unit-compliance-substrate-properties` | mixed | 3 |
 | `unit-compliance-technical-basis-coverage` | what | 1 |
 | `unit-compliance-transport-dialects` | mixed | 3 |
+| `unit-config-file-roles` | mixed | 13 |
 | `unit-corpus-injection-a-canned-detection-firing-on-corpus-data-t1558-004-as-rep-roasting-verbatim-spl` | what | 2 |
 | `unit-corpus-injection-always-dry-run-first-it-prints-exact-per-sourcetype-volume-without-injecting` | what | 2 |
 | `unit-corpus-injection-confirm-the-live-triage-window-is-still-clean` | what | 2 |
@@ -291,7 +288,6 @@
 | `unit-design-omlx-dual-backend-plumbing` | mixed | 13 |
 | `unit-design-spine-drift-census` | mixed | 7 |
 | `unit-design-wiki-archive-mechanism` | mixed | 4 |
-| `unit-engine-prefix-cache-20261021` | what | 1 |
 | `unit-fixture-capability-context-sample` | mixed | 1 |
 | `unit-general-config-workspace-pointers` | mixed | 1 |
 | `unit-general-fast-deep-workspaces` | mixed | 2 |
@@ -300,47 +296,29 @@
 | `unit-host-log-rotation` | what | 4 |
 | `unit-inference-router-pipe` | mixed | 1 |
 | `unit-known-issues-known-issues` | what | 2 |
-| `unit-known-limitations-70b-dense-models-unusable-for-daily-routing-on-m4-pro-64gb` | what | 3 |
 | `unit-known-limitations-acestep15-mlx-backend` | mixed | 1 |
-| `unit-known-limitations-antares-gate-e1-gated-download` | what | 1 |
 | `unit-known-limitations-asteroids-bench-score-variance-is-the-benchmark-s-purpose` | what | 3 |
-| `unit-known-limitations-auto-math-workspace-reasoning-block-support` | what | 1 |
 | `unit-known-limitations-auto-rag-silent-miss` | what | 2 |
-| `unit-known-limitations-baronllm-text-only-tool-output-auto-security-mcp-tools-non-functional` | what | 6 |
+| `unit-known-limitations-botsv2-notables-recall` | what | 4 |
 | `unit-known-limitations-bully-discovery-truth-leak` | what | 4 |
 | `unit-known-limitations-cad-b3d-session` | what | 2 |
 | `unit-known-limitations-cad-brep-kernel-gaps` | what | 2 |
-| `unit-known-limitations-cadquery-and-build123d-unusable-on-linux-arm64` | what | 4 |
 | `unit-known-limitations-cip-register-behind-published-versions` | what | 3 |
 | `unit-known-limitations-code-sandbox-requires-privileged-container` | what | 2 |
 | `unit-known-limitations-compliance-engine-had-no-route` | what | 3 |
 | `unit-known-limitations-compliance-implicit-change-recall` | what | 3 |
 | `unit-known-limitations-compliance-mcp-protocol-calls-not-cancelled` | what | 3 |
 | `unit-known-limitations-compliance-review-queue-not-a-gate` | what | 2 |
-| `unit-known-limitations-compliance-scope-was-gated-on-data-the-corpus-already-answers` | what | 2 |
-| `unit-known-limitations-devstral-24b-runtime-vram-footprint-25-7-gb` | what | 3 |
 | `unit-known-limitations-diarized-transcription-task-transcribe-001` | what | 3 |
-| `unit-known-limitations-emergent-objective-loop-curated-capability-tool-names-vs-live-dispatch-whitelist` | what | 8 |
 | `unit-known-limitations-engine-update-data01-approval` | what | 4 |
-| `unit-known-limitations-fara-cua-tag-closure` | what | 1 |
 | `unit-known-limitations-granite-8b-mxfp8-tool-garbling` | what | 3 |
 | `unit-known-limitations-higgs-voice-cloning` | mixed | 1 |
 | `unit-known-limitations-host-measurement-contention` | what | 8 |
-| `unit-known-limitations-host-native-mcp-lifecycle-launcher-child-exit` | what | 5 |
-| `unit-known-limitations-importing-the-security-bench-module-sets-a-linux-only-prometheus-multiproc-dir-host-side` | what | 3 |
 | `unit-known-limitations-known-limitations` | what | 1 |
-| `unit-known-limitations-ling-3-0-flash-turboquant-memory-gates` | what | 1 |
 | `unit-known-limitations-load-guard-omlx-swap` | what | 3 |
-| `unit-known-limitations-meta3-metasploitable3-windows-scenario-coverage-spl-precision-gaps` | what | 7 |
 | `unit-known-limitations-minimax-music3-mlx` | mixed | 1 |
-| `unit-known-limitations-mlx-inference-proxy-retired-commit-3a0c58e` | what | 3 |
-| `unit-known-limitations-model-parity-specialist-models-lost-in-the-mlx-ollama-migration` | what | 2 |
-| `unit-known-limitations-models-out-of-m4-pro-64-gb-budget` | what | 2 |
-| `unit-known-limitations-narrated-tool-call-instead-of-real-dispatch` | what | 4 |
 | `unit-known-limitations-no-built-in-multi-user-rate-limiting` | what | 2 |
 | `unit-known-limitations-ollama-api-ps-under-reports-llamacpp-residents` | what | 1 |
-| `unit-known-limitations-ollama-gpu-overhead-ceiling` | what | 1 |
-| `unit-known-limitations-ollama-native-mlx-engine-evaluation-findings-2026-07-01` | what | 3 |
 | `unit-known-limitations-ollama-tool-call-parser-aborts-a-started-stream` | what | 3 |
 | `unit-known-limitations-ollama-v1-ignores-options-num-ctx-and-options-num-batch` | what | 6 |
 | `unit-known-limitations-ollama-v1-sampling-drop` | what | 4 |
@@ -349,29 +327,15 @@
 | `unit-known-limitations-omlx-prefix-cache-accounting` | what | 3 |
 | `unit-known-limitations-omlx-qwen3coder-tool-text` | what | 3 |
 | `unit-known-limitations-owui-audio-drop-ux-task-owui-audio-drop-001` | what | 2 |
-| `unit-known-limitations-p5-emergent-002-deterministic-capability-ranker-can-t-reach-oracle-bearing-capabilities-once-any-tool-declaring-recon-capability-is-a-candidate` | what | 4 |
 | `unit-known-limitations-p5-mlx-eval-001-gguf-fleet-regressed-slightly-on-0-31-1-mtp-is-mlx-engine-only` | what | 2 |
 | `unit-known-limitations-p5-mlx-eval-002-ollama-s-official-gemma4-mlx-tags-are-not-drop-in-swaps` | what | 2 |
 | `unit-known-limitations-p5-mlx-eval-003-hf-hosted-mlx-models-are-currently-unreachable-by-the-pipeline` | what | 2 |
 | `unit-known-limitations-p5-mlx-eval-004-large-single-blob-mlx-downloads-hang-intermittently` | what | 3 |
 | `unit-known-limitations-p5-mlx-eval-005-two-security-tier-fine-tunes-have-no-working-mlx-conversion` | what | 3 |
-| `unit-known-limitations-phi4-reasoning-plus-crashes-ollama-s-llama-server-on-this-host-confirmed-not-a-corrupted-download` | what | 3 |
 | `unit-known-limitations-pipeline-hardening-20260925` | what | 9 |
-| `unit-known-limitations-post-v1-messages-anthropic-compat-endpoint-returns-http-200-with-a-null-body` | what | 3 |
-| `unit-known-limitations-pytest-portal-leaves-real-write-through-test-artifacts` | what | 4 |
-| `unit-known-limitations-rbp-benign-corpus-alert-fatigue` | what | 5 |
-| `unit-known-limitations-request-size-cap-relies-on-content-length-only` | what | 1 |
-| `unit-known-limitations-router-model-eviction-single-request` | what | 6 |
-| `unit-known-limitations-serena-gate-d1-airgap-staging` | what | 1 |
 | `unit-known-limitations-shared-workspace-auto-stt-disabled-task-workspace-001` | what | 4 |
-| `unit-known-limitations-speculative-decoding-mtp-retired-with-the-mlx-proxy-commit-3a0c58e` | what | 3 |
-| `unit-known-limitations-spine-code-coverage-ratchet` | what | 2 |
-| `unit-known-limitations-tool-preselection-candidate-1b-models-cannot-rank-tools` | what | 6 |
 | `unit-known-limitations-transitive-dependency-cves` | what | 2 |
 | `unit-known-limitations-unregistered-hint-fallback` | what | 3 |
-| `unit-known-limitations-v5-model-visible-corpus-retrieval-coverage` | what | 4 |
-| `unit-known-limitations-v8-catalog-deferred-insufficient-hardware` | what | 2 |
-| `unit-known-limitations-vl-retrieval-runtime` | what | 3 |
 | `unit-known-limitations-vl-text-gate-tuned-against-manufactured-collision` | what | 1 |
 | `unit-lab-setup-all-these-should-succeed-after-setup` | what | 4 |
 | `unit-lab-setup-full-setup-downloads-vulhub-challenge-composes-base-images-model-pulls` | what | 2 |
@@ -413,159 +377,60 @@
 | `unit-mcp-dev-tooling-what-opencode-gets` | what | 3 |
 | `unit-mcp-dev-tooling-workspace-selection` | what | 3 |
 | `unit-memory-mcp-lancedb` | mixed | 3 |
-| `unit-model-catalog-alicankiraz0-cybersecurity-baronllm-offensive-security-llm-q6-k-gguf-dropped-hf-id-only-see-baronllm-q6-k-below-for-the-fleet-entry` | what | 2 |
-| `unit-model-catalog-baronllm-q6-k` | what | 2 |
-| `unit-model-catalog-blue-red-candidate-batch-evaluated-2026-07-03-none-promoted` | what | 2 |
-| `unit-model-catalog-cybersecqwen-4b-toolfix-latest` | what | 2 |
 | `unit-model-catalog-deepseek-r1-0528-qwen3-8b-4bit` | what | 1 |
 | `unit-model-catalog-deepseek-r1-32b-q4-k-m` | what | 2 |
-| `unit-model-catalog-devstral-24b` | what | 2 |
-| `unit-model-catalog-devstral-small-2` | what | 2 |
-| `unit-model-catalog-devstral-small-2-latest` | what | 2 |
 | `unit-model-catalog-devstral-small-2-latest-ctx8k` | what | 2 |
-| `unit-model-catalog-dolphin-llama3-8b` | what | 1 |
-| `unit-model-catalog-fredrezones55-qwen3-6-35b-a3b-uncensored-hauhaucs-aggressive-q4` | what | 2 |
 | `unit-model-catalog-fredrezones55-qwen3-6-35b-a3b-uncensored-hauhaucs-aggressive-q4-ctx8k` | what | 2 |
 | `unit-model-catalog-gemma-4-26b-a4b-it-qat-4bit` | what | 1 |
-| `unit-model-catalog-gemma-4-e4b-it-4bit` | what | 1 |
-| `unit-model-catalog-gemma4-12b-it-qat` | what | 2 |
 | `unit-model-catalog-gemma4-12b-it-qat-ctx8k` | what | 2 |
 | `unit-model-catalog-gemma4-26b-a4b-it-q4-k-m` | what | 2 |
-| `unit-model-catalog-gemma4-26b-a4b-it-qat` | what | 2 |
 | `unit-model-catalog-gemma4-26b-a4b-it-qat-ctx8k` | what | 2 |
-| `unit-model-catalog-gemma4-31b-it-qat` | what | 2 |
 | `unit-model-catalog-gemma4-31b-it-qat-ctx8k` | what | 1 |
-| `unit-model-catalog-gemma4-e2b-it-qat` | what | 2 |
-| `unit-model-catalog-gemma4-e2b-it-qat-ctx8k` | what | 1 |
-| `unit-model-catalog-gemma4-e4b-it-q4-k-m` | what | 2 |
 | `unit-model-catalog-gemma4-e4b-it-qat` | what | 2 |
 | `unit-model-catalog-gemma4-e4b-it-qat-ctx8k` | what | 2 |
 | `unit-model-catalog-glm-4-7-flash-q4-k-m` | what | 2 |
-| `unit-model-catalog-gpt-oss-20b` | what | 2 |
 | `unit-model-catalog-granite-4-1-30b-4bit` | what | 1 |
-| `unit-model-catalog-granite-4-1-8b-mxfp8` | what | 1 |
-| `unit-model-catalog-granite4-1-30b` | what | 2 |
 | `unit-model-catalog-granite4-1-30b-ctx16k` | what | 2 |
 | `unit-model-catalog-granite4-1-30b-ctx64k` | what | 2 |
-| `unit-model-catalog-granite4-1-8b` | what | 2 |
 | `unit-model-catalog-granite4-1-8b-ctx16k` | what | 2 |
 | `unit-model-catalog-granite4-1-8b-ctx8k` | what | 2 |
 | `unit-model-catalog-hermes3-8b` | what | 1 |
-| `unit-model-catalog-hf-co-abiray-agents-a1-q4-k-m-gguf-q4-k-m` | what | 2 |
-| `unit-model-catalog-hf-co-andycurrent-mistral-7b-uncensored-gguf-q4-k-m` | what | 2 |
-| `unit-model-catalog-hf-co-bartowski-huihui-ai-qwen3-coder-next-abliterated-gguf-q4-k-m` | what | 2 |
-| `unit-model-catalog-hf-co-bartowski-huihui-ai-qwen3-coder-next-abliterated-gguf-q4-k-m-ctx64k` | what | 2 |
-| `unit-model-catalog-hf-co-bartowski-nvidia-nemotron-3-5-lightning-30b-a3b-gguf-q4-k-m-ctx8k` | what | 1 |
-| `unit-model-catalog-hf-co-bartowski-qwen-qwen3-6-27b-gguf-q4-k-m` | what | 2 |
-| `unit-model-catalog-hf-co-bartowski-thudm-glm-z1-rumination-32b-0414-gguf-thudm-glm-z1-rumination-32b-0414-q4-k-m-gguf` | what | 2 |
-| `unit-model-catalog-hf-co-bartowski-thudm-glm-z1-rumination-32b-0414-gguf-thudm-glm-z1-rumination-32b-0414-q4-k-m-gguf-ctx64k` | what | 1 |
-| `unit-model-catalog-hf-co-bugtraceai-bugtraceai-core-ultra-27b-q6-q6-k` | what | 2 |
 | `unit-model-catalog-hf-co-coder543-north-mini-code-1-0-qad-gguf-nvfp4-ctx8k` | what | 2 |
-| `unit-model-catalog-hf-co-coder543-north-mini-code-1-0-qad-gguf-nvfp4-promoted-2026-06-30` | what | 2 |
 | `unit-model-catalog-hf-co-deepreinforce-ai-ornith-1-0-35b-gguf-q4-k-m-ctx64k` | what | 2 |
-| `unit-model-catalog-hf-co-deepreinforce-ai-ornith-1-0-35b-gguf-q4-k-m-promoted-2026-06-30` | what | 2 |
-| `unit-model-catalog-hf-co-deepreinforce-ai-ornith-1-0-9b-gguf-q4-k-m-dropped-2026-06-30` | what | 1 |
 | `unit-model-catalog-hf-co-douyamv-gemma-4-31b-jang-4m-crack-gguf-gemma-4-31b-jang-crack-q4-k-m-gguf` | what | 2 |
-| `unit-model-catalog-hf-co-empero-ai-qwythos-9b-claude-mythos-5-1m-gguf-q4-k-m-dropped-2026-06-30` | what | 1 |
 | `unit-model-catalog-hf-co-fdtn-ai-foundation-sec-8b-reasoning-q8-0-gguf-q8-0` | what | 2 |
-| `unit-model-catalog-hf-co-gaston-parravicini-lfm2-5-8b-a1b-uncensored-gaston-gguf-q4-k-m` | what | 2 |
-| `unit-model-catalog-hf-co-gaston-parravicini-lfm2-5-8b-a1b-uncensored-gaston-gguf-q4-k-m-ctx8k` | what | 2 |
-| `unit-model-catalog-hf-co-jackrong-qwopus3-6-27b-v2-mtp-gguf-qwopus3-6-27b-v2-mtp-q5-k-m-gguf` | what | 2 |
-| `unit-model-catalog-hf-co-jiunsong-superqwen-agentworld-35b-a3b-abliterated-gguf-4bit-q4-k-m` | what | 2 |
-| `unit-model-catalog-hf-co-liquidai-lfm2-5-1-2b-instruct-gguf-q4-k-m` | what | 2 |
-| `unit-model-catalog-hf-co-liquidai-lfm2-5-230m-gguf-q4-k-m` | what | 2 |
-| `unit-model-catalog-hf-co-liquidai-lfm2-5-350m-gguf-q4-k-m` | what | 2 |
-| `unit-model-catalog-hf-co-mia-ailab-qwable-3-6-35b-qwable-3-6-35b-q4-k-m-gguf` | what | 2 |
-| `unit-model-catalog-hf-co-mia-ailab-qwable-3-6-35b-qwable-3-6-35b-q4-k-m-gguf-removed-from-security-group` | what | 2 |
-| `unit-model-catalog-hf-co-mitkox-fastcontext-1-0-4b-sft-q4-k-m-gguf-q4-k-m` | what | 2 |
-| `unit-model-catalog-hf-co-mradermacher-cybersecqwen-4b-gguf-q4-k-m-dropped-tool-call-blocker-fixed-2026-07-04-detection-quality-inconclusive-not-adopted` | what | 2 |
-| `unit-model-catalog-hf-co-mradermacher-gemma-4-26b-a4b-it-uncensored-heretic-gguf-gemma-4-26b-a4b-it-uncensored-heretic-q4-k-m-gguf` | what | 1 |
 | `unit-model-catalog-hf-co-mradermacher-huihui-qwen3-6-35b-a3b-abliterated-gguf-q4-k-m` | what | 2 |
-| `unit-model-catalog-hf-co-mradermacher-qwen3-5-9b-claude-4-6-highiq-thinking-heretic-uncensored-gguf-q4-k-m` | what | 2 |
-| `unit-model-catalog-hf-co-mradermacher-vulnllm-r-7b-gguf-q4-k-m` | what | 2 |
 | `unit-model-catalog-hf-co-mradermacher-vulnllm-r-7b-gguf-q4-k-m-ctx8k` | what | 2 |
-| `unit-model-catalog-hf-co-nguuma-security-slm-unsloth-1-5b-latest` | what | 2 |
-| `unit-model-catalog-hf-co-quantfactory-llama-3-2-3b-instruct-abliterated-gguf` | what | 1 |
-| `unit-model-catalog-hf-co-redteamlab-qwen3-6-27b-blueteam-v1-q3-k-s-dropped-evaluated-not-adopted` | what | 2 |
-| `unit-model-catalog-hf-co-redteamlab-qwen3-6-27b-redteam-v5-qwen3-6-27b-redteam-v5-q4-k-m-gguf-dropped-evaluated-not-adopted` | what | 2 |
 | `unit-model-catalog-hf-co-sjakek-nex-n2-mini-gguf-ud-q4-k-m` | what | 2 |
-| `unit-model-catalog-hf-co-unsloth-deepseek-r1-0528-qwen3-8b-gguf-q4-k-xl` | what | 2 |
 | `unit-model-catalog-hf-co-unsloth-deepseek-r1-0528-qwen3-8b-gguf-q4-k-xl-ctx64k` | what | 2 |
-| `unit-model-catalog-hf-co-unsloth-glm-4-7-flash-reap-23b-a3b-gguf-ud-q4-k-xl` | what | 2 |
-| `unit-model-catalog-hf-co-unsloth-glm-4-7-flash-reap-23b-a3b-gguf-ud-q4-k-xl-ctx64k` | what | 2 |
-| `unit-model-catalog-hf-co-unsloth-magistral-small-2509-gguf-q8-0` | what | 1 |
 | `unit-model-catalog-hf-co-unsloth-magistral-small-2509-gguf-q8-0-ctx64k` | what | 1 |
-| `unit-model-catalog-hf-co-unsloth-qwen-agentworld-35b-a3b-gguf-ud-q4-k-xl` | what | 2 |
-| `unit-model-catalog-hf-co-unsloth-qwen-agentworld-35b-a3b-gguf-ud-q4-k-xl-ctx64k` | what | 2 |
-| `unit-model-catalog-hf-co-unsloth-qwen3-6-35b-a3b-gguf-ud-q4-k-xl` | what | 2 |
 | `unit-model-catalog-hf-co-unsloth-qwen3-8-27b-gguf-q4-k-m` | what | 3 |
-| `unit-model-catalog-huihui-ai-baronllm-abliterated` | what | 2 |
 | `unit-model-catalog-huihui-ai-baronllm-abliterated-latest-ctx8k` | what | 2 |
-| `unit-model-catalog-huihui-ai-baronllm-abliterated-latest-dropped-evaluated-not-adopted-supersedes-the-gated-alicankiraz0-baronllm-above` | what | 2 |
 | `unit-model-catalog-huihui-ai-gemma-4-abliterated-e2b-qat` | what | 2 |
-| `unit-model-catalog-huihui-ai-gemma-4-abliterated-e2b-qat-ctx8k` | what | 1 |
 | `unit-model-catalog-huihui-ai-huihui-qwen3-5-9b-abliterated-mlx-4bit` | what | 1 |
 | `unit-model-catalog-huihui-ai-qwen3-5-abliterated-9b` | what | 2 |
 | `unit-model-catalog-huihui-ai-qwen3-5-abliterated-9b-ctx64k` | what | 2 |
 | `unit-model-catalog-huihui-ai-qwen3-5-abliterated-9b-ctx8k` | what | 2 |
 | `unit-model-catalog-huihui-ai-qwen3-6-abliterated-27b` | what | 2 |
 | `unit-model-catalog-huihui-ai-qwen3-6-abliterated-27b-ctx8k` | what | 2 |
-| `unit-model-catalog-huihui-ai-qwen3-abliterated-14b-v2` | what | 2 |
-| `unit-model-catalog-huihui-ai-tongyi-deepresearch-abliterated` | what | 2 |
 | `unit-model-catalog-huihui-ai-tongyi-deepresearch-abliterated-latest-ctx64k` | what | 2 |
-| `unit-model-catalog-jackrong-deepseek-v4-pro-qwen3-5-4b-mtp` | what | 2 |
-| `unit-model-catalog-jackrong-deepseek-v4-pro-qwen3-5-9b-mtp` | what | 2 |
 | `unit-model-catalog-laguna-xs-2-1-4bit` | what | 2 |
-| `unit-model-catalog-lfm2-5-8b` | what | 2 |
 | `unit-model-catalog-lfm2-5-8b-ctx8k` | what | 2 |
-| `unit-model-catalog-llama-3-2-3b-instruct-8bit` | what | 1 |
-| `unit-model-catalog-llama3-2-3b` | what | 1 |
-| `unit-model-catalog-llama3-2-3b-instruct-q8-0-ctx8k` | what | 1 |
-| `unit-model-catalog-meta-secalign-8b-q4-k-m` | what | 2 |
-| `unit-model-catalog-meta-secalign-8b-q4-k-m-latest` | what | 2 |
 | `unit-model-catalog-mistral-small3-2-24b` | what | 2 |
-| `unit-model-catalog-model-catalog-portal-5-model-reference` | what | 2 |
-| `unit-model-catalog-muse-glimmer-30b-mlx` | what | 2 |
 | `unit-model-catalog-nvidia-nemotron-3-5-lightning-30b-a3b-oq4e-mtp` | what | 1 |
 | `unit-model-catalog-omnicoder2-9b-q4-k-m` | what | 2 |
 | `unit-model-catalog-omnicoder2-9b-q4-k-m-ctx8k` | what | 2 |
-| `unit-model-catalog-phi-4-reasoning-plus-mlx-4bit` | what | 1 |
-| `unit-model-catalog-phi4-14b-q8-0` | what | 1 |
-| `unit-model-catalog-phi4-mini` | what | 2 |
-| `unit-model-catalog-phi4-mini-reasoning` | what | 2 |
 | `unit-model-catalog-phi4-mini-reasoning-latest-ctx24k` | what | 2 |
-| `unit-model-catalog-phi4-reasoning-plus` | what | 1 |
-| `unit-model-catalog-phi4-reasoning-plus-ctx32k` | what | 1 |
-| `unit-model-catalog-portal5-deepwen-3-6-q4-5-moq` | what | 2 |
-| `unit-model-catalog-portal5-deepwen-3-6-q4-5-moq-ctx32k` | what | 2 |
-| `unit-model-catalog-portal5-gemma4-12b-q4-k-m-ctx8k` | what | 1 |
-| `unit-model-catalog-portal5-qwen3-6-27b-mtp-q8-0-drafted` | what | 2 |
-| `unit-model-catalog-portal5-qwen36-27b-fable-fusion-heretic-q4-k-m-dropped` | what | 1 |
-| `unit-model-catalog-portal5-xyz-aquila-mini-q4-k-m` | what | 2 |
-| `unit-model-catalog-qwen3-6-27b-mtp-q4-k-m` | what | 2 |
-| `unit-model-catalog-qwen3-6-27b-oq8-mtp` | what | 1 |
 | `unit-model-catalog-qwen3-6-27b-q4-k-m` | what | 2 |
 | `unit-model-catalog-qwen3-6-27b-q4-k-m-ctx16k` | what | 2 |
-| `unit-model-catalog-qwen3-6-27b-q8-0` | what | 2 |
 | `unit-model-catalog-qwen3-6-35b-a3b-hauhaucs-aggressive-4bit` | what | 1 |
-| `unit-model-catalog-qwen3-6-35b-a3b-q4-k-m` | what | 2 |
 | `unit-model-catalog-qwen3-8-27b-oq4e-mtp` | what | 1 |
-| `unit-model-catalog-qwen3-8-flash-next-reap-288-mlx-4bit` | what | 1 |
 | `unit-model-catalog-qwen3-coder-30b-a3b-instruct-4bit` | what | 1 |
 | `unit-model-catalog-qwen3-coder-30b-a3b-q4-k-m` | what | 2 |
 | `unit-model-catalog-qwen3-coder-30b-a3b-q4-k-m-ctx16k` | what | 2 |
-| `unit-model-catalog-qwen3-coder-30b-a3b-q4-k-m-ctx8k` | what | 2 |
-| `unit-model-catalog-qwen3-coder-next-latest` | what | 2 |
-| `unit-model-catalog-qwen3-coder-next-latest-ctx64k` | what | 2 |
 | `unit-model-catalog-qwen3-vl-32b` | what | 2 |
 | `unit-model-catalog-qwen3-vl-32b-ctx8k` | what | 2 |
-| `unit-model-catalog-qwen3-vl-32b-instruct-4bit` | what | 1 |
-| `unit-model-catalog-ravenx-cyberagent-35b-q4-k-m-dropped-evaluated-not-adopted-local-alias-for-ravenx-cyberagent-35b` | what | 2 |
-| `unit-model-catalog-supergemma4-26b-abliterated-multimodal-mlx-4bit` | what | 1 |
-| `unit-model-catalog-supergemma4-26b-uncensored-q4-k-m` | what | 2 |
 | `unit-model-catalog-supergemma4-26b-uncensored-q4-k-m-ctx64k` | what | 2 |
-| `unit-model-catalog-sylink-sylink-8b` | what | 2 |
-| `unit-model-catalog-sylink-sylink-8b-ctx8k` | what | 2 |
 | `unit-model-catalog-tongyi-deepresearch-30b-a3b-abliterated-4bit` | what | 1 |
 | `unit-model-catalog-vulnllm-r-7b-4bit` | what | 1 |
 | `unit-module-cad` | mixed | 10 |
@@ -578,7 +443,7 @@
 | `unit-module-general` | mixed | 4 |
 | `unit-module-icsot` | mixed | 4 |
 | `unit-module-image` | mixed | 3 |
-| `unit-module-media` | mixed | 6 |
+| `unit-module-media` | mixed | 5 |
 | `unit-module-music` | mixed | 3 |
 | `unit-module-netforensics` | mixed | 4 |
 | `unit-module-orchestration` | mixed | 20 |
@@ -590,16 +455,7 @@
 | `unit-ollama-native-passthrough` | mixed | 19 |
 | `unit-orchestrate-worker-dispatch` | why | 3 |
 | `unit-p5-roadmap-future-considerations-not-yet-implemented` | what | 5 |
-| `unit-p5-roadmap-p5-fut-004-webhook-based-event-notifications` | what | 2 |
-| `unit-p5-roadmap-p5-fut-006-llm-based-intent-routing` | what | 5 |
-| `unit-p5-roadmap-p5-fut-009-model-size-aware-admission-control-mlx-proxy` | what | 7 |
-| `unit-p5-roadmap-p5-fut-013-omlx-evaluation-canceled` | what | 3 |
-| `unit-p5-roadmap-p5-fut-014-v7-model-refresh-waterline` | what | 5 |
-| `unit-p5-roadmap-p5-fut-embed-001-embeddinggemma-migration-seed` | what | 4 |
 | `unit-p5-roadmap-p5-fut-speech-002-speech-model-shootout` | what | 4 |
-| `unit-p5-roadmap-p5-roadmap-md-portal-5-v7-future-enhancements` | what | 2 |
-| `unit-p5-roadmap-score-history` | what | 4 |
-| `unit-p5-roadmap-speculative-decoding-mtp-retired-commit-3a0c58e` | what | 2 |
 | `unit-p5-roadmap-workspace-clean-utility-low-priority` | what | 3 |
 | `unit-performance-backend-candidate-cache` | what | 1 |
 | `unit-performance-benchmark-client-reuse` | what | 2 |
@@ -690,7 +546,6 @@
 | `unit-routing-build-corpus` | mixed | 1 |
 | `unit-routing-measure` | mixed | 1 |
 | `unit-routing-security-operator-selected` | mixed | 3 |
-| `unit-scripts-alias_census` | mixed | 1 |
 | `unit-scripts-mlx-speech` | mixed | 1 |
 | `unit-scripts-mlx-transcribe` | mixed | 1 |
 | `unit-scripts-openwebui_init` | mixed | 1 |
@@ -709,15 +564,13 @@
 | `unit-security-knowledge-surface` | mixed | 2 |
 | `unit-security-tools-mcp-surface` | mixed | 1 |
 | `unit-surface-acceptance` | mixed | 1 |
-| `unit-surface-archive-engine-h2h` | mixed | 1 |
-| `unit-surface-archive-mlx` | mixed | 1 |
 | `unit-surface-benchmarks` | mixed | 3 |
 | `unit-surface-binary-research` | mixed | 1 |
 | `unit-surface-compliance-closeout-scripts` | mixed | 18 |
 | `unit-surface-compliance-prove-then-scale-scripts` | mixed | 1 |
 | `unit-surface-compliance-reading-truth` | what | 2 |
 | `unit-surface-inference` | mixed | 2 |
-| `unit-surface-inference-cli` | mixed | 1 |
+| `unit-surface-inference-cli` | mixed | 2 |
 | `unit-surface-investigation` | mixed | 1 |
 | `unit-surface-mcp-host` | mixed | 1 |
 | `unit-surface-notifications` | mixed | 2 |
@@ -782,15 +635,14 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 773 units
+**Total:** 626 units
 
 ## Source Distribution
 
-- **bench-security**: 1 references
-- **code**: 2084 references
+- **code**: 1767 references
 - **config**: 2 references
 - **data**: 1 references
-- **doc**: 7 references
+- **doc**: 5 references
 - **mitre**: 40 references
 - **scenario**: 54 references
 - **spl**: 40 references

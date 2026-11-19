@@ -22,8 +22,8 @@ tags:
 
 # Media memory and launch order
 
-The MLX media generators (MFLUX image :8933, video-mlx :8935, MiniMax music
-:8912) and Ollama share the same 64GB unified-memory pool on Apple Silicon,
+The MLX media generators (MFLUX image :8933, video-mlx :8935, music
+:8912 — ACE-Step 1.5 XL-Turbo primary, MiniMax-Music3 8-bit fallback) and Ollama share the same 64GB unified-memory pool on Apple Silicon,
 with **no cross-engine backpressure**: Ollama's `OLLAMA_MAX_LOADED_MODELS` /
 `OLLAMA_MEMORY_LIMIT` do not govern the MLX generators, and the retired
 MLX-proxy admission gate (`75c24a9`) never covered media backends either. See

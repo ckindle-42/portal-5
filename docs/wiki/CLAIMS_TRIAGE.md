@@ -39,7 +39,7 @@ Completed decisions: 733; pending: 0.
 - `unit-DESIGN_WIKI-section-granularity` | current | repo.path.exists confirms `portal/platform/wiki/adapters/seed_facts.py` exists in the checkout
 - `unit-DESIGN_WIKI-spine-write-point` | current | repo.path.exists confirms `portal/platform/inference/sync_config.py` exists in the checkout
 - `unit-HOWTO-1-quick-start` | current | source path `launch.sh` exists
-- `unit-HOWTO-10-music-generation` | current | code symbol `minimax_generate` exists in `portal/modules/media/tools/music_minimax_mcp.py`
+- `unit-HOWTO-10-music-generation` | current | code symbol `music_start` exists in `portal/modules/media/tools/music_mcp.py`
 - `unit-HOWTO-11-text-to-speech` | current | code symbol `list_voices` exists in `scripts/mlx-speech.py`
 - `unit-HOWTO-12-speech-to-text-asr` | current | code symbol `transcribe_audio` exists in `portal/modules/media/tools/whisper_mcp.py`
 - `unit-HOWTO-13-web-search` | current | code symbol `web_search` exists in `portal/modules/research/tools/web_search_mcp.py`
@@ -207,7 +207,7 @@ Completed decisions: 733; pending: 0.
 - `unit-capability-mflux` | current | mcp.fleet.ids contains `mflux` in config/portal.yaml
 - `unit-capability-mitre` | current | mcp.fleet.ids contains `mitre` in config/portal.yaml
 - `unit-capability-mlx-transcribe` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
-- `unit-capability-music-minimax` | current | mcp.fleet.ids contains `music-minimax` in config/portal.yaml
+- `unit-capability-music-minimax` | obsolete | unit deleted by the music MCP overhaul; the unified `unit-capability-music` replaces it
 - `unit-capability-pipeline` | current | mcp.fleet.ids contains `pipeline` in config/portal.yaml
 - `unit-capability-proxmox` | current | mcp.fleet.ids contains `proxmox` in config/portal.yaml
 - `unit-capability-research` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
@@ -285,7 +285,7 @@ Completed decisions: 733; pending: 0.
 - `unit-inference-router-pipe` | current | repo.path.exists confirms `portal/platform/inference/router_pipe.py` exists in the checkout
 - `unit-known-issues-known-issues` | current | repo.path.exists confirms `portal/platform/wiki/render.py` exists in the checkout
 - `unit-known-limitations-70b-dense-models-unusable-for-daily-routing-on-m4-pro-64gb` | historical | dated, retired, or unconfigured-model finding retained for history
-- `unit-known-limitations-acestep15-mlx-backend` | current | code symbol `ace_generate` exists in `portal/modules/media/tools/music_ace_mcp.py`
+- `unit-known-limitations-acestep15-mlx-backend` | current | source path `portal/modules/media/tools/music_mcp.py` exists
 - `unit-known-limitations-antares-gate-e1-gated-download` | historical | dated, retired, or unconfigured-model finding retained for history
 - `unit-known-limitations-asteroids-bench-score-variance-is-the-benchmark-s-purpose` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
 - `unit-known-limitations-auto-math-workspace-reasoning-block-support` | historical | closed, deferred, retired, or dated limitation record retained for history
@@ -314,7 +314,7 @@ Completed decisions: 733; pending: 0.
 - `unit-known-limitations-ling-3-0-flash-turboquant-memory-gates` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-load-guard-omlx-swap` | current | code symbol `_FREE_SETTLE_EXPECTED_S` exists in `portal/platform/inference/load_guard.py`
 - `unit-known-limitations-meta3-metasploitable3-windows-scenario-coverage-spl-precision-gaps` | historical | closed, deferred, retired, or dated limitation record retained for history
-- `unit-known-limitations-minimax-music3-mlx` | current | source path `portal/modules/media/tools/music_minimax_mcp.py` exists
+- `unit-known-limitations-minimax-music3-mlx` | current | code symbol `_minimax` exists in `portal/modules/media/tools/music_worker.py`
 - `unit-known-limitations-mlx-inference-proxy-retired-commit-3a0c58e` | historical | dated, retired, or unconfigured-model finding retained for history
 - `unit-known-limitations-model-parity-specialist-models-lost-in-the-mlx-ollama-migration` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-models-out-of-m4-pro-64-gb-budget` | historical | closed, deferred, retired, or dated limitation record retained for history

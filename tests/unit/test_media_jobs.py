@@ -132,7 +132,7 @@ async def test_job_manager_idle_callback_fires_and_cancels_on_new_job() -> None:
 
 
 def test_media_status_tools_are_not_cached_by_tool_repeat_guard() -> None:
-    for name in ("image_status", "video_status", "music_status", "minimax_status"):
+    for name in ("image_status", "video_status", "music_status"):
         assert not is_read_only(name), name
 
 
@@ -141,7 +141,7 @@ async def test_media_mcps_start_and_long_poll_status(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     import portal.modules.media.tools.mflux_mcp as mflux_mcp
-    import portal.modules.media.tools.music_minimax_mcp as music_mcp
+    import portal.modules.media.tools.music_mcp as music_mcp
     import portal.modules.media.tools.video_mlx_mcp as video_mcp
 
     async def fake_admit(_key: str) -> None:
@@ -155,20 +155,22 @@ async def test_media_mcps_start_and_long_poll_status(
         await asyncio.sleep(0.02)
         return {"success": True, "artifact_path": str(tmp_path / "vid.mp4"), "url": "http://x/vid"}
 
-    def fake_music_sync(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
-        return {
-            "success": True,
-            "artifact_path": str(tmp_path / "song.wav"),
-            "download_url": "http://x/song",
-        }
+    async def fake_music_worker(spec: dict[str, Any]) -> dict[str, Any]:
+        await asyncio.sleep(0.02)
+        return {"success": True, "artifact_path": str(spec["output_path"])}
+
+    async def fake_publish(path: Path) -> dict[str, Any]:
+        return {"url": "http://x/song", "filename": Path(path).name}
 
     monkeypatch.setattr(mflux_mcp, "admit", fake_admit)
     monkeypatch.setattr(mflux_mcp, "_generate", fake_mflux_gen)
     monkeypatch.setattr(video_mcp, "admit", fake_admit)
     monkeypatch.setattr(video_mcp, "_generate", fake_video_gen)
     monkeypatch.setattr(music_mcp, "admit", fake_admit)
-    monkeypatch.setattr(music_mcp, "_check_minimax", lambda: (True, ""))
-    monkeypatch.setattr(music_mcp, "_generate_sync", fake_music_sync)
+    monkeypatch.setattr(music_mcp, "_engine_ready", lambda _engine: (True, ""))
+    monkeypatch.setattr(music_mcp, "get_generated_dir", lambda _category: tmp_path)
+    monkeypatch.setattr(music_mcp, "run_worker", fake_music_worker)
+    monkeypatch.setattr(music_mcp, "publish_file", fake_publish)
 
     img_start = await mflux_mcp.image_start(prompt="cat")
     assert img_start["success"] is True and img_start["job_id"]
@@ -183,4 +185,4 @@ async def test_media_mcps_start_and_long_poll_status(
     mus_start = await music_mcp.music_start(prompt="ambient")
     assert mus_start["success"] is True and mus_start["job_id"]
     mus_done = await music_mcp.music_status(mus_start["job_id"], wait_s=2.0)
-    assert mus_done["status"] == "done" and mus_done["artifact_path"].endswith("song.wav")
+    assert mus_done["status"] == "done" and mus_done["artifact_path"].endswith(".wav")

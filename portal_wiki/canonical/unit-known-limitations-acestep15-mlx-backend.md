@@ -1,75 +1,27 @@
 ---
 id: unit-known-limitations-acestep15-mlx-backend
 kind: mixed
-title: "Known Limitation — ACE-Step-1.5 MLX Backend Constraints (disabled)"
+title: "Known Limitation — ACE-Step 1.5 XL-Turbo is unproven live"
 sources:
 - type: code
-  path: portal/modules/media/tools/music_ace_mcp.py
+  path: portal/modules/media/tools/music_mcp.py
 claims:
-- probe: repo.symbol.exists
-  path: portal/modules/media/tools/music_ace_mcp.py
-  symbol: ace_generate
+- probe: repo.path.exists
+  path: portal/modules/media/tools/music_mcp.py
   equals: true
 confidence: high
 tags: [known-limitations, music, apple-silicon]
 
 ---
 
-### ACE-Step-1.5 Disabled After Dual-Engine Comparison — Memory Ceiling, Non-Deterministic Vocal Captioning, Quality
+### ACE-Step 1.5 XL-Turbo — Apple Silicon only, not yet proven on this host
 
 - **ID**: P5-MUSIC-ACESTEP-001
-- **Status**: **Disabled 2026-08-27** after `TASK_MUSIC_DUAL_BACKEND`'s `[GATE:
-  SELECT ENGINE]` — the operator compared both engines on real 60s/30-step
-  generations and kept MiniMax-Music3-MLX. `music_ace_mcp.py`, its install
-  function, and its tools manifest are untouched in the repo (module built to
-  share zero code with MiniMax's, per the dual-backend task's modularity
-  contract); only fleet registration and `auto-music` wiring were removed. The
-  downloaded checkpoints (~14GB) and both launchd services were removed from
-  this host. See `config/portal.yaml`'s `mcp_fleet` comment for the exact
-  removal record.
-- **Description**: `music_ace_mcp.py` proxies to a separate ACE-Step-1.5 API
-  server. Three real findings from the live comparison:
-  1. **Memory ceiling is structural, not transient.** Once ACE-Step's model is
-     loaded, its own resident footprint (~23GB) plus its admission
-     requirement (~44GB free) exceeds this machine's 64GB total — it cannot
-     pass its own admission check for a second job without being unloaded
-     first, even with the entire rest of the stack (Docker, MLX generation,
-     services) shut down. The first job in a session succeeds only if enough
-     is freed beforehand; a follow-up job (e.g. a repaint) on the same
-     resident model cannot.
-  2. **The LM "thinking"/captioning stage is non-deterministic per call and
-     can contradict the prompt.** Two identical-prompt/lyrics runs, one
-     requesting "energetic female vocal," produced captions of "a powerful
-     female lead vocal" and "a powerful, clean male vocal performance"
-     respectively. ACE-Step's own API supports `seed`/`use_random_seed` for
-     reproducibility; `ace_generate` does not yet expose them (unlike
-     MiniMax's tool, which does).
-  3. **Output quality did not hold up against MiniMax** in the operator's own
-     listening comparison, independent of the audio-format issue below.
-  Separately (unrelated to the disable decision): upstream issue #995
-  documents an MLX DiT bug specific to the XL/4B model size; this deployment
-  defaulted to the non-turbo 2B `acestep-v15-sft`, out of scope for that bug.
-  The engine and proxy ran as two separate launchd processes.
-- **Impact**: None currently — the module is disabled and not reachable from
-  any workspace. If re-enabled: XL/4B overrides may fail on MLX until #995 is
-  fixed; a second job on an already-loaded model will likely be refused by
-  the admission gate on any host with less than ~67GB RAM; vocal
-  gender/character will vary between identical-prompt runs unless a seed
-  parameter is added to `ace_generate` first.
-- **Mitigation to re-enable**: `./launch.sh install-music-ace` (re-clones and
-  re-downloads the ~14GB checkpoint set), re-add the `music-ace` fleet entry
-  and `ace_*` tools to `auto-music` in `config/portal.yaml` (both were left as
-  inline comments/history at removal, not deleted outright), remove
-  `portal_music_ace` from `config/owui_tool_servers.yaml`'s `dead_servers`.
-  Consider adding seed support first, matching MiniMax's tool,
-  to make future A/B comparisons reproducible.
-- **Note**: ACE-Step-1.5 is MIT-licensed.
+- **Status**: The 2026-08-27 dual-daemon deployment (2B `acestep-v15-sft`, `music_ace_mcp.py` plus `acestep-api`, ports 8933/8934) is retired. Those files and launchd labels are gone. The replacement is one MCP (`music_mcp.py`, port 8912) that spawns ACE-Step 1.5 XL-Turbo (`use_mlx_dit`, LM backend `mlx`) per job. `modules.music.enabled` stays false.
+- **Description**: Install is `./launch.sh install-music`, which pins `ace-step/ACE-Step-1.5` at `ca1e85fe9430179831e6bc6be790c332190a3866` and refuses non-arm64. Admission uses `music:acestep-xl-turbo` = 16 GB plus headroom. That figure is a research estimate, not a live sample. XL-Turbo download size cited for the installer is about 18.8 GB for `ACE-Step/acestep-v15-xl-turbo`; the LM and core-bundle sizes are not pinned. `mlx-audio==0.6.6` is installed into the same venv for the MiniMax fallback and has not been proven to coexist with the locked torch/mlx pins. No extra int8 quantization is applied.
+- **Impact**: Until the orchestrator installs, enables, and generates a wav, this engine produces nothing. A host that is not arm64 cannot run it.
+- **Mitigation**: Keep the module disabled until `portal trace --section media --timeout 900` reads back a published wav URL (200 + bytes) and idle RSS drops after the child exits.
 
 ## Why
 
-The two-process failure mode, the memory-ceiling math, and the non-deterministic
-captioning are specific to this integration and this hardware, not general
-ACE-Step documentation — recording them here gives a future operator (or a
-future re-enable attempt) the actual reason this was shelved instead of a bare
-"disabled" with no rationale, and a concrete list of what to fix before
-re-evaluating.
+The old two-process memory ceiling was specific to the 2B sft deployment and is not a measurement of this subprocess path. Recording both the retirement and the unproven replacement keeps an operator from treating the research table as a live result.

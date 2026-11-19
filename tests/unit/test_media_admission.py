@@ -29,11 +29,11 @@ class TestMediaModelMemoryDict:
         assert _admission.MEDIA_MODEL_MEMORY_GB["video_mlx:ltx-2.5-q4-704"] >= 24.0
         assert _admission.MEDIA_MODEL_MEMORY_GB["video_mlx:wan2.2-5b"] >= 20.0
 
-    def test_music_models_use_live_complete_quality_estimates(self):
-        # Raw sampled peak working set — admit() adds MEMORY_HEADROOM_GB on top,
-        # like every other entry. minimax3 was 27.0 (4GB headroom double-counted).
-        assert _admission.MEDIA_MODEL_MEMORY_GB["music:minimax3"] == 22.0
-        assert _admission.MEDIA_MODEL_MEMORY_GB["music:acestep-sft"] == 40.0
+    def test_music_models_estimate_and_measure(self):
+        # XL-Turbo is a research estimate; the 8-bit MiniMax fallback carries
+        # main's live MiniMax-Music3-MLX measurement. admit() adds headroom.
+        assert _admission.MEDIA_MODEL_MEMORY_GB["music:acestep-xl-turbo"] == 16.0
+        assert _admission.MEDIA_MODEL_MEMORY_GB["music:minimax3-8bit"] == 22.0
 
     def test_headroom_constant_exists(self):
         assert _admission.MEMORY_HEADROOM_GB >= 0
@@ -152,27 +152,11 @@ class TestMemoryCoordination:
         assert refusal["success"] is False
         assert refusal["retryable"] is True
 
-    async def test_music_releases_cached_pipeline_after_idle_timeout(self, monkeypatch):
-        import sys
-        import types
+    def test_music_release_idle_is_true_when_no_weights_are_resident(self):
+        import portal.modules.media.tools.music_mcp as music_mcp
 
-        import portal.modules.media.tools.music_minimax_mcp as music_mcp
-
-        cleared = False
-        fake_mlx = types.ModuleType("mlx")
-        fake_core = types.ModuleType("mlx.core")
-
-        def fake_clear() -> None:
-            nonlocal cleared
-            cleared = True
-
-        fake_core.clear_cache = fake_clear  # type: ignore[attr-defined]
-        fake_mlx.core = fake_core  # type: ignore[attr-defined]
-        monkeypatch.setitem(sys.modules, "mlx", fake_mlx)
-        monkeypatch.setitem(sys.modules, "mlx.core", fake_core)
-
-        music_mcp._pipeline_cache = object()
-        released = music_mcp._release_pipeline(exit_on_idle=False)
-        assert released is True
-        assert music_mcp._pipeline_cache is None
-        assert cleared is True
+        music_mcp._weights_resident = False
+        assert music_mcp.release_idle() is True
+        music_mcp._weights_resident = True
+        assert music_mcp.release_idle() is False
+        music_mcp._weights_resident = False

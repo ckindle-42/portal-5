@@ -1,8 +1,8 @@
 """Section — the media modules' OWUI turns become published artifacts and read back.
 
-The image hop is the live-proven one; the video hop drives one real OWUI turn
-on ``auto-audio::video`` and WARNs with the reason while the video module is
-disabled in ``config/portal.yaml``.
+The image hop is the live-proven one; the video and music hops each drive one real
+OWUI turn on ``auto-audio::video`` / ``auto-audio::music`` and WARN with the reason
+while those modules are disabled in ``config/portal.yaml``.
 """
 
 from __future__ import annotations
@@ -251,6 +251,82 @@ def video_hops(ctx: TraceContext, portal: dict[str, Any]) -> list[Hop]:
     return hops
 
 
+MUSIC_WORKSPACE = "auto-audio::music"
+MUSIC_PRESET = "imports/openwebui/workspaces/workspace_auto_audio_music.json"
+MUSIC_PROMPT = (
+    "Use the music_start tool to generate 15 seconds of gentle solo piano "
+    "(lyrics='[Instrumental]', engine='acestep', steps=8), then call music_status "
+    "with the returned job_id until its status is 'done'. Reply with only the wav's "
+    "download URL."
+)
+
+
+def music_enabled(portal: dict[str, Any]) -> bool:
+    """`modules.music.enabled` from the trace's portal.yaml snapshot."""
+    modules = portal.get("modules") if isinstance(portal, dict) else None
+    spec = modules.get("music") if isinstance(modules, dict) else None
+    return bool(spec.get("enabled")) if isinstance(spec, dict) else False
+
+
+def music_hops(ctx: TraceContext, portal: dict[str, Any]) -> list[Hop]:
+    """One music request end to end, or a WARN that says why it did not run."""
+    if not music_enabled(portal):
+        return [
+            Hop(
+                "music artifact turn",
+                Status.WARN,
+                "skipped: music module disabled",
+                "a generated wav",
+                "config/portal.yaml modules.music.enabled: false — enable with "
+                "./launch.sh install-music, portal module enable music, run "
+                "./launch.sh sync-config, then re-run",
+            )
+        ]
+    key = env_value("OWUI_API_KEY")
+    if not key:
+        return [Hop("music artifact turn", Status.WARN, "not run: no OWUI_API_KEY", "an OWUI turn")]
+    preset = ctx.repo_root / MUSIC_PRESET
+    if not preset.is_file():
+        return [
+            Hop(
+                "music artifact turn",
+                Status.WARN,
+                "skipped: workspace preset missing",
+                "workspace_auto_audio_music.json",
+                "run ./launch.sh sync-config with the module enabled, then re-run",
+            )
+        ]
+    started = time.time()
+    try:
+        turn = chat_turn(
+            ctx,
+            key,
+            workspace=MUSIC_WORKSPACE,
+            prompt=MUSIC_PROMPT,
+            preset_path=preset,
+            timeout_s=media_timeout_s(),
+        )
+    except (httpx.HTTPError, ValueError, KeyError, TypeError, TimeoutError) as exc:
+        turn = StreamedTurn(0, error=f"{type(exc).__name__}: {exc}")
+    return [music_artifact_hop(turn, key), trace_hop(ctx, started, workspace=MUSIC_WORKSPACE)]
+
+
+def music_artifact_hop(turn: StreamedTurn, api_key: str) -> Hop:
+    """The turn's reply carries the published wav URL; the artifact must read back."""
+    if turn.error or turn.status_code != 200:
+        reason = turn.error or f"http {turn.status_code}"
+        return Hop("music artifact", Status.FAIL, short(reason, 70), "OWUI turn completes")
+    url = artifact_url(turn.stats.text)
+    if not url:
+        return Hop(
+            "music artifact", Status.FAIL, short(turn.stats.text, 70), "download URL in reply"
+        )
+    ok, detail = read_back(url, api_key)
+    return Hop(
+        "music artifact", Status.PASS if ok else Status.FAIL, short(url, 60), "200 + bytes", detail
+    )
+
+
 def run(ctx: TraceContext, portal: dict[str, Any]) -> list[Hop]:
-    """One media section: the image turn's artifacts, then the video hop."""
-    return image_hops(ctx, portal) + video_hops(ctx, portal)
+    """One media section: the image turn's artifacts, then the video and music hops."""
+    return image_hops(ctx, portal) + video_hops(ctx, portal) + music_hops(ctx, portal)
