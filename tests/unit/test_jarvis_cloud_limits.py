@@ -67,9 +67,11 @@ def _cloud_attempt(
 
     monkeypatch.setattr(personal_runner, "_personal_cloud_enabled", lambda: True, raising=False)
     telegram_do_reply(tmp_path, 7, "help with an invalid local plan")
-    first = poll_personal_tasks(tmp_path, sink, _Caller())
+    first = poll_personal_tasks(tmp_path, sink, _Caller(), recall=lambda query: "")
     assert first is not None and first.status == "retrying"
-    return poll_personal_tasks(tmp_path, sink, _Caller(), dispatcher=dispatcher)
+    return poll_personal_tasks(
+        tmp_path, sink, _Caller(), dispatcher=dispatcher, recall=lambda query: ""
+    )
 
 
 def _receipt(tmp_path: Path, task_id: str) -> dict[str, object]:
@@ -94,7 +96,12 @@ def test_interrupted_cloud_lane_is_terminal_no_redispatch(
     assert "no automatic re-dispatch" in str(receipt["error"])
     assert len(dispatcher.calls) == 1
     # A terminal row is never picked again: a third poll is a no-op.
-    assert poll_personal_tasks(tmp_path, sink, _Caller(), dispatcher=dispatcher) is None
+    assert (
+        poll_personal_tasks(
+            tmp_path, sink, _Caller(), dispatcher=dispatcher, recall=lambda query: ""
+        )
+        is None
+    )
     assert len(dispatcher.calls) == 1
 
 
@@ -144,10 +151,14 @@ def test_configured_cap_retries_then_blocks(
     stored = PersonalStore(tmp_path).get(second.task_id)
     assert stored is not None and stored.status == "cloud_retry"
 
-    third = poll_personal_tasks(tmp_path, sink, _Caller(), dispatcher=dispatcher)
+    third = poll_personal_tasks(
+        tmp_path, sink, _Caller(), dispatcher=dispatcher, recall=lambda query: ""
+    )
     assert third is not None and third.status == "cloud-retry"
 
-    fourth = poll_personal_tasks(tmp_path, sink, _Caller(), dispatcher=dispatcher)
+    fourth = poll_personal_tasks(
+        tmp_path, sink, _Caller(), dispatcher=dispatcher, recall=lambda query: ""
+    )
 
     assert fourth is not None and fourth.status == "blocked"
     assert len(dispatcher.calls) == 3
@@ -191,9 +202,11 @@ def test_operator_cancel_stops_a_running_cloud_lane(
     from portal.modules.orchestration import personal_runner
 
     monkeypatch.setattr(personal_runner, "_personal_cloud_enabled", lambda: True, raising=False)
-    first = poll_personal_tasks(tmp_path, sink, _Caller())
+    first = poll_personal_tasks(tmp_path, sink, _Caller(), recall=lambda query: "")
     assert first is not None and first.status == "retrying"
-    second = poll_personal_tasks(tmp_path, sink, _Caller(), dispatcher=dispatcher)
+    second = poll_personal_tasks(
+        tmp_path, sink, _Caller(), dispatcher=dispatcher, recall=lambda query: ""
+    )
 
     assert second is not None and second.status == "cancelled"
     stored = PersonalStore(tmp_path).get(second.task_id)
@@ -202,7 +215,12 @@ def test_operator_cancel_stops_a_running_cloud_lane(
     assert receipt["status"] == "cancelled"
     assert "cancelled by operator" in str(receipt["error"])
     assert len(dispatcher.calls) == 1
-    assert poll_personal_tasks(tmp_path, sink, _Caller(), dispatcher=dispatcher) is None
+    assert (
+        poll_personal_tasks(
+            tmp_path, sink, _Caller(), dispatcher=dispatcher, recall=lambda query: ""
+        )
+        is None
+    )
 
 
 def test_cancel_check_is_always_offered_to_the_dispatcher(
