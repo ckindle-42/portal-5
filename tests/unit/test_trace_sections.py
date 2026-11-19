@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import plistlib
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 import typer
@@ -679,14 +678,22 @@ def test_owui_receipt_hop_needs_a_closed_receipt_naming_the_tool() -> None:
     assert owui.receipt_hop(bare).status is Status.FAIL
 
 
-def test_owui_tool_turn_has_room_to_emit_a_tool_call(monkeypatch: pytest.MonkeyPatch) -> None:
-    captured: dict[str, object] = {}
-    monkeypatch.setattr(owui, "env_value", lambda _: "key")
-    monkeypatch.setattr(
-        owui,
-        "stream_turn",
-        lambda *args, **kwargs: captured.update(kwargs) or workspaces.StreamedTurn(200),
-    )
-    monkeypatch.setattr(owui, "trace_hop", lambda *_: Hop("trace", Status.PASS, "ok", "ok"))
-    owui.run(SimpleNamespace(api_key="key", owui_url="http://owui", timeout_s=5), {})
-    assert captured["max_tokens"] is None
+def test_owui_turn_request_uses_native_chat_tool_fields() -> None:
+    preset = {
+        "id": "auto-coding",
+        "meta": {"toolIds": ["server:mcp:portal_code"]},
+        "params": {"function_calling": "native"},
+    }
+    body = owui.completion_body(preset, "prompt", "chat", "message", "session")
+    assert body["model"] == "auto-coding"
+    assert body["chat_id"] == "chat" and body["id"] == "message"
+    assert body["session_id"] == "session" and body["stream"] is True
+    assert body["tool_ids"] == ["server:mcp:portal_code"]
+    assert body["features"] == {
+        "web_search": False,
+        "code_interpreter": False,
+        "image_generation": False,
+        "memory": False,
+    }
+    assert body["params"]["function_calling"] == "native"
+    assert owui.WORKSPACE == "auto-coding"

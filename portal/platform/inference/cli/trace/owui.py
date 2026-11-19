@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+import json
 import time
+import uuid
+from typing import Any
 
 import httpx
 
 from .context import TraceContext, env_value
 from .model import Hop, Status, short
-from .workspaces import StreamedTurn, stream_turn
+from .workspaces import StreamedTurn, TurnStats
 
-WORKSPACE = "tools-specialist"
+WORKSPACE = "auto-coding"
 VALUE = "488895"
 MARKER = "<details><summary>Tool results</summary>"
 PROMPT = (
@@ -28,6 +31,105 @@ def receipt_hop(turn: StreamedTurn) -> Hop:
     observed = f"{VALUE}={VALUE in body} tool={named} closed={closed}"
     detail = "" if ok else short(turn.error or turn.body or turn.stats.text, 70)
     return Hop("owui tool receipt", Status.PASS if ok else Status.FAIL, observed, VALUE, detail)
+
+
+def completion_body(
+    preset: dict[str, Any], prompt: str, chat_id: str, message_id: str, session_id: str
+) -> dict[str, Any]:
+    """Build the native Open WebUI request from the selected workspace preset."""
+    return {
+        "model": preset["id"],
+        "messages": [{"role": "user", "content": prompt}],
+        "stream": True,
+        "chat_id": chat_id,
+        "id": message_id,
+        "session_id": session_id,
+        "features": {
+            "web_search": False,
+            "code_interpreter": False,
+            "image_generation": False,
+            "memory": False,
+        },
+        "tool_ids": preset["meta"]["toolIds"],
+        "params": {"function_calling": preset["params"]["function_calling"]},
+    }
+
+
+def _new_chat(model: str, prompt: str, user_id: str, message_id: str) -> dict[str, Any]:
+    """Create the message tree the Open WebUI chat tool loop requires."""
+    now = int(time.time())
+    return {
+        "chat": {
+            "title": "Portal trace tool check",
+            "models": [model],
+            "history": {
+                "currentId": message_id,
+                "messages": {
+                    user_id: {
+                        "id": user_id,
+                        "role": "user",
+                        "content": prompt,
+                        "timestamp": now,
+                        "models": [model],
+                        "childrenIds": [message_id],
+                    },
+                    message_id: {
+                        "id": message_id,
+                        "role": "assistant",
+                        "content": "",
+                        "parentId": user_id,
+                        "childrenIds": [],
+                        "model": model,
+                        "modelName": model,
+                        "modelIdx": 0,
+                        "done": False,
+                        "timestamp": now + 1,
+                    },
+                },
+            },
+        }
+    }
+
+
+def _chat_turn(ctx: TraceContext, key: str) -> StreamedTurn:
+    """Run one native chat turn and read its completed assistant message."""
+    preset = json.loads(
+        (ctx.repo_root / "imports/openwebui/workspaces/workspace_auto_coding.json").read_text()
+    )
+    user_id, message_id = str(uuid.uuid4()), str(uuid.uuid4())
+    session_id = f"portal-trace-{uuid.uuid4()}"
+    headers = {"Authorization": f"Bearer {key}"}
+    with httpx.Client(timeout=ctx.timeout_s) as client:
+        created = client.post(
+            f"{ctx.owui_url}/api/v1/chats/new",
+            headers=headers,
+            json=_new_chat(WORKSPACE, PROMPT, user_id, message_id),
+        )
+        created.raise_for_status()
+        chat_id = str(created.json()["id"])
+        try:
+            response = client.post(
+                f"{ctx.owui_url}/api/chat/completions",
+                headers=headers,
+                json=completion_body(preset, PROMPT, chat_id, message_id, session_id),
+            )
+            response.raise_for_status()
+            deadline = time.monotonic() + ctx.timeout_s
+            while (
+                client.get(f"{ctx.owui_url}/api/tasks/chat/{chat_id}", headers=headers)
+                .json()
+                .get("task_ids")
+            ):
+                left = deadline - time.monotonic()
+                if left <= 0:
+                    raise TimeoutError(f"Open WebUI chat {chat_id} timed out")
+                time.sleep(min(1.0, left))
+            final = client.get(f"{ctx.owui_url}/api/v1/chats/{chat_id}", headers=headers)
+            final.raise_for_status()
+            message = final.json()["chat"]["history"]["messages"][message_id]
+            return StreamedTurn(200, stats=TurnStats(text=str(message.get("content") or "")))
+        finally:
+            client.delete(f"{ctx.owui_url}/api/v1/chats/{chat_id}", headers=headers)
 
 
 def trace_hop(ctx: TraceContext, since: float) -> Hop:
@@ -60,12 +162,8 @@ def run(ctx: TraceContext, portal: dict[str, object]) -> list[Hop]:
     if not key:
         return [Hop("owui turn", Status.WARN, "not run: no OWUI_API_KEY", "an OWUI turn", "set it")]
     started = time.time()
-    turn = stream_turn(
-        ctx.owui_url,
-        key,
-        WORKSPACE,
-        ctx.timeout_s,
-        "/api/chat/completions",
-        max_tokens=None,
-    )
+    try:
+        turn = _chat_turn(ctx, key)
+    except (httpx.HTTPError, ValueError, KeyError, TypeError, TimeoutError) as exc:
+        turn = StreamedTurn(0, error=f"{type(exc).__name__}: {exc}")
     return [receipt_hop(turn), trace_hop(ctx, started)]
