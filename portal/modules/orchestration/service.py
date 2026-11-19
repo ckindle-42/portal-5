@@ -914,6 +914,38 @@ def refresh_arm_digests(
     return digests
 
 
+def ensure_arm_digests_fresh(
+    config: Mapping[str, Any],
+    *,
+    config_path: Path | None = None,
+    env_file: Path | None = None,
+    client: httpx.Client | None = None,
+    omlx_identity: Callable[[str], tuple[str, str]] | None = None,
+) -> str:
+    """Refresh arm_digests.env when it is missing or older than the config; "" on success."""
+    path = env_file or ARM_DIGESTS_ENV
+    source = config_path or _default_config_path()
+    try:
+        stale = not path.exists() or path.stat().st_mtime < source.stat().st_mtime
+    except OSError:
+        return ""
+    if not stale:
+        return ""
+    try:
+        refresh_arm_digests(
+            config,
+            env_file=path,
+            config_path=source,
+            client=client,
+            omlx_identity=omlx_identity,
+        )
+    except Exception as exc:  # noqa: BLE001 — a failed refresh must not stop the runner
+        cause = f"{type(exc).__name__}: {exc}"
+        warnings.warn(f"arm digests refresh failed ({cause})", UserWarning, stacklevel=2)
+        return cause
+    return ""
+
+
 def _digest_from_env_file(path: Path, key: str) -> str:
     try:
         lines = path.read_text(encoding="utf-8").splitlines()

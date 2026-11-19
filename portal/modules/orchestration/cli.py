@@ -598,6 +598,7 @@ def _optional_service(tasks_dir: Path | None) -> Any | None:
 def _build_service(tasks_dir: Path | None) -> tuple[Any | None, str | None]:
     from portal.modules.orchestration.service import (
         ArmService,
+        ensure_arm_digests_fresh,
         load_arm_config,
         resolve_seat_digest,
         seated_model_tags,
@@ -613,6 +614,7 @@ def _build_service(tasks_dir: Path | None) -> tuple[Any | None, str | None]:
     if not api_key:
         return None, "set PIPELINE_API_KEY for the Pipeline chat and load-plan requests"
     tags = seated_model_tags(load_arm_config(config_path))
+    ensure_arm_digests_fresh(config, config_path=config_path)
     engines = {}
     for seat in ("fast", "deep"):
         prefix = f"PORTAL_ARM_{seat.upper()}_"
