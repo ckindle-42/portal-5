@@ -58,6 +58,14 @@ def test_persona_expectation_follows_the_seeder_rules():
     assert sample["base_model_id"] == sample["params"]["model"] and sample["params"]["system"]
 
 
+def test_a_variant_persona_resolves_the_variants_tools():
+    """The seeder resolves `workspace::variant` first; the old expectation used the base
+    workspace and drifted against presets that were already correct (2026-11-19)."""
+    personas = {p["id"]: p for p in mod.expected_personas()}
+    assert "server:mcp:portal_cad" in personas["caddesigner"]["meta"]["toolIds"]
+    assert personas["proofreader"]["meta"]["toolIds"] == []
+
+
 def test_a_persona_sharing_a_workspace_id_is_reported_not_drift():
     exp = [
         {

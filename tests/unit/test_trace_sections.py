@@ -19,6 +19,7 @@ from portal.platform.inference.cli.trace import (
     media,
     owui,
     pins,
+    platform,
     workspaces,
 )
 from portal.platform.inference.cli.trace.command import selected
@@ -935,3 +936,20 @@ def test_compliance_trace_target_is_a_registered_part() -> None:
         / "portal/modules/compliance/data/nerc_cip_register.json"
     ).read_text(encoding="utf-8")
     assert f'"id": "{mcps.REQUIREMENT}"' in register
+
+
+def test_platform_hops_report_one_full_line_per_drifted_preset(monkeypatch) -> None:
+    from portal.platform.inference.cli.trace.context import CommandResult
+
+    out = (
+        "DRIFT persona:caddesigner\n"
+        "    meta.toolIds: live ['server:mcp:portal_cad'] != file ['server:mcp:portal_code']\n"
+        "DRIFT persona:proofreader\n    meta.toolIds: live [] != file []\n"
+    )
+    monkeypatch.setattr(platform, "run_cmd", lambda *a, **k: CommandResult(False, stdout=out))
+    hops = platform.run(_ctx(), {})
+    assert [h.name for h in hops] == ["drift persona:caddesigner", "drift persona:proofreader"]
+    assert hops[0].detail == (
+        "meta.toolIds: live ['server:mcp:portal_cad'] != file ['server:mcp:portal_code']"
+    )
+    assert platform.drift_presets("owui preset drift: none") == {}

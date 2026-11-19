@@ -72,45 +72,30 @@ def drift(expected: dict, live: dict | None) -> list[str]:
 
 
 def expected_personas(personas: Path = REPO / "config" / "personas") -> list[dict]:
-    """The preset each persona file seeds, built by the rules of scripts/openwebui_init.py
-    (prompt_template text or system_prompt; tools_allow/tools_deny over the workspace's tools)."""
+    """The preset each persona file seeds — the seeder's own builder, so the expectation
+    cannot diverge from what a seed writes (variant tool resolution and skips included)."""
     import importlib.util
 
     import yaml
 
-    spec = importlib.util.spec_from_file_location(
+    owi_spec = importlib.util.spec_from_file_location(
+        "openwebui_init", REPO / "scripts" / "openwebui_init.py"
+    )
+    owi = importlib.util.module_from_spec(owi_spec)
+    owi_spec.loader.exec_module(owi)
+    uwt_spec = importlib.util.spec_from_file_location(
         "uwt", REPO / "scripts" / "update_workspace_tools.py"
     )
-    uwt = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(uwt)
+    uwt = importlib.util.module_from_spec(uwt_spec)
+    uwt_spec.loader.exec_module(uwt)
     ws_tools = uwt.load_workspace_raw_tools()
     prompts = REPO / "portal" / "modules" / "eval" / "persona_matrix" / "prompts"
     out = []
     for f in sorted(personas.glob("*.yaml")):
-        p = yaml.safe_load(f.read_text()) or {}
-        slug = p.get("slug", f.stem)
-        if p.get("delivery") == "role":
-            continue
-        if p.get("prompt_template"):
-            tpl = prompts / f"{p['prompt_template']}.txt"
-            if not tpl.is_file():
-                continue  # the seeder skips it too
-            system = tpl.read_text()
-        else:
-            system = p.get("system_prompt", "")
-        base = p.get("workspace_model") or "dolphin-llama3:8b"
-        allow = p.get("tools_allow")
-        effective = set(ws_tools.get(base, [])) if allow is None else set(allow)
-        effective -= set(p.get("tools_deny") or [])
-        out.append(
-            {
-                "id": slug,
-                "name": p.get("name", slug),
-                "base_model_id": base,
-                "params": {"system": system, "model": base},
-                "meta": {"toolIds": uwt.compute_tool_ids(sorted(effective))},
-            }
-        )
+        persona = yaml.safe_load(f.read_text()) or {}
+        payload = owi.persona_preset_payload(persona, f.stem, ws_tools, prompts)
+        if payload is not None:
+            out.append(payload)
     return out
 
 

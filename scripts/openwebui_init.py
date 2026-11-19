@@ -45,8 +45,6 @@ _uwt_spec.loader.exec_module(_uwt)
 OPENWEBUI_URL = os.environ.get("OPENWEBUI_URL", "http://open-webui:8080").rstrip("/")
 ADMIN_EMAIL = os.environ.get("OPENWEBUI_ADMIN_EMAIL", "admin@portal.local")
 ADMIN_PASSWORD = os.environ.get("OPENWEBUI_ADMIN_PASSWORD")
-if not ADMIN_PASSWORD:
-    raise ValueError("OPENWEBUI_ADMIN_PASSWORD must be set in environment")
 ADMIN_NAME = os.environ.get("OPENWEBUI_ADMIN_NAME", "Portal Admin")
 
 # User management settings
@@ -579,6 +577,77 @@ def _persona_skips_disabled_variant(persona: dict) -> bool:
     return is_workspace_disabled(f"{workspace}::{variant}")
 
 
+def persona_tool_ids(
+    persona: dict, workspace_model: str, ws_raw_tools: dict[str, list[str]]
+) -> list[str]:
+    """tools_allow replaces, tools_deny subtracts; the persona's variant resolves first
+    (`workspace::variant`) — the pipeline's _resolve_persona_tools rule."""
+    variant = persona.get("variant")
+    workspace_id = f"{workspace_model}::{variant}" if variant else workspace_model
+    ws_tools = ws_raw_tools.get(workspace_id, ws_raw_tools.get(workspace_model, []))
+    allow = persona.get("tools_allow")
+    effective = set(ws_tools) if allow is None else set(allow)
+    return _uwt.compute_tool_ids(sorted(effective - set(persona.get("tools_deny") or [])))
+
+
+def persona_preset_payload(
+    persona: dict,
+    stem: str,
+    ws_raw_tools: dict[str, list[str]],
+    prompts_dir: Path = PERSONA_PROMPTS_DIR,
+) -> dict | None:
+    """The model preset seed_personas_async creates for one persona file, or None when it
+    is skipped (role, disabled variant, unreadable template). The preset drift checker
+    reads this same builder, so its expectation cannot diverge from what a seed writes."""
+    if persona_is_role(persona) or _persona_skips_disabled_variant(persona):
+        return None
+    template = persona.get("prompt_template")
+    if template:
+        try:
+            system_prompt = (prompts_dir / f"{template}.txt").read_text()
+        except OSError:
+            return None
+    else:
+        system_prompt = persona.get("system_prompt", "")
+    slug = persona.get("slug", stem)
+    name = persona.get("name", slug)
+    workspace_model = persona.get("workspace_model") or "dolphin-llama3:8b"
+    return {
+        "id": slug,
+        "name": name,
+        # base_model_id must be non-null for OW v0.6.5 get_models() filter
+        # (WHERE base_model_id IS NOT NULL selects presets vs base models)
+        "base_model_id": workspace_model,
+        "meta": {
+            "description": f"Portal persona: {name}",
+            "profile_image_url": "",
+            "toolIds": persona_tool_ids(persona, workspace_model, ws_raw_tools),
+            "tags": [{"name": persona.get("category", "general")}],
+        },
+        "params": {
+            "system": system_prompt,
+            "model": workspace_model,
+            **(
+                {"enable_web_search": True}
+                if workspace_model
+                in {
+                    "auto",
+                    "auto-research",
+                    "auto-security",
+                    "auto-reasoning",
+                    "auto-compliance",
+                }
+                # auto-redteam/auto-blueteam removed: folded into
+                # auto-security's variants (already covered above)
+                # since BUILD_PROGRAM_COLLAPSE_V1.md Phase 6 — no
+                # persona's workspace_model is literally those
+                # strings anymore, so the entries were dead.
+                else {}
+            ),
+        },
+    }
+
+
 async def seed_attachment_filter_async(client: httpx.AsyncClient, token: str) -> None:
     """Seed the global inlet filter that carries attachment paths to the pipeline.
 
@@ -714,19 +783,6 @@ async def create_persona_presets_async(
     # tool set (see _uwt import at module level).
     _ws_raw_tools = _uwt.load_workspace_raw_tools()
 
-    def _persona_tool_ids(persona: dict, workspace_model: str) -> list[str]:
-        """tools_allow replaces the workspace's tools, tools_deny subtracts —
-        same resolution rule as portal/platform/inference/router/workspaces.py
-        _resolve_persona_tools, so OWUI's UI reflects the same tool set the
-        pipeline actually grants this persona."""
-        variant = persona.get("variant")
-        workspace_id = f"{workspace_model}::{variant}" if variant else workspace_model
-        ws_tools = _ws_raw_tools.get(workspace_id, _ws_raw_tools.get(workspace_model, []))
-        allow = persona.get("tools_allow")
-        deny = set(persona.get("tools_deny") or [])
-        effective = set(ws_tools) if allow is None else set(allow)
-        return _uwt.compute_tool_ids(sorted(effective - deny))
-
     # Build persona payloads first (file reads, not network I/O)
     persona_payloads = []
     role_slugs: list[str] = []
@@ -743,60 +799,11 @@ async def create_persona_presets_async(
         if _persona_skips_disabled_variant(persona):
             print(f"  Skip {slug}: variant module disabled")
             continue
-        name = persona.get("name", slug)
-        if persona.get("prompt_template"):
-            template_path = PERSONA_PROMPTS_DIR / f"{persona['prompt_template']}.txt"
-            try:
-                system_prompt = template_path.read_text()
-            except OSError as e:
-                print(
-                    f"  Skip {f.name}: prompt_template {persona['prompt_template']!r} unreadable — {e}"
-                )
-                continue
-        else:
-            system_prompt = persona.get("system_prompt", "")
-        workspace_model = persona.get("workspace_model") or "dolphin-llama3:8b"
-        persona_payloads.append(
-            (
-                slug,
-                name,
-                workspace_model,
-                {
-                    "id": slug,
-                    "name": name,
-                    # base_model_id must be non-null for OW v0.6.5 get_models() filter
-                    # (WHERE base_model_id IS NOT NULL selects presets vs base models)
-                    "base_model_id": workspace_model,
-                    "meta": {
-                        "description": f"Portal persona: {name}",
-                        "profile_image_url": "",
-                        "toolIds": _persona_tool_ids(persona, workspace_model),
-                        "tags": [{"name": persona.get("category", "general")}],
-                    },
-                    "params": {
-                        "system": system_prompt,
-                        "model": workspace_model,
-                        **(
-                            {"enable_web_search": True}
-                            if workspace_model
-                            in {
-                                "auto",
-                                "auto-research",
-                                "auto-security",
-                                "auto-reasoning",
-                                "auto-compliance",
-                            }
-                            # auto-redteam/auto-blueteam removed: folded into
-                            # auto-security's variants (already covered above)
-                            # since BUILD_PROGRAM_COLLAPSE_V1.md Phase 6 — no
-                            # persona's workspace_model is literally those
-                            # strings anymore, so the entries were dead.
-                            else {}
-                        ),
-                    },
-                },
-            )
-        )
+        payload = persona_preset_payload(persona, f.stem, _ws_raw_tools)
+        if payload is None:
+            print(f"  Skip {f.name}: prompt_template {persona.get('prompt_template')!r} unreadable")
+            continue
+        persona_payloads.append((slug, payload["name"], payload["base_model_id"], payload))
 
     await _delete_role_model_presets(client, token, role_slugs, preset_ids)
 
@@ -1115,6 +1122,9 @@ def _validate_personas(personas_dir: Path, valid_workspace_ids: set[str]) -> lis
 
 
 async def main() -> int:
+    # Fail fast on a seeding run; the module stays importable for the drift checker.
+    if not ADMIN_PASSWORD:
+        raise ValueError("OPENWEBUI_ADMIN_PASSWORD must be set in environment")
     client = httpx.Client(timeout=30.0)
 
     # Wait for Open WebUI to be ready
