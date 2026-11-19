@@ -90,6 +90,7 @@ def test_salvages_json_wrapper_with_one_extra_closing_brace() -> None:
         (OBSERVED, None),
         (OBSERVED.replace("get_weather", "rm_rf"), TOOLS),
         ('<tool_call>{"name":"rm_rf","arguments":{}}</tool_call>', TOOLS),
+        ("<|tool_call>call:rm_rf{q:1}<tool_call|>", TOOLS),
         ("<tool_call>{not json}</tool_call>", TOOLS),
         ('<tool_call>{"name":"get_weather","arguments":{}}}}</tool_call>', TOOLS),
         ("Plain answer with no call.", TOOLS),
@@ -365,3 +366,125 @@ async def test_stream_never_delivers_an_unsalvageable_tool_call_wrapper(monkeypa
     assert dispatched == []
     assert "<tool_call>" not in out and "get_weather" not in out
     assert out.count("[DONE]") == 1
+
+
+# ── Gemma 4 native form (P5-GEMMA4-TOOLTEXT-001) ────────────────────────────
+# The format text below is rendered verbatim from the canonical chat template
+# shipped inside the served checkpoint (hf-cache
+# models--mlx-community--gemma-4-26B-A4B-it-qat-4bit, the auto-documents seat's
+# weights) for assistant tool_calls get_weather(city=…, days=…): the template is
+# the artifact both engines parse against (Ollama's PARSER gemma4 tokens are the
+# same `<|tool_call>call:`/`<|"|>`/`<tool_call|>` set). No stored capture of the
+# 2026-11-19 leak exists (traces hold metrics only; the container's logs
+# rotated), so this render stands in for the raw text the engines bypass.
+GEMMA_CALL = '<|tool_call>call:get_weather{city:<|"|>Paris<|"|>,days:3}<tool_call|>'
+
+
+def test_salvages_gemma4_native_call() -> None:
+    before, calls = salvage_text_tool_calls("Checking Paris.\n" + GEMMA_CALL, TOOLS)
+    assert before == "Checking Paris."
+    assert calls[0]["function"]["name"] == "get_weather"
+    assert json.loads(calls[0]["function"]["arguments"]) == {"city": "Paris", "days": 3}
+
+
+def test_salvages_multiple_gemma4_calls() -> None:
+    content = (
+        '<|tool_call>call:get_weather{city:<|"|>Oslo<|"|>}<tool_call|>'
+        '<|tool_call>call:get_weather{city:<|"|>Rome<|"|>,days:1}<tool_call|>'
+    )
+    before, calls = salvage_text_tool_calls(content, TOOLS)
+    assert before == ""
+    assert [json.loads(c["function"]["arguments"]) for c in calls] == [
+        {"city": "Oslo"},
+        {"city": "Rome", "days": 1},
+    ]
+    assert calls[0]["id"] != calls[1]["id"]
+
+
+def test_salvages_gemma4_nested_and_typed_arguments() -> None:
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "create_doc",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"title": {"type": "string"}, "options": {"type": "object"}},
+                },
+            },
+        }
+    ]
+    content = (
+        '<|tool_call>call:create_doc{title:<|"|>Q3 notes<|"|>,'
+        'options:{format:<|"|>md<|"|>,toc:true}}<tool_call|>'
+    )
+    _, calls = salvage_text_tool_calls(content, tools)
+    assert json.loads(calls[0]["function"]["arguments"]) == {
+        "title": "Q3 notes",
+        "options": {"format": "md", "toc": True},
+    }
+
+
+def test_unterminated_gemma4_call_is_not_salvaged_but_is_withheld() -> None:
+    from portal.platform.inference.router.text_tool_calls import drop_unparsed_markup
+
+    content = 'Sure.<|tool_call>call:get_weather{city:<|"|>Paris<|"|>'
+    assert salvage_text_tool_calls(content, TOOLS) == (content, [])
+    assert drop_unparsed_markup(content) == "Sure."
+
+
+def test_holdback_holds_gemma4_marker_across_chunks() -> None:
+    hb = TextToolCallHoldback()
+    assert hb.feed("Weather: <|tool_") == "Weather: "
+    assert hb.feed('call>call:get_weather{city:<|"|>Paris<|"|>}<tool_call|>') == ""
+    assert hb.holding
+    assert hb.take().startswith("<|tool_call>")
+
+
+@pytest.mark.anyio
+async def test_stream_dispatches_gemma4_native_call_written_as_text(monkeypatch):
+    hop1 = [
+        _frame({"content": "Checking. <|tool_"}),
+        _frame({"content": 'call>call:get_weather{city:<|"|>Paris<|"|>,days:3}<tool_call|>'}),
+        _frame({}, "stop"),
+        "data: [DONE]",
+    ]
+    hop2 = [_frame({"content": "It is 18 C and sunny."}), _frame({}, "stop"), "data: [DONE]"]
+    out, dispatched = await _run(monkeypatch, [hop1, hop2])
+    assert len(dispatched) == 1
+    assert json.loads(dispatched[0][0]["function"]["arguments"]) == {"city": "Paris", "days": 3}
+    assert "<|tool_call>" not in out and "get_weather" not in out
+    assert "Checking." in out and "sunny" in out
+    assert out.count("[DONE]") == 1
+
+
+def test_non_stream_recovers_gemma4_call_and_sets_finish_reason() -> None:
+    from portal.platform.inference.router import non_streaming
+
+    data = {
+        "choices": [
+            {"message": {"role": "assistant", "content": "Checking.\n" + GEMMA_CALL}},
+        ]
+    }
+    non_streaming._recover_or_withhold_markup(data, TOOLS, "gemma4", "auto-documents")
+    msg = data["choices"][0]["message"]
+    assert msg["tool_calls"][0]["function"]["name"] == "get_weather"
+    assert json.loads(msg["tool_calls"][0]["function"]["arguments"]) == {
+        "city": "Paris",
+        "days": 3,
+    }
+    assert data["choices"][0]["finish_reason"] == "tool_calls"
+    assert "<|tool_call>" not in msg["content"]
+
+
+def test_non_stream_withholds_unparseable_gemma4_call() -> None:
+    from portal.platform.inference.router import non_streaming
+
+    data = {
+        "choices": [
+            {"message": {"role": "assistant", "content": "Answer.\n<|tool_call>call:get_weather{"}},
+        ]
+    }
+    non_streaming._recover_or_withhold_markup(data, TOOLS, "gemma4", "auto-documents")
+    assert data["choices"][0]["message"]["content"] == "Answer."
+    assert "tool_calls" not in data["choices"][0]["message"]
