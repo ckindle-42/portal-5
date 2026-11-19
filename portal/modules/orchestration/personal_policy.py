@@ -21,13 +21,19 @@ TOOL_CALLER_WINDOW = 98_304
 DEFAULT_STEP_CONTEXT_TOKENS = 8192
 HELD_TEXT = "held: operator must run launch.sh"
 
-READ_TOOLS = frozenset({"recall", "wiki_search", "wiki_get_unit", "queue_status", "read_receipt"})
+# Read-only git tools run without a confirm; every other git_ tool (commit,
+# push, ...) waits for one.
+GIT_READ_TOOLS = frozenset({"git_status", "git_log", "git_diff"})
+READ_TOOLS = (
+    frozenset({"recall", "wiki_search", "wiki_get_unit", "queue_status", "read_receipt"})
+    | GIT_READ_TOOLS
+)
 CODE_TOOLS = frozenset({"execute_python", "execute_bash", "execute_nodejs"})
 CONFIRM_TOOLS = CODE_TOOLS | frozenset(
     {"remember", "forget", "file_write", "send_message", "send_mail"}
 )
 KNOWN_TOOLS = READ_TOOLS | CONFIRM_TOOLS
-CONFIRM_TOOL_PREFIXES = ("proxmox_", "unifi_", "browser_", "git_")
+CONFIRM_TOOL_PREFIXES = ("proxmox_", "unifi_", "browser_")
 
 _HARD_TEXT = re.compile(
     r"\b(proxmox|unifi|browser|git(?:\s+(?:push|commit|add))?)\b", re.IGNORECASE
@@ -154,7 +160,9 @@ def _tool_is_hidden(name: str, hidden: frozenset[str]) -> bool:
 
 
 def _tool_requires_confirm(name: str) -> bool:
-    return name in CONFIRM_TOOLS or name.startswith(CONFIRM_TOOL_PREFIXES)
+    if name in CONFIRM_TOOLS or name.startswith(CONFIRM_TOOL_PREFIXES):
+        return True
+    return name.startswith("git_") and name not in GIT_READ_TOOLS
 
 
 def _reject_mixed(tools: set[str], index: int) -> None:
@@ -255,3 +263,42 @@ def parse_planner_json(content: str) -> dict[str, Any]:
     if not isinstance(raw, dict):
         raise ValueError("planner response must be a JSON object")
     return raw
+
+
+ACCEPTANCE_EMPTY = "acceptance: empty final answer"
+
+
+def _json_object(text: str) -> dict[str, Any] | None:
+    try:
+        parsed = json.loads(text)
+    except ValueError:
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
+def acceptance_failure(
+    payload: dict[str, Any], content: str, called: list[str], tool_outputs: list[str]
+) -> str | None:
+    """J9: why one finished local attempt failed, or None when it passed.
+
+    A failed attempt is an empty answer, a dispatched tool that answered with
+    an error object, or a plan step whose named tool never ran.
+    """
+    if not content.strip():
+        return ACCEPTANCE_EMPTY
+    for output in tool_outputs:
+        parsed = _json_object(output)
+        if parsed is not None and parsed.get("error"):
+            return f"acceptance: tool error: {str(parsed['error'])[:200]}"
+    steps = payload.get("steps", payload.get("bites"))
+    if not isinstance(steps, list):
+        return None
+    called_set = set(called)
+    for index, step in enumerate(steps):
+        if not isinstance(step, dict):
+            continue
+        names = {name for name in step.get("tools", []) if isinstance(name, str)}
+        missing = sorted(names - called_set)
+        if missing:
+            return f"acceptance: plan step {index} not satisfied: {', '.join(missing)}"
+    return None

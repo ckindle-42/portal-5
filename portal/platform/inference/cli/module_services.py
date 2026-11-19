@@ -215,6 +215,10 @@ def skip_reason(ref: ServiceRef, repo: Path | None = None) -> str | None:
         eg2 = Path(os.environ.get("EG2_VENV", Path.home() / ".portal5" / "eg2-venv"))
         if not (eg2 / "bin" / "python3").is_file():
             return "EG2 venv missing"
+    elif (
+        service == "unifi-mcp" and not (Path.home() / "mcp" / "unifi-network" / "run.sh").is_file()
+    ):
+        return "unifi launcher not installed (~/mcp/unifi-network/run.sh)"
     elif ref.kind == "host" and not service and not _plist(ref).is_file():
         return "not installed"
     return None

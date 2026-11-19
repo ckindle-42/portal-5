@@ -196,6 +196,9 @@ services:
       - MCP_DATA_URL=http://host.docker.internal:8939
       - MCP_NETFORENSICS_URL=http://host.docker.internal:8941
       - MCP_REVIEW_URL=http://host.docker.internal:8943
+      # J-R2 Jarvis tool surfaces (host-native)
+      - MCP_UNIFI_URL=http://host.docker.internal:8949
+      - MCP_GIT_URL=http://host.docker.internal:8950
       - TOOL_DISPATCH_TIMEOUT_S=${TOOL_DISPATCH_TIMEOUT_S:-180}
       - TOOL_REGISTRY_REFRESH_S=${TOOL_REGISTRY_REFRESH_S:-300}
     extra_hosts:

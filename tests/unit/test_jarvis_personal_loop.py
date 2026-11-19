@@ -121,16 +121,18 @@ def test_ninth_local_hop_is_not_executed(tmp_path: Path) -> None:
             Completion("stopped", (), 0),
         ]
     )
-    poll_personal_tasks(tmp_path, _Notices(), caller)
+    result = poll_personal_tasks(tmp_path, _Notices(), caller)
     receipt_path = next((tmp_path).glob("*/receipt.json"))
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    # Hop-cap exhaustion without a final answer is now a retryable J9 failure.
+    assert result is not None and result.status == "retrying"
     assert receipt["hops"] <= HOP_CAP
-    assert len(receipt["tool_calls"]) <= 2
+    assert receipt["tool_calls"].count("queue_status") <= 2
 
 
 def test_tool_outside_the_allowlist_is_not_logged(tmp_path: Path) -> None:
-    telegram_do_reply(tmp_path, 1, "push the branch")
-    caller = _Caller([Completion(_plan("git_push"), (), 0), Completion("should not run", (), 0)])
+    telegram_do_reply(tmp_path, 1, "run the mystery command")
+    caller = _Caller([Completion(_plan("shell_exec"), (), 0), Completion("should not run", (), 0)])
     result = poll_personal_tasks(tmp_path, _Notices(), caller)
     assert result is not None and result.status == "rejected"
     assert len(caller.bodies) == 1
@@ -349,3 +351,94 @@ def test_confirmed_template_request_hands_to_arm_and_rejects_external_path(
     assert rejected is not None and rejected.status == "rejected"
     with QueueLedger(queue_root) as ledger:
         assert ledger.items() == []
+
+
+# ── J9 acceptance check ────────────────────────────────────────────────────────
+
+
+def test_acceptance_check_flags_the_three_real_failures() -> None:
+    from portal.modules.orchestration.personal_policy import acceptance_failure
+
+    plan = {"steps": [{"id": "s0", "tools": ["queue_status"], "paths": [], "budget": {}}]}
+    satisfied = acceptance_failure(plan, "Two jobs queued.", ["queue_status"], [])
+    assert satisfied is None
+    assert acceptance_failure(plan, "   ", [], []) is not None
+    tool_error = acceptance_failure(
+        plan, "Done.", ["queue_status"], ['{"error": "Tool \'x\' in backoff"}']
+    )
+    assert tool_error is not None and "tool error" in tool_error
+    unsatisfied = acceptance_failure(plan, "I could not check.", [], [])
+    assert unsatisfied is not None and "not satisfied" in unsatisfied
+    clean_output = acceptance_failure(plan, "Ok.", ["queue_status"], ['{"counts": {}}'])
+    assert clean_output is None
+
+
+def test_empty_answer_is_a_retryable_failure_that_reaches_cloud_handoff(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A completed-but-empty local attempt counts as a real J9 failure."""
+    from types import SimpleNamespace
+
+    from portal.modules.orchestration import personal_runner
+
+    class Dispatcher:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+
+        def run(self, **kwargs: object) -> SimpleNamespace:
+            self.calls.append(kwargs)
+            return SimpleNamespace(
+                exit_code=0, status="complete", model="mock", result_text="Cloud lane ran."
+            )
+
+    telegram_do_reply(tmp_path, 1, "what is the queue status in one paragraph")
+    task_id = PersonalStore(tmp_path).oldest_runnable()
+    assert task_id is not None
+    caller = _Caller(
+        [
+            Completion(_plan("queue_status"), (), 0),
+            Completion("", (), 0),
+            Completion(_plan("queue_status"), (), 0),
+            Completion("", (), 0),
+        ]
+    )
+    notices = _Notices()
+    dispatcher = Dispatcher()
+    monkeypatch.setattr(personal_runner, "_personal_cloud_enabled", lambda: True, raising=False)
+
+    first = poll_personal_tasks(tmp_path, notices, caller)
+    second = poll_personal_tasks(tmp_path, notices, caller, dispatcher=dispatcher)
+
+    assert first is not None and first.status == "retrying"
+    assert second is not None and second.status == "handed-to-cloud"
+    attempt = json.loads(
+        (tmp_path / task_id.id / "attempts" / "local-1" / "receipt.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert attempt["error"] == "acceptance: empty final answer"
+    receipt = json.loads((tmp_path / task_id.id / "receipt.json").read_text(encoding="utf-8"))
+    assert len(receipt["local_attempts"]) == 2
+    brief = Path(str(dispatcher.calls[0]["brief"]))
+    assert "acceptance: empty final answer" in brief.read_text(encoding="utf-8")
+
+
+def test_a_dispatched_tool_error_is_a_retryable_failure(tmp_path: Path) -> None:
+    """J9: a tool that answered with an error object is a failed attempt."""
+    telegram_do_reply(tmp_path, 1, "summarize the repository state")
+    caller = _Caller(
+        [
+            Completion(_plan("git_status"), (), 0),
+            Completion(
+                "I could not read the repository.",
+                (),
+                1,
+                ("git_status",),
+                ('{"error": "Tool \'git_status\' not in registry — call ignored"}',),
+            ),
+        ]
+    )
+    result = poll_personal_tasks(tmp_path, _Notices(), caller)
+    assert result is not None and result.status == "retrying"
+    receipt = json.loads(next(tmp_path.glob("*/receipt.json")).read_text(encoding="utf-8"))
+    assert "acceptance: tool error" in receipt["error"]
