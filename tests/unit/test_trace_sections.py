@@ -14,6 +14,7 @@ from portal.platform.inference.cli.trace import (
     engines,
     host,
     lab,
+    owui,
     pins,
     workspaces,
 )
@@ -608,7 +609,8 @@ def test_section_selection_accepts_keys_numbers_and_prefixes() -> None:
     def keys(values: list[str] | None) -> list[str]:
         return [key for key, _title, _run in selected(values)]
 
-    assert keys(None) == ["host", "containers", "workspaces", "pins", "engines", "lab"]
+    expected = ["host", "containers", "workspaces", "pins", "aliases", "engines", "owui", "lab"]
+    assert keys(None) == expected
     assert keys(["1"]) == ["host"]
     assert keys(["containers"]) == ["containers"]
     assert keys(["c"]) == ["containers"]
@@ -653,3 +655,45 @@ def test_seat_hop_keeps_the_seat_hint_for_an_unknown_resolved_lane() -> None:
     )
     assert hop.status is Status.WARN
     assert hop.expected == seat.hint
+
+
+def test_expected_catalog_names_exposed_variants_under_their_synthetic_id() -> None:
+    portal = {
+        "workspaces": {
+            "a": {
+                "name": "A",
+                "variants": {"v": {"name": "V", "expose_to_owui": True}, "hidden": {"name": "H"}},
+            },
+            "task-router": {"name": "Task model", "module": "eval"},
+        }
+    }
+    assert pins.expected_catalog(portal) == {"a": "A", "a::v": "V", "task-router": "Task model"}
+
+
+def test_owui_receipt_hop_needs_the_sandbox_value() -> None:
+    # native OWUI tool flow renders the call itself; the trace hop proves tool_calls
+    bare = workspaces.StreamedTurn(200, [], workspaces.TurnStats(text="488895"))
+    assert owui.receipt_hop(bare).status is Status.PASS
+    wrong = workspaces.StreamedTurn(200, [], workspaces.TurnStats(text="488925"))
+    assert owui.receipt_hop(wrong).status is Status.FAIL
+
+
+def test_owui_turn_request_uses_native_chat_tool_fields() -> None:
+    preset = {
+        "id": "auto-coding",
+        "meta": {"toolIds": ["server:mcp:portal_code"]},
+        "params": {"function_calling": "native"},
+    }
+    body = owui.completion_body(preset, "prompt", "chat", "message", "session")
+    assert body["model"] == "auto-coding"
+    assert body["chat_id"] == "chat" and body["id"] == "message"
+    assert body["session_id"] == "session" and body["stream"] is True
+    assert body["tool_ids"] == ["server:mcp:portal_code"]
+    assert body["features"] == {
+        "web_search": False,
+        "code_interpreter": False,
+        "image_generation": False,
+        "memory": False,
+    }
+    assert body["params"]["function_calling"] == "native"
+    assert owui.WORKSPACE == "auto-coding"

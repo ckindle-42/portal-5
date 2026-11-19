@@ -4,18 +4,22 @@ from __future__ import annotations
 
 import ast
 import re
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import httpx
+
 from .context import TraceContext, expand_env
 from .engines import EngineModels, fetch_engine_models
-from .model import Hop, Status
+from .model import Hop, Status, short
 
 PIN_NAME = re.compile(r"(BACKEND|SEAT|PIN|JUDGE)")
 #: A pin's value is an id or tag, never a prompt body.
 IDENTIFIER = re.compile(r"^[\w./:@%+\-]{1,120}$")
 BACKENDS_YAML = Path("config") / "backends.yaml"
+TASK_MODEL_ID = "task-router"
 
 
 @dataclass(frozen=True)
@@ -158,8 +162,88 @@ def backend_hops(backend: Backend, models: EngineModels) -> list[Hop]:
     ]
 
 
+def expected_catalog(portal: dict[str, Any]) -> dict[str, str]:
+    """id -> declared name for configured seats, OWUI variants, and the task model."""
+    from portal.platform.wiki.adapters.modules import is_workspace_disabled
+
+    out: dict[str, str] = {}
+    for ws_id, cfg in (portal.get("workspaces") or {}).items():
+        out[str(ws_id)] = str(cfg.get("name") or "")
+        out |= {
+            f"{ws_id}::{vid}": str((vcfg or {}).get("name") or out[str(ws_id)])
+            for vid, vcfg in (cfg.get("variants") or {}).items()
+            if (vcfg or {}).get("expose_to_owui") is True
+        }
+    disabled = is_workspace_disabled
+    return {
+        k: v
+        for k, v in out.items()
+        if not k.startswith("bench") and (not disabled(k) or k == TASK_MODEL_ID)
+    }
+
+
+def catalog_hop(ctx: TraceContext, portal: dict[str, Any]) -> Hop:
+    """The running catalogue is this config's: every enabled seat under its declared name."""
+    expected = expected_catalog(portal)
+    if not ctx.api_key:
+        return Hop(
+            "served catalog",
+            Status.WARN,
+            "not run: no PIPELINE_API_KEY",
+            "an advertised model list",
+        )
+    headers = {"Authorization": f"Bearer {ctx.api_key}"}
+    try:
+        response = httpx.get(f"{ctx.pipeline_url}/v1/models", timeout=15.0, headers=headers)
+        response.raise_for_status()
+        served = {
+            str(e["id"]): str(e.get("name") or "")
+            for e in response.json()["data"]
+            if not e.get("is_persona") and not str(e["id"]).startswith("bench")
+        }
+    except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
+        error = short(f"{type(exc).__name__}: {exc}", 70)
+        return Hop("served catalog", Status.FAIL, error, "GET /v1/models")
+    missing, extra = set(expected) - set(served), set(served) - set(expected)
+    renamed = {s for s, n in expected.items() if n and n != served.get(s)}
+    gaps = [
+        f"{label}={','.join(sorted(ids))}"
+        for label, ids in (("missing", missing), ("undeclared", extra), ("renamed", renamed))
+        if ids
+    ]
+    status = Status.FAIL if gaps else Status.PASS
+    return Hop("served catalog", status, f"served={len(served)}", "config ids", "; ".join(gaps))
+
+
+def alias_hops(ctx: TraceContext, portal: dict[str, Any]) -> list[Hop]:
+    """Each deprecated alias is still accepted by the Pipeline and routes to its table target."""
+    from portal.platform.wiki.adapters.modules import is_workspace_disabled
+
+    from .workspaces import stream_turn
+
+    if not ctx.api_key:
+        return [Hop("aliases", Status.WARN, "not run: no PIPELINE_API_KEY", "one turn per alias")]
+    deadline = time.monotonic() + ctx.budget_s
+    hops: list[Hop] = []
+    for alias, spec in sorted((portal.get("aliases") or {}).items()):
+        target, left = str((spec or {}).get("to") or ""), deadline - time.monotonic()
+        if not target:
+            hops.append(Hop(str(alias), Status.WARN, "not run", "a declared target", "no `to:`"))
+        elif is_workspace_disabled(target):
+            hops.append(Hop(str(alias), Status.WARN, "not run: module disabled", f"→{target}"))
+        elif left <= 1:
+            hops.append(Hop(str(alias), Status.WARN, "not run (budget)", f"→{target}"))
+        else:
+            turn = stream_turn(ctx.pipeline_url, ctx.api_key, str(alias), min(left, ctx.timeout_s))
+            resolved = turn.route[0] if turn.route else ""
+            status = Status.PASS if resolved == target else Status.FAIL
+            detail = "" if resolved == target else short(turn.error or turn.body, 70)
+            hops.append(Hop(str(alias), status, f"→{resolved or '<no route>'}", target, detail))
+    return hops or [Hop("aliases", Status.WARN, "none declared", "config/portal.yaml aliases")]
+
+
 def run(ctx: TraceContext, portal: dict[str, Any]) -> list[Hop]:
-    """Every code pin resolves, and every alias target exists on its engine."""
+    """Every code pin resolves, every alias target exists, and the catalogue is the config's."""
     backends = load_backends(ctx.repo_root / BACKENDS_YAML)
     if not backends:
         return [Hop("backends.yaml", Status.FAIL, "no backends", "config/backends.yaml")]
@@ -174,6 +258,7 @@ def run(ctx: TraceContext, portal: dict[str, Any]) -> list[Hop]:
             "module-level *_BACKEND/_SEAT/_PIN/_JUDGE literals",
         ),
         *(pin_hop(pin, backends, models, seats) for pin in discovered),
+        catalog_hop(ctx, portal),
     ]
     for backend in backends:
         hops.extend(backend_hops(backend, models))

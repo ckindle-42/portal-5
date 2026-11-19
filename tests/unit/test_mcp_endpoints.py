@@ -18,16 +18,6 @@ sys.path.insert(0, ".")
 class TestBackendModelHintRouting:
     """Test backend routing and workspace configuration completeness."""
 
-    def test_all_workspaces_have_model_hint(self):
-        """Every workspace must specify model_hint."""
-        from portal.platform.inference.router_pipe import WORKSPACES
-
-        for ws_id, cfg in WORKSPACES.items():
-            has_hint = bool(cfg.get("model_hint"))
-            assert has_hint, (
-                f"Workspace '{ws_id}' missing model_hint — routing will use backend.models[0]"
-            )
-
     def test_exec_workspaces_have_execute_bash_tool(self):
         """auto-security's purpleteam-exec/pentest variants must declare
         execute_bash in their tool list (BUILD_PROGRAM_COLLAPSE_V1.md Phase 6

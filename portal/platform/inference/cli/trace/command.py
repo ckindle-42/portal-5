@@ -9,7 +9,7 @@ from typing import Annotated, Any
 
 import typer
 
-from . import containers, engines, host, lab, pins, workspaces
+from . import containers, engines, host, lab, owui, pins, workspaces
 from .context import TraceContext, env_value, host_url, run_cmd
 from .model import Hop, Section, Status, TraceReport, render_json, render_text
 
@@ -45,7 +45,9 @@ SECTION_RUNNERS: tuple[tuple[str, str, Runner], ...] = (
     ("containers", "CONTAINERS", _containers),
     ("workspaces", "WORKSPACES END TO END", _workspaces),
     ("pins", "PINS AND ALIASES", _pins),
+    ("aliases", "DEPRECATED ALIASES", lambda ctx, portal: pins.alias_hops(ctx, portal)),
     ("engines", "ENGINES", _engines),
+    ("owui", "OPEN WEBUI TOOL PATH", lambda ctx, portal: owui.run(ctx, portal)),
     ("lab", "LAB PATHS", _lab),
 )
 
@@ -63,6 +65,7 @@ def _context(repo_root: Path, budget: float, timeout: float) -> TraceContext:
         api_key=env_value("PIPELINE_API_KEY"),
         omlx_url=host_url("OMLX_URL", "http://127.0.0.1:8085", "PORTAL_REVIEW_OMLX_URL"),
         ollama_url=host_url("OLLAMA_URL", "http://127.0.0.1:11434", "PORTAL_REVIEW_OLLAMA_URL"),
+        owui_url=host_url("OWUI_URL", "http://127.0.0.1:8080"),
         budget_s=budget,
         timeout_s=timeout,
     )
@@ -108,7 +111,7 @@ def cmd_trace(
             "--section",
             "-s",
             help="Run one section: host, containers, workspaces, "
-            "pins, engines, lab (or its number). Repeatable.",
+            "pins, aliases, engines, owui, lab (or its number). Repeatable.",
         ),
     ] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Emit the report as JSON")] = False,
@@ -126,7 +129,7 @@ def cmd_trace(
     sections: list[Section] = []
     portal: dict[str, Any] = {}
     for key, title, runner in selected(section):
-        if key in ("workspaces", "pins") and not portal:
+        if key in ("workspaces", "pins", "aliases") and not portal:
             portal = _portal_config(repo_root)
         try:
             hops = runner(ctx, portal)

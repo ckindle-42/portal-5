@@ -34,6 +34,7 @@ class TraceContext:
     api_key: str
     omlx_url: str
     ollama_url: str
+    owui_url: str
     budget_s: float
     timeout_s: float
 
