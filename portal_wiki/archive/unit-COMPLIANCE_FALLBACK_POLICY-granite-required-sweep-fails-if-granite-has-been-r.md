@@ -1,5 +1,6 @@
 ---
 id: unit-COMPLIANCE_FALLBACK_POLICY-granite-required-sweep-fails-if-granite-has-been-r
+historical: true
 kind: why
 title: "COMPLIANCE_FALLBACK_POLICY \u2014 Granite-required sweep (fails if Granite\
   \ has been removed from chain)"
@@ -7,13 +8,11 @@ sources:
 - type: design
   path: docs/COMPLIANCE_FALLBACK_POLICY.md
   section: Granite-required sweep (fails if Granite has been removed from chain)
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - COMPLIANCE_FALLBACK_POLICY
-created_at: 1783195000.833865
-updated_at: 1783195000.833865
+
 ---
 
 python3 tests/portal5_persona_matrix.py \

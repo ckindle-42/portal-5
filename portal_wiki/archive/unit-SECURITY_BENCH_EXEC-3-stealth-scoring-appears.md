@@ -1,18 +1,17 @@
 ---
 id: unit-SECURITY_BENCH_EXEC-3-stealth-scoring-appears
+historical: true
 kind: why
 title: "SECURITY_BENCH_EXEC \u2014 3. Stealth scoring appears"
 sources:
 - type: design
   path: docs/SECURITY_BENCH_EXEC.md
   section: 3. Stealth scoring appears
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - SECURITY_BENCH_EXEC
-created_at: 1783195000.9103649
-updated_at: 1783195000.9103649
+
 ---
 
 

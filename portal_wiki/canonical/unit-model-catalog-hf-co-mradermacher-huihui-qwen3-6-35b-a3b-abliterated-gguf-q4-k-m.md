@@ -7,13 +7,13 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: models.configured
+  contains: hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.606283
-updated_at: 1784946220.606283
 ---
 
 `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M` is the mradermacher Q4_K_M (~20GB, MoE 3B active) of the huihui-ai abliteration of Qwen3.6-35B-A3B — a speed play leveraging 3B active parameters for fast decode. `config/backends.yaml` registers it in the `general` group only, with `supports_tools: false`. `config/portal.yaml` selects it as the `model_hint` for `bench-huihui-qwen36-35b-a3b`, whose description retains the vanch007 origin (the deleted HF repo this moved from; mradermacher hosts the same base as a confirmed Q4_K_M) and frames the lane as a speed comparison against `bench-huihui-qwen36-27b`. The model is bench-only; no production workspace pins it.

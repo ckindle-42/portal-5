@@ -1,20 +1,21 @@
 ---
 id: unit-surface-omlx-tool-parsers
 kind: mixed
-title: "oMLX tool parsers — the upgrade-surviving parser install"
+title: "oMLX tool parsers \u2014 the upgrade-surviving parser install"
 sources:
 - type: code
   path: scripts/omlx/deepseek_r1_tool_parser.py
 - type: code
   path: scripts/install_omlx_parsers.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/omlx/deepseek_r1_tool_parser.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - surface
 - omlx
-created_at: 1790412800.0
-updated_at: 1790412800.0
 ---
 
 - **What**: `scripts/omlx/deepseek_r1_tool_parser.py` is the canonical copy of

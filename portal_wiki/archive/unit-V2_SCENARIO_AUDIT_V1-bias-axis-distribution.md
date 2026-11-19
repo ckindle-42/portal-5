@@ -1,18 +1,17 @@
 ---
 id: unit-V2_SCENARIO_AUDIT_V1-bias-axis-distribution
+historical: true
 kind: why
 title: "V2_SCENARIO_AUDIT_V1 \u2014 Bias-axis distribution"
 sources:
 - type: design
   path: docs/V2_SCENARIO_AUDIT_V1.md
   section: Bias-axis distribution
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - V2_SCENARIO_AUDIT_V1
-created_at: 1783195000.927304
-updated_at: 1783195000.927304
+
 ---
 
 

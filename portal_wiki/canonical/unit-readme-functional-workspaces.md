@@ -11,13 +11,14 @@ sources:
   path: portal/platform/inference/router/workspaces.py
 - type: code
   path: portal/platform/inference/config.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/portal.yaml
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.679698
-updated_at: 1784946220.679698
 ---
 
 The functional workspaces are the everyday entries in the Open WebUI model

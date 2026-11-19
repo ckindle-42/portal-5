@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-s41_production_hardening
+historical: true
 kind: mixed
 title: "S41 \u2014 Production hardening"
 sources:
 - type: code
   path: tests/acceptance/s41_production_hardening.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799820.1734688
-updated_at: 1785799820.1734688
+
 ---
 
 This is the acceptance section s41_production_hardening. S41 — Production hardening

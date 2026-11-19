@@ -1,19 +1,18 @@
 ---
 id: unit-scripts-lab_setup
+historical: true
 kind: mixed
 title: "Script \u2014 lab_setup"
 sources:
 - type: code
   path: scripts/lab_setup.py
   commit: 94ecf393
-last_generated_commit: 94ecf393
 claims: []
 confidence: high
 tags:
 - authored-v1
 - scripts
-created_at: 1785799525.093858
-updated_at: 1785799525.093858
+
 ---
 
 Sets up the lab targets with heavy/skip-heavy, update, and dry-run modes.

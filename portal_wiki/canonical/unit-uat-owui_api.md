@@ -6,14 +6,15 @@ sources:
 - type: code
   path: tests/uat/owui_api.py
   commit: d7dcc96a
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/uat/owui_api.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - uat
-created_at: 1785799286.397863
-updated_at: 1785799286.397863
 ---
 
 The Open WebUI REST helpers: login, chat creation, message send, response retrieval, and chat archival.

@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-stage2_propose
+historical: true
 kind: mixed
 title: "Stage2 propose \u2014 coverage-gap proposal stage"
 sources:
 - type: code
   path: portal/modules/security/core/stage2_propose.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800295.902848
-updated_at: 1785800295.902848
+
 ---
 
 The stage-2 proposal stage that converts coverage gaps into concrete proposed detections or scenarios for the growth loop.

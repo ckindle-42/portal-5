@@ -11,13 +11,14 @@ sources:
   path: portal/platform/inference/router/routing.py
 - type: code
   path: portal/modules/research/tools/rag_mcp.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: deploy/portal-5/docker-compose.yml
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.685955
-updated_at: 1784946220.685955
 ---
 
 Two core chat models are pulled on the first `./launch.sh up` by the

@@ -1,0 +1,22 @@
+---
+id: unit-model-catalog-qwen3-coder-next-latest
+kind: what
+title: "MODEL_CATALOG \u2014 `qwen3-coder-next:latest`"
+sources:
+- type: code
+  path: config/backends.yaml
+- type: code
+  path: config/portal.yaml
+claims: []
+confidence: high
+tags:
+- docs
+- verified-v1
+historical: true
+---
+
+`qwen3-coder-next:latest` was an 80B-total / 3B-active MoE agentic coder (Alibaba, Apache 2.0, non-reasoning for fast code responses, ~46GB Q4, 256K context). **RETIRED 2026-10-22 (operator fleet prune): the backends registrations, the `bench-qwen3-coder-next` eval lane, and the heavy auto-coding pin are removed; the heavy seat now hints `Qwen3.8-27B-oQ4e-mtp`** (see the closeout register, `docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md`). Historical wiring: `config/backends.yaml` had listed it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe of its `portal5/qwen3-coder-next:latest-ctx256k` derivative: 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` used the base tag as the `model_hint` of the `bench-qwen3-coder-next` eval workspace, whose description documented the hybrid Gated DeltaNet + MoE architecture and 800K-task agentic RL training; the derived `qwen3-coder-next:latest-ctx64k` tag wired the heavy auto-coding variant.
+
+## Why
+
+The router keeps one tool flag per model id (last entry wins), so the old general-`false` / coding-`true` split never meant what it seemed to. The 2026-09-25 probe of its `portal5/qwen3-coder-next:latest-ctx256k` derivative (same weights, 3/3 plus a clean tool-result turn) settled it: every entry is now `true`.

@@ -13,14 +13,16 @@ sources:
   path: exec_chain.py#meta3_webdav_upload
 - type: scenario
   path: exec_chain.py#vuln_tomcat_deploy
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1505.003
+  equals: true
 confidence: high
 tags:
 - T1505.003
 - technique
 - signature
-created_at: 1790651067.8824582
-updated_at: 1790651067.8824582
 ---
 
 # T1505.003 — Webshell — file-write + subsequent exec correlation

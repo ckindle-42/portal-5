@@ -9,13 +9,14 @@ sources:
   path: config/portal.yaml
 - type: code
   path: config/personas/codingagentic.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/mcp_host/pipeline_mcp.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.578677
-updated_at: 1784946220.578677
 ---
 
 Adding a new workspace with opencode and the local Laguna persona follows the

@@ -6,14 +6,15 @@ sources:
 - type: code
   path: tests/benchmarks/bench_mlx_hf.py
   commit: 071aaf52
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/benchmarks/bench_mlx_hf.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - bench
-created_at: 1785798600.97055
-updated_at: 1785798600.97055
 ---
 
 `bench_mlx_hf.py` pulls a HuggingFace mlx-community safetensors repository

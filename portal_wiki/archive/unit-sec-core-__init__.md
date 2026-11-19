@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-__init__
+historical: true
 kind: mixed
 title: "Security core \u2014 RBP engine package facade"
 sources:
 - type: code
   path: portal/modules/security/core/__init__.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800269.394124
-updated_at: 1785800269.394124
+
 ---
 
 The security core is the RBP engine, relocated intact from its historical home: the chain runner, blue/red orchestration, evidence, scoring, the CLI, and every bench. The package `__init__` is the facade that re-exports the public surface so the module can be imported as a whole.

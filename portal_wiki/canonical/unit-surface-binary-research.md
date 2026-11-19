@@ -1,18 +1,20 @@
 ---
 id: unit-surface-binary-research
 kind: mixed
-title: "Binary research harness — project-directory RE workspace + toolchain MCP"
+title: "Binary research harness \u2014 project-directory RE workspace + toolchain\
+  \ MCP"
 sources:
 - type: code
   path: portal/modules/binary_research/**/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/binary_research/**/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - module
 - binary-research
-created_at: 1787786654.0
-updated_at: 1787786654.0
 ---
 
 The binary research harness is a CLI-first agent loop for static reverse

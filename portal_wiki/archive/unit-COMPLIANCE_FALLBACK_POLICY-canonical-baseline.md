@@ -1,18 +1,17 @@
 ---
 id: unit-COMPLIANCE_FALLBACK_POLICY-canonical-baseline
+historical: true
 kind: why
 title: "COMPLIANCE_FALLBACK_POLICY \u2014 Canonical baseline"
 sources:
 - type: design
   path: docs/COMPLIANCE_FALLBACK_POLICY.md
   section: Canonical baseline
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - COMPLIANCE_FALLBACK_POLICY
-created_at: 1783195000.833091
-updated_at: 1783195000.833091
+
 ---
 
 

@@ -1,12 +1,12 @@
 ---
 id: unit-security-siem-blue-triage
+historical: true
 kind: mixed
 title: "SIEM blue-triage loop \u2014 poll, enrich, P1-P4 report"
 sources:
 - type: code
   path: portal/modules/security/core/siem/blue_triage.py
   commit: d493d44c
-last_generated_commit: d493d44c
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - module
 - security
 - siem
-created_at: 1785796642.482094
-updated_at: 1785796642.482094
+
 ---
 
 `blue_triage.py` is the blue-triage loop: it polls the SIEM for alerts,

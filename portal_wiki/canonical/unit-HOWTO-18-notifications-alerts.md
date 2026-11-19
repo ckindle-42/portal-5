@@ -7,14 +7,17 @@ sources:
   path: portal/platform/inference/router/handlers.py
 - type: code
   path: .env.example
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/platform/inference/router/handlers.py
+  symbol: AlertEvent
+  equals: true
 confidence: high
 tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.856343
-updated_at: 1783195000.856343
+
 ---
 
 **What:** Get operational alerts and daily usage summaries via Slack, Telegram, Email, Pushover, or a generic webhook.

@@ -8,14 +8,16 @@ sources:
   path: portal/modules/security/core/siem/spl_detections.yaml#T1611
 - type: mitre
   path: ATT&CK:T1611
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1611
+  equals: true
 confidence: high
 tags:
 - T1611
 - technique
 - signature
-created_at: 1790651067.8837252
-updated_at: 1790651067.8837252
 ---
 
 # T1611 — Container escape — host auditd + docker events [KEY: nsenter, mount, /proc/1, or privileged from the SPL]

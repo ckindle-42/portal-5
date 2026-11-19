@@ -1,20 +1,19 @@
 ---
 id: unit-inference-cli-apps
+historical: true
 kind: mixed
 title: "Inference CLI apps \u2014 shared typer app instances"
 sources:
 - type: code
   path: portal/platform/inference/cli/_apps.py
   commit: 250150f6
-last_generated_commit: 250150f6
 claims: []
 confidence: high
 tags:
 - authored-v1
 - platform
 - cli
-created_at: 1785797833.282933
-updated_at: 1785797833.282933
+
 ---
 
 `_apps.py` holds the shared typer app instances — one per command group

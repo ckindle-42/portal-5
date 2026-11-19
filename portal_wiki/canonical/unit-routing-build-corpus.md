@@ -6,14 +6,15 @@ sources:
 - type: code
   path: tests/routing/build_corpus.py
   commit: 6f44673c
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/routing/build_corpus.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - routing
-created_at: 1785795502.531222
-updated_at: 1785795502.531222
 ---
 
 `build_corpus.py` assembles the routing-integrity corpus that measures the

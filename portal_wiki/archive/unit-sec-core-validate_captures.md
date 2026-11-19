@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-validate_captures
+historical: true
 kind: mixed
 title: "Validate captures \u2014 VALID/PARTIAL/INVALID/MISSING"
 sources:
 - type: code
   path: portal/modules/security/core/validate_captures.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800269.394173
-updated_at: 1785800269.394173
+
 ---
 
 Classifies every scenario capture as VALID, PARTIAL, INVALID, or MISSING and writes the recapture-needed list.

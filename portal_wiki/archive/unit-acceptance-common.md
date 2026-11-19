@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-common
+historical: true
 kind: mixed
 title: "Acceptance common \u2014 shared section infrastructure"
 sources:
 - type: code
   path: tests/acceptance/_common.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799696.542645
-updated_at: 1785799696.542645
+
 ---
 
 `_common.py` is the shared infrastructure for the acceptance section modules:

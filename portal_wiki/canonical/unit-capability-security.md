@@ -8,14 +8,15 @@ sources:
   section: mcp_fleet
 - type: code
   path: portal/modules/security/tools/security_mcp.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/portal.yaml
+  equals: true
 confidence: high
 tags:
 - capability
 - mcp
 - security
-created_at: 1788030600.446044
-updated_at: 1788030600.446044
 ---
 
 # Security MCP — vulnerability classification and lab perception

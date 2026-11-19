@@ -9,14 +9,17 @@ sources:
   path: config/portal.yaml
 - type: code
   path: portal/platform/inference/router/routing.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: launch.sh
+  symbol: OPENWEBUI_ADMIN_PASSWORD
+  equals: true
 confidence: high
 tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.8392
-updated_at: 1783195000.8392
+
 ---
 
 **What:** Open WebUI connects to Portal Pipeline, which routes each request to the best-fit model.

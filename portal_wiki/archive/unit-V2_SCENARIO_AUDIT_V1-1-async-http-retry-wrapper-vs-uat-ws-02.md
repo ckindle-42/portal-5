@@ -1,18 +1,17 @@
 ---
 id: unit-V2_SCENARIO_AUDIT_V1-1-async-http-retry-wrapper-vs-uat-ws-02
+historical: true
 kind: why
 title: "V2_SCENARIO_AUDIT_V1 \u2014 1. `async-http-retry-wrapper` vs UAT WS-02"
 sources:
 - type: design
   path: docs/V2_SCENARIO_AUDIT_V1.md
   section: 1. `async-http-retry-wrapper` vs UAT WS-02
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - V2_SCENARIO_AUDIT_V1
-created_at: 1783195000.922687
-updated_at: 1783195000.922687
+
 ---
 
 

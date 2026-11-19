@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-re_firmware
+historical: true
 kind: mixed
 title: "Firmware RE \u2014 ported reverse-engineering benches"
 sources:
 - type: code
   path: portal/modules/security/core/re_firmware.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800269.39416
-updated_at: 1785800269.39416
+
 ---
 
 The firmware reverse-engineering benches ported from skill methodologies, each scored on ground truth (emulated firmware, known CVE, config extraction).

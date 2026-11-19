@@ -1,20 +1,19 @@
 ---
 id: unit-notifications-dispatcher
+historical: true
 kind: mixed
 title: "Notification dispatcher \u2014 fan-out + threshold alerting"
 sources:
 - type: code
   path: portal/platform/inference/notifications/dispatcher.py
   commit: 7383d070
-last_generated_commit: 7383d070
 claims: []
 confidence: high
 tags:
 - authored-v1
 - notifications
 - platform
-created_at: 1785796462.796395
-updated_at: 1785796462.796395
+
 ---
 
 The notification dispatcher fans events out to every configured channel. It

@@ -11,13 +11,14 @@ sources:
   path: portal_channels/slack/bot.py
 - type: code
   path: .env.example
-claims: []
+claims:
+- probe: repo.path.exists
+  path: deploy/portal-5/docker-compose.yml
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1788033019.601702
-updated_at: 1788033019.601702
 ---
 
 To enable the Slack channel, create a Slack app with Socket Mode and add its

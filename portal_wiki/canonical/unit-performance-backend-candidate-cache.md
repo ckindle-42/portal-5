@@ -5,12 +5,13 @@ title: "PERFORMANCE \u2014 Backend Candidate Cache"
 sources:
 - type: code
   path: portal/platform/inference/cluster_backends.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/cluster_backends.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.510197
-updated_at: 1784946220.510197
 ---
 
 `BackendRegistry.get_backend_candidates()` caches its per-workspace result in `_candidate_cache` with a 5-second TTL (`_candidate_cache_ttl = 5.0`). A cache hit returns a fresh list copy without re-scanning the healthy backend list, re-running the group-priority sort, or calling `random.shuffle()` on the fallback tiers.

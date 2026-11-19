@@ -1,19 +1,18 @@
 ---
 id: unit-scripts-migrate_to_portal_yaml
+historical: true
 kind: mixed
 title: "Script \u2014 migrate_to_portal_yaml"
 sources:
 - type: code
   path: scripts/migrate_to_portal_yaml.py
   commit: 94ecf393
-last_generated_commit: 94ecf393
 claims: []
 confidence: high
 tags:
 - authored-v1
 - scripts
-created_at: 1785799532.379113
-updated_at: 1785799532.379113
+
 ---
 
 Migrates the workspace and MCP server definitions from the code literals and .mcp.json into config/portal.yaml, the single source of truth.

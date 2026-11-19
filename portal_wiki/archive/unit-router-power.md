@@ -1,12 +1,12 @@
 ---
 id: unit-router-power
+historical: true
 kind: mixed
 title: "Router power \u2014 energy accounting from powermetrics"
 sources:
 - type: code
   path: portal/platform/inference/router/power.py
   commit: d7c1d4f4
-last_generated_commit: d7c1d4f4
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - platform
 - inference
 - router
-created_at: 1785798093.8313239
-updated_at: 1785798093.8313239
+
 ---
 
 `power.py` reads the host powermetrics socket, converts watt-seconds to

@@ -8,14 +8,15 @@ sources:
   section: mcp_fleet
 - type: code
   path: portal/modules/general/tools/__init__.py
-claims: []
+claims:
+- probe: mcp.fleet.ids
+  contains: filesystem
 confidence: high
 tags:
 - capability
 - mcp
 - general
-created_at: 1788030600.446044
-updated_at: 1788030600.446044
+
 ---
 
 # Filesystem MCP — vendored IDE file access

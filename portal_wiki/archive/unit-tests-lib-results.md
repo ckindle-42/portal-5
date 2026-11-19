@@ -1,20 +1,19 @@
 ---
 id: unit-tests-lib-results
+historical: true
 kind: mixed
 title: "Tests lib results \u2014 shared result model + classification"
 sources:
 - type: code
   path: tests/lib/results.py
   commit: bd66d80c
-last_generated_commit: bd66d80c
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - lib
-created_at: 1785798250.599473
-updated_at: 1785798250.599473
+
 ---
 
 `results.py` is the result model and recording helper for the acceptance

@@ -1,12 +1,12 @@
 ---
 id: unit-tests-scripts-capability-probe
+historical: true
 kind: mixed
 title: "Coding capability probe \u2014 execution-validated 7-dimension matrix"
 sources:
 - type: code
   path: tests/scripts/capability_probe.py
   commit: 53110d10
-last_generated_commit: 53110d10
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - tests
 - scripts
 - bench
-created_at: 1785796162.060698
-updated_at: 1785796162.060698
+
 ---
 
 The coding capability probe drives each candidate model through the pipeline

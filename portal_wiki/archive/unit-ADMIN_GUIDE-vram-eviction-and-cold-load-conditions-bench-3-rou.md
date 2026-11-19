@@ -1,5 +1,6 @@
 ---
 id: unit-ADMIN_GUIDE-vram-eviction-and-cold-load-conditions-bench-3-rou
+historical: true
 kind: why
 title: "ADMIN_GUIDE \u2014 VRAM eviction and cold-load conditions bench (3 router\
   \ candidates \xD7 4 scenarios)"
@@ -8,13 +9,11 @@ sources:
   path: docs/ADMIN_GUIDE.md
   section: "VRAM eviction and cold-load conditions bench (3 router candidates \xD7\
     \ 4 scenarios)"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - ADMIN_GUIDE
-created_at: 1783195000.818524
-updated_at: 1783195000.818524
+
 ---
 
 OLLAMA_URL=http://localhost:11434 python3 tests/benchmarks/bench_router_conditions.py \

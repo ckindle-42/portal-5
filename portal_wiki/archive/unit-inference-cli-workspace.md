@@ -1,20 +1,19 @@
 ---
 id: unit-inference-cli-workspace
+historical: true
 kind: mixed
 title: "Inference CLI workspace \u2014 init/status for the shared root"
 sources:
 - type: code
   path: portal/platform/inference/cli/workspace.py
   commit: 250150f6
-last_generated_commit: 250150f6
 claims: []
 confidence: high
 tags:
 - authored-v1
 - platform
 - cli
-created_at: 1785797886.614827
-updated_at: 1785797886.614827
+
 ---
 
 `portal workspace` is the workspace operations surface:

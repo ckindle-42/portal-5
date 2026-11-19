@@ -1,20 +1,19 @@
 ---
 id: unit-tests-unit-test_spine_gates
+historical: true
 kind: mixed
 title: Spine gate ratchet tests
 sources:
 - type: code
   path: tests/unit/test_spine_gates.py
   commit: d5234798
-last_generated_commit: abe6f42ccd1cd1ce696800899e19dfc51821e0ef
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - unit
-created_at: 1785800427.158784
-updated_at: 1785800427.158784
+
 ---
 
 Ratchets the wiki and router spine correctness gates into the pytest CI lane.

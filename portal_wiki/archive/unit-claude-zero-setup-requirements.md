@@ -1,19 +1,18 @@
 ---
 id: unit-claude-zero-setup-requirements
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 Zero-Setup Requirements"
 sources:
 - type: design
   path: CLAUDE.md
   section: Zero-Setup Requirements
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.1943839
-updated_at: 1785348301.1943839
+
 ---
 
 

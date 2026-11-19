@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import plistlib
 from pathlib import Path
+from typing import Any
 
 import pytest
 import typer
@@ -712,16 +713,8 @@ def test_owui_turn_request_uses_native_chat_tool_fields() -> None:
     assert owui.WORKSPACE == "auto-coding"
 
 
-class TestMediaSection:
-    """The video artifact hop warns with the reason while the module is off."""
-
-    def test_disabled_module_warns_without_a_request(self) -> None:
-        portal = {"modules": {"video": {"enabled": False}}}
-        hops = media.run(None, portal)  # type: ignore[arg-type]
-        assert len(hops) == 1
-        assert hops[0].status is Status.WARN
-        assert "video module disabled" in hops[0].observed
-        assert "modules.video.enabled" in hops[0].detail
+class TestVideoHops:
+    """The video hop's verdicts — pure functions, no network."""
 
     def test_video_enabled_follows_the_config_switch(self) -> None:
         assert media.video_enabled({"modules": {"video": {"enabled": True}}}) is True
@@ -784,3 +777,80 @@ class TestMediaSection:
         hop = media.clip_hop(None, since=0.0)
         assert hop.status is Status.FAIL
         assert "no new" in hop.observed
+
+
+def test_media_module_hop_warns_while_disabled() -> None:
+    disabled = {"modules": {"image": {"enabled": False}}}
+    hop = media.module_hop(disabled)
+    assert hop is not None
+    assert hop.status is Status.WARN
+    assert "modules.image.enabled is false" in hop.observed
+    assert media.module_hop({"modules": {"image": {"enabled": True}}}) is None
+    assert media.module_hop({}) is None  # missing key falls back to enabled
+
+
+def test_media_artifact_url_extracts_the_published_files_url() -> None:
+    url = (
+        "http://owui:8080/api/v1/files/2f3a1b9c-0000-0000-0000-000000000000/content/mflux_ab12.png"
+    )
+    assert media.artifact_url(f"Here it is: {url}") == url
+    assert media.artifact_url("no link here") == ""
+    bare = media.artifact_url("done http://owui/a.png.")
+    assert bare == "http://owui/a.png"
+
+
+def test_media_artifact_hop_verdicts(monkeypatch: pytest.MonkeyPatch) -> None:
+    turn = workspaces.StreamedTurn(
+        200,
+        [],
+        workspaces.TurnStats(
+            text="see http://owui/api/v1/files/abcd1234-0000-0000-0000-000000000000/content/mflux_x.png"
+        ),
+    )
+    monkeypatch.setattr(media, "read_back", lambda _u, _k: (True, "http 200, 9 bytes"))
+    assert media.artifact_hop(turn, "key").status is Status.PASS
+    monkeypatch.setattr(media, "read_back", lambda _u, _k: (False, "http 404, 0 bytes"))
+    assert media.artifact_hop(turn, "key").status is Status.FAIL
+    empty = workspaces.StreamedTurn(200, [], workspaces.TurnStats(text="no url"))
+    assert media.artifact_hop(empty, "key").status is Status.FAIL
+    failed = workspaces.StreamedTurn(0, error="boom")
+    assert media.artifact_hop(failed, "key").status is Status.FAIL
+
+
+def test_media_run_warns_disabled_and_needs_no_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(media, "env_value", lambda name, default="": "")
+    hops = media.run(_ctx(), {"modules": {"image": {"enabled": False}}})
+    assert [h.status for h in hops] == [Status.WARN, Status.WARN]
+    assert "modules.image.enabled is false" in hops[0].observed
+    monkeypatch.setattr(
+        media, "env_value", lambda name, default="": "key" if name == "OWUI_API_KEY" else ""
+    )
+    hops = media.run(_ctx(), {"modules": {"image": {"enabled": True}}})
+    assert hops[0].name == "image preset" and hops[0].status is Status.WARN
+
+
+def test_media_run_appends_a_video_warn_while_video_is_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(media, "env_value", lambda name, default="": "")
+    portal = {"modules": {"image": {"enabled": True}, "video": {"enabled": False}}}
+    hops = media.run(_ctx(), portal)
+    assert hops[-1].name == "video artifact turn"
+    assert hops[-1].status is Status.WARN
+    assert "video module disabled" in hops[-1].observed
+    assert "modules.video.enabled" in hops[-1].detail
+
+
+def _ctx() -> Any:
+    from portal.platform.inference.cli.trace.context import TraceContext
+
+    return TraceContext(
+        repo_root=Path(__file__).resolve().parents[1],
+        pipeline_url="http://127.0.0.1:9099",
+        api_key="k",
+        omlx_url="http://127.0.0.1:8085",
+        ollama_url="http://127.0.0.1:11434",
+        owui_url="http://127.0.0.1:8080",
+        budget_s=60.0,
+        timeout_s=30.0,
+    )

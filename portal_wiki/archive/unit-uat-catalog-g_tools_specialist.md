@@ -1,20 +1,19 @@
 ---
 id: unit-uat-catalog-g_tools_specialist
+historical: true
 kind: mixed
 title: "UAT catalog group \u2014 tools-specialist"
 sources:
 - type: code
   path: tests/uat_catalog/g_tools_specialist.py
   commit: fe7f1e7c
-last_generated_commit: fe7f1e7c
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - uat-catalog
-created_at: 1785800128.804725
-updated_at: 1785800128.804725
+
 ---
 
 This catalog group covers the tools-specialist workspace(s), exporting a `TESTS`

@@ -1,12 +1,12 @@
 ---
 id: unit-security-siem-index-wait
+historical: true
 kind: mixed
 title: "SIEM index-wait gate \u2014 block until telemetry is searchable"
 sources:
 - type: code
   path: portal/modules/security/core/siem/index_wait.py
   commit: d493d44c
-last_generated_commit: d493d44c
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - module
 - security
 - siem
-created_at: 1785796636.708726
-updated_at: 1785796636.708726
+
 ---
 
 `index_wait.py` blocks until HEC-shipped events are actually searchable, so

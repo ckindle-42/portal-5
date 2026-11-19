@@ -11,13 +11,14 @@ sources:
   path: portal/platform/agent/goal.py
 - type: code
   path: portal/platform/agent/writeback.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/agent/decide.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.5049548
-updated_at: 1784946220.5049548
 ---
 
 The loop's shape is a single bounded engine over a module's contracts:

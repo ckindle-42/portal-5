@@ -1,19 +1,18 @@
 ---
 id: unit-tests-uat-driver-shim
+historical: true
 kind: mixed
 title: "Tests UAT driver \u2014 operator entry shim"
 sources:
 - type: code
   path: tests/portal5_uat_driver.py
   commit: 347dfc8a
-last_generated_commit: 347dfc8a
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
-created_at: 1785798815.105887
-updated_at: 1785798815.105887
+
 ---
 
 `portal5_uat_driver.py` is the stable operator-facing entry for the UAT

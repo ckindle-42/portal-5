@@ -1,19 +1,18 @@
 ---
 id: unit-claude-pre-testing-always-verify-code-freshness
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 Pre-Testing: Always Verify Code Freshness"
 sources:
 - type: design
   path: CLAUDE.md
   section: 'Pre-Testing: Always Verify Code Freshness'
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.194371
-updated_at: 1785348301.194371
+
 ---
 
 

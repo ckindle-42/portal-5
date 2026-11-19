@@ -7,14 +7,16 @@ sources:
   path: .env.example
 - type: code
   path: scripts/lib/users.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: .env.example
+  equals: true
 confidence: high
 tags:
 - ADMIN_GUIDE
 - docs
 - verified-v1
-created_at: 1783195000.8126779
-updated_at: 1783195000.8126779
+
 ---
 
 Accounts carry one of three roles. `pending` — no access until approved; this is the default for self-registration via `DEFAULT_USER_ROLE=pending` in `.env.example`. `user` — standard access to workspaces, tools, and chat. `admin` — full access including user management and settings. The CLI accepts exactly these values: `./launch.sh add-user <email> [name] [role]`, with role options `user | admin | pending` documented in scripts/lib/users.sh. `./launch.sh list-users` prints the role column per account.

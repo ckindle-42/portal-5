@@ -1,20 +1,19 @@
 ---
 id: unit-inference-cli-module
+historical: true
 kind: mixed
 title: "Inference CLI module \u2014 confirm-gated toggle surface"
 sources:
 - type: code
   path: portal/platform/inference/cli/module.py
   commit: 250150f6
-last_generated_commit: 250150f6
 claims: []
 confidence: high
 tags:
 - authored-v1
 - platform
 - cli
-created_at: 1785797862.900125
-updated_at: 1785797862.900125
+
 ---
 
 `portal module` is the module toggle surface: `module_list` shows every

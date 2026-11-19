@@ -1,20 +1,19 @@
 ---
 id: unit-notifications-channel-pushover
+historical: true
 kind: mixed
 title: "Notification Pushover channel \u2014 push sender"
 sources:
 - type: code
   path: portal/platform/inference/notifications/channels/pushover.py
   commit: 7383d070
-last_generated_commit: 7383d070
 claims: []
 confidence: high
 tags:
 - authored-v1
 - notifications
 - platform
-created_at: 1785796502.889693
-updated_at: 1785796502.889693
+
 ---
 
 `PushoverChannel` sends notifications through the Pushover service: it POSTs

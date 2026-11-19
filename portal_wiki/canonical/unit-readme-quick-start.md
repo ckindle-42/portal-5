@@ -11,13 +11,14 @@ sources:
   path: .env.example
 - type: code
   path: deploy/portal-5/docker-compose.yml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: launch.sh
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.678459
-updated_at: 1784946220.678459
 ---
 
 ```bash

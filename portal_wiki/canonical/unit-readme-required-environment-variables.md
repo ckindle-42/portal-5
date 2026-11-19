@@ -11,13 +11,14 @@ sources:
   path: portal/platform/inference/router/auth.py
 - type: code
   path: scripts/lib/util.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: .env.example
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.689932
-updated_at: 1791376709
 ---
 
 | Variable | Required | Description |

@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-voxtral-multilingual-transcription
+historical: true
 kind: why
 title: "HOWTO \u2014 Voxtral Multilingual Transcription"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: Voxtral Multilingual Transcription
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.8496552
-updated_at: 1783195000.8496552
+
 ---
 
 

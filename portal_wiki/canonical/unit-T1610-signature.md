@@ -7,14 +7,16 @@ sources:
   path: portal/modules/security/core/siem/spl_detections.yaml#T1610
 - type: mitre
   path: ATT&CK:T1610
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1610
+  equals: true
 confidence: high
 tags:
 - T1610
 - technique
 - signature
-created_at: 1790651067.883199
-updated_at: 1790651067.883199
 ---
 
 # T1610 — Container deploy — docker-daemon events

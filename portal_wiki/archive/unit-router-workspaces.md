@@ -1,12 +1,12 @@
 ---
 id: unit-router-workspaces
+historical: true
 kind: mixed
 title: "Router workspaces \u2014 catalog + persona tool whitelist"
 sources:
 - type: code
   path: portal/platform/inference/router/workspaces.py
   commit: d7c1d4f4
-last_generated_commit: d7c1d4f4
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - platform
 - inference
 - router
-created_at: 1785798129.534917
-updated_at: 1785798129.534917
+
 ---
 
 `workspaces.py` is the routing policy's workspace catalog: `WORKSPACES`

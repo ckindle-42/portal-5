@@ -40,7 +40,16 @@ class TestMediaModelMemoryDict:
 
     def test_mflux_image_models_use_measured_estimates(self):
         assert _admission.MEDIA_MODEL_MEMORY_GB["mflux:schnell"] == 15.0
-        assert _admission.MEDIA_MODEL_MEMORY_GB["mflux:klein"] == 18.0
+        assert _admission.MEDIA_MODEL_MEMORY_GB["mflux:flux2-klein"] == 18.0
+
+    def test_mflux_roster_keys_are_budgeted(self):
+        """Every mflux_mcp roster key has an admission budget (and vice versa for the roster)."""
+        import portal.modules.media.tools.mflux_mcp as mflux_mcp
+
+        for key in mflux_mcp.MFLUX_MODELS:
+            assert f"mflux:{key}" in _admission.MEDIA_MODEL_MEMORY_GB, key
+        assert _admission.MEDIA_MODEL_MEMORY_GB["mflux:flux3-klein"] >= 23.0
+        assert _admission.MEDIA_MODEL_MEMORY_GB["mflux:qwen-2.1"] >= 26.0
 
 
 class TestEstimateJobGb:

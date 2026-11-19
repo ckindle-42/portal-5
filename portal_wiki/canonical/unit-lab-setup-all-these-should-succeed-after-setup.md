@@ -11,13 +11,14 @@ sources:
   path: scripts/lab_targets.py
 - type: code
   path: config/lab_targets.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/lab_setup.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.522325
-updated_at: 1784946220.522325
 ---
 
 After a successful lab setup these commands must all exit cleanly; they are the

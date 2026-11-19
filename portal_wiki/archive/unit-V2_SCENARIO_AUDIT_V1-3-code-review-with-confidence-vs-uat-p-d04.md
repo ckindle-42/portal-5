@@ -1,18 +1,17 @@
 ---
 id: unit-V2_SCENARIO_AUDIT_V1-3-code-review-with-confidence-vs-uat-p-d04
+historical: true
 kind: why
 title: "V2_SCENARIO_AUDIT_V1 \u2014 3. `code-review-with-confidence` vs UAT P-D04"
 sources:
 - type: design
   path: docs/V2_SCENARIO_AUDIT_V1.md
   section: 3. `code-review-with-confidence` vs UAT P-D04
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - V2_SCENARIO_AUDIT_V1
-created_at: 1785348275.819614
-updated_at: 1785348275.819614
+
 ---
 
 

@@ -14,14 +14,16 @@ sources:
   path: exec_chain.py#web_to_root
 - type: scenario
   path: exec_chain.py#ctf_multi_service
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1190
+  equals: true
 confidence: high
 tags:
 - T1190
 - technique
 - signature
-created_at: 1790651067.880157
-updated_at: 1790651067.880157
 ---
 
 # T1190 — Web exploit — access-log signatures (LFI/SQLi/Log4Shell/webshell markers) [KEY: One of the literal exploit markers used by this SPL]

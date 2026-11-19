@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-portal-6-0-3-how-to-guide
+historical: true
 kind: why
 title: "HOWTO \u2014 Portal 6.0.3 \u2014 How-To Guide"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: "Portal 6.0.3 \u2014 How-To Guide"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.838538
-updated_at: 1783195000.838538
+
 ---
 
 

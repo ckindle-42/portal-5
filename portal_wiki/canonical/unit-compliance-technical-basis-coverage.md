@@ -1,17 +1,19 @@
 ---
 id: unit-compliance-technical-basis-coverage
 kind: what
-title: "Technical basis coverage — counted per requirement, every gap named with its reason"
+title: "Technical basis coverage \u2014 counted per requirement, every gap named with\
+  \ its reason"
 sources:
 - type: code
   path: scripts/compliance/verify_technical_basis_coverage.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/compliance/verify_technical_basis_coverage.py
+  equals: true
 confidence: high
 tags:
 - compliance
 - technical-basis
-created_at: 1789238000.0
-updated_at: 1789238000.0
 ---
 
 # Technical basis coverage

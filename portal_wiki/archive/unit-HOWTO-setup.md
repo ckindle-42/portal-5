@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-setup
+historical: true
 kind: why
 title: "HOWTO \u2014 Setup"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: Setup
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.8554199
-updated_at: 1783195000.8554199
+
 ---
 
 

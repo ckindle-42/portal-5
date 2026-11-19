@@ -1,19 +1,18 @@
 ---
 id: unit-claude-think-before-coding
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 Think Before Coding"
 sources:
 - type: design
   path: CLAUDE.md
   section: Think Before Coding
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.1943092
-updated_at: 1785348301.1943092
+
 ---
 
 

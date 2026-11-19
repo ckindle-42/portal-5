@@ -1,20 +1,19 @@
 ---
 id: unit-tests-unit-test_generated_artifacts_fresh
+historical: true
 kind: mixed
 title: "Unit tests \u2014 test_generated_artifacts_fresh"
 sources:
 - type: code
   path: tests/unit/test_generated_artifacts_fresh.py
   commit: d5234798
-last_generated_commit: d5234798
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - unit
-created_at: 1785800468.8922648
-updated_at: 1785800468.8922648
+
 ---
 
 Unit tests for test_generated_artifacts_fresh.

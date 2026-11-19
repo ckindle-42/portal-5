@@ -1,19 +1,18 @@
 ---
 id: unit-tests-acceptance-comfyui-shim
+historical: true
 kind: mixed
 title: "Tests comfyui acceptance \u2014 entry shim"
 sources:
 - type: code
   path: tests/portal5_acceptance_comfyui.py
   commit: 347dfc8a
-last_generated_commit: 347dfc8a
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
-created_at: 1785798804.5717518
-updated_at: 1785798804.5717518
+
 ---
 
 `portal5_acceptance_comfyui.py` is the stable entry point for the ComfyUI

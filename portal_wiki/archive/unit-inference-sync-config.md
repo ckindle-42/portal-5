@@ -1,20 +1,19 @@
 ---
 id: unit-inference-sync-config
+historical: true
 kind: mixed
 title: "Inference sync_config \u2014 single-source artifact generator"
 sources:
 - type: code
   path: portal/platform/inference/sync_config.py
   commit: 250150f6
-last_generated_commit: 250150f6
 claims: []
 confidence: high
 tags:
 - authored-v1
 - platform
 - inference
-created_at: 1785797766.391104
-updated_at: 1785797766.391104
+
 ---
 
 `sync_config.py` is the single-source-of-truth generator: it reads

@@ -9,7 +9,10 @@ sources:
   path: portal/modules/compliance/core/cancellation.py
 - type: code
   path: reports/host_memory_safety/W3.md
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/compliance/tools/compliance_mcp.py
+  equals: true
 confidence: high
 tags:
 - known-limitations

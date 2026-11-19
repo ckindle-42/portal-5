@@ -10,14 +10,14 @@ sources:
   path: portal/modules/media/tools/music_minimax_mcp.py
 - type: code
   path: portal/modules/media/tools/music_ace_mcp.py
-claims: []
+claims:
+- probe: mcp.fleet.ids
+  contains: music-minimax
 confidence: high
 tags:
 - capability
 - mcp
 - media
-created_at: 1788030600.446044
-updated_at: 1788030600.446044
 ---
 
 # Music MCP — MiniMax full-song generation

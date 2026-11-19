@@ -1,19 +1,18 @@
 ---
 id: unit-claude-goal-driven-execution
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 Goal-Driven Execution"
 sources:
 - type: design
   path: CLAUDE.md
   section: Goal-Driven Execution
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.1943161
-updated_at: 1785348301.1943161
+
 ---
 
 

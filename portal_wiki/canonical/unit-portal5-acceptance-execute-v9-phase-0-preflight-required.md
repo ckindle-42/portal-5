@@ -11,12 +11,13 @@ sources:
   path: portal/platform/inference/router/app.py
 - type: code
   path: portal/platform/inference/config.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/execute_preflight.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.694308
-updated_at: 1784946220.694308
 ---
 
 Before any run, verify the environment in order. First run

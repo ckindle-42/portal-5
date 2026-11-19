@@ -9,15 +9,18 @@ sources:
   path: config/backends.yaml
 - type: code
   path: portal/platform/inference/router/text_tool_calls.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: config/portal.yaml
+  symbol: qwen3_coder
+  equals: true
 confidence: high
 tags:
 - known-limitations
 - omlx
 - tools
 - resolved
-created_at: 1790352000
-updated_at: 1790362799
+
 ---
 
 - **ID**: P5-OMLX-QWEN3CODER-TOOLTEXT-001

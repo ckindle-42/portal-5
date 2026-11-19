@@ -1,19 +1,20 @@
 ---
 id: unit-surface-security-review-eval
 kind: mixed
-title: "Security review evaluation contracts"
+title: Security review evaluation contracts
 sources:
 - type: code
   path: portal/modules/security/core/review_eval/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/review_eval/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - security
 - review
 - evaluation
-created_at: 1791527057.0
-updated_at: 1791551211.0
 ---
 
 `portal/modules/security/core/review_eval/` contains scorer-plane truth,

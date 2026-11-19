@@ -1,19 +1,18 @@
 ---
 id: unit-scripts-update_workspace_tools
+historical: true
 kind: mixed
 title: "Script \u2014 update_workspace_tools"
 sources:
 - type: code
   path: scripts/update_workspace_tools.py
   commit: 94ecf393
-last_generated_commit: 94ecf393
 claims: []
 confidence: high
 tags:
 - authored-v1
 - scripts
-created_at: 1785799576.324074
-updated_at: 1785799576.324074
+
 ---
 
 Regenerates the workspace tool-authorization entries from the tool registry, keyed by top-level workspace id.

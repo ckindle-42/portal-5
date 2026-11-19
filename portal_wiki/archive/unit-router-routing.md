@@ -1,12 +1,12 @@
 ---
 id: unit-router-routing
+historical: true
 kind: mixed
 title: "Router routing \u2014 LLM + keyword two-layer workspace resolution"
 sources:
 - type: code
   path: portal/platform/inference/router/routing.py
   commit: d7c1d4f4
-last_generated_commit: d7c1d4f4
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - platform
 - inference
 - router
-created_at: 1785798105.731314
-updated_at: 1785798105.731314
+
 ---
 
 `routing.py` is the workspace router: it loads the routing descriptions and

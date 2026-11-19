@@ -1,5 +1,6 @@
 ---
 id: unit-readme-stop-the-conflicting-service-then-launch-sh-up
+historical: true
 kind: what
 title: "README \u2014 Stop the conflicting service, then ./launch.sh up"
 sources:
@@ -12,8 +13,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.689433
-updated_at: 1784946220.689433
+
 ---
 
 "Stop the conflicting service, then `./launch.sh up`" is the resolution for a

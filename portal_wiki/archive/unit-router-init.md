@@ -1,12 +1,12 @@
 ---
 id: unit-router-init
+historical: true
 kind: mixed
 title: "Router subpackage \u2014 pipeline request engine split"
 sources:
 - type: code
   path: portal/platform/inference/router/__init__.py
   commit: d7c1d4f4
-last_generated_commit: d7c1d4f4
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - platform
 - inference
 - router
-created_at: 1785798034.6191201
-updated_at: 1785798034.6191201
+
 ---
 
 The router subpackage is the actual request-handling engine of the pipeline,

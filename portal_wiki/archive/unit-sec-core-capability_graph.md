@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-capability_graph
+historical: true
 kind: mixed
 title: "Capability graph \u2014 technique coverage index"
 sources:
 - type: code
   path: portal/modules/security/core/capability_graph.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800295.902828
-updated_at: 1785800295.902828
+
 ---
 
 The capability graph that indexes what the security library can cover per technique — the tool arsenal, scenarios, and oracles mapped to the ATT&CK techniques they address — and computes coverage summaries and gaps.

@@ -5,14 +5,15 @@ title: "Acceptance harness \u2014 staged live-stack scenario suite"
 sources:
 - type: code
   path: tests/acceptance/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/acceptance/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785882800.0
-updated_at: 1785882800.0
 ---
 
 The acceptance suite is the live-stack harness that proves Portal 5 still

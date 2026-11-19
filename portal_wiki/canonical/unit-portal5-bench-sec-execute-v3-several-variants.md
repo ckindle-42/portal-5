@@ -11,13 +11,14 @@ sources:
   path: config/portal.yaml
 - type: code
   path: portal/modules/security/core/commands/run.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/cli.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.707802
-updated_at: 1784946220.707802
 ---
 
 ```bash

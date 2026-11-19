@@ -6,14 +6,15 @@ sources:
 - type: code
   path: tests/uat/health.py
   commit: d7dcc96a
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/uat/health.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - uat
-created_at: 1785799274.169937
-updated_at: 1785799274.169937
 ---
 
 Backend health, memory pressure, and OOM/zombie detection for the UAT driver.

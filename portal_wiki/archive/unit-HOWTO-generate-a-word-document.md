@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-generate-a-word-document
+historical: true
 kind: why
 title: "HOWTO \u2014 Generate a Word document"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: Generate a Word document
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.843051
-updated_at: 1783195000.843051
+
 ---
 
 

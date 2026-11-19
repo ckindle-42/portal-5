@@ -1,18 +1,17 @@
 ---
 id: unit-CLUSTER_SCALE-stage-3-vllm-for-70b-models
+historical: true
 kind: why
 title: "CLUSTER_SCALE \u2014 Stage 3: vLLM for 70B Models"
 sources:
 - type: design
   path: docs/CLUSTER_SCALE.md
   section: 'Stage 3: vLLM for 70B Models'
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - CLUSTER_SCALE
-created_at: 1783195000.8286772
-updated_at: 1783195000.8286772
+
 ---
 
 

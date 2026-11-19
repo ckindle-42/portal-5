@@ -1,18 +1,17 @@
 ---
 id: unit-UAT_CALIBRATION-step-4-integrate
+historical: true
 kind: why
 title: "UAT_CALIBRATION \u2014 Step 4 \u2014 Integrate"
 sources:
 - type: design
   path: docs/UAT_CALIBRATION.md
   section: "Step 4 \u2014 Integrate"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - UAT_CALIBRATION
-created_at: 1783195000.919019
-updated_at: 1783195000.919019
+
 ---
 
 

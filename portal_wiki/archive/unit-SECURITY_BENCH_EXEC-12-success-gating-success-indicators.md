@@ -1,18 +1,17 @@
 ---
 id: unit-SECURITY_BENCH_EXEC-12-success-gating-success-indicators
+historical: true
 kind: why
 title: "SECURITY_BENCH_EXEC \u2014 12. Success Gating (`success_indicators`)"
 sources:
 - type: design
   path: docs/SECURITY_BENCH_EXEC.md
   section: 12. Success Gating (`success_indicators`)
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - SECURITY_BENCH_EXEC
-created_at: 1783195000.904305
-updated_at: 1783195000.904305
+
 ---
 
 Steps in EXEC_SEQUENCES can define `success_indicators` — strings that must appear in the tool output for the step to count as "proven" (attack confirmed successful). In lab-exec mode, a step that was called but didn't produce success indicators is counted as "attempted" not "proven". This gates scoring on actual attack success, not just correct tool invocation.

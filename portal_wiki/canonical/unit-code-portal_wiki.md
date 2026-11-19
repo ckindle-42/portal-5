@@ -15,13 +15,14 @@ sources:
 - type: code
   path: portal_wiki/wiki_mcp.py
   commit: 8015e9381c8a
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal_wiki/__init__.py
+  equals: true
 confidence: high
 tags:
 - code
 - portal_wiki
-created_at: 1792204748.515402
-updated_at: 1792204748.515402
 ---
 
 # portal_wiki subsystem

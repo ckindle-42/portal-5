@@ -1,18 +1,17 @@
 ---
 id: unit-COMPLIANCE_FALLBACK_POLICY-threshold-policy
+historical: true
 kind: why
 title: "COMPLIANCE_FALLBACK_POLICY \u2014 Threshold policy"
 sources:
 - type: design
   path: docs/COMPLIANCE_FALLBACK_POLICY.md
   section: Threshold policy
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - COMPLIANCE_FALLBACK_POLICY
-created_at: 1783195000.832871
-updated_at: 1783195000.832871
+
 ---
 
 

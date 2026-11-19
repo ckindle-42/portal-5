@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-continuous_eval
+historical: true
 kind: mixed
 title: "Continuous eval \u2014 ongoing capability evaluation"
 sources:
 - type: code
   path: portal/modules/security/core/continuous_eval.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800295.902834
-updated_at: 1785800295.902834
+
 ---
 
 The continuous-evaluation loop that keeps the security capability surface measured over time, re-running the eval grid on a cadence.

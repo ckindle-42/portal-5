@@ -1,12 +1,12 @@
 ---
 id: unit-sec-tests-test_web_exec_coverage
+historical: true
 kind: mixed
 title: "Security tests \u2014 test_web_exec_coverage"
 sources:
 - type: code
   path: portal/modules/security/tests/test_web_exec_coverage.py
   commit: 862c7b11
-last_generated_commit: 862c7b11
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - module
 - security
 - tests
-created_at: 1785800599.986444
-updated_at: 1785800599.986444
+
 ---
 
 Unit tests for the security module's test_web_exec_coverage surface.

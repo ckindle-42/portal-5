@@ -11,13 +11,14 @@ sources:
   path: scripts/verify_attack_image.py
 - type: code
   path: scripts/lab_host.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/lab_ready.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.521833
-updated_at: 1784946220.521833
 ---
 
 Verification uses the scripts themselves, not the doc. `python3 scripts/lab_ready.py`

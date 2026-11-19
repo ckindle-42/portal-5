@@ -5,14 +5,15 @@ title: "Wiki adapters \u2014 Portal wiring: seeds, writeback, source connectors"
 sources:
 - type: code
   path: portal/platform/wiki/adapters/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/wiki/adapters/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - platform
 - wiki
-created_at: 1785885800.0
-updated_at: 1785885800.0
 ---
 
 The `portal/platform/wiki/adapters/*.py` wiring binds the stack-agnostic wiki

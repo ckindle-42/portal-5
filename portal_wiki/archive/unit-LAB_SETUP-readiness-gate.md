@@ -1,18 +1,17 @@
 ---
 id: unit-LAB_SETUP-readiness-gate
+historical: true
 kind: why
 title: "LAB_SETUP \u2014 Readiness Gate"
 sources:
 - type: design
   path: docs/LAB_SETUP.md
   section: Readiness Gate
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - LAB_SETUP
-created_at: 1783195000.8693702
-updated_at: 1783195000.8693702
+
 ---
 
 

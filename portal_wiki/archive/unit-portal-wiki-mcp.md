@@ -1,20 +1,19 @@
 ---
 id: unit-portal-wiki-mcp
+historical: true
 kind: mixed
 title: "Wiki MCP \u2014 agent retrieval with mandatory citations"
 sources:
 - type: code
   path: portal_wiki/mcp.py
   commit: 53110d10
-last_generated_commit: 45a89f606a265b2d3486b0540570fb0e83eaaa6d
 claims: []
 confidence: high
 tags:
 - authored-v1
 - wiki
 - mcp
-created_at: 1785796116.926782
-updated_at: 1785796116.926782
+
 ---
 
 `portal_wiki/mcp.py` is the agent-native retrieval layer: the three tools —

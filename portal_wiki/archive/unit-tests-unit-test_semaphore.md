@@ -1,20 +1,19 @@
 ---
 id: unit-tests-unit-test_semaphore
+historical: true
 kind: mixed
 title: "Unit tests \u2014 test_semaphore"
 sources:
 - type: code
   path: tests/unit/test_semaphore.py
   commit: d5234798
-last_generated_commit: d5234798
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - unit
-created_at: 1785800468.892329
-updated_at: 1785800468.892329
+
 ---
 
 Unit tests for test_semaphore.

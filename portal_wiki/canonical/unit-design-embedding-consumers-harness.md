@@ -1,20 +1,21 @@
 ---
 id: unit-design-embedding-consumers-harness
 kind: mixed
-title: "EmbeddingGemma 2 per-consumer measurement harness"
+title: EmbeddingGemma 2 per-consumer measurement harness
 sources:
 - type: doc
   path: reports/embedding_consumers/EG2_CUTOVER.md
 - type: data
   path: tests/data/embedding_consumers/csf2_to_80053r5_official.json
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/data/embedding_consumers/csf2_to_80053r5_official.json
+  equals: true
 confidence: high
 tags:
 - design
 - embedding
 - benchmark
-created_at: 1791388900
-updated_at: 1791388900
 ---
 
 # EmbeddingGemma 2 per-consumer measurement harness

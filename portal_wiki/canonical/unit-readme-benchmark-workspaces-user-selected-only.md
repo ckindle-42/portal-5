@@ -18,8 +18,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.6800451
-updated_at: 1792680000
+
 ---
 
 Benchmark workspaces pin a specific model for direct, side-by-side performance

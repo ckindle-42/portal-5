@@ -6,15 +6,16 @@ sources:
 - type: code
   path: portal/modules/security/tools/__init__.py
   commit: 4c3d1e89
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/tools/__init__.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - module
 - security
 - tools
-created_at: 1785795029.118413
-updated_at: 1785795029.118413
 ---
 
 The security module's MCP tool surface names its three standalone server

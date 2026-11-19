@@ -1,18 +1,20 @@
 ---
 id: unit-compliance-operator-traceability
 kind: what
-title: "Compliance operator traceability — the appendix as labelled assertions, never as read verification"
+title: "Compliance operator traceability \u2014 the appendix as labelled assertions,\
+  \ never as read verification"
 sources:
 - type: code
   path: portal/modules/compliance/core/operator_traceability.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/compliance/core/operator_traceability.py
+  equals: true
 confidence: high
 tags:
 - compliance
 - traceability
 - ingest
-created_at: 1760000000.0
-updated_at: 1760000000.0
 ---
 
 # Compliance operator traceability

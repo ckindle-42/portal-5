@@ -1,12 +1,12 @@
 ---
 id: unit-tool-preselect-test-state
+historical: true
 kind: mixed
 title: "Preselector state tests \u2014 auto-disable machine"
 sources:
 - type: code
   path: portal/platform/inference/tool_preselect/tests/test_state.py
   commit: b9ca6f31
-last_generated_commit: b9ca6f31
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - platform
 - tool-preselect
 - tests
-created_at: 1785796866.2845812
-updated_at: 1785796866.2845812
+
 ---
 
 This test file pins the preselector's auto-disable state machine: recording

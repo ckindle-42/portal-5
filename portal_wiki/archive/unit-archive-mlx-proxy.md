@@ -1,20 +1,19 @@
 ---
 id: unit-archive-mlx-proxy
+historical: true
 kind: mixed
 title: "MLX model-aware proxy \u2014 retired dual-stack coordinator"
 sources:
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-proxy.py
   commit: 90ac134b
-last_generated_commit: 90ac134b
 claims: []
 confidence: high
 tags:
 - authored-v1
 - archive
 - mlx
-created_at: 1785797138.442691
-updated_at: 1785797138.442691
+
 ---
 
 This is the MLX model-aware proxy — the retired dual-stack inference

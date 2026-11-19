@@ -1,18 +1,17 @@
 ---
 id: unit-V2_SCENARIO_AUDIT_V1-5-linux-terminal-stateful-vs-uat-p-d12
+historical: true
 kind: why
 title: "V2_SCENARIO_AUDIT_V1 \u2014 5. `linux-terminal-stateful` vs UAT P-D12"
 sources:
 - type: design
   path: docs/V2_SCENARIO_AUDIT_V1.md
   section: 5. `linux-terminal-stateful` vs UAT P-D12
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - V2_SCENARIO_AUDIT_V1
-created_at: 1783195000.9238
-updated_at: 1783195000.9238
+
 ---
 
 

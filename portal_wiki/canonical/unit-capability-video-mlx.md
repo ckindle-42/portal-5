@@ -8,14 +8,15 @@ sources:
   section: mcp_fleet
 - type: code
   path: portal/modules/media/tools/video_mlx_mcp.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/portal.yaml
+  equals: true
 confidence: high
 tags:
 - capability
 - mcp
 - video
-created_at: 1788030600.446044
-updated_at: 1788030600.446044
 ---
 
 # Video-MLX MCP — MLX-native video generation

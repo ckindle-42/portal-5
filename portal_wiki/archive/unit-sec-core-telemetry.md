@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-telemetry
+historical: true
 kind: mixed
 title: "Telemetry \u2014 canonical backend contract"
 sources:
 - type: code
   path: portal/modules/security/core/telemetry.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800295.902849
-updated_at: 1785800295.902849
+
 ---
 
 The canonical TelemetryBackend protocol, the TelemetryContract describing each source, and the TelemetryHealth pre-checks that replaced the dual-backend seam.

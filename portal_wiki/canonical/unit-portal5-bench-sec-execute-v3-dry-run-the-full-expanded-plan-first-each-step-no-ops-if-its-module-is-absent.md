@@ -8,13 +8,14 @@ sources:
   path: portal/modules/security/core/cli.py
 - type: code
   path: portal/modules/security/core/bench_integration.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/cli.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.7083
-updated_at: 1784946220.7083
 ---
 
 ```bash

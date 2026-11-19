@@ -7,13 +7,13 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: models.configured
+  contains: huihui_ai/qwen3.5-abliterated:9b
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.61712
-updated_at: 1784946220.61712
 ---
 
 `huihui_ai/qwen3.5-abliterated:9b` is a ~5.8GB fast abliterated model optimized for TTP generation, registered in `config/backends.yaml` under both the `general` and `security` groups with `supports_tools: true` in each — a duplicate entry required so security-group routing resolves the correct model. `config/portal.yaml` binds the base id as the `bench-qwen35-abliterated` `model_hint` (the uncensored tool-capable AUTO baseline) while the red-team workspaces route the derived tags: the `auto-security` `redteam` and `purpleteam` variants use `:9b-ctx8k` and the `purpleteam-deep` variant uses `:9b-ctx64k`. It is the hop-0 red-team primary for the purple chains.

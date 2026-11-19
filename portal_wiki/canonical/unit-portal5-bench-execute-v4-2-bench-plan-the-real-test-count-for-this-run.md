@@ -8,12 +8,13 @@ sources:
   path: tests/benchmarks/bench_tps.py
 - type: code
   path: tests/benchmarks/bench/cli.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/benchmarks/bench_tps.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.7005088
-updated_at: 1784946220.7005088
 ---
 
 ```bash

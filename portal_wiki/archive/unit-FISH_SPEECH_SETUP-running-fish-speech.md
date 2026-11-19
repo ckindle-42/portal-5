@@ -1,18 +1,17 @@
 ---
 id: unit-FISH_SPEECH_SETUP-running-fish-speech
+historical: true
 kind: why
 title: "FISH_SPEECH_SETUP \u2014 Running Fish Speech"
 sources:
 - type: design
   path: docs/FISH_SPEECH_SETUP.md
   section: Running Fish Speech
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - FISH_SPEECH_SETUP
-created_at: 1783195000.835729
-updated_at: 1783195000.835729
+
 ---
 
 

@@ -7,14 +7,17 @@ sources:
   path: portal/modules/research/tools/web_search_mcp.py
 - type: code
   path: config/searxng/settings.yml
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/research/tools/web_search_mcp.py
+  symbol: web_search
+  equals: true
 confidence: high
 tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.850833
-updated_at: 1783195000.850833
+
 ---
 
 **What:** Web search via a self-hosted SearXNG instance.

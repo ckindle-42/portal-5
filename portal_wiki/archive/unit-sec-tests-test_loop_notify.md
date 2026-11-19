@@ -1,12 +1,12 @@
 ---
 id: unit-sec-tests-test_loop_notify
+historical: true
 kind: mixed
 title: "Security tests \u2014 test_loop_notify"
 sources:
 - type: code
   path: portal/modules/security/tests/test_loop_notify.py
   commit: 862c7b11
-last_generated_commit: 862c7b11
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - module
 - security
 - tests
-created_at: 1785800626.5632331
-updated_at: 1785800626.5632331
+
 ---
 
 Unit tests for the security module's test_loop_notify surface.

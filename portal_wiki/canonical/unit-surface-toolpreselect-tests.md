@@ -5,14 +5,15 @@ title: "Tool-preselect acceptance harness \u2014 corpus, repped bench, prefill b
 sources:
 - type: code
   path: tests/toolpreselect/*.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/toolpreselect/*.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - tests
 - toolpreselect
-created_at: 1785881200.0
-updated_at: 1785881200.0
 ---
 
 The tool-preselect acceptance harness is one contract in three stages: a

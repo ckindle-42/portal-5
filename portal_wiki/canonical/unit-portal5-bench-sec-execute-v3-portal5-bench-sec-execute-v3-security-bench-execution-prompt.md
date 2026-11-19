@@ -14,13 +14,14 @@ sources:
   path: scripts/execute_preflight.py
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: tests/benchmarks/bench_security.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.704534
-updated_at: 1784946220.704534
 ---
 
 Supersedes the V2 execute prompt, archived at

@@ -1,17 +1,16 @@
 ---
 id: unit-tests-unit-test-lab-setup
+historical: true
 kind: what
 title: Lab setup, readiness, and targets unit tests
 sources:
 - type: code
   path: tests/unit/test_lab_setup.py
-last_generated_commit: f0b6e5a43439303b615e818fed6698038c4af0c6
 claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.5
-updated_at: 1784946220.5
+
 ---
 
 `test_lab_setup.py` covers the lab lifecycle scripts in dry-run or synthetic mode, so nothing needs Docker or a network. The setup path runs idempotently and respects the heavy-skip flag, readiness returns a boolean alongside a result list that includes required checks, and the port probe is pinned to a pid-1-safe netcat invocation. The targets layer lists the catalog and honours dry-run for both the friendly name and the raw path forms of a target. The attack-manifest tests verify the readiness gate turns GREEN only for a complete, current manifest and RED for a stale or incomplete one, and that `verify` from `verify_attack_image` correctly reports missing tools, missing or empty required files, and failing runtime smoke checks.

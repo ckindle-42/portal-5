@@ -1,20 +1,19 @@
 ---
 id: unit-notifications-channels-init
+historical: true
 kind: mixed
 title: "Notification channels \u2014 channel ABC + implementations"
 sources:
 - type: code
   path: portal/platform/inference/notifications/channels/__init__.py
   commit: 7383d070
-last_generated_commit: 7383d070
 claims: []
 confidence: high
 tags:
 - authored-v1
 - notifications
 - platform
-created_at: 1785796474.2595782
-updated_at: 1785796474.2595782
+
 ---
 
 The channels subpackage defines the `NotificationChannel` abstract base class

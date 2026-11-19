@@ -10,14 +10,16 @@ sources:
   path: ATT&CK:T1557.001
 - type: scenario
   path: exec_chain.py#relay_to_shell
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1557.001
+  equals: true
 confidence: high
 tags:
 - T1557.001
 - technique
 - signature
-created_at: 1790651067.89419
-updated_at: 1790651067.89419
 ---
 
 # T1557.001 — LLMNR/NBT-NS poisoning — Responder/capture events on Windows network

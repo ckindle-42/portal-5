@@ -1,5 +1,6 @@
 ---
 id: unit-PERSONA_PROMPT_AUDIT_V1-2-e2edebugger-uat-p-b04-scored-2-3-fail
+historical: true
 kind: why
 title: "PERSONA_PROMPT_AUDIT_V1 \u2014 2. `e2edebugger` \u2014 UAT P-B04 (scored 2/3\
   \ FAIL)"
@@ -7,13 +8,11 @@ sources:
 - type: design
   path: docs/PERSONA_PROMPT_AUDIT_V1.md
   section: "2. `e2edebugger` \u2014 UAT P-B04 (scored 2/3 FAIL)"
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - PERSONA_PROMPT_AUDIT_V1
-created_at: 1785348275.818849
-updated_at: 1785348275.818849
+
 ---
 
 

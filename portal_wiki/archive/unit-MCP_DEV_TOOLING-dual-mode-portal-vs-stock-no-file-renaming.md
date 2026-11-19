@@ -1,18 +1,17 @@
 ---
 id: unit-MCP_DEV_TOOLING-dual-mode-portal-vs-stock-no-file-renaming
+historical: true
 kind: why
 title: "MCP_DEV_TOOLING \u2014 Dual mode: Portal vs stock (no file renaming)"
 sources:
 - type: design
   path: docs/MCP_DEV_TOOLING.md
   section: 'Dual mode: Portal vs stock (no file renaming)'
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - MCP_DEV_TOOLING
-created_at: 1783195000.872641
-updated_at: 1783195000.872641
+
 ---
 
 

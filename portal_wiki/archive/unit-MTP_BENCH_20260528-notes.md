@@ -1,18 +1,17 @@
 ---
 id: unit-MTP_BENCH_20260528-notes
+historical: true
 kind: why
 title: "MTP_BENCH_20260528 \u2014 Notes"
 sources:
 - type: design
   path: docs/MTP_BENCH_20260528.md
   section: Notes
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - MTP_BENCH_20260528
-created_at: 1783195000.879618
-updated_at: 1783195000.879618
+
 ---
 
 

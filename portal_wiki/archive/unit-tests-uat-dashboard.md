@@ -1,19 +1,18 @@
 ---
 id: unit-tests-uat-dashboard
+historical: true
 kind: mixed
 title: "Tests UAT dashboard \u2014 results aggregation views"
 sources:
 - type: code
   path: tests/uat_dashboard.py
   commit: 347dfc8a
-last_generated_commit: 347dfc8a
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
-created_at: 1785798828.235564
-updated_at: 1785798828.235564
+
 ---
 
 `uat_dashboard.py` reads the UAT results markdown (and optionally the

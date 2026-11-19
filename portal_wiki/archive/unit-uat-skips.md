@@ -1,20 +1,19 @@
 ---
 id: unit-uat-skips
+historical: true
 kind: mixed
 title: "UAT skips \u2014 skip rules"
 sources:
 - type: code
   path: tests/uat/skips.py
   commit: d7dcc96a
-last_generated_commit: d7dcc96a
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - uat
-created_at: 1785799322.716531
-updated_at: 1785799322.716531
+
 ---
 
 The UAT skip rules: which sections are skipped under which conditions.

@@ -1,20 +1,19 @@
 ---
 id: unit-tool-preselect-init
+historical: true
 kind: mixed
 title: "Tool preselector \u2014 query-level schema narrowing, opt-in by default"
 sources:
 - type: code
   path: portal/platform/inference/tool_preselect/__init__.py
   commit: b9ca6f31
-last_generated_commit: b9ca6f31
 claims: []
 confidence: high
 tags:
 - authored-v1
 - platform
 - tool-preselect
-created_at: 1785796771.240878
-updated_at: 1785796771.240878
+
 ---
 
 The tool_preselect package implements query-level tool-schema preselection:

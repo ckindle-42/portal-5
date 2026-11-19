@@ -9,7 +9,10 @@ sources:
   path: portal/modules/compliance/core/change_pipeline.py
 - type: code
   path: portal/modules/compliance/data/nerc_cip_register.json
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/compliance/core/register_diff.py
+  equals: true
 confidence: high
 tags:
 - docs

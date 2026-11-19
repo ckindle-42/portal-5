@@ -7,13 +7,16 @@ sources:
   path: deploy/portal-5/docker-compose.yml
 - type: code
   path: scripts/openwebui_init.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: deploy/portal-5/docker-compose.yml
+  symbol: ENABLE_SIGNUP
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.5134752
-updated_at: 1784946220.5134752
+
 ---
 
 Using Portal 5 requires an account. Open WebUI runs with `WEBUI_AUTH=true`, so

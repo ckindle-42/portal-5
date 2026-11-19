@@ -1,18 +1,17 @@
 ---
 id: unit-LAB_SETUP-teardown
+historical: true
 kind: why
 title: "LAB_SETUP \u2014 Teardown"
 sources:
 - type: design
   path: docs/LAB_SETUP.md
   section: Teardown
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - LAB_SETUP
-created_at: 1783195000.86915
-updated_at: 1783195000.86915
+
 ---
 
 

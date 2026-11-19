@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-user-roles
+historical: true
 kind: why
 title: "HOWTO \u2014 User roles"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: User roles
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.855187
-updated_at: 1783195000.855187
+
 ---
 
 

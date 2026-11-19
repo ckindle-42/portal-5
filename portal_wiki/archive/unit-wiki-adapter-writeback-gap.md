@@ -1,20 +1,19 @@
 ---
 id: unit-wiki-adapter-writeback-gap
+historical: true
 kind: mixed
 title: "Wiki gap write-back \u2014 coverage-status updates"
 sources:
 - type: code
   path: portal/platform/wiki/adapters/writeback_gap.py
   commit: 94445e95
-last_generated_commit: 94445e95
 claims: []
 confidence: high
 tags:
 - authored-v1
 - wiki
 - adapter
-created_at: 1785797605.801517
-updated_at: 1785797605.801517
+
 ---
 
 The gap write-back adapter updates a technique's wiki unit coverage status

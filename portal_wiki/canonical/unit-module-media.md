@@ -23,8 +23,7 @@ tags:
 - media
 - module
 - verified-v1
-created_at: 1783895633.381192
-updated_at: 1787857994
+
 ---
 
 # Media Module — speech and transcription

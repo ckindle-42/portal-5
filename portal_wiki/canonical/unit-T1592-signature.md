@@ -13,14 +13,16 @@ sources:
   path: exec_chain.py#web_forced_error
 - type: scenario
   path: exec_chain.py#web_asset_discovery
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/security/core/siem/spl_detections.yaml
+  symbol: T1592
+  equals: true
 confidence: high
 tags:
 - T1592
 - technique
 - signature
-created_at: 1790651067.888784
-updated_at: 1790651067.888784
 ---
 
 # T1592 — Gather victim host info — service fingerprinting and enumeration

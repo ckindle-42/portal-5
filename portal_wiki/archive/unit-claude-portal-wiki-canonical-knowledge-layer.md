@@ -1,19 +1,18 @@
 ---
 id: unit-claude-portal-wiki-canonical-knowledge-layer
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 Portal Wiki \u2014 Canonical Knowledge Layer"
 sources:
 - type: design
   path: CLAUDE.md
   section: "Portal Wiki \u2014 Canonical Knowledge Layer"
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.194391
-updated_at: 1785348301.194391
+
 ---
 
 

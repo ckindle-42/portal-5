@@ -7,13 +7,14 @@ sources:
   path: portal/platform/inference/router/concurrency.py
 - type: code
   path: portal/platform/inference/router/streaming.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/router/concurrency.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.6616168
-updated_at: 1784946220.6616168
 ---
 
 - **ID**: P5-ROAD-031

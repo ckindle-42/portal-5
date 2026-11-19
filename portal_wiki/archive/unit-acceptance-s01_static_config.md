@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-s01_static_config
+historical: true
 kind: mixed
 title: "S1 \u2014 Configuration consistency"
 sources:
 - type: code
   path: tests/acceptance/s01_static_config.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799741.797813
-updated_at: 1785799741.797813
+
 ---
 
 This is the acceptance section s01_static_config. S1 — Configuration consistency

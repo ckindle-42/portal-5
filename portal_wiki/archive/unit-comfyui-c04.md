@@ -1,20 +1,19 @@
 ---
 id: unit-comfyui-c04
+historical: true
 kind: mixed
 title: "Section C4 \u2014 Image generation: FLUX schnell"
 sources:
 - type: code
   path: tests/comfyui/c04_flux_schnell.py
   commit: ee3590ba
-last_generated_commit: ee3590ba
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - comfyui
-created_at: 1785798981.099617
-updated_at: 1785798981.099617
+
 ---
 
 This is the ComfyUI acceptance section c04. Section C4 — Image generation: FLUX schnell

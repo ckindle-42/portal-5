@@ -1,20 +1,19 @@
 ---
 id: unit-portal-wiki-main
+historical: true
 kind: mixed
 title: "Wiki CLI \u2014 render/status/propose/drift/archive maintenance surface"
 sources:
 - type: code
   path: portal_wiki/__main__.py
   commit: c2f94bb3
-last_generated_commit: abe6f42ccd1cd1ce696800899e19dfc51821e0ef
 claims: []
 confidence: high
 tags:
 - authored-v1
 - wiki
 - cli
-created_at: 1785796111.272097
-updated_at: 1785796111.272097
+
 ---
 
 The wiki CLI is the one-command maintenance surface for the canonical layer:

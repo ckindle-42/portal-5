@@ -1,12 +1,12 @@
 ---
 id: unit-tool-preselect-test-preselector
+historical: true
 kind: mixed
 title: "Preselector tests \u2014 every fallback branch, no live backend"
 sources:
 - type: code
   path: portal/platform/inference/tool_preselect/tests/test_preselector.py
   commit: b9ca6f31
-last_generated_commit: b9ca6f31
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - platform
 - tool-preselect
 - tests
-created_at: 1785796860.508613
-updated_at: 1785796860.508613
+
 ---
 
 This test file covers `preselect()` end to end with every Ollama call mocked:

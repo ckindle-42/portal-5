@@ -1,20 +1,19 @@
 ---
 id: unit-acceptance-s13_rag_embedding
+historical: true
 kind: mixed
 title: "S13 \u2014 RAG embedding"
 sources:
 - type: code
   path: tests/acceptance/s13_rag_embedding.py
   commit: e75dddd2
-last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - acceptance
-created_at: 1785799782.70629
-updated_at: 1785799782.70629
+
 ---
 
 This is the acceptance section s13_rag_embedding. S13 — RAG embedding

@@ -1,12 +1,12 @@
 ---
 id: unit-router-app
+historical: true
 kind: mixed
 title: "Router app \u2014 FastAPI wiring and route binding"
 sources:
 - type: code
   path: portal/platform/inference/router/app.py
   commit: d7c1d4f4
-last_generated_commit: d7c1d4f4
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - platform
 - inference
 - router
-created_at: 1785798046.446672
-updated_at: 1785798046.446672
+
 ---
 
 `app.py` is the FastAPI app wiring: it instantiates the app, binds the route

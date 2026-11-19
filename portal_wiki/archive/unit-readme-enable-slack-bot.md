@@ -1,5 +1,6 @@
 ---
 id: unit-readme-enable-slack-bot
+historical: true
 kind: what
 title: "README \u2014 Enable Slack Bot"
 sources:
@@ -7,12 +8,10 @@ sources:
   path: README.md
   commit: 05e42ec2
   section: Enable Slack Bot
-last_generated_commit: 05e42ec2
 confidence: high
 tags:
 - docs
-created_at: 1784946220.685566
-updated_at: 1784946220.685566
+
 ---
 
 1. Go to https://api.slack.com/apps → **Create New App** → **From scratch**

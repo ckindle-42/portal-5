@@ -1,20 +1,19 @@
 ---
 id: unit-uat-freshness
+historical: true
 kind: mixed
 title: "UAT freshness \u2014 image-vs-HEAD check"
 sources:
 - type: code
   path: tests/uat/freshness.py
   commit: d7dcc96a
-last_generated_commit: d7dcc96a
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - uat
-created_at: 1785799270.594826
-updated_at: 1785799270.594826
+
 ---
 
 The running-image vs git-HEAD freshness check that warns before a UAT run if the containers are stale.

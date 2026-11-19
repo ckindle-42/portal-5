@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-models
+historical: true
 kind: why
 title: "HOWTO \u2014 Models"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: Models
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.8649259
-updated_at: 1783195000.8649259
+
 ---
 
 ./launch.sh pull-models     # Pull all Ollama models (30-90 min)

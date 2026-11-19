@@ -1,19 +1,18 @@
 ---
 id: unit-scripts-doc_ledger
+historical: true
 kind: mixed
 title: "Script \u2014 doc_ledger"
 sources:
 - type: code
   path: scripts/doc_ledger.py
   commit: 94ecf393
-last_generated_commit: 94ecf393
 claims: []
 confidence: high
 tags:
 - authored-v1
 - scripts
-created_at: 1785799476.296475
-updated_at: 1785799476.296475
+
 ---
 
 Binds each documentation file to the source paths that determine its correctness and records the commit each doc was last reconciled against; a doc is stale when any bound source path changed since.

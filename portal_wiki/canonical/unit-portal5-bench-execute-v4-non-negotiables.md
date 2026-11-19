@@ -7,12 +7,13 @@ sources:
   path: scripts/execute_preflight.py
 - type: code
   path: tests/benchmarks/bench/cli.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/execute_preflight.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.703862
-updated_at: 1784946220.703862
 ---
 
 - Preflight + `--dry-run` before every run; counts come from there, not this

@@ -1,20 +1,19 @@
 ---
 id: unit-comfyui-c03
+historical: true
 kind: mixed
 title: "Section C3 \u2014 Model discovery via MCP"
 sources:
 - type: code
   path: tests/comfyui/c03_model_discovery.py
   commit: ee3590ba
-last_generated_commit: ee3590ba
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - comfyui
-created_at: 1785798977.583313
-updated_at: 1785798977.583313
+
 ---
 
 This is the ComfyUI acceptance section c03. Section C3 — Model discovery via MCP

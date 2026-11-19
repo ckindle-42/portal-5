@@ -9,13 +9,13 @@ sources:
   path: config/portal.yaml
 - type: code
   path: config/personas/qwen38coder.yaml
-claims: []
+claims:
+- probe: models.configured
+  contains: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1786636000.0
-updated_at: 1792668000.0
 ---
 
 `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M` is Qwen's Qwen3.8-27B (released 2026-08, Apache 2.0) —

@@ -9,13 +9,16 @@ sources:
   path: deploy/portal-5/docker-compose.yml
 - type: code
   path: portal/modules/documents/tools/document_mcp.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/research/tools/rag_mcp.py
+  symbol: kb_ingest
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.5159261
-updated_at: 1784946220.5159261
+
 ---
 
 Knowledge-base ingestion accepts `.md`, `.txt`, `.pdf`, `.docx`, `.pptx`,

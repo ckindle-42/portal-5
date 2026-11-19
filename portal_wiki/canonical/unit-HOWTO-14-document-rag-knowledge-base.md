@@ -7,14 +7,17 @@ sources:
   path: portal/platform/inference/router/context_inject.py
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/platform/inference/router/context_inject.py
+  symbol: inject_retrieved_context
+  equals: true
 confidence: high
 tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.8519108
-updated_at: 1783195000.8519108
+
 ---
 
 **What:** Upload documents in Open WebUI and have conversations grounded in their content.

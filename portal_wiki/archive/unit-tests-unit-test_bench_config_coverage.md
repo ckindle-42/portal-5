@@ -1,20 +1,19 @@
 ---
 id: unit-tests-unit-test_bench_config_coverage
+historical: true
 kind: mixed
 title: Bench config coverage guard
 sources:
 - type: code
   path: tests/unit/test_bench_config_coverage.py
   commit: d5234798
-last_generated_commit: d5234798
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - unit
-created_at: 1785800427.1586728
-updated_at: 1785800427.1586728
+
 ---
 
 Guard test that the bench harness config dicts stay in sync with the live workspaces.

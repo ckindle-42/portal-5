@@ -1,19 +1,18 @@
 ---
 id: unit-scripts-verify_proxmox_mcp
+historical: true
 kind: mixed
 title: "Script \u2014 verify_proxmox_mcp"
 sources:
 - type: code
   path: scripts/verify_proxmox_mcp.py
   commit: 94ecf393
-last_generated_commit: 94ecf393
 claims: []
 confidence: high
 tags:
 - authored-v1
 - scripts
-created_at: 1785799583.725261
-updated_at: 1785799583.725261
+
 ---
 
 Runs without Docker, hitting the Proxmox API directly with the same client code as the MCP server, reading credentials from .env.

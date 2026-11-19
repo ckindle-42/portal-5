@@ -1,20 +1,19 @@
 ---
 id: unit-inference-cli-agent
+historical: true
 kind: mixed
 title: "Inference CLI agent \u2014 dry decide-turn operator surface"
 sources:
 - type: code
   path: portal/platform/inference/cli/agent.py
   commit: 250150f6
-last_generated_commit: 250150f6
 claims: []
 confidence: high
 tags:
 - authored-v1
 - platform
 - cli
-created_at: 1785797845.125549
-updated_at: 1785797845.125549
+
 ---
 
 `portal agent` is the operator surface for the platform agent loop:

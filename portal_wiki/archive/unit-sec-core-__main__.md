@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-__main__
+historical: true
 kind: mixed
 title: "Security core \u2014 module entry point"
 sources:
 - type: code
   path: portal/modules/security/core/__main__.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800269.3941288
-updated_at: 1785800269.3941288
+
 ---
 
 The `python -m portal.modules.security.core` entry that the CLI pass-through targets, loading the environment before importing the modules that read it.

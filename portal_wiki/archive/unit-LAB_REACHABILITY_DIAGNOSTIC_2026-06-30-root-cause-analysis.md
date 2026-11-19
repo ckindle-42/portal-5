@@ -1,18 +1,17 @@
 ---
 id: unit-LAB_REACHABILITY_DIAGNOSTIC_2026-06-30-root-cause-analysis
+historical: true
 kind: why
 title: "LAB_REACHABILITY_DIAGNOSTIC_2026-06-30 \u2014 Root cause analysis"
 sources:
 - type: design
   path: docs/LAB_REACHABILITY_DIAGNOSTIC_2026-06-30.md
   section: Root cause analysis
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - LAB_REACHABILITY_DIAGNOSTIC_2026-06-30
-created_at: 1783195000.8672352
-updated_at: 1783195000.8672352
+
 ---
 
 

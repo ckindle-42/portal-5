@@ -7,14 +7,17 @@ sources:
   path: portal/platform/inference/load_guard.py
 - type: code
   path: scripts/omlx_memory_tier.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/platform/inference/load_guard.py
+  symbol: memory
+  equals: true
 confidence: high
 tags:
 - known-limitations
 - omlx
 - memory
-created_at: 1792627200
-updated_at: 1792684036
+
 ---
 
 #### oMLX balanced memory-guard ceiling moves with free memory (2026-10-22)

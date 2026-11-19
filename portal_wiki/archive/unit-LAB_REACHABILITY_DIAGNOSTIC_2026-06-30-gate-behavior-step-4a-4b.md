@@ -1,18 +1,17 @@
 ---
 id: unit-LAB_REACHABILITY_DIAGNOSTIC_2026-06-30-gate-behavior-step-4a-4b
+historical: true
 kind: why
 title: "LAB_REACHABILITY_DIAGNOSTIC_2026-06-30 \u2014 Gate behavior (step 4a/4b)"
 sources:
 - type: design
   path: docs/LAB_REACHABILITY_DIAGNOSTIC_2026-06-30.md
   section: Gate behavior (step 4a/4b)
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - LAB_REACHABILITY_DIAGNOSTIC_2026-06-30
-created_at: 1783195000.866705
-updated_at: 1783195000.866705
+
 ---
 
 

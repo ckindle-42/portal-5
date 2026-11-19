@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-capsules
+historical: true
 kind: mixed
 title: "Capsules \u2014 replayable proof receipts"
 sources:
 - type: code
   path: portal/modules/security/core/capsules.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800269.394154
-updated_at: 1785800269.394154
+
 ---
 
 A proof capsule is a self-contained, integrity-hashed JSON an operator can replay to re-confirm a finding without the original engagement, following the ptai schema.

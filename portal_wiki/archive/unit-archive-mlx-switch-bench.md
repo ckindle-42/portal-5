@@ -1,20 +1,19 @@
 ---
 id: unit-archive-mlx-switch-bench
+historical: true
 kind: mixed
 title: "MLX switch benchmark \u2014 archived proxy-vs-raw timing"
 sources:
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-switch-benchmark.py
   commit: 90ac134b
-last_generated_commit: 90ac134b
 claims: []
 confidence: high
 tags:
 - authored-v1
 - archive
 - mlx
-created_at: 1785797145.0569332
-updated_at: 1785797145.0569332
+
 ---
 
 This is the MLX model-switch benchmark, archived with the retired MLX stack:

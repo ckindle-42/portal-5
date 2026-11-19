@@ -19,13 +19,14 @@ sources:
   path: scripts/lib/lab.sh
 - type: code
   path: tests/PORTAL5_BENCH_SEC_EXECUTE_V3.md
-claims: []
+claims:
+- probe: repo.path.exists
+  path: Dockerfile.attack
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.5228422
-updated_at: 1784946220.5228422
 ---
 
 The lab reference table maps each artifact to its role:

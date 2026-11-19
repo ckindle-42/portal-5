@@ -1,18 +1,17 @@
 ---
 id: unit-V2_SCENARIO_AUDIT_V1-8-jwt-three-endpoints-vs-uat-p-d05
+historical: true
 kind: why
 title: "V2_SCENARIO_AUDIT_V1 \u2014 8. `jwt-three-endpoints` vs UAT P-D05"
 sources:
 - type: design
   path: docs/V2_SCENARIO_AUDIT_V1.md
   section: 8. `jwt-three-endpoints` vs UAT P-D05
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - V2_SCENARIO_AUDIT_V1
-created_at: 1785348275.819628
-updated_at: 1785348275.819628
+
 ---
 
 

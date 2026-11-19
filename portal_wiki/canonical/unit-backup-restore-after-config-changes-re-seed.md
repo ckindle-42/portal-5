@@ -7,12 +7,13 @@ sources:
   path: launch.sh
 - type: code
   path: scripts/check_owui_preset_drift.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: launch.sh
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.531338
-updated_at: 1784946220.531338
 ---
 
 After restoring or hand-editing config, the Open WebUI presets must be reconciled with the files on disk. The `seed` case runs `docker compose run --rm openwebui-init`, and the init container skips presets that already exist, so reseeding is additive and non-destructive. The `reseed` case forces recreation by passing `FORCE_RESEED=true`, which deletes and recreates every preset, persona prompt, and workspace tool binding before applying config afresh.

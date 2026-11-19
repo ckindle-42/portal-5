@@ -1,17 +1,16 @@
 ---
 id: unit-security-tests-test-capture-recipes
+historical: true
 kind: what
 title: Capture recipe positive/negative controls
 sources:
 - type: code
   path: portal/modules/security/tests/test_capture_recipes.py
-last_generated_commit: f0b6e5a43439303b615e818fed6698038c4af0c6
 claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.5
-updated_at: 1784946220.5
+
 ---
 
 `test_capture_recipes.py` proves that every scenario in `CAPTURE_RECIPES` can be confirmed from real telemetry and cannot be triggered by a bare request alone. For each recipe, `SAMPLE_EVIDENCE` supplies a positive control and `REQUEST_ONLY_EVIDENCE` a negative one, both routed through `validate_capture_signals` so a recipe only counts when the full exploitation trace — not just the request — is present. A second test renders every recipe, postcondition, and host command through `render_recipe_command`, `render_postcondition_command`, and `render_host_command`, asserting no `$TARGET_HOST` or `$TARGET_PORT` placeholders survive substitution and that each recipe name also exists in `SCENARIOS`. The final block pins the corrected MITRE ground truth for deserialisation and other web RCE scenarios so detection mappings cannot silently regress.

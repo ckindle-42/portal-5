@@ -1,18 +1,17 @@
 ---
 id: unit-HOWTO-list-available-models
+historical: true
 kind: why
 title: "HOWTO \u2014 List available models"
 sources:
 - type: design
   path: docs/HOWTO.md
   section: List available models
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - HOWTO
-created_at: 1783195000.86148
-updated_at: 1783195000.86148
+
 ---
 
 

@@ -1,20 +1,19 @@
 ---
 id: unit-bench-lifecycle
+historical: true
 kind: mixed
 title: "Bench lifecycle \u2014 warmup/unload/drain memory discipline"
 sources:
 - type: code
   path: tests/benchmarks/bench/lifecycle.py
   commit: 381f217b
-last_generated_commit: 381f217b
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - bench
-created_at: 1785798431.1808069
-updated_at: 1785798431.1808069
+
 ---
 
 `lifecycle.py` is the backend health, warmup, unload, and Metal memory

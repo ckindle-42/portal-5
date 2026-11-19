@@ -1,12 +1,12 @@
 ---
 id: unit-security-investigation-bench
+historical: true
 kind: mixed
 title: "Investigation bench \u2014 single-agent baseline honesty ruler"
 sources:
 - type: code
   path: portal/modules/security/core/investigation/bench_investigation.py
   commit: 29cbcd27
-last_generated_commit: 29cbcd27
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - module
 - security
 - investigation
-created_at: 1785796326.5592508
-updated_at: 1785796326.5592508
+
 ---
 
 `bench_investigation.py` is the investigation benchmark — the honesty ruler

@@ -15,13 +15,14 @@ sources:
 - type: code
   path: portal_channels/telegram/bot.py
   commit: 8015e9381c8a
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal_channels/__init__.py
+  equals: true
 confidence: high
 tags:
 - code
 - portal_channels
-created_at: 1792204748.5149791
-updated_at: 1792204748.5149791
 ---
 
 # portal_channels subsystem

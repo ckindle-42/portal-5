@@ -7,13 +7,16 @@ sources:
   path: config/personas
 - type: code
   path: scripts/openwebui_init.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: config/personas/adversarysimulator.yaml
+  symbol: workspace_model
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.514347
-updated_at: 1784946220.514347
+
 ---
 
 Personas are pre-configured specialists defined one-per-file under

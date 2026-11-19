@@ -7,7 +7,10 @@ sources:
   path: portal/platform/inference/router/handlers.py
 - type: code
   path: portal/platform/inference/router/trace.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/router/handlers.py
+  equals: true
 confidence: high
 tags:
 - docs

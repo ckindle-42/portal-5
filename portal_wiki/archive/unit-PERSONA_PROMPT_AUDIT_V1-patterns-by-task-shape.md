@@ -1,18 +1,17 @@
 ---
 id: unit-PERSONA_PROMPT_AUDIT_V1-patterns-by-task-shape
+historical: true
 kind: why
 title: "PERSONA_PROMPT_AUDIT_V1 \u2014 Patterns by task shape"
 sources:
 - type: design
   path: docs/PERSONA_PROMPT_AUDIT_V1.md
   section: Patterns by task shape
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - PERSONA_PROMPT_AUDIT_V1
-created_at: 1783195000.887153
-updated_at: 1783195000.887153
+
 ---
 
 

@@ -5,14 +5,17 @@ title: "HOWTO \u2014 22. MLX Acceleration (Apple Silicon) \u2014 RETIRED"
 sources:
 - type: code
   path: config/backends.yaml
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: config/backends.yaml
+  symbol: mlx_lm
+  equals: true
 confidence: high
 tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.862881
-updated_at: 1783195000.862881
+
 ---
 
 **Retired (commit 75c24a9).** The MLX inference proxy was removed; all chat inference now runs through Ollama (port 11434) with its native MLX Metal backend on Apple Silicon. This is a standing decision, not a gap: Ollama 0.32.4+ carries the Metal-residency fix that keeps pinned router and inference models loaded together, reaching parity with standalone `mlx_lm` throughput while removing the dual-stack operational overhead. The Ollama-only inference tier is recorded in `config/backends.yaml` (every backend is `type: ollama`) and enforced as a project rule; see the MLX notes in `KNOWN_LIMITATIONS.md`.

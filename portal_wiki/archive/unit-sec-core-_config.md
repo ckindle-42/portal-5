@@ -1,20 +1,19 @@
 ---
 id: unit-sec-core-_config
+historical: true
 kind: mixed
 title: "Security core config \u2014 BenchConfig dataclass"
 sources:
 - type: code
   path: portal/modules/security/core/_config.py
   commit: 699b6207
-last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:
 - authored-v1
 - module
 - security
-created_at: 1785800269.394132
-updated_at: 1785800269.394132
+
 ---
 
 The `BenchConfig` dataclass holding the fields that were previously mutated at module level by main and read by the chain, blue, and lab runners.

@@ -9,15 +9,16 @@ sources:
   path: portal/modules/security/core/exec_chain.py
 - type: code
   path: portal/modules/security/core/_config.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/cli.py
+  equals: true
 confidence: high
 tags:
 - bench
 - security
 - tiers
 - verified-v1
-created_at: 1784941806.377484
-updated_at: 1784941806.377484
 ---
 
 The bench supports three execution tiers:

@@ -5,12 +5,13 @@ title: "BACKUP_RESTORE \u2014 Config (excluding .env for security - back that up
 sources:
 - type: code
   path: scripts/lib/backup.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/lib/backup.sh
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.528335
-updated_at: 1784946220.528335
 ---
 
 The old guide recommended archiving `config/` while leaving `.env` out of the tarball so secrets would not ride along. The current script does the opposite: `_launch_backup` copies `.env` into every backup alongside `config/` and `imports/`, and `_launch_restore` copies it back on restore. Secrets therefore live in every snapshot directory, so the security requirement shifts from excluding them to protecting the backup location itself with the same care as the live `.env`.

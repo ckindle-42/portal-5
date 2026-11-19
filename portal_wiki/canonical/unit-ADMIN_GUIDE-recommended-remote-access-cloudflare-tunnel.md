@@ -9,14 +9,17 @@ sources:
   path: config/cloudflared/config.yml.example
 - type: code
   path: .env.example
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: launch.sh
+  symbol: OWUI_API_KEY
+  equals: true
 confidence: high
 tags:
 - ADMIN_GUIDE
 - docs
 - verified-v1
-created_at: 1783195000.813865
-updated_at: 1783195000.813865
+
 ---
 
 Recommended remote access is a Cloudflare Tunnel pointed only at Open WebUI on `:8080` — a single catch-all rule, no path routing (`config/cloudflared/config.yml.example`). Set three things in `.env`: `ENABLE_REMOTE_ACCESS=true`, `PORTAL_PUBLIC_URL=https://portal.example.com` (the address users type), and `OWUI_API_KEY` (an Open WebUI `sk-` key from Settings → Account → API Keys).

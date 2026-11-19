@@ -6,13 +6,14 @@ sources:
 - type: code
   path: portal_mcp/__init__.py
   commit: 4c3d1e89
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal_mcp/__init__.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - mcp
-created_at: 1785795040.43541
-updated_at: 1785795040.43541
 ---
 
 `portal_mcp` is the packaging namespace for Portal 5's vendored MCP service

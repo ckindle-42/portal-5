@@ -1,18 +1,17 @@
 ---
 id: unit-MCP_DEV_TOOLING-opencode-integration-opencode-jsonc
+historical: true
 kind: why
 title: "MCP_DEV_TOOLING \u2014 opencode Integration (`opencode.jsonc`)"
 sources:
 - type: design
   path: docs/MCP_DEV_TOOLING.md
   section: opencode Integration (`opencode.jsonc`)
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - MCP_DEV_TOOLING
-created_at: 1783195000.8719292
-updated_at: 1783195000.8719292
+
 ---
 
 

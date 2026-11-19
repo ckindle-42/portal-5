@@ -48,7 +48,7 @@ SECTION_RUNNERS: tuple[tuple[str, str, Runner], ...] = (
     ("aliases", "DEPRECATED ALIASES", lambda ctx, portal: pins.alias_hops(ctx, portal)),
     ("engines", "ENGINES", _engines),
     ("owui", "OPEN WEBUI TOOL PATH", lambda ctx, portal: owui.run(ctx, portal)),
-    ("media", "MEDIA ARTIFACT PATH (VIDEO)", lambda ctx, portal: media.run(ctx, portal)),
+    ("media", "MEDIA PATH (IMAGE + VIDEO)", media.run),
     ("lab", "LAB PATHS", _lab),
 )
 

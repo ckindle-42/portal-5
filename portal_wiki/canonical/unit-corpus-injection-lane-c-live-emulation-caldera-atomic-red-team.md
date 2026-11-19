@@ -8,12 +8,13 @@ sources:
   path: scripts/caldera_emulate.py
 - type: code
   path: .env.example
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/caldera_emulate.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.586282
-updated_at: 1784946220.586282
 ---
 
 `scripts/caldera_emulate.py` is the Lane C driver. It talks to Caldera's API

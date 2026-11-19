@@ -1,20 +1,19 @@
 ---
 id: unit-uat-routing
+historical: true
 kind: mixed
 title: "UAT routing \u2014 slug->workspace mapping"
 sources:
 - type: code
   path: tests/uat/routing.py
   commit: d7dcc96a
-last_generated_commit: d7dcc96a
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - uat
-created_at: 1785799292.5309079
-updated_at: 1785799292.5309079
+
 ---
 
 The persona-slug to workspace mapping and routed-model validation for the UAT driver.

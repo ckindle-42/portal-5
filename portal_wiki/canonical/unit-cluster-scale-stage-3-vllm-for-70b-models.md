@@ -7,13 +7,14 @@ sources:
   path: portal/platform/inference/cluster_backends.py
 - type: code
   path: config/backends.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/backends.yaml
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-created_at: 1784946220.5125499
-updated_at: 1784946220.5125499
 ---
 
 A vLLM node for very large models is registered with `type: openai_compatible`.

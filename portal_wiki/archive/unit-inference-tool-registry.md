@@ -1,20 +1,19 @@
 ---
 id: unit-inference-tool-registry
+historical: true
 kind: mixed
 title: "Inference tool registry \u2014 live MCP tool discovery"
 sources:
 - type: code
   path: portal/platform/inference/tool_registry.py
   commit: 250150f6
-last_generated_commit: 250150f6
 claims: []
 confidence: high
 tags:
 - authored-v1
 - platform
 - inference
-created_at: 1785797772.268832
-updated_at: 1785797772.268832
+
 ---
 
 `tool_registry.py` is the MCP tool registry: it discovers the pipeline's

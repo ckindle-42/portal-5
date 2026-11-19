@@ -1,20 +1,19 @@
 ---
 id: unit-comfyui-c08
+historical: true
 kind: mixed
 title: "Section C8 \u2014 Video generation: Wan2.2 T2V via MCP"
 sources:
 - type: code
   path: tests/comfyui/c08_video_wan22.py
   commit: ee3590ba
-last_generated_commit: ee3590ba
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - comfyui
-created_at: 1785798988.250659
-updated_at: 1785798988.250659
+
 ---
 
 This is the ComfyUI acceptance section c08. Section C8 — Video generation: Wan2.2 T2V via MCP

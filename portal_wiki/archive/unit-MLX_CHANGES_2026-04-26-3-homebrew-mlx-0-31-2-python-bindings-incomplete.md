@@ -1,18 +1,17 @@
 ---
 id: unit-MLX_CHANGES_2026-04-26-3-homebrew-mlx-0-31-2-python-bindings-incomplete
+historical: true
 kind: why
 title: "MLX_CHANGES_2026-04-26 \u2014 3. Homebrew mlx 0.31.2 Python Bindings Incomplete"
 sources:
 - type: design
   path: docs/MLX_CHANGES_2026-04-26.md
   section: 3. Homebrew mlx 0.31.2 Python Bindings Incomplete
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - MLX_CHANGES_2026-04-26
-created_at: 1783195000.87664
-updated_at: 1783195000.87664
+
 ---
 
 - **Severity**: High — `import mlx.core` fails after `brew upgrade mlx`

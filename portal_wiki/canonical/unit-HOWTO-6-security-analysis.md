@@ -7,14 +7,17 @@ sources:
   path: config/portal.yaml
 - type: code
   path: portal/platform/inference/router/preinject.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: config/portal.yaml
+  symbol: execute_bash
+  equals: true
 confidence: high
 tags:
 - HOWTO
 - docs
 - verified-v1
-created_at: 1783195000.841096
-updated_at: 1783195000.841096
+
 ---
 
 **What:** One base workspace (`auto-security`) covering research, simulation, and execution tiers. The former sibling workspaces collapsed into `?variant=` query params (or a persona's `variant:` field) are resolved by `_resolve_workspace_variant` in `portal/platform/inference/router/preinject.py` instead of separate workspace ids. The complete variant catalog — including the newer `blueteam-orchestrated` and `blueteam-council` — is defined under `auto-security.variants` in `config/portal.yaml`; `unit-fact-security-variants` is the live index.

@@ -1,5 +1,6 @@
 ---
 id: unit-model-catalog-hf-co-mradermacher-cybeross-2-0-20b-gguf-q4-k-m-dropped-evaluated-not-adopted
+historical: true
 kind: what
 title: "MODEL_CATALOG \u2014 `hf.co/mradermacher/CyberOss-2.0-20B-GGUF:Q4_K_M` \u2014\
   \ DROPPED (evaluated, not adopted)"
@@ -9,12 +10,10 @@ sources:
   commit: 05e42ec2
   section: "`hf.co/mradermacher/CyberOss-2.0-20B-GGUF:Q4_K_M` \u2014 DROPPED (evaluated,\
     \ not adopted)"
-last_generated_commit: 05e42ec2
 confidence: high
 tags:
 - docs
-created_at: 1784946220.624028
-updated_at: 1784946220.624028
+
 ---
 
 Blue-defender candidate (cyber-pal-security/CyberOss-2.0-20B base, gpt-oss-20b lineage, mradermacher

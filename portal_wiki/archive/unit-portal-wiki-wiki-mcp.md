@@ -1,20 +1,19 @@
 ---
 id: unit-portal-wiki-wiki-mcp
+historical: true
 kind: mixed
 title: "Wiki MCP server \u2014 HTTP transport for agent retrieval"
 sources:
 - type: code
   path: portal_wiki/wiki_mcp.py
   commit: 53110d10
-last_generated_commit: 53110d10
 claims: []
 confidence: high
 tags:
 - authored-v1
 - wiki
 - mcp
-created_at: 1785796122.622566
-updated_at: 1785796122.622566
+
 ---
 
 `wiki_mcp.py` is the HTTP MCP server (port 8931) that exposes the wiki's

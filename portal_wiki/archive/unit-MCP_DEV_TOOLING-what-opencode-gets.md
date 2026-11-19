@@ -1,12 +1,12 @@
 ---
 id: unit-MCP_DEV_TOOLING-what-opencode-gets
+historical: true
 kind: why
 title: "MCP_DEV_TOOLING \u2014 What opencode gets"
 sources:
 - type: design
   path: docs/MCP_DEV_TOOLING.md
   section: What opencode gets
-last_generated_commit: ''
 claims:
 - probe: workspaces.total
   pattern: '{value} workspaces'
@@ -16,8 +16,7 @@ confidence: high
 tags:
 - docs
 - MCP_DEV_TOOLING
-created_at: 1783195000.87217
-updated_at: 1783195000.87217
+
 ---
 
 - **Fully local inference** — all completions go through portal-pipeline (:9099) to Ollama

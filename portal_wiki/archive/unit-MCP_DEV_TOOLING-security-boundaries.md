@@ -1,18 +1,17 @@
 ---
 id: unit-MCP_DEV_TOOLING-security-boundaries
+historical: true
 kind: why
 title: "MCP_DEV_TOOLING \u2014 Security Boundaries"
 sources:
 - type: design
   path: docs/MCP_DEV_TOOLING.md
   section: Security Boundaries
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - MCP_DEV_TOOLING
-created_at: 1783195000.8752158
-updated_at: 1783195000.8752158
+
 ---
 
 

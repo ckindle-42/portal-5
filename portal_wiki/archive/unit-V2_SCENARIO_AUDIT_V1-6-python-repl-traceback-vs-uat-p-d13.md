@@ -1,18 +1,17 @@
 ---
 id: unit-V2_SCENARIO_AUDIT_V1-6-python-repl-traceback-vs-uat-p-d13
+historical: true
 kind: why
 title: "V2_SCENARIO_AUDIT_V1 \u2014 6. `python-repl-traceback` vs UAT P-D13"
 sources:
 - type: design
   path: docs/V2_SCENARIO_AUDIT_V1.md
   section: 6. `python-repl-traceback` vs UAT P-D13
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - V2_SCENARIO_AUDIT_V1
-created_at: 1783195000.924076
-updated_at: 1783195000.924076
+
 ---
 
 

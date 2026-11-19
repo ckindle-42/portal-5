@@ -1,12 +1,12 @@
 ---
 id: unit-security-investigation-surface
+historical: true
 kind: mixed
 title: "Security investigation surface \u2014 evidence + case notebook"
 sources:
 - type: code
   path: portal/modules/security/core/investigation/__init__.py
   commit: 29cbcd27
-last_generated_commit: 29cbcd27
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - module
 - security
 - investigation
-created_at: 1785796309.4335308
-updated_at: 1785796309.4335308
+
 ---
 
 The investigation subpackage is the RBP engine's investigation layer —

@@ -1,7 +1,7 @@
 ---
 id: unit-design-client-disconnect-cancellation
 kind: mixed
-title: "Client disconnect cancels inference work end to end"
+title: Client disconnect cancels inference work end to end
 sources:
 - type: code
   path: portal/platform/inference/router/disconnect.py
@@ -31,7 +31,10 @@ sources:
   path: portal/modules/compliance/core/transport_dialects.py
 - type: code
   path: reports/host_memory_safety/W3.md
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/compliance/core/cancellation.py
+  equals: true
 confidence: high
 tags:
 - design
@@ -59,7 +62,9 @@ A client that gives up stops the work it started.
   logged as 499 or 500). oMLX drops `active_requests` within a second. Models
   stay resident (`keep_alive` unchanged).
 * **Load guard.** A request cancelled during admission releases the host-wide
-  cold-load lock.
+  cold-load lock, as does every other early end to an admission — a refusal, an
+  exception, or an oMLX load whose model turns out to be resident — so no abandoned
+  or failed request can wedge the next cold load.
 * **Compliance MCP.** `invoke_tool` binds a `CancelToken` (a `ContextVar`) and
   runs the tool under a copy of that context. On disconnect it cancels the
   token. `stream_chat_turn(should_cancel=...)` checks it on every line, and a

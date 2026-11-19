@@ -1,12 +1,12 @@
 ---
 id: unit-router-thinking
+historical: true
 kind: mixed
 title: "Router thinking \u2014 reasoning-block strip/extract/normalise"
 sources:
 - type: code
   path: portal/platform/inference/router/thinking.py
   commit: d7c1d4f4
-last_generated_commit: d7c1d4f4
 claims: []
 confidence: high
 tags:
@@ -14,8 +14,7 @@ tags:
 - platform
 - inference
 - router
-created_at: 1785798123.5369432
-updated_at: 1785798123.5369432
+
 ---
 
 `thinking.py` handles reasoning-model thinking blocks: it strips the

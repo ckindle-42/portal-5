@@ -1,19 +1,18 @@
 ---
 id: unit-claude-simplicity-first
+historical: true
 kind: why
 title: "CLAUDE.md \u2014 Simplicity First"
 sources:
 - type: design
   path: CLAUDE.md
   section: Simplicity First
-last_generated_commit: ''
 confidence: high
 tags:
 - claude
 - architecture
 - law
-created_at: 1785348301.194311
-updated_at: 1785348301.194311
+
 ---
 
 

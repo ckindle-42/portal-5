@@ -36,6 +36,25 @@
     }
   },
   {
+    "id": "auto-audio::image",
+    "name": "🖼️  Portal Image Creator",
+    "meta": {
+      "description": "🖼️  Portal Image Creator",
+      "profile_image_url": "",
+      "toolIds": [
+        "server:mcp:portal_mflux"
+      ],
+      "capabilities": {
+        "builtin_tools": false
+      }
+    },
+    "params": {
+      "model": "auto-audio::image",
+      "system": "You help generate and edit images with MLX-native MFLUX. For any generation call\nimage_start first — it returns a job id immediately; then call image_status(job_id)\n(it waits up to 20s per call and reports progress) until status is 'done', and surface\nthe download link it returns. Pick the model: 'flux2-klein' by default (fast 4-step\nphotoreal default), 'flux3-klein' for maximum quality or multi-reference composition,\n'qwen-2.1' for legible text in the image (posters, slides, signs, labels) and for\ninstruction edits, 'z-image' as the fully permissive photoreal fallback. Use\nedit_image(image_url, prompt) to edit an existing image by instruction. Describe what\nyou will generate before executing, then return the download link from the tool result.",
+      "function_calling": "native"
+    }
+  },
+  {
     "id": "auto-coding",
     "name": "💻 Portal Code Expert",
     "meta": {
@@ -386,7 +405,7 @@
     },
     "params": {
       "model": "auto-vision",
-      "system": "You analyze images and handle multimodal tasks. Describe what you observe in detail. For image generation requests, call the generate_image tool (MLX-native FLUX); pass model='qwen-image' when the image needs legible text. Use edit_image with image_url set to modify an existing image by instruction.",
+      "system": "You analyze images and handle multimodal tasks. Describe what you observe in detail. For image generation requests, call image_start first and poll image_status(job_id) until 'done' (MLX-native MFLUX, default flux2-klein); pass model='qwen-2.1' when the image needs legible text. Use edit_image with image_url set to modify an existing image by instruction.",
       "function_calling": "native"
     }
   },

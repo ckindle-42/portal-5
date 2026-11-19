@@ -1,18 +1,17 @@
 ---
 id: unit-QWEN_TEMPLATE_PROBE-qwen-template-probe
+historical: true
 kind: why
 title: "QWEN_TEMPLATE_PROBE \u2014 Qwen Template Probe"
 sources:
 - type: design
   path: docs/QWEN_TEMPLATE_PROBE.md
   section: Qwen Template Probe
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - QWEN_TEMPLATE_PROBE
-created_at: 1783195000.888198
-updated_at: 1783195000.888198
+
 ---
 
 

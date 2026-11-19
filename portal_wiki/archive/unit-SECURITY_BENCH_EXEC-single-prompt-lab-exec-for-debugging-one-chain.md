@@ -1,18 +1,17 @@
 ---
 id: unit-SECURITY_BENCH_EXEC-single-prompt-lab-exec-for-debugging-one-chain
+historical: true
 kind: why
 title: "SECURITY_BENCH_EXEC \u2014 Single prompt, lab-exec (for debugging one chain)"
 sources:
 - type: design
   path: docs/SECURITY_BENCH_EXEC.md
   section: Single prompt, lab-exec (for debugging one chain)
-last_generated_commit: ''
 confidence: high
 tags:
 - docs
 - SECURITY_BENCH_EXEC
-created_at: 1783195000.900633
-updated_at: 1783195000.900633
+
 ---
 
 

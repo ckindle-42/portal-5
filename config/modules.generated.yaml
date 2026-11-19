@@ -21,7 +21,7 @@ modules:
   icsot:
     enabled: true
   image:
-    enabled: false
+    enabled: true
   media:
     enabled: true
   music:
@@ -57,6 +57,7 @@ launched_mcp_ids:
 - git
 - icsot
 - memory
+- mflux
 - mitre
 - mlx_transcribe
 - netforensics

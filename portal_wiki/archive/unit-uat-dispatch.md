@@ -1,20 +1,19 @@
 ---
 id: unit-uat-dispatch
+historical: true
 kind: mixed
 title: "UAT dispatch \u2014 preset/tool dispatch"
 sources:
 - type: code
   path: tests/uat/dispatch.py
   commit: d7dcc96a
-last_generated_commit: d7dcc96a
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - uat
-created_at: 1785799302.2489102
-updated_at: 1785799302.2489102
+
 ---
 
 The dispatch logic that routes a UAT request to the right preset or tool, including the `_PresetUnreachableError` handling split from the monolith.

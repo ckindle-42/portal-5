@@ -21,7 +21,10 @@ sources:
   path: portal/modules/security/core/capture_recipes.py
 - type: code
   path: config/security_corpus.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/security_corpus.yaml
+  equals: true
 confidence: high
 tags:
 - blue-team
@@ -32,8 +35,6 @@ tags:
 - red-data
 - security
 - verified-v1
-created_at: 1785519600.0
-updated_at: 1785519600.0
 ---
 
 Live Portal captures and outside corpora are one detection-development input,

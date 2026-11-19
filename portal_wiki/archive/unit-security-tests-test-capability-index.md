@@ -1,17 +1,16 @@
 ---
 id: unit-security-tests-test-capability-index
+historical: true
 kind: what
 title: Capability index unit tests
 sources:
 - type: code
   path: portal/modules/security/tests/test_capability_index.py
-last_generated_commit: f0b6e5a43439303b615e818fed6698038c4af0c6
 claims: []
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.5
-updated_at: 1784946220.5
+
 ---
 
 `test_capability_index.py` exercises the capability catalog layer end to end: inventory loading, index construction, querying, rendering, and the CLI entry point. The central invariant is that every capability's `tools` and `oracle` fields must resolve to something real, so the suite asserts there are no orphan references into the tool catalog or `ORACLES`. Query tests cover phase, domain, goal, and limit filtering plus the `live_dispatchable_only` flag, which retires capability sources that cannot be dispatched against a live lab while keeping semantic probes that need no declared tool. Rendering tests confirm the text output contains the expected names and degrades to a placeholder for an empty list. A subprocess-based CLI suite drives `python -m portal.modules.security.core capability` and checks that JSON output parses.

@@ -5,12 +5,13 @@ title: "PERFORMANCE \u2014 LLM Router Warmup at Startup"
 sources:
 - type: code
   path: portal/platform/inference/router/lifespan.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/router/lifespan.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-created_at: 1784946220.509268
-updated_at: 1784946220.509268
 ---
 
 `_warmup_llm_router()` in `portal/platform/inference/router/lifespan.py` fires at pipeline startup (as a background task from `_run_startup_warmups`) to pre-load the LLM intent-classifier model into Ollama before the first `auto`-routed request arrives. It posts a minimal `num_predict: 1` generate call to `${LLM_ROUTER_OLLAMA_URL}/api/generate`. Both this warmup and each live router classification call use `LoadGuard.admit` and busy tracking, so a warmup cannot race a separate cold model load and the router stays visible as active while it generates.

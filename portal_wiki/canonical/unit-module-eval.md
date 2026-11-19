@@ -17,8 +17,7 @@ tags:
 - eval
 - module
 - verified-v1
-created_at: 1783822263.5599139
-updated_at: 1783822263.5599139
+
 ---
 
 # Eval Module — cross-cutting bench apparatus (off by default)

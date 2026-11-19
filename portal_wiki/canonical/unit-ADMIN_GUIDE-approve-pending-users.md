@@ -7,14 +7,16 @@ sources:
   path: .env.example
 - type: code
   path: scripts/lib/users.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: .env.example
+  equals: true
 confidence: high
 tags:
 - ADMIN_GUIDE
 - docs
 - verified-v1
-created_at: 1783195000.812205
-updated_at: 1783195000.812205
+
 ---
 
 Self-registration arrives with the `pending` role because `DEFAULT_USER_ROLE=pending` in `.env.example` is the shipped default, and a pending account has no access until an admin promotes it. Two promotion paths exist. The web path is Open WebUI's Admin Panel > Users: locate the pending account and change its role to `user`. The CLI path is `./launch.sh add-user <email> [name] [role]` with an explicit `pending` role, whose role values scripts/lib/users.sh documents as `user | admin | pending`. `ENABLE_SIGNUP=true` toggles whether self-registration exists at all.

@@ -1,0 +1,740 @@
+# Canonical wiki claims triage
+
+Temporary gate ledger for the content review. Each pending id is replaced with a current, historical, or obsolete decision as its unit is reviewed.
+
+Initial pending units: 733.
+Completed decisions: 733; pending: 0.
+
+- `SEC_BENCH-combined-corpus-validation-20260731` | historical | dated, resolved, or superseded record retained for history
+- `unit-ADMIN_GUIDE-add-a-cluster-node` | current | code symbol `backends_healthy` exists in `scripts/lib/util.sh`
+- `unit-ADMIN_GUIDE-alternative-lan-reverse-proxy-caddy-nginx` | current | code symbol `PORTAL_PUBLIC_URL` exists in `deploy/portal-5/docker-compose.yml`
+- `unit-ADMIN_GUIDE-approve-pending-users` | current | source path `.env.example` exists
+- `unit-ADMIN_GUIDE-backup` | current | code symbol `_launch_backup` exists in `scripts/lib/backup.sh`
+- `unit-ADMIN_GUIDE-changing-the-router-model` | current | code symbol `LLM_ROUTER_MODEL` exists in `.env.example`
+- `unit-ADMIN_GUIDE-check-pipeline-logs-for-router-decisions` | current | code symbol `_route_with_llm` exists in `portal/platform/inference/router/routing.py`
+- `unit-ADMIN_GUIDE-check-which-models-ollama-currently-has-loaded` | current | source path `portal/platform/mcp_host/pipeline_mcp.py` exists
+- `unit-ADMIN_GUIDE-create-users-via-cli` | current | code symbol `_launch_add_user` exists in `scripts/lib/users.sh`
+- `unit-ADMIN_GUIDE-debugging-crashes` | current | source path `launch.sh` exists
+- `unit-ADMIN_GUIDE-first-login` | current | code symbol `bootstrap_secrets` exists in `scripts/lib/util.sh`
+- `unit-ADMIN_GUIDE-how-the-llm-router-works` | current | code symbol `_route_with_llm` exists in `portal/platform/inference/router/routing.py`
+- `unit-ADMIN_GUIDE-inference-health-monitoring` | current | code symbol `OLLAMA_URL` exists in `.env.example`
+- `unit-ADMIN_GUIDE-load-guard-model-memory` | current | code symbol `admit_and_begin_ollama` exists in `portal/platform/inference/load_guard.py`
+- `unit-ADMIN_GUIDE-network-exposure` | current | source path `deploy/portal-5/docker-compose.yml` exists
+- `unit-ADMIN_GUIDE-ollama-is-native-plist-is-the-source-of-truth` | current | code symbol `OLLAMA_MIN_VERSION` exists in `scripts/lib/services.sh`
+- `unit-ADMIN_GUIDE-ollama-max-loaded-models-3` | current | code symbol `OLLAMA_MAX_LOADED_MODELS` exists in `.env.example`
+- `unit-ADMIN_GUIDE-ollama-memory-limit-deferred` | current | code symbol `OLLAMA_MEMORY_LIMIT` exists in `.env.example`
+- `unit-ADMIN_GUIDE-pull-additional-models` | current | source path `launch.sh` exists
+- `unit-ADMIN_GUIDE-pull-router-model-if-not-yet-downloaded` | current | code symbol `models_pull` exists in `portal/platform/inference/cli/models.py`
+- `unit-ADMIN_GUIDE-read-a-turn-trace` | current | source path `portal/platform/inference/router/handlers.py` exists
+- `unit-ADMIN_GUIDE-recommended-remote-access-cloudflare-tunnel` | current | code symbol `OWUI_API_KEY` exists in `launch.sh`
+- `unit-ADMIN_GUIDE-router-benchmarks` | current | code symbol `GOLDEN_SET` exists in `tests/benchmarks/bench_router.py`
+- `unit-ADMIN_GUIDE-routine-operations` | current | code symbol `_cmd_status` exists in `launch.sh`
+- `unit-ADMIN_GUIDE-runtime-vram-vs-file-size-gap` | current | code symbol `OLLAMA_NUM_BATCH` exists in `.env.example`
+- `unit-ADMIN_GUIDE-security-notes` | current | code symbol `CHANGEME` exists in `.env.example`
+- `unit-ADMIN_GUIDE-three-tier-router-models` | current | code symbol `LLM_ROUTER_MODEL` exists in `.env.example`
+- `unit-ADMIN_GUIDE-user-roles` | current | source path `.env.example` exists
+- `unit-DESIGN_WIKI-discovery-termination` | current | repo.path.exists confirms `portal/platform/wiki/migration.py` exists in the checkout
+- `unit-DESIGN_WIKI-fence-contract` | current | repo.path.exists confirms `portal/platform/wiki/migration.py` exists in the checkout
+- `unit-DESIGN_WIKI-migration-procedure` | current | repo.path.exists confirms `portal/platform/inference/sync_config.py` exists in the checkout
+- `unit-DESIGN_WIKI-section-granularity` | current | repo.path.exists confirms `portal/platform/wiki/adapters/seed_facts.py` exists in the checkout
+- `unit-DESIGN_WIKI-spine-write-point` | current | repo.path.exists confirms `portal/platform/inference/sync_config.py` exists in the checkout
+- `unit-HOWTO-1-quick-start` | current | source path `launch.sh` exists
+- `unit-HOWTO-10-music-generation` | current | code symbol `minimax_generate` exists in `portal/modules/media/tools/music_minimax_mcp.py`
+- `unit-HOWTO-11-text-to-speech` | current | code symbol `list_voices` exists in `scripts/mlx-speech.py`
+- `unit-HOWTO-12-speech-to-text-asr` | current | code symbol `transcribe_audio` exists in `portal/modules/media/tools/whisper_mcp.py`
+- `unit-HOWTO-13-web-search` | current | code symbol `web_search` exists in `portal/modules/research/tools/web_search_mcp.py`
+- `unit-HOWTO-14-document-rag-knowledge-base` | current | code symbol `inject_retrieved_context` exists in `portal/platform/inference/router/context_inject.py`
+- `unit-HOWTO-16-telegram-bot` | current | source path `launch.sh` exists
+- `unit-HOWTO-17-slack-bot` | current | source path `launch.sh` exists
+- `unit-HOWTO-18-notifications-alerts` | current | code symbol `AlertEvent` exists in `portal/platform/inference/router/handlers.py`
+- `unit-HOWTO-19-backup-restore` | current | source path `scripts/lib/backup.sh` exists
+- `unit-HOWTO-2-chat-with-ai` | current | code symbol `OPENWEBUI_ADMIN_PASSWORD` exists in `launch.sh`
+- `unit-HOWTO-20-cluster-scaling` | current | code symbol `workspace_routing` exists in `config/backends.yaml`
+- `unit-HOWTO-21-remote-api-access-pipeline-at-9099` | current | code symbol `list_models` exists in `portal/platform/inference/router/handlers.py`
+- `unit-HOWTO-22-mlx-acceleration-apple-silicon-retired` | current | code symbol `mlx_lm` exists in `config/backends.yaml`
+- `unit-HOWTO-23-metrics-monitoring` | current | code symbol `json` exists in `portal/platform/inference/router/handlers.py`
+- `unit-HOWTO-3-workspaces` | current | code symbol `model_hint` exists in `config/portal.yaml`
+- `unit-HOWTO-4-personas` | current | code symbol `workspace_model` exists in `config/personas/redteamoperator.yaml`
+- `unit-HOWTO-5-code-generation-execution` | current | code symbol `execute_python` exists in `portal/modules/coding/tools/code_sandbox_mcp.py`
+- `unit-HOWTO-6-security-analysis` | current | code symbol `execute_bash` exists in `config/portal.yaml`
+- `unit-HOWTO-7-document-generation` | current | code symbol `create_word_document` exists in `config/portal.yaml`
+- `unit-HOWTO-8-image-generation` | current | code symbol `generate_image` exists in `portal/modules/media/tools/mflux_mcp.py`
+- `unit-HOWTO-9-video-generation` | current | source path `portal/modules/media/tools/video_mlx_mcp.py` exists
+- `unit-HOWTO-adding-new-capabilities` | current | code symbol `system_prompt` exists in `config/portal.yaml`
+- `unit-HOWTO-diarized-transcription-speaker-labeled-transcripts` | current | source path `scripts/mlx-transcribe.py` exists
+- `unit-HOWTO-discovery-with-fact-units` | current | code symbol `wiki_search` exists in `portal_wiki/mcp.py`
+- `unit-HOWTO-embed-media-in-documents` | current | code symbol `image_url` exists in `portal/modules/documents/tools/document_mcp.py`
+- `unit-HOWTO-media-memory-and-launch-order` | current | source path `portal/modules/media/tools/_admission.py` exists
+- `unit-HOWTO-quick-reference-cli-commands` | current | source path `launch.sh` exists
+- `unit-HOWTO-shared-workspace` | current | source path `portal/platform/mcp_host/workspace.py` exists
+- `unit-HOWTO-user-management` | current | source path `.env.example` exists
+- `unit-SEC_BENCH-architecture-invariant` | current | repo.path.exists confirms `portal/modules/security/core/__init__.py` exists in the checkout
+- `unit-SEC_BENCH-blue-orchestration` | current | repo.path.exists confirms `portal/modules/security/core/blue.py` exists in the checkout
+- `unit-SEC_BENCH-coding-agent-reentry` | current | repo.path.exists confirms `portal/modules/security/core/__init__.py` exists in the checkout
+- `unit-SEC_BENCH-execution-chain-features` | current | repo.path.exists confirms `portal/modules/security/core/chain.py` exists in the checkout
+- `unit-SEC_BENCH-execution-tiers` | current | repo.path.exists confirms `portal/modules/security/core/cli.py` exists in the checkout
+- `unit-SEC_BENCH-execution-transport` | current | repo.path.exists confirms `scripts/lab_host.py` exists in the checkout
+- `unit-SEC_BENCH-exercises` | current | repo.path.exists confirms `portal/modules/security/core/_data.py` exists in the checkout
+- `unit-SEC_BENCH-lab-topology` | current | repo.path.exists confirms `config/lab_targets.yaml` exists in the checkout
+- `unit-SEC_BENCH-prerequisites` | current | repo.path.exists confirms `.env.example` exists in the checkout
+- `unit-SEC_BENCH-quick-start-tiers` | current | repo.path.exists confirms `portal/modules/security/core/cli.py` exists in the checkout
+- `unit-SEC_BENCH-scoring` | current | repo.path.exists confirms `portal/modules/security/core/scoring.py` exists in the checkout
+- `unit-SEC_BENCH-single-prompt-tests` | current | repo.path.exists confirms `portal/modules/security/core/cli.py` exists in the checkout
+- `unit-SEC_BENCH-source-material` | current | repo.path.exists confirms `portal/modules/security/core/exec_chain.py` exists in the checkout
+- `unit-SEC_BENCH-sub-components` | current | repo.path.exists confirms `portal/modules/security/core/capability/__init__.py` exists in the checkout
+- `unit-SEC_BENCH-verification` | current | repo.path.exists confirms `portal/modules/security/core/exec_chain.py` exists in the checkout
+- `unit-SEC_BENCH-what-it-is` | current | repo.path.exists confirms `portal/modules/security/core/_data.py` exists in the checkout
+- `unit-T1003.001-signature` | current | SPL detection data contains technique key `T1003.001`
+- `unit-T1003.002-signature` | current | SPL detection data contains technique key `T1003.002`
+- `unit-T1003.003-signature` | current | SPL detection data contains technique key `T1003.003`
+- `unit-T1003.006-signature` | current | SPL detection data contains technique key `T1003.006`
+- `unit-T1021.001-signature` | current | SPL detection data contains technique key `T1021.001`
+- `unit-T1021.002-signature` | current | SPL detection data contains technique key `T1021.002`
+- `unit-T1046-signature` | current | SPL detection data contains technique key `T1046`
+- `unit-T1047-signature` | current | SPL detection data contains technique key `T1047`
+- `unit-T1053.005-signature` | current | SPL detection data contains technique key `T1053.005`
+- `unit-T1059-signature` | current | SPL detection data contains technique key `T1059`
+- `unit-T1059.001-signature` | current | SPL detection data contains technique key `T1059.001`
+- `unit-T1059.004-signature` | current | SPL detection data contains technique key `T1059.004`
+- `unit-T1068-signature` | current | SPL detection data contains technique key `T1068`
+- `unit-T1078-signature` | current | SPL detection data contains technique key `T1078`
+- `unit-T1078.004-signature` | current | SPL detection data contains technique key `T1078.004`
+- `unit-T1083-signature` | current | SPL detection data contains technique key `T1083`
+- `unit-T1098-signature` | current | SPL detection data contains technique key `T1098`
+- `unit-T1110.001-signature` | current | SPL detection data contains technique key `T1110.001`
+- `unit-T1110.003-signature` | current | SPL detection data contains technique key `T1110.003`
+- `unit-T1189-signature` | current | SPL detection data contains technique key `T1189`
+- `unit-T1190-signature` | current | SPL detection data contains technique key `T1190`
+- `unit-T1203-signature` | current | SPL detection data contains technique key `T1203`
+- `unit-T1210-signature` | current | SPL detection data contains technique key `T1210`
+- `unit-T1505.003-signature` | current | SPL detection data contains technique key `T1505.003`
+- `unit-T1526-signature` | current | SPL detection data contains technique key `T1526`
+- `unit-T1530-signature` | current | SPL detection data contains technique key `T1530`
+- `unit-T1543.003-signature` | current | SPL detection data contains technique key `T1543.003`
+- `unit-T1548.001-signature` | current | SPL detection data contains technique key `T1548.001`
+- `unit-T1550.002-signature` | current | SPL detection data contains technique key `T1550.002`
+- `unit-T1552-signature` | current | SPL detection data contains technique key `T1552`
+- `unit-T1552.005-signature` | current | SPL detection data contains technique key `T1552.005`
+- `unit-T1557-signature` | current | SPL detection data contains technique key `T1557`
+- `unit-T1557.001-signature` | current | SPL detection data contains technique key `T1557.001`
+- `unit-T1558.003-signature` | current | SPL detection data contains technique key `T1558.003`
+- `unit-T1558.004-signature` | current | SPL detection data contains technique key `T1558.004`
+- `unit-T1592-signature` | current | SPL detection data contains technique key `T1592`
+- `unit-T1595-signature` | current | SPL detection data contains technique key `T1595`
+- `unit-T1610-signature` | current | SPL detection data contains technique key `T1610`
+- `unit-T1611-signature` | current | SPL detection data contains technique key `T1611`
+- `unit-T1621-signature` | current | SPL detection data contains technique key `T1621`
+- `unit-acceptance-runner` | current | repo.path.exists confirms `tests/acceptance/runner.py` exists in the checkout
+- `unit-agent-loop-agent-loop-platform-core` | current | repo.path.exists confirms `portal/platform/agent/__init__.py` exists in the checkout
+- `unit-agent-loop-consumers` | current | repo.path.exists confirms `portal/modules/security/core/decision_engine.py` exists in the checkout
+- `unit-agent-loop-contracts-the-key-modules-implement` | current | repo.path.exists confirms `portal/platform/agent/decide.py` exists in the checkout
+- `unit-agent-loop-discipline-borrowed-from-the-campaign-supervisor` | current | repo.path.exists confirms `portal/platform/agent/decide.py` exists in the checkout
+- `unit-agent-loop-operator-surface` | current | repo.path.exists confirms `portal/platform/inference/cli/agent.py` exists in the checkout
+- `unit-agent-loop-record-path-writing-enabled-ci-gated` | current | repo.path.exists confirms `portal/platform/agent/writeback.py` exists in the checkout
+- `unit-agent-loop-shape` | current | repo.path.exists confirms `portal/platform/agent/decide.py` exists in the checkout
+- `unit-alerts-1-enable-notifications` | current | repo.path.exists confirms `.env.example` exists in the checkout
+- `unit-alerts-3-restart-the-pipeline` | current | repo.path.exists confirms `deploy/portal-5/docker-compose.yml` exists in the checkout
+- `unit-alerts-alert-thresholds` | current | repo.path.exists confirms `portal/platform/inference/notifications/dispatcher.py` exists in the checkout
+- `unit-alerts-channel-priority` | current | repo.path.exists confirms `portal/platform/inference/notifications/dispatcher.py` exists in the checkout
+- `unit-alerts-daily-summary` | current | repo.path.exists confirms `portal/platform/inference/notifications/scheduler.py` exists in the checkout
+- `unit-alerts-daily-usage-summary` | current | repo.path.exists confirms `portal/platform/inference/notifications/scheduler.py` exists in the checkout
+- `unit-alerts-email` | current | repo.path.exists confirms `portal/platform/inference/notifications/channels/email.py` exists in the checkout
+- `unit-alerts-enable-disable-daily-summary-default-true` | current | repo.path.exists confirms `portal/platform/inference/notifications/scheduler.py` exists in the checkout
+- `unit-alerts-fire-all-backends-down-immediately-when-all-backends-fail-default-true` | current | repo.path.exists confirms `portal/platform/inference/notifications/dispatcher.py` exists in the checkout
+- `unit-alerts-fire-backend-down-after-this-many-consecutive-failures-per-backend-default-3` | current | repo.path.exists confirms `portal/platform/inference/notifications/dispatcher.py` exists in the checkout
+- `unit-alerts-hour-to-send-summary-0-23-default-8` | current | repo.path.exists confirms `portal/platform/inference/notifications/scheduler.py` exists in the checkout
+- `unit-alerts-operational-alerts` | current | repo.path.exists confirms `portal/platform/inference/notifications/dispatcher.py` exists in the checkout
+- `unit-alerts-optional-json-object-for-additional-headers-e-g-auth-tokens` | current | repo.path.exists confirms `portal/platform/inference/notifications/channels/webhook.py` exists in the checkout
+- `unit-alerts-portal-6-0-0-alerts-notifications-guide` | current | repo.path.exists confirms `portal/platform/inference/notifications/dispatcher.py` exists in the checkout
+- `unit-alerts-pushover` | current | repo.path.exists confirms `portal/platform/inference/notifications/channels/pushover.py` exists in the checkout
+- `unit-alerts-quick-start` | current | repo.path.exists confirms `portal/platform/inference/router/handlers.py` exists in the checkout
+- `unit-alerts-slack` | current | repo.path.exists confirms `portal/platform/inference/notifications/channels/slack.py` exists in the checkout
+- `unit-alerts-telegram` | current | repo.path.exists confirms `portal/platform/inference/notifications/channels/telegram.py` exists in the checkout
+- `unit-alerts-timezone-for-the-schedule-default-utc` | current | repo.path.exists confirms `portal/platform/inference/notifications/scheduler.py` exists in the checkout
+- `unit-alerts-troubleshooting` | current | repo.path.exists confirms `portal/platform/inference/router/handlers.py` exists in the checkout
+- `unit-alerts-webhook` | current | repo.path.exists confirms `portal/platform/inference/notifications/channels/webhook.py` exists in the checkout
+- `unit-archive-v5-ladder-analysis` | historical | dated, resolved, or superseded record retained for history
+- `unit-backup-restore-1-open-webui-data-critical` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-1-open-webui-data` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-2-configuration-files` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-2-configuration` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-3-mcp-data-if-applicable` | current | repo.path.exists confirms `.env.example` exists in the checkout
+- `unit-backup-restore-4-full-system-backup-script` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-add-to-crontab-crontab-e` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-backup-restore-after-config-changes-re-seed` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-backup-restore-backup-config-directory` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-backup-portal-5-data` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-backup-retention` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-cleanup-old-backups-run-daily` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-backup-restore-complete-system-recovery` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-config-excluding-env-for-security-back-that-up-manually` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-daily-backup-with-cron` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-extract-config-careful-may-overwrite-current-settings` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-manual-backup` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-mcp-data-if-exists` | current | repo.path.exists confirms `.env.example` exists in the checkout
+- `unit-backup-restore-migration-to-new-host` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-model-weights-recovery` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-backup-restore-open-webui-data` | current | repo.path.exists confirms `deploy/portal-5/docker-compose.yml` exists in the checkout
+- `unit-backup-restore-or-just-config-excluding-env-for-security` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-or-manually` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-backup-restore-portal-6-0-0-backup-restore-guide` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-backup-restore-pull-default-model` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-backup-restore-restart-services` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-backup-restore-restore-from-backup` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-security-notes` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-stop-services-first` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-what-not-to-back-up` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-what-to-back-up` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-backup-restore-with-compression-faster-for-large-volumes` | current | repo.path.exists confirms `scripts/lib/backup.sh` exists in the checkout
+- `unit-bench-candidates-v10` | current | repo.path.exists confirms `tests/benchmarks/bench_candidates_v10.py` exists in the checkout
+- `unit-bench-mlx-hf` | current | repo.path.exists confirms `tests/benchmarks/bench_mlx_hf.py` exists in the checkout
+- `unit-bench-security` | current | repo.path.exists confirms `tests/benchmarks/bench_security.py` exists in the checkout
+- `unit-blue-orchestration-v2-capture-gap` | historical | dated, resolved, or superseded record retained for history
+- `unit-blue-orchestration-v3-council-of-agreement` | historical | dated, resolved, or superseded record retained for history
+- `unit-capability-binresearch` | current | MCP fleet probe includes `binresearch`
+- `unit-capability-browser` | current | MCP fleet probe includes `browser`
+- `unit-capability-cad-render` | current | repo.path.exists confirms `config/inference/tools_manifest_cad_render_mcp.json` exists in the checkout
+- `unit-capability-context7` | current | MCP fleet probe includes `context7`
+- `unit-capability-detections` | current | MCP fleet probe includes `detections`
+- `unit-capability-docker` | current | MCP fleet probe includes `docker`
+- `unit-capability-documents` | current | MCP fleet probe includes `documents`
+- `unit-capability-eg2-embedding` | current | repo.path.exists confirms `portal/platform/embedding/__init__.py` exists in the checkout
+- `unit-capability-execution` | current | MCP fleet probe includes `execution`
+- `unit-capability-fetch` | current | MCP fleet probe includes `fetch`
+- `unit-capability-filesystem` | current | MCP fleet probe includes `filesystem`
+- `unit-capability-git` | current | MCP fleet probe includes `git`
+- `unit-capability-memory` | current | mcp.fleet.ids contains `memory` in config/portal.yaml
+- `unit-capability-mflux` | current | mcp.fleet.ids contains `mflux` in config/portal.yaml
+- `unit-capability-mitre` | current | mcp.fleet.ids contains `mitre` in config/portal.yaml
+- `unit-capability-mlx-transcribe` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-capability-music-minimax` | current | mcp.fleet.ids contains `music-minimax` in config/portal.yaml
+- `unit-capability-pipeline` | current | mcp.fleet.ids contains `pipeline` in config/portal.yaml
+- `unit-capability-proxmox` | current | mcp.fleet.ids contains `proxmox` in config/portal.yaml
+- `unit-capability-research` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-capability-security` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-capability-serena` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-capability-tts` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-capability-turn-trace` | current | repo.path.exists confirms `deploy/portal-5/docker-compose.yml` exists in the checkout
+- `unit-capability-video-mlx` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-capability-whisper` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-capability-wiki` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-channels-dispatcher` | current | repo.path.exists confirms `portal_channels/dispatcher.py` exists in the checkout
+- `unit-channels-namespace` | current | repo.path.exists confirms `portal_channels/__init__.py` exists in the checkout
+- `unit-channels-slack-adapter` | current | repo.path.exists confirms `portal_channels/slack/bot.py` exists in the checkout
+- `unit-channels-telegram-adapter` | current | repo.path.exists confirms `portal_channels/telegram/bot.py` exists in the checkout
+- `unit-cluster-scale-portal-5-cluster-scale-out-guide` | current | repo.path.exists confirms `config/backends.yaml` exists in the checkout
+- `unit-cluster-scale-stage-1-stage-2-add-a-second-mac-studio` | current | repo.path.exists confirms `config/backends.yaml` exists in the checkout
+- `unit-cluster-scale-stage-3-vllm-for-70b-models` | current | repo.path.exists confirms `config/backends.yaml` exists in the checkout
+- `unit-cluster-scale-stage-4-5-specialized-model-groups` | current | repo.path.exists confirms `config/backends.yaml` exists in the checkout
+- `unit-code-portal` | current | repo.path.exists confirms `portal/conftest.py` exists in the checkout
+- `unit-code-portal_channels` | current | repo.path.exists confirms `portal_channels/__init__.py` exists in the checkout
+- `unit-code-portal_wiki` | current | repo.path.exists confirms `portal_wiki/__init__.py` exists in the checkout
+- `unit-code-scripts` | current | repo.path.exists confirms `scripts/_archive/analyze_bench_v5.py` exists in the checkout
+- `unit-code-tests` | current | repo.path.exists confirms `tests/__init__.py` exists in the checkout
+- `unit-compliance-config-workspace-pointers` | current | repo.path.exists confirms `portal/modules/compliance/config/__init__.py` exists in the checkout
+- `unit-compliance-conversation-window` | current | repo.path.exists confirms `portal/modules/compliance/core/conversation_window.py` exists in the checkout
+- `unit-compliance-dual-document` | current | repo.path.exists confirms `portal/modules/compliance/core/dual_document.py` exists in the checkout
+- `unit-compliance-fallback-policy-canonical-baseline` | current | repo.path.exists confirms `portal/modules/eval/persona_matrix/cli.py` exists in the checkout
+- `unit-compliance-fallback-policy-compliance-fallback-policy` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-compliance-fallback-policy-full-sweep` | current | repo.path.exists confirms `portal/modules/eval/persona_matrix/cli.py` exists in the checkout
+- `unit-compliance-fallback-policy-granite-4-1-initial-expectation` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-compliance-fallback-policy-granite-required-sweep-fails-if-granite-has-been-removed-from-chain` | current | repo.path.exists confirms `portal/modules/eval/persona_matrix/sweep.py` exists in the checkout
+- `unit-compliance-fallback-policy-out-of-scope` | current | repo.path.exists confirms `portal/modules/eval/persona_matrix/_common.py` exists in the checkout
+- `unit-compliance-fallback-policy-re-running-the-matrix` | current | repo.path.exists confirms `portal/modules/eval/persona_matrix/cli.py` exists in the checkout
+- `unit-compliance-fallback-policy-threshold-policy` | current | repo.path.exists confirms `tests/lib/compliance_assertions.py` exists in the checkout
+- `unit-compliance-fallback-policy-what-compliance-fallback-means` | current | repo.path.exists confirms `config/backends.yaml` exists in the checkout
+- `unit-compliance-module-complete-instruments` | current | repo.path.exists confirms `scripts/compliance/retype_relations.py` exists in the checkout
+- `unit-compliance-module-config-only` | current | repo.path.exists confirms `portal/modules/compliance/__init__.py` exists in the checkout
+- `unit-compliance-operator-traceability` | current | repo.path.exists confirms `portal/modules/compliance/core/operator_traceability.py` exists in the checkout
+- `unit-compliance-prove-then-scale` | current | repo.path.exists confirms `portal/modules/compliance/core/reading_material.py` exists in the checkout
+- `unit-surface-compliance-reading-truth` | current | repo.path.exists confirms `scripts/compliance/truth/*.py` exists in the checkout
+- `unit-compliance-technical-basis-coverage` | current | repo.path.exists confirms `scripts/compliance/verify_technical_basis_coverage.py` exists in the checkout
+- `unit-compliance-transport-dialects` | current | repo.path.exists confirms `portal/modules/compliance/core/transport_dialects.py` exists in the checkout
+- `unit-config-file-roles` | current | repo.path.exists confirms `config/backends.yaml` exists in the checkout
+- `unit-corpus-injection-a-canned-detection-firing-on-corpus-data-t1558-004-as-rep-roasting-verbatim-spl` | current | repo.path.exists confirms `scripts/corpus_ingest.py` exists in the checkout
+- `unit-corpus-injection-always-dry-run-first-it-prints-exact-per-sourcetype-volume-without-injecting` | current | repo.path.exists confirms `scripts/corpus_ingest.py` exists in the checkout
+- `unit-corpus-injection-confirm-the-live-triage-window-is-still-clean` | current | repo.path.exists confirms `scripts/corpus_ingest.py` exists in the checkout
+- `unit-corpus-injection-corpus-injection-getting-hunt-ready-telemetry-into-lab-splunk` | current | repo.path.exists confirms `scripts/corpus_ingest.py` exists in the checkout
+- `unit-corpus-injection-durability-surviving-a-lab-reset` | current | repo.path.exists confirms `scripts/lab_bots_install.py` exists in the checkout
+- `unit-corpus-injection-inside-lxc-301-as-the-splunk-user-uid-41812-the-apps-dir-is-splunk-owned` | current | repo.path.exists confirms `scripts/lab_bots_install.py` exists in the checkout
+- `unit-corpus-injection-landing-which-sourcetypes-got-data` | current | repo.path.exists confirms `scripts/corpus_ingest.py` exists in the checkout
+- `unit-corpus-injection-lane-a-bots-pre-indexed-datasets` | current | repo.path.exists confirms `scripts/lab_bots_install.py` exists in the checkout
+- `unit-corpus-injection-lane-b-att-ck-labeled-corpora-over-hec` | current | repo.path.exists confirms `scripts/corpus_ingest.py` exists in the checkout
+- `unit-corpus-injection-lane-c-live-emulation-caldera-atomic-red-team` | current | repo.path.exists confirms `scripts/caldera_emulate.py` exists in the checkout
+- `unit-corpus-injection-on-the-target-from-the-lab-network` | current | repo.path.exists confirms `scripts/caldera_emulate.py` exists in the checkout
+- `unit-corpus-injection-related` | current | repo.path.exists confirms `scripts/lab_bots_install.py` exists in the checkout
+- `unit-corpus-injection-rollback` | current | repo.path.exists confirms `scripts/corpus_ingest.py` exists in the checkout
+- `unit-corpus-injection-the-property-that-matters-field-extraction-actually-works` | current | repo.path.exists confirms `scripts/corpus_ingest.py` exists in the checkout
+- `unit-corpus-injection-two-format-traps-that-silently-produce-useless-data` | current | repo.path.exists confirms `scripts/corpus_ingest.py` exists in the checkout
+- `unit-corpus-injection-verify-lane-b` | current | repo.path.exists confirms `scripts/corpus_ingest.py` exists in the checkout
+- `unit-corpus-injection-verify-lane-c` | current | repo.path.exists confirms `scripts/caldera_emulate.py` exists in the checkout
+- `unit-corpus-injection-why-corpus-data-coexists-safely-with-bench-runs` | current | repo.path.exists confirms `scripts/corpus_ingest.py` exists in the checkout
+- `unit-design-client-disconnect-cancellation` | current | repo.path.exists confirms `portal/modules/compliance/core/cancellation.py` exists in the checkout
+- `unit-design-embedding-consumers-harness` | current | repo.path.exists confirms `tests/data/embedding_consumers/csf2_to_80053r5_official.json` exists in the checkout
+- `unit-design-ollama-native-dispatch` | current | repo.path.exists confirms `config/engine_contract.yaml` exists in the checkout
+- `unit-design-omlx-dual-backend-plumbing` | current | repo.path.exists confirms `config/backends.yaml` exists in the checkout
+- `unit-design-spine-drift-census` | current | repo.path.exists confirms `portal/modules/compliance/plugin.py` exists in the checkout
+- `unit-design-wiki-archive-mechanism` | current | repo.path.exists confirms `portal/platform/wiki/archive.py` exists in the checkout
+- `unit-engine-prefix-cache-20261021` | historical | dated, resolved, or superseded record retained for history
+- `unit-fixture-capability-context-sample` | current | repo.path.exists confirms `tests/fixtures/capability_context/sample_module.py` exists in the checkout
+- `unit-general-config-workspace-pointers` | current | repo.path.exists confirms `portal/modules/general/config/__init__.py` exists in the checkout
+- `unit-general-fast-deep-workspaces` | current | repo.path.exists confirms `config/backends.yaml` exists in the checkout
+- `unit-general-module-vendored-tools` | current | repo.path.exists confirms `portal/modules/general/__init__.py` exists in the checkout
+- `unit-general-tools-vendored-fleet` | current | repo.path.exists confirms `portal/modules/general/tools/__init__.py` exists in the checkout
+- `unit-host-log-rotation` | current | repo.path.exists confirms `.env.example` exists in the checkout
+- `unit-inference-router-pipe` | current | repo.path.exists confirms `portal/platform/inference/router_pipe.py` exists in the checkout
+- `unit-known-issues-known-issues` | current | repo.path.exists confirms `portal/platform/wiki/render.py` exists in the checkout
+- `unit-known-limitations-70b-dense-models-unusable-for-daily-routing-on-m4-pro-64gb` | historical | dated, retired, or unconfigured-model finding retained for history
+- `unit-known-limitations-acestep15-mlx-backend` | current | code symbol `ace_generate` exists in `portal/modules/media/tools/music_ace_mcp.py`
+- `unit-known-limitations-antares-gate-e1-gated-download` | historical | dated, retired, or unconfigured-model finding retained for history
+- `unit-known-limitations-asteroids-bench-score-variance-is-the-benchmark-s-purpose` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-known-limitations-auto-math-workspace-reasoning-block-support` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-auto-rag-silent-miss` | current | code symbol `inject_retrieved_context` exists in `portal/platform/inference/router/context_inject.py`
+- `unit-known-limitations-baronllm-text-only-tool-output-auto-security-mcp-tools-non-functional` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-bully-discovery-truth-leak` | current | code symbol `independent_truth_related` exists in `portal/modules/security/core/bully/discovery_bench.py`
+- `unit-known-limitations-cad-b3d-session` | current | code symbol `cad_execute` exists in `portal/modules/cad/tools/b123d_bridge.py`
+- `unit-known-limitations-cad-brep-kernel-gaps` | current | source path `portal/modules/cad/tools/b123d_emitter.py` exists
+- `unit-known-limitations-cadquery-and-build123d-unusable-on-linux-arm64` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-code-sandbox-requires-privileged-container` | current | repo.path.exists confirms `deploy/portal-5/docker-compose.yml` exists in the checkout
+- `unit-known-limitations-compliance-implicit-change-recall` | current | source path `portal/modules/compliance/core/register_diff.py` exists
+- `unit-known-limitations-compliance-mcp-protocol-calls-not-cancelled` | current | repo.path.exists confirms `portal/modules/compliance/tools/compliance_mcp.py` exists in the checkout
+- `unit-known-limitations-compliance-review-queue-not-a-gate` | current | code symbol `prior_item_id` exists in `portal/modules/compliance/core/review_queue.py`
+- `unit-known-limitations-compliance-scope-was-gated-on-data-the-corpus-already-answers` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-devstral-24b-runtime-vram-footprint-25-7-gb` | historical | dated, retired, or unconfigured-model finding retained for history
+- `unit-known-limitations-diarized-transcription-task-transcribe-001` | current | repo.path.exists confirms `scripts/mlx-transcribe.py` exists in the checkout
+- `unit-known-limitations-emergent-objective-loop-curated-capability-tool-names-vs-live-dispatch-whitelist` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-engine-update-data01-approval` | current | source path `scripts/engine_autoupdate.py` exists
+- `unit-known-limitations-fara-cua-tag-closure` | historical | dated, retired, or unconfigured-model finding retained for history
+- `unit-known-limitations-granite-8b-mxfp8-tool-garbling` | current | code symbol `tool_calls` exists in `config/backends.yaml`
+- `unit-known-limitations-higgs-voice-cloning` | current | repo.path.exists confirms `scripts/mlx-speech.py` exists in the checkout
+- `unit-known-limitations-host-measurement-contention` | current | code symbol `begin_run` exists in `scripts/host_quiet.py`
+- `unit-known-limitations-host-native-mcp-lifecycle-launcher-child-exit` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-importing-the-security-bench-module-sets-a-linux-only-prometheus-multiproc-dir-host-side` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-known-limitations` | current | repo.path.exists confirms `portal/platform/wiki/render.py` exists in the checkout
+- `unit-known-limitations-ling-3-0-flash-turboquant-memory-gates` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-load-guard-omlx-swap` | current | code symbol `_FREE_SETTLE_EXPECTED_S` exists in `portal/platform/inference/load_guard.py`
+- `unit-known-limitations-meta3-metasploitable3-windows-scenario-coverage-spl-precision-gaps` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-minimax-music3-mlx` | current | source path `portal/modules/media/tools/music_minimax_mcp.py` exists
+- `unit-known-limitations-mlx-inference-proxy-retired-commit-3a0c58e` | historical | dated, retired, or unconfigured-model finding retained for history
+- `unit-known-limitations-model-parity-specialist-models-lost-in-the-mlx-ollama-migration` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-models-out-of-m4-pro-64-gb-budget` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-narrated-tool-call-instead-of-real-dispatch` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-no-built-in-multi-user-rate-limiting` | current | repo.path.exists confirms `portal/platform/inference/router/concurrency.py` exists in the checkout
+- `unit-known-limitations-ollama-api-ps-under-reports-llamacpp-residents` | current | code symbol `LoadGuard` exists in `portal/platform/inference/load_guard.py`
+- `unit-known-limitations-ollama-gpu-overhead-ceiling` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-ollama-native-mlx-engine-evaluation-findings-2026-07-01` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-ollama-tool-call-parser-aborts-a-started-stream` | current | code symbol `finish_reason` exists in `portal/platform/inference/router/streaming.py`
+- `unit-known-limitations-ollama-v1-ignores-options-num-ctx-and-options-num-batch` | current | repo.path.exists confirms `portal/platform/inference/router/validation.py` exists in the checkout
+- `unit-known-limitations-ollama-v1-sampling-drop` | current | code symbol `OllamaNativeTransport` exists in `portal/platform/inference/ollama_native.py`
+- `unit-known-limitations-ollama40-model-store` | current | code symbol `num_ctx` exists in `scripts/model_upstream.py`
+- `unit-known-limitations-omlx-balanced-ceiling` | current | code symbol `memory` exists in `portal/platform/inference/load_guard.py`
+- `unit-known-limitations-omlx-prefix-cache-accounting` | current | code symbol `_omlx_request` exists in `portal/platform/inference/ollama_native.py`
+- `unit-known-limitations-omlx-qwen3coder-tool-text` | current | code symbol `qwen3_coder` exists in `config/portal.yaml`
+- `unit-known-limitations-owui-audio-drop-ux-task-owui-audio-drop-001` | current | repo.path.exists confirms `.env.example` exists in the checkout
+- `unit-known-limitations-p5-emergent-002-deterministic-capability-ranker-can-t-reach-oracle-bearing-capabilities-once-any-tool-declaring-recon-capability-is-a-candidate` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-p5-mlx-eval-001-gguf-fleet-regressed-slightly-on-0-31-1-mtp-is-mlx-engine-only` | current | repo.path.exists confirms `config/backends.yaml` exists in the checkout
+- `unit-known-limitations-p5-mlx-eval-002-ollama-s-official-gemma4-mlx-tags-are-not-drop-in-swaps` | current | repo.path.exists confirms `config/backends.yaml` exists in the checkout
+- `unit-known-limitations-p5-mlx-eval-003-hf-hosted-mlx-models-are-currently-unreachable-by-the-pipeline` | current | repo.path.exists confirms `tests/benchmarks/bench_mlx_hf.py` exists in the checkout
+- `unit-known-limitations-p5-mlx-eval-004-large-single-blob-mlx-downloads-hang-intermittently` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-known-limitations-p5-mlx-eval-005-two-security-tier-fine-tunes-have-no-working-mlx-conversion` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-known-limitations-phi4-reasoning-plus-crashes-ollama-s-llama-server-on-this-host-confirmed-not-a-corrupted-download` | historical | dated, retired, or unconfigured-model finding retained for history
+- `unit-known-limitations-pipeline-hardening-20260925` | current | code symbol `resolve_hop_target` exists in `portal/platform/inference/router/streaming.py`
+- `unit-known-limitations-post-v1-messages-anthropic-compat-endpoint-returns-http-200-with-a-null-body` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-pytest-portal-leaves-real-write-through-test-artifacts` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-rbp-benign-corpus-alert-fatigue` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-request-size-cap-relies-on-content-length-only` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-router-model-eviction-single-request` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-serena-gate-d1-airgap-staging` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-shared-workspace-auto-stt-disabled-task-workspace-001` | current | repo.path.exists confirms `.env.example` exists in the checkout
+- `unit-known-limitations-speculative-decoding-mtp-retired-with-the-mlx-proxy-commit-3a0c58e` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-spine-code-coverage-ratchet` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-tool-preselection-candidate-1b-models-cannot-rank-tools` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-transitive-dependency-cves` | current | code symbol `convert_sigma` exists in `portal/modules/detection/tools/detection_mcp.py`
+- `unit-known-limitations-unregistered-hint-fallback` | current | code symbol `model_hint` exists in `portal/platform/inference/router/streaming.py`
+- `unit-known-limitations-v5-model-visible-corpus-retrieval-coverage` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-v8-catalog-deferred-insufficient-hardware` | historical | dated, retired, or unconfigured-model finding retained for history
+- `unit-known-limitations-vl-retrieval-runtime` | historical | closed, deferred, retired, or dated limitation record retained for history
+- `unit-known-limitations-vl-text-gate-tuned-against-manufactured-collision` | current | code symbol `VL_TEXT_GATE` exists in `reports/retrieval/SUBSTRATE_MIGRATION_V1.md`
+- `unit-lab-setup-all-these-should-succeed-after-setup` | current | repo.path.exists confirms `scripts/lab_setup.py` exists in the checkout
+- `unit-lab-setup-full-setup-downloads-vulhub-challenge-composes-base-images-model-pulls` | current | repo.path.exists confirms `scripts/lab_setup.py` exists in the checkout
+- `unit-lab-setup-lab-setup-cold-start-runbook` | current | repo.path.exists confirms `scripts/lab_setup.py` exists in the checkout
+- `unit-lab-setup-lane-targets` | current | repo.path.exists confirms `config/lab_targets.yaml` exists in the checkout
+- `unit-lab-setup-metadata-only-skip-heavy-vulhub-model-pulls` | current | repo.path.exists confirms `scripts/lab_setup.py` exists in the checkout
+- `unit-lab-setup-on-demand-targets-from-lab-targets-yaml` | current | repo.path.exists confirms `scripts/lab_targets.py` exists in the checkout
+- `unit-lab-setup-readiness-gate` | current | repo.path.exists confirms `scripts/lab_ready.py` exists in the checkout
+- `unit-lab-setup-reference` | current | repo.path.exists confirms `Dockerfile.attack` exists in the checkout
+- `unit-lab-setup-teardown` | current | repo.path.exists confirms `scripts/lib/lab.sh` exists in the checkout
+- `unit-lab-setup-tier-1-first-time-setup-run-once-re-run-to-update` | current | repo.path.exists confirms `scripts/lab_setup.py` exists in the checkout
+- `unit-lab-setup-tier-2-daily-operations` | current | repo.path.exists confirms `scripts/lib/lab.sh` exists in the checkout
+- `unit-lab-setup-update-an-existing-setup-git-pull-vulhub-refresh-composes` | current | repo.path.exists confirms `scripts/lab_setup.py` exists in the checkout
+- `unit-lab-setup-verification` | current | repo.path.exists confirms `scripts/lab_ready.py` exists in the checkout
+- `unit-mcp-dev-tooling-1-ensure-stack-is-running` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-mcp-dev-tooling-2-export-the-pipeline-api-key-into-the-environment` | current | repo.path.exists confirms `.env.example` exists in the checkout
+- `unit-mcp-dev-tooling-3-launch-opencode-reads-opencode-jsonc-mcp-json-automatically` | current | repo.path.exists confirms `opencode.jsonc` exists in the checkout
+- `unit-mcp-dev-tooling-adding-a-feature-opencode-with-local-laguna` | current | repo.path.exists confirms `portal/platform/mcp_host/pipeline_mcp.py` exists in the checkout
+- `unit-mcp-dev-tooling-auto-coding-workspace-laguna-variant` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-mcp-dev-tooling-checking-what-s-in-vram-before-a-long-task` | current | repo.path.exists confirms `portal/platform/mcp_host/pipeline_mcp.py` exists in the checkout
+- `unit-mcp-dev-tooling-claude-code-integration` | current | repo.path.exists confirms `scripts/cc-portal.sh` exists in the checkout
+- `unit-mcp-dev-tooling-debugging-a-failing-mcp-server-claude-code` | current | repo.path.exists confirms `.mcp.json` exists in the checkout
+- `unit-mcp-dev-tooling-dual-mode-portal-vs-stock-no-file-renaming` | current | repo.path.exists confirms `scripts/oc-portal.sh` exists in the checkout
+- `unit-mcp-dev-tooling-fastcontext-repository-explorer` | current | repo.path.exists confirms `portal/platform/mcp_host/pipeline_mcp.py` exists in the checkout
+- `unit-mcp-dev-tooling-fixing-a-bug-claude-code` | current | repo.path.exists confirms `portal/platform/mcp_host/pipeline_mcp.py` exists in the checkout
+- `unit-mcp-dev-tooling-install-if-missing` | current | repo.path.exists confirms `.mcp.json` exists in the checkout
+- `unit-mcp-dev-tooling-mcp-dev-tooling-claude-code-opencode-integration` | current | repo.path.exists confirms `.mcp.json` exists in the checkout
+- `unit-mcp-dev-tooling-mcp-servers-mcp-json` | current | repo.path.exists confirms `.mcp.json` exists in the checkout
+- `unit-mcp-dev-tooling-mode-a-cloud-intelligence-portal-tools-default-cc-portal-sh` | current | repo.path.exists confirms `scripts/cc-portal.sh` exists in the checkout
+- `unit-mcp-dev-tooling-mode-b-local-model-intelligence-portal-tools-cc-local-sh` | current | repo.path.exists confirms `scripts/cc-local.sh` exists in the checkout
+- `unit-mcp-dev-tooling-mode-c-stock-cloud-zero-portal-mcp-cc-stock-sh` | current | repo.path.exists confirms `scripts/cc-stock.sh` exists in the checkout
+- `unit-mcp-dev-tooling-opencode-integration-opencode-jsonc` | current | repo.path.exists confirms `opencode.jsonc` exists in the checkout
+- `unit-mcp-dev-tooling-portal-pipeline-mcp-portal-pipeline-8928` | current | repo.path.exists confirms `portal/platform/mcp_host/pipeline_mcp.py` exists in the checkout
+- `unit-mcp-dev-tooling-prerequisites` | current | repo.path.exists confirms `.mcp.json` exists in the checkout
+- `unit-mcp-dev-tooling-prometheus-fetch-patterns` | current | repo.path.exists confirms `portal/platform/inference/router/handlers.py` exists in the checkout
+- `unit-mcp-dev-tooling-quick-start` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-mcp-dev-tooling-security-boundaries` | current | repo.path.exists confirms `.mcp.json` exists in the checkout
+- `unit-mcp-dev-tooling-tools` | current | repo.path.exists confirms `portal/platform/mcp_host/pipeline_mcp.py` exists in the checkout
+- `unit-mcp-dev-tooling-what-opencode-gets` | current | repo.path.exists confirms `opencode.jsonc` exists in the checkout
+- `unit-mcp-dev-tooling-workspace-selection` | current | repo.path.exists confirms `opencode.jsonc` exists in the checkout
+- `unit-memory-mcp-lancedb` | current | repo.path.exists confirms `portal/platform/memory/graph_memory.py` exists in the checkout
+- `unit-model-catalog-alicankiraz0-cybersecurity-baronllm-offensive-security-llm-q6-k-gguf-dropped-hf-id-only-see-baronllm-q6-k-below-for-the-fleet-entry` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-baronllm-q6-k` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-blue-red-candidate-batch-evaluated-2026-07-03-none-promoted` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-cybersecqwen-4b-toolfix-latest` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-deepseek-r1-0528-qwen3-8b-4bit` | current | models.configured contains `DeepSeek-R1-0528-Qwen3-8B-4bit` in committed config
+- `unit-model-catalog-deepseek-r1-32b-q4-k-m` | current | models.configured contains `deepseek-r1:32b-q4_k_m` in committed config
+- `unit-model-catalog-devstral-24b` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-devstral-small-2-latest-ctx8k` | current | models.configured contains `devstral-small-2:latest-ctx8k` in committed config
+- `unit-model-catalog-devstral-small-2-latest` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-devstral-small-2` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-dolphin-llama3-8b` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-fredrezones55-qwen3-6-35b-a3b-uncensored-hauhaucs-aggressive-q4-ctx8k` | current | models.configured contains `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k` in committed config
+- `unit-model-catalog-fredrezones55-qwen3-6-35b-a3b-uncensored-hauhaucs-aggressive-q4` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-gemma-4-26b-a4b-it-qat-4bit` | current | models.configured contains `gemma-4-26b-a4b-it-QAT-4bit` in committed config
+- `unit-model-catalog-gemma-4-e4b-it-4bit` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-gemma4-12b-it-qat-ctx8k` | current | models.configured contains `gemma4:12b-it-qat-ctx8k` in committed config
+- `unit-model-catalog-gemma4-12b-it-qat` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-gemma4-26b-a4b-it-q4-k-m` | current | models.configured contains `gemma4:26b-a4b-it-q4_K_M` in committed config
+- `unit-model-catalog-gemma4-26b-a4b-it-qat-ctx8k` | current | models.configured contains `gemma4:26b-a4b-it-qat-ctx8k` in committed config
+- `unit-model-catalog-gemma4-26b-a4b-it-qat` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-gemma4-31b-it-qat-ctx8k` | current | models.configured contains `gemma4:31b-it-qat-ctx8k` in committed config
+- `unit-model-catalog-gemma4-31b-it-qat` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-gemma4-e2b-it-qat-ctx8k` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-gemma4-e2b-it-qat` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-gemma4-e4b-it-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-gemma4-e4b-it-qat-ctx8k` | current | models.configured contains `gemma4:e4b-it-qat-ctx8k` in committed config
+- `unit-model-catalog-gemma4-e4b-it-qat` | current | models.configured contains `gemma4:e4b-it-qat` in committed config
+- `unit-model-catalog-glm-4-7-flash-q4-k-m` | current | models.configured contains `glm-4.7-flash:Q4_K_M` in committed config
+- `unit-model-catalog-gpt-oss-20b` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-granite-4-1-30b-4bit` | current | models.configured contains `granite-4.1-30b-4bit` in committed config
+- `unit-model-catalog-granite-4-1-8b-mxfp8` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-granite4-1-30b-ctx16k` | current | models.configured contains `granite4.1:30b-ctx16k` in committed config
+- `unit-model-catalog-granite4-1-30b-ctx64k` | current | models.configured contains `granite4.1:30b-ctx64k` in committed config
+- `unit-model-catalog-granite4-1-30b` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-granite4-1-8b-ctx16k` | current | models.configured contains `granite4.1:8b-ctx16k` in committed config
+- `unit-model-catalog-granite4-1-8b-ctx8k` | current | models.configured contains `granite4.1:8b-ctx8k` in committed config
+- `unit-model-catalog-granite4-1-8b` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hermes3-8b` | current | models.configured contains `hermes3:8b` in committed config
+- `unit-model-catalog-hf-co-abiray-agents-a1-q4-k-m-gguf-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-andycurrent-mistral-7b-uncensored-gguf-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-bartowski-huihui-ai-qwen3-coder-next-abliterated-gguf-q4-k-m-ctx64k` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-bartowski-huihui-ai-qwen3-coder-next-abliterated-gguf-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-bartowski-nvidia-nemotron-3-5-lightning-30b-a3b-gguf-q4-k-m-ctx8k` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-bartowski-qwen-qwen3-6-27b-gguf-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-bartowski-thudm-glm-z1-rumination-32b-0414-gguf-thudm-glm-z1-rumination-32b-0414-q4-k-m-gguf-ctx64k` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-bartowski-thudm-glm-z1-rumination-32b-0414-gguf-thudm-glm-z1-rumination-32b-0414-q4-k-m-gguf` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-bugtraceai-bugtraceai-core-ultra-27b-q6-q6-k` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-coder543-north-mini-code-1-0-qad-gguf-nvfp4-ctx8k` | current | models.configured contains `hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4-ctx8k` in committed config
+- `unit-model-catalog-hf-co-coder543-north-mini-code-1-0-qad-gguf-nvfp4-promoted-2026-06-30` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-deepreinforce-ai-ornith-1-0-35b-gguf-q4-k-m-ctx64k` | current | models.configured contains `hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M-ctx64k` in committed config
+- `unit-model-catalog-hf-co-deepreinforce-ai-ornith-1-0-35b-gguf-q4-k-m-promoted-2026-06-30` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-deepreinforce-ai-ornith-1-0-9b-gguf-q4-k-m-dropped-2026-06-30` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-douyamv-gemma-4-31b-jang-4m-crack-gguf-gemma-4-31b-jang-crack-q4-k-m-gguf` | current | models.configured contains `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf` in committed config
+- `unit-model-catalog-hf-co-empero-ai-qwythos-9b-claude-mythos-5-1m-gguf-q4-k-m-dropped-2026-06-30` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-fdtn-ai-foundation-sec-8b-reasoning-q8-0-gguf-q8-0` | current | models.configured contains `hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0` in committed config
+- `unit-model-catalog-hf-co-gaston-parravicini-lfm2-5-8b-a1b-uncensored-gaston-gguf-q4-k-m-ctx8k` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-gaston-parravicini-lfm2-5-8b-a1b-uncensored-gaston-gguf-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-jackrong-qwopus3-6-27b-v2-mtp-gguf-qwopus3-6-27b-v2-mtp-q5-k-m-gguf` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-jiunsong-superqwen-agentworld-35b-a3b-abliterated-gguf-4bit-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-liquidai-lfm2-5-1-2b-instruct-gguf-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-liquidai-lfm2-5-230m-gguf-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-liquidai-lfm2-5-350m-gguf-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-mia-ailab-qwable-3-6-35b-qwable-3-6-35b-q4-k-m-gguf-removed-from-security-group` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-mia-ailab-qwable-3-6-35b-qwable-3-6-35b-q4-k-m-gguf` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-mitkox-fastcontext-1-0-4b-sft-q4-k-m-gguf-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-mradermacher-cybersecqwen-4b-gguf-q4-k-m-dropped-tool-call-blocker-fixed-2026-07-04-detection-quality-inconclusive-not-adopted` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-mradermacher-gemma-4-26b-a4b-it-uncensored-heretic-gguf-gemma-4-26b-a4b-it-uncensored-heretic-q4-k-m-gguf` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-mradermacher-huihui-qwen3-6-35b-a3b-abliterated-gguf-q4-k-m` | current | models.configured contains `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M` in committed config
+- `unit-model-catalog-hf-co-mradermacher-qwen3-5-9b-claude-4-6-highiq-thinking-heretic-uncensored-gguf-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-mradermacher-vulnllm-r-7b-gguf-q4-k-m-ctx8k` | current | models.configured contains `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` in committed config
+- `unit-model-catalog-hf-co-mradermacher-vulnllm-r-7b-gguf-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-nguuma-security-slm-unsloth-1-5b-latest` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-quantfactory-llama-3-2-3b-instruct-abliterated-gguf` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-redteamlab-qwen3-6-27b-blueteam-v1-q3-k-s-dropped-evaluated-not-adopted` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-redteamlab-qwen3-6-27b-redteam-v5-qwen3-6-27b-redteam-v5-q4-k-m-gguf-dropped-evaluated-not-adopted` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-sjakek-nex-n2-mini-gguf-ud-q4-k-m` | current | models.configured contains `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M` in committed config
+- `unit-model-catalog-hf-co-unsloth-deepseek-r1-0528-qwen3-8b-gguf-q4-k-xl-ctx64k` | current | models.configured contains `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` in committed config
+- `unit-model-catalog-hf-co-unsloth-deepseek-r1-0528-qwen3-8b-gguf-q4-k-xl` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-unsloth-glm-4-7-flash-reap-23b-a3b-gguf-ud-q4-k-xl-ctx64k` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-unsloth-glm-4-7-flash-reap-23b-a3b-gguf-ud-q4-k-xl` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-unsloth-magistral-small-2509-gguf-q8-0-ctx64k` | current | models.configured contains `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k` in committed config
+- `unit-model-catalog-hf-co-unsloth-magistral-small-2509-gguf-q8-0` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-unsloth-qwen-agentworld-35b-a3b-gguf-ud-q4-k-xl-ctx64k` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-unsloth-qwen-agentworld-35b-a3b-gguf-ud-q4-k-xl` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-unsloth-qwen3-6-35b-a3b-gguf-ud-q4-k-xl` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-hf-co-unsloth-qwen3-8-27b-gguf-q4-k-m` | current | models.configured contains `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M` in committed config
+- `unit-model-catalog-huihui-ai-baronllm-abliterated-latest-ctx8k` | current | models.configured contains `huihui_ai/baronllm-abliterated:latest-ctx8k` in committed config
+- `unit-model-catalog-huihui-ai-baronllm-abliterated-latest-dropped-evaluated-not-adopted-supersedes-the-gated-alicankiraz0-baronllm-above` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-huihui-ai-baronllm-abliterated` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-huihui-ai-gemma-4-abliterated-e2b-qat-ctx8k` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-huihui-ai-gemma-4-abliterated-e2b-qat` | current | models.configured contains `huihui_ai/gemma-4-abliterated:E2b-qat` in committed config
+- `unit-model-catalog-huihui-ai-huihui-qwen3-5-9b-abliterated-mlx-4bit` | current | models.configured contains `huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit` in committed config
+- `unit-model-catalog-huihui-ai-qwen3-5-abliterated-9b-ctx64k` | current | models.configured contains `huihui_ai/qwen3.5-abliterated:9b-ctx64k` in committed config
+- `unit-model-catalog-huihui-ai-qwen3-5-abliterated-9b-ctx8k` | current | models.configured contains `huihui_ai/qwen3.5-abliterated:9b-ctx8k` in committed config
+- `unit-model-catalog-huihui-ai-qwen3-5-abliterated-9b` | current | models.configured contains `huihui_ai/qwen3.5-abliterated:9b` in committed config
+- `unit-model-catalog-huihui-ai-qwen3-6-abliterated-27b-ctx8k` | current | models.configured contains `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` in committed config
+- `unit-model-catalog-huihui-ai-qwen3-6-abliterated-27b` | current | models.configured contains `huihui_ai/Qwen3.6-abliterated:27b` in committed config
+- `unit-model-catalog-huihui-ai-qwen3-abliterated-14b-v2` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-huihui-ai-tongyi-deepresearch-abliterated-latest-ctx64k` | current | models.configured contains `huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k` in committed config
+- `unit-model-catalog-huihui-ai-tongyi-deepresearch-abliterated` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-jackrong-deepseek-v4-pro-qwen3-5-4b-mtp` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-jackrong-deepseek-v4-pro-qwen3-5-9b-mtp` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-laguna-xs-2-1-4bit` | current | models.configured contains `Laguna-XS-2.1-4bit` in committed config
+- `unit-model-catalog-lfm2-5-8b-ctx8k` | current | models.configured contains `lfm2.5:8b-ctx8k` in committed config
+- `unit-model-catalog-lfm2-5-8b` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-llama-3-2-3b-instruct-8bit` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-llama3-2-3b-instruct-q8-0-ctx8k` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-llama3-2-3b` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-meta-secalign-8b-q4-k-m-latest` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-meta-secalign-8b-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-mistral-small3-2-24b` | current | models.configured contains `mistral-small3.2:24b` in committed config
+- `unit-model-catalog-model-catalog-portal-5-model-reference` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-muse-glimmer-30b-mlx` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-nvidia-nemotron-3-5-lightning-30b-a3b-oq4e-mtp` | current | models.configured contains `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp` in committed config
+- `unit-model-catalog-omnicoder2-9b-q4-k-m-ctx8k` | current | models.configured contains `omnicoder2:9b-q4_k_m-ctx8k` in committed config
+- `unit-model-catalog-omnicoder2-9b-q4-k-m` | current | models.configured contains `omnicoder2:9b-q4_k_m` in committed config
+- `unit-model-catalog-phi-4-reasoning-plus-mlx-4bit` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-phi4-14b-q8-0` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-phi4-mini-reasoning-latest-ctx24k` | current | models.configured contains `phi4-mini-reasoning:latest-ctx24k` in committed config
+- `unit-model-catalog-phi4-mini-reasoning` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-phi4-mini` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-phi4-reasoning-plus-ctx32k` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-phi4-reasoning-plus` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-portal5-deepwen-3-6-q4-5-moq-ctx32k` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-portal5-deepwen-3-6-q4-5-moq` | historical | dated, retired, or unconfigured-model finding retained for history
+- `unit-model-catalog-portal5-gemma4-12b-q4-k-m-ctx8k` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-portal5-qwen3-6-27b-mtp-q8-0-drafted` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-portal5-qwen36-27b-fable-fusion-heretic-q4-k-m-dropped` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-portal5-xyz-aquila-mini-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-qwen3-6-27b-mtp-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-qwen3-6-27b-oq8-mtp` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-qwen3-6-27b-q4-k-m-ctx16k` | current | models.configured contains `qwen3.6:27b-q4_K_M-ctx16k` in committed config
+- `unit-model-catalog-qwen3-6-27b-q4-k-m` | current | models.configured contains `qwen3.6:27b-q4_K_M` in committed config
+- `unit-model-catalog-qwen3-6-27b-q8-0` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-qwen3-6-35b-a3b-hauhaucs-aggressive-4bit` | current | models.configured contains `Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit` in committed config
+- `unit-model-catalog-qwen3-6-35b-a3b-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-qwen3-8-27b-oq4e-mtp` | current | models.configured contains `Qwen3.8-27B-oQ4e-mtp` in committed config
+- `unit-model-catalog-qwen3-8-flash-next-reap-288-mlx-4bit` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-qwen3-coder-30b-a3b-instruct-4bit` | current | models.configured contains `Qwen3-Coder-30B-A3B-Instruct-4bit` in committed config
+- `unit-model-catalog-qwen3-coder-30b-a3b-q4-k-m-ctx16k` | current | models.configured contains `qwen3-coder:30b-a3b-q4_K_M-ctx16k` in committed config
+- `unit-model-catalog-qwen3-coder-30b-a3b-q4-k-m-ctx8k` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-qwen3-coder-30b-a3b-q4-k-m` | current | models.configured contains `qwen3-coder:30b-a3b-q4_K_M` in committed config
+- `unit-model-catalog-qwen3-coder-next-latest-ctx64k` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-qwen3-coder-next-latest` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-qwen3-vl-32b-ctx8k` | current | models.configured contains `qwen3-vl:32b-ctx8k` in committed config
+- `unit-model-catalog-qwen3-vl-32b-instruct-4bit` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-qwen3-vl-32b` | current | models.configured contains `qwen3-vl:32b` in committed config
+- `unit-model-catalog-ravenx-cyberagent-35b-q4-k-m-dropped-evaluated-not-adopted-local-alias-for-ravenx-cyberagent-35b` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-supergemma4-26b-abliterated-multimodal-mlx-4bit` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-supergemma4-26b-uncensored-q4-k-m-ctx64k` | current | models.configured contains `supergemma4-26b-uncensored:Q4_K_M-ctx64k` in committed config
+- `unit-model-catalog-supergemma4-26b-uncensored-q4-k-m` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-sylink-sylink-8b-ctx8k` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-sylink-sylink-8b` | historical | model ID absent from current configuration; retained as catalog history
+- `unit-model-catalog-tongyi-deepresearch-30b-a3b-abliterated-4bit` | current | models.configured contains `Tongyi-DeepResearch-30B-A3B-abliterated-4bit` in committed config
+- `unit-model-catalog-vulnllm-r-7b-4bit` | current | models.configured contains `VulnLLM-R-7B-4bit` in committed config
+- `unit-ollama-native-passthrough` | current | repo.path.exists confirms `.env.example` exists in the checkout
+- `unit-p5-roadmap-future-considerations-not-yet-implemented` | current | repo.path.exists confirms `portal/platform/inference/config.py` exists in the checkout
+- `unit-p5-roadmap-p5-fut-004-webhook-based-event-notifications` | historical | completed, superseded, or retired roadmap decision retained for history
+- `unit-p5-roadmap-p5-fut-006-llm-based-intent-routing` | historical | completed, superseded, or retired roadmap decision retained for history
+- `unit-p5-roadmap-p5-fut-009-model-size-aware-admission-control-mlx-proxy` | historical | completed, superseded, or retired roadmap decision retained for history
+- `unit-p5-roadmap-p5-fut-013-omlx-evaluation-canceled` | historical | completed, superseded, or retired roadmap decision retained for history
+- `unit-p5-roadmap-p5-fut-014-v7-model-refresh-waterline` | historical | completed, superseded, or retired roadmap decision retained for history
+- `unit-p5-roadmap-p5-fut-embed-001-embeddinggemma-migration-seed` | historical | completed, superseded, or retired roadmap decision retained for history
+- `unit-p5-roadmap-p5-fut-speech-002-speech-model-shootout` | current | repo.path.exists confirms `scripts/mlx-transcribe.py` exists in the checkout
+- `unit-p5-roadmap-p5-roadmap-md-portal-5-v7-future-enhancements` | historical | completed, superseded, or retired roadmap decision retained for history
+- `unit-p5-roadmap-score-history` | historical | completed, superseded, or retired roadmap decision retained for history
+- `unit-p5-roadmap-speculative-decoding-mtp-retired-commit-3a0c58e` | historical | completed, superseded, or retired roadmap decision retained for history
+- `unit-p5-roadmap-workspace-clean-utility-low-priority` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-performance-backend-candidate-cache` | current | repo.path.exists confirms `portal/platform/inference/cluster_backends.py` exists in the checkout
+- `unit-performance-benchmark-client-reuse` | current | repo.path.exists confirms `tests/benchmarks/bench/measure.py` exists in the checkout
+- `unit-performance-benchmarking` | current | repo.path.exists confirms `tests/benchmarks/bench/cli.py` exists in the checkout
+- `unit-performance-keyword-cache` | current | repo.path.exists confirms `portal/platform/inference/router/routing.py` exists in the checkout
+- `unit-performance-llm-router-warmup-at-startup` | current | repo.path.exists confirms `portal/platform/inference/router/lifespan.py` exists in the checkout
+- `unit-performance-p7-perf-pipeline-optimizations` | current | repo.path.exists confirms `portal/platform/inference/cluster_backends.py` exists in the checkout
+- `unit-performance-shared-http-client` | current | repo.path.exists confirms `portal/platform/inference/router/lifespan.py` exists in the checkout
+- `unit-persona-matrix-ci-baseline-lifecycle` | current | repo.path.exists confirms `.github/workflows/persona_matrix_nightly.yml` exists in the checkout
+- `unit-persona-matrix-ci-big-model-coverage` | current | repo.path.exists confirms `.github/workflows/persona_matrix_nightly.yml` exists in the checkout
+- `unit-persona-matrix-ci-ci-vs-local-run-boundary` | current | repo.path.exists confirms `.github/workflows/persona_matrix_nightly.yml` exists in the checkout
+- `unit-persona-matrix-ci-mlx-coverage-policy` | current | repo.path.exists confirms `.github/workflows/persona_matrix_nightly.yml` exists in the checkout
+- `unit-persona-matrix-ci-out-of-scope-for-ci` | current | repo.path.exists confirms `portal/modules/eval/persona_matrix/_common.py` exists in the checkout
+- `unit-persona-matrix-ci-persona-matrix-ci-operations` | current | repo.path.exists confirms `.github/workflows/persona_matrix_nightly.yml` exists in the checkout
+- `unit-persona-matrix-ci-pipeline-shape` | current | repo.path.exists confirms `.github/workflows/persona_matrix_nightly.yml` exists in the checkout
+- `unit-persona-matrix-ci-regression-triage-workflow` | current | repo.path.exists confirms `.github/workflows/persona_matrix_nightly.yml` exists in the checkout
+- `unit-platform-storage-config-facade` | current | repo.path.exists confirms `portal/platform/data_loader.py` exists in the checkout
+- `unit-portal-conftest` | current | repo.path.exists confirms `portal/conftest.py` exists in the checkout
+- `unit-portal-mcp-namespace` | current | repo.path.exists confirms `portal_mcp/__init__.py` exists in the checkout
+- `unit-portal5-acceptance-execute-v9-autonomous-monitoring-loop-required-default` | current | repo.path.exists confirms `tests/acceptance/cli.py` exists in the checkout
+- `unit-portal5-acceptance-execute-v9-coverage-current` | current | repo.path.exists confirms `tests/acceptance/s03_routing.py` exists in the checkout
+- `unit-portal5-acceptance-execute-v9-failure-playbook` | current | repo.path.exists confirms `tests/acceptance/runner.py` exists in the checkout
+- `unit-portal5-acceptance-execute-v9-new-in-v9-routing-served-model-verification` | current | repo.path.exists confirms `scripts/routing_regression.py` exists in the checkout
+- `unit-portal5-acceptance-execute-v9-non-negotiables` | current | repo.path.exists confirms `scripts/execute_preflight.py` exists in the checkout
+- `unit-portal5-acceptance-execute-v9-phase-0-preflight-required` | current | repo.path.exists confirms `scripts/execute_preflight.py` exists in the checkout
+- `unit-portal5-acceptance-execute-v9-portal5-acceptance-execute-v9-claude-code-prompt` | current | repo.path.exists confirms `tests/portal5_acceptance_v6.py` exists in the checkout
+- `unit-portal5-acceptance-execute-v9-results-dashboard` | current | repo.path.exists confirms `scripts/update_grafana_acceptance.py` exists in the checkout
+- `unit-portal5-acceptance-execute-v9-running` | current | repo.path.exists confirms `tests/portal5_acceptance_v6.py` exists in the checkout
+- `unit-portal5-acceptance-execute-v9-your-role` | current | repo.path.exists confirms `tests/acceptance/cli.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-1-ground-truth-counts-no-retired-alias-leak` | current | repo.path.exists confirms `scripts/execute_preflight.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-2-bench-plan-the-real-test-count-for-this-run` | current | repo.path.exists confirms `tests/benchmarks/bench_tps.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-3-backends-up` | current | repo.path.exists confirms `tests/benchmarks/bench/config.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-autonomous-monitoring-loop-required-default` | current | repo.path.exists confirms `tests/benchmarks/bench/cli.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-failure-playbook` | current | repo.path.exists confirms `tests/benchmarks/bench/runners.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-modes` | current | repo.path.exists confirms `tests/benchmarks/bench/cli.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-non-negotiables` | current | repo.path.exists confirms `scripts/execute_preflight.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-on-each-wakeup` | current | repo.path.exists confirms `tests/benchmarks/bench/cli.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-on-launch` | current | repo.path.exists confirms `tests/benchmarks/bench/config.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-phase-0-preflight-required-before-any-run` | current | repo.path.exists confirms `scripts/execute_preflight.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-portal5-bench-execute-v4-opencode-bench-execution-prompt` | current | repo.path.exists confirms `scripts/execute_preflight.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-results-dashboard` | current | repo.path.exists confirms `scripts/update_grafana_benchmarks.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-served-model-sanity-new-in-v4` | current | repo.path.exists confirms `tests/benchmarks/bench/measure.py` exists in the checkout
+- `unit-portal5-bench-execute-v4-your-role` | current | repo.path.exists confirms `tests/benchmarks/bench/config.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-0a-ground-truth` | current | repo.path.exists confirms `scripts/execute_preflight.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-0b-lab-readiness-gate-do-not-bench-a-cold-or-unreachable-lab` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-autonomous-monitoring-loop-required-default` | current | repo.path.exists confirms `portal/modules/security/core/_data.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-candidate-qualification-report` | current | repo.path.exists confirms `portal/modules/security/core/commands/run.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-dry-run-the-full-expanded-plan-first-each-step-no-ops-if-its-module-is-absent` | current | repo.path.exists confirms `portal/modules/security/core/cli.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-failure-playbook` | current | repo.path.exists confirms `scripts/execute_preflight.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-full-expanded-with-live-lab-execution-needs-green-lab-ready` | current | repo.path.exists confirms `portal/modules/security/core/cli.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-non-negotiables` | current | repo.path.exists confirms `scripts/execute_preflight.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-portal5-bench-sec-execute-v3-security-bench-execution-prompt` | current | repo.path.exists confirms `tests/benchmarks/bench_security.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-running` | current | repo.path.exists confirms `portal/modules/security/core/cli.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-served-model-note-new-in-v3` | current | repo.path.exists confirms `scripts/execute_preflight.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-several-variants` | current | repo.path.exists confirms `portal/modules/security/core/cli.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-single-variant-on-the-prompt-set` | current | repo.path.exists confirms `portal/modules/security/core/cli.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-what-changed-in-the-security-surface-read-before-running` | current | repo.path.exists confirms `scripts/execute_preflight.py` exists in the checkout
+- `unit-portal5-bench-sec-execute-v3-your-role` | current | repo.path.exists confirms `portal/modules/security/core/cli.py` exists in the checkout
+- `unit-readme-acceptance-testing` | current | repo.path.exists confirms `tests/portal5_acceptance_v6.py` exists in the checkout
+- `unit-readme-architecture` | current | repo.path.exists confirms `deploy/portal-5/docker-compose.yml` exists in the checkout
+- `unit-readme-common-commands` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-readme-core-models-pulled-automatically-on-first-run-4-gb` | current | repo.path.exists confirms `deploy/portal-5/docker-compose.yml` exists in the checkout
+- `unit-readme-documentation` | current | repo.path.exists confirms `portal/platform/wiki/render.py` exists in the checkout
+- `unit-readme-functional-workspaces` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-readme-image-video-generation-mlx-native-host-layer` | current | repo.path.exists confirms `portal/modules/media/tools/mflux_mcp.py` exists in the checkout
+- `unit-readme-license` | current | repo.path.exists confirms `pyproject.toml` exists in the checkout
+- `unit-readme-mlx-models-apple-silicon-retained-for-audio-embedding-reranker-only-chat-inference-is-ollama-only` | current | repo.path.exists confirms `scripts/mlx-speech.py` exists in the checkout
+- `unit-readme-network-exposure` | current | repo.path.exists confirms `deploy/portal-5/docker-compose.yml` exists in the checkout
+- `unit-readme-portal-5-local-ai-platform` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-readme-prerequisites` | current | repo.path.exists confirms `scripts/lib/util.sh` exists in the checkout
+- `unit-readme-quick-start` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-readme-required-environment-variables` | current | repo.path.exists confirms `.env.example` exists in the checkout
+- `unit-readme-slack-bot-setup` | current | repo.path.exists confirms `deploy/portal-5/docker-compose.yml` exists in the checkout
+- `unit-readme-specialized-models-pulled-with-launch-sh-pull-models-60-100-gb-total` | current | repo.path.exists confirms `config/backends.yaml` exists in the checkout
+- `unit-readme-speech-text-to-speech-speech-to-text` | current | repo.path.exists confirms `scripts/mlx-speech.py` exists in the checkout
+- `unit-readme-telegram-bot-setup` | current | repo.path.exists confirms `deploy/portal-5/docker-compose.yml` exists in the checkout
+- `unit-readme-troubleshooting` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-readme-unit-test-ci` | current | repo.path.exists confirms `.github/workflows/unit-tests.yml` exists in the checkout
+- `unit-readme-what-starts-automatically` | current | repo.path.exists confirms `deploy/portal-5/docker-compose.yml` exists in the checkout
+- `unit-readme-workspaces` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-router-streaming` | current | repo.path.exists confirms `portal/platform/inference/ollama_native.py` exists in the checkout
+- `unit-router-test-context-inject` | current | repo.path.exists confirms `tests/unit/router/test_context_inject.py` exists in the checkout
+- `unit-router-test-correlation` | current | repo.path.exists confirms `tests/unit/router/test_correlation.py` exists in the checkout
+- `unit-routing-build-corpus` | current | repo.path.exists confirms `tests/routing/build_corpus.py` exists in the checkout
+- `unit-routing-measure` | current | repo.path.exists confirms `tests/routing/measure.py` exists in the checkout
+- `unit-routing-security-operator-selected` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-scripts-alias_census` | historical | dated, resolved, or superseded record retained for history
+- `unit-scripts-mlx-speech` | current | repo.path.exists confirms `scripts/mlx-speech.py` exists in the checkout
+- `unit-scripts-mlx-transcribe` | current | repo.path.exists confirms `scripts/mlx-transcribe.py` exists in the checkout
+- `unit-scripts-openwebui_init` | current | repo.path.exists confirms `scripts/openwebui_init.py` exists in the checkout
+- `unit-scripts-portal5-powermetrics` | current | repo.path.exists confirms `scripts/portal5-powermetrics.py` exists in the checkout
+- `unit-scripts-spine_census` | current | repo.path.exists confirms `scripts/spine_census.py` exists in the checkout
+- `unit-sec-core-cloud_bench` | current | repo.path.exists confirms `portal/modules/security/core/cloud_bench.py` exists in the checkout
+- `unit-sec-core-cred_bench` | current | repo.path.exists confirms `portal/modules/security/core/cred_bench.py` exists in the checkout
+- `unit-sec-core-decision_engine` | current | repo.path.exists confirms `portal/modules/security/core/decision_engine.py` exists in the checkout
+- `unit-sec-tests-test_security_mcp` | current | repo.path.exists confirms `portal/modules/security/tools/security_mcp.py` exists in the checkout
+- `unit-security-capability-index` | current | repo.path.exists confirms `portal/modules/security/core/capability/__init__.py` exists in the checkout
+- `unit-security-cli-pass-through` | current | repo.path.exists confirms `portal/modules/security/cli/__init__.py` exists in the checkout
+- `unit-security-combined-corpus-validation` | current | repo.path.exists confirms `config/security_corpus.yaml` exists in the checkout
+- `unit-security-commands-namespace` | current | repo.path.exists confirms `portal/modules/security/core/commands/__init__.py` exists in the checkout
+- `unit-security-commands-run` | current | repo.path.exists confirms `portal/modules/security/core/commands/run.py` exists in the checkout
+- `unit-security-config-reserved` | current | repo.path.exists confirms `portal/modules/security/config/__init__.py` exists in the checkout
+- `unit-security-knowledge-surface` | current | repo.path.exists confirms `portal/modules/security/knowledge/__init__.py` exists in the checkout
+- `unit-security-tools-mcp-surface` | current | repo.path.exists confirms `portal/modules/security/tools/__init__.py` exists in the checkout
+- `unit-surface-acceptance` | current | repo.path.exists confirms `tests/acceptance/*.py` exists in the checkout
+- `unit-surface-archive-engine-h2h` | historical | documents a retired code surface retained only under scripts/_archive
+- `unit-surface-archive-mlx` | historical | documents a retired code surface retained only under scripts/_archive
+- `unit-surface-benchmarks` | current | repo.path.exists confirms `tests/benchmarks/*.py` exists in the checkout
+- `unit-surface-binary-research` | current | repo.path.exists confirms `portal/modules/binary_research/**/*.py` exists in the checkout
+- `unit-surface-compliance-closeout-scripts` | current | repo.path.exists confirms `scripts/compliance/verify_conjunction_adoption.py` exists in the checkout
+- `unit-surface-compliance-prove-then-scale-scripts` | current | repo.path.exists confirms `scripts/prove_then_scale/*.py` exists in the checkout
+- `unit-surface-inference-cli` | current | repo.path.exists confirms `portal/platform/inference/cli/*.py` exists in the checkout
+- `unit-surface-inference` | current | repo.path.exists confirms `portal/platform/inference/*.py` exists in the checkout
+- `unit-surface-investigation` | current | repo.path.exists confirms `portal/modules/security/core/investigation/*.py` exists in the checkout
+- `unit-surface-mcp-host` | current | repo.path.exists confirms `portal/platform/mcp_host/*.py` exists in the checkout
+- `unit-surface-notifications` | current | repo.path.exists confirms `portal/platform/inference/notifications/*.py` exists in the checkout
+- `unit-surface-omlx-tool-parsers` | current | repo.path.exists confirms `scripts/omlx/deepseek_r1_tool_parser.py` exists in the checkout
+- `unit-surface-persona-matrix` | current | repo.path.exists confirms `portal/modules/eval/persona_matrix/*.py` exists in the checkout
+- `unit-surface-portal-wiki` | current | repo.path.exists confirms `portal_wiki/*.py` exists in the checkout
+- `unit-surface-router` | current | repo.path.exists confirms `portal/platform/inference/router/*.py` exists in the checkout
+- `unit-surface-scripts` | current | repo.path.exists confirms `scripts/*.py` exists in the checkout
+- `unit-surface-sec-bully` | current | repo.path.exists confirms `portal/modules/security/core/bully/*.py` exists in the checkout
+- `unit-surface-sec-core` | current | repo.path.exists confirms `portal/modules/security/core/*.py` exists in the checkout
+- `unit-surface-sec-tests` | current | repo.path.exists confirms `portal/modules/security/tests/*.py` exists in the checkout
+- `unit-surface-security-eval` | current | repo.path.exists confirms `portal/modules/security/eval/*.py` exists in the checkout
+- `unit-surface-security-review-eval` | current | repo.path.exists confirms `portal/modules/security/core/review_eval/*.py` exists in the checkout
+- `unit-surface-security-review-product` | current | repo.path.exists confirms `portal/modules/security/core/review/*.py` exists in the checkout
+- `unit-surface-siem` | current | repo.path.exists confirms `portal/modules/security/core/siem/*.py` exists in the checkout
+- `unit-surface-tests-bully` | current | repo.path.exists confirms `tests/security/bully/*.py` exists in the checkout
+- `unit-surface-tests-harness` | current | repo.path.exists confirms `tests/*.py` exists in the checkout
+- `unit-surface-tests-scripts` | current | repo.path.exists confirms `tests/scripts/*.py` exists in the checkout
+- `unit-surface-tests-security-review` | current | repo.path.exists confirms `tests/security/review/*.py` exists in the checkout
+- `unit-surface-tests-unit` | current | repo.path.exists confirms `tests/unit/*.py` exists in the checkout
+- `unit-surface-tool-preselect` | current | repo.path.exists confirms `portal/platform/inference/tool_preselect/*.py` exists in the checkout
+- `unit-surface-toolpreselect-tests` | current | repo.path.exists confirms `tests/toolpreselect/*.py` exists in the checkout
+- `unit-surface-uat-catalog` | current | repo.path.exists confirms `tests/uat_catalog/*.py` exists in the checkout
+- `unit-surface-uat` | current | repo.path.exists confirms `tests/uat/*.py` exists in the checkout
+- `unit-surface-wiki-adapters` | current | repo.path.exists confirms `portal/platform/wiki/adapters/*.py` exists in the checkout
+- `unit-tests-frontend-test-reasoning-display` | current | repo.path.exists confirms `tests/frontend/test_reasoning_display.py` exists in the checkout
+- `unit-tests-frontends-namespace` | current | repo.path.exists confirms `tests/frontends/__init__.py` exists in the checkout
+- `unit-tests-integration-wiki-cycle` | current | repo.path.exists confirms `tests/integration/test_wiki_self_improving_cycle.py` exists in the checkout
+- `unit-tests-memory-guard` | current | repo.path.exists confirms `tests/memory_guard.py` exists in the checkout
+- `unit-tests-scripts-regen-section-table` | current | repo.path.exists confirms `tests/scripts/regen_section_table.py` exists in the checkout
+- `unit-tests-unit-test-security-corpus-contract` | current | repo.path.exists confirms `tests/unit/test_security_corpus_contract.py` exists in the checkout
+- `unit-tests-unit-test-wiki-search-ranking` | current | repo.path.exists confirms `tests/unit/test_wiki_search_ranking.py` exists in the checkout
+- `unit-uat-config` | current | repo.path.exists confirms `tests/uat/config.py` exists in the checkout
+- `unit-uat-health` | current | repo.path.exists confirms `tests/uat/health.py` exists in the checkout
+- `unit-uat-init` | current | repo.path.exists confirms `tests/uat/__init__.py` exists in the checkout
+- `unit-uat-lifecycle` | current | repo.path.exists confirms `tests/uat/lifecycle.py` exists in the checkout
+- `unit-uat-owui_api` | current | repo.path.exists confirms `tests/uat/owui_api.py` exists in the checkout
+- `unit-uat-results` | current | repo.path.exists confirms `tests/uat/results.py` exists in the checkout
+- `unit-uat-state` | current | repo.path.exists confirms `tests/uat/state.py` exists in the checkout
+- `unit-user-guide-cross-session-memory` | current | code symbol `ENABLE_MEMORY_FEATURE` exists in `deploy/portal-5/docker-compose.yml`
+- `unit-user-guide-getting-access` | current | code symbol `ENABLE_SIGNUP` exists in `deploy/portal-5/docker-compose.yml`
+- `unit-user-guide-how-it-works` | current | code symbol `CHUNK_SIZE` exists in `deploy/portal-5/docker-compose.yml`
+- `unit-user-guide-knowledge-base-document-rag` | current | code symbol `CHUNK_SIZE` exists in `deploy/portal-5/docker-compose.yml`
+- `unit-user-guide-personas` | current | code symbol `workspace_model` exists in `config/personas/adversarysimulator.yaml`
+- `unit-user-guide-supported-formats` | current | code symbol `kb_ingest` exists in `portal/modules/research/tools/rag_mcp.py`
+- `unit-user-guide-tips` | current | code symbol `CHUNK_SIZE` exists in `deploy/portal-5/docker-compose.yml`
+- `unit-user-guide-tools-mcp-servers` | current | code symbol `create_word_document` exists in `portal/modules/documents/tools/document_mcp.py`
+- `unit-user-guide-uploading-documents` | current | code symbol `CHUNK_SIZE` exists in `deploy/portal-5/docker-compose.yml`
+- `unit-user-guide-workspaces` | current | code symbol `model_hint` exists in `config/portal.yaml`
+- `unit-wfe-loop-attribution-protocol` | current | repo.path.exists confirms `scripts/saluki_rule5_reverify.py` exists in the checkout
+- `unit-wfe-workspace-fitness` | current | repo.path.exists confirms `config/model_card_expectations.yaml` exists in the checkout
+- `unit-wiki-adapter-modules` | current | repo.path.exists confirms `portal/platform/wiki/adapters/modules.py` exists in the checkout
+- `unit-wiki-audit` | current | repo.path.exists confirms `portal/platform/wiki/audit.py` exists in the checkout
+- `unit-wiki-interfaces` | current | repo.path.exists confirms `portal/platform/wiki/interfaces.py` exists in the checkout
+- `unit-wiki-maintain` | current | repo.path.exists confirms `portal/modules/security/plugin.py` exists in the checkout
+- `unit-wiki-provenance-ledger` | current | repo.path.exists confirms `portal/platform/wiki/provenance_ledger.py` exists in the checkout
+- `unit-wiki-quality` | current | repo.path.exists confirms `portal/platform/wiki/quality.py` exists in the checkout
+- `unit-wiki-schema` | current | repo.path.exists confirms `portal/platform/wiki/schema.py` exists in the checkout
+- `unit-wiki-spine-coverage-gate` | current | repo.path.exists confirms `config/spine_surfaces.yaml` exists in the checkout
+- `unit-wiki-store` | current | repo.path.exists confirms `portal/platform/wiki/store.py` exists in the checkout
+- `unit-wiki-tests-migration` | current | repo.path.exists confirms `portal/platform/wiki/tests/test_migration.py` exists in the checkout
+- `unit-wiki-tests-render` | current | repo.path.exists confirms `portal/platform/wiki/tests/test_render.py` exists in the checkout
+- `unit-wiki-writeback` | current | repo.path.exists confirms `portal/platform/wiki/writeback.py` exists in the checkout

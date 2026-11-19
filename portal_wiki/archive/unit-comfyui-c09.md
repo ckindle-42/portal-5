@@ -1,20 +1,19 @@
 ---
 id: unit-comfyui-c09
+historical: true
 kind: mixed
 title: "Section C9 \u2014 Pipeline round-trips (auto-video)"
 sources:
 - type: code
   path: tests/comfyui/c09_pipeline_roundtrip.py
   commit: ee3590ba
-last_generated_commit: ee3590ba
 claims: []
 confidence: high
 tags:
 - authored-v1
 - tests
 - comfyui
-created_at: 1785798991.79806
-updated_at: 1785798991.79806
+
 ---
 
 This is the ComfyUI acceptance section c09. Section C9 — Pipeline round-trips (auto-video)
