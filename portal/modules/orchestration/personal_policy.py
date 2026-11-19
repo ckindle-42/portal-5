@@ -18,6 +18,7 @@ CODE_WORKSPACE = "auto-coding"
 SUMMARY_WORKSPACE = "auto-daily"
 HOP_CAP = 8
 TOOL_CALLER_WINDOW = 98_304
+DEFAULT_STEP_CONTEXT_TOKENS = 8192
 HELD_TEXT = "held: operator must run launch.sh"
 
 READ_TOOLS = frozenset({"recall", "wiki_search", "wiki_get_unit", "queue_status", "read_receipt"})
@@ -82,28 +83,52 @@ def validate_personal_plan(
     raw: dict[str, Any], tasks_root: Path, hidden: frozenset[str]
 ) -> PersonalPlan:
     """Accept one planner object or raise ValueError. No tool is called here."""
-    steps = raw.get("steps", raw.get("bites"))
+    steps_key = "steps" if "steps" in raw else ("bites" if "bites" in raw else "steps")
+    steps = raw.get(steps_key)
     if not isinstance(steps, list) or not steps:
         raise ValueError("plan steps must be a non-empty list")
     tools: set[str] = set()
     needs_confirm = False
+    normalized_steps: list[dict[str, Any]] = []
     for index, step in enumerate(steps):
         step_tools = _step_tools(step, index)
         _reject_unknown(step_tools, hidden)
         _reject_mixed(step_tools, index)
-        _require_budget(step, index)
-        _reject_paths(step, tasks_root, index)
+        tokens = _validate_budget(step, index)
+        paths = _validate_paths(step, tasks_root, index)
         tools.update(step_tools)
         if step_tools & CONFIRM_TOOLS or step_tools & HARD_DENY_NAMES:
             needs_confirm = True
+        normalized_steps.append(_normalize_step(step, index, paths, tokens))
     if tools & HARD_DENY_NAMES or tools & hidden:
         raise ValueError("plan names a denied tool")
     workspace = workspace_for(tools)
     if tools & CONFIRM_TOOLS:
         needs_confirm = True
+    payload = {**raw, steps_key: normalized_steps}
     return PersonalPlan(
-        payload=raw, workspace=workspace, tools=frozenset(tools), needs_confirm=needs_confirm
+        payload=payload, workspace=workspace, tools=frozenset(tools), needs_confirm=needs_confirm
     )
+
+
+def _normalize_step(
+    step: dict[str, Any], index: int, paths: list[str], context_tokens: int
+) -> dict[str, Any]:
+    step_id = step.get("id")
+    normalized_id = step_id if isinstance(step_id, str) and step_id.strip() else f"step-{index}"
+    budget = step.get("budget")
+    normalized_budget = (
+        {**budget, "context_tokens": context_tokens}
+        if isinstance(budget, dict)
+        else {"context_tokens": context_tokens}
+    )
+    return {
+        **step,
+        "id": normalized_id,
+        "tools": list(step.get("tools", [])),
+        "paths": paths,
+        "budget": normalized_budget,
+    }
 
 
 def _step_tools(step: object, index: int) -> set[str]:
@@ -127,21 +152,27 @@ def _reject_mixed(tools: set[str], index: int) -> None:
         raise ValueError(f"step {index}: reading and acting must be separate steps")
 
 
-def _require_budget(step: dict[str, Any], index: int) -> None:
+def _validate_budget(step: dict[str, Any], index: int) -> int:
     budget = step.get("budget")
-    if not isinstance(budget, dict):
-        raise ValueError(f"step {index} budget is required")
-    tokens = budget.get("context_tokens")
+    if budget is None:
+        raw_tokens = step.get("context_tokens")
+        tokens = DEFAULT_STEP_CONTEXT_TOKENS if raw_tokens is None else raw_tokens
+    elif isinstance(budget, dict):
+        raw_tokens = budget.get("context_tokens")
+        tokens = DEFAULT_STEP_CONTEXT_TOKENS if raw_tokens is None else raw_tokens
+    else:
+        raise ValueError(f"step {index} budget must be an object")
     if isinstance(tokens, bool) or not isinstance(tokens, int) or tokens < 1:
-        raise ValueError(f"step {index} budget.context_tokens is required")
+        raise ValueError(f"step {index} budget.context_tokens must be a positive integer")
     if tokens > TOOL_CALLER_WINDOW:
         raise ValueError(f"step {index} context budget {tokens} exceeds {TOOL_CALLER_WINDOW}")
+    return tokens
 
 
-def _reject_paths(step: dict[str, Any], tasks_root: Path, index: int) -> None:
+def _validate_paths(step: dict[str, Any], tasks_root: Path, index: int) -> list[str]:
     paths = step.get("paths", [])
     if paths is None:
-        return
+        return []
     if not isinstance(paths, list):
         raise ValueError(f"step {index} paths must be a list")
     root = tasks_root.resolve()
@@ -152,13 +183,18 @@ def _reject_paths(step: dict[str, Any], tasks_root: Path, index: int) -> None:
         resolved = candidate.resolve() if candidate.is_absolute() else (root / candidate).resolve()
         if resolved != root and not resolved.is_relative_to(root):
             raise ValueError(f"step {index} path is outside the tasks directory")
+    return list(paths)
 
 
 PLANNER_PROMPT = (
-    "Return one JSON object and nothing else. The object has steps, a non-empty list. "
-    "Each step has id, tools, paths, and budget.context_tokens. "
+    "Return one JSON object and nothing else. "
+    'Schema: {"steps": [{"id": "s1", "tools": ["queue_status"], "paths": [], '
+    '"budget": {"context_tokens": 8192}}]}. '
+    "steps must be a non-empty list. "
     "Use only allowlisted tools. Do not put a read tool and an action tool in the same step. "
-    "paths must stay under the tasks directory. Do not invent paths or tools. "
+    "paths must stay under the tasks directory (use [] when no path is needed). "
+    f"budget.context_tokens is a positive integer <= {TOOL_CALLER_WINDOW} (default {DEFAULT_STEP_CONTEXT_TOKENS}). "
+    "Do not invent paths or tools. "
     f"Allowlist: {json.dumps(sorted(KNOWN_TOOLS))}."
 )
 

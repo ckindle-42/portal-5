@@ -8,6 +8,7 @@ user is required (chat keeps its empty-allowlist-permits-all behaviour).
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +29,8 @@ from portal_channels.telegram.arm_bridge import (
     _telegram_chunks,
     default_arm_telegram_path,
 )
+
+logger = logging.getLogger(__name__)
 
 HELP_TEXT = (
     "Jarvis control verbs:\n"
@@ -62,6 +65,14 @@ def is_plain_jarvis(text: str) -> bool:
     chat model, which invented a dashboard)."""
     words = text.split()
     return bool(words) and words[0].lower().rstrip(",:") == "jarvis"
+
+
+def is_jarvis_slash(text: str) -> bool:
+    """True when text starts with /jarvis (including leading spaces or @botname)."""
+    words = text.split()
+    if not words or not words[0].startswith("/"):
+        return False
+    return words[0][1:].split("@", 1)[0].lower().rstrip(",:") == "jarvis"
 
 
 def control_enabled() -> bool:
@@ -100,6 +111,7 @@ async def handle_jarvis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await message.reply_text("Unauthorized.")
         return
     verb, args = parse(message.text or "")
+    logger.info("Jarvis command user=%s verb=%s", user.id, verb)
     if verb == "help":
         await message.reply_text(HELP_TEXT)
         return
