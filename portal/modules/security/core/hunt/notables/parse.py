@@ -626,15 +626,18 @@ def choose_partition(parsed: Sequence[Parsed]) -> Partition | None:
 
 
 def _time_ordered(parsed: Sequence[Parsed], field: str) -> bool:
-    """True when a field's values move with event order, so they are time or a sequence."""
+    """True when a field's non-equal transitions move monotonically with event order."""
     values = [item.fields.get(field) for item in parsed]
     pairs = [
         (left, right) for left, right in zip(values, values[1:], strict=False) if left and right
     ]
     if len(pairs) < MIN_PARTITION_LINES:
         return False
-    ordered = sum(1 for left, right in pairs if _value_leq(str(left), str(right)))
-    return ordered / len(pairs) >= TIME_ORDER_SHARE
+    transitions = [(left, right) for left, right in pairs if left != right]
+    if not transitions:
+        return False
+    ordered = sum(1 for left, right in transitions if _value_leq(str(left), str(right)))
+    return ordered / len(transitions) >= TIME_ORDER_SHARE
 
 
 def _value_leq(left: str, right: str) -> bool:

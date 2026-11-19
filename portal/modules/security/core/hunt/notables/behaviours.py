@@ -32,9 +32,12 @@ from .sample import (
 
 BEHAVIOUR_WINDOWS = 12  # effort budget: time slices read per activity source
 BEHAVIOUR_BURST_WINDOWS = 4  # peak four-hour slices reserved inside BEHAVIOUR_WINDOWS
-BEHAVIOUR_SUB_WINDOWS = 2  # each uniform slice read at its midpoint and tail
+BEHAVIOUR_SUB_WINDOWS = 2  # each uniform slice read at midpoint and tail when no bursts planned
+BEHAVIOUR_UNIFORM_SUB_WINDOWS_WITH_BURSTS = (
+    1  # 8*1 uniform + 4*4 burst keeps the exact 24-request ceiling per source
+)
 BEHAVIOUR_BURST_SUB_WINDOWS = (
-    2  # each peak four-hour slice read at midpoint and tail (same req cap)
+    4  # hourly slices inside each peak four-hour burst window (same 24-req cap)
 )
 BEHAVIOUR_BURST_SPAN_SECONDS = 4 * 3600  # four-hour burst bucket width matching deviation
 BEHAVIOUR_BURST_SERIES_ROWS = 40_000  # effort budget: per-period tstats rows for burst planning
@@ -709,20 +712,20 @@ def _select_source_bursts(
     bucket_shift: Mapping[float, float],
     limit: int,
 ) -> dict[str, list[tuple[float, float]]]:
-    """Top raw-z and common-mode-residual-z four-hour burst buckets per source."""
+    """Top residual-z four-hour bursts per source, filled with remaining raw-z peaks."""
     half = max(1, limit // 2)
     selected: dict[str, list[tuple[float, float]]] = {}
     for sourcetype, scored in per_source_z.items():
-        raw_top = sorted(scored, key=lambda item: (-item[0], item[1]))
         res_top = sorted(scored, key=lambda item: (-(item[0] - bucket_shift[item[1]]), item[1]))
+        raw_top = sorted(scored, key=lambda item: (-item[0], item[1]))
         chosen: list[float] = []
-        for z_val, stamp in raw_top:
-            if z_val > 0 and stamp not in chosen:
+        for z_val, stamp in res_top:
+            if z_val - bucket_shift[stamp] > 0 and stamp not in chosen:
                 chosen.append(stamp)
                 if len(chosen) >= half:
                     break
-        for z_val, stamp in res_top:
-            if z_val - bucket_shift[stamp] > 0 and stamp not in chosen:
+        for z_val, stamp in raw_top:
+            if z_val > 0 and stamp not in chosen:
                 chosen.append(stamp)
                 if len(chosen) >= limit:
                     break
@@ -786,14 +789,15 @@ def _burst_windows_by_source(
     return _select_source_bursts(per_source_z, bucket_shift, BEHAVIOUR_BURST_WINDOWS)
 
 
-def _merge_row_sets(uniform: RowSet, burst: RowSet) -> RowSet:
-    seen: set[tuple[float, str, str]] = set()
-    rows: list[dict[str, Any]] = []
-    for row in (*uniform.rows, *burst.rows):
-        key = (_row_time(row), str(row.get("host") or ""), str(row.get("_raw") or ""))
-        if key not in seen:
-            seen.add(key)
-            rows.append(row)
+def _merge_row_sets(
+    uniform: RowSet, burst: RowSet, burst_windows: Sequence[tuple[float, float]]
+) -> RowSet:
+    """Combine uniform and burst rows without double-counting overlapping windows or dropping ties."""
+    covered = [
+        (lo, hi) for lo, hi in burst_windows if any(lo <= _row_time(row) < hi for row in burst.rows)
+    ]
+    rows = [row for row in uniform.rows if not any(lo <= _row_time(row) < hi for lo, hi in covered)]
+    rows.extend(burst.rows)
     rows.sort(
         key=lambda row: (_row_time(row), str(row.get("host") or ""), str(row.get("_raw") or ""))
     )
@@ -805,6 +809,20 @@ def _merge_row_sets(uniform: RowSet, burst: RowSet) -> RowSet:
         selection="uniform baseline plus peak four-hour burst windows",
         query=uniform.query,
     )
+
+
+def _behaviour_read_windows(
+    facts: SourceFacts,
+    per_window: int,
+    burst_windows: Sequence[tuple[float, float]],
+) -> list[tuple[float, float]]:
+    if _is_complete_source(facts, per_window):
+        return source_windows(facts, 1)
+    if not burst_windows:
+        return source_windows(facts, BEHAVIOUR_WINDOWS)
+    peaks = list(burst_windows[:BEHAVIOUR_BURST_WINDOWS])
+    uniform_count = max(1, BEHAVIOUR_WINDOWS - len(peaks))
+    return [*source_windows(facts, uniform_count), *peaks]
 
 
 def read_behaviour_source(
@@ -840,7 +858,7 @@ def read_behaviour_source(
         per_window=per_window,
         kind="behavior_events",
         max_sources=BEHAVIOUR_SOURCES,
-        sub_windows=BEHAVIOUR_SUB_WINDOWS,
+        sub_windows=BEHAVIOUR_UNIFORM_SUB_WINDOWS_WITH_BURSTS,
     )
     burst_read = read_windows(
         executor,
@@ -851,7 +869,7 @@ def read_behaviour_source(
         max_sources=BEHAVIOUR_SOURCES,
         sub_windows=BEHAVIOUR_BURST_SUB_WINDOWS,
     )
-    return _merge_row_sets(uniform_read, burst_read)
+    return _merge_row_sets(uniform_read, burst_read, peaks)
 
 
 def _key_source(
@@ -862,11 +880,12 @@ def _key_source(
     executor: HuntExecutor,
     started: float,
     read: RowSet | None = None,
+    burst_windows: Sequence[tuple[float, float]] = (),
 ) -> tuple[list[dict[str, Any]], int, dict[str, dict[str, Any]], list[MisfitShape], dict[str, int]]:
     """Read one source once, key each structure's events, and keep its out-of-structure lines."""
-    windows = source_windows(facts, BEHAVIOUR_WINDOWS)
+    windows = _behaviour_read_windows(facts, per_window, burst_windows)
     if read is None:
-        read = read_behaviour_source(executor, facts, per_window)
+        read = read_behaviour_source(executor, facts, per_window, burst_windows=burst_windows)
     receipts: list[dict[str, Any]] = []
     overrides: dict[str, dict[str, Any]] = {}
     total = 0
@@ -1023,7 +1042,14 @@ def collect_behaviours(
             reads = [future.result() for future in futures]
         for (source_id, group, facts, started), read in zip(scheduled, reads, strict=True):
             found, count, found_overrides, misfits, misfit_stats = _key_source(
-                con, group, facts, per_window, executor, started, read
+                con,
+                group,
+                facts,
+                per_window,
+                executor,
+                started,
+                read,
+                burst_windows=burst_plan.get(facts.sourcetype, ()),
             )
             receipts.extend(found)
             overrides.update(found_overrides)

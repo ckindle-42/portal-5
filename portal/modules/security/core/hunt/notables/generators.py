@@ -755,13 +755,18 @@ def _behaviour_bursts(
         by_source.setdefault(behaviour.source_id, []).append(behaviour)
     ranked: list[tuple[float, int, Behaviour, int]] = []
     for rows in by_source.values():
-        values = [peaks.get(behaviour_identity(behaviour), 0) for behaviour in rows]
-        logs = [math.log1p(value) for value in values]
+        peaks_list = [peaks.get(behaviour_identity(behaviour), 0) for behaviour in rows]
+        # Weight peak count by temporal concentration (peak/events) so steady traffic loses to bursts.
+        effective = [
+            peak * (peak / max(1, behaviour.events))
+            for behaviour, peak in zip(rows, peaks_list, strict=True)
+        ]
+        logs = [math.log1p(value) for value in effective]
         median = statistics.median(logs)
         mad = statistics.median(abs(value - median) for value in logs)
         source_events = sum(behaviour.events for behaviour in rows)
-        for behaviour, peak in zip(rows, values, strict=True):
-            score = (math.log1p(peak) - median) / (mad + 0.5)
+        for behaviour, peak, eff in zip(rows, peaks_list, effective, strict=True):
+            score = (math.log1p(eff) - median) / (mad + 0.5)
             ranked.append((score, peak, behaviour, source_events))
     ranked.sort(
         key=lambda item: (

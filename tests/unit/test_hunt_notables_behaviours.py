@@ -448,3 +448,75 @@ def test_window_activity_resolves_from_to_and_preserves_mid_window_burst_slice()
     res2 = window_activity(firsts[0], [_card()], rows, "search index=ix | head 10")
     ev_lines = " ".join(str(item["line"]) for item in res2.evidence)
     assert "/first" in ev_lines and "/last" in ev_lines and "/burst1" in ev_lines
+
+
+def test_burst_guided_merge_preserves_duplicate_timestamp_events_and_hourly_burst_slices():
+    from portal.modules.security.core.hunt.executor import Read
+    from portal.modules.security.core.hunt.notables.behaviours import (
+        BEHAVIOUR_SUB_WINDOWS,
+        BEHAVIOUR_WINDOWS,
+        read_behaviour_source,
+    )
+
+    class _DupExec:
+        def __init__(self) -> None:
+            self.calls: list[tuple[float, float]] = []
+
+        def read(
+            self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+        ) -> Read:
+            del query, kind, row_cap
+            self.calls.append((start, end))
+            if start >= 100_000.0 and end <= 114_400.0:
+                # 1-hour slices: hit mid-bucket event at +8347s (in 3rd hour 107200..110800)
+                if start <= 108_347.0 < end:
+                    return Read(
+                        [{"_time": 108_347.0, "host": "h1", "_raw": "mid-bucket-burst"}],
+                        False,
+                        None,
+                    )
+                return Read([], False, None)
+            # Duplicate identical (ts, host, raw) lines like Samba permission-denied floods
+            if start <= 500_000.0 < end:
+                return Read(
+                    [{"_time": 500_000.0, "host": "h1", "_raw": "repeated-line"}] * 10,
+                    False,
+                    None,
+                )
+            # An overlapping uniform row inside the burst window must not double-count
+            if start <= 108_347.0 < end:
+                return Read(
+                    [{"_time": 108_347.0, "host": "h1", "_raw": "mid-bucket-burst"}],
+                    False,
+                    None,
+                )
+            return Read([], False, None)
+
+    facts = SourceFacts("ix", "st", 100_000, 0.0, 2_000_000.0, ("h1",), 1, ("s1",), 1)
+    executor = _DupExec()
+    bursts = [(100_000.0 + i * 200_000.0, 114_400.0 + i * 200_000.0) for i in range(4)]
+    read = read_behaviour_source(executor, facts, per_window=100, burst_windows=bursts)
+    assert sum(1 for row in read.rows if row["_raw"] == "repeated-line") == 10
+    assert sum(1 for row in read.rows if row["_raw"] == "mid-bucket-burst") == 1
+    assert len(executor.calls) <= BEHAVIOUR_WINDOWS * BEHAVIOUR_SUB_WINDOWS
+
+
+def test_select_source_bursts_prioritizes_residual_then_fills_with_raw_peaks():
+    from portal.modules.security.core.hunt.notables.behaviours import _select_source_bursts
+
+    # Top-2 raw == top-2 residual; bucket 300 is a genuine raw peak during moderate shift,
+    # while buckets 400/500 are flat low-z baseline buckets with zero shift.
+    per_source_z = {
+        "smtp": [
+            (7.4, 100.0),
+            (3.3, 200.0),
+            (0.9, 300.0),
+            (0.2, 400.0),
+            (0.2, 500.0),
+        ]
+    }
+    shifts = {100.0: 1.3, 200.0: 1.7, 300.0: 0.8, 400.0: 0.0, 500.0: 0.0}
+    selected = _select_source_bursts(per_source_z, shifts, limit=4)
+    starts = [lo for lo, _hi in selected["smtp"]]
+    assert 300.0 in starts
+    assert {100.0, 200.0}.issubset(starts)

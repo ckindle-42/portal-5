@@ -496,3 +496,39 @@ def test_choose_partition_prefers_true_schema_discriminator_over_host_or_header(
         for idx in range(12)
     ]
     assert choose_partition(parse_events(uniform)) is None
+
+
+def test_choose_partition_keeps_grouped_categorical_discriminator_not_time_ordered():
+    # Reproduces osquery_results: long consecutive runs of the same pack name,
+    # with both forward and backward transitions when the pack changes.
+    rows = []
+    packs = [
+        ("pack_b", {"columns.mem": "10", "columns.wall": "1"}),
+        ("pack_a", {"columns.path": "/tmp/a", "columns.pid": "42"}),
+        ("pack_c", {"columns.port": "443", "columns.proto": "6"}),
+        ("pack_a", {"columns.path": "/tmp/b", "columns.pid": "43"}),
+        ("pack_b", {"columns.mem": "12", "columns.wall": "2"}),
+    ]
+    for pack_name, extra in packs:
+        for _ in range(15):
+            rows.append(json.dumps({"name": pack_name, "host": "h1", **extra}))
+    partition = choose_partition(parse_events(rows))
+    assert partition is not None
+    assert partition.field == "name"
+    assert partition.values == ("pack_a", "pack_b", "pack_c")
+
+
+def test_template_card_classifies_numeric_metric_streams_as_measurement():
+    from portal.modules.security.core.hunt.notables.cards import assemble_cards, prepare_cards
+    from portal.modules.security.core.hunt.notables.sample import SourceFacts
+
+    metric_rows = [
+        {"_raw": f"mem {1000 + i} {2000 + i} {3000 + i} {40 + (i % 5)}.5 {50 + (i % 5)}.2"}
+        for i in range(20)
+    ]
+    facts = SourceFacts("ix", "vmstat", 20, 0.0, 100.0, ("h1",), 1, ("s1",), 1)
+    prepared = prepare_cards(facts, metric_rows, windows=1, model="test")
+    cards = assemble_cards(prepared, {})
+    assert len(cards) == 1
+    assert cards[0].fmt == "template"
+    assert cards[0].kind == "measurement"

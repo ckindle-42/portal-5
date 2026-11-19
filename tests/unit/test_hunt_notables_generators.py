@@ -343,3 +343,16 @@ def test_behaviour_deviations_interleaves_across_sources():
     ]
     found, _detail = _behaviour_deviations(behaviours, 0.0)
     assert [row.source_id for row in found[:2]] == ["ix:noisy", "ix:quiet"]
+
+
+def test_behaviour_bursts_prefers_concentrated_temporal_burst_over_steady_traffic():
+    steady = _behaviour("ix:net", "10.0.1.1", 1, 1, 1012, 100.0, "10.0.1.100", "TCP")
+    attack = _behaviour("ix:net", "45.77.65.211", 1, 1, 140, 500.0, "ssl", "TRAFFIC")
+    quiet = _behaviour("ix:net", "10.0.1.2", 1, 1, 10, 200.0, "dns", "UDP")
+    peaks = {
+        behaviour_identity(steady): 156,
+        behaviour_identity(attack): 140,
+        behaviour_identity(quiet): 5,
+    }
+    found, _detail = _behaviour_bursts([steady, attack, quiet], peaks)
+    assert found[0].entities[0] == ("actor", "45.77.65.211")
