@@ -65,6 +65,11 @@ VIDEO_MLX_LOW_RAM = os.environ.get("VIDEO_MLX_LOW_RAM", "1") not in ("", "0", "f
 VIDEO_MLX_QUALITY = os.environ.get("VIDEO_MLX_QUALITY", "fast")
 _JOBS = MediaJobManager()
 
+# What a model emits when it means "whatever the roster default is". Sent on as a
+# `--model` value it is a HF repo id, and the lookup 404s (2026-11-19:
+# `/api/models/default/revision/main`).
+_MODEL_PLACEHOLDERS = frozenset({"", "default", "auto", "none", "null"})
+
 # Roster key -> engine + the model argument its engine CLI takes. Upstream
 # `--help` is the authority; env overrides let an operator repoint a key
 # without a code change. `ltx` = dgrauet/ltx-2-mlx (a HF repo id or local pack
@@ -82,18 +87,62 @@ VIDEO_MLX_MODELS: dict[str, dict[str, str]] = {
 }
 
 
+def _model_key(model: str) -> str:
+    """Roster key for a requested model; a placeholder or blank means the roster default."""
+    key = (model or "").strip()
+    return VIDEO_MLX_DEFAULT_MODEL if key.casefold() in _MODEL_PLACEHOLDERS else key
+
+
 def _engine_cfg(model: str) -> dict[str, str]:
     """Roster entry for a model key; unknown keys pass through as LTX model tags."""
-    return VIDEO_MLX_MODELS.get(model) or {"engine": "ltx", "model": model}
+    key = _model_key(model)
+    return VIDEO_MLX_MODELS.get(key) or {"engine": "ltx", "model": key}
+
+
+def _hf_cache_dir() -> Path:
+    """huggingface_hub's hub cache: HF_HUB_CACHE, else HF_HOME/hub, else its default."""
+    explicit = os.environ.get("HF_HUB_CACHE")
+    if explicit:
+        return Path(explicit).expanduser()
+    home = os.environ.get("HF_HOME")
+    if home:
+        return Path(home).expanduser() / "hub"
+    return Path.home() / ".cache" / "huggingface" / "hub"
+
+
+def _cached_pack(repo_id: str) -> Path | None:
+    """The pack's downloaded snapshot dir, so a warm cache needs no HF lookup.
+
+    Passing the repo id makes ``_resolve_model_dir`` call ``snapshot_download``,
+    which resolves the revision over the network even when the weights are on
+    disk; the LTX-2.5 packs carry their own text tower, so a local path renders
+    fully offline.
+    """
+    if "/" not in repo_id:
+        return None
+    root = _hf_cache_dir() / f"models--{repo_id.replace('/', '--')}"
+    snapshots = root / "snapshots"
+    if not snapshots.is_dir():
+        return None
+    ref = root / "refs" / "main"
+    revision = ref.read_text().strip() if ref.is_file() else ""
+    if not revision or not (snapshots / revision).is_dir():
+        dirs = [p for p in snapshots.iterdir() if p.is_dir()]
+        if not dirs:
+            return None
+        revision = max(dirs, key=lambda p: p.stat().st_mtime).name
+    pack = snapshots / revision
+    return pack if any(pack.glob("*.safetensors")) else None
 
 
 def _media_model_key(model: str, width: int, height: int) -> str:
     """Size-aware admission key: the LTX peak scales with resolution (measured
     15.8GiB at 512x320, estimated ~25GB at 704x480), Wan2.2-5B does not."""
-    if _engine_cfg(model)["engine"] != "ltx":
-        return f"video_mlx:{model}"
+    key = _model_key(model)
+    if _engine_cfg(key)["engine"] != "ltx":
+        return f"video_mlx:{key}"
     bucket = "512" if width * height <= 512 * 320 else "704"
-    return f"video_mlx:{model}-{bucket}"
+    return f"video_mlx:{key}-{bucket}"
 
 
 def _round_frames(frames: int, step: int) -> int:
@@ -222,6 +271,10 @@ async def _generate(
 ) -> dict[str, Any]:
     cfg = _engine_cfg(model)
     engine = cfg["engine"]
+    if engine == "ltx":
+        local_pack = _cached_pack(cfg["model"])
+        if local_pack is not None:
+            cfg = {**cfg, "model": str(local_pack)}
     out = get_generated_dir("videos") / f"{engine}_{uuid.uuid4().hex[:8]}.mp4"
     frames = _round_frames(frames, 4 if engine == "wan" else 8)
     if engine == "wan":
@@ -281,7 +334,8 @@ async def video_start(
         return {"success": False, "error": "prompt is required"}
     if quality not in ("fast", "hq"):
         return {"success": False, "error": f"quality must be 'fast' or 'hq', not {quality!r}"}
-    model_key = _media_model_key(model, width, height)
+    resolved = _model_key(model)
+    model_key = _media_model_key(resolved, width, height)
     if not _JOBS.is_busy:
         refusal = await admit(model_key)
         if refusal:
@@ -298,12 +352,12 @@ async def video_start(
         late_refusal = await admit(model_key)
         if late_refusal:
             return late_refusal
-        engine = _engine_cfg(model)["engine"]
+        engine = _engine_cfg(resolved)["engine"]
         rounded = _round_frames(int(frames), 4 if engine == "wan" else 8)
-        progress(2, f"Rendering video ({model}, {rounded} frames, quality={quality})…")
+        progress(2, f"Rendering video ({resolved}, {rounded} frames, quality={quality})…")
         return await _generate(
             prompt,
-            model,
+            resolved,
             int(frames),
             int(width),
             int(height),
@@ -313,12 +367,14 @@ async def video_start(
             quality=quality,
         )
 
-    job_id = _JOBS.start(_run, extra_fields={"model": model, "seed": int(seed), "quality": quality})
+    job_id = _JOBS.start(
+        _run, extra_fields={"model": resolved, "seed": int(seed), "quality": quality}
+    )
     return start_reply(
         job_id,
         "video_status",
-        f"model={model}, quality={quality}",
-        model=model,
+        f"model={resolved}, quality={quality}",
+        model=resolved,
         seed=int(seed),
         quality=quality,
     )

@@ -255,3 +255,148 @@ def test_frame_grid_floors_to_the_engine_grid() -> None:
 
 def test_engine_cfg_passes_unknown_keys_through_as_ltx_tags() -> None:
     assert video_mcp._engine_cfg("future-pack") == {"engine": "ltx", "model": "future-pack"}
+
+
+class TestModelResolution:
+    """A model value the roster does not name must never reach the engine as-is."""
+
+    def test_placeholder_means_the_roster_default(self):
+        for value in ("default", "", "  DEFAULT  ", "auto", None):
+            assert video_mcp._model_key(value) == "ltx-2.5-q4"
+            assert video_mcp._engine_cfg(value)["model"] == "dgrauet/ltx-2.5-mlx-q4"
+
+    def test_placeholder_gets_the_default_pack_admission_key(self):
+        assert video_mcp._media_model_key("default", 512, 320) == "video_mlx:ltx-2.5-q4-512"
+
+    def test_real_roster_keys_are_left_alone(self):
+        assert video_mcp._model_key("wan2.2-5b") == "wan2.2-5b"
+        assert video_mcp._model_key("ltx-2.5-q4") == "ltx-2.5-q4"
+
+
+def _fake_hf_cache(cache: Path, repo_id: str = "dgrauet/ltx-2.5-mlx-q4") -> Path:
+    """A hub cache laid out as huggingface_hub writes it: refs/main + a snapshot."""
+    store = cache / f"models--{repo_id.replace('/', '--')}"
+    snapshot = store / "snapshots" / "e9a20add8c59"
+    snapshot.mkdir(parents=True)
+    (snapshot / "ltx-2.5-22b-distilled-lora-450-bf16.safetensors").write_bytes(b"w")
+    (store / "refs").mkdir()
+    (store / "refs" / "main").write_text("e9a20add8c59\n")
+    return cache
+
+
+class TestCachedPackResolution:
+    """The 404 was `snapshot_download('default')`; a cached pack must be a local path."""
+
+    def test_cached_pack_yields_its_snapshot_dir(self, monkeypatch, tmp_path):
+        cache = _fake_hf_cache(tmp_path / "hf-cache")
+        monkeypatch.setenv("HF_HUB_CACHE", str(cache))
+        pack = video_mcp._cached_pack("dgrauet/ltx-2.5-mlx-q4")
+        assert pack == cache / "models--dgrauet--ltx-2.5-mlx-q4/snapshots/e9a20add8c59"
+
+    def test_uncached_pack_yields_none(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("HF_HUB_CACHE", str(tmp_path / "empty"))
+        assert video_mcp._cached_pack("dgrauet/ltx-2.5-mlx-q4") is None
+
+    def test_hf_home_hub_layout_is_honoured(self, monkeypatch, tmp_path):
+        _fake_hf_cache(tmp_path / "hub")
+        monkeypatch.delenv("HF_HUB_CACHE", raising=False)
+        monkeypatch.setenv("HF_HOME", str(tmp_path))
+        assert video_mcp._cached_pack("dgrauet/ltx-2.5-mlx-q4") is not None
+
+    def test_bare_pack_name_is_not_a_repo_id(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("HF_HUB_CACHE", str(tmp_path))
+        assert video_mcp._cached_pack("ltx-2.5-q4") is None
+
+
+async def _render_with_captured_argv(monkeypatch, tmp_path, model: str) -> list[str]:
+    """Run _generate against a fake renderer and return the argv it was handed."""
+    monkeypatch.setenv("AI_OUTPUT_DIR", str(tmp_path / "out"))
+    argv: list[str] = []
+
+    async def fake_exec(*cmd: str, **_kw: Any) -> FakeProc:
+        argv.extend(cmd)
+        return FakeProc(Path(cmd[cmd.index("--output") + 1]))
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
+    monkeypatch.setattr(video_mcp, "publish_file", lambda p: _publish(p))
+    reply = await video_mcp._generate("waves", model, 97, 512, 320, 42, 24)
+    assert reply["success"] is True
+    return argv
+
+
+@pytest.mark.asyncio
+async def test_generate_hands_the_engine_the_cached_pack_not_a_repo_id(monkeypatch, tmp_path):
+    cache = _fake_hf_cache(tmp_path / "hf-cache")
+    monkeypatch.setenv("HF_HUB_CACHE", str(cache))
+    argv = await _render_with_captured_argv(monkeypatch, tmp_path, "ltx-2.5-q4")
+    assert argv[argv.index("--model") + 1] == str(
+        cache / "models--dgrauet--ltx-2.5-mlx-q4/snapshots/e9a20add8c59"
+    )
+
+
+@pytest.mark.asyncio
+async def test_generate_resolves_a_placeholder_model_to_the_default_pack(monkeypatch, tmp_path):
+    cache = _fake_hf_cache(tmp_path / "hf-cache")
+    monkeypatch.setenv("HF_HUB_CACHE", str(cache))
+    argv = await _render_with_captured_argv(monkeypatch, tmp_path, "default")
+    assert argv[argv.index("--model") + 1].endswith("snapshots/e9a20add8c59")
+
+
+@pytest.mark.asyncio
+async def test_generate_keeps_the_repo_id_when_the_pack_is_not_cached(monkeypatch, tmp_path):
+    monkeypatch.setenv("HF_HUB_CACHE", str(tmp_path / "empty"))
+    argv = await _render_with_captured_argv(monkeypatch, tmp_path, "ltx-2.5-q4")
+    assert argv[argv.index("--model") + 1] == "dgrauet/ltx-2.5-mlx-q4"
+
+
+@pytest.mark.asyncio
+async def test_start_reports_the_resolved_model_for_a_placeholder(monkeypatch, tmp_path):
+    monkeypatch.setenv("AI_OUTPUT_DIR", str(tmp_path))
+
+    async def fake_admit(_key: str) -> None:
+        return None
+
+    async def fake_gen(*_a: Any, **_k: Any) -> dict[str, Any]:
+        return {"success": True}
+
+    monkeypatch.setattr(video_mcp, "admit", fake_admit)
+    monkeypatch.setattr(video_mcp, "_generate", fake_gen)
+    start = await video_mcp.video_start(prompt="waves", model="default")
+    assert start["success"] is True and start["model"] == "ltx-2.5-q4"
+    done = await video_mcp.video_status(start["job_id"], wait_s=2.0)
+    assert done["status"] == "done"
+
+
+class TestInstallerContract:
+    """`install-video-mlx` must update the checkout it actually runs and reload launchd."""
+
+    @pytest.fixture(scope="class")
+    def installer(self) -> str:
+        root = Path(__file__).resolve().parents[2]
+        text = (root / "scripts/lib/services.sh").read_text(encoding="utf-8")
+        start = text.index("_launch_install_video_mlx() {")
+        end = text.index("_launch_start_video_mlx() {")
+        return text[start:end]
+
+    def test_a_detached_checkout_is_moved_to_origin_tip_not_silently_skipped(self, installer):
+        assert "pull --quiet || true" not in installer
+        assert "checkout --quiet --detach FETCH_HEAD" in installer
+
+    def test_the_engine_and_mcp_deps_are_verified_before_registering_the_job(self, installer):
+        assert '[ -x "$VX_VENV/bin/ltx-2-mlx" ]' in installer
+        assert '"$VX_VENV/bin/python" -c "import mcp, starlette"' in installer
+
+    def test_launchd_is_rebootstrapped_so_the_new_start_script_runs(self, installer):
+        assert 'launchctl bootout "gui/$(id -u)/com.portal5.video-mlx"' in installer
+        assert 'launchctl bootstrap "gui/$(id -u)" "$PLIST"' in installer
+
+    def test_the_pack_pull_uses_the_same_env_file_as_the_service(self):
+        root = Path(__file__).resolve().parents[2]
+        text = (root / "scripts/lib/services.sh").read_text(encoding="utf-8")
+        pull = text[
+            text.index("_launch_pull_video_mlx_models() {") : text.index(
+                "_launch_pull_asr_models() {"
+            )
+        ]
+        assert 'if [ -f "$ENV_FILE" ]' in pull
+        assert pull.index('if [ -f "$ENV_FILE" ]') < pull.index('"$VX_VENV/bin/ltx-2-mlx" info')
