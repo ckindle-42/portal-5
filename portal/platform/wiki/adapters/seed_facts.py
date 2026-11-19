@@ -591,14 +591,16 @@ MEDIA_MODEL_MEMORY_GB: dict[str, float] = {
     "music:minimax3": 22.0,  # coarse sampled delta 22.02GiB, rounded down to the GiB
     # Measured live (Phase 5): ACE-Step-1.5 sft 2B + 1.7B LM 60s/30-step, vm_stat delta + headroom.
     "music:acestep-sft": 40.0,  # coarse sampled delta 35.43GiB + 4GiB headroom, rounded up
-    # MLX-native image generation (MFLUX / mflux-generate CLI, host MLX layer) —
-    # measured live in TASK_IMAGE_VIDEO_OVERHAUL_V1 I1, quantize 8 + --low-ram.
+    # MLX-native image generation (MFLUX / mflux-generate-* CLI, host MLX layer) —
+    # keys mirror portal/modules/media/tools/_admission.py exactly; keep in sync.
     "mflux:schnell": 15.0,
     "mflux:dev": 16.0,
-    "mflux:klein": 18.0,
+    "mflux:flux2-klein": 18.0,  # measured 17.95 peak MLX, flux2-klein-4b q8 + --low-ram
+    "mflux:flux3-klein": 23.0,  # upstream q8 peak 22.8GB @1024²; not measured here
     "mflux:z-image": 30.0,  # measured 26.83GB peak MLX, z-image-turbo q8 + --low-ram, 8 steps 768px
-    "mflux:qwen-image": 40.0,  # measured 36.82GB peak MLX, q8 + --low-ram, 8 steps 768px
-    "mflux:qwen-image-edit": 42.0,  # same text encoder + edit transformer
+    "mflux:qwen-image": 40.0,  # measured 36.82GB peak MLX, q8 + --low-ram (retired tag)
+    "mflux:qwen-image-edit": 42.0,  # same text encoder + edit transformer (retired tag)
+    "mflux:qwen-2.1": 26.0,  # reasoned: 17.5GB bf16 text encoder + q8 transformer (see _admission.py)
     # MLX-native video generation (ltx-2-mlx CLI, host MLX layer) — LTX-2.5
     # distilled, --low-ram. Measured live in the 2026-10-28 LTX-2.3 vs 2.5 A/B.
     "video_mlx:ltx-2.5-q4": 18.0,  # measured 15.8GiB peak footprint, --distilled --low-ram, 512x320 97fr (2026-10-28)
@@ -615,8 +617,9 @@ def derive_media_memory_budget(commit: str) -> KnowledgeUnit:
         "to refuse a job before it OOMs instead of after.",
         "",
         "Image is `mflux:*` (MLX-native FLUX, host layer), video is `video_mlx:*` "
-        "(ltx-2-mlx, host layer), music is `music:*`. All are measured MLX peaks with "
-        "`--low-ram` / block streaming.",
+        "(ltx-2-mlx, host layer), music is `music:*`. Peaks are measured MLX "
+        "figures where marked, or sourced/reasoned bounds (see comments) until a "
+        "local measurement replaces them.",
         "",
         "| Backend:model | Estimated GB |",
         "|---|---|",
