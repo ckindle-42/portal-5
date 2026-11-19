@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import fcntl
 import json
 import logging
+import time
 from types import SimpleNamespace
 from typing import Any
 
@@ -408,7 +410,7 @@ def _short_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 async def test_omlx_cold_load_names_a_free_that_left_ps_before_its_headroom_rose(
-    caplog, monkeypatch
+    caplog, monkeypatch, tmp_path
 ):
     """R4: an accepted unload gone from /api/ps while its settle pends still blocks, named."""
     engines = Engines(
@@ -419,6 +421,7 @@ async def test_omlx_cold_load_names_a_free_that_left_ps_before_its_headroom_rose
     )
     engines.hidden["seat"] = 2 * GIB
     guard_obj = guard(engines)
+    monkeypatch.setattr(lg, "_PROCESS_LOCK_DIR", tmp_path)
     lg.set_load_wait("0.05")
     _short_sleep(monkeypatch)
     with (
@@ -439,6 +442,93 @@ async def test_omlx_cold_load_names_a_free_that_left_ps_before_its_headroom_rose
     assert engines.unload_calls == {"seat": 1}
     assert engines.ollama == {}  # the free was accepted; only the ceiling rise never landed
     assert not guard_obj._lock.locked()
+    reacquired = await guard_obj._acquire(OLLAMA, time.monotonic() + 0.1, "after-settle-refusal")
+    reacquired()
+
+
+async def test_ollama_cold_load_refuses_and_logs_a_free_that_never_settles(
+    caplog, monkeypatch, tmp_path
+):
+    engines = Engines(
+        tags={"target": 20 * GIB},
+        ollama={"stuck": 10 * GIB},
+        ceiling=9 * GIB,
+        unload_sticks=True,
+    )
+    guard_obj = guard(engines)
+    monkeypatch.setattr(lg, "_PROCESS_LOCK_DIR", tmp_path)
+    lg.set_load_wait("0.05")
+    _short_sleep(monkeypatch)
+
+    with (
+        caplog.at_level(logging.WARNING, logger=lg.logger.name),
+        pytest.raises(lg.LoadRefusedError) as err,
+    ):
+        await guard_obj.admit(OLLAMA_URL, "target")
+
+    assert err.value.reason == "free-settle"
+    assert "free of stuck did not settle" in str(err.value)
+    assert any("free of stuck did not settle" in record.getMessage() for record in caplog.records)
+    assert not guard_obj._lock.locked()
+    reacquired = await guard_obj._acquire(OLLAMA, time.monotonic() + 0.1, "after-ollama-free")
+    reacquired()
+
+
+async def test_omlx_make_room_exception_releases_cold_load_lock(monkeypatch, tmp_path):
+    engines = Engines(
+        omlx={"idle": {"size": 10 * GIB, "loaded": True}, "mlx": {"size": 14 * GIB}},
+        ceiling=24 * GIB,
+    )
+    guard_obj = guard(engines)
+    monkeypatch.setattr(lg, "_PROCESS_LOCK_DIR", tmp_path)
+
+    async def fail_during_make_room(*_args, **_kwargs):
+        raise RuntimeError("make-room measurement failed")
+
+    monkeypatch.setattr(guard_obj, "_advance_omlx_own_residents", fail_during_make_room)
+    with pytest.raises(RuntimeError, match="make-room measurement failed"):
+        await guard_obj.admit_omlx("mlx")
+
+    assert not guard_obj._lock.locked()
+    reacquired = await guard_obj._acquire(OLLAMA, time.monotonic() + 0.1, "after-make-room-error")
+    reacquired()
+
+
+async def test_ollama_measurement_error_keeps_latest_cold_load_lock(monkeypatch, tmp_path):
+    guard_obj = guard(Engines(tags={"target": GIB}))
+    monkeypatch.setattr(lg, "_PROCESS_LOCK_DIR", tmp_path)
+
+    async def fail_after_reacquire(_client, _base, model, deadline, held, release):
+        release()
+        current = await guard_obj._acquire(OLLAMA, deadline, model)
+        held.append(current)
+        raise RuntimeError("measurement failed after reacquire")
+
+    monkeypatch.setattr(guard_obj, "_admit_ollama_locked", fail_after_reacquire)
+    release = await guard_obj.admit(OLLAMA_URL, "target")
+
+    assert release is not None
+    release()
+    assert not guard_obj._lock.locked()
+    reacquired = await guard_obj._acquire(OLLAMA, time.monotonic() + 0.1, "after-measurement-error")
+    reacquired()
+
+
+async def test_process_cold_load_lock_timeout_is_bounded_and_logged(caplog, monkeypatch, tmp_path):
+    monkeypatch.setattr(lg, "_PROCESS_LOCK_DIR", tmp_path)
+    lock_path = tmp_path / "cold-load.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a+") as holder:
+        fcntl.flock(holder.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        guard_obj = lg.LoadGuard(omlx_url=lambda: None)
+        with (
+            caplog.at_level(logging.WARNING, logger=lg.logger.name),
+            pytest.raises(lg.LoadRefusedError, match="another model load"),
+        ):
+            await guard_obj._acquire(OLLAMA, time.monotonic() + 0.02, "blocked-model")
+        assert not guard_obj._lock.locked()
+        assert any("process cold-load lock" in record.getMessage() for record in caplog.records)
+        fcntl.flock(holder.fileno(), fcntl.LOCK_UN)
 
 
 def test_a_sized_kv_cache_is_not_padded_by_the_weight_factor():
