@@ -1445,17 +1445,3 @@ from repeating it.
 
 Deletion is the one store operation that cannot be undone quietly: the file that goes missing is the weights blob behind a tag the operator still runs. 0.40 split the manifest store without changing the walk that every existing cleaner had hard-coded, so a v1-era reference set is silently half-sized, and the hidden llamacpp builds are a second blind spot on top of it. Deriving the safe set from `ollama show` plus both stores is the only union that names every live byte; anything smaller eventually deletes something live, as the 2026-10-28 deletion showed.
 <!-- /WIKI:GENERATED -->
-
----
-
-<!-- WIKI:GENERATED unit=unit-known-limitations-hermes-agent-pins -->
-- **ID**: P5-HERMES-AGENT-001
-- **Status**: OPEN. Not a Portal service. Recorded 2026-11-19 from the host uv tool, not from a live Portal trace.
-- **Description**: `hermes-agent` 0.19.0 (`~/.local/share/uv/tools/hermes-agent`) pins `Pillow==12.2.0` and `PyJWT[crypto]==2.13.0`. Those exact pins cannot satisfy pillow 13.0.0 (`GHSA-5x8w-8jj5-q52h` / `CVE-2026-112398`, fixed in 13.0.0) or PyJWT 2.14.0 (`PYSEC-2026-4144` JWKS redirect, `PYSEC-2026-4151` algorithm confusion, both fixed in 2.14.0). The resolver reports the constraints unsatisfiable.
-- **Used by Portal**: no. Nothing under `portal/`, `scripts/`, `deploy/`, or `config/` invokes `hermes-agent`. It is an operator uv tool on the host, separate from the `hermes3:8b` model seat and the `hermes` tool-call parser name.
-- **Mitigation**: leave the tool pinned until upstream moves those pins, or remove the uv tool. Do not force pillow or PyJWT inside that environment. Portal engine installers do not touch it (`scripts/engine_install_plan.py` holds the media core stack and applies sweep fixes only to music, mflux, and video-mlx).
-
-#### Why
-
-A host uv tool that Portal never starts was failing the same advisory floors as the media venvs. Recording the pins and the fact that Portal does not use it keeps a later sweep from treating the tool as a platform dependency, and leaves removal as an operator choice.
-<!-- /WIKI:GENERATED -->
