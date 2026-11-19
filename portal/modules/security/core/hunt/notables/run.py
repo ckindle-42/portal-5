@@ -48,6 +48,7 @@ from .sample import (
     sample_windows,
 )
 from .similar import SIMILAR_GENERATOR, generate_similar
+from .window_activity import resolve_source_windows
 
 HTTP_ERROR_THRESHOLD = 0.20
 JUDGE_STAGE_DEADLINE_SECONDS = 720.0  # effort budget: the hunt job wall time (executor job_seconds)
@@ -393,13 +394,15 @@ def notables_stage(
     standard_enabled = [
         name for name in enabled if name not in (SIMILAR_GENERATOR, MISFIT_GENERATOR)
     ]
+    executor = executor_for(search)
+    source_facts = facts_by_source(cards)
     notables, receipt = generate(
-        executor_for(search),
+        executor,
         index,
         start,
         end,
         cards,
-        facts_by_source(cards),
+        source_facts,
         behaviours,
         load_source_stats(store),
         standard_enabled,
@@ -434,6 +437,8 @@ def notables_stage(
         receipt[SIMILAR_GENERATOR] = detail
         receipt["seconds"][SIMILAR_GENERATOR] = detail["seconds"]
     merged, merge_receipt = merge_notables(notables, MERGE_PRIORITY, DEFAULT_MERGE)
+    if "deviation" in enabled:
+        receipt["source_windows"] = resolve_source_windows(merged, executor, cards, source_facts)
     receipt["merge"] = merge_receipt
     receipt["enabled"] = list(enabled)
     receipt["total"] = len(merged)

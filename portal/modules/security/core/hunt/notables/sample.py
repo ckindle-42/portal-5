@@ -54,6 +54,7 @@ class RowSet:
     route: str = ""
     notes: list[str] = field(default_factory=list)
     selection: str = "newest events of each equal time slice"
+    query: str = ""
 
     def as_dict(self) -> dict[str, Any]:
         return {"rows": len(self.rows), "windows": self.windows, "route": self.route}
@@ -269,7 +270,7 @@ def read_windows(
         slice_bounds.extend(window_bounds(start, end, parts))
     per_part = max(1, per_window // parts)
     query = f"search index={_quoted(facts.index)} {route} | head {per_part}"
-    found = RowSet(windows=len(readable), route=route_name)
+    found = RowSet(windows=len(readable), route=route_name, query=query)
     concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
     with ThreadPoolExecutor(max_workers=min(len(slice_bounds) or 1, concurrency)) as pool:
         futures = [

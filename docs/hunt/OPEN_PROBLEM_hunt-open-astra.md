@@ -34,3 +34,16 @@ The behaviour reader now requests the entire observed range once when the comple
 I took every source-first-seen or source-burst entry in the stored botsv2 top 50 (12 windows), with no key-based selection. I read the newest 383 events or fewer in each window, using the stored per-window allocation and the source route corrected for overlap. The experiment grouped parsed rows by the card's actor, action and object field, selected the group with the most distinct observed object values, and retained its chronological endpoints. No key entered grouping or selection.
 
 Four windows had a group with multiple distinct objects. At stored file position 33 one client retrieved seven distinct FTP objects; the last was the admitted Korean attachment. At position 46 the Apache error template covered 345 distinct object values in 348 rows; the episode's evidence carried the scanner address. The other two groups carried no admitted artefact. Scoring the four groups' descriptions and endpoint evidence after selection locates three steps from two episodes, versus the current baseline's two from one incorrectly attributed behaviour. This is a bounded discovery replay with frozen ranks. The Apache address earns two credits because of the entity scoreboard's shared key. Its evidence directly supports web scanning; it does not by itself demonstrate a separate C2 session.
+
+### Four-family scoreboard replay
+
+Using the production episode formatter, I replayed the same bounded reads on each family's stored ranking. The official scoreboard reported:
+
+| Family | Steps at 50 / 100 / all | Resolved source windows in the first 50 |
+|---|---|---:|
+| botsv2 | 3 / 3 / 4 of 15 | 4 |
+| kyoushi | 12 / 12 / 12 of 12 | 6 |
+| santos | 14 / 16 / 17 of 21 | 0 |
+| russell | 15 / 15 / 16 of 22 | 2 |
+
+Botsv2 covered two of four scenarios at every cut. The unit is a shared actor, action and object field inside an already-ranked anomalous source window. Evidence shows its distinct object count, earliest and latest sampled objects, endpoint lines, source query and bounds. The primary rank and LOFO merge weights stay the same. Two distinct objects are necessary to report multiple objects. The first 50 positions and the existing family's per-window read limit bound discovery cost. No weight or score threshold was fitted. Qualification used frozen ranks, and the clean four-family run still needs to verify the earlier routing and sampling changes together with this stage.

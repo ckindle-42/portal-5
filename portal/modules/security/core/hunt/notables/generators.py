@@ -602,12 +602,12 @@ def _source_deviations(
         firsts.append((series[0][0] - index_start, name, series[0][0]))
     bursts.sort(key=lambda item: (-item[0], item[1]))
     firsts.sort(key=lambda item: (-item[0], item[1]))
-    series_query = f"| tstats count where index={_quote(index)} by sourcetype _time span=1h"
+    series_query = f"| tstats count where index={_quote(index)} by sourcetype _time span=4h"
     burst_notables = [
         _make(
             generator="deviation",
             basis="source_burst",
-            what=f"source {name} burst to {count} events in one hour",
+            what=f"source {name} burst to {count} events in four hours",
             entities=(("source", name),),
             source_id=f"{index}:{name}",
             first_seen=hour,
@@ -615,7 +615,7 @@ def _source_deviations(
             counts={"events": count},
             measure_name="robust_z",
             measure_value=value,
-            why=f"log count {value} robust deviations above its own hourly median",
+            why=f"log count {value} robust deviations above its own four-hour median",
             evidence=(
                 {
                     "line": f"sourcetype={name} at={hour:.0f} count={count} z={value}",
@@ -639,7 +639,7 @@ def _source_deviations(
             counts={},
             measure_name="seconds_after_index_start",
             measure_value=round(late, 3),
-            why="first hour this source was observed, relative to the index start",
+            why="first four-hour bucket this source was observed in, relative to the index start",
             evidence=(
                 {
                     "line": f"sourcetype={name} first_at={hour:.0f}",
