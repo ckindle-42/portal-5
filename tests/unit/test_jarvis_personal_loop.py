@@ -123,7 +123,11 @@ def test_tool_loop_writes_receipt_and_outbox_within_eight_hops(tmp_path: Path) -
     assert caller.bodies[1]["model"] == FAST_WORKSPACE
     assert caller.bodies[1]["portal_bite_max_hops"] <= HOP_CAP
     assert caller.bodies[1]["portal_bite_tools"] == ["queue_status"]
-    assert "what is the queue" not in caller.bodies[1]["messages"][-1]["content"]
+    # R5: the request text is authoritative in the executor prompt, not just the plan.
+    assert (
+        "what is the queue status in one paragraph" in caller.bodies[1]["messages"][-1]["content"]
+    )
+    assert "authoritative" in caller.bodies[1]["messages"][-1]["content"]
     assert "queue_status" in caller.bodies[1]["messages"][-1]["content"]
 
 
@@ -451,7 +455,10 @@ def test_recalled_memory_reaches_the_planner(tmp_path: Path) -> None:
 def test_memory_text_keeps_memory_lines_and_flags_a_contract_error() -> None:
     from portal.modules.orchestration.personal_runner import _memory_text
 
-    assert _memory_text({"memories": [{"text": "likes terse answers"}]}) == "- likes terse answers"
+    assert (
+        _memory_text({"memories": [{"text": "likes terse answers", "similarity": 0.9}]})
+        == "- likes terse answers"
+    )
     assert _memory_text({"num_results": 0, "memories": []}) == ""
     with pytest.raises(ValueError, match="recall"):
         _memory_text({"error": "embedding failed"})
@@ -476,7 +483,11 @@ def test_the_default_recall_calls_the_memory_mcp_tool_directly(
             json={
                 "jsonrpc": "2.0",
                 "id": payload["id"],
-                "result": {"structuredContent": {"memories": [{"text": "prefers terse replies"}]}},
+                "result": {
+                    "structuredContent": {
+                        "memories": [{"text": "prefers terse replies", "similarity": 0.9}]
+                    }
+                },
             },
         )
 
