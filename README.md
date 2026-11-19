@@ -74,7 +74,7 @@ server list live there, not here.
 | detection | on | Detection-as-code | `detection` :8938 |
 | netforensics | on | Network forensics | `netforensics` :8941 |
 | image | off | MFLUX image generation (MLX) | `mflux` :8933 |
-| music | off | Music generation (MiniMax) | `music-minimax` :8912 |
+| music | off | Music generation (ACE-Step XL-Turbo, MiniMax fallback) | `music` :8912 |
 | video | off | LTX-2 video generation (MLX) | `video_mlx` :8935 |
 | eval | off | Benchmark apparatus, bench workspaces | — |
 | orchestration | off | Local verified task arm | — |

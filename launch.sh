@@ -527,8 +527,8 @@ PYEOF
     _launch_install_omlx
     ;;
 
-  install-music-minimax)
-    _launch_install_music_minimax
+  install-music)
+    _launch_install_music
     ;;
 
   install-mflux)
@@ -568,14 +568,6 @@ PYEOF
   pull-asr-models)
     shift
     _launch_pull_asr_models "$@"
-    ;;
-
-  install-music-ace)
-    _launch_install_music_ace
-    ;;
-
-  stop-music-ace)
-    _launch_stop_music_ace
     ;;
 
   start-speech)
@@ -653,12 +645,12 @@ PYEOF
 
 
     *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|sync-config|update|pull-models|refresh-models|import-gguf|test|promptfoo|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-omlx|install-music-minimax|install-mflux|start-mflux|stop-mflux|pull-mflux-models|install-video-mlx|start-video-mlx|stop-video-mlx|pull-video-mlx-models|pull-asr-models|install-music-ace|stop-music-ace|start-speech|stop-speech|start-transcribe|stop-transcribe|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|apply-mtp-drafts|build-lab-attack|build-binresearch]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|sync-config|update|pull-models|refresh-models|import-gguf|test|promptfoo|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-omlx|install-music|install-mflux|start-mflux|stop-mflux|pull-mflux-models|install-video-mlx|start-video-mlx|stop-video-mlx|pull-video-mlx-models|pull-asr-models|start-speech|stop-speech|start-transcribe|stop-transcribe|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|apply-mtp-drafts|build-lab-attack|build-binresearch]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
     echo "  install-omlx          Re-render + reload the oMLX LaunchAgent (fixed venv, :8085)"
-    echo "  install-music-minimax Install MiniMax-Music3-MLX MCP (Apple Silicon / MLX)"
+    echo "  install-music         Install music MCP (ACE-Step 1.5 XL-Turbo + MiniMax fallback, port 8912)"
     echo "  install-mflux         Install MFLUX MCP — MLX-native image generation (Apple Silicon), port 8933"
     echo "  start-mflux           Start (or install) the MFLUX MCP launchd service"
     echo "  stop-mflux            Stop the MFLUX MCP launchd service"
@@ -668,8 +660,6 @@ PYEOF
     echo "  stop-video-mlx        Stop the Video-MLX MCP launchd service"
     echo "  pull-video-mlx-models Pre-pull LTX-2.3 model packs (q4 + q8)"
     echo "  pull-asr-models       Fetch MLX ASR weights (:8924 Parakeet + Sortformer, :8918 Qwen3-ASR)"
-    echo "  install-music-ace     Install ACE-Step engine and proxy MCP"
-    echo "  stop-music-ace        Stop the ACE-Step engine and proxy MCP"
     echo "  start-speech          Start MLX Speech server (Kokoro + Chatterbox clone + Qwen3-ASR)"
     echo "  stop-speech           Stop MLX Speech server"
     echo "  start-transcribe      Start MLX Transcribe server (Parakeet transcript + Sortformer diarization, :8924)"

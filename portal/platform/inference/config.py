@@ -693,7 +693,7 @@ def get_pipeline_mcp_servers(config: PortalConfig) -> dict[str, str]:
 
     Env vars ``MCP_<ID_UPPER>_URL`` override the default
     ``http://localhost:{port}`` constructed from the fleet table. Hyphens in the
-    fleet id become underscores in the key (``music-minimax`` → ``MCP_MUSIC_MINIMAX_URL``)
+    fleet id become underscores in the key (``foo-bar`` → ``MCP_FOO_BAR_URL``)
     since shell/compose env names can't carry hyphens.
     """
     servers: dict[str, str] = {}

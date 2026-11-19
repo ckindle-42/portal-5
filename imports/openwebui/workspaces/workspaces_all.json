@@ -146,7 +146,6 @@
         "server:mcp:portal_code",
         "server:mcp:portal_documents",
         "server:mcp:portal_memory",
-        "server:mcp:portal_music_minimax",
         "server:mcp:portal_rag",
         "server:mcp:portal_research",
         "server:mcp:portal_whisper"

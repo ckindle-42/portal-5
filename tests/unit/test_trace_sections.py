@@ -609,7 +609,17 @@ def test_section_selection_accepts_keys_numbers_and_prefixes() -> None:
     def keys(values: list[str] | None) -> list[str]:
         return [key for key, _title, _run in selected(values)]
 
-    expected = ["host", "containers", "workspaces", "pins", "aliases", "engines", "owui", "lab"]
+    expected = [
+        "host",
+        "containers",
+        "workspaces",
+        "pins",
+        "aliases",
+        "engines",
+        "owui",
+        "lab",
+        "music",
+    ]
     assert keys(None) == expected
     assert keys(["1"]) == ["host"]
     assert keys(["containers"]) == ["containers"]

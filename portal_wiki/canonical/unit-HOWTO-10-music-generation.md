@@ -4,7 +4,7 @@ kind: why
 title: "HOWTO — 10. Music Generation"
 sources:
 - type: code
-  path: portal/modules/media/tools/music_minimax_mcp.py
+  path: portal/modules/media/tools/music_mcp.py
 - type: code
   path: scripts/lib/services.sh
 claims: []
@@ -17,14 +17,14 @@ created_at: 1783195000.8455648
 updated_at: 1787872869
 ---
 
-**What:** Generate full songs — with lyrics/vocals or instrumental — from text descriptions, using MiniMax-Music3-MLX.
+**What:** Generate full songs — lyrics/vocals or instrumental — from text. The primary engine is ACE-Step 1.5 XL-Turbo. MiniMax-Music3 8-bit is the selectable fallback.
 
-**Activate:** Select `Music Producer` (`auto-music`). MiniMax's tools — `minimax_generate`/`minimax_status`/`minimax_models`, plus speech/transcription tools — are granted by `auto-music`'s `tools` list.
+**Activate:** `./launch.sh install-music`, then `portal module enable music` and `./launch.sh sync-config`. Select `auto-audio::music` (alias `auto-music` through 2026-12-31). Tools: `music_start`, `music_status`, `music_models`, plus speech and transcription.
 
-**How:** MiniMax runs in-process in `music_minimax_mcp.py` (port 8912) via the vendor's MLX pipeline. Generation is job-based: call `minimax_generate` for a `job_id`, then poll `minimax_status(job_id)` until done. The complete-quality default is 60 seconds / 30 steps. Lyrics use `[Verse]`/`[Chorus]` tags or `[Instrumental]`. MiniMax has no clip-editing/continuation capability (see `unit-known-limitations-minimax-music3-mlx`).
+**How:** `music_mcp.py` (port 8912) does not hold weights. `music_start` admits memory, then spawns `music_worker`. Poll `music_status(job_id)` — the call waits on the server. Default engine `acestep` is 8 steps and up to 600 seconds (tool default 30). `engine=minimax` is 30 steps and up to 300 seconds. Lyrics use `[Verse]`/`[Chorus]` or `[Instrumental]`. `task_type` is `text2music`, `repaint`, `cover`, or `extend`. Edits need `source`. Output is a wav in `generated/music`.
 
-**What changed:** MusicGen was removed (`TASK_MUSIC_DUAL_BACKEND`) and replaced with two independent engines, MiniMax-Music3-MLX and ACE-Step-1.5, installed side by side for an operator comparison. After real 60s/30-step generations on both — including lyrics/vocals and an ACE repaint — the operator's `[GATE: SELECT ENGINE]` decision (2026-08-27) kept MiniMax and disabled ACE-Step: ACE's own resident footprint plus its admission requirement exceeded this machine's 64GB total once loaded (a structural ceiling, not a fluke), its LM captioning stage was non-deterministic and once contradicted the requested vocal gender, and its output quality did not hold up against MiniMax's in a direct listen. ACE-Step's module code (`music_ace_mcp.py`), install function, and tools manifest remain in the repo, unwired, for a possible future re-enable — see `unit-known-limitations-acestep15-mlx-backend` for the full finding and what re-enabling would take.
+**What changed:** The PocketAiHub MiniMax in-process server and the ACE-Step proxy plus `acestep-api` pair are gone. One host-native MCP remains, and the module still ships disabled. The 2026-08-27 dual-daemon comparison (2B sft, two launchd jobs, ~23–40 GB) does not describe this path. Peak RAM, speed, and AudioBox scores for XL-Turbo on this host are unmeasured.
 
 ## Why
 
-MiniMax runs in-process because its footprint (~27GB measured) comfortably coexists with the rest of the live stack. Job polling exists because complete-quality generation takes minutes. The disabled ACE-Step module was kept rather than deleted specifically so a future re-evaluation (e.g. after upstream fixes the captioning non-determinism, or hardware with more RAM) doesn't require rebuilding it from scratch.
+A subprocess per job is how idle RAM returns: the child exits and the MCP stays small. Long-poll exists because a song outlasts one chat hop. The module stays off until the operator installs the pinned checkout and enables it on purpose.

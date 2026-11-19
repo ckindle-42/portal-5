@@ -580,17 +580,17 @@ def derive_tool_authorizations(commit: str) -> KnowledgeUnit:
 # ── Media backend memory budget (Slice 7, TASK_VRAM_ADMISSION_V1) ───────────────
 # Session-observed peak unified-memory figures per media backend/model, consumed by
 # the Tier-1 admission check in portal/modules/media/tools/_admission.py to refuse a
-# job before it OOMs the host. Music backend figures are live 60s/30-step vm_stat
-# measurements with standard headroom; the image/video figures are measured MLX
-# peaks from TASK_IMAGE_VIDEO_OVERHAUL_V1 (quantize 8 + --low-ram / block streaming).
+# job before it OOMs the host. Music figures are research estimates (not live
+# samples). Image/video figures are measured MLX peaks from
+# TASK_IMAGE_VIDEO_OVERHAUL_V1 (quantize 8 + --low-ram / block streaming).
 MEDIA_MODEL_MEMORY_GB: dict[str, float] = {
     # Measured live: MiniMax-Music3-MLX 60s/30-step, vm_stat sampled peak working set.
     # Raw peak only — admit() adds MEMORY_HEADROOM_GB on top (every other entry here
     # is likewise a raw size, not a headroom-inclusive figure). Was 27.0 with 4GB of
     # headroom double-counted, which false-refused real 22GB jobs on this 64GB host.
-    "music:minimax3": 22.0,  # coarse sampled delta 22.02GiB, rounded down to the GiB
-    # Measured live (Phase 5): ACE-Step-1.5 sft 2B + 1.7B LM 60s/30-step, vm_stat delta + headroom.
-    "music:acestep-sft": 40.0,  # coarse sampled delta 35.43GiB + 4GiB headroom, rounded up
+    # Research estimates for the unified music MCP. Not live samples on this host.
+    "music:acestep-xl-turbo": 16.0,  # plan: 12–18 GB quantized XL-turbo peak
+    "music:minimax3-8bit": 18.0,  # plan: mlx-audio 8-bit MiniMax-Music3 peak
     # MLX-native image generation (MFLUX / mflux-generate CLI, host MLX layer) —
     # measured live in TASK_IMAGE_VIDEO_OVERHAUL_V1 I1, quantize 8 + --low-ram.
     "mflux:schnell": 15.0,

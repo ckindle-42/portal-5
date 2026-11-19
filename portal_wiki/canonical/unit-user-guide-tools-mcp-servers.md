@@ -12,7 +12,7 @@ sources:
 - type: code
   path: portal/modules/media/tools/mflux_mcp.py
 - type: code
-  path: portal/modules/media/tools/music_minimax_mcp.py
+  path: portal/modules/media/tools/music_mcp.py
 - type: code
   path: portal/modules/media/tools/tts_mcp.py
 - type: code
@@ -36,7 +36,7 @@ Portal TTS exposes `speak`; Portal Whisper offers `transcribe_audio` and
 port 8924 via the MLX transcribe server; both always write JSON + Markdown + Word
 `.docx` sidecars and return their download URLs); Portal MFLUX exposes `generate_image` / `edit_image`
 (synchronous, MLX FLUX — including the `qwen-image` model); Portal Music exposes
-the MiniMax job-based music toolset.
+`music_start` / `music_status` (ACE-Step 1.5 XL-Turbo, MiniMax fallback; module off until enabled).
 
 ## Why
 

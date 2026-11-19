@@ -9,7 +9,7 @@ from typing import Annotated, Any
 
 import typer
 
-from . import containers, engines, host, lab, owui, pins, workspaces
+from . import containers, engines, host, lab, music, owui, pins, workspaces
 from .context import TraceContext, env_value, host_url, run_cmd
 from .model import Hop, Section, Status, TraceReport, render_json, render_text
 
@@ -49,6 +49,7 @@ SECTION_RUNNERS: tuple[tuple[str, str, Runner], ...] = (
     ("engines", "ENGINES", _engines),
     ("owui", "OPEN WEBUI TOOL PATH", lambda ctx, portal: owui.run(ctx, portal)),
     ("lab", "LAB PATHS", _lab),
+    ("music", "MUSIC ARTIFACT", lambda ctx, portal: music.run(ctx, portal)),
 )
 
 
@@ -111,7 +112,7 @@ def cmd_trace(
             "--section",
             "-s",
             help="Run one section: host, containers, workspaces, "
-            "pins, aliases, engines, owui, lab (or its number). Repeatable.",
+            "pins, aliases, engines, owui, lab, music (or its number). Repeatable.",
         ),
     ] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Emit the report as JSON")] = False,
@@ -129,7 +130,7 @@ def cmd_trace(
     sections: list[Section] = []
     portal: dict[str, Any] = {}
     for key, title, runner in selected(section):
-        if key in ("workspaces", "pins", "aliases") and not portal:
+        if key in ("workspaces", "pins", "aliases", "music") and not portal:
             portal = _portal_config(repo_root)
         try:
             hops = runner(ctx, portal)

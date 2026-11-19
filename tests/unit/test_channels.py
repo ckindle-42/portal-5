@@ -90,7 +90,6 @@ class TestAllMCPServerToolAlignment:
         "module_path",
         [
             "portal.modules.documents.tools.document_mcp",
-            "portal.modules.media.tools.music_ace_mcp",
             "portal.modules.coding.tools.code_sandbox_mcp",
         ],
     )

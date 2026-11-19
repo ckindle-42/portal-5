@@ -987,10 +987,11 @@ _do_down() {
         launchctl stop com.portal5.mflux 2>/dev/null || true
         launchctl stop com.portal5.video-mlx 2>/dev/null || true
 
+        launchctl stop com.portal5.music 2>/dev/null || true
         launchctl stop com.portal5.music-minimax 2>/dev/null || true
         launchctl stop com.portal5.music-ace-mcp 2>/dev/null || true
         launchctl stop com.portal5.acestep-server 2>/dev/null || true
-        echo "[portal-5] Music backends stopped (MiniMax, ACE proxy, ACE engine)."
+        echo "[portal-5] Music MCP stopped (com.portal5.music; retired labels stopped if still loaded)."
 
         # MLX Speech (:8918) — launchd-supervised; the pid-file branch is the
         # pre-supervision fallback for a host that still has one lying around.
@@ -1234,7 +1235,7 @@ _check_ports() {
     _port_check "${DOCUMENTS_HOST_PORT:-8913}"  "MCP Documents"
     # Music MCP runs natively on macOS — skip Docker port conflict check
     if [ "$(uname -m)" != "arm64" ]; then
-        _port_check "${MUSIC_MINIMAX_PORT:-8912}"  "MCP Music MiniMax"
+        _port_check "${MUSIC_MCP_PORT:-8912}"  "MCP Music"
     fi
     _port_check "${TTS_HOST_PORT:-8916}"        "MCP TTS"
     _port_check "${WHISPER_HOST_PORT:-8915}"    "MCP Whisper"
@@ -1484,23 +1485,13 @@ for key, label, url in rows:
             printf "    ℹ️   %-28s %s\n" "video-mlx MCP" "not installed (video module off by default) — ./launch.sh install-video-mlx"
         fi
 
-        if python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:${MUSIC_MINIMAX_PORT:-8912}/health', timeout=2)" &>/dev/null 2>&1; then
-            printf "    ✅  %-28s %s\n" "Music MiniMax MCP" ":${MUSIC_MINIMAX_PORT:-8912}"
-        elif [ -f "$HOME/.portal5/music-minimax/.venv/bin/python" ]; then
-            printf "    ❌  %-28s %s\n" "Music MiniMax MCP" "installed but not running"
+        if python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:${MUSIC_MCP_PORT:-8912}/health', timeout=2)" &>/dev/null 2>&1; then
+            printf "    ✅  %-28s %s\n" "Music MCP" ":${MUSIC_MCP_PORT:-8912}"
+        elif [ -x "$HOME/.portal5/music/ACE-Step-1.5/.venv/bin/python" ]; then
+            printf "    ❌  %-28s %s\n" "Music MCP" "installed but not running"
         else
-            printf "    ℹ️   %-28s %s\n" "Music MiniMax MCP" "not installed — ./launch.sh install-music-minimax"
+            printf "    ℹ️   %-28s %s\n" "Music MCP" "not installed — ./launch.sh install-music"
         fi
-        for _music_check in "Music ACE MCP|${MUSIC_ACE_MCP_PORT:-8934}|$HOME/.portal5/music-ace/.venv/bin/python|install-music-ace" "ACE-Step engine|${ACESTEP_ENGINE_PORT:-8001}|$HOME/.portal5/music-ace/ace-runtime|install-music-ace"; do
-            IFS='|' read -r _music_label _music_port _music_path _music_install <<< "$_music_check"
-            if python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:${_music_port}/health', timeout=2)" &>/dev/null 2>&1; then
-                printf "    ✅  %-28s %s\n" "$_music_label" ":${_music_port}"
-            elif [ -e "$_music_path" ]; then
-                printf "    ❌  %-28s %s\n" "$_music_label" "installed but not running"
-            else
-                printf "    ℹ️   %-28s %s\n" "$_music_label" "not installed — ./launch.sh $_music_install"
-            fi
-        done
 
         # MLX Speech
         if python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8918/health', timeout=2)" &>/dev/null 2>&1; then

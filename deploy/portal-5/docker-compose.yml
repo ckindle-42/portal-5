@@ -173,7 +173,7 @@ services:
       - MCP_DOCUMENTS_URL=http://portal5-mcp-documents:8913
       - MCP_EXECUTION_URL=http://portal5-mcp-sandbox:8914
       - MCP_SECURITY_URL=http://portal5-mcp-security:8919
-      - MCP_MUSIC_MINIMAX_URL=http://host.docker.internal:8912
+      - MCP_MUSIC_URL=http://host.docker.internal:8912
       - MCP_MFLUX_URL=http://host.docker.internal:8933
       - MCP_VIDEO_MLX_URL=http://host.docker.internal:8935
       - MCP_WHISPER_URL=http://portal5-mcp-whisper:8915
