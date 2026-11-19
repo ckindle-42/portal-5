@@ -80,4 +80,5 @@ def test_standalone_installers_require_safe_starlette():
     )
     combined = "\n".join((_ROOT / path).read_text(encoding="utf-8") for path in paths)
     assert "starlette>=0.35.0" not in combined
-    assert combined.count("starlette>=1.3.0") == 7
+    assert combined.count("starlette>=1.3.0") == 3
+    assert combined.count("starlette>=1.3.1") == 2

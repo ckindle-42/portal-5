@@ -913,6 +913,23 @@ PY
         fi
     fi
 
+    # ── Weekly security inventory: host dependencies, npx caches, and containers ──
+    local _ss_label="com.portal5.security-sweep"
+    local _ss_src="$PORTAL_ROOT/deploy/launchd/${_ss_label}.plist"
+    local _ss_dst="$HOME/Library/LaunchAgents/${_ss_label}.plist"
+    if [ -f "$_ss_src" ] && [ "$(uname -s)" = "Darwin" ]; then
+        mkdir -p "$HOME/.portal5/logs" "$HOME/Library/LaunchAgents"
+        sed -e "s#__PORTAL_ROOT__#${PORTAL_ROOT}#g" \
+            -e "s#__LOG_DIR__#${HOME}/.portal5/logs#g" \
+            -e "s#__HOME__#${HOME}#g" \
+            "$_ss_src" > "$_ss_dst"
+        if ! launchctl print "gui/$(id -u)/${_ss_label}" &>/dev/null 2>&1; then
+            launchctl bootstrap "gui/$(id -u)" "$_ss_dst" &>/dev/null \
+                && echo "[portal-5]   ✅ weekly security sweep: launchd job enabled" \
+                || echo "[portal-5]   ⚠️  weekly security sweep: launchd registration failed"
+        fi
+    fi
+
     # ── Weekly model replace: same tag, upstream file only (scripts/model_autoupdate.py)
     local _mu_label="com.portal5.model-update"
     local _mu_src="$PORTAL_ROOT/deploy/launchd/${_mu_label}.plist"

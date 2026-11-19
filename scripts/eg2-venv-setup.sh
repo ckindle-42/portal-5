@@ -29,6 +29,8 @@ fi
 "$UV_BIN" pip install --python "$EG2_VENV/bin/python3" \
     "sentence-transformers>=6.1.0" "transformers>=5.19.0" "torch" "torchvision" "torchcodec" "librosa" "soundfile" "av" "huggingface_hub" \
     "fastapi" "uvicorn" "httpx" "pillow" "numpy"
+"$UV_BIN" pip install --python "$EG2_VENV/bin/python3" --upgrade \
+    "filelock>=4.2.1" "opentelemetry-api>=1.45.2" "setuptools>=84.1.0"
 
 "$EG2_VENV/bin/python3" - <<'PY'
 import importlib.metadata as md, platform
