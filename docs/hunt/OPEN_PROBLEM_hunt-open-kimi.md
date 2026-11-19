@@ -50,17 +50,62 @@ Other rejected replays, all on the same stored runs:
   that experiment's kyoushi/russell regressions. Rarity-directed reads are not
   required for the behaviour-burst fix.
 
+## Allowance selection without botsv2
+
+The candidate allowance was replayed on the three build families only. Values
+below are steps at rank 50:
+
+| allowance | kyoushi | santos | russell |
+|---:|---:|---:|---:|
+| 1 | 12 | 13 | 15 |
+| **2** | **12** | **14** | **15** |
+| 5 | 12 | 14 | 13 |
+| 10 | 12 | 12 | 11 |
+| 100 | 12 | 12 | 11 |
+
+Allowance 2 gives the best other-family training total in the kyoushi fold
+(29), ties for best in the santos fold (27), and ties for best in the russell
+fold (26); the smaller allowance breaks the ties. botsv2 did not participate.
+
 ## Code change
 
-Implementation and focused regression tests follow this findings checkpoint.
-The intended change is limited to the existing deviation generator: compute
-four-hour peaks for already-sampled behaviour events, score their within-source
-robust log z-score, and admit only the LOFO-selected allowance when stronger
-than the source-burst baseline. No index, sourcetype, field, artefact, or attack
-keyword is used.
+The implementation is limited to the existing deviation generator and the
+stored behaviour read slice:
 
-## Live proof still required
+1. A DuckDB query joins `events` to `behaviours` on all ten identity columns and
+   finds each behaviour's largest four-hour event bucket. It makes no Splunk
+   request and reads no additional events.
+2. Within each source, `log1p(peak)` is scored by median/MAD across behaviours.
+   The best 100 candidates retain the behaviour's actor/action/object and raw
+   evidence as `deviation` / `behaviour_burst` notables.
+3. Only candidates stronger than the strongest source burst are eligible. At
+   most two enter the existing source-burst allocation, which is then merged
+   with source-first-seen and behaviour-first-seen as before. This is not a new
+   generator and does not change the measured generator weights.
 
-Offline replay cannot establish the live pass bar, knowledge-store effects, or
-case quality. The orchestrator must run all four families and score them with
-the normal commands before accepting the change.
+Replaying these production helpers (not the experimental duplicate) over the
+stored runs gives the unified2 row above. Admission explains the family
+difference: botsv2 has 19,022 behaviours, source baseline 7.409, two admitted,
+and a winning behaviour z-score of 14.224; kyoushi has 19,265 behaviours,
+source baseline 12.095, and zero admitted; santos and russell each admit two,
+with baselines 6.606 and 5.051. The same-input build-family result therefore
+does not regress: kyoushi stays 12, santos rises 13 to 14, and russell stays 15
+at rank 50.
+
+The unit tests use the stored traffic identity and peak shape, exercise the
+full DuckDB identity join and four-hour bucketing, and prove the generator path
+and two-candidate cap without network access.
+
+## Limits and live proof still required
+
+The replay recovers event-level botsv2 evidence already present in the sample;
+it does not solve the dominant sampling floor for artefacts never read. It also
+does not reproduce the separate rarity-seed run's santos 17 at 50 or the
+rarity-generator run's russell 16 at 50, and those rejected experimental
+branches are not included. The claim is therefore deliberately narrow: a
+general behaviour-notable fix with a measured offline improvement, not a claim
+that every historical best is already met.
+
+Offline replay cannot establish the live pass bar, fresh-sampling effects,
+knowledge-store effects, or case quality. The orchestrator must run all four
+families and score them with the normal commands before accepting the change.
