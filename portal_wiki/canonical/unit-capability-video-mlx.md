@@ -43,10 +43,10 @@ workspace (the `auto-video` alias retains live API callers through
 LTX-2.5 is the heaviest media surface in the platform — an int4 working set
 of roughly 18-26 GB that is thermally punishing on a 64 GB box and produces
 preview-grade clips practically capped at ~4-6 seconds. Footprint-first
-design is why the default is off while the engine is declared in config: a
-tight-footprint box can leave the module disabled without touching any other
-media path, and the renderer runs as a subprocess per job so Metal memory
-returns to macOS between jobs.
+design is why the surface is a module toggle plus a separate engine install
+(`unit-fact-module-states`): a tight-footprint box can leave the module
+disabled without touching any other media path, and the renderer runs as a
+subprocess per job so Metal memory returns to macOS between jobs.
 
 ## Value
 

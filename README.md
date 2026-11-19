@@ -55,30 +55,31 @@ and why, `CLAUDE.md` for the ground rules if you want to change the code.
 ## Modules at a glance
 
 Capabilities are modules you can toggle (`portal module enable <name>`). The table is
-generated from `config/portal.yaml` (`modules:` and `mcp_fleet:`) — ports and the
-server list live there, not here.
+generated from `config/portal.yaml` (`modules:` and `mcp_fleet:`) — ports, the server
+list, and which modules are on right now live there, not here (`portal config show`, or
+the wiki's `unit-fact-module-states`).
 
-| Module | Default | What it gives a chat | Pipeline-facing tool servers |
-|---|---|---|---|
-| general | on | Everyday chat, math, routing | — |
-| coding | on | Code generation, repo work | `execution` code sandbox :8914 |
-| documents | on | Parsing, extraction, OCR | `documents` :8913 |
-| research | on | Retrieval, RAG, web research | `rag` :8921, `research` :8922 |
-| media | on | Speech, transcription, TTS | `whisper` :8915, `tts` :8916 |
-| security | on | Blue/red lanes, MITRE, detections | `security` :8919, `mitre` :8929, `detections` :8932, `review` :8943 |
-| compliance | on | NERC CIP reasoning, control registers | `compliance` :8937 |
-| data | on | Analytics, dataframes, charting | `data` :8939 |
-| cad | on | Parametric CAD, printability checks | `cad_render` :8926 |
-| icsot | on | ICS/OT protocol analysis | `icsot` :8936 |
-| vulnintel | on | Vulnerability intelligence | `vulnintel` :8934 |
-| detection | on | Detection-as-code | `detection` :8938 |
-| netforensics | on | Network forensics | `netforensics` :8941 |
-| image | off | MFLUX image generation (MLX) | `mflux` :8933 |
-| music | off | Music generation (ACE-Step XL-Turbo, MiniMax fallback) | `music` :8912 |
-| video | off | LTX-2 video generation (MLX) | `video_mlx` :8935 |
-| eval | off | Benchmark apparatus, bench workspaces | — |
-| orchestration | off | Local verified task arm | — |
-| security_redteam | off | Offensive-generation variants (campaign-scoped) | — |
+| Module | What it gives a chat | Pipeline-facing tool servers |
+|---|---|---|
+| general | Everyday chat, math, routing | — |
+| coding | Code generation, repo work | `execution` code sandbox :8914 |
+| documents | Parsing, extraction, OCR | `documents` :8913 |
+| research | Retrieval, RAG, web research | `rag` :8921, `research` :8922 |
+| media | Speech, transcription, TTS | `whisper` :8915, `tts` :8916 |
+| security | Blue/red lanes, MITRE, detections | `security` :8919, `mitre` :8929, `detections` :8932, `review` :8943 |
+| compliance | NERC CIP reasoning, control registers | `compliance` :8937 |
+| data | Analytics, dataframes, charting | `data` :8939 |
+| cad | Parametric CAD, printability checks | `cad_render` :8926 |
+| icsot | ICS/OT protocol analysis | `icsot` :8936 |
+| vulnintel | Vulnerability intelligence | `vulnintel` :8934 |
+| detection | Detection-as-code | `detection` :8938 |
+| netforensics | Network forensics | `netforensics` :8941 |
+| image | MFLUX image generation (MLX) | `mflux` :8933 |
+| music | Music generation (ACE-Step XL-Turbo, MiniMax fallback) | `music` :8912 |
+| video | LTX-2 video generation (MLX) | `video_mlx` :8935 |
+| eval | Benchmark apparatus, bench workspaces | — |
+| orchestration | Local verified task arm | — |
+| security_redteam | Offensive-generation variants (campaign-scoped) | — |
 
 Always-on platform services ride alongside these: `memory` :8920 (temporal knowledge
 graph), `pipeline` :8928 (stack introspection), `wiki` :8931 (canonical knowledge),
