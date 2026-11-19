@@ -164,9 +164,15 @@ def test_browser_is_ide_only() -> None:
 
 
 NATIVE_TOOL_NAMES = {
-    "music-minimax": ["minimax_generate", "minimax_models", "minimax_status"],
-    "mflux": ["edit_image", "generate_image"],
-    "video_mlx": ["animate_image", "generate_video"],
+    "music-minimax": [
+        "minimax_generate",
+        "minimax_models",
+        "minimax_status",
+        "music_start",
+        "music_status",
+    ],
+    "mflux": ["edit_image", "generate_image", "image_start", "image_status"],
+    "video_mlx": ["animate_image", "generate_video", "video_start", "video_status"],
     "documents": [
         "convert_document",
         "create_excel",

@@ -205,7 +205,7 @@ async def openai_models(request: Request) -> JSONResponse:
     return JSONResponse({"object": "list", "data": []})
 
 
-@mcp.tool()
+@mcp.tool(meta={"portal5/timeout_s": int(HTTP_TIMEOUT)})
 async def speak(text: str, voice: str = "af_heart") -> dict[str, Any]:
     """
     Convert text to speech via the host MLX speech server. Returns a download_url
@@ -221,7 +221,7 @@ async def speak(text: str, voice: str = "af_heart") -> dict[str, Any]:
     return await _speech_speak(text, voice)
 
 
-@mcp.tool()
+@mcp.tool(meta={"portal5/timeout_s": int(HTTP_TIMEOUT)})
 async def clone_voice(reference_audio: str = "", text: str = "") -> dict[str, Any]:
     """
     Speak text in a voice cloned from a reference clip (one-off, not persisted).

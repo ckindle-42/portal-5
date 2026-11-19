@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import time
 import uuid
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -95,19 +96,26 @@ def _new_chat(model: str, prompt: str, user_id: str, message_id: str) -> dict[st
     }
 
 
-def _chat_turn(ctx: TraceContext, key: str) -> StreamedTurn:
-    """Run one native chat turn and read its completed assistant message."""
-    preset = json.loads(
-        (ctx.repo_root / "imports/openwebui/workspaces/workspace_auto_coding.json").read_text()
-    )
+def chat_turn(
+    ctx: TraceContext,
+    key: str,
+    *,
+    workspace: str,
+    prompt: str,
+    preset_path: Path,
+    timeout_s: float | None = None,
+) -> StreamedTurn:
+    """Run one native chat turn on ``workspace`` and read its completed assistant message."""
+    preset = json.loads(preset_path.read_text())
     user_id, message_id = str(uuid.uuid4()), str(uuid.uuid4())
     session_id = f"portal-trace-{uuid.uuid4()}"
     headers = {"Authorization": f"Bearer {key}"}
+    deadline = time.monotonic() + (timeout_s or ctx.timeout_s)
     with httpx.Client(timeout=ctx.timeout_s) as client:
         created = client.post(
             f"{ctx.owui_url}/api/v1/chats/new",
             headers=headers,
-            json=_new_chat(WORKSPACE, PROMPT, user_id, message_id),
+            json=_new_chat(workspace, prompt, user_id, message_id),
         )
         created.raise_for_status()
         chat_id = str(created.json()["id"])
@@ -115,10 +123,9 @@ def _chat_turn(ctx: TraceContext, key: str) -> StreamedTurn:
             response = client.post(
                 f"{ctx.owui_url}/api/chat/completions",
                 headers=headers,
-                json=completion_body(preset, PROMPT, chat_id, message_id, session_id),
+                json=completion_body(preset, prompt, chat_id, message_id, session_id),
             )
             response.raise_for_status()
-            deadline = time.monotonic() + ctx.timeout_s
             while (
                 client.get(f"{ctx.owui_url}/api/tasks/chat/{chat_id}", headers=headers)
                 .json()
@@ -136,7 +143,17 @@ def _chat_turn(ctx: TraceContext, key: str) -> StreamedTurn:
             client.delete(f"{ctx.owui_url}/api/v1/chats/{chat_id}", headers=headers)
 
 
-def trace_hop(ctx: TraceContext, since: float) -> Hop:
+def _chat_turn(ctx: TraceContext, key: str) -> StreamedTurn:
+    return chat_turn(
+        ctx,
+        key,
+        workspace=WORKSPACE,
+        prompt=PROMPT,
+        preset_path=ctx.repo_root / "imports/openwebui/workspaces/workspace_auto_coding.json",
+    )
+
+
+def trace_hop(ctx: TraceContext, since: float, workspace: str = WORKSPACE) -> Hop:
     """The Pipeline's record of that turn: the seat it resolved, its backend and its tool call."""
     headers = {"Authorization": f"Bearer {ctx.api_key}"} if ctx.api_key else {}
     try:
@@ -149,14 +166,14 @@ def trace_hop(ctx: TraceContext, since: float) -> Hop:
     recent = [
         row
         for row in records
-        if row.get("workspace") == WORKSPACE and float(row.get("started_at") or 0) >= since - 5
+        if row.get("workspace") == workspace and float(row.get("started_at") or 0) >= since - 5
     ]
     row = max(recent, key=lambda item: float(item.get("started_at") or 0)) if recent else {}
     calls = int(row.get("tool_calls") or 0)
     ok = bool(row.get("backend")) and row.get("outcome") == "complete" and calls >= 1
     observed = f"{row.get('backend')}/{row.get('model')} tool_calls={calls}"
     return Hop(
-        "owui route trace", Status.PASS if ok else Status.FAIL, observed, f"{WORKSPACE} turn"
+        "owui route trace", Status.PASS if ok else Status.FAIL, observed, f"{workspace} turn"
     )
 
 

@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 772 canonical units.*
+*Deterministic projection of 773 canonical units.*
 
 ## Knowledge Layer
 
@@ -210,24 +210,24 @@
 | `unit-capability-filesystem` | mixed | 2 |
 | `unit-capability-git` | mixed | 2 |
 | `unit-capability-icsot` | mixed | 4 |
-| `unit-capability-memory` | mixed | 7 |
-| `unit-capability-mflux` | mixed | 3 |
+| `unit-capability-memory` | mixed | 6 |
+| `unit-capability-mflux` | mixed | 2 |
 | `unit-capability-mitre` | mixed | 3 |
 | `unit-capability-mlx-transcribe` | mixed | 3 |
-| `unit-capability-music-minimax` | mixed | 4 |
+| `unit-capability-music-minimax` | mixed | 3 |
 | `unit-capability-netforensics` | mixed | 4 |
 | `unit-capability-pipeline` | mixed | 3 |
 | `unit-capability-proxmox` | mixed | 3 |
-| `unit-capability-rag` | mixed | 8 |
-| `unit-capability-research` | mixed | 3 |
-| `unit-capability-review` | mixed | 10 |
+| `unit-capability-rag` | mixed | 7 |
+| `unit-capability-research` | mixed | 2 |
+| `unit-capability-review` | mixed | 8 |
 | `unit-capability-security` | mixed | 2 |
 | `unit-capability-serena` | mixed | 3 |
-| `unit-capability-tts` | mixed | 3 |
+| `unit-capability-tts` | mixed | 2 |
 | `unit-capability-turn-trace` | mixed | 8 |
-| `unit-capability-video-mlx` | mixed | 3 |
+| `unit-capability-video-mlx` | mixed | 2 |
 | `unit-capability-vulnintel` | mixed | 4 |
-| `unit-capability-whisper` | mixed | 3 |
+| `unit-capability-whisper` | mixed | 2 |
 | `unit-capability-wiki` | mixed | 3 |
 | `unit-channels-dispatcher` | mixed | 1 |
 | `unit-channels-namespace` | mixed | 1 |
@@ -240,15 +240,15 @@
 | `unit-code-portal` | what | 5 |
 | `unit-code-portal_channels` | what | 4 |
 | `unit-code-portal_wiki` | what | 4 |
-| `unit-code-scripts` | what | 5 |
+| `unit-code-scripts` | what | 2 |
 | `unit-code-tests` | what | 5 |
-| `unit-compliance-bilateral-corpus` | mixed | 25 |
+| `unit-compliance-bilateral-corpus` | mixed | 23 |
 | `unit-compliance-change-pipeline` | mixed | 3 |
 | `unit-compliance-cite-and-scope` | mixed | 7 |
 | `unit-compliance-config-workspace-pointers` | mixed | 1 |
 | `unit-compliance-conversation-window` | what | 1 |
 | `unit-compliance-dual-document` | what | 1 |
-| `unit-compliance-engine` | mixed | 87 |
+| `unit-compliance-engine` | mixed | 84 |
 | `unit-compliance-fallback-policy-canonical-baseline` | what | 5 |
 | `unit-compliance-fallback-policy-compliance-fallback-policy` | what | 4 |
 | `unit-compliance-fallback-policy-full-sweep` | what | 3 |
@@ -262,11 +262,11 @@
 | `unit-compliance-module-config-only` | mixed | 1 |
 | `unit-compliance-operator-traceability` | what | 1 |
 | `unit-compliance-prove-then-scale` | mixed | 3 |
-| `unit-compliance-requirement-join` | mixed | 8 |
+| `unit-compliance-requirement-join` | mixed | 7 |
 | `unit-compliance-served-window` | mixed | 3 |
-| `unit-compliance-substrate-properties` | mixed | 4 |
+| `unit-compliance-substrate-properties` | mixed | 3 |
 | `unit-compliance-technical-basis-coverage` | what | 1 |
-| `unit-compliance-transport-dialects` | mixed | 5 |
+| `unit-compliance-transport-dialects` | mixed | 3 |
 | `unit-corpus-injection-a-canned-detection-firing-on-corpus-data-t1558-004-as-rep-roasting-verbatim-spl` | what | 2 |
 | `unit-corpus-injection-always-dry-run-first-it-prints-exact-per-sourcetype-volume-without-injecting` | what | 2 |
 | `unit-corpus-injection-confirm-the-live-triage-window-is-still-clean` | what | 2 |
@@ -285,19 +285,19 @@
 | `unit-corpus-injection-verify-lane-b` | what | 2 |
 | `unit-corpus-injection-verify-lane-c` | what | 2 |
 | `unit-corpus-injection-why-corpus-data-coexists-safely-with-bench-runs` | what | 3 |
-| `unit-design-client-disconnect-cancellation` | mixed | 15 |
-| `unit-design-embedding-consumers-harness` | mixed | 22 |
+| `unit-design-client-disconnect-cancellation` | mixed | 14 |
+| `unit-design-embedding-consumers-harness` | mixed | 2 |
 | `unit-design-ollama-native-dispatch` | why | 7 |
-| `unit-design-omlx-dual-backend-plumbing` | mixed | 12 |
+| `unit-design-omlx-dual-backend-plumbing` | mixed | 13 |
 | `unit-design-spine-drift-census` | mixed | 7 |
-| `unit-design-wiki-archive-mechanism` | mixed | 5 |
+| `unit-design-wiki-archive-mechanism` | mixed | 4 |
 | `unit-engine-prefix-cache-20261021` | what | 1 |
 | `unit-fixture-capability-context-sample` | mixed | 1 |
 | `unit-general-config-workspace-pointers` | mixed | 1 |
 | `unit-general-fast-deep-workspaces` | mixed | 2 |
 | `unit-general-module-vendored-tools` | mixed | 1 |
 | `unit-general-tools-vendored-fleet` | mixed | 1 |
-| `unit-host-log-rotation` | what | 5 |
+| `unit-host-log-rotation` | what | 4 |
 | `unit-inference-router-pipe` | mixed | 1 |
 | `unit-known-issues-known-issues` | what | 2 |
 | `unit-known-limitations-70b-dense-models-unusable-for-daily-routing-on-m4-pro-64gb` | what | 3 |
@@ -305,9 +305,9 @@
 | `unit-known-limitations-antares-gate-e1-gated-download` | what | 1 |
 | `unit-known-limitations-asteroids-bench-score-variance-is-the-benchmark-s-purpose` | what | 3 |
 | `unit-known-limitations-auto-math-workspace-reasoning-block-support` | what | 1 |
-| `unit-known-limitations-auto-rag-silent-miss` | what | 3 |
+| `unit-known-limitations-auto-rag-silent-miss` | what | 2 |
 | `unit-known-limitations-baronllm-text-only-tool-output-auto-security-mcp-tools-non-functional` | what | 6 |
-| `unit-known-limitations-bully-discovery-truth-leak` | what | 5 |
+| `unit-known-limitations-bully-discovery-truth-leak` | what | 4 |
 | `unit-known-limitations-cad-b3d-session` | what | 2 |
 | `unit-known-limitations-cad-brep-kernel-gaps` | what | 2 |
 | `unit-known-limitations-cadquery-and-build123d-unusable-on-linux-arm64` | what | 4 |
@@ -327,7 +327,7 @@
 | `unit-known-limitations-higgs-voice-cloning` | mixed | 1 |
 | `unit-known-limitations-host-measurement-contention` | what | 8 |
 | `unit-known-limitations-host-native-mcp-lifecycle-launcher-child-exit` | what | 5 |
-| `unit-known-limitations-importing-the-security-bench-module-sets-a-linux-only-prometheus-multiproc-dir-host-side` | what | 4 |
+| `unit-known-limitations-importing-the-security-bench-module-sets-a-linux-only-prometheus-multiproc-dir-host-side` | what | 3 |
 | `unit-known-limitations-known-limitations` | what | 1 |
 | `unit-known-limitations-ling-3-0-flash-turboquant-memory-gates` | what | 1 |
 | `unit-known-limitations-load-guard-omlx-swap` | what | 3 |
@@ -344,6 +344,7 @@
 | `unit-known-limitations-ollama-tool-call-parser-aborts-a-started-stream` | what | 3 |
 | `unit-known-limitations-ollama-v1-ignores-options-num-ctx-and-options-num-batch` | what | 6 |
 | `unit-known-limitations-ollama-v1-sampling-drop` | what | 4 |
+| `unit-known-limitations-ollama40-model-store` | what | 3 |
 | `unit-known-limitations-omlx-balanced-ceiling` | what | 2 |
 | `unit-known-limitations-omlx-prefix-cache-accounting` | what | 3 |
 | `unit-known-limitations-omlx-qwen3coder-tool-text` | what | 3 |
@@ -359,7 +360,7 @@
 | `unit-known-limitations-post-v1-messages-anthropic-compat-endpoint-returns-http-200-with-a-null-body` | what | 3 |
 | `unit-known-limitations-pytest-portal-leaves-real-write-through-test-artifacts` | what | 4 |
 | `unit-known-limitations-rbp-benign-corpus-alert-fatigue` | what | 5 |
-| `unit-known-limitations-request-size-cap-relies-on-content-length-only` | what | 2 |
+| `unit-known-limitations-request-size-cap-relies-on-content-length-only` | what | 1 |
 | `unit-known-limitations-router-model-eviction-single-request` | what | 6 |
 | `unit-known-limitations-serena-gate-d1-airgap-staging` | what | 1 |
 | `unit-known-limitations-shared-workspace-auto-stt-disabled-task-workspace-001` | what | 4 |
@@ -586,7 +587,7 @@
 | `unit-module-security-redteam` | mixed | 3 |
 | `unit-module-video` | mixed | 4 |
 | `unit-module-vulnintel` | mixed | 3 |
-| `unit-ollama-native-passthrough` | mixed | 20 |
+| `unit-ollama-native-passthrough` | mixed | 19 |
 | `unit-orchestrate-worker-dispatch` | why | 3 |
 | `unit-p5-roadmap-future-considerations-not-yet-implemented` | what | 5 |
 | `unit-p5-roadmap-p5-fut-004-webhook-based-event-notifications` | what | 2 |
@@ -616,7 +617,7 @@
 | `unit-persona-matrix-ci-pipeline-shape` | what | 3 |
 | `unit-persona-matrix-ci-regression-triage-workflow` | what | 5 |
 | `unit-platform-retrieval` | mixed | 11 |
-| `unit-platform-retrieval-substrate-migration` | mixed | 4 |
+| `unit-platform-retrieval-substrate-migration` | mixed | 3 |
 | `unit-platform-storage-config-facade` | mixed | 2 |
 | `unit-portal-conftest` | mixed | 1 |
 | `unit-portal-mcp-namespace` | mixed | 1 |
@@ -712,7 +713,7 @@
 | `unit-surface-archive-mlx` | mixed | 1 |
 | `unit-surface-benchmarks` | mixed | 3 |
 | `unit-surface-binary-research` | mixed | 1 |
-| `unit-surface-compliance-closeout-scripts` | mixed | 21 |
+| `unit-surface-compliance-closeout-scripts` | mixed | 18 |
 | `unit-surface-compliance-prove-then-scale-scripts` | mixed | 1 |
 | `unit-surface-compliance-reading-truth` | what | 2 |
 | `unit-surface-inference` | mixed | 2 |
@@ -781,15 +782,15 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 772 units
+**Total:** 773 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 2135 references
+- **code**: 2084 references
 - **config**: 2 references
 - **data**: 1 references
-- **doc**: 6 references
+- **doc**: 7 references
 - **mitre**: 40 references
 - **scenario**: 54 references
 - **spl**: 40 references

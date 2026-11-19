@@ -146,6 +146,7 @@ async def openai_models(request: Request) -> JSONResponse:
 # Docker fallback only (non-Apple-Silicon nodes). Primary is the host MLX server
 # (Parakeet + Sortformer) via MLX_TRANSCRIBE_URL. 'base' was a real accuracy floor.
 WHISPER_MODEL_SIZE = os.getenv("WHISPER_MODEL", "large-v3-turbo")
+WHISPER_PROXY_TIMEOUT = int(os.getenv("WHISPER_PROXY_TIMEOUT", "1800"))
 _model: Any | None = None
 
 
@@ -158,7 +159,7 @@ def get_model() -> Any:
     return _model
 
 
-@mcp.tool()
+@mcp.tool(meta={"portal5/timeout_s": WHISPER_PROXY_TIMEOUT})
 async def transcribe_audio(
     file_path: str | None = None, language: str | None = None
 ) -> dict[str, Any]:
@@ -236,7 +237,7 @@ async def transcribe_audio(
 # HF_TOKEN gate are retired.
 
 
-@mcp.tool()
+@mcp.tool(meta={"portal5/timeout_s": WHISPER_PROXY_TIMEOUT})
 async def transcribe_with_speakers(
     file: str | None = None,
     num_speakers: int | None = None,

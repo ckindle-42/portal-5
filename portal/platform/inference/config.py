@@ -455,6 +455,7 @@ class PortalConfig(BaseModel):
     )
     ollama_url: str = "http://host.docker.internal:11434"
     request_timeout: int = 300
+    tool_dispatch_max_timeout_s: float = Field(default=1800.0, gt=0)
     models: list[Model] = Field(
         default_factory=list,
         description="HuggingFace → Ollama pull registry (consumed by portal models pull)",
