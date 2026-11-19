@@ -398,3 +398,137 @@ def test_a_no_answer_response_records_tokens_and_finish_reason():
     assert answer.completion_tokens == 84
     assert answer.finish_reason == "stop"
     assert answer.prompt_tokens == 5
+
+
+def test_template_mining_generalizes_glog_dates_pids_and_clock_times():
+    sample = [
+        "W0815 09:03:50.228999 264929280 virtual_table.cpp:515] The browser_plugins table returns data",
+        "W0815 09:19:50.733101 264929280 virtual_table.cpp:515] The chrome_extensions table returns data",
+        "W0815 09:35:50.111222 264929280 virtual_table.cpp:515] The browser_plugins table returns data",
+        "W0815 09:51:50.333444 264929280 virtual_table.cpp:515] The chrome_extensions table returns data",
+    ]
+    _parsed, model = parse_sample(sample)
+    assert model is not None
+    # A line from another day and PID still matches the mined template
+    other_day = (
+        "W0811 14:48:02.307137 62255104 virtual_table.cpp:515] The shell_history table returns data"
+    )
+    assert parse_row(other_day, "template", template=model).fields
+    # A genuinely different error message remains out of structure (misfit)
+    anomaly = "W0811 14:50:40.060264 61181952 filesystem.cpp:114] Cannot read file that exceeds size limit: /tmp/a.crypt"
+    assert parse_row(anomaly, "template", template=model).fields == {}
+
+
+def test_xml_empty_text_attributes_use_dotted_names_instead_of_value_keys():
+    raw = (
+        "<Event><System><EventID>3</EventID>"
+        '<TimeCreated SystemTime="2017-08-19T00:59:06.435Z"/>'
+        '<Execution ProcessID="860" ThreadID="1020"/></System>'
+        '<EventData><Data Name="Image">cmd.exe</Data></EventData></Event>'
+    )
+    fields = parse_xml(raw)
+    assert fields["TimeCreated.SystemTime"] == "2017-08-19T00:59:06.435Z"
+    assert fields["Execution.ProcessID"] == "860"
+    assert fields["Data[Name=Image]"] == "cmd.exe"
+    assert not any("2017-08-19" in key for key in fields)
+
+
+def test_field_stats_surfaces_varying_non_numeric_fields_on_wide_json():
+    rows = []
+    for index in range(6):
+        obj: dict[str, object] = {f"a_counter_{n:02d}": index * n for n in range(45)}
+        obj["sender_mail_from"] = f"user{index % 2}@example.com"
+        obj["receiver_rcpt_to"] = f"dest{index % 3}@remote.org"
+        obj["subject"] = f"msg {index}"
+        rows.append(json.dumps(obj))
+    stats = field_stats(parse_events(rows))
+    names = {stat.name for stat in stats}
+    assert "sender_mail_from" in names
+    assert "receiver_rcpt_to" in names
+    assert "subject" in names
+
+
+def test_choose_partition_prefers_true_schema_discriminator_over_host_or_header():
+    rows = []
+    for idx in range(24):
+        host = f"host-{idx % 2}"
+        kind = idx % 3
+        if kind == 0:
+            rec = {
+                "Computer": host,
+                "EventID": "1",
+                "Image": "a.exe",
+                "CommandLine": "run",
+                "User": "u",
+            }
+        elif kind == 1:
+            rec = {
+                "Computer": host,
+                "EventID": "3",
+                "SourceIp": "10.0.0.1",
+                "DestIp": "1.2.3.4",
+                "DestPort": "443",
+            }
+        else:
+            rec = {
+                "Computer": host,
+                "EventID": "11",
+                "TargetFilename": "x.doc",
+                "CreationUtcTime": "t",
+                "ProcessGuid": "g",
+            }
+        rows.append(json.dumps(rec))
+    partition = choose_partition(parse_events(rows))
+    assert partition is not None
+    assert partition.field == "EventID"
+    assert partition.values == ("1", "11", "3")
+
+    # Optional field varying independently of a header must not trigger a bogus partition
+    uniform = [
+        json.dumps(
+            {
+                "accept": f"type/{idx % 2}",
+                "src_ip": f"10.0.0.{idx % 3}",
+                "uri": f"/p{idx}",
+                **({"ref": "/r"} if idx % 3 == 0 else {}),
+            }
+        )
+        for idx in range(12)
+    ]
+    assert choose_partition(parse_events(uniform)) is None
+
+
+def test_choose_partition_keeps_grouped_categorical_discriminator_not_time_ordered():
+    # Reproduces osquery_results: long consecutive runs of the same pack name,
+    # with both forward and backward transitions when the pack changes.
+    rows = []
+    packs = [
+        ("pack_b", {"columns.mem": "10", "columns.wall": "1"}),
+        ("pack_a", {"columns.path": "/tmp/a", "columns.pid": "42"}),
+        ("pack_c", {"columns.port": "443", "columns.proto": "6"}),
+        ("pack_a", {"columns.path": "/tmp/b", "columns.pid": "43"}),
+        ("pack_b", {"columns.mem": "12", "columns.wall": "2"}),
+    ]
+    for pack_name, extra in packs:
+        for _ in range(15):
+            rows.append(json.dumps({"name": pack_name, "host": "h1", **extra}))
+    partition = choose_partition(parse_events(rows))
+    assert partition is not None
+    assert partition.field == "name"
+    assert partition.values == ("pack_a", "pack_b", "pack_c")
+
+
+def test_template_card_classifies_numeric_metric_streams_as_measurement():
+    from portal.modules.security.core.hunt.notables.cards import assemble_cards, prepare_cards
+    from portal.modules.security.core.hunt.notables.sample import SourceFacts
+
+    metric_rows = [
+        {"_raw": f"mem {1000 + i} {2000 + i} {3000 + i} {40 + (i % 5)}.5 {50 + (i % 5)}.2"}
+        for i in range(20)
+    ]
+    facts = SourceFacts("ix", "vmstat", 20, 0.0, 100.0, ("h1",), 1, ("s1",), 1)
+    prepared = prepare_cards(facts, metric_rows, windows=1, model="test")
+    cards = assemble_cards(prepared, {})
+    assert len(cards) == 1
+    assert cards[0].fmt == "template"
+    assert cards[0].kind == "measurement"

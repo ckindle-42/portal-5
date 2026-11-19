@@ -13,7 +13,7 @@ MAX_VALUE_CHARS = 400  # effort budget: characters kept from one field value
 MAX_KEY_CHARS = 120  # effort budget: characters kept from one generated field name
 EXAMPLE_CHARS = 80  # effort budget: characters kept from one value shown to the model
 EXAMPLES_PER_FIELD = 3  # effort budget: distinct values shown to the model per field
-MAX_FIELDS = 24  # effort budget: fields described for one source
+MAX_FIELDS = 48  # effort budget: fields described for one source
 MIN_STRUCTURE_SHARE = 0.5  # a structure describes a sample only when most lines share it
 MAX_LIST_ITEMS = 20  # effort budget: list entries flattened for one JSON field
 MIN_DELIMITED_WIDTH = 3  # a delimiter describes a record only when it yields this many columns
@@ -27,11 +27,15 @@ MAX_TEMPLATE_SLOTS = 6  # effort budget: variable positions carried from one tem
 TIME_ORDER_SHARE = 0.9  # a value that moves with event order is time or a sequence
 MAX_PARTITIONS = 8  # effort budget: distinct structures one source is split into
 MIN_PARTITION_LINES = 4  # a part needs this many sampled events to be described
+MIN_PARTITION_DISTANCE = (
+    0.18  # LOFO on build families: genuine multi-schema sources >=0.20, 1-field noise <=0.17
+)
 _OPENERS = "([{"
 _CLOSERS = ")]}"
 _KV = re.compile(r"(?<![\w.\-])([A-Za-z_][\w./\-]{0,60})=(\"[^\"]*\"|'[^']*'|[^\s,;]+)")
 _COLON_LABEL = re.compile(r"^\s*([A-Za-z][A-Za-z0-9 _./\-]{0,60}?):\s+(\S.*?)\s*$")
 _WORD = re.compile(r"[A-Za-z][A-Za-z0-9_.\- ]{0,40}")
+_VAR_TOKEN = re.compile(r"^(?:\d{5,}|[IWEF]\d{4}|\d{2}:\d{2}:\d{2}(?:\.\d+)?)$")
 _DELIMITERS = ("\t", ",", "|", ";")
 
 
@@ -258,7 +262,8 @@ def _mine(program: str, messages: Sequence[Sequence[str]]) -> list[Template]:
         tokens: list[str | None] = []
         for position in range(length):
             values = {message[position] for message in group}
-            tokens.append(values.pop() if len(values) == 1 else None)
+            sole = next(iter(values)) if len(values) == 1 else None
+            tokens.append(None if sole is None or _VAR_TOKEN.match(sole) else sole)
         templates.append(Template(program, tuple(tokens), len(group)))
     return templates
 
@@ -358,8 +363,13 @@ def parse_xml(line: str) -> dict[str, str]:
             continue
         if element.attrib:
             for attr_name, attr_value in sorted(element.attrib.items()):
-                key = f"{tag}[{_localname(str(attr_name))}={attr_value}]"
-                fields.setdefault(_clip(key, MAX_KEY_CHARS), _clip(text, MAX_VALUE_CHARS))
+                local_attr = _localname(str(attr_name))
+                if text:
+                    key = f"{tag}[{local_attr}={attr_value}]"
+                    fields.setdefault(_clip(key, MAX_KEY_CHARS), _clip(text, MAX_VALUE_CHARS))
+                elif attr_value:
+                    key = f"{tag}.{local_attr}"
+                    fields.setdefault(_clip(key, MAX_KEY_CHARS), _clip(attr_value, MAX_VALUE_CHARS))
         elif text:
             fields.setdefault(_clip(tag, MAX_KEY_CHARS), _clip(text, MAX_VALUE_CHARS))
     return fields
@@ -513,8 +523,28 @@ def parse_row(
     return Parsed("text", {})
 
 
+def _all_numeric(values: set[str]) -> bool:
+    if not values:
+        return False
+    for raw in values:
+        try:
+            float(raw.replace(",", ""))
+        except ValueError:
+            return False
+    return True
+
+
+def _select_fields(order: Sequence[str], distinct: Mapping[str, set[str]]) -> list[str]:
+    """Keep sample order when narrow; on wide records prioritize varying non-numeric fields."""
+    if len(order) <= MAX_FIELDS:
+        return list(order)
+    priority = [n for n in order if len(distinct[n]) > 1 and not _all_numeric(distinct[n])]
+    rest = [n for n in order if n not in set(priority)]
+    return [*priority, *rest][:MAX_FIELDS]
+
+
 def field_stats(parsed: Sequence[Parsed]) -> list[FieldStat]:
-    """Per-field presence, distinct count and first distinct values, in sample order."""
+    """Per-field presence, distinct count and first distinct values, prioritizing informative fields."""
     order: list[str] = []
     present: dict[str, int] = {}
     distinct: dict[str, set[str]] = {}
@@ -535,22 +565,48 @@ def field_stats(parsed: Sequence[Parsed]) -> list[FieldStat]:
             tuple(value[:EXAMPLE_CHARS] for value in sorted(distinct[name])[:EXAMPLES_PER_FIELD]),
             lines,
         )
-        for name in order[:MAX_FIELDS]
+        for name in _select_fields(order, distinct)
     ]
 
 
-def choose_partition(parsed: Sequence[Parsed]) -> Partition | None:
-    """The low-variety field whose value changes which other fields an event carries.
+def _group_separation(kept: Mapping[str, Sequence[Parsed]]) -> tuple[int, float]:
+    """Count distinct majority field-sets across groups and their mean pairwise Jaccard distance."""
+    schemas: list[frozenset[str]] = []
+    for items in kept.values():
+        counts: dict[str, int] = {}
+        for item in items:
+            for key in item.fields:
+                counts[key] = counts.get(key, 0) + 1
+        schemas.append(frozenset(key for key, count in counts.items() if count * 2 >= len(items)))
+    distinct_schemas = len(set(schemas))
+    if distinct_schemas < 2:
+        return distinct_schemas, 0.0
+    distances = [
+        1.0 - len(left & right) / len(left | right)
+        for index, left in enumerate(schemas)
+        for right in schemas[index + 1 :]
+        if left | right
+    ]
+    return distinct_schemas, (sum(distances) / len(distances) if distances else 0.0)
 
-    Every candidate is scored by how many distinct field sets its values produce; the
-    field with the most distinct sets wins, ties broken by fewer values then name.
-    """
-    stats = {stat.name: stat for stat in field_stats(parsed)}
-    best: tuple[int, int, str, tuple[str, ...]] | None = None
-    for name, stat in stats.items():
-        if stat.distinct < 2 or stat.distinct > MAX_PARTITIONS or not stat.repeats:
+
+def choose_partition(parsed: Sequence[Parsed]) -> Partition | None:
+    """The low-variety field whose values separate genuinely distinct per-group field sets."""
+    present: dict[str, int] = {}
+    distinct: dict[str, set[str]] = {}
+    populated = 0
+    for item in parsed:
+        if not item.fields:
             continue
-        if _time_ordered(parsed, name):
+        populated += 1
+        for name, value in item.fields.items():
+            present[name] = present.get(name, 0) + 1
+            distinct.setdefault(name, set()).add(value)
+    best: tuple[int, float, int, str, tuple[str, ...]] | None = None
+    for name, values in distinct.items():
+        if len(values) < 2 or len(values) > MAX_PARTITIONS or len(values) >= present[name]:
+            continue
+        if present[name] * 2 < populated or _time_ordered(parsed, name):
             continue
         groups: dict[str, list[Parsed]] = {}
         for item in parsed:
@@ -560,27 +616,30 @@ def choose_partition(parsed: Sequence[Parsed]) -> Partition | None:
         kept = {
             value: items for value, items in groups.items() if len(items) >= MIN_PARTITION_LINES
         }
-        shapes = {tuple(sorted(item.fields)) for items in kept.values() for item in items}
-        if len(kept) < 2 or len(shapes) < 2:
+        if len(kept) < 2:
             continue
-        score = (len(shapes), -stat.distinct, name, tuple(sorted(kept)))
+        schema_count, mean_distance = _group_separation(kept)
+        if schema_count < 2 or mean_distance < MIN_PARTITION_DISTANCE:
+            continue
+        score = (schema_count, round(mean_distance, 4), -len(values), name, tuple(sorted(kept)))
         if best is None or score[:3] > best[:3]:
             best = score
-    if best is None:
-        return None
-    return Partition(best[2], best[3])
+    return Partition(best[3], best[4]) if best is not None else None
 
 
 def _time_ordered(parsed: Sequence[Parsed], field: str) -> bool:
-    """True when a field's values move with event order, so they are time or a sequence."""
+    """True when a field's non-equal transitions move monotonically with event order."""
     values = [item.fields.get(field) for item in parsed]
     pairs = [
         (left, right) for left, right in zip(values, values[1:], strict=False) if left and right
     ]
     if len(pairs) < MIN_PARTITION_LINES:
         return False
-    ordered = sum(1 for left, right in pairs if _value_leq(str(left), str(right)))
-    return ordered / len(pairs) >= TIME_ORDER_SHARE
+    transitions = [(left, right) for left, right in pairs if left != right]
+    if not transitions:
+        return False
+    ordered = sum(1 for left, right in transitions if _value_leq(str(left), str(right)))
+    return ordered / len(transitions) >= TIME_ORDER_SHARE
 
 
 def _value_leq(left: str, right: str) -> bool:

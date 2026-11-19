@@ -306,3 +306,217 @@ def test_source_window_reports_distinct_objects_for_one_actor_and_action():
         ("object", "last.txt"),
     )
     assert window_activity(seed, [_card()], rows[:1], "query") is seed
+
+
+def test_bursty_recurring_identity_stays_literal_despite_single_hour_concentration():
+    card = _card({"actor": ("c_ip",), "action": ("method",), "object": ("uri",)})
+    events = [
+        ExampleEvent(
+            "ix:http",
+            "h1",
+            100.0 + index,
+            "raw",
+            {"c_ip": "45.77.65.211" if index < 8 else "10.0.0.1", "method": "GET", "uri": "/a"},
+            0.0,
+            3600.0,
+        )
+        for index in range(10)
+    ]
+    # Add one baseline event in a later hour so span spans multiple buckets
+    events.append(
+        ExampleEvent(
+            "ix:http",
+            "h1",
+            40_000.0,
+            "raw",
+            {"c_ip": "10.0.0.2", "method": "GET", "uri": "/a"},
+            36000.0,
+            43200.0,
+        )
+    )
+    plan = identity_plan(card, events)
+    assert plan.actor_field == "c_ip"
+    assert plan.actor_mode == "literal"
+
+
+def test_identity_plan_falls_back_to_from_and_to_when_actor_absent_or_object_near_constant():
+    card = _card(
+        {
+            "from": ("source_file",),
+            "object": ("blocked_uri",),
+            "to": ("document_uri",),
+        }
+    )
+    events = [
+        ExampleEvent(
+            "ix:csp",
+            "h1",
+            float(index * 4000),
+            "raw",
+            {
+                "source_file": f"http://site/p{index % 3}",
+                "blocked_uri": "inline" if index % 2 == 0 else "self",
+                "document_uri": f"http://site/doc{index % 4}",
+            },
+            0.0,
+            36000.0,
+        )
+        for index in range(12)
+    ]
+    plan = identity_plan(card, events)
+    assert plan.actor_field == "source_file"
+    assert plan.actor_mode == "literal"
+    assert plan.object_field == "document_uri"
+    assert plan.object_mode == "literal"
+
+
+def test_extract_preserves_structured_raw_beyond_400_chars():
+    card = _card({"actor": ("user",), "action": ("action",), "object": ("target",)})
+    padding = "x" * 700
+    raw = f'{{"pad":"{padding}","user":"alice","action":"create","target":"secret.docx"}}'
+    events, matched, unparsed = _extract(card, [{"_time": 10.0, "_raw": raw}], [(0.0, 100.0)])
+    assert len(events) == 1 and matched == {0} and unparsed == 0
+    assert "secret.docx" in events[0].raw
+
+
+def test_burst_guided_behaviour_read_combines_uniform_and_peak_windows():
+    from portal.modules.security.core.hunt.executor import Read
+    from portal.modules.security.core.hunt.notables.behaviours import (
+        BEHAVIOUR_SUB_WINDOWS,
+        BEHAVIOUR_WINDOWS,
+        read_behaviour_source,
+    )
+
+    class _Exec:
+        def __init__(self) -> None:
+            self.calls: list[tuple[float, float]] = []
+
+        def read(
+            self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+        ) -> Read:
+            del query, kind, row_cap
+            self.calls.append((start, end))
+            if start <= 100_500.0 < end:
+                return Read([{"_time": 100_500.0, "host": "h1", "_raw": "burst-hit"}], False, None)
+            return Read(
+                [{"_time": start + 1.0, "host": "h1", "_raw": f"base-{start}"}], False, None
+            )
+
+    facts = SourceFacts("ix", "st", 100_000, 0.0, 2_000_000.0, ("h1",), 1, ("s1",), 1)
+    executor = _Exec()
+    read = read_behaviour_source(
+        executor, facts, per_window=100, burst_windows=[(100_000.0, 114_400.0)]
+    )
+    assert any(row["_raw"] == "burst-hit" for row in read.rows)
+    assert read.windows == BEHAVIOUR_WINDOWS
+    assert len(executor.calls) <= BEHAVIOUR_WINDOWS * BEHAVIOUR_SUB_WINDOWS
+
+
+def test_window_activity_resolves_from_to_and_preserves_mid_window_burst_slice():
+    from portal.modules.security.core.hunt.notables.generators import _source_deviations
+    from portal.modules.security.core.hunt.notables.window_activity import window_activity
+
+    # 1. Actorless from/to card with URL-encoded payload past 400 chars
+    csp_card = _card(
+        {"from": ("source_file",), "object": ("blocked_uri",), "to": ("document_uri",)}
+    )
+    _, firsts, _ = _source_deviations({"st": [(0.0, 4)]}, "ix", 0.0)
+    pad = "p" * 450
+    csp_rows = [
+        {
+            "_time": 10.0,
+            "_raw": f'{{"pad":"{pad}","source_file":"http://s/edit?u%3Dmal_user%26p%3D1","blocked_uri":"inline","document_uri":"http://s/a"}}',
+        },
+        {
+            "_time": 20.0,
+            "_raw": f'{{"pad":"{pad}","source_file":"http://s/edit?u%3Dmal_user%26p%3D1","blocked_uri":"self","document_uri":"http://s/b"}}',
+        },
+    ]
+    res = window_activity(firsts[0], [csp_card], csp_rows, "search index=ix | head 10")
+    assert res.basis == "source_first_seen_activity"
+    assert "mal_user" in res.what
+    assert "u%3Dmal_user" in str(res.evidence[0]["line"])
+
+    # 2. Mid-window dense burst slice preserved alongside first and last
+    rows = [
+        {"_time": 10.0, "_raw": '{"user":"a","image":"get","path":"/first"}'},
+        {"_time": 5000.0, "_raw": '{"user":"a","image":"get","path":"/burst1"}'},
+        {"_time": 5001.0, "_raw": '{"user":"a","image":"get","path":"/burst2"}'},
+        {"_time": 5002.0, "_raw": '{"user":"a","image":"get","path":"/burst3"}'},
+        {"_time": 10000.0, "_raw": '{"user":"a","image":"get","path":"/last"}'},
+    ]
+    res2 = window_activity(firsts[0], [_card()], rows, "search index=ix | head 10")
+    ev_lines = " ".join(str(item["line"]) for item in res2.evidence)
+    assert "/first" in ev_lines and "/last" in ev_lines and "/burst1" in ev_lines
+
+
+def test_burst_guided_merge_preserves_duplicate_timestamp_events_and_hourly_burst_slices():
+    from portal.modules.security.core.hunt.executor import Read
+    from portal.modules.security.core.hunt.notables.behaviours import (
+        BEHAVIOUR_SUB_WINDOWS,
+        BEHAVIOUR_WINDOWS,
+        read_behaviour_source,
+    )
+
+    class _DupExec:
+        def __init__(self) -> None:
+            self.calls: list[tuple[float, float]] = []
+
+        def read(
+            self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+        ) -> Read:
+            del query, kind, row_cap
+            self.calls.append((start, end))
+            if start >= 100_000.0 and end <= 114_400.0:
+                # 1-hour slices: hit mid-bucket event at +8347s (in 3rd hour 107200..110800)
+                if start <= 108_347.0 < end:
+                    return Read(
+                        [{"_time": 108_347.0, "host": "h1", "_raw": "mid-bucket-burst"}],
+                        False,
+                        None,
+                    )
+                return Read([], False, None)
+            # Duplicate identical (ts, host, raw) lines like Samba permission-denied floods
+            if start <= 500_000.0 < end:
+                return Read(
+                    [{"_time": 500_000.0, "host": "h1", "_raw": "repeated-line"}] * 10,
+                    False,
+                    None,
+                )
+            # An overlapping uniform row inside the burst window must not double-count
+            if start <= 108_347.0 < end:
+                return Read(
+                    [{"_time": 108_347.0, "host": "h1", "_raw": "mid-bucket-burst"}],
+                    False,
+                    None,
+                )
+            return Read([], False, None)
+
+    facts = SourceFacts("ix", "st", 100_000, 0.0, 2_000_000.0, ("h1",), 1, ("s1",), 1)
+    executor = _DupExec()
+    bursts = [(100_000.0 + i * 200_000.0, 114_400.0 + i * 200_000.0) for i in range(4)]
+    read = read_behaviour_source(executor, facts, per_window=100, burst_windows=bursts)
+    assert sum(1 for row in read.rows if row["_raw"] == "repeated-line") == 10
+    assert sum(1 for row in read.rows if row["_raw"] == "mid-bucket-burst") == 1
+    assert len(executor.calls) <= BEHAVIOUR_WINDOWS * BEHAVIOUR_SUB_WINDOWS
+
+
+def test_select_source_bursts_prioritizes_residual_then_fills_with_raw_peaks():
+    from portal.modules.security.core.hunt.notables.behaviours import _select_source_bursts
+
+    # Top-2 raw == top-2 residual; bucket 300 is a genuine raw peak during moderate shift,
+    # while buckets 400/500 are flat low-z baseline buckets with zero shift.
+    per_source_z = {
+        "smtp": [
+            (7.4, 100.0),
+            (3.3, 200.0),
+            (0.9, 300.0),
+            (0.2, 400.0),
+            (0.2, 500.0),
+        ]
+    }
+    shifts = {100.0: 1.3, 200.0: 1.7, 300.0: 0.8, 400.0: 0.0, 500.0: 0.0}
+    selected = _select_source_bursts(per_source_z, shifts, limit=4)
+    starts = [lo for lo, _hi in selected["smtp"]]
+    assert 300.0 in starts
+    assert {100.0, 200.0}.issubset(starts)

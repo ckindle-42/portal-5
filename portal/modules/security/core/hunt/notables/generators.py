@@ -28,7 +28,7 @@ MIN_SERIES_PERIODS = 3  # a deviation needs at least this many observed buckets
 SERIES_ROWS = 40_000  # effort budget: per-period source-count rows (below the 50k result cap)
 SERIES_SPAN_SECONDS = 4 * 3600  # effort budget: deviation bucket width
 MAX_ENTITIES = 8  # effort budget: entities attached to one notable
-EVIDENCE_CHARS = 400  # effort budget: raw characters kept on one notable evidence line
+EVIDENCE_CHARS = 2400  # effort budget: raw characters kept on one notable evidence line
 EXACT_COUNT_BUDGET = 300  # effort budget: whole-index counts for kept peer-rare notables
 EXACT_TERMS = 3  # effort budget: identity terms in one exact count
 
@@ -590,15 +590,49 @@ def _series_by_source(rows: Sequence[Mapping[str, Any]]) -> dict[str, list[tuple
     return grouped
 
 
+def _bucket_shifts(
+    grouped: Mapping[str, Sequence[tuple[float, int]]],
+) -> tuple[dict[str, list[tuple[float, float, int]]], dict[float, float]]:
+    """Per-source robust z series and fleet-wide common-mode positive shift per bucket."""
+    per_source: dict[str, list[tuple[float, float, int]]] = {}
+    by_bucket: dict[float, list[float]] = {}
+    for name, series in grouped.items():
+        if len(series) < MIN_SERIES_PERIODS:
+            continue
+        logs = [math.log1p(float(count)) for _hour, count in series]
+        median = statistics.median(logs)
+        mad = statistics.median(abs(value - median) for value in logs)
+        scored = [((math.log1p(float(c)) - median) / (mad + 0.5), h, c) for h, c in series]
+        per_source[name] = scored
+        for z_val, hour, _count in scored:
+            by_bucket.setdefault(hour, []).append(z_val)
+    shifts = {
+        hour: max(0.0, statistics.median(vals)) if len(vals) >= MIN_SERIES_PERIODS else 0.0
+        for hour, vals in by_bucket.items()
+    }
+    return per_source, shifts
+
+
 def _source_deviations(
-    grouped: Mapping[str, Sequence[tuple[float, int]]], index: str, index_start: float
+    grouped: Mapping[str, Sequence[tuple[float, int]]],
+    index: str,
+    index_start: float,
+    *,
+    eligible_sources: set[str] | frozenset[str] | None = None,
 ) -> tuple[list[Notable], list[Notable], dict[str, Any]]:
-    bursts: list[tuple[float, str, float, int]] = []
+    per_source, shifts = _bucket_shifts(grouped)
+    bursts: list[tuple[float, str, float, int, float]] = []
     firsts: list[tuple[float, str, float]] = []
     for name, series in grouped.items():
-        if len(series) >= MIN_SERIES_PERIODS:
-            z, peak = _robust_z([count for _hour_value, count in series])
-            bursts.append((z, name, series[peak][0], series[peak][1]))
+        if eligible_sources and name not in eligible_sources:
+            continue
+        if name in per_source:
+            raw_z, hour, count = max(
+                per_source[name],
+                key=lambda item: (item[0] - shifts[item[1]], -item[1]),
+            )
+            adj = round(raw_z - shifts[hour], 3)
+            bursts.append((adj, name, hour, count, round(raw_z, 3)))
         firsts.append((series[0][0] - index_start, name, series[0][0]))
     bursts.sort(key=lambda item: (-item[0], item[1]))
     firsts.sort(key=lambda item: (-item[0], item[1]))
@@ -614,18 +648,18 @@ def _source_deviations(
             last_seen=hour + SERIES_SPAN_SECONDS,
             counts={"events": count},
             measure_name="robust_z",
-            measure_value=value,
-            why=f"log count {value} robust deviations above its own four-hour median",
+            measure_value=adj,
+            why=f"log count {raw_z} robust deviations above its median ({adj} above fleet shift)",
             evidence=(
                 {
-                    "line": f"sourcetype={name} at={hour:.0f} count={count} z={value}",
+                    "line": f"sourcetype={name} at={hour:.0f} count={count} z={raw_z} adj={adj}",
                     "query": series_query,
                     "earliest": hour,
                     "latest": hour + SERIES_SPAN_SECONDS,
                 },
             ),
         )
-        for value, name, hour, count in bursts[:DEVIATION_SOURCE_BUDGET]
+        for adj, name, hour, count, raw_z in bursts[:DEVIATION_SOURCE_BUDGET]
     ]
     first_notables = [
         _make(
@@ -662,43 +696,52 @@ def _source_deviations(
     )
 
 
+def _behaviour_first_notable(behaviour: Behaviour, index_start: float) -> Notable:
+    late = behaviour.first_seen - index_start
+    return _make(
+        generator="deviation",
+        basis="behaviour_first_seen",
+        what=_behaviour_words(behaviour) + f" first appeared {late / 86400.0:.1f} days in",
+        entities=(
+            ("actor", behaviour.actor),
+            ("action", behaviour.action),
+            ("object", behaviour.object),
+        ),
+        source_id=behaviour.source_id,
+        first_seen=behaviour.first_seen,
+        last_seen=behaviour.last_seen,
+        counts={"events": behaviour.events},
+        measure_name="seconds_after_index_start",
+        measure_value=round(late, 3),
+        why="first hour this behaviour was observed, relative to the index start",
+        evidence=(
+            {
+                "line": behaviour.example_raw,
+                "query": behaviour.example_query,
+                "earliest": behaviour.example_earliest,
+                "latest": behaviour.example_latest,
+            },
+        ),
+    )
+
+
 def _behaviour_deviations(
     behaviours: Sequence[Behaviour], index_start: float
 ) -> tuple[list[Notable], dict[str, Any]]:
-    ordered = sorted(
-        behaviours,
-        key=lambda item: (-item.first_seen, item.source_id, item.actor, item.action, item.object),
-    )
-    found: list[Notable] = []
-    for behaviour in ordered[:DEVIATION_BEHAVIOUR_BUDGET]:
-        late = behaviour.first_seen - index_start
-        found.append(
-            _make(
-                generator="deviation",
-                basis="behaviour_first_seen",
-                what=_behaviour_words(behaviour) + f" first appeared {late / 86400.0:.1f} days in",
-                entities=(
-                    ("actor", behaviour.actor),
-                    ("action", behaviour.action),
-                    ("object", behaviour.object),
-                ),
-                source_id=behaviour.source_id,
-                first_seen=behaviour.first_seen,
-                last_seen=behaviour.last_seen,
-                counts={"events": behaviour.events},
-                measure_name="seconds_after_index_start",
-                measure_value=round(late, 3),
-                why="first hour this behaviour was observed, relative to the index start",
-                evidence=(
-                    {
-                        "line": behaviour.example_raw,
-                        "query": behaviour.example_query,
-                        "earliest": behaviour.example_earliest,
-                        "latest": behaviour.example_latest,
-                    },
-                ),
-            )
+    by_source: dict[str, list[Behaviour]] = {}
+    for behaviour in behaviours:
+        by_source.setdefault(behaviour.source_id, []).append(behaviour)
+    groups: list[list[Notable]] = []
+    for items in by_source.values():
+        items.sort(key=lambda item: (-item.first_seen, item.actor, item.action, item.object))
+        groups.append(
+            [
+                _behaviour_first_notable(item, index_start)
+                for item in items[:DEVIATION_BEHAVIOUR_BUDGET]
+            ]
         )
+    groups.sort(key=lambda group: (-group[0].measure_value, group[0].source_id))
+    found = _interleave(groups, DEVIATION_BEHAVIOUR_BUDGET)
     return found, {"existed": len(behaviours), "kept": len(found)}
 
 
@@ -831,7 +874,10 @@ def generate(
             if start > 0
             else min((series[0][0] for series in grouped.values() if series), default=start)
         )
-        bursts, firsts, detail = _source_deviations(grouped, index, origin)
+        eligible = {card.sourcetype for card in cards if "behaviours" in card_consumers(card)}
+        bursts, firsts, detail = _source_deviations(
+            grouped, index, origin, eligible_sources=eligible or None
+        )
         behaviour_bursts, burst_detail = _behaviour_bursts(behaviours, behaviour_peaks or {})
         bursts, unified_detail = _unified_bursts(bursts, behaviour_bursts)
         behaviour_firsts, behaviour_detail = _behaviour_deviations(behaviours, origin)

@@ -718,10 +718,16 @@ def _template_card(item: Prepared, kind_facts: Mapping[str, Any]) -> SourceCard:
     slot_fields = tuple(
         sorted({name for template in model.templates for _position, name in template.slots})
     )
+    numeric = float(kind_facts.get("numeric_share") or 0.0)
+    kind = (
+        "alert"
+        if item.alert
+        else ("measurement" if numeric >= NUMERIC_SHARE_FOR_MEASUREMENT else "activity")
+    )
     return SourceCard(
         index=facts.index,
         sourcetype=facts.sourcetype,
-        kind="alert" if item.alert else "activity",
+        kind=kind,
         roles={"actor": ("program",), "action": ("template",), "object": slot_fields},
         understood=True,
         reason=None,
@@ -737,7 +743,15 @@ def _template_card(item: Prepared, kind_facts: Mapping[str, Any]) -> SourceCard:
             "roles from the data"
         ),
         kind_said="structure",
-        kind_note="fast_log_alert_lines" if item.alert else "roles_from_data",
+        kind_note=(
+            "fast_log_alert_lines"
+            if item.alert
+            else (
+                f"template_numeric_share={numeric:.2f}"
+                if kind == "measurement"
+                else "roles_from_data"
+            )
+        ),
         kind_facts=kind_facts,
         template_model=model,
     )
