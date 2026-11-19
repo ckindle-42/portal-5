@@ -4,6 +4,8 @@ from portal.modules.security.core.hunt.executor import Read
 from portal.modules.security.core.hunt.notables.sample import (
     SourceFacts,
     read_windows,
+    route_filter,
+    sample_windows,
     window_bounds,
 )
 
@@ -72,3 +74,37 @@ def test_sub_windows_keep_the_total_event_budget():
     )
     assert len(read.rows) <= 392 * 12
     assert len(executor.calls) == 24
+
+
+def test_shared_indexed_sources_remain_scoped_to_card_sourcetype():
+    facts = SourceFacts(
+        "ix",
+        "mysql:database",
+        10,
+        0,
+        100,
+        (),
+        0,
+        ("gacrux", "jabbah"),
+        2,
+        shared_sources=("gacrux",),
+    )
+    route, _ = route_filter(facts)
+    assert route == 'sourcetype="mysql:database" (source="gacrux" OR source="jabbah")'
+
+
+def test_card_can_read_a_historical_source_with_one_timestamp():
+    stamp = 1503726179.0
+    facts = SourceFacts("ix", "st", 1, stamp, stamp, (), 0, (), 0)
+    assert any(start <= stamp < end for start, end in sample_windows(facts))
+
+
+def test_small_source_read_includes_events_clustered_in_one_slice():
+    from portal.modules.security.core.hunt.notables.behaviours import read_behaviour_source
+
+    facts = SourceFacts("ix", "stream:ftp", 1490, 0, 1500, (), 0, ("ftp",), 1)
+    rows = [{"_time": 0.0}] + [{"_time": 1500.0}] * 1489
+    executor = _NewestExecutor(rows)
+    read = read_behaviour_source(executor, facts, per_window=383)
+    assert len(read.rows) == facts.events
+    assert read.windows == len(executor.calls) == 1

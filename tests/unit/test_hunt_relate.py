@@ -468,3 +468,17 @@ def test_cases_use_relation_score_after_ordering_features_tie() -> None:
         "10.0.0.3",
         "10.0.0.2",
     ]
+
+
+def test_relate_scopes_shared_sources_from_legacy_cards(tmp_path):
+    import json
+
+    from portal.modules.security.core.hunt.notables.relate import _identity_fields
+
+    cards = [
+        {"index": "ix", "sourcetype": name, "facts": {"sources": ["gacrux"]}}
+        for name in ("mysql:status", "mysql:database")
+    ]
+    (tmp_path / "sources.json").write_text(json.dumps({"cards": cards}))
+    info = _identity_fields(tmp_path)["ix:mysql:database"]
+    assert _route(info) == 'sourcetype="mysql:database" (source="gacrux")'

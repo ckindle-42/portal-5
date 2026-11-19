@@ -226,7 +226,7 @@ async def music_start(
     repaint_start: float = 0.0,
     repaint_end: float = -1.0,
 ) -> dict[str, Any]:
-    """Start one song job. Poll music_status with the returned job_id."""
+    """Start one song job; music_status(job_id) then waits server-side until it is done."""
     rejected = _reject_request(prompt, engine, task_type, source)
     if rejected:
         return rejected
@@ -271,7 +271,7 @@ async def music_start(
 
 @mcp.tool(meta={"portal5/timeout_s": STATUS_TOOL_TIMEOUT_S})
 async def music_status(job_id: str, wait_s: float = DEFAULT_STATUS_WAIT_S) -> dict[str, Any]:
-    """Long-poll a music job up to wait_s seconds for progress or the artifact."""
+    """Long-poll a music job: blocks until done/error (default) or wait_s; done carries download_url."""
     return await _JOBS.status(job_id, wait_s=wait_s)
 
 

@@ -16,8 +16,9 @@ _T = TypeVar("_T")
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_STATUS_WAIT_S = float(os.environ.get("MEDIA_STATUS_WAIT_S", "20.0"))
-MAX_STATUS_WAIT_S = float(os.environ.get("MEDIA_STATUS_MAX_WAIT_S", "30.0"))
+# Default == max so one bare status call waits out a whole multi-minute job instead of burning hops.
+DEFAULT_STATUS_WAIT_S = float(os.environ.get("MEDIA_STATUS_WAIT_S", "300.0"))
+MAX_STATUS_WAIT_S = float(os.environ.get("MEDIA_STATUS_MAX_WAIT_S", "300.0"))
 STATUS_TOOL_TIMEOUT_S = int(max(90, MAX_STATUS_WAIT_S + 30))
 MAX_JOB_RECORDS = int(os.environ.get("MEDIA_MAX_JOB_RECORDS", "50"))
 _TERMINAL_STATUSES = frozenset({"done", "error"})
@@ -147,7 +148,10 @@ class MediaJobManager:
                 self._record(job_id, status="running", started_at=time.time())
                 result = await runner(progress)
             if result.get("success"):
-                self._record(job_id, status="done", **result, finished_at=time.time())
+                fields = {**result, "status": "done", "finished_at": time.time()}
+                url = fields.get("download_url") or fields.get("url")
+                fields["message"] = f"Done. Return this download link: {url}" if url else "Done."
+                self._record(job_id, **fields)
             else:
                 self._record(
                     job_id,
@@ -186,6 +190,11 @@ class MediaJobManager:
         created = snapshot.get("created_at")
         if isinstance(created, (int, float)):
             snapshot["elapsed_s"] = round(max(0.0, float(now) - float(created)), 2)
+        if snapshot.get("status") not in _TERMINAL_STATUSES:
+            snapshot["next_action"] = (
+                "Still running — call this status tool again with the same job_id and wait; "
+                "answer only when status is 'done' or 'error'."
+            )
         return {"job_id": job_id, **snapshot}
 
 
@@ -198,8 +207,9 @@ def start_reply(job_id: str, status_tool: str, note: str, **extra: Any) -> dict[
         "next_action": f"call {status_tool} with job_id='{job_id}'",
         "message": (
             f"Generation started (job {job_id}; {note}). "
-            f"Call {status_tool}(job_id='{job_id}') — it waits up to {int(DEFAULT_STATUS_WAIT_S)}s "
-            f"per call — until status is 'done' or 'error'."
+            f"Call {status_tool}(job_id='{job_id}') and wait — it blocks until the job is done "
+            f"or error (up to {int(DEFAULT_STATUS_WAIT_S)}s). Call again only if still running; "
+            "do not answer before then."
         ),
         **extra,
     }

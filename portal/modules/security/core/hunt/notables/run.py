@@ -6,6 +6,7 @@ import json
 import time
 from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -46,8 +47,10 @@ from .sample import (
     read_alert_rows,
     read_windows,
     sample_windows,
+    shared_source_names,
 )
 from .similar import SIMILAR_GENERATOR, generate_similar
+from .window_activity import resolve_source_windows
 
 HTTP_ERROR_THRESHOLD = 0.20
 JUDGE_STAGE_DEADLINE_SECONDS = 720.0  # effort budget: the hunt job wall time (executor job_seconds)
@@ -125,6 +128,7 @@ def _fact_dict(card: SourceCard) -> SourceFacts:
         host_count=int(facts.get("host_count") or 0),
         sources=tuple(str(name) for name in facts.get("sources") or ()),
         source_count=int(facts.get("source_count") or 0),
+        shared_sources=tuple(str(name) for name in facts.get("shared_sources") or ()),
         active_periods=int(facts.get("active_periods") or 0),
         periods=int(facts.get("periods") or 0),
         count_cv=float(facts.get("count_cv") or 0.0),
@@ -213,7 +217,15 @@ def load_cards(out: Path) -> list[SourceCard]:
 
 
 def facts_by_source(cards: Sequence[SourceCard]) -> dict[str, SourceFacts]:
-    return {card.source_id: _fact_dict(card) for card in cards}
+    facts = {card.source_id: _fact_dict(card) for card in cards}
+    shared = shared_source_names({key: source.sources for key, source in facts.items()})
+    for key, source in facts.items():
+        inferred = tuple(s for s in source.sources if s.casefold() in shared)
+        if inferred:
+            facts[key] = replace(
+                source, shared_sources=tuple(dict.fromkeys((*source.shared_sources, *inferred)))
+            )
+    return facts
 
 
 def _sample_source(executor: Any, facts: SourceFacts) -> tuple[SourceFacts, Any]:
@@ -392,13 +404,15 @@ def notables_stage(
     standard_enabled = [
         name for name in enabled if name not in (SIMILAR_GENERATOR, MISFIT_GENERATOR)
     ]
+    executor = executor_for(search)
+    source_facts = facts_by_source(cards)
     notables, receipt = generate(
-        executor_for(search),
+        executor,
         index,
         start,
         end,
         cards,
-        facts_by_source(cards),
+        source_facts,
         behaviours,
         load_source_stats(store),
         standard_enabled,
@@ -433,6 +447,8 @@ def notables_stage(
         receipt[SIMILAR_GENERATOR] = detail
         receipt["seconds"][SIMILAR_GENERATOR] = detail["seconds"]
     merged, merge_receipt = merge_notables(notables, MERGE_PRIORITY, DEFAULT_MERGE)
+    if "deviation" in enabled:
+        receipt["source_windows"] = resolve_source_windows(merged, executor, cards, source_facts)
     receipt["merge"] = merge_receipt
     receipt["enabled"] = list(enabled)
     receipt["total"] = len(merged)

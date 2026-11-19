@@ -22,6 +22,7 @@ from portal.modules.orchestration.personal_policy import (
     HOP_CAP,
     KNOWN_TOOLS,
     PersonalPlan,
+    acceptance_failure,
     hidden_fleet_ids,
     parse_planner_json,
     planner_body,
@@ -43,6 +44,7 @@ class Completion:
     tool_calls: tuple[dict[str, Any], ...] = ()
     pipeline_hops: int = 0
     tool_names: tuple[str, ...] = ()
+    tool_outputs: tuple[str, ...] = ()
 
 
 class PipelineCaller(Protocol):
@@ -121,12 +123,12 @@ class EngineCaller:
 
         response = self.engine.chat({**body, "stream": True}, 300, on_event)
         content, calls = _response_parts(response)
-        names = tuple(
-            str((call.get("function") or {}).get("name") or "")
-            for event in audits
-            for call in event["tool_calls"]
-        )
-        return Completion(content, tuple(calls), len(names), names)
+        # The wire audit entry is {"tool", "arguments", "output"} (streaming
+        # _exec_audit_event) — the tool result rides with the name.
+        entries = [entry for event in audits for entry in event["tool_calls"]]
+        names = tuple(str(entry.get("tool") or "") for entry in entries)
+        outputs = tuple(str(entry.get("output") or "") for entry in entries)
+        return Completion(content, tuple(calls), len(names), names, outputs)
 
 
 def poll_personal_tasks(
@@ -520,9 +522,12 @@ def _execute_plan(
         },
         {"role": "user", "content": plan_text},
     ]
-    content, hops, called = _hop_loop(
+    content, hops, called, outputs = _hop_loop(
         caller, messages, root, plan.workspace, sorted(plan.tools), checkin
     )
+    reason = acceptance_failure(payload, content, called, outputs)
+    if reason is not None:
+        raise AcceptanceError(reason)
     _finish(
         root,
         store,
@@ -761,6 +766,10 @@ def _personal_cloud_enabled() -> bool:
     return isinstance(cloud, dict) and cloud.get("enabled") is True
 
 
+class AcceptanceError(RuntimeError):
+    """A finished local attempt that failed its J9 acceptance check."""
+
+
 def _hop_loop(
     caller: PipelineCaller,
     messages: list[dict[str, Any]],
@@ -768,9 +777,10 @@ def _hop_loop(
     workspace: str,
     tool_names: list[str],
     checkin: _CheckIn,
-) -> tuple[str, int, list[str]]:
+) -> tuple[str, int, list[str], list[str]]:
     hops = 0
     called: list[str] = []
+    outputs: list[str] = []
     content = ""
     while hops < HOP_CAP:
         body = _tool_body(workspace, messages, tool_names, HOP_CAP - hops)
@@ -780,6 +790,7 @@ def _hop_loop(
         )
         hops += spent
         called.extend(result.tool_names)
+        outputs.extend(result.tool_outputs)
         checkin.update(spent, result.tool_names)
         content = result.content
         if not result.tool_calls or hops >= HOP_CAP:
@@ -800,7 +811,7 @@ def _hop_loop(
             messages.append({"role": "tool", "tool_call_id": call.get("id", ""), "content": output})
         if hops >= HOP_CAP:
             break
-    return content, min(hops, HOP_CAP), called
+    return content, min(hops, HOP_CAP), called, outputs
 
 
 def _tool_body(
