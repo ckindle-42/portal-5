@@ -7,7 +7,7 @@
     "cost"
   ],
   "schemaVersion": 38,
-  "version": 5,
+  "version": 6,
   "editable": true,
   "refresh": "5m",
   "time": {
@@ -1814,7 +1814,7 @@
       "id": 114,
       "type": "table",
       "title": "Gemini Pro (Antigravity) \u2014 pools and pace",
-      "description": "The buckets `agy -p /usage` reports. `5h` and `week` are read from the same Hydrogen / 3.8 Flash bucket, so they move together and neither is a cap on its own; `1w` is Gemini 4 Argon's separate weekly bucket. Antigravity publishes a remaining fraction, not a credit count, so these are percent. **Pace** is left % minus the % of the window already elapsed: positive is ahead of an even burn, negative is a bucket that empties before it resets \u2014 the same arithmetic `dispatch budget` prints.",
+      "description": "The buckets `agy -p /usage` reports, one row per NAMED window: `gemini-week` + `gemini-5h` are the shared Gemini bucket (Neon, Hydrogen, Orchestrator-Neon, 3.8 Flash); `3p-week` + `3p-5h` are the Claude and GPT bucket (Opus 5.5, Sonnet 5.5, GPT-OSS 120B) \u2014 untouched by Gemini spend; `argon-week` is Gemini 4 Argon's separate weekly bucket (nearly drained 2026-11-19; a healthy Gemini or 3p row never follows it). Antigravity publishes a remaining fraction, not a credit count, so these are percent. **Pace** is left % minus the % of the window already elapsed: positive is ahead of an even burn, negative is a bucket that empties before it resets \u2014 the same arithmetic `dispatch budget` prints.",
       "gridPos": {
         "h": 9,
         "w": 12,
@@ -1836,7 +1836,7 @@
         },
         {
           "refId": "PACE",
-          "expr": "100 * orchestrate_quota_remaining{plan=\"gemini-pro\"} / orchestrate_quota_limit{plan=\"gemini-pro\"} - 100 * (orchestrate_quota_reset_timestamp{plan=\"gemini-pro\"} - time()) / 3600 / ((orchestrate_quota_limit{plan=\"gemini-pro\",window=\"5h\"} * 0 + 5) or (orchestrate_quota_limit{plan=\"gemini-pro\",window=~\"week|1w|7d\"} * 0 + 168) or (orchestrate_quota_limit{plan=\"gemini-pro\",window=\"month\"} * 0 + 720))",
+          "expr": "100 * orchestrate_quota_remaining{plan=\"gemini-pro\"} / orchestrate_quota_limit{plan=\"gemini-pro\"} - 100 * (orchestrate_quota_reset_timestamp{plan=\"gemini-pro\"} - time()) / 3600 / ((orchestrate_quota_limit{plan=\"gemini-pro\",window=~\"gemini-5h|3p-5h|5h\"} * 0 + 5) or (orchestrate_quota_limit{plan=\"gemini-pro\",window=~\"gemini-week|argon-week|3p-week|week|1w|7d\"} * 0 + 168) or (orchestrate_quota_limit{plan=\"gemini-pro\",window=\"month\"} * 0 + 720))",
           "instant": true,
           "format": "table"
         },
@@ -2435,7 +2435,7 @@
       "id": 3,
       "type": "stat",
       "title": "Quota reading freshness",
-      "description": "Age of the cached vendor reading per plan. The exporter re-polls upstream hourly; anything over 3 hours is ignored for routing and the local run-count proxy is used instead.",
+      "description": "Age of the cached vendor reading per plan. The exporter re-polls upstream every 15 minutes (launchd --quota-ttl 900); anything over 3 hours is ignored for routing and the local run-count proxy is used instead. For codex an old reading can mean the vendor's own snapshot is old \u2014 its usage endpoint only advances when one of its turns runs \u2014 not that the poll died.",
       "gridPos": {
         "h": 7,
         "w": 12,
@@ -2492,6 +2492,98 @@
       }
     },
     {
+      "id": 125,
+      "type": "timeseries",
+      "title": "Quota staleness by plan \u2014 the 3h routing gate",
+      "description": "History of orchestrate_quota_age_seconds per plan. The dashed line is the 3-hour gate (QUOTA_STALE_S): a reading older than this is ignored for routing. A plan that rides the line for hours is the codex pattern \u2014 a fresh poll behind a vendor snapshot that only advances when one of its turns runs; a plan that climbs off the chart is a dead refresher.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 56
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "orchestrate_quota_age_seconds",
+          "legendFormat": "{{plan}}"
+        },
+        {
+          "refId": "GATE",
+          "expr": "vector(10800)",
+          "legendFormat": "3h routing gate"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#199e70",
+                "value": null
+              },
+              {
+                "color": "#c98500",
+                "value": 3600
+              },
+              {
+                "color": "red",
+                "value": 10800
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "3h routing gate"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "dash": [
+                    10,
+                    10
+                  ],
+                  "fill": "dash"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
       "id": 116,
       "type": "timeseries",
       "title": "OrcaRouter wallet \u2014 balance against anchor and floor",
@@ -2500,7 +2592,7 @@
         "h": 7,
         "w": 16,
         "x": 0,
-        "y": 56
+        "y": 64
       },
       "targets": [
         {
@@ -2625,7 +2717,7 @@
         "h": 7,
         "w": 8,
         "x": 16,
-        "y": 56
+        "y": 64
       },
       "targets": [
         {
@@ -2719,7 +2811,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 63
+        "y": 71
       },
       "targets": [
         {
@@ -2797,7 +2889,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 71
+        "y": 79
       },
       "collapsed": false
     },
@@ -2810,7 +2902,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 72
+        "y": 80
       },
       "targets": [
         {
@@ -2937,7 +3029,7 @@
         "h": 5,
         "w": 6,
         "x": 0,
-        "y": 80
+        "y": 88
       },
       "targets": [
         {
@@ -2979,7 +3071,7 @@
         "h": 5,
         "w": 6,
         "x": 6,
-        "y": 80
+        "y": 88
       },
       "targets": [
         {
@@ -3021,7 +3113,7 @@
         "h": 5,
         "w": 6,
         "x": 12,
-        "y": 80
+        "y": 88
       },
       "targets": [
         {
@@ -3063,7 +3155,7 @@
         "h": 5,
         "w": 6,
         "x": 18,
-        "y": 80
+        "y": 88
       },
       "targets": [
         {
@@ -3123,7 +3215,7 @@
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 85
+        "y": 93
       },
       "targets": [
         {
@@ -3284,7 +3376,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 94
+        "y": 102
       },
       "title": "Metered spend to date \u2014 including MiMo",
       "description": "Cumulative cash per metered plan. MiMo is purely pay-as-you-go and is charged like DeepSeek and Kimi; it is here rather than in the balances panel only because Xiaomi publishes no balance endpoint to read.",
@@ -3329,7 +3421,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 94
+        "y": 102
       },
       "title": "Windows that are biting",
       "description": "Each window the provider itself reports as active, with its severity. A line at 100% means that plan's included usage is gone \u2014 for Claude Pro and Codex that is the orchestrator's own budget, not a worker's.",
@@ -3393,7 +3485,7 @@
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 100
+        "y": 108
       },
       "title": "Extra usage \u2014 money spent past the plan",
       "description": "Once a window hits 100%, work bills against a monthly extra-usage cap rather than stopping. This is real money. The orchestrator's rule is to STOP and offer the choice at that point \u2014 never to continue silently, and never to refuse a decision that is the operator's.",
@@ -3459,11 +3551,11 @@
         "h": 7,
         "w": 24,
         "x": 0,
-        "y": 106
+        "y": 114
       },
       "options": {
         "mode": "markdown",
-        "content": "**Quota is the vendor's own number.** Z.ai publishes both Coding Plan pools (5-hour and weekly credits); Alibaba TP publishes a monthly credit pool; Anthropic publishes Claude Pro's 5-hour and 7-day utilisation, the same source Claude Code's own `/usage` reads; OpenAI publishes ChatGPT Plus / Codex's 5-hour and 7-day utilisation; OpenCode Go publishes 5-hour, weekly and monthly percent of the subscription from `inference/go/v1/usage`; and DeepSeek and Moonshot publish dollar balances. Polled hourly by a background refresher and served from cache; a reading older than 3 hours is ignored for routing.\n\n**Gemini Pro (Antigravity) is read through `agy -p /usage`.** It reports its buckets as remaining *fractions*, so those pools are percent: `5h` and `week` are the same Hydrogen / 3.8 Flash bucket seen at two grains, and `1w` is Gemini 4 Argon's own weekly bucket. The pace column is left % minus the % of the window already elapsed \u2014 positive is ahead of an even burn, negative is a bucket that runs dry before it resets.\n\n**OrcaRouter has two meters.** The wallet is a dollar balance from the workspace spend quota, with an operator-recorded anchor: *spent since anchor* is that anchor less the current balance, and a paid dispatch is refused below the **$2.00 floor**. The free package publishes caps, never a balance \u2014 one shared bucket plus a bucket for each free model that has its own (Hy4 does) \u2014 and the rung those caps sit on is set by the account's lifetime paid spend, which no endpoint exposes; it is an operator-recorded reading (`ORCA_LIFETIME_SPEND_USD`). There is deliberately no remaining gauge for the free lane: the vendor does not publish one, so drawing one would be a guess.\n\n**MiMo's balance is derived, not published.** Xiaomi offers no balance endpoint, so the figure is an operator-recorded console reading less everything opencode has booked against the provider since. Re-anchor after a top-up.\n\n**SuperGrok's figure costs a request.** xAI publishes no quota endpoint; the plan's headroom arrives as `x-ratelimit-{limit,remaining}-{tokens,requests}` on a chat response \u2014 the same numbers the CLI's `/usage` screen shows. The exporter reads it with a one-token completion, so it refreshes hourly rather than every 15 minutes.\n\n**Cash is real; notional is modelled.** Prepaid tiers cost nothing at the margin, so *Avoided by prepaid* prices their tokens at the cheapest metered equivalent's list price. An estimate, not an invoice.\n\n**Token counts are normalised per harness** \u2014 codex reports input inclusive of its cached prefix while opencode and grok report cache separately. Raw fields differ by roughly an order of magnitude and must not be compared directly.\n\n**Seats come from the dispatch registry, not Prometheus history.** A seat's runs, verdicts, last-used time and lifetime spend survive a Prometheus restart; only the rate-shaped panels above need a full scrape window to be meaningful."
+        "content": "**Quota is the vendor's own number.** Z.ai publishes both Coding Plan pools (5-hour and weekly credits); Alibaba TP publishes a monthly credit pool; Anthropic publishes Claude Pro's 5-hour and 7-day utilisation, the same source Claude Code's own `/usage` reads; OpenAI publishes ChatGPT Plus / Codex's 5-hour and 7-day utilisation; OpenCode Go publishes 5-hour, weekly and monthly percent of the subscription from `inference/go/v1/usage`; and DeepSeek and Moonshot publish dollar balances. Polled hourly by a background refresher and served from cache; a reading older than 3 hours is ignored for routing.\n\n**Gemini Pro (Antigravity) is read through `agy -p /usage`.** It reports its buckets as remaining *fractions*, so those pools are percent, one row per NAMED window: `gemini-week` + `gemini-5h` (shared Gemini bucket), `3p-week` + `3p-5h` (the Claude and GPT bucket), and `argon-week` (Gemini 4 Argon's separate weekly bucket). The pace column is left % minus the % of the window already elapsed \u2014 positive is ahead of an even burn, negative is a bucket that runs dry before it resets.\n\n**OrcaRouter has two meters.** The wallet is a dollar balance from the workspace spend quota, with an operator-recorded anchor: *spent since anchor* is that anchor less the current balance, and a paid dispatch is refused below the **$2.00 floor**. The free package publishes caps, never a balance \u2014 one shared bucket plus a bucket for each free model that has its own (Hy4 does) \u2014 and the rung those caps sit on is set by the account's lifetime paid spend, which no endpoint exposes; it is an operator-recorded reading (`ORCA_LIFETIME_SPEND_USD`). There is deliberately no remaining gauge for the free lane: the vendor does not publish one, so drawing one would be a guess.\n\n**MiMo's balance is derived, not published.** Xiaomi offers no balance endpoint, so the figure is an operator-recorded console reading less everything opencode has booked against the provider since. Re-anchor after a top-up.\n\n**SuperGrok's figure costs a request.** xAI publishes no quota endpoint; the plan's headroom arrives as `x-ratelimit-{limit,remaining}-{tokens,requests}` on a chat response \u2014 the same numbers the CLI's `/usage` screen shows. The exporter reads it with a one-token completion, so it refreshes hourly rather than every 15 minutes.\n\n**Cash is real; notional is modelled.** Prepaid tiers cost nothing at the margin, so *Avoided by prepaid* prices their tokens at the cheapest metered equivalent's list price. An estimate, not an invoice.\n\n**Token counts are normalised per harness** \u2014 codex reports input inclusive of its cached prefix while opencode and grok report cache separately. Raw fields differ by roughly an order of magnitude and must not be compared directly.\n\n**Seats come from the dispatch registry, not Prometheus history.** A seat's runs, verdicts, last-used time and lifetime spend survive a Prometheus restart; only the rate-shaped panels above need a full scrape window to be meaningful."
       }
     },
     {
@@ -3474,7 +3566,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 113
+        "y": 121
       },
       "collapsed": false
     },
@@ -3487,7 +3579,7 @@
         "h": 5,
         "w": 6,
         "x": 0,
-        "y": 114
+        "y": 122
       },
       "targets": [
         {
@@ -3520,7 +3612,7 @@
         "h": 5,
         "w": 6,
         "x": 6,
-        "y": 114
+        "y": 122
       },
       "targets": [
         {
@@ -3554,7 +3646,7 @@
         "h": 5,
         "w": 6,
         "x": 12,
-        "y": 114
+        "y": 122
       },
       "targets": [
         {
@@ -3587,7 +3679,7 @@
         "h": 5,
         "w": 6,
         "x": 18,
-        "y": 114
+        "y": 122
       },
       "targets": [
         {
@@ -3619,7 +3711,7 @@
         "h": 7,
         "w": 24,
         "x": 0,
-        "y": 119
+        "y": 127
       },
       "targets": [
         {
@@ -3641,7 +3733,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 126
+        "y": 134
       },
       "id": 118
     },
@@ -3652,7 +3744,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 127
+        "y": 135
       },
       "targets": [
         {
@@ -3691,7 +3783,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 127
+        "y": 135
       },
       "targets": [
         {
@@ -3723,7 +3815,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 136
+        "y": 144
       },
       "targets": [
         {
@@ -3755,7 +3847,7 @@
         "h": 8,
         "w": 6,
         "x": 12,
-        "y": 136
+        "y": 144
       },
       "targets": [
         {
@@ -3793,7 +3885,7 @@
         "h": 8,
         "w": 6,
         "x": 18,
-        "y": 136
+        "y": 144
       },
       "targets": [
         {
@@ -3817,7 +3909,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 144
+        "y": 152
       },
       "targets": [
         {
@@ -3838,6 +3930,335 @@
       "fieldConfig": {
         "defaults": {
           "unit": "dateTimeAsIso"
+        }
+      }
+    },
+    {
+      "id": 126,
+      "type": "row",
+      "title": "Even burn \u2014 use it or lose it (dispatch.py burn)",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 160
+      },
+      "panels": []
+    },
+    {
+      "id": 127,
+      "type": "timeseries",
+      "title": "Projected unused by pool \u2014 what resets to waste",
+      "description": "orchestrate_burn_projected_unused per prepaid pool (fraction; 0.1 = 10pp). Above the dashed zero line is capacity the current burn rate will leave unspent at reset; `dispatch.py burn` assigns the backlog there first, and an IDLE-CAPACITY warning fires when nothing can draw the pool.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 161
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "orchestrate_burn_projected_unused",
+          "legendFormat": "{{plan}} {{window}}"
+        },
+        {
+          "refId": "ZERO",
+          "expr": "vector(0)",
+          "legendFormat": "even burn"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#199e70",
+                "value": null
+              },
+              {
+                "color": "#c98500",
+                "value": 0.05
+              },
+              {
+                "color": "red",
+                "value": 0.1
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "even burn"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "dash": [
+                    10,
+                    10
+                  ],
+                  "fill": "dash"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 128,
+      "type": "timeseries",
+      "title": "Burn deficit by pool \u2014 behind even burn",
+      "description": "orchestrate_burn_deficit per pool (left minus even-burn-left). Positive is a pool behind its spend clock (idle capacity); negative is burning fast. The controller ranks by projected unused first, this is the pace context every dispatch prints.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 161
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "orchestrate_burn_deficit",
+          "legendFormat": "{{plan}} {{window}}"
+        },
+        {
+          "refId": "ZERO",
+          "expr": "vector(0)",
+          "legendFormat": "even burn"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "even burn"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "dash": [
+                    10,
+                    10
+                  ],
+                  "fill": "dash"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 129,
+      "type": "stat",
+      "title": "Pools resetting to waste now",
+      "description": "orchestrate_burn_idle_capacity = 1 for a pool whose projected unused passes the gate with no ready backlog item able to draw it. Each fired once per window to Telegram/pushover (dedup in ~/.claude/orchestrate/idle_capacity.json) \u2014 this panel is the at-a-glance history via the state gauge.",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 0,
+        "y": 169
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(orchestrate_burn_idle_capacity == 1)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#199e70",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 130,
+      "type": "bargauge",
+      "title": "Backlog \u2014 the work supply burn draws on",
+      "description": "orchestrate_backlog_items by state: ready (deps satisfied), assigned (in the current burn proposal), held (a gate or role dependency), reported (orchestrator-run live items; never dispatched). `dispatch.py backlog list` names each item and its seat.",
+      "gridPos": {
+        "h": 8,
+        "w": 9,
+        "x": 6,
+        "y": 169
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "orchestrate_backlog_items",
+          "legendFormat": "{{state}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "namePlacement": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      }
+    },
+    {
+      "id": 131,
+      "type": "stat",
+      "title": "Hours to reset, per pool",
+      "description": "orchestrate_burn_hours_to_reset \u2014 the use-it-or-lose-it clock behind every deficit above.",
+      "gridPos": {
+        "h": 8,
+        "w": 9,
+        "x": 15,
+        "y": 169
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "orchestrate_burn_hours_to_reset",
+          "legendFormat": "{{plan}} {{window}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "unit": "h",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "#c98500",
+                "value": 12
+              },
+              {
+                "color": "#199e70",
+                "value": 48
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         }
       }
     }
