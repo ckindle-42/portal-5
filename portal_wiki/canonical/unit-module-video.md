@@ -12,7 +12,7 @@ sources:
 - type: code
   path: module-state-change:video:cli
 claims:
-- probe: modules.disabled
+- probe: modules.enabled
   contains: video
 confidence: high
 tags:
@@ -46,8 +46,8 @@ The switch is `modules.video.enabled` in `config/portal.yaml` (`portal module en
 
 Video is the heaviest media surface — LTX-2.5 int4 runs an 18-26GB MLX
 working set, is thermally punishing on a 64GB box, and produces
-preview-grade clips practically capped at ~4-6s — so it ships disabled
-(`modules.video.enabled: false`). While it is off, sync-config drops the
+preview-grade clips practically capped at ~4-6s — it shipped disabled; it is now enabled
+(`modules.video.enabled: true` since 2026-11-19, live trace PASS; peak worker ~9 GB, free memory ≥52%). When it is off, sync-config drops the
 `video_mlx` fleet id from `launched_mcp_ids` and the `auto-audio::video`
 workspace from the presets; `portal module enable video` restores both.
 Membership comes from the `module: video` tag on the `video_mlx` fleet
