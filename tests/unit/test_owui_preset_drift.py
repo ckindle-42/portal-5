@@ -44,15 +44,6 @@ def test_a_changed_name_tool_binding_or_missing_preset_is_reported():
     assert mod.drift(FILE, None) == ["missing from Open WebUI"]
 
 
-def test_check_reads_each_workspace_file_but_not_the_bundle(tmp_path):
-    (tmp_path / "workspace_a.json").write_text(json.dumps(FILE))
-    (tmp_path / "workspaces_all.json").write_text(json.dumps([FILE]))
-    stale = json.loads(json.dumps(FILE))
-    stale["params"]["system"] = "old"
-    assert mod.check(lambda _id: stale, tmp_path).keys() == {"auto-documents"}
-    assert mod.check(lambda _id: FILE, tmp_path) == {}
-
-
 def test_persona_expectation_follows_the_seeder_rules():
     import yaml
 

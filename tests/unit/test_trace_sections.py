@@ -15,6 +15,7 @@ from portal.platform.inference.cli.trace import (
     engines,
     host,
     lab,
+    mcps,
     media,
     owui,
     pins,
@@ -619,10 +620,14 @@ def test_section_selection_accepts_keys_numbers_and_prefixes() -> None:
         "aliases",
         "engines",
         "owui",
+        "jarvis",
         "media",
+        "platform",
         "lab",
     ]
     assert keys(None) == expected
+    for key, _title, _run in mcps.SECTIONS:  # opt-in: a bare sweep skips the per-MCP seats
+        assert keys([key]) == [key]
     assert keys(["1"]) == ["host"]
     assert keys(["containers"]) == ["containers"]
     assert keys(["c"]) == ["containers"]
@@ -909,3 +914,24 @@ def _ctx() -> Any:
         budget_s=60.0,
         timeout_s=30.0,
     )
+
+
+def test_mcp_span_tools_reads_only_completed_tool_spans() -> None:
+    record = {
+        "spans": [
+            {"name": "tool.requested", "tool": "kb_search"},
+            {"name": "tool.completed", "tool": "kb_search", "outcome": "ok"},
+            {"name": "tool.completed", "tool": "create_excel", "outcome": "not_allowed"},
+        ]
+    }
+    assert mcps.span_tools(record)[0] == {"kb_search"}
+    assert mcps.span_tools(record)[1] == "tools=kb_search refused=create_excel:not_allowed"
+    assert mcps.span_tools(None) == (set(), "tools=none")
+
+
+def test_compliance_trace_target_is_a_registered_part() -> None:
+    register = (
+        Path(__file__).resolve().parents[2]
+        / "portal/modules/compliance/data/nerc_cip_register.json"
+    ).read_text(encoding="utf-8")
+    assert f'"id": "{mcps.REQUIREMENT}"' in register

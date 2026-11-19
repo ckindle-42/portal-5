@@ -9,7 +9,7 @@ from typing import Annotated, Any
 
 import typer
 
-from . import containers, engines, host, lab, media, owui, pins, workspaces
+from . import containers, engines, host, lab, mcps, media, owui, pins, platform, workspaces
 from .context import TraceContext, env_value, host_url, run_cmd
 from .model import Hop, Section, Status, TraceReport, render_json, render_text
 
@@ -48,8 +48,15 @@ SECTION_RUNNERS: tuple[tuple[str, str, Runner], ...] = (
     ("aliases", "DEPRECATED ALIASES", lambda ctx, portal: pins.alias_hops(ctx, portal)),
     ("engines", "ENGINES", _engines),
     ("owui", "OPEN WEBUI TOOL PATH", lambda ctx, portal: owui.run(ctx, portal)),
+    (
+        "jarvis",
+        "JARVIS PERSONAL PATH",
+        lambda ctx, portal: lab.contributed("jarvis", "jarvis section", "orchestration module"),
+    ),
     ("media", "MEDIA PATH (IMAGE + VIDEO + MUSIC)", media.run),
+    ("platform", "SHARED PLATFORM PATHS", platform.run),
     ("lab", "LAB PATHS", _lab),
+    *mcps.SECTIONS,
 )
 
 
@@ -77,9 +84,12 @@ def _head(repo_root: Path) -> str:
 
 
 def selected(sections: list[str] | None) -> list[tuple[str, str, Runner]]:
-    """Resolve ``--section`` keys (or 1-based section numbers, or key prefixes)."""
+    """Resolve ``--section`` keys (or 1-based section numbers, or key prefixes).
+
+    A bare sweep runs everything except the per-MCP turns: each of those drives its
+    own seat, so it is asked for by name."""
     if not sections:
-        return list(SECTION_RUNNERS)
+        return [entry for entry in SECTION_RUNNERS if entry[0] not in mcps.OPT_IN]
     wanted: set[str] = set()
     for raw in sections:
         token = raw.strip().lower()
@@ -112,7 +122,8 @@ def cmd_trace(
             "--section",
             "-s",
             help="Run one section: host, containers, workspaces, "
-            "pins, aliases, engines, owui, media, lab (or its number). Repeatable.",
+            "pins, aliases, engines, owui, jarvis, media, platform, lab, or one MCP "
+            "(documents, memory, rag, wiki, data, compliance), by key or number. Repeatable.",
         ),
     ] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Emit the report as JSON")] = False,

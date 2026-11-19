@@ -31,20 +31,30 @@ def _to_hop(raw: Any) -> Hop:
     )
 
 
+def contributed(
+    section: str,
+    adapter: str,
+    expected: str,
+    sections: dict[str, Callable[[], list[dict[str, str]]]] | None = None,
+) -> list[Hop]:
+    """The contributed hops; absence or malformed output is a FAIL, never a skip."""
+    provided = plugins.trace_sections() if sections is None else sections
+    run = provided.get(section)
+    if run is None:
+        return [Hop(adapter, Status.FAIL, f"no module contributes '{section}'", expected)]
+    try:
+        raws = run()
+    except Exception as exc:  # noqa: BLE001 - an unreachable hop is the finding
+        return [Hop(adapter, Status.FAIL, short(f"{type(exc).__name__}: {exc}", 70), "completes")]
+    try:
+        hops = [_to_hop(raw) for raw in raws]
+    except (TypeError, ValueError) as exc:
+        return [Hop(adapter, Status.FAIL, short(str(exc), 70), "well-formed hops")]
+    return hops or [Hop(adapter, Status.FAIL, "section produced no hops", "at least one hop")]
+
+
 def run(
     sections: dict[str, Callable[[], list[dict[str, str]]]] | None = None,
 ) -> list[Hop]:
     """The contributed lab hops; absence or malformed output is a FAIL, never a skip."""
-    contributed = plugins.trace_sections() if sections is None else sections
-    section = contributed.get(SECTION)
-    if section is None:
-        return [Hop(ADAPTER, Status.FAIL, "no module contributes 'lab'", "security module")]
-    try:
-        raws = section()
-    except Exception as exc:  # noqa: BLE001 - an unreachable hop is the finding
-        return [Hop(ADAPTER, Status.FAIL, short(f"{type(exc).__name__}: {exc}", 70), "completes")]
-    try:
-        hops = [_to_hop(raw) for raw in raws]
-    except (TypeError, ValueError) as exc:
-        return [Hop(ADAPTER, Status.FAIL, short(str(exc), 70), "well-formed hops")]
-    return hops or [Hop(ADAPTER, Status.FAIL, "section produced no hops", "at least one hop")]
+    return contributed(SECTION, ADAPTER, "security module", sections)

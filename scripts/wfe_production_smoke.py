@@ -9,6 +9,13 @@ prompt tokens. One empty turn per workspace gives P-4 (prompt tokens against the
 
     uv run python scripts/wfe_production_smoke.py --workspaces auto-documents,auto-coding
     uv run python scripts/wfe_production_smoke.py --md docs/WFE_PRODUCTION_SMOKE_20261017.md
+    uv run python scripts/wfe_production_smoke.py --wfe-case gen-python-00
+    uv run python scripts/wfe_production_smoke.py --wfe-case gen-python-00 --bench-runs 3
+
+``--wfe-case`` runs one WFE suite task through OWUI, decodes it with the harness's own
+stream reader and exec_audit tool log, grades it with the WFE checkers, and pairs it with
+the Pipeline trace. ``--bench-runs`` repeats that bounded turn and reports TTFT/decode only
+for turns with a matching trace.
 
 Fixtures are uploaded through OWUI (so they land where a user's would) and removed afterwards;
 files the create tools publish are removed too; the memory note is forgotten again.
@@ -266,6 +273,181 @@ def newest_trace(ws: str, since: float) -> dict | None:
     return None
 
 
+def _content_delta(raw: bytes) -> bool:
+    line = raw.decode("utf-8", "replace").strip()
+    if not line.startswith("data:"):
+        return False
+    try:
+        obj = json.loads(line[5:].strip())
+    except ValueError:
+        return False
+    choices = obj.get("choices") or []
+    return bool(((choices[0].get("delta") or {}) if choices else {}).get("content"))
+
+
+def stream_turn(
+    ws: str, prompt: str, *, exec_audit: bool = False
+) -> tuple[list[bytes], float | None, float]:
+    """One streamed OWUI turn: raw SSE lines, TTFT and wall seconds."""
+    body = json.dumps(
+        {
+            "model": ws,
+            "messages": [{"role": "user", "content": prompt}],
+            "stream": True,
+            "stream_options": {"include_usage": True},
+            **({"exec_audit": True} if exec_audit else {}),
+        }
+    ).encode()
+    req = urllib.request.Request(
+        f"{OWUI}/api/chat/completions",
+        data=body,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {env('OWUI_API_KEY')}",
+            "Content-Type": "application/json",
+        },
+    )
+    started, first, lines = time.monotonic(), None, []
+    with urllib.request.urlopen(req, timeout=900) as resp:  # noqa: S310
+        for raw in resp:
+            lines.append(raw)
+            if first is None and _content_delta(raw):
+                first = time.monotonic()
+    return lines, (first - started if first else None), time.monotonic() - started
+
+
+def suite_case(case_id: str) -> tuple[dict, str]:
+    """The WFE suite entry named ``case_id`` and the file it came from."""
+    for path in sorted((REPO / "tests/wfe/suites").glob("*.jsonl")):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            try:
+                row = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(row, dict) and row.get("id") == case_id:
+                return row, path.name
+    raise KeyError(f"no WFE suite entry {case_id!r}")
+
+
+def trace_reasons(trace: dict | None, ws: str, required: list[str], audit: list[dict]) -> list[str]:
+    """What the trace must prove: served identity, completion, and the dispatched tools."""
+    if trace is None:
+        return ["no Pipeline /v1/trace record matched the OWUI turn"]
+    reasons = []
+    if trace.get("workspace") != ws:
+        reasons.append(f"trace resolved {trace.get('workspace')!r}, not {ws!r}")
+    if trace.get("outcome") != "complete":
+        reasons.append(f"trace outcome is {trace.get('outcome')!r}, not 'complete'")
+    if not trace.get("backend") or not trace.get("model"):
+        reasons.append("trace does not name the served backend and model")
+    requested = [
+        str(s.get("tool")) for s in trace.get("spans") or [] if s.get("name") == "tool.requested"
+    ]
+    missing = [tool for tool in required if tool not in requested]
+    if missing:
+        reasons.append(f"trace did not dispatch required tool(s): {', '.join(missing)}")
+    unlogged = sorted({str(c.get("name")) for c in audit} - set(requested))
+    if unlogged:
+        reasons.append(
+            f"exec_audit named tool(s) the trace did not dispatch: {', '.join(unlogged)}"
+        )
+    return reasons
+
+
+def run_wfe_case(case_id: str, ws: str) -> int:
+    """One graded real-use case through OWUI, with its trace as the receipt."""
+    from tests.wfe import runner
+    from tests.wfe.checkers import CheckContext, apply_checkers
+    from tests.wfe.schema import Outcome
+
+    task, source = suite_case(case_id)
+    prompt = str(task.get("instruction") or "")
+    if not prompt:
+        print(f"FAIL: case {case_id!r} has no single-turn instruction")
+        return 2
+    started = time.time()
+    try:
+        lines, ttft, total = stream_turn(ws, prompt, exec_audit=True)
+    except Exception as exc:  # noqa: BLE001 — a transport failure is a FAIL receipt
+        print(f"FAIL: the OWUI turn failed: {exc}")
+        return 1
+    msg, finish, economics = runner._read_stream("v1", lines)
+    calls = runner._audited_calls(msg)
+    answer = str(msg.get("content") or "")
+    trace = newest_trace(ws, started)
+    result = apply_checkers(
+        task, CheckContext(final_text=answer, tool_calls=calls, finish_reason=finish, task=task)
+    )
+    reasons = trace_reasons(trace, ws, list(task.get("requires_tools") or []), calls)
+    if result.outcome != Outcome.PASS:
+        reasons.append(f"WFE checker {result.outcome}: {result.notes}")
+    print(f"== WFE live case: {case_id} ({source}) on {ws} ==")
+    print(f"-- final answer --\n{answer or '<empty>'}")
+    print(f"-- tool calls ({len(calls)}) --")
+    for i, call in enumerate(calls, 1):
+        print(f"{i:2d}. {call.get('name')} error={call.get('error')}")
+        print(f"      args:   {str(call.get('args'))[:240]}")
+        print(f"      result: {str(call.get('output'))[:240]}")
+    print("-- evidence --")
+    print(f"checker: {result.outcome} | {result.notes}")
+    print(f"trace: {trace}" if trace else "trace: none")
+    print(
+        f"timing: ttft={ttft or 0:.2f}s total={total:.2f}s "
+        f"completion_tokens={economics.completion_tokens}"
+    )
+    print("-- verdict --")
+    print("PASS" if not reasons else "FAIL")
+    for reason in reasons:
+        print(f"  - {reason}")
+    return 0 if not reasons else 1
+
+
+def run_owui_bench(case_id: str, ws: str, runs: int) -> int:
+    """Repeat the case through OWUI; time only runs that carry a Pipeline trace."""
+    from tests.wfe import runner
+
+    task, _ = suite_case(case_id)
+    prompt = str(task.get("instruction") or "")
+    required = list(task.get("requires_tools") or [])
+    rows, failures = [], []
+    for run in range(1, runs + 1):
+        started = time.time()
+        try:
+            lines, ttft, total = stream_turn(ws, prompt)
+        except Exception as exc:  # noqa: BLE001 — a failed run is a FAIL, not a crash
+            failures.append(f"run {run}: OWUI turn failed: {exc}")
+            continue
+        msg, _, economics = runner._read_stream("v1", lines)
+        answer = str(msg.get("content") or "").strip()
+        trace = newest_trace(ws, started)
+        reasons = trace_reasons(trace, ws, required, [])
+        if not answer:
+            reasons.append("run rendered an empty answer")
+        if reasons:
+            failures.append(f"run {run}: {'; '.join(reasons)}")
+            continue
+        decode = economics.answer_tps
+        if decode is None and economics.completion_tokens and total > (ttft or 0):
+            decode = economics.completion_tokens / (total - (ttft or 0))
+        rows.append((run, ttft, total, decode, economics.prompt_tokens, trace))
+    print(f"== OWUI route bench: {case_id} x{runs} on {ws} ==")
+    print(
+        f"{'run':>3}  {'ttft_s':>7}  {'total_s':>8}  {'decode_tps':>10}  {'prompt':>7}  trace / served"
+    )
+    for run, ttft, total, decode, prompt_tokens, trace in rows:
+        served = f"{trace.get('backend')}/{trace.get('model')}"
+        print(
+            f"{run:>3}  {'-' if ttft is None else f'{ttft:.2f}':>7}  {total:>8.2f}  "
+            f"{'-' if decode is None else f'{decode:.1f}':>10}  {str(prompt_tokens or '-'):>7}  "
+            f"{trace.get('correlation_id')} / {served}"
+        )
+    for failure in failures:
+        print(f"FAIL {failure}")
+    print("-- verdict --")
+    print("PASS" if rows and not failures else "FAIL")
+    return 0 if rows and not failures else 1
+
+
 def _memory_id_from_tool_result_text(text: str) -> str:
     """Read the UUID that the remember tool returned and the answer repeats."""
     match = _MEMORY_ID_RE.search(text)
@@ -404,6 +586,26 @@ def cleanup(
         f.unlink(missing_ok=True)
 
 
+def _wfe_mode(a: argparse.Namespace, parser: argparse.ArgumentParser) -> int | None:
+    """The graded case and/or route bench, or None for the per-tool smoke."""
+    if not (a.wfe_case or a.bench_runs):
+        return None
+    if a.bench_runs < 0:
+        parser.error("--bench-runs must be at least 0")
+    case = a.wfe_case or "gen-python-00"
+    try:
+        suite_case(case)
+    except KeyError as exc:
+        print(exc)
+        return 2
+    failed = 0
+    if a.wfe_case:
+        failed |= run_wfe_case(case, a.wfe_workspace)
+    if a.bench_runs:
+        failed |= run_owui_bench(case, a.wfe_workspace, a.bench_runs)
+    return 1 if failed else 0
+
+
 def main() -> int:
     import yaml
 
@@ -414,7 +616,15 @@ def main() -> int:
     )
     ap.add_argument("--tools", help="comma list; default: every tool the workspace offers")
     ap.add_argument("--md", type=Path)
+    ap.add_argument("--wfe-case", help="one WFE suite case id to run, grade and trace")
+    ap.add_argument("--wfe-workspace", default="auto-daily")
+    ap.add_argument(
+        "--bench-runs", type=int, default=0, help="repeat --wfe-case (default gen-python-00)"
+    )
     a = ap.parse_args()
+    wfe_code = _wfe_mode(a, ap)
+    if wfe_code is not None:
+        return wfe_code
     portal = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
     by_tool = {c.tool: c for c in CASES}
     results: list[Result] = []
