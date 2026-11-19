@@ -31,15 +31,61 @@ _venv_lock_preflight() {
 
     echo "ERROR: [$label] project venv does not match uv.lock (dependency drift)." >&2
     echo "       Refusing to start against an unknown runtime." >&2
-    if echo "$out" | grep -qE '^\s*[-~]'; then
-        echo "       The venv is AHEAD of the lock. Do NOT run 'uv sync --all-extras'" >&2
-        echo "       (it would uninstall/downgrade the packages below). Reconcile the" >&2
-        echo "       LOCK to the venv ('uv lock') after reviewing the diff, or restore" >&2
-        echo "       a known-good venv from ~/.portal5/backups/." >&2
-    else
-        echo "       The venv is behind the lock. Run 'uv sync --all-extras'" >&2
-        echo "       (after reviewing the diff) to catch it up." >&2
+    local py="${root}/.venv/bin/python"
+    [ -x "$py" ] || py="$(command -v python3 2>/dev/null || true)"
+    local classified="" direction=""
+    if [ -n "$py" ]; then
+        classified="$(printf '%s\n' "$out" | "$py" "$root/scripts/venv_lock_direction.py" 2>/dev/null || true)"
     fi
+    direction="${classified%%$'\n'*}"
+    case "$direction" in
+        lock_ahead|venv_ahead|reinstall|unknown)
+            echo "       ${classified#*$'\n'}" >&2
+            ;;
+        *)
+            echo "       could not tell which side is ahead. Refusing to sync." >&2
+            ;;
+    esac
     echo "$out" | grep -E '^\s*[+~-]' | head -40 >&2 || true
     return 1
+}
+
+# When `uv sync --check` says the lock is ahead (or only a same-version
+# reinstall), bring the project venv up to uv.lock. A venv that is ahead is
+# left untouched — sync would downgrade it.
+_sync_venv_when_lock_ahead() {
+    local root="${PORTAL_ROOT:?PORTAL_ROOT must be set}"
+    local uv_bin="${UV_BIN:-${HOME}/.local/bin/uv}"
+    [ -x "$uv_bin" ] || uv_bin="$(command -v uv 2>/dev/null || true)"
+    if [ -z "$uv_bin" ]; then
+        echo "ERROR: uv not found — cannot sync the project venv to uv.lock." >&2
+        return 1
+    fi
+    local py="${root}/.venv/bin/python"
+    [ -x "$py" ] || py="$(command -v python3 2>/dev/null || true)"
+    local out
+    if out="$("$uv_bin" sync --project "$root" --all-extras --frozen --check 2>&1)"; then
+        return 0
+    fi
+    if [ -z "$py" ]; then
+        echo "ERROR: cannot classify venv/lock drift (python missing)." >&2
+        return 1
+    fi
+    local classified direction
+    classified="$(printf '%s\n' "$out" | "$py" "$root/scripts/venv_lock_direction.py")" || {
+        echo "ERROR: could not classify venv/lock drift." >&2
+        return 1
+    }
+    direction="${classified%%$'\n'*}"
+    case "$direction" in
+        lock_ahead|reinstall)
+            echo "[portal-5] ${classified#*$'\n'}"
+            "$uv_bin" sync --project "$root" --all-extras --frozen
+            ;;
+        *)
+            echo "ERROR: ${classified#*$'\n'}" >&2
+            printf '%s\n' "$out" | head -40 >&2
+            return 1
+            ;;
+    esac
 }

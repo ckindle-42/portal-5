@@ -76,7 +76,7 @@ def test_standalone_installers_require_safe_starlette():
         "Dockerfile.cad",
         "Dockerfile.mcp",
         "deploy/browser-mcp/Dockerfile",
-        "scripts/lib/services.sh",
+        "scripts/engine_install_plan.py",
     )
     combined = "\n".join((_ROOT / path).read_text(encoding="utf-8") for path in paths)
     assert "starlette>=0.35.0" not in combined

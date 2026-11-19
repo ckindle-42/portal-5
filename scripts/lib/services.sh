@@ -56,6 +56,57 @@ _launch_install_ollama() {
     exit 1
 }
 
+# Latest sweep report outside the repo. Empty when none exists.
+_latest_sweep_report() {
+    local report="" candidate
+    for candidate in "$HOME/.portal5/security"/security_sweep_*.md; do
+        [ -f "$candidate" ] || continue
+        if [ -z "$report" ] || [[ "$candidate" > "$report" ]]; then
+            report="$candidate"
+        fi
+    done
+    if [ -n "${PORTAL_SWEEP_REPORT:-}" ]; then
+        report="$PORTAL_SWEEP_REPORT"
+    fi
+    printf '%s' "$report"
+}
+
+# Print (dry-run) or apply service deps + non-core sweep fixes. Core stack is held.
+_engine_dep_plan() {
+    local service="$1" py="$2" mode="${3:-apply}"
+    local portal_py="$PORTAL_ROOT/.venv/bin/python"
+    [ -x "$portal_py" ] || portal_py="$(command -v python3)"
+    local report
+    report="$(_latest_sweep_report)"
+    local args=( "$portal_py" "$PORTAL_ROOT/scripts/engine_install_plan.py"
+        --service "$service" --python "$py" --mode "$mode" )
+    if [ -n "$report" ]; then
+        args+=( --sweep-report "$report" )
+    fi
+    "${args[@]}"
+}
+
+# bootout is optional (the label may be unloaded). bootstrap and a running
+# state are not: a swallowed failure left com.portal5.video-mlx unloaded.
+_launchd_reload_or_fail() {
+    local label="$1" plist="$2"
+    local target="gui/$(id -u)/${label}"
+    launchctl bootout "$target" 2>/dev/null || true
+    if ! launchctl bootstrap "gui/$(id -u)" "$plist"; then
+        echo "  ❌ launchctl bootstrap failed for ${label}; service is not loaded" >&2
+        exit 1
+    fi
+    if ! launchctl kickstart -k "$target"; then
+        echo "  ❌ launchctl kickstart failed for ${label}" >&2
+        exit 1
+    fi
+    if ! launchctl print "$target" 2>/dev/null | grep -q 'state = running'; then
+        echo "  ❌ ${label} is not running after install" >&2
+        exit 1
+    fi
+    echo "  ✅ ${label} loaded and running"
+}
+
 _launch_install_music() {
     echo "=== Installing music MCP (ACE-Step 1.5 XL-Turbo, MiniMax 8-bit fallback) ==="
     ARCH=$(uname -m)
@@ -66,9 +117,16 @@ _launch_install_music() {
     MUSIC_LOG="$HOME/.portal5/logs/music.log"
     PY="$ACE_DIR/.venv/bin/python"
 
+    local dry=0
+    [ "${1:-}" = "--dry-run" ] && dry=1
     if [ "$ARCH" != "arm64" ]; then
         echo "  ❌ Music engines require Apple Silicon (arm64). Detected: $ARCH."
         exit 1
+    fi
+    if [ "$dry" -eq 1 ]; then
+        _engine_dep_plan music "$PY" dry-run
+        echo "  dry-run: no clone, no pip apply, no launchctl"
+        return 0
     fi
     command -v git >/dev/null || { echo "  ❌ git not found"; exit 1; }
     command -v uv >/dev/null || { echo "  ❌ uv not found"; exit 1; }
@@ -83,15 +141,9 @@ _launch_install_music() {
     git -C "$ACE_DIR" fetch --depth 1 origin "$ACE_SHA"
     git -C "$ACE_DIR" checkout --detach "$ACE_SHA"
     ( cd "$ACE_DIR" && uv python install 3.12 && uv sync --python 3.12 --frozen )
-    # ACE-Step pins gradio and transformers upstream; this checkout is its current HEAD.
-    ( cd "$ACE_DIR" && uv pip install --python "$PY" --upgrade \
-        "mlx-audio==0.6.6" "mcp>=2.0.0,<3.0.0" "fastapi>=0.109.0" \
-        "uvicorn[standard]>=0.27.0" "httpx>=0.26.0" "pyyaml>=6.0.1" \
-        "aiohttp>=3.14.4" "anyio>=4.14.2" "brotli>=1.2.1" "certifi>=2026.10.18" \
-        "diffusers>=0.38.0" "filelock>=4.2.1" "fsspec>=2026.6.0" "idna>=3.15" \
-        "lightning>=2.6.6" "multidict>=6.9.1" "orjson>=3.11.6" \
-        "pytorch-lightning>=2.6.6" "python-dotenv>=1.2.2" "python-multipart>=0.0.31" \
-        "requests>=2.33.0" "setuptools>=84.1.0" "torch>=2.13.0" "werkzeug>=3.1.9" )
+    # ACE-Step's own lock owns the core stack. Portal adds service deps and
+    # non-core sweep fixes only (scripts/engine_install_plan.py).
+    _engine_dep_plan music "$PY" apply
 
     _music_snap() {
         local repo="$1" dest="$2" min_gb="$3" size_gb
@@ -149,12 +201,10 @@ MUSIC_START
     <key>StandardErrorPath</key><string>${MUSIC_LOG}</string>
 </dict></plist>
 PLIST
-    echo "  ✅ Wrote $PLIST (not loaded)."
-    echo "  Boot out retired labels, then start:"
-    echo "    launchctl bootout gui/\$(id -u)/com.portal5.music-minimax 2>/dev/null || true"
-    echo "    launchctl bootout gui/\$(id -u)/com.portal5.music-ace-mcp 2>/dev/null || true"
-    echo "    launchctl bootout gui/\$(id -u)/com.portal5.acestep-server 2>/dev/null || true"
-    echo "    launchctl bootstrap gui/\$(id -u) \"$PLIST\""
+    launchctl bootout "gui/$(id -u)/com.portal5.music-minimax" 2>/dev/null || true
+    launchctl bootout "gui/$(id -u)/com.portal5.music-ace-mcp" 2>/dev/null || true
+    launchctl bootout "gui/$(id -u)/com.portal5.acestep-server" 2>/dev/null || true
+    _launchd_reload_or_fail com.portal5.music "$PLIST"
 }
 
 _launch_install_mflux() {
@@ -165,10 +215,17 @@ _launch_install_mflux() {
     MX_LOG="$HOME/.portal5/logs/mflux.log"
     MX_PORT="${MFLUX_MCP_PORT:-8933}"
 
+    local dry=0
+    [ "${1:-}" = "--dry-run" ] && dry=1
     if [ "$ARCH" != "arm64" ]; then
         echo "  ❌ MFLUX requires Apple Silicon (arm64). Detected: $ARCH."
         echo "  There is no CPU/CUDA fallback for this engine."
         exit 1
+    fi
+    if [ "$dry" -eq 1 ]; then
+        _engine_dep_plan mflux "$MX_VENV/bin/python" dry-run
+        echo "  dry-run: no venv changes, no pip apply, no launchctl"
+        return 0
     fi
     # mflux >=0.24 requires Python >=3.11; the host `python3` may still be 3.10.
     MX_PY="${MFLUX_PYTHON:-}"
@@ -190,11 +247,8 @@ _launch_install_mflux() {
     mkdir -p "$MX_DIR" "$HOME/.portal5/logs"
     [ -d "$MX_VENV" ] || { echo "  Creating venv..."; "$MX_PY" -m venv "$MX_VENV"; }
 
-    echo "  Installing current deps (mflux, mcp)..."
-    uv pip install --python "$MX_VENV/bin/python" --upgrade \
-        "mflux>=0.24.0" "fastapi>=0.109.0" "uvicorn[standard]>=0.27.0" "httpx>=0.26.0" \
-        "pyyaml>=6.0.1" "starlette>=1.3.1" "mcp>=2.0.0,<3.0.0" \
-        "filelock>=4.2.1" "opentelemetry-api>=1.45.2" "pillow>=13.0.0" "setuptools>=84.1.0"
+    echo "  Installing current deps (mflux, mcp) and non-core sweep fixes..."
+    _engine_dep_plan mflux "$MX_VENV/bin/python" apply
     "$MX_VENV/bin/python" -c 'import mflux, PIL; assert tuple(map(int, PIL.__version__.split(".")[:2])) >= (13, 0), f"Pillow {PIL.__version__} < 13 (GHSA-5x8w-8jj5-q52h)"' \
         || { echo "  ❌ mflux 0.24.0 / Pillow>=13.0.0 verification failed"; exit 1; }
     "$MX_VENV/bin/python" -c 'import platform; assert platform.machine() == "arm64"' \
@@ -234,7 +288,7 @@ MX_START
     <key>StandardErrorPath</key><string>$MX_LOG</string>
 </dict></plist>
 PLIST
-    launchctl load "$PLIST" 2>/dev/null || true
+    _launchd_reload_or_fail com.portal5.mflux "$PLIST"
     echo "  ✅ Registered launchd service: com.portal5.mflux (port $MX_PORT)"
 }
 
@@ -282,11 +336,24 @@ _launch_install_video_mlx() {
     # Wan2.2-TI2V-5B converted to MLX Q8. Silent 720p photoreal output.
     VX_WAN_MODEL="$VX_DIR/wan2.2-ti2v-5b-q8"
     VX_WAN_EXTRAS=""
+    local dry=0 wan=0 arg
+    for arg in "$@"; do
+        case "$arg" in
+            --dry-run) dry=1 ;;
+            wan) wan=1 ;;
+            *) echo "  ❌ unknown install-video-mlx argument: $arg" >&2; exit 1 ;;
+        esac
+    done
 
     if [ "$ARCH" != "arm64" ]; then
         echo "  ❌ Video-MLX requires Apple Silicon (arm64). Detected: $ARCH."
         echo "  There is no CPU/CUDA fallback for this engine."
         exit 1
+    fi
+    if [ "$dry" -eq 1 ]; then
+        _engine_dep_plan video "$VX_VENV/bin/python" dry-run
+        echo "  dry-run: no clone, no pip apply, no launchctl"
+        return 0
     fi
     command -v uv &>/dev/null || { echo "  ❌ uv not found (curl -LsSf https://astral.sh/uv/install.sh | sh)"; exit 1; }
     command -v ffmpeg &>/dev/null || echo "  ⚠️  ffmpeg not found — ltx-2-mlx needs it for video encoding (brew install ffmpeg)"
@@ -312,11 +379,9 @@ _launch_install_video_mlx() {
     echo "  Engine checkout: $VX_SRC -> $(cd "$VX_SRC" && pwd) @ $(git -C "$VX_SRC" rev-parse --short HEAD)"
     echo "  Resolving deps (uv sync)..."
     ( cd "$VX_SRC" && uv sync --all-extras )
-    # Keep the engine lock, then upgrade its vulnerable transitive packages.
-    uv pip install --python "$VX_VENV/bin/python" --upgrade \
-        "mcp>=2.0.0,<3.0.0" "starlette>=1.3.1" "httpx>=0.26.0" "pyyaml>=6.0.1" \
-        "anyio>=4.14.2" "certifi>=2026.10.18" "filelock>=4.2.1" "fsspec>=2026.6.0" \
-        "pillow>=13.0.0" "pygments>=2.20.0" "pytest>=9.0.3" "transformers>=5.10.0" || {
+    # Engine lock owns torch/transformers/mlx. Sweep fixes that are not core
+    # are applied by scripts/engine_install_plan.py; a core hit is refused.
+    _engine_dep_plan video "$VX_VENV/bin/python" apply || {
         echo "  ❌ security dependency upgrade failed" >&2; exit 1;
     }
     # `uv sync` strips anything outside the engine's own lock, and a failed late
@@ -326,7 +391,7 @@ _launch_install_video_mlx() {
     "$VX_VENV/bin/python" -c "import mcp, starlette" 2>/dev/null || {
         echo "  ❌ the engine venv cannot import mcp/starlette (MCP server deps)" >&2; exit 1; }
 
-    if [ "${1:-}" = "wan" ]; then
+    if [ "$wan" -eq 1 ]; then
         echo "  Installing the mlx-video fallback (Wan2.2-TI2V-5B)..."
         ( cd "$VX_SRC" && uv pip install "mlx-video @ git+https://github.com/Blaizzy/mlx-video.git@87db56a51758fefb748a359b90a5283bb8ba4837" ) || {
             echo "  ❌ mlx-video install failed" >&2; exit 1;
@@ -378,11 +443,9 @@ VX_START
 </dict></plist>
 PLIST
     # `launchctl load` on an already-loaded label is a no-op, so a rewritten
-    # start.sh kept the old process (and old install) running. Re-bootstrap.
-    launchctl bootout "gui/$(id -u)/com.portal5.video-mlx" 2>/dev/null || true
-    launchctl bootstrap "gui/$(id -u)" "$PLIST" 2>/dev/null \
-        || launchctl load "$PLIST" 2>/dev/null || true
-    launchctl kickstart -k "gui/$(id -u)/com.portal5.video-mlx" 2>/dev/null || true
+    # start.sh kept the old process running. Re-bootstrap and fail if it is
+    # not actually running.
+    _launchd_reload_or_fail com.portal5.video-mlx "$PLIST"
     echo "  ✅ Registered launchd service: com.portal5.video-mlx (port $VX_PORT)"
 }
 

@@ -1,8 +1,11 @@
+from pathlib import Path
+
 from scripts.security_sweep import (
     PackageRef,
     _docker_findings,
     _lock_packages,
     alert_required,
+    default_output_dir,
     query_batches,
     severity_from_score,
 )
@@ -47,6 +50,17 @@ def test_lock_inventory_preserves_python_fork_markers(tmp_path):
     assert _lock_packages(lock) == [
         PackageRef("soupsieve", "2.10", "PyPI", ("uv.lock (python_full_version < '3.11.5')",))
     ]
+
+
+def test_default_report_dir_is_outside_the_repo(monkeypatch, tmp_path):
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    report_dir = default_output_dir()
+    assert report_dir == tmp_path / ".portal5" / "security"
+    assert "docs/security" not in str(report_dir)
+    plist = Path(__file__).resolve().parents[2] / "deploy/launchd/com.portal5.security-sweep.plist"
+    text = plist.read_text(encoding="utf-8")
+    assert "--output-dir __HOME__/.portal5/security" in text
+    assert "docs/security" not in text
 
 
 def test_docker_findings_keep_image_severity_and_fixed_version():

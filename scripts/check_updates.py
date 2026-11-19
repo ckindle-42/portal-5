@@ -403,28 +403,19 @@ def check_python_deps() -> Report:
         if r.returncode != 0:
             rep.status = "behind"
             rep.security = True  # a silently-diverged runtime is a standing risk
+            diff_text = r.stdout + r.stderr
             diff_lines = [
                 ln.strip()
-                for ln in (r.stdout + r.stderr).splitlines()
+                for ln in diff_text.splitlines()
                 if ln.strip().startswith(("+", "-", "~"))
             ]
-            # Direction matters. `uv sync` reconciles the venv TO the lock:
-            #   `-`/`~` (uninstall/downgrade) => the venv is AHEAD of the lock —
-            #   running `uv sync` would DESTROY newer packages (this is exactly
-            #   how the VL runtime was lost). `+` only => venv is behind, safe.
-            venv_ahead = any(ln.startswith(("-", "~")) for ln in diff_lines)
-            if venv_ahead:
-                rep.lines.append(
-                    "VENV/LOCK DRIFT — the venv is AHEAD of uv.lock. Do NOT run "
-                    "`uv sync --all-extras` (it would uninstall/downgrade the "
-                    "packages below). Reconcile the LOCK to the venv (`uv lock`) "
-                    "after reviewing the diff, or restore a known-good venv."
-                )
-            else:
-                rep.lines.append(
-                    "VENV/LOCK DRIFT — the venv is behind uv.lock; "
-                    "`uv sync --all-extras` (after reviewing the diff) will catch it up:"
-                )
+            # A lock bump prints `- old` and `+ new` together. `-` alone is not
+            # "venv ahead"; compare the versions (scripts/venv_lock_direction.py).
+            try:
+                from scripts.venv_lock_direction import classify_sync_diff, drift_message
+            except ImportError:
+                from venv_lock_direction import classify_sync_diff, drift_message
+            rep.lines.append("VENV/LOCK DRIFT — " + drift_message(classify_sync_diff(diff_text)))
             rep.lines.extend(f"  {ln}" for ln in diff_lines)
         else:
             rep.lines.append("venv matches uv.lock")

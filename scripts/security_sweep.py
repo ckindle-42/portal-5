@@ -25,6 +25,13 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 OSV_API = "https://api.osv.dev/v1"
+
+
+def default_output_dir() -> Path:
+    """Sweep reports stay out of the git checkout. The weekly launchd job uses this."""
+    return Path.home() / ".portal5" / "security"
+
+
 sys.path.insert(0, str(ROOT))
 
 
@@ -825,7 +832,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--repo", default=str(ROOT), help="Portal repository root")
     parser.add_argument("--home", default=str(Path.home()), help="Host home directory")
     parser.add_argument("--date", help="Report date in YYYY-MM-DD form")
-    parser.add_argument("--output-dir", default=str(ROOT / "docs" / "security"))
+    parser.add_argument("--output-dir", default=str(default_output_dir()))
     parser.add_argument(
         "--no-alert", action="store_true", help="Suppress outbound Telegram/Pushover alerts"
     )
