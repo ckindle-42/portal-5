@@ -357,6 +357,10 @@ def test_pinned_version_scope_aware():
     assert s._pinned_version("@scope/name") == ""
     assert s._pinned_version("pkg@2.0") == "2.0"
     assert s._pinned_version("pkg") == ""
+    assert s._package_name("@scope/name@1.2.3") == "@scope/name"
+    assert s._package_name("@scope/name") == "@scope/name"
+    assert s._package_name("pkg@2.0") == "pkg"
+    assert s._package_name("pkg") == "pkg"
 
 
 def test_npx_pin_rows_flags_floating_and_stale(tmp_path, monkeypatch):

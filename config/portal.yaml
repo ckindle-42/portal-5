@@ -346,7 +346,7 @@ mcp_fleet:
     expose_to_ide: true
     command:
       type: local
-      command: ["npx", "-y", "@modelcontextprotocol/server-filesystem", "${HOME}/projects", "/tmp"]
+      command: ["npx", "-y", "@modelcontextprotocol/server-filesystem@2.4.0", "${HOME}/projects", "/tmp"]
   - id: fetch
     module: general
     name: fetch
@@ -387,7 +387,7 @@ mcp_fleet:
     expose_to_ide: true
     command:
       type: local
-      command: ["npx", "-y", "mcp-docker-server"]
+      command: ["npx", "-y", "mcp-docker-server@1.0.1"]
   # The ComfyUI image + video subsystem (comfyui/video fleet ids, comfyui_mcp.py,
   # video_mcp.py, the compose `comfyui` profile) was removed entirely in
   # TASK_IMAGE_VIDEO_OVERHAUL_V1 -- Metal has no FP8, so it never ran on this
@@ -620,7 +620,7 @@ mcp_fleet:
     expose_to_ide: true
     command:
       type: local
-      command: ['npx', '-y', '@upstash/context7-mcp', '--transport', 'stdio']
+      command: ['npx', '-y', '@upstash/context7-mcp@4.7.3', '--transport', 'stdio']
   - id: data
     module: data
     name: portal-data

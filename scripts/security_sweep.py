@@ -337,6 +337,12 @@ def _npm_packages(root: Path, home: Path) -> list[PackageRef]:
     return packages
 
 
+def _package_name(spec: str) -> str:
+    if spec.startswith("@"):
+        return spec.rpartition("@")[0] if spec.count("@") > 1 else spec
+    return spec.rpartition("@")[0] or spec
+
+
 def _npx_packages(config_path: Path) -> list[dict[str, str]]:
     """npx-launched MCP commands from config/portal.yaml: floating unless pinned pkg@exact."""
     config = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
@@ -352,6 +358,7 @@ def _npx_packages(config_path: Path) -> list[dict[str, str]]:
             {
                 "service": str(service.get("id", "")),
                 "package": spec,
+                "name": _package_name(spec),
                 "pinned": _pinned_version(spec),
             }
         )
@@ -379,9 +386,9 @@ def npx_pin_rows(config_path: Path) -> tuple[list[dict[str, str]], list[str]]:
     rows = _npx_packages(config_path)
     errors: list[str] = []
     for row in rows:
-        row["latest"] = _npm_latest(row["package"])
+        row["latest"] = _npm_latest(row["name"])
         if not row["latest"]:
-            errors.append(f"npm registry: no latest version for {row['package']}")
+            errors.append(f"npm registry: no latest version for {row['name']}")
             row["status"] = "unknown"
         elif row["pinned"] == row["latest"]:
             row["status"] = "pinned (latest)"
