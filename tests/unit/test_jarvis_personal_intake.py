@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -70,6 +71,61 @@ def test_owui_submit_requires_the_allowlisted_telegram_id(
 def test_unknown_source_is_refused(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="source"):
         enqueue_personal(tmp_path, "email", "1", "hello")
+
+
+def test_telegram_do_stores_utc_not_before_and_skips_until_due(tmp_path: Path) -> None:
+    now = datetime.now(UTC).replace(microsecond=0)
+    due = now + timedelta(minutes=2)
+    reply = telegram_do_reply(tmp_path, 7, f"at {due.isoformat()} send me queue status")
+    task = PersonalStore(tmp_path).get(reply.removeprefix("queued "))
+
+    assert task is not None
+    assert task.text == "send me queue status"
+    assert task.not_before == due.isoformat()
+    assert PersonalStore(tmp_path).oldest_runnable(now=now) is None
+    assert PersonalStore(tmp_path).oldest_runnable(now=due + timedelta(seconds=1)).id == task.id
+
+
+def test_runner_leaves_reminder_queued_until_the_due_poll(tmp_path: Path) -> None:
+    import json
+
+    from portal.modules.orchestration.personal_runner import Completion, poll_personal_tasks
+
+    class Caller:
+        def __init__(self) -> None:
+            self.replies = [
+                Completion(json.dumps({"steps": [{"tools": ["queue_status"]}]}), (), 0),
+                Completion(
+                    "",
+                    ({"id": "c1", "function": {"name": "queue_status", "arguments": "{}"}},),
+                    0,
+                ),
+                Completion("Queue is empty.", (), 0),
+            ]
+
+        def complete(self, body: dict[str, object]) -> Completion:
+            if body.get("portal_bite_tools") == ["recall"]:
+                return Completion("No matching memory.", (), 1, ("recall",))
+            return self.replies.pop(0)
+
+    class Notices:
+        def notify(self, task_id: str, kind: str, message: str) -> None:
+            return None
+
+    now = datetime.now(UTC).replace(microsecond=0)
+    due = now + timedelta(minutes=2)
+    reply = telegram_do_reply(tmp_path, 7, f"at {due.isoformat()} send me queue status")
+    task_id = reply.removeprefix("queued ")
+    caller = Caller()
+
+    assert poll_personal_tasks(tmp_path, Notices(), caller, now=now) is None
+    task = PersonalStore(tmp_path).get(task_id)
+    assert task is not None and task.status == "queued" and task.receipt_path is None
+
+    result = poll_personal_tasks(tmp_path, Notices(), caller, now=due + timedelta(seconds=1))
+
+    assert result is not None and result.status == "done"
+    assert PersonalStore(tmp_path).get(task_id).status == "done"  # type: ignore[union-attr]
 
 
 def _table_exists(path: Path, name: str) -> bool:

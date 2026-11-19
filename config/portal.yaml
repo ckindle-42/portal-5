@@ -102,6 +102,8 @@ orchestration_arm:
         tiers: [sol, grok-max, flagship, oc-deep-flash, oc-glm-flash, deep-pro]
         security_tier: daybreak
         timeout_seconds: 1800
+    personal_cloud:
+      enabled: true
     # Telegram /jarvis control plane (default off): bot queues control_requests
     # rows, the host runner executes them. Off = /jarvis answers "not enabled".
     telegram_control:
@@ -354,7 +356,7 @@ mcp_fleet:
   - id: git
     module: general
     name: git
-    expose_to_pipeline: false
+    expose_to_pipeline: true
     expose_to_ide: true
     command:
       type: local
@@ -471,7 +473,7 @@ mcp_fleet:
     module: research
     name: portal-browser
     port: 8923
-    expose_to_pipeline: false
+    expose_to_pipeline: true
     expose_to_ide: true
     compose_service: browser-mcp
   - id: mlx_transcribe
@@ -494,7 +496,7 @@ mcp_fleet:
     module: security
     name: portal-proxmox
     port: 8927
-    expose_to_pipeline: false
+    expose_to_pipeline: true
     expose_to_ide: true
     compose_service: mcp-proxmox
   - id: pipeline
@@ -995,6 +997,51 @@ workspaces:
         - execute_python
         - remember
         - recall
+        - browser_navigate
+        - browser_snapshot
+        - browser_click
+        - browser_fill
+        - browser_screenshot
+        - browser_evaluate
+        - browser_close
+        - browser_list_profiles
+        - browser_get_markdown
+        - proxmox_list_nodes
+        - proxmox_node_status
+        - proxmox_cluster_status
+        - proxmox_list_all_vms
+        - proxmox_find_vm
+        - proxmox_list_vms
+        - proxmox_vm_status
+        - proxmox_vm_config
+        - proxmox_vm_start
+        - proxmox_vm_shutdown
+        - proxmox_vm_stop
+        - proxmox_vm_reset
+        - proxmox_vm_reboot
+        - proxmox_vm_suspend
+        - proxmox_vm_resume
+        - proxmox_clone_vm
+        - proxmox_delete_vm
+        - proxmox_list_snapshots
+        - proxmox_create_snapshot
+        - proxmox_rollback_snapshot
+        - proxmox_delete_snapshot
+        - proxmox_exec_vm
+        - proxmox_vm_agent_info
+        - proxmox_list_containers
+        - proxmox_container_status
+        - proxmox_container_start
+        - proxmox_container_stop
+        - proxmox_container_shutdown
+        - proxmox_container_exec
+        - proxmox_node_exec
+        - proxmox_deploy_ctf_lab
+        - proxmox_list_storage
+        - proxmox_list_storage_content
+        - proxmox_list_networks
+        - proxmox_task_status
+        - proxmox_list_tasks
         owui_system_prompt: |-
           You are Portal's fast general assistant. Use for everyday chat, writing, summarization, document, spreadsheet and web tasks. If your answer is not good enough the user can switch this chat to General · Deep.
           Spreadsheets: read_excel costs about 6 tokens per cell and returns at most 500 rows. Above about 2,500 cells (roughly 300 rows x 8 columns) do not read the whole sheet into the conversation: analyse and modify it with execute_python (pandas, openpyxl). The user's files are readable at /workspace (uploads in /workspace/uploads, names may carry a uuid_ prefix; list the folder to find them). For changes, write a script and save the result under /out (it is returned to the user as a download) rather than regenerating cells.
@@ -1100,6 +1147,51 @@ workspaces:
     - read_pdf
     - remember
     - recall
+    - browser_navigate
+    - browser_snapshot
+    - browser_click
+    - browser_fill
+    - browser_screenshot
+    - browser_evaluate
+    - browser_close
+    - browser_list_profiles
+    - browser_get_markdown
+    - proxmox_list_nodes
+    - proxmox_node_status
+    - proxmox_cluster_status
+    - proxmox_list_all_vms
+    - proxmox_find_vm
+    - proxmox_list_vms
+    - proxmox_vm_status
+    - proxmox_vm_config
+    - proxmox_vm_start
+    - proxmox_vm_shutdown
+    - proxmox_vm_stop
+    - proxmox_vm_reset
+    - proxmox_vm_reboot
+    - proxmox_vm_suspend
+    - proxmox_vm_resume
+    - proxmox_clone_vm
+    - proxmox_delete_vm
+    - proxmox_list_snapshots
+    - proxmox_create_snapshot
+    - proxmox_rollback_snapshot
+    - proxmox_delete_snapshot
+    - proxmox_exec_vm
+    - proxmox_vm_agent_info
+    - proxmox_list_containers
+    - proxmox_container_status
+    - proxmox_container_start
+    - proxmox_container_stop
+    - proxmox_container_shutdown
+    - proxmox_container_exec
+    - proxmox_node_exec
+    - proxmox_deploy_ctf_lab
+    - proxmox_list_storage
+    - proxmox_list_storage_content
+    - proxmox_list_networks
+    - proxmox_task_status
+    - proxmox_list_tasks
     expose_to_owui: true
     # C3 growth guard: declared user-facing engine — coding engine
     engine: true

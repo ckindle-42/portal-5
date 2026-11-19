@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 from typing import Any
 
@@ -15,7 +16,11 @@ from portal.modules.orchestration.personal_policy import (
     PLANNER_WORKSPACE,
     validate_personal_plan,
 )
-from portal.modules.orchestration.personal_runner import Completion, poll_personal_tasks
+from portal.modules.orchestration.personal_runner import (
+    Completion,
+    apply_personal_decision,
+    poll_personal_tasks,
+)
 from portal.modules.orchestration.personal_store import PersonalStore
 
 
@@ -31,9 +36,15 @@ class _Caller:
     def __init__(self, replies: list[Completion]) -> None:
         self.replies = list(replies)
         self.bodies: list[dict[str, Any]] = []
+        self.recall_bodies: list[dict[str, Any]] = []
+        self.recall_reply = Completion("No matching operator memory.", (), 1, ("recall",))
 
     def complete(self, body: dict[str, Any]) -> Completion:
-        self.bodies.append(json.loads(json.dumps(body)))
+        saved = json.loads(json.dumps(body))
+        if body.get("portal_bite_tools") == ["recall"]:
+            self.recall_bodies.append(saved)
+            return self.recall_reply
+        self.bodies.append(saved)
         return self.replies.pop(0)
 
 
@@ -199,20 +210,28 @@ def test_read_only_plan_without_budget_defaults_and_runs_from_receipt_shape(tmp_
     assert notices.messages == [(task_id, "personal", "Queue has 0 queued and 0 running jobs.")]
 
 
-def test_genuinely_invalid_plan_rejects_and_notifies_requester_with_reason(tmp_path: Path) -> None:
+def test_genuinely_invalid_plan_blocks_after_two_attempts_without_cloud(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from portal.modules.orchestration import personal_runner
+
+    monkeypatch.setattr(personal_runner, "_personal_cloud_enabled", lambda: False)
     reply = telegram_do_reply(tmp_path, 5388311056, "what is the queue status in one paragraph")
     task_id = reply.removeprefix("queued ")
-    caller = _Caller([Completion("not json at all", (), 0)])
+    caller = _Caller([Completion("not json at all", (), 0), Completion("still not json", (), 0)])
     notices = _Notices()
+    first = poll_personal_tasks(tmp_path, notices, caller)
     result = poll_personal_tasks(tmp_path, notices, caller)
-    assert result is not None and result.status == "rejected"
+    assert first is not None and first.status == "retrying"
+    assert result is not None and result.status == "blocked"
     receipt = json.loads((tmp_path / task_id / "receipt.json").read_text(encoding="utf-8"))
     assert receipt["plan"] is None
-    assert receipt["hops"] == 0
+    assert receipt["status"] == "blocked"
+    assert len(receipt["local_attempts"]) == 2
+    assert receipt["hops"] == 1
     assert receipt["error"]
-    assert len(notices.messages) == 1
-    assert notices.messages[0][0] == task_id
-    assert receipt["error"] in notices.messages[0][2]
+    assert notices.messages[-1][0] == task_id
+    assert receipt["error"] in notices.messages[-1][2]
 
 
 def test_validator_rejects_bad_budget_types_and_bounds(tmp_path: Path) -> None:
@@ -236,3 +255,97 @@ def test_telegram_notice_sink_exposes_notify_for_personal_tasks(tmp_path: Path) 
     sink = TelegramNoticeSink(path=tmp_path / "arm.sqlite3")
     sink.notify("pt-123", "personal", "hello")
     assert any(row.message == "hello" for row in sink.store.outbox())
+
+
+def test_long_personal_task_sends_one_checkin_before_completion(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from portal.modules.orchestration import personal_runner
+
+    monkeypatch.setattr(personal_runner, "PERSONAL_CHECKIN_SECONDS", 0.5, raising=False)
+
+    class SlowCaller(_Caller):
+        def complete(self, body: dict[str, Any]) -> Completion:
+            if len(self.bodies) == 2:
+                time.sleep(0.75)
+            return super().complete(body)
+
+    reply = telegram_do_reply(tmp_path, 1, "read the newest arm receipt")
+    task_id = reply.removeprefix("queued ")
+    caller = SlowCaller(
+        [
+            Completion(_plan("read_receipt"), (), 0),
+            Completion(
+                "",
+                (
+                    {
+                        "id": "c1",
+                        "type": "function",
+                        "function": {"name": "read_receipt", "arguments": "{}"},
+                    },
+                ),
+                0,
+            ),
+            Completion("Receipt read.", (), 0),
+        ]
+    )
+    notices = _Notices()
+
+    result = poll_personal_tasks(tmp_path, notices, caller)
+
+    assert result is not None and result.status == "done"
+    assert len(notices.messages) == 2
+    checkin = notices.messages[0][2]
+    last_tool = checkin.split("last tool: ", 1)[1]
+    assert task_id in checkin and "hop" in checkin
+    assert last_tool in {"recall", "read_receipt"}
+    assert notices.messages[1][2] == "Receipt read."
+
+
+def test_confirmed_template_request_hands_to_arm_and_rejects_external_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from portal.modules.orchestration import owui_entry
+    from portal.modules.orchestration.queue import QueueLedger
+
+    repo = Path.cwd()
+    queue_root = tmp_path
+    monkeypatch.setattr(owui_entry, "tasks_root", lambda: queue_root)
+    monkeypatch.setattr(owui_entry, "_allow_roots", lambda: (repo, tmp_path))
+    action = {
+        "action": "enqueue-template",
+        "discipline": "test_fixing",
+        "template_key": "repair_with_tests",
+        "parameters": {
+            "source_file": "portal/modules/orchestration/personal_runner.py",
+            "test_file": "tests/unit/test_jarvis_personal_loop.py",
+            "expected_behavior": "preserve the planned behavior",
+        },
+    }
+    telegram_do_reply(tmp_path, 1, "queue a test_fixing repair")
+    caller = _Caller([Completion(json.dumps(action), (), 0)])
+    sink = _Notices()
+
+    pending = poll_personal_tasks(tmp_path, sink, caller)
+    assert pending is not None and pending.status == "pending"
+    assert apply_personal_decision(tmp_path, pending.task_id, "confirm") == "confirmed"
+    handed = poll_personal_tasks(tmp_path, sink, caller)
+
+    assert handed is not None and handed.status == "handed-to-arm"
+    receipt = json.loads((tmp_path / pending.task_id / "receipt.json").read_text(encoding="utf-8"))
+    assert receipt["arm_task_id"] == f"jarvis-{pending.task_id}"
+    with QueueLedger(queue_root) as ledger:
+        assert len(ledger.items()) == 1
+
+    queue_root = tmp_path / "bad"
+    telegram_do_reply(queue_root, 1, "queue a test_fixing repair")
+    action["parameters"] = {
+        "source_file": "/etc/passwd",
+        "test_file": "tests/unit/test_jarvis_personal_loop.py",
+        "expected_behavior": "preserve the planned behavior",
+    }
+    bad_caller = _Caller([Completion(json.dumps(action), (), 0)])
+    rejected = poll_personal_tasks(queue_root, sink, bad_caller)
+    assert rejected is not None and rejected.status == "rejected"
+    with QueueLedger(queue_root) as ledger:
+        assert ledger.items() == []
