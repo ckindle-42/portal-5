@@ -488,3 +488,168 @@ def test_non_stream_withholds_unparseable_gemma4_call() -> None:
     non_streaming._recover_or_withhold_markup(data, TOOLS, "gemma4", "auto-documents")
     assert data["choices"][0]["message"]["content"] == "Answer."
     assert "tool_calls" not in data["choices"][0]["message"]
+
+
+# ── IFM native form (P5-IFM-TOOLTEXT-001) ───────────────────────────────────
+# The xml render below is the served K2-Horizon-MoVA checkpoint's own chat
+# template form (the auto-reasoning seat; the json and arg_type forms come from
+# the same template). The planner turn that surfaced it (2026-11-19) ran with
+# tools never offered, so the calls could not be dispatched — these tests cover
+# the normal tool turns where they can.
+IFM_BLOCK = (
+    "<ifm|tool_calls>\n<ifm|tool_call>get_weather\n"
+    "<ifm|arg_key>city</ifm|arg_key>\n<ifm|arg_value>Paris</ifm|arg_value>\n"
+    "<ifm|arg_key>days</ifm|arg_key>\n<ifm|arg_value>3</ifm|arg_value>\n"
+    "</ifm|tool_call>\n</ifm|tool_calls>"
+)
+IFM_JSON_FORM = (
+    '<ifm|tool_calls>\n<ifm|tool_call>{"name": "get_weather", '
+    '"arguments": {"city": "Oslo"}}</ifm|tool_call>\n</ifm|tool_calls>'
+)
+BASH_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "execute_bash",
+            "parameters": {"type": "object", "properties": {"command": {"type": "string"}}},
+        },
+    }
+]
+
+
+def test_salvages_ifm_xml_block() -> None:
+    before, calls = salvage_text_tool_calls("Checking Paris.\n" + IFM_BLOCK, TOOLS)
+    assert before == "Checking Paris."
+    assert calls[0]["function"]["name"] == "get_weather"
+    assert json.loads(calls[0]["function"]["arguments"]) == {"city": "Paris", "days": 3}
+
+
+def test_salvages_ifm_call_without_the_wrapper() -> None:
+    content = IFM_BLOCK.removeprefix("<ifm|tool_calls>\n").removesuffix("\n</ifm|tool_calls>")
+    before, calls = salvage_text_tool_calls(content, TOOLS)
+    assert before == ""
+    assert json.loads(calls[0]["function"]["arguments"]) == {"city": "Paris", "days": 3}
+
+
+def test_salvages_ifm_json_form() -> None:
+    before, calls = salvage_text_tool_calls(IFM_JSON_FORM, TOOLS)
+    assert before == ""
+    assert json.loads(calls[0]["function"]["arguments"]) == {"city": "Oslo"}
+
+
+def test_salvages_ifm_typed_form() -> None:
+    content = (
+        "<ifm|tool_call>get_weather\n"
+        "<ifm|arg_key>city</ifm|arg_key>\n<ifm|arg_type>string</ifm|arg_type>\n"
+        "<ifm|arg_value>Paris</ifm|arg_value>\n</ifm|tool_call>"
+    )
+    _, calls = salvage_text_tool_calls(content, TOOLS)
+    assert json.loads(calls[0]["function"]["arguments"]) == {"city": "Paris"}
+
+
+def test_salvages_multiple_ifm_calls() -> None:
+    content = IFM_BLOCK + IFM_BLOCK.replace("Paris", "Rome")
+    _, calls = salvage_text_tool_calls(content, TOOLS)
+    assert [json.loads(c["function"]["arguments"])["city"] for c in calls] == ["Paris", "Rome"]
+    assert calls[0]["id"] != calls[1]["id"]
+
+
+def test_salvages_the_captured_planner_call() -> None:
+    content = (
+        "I'll list the files in /workspace/generated now.\n"
+        "<ifm|tool_calls>\n<ifm|tool_call>execute_bash\n"
+        "<ifm|arg_key>command</ifm|arg_key>\n"
+        "<ifm|arg_value>find /workspace/generated -type f</ifm|arg_value>\n"
+        "</ifm|tool_call>\n</ifm|tool_calls>"
+    )
+    before, calls = salvage_text_tool_calls(content, BASH_TOOLS)
+    assert before == "I'll list the files in /workspace/generated now."
+    assert json.loads(calls[0]["function"]["arguments"]) == {
+        "command": "find /workspace/generated -type f"
+    }
+
+
+@pytest.mark.parametrize(
+    "content,tools",
+    [
+        (IFM_BLOCK.replace("get_weather", "rm_rf"), TOOLS),
+        ("<ifm|tool_calls>\n<ifm|tool_call>get_weather\n", TOOLS),
+        ("<ifm|tool_calls>\n</ifm|tool_calls>", TOOLS),
+        (
+            "<ifm|tool_call>get_weather\n"
+            "<ifm|arg_key>city</ifm|arg_key>\n<ifm|arg_value>Paris</ifm|arg_value>\n"
+            "stray\n</ifm|tool_call>",
+            TOOLS,
+        ),
+    ],
+)
+def test_no_salvage_leaves_ifm_text_unchanged(content, tools):
+    assert salvage_text_tool_calls(content, tools) == (content, [])
+
+
+def test_unterminated_ifm_call_is_withheld() -> None:
+    from portal.platform.inference.router.text_tool_calls import drop_unparsed_markup
+
+    content = "Sure.\n<ifm|tool_calls>\n<ifm|tool_call>get_weather\n"
+    assert salvage_text_tool_calls(content, TOOLS) == (content, [])
+    assert drop_unparsed_markup(content) == "Sure."
+
+
+def test_holdback_holds_ifm_marker_across_chunks() -> None:
+    hb = TextToolCallHoldback()
+    assert hb.feed("Weather: <ifm|tool_") == "Weather: "
+    assert hb.feed("calls>\n<ifm|tool_call>get_weather\n") == ""
+    assert hb.holding
+    assert hb.take().startswith("<ifm|tool_calls>")
+
+
+@pytest.mark.anyio
+async def test_stream_dispatches_ifm_call_written_as_text(monkeypatch):
+    hop1 = [
+        _frame({"content": "Checking. <ifm|tool_"}),
+        _frame({"content": "calls>\n<ifm|tool_call>get_weather\n"}),
+        _frame({"content": "<ifm|arg_key>city</ifm|arg_key>\n"}),
+        _frame({"content": "<ifm|arg_value>Paris</ifm|arg_value>\n</ifm|tool_call>\n"}),
+        _frame({"content": "</ifm|tool_calls>"}),
+        _frame({}, "stop"),
+        "data: [DONE]",
+    ]
+    hop2 = [_frame({"content": "It is 18 C and sunny."}), _frame({}, "stop"), "data: [DONE]"]
+    out, dispatched = await _run(monkeypatch, [hop1, hop2])
+    assert len(dispatched) == 1
+    assert json.loads(dispatched[0][0]["function"]["arguments"]) == {"city": "Paris"}
+    assert "<ifm|tool_call>" not in out and "get_weather" not in out
+    assert "Checking." in out and "sunny" in out
+    assert out.count("[DONE]") == 1
+
+
+def test_non_stream_recovers_ifm_call_and_sets_finish_reason() -> None:
+    from portal.platform.inference.router import non_streaming
+
+    data = {
+        "choices": [
+            {"message": {"role": "assistant", "content": "Checking.\n" + IFM_BLOCK}},
+        ]
+    }
+    non_streaming._recover_or_withhold_markup(data, TOOLS, "k2-horizon", "auto-reasoning")
+    msg = data["choices"][0]["message"]
+    assert msg["tool_calls"][0]["function"]["name"] == "get_weather"
+    assert json.loads(msg["tool_calls"][0]["function"]["arguments"]) == {
+        "city": "Paris",
+        "days": 3,
+    }
+    assert data["choices"][0]["finish_reason"] == "tool_calls"
+    assert "<ifm|tool_call>" not in msg["content"]
+
+
+def test_non_stream_withholds_unparseable_ifm_call() -> None:
+    from portal.platform.inference.router import non_streaming
+
+    data = {
+        "choices": [
+            {"message": {"role": "assistant", "content": "Answer.\n<ifm|tool_calls>\n"}},
+        ]
+    }
+    non_streaming._recover_or_withhold_markup(data, TOOLS, "k2-horizon", "auto-reasoning")
+    assert data["choices"][0]["message"]["content"] == "Answer."
+    assert "tool_calls" not in data["choices"][0]["message"]
