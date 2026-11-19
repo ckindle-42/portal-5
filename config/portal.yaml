@@ -35,7 +35,7 @@ modules:
   icsot:
     enabled: true
   image:
-    enabled: false
+    enabled: true
   media:
     enabled: true
   music:

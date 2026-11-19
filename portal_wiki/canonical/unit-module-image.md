@@ -10,7 +10,7 @@ sources:
 - type: code
   path: config/portal.yaml
 claims:
-- probe: modules.disabled
+- probe: modules.enabled
   contains: image
 confidence: high
 tags:
@@ -47,5 +47,5 @@ a tight-footprint box can disable image generation (a ~18–26GB MLX working set
 while keeping speech and transcription. The module gates the `mflux` fleet
 id and the `auto-image` workspace, both derived from their `module: image`
 tag in `config/portal.yaml`. The shipped switch is
-`modules.image.enabled: false`. A missing key falls back to
+`modules.image.enabled: true` (mflux 0.24, flux2-klein default; live trace 2026-11-19). A missing key falls back to
 `DEFAULT_ENABLED_MODULES` (on).
