@@ -212,7 +212,7 @@ Completed decisions: 733; pending: 0.
 - `unit-capability-proxmox` | current | mcp.fleet.ids contains `proxmox` in config/portal.yaml
 - `unit-capability-research` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
 - `unit-capability-security` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
-- `unit-capability-serena` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-capability-serena` | historical | retired 2026-11-19 with the `serena` `mcp_fleet` entry it described (unit archived)
 - `unit-capability-tts` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
 - `unit-capability-turn-trace` | current | repo.path.exists confirms `deploy/portal-5/docker-compose.yml` exists in the checkout
 - `unit-capability-video-mlx` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout

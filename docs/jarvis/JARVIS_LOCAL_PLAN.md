@@ -158,7 +158,7 @@ local model usable.
   pasted into every turn. Bites already refuse the paste. The personal agent recalls at the
   start of a task and writes back only what the operator confirmed.
 - MCP servers stay independent. The personal agent calls tools the Pipeline already
-  exposes. Fleet entries with `expose_to_pipeline: false` (filesystem, fetch, git, serena,
+  exposes. Fleet entries with `expose_to_pipeline: false` (filesystem, fetch, git,
   docker, browser, proxmox, binresearch, context7 — `config/portal.yaml` `mcp_fleet`) are
   IDE servers. They are not silently flipped on.
 
