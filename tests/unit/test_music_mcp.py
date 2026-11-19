@@ -9,7 +9,24 @@ from typing import Any
 import pytest
 
 from portal.modules.media.tools import _admission
-from portal.modules.media.tools.music_worker import generate, write_wav
+from portal.modules.media.tools.music_worker import _adopt_artifact, generate, write_wav
+
+
+def test_adopt_artifact_removes_the_engine_duplicate(tmp_path: Path) -> None:
+    produced = tmp_path / "04e7b754-4def-e05e-366e-8379475fbd1c.wav"
+    produced.write_bytes(b"RIFFdata")
+    dest = tmp_path / "music_164fe8ba6c14.wav"
+    _adopt_artifact(produced, dest)
+    assert dest.read_bytes() == b"RIFFdata"
+    assert not produced.exists()
+    assert [p.name for p in tmp_path.iterdir()] == ["music_164fe8ba6c14.wav"]
+
+
+def test_adopt_artifact_same_path_is_a_noop(tmp_path: Path) -> None:
+    dest = tmp_path / "music_job.wav"
+    dest.write_bytes(b"RIFFdata")
+    _adopt_artifact(dest, dest)
+    assert dest.read_bytes() == b"RIFFdata"
 
 
 @pytest.fixture
