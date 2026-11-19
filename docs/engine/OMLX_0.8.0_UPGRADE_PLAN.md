@@ -11,6 +11,121 @@ Everything below is written from the release notes/PRs, the GitHub release asset
 repo code read at HEAD on this lane. Nothing here has touched the live engine — the live
 ladder is §4 and is the orchestrator's.
 
+## 0. Speed gate (operator addendum, 2026-11-19)
+
+The upgrade is gated on **no per-seat regression**: a pre-upgrade baseline over every
+oMLX-served seat, the identical run post-upgrade, and a fix-or-roll-back rule (§0.2). This
+section inventories what we tuned locally, so the gate knows what it must not lose.
+
+### 0.1 Inventory — does 0.8.0 keep, supersede or break each local speed gain
+
+| # | Gain | Where it lives | Measured gain (receipt) | 0.8.0 verdict |
+| --- | --- | --- | --- | --- |
+| 1 | Lightning MTP on the `-oQ4e-mtp` side-car checkpoints | checkpoint choice on disk + `mtp_enabled: true` per model in host `~/.omlx/model_settings.json`; alias wiring `config/backends.yaml:621, 651` (omlx-coding), `:719, 773-775` (omlx-general), `:805, 845` (omlx-reasoning) | Rollout 2026-08-14: Qwen3.8 17.5–18.6 vs 12.25 tok/s Ollama (~1.45×, accept 60–65%), Nemotron 70.0–70.3 vs 52.9–53.1 (~1.33×, accept 76–87%) (`config/backends.yaml:606, 705`; `config/MODEL_CATALOG.md:1874, 1972`); 0.7.0 native MTP: Nemotron 90, Qwen3.8 42 tok/s, acceptance 93–98% (`docs/reports/ENGINE_UPGRADE_20261001.md:60-67`); 0.7.3 re-measure: Qwen3.8 MTP 27.5 vs plain 14.1, Nemotron MTP 50.0 vs plain 45.1, accept 69–76% (`docs/ENGINE_H2H_RESULTS_20261113.md:46, 67-68, 82`) | **KEPT, faster upstream**: top-p MTP verify from top 512 (#5313); DFlash drafter context kept on exact prefix hits (`22f2c43`/#5344); DFlash2 +10% (4 requests) (#5212); `~` drafter-path fix (#5154). The plain conversions carry no `mtp.*` weights, so the `-oQ4e-mtp` checkpoints stay required. Verify `mtp_enabled: true` survived the restart (autoupdate backs the file up, §2). Stale-doc note: `config/MODEL_CATALOG.md:1972` still describes a Nemotron GGUF alias that backends.yaml no longer carries — the Nemotron oQ4e-mtp checkpoint is registered seat-less (`config/backends.yaml:708`). |
+| 2 | LaunchAgent `ProcessType Standard` (never Background) | `deploy/launchd/com.portal5.omlx.plist:32-34` (commit `3d17767ba`) | Background cut MoE decode ~56%: Gemma-4-26B QAT 32.5→73.7, Nemotron 42→95, Qwen3.8 13.9→15.2 tok/s, aligning with stock mlx_lm (`docs/ENGINE_GRADE_20261115.md:7-11`) | **KEPT** — our plist, not the engine's; #5179 changes console-log verbosity under brew/app supervision only. Verify the plist still points at the venv entrypoint after the restart (UNPROVEN §5). |
+| 3 | DFlash2 drafter seat + `dflash_max_ctx: 65536` | host `~/.omlx/model_settings.json` on the `Qwen3.8-27B-4bit` seat; seat registration `config/backends.yaml:627-641` | Unlimited drafter ctx hangs past ~70–85K prompt tokens (67,153 tok in 742 s; 87,652 stalled >900 s; clean eviction fallback 923 s) (`config/backends.yaml:629-635`) | **KEPT + upstream speedup** (#5212 +10% at 4 requests, #5154 path fix, drafter prefix retention). Verify the key survived the upgrade restart (§3.2 item 4). |
+| 4 | Per-model seat sampling defaults | `scripts/omlx_seat_defaults.py` → `~/.omlx/model_settings.json`, run by `./launch.sh sync-config` | No TPS gain claimed — pipeline traffic sends sampling explicitly; it fixes DIRECT clients (IDE harnesses at :8085) from oMLX global defaults to their seat's resolved sampling (per-model default behaviour verified 2026-09-25) | **KEPT** — the merge removes only keys it previously managed, so 0.8.0's new per-model keys survive (test-covered, this lane). Post-upgrade `--dry-run` churn check (§3.2 item 5). |
+| 5 | Gemma 4 no-think post-tool template anchor | `scripts/omlx_chat_template_patch.py` patches model dirs' `chat_template.jinja`; Ollama side `portal/platform/inference/ollama_native.py` | Direct oMLX triage 18/21→21/21 (card sampling), 6/7→7/7 (greedy); Ollama 8/8 clean calls vs 0/8 (PIPELINE_ALIGNMENT_V1 §13). Wall-clock effect: stops runaway thought-channel answers to the token cap | **KEPT** — the template-render thinking-default change (`44b0525`) does not remove the patched branch; idempotent, re-run after upgrade (§3.2 item 2). |
+| 6 | Memory tier + ceilings | `scripts/omlx_memory_tier.py` → `~/.omlx/settings.json` `memory.memory_guard_tier`; `./launch.sh up` writes `balanced`, `./launch.sh coder-reap288` writes `aggressive` | REAP-288: `balanced` aborts a 14.3K prefill (44.8 GB vs watermark), `aggressive` serves 22.4K (101.7 s); ceilings 41.7/51.5 GiB vs Metal cap 56.1 (`docs/reports/ENGINE_UPGRADE_20261001.md:49-58, 76-83`) | **KEPT, dynamics change** — #5165 (unloading no longer disturbs residents), #4842 (MoE expert offload under prefill pressure), #4321 (grammar cache 1 GiB) move the counters the load guard reads. Re-measure ceilings + the swap shape (§3.2 items 6–7, §4 step 2 `final_ceiling`). |
+| 7 | Shadow-then-shift alias rollout + hot-seat protection | priority-10 alias blocks `config/backends.yaml` (pattern comments :599-618, :655-659); `hot_seat_protect_s: 900` `config/backends.yaml:913` | Fanout: same-model decode-bound fan-out on oMLX 2.1× (30B) / 2.4–2.8× (8B) at 3–4 concurrent vs fully serialized Ollama (`config/backends.yaml:739-741`, `docs/TASK_FANOUT_CONCURRENCY_V1.md`) | **KEPT (config-level)** — but #5164 Concurrent Request Priority + #5140 change the fanout/TTFT shape: re-run the fanout rows (§4 step 5), don't re-tune blind. |
+| 8 | Prefix-cache SSD cap | host oMLX settings: SSD dir `~/.omlx/cache` capped 64 GB (auto default = half free space, grew to 189 GB) | P5-OMLX-PREFIX-CACHE-001 (`portal_wiki/canonical/unit-known-limitations-omlx-prefix-cache-accounting.md`): a store is not a hit, a second model deep-resets caches, 0.7.2 refused 166 GB of 0.7.0-era blocks | **SUPERSEDED upstream, partially** — #5324 short-prompt loops keep hits; #5202 image prefix hashing ~4× cheaper. Upgrade note: blocks from the old build are skipped after an upgrade → expect cold caches and worse first-run TTFT immediately post-upgrade; re-measure the record (§3.2 item 6). |
+| 9 | `max_concurrent_requests: 8` | host oMLX global settings (admin API; production keeps 8) | Aggregate tok/s at 1/2/4/8 in flight = 78.5/107.9/144.5/158.0 (Nemotron); 4 vs 8 at the limit: no consistent difference → stays 8 (`docs/reports/ENGINE_UPGRADE_20261001.md:85-89, 131-135`) | **KEPT**; #5312 stops tg-TPS inflation for batch > Max Concurrent Requests (affects other tools' rows, not this sequential gate); interacts with #5164 — A/B in §0.3. |
+| 10 | Portal-side, engine-agnostic (context, not part of this gate) | keeper warm-daily-driver (`portal/platform/inference/router/lifespan.py:267-305`), oMLX prefill zone (`portal/platform/inference/load_guard.py:116-138`) | Engine-agnostic admission/TTFT work; unchanged by any engine version | **Unaffected** — listed so the gate doesn't re-litigate them; watch their interaction with #5085/#5165 post-upgrade (§4 step 4). |
+
+Registered but currently seat-less oMLX models (serve no production seat today: `auto-daily`
+and its `::nemotron` variant pin the GGUF `ctx32k` tag, `config/portal.yaml:937, 1138`, and only
+`ctx8k` is aliased to oMLX):
+`NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`, `unsloth--Qwen3.6-27B-UD-MLX-4bit`,
+`mlx-community--Mistral-Small-3.2-24B-Instruct-2506-4bit`, `Tongyi-DeepResearch-30B-A3B-abliterated-4bit`
+— optional in the gate, not blocking.
+
+### 0.2 Baseline: exact commands and the comparison rule
+
+Instruments — the existing benches, not new ones:
+- **Engine gate** `scripts/speed_bench.py --engine omlx` (direct :8085; prefill/decode split,
+  TTFT, load s; per model, sizes 2000/8000/32000, decode 128 tokens; JSON via `--out`;
+  `scripts/OPERATOR_TOOLS.md:203`).
+- **End-to-end check** `tests/benchmarks/bench_tps.py --mode pipeline` (through the pipeline,
+  category prompts, per-run cv + `avg_ttft_s`). `--workspace` filters to exact ids in
+  `workspace_routing` (`tests/benchmarks/bench/runners.py:281-287`), so it covers the top-level
+  workspaces only; the 24 `::variant` seats are driven by speed_bench with
+  `--engine pipeline --workspace <base>::<variant>` (the Pipeline accepts `base::variant` ids,
+  `portal/platform/inference/router/handlers.py:573`).
+
+Precondition: quiet host (`uv run python scripts/host_quiet.py`), live checkout, oMLX 0.7.3
+running, stack up. Every command runs from the live checkout, not this worktree.
+
+**B1 — engine baseline, run TWICE** (the pair measures run-to-run noise), all 14 oMLX models
+that serve production seats (resolved from `config/portal.yaml` × the priority-10 alias blocks,
+same resolution as `scripts/omlx_seat_defaults.py`; 38 seats map onto them):
+
+```bash
+MODELS=(Qwen3.8-27B-oQ4e-mtp Qwen3-Coder-30B-A3B-Instruct-4bit Laguna-XS-2.1-4bit \
+  Qwen3.8-27B-4bit Huihui-Qwen3.6-27B-abliterated-MLX-4bit gemma-4-26b-a4b-it-QAT-4bit \
+  mlx-community--gemma-4-26b-a4b-it-4bit granite-4.1-30b-4bit \
+  unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit DeepSeek-R1-0528-Qwen3-8B-4bit \
+  VulnLLM-R-7B-4bit Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit \
+  Jiunsong--supergemma4-26b-uncensored-mlx-4bit-v2 \
+  huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit)
+for m in "${MODELS[@]}"; do
+  uv run python scripts/speed_bench.py --engine omlx --model "$m" --sizes 2000,8000,32000 \
+    --out /tmp/speed_pre080_run1_"$m".json
+done   # then repeat verbatim with run2 (and post-upgrade: pre080→post080)
+```
+
+**B2 — pipeline baseline, run TWICE**, the 14 top-level workspaces whose default lane is
+oMLX-served: `auto auto-coding auto-compliance auto-spl auto-security auto-council
+auto-documents compliance-council-deepseek-r1 compliance-council-granite41
+compliance-council-qwen38 compliance-mapping compliance-reading-overflow hunt-reasoning
+tools-specialist`.
+
+```bash
+uv run python tests/benchmarks/bench_tps.py --mode pipeline \
+  --workspace auto --workspace auto-coding --workspace auto-compliance --workspace auto-spl \
+  --workspace auto-security --workspace auto-council --workspace auto-documents \
+  --workspace compliance-council-deepseek-r1 --workspace compliance-council-granite41 \
+  --workspace compliance-council-qwen38 --workspace compliance-mapping \
+  --workspace compliance-reading-overflow --workspace hunt-reasoning \
+  --workspace tools-specialist \
+  --runs 3 --order size --cooldown 10 \
+  --output tests/benchmarks/results/bench_tps_pre080_run1.json
+# then repeat verbatim with run2; post-upgrade identical with post080 names
+```
+
+**B3 — variant seats** (the remaining 24 oMLX seats, speed_bench through the Pipeline, twice):
+`auto-coding::heavy auto-coding::laguna auto-coding::qwen38coder auto-coding::qwen38coder-dflash
+auto-coding::uncensored-agentic auto-coding::bigfix auto-coding::cad auto-reasoning::deep
+auto-daily::deep auto-daily::fast auto-daily::gemma-fast auto-research::data
+auto-compliance::reading auto-security::pentest auto-security::purpleteam
+auto-security::purpleteam-deep auto-security::purpleteam-exec auto-security::redteam
+auto-security::redteam-deep auto-security::blueteam-council auto-security::blueteam-orchestrated
+auto-security::bully-handoff-drafter auto-security::security-council-granite41-30b
+auto-general-uncensored::creative` — same speed_bench invocation shape as B1 with
+`--engine pipeline --workspace <seat>`. If the Pipeline rejects a `base::variant` id on 0.7.3
+(it accepts the shape, `portal/platform/inference/router/handlers.py:573` — verify on the first
+seat), run that seat's `--engine omlx --model <resolved oMLX id>` from the B1 roster instead
+and note the substitution.
+
+**Comparison rule (operator):** per seat and per metric — decode tok/s, TTFT (warm rows),
+prefill tok/s — the pre band is the spread between the two baseline runs (or the run's `cv`,
+whichever is larger). A post-upgrade seat **regresses** when it is worse than the worse
+pre-upgrade run by more than that band. Any regressing seat ⇒ fix the known post-upgrade items
+first (parser reinstall §3.2 item 1, seat defaults §3.2 item 5, template patch §3.2 item 2,
+cold prefix cache from #5324-era note above) and re-measure; still regressing ⇒ roll back
+(§ROLLBACK). No seat is adopted or dropped from a single pre/post pair. `load_seconds` and
+first-size TTFT are load-dominated: gate them separately (they move with #5165/#5085 cache
+state), and judge TTFT on warmed rows. Comparability caveat: pre-upgrade rows from OTHER tools
+(h2h, oMLX's own bench) may carry the #5312 inflation — this gate's own pre/post pair never
+mixes tools.
+
+### 0.3 The three new 0.8.0 defaults — set for our workload, or A/B first?
+
+| Setting | Default | Should we set it? | A/B against the baseline |
+| --- | --- | --- | --- |
+| Concurrent Request Priority (#5164, #5160, #5175) | `Balanced` — keeps running streams ≥10 tok/s, cuts new-prompt TTFT 26% | Keep the default for the gate (comparability). It matches our measured workload shape: production concurrency = `max_concurrent_requests: 8` and the fanout receipt (aggregate tok/s rising 78.5→158.0 at 1→8 in flight; 2.1–2.8× fan-out at 3–4 concurrent) is exactly the traffic it protects. | Toggle via the admin API (`POST /admin/api/global-settings` — applied at runtime in 0.01 s, no unload, verified 2026-10-01 `ENGINE_UPGRADE_20261001.md:131-135`), re-run B1+B2 on 2–3 concurrency-sensitive seats (auto-coding, compliance-council-qwen38, a fanout seat) and the fanout rows (§4 step 5). Adopt an override only if it beats the noise band on TTFT/fanout with no seat decode regression; otherwise stay `Balanced`. |
+| Keep GPU Awake After Requests (#5085) | 5 min | Keep the 5-min default. Our idle-unload accounting and admission headroom read the engine's memory state; a long awake window holds GPU memory the load guard counts. | Watch `portal5_load_guard_headroom_bytes` / `portal5_load_guard_ceiling_bytes` and that idle unload still fires (§4 step 4). A/B (longer window vs default) only if post-upgrade TTFT-after-idle shows a cold-start cost beyond the noise band on the daily-driver seat; raise the window on that one seat, never globally, if so. |
+| INT8 Activation Prefill (#5108) | off, per-model opt-in, own SSD cache blocks | Leave OFF. Prefill is not our binding bottleneck on the MoE seats (H2H prefill 597–785 tok/s vs decode 27–95), the numerics change (activation quantization) would need quality rows, not just speed, and its own SSD blocks add disk/memory under the memory-tier ceilings. | If the gate shows a prefill-bound seat (compliance-reading-overflow / the gemma plain 128k seat), A/B on that seat alone: enable per-model, re-run its B1 sizes + a quality row; keep it only if prefill t/s beats the band with the quality row unchanged. Re-measure ceilings after enabling (§0.1 row 6). |
+
 ## 1. What changed between 0.7.3 and 0.8.0
 
 ### 1.1 API / CLI / config surface
@@ -279,6 +394,7 @@ shape) and read `portal5_load_guard_headroom_bytes` / `portal5_load_guard_ceilin
 on the Model Management dashboard — #5165 changed unload/wired-limit behaviour.
 
 **Step 5 — bench/WFE rows to re-run (only seats the release could change)**
+(The throughput baseline itself is §0 — this step is the behaviour/quality rows.)
 Re-run, smallest first:
 - **Tool-turn WFE rows for oMLX-served seats only** (text_tool_calls-graded): server-side
   parsing changed (#4433, #5345, #5139). Ollama-side rows are untouched — do not re-run.
@@ -313,3 +429,13 @@ services), rows for seats whose config and traffic the release cannot touch.
   first.
 - All speed numbers quoted from the release notes are upstream's hardware (M3/M5
   Ultra/Max), not this M4 Pro — nothing here predicts local deltas.
+- The §0 rosters (38 seats → 14 models, 14 top-level workspaces, 24 variant seats) were
+  resolved offline from `config/portal.yaml` × `config/backends.yaml` at HEAD; the live
+  stack's config can differ — reconcile against `portal trace --section workspaces` output
+  before running B1–B3.
+- speed_bench driving `base::variant` pipeline ids is reasoned from
+  `portal/platform/inference/router/handlers.py:573`, not run — verify on the first seat
+  (fallback named in §0.2 B3).
+- No §0 command was run by this lane (no live runs, per the worker contract); the two-run
+  baseline, the noise band, and every 0.8.0 keep/supersede verdict in §0.1 rows 1, 6, 8 are
+  pending the orchestrator's live measurements.
