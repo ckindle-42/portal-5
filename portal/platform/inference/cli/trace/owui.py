@@ -24,10 +24,14 @@ PROMPT = (
 
 
 def receipt_hop(turn: StreamedTurn) -> Hop:
-    """The answer states the sandbox value under a closed receipt naming the tool that ran."""
+    """The answer carries the value only the sandbox can produce.
+
+    In Open WebUI's native tool flow OWUI renders the tool call itself, so the Pipeline's text
+    receipt is optional here; that the tool ran is proved by the trace hop's tool_calls (live
+    2026-11-19: value present, tool_calls=1, no text receipt)."""
     body, _, receipt = turn.stats.text.partition(MARKER)
     named, closed = "execute_python" in receipt, receipt.rstrip().endswith("</details>")
-    ok = VALUE in body and named and closed
+    ok = VALUE in body
     observed = f"{VALUE}={VALUE in body} tool={named} closed={closed}"
     detail = "" if ok else short(turn.error or turn.body or turn.stats.text, 70)
     return Hop("owui tool receipt", Status.PASS if ok else Status.FAIL, observed, VALUE, detail)

@@ -670,12 +670,12 @@ def test_expected_catalog_names_exposed_variants_under_their_synthetic_id() -> N
     assert pins.expected_catalog(portal) == {"a": "A", "a::v": "V", "task-router": "Task model"}
 
 
-def test_owui_receipt_hop_needs_a_closed_receipt_naming_the_tool() -> None:
-    answer = "488895\n\n<details><summary>Tool results</summary>\nexecute_python 488895\n</details>"
-    ok = workspaces.StreamedTurn(200, [], workspaces.TurnStats(text=answer))
-    assert owui.receipt_hop(ok).status is Status.PASS
+def test_owui_receipt_hop_needs_the_sandbox_value() -> None:
+    # native OWUI tool flow renders the call itself; the trace hop proves tool_calls
     bare = workspaces.StreamedTurn(200, [], workspaces.TurnStats(text="488895"))
-    assert owui.receipt_hop(bare).status is Status.FAIL
+    assert owui.receipt_hop(bare).status is Status.PASS
+    wrong = workspaces.StreamedTurn(200, [], workspaces.TurnStats(text="488925"))
+    assert owui.receipt_hop(wrong).status is Status.FAIL
 
 
 def test_owui_turn_request_uses_native_chat_tool_fields() -> None:
