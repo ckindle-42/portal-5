@@ -24,3 +24,12 @@ def owui_tools() -> dict[str, Any]:
         "arm_queue_task": owui_entry.arm_queue_task,
         "jarvis_submit": owui_entry.jarvis_submit,
     }
+
+
+def trace_sections() -> dict[str, Any]:
+    """The jarvis personal path ``portal trace`` exercises through the real runner."""
+    if not module_code_present("portal.modules.orchestration.trace_jarvis"):
+        return {}
+    from portal.modules.orchestration.trace_jarvis import run
+
+    return {"jarvis": run}

@@ -15,9 +15,11 @@ from portal.platform.inference.cli.trace import (
     engines,
     host,
     lab,
+    mcps,
     media,
     owui,
     pins,
+    platform,
     workspaces,
 )
 from portal.platform.inference.cli.trace.command import selected
@@ -619,10 +621,14 @@ def test_section_selection_accepts_keys_numbers_and_prefixes() -> None:
         "aliases",
         "engines",
         "owui",
+        "jarvis",
         "media",
+        "platform",
         "lab",
     ]
     assert keys(None) == expected
+    for key, _title, _run in mcps.SECTIONS:  # opt-in: a bare sweep skips the per-MCP seats
+        assert keys([key]) == [key]
     assert keys(["1"]) == ["host"]
     assert keys(["containers"]) == ["containers"]
     assert keys(["c"]) == ["containers"]
@@ -909,3 +915,41 @@ def _ctx() -> Any:
         budget_s=60.0,
         timeout_s=30.0,
     )
+
+
+def test_mcp_span_tools_reads_only_completed_tool_spans() -> None:
+    record = {
+        "spans": [
+            {"name": "tool.requested", "tool": "kb_search"},
+            {"name": "tool.completed", "tool": "kb_search", "outcome": "ok"},
+            {"name": "tool.completed", "tool": "create_excel", "outcome": "not_allowed"},
+        ]
+    }
+    assert mcps.span_tools(record)[0] == {"kb_search"}
+    assert mcps.span_tools(record)[1] == "tools=kb_search refused=create_excel:not_allowed"
+    assert mcps.span_tools(None) == (set(), "tools=none")
+
+
+def test_compliance_trace_target_is_a_registered_part() -> None:
+    register = (
+        Path(__file__).resolve().parents[2]
+        / "portal/modules/compliance/data/nerc_cip_register.json"
+    ).read_text(encoding="utf-8")
+    assert f'"id": "{mcps.REQUIREMENT}"' in register
+
+
+def test_platform_hops_report_one_full_line_per_drifted_preset(monkeypatch) -> None:
+    from portal.platform.inference.cli.trace.context import CommandResult
+
+    out = (
+        "DRIFT persona:caddesigner\n"
+        "    meta.toolIds: live ['server:mcp:portal_cad'] != file ['server:mcp:portal_code']\n"
+        "DRIFT persona:proofreader\n    meta.toolIds: live [] != file []\n"
+    )
+    monkeypatch.setattr(platform, "run_cmd", lambda *a, **k: CommandResult(False, stdout=out))
+    hops = platform.run(_ctx(), {})
+    assert [h.name for h in hops] == ["drift persona:caddesigner", "drift persona:proofreader"]
+    assert hops[0].detail == (
+        "meta.toolIds: live ['server:mcp:portal_cad'] != file ['server:mcp:portal_code']"
+    )
+    assert platform.drift_presets("owui preset drift: none") == {}

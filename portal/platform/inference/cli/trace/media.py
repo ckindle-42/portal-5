@@ -66,13 +66,20 @@ def artifact_url(text: str) -> str:
     return match.group(0).rstrip(".,)") if match else ""
 
 
-def read_back(url: str, api_key: str) -> tuple[bool, str]:
-    """GET the published artifact — 200 + non-empty body proves it exists and serves."""
+def fetch_file(url: str, api_key: str) -> tuple[httpx.Response | None, str]:
+    """Fetch an OWUI artifact with the configured API key."""
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
     try:
-        resp = httpx.get(url, headers=headers, timeout=30.0)
+        return httpx.get(url, headers=headers, timeout=30.0), ""
     except httpx.HTTPError as exc:
-        return False, f"read failed: {exc}"
+        return None, str(exc)
+
+
+def read_back(url: str, api_key: str) -> tuple[bool, str]:
+    """GET the published artifact — 200 + non-empty body proves it exists and serves."""
+    resp, error = fetch_file(url, api_key)
+    if resp is None:
+        return False, f"read failed: {error}"
     return resp.status_code == 200 and len(resp.content) > 0, (
         f"http {resp.status_code}, {len(resp.content)} bytes"
     )

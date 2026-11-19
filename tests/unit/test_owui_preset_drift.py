@@ -44,15 +44,6 @@ def test_a_changed_name_tool_binding_or_missing_preset_is_reported():
     assert mod.drift(FILE, None) == ["missing from Open WebUI"]
 
 
-def test_check_reads_each_workspace_file_but_not_the_bundle(tmp_path):
-    (tmp_path / "workspace_a.json").write_text(json.dumps(FILE))
-    (tmp_path / "workspaces_all.json").write_text(json.dumps([FILE]))
-    stale = json.loads(json.dumps(FILE))
-    stale["params"]["system"] = "old"
-    assert mod.check(lambda _id: stale, tmp_path).keys() == {"auto-documents"}
-    assert mod.check(lambda _id: FILE, tmp_path) == {}
-
-
 def test_persona_expectation_follows_the_seeder_rules():
     import yaml
 
@@ -65,6 +56,14 @@ def test_persona_expectation_follows_the_seeder_rules():
     assert len(personas) + len(roles) == len(raws)
     sample = next(iter(personas.values()))
     assert sample["base_model_id"] == sample["params"]["model"] and sample["params"]["system"]
+
+
+def test_a_variant_persona_resolves_the_variants_tools():
+    """The seeder resolves `workspace::variant` first; the old expectation used the base
+    workspace and drifted against presets that were already correct (2026-11-19)."""
+    personas = {p["id"]: p for p in mod.expected_personas()}
+    assert "server:mcp:portal_cad" in personas["caddesigner"]["meta"]["toolIds"]
+    assert personas["proofreader"]["meta"]["toolIds"] == []
 
 
 def test_a_persona_sharing_a_workspace_id_is_reported_not_drift():

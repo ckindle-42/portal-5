@@ -1,7 +1,9 @@
 """Unit tests for portal.modules.research.tools.rag_multimodal client seam
 (TASK_VL_RETRIEVAL_HARDENING_AND_CLOSEOUT_V2 A1).
 
-No network, no LanceDB, no VL server — httpx.AsyncClient is faked.
+No network, no LanceDB, no VL server. Retrieval against a loaded knowledge base is
+proved live by ``portal trace --section rag``; what stays here is the fitted
+constant and the pins that must move with it.
 """
 
 from __future__ import annotations
@@ -12,111 +14,7 @@ import re
 
 import pytest
 
-rm = pytest.importorskip(
-    "portal.modules.research.tools.rag_multimodal",
-    reason="lancedb/pyarrow/httpx not importable",
-)
-
-_embedding = pytest.importorskip("portal.platform.retrieval.embedding")
-
-_store = pytest.importorskip("portal.platform.retrieval.store")
-
 _fusion = pytest.importorskip("portal.platform.retrieval.fusion")
-
-
-class _HealthClient:
-    payload = {"embed_model": "model-X", "embedding_dim": 2048}
-
-    async def get(self, url):
-        return _FakeHealthResp(_HealthClient.payload)
-
-
-class _FakeHealthResp:
-    def __init__(self, p):
-        self._p = p
-
-    def raise_for_status(self):
-        pass
-
-    def json(self):
-        return self._p
-
-
-class _FakeTable:
-    def __init__(self, rows):
-        self._rows = rows
-
-    def search(self, _qvec):
-        return self
-
-    def limit(self, _n):
-        return self
-
-    def to_list(self):
-        return self._rows
-
-
-def _wire_search(monkeypatch, *, text_distance, rerank_scores):
-    """Patch _search's dependencies so only the fusion is exercised."""
-
-    async def _emb(text=None, image_path=None, is_query=False):
-        return [0.1] * _embedding.VL_DIM
-
-    async def _model_id():
-        return ("m", _embedding.VL_DIM)
-
-    async def _rerank(q, cands, n):
-        return [{"index": i, "score": s} for i, s in enumerate(rerank_scores)]
-
-    monkeypatch.setattr(_embedding, "vl_embed", _emb)
-    monkeypatch.setattr(_embedding, "vl_model_id", _model_id)
-    monkeypatch.setattr(_store, "assert_embedding_space", lambda *a: None)
-    monkeypatch.setattr(_embedding, "vl_rerank", _rerank)
-    monkeypatch.setattr(
-        _store,
-        "text_table",
-        lambda kb, create=False: _FakeTable(
-            [
-                {
-                    "chunk_id": "t1",
-                    "source_file": "prose.pdf",
-                    "chunk_index": 0,
-                    "text": "x",
-                    "_distance": text_distance,
-                }
-            ]
-        ),
-    )
-    monkeypatch.setattr(
-        _store,
-        "visual_table",
-        lambda kb, create=False: _FakeTable(
-            [{"chunk_id": "v1", "source_file": "figure.pdf", "page": 1, "image_path": "/x.png"}]
-        ),
-    )
-
-
-async def _run_search(kb="k", query="q"):
-    class _R:
-        async def json(self):
-            return {"arguments": {"kb_id": kb, "query": query, "top_k": 3}}
-
-    import json as _j
-
-    return _j.loads((await rm._search(_R())).body)["results"]
-
-
-async def test_unified_is_immune_to_text_arm_richness(monkeypatch):
-    """`unified` keys off no absolute cosine, so the same visual candidate wins at
-    BOTH text distances — the property that motivated it. It is NOT the default:
-    measured on the eval corpus it scores diagram r@1 0.619 against text_gate's
-    0.952, because the shared reranker space is text-biased. Retained as an A/B
-    switch, and this test pins the property it does have."""
-    monkeypatch.setattr(_fusion, "FUSION", "unified")
-    for text_distance in (1.2, 0.3):  # weak text arm, then rich text arm
-        _wire_search(monkeypatch, text_distance=text_distance, rerank_scores=[0.30, 0.88])
-        res = await _run_search(query="which valve is fail-closed")
-        assert res[0]["kind"] == "visual", f"regressed at text_distance={text_distance}"
 
 
 _BASELINE_PATH = (
