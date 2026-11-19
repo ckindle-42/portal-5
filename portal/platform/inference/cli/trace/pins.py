@@ -231,10 +231,10 @@ def alias_hops(ctx: TraceContext, portal: dict[str, Any]) -> list[Hop]:
             hops.append(Hop(str(alias), Status.WARN, "not run", "a declared target", "no `to:`"))
         elif is_workspace_disabled(target):
             hops.append(Hop(str(alias), Status.WARN, "not run: module disabled", f"→{target}"))
-        elif left <= 1:
+        elif left < ctx.timeout_s:
             hops.append(Hop(str(alias), Status.WARN, "not run (budget)", f"→{target}"))
         else:
-            turn = stream_turn(ctx.pipeline_url, ctx.api_key, str(alias), min(left, ctx.timeout_s))
+            turn = stream_turn(ctx.pipeline_url, ctx.api_key, str(alias), ctx.timeout_s)
             resolved = turn.route[0] if turn.route else ""
             status = Status.PASS if resolved == target else Status.FAIL
             detail = "" if resolved == target else short(turn.error or turn.body, 70)

@@ -172,11 +172,15 @@ def revision_hop(
     introduced: tuple[str, float] = ("", 0.0),
     *,
     current: bool,
+    changed: list[str] | None = None,
 ) -> Hop:
-    """A label that exists must contain HEAD's newest copied-path commit; an absent one is a WARN only if the label postdates the build."""
+    """A label must contain the newest copied-path commit; an absent one WARNs only if it postdates the build."""
     if label:
         status = Status.PASS if current else Status.FAIL
-        detail = f"uncommitted in copied paths: {', '.join(dirty[:4])}" if dirty else ""
+        if status is Status.FAIL:
+            detail = f"changed since label: {', '.join(changed[:4])}" if changed else ""
+        else:
+            detail = f"uncommitted in copied paths: {', '.join(dirty[:4])}" if dirty else ""
         return Hop(
             f"revision {repo}",
             Status.WARN if status is Status.PASS and dirty else status,
@@ -282,6 +286,41 @@ def _compose_dockerfile(repo_root: Path, service: str) -> str:
     return found.group(1) if found else ""
 
 
+def _mounted_elsewhere(repo_root: Path) -> list[str]:
+    """Repo paths a long-running stock-image service consumes via bind mount, not a baked copy."""
+    import yaml
+
+    compose = repo_root / "deploy" / "portal-5" / "docker-compose.yml"
+    if not compose.is_file():
+        return []
+    try:
+        data = yaml.safe_load(compose.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return []
+    if not isinstance(data, dict) or not isinstance(data.get("services"), dict):
+        return []
+    out: list[str] = []
+    for svc in data["services"].values():
+        if not isinstance(svc, dict) or "build" in svc or "image" not in svc:
+            continue
+        # One-shot init containers (restart: "no") run the mounted repo tree itself.
+        if str(svc.get("restart") or "") == "no":
+            continue
+        for vol in svc.get("volumes") or []:
+            if isinstance(vol, str) and vol.startswith("../../"):
+                source = vol.split(":")[0].removeprefix("../../")
+                if source and source not in out:
+                    out.append(source)
+    return out
+
+
+def _staleness_paths(copied: list[str], mounted: list[str]) -> list[str]:
+    """Git pathspec of the copied paths minus what a stock service mounts at runtime."""
+    kept = [path for path in copied if path not in mounted]
+    excluded = [m for m in mounted if any(m.startswith(p + "/") for p in kept)]
+    return [*kept, *(f":(exclude){m}" for m in excluded)]
+
+
 def label_commit(repo_root: Path, dockerfile: str) -> tuple[str, float]:
     """The commit that introduced the revision label into ``dockerfile``, and its timestamp."""
     parts = _git(
@@ -303,6 +342,7 @@ def _container_hops(
     container: ContainerRow,
     repo_root: Path,
     dockerfiles: dict[str, list[str]],
+    mounted: list[str],
 ) -> list[Hop]:
     """Image identity, start time, revision label and config state for one container."""
     current, built = resolve_image(container.image_ref)
@@ -317,15 +357,21 @@ def _container_hops(
         ]
     hops = [image_freshness_hop(container, current), start_after_build_hop(container, built)]
     dockerfile = _compose_dockerfile(repo_root, container.service)
-    copied = dockerfiles.get(dockerfile, [])
-    if copied:
-        head = _git(repo_root, ["rev-list", "-1", "HEAD", "--", *copied])
+    specs = _staleness_paths(dockerfiles.get(dockerfile, []), mounted)
+    if specs:
+        head = _git(repo_root, ["rev-list", "-1", "HEAD", "--", *specs])
         dirty = [
             line
-            for line in _git(repo_root, ["status", "--porcelain", "--", *copied]).splitlines()
+            for line in _git(repo_root, ["status", "--porcelain", "--", *specs]).splitlines()
             if line.strip()
         ]
         label = _image_label(current, _REVISION_LABEL)
+        current_label = label_contains(repo_root, head, label)
+        changed = (
+            _git(repo_root, ["diff", "--name-only", label, head, "--", *specs]).splitlines()
+            if label and head and not current_label
+            else []
+        )
         hops.append(
             revision_hop(
                 container.repo,
@@ -334,7 +380,8 @@ def _container_hops(
                 dirty,
                 built,
                 label_commit(repo_root, dockerfile),
-                current=label_contains(repo_root, head, label),
+                current=current_label,
+                changed=changed,
             )
         )
     return hops
@@ -347,13 +394,14 @@ def run(ctx: Any) -> list[Hop]:
     if not listing.ok:
         return [Hop("docker", Status.FAIL, short(listing.error), "docker reachable")]
     dockerfiles = _dockerfiles(repo_root)
+    mounted = _mounted_elsewhere(repo_root)
     hops: list[Hop] = []
     for name in [line.strip() for line in listing.stdout.splitlines() if line.strip()]:
         container = _inspect(name)
         if container is None or not container.image_ref:
             hops.append(Hop(f"image {name}", Status.FAIL, "inspect failed", "readable container"))
             continue
-        hops.extend(_container_hops(container, repo_root, dockerfiles))
+        hops.extend(_container_hops(container, repo_root, dockerfiles, mounted))
         hops.append(config_hop(container, repo_root, baked_hashes(name, CONFIG_PROBES)))
     if not hops:
         hops.append(Hop("containers", Status.FAIL, "no portal containers", "stack running"))
