@@ -55,7 +55,17 @@ OLLAMA_CHAT = os.environ.get("OLLAMA_CHAT_URL", "http://portal-pipeline:9099/oll
 EXTRACT_MODEL = os.environ.get("MEMORY_EXTRACT_MODEL", "gemma4:e4b-it-qat-ctx8k")
 _MAX_NODES = int(os.environ.get("MEMORY_GRAPH_MAX_NODES", "200"))
 _NAME_RE = re.compile(r"^[^'\"\\]{1,200}$")
+# Unfilled placeholders ({line_count}, <output_of_previous_step>); angle form needs an underscore so HTML tags pass.
+_PLACEHOLDER_RE = re.compile(r"\{[A-Za-z_][A-Za-z0-9_]*\}|<[A-Za-z_][A-Za-z0-9_]*_[A-Za-z0-9_]*>")
 logger = logging.getLogger(__name__)
+
+
+def unfilled_placeholder(text: str) -> str | None:
+    """Return the first unfilled template placeholder in a memory text, else None."""
+    match = _PLACEHOLDER_RE.search(text)
+    return match.group(0) if match else None
+
+
 _EXTRACT_FAILURES = Counter(
     "portal5_memory_extract_failures",
     "Graph-memory extraction failures by reason.",
@@ -395,6 +405,12 @@ async def _remember_impl(args: dict[str, Any]) -> tuple[dict[str, Any], int]:
         return {"error": "text is required"}, 400
     if len(text) > 4000:
         return {"error": "text too long (max 4000 chars)"}, 400
+    placeholder = unfilled_placeholder(text)
+    if placeholder is not None:
+        return {
+            "error": f"memory text has an unfilled template placeholder {placeholder!r}; "
+            "substitute the real value before remembering"
+        }, 400
     try:
         vec = await _embed(text, Role.DOCUMENT)
         version = await _version()

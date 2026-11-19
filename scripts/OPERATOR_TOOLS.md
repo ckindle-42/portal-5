@@ -104,6 +104,13 @@ python3 scripts/bully_inject_capture.py             # E.5 generate/inject/captur
 python3 scripts/bully_universal_intake_run.py       # M.6 universal-intake verification run → BULLY_UNIVERSAL_INTAKE_RUN_M6_V1
 ```
 
+## Memory
+
+```bash
+python3 scripts/cleanup_junk_memories.py            # dry-run: list memory rows with unfilled template placeholders ({line_count}, <output_of_previous_step>)
+python3 scripts/cleanup_junk_memories.py --apply    # delete those junk rows (memory + relations) across all user ids
+```
+
 ## Convention
 
 New operator tools live in `scripts/` and should be added here so the complexity
