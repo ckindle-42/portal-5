@@ -24,7 +24,49 @@ from typing import Any
 GEMMA_TOOL_CALL_OPEN = "<|tool_call>"
 GEMMA_TOOL_CALL_CLOSE = "<tool_call|>"
 _GEMMA_STRING_QUOTE = '<|"|>'
-TEXT_TOOL_CALL_MARKERS = ("<tool_call>", "<function=", GEMMA_TOOL_CALL_OPEN)
+
+# P5-IFM-TOOLTEXT-001: IFM-lineage checkpoints (K2-Horizon-MoVA, the
+# auto-reasoning seat) write calls as an ``<ifm|tool_calls>`` block whose
+# ``<ifm|tool_call>`` entries carry ``<ifm|arg_key>``/``<ifm|arg_value>`` pairs
+# (the served checkpoint's chat template also defines a json and a typed form).
+# It reaches plain content whenever an engine parser is bypassed or a parse
+# misses — the toolless Jarvis planner turn emitted it verbatim on 2026-11-19.
+IFM_TOOL_CALLS_OPEN = "<ifm|tool_calls>"
+IFM_TOOL_CALL_OPEN = "<ifm|tool_call>"
+IFM_TOOL_CALL_CLOSE = "</ifm|tool_call>"
+IFM_ARG_KEY_OPEN = "<ifm|arg_key>"
+IFM_ARG_KEY_CLOSE = "</ifm|arg_key>"
+IFM_ARG_TYPE_OPEN = "<ifm|arg_type>"
+IFM_ARG_TYPE_CLOSE = "</ifm|arg_type>"
+IFM_ARG_VALUE_OPEN = "<ifm|arg_value>"
+IFM_ARG_VALUE_CLOSE = "</ifm|arg_value>"
+_IFM_CALL_RE = re.compile(
+    re.escape(IFM_TOOL_CALL_OPEN)
+    + r"(?:\s*(\{.*?\})\s*|([^{}\n<]+?)[ \t]*\n(.*?))"
+    + re.escape(IFM_TOOL_CALL_CLOSE),
+    re.DOTALL,
+)
+_IFM_ARG_RE = re.compile(
+    re.escape(IFM_ARG_KEY_OPEN)
+    + r"(.*?)"
+    + re.escape(IFM_ARG_KEY_CLOSE)
+    + r"\s*(?:"
+    + re.escape(IFM_ARG_TYPE_OPEN)
+    + r"(.*?)"
+    + re.escape(IFM_ARG_TYPE_CLOSE)
+    + r"\s*)?"
+    + re.escape(IFM_ARG_VALUE_OPEN)
+    + r"(.*?)"
+    + re.escape(IFM_ARG_VALUE_CLOSE),
+    re.DOTALL,
+)
+TEXT_TOOL_CALL_MARKERS = (
+    "<tool_call>",
+    "<function=",
+    GEMMA_TOOL_CALL_OPEN,
+    IFM_TOOL_CALL_OPEN,
+    IFM_TOOL_CALLS_OPEN,
+)
 _TOOL_CALL_WRAPPER_RE = re.compile(r"<tool_call>(.*?)</tool_call>", re.DOTALL)
 _XML_FUNCTION_RE = re.compile(r"<function=([^>\s]+)>(.*?)</function>", re.DOTALL)
 _XML_PARAMETER_RE = re.compile(r"<parameter=([^>\s]+)>(.*?)</parameter>", re.DOTALL)
@@ -179,10 +221,42 @@ def _decode_gemma_call(text: str, match: re.Match[str]) -> tuple[str, dict[str, 
     return name, value[0]
 
 
+def _decode_ifm_arguments(raw: str) -> dict[str, str] | None:
+    """``<ifm|arg_key>``/``<ifm|arg_value>`` pairs tiling *raw* (a type tag
+    may sit between them), as ``key -> raw value``; None on anything left over."""
+    arguments: dict[str, str] = {}
+    pos = 0
+    for m in _IFM_ARG_RE.finditer(raw):
+        if raw[pos : m.start()].strip():
+            return None
+        arguments[m.group(1)] = m.group(3)
+        pos = m.end()
+    if raw[pos:].strip():
+        return None
+    return arguments
+
+
+def _decode_ifm_call(
+    match: re.Match[str], offered: dict[Any, dict[str, Any]]
+) -> tuple[str, dict[str, Any]] | None:
+    """(name, arguments) for one ``<ifm|tool_call>`` block: the template's
+    json form (one object per call) or its xml form (name line plus pairs)."""
+    if match.group(1) is not None:
+        return _decode_json_call(match.group(1))
+    name = match.group(2).strip()
+    raw_args = _decode_ifm_arguments(match.group(3))
+    if raw_args is None:
+        return None
+    props = offered.get(name, {}).get("properties") or {}
+    return name, {
+        key: _xml_param_value(value, props.get(key) or {}) for key, value in raw_args.items()
+    }
+
+
 def salvage_text_tool_calls(
     content: str, tools: list[dict[str, Any]] | None
 ) -> tuple[str, list[dict[str, Any]]]:
-    """Recover JSON, XML, or Gemma-4 native tool calls written into ``content``.
+    """Recover JSON, XML, Gemma-4, or IFM tool calls written into ``content``.
 
     Only calls naming an offered tool count; anything else returns no calls so
     the text is delivered unchanged. Returns ``(text_before_the_call, calls)``
@@ -219,6 +293,12 @@ def salvage_text_tool_calls(
             return content, []
         matches.append((match.start(), *decoded))
 
+    for match in _IFM_CALL_RE.finditer(text):
+        decoded = _decode_ifm_call(match, offered)
+        if decoded is None:
+            return content, []
+        matches.append((match.start(), *decoded))
+
     if not matches or any(name not in offered for _, name, _ in matches):
         return content, []
     matches.sort(key=lambda item: item[0])
@@ -231,16 +311,28 @@ def salvage_text_tool_calls(
                 "function": {"name": name, "arguments": json.dumps(args)},
             }
         )
-    prefix = text[: matches[0][0]].replace("<tool_call>", "").strip()
+    first = matches[0][0]
+    wrapper = text.find(IFM_TOOL_CALLS_OPEN, 0, first)
+    prefix = text[: wrapper if wrapper >= 0 else first].replace("<tool_call>", "").strip()
     return prefix, calls
 
 
 def drop_unparsed_markup(text: str) -> str:
-    """*text* cut at its first ``<tool_call>`` wrapper or ``<|tool_call>`` block:
-    a wrapper that could not be salvaged is call syntax, never an answer, so it
-    is not delivered to a client.
+    """*text* cut at its first unsalvageable call opener (``<tool_call>``,
+    ``<|tool_call>``, ``<ifm|tool_call(s)>``): call syntax is never an answer,
+    so it is not delivered to a client.
     A bare ``<function=...>`` mention stays (it may be prose about an unoffered tool)."""
-    cuts = [c for c in (text.find("<tool_call>"), text.find(GEMMA_TOOL_CALL_OPEN)) if c >= 0]
+    cuts = [
+        c
+        for c in (
+            text.find("<tool_call>"),
+            text.find(GEMMA_TOOL_CALL_OPEN),
+            text.find(IFM_TOOL_CALL_OPEN),
+            text.find(IFM_TOOL_CALLS_OPEN),
+        )
+        if c >= 0
+    ]
+
     return text[: min(cuts)].rstrip() if cuts else text
 
 
