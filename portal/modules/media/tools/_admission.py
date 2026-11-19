@@ -47,7 +47,15 @@ MEDIA_MODEL_MEMORY_GB: dict[str, float] = {
     # MLX-native video generation (ltx-2-mlx CLI, host MLX layer). LTX-2.5
     # distilled, --low-ram block streaming. Measured live on the minimal
     # system in the 2026-10-28 LTX-2.3 vs 2.5 A/B (2.5 won; 2.3 removed).
+    # The pack's memory scales with resolution, so the admission key is
+    # size-aware: `-512` is the measured anchor, `-704` the estimated 704x480
+    # job (2x the pixel area), the unsuffixed key stays for direct callers.
     "video_mlx:ltx-2.5-q4": 18.0,  # measured 15.8GiB peak footprint, --distilled --low-ram, 512x320 97fr (2026-10-28)
+    "video_mlx:ltx-2.5-q4-512": 18.0,  # same measurement, the 512x320 (or smaller) admission bucket
+    "video_mlx:ltx-2.5-q4-704": 25.0,  # estimated, 704x480 97fr (unmeasured — scaled from the measured 512x320 peak)
+    # Fallback engine (Blaizzy/mlx-video, Wan2.2-TI2V-5B Q8): sourced 18-23GB
+    # weights, estimated ~23GB peak + activations on this host (unmeasured).
+    "video_mlx:wan2.2-5b": 23.0,
 }
 
 MEMORY_HEADROOM_GB: float = float(os.environ.get("MEDIA_MEMORY_HEADROOM_GB", "4.0"))

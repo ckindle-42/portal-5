@@ -172,7 +172,7 @@ NATIVE_TOOL_NAMES = {
         "music_status",
     ],
     "mflux": ["edit_image", "generate_image", "image_start", "image_status"],
-    "video_mlx": ["animate_image", "generate_video", "video_start", "video_status"],
+    "video_mlx": ["video_models", "video_start", "video_status"],
     "documents": [
         "convert_document",
         "create_excel",

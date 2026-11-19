@@ -20,9 +20,14 @@ class TestMediaModelMemoryDict:
             assert isinstance(gb, (int, float)), f"{key}: expected float, got {type(gb)}"
             assert gb > 0, f"{key}: memory estimate must be > 0 GB"
 
-    def test_video_model_has_large_estimate(self):
-        """LTX-2.5 measured 15.8GiB peak — the estimate must stay above it."""
-        assert _admission.MEDIA_MODEL_MEMORY_GB.get("video_mlx:ltx-2.5-q4", 0) >= 17.0
+    def test_video_models_use_bucketed_estimates(self):
+        """LTX memory scales with resolution: the measured 512x320 anchor stays
+        above its 15.8GiB footprint, the 704x480 bucket is the conservative
+        estimate, and the Wan2.2-5B fallback carries its own key."""
+        assert _admission.MEDIA_MODEL_MEMORY_GB["video_mlx:ltx-2.5-q4"] >= 17.0
+        assert _admission.MEDIA_MODEL_MEMORY_GB["video_mlx:ltx-2.5-q4-512"] >= 17.0
+        assert _admission.MEDIA_MODEL_MEMORY_GB["video_mlx:ltx-2.5-q4-704"] >= 24.0
+        assert _admission.MEDIA_MODEL_MEMORY_GB["video_mlx:wan2.2-5b"] >= 20.0
 
     def test_music_models_use_live_complete_quality_estimates(self):
         # Raw sampled peak working set — admit() adds MEMORY_HEADROOM_GB on top,
