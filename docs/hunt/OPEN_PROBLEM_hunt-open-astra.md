@@ -59,3 +59,5 @@ bash coding_task/RUN_HUNT_OPEN_ASTRA.sh
 ```
 
 The command creates a fresh run directory under `coding_task/scratch/`, runs each named build index in turn, excludes its own family from the knowledge store, and writes `score.log`. My predictions at 50 are botsv2 3/15 from at least two behaviour notables and 2/4 scenarios, kyoushi 12/12, santos 14/21 and russell 15/22. Inspect `stages.notables.source_windows` in each `progress.json` for read counts and unresolved windows, then inspect the actual notables and endpoint evidence. Fewer than three steps, a single carrying notable, or a decline on a comparison family misses the target. Live chat rendering and case quality require separate product verification.
+
+As an ablation, I discarded every original top-50 notable and scored only the four resolved botsv2 episodes. The two carrying episodes independently retained all three step credits and both scenarios. Thus the fixed-ranking result does not depend on preserving the misattributed threat-card burst. A fresh ranking may still place either episode outside the review head.
