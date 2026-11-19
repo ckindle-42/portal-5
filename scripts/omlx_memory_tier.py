@@ -17,6 +17,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO))
+
+from scripts.omlx_venv_install import omlx_restart_command  # noqa: E402
+
 SETTINGS = Path.home() / ".omlx" / "settings.json"
 TIERS = ("safe", "balanced", "aggressive")
 
@@ -41,7 +46,7 @@ def main(argv: list[str]) -> int:
     changed = set_tier(argv[0])
     print(f"oMLX memory guard tier: {argv[0]} ({'changed' if changed else 'already set'})")
     if changed and "--no-restart" not in argv:
-        subprocess.run(["brew", "services", "restart", "jundot/omlx/omlx"], check=False)
+        subprocess.run(omlx_restart_command(), check=False)
     return 0
 
 

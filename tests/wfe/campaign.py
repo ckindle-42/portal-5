@@ -330,12 +330,17 @@ def drain_omlx(timeout_s: int = DRAIN_TIMEOUT_S) -> str:
     Ollama; oMLX holds its own pool (up to its memory ceiling), so an arm could
     run beside a previous arm's 27B weights and measure paging. oMLX's unload
     endpoint needs admin auth, so a service restart is the drain — the same
-    remedy the house rules use for a wedged MLX server."""
+    remedy the house rules use for a wedged MLX server. The restart targets the
+    active service (venv LaunchAgent after the cutover, brew otherwise): a brew
+    restart while the venv agent holds :8085 drains nothing and starts a
+    port-conflicting crash loop."""
     loaded = int(_omlx_pool().get("loaded_count") or 0)
     if not loaded:
         return "oMLX pool empty"
+    from scripts.omlx_venv_install import omlx_restart_command
+
     subprocess.run(
-        ["brew", "services", "restart", "jundot/omlx/omlx"],
+        omlx_restart_command(),
         capture_output=True,
         timeout=120,
     )

@@ -17,6 +17,28 @@ DEFAULT_VENV = Path.home() / "omlx-live" / "venv"
 RELEASE_API = "https://api.github.com/repos/jundot/omlx/releases/tags/v{}"
 LATEST_API = "https://api.github.com/repos/jundot/omlx/releases/latest"
 PYTHON_VERSIONS = ("3.13", "3.12", "3.11")
+OMLX_VENV_LABEL = "com.portal5.omlx"
+OMLX_BREW_SERVICE = "jundot/omlx/omlx"
+
+
+def venv_service_active(venv: Path | None = None) -> bool:
+    """True when the com.portal5.omlx LaunchAgent serves oMLX from the fixed venv."""
+    if not (venv or venv_path()).joinpath("bin/python").is_file():
+        return False
+    probe = subprocess.run(
+        ["launchctl", "print", f"gui/{os.getuid()}/{OMLX_VENV_LABEL}"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    return probe.returncode == 0
+
+
+def omlx_restart_command(venv: Path | None = None) -> list[str]:
+    """Restart command for whichever service is live: the venv LaunchAgent, else brew."""
+    if venv_service_active(venv):
+        return ["launchctl", "kickstart", "-k", f"gui/{os.getuid()}/{OMLX_VENV_LABEL}"]
+    return ["brew", "services", "restart", OMLX_BREW_SERVICE]
 
 
 def venv_path(value: str | None = None) -> Path:
