@@ -204,18 +204,16 @@ def test_image_freshness_compares_the_container_with_its_own_reference() -> None
     assert fresh.status is Status.PASS
     assert fresh.observed == "running=ec00421ec049 portal-5-portal-pipeline=ec00421ec049"
     stale = containers.image_freshness_hop(_container(), "sha256:aaaaaaaaaaaa")
-    assert stale.status is Status.FAIL
-    assert "not recreated" in stale.detail
+    assert stale.status is Status.FAIL and "not recreated" in stale.detail
+    rebuilt = _container(image_id="sha256:aaaaaaaaaaaa")
+    assert containers.image_freshness_hop(rebuilt, "sha256:aaaaaaaaaaaa").status is Status.PASS
 
 
 def test_open_webui_rollback_tag_does_not_make_the_container_stale() -> None:
     # portal5-open-webui:rollback is written in the same second as the image it copies;
     # the repository's "newest" image is not what the container's reference resolves to.
-    row = _container(
-        name="portal5-open-webui",
-        image_ref="portal5-open-webui:v0.13.0-hardened",
-        image_id="sha256:fa60cb07e276",
-    )
+    ref = "portal5-open-webui:v0.13.0-hardened"
+    row = _container(name="portal5-open-webui", image_ref=ref, image_id="sha256:fa60cb07e276")
     assert containers.image_freshness_hop(row, "sha256:fa60cb07e276").status is Status.PASS
 
 
@@ -231,6 +229,27 @@ def test_copied_paths_ignores_multistage_sources(tmp_path: Path) -> None:
         "pyproject.toml",
         "portal",
         "scripts/pipeline-entrypoint.sh",
+    ]
+
+
+def test_staleness_paths_skip_config_mounted_into_stock_services(tmp_path: Path) -> None:
+    compose = tmp_path / "deploy" / "portal-5" / "docker-compose.yml"
+    compose.parent.mkdir(parents=True)
+    compose.write_text(
+        "services:\n"
+        "  pipeline:\n    build: {context: ../..}\n"
+        "    volumes: [../../config/backends.yaml:/app/config/backends.yaml:ro]\n"
+        "  init:\n    image: python:3.11-slim\n    restart: 'no'\n"
+        "    volumes: [../../config:/config:ro, ../../config/personas:/personas:ro]\n"
+        "  grafana:\n    image: grafana/grafana:13.2.6\n    restart: unless-stopped\n"
+        "    volumes: [../../config/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro]\n"
+    )
+    mounted = containers._mounted_elsewhere(tmp_path)
+    assert mounted == ["config/grafana/dashboards"]
+    assert containers._staleness_paths(["config", "portal"], mounted) == [
+        "config",
+        "portal",
+        ":(exclude)config/grafana/dashboards",
     ]
 
 
@@ -258,16 +277,6 @@ def test_parse_container_reads_the_compose_labels() -> None:
     }
 
 
-def test_image_freshness_fails_when_a_newer_build_exists() -> None:
-    stale = containers.image_freshness_hop(_container(), "sha256:aaaaaaaaaaaa")
-    assert stale.status is Status.FAIL
-    assert "not recreated" in stale.detail
-    fresh = containers.image_freshness_hop(
-        _container(image_id="sha256:aaaaaaaaaaaa"), "sha256:aaaaaaaaaaaa"
-    )
-    assert fresh.status is Status.PASS
-
-
 def test_start_hop_fails_when_the_container_predates_its_image() -> None:
     assert containers.start_after_build_hop(_container(), 1794792000.0).status is Status.FAIL
     assert containers.start_after_build_hop(_container(), 1794000000.0).status is Status.PASS
@@ -275,29 +284,17 @@ def test_start_hop_fails_when_the_container_predates_its_image() -> None:
 
 
 def test_revision_hop_warns_before_the_label_existed_and_fails_after() -> None:
-    predated = containers.revision_hop(
-        "repo", "", "abc123456789", [], 1000.0, ("c52e81568aa", 2000.0), current=False
-    )
+    hop = containers.revision_hop
+    predated = hop("repo", "", "abc123456789", [], 1000.0, ("c52e81568aa", 2000.0), current=False)
     assert predated.status is Status.WARN and "predates" in predated.detail
-    late = containers.revision_hop(
-        "repo", "", "abc123456789", [], 3000.0, ("c52e81568aa", 2000.0), current=False
-    )
+    late = hop("repo", "", "abc123456789", [], 3000.0, ("c52e81568aa", 2000.0), current=False)
     assert late.status is Status.FAIL and "rebuild" in late.detail
-    assert (
-        containers.revision_hop("repo", "", "abc123456789", [], current=False).status is Status.FAIL
-    )
-    assert (
-        containers.revision_hop("repo", "abc123456789", "abc123456789", [], current=True).status
-        is Status.PASS
-    )
-    dirty = containers.revision_hop(
-        "repo", "abc123456789", "abc123456789", ["M portal/x.py"], current=True
-    )
+    assert hop("repo", "", "abc123456789", [], current=False).status is Status.FAIL
+    assert hop("repo", "abc123456789", "abc123456789", [], current=True).status is Status.PASS
+    dirty = hop("repo", "abc123456789", "abc123456789", ["M portal/x.py"], current=True)
     assert dirty.status is Status.WARN
-    assert (
-        containers.revision_hop("repo", "999123456789", "abc123456789", [], current=False).status
-        is Status.FAIL
-    )
+    stale = hop("repo", "999123456789", "abc123456789", [], current=False, changed=["portal/x.py"])
+    assert stale.status is Status.FAIL and "portal/x.py" in stale.detail
 
 
 def test_parse_hash_lines_accepts_either_column_order() -> None:
@@ -394,8 +391,7 @@ def test_summarize_turn_treats_inline_think_as_reasoning_not_answer() -> None:
 
 
 def test_seat_hop_tells_a_reasoning_only_turn_from_an_empty_one() -> None:
-    """Live 2026-11-16: both seats read "tokens=0 usage missing"; the engine log said
-    `reasoning_only=True` on one and nothing on the other, and the trace could not tell."""
+    """Live 2026-11-16: both silences read tokens=0; the reasoning deltas tell them apart."""
     notice = "⚠️ The model did not produce an answer. Please retry."
     reasoning = workspaces.TurnStats(
         text=notice, content_chunks=1, reasoning_deltas=24, completion_tokens=24
@@ -447,6 +443,25 @@ def test_seat_hop_passes_a_healthy_turn_and_warns_on_substitution() -> None:
         _seat(), workspaces.StreamedTurn(200, ["w", "b", "some-other-model"], stats)
     )
     assert other.status is Status.WARN
+
+
+def test_budget_skips_a_seat_that_cannot_get_the_full_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from dataclasses import replace
+
+    ctx = replace(_ctx(), budget_s=20.0, timeout_s=30.0)
+    monkeypatch.setattr(workspaces, "served_seat_ids", lambda _ctx: {"auto-x"})
+    monkeypatch.setattr(
+        workspaces, "stream_turn", lambda *a, **k: pytest.fail("doomed turn issued")
+    )
+    hops = workspaces.run(ctx, {"workspaces": {"auto-x": {"model_hint": "m"}}})
+    assert hops[0].status is Status.WARN and hops[0].observed == "not run (budget)"
+
+
+def test_council_residency_is_router_synthesized_not_an_engine() -> None:
+    hop = engines.residency_hop(_ctx(), "council", "gemma-4-26b-a4b-it-QAT-4bit")
+    assert hop.status is Status.PASS and "synthesized" in hop.observed
 
 
 def test_classify_splits_backends_from_seats_and_models() -> None:
@@ -511,38 +526,23 @@ def test_parse_seat_fit_keeps_the_verdict_lists() -> None:
     )
     assert verdicts["undeclared_never_fit"] == ["a", "b"]
     assert verdicts["undeclared_over_budget"] == ["a", "c"]
-    assert set(verdicts) == {
-        "never_fit",
-        "undeclared_never_fit",
-        "over_budget",
-        "undeclared_over_budget",
-        "unserved",
-    }
+    keys = "never_fit undeclared_never_fit over_budget undeclared_over_budget unserved"
+    assert set(verdicts) == set(keys.split())
     assert engines.parse_seat_fit(None)["never_fit"] == []
 
 
 def test_seat_fit_verdict_fails_never_fit_and_warns_over_budget() -> None:
-    fatal = engines.seat_fit_verdict(
-        {
-            "never_fit": ["a"],
-            "undeclared_never_fit": ["a"],
-            "over_budget": ["a", "b"],
-            "undeclared_over_budget": ["a", "b"],
-            "available_gib": 27.5,
-            "budget_source": "oMLX final_ceiling (live)",
-        }
-    )
+    base = {
+        "never_fit": [],
+        "undeclared_never_fit": [],
+        "over_budget": ["a", "b"],
+        "undeclared_over_budget": ["a", "b"],
+        "available_gib": 27.5,
+        "budget_source": "oMLX final_ceiling (live)",
+    }
+    fatal = engines.seat_fit_verdict({**base, "never_fit": ["a"], "undeclared_never_fit": ["a"]})
     assert fatal.status is Status.FAIL and "never_fit=1" in fatal.observed
-    live = engines.seat_fit_verdict(
-        {
-            "never_fit": [],
-            "undeclared_never_fit": [],
-            "over_budget": ["a", "b"],
-            "undeclared_over_budget": ["a", "b"],
-            "available_gib": 27.5,
-            "budget_source": "oMLX final_ceiling (live)",
-        }
-    )
+    live = engines.seat_fit_verdict(base)
     assert live.status is Status.WARN
     assert "over_budget=2" in live.observed and "available=27.5GiB" in live.observed
     clean = engines.seat_fit_verdict({"never_fit": [], "over_budget": [], "unserved": []})

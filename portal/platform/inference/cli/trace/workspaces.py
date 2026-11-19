@@ -16,7 +16,8 @@ from .context import TraceContext
 from .model import Hop, Status, short
 
 PROMPT = "Reply with the single word OK."
-MAX_TOKENS = 24
+#: Thinking seats spent the whole 24-token budget on reasoning (2026-11-19); 256 leaves headroom.
+MAX_TOKENS = 256
 #: Reasoning channels an engine streams beside answer content.
 _REASONING_FIELDS = ("reasoning", "reasoning_content", "thinking")
 
@@ -327,12 +328,19 @@ def run(ctx: TraceContext, portal: dict[str, Any]) -> list[Hop]:
             hops.append(skipped)
             continue
         remaining = deadline - time.monotonic()
-        if remaining <= 1:
-            hops.append(Hop(seat.seat_id, Status.WARN, "not run (budget)", "streamed turn"))
+        # A budget sliver gave gemma4jangvision a ~1s ReadTimeout (2026-11-19): full timeout or skip.
+        if remaining < ctx.timeout_s:
+            hops.append(
+                Hop(
+                    seat.seat_id,
+                    Status.WARN,
+                    "not run (budget)",
+                    "streamed turn",
+                    f"{remaining:.0f}s left < {ctx.timeout_s:.0f}s per-turn timeout",
+                )
+            )
             continue
-        turn = stream_turn(
-            ctx.pipeline_url, ctx.api_key, seat.seat_id, min(remaining, ctx.timeout_s)
-        )
+        turn = stream_turn(ctx.pipeline_url, ctx.api_key, seat.seat_id, ctx.timeout_s)
         hops.append(seat_hop(seat, turn, hints))
         served_model = turn.route[2] if len(turn.route) > 2 else ""
         if served_model and turn.stats.completion_tokens and turn.route[1] not in confirmed:

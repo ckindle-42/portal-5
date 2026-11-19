@@ -152,8 +152,11 @@ def residency_hop(ctx: TraceContext, backend_id: str, model: str) -> Hop:
 
     from .pins import BACKENDS_YAML, load_backends
 
+    name = f"resident {backend_id}"
+    if backend_id == "council":  # router-synthesized; members checked on their own seats
+        return Hop(name, Status.PASS, f"{model} router-synthesized", "no engine residency")
     kinds = {b.backend_id: b.kind for b in load_backends(ctx.repo_root / BACKENDS_YAML)}
-    kind, name = kinds.get(backend_id, ""), f"resident {backend_id}"
+    kind = kinds.get(backend_id, "")
     try:
         if kind == "ollama":
             held = [n for n, _ in parse_ollama_ps(_get_json(f"{ctx.ollama_url}/api/ps", 10.0))]

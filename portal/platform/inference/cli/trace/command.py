@@ -116,9 +116,10 @@ def cmd_trace(
         ),
     ] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Emit the report as JSON")] = False,
+    # 77 seats at ~15s avg plus cold loads: 900s left 16 ungraded (2026-11-19 sweep).
     budget: Annotated[
         float, typer.Option("--budget", help="Seconds the workspace sweep may spend in total")
-    ] = 900.0,
+    ] = 1800.0,
     timeout: Annotated[
         float, typer.Option("--timeout", help="Seconds one live request may take")
     ] = 180.0,
