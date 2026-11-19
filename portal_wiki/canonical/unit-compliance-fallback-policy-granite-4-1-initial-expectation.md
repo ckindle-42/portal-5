@@ -11,11 +11,13 @@ sources:
   path: tests/fixtures/compliance_scenarios.yaml
 - type: code
   path: tests/lib/compliance_assertions.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/portal.yaml
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 Granite 4.1's model-card claims are recorded in the `bench-granite41-8b` and `bench-granite41-30b` workspace descriptions in `config/portal.yaml`. The 8B is described as a dense no-think model at roughly 5.3GB Q4_K_M, Apache 2.0 licensed and ISO-certified, with BFCL V3 68.3, IFEval 87.1 and GSM8K 92.5; the 30B as dense no-think at roughly 17GB Q4_K_M, Apache 2.0 and ISO-certified with cryptographic signatures, BFCL V3 73.7 (first on the IBM chart), IFEval 89.7, GSM8K 94.2 and EvalPlus 82.7, trained with GRC data curation for compliance and audit workflows.

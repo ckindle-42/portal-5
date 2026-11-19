@@ -7,7 +7,10 @@ sources:
   path: config/lab_targets.yaml
 - type: code
   path: .env.example
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/lab_targets.yaml
+  equals: true
 confidence: high
 tags:
 - bench
@@ -15,7 +18,6 @@ tags:
 - security
 - topology
 - verified-v1
-
 ---
 
 Proxmox 3 (10.0.0.203) hosts the lab:

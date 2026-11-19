@@ -11,12 +11,14 @@ sources:
   path: scripts/oc-portal.sh
 - type: code
   path: opencode.jsonc
-claims: []
+claims:
+- probe: repo.path.exists
+  path: launch.sh
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 The quick start is three steps. First bring the stack up with `./launch.sh up`, which

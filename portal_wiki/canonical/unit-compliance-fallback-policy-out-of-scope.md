@@ -11,11 +11,13 @@ sources:
   path: portal/modules/eval/persona_matrix/cli.py
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/eval/persona_matrix/_common.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 The compliance fallback policy is scoped to `auto-compliance` only, and the mechanical boundary is the registry. In `WORKSPACE_REGISTRY`, `auto-compliance` is the single entry bound to `tests.lib.compliance_assertions` and `tests.lib.compliance_fixtures`; `auto-coding` binds to its own assertion and fixture modules, and the bench workspaces bind to a shootout harness. On the config side, `portal.modules.compliance.config` exposes exactly one id, `auto-compliance`, through `COMPLIANCE_WORKSPACE_IDS`, and `config/portal.yaml` maps the compliance module to that one workspace. The driver itself is workspace-parameterizable — `--workspace` accepts any registry key — but the fixture YAML, assertion library and threshold document are per-workspace, so extending the policy to `auto-coding`, `auto-research`, `auto-data` or `auto-security` means authoring those inputs, not changing the driver.

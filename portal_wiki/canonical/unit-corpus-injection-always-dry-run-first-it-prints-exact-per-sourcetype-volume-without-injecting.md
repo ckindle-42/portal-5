@@ -8,11 +8,13 @@ sources:
   path: scripts/corpus_ingest.py
 - type: code
   path: portal/modules/security/core/siem/hec_ship.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/corpus_ingest.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 The loader is deliberately two-phase: `--dry-run` and `--ship` are mutually

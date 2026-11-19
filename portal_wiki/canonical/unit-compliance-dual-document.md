@@ -1,17 +1,20 @@
 ---
 id: unit-compliance-dual-document
 kind: what
-title: "Compliance dual-document payload — a question returns the standard AND the operator's documents"
+title: "Compliance dual-document payload \u2014 a question returns the standard AND\
+  \ the operator's documents"
 sources:
 - type: code
   path: portal/modules/compliance/core/dual_document.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/compliance/core/dual_document.py
+  equals: true
 confidence: high
 tags:
 - compliance
 - delivery
 - payload
-
 ---
 
 # Compliance dual-document payload

@@ -9,12 +9,14 @@ sources:
   path: scripts/cc-local.sh
 - type: code
   path: scripts/cc-stock.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/cc-portal.sh
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 Claude Code has three operating modes with Portal 5, each a thin wrapper script

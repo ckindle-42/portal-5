@@ -13,12 +13,14 @@ sources:
   path: config/challenge_classes.yaml
 - type: code
   path: portal/modules/security/core/corpus_replay_bench.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/config.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 This queue lists open roadmap items. Two of them are grounded in current code:

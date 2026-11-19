@@ -8,11 +8,13 @@ sources:
   path: scripts/lab_bots_install.py
 - type: code
   path: scripts/lab_splunkbase_install.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/lab_bots_install.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 The BOTS installer must run on the Splunk host, where `$SPLUNK_HOME` and

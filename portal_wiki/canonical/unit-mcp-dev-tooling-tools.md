@@ -7,12 +7,14 @@ sources:
   path: portal/platform/mcp_host/pipeline_mcp.py
 - type: code
   path: portal/platform/inference/tool_registry.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/mcp_host/pipeline_mcp.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 The pipeline MCP exposes introspection and repository tools, all implemented as

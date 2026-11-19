@@ -7,12 +7,14 @@ sources:
   path: scripts/lab_setup.py
 - type: code
   path: scripts/lab_ready.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/lab_setup.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 The metadata-only path is `python3 scripts/lab_setup.py --skip-heavy`. Under

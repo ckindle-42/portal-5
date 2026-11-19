@@ -5,12 +5,14 @@ title: "MCP_DEV_TOOLING \u2014 FastContext Repository Explorer"
 sources:
 - type: code
   path: portal/platform/mcp_host/pipeline_mcp.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/mcp_host/pipeline_mcp.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 `explore_repository` in `portal/platform/mcp_host/pipeline_mcp.py` runs the

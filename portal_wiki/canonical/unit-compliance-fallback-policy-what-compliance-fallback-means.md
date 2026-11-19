@@ -13,11 +13,13 @@ sources:
   path: portal/platform/inference/router/preinject.py
 - type: code
   path: portal/platform/inference/cluster_backends.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/backends.yaml
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 Compliance fallback means the `auto-compliance` workspace's routing chain in `config/backends.yaml`: `workspace_routing` routes the workspace through the reasoning group and then the general group, in that priority order. `config/portal.yaml` sets the workspace `model_hint` to `granite4.1:8b-ctx16k`, the 16K-context derived tag of Granite 4.1 8B, which is registered in both the reasoning and general groups with `supports_tools: true`. In the request path, `_prioritize_hinted_backend` moves the backend able to serve the hint to the front of the candidates; if the hint cannot be resolved, the handler falls back to that backend's first model and records the event on the `_hint_fallback_total` metric. The candidate set is ordered by `workspace_routing` group priority, and `get_backend_candidates` appends the `fallback_group` and any remaining healthy backends as degrade-don't-fail tiers, so any Ollama model in `ollama-reasoning` or `ollama-general` can become the served handler when the hint is unavailable. The former MLX proxy priority, a chain that began with an mlx group, was retired in commit 75c24a9 and no mlx entry remains in the chain.

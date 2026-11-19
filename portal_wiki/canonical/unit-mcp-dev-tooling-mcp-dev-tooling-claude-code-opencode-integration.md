@@ -7,12 +7,14 @@ sources:
   path: .mcp.json
 - type: code
   path: opencode.jsonc
-claims: []
+claims:
+- probe: repo.path.exists
+  path: .mcp.json
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 Portal 5 ships two root-level configuration files that wire AI coding tools into the

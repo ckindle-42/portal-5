@@ -7,12 +7,14 @@ sources:
   path: launch.sh
 - type: code
   path: scripts/lib/util.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: launch.sh
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 Every Portal MCP tool is a thin client that proxies to live services, so the stack

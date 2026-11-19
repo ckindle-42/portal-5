@@ -9,14 +9,16 @@ sources:
   path: portal/modules/security/core/lab.py
 - type: code
   path: tests/benchmarks/bench_security.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/__init__.py
+  equals: true
 confidence: high
 tags:
 - architecture
 - bench
 - security
 - verified-v1
-
 ---
 
 The bench NEVER modifies Open WebUI or the pipeline. It communicates directly with:

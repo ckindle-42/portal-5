@@ -9,12 +9,14 @@ sources:
   path: portal/platform/mcp_host/workspace.py
 - type: code
   path: scripts/mlx-speech.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: launch.sh
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 A `workspace-clean` command is planned but does not exist: `launch.sh` has no such

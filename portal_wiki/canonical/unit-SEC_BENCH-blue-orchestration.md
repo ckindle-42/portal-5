@@ -7,14 +7,16 @@ sources:
   path: portal/modules/security/core/blue.py
 - type: code
   path: portal/modules/security/core/blue_orchestrate.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/blue.py
+  equals: true
 confidence: high
 tags:
 - bench
 - orchestration
 - security
 - verified-v1
-
 ---
 
 `--blue-mode` selects which blue investigation path a run uses:

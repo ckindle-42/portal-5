@@ -9,12 +9,14 @@ sources:
   path: portal/platform/mcp_host/pipeline_mcp.py
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: opencode.jsonc
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 Opening the repo with opencode delivers three things. First, fully local inference:

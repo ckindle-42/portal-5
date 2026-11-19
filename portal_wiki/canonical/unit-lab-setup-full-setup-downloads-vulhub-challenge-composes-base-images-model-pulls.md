@@ -8,12 +8,14 @@ sources:
   path: scripts/lab_setup.py
 - type: code
   path: config/challenge_classes.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/lab_setup.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 The full Tier-1 provisioner is invoked as `python3 scripts/lab_setup.py`. It

@@ -7,12 +7,14 @@ sources:
   path: scripts/lib/lab.sh
 - type: code
   path: scripts/lab_targets.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/lib/lab.sh
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 Teardown is lighter than the doc advertised: launch.sh implements only lab-down,

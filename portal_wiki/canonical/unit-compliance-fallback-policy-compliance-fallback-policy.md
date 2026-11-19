@@ -11,11 +11,13 @@ sources:
   path: portal/modules/eval/persona_matrix/_common.py
 - type: code
   path: portal/modules/compliance/config/__init__.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/portal.yaml
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 The compliance fallback policy governs which models may serve requests behind the `auto-compliance` workspace and what happens when a fallback falls below expectations. Its operational shape is fixed by three config surfaces. `config/portal.yaml` declares the workspace: `module: compliance`, `model_hint: granite4.1:8b-ctx16k`, the temperature and context knobs, the tool list, and the owui system prompt. `config/backends.yaml` declares the routing chain in `workspace_routing` (`auto-compliance` routes through the reasoning group and then the general group) and lists the model pools those groups draw from. The registry entry in `WORKSPACE_REGISTRY` binds the workspace to its assertion library `tests.lib.compliance_assertions`, its fixture loader `tests.lib.compliance_fixtures`, and its per-workspace `threshold_doc`. The compliance module surface (`portal.modules.compliance.config`) exposes exactly one workspace id, `auto-compliance`, via `COMPLIANCE_WORKSPACE_IDS`.

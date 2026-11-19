@@ -5,12 +5,14 @@ title: "MCP_DEV_TOOLING \u2014 opencode Integration (`opencode.jsonc`)"
 sources:
 - type: code
   path: opencode.jsonc
-claims: []
+claims:
+- probe: repo.path.exists
+  path: opencode.jsonc
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 `opencode.jsonc` at the repo root tells opencode to use Portal 5 as its AI backend

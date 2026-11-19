@@ -1,17 +1,20 @@
 ---
 id: unit-compliance-conversation-window
 kind: what
-title: "Compliance conversational window — price the material, route instead of clip"
+title: "Compliance conversational window \u2014 price the material, route instead\
+  \ of clip"
 sources:
 - type: code
   path: portal/modules/compliance/core/conversation_window.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/compliance/core/conversation_window.py
+  equals: true
 confidence: high
 tags:
 - compliance
 - conversation
 - window
-
 ---
 
 # Compliance conversational window

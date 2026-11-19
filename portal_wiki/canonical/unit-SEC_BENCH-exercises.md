@@ -5,14 +5,16 @@ title: 'What the security bench exercises: prompts and scenarios'
 sources:
 - type: code
   path: portal/modules/security/core/_data.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/_data.py
+  equals: true
 confidence: high
 tags:
 - bench
 - prompts
 - security
 - verified-v1
-
 ---
 
 ## Execution modes — 33 executable prompts plus theory-only exercises

@@ -9,12 +9,14 @@ sources:
   path: scripts/lab_host.py
 - type: code
   path: config/lab_targets.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/lab_targets.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 On-demand targets are driven by `python3 scripts/lab_targets.py`, not by a

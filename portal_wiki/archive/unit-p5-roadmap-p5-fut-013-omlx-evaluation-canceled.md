@@ -14,7 +14,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-
+historical: true
 ---
 
 P5-FUT-013 evaluated oMLX as a candidate inference engine and is superseded by

@@ -12,7 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-
+historical: true
 ---
 
 The roadmap document at the repo root (`ROADMAP.md`) is the tracking file for open Portal 5

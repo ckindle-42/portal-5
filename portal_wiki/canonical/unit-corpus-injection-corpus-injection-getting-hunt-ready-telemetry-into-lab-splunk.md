@@ -12,11 +12,13 @@ sources:
   path: scripts/caldera_emulate.py
 - type: code
   path: config/security_corpus.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/corpus_ingest.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 Blue and purple need adversary telemetry to hunt. Waiting for red bench runs to

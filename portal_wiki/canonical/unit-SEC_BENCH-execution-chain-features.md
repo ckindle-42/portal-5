@@ -13,14 +13,16 @@ sources:
   path: portal/modules/security/core/lab.py
 - type: code
   path: portal/modules/security/core/_data.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/chain.py
+  equals: true
 confidence: high
 tags:
 - bench
 - features
 - security
 - verified-v1
-
 ---
 
 22 features of the execution chain (drawn from `exec_chain.py`, `scoring.py`, `lab.py`, and `_data.py`):

@@ -15,12 +15,14 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/personas/codingagentic.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: config/portal.yaml
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 The `laguna` variant of the `auto-coding` workspace is the default agentic coding lane

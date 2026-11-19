@@ -7,12 +7,14 @@ sources:
   path: .mcp.json
 - type: code
   path: launch.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: .mcp.json
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 The four command-transport servers in `.mcp.json` (`filesystem`, `fetch`, `git`,

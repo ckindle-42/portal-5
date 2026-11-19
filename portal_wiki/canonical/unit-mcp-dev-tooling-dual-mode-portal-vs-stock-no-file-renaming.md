@@ -9,12 +9,14 @@ sources:
   path: scripts/oc-stock.sh
 - type: code
   path: opencode.jsonc
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/oc-portal.sh
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 opencode runs in Portal mode by default inside the repo: bare `opencode .` reads

@@ -11,14 +11,16 @@ sources:
   path: portal/modules/security/core/_data.py
 - type: code
   path: portal/modules/security/core/commands/run.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/exec_chain.py
+  equals: true
 confidence: high
 tags:
 - bench
 - security
 - verification
 - verified-v1
-
 ---
 
 ## What to Verify After Running

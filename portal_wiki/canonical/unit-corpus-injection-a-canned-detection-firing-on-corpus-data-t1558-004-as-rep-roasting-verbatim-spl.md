@@ -8,11 +8,13 @@ sources:
   path: scripts/corpus_ingest.py
 - type: code
   path: portal/modules/security/core/siem/spl_detections.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/corpus_ingest.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 T1558.004 (AS-REP roasting) is one of the canned detections the injection lane

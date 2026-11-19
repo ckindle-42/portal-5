@@ -9,11 +9,13 @@ sources:
   path: portal/modules/security/core/siem/hec_ship.py
 - type: code
   path: portal/modules/security/core/siem/blue_triage.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/corpus_ingest.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 Lane B writes into the same `portal5_lab` index the bench uses. Three properties

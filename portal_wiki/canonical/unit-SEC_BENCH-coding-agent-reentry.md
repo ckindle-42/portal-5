@@ -15,14 +15,16 @@ sources:
   path: portal/modules/security/core/_data.py
 - type: code
   path: launch.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/__init__.py
+  equals: true
 confidence: high
 tags:
 - bench
 - reentry
 - security
 - verified-v1
-
 ---
 
 ## File locations after refactor

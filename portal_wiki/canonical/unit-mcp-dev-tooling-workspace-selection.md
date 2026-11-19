@@ -9,12 +9,14 @@ sources:
   path: config/portal.yaml
 - type: code
   path: config/personas/codingagentic.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: opencode.jsonc
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 opencode selects a model with `--model portal/<key>`, where the key is a base

@@ -5,11 +5,13 @@ title: "corpus_injection \u2014 on the target, from the lab network"
 sources:
 - type: code
   path: scripts/caldera_emulate.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/caldera_emulate.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 Deploying a sandcat agent onto a lab target is a two-command operation from

@@ -11,12 +11,14 @@ sources:
   path: CHANGELOG.md
 - type: code
   path: tests/benchmarks/bench_tps.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/mlx-transcribe.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 P5-FUT-SPEECH-002 is planned work. The current production speech stack is

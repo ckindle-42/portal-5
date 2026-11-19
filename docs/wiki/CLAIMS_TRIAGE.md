@@ -3,7 +3,7 @@
 Temporary gate ledger for the content review. Each pending id is replaced with a current, historical, or obsolete decision as its unit is reviewed.
 
 Initial pending units: 733.
-Completed decisions: 499; pending: 234.
+Completed decisions: 602; pending: 131.
 
 - `SEC_BENCH-combined-corpus-validation-20260731` | pending | awaiting content review
 - `unit-ADMIN_GUIDE-add-a-cluster-node` | current | code symbol `backends_healthy` exists in `scripts/lib/util.sh`
@@ -68,22 +68,22 @@ Completed decisions: 499; pending: 234.
 - `unit-HOWTO-quick-reference-cli-commands` | current | source path `launch.sh` exists
 - `unit-HOWTO-shared-workspace` | current | source path `portal/platform/mcp_host/workspace.py` exists
 - `unit-HOWTO-user-management` | current | source path `.env.example` exists
-- `unit-SEC_BENCH-architecture-invariant` | pending | awaiting content review
-- `unit-SEC_BENCH-blue-orchestration` | pending | awaiting content review
-- `unit-SEC_BENCH-coding-agent-reentry` | pending | awaiting content review
-- `unit-SEC_BENCH-execution-chain-features` | pending | awaiting content review
-- `unit-SEC_BENCH-execution-tiers` | pending | awaiting content review
-- `unit-SEC_BENCH-execution-transport` | pending | awaiting content review
-- `unit-SEC_BENCH-exercises` | pending | awaiting content review
-- `unit-SEC_BENCH-lab-topology` | pending | awaiting content review
-- `unit-SEC_BENCH-prerequisites` | pending | awaiting content review
-- `unit-SEC_BENCH-quick-start-tiers` | pending | awaiting content review
-- `unit-SEC_BENCH-scoring` | pending | awaiting content review
-- `unit-SEC_BENCH-single-prompt-tests` | pending | awaiting content review
-- `unit-SEC_BENCH-source-material` | pending | awaiting content review
-- `unit-SEC_BENCH-sub-components` | pending | awaiting content review
-- `unit-SEC_BENCH-verification` | pending | awaiting content review
-- `unit-SEC_BENCH-what-it-is` | pending | awaiting content review
+- `unit-SEC_BENCH-architecture-invariant` | current | repo.path.exists confirms `portal/modules/security/core/__init__.py` exists in the checkout
+- `unit-SEC_BENCH-blue-orchestration` | current | repo.path.exists confirms `portal/modules/security/core/blue.py` exists in the checkout
+- `unit-SEC_BENCH-coding-agent-reentry` | current | repo.path.exists confirms `portal/modules/security/core/__init__.py` exists in the checkout
+- `unit-SEC_BENCH-execution-chain-features` | current | repo.path.exists confirms `portal/modules/security/core/chain.py` exists in the checkout
+- `unit-SEC_BENCH-execution-tiers` | current | repo.path.exists confirms `portal/modules/security/core/cli.py` exists in the checkout
+- `unit-SEC_BENCH-execution-transport` | current | repo.path.exists confirms `scripts/lab_host.py` exists in the checkout
+- `unit-SEC_BENCH-exercises` | current | repo.path.exists confirms `portal/modules/security/core/_data.py` exists in the checkout
+- `unit-SEC_BENCH-lab-topology` | current | repo.path.exists confirms `config/lab_targets.yaml` exists in the checkout
+- `unit-SEC_BENCH-prerequisites` | current | repo.path.exists confirms `.env.example` exists in the checkout
+- `unit-SEC_BENCH-quick-start-tiers` | current | repo.path.exists confirms `portal/modules/security/core/cli.py` exists in the checkout
+- `unit-SEC_BENCH-scoring` | current | repo.path.exists confirms `portal/modules/security/core/scoring.py` exists in the checkout
+- `unit-SEC_BENCH-single-prompt-tests` | current | repo.path.exists confirms `portal/modules/security/core/cli.py` exists in the checkout
+- `unit-SEC_BENCH-source-material` | current | repo.path.exists confirms `portal/modules/security/core/exec_chain.py` exists in the checkout
+- `unit-SEC_BENCH-sub-components` | current | repo.path.exists confirms `portal/modules/security/core/capability/__init__.py` exists in the checkout
+- `unit-SEC_BENCH-verification` | current | repo.path.exists confirms `portal/modules/security/core/exec_chain.py` exists in the checkout
+- `unit-SEC_BENCH-what-it-is` | current | repo.path.exists confirms `portal/modules/security/core/_data.py` exists in the checkout
 - `unit-T1003.001-signature` | current | SPL detection data contains technique key `T1003.001`
 - `unit-T1003.002-signature` | current | SPL detection data contains technique key `T1003.002`
 - `unit-T1003.003-signature` | current | SPL detection data contains technique key `T1003.003`
@@ -231,44 +231,44 @@ Completed decisions: 499; pending: 234.
 - `unit-code-portal_wiki` | pending | awaiting content review
 - `unit-code-scripts` | pending | awaiting content review
 - `unit-code-tests` | pending | awaiting content review
-- `unit-compliance-config-workspace-pointers` | pending | awaiting content review
-- `unit-compliance-conversation-window` | pending | awaiting content review
-- `unit-compliance-dual-document` | pending | awaiting content review
-- `unit-compliance-fallback-policy-canonical-baseline` | pending | awaiting content review
-- `unit-compliance-fallback-policy-compliance-fallback-policy` | pending | awaiting content review
-- `unit-compliance-fallback-policy-full-sweep` | pending | awaiting content review
-- `unit-compliance-fallback-policy-granite-4-1-initial-expectation` | pending | awaiting content review
-- `unit-compliance-fallback-policy-granite-required-sweep-fails-if-granite-has-been-removed-from-chain` | pending | awaiting content review
-- `unit-compliance-fallback-policy-out-of-scope` | pending | awaiting content review
-- `unit-compliance-fallback-policy-re-running-the-matrix` | pending | awaiting content review
-- `unit-compliance-fallback-policy-threshold-policy` | pending | awaiting content review
-- `unit-compliance-fallback-policy-what-compliance-fallback-means` | pending | awaiting content review
-- `unit-compliance-module-complete-instruments` | pending | awaiting content review
-- `unit-compliance-module-config-only` | pending | awaiting content review
-- `unit-compliance-operator-traceability` | pending | awaiting content review
-- `unit-compliance-prove-then-scale` | pending | awaiting content review
+- `unit-compliance-config-workspace-pointers` | current | repo.path.exists confirms `portal/modules/compliance/config/__init__.py` exists in the checkout
+- `unit-compliance-conversation-window` | current | repo.path.exists confirms `portal/modules/compliance/core/conversation_window.py` exists in the checkout
+- `unit-compliance-dual-document` | current | repo.path.exists confirms `portal/modules/compliance/core/dual_document.py` exists in the checkout
+- `unit-compliance-fallback-policy-canonical-baseline` | current | repo.path.exists confirms `portal/modules/eval/persona_matrix/cli.py` exists in the checkout
+- `unit-compliance-fallback-policy-compliance-fallback-policy` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-compliance-fallback-policy-full-sweep` | current | repo.path.exists confirms `portal/modules/eval/persona_matrix/cli.py` exists in the checkout
+- `unit-compliance-fallback-policy-granite-4-1-initial-expectation` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-compliance-fallback-policy-granite-required-sweep-fails-if-granite-has-been-removed-from-chain` | current | repo.path.exists confirms `portal/modules/eval/persona_matrix/sweep.py` exists in the checkout
+- `unit-compliance-fallback-policy-out-of-scope` | current | repo.path.exists confirms `portal/modules/eval/persona_matrix/_common.py` exists in the checkout
+- `unit-compliance-fallback-policy-re-running-the-matrix` | current | repo.path.exists confirms `portal/modules/eval/persona_matrix/cli.py` exists in the checkout
+- `unit-compliance-fallback-policy-threshold-policy` | current | repo.path.exists confirms `tests/lib/compliance_assertions.py` exists in the checkout
+- `unit-compliance-fallback-policy-what-compliance-fallback-means` | current | repo.path.exists confirms `config/backends.yaml` exists in the checkout
+- `unit-compliance-module-complete-instruments` | current | repo.path.exists confirms `scripts/compliance/retype_relations.py` exists in the checkout
+- `unit-compliance-module-config-only` | current | repo.path.exists confirms `portal/modules/compliance/__init__.py` exists in the checkout
+- `unit-compliance-operator-traceability` | current | repo.path.exists confirms `portal/modules/compliance/core/operator_traceability.py` exists in the checkout
+- `unit-compliance-prove-then-scale` | current | repo.path.exists confirms `portal/modules/compliance/core/reading_material.py` exists in the checkout
 - `unit-surface-compliance-reading-truth` | current | repo.path.exists confirms `scripts/compliance/truth/*.py` exists in the checkout
-- `unit-compliance-technical-basis-coverage` | pending | awaiting content review
-- `unit-compliance-transport-dialects` | pending | awaiting content review
+- `unit-compliance-technical-basis-coverage` | current | repo.path.exists confirms `scripts/compliance/verify_technical_basis_coverage.py` exists in the checkout
+- `unit-compliance-transport-dialects` | current | repo.path.exists confirms `portal/modules/compliance/core/transport_dialects.py` exists in the checkout
 - `unit-config-file-roles` | pending | awaiting content review
-- `unit-corpus-injection-a-canned-detection-firing-on-corpus-data-t1558-004-as-rep-roasting-verbatim-spl` | pending | awaiting content review
-- `unit-corpus-injection-always-dry-run-first-it-prints-exact-per-sourcetype-volume-without-injecting` | pending | awaiting content review
-- `unit-corpus-injection-confirm-the-live-triage-window-is-still-clean` | pending | awaiting content review
-- `unit-corpus-injection-corpus-injection-getting-hunt-ready-telemetry-into-lab-splunk` | pending | awaiting content review
-- `unit-corpus-injection-durability-surviving-a-lab-reset` | pending | awaiting content review
-- `unit-corpus-injection-inside-lxc-301-as-the-splunk-user-uid-41812-the-apps-dir-is-splunk-owned` | pending | awaiting content review
-- `unit-corpus-injection-landing-which-sourcetypes-got-data` | pending | awaiting content review
-- `unit-corpus-injection-lane-a-bots-pre-indexed-datasets` | pending | awaiting content review
-- `unit-corpus-injection-lane-b-att-ck-labeled-corpora-over-hec` | pending | awaiting content review
-- `unit-corpus-injection-lane-c-live-emulation-caldera-atomic-red-team` | pending | awaiting content review
-- `unit-corpus-injection-on-the-target-from-the-lab-network` | pending | awaiting content review
-- `unit-corpus-injection-related` | pending | awaiting content review
-- `unit-corpus-injection-rollback` | pending | awaiting content review
-- `unit-corpus-injection-the-property-that-matters-field-extraction-actually-works` | pending | awaiting content review
-- `unit-corpus-injection-two-format-traps-that-silently-produce-useless-data` | pending | awaiting content review
-- `unit-corpus-injection-verify-lane-b` | pending | awaiting content review
-- `unit-corpus-injection-verify-lane-c` | pending | awaiting content review
-- `unit-corpus-injection-why-corpus-data-coexists-safely-with-bench-runs` | pending | awaiting content review
+- `unit-corpus-injection-a-canned-detection-firing-on-corpus-data-t1558-004-as-rep-roasting-verbatim-spl` | current | repo.path.exists confirms `scripts/corpus_ingest.py` exists in the checkout
+- `unit-corpus-injection-always-dry-run-first-it-prints-exact-per-sourcetype-volume-without-injecting` | current | repo.path.exists confirms `scripts/corpus_ingest.py` exists in the checkout
+- `unit-corpus-injection-confirm-the-live-triage-window-is-still-clean` | current | repo.path.exists confirms `scripts/corpus_ingest.py` exists in the checkout
+- `unit-corpus-injection-corpus-injection-getting-hunt-ready-telemetry-into-lab-splunk` | current | repo.path.exists confirms `scripts/corpus_ingest.py` exists in the checkout
+- `unit-corpus-injection-durability-surviving-a-lab-reset` | current | repo.path.exists confirms `scripts/lab_bots_install.py` exists in the checkout
+- `unit-corpus-injection-inside-lxc-301-as-the-splunk-user-uid-41812-the-apps-dir-is-splunk-owned` | current | repo.path.exists confirms `scripts/lab_bots_install.py` exists in the checkout
+- `unit-corpus-injection-landing-which-sourcetypes-got-data` | current | repo.path.exists confirms `scripts/corpus_ingest.py` exists in the checkout
+- `unit-corpus-injection-lane-a-bots-pre-indexed-datasets` | current | repo.path.exists confirms `scripts/lab_bots_install.py` exists in the checkout
+- `unit-corpus-injection-lane-b-att-ck-labeled-corpora-over-hec` | current | repo.path.exists confirms `scripts/corpus_ingest.py` exists in the checkout
+- `unit-corpus-injection-lane-c-live-emulation-caldera-atomic-red-team` | current | repo.path.exists confirms `scripts/caldera_emulate.py` exists in the checkout
+- `unit-corpus-injection-on-the-target-from-the-lab-network` | current | repo.path.exists confirms `scripts/caldera_emulate.py` exists in the checkout
+- `unit-corpus-injection-related` | current | repo.path.exists confirms `scripts/lab_bots_install.py` exists in the checkout
+- `unit-corpus-injection-rollback` | current | repo.path.exists confirms `scripts/corpus_ingest.py` exists in the checkout
+- `unit-corpus-injection-the-property-that-matters-field-extraction-actually-works` | current | repo.path.exists confirms `scripts/corpus_ingest.py` exists in the checkout
+- `unit-corpus-injection-two-format-traps-that-silently-produce-useless-data` | current | repo.path.exists confirms `scripts/corpus_ingest.py` exists in the checkout
+- `unit-corpus-injection-verify-lane-b` | current | repo.path.exists confirms `scripts/corpus_ingest.py` exists in the checkout
+- `unit-corpus-injection-verify-lane-c` | current | repo.path.exists confirms `scripts/caldera_emulate.py` exists in the checkout
+- `unit-corpus-injection-why-corpus-data-coexists-safely-with-bench-runs` | current | repo.path.exists confirms `scripts/corpus_ingest.py` exists in the checkout
 - `unit-design-client-disconnect-cancellation` | pending | awaiting content review
 - `unit-design-embedding-consumers-harness` | pending | awaiting content review
 - `unit-design-ollama-native-dispatch` | pending | awaiting content review
@@ -355,45 +355,45 @@ Completed decisions: 499; pending: 234.
 - `unit-known-limitations-v8-catalog-deferred-insufficient-hardware` | historical | dated, retired, or unconfigured-model finding retained for history
 - `unit-known-limitations-vl-retrieval-runtime` | historical | closed, deferred, retired, or dated limitation record retained for history
 - `unit-known-limitations-vl-text-gate-tuned-against-manufactured-collision` | current | code symbol `VL_TEXT_GATE` exists in `reports/retrieval/SUBSTRATE_MIGRATION_V1.md`
-- `unit-lab-setup-all-these-should-succeed-after-setup` | pending | awaiting content review
-- `unit-lab-setup-full-setup-downloads-vulhub-challenge-composes-base-images-model-pulls` | pending | awaiting content review
-- `unit-lab-setup-lab-setup-cold-start-runbook` | pending | awaiting content review
-- `unit-lab-setup-lane-targets` | pending | awaiting content review
-- `unit-lab-setup-metadata-only-skip-heavy-vulhub-model-pulls` | pending | awaiting content review
-- `unit-lab-setup-on-demand-targets-from-lab-targets-yaml` | pending | awaiting content review
-- `unit-lab-setup-readiness-gate` | pending | awaiting content review
-- `unit-lab-setup-reference` | pending | awaiting content review
-- `unit-lab-setup-teardown` | pending | awaiting content review
-- `unit-lab-setup-tier-1-first-time-setup-run-once-re-run-to-update` | pending | awaiting content review
-- `unit-lab-setup-tier-2-daily-operations` | pending | awaiting content review
-- `unit-lab-setup-update-an-existing-setup-git-pull-vulhub-refresh-composes` | pending | awaiting content review
-- `unit-lab-setup-verification` | pending | awaiting content review
-- `unit-mcp-dev-tooling-1-ensure-stack-is-running` | pending | awaiting content review
-- `unit-mcp-dev-tooling-2-export-the-pipeline-api-key-into-the-environment` | pending | awaiting content review
-- `unit-mcp-dev-tooling-3-launch-opencode-reads-opencode-jsonc-mcp-json-automatically` | pending | awaiting content review
-- `unit-mcp-dev-tooling-adding-a-feature-opencode-with-local-laguna` | pending | awaiting content review
-- `unit-mcp-dev-tooling-auto-coding-workspace-laguna-variant` | pending | awaiting content review
-- `unit-mcp-dev-tooling-checking-what-s-in-vram-before-a-long-task` | pending | awaiting content review
-- `unit-mcp-dev-tooling-claude-code-integration` | pending | awaiting content review
-- `unit-mcp-dev-tooling-debugging-a-failing-mcp-server-claude-code` | pending | awaiting content review
-- `unit-mcp-dev-tooling-dual-mode-portal-vs-stock-no-file-renaming` | pending | awaiting content review
-- `unit-mcp-dev-tooling-fastcontext-repository-explorer` | pending | awaiting content review
-- `unit-mcp-dev-tooling-fixing-a-bug-claude-code` | pending | awaiting content review
-- `unit-mcp-dev-tooling-install-if-missing` | pending | awaiting content review
-- `unit-mcp-dev-tooling-mcp-dev-tooling-claude-code-opencode-integration` | pending | awaiting content review
-- `unit-mcp-dev-tooling-mcp-servers-mcp-json` | pending | awaiting content review
-- `unit-mcp-dev-tooling-mode-a-cloud-intelligence-portal-tools-default-cc-portal-sh` | pending | awaiting content review
-- `unit-mcp-dev-tooling-mode-b-local-model-intelligence-portal-tools-cc-local-sh` | pending | awaiting content review
-- `unit-mcp-dev-tooling-mode-c-stock-cloud-zero-portal-mcp-cc-stock-sh` | pending | awaiting content review
-- `unit-mcp-dev-tooling-opencode-integration-opencode-jsonc` | pending | awaiting content review
-- `unit-mcp-dev-tooling-portal-pipeline-mcp-portal-pipeline-8928` | pending | awaiting content review
-- `unit-mcp-dev-tooling-prerequisites` | pending | awaiting content review
-- `unit-mcp-dev-tooling-prometheus-fetch-patterns` | pending | awaiting content review
-- `unit-mcp-dev-tooling-quick-start` | pending | awaiting content review
-- `unit-mcp-dev-tooling-security-boundaries` | pending | awaiting content review
-- `unit-mcp-dev-tooling-tools` | pending | awaiting content review
-- `unit-mcp-dev-tooling-what-opencode-gets` | pending | awaiting content review
-- `unit-mcp-dev-tooling-workspace-selection` | pending | awaiting content review
+- `unit-lab-setup-all-these-should-succeed-after-setup` | current | repo.path.exists confirms `scripts/lab_setup.py` exists in the checkout
+- `unit-lab-setup-full-setup-downloads-vulhub-challenge-composes-base-images-model-pulls` | current | repo.path.exists confirms `scripts/lab_setup.py` exists in the checkout
+- `unit-lab-setup-lab-setup-cold-start-runbook` | current | repo.path.exists confirms `scripts/lab_setup.py` exists in the checkout
+- `unit-lab-setup-lane-targets` | current | repo.path.exists confirms `config/lab_targets.yaml` exists in the checkout
+- `unit-lab-setup-metadata-only-skip-heavy-vulhub-model-pulls` | current | repo.path.exists confirms `scripts/lab_setup.py` exists in the checkout
+- `unit-lab-setup-on-demand-targets-from-lab-targets-yaml` | current | repo.path.exists confirms `scripts/lab_targets.py` exists in the checkout
+- `unit-lab-setup-readiness-gate` | current | repo.path.exists confirms `scripts/lab_ready.py` exists in the checkout
+- `unit-lab-setup-reference` | current | repo.path.exists confirms `Dockerfile.attack` exists in the checkout
+- `unit-lab-setup-teardown` | current | repo.path.exists confirms `scripts/lib/lab.sh` exists in the checkout
+- `unit-lab-setup-tier-1-first-time-setup-run-once-re-run-to-update` | current | repo.path.exists confirms `scripts/lab_setup.py` exists in the checkout
+- `unit-lab-setup-tier-2-daily-operations` | current | repo.path.exists confirms `scripts/lib/lab.sh` exists in the checkout
+- `unit-lab-setup-update-an-existing-setup-git-pull-vulhub-refresh-composes` | current | repo.path.exists confirms `scripts/lab_setup.py` exists in the checkout
+- `unit-lab-setup-verification` | current | repo.path.exists confirms `scripts/lab_ready.py` exists in the checkout
+- `unit-mcp-dev-tooling-1-ensure-stack-is-running` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-mcp-dev-tooling-2-export-the-pipeline-api-key-into-the-environment` | current | repo.path.exists confirms `.env.example` exists in the checkout
+- `unit-mcp-dev-tooling-3-launch-opencode-reads-opencode-jsonc-mcp-json-automatically` | current | repo.path.exists confirms `opencode.jsonc` exists in the checkout
+- `unit-mcp-dev-tooling-adding-a-feature-opencode-with-local-laguna` | current | repo.path.exists confirms `portal/platform/mcp_host/pipeline_mcp.py` exists in the checkout
+- `unit-mcp-dev-tooling-auto-coding-workspace-laguna-variant` | current | repo.path.exists confirms `config/portal.yaml` exists in the checkout
+- `unit-mcp-dev-tooling-checking-what-s-in-vram-before-a-long-task` | current | repo.path.exists confirms `portal/platform/mcp_host/pipeline_mcp.py` exists in the checkout
+- `unit-mcp-dev-tooling-claude-code-integration` | current | repo.path.exists confirms `scripts/cc-portal.sh` exists in the checkout
+- `unit-mcp-dev-tooling-debugging-a-failing-mcp-server-claude-code` | current | repo.path.exists confirms `.mcp.json` exists in the checkout
+- `unit-mcp-dev-tooling-dual-mode-portal-vs-stock-no-file-renaming` | current | repo.path.exists confirms `scripts/oc-portal.sh` exists in the checkout
+- `unit-mcp-dev-tooling-fastcontext-repository-explorer` | current | repo.path.exists confirms `portal/platform/mcp_host/pipeline_mcp.py` exists in the checkout
+- `unit-mcp-dev-tooling-fixing-a-bug-claude-code` | current | repo.path.exists confirms `portal/platform/mcp_host/pipeline_mcp.py` exists in the checkout
+- `unit-mcp-dev-tooling-install-if-missing` | current | repo.path.exists confirms `.mcp.json` exists in the checkout
+- `unit-mcp-dev-tooling-mcp-dev-tooling-claude-code-opencode-integration` | current | repo.path.exists confirms `.mcp.json` exists in the checkout
+- `unit-mcp-dev-tooling-mcp-servers-mcp-json` | current | repo.path.exists confirms `.mcp.json` exists in the checkout
+- `unit-mcp-dev-tooling-mode-a-cloud-intelligence-portal-tools-default-cc-portal-sh` | current | repo.path.exists confirms `scripts/cc-portal.sh` exists in the checkout
+- `unit-mcp-dev-tooling-mode-b-local-model-intelligence-portal-tools-cc-local-sh` | current | repo.path.exists confirms `scripts/cc-local.sh` exists in the checkout
+- `unit-mcp-dev-tooling-mode-c-stock-cloud-zero-portal-mcp-cc-stock-sh` | current | repo.path.exists confirms `scripts/cc-stock.sh` exists in the checkout
+- `unit-mcp-dev-tooling-opencode-integration-opencode-jsonc` | current | repo.path.exists confirms `opencode.jsonc` exists in the checkout
+- `unit-mcp-dev-tooling-portal-pipeline-mcp-portal-pipeline-8928` | current | repo.path.exists confirms `portal/platform/mcp_host/pipeline_mcp.py` exists in the checkout
+- `unit-mcp-dev-tooling-prerequisites` | current | repo.path.exists confirms `.mcp.json` exists in the checkout
+- `unit-mcp-dev-tooling-prometheus-fetch-patterns` | current | repo.path.exists confirms `portal/platform/inference/router/handlers.py` exists in the checkout
+- `unit-mcp-dev-tooling-quick-start` | current | repo.path.exists confirms `launch.sh` exists in the checkout
+- `unit-mcp-dev-tooling-security-boundaries` | current | repo.path.exists confirms `.mcp.json` exists in the checkout
+- `unit-mcp-dev-tooling-tools` | current | repo.path.exists confirms `portal/platform/mcp_host/pipeline_mcp.py` exists in the checkout
+- `unit-mcp-dev-tooling-what-opencode-gets` | current | repo.path.exists confirms `opencode.jsonc` exists in the checkout
+- `unit-mcp-dev-tooling-workspace-selection` | current | repo.path.exists confirms `opencode.jsonc` exists in the checkout
 - `unit-memory-mcp-lancedb` | pending | awaiting content review
 - `unit-model-catalog-alicankiraz0-cybersecurity-baronllm-offensive-security-llm-q6-k-gguf-dropped-hf-id-only-see-baronllm-q6-k-below-for-the-fleet-entry` | historical | model ID absent from current configuration; retained as catalog history
 - `unit-model-catalog-baronllm-q6-k` | historical | model ID absent from current configuration; retained as catalog history
@@ -551,18 +551,18 @@ Completed decisions: 499; pending: 234.
 - `unit-model-catalog-tongyi-deepresearch-30b-a3b-abliterated-4bit` | current | models.configured contains `Tongyi-DeepResearch-30B-A3B-abliterated-4bit` in committed config
 - `unit-model-catalog-vulnllm-r-7b-4bit` | current | models.configured contains `VulnLLM-R-7B-4bit` in committed config
 - `unit-ollama-native-passthrough` | pending | awaiting content review
-- `unit-p5-roadmap-future-considerations-not-yet-implemented` | pending | awaiting content review
-- `unit-p5-roadmap-p5-fut-004-webhook-based-event-notifications` | pending | awaiting content review
-- `unit-p5-roadmap-p5-fut-006-llm-based-intent-routing` | pending | awaiting content review
-- `unit-p5-roadmap-p5-fut-009-model-size-aware-admission-control-mlx-proxy` | pending | awaiting content review
-- `unit-p5-roadmap-p5-fut-013-omlx-evaluation-canceled` | pending | awaiting content review
-- `unit-p5-roadmap-p5-fut-014-v7-model-refresh-waterline` | pending | awaiting content review
-- `unit-p5-roadmap-p5-fut-embed-001-embeddinggemma-migration-seed` | pending | awaiting content review
-- `unit-p5-roadmap-p5-fut-speech-002-speech-model-shootout` | pending | awaiting content review
-- `unit-p5-roadmap-p5-roadmap-md-portal-5-v7-future-enhancements` | pending | awaiting content review
-- `unit-p5-roadmap-score-history` | pending | awaiting content review
-- `unit-p5-roadmap-speculative-decoding-mtp-retired-commit-3a0c58e` | pending | awaiting content review
-- `unit-p5-roadmap-workspace-clean-utility-low-priority` | pending | awaiting content review
+- `unit-p5-roadmap-future-considerations-not-yet-implemented` | current | repo.path.exists confirms `portal/platform/inference/config.py` exists in the checkout
+- `unit-p5-roadmap-p5-fut-004-webhook-based-event-notifications` | historical | completed, superseded, or retired roadmap decision retained for history
+- `unit-p5-roadmap-p5-fut-006-llm-based-intent-routing` | historical | completed, superseded, or retired roadmap decision retained for history
+- `unit-p5-roadmap-p5-fut-009-model-size-aware-admission-control-mlx-proxy` | historical | completed, superseded, or retired roadmap decision retained for history
+- `unit-p5-roadmap-p5-fut-013-omlx-evaluation-canceled` | historical | completed, superseded, or retired roadmap decision retained for history
+- `unit-p5-roadmap-p5-fut-014-v7-model-refresh-waterline` | historical | completed, superseded, or retired roadmap decision retained for history
+- `unit-p5-roadmap-p5-fut-embed-001-embeddinggemma-migration-seed` | historical | completed, superseded, or retired roadmap decision retained for history
+- `unit-p5-roadmap-p5-fut-speech-002-speech-model-shootout` | current | repo.path.exists confirms `scripts/mlx-transcribe.py` exists in the checkout
+- `unit-p5-roadmap-p5-roadmap-md-portal-5-v7-future-enhancements` | historical | completed, superseded, or retired roadmap decision retained for history
+- `unit-p5-roadmap-score-history` | historical | completed, superseded, or retired roadmap decision retained for history
+- `unit-p5-roadmap-speculative-decoding-mtp-retired-commit-3a0c58e` | historical | completed, superseded, or retired roadmap decision retained for history
+- `unit-p5-roadmap-workspace-clean-utility-low-priority` | current | repo.path.exists confirms `launch.sh` exists in the checkout
 - `unit-performance-backend-candidate-cache` | pending | awaiting content review
 - `unit-performance-benchmark-client-reuse` | pending | awaiting content review
 - `unit-performance-benchmarking` | pending | awaiting content review

@@ -11,12 +11,14 @@ sources:
   path: config/prometheus/prometheus.yml
 - type: code
   path: deploy/portal-5/docker-compose.yml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/inference/router/handlers.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 The pipeline exposes Prometheus text on /metrics from `portal/platform/inference/router/handlers.py`.

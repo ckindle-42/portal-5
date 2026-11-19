@@ -7,12 +7,14 @@ sources:
   path: scripts/lib/lab.sh
 - type: code
   path: scripts/lab_ready.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/lib/lab.sh
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 Daily operations start and stop the provisioned lab containers without

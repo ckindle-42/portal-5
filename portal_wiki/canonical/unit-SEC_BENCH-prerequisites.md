@@ -7,14 +7,16 @@ sources:
   path: .env.example
 - type: code
   path: portal/modules/security/core/_data.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: .env.example
+  equals: true
 confidence: high
 tags:
 - bench
 - prerequisites
 - security
 - verified-v1
-
 ---
 
 ## Lab VMs must be running

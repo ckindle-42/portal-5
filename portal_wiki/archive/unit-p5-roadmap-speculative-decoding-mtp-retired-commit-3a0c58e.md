@@ -12,7 +12,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-
+historical: true
 ---
 
 Speculative decoding and MTP support lived in the retired MLX proxy and are not

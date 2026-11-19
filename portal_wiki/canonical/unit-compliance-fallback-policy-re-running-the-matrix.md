@@ -9,11 +9,13 @@ sources:
   path: portal/modules/eval/persona_matrix/sweep.py
 - type: code
   path: tests/persona_matrix_diff.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/eval/persona_matrix/cli.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 Re-running the compliance matrix means invoking the persona-matrix driver against `auto-compliance` with the same inputs that produced the stored baseline. The driver is `tests/portal5_persona_matrix.py`, a compat shim for `portal.modules.eval.persona_matrix`. The flags in `cli.py` shape the run: `--workspace` (default `auto-compliance`), `--persona` and `--model` (substring filters on slugs and model ids), `--backend ollama` (backend-type filter), `--require` (hard model-presence gate that exits 3), `--dry-run` (print the plan without calling Ollama), `--include-big-models` (admit models otherwise skipped), and `--baseline-compare` with `--regression-threshold` (inline regression diff against a stored baseline). A re-run should reuse the same flags as the original sweep, because the regression diff only compares cells with matching persona, backend and model keys and silently ignores cells absent from either report.

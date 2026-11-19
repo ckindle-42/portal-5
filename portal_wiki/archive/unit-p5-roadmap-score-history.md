@@ -16,7 +16,7 @@ confidence: high
 tags:
 - docs
 - verified-v1
-
+historical: true
 ---
 
 The roadmap score-history records which P5-FUT items shipped, and each shipped

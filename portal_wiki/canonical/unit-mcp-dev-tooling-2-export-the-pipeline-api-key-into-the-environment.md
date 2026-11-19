@@ -13,12 +13,14 @@ sources:
   path: opencode.jsonc
 - type: code
   path: portal/platform/mcp_host/pipeline_mcp.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: .env.example
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 The pipeline requires a bearer token on its authenticated endpoints. The key lives as

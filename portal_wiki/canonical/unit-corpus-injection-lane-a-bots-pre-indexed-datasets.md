@@ -5,11 +5,13 @@ title: "corpus_injection \u2014 Lane A \u2014 BOTS pre-indexed datasets"
 sources:
 - type: code
   path: scripts/lab_bots_install.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/lab_bots_install.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 BOTS ships as pre-indexed Splunk buckets, so it does **not** go through HEC.

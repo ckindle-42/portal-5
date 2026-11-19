@@ -6,14 +6,16 @@ sources:
 - type: code
   path: portal/modules/compliance/config/__init__.py
   commit: 9c8e6dae
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/compliance/config/__init__.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - module
 - compliance
 - config
-
 ---
 
 The compliance module's config surface is a name-based pointer into

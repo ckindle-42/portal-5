@@ -11,12 +11,14 @@ sources:
   path: portal/platform/mcp_host/pipeline_mcp.py
 - type: code
   path: deploy/portal-5/docker-compose.yml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: .mcp.json
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 Each MCP server in `.mcp.json` has an explicit boundary. `filesystem` is launched

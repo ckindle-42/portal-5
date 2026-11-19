@@ -1,7 +1,7 @@
 ---
 id: unit-compliance-transport-dialects
 kind: mixed
-title: "Compliance transport dialects — the sweep's wire protocol seam"
+title: "Compliance transport dialects \u2014 the sweep's wire protocol seam"
 sources:
 - type: code
   path: portal/modules/compliance/core/transport_dialects.py
@@ -12,14 +12,16 @@ sources:
 - type: code
   path: tests/unit/test_compliance_reading_transport.py
   commit: 26f2ed03
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/compliance/core/transport_dialects.py
+  equals: true
 confidence: high
 tags:
 - authored-v1
 - module
 - compliance
 - transport
-
 ---
 
 The compliance reading call speaks one wire protocol at a time, and the choice

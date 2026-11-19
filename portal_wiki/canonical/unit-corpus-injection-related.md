@@ -15,11 +15,13 @@ sources:
   path: portal/modules/security/core/siem/hec_ship.py
 - type: code
   path: portal/modules/security/core/siem/spl_detections.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/lab_bots_install.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 The injection lanes are glued from one shared transport and one shared

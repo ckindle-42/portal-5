@@ -9,11 +9,13 @@ sources:
   path: portal/modules/eval/persona_matrix/_common.py
 - type: code
   path: portal/modules/eval/persona_matrix/sweep.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/eval/persona_matrix/cli.py
+  equals: true
 confidence: high
 tags:
 - verified-v1
-
 ---
 
 A full sweep runs every model in the auto-compliance chain against every applicable compliance scenario. The entrypoint is `tests/portal5_persona_matrix.py`, a thin shim for `portal.modules.eval.persona_matrix`. Without `--output`, the driver writes to `RESULTS_DIR` as `persona_matrix_<workspace>_<utc-stamp>.json`; an explicit `--output` path overrides the default. A complete run against the current chain:

@@ -9,14 +9,16 @@ sources:
   path: portal/modules/security/core/exec_chain.py
 - type: code
   path: portal/modules/security/core/toolcall_reliability.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/scoring.py
+  equals: true
 confidence: high
 tags:
 - bench
 - scoring
 - security
 - verified-v1
-
 ---
 
 The exec-chain summary line and result JSON expose these per-chain metrics (`chain_exec_composite`, `chain_handoff_quality`, `blue_detection_rate`, and the reliability block in `exec_chain.py`):

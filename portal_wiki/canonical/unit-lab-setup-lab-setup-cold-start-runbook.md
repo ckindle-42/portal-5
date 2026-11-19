@@ -9,12 +9,14 @@ sources:
   path: scripts/lib/lab.sh
 - type: code
   path: deploy/portal-5/docker-compose.lab.yml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/lab_setup.py
+  equals: true
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 Cold starts follow a two-tier model. Tier 1 is the expensive, rare, idempotent

@@ -7,14 +7,16 @@ sources:
   path: portal/modules/security/core/cli.py
 - type: code
   path: portal/modules/security/core/_data.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/security/core/cli.py
+  equals: true
 confidence: high
 tags:
 - bench
 - quickstart
 - security
 - verified-v1
-
 ---
 
 ## Tier 1 — Theory (prose quality, workspace prompts only)

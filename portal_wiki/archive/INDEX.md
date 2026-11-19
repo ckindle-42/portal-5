@@ -1013,3 +1013,12 @@
 - `unit-known-limitations-phi4-reasoning-plus-crashes-ollama-s-llama-server-on-this-host-confirmed-not-a-corrupted-download` | 2026-11-19 | 6c29caa94ebfcb709a4852e3d13dfa35ccb69730 | Resolved, retired, or model-specific evaluation finding retained as historical evidence.
 - `unit-known-limitations-v8-catalog-deferred-insufficient-hardware` | 2026-11-19 | 6c29caa94ebfcb709a4852e3d13dfa35ccb69730 | Resolved, retired, or model-specific evaluation finding retained as historical evidence.
 - `unit-model-catalog-portal5-deepwen-3-6-q4-5-moq` | 2026-11-19 | 6c29caa94ebfcb709a4852e3d13dfa35ccb69730 | Dated or unconfigured-model finding retained as historical evidence.
+- `unit-p5-roadmap-p5-fut-004-webhook-based-event-notifications` | 2026-11-19 | 501379b8b5a7f87b9d936d201f5db7b585f8d84a | Completed, superseded, or retired roadmap decision retained as historical evidence.
+- `unit-p5-roadmap-p5-fut-006-llm-based-intent-routing` | 2026-11-19 | 501379b8b5a7f87b9d936d201f5db7b585f8d84a | Completed, superseded, or retired roadmap decision retained as historical evidence.
+- `unit-p5-roadmap-p5-fut-009-model-size-aware-admission-control-mlx-proxy` | 2026-11-19 | 501379b8b5a7f87b9d936d201f5db7b585f8d84a | Completed, superseded, or retired roadmap decision retained as historical evidence.
+- `unit-p5-roadmap-p5-fut-013-omlx-evaluation-canceled` | 2026-11-19 | 501379b8b5a7f87b9d936d201f5db7b585f8d84a | Completed, superseded, or retired roadmap decision retained as historical evidence.
+- `unit-p5-roadmap-p5-fut-014-v7-model-refresh-waterline` | 2026-11-19 | 501379b8b5a7f87b9d936d201f5db7b585f8d84a | Completed, superseded, or retired roadmap decision retained as historical evidence.
+- `unit-p5-roadmap-p5-fut-embed-001-embeddinggemma-migration-seed` | 2026-11-19 | 501379b8b5a7f87b9d936d201f5db7b585f8d84a | Completed, superseded, or retired roadmap decision retained as historical evidence.
+- `unit-p5-roadmap-p5-roadmap-md-portal-5-v7-future-enhancements` | 2026-11-19 | 501379b8b5a7f87b9d936d201f5db7b585f8d84a | Completed, superseded, or retired roadmap decision retained as historical evidence.
+- `unit-p5-roadmap-score-history` | 2026-11-19 | 501379b8b5a7f87b9d936d201f5db7b585f8d84a | Completed, superseded, or retired roadmap decision retained as historical evidence.
+- `unit-p5-roadmap-speculative-decoding-mtp-retired-commit-3a0c58e` | 2026-11-19 | 501379b8b5a7f87b9d936d201f5db7b585f8d84a | Completed, superseded, or retired roadmap decision retained as historical evidence.
