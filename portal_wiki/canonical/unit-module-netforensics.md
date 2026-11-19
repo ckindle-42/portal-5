@@ -1,7 +1,7 @@
 ---
 id: unit-module-netforensics
 kind: mixed
-title: "Network Forensics Module — tshark/Zeek PCAP analysis + gated lab recon"
+title: "Network Forensics Module \u2014 tshark/Zeek PCAP analysis + gated lab recon"
 sources:
 - type: code
   path: portal/modules/netforensics/tools/netforensics_mcp.py
@@ -11,9 +11,7 @@ sources:
   path: portal/platform/wiki/adapters/modules.py
 - type: code
   path: config/portal.yaml
-claims:
-- probe: modules.enabled
-  contains: netforensics
+claims: []
 confidence: high
 tags:
 - netforensics
@@ -54,4 +52,6 @@ there was no live packet dissection anywhere in the fleet, and recon ran
 unstructured through `execute_bash` inside Kali. This is the general IT/IR
 complement to the `icsot` module's ICS-specific dissection: analysis is
 passive and confined to `NETFORENSICS_ROOT`; active recon is a separate
-operator `[GATE]`, lab-scoped, and off by default.
+operator `[GATE]`, lab-scoped, and opt-in via `NETFORENSICS_RECON_ENABLED`.
+
+For live enablement state, query `unit-fact-module-states` or run `portal module list`.

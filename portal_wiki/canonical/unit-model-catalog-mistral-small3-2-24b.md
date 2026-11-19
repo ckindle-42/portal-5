@@ -7,9 +7,7 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims:
-- probe: models.configured
-  contains: mistral-small3.2:24b
+claims: []
 confidence: high
 tags:
 - docs

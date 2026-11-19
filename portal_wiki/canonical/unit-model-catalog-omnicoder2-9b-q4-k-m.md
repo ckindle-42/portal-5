@@ -7,9 +7,7 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims:
-- probe: models.configured
-  contains: omnicoder2:9b-q4_k_m
+claims: []
 confidence: high
 tags:
 - docs

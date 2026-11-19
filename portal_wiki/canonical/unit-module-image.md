@@ -1,7 +1,7 @@
 ---
 id: unit-module-image
 kind: mixed
-title: "Image Module — MLX-native image generation (MFLUX)"
+title: "Image Module \u2014 MLX-native image generation (MFLUX)"
 sources:
 - type: code
   path: portal/modules/media/tools/mflux_mcp.py
@@ -9,9 +9,7 @@ sources:
   path: portal/platform/wiki/adapters/modules.py
 - type: code
   path: config/portal.yaml
-claims:
-- probe: modules.enabled
-  contains: image
+claims: []
 confidence: high
 tags:
 - image
@@ -46,6 +44,5 @@ Image generation is carved out of the `media` toggle into its own module so
 a tight-footprint box can disable image generation (a ~18–26GB MLX working set)
 while keeping speech and transcription. The module gates the `mflux` fleet
 id and the `auto-image` workspace, both derived from their `module: image`
-tag in `config/portal.yaml`. The shipped switch is
-`modules.image.enabled: true` (mflux 0.24, flux2-klein default; live trace 2026-11-19). A missing key falls back to
+tag in `config/portal.yaml`. The live switch lives in `config/portal.yaml` (`unit-fact-module-states`; mflux 0.24, flux2-klein default). A missing key falls back to
 `DEFAULT_ENABLED_MODULES` (on).

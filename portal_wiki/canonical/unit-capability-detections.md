@@ -8,15 +8,12 @@ sources:
   section: mcp_fleet
 - type: code
   path: portal/modules/security/tools/detections_mcp.py
-claims:
-- probe: mcp.fleet.ids
-  contains: detections
+claims: []
 confidence: high
 tags:
 - capability
 - mcp
 - security
-
 ---
 
 # Detections MCP — queryable SPL detection library

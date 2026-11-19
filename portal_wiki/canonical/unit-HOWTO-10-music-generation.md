@@ -1,7 +1,7 @@
 ---
 id: unit-HOWTO-10-music-generation
 kind: why
-title: "HOWTO — 10. Music Generation"
+title: "HOWTO \u2014 10. Music Generation"
 sources:
 - type: code
   path: portal/modules/media/tools/music_mcp.py
@@ -17,7 +17,6 @@ tags:
 - HOWTO
 - docs
 - verified-v1
-
 ---
 
 **What:** Generate full songs — lyrics/vocals or instrumental — from text. The primary engine is ACE-Step 1.5 XL-Turbo. MiniMax-Music3 8-bit is the selectable fallback.
@@ -26,7 +25,7 @@ tags:
 
 **How:** `music_mcp.py` (port 8912) does not hold weights. `music_start` admits memory, then spawns `music_worker`. Poll `music_status(job_id)` — the call waits on the server. Default engine `acestep` is 8 steps and up to 600 seconds (tool default 30). `engine=minimax` is 30 steps and up to 300 seconds. Lyrics use `[Verse]`/`[Chorus]` or `[Instrumental]`. `task_type` is `text2music`, `repaint`, `cover`, or `extend`. Edits need `source`. Output is a wav in `generated/music`.
 
-**What changed:** The PocketAiHub MiniMax in-process server and the ACE-Step proxy plus `acestep-api` pair are gone. One host-native MCP remains, and the module still ships disabled. The 2026-08-27 dual-daemon comparison (2B sft, two launchd jobs, ~23–40 GB) does not describe this path. Peak RAM, speed, and AudioBox scores for XL-Turbo on this host are unmeasured.
+**What changed:** The PocketAiHub MiniMax in-process server and the ACE-Step proxy plus `acestep-api` pair are gone. One host-native MCP remains; query `unit-fact-module-states` for its live enable state. The 2026-08-27 dual-daemon comparison (2B sft, two launchd jobs, ~23–40 GB) does not describe this path. Peak RAM, speed, and AudioBox scores for XL-Turbo on this host are unmeasured.
 
 ## Why
 

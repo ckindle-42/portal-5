@@ -1,7 +1,8 @@
 ---
 id: unit-module-vulnintel
 kind: mixed
-title: "Vulnerability & Threat Intelligence Module — live CVE/EPSS/KEV/OSV/ICSA + clearnet threat intel"
+title: "Vulnerability & Threat Intelligence Module \u2014 live CVE/EPSS/KEV/OSV/ICSA\
+  \ + clearnet threat intel"
 sources:
 - type: code
   path: portal/modules/vulnintel/tools/vulnintel_mcp.py
@@ -9,9 +10,7 @@ sources:
   path: portal/platform/wiki/adapters/modules.py
 - type: code
   path: config/portal.yaml
-claims:
-- probe: modules.enabled
-  contains: vulnintel
+claims: []
 confidence: high
 tags:
 - vulnintel
@@ -55,3 +54,5 @@ records keys or response bodies. Tor `.onion` active access and dark-web
 scraping are deliberately excluded — a separate gated operator decision, never
 a default. The module gates the `vulnintel` fleet id and its workspaces, both
 derived from their `module: vulnintel` tag in `config/portal.yaml`.
+
+For live enablement state, query `unit-fact-module-states` or run `portal module list`.

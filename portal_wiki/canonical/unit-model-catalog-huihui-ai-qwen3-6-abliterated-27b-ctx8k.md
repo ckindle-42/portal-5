@@ -7,9 +7,7 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims:
-- probe: models.configured
-  contains: huihui_ai/Qwen3.6-abliterated:27b-ctx8k
+claims: []
 confidence: high
 tags:
 - docs

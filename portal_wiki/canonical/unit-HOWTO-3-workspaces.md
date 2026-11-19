@@ -27,7 +27,6 @@ tags:
 - HOWTO
 - docs
 - verified-v1
-
 ---
 
 **What:** Each workspace routes to a specialized model and activates the relevant tools.
@@ -50,7 +49,7 @@ For the full live roster (production + eval workspaces, module, model hint) use 
 
 The `auto-daily` seat is now the Nemotron 3.5 Lightning 30B-A3B text-only lane (no vision tower); image turns on that seat reroute to the `auto-vision` workspace at the router.
 
-`auto-video` is the alias of `auto-audio::video`, exposed with `video_start` / `video_status` (the `video` module is off by default — see the Video Generation unit). Eval workspaces (the `bench-*` set) additionally require `PORTAL_ENABLE_EVAL=1` at pipeline startup.
+`auto-video` is the alias of `auto-audio::video`, exposed with `video_start` / `video_status` (gated by the `video` module — see `unit-fact-module-states` and the Video Generation unit). Eval workspaces (the `bench-*` set) additionally require `PORTAL_ENABLE_EVAL=1` at pipeline startup.
 
 **Example — coding:** select `Portal Code Expert` and ask a coding question; `auto-coding` answers with Qwen3.8-27B and its sandbox tools (`execute_bash`, `execute_python`, `sandbox_status`) run code on request.
 

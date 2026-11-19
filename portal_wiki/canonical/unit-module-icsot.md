@@ -1,7 +1,8 @@
 ---
 id: unit-module-icsot
 kind: mixed
-title: "ICS/OT Module — industrial protocol dissection, asset inventory, ATT&CK-for-ICS correlation"
+title: "ICS/OT Module \u2014 industrial protocol dissection, asset inventory, ATT&CK-for-ICS\
+  \ correlation"
 sources:
 - type: code
   path: portal/modules/icsot/tools/icsot_mcp.py
@@ -11,9 +12,7 @@ sources:
   path: portal/platform/wiki/adapters/modules.py
 - type: code
   path: config/portal.yaml
-claims:
-- probe: modules.enabled
-  contains: icsot
+claims: []
 confidence: high
 tags:
 - icsot
@@ -68,3 +67,5 @@ capability is a separate operator `[GATE]`. Capability tiers are stated
 honestly in tool output: a protocol the server only identifies by port says
 so. The module gates the `icsot` fleet id and its workspaces, both derived
 from their `module: icsot` tag in `config/portal.yaml`.
+
+For live enablement state, query `unit-fact-module-states` or run `portal module list`.

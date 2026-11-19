@@ -1,7 +1,7 @@
 ---
 id: unit-module-eval
 kind: mixed
-title: "Eval Module \u2014 cross-cutting bench apparatus (off by default)"
+title: "Eval Module \u2014 cross-cutting bench apparatus"
 sources:
 - type: code
   path: portal/modules/eval/persona_matrix/sweep.py
@@ -9,21 +9,17 @@ sources:
   path: portal/platform/wiki/adapters/modules.py
 - type: code
   path: config/portal.yaml
-claims:
-- probe: modules.disabled
-  contains: eval
+claims: []
 confidence: high
 tags:
 - eval
 - module
 - verified-v1
-
 ---
 
-# Eval Module — cross-cutting bench apparatus (off by default)
-
-Per DESIGN-MODULES-V1: bench/testing apparatus is not a use-module,
-disabled by default. Each discipline keeps its OWN eval/ (e.g.
+# Eval Module — cross-cutting bench apparatus
+Per DESIGN-MODULES-V1: bench/testing apparatus is not a use-module
+(see `unit-fact-module-states` for live enablement). Each discipline keeps its OWN eval/ (e.g.
 portal.modules.security.eval) — this is the SHARED cross-cutting layer
 used across disciplines, not owned by any one of them.
 
@@ -51,7 +47,7 @@ The switch is `modules.eval.enabled` in `config/portal.yaml` (`portal module ena
 
 ## Why
 
-Eval ships disabled. `portal/platform/wiki/adapters/modules.py` treats a
+Query `unit-fact-module-states` for current enablement. `portal/platform/wiki/adapters/modules.py` treats a
 missing `modules.eval` key, or `enabled: false`, as off
 (`DEFAULT_DISABLED_MODULES`). Bench workspaces stay unrouted until an
 operator sets `modules.eval.enabled` or `PORTAL_ENABLE_EVAL` (the

@@ -9,9 +9,7 @@ sources:
   path: config/portal.yaml
 - type: code
   path: config/personas/qwen38coder.yaml
-claims:
-- probe: models.configured
-  contains: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M
+claims: []
 confidence: high
 tags:
 - docs

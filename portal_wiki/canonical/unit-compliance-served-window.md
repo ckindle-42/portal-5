@@ -1,7 +1,7 @@
 ---
 id: unit-compliance-served-window
 kind: mixed
-title: "Compliance served-window resolver — what a seat actually serves"
+title: "Compliance served-window resolver \u2014 what a seat actually serves"
 sources:
 - type: code
   path: portal/modules/compliance/core/served_window.py
@@ -9,9 +9,7 @@ sources:
   path: scripts/compliance/truth/data_integrity.py
 - type: code
   path: tests/unit/test_compliance_data_truth_instruments.py
-claims:
-- probe: compliance.served_window.tag_window
-  equals: 131072
+claims: []
 confidence: high
 tags:
 - compliance

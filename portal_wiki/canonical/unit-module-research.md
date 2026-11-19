@@ -13,15 +13,12 @@ sources:
   path: portal/platform/wiki/adapters/modules.py
 - type: code
   path: config/portal.yaml
-claims:
-- probe: modules.enabled
-  contains: research
+claims: []
 confidence: high
 tags:
 - module
 - research
 - verified-v1
-
 ---
 
 # Research Module — web search, RAG, browser automation
@@ -58,3 +55,5 @@ real reachable surface is narrower than its fleet count suggests. This unit is s
 adapter that reads the toggle, the `portal/modules/research/tools/`
 package that implements the servers, and `config/portal.yaml` that
 declares their ports and exposure flags.
+
+For live enablement state, query `unit-fact-module-states` or run `portal module list`.

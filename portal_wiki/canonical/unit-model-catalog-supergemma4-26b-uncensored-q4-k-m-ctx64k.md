@@ -7,9 +7,7 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims:
-- probe: models.configured
-  contains: supergemma4-26b-uncensored:Q4_K_M-ctx64k
+claims: []
 confidence: high
 tags:
 - docs

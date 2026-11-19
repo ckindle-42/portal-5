@@ -5,9 +5,7 @@ title: "MODEL_CATALOG \u2014 `Tongyi-DeepResearch-30B-A3B-abliterated-4bit`"
 sources:
 - type: code
   path: config/backends.yaml
-claims:
-- probe: models.configured
-  contains: Tongyi-DeepResearch-30B-A3B-abliterated-4bit
+claims: []
 confidence: high
 tags:
 - docs

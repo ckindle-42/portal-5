@@ -26,10 +26,10 @@ loaded at import time into `WORKSPACES` by `portal/platform/inference/router/wor
 via `get_workspace_dict()`.
 
 Portal 5 includes functional workspaces plus benchmark workspaces for
-performance comparison, gated off by default behind the `eval` module, which is
-disabled unless `PORTAL_ENABLE_EVAL=1` is set (count them with
+performance comparison, gated behind the `eval` module (`unit-fact-module-states`,
+opt-in via `portal module enable eval` or `PORTAL_ENABLE_EVAL=1`) (count them with
 `python3 -c "import yaml; d=yaml.safe_load(open('config/portal.yaml')); print(len(d['workspaces']))"`).
-Benchmark workspaces are excluded from routing when the eval module is off, so the
+Benchmark workspaces are excluded from routing when the `eval` module is disabled, so the
 daily model dropdown stays limited to the functional set.
 
 ## Why

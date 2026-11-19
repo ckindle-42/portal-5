@@ -7,9 +7,7 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims:
-- probe: models.configured
-  contains: hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4-ctx8k
+claims: []
 confidence: high
 tags:
 - docs

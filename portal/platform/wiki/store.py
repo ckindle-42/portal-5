@@ -61,6 +61,9 @@ def _unit_path(unit_id: str) -> Path:
 
 def save_unit(unit: KnowledgeUnit) -> Path:
     """Save a unit to the canonical store."""
+    from .claims import validate_authored_unit_claims
+
+    validate_authored_unit_claims(unit)
     canonical = _get_canonical_dir()
     canonical.mkdir(parents=True, exist_ok=True)
     path = _unit_path(unit.id)

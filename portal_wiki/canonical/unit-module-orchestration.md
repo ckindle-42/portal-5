@@ -1,7 +1,7 @@
 ---
 id: unit-module-orchestration
 kind: mixed
-title: "Orchestration Module — offline verified task runner (enabled in repo)"
+title: "Orchestration Module \u2014 offline verified task runner"
 sources:
 - type: code
   path: portal/modules/orchestration/__init__.py
@@ -43,15 +43,12 @@ sources:
   path: scripts/orchestration_bite_suite.py
 - type: code
   path: scripts/gate_c_calculator.py
-claims:
-- probe: modules.enabled
-  contains: orchestration
+claims: []
 confidence: high
 tags:
 - orchestration
 - module
 - verified-v1
-
 ---
 
 # Orchestration Module — offline verified task runner
@@ -62,11 +59,11 @@ The orchestration module exposes `portal arm submit`, `resume`, and `status` for
 
 ## Phase 1 boundary
 
-Offline tests drive the arm through a fake OpenAI-compatible Pipeline API. Stored plan templates enqueue through `QueueLedger.enqueue`. Open WebUI reaches that queue through the pipeline MCP tool `arm_queue_task` (`portal/modules/orchestration/owui_entry.py`). The module is enabled in the repo since the 2026-10-23 live end-to-end run (Telegram approval, repair, review).
+Offline tests drive the arm through a fake OpenAI-compatible Pipeline API. Stored plan templates enqueue through `QueueLedger.enqueue`. Open WebUI reaches that queue through the pipeline MCP tool `arm_queue_task` (`portal/modules/orchestration/owui_entry.py`). Query `unit-fact-module-states` or `portal module status orchestration` for live enablement.
 
 ## Module state
 
-The switch is `modules.orchestration.enabled` in `config/portal.yaml` and is on. The module unit documents the switch; it does not hold it. `config/orchestration_arm.yaml` supplies the default `swap` residency mode and the underlying model IDs checked by the Pipeline load guard. Seated model tags are read from `disciplines.<name>.seated_models` (fast: `auto-daily::gemma-fast`, deep: `auto-daily::deep`); the service validates the engine tag matches each seat's configured tag at startup.
+The switch is `modules.orchestration.enabled` in `config/portal.yaml` (`portal module enable|disable` writes it). The module unit documents the switch; it does not hold it. `config/orchestration_arm.yaml` supplies the default `swap` residency mode and the underlying model IDs checked by the Pipeline load guard. Seated model tags are read from `disciplines.<name>.seated_models` (fast: `auto-daily::gemma-fast`, deep: `auto-daily::deep`); the service validates the engine tag matches each seat's configured tag at startup.
 
 ## Bite tools
 

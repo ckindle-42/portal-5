@@ -11,14 +11,11 @@ sources:
   path: portal/platform/inference/router/workspaces.py
 - type: code
   path: portal/platform/inference/config.py
-claims:
-- probe: workspaces.bench
-  pattern: currently {value} workspaces
+claims: []
 confidence: high
 tags:
 - docs
 - verified-v1
-
 ---
 
 Benchmark workspaces pin a specific model for direct, side-by-side performance
@@ -34,7 +31,7 @@ List the current set with:
 python3 -c "from portal.platform.inference.router.workspaces import WORKSPACES; [print(k) for k in sorted(WORKSPACES) if k.startswith('bench-')]"
 ```
 
-The live count is currently 22 workspaces. Verified examples from `config/portal.yaml`:
+Query `unit-fact-workspace-roster` for the live count and full roster. Verified examples from `config/portal.yaml`:
 
 | Workspace | Pinned model (`model_hint`) |
 |---|---|
@@ -53,6 +50,5 @@ and additional coding, vision and security variants; the authoritative list is
 
 A bench lane decouples model choice from workspace behavior: the same toolset,
 prompt scaffolding and routing apply, so a TPS or quality delta is attributable to
-the model weights alone. Keeping the lanes behind the eval module (disabled by
-default, `PORTAL_ENABLE_EVAL=1` to opt in) stops them from cluttering the daily
+the model weights alone. Keeping the lanes behind the `eval` module (`unit-fact-module-states`; `PORTAL_ENABLE_EVAL=1` to opt in) stops them from cluttering the daily
 model dropdown while leaving a documented harness path.

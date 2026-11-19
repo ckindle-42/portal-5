@@ -190,42 +190,14 @@ def _surface_manifests_differ(committed: list[dict], fresh: list[dict]) -> bool:
     return sorted(map(key, committed)) != sorted(map(key, fresh))
 
 
-@register(
-    "spine_drift",
-    "BS. spine drift census (claims hold + doc refs exist)",
-    order=69,
-)
-def check_spine_drift() -> tuple[str, str, list[dict]]:
-    """BS. The spine's content is true, not merely self-consistent.
-
-    BR proves a new code surface is cited by some unit. This check asks whether
-    declared claims still match live probes. At the commit this gate landed, README asserted 60
-    benchmark workspaces against a live 65 and 22 MCP servers against a live 21.
-
-    Two axes, both HARD FAIL, neither baselinable:
-      claims     — declared unit assertions vs live probes. A unit that
-                   states a wrong number is a bug.
-      doc refs   — repo-relative paths named in Tier-1 docs must exist.
-
-    P0 A1 deleted the third axis this check used to carry — the
-    `last_generated_commit` pins axis, which proved nothing about whether a
-    body was still true and only forced a two-commit re-pin dance. No pin
-    axis to restore.
-    """
-    from portal.platform.wiki.adapters.seed_facts import derive_facts
-    from portal.platform.wiki.claims import claim_count, evaluate_claims
-    from portal.platform.wiki.drift import broken_path_refs, claim_coverage_gaps
-    from portal.platform.wiki.store import load_all
-
-    canonical_units = load_all()
-    units = canonical_units + derive_facts()
-    violations = evaluate_claims(units, REPO_ROOT)
-    coverage_gaps = claim_coverage_gaps(canonical_units, REPO_ROOT)
-    refs = broken_path_refs(REPO_ROOT)
+def _drift_claim_results(
+    canonical_units: list,
+    all_violations: list,
+) -> list[dict]:
     violations_by_unit: dict[str, list[str]] = {}
-    for violation in violations:
+    for violation in all_violations:
         violations_by_unit.setdefault(violation.unit_id, []).append(str(violation))
-    claim_results = [
+    return [
         {
             "unit_id": unit.id,
             "status": "FAIL" if unit.id in violations_by_unit else "PASS",
@@ -235,27 +207,61 @@ def check_spine_drift() -> tuple[str, str, list[dict]]:
         for unit in canonical_units
     ]
 
+
+@register(
+    "spine_drift",
+    "BS. spine drift census (stable claims hold + no volatile prose + doc refs exist)",
+    order=69,
+)
+def check_spine_drift(repo_root: Path | None = None) -> tuple[str, str, list[dict]]:
+    """BS. Authored units declare only stable claims and never restate volatile config.
+
+    Three hard-fail axes, none baselinable:
+      claims         — authored claims use stable probes only; all claims hold live
+      volatile prose — authored units never hardcode counts/module enable states
+      doc refs       — repo-relative paths named in Tier-1 docs must exist
+    """
+    from portal.platform.wiki.adapters.seed_facts import derive_facts
+    from portal.platform.wiki.claims import (
+        authored_claim_violations,
+        claim_count,
+        evaluate_claims,
+    )
+    from portal.platform.wiki.drift import (
+        broken_path_refs,
+        claim_coverage_gaps,
+        volatile_prose_violations,
+    )
+    from portal.platform.wiki.store import load_all
+
+    root = repo_root or REPO_ROOT
+    canonical_units = load_all()
+    units = canonical_units + derive_facts()
+    all_violations = authored_claim_violations(canonical_units) + evaluate_claims(units, root)
+    volatile_prose = volatile_prose_violations(canonical_units)
+    coverage_gaps = claim_coverage_gaps(canonical_units, root)
+    refs = broken_path_refs(root)
+    prose_bad = [f"{uid}: {'; '.join(msgs)}" for uid, msgs in sorted(volatile_prose.items())]
+    prose_bad.extend(f"{uid}: pending CLAIMS_TRIAGE.md row" for uid in coverage_gaps)
+
     subs: list[dict] = [
         {
-            "name": "declared claims hold against live probes",
-            "status": "PASS" if not violations else "FAIL",
+            "name": "declared claims are stable and hold against live probes",
+            "status": "PASS" if not all_violations else "FAIL",
             "detail": (
-                f"{claim_count(units)} claim(s) declared; results recorded for "
-                f"{len(canonical_units)} canonical unit(s)"
-                if not violations
-                else "; ".join(str(v) for v in violations[:8])
+                f"{claim_count(units)} claim(s) declared across {len(canonical_units)} canonical unit(s)"
+                if not all_violations
+                else "; ".join(str(v) for v in all_violations[:8])
             ),
-            "unit_results": claim_results,
+            "unit_results": _drift_claim_results(canonical_units, all_violations),
         },
         {
-            "name": "canonical units have claims or are explicitly triaged",
-            "status": "PASS" if not coverage_gaps else "FAIL",
+            "name": "authored units carry no hardcoded volatile counts or enable states",
+            "status": "PASS" if not prose_bad else "FAIL",
             "detail": (
-                f"all {len(canonical_units)} canonical units have claims, a historical mark, "
-                "or an explicit pending triage row"
-                if not coverage_gaps
-                else f"{len(coverage_gaps)} canonical unit(s) lack claims or a historical mark: "
-                + ", ".join(coverage_gaps[:8])
+                "no hardcoded counts, module enable states, or pending triage rows in authored units"
+                if not prose_bad
+                else "; ".join(prose_bad[:8])
             ),
         },
         {
@@ -269,17 +275,16 @@ def check_spine_drift() -> tuple[str, str, list[dict]]:
         },
     ]
 
-    hard = bool(violations) or bool(coverage_gaps) or bool(refs)
-    if hard:
+    if all_violations or prose_bad or refs:
         return (
             "FAIL",
-            f"{len(violations)} claim violation(s), {len(coverage_gaps)} untriaged canonical unit(s), "
+            f"{len(all_violations)} claim violation(s), {len(prose_bad)} volatile-prose/triage gap(s), "
             f"{len(refs)} dead doc ref(s)",
             subs,
         )
     return (
         "PASS",
-        f"{claim_count(units)} claim(s) hold; no dead refs",
+        f"{claim_count(units)} claim(s) hold; no volatile prose; no dead refs",
         subs,
     )
 
@@ -357,45 +362,51 @@ def check_fleet_capability_coverage() -> tuple[str, str, list[dict]]:
 
 @register(
     "module_state_claim_coverage",
-    "GS. module-state claim coverage (every unit-module-* binds modules.enabled/disabled)",
+    "GS. module units reference live state (never pin modules.enabled/disabled)",
     order=73,
 )
 def check_module_state_claim_coverage() -> tuple[str, str, list[dict]]:
-    """GS. Every module unit binds its shipped state to a live probe.
+    """GS. Every unit-module-* documents the config switch without pinning enable state.
 
-    A `unit-module-*` that asserts an `enabled:` fence without a claim on
-    `modules.enabled`/`modules.disabled` can drift silently; the fence is only
-    honest when it is bound. Each unit must declare at least one claim whose
-    probe is one of the two module-state probes.
+    Enable state lives in config/portal.yaml and is queried live via
+    `unit-fact-module-states` (or `portal module list`). Pinning
+    `modules.enabled`/`modules.disabled` or writing `off by default` in prose
+    causes every `portal module enable/disable` to break the gate.
     """
+    from portal.platform.wiki.drift import volatile_prose_violations
     from portal.platform.wiki.store import load_all
 
     module_units = [u for u in load_all() if u.id.startswith("unit-module-")]
-    unbind = []
+    bad: list[str] = []
+    prose_bad = volatile_prose_violations(module_units)
     for u in module_units:
         probes = {c.get("probe") for c in (u.claims or []) if isinstance(c, dict)}
-        if not probes & {"modules.enabled", "modules.disabled"}:
-            unbind.append(u.id)
-    if unbind:
+        if probes & {"modules.enabled", "modules.disabled"}:
+            bad.append(f"{u.id} (pins volatile module claim)")
+        elif u.id in prose_bad:
+            bad.append(f"{u.id} ({'; '.join(prose_bad[u.id])})")
+        elif "unit-fact-module-states" not in u.body and "portal module" not in u.body:
+            bad.append(f"{u.id} (missing reference to unit-fact-module-states / portal module)")
+    if bad:
         return (
             "FAIL",
-            f"{len(unbind)} module unit(s) without a module-state claim: {', '.join(unbind)}",
+            f"{len(bad)} module unit(s) violate live-state separation: {', '.join(bad[:6])}",
             [
                 {
-                    "name": "every unit-module-* binds modules.enabled/disabled",
+                    "name": "every unit-module-* references live state without pinning it",
                     "status": "FAIL",
-                    "detail": ", ".join(unbind),
+                    "detail": "; ".join(bad),
                 }
             ],
         )
     return (
         "PASS",
-        f"all {len(module_units)} module units bind their state to a live probe",
+        f"all {len(module_units)} module units reference live state without pinning it",
         [
             {
-                "name": "every unit-module-* binds modules.enabled/disabled",
+                "name": "every unit-module-* references live state without pinning it",
                 "status": "PASS",
-                "detail": f"{len(module_units)} bound",
+                "detail": f"{len(module_units)} clean",
             }
         ],
     )

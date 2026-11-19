@@ -1,7 +1,7 @@
 ---
 id: unit-module-media
 kind: mixed
-title: "Media Module — speech and transcription"
+title: "Media Module \u2014 speech and transcription"
 sources:
 - type: code
   path: portal/modules/media/tools/tts_mcp.py
@@ -13,15 +13,12 @@ sources:
   path: config/portal.yaml
 - type: code
   path: module-state-change:media:cli
-claims:
-- probe: modules.enabled
-  contains: media
+claims: []
 confidence: high
 tags:
 - media
 - module
 - verified-v1
-
 ---
 
 # Media Module — speech and transcription
@@ -29,7 +26,7 @@ tags:
 ## Tools
 
 Active tools: `tts_mcp` (:8916, text-to-speech) and `whisper_mcp` (:8915,
-STT). Song generation is `unit-module-music` (`music_mcp`, :8912, module off).
+STT). Song generation is `unit-module-music` (`music_mcp`, :8912; see `unit-fact-module-states`).
 Image generation and video
 generation are their own modules — `unit-module-image` (`mflux`, :8933) and
 `unit-module-video` (`video_mlx`, :8935).

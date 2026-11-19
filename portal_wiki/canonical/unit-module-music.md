@@ -1,7 +1,7 @@
 ---
 id: unit-module-music
 kind: mixed
-title: "Music Module — ACE-Step song generation (off by default)"
+title: "Music Module \u2014 ACE-Step song generation"
 sources:
 - type: code
   path: portal/modules/media/tools/music_mcp.py
@@ -9,17 +9,14 @@ sources:
   path: portal/platform/wiki/adapters/modules.py
 - type: code
   path: config/portal.yaml
-claims:
-- probe: modules.enabled
-  contains: music
+claims: []
 confidence: high
 tags:
 - music
 - module
 ---
 
-# Music Module — ACE-Step song generation (off by default)
-
+# Music Module — ACE-Step song generation
 ## Tools
 
 `music_mcp` (:8912, launchd `com.portal5.music`) exposes `music_start`,
@@ -42,10 +39,9 @@ The switch is `modules.music.enabled` in `config/portal.yaml` (`portal module en
 ## Why
 
 Song generation used to share the media toggle with TTS and transcription,
-so music could not be turned off alone. It is its own module; it shipped
-disabled and is enabled since 2026-11-19 (live media trace PASS). Membership comes from the `module: music` tag on fleet id `music`
+so music could not be turned off alone. It is its own module; query `unit-fact-module-states` for live enablement. Membership comes from the `module: music` tag on fleet id `music`
 and `auto-audio::music` in `config/portal.yaml`. A missing `modules.music`
 key falls back to `DEFAULT_DISABLED_MODULES` (off). `default_enabled: false`
-on the fleet entry marks the server expected-down while the module is off.
+on the fleet entry marks the server expected-down when the module is disabled.
 No persona binds `auto-audio::music`. Install with `./launch.sh install-music`
 before enabling.

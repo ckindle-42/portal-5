@@ -5,9 +5,7 @@ title: "MODEL_CATALOG \u2014 `hermes3:8b`"
 sources:
 - type: code
   path: config/backends.yaml
-claims:
-- probe: models.configured
-  contains: hermes3:8b
+claims: []
 confidence: high
 tags:
 - docs

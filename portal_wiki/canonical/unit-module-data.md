@@ -1,7 +1,7 @@
 ---
 id: unit-module-data
 kind: mixed
-title: "Data & Analytics Module — DuckDB conversational analytics"
+title: "Data & Analytics Module \u2014 DuckDB conversational analytics"
 sources:
 - type: code
   path: portal/modules/data/tools/data_mcp.py
@@ -9,9 +9,7 @@ sources:
   path: portal/platform/wiki/adapters/modules.py
 - type: code
   path: config/portal.yaml
-claims:
-- probe: modules.enabled
-  contains: data
+claims: []
 confidence: high
 tags:
 - data
@@ -51,4 +49,4 @@ The data personas ran on raw `execute_python` with no structured-data surface
 anywhere in the fleet. This module adds a DuckDB SQL/dataframe capability that
 is entirely local and sandboxed to a data root — no external network, a pinned
 extension posture, no `COPY ... TO` outside the root, and source files are
-never mutated. DuckDB is light, so the module is default on.
+never mutated. DuckDB is light; query `unit-fact-module-states` for live enablement (`DEFAULT_ENABLED_MODULES`).

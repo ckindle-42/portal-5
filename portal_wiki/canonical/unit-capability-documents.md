@@ -10,15 +10,12 @@ sources:
   path: portal/modules/documents/tools/document_mcp.py
 - type: code
   path: config/inference/tools_manifest_document_mcp.json
-claims:
-- probe: mcp.fleet.ids
-  contains: documents
+claims: []
 confidence: high
 tags:
 - capability
 - mcp
 - documents
-
 ---
 
 # Documents MCP — office file create/read/convert

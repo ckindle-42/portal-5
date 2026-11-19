@@ -10,9 +10,7 @@ sources:
   path: portal/platform/mcp_host/pipeline_mcp.py
 - type: code
   path: scripts/native-mcp-service.sh
-claims:
-- probe: mcp.fleet.ids
-  contains: pipeline
+claims: []
 confidence: high
 tags:
 - capability

@@ -13,15 +13,12 @@ sources:
   path: portal/platform/wiki/adapters/modules.py
 - type: code
   path: config/portal.yaml
-claims:
-- probe: modules.enabled
-  contains: security
+claims: []
 confidence: high
 tags:
 - module
 - security
 - verified-v1
-
 ---
 
 # Security Module — RBP (Red/Blue/Purple) bench engine
@@ -75,3 +72,5 @@ the variant list is grounded to the `variants:` block of the
 This unit is sourced to the module adapter, the security tool servers it
 gates, the preinject variant resolver, and `config/portal.yaml` so the
 toggle and the workspace surface it controls stay verifiable together.
+
+For live enablement state, query `unit-fact-module-states` or run `portal module list`.

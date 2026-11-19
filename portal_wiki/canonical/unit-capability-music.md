@@ -1,7 +1,7 @@
 ---
 id: unit-capability-music
 kind: mixed
-title: "Music MCP — ACE-Step full-song generation"
+title: "Music MCP \u2014 ACE-Step full-song generation"
 sources:
 - type: code
   path: config/portal.yaml
@@ -15,8 +15,6 @@ claims:
   path: portal/modules/media/tools/music_mcp.py
   symbol: music_start
   equals: true
-- probe: mcp.fleet.ids
-  contains: music
 confidence: high
 tags:
 - capability
@@ -32,7 +30,7 @@ The Music MCP (`portal/modules/media/tools/music_mcp.py`, port 8912, fleet id
 `music`) starts one subprocess per song (`music_worker.py`) so Metal memory
 dies with the child. The primary engine is ACE-Step 1.5 XL-Turbo. Pass
 `engine=minimax` for MiniMax-Music3 8-bit (`mlx-community/MiniMax-Music3-8bit`).
-It is pipeline-exposed and IDE-exposed. The module shipped disabled; it is enabled since 2026-11-19 (ACE-Step 1.5 XL-Turbo, live `portal trace --section media` PASS: OWUI wav 200/5.76 MB, 2 tool calls; system free memory fell to ~22% during generation).
+It is pipeline-exposed and IDE-exposed, gated by the `music` module (`unit-fact-module-states`).
 
 ## How it's used
 

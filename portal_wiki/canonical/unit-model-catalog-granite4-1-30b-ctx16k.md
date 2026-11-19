@@ -7,9 +7,7 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims:
-- probe: models.configured
-  contains: granite4.1:30b-ctx16k
+claims: []
 confidence: high
 tags:
 - docs

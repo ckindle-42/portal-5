@@ -1,7 +1,8 @@
 ---
 id: unit-module-compliance
 kind: mixed
-title: "Compliance Module \u2014 multi-framework compliance mapping + control-catalog MCP"
+title: "Compliance Module \u2014 multi-framework compliance mapping + control-catalog\
+  \ MCP"
 sources:
 - type: code
   path: portal/modules/security/core/compliance_report.py
@@ -13,15 +14,12 @@ sources:
   path: portal/platform/wiki/adapters/modules.py
 - type: code
   path: config/portal.yaml
-claims:
-- probe: modules.enabled
-  contains: compliance
+claims: []
 confidence: high
 tags:
 - compliance
 - module
 - verified-v1
-
 ---
 
 # Compliance Module — multi-framework compliance mapping (config-only)
@@ -62,3 +60,5 @@ server, so toggling it affects routing (`auto-compliance`) and nothing in
 the fleet. `modules.compliance.enabled` in `config/portal.yaml` gates the
 workspace. The module's analysis capability lives in the security module
 it depends on.
+
+For live enablement state, query `unit-fact-module-states` or run `portal module list`.

@@ -10,9 +10,7 @@ sources:
   path: portal/modules/security/tools/proxmox_mcp.py
 - type: code
   path: deploy/portal-5/docker-compose.yml
-claims:
-- probe: mcp.fleet.ids
-  contains: proxmox
+claims: []
 confidence: high
 tags:
 - capability

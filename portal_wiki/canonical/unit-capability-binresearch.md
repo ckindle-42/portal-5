@@ -10,15 +10,12 @@ sources:
   path: portal/modules/binary_research/tools/binresearch_mcp.py
 - type: code
   path: deploy/portal-5/docker-compose.yml
-claims:
-- probe: mcp.fleet.ids
-  contains: binresearch
+claims: []
 confidence: high
 tags:
 - capability
 - mcp
 - platform
-
 ---
 
 # BinResearch MCP — static binary reverse-engineering arsenal

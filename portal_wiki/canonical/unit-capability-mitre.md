@@ -10,9 +10,7 @@ sources:
   path: portal/modules/security/tools/mitre_mcp.py
 - type: code
   path: portal/modules/security/core/siem/mitre_ics_techniques.json
-claims:
-- probe: mcp.fleet.ids
-  contains: mitre
+claims: []
 confidence: high
 tags:
 - capability

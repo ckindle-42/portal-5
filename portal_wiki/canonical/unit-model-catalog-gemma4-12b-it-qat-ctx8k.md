@@ -7,9 +7,7 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/portal.yaml
-claims:
-- probe: models.configured
-  contains: gemma4:12b-it-qat-ctx8k
+claims: []
 confidence: high
 tags:
 - docs
