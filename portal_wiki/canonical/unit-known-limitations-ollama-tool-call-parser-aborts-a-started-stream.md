@@ -9,7 +9,11 @@ sources:
   path: portal/platform/inference/ollama_native.py
 - type: code
   path: portal/platform/inference/router/non_streaming.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/platform/inference/router/streaming.py
+  symbol: finish_reason
+  equals: true
 confidence: high
 tags:
 - docs

@@ -9,7 +9,11 @@ sources:
   path: scripts/lib/services.sh
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: scripts/mlx-speech.py
+  symbol: list_voices
+  equals: true
 confidence: high
 tags:
 - HOWTO

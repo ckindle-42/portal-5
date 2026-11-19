@@ -9,7 +9,11 @@ sources:
   path: portal/platform/inference/router/placement.py
 - type: code
   path: config/backends.yaml
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/platform/inference/ollama_native.py
+  symbol: _omlx_request
+  equals: true
 confidence: high
 tags:
 - known-limitations

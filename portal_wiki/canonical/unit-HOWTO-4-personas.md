@@ -9,7 +9,11 @@ sources:
   path: scripts/openwebui_init.py
 - type: code
   path: portal/platform/inference/router/preinject.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: config/personas/redteamoperator.yaml
+  symbol: workspace_model
+  equals: true
 confidence: high
 tags:
 - HOWTO

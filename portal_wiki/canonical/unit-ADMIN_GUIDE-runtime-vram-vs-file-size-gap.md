@@ -11,7 +11,11 @@ sources:
   path: portal/platform/inference/router/routing.py
 - type: code
   path: portal/platform/inference/router/lifespan.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: .env.example
+  symbol: OLLAMA_NUM_BATCH
+  equals: true
 confidence: high
 tags:
 - ADMIN_GUIDE

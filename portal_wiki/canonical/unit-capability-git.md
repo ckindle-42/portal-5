@@ -8,7 +8,9 @@ sources:
   section: mcp_fleet
 - type: code
   path: portal/modules/general/tools/__init__.py
-claims: []
+claims:
+- probe: mcp.fleet.ids
+  contains: git
 confidence: high
 tags:
 - capability

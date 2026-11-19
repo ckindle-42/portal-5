@@ -17,7 +17,11 @@ sources:
   path: portal/platform/inference/ollama_native.py
 - type: code
   path: tests/wfe/settings_audit.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: config/portal.yaml
+  symbol: model_hint
+  equals: true
 confidence: high
 tags:
 - HOWTO

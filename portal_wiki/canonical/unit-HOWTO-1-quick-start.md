@@ -7,7 +7,10 @@ sources:
   path: launch.sh
 - type: code
   path: .env.example
-claims: []
+claims:
+- probe: repo.path.exists
+  path: launch.sh
+  equals: true
 confidence: high
 tags:
 - HOWTO

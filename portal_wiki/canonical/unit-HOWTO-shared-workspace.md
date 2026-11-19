@@ -5,7 +5,10 @@ title: "HOWTO \u2014 Shared Workspace"
 sources:
 - type: code
   path: portal/platform/mcp_host/workspace.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/platform/mcp_host/workspace.py
+  equals: true
 confidence: high
 tags:
 - HOWTO

@@ -10,7 +10,9 @@ sources:
   path: portal/modules/documents/tools/document_mcp.py
 - type: code
   path: config/inference/tools_manifest_document_mcp.json
-claims: []
+claims:
+- probe: mcp.fleet.ids
+  contains: documents
 confidence: high
 tags:
 - capability

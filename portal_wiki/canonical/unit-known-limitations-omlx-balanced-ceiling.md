@@ -7,7 +7,11 @@ sources:
   path: portal/platform/inference/load_guard.py
 - type: code
   path: scripts/omlx_memory_tier.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/platform/inference/load_guard.py
+  symbol: memory
+  equals: true
 confidence: high
 tags:
 - known-limitations

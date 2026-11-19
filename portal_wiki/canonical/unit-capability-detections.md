@@ -8,7 +8,9 @@ sources:
   section: mcp_fleet
 - type: code
   path: portal/modules/security/tools/detections_mcp.py
-claims: []
+claims:
+- probe: mcp.fleet.ids
+  contains: detections
 confidence: high
 tags:
 - capability

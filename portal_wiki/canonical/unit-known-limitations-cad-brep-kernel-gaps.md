@@ -7,7 +7,10 @@ sources:
   path: portal/modules/cad/tools/b123d_emitter.py
 - type: code
   path: portal/modules/cad/tools/part_plan.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/cad/tools/b123d_emitter.py
+  equals: true
 confidence: high
 tags:
 - known-limitations

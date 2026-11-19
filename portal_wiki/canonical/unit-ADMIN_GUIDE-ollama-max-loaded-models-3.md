@@ -11,7 +11,11 @@ sources:
   path: portal/modules/security/core/commands/run.py
 - type: code
   path: portal/platform/inference/router/routing.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: .env.example
+  symbol: OLLAMA_MAX_LOADED_MODELS
+  equals: true
 confidence: high
 tags:
 - ADMIN_GUIDE

@@ -11,7 +11,10 @@ sources:
   path: scripts/omlx_venv_install.py
 - type: code
   path: deploy/launchd/com.portal5.omlx.plist
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/engine_autoupdate.py
+  equals: true
 confidence: high
 tags:
 - known-limitations

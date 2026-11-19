@@ -19,7 +19,11 @@ sources:
   path: scripts/orchestration_acceptance.py
 - type: code
   path: scripts/seat_preflight.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: scripts/host_quiet.py
+  symbol: begin_run
+  equals: true
 confidence: high
 tags:
 - known-limitations

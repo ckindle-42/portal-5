@@ -7,7 +7,11 @@ sources:
   path: scripts/lib/backup.sh
 - type: code
   path: launch.sh
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: scripts/lib/backup.sh
+  symbol: _launch_backup
+  equals: true
 confidence: high
 tags:
 - ADMIN_GUIDE

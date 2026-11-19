@@ -5,7 +5,11 @@ title: "HOWTO \u2014 22. MLX Acceleration (Apple Silicon) \u2014 RETIRED"
 sources:
 - type: code
   path: config/backends.yaml
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: config/backends.yaml
+  symbol: mlx_lm
+  equals: true
 confidence: high
 tags:
 - HOWTO

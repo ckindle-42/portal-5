@@ -3,70 +3,71 @@
 Temporary gate ledger for the content review. Each pending id is replaced with a current, historical, or obsolete decision as its unit is reviewed.
 
 Initial pending units: 733.
+Completed decisions: 100; pending: 633.
 
 - `SEC_BENCH-combined-corpus-validation-20260731` | pending | awaiting content review
-- `unit-ADMIN_GUIDE-add-a-cluster-node` | pending | awaiting content review
-- `unit-ADMIN_GUIDE-alternative-lan-reverse-proxy-caddy-nginx` | pending | awaiting content review
-- `unit-ADMIN_GUIDE-approve-pending-users` | pending | awaiting content review
-- `unit-ADMIN_GUIDE-backup` | pending | awaiting content review
-- `unit-ADMIN_GUIDE-changing-the-router-model` | pending | awaiting content review
-- `unit-ADMIN_GUIDE-check-pipeline-logs-for-router-decisions` | pending | awaiting content review
-- `unit-ADMIN_GUIDE-check-which-models-ollama-currently-has-loaded` | pending | awaiting content review
-- `unit-ADMIN_GUIDE-create-users-via-cli` | pending | awaiting content review
-- `unit-ADMIN_GUIDE-debugging-crashes` | pending | awaiting content review
-- `unit-ADMIN_GUIDE-first-login` | pending | awaiting content review
-- `unit-ADMIN_GUIDE-how-the-llm-router-works` | pending | awaiting content review
-- `unit-ADMIN_GUIDE-inference-health-monitoring` | pending | awaiting content review
-- `unit-ADMIN_GUIDE-load-guard-model-memory` | pending | awaiting content review
-- `unit-ADMIN_GUIDE-network-exposure` | pending | awaiting content review
-- `unit-ADMIN_GUIDE-ollama-is-native-plist-is-the-source-of-truth` | pending | awaiting content review
-- `unit-ADMIN_GUIDE-ollama-max-loaded-models-3` | pending | awaiting content review
-- `unit-ADMIN_GUIDE-ollama-memory-limit-deferred` | pending | awaiting content review
-- `unit-ADMIN_GUIDE-pull-additional-models` | pending | awaiting content review
-- `unit-ADMIN_GUIDE-pull-router-model-if-not-yet-downloaded` | pending | awaiting content review
-- `unit-ADMIN_GUIDE-read-a-turn-trace` | pending | awaiting content review
-- `unit-ADMIN_GUIDE-recommended-remote-access-cloudflare-tunnel` | pending | awaiting content review
-- `unit-ADMIN_GUIDE-router-benchmarks` | pending | awaiting content review
-- `unit-ADMIN_GUIDE-routine-operations` | pending | awaiting content review
-- `unit-ADMIN_GUIDE-runtime-vram-vs-file-size-gap` | pending | awaiting content review
-- `unit-ADMIN_GUIDE-security-notes` | pending | awaiting content review
-- `unit-ADMIN_GUIDE-three-tier-router-models` | pending | awaiting content review
-- `unit-ADMIN_GUIDE-user-roles` | pending | awaiting content review
+- `unit-ADMIN_GUIDE-add-a-cluster-node` | current | code symbol `backends_healthy` exists in `scripts/lib/util.sh`
+- `unit-ADMIN_GUIDE-alternative-lan-reverse-proxy-caddy-nginx` | current | code symbol `PORTAL_PUBLIC_URL` exists in `deploy/portal-5/docker-compose.yml`
+- `unit-ADMIN_GUIDE-approve-pending-users` | current | source path `.env.example` exists
+- `unit-ADMIN_GUIDE-backup` | current | code symbol `_launch_backup` exists in `scripts/lib/backup.sh`
+- `unit-ADMIN_GUIDE-changing-the-router-model` | current | code symbol `LLM_ROUTER_MODEL` exists in `.env.example`
+- `unit-ADMIN_GUIDE-check-pipeline-logs-for-router-decisions` | current | code symbol `_route_with_llm` exists in `portal/platform/inference/router/routing.py`
+- `unit-ADMIN_GUIDE-check-which-models-ollama-currently-has-loaded` | current | source path `portal/platform/mcp_host/pipeline_mcp.py` exists
+- `unit-ADMIN_GUIDE-create-users-via-cli` | current | code symbol `_launch_add_user` exists in `scripts/lib/users.sh`
+- `unit-ADMIN_GUIDE-debugging-crashes` | current | source path `launch.sh` exists
+- `unit-ADMIN_GUIDE-first-login` | current | code symbol `bootstrap_secrets` exists in `scripts/lib/util.sh`
+- `unit-ADMIN_GUIDE-how-the-llm-router-works` | current | code symbol `_route_with_llm` exists in `portal/platform/inference/router/routing.py`
+- `unit-ADMIN_GUIDE-inference-health-monitoring` | current | code symbol `OLLAMA_URL` exists in `.env.example`
+- `unit-ADMIN_GUIDE-load-guard-model-memory` | current | code symbol `admit_and_begin_ollama` exists in `portal/platform/inference/load_guard.py`
+- `unit-ADMIN_GUIDE-network-exposure` | current | source path `deploy/portal-5/docker-compose.yml` exists
+- `unit-ADMIN_GUIDE-ollama-is-native-plist-is-the-source-of-truth` | current | code symbol `OLLAMA_MIN_VERSION` exists in `scripts/lib/services.sh`
+- `unit-ADMIN_GUIDE-ollama-max-loaded-models-3` | current | code symbol `OLLAMA_MAX_LOADED_MODELS` exists in `.env.example`
+- `unit-ADMIN_GUIDE-ollama-memory-limit-deferred` | current | code symbol `OLLAMA_MEMORY_LIMIT` exists in `.env.example`
+- `unit-ADMIN_GUIDE-pull-additional-models` | current | source path `launch.sh` exists
+- `unit-ADMIN_GUIDE-pull-router-model-if-not-yet-downloaded` | current | code symbol `models_pull` exists in `portal/platform/inference/cli/models.py`
+- `unit-ADMIN_GUIDE-read-a-turn-trace` | current | source path `portal/platform/inference/router/handlers.py` exists
+- `unit-ADMIN_GUIDE-recommended-remote-access-cloudflare-tunnel` | current | code symbol `OWUI_API_KEY` exists in `launch.sh`
+- `unit-ADMIN_GUIDE-router-benchmarks` | current | code symbol `GOLDEN_SET` exists in `tests/benchmarks/bench_router.py`
+- `unit-ADMIN_GUIDE-routine-operations` | current | code symbol `_cmd_status` exists in `launch.sh`
+- `unit-ADMIN_GUIDE-runtime-vram-vs-file-size-gap` | current | code symbol `OLLAMA_NUM_BATCH` exists in `.env.example`
+- `unit-ADMIN_GUIDE-security-notes` | current | code symbol `CHANGEME` exists in `.env.example`
+- `unit-ADMIN_GUIDE-three-tier-router-models` | current | code symbol `LLM_ROUTER_MODEL` exists in `.env.example`
+- `unit-ADMIN_GUIDE-user-roles` | current | source path `.env.example` exists
 - `unit-DESIGN_WIKI-discovery-termination` | pending | awaiting content review
 - `unit-DESIGN_WIKI-fence-contract` | pending | awaiting content review
 - `unit-DESIGN_WIKI-migration-procedure` | pending | awaiting content review
 - `unit-DESIGN_WIKI-section-granularity` | pending | awaiting content review
 - `unit-DESIGN_WIKI-spine-write-point` | pending | awaiting content review
-- `unit-HOWTO-1-quick-start` | pending | awaiting content review
-- `unit-HOWTO-10-music-generation` | pending | awaiting content review
-- `unit-HOWTO-11-text-to-speech` | pending | awaiting content review
-- `unit-HOWTO-12-speech-to-text-asr` | pending | awaiting content review
-- `unit-HOWTO-13-web-search` | pending | awaiting content review
-- `unit-HOWTO-14-document-rag-knowledge-base` | pending | awaiting content review
-- `unit-HOWTO-16-telegram-bot` | pending | awaiting content review
-- `unit-HOWTO-17-slack-bot` | pending | awaiting content review
-- `unit-HOWTO-18-notifications-alerts` | pending | awaiting content review
-- `unit-HOWTO-19-backup-restore` | pending | awaiting content review
-- `unit-HOWTO-2-chat-with-ai` | pending | awaiting content review
-- `unit-HOWTO-20-cluster-scaling` | pending | awaiting content review
-- `unit-HOWTO-21-remote-api-access-pipeline-at-9099` | pending | awaiting content review
-- `unit-HOWTO-22-mlx-acceleration-apple-silicon-retired` | pending | awaiting content review
-- `unit-HOWTO-23-metrics-monitoring` | pending | awaiting content review
-- `unit-HOWTO-3-workspaces` | pending | awaiting content review
-- `unit-HOWTO-4-personas` | pending | awaiting content review
-- `unit-HOWTO-5-code-generation-execution` | pending | awaiting content review
-- `unit-HOWTO-6-security-analysis` | pending | awaiting content review
-- `unit-HOWTO-7-document-generation` | pending | awaiting content review
-- `unit-HOWTO-8-image-generation` | pending | awaiting content review
-- `unit-HOWTO-9-video-generation` | pending | awaiting content review
-- `unit-HOWTO-adding-new-capabilities` | pending | awaiting content review
-- `unit-HOWTO-diarized-transcription-speaker-labeled-transcripts` | pending | awaiting content review
-- `unit-HOWTO-discovery-with-fact-units` | pending | awaiting content review
-- `unit-HOWTO-embed-media-in-documents` | pending | awaiting content review
-- `unit-HOWTO-media-memory-and-launch-order` | pending | awaiting content review
-- `unit-HOWTO-quick-reference-cli-commands` | pending | awaiting content review
-- `unit-HOWTO-shared-workspace` | pending | awaiting content review
-- `unit-HOWTO-user-management` | pending | awaiting content review
+- `unit-HOWTO-1-quick-start` | current | source path `launch.sh` exists
+- `unit-HOWTO-10-music-generation` | current | code symbol `minimax_generate` exists in `portal/modules/media/tools/music_minimax_mcp.py`
+- `unit-HOWTO-11-text-to-speech` | current | code symbol `list_voices` exists in `scripts/mlx-speech.py`
+- `unit-HOWTO-12-speech-to-text-asr` | current | code symbol `transcribe_audio` exists in `portal/modules/media/tools/whisper_mcp.py`
+- `unit-HOWTO-13-web-search` | current | code symbol `web_search` exists in `portal/modules/research/tools/web_search_mcp.py`
+- `unit-HOWTO-14-document-rag-knowledge-base` | current | code symbol `inject_retrieved_context` exists in `portal/platform/inference/router/context_inject.py`
+- `unit-HOWTO-16-telegram-bot` | current | source path `launch.sh` exists
+- `unit-HOWTO-17-slack-bot` | current | source path `launch.sh` exists
+- `unit-HOWTO-18-notifications-alerts` | current | code symbol `AlertEvent` exists in `portal/platform/inference/router/handlers.py`
+- `unit-HOWTO-19-backup-restore` | current | source path `scripts/lib/backup.sh` exists
+- `unit-HOWTO-2-chat-with-ai` | current | code symbol `OPENWEBUI_ADMIN_PASSWORD` exists in `launch.sh`
+- `unit-HOWTO-20-cluster-scaling` | current | code symbol `workspace_routing` exists in `config/backends.yaml`
+- `unit-HOWTO-21-remote-api-access-pipeline-at-9099` | current | code symbol `list_models` exists in `portal/platform/inference/router/handlers.py`
+- `unit-HOWTO-22-mlx-acceleration-apple-silicon-retired` | current | code symbol `mlx_lm` exists in `config/backends.yaml`
+- `unit-HOWTO-23-metrics-monitoring` | current | code symbol `json` exists in `portal/platform/inference/router/handlers.py`
+- `unit-HOWTO-3-workspaces` | current | code symbol `model_hint` exists in `config/portal.yaml`
+- `unit-HOWTO-4-personas` | current | code symbol `workspace_model` exists in `config/personas/redteamoperator.yaml`
+- `unit-HOWTO-5-code-generation-execution` | current | code symbol `execute_python` exists in `portal/modules/coding/tools/code_sandbox_mcp.py`
+- `unit-HOWTO-6-security-analysis` | current | code symbol `execute_bash` exists in `config/portal.yaml`
+- `unit-HOWTO-7-document-generation` | current | code symbol `create_word_document` exists in `config/portal.yaml`
+- `unit-HOWTO-8-image-generation` | current | code symbol `generate_image` exists in `portal/modules/media/tools/mflux_mcp.py`
+- `unit-HOWTO-9-video-generation` | current | source path `portal/modules/media/tools/video_mlx_mcp.py` exists
+- `unit-HOWTO-adding-new-capabilities` | current | code symbol `system_prompt` exists in `config/portal.yaml`
+- `unit-HOWTO-diarized-transcription-speaker-labeled-transcripts` | current | source path `scripts/mlx-transcribe.py` exists
+- `unit-HOWTO-discovery-with-fact-units` | current | code symbol `wiki_search` exists in `portal_wiki/mcp.py`
+- `unit-HOWTO-embed-media-in-documents` | current | code symbol `image_url` exists in `portal/modules/documents/tools/document_mcp.py`
+- `unit-HOWTO-media-memory-and-launch-order` | current | source path `portal/modules/media/tools/_admission.py` exists
+- `unit-HOWTO-quick-reference-cli-commands` | current | source path `launch.sh` exists
+- `unit-HOWTO-shared-workspace` | current | source path `portal/platform/mcp_host/workspace.py` exists
+- `unit-HOWTO-user-management` | current | source path `.env.example` exists
 - `unit-SEC_BENCH-architecture-invariant` | pending | awaiting content review
 - `unit-SEC_BENCH-blue-orchestration` | pending | awaiting content review
 - `unit-SEC_BENCH-coding-agent-reentry` | pending | awaiting content review
@@ -190,18 +191,18 @@ Initial pending units: 733.
 - `unit-bench-security` | pending | awaiting content review
 - `unit-blue-orchestration-v2-capture-gap` | pending | awaiting content review
 - `unit-blue-orchestration-v3-council-of-agreement` | pending | awaiting content review
-- `unit-capability-binresearch` | pending | awaiting content review
-- `unit-capability-browser` | pending | awaiting content review
+- `unit-capability-binresearch` | current | MCP fleet probe includes `binresearch`
+- `unit-capability-browser` | current | MCP fleet probe includes `browser`
 - `unit-capability-cad-render` | pending | awaiting content review
-- `unit-capability-context7` | pending | awaiting content review
-- `unit-capability-detections` | pending | awaiting content review
-- `unit-capability-docker` | pending | awaiting content review
-- `unit-capability-documents` | pending | awaiting content review
+- `unit-capability-context7` | current | MCP fleet probe includes `context7`
+- `unit-capability-detections` | current | MCP fleet probe includes `detections`
+- `unit-capability-docker` | current | MCP fleet probe includes `docker`
+- `unit-capability-documents` | current | MCP fleet probe includes `documents`
 - `unit-capability-eg2-embedding` | pending | awaiting content review
-- `unit-capability-execution` | pending | awaiting content review
-- `unit-capability-fetch` | pending | awaiting content review
-- `unit-capability-filesystem` | pending | awaiting content review
-- `unit-capability-git` | pending | awaiting content review
+- `unit-capability-execution` | current | MCP fleet probe includes `execution`
+- `unit-capability-fetch` | current | MCP fleet probe includes `fetch`
+- `unit-capability-filesystem` | current | MCP fleet probe includes `filesystem`
+- `unit-capability-git` | current | MCP fleet probe includes `git`
 - `unit-capability-memory` | pending | awaiting content review
 - `unit-capability-mflux` | pending | awaiting content review
 - `unit-capability-mitre` | pending | awaiting content review
@@ -284,51 +285,51 @@ Initial pending units: 733.
 - `unit-inference-router-pipe` | pending | awaiting content review
 - `unit-known-issues-known-issues` | pending | awaiting content review
 - `unit-known-limitations-70b-dense-models-unusable-for-daily-routing-on-m4-pro-64gb` | pending | awaiting content review
-- `unit-known-limitations-acestep15-mlx-backend` | pending | awaiting content review
+- `unit-known-limitations-acestep15-mlx-backend` | current | code symbol `ace_generate` exists in `portal/modules/media/tools/music_ace_mcp.py`
 - `unit-known-limitations-antares-gate-e1-gated-download` | pending | awaiting content review
 - `unit-known-limitations-asteroids-bench-score-variance-is-the-benchmark-s-purpose` | pending | awaiting content review
 - `unit-known-limitations-auto-math-workspace-reasoning-block-support` | pending | awaiting content review
-- `unit-known-limitations-auto-rag-silent-miss` | pending | awaiting content review
+- `unit-known-limitations-auto-rag-silent-miss` | current | code symbol `inject_retrieved_context` exists in `portal/platform/inference/router/context_inject.py`
 - `unit-known-limitations-baronllm-text-only-tool-output-auto-security-mcp-tools-non-functional` | pending | awaiting content review
-- `unit-known-limitations-bully-discovery-truth-leak` | pending | awaiting content review
-- `unit-known-limitations-cad-b3d-session` | pending | awaiting content review
-- `unit-known-limitations-cad-brep-kernel-gaps` | pending | awaiting content review
+- `unit-known-limitations-bully-discovery-truth-leak` | current | code symbol `independent_truth_related` exists in `portal/modules/security/core/bully/discovery_bench.py`
+- `unit-known-limitations-cad-b3d-session` | current | code symbol `cad_execute` exists in `portal/modules/cad/tools/b123d_bridge.py`
+- `unit-known-limitations-cad-brep-kernel-gaps` | current | source path `portal/modules/cad/tools/b123d_emitter.py` exists
 - `unit-known-limitations-cadquery-and-build123d-unusable-on-linux-arm64` | pending | awaiting content review
 - `unit-known-limitations-code-sandbox-requires-privileged-container` | pending | awaiting content review
-- `unit-known-limitations-compliance-implicit-change-recall` | pending | awaiting content review
+- `unit-known-limitations-compliance-implicit-change-recall` | current | source path `portal/modules/compliance/core/register_diff.py` exists
 - `unit-known-limitations-compliance-mcp-protocol-calls-not-cancelled` | pending | awaiting content review
-- `unit-known-limitations-compliance-review-queue-not-a-gate` | pending | awaiting content review
+- `unit-known-limitations-compliance-review-queue-not-a-gate` | current | code symbol `prior_item_id` exists in `portal/modules/compliance/core/review_queue.py`
 - `unit-known-limitations-compliance-scope-was-gated-on-data-the-corpus-already-answers` | pending | awaiting content review
 - `unit-known-limitations-devstral-24b-runtime-vram-footprint-25-7-gb` | pending | awaiting content review
 - `unit-known-limitations-diarized-transcription-task-transcribe-001` | pending | awaiting content review
 - `unit-known-limitations-emergent-objective-loop-curated-capability-tool-names-vs-live-dispatch-whitelist` | pending | awaiting content review
-- `unit-known-limitations-engine-update-data01-approval` | pending | awaiting content review
+- `unit-known-limitations-engine-update-data01-approval` | current | source path `scripts/engine_autoupdate.py` exists
 - `unit-known-limitations-fara-cua-tag-closure` | pending | awaiting content review
-- `unit-known-limitations-granite-8b-mxfp8-tool-garbling` | pending | awaiting content review
+- `unit-known-limitations-granite-8b-mxfp8-tool-garbling` | current | code symbol `tool_calls` exists in `config/backends.yaml`
 - `unit-known-limitations-higgs-voice-cloning` | pending | awaiting content review
-- `unit-known-limitations-host-measurement-contention` | pending | awaiting content review
+- `unit-known-limitations-host-measurement-contention` | current | code symbol `begin_run` exists in `scripts/host_quiet.py`
 - `unit-known-limitations-host-native-mcp-lifecycle-launcher-child-exit` | pending | awaiting content review
 - `unit-known-limitations-importing-the-security-bench-module-sets-a-linux-only-prometheus-multiproc-dir-host-side` | pending | awaiting content review
 - `unit-known-limitations-known-limitations` | pending | awaiting content review
 - `unit-known-limitations-ling-3-0-flash-turboquant-memory-gates` | pending | awaiting content review
-- `unit-known-limitations-load-guard-omlx-swap` | pending | awaiting content review
+- `unit-known-limitations-load-guard-omlx-swap` | current | code symbol `_FREE_SETTLE_EXPECTED_S` exists in `portal/platform/inference/load_guard.py`
 - `unit-known-limitations-meta3-metasploitable3-windows-scenario-coverage-spl-precision-gaps` | pending | awaiting content review
-- `unit-known-limitations-minimax-music3-mlx` | pending | awaiting content review
+- `unit-known-limitations-minimax-music3-mlx` | current | source path `portal/modules/media/tools/music_minimax_mcp.py` exists
 - `unit-known-limitations-mlx-inference-proxy-retired-commit-3a0c58e` | pending | awaiting content review
 - `unit-known-limitations-model-parity-specialist-models-lost-in-the-mlx-ollama-migration` | pending | awaiting content review
 - `unit-known-limitations-models-out-of-m4-pro-64-gb-budget` | pending | awaiting content review
 - `unit-known-limitations-narrated-tool-call-instead-of-real-dispatch` | pending | awaiting content review
 - `unit-known-limitations-no-built-in-multi-user-rate-limiting` | pending | awaiting content review
-- `unit-known-limitations-ollama-api-ps-under-reports-llamacpp-residents` | pending | awaiting content review
+- `unit-known-limitations-ollama-api-ps-under-reports-llamacpp-residents` | current | code symbol `LoadGuard` exists in `portal/platform/inference/load_guard.py`
 - `unit-known-limitations-ollama-gpu-overhead-ceiling` | pending | awaiting content review
 - `unit-known-limitations-ollama-native-mlx-engine-evaluation-findings-2026-07-01` | pending | awaiting content review
-- `unit-known-limitations-ollama-tool-call-parser-aborts-a-started-stream` | pending | awaiting content review
+- `unit-known-limitations-ollama-tool-call-parser-aborts-a-started-stream` | current | code symbol `finish_reason` exists in `portal/platform/inference/router/streaming.py`
 - `unit-known-limitations-ollama-v1-ignores-options-num-ctx-and-options-num-batch` | pending | awaiting content review
-- `unit-known-limitations-ollama-v1-sampling-drop` | pending | awaiting content review
-- `unit-known-limitations-ollama40-model-store` | pending | awaiting content review
-- `unit-known-limitations-omlx-balanced-ceiling` | pending | awaiting content review
-- `unit-known-limitations-omlx-prefix-cache-accounting` | pending | awaiting content review
-- `unit-known-limitations-omlx-qwen3coder-tool-text` | pending | awaiting content review
+- `unit-known-limitations-ollama-v1-sampling-drop` | current | code symbol `OllamaNativeTransport` exists in `portal/platform/inference/ollama_native.py`
+- `unit-known-limitations-ollama40-model-store` | current | code symbol `num_ctx` exists in `scripts/model_upstream.py`
+- `unit-known-limitations-omlx-balanced-ceiling` | current | code symbol `memory` exists in `portal/platform/inference/load_guard.py`
+- `unit-known-limitations-omlx-prefix-cache-accounting` | current | code symbol `_omlx_request` exists in `portal/platform/inference/ollama_native.py`
+- `unit-known-limitations-omlx-qwen3coder-tool-text` | current | code symbol `qwen3_coder` exists in `config/portal.yaml`
 - `unit-known-limitations-owui-audio-drop-ux-task-owui-audio-drop-001` | pending | awaiting content review
 - `unit-known-limitations-p5-emergent-002-deterministic-capability-ranker-can-t-reach-oracle-bearing-capabilities-once-any-tool-declaring-recon-capability-is-a-candidate` | pending | awaiting content review
 - `unit-known-limitations-p5-mlx-eval-001-gguf-fleet-regressed-slightly-on-0-31-1-mtp-is-mlx-engine-only` | pending | awaiting content review
@@ -337,7 +338,7 @@ Initial pending units: 733.
 - `unit-known-limitations-p5-mlx-eval-004-large-single-blob-mlx-downloads-hang-intermittently` | pending | awaiting content review
 - `unit-known-limitations-p5-mlx-eval-005-two-security-tier-fine-tunes-have-no-working-mlx-conversion` | pending | awaiting content review
 - `unit-known-limitations-phi4-reasoning-plus-crashes-ollama-s-llama-server-on-this-host-confirmed-not-a-corrupted-download` | pending | awaiting content review
-- `unit-known-limitations-pipeline-hardening-20260925` | pending | awaiting content review
+- `unit-known-limitations-pipeline-hardening-20260925` | current | code symbol `resolve_hop_target` exists in `portal/platform/inference/router/streaming.py`
 - `unit-known-limitations-post-v1-messages-anthropic-compat-endpoint-returns-http-200-with-a-null-body` | pending | awaiting content review
 - `unit-known-limitations-pytest-portal-leaves-real-write-through-test-artifacts` | pending | awaiting content review
 - `unit-known-limitations-rbp-benign-corpus-alert-fatigue` | pending | awaiting content review
@@ -348,12 +349,12 @@ Initial pending units: 733.
 - `unit-known-limitations-speculative-decoding-mtp-retired-with-the-mlx-proxy-commit-3a0c58e` | pending | awaiting content review
 - `unit-known-limitations-spine-code-coverage-ratchet` | pending | awaiting content review
 - `unit-known-limitations-tool-preselection-candidate-1b-models-cannot-rank-tools` | pending | awaiting content review
-- `unit-known-limitations-transitive-dependency-cves` | pending | awaiting content review
-- `unit-known-limitations-unregistered-hint-fallback` | pending | awaiting content review
+- `unit-known-limitations-transitive-dependency-cves` | current | code symbol `convert_sigma` exists in `portal/modules/detection/tools/detection_mcp.py`
+- `unit-known-limitations-unregistered-hint-fallback` | current | code symbol `model_hint` exists in `portal/platform/inference/router/streaming.py`
 - `unit-known-limitations-v5-model-visible-corpus-retrieval-coverage` | pending | awaiting content review
 - `unit-known-limitations-v8-catalog-deferred-insufficient-hardware` | pending | awaiting content review
 - `unit-known-limitations-vl-retrieval-runtime` | pending | awaiting content review
-- `unit-known-limitations-vl-text-gate-tuned-against-manufactured-collision` | pending | awaiting content review
+- `unit-known-limitations-vl-text-gate-tuned-against-manufactured-collision` | current | code symbol `VL_TEXT_GATE` exists in `reports/retrieval/SUBSTRATE_MIGRATION_V1.md`
 - `unit-lab-setup-all-these-should-succeed-after-setup` | pending | awaiting content review
 - `unit-lab-setup-full-setup-downloads-vulhub-challenge-composes-base-images-model-pulls` | pending | awaiting content review
 - `unit-lab-setup-lab-setup-cold-start-runbook` | pending | awaiting content review
@@ -713,16 +714,16 @@ Initial pending units: 733.
 - `unit-uat-owui_api` | pending | awaiting content review
 - `unit-uat-results` | pending | awaiting content review
 - `unit-uat-state` | pending | awaiting content review
-- `unit-user-guide-cross-session-memory` | pending | awaiting content review
-- `unit-user-guide-getting-access` | pending | awaiting content review
-- `unit-user-guide-how-it-works` | pending | awaiting content review
-- `unit-user-guide-knowledge-base-document-rag` | pending | awaiting content review
-- `unit-user-guide-personas` | pending | awaiting content review
-- `unit-user-guide-supported-formats` | pending | awaiting content review
-- `unit-user-guide-tips` | pending | awaiting content review
-- `unit-user-guide-tools-mcp-servers` | pending | awaiting content review
-- `unit-user-guide-uploading-documents` | pending | awaiting content review
-- `unit-user-guide-workspaces` | pending | awaiting content review
+- `unit-user-guide-cross-session-memory` | current | code symbol `ENABLE_MEMORY_FEATURE` exists in `deploy/portal-5/docker-compose.yml`
+- `unit-user-guide-getting-access` | current | code symbol `ENABLE_SIGNUP` exists in `deploy/portal-5/docker-compose.yml`
+- `unit-user-guide-how-it-works` | current | code symbol `CHUNK_SIZE` exists in `deploy/portal-5/docker-compose.yml`
+- `unit-user-guide-knowledge-base-document-rag` | current | code symbol `CHUNK_SIZE` exists in `deploy/portal-5/docker-compose.yml`
+- `unit-user-guide-personas` | current | code symbol `workspace_model` exists in `config/personas/adversarysimulator.yaml`
+- `unit-user-guide-supported-formats` | current | code symbol `kb_ingest` exists in `portal/modules/research/tools/rag_mcp.py`
+- `unit-user-guide-tips` | current | code symbol `CHUNK_SIZE` exists in `deploy/portal-5/docker-compose.yml`
+- `unit-user-guide-tools-mcp-servers` | current | code symbol `create_word_document` exists in `portal/modules/documents/tools/document_mcp.py`
+- `unit-user-guide-uploading-documents` | current | code symbol `CHUNK_SIZE` exists in `deploy/portal-5/docker-compose.yml`
+- `unit-user-guide-workspaces` | current | code symbol `model_hint` exists in `config/portal.yaml`
 - `unit-wfe-loop-attribution-protocol` | pending | awaiting content review
 - `unit-wfe-workspace-fitness` | pending | awaiting content review
 - `unit-wiki-adapter-modules` | pending | awaiting content review

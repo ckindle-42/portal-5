@@ -7,7 +7,11 @@ sources:
   path: config/portal.yaml
 - type: code
   path: portal/platform/inference/router/preinject.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: config/portal.yaml
+  symbol: execute_bash
+  equals: true
 confidence: high
 tags:
 - HOWTO

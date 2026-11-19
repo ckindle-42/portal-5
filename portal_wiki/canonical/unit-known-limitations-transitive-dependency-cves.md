@@ -7,7 +7,11 @@ sources:
   path: portal/modules/detection/tools/detection_mcp.py
 - type: code
   path: portal/modules/research/tools/rag_mcp.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/detection/tools/detection_mcp.py
+  symbol: convert_sigma
+  equals: true
 confidence: medium
 tags:
 - known-limitations

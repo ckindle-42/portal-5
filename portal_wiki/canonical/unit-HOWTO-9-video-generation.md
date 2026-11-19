@@ -5,7 +5,10 @@ title: "HOWTO — 9. Video Generation"
 sources:
 - type: code
   path: portal/modules/media/tools/video_mlx_mcp.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/media/tools/video_mlx_mcp.py
+  equals: true
 confidence: high
 tags:
 - HOWTO

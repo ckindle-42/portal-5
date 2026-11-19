@@ -7,7 +7,11 @@ sources:
   path: portal/platform/inference/router/handlers.py
 - type: code
   path: .env.example
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/platform/inference/router/handlers.py
+  symbol: AlertEvent
+  equals: true
 confidence: high
 tags:
 - HOWTO

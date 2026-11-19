@@ -7,7 +7,11 @@ sources:
   path: launch.sh
 - type: code
   path: scripts/lib/util.sh
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: launch.sh
+  symbol: _cmd_status
+  equals: true
 confidence: high
 tags:
 - ADMIN_GUIDE

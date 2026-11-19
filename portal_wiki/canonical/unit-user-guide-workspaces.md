@@ -9,7 +9,11 @@ sources:
   path: portal/platform/inference/sync_config.py
 - type: code
   path: portal/platform/inference/router/workspaces.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: config/portal.yaml
+  symbol: model_hint
+  equals: true
 confidence: high
 tags:
 - docs

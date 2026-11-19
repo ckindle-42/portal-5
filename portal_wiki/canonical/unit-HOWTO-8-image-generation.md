@@ -5,7 +5,11 @@ title: "HOWTO — 8. Image Generation"
 sources:
 - type: code
   path: portal/modules/media/tools/mflux_mcp.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/media/tools/mflux_mcp.py
+  symbol: generate_image
+  equals: true
 confidence: high
 tags:
 - HOWTO

@@ -7,7 +7,11 @@ sources:
   path: deploy/portal-5/docker-compose.yml
 - type: code
   path: scripts/openwebui_init.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: deploy/portal-5/docker-compose.yml
+  symbol: ENABLE_SIGNUP
+  equals: true
 confidence: high
 tags:
 - docs

@@ -7,7 +7,11 @@ sources:
   path: portal/modules/compliance/core/review_queue.py
 - type: code
   path: portal/modules/compliance/core/mapping_store.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/compliance/core/review_queue.py
+  symbol: prior_item_id
+  equals: true
 confidence: high
 tags:
 - docs

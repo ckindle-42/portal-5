@@ -9,7 +9,11 @@ sources:
   path: scripts/lib/util.sh
 - type: code
   path: .gitignore
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: .env.example
+  symbol: CHANGEME
+  equals: true
 confidence: high
 tags:
 - ADMIN_GUIDE

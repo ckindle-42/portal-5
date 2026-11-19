@@ -9,7 +9,11 @@ sources:
   path: portal/platform/inference/router/routing.py
 - type: code
   path: tests/benchmarks/bench_router.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: .env.example
+  symbol: LLM_ROUTER_MODEL
+  equals: true
 confidence: high
 tags:
 - ADMIN_GUIDE

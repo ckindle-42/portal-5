@@ -7,7 +7,11 @@ sources:
   path: deploy/portal-5/docker-compose.yml
 - type: code
   path: portal/modules/research/tools/rag_mcp.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: deploy/portal-5/docker-compose.yml
+  symbol: CHUNK_SIZE
+  equals: true
 confidence: high
 tags:
 - docs

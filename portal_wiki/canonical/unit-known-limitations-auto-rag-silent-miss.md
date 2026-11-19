@@ -8,7 +8,11 @@ sources:
 - type: code
   path: config/portal.yaml
   section: workspaces
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/platform/inference/router/context_inject.py
+  symbol: inject_retrieved_context
+  equals: true
 confidence: high
 tags:
 - docs

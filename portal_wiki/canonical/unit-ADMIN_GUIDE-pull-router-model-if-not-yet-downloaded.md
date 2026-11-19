@@ -9,7 +9,11 @@ sources:
   path: portal/platform/inference/cli/models.py
 - type: code
   path: portal/platform/inference/cli/_common.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/platform/inference/cli/models.py
+  symbol: models_pull
+  equals: true
 confidence: high
 tags:
 - ADMIN_GUIDE

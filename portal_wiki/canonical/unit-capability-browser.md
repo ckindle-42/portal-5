@@ -10,7 +10,9 @@ sources:
   path: portal/modules/research/tools/browser_mcp.py
 - type: code
   path: config/inference/tools_manifest_browser_mcp.json
-claims: []
+claims:
+- probe: mcp.fleet.ids
+  contains: browser
 confidence: high
 tags:
 - capability

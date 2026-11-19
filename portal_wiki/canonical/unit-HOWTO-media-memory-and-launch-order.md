@@ -7,7 +7,10 @@ sources:
   path: portal/modules/media/tools/_admission.py
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/media/tools/_admission.py
+  equals: true
 confidence: high
 tags:
 - HOWTO

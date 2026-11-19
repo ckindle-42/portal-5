@@ -9,7 +9,11 @@ sources:
   path: scripts/lib/util.sh
 - type: code
   path: launch.sh
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: scripts/lib/users.sh
+  symbol: _launch_add_user
+  equals: true
 confidence: high
 tags:
 - ADMIN_GUIDE

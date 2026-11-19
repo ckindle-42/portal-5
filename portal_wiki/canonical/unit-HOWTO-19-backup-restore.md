@@ -5,7 +5,10 @@ title: HOWTO -- 19. Backup & Restore
 sources:
 - type: code
   path: scripts/lib/backup.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/lib/backup.sh
+  equals: true
 confidence: high
 tags:
 - HOWTO

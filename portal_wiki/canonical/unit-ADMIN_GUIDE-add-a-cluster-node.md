@@ -7,7 +7,11 @@ sources:
   path: config/backends.yaml
 - type: code
   path: scripts/lib/util.sh
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: scripts/lib/util.sh
+  symbol: backends_healthy
+  equals: true
 confidence: high
 tags:
 - ADMIN_GUIDE

@@ -7,7 +7,11 @@ sources:
   path: portal/platform/inference/router/app.py
 - type: code
   path: portal/platform/inference/router/handlers.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/platform/inference/router/handlers.py
+  symbol: list_models
+  equals: true
 confidence: high
 tags:
 - HOWTO

@@ -10,7 +10,9 @@ sources:
   path: portal/modules/coding/tools/code_sandbox_mcp.py
 - type: code
   path: config/inference/tools_manifest_code_sandbox_mcp.json
-claims: []
+claims:
+- probe: mcp.fleet.ids
+  contains: execution
 confidence: high
 tags:
 - capability

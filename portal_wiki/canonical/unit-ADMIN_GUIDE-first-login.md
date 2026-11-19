@@ -9,7 +9,11 @@ sources:
   path: launch.sh
 - type: code
   path: .env.example
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: scripts/lib/util.sh
+  symbol: bootstrap_secrets
+  equals: true
 confidence: high
 tags:
 - ADMIN_GUIDE

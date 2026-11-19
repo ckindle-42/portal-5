@@ -9,7 +9,11 @@ sources:
   path: scripts/check_updates.py
 - type: code
   path: scripts/model_autoupdate.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: scripts/model_upstream.py
+  symbol: num_ctx
+  equals: true
 confidence: high
 tags:
 - known-limitations

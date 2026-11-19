@@ -7,7 +7,11 @@ sources:
   path: portal/modules/media/tools/whisper_mcp.py
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/media/tools/whisper_mcp.py
+  symbol: transcribe_audio
+  equals: true
 confidence: high
 tags:
 - HOWTO

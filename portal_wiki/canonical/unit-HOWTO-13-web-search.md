@@ -7,7 +7,11 @@ sources:
   path: portal/modules/research/tools/web_search_mcp.py
 - type: code
   path: config/searxng/settings.yml
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/research/tools/web_search_mcp.py
+  symbol: web_search
+  equals: true
 confidence: high
 tags:
 - HOWTO

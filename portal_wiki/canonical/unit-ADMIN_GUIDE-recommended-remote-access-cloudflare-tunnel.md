@@ -9,7 +9,11 @@ sources:
   path: config/cloudflared/config.yml.example
 - type: code
   path: .env.example
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: launch.sh
+  symbol: OWUI_API_KEY
+  equals: true
 confidence: high
 tags:
 - ADMIN_GUIDE

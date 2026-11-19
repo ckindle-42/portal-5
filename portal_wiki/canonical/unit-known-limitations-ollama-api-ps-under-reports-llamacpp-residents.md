@@ -5,7 +5,11 @@ title: Ollama 0.40 /api/ps Under-Reports llamacpp-Runner Residents
 sources:
 - type: code
   path: portal/platform/inference/load_guard.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/platform/inference/load_guard.py
+  symbol: LoadGuard
+  equals: true
 confidence: high
 tags:
 - known-limitations

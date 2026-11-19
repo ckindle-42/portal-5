@@ -9,7 +9,11 @@ sources:
   path: portal/platform/inference/router/metrics.py
 - type: code
   path: tests/unit/test_load_guard.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/platform/inference/load_guard.py
+  symbol: _FREE_SETTLE_EXPECTED_S
+  equals: true
 confidence: high
 tags:
 - known-limitations

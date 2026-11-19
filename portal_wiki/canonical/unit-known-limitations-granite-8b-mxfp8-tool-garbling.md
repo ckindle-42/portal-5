@@ -9,7 +9,11 @@ sources:
   path: config/backends.yaml
 - type: code
   path: tests/unit/test_wfe_garble_probe.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: config/backends.yaml
+  symbol: tool_calls
+  equals: true
 confidence: high
 tags:
 - docs

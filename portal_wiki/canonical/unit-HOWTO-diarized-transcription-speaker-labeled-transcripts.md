@@ -7,7 +7,10 @@ sources:
   path: scripts/mlx-transcribe.py
 - type: code
   path: scripts/lib/services.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: scripts/mlx-transcribe.py
+  equals: true
 confidence: high
 tags:
 - HOWTO

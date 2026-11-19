@@ -9,7 +9,11 @@ sources:
   path: portal/platform/inference/router/routing.py
 - type: code
   path: portal/platform/inference/router/handlers.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/platform/inference/router/routing.py
+  symbol: _route_with_llm
+  equals: true
 confidence: high
 tags:
 - ADMIN_GUIDE

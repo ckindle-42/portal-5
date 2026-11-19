@@ -9,7 +9,11 @@ sources:
   path: tests/benchmarks/bench_router_conditions.py
 - type: code
   path: .env.example
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: tests/benchmarks/bench_router.py
+  symbol: GOLDEN_SET
+  equals: true
 confidence: high
 tags:
 - ADMIN_GUIDE

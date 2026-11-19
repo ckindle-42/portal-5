@@ -19,7 +19,11 @@ sources:
   path: deploy/launchd/com.portal5.omlx.plist
 - type: code
   path: scripts/omlx-watchdog.sh
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: scripts/lib/services.sh
+  symbol: OLLAMA_MIN_VERSION
+  equals: true
 confidence: high
 tags:
 - ADMIN_GUIDE

@@ -204,7 +204,11 @@ def _expand_glob(root: Path, pattern: str) -> set[str]:
 
 
 def archive_unit(
-    unit_id: str, reason: str, repo_root: Path | None = None, superseded_by: str | None = None
+    unit_id: str,
+    reason: str,
+    repo_root: Path | None = None,
+    superseded_by: str | None = None,
+    historical: bool = False,
 ) -> tuple[bool, str]:
     """Move a live unit to the archive store and append its index line.
 
@@ -219,6 +223,8 @@ def archive_unit(
     unit = load_unit(unit_id)
     if unit is None:
         return False, f"no live unit {unit_id}"
+    historical = historical or unit.historical
+    unit.historical = historical
 
     refusals = check_archivable(unit, root)
     code_refusals = [r for r in refusals if "cites live source" in r]
@@ -230,7 +236,7 @@ def archive_unit(
         err = verify_superseded(unit, superseded_by, root)
         if err:
             return False, err
-    elif code_refusals:
+    elif code_refusals and not historical:
         return False, "; ".join(refusals)
 
     if other_refusals:

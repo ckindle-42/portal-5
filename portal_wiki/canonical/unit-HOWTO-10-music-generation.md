@@ -7,7 +7,11 @@ sources:
   path: portal/modules/media/tools/music_minimax_mcp.py
 - type: code
   path: scripts/lib/services.sh
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/media/tools/music_minimax_mcp.py
+  symbol: minimax_generate
+  equals: true
 confidence: high
 tags:
 - HOWTO

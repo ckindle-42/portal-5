@@ -7,7 +7,11 @@ sources:
   path: portal/modules/coding/tools/code_sandbox_mcp.py
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/coding/tools/code_sandbox_mcp.py
+  symbol: execute_python
+  equals: true
 confidence: high
 tags:
 - HOWTO

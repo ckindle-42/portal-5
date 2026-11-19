@@ -169,8 +169,8 @@ def cmd_archive(args: argparse.Namespace) -> int:
     reasoned line to `portal_wiki/archive/INDEX.md`. Preconditions are
     enforced here, not trusted to the operator: a reason is required, no
     doc block may reference the id, no live unit may link it, and no cited
-    source may be a live code/config path (overridable only via
-    `--superseded-by` with a verified survivor).
+    source may be a live code/config path (overridable by a verified
+    `--superseded-by` survivor or an explicit `--historical` decision).
     """
     from portal.platform.wiki.archive import archive_reachability, archive_unit
     from portal.platform.wiki.store import reset_canonical_dir, set_canonical_dir
@@ -200,6 +200,7 @@ def cmd_archive(args: argparse.Namespace) -> int:
         args.reason,
         repo_root,
         superseded_by=args.superseded_by,
+        historical=args.historical,
     )
     print(msg if ok else f"refused: {msg}")
     reset_canonical_dir()
@@ -299,6 +300,11 @@ def main() -> int:
     )
     archive_p.add_argument("unit_id", nargs="?", help="Unit id to archive")
     archive_p.add_argument("--reason", default="", help="Reason, phrased as a fact")
+    archive_p.add_argument(
+        "--historical",
+        action="store_true",
+        help="Mark this unit historical before retaining it in the archive",
+    )
     archive_p.add_argument(
         "--superseded-by",
         default=None,

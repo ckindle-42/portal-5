@@ -9,7 +9,11 @@ sources:
   path: scripts/lib/util.sh
 - type: code
   path: scripts/lib/services.sh
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: .env.example
+  symbol: OLLAMA_URL
+  equals: true
 confidence: high
 tags:
 - ADMIN_GUIDE

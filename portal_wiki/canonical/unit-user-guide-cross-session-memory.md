@@ -11,7 +11,11 @@ sources:
   path: portal/platform/inference/router/context_inject.py
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: deploy/portal-5/docker-compose.yml
+  symbol: ENABLE_MEMORY_FEATURE
+  equals: true
 confidence: high
 tags:
 - docs

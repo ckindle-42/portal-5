@@ -9,7 +9,11 @@ sources:
   path: deploy/portal-5/docker-compose.yml
 - type: code
   path: portal/modules/documents/tools/document_mcp.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/research/tools/rag_mcp.py
+  symbol: kb_ingest
+  equals: true
 confidence: high
 tags:
 - docs

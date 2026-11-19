@@ -5,7 +5,10 @@ title: 'HOWTO -- Quick Reference: All CLI Commands'
 sources:
 - type: code
   path: launch.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: launch.sh
+  equals: true
 confidence: high
 tags:
 - HOWTO

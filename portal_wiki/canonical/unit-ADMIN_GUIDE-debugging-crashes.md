@@ -9,7 +9,10 @@ sources:
   path: portal/platform/inference/router/app.py
 - type: code
   path: portal/platform/inference/router/handlers.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: launch.sh
+  equals: true
 confidence: high
 tags:
 - ADMIN_GUIDE

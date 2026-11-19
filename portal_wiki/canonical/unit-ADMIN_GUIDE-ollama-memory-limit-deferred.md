@@ -7,7 +7,11 @@ sources:
   path: .env.example
 - type: code
   path: deploy/portal-5/docker-compose.yml
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: .env.example
+  symbol: OLLAMA_MEMORY_LIMIT
+  equals: true
 confidence: high
 tags:
 - ADMIN_GUIDE

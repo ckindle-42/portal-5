@@ -11,7 +11,11 @@ sources:
   path: scripts/mlx-speech.py
 - type: code
   path: portal/platform/mcp_host/pipeline_mcp.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: deploy/portal-5/docker-compose.yml
+  symbol: PORTAL_PUBLIC_URL
+  equals: true
 confidence: high
 tags:
 - ADMIN_GUIDE

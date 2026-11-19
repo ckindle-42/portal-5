@@ -9,7 +9,11 @@ sources:
   path: config/backends.yaml
 - type: code
   path: portal/platform/inference/router/text_tool_calls.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: config/portal.yaml
+  symbol: qwen3_coder
+  equals: true
 confidence: high
 tags:
 - known-limitations

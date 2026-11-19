@@ -5,7 +5,10 @@ title: "Known Limitation — MiniMax-Music3-MLX Constraints"
 sources:
 - type: code
   path: portal/modules/media/tools/music_minimax_mcp.py
-claims: []
+claims:
+- probe: repo.path.exists
+  path: portal/modules/media/tools/music_minimax_mcp.py
+  equals: true
 confidence: high
 tags: [known-limitations, music, apple-silicon]
 

@@ -21,7 +21,11 @@ sources:
   path: portal/platform/inference/tool_registry.py
 - type: code
   path: tests/unit/test_pipeline_hardening.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/platform/inference/router/streaming.py
+  symbol: resolve_hop_target
+  equals: true
 confidence: high
 tags:
 - known-limitations

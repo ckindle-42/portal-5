@@ -7,7 +7,10 @@ sources:
   path: .env.example
 - type: code
   path: scripts/lib/users.sh
-claims: []
+claims:
+- probe: repo.path.exists
+  path: .env.example
+  equals: true
 confidence: high
 tags:
 - ADMIN_GUIDE

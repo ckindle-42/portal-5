@@ -11,7 +11,11 @@ sources:
   path: portal/platform/inference/router/validation.py
 - type: code
   path: scripts/engine_contract_check.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/platform/inference/ollama_native.py
+  symbol: OllamaNativeTransport
+  equals: true
 confidence: high
 tags:
 - known-limitations

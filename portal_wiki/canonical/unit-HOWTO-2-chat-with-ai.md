@@ -9,7 +9,11 @@ sources:
   path: config/portal.yaml
 - type: code
   path: portal/platform/inference/router/routing.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: launch.sh
+  symbol: OPENWEBUI_ADMIN_PASSWORD
+  equals: true
 confidence: high
 tags:
 - HOWTO

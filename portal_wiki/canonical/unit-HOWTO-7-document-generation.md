@@ -5,7 +5,11 @@ title: "HOWTO \u2014 7. Document Generation"
 sources:
 - type: code
   path: config/portal.yaml
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: config/portal.yaml
+  symbol: create_word_document
+  equals: true
 confidence: high
 tags:
 - HOWTO

@@ -17,7 +17,11 @@ sources:
   path: portal/modules/media/tools/tts_mcp.py
 - type: code
   path: portal/modules/media/tools/whisper_mcp.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/documents/tools/document_mcp.py
+  symbol: create_word_document
+  equals: true
 confidence: high
 tags:
 - docs

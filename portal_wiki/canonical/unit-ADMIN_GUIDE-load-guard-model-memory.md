@@ -13,7 +13,11 @@ sources:
   path: config/backends.yaml
 - type: code
   path: config/grafana/dashboards/portal5_model_management.json
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/platform/inference/load_guard.py
+  symbol: admit_and_begin_ollama
+  equals: true
 confidence: high
 tags:
 - ADMIN_GUIDE

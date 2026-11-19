@@ -9,7 +9,11 @@ sources:
   path: tests/wfe/settings_audit.py
 - type: code
   path: tests/uat/settings_gate.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/platform/inference/router/streaming.py
+  symbol: model_hint
+  equals: true
 confidence: high
 tags:
 - known-limitations

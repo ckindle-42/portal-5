@@ -5,7 +5,11 @@ title: "Known Limitation — ACE-Step-1.5 MLX Backend Constraints (disabled)"
 sources:
 - type: code
   path: portal/modules/media/tools/music_ace_mcp.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/modules/media/tools/music_ace_mcp.py
+  symbol: ace_generate
+  equals: true
 confidence: high
 tags: [known-limitations, music, apple-silicon]
 

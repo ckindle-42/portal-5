@@ -7,7 +7,11 @@ sources:
   path: config/backends.yaml
 - type: code
   path: portal/platform/inference/cluster_backends.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: config/backends.yaml
+  symbol: workspace_routing
+  equals: true
 confidence: high
 tags:
 - HOWTO

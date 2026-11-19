@@ -9,7 +9,11 @@ sources:
   path: portal/platform/inference/router/metrics.py
 - type: code
   path: portal/platform/inference/router/power.py
-claims: []
+claims:
+- probe: repo.symbol.exists
+  path: portal/platform/inference/router/handlers.py
+  symbol: json
+  equals: true
 confidence: high
 tags:
 - HOWTO
