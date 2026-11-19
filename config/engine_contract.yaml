@@ -6,9 +6,14 @@
 #   thinking_tools : thinking-capable AND tool-capable (think both ways, tools parity)
 #   non_thinking   : no thinking capability (think must be omitted, never 400)
 #   vision         : image input (multi-part content parity)
+#   gemma4_tools   : a Gemma-4-family seat — its native tool-call format
+#                    (<|tool_call>call:…<tool_call|>) must parse engine-side;
+#                    raw markup in content is the 2026-11-19 leak (p2-wave34)
 ollama:
   thinking_tools: huihui_ai/qwen3.5-abliterated:9b-ctx8k
   non_thinking: granite4.1:8b-ctx8k
   vision: qwen3-vl:4b-instruct-q4_K_M
+  gemma4_tools: gemma4:e4b-it-qat
 omlx:
   thinking_tools: huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit
+  gemma4_tools: gemma-4-26b-a4b-it-QAT-4bit

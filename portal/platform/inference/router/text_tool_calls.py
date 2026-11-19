@@ -15,10 +15,21 @@ from typing import Any
 # <parameter=city>\nParis\n</parameter>\n</function>\n</tool_call>". oMLX's
 # parser only enters tool mode on the opener, so the call arrives as plain
 # content. These helpers recover such calls when tools were offered.
-TEXT_TOOL_CALL_MARKERS = ("<tool_call>", "<function=")
+# P5-GEMMA4-TOOLTEXT-001: Gemma 4's native call form — the canonical chat
+# template shipped in the served checkpoints renders assistant tool_calls as
+# ``<|tool_call>call:name{key:<|"|>value<|"|>}<tool_call|>`` (Ollama's
+# PARSER gemma4 parses the same tokens) — reaches clients as plain content
+# whenever an engine's parser is bypassed (a hop with no tools offered, or a
+# parse miss). One rendered live (2026-11-19) went to an OWUI user verbatim.
+GEMMA_TOOL_CALL_OPEN = "<|tool_call>"
+GEMMA_TOOL_CALL_CLOSE = "<tool_call|>"
+_GEMMA_STRING_QUOTE = '<|"|>'
+TEXT_TOOL_CALL_MARKERS = ("<tool_call>", "<function=", GEMMA_TOOL_CALL_OPEN)
 _TOOL_CALL_WRAPPER_RE = re.compile(r"<tool_call>(.*?)</tool_call>", re.DOTALL)
 _XML_FUNCTION_RE = re.compile(r"<function=([^>\s]+)>(.*?)</function>", re.DOTALL)
 _XML_PARAMETER_RE = re.compile(r"<parameter=([^>\s]+)>(.*?)</parameter>", re.DOTALL)
+_GEMMA_CALL_RE = re.compile(r"<\|tool_call>call:([^\s{}]+?)\s*\{")
+_GEMMA_NUMBER_RE = re.compile(r"-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?")
 
 
 def _xml_param_value(raw: str, schema: dict[str, Any]) -> Any:
@@ -72,10 +83,106 @@ def _decode_json_call(raw_payload: str) -> tuple[str, dict[str, Any]] | None:
     return name, arguments
 
 
+def _gemma_ws(raw: str, i: int) -> int:
+    while i < len(raw) and raw[i] in " \t\r\n":
+        i += 1
+    return i
+
+
+def _gemma_string(raw: str, i: int) -> tuple[str, int] | None:
+    """The ``<|"|>``-quoted string starting at *i*: its body and the index past
+    the closing quote. The format escapes nothing (the template writes argument
+    values verbatim), so the body may itself contain braces, colons, quotes."""
+    start = i + len(_GEMMA_STRING_QUOTE)
+    end = raw.find(_GEMMA_STRING_QUOTE, start)
+    return None if end < 0 else (raw[start:end], end + len(_GEMMA_STRING_QUOTE))
+
+
+def _gemma_object(raw: str, i: int) -> tuple[dict[str, Any], int] | None:
+    out: dict[str, Any] = {}
+    i = _gemma_ws(raw, i + 1)  # step over '{'
+    while True:
+        if raw.startswith("}", i):
+            return out, i + 1
+        if raw.startswith(_GEMMA_STRING_QUOTE, i):
+            got = _gemma_string(raw, i)
+            if got is None:
+                return None
+            key, i = got
+        else:
+            colon = raw.find(":", i)
+            if colon < 0:
+                return None
+            key, i = raw[i:colon].strip(), colon
+        pair = _gemma_value(raw, i + 1)  # step over ':'
+        if pair is None:
+            return None
+        out[key] = pair[0]
+        i = _gemma_ws(raw, pair[1])
+        if raw.startswith(",", i):
+            i = _gemma_ws(raw, i + 1)
+        elif not raw.startswith("}", i):
+            return None
+
+
+def _gemma_array(raw: str, i: int) -> tuple[list[Any], int] | None:
+    out: list[Any] = []
+    i = _gemma_ws(raw, i + 1)  # step over '['
+    while True:
+        if raw.startswith("]", i):
+            return out, i + 1
+        pair = _gemma_value(raw, i)
+        if pair is None:
+            return None
+        out.append(pair[0])
+        i = _gemma_ws(raw, pair[1])
+        if raw.startswith(",", i):
+            i = _gemma_ws(raw, i + 1)
+        elif not raw.startswith("]", i):
+            return None
+
+
+def _gemma_value(raw: str, i: int) -> tuple[Any, int] | None:
+    """One Gemma-4 argument value at *i* with the index past it: a quoted
+    string, nested object/array, ``true``/``false``/``null``, or a number."""
+    i = _gemma_ws(raw, i)
+    if raw.startswith(_GEMMA_STRING_QUOTE, i):
+        got = _gemma_string(raw, i)
+        return None if got is None else (got[0], got[1])
+    for literal, value in (("true", True), ("false", False), ("null", None)):
+        if raw.startswith(literal, i):
+            return value, i + len(literal)
+    if raw.startswith("{", i):
+        return _gemma_object(raw, i)
+    if raw.startswith("[", i):
+        return _gemma_array(raw, i)
+    number = _GEMMA_NUMBER_RE.match(raw, i)
+    if number:
+        return json.loads(number.group(0)), number.end()
+    return None
+
+
+def _decode_gemma_call(text: str, match: re.Match[str]) -> tuple[str, dict[str, Any]] | None:
+    """(name, arguments) for one ``<|tool_call>call:…{…}<tool_call|>`` block.
+
+    The block must close on the format's own token with nothing but whitespace
+    between the arguments and it; anything else stays unparsed."""
+    value = _gemma_value(text, match.end() - 1)  # re-parse the '{' the match ended on
+    if value is None or not isinstance(value[0], dict):
+        return None
+    close = text.find(GEMMA_TOOL_CALL_CLOSE, value[1])
+    if close < 0 or text[value[1] : close].strip():
+        return None
+    name = match.group(1).strip()
+    if name.startswith(_GEMMA_STRING_QUOTE) and name.endswith(_GEMMA_STRING_QUOTE):
+        name = name[len(_GEMMA_STRING_QUOTE) : -len(_GEMMA_STRING_QUOTE)]
+    return name, value[0]
+
+
 def salvage_text_tool_calls(
     content: str, tools: list[dict[str, Any]] | None
 ) -> tuple[str, list[dict[str, Any]]]:
-    """Recover JSON or XML tool calls written into ``content``.
+    """Recover JSON, XML, or Gemma-4 native tool calls written into ``content``.
 
     Only calls naming an offered tool count; anything else returns no calls so
     the text is delivered unchanged. Returns ``(text_before_the_call, calls)``
@@ -106,6 +213,12 @@ def salvage_text_tool_calls(
         }
         matches.append((match.start(), name, arguments))
 
+    for match in _GEMMA_CALL_RE.finditer(text):
+        decoded = _decode_gemma_call(text, match)
+        if decoded is None:
+            return content, []
+        matches.append((match.start(), *decoded))
+
     if not matches or any(name not in offered for _, name, _ in matches):
         return content, []
     matches.sort(key=lambda item: item[0])
@@ -123,11 +236,12 @@ def salvage_text_tool_calls(
 
 
 def drop_unparsed_markup(text: str) -> str:
-    """*text* cut at its first ``<tool_call>`` wrapper: a wrapper that could not be
-    salvaged is call syntax, never an answer, so it is not delivered to a client.
+    """*text* cut at its first ``<tool_call>`` wrapper or ``<|tool_call>`` block:
+    a wrapper that could not be salvaged is call syntax, never an answer, so it
+    is not delivered to a client.
     A bare ``<function=...>`` mention stays (it may be prose about an unoffered tool)."""
-    cut = text.find("<tool_call>")
-    return text[:cut].rstrip() if cut >= 0 else text
+    cuts = [c for c in (text.find("<tool_call>"), text.find(GEMMA_TOOL_CALL_OPEN)) if c >= 0]
+    return text[: min(cuts)].rstrip() if cuts else text
 
 
 class TextToolCallHoldback:
