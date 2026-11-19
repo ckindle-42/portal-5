@@ -30,6 +30,10 @@ case "${1:-up}" in
     # Generate any secrets still set to CHANGEME
     bootstrap_secrets "$ENV_FILE"
 
+    # A lock bump must reach the project venv before native services preflight
+    # it. Sync only when the lock is ahead; a venv that is ahead is left as-is.
+    _sync_venv_when_lock_ahead
+
     # TASK-WORKSPACE-001: ensure workspace exists before bind mounts go live
     WS="${AI_OUTPUT_DIR:-${HOME}/AI_Output}"
     if [ ! -d "${WS}/uploads" ] || [ ! -d "${WS}/generated/transcripts" ]; then
@@ -330,6 +334,7 @@ case "${1:-up}" in
 
   rebuild)
     # Rebuild and restart all Docker images (pipeline + MCP servers)
+    _sync_venv_when_lock_ahead
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     cd "$COMPOSE_DIR"
     BUILD_SERVICES="$(_compose_built_services)"
@@ -528,11 +533,13 @@ PYEOF
     ;;
 
   install-music)
-    _launch_install_music
+    shift
+    _launch_install_music "$@"
     ;;
 
   install-mflux)
-    _launch_install_mflux
+    shift
+    _launch_install_mflux "$@"
     ;;
 
   start-mflux)

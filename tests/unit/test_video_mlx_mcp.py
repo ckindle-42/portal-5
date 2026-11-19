@@ -387,8 +387,16 @@ class TestInstallerContract:
         assert '"$VX_VENV/bin/python" -c "import mcp, starlette"' in installer
 
     def test_launchd_is_rebootstrapped_so_the_new_start_script_runs(self, installer):
-        assert 'launchctl bootout "gui/$(id -u)/com.portal5.video-mlx"' in installer
-        assert 'launchctl bootstrap "gui/$(id -u)" "$PLIST"' in installer
+        assert "_launchd_reload_or_fail com.portal5.video-mlx" in installer
+        root = Path(__file__).resolve().parents[2]
+        text = (root / "scripts/lib/services.sh").read_text(encoding="utf-8")
+        helper = text[
+            text.index("_launchd_reload_or_fail() {") : text.index("_launch_install_music() {")
+        ]
+        assert 'launchctl bootstrap "gui/$(id -u)" "$plist"' in helper
+        assert "state = running" in helper
+        assert "|| true" not in helper.split("bootstrap", 1)[1]
+        assert "pip install --upgrade" not in installer
 
     def test_the_pack_pull_uses_the_same_env_file_as_the_service(self):
         root = Path(__file__).resolve().parents[2]
