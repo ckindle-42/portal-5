@@ -23,4 +23,4 @@ tags:
 
 ## Why
 
-Video is the heaviest media surface, so the engine install stays footprint-first — off until an operator opts in — even though the module's workspace, fleet entry, and routing are declared in config. Keeping it a real module rather than deleted code means enabling is a one-command toggle, not a rebuild.
+Video is the heaviest media surface, so the engine stays a separate host install a fresh box opts into, and enablement is a config toggle (`unit-fact-module-states`), not a code path. Keeping it a real module rather than deleted code means enabling or disabling is a one-command toggle, not a rebuild.
