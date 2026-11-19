@@ -223,8 +223,7 @@ def test_scan_docker_images_timeout_records_error_and_does_not_cache(tmp_path, m
     assert findings == [] and triage == []
     assert stats["scanned"] == 0 and stats["images"] == 1
     assert len(errors) == 1 and "timed out" in errors[0]
-    stored = json.loads(cache.read_text())
-    assert stored["images"] == {}
+    assert not cache.exists() or json.loads(cache.read_text())["images"] == {}
 
 
 def test_build_image_triage_splits_ours_from_upstream(monkeypatch):

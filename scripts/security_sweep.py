@@ -868,7 +868,9 @@ def scan_docker_images(
             "packages": count,
             "scanned": dt.datetime.now().astimezone().date().isoformat(),
         }
-    save_image_cache(cache_path, scanner_id, cache)
+        save_image_cache(
+            cache_path, scanner_id, cache
+        )  # incremental: an interrupted run keeps finished scans
     stats = {"images": len(keys), "scanned": scanned, "cached": cached, "packages": packages}
     triage = build_image_triage(rows_by_key, keys) if keys else []
     return findings, stats, errors, triage
