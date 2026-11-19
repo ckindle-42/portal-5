@@ -412,6 +412,32 @@ engine. Do not adopt or drop a seat on numbers that conflate the two.
 What does NOT need re-running: Ollama-only seats, media/embedding rows (separate host
 services), rows for seats whose config and traffic the release cannot touch.
 
+## ROLLBACK (pin the prior version)
+
+**Automatic (already wired):** a contract failure or failed switch on the upgrade path rolls
+itself back — `omlx_restore()` puts both `~/.omlx` settings files back from their
+`.autoupdate-0.8.0` copies (backed up pre-upgrade, `scripts/engine_autoupdate.py:353-363, 493`),
+the engine is re-pointed at the prior install and restarted, `0.8.0` is appended to `rejected`
+in `~/.portal5/engine_update.json`, and the history entry reads `result: rolled_back`.
+Verify with `uv run python -c "import scripts.engine_autoupdate as ea; print(ea.omlx_running())"`
+→ `0.7.3`.
+
+**Manual (the upgrade succeeded; the speed gate §0.2 or a §4 canary fails later):**
+1. Quiet host. Restore the prior engine:
+   `uv run python -c "from scripts.engine_autoupdate import omlx_point_at; omlx_point_at('0.7.3')"`
+   — re-stages `~/omlx-live/venv.previous` (venv install) or re-links the brew keg, then
+   restarts the live service (`scripts/engine_autoupdate.py:409-439`). A missing
+   `venv.previous`/keg means no rollback material exists — stop and report.
+2. Restore settings if 0.8.0 changed them:
+   `uv run python -c "from scripts.engine_autoupdate import omlx_restore; omlx_restore('0.8.0')"`.
+3. Pin 0.8.0 out of the retry path so the weekly updater cannot re-apply it: add `"0.8.0"` to
+   the `rejected` list in `~/.portal5/engine_update.json` (the updater skips rejected targets,
+   §2 `_update_target()` :465-481; the CLI has no reject flag — it is the same state record the
+   updater writes on a failed contract).
+4. Post-rollback hygiene: `bash scripts/install_omlx_parsers.sh` (the restored install's
+   site-packages), `./launch.sh sync-config`, then `uv run portal trace --section engines`
+   PASS on 0.7.3 before traffic resumes.
+
 ## 5. UNPROVEN (what this lane could not verify)
 
 - 0.8.0 keeps the shapes Portal reads: `/health` `engine_pool.model_count`,
