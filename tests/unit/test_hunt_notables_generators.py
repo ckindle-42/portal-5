@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from portal.modules.security.core.hunt.executor import Read
-from portal.modules.security.core.hunt.notables.behaviours import Behaviour
+from portal.modules.security.core.hunt.notables.behaviours import Behaviour, behaviour_identity
 from portal.modules.security.core.hunt.notables.generators import (
     _alert_query,
+    _behaviour_bursts,
     _behaviour_deviations,
     _robust_z,
     _series_by_source,
     _source_deviations,
+    _unified_bursts,
     exact_counts,
     generate,
     peer_rare,
@@ -23,13 +25,14 @@ def _behaviour(
     events: int,
     first: float,
     object_value: str = "shape",
+    action: str = "cmd.exe",
 ) -> Behaviour:
     return Behaviour(
         source,
         "user",
         actor,
         "image",
-        "cmd.exe",
+        action,
         "path",
         object_value,
         "literal",
@@ -207,6 +210,101 @@ def test_behaviour_deviation_order_is_latest_first_and_stable():
     assert detail == {"existed": 2, "kept": 2}
     assert found[0].measure_value == 900.0
     assert found[1].measure_value == 100.0
+
+
+def test_behaviour_bursts_rank_the_stored_traffic_shape_by_its_bucket_peak():
+    behaviours = [
+        _behaviour("ix:pan", "45.77.65.211", 1, 1, 2523, 100.0, "ssl", "TRAFFIC"),
+        _behaviour("ix:pan", "52.40.10.231", 1, 1, 400, 200.0, "splunk", "TRAFFIC"),
+        _behaviour("ix:pan", "71.39.18.125", 1, 1, 350, 300.0, "ftp", "TRAFFIC"),
+    ]
+    peaks = {
+        behaviour_identity(behaviours[0]): 2452,
+        behaviour_identity(behaviours[1]): 323,
+        behaviour_identity(behaviours[2]): 308,
+    }
+
+    found, detail = _behaviour_bursts(behaviours, peaks)
+
+    assert found[0].basis == "behaviour_burst"
+    assert found[0].entities[0] == ("actor", "45.77.65.211")
+    assert found[0].counts == {
+        "events": 2523,
+        "peak_bucket_events": 2452,
+        "source_events": 3273,
+    }
+    assert found[0].measure_name == "robust_z"
+    assert found[0].measure_value > found[1].measure_value
+    assert "2452 of 2523 sampled events" in found[0].why
+    assert detail == {"existed": 3, "kept": 3}
+
+
+class _SeriesExecutor:
+    def read(
+        self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+    ) -> Read:
+        del query, start, end, kind, row_cap
+        return Read(
+            [
+                {"sourcetype": "pan", "count": count, "_time": hour * 14400}
+                for hour, count in enumerate((10, 11, 12))
+            ],
+            False,
+            None,
+        )
+
+
+def test_generate_admits_a_behaviour_burst_through_the_deviation_budget():
+    behaviours = [
+        _behaviour("ix:pan", "45.77.65.211", 1, 1, 2523, 100.0, "ssl", "TRAFFIC"),
+        _behaviour("ix:pan", "52.40.10.231", 1, 1, 400, 200.0, "splunk", "TRAFFIC"),
+        _behaviour("ix:pan", "71.39.18.125", 1, 1, 350, 300.0, "ftp", "TRAFFIC"),
+    ]
+    peaks = {
+        behaviour_identity(behaviours[0]): 2452,
+        behaviour_identity(behaviours[1]): 323,
+        behaviour_identity(behaviours[2]): 308,
+    }
+
+    found, receipt = generate(
+        _SeriesExecutor(),
+        "ix",
+        0.0,
+        43200.0,
+        [],
+        {},
+        behaviours,
+        {},
+        ["deviation"],
+        behaviour_peaks=peaks,
+    )
+
+    bursts = [row for row in found if row.basis == "behaviour_burst"]
+    assert len(bursts) == 1
+    assert bursts[0].entities[0] == ("actor", "45.77.65.211")
+    assert receipt["deviation"]["behaviour_bursts"]["admitted"] == 1
+
+
+def test_unified_bursts_never_admits_more_than_the_lofo_allowance():
+    source_bursts, _firsts, _detail = _source_deviations(
+        {"pan": [(float(hour * 14400), 10) for hour in range(3)]},
+        "ix",
+        0.0,
+    )
+    behaviours = [
+        _behaviour("ix:pan", str(index), 1, 1, 100 + index, float(index), "ssl", "TRAFFIC")
+        for index in range(4)
+    ]
+    peaks = (10000, 9000, 8000, 10)
+    candidates, _detail = _behaviour_bursts(
+        behaviours, {behaviour_identity(row): peaks[index] for index, row in enumerate(behaviours)}
+    )
+
+    unified, detail = _unified_bursts(source_bursts, candidates)
+
+    assert detail["admitted"] == 2
+    assert len(unified) == len(source_bursts)
+    assert sum(row.basis == "behaviour_burst" for row in unified) <= 2
 
 
 def test_series_grouping_ignores_rows_without_a_source():

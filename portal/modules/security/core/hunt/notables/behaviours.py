@@ -81,6 +81,25 @@ class Behaviour:
     example_latest: float
 
 
+BehaviourIdentity = tuple[str, ...]
+_BEHAVIOUR_IDENTITY_COLUMNS = (
+    "source_id",
+    "actor_field",
+    "actor",
+    "action_field",
+    "action",
+    "object_field",
+    "object",
+    "actor_mode",
+    "action_mode",
+    "object_mode",
+)
+
+
+def behaviour_identity(behaviour: Behaviour) -> BehaviourIdentity:
+    return tuple(str(getattr(behaviour, name)) for name in _BEHAVIOUR_IDENTITY_COLUMNS)
+
+
 @dataclass(frozen=True)
 class MisfitShape:
     """One distinct out-of-structure line shape seen in one source's read slice."""
@@ -844,6 +863,32 @@ def load_behaviours(path: Path) -> list[Behaviour]:
     finally:
         con.close()
     return [Behaviour(*row) for row in rows]
+
+
+def load_behaviour_peaks(path: Path, bucket_seconds: float) -> dict[BehaviourIdentity, int]:
+    """Largest event bucket for every kept behaviour in the stored read slice."""
+    key = list(_BEHAVIOUR_IDENTITY_COLUMNS)
+    selected = ",".join(f"b.{name}" for name in key)
+    joined = " AND ".join(f"e.{name}=b.{name}" for name in key)
+    event_key = ",".join(f"e.{name}" for name in key)
+    output_key = ",".join(key)
+    query = f"""
+    WITH eligible AS (SELECT {selected} FROM behaviours b),
+    counts AS (
+      SELECT {event_key}, floor(e.ts / ?) AS bucket, count(*) AS n
+      FROM events e JOIN eligible b ON {joined}
+      GROUP BY ALL
+    ), peaks AS (
+      SELECT {output_key}, max(n) AS peak FROM counts GROUP BY ALL
+    )
+    SELECT {output_key}, peak FROM peaks
+    """
+    con = duckdb.connect(str(path), read_only=True)
+    try:
+        rows = con.execute(query, [bucket_seconds]).fetchall()
+    finally:
+        con.close()
+    return {tuple(str(value) for value in row[:-1]): int(row[-1]) for row in rows}
 
 
 def load_source_stats(path: Path) -> dict[str, dict[str, Any]]:
