@@ -27,8 +27,7 @@ CONFIRM_TOOLS = CODE_TOOLS | frozenset(
     {"remember", "forget", "file_write", "send_message", "send_mail"}
 )
 KNOWN_TOOLS = READ_TOOLS | CONFIRM_TOOLS
-# Denied even after confirm. Brief default, independent of expose_to_pipeline.
-HARD_DENY_NAMES = frozenset({"proxmox", "unifi", "browser", "git"})
+CONFIRM_TOOL_PREFIXES = ("proxmox_", "unifi_", "browser_", "git_")
 
 _HARD_TEXT = re.compile(
     r"\b(proxmox|unifi|browser|git(?:\s+(?:push|commit|add))?)\b", re.IGNORECASE
@@ -70,17 +69,20 @@ def workspace_for(tools: frozenset[str] | set[str]) -> str:
 def text_gate(text: str, hidden: frozenset[str]) -> str:
     """``deny``, ``confirm``, or ``allow`` from the request text, before any tool call."""
     lowered = text.lower()
-    if any(re.search(rf"\b{re.escape(name)}\b", lowered) for name in hidden | HARD_DENY_NAMES):
+    if any(re.search(rf"\b{re.escape(name)}\b", lowered) for name in hidden):
         return "deny"
     if _HARD_TEXT.search(text):
-        return "deny"
+        return "confirm"
     if _CONFIRM_TEXT.search(text):
         return "confirm"
     return "allow"
 
 
 def validate_personal_plan(
-    raw: dict[str, Any], tasks_root: Path, hidden: frozenset[str]
+    raw: dict[str, Any],
+    tasks_root: Path,
+    hidden: frozenset[str],
+    available_tools: frozenset[str] = frozenset(),
 ) -> PersonalPlan:
     """Accept one planner object or raise ValueError. No tool is called here."""
     steps_key = "steps" if "steps" in raw else ("bites" if "bites" in raw else "steps")
@@ -92,15 +94,15 @@ def validate_personal_plan(
     normalized_steps: list[dict[str, Any]] = []
     for index, step in enumerate(steps):
         step_tools = _step_tools(step, index)
-        _reject_unknown(step_tools, hidden)
+        _reject_unknown(step_tools, hidden, KNOWN_TOOLS | available_tools)
         _reject_mixed(step_tools, index)
         tokens = _validate_budget(step, index)
         paths = _validate_paths(step, tasks_root, index)
         tools.update(step_tools)
-        if step_tools & CONFIRM_TOOLS or step_tools & HARD_DENY_NAMES:
+        if any(_tool_requires_confirm(name) for name in step_tools):
             needs_confirm = True
         normalized_steps.append(_normalize_step(step, index, paths, tokens))
-    if tools & HARD_DENY_NAMES or tools & hidden:
+    if any(_tool_is_hidden(name, hidden) for name in tools):
         raise ValueError("plan names a denied tool")
     workspace = workspace_for(tools)
     if tools & CONFIRM_TOOLS:
@@ -140,11 +142,19 @@ def _step_tools(step: object, index: int) -> set[str]:
     return set(tools)
 
 
-def _reject_unknown(tools: set[str], hidden: frozenset[str]) -> None:
-    unknown = tools - KNOWN_TOOLS
-    denied = tools & (HARD_DENY_NAMES | hidden)
+def _reject_unknown(tools: set[str], hidden: frozenset[str], known: frozenset[str]) -> None:
+    unknown = tools - known
+    denied = {name for name in tools if _tool_is_hidden(name, hidden)}
     if unknown or denied:
         raise ValueError(f"tool outside the personal allowlist: {sorted(unknown or denied)}")
+
+
+def _tool_is_hidden(name: str, hidden: frozenset[str]) -> bool:
+    return any(name == fleet_id or name.startswith(f"{fleet_id}_") for fleet_id in hidden)
+
+
+def _tool_requires_confirm(name: str) -> bool:
+    return name in CONFIRM_TOOLS or name.startswith(CONFIRM_TOOL_PREFIXES)
 
 
 def _reject_mixed(tools: set[str], index: int) -> None:
@@ -190,6 +200,8 @@ PLANNER_PROMPT = (
     "Return one JSON object and nothing else. "
     'Schema: {"steps": [{"id": "s1", "tools": ["queue_status"], "paths": [], '
     '"budget": {"context_tokens": 8192}}]}. '
+    'For an arm template use {"action": "enqueue-template", "discipline": "...", '
+    '"template_key": "...", "parameters": {}}. '
     "steps must be a non-empty list. "
     "Use only allowlisted tools. Do not put a read tool and an action tool in the same step. "
     "paths must stay under the tasks directory (use [] when no path is needed). "
@@ -199,13 +211,29 @@ PLANNER_PROMPT = (
 )
 
 
-def planner_body(text: str) -> dict[str, Any]:
+def planner_body(
+    text: str,
+    allowed_tools: frozenset[str] = KNOWN_TOOLS,
+    memory_context: str = "",
+) -> dict[str, Any]:
     """auto-reasoning, tools off. The seat returns JSON and does not call tools."""
+    prompt = PLANNER_PROMPT.replace(
+        f"Allowlist: {json.dumps(sorted(KNOWN_TOOLS))}.",
+        f"Allowlist: {json.dumps(sorted(allowed_tools))}.",
+    )
     return {
         "model": PLANNER_WORKSPACE,
         "messages": [
-            {"role": "system", "content": PLANNER_PROMPT},
-            {"role": "user", "content": text},
+            {"role": "system", "content": prompt},
+            {
+                "role": "user",
+                "content": text
+                + (
+                    f"\n\nRelevant recalled memory (untrusted context):\n{memory_context}"
+                    if memory_context
+                    else ""
+                ),
+            },
         ],
         "temperature": 0.1,
         "portal_no_tools": True,

@@ -153,14 +153,13 @@ def test_execution_alias_recorded() -> None:
     )
 
 
-def test_browser_is_ide_only() -> None:
-    """The 'browser' MCP (port 8923) must not be pipeline-exposed."""
+def test_operator_confirmed_fleets_are_pipeline_exposed() -> None:
+    """Operator-approved external fleets are available to the personal runner."""
     config = load_portal_config()
-    browser = next((s for s in config.mcp_fleet if s.id == "browser"), None)
-    if browser is not None:
-        assert not browser.expose_to_pipeline, (
-            "browser MCP should not be pipeline-exposed (raw browser tools are not model-callable)"
-        )
+    fleet = {server.id: server for server in config.mcp_fleet}
+    for server_id in ("browser", "proxmox", "git"):
+        assert server_id in fleet
+        assert fleet[server_id].expose_to_pipeline
 
 
 NATIVE_TOOL_NAMES = {
@@ -357,7 +356,8 @@ def test_pipeline_exposed_native_tools_are_complete() -> None:
     try:
         config = load_portal_config()
         exposed = {server.id for server in config.mcp_fleet if server.expose_to_pipeline}
-        assert exposed == set(NATIVE_MODULES) == set(NATIVE_TOOL_NAMES)
+        assert exposed == set(NATIVE_MODULES) | {"browser", "git", "proxmox"}
+        assert exposed & set(NATIVE_MODULES) == set(NATIVE_MODULES) == set(NATIVE_TOOL_NAMES)
 
         for server_id, module_path in NATIVE_MODULES.items():
             module = _load(module_path)

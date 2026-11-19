@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 _SOURCES = frozenset({"telegram", "owui"})
-_RUNNABLE = frozenset({"queued", "confirmed"})
+_RUNNABLE = frozenset({"queued", "confirmed", "cloud_retry"})
 
 
 @dataclass(frozen=True)
@@ -27,6 +27,7 @@ class PersonalTask:
     receipt_path: str | None
     created: str
     tool_log: str
+    not_before: str | None = None
 
 
 class PersonalStore:
@@ -36,7 +37,9 @@ class PersonalStore:
         self.root = root
         self.path = root / "personal_tasks.sqlite3"
 
-    def add(self, source: str, user_id: str, text: str) -> PersonalTask:
+    def add(
+        self, source: str, user_id: str, text: str, not_before: datetime | str | None = None
+    ) -> PersonalTask:
         if source not in _SOURCES:
             raise ValueError(f"source must be telegram or owui, got {source}")
         cleaned = text.strip()
@@ -44,11 +47,13 @@ class PersonalStore:
             raise ValueError("text must be non-empty")
         task_id = "pt-" + uuid.uuid4().hex[:12]
         created = _now()
+        due = _utc_stamp(not_before) if not_before is not None else None
         with self._db() as db:
             db.execute(
                 "INSERT INTO personal_tasks (id, source, user_id, text, status, plan_json, "
-                "receipt_path, created, tool_log) VALUES (?, ?, ?, ?, 'queued', NULL, NULL, ?, '[]')",
-                (task_id, source, user_id, cleaned, created),
+                "receipt_path, created, tool_log, not_before) "
+                "VALUES (?, ?, ?, ?, 'queued', NULL, NULL, ?, '[]', ?)",
+                (task_id, source, user_id, cleaned, created, due),
             )
         task = self.get(task_id)
         if task is None:
@@ -59,18 +64,23 @@ class PersonalStore:
         with self._db() as db:
             row = db.execute(
                 "SELECT id, source, user_id, text, status, plan_json, receipt_path, created, "
-                "tool_log FROM personal_tasks WHERE id = ?",
+                "tool_log, not_before FROM personal_tasks WHERE id = ?",
                 (task_id,),
             ).fetchone()
         return _task(row) if row is not None else None
 
-    def oldest_runnable(self) -> PersonalTask | None:
-        """Oldest queued or operator-confirmed row. Pending rows stay put."""
+    def oldest_runnable(self, now: datetime | None = None) -> PersonalTask | None:
+        """Oldest due queued or operator-confirmed row. Pending rows stay put."""
+        stamp = _utc_stamp(now or datetime.now(UTC))
         with self._db() as db:
             row = db.execute(
                 "SELECT id, source, user_id, text, status, plan_json, receipt_path, created, "
-                "tool_log FROM personal_tasks WHERE status IN ('queued', 'confirmed') "
-                "ORDER BY CASE status WHEN 'confirmed' THEN 0 ELSE 1 END, created, rowid LIMIT 1"
+                "tool_log, not_before FROM personal_tasks "
+                "WHERE status IN ('queued', 'confirmed', 'cloud_retry') "
+                "AND (not_before IS NULL OR not_before <= ?) "
+                "ORDER BY CASE status WHEN 'confirmed' THEN 0 WHEN 'queued' THEN 1 ELSE 2 END, "
+                "created, rowid LIMIT 1",
+                (stamp,),
             ).fetchone()
         return _task(row) if row is not None else None
 
@@ -126,9 +136,13 @@ class PersonalStore:
                 plan_json TEXT,
                 receipt_path TEXT,
                 created TEXT NOT NULL,
-                tool_log TEXT NOT NULL DEFAULT '[]'
+                tool_log TEXT NOT NULL DEFAULT '[]',
+                not_before TEXT
             )"""
         )
+        columns = {str(row[1]) for row in db.execute("PRAGMA table_info(personal_tasks)")}
+        if "not_before" not in columns:
+            db.execute("ALTER TABLE personal_tasks ADD COLUMN not_before TEXT")
         return _Conn(db)
 
 
@@ -153,6 +167,15 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _utc_stamp(value: datetime | str) -> str:
+    stamp = (
+        datetime.fromisoformat(value.replace("Z", "+00:00")) if isinstance(value, str) else value
+    )
+    if stamp.tzinfo is None or stamp.utcoffset() is None:
+        raise ValueError("not_before must include a UTC offset")
+    return stamp.astimezone(UTC).isoformat()
+
+
 def _task(row: sqlite3.Row | tuple[object, ...]) -> PersonalTask:
     return PersonalTask(
         id=str(row[0]),
@@ -164,6 +187,7 @@ def _task(row: sqlite3.Row | tuple[object, ...]) -> PersonalTask:
         receipt_path=None if row[6] is None else str(row[6]),
         created=str(row[7]),
         tool_log=str(row[8]),
+        not_before=None if row[9] is None else str(row[9]),
     )
 
 
