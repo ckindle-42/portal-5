@@ -1,4 +1,5 @@
 allowlist:
+  portal/platform/inference/cli/trace/owui.py: "False positive by path shape: this POST goes to Open WebUI's /api/chat/completions (the OWUI user path portal trace exercises), not to Ollama."
   portal/modules/eval/persona_matrix/ollama_client.py: "Operator-run persona-matrix evaluation client; benchmark traffic is isolated from production tool dispatch."
   portal/modules/security/core/__init__.py: "call_theory_direct is used by the operator-run security benchmark command, not the production MCP inference route."
   portal/modules/security/core/agentic_blue_eval.py: "The direct Ollama arm is an operator-run evaluation and also requires the shared direct-engine diagnostic gate."
