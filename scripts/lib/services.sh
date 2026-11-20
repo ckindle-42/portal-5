@@ -143,7 +143,9 @@ _launch_install_music() {
     ( cd "$ACE_DIR" && uv python install 3.12 && uv sync --python 3.12 --frozen )
     # ACE-Step's own lock owns the core stack. Portal adds service deps and
     # non-core sweep fixes only (scripts/engine_install_plan.py).
-    _engine_dep_plan music "$PY" apply
+    _engine_dep_plan music "$PY" apply || {
+        echo "  ❌ security dependency upgrade failed" >&2; exit 1;
+    }
 
     _music_snap() {
         local repo="$1" dest="$2" min_gb="$3" size_gb
@@ -169,10 +171,19 @@ _launch_install_music() {
     fi
     _music_snap "ACE-Step/acestep-v15-xl-turbo" "$ACE_DIR/checkpoints/acestep-v15-xl-turbo" 15
     _music_snap "ACE-Step/acestep-5Hz-lm-1.7B" "$ACE_DIR/checkpoints/acestep-5Hz-lm-1.7B" ""
-    _music_snap "mlx-community/MiniMax-Music3-8bit" "$MUSIC_DIR/minimax-8bit" ""
+    # The MiniMax fallback weights (~14GB) are only pulled when mlx-audio is
+    # installed or the pack already exists; a held-back fallback skips them.
+    if "$PY" -c 'import importlib.util; raise SystemExit(0 if importlib.util.find_spec("mlx_audio") else 1)' 2>/dev/null \
+        || [ -d "$MUSIC_DIR/minimax-8bit" ]; then
+        _music_snap "mlx-community/MiniMax-Music3-8bit" "$MUSIC_DIR/minimax-8bit" ""
+    else
+        echo "  skipping MiniMax weights download — mlx-audio held back (engine bump required)"
+    fi
 
     echo "  verifying arm64 imports (no audio generation)..."
-    "$PY" -c 'import platform; assert platform.machine()=="arm64", platform.machine(); import mlx.core as mx; assert mx.metal.is_available(); import acestep, mlx_audio; print("verify-ok", platform.machine())'
+    "$PY" -c 'import platform; assert platform.machine()=="arm64", platform.machine(); import mlx.core as mx; assert mx.metal.is_available(); import acestep; print("verify-ok", platform.machine())'
+    "$PY" -c 'import importlib.util; raise SystemExit(0 if importlib.util.find_spec("mlx_audio") else 1)' \
+        || echo "  ⚠️  mlx-audio not installed — MiniMax fallback held back (engine bump required; see KNOWN_LIMITATIONS)"
     test -d "$ACE_DIR/checkpoints/acestep-v15-xl-turbo"
 
     cat > "$MUSIC_DIR/start.sh" << MUSIC_START
