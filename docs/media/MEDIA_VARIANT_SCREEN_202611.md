@@ -345,6 +345,10 @@ Listeners and viewers:
 - **Claude Opus** (Claude Code `--model opus`, Anthropic). Read the PNGs. For video it saw one middle frame plus a 7-frame strip in time order. It cannot hear, so it has no audio score and no music score.
 - **Grok Voice Transcribe 2.0** (`grok-voice-transcribe-2.0`, xAI STT). Speech text only. An empty transcript on waves, squeaks, footsteps, or an instrumental is not a musicality score.
 
+Added after these scores were taken (2026-11-20), so it did not score the original run:
+**Xiaomi MiMo v2.6 Pro** (`mimo-v2.6-pro`, Xiaomi direct) is wired as the music judge step's
+non-Google audio lineage — see "Second listener and HeartMuLa's state" below.
+
 Image and video therefore have two lineages (Gemini and Claude). Music's two full listeners are both Gemini 4. The xAI transcript is a second lineage for whether words are present.
 
 The worker session (Grok) looked at the four prompt-1 bakery PNGs after the scores, with the filenames visible, to check the sign dispute. That look is not a blinded third score.
@@ -451,3 +455,29 @@ Prompt 2, both listeners, both candidates: XL-Turbo sings the verse and the chor
 Prompt 3: both listeners say the 0.6B-LM turbo adds drums and bass, which is a miss. Both say the no-LM turbo is the better solo nylon guitar, and that XL-Turbo's take is simpler block chords.
 
 Need more evidence before a seat change. The 0.6B-LM turbo fails the solo-guitar constraint. The no-LM turbo fails the verse. XL-Turbo is the better vocal and the one that swaps the host to a 7–8% free floor, which is a UX veto against keeping it on sound alone. A later candidate has to clear the vocal and the solo guitar without that swap. HeartMuLa was not in this run.
+
+### Second listener and HeartMuLa's state — 2026-11-20, after the judgments
+
+Music's two full listeners were both Gemini 4. `scripts/proofs/media_screen_listen.py` is now
+the screen's judge step for a non-Google lineage: it pairs each candidate clip against the
+incumbent for the same fixed prompt, draws the A/B order blind from seed `20261120`, asks an
+audio-capable model for the same five 1–5 dimensions plus the words it actually heard, and
+writes `listen_<listener>_music_<date>.md` and `listen_rows.jsonl` beside the judge sheet.
+`--medium music --listen mimo-v2.6-pro` runs it at the end of a screen.
+
+Chosen listener: **Xiaomi MiMo v2.6 Pro** (`mimo-v2.6-pro`, Xiaomi direct API,
+`https://api.xiaomimimo.com/v1`). Each call returns `audio_tokens`, so ingestion is proven per
+call rather than inferred. It transcribes "Streetlight on the wet stone" — where both Gemini
+listeners heard "west stop"/"window" — and hears the second "Hold the line" repeat. The same
+model behind OpenRouter (routed to DeepInfra) invented a female vocal on the solo-guitar clip,
+so this listener pins the endpoint. Runner-up, selectable with `--listener
+qwen/qwen3.8-omni-flash --base-url https://openrouter.ai/api/v1`, is accurate on the element
+checklist but looser on lyric text. The model survey, the `CANNOT_PERCEIVE` results and the
+smoke transcripts are in `coding_task/FINDING_MUSIC_SECOND_LISTENER.md`.
+
+HeartMuLa is **not installed** on this host: no `ckpt/`, no `ckpt-mlx/`, no weights under
+`~/.portal5` or `/Volumes/data01`, and nothing audio-capable in `ollama list`. Its MLX port is
+cloned at `coding_task/scratch/heartlib-mlx` but unbuilt. Installing it is `uv sync`, the
+`HeartMuLa-oss-3B` + `HeartCodec-oss` Hugging Face downloads into `./ckpt`,
+`python -m heartlib_mlx.utils.convert --src ./ckpt --dst ./ckpt-mlx`, and then a
+`kind: heartlib` catalog row. Until that runs, HeartMuLa has no clip and no row.
