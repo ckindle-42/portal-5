@@ -2447,6 +2447,8 @@ class LoadGuard:
         if not base:
             return
         settle = min(deadline, time.monotonic() + _FREE_SETTLE_EXPECTED_S)
+        attempted_omlx: set[str] = set()
+        requested_ollama: dict[str, _Free] = {}
         first = True
         try:
             while True:
@@ -2458,20 +2460,24 @@ class LoadGuard:
                 if shortage <= 0 or (not first and time.monotonic() >= settle):
                     return
                 first = False
-                freed, queued, _, _, _ = await self._free_omlx(
-                    client, shortage, float(used), exclude={model}
+                freed, queued, _, _, unloads = await self._free_omlx(
+                    client, shortage, float(used), exclude={model} | attempted_omlx
                 )
+                attempted_omlx.update(str(entry["model"]) for entry in unloads)
                 covered = freed + sum(free.size for free in queued.values())
-                requested: dict[str, _Free] = {}
+                progress = bool(freed or queued)
                 if covered < shortage:
-                    requested = await self._free_ollama(
+                    resident = await self._resident(client, base)
+                    newly = await self._free_ollama(
                         client,
                         base,
-                        await self._resident(client, base),
+                        {n: s for n, s in resident.items() if n not in requested_ollama},
                         want=shortage - covered,
                         last_models=self._counterpart_models(OMLX, model),
                     )
-                if not (freed or queued or requested):
+                    requested_ollama.update(newly)
+                    progress = progress or bool(newly)
+                if not progress:
                     return
                 await asyncio.sleep(min(_POLL_S, max(0.0, settle - time.monotonic())))
         except Exception as e:  # best effort: the request goes to the engine either way

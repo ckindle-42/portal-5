@@ -844,6 +844,25 @@ async def test_a_resident_omlx_seat_leaves_memory_alone_inside_its_prefill_share
     assert e.unload_calls == {}
 
 
+async def test_a_resident_omlx_seat_spares_an_ollama_model_a_sibling_is_serving():
+    e = Engines(
+        ollama={"busy": int(20 * GIB), "idle": int(20 * GIB)},
+        omlx={"seat": {"size": int(24 * GIB), "loaded": True}},
+        ceiling=int(30 * GIB),
+        omlx_memory=int(24 * GIB),
+    )
+    e.hidden["idle"] = int(8 * GIB)
+    g = guard(e)
+    sibling = g._activity_lock(lg.OLLAMA, "busy")
+    assert sibling is not None
+
+    assert await g.admit_omlx("seat") is None
+
+    assert e.unload_calls == {"idle": 1}
+    assert "busy" in e.ollama
+    g._release_activity_lock(sibling)
+
+
 async def test_a_resident_omlx_seat_with_nothing_idle_still_dispatches():
     e = Engines(
         omlx={"seat": {"size": int(24 * GIB), "loaded": True}},
