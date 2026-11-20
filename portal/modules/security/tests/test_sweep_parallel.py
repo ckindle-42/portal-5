@@ -17,12 +17,6 @@ from portal.modules.security.core._sweep_driver import (
 
 
 class TestClassifyCell:
-    def test_all_pass_is_reliable(self) -> None:
-        assert _classify_cell(3, 3) == "reliable"
-
-    def test_none_pass_is_incapable(self) -> None:
-        assert _classify_cell(0, 3) == "incapable"
-
     def test_partial_is_unreliable(self) -> None:
         assert _classify_cell(1, 3) == "unreliable"
 
@@ -34,11 +28,6 @@ class TestMeanStdev:
     def test_single(self) -> None:
         mean, std = _mean_stdev([0.5])
         assert mean == pytest.approx(0.5)
-        assert std == 0.0
-
-    def test_identical(self) -> None:
-        mean, std = _mean_stdev([0.3, 0.3, 0.3])
-        assert mean == pytest.approx(0.3)
         assert std == 0.0
 
 

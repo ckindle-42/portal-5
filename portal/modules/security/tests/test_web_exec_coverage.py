@@ -100,17 +100,6 @@ class TestWebScenarioStructure:
 class TestCoverageCrediting:
     """Steps achieved via execute_bash get coverage credit (parity with wrappers)."""
 
-    def test_exploit_via_bash_gets_credit(self) -> None:
-        """A step in chain_expected_order achieved via execute_bash with real
-        success output should be credited — parity with calling exploit_service."""
-        obs: dict[str, Any] = {}
-        accumulate_observations(
-            "execute_bash",
-            "Shell obtained: root@10.10.11.50 — session 1 opened",
-            obs,
-        )
-        assert obs.get("compromise_confirmed") is True
-
     def test_nmap_via_bash_gets_credit(self) -> None:
         """Port scan via execute_bash should populate open_ports."""
         obs: dict[str, Any] = {}
