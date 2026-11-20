@@ -472,3 +472,67 @@ def test_npx_pin_rows_flags_floating_and_stale(tmp_path, monkeypatch):
     assert by_service["fs"]["pinned"] == "" and by_service["fs"]["latest"] == "0.7.0"
     assert by_service["ctx7"]["status"] == "stale pin"
     assert by_service["ctx7"]["pinned"] == "1.2.3"
+
+
+def _npx_cache(home: Path, digest: str, deps: dict[str, str], packages=()) -> Path:
+    root = home / ".npm" / "_npx" / digest
+    (root / "node_modules").mkdir(parents=True)
+    (root / "package.json").write_text(json.dumps({"dependencies": deps}))
+    for name, version in packages:
+        pkg = root / "node_modules" / name
+        pkg.mkdir()
+        (pkg / "package.json").write_text(json.dumps({"name": name, "version": version}))
+    return root
+
+
+def test_collect_inventory_scans_only_npx_caches_current_pins_launch(tmp_path, monkeypatch):
+    config = tmp_path / "config" / "portal.yaml"
+    config.parent.mkdir()
+    config.write_text(
+        "mcp_fleet:\n"
+        "  - id: ctx7\n"
+        "    command:\n"
+        "      command: ['npx', '-y', '@upstash/context7-mcp@4.7.3', '--transport', 'stdio']\n"
+        "  - id: float\n"
+        "    command:\n"
+        "      command: ['npx', '-y', 'float-tool', 'serve']\n"
+    )
+    (tmp_path / "uv.lock").write_text("")
+    home = tmp_path / "home"
+    used = _npx_cache(
+        home, "a" * 16, {"@upstash/context7-mcp": "^4.7.3"}, packages=[("express", "5.1.0")]
+    )
+    stale = _npx_cache(home, "b" * 16, {"@upstash/context7-mcp": "^4.0.4"})
+    dev = _npx_cache(
+        home,
+        "c" * 16,
+        {"promptfoo": "^0.121.17"},
+        packages=[("mongoose", "9.7.1"), ("simple-git", "3.36.0")],
+    )
+    floating = _npx_cache(home, "d" * 16, {"float-tool": "^1.0.0"})
+    monkeypatch.setattr(s, "_lock_packages", lambda _lock: [])
+    monkeypatch.setattr(s, "configured_host_venvs", lambda *_a, **_k: [])
+    monkeypatch.setattr(s, "_uv_tool_venvs", lambda _home: [])
+
+    inventory = s.collect_inventory(tmp_path, home)
+
+    assert inventory.sources["npx caches"] == 2
+    assert inventory.sources["npx caches unused (skipped)"] == 2
+    assert inventory.npx_skipped == {
+        stale.name: "@upstash/context7-mcp@^4.0.4",
+        dev.name: "promptfoo@^0.121.17",
+    }
+    assert floating.name not in inventory.npx_skipped
+    names = {pkg.name for pkg in inventory.packages}
+    assert "express" in names
+    assert not {"mongoose", "simple-git"} & names
+    assert used.exists()
+
+
+def test_npx_cache_in_use_matches_pin_name_and_version():
+    assert s._npx_cache_in_use({"pkg": "^1.2.3"}, [{"name": "pkg", "pinned": "1.2.3"}])
+    assert s._npx_cache_in_use({"pkg": "1.2.3"}, [{"name": "pkg", "pinned": "1.2.3"}])
+    assert s._npx_cache_in_use({"pkg": "^0.9.0"}, [{"name": "pkg", "pinned": ""}])
+    assert not s._npx_cache_in_use({"pkg": "^1.2.3"}, [{"name": "pkg", "pinned": "2.0.0"}])
+    assert not s._npx_cache_in_use({"other": "^1.0.0"}, [{"name": "pkg", "pinned": "1.0.0"}])
+    assert not s._npx_cache_in_use({}, [{"name": "pkg", "pinned": "1.0.0"}])
