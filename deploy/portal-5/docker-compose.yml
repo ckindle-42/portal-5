@@ -105,6 +105,10 @@ services:
       # engine's settings so the guard reserves the engine's prefill share rather
       # than a copy of it. Empty = budget the raw headroom (pre-2026-11-16 behaviour).
       - OMLX_PREFILL_SAFE_ZONE_RATIO=${OMLX_PREFILL_SAFE_ZONE_RATIO:-}
+      # The engine's memory-guard tier, likewise read by `launch.sh up`: the guard
+      # needs its other-app reclaim share to project the ceiling an Ollama load
+      # leaves behind. Empty = no projection (the previous behaviour).
+      - OMLX_MEMORY_GUARD_TIER=${OMLX_MEMORY_GUARD_TIER:-}
       - LOAD_GUARD_CEILING_GB=${LOAD_GUARD_CEILING_GB:-0}
       - LOAD_GUARD_WAIT_S=${LOAD_GUARD_WAIT_S:-120}
       - OLLAMA_KV_CACHE_TYPE=${OLLAMA_KV_CACHE_TYPE:-q8_0}

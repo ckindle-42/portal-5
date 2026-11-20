@@ -7,6 +7,7 @@ import fcntl
 import json
 import logging
 import time
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -315,8 +316,12 @@ def _fast(monkeypatch, tmp_path):
     # oMLX's own prefill-safe share of its ceiling, pinned so oMLX admission
     # arithmetic does not depend on the host's ~/.omlx/settings.json.
     monkeypatch.setattr(lg, "_OMLX_PREFILL_ZONE", 0.8)
+    # ...and its balanced-tier share of other apps' active memory, likewise.
+    monkeypatch.setattr(lg, "_OMLX_RECLAIM_RATIO", 0.25)
     monkeypatch.delenv("LOAD_GUARD", raising=False)
     monkeypatch.delenv("OMLX_PREFILL_SAFE_ZONE_RATIO", raising=False)
+    monkeypatch.delenv("OMLX_OTHER_APP_RECLAIM_RATIO", raising=False)
+    monkeypatch.delenv("OMLX_MEMORY_GUARD_TIER", raising=False)
     lg.set_load_wait(None)
     monkeypatch.setattr(lg, "_WAIT_S", 0.0)  # refuse at once unless a test opts into waiting
     from portal.platform.inference.router.parallel_seat import YIELD
@@ -972,3 +977,219 @@ async def test_omlx_status_syncs_unloaded_hot_seat():
     await _REAL_HOST_FREE_BYTES(g, OLLAMA_URL)
 
     assert placement.TRACKER.hot_model(placement.engine_key(OMLX_URL), 900) is None
+
+
+# ── the cross-engine ceiling (2026-11-20) ───────────────────────────────────
+# oMLX derives its ceiling from host free + inactive memory, so an Ollama resident
+# takes all but the engine's `other_app_reclaim_ratio` of its footprint off the room
+# a loaded oMLX seat prefills in. Recorded live from oMLX 0.8.0 on 2026-11-20.
+RECORDED_STATUS_080: dict[str, Any] = json.loads(
+    (Path(__file__).parent / "fixtures" / "omlx_status_080.json").read_text()
+)
+RECORDED_SEAT = "gemma-4-26b-a4b-it-QAT-4bit"
+
+
+class RecordedOmlx:
+    """The captured 0.8.0 /v1/models/status plus the Ollama reads a cold load makes."""
+
+    def __init__(self, *, tags: dict[str, int], ollama: dict[str, int] | None = None) -> None:
+        self.tags = tags
+        self.ollama = dict(ollama or {})
+        self.request_counts: dict[str, int] = {}
+
+    def handler(self, req: httpx.Request) -> httpx.Response:
+        path = req.url.path
+        self.request_counts[path] = self.request_counts.get(path, 0) + 1
+        if path == "/v1/models/status":
+            return httpx.Response(200, json=RECORDED_STATUS_080)
+        if path == "/api/ps":
+            return httpx.Response(
+                200, json={"models": [{"name": n, "size": s} for n, s in self.ollama.items()]}
+            )
+        if path == "/api/tags":
+            return httpx.Response(
+                200, json={"models": [{"name": n, "size": s} for n, s in self.tags.items()]}
+            )
+        if path == "/api/show":
+            return httpx.Response(200, json={})
+        if path == "/api/status":
+            return httpx.Response(200, json={"active_requests": 0, "waiting_requests": 0})
+        if path == "/api/generate":
+            self.ollama.pop(json.loads(req.content)["model"], None)
+            return httpx.Response(200, json={"done": True})
+        return httpx.Response(404)
+
+    def transport(self) -> httpx.MockTransport:
+        return httpx.MockTransport(self.handler)
+
+
+def recorded_guard(e: RecordedOmlx) -> lg.LoadGuard:
+    return lg.LoadGuard(
+        omlx_url=lambda: OMLX_URL,
+        pinned=lambda: "router",
+        client=lambda: httpx.AsyncClient(transport=e.transport()),
+        ollama_url=lambda: OLLAMA_URL,
+    )
+
+
+def test_the_recorded_080_status_is_the_ceiling_the_guard_budgets():
+    """0.8.0 exposes final_ceiling (its hard limit: min static, dynamic, Metal cap) and
+    current_model_memory, not dynamic_ceiling_bytes or the phys footprint."""
+    ceiling = RECORDED_STATUS_080["final_ceiling"]
+    assert ceiling > 0
+    assert lg._budget_bytes(RECORDED_STATUS_080) == ceiling
+    seat = next(m for m in RECORDED_STATUS_080["models"] if m["loaded"])
+    assert seat["id"] == RECORDED_SEAT and seat["actual_size"] > 0
+    cap = lg._omlx_ollama_load_cap(RECORDED_STATUS_080, seat["actual_size"])
+    assert cap is not None
+    # 80% of 30.6 GiB less the 2 GiB margin leaves the 15.2 GiB seat 7.27 GiB of
+    # room, which a balanced-tier Ollama resident eats at 0.75 bytes per byte.
+    assert cap / GIB == pytest.approx(12.116, abs=0.01)
+
+
+def test_the_reclaim_share_follows_the_engine_memory_tier(tmp_path, monkeypatch):
+    settings = tmp_path / "settings.json"
+
+    def write(tier: str) -> None:
+        settings.write_text(json.dumps({"memory": {"memory_guard_tier": tier}}))
+
+    monkeypatch.delenv("OMLX_OTHER_APP_RECLAIM_RATIO", raising=False)
+    monkeypatch.delenv("OMLX_MEMORY_GUARD_TIER", raising=False)
+    for tier, ratio in (("safe", 0.0), ("balanced", 0.25), ("aggressive", 0.5), ("custom", 1.0)):
+        write(tier)
+        assert lg._omlx_reclaim_ratio(settings) == ratio
+    monkeypatch.setenv("OMLX_OTHER_APP_RECLAIM_RATIO", "0.5")
+    assert lg._omlx_reclaim_ratio(settings) == 0.5
+
+
+async def test_an_ollama_load_that_would_squeeze_the_loaded_seat_is_refused(caplog):
+    """Property 1: 12.5 GiB fits oMLX's raw 13.4 GiB headroom but would leave the
+    recorded 15.2 GiB seat below its prefill share, so the load is refused."""
+    e = RecordedOmlx(tags={"target": 10 * GIB})
+    g = recorded_guard(e)
+    g.protect(lg.OMLX, RECORDED_SEAT, failover=True)
+
+    with (
+        caplog.at_level(logging.INFO, logger=lg.logger.name),
+        pytest.raises(lg.LoadRefusedError) as err,
+    ):
+        await g.admit(OLLAMA_URL, "target")
+
+    assert "held for the loaded oMLX seat" in str(err.value)
+    assert "12.5 GiB" in str(err.value)
+    assert any("held so the loaded oMLX seat" in r.getMessage() for r in caplog.records)
+    assert e.request_counts.get("/admin/api/models") is None  # the kept seat was never touched
+
+
+async def test_an_ollama_load_never_squeezes_its_loaded_omlx_copy(caplog):
+    """The 2026-11-20 shape: the seat's oMLX copy is not evictable, so the GGUF load
+    is refused instead of taking the copy's prefill room."""
+    e = Engines(
+        tags={"target": 10 * GIB},
+        omlx={"omlx-target": {"size": int(16 * GIB), "loaded": True}},
+        ceiling=int(30 * GIB),
+        omlx_memory=int(16 * GIB),
+    )
+    g = guard(e, counterpart=lambda engine, _model: {"omlx-target"})
+
+    with pytest.raises(lg.LoadRefusedError):
+        await g.admit(OLLAMA_URL, "target")
+
+    assert e.unloaded == []
+    assert e.omlx["omlx-target"]["loaded"]
+
+
+async def test_an_idle_ollama_resident_is_evicted_to_restore_the_seat_prefill_room():
+    """Property 1's evict half: the idle resident's release lifts the ceiling and the
+    loud load is admitted with the loaded seat's share intact."""
+    e = Engines(
+        tags={"target": 10 * GIB},
+        ollama={"idle": 6 * GIB},
+        omlx={"seat": {"size": int(16 * GIB), "loaded": True}},
+        ceiling=int(30 * GIB),
+        omlx_memory=int(16 * GIB),
+    )
+    e.hidden["idle"] = 6 * GIB
+    g = guard(e)
+    g.protect(lg.OMLX, "seat", failover=True)
+    lg.set_load_wait("5")
+
+    release = await g.admit(OLLAMA_URL, "target")
+
+    assert release is not None
+    assert e.unload_calls == {"idle": 1}
+    assert e.omlx["seat"]["loaded"]
+    release()
+
+
+async def test_an_omlx_load_is_refused_when_a_pinned_ollama_resident_leaves_no_room():
+    """Property 2's refusal half: the resident cannot be evicted, so oMLX's load is
+    not admitted into a prefill share the resident has already taken."""
+    e = Engines(
+        ollama={"router": int(22 * GIB)},
+        omlx={"mlx": {"size": int(14 * GIB), "loaded": False}},
+        ceiling=int(18 * GIB),
+    )
+    g = guard(e)
+
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await g.admit_omlx("mlx")
+
+    assert "router (22.0 GiB, pinned)" in str(err.value)
+    assert e.unload_calls == {}
+
+
+async def test_an_idle_ollama_resident_is_evicted_before_an_omlx_load_is_refused():
+    """Property 2's evict half: the 24.6 GiB resident the incident left behind is
+    unloaded first, and its release lets the seat load."""
+    e = Engines(
+        ollama={"nemotron": int(24.6 * GIB)},
+        omlx={"mlx": {"size": int(14 * GIB), "loaded": False}},
+        ceiling=int(19 * GIB),
+    )
+    e.hidden["nemotron"] = int(24.6 * GIB)
+    g = guard(e)
+    lg.set_load_wait("5")
+
+    release = await g.admit_omlx("mlx")
+
+    assert release is not None
+    assert e.unload_calls == {"nemotron": 1}
+    assert "nemotron" not in e.ollama
+    release()
+
+
+async def test_unreadable_omlx_status_fails_open_and_says_so(caplog):
+    """Property 3: no oMLX numbers means the previous admission path, logged."""
+    e = Engines(tags={"target": 10 * GIB}, omlx_ok=False)
+    g = guard(e)
+
+    with caplog.at_level(logging.INFO, logger=lg.logger.name):
+        release = await g.admit(OLLAMA_URL, "target")
+
+    assert release is not None
+    assert any("oMLX status unreadable" in r.getMessage() for r in caplog.records)
+    release()
+
+
+async def test_an_unknown_reclaim_share_admits_on_the_previous_path_and_says_so(
+    caplog, monkeypatch
+):
+    """Property 3: the ceiling projection needs the engine's reclaim share; without it
+    the guard does not invent one."""
+    e = Engines(
+        tags={"target": 10 * GIB},
+        omlx={"seat": {"size": int(16 * GIB), "loaded": True}},
+        ceiling=int(34 * GIB),
+        omlx_memory=int(16 * GIB),
+    )
+    g = guard(e)
+    g.protect(lg.OMLX, "seat", failover=True)
+    monkeypatch.setattr(lg, "_OMLX_RECLAIM_RATIO", None)
+
+    with caplog.at_level(logging.INFO, logger=lg.logger.name):
+        release = await g.admit(OLLAMA_URL, "target")
+
+    assert release is not None
+    assert any("cannot project oMLX's ceiling" in r.getMessage() for r in caplog.records)
+    release()
