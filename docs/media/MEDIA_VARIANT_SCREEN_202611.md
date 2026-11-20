@@ -1,6 +1,6 @@
 # Media variant screen — smaller MLX builds (2026-11)
 
-**Written:** 2026-11-19 as a screen plan. A judged-results section for the 2026-11-20 runs was added the same week. That judgment changed no seat and no production config.
+**Written:** 2026-11-19 as a screen plan. A judged-results section for the 2026-11-20 runs was added the same week. That judgment changed no seat and no production config. The operator's own verdicts on those runs are recorded in "Operator verdicts (2026-11-20)" at the end of this document; they also changed no seat and no production config.
 **Host the screen is for:** 64 GB Apple Silicon, oMLX (`:8085`) and Ollama (`:11434`) co-resident, ~56 GB GPU wired limit. Measured live the same day (orchestrator, stack up): image **FLUX.2 [klein] 4B q8 peak 9 GB**; video **LTX-2.5 q4, 512×320-class, worker ~9 GB RSS, system free ≥52%**; music **ACE-Step 1.5 XL-Turbo, system free fell to 22%** (heaviest). Roster reasoning: `docs/media/MEDIA_OVERHAUL_RESEARCH.md`.
 **Incumbent code (repo, not re-measured here):** image `flux2-klein-4b` at `-q 8`, 4 steps (`portal/modules/media/tools/mflux_mcp.py`); video `ltx-2-mlx generate --distilled --low-ram` on `dgrauet/ltx-2.5-mlx-q4` (`portal/modules/media/tools/video_mlx_mcp.py`); music `acestep-v15-xl-turbo` + `acestep-5Hz-lm-1.7B`, `use_mlx_dit=True`, LM `backend=mlx` (`portal/modules/media/tools/music_worker.py`).
 
@@ -481,3 +481,37 @@ cloned at `coding_task/scratch/heartlib-mlx` but unbuilt. Installing it is `uv s
 `HeartMuLa-oss-3B` + `HeartCodec-oss` Hugging Face downloads into `./ckpt`,
 `python -m heartlib_mlx.utils.convert --src ./ckpt --dst ./ckpt-mlx`, and then a
 `kind: heartlib` catalog row. Until that runs, HeartMuLa has no clip and no row.
+
+## Operator verdicts (2026-11-20)
+
+The operator's own look and listen of the same files, made after the model judges' scores above. These are the decisions, and they decide the seats. **No seat and no config changed:** image stays `flux2-klein-4b` at `-q 8` (`portal/modules/media/tools/mflux_mcp.py`), video stays `ltx-2-mlx` on `dgrauet/ltx-2.5-mlx-q4` (`portal/modules/media/tools/video_mlx_mcp.py`), music stays `acestep-v15-xl-turbo` + `acestep-5Hz-lm-1.7B` (`portal/modules/media/tools/music_worker.py`). Clip paths are under `${AI_OUTPUT_DIR}/generated/screens/`; run names are the ones in the judged-results section.
+
+| Medium | Operator verdict | Model judges | Agreement |
+|---|---|---|---|
+| Image | **Keep `klein4b-q8`** | Keep `klein4b-q8` | Agrees, after a reversed first pick |
+| Music | **Keep XL-Turbo**; `ace-turbo2b-nolm` is the strong lighter alternative | Need more evidence | Operator decided where the judges stopped |
+| Video | **Keep `ltx25-q4`**; every candidate is bad | Keep `ltx25-q4`, unanimous | Agrees on the seat, harsher on the incumbent |
+
+### Image — keep `klein4b-q8`
+
+The operator's first pick was `zimage-q4`, the rank-3 row of `image-20261120T055910Z`. On re-review the operator agreed with the judges that the incumbent `klein4b-q8` is better, so `zimage-q4` is the runner-up rather than the pick. That first pick is also the row the judges put behind the incumbent: both lineages preferred the incumbent on two prompts of three, and prompt 1 was their only split. The operator's re-review therefore moved the image verdict onto the judges' pick, and it stayed there.
+
+The footprint does not move that verdict. `zimage-q4` measured 11.57–13.13 GB peak RSS and a 45–47% free floor against the incumbent's 7.52–7.54 GB and 73–74%, on the same three prompts.
+
+### Music — keep XL-Turbo, with `ace-turbo2b-nolm` as the lighter alternative
+
+The operator's best overall clip is `0ba3933b-08df-0687-7290-23326db8b9a1.wav`, which is `ace-xl17-p1` in `music-20261120T061706Z` (XL-Turbo + 1.7B LM, fixed prompt 1). Two more clips are winners on their prompt: `3be21b4b-ca7b-b5f7-1848-c5a0e223598d.wav` (`ace-xl17-p2`, the vocal prompt, run `music-20261120T134823Z`) and `aab2f47b-735c-b8b4-6260-10a9b28e863d.wav` (`ace-turbo2b-nolm-p2`, the same run, the 2B turbo with the LM off).
+
+Those winners track the judged rows: XL-Turbo on prompt 2 and the no-LM turbo on prompt 3 were already the winners for both Gemini listeners and for MiMo, and prompt 1 was the one pair the listeners split. Where the operator differs is the overall call — the judges stopped at "need more evidence" and the operator keeps the incumbent.
+
+`ace-turbo2b-nolm` is recorded as the **strong lighter alternative**. It won the solo-nylon prompt for both Gemini listeners and for the MiMo second listener — the one prompt XL-Turbo loses on sound — and it ran in 17.8–21.1 s at 10.74–12.28 GB RSS with swap at 0 to +0.84 GB. XL-Turbo's cost is what makes the lighter arm more than a footnote: 223–230 s, process RSS 5.17–5.80 GB, free floor **7–8%**, swap **+27.94 to +37.92 GB**. The operator keeps XL-Turbo, with that cost on the record.
+
+XL-Turbo keeps the seat on the evidence the judges recorded rather than on memory: it is the only arm that sang the verse and the chorus. The operator named no `ace-turbo2b-lm06` clip among the winners, which matches both Gemini listeners (drums and bass on the solo-guitar prompt). A later candidate has to clear the vocal and the solo guitar without the swap.
+
+"Best overall" is a property of that **take**, not of the arm: `music-20261120T061706Z` holds only the prompt-1 XL-Turbo wav and no measured row, and that wav is a second, distinct take of the same spec and seed 42 (same 30.0 s, different sha256, waveform correlation 0.11) from the `8e1de78e-…wav` that `music-20261120T134823Z` produced and the judges scored.
+
+### Video — keep `ltx25-q4`
+
+Every candidate in the screen is bad, in the operator's judgement. The best of them are the incumbent's own re-runs, `ltx25-q4-p2.mp4` (door) and `ltx25-q4-p3.mp4` (walk) in `video-20261120T142117Z`; the waves clip `ltx25-q4-p1.mp4` is not among them. The seat stays on `ltx25-q4`. The FastMetal arms are rejected: silent on prompts that ask for sound, and the weaker picture even when the soundtrack is ignored.
+
+That agrees with the judges' unanimous incumbent win and goes further. The door clip the judges call the weak LTX row is one of the operator's two best; the seat survives because the incumbent is the least bad file in the screen, not because it is good.
