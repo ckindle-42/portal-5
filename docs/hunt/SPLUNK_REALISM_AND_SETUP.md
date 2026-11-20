@@ -87,6 +87,14 @@ the file was never sourced. Every number below carries its command in §9.
   request reports none of these and silently returns partial rows. See §2.8 for why that matters.
 - All timing is **wall clock on the client** and **`runDuration` on the server**, both reported.
   The VM was idle throughout (`cpu_idle_pct 88`, load 0.19): one measurement at a time.
+- **Disclosure on the held-out sets.** Two estate-wide inventory queries were run before the
+  training filters were applied: `| tstats count where index=* by index` (12 rows: one count per
+  index) and `| tstats count where index=* by index sourcetype` (826 rows: name + count per pair),
+  plus `| dbinspect index=*` (bucket count and size per index). Those rows name `botsv1`,
+  `hb_ait_wheeler` and `hb_cloudobs_aws` and give their **counts/sizes only**. No event, field
+  value, key or document from a held-out index was read or queried, and no constant, timing or
+  decision in this document uses their counts. Every other query is scoped to the four training
+  indexes.
 
 ---
 
