@@ -33,6 +33,8 @@ run_linux() {
     uv export --frozen --extra dev --no-hashes --no-emit-project > /tmp/lock-constraints.txt
     uv pip install --system -q -e ".[dev]" -c /tmp/lock-constraints.txt
     python scripts/complexity_report.py --gate
+    # Drop Docker Desktop DNS so host.docker.internal fails resolution like ubuntu-latest instead of tripping netguard at 192.168.65.254.
+    : > /etc/resolv.conf
     pytest tests portal -n auto --tb=short -v
   '
   echo "== ci-local --linux: PASS — safe to push =="
