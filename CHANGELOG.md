@@ -4,6 +4,33 @@ All notable changes to Portal 5 will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **`./launch.sh up`/`rebuild` prune what the started stack no longer use and report the disk
+  savings.** After a successful build/start (a failed start keeps the old images for rollback,
+  the rule `weekly_rebuild.py` already pruned by), `_disk_hygiene` in `scripts/lib/util.sh`
+  removes superseded Portal images (Portal-owned tags no compose service declares and no
+  container references — the retired `portal-5-mcp-reranker` class), dangling images, dangling
+  build cache, and inside `portal5-dind` the same except images its compose-declared sandbox
+  services need; then fstrim in the Docker Desktop VM (`/dev/vda1`, ext4 discard at
+  `/var/lib/docker`, run through the VM namespaces via the stack's own dind image) returns the
+  freed blocks to the host, and the report prints before/after main-drive free space and
+  Docker.raw allocated size. Volumes and models are never touched and `docker compose down -v`
+  is never run. Replaces the dangling-only `docker image prune` that used to run mid-`up`.
+- **The security sweep's image scan can no longer fill the main drive.** osv-scanner's image
+  exports (`docker-image-*.tar`, `image-blob-*`) now land in a per-image temp dir under
+  `/Volumes/data01/portal5_sweep_scratch/osv-image-scan` (`PORTAL5_SWEEP_IMAGE_SCRATCH_DIR`
+  overrides, `.env.example` documents it), never the main drive's `$TMPDIR` where the
+  2026-11-19 ENOSPC leak left ~22 GB per interrupted run (68 GB total). Every export is
+  removed when its image finishes and on SIGTERM/SIGINT/exception (SIGTERM raises so unwinding
+  cleans up); at startup the sweep removes stale exports left by an earlier killed run. The
+  scan cache and resume behaviour are unchanged. When the scratch is unusable (data01 not
+  mounted) the image scan is skipped with an explicit error row instead of falling back to
+  `$TMPDIR`.
+- **KNOWN_LIMITATIONS records the next main-drive grower: `portal-5_security-hf-cache`
+  (12.97 GB measured 2026-11-19)** — the security MCP's HuggingFace cache lives in a Docker
+  volume on the main drive (`P5-DISK-001`); moving it to data01 is a compose + migration
+  change, recorded not applied.
+
 ### Removed
 - **The Serena MCP is out of the fleet.** The IDE-only `serena` `mcp_fleet` entry
   (`config/portal.yaml`) is removed by operator decision (2026-11-19): benched 2026-08-09 with
