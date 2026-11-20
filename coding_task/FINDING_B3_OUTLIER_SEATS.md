@@ -60,14 +60,18 @@ so hop 1 answers without a tool call and the Pipeline correctly withholds it and
 
 | seat/size | hop 1 (discarded) | hop 2 (delivered) | row `total_s` |
 | --- | --- | --- | --- |
-| bigfix 2k | 77 tok, ttft 2.63, gen 0.98 s | 128 tok, ttft 0.46, gen 1.69 s | 5.77 = 3.62 + 2.15 |
-| bigfix 8k | 116 tok, ttft 6.42, gen 1.70 s | 39 tok, ttft 0.70, gen 0.57 s | 9.42 = 8.13 + 1.29 |
-| data 2k | 107 tok, ttft 2.93, gen 1.51 s | 46 tok, ttft 3.01, gen 0.65 s | 8.10 = 4.44 + 3.66 |
-| data 8k | 56 tok, ttft 5.90, gen 0.79 s | 119 tok, ttft 5.88, gen 1.70 s | 12.06 = 6.69 + 5.37 |
-| cad 8k | 128 tok, ttft 0.63, gen 2.44 s (truncated `<tool_call>` envelope) | 128 tok, ttft 0.89, gen 2.43 s | 6.62 = 3.33 + 3.29 |
+| bigfix 2k | 77 tok, ttft 2.63, gen 0.99 s | 128 tok, ttft 0.46, gen 1.69 s | 5.77 = 3.62 + 2.15 |
+| bigfix 8k | 116 tok, ttft 6.42, gen 1.71 s | 39 tok, ttft 0.70, gen 0.59 s | 9.42 = 8.13 + 1.29 |
+| data 2k | 107 tok, ttft 2.92, gen 1.52 s | 46 tok, ttft 3.00, gen 0.66 s | 8.10 = 4.44 + 3.66 |
+| data 8k | 56 tok, ttft 5.90, gen 0.80 s | 119 tok, ttft 5.88, gen 1.71 s | 12.06 = 6.69 + 5.37 |
+| cad 8k | 128 tok, ttft 0.89, gen 2.44 s (truncated `<tool_call>` envelope) | 128 tok, ttft 0.86, gen 2.43 s | 6.62 = 3.33 + 3.29 |
+
+(`gen` is the engine's own `n / tok/s`; oMLX's `generation_duration` also carries the
+`total_time − prompt_eval_duration` split, which is why the row's `answer_s` equals the two
+hop generation durations and not `total_s − ttft_s`.)
 
 The row's `answer_tps` is **the delivered hop's tokens divided by both hops' decode seconds**:
-`16.957 = 39 / (1.70 + 0.57)` for bigfix 8k, `21.005 = 46 / (1.51 + 0.65)` for data 2k. So the
+`16.957 = 39 / (1.71 + 0.59)` for bigfix 8k, `21.005 = 46 / (1.52 + 0.66)` for data 2k. So the
 reported percentage is `engine_rate × delivered_tokens / all_hops_tokens` — exactly the ratio
 that makes a 70–76 tok/s seat look like 17–41 tok/s.
 
@@ -158,6 +162,35 @@ decision, recorded in OPEN.
   selected for Coder or gemma (only `Qwen3.8-27B-oQ4e-mtp` has `mtp_enabled: true`). The
   Pipeline sends `chat_template_kwargs.enable_thinking` from the seat's `think`; `data`/`fast`
   (think false) show `reasoning_tokens: 0`, `pentest`/`deep` (think true) reason.
+
+## Fixes in this lane
+
+`portal/platform/inference/router/trace.py`
+
+* `_resolve_durations` honours `measured["tool_turn"]`: a tool-call or withheld hop records
+  `answer_s = 0.0`, matching the `answer_tokens = 0` that `_answer_token_count` already sets.
+  The delivered hop is the only one that contributes an answer rate. `total_s`, `prefill_s` and
+  the `*_deltas` counters remain additive, so the trace still shows both hops.
+  `usage_metric_kwargs` now hands `_record_usage` `(answer_tokens=0, answer_seconds=0)` for a
+  tool hop; `_positive_float(0.0)` is `None`, so no zero-second answer sample is recorded, while
+  the decode series still uses the engine generation duration.
+
+`scripts/speed_bench.py`
+
+* `classify_pipeline_row` reports a NO-ANSWER reply whose `completion_tokens` reached the
+  requested budget with `reasoning_tokens > 0` as `seat_status: reasoning_only` (a note, not a
+  failure), because the decode sample is valid and the 128-token cap is what removed the answer.
+* Every other no-answer stays `no_answer` (e.g. a zero-token stream).
+
+`scripts/speed_gate.py`
+
+* A B3 `reasoning_only` row is a note (cell stays `ok`) and stays in `_cell_rows`' comparison,
+  so a thinking seat is measured rather than dropped.
+
+Tests: `tests/unit/test_timing_instrument.py::test_a_discarded_tool_hop_adds_no_answer_seconds_to_the_rollup`
+(drives the real `_tool_loop_frames` shape: answer `128 / 1.69`, not `128 / 2.67`),
+`tests/unit/test_speed_bench_pipeline_row.py::test_reasoning_only_budget_row_is_a_decode_sample_not_a_failure`,
+and `tests/unit/test_speed_gate.py::test_b3_reasoning_only_row_is_a_note_and_stays_in_the_comparison`.
 
 ## Re-run command and pass criteria
 
