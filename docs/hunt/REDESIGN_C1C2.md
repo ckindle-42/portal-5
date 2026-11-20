@@ -2,7 +2,12 @@
 
 Lane `lane/hunt-redesign-c1c2`. Blind hunt only: no signatures, IOCs, dataset names, or keyword lists. New numbers below are effort budgets, the same kind as `BEHAVIOUR_WINDOWS` and `MAX_SEEDS`. They were not LOFO-measured. Offline replay of stored runs was not used to choose them.
 
-`docs/hunt/PRACTITIONER_REVIEW.md` and `docs/hunt/INSTRUMENT_AUDIT_BOTSV2.md` are not in this worktree. C1 and C2 follow the brief. F is the misfit source-share drop. D, with the review absent, is taken to mean a labelled step that was scored and ranked below the head. That reading is unconfirmed.
+The merged tree includes `docs/hunt/PRACTITIONER_REVIEW.md` and
+`docs/hunt/INSTRUMENT_AUDIT_BOTSV2.md`. In that review, §2.D is the sample-first-seen error
+and §2.F is the misfit source-share gate; the earlier absent-review reading of D as a labelled
+step scored below the head is withdrawn. This lane implements the C1/C2 redesign and the F
+source-share behavior below. It does not claim the review's full C0+C4 recommendation set is
+complete.
 
 ## What changed
 
@@ -43,11 +48,14 @@ Per family, after the orchestrator run:
 - `progress.json` → `stages.relate`: `flows`, `promotion.lifted`, `promotion.ids`
 - `{family}/inventory.json` holds the value lists
 
-No per-family search count is known until that run. The script prints the behaviour inventory block to `$run_dir/$family.inventory.log`.
+No per-family search count is known until that run. The run script records the behaviour inventory block in `$run_dir/$family.run.log`.
 
-## Predicted live numbers
+## Historical hold numbers
 
-Unproven. This lane did not run a hunt. The regression bar, from merge `defd357bc` and the brief, is the number a live run must not fall below. It is not a forecast of this code.
+Unproven for this code. This lane did not run a hunt. The figures below are the historical
+hold from merge `defd357bc`, not a current pass bar or a prediction. The merged HEAD's scoreboard
+and the practitioner review define the live report; preserve its modes and compare the measured
+result with this historical hold without treating either as a forecast.
 
 | Family | Scoreboard mode | top50 hold | top100 | all |
 | --- | --- | --- | --- | --- |
