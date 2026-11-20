@@ -14,8 +14,9 @@ Three engines share one table and one JSON report:
   ``[DONE]`` plus ``x-portal-route``/served ``model``, and verifies the seat hit
   its intended backend and model. It pins the seat's declared backend with
   ``portal_backend`` (``--no-backend-pin`` measures the routed path), skips
-  sizes past the seat's declared context, and reports a refusal, a no-answer
-  and a multi-hop chain as those — never as "wrong engine".
+  sizes past the seat's declared context, and reports a refusal, a no-answer,
+  a budget-exhausted reasoning turn and a multi-hop chain as those — never as
+  "wrong engine".
 
 URLs come from ``--host``, else ``OLLAMA_URL`` / ``OMLX_URL`` / ``PIPELINE_URL``,
 else the documented localhost defaults; keys from ``--api-key``, else
@@ -407,13 +408,16 @@ def classify_pipeline_row(
     backend_types: Mapping[str, str],
     content: str = "",
     multi_hop: bool = False,
+    requested_max_tokens: int | None = None,
 ) -> tuple[str | None, str | None]:
     """Classify one pipeline row; return ``(failure, note)``.
 
     A refusal or a no-answer row is not a "wrong engine" row: it never reached a
     model. A chain/council seat's served model is its last hop, not the seat's
     hint, so it cannot be engine-checked. Only a model that answered from an
-    unexpected backend/model is ``WRONG ENGINE``.
+    unexpected backend/model is ``WRONG ENGINE``. A thinking seat that spent its
+    whole ``requested_max_tokens`` on reasoning is a valid decode sample, reported
+    as ``reasoning_only`` rather than as a failed answer.
     """
     text = content or ""
     if CONTEXT_REFUSAL in text:
@@ -424,6 +428,19 @@ def classify_pipeline_row(
         not (row.get("completion_tokens") or 0) and not (row.get("prompt_tokens") or 0)
     ):
         row["engine_ok"] = None
+        completion = row.get("completion_tokens") or 0
+        reasoning = row.get("reasoning_tokens") or 0
+        if (
+            NO_ANSWER_NOTICE in text
+            and requested_max_tokens
+            and reasoning
+            and completion >= requested_max_tokens
+        ):
+            row["seat_status"] = "reasoning_only"
+            return None, (
+                f"NOTE: seat {seat!r} generated its whole {completion}-token output budget "
+                f"as reasoning ({reasoning} reasoning tokens); raw decode is the sample"
+            )
         row["seat_status"] = "no_answer"
         detail = text.strip()[:160] or "the stream carried no answer and no usage"
         return f"NO ANSWER: seat {seat!r} produced no completion ({detail})", None
@@ -763,6 +780,7 @@ def run_bench(
                 backend_types=backend_types,
                 content=str(row.pop("content", "")),
                 multi_hop=multi_hop,
+                requested_max_tokens=NUM_PREDICT,
             )
             if failure:
                 failures.append(f"{failure} [size {size} tokens]")

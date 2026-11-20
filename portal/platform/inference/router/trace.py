@@ -716,7 +716,11 @@ def _resolve_durations(
             values[name] = _number(measured.get(name))
     if values.get("reasoning_s") is None:
         values["reasoning_s"] = _number(measured.get("reasoning_s"))
-    if values.get("answer_s") is None:
+    if measured.get("tool_turn"):
+        # A tool-call or withheld hop has no answer phase: its zero answer tokens
+        # must not be paired with its full generation time in the request rollup.
+        values["answer_s"] = 0.0
+    elif values.get("answer_s") is None:
         values["answer_s"] = _answer_duration(values, engine, measured, has_reasoning, has_answer)
     if measured.get("tool_s") is not None:
         values["tool_s"] = _number(measured.get("tool_s"))
