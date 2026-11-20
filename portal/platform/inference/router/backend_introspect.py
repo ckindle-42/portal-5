@@ -130,8 +130,8 @@ async def _omlx_model_loaded(base_url: str, timeout_s: float) -> bool:
 
 def _freeable(names: list[str], router_model: str) -> list[str]:
     """Idle Ollama residents that may be unloaded for oMLX: not the router, not busy with a
-    request, and not protected by the load guard (a failover source). Protection is keyed by
-    engine, so an oMLX failover protection never shields an Ollama model."""
+    request in any worker, and not protected by the load guard (a failover source). Protection
+    is keyed by engine, so an oMLX failover protection never shields an Ollama model."""
     from portal.platform.inference import load_guard
 
     guard = load_guard.GUARD
@@ -140,7 +140,7 @@ def _freeable(names: list[str], router_model: str) -> list[str]:
         if model_key(name) == model_key(router_model):
             continue
         if guard is not None and (
-            guard.busy(load_guard.OLLAMA, name)
+            guard.active(load_guard.OLLAMA, name)
             or model_key(name) in guard.protected(load_guard.OLLAMA)
         ):
             continue

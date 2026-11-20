@@ -73,6 +73,77 @@ def test_unknown_source_is_refused(tmp_path: Path) -> None:
         enqueue_personal(tmp_path, "email", "1", "hello")
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "run docker compose down -v",
+        "docker system prune -af",
+        "rm -rf ~/projects/portal-5",
+        "launch.sh down",
+        "git push --force origin main",
+    ],
+)
+def test_a_destructive_request_is_refused_and_the_operator_is_told(
+    tmp_path: Path, text: str
+) -> None:
+    """2026-11-20: `docker compose down -v` vanished without a word; now it is answered."""
+    from portal.modules.orchestration.personal_intake import telegram_do
+
+    reply, task_id = telegram_do(tmp_path, 7, text)
+
+    assert reply.startswith("refused: ")
+    assert "Nothing was queued" in reply
+    assert task_id is None
+    assert PersonalStore(tmp_path).oldest_runnable() is None
+
+
+def test_the_owui_submit_reports_a_refusal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from portal.modules.orchestration import owui_entry
+
+    monkeypatch.setenv("TELEGRAM_USER_IDS", "42")
+    monkeypatch.setattr(owui_entry, "tasks_root", lambda: tmp_path)
+
+    answer = owui_entry.jarvis_submit("docker compose down -v", "42")
+
+    assert "refused:" in str(answer["error"])
+    assert PersonalStore(tmp_path).oldest_runnable() is None
+
+
+def test_a_question_about_a_destructive_command_is_not_refused(tmp_path: Path) -> None:
+    """A read-only question that names a dangerous command is still a question."""
+    from portal.modules.orchestration.personal_intake import telegram_do
+
+    reply, task_id = telegram_do(tmp_path, 7, "explain what docker compose down -v does")
+
+    assert task_id is not None and reply == f"queued {task_id}"
+
+
+def test_a_queued_task_reports_its_queue_position(tmp_path: Path) -> None:
+    from portal.modules.orchestration.personal_intake import (
+        personal_queue_note,
+        telegram_do,
+    )
+
+    _first, first_id = telegram_do(tmp_path, 7, "what is the queue status")
+    third = telegram_do(tmp_path, 7, "list the newest receipts")[1]
+    assert third is not None
+
+    reply, second_id = telegram_do(tmp_path, 7, "what is the queue status in one paragraph")
+
+    assert second_id is not None and reply == f"queued {second_id}"
+    assert personal_queue_note(tmp_path, second_id) == "Queue position: 3"
+    assert PersonalStore(tmp_path).live_position(first_id or "") == 1
+
+
+def test_intake_reports_a_queued_task_id_for_the_bot_to_annotate(tmp_path: Path) -> None:
+    from portal.modules.orchestration.personal_intake import telegram_do
+
+    reply, task_id = telegram_do(tmp_path, 7, "what is the queue status")
+
+    assert task_id is not None and reply == f"queued {task_id}"
+    assert telegram_do(tmp_path, 7, "  ") == ("Usage: /jarvis do <text>", None)
+
+
 def test_telegram_do_stores_utc_not_before_and_skips_until_due(tmp_path: Path) -> None:
     now = datetime.now(UTC).replace(microsecond=0)
     due = now + timedelta(minutes=2)

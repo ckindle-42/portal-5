@@ -73,13 +73,13 @@ _launch_build_lab_attack() {
     # build->save->DinD-load pattern.
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     echo "[portal-5] Building native arm64 attack image (portal5-attack:latest)..."
-    docker build -t portal5-attack:latest -f "$PORTAL_ROOT/Dockerfile.attack" "$PORTAL_ROOT"
+    _build_portal_image portal5-attack:latest
     echo "[portal-5] Loading attack image into DinD..."
     if ! docker ps --format '{{.Names}}' | grep -q '^portal5-dind$'; then
       echo "[portal-5] ERROR: portal5-dind is not running. Start the stack first (./launch.sh up)."
       exit 1
     fi
-    docker save portal5-attack:latest | docker exec -i portal5-dind docker load
+    _load_into_dind portal5-attack:latest
     echo "[portal-5] Done. Set SANDBOX_LAB_IMAGE=portal5-attack:latest and SANDBOX_LAB_EXEC=true"
     echo "[portal-5] in .env, then: ./launch.sh restart-mcp   (see docs/LAB_SETUP.md)"
 }
@@ -89,13 +89,13 @@ _launch_build_binresearch() {
     # Opt-in — NOT part of `rebuild`. Mirrors the attack-image build->save->load.
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     echo "[portal-5] Building native arm64 RE toolchain image (portal5-binresearch:latest)..."
-    docker build -t portal5-binresearch:latest -f "$PORTAL_ROOT/Dockerfile.binresearch" "$PORTAL_ROOT"
+    _build_portal_image portal5-binresearch:latest
     echo "[portal-5] Loading RE image into DinD..."
     if ! docker ps --format '{{.Names}}' | grep -q '^portal5-dind$'; then
       echo "[portal-5] ERROR: portal5-dind is not running. Start the stack first (./launch.sh up)."
       exit 1
     fi
-    docker save portal5-binresearch:latest | docker exec -i portal5-dind docker load
+    _load_into_dind portal5-binresearch:latest
     echo "[portal-5] Done. The binresearch MCP (port 8930) will use portal5-binresearch:latest."
 }
 

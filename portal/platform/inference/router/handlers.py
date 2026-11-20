@@ -89,6 +89,7 @@ from portal.platform.inference.router.preinject import (
     _unpack_synthetic_workspace,
 )
 from portal.platform.inference.router.state import (
+    _record_daily_request,
     _record_error,
     _record_persona,
     _req_count_by_model,
@@ -334,7 +335,7 @@ async def admin_reclaim_idle_memory(
     if load_guard.GUARD is None or not ollama:
         raise HTTPException(status_code=503, detail="load guard not initialised")
     try:
-        unloads = await load_guard.GUARD.reclaim_idle_memory(
+        reclaim = await load_guard.GUARD.reclaim_idle_memory(
             ollama.rstrip("/"), float(need_gib) * 1024**3
         )
     except load_guard.LoadRefusedError as exc:
@@ -343,7 +344,7 @@ async def admin_reclaim_idle_memory(
         raise HTTPException(
             status_code=503, detail="load guard could not inspect model memory"
         ) from exc
-    return {"unloads": unloads}
+    return reclaim
 
 
 async def admin_refresh_tools(authorization: str | None = Header(None)) -> dict[str, Any]:
@@ -444,6 +445,17 @@ async def test_notifications(authorization: str | None = Header(None)) -> dict[s
     }
 
     return {"status": "ok", "results": results}
+
+
+async def admin_daily_summary(authorization: str | None = Header(None)) -> dict[str, Any]:
+    """POST /admin/notifications/daily-summary — dispatch today's persisted report."""
+    _verify_admin_key(authorization)
+    from portal.platform.inference.router.lifespan import _notification_scheduler
+
+    if _notification_scheduler is None:
+        raise HTTPException(status_code=503, detail="Daily summary scheduler is not initialized")
+    result = await _notification_scheduler._send_daily_summary(force=True, report_today=True)
+    return result or {"status": "unavailable"}
 
 
 async def metrics() -> PlainTextResponse:
@@ -791,6 +803,9 @@ async def _resolve_request_route(
     await slot.acquire_workspace(workspace_id)
 
     _request_count[workspace_id] = _request_count.get(workspace_id, 0) + 1
+    _record_daily_request(
+        workspace_id, "ui" if no_answer.is_chat_ui(request.headers, body) else "api"
+    )
     _requests_total.labels(workspace=workspace_id).inc()
     slot.mark_active()
 

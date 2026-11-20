@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
@@ -15,10 +16,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[1]
 MEMORY_PID_FILE = Path("/tmp/portal5-memory-safety-test-pids")
 ORCHESTRATE_ROOT = Path.home() / ".claude" / "orchestrate"
 DEFAULT_MIN_HEADROOM_GIB = 1.5
+DEFAULT_MAX_IDLE_RESIDENT_GIB = 1.0
 # One capped commit hook is `-n 4`: a controller plus four workers.
 DEFAULT_MAX_PYTEST_PROCESSES = 5
 DEFAULT_QUIET_POLL_S = 30.0
@@ -266,11 +270,66 @@ def _resident_models(data: Any) -> list[dict[str, Any]]:
         name = model.get("name") or model.get("model") or model.get("id")
         if name:
             resident = {"name": str(name)}
-            for key in ("size", "size_vram", "actual_size", "current_model_memory"):
+            for key in (
+                "size",
+                "size_vram",
+                "actual_size",
+                "estimated_size",
+                "current_model_memory",
+            ):
                 if model.get(key) is not None:
                     resident[f"{key}_gib"] = round(float(model[key]) / 1024**3, 2)
             found.append(resident)
     return found
+
+
+def _configured_resident_models(root: Path = ROOT) -> set[str]:
+    """Resolve preferred workspace model hints and aliases from the checked-in config."""
+    backends = yaml.safe_load((root / "config" / "backends.yaml").read_text()) or {}
+    portal = yaml.safe_load((root / "config" / "portal.yaml").read_text()) or {}
+    workspaces = portal.get("workspaces") or {}
+    names = set()
+    for workspace_id in (backends.get("defaults") or {}).get("preferred_residents") or []:
+        hint = (workspaces.get(workspace_id) or {}).get("model_hint")
+        if not hint:
+            raise ValueError(f"preferred resident workspace {workspace_id!r} has no model_hint")
+        names.add(str(hint))
+        for backend in backends.get("backends") or []:
+            aliases = backend.get("aliases") or {}
+            names.update(
+                str(resolved)
+                for alias, resolved in aliases.items()
+                if str(alias).casefold() == str(hint).casefold() and resolved
+            )
+    return names
+
+
+def _resident_gib(model: dict[str, Any]) -> float | None:
+    for key in (
+        "actual_size_gib",
+        "size_vram_gib",
+        "size_gib",
+        "estimated_size_gib",
+        "current_model_memory_gib",
+    ):
+        try:
+            size = float(model[key])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if size > 0:
+            return round(size, 2)
+    return None
+
+
+def _unexpected_residents(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
+    expected = {str(name).casefold() for name in snapshot.get("configured_resident_models", [])}
+    residents = []
+    for engine in ("ollama", "omlx"):
+        for model in snapshot.get(f"{engine}_residents", []):
+            name = str(model.get("name") or model.get("model") or model.get("id") or "")
+            if name and name.casefold() not in expected:
+                residents.append({"engine": engine, "name": name, "size_gib": _resident_gib(model)})
+    return residents
 
 
 def capture_snapshot(pipeline_url: str, api_key: str) -> dict[str, Any]:
@@ -318,6 +377,13 @@ def capture_snapshot(pipeline_url: str, api_key: str) -> dict[str, Any]:
         omlx_residents = []
         omlx_error = f"{type(exc).__name__}: {exc}"
 
+    try:
+        configured_resident_models = sorted(_configured_resident_models())
+        resident_config_error = None
+    except (OSError, TypeError, ValueError, yaml.YAMLError) as exc:
+        configured_resident_models = []
+        resident_config_error = f"{type(exc).__name__}: {exc}"
+
     plan_headroom = _number(load_plan, "available_gib")
     plan_source = "Pipeline /admin/load-plan available_gib" if plan_headroom is not None else None
     if plan_headroom is None:
@@ -340,6 +406,8 @@ def capture_snapshot(pipeline_url: str, api_key: str) -> dict[str, Any]:
         "ollama_error": ollama_error,
         "omlx_residents": omlx_residents,
         "omlx_error": omlx_error,
+        "configured_resident_models": configured_resident_models,
+        "resident_config_error": resident_config_error,
         "busy_requests": busy_requests,
         "other_heavy_processes": heavy,
         "maximum_pytest_processes": _maximum_pytest_processes(),
@@ -401,7 +469,63 @@ def blockers(snapshot: dict[str, Any]) -> list[str]:
         reasons.append("host memory headroom is unavailable")
     elif headroom < minimum:
         reasons.append(f"host memory headroom {headroom:.1f} GiB is below {minimum:.1f} GiB")
+    if snapshot.get("resident_config_error"):
+        reasons.append(
+            f"configured model residents are unavailable: {snapshot['resident_config_error']}"
+        )
+    for engine in ("ollama", "omlx"):
+        error = snapshot.get(f"{engine}_error")
+        if error:
+            reasons.append(f"{engine} resident state is unavailable: {error}")
+    residents = _unexpected_residents(snapshot)
+    total_gib = sum(row["size_gib"] for row in residents if row["size_gib"] is not None)
+    unknown = [row for row in residents if row["size_gib"] is None]
+    if unknown or total_gib > DEFAULT_MAX_IDLE_RESIDENT_GIB:
+        details = ", ".join(
+            f"{row['engine']}/{row['name']} "
+            + (f"{row['size_gib']:.2f} GiB" if row["size_gib"] is not None else "size unknown")
+            for row in residents
+        )
+        if unknown:
+            reasons.append(f"idle model resident size is unavailable: {details}")
+        else:
+            reasons.append(
+                f"idle model residents hold {total_gib:.1f} GiB "
+                f"(limit {DEFAULT_MAX_IDLE_RESIDENT_GIB:.1f} GiB): {details}"
+            )
     return reasons
+
+
+def _summary(snapshot: dict[str, Any]) -> dict[str, Any]:
+    residents = _unexpected_residents(snapshot)
+    known_gib = sum(row["size_gib"] for row in residents if row["size_gib"] is not None)
+    reasons = blockers(snapshot)
+    return {
+        "sampled_at": snapshot.get("sampled_at"),
+        "quiet": not reasons,
+        "blockers": reasons,
+        "idle_model_resident_limit_gib": DEFAULT_MAX_IDLE_RESIDENT_GIB,
+        "idle_model_resident_gib": round(known_gib, 2),
+        "idle_model_residents": residents,
+        "configured_resident_models": snapshot.get("configured_resident_models", []),
+        "ollama_error": snapshot.get("ollama_error"),
+        "omlx_error": snapshot.get("omlx_error"),
+        "resident_config_error": snapshot.get("resident_config_error"),
+    }
+
+
+def _clear_idle_residents(snapshot: dict[str, Any], pipeline_url: str, api_key: str) -> Any:
+    if snapshot.get("resident_config_error"):
+        raise ValueError("cannot clear residents without the configured keep set")
+    residents = _unexpected_residents(snapshot)
+    known_gib = sum(row["size_gib"] for row in residents if row["size_gib"] is not None)
+    need_gib = known_gib if known_gib > 0 else 0.01
+    return _json_request(
+        f"{pipeline_url.rstrip('/')}/admin/reclaim-idle",
+        method="POST",
+        api_key=api_key,
+        payload={"need_gib": round(need_gib, 2)},
+    )
 
 
 def begin_run(pipeline_url: str, api_key: str, *, force: bool = False) -> dict[str, Any]:
@@ -439,6 +563,7 @@ def is_transient_blocker(reason: str) -> bool:
     return (
         "pytest/xdist" in text
         or "host memory headroom" in text
+        or "idle model resident" in text
         or "wfe/bench" in text
         or text.startswith("wfe ")
     )
@@ -528,3 +653,34 @@ def start_run(
             pipeline_url, api_key, force=force, poll_s=poll_s, max_wait_s=max_wait_s
         )
     return begin_run(pipeline_url, api_key, force=force)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Check host memory and idle engine residents.")
+    parser.add_argument(
+        "--pipeline-url", default=_env_value("PIPELINE_URL", "http://localhost:9099")
+    )
+    parser.add_argument("--api-key", default=_env_value("PIPELINE_API_KEY"))
+    parser.add_argument(
+        "--clear", action="store_true", help="ask Pipeline to reclaim idle residents"
+    )
+    args = parser.parse_args(argv)
+    snapshot = capture_snapshot(args.pipeline_url, args.api_key)
+    report = _summary(snapshot)
+    if args.clear and _unexpected_residents(snapshot):
+        try:
+            report["clear"] = _clear_idle_residents(snapshot, args.pipeline_url, args.api_key)
+            after = capture_snapshot(args.pipeline_url, args.api_key)
+            report["after_clear"] = _summary(after)
+            report["quiet"] = report["after_clear"]["quiet"]
+            report["blockers"] = report["after_clear"]["blockers"]
+        except (OSError, ValueError, urllib.error.URLError, TimeoutError) as exc:
+            report["clear_error"] = f"{type(exc).__name__}: {exc}"
+            report["quiet"] = False
+            report["blockers"].append(f"idle resident reclaim failed: {report['clear_error']}")
+    print(json.dumps(report, indent=2, sort_keys=True))
+    return 0 if report["quiet"] else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

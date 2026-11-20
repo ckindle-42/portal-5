@@ -4,6 +4,43 @@ All notable changes to Portal 5 will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **`./launch.sh up`/`rebuild` prune what the started stack no longer use and report the disk
+  savings.** After a successful build/start (a failed start keeps the old images for rollback,
+  the rule `weekly_rebuild.py` already pruned by), `_disk_hygiene` in `scripts/lib/util.sh`
+  removes superseded Portal images (Portal-owned tags no compose service declares, no container
+  references and no sandbox role names — the retired `portal-5-mcp-reranker` class), dangling
+  images, dangling build cache, and inside `portal5-dind` the same except the images its
+  services and sandbox roles need; then fstrim in the Docker Desktop VM (`/dev/vda1`, ext4
+  discard at `/var/lib/docker`, run through the VM namespaces via the stack's own dind image)
+  returns the freed blocks to the host, and the report prints before/after main-drive free space
+  and Docker.raw allocated size. The sandbox keep set is resolved the way the sandbox resolves
+  it (`SANDBOX_DOCKER_IMAGE`/`SANDBOX_PS_IMAGE`, the lab image while `SANDBOX_LAB_EXEC=true`,
+  `BINRESEARCH_IMAGE`) plus every image launch.sh builds and loads into DinD
+  (`portal5-pwsh`/`portal5-sandbox-data`/`portal5-attack`/`portal5-binresearch`) — none of them
+  is a compose service, so a manual prune used to leave the sandbox pointing at an absent image.
+  `up` now runs `_ensure_sandbox_images` before the prune: a missing image is rebuilt by its own
+  recipe and loaded into DinD (rebuild always rebuilds pwsh + sandbox-data, as before; a failed
+  build of those two stops `up`, while a failed opt-in image build — attack/binresearch — warns
+  and continues), and `portal trace` gains a `dind sandbox images` hop that fails naming any role
+  image DinD lacks.
+  Volumes and models are never touched and `docker compose down -v` is never run. Replaces the
+  dangling-only `docker image prune` that used to run mid-`up`.
+- **The security sweep's image scan can no longer fill the main drive.** osv-scanner's image
+  exports (`docker-image-*.tar`, `image-blob-*`) now land in a per-image temp dir under
+  `/Volumes/data01/portal5_sweep_scratch/osv-image-scan` (`PORTAL5_SWEEP_IMAGE_SCRATCH_DIR`
+  overrides, `.env.example` documents it), never the main drive's `$TMPDIR` where the
+  2026-11-19 ENOSPC leak left ~22 GB per interrupted run (68 GB total). Every export is
+  removed when its image finishes and on SIGTERM/SIGINT/exception (SIGTERM raises so unwinding
+  cleans up); at startup the sweep removes stale exports left by an earlier killed run. The
+  scan cache and resume behaviour are unchanged. When the scratch is unusable (data01 not
+  mounted) the image scan is skipped with an explicit error row instead of falling back to
+  `$TMPDIR`.
+- **KNOWN_LIMITATIONS records the next main-drive grower: `portal-5_security-hf-cache`
+  (12.97 GB measured 2026-11-19)** — the security MCP's HuggingFace cache lives in a Docker
+  volume on the main drive (`P5-DISK-001`); moving it to data01 is a compose + migration
+  change, recorded not applied.
+
 ### Removed
 - **The Serena MCP is out of the fleet.** The IDE-only `serena` `mcp_fleet` entry
   (`config/portal.yaml`) is removed by operator decision (2026-11-19): benched 2026-08-09 with
@@ -93,6 +130,10 @@ All notable changes to Portal 5 will be documented in this file.
   the four pyannote diarization repos). The `transcriptanalyst` persona's stale `engine=` instructions
   were removed.
 - **Music generation overhauled — MusicGen removed; MiniMax-Music3-MLX is now the sole engine.** Two independent engines (MiniMax-Music3-MLX and ACE-Step-1.5) were installed side by side for a real operator comparison (`TASK_MUSIC_DUAL_BACKEND`). After generating real 60s/30-step clips on both — lyrics/vocals and an ACE repaint included — the operator kept MiniMax (`music-minimax:8912`, `minimax_generate`/`minimax_status`/`minimax_models` in `auto-music`) and disabled ACE-Step: its own resident footprint plus its admission requirement exceeds this hardware's 64GB total once loaded, its LM captioning was non-deterministic (one run contradicted the requested vocal gender), and its output quality did not hold up in a direct listen. ACE-Step's module code, install function, and tools manifest remain in the repo (unwired, downloaded models removed) for a possible future re-enable. See P5-MUSIC-MINIMAX-001 and P5-MUSIC-ACESTEP-001 in `KNOWN_LIMITATIONS.md`.
+- **The py<3.11 resolution fork is retired** (`requires-python = ">=3.11"`, 2026-11-19). Pillow 12.3.0 resolved only for `python_full_version < '3.11'` and the sweep's fix — pillow 13.0.0 (GHSA-332p-7hrc-92wf, -5x8w-8jj5-q52h, -8g5g-8vmr-9782, -v9pv-5gc8-w2m6, -w889-685w-c8fh) — needs 3.11+, so no floor could ever reach it and the weekly deps job recorded the fork as permanently unreachable. No supported runtime here is under 3.11 (repo venv 3.13, pipeline/mcp images `python:3.11-slim`, media venvs 3.11.17/3.12.12), so the floor moves to 3.11 and the lock resolves one pillow 13.0.0 branch with no `<3.11` markers anywhere; the `pillow>=13.0.0` Docling override loses its 3.11 marker. The `>=3.11` resolutions are unchanged — the lock diff only drops fork arms (verified: no `+version` lines).
+
+### Added
+- **The security sweep counts only the npx caches the current `config/portal.yaml` pins can launch.** Each cache's root `package.json` dependency set is matched against the pins (exact version, or by name for a floating pin); caches nothing launches — stale pin versions and dev-tool specs (`promptfoo`, `tsx`, `create-playwright`, `@z_ai/coding-helper`, the old `mcp-server-docker` name, `context7@4.0.4`) — are skipped and listed in the report's Inventory block, so the sweep stops counting advisories nothing executes (2026-11-19 CRITICAL leftovers). The two pinned sources that still resolve CRITICAL transitives at npm `latest` (`mcp-docker-server@1.0.1`: proxy-addr GHSA-jqcg-44mw-7w3h, protobufjs GHSA-xq3m-2v4x-88gg; `@upstash/context7-mcp@4.7.3`: proxy-addr) and the excluded promptfoo cache advisories (mongoose, simple-git, argv-parser) are recorded in `KNOWN_LIMITATIONS.md` (P5-NPX-CACHE-001) — the register entry, not a silent filter, carries what stopped being counted.
 
 ## [8.0.0] — 2026-07-29
 

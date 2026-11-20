@@ -144,16 +144,16 @@ holding a correct build hostage to a multi-hour eval.
 ---
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-transitive-dependency-cves -->
-#### Transitive DiskCache and Accelerate advisories — no untrusted input path (2026-10-21)
+#### Transitive DiskCache and Accelerate advisories — no untrusted input path (2026-10-21, re-verified 2026-11-19)
 
 - **ID**: P5-DEP-CVE-001
-- **Status**: NOT EXPOSED (2026-10-21).
-- **DiskCache (PYSEC-2026-2447 / CVE-2025-69872)**: `pysigma` uses `diskcache.Cache` in its ATT&CK and D3FEND tag validators under `~/.cache/pysigma/`. The detection MCP's `convert_sigma` and `validate_sigma` routes parse with `SigmaCollection.from_yaml`; they do not invoke those validators or expose the cache path. Exploitation requires an attacker to write a pickle into the cache before the service reads it. Re-evaluate if the MCP invokes those validators on untrusted rules or exposes a writable cache path.
-- **Accelerate (PYSEC-2026-3804 / CVE-2026-69112)**: Docling's RAG conversion accepts a document path through `DocumentConverter.convert`; the Portal route does not accept a model checkpoint or sharded index. Exploitation requires a malicious checkpoint weight map consumed by the upstream loader functions load_checkpoint_in_model or load_checkpoint_and_dispatch. Re-evaluate if users can supply model checkpoints or write to the model cache used by Docling.
+- **Status**: NOT EXPOSED (re-verified 2026-11-19 by security sweep round 2).
+- **DiskCache (PYSEC-2026-2447 / CVE-2025-69872)**: `pysigma` uses `diskcache.Cache` in its ATT&CK and D3FEND tag validators under `~/.cache/pysigma/`. The detection MCP's `convert_sigma` and `validate_sigma` routes parse with `SigmaCollection.from_yaml`; they do not invoke those validators or expose the cache path. Exploitation requires an attacker to write a pickle into the cache before the service reads it — local filesystem write access that already implies host compromise. Still no fixed release upstream: diskcache 5.6.3 remains the latest version as of 2026-11-19. Re-evaluate if the MCP invokes those validators on untrusted rules or exposes a writable cache path.
+- **Accelerate (PYSEC-2026-3804 / CVE-2026-69112)**: Docling's RAG conversion accepts a document path through `DocumentConverter.convert`; the Portal route does not accept a model checkpoint or sharded index. Re-verified 2026-11-19: nothing in the installed docling 2.137 stack imports accelerate or calls the advisory's loader entry points load_checkpoint_in_model / load_checkpoint_and_dispatch (site-packages grep), so the vulnerable path is never reached. OSV still lists no fixed version (GHSA last_affected 1.14.0); accelerate 1.15.0/1.16.0 exist upstream but OSV does not mark them fixed, so the lock keeps 1.14.0 until OSV records a fix. Re-evaluate if users can supply model checkpoints or write to the model cache used by Docling.
 
 ##### Why
 
-Both packages are installed transitively, but their vulnerable inputs are not supplied by Portal's current user-facing routes. This boundary would change if those routes gained control over cache paths or model checkpoint indexes.
+Both packages are installed transitively, but their vulnerable inputs are not supplied by Portal's current user-facing routes, and neither advisory has a fixed release for the sweep to move to. This boundary would change if those routes gained control over cache paths or model checkpoint indexes.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -1420,4 +1420,30 @@ from repeating it.
 #### Why
 
 Deletion is the one store operation that cannot be undone quietly: the file that goes missing is the weights blob behind a tag the operator still runs. 0.40 split the manifest store without changing the walk that every existing cleaner had hard-coded, so a v1-era reference set is silently half-sized, and the hidden llamacpp builds are a second blind spot on top of it. Deriving the safe set from `ollama show` plus both stores is the only union that names every live byte; anything smaller eventually deletes something live, as the 2026-10-28 deletion showed.
+<!-- /WIKI:GENERATED -->
+
+---
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-engine-core-stack-holds -->
+- **ID**: P5-ENGINE-CORE-001
+- **Status**: OPEN. Recorded 2026-11-19 from the round-3 installer run and a resolve reproduction against scratch copies of the three engine venvs.
+- **Description**: The music, mflux and video-mlx installers hold each engine's core stack (torch, transformers, diffusers, huggingface-hub, numpy, mlx*) at the versions `uv pip freeze` reports for that venv, and apply sweep fixes only where the flagged version is the one installed there. The advisories the sweep flags against the held core therefore remain open until an operator deliberately bumps the engine: music holds `torch==2.10.0` (`GHSA-rrmf-rvhw-rf47` / `PYSEC-2026-139`, fixed 2.13.0) and `transformers==4.57.6` (`GHSA-xrqw-3rrv-vx5w` / `PYSEC-2026-3929`, fixed 5.10.0; an OSV query on 2026-11-19 returned 11 advisories for that version); video-mlx holds `transformers==5.3.0` (same advisories, fix 5.10.0; 5 advisories per OSV). mflux holds nothing vulnerable (torch 2.13.0 and transformers 5.16.1 already satisfy the fixes). Music additionally holds `mlx==0.30.6` from the ACE-Step lock, which contradicts the `mlx-audio==0.6.6` MiniMax fallback (requires `mlx>=0.32.4`): the installer refuses it loudly and leaves the fallback uninstalled.
+- **Used by Portal**: yes. `scripts/engine_install_plan.py` builds each installer's pip plan; `scripts/lib/services.sh` applies it for `install-music`, `install-mflux` and `install-video-mlx`.
+- **Mitigation**: an operator picks a maintenance window, checks the ACE-Step/ltx-2/mflux engine locks, and bumps the core stack as a deliberate engine change (not a sweep remediation), then re-runs the installer. Until then the music MiniMax fallback errors at job time (the worker catches the ImportError) and the torch/transformers advisories stay open in the held versions.
+
+#### Why
+
+Round 3 proved the hold discipline works — services stayed loaded and core upgrades were refused — but its refusal list mixed advisories from other environments into each engine. Anchoring the plan in the installed venv makes the refusal list per-engine and truthful; the cost is that the remaining core advisories are now explicitly held rather than silently fixed, which is the deliberate tradeoff of not taking a live service down.
+<!-- /WIKI:GENERATED -->
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-npx-cache-transitives -->
+- **ID**: P5-NPX-CACHE-001
+- **Status**: OPEN. Recorded 2026-11-19 from the 19:20 CST sweep (`~/.portal5/security/security_sweep_20261119.md`) and a read of every cache's root `package.json` under `~/.npm/_npx`.
+- **Description**: The sweep counts only the npx caches a current `config/portal.yaml` pin can launch: `_split_npx_caches` matches each cache's root dependency set against the pins' name + exact version (a floating pin matches by name), skips the rest, and the report's Inventory block lists every skipped cache with its root spec. On this host the three pins (`@modelcontextprotocol/server-filesystem@2.4.0`, `mcp-docker-server@1.0.1`, `@upstash/context7-mcp@4.7.3`) map to six caches and seven are skipped. Two pinned sources sit at the npm registry `latest` and still resolve CRITICAL transitives into their caches — `mcp-docker-server@1.0.1`: `proxy-addr 2.0.7` (GHSA-jqcg-44mw-7w3h, fixed 2.0.8) and `protobufjs 7.5.4` (GHSA-xq3m-2v4x-88gg, OSV lists 6.11.6); `@upstash/context7-mcp@4.7.3`: `proxy-addr 2.0.7` via express 5 (same GHSA). No newer upstream release exists to bump (registry `latest` equals each pin, checked 2026-11-19), so these stay open until upstream moves. Excluded from the count by the filter, recorded here so the exclusion is not silent: the two `promptfoo@^0.121.17` caches carry `mongoose 9.7.1` (GHSA-pcrw-h46h-c93h), `simple-git 3.36.0` (GHSA-x6jw-m9v5-85vh) and `@simple-git/argv-parser 1.1.1` (GHSA-v5rq-49vh-5v5c); promptfoo is the dev-only eval CLI (`pyproject.toml` dev extra), launched by an operator rather than a portal pin, so its caches leave the sweep's count with it.
+- **Used by Portal**: yes — the pins are the `filesystem`, `docker` and `context7` MCP fleet services; the filter is the sweep's own inventory step.
+- **Mitigation**: bump a pin when upstream publishes past the vulnerable transitives: the sweep re-counts a cache the moment a pin's name+version matches it, and the superseded cache drops out with the old pin. The promptfoo dev caches ride the dev-only eval lane; if evals ever become a production path, pin the CLI there and the same filter picks its cache up.
+
+#### Why
+
+Round 2 pinned the npx MCP sources so a cache can be attributed to the pin that creates it, but the floating-era leftovers kept the sweep counting advisories nothing on this host launches. Matching cache to pin inside the sweep — the one mechanism that already reads the pin inventory — fixes the count without adding a prune job, and the skipped-cache listing keeps the exclusion auditable instead of hiding it.
 <!-- /WIKI:GENERATED -->

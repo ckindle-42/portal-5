@@ -1,6 +1,6 @@
 # Media variant screen — smaller MLX builds (2026-11)
 
-**Written:** 2026-11-19. Research and a screen plan only. No code, config, pull, or generate was run for this document.
+**Written:** 2026-11-19 as a screen plan. A judged-results section for the 2026-11-20 runs was added the same week. That judgment changed no seat and no production config.
 **Host the screen is for:** 64 GB Apple Silicon, oMLX (`:8085`) and Ollama (`:11434`) co-resident, ~56 GB GPU wired limit. Measured live the same day (orchestrator, stack up): image **FLUX.2 [klein] 4B q8 peak 9 GB**; video **LTX-2.5 q4, 512×320-class, worker ~9 GB RSS, system free ≥52%**; music **ACE-Step 1.5 XL-Turbo, system free fell to 22%** (heaviest). Roster reasoning: `docs/media/MEDIA_OVERHAUL_RESEARCH.md`.
 **Incumbent code (repo, not re-measured here):** image `flux2-klein-4b` at `-q 8`, 4 steps (`portal/modules/media/tools/mflux_mcp.py`); video `ltx-2-mlx generate --distilled --low-ram` on `dgrauet/ltx-2.5-mlx-q4` (`portal/modules/media/tools/video_mlx_mcp.py`); music `acestep-v15-xl-turbo` + `acestep-5Hz-lm-1.7B`, `use_mlx_dit=True`, LM `backend=mlx` (`portal/modules/media/tools/music_worker.py`).
 
@@ -153,8 +153,8 @@ Incumbent: `dgrauet/ltx-2.5-mlx-q4`, `--distilled --low-ram`, 512×320, 97 frame
 
 ```bash
 mkdir -p /tmp/media-variant-screen/video
-# incumbent, current ltx-2-mlx pin. Accept the LTX and Gemma terms once if the pull 401s.
-/usr/bin/time -l uvx --from "git+https://github.com/dgrauet/ltx-2-mlx@747b30ef10e9" \
+# incumbent, Portal-installed ltx-2-mlx tree at the screen pin. Accept the LTX and Gemma terms once if a model pull returns 401.
+/usr/bin/time -l "$HOME/.portal5/video-mlx/ltx-2-mlx/.venv/bin/ltx-2-mlx" \
   ltx-2-mlx generate --distilled --low-ram \
   --model dgrauet/ltx-2.5-mlx-q4 \
   --prompt "Ocean waves hit dark basalt rocks at sunset. Water crashes and pulls back. The soundtrack is waves and wind, no music." \
@@ -322,3 +322,132 @@ Do not enable modules, edit `config/portal.yaml`, or restart launchd from this p
 - Whether Phosphene's 5.7 GB path exists in ltx-2-mlx `747b30e`. The README does not state it.
 - Process RSS of XL+1.7B vs 2B+0.6B on this host. Free-memory 22% was a system figure.
 - HeartMuLa quality against ACE-Step on these three prompts, and its RSS in 2026. The MLX port has not moved since 2026-01-21.
+- The look/listen questions in the bullets above are answered, where a run landed, in the judged-results section. HeartMuLa still has no clip.
+
+## Judged results — 2026-11-20
+
+Independent look and listen of the finished screen files. No seat, `config/portal.yaml`, or other production config was changed.
+
+| Medium | Recommendation | Why |
+|---|---|---|
+| Image | **Keep** `klein4b-q8` | Both judges prefer it on the watch and the fox. Prompt 1 splits on the sign. Iris is smaller after its first prompt, and that does not offset the two losses. The 4-bit klein is the same RSS on this host. Z-Image is slower and sits at a ~45% free floor. |
+| Video | **Keep** `ltx25-q4` | All 6 pairs, all three judges. FastMetal is silent on prompts that ask for sound, and it also loses the picture. LTX's door clip shuts or barely opens; it still wins the pair. |
+| Music | **Need more evidence** | XL-Turbo wins the vocal prompt on both Gemini listeners, and the 0.6B-LM turbo fails the solo-guitar prompt by adding drums and bass. The no-LM turbo wins the solo guitar and drops the verse. XL-Turbo's 7–8% free floor and +28–38 GB swap is a UX veto against treating that win as a reason to stay. No candidate clears all three prompts. |
+
+### How the files were judged
+
+Blind A/B, one incumbent clip against one candidate clip, order drawn with seed `20261120`. Prompts named the picture, the soundtrack, or the music. They did not name a checkpoint. Scores are 1–5. Cleanliness 5 means intact geometry, text, or audio. The tables below are unblinded after scoring. Order is candidate then incumbent.
+
+Listeners and viewers:
+
+- **Gemini 4 Neon** (`gemini-4-neon-high` through the Antigravity CLI). Saw the PNGs, watched the mp4s, and listened to the wavs.
+- **Gemini 4 Hydrogen** (`gemini-4-hydrogen-high`, same Google lineage). Listened to the music and watched the video. On vid11, vid12, vid14, and vid15 the first prompt returned `cannot_perceive`; those four were re-scored from re-encoded mp4s with the refusal sentence removed. vid10 and vid13 were scored from the original mp4s.
+- **Claude Opus** (Claude Code `--model opus`, Anthropic). Read the PNGs. For video it saw one middle frame plus a 7-frame strip in time order. It cannot hear, so it has no audio score and no music score.
+- **Grok Voice Transcribe 2.0** (`grok-voice-transcribe-2.0`, xAI STT). Speech text only. An empty transcript on waves, squeaks, footsteps, or an instrumental is not a musicality score.
+
+Image and video therefore have two lineages (Gemini and Claude). Music's two full listeners are both Gemini 4. The xAI transcript is a second lineage for whether words are present.
+
+The worker session (Grok) looked at the four prompt-1 bakery PNGs after the scores, with the filenames visible, to check the sign dispute. That look is not a blinded third score.
+
+Measurements are the screen's own tables: `image-20261120T055910Z`, `video-20261120T061117Z` (FastMetal), `video-20261120T142117Z` (LTX-2.5 q4, the incumbent re-run that produced mp4s), `music-20261120T134823Z`.
+
+### Image
+
+Incumbent `klein4b-q8`: 28.6–34.7 s, peak RSS 7.52–7.54 GB, free floor 73–74%, swap 0. Iris q8: 196.5 s then 25.6 s and 22.6 s, peak RSS 6.89 then 4.16–4.35 GB, free floor 76–78%, swap 0. Klein q4 + small text encoder: 55.6 / 26.6 / 25.5 s, peak RSS 8.10 then 7.52 GB, free floor 80–81%, swap 0. Z-Image q4: 91.4–96.1 s, peak RSS 11.57–13.13 GB, free floor 45–47%, swap 0.
+
+Scores are adherence / fidelity / cleanliness.
+
+| Pair | Judge | Candidate | Incumbent | Winner |
+|---|---|---|---|---|
+| iris p1 | Neon | 4/3/4 | 5/5/4 | incumbent |
+| iris p1 | Claude | 5/4/4 | 4/5/3 | candidate |
+| iris p2 | Neon | 3/3/2 | 5/5/3 | incumbent |
+| iris p2 | Claude | 3/3/3 | 5/4/4 | incumbent |
+| iris p3 | Neon | 4/3/3 | 5/5/4 | incumbent |
+| iris p3 | Claude | 4/3/3 | 5/5/4 | incumbent |
+| q4 p1 | Neon | 4/4/3 | 5/5/4 | incumbent |
+| q4 p1 | Claude | 4/4/4 | 4/4/3 | candidate |
+| q4 p2 | Neon | 3/3/2 | 5/4/3 | incumbent |
+| q4 p2 | Claude | 4/4/2 | 4/4/4 | incumbent |
+| q4 p3 | Neon | 5/5/5 | 5/4/4 | candidate |
+| q4 p3 | Claude | 5/4/4 | 5/5/4 | incumbent |
+| zimage p1 | Neon | 3/5/4 | 4/4/3 | candidate |
+| zimage p1 | Claude | 3/4/4 | 4/4/3 | incumbent |
+| zimage p2 | Neon | 3/3/2 | 5/4/3 | incumbent |
+| zimage p2 | Claude | 4/4/3 | 5/4/3 | incumbent |
+| zimage p3 | Neon | 3/4/5 | 5/4/4 | incumbent |
+| zimage p3 | Claude | 3/4/4 | 5/5/5 | incumbent |
+
+Agreement: 5 of 9 pairs share a winner, and every shared winner is the incumbent. The four splits are prompt 1 for Iris, q4, and Z-Image, plus the q4 fox.
+
+Prompt 1 is a real split, and the pixels match the written reasons. The incumbent sign reads PORTAL 5 on one face and PORTAL on the other. Iris, q4, and Z-Image each show one PORTAL 5. Claude weights that text. Neon weights the incumbent's wetter street and busier bakery interior, and calls the Iris interior synthetic. Claude calls the Z-Image interior a homeware shop more than a bakery. The q4 fox is the other split: Neon calls its fur and paws clearer; Claude calls the incumbent's rim light and pine bokeh stronger.
+
+Watch, both judges, every candidate: the incumbent is the coherent polished-steel watch on black. Iris puts a softbox in frame and garbles the bracelet. The q4 case loses the strap and sprouts extra crowns. Z-Image puts a softbox in the black field and reads as brushed metal.
+
+Fox, Iris and Z-Image, both judges: the incumbent has the closed eye, golden-hour rim, and fur. Iris is flatter, with an awkward paw. Z-Image's fox is not fully asleep.
+
+Keep `klein4b-q8`. Iris is the only candidate with a better footprint after the cold first prompt, and it loses the watch and the fox on both lineages.
+
+### Video
+
+Incumbent re-run `video-20261120T142117Z`, `ltx25-q4`, 512×320, 97 frames, audio stream present: 88.9–94.3 s, peak RSS 10.92–13.51 GB, free floor 81–84%, swap 0. FastMetal from `video-20261120T061117Z`, no audio stream. 1.3B: 61.2–88.9 s, peak RSS 17.50–19.60 GB, free floor 27–38%, swap 0. 5B: 41.9–47.0 s, peak RSS 13.57–20.89 GB, free floor 63–69%, swap 0.
+
+Gemini scores are adherence / fidelity / cleanliness / temporal / audio. Claude has no audio number. FastMetal audio is 1 on every Gemini score because the file is silent.
+
+| Pair | Judge | Candidate | Incumbent | Winner |
+|---|---|---|---|---|
+| 1.3B waves | Neon | 3/3/4/4/1 | 5/5/5/5/5 | incumbent |
+| 1.3B waves | Hydrogen | 3/3/3/3/1 | 4/5/5/5/1 | incumbent |
+| 1.3B waves | Claude | 3/2/2/3 | 5/4/4/4 | incumbent |
+| 1.3B door | Neon | 1/2/2/2/1 | 3/4/4/3/3 | incumbent |
+| 1.3B door | Hydrogen | 2/2/2/2/1 | 3/3/4/3/3 | incumbent |
+| 1.3B door | Claude | 2/3/3/3 | 3/4/4/3 | incumbent |
+| 1.3B walk | Neon | 2/2/3/2/1 | 5/4/5/5/5 | incumbent |
+| 1.3B walk | Hydrogen | 2/3/2/2/1 | 5/4/5/5/5 | incumbent |
+| 1.3B walk | Claude | 2/2/2/3 | 4/4/4/4 | incumbent |
+| 5B waves | Neon | 2/1/1/2/1 | 5/5/5/5/5 | incumbent |
+| 5B waves | Hydrogen | 3/2/2/2/1 | 5/5/5/5/5 | incumbent |
+| 5B waves | Claude | 3/3/1/2 | 5/4/4/4 | incumbent |
+| 5B door | Neon | 1/2/3/2/1 | 3/4/4/3/4 | incumbent |
+| 5B door | Hydrogen | 1/3/3/2/1 | 3/3/4/3/3 | incumbent |
+| 5B door | Claude | 1/3/3/3 | 2/3/4/3 | incumbent |
+| 5B walk | Neon | 2/2/2/2/1 | 4/4/4/5/5 | incumbent |
+| 5B walk | Hydrogen | 2/2/2/2/1 | 5/5/5/5/5 | incumbent |
+| 5B walk | Claude | 1/2/2/2 | 5/4/4/4 | incumbent |
+
+Agreement: 6 of 6 pairs, three judges, incumbent. FastMetal 1.3B's walk is legs in place, facing away. FastMetal 5B's door is a latch close-up, and its waves pick up a blue rectangle (Claude and Hydrogen). LTX's ocean and walk match the prompt, including footsteps and wave sound on both Gemini listeners.
+
+The door prompt is the weak LTX clip. Neon and Hydrogen both say the door shuts or slams instead of opening toward the camera, with a squeak present. Claude sees a heavy door and a light shaft, and little opening. FastMetal does not open a heavy door either, and it is silent. LTX still wins a weak pair.
+
+Audio disagreement, waves only: Neon scores LTX audio 5 (waves and wind, no music). Hydrogen scores it 1 (unwanted music) and still picks LTX on the picture. xAI STT returned no words on any LTX track, which neither confirms nor rules out music under the waves. The winner does not move.
+
+Keep `ltx25-q4`. Silence is a failed soundtrack, and the silent clips are also the weaker pictures. Their RSS is higher than LTX on this canvas.
+
+### Music
+
+`music-20261120T134823Z`. XL-Turbo + 1.7B LM: 223–230 s, process RSS 5.17–5.80 GB, free floor 7–8%, swap +27.94 to +37.92 GB. Turbo 2B + 0.6B LM: 42.3–57.5 s, RSS 11.22–13.59 GB, free floor 24–47%, swap about 0 to +1.04 GB. Turbo 2B with the LM off: 17.8–21.1 s, RSS 10.74–12.28 GB, free floor 27–42%, swap 0 to +0.84 GB.
+
+Scores are adherence / musicality / instruments / cleanliness / vocals. Both listeners are Gemini 4.
+
+| Pair | Judge | Candidate | Incumbent | Winner |
+|---|---|---|---|---|
+| 0.6B LM, guitar+snare | Neon | 4/4/4/5/5 | 5/5/5/5/5 | incumbent |
+| 0.6B LM, guitar+snare | Hydrogen | 4/4/4/5/5 | 2/4/3/5/1 | candidate |
+| 0.6B LM, vocal | Neon | 3/3/4/4/4 | 5/5/5/5/5 | incumbent |
+| 0.6B LM, vocal | Hydrogen | 2/3/3/4/3 | 5/4/5/5/5 | incumbent |
+| 0.6B LM, solo nylon | Neon | 1/2/1/4/5 | 5/4/5/5/5 | incumbent |
+| 0.6B LM, solo nylon | Hydrogen | 1/3/1/5/5 | 4/3/4/5/5 | incumbent |
+| no LM, guitar+snare | Neon | 4/3/3/5/5 | 5/5/4/5/5 | incumbent |
+| no LM, guitar+snare | Hydrogen | 4/4/3/5/5 | 3/4/2/4/2 | candidate |
+| no LM, vocal | Neon | 2/3/3/4/4 | 5/5/5/5/5 | incumbent |
+| no LM, vocal | Hydrogen | 3/4/4/5/4 | 5/5/5/5/5 | incumbent |
+| no LM, solo nylon | Neon | 5/5/5/5/5 | 4/3/4/4/5 | candidate |
+| no LM, solo nylon | Hydrogen | 5/5/5/5/5 | 3/2/3/4/5 | candidate |
+
+Agreement: 4 of 6 pairs. The splits are both copies of prompt 1. Hydrogen hears humming on XL-Turbo there (vocals 1 and 2) and picks the candidate. Neon hears no singer, a brushed snare, and about 72 bpm, and picks XL-Turbo. xAI STT returned no words on any prompt-1 or prompt-3 clip, so it does not confirm the humming.
+
+Prompt 2, both listeners, both candidates: XL-Turbo sings the verse and the chorus. The 0.6B-LM turbo starts like a slow ballad, repeats a chorus line, and drops "than the night". The no-LM turbo drops the verse. xAI STT agrees on the shape of that gap. XL-Turbo: "Streetlight on the west stop, I am walking home alone. Hold the line, hold the light, we are louder than the night." (the second pairing repeats "hold the line" and still has the verse). 0.6B LM: "Streetlight on the window, I am walking home. Hold the light, hold the light, hold the light, we are louder." No-LM: "Hold the line, hold the line, we are louder than the night." "West stop" and "window" are mishearings of "wet stone". The words are intelligible on all three; the candidates are missing lines.
+
+Prompt 3: both listeners say the 0.6B-LM turbo adds drums and bass, which is a miss. Both say the no-LM turbo is the better solo nylon guitar, and that XL-Turbo's take is simpler block chords.
+
+Need more evidence before a seat change. The 0.6B-LM turbo fails the solo-guitar constraint. The no-LM turbo fails the verse. XL-Turbo is the better vocal and the one that swaps the host to a 7–8% free floor, which is a UX veto against keeping it on sound alone. A later candidate has to clear the vocal and the solo guitar without that swap. HeartMuLa was not in this run.

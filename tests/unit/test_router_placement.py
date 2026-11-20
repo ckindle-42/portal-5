@@ -103,6 +103,21 @@ class TestHotSeatTracker:
         tracker.touch(engine_key(OMLX_URL), CODER_NATIVE, now=200.0)
         assert tracker.hot_model(engine_key(OMLX_URL), 900, now=250.0) == CODER_NATIVE
 
+    def test_clear_and_sync_loaded(self) -> None:
+        key = engine_key(OMLX_URL)
+        tracker = _hot_tracker(now=100.0)
+        tracker.clear(key, "other-model")
+        assert tracker.hot_model(key, 900, now=200.0) == HOT_NATIVE
+        tracker.sync_loaded(key, {HOT_NATIVE})
+        assert tracker.hot_model(key, 900, now=200.0) == HOT_NATIVE
+        assert tracker.loaded_models(key) == {HOT_NATIVE}
+        tracker.sync_loaded(key, set())
+        assert tracker.hot_model(key, 900, now=200.0) is None
+        assert tracker.loaded_models(key) == set()
+        tracker.touch(key, HOT_NATIVE, now=300.0)
+        tracker.clear(key, HOT_NATIVE)
+        assert tracker.hot_model(key, 900, now=350.0) is None
+
 
 class TestProtectHotSeat:
     def test_knob_off_keeps_order(self) -> None:
@@ -148,6 +163,52 @@ class TestProtectHotSeat:
                 candidates, "auto-coding", HOT_HINT, 900, tracker=_hot_tracker(), now=1_001.0
             )
         ) == ["omlx-general", "ollama-general"]
+
+    def test_effective_head_is_the_first_candidate_that_serves_the_hint(self) -> None:
+        """2026-11-20 auto-coding: the group head could not serve the hint at all.
+
+        ``get_backend_candidates`` leads with omlx-coding, which has no alias for
+        the ctx96k hint; both dispatchers skip it. Judging the literal head's
+        default model as "would swap the hot seat" demoted auto-coding to its
+        Ollama GGUF copy and the load guard evicted the healthy oMLX copy.
+        """
+        candidates = [
+            _omlx("omlx-coding", [CODER_NATIVE]),
+            _ollama("ollama-coding", [CODER_HINT]),
+            _omlx("omlx-general", [HOT_NATIVE], {HOT_HINT: HOT_NATIVE}),
+            _ollama("ollama-general", [HOT_HINT]),
+        ]
+        assert _ids(
+            protect_hot_seat(
+                candidates, "auto-coding", HOT_HINT, 900, tracker=_hot_tracker(), now=1_001.0
+            )
+        ) == ["omlx-coding", "ollama-coding", "omlx-general", "ollama-general"]
+
+    def test_a_resident_seat_copy_is_never_replaced_by_its_other_engine_copy(self) -> None:
+        """A different oMLX model may be hot; the seat's own copy is still loaded."""
+        key = engine_key(OMLX_URL)
+        tracker = _hot_tracker(now=1_000.0)  # HOT_NATIVE served most recently
+        tracker.touch(key, CODER_NATIVE, now=1_001.0)
+        tracker.sync_loaded(key, {HOT_NATIVE, "some-other-model"})
+        tracker.touch(key, "some-other-model", now=1_002.0)
+        candidates = [
+            _omlx("omlx-general", [HOT_NATIVE], {HOT_HINT: HOT_NATIVE}),
+            _ollama("ollama-general", [HOT_HINT]),
+        ]
+        assert _ids(
+            protect_hot_seat(candidates, "auto-coding", HOT_HINT, 900, tracker=tracker, now=1_003.0)
+        ) == ["omlx-general", "ollama-general"]
+
+    def test_a_different_effective_head_on_the_hot_engine_is_still_demoted(self) -> None:
+        candidates = [
+            _omlx("omlx-coding", [CODER_NATIVE], {CODER_HINT: CODER_NATIVE}),
+            _omlx("omlx-general", [HOT_NATIVE], {HOT_HINT: HOT_NATIVE}),
+            _ollama("ollama-general", [CODER_HINT]),
+        ]
+        out = protect_hot_seat(
+            candidates, "auto-coding", CODER_HINT, 900, tracker=_hot_tracker(), now=1_001.0
+        )
+        assert _ids(out) == ["ollama-general", "omlx-coding", "omlx-general"]
 
     def test_after_the_window_order_is_normal(self) -> None:
         candidates = _coder_fleet()

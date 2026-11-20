@@ -150,11 +150,11 @@ A total outage is an emergency and should not wait for a debounce window or a co
 
 ## Daily Summary
 
-The daily summary is a scheduled job rather than a threshold event. The scheduler registers `_send_daily_summary` on an APScheduler `CronTrigger` at the configured hour and timezone, and the job only exists when APScheduler is importable and `ALERT_SUMMARY_ENABLED` is truthy. The report is built from deltas against a persisted snapshot, so it describes the previous day's activity instead of cumulative totals since the container started.
+The daily summary is a scheduled job rather than a threshold event. The scheduler registers `_send_daily_summary` on an APScheduler `CronTrigger` at the configured hour and timezone, and the job only exists when APScheduler is importable and `ALERT_SUMMARY_ENABLED` is truthy. It reads daily buckets from `/app/data/metrics_state.json`, which is mounted on the `pipeline-metrics-state` volume, and reports the previous calendar day in `ALERT_SUMMARY_TIMEZONE`. UI and API request totals appear separately.
 
 ## Why
 
-Summaries are time-triggered, not threshold-triggered, because they report a trailing window of pipeline health rather than an anomaly that needs immediate attention. A cron trigger at a fixed local hour keeps delivery predictable for whoever reads it, and snapshot-based deltas keep the headline number honest about the reporting window regardless of when the pipeline last restarted.
+Summaries are time-triggered, not threshold-triggered, because they report pipeline usage rather than an anomaly that needs immediate attention. Persisted date buckets keep the report aligned to the previous local calendar day and survive Pipeline container recreation.
 
 ---
 
@@ -180,7 +180,7 @@ Two defaults exist because the shipped environment and the code's resilience are
 
 # Timezone for the schedule (default: UTC)
 
-`ALERT_SUMMARY_TIMEZONE` names the tzinfo passed to the summary cron trigger. The example environment and the compose service both ship `America/Chicago`, so the shipped default hour of eight means eight in the morning Central time, while the in-process fallback is UTC when the variable is absent. Changing the value shifts the send moment without altering the hour number.
+`ALERT_SUMMARY_TIMEZONE` names the tzinfo passed to the summary cron trigger and used to assign requests to calendar-day buckets. The example environment and the compose service both ship `America/Chicago`, so the shipped default hour of eight means eight in the morning Central time, while the in-process fallback is UTC when the variable is absent. Changing the value shifts the send moment and the reporting-day boundary.
 
 ## Why
 
@@ -200,7 +200,7 @@ Fanning out concurrently rather than sequentially keeps an unresponsive endpoint
 
 ## Troubleshooting
 
-Debugging follows the enablement chain. If nothing arrives, confirm `NOTIFICATIONS_ENABLED` is true, that the pipeline was restarted after the environment changed, then POST `/notifications/test` for per-channel config status. For webhooks verify `WEBHOOK_URL` accepts a JSON POST and that `WEBHOOK_HEADERS`, when set, parses; malformed JSON is logged and ignored. Email requires the port to match the provider, 587 for STARTTLS and 465 for SSL. The daily summary no longer resets on restart: metrics persist to `/app/data/metrics_state.json` every sixty seconds and the delta snapshot lives beside it, with guards that skip an empty first-day report.
+Debugging follows the enablement chain. If nothing arrives, confirm `NOTIFICATIONS_ENABLED` is true, that the pipeline was restarted after the environment changed, then POST `/notifications/test` for per-channel config status. To dispatch today's persisted bucket immediately, POST `/admin/notifications/daily-summary` with the admin key. For webhooks verify `WEBHOOK_URL` accepts a JSON POST and that `WEBHOOK_HEADERS`, when set, parses; malformed JSON is logged and ignored. Email requires the port to match the provider, 587 for STARTTLS and 465 for SSL. Daily metrics merge under a file lock and persist to `/app/data/metrics_state.json` on the named volume, so container rebuilds preserve saved request, token, and latency totals.
 
 ## Why
 

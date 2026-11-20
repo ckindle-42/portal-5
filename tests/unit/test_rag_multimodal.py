@@ -40,7 +40,7 @@ def test_uv_lock_docling_matches_the_dockerfile_mcp_pin():
     comparison spans hosts versus containers. The container and host must
     extract identically — otherwise the container silently runs a tau that
     was never measured against what it produces (Dockerfile.mcp comment)."""
-    tomllib = pytest.importorskip("tomllib")  # stdlib from 3.11; the project allows 3.10
+    tomllib = pytest.importorskip("tomllib")  # stdlib from 3.11 (the project floor)
     root = pathlib.Path(__file__).resolve().parents[2]
     lock = tomllib.loads((root / "uv.lock").read_text(encoding="utf-8"))
     dockerfile = (root / "Dockerfile.mcp").read_text()

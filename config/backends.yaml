@@ -916,8 +916,11 @@ defaults:
   # through them — `auto` routes ordinary chat to auto-daily, and a cold 23.7 GiB
   # load there measured a 40 s first token (2026-11-16). A preferred resident is
   # protected from eviction but never pinned: it yields to another seat's admission.
-  preferred_residents:
-  - auto-daily
+  # 2026-11-20: emptied. The 24.6 GiB auto-daily GGUF held resident on Ollama shrank
+  # oMLX's dynamic ceiling to ~23 GiB of its 58.88 GiB cap, so 20 GiB oMLX seats were
+  # refused at prefill (400), failed over to Ollama and thrashed. Operator decision:
+  # auto-daily pays a cold first token; oMLX keeps its memory.
+  preferred_residents: []
 # The platform's single embedder, served by the host EG2 service (config/portal.yaml
 # host_jobs com.portal5.eg2-embedding). POST /v1/embeddings on the Pipeline forwards
 # here — raw OpenAI passthrough, no task prefixes applied (callers such as Open WebUI

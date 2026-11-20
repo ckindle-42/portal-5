@@ -132,6 +132,16 @@ class LaneResult:
 
 
 @dataclass(frozen=True)
+class LaneStart:
+    """A launched lane that has not been waited on: poll it with ``outcome``."""
+
+    role: str
+    pid: int
+    runs_before: int
+    log_path: Path | None = None
+
+
+@dataclass(frozen=True)
 class _Decision:
     status: str
     detail: str
@@ -198,6 +208,27 @@ def dispatch_kind(raw: dict[str, Any]) -> str:
             )
     if _SECURITY_KIND.search(" ".join(parts)):
         return "security"
+    return "code"
+
+
+_REVIEW_TEXT = re.compile(
+    r"\b(review|audit|critique|code review|findings|every code path|line numbers)\b", re.I
+)
+_QUESTION_TEXT = re.compile(
+    r"\b(what|which|who|when|where|why|is|are|status|list|show|explain|summari[sz]e|"
+    r"report|how many|how much|how long|tell me|check)\b",
+    re.I,
+)
+
+
+def personal_dispatch_kind(text: str) -> str:
+    """What the lane is asked to do: a question, a review, or work (dispatcher vocabulary)."""
+    if _SECURITY_KIND.search(text):
+        return "security"
+    if _REVIEW_TEXT.search(text):
+        return "review"
+    if _QUESTION_TEXT.search(text):
+        return "research"
     return "code"
 
 
@@ -365,6 +396,79 @@ class ProcessDispatcher:
         self.poll_s = poll_s
         self.sleeper = sleeper
 
+    def start(
+        self,
+        *,
+        role: str,
+        tier: str,
+        kind: str,
+        brief: Path,
+        repo: Path,
+        new: bool = True,
+        log_path: Path | None = None,
+    ) -> LaneStart:
+        """Launch dispatch.py and return at once; :meth:`outcome` collects the run."""
+        if not self.binary.is_file():
+            raise FileNotFoundError(f"dispatch binary missing: {self.binary}")
+        argv = _dispatch_argv(self.binary, repo, role, tier, kind, brief, self.timeout_s, new)
+        runs_before = len(_registry_runs(self.binary, repo, role))
+        handle = None
+        if log_path is not None:
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            handle = log_path.open("ab")
+        try:
+            proc = subprocess.Popen(
+                argv,
+                cwd=str(repo),
+                stdin=subprocess.DEVNULL,
+                stdout=handle or subprocess.DEVNULL,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
+        finally:
+            if handle is not None:
+                handle.close()
+        return LaneStart(role, proc.pid, runs_before, log_path)
+
+    def outcome(self, *, role: str, repo: Path, runs_before: int = 0) -> dict[str, Any] | None:
+        """The finished run record, or None while the lane has not appended one."""
+        runs = _registry_runs(self.binary, repo, role)
+        if len(runs) <= runs_before:
+            return None
+        return dict(runs[runs_before])
+
+    def alive(self, *, role: str) -> bool:
+        """Whether the dispatcher's own status lists the role as a running lane."""
+        try:
+            done = subprocess.run(
+                [sys.executable, str(self.binary), "status"],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return True  # an unreadable status is not proof the lane stopped
+        return any(
+            line.startswith("running ") and f"role={role} " in line
+            for line in done.stdout.splitlines()
+        )
+
+    def result(self, *, role: str, repo: Path) -> str:
+        """The lane's final ``## RESULT`` block, through dispatch.py's own reader."""
+        lane_repo = _lane_worktree(repo.resolve(), role)
+        try:
+            done = subprocess.run(
+                [sys.executable, str(self.binary), "--repo", str(lane_repo), "result", role],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return ""
+        return done.stdout.strip() if done.returncode == 0 else ""
+
     def run(
         self,
         *,
@@ -442,6 +546,22 @@ def _dispatch_run_metadata(
     except (OSError, json.JSONDecodeError, AttributeError, IndexError):
         return None, None, None
     return latest.get("status"), latest.get("retry_until"), latest.get("model")
+
+
+def _registry_runs(binary: Path, repo: Path, role: str) -> list[dict[str, Any]]:
+    """The run records the dispatcher has appended for ``role``, oldest first."""
+    path = binary.parent.parent / "registry.json"
+    try:
+        roles = json.loads(path.read_text(encoding="utf-8")).get("roles", {})
+    except (OSError, json.JSONDecodeError, AttributeError):
+        return []
+    key = f"{_lane_worktree(repo.resolve(), role)}::{role}"
+    entry = roles.get(key)
+    if entry is None:
+        found = [item for item in roles.values() if item.get("role") == role]
+        entry = found[0] if len(found) == 1 else None
+    runs = (entry or {}).get("runs") or []
+    return [run for run in runs if isinstance(run, dict)]
 
 
 def _resume_command(

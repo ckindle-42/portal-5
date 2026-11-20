@@ -169,18 +169,12 @@ case "${1:-up}" in
         docker compose run --rm openwebui-init >/dev/null 2>&1 &
     fi
 
-    # Prune dangling images left behind by image pulls (untagged build layers).
-    # Safe: only removes images with no tag and no running container referencing them.
-    # Does NOT remove images used by other projects on this machine.
-    _PRUNED=$(docker image prune -f 2>/dev/null | grep "Total reclaimed" || true)
-    if [ -n "$_PRUNED" ] && ! echo "$_PRUNED" | grep -qE "0 ?B$"; then
-        echo "[portal-5] 🧹 $_PRUNED"
-    fi
-
-    # Gate: before `up` reports done, wait for every enabled host job and
-    # container in config/portal.yaml (mcp_fleet + host_jobs) to answer /health.
-    # Exits non-zero with a per-service table if any never come up.
+    # Pruning is one step: the sandbox images are ensured first (a manual prune
+    # can leave one absent), then _disk_hygiene after the health gate below
+    # (a failed start keeps the old images for rollback).
     _wait_up_health
+    _ensure_sandbox_images
+    _disk_hygiene
 
     echo "[portal-5] Stack started."
     if [ "${ENABLE_REMOTE_ACCESS:-false}" = "true" ]; then
@@ -193,7 +187,7 @@ case "${1:-up}" in
     echo "  Prometheus:  http://localhost:9090"
     ;;
    test)
-    exec python3 -m portal.platform.inference.cli test "${@:2}"
+    exec "$PORTAL_ROOT/.venv/bin/python" -m portal.platform.inference.cli test "${@:2}"
     ;;
 
   promptfoo)
@@ -342,13 +336,8 @@ case "${1:-up}" in
     echo "[portal-5] Rebuilding: $BUILD_SERVICES"
     # shellcheck disable=SC2086
     docker compose build --build-arg PORTAL_BUILD_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)" --build-arg PORTAL_BUILD_DIRTY="$(git status --porcelain -- portal 2>/dev/null | wc -l | tr -d ' ')" $BUILD_SERVICES
-    echo "[portal-5] Building native arm64 PowerShell sandbox image..."
-    docker build -t portal5-pwsh:latest -f "$PORTAL_ROOT/Dockerfile.pwsh" "$PORTAL_ROOT"
-    echo "[portal-5] Loading pwsh image into DinD..."
-    docker save portal5-pwsh:latest | docker exec -i portal5-dind docker load
-    echo "[portal-5] Building data sandbox image (python + pandas/openpyxl) and loading into DinD..."
-    printf 'FROM python:3.11-slim\nRUN pip install --no-cache-dir pandas openpyxl pytest\n' | docker build -t portal5-sandbox-data:latest -
-    docker save portal5-sandbox-data:latest | docker exec -i portal5-dind docker load
+    echo "[portal-5] Building native arm64 PowerShell + data sandbox images and loading into DinD..."
+    _ensure_sandbox_images --rebuild
     echo "[portal-5] Restarting rebuilt containers for enabled modules..."
     _disabled_compose="$(_portal_module_services --disabled --kind compose)"
     _keep=""
@@ -372,6 +361,10 @@ case "${1:-up}" in
         || echo "[portal-5] WARNING: snapshot re-pin refused — Jarvis jobs would run stale code" >&2
     (cd "$PORTAL_ROOT" && uv run portal arm archive-canaries) \
         || echo "[portal-5] WARNING: canary archive refused — a running job still owns the baselines" >&2
+    # Disk hygiene: prune superseded/dangling images + build cache (host and
+    # dind), return freed space to the host, report the savings — only after
+    # the rebuilt stack is up.
+    _disk_hygiene
     echo "[portal-5] Done. Check status: ./launch.sh status"
     ;;
 
@@ -382,13 +375,8 @@ case "${1:-up}" in
     MCP_SERVICES="$(_compose_built_services --mcp)"
     echo "[portal-5] Rebuilding MCP images..."
     docker compose build --build-arg PORTAL_BUILD_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)" --build-arg PORTAL_BUILD_DIRTY="$(git status --porcelain -- portal 2>/dev/null | wc -l | tr -d ' ')" $MCP_SERVICES
-    echo "[portal-5] Building native arm64 PowerShell sandbox image..."
-    docker build -t portal5-pwsh:latest -f "$PORTAL_ROOT/Dockerfile.pwsh" "$PORTAL_ROOT"
-    echo "[portal-5] Loading pwsh image into DinD..."
-    docker save portal5-pwsh:latest | docker exec -i portal5-dind docker load
-    echo "[portal-5] Building data sandbox image (python + pandas/openpyxl) and loading into DinD..."
-    printf 'FROM python:3.11-slim\nRUN pip install --no-cache-dir pandas openpyxl pytest\n' | docker build -t portal5-sandbox-data:latest -
-    docker save portal5-sandbox-data:latest | docker exec -i portal5-dind docker load
+    echo "[portal-5] Building native arm64 PowerShell + data sandbox images and loading into DinD..."
+    _ensure_sandbox_images --rebuild
     echo "[portal-5] Restarting MCP containers..."
     docker compose up -d --no-deps $MCP_SERVICES
     echo "[portal-5] Done. Check status: ./launch.sh status"
@@ -405,7 +393,7 @@ case "${1:-up}" in
     ;;
 
   update)
-    exec python3 -m portal.platform.inference.cli update "${@:2}"
+    exec "$PORTAL_ROOT/.venv/bin/python" -m portal.platform.inference.cli update "${@:2}"
     ;;
 
   clean)
@@ -509,11 +497,11 @@ PYEOF
     ;;
 
   pull-models)
-    exec python3 -m portal.platform.inference.cli models pull "${@:2}"
+    exec "$PORTAL_ROOT/.venv/bin/python" -m portal.platform.inference.cli models pull "${@:2}"
     ;;
 
   refresh-models)
-    exec python3 -m portal.platform.inference.cli models refresh "${@:2}"
+    exec "$PORTAL_ROOT/.venv/bin/python" -m portal.platform.inference.cli models refresh "${@:2}"
     ;;
 
   add-user)
@@ -602,15 +590,15 @@ PYEOF
     ;;
 
   workspace-init)
-    exec python3 -m portal.platform.inference.cli workspace init "${@:2}"
+    exec "$PORTAL_ROOT/.venv/bin/python" -m portal.platform.inference.cli workspace init "${@:2}"
     ;;
 
   workspace-status)
-    exec python3 -m portal.platform.inference.cli workspace status "${@:2}"
+    exec "$PORTAL_ROOT/.venv/bin/python" -m portal.platform.inference.cli workspace status "${@:2}"
     ;;
 
   workspace-show)
-    exec python3 -m portal.platform.inference.cli workspace show "${@:2}"
+    exec "$PORTAL_ROOT/.venv/bin/python" -m portal.platform.inference.cli workspace show "${@:2}"
     ;;
 
   start-transcribe)
@@ -622,19 +610,19 @@ PYEOF
     ;;
 
   apply-model-params)
-    exec python3 -m portal.platform.inference.cli models apply-params "${@:2}"
+    exec "$PORTAL_ROOT/.venv/bin/python" -m portal.platform.inference.cli models apply-params "${@:2}"
     ;;
 
   import-gguf)
-    exec python3 -m portal.platform.inference.cli models import-gguf "${@:2}"
+    exec "$PORTAL_ROOT/.venv/bin/python" -m portal.platform.inference.cli models import-gguf "${@:2}"
     ;;
 
   apply-mtp-drafts)
-    exec python3 -m portal.platform.inference.cli models apply-mtp-drafts "${@:2}"
+    exec "$PORTAL_ROOT/.venv/bin/python" -m portal.platform.inference.cli models apply-mtp-drafts "${@:2}"
     ;;
 
   sync-config)
-    python3 -m portal.platform.inference.cli sync-config "${@:2}" || exit $?
+    "$PORTAL_ROOT/.venv/bin/python" -m portal.platform.inference.cli sync-config "${@:2}" || exit $?
     # `seed` skips presets that already exist, so a changed workspace prompt or tool binding
     # never reaches Open WebUI's live presets until `reseed`: say so instead of staying silent.
     "$PORTAL_ROOT/.venv/bin/python" "$PORTAL_ROOT/scripts/check_owui_preset_drift.py" \

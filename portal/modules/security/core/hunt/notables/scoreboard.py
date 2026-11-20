@@ -52,6 +52,24 @@ ENTITY_RULE = (
     "admitted=null is scored but flagged pending until the intake audit locates its events."
 )
 
+MODES_RULE = (
+    "loose = the artefact may sit anywhere the notable speaks (what/basis/why, entity values, "
+    "evidence queries and lines); strict = what/basis/why and entity values only, so an "
+    "artefact seen only inside an evidence line does not count; a key value shared by several "
+    "steps credits its first step only; keys tagged B/P/T report B+P beside T; a key marked "
+    "credit=false is reported but never covers; a key with requires= covers only when the "
+    "required same-step values are located too."
+)
+
+LINE_RULE = (
+    "line mode applies the family rule to the keyed events each locator selects: a notable "
+    "covers a keyed event when the event's source is the one its evidence query selects "
+    "(source= matched case-insensitively; rotation-stripped sourcetype when the query names "
+    "no path) and every literal TERM its evidence query names occurs in the event's raw text "
+    "(first 1500 characters, as exported); a notable whose query names no TERM is attributed "
+    "by its evidence window. A step is covered when one of its keyed events is."
+)
+
 _TERM = re.compile(r'TERM\("((?:[^"\\]|\\.)*)"\)')
 _PLAIN_TERM = re.compile(r'(?<![=\w])"((?:[^"\\]|\\.)*)"')
 _SOURCE = re.compile(r'source="([^"]+)"')
@@ -90,6 +108,19 @@ class EntityKey:
     locator: str
     audit_count: int | None
     admitted: bool | None
+    klass: str = ""
+    credit: bool = True
+    requires: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class KeyedEvent:
+    """One exported event a key locator selects: the line-mode material for an entity key."""
+
+    value: str
+    time: float
+    source: str
+    raw: str
 
 
 @dataclass(frozen=True)
@@ -109,6 +140,7 @@ class Step:
     lines: int = 0
     first_rank: int | None = None
     by_generator: dict[str, int] = field(default_factory=dict)
+    klass: str = ""
 
     @property
     def quiet(self) -> bool:
@@ -172,7 +204,7 @@ def _claim(row: Mapping[str, Any]) -> Claim:
 
 def _on_source(claim: Claim, source: str) -> bool:
     if claim.sources:
-        return source in claim.sources
+        return source.casefold() in {item.casefold() for item in claim.sources}
     return _stem(source) in claim.names
 
 
@@ -261,6 +293,7 @@ def _read_entity_keys(path: Path) -> list[EntityKey]:
         audit = stored.get("audit")
         count = audit.get("count") if isinstance(audit, Mapping) else None
         admitted = stored.get("admitted")
+        credit = stored.get("credit")
         rows.append(
             EntityKey(
                 str(stored["dataset"]),
@@ -273,10 +306,39 @@ def _read_entity_keys(path: Path) -> list[EntityKey]:
                 str(stored.get("locator") or ""),
                 int(count) if count is not None else None,
                 None if admitted is None else bool(admitted),
+                str(stored.get("class") or ""),
+                True if credit is None else bool(credit),
+                tuple(str(name) for name in stored.get("requires") or ()),
             )
         )
     if not rows:
         raise ScoreboardError(f"keys {path} hold no entries")
+    return rows
+
+
+def _read_keyed_events(path: Path, dataset: str) -> list[KeyedEvent]:
+    if not path.is_file():
+        raise ScoreboardError(f"keyed events not found: {path}")
+    rows: list[KeyedEvent] = []
+    for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if not raw.strip():
+            continue
+        stored = json.loads(raw)
+        if str(stored.get("dataset") or "") != dataset:
+            raise ScoreboardError(
+                f"keyed events are for {stored.get('dataset')!r}, another dataset "
+                f"than {dataset!r}: {path}"
+            )
+        rows.append(
+            KeyedEvent(
+                str(stored["value"]),
+                float(stored["time"]),
+                str(stored["source"]),
+                str(stored["raw"]),
+            )
+        )
+    if not rows:
+        raise ScoreboardError(f"keyed events {path} hold no rows")
     return rows
 
 
@@ -289,12 +351,17 @@ def _entity_pattern(value: str) -> re.Pattern[str]:
     return re.compile(r"(?<!\w)" + re.escape(_fold(value)) + r"(?!\w)")
 
 
-def _haystack(row: Mapping[str, Any]) -> str:
-    """Everything a notable says, folded: the text entity keys are matched against."""
+def _haystack(row: Mapping[str, Any], strict: bool = False) -> str:
+    """Everything a notable says, folded: the text entity keys are matched against.
+
+    strict drops the evidence queries and lines, leaving what/basis/why and entity values.
+    """
     parts = [str(row.get(name) or "") for name in ("what", "basis", "why")]
     for entity in row.get("entities") or ():
         if isinstance(entity, Mapping):
             parts.append(str(entity.get("value") or ""))
+    if strict:
+        return _fold("\n".join(parts))
     for item in row.get("evidence") or ():
         if isinstance(item, Mapping):
             parts.append(str(item.get("query") or ""))
@@ -613,6 +680,7 @@ def _step_row(step: Step) -> dict[str, Any]:
         "step": step.label,
         "lines": step.lines,
         "quiet": step.quiet,
+        "class": step.klass,
         "first_rank": step.first_rank,
         "covered": {str(limit): _cut(step.first_rank, limit) for limit in CUTS},
         "by_generator": dict(sorted(step.by_generator.items(), key=lambda item: item[1])),
@@ -826,11 +894,30 @@ def _entity_split(keys: Sequence[EntityKey]) -> tuple[list[EntityKey], list[Enti
     return artefacts, assets, rejected
 
 
-def _entity_groups(artefacts: Sequence[EntityKey]) -> tuple[dict[str, Step], dict[str, Step]]:
+def _entity_ownership(artefacts: Sequence[EntityKey]) -> dict[str, str]:
+    """value -> the first step (keys order) citing it; later steps share that key."""
+    owners: dict[str, str] = {}
+    for key in artefacts:
+        owners.setdefault(key.value, f"{key.scenario}/{key.step}")
+    return owners
+
+
+def _entity_groups(
+    artefacts: Sequence[EntityKey], owners: Mapping[str, str]
+) -> tuple[dict[str, Step], dict[str, Step]]:
+    """Steps and scenarios the keys declare: shared values credit the owner's step only,
+    and a step whose every key holds no credit stays in the denominator at zero lines."""
     steps: dict[str, Step] = {}
     scenarios: dict[str, Step] = {}
     for key in artefacts:
-        step = steps.setdefault(f"{key.scenario}/{key.step}", Step(f"{key.scenario}/{key.step}"))
+        label = f"{key.scenario}/{key.step}"
+        if owners.get(key.value) != label:
+            continue
+        step = steps.setdefault(label, Step(label, klass=key.klass))
+        if key.klass and not step.klass:
+            step.klass = key.klass
+        if not key.credit:
+            continue
         step.lines += key.audit_count or 0
         scenario = scenarios.setdefault(key.scenario, Step(key.scenario))
         scenario.lines += key.audit_count or 0
@@ -841,28 +928,65 @@ def _entity_order(groups: Mapping[str, Step]) -> list[Step]:
     return sorted(groups.values(), key=lambda step: (not step.quiet, step.lines, step.label))
 
 
+def _mark_at(
+    group: Mapping[str, Step], label: str, rank: int, generators: Mapping[str, int]
+) -> None:
+    step = group[label]
+    if step.first_rank is None or rank < step.first_rank:
+        step.first_rank = rank
+    for name, gen_rank in generators.items():
+        known = step.by_generator.get(name)
+        if known is None or gen_rank < known:
+            step.by_generator[name] = gen_rank
+
+
+def _mark_hit(step: Step, rank: int, generator: str) -> None:
+    if step.first_rank is None or rank < step.first_rank:
+        step.first_rank = rank
+    known = step.by_generator.get(generator)
+    if known is None or rank < known:
+        step.by_generator[generator] = rank
+
+
 def _entity_pass(
     artefacts: Sequence[EntityKey],
     rows: Sequence[dict[str, Any]],
     hays: Sequence[str],
+    owners: Mapping[str, str],
+    cover: bool = True,
 ) -> tuple[list[Notable], list[int | None], list[dict[str, int]], dict[str, Step], dict[str, Step]]:
-    """One ranked pass: first notable locating each artefact, marking steps and scenarios."""
+    """One ranked pass: first notable locating each artefact, marking steps and scenarios.
+
+    A located artefact credits its step only when it holds credit, owns its value, and every
+    value it requires is located too (at any rank).
+    """
     notables = _ranked_notables(rows)
-    steps, scenarios = _entity_groups(artefacts)
+    steps, scenarios = _entity_groups(artefacts, owners)
     patterns = [_entity_pattern(key.value) for key in artefacts]
     firsts: list[int | None] = [None] * len(artefacts)
     by_generator: list[dict[str, int]] = [{} for _ in artefacts]
+    located: set[str] = set()
     for notable, hay in zip(notables, hays, strict=True):
         for position, pattern in enumerate(patterns):
             if not pattern.search(hay):
                 continue
             key = artefacts[position]
+            located.add(key.value)
             if firsts[position] is None:
                 firsts[position] = notable.rank
             by_generator[position].setdefault(notable.generator, notable.rank)
-            notable.covered = True
-            _mark(steps, [f"{key.scenario}/{key.step}"], notable)
-            _mark(scenarios, [key.scenario], notable)
+            if cover:
+                notable.covered = True
+    for position, key in enumerate(artefacts):
+        rank = firsts[position]
+        if rank is None or not key.credit:
+            continue
+        if owners.get(key.value) != f"{key.scenario}/{key.step}":
+            continue
+        if any(name not in located for name in key.requires):
+            continue
+        _mark_at(steps, f"{key.scenario}/{key.step}", rank, by_generator[position])
+        _mark_at(scenarios, key.scenario, rank, by_generator[position])
     return notables, firsts, by_generator, steps, scenarios
 
 
@@ -870,21 +994,56 @@ def _artefact_rows(
     artefacts: Sequence[EntityKey],
     firsts: Sequence[int | None],
     generators: Sequence[dict[str, int]],
+    strict_firsts: Sequence[int | None],
+    owners: Mapping[str, str],
 ) -> list[dict[str, Any]]:
-    return [
-        {
-            "scenario": key.scenario,
-            "step": key.step,
-            "value": key.value,
-            "entity": key.entity,
-            "events": key.audit_count,
-            "admitted": key.admitted,
-            "first_rank": firsts[position],
-            "covered": {str(limit): _cut(firsts[position], limit) for limit in CUTS},
-            "by_generator": dict(sorted(generators[position].items(), key=lambda item: item[1])),
+    rows: list[dict[str, Any]] = []
+    for position, key in enumerate(artefacts):
+        owner = owners.get(key.value)
+        counts = bool(key.credit) and owner == f"{key.scenario}/{key.step}"
+        rows.append(
+            {
+                "scenario": key.scenario,
+                "step": key.step,
+                "value": key.value,
+                "entity": key.entity,
+                "events": key.audit_count,
+                "admitted": key.admitted,
+                "class": key.klass,
+                "credit": key.credit,
+                "requires": list(key.requires),
+                "shared_step": None if owner == f"{key.scenario}/{key.step}" else owner,
+                "first_rank": firsts[position],
+                "first_rank_strict": strict_firsts[position],
+                "covered": {str(limit): counts and _cut(firsts[position], limit) for limit in CUTS},
+                "by_generator": dict(
+                    sorted(generators[position].items(), key=lambda item: item[1])
+                ),
+            }
+        )
+    return rows
+
+
+def _class_recall(steps: Sequence[Step]) -> dict[str, Any]:
+    """Recall over the keys' B/P/T classes: B+P (the behavioural set) beside T (trivia)."""
+
+    def block(selected: list[Step]) -> dict[str, Any]:
+        return {
+            "steps": len(selected),
+            "covered": {
+                str(limit): _count(selected, lambda step: step.first_rank, limit) for limit in CUTS
+            },
         }
-        for position, key in enumerate(artefacts)
-    ]
+
+    out: dict[str, Any] = {}
+    for klass in ("B", "P", "T"):
+        chosen = [step for step in steps if step.klass == klass]
+        if chosen:
+            out[klass] = block(chosen)
+    both = [step for step in steps if step.klass in ("B", "P")]
+    if both:
+        out["B+P"] = block(both)
+    return out
 
 
 def _asset_rows(
@@ -943,12 +1102,68 @@ def _case_rows(
     return out
 
 
+def _entity_line_mode(
+    artefacts: Sequence[EntityKey],
+    owners: Mapping[str, str],
+    events: Sequence[KeyedEvent],
+    rows: Sequence[dict[str, Any]],
+) -> dict[str, Any]:
+    """The family rule over the keyed events: which notables' queries select them."""
+    by_value: dict[str, EntityKey] = {}
+    for key in artefacts:
+        by_value.setdefault(key.value, key)  # the owner row: same order as _entity_ownership
+    creditable = {
+        key.value
+        for key in artefacts
+        if key.credit and owners.get(key.value) == f"{key.scenario}/{key.step}"
+    }
+    steps: dict[str, Step] = {}
+    folded: list[tuple[str, KeyedEvent, str]] = []
+    for event in events:
+        owner: EntityKey | None = by_value.get(event.value)
+        if owner is None or event.value not in creditable:
+            continue
+        if any(by_value.get(name) is None or name not in creditable for name in owner.requires):
+            continue
+        label = f"{owner.scenario}/{owner.step}"
+        step = steps.setdefault(label, Step(label, klass=owner.klass))
+        if owner.klass and not step.klass:
+            step.klass = owner.klass
+        step.lines += 1
+        folded.append((label, event, event.raw.casefold()))
+    by_source: defaultdict[str, list[tuple[str, KeyedEvent, str]]] = defaultdict(list)
+    by_stem: defaultdict[str, list[tuple[str, KeyedEvent, str]]] = defaultdict(list)
+    for item in folded:
+        by_source[item[1].source.casefold()].append(item)
+        by_stem[_stem(item[1].source)].append(item)
+    for notable in _ranked_notables(rows):
+        claim = notable.claim
+        if claim.sources:
+            candidates = [
+                item for source in claim.sources for item in by_source.get(source.casefold(), ())
+            ]
+        else:
+            candidates = [item for name in claim.names for item in by_stem.get(name, ())]
+        for label, event, text in candidates:
+            if _covers(claim, text, event.time):
+                _mark_hit(steps[label], notable.rank, notable.generator)
+    ordered = sorted(steps.values(), key=lambda step: (not step.quiet, step.lines, step.label))
+    return {
+        "rule": LINE_RULE,
+        "events": len(folded),
+        "steps": [_step_row(step) for step in ordered],
+        "recall": _recall(ordered),
+        "class_recall": _class_recall(ordered),
+    }
+
+
 def _entity_relation(
     directory: Path,
     rows: Sequence[dict[str, Any]],
     artefacts: Sequence[EntityKey],
     before_steps: Mapping[str, Step],
     before_scenarios: Mapping[str, Step],
+    owners: Mapping[str, str],
 ) -> dict[str, Any] | None:
     path = directory / RELATE_FILE
     if not path.is_file():
@@ -958,7 +1173,7 @@ def _entity_relation(
     cases = [item for item in payload.get("cases") or () if isinstance(item, Mapping)]
     after_rows = _with_related(rows, related)
     after_hays = [_haystack(row) for row in after_rows]
-    _, _, _, after_steps, after_scenarios = _entity_pass(artefacts, after_rows, after_hays)
+    _, _, _, after_steps, after_scenarios = _entity_pass(artefacts, after_rows, after_hays, owners)
     case_rows = _case_rows(cases, artefacts)
     true_ranks = [row["rank"] for row in case_rows if row["scenarios"]]
     first_true = min(true_ranks) if true_ranks else None
@@ -977,7 +1192,9 @@ def _entity_relation(
     }
 
 
-def _entity_family(family: str, directory: Path, keys_path: Path) -> dict[str, Any]:
+def _entity_family(
+    family: str, directory: Path, keys_path: Path, events_path: Path | None = None
+) -> dict[str, Any]:
     rows = _read_notables(directory)
     progress = read_json(directory / PROGRESS_FILE)
     if not progress:
@@ -986,23 +1203,44 @@ def _entity_family(family: str, directory: Path, keys_path: Path) -> dict[str, A
     index, _run_sources = _run_index(directory)
     _check_entity_family(index, keys)
     artefacts, assets, rejected = _entity_split(keys)
+    owners = _entity_ownership(artefacts)
     hays = [_haystack(row) for row in rows]
-    notables, firsts, by_generator, steps, scenarios = _entity_pass(artefacts, rows, hays)
+    strict_hays = [_haystack(row, strict=True) for row in rows]
+    notables, firsts, by_generator, steps, scenarios = _entity_pass(artefacts, rows, hays, owners)
+    _, strict_firsts, _, strict_steps, strict_scenarios = _entity_pass(
+        artefacts, rows, strict_hays, owners, cover=False
+    )
     ordered, ordered_scenarios = _entity_order(steps), _entity_order(scenarios)
+    events = None if events_path is None else _read_keyed_events(events_path, index)
     report = {
         "family": family,
         "index": index,
         "mode": "entity",
         "card_contract": _card_contract(directory),
         "rule": ENTITY_RULE,
+        "modes_rule": MODES_RULE,
         "keys": {
             "file": str(keys_path),
             "scenarios": len({key.scenario for key in keys}),
             "steps": len({(key.scenario, key.step) for key in keys}),
+            "scored_steps": len(steps),
             "artefacts": len(artefacts),
             "assets": len(assets),
             "pending_audit": sum(1 for key in artefacts if key.admitted is None),
             "not_admitted": rejected,
+            "shared_keys": sum(
+                1 for key in artefacts if owners.get(key.value) != f"{key.scenario}/{key.step}"
+            ),
+            "no_credit_keys": sum(1 for key in artefacts if not key.credit),
+            "classes": dict(
+                sorted(
+                    Counter(
+                        key.klass
+                        for key in artefacts
+                        if key.klass and key.role == "artefact" and key.admitted is not False
+                    ).items()
+                )
+            ),
         },
         "notables": {
             "total": len(notables),
@@ -1010,17 +1248,21 @@ def _entity_family(family: str, directory: Path, keys_path: Path) -> dict[str, A
             "covering": sum(1 for notable in notables if notable.covered),
             "cost": {str(limit): _read_count(limit, len(notables)) for limit in CUTS},
         },
-        "artefacts": _artefact_rows(artefacts, firsts, by_generator),
+        "artefacts": _artefact_rows(artefacts, firsts, by_generator, strict_firsts, owners),
         "assets": _asset_rows(assets, rows, hays),
         "steps": [_step_row(step) for step in ordered],
         "scenarios": [_step_row(step) for step in ordered_scenarios],
         "recall": _recall(ordered),
         "scenario_recall": _recall(ordered_scenarios),
+        "strict_recall": _recall(_entity_order(strict_steps)),
+        "strict_scenario_recall": _recall(_entity_order(strict_scenarios)),
+        "class_recall": _class_recall(ordered),
+        "line_mode": None if events is None else _entity_line_mode(artefacts, owners, events, rows),
         "judge": _judge_block(notables, read_json(directory / JUDGE_CACHE)),
         "cost": _cost(progress),
         "honesty": _honesty(progress, family),
     }
-    relation = _entity_relation(directory, rows, artefacts, steps, scenarios)
+    relation = _entity_relation(directory, rows, artefacts, steps, scenarios, owners)
     if relation is not None:
         report["relate"] = relation
     return report
@@ -1193,14 +1435,18 @@ def _entity_summary_lines(report: Mapping[str, Any]) -> list[str]:
     notables = report["notables"]
     lines = [
         f"family {report['family']}  index {report['index'] or '?'}  mode entity",
-        f"keys {keys['file']}  scenarios {keys['scenarios']}  steps {keys['steps']}  "
-        f"artefacts {keys['artefacts']}  assets {keys['assets']}",
+        f"keys {keys['file']}  scenarios {keys['scenarios']}  declared steps {keys['steps']}"
+        f"  scored steps {keys['scored_steps']}  artefacts {keys['artefacts']}  "
+        f"assets {keys['assets']}",
         f"notables {notables['total']} {notables['by_generator']}  covering any artefact "
         f"{notables['covering']}",
-        f"quiet = a step whose artefacts total <= {QUIET_MAX_LINES} keyed events (audit counts; "
-        "an artefact pending audit counts 0)",
+        f"shared keys {keys['shared_keys']} (a shared value credits its first step only)  "
+        f"no-credit keys {keys['no_credit_keys']}  classes {keys['classes'] or 'untagged'}",
+        f"quiet = a step whose creditable artefacts total <= {QUIET_MAX_LINES} keyed events "
+        "(audit counts; an artefact pending audit counts 0)",
         "top N = the first N lines of notables.jsonl, the run's own order",
         "rule: " + report["rule"],
+        "modes: " + report["modes_rule"],
     ]
     if keys["pending_audit"]:
         lines.append(
@@ -1220,17 +1466,27 @@ def _entity_artefact_table(artefacts: Sequence[Mapping[str, Any]]) -> list[str]:
         return ["  none"]
     lines = [
         f"  {'scenario/step':<40}{'artefact':<46}{'kind':<10}{'events':>9}  "
-        f"{'top50':>5} {'top100':>6} {'all':>4} {'rank':>6}  covered by"
+        f"{'top50':>5} {'top100':>6} {'all':>4} {'rank':>6} {'strict':>6}  "
+        f"{'covered by':<30}note"
     ]
     for row in artefacts:
         covered = row["covered"]
         events = row["events"] if row["events"] is not None else "pending"
         rank = row["first_rank"] if row["first_rank"] is not None else "-"
+        strict = row["first_rank_strict"] if row["first_rank_strict"] is not None else "-"
+        notes = []
+        if not row["credit"]:
+            notes.append("no credit")
+        if row["shared_step"]:
+            notes.append(f"shared of {row['shared_step']}")
+        if row["requires"]:
+            notes.append("requires " + ",".join(row["requires"]))
         lines.append(
             f"  {row['scenario'] + '/' + row['step']:<40}{str(row['value'])[:44]:<46}"
             f"{row['entity']:<10}{str(events):>9}  "
             f"{_flag(bool(covered['50'])):>5} {_flag(bool(covered['100'])):>6} "
-            f"{_flag(bool(covered['None'])):>4} {str(rank):>6}  {_generator_line(row)}"
+            f"{_flag(bool(covered['None'])):>4} {str(rank):>6} {str(strict):>6}  "
+            f"{_generator_line(row):<30}{'; '.join(notes) or '-'}"
         )
     return lines
 
@@ -1264,6 +1520,47 @@ def _entity_recall_lines(report: Mapping[str, Any]) -> list[str]:
     ]
     for name, counts in recall["by_generator"].items():
         lines.append(f"  {name:<18}{counts['50']:>8}{counts['100']:>8}{counts['None']:>8}")
+    return lines
+
+
+def _class_bits(classes: Mapping[str, Any]) -> str:
+    return "   ".join(
+        f"{name} {block['covered']['50']}/{block['steps']} (top50) "
+        f"{block['covered']['None']}/{block['steps']} (all)"
+        for name, block in classes.items()
+    )
+
+
+def _entity_mode_lines(report: Mapping[str, Any]) -> list[str]:
+    strict = report["strict_recall"]
+    strict_scenarios = report["strict_scenario_recall"]
+    lines = [
+        f"strict     top50 {strict['overall']['50']}/{strict['steps']}   "
+        f"top100 {strict['overall']['100']}/{strict['steps']}   "
+        f"all {strict['overall']['None']}/{strict['steps']}   "
+        f"(what/basis/why/entities only; scenarios "
+        f"{strict_scenarios['overall']['None']}/{strict_scenarios['steps']} all)",
+    ]
+    classes = report.get("class_recall") or {}
+    if classes:
+        lines.append(f"  class    {_class_bits(classes)}")
+    return lines
+
+
+def _entity_line_lines(report: Mapping[str, Any]) -> list[str]:
+    line = report.get("line_mode")
+    if line is None:
+        return []
+    recall = line["recall"]
+    overall = recall["overall"]
+    lines = [
+        f"line mode  top50 {overall['50']}/{recall['steps']}   "
+        f"top100 {overall['100']}/{recall['steps']}   "
+        f"all {overall['None']}/{recall['steps']}   keyed events {line['events']}",
+    ]
+    classes = line.get("class_recall") or {}
+    if classes:
+        lines.append(f"  class    {_class_bits(classes)}")
     return lines
 
 
@@ -1305,6 +1602,8 @@ def _render_entity(report: Mapping[str, Any]) -> str:
     lines += ["", f"LOUD steps (> {QUIET_MAX_LINES} keyed events)"]
     lines += _step_table(report["steps"], False) or ["  none"]
     lines += ["", *_entity_recall_lines(report)]
+    lines += _entity_mode_lines(report)
+    lines += _entity_line_lines(report)
     relation_lines = _entity_relate_lines(report)
     if relation_lines:
         lines += ["", *relation_lines]
@@ -1337,17 +1636,29 @@ def score(
     *,
     logs: Path | None = None,
     year: int | None = None,
+    keyed_events: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     targets = _targets(out)
     keys = _key_paths(key_args, [family for family, _directory in targets])
+    events = _optional_paths(keyed_events or ())
     return {
         "families": [
-            _entity_family(family, directory, keys[family])
+            _entity_family(family, directory, keys[family], events.get(family))
             if _keys_are_entity(keys[family])
             else _family(family, directory, keys[family], logs, year)
             for family, directory in targets
         ]
     }
+
+
+def _optional_paths(values: Sequence[str]) -> dict[str, Path]:
+    found: dict[str, Path] = {}
+    for value in values:
+        family, _, path = value.partition("=")
+        if not family or not path:
+            raise ScoreboardError(f"--keyed-events {value!r} is not family=path")
+        found[family.strip()] = Path(path)
+    return found
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -1359,6 +1670,12 @@ def _parser() -> argparse.ArgumentParser:
         required=True,
         help="family=path to that family's keys.jsonl (repeat per family)",
     )
+    parser.add_argument(
+        "--keyed-events",
+        action="append",
+        help="family=path to that family's keyed-event export; entity families only, "
+        "adds line mode beside entity mode (repeat per family)",
+    )
     parser.add_argument("--logs", type=Path, help="raw log tree holding the labelled lines")
     parser.add_argument("--year", type=int, help="year for a timestamp that carries none")
     parser.add_argument("--json", action="store_true", help="machine-readable output")
@@ -1369,7 +1686,13 @@ def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     started = time.monotonic()
     try:
-        report = score(args.out, args.keys, logs=args.logs, year=args.year)
+        report = score(
+            args.out,
+            args.keys,
+            logs=args.logs,
+            year=args.year,
+            keyed_events=args.keyed_events,
+        )
     except ScoreboardError as error:
         print(f"scoreboard: {error}", file=sys.stderr)
         return 2

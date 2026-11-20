@@ -10,14 +10,14 @@ Three engines share one table and one JSON report:
   reports neither, one streamed request is timed client-side and the row is
   marked ``timing_source: measured``.
 * ``pipeline`` — the Portal Pipeline (the preferred path for seat decisions):
-  streams a workspace reply and reads the ``portal_timings`` frame emitted
-  before ``[DONE]``. That frame has no prompt-token count, so prefill tok/s
-  comes from the usage chunk (``include_usage``) and is ``-`` when absent.
+  streams a workspace reply, reads the ``portal_timings`` frame emitted before
+  ``[DONE]`` plus ``x-portal-route``/served ``model``, and verifies the seat hit
+  its intended backend and model.
 
 URLs come from ``--host``, else ``OLLAMA_URL`` / ``OMLX_URL`` / ``PIPELINE_URL``,
 else the documented localhost defaults; keys from ``--api-key``, else
-``OMLX_API_KEY`` / ``PIPELINE_API_KEY``, else the repo ``.env``. Standard library
-only; exit status is non-zero when a request failed, naming the size(s).
+``OMLX_API_KEY`` / ``PIPELINE_API_KEY``, else the repo ``.env``. Exit status is
+non-zero when a request fails or a pipeline row hits the wrong engine/model.
 
 Usage:
     uv run python scripts/speed_bench.py --engine ollama --model qwen3.8:27b
@@ -33,9 +33,13 @@ import os
 import sys
 import time
 import urllib.request
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 #: Estimated characters per token, used to size the filler prompt.
 CHARS_PER_TOKEN = 4
@@ -56,7 +60,7 @@ URL_ENV = {"ollama": "OLLAMA_URL", "omlx": "OMLX_URL", "pipeline": "PIPELINE_URL
 KEY_ENV = {"ollama": "", "omlx": "OMLX_API_KEY", "pipeline": "PIPELINE_API_KEY"}
 
 _NS_PER_S = 1_000_000_000
-_ENV_FILE = Path(__file__).resolve().parents[1] / ".env"
+_ENV_FILE = _REPO_ROOT / ".env"
 
 _COLUMNS = ("size", "prompt", "prefill tok/s", "decode tok/s", "load s")
 
@@ -95,6 +99,7 @@ def _row(
     ttft_s: float | None,
     total_s: float | None,
     timing_source: str,
+    engine_ok: bool = True,
 ) -> dict[str, Any]:
     """Build one engine-independent result row."""
     return {
@@ -105,6 +110,7 @@ def _row(
         "ttft_s": ttft_s,
         "total_s": total_s,
         "timing_source": timing_source,
+        "engine_ok": engine_ok,
     }
 
 
@@ -152,18 +158,129 @@ def omlx_metrics(body: dict) -> dict:
     )
 
 
-def pipeline_metrics(timings: dict, usage: dict) -> dict:
-    """Map the Pipeline's ``portal_timings`` frame (plus usage) to a result row."""
+def pipeline_metrics(
+    timings: dict,
+    usage: dict,
+    served_model: str | None = None,
+    *,
+    route: str = "",
+) -> dict:
+    """Map the Pipeline's ``portal_timings`` frame, usage, and route to one result row."""
     prompt_tokens = _count(usage.get("prompt_tokens"))
     prefill_s = _number(timings.get("prefill_s"))
-    return _row(
+    row = _row(
         prompt_tokens=prompt_tokens,
         prefill_tps=prompt_tokens / prefill_s if prompt_tokens and prefill_s else None,
         decode_tps=_number(timings.get("answer_tps")),
-        load_seconds=None,
+        load_seconds=_number(usage.get("model_load_duration")),
         ttft_s=_number(timings.get("ttft_s")),
         total_s=_number(timings.get("total_s")),
         timing_source=str(timings.get("timing_source") or "measured"),
+    )
+    backend: str | None = None
+    route_model: str | None = None
+    if route:
+        parts = route.split(";")
+        if len(parts) >= 3:
+            backend = parts[1] or None
+            route_model = parts[2] or None
+    row["backend"] = backend
+    row["served_model"] = served_model or route_model
+    row["completion_tokens"] = _count(usage.get("completion_tokens"))
+    return row
+
+
+def resolve_intended_seat(
+    seat: str,
+    *,
+    registry: Any = None,
+    portal_config: Any = None,
+    personas: Mapping[str, Any] | None = None,
+) -> tuple[str, str, str] | None:
+    """Resolve ``seat`` to ``(backend_id, engine_type, target_model)`` via Pipeline routing."""
+    from portal.platform.inference.cluster_backends import BackendRegistry
+    from portal.platform.inference.config import load_persona_map, load_portal_config
+
+    cfg = portal_config if portal_config is not None else load_portal_config(include_bench=True)
+    reg = registry if registry is not None else BackendRegistry()
+    persona_map = personas if personas is not None else load_persona_map(include_bench=True)
+
+    ws_id = seat
+    model_pin: str | None = None
+    if ws_id.partition("::")[0] not in cfg.workspaces:
+        persona = persona_map.get(ws_id)
+        if persona is not None:
+            ws_id = (
+                f"{persona.workspace_model}::{persona.variant}"
+                if persona.variant
+                else persona.workspace_model
+            )
+            model_pin = persona.model_pin
+        elif ws_id in cfg.aliases:
+            ws_id = cfg.aliases[ws_id].to
+
+    base_id, _, variant_name = ws_id.partition("::")
+    spec = cfg.workspaces.get(base_id)
+    if spec is None:
+        return None
+    model_hint = str(spec.model_hint or "")
+    if variant_name and variant_name in spec.variants:
+        model_hint = str(spec.variants[variant_name].get("model_hint") or model_hint)
+    if model_pin:
+        model_hint = str(model_pin)
+
+    candidates = reg.get_backend_candidates(base_id)
+    if not candidates:
+        return None
+    if model_hint:
+        for backend in candidates:
+            resolved = backend.resolve_model(model_hint)
+            if resolved is not None:
+                return (backend.id, backend.type, resolved)
+    first = candidates[0]
+    if not first.models:
+        return None
+    return (first.id, first.type, first.models[0])
+
+
+def check_pipeline_engine(
+    row: dict[str, Any],
+    seat: str,
+    *,
+    intended: tuple[str, str, str] | None,
+    backend_types: Mapping[str, str],
+) -> str | None:
+    """Verify a pipeline row served ``seat``'s intended backend and model.
+
+    Mutates ``row`` with ``engine_ok`` and ``served_engine``; returns a loud
+    ``WRONG ENGINE`` error string on mismatch, else ``None``.
+    """
+    served_backend = row.get("backend")
+    served_model = row.get("served_model")
+    served_engine = backend_types.get(served_backend) if served_backend else None
+    if served_engine is not None:
+        row["served_engine"] = served_engine
+
+    if intended is None:
+        row["engine_ok"] = False
+        row["served_engine"] = served_engine or "unknown"
+        return (
+            f"WRONG ENGINE: seat {seat!r} could not be resolved in config "
+            f"(got {served_backend or 'unknown'} ({row['served_engine']}) / "
+            f"{served_model or 'unknown'})"
+        )
+
+    exp_backend, exp_engine, exp_model = intended
+    if served_backend == exp_backend and served_model == exp_model:
+        row["engine_ok"] = True
+        return None
+
+    row["engine_ok"] = False
+    row["served_engine"] = served_engine or "unknown"
+    return (
+        f"WRONG ENGINE: seat {seat!r} expected {exp_backend} ({exp_engine}) / {exp_model}, "
+        f"got {served_backend or 'unknown'} ({row['served_engine']}) / "
+        f"{served_model or 'unknown'}"
     )
 
 
@@ -199,10 +316,11 @@ def stream_wall(lines: Iterable[bytes | str], clock: Any = time.monotonic) -> di
     }
 
 
-def parse_sse_timings(lines: Iterable[bytes | str]) -> tuple[dict, dict]:
-    """Return the last ``portal_timings`` frame and usage chunk of an SSE stream."""
+def parse_sse_timings(lines: Iterable[bytes | str]) -> tuple[dict, dict, str | None]:
+    """Return the last ``portal_timings`` frame, the usage chunk, and the served model."""
     timings: dict[str, Any] = {}
     usage: dict[str, Any] = {}
+    model: str | None = None
     for raw in lines:
         line = raw.decode("utf-8") if isinstance(raw, bytes) else raw
         line = line.strip()
@@ -219,7 +337,9 @@ def parse_sse_timings(lines: Iterable[bytes | str]) -> tuple[dict, dict]:
             timings = obj["portal_timings"]
         if isinstance(obj.get("usage"), dict):
             usage = obj["usage"]
-    return timings, usage
+        if isinstance(obj.get("model"), str) and obj["model"]:
+            model = obj["model"]
+    return timings, usage, model
 
 
 def _post(url: str, payload: dict, timeout: float, headers: dict[str, str] | None = None) -> Any:
@@ -283,19 +403,33 @@ def request_omlx_streamed(
 
 
 def request_pipeline(
-    host: str, workspace: str, prompt: str, api_key: str = "", timeout: float = 600.0
-) -> tuple[dict, dict]:
-    """Stream one workspace reply through the Pipeline; return its timings and usage."""
-    payload = {
+    host: str,
+    workspace: str,
+    prompt: str,
+    api_key: str = "",
+    timeout: float = 600.0,
+    *,
+    no_tools: bool = False,
+) -> tuple[dict, dict, str | None, str]:
+    """Stream one workspace reply through the Pipeline.
+
+    Returns ``(timings, usage, served_model, route)``: the ``portal_timings``
+    frame, the usage chunk, the SSE chunk ``model``, and ``x-portal-route``.
+    """
+    payload: dict[str, Any] = {
         "model": workspace,
         "messages": [{"role": "user", "content": prompt}],
         "stream": True,
         "stream_options": {"include_usage": True},
         "max_tokens": NUM_PREDICT,
     }
+    if no_tools:
+        payload["portal_no_tools"] = True
     headers = {**_bearer(api_key), "X-Portal-Client": "api"}
     with _post(host.rstrip("/") + "/v1/chat/completions", payload, timeout, headers) as resp:
-        return parse_sse_timings(resp)
+        route = str(resp.headers.get("x-portal-route") or "") if hasattr(resp, "headers") else ""
+        timings, usage, served_model = parse_sse_timings(resp)
+        return timings, usage, served_model, route
 
 
 def _measured_omlx(
@@ -320,7 +454,14 @@ def _measured_omlx(
 
 
 def _measure(
-    engine: str, host: str, target: str, prompt: str, api_key: str, timeout: float
+    engine: str,
+    host: str,
+    target: str,
+    prompt: str,
+    api_key: str,
+    timeout: float,
+    *,
+    no_tools: bool = False,
 ) -> dict[str, Any]:
     """Measure one prompt on ``engine`` and return a result row."""
     if engine == "ollama":
@@ -331,10 +472,12 @@ def _measure(
             return _measured_omlx(host, target, prompt, api_key, timeout)
         return row
     if engine == "pipeline":
-        timings, usage = request_pipeline(host, target, prompt, api_key, timeout)
+        timings, usage, served_model, route = request_pipeline(
+            host, target, prompt, api_key, timeout, no_tools=no_tools
+        )
         if not timings:
             raise ValueError("stream carried no portal_timings frame")
-        return pipeline_metrics(timings, usage)
+        return pipeline_metrics(timings, usage, served_model, route=route)
     raise ValueError(f"unknown engine {engine!r}")
 
 
@@ -364,6 +507,24 @@ def format_table(rows: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _pipeline_seat_context(
+    target: str,
+    *,
+    registry: Any = None,
+    portal_config: Any = None,
+    personas: Mapping[str, Any] | None = None,
+) -> tuple[tuple[str, str, str] | None, dict[str, str]]:
+    """Resolve the intended seat and backend id -> engine type map once per run."""
+    from portal.platform.inference.cluster_backends import BackendRegistry
+
+    reg = registry if registry is not None else BackendRegistry()
+    intended = resolve_intended_seat(
+        target, registry=reg, portal_config=portal_config, personas=personas
+    )
+    backend_types = {b.id: b.type for b in reg.list_backends()}
+    return intended, backend_types
+
+
 def run_bench(
     engine: str,
     host: str,
@@ -373,14 +534,25 @@ def run_bench(
     out: str | None = None,
     api_key: str = "",
     timeout: float = 600.0,
+    no_tools: bool = False,
+    registry: Any = None,
+    portal_config: Any = None,
+    personas: Mapping[str, Any] | None = None,
 ) -> int:
     """Benchmark every size; print the table; return 0 on success, 1 on any failure."""
     rows: list[dict] = []
     failures: list[str] = []
+    intended: tuple[str, str, str] | None = None
+    backend_types: dict[str, str] = {}
+    if engine == "pipeline":
+        intended, backend_types = _pipeline_seat_context(
+            target, registry=registry, portal_config=portal_config, personas=personas
+        )
+
     for size in sizes:
         prompt = build_filler_prompt(size)
         try:
-            row = _measure(engine, host, target, prompt, api_key, timeout)
+            row = _measure(engine, host, target, prompt, api_key, timeout, no_tools=no_tools)
         except (OSError, ValueError) as exc:
             failures.append(f"FAILED size {size} tokens: {exc}")
             continue
@@ -390,6 +562,12 @@ def run_bench(
                 "TTFT and decode measured client-side",
                 file=sys.stderr,
             )
+        if engine == "pipeline":
+            mismatch = check_pipeline_engine(
+                row, target, intended=intended, backend_types=backend_types
+            )
+            if mismatch:
+                failures.append(f"{mismatch} [size {size} tokens]")
         rows.append({"size_tokens": size, **row})
 
     if rows:
@@ -477,6 +655,11 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--timeout", type=float, default=600.0, help="Per-request seconds")
     parser.add_argument("--out", default=None, help="Optional path to write the JSON results")
+    parser.add_argument(
+        "--no-tools",
+        action="store_true",
+        help="Send portal_no_tools=true on pipeline requests (measure raw seat speed)",
+    )
     return parser
 
 
@@ -499,6 +682,7 @@ def main(argv: list[str] | None = None) -> int:
         out=args.out,
         api_key=args.api_key if args.api_key is not None else engine_key(args.engine),
         timeout=args.timeout,
+        no_tools=args.no_tools,
     )
 
 

@@ -271,7 +271,8 @@ _install_log_rotation_agent() {
 _portal_module_services() {
     local py="$PORTAL_ROOT/.venv/bin/python"
     if [ ! -x "$py" ]; then
-        py="$(command -v python3)"
+        echo "[portal-5]   ❌ project interpreter missing: $py" >&2
+        return 1
     fi
     PYTHONPATH="$PORTAL_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
         "$py" -m portal.platform.inference.cli module services "$@"
@@ -466,6 +467,191 @@ _check_image_freshness() {
     fi
 }
 
+# ── Sandbox images: what the sandbox/MCPs resolve, and how they are restored ─
+# One image per line. `required` is what a running service points at (env
+# override, else the compose/service default the code resolves); `all` adds the
+# upstream bases the sandbox may pull; `built` is every image launch.sh can
+# build, which hygiene must never prune.
+_sandbox_images() {
+    case "${1:-required}" in
+        built)
+            printf '%s\n' portal5-pwsh:latest portal5-sandbox-data:latest \
+                portal5-attack:latest portal5-binresearch:latest
+            ;;
+        all)
+            _sandbox_images required
+            printf '%s\n' "${SANDBOX_BASH_IMAGE:-alpine:latest}" \
+                "${SANDBOX_NODE_IMAGE:-node:20-alpine}"
+            ;;
+        *)
+            printf '%s\n' "${SANDBOX_DOCKER_IMAGE:-portal5-sandbox-data:latest}" \
+                "${SANDBOX_PS_IMAGE:-portal5-pwsh:latest}" \
+                "${BINRESEARCH_IMAGE:-portal5-binresearch:latest}"
+            if [ "${SANDBOX_LAB_EXEC:-false}" = "true" ] && [ -n "${SANDBOX_LAB_IMAGE:-}" ]; then
+                printf '%s\n' "${SANDBOX_LAB_IMAGE}"
+            fi
+            ;;
+    esac
+}
+
+# Build one Portal sandbox/lab image by tag; 1 when launch.sh has no recipe.
+_build_portal_image() {
+    case "$1" in
+        portal5-pwsh:latest)
+            docker build -t "$1" -f "$PORTAL_ROOT/Dockerfile.pwsh" "$PORTAL_ROOT" ;;
+        portal5-sandbox-data:latest)
+            printf 'FROM python:3.11-slim\nRUN pip install --no-cache-dir pandas openpyxl pytest\n' \
+                | docker build -t "$1" - ;;
+        portal5-attack:latest)
+            docker build -t "$1" -f "$PORTAL_ROOT/Dockerfile.attack" "$PORTAL_ROOT" ;;
+        portal5-binresearch:latest)
+            docker build -t "$1" -f "$PORTAL_ROOT/Dockerfile.binresearch" "$PORTAL_ROOT" ;;
+        *) return 1 ;;
+    esac
+}
+
+_dind_has_image() {
+    docker exec portal5-dind docker image inspect "$1" >/dev/null 2>&1
+}
+
+_load_into_dind() {
+    echo "[portal-5] Loading $1 into DinD..."
+    docker save "$1" | docker exec -i portal5-dind docker load
+}
+
+# Every image the sandbox or a tool MCP launches must exist in DinD before the
+# stack is used: build a missing one from its own recipe, then load it. The two
+# images `rebuild` owns are required (a failed build stops `up`); an opt-in
+# image (attack while lab-exec is on, binresearch) warns instead. With
+# --rebuild those two are always rebuilt and reloaded.
+_ensure_sandbox_images() {
+    local rebuild="${1:-}" ref built
+    if [ "$(docker inspect -f '{{.State.Running}}' portal5-dind 2>/dev/null)" != "true" ]; then
+        echo "[portal-5] ❌ portal5-dind is not running — sandbox images cannot be verified" >&2
+        return 1
+    fi
+    while IFS= read -r ref; do
+        [ -n "$ref" ] || continue
+        built=0
+        if [ "$rebuild" = "--rebuild" ]; then
+            case "$ref" in
+                portal5-pwsh:latest|portal5-sandbox-data:latest)
+                    _build_portal_image "$ref" || return 1
+                    built=1
+                    ;;
+            esac
+        fi
+        if [ "$built" -eq 0 ] && ! docker image inspect "$ref" >/dev/null 2>&1; then
+            echo "[portal-5] Sandbox image missing: $ref — rebuilding..."
+            if ! _build_portal_image "$ref"; then
+                case "$ref" in
+                    portal5-pwsh:latest|portal5-sandbox-data:latest)
+                        echo "[portal-5] ❌ $ref is missing and could not be built" >&2
+                        return 1
+                        ;;
+                    portal5-*)
+                        echo "[portal-5] ⚠️  $ref is missing and could not be built" >&2
+                        ;;
+                esac
+                continue
+            fi
+            built=1
+        fi
+        if [ "$built" -eq 1 ] || ! _dind_has_image "$ref"; then
+            _load_into_dind "$ref" || return 1
+        fi
+    done < <(_sandbox_images required)
+}
+
+# ── Disk hygiene: prune what the started stack no longer uses, report savings ─
+# Runs at the end of `up`/`rebuild` (a failed start keeps the old images for
+# rollback — the same rule weekly_rebuild.py prunes by). Removes superseded
+# Portal images (Portal-owned tags no compose service declares, no container
+# references and no sandbox role names — e.g. a retired MCP image), dangling
+# images and dangling build cache on the host, and inside portal5-dind the
+# same, except the images its services and sandbox roles need. Then fstrim in
+# the Docker Desktop VM returns the freed blocks to the host. Never touches
+# volumes or models, never `docker compose down -v`; `docker rmi`/`prune`
+# refuse anything a container still references. The emergency levers stay
+# manual: `docker system prune -af` and `docker exec portal5-dind docker system
+# prune -af`.
+_disk_hygiene() {
+    local raw_path free_before free_after raw_before raw_after declared in_use keep ref repo removed
+    raw_path="$HOME/Library/Containers/com.docker.docker/Data/vms/0/data/Docker.raw"
+    free_before=0; raw_before=0
+    free_before="$(df -k / 2>/dev/null | awk 'NR==2 {print $4}')"
+    [ -f "$raw_path" ] && raw_before="$(du -k "$raw_path" 2>/dev/null | awk '{print $1}')"
+
+    # Images the sandbox and tool MCPs launch on demand: nothing in compose
+    # declares them, so a missing entry here is what a manual prune deletes.
+    keep=" $( { _sandbox_images built; _sandbox_images all; } | sort -u | tr '\n' ' ')"
+    keep="$keep "
+
+    # Superseded Portal images: compose decides what is current; the declared set
+    # is name-only for build: services, so compare repositories. Both channel
+    # profiles are passed (the `_do_down` precedent) so a disabled channel's
+    # image is still declared — never pruned. An empty set (compose could not
+    # render) skips removal — fail safe.
+    declared="$(cd "$COMPOSE_DIR" && docker compose --profile telegram --profile slack \
+        config --images 2>/dev/null | sed 's/:.*//' | sort -u)"
+    in_use="$(docker ps -a --format '{{.Image}}' 2>/dev/null | sort -u)"
+    if [ -n "$declared" ]; then
+        removed=0
+        while IFS=$'\t' read -r ref size; do
+            [ -n "$ref" ] || continue
+            case "$ref" in portal5-*|portal-5-*) ;; *) continue ;; esac
+            repo="${ref%%:*}"
+            printf '%s\n' "$declared" | grep -qx -- "$repo" && continue
+            case "$keep" in *" $ref "*|*" $repo "*|*" $repo:"*) continue ;; esac
+            printf '%s\n' "$in_use" | grep -qx -- "$ref" && continue
+            printf '%s\n' "$in_use" | grep -qx -- "$repo" && continue
+            echo "[portal-5] 🧹 superseded image: $ref ($size)"
+            docker rmi "$ref" >/dev/null 2>&1 && removed=$((removed + 1)) || true
+        done < <(docker image ls --format '{{.Repository}}:{{.Tag}}\t{{.Size}}' 2>/dev/null | grep -v '<none>')
+        [ "$removed" -gt 0 ] && echo "[portal-5] 🧹 superseded Portal images removed: $removed"
+    fi
+
+    docker image prune -f 2>/dev/null | grep -oE 'Total reclaimed space: .*' \
+        | sed 's/^Total reclaimed space: /[portal-5] 🧹 host dangling images: /' || true
+    docker builder prune -f 2>/dev/null | grep -oE 'Total reclaimed space: .*' \
+        | sed 's/^Total reclaimed space: /[portal-5] 🧹 host build cache: /' || true
+
+    # Inside portal5-dind: dangling generations + build cache, then tagged images
+    # nothing uses except those the compose services and the sandbox roles name
+    # (the keep set above: compose image refs, pwsh/attack/binresearch, and the
+    # .env overrides of the sandbox image vars).
+    if [ "$(docker inspect -f '{{.State.Running}}' portal5-dind 2>/dev/null)" = "true" ]; then
+        keep="$keep$(grep -ohE 'portal5-[a-zA-Z0-9._/-]+:[a-zA-Z0-9._-]+' \
+            "$PORTAL_ROOT/deploy/portal-5/docker-compose.yml" 2>/dev/null | sort -u | tr '\n' ' ') "
+        docker exec portal5-dind docker image prune -f 2>/dev/null | grep -oE 'Total reclaimed space: .*' \
+            | sed 's/^Total reclaimed space: /[portal-5] 🧹 dind dangling images: /' || true
+        docker exec portal5-dind docker builder prune -f 2>/dev/null | grep -oE 'Total reclaimed space: .*' \
+            | sed 's/^Total reclaimed space: /[portal-5] 🧹 dind build cache: /' || true
+        while IFS= read -r ref; do
+            [ -n "$ref" ] || continue
+            case "$keep" in *" $ref "*) continue ;; esac
+            docker exec portal5-dind docker rmi "$ref" >/dev/null 2>&1 || true
+        done < <(docker exec portal5-dind docker image ls --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -v '<none>')
+    fi
+
+    # Hand the freed blocks back to the host: trim the VM's data disk
+    # (/dev/vda1, ext4 with discard mounted at /var/lib/docker) through the
+    # VM's own namespaces. Uses the stack's dind image — no third-party pull.
+    if [ -f "$raw_path" ] \
+        && [ "$(docker inspect -f '{{.State.Running}}' portal5-dind 2>/dev/null)" = "true" ]; then
+        docker run --rm --privileged --pid=host --entrypoint /usr/bin/nsenter portal5-dind:latest \
+            -t 1 -m -u -n -i -- fstrim -av 2>/dev/null | sed 's/^/[portal-5] 🧹 fstrim: /' || true
+    fi
+
+    free_after=0; raw_after=0
+    free_after="$(df -k / 2>/dev/null | awk 'NR==2 {print $4}')"
+    [ -f "$raw_path" ] && raw_after="$(du -k "$raw_path" 2>/dev/null | awk '{print $1}')"
+    echo "[portal-5] 🧹 $(awk -v a="${free_before:-0}" -v b="${free_after:-0}" \
+        'BEGIN{printf "main drive free: %.1f → %.1f GB (Δ%+.1f GB);", a/1048576, b/1048576, (b-a)/1048576}') \
+$(awk -v a="${raw_before:-0}" -v b="${raw_after:-0}" \
+        'BEGIN{printf "Docker.raw allocated: %.1f → %.1f GB (Δ%+.1f GB)", a/1048576, b/1048576, (b-a)/1048576}')"
+}
+
 # ── launchd plists: render the repo template, compare the installed copy ─────
 # The venv the oMLX LaunchAgent runs: environment, then repo .env, then the fixed
 # default — the same order scripts/omlx-watchdog.sh uses.
@@ -559,12 +745,14 @@ _launchd_wait_gone() {  # domain, label, budget_s
     return 0
 }
 
-# The bootout/bootstrapping window: launchctl reports exit 5 / "Input/output error".
+# The bootout/bootstrapping window: launchctl reports exit 5 (EIO) or 37 (EALREADY,
+# "Operation already in progress") while the previous job is still tearing down.
 _launchd_is_race() {  # exit_code, message
     case "$2" in
         *"error 5"*|*"failed: 5"*|*"Input/output error"*) return 0 ;;
+        *"error 37"*|*"failed: 37"*|*"Operation already in progress"*) return 0 ;;
     esac
-    [ "$1" -eq 5 ]
+    [ "$1" -eq 5 ] || [ "$1" -eq 37 ]
 }
 
 # Bootstrap, retrying only the teardown race ("5: Input/output error"), with backoff.
@@ -682,6 +870,45 @@ _warn_omlx_plist_drift() {
         2) return 0 ;;
     esac
     echo "[portal-5]      repair: ./launch.sh install-omlx"
+}
+
+# Install one calendar LaunchAgent. Reload when the rendered plist differs:
+# launchd keeps the program it bootstrapped, so rewriting the file alone leaves
+# the previous command (a full .env source) loaded. Calendar jobs are not
+# required to be in state=running. Failures are warnings; `up` continues.
+_install_scheduled_agent() {  # label, success message
+    local label="$1" ok_msg="$2"
+    local src="$PORTAL_ROOT/deploy/launchd/${label}.plist"
+    local dst="$HOME/Library/LaunchAgents/${label}.plist"
+    local domain="gui/$(id -u)"
+    local previous=""
+    [ -f "$src" ] && [ "$(uname -s)" = "Darwin" ] || return 0
+    mkdir -p "$HOME/.portal5/logs" "$HOME/Library/LaunchAgents"
+    if _launchd_plist_matches "$label" "$dst" && _launchd_job_loaded "$domain" "$label"; then
+        return 0
+    fi
+    if [ -f "$dst" ]; then
+        previous="$(mktemp "${TMPDIR:-/tmp}/portal5-plist-previous.XXXXXX")"
+        cp -f "$dst" "$previous"
+    fi
+    if ! _render_launchd_plist "$src" "$dst" || ! plutil -lint "$dst" >/dev/null; then
+        [ -n "$previous" ] && cp -f "$previous" "$dst"
+        rm -f "$previous"
+        echo "[portal-5]   ⚠️  ${label}: rendered plist failed lint"
+        return 0
+    fi
+    _launchd_ctl "$domain" bootout "$domain/$label" 2>/dev/null || true
+    if _launchd_wait_gone "$domain" "$label" 30 \
+        && _launchd_bootstrap "$domain" "$dst" \
+        && _launchd_job_loaded "$domain" "$label"; then
+        rm -f "$previous"
+        echo "$ok_msg"
+        return 0
+    fi
+    echo "[portal-5]   ⚠️  ${label}: launchd registration failed"
+    _launchd_restore "$label" "$dst" "$domain" "$previous" || true
+    rm -f "$previous"
+    return 0
 }
 
 # ── Auto-start native services if installed but not running ─────────────────
@@ -858,112 +1085,23 @@ PY
         fi
     fi
 
-    # ── Engine auto-update + contract gate (daily launchd job) ─────────────
-    # Keeps Ollama/oMLX current and re-proves that the sampling/think values
-    # Portal sends actually reach the model (scripts/engine_autoupdate.py).
-    local _eu_label="com.portal5.engine-update"
-    local _eu_src="$PORTAL_ROOT/deploy/launchd/${_eu_label}.plist"
-    local _eu_dst="$HOME/Library/LaunchAgents/${_eu_label}.plist"
-    if [ -f "$_eu_src" ] && [ "$(uname -s)" = "Darwin" ]; then
-        mkdir -p "$HOME/.portal5/logs" "$HOME/Library/LaunchAgents"
-        sed -e "s#__PORTAL_ROOT__#${PORTAL_ROOT}#g" \
-            -e "s#__LOG_DIR__#${HOME}/.portal5/logs#g" \
-            "$_eu_src" > "$_eu_dst"
-        if ! launchctl print "gui/$(id -u)/${_eu_label}" &>/dev/null 2>&1; then
-            launchctl bootstrap "gui/$(id -u)" "$_eu_dst" &>/dev/null \
-                && echo "[portal-5]   ✅ engine auto-update: daily contract-gated job enabled" \
-                || echo "[portal-5]   ⚠️  engine auto-update: launchd registration failed"
-        fi
-    fi
-
-    # ── Image security re-pull (daily launchd job) ─────────────────────────
-    # Applies a bumped Open WebUI release pin behind a data backup + health gate
-    # + rollback, and re-pulls SearXNG when an advisory is newer than the local
-    # build (scripts/image_security_update.py).
-    local _iu_label="com.portal5.image-update"
-    local _iu_src="$PORTAL_ROOT/deploy/launchd/${_iu_label}.plist"
-    local _iu_dst="$HOME/Library/LaunchAgents/${_iu_label}.plist"
-    if [ -f "$_iu_src" ] && [ "$(uname -s)" = "Darwin" ]; then
-        mkdir -p "$HOME/.portal5/logs" "$HOME/Library/LaunchAgents"
-        sed -e "s#__PORTAL_ROOT__#${PORTAL_ROOT}#g" \
-            -e "s#__LOG_DIR__#${HOME}/.portal5/logs#g" \
-            "$_iu_src" > "$_iu_dst"
-        if ! launchctl print "gui/$(id -u)/${_iu_label}" &>/dev/null 2>&1; then
-            launchctl bootstrap "gui/$(id -u)" "$_iu_dst" &>/dev/null \
-                && echo "[portal-5]   ✅ image security update: daily job enabled" \
-                || echo "[portal-5]   ⚠️  image security update: launchd registration failed"
-        fi
-    fi
-
-    # ── Weekly security upgrades: vulnerable locked deps + pinned image patches ──
-    # (scripts/security_autoupdate.py; commits uv.lock / compose, never pushes)
-    local _su_label="com.portal5.security-update"
-    local _su_src="$PORTAL_ROOT/deploy/launchd/${_su_label}.plist"
-    local _su_dst="$HOME/Library/LaunchAgents/${_su_label}.plist"
-    if [ -f "$_su_src" ] && [ "$(uname -s)" = "Darwin" ]; then
-        mkdir -p "$HOME/.portal5/logs" "$HOME/Library/LaunchAgents"
-        sed -e "s#__PORTAL_ROOT__#${PORTAL_ROOT}#g" \
-            -e "s#__LOG_DIR__#${HOME}/.portal5/logs#g" \
-            -e "s#__HOME__#${HOME}#g" \
-            "$_su_src" > "$_su_dst"
-        if ! launchctl print "gui/$(id -u)/${_su_label}" &>/dev/null 2>&1; then
-            launchctl bootstrap "gui/$(id -u)" "$_su_dst" &>/dev/null \
-                && echo "[portal-5]   ✅ security upgrades: weekly job enabled" \
-                || echo "[portal-5]   ⚠️  security upgrades: launchd registration failed"
-        fi
-    fi
-
-    # ── Weekly security inventory: host dependencies, npx caches, and containers ──
-    local _ss_label="com.portal5.security-sweep"
-    local _ss_src="$PORTAL_ROOT/deploy/launchd/${_ss_label}.plist"
-    local _ss_dst="$HOME/Library/LaunchAgents/${_ss_label}.plist"
-    if [ -f "$_ss_src" ] && [ "$(uname -s)" = "Darwin" ]; then
-        mkdir -p "$HOME/.portal5/logs" "$HOME/Library/LaunchAgents"
-        sed -e "s#__PORTAL_ROOT__#${PORTAL_ROOT}#g" \
-            -e "s#__LOG_DIR__#${HOME}/.portal5/logs#g" \
-            -e "s#__HOME__#${HOME}#g" \
-            "$_ss_src" > "$_ss_dst"
-        if ! launchctl print "gui/$(id -u)/${_ss_label}" &>/dev/null 2>&1; then
-            launchctl bootstrap "gui/$(id -u)" "$_ss_dst" &>/dev/null \
-                && echo "[portal-5]   ✅ weekly security sweep: launchd job enabled" \
-                || echo "[portal-5]   ⚠️  weekly security sweep: launchd registration failed"
-        fi
-    fi
-
-    # ── Weekly model replace: same tag, upstream file only (scripts/model_autoupdate.py)
-    local _mu_label="com.portal5.model-update"
-    local _mu_src="$PORTAL_ROOT/deploy/launchd/${_mu_label}.plist"
-    local _mu_dst="$HOME/Library/LaunchAgents/${_mu_label}.plist"
-    if [ -f "$_mu_src" ] && [ "$(uname -s)" = "Darwin" ]; then
-        mkdir -p "$HOME/.portal5/logs" "$HOME/Library/LaunchAgents"
-        sed -e "s#__PORTAL_ROOT__#${PORTAL_ROOT}#g" \
-            -e "s#__LOG_DIR__#${HOME}/.portal5/logs#g" \
-            -e "s#__HOME__#${HOME}#g" \
-            "$_mu_src" > "$_mu_dst"
-        if ! launchctl print "gui/$(id -u)/${_mu_label}" &>/dev/null 2>&1; then
-            launchctl bootstrap "gui/$(id -u)" "$_mu_dst" &>/dev/null \
-                && echo "[portal-5]   ✅ model refresh: weekly replace job enabled" \
-                || echo "[portal-5]   ⚠️  model refresh: launchd registration failed"
-        fi
-    fi
-
-    # ── Weekly full rebuild: fresh bases, no-cache build, stack down/up ──────
-    # (scripts/weekly_rebuild.py; runs after the Sunday security-update job)
-    local _wr_label="com.portal5.weekly-rebuild"
-    local _wr_src="$PORTAL_ROOT/deploy/launchd/${_wr_label}.plist"
-    local _wr_dst="$HOME/Library/LaunchAgents/${_wr_label}.plist"
-    if [ -f "$_wr_src" ] && [ "$(uname -s)" = "Darwin" ]; then
-        mkdir -p "$HOME/.portal5/logs" "$HOME/Library/LaunchAgents"
-        sed -e "s#__PORTAL_ROOT__#${PORTAL_ROOT}#g" \
-            -e "s#__LOG_DIR__#${HOME}/.portal5/logs#g" \
-            -e "s#__HOME__#${HOME}#g" \
-            "$_wr_src" > "$_wr_dst"
-        if ! launchctl print "gui/$(id -u)/${_wr_label}" &>/dev/null 2>&1; then
-            launchctl bootstrap "gui/$(id -u)" "$_wr_dst" &>/dev/null \
-                && echo "[portal-5]   ✅ weekly rebuild: Sunday down/up job enabled" \
-                || echo "[portal-5]   ⚠️  weekly rebuild: launchd registration failed"
-        fi
-    fi
+    # Calendar jobs reload when the rendered plist differs. A loaded job keeps
+    # the program launchd bootstrapped, so a rewritten file alone does not drop
+    # a `.env` source. See scripts/engine_autoupdate.py and the sibling jobs.
+    _install_scheduled_agent com.portal5.engine-update \
+        "[portal-5]   ✅ engine auto-update: daily contract-gated job enabled"
+    _install_scheduled_agent com.portal5.image-update \
+        "[portal-5]   ✅ image security update: daily job enabled"
+    _install_scheduled_agent com.portal5.security-update \
+        "[portal-5]   ✅ security upgrades: weekly job enabled"
+    _install_scheduled_agent com.portal5.security-sweep \
+        "[portal-5]   ✅ weekly security sweep: launchd job enabled"
+    _install_scheduled_agent com.portal5.model-update \
+        "[portal-5]   ✅ model refresh: weekly replace job enabled"
+    _install_scheduled_agent com.portal5.weekly-rebuild \
+        "[portal-5]   ✅ weekly rebuild: Sunday down/up job enabled"
+    _install_scheduled_agent com.portal5.update-check \
+        "[portal-5]   ✅ update check: weekly upstream report enabled"
 
     _install_log_rotation_agent
 

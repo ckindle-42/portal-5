@@ -14,6 +14,14 @@ from pathlib import Path
 
 _SOURCES = frozenset({"telegram", "owui"})
 _RUNNABLE = frozenset({"queued", "confirmed", "cloud_retry"})
+# A cloud lane that has not reported yet. ``handed-to-cloud`` is the same state as
+# written by the blocking dispatcher before the poll-based handoff existed.
+_IN_FLIGHT_CLOUD = ("cloud-running", "handed-to-cloud")
+# Every status the runner will still act on, for the queue position an operator sees.
+_LIVE = ("queued", "confirmed", "pending", "running", "cloud_retry") + _IN_FLIGHT_CLOUD
+_COLUMNS = (
+    "id, source, user_id, text, status, plan_json, receipt_path, created, tool_log, not_before"
+)
 
 
 @dataclass(frozen=True)
@@ -63,19 +71,44 @@ class PersonalStore:
     def get(self, task_id: str) -> PersonalTask | None:
         with self._db() as db:
             row = db.execute(
-                "SELECT id, source, user_id, text, status, plan_json, receipt_path, created, "
-                "tool_log, not_before FROM personal_tasks WHERE id = ?",
+                f"SELECT {_COLUMNS} FROM personal_tasks WHERE id = ?",
                 (task_id,),
             ).fetchone()
         return _task(row) if row is not None else None
+
+    def in_flight_cloud(self) -> list[PersonalTask]:
+        """Rows whose cloud lane has not reported a result yet, oldest first."""
+        query = (
+            f"SELECT {_COLUMNS} FROM personal_tasks "
+            f"WHERE status IN ({', '.join('?' for _ in _IN_FLIGHT_CLOUD)}) "
+            "ORDER BY created, rowid"
+        )
+        with self._db() as db:
+            rows = db.execute(query, _IN_FLIGHT_CLOUD).fetchall()
+        return [_task(row) for row in rows]
+
+    def live_position(self, task_id: str) -> int:
+        """1-based place of one row among the unfinished rows, or 0 when it is not live."""
+        query = (
+            "SELECT COUNT(*) FROM personal_tasks WHERE "
+            f"status IN ({', '.join('?' for _ in _LIVE)}) AND "
+            "(created < ? OR (created = ? AND rowid <= ?))"
+        )
+        with self._db() as db:
+            row = db.execute(
+                "SELECT created, rowid, status FROM personal_tasks WHERE id = ?", (task_id,)
+            ).fetchone()
+            if row is None or str(row[2]) not in _LIVE:
+                return 0
+            found = db.execute(query, (*_LIVE, str(row[0]), str(row[0]), int(row[1]))).fetchone()
+        return int(found[0]) if found is not None else 0
 
     def oldest_runnable(self, now: datetime | None = None) -> PersonalTask | None:
         """Oldest due queued or operator-confirmed row. Pending rows stay put."""
         stamp = _utc_stamp(now or datetime.now(UTC))
         with self._db() as db:
             row = db.execute(
-                "SELECT id, source, user_id, text, status, plan_json, receipt_path, created, "
-                "tool_log, not_before FROM personal_tasks "
+                f"SELECT {_COLUMNS} FROM personal_tasks "
                 "WHERE status IN ('queued', 'confirmed', 'cloud_retry') "
                 "AND (not_before IS NULL OR not_before <= ?) "
                 "ORDER BY CASE status WHEN 'confirmed' THEN 0 WHEN 'queued' THEN 1 ELSE 2 END, "

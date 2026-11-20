@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-import time
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -180,6 +180,53 @@ def test_genuinely_invalid_plan_blocks_after_two_attempts_without_cloud(
     assert receipt["error"] in notices.messages[-1][2]
 
 
+def test_a_pipeline_tool_handed_back_to_the_runner_is_a_retryable_fault(tmp_path: Path) -> None:
+    """The seat's MCP tools belong to the Pipeline; a call returned to us is a fault, not a denial."""
+    telegram_do_reply(tmp_path, 1, "what is the Portal pipeline status")
+    call = {
+        "id": "c1",
+        "type": "function",
+        "function": {"name": "get_pipeline_status", "arguments": "{}"},
+    }
+    caller = _Caller([Completion(_plan("get_pipeline_status"), (), 0), Completion("", (call,), 0)])
+
+    result = poll_personal_tasks(tmp_path, _Notices(), caller, recall=_no_memory)
+
+    assert result is not None and result.status == "retrying"
+    receipt = json.loads((tmp_path / result.task_id / "receipt.json").read_text(encoding="utf-8"))
+    assert "instead of dispatching" in str(receipt["error"])
+
+
+def test_an_ambiguous_request_asks_one_question_and_calls_no_tool(tmp_path: Path) -> None:
+    """2026-11-20 scenario: "clean things up" must ask, never guess a destructive action."""
+    telegram_do_reply(tmp_path, 1, "clean things up")
+    question = "Which directory should I clean, and may I delete files there?"
+    caller = _Caller([Completion(json.dumps({"action": "ask", "question": question}), (), 0)])
+    notices = _Notices()
+
+    result = poll_personal_tasks(tmp_path, notices, caller, recall=_no_memory)
+
+    assert result is not None and result.status == "done"
+    assert len(caller.bodies) == 1, "no tool-seat turn: the question is the answer"
+    receipt = json.loads((tmp_path / result.task_id / "receipt.json").read_text(encoding="utf-8"))
+    assert receipt["final_text"] == question
+    assert receipt["tool_calls"] == []
+    assert notices.messages[-1][2] == question
+
+
+def test_an_ask_plan_without_a_question_is_rejected(tmp_path: Path) -> None:
+    telegram_do_reply(tmp_path, 1, "clean things up")
+    caller = _Caller(
+        [Completion('{"action": "ask"}', (), 0), Completion('{"action": "ask"}', (), 0)]
+    )
+
+    result = poll_personal_tasks(tmp_path, _Notices(), caller, recall=_no_memory)
+
+    assert result is not None and result.status == "retrying"
+    receipt = json.loads((tmp_path / result.task_id / "receipt.json").read_text(encoding="utf-8"))
+    assert "question" in str(receipt["error"])
+
+
 def test_validator_rejects_bad_budget_types_and_bounds(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="budget"):
         validate_personal_plan(
@@ -209,11 +256,18 @@ def test_long_personal_task_sends_one_checkin_before_completion(
     from portal.modules.orchestration import personal_runner
 
     monkeypatch.setattr(personal_runner, "PERSONAL_CHECKIN_SECONDS", 0.5, raising=False)
+    checkin_sent = threading.Event()
+
+    class WaitingNotices(_Notices):
+        def notify(self, task_id: str, kind: str, message: str) -> None:
+            super().notify(task_id, kind, message)
+            if message.startswith("Personal task check-in."):
+                checkin_sent.set()
 
     class SlowCaller(_Caller):
         def complete(self, body: dict[str, Any]) -> Completion:
             if len(self.bodies) == 2:
-                time.sleep(0.75)
+                assert checkin_sent.wait(timeout=5)
             return super().complete(body)
 
     reply = telegram_do_reply(tmp_path, 1, "read the newest arm receipt")
@@ -235,16 +289,15 @@ def test_long_personal_task_sends_one_checkin_before_completion(
             Completion("Receipt read.", (), 0),
         ]
     )
-    notices = _Notices()
+    notices = WaitingNotices()
 
     result = poll_personal_tasks(tmp_path, notices, caller)
 
     assert result is not None and result.status == "done"
     assert len(notices.messages) == 2
     checkin = notices.messages[0][2]
-    last_tool = checkin.split("last tool: ", 1)[1]
-    assert task_id in checkin and "hop" in checkin
-    assert last_tool in {"recall", "read_receipt"}
+    assert f"Task: {task_id}" in checkin
+    assert "hop: " in checkin and "last tool: " in checkin
     assert notices.messages[1][2] == "Receipt read."
 
 
@@ -439,7 +492,10 @@ def test_a_broken_recall_still_escalates_a_task_that_fails_on_its_own(
         def run(self, **kwargs: Any) -> SimpleNamespace:
             self.calls.append(kwargs)
             return SimpleNamespace(
-                exit_code=0, status="complete", model="mock", result_text="Cloud lane ran."
+                exit_code=0,
+                status="complete",
+                model="mock",
+                result_text="## RESULT\ndone — cloud lane ran.",
             )
 
     monkeypatch.setattr(personal_runner, "_personal_cloud_enabled", lambda: True)
@@ -457,13 +513,15 @@ def test_a_broken_recall_still_escalates_a_task_that_fails_on_its_own(
     )
 
     assert first is not None and first.status == "retrying"
-    assert second is not None and second.status == "handed-to-cloud"
+    # The lane's own ## RESULT comes back into the task: no "handed-to-cloud" dead end.
+    assert second is not None and second.status == "done"
     assert len(dispatcher.calls) == 1
     local = json.loads(
         (tmp_path / task_id / "attempts" / "local-1" / "receipt.json").read_text(encoding="utf-8")
     )
     assert "memory MCP unreachable" in local["recall_error"]
     assert "planner" in local["error"] or "JSON" in local["error"]
+    assert "cloud lane ran" in _receipt(tmp_path, task_id)["final_text"]
 
 
 # ── J9 acceptance check ────────────────────────────────────────────────────────
@@ -501,7 +559,10 @@ def test_empty_answer_is_a_retryable_failure_that_reaches_cloud_handoff(
         def run(self, **kwargs: object) -> SimpleNamespace:
             self.calls.append(kwargs)
             return SimpleNamespace(
-                exit_code=0, status="complete", model="mock", result_text="Cloud lane ran."
+                exit_code=0,
+                status="complete",
+                model="mock",
+                result_text="## RESULT\ndone — cloud lane ran.",
             )
 
     telegram_do_reply(tmp_path, 1, "what is the queue status in one paragraph")
@@ -525,7 +586,7 @@ def test_empty_answer_is_a_retryable_failure_that_reaches_cloud_handoff(
     )
 
     assert first is not None and first.status == "retrying"
-    assert second is not None and second.status == "handed-to-cloud"
+    assert second is not None and second.status == "done"
     attempt = json.loads(
         (tmp_path / task_id.id / "attempts" / "local-1" / "receipt.json").read_text(
             encoding="utf-8"

@@ -1226,6 +1226,29 @@ class TestPreferredResident:
         guard.admit.assert_not_awaited()
 
     @pytest.mark.asyncio
+    async def test_residency_yields_to_a_live_omlx_engine(self, monkeypatch):
+        """2026-11-20: the 23.8 GiB Nemotron reload evicted a loaded oMLX seat."""
+        plan = {
+            "busy": False,
+            "omlx_live": True,
+            "need_gib": 23.7,
+            "headroom_gib": 37.2,
+            "models": [{"resident": False}],
+        }
+        lifespan_mod, registry, guard, client, hint = self._harness(monkeypatch, plan)
+        status = await lifespan_mod._warm_preferred_resident(
+            registry.list_backends()[0],
+            "ollama",
+            hint,
+            {"num_predict": 1},
+            guard,
+            "http://fake:11434",
+        )
+        assert status == "waiting for the oMLX engine serving live work"
+        client.post.assert_not_awaited()
+        guard.admit.assert_not_awaited()
+
+    @pytest.mark.asyncio
     async def test_a_model_that_does_not_fit_the_headroom_is_left_for_later(self, monkeypatch):
         plan = {
             "busy": False,
@@ -1303,15 +1326,13 @@ class TestPreferredResident:
         assert model == hint
         assert "-ctx" in model and "num_ctx" not in options
 
-    def test_the_shipped_config_resolves_the_daily_driver_to_ollama(self):
-        """The real registry: the hint is served only by ollama-general."""
+    def test_the_shipped_config_warms_nothing(self):
+        """The real registry: no preferred resident is warmed (2026-11-20)."""
         import portal.platform.inference.router.lifespan as lifespan_mod
         from portal.platform.inference.cluster_backends import DEFAULT_CONFIG_PATH, BackendRegistry
 
         registry = BackendRegistry(config_path=str(DEFAULT_CONFIG_PATH))
-        ((backend, engine, model, _),) = lifespan_mod._preferred_resident_targets(registry)
-        assert (backend.id, engine) == ("ollama-general", "ollama")
-        assert model == WORKSPACES["auto-daily"]["model_hint"]
+        assert list(lifespan_mod._preferred_resident_targets(registry)) == []
 
     def test_a_workspace_whose_hint_no_backend_serves_is_skipped(self, caplog):
         import logging

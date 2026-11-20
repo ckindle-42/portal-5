@@ -53,14 +53,21 @@ def jarvis_submit(text: str, user_id: str) -> dict[str, str]:
 
 
 def _submit_personal(text: str, user_id: str) -> dict[str, str]:
-    from portal.modules.orchestration.personal_intake import enqueue_personal, user_may_submit
+    from portal.modules.orchestration.personal_intake import (
+        enqueue_personal,
+        personal_queue_note,
+        user_may_submit,
+    )
 
     checked = _required_text(text, "text")
     parsed = _telegram_user_id(user_id)
     if not user_may_submit(parsed):
         raise ValueError("unauthorized")
-    task_id = enqueue_personal(tasks_root(), "owui", str(parsed), checked)
-    return {"reply": f"queued {task_id}", "id": task_id}
+    root = tasks_root()
+    task_id = enqueue_personal(root, "owui", str(parsed), checked)
+    note = personal_queue_note(root, task_id)
+    reply = f"queued {task_id}" + (f"\n{note}" if note else "")
+    return {"reply": reply, "id": task_id}
 
 
 def _telegram_user_id(user_id: object) -> int:

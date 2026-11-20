@@ -71,40 +71,87 @@ _latest_sweep_report() {
     printf '%s' "$report"
 }
 
-# Print (dry-run) or apply service deps + non-core sweep fixes. Core stack is held.
+# Resolve service deps against the engine lock floors and a fresh apply-time sweep.
 _engine_dep_plan() {
-    local service="$1" py="$2" mode="${3:-apply}"
+    local service="$1" py="$2" mode="${3:-apply}" project="${4:-}" extra_dependency="${5:-}"
     local portal_py="$PORTAL_ROOT/.venv/bin/python"
-    [ -x "$portal_py" ] || portal_py="$(command -v python3)"
-    local report
-    report="$(_latest_sweep_report)"
+    if [ ! -x "$portal_py" ]; then
+        echo "  ❌ project interpreter missing: $portal_py" >&2
+        return 1
+    fi
+    local report="" work_dir="" candidate status upstream_requirements="" sweep_status=0
+    if [ "$mode" = "apply" ] || [ -n "$project" ]; then
+        work_dir="$(mktemp -d "${TMPDIR:-/tmp}/portal5-engine-sweep.XXXXXX")" || return 1
+    fi
+    if [ "$mode" = "apply" ]; then
+        # Exit contract of scripts/security_sweep.py: a non-zero exit means "scan
+        # errors recorded" (with --skip-images that is always the intentional
+        # skip entry), never "the scan failed" — the report is written before the
+        # exit status is decided. Gate on the report instead: present and
+        # non-empty means the sweep ran and reported findings → plan the fixes.
+        # Missing/empty means it could not run → refuse.
+        "$portal_py" "$PORTAL_ROOT/scripts/security_sweep.py" \
+            --repo "$PORTAL_ROOT" --home "$HOME" --output-dir "$work_dir" \
+            --skip-images --no-alert --no-delta || sweep_status=$?
+        for candidate in "$work_dir"/security_sweep_*.md; do
+            [ -f "$candidate" ] || continue
+            report="$candidate"
+        done
+        if [ -z "$report" ] || [ ! -s "$report" ]; then
+            echo "  ❌ fresh security sweep produced no report (exit $sweep_status); refusing to apply engine dependencies" >&2
+            [ -z "$work_dir" ] || rm -rf "$work_dir"
+            return 1
+        fi
+        if [ "$sweep_status" -ne 0 ]; then
+            echo "  ℹ️  security sweep exited $sweep_status with findings/errors recorded; proceeding with the fresh report"
+        fi
+    else
+        report="$(_latest_sweep_report)"
+    fi
+    if [ -n "$project" ]; then
+        if [ ! -f "$project/uv.lock" ]; then
+            echo "  ❌ upstream lock missing from $project; refusing dependency plan" >&2
+            [ -z "$work_dir" ] || rm -rf "$work_dir"
+            return 1
+        fi
+        upstream_requirements="$work_dir/upstream-requirements.txt"
+        local export_args=( uv export --locked --format requirements.txt --no-hashes
+            --no-annotate --no-emit-project --no-emit-local --python "$py"
+            --output-file "$upstream_requirements" )
+        [ "$service" != "video" ] || export_args+=( --all-extras )
+        if ! ( cd "$project" && "${export_args[@]}" ); then
+            echo "  ❌ cannot export upstream lock from $project; refusing dependency plan" >&2
+            [ -z "$work_dir" ] || rm -rf "$work_dir"
+            return 1
+        fi
+    fi
     local args=( "$portal_py" "$PORTAL_ROOT/scripts/engine_install_plan.py"
         --service "$service" --python "$py" --mode "$mode" )
     if [ -n "$report" ]; then
         args+=( --sweep-report "$report" )
     fi
-    "${args[@]}"
+    if [ -n "$upstream_requirements" ]; then
+        args+=( --upstream-requirements "$upstream_requirements" )
+    fi
+    if [ -n "$extra_dependency" ]; then
+        args+=( --extra-requirement "$extra_dependency" )
+    fi
+    if "${args[@]}"; then status=0; else status=$?; fi
+    [ -z "$work_dir" ] || rm -rf "$work_dir"
+    return "$status"
 }
 
 # bootout is optional (the label may be unloaded). bootstrap and a running
 # state are not: a swallowed failure left com.portal5.video-mlx unloaded.
-_launchd_reload_or_fail() {
-    local label="$1" plist="$2"
-    local target="gui/$(id -u)/${label}"
-    launchctl bootout "$target" 2>/dev/null || true
-    if ! launchctl bootstrap "gui/$(id -u)" "$plist"; then
-        echo "  ❌ launchctl bootstrap failed for ${label}; service is not loaded" >&2
+# Reloads share _launchd_reload_job — bootout → wait gone → bootstrap retry
+# → wait /health; a bespoke bootout/bootstrap raced launchd's teardown here
+# and left the media services unloaded (2026-11-20, "Bootstrap failed: 5").
+_launchd_reload_or_fail() {  # label, plist, health_url
+    if ! _launchd_reload_job "$1" "$2" "gui/$(id -u)" "$3"; then
+        echo "  ❌ $1 is not serving $3 after the install reload" >&2
         exit 1
     fi
-    if ! launchctl kickstart -k "$target"; then
-        echo "  ❌ launchctl kickstart failed for ${label}" >&2
-        exit 1
-    fi
-    if ! launchctl print "$target" 2>/dev/null | grep -q 'state = running'; then
-        echo "  ❌ ${label} is not running after install" >&2
-        exit 1
-    fi
-    echo "  ✅ ${label} loaded and running"
+    echo "  ✅ $1 loaded and running"
 }
 
 _launch_install_music() {
@@ -124,7 +171,7 @@ _launch_install_music() {
         exit 1
     fi
     if [ "$dry" -eq 1 ]; then
-        _engine_dep_plan music "$PY" dry-run
+        _engine_dep_plan music "$PY" dry-run "$ACE_DIR"
         echo "  dry-run: no clone, no pip apply, no launchctl"
         return 0
     fi
@@ -140,10 +187,15 @@ _launch_install_music() {
     fi
     git -C "$ACE_DIR" fetch --depth 1 origin "$ACE_SHA"
     git -C "$ACE_DIR" checkout --detach "$ACE_SHA"
-    ( cd "$ACE_DIR" && uv python install 3.12 && uv sync --python 3.12 --frozen )
-    # ACE-Step's own lock owns the core stack. Portal adds service deps and
-    # non-core sweep fixes only (scripts/engine_install_plan.py).
-    _engine_dep_plan music "$PY" apply
+    if [ -d "$ACE_DIR/.venv" ]; then
+        [ -x "$PY" ] || { echo "  ❌ Existing ACE-Step venv has no usable Python: $PY" >&2; exit 1; }
+        echo "  Preserving the existing ACE-Step venv; the upstream lock seeds new installs only."
+    else
+        ( cd "$ACE_DIR" && uv python install 3.12 && uv sync --python 3.12 --frozen )
+    fi
+    _engine_dep_plan music "$PY" apply "$ACE_DIR" || {
+        echo "  ❌ security dependency upgrade failed" >&2; exit 1;
+    }
 
     _music_snap() {
         local repo="$1" dest="$2" min_gb="$3" size_gb
@@ -169,17 +221,32 @@ _launch_install_music() {
     fi
     _music_snap "ACE-Step/acestep-v15-xl-turbo" "$ACE_DIR/checkpoints/acestep-v15-xl-turbo" 15
     _music_snap "ACE-Step/acestep-5Hz-lm-1.7B" "$ACE_DIR/checkpoints/acestep-5Hz-lm-1.7B" ""
-    _music_snap "mlx-community/MiniMax-Music3-8bit" "$MUSIC_DIR/minimax-8bit" ""
+    # The MiniMax fallback weights (~14GB) are only pulled when mlx-audio is
+    # installed or the pack already exists; a held-back fallback skips them.
+    if "$PY" -c 'import importlib.util; raise SystemExit(0 if importlib.util.find_spec("mlx_audio") else 1)' 2>/dev/null \
+        || [ -d "$MUSIC_DIR/minimax-8bit" ]; then
+        _music_snap "mlx-community/MiniMax-Music3-8bit" "$MUSIC_DIR/minimax-8bit" ""
+    else
+        echo "  skipping MiniMax weights download — mlx-audio held back (engine bump required)"
+    fi
 
     echo "  verifying arm64 imports (no audio generation)..."
-    "$PY" -c 'import platform; assert platform.machine()=="arm64", platform.machine(); import mlx.core as mx; assert mx.metal.is_available(); import acestep, mlx_audio; print("verify-ok", platform.machine())'
+    "$PY" -c 'import platform; assert platform.machine()=="arm64", platform.machine(); import mlx.core as mx; assert mx.metal.is_available(); import acestep; print("verify-ok", platform.machine())'
+    "$PY" -c 'import importlib.util; raise SystemExit(0 if importlib.util.find_spec("mlx_audio") else 1)' \
+        || echo "  ⚠️  mlx-audio not installed — MiniMax fallback held back (engine bump required; see KNOWN_LIMITATIONS)"
     test -d "$ACE_DIR/checkpoints/acestep-v15-xl-turbo"
 
     cat > "$MUSIC_DIR/start.sh" << MUSIC_START
 #!/bin/bash
 PORTAL_ROOT="${PORTAL_ROOT}"
 [ -d "\$PORTAL_ROOT/portal/modules" ] || { echo "ERROR: PORTAL_ROOT invalid; re-run install-music" >&2; exit 1; }
-set -a; [ -f "\$PORTAL_ROOT/.env" ] && . "\$PORTAL_ROOT/.env"; set +a
+# Keys music_mcp.py, workspace.py and owui_files.py read. Do not source .env.
+. "\$PORTAL_ROOT/scripts/lib/host_dotenv.sh"
+portal_export_dotenv_keys "\$PORTAL_ROOT/.env" \
+    OWUI_API_KEY PORTAL_PUBLIC_URL OPENWEBUI_URL AI_OUTPUT_DIR WORKSPACE_DIR \
+    HF_HOME HF_HUB_CACHE HUGGINGFACE_HUB_CACHE \
+    MUSIC_ACE_DIT MUSIC_ACE_LM MUSIC_MINIMAX_MODEL MUSIC_MINIMAX_PORT \
+    MUSIC_JOB_TIMEOUT_S MUSIC_IDLE_TIMEOUT_S MAX_MUSIC_FILES
 export PYTHONPATH="\$PORTAL_ROOT"
 export MUSIC_ACE_ROOT="${ACE_DIR}"
 export MUSIC_PYTHON="${PY}"
@@ -204,7 +271,7 @@ PLIST
     launchctl bootout "gui/$(id -u)/com.portal5.music-minimax" 2>/dev/null || true
     launchctl bootout "gui/$(id -u)/com.portal5.music-ace-mcp" 2>/dev/null || true
     launchctl bootout "gui/$(id -u)/com.portal5.acestep-server" 2>/dev/null || true
-    _launchd_reload_or_fail com.portal5.music "$PLIST"
+    _launchd_reload_or_fail com.portal5.music "$PLIST" "http://127.0.0.1:${MUSIC_PORT}/health"
 }
 
 _launch_install_mflux() {
@@ -258,9 +325,14 @@ _launch_install_mflux() {
 #!/bin/bash
 PORTAL_ROOT="${PORTAL_ROOT}"
 [ -d "\$PORTAL_ROOT/portal" ] || { echo "ERROR: PORTAL_ROOT invalid; re-run install-mflux" >&2; exit 1; }
-# launchd gives us no shell env and no .env — source it so OWUI_API_KEY /
-# PORTAL_PUBLIC_URL reach publish_file (host-native, unlike the Docker MCPs).
-set -a; [ -f "\$PORTAL_ROOT/.env" ] && . "\$PORTAL_ROOT/.env"; set +a
+# Keys mflux_mcp.py, workspace.py and owui_files.py read. Do not source .env.
+. "\$PORTAL_ROOT/scripts/lib/host_dotenv.sh"
+portal_export_dotenv_keys "\$PORTAL_ROOT/.env" \
+    OWUI_API_KEY PORTAL_PUBLIC_URL OPENWEBUI_URL AI_OUTPUT_DIR WORKSPACE_DIR \
+    HF_HOME HF_HUB_CACHE HUGGINGFACE_HUB_CACHE \
+    MFLUX_DEFAULT_MODEL MFLUX_TIMEOUT MFLUX_QUANTIZE MFLUX_LOW_RAM MFLUX_COMPUTE_PRECISION \
+    MFLUX_FLUX2_BIN MFLUX_FLUX3_BIN MFLUX_QWEN21_BIN MFLUX_ZIMAGE_BIN \
+    MFLUX_FLUX2_KLEIN_TAG MFLUX_FLUX3_KLEIN_TAG MFLUX_QWEN21_TAG MFLUX_ZIMAGE_TAG
 export PYTHONPATH="\$PORTAL_ROOT"
 export MFLUX_BIN="$MX_VENV/bin/mflux-generate"
 export MFLUX_FLUX2_BIN="$MX_VENV/bin/mflux-generate-flux2"
@@ -288,7 +360,7 @@ MX_START
     <key>StandardErrorPath</key><string>$MX_LOG</string>
 </dict></plist>
 PLIST
-    _launchd_reload_or_fail com.portal5.mflux "$PLIST"
+    _launchd_reload_or_fail com.portal5.mflux "$PLIST" "http://127.0.0.1:${MX_PORT}/health"
     echo "  ✅ Registered launchd service: com.portal5.mflux (port $MX_PORT)"
 }
 
@@ -336,7 +408,7 @@ _launch_install_video_mlx() {
     # Wan2.2-TI2V-5B converted to MLX Q8. Silent 720p photoreal output.
     VX_WAN_MODEL="$VX_DIR/wan2.2-ti2v-5b-q8"
     VX_WAN_EXTRAS=""
-    local dry=0 wan=0 arg
+    local dry=0 wan=0 arg wan_requirement=""
     for arg in "$@"; do
         case "$arg" in
             --dry-run) dry=1 ;;
@@ -344,6 +416,9 @@ _launch_install_video_mlx() {
             *) echo "  ❌ unknown install-video-mlx argument: $arg" >&2; exit 1 ;;
         esac
     done
+    if [ "$wan" -eq 1 ]; then
+        wan_requirement="mlx-video @ git+https://github.com/Blaizzy/mlx-video.git@87db56a51758fefb748a359b90a5283bb8ba4837"
+    fi
 
     if [ "$ARCH" != "arm64" ]; then
         echo "  ❌ Video-MLX requires Apple Silicon (arm64). Detected: $ARCH."
@@ -351,7 +426,7 @@ _launch_install_video_mlx() {
         exit 1
     fi
     if [ "$dry" -eq 1 ]; then
-        _engine_dep_plan video "$VX_VENV/bin/python" dry-run
+        _engine_dep_plan video "$VX_VENV/bin/python" dry-run "$VX_SRC" "$wan_requirement"
         echo "  dry-run: no clone, no pip apply, no launchctl"
         return 0
     fi
@@ -377,11 +452,17 @@ _launch_install_video_mlx() {
         echo "  Cloning dgrauet/ltx-2-mlx..."; git clone --depth 1 https://github.com/dgrauet/ltx-2-mlx.git "$VX_SRC"
     fi
     echo "  Engine checkout: $VX_SRC -> $(cd "$VX_SRC" && pwd) @ $(git -C "$VX_SRC" rev-parse --short HEAD)"
-    echo "  Resolving deps (uv sync)..."
-    ( cd "$VX_SRC" && uv sync --all-extras )
-    # Engine lock owns torch/transformers/mlx. Sweep fixes that are not core
-    # are applied by scripts/engine_install_plan.py; a core hit is refused.
-    _engine_dep_plan video "$VX_VENV/bin/python" apply || {
+    if [ -d "$VX_VENV" ]; then
+        [ -x "$VX_VENV/bin/python" ] || {
+            echo "  ❌ Existing video venv has no usable Python: $VX_VENV/bin/python" >&2
+            exit 1
+        }
+        echo "  Preserving the existing engine venv; the upstream lock seeds new installs only."
+    else
+        echo "  Seeding the new venv from the upstream lock..."
+        ( cd "$VX_SRC" && uv sync --all-extras )
+    fi
+    _engine_dep_plan video "$VX_VENV/bin/python" apply "$VX_SRC" "$wan_requirement" || {
         echo "  ❌ security dependency upgrade failed" >&2; exit 1;
     }
     # `uv sync` strips anything outside the engine's own lock, and a failed late
@@ -392,10 +473,6 @@ _launch_install_video_mlx() {
         echo "  ❌ the engine venv cannot import mcp/starlette (MCP server deps)" >&2; exit 1; }
 
     if [ "$wan" -eq 1 ]; then
-        echo "  Installing the mlx-video fallback (Wan2.2-TI2V-5B)..."
-        ( cd "$VX_SRC" && uv pip install "mlx-video @ git+https://github.com/Blaizzy/mlx-video.git@87db56a51758fefb748a359b90a5283bb8ba4837" ) || {
-            echo "  ❌ mlx-video install failed" >&2; exit 1;
-        }
         if [ ! -d "$VX_WAN_MODEL" ]; then
             echo "  Downloading Wan2.2-TI2V-5B MLX Q8 (~20GB)..."
             ( cd "$VX_SRC" && "$VX_VENV/bin/huggingface-cli" download \
@@ -410,7 +487,13 @@ _launch_install_video_mlx() {
 #!/bin/bash
 PORTAL_ROOT="${PORTAL_ROOT}"
 [ -d "\$PORTAL_ROOT/portal" ] || { echo "ERROR: PORTAL_ROOT invalid; re-run install-video-mlx" >&2; exit 1; }
-set -a; [ -f "\$PORTAL_ROOT/.env" ] && . "\$PORTAL_ROOT/.env"; set +a
+# Keys video_mlx_mcp.py, workspace.py and owui_files.py read. Do not source .env.
+. "\$PORTAL_ROOT/scripts/lib/host_dotenv.sh"
+portal_export_dotenv_keys "\$PORTAL_ROOT/.env" \
+    OWUI_API_KEY PORTAL_PUBLIC_URL OPENWEBUI_URL AI_OUTPUT_DIR WORKSPACE_DIR \
+    HF_HOME HF_HUB_CACHE HUGGINGFACE_HUB_CACHE \
+    VIDEO_MLX_WAN_BIN VIDEO_MLX_DEFAULT_MODEL VIDEO_MLX_TIMEOUT VIDEO_MLX_LOW_RAM \
+    VIDEO_MLX_QUALITY VIDEO_MLX_Q4_TAG VIDEO_MLX_WAN_MODEL_DIR
 export PYTHONPATH="\$PORTAL_ROOT"
 # launchd hands a bare PATH — ltx-2-mlx shells out to ffmpeg for muxing.
 export PATH="/opt/homebrew/bin:/usr/local/bin:\$PATH"
@@ -445,7 +528,7 @@ PLIST
     # `launchctl load` on an already-loaded label is a no-op, so a rewritten
     # start.sh kept the old process running. Re-bootstrap and fail if it is
     # not actually running.
-    _launchd_reload_or_fail com.portal5.video-mlx "$PLIST"
+    _launchd_reload_or_fail com.portal5.video-mlx "$PLIST" "http://127.0.0.1:${VX_PORT}/health"
     echo "  ✅ Registered launchd service: com.portal5.video-mlx (port $VX_PORT)"
 }
 

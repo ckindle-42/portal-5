@@ -9,6 +9,7 @@ import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 try:
     from apscheduler.schedulers.asyncio import AsyncIOScheduler  # type: ignore[import-untyped]
@@ -23,6 +24,7 @@ except ImportError:
 if TYPE_CHECKING:
     from portal.platform.inference.cluster_backends import BackendRegistry
     from portal.platform.inference.notifications.dispatcher import NotificationDispatcher
+    from portal.platform.inference.notifications.events import SummaryEvent
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +33,7 @@ logger = logging.getLogger(__name__)
 _COOLDOWN_FILE = Path("/tmp/.portal_daily_summary_sent")
 _COOLDOWN_SECONDS = 23 * 3600  # 23 hours — staggered send on restart is fine
 
-# Snapshot file: stores previous-day metrics so the summary shows deltas, not totals.
+# Snapshot file: legacy fallback for metrics state without calendar-day buckets.
 # Stored in /app/data (named volume) so it persists across container rebuilds.
 _SNAPSHOT_FILE = Path(
     os.environ.get("DAILY_SUMMARY_SNAPSHOT_FILE", "/app/data/daily_summary_snapshot.json")
@@ -71,9 +73,7 @@ def _attach_to_pipeline(
     Called during router_pipe lifespan startup to attach scheduler
     to the pipeline's module-level metrics state.
 
-    Note: Extended stats (TPS, response time, tokens, model usage) are read
-    directly from router_pipe module at send time via getattr(), avoiding
-    stale closure issues with scalar values.
+    Extended stats are read from the merged metrics state at send time.
     """
     global _registry_ref, _request_count, _startup_time, _registry_instance
     _registry_ref = dispatcher
@@ -119,7 +119,7 @@ def _delta_dict(current: dict[str, int], previous: dict[str, int]) -> dict[str, 
 
 
 def _snapshot_from_state(state: dict[str, Any]) -> dict[str, Any]:
-    """Copy the cumulative counters the daily summary differences against yesterday."""
+    """Copy cumulative counters for the legacy delta fallback."""
     raw_samples = state.get("ttft_samples") or []
     samples: list[float] = []
     if isinstance(raw_samples, list):
@@ -144,6 +144,92 @@ def _snapshot_from_state(state: dict[str, Any]) -> dict[str, Any]:
         "ttft_samples": samples,
         "answer_tokens_by_model": dict(state.get("answer_tokens_by_model") or {}),
         "answer_seconds_by_model": dict(state.get("answer_seconds_by_model") or {}),
+    }
+
+
+def _summary_timezone() -> ZoneInfo:
+    try:
+        return ZoneInfo(os.environ.get("ALERT_SUMMARY_TIMEZONE", "UTC"))
+    except (ValueError, ZoneInfoNotFoundError):
+        return ZoneInfo("UTC")
+
+
+def _summary_date(today: bool) -> str:
+    local_date = datetime.now(_summary_timezone()).date()
+    if not today:
+        local_date -= timedelta(days=1)
+    return local_date.isoformat()
+
+
+def _summary_metrics(
+    state: dict[str, Any], current: dict[str, Any], previous: dict[str, Any], report_date: str
+) -> dict[str, Any]:
+    if state.get("daily_metrics_version") == 1:
+        source = (state.get("daily_metrics") or {}).get(report_date) or {}
+        metrics = dict(source) if isinstance(source, dict) else {}
+        metrics["requests_by_client"] = dict(metrics.get("requests_by_client") or {})
+        metrics["request_count"] = dict(metrics.get("request_count") or {})
+        metrics["total_response_time_ms"] = float(metrics.get("total_response_time_ms", 0.0))
+        metrics["ttft_samples"] = list(metrics.get("ttft_samples") or [])
+        metrics["requests_by_model"] = dict(metrics.get("req_count_by_model") or {})
+        metrics["errors_by_type"] = dict(metrics.get("req_count_by_error") or {})
+        for name in (
+            "total_input_tokens",
+            "total_output_tokens",
+            "decode_tokens",
+            "decode_seconds",
+            "answer_tokens",
+            "answer_seconds",
+        ):
+            metrics[name] = float(metrics.get(name, 0.0))
+        metrics["answer_tokens_by_model"] = dict(metrics.get("answer_tokens_by_model") or {})
+        metrics["answer_seconds_by_model"] = dict(metrics.get("answer_seconds_by_model") or {})
+        metrics["persona_usage"] = dict(metrics.get("persona_usage") or {})
+        return metrics
+
+    request_count = _delta_dict(current["request_count"], previous.get("request_count", {}))
+    persona_usage = {
+        persona: sum(models.values())
+        for persona, models in (state.get("persona_usage_raw") or {}).items()
+    }
+    return {
+        "request_count": request_count,
+        "requests_by_client": {},
+        "total_response_time_ms": _delta(
+            current["total_response_time_ms"], float(previous.get("total_response_time_ms", 0.0))
+        ),
+        "total_input_tokens": _delta(
+            current["total_input_tokens"], int(previous.get("total_input_tokens", 0))
+        ),
+        "total_output_tokens": _delta(
+            current["total_output_tokens"], int(previous.get("total_output_tokens", 0))
+        ),
+        "requests_by_model": _delta_dict(
+            current["req_count_by_model"], previous.get("req_count_by_model", {})
+        ),
+        "errors_by_type": _delta_dict(
+            current["req_count_by_error"], previous.get("req_count_by_error", {})
+        ),
+        "decode_tokens": _delta(
+            current["decode_tokens"], float(previous.get("decode_tokens", 0.0))
+        ),
+        "decode_seconds": _delta(
+            current["decode_seconds"], float(previous.get("decode_seconds", 0.0))
+        ),
+        "answer_tokens": _delta(
+            current["answer_tokens"], float(previous.get("answer_tokens", 0.0))
+        ),
+        "answer_seconds": _delta(
+            current["answer_seconds"], float(previous.get("answer_seconds", 0.0))
+        ),
+        "ttft_samples": _delta_samples(current["ttft_samples"], previous.get("ttft_samples") or []),
+        "answer_tokens_by_model": _delta_dict(
+            current["answer_tokens_by_model"], previous.get("answer_tokens_by_model") or {}
+        ),
+        "answer_seconds_by_model": _delta_dict(
+            current["answer_seconds_by_model"], previous.get("answer_seconds_by_model") or {}
+        ),
+        "persona_usage": persona_usage,
     }
 
 
@@ -205,12 +291,67 @@ def _top_models_by_answer_volume(
     return rows[:limit]
 
 
+def _build_summary_event(
+    state: dict[str, Any], report_date: str, now: datetime
+) -> SummaryEvent | None:
+    from portal.platform.inference.notifications.events import SummaryEvent
+
+    current = _snapshot_from_state(state)
+    previous = _load_snapshot()
+    metrics = _summary_metrics(state, current, previous, report_date)
+    daily_requests = metrics["request_count"]
+    daily_total = sum(daily_requests.values())
+    exact_day = state.get("daily_metrics_version") == 1
+    current_total = sum(current["request_count"].values())
+    previous_total = sum(previous.get("request_count", {}).values())
+    if not exact_day and daily_total == 0 and current_total == 0 and previous_total == 0:
+        _save_snapshot(current)
+        logger.info("Daily summary skipped: no persisted metrics state")
+        return None
+    if not exact_day and previous_total == 0 and current_total > 0 and not previous:
+        _save_snapshot(current)
+        logger.info("Daily summary skipped: previous snapshot missing; initializing baseline")
+        return None
+
+    real_requests = sum(v for k, v in daily_requests.items() if not k.startswith("bench-"))
+    response_ms = float(metrics["total_response_time_ms"])
+    decode_tps = _weighted_rate(float(metrics["decode_tokens"]), float(metrics["decode_seconds"]))
+    answer_tps = _weighted_rate(float(metrics["answer_tokens"]), float(metrics["answer_seconds"]))
+    backends = getattr(_registry_instance, "_backends", {}) if _registry_instance else {}
+    persona_usage = metrics["persona_usage"]
+    return SummaryEvent(
+        timestamp=now,
+        report_date=report_date,
+        total_requests=daily_total,
+        requests_by_workspace=daily_requests,
+        requests_by_client=metrics["requests_by_client"],
+        healthy_backends=sum(1 for backend in backends.values() if backend.healthy),
+        total_backends=len(backends),
+        uptime_seconds=now.timestamp() - _startup_time if _startup_time else 0.0,
+        requests_by_model=metrics["requests_by_model"],
+        avg_tokens_per_second=decode_tps,
+        decode_tokens_per_second=decode_tps,
+        answer_tokens_per_second=answer_tps,
+        ttft_median_seconds=_median(metrics["ttft_samples"]),
+        ttft_sample_count=len(metrics["ttft_samples"]),
+        top_models_by_volume=_top_models_by_answer_volume(
+            metrics["answer_tokens_by_model"], metrics["answer_seconds_by_model"]
+        ),
+        total_input_tokens=int(metrics["total_input_tokens"]),
+        total_output_tokens=int(metrics["total_output_tokens"]),
+        avg_response_time_ms=response_ms / real_requests if real_requests else 0.0,
+        errors_by_type=metrics["errors_by_type"],
+        total_errors=sum(metrics["errors_by_type"].values()),
+        peak_concurrent=current["peak_concurrent"],
+        persona_usage=persona_usage,
+    )
+
+
 class NotificationScheduler:
     """
     APScheduler-based daily summary trigger.
 
-    Fires a SummaryEvent at a configured hour (default: 09:00 UTC) each day,
-    pulling request counts and backend health from the pipeline's live state.
+    Fires a SummaryEvent at the configured local hour each day.
     Gracefully degrades if APScheduler is not installed.
     """
 
@@ -231,10 +372,7 @@ class NotificationScheduler:
                 logger.info("NotificationScheduler: daily summaries disabled via env")
             return
 
-        # Initialize the baseline snapshot on startup.
-        # Without this, the first daily summary computes deltas against zero,
-        # showing cumulative totals since the container started instead of
-        # just the previous day's activity.
+        # Keep a baseline for state files written before calendar-day buckets.
         self._init_baseline_snapshot()
 
         hour = int(os.environ.get("ALERT_SUMMARY_HOUR", "9"))
@@ -254,11 +392,9 @@ class NotificationScheduler:
         )
 
     def _init_baseline_snapshot(self) -> None:
-        """Capture current cumulative metrics as the baseline for delta computation.
+        """Capture current cumulative metrics for the legacy delta fallback.
 
-        Called once at startup. The first daily summary will compute deltas
-        from this baseline, showing only activity since the pipeline started
-        (or since the last summary, if one already ran).
+        Called once at startup when no persisted snapshot exists.
 
         Reads from the aggregated state file (merged across all workers)
         rather than per-worker in-memory counters.
@@ -290,39 +426,37 @@ class NotificationScheduler:
             self._scheduler.shutdown(wait=False)
             logger.info("NotificationScheduler: stopped")
 
-    async def _send_daily_summary(self) -> None:
+    async def _send_daily_summary(
+        self, *, force: bool = False, report_today: bool = False
+    ) -> dict[str, Any] | None:
         """Build and dispatch a daily summary from live pipeline metrics.
 
-        Computes deltas against the previous day's snapshot so the summary
-        shows only yesterday's activity, not cumulative totals since startup.
+        Reads date-bucketed metrics, with snapshots retained for older state files.
         """
         if _registry_ref is None:
             logger.warning("NotificationScheduler: dispatcher not attached")
-            return
+            return {"status": "unavailable"}
 
         # Cooldown check: all uvicorn workers share /tmp, so this prevents
         # duplicate sends when PIPELINE_WORKERS > 1 (all workers fire at the
         # same cron moment; only the first to write the lockfile proceeds).
         now_ts = time.time()
-        try:
-            if _COOLDOWN_FILE.exists():
-                last_sent = float(_COOLDOWN_FILE.read_text().strip())
-                if now_ts - last_sent < _COOLDOWN_SECONDS:
-                    logger.debug(
-                        "Daily summary skipped: sent %.1f hours ago (cooldown active)",
-                        (now_ts - last_sent) / 3600,
-                    )
-                    return
-        except (ValueError, OSError):
-            pass
+        if not force:
+            try:
+                if _COOLDOWN_FILE.exists():
+                    last_sent = float(_COOLDOWN_FILE.read_text().strip())
+                    if now_ts - last_sent < _COOLDOWN_SECONDS:
+                        logger.debug("Daily summary skipped: cooldown active")
+                        return {"status": "cooldown"}
+            except (ValueError, OSError):
+                pass
 
-        # First to acquire the lock writes its timestamp; others see it and skip.
-        # Atomic-ish on POSIX: unlink+write is safe for our purposes.
-        try:
-            _COOLDOWN_FILE.parent.mkdir(parents=True, exist_ok=True)
-            _COOLDOWN_FILE.write_text(str(int(now_ts)))
-        except OSError:
-            pass
+        if not force:
+            try:
+                _COOLDOWN_FILE.parent.mkdir(parents=True, exist_ok=True)
+                _COOLDOWN_FILE.write_text(str(int(now_ts)))
+            except OSError:
+                pass
 
         # Read current stats from the aggregated state file (merged across all
         # workers). In-memory counters are per-worker and would miss requests
@@ -330,156 +464,23 @@ class NotificationScheduler:
         state = _load_aggregated_state()
 
         now = datetime.now(UTC)
-        report_date = (now - timedelta(days=1)).strftime("%Y-%m-%d")
+        report_date = _summary_date(report_today)
 
-        # Snapshot current cumulative metrics
-        healthy = 0
-        total_backends = 0
-
-        if _registry_instance is not None:
-            try:
-                total_backends = len(_registry_instance._backends)
-                healthy = len([b for b in _registry_instance._backends.values() if b.healthy])
-            except Exception:
-                pass
-
-        current_snapshot = _snapshot_from_state(state)
-
-        # Load previous snapshot and compute deltas
-        prev = _load_snapshot()
-
-        prev_request_count: dict[str, int] = prev.get("request_count", {})
-        prev_rt_ms: float = float(prev.get("total_response_time_ms", 0.0))
-        prev_inp: int = int(prev.get("total_input_tokens", 0))
-        prev_out: int = int(prev.get("total_output_tokens", 0))
-        prev_by_model: dict[str, int] = prev.get("req_count_by_model", {})
-        prev_by_error: dict[str, int] = prev.get("req_count_by_error", {})
-        prev_samples = prev.get("ttft_samples") or []
-        if not isinstance(prev_samples, list):
-            prev_samples = []
-
-        daily_requests = _delta_dict(current_snapshot["request_count"], prev_request_count)
-        daily_total = sum(daily_requests.values())
-        # Exclude bench-* workspaces from averages (cold model loads inflate response time).
-        # Decode/answer/TTFT already omit bench-* at record time.
-        daily_real_total = sum(v for k, v in daily_requests.items() if not k.startswith("bench-"))
-        daily_rt_ms = _delta(current_snapshot["total_response_time_ms"], prev_rt_ms)
-        daily_inp = _delta(current_snapshot["total_input_tokens"], prev_inp)
-        daily_out = _delta(current_snapshot["total_output_tokens"], prev_out)
-        daily_by_model = _delta_dict(current_snapshot["req_count_by_model"], prev_by_model)
-        daily_by_error = _delta_dict(current_snapshot["req_count_by_error"], prev_by_error)
-        daily_decode_tokens = float(
-            _delta(current_snapshot["decode_tokens"], float(prev.get("decode_tokens", 0.0)))
-        )
-        daily_decode_seconds = float(
-            _delta(current_snapshot["decode_seconds"], float(prev.get("decode_seconds", 0.0)))
-        )
-        daily_answer_tokens = float(
-            _delta(current_snapshot["answer_tokens"], float(prev.get("answer_tokens", 0.0)))
-        )
-        daily_answer_seconds = float(
-            _delta(current_snapshot["answer_seconds"], float(prev.get("answer_seconds", 0.0)))
-        )
-        daily_ttft = _delta_samples(current_snapshot["ttft_samples"], prev_samples)
-        daily_answer_tokens_by_model = _delta_dict(
-            current_snapshot["answer_tokens_by_model"],
-            prev.get("answer_tokens_by_model") or {},
-        )
-        daily_answer_seconds_by_model = _delta_dict(
-            current_snapshot["answer_seconds_by_model"],
-            prev.get("answer_seconds_by_model") or {},
-        )
-
-        # Guard: if both current state AND previous snapshot are empty, the state was
-        # wiped (container recreation). Skip the empty summary — save current as new
-        # baseline instead so tomorrow's summary has a valid delta.
-        current_total = (
-            sum(current_snapshot["request_count"].values())
-            if current_snapshot["request_count"]
-            else 0
-        )
-        prev_total = sum(prev_request_count.values()) if prev_request_count else 0
-        if daily_total == 0 and current_total == 0 and prev_total == 0:
-            _save_snapshot(current_snapshot)
-            logger.info(
-                "Daily summary skipped: state file empty (likely container restart). "
-                "Snapshot reset for next summary."
-            )
-            return
-
-        # Guard: if previous snapshot was empty but current has data, the snapshot
-        # was wiped (container restart, /tmp lost). The delta would show cumulative
-        # totals, not yesterday's activity. Skip, reset snapshot.
-        if prev_total == 0 and current_total > 0 and not prev:
-            _save_snapshot(current_snapshot)
-            logger.info(
-                "Daily summary skipped: previous snapshot missing but state has %d "
-                "requests (container restart detected). Snapshot reset.",
-                current_total,
-            )
-            return
-
-        # Read persona usage from aggregated state file
-        persona_usage: dict[str, int] = {}
-        try:
-            persona_raw = state.get("persona_usage_raw", {})
-            for persona, models in persona_raw.items():
-                persona_usage[persona] = sum(models.values())
-        except Exception:
-            pass
-
-        # Token-weighted rates: sum of tokens / sum of seconds over the day.
-        # The deprecated unweighted mean (total_tps / request_tps_count) is not read.
-        decode_tps = _weighted_rate(daily_decode_tokens, daily_decode_seconds)
-        answer_tps = _weighted_rate(daily_answer_tokens, daily_answer_seconds)
-        ttft_median = _median(daily_ttft)
-        avg_response_ms = daily_rt_ms / daily_real_total if daily_real_total > 0 else 0.0
-
-        # Import SummaryEvent here to avoid circular import
-        from portal.platform.inference.notifications.events import SummaryEvent
-
-        event = SummaryEvent(
-            timestamp=now,
-            report_date=report_date,
-            total_requests=daily_total,
-            requests_by_workspace=daily_requests,
-            healthy_backends=healthy,
-            total_backends=total_backends,
-            uptime_seconds=now.timestamp() - _startup_time if _startup_time else 0.0,
-            # Extended metrics. avg_tokens_per_second keeps the decode rate under the old name.
-            requests_by_model=daily_by_model,
-            avg_tokens_per_second=decode_tps,
-            decode_tokens_per_second=decode_tps,
-            answer_tokens_per_second=answer_tps,
-            ttft_median_seconds=ttft_median,
-            ttft_sample_count=len(daily_ttft),
-            top_models_by_volume=_top_models_by_answer_volume(
-                daily_answer_tokens_by_model,
-                daily_answer_seconds_by_model,
-            ),
-            total_input_tokens=int(daily_inp),
-            total_output_tokens=int(daily_out),
-            avg_response_time_ms=avg_response_ms,
-            # Error metrics
-            errors_by_type=daily_by_error,
-            total_errors=sum(daily_by_error.values()),
-            peak_concurrent=current_snapshot["peak_concurrent"],
-            persona_usage=persona_usage,
-        )
-
+        event = _build_summary_event(state, report_date, now)
+        if event is None:
+            return {"status": "uninitialized", "report_date": report_date}
         await _registry_ref.dispatch(event)
-
-        # Save current snapshot for tomorrow's delta computation
-        _save_snapshot(current_snapshot)
-
+        if state.get("daily_metrics_version") != 1:
+            _save_snapshot(_snapshot_from_state(state))
         logger.info(
-            "Daily summary dispatched for %s: %d requests across %d workspaces, "
-            "decode tok/s=%.1f, answer tok/s=%.1f, ttft median=%.2fs, avg response=%.0fms",
+            "Daily summary dispatched for %s: %d requests across %d workspaces",
             report_date,
-            daily_total,
-            len(daily_requests),
-            decode_tps,
-            answer_tps,
-            ttft_median,
-            avg_response_ms,
+            event.total_requests,
+            len(event.requests_by_workspace),
         )
+        return {
+            "status": "dispatched",
+            "report_date": report_date,
+            "total_requests": event.total_requests,
+            "requests_by_client": event.requests_by_client,
+        }

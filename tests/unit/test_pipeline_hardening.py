@@ -923,14 +923,25 @@ def _set_client(monkeypatch, *responses: httpx.Response) -> _NSClient:
 
 
 @pytest.mark.anyio
-async def test_null_content_reply_is_not_a_failure(monkeypatch, ns_env) -> None:
-    _set_client(
+async def test_empty_null_content_reply_is_a_failed_hop(monkeypatch, ns_env) -> None:
+    """2026-11-20: an empty 200 was logged "succeeded" and the empty seat stayed hot."""
+    client = _set_client(
         monkeypatch,
         httpx.Response(
-            200, json={"choices": [{"message": {"role": "assistant", "content": None}}]}
+            200,
+            json={
+                "choices": [
+                    {
+                        "finish_reason": "length",
+                        "message": {"role": "assistant", "content": None},
+                    }
+                ]
+            },
         ),
     )
-    assert await ns._try_non_streaming(_backend("b"), {"messages": []}, ns_env, 0.0) is not None
+    result = await ns._try_non_streaming(_backend("b"), {"messages": []}, ns_env, 0.0)
+    assert result is None
+    assert len(client.posts) == 1
 
 
 @pytest.mark.anyio
@@ -1303,6 +1314,33 @@ async def test_make_room_for_omlx_only_for_large_omlx_prompts(monkeypatch) -> No
     assert await bi.make_room_for_omlx(_backend("a"), large) == []  # Ollama target: leave alone
     assert await bi.make_room_for_omlx(_omlx_backend("a"), large) == ["m"]
     assert freed == [1]
+
+
+@pytest.mark.anyio
+async def test_freeing_ollama_for_omlx_spares_a_model_a_sibling_worker_is_serving(
+    monkeypatch, tmp_path
+) -> None:
+    """PIPELINE_WORKERS=2: the guard's in-process count cannot see the other worker's request."""
+    import portal.platform.inference.router.backend_introspect as bi
+    from portal.platform.inference import load_guard as lg
+    from portal.platform.inference.router import validation
+
+    monkeypatch.setattr(lg, "_PROCESS_LOCK_DIR", tmp_path / "guard-locks")
+    guard = lg.LoadGuard(omlx_url=lambda: None)
+    monkeypatch.setattr(lg, "GUARD", guard)
+    held = guard._activity_lock(lg.OLLAMA, "busy-seat")
+    assert held is not None
+    registry = SimpleNamespace(
+        list_backends=lambda: [
+            SimpleNamespace(type="ollama", url="http://ollama:11434", id="ollama"),
+        ]
+    )
+    monkeypatch.setattr(validation, "registry", registry)
+
+    try:
+        assert bi._freeable(["busy-seat", "idle-seat"], "router") == ["idle-seat"]
+    finally:
+        guard._release_activity_lock(held)
 
 
 # ── non-streaming tool loop (the stream's failover engine) ───────────

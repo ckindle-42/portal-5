@@ -6,16 +6,55 @@ multiple uvicorn workers each process imports this module exactly once, so
 collectors are declared exactly once here and nowhere else.
 
 ``PROMETHEUS_MULTIPROC_DIR`` is set in ``portal.platform.inference.__main__`` before this
-module is first imported — do not set it here.
+module is first imported — do not set it here. A missing directory is created,
+or the variable is dropped, before prometheus_client chooses its value class.
 """
 
 from __future__ import annotations
 
 import logging
-
-from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram
+import os
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+
+def _ensure_prometheus_multiproc_dir() -> None:
+    """Create a missing multiprocess dir, or disable the mode when it cannot be created."""
+    # prometheus_client enables mmap mode for either spelling (values.py).
+    raw = os.environ.get("PROMETHEUS_MULTIPROC_DIR") or os.environ.get(
+        "prometheus_multiproc_dir"  # noqa: SIM112
+    )
+    if not raw:
+        return
+    path = Path(raw)
+    if path.is_dir():
+        return
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        logger.warning(
+            "PROMETHEUS_MULTIPROC_DIR=%s cannot be created (%s); disabling multiprocess mode",
+            raw,
+            exc,
+        )
+        os.environ.pop("PROMETHEUS_MULTIPROC_DIR", None)
+        os.environ.pop("prometheus_multiproc_dir", None)
+        return
+    if not path.is_dir():
+        logger.warning(
+            "PROMETHEUS_MULTIPROC_DIR=%s is not a directory; disabling multiprocess mode",
+            raw,
+        )
+        os.environ.pop("PROMETHEUS_MULTIPROC_DIR", None)
+        os.environ.pop("prometheus_multiproc_dir", None)
+        return
+    logger.warning("created missing PROMETHEUS_MULTIPROC_DIR=%s", raw)
+
+
+_ensure_prometheus_multiproc_dir()
+
+from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram  # noqa: E402
 
 # ── Prometheus metrics (per-model granularity) ────────────────────────────
 # Use a separate registry to avoid conflicts with default prometheus_client
@@ -471,6 +510,9 @@ def _record_response_time(model: str, workspace: str, duration_seconds: float) -
         if not workspace.startswith("bench-"):
             global _total_response_time_ms
             _total_response_time_ms += duration_seconds * 1000
+            from portal.platform.inference.router.state import _record_daily_total
+
+            _record_daily_total("total_response_time_ms", duration_seconds * 1000)
     except Exception as e:
         logger.debug("Failed to record response time: %s", e)
 
