@@ -289,6 +289,8 @@ PLANNER_PROMPT = (
     '"budget": {"context_tokens": 8192}}]}. '
     'For an arm template use {"action": "enqueue-template", "discipline": "...", '
     '"template_key": "...", "parameters": {}}. '
+    'When the request names no concrete work ("clean things up"), ask one question instead of '
+    'guessing an action: {"action": "ask", "question": "Which files may I delete?"}. '
     "steps must be a non-empty list. "
     "Use only allowlisted tools. Do not put a read tool and an action tool in the same step. "
     "paths must stay under the tasks directory (use [] when no path is needed). "

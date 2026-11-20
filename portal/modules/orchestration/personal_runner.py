@@ -870,6 +870,22 @@ def _execute_plan(
 ) -> PersonalRun:
     if _template_request(plan.payload):
         return _enqueue_personal_template(root, store, task, plan.payload, notices)
+    question = plan.payload.get("question") if plan.payload.get("action") == "ask" else None
+    if isinstance(question, str) and question.strip():
+        _finish(
+            root,
+            store,
+            task,
+            "done",
+            question.strip(),
+            FAST_WORKSPACE,
+            0,
+            [],
+            notices,
+            plan=plan.payload,
+            extra=_recall_extra(checkin),
+        )
+        return PersonalRun(task.id, "done")
     memory = str(plan.payload.get("_memory_context") or "")
     payload = {key: value for key, value in plan.payload.items() if key != "_memory_context"}
     plan_text = json.dumps(payload, sort_keys=True)
@@ -941,7 +957,19 @@ def _validated_plan(
     raw = _planner_json(caller, body, caller.complete(body))
     if raw.get("action") == "enqueue-template":
         return _validate_template_request(raw)
+    if raw.get("action") == "ask":
+        return _validate_question(raw)
     return validate_personal_plan(raw, root, hidden, available)
+
+
+def _validate_question(raw: dict[str, Any]) -> PersonalPlan:
+    """An ambiguous request is answered with one question, never with a guessed action."""
+    question = raw.get("question")
+    if not isinstance(question, str) or not question.strip():
+        raise ValueError("an ask plan needs a non-empty question")
+    return PersonalPlan(
+        {"action": "ask", "question": question.strip()}, FAST_WORKSPACE, frozenset(), False
+    )
 
 
 def _planner_json(

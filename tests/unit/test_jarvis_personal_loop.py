@@ -180,6 +180,36 @@ def test_genuinely_invalid_plan_blocks_after_two_attempts_without_cloud(
     assert receipt["error"] in notices.messages[-1][2]
 
 
+def test_an_ambiguous_request_asks_one_question_and_calls_no_tool(tmp_path: Path) -> None:
+    """2026-11-20 scenario: "clean things up" must ask, never guess a destructive action."""
+    telegram_do_reply(tmp_path, 1, "clean things up")
+    question = "Which directory should I clean, and may I delete files there?"
+    caller = _Caller([Completion(json.dumps({"action": "ask", "question": question}), (), 0)])
+    notices = _Notices()
+
+    result = poll_personal_tasks(tmp_path, notices, caller, recall=_no_memory)
+
+    assert result is not None and result.status == "done"
+    assert len(caller.bodies) == 1, "no tool-seat turn: the question is the answer"
+    receipt = json.loads((tmp_path / result.task_id / "receipt.json").read_text(encoding="utf-8"))
+    assert receipt["final_text"] == question
+    assert receipt["tool_calls"] == []
+    assert notices.messages[-1][2] == question
+
+
+def test_an_ask_plan_without_a_question_is_rejected(tmp_path: Path) -> None:
+    telegram_do_reply(tmp_path, 1, "clean things up")
+    caller = _Caller(
+        [Completion('{"action": "ask"}', (), 0), Completion('{"action": "ask"}', (), 0)]
+    )
+
+    result = poll_personal_tasks(tmp_path, _Notices(), caller, recall=_no_memory)
+
+    assert result is not None and result.status == "retrying"
+    receipt = json.loads((tmp_path / result.task_id / "receipt.json").read_text(encoding="utf-8"))
+    assert "question" in str(receipt["error"])
+
+
 def test_validator_rejects_bad_budget_types_and_bounds(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="budget"):
         validate_personal_plan(
