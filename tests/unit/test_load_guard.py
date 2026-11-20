@@ -708,6 +708,24 @@ async def test_ollama_load_waits_for_pending_ollama_release_before_its_omlx_copy
     release()
 
 
+async def test_ollama_load_never_evicts_its_loaded_omlx_copy_to_fit():
+    """2026-11-20: the guard evicted oMLX Qwen3.8 (16.6 GiB) to load the same seat's
+    Ollama GGUF, then the GGUF did not fit either — a full unload/reload on both
+    engines. The seat copy is the next request's engine; refuse instead."""
+    e = Engines(
+        tags={"target": int(20.48 * GIB)},
+        omlx={"omlx-target": {"size": 22 * GIB, "loaded": True}},
+        ceiling=int(24 * GIB),
+    )
+    g = guard(e, counterpart=lambda engine, _model: "omlx-target" if engine == OLLAMA else None)
+
+    with pytest.raises(lg.LoadRefusedError):
+        await g.admit(OLLAMA_URL, "target")
+
+    assert e.unloaded == []
+    assert e.omlx["omlx-target"]["loaded"]
+
+
 async def test_ollama_load_refuses_when_every_omlx_resident_is_in_flight():
     e = Engines(
         tags={"target": int(20.48 * GIB)},

@@ -73,6 +73,7 @@ class HotSeatTracker:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._seats: dict[str, SeatState] = {}
+        self._loaded: dict[str, set[str]] = {}
 
     def touch(self, key: str, model: str, *, now: float | None = None) -> None:
         """Record that ``model`` was just served on engine ``key``."""
@@ -108,15 +109,25 @@ class HotSeatTracker:
             state = self._seats.get(key)
             if state is not None and (model is None or state.model == model):
                 self._seats.pop(key, None)
+            if model is None:
+                self._loaded.pop(key, None)
+            else:
+                self._loaded.get(key, set()).discard(model)
 
     def sync_loaded(self, key: str, loaded_models: set[str]) -> None:
-        """Clear a tracked hot model that is no longer loaded on engine ``key``."""
+        """Record what engine ``key`` has loaded; drop a hot model it unloaded."""
         if not key:
             return
         with self._lock:
+            self._loaded[key] = set(loaded_models)
             state = self._seats.get(key)
             if state is not None and state.model not in loaded_models:
                 self._seats.pop(key, None)
+
+    def loaded_models(self, key: str) -> set[str]:
+        """Models engine ``key`` reported resident at the last status read."""
+        with self._lock:
+            return set(self._loaded.get(key, ()))
 
 
 #: Module-level tracker — one per pipeline process. See the module docstring for
@@ -176,6 +187,21 @@ def _window(protect_s: object) -> float:
     return float(protect_s)
 
 
+def _effective_head_index(
+    candidates: Sequence[Backend], workspace_id: str, model_hint: str
+) -> int | None:
+    """Index of the candidate the dispatchers will actually serve from.
+
+    Non-streaming skips a candidate that cannot serve the hint and streaming
+    promotes the first one that can, so the first hint-capable candidate — not
+    ``candidates[0]`` — is the head whose model the request would load.
+    """
+    for index, candidate in enumerate(candidates):
+        if _serves_request(candidate, workspace_id, model_hint):
+            return index
+    return None
+
+
 def protect_hot_seat(
     candidates: Sequence[Backend],
     workspace_id: str,
@@ -192,13 +218,18 @@ def protect_hot_seat(
 
     - ``protect_s <= 0`` (policy disabled — the default), fewer than two
       candidates, or the workspace is pinned (``::model=`` synthetic id);
-    - the head candidate is not the engine with a hot seat, or the head *is*
-      the hot model (serving it keeps the cache warm);
+    - the *effective* head (the first candidate that serves the workspace's
+      model hint — what the dispatchers will actually use) is not on the hot
+      engine, or its model is the hot one or already resident there (serving
+      it keeps the cache warm and swaps nothing out);
     - no later candidate both avoids the hot engine and serves the request.
 
-    When the head would swap a different model onto the hot engine, the first
-    qualifying alternative is moved to the front and the demoted head stays
-    second — reordered, never dropped.
+    When the effective head would swap a different model onto the hot engine,
+    the first qualifying alternative takes its place and the demoted head moves
+    one slot back — reordered, never dropped. Testing the literal first entry
+    instead demoted a seat whose own oMLX copy was the hot one, because an
+    earlier group-mate could not serve the hint at all and would have been
+    skipped by both dispatchers.
     """
     protect_s = _window(protect_s)
     if protect_s <= 0 or len(candidates) < 2:
@@ -207,22 +238,34 @@ def protect_hot_seat(
         return list(candidates)
 
     active = tracker if tracker is not None else TRACKER
-    head = candidates[0]
+    head_index = _effective_head_index(candidates, workspace_id, model_hint)
+    if head_index is None:
+        return list(candidates)
+    head = candidates[head_index]
     head_key = engine_key(head.url)
     hot = active.hot_model(head_key, protect_s, now=now)
     if hot is None:
         return list(candidates)
-    if _head_serving_model(head, workspace_id, model_hint) == hot:
+    head_model = _head_serving_model(head, workspace_id, model_hint)
+    if head_model == hot:
+        return list(candidates)
+    if head_model in active.loaded_models(head_key):
+        # The seat's own copy is resident on the engine: serving it cannot deep-reset
+        # the engine's other resident, and putting its other-engine copy first would
+        # trade a warm copy for a cold one (2026-11-20 auto-coding).
         return list(candidates)
 
-    # Head would load a different model onto the hot engine: find the first
-    # alternative that neither touches that engine nor serves a different model
-    # than requested.
-    for idx, alt in enumerate(candidates[1:], start=1):
+    # The effective head would load a different model onto the hot engine: find
+    # the first alternative that neither touches that engine nor serves a
+    # different model than requested.
+    for idx in range(head_index + 1, len(candidates)):
+        alt = candidates[idx]
         if engine_key(alt.url) == head_key:
             continue
         if not _serves_request(alt, workspace_id, model_hint):
             continue
-        rest = [c for i, c in enumerate(candidates[1:], start=1) if i != idx]
-        return [alt, head, *rest]
+        out = list(candidates)
+        out.pop(idx)
+        out.insert(head_index, alt)
+        return out
     return list(candidates)

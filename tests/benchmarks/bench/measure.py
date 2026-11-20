@@ -67,6 +67,11 @@ def _warmup_pipeline_model(
         "messages": [{"role": "user", "content": "hi"}],
         "stream": False,
         "max_tokens": 1,
+        # A one-token budget finishes on the thinking opener for a think-on seat,
+        # which oMLX 0.8.0 reports as empty content. The warm-up only needs the
+        # load, not the reasoning: ask both wire shapes for no thinking.
+        "think": False,
+        "chat_template_kwargs": {"enable_thinking": False},
     }
     deadline = time.time() + timeout_s
     attempt = 0
