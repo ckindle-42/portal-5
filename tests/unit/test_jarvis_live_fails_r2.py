@@ -20,17 +20,15 @@ import yaml
 from portal.modules.orchestration.personal_intake import telegram_do_reply
 from portal.modules.orchestration.personal_policy import (
     CONFIRM_TOOLS,
-    KNOWN_TOOLS,
+    CORE_TOOLS,
     READ_TOOLS,
     acceptance_failure,
-    plan_gap,
-    planner_body,
+    route_personal_task,
 )
 from portal.modules.orchestration.personal_runner import (
     Completion,
     _cloud_brief,
     _memory_text,
-    _planner_json,
     poll_personal_tasks,
     user_answer,
 )
@@ -93,9 +91,7 @@ _EMPTY_LISTING = {
 
 def test_a_workspace_listing_that_echoes_the_path_does_not_ground_it() -> None:
     """pt-46b3e7c492af: the tool result echoed the request path, so the guard passed."""
-    plan = {"steps": [{"id": "s1", "tools": ["workspace_files"], "paths": [], "budget": {}}]}
     reason = acceptance_failure(
-        plan,
         "The file `scripts/engine_install_plan.py` does not exist in the workspace.",
         ["workspace_files", "workspace_files"],
         [json.dumps(_EMPTY_LISTING), json.dumps(_EMPTY_LISTING)],
@@ -111,10 +107,8 @@ def test_a_repository_read_grounds_the_answer() -> None:
         "path": f"{_HOME}projects/portal-5/scripts/engine_install_plan.py",
         "lines": 2,
     }
-    plan = {"steps": [{"id": "s1", "tools": ["read_text_file"], "paths": [], "budget": {}}]}
     assert (
         acceptance_failure(
-            plan,
             "Line 13 downgrades when version < pinned.",
             ["read_text_file"],
             [json.dumps(read)],
@@ -126,9 +120,7 @@ def test_a_repository_read_grounds_the_answer() -> None:
 
 def test_a_failed_repository_read_is_not_grounding() -> None:
     missing = {"error": "file not found: scripts/engine_install_plan.py"}
-    plan = {"steps": [{"id": "s1", "tools": ["read_text_file"], "paths": [], "budget": {}}]}
     reason = acceptance_failure(
-        plan,
         "That file does not exist.",
         ["read_text_file"],
         [json.dumps(missing)],
@@ -140,10 +132,8 @@ def test_a_failed_repository_read_is_not_grounding() -> None:
 
 def test_a_search_hit_grounds_the_file_it_names() -> None:
     hits = {"matches": ["scripts/engine_install_plan.py:41: downgrade(path)"], "truncated": False}
-    plan = {"steps": [{"id": "s1", "tools": ["search_files"], "paths": [], "budget": {}}]}
     assert (
         acceptance_failure(
-            plan,
             "Line 41 downgrades the package.",
             ["search_files"],
             [json.dumps(hits)],
@@ -158,11 +148,8 @@ def test_the_live_code_review_task_is_no_longer_accepted_as_done(tmp_path: Path)
     tasks = tmp_path / "tasks"
     reply = telegram_do_reply(tasks, 1, REVIEW_REQUEST)
     task_id = reply.removeprefix("queued ")
-    plan = '{"steps": [{"id": "s1", "tools": ["workspace_files"], '
-    plan += '"paths": ["scripts/engine_install_plan.py"], "budget": {"context_tokens": 8192}}]}'
     caller = _Caller(
         [
-            Completion(plan, (), 0),
             Completion("", (_tool_call("workspace_files", {"path": "scripts"}),), 0),
             Completion(
                 "The file `scripts/engine_install_plan.py` does not exist in the workspace.",
@@ -184,11 +171,9 @@ def test_the_live_code_review_task_is_no_longer_accepted_as_done(tmp_path: Path)
 
 def test_the_personal_lane_can_read_the_repository() -> None:
     for name in ("read_text_file", "search_files", "list_directory"):
-        assert name in READ_TOOLS and name in KNOWN_TOOLS
+        assert name in READ_TOOLS and name in CORE_TOOLS
         assert name not in CONFIRM_TOOLS
-    prompt = planner_body(REVIEW_REQUEST)["messages"][0]["content"]
-    assert "read_text_file" in prompt
-    assert "workspace_files cannot see it" in prompt
+    assert "read_text_file" in route_personal_task(REVIEW_REQUEST).tools
 
 
 def test_the_fast_workspace_serves_the_repository_read_tools() -> None:
@@ -269,8 +254,8 @@ def test_a_blocked_cloud_lane_does_not_paste_its_report_at_the_cap(
 
     monkeypatch.setattr(personal_runner, "_personal_cloud_enabled", lambda: True, raising=False)
     sink = _Notices()
-    telegram_do_reply(tmp_path, 7, "help with an invalid local plan")
-    bad = [Completion("not JSON", (), 0), Completion("still not JSON", (), 0)]
+    telegram_do_reply(tmp_path, 7, "help with an empty local answer")
+    bad = [Completion("", (), 0), Completion("", (), 0)]
     first = poll_personal_tasks(tmp_path, sink, _Caller(list(bad)), recall=lambda _q: "")
     assert first is not None and first.status == "retrying"
 
@@ -319,32 +304,30 @@ def test_the_personal_lane_reads_proxmox_without_a_confirm() -> None:
     assert "proxmox_list_vms" in READ_TOOLS and "proxmox_list_vms" not in CONFIRM_TOOLS
 
 
-def test_the_vm_request_fails_loudly_when_no_proxmox_tool_ran(tmp_path: Path) -> None:
-    """pt-b540a922c5c3: hops 0, only the runner's own recall — never done."""
+def test_the_vm_request_is_offered_the_proxmox_read_tools(tmp_path: Path) -> None:
+    """pt-b540a922c5c3: the request never saw a Proxmox tool; the bundle now offers them."""
     tasks = tmp_path / "tasks"
     request = "list the Proxmox VMs that are currently stopped"
     reply = telegram_do_reply(tasks, 1, request)
     task_id = reply.removeprefix("queued ")
-    caller = _Caller(
-        [
-            Completion('{"steps": [{"id": "s1", "tools": ["proxmox_list_vms"]}]}', (), 0),
-            Completion("I am not able to query Proxmox.", (), 0),
-        ]
-    )
+    caller = _Caller([Completion("VM 101 is stopped.", (), 1, ("proxmox_list_vms",))])
     run = poll_personal_tasks(tasks, _Notices(), caller, recall=lambda _q: "")
 
-    assert run is not None and run.status == "retrying"
+    assert run is not None and run.status == "done"
+    assert "proxmox_list_vms" in caller.bodies[0]["portal_bite_tools"]
     receipt = _receipt(tasks, task_id)
-    assert "plan step 0 not satisfied: proxmox_list_vms" in str(receipt["error"])
+    assert receipt["route"]["bundle"] == "core+proxmox"
 
 
 # ── 4. The Word document: the tool is exposed, the counts are now readable ───
 
 
-def test_the_personal_path_exposes_the_word_document_tool(tmp_path: Path) -> None:
-    from portal.modules.orchestration.personal_runner import _personal_available_tools
-
-    assert "create_word_document" in _personal_available_tools()
+def test_the_personal_path_exposes_the_word_document_tool() -> None:
+    request = (
+        "write a one-page Word document summarising tonight's security sweep: "
+        "MAL count, critical count, and what is still open"
+    )
+    assert "create_word_document" in route_personal_task(request).tools
 
 
 @pytest.fixture()
@@ -393,49 +376,20 @@ def test_the_sweep_read_is_a_read_tool_and_errors_without_a_report(
     monkeypatch.setattr(personal_tools, "SWEEP_DIR", tmp_path / "nothing")
     out = json.loads(run_read_tool("security_sweep", {}, tmp_path))
     assert "no security sweep report" in out["error"]
-    assert (
-        "security_sweep"
-        in planner_body("summarise tonight's security sweep")["messages"][0]["content"]
-    )
+    assert "security_sweep" in route_personal_task("summarise tonight's security sweep").tools
 
 
-def test_a_document_read_plan_is_not_forced_to_create_one() -> None:
-    request = "read the word document at /workspace/uploads/q3.docx and summarise it"
-    plan = {"steps": [{"id": "s1", "tools": ["read_word_document"]}]}
-    assert plan_gap(request, plan) is None
-    template = {"action": "enqueue-template", "discipline": "documents", "template_key": "x"}
-    assert plan_gap(request, template) is None
-
-
-def test_a_document_plan_without_the_create_tool_is_replanned_once() -> None:
-    """pt-7447e778ecd5: the plan named only a read tool, so the create tool never ran."""
+def test_a_document_request_is_offered_both_the_sweep_read_and_the_create_tool() -> None:
+    """pt-7447e778ecd5: the create tool was never offered, so no document was written."""
     request = (
         "write a one-page Word document summarising tonight's security sweep: "
         "MAL count, critical count, and what is still open"
     )
-    caller = _Caller(
-        [
-            Completion('{"steps": [{"id": "s1", "tools": ["workspace_files"]}]}', (), 0),
-            Completion(
-                '{"steps": [{"id": "s1", "tools": ["security_sweep"]}, '
-                '{"id": "s2", "tools": ["create_word_document"]}]}',
-                (),
-                0,
-            ),
-        ]
-    )
-    body = planner_body(request, KNOWN_TOOLS)
-    plan = _planner_json(caller, body, caller.complete(body), request)
-
-    corrective = caller.bodies[1]["messages"][-1]["content"]
-    assert "create_word_document" in corrective
-    assert [step["tools"] for step in plan["steps"]] == [
-        ["security_sweep"],
-        ["create_word_document"],
-    ]
+    tools = route_personal_task(request).tools
+    assert {"security_sweep", "create_word_document"} <= tools
 
 
-def test_a_corrected_document_plan_reaches_done_with_the_real_counts(
+def test_the_document_request_reaches_done_with_the_real_counts(
     tmp_path: Path, sweep_report: Path
 ) -> None:
     tasks = tmp_path / "tasks"
@@ -447,13 +401,6 @@ def test_a_corrected_document_plan_reaches_done_with_the_real_counts(
     task_id = reply.removeprefix("queued ")
     caller = _Caller(
         [
-            Completion('{"steps": [{"id": "s1", "tools": ["workspace_files"]}]}', (), 0),
-            Completion(
-                '{"steps": [{"id": "s1", "tools": ["security_sweep"]}, '
-                '{"id": "s2", "tools": ["create_word_document"]}]}',
-                (),
-                0,
-            ),
             Completion("", (_tool_call("security_sweep", {}),), 0),
             Completion(
                 "MAL 0, CRITICAL 2, 251 carried — /workspace/generated/documents/sweep.docx",
@@ -496,16 +443,11 @@ def test_recalled_tool_scratch_is_dropped_and_a_preference_is_kept() -> None:
     assert rendered == "- The operator prefers Telegram replies under 400 characters."
 
 
-def test_the_planner_never_sees_the_scratch_it_used_to(tmp_path: Path) -> None:
+def test_the_executor_never_sees_the_scratch_it_used_to(tmp_path: Path) -> None:
     tasks = tmp_path / "tasks"
     telegram_do_reply(tasks, 1, "what is the queue status in one paragraph")
     memory = _memory_text(JUNK_MEMORIES)
-    caller = _Caller(
-        [
-            Completion('{"steps": [{"id": "s1", "tools": ["queue_status"]}]}', (), 0),
-            Completion("Queue is empty.", (), 1, ("queue_status",)),
-        ]
-    )
+    caller = _Caller([Completion("Queue is empty.", (), 1, ("queue_status",))])
     run = poll_personal_tasks(tasks, _Notices(), caller, recall=lambda _q: memory)
 
     assert run is not None and run.status == "done"

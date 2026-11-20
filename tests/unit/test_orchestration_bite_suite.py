@@ -81,3 +81,51 @@ def test_planner_and_checker_requests_carry_the_production_output_budget():
         "auto-daily::gemma-fast", [{"role": "user", "content": "x"}], [], json_output=True
     )
     assert body["max_tokens"] == runner.PLANNER_MAX_TOKENS == 8192
+
+
+_ARM_CONFIG = {
+    "planner": {"comfortable_context_tokens": 32768},
+    "disciplines": {
+        "test_fixing": {
+            "fast_context_budget_tokens": 32768,
+            "tool_allowlist": ["file_read"],
+            "read_tools": ["file_read"],
+            "action_tools": [],
+            "procedures": [],
+        }
+    },
+}
+
+
+def test_deep_arm_planner_turn_is_toolless_and_asks_for_json() -> None:
+    """Moved from test_jarvis_r6_planner_retry: the arm planner is not the personal lane's."""
+    from portal.modules.orchestration import planner
+
+    captured: dict[str, object] = {}
+
+    class _StopError(Exception):
+        pass
+
+    class _Engine:
+        model_tag = "auto-daily::deep"
+        model_digest = "d"
+        load_plan_engine = "omlx"
+        load_plan_model = "m"
+
+        def load_plan(self, timeout: float) -> dict[str, object]:
+            return {}
+
+        def chat(self, body: dict[str, object], timeout: float, on_event) -> dict[str, object]:
+            captured.update(body)
+            raise _StopError
+
+    with pytest.raises(_StopError):
+        planner.plan_goal(
+            _Engine(),
+            goal="g",
+            task_id="t",
+            discipline="test_fixing",
+            arm_config=_ARM_CONFIG,
+        )
+    assert captured["portal_no_tools"] is True
+    assert captured["response_format"] == {"type": "json_object"}

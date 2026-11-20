@@ -17,15 +17,15 @@ import pytest
 from portal.modules.orchestration.personal_intake import telegram_do_reply
 from portal.modules.orchestration.personal_policy import (
     CONFIRM_TOOLS,
-    KNOWN_TOOLS,
+    CORE_TOOLS,
     READ_TOOLS,
-    planner_body,
 )
 from portal.modules.orchestration.personal_runner import (
     RECALL_MIN_SIMILARITY,
     RECALL_TOP_K,
     Completion,
     _memory_text,
+    _route_messages,
     poll_personal_tasks,
 )
 from portal.modules.orchestration.personal_tools import LOCAL_TOOLS, run_read_tool
@@ -51,16 +51,6 @@ class _Caller:
     def complete(self, body: dict[str, Any]) -> Completion:
         self.bodies.append(json.loads(json.dumps(body)))
         return self.replies.pop(0)
-
-
-def _plan(*tools: str) -> str:
-    return json.dumps(
-        {
-            "steps": [
-                {"id": "s1", "tools": list(tools), "paths": [], "budget": {"context_tokens": 2048}}
-            ]
-        }
-    )
 
 
 @pytest.fixture()
@@ -106,16 +96,15 @@ def test_memory_text_keeps_a_relevant_memory() -> None:
 
 
 def test_executor_prompt_request_is_authoritative_and_memory_is_background() -> None:
-    body = planner_body(REQUEST, memory_context=JUNK)
-    content = body["messages"][-1]["content"]
+    content = _route_messages(REQUEST, JUNK)[-1]["content"]
     assert REQUEST in content
     assert "authoritative" in content
     assert "untrusted background" in content
     assert content.index(REQUEST) < content.index(JUNK)
 
 
-def test_planner_without_memory_has_no_recall_block() -> None:
-    content = planner_body(REQUEST)["messages"][-1]["content"]
+def test_executor_without_memory_has_no_recall_block() -> None:
+    content = _route_messages(REQUEST)[-1]["content"]
     assert "Recalled memory" not in content
 
 
@@ -132,7 +121,6 @@ def test_executor_answers_the_request_from_real_workspace_files(
     }
     caller = _Caller(
         [
-            Completion(_plan("workspace_files"), (), 0),
             Completion("", (call,), 0),
             Completion("a.bin 300 bytes, b.bin 200 bytes, c.bin 100 bytes.", (), 0),
         ]
@@ -140,14 +128,14 @@ def test_executor_answers_the_request_from_real_workspace_files(
     result = poll_personal_tasks(tasks, _Notices(), caller, recall=lambda query: JUNK)
     assert result is not None and result.status == "done"
 
-    executor_user = caller.bodies[1]["messages"][-1]["content"]
+    executor_user = caller.bodies[0]["messages"][-1]["content"]
     assert REQUEST in executor_user
     assert "authoritative" in executor_user
     assert "untrusted background" in executor_user
     assert executor_user.index(REQUEST) < executor_user.index(JUNK)
 
     # The local read returned the real files to the model, largest first.
-    tool_messages = [m for m in caller.bodies[2]["messages"] if m.get("role") == "tool"]
+    tool_messages = [m for m in caller.bodies[1]["messages"] if m.get("role") == "tool"]
     assert tool_messages, "workspace_files result never reached the executor"
     listing = json.loads(tool_messages[0]["content"])
     assert [f["path"] for f in listing["files"]] == [
@@ -171,7 +159,6 @@ def test_an_answer_that_omits_the_largest_size_is_not_done(tmp_path: Path, works
     }
     caller = _Caller(
         [
-            Completion(_plan("workspace_files"), (), 0),
             Completion("", (call,), 0),
             Completion("The largest file is 1 byte.", (), 0),
         ]
@@ -188,7 +175,7 @@ def test_an_answer_that_omits_the_largest_size_is_not_done(tmp_path: Path, works
 def test_workspace_files_is_an_allowlisted_read_not_a_confirm_tool() -> None:
     assert "workspace_files" in LOCAL_TOOLS
     assert "workspace_files" in READ_TOOLS
-    assert "workspace_files" in KNOWN_TOOLS
+    assert "workspace_files" in CORE_TOOLS
     assert "workspace_files" not in CONFIRM_TOOLS
 
 

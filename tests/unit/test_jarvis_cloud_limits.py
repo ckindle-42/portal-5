@@ -26,13 +26,8 @@ from portal_channels.telegram.arm_bridge import ArmTelegramStore
 
 
 class _Caller:
-    def __init__(self) -> None:
-        self.recall_reply = Completion("No matching operator memory.", (), 1, ("recall",))
-
     def complete(self, body: dict[str, object]) -> Completion:
-        if body.get("portal_bite_tools") == ["recall"]:
-            return self.recall_reply
-        return Completion("not JSON", (), 0)
+        return Completion("", (), 0)
 
 
 class _PlanCaller(_Caller):
@@ -386,12 +381,7 @@ def test_a_slow_cloud_lane_does_not_stall_the_tasks_behind_it(
 
     # The lane is still running: the queue must pick up the next task in the same poll.
     telegram_do_reply(tasks, 7, "what is the queue status in one paragraph")
-    caller = _PlanCaller(
-        [
-            Completion('{"steps": [{"id":"s1","tools":["queue_status"]}]}', (), 0),
-            Completion("Queue is empty.", (), 1, ("queue_status",)),
-        ]
-    )
+    caller = _PlanCaller([Completion("Queue is empty.", (), 1, ("queue_status",))])
     queued = poll_personal_tasks(tasks, sink, caller, dispatcher=dispatcher, recall=lambda _q: "")
 
     assert queued is not None
