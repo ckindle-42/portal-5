@@ -279,6 +279,58 @@ def test_parse_container_reads_the_compose_labels() -> None:
     }
 
 
+def test_container_env_reads_the_started_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    from portal.platform.inference.cli.trace.context import CommandResult
+
+    payload = '["SANDBOX_PS_IMAGE=portal5-pwsh:latest","SANDBOX_LAB_EXEC=true","NO_EQUALS"]'
+    monkeypatch.setattr(containers, "run_cmd", lambda *a, **k: CommandResult(True, stdout=payload))
+    assert containers.container_env("portal5-mcp-sandbox") == {
+        "SANDBOX_PS_IMAGE": "portal5-pwsh:latest",
+        "SANDBOX_LAB_EXEC": "true",
+    }
+    monkeypatch.setattr(containers, "run_cmd", lambda *a, **k: CommandResult(False, stderr="no"))
+    assert containers.container_env("portal5-mcp-sandbox") == {}
+
+
+def test_sandbox_images_resolve_the_role_refs_and_the_lab_override() -> None:
+    values = {
+        "SANDBOX_DOCKER_IMAGE": "portal5-sandbox-data:latest",
+        "SANDBOX_PS_IMAGE": "portal5-pwsh:latest",
+        "BINRESEARCH_IMAGE": "portal5-binresearch:latest",
+        "SANDBOX_LAB_EXEC": "false",
+        "SANDBOX_LAB_IMAGE": "portal5-attack:latest",
+    }
+    read = lambda name, default: values.get(name, default)  # noqa: E731
+    assert containers.sandbox_images(read) == [
+        "portal5-sandbox-data:latest",
+        "portal5-pwsh:latest",
+        "portal5-binresearch:latest",
+    ]
+
+    values["SANDBOX_LAB_EXEC"] = "true"
+    assert containers.sandbox_images(read)[-1] == "portal5-attack:latest"
+    values["SANDBOX_PS_IMAGE"] = "mcr.microsoft.com/powershell:lts-alpine-3.17"
+    assert "mcr.microsoft.com/powershell:lts-alpine-3.17" in containers.sandbox_images(read)
+
+
+def test_sandbox_images_hop_fails_and_names_every_missing_image() -> None:
+    refs = ["portal5-sandbox-data:latest", "portal5-attack:latest"]
+    present = lambda ref: ref.endswith("sandbox-data:latest")  # noqa: E731
+    hop = containers.sandbox_images_hop(refs, present)
+
+    assert hop.status is Status.FAIL
+    assert hop.observed.startswith("1/2 present:")
+    assert hop.detail == "missing: portal5-attack:latest"
+    assert containers.sandbox_images_hop(refs, lambda _ref: True).status is Status.PASS
+
+
+def test_sandbox_hops_fail_when_dind_is_not_running(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(containers, "dind_running", lambda: False)
+    hop = containers._sandbox_hops()[0]
+
+    assert hop.status is Status.FAIL and "not running" in hop.observed
+
+
 def test_start_hop_fails_when_the_container_predates_its_image() -> None:
     assert containers.start_after_build_hop(_container(), 1794792000.0).status is Status.FAIL
     assert containers.start_after_build_hop(_container(), 1794000000.0).status is Status.PASS

@@ -6,12 +6,13 @@ import hashlib
 import json
 import re
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from .context import run_cmd
+from .context import env_value, run_cmd
 from .model import Hop, Status, short
 
 #: Config files whose bake-vs-mount state caused the 2026-11-15 Pipeline incident.
@@ -23,6 +24,13 @@ CONFIG_PROBES = (
 _ISO = re.compile(r"^(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(\.\d+)?(.*)$")
 _COPY = re.compile(r"^COPY\s+(.+)$")
 _REVISION_LABEL = "org.opencontainers.image.revision"
+DIND = "portal5-dind"
+#: Every image a sandbox/tool MCP can launch, with the default its env resolves to.
+SANDBOX_IMAGE_ENV: tuple[tuple[str, str], ...] = (
+    ("SANDBOX_DOCKER_IMAGE", "portal5-sandbox-data:latest"),
+    ("SANDBOX_PS_IMAGE", "portal5-pwsh:latest"),
+    ("BINRESEARCH_IMAGE", "portal5-binresearch:latest"),
+)
 
 
 @dataclass
@@ -387,6 +395,75 @@ def _container_hops(
     return hops
 
 
+def container_env(container: str) -> dict[str, str]:
+    """The env a container was started with, as ``docker inspect`` reports it."""
+    result = run_cmd(["docker", "inspect", container, "--format", "{{json .Config.Env}}"])
+    if not result.ok:
+        return {}
+    try:
+        entries = json.loads(result.stdout)
+    except ValueError:
+        return {}
+    if not isinstance(entries, list):
+        return {}
+    pairs = (str(entry).partition("=") for entry in entries)
+    return {name: value for name, sep, value in pairs if sep}
+
+
+def live_image_reader() -> Callable[[str, str], str]:
+    """Resolve an image var the way the MCP does: its own live env, else the repo .env."""
+    live = {
+        **container_env("portal5-mcp-sandbox"),
+        **container_env("portal5-mcp-binresearch"),
+    }
+    return lambda name, default: live.get(name) or env_value(name, default)
+
+
+def sandbox_images(read: Callable[[str, str], str]) -> list[str]:
+    """The refs the sandbox and tool MCPs launch, in the sandbox's own precedence."""
+    refs = [read(name, default) for name, default in SANDBOX_IMAGE_ENV]
+    if read("SANDBOX_LAB_EXEC", "false").lower() == "true":
+        refs.append(read("SANDBOX_LAB_IMAGE", ""))
+    return [ref for index, ref in enumerate(refs) if ref and ref not in refs[:index]]
+
+
+def dind_has_image(ref: str) -> bool:
+    return run_cmd(["docker", "exec", DIND, "docker", "image", "inspect", ref]).ok
+
+
+def dind_running() -> bool:
+    result = run_cmd(["docker", "inspect", "-f", "{{.State.Running}}", DIND])
+    return result.ok and result.stdout.strip() == "true"
+
+
+def sandbox_images_hop(refs: list[str], present: Callable[[str], bool]) -> Hop:
+    """A missing role image is the sandbox call that fails with 'pull access denied'."""
+    missing = [ref for ref in refs if not present(ref)]
+    observed = f"{len(refs) - len(missing)}/{len(refs)} present: {', '.join(refs)}"
+    detail = f"missing: {', '.join(missing)}" if missing else ""
+    return Hop(
+        "dind sandbox images",
+        Status.PASS if not missing else Status.FAIL,
+        short(observed, 140),
+        "every sandbox image present in portal5-dind",
+        short(detail),
+    )
+
+
+def _sandbox_hops() -> list[Hop]:
+    if not dind_running():
+        return [
+            Hop(
+                "dind sandbox images",
+                Status.FAIL,
+                "portal5-dind not running",
+                "portal5-dind running with the sandbox images",
+                "start the stack: ./launch.sh up",
+            )
+        ]
+    return [sandbox_images_hop(sandbox_images(live_image_reader()), dind_has_image)]
+
+
 def run(ctx: Any) -> list[Hop]:
     """Per portal container: image identity, start time, revision label, config state."""
     repo_root: Path = ctx.repo_root
@@ -405,4 +482,4 @@ def run(ctx: Any) -> list[Hop]:
         hops.append(config_hop(container, repo_root, baked_hashes(name, CONFIG_PROBES)))
     if not hops:
         hops.append(Hop("containers", Status.FAIL, "no portal containers", "stack running"))
-    return hops
+    return hops + _sandbox_hops()
