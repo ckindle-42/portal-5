@@ -144,7 +144,7 @@ class AlertEvent:
 
 @dataclass
 class SummaryEvent:
-    """A daily usage summary — built from pipeline metrics deltas."""
+    """A daily usage summary built from persisted pipeline metrics."""
 
     timestamp: datetime
     report_date: str  # "YYYY-MM-DD" of the day being reported
@@ -153,6 +153,7 @@ class SummaryEvent:
     healthy_backends: int
     total_backends: int
     uptime_seconds: float
+    requests_by_client: dict[str, int] = field(default_factory=dict)
     # Extended metrics
     requests_by_model: dict[str, int] = field(default_factory=dict)
     # Token-weighted decode tok/s (sum of decode tokens / sum of decode seconds).
@@ -214,6 +215,15 @@ class SummaryEvent:
             "",
             "*Requests by Workspace:*",
         ]
+        if self.requests_by_client:
+            lines.insert(
+                4,
+                "*Requests by Client:* "
+                + ", ".join(
+                    f"{client} {count:,}"
+                    for client, count in sorted(self.requests_by_client.items())
+                ),
+            )
         for ws, count in sorted(self.requests_by_workspace.items(), key=lambda x: -x[1]):
             lines.append(f"  `{ws:32s}` {count:,}")
         if self.errors_by_type:
@@ -254,6 +264,14 @@ class SummaryEvent:
             f"Avg Response: {self.avg_response_time_ms:.0f}ms",
             f"Tokens: {self.total_input_tokens:,} in / {self.total_output_tokens:,} out",
         ]
+        if self.requests_by_client:
+            lines.append(
+                "Requests by Client: "
+                + ", ".join(
+                    f"{client} {count:,}"
+                    for client, count in sorted(self.requests_by_client.items())
+                )
+            )
         if self.errors_by_type:
             lines.append("")
             lines.append("Errors by Type:")
@@ -294,10 +312,14 @@ class SummaryEvent:
             f"<b>Avg Response Time:</b> {self.avg_response_time_ms:.0f}ms",
             f"<b>Input Tokens:</b> {self.total_input_tokens:,}",
             f"<b>Output Tokens:</b> {self.total_output_tokens:,}",
-            "",
-            "<b>Requests by Workspace:</b>",
-            "<ul>",
         ]
+        if self.requests_by_client:
+            clients = ", ".join(
+                f"{_html.escape(client)} {count:,}"
+                for client, count in sorted(self.requests_by_client.items())
+            )
+            lines.append(f"<b>Requests by Client:</b> {clients}")
+        lines.extend(["", "<b>Requests by Workspace:</b>", "<ul>"])
         for ws, count in sorted(self.requests_by_workspace.items(), key=lambda x: -x[1]):
             lines.append(f"<li>{_html.escape(ws)}: {count:,}</li>")
         lines.append("</ul>")
@@ -316,8 +338,14 @@ class SummaryEvent:
 
     def format_pushover(self) -> str:
         """Format for Pushover (max 512 chars)."""
+        request_text = f"{self.total_requests:,} req"
+        if self.requests_by_client:
+            clients = "/".join(
+                f"{client}:{count:,}" for client, count in sorted(self.requests_by_client.items())
+            )
+            request_text = f"{request_text} ({clients})"
         msg = (
-            f"📊 Portal 5 ({self.report_date}): {self.total_requests:,} req, "
+            f"📊 Portal 5 ({self.report_date}): {request_text}, "
             f"decode {self._decode_rate():.0f} tok/s, "
             f"answer {self.answer_tokens_per_second:.0f} tok/s, "
             f"ttft median {self.ttft_median_seconds:.2f}s (n={self.ttft_sample_count}), "

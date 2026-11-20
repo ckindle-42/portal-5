@@ -13,8 +13,10 @@ import json
 import logging
 import os
 from contextlib import suppress
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import portal.platform.inference.router.metrics as _metrics_mod
 from portal.platform.inference.router.metrics import (
@@ -50,6 +52,63 @@ _req_count_by_model: dict[str, int] = {}  # model_name -> count (plain dict for 
 _req_count_by_error: dict[str, int] = {}  # error_type -> count (plain dict for summary)
 _peak_concurrent: int = 0
 _persona_usage_raw: dict[str, dict[str, int]] = {}  # persona -> {model -> count}
+_daily_metrics: dict[str, dict[str, Any]] = {}
+
+
+def _metrics_date() -> str:
+    """Return the current calendar date in the configured summary timezone."""
+    timezone = os.environ.get("ALERT_SUMMARY_TIMEZONE", "UTC")
+    try:
+        zone = ZoneInfo(timezone)
+    except (ValueError, ZoneInfoNotFoundError):
+        zone = ZoneInfo("UTC")
+    return datetime.now(zone).date().isoformat()
+
+
+def _daily_bucket() -> dict[str, Any]:
+    return _daily_metrics.setdefault(
+        _metrics_date(),
+        {
+            "request_count": {},
+            "requests_by_client": {},
+            "total_response_time_ms": 0.0,
+            "total_input_tokens": 0,
+            "total_output_tokens": 0,
+            "req_count_by_model": {},
+            "req_count_by_error": {},
+            "decode_tokens": 0.0,
+            "decode_seconds": 0.0,
+            "answer_tokens": 0.0,
+            "answer_seconds": 0.0,
+            "ttft_samples": [],
+            "answer_tokens_by_model": {},
+            "answer_seconds_by_model": {},
+            "persona_usage": {},
+        },
+    )
+
+
+def _record_daily_request(workspace: str, client: str) -> None:
+    bucket = _daily_bucket()
+    requests: dict[str, int] = bucket["request_count"]
+    requests[workspace] = requests.get(workspace, 0) + 1
+    clients: dict[str, int] = bucket["requests_by_client"]
+    clients[client] = clients.get(client, 0) + 1
+
+
+def _record_daily_total(field: str, value: int | float) -> None:
+    bucket = _daily_bucket()
+    bucket[field] = bucket.get(field, 0) + value
+
+
+def _record_daily_count(field: str, key: str, value: int | float = 1) -> None:
+    counts: dict[str, int | float] = _daily_bucket()[field]
+    counts[key] = counts.get(key, 0) + value
+
+
+def _record_daily_sample(field: str, value: float) -> None:
+    samples: list[float] = _daily_bucket()[field]
+    samples.append(value)
 
 
 def _record_error(workspace: str, error_type: str) -> None:
@@ -68,6 +127,7 @@ def _record_error(workspace: str, error_type: str) -> None:
     _errors_total.labels(workspace=workspace, error_type=error_type).inc()
     global _req_count_by_error
     _req_count_by_error[error_type] = _req_count_by_error.get(error_type, 0) + 1
+    _record_daily_count("req_count_by_error", error_type)
 
 
 def _record_persona(persona: str, model: str) -> None:
@@ -86,6 +146,80 @@ def _record_persona(persona: str, model: str) -> None:
     if persona not in _persona_usage_raw:
         _persona_usage_raw[persona] = {}
     _persona_usage_raw[persona][model] = _persona_usage_raw[persona].get(model, 0) + 1
+    _record_daily_count("persona_usage", persona)
+
+
+def _merge_daily_metrics(existing: object, pending: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    merged: dict[str, dict[str, Any]] = {}
+    if isinstance(existing, dict):
+        for day, source in existing.items():
+            if isinstance(source, dict):
+                merged[str(day)] = {
+                    key: dict(value)
+                    if isinstance(value, dict)
+                    else list(value)
+                    if isinstance(value, list)
+                    else value
+                    for key, value in source.items()
+                }
+
+    for day, delta in pending.items():
+        target = merged.setdefault(day, {})
+        for field, value in delta.items():
+            if isinstance(value, dict):
+                counts = target.setdefault(field, {})
+                if not isinstance(counts, dict):
+                    counts = target[field] = {}
+                for key, count in value.items():
+                    counts[key] = counts.get(key, 0) + count
+            elif isinstance(value, list):
+                samples = target.setdefault(field, [])
+                if not isinstance(samples, list):
+                    samples = target[field] = []
+                samples.extend(value)
+            else:
+                target[field] = target.get(field, 0) + value
+
+    cutoff = datetime.fromisoformat(_metrics_date()).date() - timedelta(days=35)
+    return {
+        day: bucket
+        for day, bucket in merged.items()
+        if datetime.fromisoformat(day).date() >= cutoff
+    }
+
+
+def _persisted_summary_fields(existing: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "persona_usage_raw": dict(existing.get("persona_usage_raw", {})),
+        "daily_metrics_version": 1,
+        "daily_metrics": _merge_daily_metrics(existing.get("daily_metrics"), _daily_metrics),
+    }
+
+
+def _reset_accumulators() -> None:
+    global _total_tps, _request_tps_count
+    global _total_input_tokens, _total_output_tokens
+    global _decode_tokens, _decode_seconds, _answer_tokens, _answer_seconds, _ttft_samples
+    global _request_count, _req_count_by_model, _req_count_by_error, _persona_usage_raw
+    global _daily_metrics
+
+    _metrics_mod._total_response_time_ms = 0.0
+    _total_tps = 0.0
+    _request_tps_count = 0
+    _total_input_tokens = 0
+    _total_output_tokens = 0
+    _decode_tokens = 0.0
+    _decode_seconds = 0.0
+    _answer_tokens = 0.0
+    _answer_seconds = 0.0
+    _ttft_samples = []
+    _answer_tokens_by_model.clear()
+    _answer_seconds_by_model.clear()
+    _request_count.clear()
+    _req_count_by_model.clear()
+    _req_count_by_error.clear()
+    _persona_usage_raw.clear()
+    _daily_metrics = {}
 
 
 def _load_state() -> None:
@@ -175,7 +309,7 @@ def _save_state() -> None:
                     "peak_concurrent": max(
                         int(existing.get("peak_concurrent", 0)), _peak_concurrent
                     ),
-                    "persona_usage_raw": dict(existing.get("persona_usage_raw", {})),
+                    **_persisted_summary_fields(existing),
                 }
 
                 # Merge nested dicts
@@ -211,24 +345,8 @@ def _save_state() -> None:
                 tmp.write_text(json.dumps(merged))
                 tmp.rename(_STATE_FILE)
 
-                # Reset in-memory accumulators after successful persist —
-                # re-summing on the next save would double-count.
-                _metrics_mod._total_response_time_ms = 0.0
-                _total_tps = 0.0
-                _request_tps_count = 0
-                _total_input_tokens = 0
-                _total_output_tokens = 0
-                _decode_tokens = 0.0
-                _decode_seconds = 0.0
-                _answer_tokens = 0.0
-                _answer_seconds = 0.0
-                _ttft_samples = []
-                _answer_tokens_by_model.clear()
-                _answer_seconds_by_model.clear()
-                _request_count.clear()
-                _req_count_by_model.clear()
-                _req_count_by_error.clear()
-                _persona_usage_raw.clear()
+                # Reset in-memory accumulators after successful persistence.
+                _reset_accumulators()
                 # peak_concurrent is NOT reset — it merges via max() and
                 # represents an all-time peak that survives across save cycles.
             finally:
