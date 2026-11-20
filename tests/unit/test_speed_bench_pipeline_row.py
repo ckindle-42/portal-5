@@ -41,27 +41,34 @@ def _sse_lines(model: str = "Huihui-Qwen3.6-27B-abliterated-MLX-4bit") -> list[b
 
 
 def test_pipeline_row_carries_served_model_load_and_completion():
-    timings, usage, served = parse_sse_timings(_sse_lines())
-    row = pipeline_metrics(timings, usage, served)
+    timings, usage, served, _content = parse_sse_timings(_sse_lines())
+    row = pipeline_metrics(
+        timings,
+        usage,
+        served,
+        route="auto-coding::uncensored-agentic;omlx-coding;Huihui-Qwen3.6-27B-abliterated-MLX-4bit",
+    )
     assert row["served_model"] == "Huihui-Qwen3.6-27B-abliterated-MLX-4bit"
+    assert row["response_model"] == "Huihui-Qwen3.6-27B-abliterated-MLX-4bit"
     assert row["load_seconds"] == 11.42
     assert row["completion_tokens"] == 128
     assert row["decode_tps"] == 5.1
-    assert row["backend"] is None
+    assert row["backend"] == "omlx-coding"
 
 
 def test_pipeline_row_without_usage_leaves_the_new_fields_none():
-    timings, usage, served = parse_sse_timings(
+    timings, usage, served, _content = parse_sse_timings(
         [b'data: {"portal_timings": {}}\n\n', b"data: [DONE]\n\n"]
     )
     row = pipeline_metrics(timings, usage, served)
     assert served is None
+    assert row["served_model"] is None
     assert row["load_seconds"] is None
     assert row["completion_tokens"] is None
 
 
 def test_pipeline_row_unifies_route_header_and_sse_model():
-    timings, usage, served = parse_sse_timings(_sse_lines())
+    timings, usage, served, _content = parse_sse_timings(_sse_lines())
     row = pipeline_metrics(
         timings,
         usage,
@@ -104,7 +111,7 @@ def test_request_pipeline_sends_no_tools_and_reads_route_header(monkeypatch):
         return _Resp(b"".join(_sse_lines("gemma-4-26b-a4b-it-QAT-4bit")))
 
     monkeypatch.setattr(speed_bench, "_post", _fake_post)
-    timings, usage, served, route = request_pipeline(
+    timings, usage, served, route, content = request_pipeline(
         "http://localhost:9099", "auto-daily::gemma-fast", "hi", api_key="k", no_tools=True
     )
     assert captured["payload"]["portal_no_tools"] is True  # type: ignore[index]
@@ -124,9 +131,20 @@ workspaces:
     name: Daily
     description: Daily
     model_hint: gemma4:26b-a4b-it-qat-ctx8k
+    context_limit: 8192
     variants:
       fast:
         model_hint: gemma4:26b-a4b-it-qat-ctx32k
+  auto-chain:
+    module: general
+    name: Chain
+    description: Chain
+    model_hint: gemma4:26b-a4b-it-qat-ctx8k
+    chain:
+    - model: granite4.1:8b-ctx8k
+      label: hop
+      system: You are a hop.
+      user_template: '{hop_0}'
   ollama-only:
     module: general
     name: Ollama Only
@@ -172,6 +190,7 @@ backends:
   - id: granite4.1:8b-ctx8k
 workspace_routing:
   auto-daily: [general]
+  auto-chain: [general]
   ollama-only: [general]
   bench-omlx: [general]
 """,
@@ -236,6 +255,7 @@ def test_run_bench_pipeline_accepts_intended_and_rejects_wrong_engine(
             {"prompt_tokens": 2000, "completion_tokens": 128, "model_load_duration": 0.0},
             "gemma-4-26b-a4b-it-QAT-4bit",
             "auto-daily::fast;omlx-general;gemma-4-26b-a4b-it-QAT-4bit",
+            "measured answer",
         ),
     )
     rc_ok = run_bench(
@@ -263,6 +283,7 @@ def test_run_bench_pipeline_accepts_intended_and_rejects_wrong_engine(
             {"prompt_tokens": 2000, "completion_tokens": 128},
             "gemma4:26b-a4b-it-qat-ctx32k",
             "auto-daily::fast;ollama-general;gemma4:26b-a4b-it-qat-ctx32k",
+            "measured answer",
         ),
     )
     rc_bad = run_bench(
@@ -344,3 +365,208 @@ def test_direct_engines_are_engine_ok_by_construction(engine: str, tmp_path: Pat
     assert rc == 0
     data = json.loads(out.read_text(encoding="utf-8"))
     assert data["results"][0]["engine_ok"] is True
+
+
+def test_pipeline_route_model_wins_over_the_echoed_workspace_id():
+    lines = [
+        b'data: {"model": "auto-security::pentest", "choices": [{"delta": {"content": "x"}}]}\n\n',
+        b'data: {"portal_timings": {"answer_tps": 1.0}}\n\n',
+        b"data: [DONE]\n\n",
+    ]
+    timings, usage, served, content = parse_sse_timings(lines)
+    row = pipeline_metrics(
+        timings,
+        usage,
+        served,
+        route="auto-security::pentest;omlx-security;Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit",
+        content=content,
+    )
+    assert row["served_model"] == "Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit"
+    assert row["response_model"] == "auto-security::pentest"
+    assert row["content"] == "x"
+
+
+def test_request_pipeline_sends_the_intended_backend_as_an_eval_pin(monkeypatch):
+    captured: dict[str, object] = {}
+
+    class _Resp(io.BytesIO):
+        headers = {"x-portal-route": "auto-daily::fast;omlx-general;model"}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+    def _fake_post(url, payload, timeout, headers=None):
+        captured["payload"] = payload
+        return _Resp(b"".join(_sse_lines("model")))
+
+    monkeypatch.setattr(speed_bench, "_post", _fake_post)
+    request_pipeline("http://localhost:9099", "auto-daily::fast", "hi", backend_pin="omlx-general")
+    assert captured["payload"]["portal_backend"] == "omlx-general"  # type: ignore[index]
+
+
+def test_run_bench_skips_sizes_beyond_the_seat_context(tmp_path: Path, monkeypatch, capsys):
+    reg, cfg = _synthetic_configs(tmp_path)
+    measured: list[int] = []
+
+    def _fake_request(*_args, **_kwargs):
+        measured.append(len(_args[2]))
+        return (
+            {"answer_tps": 42.0, "ttft_s": 0.5, "total_s": 3.5},
+            {"prompt_tokens": 2000, "completion_tokens": 128},
+            "gemma-4-26b-a4b-it-QAT-4bit",
+            "auto-daily::fast;omlx-general;gemma-4-26b-a4b-it-QAT-4bit",
+            "ok",
+        )
+
+    monkeypatch.setattr(speed_bench, "request_pipeline", _fake_request)
+    out = tmp_path / "skip.json"
+    rc = run_bench(
+        "pipeline",
+        "http://localhost:9099",
+        "auto-daily::fast",
+        [2000, 8192, 32000],
+        out=str(out),
+        registry=reg,
+        portal_config=cfg,
+        personas={},
+    )
+
+    assert rc == 0
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert [row["size_tokens"] for row in data["results"]] == [2000]
+    assert data["failures"] == []
+    assert any("SKIP size 8192" in note for note in data["notes"])
+    assert any("SKIP size 32000" in note for note in data["notes"])
+    assert len(measured) == 1
+    assert "SKIP" in capsys.readouterr().err
+
+
+def test_pipeline_context_refusal_is_reported_not_wrong_engine(tmp_path: Path, monkeypatch):
+    reg, cfg = _synthetic_configs(tmp_path)
+    monkeypatch.setattr(
+        speed_bench,
+        "request_pipeline",
+        lambda *_a, **_kw: (
+            {"timing_source": "measured"},
+            {"prompt_tokens": 0, "completion_tokens": 0},
+            "auto-daily::fast",
+            "auto-daily::fast;omlx-general;model",
+            "The conversation exceeds this workspace's context (about 10,672 tokens)",
+        ),
+    )
+    out = tmp_path / "refused.json"
+    rc = run_bench(
+        "pipeline",
+        "http://localhost:9099",
+        "auto-daily::fast",
+        [2000],
+        out=str(out),
+        registry=reg,
+        portal_config=cfg,
+        personas={},
+    )
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert rc == 0
+    assert data["results"][0]["seat_status"] == "skipped_context"
+    assert data["results"][0]["engine_ok"] is None
+    assert data["failures"] == []
+    assert any("SKIP" in note for note in data["notes"])
+
+
+def test_pipeline_no_answer_is_reported_as_such(tmp_path: Path, monkeypatch):
+    reg, cfg = _synthetic_configs(tmp_path)
+    monkeypatch.setattr(
+        speed_bench,
+        "request_pipeline",
+        lambda *_a, **_kw: (
+            {"answer_tps": 0.0, "ttft_s": 1.0, "total_s": 9.0},
+            {"prompt_tokens": 2000, "completion_tokens": 128},
+            "model",
+            "auto-daily::fast;omlx-general;model",
+            "⚠️ The model did not produce an answer. Please retry.",
+        ),
+    )
+    out = tmp_path / "noanswer.json"
+    rc = run_bench(
+        "pipeline",
+        "http://localhost:9099",
+        "auto-daily::fast",
+        [2000],
+        out=str(out),
+        registry=reg,
+        portal_config=cfg,
+        personas={},
+    )
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert rc == 1
+    assert data["results"][0]["seat_status"] == "no_answer"
+    assert data["results"][0]["engine_ok"] is None
+    assert any("NO ANSWER" in failure for failure in data["failures"])
+    assert not any("WRONG ENGINE" in failure for failure in data["failures"])
+
+
+def test_seat_context_limit_and_multi_hop(tmp_path: Path):
+    _reg, cfg = _synthetic_configs(tmp_path)
+    assert speed_bench.seat_context_limit("auto-daily", portal_config=cfg, personas={}) == 8192
+    assert speed_bench.seat_is_multi_hop("auto-daily", portal_config=cfg, personas={}) is False
+    assert speed_bench.seat_is_multi_hop("auto-chain", portal_config=cfg, personas={}) is True
+
+
+def test_intended_engine_ignores_transient_backend_health(tmp_path: Path, monkeypatch):
+    """A failed health probe must not reclassify an oMLX seat as Ollama."""
+    reg, cfg = _synthetic_configs(tmp_path)
+    omlx = next(b for b in reg.list_backends() if b.id == "omlx-general")
+    ollama = next(b for b in reg.list_backends() if b.id == "ollama-general")
+    monkeypatch.setattr(reg, "get_backend_candidates", lambda _ws: [ollama])
+
+    assert resolve_intended_seat("auto-daily", registry=reg, portal_config=cfg, personas={}) == (
+        omlx.id,
+        "omlx",
+        "gemma-4-26b-a4b-it-QAT-4bit",
+    )
+
+
+def test_reasoning_only_row_reports_raw_decode_instead_of_zero():
+    row = pipeline_metrics(
+        {"answer_tps": 0.0, "ttft_s": 1.0, "total_s": 9.0, "timing_source": "engine"},
+        {"prompt_tokens": 2000, "completion_tokens": 128},
+        "model",
+        route="auto-daily::fast;omlx-general;model",
+    )
+    assert row["answer_tps"] == 0.0
+    assert row["raw_decode_tps"] == 16.0
+    assert row["decode_tps"] == 16.0
+
+
+def test_row_without_a_served_model_is_reported_as_such(tmp_path: Path, monkeypatch):
+    reg, cfg = _synthetic_configs(tmp_path)
+    monkeypatch.setattr(
+        speed_bench,
+        "request_pipeline",
+        lambda *_a, **_kw: (
+            {"answer_tps": 12.0, "ttft_s": 1.0, "total_s": 5.0},
+            {"prompt_tokens": 2000, "completion_tokens": 64},
+            "auto-daily::fast",
+            "",
+            "an answer",
+        ),
+    )
+    out = tmp_path / "nomodel.json"
+    rc = run_bench(
+        "pipeline",
+        "http://localhost:9099",
+        "auto-daily::fast",
+        [2000],
+        out=str(out),
+        registry=reg,
+        portal_config=cfg,
+        personas={},
+    )
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert rc == 1
+    assert data["results"][0]["seat_status"] == "no_served_model"
+    assert any("NO SERVED MODEL" in failure for failure in data["failures"])
+    assert not any("WRONG ENGINE" in failure for failure in data["failures"])

@@ -1246,12 +1246,16 @@ class LoadGuard:
         include_protected: bool = False,
         last_models: set[str] | None = None,
         want: float | None = None,
+        exclude: frozenset[str] | set[str] = frozenset(),
     ) -> dict[str, _Free]:
         """Request accepted unloads and retain their pre-unload headroom records."""
+        excluded = {model_key(name) for name in exclude}
         idle = [
             n
             for n, size in resident.items()
-            if size and self._ollama_idle({n: size}, include_protected=include_protected) > 0
+            if size
+            and model_key(n) not in excluded
+            and self._ollama_idle({n: size}, include_protected=include_protected) > 0
         ]
         protected = self.protected(OLLAMA)
         last_keys = {model_key(name) for name in (last_models or set())}
@@ -1521,6 +1525,7 @@ class LoadGuard:
                 resident,
                 last_models={model} if model else None,
                 want=shortage - covered,
+                exclude={model},
             )
         unloads.extend(
             {"engine": OLLAMA, "model": name, "status": "requested"} for name in ollama_requested
@@ -2324,12 +2329,15 @@ class LoadGuard:
         freed: set[str],
         include_protected: bool = False,
         last_models: set[str] | None = None,
+        exclude: frozenset[str] | set[str] = frozenset(),
     ) -> list[str]:
+        excluded = {model_key(name) for name in exclude}
         idle = [
             name
             for name, size in resident.items()
             if name not in freed
             and size > 0
+            and model_key(name) not in excluded
             and self._ollama_hold_reason(name, include_protected) is None
         ]
         last_keys = {model_key(name) for name in (last_models or set())}
@@ -2356,11 +2364,12 @@ class LoadGuard:
         failed: set[str],
         omlx_held: list[tuple[str, int, str]] | None = None,
         last_models: set[str] | None = None,
+        exclude: frozenset[str] | set[str] = frozenset(),
     ) -> None:
         """Free each idle resident once, or wait when busy residents can still cover the gap."""
         if await self._ollama_frees_pending(pending, resident, headroom, deadline):
             return
-        idle = self._unfreed_idle_ollama(resident, freed, last_models=last_models)
+        idle = self._unfreed_idle_ollama(resident, freed, last_models=last_models, exclude=exclude)
         if idle:
             name = idle[0]
             requested = await self._free_ollama(
@@ -2369,6 +2378,7 @@ class LoadGuard:
                 {name: resident[name]},
                 last_models=last_models,
                 want=need - available,
+                exclude=exclude,
             )
             pending.update(requested)
             if name not in requested:
@@ -2530,6 +2540,7 @@ class LoadGuard:
                 failed,
                 omlx_holding,
                 self._counterpart_models(OMLX, model),
+                exclude=self._counterpart_models(OMLX, model),
             )
 
     async def admit_omlx(self, model: str) -> Callable[[], None] | None:

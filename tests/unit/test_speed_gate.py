@@ -650,3 +650,107 @@ def test_compare_returns_two_when_a_tag_has_no_cells(tmp_path):
 def test_size_parser_rejects_bad_input(bad):
     with pytest.raises(argparse.ArgumentTypeError):
         speed_gate._sizes(bad)
+
+
+def test_roster_omits_seats_in_disabled_modules():
+    portal = {
+        **PORTAL,
+        "modules": {"security": {"enabled": True}, "security_redteam": {"enabled": False}},
+        "workspaces": {
+            **PORTAL["workspaces"],
+            "auto-security": {
+                "module": "security",
+                "model_hint": "model-c",
+                "variants": {
+                    "redteam": {"model_hint": "model-c", "module": "security_redteam"},
+                    "blue": {"model_hint": "model-c"},
+                },
+            },
+        },
+    }
+    backends = {
+        **BACKENDS,
+        "workspace_routing": {**BACKENDS["workspace_routing"], "auto-security": ["reasoning"]},
+    }
+
+    roster = speed_gate.build_roster(backends, portal)
+
+    assert "auto-security::blue" in roster["b3_seats"]
+    assert "auto-security::redteam" not in roster["b3_seats"]
+    assert "auto-security::redteam" in roster["skipped_seats"]
+
+
+def test_real_config_roster_skips_the_disabled_redteam_variants():
+    backends, portal = speed_gate.load_config()
+    roster = speed_gate.build_roster(backends, portal)
+
+    assert "auto-security::redteam" in roster["skipped_seats"]
+    assert "auto-security::redteam" not in roster["b3_seats"]
+    assert "auto-security::redteam-deep" not in roster["b3_seats"]
+    assert "auto-security::purpleteam-exec" not in roster["b3_seats"]
+
+
+def test_b3_skipped_context_and_multi_hop_rows_are_notes_not_engine_failures():
+    payload = {
+        "results": [
+            {"size_tokens": 2000, "seat_status": "ok", "engine_ok": True},
+            {"size_tokens": 8000, "seat_status": "skipped_context", "engine_ok": None},
+            {"size_tokens": 32000, "seat_status": "multi_hop", "engine_ok": None},
+        ],
+        "failures": [],
+    }
+
+    problems = speed_gate._engine_problems("B3", "auto-security::purpleteam", payload, {}, 0)
+
+    assert [problem["kind"] for problem in problems] == ["note", "note"]
+    assert speed_gate._status(problems) == "ok"
+
+
+def test_compare_ignores_skipped_rows():
+    row = {**_b1_row(8000), "seat_status": "skipped_context"}
+    cell = _cell("B3", [row])
+
+    assert speed_gate._cell_rows(cell) == {}
+
+
+def test_run_phases_restricts_the_cells(tmp_path, monkeypatch):
+    backends = {
+        "backends": [
+            {
+                "group": "coding",
+                "type": "omlx",
+                "models": [{"id": "model-a"}],
+                "aliases": {"gguf-a": "model-a"},
+            }
+        ],
+        "workspace_routing": {"auto-coding": ["coding"]},
+        "pipeline_bench_skip": [],
+    }
+    portal = {
+        "workspaces": {
+            "auto-coding": {
+                "model_hint": "gguf-a",
+                "variants": {"heavy": {"model_hint": "model-a"}},
+            }
+        }
+    }
+    http = (
+        FakeHttp()
+        .on("/api/ps", OLLAMA_PS_EMPTY)
+        .on("/v1/models/status", OMLX_STATUS_TARGET)
+        .on("/admin/reclaim-idle", {})
+    )
+    ctx = _ctx(tmp_path / "tag", http)
+    ctx.out_dir = tmp_path / "speed_gate" / "b3only"
+    ctx.speed = lambda _ctx, _engine, _target, path: _write_payload(path, _b3_payload())
+    monkeypatch.setattr(speed_gate, "load_config", lambda _dir=None: (backends, portal))
+    monkeypatch.setattr(speed_gate, "context", lambda _out, _args: ctx)
+
+    args = speed_gate._parser().parse_args(
+        ["run", "b3only", "--out-dir", str(tmp_path / "speed_gate"), "--phases", "B3"]
+    )
+
+    assert speed_gate.cmd_run(args) == 0
+    assert [path.name for path in ctx.out_dir.glob("b[123]_*.json")] == [
+        "b3_auto-coding__heavy.json"
+    ]

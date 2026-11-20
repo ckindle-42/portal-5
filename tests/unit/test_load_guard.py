@@ -800,6 +800,41 @@ async def test_omlx_load_makes_room_from_ollama_and_keeps_its_copy_last():
     release()
 
 
+async def test_omlx_load_refuses_rather_than_evict_its_own_ollama_copy():
+    """2026-11-20 (B3): a cold oMLX load must not unload the same seat's idle GGUF
+    fallback. The router serves the copy that is already loaded instead of thrashing."""
+    e = Engines(
+        ollama={"target": 22 * GIB},
+        omlx={"omlx-target": {"size": 14 * GIB, "loaded": False}},
+        ceiling=10 * GIB,
+    )
+    g = guard(e, counterpart=lambda engine, _model: "target" if engine == lg.OMLX else None)
+
+    with pytest.raises(lg.LoadRefusedError):
+        await g.admit_omlx("omlx-target")
+
+    assert e.unload_calls == {}
+    assert e.ollama == {"target": 22 * GIB}
+
+
+async def test_free_ollama_never_unloads_the_model_it_is_admitting():
+    """A pending Ollama admission must not evict the copy it is loading (B3 2026-11-20)."""
+    e = Engines(ollama={"target": 10 * GIB, "old": 5 * GIB}, ceiling=40 * GIB)
+    g = guard(e)
+
+    async with httpx.AsyncClient(transport=e.transport()) as client:
+        requested = await g._free_ollama(
+            client,
+            OLLAMA_URL,
+            {"target": 10 * GIB, "old": 5 * GIB},
+            want=6 * GIB,
+            exclude={"target"},
+        )
+
+    assert set(requested) == {"old"}
+    assert e.unload_calls == {"old": 1}
+
+
 def test_cross_engine_copy_resolves_configured_aliases_both_ways():
     registry = SimpleNamespace(
         list_backends=lambda: [
