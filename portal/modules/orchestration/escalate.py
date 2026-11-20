@@ -456,9 +456,10 @@ class ProcessDispatcher:
 
     def result(self, *, role: str, repo: Path) -> str:
         """The lane's final ``## RESULT`` block, through dispatch.py's own reader."""
+        lane_repo = _lane_worktree(repo.resolve(), role)
         try:
             done = subprocess.run(
-                [sys.executable, str(self.binary), "--repo", str(repo), "result", role],
+                [sys.executable, str(self.binary), "--repo", str(lane_repo), "result", role],
                 capture_output=True,
                 text=True,
                 timeout=120,

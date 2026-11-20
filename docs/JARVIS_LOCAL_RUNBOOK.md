@@ -34,11 +34,31 @@ uv run portal arm queue-cancel <job>  # drop a queued job (releases its quiet-ho
 `/jarvis status` · `digest` · `held` (escalations waiting on you) · `canary <job>` · `diff <job>` ·
 `pause` / `resume` (stop / restart picking new jobs; the running job continues) · `requeue <job>` ·
 `escalate <job>` · `keep <job>` · `cancel <job>` and `merge <job>` (both ask Confirm first; a
-`pt-` id cancels the personal task and stops a cloud lane already running for it) · `help`.
+`pt-` id cancels the personal task and signals a cloud lane already running for it) · `help`.
 Notices carry buttons for the same actions. A Telegram merge runs the auto-merge checks (allowlist,
 weakened-test check, gates + canary in a throwaway worktree, oracle) and never merges `portal/`,
 `scripts/`, Dockerfiles, or `config/` outside `config/arm_jobs/`. Every request is logged
 (`queue-status` shows the last 10).
+
+## Personal tasks (`/jarvis do`)
+
+`/jarvis do <text>` queues one personal task beside the arm queue
+(`~/AI_Output/generated/tasks/personal_tasks.sqlite3`) and answers `queued pt-<id>` plus its queue
+position. The runner takes one per poll, between arm jobs:
+
+- A read-only request is planned and executed on `auto-daily::fast` (or `auto-coding` when the plan
+  needs a shell) with the tools that workspace actually offers; a Portal status question answers
+  through `get_pipeline_status` / `get_loaded_models`.
+- A risky step (shell, file write, `remember`, git write, a mutating proxmox or unifi/browser call)
+  waits for a Confirm button. Read-only proxmox and git reads do not.
+- A destructive request (`docker compose down`, a docker prune, `rm -rf`, `launch.sh down`, a force
+  push) is refused at intake, and the refusal is the reply — nothing is queued.
+- After two failed local attempts the task goes to a personal cloud lane and the row reads
+  `cloud-running`. **The lane does not hold the queue:** the runner keeps taking tasks, then
+  collects the lane's own `## RESULT` block through `dispatch.py` and sends it to Telegram as the
+  task's answer (`done`, or `blocked` with the block). A killed lane is terminal for that task.
+- The receipt is `~/AI_Output/generated/tasks/<pt-id>/receipt.json`; per-attempt receipts and the
+  lane's dispatch log sit under `attempts/`.
 
 ## What the Telegram messages mean
 
