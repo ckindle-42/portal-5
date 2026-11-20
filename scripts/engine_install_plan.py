@@ -4,9 +4,10 @@
 ``uv pip install --upgrade`` re-resolves the named set and its dependencies, so
 an advisory floor on pillow also moved torch, transformers, diffusers,
 huggingface-hub, and numpy (2026-11-19 install-music). The plan is anchored in
-the installed venv: holds are the core pins from ``uv pip freeze``, sweep fixes
-apply only at the flagged version (core hits refuse as an engine bump unless the
-installed version already satisfies the fix). A resolve conflict against a held
+the installed venv: core pins from ``uv pip freeze`` stay held, and installed
+packages below the highest sweep fix are upgraded (core hits refuse as an engine
+bump unless the installed version already satisfies the fix). The service helper
+refreshes the sweep after any upstream sync. A resolve conflict against a held
 pin drops the offending service dep or sweep fix and prints the pair.
 ``--dry-run`` prints the argv and resolves without installing.
 """
@@ -122,7 +123,7 @@ def parse_sweep_fixes(
     return found
 
 
-def highest_core_fix(
+def highest_fix(
     rows: dict[str, tuple[str, tuple[str, ...]]],
 ) -> tuple[str, tuple[str, ...]]:
     """Highest fix for a package across flagged versions, with every advisory id."""
@@ -160,12 +161,7 @@ def build_plan(
     installed: dict[str, str],
     sweep_text: str,
 ) -> InstallPlan:
-    """Anchor the plan in the installed venv.
-
-    Sweep fixes apply only when the flagged version is the one installed here;
-    core hits refuse as an engine bump unless the installed version already
-    satisfies the highest fix in the report.
-    """
+    """Select fixes for installed packages below their highest reported floor."""
     if service not in SERVICE_DEPS:
         raise ValueError(f"unknown engine service {service!r}")
     deps = SERVICE_DEPS[service]
@@ -180,18 +176,17 @@ def build_plan(
         current = installed.get(name)
         if current is None:
             continue
+        fix, ids = highest_fix(rows)
         if is_core_stack(name):
-            fix, ids = highest_core_fix(rows)
             if version_key(current) >= version_key(fix):
                 satisfied.append(f"{name}=={current} (fix {fix})")
                 continue
             label = f"{name}=={fix}" + (f" ({', '.join(ids)})" if ids else "")
             refused.append(f"{label}; installed {current}; engine bump required")
             continue
-        row = rows.get(current)
-        if row is None or name in dep_names:
+        if version_key(current) >= version_key(fix):
             continue
-        upgrades.append(f"{name}=={row[0]}")
+        upgrades.append(f"{name}=={fix}")
         upgrade_packages.append(name)
     holds = tuple(
         f"{name}=={version}"

@@ -71,19 +71,41 @@ _latest_sweep_report() {
     printf '%s' "$report"
 }
 
-# Print (dry-run) or apply service deps + non-core sweep fixes. Core stack is held.
+# Build service deps and sweep fixes; apply refreshes the report after upstream sync.
 _engine_dep_plan() {
     local service="$1" py="$2" mode="${3:-apply}"
     local portal_py="$PORTAL_ROOT/.venv/bin/python"
     [ -x "$portal_py" ] || portal_py="$(command -v python3)"
-    local report
-    report="$(_latest_sweep_report)"
+    local report="" report_dir="" candidate status
+    if [ "$mode" = "apply" ]; then
+        report_dir="$(mktemp -d "${TMPDIR:-/tmp}/portal5-engine-sweep.XXXXXX")" || return 1
+        if ! "$portal_py" "$PORTAL_ROOT/scripts/security_sweep.py" \
+            --repo "$PORTAL_ROOT" --home "$HOME" --output-dir "$report_dir" \
+            --skip-images --no-alert --no-delta; then
+            echo "  ❌ fresh security sweep failed; refusing to apply engine dependencies" >&2
+            rm -rf "$report_dir"
+            return 1
+        fi
+        for candidate in "$report_dir"/security_sweep_*.md; do
+            [ -f "$candidate" ] || continue
+            report="$candidate"
+        done
+        if [ -z "$report" ]; then
+            echo "  ❌ fresh security sweep produced no report; refusing to apply engine dependencies" >&2
+            rm -rf "$report_dir"
+            return 1
+        fi
+    else
+        report="$(_latest_sweep_report)"
+    fi
     local args=( "$portal_py" "$PORTAL_ROOT/scripts/engine_install_plan.py"
         --service "$service" --python "$py" --mode "$mode" )
     if [ -n "$report" ]; then
         args+=( --sweep-report "$report" )
     fi
-    "${args[@]}"
+    if "${args[@]}"; then status=0; else status=$?; fi
+    [ -z "$report_dir" ] || rm -rf "$report_dir"
+    return "$status"
 }
 
 # bootout is optional (the label may be unloaded). bootstrap and a running

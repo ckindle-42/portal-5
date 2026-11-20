@@ -149,11 +149,19 @@ _FASTMCP_CONFLICT_STDERR = """  × No solution found when resolving dependencies
 """
 
 
-def test_music_plan_moves_only_the_flagged_versions_installed_here():
+def test_music_plan_applies_sweep_fixes_to_installed_versions_below_the_floor():
     plan = build_plan("music", _MUSIC_INSTALLED, _MUSIC_SWEEP)
-    assert plan.upgrades == ("gradio==6.16.0", "multidict==6.9.1")
-    # Fixtures flagged in other environments must not move this venv.
-    for name in ("fastmcp", "filelock", "certifi", "aiohttp", "pillow", "setuptools"):
+    assert plan.upgrades == (
+        "aiohttp==3.14.4",
+        "certifi==2026.10.18",
+        "filelock==4.2.1",
+        "gradio==6.16.0",
+        "multidict==6.9.1",
+        "pillow==13.0.0",
+        "setuptools==84.1.0",
+    )
+    # A report row cannot target a package that is absent from the engine venv.
+    for name in ("fastmcp",):
         assert not any(spec.startswith(f"{name}==") for spec in plan.upgrades)
     assert "mlx==0.30.6" in plan.holds
     assert "torch==2.10.0" in plan.holds
@@ -163,6 +171,76 @@ def test_music_plan_moves_only_the_flagged_versions_installed_here():
     assert "GHSA-rrmf-rvhw-rf47" in refused
     assert "PYSEC-2026-3929" in refused
     assert plan.satisfied == ()
+
+
+def test_music_plan_applies_reported_fixes_across_versions_and_service_deps():
+    installed = {"fastapi": "0.128.0", "pillow": "12.1.0"}
+    sweep = """
+| Ecosystem | Package | Version | Advisory | Severity | Fixed in | Source |
+|---|---|---|---|---|---|---|
+| PyPI | fastapi | 0.128.0 | GHSA-fastapi | HIGH | 0.165.0 | another/.venv |
+| PyPI | pillow | 12.2.0 | GHSA-pillow | CRITICAL | 13.0.0 | another/.venv |
+"""
+    plan = build_plan("music", installed, sweep)
+    assert plan.upgrades == ("fastapi==0.165.0", "pillow==13.0.0")
+
+
+def test_apply_refreshes_sweep_before_building_the_engine_plan(tmp_path):
+    import os
+    import subprocess
+    from pathlib import Path
+
+    portal_root = tmp_path / "portal"
+    python = portal_root / ".venv" / "bin" / "python"
+    python.parent.mkdir(parents=True)
+    call_log = tmp_path / "calls.txt"
+    python.write_text(
+        "#!/bin/sh\n"
+        "{ printf '__CALL__\\n'; printf '%s\\n' \"$@\"; } >> \"$CALL_LOG\"\n"
+        'if [ "${1##*/}" = security_sweep.py ]; then\n'
+        '  while [ "$#" -gt 0 ]; do\n'
+        '    if [ "$1" = --output-dir ]; then shift; out="$1"; break; fi\n'
+        "    shift\n"
+        "  done\n"
+        '  mkdir -p "$out"\n'
+        '  touch "$out/security_sweep_20990101.md"\n'
+        "fi\n",
+        encoding="utf-8",
+    )
+    python.chmod(0o755)
+    home = tmp_path / "home"
+    stale_report = home / ".portal5" / "security" / "security_sweep_20260101.md"
+    stale_report.parent.mkdir(parents=True)
+    stale_report.touch()
+    services = Path(__file__).resolve().parents[2] / "scripts" / "lib" / "services.sh"
+    env = os.environ | {
+        "CALL_LOG": str(call_log),
+        "HOME": str(home),
+        "PORTAL_ROOT": str(portal_root),
+        "SERVICES_SH": str(services),
+        "TARGET_PY": str(tmp_path / "music" / ".venv" / "bin" / "python"),
+    }
+    result = subprocess.run(
+        ["bash", "-c", 'source "$SERVICES_SH"; _engine_dep_plan music "$TARGET_PY" apply'],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    calls = [
+        part.splitlines()
+        for part in call_log.read_text(encoding="utf-8").split("__CALL__\n")
+        if part.strip()
+    ]
+    assert len(calls) == 2
+    assert calls[0][0].endswith("security_sweep.py")
+    assert {"--skip-images", "--no-alert", "--no-delta"}.issubset(calls[0])
+    assert calls[1][0].endswith("engine_install_plan.py")
+    report = calls[1][calls[1].index("--sweep-report") + 1]
+    assert "portal5-engine-sweep." in report
+    assert report != str(stale_report)
+    assert not Path(report).exists()
 
 
 def test_music_plan_holds_core_at_the_installed_versions_only():
