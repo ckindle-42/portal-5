@@ -120,3 +120,29 @@ runs it at the end of a screen.
 
 That gives music two lineages: Gemini 4 (Antigravity) and Xiaomi MiMo. Nothing in
 `config/portal.yaml` or any seat changed.
+
+## 6. The step run over the 11-20 clips
+
+Run from a **copy** of `music-20261120T134823Z/rows.jsonl` in scratch (the clips resolve by
+absolute path; nothing was written into the live screen directory):
+
+`uv run python scripts/proofs/media_screen_listen.py --run-dir coding_task/scratch/judge/run`
+
+| pair | candidate | incumbent | MiMo winner | 11-20 Gemini |
+|---|---|---|---|---|
+| lm06 p1 | 2/4/2/5/5 | 3/4/3/4/5 | incumbent | split (Neon incumbent, Hydrogen candidate) |
+| lm06 p2 | 3/3/4/4/3 | 4/4/5/5/4 | incumbent | incumbent, both |
+| lm06 p3 | 2/3/2/4/5 | 5/4/5/5/5 | incumbent | incumbent, both |
+| nolm p1 | 5/4/5/5/5 | 4/4/4/4/5 | candidate | split (Neon incumbent, Hydrogen candidate) |
+| nolm p2 | 2/3/3/4/4 | 4/4/4/5/4 | incumbent | incumbent, both |
+| nolm p3 | 5/5/5/5/5 | 3/3/3/4/5 | candidate | candidate, both |
+
+Four of four pairs where both Gemini listeners agreed come out the same way here; on the two
+prompt-1 splits it takes one each. The reasons are the screen's own discriminators, not generic
+praise: on lm06 p3 it hears "plucked guitar, shaker percussion … percussion despite no-drums
+instruction"; on nolm p2 "chorus only, verse missing"; on p2 it transcribes the incumbent as
+"Streetlight on the wet stone … Hold the line, hold the line" and the lm06 take as adding
+"hold the light" (the doc's "repeats a chorus line"). Every receipt carries `audio_tokens: 376`.
+
+This is a judge call against real clips, not a live-stack result; the re-screen itself is the
+orchestrator's.
