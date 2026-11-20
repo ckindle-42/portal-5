@@ -152,3 +152,16 @@ instruction"; on nolm p2 "chorus only, verse missing"; on p2 it transcribes the 
 
 This is a judge call against real clips, not a live-stack result; the re-screen itself is the
 orchestrator's.
+
+### Stability — n=1 is not a decision on tight pairs
+
+The identical run repeated (same seed, same clips, same model) agreed on five of six pairs and
+moved on one: `nolm p1` came out **candidate** 5/4/5/5/5 vs 4/4/4/4/5 in the first run and
+**incumbent** 3/3/3/4/5 vs 4/4/4/5/5 in the second. That is the pair both Gemini listeners also
+split, so it is a genuinely close call rather than a decoding artefact — the metric there is the
+only one that moved, and the lm06 rows and `nolm p2/p3` were stable across both runs.
+
+So: one call per pair is enough to give music a second lineage, not enough to settle a close
+row. Two lineages agreeing is the signal; when they disagree, re-run (`--seed` other than
+`20261120` changes the A/B draw) or listen. `--repeat N` majority voting is the obvious next
+step and was deliberately not added here.
