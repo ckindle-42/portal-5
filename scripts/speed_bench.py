@@ -152,19 +152,22 @@ def omlx_metrics(body: dict) -> dict:
     )
 
 
-def pipeline_metrics(timings: dict, usage: dict) -> dict:
+def pipeline_metrics(timings: dict, usage: dict, served_model: str | None = None) -> dict:
     """Map the Pipeline's ``portal_timings`` frame (plus usage) to a result row."""
     prompt_tokens = _count(usage.get("prompt_tokens"))
     prefill_s = _number(timings.get("prefill_s"))
-    return _row(
+    row = _row(
         prompt_tokens=prompt_tokens,
         prefill_tps=prompt_tokens / prefill_s if prompt_tokens and prefill_s else None,
         decode_tps=_number(timings.get("answer_tps")),
-        load_seconds=None,
+        load_seconds=_number(usage.get("model_load_duration")),
         ttft_s=_number(timings.get("ttft_s")),
         total_s=_number(timings.get("total_s")),
         timing_source=str(timings.get("timing_source") or "measured"),
     )
+    row["served_model"] = served_model
+    row["completion_tokens"] = _count(usage.get("completion_tokens"))
+    return row
 
 
 def stream_wall(lines: Iterable[bytes | str], clock: Any = time.monotonic) -> dict[str, Any]:
@@ -199,10 +202,11 @@ def stream_wall(lines: Iterable[bytes | str], clock: Any = time.monotonic) -> di
     }
 
 
-def parse_sse_timings(lines: Iterable[bytes | str]) -> tuple[dict, dict]:
-    """Return the last ``portal_timings`` frame and usage chunk of an SSE stream."""
+def parse_sse_timings(lines: Iterable[bytes | str]) -> tuple[dict, dict, str | None]:
+    """Return the last ``portal_timings`` frame, the usage chunk, and the served model."""
     timings: dict[str, Any] = {}
     usage: dict[str, Any] = {}
+    model: str | None = None
     for raw in lines:
         line = raw.decode("utf-8") if isinstance(raw, bytes) else raw
         line = line.strip()
@@ -219,7 +223,9 @@ def parse_sse_timings(lines: Iterable[bytes | str]) -> tuple[dict, dict]:
             timings = obj["portal_timings"]
         if isinstance(obj.get("usage"), dict):
             usage = obj["usage"]
-    return timings, usage
+        if isinstance(obj.get("model"), str) and obj["model"]:
+            model = obj["model"]
+    return timings, usage, model
 
 
 def _post(url: str, payload: dict, timeout: float, headers: dict[str, str] | None = None) -> Any:
@@ -285,7 +291,12 @@ def request_omlx_streamed(
 def request_pipeline(
     host: str, workspace: str, prompt: str, api_key: str = "", timeout: float = 600.0
 ) -> tuple[dict, dict]:
-    """Stream one workspace reply through the Pipeline; return its timings and usage."""
+    """Stream one workspace reply through the Pipeline.
+
+    Returns ``(timings, usage, served_model)``: the ``portal_timings`` frame, the
+    usage chunk, and the model id the Pipeline actually served the request with
+    (the response's ``model`` field — a fallback renames it).
+    """
     payload = {
         "model": workspace,
         "messages": [{"role": "user", "content": prompt}],
@@ -331,10 +342,10 @@ def _measure(
             return _measured_omlx(host, target, prompt, api_key, timeout)
         return row
     if engine == "pipeline":
-        timings, usage = request_pipeline(host, target, prompt, api_key, timeout)
+        timings, usage, served = request_pipeline(host, target, prompt, api_key, timeout)
         if not timings:
             raise ValueError("stream carried no portal_timings frame")
-        return pipeline_metrics(timings, usage)
+        return pipeline_metrics(timings, usage, served)
     raise ValueError(f"unknown engine {engine!r}")
 
 

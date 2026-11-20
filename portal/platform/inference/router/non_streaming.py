@@ -23,6 +23,7 @@ from portal.platform.inference.router.backend_introspect import (
     _approx_prompt_tokens,
     _backend_type_for_url,
 )
+from portal.platform.inference.router.context_budget import ContextOverflowError
 from portal.platform.inference.router.context_budget import fit_prompt as fit_context
 from portal.platform.inference.router.correlation import get_correlation_id
 from portal.platform.inference.router.download_links import (
@@ -1187,15 +1188,17 @@ async def _try_non_streaming(
     trace_note(tools_offered=offered_tool_names(req_body))
 
     _prefill_refusal: str | None = None
+    _local_refusal = False
     _last_request_body: dict[str, Any] = req_body
 
     async def _run_request() -> JSONResponse | None:
         """POST → tool loop → normalise → return. None on any failure."""
 
-        nonlocal _prefill_refusal, _last_request_body
+        nonlocal _prefill_refusal, _last_request_body, _local_refusal
         carry_tool_calls: list[dict[str, Any]] = []
         carry_results: list[dict[str, Any]] = []
         _prefill_refusal = None
+        _local_refusal = False
         _last_request_body = req_body
         try:
             _req_tools = len(req_body.get("tools", []))
@@ -1465,6 +1468,21 @@ async def _try_non_streaming(
             )
         except (httpx.TimeoutException, BackendRequestError):
             raise  # timeout: outer handler checks /api/ps; 4xx: caller surfaces it
+        except ContextOverflowError as exc:
+            # A local refusal: nothing was sent, so the backend did not fail —
+            # record and cascade without a P-2 pin (the pin blocked later loads,
+            # 2026-11-20 bench cascade).
+            _local_refusal = True
+            if tried is not None:
+                tried[(backend.chat_url, target_model)] = f"{target_model}: {exc}"
+            logger.warning(
+                "Backend %s refused locally for workspace=%s model=%s: %s",
+                backend.id,
+                workspace_id,
+                target_model,
+                str(exc)[:300],
+            )
+            return None
         except Exception as exc:
             # The cause used to be swallowed: a cascade to the next candidate
             # left only "Backend X failed" in the log.
@@ -1510,7 +1528,8 @@ async def _try_non_streaming(
             return result
         _raise_prefill_capacity_error(_prefill_refusal, _last_request_body)
         # Non-timeout failure (HTTP error, JSON parse, etc.) — cascade immediately.
-        _protect_failed_model(backend, target_model)
+        if not _local_refusal:  # a local refusal is not a backend failure (P-2)
+            _protect_failed_model(backend, target_model)
         logger.warning(
             "Backend %s failed for workspace=%s — trying next candidate",
             backend.id,
