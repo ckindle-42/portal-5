@@ -169,9 +169,11 @@ case "${1:-up}" in
         docker compose run --rm openwebui-init >/dev/null 2>&1 &
     fi
 
-    # Pruning is one step: _disk_hygiene after the health gate below (a failed
-    # start keeps the old images for rollback).
+    # Pruning is one step: the sandbox images are ensured first (a manual prune
+    # can leave one absent), then _disk_hygiene after the health gate below
+    # (a failed start keeps the old images for rollback).
     _wait_up_health
+    _ensure_sandbox_images
     _disk_hygiene
 
     echo "[portal-5] Stack started."
@@ -334,13 +336,8 @@ case "${1:-up}" in
     echo "[portal-5] Rebuilding: $BUILD_SERVICES"
     # shellcheck disable=SC2086
     docker compose build --build-arg PORTAL_BUILD_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)" --build-arg PORTAL_BUILD_DIRTY="$(git status --porcelain -- portal 2>/dev/null | wc -l | tr -d ' ')" $BUILD_SERVICES
-    echo "[portal-5] Building native arm64 PowerShell sandbox image..."
-    docker build -t portal5-pwsh:latest -f "$PORTAL_ROOT/Dockerfile.pwsh" "$PORTAL_ROOT"
-    echo "[portal-5] Loading pwsh image into DinD..."
-    docker save portal5-pwsh:latest | docker exec -i portal5-dind docker load
-    echo "[portal-5] Building data sandbox image (python + pandas/openpyxl) and loading into DinD..."
-    printf 'FROM python:3.11-slim\nRUN pip install --no-cache-dir pandas openpyxl pytest\n' | docker build -t portal5-sandbox-data:latest -
-    docker save portal5-sandbox-data:latest | docker exec -i portal5-dind docker load
+    echo "[portal-5] Building native arm64 PowerShell + data sandbox images and loading into DinD..."
+    _ensure_sandbox_images --rebuild
     echo "[portal-5] Restarting rebuilt containers for enabled modules..."
     _disabled_compose="$(_portal_module_services --disabled --kind compose)"
     _keep=""
@@ -378,13 +375,8 @@ case "${1:-up}" in
     MCP_SERVICES="$(_compose_built_services --mcp)"
     echo "[portal-5] Rebuilding MCP images..."
     docker compose build --build-arg PORTAL_BUILD_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)" --build-arg PORTAL_BUILD_DIRTY="$(git status --porcelain -- portal 2>/dev/null | wc -l | tr -d ' ')" $MCP_SERVICES
-    echo "[portal-5] Building native arm64 PowerShell sandbox image..."
-    docker build -t portal5-pwsh:latest -f "$PORTAL_ROOT/Dockerfile.pwsh" "$PORTAL_ROOT"
-    echo "[portal-5] Loading pwsh image into DinD..."
-    docker save portal5-pwsh:latest | docker exec -i portal5-dind docker load
-    echo "[portal-5] Building data sandbox image (python + pandas/openpyxl) and loading into DinD..."
-    printf 'FROM python:3.11-slim\nRUN pip install --no-cache-dir pandas openpyxl pytest\n' | docker build -t portal5-sandbox-data:latest -
-    docker save portal5-sandbox-data:latest | docker exec -i portal5-dind docker load
+    echo "[portal-5] Building native arm64 PowerShell + data sandbox images and loading into DinD..."
+    _ensure_sandbox_images --rebuild
     echo "[portal-5] Restarting MCP containers..."
     docker compose up -d --no-deps $MCP_SERVICES
     echo "[portal-5] Done. Check status: ./launch.sh status"

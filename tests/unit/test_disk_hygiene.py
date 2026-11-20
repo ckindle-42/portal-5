@@ -2,10 +2,10 @@
 
 Stubbed docker/df/du (test_installer_launchd_reload.py stub pattern) drive the
 util.sh function: superseded Portal images (retired MCP image) are removed,
-compose-declared and container-referenced images are kept, dind keeps the
-images its compose-declared sandbox services need, the report prints
-before/after main-drive free space and Docker.raw allocated size, and the
-fstrim runs through the VM namespaces. No live docker here.
+compose-declared, container-referenced and sandbox/launch-built images are kept
+(host and dind), the report prints before/after main-drive free space and
+Docker.raw allocated size, and the fstrim runs through the VM namespaces. No
+live docker here.
 """
 
 from __future__ import annotations
@@ -68,7 +68,13 @@ if [ "$n" -eq 0 ]; then echo 20971520; else echo 19922944; fi
 """
 
 
-def _hygiene_run(tmp_path: Path, monkeypatch, *, dind_running: bool = True) -> str:
+def _hygiene_run(
+    tmp_path: Path,
+    monkeypatch,
+    *,
+    dind_running: bool = True,
+    env_extra: dict[str, str] | None = None,
+) -> str:
     home = tmp_path / "home"
     state = tmp_path / "state"
     stubs = tmp_path / "stubs"
@@ -98,11 +104,21 @@ def _hygiene_run(tmp_path: Path, monkeypatch, *, dind_running: bool = True) -> s
     (state / "host_images").write_text(
         "portal-5-mcp-reranker:latest\t23.6GB\n"
         "portal-5-mcp-documents:latest\t7.56GB\n"
+        "portal5-pwsh:latest\t1.2GB\n"
+        "portal5-sandbox-data:latest\t900MB\n"
+        "portal5-attack:latest\t4.1GB\n"
         "python:3.11-slim\t215MB\n"
         "<none>:<none>\t0B\n"
     )
     (state / "dind_images").write_text(
-        "python:3.11-slim\nportal5-sandbox-data:latest\nportal5-pwsh:latest\n<none>:<none>\n"
+        "python:3.11-slim\n"
+        "portal5-retired:latest\n"
+        "alpine:latest\n"
+        "portal5-sandbox-data:latest\n"
+        "portal5-pwsh:latest\n"
+        "portal5-attack:latest\n"
+        "portal5-binresearch:latest\n"
+        "<none>:<none>\n"
     )
     (state / "dind_state").write_text("true" if dind_running else "false\n")
 
@@ -112,6 +128,7 @@ def _hygiene_run(tmp_path: Path, monkeypatch, *, dind_running: bool = True) -> s
         "PORTAL5_TEST_STATE": str(state),
         "PORTAL_ROOT": str(tmp_path),
         "COMPOSE_DIR": str(compose),
+        **(env_extra or {}),
     }
     result = subprocess.run(
         ["bash", "-c", f"source {_UTIL}; _disk_hygiene"],
@@ -133,6 +150,19 @@ def test_superseded_portal_image_removed_declared_and_used_kept(tmp_path, monkey
     assert "superseded Portal images removed: 1" in out
 
 
+def test_launch_built_sandbox_images_survive_the_host_prune(tmp_path, monkeypatch):
+    """The sandbox images are not compose services: only the sandbox keep set protects them."""
+    _hygiene_run(tmp_path, monkeypatch)
+    removed = (tmp_path / "state" / "removed.log").read_text().splitlines()
+
+    for image in (
+        "portal5-pwsh:latest",
+        "portal5-sandbox-data:latest",
+        "portal5-attack:latest",
+    ):
+        assert image not in removed
+
+
 def test_report_prints_before_after_free_space_and_docker_raw(tmp_path, monkeypatch):
     out = _hygiene_run(tmp_path, monkeypatch)
 
@@ -146,9 +176,35 @@ def test_dind_prune_keeps_sandbox_images_removes_unused_upstream(tmp_path, monke
     out = _hygiene_run(tmp_path, monkeypatch)
     removed = (tmp_path / "state" / "dind_removed.log").read_text().splitlines()
 
-    assert removed == ["python:3.11-slim"]
+    assert removed == ["python:3.11-slim", "portal5-retired:latest"]
     assert "dind dangling images: 0B" in out
     assert "dind build cache: 0B" in out
+
+
+def test_dind_prune_keeps_the_upstream_base_the_sandbox_can_pull(tmp_path, monkeypatch):
+    _hygiene_run(tmp_path, monkeypatch)
+    removed = (tmp_path / "state" / "dind_removed.log").read_text().splitlines()
+
+    assert "alpine:latest" not in removed
+
+
+def test_dind_prune_keeps_a_lab_image_named_only_in_env(tmp_path, monkeypatch):
+    """SANDBOX_LAB_IMAGE is resolved the way the sandbox resolves it, not by compose."""
+    state = tmp_path / "state"
+    _hygiene_run(
+        tmp_path,
+        monkeypatch,
+        env_extra={
+            "SANDBOX_LAB_EXEC": "true",
+            "SANDBOX_LAB_IMAGE": "portal5-attack:latest",
+            "BINRESEARCH_IMAGE": "portal5-binresearch:latest",
+        },
+    )
+    removed = (state / "dind_removed.log").read_text().splitlines()
+
+    assert "portal5-attack:latest" not in removed
+    assert "portal5-binresearch:latest" not in removed
+    assert "portal5-pwsh:latest" not in removed
 
 
 def test_fstrim_runs_in_vm_namespaces_when_docker_raw_present(tmp_path, monkeypatch):

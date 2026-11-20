@@ -466,23 +466,125 @@ _check_image_freshness() {
     fi
 }
 
+# ── Sandbox images: what the sandbox/MCPs resolve, and how they are restored ─
+# One image per line. `required` is what a running service points at (env
+# override, else the compose/service default the code resolves); `all` adds the
+# upstream bases the sandbox may pull; `built` is every image launch.sh can
+# build, which hygiene must never prune.
+_sandbox_images() {
+    case "${1:-required}" in
+        built)
+            printf '%s\n' portal5-pwsh:latest portal5-sandbox-data:latest \
+                portal5-attack:latest portal5-binresearch:latest
+            ;;
+        all)
+            _sandbox_images required
+            printf '%s\n' "${SANDBOX_BASH_IMAGE:-alpine:latest}" \
+                "${SANDBOX_NODE_IMAGE:-node:20-alpine}"
+            ;;
+        *)
+            printf '%s\n' "${SANDBOX_DOCKER_IMAGE:-portal5-sandbox-data:latest}" \
+                "${SANDBOX_PS_IMAGE:-portal5-pwsh:latest}" \
+                "${BINRESEARCH_IMAGE:-portal5-binresearch:latest}"
+            if [ "${SANDBOX_LAB_EXEC:-false}" = "true" ] && [ -n "${SANDBOX_LAB_IMAGE:-}" ]; then
+                printf '%s\n' "${SANDBOX_LAB_IMAGE}"
+            fi
+            ;;
+    esac
+}
+
+# Build one Portal sandbox/lab image by tag; 1 when launch.sh has no recipe.
+_build_portal_image() {
+    case "$1" in
+        portal5-pwsh:latest)
+            docker build -t "$1" -f "$PORTAL_ROOT/Dockerfile.pwsh" "$PORTAL_ROOT" ;;
+        portal5-sandbox-data:latest)
+            printf 'FROM python:3.11-slim\nRUN pip install --no-cache-dir pandas openpyxl pytest\n' \
+                | docker build -t "$1" - ;;
+        portal5-attack:latest)
+            docker build -t "$1" -f "$PORTAL_ROOT/Dockerfile.attack" "$PORTAL_ROOT" ;;
+        portal5-binresearch:latest)
+            docker build -t "$1" -f "$PORTAL_ROOT/Dockerfile.binresearch" "$PORTAL_ROOT" ;;
+        *) return 1 ;;
+    esac
+}
+
+_dind_has_image() {
+    docker exec portal5-dind docker image inspect "$1" >/dev/null 2>&1
+}
+
+_load_into_dind() {
+    echo "[portal-5] Loading $1 into DinD..."
+    docker save "$1" | docker exec -i portal5-dind docker load
+}
+
+# Every image the sandbox or a tool MCP launches must exist in DinD before the
+# stack is used: build a missing one from its own recipe, then load it. The two
+# images `rebuild` owns are required (a failed build stops `up`); an opt-in
+# image (attack while lab-exec is on, binresearch) warns instead. With
+# --rebuild those two are always rebuilt and reloaded.
+_ensure_sandbox_images() {
+    local rebuild="${1:-}" ref built
+    if [ "$(docker inspect -f '{{.State.Running}}' portal5-dind 2>/dev/null)" != "true" ]; then
+        echo "[portal-5] ❌ portal5-dind is not running — sandbox images cannot be verified" >&2
+        return 1
+    fi
+    while IFS= read -r ref; do
+        [ -n "$ref" ] || continue
+        built=0
+        if [ "$rebuild" = "--rebuild" ]; then
+            case "$ref" in
+                portal5-pwsh:latest|portal5-sandbox-data:latest)
+                    _build_portal_image "$ref" || return 1
+                    built=1
+                    ;;
+            esac
+        fi
+        if [ "$built" -eq 0 ] && ! docker image inspect "$ref" >/dev/null 2>&1; then
+            echo "[portal-5] Sandbox image missing: $ref — rebuilding..."
+            if ! _build_portal_image "$ref"; then
+                case "$ref" in
+                    portal5-pwsh:latest|portal5-sandbox-data:latest)
+                        echo "[portal-5] ❌ $ref is missing and could not be built" >&2
+                        return 1
+                        ;;
+                    portal5-*)
+                        echo "[portal-5] ⚠️  $ref is missing and could not be built" >&2
+                        ;;
+                esac
+                continue
+            fi
+            built=1
+        fi
+        if [ "$built" -eq 1 ] || ! _dind_has_image "$ref"; then
+            _load_into_dind "$ref" || return 1
+        fi
+    done < <(_sandbox_images required)
+}
+
 # ── Disk hygiene: prune what the started stack no longer uses, report savings ─
 # Runs at the end of `up`/`rebuild` (a failed start keeps the old images for
 # rollback — the same rule weekly_rebuild.py prunes by). Removes superseded
-# Portal images (Portal-owned tags no compose service declares and no container
-# references — e.g. a retired MCP image), dangling images and dangling build
-# cache on the host, and inside portal5-dind the same, except images its
-# compose-declared sandbox services need. Then fstrim in the Docker Desktop VM
-# returns the freed blocks to the host. Never touches volumes or models, never
-# `docker compose down -v`; `docker rmi`/`prune` refuse anything a container
-# still references. The emergency levers stay manual: `docker system prune -af`
-# and `docker exec portal5-dind docker system prune -af`.
+# Portal images (Portal-owned tags no compose service declares, no container
+# references and no sandbox role names — e.g. a retired MCP image), dangling
+# images and dangling build cache on the host, and inside portal5-dind the
+# same, except the images its services and sandbox roles need. Then fstrim in
+# the Docker Desktop VM returns the freed blocks to the host. Never touches
+# volumes or models, never `docker compose down -v`; `docker rmi`/`prune`
+# refuse anything a container still references. The emergency levers stay
+# manual: `docker system prune -af` and `docker exec portal5-dind docker system
+# prune -af`.
 _disk_hygiene() {
-    local raw_path free_before free_after raw_before raw_after declared in_use keep ref repo removed _img
+    local raw_path free_before free_after raw_before raw_after declared in_use keep ref repo removed
     raw_path="$HOME/Library/Containers/com.docker.docker/Data/vms/0/data/Docker.raw"
     free_before=0; raw_before=0
     free_before="$(df -k / 2>/dev/null | awk 'NR==2 {print $4}')"
     [ -f "$raw_path" ] && raw_before="$(du -k "$raw_path" 2>/dev/null | awk '{print $1}')"
+
+    # Images the sandbox and tool MCPs launch on demand: nothing in compose
+    # declares them, so a missing entry here is what a manual prune deletes.
+    keep=" $( { _sandbox_images built; _sandbox_images all; } | sort -u | tr '\n' ' ')"
+    keep="$keep "
 
     # Superseded Portal images: compose decides what is current; the declared set
     # is name-only for build: services, so compare repositories. Both channel
@@ -499,6 +601,7 @@ _disk_hygiene() {
             case "$ref" in portal5-*|portal-5-*) ;; *) continue ;; esac
             repo="${ref%%:*}"
             printf '%s\n' "$declared" | grep -qx -- "$repo" && continue
+            case "$keep" in *" $ref "*|*" $repo "*|*" $repo:"*) continue ;; esac
             printf '%s\n' "$in_use" | grep -qx -- "$ref" && continue
             printf '%s\n' "$in_use" | grep -qx -- "$repo" && continue
             echo "[portal-5] 🧹 superseded image: $ref ($size)"
@@ -513,23 +616,19 @@ _disk_hygiene() {
         | sed 's/^Total reclaimed space: /[portal-5] 🧹 host build cache: /' || true
 
     # Inside portal5-dind: dangling generations + build cache, then tagged images
-    # nothing uses except those the compose-declared sandbox services need (the
-    # compose env defaults name them; pwsh is built and loaded by this script;
-    # .env overrides of those image vars are kept as well).
+    # nothing uses except those the compose services and the sandbox roles name
+    # (the keep set above: compose image refs, pwsh/attack/binresearch, and the
+    # .env overrides of the sandbox image vars).
     if [ "$(docker inspect -f '{{.State.Running}}' portal5-dind 2>/dev/null)" = "true" ]; then
-        keep="$(grep -ohE 'portal5-[a-zA-Z0-9._/-]+:[a-zA-Z0-9._-]+' \
-            "$PORTAL_ROOT/deploy/portal-5/docker-compose.yml" 2>/dev/null | sort -u | tr '\n' ' ')"
-        keep="$keep portal5-pwsh:latest"
-        for _img in "${SANDBOX_DOCKER_IMAGE:-}" "${BINRESEARCH_IMAGE:-}" "${SANDBOX_PS_IMAGE:-}" "${SANDBOX_LAB_IMAGE:-}"; do
-            [ -n "$_img" ] && keep="$keep $_img"
-        done
+        keep="$keep$(grep -ohE 'portal5-[a-zA-Z0-9._/-]+:[a-zA-Z0-9._-]+' \
+            "$PORTAL_ROOT/deploy/portal-5/docker-compose.yml" 2>/dev/null | sort -u | tr '\n' ' ') "
         docker exec portal5-dind docker image prune -f 2>/dev/null | grep -oE 'Total reclaimed space: .*' \
             | sed 's/^Total reclaimed space: /[portal-5] 🧹 dind dangling images: /' || true
         docker exec portal5-dind docker builder prune -f 2>/dev/null | grep -oE 'Total reclaimed space: .*' \
             | sed 's/^Total reclaimed space: /[portal-5] 🧹 dind build cache: /' || true
         while IFS= read -r ref; do
             [ -n "$ref" ] || continue
-            case " $keep " in *" $ref "*) continue ;; esac
+            case "$keep" in *" $ref "*) continue ;; esac
             docker exec portal5-dind docker rmi "$ref" >/dev/null 2>&1 || true
         done < <(docker exec portal5-dind docker image ls --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -v '<none>')
     fi
