@@ -40,7 +40,7 @@ import httpx
 from fastapi import HTTPException
 
 from portal.platform.inference.config import PersonaSpec
-from portal.platform.inference.load_guard import protect_failover
+from portal.platform.inference.load_guard import note_failure, protect_failover
 from portal.platform.inference.model_addressing import workspace_context_limit
 from portal.platform.inference.router import no_answer
 from portal.platform.inference.router.backend_introspect import (
@@ -3162,6 +3162,7 @@ async def _stream_with_fallback(
             route_parts[1] if len(route_parts) > 1 and route_parts[1] else candidate.id
         )
         resolved_model = route_parts[2] if len(route_parts) > 2 and route_parts[2] else target_model
+        protect_failover(getattr(candidate, "type", ""), resolved_model)  # the seat that served
         trace_note(backend=resolved_backend, model=resolved_model, outcome="ok")
         trace_span(
             "backend.selected",
@@ -3259,7 +3260,7 @@ async def _stream_with_fallback(
 
     if stream_failed:
         if not _is_local_context_refusal(_error_status, _error_buffer):
-            protect_failover(getattr(backend, "type", ""), target_model)  # P-2: no eviction cascade
+            note_failure(getattr(backend, "type", ""), target_model)  # evict it first, never pin
         fallback_body = {**body, "stream": False}
         # The streamed (engine, model) pair already failed; several backend
         # groups front the same engine, so resending there is a repeat.

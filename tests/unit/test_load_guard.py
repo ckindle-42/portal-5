@@ -1228,3 +1228,68 @@ async def test_an_unknown_reclaim_share_admits_on_the_previous_path_and_says_so(
     assert release is not None
     assert any("cannot project oMLX's ceiling" in r.getMessage() for r in caplog.records)
     release()
+
+
+#: The GGUF whose empty answer was "failover protected" in the 2026-11-20 live log.
+NEMOTRON = "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k"
+
+
+def test_a_failed_model_is_the_first_eviction_candidate_not_a_shield():
+    """Property 2: the model a hop failed on leads the eviction order and holds nothing back."""
+    g = lg.LoadGuard(omlx_url=lambda: None, pinned=lambda: "")
+    g.note_failure(lg.OLLAMA, NEMOTRON)
+
+    assert lg.model_key(NEMOTRON) in g.failed(lg.OLLAMA)
+    assert g._ollama_hold_reason(NEMOTRON, include_protected=True) is None
+    resident = {"other": 5 * GIB, NEMOTRON: 22 * GIB}
+    assert g._unfreed_idle_ollama(resident, set())[0] == NEMOTRON
+
+
+def test_a_failure_drops_a_failover_shield_the_model_already_had():
+    """The live bug's exact shape: a 300 s shield on a model that then failed."""
+    g = lg.LoadGuard(omlx_url=lambda: None, pinned=lambda: "")
+    g.protect(lg.OLLAMA, NEMOTRON, failover=True)
+
+    g.note_failure(lg.OLLAMA, NEMOTRON)
+
+    assert g.failover_protected(lg.OLLAMA) == set()
+
+
+async def test_a_protected_failed_model_refuses_the_healthy_seat(caplog):
+    """The live receipt, reproduced: 22.9 GiB "failover protected" against a 16.6 GiB seat."""
+    e = Engines(
+        ollama={NEMOTRON: int(22.9 * GIB)},
+        omlx={"Qwen3.8-27B-oQ4e-mtp": {"size": int(16.6 * GIB), "loaded": False}},
+        ceiling=int(14 * GIB),
+    )
+    e.hidden[NEMOTRON] = int(22.9 * GIB)
+    g = guard(e)
+    g.protect(lg.OLLAMA, NEMOTRON, failover=True)
+
+    with (
+        caplog.at_level(logging.WARNING, logger=lg.logger.name),
+        pytest.raises(lg.LoadRefusedError) as err,
+    ):
+        await g.admit_omlx("Qwen3.8-27B-oQ4e-mtp")
+
+    assert "(22.9 GiB, failover protected)" in str(err.value)
+    assert e.unload_calls == {}
+
+
+async def test_the_model_that_just_failed_is_evicted_and_the_healthy_seat_loads():
+    """Property 2's fix: the same 22.9 GiB, now the first eviction candidate, frees the seat."""
+    e = Engines(
+        ollama={NEMOTRON: int(22.9 * GIB)},
+        omlx={"Qwen3.8-27B-oQ4e-mtp": {"size": int(16.6 * GIB), "loaded": False}},
+        ceiling=int(14 * GIB),
+    )
+    e.hidden[NEMOTRON] = int(22.9 * GIB)
+    g = guard(e)
+    g.protect(lg.OLLAMA, NEMOTRON, failover=True)  # what the old failure path set
+    g.note_failure(lg.OLLAMA, NEMOTRON)  # what the failure now does instead
+
+    release = await g.admit_omlx("Qwen3.8-27B-oQ4e-mtp")
+
+    assert release is not None
+    assert e.unload_calls == {NEMOTRON: 1}
+    release()
