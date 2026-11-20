@@ -319,14 +319,30 @@ async def admin_seat_fit(authorization: str | None = Header(None)) -> dict[str, 
 async def admin_reclaim_idle_memory(
     request: Request, authorization: str | None = Header(None)
 ) -> dict[str, Any]:
-    """Unload enough currently idle models to cover a queued job's memory shortfall."""
+    """Unload enough currently idle models to cover a queued job's memory shortfall.
+
+    A missing or empty body means "reclaim every idle resident" (unbounded).
+    ``{"need_gib": <float>}`` unloads up to that many GiB; ``{}`` returns 422.
+    """
     _verify_key(authorization)
     from portal.platform.inference import load_guard
 
-    body = await request.json()
-    need_gib = body.get("need_gib") if isinstance(body, dict) else None
-    if not isinstance(need_gib, (int, float)) or not math.isfinite(need_gib) or need_gib <= 0:
-        raise HTTPException(status_code=422, detail="need_gib must be a positive finite number")
+    raw = await request.body()
+    if not raw:
+        need_bytes = float("inf")
+    else:
+        try:
+            body = await request.json()
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid JSON body") from None
+        if not isinstance(body, dict):
+            raise HTTPException(status_code=400, detail="Request body must be a JSON object")
+        if "need_gib" not in body:
+            raise HTTPException(status_code=422, detail="need_gib must be a positive finite number")
+        need_gib = body["need_gib"]
+        if not isinstance(need_gib, (int, float)) or not math.isfinite(need_gib) or need_gib <= 0:
+            raise HTTPException(status_code=422, detail="need_gib must be a positive finite number")
+        need_bytes = float(need_gib) * 1024**3
     ollama = (
         next((b.url for b in registry.list_backends() if b.type == "ollama"), None)
         if registry
@@ -335,9 +351,7 @@ async def admin_reclaim_idle_memory(
     if load_guard.GUARD is None or not ollama:
         raise HTTPException(status_code=503, detail="load guard not initialised")
     try:
-        reclaim = await load_guard.GUARD.reclaim_idle_memory(
-            ollama.rstrip("/"), float(need_gib) * 1024**3
-        )
+        reclaim = await load_guard.GUARD.reclaim_idle_memory(ollama.rstrip("/"), need_bytes)
     except load_guard.LoadRefusedError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except Exception as exc:
