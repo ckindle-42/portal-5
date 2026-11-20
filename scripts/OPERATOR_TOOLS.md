@@ -201,6 +201,7 @@ Run by hand for the compliance program phases named in each; one line from each 
 | `scripts/cam_lds_extract.py` | AIT/CAM LDS corpus extraction for the hunt bed. |
 | `scripts/intent_eval.py` | Router intent-classifier evaluation harness. |
 | `scripts/speed_bench.py` | Seat decode/prefill speed bench. |
+| `scripts/speed_gate.py` | oMLX speed gate: B1/B2/B3 baseline `run <tag>` with per-cell resident proof, `compare <tag> --against …`. |
 | `scripts/sync_cad_geometry_schema.py` | CAD geometry schema sync for the CAD MCP. |
 | `scripts/compliance/truth/truth_corpus.py` | Compliance reading truth corpus builder. |
 | `scripts/compliance/truth/substrate_vs_key.py` | Compliance truth: substrate vs key comparison. |
