@@ -272,7 +272,7 @@ print("success", getattr(result, "success", None), getattr(result, "audios", Non
 PY
 ```
 
-HeartMuLa only if rank 1's free % is still near 22% **and** the operator rejects the 2B audio. Follow `https://github.com/Acelogic/heartlib-mlx` at `02dd2e22f6a1` (`uv sync`, then their README download into `./ckpt`). The porter's generate entry is that repo's CLI (`--duration` in seconds). Record RSS. Do not treat the ~11 GB table as this host's number.
+HeartMuLa is a seated screen arm (operator, 2026-11-20), not a conditional fallback: `./launch.sh install-heartmula` installs `Acelogic/heartlib-mlx` @ `02dd2e22f6a1` under `~/.portal5/music/heartlib-mlx` (own venv, upstream lock) and downloads `HeartMuLa/HeartMuLa-oss-3B-happy-new-year` + `HeartMuLa/HeartCodec-oss-20260123` + the `HeartMuLa/HeartMuLaGen` tokenizer to `/Volumes/data01/media-screen/heartlib`, converted once to MLX bf16. The catalog row `heartmula3b` (`kind: heartlib`) runs the port's `generate.py` under a seed-42 runner; the port's detokenize emits 48 kHz **mono**, and audio EOS may end a clip before 30 s. Record RSS. Do not treat the ~11 GB table as this host's number. Intake and install evidence: `coding_task/FINDING_HEARTMULA_ARM.md`.
 
 **Pass:** free % stays well above the incumbent's 22% on the same resident-LLM background, RSS is lower than the XL+1.7B re-run, and the operator accepts prompts 1–3 (prompt 3 must stay a solo guitar). **Fail:** free % still collapses, prompt 2 has no intelligible vocal, or prompt 3 grows a kit.
 

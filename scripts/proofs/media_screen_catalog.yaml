@@ -7,11 +7,14 @@ pins:
   mflux: 014252f22408
   ltx-2-mlx: 747b30ef10e9
   fastvideo: c938a8aa2b85
+  heartlib-mlx: 02dd2e22f6a1
 paths:
   weights_root: /Volumes/data01/media-screen
   hf_cache: /Volumes/data01/hf-cache
   ace_root: ~/.portal5/music/ACE-Step-1.5
   video_venv: ~/.portal5/video-mlx/ltx-2-mlx/.venv
+  heartlib_src: ~/.portal5/music/heartlib-mlx
+  heartlib_root: /Volumes/data01/media-screen/heartlib
 media:
   image:
     canvas: 1024x1024, seed 42, the candidate's distilled default steps
@@ -288,3 +291,9 @@ media:
         dit: acestep-v15-turbo
         load_lm: false
         expected_note: Vendor — LM off is the <=6 GB tier and loses planning; lyrics and structure get worse, prompt 2 (vocal) is the check
+      - id: heartmula3b
+        role: candidate
+        rank: 3
+        kind: heartlib
+        expected_peak_gb: 11.0
+        expected_note: Vendor — porter table ~11 GB resident for a 1-min song, bf16, M2 Max 32 GB (not this host); happy-new-year LM + HeartCodec-oss-20260123 via ./launch.sh install-heartmula; output is 48 kHz mono (the port's detokenize) and audio EOS may end a clip before 30 s
