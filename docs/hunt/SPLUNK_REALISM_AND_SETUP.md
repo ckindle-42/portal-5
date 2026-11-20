@@ -471,7 +471,7 @@ Mapping (measured sourcetypes → target):
 | `error.log`, `apache_error` | `apache:error` | |
 | `eve.json` | `suricata` (or `suricata:eve`) | TA-suricata-4 exists; enable it |
 | `fast.log` | `suricata:fast` | |
-| `dnsmasq.log` | `dnsmasq` | DNS |
+| `dnsmasq.log` | `dnsmasq` | DNS; no vendor TA is installed, so its CIM fields need a small `REPORT` stanza |
 | `mail.log`/`mail.info`/`mainlog` | `postfix_syslog` | |
 | `openvpn.log` | `openvpn` | |
 | `stats.log` | `cyberrange:stats` **routed to a metrics index or dropped** | 81–90 % of each family; not security telemetry |
@@ -496,7 +496,7 @@ silently does nothing:
 ```
 | tstats count where index=hb_ait_santos by sourcetype                  # names as the TA sees them
 | datamodel Authentication objects                                      # the model's objects
-| tstats count from datamodel=Authentication where index=hb_ait_santos  # non-zero = tags land
+| tstats count from datamodel=Authentication where index=hb_ait_santos  # one day, not the whole index
 |cim_vladiator  (app SA-cim_vladiator is installed)                     # per-model coverage
 ```
 
@@ -825,3 +825,7 @@ search index=botsv2 sourcetype=winregistry earliest=1501545600 latest=1501632000
   lab plus standard Splunk deployment practice, not measured on a customer estate.
 - **The hunt was not re-run** (no code changes this round); S1/S6 revisions are design, and their
   acceptance is unproven until a lane builds them.
+- **The two defects this document reports are not fixed**: the `preview:true` accumulation in
+  `siem/spl_backend.py` and the absence of a name probe in `inventory.py`. Code changes were out
+  of scope for this round; both are specified as S0/S1 work in `ORCACYBER_HUNT_PLAN.md`, and every
+  stored number that came from an aggregate stays suspect until the first is fixed.
